@@ -1,0 +1,74 @@
+// COLORS
+$black-1: rgb(15, 15, 15);
+$black-2: rgb(30, 30, 30);
+$black-3: rgb(45, 45, 45);
+
+$grey-1: rgb(60, 60, 60);
+$grey-2: rgb(85, 85, 85);
+$grey-3: rgb(110, 110, 110);
+$grey-4: rgb(130, 130, 130);
+$grey-5: rgb(155, 155, 155);
+
+$white-1: rgb(200, 200, 200);
+$white-2: rgb(215, 215, 215);
+$white-3: rgb(230, 230, 230);
+
+$blue-1: rgb(40, 70, 150);
+$blue-2: rgb(20, 90, 170);
+$blue-3: rgb(0, 115, 190);
+$blue-2-svg: invert(26%) sepia(90%) saturate(1460%) hue-rotate(196deg) brightness(85%) contrast(93%);
+
+$green-1: rgb(10, 130, 10);
+$green-2: rgb(40, 160, 40);
+$green-3: rgb(70, 190, 70);
+$green-1-svg: invert(16%) sepia(100%) saturate(7103%) hue-rotate(137deg) brightness(102%) contrast(92%);
+
+$orange-1: rgb(200, 75, 0);
+$orange-2: rgb(200, 110, 0);
+$orange-3: rgb(210, 130, 0);
+$orange-2-svg: invert(42%) sepia(76%) saturate(781%) hue-rotate(1deg) brightness(94%) contrast(104%);
+
+$purple-1: rgb(90, 15, 90);
+$purple-2: rgb(115, 35, 115);
+$purple-3: rgb(140, 55, 140);
+
+$red-1: rgb(130, 10, 10);
+$red-2: rgb(160, 15, 15);
+$red-3: rgb(185, 50, 50);
+$red-4: rgb(205, 70, 70);
+$red-1-svg: invert(12%) sepia(55%) saturate(4164%) hue-rotate(346deg) brightness(91%) contrast(109%);
+$red-2-svg: invert(14%) sepia(45%) saturate(6703%) hue-rotate(351deg) brightness(85%) contrast(101%);
+
+$yellow-1: rgb(175, 150, 40);
+$yellow-2: rgb(190, 170, 10);
+$yellow-3: rgb(215, 190, 0);
+
+// SYMBOLS
+$symbol-bullet: "\2022";
+$symbol-multiply: "\00D7";
+$symbol-arrow-down: "\2191";
+$symbol-arrow-up: "\2193";
+
+// THEME
+$theme-color: #{$blue-2};
+$theme-gradient: #{$blue-gradient};
+
+:root {
+    --accent-color: #{$blue-2};
+    --accent-color-highlight: #{$blue-3};
+    --accent-fill-color: #{$white-3};
+    --accent-fill-color-highlight: white;
+    --background-color: #{$black-1};
+    --background-color-highlight: #{$black-2};
+    --foreground-color: #{$black-2};
+    --foreground-color-highlight:#{$black-3};
+    --text-color: #{$white-3};
+    --text-color-highlight: white;
+}
+
+// MEDIA QUERIES
+$media-1200-w: "screen and (max-width: 1200px)";
+$media-900-w: "screen and (max-width: 900px)";
+$media-750-w: "screen and (max-width: 750px)";
+$media-650-h: "screen and (max-width: 650px)";
+$media-500-wh: "screen and (max-width: 500px), screen and (max-height: 500px)";

@@ -1,0 +1,286 @@
+form {
+    display: flex;
+    flex-flow: column;
+    width: 100%;
+    box-sizing: border-box;
+
+    &.center {
+        &, .form-group { align-items: center; }
+
+        input { text-align: center }
+    }
+}
+
+label, input { transition: all 0.2s; }
+
+input {
+    padding: 0.5em;
+    margin-bottom: 0.2rem;
+    border: 1px solid $black-3;
+    border-radius: 3px;
+    background-color: $black-3;
+    color: $white-3;
+    overflow: hidden;
+    text-overflow: ellipsis;
+
+    &.med-width { max-width: 15rem; }
+
+    &[type="button"], &[type="submit"] {
+        border: none;
+        border-radius: 25px;
+    }
+}
+
+label {
+    margin-bottom: 0.3rem;
+    font-family: sans-serif;
+    font-weight: 500;
+    font-size: 1em;
+    color: white;
+}
+
+.checkbox-ctn {
+    margin: 0.3rem 0;
+    cursor: pointer;
+
+    &:not(:last-of-type) { margin-right: 0.4rem; }
+
+    input {
+        position: absolute;
+        opacity: 0;
+        height: 1.2em;
+        width: 1em;
+        margin: 2px;
+
+        &:checked ~ .checkbox {
+            border-radius: 4px;
+            border-color: transparent;
+            background: $theme-gradient;
+
+            &::after {
+                content: "";
+                position: absolute;
+                transform: rotate(45deg) scale(1);
+                top: 0.05em;
+                left: 0.25em;
+                width: 0.25em;
+                height: 0.5em;
+                border: solid white;
+                border-width: 0 3px 3px 0;
+                border-radius: 3px;
+            }
+        }
+    }
+
+    .checkbox {
+        position: absolute;
+        border: 2px solid var(--text-color);
+        border-radius: 4px;
+        height: 0.9em;
+        width: 0.9em;
+        background: transparent;
+        transition: all 0.15s ease-in-out;
+
+        &:hover { filter: brightness(1.2); }
+    }
+
+    .multi-checkboxes &:not(:last-child) { margin-right: 0.75rem; }
+}
+
+.checkbox-title {
+    margin-left: 1.5rem;
+    font-family: Roboto;
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--text-color);
+    cursor: pointer;
+}
+
+.t-input {
+    &:not([type="checkbox"]) {
+        width: 100%;
+        padding: 0.5em;
+        margin-bottom: 0.5rem;
+        border: 0;
+        border-bottom: 1px solid $grey-3;
+        box-sizing: border-box;
+    }
+
+    &[type="text"], &[type="password"], &[type="email"] {
+        cursor: text;
+        background-color: transparent;
+    }
+
+    &:placeholder-shown {
+        color: transparent;
+        border-bottom: 1px solid $grey-2;
+
+        &:hover { border-color: black; }
+
+        + .lb-title {
+            color: $grey-3;
+            cursor: text;
+            font-weight: 400;
+            height: 1rem;
+            transform: translateY(1.5rem);
+            z-index: 10;
+
+            &:hover { color: black;}
+        }
+
+        &.invalid {
+            border-color: $red-3;
+
+            + .lb-title {
+                color: $red-3;
+
+                &:hover { color: $red-1; }
+            }
+        }
+    }
+
+    &:not(:placeholder-shown), &:focus {
+        color: black;
+        border-color: $green-1;
+        outline: none;
+
+        + .lb-title {
+            color: $black-2;
+            font-size: 0.7rem;
+            font-weight: 500;
+            height: 1rem;
+            transform: translate(0);
+        }
+
+        &.invalid, &:hover.invalid {
+            border-color: $red-3;
+
+            + .lb-title { color: $red-3; }
+        }
+    }
+
+    &::-webkit-input-placeholder {
+        transition: inherit;
+        opacity: 0;
+    }
+}
+
+.lb-title {
+    pointer-events: none;
+
+    &.horizontal {
+        margin: 0.25rem 0.5rem 0.25rem 0;
+        min-width: 2.5em;
+        max-width: 4.5em;
+    }
+}
+
+.form-group {
+    display: flex;
+    flex-flow: column;
+    margin-bottom: 0.5rem;
+
+    .row > &:not(:last-of-type) {
+        margin-right: 0.75rem;
+
+        @media #{$media-500-wh} { margin: 0; }
+    }
+
+    &.rev { flex-flow: column-reverse; }
+
+    &.no-error { padding-bottom: 0.8rem;}
+}
+
+.error-label {
+    margin: 0;
+    font-size: 0.7rem;
+    font-weight: 500;
+    color: $red-3;
+}
+
+.submit {
+    align-self: center;
+
+    &:hover {
+        border-radius: 3px;
+        background-color: $blue-3;
+        border-color: $blue-3;
+        color: white;
+    }
+}
+
+.down-arrow::after {
+    content: "";
+    margin: 0.2em 0.3em 0.4em 0.3em;
+    padding: 5px;
+    background: none;
+    border: solid $white-3;
+    border-width: 0 0.15em 0.15em 0;
+    box-shadow: 2px 2px 2px 0px rgba(black, 0.3);
+    cursor: pointer;
+    transform: rotate(45deg);
+}
+
+.drop {
+    &down {
+        display: inline-flex;
+        padding: 0.3em 0.2em 0.3em 0.5em;
+        border: 1px solid $black-3;
+        border-radius: 3px;
+        font-weight: 400;
+        font-size: 0.9em;
+        background-color: $black-3;
+        color: $white-3;
+        vertical-align: top;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        cursor: pointer;
+        user-select: none;
+
+        &.down-arrow::after {
+            padding: 3px;
+            margin: 0.2em 0.3em 0.6em 0.4em;
+            border-width: 0 0.1em 0.1em 0;
+        }
+    }
+
+    &-menu-content {
+        position: absolute;
+        display: flex;
+        flex-direction: column;
+        top: 1.9em;
+        left: 0;
+        border: 2px solid $black-3;
+        border-radius: 0 2px 4px 4px;
+        max-height: 50vh;
+        background-color: $black-2;
+        color: $white-3;
+        box-shadow: 2px 4px 4px 0 rgba(black, 0.3);
+        font-weight: 400;
+        font-size: 0.9em;
+        overflow: auto;
+        box-sizing: border-box;
+        z-index: 10;
+        user-select: none;
+
+        &:not(.hidden) + .dropdown {
+            border-bottom-left-radius: 0;
+            border-bottom-right-radius: 2px;
+        }
+    }
+
+    &-btn {
+        padding: 0.2em 0.3em;
+        max-width: 7.5em;
+        cursor: pointer;
+
+        &:hover { background-color: $black-3; }
+
+        .drop-menu-content &:nth-of-type(even) {
+            background-color: $black-3;
+
+            &:hover { background-color: $grey-1; }
+        }
+    }
+}

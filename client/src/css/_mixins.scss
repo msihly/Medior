@@ -1,0 +1,15 @@
+@mixin font($name, $weight: 500, $exts: woff woff2) {
+    $path: "fonts/#{to-lower-case($name)}-#{$weight}";
+    $src: null;
+
+    @each $ext in $exts {
+        $src: append($src, url(quote($path + "." + $ext)) format(quote($ext)), comma);
+    }
+
+	@font-face {
+		font-family: $name;
+		font-weight: $weight;
+		font-style: normal;
+        src: $src;
+	}
+}

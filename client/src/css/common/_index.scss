@@ -1,0 +1,140 @@
+html, body {
+    margin: 0;
+    min-height: 100vh;
+    height: 100%;
+    background-color: var(--background-color);
+    color: var(--text-color);
+    font-family: "Roboto", "Calibri", sans-serif;
+    font-size: 18px;
+    font-weight: 500;
+    transition: all 0.2s ease-in-out;
+
+    @media #{$media-500-wh} { font-size: 14px; }
+}
+
+#root, .common {
+    width: inherit;
+    height: inherit;
+}
+
+@keyframes autofill {
+    0%, 100% {
+        -webkit-text-fill-color: $white-3;
+        box-shadow: 0 0 0 1rem inset $black-2;
+        background-clip: text;
+    }
+}
+
+input {
+    &:-webkit-autofill {
+        transition-delay: 1s;
+        animation: autofill 0s both;
+    }
+}
+
+figure { margin: 0; }
+
+h1, h2, h3 { margin: 0.5rem 0; }
+
+h4, h5, h6 { margin: 0 0 0.5rem 0; }
+
+p, span { color: var(--text-color); }
+
+p {
+    margin: 0;
+    font-weight: 400;
+}
+
+a {
+    text-decoration: none;
+
+    &:visited { color: inherit; }
+}
+
+.hidden {
+    display: none !important;
+
+    &-panel { opacity: 0; }
+}
+
+.invisible {
+    visibility: hidden !important;
+    transition: visibility 0s;
+}
+
+.relative { position: relative; }
+
+.row {
+    display: flex;
+    flex-flow: row;
+
+    &.between, &.mg-1 {
+        > :not(:last-child) { margin-right: 0.25rem; }
+    }
+
+    &.mg-2 > :not(:last-child) { margin-right: 0.5rem; }
+
+    &.mobile {
+        @media #{$media-500-wh} { flex-flow: column; }
+
+        &.mg-1, &.mg-2 {
+            > :not(:last-child) {
+                @media #{$media-500-wh} { margin-right: 0; }
+            }
+        }
+    }
+}
+
+.column {
+    display: flex;
+    flex-flow: column;
+}
+
+.flex {
+    &-child { min-width: 0; }
+
+    &-end { align-self: flex-end; }
+
+    &-grow { flex-grow: 1; }
+}
+
+.a-center { align-items: center; }
+
+.j-center { justify-content: center; }
+
+.between { justify-content: space-between; }
+
+.text-center { text-align: center; }
+
+.full-width { width: 100% !important; }
+
+.no-mgn { margin: 0 !important; }
+
+.mgn-btm { margin-bottom: 0.3rem; }
+
+.pad-ctn {
+    &-1, &-2, &-3 { box-sizing: border-box; }
+
+    &-1 { padding: 1rem; }
+
+    &-2 { padding: 2rem; }
+
+    &-3 { padding: 3rem; }
+
+    &-2, &-3 {
+        @media #{$media-500-wh} { padding: 1rem; }
+    }
+}
+
+// IMPORTS
+@import "./scrollbar";
+@import "./colors";
+@import "./buttons";
+@import "./tables";
+@import "../components/form";
+@import "../components/menu";
+@import "../components/tabs";
+@import "../components/toasts";
+@import "../components/modal";
+@import "../components/alert";
+@import "../components/banner";

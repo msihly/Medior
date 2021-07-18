@@ -1,0 +1,95 @@
+.file-input {
+    overflow: hidden;
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	opacity: 0;
+    z-index: -1;
+
+    &-group {
+        display: inline-flex;
+        flex-direction: row-reverse;
+        padding: 0;
+        width: fit-content;
+        max-width: 100%;
+        background: none;
+        cursor: pointer;
+
+        &.del {
+            > .file-input-btn {
+                &::before { background-image: url("../../media/delete.svg");}
+
+                &::after {
+                    content: "Remove Image";
+
+                    @media #{$media-500-wh} { content: "Remove"; }
+                }
+            }
+
+            &:hover {
+                > .file-input-btn {
+                    background-color: $red-3;
+                    border-color: $red-3;
+                }
+
+                > .file-input-name { border-color: $red-3; }
+            }
+
+        }
+    }
+
+    &-btn, &-name {
+        padding: 0.3em 0.5em 0.4em 0.5em;
+        height: 0.9em;
+        line-height: 1;
+        font-family: "Roboto";
+    }
+
+    &-btn {
+        border: 2px solid $blue-2;
+        border-radius: 3px;
+        background-color: $blue-2;
+        color: $white-2;
+        font-weight: 500;
+        white-space: nowrap;
+        cursor: pointer;
+        transition: all 0.1s;
+
+        &::before {
+            content: "";
+            padding-left: 1.5em;
+            background: left center no-repeat;
+            background-size: 1.25em;
+            background-image: url("../../media/upload.svg");
+            filter: invert(0.8);
+        }
+
+        &::after {
+            content: "Upload Image";
+
+            @media #{$media-500-wh} { content: "Upload"; }
+        }
+
+        &:hover, .file-input-name:not(.hidden) + & {
+            color: white;
+            background-color: $blue-3;
+            border-color: $blue-3;
+        }
+
+        .file-input-name:not(.hidden) + & { border-radius: 3px 0 0 3px; }
+    }
+
+    &-name {
+        display: inline-block;
+        border: 2px solid $blue-3;
+        border-left: none;
+        border-radius: 0 3px 3px 0;
+        color: $white-2;
+        vertical-align: top;
+        text-align: center;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        overflow: hidden;
+        transition: all 0.1s;
+    }
+}

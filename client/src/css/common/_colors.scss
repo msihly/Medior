@@ -1,0 +1,106 @@
+.blue {
+    &-1 {
+        color: $blue-1;
+        &-bg { background-color: $blue-1; }
+    }
+
+    &-2 {
+        color: $blue-2;
+        &-bg { background-color: $blue-2; }
+        &-svg { filter: $blue-2-svg; }
+    }
+
+    &-3 {
+        color: $blue-3;
+        &-bg { background-color: $blue-3; }
+    }
+}
+
+.green {
+    &-1 {
+        color: $green-1;
+        &-bg { background-color: $green-1; }
+        &-svg { filter: $green-1-svg; }
+    }
+
+    &-2 {
+        color: $green-2;
+        &-bg { background-color: $green-2; }
+    }
+
+    &-3 {
+        color: $green-3;
+        &-bg { background-color: $green-3; }
+    }
+}
+
+.red {
+    &-1 {
+        color: $red-1;
+        &-bg { background-color: $red-1; }
+        &-svg { filter: $red-1-svg; }
+    }
+
+    &-2 {
+        color: $red-2;
+        &-bg { background-color: $red-2; }
+        &-svg { filter: $red-2-svg; }
+    }
+
+    &-3 {
+        color: $red-3;
+        &-bg { background-color: $red-3; }
+    }
+}
+
+.orange {
+    &-1 {
+        color: $orange-1;
+        &-bg { background-color: $orange-1; }
+    }
+
+    &-2 {
+        color: $orange-2;
+        &-bg { background-color: $orange-2; }
+        &-svg { filter: $orange-2-svg; }
+    }
+
+    &-3 {
+        color: $orange-3;
+        &-bg { background-color: $orange-3; }
+    }
+}
+
+.purple {
+    &-1 {
+        color: $purple-1;
+        &-bg { background-color: $purple-1; }
+    }
+
+    &-2 {
+        color: $purple-2;
+        &-bg { background-color: $purple-2; }
+    }
+
+    &-3 {
+        color: $purple-3;
+        &-bg { background-color: $purple-3; }
+    }
+}
+
+.yellow {
+    &-1 {
+        color: $yellow-1;
+        &-bg { background-color: $yellow-1; }
+    }
+
+    &-2 {
+        color: $yellow-2;
+        &-bg { background-color: $yellow-2; }
+    }
+
+    &-3 {
+        color: $yellow-3;
+        &-bg { background-color: $yellow-3; }
+    }
+}

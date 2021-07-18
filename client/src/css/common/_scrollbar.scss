@@ -1,0 +1,13 @@
+::-webkit-scrollbar {
+    width: 13px;
+    height: 13px;
+
+    &, &-track, &-corner { background: rgba($black-1, 0.7); }
+
+    &-thumb {
+        border-radius: 13px;
+        background: rgba($grey-1, 0.7);
+
+        &:hover { background: rgba($grey-2, 0.7); }
+    }
+}
