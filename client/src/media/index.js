@@ -1,9 +1,0 @@
-export { default as Checkmark, ReactComponent as CheckmarkSVG } from "./checkmark.svg";
-export { default as Delete, ReactComponent as DeleteSVG } from "./delete.svg";
-export { default as Error, ReactComponent as ErrorSVG } from "./error.svg";
-export { default as Grid, ReactComponent as GridSVG } from "./grid.svg";
-export { default as IndentedArrow, ReactComponent as IndentedArrowSVG } from "./indented-arrow.svg";
-export { default as Info, ReactComponent as InfoSVG } from "./info.svg";
-export { default as PaintPalette, ReactComponent as PaintPaletteSVG } from "./paint-palette.svg";
-export { default as Trashcan, ReactComponent as TrashcanSVG } from "./trashcan.svg";
-export { default as Warning, ReactComponent as WarningSVG } from "./warning.svg";
