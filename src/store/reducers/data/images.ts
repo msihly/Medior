@@ -1,9 +1,9 @@
 import { types } from "store/actions";
 import { uniqueArrayMerge } from "utils";
 
-const initState = [];
+const defaultState = [];
 
-const images = (state = initState, action) => {
+export const images = (state = defaultState, action) => {
   switch (action.type) {
     case types.IMAGES_ADDED: {
       const images = action.payload.images.map((img) => ({
@@ -45,12 +45,10 @@ const images = (state = initState, action) => {
       );
     }
     case types.RESET: {
-      return initState;
+      return defaultState;
     }
     default: {
       return state;
     }
   }
 };
-
-export default images;

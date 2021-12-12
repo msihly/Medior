@@ -56,7 +56,10 @@ export const copyFileTo = async (fileObj, targetDir) => {
       const [images,] = await db.query(`SELECT f.fileId FROM files AS f WHERE f.fileHash = ?;`, [hash]); //prettier-ignore
 
       return { ...image, fileId: images[0].fileId, isDuplicate: true };
-    } else return console.error(e);
+    } else {
+      console.error(e);
+      return {};
+    }
   }
 };
 

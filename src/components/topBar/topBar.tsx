@@ -1,6 +1,5 @@
-import React, { useContext, useMemo, useState } from "react";
-import { useDispatch, useSelector } from "react-redux";
-import { actions } from "store";
+import { useContext, useMemo, useState } from "react";
+import { actions, useDispatch, useSelector } from "store";
 import { AppBar, colors } from "@mui/material";
 import { makeStyles } from "utils";
 import { toast } from "react-toastify";
@@ -10,13 +9,15 @@ import { Tagger } from "components/tags";
 import { SortMenu } from ".";
 
 const TopBar = () => {
-  const { isArchiveOpen, isDrawerOpen, setIsDrawerOpen } = useContext(AppContext);
+  const { isArchiveOpen, isDrawerOpen, setIsDrawerOpen }: any = useContext(AppContext);
 
   const { classes: css } = useClasses();
   const dispatch = useDispatch();
 
   const images = useSelector((state) => state.images);
   const selected = useMemo(() => images.filter((img) => img.isSelected), [images]);
+
+  const imports = useSelector((state) => state.imports);
 
   const [isTaggerOpen, setIsTaggerOpen] = useState(false);
 
@@ -40,6 +41,8 @@ const TopBar = () => {
           {!isDrawerOpen && (
             <IconButton name="Menu" onClick={() => setIsDrawerOpen(true)} size="medium" />
           )}
+
+          {imports}
         </span>
 
         <span className={css.divisions}>

@@ -27,7 +27,15 @@ const ImageContainer = ({ mode }) => {
     selectRef.current.scrollBy(e.direction[0] * 10, e.direction[1] * 10);
   };
 
-  const { isArchiveOpen, sortKey, sortDir, includeValue, excludeValue } = useContext(AppContext);
+  const {
+    isArchiveOpen,
+    includeValue,
+    excludeValue,
+    selectedImageTypes,
+    selectedVideoTypes,
+    sortKey,
+    sortDir,
+  } = useContext(AppContext);
   const sorted = useMemo(() => {
     const includedTags = includeValue.map((t) => t.label);
     const excludedTags = excludeValue.map((t) => t.label);
@@ -36,11 +44,23 @@ const ImageContainer = ({ mode }) => {
     const filtered = unarchived.filter((img) => {
       const hasIncluded = includedTags.every((t) => img.tags.includes(t));
       const hasExcluded = excludedTags.some((t) => img.tags.includes(t));
-      return hasIncluded && !hasExcluded;
+      const hasExt = !!Object.entries({ ...selectedImageTypes, ...selectedVideoTypes }).find(
+        ([key, value]) => key === img.ext.substring(1) && value
+      );
+      return hasIncluded && !hasExcluded && hasExt;
     });
 
     return sortArray(filtered, sortKey, sortDir === "desc", NUMERICAL_ATTRIBUTES.includes(sortKey));
-  }, [images, isArchiveOpen, sortKey, sortDir, includeValue, excludeValue]);
+  }, [
+    images,
+    isArchiveOpen,
+    includeValue,
+    excludeValue,
+    selectedImageTypes,
+    selectedVideoTypes,
+    sortKey,
+    sortDir,
+  ]);
 
   const [page, setPage] = useState(1);
   const displayed = useMemo(() => {

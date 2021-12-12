@@ -94,7 +94,10 @@ export const rotateArrayPos = (direction, current, length) => {
 };
 
 export const sortArray = (arr, key, isDesc = true, isNumber = false) => {
-  if (arr === undefined) return console.debug("Array reference is undefined in sortArray(...)");
+  if (arr === undefined) {
+    console.debug("Array reference is undefined in sortArray(...)");
+    return [];
+  }
   if (!arr?.length) return [];
 
   const sorted = [...arr];

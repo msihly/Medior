@@ -1,34 +1,25 @@
-import React, { forwardRef, useContext, useEffect, useMemo, useState } from "react";
-import { useDispatch, useSelector } from "react-redux";
+import { forwardRef, useContext, useEffect, useMemo, useState } from "react";
 import { remote } from "electron";
 import fs from "fs/promises";
 import path from "path";
 import dirTree from "directory-tree";
 import { copyFileTo } from "database";
-import { actions } from "store";
-import {
-  Divider,
-  Drawer as MuiDrawer,
-  List,
-  colors,
-  Accordion,
-  AccordionSummary,
-  Typography,
-  AccordionDetails,
-} from "@mui/material";
-import { Archive, ExpandMore, GetApp as ImportIcon, Unarchive } from "@mui/icons-material";
+import { actions, useDispatch, useSelector } from "store";
+import { Divider, Drawer as MuiDrawer, List, colors } from "@mui/material";
+import { Archive, GetApp as ImportIcon, Unarchive } from "@mui/icons-material";
 import { makeStyles } from "utils";
 import { AppContext } from "app";
 import { Text } from "components/text";
 import { IconButton } from "components/buttons";
+import { Accordion, Checkbox } from "components/toggles";
 import { ListItem } from "components/list";
+import { CSSObject } from "tss-react";
 import { DuplicatesModal, SearchInput } from ".";
 import { countItems, sortArray } from "utils";
+import { OUTPUT_DIR } from "env";
 import * as Media from "media";
 
-const OUTPUT_DIR = path.join(path.resolve(), "output_dir");
-
-const Drawer = forwardRef((_, drawerRef) => {
+const Drawer = forwardRef((_, drawerRef: any) => {
   const {
     drawerMode,
     setDrawerMode,
@@ -40,9 +31,11 @@ const Drawer = forwardRef((_, drawerRef) => {
     setIncludeValue,
     excludeValue,
     setExcludeValue,
-  } = useContext(AppContext);
-
-  const { classes: css } = useClasses({ drawerMode });
+    selectedImageTypes,
+    setSelectedImageTypes,
+    selectedVideoTypes,
+    setSelectedVideoTypes,
+  }: any = useContext(AppContext);
 
   const dispatch = useDispatch();
   const images = useSelector((state) => state.images);
@@ -110,8 +103,18 @@ const Drawer = forwardRef((_, drawerRef) => {
   }, [duplicates]);
   /* --------------------------- END - DUPLICATES --------------------------- */
 
+  /* --------------------------- BEGIN - SEARCH | FILTERING --------------------------- */
   const [isImageTypesOpen, setIsImageTypesOpen] = useState(true);
   const [isVideoTypesOpen, setIsVideoTypesOpen] = useState(true);
+
+  const handleImageTypeChange = (type, checked) =>
+    setSelectedImageTypes({ ...selectedImageTypes, [type]: checked });
+
+  const handleVideoTypeChange = (type, checked) =>
+    setSelectedVideoTypes({ ...selectedVideoTypes, [type]: checked });
+  /* --------------------------- END - SEARCH | FILTERING --------------------------- */
+
+  const { classes: css } = useClasses({ drawerMode, isImageTypesOpen });
 
   return (
     <MuiDrawer
@@ -152,15 +155,59 @@ const Drawer = forwardRef((_, drawerRef) => {
       <SearchInput options={tagOptions} value={excludeValue} setValue={setExcludeValue} />
 
       <Accordion
+        label="Image Types"
         expanded={isImageTypesOpen}
-        onChange={() => setIsImageTypesOpen(!isImageTypesOpen)}
+        setExpanded={setIsImageTypesOpen}
+        fullWidth
       >
-        <AccordionSummary expandIcon={<ExpandMore />}>
-          <Typography>Image Types</Typography>
-        </AccordionSummary>
-        <AccordionDetails>
-          <FormControlLabel label="" />
-        </AccordionDetails>
+        <Checkbox
+          label="jpg"
+          checked={selectedImageTypes.jpg}
+          setChecked={(checked) => handleImageTypeChange("jpg", checked)}
+        />
+
+        <Checkbox
+          label="jpeg"
+          checked={selectedImageTypes.jpeg}
+          setChecked={(checked) => handleImageTypeChange("jpeg", checked)}
+        />
+
+        <Checkbox
+          label="png"
+          checked={selectedImageTypes.png}
+          setChecked={(checked) => handleImageTypeChange("png", checked)}
+        />
+      </Accordion>
+
+      <Accordion
+        label="Video Types"
+        expanded={isVideoTypesOpen}
+        setExpanded={setIsVideoTypesOpen}
+        fullWidth
+      >
+        <Checkbox
+          label="gif"
+          checked={selectedVideoTypes.gif}
+          setChecked={(checked) => handleVideoTypeChange("gif", checked)}
+        />
+
+        <Checkbox
+          label="webm"
+          checked={selectedVideoTypes.webm}
+          setChecked={(checked) => handleVideoTypeChange("webm", checked)}
+        />
+
+        <Checkbox
+          label="mp4"
+          checked={selectedVideoTypes.mp4}
+          setChecked={(checked) => handleVideoTypeChange("mp4", checked)}
+        />
+
+        <Checkbox
+          label="mkv"
+          checked={selectedVideoTypes.mkv}
+          setChecked={(checked) => handleVideoTypeChange("mkv", checked)}
+        />
       </Accordion>
 
       <DuplicatesModal
@@ -174,10 +221,16 @@ const Drawer = forwardRef((_, drawerRef) => {
 
 export default Drawer;
 
-const useClasses = makeStyles()((_, { drawerMode }) => ({
+const useClasses = makeStyles<CSSObject>()((_, { drawerMode, isImageTypesOpen }: any) => ({
   drawer: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
     borderRight: "1px solid #111",
     backgroundColor: colors.grey["900"],
+    "&::-webkit-scrollbar": {
+      display: "none",
+    },
   },
   pin: {
     padding: "0.2rem",
@@ -195,5 +248,6 @@ const useClasses = makeStyles()((_, { drawerMode }) => ({
     alignItems: "center",
     justifyContent: "space-between",
     padding: "0.3rem 0.5rem",
+    width: "100%",
   },
 }));

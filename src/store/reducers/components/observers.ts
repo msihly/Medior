@@ -1,6 +1,8 @@
 import { types } from "store/actions";
 
-const observers = (state = [], action) => {
+const defaultState = [];
+
+export const observers = (state = defaultState, action) => {
   switch (action.type) {
     case types.OBSERVER_CREATED: {
       const { id } = action.payload;
@@ -21,5 +23,3 @@ const observers = (state = [], action) => {
     }
   }
 };
-
-export default observers;

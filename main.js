@@ -1,11 +1,11 @@
 const { app, BrowserWindow } = require("electron");
 const isDev = require("electron-is-dev");
-const {
-  default: installExtension,
-  REACT_DEVELOPER_TOOLS,
-  REDUX_DEVTOOLS,
-} = require("electron-devtools-installer");
 const path = require("path");
+// const {
+//   default: installExtension,
+//   REACT_DEVELOPER_TOOLS,
+//   REDUX_DEVTOOLS,
+// } = require("electron-devtools-installer");
 
 const createWindow = () => {
   const Win = new BrowserWindow({
@@ -26,9 +26,9 @@ const createWindow = () => {
 };
 
 app.whenReady().then(() => {
-  installExtension([REACT_DEVELOPER_TOOLS, REDUX_DEVTOOLS])
-    .then((name) => console.log("Loaded extension", name))
-    .catch((err) => console.error("Error loading extension", err));
+  // installExtension([REACT_DEVELOPER_TOOLS, REDUX_DEVTOOLS])
+  //   .then((name) => console.log("Loaded extension", name))
+  //   .catch((err) => console.error("Error loading extension", err));
   createWindow();
 });
 

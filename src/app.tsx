@@ -20,7 +20,6 @@ toast.configure({
   closeOnClick: true,
   pauseOnHover: true,
   draggable: true,
-  progress: 0,
   toastClassName: "Toastify__toast--dark",
 });
 
@@ -29,12 +28,12 @@ export const muiCache = createCache({
   prepend: true,
 });
 
-export const AppContext = createContext();
+export const AppContext = createContext<object | null>(null);
 
 const DRAWER_WIDTH = 192;
 
 const App = () => {
-  const drawerRef = createRef(null);
+  const drawerRef = createRef();
   const dispatch = useDispatch();
 
   const [isArchiveOpen, setIsArchiveOpen] = useState(false);
@@ -44,6 +43,17 @@ const App = () => {
   const [sortDir, setSortDir] = useState("desc");
   const [includeValue, setIncludeValue] = useState([]);
   const [excludeValue, setExcludeValue] = useState([]);
+  const [selectedImageTypes, setSelectedImageTypes] = useState({
+    jpg: true,
+    jpeg: true,
+    png: true,
+  });
+  const [selectedVideoTypes, setSelectedVideoTypes] = useState({
+    gif: true,
+    webm: true,
+    mp4: true,
+    mkv: true,
+  });
 
   const { classes: css } = useClasses({ drawerMode, drawerWidth: DRAWER_WIDTH, isDrawerOpen });
 
@@ -71,6 +81,10 @@ const App = () => {
             setIsArchiveOpen,
             isDrawerOpen,
             setIsDrawerOpen,
+            selectedImageTypes,
+            setSelectedImageTypes,
+            selectedVideoTypes,
+            setSelectedVideoTypes,
             sortKey,
             setSortKey,
             sortDir,
@@ -81,7 +95,7 @@ const App = () => {
 
           <div className={css.main}>
             <TopBar />
-            <ImageContainer />
+            <ImageContainer mode="grid" />
           </div>
         </AppContext.Provider>
       </ThemeProvider>
@@ -97,7 +111,7 @@ const darkTheme = createTheme({
   },
 });
 
-const useClasses = makeStyles()((_, { drawerMode, drawerWidth, isDrawerOpen }) => ({
+const useClasses = makeStyles<object>()((_, { drawerMode, drawerWidth, isDrawerOpen }: any) => ({
   main: {
     display: "flex",
     flexFlow: "column",

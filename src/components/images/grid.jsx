@@ -86,7 +86,7 @@ const useClasses = makeStyles()((theme, { selected }) => ({
     },
   },
   image: {
-    minWidth: "100%",
+    width: "100%",
     height: "9rem",
     objectFit: "cover",
     borderTopLeftRadius: "inherit",
