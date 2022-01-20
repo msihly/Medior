@@ -1,227 +1,163 @@
-import { forwardRef, useContext, useEffect, useMemo, useState } from "react";
+import { useState } from "react";
 import { remote } from "electron";
 import fs from "fs/promises";
 import path from "path";
 import dirTree from "directory-tree";
 import { copyFileTo } from "database";
-import { actions, useDispatch, useSelector } from "store";
+import { observer } from "mobx-react-lite";
+import { useStores } from "store";
 import { Divider, Drawer as MuiDrawer, List, colors } from "@mui/material";
 import { Archive, GetApp as ImportIcon, Unarchive } from "@mui/icons-material";
+import { Accordion, Checkbox, IconButton, ListItem, Text, View } from "components";
+import { DuplicatesModal, ExtCheckbox, SearchInput } from ".";
 import { makeStyles } from "utils";
-import { AppContext } from "app";
-import { Text } from "components/text";
-import { IconButton } from "components/buttons";
-import { Accordion, Checkbox } from "components/toggles";
-import { ListItem } from "components/list";
 import { CSSObject } from "tss-react";
-import { DuplicatesModal, SearchInput } from ".";
-import { countItems, sortArray } from "utils";
 import { OUTPUT_DIR } from "env";
 import * as Media from "media";
 
-const Drawer = forwardRef((_, drawerRef: any) => {
-  const {
-    drawerMode,
-    setDrawerMode,
-    isDrawerOpen,
-    setIsDrawerOpen,
-    isArchiveOpen,
-    setIsArchiveOpen,
-    includeValue,
-    setIncludeValue,
-    excludeValue,
-    setExcludeValue,
-    selectedImageTypes,
-    setSelectedImageTypes,
-    selectedVideoTypes,
-    setSelectedVideoTypes,
-  }: any = useContext(AppContext);
+const Drawer = observer(
+  (_, drawerRef: any) => {
+    const { appStore, fileStore } = useStores();
 
-  const dispatch = useDispatch();
-  const images = useSelector((state) => state.images);
+    const { classes: css } = useClasses({ drawerMode: appStore.drawerMode });
 
-  const tagOptions = useMemo(() => {
-    const tagCounts = countItems(images.flatMap((img) => img.tags).filter((t) => t !== undefined));
+    const [isImageTypesOpen, setIsImageTypesOpen] = useState(false);
+    const [isVideoTypesOpen, setIsVideoTypesOpen] = useState(false);
 
-    return sortArray(
-      tagCounts.map(({ value, count }) => ({
-        label: value,
-        count: count,
-      })),
-      "count",
-      true,
-      true
-    );
-  }, [images]);
+    /* ------------------------ BEGIN - FILE / DIR IMPORT ----------------------- */
+    const [isDuplicatesOpen, setIsDuplicatesOpen] = useState(false);
 
-  const switchDrawerMode = () =>
-    setDrawerMode(drawerMode === "persistent" ? "temporary" : "persistent");
+    const copyFile = async (fileObj, targetDir) => {
+      const res = await copyFileTo(fileObj, targetDir);
+      if (!res?.success) console.error(res?.error);
+      res?.isDuplicate ? fileStore.addDuplicates([res?.file]) : fileStore.addFiles([res?.file]);
+    };
 
-  /* ------------------------ BEGIN - FILE / DIR IMPORT ----------------------- */
-  const copyFile = async (fileObj, targetDir) => {
-    const image = await copyFileTo(fileObj, targetDir);
-    if (image.isDuplicate) return setDuplicates([...duplicates, image]);
-    dispatch(actions.imagesAdded([image]));
-  };
-
-  const importFiles = async (isDir = false) => {
-    try {
-      const res = await remote.dialog.showOpenDialog({
-        properties: isDir ? ["openDirectory"] : ["openFile", "multiSelections"],
-      });
-      if (res.canceled) return;
-
-      setDuplicates([]);
-      setIsDrawerOpen(false);
-
-      if (isDir) {
-        dirTree(res.filePaths[0], { extensions: /\.(jpe?g|png)$/ }, (f) => copyFile(f, OUTPUT_DIR));
-      } else {
-        res.filePaths.forEach(async (p) => {
-          const size = (await fs.stat(p)).size;
-          const fileObj = { path: p, name: path.parse(p).name, extension: path.extname(p), size };
-          copyFile(fileObj, OUTPUT_DIR);
+    const importFiles = async (isDir = false) => {
+      try {
+        const res = await remote.dialog.showOpenDialog({
+          properties: isDir ? ["openDirectory"] : ["openFile", "multiSelections"],
         });
+        if (res.canceled) return;
+
+        appStore.setIsDrawerOpen(false);
+
+        if (isDir) {
+          dirTree(res.filePaths[0], { extensions: /\.(jpe?g|png)$/ }, (f) =>
+            copyFile(f, OUTPUT_DIR)
+          );
+        } else {
+          res.filePaths.forEach(async (p) => {
+            const size = (await fs.stat(p)).size;
+            const fileObj = { path: p, name: path.parse(p).name, extension: path.extname(p), size };
+            copyFile(fileObj, OUTPUT_DIR);
+          });
+        }
+      } catch (e) {
+        console.error(e);
       }
-    } catch (e) {
-      console.error(e);
-    }
-  };
-  /* ------------------------ END - FILE / DIR IMPORT ----------------------- */
+    };
+    /* ------------------------ END - FILE / DIR IMPORT ----------------------- */
 
-  /* --------------------------- BEGIN - DUPLICATES --------------------------- */
-  const [duplicates, setDuplicates] = useState([]);
-  const [isDuplicatesOpen, setIsDuplicatesOpen] = useState(false);
-
-  const closeDuplicates = () => {
-    setDuplicates([]);
-    setIsDuplicatesOpen(false);
-  };
-
-  useEffect(() => {
-    if (duplicates.length > 0) setIsDuplicatesOpen(true);
-  }, [duplicates]);
-  /* --------------------------- END - DUPLICATES --------------------------- */
-
-  /* --------------------------- BEGIN - SEARCH | FILTERING --------------------------- */
-  const [isImageTypesOpen, setIsImageTypesOpen] = useState(true);
-  const [isVideoTypesOpen, setIsVideoTypesOpen] = useState(true);
-
-  const handleImageTypeChange = (type, checked) =>
-    setSelectedImageTypes({ ...selectedImageTypes, [type]: checked });
-
-  const handleVideoTypeChange = (type, checked) =>
-    setSelectedVideoTypes({ ...selectedVideoTypes, [type]: checked });
-  /* --------------------------- END - SEARCH | FILTERING --------------------------- */
-
-  const { classes: css } = useClasses({ drawerMode, isImageTypesOpen });
-
-  return (
-    <MuiDrawer
-      PaperProps={{ className: css.drawer, ref: drawerRef }}
-      ModalProps={{ keepMounted: true }}
-      open={isDrawerOpen}
-      onClose={() => setIsDrawerOpen(false)}
-      variant={drawerMode}
-    >
-      <div className={css.topActions}>
-        <IconButton name="Menu" onClick={() => setIsDrawerOpen(false)} size="medium" />
-
-        <IconButton onClick={switchDrawerMode} size="medium">
-          <Media.PinSVG className={css.pin} />
-        </IconButton>
-      </div>
-
-      <List>
-        <ListItem text="Import Folder" icon={<ImportIcon />} onClick={() => importFiles(true)} />
-        <ListItem text="Import Files" icon={<ImportIcon />} onClick={() => importFiles(false)} />
-        <ListItem
-          text={`${isArchiveOpen ? "Close" : "Open"} Archive`}
-          icon={isArchiveOpen ? <Unarchive /> : <Archive />}
-          onClick={() => setIsArchiveOpen(!isArchiveOpen)}
-        />
-      </List>
-
-      <Divider variant="middle" />
-
-      <Text align="center" className={css.sectionTitle}>
-        Include
-      </Text>
-      <SearchInput options={tagOptions} value={includeValue} setValue={setIncludeValue} />
-
-      <Text align="center" className={css.sectionTitle}>
-        Exclude
-      </Text>
-      <SearchInput options={tagOptions} value={excludeValue} setValue={setExcludeValue} />
-
-      <Accordion
-        label="Image Types"
-        expanded={isImageTypesOpen}
-        setExpanded={setIsImageTypesOpen}
-        fullWidth
+    return (
+      <MuiDrawer
+        PaperProps={{ className: css.drawer, ref: drawerRef }}
+        ModalProps={{ keepMounted: true }}
+        open={appStore.isDrawerOpen}
+        onClose={() => appStore.setIsDrawerOpen(false)}
+        variant={appStore.drawerMode}
       >
-        <Checkbox
-          label="jpg"
-          checked={selectedImageTypes.jpg}
-          setChecked={(checked) => handleImageTypeChange("jpg", checked)}
+        <div className={css.topActions}>
+          <IconButton name="Menu" onClick={() => appStore.setIsDrawerOpen(false)} size="medium" />
+
+          <IconButton onClick={appStore.toggleDrawerMode} size="medium">
+            <Media.PinSVG className={css.pin} />
+          </IconButton>
+        </div>
+
+        <List>
+          <ListItem text="Import Folder" icon={<ImportIcon />} onClick={() => importFiles(true)} />
+          <ListItem text="Import Files" icon={<ImportIcon />} onClick={() => importFiles(false)} />
+          <ListItem
+            text={`${fileStore.isArchiveOpen ? "Close" : "Open"} Archive`}
+            icon={fileStore.isArchiveOpen ? <Unarchive /> : <Archive />}
+            onClick={() => fileStore.toggleArchiveOpen()}
+          />
+        </List>
+
+        <Divider variant="middle" />
+
+        <Text align="center" className={css.sectionTitle}>
+          Include
+        </Text>
+        <SearchInput
+          options={fileStore.tagCounts}
+          value={fileStore.includedTags}
+          setValue={fileStore.setIncludedTags}
         />
 
-        <Checkbox
-          label="jpeg"
-          checked={selectedImageTypes.jpeg}
-          setChecked={(checked) => handleImageTypeChange("jpeg", checked)}
+        <Text align="center" className={css.sectionTitle}>
+          Exclude
+        </Text>
+        <SearchInput
+          options={fileStore.tagCounts}
+          value={fileStore.excludedTags}
+          setValue={fileStore.setExcludedTags}
         />
 
-        <Checkbox
-          label="png"
-          checked={selectedImageTypes.png}
-          setChecked={(checked) => handleImageTypeChange("png", checked)}
-        />
-      </Accordion>
+        <View className={css.checkboxes} column>
+          <Checkbox
+            label="Tagged"
+            checked={fileStore.includeTagged}
+            setChecked={fileStore.setIncludeTagged}
+          />
+          <Checkbox
+            label="Untagged"
+            checked={fileStore.includeUntagged}
+            setChecked={fileStore.setIncludeUntagged}
+          />
+        </View>
 
-      <Accordion
-        label="Video Types"
-        expanded={isVideoTypesOpen}
-        setExpanded={setIsVideoTypesOpen}
-        fullWidth
-      >
-        <Checkbox
-          label="gif"
-          checked={selectedVideoTypes.gif}
-          setChecked={(checked) => handleVideoTypeChange("gif", checked)}
-        />
+        <Accordion
+          label="Image Types"
+          expanded={isImageTypesOpen}
+          setExpanded={setIsImageTypesOpen}
+          fullWidth
+        >
+          {["jpg", "jpeg", "png"].map((ext) => (
+            <ExtCheckbox key={ext} ext={ext} type="Image" />
+          ))}
+        </Accordion>
 
-        <Checkbox
-          label="webm"
-          checked={selectedVideoTypes.webm}
-          setChecked={(checked) => handleVideoTypeChange("webm", checked)}
-        />
+        <Accordion
+          label="Video Types"
+          expanded={isVideoTypesOpen}
+          setExpanded={setIsVideoTypesOpen}
+          fullWidth
+        >
+          {["gif", "webm", "mp4", "mkv"].map((ext) => (
+            <ExtCheckbox key={ext} ext={ext} type="Video" />
+          ))}
+        </Accordion>
 
-        <Checkbox
-          label="mp4"
-          checked={selectedVideoTypes.mp4}
-          setChecked={(checked) => handleVideoTypeChange("mp4", checked)}
+        <DuplicatesModal
+          isOpen={isDuplicatesOpen}
+          handleClose={() => setIsDuplicatesOpen(false)}
+          files={fileStore.duplicates}
         />
-
-        <Checkbox
-          label="mkv"
-          checked={selectedVideoTypes.mkv}
-          setChecked={(checked) => handleVideoTypeChange("mkv", checked)}
-        />
-      </Accordion>
-
-      <DuplicatesModal
-        isOpen={isDuplicatesOpen}
-        handleClose={closeDuplicates}
-        images={duplicates}
-      />
-    </MuiDrawer>
-  );
-});
+      </MuiDrawer>
+    );
+  },
+  { forwardRef: true }
+);
 
 export default Drawer;
 
-const useClasses = makeStyles<CSSObject>()((_, { drawerMode, isImageTypesOpen }: any) => ({
+const useClasses = makeStyles<CSSObject>()((_, { drawerMode }: any) => ({
+  checkboxes: {
+    padding: "0.3rem",
+    width: "100%",
+  },
   drawer: {
     display: "flex",
     flexDirection: "column",

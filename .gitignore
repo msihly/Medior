@@ -22,3 +22,6 @@ _components/
 *.psd
 *.ai
 *.db
+
+test_dir/
+outpur_dir/

@@ -5,7 +5,9 @@ module.exports = {
     configure: {
       mode: "development",
       target: "electron-renderer",
-      externals: [nodeExternals()],
+      // externals: { sharp: "commonjs sharp" },
+      // externals: [nodeExternals()],
+      externals: [nodeExternals(), "commonjs sharp"],
       // resolve: {
       //   extensions: [".ts", ".tsx", ".js", ".jsx"],
       // },

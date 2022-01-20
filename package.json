@@ -24,6 +24,7 @@
     "mobx": "^6.3.8",
     "mobx-react-lite": "^3.2.2",
     "mobx-state-tree": "^5.1.0",
+    "mongoose": "^6.1.1",
     "mysql2": "^2.3.0",
     "react": "^17.0.2",
     "react-dom": "^17.0.2",
@@ -36,14 +37,18 @@
     "redux": "^4.1.2",
     "redux-thunk": "^2.4.0",
     "sass": "^1.43.4",
+    "sharp": "^0.29.3",
     "tss-react": "^1.1.0",
     "typescript": "^4.5.2"
   },
   "devDependencies": {
+    "@types/sharp": "^0.29.5",
     "electron-builder": "^22.11.7",
     "electron-devtools-installer": "^3.2.0",
     "electron-webpack": "^2.8.2",
     "electron-webpack-ts": "^4.0.1",
+    "reactotron-mst": "^3.1.4",
+    "reactotron-react-js": "^3.3.7",
     "sass-loader": "^10.1.1",
     "ts-loader": "^8.2.0",
     "webpack-node-externals": "^3.0.0"
