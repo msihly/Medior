@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Menu } from "@mui/material";
-import { Button } from "components/buttons";
+import { Button } from "components";
 import { SortRow } from ".";
 
 const SortMenu = () => {

@@ -1,21 +1,46 @@
 import { shell } from "electron";
+import { useRef, useState } from "react";
 import { observer } from "mobx-react-lite";
 import { Paper, colors, Chip } from "@mui/material";
-import { Tag } from "components/tags";
-import { SideScroller } from "components/wrappers";
+import { SideScroller, Tag } from "components";
 import { ContextMenu } from ".";
 import { makeStyles } from "utils";
 
 const FileGrid = observer(({ file, id }: any) => {
   const { classes: css } = useClasses({ selected: file?.isSelected });
 
+  const thumbInterval = useRef(null);
+  const [thumbIndex, setThumbIndex] = useState(0);
+
+  const handleMouseEnter = () => {
+    thumbInterval.current = setInterval(() => {
+      setThumbIndex((thumbIndex) =>
+        thumbIndex + 1 === file?.thumbPaths.length ? 0 : thumbIndex + 1
+      );
+    }, 300);
+  };
+
+  const handleMouseLeave = () => {
+    clearInterval(thumbInterval.current);
+    thumbInterval.current = null;
+    setThumbIndex(0);
+  };
+
   const openFile = () => shell.openPath(file?.path);
 
   return (
     <ContextMenu id={id} file={file} className={`${css.container} selectable`}>
       <Paper onDoubleClick={openFile} elevation={3} className={css.paper}>
-        <div className={css.imageContainer}>
-          <img src={file?.thumbPath ?? file?.path} className={css.image} alt={file?.originalName} />
+        <div
+          onMouseEnter={handleMouseEnter}
+          onMouseLeave={handleMouseLeave}
+          className={css.imageContainer}
+        >
+          <img
+            src={file?.thumbPaths[thumbIndex] ?? file?.path}
+            className={css.image}
+            alt={file?.originalName}
+          />
 
           <Chip label={file?.ext} className={css.ext} />
         </div>

@@ -4,7 +4,7 @@ import { observer } from "mobx-react-lite";
 import { useStores } from "store";
 import { File } from "store/files";
 import { Pagination, colors } from "@mui/material";
-import { Text } from "components/text";
+import { Text } from "components";
 import { FileDetails, FileGrid } from ".";
 import { makeStyles } from "utils";
 

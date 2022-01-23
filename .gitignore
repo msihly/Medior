@@ -24,4 +24,4 @@ _components/
 *.db
 
 test_dir/
-outpur_dir/
+output_dir/

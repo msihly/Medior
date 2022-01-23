@@ -1,7 +1,6 @@
 import { Portal } from "@mui/core";
 import { Dialog, DialogTitle, DialogContent, DialogActions } from "@mui/material";
-import { Button } from "components/buttons";
-import { FileContainer } from "components/files";
+import { Button, FileContainer } from "components";
 
 const DuplicatesModal = ({ handleClose, files, isOpen }) => {
   return (

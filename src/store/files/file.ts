@@ -18,7 +18,7 @@ export const FileModel = types
     path: types.string,
     size: types.number,
     tags: types.array(types.string),
-    thumbPath: types.string,
+    thumbPaths: types.array(types.string),
   })
   .views((self) => ({
     get tagCounts() {

@@ -3,9 +3,7 @@ import Mongoose from "mongoose";
 import { getAllFiles } from "database";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
-import { TopBar } from "components/top-bar";
-import { Drawer } from "components/drawer";
-import { FileContainer } from "components/files";
+import { Drawer, FileContainer, TopBar } from "components";
 import { makeStyles } from "utils";
 
 const DRAWER_WIDTH = 192;

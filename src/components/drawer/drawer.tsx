@@ -43,7 +43,7 @@ const Drawer = observer(
         appStore.setIsDrawerOpen(false);
 
         if (isDir) {
-          dirTree(res.filePaths[0], { extensions: /\.(jpe?g|png)$/ }, (f) =>
+          dirTree(res.filePaths[0], { extensions: /\.(jpe?g|png|gif|mp4|webm|mkv)$/ }, (f) =>
             copyFile(f, OUTPUT_DIR)
           );
         } else {

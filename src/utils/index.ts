@@ -2,11 +2,9 @@ import { toast } from "react-toastify";
 
 export * from "./hooks";
 export * from "./makeStyles";
+export * from "./videos";
 
 /* ------------------------------- GENERAL ------------------------------- */
-export const makeClassName = (...classNames) =>
-  classNames.filter((c) => ![undefined, null, false, ""].includes(c)).join(" ");
-
 export const callOptFunc = (fn, ...args) => (typeof fn === "function" ? fn(...args) : fn);
 
 export const capitalize = (string) => string[0].toUpperCase() + string.substring(1);
@@ -42,6 +40,9 @@ export const getRandomInt = (min, max, cur = null) => {
   let num = Math.floor(Math.random() * (max - min + 1)) + min;
   return num === cur ? getRandomInt(min, max, cur) : num;
 };
+
+export const makeClassName = (...classNames) =>
+  classNames.filter((c) => ![undefined, null, false, ""].includes(c)).join(" ");
 
 export const parseLocalStorage = (item, defaultValue = null) => {
   const stored = localStorage.getItem(item);

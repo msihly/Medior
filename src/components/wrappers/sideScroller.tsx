@@ -1,10 +1,7 @@
-import React, { cloneElement, useEffect, useRef, useState } from "react";
+import { cloneElement, useEffect, useRef, useState } from "react";
 import { colors } from "@mui/material";
-import { makeStyles } from "utils";
-import { IconButton } from "components/buttons";
-import { debounce, makeClassName } from "utils";
-import { useElementResize } from "utils/hooks";
-
+import { IconButton } from "components";
+import { debounce, makeClassName, makeStyles, useElementResize } from "utils";
 interface SideScrollerProps {
   children: any;
   className?: string;

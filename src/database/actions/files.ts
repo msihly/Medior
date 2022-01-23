@@ -1,9 +1,16 @@
 import { promises as fs, constants as fsc } from "fs";
+import path from "path";
 import md5File from "md5-file";
 import sharp from "sharp";
 import dayjs from "dayjs";
 import { FileModel } from "database";
-import { splitArray } from "utils";
+import { generateFramesThumbnail, splitArray } from "utils";
+
+const copyFile = async (dirPath, originalPath, newPath) => {
+  await fs.mkdir(dirPath, { recursive: true });
+  await fs.copyFile(originalPath, newPath, fsc.COPYFILE_EXCL);
+  return true;
+};
 
 export const copyFileTo = async (fileObj, targetDir, dbOnly = false) => {
   const { path: originalPath, name, extension: ext, size } = fileObj;
@@ -11,15 +18,25 @@ export const copyFileTo = async (fileObj, targetDir, dbOnly = false) => {
   const hash = await md5File(originalPath);
   const dirPath = `${targetDir}\\${hash.substring(0, 2)}\\${hash.substring(2, 4)}`;
   const extFromPath = originalPath.split(".").pop();
-  const path = `${dirPath}\\${hash}.${extFromPath}`;
-  const thumbPath = `${dirPath}\\${hash}-thumb.${extFromPath}`;
+  const newPath = `${dirPath}\\${hash}.${extFromPath}`;
   const dateCreated = dayjs().toISOString();
 
+  const isVideo = ["mp4", "webm", "mkv"].includes(extFromPath);
+
   try {
+    const thumbPaths = isVideo
+      ? Array(9)
+          .fill("")
+          .map((_, i) => path.join(dirPath, `${hash}-thumb-${String(i + 1).padStart(2, "0")}.jpg`))
+      : [path.join(dirPath, `${hash}-thumb.${extFromPath}`)];
+
     if (!dbOnly) {
-      await fs.mkdir(dirPath, { recursive: true });
-      await fs.copyFile(originalPath, path, fsc.COPYFILE_EXCL);
-      await sharp(originalPath).resize(300, 300).toFile(thumbPath);
+      await Promise.all([
+        copyFile(dirPath, originalPath, newPath),
+        isVideo
+          ? generateFramesThumbnail(originalPath, dirPath, hash)
+          : sharp(originalPath).resize(300, 300).toFile(thumbPaths[0]),
+      ]);
     }
 
     const file = (
@@ -31,10 +48,10 @@ export const copyFileTo = async (fileObj, targetDir, dbOnly = false) => {
         isArchived: false,
         originalName: name,
         originalPath,
-        path,
+        path: newPath,
         size,
         tags: [],
-        thumbPath,
+        thumbPaths,
       })
     ).toJSON();
 

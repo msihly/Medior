@@ -11,7 +11,7 @@ interface File {
   path: string;
   size: number;
   tags: string[];
-  thumbPath: string;
+  thumbPaths: string[];
 }
 
 const FileSchema = new Schema<File>({
@@ -25,7 +25,7 @@ const FileSchema = new Schema<File>({
   path: String,
   size: Number,
   tags: [String],
-  thumbPath: String,
+  thumbPaths: [String],
 });
 
 FileSchema.set("toJSON", { virtuals: true });

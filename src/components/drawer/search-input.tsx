@@ -1,5 +1,5 @@
 import { Autocomplete, TextField } from "@mui/material";
-import { Tag } from "components/tags";
+import { Tag } from "components";
 import { makeStyles } from "utils";
 
 const SearchInput = ({ options = [], setValue, value = [] }) => {

@@ -1,6 +1,6 @@
 import { shell } from "electron";
 import { Paper } from "@mui/material";
-import { Text } from "components/text";
+import { Text } from "components";
 import { ContextMenu } from ".";
 import { formatBytes, makeStyles } from "utils";
 import dayjs from "dayjs";
