@@ -1,12 +1,16 @@
 import { shell } from "electron";
 import { useRef, useState } from "react";
 import { observer } from "mobx-react-lite";
+import { useStores } from "store";
 import { Paper, colors, Chip } from "@mui/material";
 import { SideScroller, Tag } from "components";
 import { ContextMenu } from ".";
 import { makeStyles } from "utils";
 
-const FileGrid = observer(({ file, id }: any) => {
+const FileGrid = observer(({ id }: any) => {
+  const { fileStore } = useStores();
+  const file = fileStore.getById(id);
+
   const { classes: css } = useClasses({ selected: file?.isSelected });
 
   const thumbInterval = useRef(null);

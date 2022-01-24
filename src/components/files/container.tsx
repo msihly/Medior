@@ -61,7 +61,7 @@ const FileContainer = observer(({ files, mode }: FileContainerProps) => {
             mode === "details" ? (
               <FileDetails key={f.id} file={f} />
             ) : (
-              <FileGrid key={f.id} id={f.id} file={f} />
+              <FileGrid key={f.id} id={f.id} />
             )
           )
         ) : (

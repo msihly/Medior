@@ -19,8 +19,8 @@ export const copyFileTo = async (fileObj, targetDir, dbOnly = false) => {
   const dirPath = `${targetDir}\\${hash.substring(0, 2)}\\${hash.substring(2, 4)}`;
   const extFromPath = originalPath.split(".").pop();
   const newPath = `${dirPath}\\${hash}.${extFromPath}`;
-  const dateCreated = dayjs().toISOString();
 
+  const dateCreated = dayjs().toISOString();
   const isVideo = ["mp4", "webm", "mkv"].includes(extFromPath);
 
   try {
@@ -86,15 +86,20 @@ export const deleteFiles = async (fileStore, files, isUndelete = false) => {
 
     const [deleted, archived] = splitArray(files, (f) => f.isArchived);
     const [deletedIds, archivedIds] = [deleted, archived].map((arr) => arr.map((f) => f.id));
-    const deletedPaths = deleted.map((f) => f.path);
 
-    await Promise.all([
-      archivedIds?.length > 0
-        ? FileModel.updateMany({ _id: { $in: archivedIds } }, { isArchived: true })
-        : true,
-      deletedIds?.length > 0 ? FileModel.deleteMany({ _id: { $in: deletedIds } }) : true,
-      deletedIds?.length > 0 ? deletedPaths.map((path) => fs.unlink(path)) : true,
-    ]);
+    const promises = [];
+    if (archivedIds?.length > 0)
+      promises.push(FileModel.updateMany({ _id: { $in: archivedIds } }, { isArchived: true }));
+    if (deletedIds?.length > 0) {
+      promises.push(FileModel.deleteMany({ _id: { $in: deletedIds } }));
+      promises.push(
+        deleted.flatMap((file) => [
+          fs.unlink(file.path),
+          ...file.thumbPaths.map((thumbPath) => fs.unlink(thumbPath)),
+        ])
+      );
+    }
+    await Promise.all(promises);
 
     fileStore.archiveFiles(archivedIds);
     fileStore.deleteFiles(deletedIds);

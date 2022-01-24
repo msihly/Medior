@@ -3,7 +3,6 @@ import { remote } from "electron";
 import fs from "fs/promises";
 import path from "path";
 import dirTree from "directory-tree";
-import { copyFileTo } from "database";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
 import { Divider, Drawer as MuiDrawer, List, colors } from "@mui/material";
@@ -12,7 +11,6 @@ import { Accordion, Checkbox, IconButton, ListItem, Text, View } from "component
 import { DuplicatesModal, ExtCheckbox, SearchInput } from ".";
 import { makeStyles } from "utils";
 import { CSSObject } from "tss-react";
-import { OUTPUT_DIR } from "env";
 import * as Media from "media";
 
 const Drawer = observer(
@@ -27,11 +25,7 @@ const Drawer = observer(
     /* ------------------------ BEGIN - FILE / DIR IMPORT ----------------------- */
     const [isDuplicatesOpen, setIsDuplicatesOpen] = useState(false);
 
-    const copyFile = async (fileObj, targetDir) => {
-      const res = await copyFileTo(fileObj, targetDir);
-      if (!res?.success) console.error(res?.error);
-      res?.isDuplicate ? fileStore.addDuplicates([res?.file]) : fileStore.addFiles([res?.file]);
-    };
+    const importFile = (fileObj) => fileStore.addImports({ ...fileObj, isCompleted: false });
 
     const importFiles = async (isDir = false) => {
       try {
@@ -43,18 +37,18 @@ const Drawer = observer(
         appStore.setIsDrawerOpen(false);
 
         if (isDir) {
-          dirTree(res.filePaths[0], { extensions: /\.(jpe?g|png|gif|mp4|webm|mkv)$/ }, (f) =>
-            copyFile(f, OUTPUT_DIR)
+          dirTree(res.filePaths[0], { extensions: /\.(jpe?g|png|gif|mp4|webm|mkv)$/ }, (fileObj) =>
+            importFile(fileObj)
           );
         } else {
           res.filePaths.forEach(async (p) => {
             const size = (await fs.stat(p)).size;
             const fileObj = { path: p, name: path.parse(p).name, extension: path.extname(p), size };
-            copyFile(fileObj, OUTPUT_DIR);
+            importFile(fileObj);
           });
         }
-      } catch (e) {
-        console.error(e);
+      } catch (err) {
+        console.error(err?.message ?? err);
       }
     };
     /* ------------------------ END - FILE / DIR IMPORT ----------------------- */
