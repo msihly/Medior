@@ -1,4 +1,5 @@
-import { applySnapshot, cast, Instance, types } from "mobx-state-tree";
+import { applySnapshot, cast, getParentOfType, Instance, types } from "mobx-state-tree";
+import { RootStoreModel } from "store/root-store";
 import { File, FileModel } from ".";
 import { countItems, sortArray } from "utils";
 import { toast } from "react-toastify";
@@ -30,16 +31,25 @@ const VideoTypesModel = types.model({
 export type VideoTypes = Instance<typeof VideoTypesModel>;
 
 const TagCountModel = types.model({
-  label: types.string,
+  id: types.string,
   count: types.number,
 });
 export type TagCount = Instance<typeof TagCountModel>;
 
+const TagOptionModel = types.model({
+  count: types.number,
+  id: types.string,
+  label: types.maybe(types.string),
+});
+export type TagOption = Instance<typeof TagOptionModel>;
+
 export const defaultFileStore = {
   duplicates: [],
+  excludeDescendants: false,
   excludedTags: [],
   files: [],
   imports: [],
+  includeDescendants: false,
   includedTags: [],
   includeTagged: true,
   includeUntagged: true,
@@ -64,10 +74,12 @@ export const FileStoreModel = types
   .model("FileStore")
   .props({
     duplicates: types.array(FileModel),
-    excludedTags: types.array(TagCountModel),
+    excludeDescendants: types.boolean,
+    excludedTags: types.array(TagOptionModel),
     files: types.array(FileModel),
     imports: types.array(FileImportModel),
-    includedTags: types.array(TagCountModel),
+    includeDescendants: types.boolean,
+    includedTags: types.array(TagOptionModel),
     includeTagged: types.boolean,
     includeUntagged: types.boolean,
     isArchiveOpen: types.boolean,
@@ -85,25 +97,45 @@ export const FileStoreModel = types
       return self.imports.filter((imp) => imp.isCompleted);
     },
     get filtered() {
-      const includedTags = self.includedTags.map((t) => t.label);
-      const excludedTags = self.excludedTags.map((t) => t.label);
+      const rootStore = getParentOfType(self, RootStoreModel) as Instance<typeof RootStoreModel>;
+      // return self.tagIds.map((id) => rootStore.tagStore.getById(id));
 
+      const excludedTagIds = self.excludedTags.map((t) => t.id);
+      const includedTagIds = self.includedTags.map((t) => t.id);
       const unarchived = self.files.filter((f) => self.isArchiveOpen === f.isArchived);
 
       const filtered = unarchived.filter((f) => {
-        const hasTags = f.tags?.length > 0;
+        const hasTags = f.tagIds?.length > 0;
         if (!self.includeTagged || !self.includeUntagged) {
           if (self.includeTagged && !hasTags) return false;
           if (self.includeUntagged && hasTags) return false;
         }
 
-        const hasIncluded = includedTags.every((t) => f.tags.includes(t));
-        const hasExcluded = excludedTags.some((t) => f.tags.includes(t));
+        const parentTagIds =
+          self.excludeDescendants || self.includeDescendants
+            ? [
+                ...new Set(
+                  f.tagIds.flatMap((tagId) => rootStore.tagStore.getById(tagId)?.parentIds)
+                ),
+              ]
+            : [];
+
+        const hasExcluded = excludedTagIds.some((tagId) => f.tagIds.includes(tagId));
+        const hasExcludedParent =
+          self.excludeDescendants &&
+          parentTagIds.some((tagId: string) => excludedTagIds.includes(tagId));
+
+        const hasIncluded = includedTagIds.every((tagId) => f.tagIds.includes(tagId));
+        const hasIncludedParent =
+          self.includeDescendants &&
+          parentTagIds.some((tagId: string) => includedTagIds.includes(tagId));
+
         const hasExt = !!Object.entries({
           ...self.selectedImageTypes,
           ...self.selectedVideoTypes,
         }).find(([key, value]) => key === f.ext.substring(1) && value);
-        return hasIncluded && !hasExcluded && hasExt;
+
+        return (hasIncluded || hasIncludedParent) && !hasExcluded && !hasExcludedParent && hasExt;
       });
 
       return sortArray(
@@ -124,12 +156,12 @@ export const FileStoreModel = types
       const videoTypes = [".gif", ".webm", ".mp4", ".mkv"];
       return self.files.filter((f) => videoTypes.includes(f.ext));
     },
-    getById: (id) => {
+    getById: (id: string) => {
       return self.files.find((f) => f.id === id);
     },
     getTagCounts: (files: File[] = self.files) => {
-      const counts = countItems(files.flatMap((f) => f.tags).filter((t) => t !== undefined)).map(
-        ({ value, count }) => ({ label: value, count })
+      const counts = countItems(files.flatMap((f) => f.tagIds).filter((t) => t !== undefined)).map(
+        ({ value, count }) => ({ count, id: value })
       );
 
       return sortArray(counts, "count", true, true);
@@ -142,8 +174,8 @@ export const FileStoreModel = types
     get selectedTagCounts() {
       return self.getTagCounts(self.selected);
     },
-    getTagCount: (label) => {
-      return self.getTagCounts().find((t) => t.label === label)?.count;
+    getTagCountById: (id: string) => {
+      return self.getTagCounts().find((t) => t.id === id)?.count;
     },
   }))
   .actions((self) => ({
@@ -159,14 +191,19 @@ export const FileStoreModel = types
           self.imports.push(fileImport);
       });
     },
-    archiveFiles: (fileIds, isUnarchive = false) => {
+    archiveFiles: (fileIds: string[], isUnarchive = false) => {
       if (!fileIds?.length) return false;
       self.files.forEach((f) => {
         if (fileIds.includes(f.id)) f.isArchived = !isUnarchive;
       });
       toast.warning(`${isUnarchive ? "Unarchived" : "Archived"} ${fileIds.length} files`);
     },
-    deleteFiles: (fileIds) => {
+    completeImport: (filePath: string) => {
+      const fileImport = self.imports.find((f) => f.path === filePath);
+      fileImport.isCompleted = true;
+      self.isImporting = false;
+    },
+    deleteFiles: (fileIds: string[]) => {
       if (!fileIds?.length) return false;
       self.files = cast(self.files.filter((f) => !fileIds.includes(f.id)));
       toast.error(`Deleted ${fileIds.length} files`);
@@ -174,33 +211,34 @@ export const FileStoreModel = types
     overwrite: (files: File[]) => {
       self.files = cast(files.map((f) => ({ ...f, isSelected: false })));
     },
-    completeImport: (filePath) => {
-      const fileImport = self.imports.find((f) => f.path === filePath);
-      fileImport.isCompleted = true;
-      self.isImporting = false;
-    },
     reset: () => {
       applySnapshot(self, defaultFileStore);
     },
-    setExcludedTags: (tagCounts: TagCount[]) => {
-      self.excludedTags = cast(tagCounts);
+    setExcludeDescendants: (isExcluded: boolean) => {
+      self.excludeDescendants = isExcluded;
     },
-    setIncludedTags: (tagCounts: TagCount[]) => {
-      self.includedTags = cast(tagCounts);
+    setExcludedTags: (tagOptions: TagOption[]) => {
+      self.excludedTags = cast(tagOptions);
     },
-    setIncludeTagged: (isIncluded) => {
+    setIncludeDescendants: (isIncluded: boolean) => {
+      self.includeDescendants = isIncluded;
+    },
+    setIncludedTags: (tagOptions: TagOption[]) => {
+      self.includedTags = cast(tagOptions);
+    },
+    setIncludeTagged: (isIncluded: boolean) => {
       self.includeTagged = isIncluded;
     },
-    setIncludeUntagged: (isIncluded) => {
+    setIncludeUntagged: (isIncluded: boolean) => {
       self.includeUntagged = isIncluded;
     },
-    setIsImporting: (isImporting) => {
+    setIsImporting: (isImporting: boolean) => {
       self.isImporting = isImporting;
     },
-    setSelectedImageTypes: (updates) => {
+    setSelectedImageTypes: (updates: ImageTypes) => {
       self.selectedImageTypes = { ...self.selectedImageTypes, ...updates };
     },
-    setSelectedVideoTypes: (updates) => {
+    setSelectedVideoTypes: (updates: VideoTypes) => {
       self.selectedVideoTypes = { ...self.selectedVideoTypes, ...updates };
     },
     setSortDir: (dir) => {
@@ -225,5 +263,4 @@ export const FileStoreModel = types
     },
   }));
 
-type FileStoreType = Instance<typeof FileStoreModel>;
-export interface FileStore extends FileStoreType {}
+export interface FileStore extends Instance<typeof FileStoreModel> {}

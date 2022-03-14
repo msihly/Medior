@@ -2,13 +2,13 @@ import { Portal } from "@mui/core";
 import { Dialog, DialogTitle, DialogContent, DialogActions } from "@mui/material";
 import { Button, FileContainer } from "components";
 
-const DuplicatesModal = ({ handleClose, files, isOpen }) => {
+const DuplicatesModal = ({ handleClose, files }) => {
   return (
     <Portal>
-      <Dialog open={isOpen} onClose={handleClose} scroll="paper">
+      <Dialog open onClose={handleClose} scroll="paper">
         <DialogTitle>Duplicates</DialogTitle>
 
-        <DialogContent dividers={true}>
+        <DialogContent dividers>
           <FileContainer files={files} mode="details" />
         </DialogContent>
 

@@ -1,13 +1,28 @@
-import { Avatar, Chip, colors } from "@mui/material";
+import { Avatar, Chip, ChipProps, colors } from "@mui/material";
+import { observer } from "mobx-react-lite";
+import { useStores } from "store";
 import { makeStyles } from "utils";
 
-const Tag = ({ count, ...props }) => {
+interface TagProps extends ChipProps {
+  count: number;
+  id: string;
+}
+
+const Tag = observer(({ count, id, ...props }: TagProps) => {
   const { classes: css } = useClasses();
+  const { tagStore } = useStores();
+
+  const tag = tagStore.getById(id);
 
   return (
-    <Chip avatar={<Avatar className={css.count}>{count}</Avatar>} className={css.chip} {...props} />
+    <Chip
+      avatar={<Avatar className={css.count}>{count}</Avatar>}
+      label={tag.label}
+      className={css.chip}
+      {...props}
+    />
   );
-};
+});
 
 export default Tag;
 

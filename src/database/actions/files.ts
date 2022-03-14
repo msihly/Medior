@@ -50,7 +50,7 @@ export const copyFileTo = async (fileObj, targetDir, dbOnly = false) => {
         originalPath,
         path: newPath,
         size,
-        tags: [],
+        tagIds: [],
         thumbPaths,
       })
     ).toJSON();
@@ -111,26 +111,31 @@ export const deleteFiles = async (fileStore, files, isUndelete = false) => {
   }
 };
 
-export const editFileTags = async (fileStore, fileIds = [], addedTags = [], removedTags = []) => {
-  if (!fileIds?.length || (!addedTags?.length && !removedTags?.length)) return false;
+export const editFileTags = async (
+  fileStore,
+  fileIds = [],
+  addedTagIds = [],
+  removedTagIds = []
+) => {
+  if (!fileIds?.length || (!addedTagIds?.length && !removedTagIds?.length)) return false;
 
   try {
     const files = (await FileModel.find({ _id: { $in: fileIds } })).map((f) => {
       const file = f.toJSON();
+      const tagIds = file.tagIds.filter((tagId) => !removedTagIds.includes(tagId));
 
-      const tags = file.tags.filter((t) => !removedTags.includes(t));
-      addedTags.forEach((t) => {
-        if (!tags.includes(t)) tags.push(t);
+      addedTagIds.forEach((tagId) => {
+        if (!tagIds.includes(tagId)) tagIds.push(tagId);
       });
 
-      return { ...file, tags };
+      return { ...file, tagIds };
     });
 
     const dateModified = dayjs().toISOString();
 
     files.forEach(async (f) => {
-      await FileModel.updateOne({ _id: f.id }, { tags: f.tags, dateModified });
-      fileStore.getById(f.id).updateTags(f.tags, dateModified);
+      await FileModel.updateOne({ _id: f.id }, { tagIds: f.tagIds, dateModified });
+      fileStore.getById(f.id).updateTags(f.tagIds, dateModified);
     });
 
     return true;

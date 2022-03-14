@@ -10,7 +10,7 @@ interface File {
   originalPath: string;
   path: string;
   size: number;
-  tags: string[];
+  tagIds: string[];
   thumbPaths: string[];
 }
 
@@ -24,7 +24,7 @@ const FileSchema = new Schema<File>({
   originalPath: String,
   path: String,
   size: Number,
-  tags: [String],
+  tagIds: [String],
   thumbPaths: [String],
 });
 

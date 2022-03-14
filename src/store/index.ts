@@ -5,4 +5,4 @@ export const RootStoreContext = createContext<RootStore>({} as RootStore);
 
 export const createRootStore = () => RootStoreModel.create({});
 
-export const useStores = () => useContext(RootStoreContext);
+export const useStores = () => useContext<RootStore>(RootStoreContext);

@@ -1,17 +1,17 @@
 import { createRef, useEffect } from "react";
 import Mongoose from "mongoose";
-import { getAllFiles } from "database";
+import { getAllFiles, getAllTags } from "database";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
 import { Drawer, FileContainer, TopBar } from "components";
 import { makeStyles } from "utils";
 
-const DRAWER_WIDTH = 192;
+const DRAWER_WIDTH = 200;
 
 const Home = observer(() => {
   const drawerRef = createRef();
 
-  const { appStore, fileStore } = useStores();
+  const { appStore, fileStore, tagStore } = useStores();
 
   const { classes: css } = useClasses({
     drawerMode: appStore.drawerMode,
@@ -24,8 +24,10 @@ const Home = observer(() => {
       try {
         await Mongoose.connect("mongodb://localhost:27017/media-viewer");
 
-        const storedFiles = await getAllFiles();
-        fileStore.overwrite(storedFiles);
+        const [files, tags] = await Promise.all([getAllFiles(), getAllTags()]);
+
+        tagStore.overwrite(tags);
+        fileStore.overwrite(files);
       } catch (err) {
         console.log(err?.message ?? err);
       }

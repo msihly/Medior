@@ -6,16 +6,25 @@ import dirTree from "directory-tree";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
 import { Divider, Drawer as MuiDrawer, List, colors } from "@mui/material";
-import { Archive, GetApp as ImportIcon, Unarchive } from "@mui/icons-material";
-import { Accordion, Checkbox, IconButton, ListItem, Text, View } from "components";
-import { DuplicatesModal, ExtCheckbox, SearchInput } from ".";
+import { Archive, GetApp as ImportIcon, More as MoreIcon, Unarchive } from "@mui/icons-material";
+import {
+  Accordion,
+  Checkbox,
+  IconButton,
+  ListItem,
+  TagInput,
+  TagManager,
+  Text,
+  View,
+} from "components";
+import { DuplicatesModal, ExtCheckbox } from ".";
 import { makeStyles } from "utils";
 import { CSSObject } from "tss-react";
 import * as Media from "media";
 
 const Drawer = observer(
   (_, drawerRef: any) => {
-    const { appStore, fileStore } = useStores();
+    const { appStore, fileStore, tagStore } = useStores();
 
     const { classes: css } = useClasses({ drawerMode: appStore.drawerMode });
 
@@ -70,8 +79,16 @@ const Drawer = observer(
         </div>
 
         <List>
-          <ListItem text="Import Folder" icon={<ImportIcon />} onClick={() => importFiles(true)} />
+          <ListItem
+            text="Manage Tags"
+            icon={<MoreIcon />}
+            onClick={() => tagStore.setIsTagManagerOpen(true)}
+          />
+
           <ListItem text="Import Files" icon={<ImportIcon />} onClick={() => importFiles(false)} />
+
+          <ListItem text="Import Folder" icon={<ImportIcon />} onClick={() => importFiles(true)} />
+
           <ListItem
             text={`${fileStore.isArchiveOpen ? "Close" : "Open"} Archive`}
             icon={fileStore.isArchiveOpen ? <Unarchive /> : <Archive />}
@@ -84,19 +101,23 @@ const Drawer = observer(
         <Text align="center" className={css.sectionTitle}>
           Include
         </Text>
-        <SearchInput
-          options={fileStore.tagCounts}
+        <TagInput
           value={fileStore.includedTags}
-          setValue={fileStore.setIncludedTags}
+          onChange={(val) => fileStore.setIncludedTags(val)}
+          options={tagStore.tagOptions}
+          limitTags={3}
+          className={css.input}
         />
 
         <Text align="center" className={css.sectionTitle}>
           Exclude
         </Text>
-        <SearchInput
-          options={fileStore.tagCounts}
+        <TagInput
           value={fileStore.excludedTags}
-          setValue={fileStore.setExcludedTags}
+          onChange={(val) => fileStore.setExcludedTags(val)}
+          options={tagStore.tagOptions}
+          limitTags={3}
+          className={css.input}
         />
 
         <View className={css.checkboxes} column>
@@ -105,10 +126,23 @@ const Drawer = observer(
             checked={fileStore.includeTagged}
             setChecked={fileStore.setIncludeTagged}
           />
+
           <Checkbox
             label="Untagged"
             checked={fileStore.includeUntagged}
             setChecked={fileStore.setIncludeUntagged}
+          />
+
+          <Checkbox
+            label="Include Desc"
+            checked={fileStore.includeDescendants}
+            setChecked={fileStore.setIncludeDescendants}
+          />
+
+          <Checkbox
+            label="Exclude Desc"
+            checked={fileStore.excludeDescendants}
+            setChecked={fileStore.setExcludeDescendants}
           />
         </View>
 
@@ -134,11 +168,14 @@ const Drawer = observer(
           ))}
         </Accordion>
 
-        <DuplicatesModal
-          isOpen={isDuplicatesOpen}
-          handleClose={() => setIsDuplicatesOpen(false)}
-          files={fileStore.duplicates}
-        />
+        {isDuplicatesOpen && (
+          <DuplicatesModal
+            handleClose={() => setIsDuplicatesOpen(false)}
+            files={fileStore.duplicates}
+          />
+        )}
+
+        {tagStore.isTagManagerOpen && <TagManager />}
       </MuiDrawer>
     );
   },
@@ -157,10 +194,15 @@ const useClasses = makeStyles<CSSObject>()((_, { drawerMode }: any) => ({
     flexDirection: "column",
     alignItems: "center",
     borderRight: "1px solid #111",
+    width: "200px",
     backgroundColor: colors.grey["900"],
     "&::-webkit-scrollbar": {
       display: "none",
     },
+  },
+  input: {
+    padding: "0.1rem 0.4rem",
+    width: "192px",
   },
   pin: {
     padding: "0.2rem",

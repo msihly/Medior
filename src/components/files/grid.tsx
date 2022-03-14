@@ -8,7 +8,7 @@ import { ContextMenu } from ".";
 import { makeStyles } from "utils";
 
 const FileGrid = observer(({ id }: any) => {
-  const { fileStore } = useStores();
+  const { fileStore, tagStore } = useStores();
   const file = fileStore.getById(id);
 
   const { classes: css } = useClasses({ selected: file?.isSelected });
@@ -28,6 +28,12 @@ const FileGrid = observer(({ id }: any) => {
     clearInterval(thumbInterval.current);
     thumbInterval.current = null;
     setThumbIndex(0);
+  };
+
+  const handleTagPress = (tagId: string) => {
+    tagStore.setActiveTagId(tagId);
+    tagStore.setTagManagerMode("create");
+    tagStore.setIsTagManagerOpen(true);
   };
 
   const openFile = () => shell.openPath(file?.path);
@@ -51,8 +57,14 @@ const FileGrid = observer(({ id }: any) => {
 
         <SideScroller>
           <div className={css.tags}>
-            {file?.tagCounts?.map?.((t) => (
-              <Tag key={t.label} {...t} size="small" clickable />
+            {file?.tags?.map?.((t) => (
+              <Tag
+                key={t.id}
+                id={t.id}
+                onClick={() => handleTagPress(t.id)}
+                count={fileStore.getTagCountById(t.id)}
+                size="small"
+              />
             ))}
           </div>
         </SideScroller>

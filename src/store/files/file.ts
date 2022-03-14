@@ -1,6 +1,5 @@
 import { getParentOfType, Instance, types } from "mobx-state-tree";
 import { RootStoreModel } from "store/root-store";
-import { sortArray } from "utils";
 import dayjs from "dayjs";
 
 export const FileModel = types
@@ -17,27 +16,20 @@ export const FileModel = types
     originalPath: types.string,
     path: types.string,
     size: types.number,
-    tags: types.array(types.string),
+    tagIds: types.array(types.string),
     thumbPaths: types.array(types.string),
   })
   .views((self) => ({
-    get tagCounts() {
+    get tags() {
       const rootStore = getParentOfType(self, RootStoreModel) as Instance<typeof RootStoreModel>;
-
-      const counts = self.tags.map((t) => ({
-        label: t,
-        count: rootStore.fileStore.getTagCount(t),
-      }));
-
-      return sortArray(counts, "count", true, true);
+      return self.tagIds.map((id) => rootStore.tagStore.getById(id));
     },
   }))
   .actions((self) => ({
-    updateTags: (tags, dateModified = dayjs().toISOString()) => {
-      self.tags = tags;
+    updateTags: (tagIds, dateModified = dayjs().toISOString()) => {
+      self.tagIds = tagIds;
       self.dateModified = dateModified;
     },
   }));
 
-type FileType = Instance<typeof FileModel>;
-export interface File extends FileType {}
+export interface File extends Instance<typeof FileModel> {}

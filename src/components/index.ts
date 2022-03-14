@@ -1,6 +1,7 @@
 export * from "./buttons";
 export * from "./drawer";
 export * from "./files";
+export * from "./inputs";
 export * from "./list";
 export * from "./tags";
 export * from "./text";
