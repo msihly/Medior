@@ -1,5 +1,6 @@
-import { cast, getParentOfType, Instance, types } from "mobx-state-tree";
+import { cast, getParentOfType, Instance, SnapshotOrInstance, types } from "mobx-state-tree";
 import { RootStoreModel } from "store/root-store";
+import { FileStore, TagOption } from "store/files";
 import { Tag, TagModel } from ".";
 
 export const defaultTagStore = {
@@ -18,31 +19,46 @@ export const TagStoreModel = types
     tagManagerMode: types.enumeration(["create", "edit", "search"]),
   })
   .views((self) => ({
-    get activeTag() {
+    get activeTag(): Tag {
       return self.tags.find((t) => t.id === self.activeTagId);
     },
-    getById: (id) => {
+    getById: (id): Tag => {
       return self.tags.find((t) => t.id === id);
     },
   }))
   .views((self) => ({
-    get tagOptions() {
-      const rootStore = getParentOfType(self, RootStoreModel) as Instance<typeof RootStoreModel>;
+    get tagOptions(): TagOption[] {
+      const rootStore = getParentOfType(self, RootStoreModel);
+      const fileStore: FileStore = rootStore.fileStore;
 
-      const activeTagCounts = rootStore.fileStore.getTagCounts();
+      const activeTagCounts = fileStore.getTagCounts();
 
       const [activeTags, activeTagIds] = activeTagCounts.reduce(
-        (acc, tag) => {
-          acc[0].push({ ...tag, label: self.getById(tag.id)?.label });
-          acc[1].push(tag.id);
+        (acc, cur) => {
+          const tag = self.getById(cur.id);
+          acc[0].push({
+            ...cur,
+            label: tag?.label,
+            parentLabels: cast(tag.parentTags.map((t) => t.label)),
+          });
+
+          acc[1].push(cur.id);
           return acc;
         },
-        [[], []]
+        [[] as TagOption[], [] as String[]]
       );
 
-      const inactiveTags = self.tags
-        .filter((t) => !activeTagIds.includes(t.id))
-        .map((t) => ({ count: 0, id: t.id, label: t.label }));
+      const inactiveTags: TagOption[] = self.tags.reduce((acc, cur) => {
+        if (activeTagIds.includes(cur.id)) return acc;
+        else
+          acc.push({
+            count: 0,
+            id: cur.id,
+            label: cur.label,
+            parentLabels: cur.parentTags.map((t) => t.label),
+          });
+        return acc;
+      }, []);
 
       return [...activeTags, ...inactiveTags];
     },
@@ -51,7 +67,7 @@ export const TagStoreModel = types
     createTag: (tag: Tag) => {
       self.tags.push(tag);
     },
-    overwrite: (tags: Tag[]) => {
+    overwrite: (tags: SnapshotOrInstance<typeof self.tags>) => {
       self.tags = cast(tags);
     },
     setActiveTagId: (tagId: string) => {

@@ -1,10 +1,9 @@
-import React from "react";
 import { Typography } from "@mui/material";
-import { makeStyles } from "utils";
+import { makeClasses } from "utils";
 import { SortButton } from ".";
 
 const SortRow = ({ attribute, label }) => {
-  const { classes: css } = useClasses();
+  const { classes: css } = useClasses(null);
 
   return (
     <div className={css.row}>
@@ -17,7 +16,7 @@ const SortRow = ({ attribute, label }) => {
 
 export default SortRow;
 
-const useClasses = makeStyles()({
+const useClasses = makeClasses({
   label: {
     flex: 1,
     whiteSpace: "nowrap",

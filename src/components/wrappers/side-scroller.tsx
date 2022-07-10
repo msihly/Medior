@@ -1,7 +1,7 @@
 import { cloneElement, useEffect, useRef, useState } from "react";
 import { colors } from "@mui/material";
 import { IconButton } from "components";
-import { debounce, makeClassName, makeStyles, useElementResize } from "utils";
+import { debounce, makeClasses, useElementResize } from "utils";
 interface SideScrollerProps {
   children: any;
   className?: string;
@@ -31,24 +31,30 @@ const SideScroller = ({ children, className }: SideScrollerProps) => {
 
   const getButtonVisibility = () => {
     const node = ref?.current;
-    if (!node) return { left: false, right: false };
+    if (!node) return [false, false];
 
     const { clientWidth, scrollWidth, scrollLeft } = node;
-    if (!(clientWidth < scrollWidth)) return { left: false, right: false };
-    return { left: scrollLeft > 0, right: clientWidth + scrollLeft < scrollWidth };
+    if (!(clientWidth < scrollWidth)) return [false, false];
+    return [scrollLeft > 0, clientWidth + scrollLeft < scrollWidth];
   };
 
-  const [buttonVisibility, setButtonVisibility] = useState({ left: false, right: false });
-  useEffect(() => setButtonVisibility(getButtonVisibility()), [scrollPos]);
+  const [isLeftButtonVisible, setIsLeftButtonVisible] = useState(false);
+  const [isRightButtonVisible, setIsRightButtonVisible] = useState(false);
 
-  const { classes: css } = useClasses({ buttonVisibility });
+  useEffect(() => {
+    const [left, right] = getButtonVisibility();
+    setIsLeftButtonVisible(left);
+    setIsRightButtonVisible(right);
+  }, [scrollPos]);
+
+  const { classes: css, cx } = useClasses({ isLeftButtonVisible, isRightButtonVisible });
 
   return (
-    <div className={makeClassName(className, css.container)}>
+    <div className={cx(className, css.container)}>
       <IconButton
         name="ChevronLeft"
         onClick={() => handleScroll("left")}
-        className={makeClassName(css.scrollButton, "left")}
+        className={cx(css.scrollButton, "left")}
         size="large"
       />
 
@@ -61,7 +67,7 @@ const SideScroller = ({ children, className }: SideScrollerProps) => {
       <IconButton
         name="ChevronRight"
         onClick={() => handleScroll("right")}
-        className={makeClassName(css.scrollButton, "right")}
+        className={cx(css.scrollButton, "right")}
         size="large"
       />
     </div>
@@ -70,7 +76,7 @@ const SideScroller = ({ children, className }: SideScrollerProps) => {
 
 export default SideScroller;
 
-const useClasses = makeStyles<object>()((_, { buttonVisibility }: any) => ({
+const useClasses = makeClasses((_, { isLeftButtonVisible, isRightButtonVisible }) => ({
   container: {
     display: "flex",
     flexFlow: "row nowrap",
@@ -94,10 +100,10 @@ const useClasses = makeStyles<object>()((_, { buttonVisibility }: any) => ({
       height: "0.6em",
     },
     "&.left": {
-      display: buttonVisibility?.left ? "flex" : "none",
+      display: isLeftButtonVisible ? "flex" : "none",
     },
     "&.right": {
-      display: buttonVisibility?.right ? "flex" : "none",
+      display: isRightButtonVisible ? "flex" : "none",
     },
   },
 }));

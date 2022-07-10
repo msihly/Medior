@@ -1,55 +1,59 @@
 import { useEffect } from "react";
-import { copyFileTo } from "database";
+import { completeImportBatch, importFile, startImportBatch } from "database";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
-import { FileImport } from "store/files/file-store";
 import { colors } from "@mui/material";
 import { Text, View } from "components";
-import { makeStyles } from "utils";
-import { OUTPUT_DIR } from "env";
+import { makeClasses } from "utils";
 
 const ImportsProgress = observer(() => {
-  const { fileStore } = useStores();
-  const { classes: css } = useClasses();
+  const rootStore = useStores();
+  const { fileStore, importStore } = useStores();
+  const { classes: css } = useClasses(null);
 
   useEffect(() => {
-    const importFile = async (fileObj: FileImport) => {
-      fileStore.setIsImporting(true);
+    const handlePhase = async () => {
+      if (importStore.activeBatch?.nextImport) {
+        if (!importStore.isImporting)
+          await startImportBatch(importStore, importStore.activeBatch?.addedAt);
 
-      const res = await copyFileTo(fileObj, OUTPUT_DIR);
-      if (!res?.success) console.error(res?.error);
-      res?.isDuplicate ? fileStore.addDuplicates([res?.file]) : fileStore.addFiles([res?.file]);
+        // console.log(JSON.stringify(importStore.activeBatch.nextImport, null, 2));
 
-      fileStore.completeImport(fileObj.path);
+        await importFile(
+          rootStore,
+          importStore.activeBatch?.addedAt,
+          importStore.activeBatch?.nextImport
+        );
+      } else if (importStore.isImporting)
+        await completeImportBatch(importStore, importStore.activeBatch?.addedAt);
     };
 
-    if (!fileStore.isImporting && fileStore.hasIncompleteImports)
-      importFile(fileStore.imports.find((imp) => !imp.isCompleted));
-  }, [fileStore, fileStore.completedImports, fileStore.imports, fileStore.isImporting]);
+    handlePhase();
+  }, [importStore.activeBatch?.nextImport, importStore.isImporting]); // eslint-disable-line
 
-  return fileStore.hasIncompleteImports ? (
+  return importStore.isImporting ? (
     <View column>
       <Text className={css.title}>
         <Text className={css.title} bold>
-          Importing:
+          {"Importing: "}
         </Text>
-        {` ${fileStore.completedImports.length + 1} of ${fileStore.imports.length}`}
+        {`${importStore.completedBatches.length + 1} of ${importStore.importBatches.length}`}
       </Text>
 
       <Text className={css.subtitle}>
         <Text className={css.subtitle} bold>
-          Total Completed:
+          {"Total Completed: "}
         </Text>
-        {` ${fileStore.completedImports.length}`}
+        {importStore.completedBatches.length}
       </Text>
     </View>
   ) : (
     <View column>
       <Text className={css.title}>
         <Text className={css.title} bold>
-          Total Files:
+          {"Total Files: "}
         </Text>
-        {` ${fileStore.files.length}`}
+        {fileStore.files.length}
       </Text>
 
       <Text className={css.subtitle}>
@@ -68,7 +72,7 @@ const ImportsProgress = observer(() => {
 
 export default ImportsProgress;
 
-const useClasses = makeStyles()({
+const useClasses = makeClasses({
   subtitle: {
     color: colors.grey["500"],
     fontSize: 13,

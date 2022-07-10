@@ -1,7 +1,7 @@
 import { IconButton, colors } from "@mui/material";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
-import { makeStyles } from "utils";
+import { makeClasses } from "utils";
 import { KeyboardArrowDown, KeyboardArrowUp } from "@mui/icons-material";
 
 const SortButton = observer(({ attribute, dir }: any) => {
@@ -25,7 +25,7 @@ const SortButton = observer(({ attribute, dir }: any) => {
 
 export default SortButton;
 
-const useClasses = makeStyles<object>()((_, { isActive }: any) => ({
+const useClasses = makeClasses((_, { isActive }) => ({
   attribute: {
     flex: 1,
   },

@@ -1,17 +1,18 @@
 import { createRef, useEffect } from "react";
 import Mongoose from "mongoose";
-import { getAllFiles, getAllTags } from "database";
+import { getAllFiles, getAllImportBatches, getAllTags } from "database";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
 import { Drawer, FileContainer, TopBar } from "components";
-import { makeStyles } from "utils";
+import { makeClasses } from "utils";
+import { DB_NAME } from "env";
 
 const DRAWER_WIDTH = 200;
 
 const Home = observer(() => {
   const drawerRef = createRef();
 
-  const { appStore, fileStore, tagStore } = useStores();
+  const { appStore, fileStore, importStore, tagStore } = useStores();
 
   const { classes: css } = useClasses({
     drawerMode: appStore.drawerMode,
@@ -22,12 +23,17 @@ const Home = observer(() => {
   useEffect(() => {
     const loadDatabase = async () => {
       try {
-        await Mongoose.connect("mongodb://localhost:27017/media-viewer");
+        await Mongoose.connect(`mongodb://localhost:27017/${DB_NAME}`);
 
-        const [files, tags] = await Promise.all([getAllFiles(), getAllTags()]);
+        const [files, importBatches, tags] = await Promise.all([
+          getAllFiles(),
+          getAllImportBatches(),
+          getAllTags(),
+        ]);
 
         tagStore.overwrite(tags);
         fileStore.overwrite(files);
+        importStore.overwrite(importBatches);
       } catch (err) {
         console.log(err?.message ?? err);
       }
@@ -42,7 +48,7 @@ const Home = observer(() => {
 
       <div className={css.main}>
         <TopBar />
-        <FileContainer files={fileStore.filtered} mode="grid" />
+        <FileContainer mode="grid" />
       </div>
     </>
   );
@@ -50,7 +56,7 @@ const Home = observer(() => {
 
 export default Home;
 
-const useClasses = makeStyles<object>()((_, { drawerMode, drawerWidth, isDrawerOpen }: any) => ({
+const useClasses = makeClasses((_, { drawerMode, drawerWidth, isDrawerOpen }) => ({
   main: {
     display: "flex",
     flexFlow: "column",

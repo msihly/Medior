@@ -2,11 +2,11 @@ import { shell } from "electron";
 import { Paper } from "@mui/material";
 import { Text } from "components";
 import { ContextMenu } from ".";
-import { formatBytes, makeStyles } from "utils";
+import { formatBytes, makeClasses } from "utils";
 import dayjs from "dayjs";
 
 const FileDetails = ({ file }) => {
-  const { classes: css } = useClasses();
+  const { classes: css } = useClasses(null);
 
   const openFile = () => shell.openPath(file.path);
 
@@ -39,7 +39,7 @@ const FileDetails = ({ file }) => {
 
 export default FileDetails;
 
-const useClasses = makeStyles()({
+const useClasses = makeClasses({
   container: {
     overflow: "hidden",
     cursor: "pointer",

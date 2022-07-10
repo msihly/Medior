@@ -1,14 +1,16 @@
 import { model, Schema } from "mongoose";
 
-interface File {
+export interface File {
   dateCreated: string;
   dateModified: string;
   ext: string;
   hash: string;
+  id: string;
   isArchived: boolean;
   originalName?: string;
   originalPath: string;
   path: string;
+  rating: number;
   size: number;
   tagIds: string[];
   thumbPaths: string[];
@@ -23,6 +25,7 @@ const FileSchema = new Schema<File>({
   originalName: String,
   originalPath: String,
   path: String,
+  rating: Number,
   size: Number,
   tagIds: [String],
   thumbPaths: [String],
@@ -30,6 +33,4 @@ const FileSchema = new Schema<File>({
 
 FileSchema.set("toJSON", { virtuals: true });
 
-const FileModel = model<File>("File", FileSchema);
-
-export default FileModel;
+export const FileModel = model<File>("File", FileSchema);

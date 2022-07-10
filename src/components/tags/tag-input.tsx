@@ -3,8 +3,7 @@ import { Autocomplete, colors, TextField } from "@mui/material";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
 import { Tag, View } from "components";
-import { makeStyles } from "utils";
-import { CSSObject } from "tss-react";
+import { makeClasses } from "utils";
 
 export type TagOption = {
   count: number;
@@ -61,7 +60,7 @@ const TagInput = observer(
 
 export default TagInput;
 
-const useClasses = makeStyles<CSSObject>()((_, { opaque }: any) => ({
+const useClasses = makeClasses((_, { opaque }) => ({
   input: {
     backgroundColor: opaque ? colors.grey["800"] : "transparent",
   },

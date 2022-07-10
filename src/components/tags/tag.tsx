@@ -1,24 +1,25 @@
 import { Avatar, Chip, ChipProps, colors } from "@mui/material";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
-import { makeStyles } from "utils";
+import { makeClasses } from "utils";
 
 interface TagProps extends ChipProps {
-  count: number;
+  count?: number;
   id: string;
 }
 
-const Tag = observer(({ count, id, ...props }: TagProps) => {
-  const { classes: css } = useClasses();
-  const { tagStore } = useStores();
+const Tag = observer(({ className, count, id, ...props }: TagProps) => {
+  const { classes: css, cx } = useClasses(null);
+  const { fileStore, tagStore } = useStores();
 
   const tag = tagStore.getById(id);
+  count ??= fileStore.getTagCountById(id);
 
   return (
     <Chip
       avatar={<Avatar className={css.count}>{count}</Avatar>}
       label={tag.label}
-      className={css.chip}
+      className={cx(css.chip, className)}
       {...props}
     />
   );
@@ -26,7 +27,7 @@ const Tag = observer(({ count, id, ...props }: TagProps) => {
 
 export default Tag;
 
-const useClasses = makeStyles()({
+const useClasses = makeClasses({
   chip: {
     marginRight: "0.2em",
   },

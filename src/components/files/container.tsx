@@ -1,63 +1,107 @@
-import { useMemo, useRef, useState } from "react";
-import Selecto from "react-selecto";
+import { useEffect, useRef } from "react";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
-import { File } from "store/files";
+import Selecto, { OnSelect } from "react-selecto";
 import { Pagination, colors } from "@mui/material";
 import { Text } from "components";
 import { FileDetails, FileGrid } from ".";
-import { makeStyles } from "utils";
-
-const ROW_COUNT = 20;
+import { makeClasses } from "utils";
+import { setFileRating } from "database";
 
 interface FileContainerProps {
-  files: File[];
   mode: "details" | "grid";
 }
 
-const FileContainer = observer(({ files, mode }: FileContainerProps) => {
+const FileContainer = observer(({ mode }: FileContainerProps) => {
+  const { classes: css } = useClasses(null);
   const { fileStore } = useStores();
 
-  const { classes: css } = useClasses();
-
   const selectRef = useRef(null);
+  const selectoRef = useRef(null);
 
-  const handleSelect = (e) => {
-    fileStore.toggleFilesSelected(
-      e.added.map((f) => f.id),
-      true
-    );
+  useEffect(() => {
+    if (fileStore.page > fileStore.pageCount) fileStore.setPage(fileStore.pageCount);
+  }, [fileStore, fileStore.page, fileStore.pageCount]);
 
-    fileStore.toggleFilesSelected(
-      e.removed.map((f) => f.id),
-      false
-    );
+  useEffect(() => {
+    if (fileStore.selected.length === 0) {
+      // console.log("Clearing selected");
+      selectoRef.current?.setSelectedTargets?.([]);
+    }
+  }, [fileStore.selected]);
+
+  const handleKeyPress = (e) => {
+    if (fileStore.selected.length === 1) {
+      const selectedId = fileStore.selected[0].id;
+      const indexOfSelected = fileStore.filtered.findIndex((f) => f.id === selectedId);
+      const nextIndex = indexOfSelected === fileStore.filtered.length - 1 ? 0 : indexOfSelected + 1;
+      const nextId = fileStore.filtered[nextIndex].id;
+      const prevIndex = indexOfSelected === 0 ? fileStore.filtered.length - 1 : indexOfSelected - 1;
+      const prevId = fileStore.filtered[prevIndex].id;
+
+      if (["ArrowLeft", "ArrowRight"].includes(e.key)) {
+        fileStore.toggleFilesSelected([selectedId], false);
+        fileStore.toggleFilesSelected([e.key === "ArrowLeft" ? prevId : nextId], true);
+      } else if (["1", "2", "3", "4", "5", "6", "7", "8", "9"].includes(e.key)) {
+        setFileRating(fileStore, [selectedId], +e.key);
+      }
+    }
   };
 
-  const handleScroll = (e) => {
-    selectRef.current.scrollBy(e.direction[0] * 10, e.direction[1] * 10);
+  const handleSelect = (e: OnSelect) => {
+    const addedIds = e.added.map((f) => f.id);
+    const removedIds = e.removed.map((f) => f.id);
+    const hasAdded = addedIds.length > 0;
+    const hasRemoved = removedIds.length > 0;
+    const isShiftClick = e.inputEvent?.shiftKey;
+
+    // console.log({ e, addedIds, removedIds, isShiftClick });
+
+    if (!hasAdded && !hasRemoved) {
+      return fileStore.toggleFilesSelected(
+        fileStore.selected.map((f) => f.id),
+        false
+      );
+    }
+
+    if (hasAdded) {
+      if (isShiftClick) {
+        const lastIndex = fileStore.displayed.findIndex((f) => f.id === fileStore.lastSelected?.id);
+        const addedIndex = fileStore.displayed.findIndex((f) => f.id === addedIds[0]);
+        const rangeIds = fileStore.displayed
+          .slice(
+            lastIndex > addedIndex ? addedIndex : lastIndex,
+            (addedIndex > lastIndex ? addedIndex : lastIndex) + 1
+          )
+          .map((f) => f.id);
+
+        fileStore.toggleFilesSelected(rangeIds, true);
+      } else fileStore.toggleFilesSelected(addedIds, true);
+    }
+
+    if (hasRemoved) fileStore.toggleFilesSelected(removedIds, false);
   };
 
-  const [page, setPage] = useState(1);
-  const displayed = useMemo(() => {
-    return files.slice((page - 1) * ROW_COUNT, page * ROW_COUNT);
-  }, [files, page]);
+  const handleScroll = (e) => selectRef.current.scrollBy(e.direction[0] * 10, e.direction[1] * 10);
 
   return (
     <div className={css.container}>
       <Selecto
+        ref={selectoRef}
         dragContainer={selectRef.current}
         onSelect={handleSelect}
+        onSelectEnd={handleSelect}
         selectableTargets={[".selectable"]}
-        continueSelect={true}
+        continueSelect={false}
+        toggleContinueSelect={[["ctrl"], ["shift"]]}
         hitRate={0}
         scrollOptions={{ container: selectRef.current, throttleTime: 15 }}
         onScroll={handleScroll}
       />
 
-      <div ref={selectRef} className={css.files}>
-        {displayed?.length > 0 ? (
-          displayed.map((f) =>
+      <div ref={selectRef} onKeyDown={handleKeyPress} tabIndex={1} className={css.files}>
+        {fileStore.displayed?.length > 0 ? (
+          fileStore.displayed.map((f) =>
             mode === "details" ? (
               <FileDetails key={f.id} file={f} />
             ) : (
@@ -72,13 +116,9 @@ const FileContainer = observer(({ files, mode }: FileContainerProps) => {
       </div>
 
       <Pagination
-        count={
-          fileStore.filtered.length < ROW_COUNT
-            ? 1
-            : Math.ceil(fileStore.filtered.length / ROW_COUNT)
-        }
-        page={page}
-        onChange={(_, value) => setPage(value)}
+        count={fileStore.pageCount}
+        page={fileStore.page}
+        onChange={(_, value) => fileStore.setPage(value)}
         showFirstButton
         showLastButton
         className={css.pagination}
@@ -89,7 +129,7 @@ const FileContainer = observer(({ files, mode }: FileContainerProps) => {
 
 export default FileContainer;
 
-const useClasses = makeStyles()({
+const useClasses = makeClasses({
   container: {
     position: "relative",
     display: "flex",
@@ -100,6 +140,7 @@ const useClasses = makeStyles()({
   files: {
     display: "flex",
     flexFlow: "row wrap",
+    paddingBottom: "3rem",
     overflowY: "auto",
   },
   noResults: {

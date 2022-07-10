@@ -1,11 +1,10 @@
-import { CSSObject } from "@emotion/react";
-import { makeClassName, makeStyles } from "utils";
+import { makeClasses } from "utils";
 
 const View = ({ children, className = null, column = false, ...props }) => {
-  const { classes: css } = useClasses({ column });
+  const { classes: css, cx } = useClasses({ column });
 
   return (
-    <div className={makeClassName(css.root, className)} {...props}>
+    <div className={cx(css.root, className)} {...props}>
       {children}
     </div>
   );
@@ -13,7 +12,7 @@ const View = ({ children, className = null, column = false, ...props }) => {
 
 export default View;
 
-const useClasses = makeStyles<CSSObject>()((_, { column }: any) => ({
+const useClasses = makeClasses((_, { column }) => ({
   root: {
     display: "flex",
     flexDirection: column ? "column" : "row",

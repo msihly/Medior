@@ -1,26 +1,33 @@
 import { Checkbox as MuiCheckbox, colors, FormControlLabel } from "@mui/material";
-import { CSSObject } from "tss-react/types";
-import { makeStyles } from "utils";
+import { makeClasses } from "utils";
 
 interface CheckboxProps {
   checked: boolean;
+  fullWidth?: boolean;
+  indeterminate?: boolean;
   label?: string;
   setChecked: (checked: boolean) => void;
 }
 
-export const Checkbox = ({ checked = false, label, setChecked }: CheckboxProps) => {
-  const { classes: css } = useClasses(null);
+export const Checkbox = ({
+  checked = false,
+  fullWidth = true,
+  indeterminate,
+  label,
+  setChecked,
+}: CheckboxProps) => {
+  const { classes: css } = useClasses({ fullWidth });
 
   return (
     <FormControlLabel
       {...{ label }}
-      control={<MuiCheckbox {...{ checked }} onClick={() => setChecked(!checked)} />}
+      control={<MuiCheckbox {...{ checked, indeterminate }} onClick={() => setChecked(!checked)} />}
       className={css.label}
     />
   );
 };
 
-const useClasses = makeStyles<CSSObject>()(() => ({
+const useClasses = makeClasses((_, { fullWidth }) => ({
   label: {
     display: "flex",
     flex: 1,
@@ -28,7 +35,7 @@ const useClasses = makeStyles<CSSObject>()(() => ({
     marginLeft: 0,
     marginRight: 0,
     marginBottom: "0.2rem",
-    width: "100%",
+    width: fullWidth ? "100%" : "auto",
     transition: "all 200ms ease-in-out",
     "&:hover": {
       backgroundColor: colors.grey["800"],

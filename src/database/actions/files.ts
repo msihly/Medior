@@ -3,7 +3,7 @@ import path from "path";
 import md5File from "md5-file";
 import sharp from "sharp";
 import dayjs from "dayjs";
-import { FileModel } from "database";
+import { File, FileModel } from "database";
 import { generateFramesThumbnail, splitArray } from "utils";
 
 const copyFile = async (dirPath, originalPath, newPath) => {
@@ -13,49 +13,50 @@ const copyFile = async (dirPath, originalPath, newPath) => {
 };
 
 export const copyFileTo = async (fileObj, targetDir, dbOnly = false) => {
-  const { path: originalPath, name, extension: ext, size } = fileObj;
+  const { dateCreated, extension: ext, name, path: originalPath, size, tagIds } = fileObj;
 
   const hash = await md5File(originalPath);
   const dirPath = `${targetDir}\\${hash.substring(0, 2)}\\${hash.substring(2, 4)}`;
   const extFromPath = originalPath.split(".").pop();
   const newPath = `${dirPath}\\${hash}.${extFromPath}`;
-
-  const dateCreated = dayjs().toISOString();
-  const isVideo = ["mp4", "webm", "mkv"].includes(extFromPath);
+  const isAnimated = ["gif", "mp4", "mkv", "webm"].includes(extFromPath);
 
   try {
-    const thumbPaths = isVideo
+    const thumbPaths = isAnimated
       ? Array(9)
           .fill("")
           .map((_, i) => path.join(dirPath, `${hash}-thumb-${String(i + 1).padStart(2, "0")}.jpg`))
       : [path.join(dirPath, `${hash}-thumb.${extFromPath}`)];
 
     if (!dbOnly) {
-      await Promise.all([
-        copyFile(dirPath, originalPath, newPath),
-        isVideo
-          ? generateFramesThumbnail(originalPath, dirPath, hash)
-          : sharp(originalPath).resize(300, 300).toFile(thumbPaths[0]),
-      ]);
+      await Promise.all(
+        [
+          copyFile(dirPath, originalPath, newPath),
+          isAnimated
+            ? generateFramesThumbnail(originalPath, dirPath, hash)
+            : sharp(originalPath).resize(300, 300).toFile(thumbPaths[0]),
+        ].flat()
+      );
     }
 
     const file = (
       await FileModel.create({
         dateCreated,
-        dateModified: dateCreated,
+        dateModified: dayjs().toISOString(),
         ext,
         hash,
         isArchived: false,
         originalName: name,
         originalPath,
         path: newPath,
+        rating: 0,
         size,
-        tagIds: [],
+        tagIds,
         thumbPaths,
       })
     ).toJSON();
 
-    return { success: true, file, isDuplicate: false, isSelected: false };
+    return { success: true, file, isDuplicate: false };
   } catch (err) {
     if (err.code === "EEXIST") {
       const file = (await FileModel.findOne({ hash }))?.toJSON?.();
@@ -65,7 +66,7 @@ export const copyFileTo = async (fileObj, targetDir, dbOnly = false) => {
         return res;
       }
 
-      return { success: true, file, isDuplicate: true, isSelected: false };
+      return { success: true, file, isDuplicate: true };
     } else {
       console.error(err?.message ?? err);
       return { success: false, error: err?.message ?? err };
@@ -77,8 +78,9 @@ export const deleteFiles = async (fileStore, files, isUndelete = false) => {
   if (!files?.length) return false;
 
   try {
+    const fileIds = files.map((f) => f.id);
+
     if (isUndelete) {
-      const fileIds = files.map((f) => f.id);
       await FileModel.updateMany({ _id: { $in: fileIds } }, { isArchived: false });
       fileStore.archiveFiles(fileIds, true);
       return true;
@@ -103,6 +105,7 @@ export const deleteFiles = async (fileStore, files, isUndelete = false) => {
 
     fileStore.archiveFiles(archivedIds);
     fileStore.deleteFiles(deletedIds);
+    fileStore.toggleFilesSelected(fileIds, false);
 
     return true;
   } catch (err) {
@@ -147,10 +150,25 @@ export const editFileTags = async (
 
 export const getAllFiles = async () => {
   try {
-    const files = (await FileModel.find()).map((r) => r.toJSON());
+    const files = (await FileModel.find()).map((r) => r.toJSON() as File);
     return files;
   } catch (err) {
     console.error(err?.message ?? err);
     return [];
+  }
+};
+
+export const setFileRating = async (fileStore, fileIds = [], rating) => {
+  try {
+    const dateModified = dayjs().toISOString();
+
+    await Promise.all(
+      fileIds.flatMap(async (id) => {
+        await FileModel.updateOne({ _id: id }, { rating, dateModified });
+        fileStore.getById(id).update({ rating });
+      })
+    );
+  } catch (err) {
+    console.error(err?.message ?? err);
   }
 };

@@ -1,25 +1,14 @@
 const nodeExternals = require("webpack-node-externals");
 
 module.exports = {
+  babel: {
+    plugins: ["@babel/plugin-proposal-logical-assignment-operators"],
+  },
   webpack: {
     configure: {
       mode: "development",
       target: "electron-renderer",
-      // externals: { sharp: "commonjs sharp" },
-      // externals: [nodeExternals()],
       externals: [nodeExternals(), "commonjs sharp"],
-      // resolve: {
-      //   extensions: [".ts", ".tsx", ".js", ".jsx"],
-      // },
-      // module: {
-      //   rules: [
-      //     {
-      //       test: /\.tsx?$/,
-      //       use: [{ loader: "ts-loader" }],
-      //       exclude: /node_modules/,
-      //     },
-      //   ],
-      // },
     },
     compilerOptions: {
       test: /\.[jt]s$/,

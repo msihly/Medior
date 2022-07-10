@@ -23,28 +23,33 @@ export const generateFramesThumbnail = async (
   fileHash: string,
   numOfFrames = 9
 ) => {
-  const { duration } = await getVideoInfo(inputPath);
-  const frameInterval = Math.floor(duration / numOfFrames);
-
   try {
-    await new Promise((resolve, reject) => {
-      return ffmpeg()
-        .input(inputPath)
-        .outputOptions([
-          `-vf fps=1/${frameInterval},scale=300:300:force_original_aspect_ratio=increase,crop=300:300`,
-          `-vframes ${numOfFrames}`,
-        ])
-        .output(path.join(outputPath, `${fileHash}-thumb-%02d.jpg`))
-        .on("end", resolve)
-        .on("error", reject)
-        .run();
-    });
+    const { duration } = await getVideoInfo(inputPath);
+    const frameInterval = duration / numOfFrames;
 
-    return Array(numOfFrames)
-      .fill("")
-      .map((_, i) => path.join(outputPath, `${fileHash}-thumb-${i + 1}.jpg`));
+    try {
+      await new Promise((resolve, reject) => {
+        return ffmpeg()
+          .input(inputPath)
+          .outputOptions([
+            `-vf fps=1/${frameInterval},scale=300:300:force_original_aspect_ratio=increase,crop=300:300`,
+            `-vframes ${numOfFrames}`,
+          ])
+          .output(path.join(outputPath, `${fileHash}-thumb-%02d.jpg`))
+          .on("end", resolve)
+          .on("error", reject)
+          .run();
+      });
+
+      return Array(numOfFrames)
+        .fill("")
+        .map((_, i) => path.join(outputPath, `${fileHash}-thumb-${i + 1}.jpg`));
+    } catch (err) {
+      console.error(err);
+      return [];
+    }
   } catch (err) {
-    console.error(err?.message ?? err);
+    console.error("ERR::getVideoInfo()", err);
     return [];
   }
 };

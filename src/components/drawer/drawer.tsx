@@ -1,8 +1,4 @@
-import { useState } from "react";
-import { remote } from "electron";
-import fs from "fs/promises";
-import path from "path";
-import dirTree from "directory-tree";
+import { forwardRef, useState } from "react";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
 import { Divider, Drawer as MuiDrawer, List, colors } from "@mui/material";
@@ -17,50 +13,36 @@ import {
   Text,
   View,
 } from "components";
-import { DuplicatesModal, ExtCheckbox } from ".";
-import { makeStyles } from "utils";
-import { CSSObject } from "tss-react";
+import { ExtCheckbox, Importer } from ".";
+import { makeClasses } from "utils";
 import * as Media from "media";
 
 const Drawer = observer(
-  (_, drawerRef: any) => {
+  forwardRef((_, drawerRef: any) => {
     const { appStore, fileStore, tagStore } = useStores();
 
     const { classes: css } = useClasses({ drawerMode: appStore.drawerMode });
 
+    const [isImporterOpen, setIsImporterOpen] = useState(false);
     const [isImageTypesOpen, setIsImageTypesOpen] = useState(false);
     const [isVideoTypesOpen, setIsVideoTypesOpen] = useState(false);
 
-    /* ------------------------ BEGIN - FILE / DIR IMPORT ----------------------- */
-    const [isDuplicatesOpen, setIsDuplicatesOpen] = useState(false);
-
-    const importFile = (fileObj) => fileStore.addImports({ ...fileObj, isCompleted: false });
-
-    const importFiles = async (isDir = false) => {
-      try {
-        const res = await remote.dialog.showOpenDialog({
-          properties: isDir ? ["openDirectory"] : ["openFile", "multiSelections"],
-        });
-        if (res.canceled) return;
-
-        appStore.setIsDrawerOpen(false);
-
-        if (isDir) {
-          dirTree(res.filePaths[0], { extensions: /\.(jpe?g|png|gif|mp4|webm|mkv)$/ }, (fileObj) =>
-            importFile(fileObj)
-          );
-        } else {
-          res.filePaths.forEach(async (p) => {
-            const size = (await fs.stat(p)).size;
-            const fileObj = { path: p, name: path.parse(p).name, extension: path.extname(p), size };
-            importFile(fileObj);
-          });
-        }
-      } catch (err) {
-        console.error(err?.message ?? err);
-      }
+    const handleDescendants = () => {
+      if (!fileStore.includeDescendants && !fileStore.excludeDescendants)
+        fileStore.setIncludeDescendants(true);
+      else if (fileStore.includeDescendants) {
+        fileStore.setIncludeDescendants(false);
+        fileStore.setExcludeDescendants(true);
+      } else fileStore.setExcludeDescendants(false);
     };
-    /* ------------------------ END - FILE / DIR IMPORT ----------------------- */
+
+    const handleTagged = () => {
+      if (!fileStore.includeTagged && !fileStore.includeUntagged) fileStore.setIncludeTagged(true);
+      else if (fileStore.includeTagged) {
+        fileStore.setIncludeTagged(false);
+        fileStore.setIncludeUntagged(true);
+      } else fileStore.setIncludeUntagged(false);
+    };
 
     return (
       <MuiDrawer
@@ -85,9 +67,7 @@ const Drawer = observer(
             onClick={() => tagStore.setIsTagManagerOpen(true)}
           />
 
-          <ListItem text="Import Files" icon={<ImportIcon />} onClick={() => importFiles(false)} />
-
-          <ListItem text="Import Folder" icon={<ImportIcon />} onClick={() => importFiles(true)} />
+          <ListItem text="Import" icon={<ImportIcon />} onClick={() => setIsImporterOpen(true)} />
 
           <ListItem
             text={`${fileStore.isArchiveOpen ? "Close" : "Open"} Archive`}
@@ -102,7 +82,7 @@ const Drawer = observer(
           Include
         </Text>
         <TagInput
-          value={fileStore.includedTags}
+          value={[...fileStore.includedTags]}
           onChange={(val) => fileStore.setIncludedTags(val)}
           options={tagStore.tagOptions}
           limitTags={3}
@@ -113,7 +93,7 @@ const Drawer = observer(
           Exclude
         </Text>
         <TagInput
-          value={fileStore.excludedTags}
+          value={[...fileStore.excludedTags]}
           onChange={(val) => fileStore.setExcludedTags(val)}
           options={tagStore.tagOptions}
           limitTags={3}
@@ -124,30 +104,20 @@ const Drawer = observer(
           <Checkbox
             label="Tagged"
             checked={fileStore.includeTagged}
-            setChecked={fileStore.setIncludeTagged}
+            indeterminate={fileStore.includeUntagged}
+            setChecked={handleTagged}
           />
 
           <Checkbox
-            label="Untagged"
-            checked={fileStore.includeUntagged}
-            setChecked={fileStore.setIncludeUntagged}
-          />
-
-          <Checkbox
-            label="Include Desc"
+            label="Descendants"
             checked={fileStore.includeDescendants}
-            setChecked={fileStore.setIncludeDescendants}
-          />
-
-          <Checkbox
-            label="Exclude Desc"
-            checked={fileStore.excludeDescendants}
-            setChecked={fileStore.setExcludeDescendants}
+            indeterminate={fileStore.excludeDescendants}
+            setChecked={handleDescendants}
           />
         </View>
 
         <Accordion
-          label="Image Types"
+          header={<Text>Image Types</Text>}
           expanded={isImageTypesOpen}
           setExpanded={setIsImageTypesOpen}
           fullWidth
@@ -158,7 +128,7 @@ const Drawer = observer(
         </Accordion>
 
         <Accordion
-          label="Video Types"
+          header={<Text>Video Types</Text>}
           expanded={isVideoTypesOpen}
           setExpanded={setIsVideoTypesOpen}
           fullWidth
@@ -168,23 +138,17 @@ const Drawer = observer(
           ))}
         </Accordion>
 
-        {isDuplicatesOpen && (
-          <DuplicatesModal
-            handleClose={() => setIsDuplicatesOpen(false)}
-            files={fileStore.duplicates}
-          />
-        )}
-
         {tagStore.isTagManagerOpen && <TagManager />}
+
+        <Importer isOpen={isImporterOpen} setIsOpen={setIsImporterOpen} />
       </MuiDrawer>
     );
-  },
-  { forwardRef: true }
+  })
 );
 
 export default Drawer;
 
-const useClasses = makeStyles<CSSObject>()((_, { drawerMode }: any) => ({
+const useClasses = makeClasses((_, { drawerMode }) => ({
   checkboxes: {
     padding: "0.3rem",
     width: "100%",

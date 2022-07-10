@@ -1,19 +1,19 @@
-import { applySnapshot, cast, getParentOfType, Instance, types } from "mobx-state-tree";
+import {
+  applySnapshot,
+  cast,
+  getParentOfType,
+  Instance,
+  SnapshotOrInstance,
+  types,
+} from "mobx-state-tree";
 import { RootStoreModel } from "store/root-store";
+import { TagStoreModel } from "store/tags";
 import { File, FileModel } from ".";
 import { countItems, sortArray } from "utils";
 import { toast } from "react-toastify";
 
 const NUMERICAL_ATTRIBUTES = ["size"];
-
-const FileImportModel = types.model({
-  isCompleted: types.boolean,
-  path: types.string,
-  name: types.string,
-  extension: types.string,
-  size: types.number,
-});
-export type FileImport = Instance<typeof FileImportModel>;
+const ROW_COUNT = 40;
 
 const ImageTypesModel = types.model({
   jpg: types.boolean,
@@ -40,6 +40,7 @@ const TagOptionModel = types.model({
   count: types.number,
   id: types.string,
   label: types.maybe(types.string),
+  parentLabels: types.array(types.string),
 });
 export type TagOption = Instance<typeof TagOptionModel>;
 
@@ -51,10 +52,11 @@ export const defaultFileStore = {
   imports: [],
   includeDescendants: false,
   includedTags: [],
-  includeTagged: true,
-  includeUntagged: true,
+  includeTagged: false,
+  includeUntagged: false,
   isArchiveOpen: false,
   isImporting: false,
+  page: 1,
   selectedImageTypes: {
     jpg: true,
     jpeg: true,
@@ -73,32 +75,27 @@ export const defaultFileStore = {
 export const FileStoreModel = types
   .model("FileStore")
   .props({
-    duplicates: types.array(FileModel),
     excludeDescendants: types.boolean,
     excludedTags: types.array(TagOptionModel),
     files: types.array(FileModel),
-    imports: types.array(FileImportModel),
     includeDescendants: types.boolean,
     includedTags: types.array(TagOptionModel),
     includeTagged: types.boolean,
     includeUntagged: types.boolean,
     isArchiveOpen: types.boolean,
-    isImporting: types.boolean,
+    page: types.number,
     selectedImageTypes: ImageTypesModel,
     selectedVideoTypes: VideoTypesModel,
     sortDir: types.string,
     sortKey: types.string,
   })
   .views((self) => ({
-    get archived() {
+    get archived(): File[] {
       return self.files.filter((f) => f.isArchived);
     },
-    get completedImports() {
-      return self.imports.filter((imp) => imp.isCompleted);
-    },
-    get filtered() {
-      const rootStore = getParentOfType(self, RootStoreModel) as Instance<typeof RootStoreModel>;
-      // return self.tagIds.map((id) => rootStore.tagStore.getById(id));
+    get filtered(): File[] {
+      const rootStore = getParentOfType(self, RootStoreModel);
+      const tagStore: Instance<typeof TagStoreModel> = rootStore.tagStore;
 
       const excludedTagIds = self.excludedTags.map((t) => t.id);
       const includedTagIds = self.includedTags.map((t) => t.id);
@@ -113,11 +110,7 @@ export const FileStoreModel = types
 
         const parentTagIds =
           self.excludeDescendants || self.includeDescendants
-            ? [
-                ...new Set(
-                  f.tagIds.flatMap((tagId) => rootStore.tagStore.getById(tagId)?.parentIds)
-                ),
-              ]
+            ? [...new Set(f.tagIds.flatMap((tagId) => tagStore.getById(tagId)?.parentIds))]
             : [];
 
         const hasExcluded = excludedTagIds.some((tagId) => f.tagIds.includes(tagId));
@@ -145,21 +138,21 @@ export const FileStoreModel = types
         NUMERICAL_ATTRIBUTES.includes(self.sortKey)
       );
     },
-    get images() {
+    get images(): File[] {
       const imageTypes = [".jpg", ".jpeg", ".png"];
       return self.files.filter((f) => imageTypes.includes(f.ext));
     },
-    get selected() {
+    get selected(): File[] {
       return self.files.filter((f) => f.isSelected);
     },
-    get videos() {
+    get videos(): File[] {
       const videoTypes = [".gif", ".webm", ".mp4", ".mkv"];
       return self.files.filter((f) => videoTypes.includes(f.ext));
     },
-    getById: (id: string) => {
+    getById: (id: string): File => {
       return self.files.find((f) => f.id === id);
     },
-    getTagCounts: (files: File[] = self.files) => {
+    getTagCounts: (files: File[] = self.files): TagCount[] => {
       const counts = countItems(files.flatMap((f) => f.tagIds).filter((t) => t !== undefined)).map(
         ({ value, count }) => ({ count, id: value })
       );
@@ -168,28 +161,25 @@ export const FileStoreModel = types
     },
   }))
   .views((self) => ({
-    get hasIncompleteImports() {
-      return self.imports.length > self.completedImports.length;
+    get displayed(): File[] {
+      return self.filtered.slice((self.page - 1) * ROW_COUNT, self.page * ROW_COUNT);
     },
-    get selectedTagCounts() {
+    get lastSelected(): File {
+      return self.selected[self.selected.length - 1];
+    },
+    get pageCount(): number {
+      return self.filtered.length < ROW_COUNT ? 1 : Math.ceil(self.filtered.length / ROW_COUNT);
+    },
+    get selectedTagCounts(): TagCount[] {
       return self.getTagCounts(self.selected);
     },
-    getTagCountById: (id: string) => {
+    getTagCountById: (id: string): number => {
       return self.getTagCounts().find((t) => t.id === id)?.count;
     },
   }))
   .actions((self) => ({
-    addDuplicates: (files: File[]) => {
-      self.duplicates.push(...files.map((f) => ({ ...f, isArchived: false, isSelected: false })));
-    },
-    addFiles: (files: File[]) => {
+    addFiles: (...files: File[]) => {
       self.files = cast(self.files.concat(files.map((f) => ({ ...f, isSelected: false }))));
-    },
-    addImports: (...fileImports: FileImport[]) => {
-      fileImports.forEach((fileImport) => {
-        if (!self.imports.find((imp) => imp.path === fileImport.path))
-          self.imports.push(fileImport);
-      });
     },
     archiveFiles: (fileIds: string[], isUnarchive = false) => {
       if (!fileIds?.length) return false;
@@ -198,17 +188,12 @@ export const FileStoreModel = types
       });
       toast.warning(`${isUnarchive ? "Unarchived" : "Archived"} ${fileIds.length} files`);
     },
-    completeImport: (filePath: string) => {
-      const fileImport = self.imports.find((f) => f.path === filePath);
-      fileImport.isCompleted = true;
-      self.isImporting = false;
-    },
     deleteFiles: (fileIds: string[]) => {
       if (!fileIds?.length) return false;
       self.files = cast(self.files.filter((f) => !fileIds.includes(f.id)));
       toast.error(`Deleted ${fileIds.length} files`);
     },
-    overwrite: (files: File[]) => {
+    overwrite: (files: SnapshotOrInstance<typeof self.files>) => {
       self.files = cast(files.map((f) => ({ ...f, isSelected: false })));
     },
     reset: () => {
@@ -232,8 +217,8 @@ export const FileStoreModel = types
     setIncludeUntagged: (isIncluded: boolean) => {
       self.includeUntagged = isIncluded;
     },
-    setIsImporting: (isImporting: boolean) => {
-      self.isImporting = isImporting;
+    setPage: (page: number) => {
+      self.page = page;
     },
     setSelectedImageTypes: (updates: ImageTypes) => {
       self.selectedImageTypes = { ...self.selectedImageTypes, ...updates };

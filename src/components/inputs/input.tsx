@@ -1,8 +1,8 @@
 import { TextField } from "@mui/material";
-import { makeStyles } from "utils";
+import { makeClasses } from "utils";
 
 const Input = ({ className = null, setValue, value, ...props }) => {
-  const { classes: css, cx } = useClasses();
+  const { classes: css, cx } = useClasses(null);
 
   return (
     <TextField
@@ -17,8 +17,8 @@ const Input = ({ className = null, setValue, value, ...props }) => {
 
 export default Input;
 
-const useClasses = makeStyles()(() => ({
+const useClasses = makeClasses({
   input: {
     marginBottom: "0.5rem",
   },
-}));
+});

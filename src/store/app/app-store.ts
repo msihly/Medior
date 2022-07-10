@@ -1,14 +1,16 @@
 import { applySnapshot, Instance, types } from "mobx-state-tree";
 
+type DrawerMode = "persistent" | "temporary";
+
 export const defaultAppStore = {
-  drawerMode: "persistent",
+  drawerMode: "persistent" as DrawerMode,
   isDrawerOpen: false,
 };
 
 export const AppStoreModel = types
   .model("AppStore")
   .props({
-    drawerMode: types.enumeration(["persistent", "temporary"]),
+    drawerMode: types.enumeration<DrawerMode>(["persistent", "temporary"]),
     isDrawerOpen: types.boolean,
   })
   .actions((self) => ({
@@ -23,5 +25,4 @@ export const AppStoreModel = types
     },
   }));
 
-type AppStoreType = Instance<typeof AppStoreModel>;
-export interface AppStore extends AppStoreType {}
+export interface AppStore extends Instance<typeof AppStoreModel> {}

@@ -1,10 +1,10 @@
 import { Dialog, DialogTitle, DialogContent, DialogActions, colors } from "@mui/material";
 import { Button, Text } from "components";
-import { formatBytes, makeStyles } from "utils";
+import { formatBytes, makeClasses } from "utils";
 import dayjs from "dayjs";
 
 const InfoModal = ({ file, setVisible }) => {
-  const { classes: css } = useClasses();
+  const { classes: css } = useClasses(null);
 
   const handleClose = () => setVisible(false);
 
@@ -47,7 +47,7 @@ const InfoModal = ({ file, setVisible }) => {
 
 export default InfoModal;
 
-const useClasses = makeStyles()({
+const useClasses = makeClasses({
   buttons: {
     justifyContent: "center",
   },

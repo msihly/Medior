@@ -1,8 +1,11 @@
+import { shell } from "electron";
 import { useState } from "react";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
 import { deleteFiles } from "database";
-import { Menu, MenuItem } from "@mui/material";
+import { Menu } from "@mui/material";
+import { Archive, Delete, Info, Search } from "@mui/icons-material";
+import { ListItem } from "components/list";
 import { InfoModal } from ".";
 
 const ContextMenu = observer(({ children, file, ...props }: any) => {
@@ -23,10 +26,18 @@ const ContextMenu = observer(({ children, file, ...props }: any) => {
     setMouseY(null);
   };
 
-  const handleDelete = () => deleteFiles(fileStore, [file]);
+  const handleDelete = () => {
+    deleteFiles(fileStore, file.isSelected ? fileStore.selected : [file]);
+    handleClose();
+  };
 
   const openInfo = () => {
     setIsInfoOpen(true);
+    handleClose();
+  };
+
+  const openInExplorer = () => {
+    shell.showItemInFolder(file.path);
     handleClose();
   };
 
@@ -41,8 +52,32 @@ const ContextMenu = observer(({ children, file, ...props }: any) => {
           mouseX !== null && mouseY !== null ? { top: mouseY, left: mouseX } : undefined
         }
       >
-        <MenuItem onClick={openInfo}>Info</MenuItem>
-        <MenuItem onClick={handleDelete}>Delete</MenuItem>
+        <ListItem
+          text="Open in Explorer"
+          icon={<Search />}
+          onClick={openInExplorer}
+          iconMargin="0.5rem"
+          paddingLeft="0.2em"
+          paddingRight="0.5em"
+        />
+
+        <ListItem
+          text="Info"
+          icon={<Info />}
+          onClick={openInfo}
+          iconMargin="0.5rem"
+          paddingLeft="0.2em"
+          paddingRight="0.5em"
+        />
+
+        <ListItem
+          text={file.isArchived ? "Delete" : "Archive"}
+          icon={file.isArchived ? <Delete /> : <Archive />}
+          onClick={handleDelete}
+          iconMargin="0.5rem"
+          paddingLeft="0.2em"
+          paddingRight="0.5em"
+        />
       </Menu>
 
       {isInfoOpen && <InfoModal file={file} setVisible={setIsInfoOpen} />}

@@ -3,6 +3,7 @@ export * from "./drawer";
 export * from "./files";
 export * from "./inputs";
 export * from "./list";
+export * from "./media";
 export * from "./tags";
 export * from "./text";
 export * from "./toggles";

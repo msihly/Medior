@@ -1,8 +1,8 @@
-import { TagModel } from "database";
+import { Tag, TagModel } from "database";
 
 export const createTag = async ({ aliases = [], label, parentIds = [], tagStore }) => {
   try {
-    const tag = (await TagModel.create({ aliases, label, parentIds })).toJSON();
+    const tag = (await TagModel.create({ aliases, label, parentIds })).toJSON() as Tag;
     tagStore.createTag(tag);
 
     return { success: true, tag };
@@ -26,7 +26,7 @@ export const editTag = async ({ aliases, id, label, parentIds, tagStore }) => {
 
 export const getAllTags = async () => {
   try {
-    const tags = (await TagModel.find()).map((r) => r.toJSON());
+    const tags = (await TagModel.find()).map((r) => r.toJSON() as Tag);
     return tags;
   } catch (err) {
     console.error(err?.message ?? err);

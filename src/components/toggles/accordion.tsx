@@ -2,31 +2,37 @@ import {
   Accordion as MuiAccordion,
   AccordionProps as MuiAccordionProps,
   Button,
-  Typography,
 } from "@mui/material";
 import { ExpandMore } from "@mui/icons-material";
-import { CSSObject } from "tss-react";
-import { makeStyles } from "utils";
+import { makeClasses } from "utils";
+import { ReactNode } from "react";
+import { View } from "components";
 
 interface AccordionProps extends MuiAccordionProps {
   children: any;
   expanded: boolean;
   fullWidth?: boolean;
-  label: string;
+  header: ReactNode;
   setExpanded: (expanded: boolean) => void;
 }
 
 export const Accordion = ({
   children,
+  className,
   expanded,
   fullWidth = false,
-  label,
+  header,
   setExpanded,
 }: AccordionProps) => {
-  const { classes: css } = useClasses({ expanded, fullWidth });
+  const { classes: css, cx } = useClasses({ expanded, fullWidth });
 
   return (
-    <MuiAccordion {...{ expanded }} disableGutters className={css.accordion}>
+    <MuiAccordion
+      {...{ expanded }}
+      TransitionProps={{ unmountOnExit: true }}
+      disableGutters
+      className={cx(css.accordion, className)}
+    >
       <Button
         onClick={() => setExpanded(!expanded)}
         endIcon={<ExpandMore fontSize="medium" className={css.expandIcon} />}
@@ -34,16 +40,18 @@ export const Accordion = ({
         fullWidth
         className={css.button}
       >
-        <Typography>{label}</Typography>
+        {header}
       </Button>
-      <div className={css.body}>{children}</div>
+
+      <View column>{children}</View>
     </MuiAccordion>
   );
 };
 
-const useClasses = makeStyles<CSSObject>()((_, { expanded, fullWidth }) => ({
+const useClasses = makeClasses((_, { expanded, fullWidth }) => ({
   accordion: {
-    padding: "0.3rem",
+    margin: 0,
+    padding: 0,
     width: fullWidth ? "100%" : "auto",
     background: "transparent",
     boxShadow: "none",
@@ -51,14 +59,10 @@ const useClasses = makeStyles<CSSObject>()((_, { expanded, fullWidth }) => ({
       display: "none",
     },
   },
-  body: {
-    display: "flex",
-    flexDirection: "column",
-  },
   button: {
     justifyContent: "space-between",
+    padding: "0.5em 1em",
     textTransform: "capitalize",
-    padding: "0.5em",
   },
   expandIcon: {
     rotate: `${expanded ? 180 : 0}deg`,

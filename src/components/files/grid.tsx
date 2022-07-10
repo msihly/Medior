@@ -5,7 +5,8 @@ import { useStores } from "store";
 import { Paper, colors, Chip } from "@mui/material";
 import { SideScroller, Tag } from "components";
 import { ContextMenu } from ".";
-import { makeStyles } from "utils";
+import { makeClasses } from "utils";
+import { Star } from "@mui/icons-material";
 
 const FileGrid = observer(({ id }: any) => {
   const { fileStore, tagStore } = useStores();
@@ -46,10 +47,17 @@ const FileGrid = observer(({ id }: any) => {
           onMouseLeave={handleMouseLeave}
           className={css.imageContainer}
         >
+          <Chip
+            icon={<Star fontSize="inherit" className={css.star} />}
+            label={file?.rating}
+            className={css.rating}
+          />
+
           <img
             src={file?.thumbPaths[thumbIndex] ?? file?.path}
             className={css.image}
             alt={file?.originalName}
+            draggable={false}
           />
 
           <Chip label={file?.ext} className={css.ext} />
@@ -75,7 +83,7 @@ const FileGrid = observer(({ id }: any) => {
 
 export default FileGrid;
 
-const useClasses = makeStyles<object>()((theme, { selected }: any) => ({
+const useClasses = makeClasses((theme, { selected }) => ({
   container: {
     flexBasis: "calc(100% / 7)",
     [theme.breakpoints.down("xl")]: {
@@ -134,6 +142,21 @@ const useClasses = makeStyles<object>()((theme, { selected }: any) => ({
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
+  },
+  rating: {
+    position: "absolute",
+    top: "0.5rem",
+    left: "0.5rem",
+    backgroundColor: colors.grey["900"],
+    opacity: 0.7,
+    cursor: "pointer",
+    transition: "all 200ms ease-in-out",
+    "&:hover": {
+      opacity: 0.85,
+    },
+  },
+  star: {
+    fill: colors.amber["600"],
   },
   tags: {
     display: "flex",

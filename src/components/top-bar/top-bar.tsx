@@ -2,32 +2,41 @@ import { useState } from "react";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
 import { deleteFiles } from "database";
-import { toast } from "react-toastify";
-import { makeStyles } from "utils";
 import { AppBar, colors } from "@mui/material";
 import { IconButton, ImportsProgress, Tagger } from "components";
 import { SortMenu } from ".";
+import { makeClasses } from "utils";
+import { toast } from "react-toastify";
 
 const TopBar = observer(() => {
   const { appStore, fileStore } = useStores();
-  const { classes: css } = useClasses();
+  const { classes: css } = useClasses(null);
 
   const [isTaggerOpen, setIsTaggerOpen] = useState(false);
-
-  const handleSelectAll = () => {
-    const isAnySelected = fileStore.selected?.length > 0;
-
-    fileStore.toggleFilesSelected(
-      fileStore.files.map((f) => f.id),
-      !isAnySelected
-    );
-
-    toast.info(`${!isAnySelected ? "Selected" : "Deselected"} all files`);
-  };
 
   const handleDelete = () => deleteFiles(fileStore, fileStore.selected);
 
   const handleEditTags = () => setIsTaggerOpen(true);
+
+  const handleDeselectAll = () => {
+    fileStore.toggleFilesSelected(
+      fileStore.selected.map((f) => f.id),
+      false
+    );
+
+    toast.info("Deselected all files");
+  };
+
+  const handleSelectAll = () => {
+    fileStore.toggleFilesSelected(
+      fileStore.displayed.map((f) => f.id),
+      true
+    );
+
+    toast.info(
+      `Added ${fileStore.displayed.length} files to selection (${fileStore.selected.length})`
+    );
+  };
 
   const handleUnarchive = () => deleteFiles(fileStore, fileStore.selected, true);
 
@@ -44,16 +53,34 @@ const TopBar = observer(() => {
 
         <span className={css.divisions}>
           {fileStore.isArchiveOpen && (
-            <IconButton name="Delete" onClick={handleDelete} size="medium" />
+            <IconButton
+              name="Delete"
+              onClick={handleDelete}
+              disabled={fileStore.selected.length === 0}
+              size="medium"
+            />
           )}
 
           <IconButton
             name={fileStore.isArchiveOpen ? "Unarchive" : "Archive"}
             onClick={fileStore.isArchiveOpen ? handleUnarchive : handleDelete}
+            disabled={fileStore.selected.length === 0}
             size="medium"
           />
 
-          <IconButton name="Label" onClick={handleEditTags} size="medium" />
+          <IconButton
+            name="Label"
+            onClick={handleEditTags}
+            disabled={fileStore.selected.length === 0}
+            size="medium"
+          />
+
+          <IconButton
+            name="Deselect"
+            onClick={handleDeselectAll}
+            disabled={fileStore.selected.length === 0}
+            size="medium"
+          />
 
           <IconButton name="SelectAll" onClick={handleSelectAll} size="medium" />
 
@@ -68,7 +95,7 @@ const TopBar = observer(() => {
 
 export default TopBar;
 
-const useClasses = makeStyles()({
+const useClasses = makeClasses({
   appBar: {
     display: "flex",
     flexFlow: "row nowrap",

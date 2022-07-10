@@ -1,29 +1,18 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
 import { editFileTags } from "database";
 import { Dialog, DialogTitle, DialogContent, DialogActions, colors } from "@mui/material";
-import { Button, Text } from "components";
-import { TagInput } from ".";
-import { makeStyles } from "utils";
+import { Button, Text, View } from "components";
+import { TagEditor, TagInput } from ".";
+import { makeClasses } from "utils";
 import { toast } from "react-toastify";
 
 const TRANSITION_DURATION = 200;
 
 const Tagger = observer(({ isOpen, setIsOpen }: any) => {
   const { fileStore, tagStore } = useStores();
-  const { classes: css } = useClasses();
-
-  const activeTagCounts = fileStore.getTagCounts();
-
-  const tagOptions = useMemo(() => {
-    return tagStore.tags.reduce((acc, cur) => {
-      const tagCount = activeTagCounts.find((t) => t.id === cur.id);
-      const label = tagStore.getById(cur.id)?.label;
-      acc.push(!tagCount ? { id: cur.id, count: 0, label } : { ...tagCount, label });
-      return acc;
-    }, []);
-  }, [activeTagCounts, tagStore]);
+  const { classes: css } = useClasses(null);
 
   /* ------------------------------ BEGIN - MODAL ----------------------------- */
   const [isMounted, setIsMounted] = useState(false);
@@ -36,6 +25,7 @@ const Tagger = observer(({ isOpen, setIsOpen }: any) => {
 
   /* ------------------------------ BEGIN - FORM ------------------------------ */
   const [addedTags, setAddedTags] = useState([]);
+  const [isCreateMode, setIsCreateMode] = useState(false);
   const [removedTags, setRemovedTags] = useState([]);
 
   const handleTagAdded = (tags) => {
@@ -71,42 +61,65 @@ const Tagger = observer(({ isOpen, setIsOpen }: any) => {
         transitionDuration={TRANSITION_DURATION}
         scroll="paper"
       >
-        <DialogTitle className={css.dialogTitle}>Update Tags</DialogTitle>
+        <DialogTitle className={css.dialogTitle}>
+          {isCreateMode ? "Create Tag" : "Update Tags"}
+        </DialogTitle>
 
-        <DialogContent dividers={true} className={css.dialogContent}>
-          <Text align="center" className={css.sectionTitle}>
-            Current Tags
-          </Text>
-          <TagInput value={fileStore.selectedTagCounts} disabled opaque className={css.input} />
+        {!isCreateMode ? (
+          <>
+            <DialogContent dividers={true} className={css.dialogContent}>
+              <View column>
+                <Text align="center" className={css.sectionTitle}>
+                  Current Tags
+                </Text>
+                <TagInput
+                  value={fileStore.selectedTagCounts}
+                  disabled
+                  opaque
+                  className={css.input}
+                />
 
-          <Text align="center" className={css.sectionTitle}>
-            Added Tags
-          </Text>
-          <TagInput
-            options={tagOptions}
-            value={addedTags}
-            onChange={handleTagAdded}
-            className={css.input}
+                <Text align="center" className={css.sectionTitle}>
+                  Added Tags
+                </Text>
+                <TagInput
+                  options={tagStore.tagOptions}
+                  value={addedTags}
+                  onChange={handleTagAdded}
+                  className={css.input}
+                />
+
+                <Text align="center" className={css.sectionTitle}>
+                  Removed Tags
+                </Text>
+                <TagInput
+                  options={tagStore.tagOptions}
+                  value={removedTags}
+                  onChange={handleTagRemoved}
+                  className={css.input}
+                />
+              </View>
+            </DialogContent>
+
+            <DialogActions className={css.dialogActions}>
+              <Button onClick={closeModal} color="secondary">
+                Close
+              </Button>
+
+              <Button onClick={() => setIsCreateMode(true)}>Create</Button>
+
+              <Button onClick={handleSubmit} color="success">
+                Submit
+              </Button>
+            </DialogActions>
+          </>
+        ) : (
+          <TagEditor
+            isCreate
+            onCancel={() => setIsCreateMode(false)}
+            onSave={() => setIsCreateMode(false)}
           />
-
-          <Text align="center" className={css.sectionTitle}>
-            Removed Tags
-          </Text>
-          <TagInput
-            options={tagOptions}
-            value={removedTags}
-            onChange={handleTagRemoved}
-            className={css.input}
-          />
-        </DialogContent>
-
-        <DialogActions className={css.dialogActions}>
-          <Button onClick={closeModal} color="secondary">
-            Close
-          </Button>
-
-          <Button onClick={handleSubmit}>Submit</Button>
-        </DialogActions>
+        )}
       </Dialog>
     )
   );
@@ -114,7 +127,7 @@ const Tagger = observer(({ isOpen, setIsOpen }: any) => {
 
 export default Tagger;
 
-const useClasses = makeStyles()({
+const useClasses = makeClasses({
   dialogActions: {
     justifyContent: "center",
   },
@@ -127,18 +140,19 @@ const useClasses = makeStyles()({
     textAlign: "center",
   },
   input: {
+    marginBottom: "0.5rem",
     minWidth: "15rem",
   },
   sectionTitle: {
     marginTop: "0.3rem",
-    textShadow: `0 0 10px ${colors.blue["600"]}`,
     fontSize: "0.8em",
+    textShadow: `0 0 10px ${colors.blue["600"]}`,
   },
   tagCount: {
     borderRadius: "0.3rem",
     marginRight: "0.5em",
     width: "1.5rem",
-    textAlign: "center",
     backgroundColor: colors.blue["800"],
+    textAlign: "center",
   },
 });

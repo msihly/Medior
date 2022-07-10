@@ -1,9 +1,9 @@
 import { Autocomplete, TextField } from "@mui/material";
 import { Tag, View } from "components";
-import { makeStyles } from "utils";
+import { makeClasses } from "utils";
 
 const SearchInput = ({ className = null, onChange, options = [], value = [] }) => {
-  const { classes: css } = useClasses();
+  const { classes: css } = useClasses(null);
 
   return (
     <Autocomplete
@@ -33,8 +33,8 @@ const SearchInput = ({ className = null, onChange, options = [], value = [] }) =
 
 export default SearchInput;
 
-const useClasses = makeStyles()(() => ({
+const useClasses = makeClasses({
   tag: {
     marginBottom: "0.5rem",
   },
-}));
+});

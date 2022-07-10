@@ -1,12 +1,25 @@
-import { Typography } from "@mui/material";
-import { CSSObject } from "@emotion/react";
-import { makeClassName, makeStyles } from "utils";
+import { Typography, TypographyProps } from "@mui/material";
+import { ElementType } from "react";
+import { makeClasses } from "utils";
 
-const Text = ({ bold = false, children, className = null, component = "span", ...props }) => {
-  const { classes: css } = useClasses({ bold });
+interface TextProps extends Omit<TypographyProps, "color"> {
+  bold?: boolean;
+  color?: string;
+  component?: ElementType;
+}
+
+const Text = ({
+  bold = false,
+  children,
+  className = null,
+  color,
+  component = "span",
+  ...props
+}: TextProps) => {
+  const { classes: css, cx } = useClasses({ bold, color });
 
   return (
-    <Typography {...{ component }} {...props} className={makeClassName(css.root, className)}>
+    <Typography {...{ component }} {...props} className={cx(css.root, className)}>
       {children}
     </Typography>
   );
@@ -14,8 +27,9 @@ const Text = ({ bold = false, children, className = null, component = "span", ..
 
 export default Text;
 
-const useClasses = makeStyles<CSSObject>()((_, { bold }: any) => ({
+const useClasses = makeClasses((_, { bold, color }) => ({
   root: {
+    color: color,
     fontWeight: bold ? "bold" : "normal",
   },
 }));
