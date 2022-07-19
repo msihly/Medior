@@ -3,7 +3,7 @@ import Mongoose from "mongoose";
 import { getAllFiles, getAllImportBatches, getAllTags } from "database";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
-import { Drawer, FileContainer, TopBar } from "components";
+import { Drawer, FileContainer, TopBar, View } from "components";
 import { makeClasses } from "utils";
 import { DB_NAME } from "env";
 
@@ -46,10 +46,10 @@ const Home = observer(() => {
     <>
       <Drawer ref={drawerRef} />
 
-      <div className={css.main}>
+      <View className={css.main}>
         <TopBar />
         <FileContainer mode="grid" />
-      </div>
+      </View>
     </>
   );
 });

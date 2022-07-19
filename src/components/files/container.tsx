@@ -3,7 +3,7 @@ import { observer } from "mobx-react-lite";
 import { useStores } from "store";
 import Selecto, { OnSelect } from "react-selecto";
 import { Pagination, colors } from "@mui/material";
-import { Text } from "components";
+import { Text, View } from "components";
 import { FileDetails, FileGrid } from ".";
 import { makeClasses } from "utils";
 import { setFileRating } from "database";
@@ -24,10 +24,7 @@ const FileContainer = observer(({ mode }: FileContainerProps) => {
   }, [fileStore, fileStore.page, fileStore.pageCount]);
 
   useEffect(() => {
-    if (fileStore.selected.length === 0) {
-      // console.log("Clearing selected");
-      selectoRef.current?.setSelectedTargets?.([]);
-    }
+    if (fileStore.selected.length === 0) selectoRef.current?.setSelectedTargets?.([]);
   }, [fileStore.selected]);
 
   const handleKeyPress = (e) => {
@@ -85,7 +82,7 @@ const FileContainer = observer(({ mode }: FileContainerProps) => {
   const handleScroll = (e) => selectRef.current.scrollBy(e.direction[0] * 10, e.direction[1] * 10);
 
   return (
-    <div className={css.container}>
+    <View className={css.container}>
       <Selecto
         ref={selectoRef}
         dragContainer={selectRef.current}
@@ -99,21 +96,21 @@ const FileContainer = observer(({ mode }: FileContainerProps) => {
         onScroll={handleScroll}
       />
 
-      <div ref={selectRef} onKeyDown={handleKeyPress} tabIndex={1} className={css.files}>
+      <View ref={selectRef} onKeyDown={handleKeyPress} tabIndex={1} className={css.files}>
         {fileStore.displayed?.length > 0 ? (
           fileStore.displayed.map((f) =>
             mode === "details" ? (
-              <FileDetails key={f.id} file={f} />
+              <FileDetails key={f.id} id={f.id} />
             ) : (
               <FileGrid key={f.id} id={f.id} />
             )
           )
         ) : (
-          <div className={css.noResults}>
+          <View className={css.noResults}>
             <Text variant="h5">No results found</Text>
-          </div>
+          </View>
         )}
-      </div>
+      </View>
 
       <Pagination
         count={fileStore.pageCount}
@@ -123,7 +120,7 @@ const FileContainer = observer(({ mode }: FileContainerProps) => {
         showLastButton
         className={css.pagination}
       />
-    </div>
+    </View>
   );
 });
 

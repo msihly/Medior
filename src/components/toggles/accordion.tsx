@@ -1,15 +1,12 @@
-import {
-  Accordion as MuiAccordion,
-  AccordionProps as MuiAccordionProps,
-  Button,
-} from "@mui/material";
+import { ReactNode } from "react";
+import { Button, View } from "components";
+import { Accordion as MuiAccordion, AccordionProps as MuiAccordionProps } from "@mui/material";
 import { ExpandMore } from "@mui/icons-material";
 import { makeClasses } from "utils";
-import { ReactNode } from "react";
-import { View } from "components";
 
 interface AccordionProps extends MuiAccordionProps {
-  children: any;
+  children: ReactNode | ReactNode[];
+  color?: string;
   expanded: boolean;
   fullWidth?: boolean;
   header: ReactNode;
@@ -19,6 +16,7 @@ interface AccordionProps extends MuiAccordionProps {
 export const Accordion = ({
   children,
   className,
+  color = "transparent",
   expanded,
   fullWidth = false,
   header,
@@ -35,9 +33,9 @@ export const Accordion = ({
     >
       <Button
         onClick={() => setExpanded(!expanded)}
-        endIcon={<ExpandMore fontSize="medium" className={css.expandIcon} />}
-        variant="text"
+        endNode={<ExpandMore fontSize="medium" className={css.expandIcon} />}
         fullWidth
+        color={color}
         className={css.button}
       >
         {header}

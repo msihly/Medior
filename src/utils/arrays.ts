@@ -1,7 +1,7 @@
 export const arrayIntersect = (...arrays) =>
   [...arrays].reduce((acc, cur) => acc.filter((e) => cur.includes(e)));
 
-export const countItems = (arr) => {
+export const countItems = (arr): { value: any; count: number }[] => {
   const map = arr.reduce((acc, cur) => {
     const group = acc.find((e) => e.value === cur);
     if (!group) acc.push({ value: cur, count: 1 });

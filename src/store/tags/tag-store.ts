@@ -1,7 +1,20 @@
 import { cast, getParentOfType, Instance, SnapshotOrInstance, types } from "mobx-state-tree";
 import { RootStoreModel } from "store/root-store";
-import { FileStore, TagOption } from "store/files";
+import { File, FileStore, TagOptionSnapshot } from "store/files";
 import { Tag, TagModel } from ".";
+
+// const getTagAncestry = (tags: Tag[], parentIds: string[]): string[] => {
+//   return parentIds.flatMap((id) => {
+//     const tag = tags.find((t) => t.id === id);
+//     return [...parentIds, ...getTagAncestry(tags, tag.parentIds)];
+//   });
+// };
+
+const TagCountModel = types.model({
+  id: types.string,
+  count: types.number,
+});
+export type TagCount = Instance<typeof TagCountModel>;
 
 export const defaultTagStore = {
   activeTagId: null,
@@ -22,45 +35,55 @@ export const TagStoreModel = types
     get activeTag(): Tag {
       return self.tags.find((t) => t.id === self.activeTagId);
     },
-    getById: (id): Tag => {
+    get tagCounts(): TagCount[] {
+      const rootStore = getParentOfType(self, RootStoreModel);
+      const fileStore: FileStore = rootStore.fileStore;
+
+      return fileStore.files
+        .map((f) => f.tags.map((t) => [t.id, ...t.parentIds]))
+        .flat(2)
+        .reduce((tagCounts, id) => {
+          if (!id) return tagCounts;
+
+          const tagCount = tagCounts.find((t) => t.id === id);
+          if (!tagCount) tagCounts.push({ count: 1, id });
+          else tagCount.count++;
+
+          return tagCounts;
+        }, [] as TagCount[])
+        .sort((a, b) => a.count - b.count);
+    },
+    getById: (id: string): Tag => {
       return self.tags.find((t) => t.id === id);
     },
   }))
   .views((self) => ({
-    get tagOptions(): TagOption[] {
-      const rootStore = getParentOfType(self, RootStoreModel);
-      const fileStore: FileStore = rootStore.fileStore;
-
-      const activeTagCounts = fileStore.getTagCounts();
-
-      const [activeTags, activeTagIds] = activeTagCounts.reduce(
-        (acc, cur) => {
-          const tag = self.getById(cur.id);
-          acc[0].push({
-            ...cur,
-            label: tag?.label,
-            parentLabels: cast(tag.parentTags.map((t) => t.label)),
+    getTagCounts: (files: File[]): TagCount[] => {
+      return files.reduce((tagCounts, file) => {
+        file.tags
+          .flatMap((t) => [t.id, ...t.parentIds])
+          .forEach((id) => {
+            const tagCount = tagCounts.find((t) => t.id === id);
+            tagCounts.push({ id, count: tagCount?.count ?? 0 });
           });
 
-          acc[1].push(cur.id);
-          return acc;
-        },
-        [[] as TagOption[], [] as String[]]
-      );
-
-      const inactiveTags: TagOption[] = self.tags.reduce((acc, cur) => {
-        if (activeTagIds.includes(cur.id)) return acc;
-        else
-          acc.push({
-            count: 0,
-            id: cur.id,
-            label: cur.label,
-            parentLabels: cur.parentTags.map((t) => t.label),
-          });
-        return acc;
-      }, []);
-
-      return [...activeTags, ...inactiveTags];
+        return tagCounts;
+      }, [] as TagCount[]);
+    },
+    getTagCountById: (id: string): number => {
+      return self.tagCounts.find((t) => t.id === id)?.count ?? 0;
+    },
+  }))
+  .views((self) => ({
+    get tagOptions(): TagOptionSnapshot[] {
+      return self.tags
+        .map((t) => ({
+          count: t.count,
+          id: t.id,
+          label: t.label,
+          parentLabels: t.parentTags.map((t) => t.label),
+        }))
+        .sort((a, b) => b.count - a.count);
     },
   }))
   .actions((self) => ({

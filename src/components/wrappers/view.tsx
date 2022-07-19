@@ -1,20 +1,30 @@
+import { forwardRef, HTMLAttributes, ReactNode } from "react";
 import { makeClasses } from "utils";
 
-const View = ({ children, className = null, column = false, ...props }) => {
-  const { classes: css, cx } = useClasses({ column });
+export interface ViewProps extends HTMLAttributes<HTMLDivElement> {
+  children?: ReactNode | ReactNode[];
+  className?: string;
+  column?: boolean;
+  row?: boolean;
+}
 
-  return (
-    <div className={cx(css.root, className)} {...props}>
-      {children}
-    </div>
-  );
-};
+const View = forwardRef(
+  ({ children, className, column = false, row = false, ...props }: ViewProps, ref?: any) => {
+    const { classes: css, cx } = useClasses({ column, row });
+
+    return (
+      <div {...props} ref={ref} className={cx(css.root, className)}>
+        {children}
+      </div>
+    );
+  }
+);
 
 export default View;
 
-const useClasses = makeClasses((_, { column }) => ({
+const useClasses = makeClasses((_, { column, row }) => ({
   root: {
-    display: "flex",
-    flexDirection: column ? "column" : "row",
+    display: column || row ? "flex" : undefined,
+    flexDirection: column ? "column" : row ? "row" : undefined,
   },
 }));

@@ -1,41 +1,50 @@
 import { shell } from "electron";
 import { Paper } from "@mui/material";
-import { Text } from "components";
+import { Text, View } from "components";
 import { ContextMenu } from ".";
 import { formatBytes, makeClasses } from "utils";
 import dayjs from "dayjs";
+import { observer } from "mobx-react-lite";
+import { useStores } from "store";
 
-const FileDetails = ({ file }) => {
+interface FileDetailsProps {
+  id: string;
+}
+
+const FileDetails = observer(({ id }: FileDetailsProps) => {
+  const { fileStore } = useStores();
+  const file = fileStore.getById(id);
+
   const { classes: css } = useClasses(null);
 
   const openFile = () => shell.openPath(file.path);
 
   return (
-    <ContextMenu file={file} className={`${css.container} selectable`}>
+    <ContextMenu fileId={id} className={`${css.container} selectable`}>
       <Paper onDoubleClick={openFile} elevation={3} className={css.paper}>
         <img src={file.path} className={css.image} alt={file.originalName} />
 
-        <div className={css.labels}>
+        <View className={css.labels}>
           <Text>ID</Text>
           <Text>Name</Text>
           <Text>New Path</Text>
           <Text>Original Path</Text>
           <Text>Size</Text>
           <Text>Date Created</Text>
-        </div>
+        </View>
 
-        <div className={css.values}>
-          <Text noWrap>{file.fileId || "N/A"}</Text>
+        <View className={css.values}>
+          <Text noWrap>{id || "N/A"}</Text>
           <Text noWrap>{file.originalName || "N/A"}</Text>
           <Text noWrap>{file.path || "N/A"}</Text>
           <Text noWrap>{file.originalPath || "N/A"}</Text>
           <Text noWrap>{formatBytes(file.size)}</Text>
           <Text noWrap>{dayjs(file.dateCreated).format("MMMM D, YYYY - hh:mm:ss a") || "N/A"}</Text>
-        </div>
+        </View>
       </Paper>
     </ContextMenu>
   );
-};
+});
 
 export default FileDetails;
 

@@ -14,12 +14,18 @@ const Text = ({
   className = null,
   color,
   component = "span",
+  fontSize = "1em",
+  fontWeight = 400,
   ...props
 }: TextProps) => {
   const { classes: css, cx } = useClasses({ bold, color });
 
   return (
-    <Typography {...{ component }} {...props} className={cx(css.root, className)}>
+    <Typography
+      {...{ component, fontSize, fontWeight }}
+      {...props}
+      className={cx(css.root, className)}
+    >
       {children}
     </Typography>
   );
@@ -27,9 +33,8 @@ const Text = ({
 
 export default Text;
 
-const useClasses = makeClasses((_, { bold, color }) => ({
+const useClasses = makeClasses((_, { color }) => ({
   root: {
     color: color,
-    fontWeight: bold ? "bold" : "normal",
   },
 }));

@@ -1,4 +1,4 @@
-import { ComponentProps } from "react";
+import { ComponentProps, HTMLAttributes } from "react";
 import { Autocomplete, colors, TextField } from "@mui/material";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
@@ -37,14 +37,17 @@ const TagInput = observer(
         renderInput={(params) => <TextField {...params} className={cx(css.input, className)} />}
         renderTags={(val: TagOption[], getTagProps) =>
           val.map((option: TagOption, index) => (
-            <Tag {...getTagProps({ index })} key={option.id} id={option.id} count={option.count} />
+            <Tag {...getTagProps({ index })} key={option.id} id={option.id} />
           ))
         }
         onChange={(_, val) => onChange(val)}
         isOptionEqualToValue={(option: TagOption, val: TagOption) => option.id === val.id}
-        renderOption={(props, option: TagOption) => (
+        renderOption={(
+          props: HTMLAttributes<HTMLLIElement> & HTMLAttributes<HTMLDivElement>,
+          option: TagOption
+        ) => (
           <View {...props}>
-            <Tag key={option.id} id={option.id} count={option.count} className={css.tag} />
+            <Tag key={option.id} id={option.id} className={css.tag} />
           </View>
         )}
         size="small"

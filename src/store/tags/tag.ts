@@ -1,6 +1,6 @@
-import { TagOption } from "components";
-import { applySnapshot, getParentOfType, Instance, types } from "mobx-state-tree";
+import { applySnapshot, getParentOfType, Instance, SnapshotOut, types } from "mobx-state-tree";
 import { RootStoreModel } from "store/root-store";
+import { TagOptionSnapshot } from "store/files";
 import { TagStore } from "./tag-store";
 
 export const TagModel = types
@@ -17,10 +17,23 @@ export const TagModel = types
       const tagStore: TagStore = rootStore.tagStore;
       return self.parentIds.map((id) => tagStore.getById(id));
     },
-    get parentTagOptions(): TagOption[] {
+    get count(): number {
       const rootStore = getParentOfType(self, RootStoreModel);
       const tagStore: TagStore = rootStore.tagStore;
-      return self.parentIds.map((id) => tagStore.tagOptions.find((t) => t.id === id));
+      return tagStore.getTagCountById(self.id);
+    },
+  }))
+  .views((self) => ({
+    get parentTagOptions(): TagOptionSnapshot[] {
+      return self.parentTags.map((t) => t.tagOption);
+    },
+    get tagOption(): TagOptionSnapshot {
+      return {
+        count: self.count,
+        id: self.id,
+        label: self.label,
+        parentLabels: self.parentTags.map((t) => t.label),
+      };
     },
   }))
   .actions((self) => ({
@@ -30,3 +43,4 @@ export const TagModel = types
   }));
 
 export interface Tag extends Instance<typeof TagModel> {}
+export interface TagSnapshot extends SnapshotOut<typeof TagModel> {}

@@ -103,7 +103,11 @@ export const importFile = async (
 
     const batch = importStore.getByAddedAt(addedAt);
 
-    const res = await copyFileTo(fileImport, OUTPUT_DIR);
+    const res = await copyFileTo({
+      fileObj: fileImport,
+      targetDir: OUTPUT_DIR,
+      tagIds: batch.tagIds,
+    });
 
     if (!res?.success) console.error(res?.error);
     else if (!res?.isDuplicate) fileStore.addFiles(res?.file);
@@ -120,8 +124,10 @@ export const importFile = async (
     );
 
     fileImport.update({ status });
+    return true;
   } catch (err) {
     console.log("importFile error:", err);
+    return false;
   }
 };
 

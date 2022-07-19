@@ -62,6 +62,7 @@ const TagManager = observer(() => {
                 label="Include Descendants"
                 checked={hasDescendents}
                 setChecked={setHasDescendents}
+                center
               />
 
               <View className={css.tagContainer}>
@@ -69,7 +70,6 @@ const TagManager = observer(() => {
                   <Tag
                     key={t.id}
                     id={t.id}
-                    count={t.count}
                     onClick={() => handleTagPress(t.id)}
                     className={css.tag}
                   />
@@ -79,13 +79,9 @@ const TagManager = observer(() => {
           </DialogContent>
 
           <DialogActions className={css.dialogActions}>
-            <Button onClick={closeModal} color="secondary">
-              Close
-            </Button>
+            <Button text="Close" icon="Close" onClick={closeModal} color={colors.red["800"]} />
 
-            <Button onClick={handleCreate} color="primary">
-              Create
-            </Button>
+            <Button text="Create" icon="Add" onClick={handleCreate} />
           </DialogActions>
         </>
       ) : (

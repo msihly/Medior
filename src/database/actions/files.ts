@@ -5,15 +5,32 @@ import sharp from "sharp";
 import dayjs from "dayjs";
 import { File, FileModel } from "database";
 import { generateFramesThumbnail, splitArray } from "utils";
+import { FileStore } from "store/files";
+import { FileImportInstance } from "store/imports";
 
-const copyFile = async (dirPath, originalPath, newPath) => {
+const checkFileExists = async (path: string) => !!(await fs.stat(path).catch(() => false));
+
+const copyFile = async (dirPath: string, originalPath: string, newPath: string) => {
+  if (await checkFileExists(newPath)) return false;
   await fs.mkdir(dirPath, { recursive: true });
   await fs.copyFile(originalPath, newPath, fsc.COPYFILE_EXCL);
   return true;
 };
 
-export const copyFileTo = async (fileObj, targetDir, dbOnly = false) => {
-  const { dateCreated, extension: ext, name, path: originalPath, size, tagIds } = fileObj;
+interface CopyFileToProps {
+  dbOnly?: boolean;
+  fileObj: FileImportInstance;
+  tagIds?: string[];
+  targetDir: string;
+}
+
+export const copyFileTo = async ({
+  dbOnly = false,
+  fileObj,
+  tagIds,
+  targetDir,
+}: CopyFileToProps) => {
+  const { dateCreated, extension: ext, name, path: originalPath, size } = fileObj;
 
   const hash = await md5File(originalPath);
   const dirPath = `${targetDir}\\${hash.substring(0, 2)}\\${hash.substring(2, 4)}`;
@@ -29,14 +46,10 @@ export const copyFileTo = async (fileObj, targetDir, dbOnly = false) => {
       : [path.join(dirPath, `${hash}-thumb.${extFromPath}`)];
 
     if (!dbOnly) {
-      await Promise.all(
-        [
-          copyFile(dirPath, originalPath, newPath),
-          isAnimated
-            ? generateFramesThumbnail(originalPath, dirPath, hash)
-            : sharp(originalPath).resize(300, 300).toFile(thumbPaths[0]),
-        ].flat()
-      );
+      if (await copyFile(dirPath, originalPath, newPath))
+        await (isAnimated
+          ? generateFramesThumbnail(originalPath, dirPath, hash)
+          : sharp(originalPath).resize(300, 300).toFile(thumbPaths[0]));
     }
 
     const file = (
@@ -56,14 +69,30 @@ export const copyFileTo = async (fileObj, targetDir, dbOnly = false) => {
       })
     ).toJSON();
 
+    console.log({ id: file.id, hash });
+
     return { success: true, file, isDuplicate: false };
   } catch (err) {
+    console.log("Error importing", { ...fileObj }, ":", err);
+
     if (err.code === "EEXIST") {
       const file = (await FileModel.findOne({ hash }))?.toJSON?.();
       if (!file) {
-        console.log("File exists, but not in db. Inserting into db only...");
-        const res = await copyFileTo(fileObj, targetDir, true);
-        return res;
+        console.log("File exists, but not in db. Inserting into db only...", {
+          dateCreated,
+          dirPath,
+          ext,
+          extFromPath,
+          hash,
+          isAnimated,
+          name,
+          newPath,
+          originalPath,
+          size,
+          tagIds,
+        });
+
+        return await copyFileTo({ fileObj, targetDir, dbOnly: true });
       }
 
       return { success: true, file, isDuplicate: true };
@@ -74,7 +103,7 @@ export const copyFileTo = async (fileObj, targetDir, dbOnly = false) => {
   }
 };
 
-export const deleteFiles = async (fileStore, files, isUndelete = false) => {
+export const deleteFiles = async (fileStore: FileStore, files: File[], isUndelete = false) => {
   if (!files?.length) return false;
 
   try {
@@ -86,25 +115,27 @@ export const deleteFiles = async (fileStore, files, isUndelete = false) => {
       return true;
     }
 
-    const [deleted, archived] = splitArray(files, (f) => f.isArchived);
+    const [deleted, archived]: File[][] = splitArray(files, (f: File) => f.isArchived);
     const [deletedIds, archivedIds] = [deleted, archived].map((arr) => arr.map((f) => f.id));
 
-    const promises = [];
-    if (archivedIds?.length > 0)
-      promises.push(FileModel.updateMany({ _id: { $in: archivedIds } }, { isArchived: true }));
-    if (deletedIds?.length > 0) {
-      promises.push(FileModel.deleteMany({ _id: { $in: deletedIds } }));
-      promises.push(
-        deleted.flatMap((file) => [
-          fs.unlink(file.path),
-          ...file.thumbPaths.map((thumbPath) => fs.unlink(thumbPath)),
-        ])
-      );
+    if (archivedIds?.length > 0) {
+      await FileModel.updateMany({ _id: { $in: archivedIds } }, { isArchived: true });
+      fileStore.archiveFiles(archivedIds);
     }
-    await Promise.all(promises);
 
-    fileStore.archiveFiles(archivedIds);
-    fileStore.deleteFiles(deletedIds);
+    if (deletedIds?.length > 0) {
+      await FileModel.deleteMany({ _id: { $in: deletedIds } });
+      await Promise.all(
+        deleted.flatMap((file) =>
+          fileStore.listByHash(file.hash).length === 1
+            ? [fs.unlink(file.path), ...file.thumbPaths.map((thumbPath) => fs.unlink(thumbPath))]
+            : []
+        )
+      );
+
+      fileStore.deleteFiles(deletedIds);
+    }
+
     fileStore.toggleFilesSelected(fileIds, false);
 
     return true;
@@ -115,7 +146,7 @@ export const deleteFiles = async (fileStore, files, isUndelete = false) => {
 };
 
 export const editFileTags = async (
-  fileStore,
+  fileStore: FileStore,
   fileIds = [],
   addedTagIds = [],
   removedTagIds = []

@@ -1,6 +1,6 @@
 import { cloneElement, useEffect, useRef, useState } from "react";
 import { colors } from "@mui/material";
-import { IconButton } from "components";
+import { IconButton, View } from "components";
 import { debounce, makeClasses, useElementResize } from "utils";
 interface SideScrollerProps {
   children: any;
@@ -50,7 +50,7 @@ const SideScroller = ({ children, className }: SideScrollerProps) => {
   const { classes: css, cx } = useClasses({ isLeftButtonVisible, isRightButtonVisible });
 
   return (
-    <div className={cx(className, css.container)}>
+    <View className={cx(className, css.container)}>
       <IconButton
         name="ChevronLeft"
         onClick={() => handleScroll("left")}
@@ -70,7 +70,7 @@ const SideScroller = ({ children, className }: SideScrollerProps) => {
         className={cx(css.scrollButton, "right")}
         size="large"
       />
-    </div>
+    </View>
   );
 };
 

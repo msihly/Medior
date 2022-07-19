@@ -4,12 +4,13 @@ import {
   getParentOfType,
   Instance,
   SnapshotOrInstance,
+  SnapshotOut,
   types,
 } from "mobx-state-tree";
 import { RootStoreModel } from "store/root-store";
 import { TagStoreModel } from "store/tags";
 import { File, FileModel } from ".";
-import { countItems, sortArray } from "utils";
+import { sortArray } from "utils";
 import { toast } from "react-toastify";
 
 const NUMERICAL_ATTRIBUTES = ["size"];
@@ -30,12 +31,6 @@ const VideoTypesModel = types.model({
 });
 export type VideoTypes = Instance<typeof VideoTypesModel>;
 
-const TagCountModel = types.model({
-  id: types.string,
-  count: types.number,
-});
-export type TagCount = Instance<typeof TagCountModel>;
-
 const TagOptionModel = types.model({
   count: types.number,
   id: types.string,
@@ -43,6 +38,7 @@ const TagOptionModel = types.model({
   parentLabels: types.array(types.string),
 });
 export type TagOption = Instance<typeof TagOptionModel>;
+export type TagOptionSnapshot = SnapshotOut<typeof TagOptionModel>;
 
 export const defaultFileStore = {
   duplicates: [],
@@ -152,12 +148,8 @@ export const FileStoreModel = types
     getById: (id: string): File => {
       return self.files.find((f) => f.id === id);
     },
-    getTagCounts: (files: File[] = self.files): TagCount[] => {
-      const counts = countItems(files.flatMap((f) => f.tagIds).filter((t) => t !== undefined)).map(
-        ({ value, count }) => ({ count, id: value })
-      );
-
-      return sortArray(counts, "count", true, true);
+    listByHash: (hash: string): File[] => {
+      return self.files.filter((f) => f.hash === hash);
     },
   }))
   .views((self) => ({
@@ -169,12 +161,6 @@ export const FileStoreModel = types
     },
     get pageCount(): number {
       return self.filtered.length < ROW_COUNT ? 1 : Math.ceil(self.filtered.length / ROW_COUNT);
-    },
-    get selectedTagCounts(): TagCount[] {
-      return self.getTagCounts(self.selected);
-    },
-    getTagCountById: (id: string): number => {
-      return self.getTagCounts().find((t) => t.id === id)?.count;
     },
   }))
   .actions((self) => ({
@@ -226,13 +212,13 @@ export const FileStoreModel = types
     setSelectedVideoTypes: (updates: VideoTypes) => {
       self.selectedVideoTypes = { ...self.selectedVideoTypes, ...updates };
     },
-    setSortDir: (dir) => {
+    setSortDir: (dir: "asc" | "desc") => {
       if (self.sortDir !== dir) {
         self.sortDir = dir;
         localStorage.setItem("sortDir", dir);
       }
     },
-    setSortKey: (key) => {
+    setSortKey: (key: string) => {
       if (self.sortKey !== key) {
         self.sortKey = key;
         localStorage.setItem("sortKey", key);
@@ -241,7 +227,7 @@ export const FileStoreModel = types
     toggleArchiveOpen: (isOpen?: boolean) => {
       self.isArchiveOpen = isOpen ?? !self.isArchiveOpen;
     },
-    toggleFilesSelected: (fileIds, selected = null) => {
+    toggleFilesSelected: (fileIds: string[], selected: boolean = null) => {
       self.files.forEach((f) => {
         if (fileIds.includes(f.id)) f.isSelected = selected ?? !f.isSelected;
       });

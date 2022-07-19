@@ -73,7 +73,7 @@ const Tagger = observer(({ isOpen, setIsOpen }: any) => {
                   Current Tags
                 </Text>
                 <TagInput
-                  value={fileStore.selectedTagCounts}
+                  value={tagStore.getTagCounts(fileStore.selected)}
                   disabled
                   opaque
                   className={css.input}
@@ -102,15 +102,16 @@ const Tagger = observer(({ isOpen, setIsOpen }: any) => {
             </DialogContent>
 
             <DialogActions className={css.dialogActions}>
-              <Button onClick={closeModal} color="secondary">
-                Close
-              </Button>
+              <Button text="Close" icon="Close" onClick={closeModal} color={colors.red["800"]} />
 
-              <Button onClick={() => setIsCreateMode(true)}>Create</Button>
+              <Button
+                text="New Tag"
+                icon="Add"
+                onClick={() => setIsCreateMode(true)}
+                color={colors.blueGrey["700"]}
+              />
 
-              <Button onClick={handleSubmit} color="success">
-                Submit
-              </Button>
+              <Button text="Submit" icon="Check" onClick={handleSubmit} />
             </DialogActions>
           </>
         ) : (

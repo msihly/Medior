@@ -11,7 +11,12 @@ import { Button, ImportBatch, TagInput, TagOption, Text } from "components";
 import { makeClasses } from "utils";
 import dayjs from "dayjs";
 
-const Importer = observer(({ isOpen = false, setIsOpen }: any) => {
+interface ImporterProps {
+  isOpen: boolean;
+  setIsOpen: (isOpen: boolean) => void;
+}
+
+const Importer = observer(({ isOpen = false, setIsOpen }: ImporterProps) => {
   const { importStore, tagStore } = useStores();
   const { classes: css } = useClasses(null);
 
@@ -101,17 +106,11 @@ const Importer = observer(({ isOpen = false, setIsOpen }: any) => {
       </DialogContent>
 
       <DialogActions className={css.dialogActions}>
-        <Button onClick={handleClose} color="secondary">
-          Cancel
-        </Button>
+        <Button text="Cancel" icon="Cancel" onClick={handleClose} color={colors.red["800"]} />
 
-        <Button onClick={() => importFiles(false)} color="primary">
-          Files
-        </Button>
+        <Button text="Files" icon="InsertDriveFile" onClick={() => importFiles(false)} />
 
-        <Button onClick={() => importFiles(true)} color="primary">
-          Folder
-        </Button>
+        <Button text="Folder" icon="Folder" onClick={() => importFiles(true)} />
       </DialogActions>
     </Dialog>
   );

@@ -1,10 +1,20 @@
 import { Dialog, DialogTitle, DialogContent, DialogActions, colors } from "@mui/material";
-import { Button, Text } from "components";
+import { Button, SideScroller, Tag, Text, View } from "components";
 import { formatBytes, makeClasses } from "utils";
 import dayjs from "dayjs";
+import { useStores } from "store";
+import { observer } from "mobx-react-lite";
 
-const InfoModal = ({ file, setVisible }) => {
+interface InfoModalProps {
+  fileId: string;
+  setVisible: (visible: boolean) => void;
+}
+
+const InfoModal = observer(({ fileId, setVisible }: InfoModalProps) => {
   const { classes: css } = useClasses(null);
+
+  const { fileStore } = useStores();
+  const file = fileStore.getById(fileId);
 
   const handleClose = () => setVisible(false);
 
@@ -13,18 +23,19 @@ const InfoModal = ({ file, setVisible }) => {
       <DialogTitle className={css.title}>Info</DialogTitle>
 
       <DialogContent dividers={true}>
-        <div className={css.row}>
-          <div className={css.labels}>
+        <View className={css.row}>
+          <View className={css.labels}>
             <Text>ID</Text>
             <Text>Name</Text>
             <Text>New Path</Text>
             <Text>Original Path</Text>
             <Text>Size</Text>
             <Text>Date Created</Text>
-          </div>
+            <Text>Tags</Text>
+          </View>
 
-          <div className={css.values}>
-            <Text noWrap>{file?.fileId || "N/A"}</Text>
+          <View className={css.values}>
+            <Text noWrap>{fileId || "N/A"}</Text>
             <Text noWrap>{file?.originalName || "N/A"}</Text>
             <Text noWrap>{file?.path || "N/A"}</Text>
             <Text noWrap>{file?.originalPath || "N/A"}</Text>
@@ -32,18 +43,24 @@ const InfoModal = ({ file, setVisible }) => {
             <Text noWrap>
               {dayjs(file?.dateCreated).format("MMMM D, YYYY - hh:mm:ss a") || "N/A"}
             </Text>
-          </div>
-        </div>
+
+            <SideScroller>
+              <View className={css.tags}>
+                {file?.tags?.map?.((t) => (
+                  <Tag key={t.id} id={t.id} size="small" />
+                ))}
+              </View>
+            </SideScroller>
+          </View>
+        </View>
       </DialogContent>
 
       <DialogActions className={css.buttons}>
-        <Button onClick={handleClose} className={css.closeButton}>
-          Close
-        </Button>
+        <Button text="Close" icon="Close" onClick={handleClose} className={css.closeButton} />
       </DialogActions>
     </Dialog>
   );
-};
+});
 
 export default InfoModal;
 
@@ -57,10 +74,6 @@ const useClasses = makeClasses({
       backgroundColor: colors.red["700"],
     },
   },
-  title: {
-    padding: "0.4em",
-    textAlign: "center",
-  },
   labels: {
     display: "flex",
     flexFlow: "column nowrap",
@@ -71,15 +84,36 @@ const useClasses = makeClasses({
       whiteSpace: "nowrap",
     },
   },
+  row: {
+    display: "flex",
+    flexFlow: "row nowrap",
+  },
+  tags: {
+    display: "flex",
+    flexFlow: "row nowrap",
+    borderBottomLeftRadius: "inherit",
+    borderBottomRightRadius: "inherit",
+    padding: "0.2em 0.3em",
+    height: "1.8rem",
+    overflowY: "hidden",
+    overflowX: "auto",
+    "&::-webkit-scrollbar": {
+      display: "none",
+      height: "4px",
+    },
+    "&::-webkit-scrollbar-thumb": {
+      background: colors.grey["600"],
+    },
+  },
+  title: {
+    padding: "0.4em",
+    textAlign: "center",
+  },
   values: {
     display: "flex",
     flexFlow: "column nowrap",
     padding: "0.5rem",
     maxWidth: "32rem",
     overflow: "hidden",
-  },
-  row: {
-    display: "flex",
-    flexFlow: "row nowrap",
   },
 });

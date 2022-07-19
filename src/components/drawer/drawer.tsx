@@ -52,13 +52,13 @@ const Drawer = observer(
         onClose={() => appStore.setIsDrawerOpen(false)}
         variant={appStore.drawerMode}
       >
-        <div className={css.topActions}>
+        <View className={css.topActions}>
           <IconButton name="Menu" onClick={() => appStore.setIsDrawerOpen(false)} size="medium" />
 
           <IconButton onClick={appStore.toggleDrawerMode} size="medium">
             <Media.PinSVG className={css.pin} />
           </IconButton>
-        </div>
+        </View>
 
         <List>
           <ListItem

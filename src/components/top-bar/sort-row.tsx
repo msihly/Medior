@@ -1,16 +1,24 @@
 import { Typography } from "@mui/material";
-import { makeClasses } from "utils";
+import { Icon, IconName, View } from "components";
 import { SortButton } from ".";
+import { makeClasses } from "utils";
 
-const SortRow = ({ attribute, label }) => {
+interface SortRowProps {
+  attribute: string;
+  label: string;
+  icon: IconName;
+}
+
+const SortRow = ({ attribute, label, icon }: SortRowProps) => {
   const { classes: css } = useClasses(null);
 
   return (
-    <div className={css.row}>
+    <View className={css.row}>
+      <Icon name={icon} />
       <Typography className={css.label}>{label}</Typography>
       <SortButton {...{ attribute }} dir="desc" />
       <SortButton {...{ attribute }} dir="asc" />
-    </div>
+    </View>
   );
 };
 

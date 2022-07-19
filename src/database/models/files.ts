@@ -1,6 +1,7 @@
 import { model, Schema } from "mongoose";
 
 export interface File {
+  // collections: { collectionId: string; manualIndex: number }[];
   dateCreated: string;
   dateModified: string;
   ext: string;
@@ -17,6 +18,7 @@ export interface File {
 }
 
 const FileSchema = new Schema<File>({
+  // collections: [{ collectionId: String, manualIndex: number }],
   dateCreated: String,
   dateModified: String,
   ext: String,

@@ -1,24 +1,16 @@
-import { createElement } from "react";
 import { IconButton as MuiIconButton, IconButtonProps as MuiIconButtonProps } from "@mui/material";
-import * as Icons from "@mui/icons-material";
-
-type IconName = keyof typeof Icons;
+import { Icon, IconName } from "components";
+import { ReactNode } from "react";
 
 export interface IconButtonProps extends MuiIconButtonProps {
-  children?: any;
+  children?: ReactNode | ReactNode[];
   name?: IconName;
 }
 
-export const IconButton = ({
-  children = null,
-  name = null,
-  onClick,
-  size = "small",
-  ...props
-}: IconButtonProps) => {
+export const IconButton = ({ children, name, onClick, size, ...props }: IconButtonProps) => {
   return (
     <MuiIconButton {...props} {...{ onClick, size }}>
-      {name && createElement(Icons[name])}
+      {name && <Icon name={name} />}
       {children}
     </MuiIconButton>
   );

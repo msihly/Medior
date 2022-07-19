@@ -3,12 +3,16 @@ import { useRef, useState } from "react";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
 import { Paper, colors, Chip } from "@mui/material";
-import { SideScroller, Tag } from "components";
+import { SideScroller, Tag, View } from "components";
 import { ContextMenu } from ".";
 import { makeClasses } from "utils";
 import { Star } from "@mui/icons-material";
 
-const FileGrid = observer(({ id }: any) => {
+interface FileGridProps {
+  id: string;
+}
+
+const FileGrid = observer(({ id }: FileGridProps) => {
   const { fileStore, tagStore } = useStores();
   const file = fileStore.getById(id);
 
@@ -40,9 +44,9 @@ const FileGrid = observer(({ id }: any) => {
   const openFile = () => shell.openPath(file?.path);
 
   return (
-    <ContextMenu id={id} file={file} className={`${css.container} selectable`}>
+    <ContextMenu fileId={id} className={`${css.container} selectable`}>
       <Paper onDoubleClick={openFile} elevation={3} className={css.paper}>
-        <div
+        <View
           onMouseEnter={handleMouseEnter}
           onMouseLeave={handleMouseLeave}
           className={css.imageContainer}
@@ -61,20 +65,14 @@ const FileGrid = observer(({ id }: any) => {
           />
 
           <Chip label={file?.ext} className={css.ext} />
-        </div>
+        </View>
 
         <SideScroller>
-          <div className={css.tags}>
+          <View className={css.tags}>
             {file?.tags?.map?.((t) => (
-              <Tag
-                key={t.id}
-                id={t.id}
-                onClick={() => handleTagPress(t.id)}
-                count={fileStore.getTagCountById(t.id)}
-                size="small"
-              />
+              <Tag key={t.id} id={t.id} onClick={() => handleTagPress(t.id)} size="small" />
             ))}
-          </div>
+          </View>
         </SideScroller>
       </Paper>
     </ContextMenu>

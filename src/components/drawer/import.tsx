@@ -1,27 +1,8 @@
 import { observer } from "mobx-react-lite";
 import { FileImportSnapshot } from "store/imports";
 import { colors } from "@mui/material";
-import { Icon, Text, View } from "components";
+import { Icon, IMPORT_STATUSES, Text, View } from "components";
 import { makeClasses } from "utils";
-
-const STATUSES = {
-  COMPLETE: {
-    icon: "CheckCircle",
-    color: colors.green["700"],
-  },
-  DUPLICATE: {
-    icon: "ControlPointDuplicate",
-    color: colors.amber["700"],
-  },
-  ERROR: {
-    icon: "Error",
-    color: colors.red["800"],
-  },
-  PENDING: {
-    icon: "Pending",
-    color: colors.blueGrey["600"],
-  },
-};
 
 interface ImportProps {
   fileImport: FileImportSnapshot;
@@ -30,15 +11,15 @@ interface ImportProps {
 const Import = observer(({ fileImport }: ImportProps) => {
   const { classes: css } = useClasses(null);
 
-  const status = STATUSES[fileImport.status];
+  const status = IMPORT_STATUSES[fileImport.status];
 
   return (
-    <View className={css.card}>
+    <View row className={css.card}>
       <Icon name={status?.icon} color={status?.color} size={30} className={css.icon} />
 
       <View column className={css.body}>
         <Text noWrap fontSize={18}>
-          {`${fileImport.name}${fileImport.extension}`}
+          {fileImport.name}
         </Text>
 
         <Text noWrap fontSize={12}>

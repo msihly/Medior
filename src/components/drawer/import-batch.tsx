@@ -1,7 +1,7 @@
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
 import { colors, LinearProgress } from "@mui/material";
-import { Accordion, IconButton, Import, Tag, Text, View } from "components";
+import { Accordion, Icon, IconButton, Import, IMPORT_STATUSES, Tag, Text, View } from "components";
 import { makeClasses } from "utils";
 import { useState } from "react";
 import { deleteImportBatch } from "database";
@@ -16,6 +16,7 @@ const ImportBatch = observer(({ addedAt }: ImportBatchProps) => {
 
   const batch = importStore.getByAddedAt(addedAt);
   const isCompleted = batch.completedAt?.length > 0;
+  const status = IMPORT_STATUSES[isCompleted ? "COMPLETE" : "PENDING"];
 
   const [expanded, setExpanded] = useState(false);
 
@@ -24,32 +25,26 @@ const ImportBatch = observer(({ addedAt }: ImportBatchProps) => {
     toast.success("Import batch deleted");
   };
 
-  const { classes: css } = useClasses(null);
+  const { classes: css } = useClasses({ expanded });
 
   return (
-    <View className={css.card}>
+    <View row className={css.card}>
+      <Icon name={status.icon} color={status.color} className={css.statusIcon} />
+
       <Accordion
         {...{ expanded, setExpanded }}
+        className={css.accordion}
         header={
           <View className={css.header} column>
-            <View>
-              <Text bold color={colors.green["700"]} className={css.batchStatus}>
-                {isCompleted ? "Completed" : "Importing"}
-              </Text>
-              <Text>{`${batch.imported.length} / ${batch.imports.length}`}</Text>
-            </View>
+            <Text
+              className={css.progress}
+            >{`${batch.imported.length} / ${batch.imports.length}`}</Text>
 
             <View>
               {batch.tagIds.map((id) => (
                 <Tag key={id} id={id} />
               ))}
             </View>
-
-            {batch.nextImport && (
-              <Text noWrap fontSize={12}>
-                {batch.nextImport?.path}
-              </Text>
-            )}
 
             <LinearProgress
               variant="determinate"
@@ -58,7 +53,6 @@ const ImportBatch = observer(({ addedAt }: ImportBatchProps) => {
             />
           </View>
         }
-        className={css.accordion}
       >
         <View column className={css.imports}>
           {batch.imports.map((imp) => (
@@ -74,9 +68,14 @@ const ImportBatch = observer(({ addedAt }: ImportBatchProps) => {
 
 export default ImportBatch;
 
-const useClasses = makeClasses({
+const useClasses = makeClasses((_, { expanded }) => ({
   accordion: {
-    width: "90%",
+    flex: 1,
+    width: 0,
+    "& > button": {
+      padding: "0 0.5rem",
+      height: "2.5rem",
+    },
   },
   batchStatus: {
     marginRight: "1em",
@@ -88,16 +87,28 @@ const useClasses = makeClasses({
     backgroundColor: colors.grey["900"],
   },
   deleteButton: {
-    borderRadius: "0 0.5rem 0.5rem 0",
+    borderRadius: `0 0.5rem ${expanded ? "0" : "0.5rem"} 0`,
     backgroundColor: colors.grey["700"],
     "&:hover": {
       backgroundColor: colors.red["900"],
     },
+    height: "2.5rem",
   },
   header: {
     width: "100%",
   },
   imports: {
+    margin: "0 -2rem",
     padding: "0.5rem",
   },
-});
+  progress: {
+    marginBottom: "0.3em",
+    fontSize: "0.8em",
+    textAlign: "left",
+  },
+  statusIcon: {
+    borderRadius: "0.5rem 0 0 0.5rem",
+    padding: "0 0.5rem",
+    height: "2.5rem",
+  },
+}));

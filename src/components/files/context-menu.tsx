@@ -1,15 +1,21 @@
 import { shell } from "electron";
-import { useState } from "react";
+import { ReactNode, useState } from "react";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
 import { deleteFiles } from "database";
 import { Menu } from "@mui/material";
 import { Archive, Delete, Info, Search } from "@mui/icons-material";
-import { ListItem } from "components/list";
+import { ListItem, View, ViewProps } from "components";
 import { InfoModal } from ".";
 
-const ContextMenu = observer(({ children, file, ...props }: any) => {
+interface ContextMenuProps extends ViewProps {
+  children?: ReactNode | ReactNode[];
+  fileId: string;
+}
+
+const ContextMenu = observer(({ children, fileId, ...props }: ContextMenuProps) => {
   const { fileStore } = useStores();
+  const file = fileStore.getById(fileId);
 
   const [isInfoOpen, setIsInfoOpen] = useState(false);
   const [mouseX, setMouseX] = useState(null);
@@ -42,7 +48,7 @@ const ContextMenu = observer(({ children, file, ...props }: any) => {
   };
 
   return (
-    <div {...props} onContextMenu={handleContext}>
+    <View {...props} id={fileId} onContextMenu={handleContext}>
       {children}
       <Menu
         open={mouseY !== null}
@@ -80,8 +86,8 @@ const ContextMenu = observer(({ children, file, ...props }: any) => {
         />
       </Menu>
 
-      {isInfoOpen && <InfoModal file={file} setVisible={setIsInfoOpen} />}
-    </div>
+      {isInfoOpen && <InfoModal fileId={fileId} setVisible={setIsInfoOpen} />}
+    </View>
   );
 });
 

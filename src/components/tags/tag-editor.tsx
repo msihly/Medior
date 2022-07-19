@@ -59,20 +59,16 @@ const TagEditor = observer(({ isCreate, onCancel, onSave }: TagEditorProps) => {
           <TagInput
             value={parentTags}
             onChange={(val) => setParentTags(val)}
-            options={tagStore.tagOptions}
+            options={tagStore.tagOptions.filter((opt) => opt.id !== tagStore.activeTagId)}
             className={css.input}
           />
         </View>
       </DialogContent>
 
       <DialogActions className={css.dialogActions}>
-        <Button onClick={onCancel} color="secondary">
-          Cancel
-        </Button>
+        <Button text="Cancel" icon="Close" onClick={onCancel} color={colors.red["800"]} />
 
-        <Button onClick={saveTag} color="primary">
-          Confirm
-        </Button>
+        <Button text="Confirm" icon="Check" onClick={saveTag} />
       </DialogActions>
     </>
   );

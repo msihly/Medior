@@ -4,20 +4,18 @@ import { useStores } from "store";
 import { makeClasses } from "utils";
 
 interface TagProps extends ChipProps {
-  count?: number;
   id: string;
 }
 
-const Tag = observer(({ className, count, id, ...props }: TagProps) => {
+const Tag = observer(({ className, id, ...props }: TagProps) => {
   const { classes: css, cx } = useClasses(null);
-  const { fileStore, tagStore } = useStores();
+  const { tagStore } = useStores();
 
   const tag = tagStore.getById(id);
-  count ??= fileStore.getTagCountById(id);
 
   return (
     <Chip
-      avatar={<Avatar className={css.count}>{count}</Avatar>}
+      avatar={<Avatar className={css.count}>{tag.count}</Avatar>}
       label={tag.label}
       className={cx(css.chip, className)}
       {...props}
