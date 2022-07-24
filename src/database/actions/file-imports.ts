@@ -1,8 +1,7 @@
 import { copyFileTo, FileImportBatch, FileImportBatchModel } from "database";
 import { RootStore } from "store";
 import { ImportStore, FileImportInstance, FileImportSnapshot } from "store/imports";
-import { PromiseQueue } from "utils";
-import dayjs from "dayjs";
+import { dayjs, PromiseQueue } from "utils";
 import { OUTPUT_DIR } from "env";
 
 export const ImportQueue = new PromiseQueue();
@@ -57,7 +56,7 @@ export const createImportBatch = async (
       tagIds,
     });
 
-    importStore.addImportBatch(addedAt);
+    importStore.addImportBatch(addedAt, tagIds);
 
     return { success: true, batch };
   } catch (err) {

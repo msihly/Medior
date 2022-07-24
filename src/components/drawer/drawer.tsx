@@ -83,7 +83,7 @@ const Drawer = observer(
         </Text>
         <TagInput
           value={[...fileStore.includedTags]}
-          onChange={(val) => fileStore.setIncludedTags(val)}
+          setValue={fileStore.setIncludedTags}
           options={tagStore.tagOptions}
           limitTags={3}
           className={css.input}
@@ -94,7 +94,7 @@ const Drawer = observer(
         </Text>
         <TagInput
           value={[...fileStore.excludedTags]}
-          onChange={(val) => fileStore.setExcludedTags(val)}
+          setValue={fileStore.setExcludedTags}
           options={tagStore.tagOptions}
           limitTags={3}
           className={css.input}
@@ -102,17 +102,17 @@ const Drawer = observer(
 
         <View className={css.checkboxes} column>
           <Checkbox
-            label="Tagged"
-            checked={fileStore.includeTagged}
-            indeterminate={fileStore.includeUntagged}
-            setChecked={handleTagged}
-          />
-
-          <Checkbox
             label="Descendants"
             checked={fileStore.includeDescendants}
             indeterminate={fileStore.excludeDescendants}
             setChecked={handleDescendants}
+          />
+
+          <Checkbox
+            label="Tagged"
+            checked={fileStore.includeTagged}
+            indeterminate={fileStore.includeUntagged}
+            setChecked={handleTagged}
           />
         </View>
 

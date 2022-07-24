@@ -3,7 +3,7 @@ import { observer } from "mobx-react-lite";
 import { useStores } from "store";
 import { createTag, editTag } from "database";
 import { DialogContent, DialogActions, colors } from "@mui/material";
-import { Button, Input, TagOption, Text, View } from "components";
+import { Button, ChipInput, ChipOption, Input, TagOption, Text, View } from "components";
 import { TagInput } from ".";
 import { makeClasses } from "utils";
 import { toast } from "react-toastify";
@@ -18,8 +18,8 @@ const TagEditor = observer(({ isCreate, onCancel, onSave }: TagEditorProps) => {
   const { tagStore } = useStores();
   const { classes: css } = useClasses(null);
 
-  const [aliases, setAliases] = useState<string[]>(
-    isCreate ? [] : tagStore.activeTag?.aliases ?? []
+  const [aliases, setAliases] = useState<ChipOption[]>(
+    isCreate ? [] : tagStore.activeTag?.aliases?.map((a) => ({ label: a, value: a })) ?? []
   );
   const [label, setLabel] = useState<string>(isCreate ? "" : tagStore.activeTag?.label ?? "");
   const [parentTags, setParentTags] = useState<TagOption[]>(
@@ -30,9 +30,17 @@ const TagEditor = observer(({ isCreate, onCancel, onSave }: TagEditorProps) => {
     if (!label.trim().length) return toast.error("Tag label cannot be blank");
 
     const parentIds = parentTags.map((t) => t.id);
+    const aliasStrings = aliases.map((a) => a.value);
 
-    if (isCreate) await createTag({ aliases, label, parentIds, tagStore });
-    else await editTag({ aliases, id: tagStore.activeTagId, label, parentIds, tagStore });
+    if (isCreate) await createTag({ aliases: aliasStrings, label, parentIds, tagStore });
+    else
+      await editTag({
+        aliases: aliasStrings,
+        id: tagStore.activeTagId,
+        label,
+        parentIds,
+        tagStore,
+      });
 
     toast.success(`Tag '${label}' ${isCreate ? "created" : "edited"}`);
     onSave();
@@ -45,20 +53,19 @@ const TagEditor = observer(({ isCreate, onCancel, onSave }: TagEditorProps) => {
           <Text align="center" className={css.sectionTitle}>
             Label
           </Text>
-          <Input value={label} setValue={setLabel} className={css.input} />
+          <Input value={label} setValue={setLabel} textAlign="center" className={css.input} />
 
           <Text align="center" className={css.sectionTitle}>
             Aliases
           </Text>
-          <Input value={aliases} setValue={setAliases} className={css.input} />
-          {/* TODO: Change this to a TagInput */}
+          <ChipInput value={aliases} setValue={setAliases} className={css.input} />
 
           <Text align="center" className={css.sectionTitle}>
             Parent Tags
           </Text>
           <TagInput
             value={parentTags}
-            onChange={(val) => setParentTags(val)}
+            setValue={setParentTags}
             options={tagStore.tagOptions.filter((opt) => opt.id !== tagStore.activeTagId)}
             className={css.input}
           />
@@ -85,7 +92,6 @@ const useClasses = makeClasses({
   },
   input: {
     marginBottom: "0.5rem",
-    minWidth: "15rem",
   },
   sectionTitle: {
     marginTop: "0.3rem",

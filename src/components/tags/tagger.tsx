@@ -83,9 +83,9 @@ const Tagger = observer(({ isOpen, setIsOpen }: any) => {
                   Added Tags
                 </Text>
                 <TagInput
-                  options={tagStore.tagOptions}
                   value={addedTags}
-                  onChange={handleTagAdded}
+                  setValue={handleTagAdded}
+                  options={tagStore.tagOptions}
                   className={css.input}
                 />
 
@@ -93,9 +93,9 @@ const Tagger = observer(({ isOpen, setIsOpen }: any) => {
                   Removed Tags
                 </Text>
                 <TagInput
-                  options={tagStore.tagOptions}
                   value={removedTags}
-                  onChange={handleTagRemoved}
+                  setValue={handleTagRemoved}
+                  options={tagStore.tagOptions}
                   className={css.input}
                 />
               </View>

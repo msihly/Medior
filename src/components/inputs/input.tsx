@@ -1,14 +1,23 @@
 import { TextField, TextFieldProps } from "@mui/material";
+import { CSSObject } from "tss-react";
 import { makeClasses } from "utils";
 
 interface InputProps extends Omit<TextFieldProps, "onChange"> {
   className?: string;
   setValue?: (value: any) => void;
+  textAlign?: CSSObject["textAlign"];
   value?: any;
 }
 
-const Input = ({ className, setValue, value, variant = "outlined", ...props }: InputProps) => {
-  const { classes: css, cx } = useClasses(null);
+const Input = ({
+  className,
+  setValue,
+  textAlign,
+  value,
+  variant = "outlined",
+  ...props
+}: InputProps) => {
+  const { classes: css, cx } = useClasses({ textAlign });
 
   return (
     <TextField
@@ -23,8 +32,11 @@ const Input = ({ className, setValue, value, variant = "outlined", ...props }: I
 
 export default Input;
 
-const useClasses = makeClasses({
+const useClasses = makeClasses((_, { textAlign }) => ({
   input: {
     marginBottom: "0.5rem",
+    "& input": {
+      textAlign,
+    },
   },
-});
+}));

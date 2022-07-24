@@ -29,6 +29,7 @@ export const TagModel = types
     },
     get tagOption(): TagOptionSnapshot {
       return {
+        aliases: self.aliases,
         count: self.count,
         id: self.id,
         label: self.label,

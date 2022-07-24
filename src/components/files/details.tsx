@@ -1,11 +1,10 @@
 import { shell } from "electron";
 import { Paper } from "@mui/material";
-import { Text, View } from "components";
-import { ContextMenu } from ".";
-import { formatBytes, makeClasses } from "utils";
-import dayjs from "dayjs";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
+import { Text, View } from "components";
+import { ContextMenu } from ".";
+import { dayjs, formatBytes, makeClasses } from "utils";
 
 interface FileDetailsProps {
   id: string;

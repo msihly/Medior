@@ -8,8 +8,7 @@ import { useStores } from "store";
 import { addImportToBatch, createImportBatch, FileImport, ImportQueue } from "database";
 import { Dialog, DialogTitle, DialogContent, DialogActions, colors } from "@mui/material";
 import { Button, ImportBatch, TagInput, TagOption, Text } from "components";
-import { makeClasses } from "utils";
-import dayjs from "dayjs";
+import { dayjs, makeClasses } from "utils";
 
 interface ImporterProps {
   isOpen: boolean;
@@ -35,7 +34,7 @@ const Importer = observer(({ isOpen = false, setIsOpen }: ImporterProps) => {
       });
       if (res.canceled) return;
 
-      const tagIds = tags.map((t) => t.id);
+      const tagIds = [...tags].map((t) => t.id);
       const addedAt = dayjs().toISOString();
 
       const batchRes = await createImportBatch(importStore, addedAt, tagIds);
@@ -99,7 +98,7 @@ const Importer = observer(({ isOpen = false, setIsOpen }: ImporterProps) => {
 
         <TagInput
           value={tags}
-          onChange={(val) => setTags(val)}
+          setValue={setTags}
           options={tagStore.tagOptions}
           className={css.input}
         />

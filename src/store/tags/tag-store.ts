@@ -3,12 +3,8 @@ import { RootStoreModel } from "store/root-store";
 import { File, FileStore, TagOptionSnapshot } from "store/files";
 import { Tag, TagModel } from ".";
 
-// const getTagAncestry = (tags: Tag[], parentIds: string[]): string[] => {
-//   return parentIds.flatMap((id) => {
-//     const tag = tags.find((t) => t.id === id);
-//     return [...parentIds, ...getTagAncestry(tags, tag.parentIds)];
-//   });
-// };
+const getTagAncestry = (tags: Tag[]): string[] =>
+  tags.flatMap((t) => [t.id, ...getTagAncestry(t.parentTags)]);
 
 const TagCountModel = types.model({
   id: types.string,
@@ -40,7 +36,7 @@ export const TagStoreModel = types
       const fileStore: FileStore = rootStore.fileStore;
 
       return fileStore.files
-        .map((f) => f.tags.map((t) => [t.id, ...t.parentIds]))
+        .map((f) => getTagAncestry(f.tags))
         .flat(2)
         .reduce((tagCounts, id) => {
           if (!id) return tagCounts;
@@ -58,17 +54,19 @@ export const TagStoreModel = types
     },
   }))
   .views((self) => ({
-    getTagCounts: (files: File[]): TagCount[] => {
-      return files.reduce((tagCounts, file) => {
-        file.tags
-          .flatMap((t) => [t.id, ...t.parentIds])
-          .forEach((id) => {
-            const tagCount = tagCounts.find((t) => t.id === id);
-            tagCounts.push({ id, count: tagCount?.count ?? 0 });
-          });
+    getTagCounts: (files: File[], includeParents = false): TagCount[] => {
+      const tagIds = [
+        ...new Set(
+          files
+            .map((f) => f.tags.map((t) => [t.id, ...(includeParents ? t.parentIds : [])]))
+            .flat(2)
+        ),
+      ];
 
-        return tagCounts;
-      }, [] as TagCount[]);
+      return tagIds.map((id) => ({
+        id,
+        count: self.tagCounts.find((t) => t.id === id)?.count ?? 0,
+      }));
     },
     getTagCountById: (id: string): number => {
       return self.tagCounts.find((t) => t.id === id)?.count ?? 0;
@@ -78,6 +76,7 @@ export const TagStoreModel = types
     get tagOptions(): TagOptionSnapshot[] {
       return self.tags
         .map((t) => ({
+          aliases: t.aliases,
           count: t.count,
           id: t.id,
           label: t.label,
@@ -87,10 +86,10 @@ export const TagStoreModel = types
     },
   }))
   .actions((self) => ({
-    createTag: (tag: Tag) => {
+    createTag: (tag: SnapshotOrInstance<Tag>) => {
       self.tags.push(tag);
     },
-    overwrite: (tags: SnapshotOrInstance<typeof self.tags>) => {
+    overwrite: (tags: SnapshotOrInstance<Tag>[]) => {
       self.tags = cast(tags);
     },
     setActiveTagId: (tagId: string) => {

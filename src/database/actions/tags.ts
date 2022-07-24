@@ -1,26 +1,63 @@
 import { Tag, TagModel } from "database";
+import { TagStore } from "store/tags";
 
-export const createTag = async ({ aliases = [], label, parentIds = [], tagStore }) => {
+interface CreateTagProps {
+  aliases?: string[];
+  label: string;
+  parentIds?: string[];
+  tagStore: TagStore;
+}
+
+interface CreateTagResult {
+  error?: string;
+  success: boolean;
+  tag?: Tag;
+}
+
+export const createTag = async ({
+  aliases = [],
+  label,
+  parentIds = [],
+  tagStore,
+}: CreateTagProps): Promise<CreateTagResult> => {
   try {
     const tag = (await TagModel.create({ aliases, label, parentIds })).toJSON() as Tag;
     tagStore.createTag(tag);
 
     return { success: true, tag };
   } catch (err) {
-    console.error(err?.message ?? err);
-    return { success: false, error: err?.message ?? err };
+    console.error(err);
+    return { success: false, error: err?.message };
   }
 };
 
-export const editTag = async ({ aliases, id, label, parentIds, tagStore }) => {
+interface EditTagProps {
+  aliases?: string[];
+  id: string;
+  label?: string;
+  parentIds?: string[];
+  tagStore: TagStore;
+}
+
+interface EditTagResult {
+  success: boolean;
+}
+
+export const editTag = async ({
+  aliases,
+  id,
+  label,
+  parentIds,
+  tagStore,
+}: EditTagProps): Promise<EditTagResult> => {
   try {
     await TagModel.updateOne({ _id: id }, { aliases, label, parentIds });
     tagStore.getById(id).update({ aliases, label, parentIds });
 
-    return true;
+    return { success: true };
   } catch (err) {
-    console.error(err?.message ?? err);
-    return false;
+    console.error(err);
+    return { success: false };
   }
 };
 

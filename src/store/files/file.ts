@@ -1,7 +1,7 @@
-import { applySnapshot, getParentOfType, Instance, types } from "mobx-state-tree";
+import { applySnapshot, cast, getParentOfType, Instance, types } from "mobx-state-tree";
 import { RootStoreModel } from "store/root-store";
 import { Tag, TagStore } from "store/tags";
-import dayjs from "dayjs";
+import { dayjs } from "utils";
 
 export const FileModel = types
   .model("File")
@@ -9,6 +9,7 @@ export const FileModel = types
     id: types.string,
     dateCreated: types.string,
     dateModified: types.string,
+    duration: types.maybeNull(types.number),
     ext: types.string,
     hash: types.string,
     isArchived: types.boolean,
@@ -29,11 +30,11 @@ export const FileModel = types
     },
   }))
   .actions((self) => ({
-    update: (updates: File) => {
+    update: (updates: Partial<File>) => {
       applySnapshot(self, { ...self, ...updates });
     },
-    updateTags: (tagIds, dateModified = dayjs().toISOString()) => {
-      self.tagIds = tagIds;
+    updateTags: (tagIds: string[], dateModified = dayjs().toISOString()) => {
+      self.tagIds = cast(tagIds);
       self.dateModified = dateModified;
     },
   }));

@@ -32,6 +32,7 @@ const VideoTypesModel = types.model({
 export type VideoTypes = Instance<typeof VideoTypesModel>;
 
 const TagOptionModel = types.model({
+  aliases: types.array(types.string),
   count: types.number,
   id: types.string,
   label: types.maybe(types.string),
@@ -179,7 +180,7 @@ export const FileStoreModel = types
       self.files = cast(self.files.filter((f) => !fileIds.includes(f.id)));
       toast.error(`Deleted ${fileIds.length} files`);
     },
-    overwrite: (files: SnapshotOrInstance<typeof self.files>) => {
+    overwrite: (files: SnapshotOrInstance<File>[]) => {
       self.files = cast(files.map((f) => ({ ...f, isSelected: false })));
     },
     reset: () => {

@@ -40,7 +40,7 @@ const Home = observer(() => {
     };
 
     loadDatabase();
-  }, []); //eslint-disable-line
+  }, []);
 
   return (
     <>

@@ -4,6 +4,7 @@ export interface File {
   // collections: { collectionId: string; manualIndex: number }[];
   dateCreated: string;
   dateModified: string;
+  duration?: number;
   ext: string;
   hash: string;
   id: string;
@@ -21,6 +22,7 @@ const FileSchema = new Schema<File>({
   // collections: [{ collectionId: String, manualIndex: number }],
   dateCreated: String,
   dateModified: String,
+  duration: Number,
   ext: String,
   hash: String,
   isArchived: Boolean,

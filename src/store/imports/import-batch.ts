@@ -1,7 +1,6 @@
 import { Instance, types } from "mobx-state-tree";
 import { FileImportInstance, FileImportModel } from ".";
-import { DayJsInput } from "utils";
-import dayjs from "dayjs";
+import { dayjs, DayJsInput } from "utils";
 
 export const ImportBatchModel = types
   .model({

@@ -20,6 +20,7 @@ const SortMenu = () => {
           <SortRow label="Date Created" attribute="dateCreated" icon="DateRange" />
           <SortRow label="Name" attribute="originalName" icon="SortByAlpha" />
           <SortRow label="Size" attribute="size" icon="FormatSize" />
+          <SortRow label="Duration" attribute="duration" icon="HourglassBottom" />
           <SortRow label="Rating" attribute="rating" icon="Star" />
         </View>
       </Menu>

@@ -5,7 +5,7 @@ import { useStores } from "store";
 import { Paper, colors, Chip } from "@mui/material";
 import { SideScroller, Tag, View } from "components";
 import { ContextMenu } from ".";
-import { makeClasses } from "utils";
+import { dayjs, makeClasses } from "utils";
 import { Star } from "@mui/icons-material";
 
 interface FileGridProps {
@@ -37,7 +37,7 @@ const FileGrid = observer(({ id }: FileGridProps) => {
 
   const handleTagPress = (tagId: string) => {
     tagStore.setActiveTagId(tagId);
-    tagStore.setTagManagerMode("create");
+    tagStore.setTagManagerMode("edit");
     tagStore.setIsTagManagerOpen(true);
   };
 
@@ -65,6 +65,13 @@ const FileGrid = observer(({ id }: FileGridProps) => {
           />
 
           <Chip label={file?.ext} className={css.ext} />
+
+          {file?.duration && (
+            <Chip
+              label={dayjs.duration(file.duration, "s").format("HH:mm:ss")}
+              className={css.duration}
+            />
+          )}
         </View>
 
         <SideScroller>
@@ -99,6 +106,18 @@ const useClasses = makeClasses((theme, { selected }) => ({
     overflow: "hidden",
     cursor: "pointer",
     userSelect: "none",
+  },
+  duration: {
+    position: "absolute",
+    bottom: "0.5rem",
+    right: "0.5rem",
+    backgroundColor: colors.grey["900"],
+    opacity: 0.5,
+    cursor: "pointer",
+    transition: "all 200ms ease-in-out",
+    "&:hover": {
+      opacity: 0.8,
+    },
   },
   ext: {
     position: "absolute",

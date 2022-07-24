@@ -1,7 +1,7 @@
-import dayjs from "dayjs";
 import { applySnapshot, cast, Instance, SnapshotOrInstance, types } from "mobx-state-tree";
 import { ImportBatchModel } from "./import-batch";
 import { FileImportInstance, FileImportSnapshot, ImportBatch } from ".";
+import { dayjs } from "utils";
 
 export const defaultImportStore = {
   importBatches: [],
@@ -40,29 +40,25 @@ export const ImportStoreModel = types
   .actions((self) => ({
     addImportToBatch: (addedAt: string, fileImport: FileImportSnapshot) => {
       const batch = self.importBatches.find((batch) => batch.addedAt === addedAt);
-      if (batch) batch.imports.push(fileImport);
-      else {
-        console.log(`ImportBatch with addedAt = '${addedAt}' not found. New ImportBatch created.`);
-        self.importBatches.push({
-          addedAt,
-          completedAt: null,
-          imports: [fileImport],
-          startedAt: null,
-        });
-      }
+      if (!batch)
+        throw new Error(
+          `ImportBatch (addedAt: ${addedAt}) does not exist in importStore.addImportToBatch`
+        );
+      batch.imports.push(fileImport);
     },
-    addImportBatch: (addedAt: string, ...fileImports: FileImportInstance[]) => {
+    addImportBatch: (addedAt: string, tagIds = [], ...fileImports: FileImportInstance[]) => {
       self.importBatches.push({
         addedAt,
         completedAt: null,
         imports: fileImports,
         startedAt: null,
+        tagIds,
       });
     },
     deleteImportBatch: (addedAt: string) => {
       self.importBatches = cast(self.importBatches.filter((batch) => batch.addedAt !== addedAt));
     },
-    overwrite: (importBatches: SnapshotOrInstance<typeof self.importBatches>) => {
+    overwrite: (importBatches: SnapshotOrInstance<ImportBatch>[]) => {
       self.importBatches = cast(importBatches);
     },
     reset: () => {

@@ -6,27 +6,24 @@ import { Tag, View } from "components";
 import { makeClasses } from "utils";
 
 export type TagOption = {
+  aliases?: string[];
   count: number;
   id: string;
   label?: string;
 };
 
-type TagInputProps = Omit<ComponentProps<typeof Autocomplete>, "renderInput" | "options"> & {
-  onChange?: (val: any) => void;
-  options?: TagOption[];
-  value: TagOption[];
+type TagInputProps = Omit<
+  ComponentProps<typeof Autocomplete>,
+  "renderInput" | "onChange" | "options"
+> & {
   opaque?: boolean;
+  options?: TagOption[];
+  setValue?: (val: TagOption[]) => void;
+  value: TagOption[];
 };
 
 const TagInput = observer(
-  ({
-    className,
-    onChange = null,
-    opaque = false,
-    options = [],
-    value = [],
-    ...props
-  }: TagInputProps) => {
+  ({ className, opaque = false, options = [], setValue, value = [], ...props }: TagInputProps) => {
     const { tagStore } = useStores();
     const { classes: css, cx } = useClasses({ opaque });
 
@@ -40,8 +37,16 @@ const TagInput = observer(
             <Tag {...getTagProps({ index })} key={option.id} id={option.id} />
           ))
         }
-        onChange={(_, val) => onChange(val)}
+        onChange={(_, val: TagOption[]) => setValue?.(val)}
         isOptionEqualToValue={(option: TagOption, val: TagOption) => option.id === val.id}
+        filterOptions={(options: TagOption[], { inputValue }) => {
+          const searchStr = inputValue.trim().toLowerCase();
+          return options.filter((o) =>
+            [o.label.toLowerCase(), ...(o.aliases?.map((a) => a.toLowerCase()) ?? [])].some(
+              (label) => label.includes(searchStr)
+            )
+          );
+        }}
         renderOption={(
           props: HTMLAttributes<HTMLLIElement> & HTMLAttributes<HTMLDivElement>,
           option: TagOption

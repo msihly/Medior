@@ -2,11 +2,10 @@ import { promises as fs, constants as fsc } from "fs";
 import path from "path";
 import md5File from "md5-file";
 import sharp from "sharp";
-import dayjs from "dayjs";
 import { File, FileModel } from "database";
-import { generateFramesThumbnail, splitArray } from "utils";
 import { FileStore } from "store/files";
 import { FileImportInstance } from "store/imports";
+import { dayjs, generateFramesThumbnail, getVideoInfo, splitArray } from "utils";
 
 const checkFileExists = async (path: string) => !!(await fs.stat(path).catch(() => false));
 
@@ -37,6 +36,7 @@ export const copyFileTo = async ({
   const extFromPath = originalPath.split(".").pop();
   const newPath = `${dirPath}\\${hash}.${extFromPath}`;
   const isAnimated = ["gif", "mp4", "mkv", "webm"].includes(extFromPath);
+  const duration = isAnimated ? (await getVideoInfo(originalPath))?.duration : null;
 
   try {
     const thumbPaths = isAnimated
@@ -46,41 +46,47 @@ export const copyFileTo = async ({
       : [path.join(dirPath, `${hash}-thumb.${extFromPath}`)];
 
     if (!dbOnly) {
-      if (await copyFile(dirPath, originalPath, newPath))
-        await (isAnimated
-          ? generateFramesThumbnail(originalPath, dirPath, hash)
-          : sharp(originalPath).resize(300, 300).toFile(thumbPaths[0]));
+      if (!(await checkFileExists(newPath)))
+        if (await copyFile(dirPath, originalPath, newPath))
+          await (isAnimated
+            ? generateFramesThumbnail(originalPath, dirPath, hash)
+            : sharp(originalPath).resize(300, 300).toFile(thumbPaths[0]));
     }
 
-    const file = (
-      await FileModel.create({
-        dateCreated,
-        dateModified: dayjs().toISOString(),
-        ext,
-        hash,
-        isArchived: false,
-        originalName: name,
-        originalPath,
-        path: newPath,
-        rating: 0,
-        size,
-        tagIds,
-        thumbPaths,
-      })
-    ).toJSON();
+    let file = await getFileByHash(hash);
 
-    console.log({ id: file.id, hash });
+    if (!file) {
+      file = (
+        await FileModel.create({
+          dateCreated,
+          dateModified: dayjs().toISOString(),
+          duration,
+          ext,
+          hash,
+          isArchived: false,
+          originalName: name,
+          originalPath,
+          path: newPath,
+          rating: 0,
+          size,
+          tagIds,
+          thumbPaths,
+        })
+      ).toJSON();
 
-    return { success: true, file, isDuplicate: false };
+      return { success: true, file, isDuplicate: false };
+    } else return { success: true, file, isDuplicate: true };
   } catch (err) {
     console.log("Error importing", { ...fileObj }, ":", err);
 
     if (err.code === "EEXIST") {
-      const file = (await FileModel.findOne({ hash }))?.toJSON?.();
+      const file = await getFileByHash(hash);
+
       if (!file) {
         console.log("File exists, but not in db. Inserting into db only...", {
           dateCreated,
           dirPath,
+          duration,
           ext,
           extFromPath,
           hash,
@@ -140,16 +146,16 @@ export const deleteFiles = async (fileStore: FileStore, files: File[], isUndelet
 
     return true;
   } catch (err) {
-    console.error(err?.message ?? err);
+    console.error(err);
     return false;
   }
 };
 
 export const editFileTags = async (
   fileStore: FileStore,
-  fileIds = [],
-  addedTagIds = [],
-  removedTagIds = []
+  fileIds: string[] = [],
+  addedTagIds: string[] = [],
+  removedTagIds: string[] = []
 ) => {
   if (!fileIds?.length || (!addedTagIds?.length && !removedTagIds?.length)) return false;
 
@@ -174,8 +180,18 @@ export const editFileTags = async (
 
     return true;
   } catch (err) {
-    console.error(err?.message ?? err);
+    console.error(err);
     return false;
+  }
+};
+
+export const getFileByHash = async (hash: string) => {
+  try {
+    const file = (await FileModel.findOne({ hash }))?.toJSON?.() as File;
+    return file;
+  } catch (err) {
+    console.error(err);
+    return null;
   }
 };
 
@@ -184,12 +200,16 @@ export const getAllFiles = async () => {
     const files = (await FileModel.find()).map((r) => r.toJSON() as File);
     return files;
   } catch (err) {
-    console.error(err?.message ?? err);
+    console.error(err);
     return [];
   }
 };
 
-export const setFileRating = async (fileStore, fileIds = [], rating) => {
+export const setFileRating = async (
+  fileStore: FileStore,
+  fileIds: string[] = [],
+  rating: number
+) => {
   try {
     const dateModified = dayjs().toISOString();
 
@@ -200,6 +220,6 @@ export const setFileRating = async (fileStore, fileIds = [], rating) => {
       })
     );
   } catch (err) {
-    console.error(err?.message ?? err);
+    console.error(err);
   }
 };

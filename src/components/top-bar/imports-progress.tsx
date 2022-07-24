@@ -34,7 +34,7 @@ const ImportsProgress = observer(() => {
     };
 
     handlePhase();
-  }, [importStore.activeBatch?.nextImport, importStore.isImporting]); // eslint-disable-line
+  }, [importStore.activeBatch?.nextImport, importStore.isImporting]);
 
   return importStore.isImporting ? (
     <View column>
@@ -56,16 +56,12 @@ const ImportsProgress = observer(() => {
     <View column>
       <Text className={css.title}>
         <Text className={css.title} bold>
-          {"Total Files: "}
+          {"Images: "}
         </Text>
-        {fileStore.files.length}
+        {fileStore.images.length}
       </Text>
 
       <Text className={css.subtitle}>
-        <Text className={css.subtitle} bold>
-          {"Images: "}
-        </Text>
-        {fileStore.images.length}{" "}
         <Text className={css.subtitle} bold>
           {"Videos: "}
         </Text>

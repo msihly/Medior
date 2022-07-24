@@ -1,18 +1,21 @@
 import ffmpeg from "fluent-ffmpeg";
 import path from "path";
-import { getRandomInt } from "utils";
+// import { getRandomInt } from "utils";
 
 interface VideoInfo {
   duration: number;
+  height: number;
   size: number;
+  width: number;
 }
 
 export const getVideoInfo = async (path: string) => {
   return (await new Promise((resolve, reject) => {
     return ffmpeg.ffprobe(path, (err, info) => {
       if (err) return reject(err);
+      const { height, width } = info.streams[0];
       const { duration, size } = info.format;
-      return resolve({ duration: Math.floor(duration), size });
+      return resolve({ duration: Math.floor(duration), height, size, width });
     });
   })) as VideoInfo;
 };
@@ -54,24 +57,24 @@ export const generateFramesThumbnail = async (
   }
 };
 
-export const generateVideoThumbnail = async (
-  inputPath: string,
-  outputPath: string,
-  thumbDuration = 3
-) => {
-  const { duration } = await getVideoInfo(inputPath);
-  const safeThumbDur = duration - thumbDuration;
-  const startTime = safeThumbDur <= 0 ? 0 : getRandomInt(0.1 * safeThumbDur, 0.9 * safeThumbDur);
+// export const generateVideoThumbnail = async (
+//   inputPath: string,
+//   outputPath: string,
+//   thumbDuration = 3
+// ) => {
+//   const { duration } = await getVideoInfo(inputPath);
+//   const safeThumbDur = duration - thumbDuration;
+//   const startTime = safeThumbDur <= 0 ? 0 : getRandomInt(0.1 * safeThumbDur, 0.9 * safeThumbDur);
 
-  return await new Promise((resolve, reject) => {
-    return ffmpeg()
-      .input(inputPath)
-      .inputOptions([`-ss ${startTime}`])
-      .outputOptions([`-t ${thumbDuration}`])
-      .noAudio()
-      .output(path.join(outputPath, "test.mp4"))
-      .on("end", resolve)
-      .on("error", reject)
-      .run();
-  });
-};
+//   return await new Promise((resolve, reject) => {
+//     return ffmpeg()
+//       .input(inputPath)
+//       .inputOptions([`-ss ${startTime}`])
+//       .outputOptions([`-t ${thumbDuration}`])
+//       .noAudio()
+//       .output(path.join(outputPath, "test.mp4"))
+//       .on("end", resolve)
+//       .on("error", reject)
+//       .run();
+//   });
+// };

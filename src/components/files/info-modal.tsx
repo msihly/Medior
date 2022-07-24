@@ -1,9 +1,8 @@
 import { Dialog, DialogTitle, DialogContent, DialogActions, colors } from "@mui/material";
-import { Button, SideScroller, Tag, Text, View } from "components";
-import { formatBytes, makeClasses } from "utils";
-import dayjs from "dayjs";
-import { useStores } from "store";
 import { observer } from "mobx-react-lite";
+import { useStores } from "store";
+import { Button, SideScroller, Tag, Text, View } from "components";
+import { dayjs, formatBytes, makeClasses } from "utils";
 
 interface InfoModalProps {
   fileId: string;
@@ -29,7 +28,9 @@ const InfoModal = observer(({ fileId, setVisible }: InfoModalProps) => {
             <Text>Name</Text>
             <Text>New Path</Text>
             <Text>Original Path</Text>
+            <Text>Hash</Text>
             <Text>Size</Text>
+            <Text>Duration</Text>
             <Text>Date Created</Text>
             <Text>Tags</Text>
           </View>
@@ -39,18 +40,26 @@ const InfoModal = observer(({ fileId, setVisible }: InfoModalProps) => {
             <Text noWrap>{file?.originalName || "N/A"}</Text>
             <Text noWrap>{file?.path || "N/A"}</Text>
             <Text noWrap>{file?.originalPath || "N/A"}</Text>
+            <Text noWrap>{file?.hash || "N/A"}</Text>
             <Text noWrap>{formatBytes(file?.size)}</Text>
+            <Text noWrap>
+              {file?.duration ? dayjs.duration(file.duration, "s").format("HH:mm:ss") : "N/A"}
+            </Text>
             <Text noWrap>
               {dayjs(file?.dateCreated).format("MMMM D, YYYY - hh:mm:ss a") || "N/A"}
             </Text>
 
-            <SideScroller>
-              <View className={css.tags}>
-                {file?.tags?.map?.((t) => (
-                  <Tag key={t.id} id={t.id} size="small" />
-                ))}
-              </View>
-            </SideScroller>
+            {file?.tags?.length > 0 ? (
+              <SideScroller>
+                <View className={css.tags}>
+                  {file.tags.map((t) => (
+                    <Tag key={t.id} id={t.id} size="small" />
+                  ))}
+                </View>
+              </SideScroller>
+            ) : (
+              <Text>{"N/A"}</Text>
+            )}
           </View>
         </View>
       </DialogContent>

@@ -1,16 +1,26 @@
-import dayjs from "dayjs";
+import { dayjs } from ".";
 
-export const capitalize = (string) => string[0].toUpperCase() + string.substring(1);
+export const capitalize = (string: string) => string[0].toUpperCase() + string.substring(1);
 
-export const formatBytes = (bytes) => {
-  if (bytes < 1) {
-    return "0 B";
-  }
+export const formatBytes = (bytes: number) => {
+  if (bytes < 1) return "0 B";
   const power = Math.floor(Math.log2(bytes) / 10);
   return `${(bytes / 1024 ** power).toFixed(2)} ${"KMGTPEZY"[power - 1] || ""}B`;
 };
 
-export const formatData = (data, type) => {
+export const formatData = (
+  data: any,
+  type:
+    | "boolean"
+    | "currency"
+    | "date"
+    | "datetime"
+    | "integer"
+    | "percent"
+    | "number"
+    | "text"
+    | "time"
+) => {
   if (data === undefined)
     return console.debug("Undefined reference passed as 'data' argument in formatData(...)");
   if (data === null) return "N/A";
@@ -41,9 +51,9 @@ export const formatData = (data, type) => {
   }
 };
 
-export const leadZeros = (num, places) => String(num).padStart(places, "0");
+export const leadZeros = (num: number, places: number) => String(num).padStart(places, "0");
 
-export const regexEscape = (string) => {
+export const regexEscape = (string: string) => {
   if (string === undefined)
     return console.debug("String reference is undefined in regexEscape(...)");
   return String(string).replace(/[-/\\^$*+?.()|[\]{}]/g, "\\$&");

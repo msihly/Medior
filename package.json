@@ -72,9 +72,6 @@
     "dev": "concurrently \"SET BROWSER=none && npm start\" \"wait-on http://localhost:3000 && electron .\""
   },
   "proxy": "http://localhost:3000",
-  "eslintConfig": {
-    "extends": "react-app"
-  },
   "browserslist": {
     "production": [
       "last 3 chrome version"

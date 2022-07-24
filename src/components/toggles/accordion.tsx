@@ -34,8 +34,8 @@ export const Accordion = ({
       <Button
         onClick={() => setExpanded(!expanded)}
         endNode={<ExpandMore fontSize="medium" className={css.expandIcon} />}
-        fullWidth
         color={color}
+        fullWidth
         className={css.button}
       >
         {header}

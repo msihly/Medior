@@ -1,9 +1,10 @@
-import { cloneElement, useEffect, useRef, useState } from "react";
+import { cloneElement, ReactElement, useEffect, useRef, useState } from "react";
 import { colors } from "@mui/material";
 import { IconButton, View } from "components";
 import { debounce, makeClasses, useElementResize } from "utils";
+
 interface SideScrollerProps {
-  children: any;
+  children: ReactElement;
   className?: string;
 }
 
@@ -21,7 +22,7 @@ const SideScroller = ({ children, className }: SideScrollerProps) => {
     return () => node.removeEventListener("scroll", scrollListener);
   }, []);
 
-  const handleScroll = (direction) => {
+  const handleScroll = (direction: "left" | "right") => {
     const node = ref?.current;
     if (!node) return false;
 
@@ -58,11 +59,7 @@ const SideScroller = ({ children, className }: SideScrollerProps) => {
         size="large"
       />
 
-      {children &&
-        cloneElement(children, {
-          ref,
-          className: `${children.props.className ?? ""} side-scroller`,
-        })}
+      {cloneElement(children, { ref, className: cx(children.props.className, "side-scroller") })}
 
       <IconButton
         name="ChevronRight"
