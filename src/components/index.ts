@@ -1,5 +1,6 @@
 export * from "./buttons";
 export * from "./drawer";
+export * from "./file-collections";
 export * from "./files";
 export * from "./inputs";
 export * from "./list";

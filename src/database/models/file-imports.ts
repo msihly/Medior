@@ -39,6 +39,8 @@ const FileImportBatchSchema = new Schema<FileImportBatch>({
   tagIds: [String],
 });
 
+FileImportBatchSchema.index({ addedAt: 1 });
+
 FileImportBatchSchema.set("toJSON", { virtuals: true });
 
 export const FileImportBatchModel = model<FileImportBatch>(

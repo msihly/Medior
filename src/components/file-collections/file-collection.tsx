@@ -1,21 +1,20 @@
-import { shell } from "electron";
 import { useRef, useState } from "react";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
 import { colors, Chip, Paper } from "@mui/material";
-import { Icon, SideScroller, Tag, View } from "components";
-import { ContextMenu } from ".";
-import { dayjs, makeClasses } from "utils";
+import { Icon, SideScroller, Tag, Text, View } from "components";
+import { makeClasses } from "utils";
 
-interface FileGridProps {
+interface FileCollectionProps {
+  active?: boolean;
   id: string;
 }
 
-const FileGrid = observer(({ id }: FileGridProps) => {
-  const { fileStore, tagStore } = useStores();
-  const file = fileStore.getById(id);
+const FileCollection = observer(({ active = false, id }: FileCollectionProps) => {
+  const { fileCollectionStore, tagStore } = useStores();
+  const collection = fileCollectionStore.getById(id);
 
-  const { classes: css } = useClasses({ selected: file?.isSelected });
+  const { classes: css } = useClasses({ active });
 
   const thumbInterval = useRef(null);
   const [thumbIndex, setThumbIndex] = useState(0);
@@ -23,7 +22,7 @@ const FileGrid = observer(({ id }: FileGridProps) => {
   const handleMouseEnter = () => {
     thumbInterval.current = setInterval(() => {
       setThumbIndex((thumbIndex) =>
-        thumbIndex + 1 === file?.thumbPaths.length ? 0 : thumbIndex + 1
+        thumbIndex + 1 === collection.fileIndexes?.length ? 0 : thumbIndex + 1
       );
     }, 300);
   };
@@ -34,17 +33,14 @@ const FileGrid = observer(({ id }: FileGridProps) => {
     setThumbIndex(0);
   };
 
-  const handleTagPress = (tagId: string) => {
-    tagStore.setActiveTagId(tagId);
-    tagStore.setTagManagerMode("edit");
-    tagStore.setIsTagManagerOpen(true);
+  const openCollection = () => {
+    fileCollectionStore.setActiveCollectionId(id);
+    fileCollectionStore.setIsCollectionEditorOpen(true);
   };
 
-  const openFile = () => shell.openPath(file?.path);
-
   return (
-    <ContextMenu fileId={id} className={`${css.container} selectable`}>
-      <Paper onDoubleClick={openFile} elevation={3} className={css.paper}>
+    <View className={css.container}>
+      <Paper onDoubleClick={openCollection} elevation={3} className={css.paper}>
         <View
           onMouseEnter={handleMouseEnter}
           onMouseLeave={handleMouseLeave}
@@ -52,50 +48,41 @@ const FileGrid = observer(({ id }: FileGridProps) => {
         >
           <Chip
             icon={<Icon name="Star" color={colors.amber["600"]} size="inherit" />}
-            label={file?.rating}
+            label={collection?.rating}
             className={css.rating}
           />
 
+          <Chip
+            icon={<Icon name="Collections" size="inherit" margins={{ left: "0.5rem" }} />}
+            label={collection?.fileIndexes?.length}
+            className={css.fileCount}
+          />
+
           <img
-            src={file?.thumbPaths[thumbIndex] ?? file?.path}
+            src={collection?.thumbPaths[thumbIndex]}
             className={css.image}
-            alt={file?.originalName}
+            alt={collection?.title}
             draggable={false}
           />
 
-          <Chip label={file?.ext} className={css.ext} />
-
-          {file?.collections?.length > 0 && (
-            <Chip
-              icon={<Icon name="Collections" size="inherit" margins={{ left: "0.5rem" }} />}
-              label={file.collections.length}
-              className={css.collections}
-            />
-          )}
-
-          {file?.duration && (
-            <Chip
-              label={dayjs.duration(file.duration, "s").format("HH:mm:ss")}
-              className={css.duration}
-            />
-          )}
+          {collection?.title?.length > 0 && <Text>{collection.title}</Text>}
         </View>
 
         <SideScroller>
           <View className={css.tags}>
-            {file?.tags?.map?.((t) => (
-              <Tag key={t.id} id={t.id} onClick={() => handleTagPress(t.id)} size="small" />
+            {collection?.tags?.map((t) => (
+              <Tag key={t.id} id={t.id} size="small" />
             ))}
           </View>
         </SideScroller>
       </Paper>
-    </ContextMenu>
+    </View>
   );
 });
 
-export default FileGrid;
+export default FileCollection;
 
-const useClasses = makeClasses((theme, { selected }) => ({
+const useClasses = makeClasses((theme, { active }) => ({
   container: {
     flexBasis: "calc(100% / 7)",
     [theme.breakpoints.down("xl")]: {
@@ -109,7 +96,7 @@ const useClasses = makeClasses((theme, { selected }) => ({
     borderRadius: 4,
     padding: "0.25rem",
     height: "fit-content",
-    backgroundColor: selected ? colors.grey["600"] : "transparent",
+    backgroundColor: active ? colors.blue["600"] : "transparent",
     overflow: "hidden",
     cursor: "pointer",
     userSelect: "none",
@@ -126,7 +113,7 @@ const useClasses = makeClasses((theme, { selected }) => ({
       opacity: 0.8,
     },
   },
-  ext: {
+  fileCount: {
     position: "absolute",
     top: "0.5rem",
     right: "0.5rem",

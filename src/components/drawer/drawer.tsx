@@ -6,6 +6,8 @@ import { Archive, GetApp as ImportIcon, More as MoreIcon, Unarchive } from "@mui
 import {
   Accordion,
   Checkbox,
+  FileCollectionEditor,
+  FileCollectionManager,
   IconButton,
   ListItem,
   TagInput,
@@ -19,7 +21,7 @@ import * as Media from "media";
 
 const Drawer = observer(
   forwardRef((_, drawerRef: any) => {
-    const { appStore, fileStore, tagStore } = useStores();
+    const { appStore, fileCollectionStore, fileStore, tagStore } = useStores();
 
     const { classes: css } = useClasses({ drawerMode: appStore.drawerMode });
 
@@ -78,7 +80,7 @@ const Drawer = observer(
 
         <Divider variant="middle" />
 
-        <Text align="center" className={css.sectionTitle}>
+        <Text align="center" className={css.inputTitle}>
           Include
         </Text>
         <TagInput
@@ -89,7 +91,7 @@ const Drawer = observer(
           className={css.input}
         />
 
-        <Text align="center" className={css.sectionTitle}>
+        <Text align="center" className={css.inputTitle}>
           Exclude
         </Text>
         <TagInput
@@ -140,6 +142,10 @@ const Drawer = observer(
 
         {tagStore.isTagManagerOpen && <TagManager />}
 
+        {fileCollectionStore.isCollectionManagerOpen && <FileCollectionManager />}
+
+        {fileCollectionStore.isCollectionEditorOpen && <FileCollectionEditor />}
+
         <Importer isOpen={isImporterOpen} setIsOpen={setIsImporterOpen} />
       </MuiDrawer>
     );
@@ -173,7 +179,7 @@ const useClasses = makeClasses((_, { drawerMode }) => ({
     fill: "white",
     transform: `rotate(${drawerMode === "persistent" ? "0" : "30"}deg)`,
   },
-  sectionTitle: {
+  inputTitle: {
     marginTop: "0.3rem",
     textShadow: `0 0 10px ${colors.blue["600"]}`,
     fontSize: "0.8em",

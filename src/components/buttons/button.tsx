@@ -1,25 +1,9 @@
 import { ReactNode } from "react";
 import { Button as MuiButton, ButtonProps as MuiButtonProps, colors } from "@mui/material";
 import { Icon, IconName, Text } from "components";
-import { makeClasses } from "utils";
+import { makeClasses, Margins, Padding } from "utils";
 import { CSSObject } from "tss-react";
 import Color from "color";
-
-type Margins = {
-  all?: CSSObject["margin"];
-  top?: CSSObject["marginTop"];
-  bottom?: CSSObject["marginBottom"];
-  right?: CSSObject["marginRight"];
-  left?: CSSObject["marginLeft"];
-};
-
-type Padding = {
-  all?: CSSObject["padding"];
-  top?: CSSObject["paddingTop"];
-  bottom?: CSSObject["paddingBottom"];
-  right?: CSSObject["paddingRight"];
-  left?: CSSObject["paddingLeft"];
-};
 
 interface ButtonProps extends Omit<MuiButtonProps, "color" | "endIcon" | "startIcon"> {
   color?: string;

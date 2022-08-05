@@ -24,10 +24,11 @@ export const generateFramesThumbnail = async (
   inputPath: string,
   outputPath: string,
   fileHash: string,
+  duration: number = null,
   numOfFrames = 9
 ) => {
   try {
-    const { duration } = await getVideoInfo(inputPath);
+    duration ??= (await getVideoInfo(inputPath))?.duration;
     const frameInterval = duration / numOfFrames;
 
     try {

@@ -36,7 +36,12 @@ export const copyFileTo = async ({
   const extFromPath = originalPath.split(".").pop();
   const newPath = `${dirPath}\\${hash}.${extFromPath}`;
   const isAnimated = ["gif", "mp4", "mkv", "webm"].includes(extFromPath);
-  const duration = isAnimated ? (await getVideoInfo(originalPath))?.duration : null;
+
+  const imageInfo = !isAnimated ? await sharp(originalPath).metadata() : null;
+  const videoInfo = isAnimated ? await getVideoInfo(originalPath) : null;
+  const duration = isAnimated ? videoInfo?.duration : videoInfo?.duration;
+  const width = isAnimated ? videoInfo?.width : imageInfo?.width;
+  const height = isAnimated ? videoInfo?.height : imageInfo?.height;
 
   try {
     const thumbPaths = isAnimated
@@ -48,9 +53,11 @@ export const copyFileTo = async ({
     if (!dbOnly) {
       if (!(await checkFileExists(newPath)))
         if (await copyFile(dirPath, originalPath, newPath))
-          await (isAnimated
-            ? generateFramesThumbnail(originalPath, dirPath, hash)
-            : sharp(originalPath).resize(300, 300).toFile(thumbPaths[0]));
+          await(
+            isAnimated
+              ? generateFramesThumbnail(originalPath, dirPath, hash, duration)
+              : sharp(originalPath).resize(300, 300).toFile(thumbPaths[0])
+          );
     }
 
     let file = await getFileByHash(hash);
@@ -63,6 +70,7 @@ export const copyFileTo = async ({
           duration,
           ext,
           hash,
+          height,
           isArchived: false,
           originalName: name,
           originalPath,
@@ -71,6 +79,7 @@ export const copyFileTo = async ({
           size,
           tagIds,
           thumbPaths,
+          width,
         })
       ).toJSON();
 
@@ -90,12 +99,14 @@ export const copyFileTo = async ({
           ext,
           extFromPath,
           hash,
+          height,
           isAnimated,
           name,
           newPath,
           originalPath,
           size,
           tagIds,
+          width,
         });
 
         return await copyFileTo({ fileObj, targetDir, dbOnly: true });

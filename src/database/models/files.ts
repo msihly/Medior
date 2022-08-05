@@ -1,12 +1,12 @@
 import { model, Schema } from "mongoose";
 
 export interface File {
-  // collections: { collectionId: string; manualIndex: number }[];
   dateCreated: string;
   dateModified: string;
   duration?: number;
   ext: string;
   hash: string;
+  height: number;
   id: string;
   isArchived: boolean;
   originalName?: string;
@@ -16,15 +16,16 @@ export interface File {
   size: number;
   tagIds: string[];
   thumbPaths: string[];
+  width: number;
 }
 
 const FileSchema = new Schema<File>({
-  // collections: [{ collectionId: String, manualIndex: number }],
   dateCreated: String,
   dateModified: String,
   duration: Number,
   ext: String,
   hash: String,
+  height: Number,
   isArchived: Boolean,
   originalName: String,
   originalPath: String,
@@ -33,7 +34,10 @@ const FileSchema = new Schema<File>({
   size: Number,
   tagIds: [String],
   thumbPaths: [String],
+  width: Number,
 });
+
+FileSchema.index({ hash: 1 });
 
 FileSchema.set("toJSON", { virtuals: true });
 

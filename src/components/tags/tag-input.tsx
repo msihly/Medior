@@ -16,6 +16,7 @@ type TagInputProps = Omit<
   ComponentProps<typeof Autocomplete>,
   "renderInput" | "onChange" | "options"
 > & {
+  label?: string;
   opaque?: boolean;
   options?: TagOption[];
   setValue?: (val: TagOption[]) => void;
@@ -23,7 +24,15 @@ type TagInputProps = Omit<
 };
 
 const TagInput = observer(
-  ({ className, opaque = false, options = [], setValue, value = [], ...props }: TagInputProps) => {
+  ({
+    className,
+    label,
+    opaque = false,
+    options = [],
+    setValue,
+    value = [],
+    ...props
+  }: TagInputProps) => {
     const { tagStore } = useStores();
     const { classes: css, cx } = useClasses({ opaque });
 
@@ -31,7 +40,9 @@ const TagInput = observer(
       <Autocomplete
         {...{ options, value }}
         getOptionLabel={(option: TagOption) => option?.label ?? tagStore.getById(option.id)?.label}
-        renderInput={(params) => <TextField {...params} className={cx(css.input, className)} />}
+        renderInput={(params) => (
+          <TextField {...params} label={label} className={cx(css.input, className)} />
+        )}
         renderTags={(val: TagOption[], getTagProps) =>
           val.map((option: TagOption, index) => (
             <Tag {...getTagProps({ index })} key={option.id} id={option.id} />

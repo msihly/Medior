@@ -35,8 +35,8 @@ const TagOptionModel = types.model({
   aliases: types.array(types.string),
   count: types.number,
   id: types.string,
-  label: types.maybe(types.string),
-  parentLabels: types.array(types.string),
+  label: types.maybeNull(types.string),
+  parentLabels: types.maybeNull(types.array(types.string)),
 });
 export type TagOption = Instance<typeof TagOptionModel>;
 export type TagOptionSnapshot = SnapshotOut<typeof TagOptionModel>;

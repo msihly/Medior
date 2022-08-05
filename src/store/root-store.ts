@@ -1,6 +1,7 @@
 import { applySnapshot, types, Instance } from "mobx-state-tree";
 import { AppStoreModel, defaultAppStore } from "./app";
 import { FileStoreModel, defaultFileStore } from "./files";
+import { FileCollectionStoreModel, defaultFileCollectionStore } from "./collections";
 import { ImportStoreModel, defaultImportStore } from "./imports";
 import { TagStoreModel, defaultTagStore } from "./tags";
 
@@ -9,6 +10,7 @@ export const RootStoreModel = types
   .props({
     appStore: types.optional(AppStoreModel, defaultAppStore),
     fileStore: types.optional(FileStoreModel, defaultFileStore),
+    fileCollectionStore: types.optional(FileCollectionStoreModel, defaultFileCollectionStore),
     importStore: types.optional(ImportStoreModel, defaultImportStore),
     tagStore: types.optional(TagStoreModel, defaultTagStore),
   })
@@ -17,6 +19,7 @@ export const RootStoreModel = types
       applySnapshot(self, {
         appStore: defaultAppStore,
         fileStore: defaultFileStore,
+        fileCollectionStore: defaultFileCollectionStore,
         importStore: defaultImportStore,
         tagStore: defaultTagStore,
       });

@@ -6,8 +6,8 @@ import { TagStore } from "./tag-store";
 export const TagModel = types
   .model("Tag")
   .props({
-    id: types.string,
     aliases: types.array(types.string),
+    id: types.string,
     label: types.string,
     parentIds: types.array(types.string),
   })

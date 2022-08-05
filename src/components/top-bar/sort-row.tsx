@@ -1,5 +1,5 @@
 import { Typography } from "@mui/material";
-import { Icon, IconName, View } from "components";
+import { Icon, IconName, IconProps, View } from "components";
 import { SortButton } from ".";
 import { makeClasses } from "utils";
 
@@ -7,14 +7,15 @@ interface SortRowProps {
   attribute: string;
   label: string;
   icon: IconName;
+  iconProps?: Partial<IconProps>;
 }
 
-const SortRow = ({ attribute, label, icon }: SortRowProps) => {
+const SortRow = ({ attribute, label, icon, iconProps = {} }: SortRowProps) => {
   const { classes: css } = useClasses(null);
 
   return (
     <View className={css.row}>
-      <Icon name={icon} />
+      <Icon name={icon} {...iconProps} />
       <Typography className={css.label}>{label}</Typography>
       <SortButton {...{ attribute }} dir="desc" />
       <SortButton {...{ attribute }} dir="asc" />

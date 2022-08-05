@@ -5,7 +5,7 @@ import { useStores } from "store";
 import { deleteFiles } from "database";
 import { Menu } from "@mui/material";
 import { Archive, Delete, Info, Search } from "@mui/icons-material";
-import { ListItem, View, ViewProps } from "components";
+import { Icon, ListItem, View, ViewProps } from "components";
 import { InfoModal } from ".";
 
 interface ContextMenuProps extends ViewProps {
@@ -14,7 +14,7 @@ interface ContextMenuProps extends ViewProps {
 }
 
 const ContextMenu = observer(({ children, fileId, ...props }: ContextMenuProps) => {
-  const { fileStore } = useStores();
+  const { fileCollectionStore, fileStore } = useStores();
   const file = fileStore.getById(fileId);
 
   const [isInfoOpen, setIsInfoOpen] = useState(false);
@@ -32,6 +32,12 @@ const ContextMenu = observer(({ children, fileId, ...props }: ContextMenuProps) 
     setMouseY(null);
   };
 
+  const handleCollections = () => {
+    fileCollectionStore.setActiveFileId(fileId);
+    fileCollectionStore.setIsCollectionManagerOpen(true);
+    handleClose();
+  };
+
   const handleDelete = () => {
     deleteFiles(fileStore, file.isSelected ? fileStore.selected : [file]);
     handleClose();
@@ -47,6 +53,12 @@ const ContextMenu = observer(({ children, fileId, ...props }: ContextMenuProps) 
     handleClose();
   };
 
+  const listItemProps = {
+    iconMargin: "0.5rem",
+    paddingLeft: "0.2em",
+    paddingRight: "0.5em",
+  };
+
   return (
     <View {...props} id={fileId} onContextMenu={handleContext}>
       {children}
@@ -58,31 +70,27 @@ const ContextMenu = observer(({ children, fileId, ...props }: ContextMenuProps) 
           mouseX !== null && mouseY !== null ? { top: mouseY, left: mouseX } : undefined
         }
       >
+        <ListItem text="Info" icon={<Info />} onClick={openInfo} {...listItemProps} />
+
+        <ListItem
+          text="Collections"
+          icon={<Icon name="Collections" />}
+          onClick={handleCollections}
+          {...listItemProps}
+        />
+
         <ListItem
           text="Open in Explorer"
           icon={<Search />}
           onClick={openInExplorer}
-          iconMargin="0.5rem"
-          paddingLeft="0.2em"
-          paddingRight="0.5em"
-        />
-
-        <ListItem
-          text="Info"
-          icon={<Info />}
-          onClick={openInfo}
-          iconMargin="0.5rem"
-          paddingLeft="0.2em"
-          paddingRight="0.5em"
+          {...listItemProps}
         />
 
         <ListItem
           text={file.isArchived ? "Delete" : "Archive"}
           icon={file.isArchived ? <Delete /> : <Archive />}
           onClick={handleDelete}
-          iconMargin="0.5rem"
-          paddingLeft="0.2em"
-          paddingRight="0.5em"
+          {...listItemProps}
         />
       </Menu>
 
