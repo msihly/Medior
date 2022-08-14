@@ -4,6 +4,9 @@ module.exports = {
   babel: {
     plugins: ["@babel/plugin-proposal-logical-assignment-operators"],
   },
+  eslint: {
+    enable: false,
+  },
   webpack: {
     configure: {
       mode: "development",

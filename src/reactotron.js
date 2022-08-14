@@ -1,8 +1,18 @@
-import Reactotron from "reactotron-react-js";
-import { mst } from "reactotron-mst";
+const { remote } = require("electron");
 
-const regEx = /postProcessSnapshot|@APPLY_SNAPSHOT/;
-Reactotron.use(mst({ filter: (event) => regEx.test(event.name) === false }));
-Reactotron.configure().connect();
+if (!remote.app.isPackaged) {
+  try {
+    const Reactotron = require("reactotron-react-js");
+    const { mst } = require("reactotron-mst");
 
-export const trackMST = (rootStore) => Reactotron.trackMstNode(rootStore);
+    const regEx = /postProcessSnapshot|@APPLY_SNAPSHOT/;
+    Reactotron.use(mst({ filter: (event) => regEx.test(event.name) === false }));
+    Reactotron.configure().connect();
+
+    exports.trackMST = (rootStore) => Reactotron.trackMstNode(rootStore);
+  } catch (err) {
+    console.log("Error connecting to Reactotron:", err);
+  }
+} else {
+  exports.trackMST = (_) => null;
+}

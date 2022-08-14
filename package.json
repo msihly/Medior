@@ -2,8 +2,11 @@
   "name": "media-viewer",
   "version": "0.1.0",
   "private": true,
-  "main": "main.js",
-  "icon": "public/favicon.ico",
+  "author": "Mohamed Sihly",
+  "description": "A tag-based media-viewer",
+  "homepage": "./",
+  "main": "build/electron.js",
+  "icon": "build/favicon.ico",
   "dependencies": {
     "@craco/craco": "^6.4.3",
     "@emotion/cache": "^11.7.1",
@@ -17,8 +20,6 @@
     "color": "^4.2.3",
     "dayjs": "^1.11.0",
     "directory-tree": "^2.2.9",
-    "electron": "^13.6.9",
-    "electron-is-dev": "^2.0.0",
     "fluent-ffmpeg": "^2.1.2",
     "jsonfile": "^6.1.0",
     "md5-file": "^5.0.0",
@@ -35,8 +36,7 @@
     "react-toastify": "^8.2.0",
     "sass": "^1.49.9",
     "sharp": "^0.30.3",
-    "tss-react": "^3.6.0",
-    "typescript": "^4.6.3"
+    "tss-react": "^3.6.0"
   },
   "devDependencies": {
     "@types/color": "^3.0.3",
@@ -45,7 +45,9 @@
     "@types/react": "^17.0.43",
     "@types/react-dom": "^17.0.14",
     "@types/sharp": "^0.29.5",
+    "babel-loader": "8.1.0",
     "concurrently": "^7.2.2",
+    "electron": "^13.6.9",
     "electron-builder": "^22.14.13",
     "electron-devtools-installer": "^3.2.0",
     "electron-webpack": "^2.8.2",
@@ -55,7 +57,10 @@
     "reactotron-react-js": "^3.3.7",
     "sass-loader": "^10.1.1",
     "ts-loader": "^8.2.0",
+    "typescript": "^4.6.3",
     "wait-on": "^6.0.1",
+    "webpack": "4.44.2",
+    "webpack-dev-server": "3.11.1",
     "webpack-node-externals": "^3.0.0"
   },
   "resolutions": {
@@ -67,9 +72,22 @@
     "start": "craco start",
     "build": "craco build",
     "pack": "electron-builder --dir",
-    "dist": "electron-builder",
+    "dist": "npm run build && electron-builder build --win -c.extraMetadata.main=build/electron.js --publish never",
     "postinstall": "electron-builder install-app-deps",
     "dev": "concurrently \"SET BROWSER=none && npm start\" \"wait-on http://localhost:3000 && electron .\""
+  },
+  "build": {
+    "appId": "com.msihly.media-viewer",
+    "extends": null,
+    "files": [
+      "build/**/*",
+      "node_modules/**/*"
+    ],
+    "win": {
+      "artifactName": "Media-Viewer.exe",
+      "icon": "build/app-icon.ico",
+      "target": "portable"
+    }
   },
   "proxy": "http://localhost:3000",
   "browserslist": {
@@ -77,9 +95,6 @@
       "last 3 chrome version"
     ],
     "development": [
-      ">0.2%",
-      "not dead",
-      "not op_mini all",
       "last 3 chrome version"
     ]
   }
