@@ -1,26 +1,31 @@
 const { app, BrowserWindow } = require("electron");
+const remoteMain = require("@electron/remote/main");
 const path = require("path");
 
-const createWindow = () => {
-  const Win = new BrowserWindow({
+remoteMain.initialize();
+
+const createMainWindow = () => {
+  const window = new BrowserWindow({
     backgroundColor: "#111",
     webPreferences: {
-      nodeIntegration: true,
+      backgroundThrottling: false,
       contextIsolation: false,
-      enableRemoteModule: true,
+      nodeIntegration: true,
       webSecurity: false,
     },
   });
 
-  Win.loadURL(
+  remoteMain.enable(window.webContents);
+
+  window.loadURL(
     !app.isPackaged
       ? "http://localhost:3000"
       : `file://${path.join(__dirname, "../build/index.html")}`
   );
 
-  if (!app.isPackaged) Win.webContents.openDevTools({ mode: "bottom" });
+  if (!app.isPackaged) window.webContents.openDevTools({ mode: "bottom" });
 };
 
-app.whenReady().then(createWindow);
+app.whenReady().then(createMainWindow);
 
 app.on("window-all-closed", app.quit);

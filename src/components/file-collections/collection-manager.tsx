@@ -35,7 +35,7 @@ const FileCollectionManager = observer(() => {
 
   return (
     <Dialog open onClose={closeModal} scroll="paper">
-      <DialogTitle className={css.dialogTitle}>Manage Collections</DialogTitle>
+      <DialogTitle className={css.dialogTitle}>{"Manage Collections"}</DialogTitle>
 
       <DialogContent dividers={true} className={css.dialogContent}>
         <View className={css.collections}>

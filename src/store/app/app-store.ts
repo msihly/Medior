@@ -4,7 +4,7 @@ type DrawerMode = "persistent" | "temporary";
 
 export const defaultAppStore = {
   drawerMode: "persistent" as DrawerMode,
-  isDrawerOpen: false,
+  isDrawerOpen: true,
 };
 
 export const AppStoreModel = types

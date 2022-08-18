@@ -1,4 +1,5 @@
-import { shell } from "electron";
+import { app, BrowserWindow } from "@electron/remote";
+import path from "path";
 import { useRef, useState } from "react";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
@@ -6,6 +7,26 @@ import { colors, Chip, Paper } from "@mui/material";
 import { Icon, SideScroller, Tag, View } from "components";
 import { ContextMenu } from ".";
 import { dayjs, makeClasses } from "utils";
+
+const createCarouselWindow = () => {
+  const window = new BrowserWindow({
+    backgroundColor: "#111",
+    webPreferences: {
+      contextIsolation: false,
+      nodeIntegration: true,
+      nodeIntegrationInSubFrames: true,
+      webSecurity: false,
+    },
+  });
+
+  require("@electron/remote").require("@electron/remote/main").enable(window.webContents);
+
+  !app.isPackaged
+    ? window.loadURL("http://localhost:3000/carousel")
+    : window.loadFile(path.join(__dirname, "../build/index.html#carousel"));
+
+  return window;
+};
 
 interface FileGridProps {
   id: string;
@@ -40,7 +61,12 @@ const FileGrid = observer(({ id }: FileGridProps) => {
     tagStore.setIsTagManagerOpen(true);
   };
 
-  const openFile = () => shell.openPath(file?.path);
+  const openFile = () => {
+    fileStore.setCarouselFileId(id);
+    fileStore.setCarouselSelectedFileIds(fileStore.filtered.map((f) => f.id));
+    createCarouselWindow();
+    // shell.openPath(file?.path);
+  };
 
   return (
     <ContextMenu fileId={id} className={`${css.container} selectable`}>

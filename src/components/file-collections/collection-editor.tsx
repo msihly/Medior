@@ -8,13 +8,12 @@ import { makeClasses } from "utils";
 
 const FileCollectionEditor = observer(() => {
   const { fileCollectionStore, fileStore, tagStore } = useStores();
-  const { classes: css, cx } = useClasses(null);
+  const { classes: css } = useClasses(null);
 
   const [fileIdIndexes, setFileIdIndexes] = useState<FileIdIndex[]>(
     fileCollectionStore.activeCollection?.fileIdIndexes ?? []
   );
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
-  const [includedTags, setIncludedTags] = useState([]);
   const [title, setTitle] = useState<string>(fileCollectionStore.activeCollection?.title);
 
   const handleEdit = (fn, ...args) => {
@@ -23,10 +22,6 @@ const FileCollectionEditor = observer(() => {
   };
 
   const handleTitleChange = (val: string) => handleEdit(setTitle, val);
-
-  const fileResults = useMemo(() => {
-    return [];
-  }, []);
 
   const tags = useMemo(() => {
     return [...new Set(fileIdIndexes.flatMap((f) => fileStore.getById(f.fileId).tagIds))].map(
@@ -58,23 +53,6 @@ const FileCollectionEditor = observer(() => {
             <View className={css.collection}>
               {fileIdIndexes.map((f) => (
                 <FileGrid key={f.fileId} id={f.fileId} />
-              ))}
-            </View>
-          </View>
-
-          <View column className={css.fileSearch}>
-            <TagInput
-              label="File Search"
-              value={includedTags}
-              setValue={setIncludedTags}
-              options={tagStore.tagOptions}
-              limitTags={1}
-              className={cx(css.input, css.fileInput)}
-            />
-
-            <View className={css.files}>
-              {fileResults.map((f) => (
-                <FileGrid key={f.id} id={f.id} />
               ))}
             </View>
           </View>

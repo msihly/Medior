@@ -42,6 +42,8 @@ export type TagOption = Instance<typeof TagOptionModel>;
 export type TagOptionSnapshot = SnapshotOut<typeof TagOptionModel>;
 
 export const defaultFileStore = {
+  carouselFileId: null,
+  carouselSelectedFileIds: [],
   duplicates: [],
   excludeDescendants: false,
   excludedTags: [],
@@ -72,6 +74,8 @@ export const defaultFileStore = {
 export const FileStoreModel = types
   .model("FileStore")
   .props({
+    carouselFileId: types.maybeNull(types.string),
+    carouselSelectedFileIds: types.array(types.string),
     excludeDescendants: types.boolean,
     excludedTags: types.array(TagOptionModel),
     files: types.array(FileModel),
@@ -186,16 +190,22 @@ export const FileStoreModel = types
     reset: () => {
       applySnapshot(self, defaultFileStore);
     },
+    setCarouselFileId: (fileId: string) => {
+      self.carouselFileId = fileId;
+    },
+    setCarouselSelectedFileIds: (fileIds: string[]) => {
+      self.carouselSelectedFileIds = cast(fileIds);
+    },
     setExcludeDescendants: (isExcluded: boolean) => {
       self.excludeDescendants = isExcluded;
     },
-    setExcludedTags: (tagOptions: TagOption[]) => {
+    setExcludedTags: (tagOptions: SnapshotOrInstance<TagOption>[]) => {
       self.excludedTags = cast(tagOptions);
     },
     setIncludeDescendants: (isIncluded: boolean) => {
       self.includeDescendants = isIncluded;
     },
-    setIncludedTags: (tagOptions: TagOption[]) => {
+    setIncludedTags: (tagOptions: SnapshotOrInstance<TagOption>[]) => {
       self.includedTags = cast(tagOptions);
     },
     setIncludeTagged: (isIncluded: boolean) => {

@@ -13,8 +13,11 @@ const TopBar = observer(() => {
   const { classes: css } = useClasses(null);
 
   const [isTaggerOpen, setIsTaggerOpen] = useState(false);
+  const [isCollectionEditorOpen, setIsCollectionEditorOpen] = useState(false);
 
   const handleDelete = () => deleteFiles(fileStore, fileStore.selected);
+
+  const handleEditCollections = () => setIsCollectionEditorOpen(true);
 
   const handleEditTags = () => setIsTaggerOpen(true);
 
@@ -69,6 +72,13 @@ const TopBar = observer(() => {
           />
 
           <IconButton
+            name="Collections"
+            onClick={handleEditCollections}
+            disabled={fileStore.selected.length === 0}
+            size="medium"
+          />
+
+          <IconButton
             name="Label"
             onClick={handleEditTags}
             disabled={fileStore.selected.length === 0}
@@ -88,7 +98,7 @@ const TopBar = observer(() => {
         </span>
       </View>
 
-      {isTaggerOpen && <Tagger isOpen={isTaggerOpen} setIsOpen={setIsTaggerOpen} />}
+      {isTaggerOpen && <Tagger setIsOpen={setIsTaggerOpen} />}
     </AppBar>
   );
 });

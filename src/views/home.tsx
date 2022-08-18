@@ -1,11 +1,11 @@
 import { createRef, useEffect } from "react";
-import Mongoose from "mongoose";
-import { getAllFiles, getAllImportBatches, getAllTags } from "database";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
 import { Drawer, FileContainer, TopBar, View } from "components";
 import { makeClasses } from "utils";
+import { getAllFiles, getAllImportBatches, getAllTags } from "database";
 import { DB_NAME } from "env";
+import Mongoose from "mongoose";
 
 const DRAWER_WIDTH = 200;
 
@@ -21,19 +21,27 @@ const Home = observer(() => {
   });
 
   useEffect(() => {
+    document.title = "Home";
+    console.debug("Home window useEffect fired.");
+
     const loadDatabase = async () => {
       try {
+        console.debug("Connecting to database...");
         await Mongoose.connect(`mongodb://localhost:27017/${DB_NAME}`);
 
+        console.debug("Connected to database. Retrieving data...");
         const [files, importBatches, tags] = await Promise.all([
           getAllFiles(),
           getAllImportBatches(),
           getAllTags(),
         ]);
 
+        console.debug("Data retrieved. Storing in MST...");
         tagStore.overwrite(tags);
         fileStore.overwrite(files);
         importStore.overwrite(importBatches);
+
+        console.debug("Data stored in MST.");
       } catch (err) {
         console.log(err?.message ?? err);
       }

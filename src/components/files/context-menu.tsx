@@ -87,8 +87,8 @@ const ContextMenu = observer(({ children, fileId, ...props }: ContextMenuProps) 
         />
 
         <ListItem
-          text={file.isArchived ? "Delete" : "Archive"}
-          icon={file.isArchived ? <Delete /> : <Archive />}
+          text={file?.isArchived ? "Delete" : "Archive"}
+          icon={file?.isArchived ? <Delete /> : <Archive />}
           onClick={handleDelete}
           {...listItemProps}
         />

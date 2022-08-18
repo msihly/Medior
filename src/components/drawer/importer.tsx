@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { remote } from "electron";
+import { dialog } from "@electron/remote";
 import fs from "fs/promises";
 import path from "path";
 import dirTree from "directory-tree";
@@ -29,7 +29,7 @@ const Importer = observer(({ isOpen = false, setIsOpen }: ImporterProps) => {
 
   const importFiles = async (isDir = false) => {
     try {
-      const res = await remote.dialog.showOpenDialog({
+      const res = await dialog.showOpenDialog({
         properties: isDir ? ["openDirectory"] : ["openFile", "multiSelections"],
       });
       if (res.canceled) return;

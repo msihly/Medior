@@ -76,7 +76,7 @@ export const TagStoreModel = types
     get tagOptions(): TagOptionSnapshot[] {
       return self.tags
         .map((t) => ({
-          aliases: t.aliases,
+          aliases: [...t.aliases],
           count: t.count,
           id: t.id,
           label: t.label,

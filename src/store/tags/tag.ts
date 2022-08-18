@@ -1,4 +1,11 @@
-import { applySnapshot, getParentOfType, Instance, SnapshotOut, types } from "mobx-state-tree";
+import {
+  applySnapshot,
+  getParentOfType,
+  Instance,
+  SnapshotOrInstance,
+  SnapshotOut,
+  types,
+} from "mobx-state-tree";
 import { RootStoreModel } from "store/root-store";
 import { TagOptionSnapshot } from "store/files";
 import { TagStore } from "./tag-store";
@@ -29,7 +36,7 @@ export const TagModel = types
     },
     get tagOption(): TagOptionSnapshot {
       return {
-        aliases: self.aliases,
+        aliases: [...self.aliases],
         count: self.count,
         id: self.id,
         label: self.label,
@@ -38,7 +45,7 @@ export const TagModel = types
     },
   }))
   .actions((self) => ({
-    update: (tag) => {
+    update: (tag: Partial<SnapshotOrInstance<typeof self>>) => {
       applySnapshot(self, { ...self, ...tag });
     },
   }));
