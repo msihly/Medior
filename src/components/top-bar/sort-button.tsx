@@ -2,7 +2,6 @@ import { colors } from "@mui/material";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
 import { makeClasses } from "utils";
-import { KeyboardArrowDown, KeyboardArrowUp } from "@mui/icons-material";
 import { IconButton } from "components";
 
 interface SortButtonProps {
@@ -17,15 +16,18 @@ const SortButton = observer(({ attribute, dir }: SortButtonProps) => {
     isActive: attribute === fileStore.sortKey && dir === fileStore.sortDir,
   });
 
-  const updateSort = (dir: "asc" | "desc") => {
+  const updateSort = () => {
     fileStore.setSortKey(attribute);
     fileStore.setSortDir(dir);
   };
 
   return (
-    <IconButton onClick={() => updateSort(dir)} size="small" className={css.button}>
-      {dir === "desc" ? <KeyboardArrowDown /> : <KeyboardArrowUp />}
-    </IconButton>
+    <IconButton
+      name={dir === "desc" ? "KeyboardArrowDown" : "KeyboardArrowUp"}
+      onClick={updateSort}
+      size="small"
+      className={css.button}
+    />
   );
 });
 

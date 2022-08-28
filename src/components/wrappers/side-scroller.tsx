@@ -1,10 +1,10 @@
-import { cloneElement, ReactElement, useEffect, useRef, useState } from "react";
+import { cloneElement, useEffect, useRef, useState } from "react";
 import { colors } from "@mui/material";
 import { IconButton, View } from "components";
 import { debounce, makeClasses, useElementResize } from "utils";
 
 interface SideScrollerProps {
-  children: ReactElement;
+  children: JSX.Element;
   className?: string;
 }
 
@@ -51,7 +51,7 @@ const SideScroller = ({ children, className }: SideScrollerProps) => {
   const { classes: css, cx } = useClasses({ isLeftButtonVisible, isRightButtonVisible });
 
   return (
-    <View className={cx(className, css.container)}>
+    <View className={cx(className, css.root)}>
       <IconButton
         name="ChevronLeft"
         onClick={() => handleScroll("left")}
@@ -74,7 +74,11 @@ const SideScroller = ({ children, className }: SideScrollerProps) => {
 export default SideScroller;
 
 const useClasses = makeClasses((_, { isLeftButtonVisible, isRightButtonVisible }) => ({
-  container: {
+  items: {
+    display: "flex",
+    flexFlow: "row nowrap",
+  },
+  root: {
     display: "flex",
     flexFlow: "row nowrap",
     alignItems: "center",

@@ -1,11 +1,10 @@
 import { app, getCurrentWindow } from "@electron/remote";
 import { useEffect, useState } from "react";
 import { BrowserRouter, HashRouter, Route, Switch } from "react-router-dom";
-import { createRootStore, RootStoreContext } from "store";
-import { applySnapshot, onSnapshot } from "mobx-state-tree";
 import { ThemeProvider, createTheme } from "@mui/material";
 import { CacheProvider } from "@emotion/react";
 import createCache from "@emotion/cache";
+import { createRootStore, RootStoreContext } from "store";
 import { ConditionalWrap } from "components";
 import { CarouselWindow, Home } from "./views";
 import { toast } from "react-toastify";
@@ -37,26 +36,11 @@ window.onbeforeunload = (event) => {
   }
 };
 
-window.addEventListener("storage", (event) => {
-  if (event.key === "mst") {
-    const newValue = JSON.parse(event.newValue);
-    applySnapshot(rootStore, newValue);
-  }
-});
-
 const App = () => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     console.debug("App useEffect fired");
-
-    const storedData = localStorage.getItem("mst");
-    if (typeof storedData === "string") applySnapshot(rootStore, JSON.parse(storedData));
-
-    onSnapshot(rootStore, (snapshot) => {
-      localStorage.setItem("mst", JSON.stringify(snapshot));
-    });
-
     setIsLoading(false);
   }, []);
 

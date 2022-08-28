@@ -4,10 +4,12 @@ import {
   ListItemIcon,
   ListItemText,
 } from "@mui/material";
+import { Icon, IconName } from "components";
 import { makeClasses } from "utils";
 
 export interface ListItemProps extends MuiListItemProps {
-  icon?: any;
+  color?: string;
+  icon?: IconName;
   iconMargin?: string | number;
   onClick?: (...args: any) => void;
   paddingLeft?: string | number;
@@ -16,6 +18,7 @@ export interface ListItemProps extends MuiListItemProps {
 }
 
 const ListItem = ({
+  color,
   icon,
   iconMargin = "1rem",
   onClick,
@@ -29,8 +32,15 @@ const ListItem = ({
   return (
     // @ts-expect-error
     <MuiListItem onClick={onClick} button={Boolean(onClick)} className={css.root} {...props}>
-      {icon && <ListItemIcon className={css.icon}>{icon}</ListItemIcon>}
-      <ListItemText className={css.text}>{text}</ListItemText>
+      {icon && (
+        <ListItemIcon className={css.icon}>
+          <Icon name={icon} />
+        </ListItemIcon>
+      )}
+
+      <ListItemText color={color} className={css.text}>
+        {text}
+      </ListItemText>
     </MuiListItem>
   );
 };

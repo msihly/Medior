@@ -1,5 +1,6 @@
 import { createRef, useEffect } from "react";
 import { observer } from "mobx-react-lite";
+import { applySnapshot, onSnapshot } from "mobx-state-tree";
 import { useStores } from "store";
 import { Drawer, FileContainer, TopBar, View } from "components";
 import { makeClasses } from "utils";
@@ -12,6 +13,7 @@ const DRAWER_WIDTH = 200;
 const Home = observer(() => {
   const drawerRef = createRef();
 
+  const rootStore = useStores();
   const { appStore, fileStore, importStore, tagStore } = useStores();
 
   const { classes: css } = useClasses({
@@ -23,6 +25,12 @@ const Home = observer(() => {
   useEffect(() => {
     document.title = "Home";
     console.debug("Home window useEffect fired.");
+
+    localStorage.removeItem("mst");
+
+    onSnapshot(rootStore, (snapshot) => {
+      localStorage.setItem("mst", JSON.stringify(snapshot));
+    });
 
     const loadDatabase = async () => {
       try {

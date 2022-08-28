@@ -2,7 +2,6 @@ import { forwardRef, useState } from "react";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
 import { Divider, Drawer as MuiDrawer, List, colors } from "@mui/material";
-import { Archive, GetApp as ImportIcon, More as MoreIcon, Unarchive } from "@mui/icons-material";
 import {
   Accordion,
   Checkbox,
@@ -65,15 +64,15 @@ const Drawer = observer(
         <List>
           <ListItem
             text="Manage Tags"
-            icon={<MoreIcon />}
+            icon="More"
             onClick={() => tagStore.setIsTagManagerOpen(true)}
           />
 
-          <ListItem text="Import" icon={<ImportIcon />} onClick={() => setIsImporterOpen(true)} />
+          <ListItem text="Import" icon="GetApp" onClick={() => setIsImporterOpen(true)} />
 
           <ListItem
             text={`${fileStore.isArchiveOpen ? "Close" : "Open"} Archive`}
-            icon={fileStore.isArchiveOpen ? <Unarchive /> : <Archive />}
+            icon={fileStore.isArchiveOpen ? "Unarchive" : "Archive"}
             onClick={() => fileStore.toggleArchiveOpen()}
           />
         </List>

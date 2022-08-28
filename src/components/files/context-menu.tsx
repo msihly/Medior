@@ -4,8 +4,7 @@ import { observer } from "mobx-react-lite";
 import { useStores } from "store";
 import { deleteFiles } from "database";
 import { Menu } from "@mui/material";
-import { Archive, Delete, Info, Search } from "@mui/icons-material";
-import { Icon, ListItem, View, ViewProps } from "components";
+import { ListItem, View, ViewProps } from "components";
 import { InfoModal } from ".";
 
 interface ContextMenuProps extends ViewProps {
@@ -53,6 +52,11 @@ const ContextMenu = observer(({ children, fileId, ...props }: ContextMenuProps) 
     handleClose();
   };
 
+  const openNatively = () => {
+    shell.openPath(file.path);
+    handleClose();
+  };
+
   const listItemProps = {
     iconMargin: "0.5rem",
     paddingLeft: "0.2em",
@@ -62,6 +66,7 @@ const ContextMenu = observer(({ children, fileId, ...props }: ContextMenuProps) 
   return (
     <View {...props} id={fileId} onContextMenu={handleContext}>
       {children}
+
       <Menu
         open={mouseY !== null}
         onClose={handleClose}
@@ -70,25 +75,32 @@ const ContextMenu = observer(({ children, fileId, ...props }: ContextMenuProps) 
           mouseX !== null && mouseY !== null ? { top: mouseY, left: mouseX } : undefined
         }
       >
-        <ListItem text="Info" icon={<Info />} onClick={openInfo} {...listItemProps} />
-
         <ListItem
-          text="Collections"
-          icon={<Icon name="Collections" />}
-          onClick={handleCollections}
+          text="Open Natively"
+          icon="DesktopWindows"
+          onClick={openNatively}
           {...listItemProps}
         />
 
         <ListItem
           text="Open in Explorer"
-          icon={<Search />}
+          icon="Search"
           onClick={openInExplorer}
+          {...listItemProps}
+        />
+
+        <ListItem text="Info" icon="Info" onClick={openInfo} {...listItemProps} />
+
+        <ListItem
+          text="Collections"
+          icon="Collections"
+          onClick={handleCollections}
           {...listItemProps}
         />
 
         <ListItem
           text={file?.isArchived ? "Delete" : "Archive"}
-          icon={file?.isArchived ? <Delete /> : <Archive />}
+          icon={file?.isArchived ? "Delete" : "Archive"}
           onClick={handleDelete}
           {...listItemProps}
         />

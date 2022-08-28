@@ -8,7 +8,8 @@ import { Icon, SideScroller, Tag, View } from "components";
 import { ContextMenu } from ".";
 import { dayjs, makeClasses } from "utils";
 
-const createCarouselWindow = () => {
+const createCarouselWindow = async () => {
+  console.debug("Creating carousel window...");
   const window = new BrowserWindow({
     backgroundColor: "#111",
     webPreferences: {
@@ -21,9 +22,11 @@ const createCarouselWindow = () => {
 
   require("@electron/remote").require("@electron/remote/main").enable(window.webContents);
 
-  !app.isPackaged
+  console.debug("Loading carousel window...");
+  await (!app.isPackaged
     ? window.loadURL("http://localhost:3000/carousel")
-    : window.loadFile(path.join(__dirname, "../build/index.html#carousel"));
+    : window.loadFile(path.join(__dirname, "../build/index.html#carousel")));
+  console.debug("Carousel window loaded.");
 
   return window;
 };
@@ -65,7 +68,6 @@ const FileGrid = observer(({ id }: FileGridProps) => {
     fileStore.setCarouselFileId(id);
     fileStore.setCarouselSelectedFileIds(fileStore.filtered.map((f) => f.id));
     createCarouselWindow();
-    // shell.openPath(file?.path);
   };
 
   return (
@@ -183,15 +185,6 @@ const useClasses = makeClasses((theme, { selected }) => ({
     flex: 1,
     height: "auto",
     userSelect: "none",
-  },
-  name: {
-    borderBottomLeftRadius: "inherit",
-    borderBottomRightRadius: "inherit",
-    padding: "0.2em 0.3em",
-    textAlign: "center",
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
   },
   rating: {
     position: "absolute",
