@@ -1,4 +1,5 @@
 export * from "./buttons";
+export * from "./carousel";
 export * from "./drawer";
 export * from "./file-collections";
 export * from "./files";

@@ -21,11 +21,13 @@ const createCarouselWindow = async () => {
   });
 
   require("@electron/remote").require("@electron/remote/main").enable(window.webContents);
+  if (!app.isPackaged) window.webContents.openDevTools({ mode: "bottom" });
 
   console.debug("Loading carousel window...");
   await (!app.isPackaged
     ? window.loadURL("http://localhost:3000/carousel")
     : window.loadFile(path.join(__dirname, "../build/index.html#carousel")));
+
   console.debug("Carousel window loaded.");
 
   return window;
