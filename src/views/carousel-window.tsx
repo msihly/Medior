@@ -48,6 +48,7 @@ const useClasses = makeClasses({
     display: "flex",
     flexDirection: "column",
     height: "100vh",
+    overflowX: "hidden",
     transition: "all 225ms ease-in-out",
   },
 });

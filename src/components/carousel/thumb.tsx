@@ -1,4 +1,4 @@
-import { useContext, useRef, useState } from "react";
+import { useContext, useEffect, useRef, useState } from "react";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
 import { colors, Chip } from "@mui/material";
@@ -7,10 +7,11 @@ import { dayjs, makeClasses } from "utils";
 
 interface CarouselThumbProps {
   id: string;
+  isDragging?: boolean;
   style: React.CSSProperties;
 }
 
-const CarouselThumb = observer(({ id, style }: CarouselThumbProps) => {
+const CarouselThumb = observer(({ id, isDragging = false, style }: CarouselThumbProps) => {
   const { activeFileId, setActiveFileId } = useContext(CarouselContext);
 
   const { fileStore } = useStores();
@@ -18,7 +19,7 @@ const CarouselThumb = observer(({ id, style }: CarouselThumbProps) => {
 
   const { classes: css } = useClasses({ active: activeFileId === id });
 
-  const thumbInterval = useRef(null);
+  const thumbInterval = useRef<NodeJS.Timer>(null);
   const [thumbIndex, setThumbIndex] = useState(0);
 
   const handleMouseEnter = () => {
@@ -35,8 +36,9 @@ const CarouselThumb = observer(({ id, style }: CarouselThumbProps) => {
     setThumbIndex(0);
   };
 
-  const handleSelect = () => {
-    setActiveFileId(id);
+  const handleSelect = (event: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
+    if (isDragging) event.preventDefault();
+    else setActiveFileId(id);
   };
 
   return (
