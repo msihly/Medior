@@ -1,4 +1,4 @@
-const { app, BrowserWindow } = require("electron");
+const { app, BrowserWindow, ipcMain } = require("electron");
 const remoteMain = require("@electron/remote/main");
 const path = require("path");
 
@@ -24,6 +24,14 @@ const createMainWindow = () => {
   );
 
   if (!app.isPackaged) window.webContents.openDevTools({ mode: "bottom" });
+
+  ipcMain.on("editFileTags", (_, { fileIds, addedTagIds, removedTagIds }) => {
+    window.webContents.send("editFileTags", { fileIds, addedTagIds, removedTagIds });
+  });
+
+  ipcMain.on("setFileRating", (_, { fileIds, rating }) => {
+    window.webContents.send("setFileRating", { fileIds, rating });
+  });
 };
 
 app.whenReady().then(createMainWindow);

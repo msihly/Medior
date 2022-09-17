@@ -1,6 +1,9 @@
 export const divide = (...nums: number[]) =>
   nums.length > 0 ? nums.reduce((acc, cur) => (acc /= cur)) || 0 : null;
 
+// prettier-ignore
+export const fractionStringToNumber = (str: string) => str.split("/").map((s) => +s).reduce((a, b) => a / b);
+
 export const stringOperators = (
   operator: ">" | ">=" | "<" | "<=" | "=" | "!=",
   a: number,

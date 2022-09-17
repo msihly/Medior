@@ -1,19 +1,22 @@
 import { useState } from "react";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
+import { File } from "store/files";
 import { editFileTags } from "database";
 import { Dialog, DialogTitle, DialogContent, DialogActions, colors } from "@mui/material";
 import { Button, Text, View } from "components";
 import { TagEditor, TagInput } from ".";
 import { makeClasses } from "utils";
 import { toast } from "react-toastify";
+import { ipcRenderer } from "electron";
 
 interface TaggerProps {
+  files: File[];
   setIsOpen: (isOpen: boolean) => void;
 }
 
-const Tagger = observer(({ setIsOpen }: TaggerProps) => {
-  const { fileStore, tagStore } = useStores();
+const Tagger = observer(({ files, setIsOpen }: TaggerProps) => {
+  const { tagStore } = useStores();
   const { classes: css } = useClasses(null);
 
   const closeModal = () => setIsOpen(false);
@@ -32,16 +35,15 @@ const Tagger = observer(({ setIsOpen }: TaggerProps) => {
     setAddedTags(addedTags.filter((a) => !tags.find((t) => t.id === a.id)));
   };
 
-  const handleSubmit = async () => {
+  const handleSubmit = () => {
     if (addedTags.length === 0 && removedTags.length === 0)
       return toast.error("You must enter at least one tag");
 
-    await editFileTags(
-      fileStore,
-      fileStore.selected.map((f) => f.id),
-      addedTags.map((t) => t.id),
-      removedTags.map((t) => t.id)
-    );
+    ipcRenderer.send("editFileTags", {
+      fileIds: files.map((f) => f.id),
+      addedTagIds: addedTags.map((t) => t.id),
+      removedTagIds: removedTags.map((t) => t.id),
+    });
 
     closeModal();
   };
@@ -60,7 +62,7 @@ const Tagger = observer(({ setIsOpen }: TaggerProps) => {
                 Current Tags
               </Text>
               <TagInput
-                value={tagStore.getTagCounts(fileStore.selected)}
+                value={tagStore.getTagCounts(files)}
                 disabled
                 opaque
                 className={css.input}

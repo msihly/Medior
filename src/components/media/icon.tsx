@@ -37,13 +37,11 @@ const useClasses = makeClasses(
       justifyContent: "center",
       transform: rotation !== undefined ? `rotate(${rotation}deg)` : undefined,
       transition: "all 200ms ease-in-out",
-      "&.MuiChip-icon": {
-        margin,
-        marginTop,
-        marginBottom,
-        marginRight,
-        marginLeft,
-      },
+      margin,
+      marginTop,
+      marginBottom,
+      marginRight,
+      marginLeft,
     },
   })
 );

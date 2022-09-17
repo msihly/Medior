@@ -52,8 +52,6 @@ const FileContainer = observer(({ mode }: FileContainerProps) => {
     const hasRemoved = removedIds.length > 0;
     const isShiftClick = e.inputEvent?.shiftKey;
 
-    // console.log({ e, addedIds, removedIds, isShiftClick });
-
     if (!hasAdded && !hasRemoved) {
       return fileStore.toggleFilesSelected(
         fileStore.selected.map((f) => f.id),

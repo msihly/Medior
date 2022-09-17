@@ -1,4 +1,4 @@
-import { app, BrowserWindow } from "@electron/remote";
+import { app, BrowserWindow, screen } from "@electron/remote";
 import path from "path";
 import { useRef, useState } from "react";
 import { observer } from "mobx-react-lite";
@@ -8,10 +8,21 @@ import { Icon, SideScroller, Tag, View } from "components";
 import { ContextMenu } from ".";
 import { dayjs, makeClasses } from "utils";
 
-const createCarouselWindow = async () => {
+const createCarouselWindow = async (width: number, height: number) => {
   console.debug("Creating carousel window...");
+
+  const primaryDisplay = screen.getPrimaryDisplay();
+  const { width: screenWidth, height: screenHeight } = primaryDisplay.workAreaSize;
+
+  const winWidth = Math.min(width, screenWidth);
+  const winHeight = Math.min(height, screenHeight);
+
   const window = new BrowserWindow({
     backgroundColor: "#111",
+    width: winWidth,
+    height: winHeight,
+    show: false,
+    useContentSize: true,
     webPreferences: {
       contextIsolation: false,
       nodeIntegration: true,
@@ -20,8 +31,16 @@ const createCarouselWindow = async () => {
     },
   });
 
+  if (
+    (winWidth > screenWidth * 0.8 && winHeight > screenHeight * 0.5) ||
+    (winWidth > screenWidth * 0.5 && winHeight > screenHeight * 0.8)
+  )
+    window.maximize();
+
   require("@electron/remote").require("@electron/remote/main").enable(window.webContents);
-  if (!app.isPackaged) window.webContents.openDevTools({ mode: "bottom" });
+  if (!app.isPackaged) window.webContents.openDevTools({ mode: "detach" });
+
+  window.show();
 
   console.debug("Loading carousel window...");
   await (!app.isPackaged
@@ -69,15 +88,15 @@ const FileGrid = observer(({ id }: FileGridProps) => {
   const openFile = () => {
     fileStore.setCarouselFileId(id);
     fileStore.setCarouselSelectedFileIds(fileStore.filtered.map((f) => f.id));
-    createCarouselWindow();
+    createCarouselWindow(file.width, file.height);
   };
 
   return (
     <ContextMenu fileId={id} className={`${css.container} selectable`}>
       <Paper onDoubleClick={openFile} elevation={3} className={css.paper}>
         <View
-          onMouseEnter={handleMouseEnter}
-          onMouseLeave={handleMouseLeave}
+          onMouseEnter={file?.isAnimated ? handleMouseEnter : null}
+          onMouseLeave={file?.isAnimated ? handleMouseLeave : null}
           className={css.imageContainer}
         >
           <Chip

@@ -9,26 +9,21 @@ import {
 } from "mobx-state-tree";
 import { RootStoreModel } from "store/root-store";
 import { TagStoreModel } from "store/tags";
-import { File, FileModel } from ".";
+import { File, FileModel, IMAGE_EXT_REG_EXP, IMAGE_TYPES, VIDEO_EXT_REG_EXP, VIDEO_TYPES } from ".";
 import { sortArray } from "utils";
 import { toast } from "react-toastify";
 
 const NUMERICAL_ATTRIBUTES = ["size"];
 const ROW_COUNT = 40;
 
-const ImageTypesModel = types.model({
-  jpg: types.boolean,
-  jpeg: types.boolean,
-  png: types.boolean,
-});
+const ImageTypesModel = types.model(
+  Object.fromEntries(IMAGE_TYPES.map((ext) => [ext, types.boolean]))
+);
 export type ImageTypes = Instance<typeof ImageTypesModel>;
 
-const VideoTypesModel = types.model({
-  gif: types.boolean,
-  webm: types.boolean,
-  mp4: types.boolean,
-  mkv: types.boolean,
-});
+const VideoTypesModel = types.model(
+  Object.fromEntries(VIDEO_TYPES.map((ext) => [ext, types.boolean]))
+);
 export type VideoTypes = Instance<typeof VideoTypesModel>;
 
 const TagOptionModel = types.model({
@@ -56,17 +51,8 @@ export const defaultFileStore = {
   isArchiveOpen: false,
   isImporting: false,
   page: 1,
-  selectedImageTypes: {
-    jpg: true,
-    jpeg: true,
-    png: true,
-  },
-  selectedVideoTypes: {
-    gif: true,
-    webm: true,
-    mp4: true,
-    mkv: true,
-  },
+  selectedImageTypes: Object.fromEntries(IMAGE_TYPES.map((ext) => [ext, true])),
+  selectedVideoTypes: Object.fromEntries(VIDEO_TYPES.map((ext) => [ext, true])),
   sortDir: "desc",
   sortKey: "dateCreated",
 };
@@ -140,15 +126,13 @@ export const FileStoreModel = types
       );
     },
     get images(): File[] {
-      const imageTypes = [".jpg", ".jpeg", ".png"];
-      return self.files.filter((f) => imageTypes.includes(f.ext));
+      return self.files.filter((f) => IMAGE_EXT_REG_EXP.test(f.ext));
     },
     get selected(): File[] {
       return self.files.filter((f) => f.isSelected);
     },
     get videos(): File[] {
-      const videoTypes = [".gif", ".webm", ".mp4", ".mkv"];
-      return self.files.filter((f) => videoTypes.includes(f.ext));
+      return self.files.filter((f) => VIDEO_EXT_REG_EXP.test(f.ext));
     },
     getById: (id: string): File => {
       return self.files.find((f) => f.id === id);

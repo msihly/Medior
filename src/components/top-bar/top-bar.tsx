@@ -98,7 +98,7 @@ const TopBar = observer(() => {
         </span>
       </View>
 
-      {isTaggerOpen && <Tagger setIsOpen={setIsTaggerOpen} />}
+      {isTaggerOpen && <Tagger files={fileStore.selected} setIsOpen={setIsTaggerOpen} />}
     </AppBar>
   );
 });

@@ -3,7 +3,7 @@ import path from "path";
 import md5File from "md5-file";
 import sharp from "sharp";
 import { File, FileModel } from "database";
-import { FileStore } from "store/files";
+import { FileStore, VIDEO_TYPES } from "store/files";
 import { FileImportInstance } from "store/imports";
 import { dayjs, generateFramesThumbnail, getVideoInfo, splitArray } from "utils";
 
@@ -35,11 +35,12 @@ export const copyFileTo = async ({
   const dirPath = `${targetDir}\\${hash.substring(0, 2)}\\${hash.substring(2, 4)}`;
   const extFromPath = originalPath.split(".").pop();
   const newPath = `${dirPath}\\${hash}.${extFromPath}`;
-  const isAnimated = ["gif", "mp4", "mkv", "webm"].includes(extFromPath);
+  const isAnimated = [...VIDEO_TYPES, "gif"].includes(extFromPath);
 
   const imageInfo = !isAnimated ? await sharp(originalPath).metadata() : null;
   const videoInfo = isAnimated ? await getVideoInfo(originalPath) : null;
-  const duration = isAnimated ? videoInfo?.duration : videoInfo?.duration;
+  const duration = isAnimated ? videoInfo?.duration : null;
+  const frameRate = isAnimated ? videoInfo?.frameRate : null;
   const width = isAnimated ? videoInfo?.width : imageInfo?.width;
   const height = isAnimated ? videoInfo?.height : imageInfo?.height;
 
@@ -53,11 +54,9 @@ export const copyFileTo = async ({
     if (!dbOnly) {
       if (!(await checkFileExists(newPath)))
         if (await copyFile(dirPath, originalPath, newPath))
-          await(
-            isAnimated
-              ? generateFramesThumbnail(originalPath, dirPath, hash, duration)
-              : sharp(originalPath).resize(300, 300).toFile(thumbPaths[0])
-          );
+          await (isAnimated
+            ? generateFramesThumbnail(originalPath, dirPath, hash, duration)
+            : sharp(originalPath).resize(300, 300).toFile(thumbPaths[0]));
     }
 
     let file = await getFileByHash(hash);
@@ -69,6 +68,7 @@ export const copyFileTo = async ({
           dateModified: dayjs().toISOString(),
           duration,
           ext,
+          frameRate,
           hash,
           height,
           isArchived: false,
@@ -98,6 +98,7 @@ export const copyFileTo = async ({
           duration,
           ext,
           extFromPath,
+          frameRate,
           hash,
           height,
           isAnimated,

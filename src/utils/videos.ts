@@ -1,9 +1,11 @@
 import ffmpeg from "fluent-ffmpeg";
 import path from "path";
+import { fractionStringToNumber } from "utils";
 // import { getRandomInt } from "utils";
 
 interface VideoInfo {
   duration: number;
+  frameRate: number;
   height: number;
   size: number;
   width: number;
@@ -13,9 +15,15 @@ export const getVideoInfo = async (path: string) => {
   return (await new Promise((resolve, reject) => {
     return ffmpeg.ffprobe(path, (err, info) => {
       if (err) return reject(err);
-      const { height, width } = info.streams[0];
+      const { height, r_frame_rate, width } = info.streams[0];
       const { duration, size } = info.format;
-      return resolve({ duration: Math.floor(duration), height, size, width });
+      return resolve({
+        duration,
+        frameRate: fractionStringToNumber(r_frame_rate),
+        height,
+        size,
+        width,
+      });
     });
   })) as VideoInfo;
 };
@@ -29,6 +37,7 @@ export const generateFramesThumbnail = async (
 ) => {
   try {
     duration ??= (await getVideoInfo(inputPath))?.duration;
+    console.log("Duration:", duration);
     const frameInterval = duration / numOfFrames;
 
     try {
@@ -49,7 +58,7 @@ export const generateFramesThumbnail = async (
         .fill("")
         .map((_, i) => path.join(outputPath, `${fileHash}-thumb-${i + 1}.jpg`));
     } catch (err) {
-      console.error(err);
+      console.error("ERR::generateFramesThumbnail()", err);
       return [];
     }
   } catch (err) {

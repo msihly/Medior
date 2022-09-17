@@ -1,6 +1,7 @@
 import { forwardRef, useState } from "react";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
+import { IMAGE_TYPES, VIDEO_TYPES } from "store/files";
 import { Divider, Drawer as MuiDrawer, List, colors } from "@mui/material";
 import {
   Accordion,
@@ -123,7 +124,7 @@ const Drawer = observer(
           setExpanded={setIsImageTypesOpen}
           fullWidth
         >
-          {["jpg", "jpeg", "png"].map((ext) => (
+          {IMAGE_TYPES.map((ext) => (
             <ExtCheckbox key={ext} ext={ext} type="Image" />
           ))}
         </Accordion>
@@ -134,7 +135,7 @@ const Drawer = observer(
           setExpanded={setIsVideoTypesOpen}
           fullWidth
         >
-          {["gif", "webm", "mp4", "mkv"].map((ext) => (
+          {VIDEO_TYPES.map((ext) => (
             <ExtCheckbox key={ext} ext={ext} type="Video" />
           ))}
         </Accordion>

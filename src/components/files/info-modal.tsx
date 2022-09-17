@@ -37,6 +37,10 @@ const InfoModal = observer(({ fileId, setVisible }: InfoModalProps) => {
               value: file?.duration ? dayjs.duration(file.duration, "s").format("HH:mm:ss") : "N/A",
             },
             {
+              label: "Frame Rate",
+              value: file?.frameRate || "N/A",
+            },
+            {
               label: "Date Created",
               value: dayjs(file?.dateCreated).format("MMMM D, YYYY - hh:mm:ss a") || "N/A",
             },

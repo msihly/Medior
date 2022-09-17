@@ -1,12 +1,19 @@
+import { ipcRenderer } from "electron";
 import { createRef, useEffect } from "react";
+import { DB_NAME } from "env";
+import Mongoose from "mongoose";
 import { observer } from "mobx-react-lite";
-import { applySnapshot, onSnapshot } from "mobx-state-tree";
+import { onSnapshot } from "mobx-state-tree";
 import { useStores } from "store";
 import { Drawer, FileContainer, TopBar, View } from "components";
 import { makeClasses } from "utils";
-import { getAllFiles, getAllImportBatches, getAllTags } from "database";
-import { DB_NAME } from "env";
-import Mongoose from "mongoose";
+import {
+  editFileTags,
+  getAllFiles,
+  getAllImportBatches,
+  getAllTags,
+  setFileRating,
+} from "database";
 
 const DRAWER_WIDTH = 200;
 
@@ -56,6 +63,14 @@ const Home = observer(() => {
     };
 
     loadDatabase();
+
+    ipcRenderer.on("editFileTags", (_, { fileIds, addedTagIds, removedTagIds }) => {
+      editFileTags(fileStore, fileIds, addedTagIds, removedTagIds);
+    });
+
+    ipcRenderer.on("setFileRating", (_, { fileIds, rating }) => {
+      setFileRating(fileStore, fileIds, rating);
+    });
   }, []);
 
   return (

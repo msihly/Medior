@@ -5,6 +5,7 @@ import path from "path";
 import dirTree from "directory-tree";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
+import { IMAGE_TYPES, VIDEO_TYPES } from "store/files";
 import { addImportToBatch, createImportBatch, FileImport, ImportQueue } from "database";
 import { Dialog, DialogTitle, DialogContent, DialogActions, colors } from "@mui/material";
 import { Button, ImportBatch, TagInput, TagOption, Text } from "components";
@@ -14,6 +15,8 @@ interface ImporterProps {
   isOpen: boolean;
   setIsOpen: (isOpen: boolean) => void;
 }
+
+const EXT_REG_EXP = new RegExp(`\.(${IMAGE_TYPES.join("|")}|${VIDEO_TYPES.join("|")})$`, "i");
 
 const Importer = observer(({ isOpen = false, setIsOpen }: ImporterProps) => {
   const { importStore, tagStore } = useStores();
@@ -43,10 +46,7 @@ const Importer = observer(({ isOpen = false, setIsOpen }: ImporterProps) => {
       if (isDir) {
         dirTree(
           res.filePaths[0],
-          {
-            extensions: /\.(jpe?g|png|gif|webp|jif?f|jfif|mp4|webm|mkv)$/,
-            attributes: ["birthtime"],
-          },
+          { extensions: EXT_REG_EXP, attributes: ["birthtime"] },
           async (fileObj, _, fileStats) => {
             const fileImport: FileImport = {
               dateCreated: fileStats.birthtime.toISOString(),
@@ -105,7 +105,7 @@ const Importer = observer(({ isOpen = false, setIsOpen }: ImporterProps) => {
       </DialogContent>
 
       <DialogActions className={css.dialogActions}>
-        <Button text="Cancel" icon="Cancel" onClick={handleClose} color={colors.red["800"]} />
+        <Button text="Close" icon="Cancel" onClick={handleClose} color={colors.grey["700"]} />
 
         <Button text="Files" icon="InsertDriveFile" onClick={() => importFiles(false)} />
 

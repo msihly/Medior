@@ -5,6 +5,7 @@ export interface File {
   dateModified: string;
   duration?: number;
   ext: string;
+  frameRate: number;
   hash: string;
   height: number;
   id: string;
@@ -24,6 +25,7 @@ const FileSchema = new Schema<File>({
   dateModified: String,
   duration: Number,
   ext: String,
+  frameRate: Number,
   hash: String,
   height: Number,
   isArchived: Boolean,
