@@ -3,6 +3,8 @@ import { observer } from "mobx-react-lite";
 import { useStores } from "store";
 import { Button, DetailRows, SideScroller, Tag, Text, View } from "components";
 import { dayjs, formatBytes, makeClasses } from "utils";
+import { refreshFile } from "database";
+import { toast } from "react-toastify";
 
 interface InfoModalProps {
   fileId: string;
@@ -17,6 +19,12 @@ const InfoModal = observer(({ fileId, setVisible }: InfoModalProps) => {
 
   const handleClose = () => setVisible(false);
 
+  const handleRefresh = async () => {
+    const res = await refreshFile(fileStore, fileId);
+    if (res === null) toast.error("Failed to refresh info");
+    else toast.success("File info refreshed");
+  };
+
   return (
     <Dialog open={true} onClose={handleClose} scroll="paper">
       <DialogTitle className={css.title}>Info</DialogTitle>
@@ -27,9 +35,11 @@ const InfoModal = observer(({ fileId, setVisible }: InfoModalProps) => {
           rows={[
             { label: "ID", value: fileId || "N/A" },
             { label: "Name", value: file?.originalName || "N/A" },
-            { label: "New Path", value: file?.path || "N/A" },
+            { label: "Path", value: file?.path || "N/A" },
             { label: "Original Path", value: file?.originalPath || "N/A" },
+            { label: "Extension", value: file?.ext || "N/A" },
             { label: "Hash", value: file?.hash || "N/A" },
+            { label: "Original Hash", value: file?.originalHash || "N/A" },
             { label: "Size", value: formatBytes(file?.size) },
             { label: "Dimensions", value: `${file.width}x${file.height}` },
             {
@@ -43,6 +53,10 @@ const InfoModal = observer(({ fileId, setVisible }: InfoModalProps) => {
             {
               label: "Date Created",
               value: dayjs(file?.dateCreated).format("MMMM D, YYYY - hh:mm:ss a") || "N/A",
+            },
+            {
+              label: "Date Modified",
+              value: dayjs(file?.dateModified).format("MMMM D, YYYY - hh:mm:ss a") || "N/A",
             },
             {
               label: "Tags",
@@ -65,6 +79,8 @@ const InfoModal = observer(({ fileId, setVisible }: InfoModalProps) => {
 
       <DialogActions className={css.buttons}>
         <Button text="Close" icon="Close" onClick={handleClose} className={css.closeButton} />
+
+        <Button text="Refresh" icon="Refresh" onClick={handleRefresh} />
       </DialogActions>
     </Dialog>
   );

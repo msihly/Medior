@@ -72,6 +72,7 @@ export const copyFileTo = async ({
           hash,
           height,
           isArchived: false,
+          originalHash: hash,
           originalName: name,
           originalPath,
           path: newPath,
@@ -214,6 +215,40 @@ export const getAllFiles = async () => {
   } catch (err) {
     console.error(err);
     return [];
+  }
+};
+
+export const refreshFile = async (fileStore: FileStore, id: string) => {
+  try {
+    const file = fileStore.getById(id);
+
+    const [hash, { mtime, size }, imageInfo, videoInfo] = await Promise.all([
+      md5File(file.path),
+      fs.stat(file.path),
+      !file.isAnimated ? sharp(file.path).metadata() : null,
+      file.isAnimated ? getVideoInfo(file.path) : null,
+    ]);
+
+    const updates = {
+      dateModified: dayjs(mtime).isAfter(file.dateModified)
+        ? mtime.toISOString()
+        : file.dateModified,
+      duration: file.isAnimated ? videoInfo?.duration : file.duration,
+      frameRate: file.isAnimated ? videoInfo?.frameRate : file.frameRate,
+      hash,
+      height: file.isAnimated ? videoInfo?.height : imageInfo?.height,
+      originalHash: file.originalHash ?? hash,
+      size,
+      width: file.isAnimated ? videoInfo?.width : imageInfo?.width,
+    };
+
+    await FileModel.updateOne({ _id: id }, updates);
+    fileStore.getById(id).update(updates);
+
+    return updates;
+  } catch (err) {
+    console.error(err);
+    return null;
   }
 };
 

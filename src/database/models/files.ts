@@ -10,6 +10,7 @@ export interface File {
   height: number;
   id: string;
   isArchived: boolean;
+  originalHash?: string;
   originalName?: string;
   originalPath: string;
   path: string;
@@ -29,6 +30,7 @@ const FileSchema = new Schema<File>({
   hash: String,
   height: Number,
   isArchived: Boolean,
+  originalHash: String,
   originalName: String,
   originalPath: String,
   path: String,

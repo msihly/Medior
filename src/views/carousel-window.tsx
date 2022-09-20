@@ -1,3 +1,4 @@
+import { ipcRenderer } from "electron";
 import { useEffect, useRef, useState } from "react";
 import { observer } from "mobx-react-lite";
 import { applySnapshot } from "mobx-state-tree";
@@ -10,7 +11,6 @@ import {
   View,
 } from "components";
 import { debounce, makeClasses } from "utils";
-import { ipcRenderer } from "electron";
 
 const CarouselWindow = observer(() => {
   const rootStore = useStores();

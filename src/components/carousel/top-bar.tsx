@@ -83,22 +83,24 @@ const CarouselTopBar = observer(() => {
         ))}
       </View>
 
-      <View className={cx(css.side, css.zoomContainer)}>
-        <IconButton name="Replay" onClick={handleResetTransform} />
+      {!file?.isVideo && (
+        <View className={cx(css.side, css.zoomContainer)}>
+          <IconButton name="Replay" onClick={handleResetTransform} />
 
-        <IconButton name="ZoomOut" onClick={zoomOut} margins={{ right: "0.5rem" }} />
+          <IconButton name="ZoomOut" onClick={zoomOut} margins={{ right: "0.5rem" }} />
 
-        <Slider
-          value={zoomScale}
-          onChange={(_, val: number) => setZoomScale(val)}
-          min={1}
-          step={0.1}
-          max={10}
-          valueLabelDisplay="off"
-        />
+          <Slider
+            value={zoomScale}
+            onChange={(_, val: number) => setZoomScale(val)}
+            min={1}
+            step={0.1}
+            max={10}
+            valueLabelDisplay="off"
+          />
 
-        <IconButton name="ZoomIn" onClick={zoomIn} margins={{ left: "0.5rem" }} />
-      </View>
+          <IconButton name="ZoomIn" onClick={zoomIn} margins={{ left: "0.5rem" }} />
+        </View>
+      )}
 
       {isTaggerOpen && <Tagger files={[file]} setIsOpen={setIsTaggerOpen} />}
     </View>

@@ -28,14 +28,6 @@ export const muiCache = createCache({
 
 export const rootStore = createRootStore();
 
-window.onbeforeunload = (event) => {
-  const window = getCurrentWindow();
-  if (window.title === "Carousel") {
-    event.returnValue = false;
-    window.hide();
-  }
-};
-
 const App = () => {
   const [isLoading, setIsLoading] = useState(true);
 

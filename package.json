@@ -85,7 +85,7 @@
     "pack": "electron-builder --dir",
     "dist": "npm run build && electron-builder build --win -c.extraMetadata.main=build/electron.js --publish never",
     "postinstall": "electron-builder install-app-deps",
-    "dev": "concurrently \"SET BROWSER=none && npm start\" \"wait-on http://localhost:3000 && electron .\""
+    "dev": "concurrently --kill-others \"SET BROWSER=none && npm start\" \"wait-on http://localhost:3000 && electron .\""
   },
   "build": {
     "appId": "com.msihly.media-viewer",

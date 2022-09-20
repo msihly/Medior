@@ -5,11 +5,11 @@ import { Tag, TagStore } from "store/tags";
 import { dayjs } from "utils";
 
 export const IMAGE_TYPES = ["jpg", "jpeg", "png", "gif", "webp", "jif", "jiff", "jfif"];
-export const IMAGE_EXT_REG_EXP = new RegExp(`\.(${IMAGE_TYPES.join("|")})`, "gi");
+export const IMAGE_EXT_REG_EXP = new RegExp(`${IMAGE_TYPES.join("|")}`, "i");
 
 export const VIDEO_TYPES = ["webm", "mp4", "mkv"];
-export const VIDEO_EXT_REG_EXP = new RegExp(`\.(${VIDEO_TYPES.join("|")})`, "gi");
-export const ANIMATED_EXT_REG_EXP = new RegExp(`\.(gif|${VIDEO_TYPES.join("|")})`, "gi");
+export const VIDEO_EXT_REG_EXP = new RegExp(`${VIDEO_TYPES.join("|")}`, "i");
+export const ANIMATED_EXT_REG_EXP = new RegExp(`gif|${VIDEO_TYPES.join("|")}`, "i");
 
 export const FileModel = types
   .model("File")
@@ -24,6 +24,7 @@ export const FileModel = types
     id: types.string,
     isArchived: types.boolean,
     isSelected: types.boolean,
+    originalHash: types.maybeNull(types.string),
     originalName: types.maybeNull(types.string),
     originalPath: types.string,
     path: types.string,
@@ -49,6 +50,9 @@ export const FileModel = types
       const rootStore = getParentOfType(self, RootStoreModel);
       const tagStore: TagStore = rootStore.tagStore;
       return self.tagIds.map((id) => tagStore.getById(id));
+    },
+    get totalFrames() {
+      return self.frameRate * self.duration;
     },
   }))
   .actions((self) => ({
