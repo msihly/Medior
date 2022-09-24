@@ -4,6 +4,8 @@ import { ImportStore, FileImportInstance, FileImportSnapshot } from "store/impor
 import { dayjs, PromiseQueue } from "utils";
 import { OUTPUT_DIR } from "env";
 
+export const FileInfoRefreshQueue = new PromiseQueue();
+
 export const ImportQueue = new PromiseQueue();
 
 export const addImportToBatch = async (

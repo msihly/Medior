@@ -10,11 +10,11 @@ const CarouselTopBar = observer(() => {
   const { classes: css, cx } = useClasses(null);
 
   const { fileStore } = useStores();
-  const { activeFileId, panZoomRef } = useContext(CarouselContext);
+  const { activeFileId, panZoomRef, setIsTaggerOpen } = useContext(CarouselContext);
   const file = fileStore.getById(activeFileId);
 
   const [isAspectRatioLocked, setIsAspectRatioLocked] = useState(false);
-  const [isTaggerOpen, setIsTaggerOpen] = useState(false);
+
   const [zoomScale, setZoomScale] = useState(1);
 
   useEffect(() => {
@@ -101,8 +101,6 @@ const CarouselTopBar = observer(() => {
           <IconButton name="ZoomIn" onClick={zoomIn} margins={{ left: "0.5rem" }} />
         </View>
       )}
-
-      {isTaggerOpen && <Tagger files={[file]} setIsOpen={setIsTaggerOpen} />}
     </View>
   );
 });

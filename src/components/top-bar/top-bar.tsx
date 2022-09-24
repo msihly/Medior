@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
-import { deleteFiles } from "database";
+import { deleteFiles, FileInfoRefreshQueue, refreshFile } from "database";
 import { AppBar, colors } from "@mui/material";
 import { IconButton, ImportsProgress, Tagger, View } from "components";
 import { SortMenu } from ".";
@@ -20,6 +20,11 @@ const TopBar = observer(() => {
   const handleEditCollections = () => setIsCollectionEditorOpen(true);
 
   const handleEditTags = () => setIsTaggerOpen(true);
+
+  const handleFileInfoRefresh = () => {
+    fileStore.selected.map((f) => FileInfoRefreshQueue.add(() => refreshFile(fileStore, f.id)));
+    toast.info(`Refreshing ${fileStore.selected?.length} files' info...`);
+  };
 
   const handleDeselectAll = () => {
     fileStore.toggleFilesSelected(
@@ -67,6 +72,13 @@ const TopBar = observer(() => {
           <IconButton
             name={fileStore.isArchiveOpen ? "Unarchive" : "Archive"}
             onClick={fileStore.isArchiveOpen ? handleUnarchive : handleDelete}
+            disabled={fileStore.selected.length === 0}
+            size="medium"
+          />
+
+          <IconButton
+            name="Refresh"
+            onClick={handleFileInfoRefresh}
             disabled={fileStore.selected.length === 0}
             size="medium"
           />

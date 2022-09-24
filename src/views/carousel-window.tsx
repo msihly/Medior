@@ -8,6 +8,7 @@ import {
   CarouselContext,
   CarouselThumbNavigator,
   CarouselTopBar,
+  Tagger,
   View,
 } from "components";
 import { debounce, makeClasses } from "utils";
@@ -19,10 +20,13 @@ const CarouselWindow = observer(() => {
   const { classes: css } = useClasses(null);
 
   const panZoomRef = useRef(null);
-  const rootRef = useRef(null);
+  const rootRef = useRef<HTMLDivElement>(null);
 
   const [activeFileId, setActiveFileId] = useState<string>(null);
+  const [isTaggerOpen, setIsTaggerOpen] = useState(false);
   const [selectedFileIds, setSelectedFileIds] = useState<string[]>(null);
+
+  const file = fileStore.getById(activeFileId);
 
   useEffect(() => {
     document.title = "Carousel";
@@ -50,17 +54,21 @@ const CarouselWindow = observer(() => {
     const activeFileIndex = selectedFileIds.findIndex((id) => id === activeFileId);
     if (activeFileIndex === (isLeft ? 0 : selectedFileIds.length - 1)) return;
     setActiveFileId(selectedFileIds[activeFileIndex + (isLeft ? -1 : 1)]);
+    rootRef.current?.focus();
   };
 
   const handleKeyPress = (e: React.KeyboardEvent<HTMLElement>) => {
-    if (["ArrowLeft", "ArrowRight"].includes(e.key)) handleNav(e.key === "ArrowLeft");
+    if (e.key === "t" && !isTaggerOpen) {
+      e.preventDefault();
+      setIsTaggerOpen(true);
+    } else if (["ArrowLeft", "ArrowRight"].includes(e.key)) handleNav(e.key === "ArrowLeft");
     else if (["1", "2", "3", "4", "5", "6", "7", "8", "9"].includes(e.key))
       ipcRenderer.send("setFileRating", { fileIds: [activeFileId], rating: +e.key });
   };
 
   return (
     <CarouselContext.Provider
-      value={{ activeFileId, panZoomRef, selectedFileIds, setActiveFileId }}
+      value={{ activeFileId, panZoomRef, selectedFileIds, setActiveFileId, setIsTaggerOpen }}
     >
       <View
         ref={rootRef}
@@ -74,6 +82,8 @@ const CarouselWindow = observer(() => {
         <Carousel />
 
         <CarouselThumbNavigator />
+
+        {isTaggerOpen && <Tagger files={[file]} setIsOpen={setIsTaggerOpen} hasFocusOnOpen />}
       </View>
     </CarouselContext.Provider>
   );

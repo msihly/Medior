@@ -1,4 +1,4 @@
-import { forwardRef, HTMLAttributes, ReactNode } from "react";
+import React, { forwardRef, HTMLAttributes, MutableRefObject, ReactNode } from "react";
 import { makeClasses } from "utils";
 
 export interface ViewProps extends HTMLAttributes<HTMLDivElement> {
@@ -9,7 +9,10 @@ export interface ViewProps extends HTMLAttributes<HTMLDivElement> {
 }
 
 const View = forwardRef(
-  ({ children, className, column = false, row = false, ...props }: ViewProps, ref?: any) => {
+  (
+    { children, className, column = false, row = false, ...props }: ViewProps,
+    ref?: MutableRefObject<HTMLDivElement>
+  ) => {
     const { classes: css, cx } = useClasses({ column, row });
 
     return (

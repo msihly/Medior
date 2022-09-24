@@ -12,6 +12,7 @@ interface CarouselContextProps {
   panZoomRef: MutableRefObject<PanzoomObject>;
   selectedFileIds: string[];
   setActiveFileId: React.Dispatch<React.SetStateAction<string>>;
+  setIsTaggerOpen: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 export const CarouselContext = createContext<CarouselContextProps>(null);
@@ -22,7 +23,7 @@ const Carousel = observer(() => {
   const { fileStore } = useStores();
   const activeFile = fileStore.getById(activeFileId);
 
-  const zoomRef = useRef<HTMLElement>(null);
+  const zoomRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<ReactPlayer>(null);
 
   panZoomRef.current =

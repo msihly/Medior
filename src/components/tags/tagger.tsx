@@ -1,29 +1,29 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { ipcRenderer } from "electron";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
 import { File } from "store/files";
-import { editFileTags } from "database";
 import { Dialog, DialogTitle, DialogContent, DialogActions, colors } from "@mui/material";
 import { Button, Text, View } from "components";
 import { TagEditor, TagInput } from ".";
 import { makeClasses } from "utils";
 import { toast } from "react-toastify";
-import { ipcRenderer } from "electron";
 
 interface TaggerProps {
   files: File[];
+  hasFocusOnOpen?: boolean;
   setIsOpen: (isOpen: boolean) => void;
 }
 
-const Tagger = observer(({ files, setIsOpen }: TaggerProps) => {
+const Tagger = observer(({ files, hasFocusOnOpen = false, setIsOpen }: TaggerProps) => {
   const { tagStore } = useStores();
   const { classes: css } = useClasses(null);
-
-  const closeModal = () => setIsOpen(false);
 
   const [addedTags, setAddedTags] = useState([]);
   const [isCreateMode, setIsCreateMode] = useState(false);
   const [removedTags, setRemovedTags] = useState([]);
+
+  const closeModal = () => setIsOpen(false);
 
   const handleTagAdded = (tags) => {
     setAddedTags(tags);
@@ -75,6 +75,7 @@ const Tagger = observer(({ files, setIsOpen }: TaggerProps) => {
                 value={addedTags}
                 setValue={handleTagAdded}
                 options={tagStore.tagOptions}
+                autoFocus={hasFocusOnOpen}
                 className={css.input}
               />
 
