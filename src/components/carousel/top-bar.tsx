@@ -1,6 +1,6 @@
 import { observer } from "mobx-react-lite";
 import { colors, Slider } from "@mui/material";
-import { CarouselContext, Icon, IconButton, Tag, Tagger, Text, View } from "components";
+import { CarouselContext, Icon, IconButton, SideScroller, Tag, Text, View } from "components";
 import { makeClasses } from "utils";
 import { useContext, useEffect, useState } from "react";
 import { getCurrentWindow, screen } from "@electron/remote";
@@ -14,12 +14,6 @@ const CarouselTopBar = observer(() => {
   const file = fileStore.getById(activeFileId);
 
   const [isAspectRatioLocked, setIsAspectRatioLocked] = useState(false);
-
-  const [zoomScale, setZoomScale] = useState(1);
-
-  useEffect(() => {
-    panZoomRef.current?.zoom(zoomScale);
-  }, [zoomScale]);
 
   const fitToAspectRatio = () => {
     const win = getCurrentWindow();
@@ -49,6 +43,13 @@ const CarouselTopBar = observer(() => {
 
   const handleEditTags = () => setIsTaggerOpen(true);
 
+  /* ------------------------------ BEGIN - ZOOM ------------------------------ */
+  const [zoomScale, setZoomScale] = useState(1);
+
+  useEffect(() => {
+    panZoomRef.current?.zoom(zoomScale);
+  }, [zoomScale]);
+
   const handleResetTransform = () => {
     setZoomScale(1);
     panZoomRef.current.reset();
@@ -57,6 +58,7 @@ const CarouselTopBar = observer(() => {
   const zoomIn = () => setZoomScale(Math.min(zoomScale + 1, 10));
 
   const zoomOut = () => setZoomScale(Math.max(zoomScale - 1, 1));
+  /* ------------------------------ END - ZOOM ------------------------------ */
 
   return (
     <View className={css.root}>
@@ -78,12 +80,16 @@ const CarouselTopBar = observer(() => {
       </View>
 
       <View className={css.center}>
-        {file?.tagIds?.map((tagId) => (
-          <Tag key={tagId} id={tagId} />
-        ))}
+        <SideScroller innerClassName={css.tags}>
+          {file?.tagIds?.map((tagId) => (
+            <Tag key={tagId} id={tagId} />
+          ))}
+        </SideScroller>
       </View>
 
-      {!file?.isVideo && (
+      {file?.isVideo ? (
+        <View />
+      ) : (
         <View className={cx(css.side, css.zoomContainer)}>
           <IconButton name="Replay" onClick={handleResetTransform} />
 
@@ -115,6 +121,8 @@ const useClasses = makeClasses({
     display: "flex",
     flex: 3,
     justifyContent: "center",
+    padding: "0 0.3rem",
+    minWidth: 0,
   },
   rating: {
     lineHeight: 1,
@@ -147,6 +155,9 @@ const useClasses = makeClasses({
   side: {
     display: "flex",
     flex: 1,
+  },
+  tags: {
+    justifyContent: "center",
   },
   zoomContainer: {
     display: "flex",

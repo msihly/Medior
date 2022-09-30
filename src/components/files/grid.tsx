@@ -85,12 +85,10 @@ const FileGrid = observer(({ id }: FileGridProps) => {
           )}
         </View>
 
-        <SideScroller>
-          <View className={css.tags}>
-            {file?.tags?.map?.((t) => (
-              <Tag key={t.id} id={t.id} onClick={() => handleTagPress(t.id)} size="small" />
-            ))}
-          </View>
+        <SideScroller innerClassName={css.tags}>
+          {file?.tags?.map?.((t) => (
+            <Tag key={t.id} id={t.id} onClick={() => handleTagPress(t.id)} size="small" />
+          ))}
         </SideScroller>
       </Paper>
     </ContextMenu>
@@ -175,20 +173,9 @@ const useClasses = makeClasses((theme, { selected }) => ({
     },
   },
   tags: {
-    display: "flex",
-    flexFlow: "row nowrap",
     borderBottomLeftRadius: "inherit",
     borderBottomRightRadius: "inherit",
     padding: "0.2em 0.3em",
     height: "1.8rem",
-    overflowY: "hidden",
-    overflowX: "auto",
-    "&::-webkit-scrollbar": {
-      display: "none",
-      height: "4px",
-    },
-    "&::-webkit-scrollbar-thumb": {
-      background: colors.grey["600"],
-    },
   },
 }));

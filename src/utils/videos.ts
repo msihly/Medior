@@ -15,8 +15,9 @@ export const getVideoInfo = async (path: string) => {
   return (await new Promise((resolve, reject) => {
     return ffmpeg.ffprobe(path, (err, info) => {
       if (err) return reject(err);
-      const { height, r_frame_rate, width } = info.streams[0];
+      const { height, r_frame_rate, width } = info.streams.find((s) => s.codec_type === "video");
       const { duration, size } = info.format;
+
       return resolve({
         duration,
         frameRate: fractionStringToNumber(r_frame_rate),
@@ -37,7 +38,6 @@ export const generateFramesThumbnail = async (
 ) => {
   try {
     duration ??= (await getVideoInfo(inputPath))?.duration;
-    console.log("Duration:", duration);
     const frameInterval = duration / numOfFrames;
 
     try {

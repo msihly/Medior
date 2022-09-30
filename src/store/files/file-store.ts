@@ -54,7 +54,7 @@ export const defaultFileStore = {
   selectedImageTypes: Object.fromEntries(IMAGE_TYPES.map((ext) => [ext, true])),
   selectedVideoTypes: Object.fromEntries(VIDEO_TYPES.map((ext) => [ext, true])),
   sortDir: "desc",
-  sortKey: "dateCreated",
+  sortKey: "dateModified",
 };
 
 export const FileStoreModel = types

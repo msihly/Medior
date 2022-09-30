@@ -1,18 +1,45 @@
-import { cloneElement, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { colors } from "@mui/material";
 import { IconButton, View } from "components";
 import { debounce, makeClasses, useElementResize } from "utils";
 
 interface SideScrollerProps {
-  children: JSX.Element;
+  children: JSX.Element[];
   className?: string;
+  innerClassName?: string;
 }
 
-const SideScroller = ({ children, className }: SideScrollerProps) => {
-  const ref = useRef(null);
-  useElementResize(ref);
+const SideScroller = ({ children, className, innerClassName }: SideScrollerProps) => {
+  const ref = useRef<HTMLDivElement>(null);
+  const { width } = useElementResize(ref);
 
+  const [isLeftButtonVisible, setIsLeftButtonVisible] = useState(false);
+  const [isRightButtonVisible, setIsRightButtonVisible] = useState(false);
   const [scrollPos, setScrollPos] = useState(0);
+
+  const { classes: css, cx } = useClasses({ isLeftButtonVisible, isRightButtonVisible });
+
+  const getButtonVisibility = () => {
+    if (!ref.current) return [false, false];
+    const { clientWidth, scrollWidth, scrollLeft } = ref.current;
+
+    if (!(clientWidth < scrollWidth)) return [false, false];
+    return [scrollLeft > 0, clientWidth + scrollLeft < scrollWidth - 5];
+  };
+
+  const handleScroll = (direction: "left" | "right") => {
+    if (!ref.current) return false;
+
+    const maxLeft = ref.current.clientWidth;
+    const scrollAmount = ((direction === "left" ? -1 : 1) * width) / 2;
+    const newScrollPos =
+      direction === "left"
+        ? Math.max(ref.current.scrollLeft - width / 2, 0)
+        : Math.min(ref.current.scrollLeft + width / 2, maxLeft);
+
+    ref.current.scrollBy({ left: scrollAmount, behavior: "smooth" });
+    setScrollPos(newScrollPos);
+  };
 
   useEffect(() => {
     const node = ref.current;
@@ -22,36 +49,14 @@ const SideScroller = ({ children, className }: SideScrollerProps) => {
     return () => node.removeEventListener("scroll", scrollListener);
   }, []);
 
-  const handleScroll = (direction: "left" | "right") => {
-    const node = ref?.current;
-    if (!node) return false;
-
-    node.scrollLeft += direction === "left" ? -200 : 200;
-    setScrollPos(node.scrollLeft);
-  };
-
-  const getButtonVisibility = () => {
-    const node = ref?.current;
-    if (!node) return [false, false];
-
-    const { clientWidth, scrollWidth, scrollLeft } = node;
-    if (!(clientWidth < scrollWidth)) return [false, false];
-    return [scrollLeft > 0, clientWidth + scrollLeft < scrollWidth];
-  };
-
-  const [isLeftButtonVisible, setIsLeftButtonVisible] = useState(false);
-  const [isRightButtonVisible, setIsRightButtonVisible] = useState(false);
-
   useEffect(() => {
     const [left, right] = getButtonVisibility();
     setIsLeftButtonVisible(left);
     setIsRightButtonVisible(right);
   }, [scrollPos]);
 
-  const { classes: css, cx } = useClasses({ isLeftButtonVisible, isRightButtonVisible });
-
   return (
-    <View className={cx(className, css.root)}>
+    <View className={cx(css.root, className)}>
       <IconButton
         name="ChevronLeft"
         onClick={() => handleScroll("left")}
@@ -59,7 +64,9 @@ const SideScroller = ({ children, className }: SideScrollerProps) => {
         size="large"
       />
 
-      {cloneElement(children, { ref, className: cx(children.props.className, "side-scroller") })}
+      <View ref={ref} className={cx(css.items, innerClassName)}>
+        {children}
+      </View>
 
       <IconButton
         name="ChevronRight"
@@ -77,11 +84,21 @@ const useClasses = makeClasses((_, { isLeftButtonVisible, isRightButtonVisible }
   items: {
     display: "flex",
     flexFlow: "row nowrap",
+    flex: 1,
+    overflowX: "auto",
+    overflowY: "hidden",
+    "& > *:last-child": {
+      marginRight: "1rem",
+    },
+    "&::-webkit-scrollbar": {
+      display: "none",
+    },
   },
   root: {
     display: "flex",
     flexFlow: "row nowrap",
     alignItems: "center",
+    minWidth: 0,
     overflowX: "auto",
     scrollBehavior: "smooth",
     "&::-webkit-scrollbar": {

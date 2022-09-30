@@ -54,6 +54,7 @@ export const copyFileTo = async ({
     if (!dbOnly) {
       if (!(await checkFileExists(newPath)))
         if (await copyFile(dirPath, originalPath, newPath))
+          // prettier-ignore
           await (isAnimated
             ? generateFramesThumbnail(originalPath, dirPath, hash, duration)
             : sharp(originalPath).resize(300, 300).toFile(thumbPaths[0]));
@@ -116,8 +117,7 @@ export const copyFileTo = async ({
 
       return { success: true, file, isDuplicate: true };
     } else {
-      console.error(err?.message ?? err);
-      return { success: false, error: err?.message ?? err };
+      return { success: false, error: err?.message };
     }
   }
 };

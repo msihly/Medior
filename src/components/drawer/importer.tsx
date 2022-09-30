@@ -6,7 +6,13 @@ import dirTree from "directory-tree";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
 import { IMAGE_TYPES, VIDEO_TYPES } from "store/files";
-import { addImportToBatch, createImportBatch, FileImport, ImportQueue } from "database";
+import {
+  addImportToBatch,
+  createImportBatch,
+  FileImport,
+  ImportQueue,
+  useFileImportQueue,
+} from "database";
 import { Dialog, DialogTitle, DialogContent, DialogActions, colors } from "@mui/material";
 import { Button, ImportBatch, TagInput, TagOption, Text } from "components";
 import { dayjs, makeClasses } from "utils";
@@ -23,6 +29,8 @@ const Importer = observer(({ isOpen = false, setIsOpen }: ImporterProps) => {
   const { classes: css } = useClasses(null);
 
   const [tags, setTags] = useState<TagOption[]>([]);
+
+  useFileImportQueue();
 
   useEffect(() => {
     if (isOpen) setTags([]);

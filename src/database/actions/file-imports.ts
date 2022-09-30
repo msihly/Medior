@@ -1,5 +1,6 @@
+import { useRef, useEffect } from "react";
 import { copyFileTo, FileImportBatch, FileImportBatchModel } from "database";
-import { RootStore } from "store";
+import { RootStore, useStores } from "store";
 import { ImportStore, FileImportInstance, FileImportSnapshot } from "store/imports";
 import { dayjs, PromiseQueue } from "utils";
 import { OUTPUT_DIR } from "env";
@@ -35,6 +36,7 @@ export const completeImportBatch = async (importStore: ImportStore, addedAt: str
     await FileImportBatchModel.updateOne({ addedAt: batch.addedAt }, { completedAt });
 
     batch.setCompletedAt(completedAt);
+    importStore.setActiveBatchAddedAt(null);
     importStore.setIsImporting(false);
 
     return { success: true, batch, completedAt };
@@ -140,6 +142,7 @@ export const startImportBatch = async (importStore: ImportStore, addedAt: string
     await FileImportBatchModel.updateOne({ addedAt: batch.addedAt }, { startedAt });
 
     batch.setStartedAt(startedAt);
+    importStore.setActiveBatchAddedAt(addedAt);
     importStore.setIsImporting(true);
 
     return { success: true, batch, startedAt };
@@ -147,4 +150,38 @@ export const startImportBatch = async (importStore: ImportStore, addedAt: string
     console.error(err?.message ?? err);
     return { success: false, error: err?.message ?? err };
   }
+};
+
+export const useFileImportQueue = () => {
+  const rootStore = useStores();
+  const { importStore } = useStores();
+
+  const currentImportPath = useRef<string>(null);
+
+  useEffect(() => {
+    const handlePhase = async () => {
+      if (!importStore.activeBatch && importStore.incompleteBatches?.length > 0) {
+        await startImportBatch(importStore, importStore.incompleteBatches[0].addedAt);
+      } else if (importStore.activeBatch?.nextImport) {
+        if (!importStore.isImporting)
+          await startImportBatch(importStore, importStore.activeBatch?.addedAt);
+
+        if (currentImportPath.current === importStore.activeBatch?.nextImport?.path) return;
+        currentImportPath.current = importStore.activeBatch?.nextImport?.path;
+
+        await importFile(
+          rootStore,
+          importStore.activeBatch?.addedAt,
+          importStore.activeBatch?.nextImport
+        );
+      } else if (importStore.isImporting) {
+        if (!importStore.activeBatch) importStore.setIsImporting(false);
+        else await completeImportBatch(importStore, importStore.activeBatch?.addedAt);
+
+        currentImportPath.current = null;
+      }
+    };
+
+    handlePhase();
+  }, [importStore.activeBatch?.nextImport, importStore.incompleteBatches, importStore.isImporting]);
 };

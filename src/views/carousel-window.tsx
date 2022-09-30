@@ -1,5 +1,7 @@
-import { ipcRenderer } from "electron";
 import { useEffect, useRef, useState } from "react";
+import Mongoose from "mongoose";
+import { DB_NAME } from "env";
+import { setFileRating } from "database";
 import { observer } from "mobx-react-lite";
 import { applySnapshot } from "mobx-state-tree";
 import { useStores } from "store";
@@ -32,6 +34,14 @@ const CarouselWindow = observer(() => {
     document.title = "Carousel";
     console.debug("Carousel window useEffect fired.");
 
+    const connectToDatabase = async () => {
+      console.debug("Connecting to database...");
+      await Mongoose.connect(`mongodb://localhost:27017/${DB_NAME}`);
+      console.debug("Connected to database.");
+    };
+
+    connectToDatabase();
+
     const storedData = localStorage.getItem("mst");
     if (typeof storedData === "string") applySnapshot(rootStore, JSON.parse(storedData));
 
@@ -62,8 +72,9 @@ const CarouselWindow = observer(() => {
       e.preventDefault();
       setIsTaggerOpen(true);
     } else if (["ArrowLeft", "ArrowRight"].includes(e.key)) handleNav(e.key === "ArrowLeft");
-    else if (["1", "2", "3", "4", "5", "6", "7", "8", "9"].includes(e.key))
-      ipcRenderer.send("setFileRating", { fileIds: [activeFileId], rating: +e.key });
+    else if (["1", "2", "3", "4", "5", "6", "7", "8", "9"].includes(e.key)) {
+      setFileRating(fileStore, [activeFileId], +e.key);
+    }
   };
 
   return (

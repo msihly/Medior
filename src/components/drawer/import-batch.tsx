@@ -43,12 +43,10 @@ const ImportBatch = observer(({ addedAt }: ImportBatchProps) => {
 
       <View className={css.topRow}>
         {batch.tagIds?.length > 0 && (
-          <SideScroller>
-            <View className={css.tags}>
-              {batch.tagIds.map((id) => (
-                <Tag key={id} id={id} size="small" />
-              ))}
-            </View>
+          <SideScroller innerClassName={css.tags}>
+            {batch.tagIds.map((id) => (
+              <Tag key={id} id={id} size="small" />
+            ))}
           </SideScroller>
         )}
 
@@ -128,19 +126,9 @@ const useClasses = makeClasses((_, { expanded, hasTags }) => ({
     height: hasTags ? "4rem" : "2.5rem",
   },
   tags: {
-    display: "flex",
-    flexFlow: "row nowrap",
     marginTop: "0.15rem",
     marginLeft: "0.3rem",
     height: "1.35rem",
-    overflowX: "auto",
-    "&::-webkit-scrollbar": {
-      display: "none",
-      height: "4px",
-    },
-    "&::-webkit-scrollbar-thumb": {
-      background: colors.grey["600"],
-    },
   },
   topRow: {
     display: "flex",

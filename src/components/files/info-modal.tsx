@@ -62,12 +62,10 @@ const InfoModal = observer(({ fileId, setVisible }: InfoModalProps) => {
               label: "Tags",
               value:
                 file?.tags?.length > 0 ? (
-                  <SideScroller>
-                    <View className={css.tags}>
-                      {file.tags.map((t) => (
-                        <Tag key={t.id} id={t.id} size="small" />
-                      ))}
-                    </View>
+                  <SideScroller innerClassName={css.tags}>
+                    {file.tags.map((t) => (
+                      <Tag key={t.id} id={t.id} size="small" />
+                    ))}
                   </SideScroller>
                 ) : (
                   <Text>{"N/A"}</Text>
@@ -99,21 +97,10 @@ const useClasses = makeClasses({
     },
   },
   tags: {
-    display: "flex",
-    flexFlow: "row nowrap",
     borderBottomLeftRadius: "inherit",
     borderBottomRightRadius: "inherit",
     padding: "0.2em 0.3em",
     height: "1.8rem",
-    overflowY: "hidden",
-    overflowX: "auto",
-    "&::-webkit-scrollbar": {
-      display: "none",
-      height: "4px",
-    },
-    "&::-webkit-scrollbar-thumb": {
-      background: colors.grey["600"],
-    },
   },
   title: {
     padding: "0.4em",

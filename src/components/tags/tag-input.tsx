@@ -1,5 +1,5 @@
 import { ComponentProps, forwardRef, HTMLAttributes, MutableRefObject } from "react";
-import { Autocomplete, colors, TextField } from "@mui/material";
+import { Autocomplete, Chip, colors, TextField } from "@mui/material";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
 import { Tag, View } from "components";
@@ -74,8 +74,16 @@ const TagInput = observer(
             props: HTMLAttributes<HTMLLIElement> & HTMLAttributes<HTMLDivElement>,
             option: TagOption
           ) => (
-            <View {...props}>
+            <View {...props} className={cx(props.className, css.tagRow)}>
               <Tag key={option.id} id={option.id} className={css.tag} />
+
+              {option.aliases?.length > 0 && (
+                <View className={css.aliases}>
+                  {option.aliases.map((a) => (
+                    <Chip key={a} label={a} size="small" className={css.alias} />
+                  ))}
+                </View>
+              )}
             </View>
           )}
           size="small"
@@ -93,10 +101,29 @@ const TagInput = observer(
 export default TagInput;
 
 const useClasses = makeClasses((_, { opaque }) => ({
+  alias: {
+    margin: "0.3rem 0 0 0.3rem",
+    fontSize: "0.7em",
+    opacity: 0.7,
+  },
+  aliases: {
+    display: "flex",
+    flexFlow: "row wrap",
+    alignSelf: "flex-start",
+  },
   input: {
     backgroundColor: opaque ? colors.grey["800"] : "transparent",
   },
   tag: {
-    marginBottom: "0.5rem",
+    alignSelf: "flex-start",
+    marginLeft: 0,
+  },
+  tagRow: {
+    display: "flex",
+    flexDirection: "column",
+    marginBottom: "0.3rem",
+    "&.MuiAutocomplete-option": {
+      padding: "0.2rem 0.5rem",
+    },
   },
 }));

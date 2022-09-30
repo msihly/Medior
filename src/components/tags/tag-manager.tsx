@@ -6,6 +6,12 @@ import { Button, Checkbox, Input, Text, View } from "components";
 import { Tag, TagEditor } from ".";
 import { makeClasses } from "utils";
 
+const TITLES = {
+  create: "Create Tag",
+  edit: "Edit Tag",
+  search: "Manage Tags",
+};
+
 const TagManager = observer(() => {
   const { tagStore } = useStores();
   const { classes: css } = useClasses(null);
@@ -46,7 +52,7 @@ const TagManager = observer(() => {
 
   return (
     <Dialog open onClose={closeModal} scroll="paper">
-      <DialogTitle className={css.dialogTitle}>Manage Tags</DialogTitle>
+      <DialogTitle className={css.dialogTitle}>{TITLES[tagStore.tagManagerMode]}</DialogTitle>
 
       {tagStore.tagManagerMode === "search" ? (
         <>

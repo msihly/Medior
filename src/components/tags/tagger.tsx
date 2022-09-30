@@ -1,9 +1,18 @@
-import { useEffect, useRef, useState } from "react";
-import { ipcRenderer } from "electron";
+import { useRef, useState } from "react";
+import { editFileTags } from "database";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
 import { File } from "store/files";
-import { Dialog, DialogTitle, DialogContent, DialogActions, colors } from "@mui/material";
+import Draggable from "react-draggable";
+import {
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  colors,
+  Paper,
+  PaperProps,
+} from "@mui/material";
 import { Button, Text, View } from "components";
 import { TagEditor, TagInput } from ".";
 import { makeClasses } from "utils";
@@ -16,7 +25,7 @@ interface TaggerProps {
 }
 
 const Tagger = observer(({ files, hasFocusOnOpen = false, setIsOpen }: TaggerProps) => {
-  const { tagStore } = useStores();
+  const { fileStore, tagStore } = useStores();
   const { classes: css } = useClasses(null);
 
   const [addedTags, setAddedTags] = useState([]);
@@ -35,21 +44,22 @@ const Tagger = observer(({ files, hasFocusOnOpen = false, setIsOpen }: TaggerPro
     setAddedTags(addedTags.filter((a) => !tags.find((t) => t.id === a.id)));
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (addedTags.length === 0 && removedTags.length === 0)
       return toast.error("You must enter at least one tag");
 
-    ipcRenderer.send("editFileTags", {
-      fileIds: files.map((f) => f.id),
-      addedTagIds: addedTags.map((t) => t.id),
-      removedTagIds: removedTags.map((t) => t.id),
-    });
+    await editFileTags(
+      fileStore,
+      files.map((f) => f.id),
+      addedTags.map((t) => t.id),
+      removedTags.map((t) => t.id)
+    );
 
     closeModal();
   };
 
   return (
-    <Dialog open onClose={closeModal} scroll="paper">
+    <Dialog open onClose={closeModal} scroll="paper" PaperComponent={DraggablePaper}>
       <DialogTitle className={css.dialogTitle}>
         {isCreateMode ? "Create Tag" : "Update Tags"}
       </DialogTitle>
@@ -117,6 +127,17 @@ const Tagger = observer(({ files, hasFocusOnOpen = false, setIsOpen }: TaggerPro
 
 export default Tagger;
 
+const DraggablePaper = (props: PaperProps) => {
+  const { classes: css } = useClasses(null);
+  const ref = useRef(null);
+
+  return (
+    <Draggable nodeRef={ref} cancel={'[class*="MuiDialogContent-root"]'}>
+      <Paper {...props} ref={ref} className={css.draggablePaper} />
+    </Draggable>
+  );
+};
+
 const useClasses = makeClasses({
   dialogActions: {
     justifyContent: "center",
@@ -128,6 +149,10 @@ const useClasses = makeClasses({
     margin: 0,
     padding: "0.5rem 0",
     textAlign: "center",
+  },
+  draggablePaper: {
+    maxWidth: "28rem",
+    cursor: "grab",
   },
   input: {
     marginBottom: "0.5rem",

@@ -13,6 +13,7 @@ export * from "./css";
 export * from "./formatting";
 export * from "./hooks";
 export * from "./math";
+export * from "./scrolling";
 export * from "./videos";
 
 /* ------------------------------- GENERAL ------------------------------- */

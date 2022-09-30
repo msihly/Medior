@@ -1,19 +1,12 @@
-import { ipcRenderer } from "electron";
 import { createRef, useEffect } from "react";
-import { DB_NAME } from "env";
 import Mongoose from "mongoose";
+import { DB_NAME } from "env";
+import { getAllFiles, getAllImportBatches, getAllTags } from "database";
 import { observer } from "mobx-react-lite";
 import { onSnapshot } from "mobx-state-tree";
 import { useStores } from "store";
 import { Drawer, FileContainer, TopBar, View } from "components";
 import { makeClasses } from "utils";
-import {
-  editFileTags,
-  getAllFiles,
-  getAllImportBatches,
-  getAllTags,
-  setFileRating,
-} from "database";
 
 const DRAWER_WIDTH = 200;
 
@@ -58,19 +51,11 @@ const Home = observer(() => {
 
         console.debug("Data stored in MST.");
       } catch (err) {
-        console.log(err?.message ?? err);
+        console.error(err);
       }
     };
 
     loadDatabase();
-
-    ipcRenderer.on("editFileTags", (_, { fileIds, addedTagIds, removedTagIds }) => {
-      editFileTags(fileStore, fileIds, addedTagIds, removedTagIds);
-    });
-
-    ipcRenderer.on("setFileRating", (_, { fileIds, rating }) => {
-      setFileRating(fileStore, fileIds, rating);
-    });
   }, []);
 
   return (

@@ -1,5 +1,3 @@
-import { useEffect, useRef } from "react";
-import { completeImportBatch, importFile, startImportBatch } from "database";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
 import { colors } from "@mui/material";
@@ -7,34 +5,9 @@ import { Text, View } from "components";
 import { makeClasses } from "utils";
 
 const ImportsProgress = observer(() => {
-  const rootStore = useStores();
-  const { fileStore, importStore } = useStores();
   const { classes: css } = useClasses(null);
 
-  const currentImportPath = useRef<string>(null);
-
-  useEffect(() => {
-    const handlePhase = async () => {
-      if (importStore.activeBatch?.nextImport) {
-        if (!importStore.isImporting)
-          await startImportBatch(importStore, importStore.activeBatch?.addedAt);
-
-        if (currentImportPath.current === importStore.activeBatch?.nextImport?.path) return;
-        currentImportPath.current = importStore.activeBatch?.nextImport?.path;
-
-        await importFile(
-          rootStore,
-          importStore.activeBatch?.addedAt,
-          importStore.activeBatch?.nextImport
-        );
-      } else if (importStore.isImporting) {
-        await completeImportBatch(importStore, importStore.activeBatch?.addedAt);
-        currentImportPath.current = null;
-      }
-    };
-
-    handlePhase();
-  }, [importStore.activeBatch?.nextImport, importStore.isImporting]);
+  const { fileStore, importStore } = useStores();
 
   return importStore.isImporting ? (
     <View column>

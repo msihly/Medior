@@ -3,7 +3,7 @@ import { observer } from "mobx-react-lite";
 import { useStores } from "store";
 import { deleteFiles, FileInfoRefreshQueue, refreshFile } from "database";
 import { AppBar, colors } from "@mui/material";
-import { IconButton, ImportsProgress, Tagger, View } from "components";
+import { IconButton, Tagger, View } from "components";
 import { SortMenu } from ".";
 import { makeClasses } from "utils";
 import { toast } from "react-toastify";
@@ -55,8 +55,6 @@ const TopBar = observer(() => {
           {!appStore.isDrawerOpen && (
             <IconButton name="Menu" onClick={() => appStore.setIsDrawerOpen(true)} size="medium" />
           )}
-
-          <ImportsProgress />
         </span>
 
         <span className={css.divisions}>

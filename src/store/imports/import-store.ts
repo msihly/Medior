@@ -11,6 +11,7 @@ export const defaultImportStore = {
 export const ImportStoreModel = types
   .model("FileStore")
   .props({
+    activeBatchAddedAt: types.maybeNull(types.string),
     importBatches: types.array(ImportBatchModel),
     isImporting: types.boolean,
   })
@@ -25,16 +26,14 @@ export const ImportStoreModel = types
     },
   }))
   .views((self) => ({
+    get activeBatch(): ImportBatch {
+      return self.getByAddedAt(self.activeBatchAddedAt);
+    },
     get completedBatches(): ImportBatch[] {
       return self.batches.filter((batch) => batch.completedAt?.length > 0);
     },
     get incompleteBatches(): ImportBatch[] {
       return self.batches.filter((batch) => !batch.completedAt?.length);
-    },
-  }))
-  .views((self) => ({
-    get activeBatch(): ImportBatch {
-      return self.incompleteBatches?.length > 0 ? self.incompleteBatches[0] : null;
     },
   }))
   .actions((self) => ({
@@ -63,6 +62,9 @@ export const ImportStoreModel = types
     },
     reset: () => {
       applySnapshot(self, defaultImportStore);
+    },
+    setActiveBatchAddedAt: (addedAt: string) => {
+      self.activeBatchAddedAt = addedAt;
     },
     setIsImporting: (isImporting: boolean) => {
       self.isImporting = isImporting;

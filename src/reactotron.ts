@@ -11,7 +11,7 @@ if (!app.isPackaged) {
     Reactotron.use(mst({ filter: (event) => regEx.test(event.name) === false }));
     Reactotron.configure().connect();
   } catch (err) {
-    console.log(err);
+    console.error("Reactotron error:", err);
   }
 }
 

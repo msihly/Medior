@@ -24,14 +24,6 @@ const createMainWindow = () => {
   mainWindow.loadURL(baseUrl);
 
   if (!app.isPackaged) mainWindow.webContents.openDevTools({ mode: "bottom" });
-
-  ipcMain.on("editFileTags", (_, { fileIds, addedTagIds, removedTagIds }) => {
-    mainWindow.webContents.send("editFileTags", { fileIds, addedTagIds, removedTagIds });
-  });
-
-  ipcMain.on("setFileRating", (_, { fileIds, rating }) => {
-    mainWindow.webContents.send("setFileRating", { fileIds, rating });
-  });
 };
 
 app.whenReady().then(createMainWindow);

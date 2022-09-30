@@ -1,4 +1,12 @@
-import { createContext, MutableRefObject, useContext, useRef, useState } from "react";
+import {
+  createContext,
+  Dispatch,
+  MutableRefObject,
+  SetStateAction,
+  useContext,
+  useRef,
+  useState,
+} from "react";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
 import ReactPlayer from "react-player/file";
@@ -11,8 +19,8 @@ interface CarouselContextProps {
   activeFileId: string;
   panZoomRef: MutableRefObject<PanzoomObject>;
   selectedFileIds: string[];
-  setActiveFileId: React.Dispatch<React.SetStateAction<string>>;
-  setIsTaggerOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  setActiveFileId: Dispatch<SetStateAction<string>>;
+  setIsTaggerOpen: Dispatch<SetStateAction<boolean>>;
 }
 
 export const CarouselContext = createContext<CarouselContextProps>(null);

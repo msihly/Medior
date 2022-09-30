@@ -16,7 +16,7 @@ const CarouselThumbNavigator = () => {
   const scrollLeft = useRef(0);
 
   const [isVisible, setIsVisible] = useState(false);
-  const [screenWidth, setScreenWidth] = useState(0);
+  const [width, setWidth] = useState(0);
 
   const { classes: css } = useClasses({ isVisible });
 
@@ -24,23 +24,20 @@ const CarouselThumbNavigator = () => {
     listRef,
     listOuterRef,
     scrollLeft,
-    screenWidth,
+    width,
   });
 
-  const handleScroll = ({ scrollOffset }: ListOnScrollProps) => {
-    // console.debug("ScrollOffset:", scrollOffset);
-    scrollLeft.current = scrollOffset;
-  };
+  const handleScroll = ({ scrollOffset }: ListOnScrollProps) => (scrollLeft.current = scrollOffset);
 
   const toggleVisibility = () => setIsVisible(!isVisible);
 
   useEffect(() => {
     if (listRef.current !== null && selectedFileIds?.length > 0) {
       const activeIndex = selectedFileIds.findIndex((id) => id === activeFileId);
-      const newScrollLeft = activeIndex * THUMB_WIDTH + THUMB_WIDTH / 2 - screenWidth / 2;
+      const newScrollLeft = activeIndex * THUMB_WIDTH + THUMB_WIDTH / 2 - width / 2;
       listRef.current.scrollTo(newScrollLeft);
     }
-  }, [activeFileId, screenWidth, selectedFileIds]);
+  }, [activeFileId, width, selectedFileIds]);
 
   return (
     <View className={css.root}>
@@ -54,7 +51,7 @@ const CarouselThumbNavigator = () => {
       </View>
 
       <View onMouseDown={handleMouseDown} className={css.scrollContainer}>
-        <AutoSizer onResize={({ width }) => setScreenWidth(width)} disableHeight>
+        <AutoSizer onResize={({ width }) => setWidth(width)} disableHeight>
           {({ width }) => (
             <FixedSizeList
               ref={listRef}
