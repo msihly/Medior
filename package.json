@@ -5,7 +5,7 @@
   "author": "Mohamed Sihly",
   "description": "A tag-based media-viewer",
   "homepage": "./",
-  "main": "public/electron.js",
+  "main": "public/main.js",
   "icon": "public/favicon.ico",
   "dependencies": {
     "@craco/craco": "^6.4.3",
@@ -29,6 +29,7 @@
     "mobx": "^6.5.0",
     "mobx-react-lite": "^3.3.0",
     "mobx-state-tree": "^5.1.3",
+    "mongodb-memory-server": "^8.9.3",
     "mongoose": "^6.2.8",
     "react": "^17.0.2",
     "react-dom": "^17.0.2",
@@ -84,7 +85,7 @@
     "start": "craco start",
     "build": "craco build",
     "pack": "electron-builder --dir",
-    "dist": "npm run build && electron-builder build --win -c.extraMetadata.main=build/electron.js --publish never",
+    "dist": "npm run build && electron-builder build --win -c.extraMetadata.main=build/main.js --publish never",
     "postinstall": "electron-builder install-app-deps",
     "dev": "concurrently --kill-others \"SET BROWSER=none && npm start\" \"wait-on http://localhost:3000 && electron .\""
   },

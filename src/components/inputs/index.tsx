@@ -1,3 +1,4 @@
-export { default as Input } from "./input";
-export { default as ChipInput } from "./chip-input";
+export { Input } from "./input";
+export { ChipInput } from "./chip-input";
+export { TagInput } from "./tag-input";
 export type { ChipOption } from "./chip-input";

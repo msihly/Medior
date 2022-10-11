@@ -14,8 +14,10 @@ export type TagCount = Instance<typeof TagCountModel>;
 
 export const defaultTagStore = {
   activeTagId: null,
+  isTaggerOpen: false,
   isTagManagerOpen: false,
   tags: [],
+  taggerMode: "edit",
   tagManagerMode: "search",
 };
 
@@ -23,8 +25,10 @@ export const TagStoreModel = types
   .model("TagStore")
   .props({
     activeTagId: types.maybeNull(types.string),
+    isTaggerOpen: types.boolean,
     isTagManagerOpen: types.boolean,
     tags: types.array(TagModel),
+    taggerMode: types.enumeration(["create", "edit"]),
     tagManagerMode: types.enumeration(["create", "edit", "search"]),
   })
   .views((self) => ({
@@ -51,6 +55,9 @@ export const TagStoreModel = types
     },
     getById: (id: string): Tag => {
       return self.tags.find((t) => t.id === id);
+    },
+    getByLabel: (label: string): Tag => {
+      return self.tags.find((t) => t.label === label);
     },
   }))
   .views((self) => ({
@@ -89,14 +96,24 @@ export const TagStoreModel = types
     createTag: (tag: SnapshotOrInstance<Tag>) => {
       self.tags.push(tag);
     },
+    deleteTag: (id: string) => {
+      self.tags = cast(self.tags.filter((t) => t.id !== id));
+    },
     overwrite: (tags: SnapshotOrInstance<Tag>[]) => {
       self.tags = cast(tags);
     },
     setActiveTagId: (tagId: string) => {
       self.activeTagId = tagId;
     },
+    setIsTaggerOpen: (isOpen: boolean) => {
+      if (isOpen) self.taggerMode = "edit";
+      self.isTaggerOpen = isOpen;
+    },
     setIsTagManagerOpen: (isOpen: boolean) => {
       self.isTagManagerOpen = isOpen;
+    },
+    setTaggerMode: (mode: "create" | "edit") => {
+      self.taggerMode = mode;
     },
     setTagManagerMode: (mode: "create" | "edit" | "search") => {
       self.tagManagerMode = mode;

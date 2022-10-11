@@ -24,6 +24,12 @@ export const ImportStoreModel = types
     getByAddedAt: (addedAt: string) => {
       return self.importBatches.find((batch) => batch.addedAt === addedAt);
     },
+    getById: (id: string) => {
+      return self.importBatches.find((batch) => batch.id === id);
+    },
+    listByTagId: (tagId: string) => {
+      return self.importBatches.filter((batch) => batch.tagIds.includes(tagId));
+    },
   }))
   .views((self) => ({
     get activeBatch(): ImportBatch {
@@ -38,18 +44,24 @@ export const ImportStoreModel = types
   }))
   .actions((self) => ({
     addImportToBatch: (addedAt: string, fileImport: FileImportSnapshot) => {
-      const batch = self.importBatches.find((batch) => batch.addedAt === addedAt);
-      if (!batch)
-        throw new Error(
-          `ImportBatch (addedAt: ${addedAt}) does not exist in importStore.addImportToBatch`
-        );
+      const batch = self.getByAddedAt(addedAt);
+      if (!batch) throw new Error(`Can't find ImportBatch with addedAt = ${addedAt}`);
       batch.imports.push(fileImport);
     },
-    addImportBatch: (addedAt: string, tagIds = [], ...fileImports: FileImportInstance[]) => {
+    addImportBatch: ({
+      addedAt,
+      id,
+      tagIds = [],
+    }: {
+      addedAt: string;
+      id: string;
+      tagIds?: string[];
+    }) => {
       self.importBatches.push({
         addedAt,
         completedAt: null,
-        imports: fileImports,
+        id,
+        imports: [],
         startedAt: null,
         tagIds,
       });

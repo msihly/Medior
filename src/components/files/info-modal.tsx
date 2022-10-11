@@ -29,7 +29,7 @@ const InfoModal = observer(({ fileId, setVisible }: InfoModalProps) => {
     <Dialog open={true} onClose={handleClose} scroll="paper">
       <DialogTitle className={css.title}>Info</DialogTitle>
 
-      <DialogContent dividers={true}>
+      <DialogContent dividers>
         <DetailRows
           labelWidth="6em"
           rows={[

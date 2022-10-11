@@ -20,7 +20,6 @@ interface CarouselContextProps {
   panZoomRef: MutableRefObject<PanzoomObject>;
   selectedFileIds: string[];
   setActiveFileId: Dispatch<SetStateAction<string>>;
-  setIsTaggerOpen: Dispatch<SetStateAction<boolean>>;
 }
 
 export const CarouselContext = createContext<CarouselContextProps>(null);

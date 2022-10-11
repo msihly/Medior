@@ -1,8 +1,9 @@
 import { ComponentProps, forwardRef, HTMLAttributes, MutableRefObject } from "react";
-import { Autocomplete, Chip, colors, TextField } from "@mui/material";
+import { Autocomplete, Chip, colors } from "@mui/material";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
 import { Tag, View } from "components";
+import { Input } from ".";
 import { makeClasses } from "utils";
 
 export type TagOption = {
@@ -49,7 +50,7 @@ export const TagInput = observer(
             option?.label ?? tagStore.getById(option.id)?.label
           }
           renderInput={(params) => (
-            <TextField
+            <Input
               {...params}
               {...{ autoFocus, label, ref }}
               className={cx(css.input, className)}

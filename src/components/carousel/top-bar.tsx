@@ -9,8 +9,8 @@ import { useStores } from "store";
 const CarouselTopBar = observer(() => {
   const { classes: css, cx } = useClasses(null);
 
-  const { fileStore } = useStores();
-  const { activeFileId, panZoomRef, setIsTaggerOpen } = useContext(CarouselContext);
+  const { fileStore, tagStore } = useStores();
+  const { activeFileId, panZoomRef } = useContext(CarouselContext);
   const file = fileStore.getById(activeFileId);
 
   const [isAspectRatioLocked, setIsAspectRatioLocked] = useState(false);
@@ -41,7 +41,7 @@ const CarouselTopBar = observer(() => {
     }
   };
 
-  const handleEditTags = () => setIsTaggerOpen(true);
+  const handleEditTags = () => tagStore.setIsTaggerOpen(true);
 
   /* ------------------------------ BEGIN - ZOOM ------------------------------ */
   const [zoomScale, setZoomScale] = useState(1);

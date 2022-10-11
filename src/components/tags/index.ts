@@ -1,6 +1,6 @@
-export { default as Tag } from "./tag";
-export { default as Tagger } from "./tagger";
-export { default as TagEditor } from "./tag-editor";
-export { default as TagInput } from "./tag-input";
-export type { TagOption } from "./tag-input";
-export { default as TagManager } from "./tag-manager";
+export { ConfirmDeleteModal } from "./confirm-delete-modal";
+export { Tag } from "./tag";
+export { Tagger } from "./tagger";
+export { TagEditor } from "./tag-editor";
+export type { TagOption } from "../inputs/tag-input";
+export { TagManager } from "./tag-manager";

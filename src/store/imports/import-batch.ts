@@ -1,4 +1,4 @@
-import { Instance, types } from "mobx-state-tree";
+import { cast, Instance, types } from "mobx-state-tree";
 import { FileImportInstance, FileImportModel } from ".";
 import { dayjs, DayJsInput } from "utils";
 
@@ -6,6 +6,7 @@ export const ImportBatchModel = types
   .model({
     addedAt: types.string,
     completedAt: types.maybeNull(types.string),
+    id: types.string,
     imports: types.array(FileImportModel),
     startedAt: types.maybeNull(types.string),
     tagIds: types.array(types.string),
@@ -27,6 +28,9 @@ export const ImportBatchModel = types
     },
     setStartedAt: (startedAt: DayJsInput) => {
       self.startedAt = dayjs(startedAt).toISOString();
+    },
+    setTagIds: (tagIds: string[]) => {
+      self.tagIds = cast(tagIds);
     },
   }));
 

@@ -38,6 +38,11 @@ const Drawer = observer(
       } else fileStore.setExcludeDescendants(false);
     };
 
+    const handleManageTags = () => {
+      tagStore.setTagManagerMode("search");
+      tagStore.setIsTagManagerOpen(true);
+    };
+
     const handleTagged = () => {
       if (!fileStore.includeTagged && !fileStore.includeUntagged) fileStore.setIncludeTagged(true);
       else if (fileStore.includeTagged) {
@@ -63,11 +68,7 @@ const Drawer = observer(
         </View>
 
         <List>
-          <ListItem
-            text="Manage Tags"
-            icon="More"
-            onClick={() => tagStore.setIsTagManagerOpen(true)}
-          />
+          <ListItem text="Manage Tags" icon="More" onClick={handleManageTags} />
 
           <ListItem text="Import" icon="GetApp" onClick={() => setIsImporterOpen(true)} />
 

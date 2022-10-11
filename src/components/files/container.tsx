@@ -14,7 +14,7 @@ interface FileContainerProps {
 
 const FileContainer = observer(({ mode }: FileContainerProps) => {
   const { classes: css } = useClasses(null);
-  const { fileStore } = useStores();
+  const { fileStore, tagStore } = useStores();
 
   const selectRef = useRef(null);
   const selectoRef = useRef(null);
@@ -28,7 +28,10 @@ const FileContainer = observer(({ mode }: FileContainerProps) => {
   }, [fileStore.selected]);
 
   const handleKeyPress = (e) => {
-    if (fileStore.selected.length === 1) {
+    if (e.key === "t" && !tagStore.isTaggerOpen) {
+      e.preventDefault();
+      tagStore.setIsTaggerOpen(true);
+    } else if (fileStore.selected.length === 1) {
       const selectedId = fileStore.selected[0].id;
       const indexOfSelected = fileStore.filtered.findIndex((f) => f.id === selectedId);
       const nextIndex = indexOfSelected === fileStore.filtered.length - 1 ? 0 : indexOfSelected + 1;
@@ -40,7 +43,7 @@ const FileContainer = observer(({ mode }: FileContainerProps) => {
         fileStore.toggleFilesSelected([selectedId], false);
         fileStore.toggleFilesSelected([e.key === "ArrowLeft" ? prevId : nextId], true);
       } else if (["1", "2", "3", "4", "5", "6", "7", "8", "9"].includes(e.key)) {
-        setFileRating(fileStore, [selectedId], +e.key);
+        setFileRating([selectedId], +e.key);
       }
     }
   };

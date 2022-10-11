@@ -7,7 +7,7 @@ interface TagProps extends ChipProps {
   id: string;
 }
 
-const Tag = observer(({ className, id, size = "medium", ...props }: TagProps) => {
+export const Tag = observer(({ className, id, size = "medium", ...props }: TagProps) => {
   const { classes: css, cx } = useClasses({ size });
   const { tagStore } = useStores();
 
@@ -23,8 +23,6 @@ const Tag = observer(({ className, id, size = "medium", ...props }: TagProps) =>
     />
   );
 });
-
-export default Tag;
 
 const formatter = Intl.NumberFormat("en", { notation: "compact" });
 

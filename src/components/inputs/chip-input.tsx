@@ -1,6 +1,7 @@
 import { ComponentProps } from "react";
-import { Autocomplete, Chip, colors, TextField } from "@mui/material";
+import { Autocomplete, Chip, colors } from "@mui/material";
 import { observer } from "mobx-react-lite";
+import { Input } from ".";
 import { makeClasses } from "utils";
 
 export type ChipOption = {
@@ -18,7 +19,7 @@ type ChipInputProps = Omit<
   value: ChipOption[];
 };
 
-const ChipInput = observer(
+export const ChipInput = observer(
   ({ className, opaque = false, options = [], setValue, value = [], ...props }: ChipInputProps) => {
     const { classes: css, cx } = useClasses({ opaque });
 
@@ -26,7 +27,7 @@ const ChipInput = observer(
       <Autocomplete
         {...{ options, value }}
         getOptionLabel={(option: ChipOption) => option.label}
-        renderInput={(params) => <TextField {...params} className={cx(css.input, className)} />}
+        renderInput={(params) => <Input {...params} className={cx(css.input, className)} />}
         renderTags={(val: ChipOption[], getTagProps) =>
           val.map((option: ChipOption, index) => (
             <Chip {...getTagProps({ index })} label={option.label} />
@@ -51,8 +52,6 @@ const ChipInput = observer(
     );
   }
 );
-
-export default ChipInput;
 
 const useClasses = makeClasses((_, { opaque }) => ({
   input: {

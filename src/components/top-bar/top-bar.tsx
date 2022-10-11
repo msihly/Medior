@@ -9,17 +9,16 @@ import { makeClasses } from "utils";
 import { toast } from "react-toastify";
 
 const TopBar = observer(() => {
-  const { appStore, fileStore } = useStores();
+  const { appStore, fileStore, tagStore } = useStores();
   const { classes: css } = useClasses(null);
 
-  const [isTaggerOpen, setIsTaggerOpen] = useState(false);
   const [isCollectionEditorOpen, setIsCollectionEditorOpen] = useState(false);
 
   const handleDelete = () => deleteFiles(fileStore, fileStore.selected);
 
   const handleEditCollections = () => setIsCollectionEditorOpen(true);
 
-  const handleEditTags = () => setIsTaggerOpen(true);
+  const handleEditTags = () => tagStore.setIsTaggerOpen(true);
 
   const handleFileInfoRefresh = () => {
     fileStore.selected.map((f) => FileInfoRefreshQueue.add(() => refreshFile(fileStore, f.id)));
@@ -108,7 +107,7 @@ const TopBar = observer(() => {
         </span>
       </View>
 
-      {isTaggerOpen && <Tagger files={fileStore.selected} setIsOpen={setIsTaggerOpen} />}
+      {tagStore.isTaggerOpen && <Tagger files={fileStore.selected} />}
     </AppBar>
   );
 });

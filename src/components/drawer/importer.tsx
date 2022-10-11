@@ -95,7 +95,7 @@ const Importer = observer(({ isOpen = false, setIsOpen }: ImporterProps) => {
     <Dialog open={isOpen} onClose={handleClose} scroll="paper">
       <DialogTitle className={css.dialogTitle}>Import Files</DialogTitle>
 
-      <DialogContent dividers={true} className={css.dialogContent}>
+      <DialogContent dividers className={css.dialogContent}>
         {importStore.batches.map((batch) => (
           <ImportBatch key={batch.addedAt} addedAt={batch.addedAt} />
         ))}

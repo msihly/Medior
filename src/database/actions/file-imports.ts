@@ -18,7 +18,6 @@ export const addImportToBatch = async (
     const batch = importStore.getByAddedAt(addedAt);
 
     await FileImportBatchModel.updateOne({ addedAt }, { imports: [...batch.imports, fileImport] });
-
     importStore.addImportToBatch(addedAt, fileImport);
 
     return { success: true, batch };
@@ -60,7 +59,7 @@ export const createImportBatch = async (
       tagIds,
     });
 
-    importStore.addImportBatch(addedAt, tagIds);
+    importStore.addImportBatch({ addedAt, id: batch.id, tagIds });
 
     return { success: true, batch };
   } catch (err) {
@@ -100,8 +99,7 @@ export const importFile = async (
   fileImport: FileImportInstance
 ) => {
   try {
-    const { fileStore, importStore } = rootStore;
-
+    const { importStore } = rootStore;
     if (!addedAt || fileImport?.status !== "PENDING") return;
 
     const batch = importStore.getByAddedAt(addedAt);
@@ -111,9 +109,7 @@ export const importFile = async (
       targetDir: OUTPUT_DIR,
       tagIds: batch.tagIds,
     });
-
-    if (!res?.success) console.error(res?.error);
-    else if (!res?.isDuplicate) fileStore.addFiles(res?.file);
+    if (!res?.success) throw new Error(res?.error);
 
     const status = !res?.success ? "ERROR" : res?.isDuplicate ? "DUPLICATE" : "COMPLETE";
 
@@ -176,7 +172,8 @@ export const useFileImportQueue = () => {
         );
       } else if (importStore.isImporting) {
         if (!importStore.activeBatch) importStore.setIsImporting(false);
-        else await completeImportBatch(importStore, importStore.activeBatch?.addedAt);
+        else if (importStore.activeBatch.imports?.length > 0)
+          await completeImportBatch(importStore, importStore.activeBatch?.addedAt);
 
         currentImportPath.current = null;
       }

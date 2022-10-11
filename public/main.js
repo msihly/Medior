@@ -2,14 +2,38 @@ const { app, BrowserWindow, ipcMain, screen } = require("electron");
 const remoteMain = require("@electron/remote/main");
 remoteMain.initialize();
 
+const path = require("path");
+const fs = require("fs/promises");
+const { MongoMemoryReplSet } = require("mongodb-memory-server");
+const { DB_PATH, DB_PORT } = require("./env");
+
 const baseUrl = !app.isPackaged
   ? "http://localhost:3000"
-  : `file://${require("path").join(__dirname, "../build/index.html")}`;
+  : `file://${path.join(__dirname, "../build/index.html")}`;
 
 /* ------------------------------- BEGIN - MAIN WINDOW ------------------------------ */
 let mainWindow = null;
+let mongoServer = null;
 
-const createMainWindow = () => {
+const createDbServer = async () => {
+  const dbPathExists = await fs.stat(DB_PATH).catch(() => false);
+  if (!dbPathExists) await fs.mkdir(DB_PATH, { recursive: true });
+
+  return await MongoMemoryReplSet.create({
+    instanceOpts: [
+      {
+        dbPath: DB_PATH,
+        port: DB_PORT,
+        storageEngine: "wiredTiger",
+      },
+    ],
+    replSet: { dbName: "media-viewer", name: "rs0" },
+  });
+};
+
+const createMainWindow = async () => {
+  mongoServer = await createDbServer();
+
   mainWindow = new BrowserWindow({
     backgroundColor: "#111",
     webPreferences: {
@@ -20,10 +44,12 @@ const createMainWindow = () => {
   });
 
   remoteMain.enable(mainWindow.webContents);
-
   mainWindow.loadURL(baseUrl);
-
   if (!app.isPackaged) mainWindow.webContents.openDevTools({ mode: "bottom" });
+
+  ipcMain.handle("getDatabaseUri", async () => {
+    return mongoServer.getUri();
+  });
 };
 
 app.whenReady().then(createMainWindow);
@@ -32,7 +58,7 @@ app.on("window-all-closed", app.quit);
 /* ------------------------------- END - MAIN WINDOW ------------------------------ */
 
 /* ------------------------------- BEGIN - CAROUSEL WINDOWS ------------------------------ */
-const createCarouselWindow = async (width, height) => {
+const createCarouselWindow = async ({ fileId, height, selectedFileIds, width }) => {
   console.debug("Creating carousel window...");
 
   const primaryDisplay = screen.getPrimaryDisplay();
@@ -70,10 +96,12 @@ const createCarouselWindow = async (width, height) => {
   await window.loadURL(`${baseUrl}${app.isPackaged ? "#" : "/"}carousel`);
   console.debug("Carousel window loaded.");
 
+  window.webContents.send("init", { fileId, selectedFileIds });
+
   return window;
 };
 
-ipcMain.on("createCarouselWindow", (_, { width, height }) => {
-  createCarouselWindow(width, height);
+ipcMain.on("createCarouselWindow", (_, { height, fileId, selectedFileIds, width }) => {
+  createCarouselWindow({ height, fileId, selectedFileIds, width });
 });
 /* ------------------------------- END - CAROUSEL WINDOWS ------------------------------ */

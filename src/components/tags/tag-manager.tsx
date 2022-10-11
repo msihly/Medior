@@ -12,7 +12,7 @@ const TITLES = {
   search: "Manage Tags",
 };
 
-const TagManager = observer(() => {
+export const TagManager = observer(() => {
   const { tagStore } = useStores();
   const { classes: css } = useClasses(null);
 
@@ -56,7 +56,7 @@ const TagManager = observer(() => {
 
       {tagStore.tagManagerMode === "search" ? (
         <>
-          <DialogContent dividers={true} className={css.dialogContent}>
+          <DialogContent dividers className={css.dialogContent}>
             <View column>
               <Text align="center" className={css.sectionTitle}>
                 Search
@@ -85,7 +85,7 @@ const TagManager = observer(() => {
           </DialogContent>
 
           <DialogActions className={css.dialogActions}>
-            <Button text="Close" icon="Close" onClick={closeModal} color={colors.red["800"]} />
+            <Button text="Close" icon="Close" onClick={closeModal} color={colors.grey["700"]} />
 
             <Button text="Create" icon="Add" onClick={handleCreate} />
           </DialogActions>
@@ -100,8 +100,6 @@ const TagManager = observer(() => {
     </Dialog>
   );
 });
-
-export default TagManager;
 
 const useClasses = makeClasses({
   dialogActions: {

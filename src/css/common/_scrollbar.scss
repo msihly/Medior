@@ -1,13 +1,19 @@
 ::-webkit-scrollbar {
-    width: 9px;
-    height: 9px;
+  width: 9px;
+  height: 9px;
 
-    &, &-track, &-corner { background: transparent; }
+  &,
+  &-track,
+  &-corner {
+    background: transparent;
+  }
 
-    &-thumb {
-        border-radius: 9px;
-        background: $grey-1;
+  &-thumb {
+    border-radius: 9px;
+    background: $grey-1;
 
-        &:hover { background: $grey-2; }
+    &:hover {
+      background: $grey-2;
     }
+  }
 }

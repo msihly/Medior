@@ -17,6 +17,7 @@ dist/
 *.env
 *.env.*
 env.js
+MongoDB
 npm-debug.log*
 .vscode/
 _components/

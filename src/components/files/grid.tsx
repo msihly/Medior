@@ -41,9 +41,12 @@ const FileGrid = observer(({ id }: FileGridProps) => {
   };
 
   const openFile = () => {
-    fileStore.setCarouselFileId(id);
-    fileStore.setCarouselSelectedFileIds(fileStore.filtered.map((f) => f.id));
-    ipcRenderer.send("createCarouselWindow", { width: file.width, height: file.height });
+    ipcRenderer.send("createCarouselWindow", {
+      fileId: id,
+      height: file.height,
+      selectedFileIds: fileStore.filtered.map((f) => f.id),
+      width: file.width,
+    });
   };
 
   return (

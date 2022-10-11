@@ -13,33 +13,33 @@ import {
   Paper,
   PaperProps,
 } from "@mui/material";
-import { Button, Text, View } from "components";
-import { TagEditor, TagInput } from ".";
+import { Button, TagInput, Text, View } from "components";
+import { TagEditor, TagOption } from ".";
 import { makeClasses } from "utils";
 import { toast } from "react-toastify";
 
 interface TaggerProps {
   files: File[];
   hasFocusOnOpen?: boolean;
-  setIsOpen: (isOpen: boolean) => void;
 }
 
-const Tagger = observer(({ files, hasFocusOnOpen = false, setIsOpen }: TaggerProps) => {
-  const { fileStore, tagStore } = useStores();
+export const Tagger = observer(({ files, hasFocusOnOpen = false }: TaggerProps) => {
+  const { tagStore } = useStores();
   const { classes: css } = useClasses(null);
 
-  const [addedTags, setAddedTags] = useState([]);
-  const [isCreateMode, setIsCreateMode] = useState(false);
-  const [removedTags, setRemovedTags] = useState([]);
+  const [addedTags, setAddedTags] = useState<TagOption[]>([]);
+  const [removedTags, setRemovedTags] = useState<TagOption[]>([]);
 
-  const closeModal = () => setIsOpen(false);
+  const handleClose = () => tagStore.setIsTaggerOpen(false);
 
-  const handleTagAdded = (tags) => {
+  const handleEditorBack = () => tagStore.setTaggerMode("edit");
+
+  const handleTagAdded = (tags: TagOption[]) => {
     setAddedTags(tags);
     setRemovedTags(removedTags.filter((r) => !tags.find((t) => t.id === r.id)));
   };
 
-  const handleTagRemoved = (tags) => {
+  const handleTagRemoved = (tags: TagOption[]) => {
     setRemovedTags(tags);
     setAddedTags(addedTags.filter((a) => !tags.find((t) => t.id === a.id)));
   };
@@ -49,34 +49,30 @@ const Tagger = observer(({ files, hasFocusOnOpen = false, setIsOpen }: TaggerPro
       return toast.error("You must enter at least one tag");
 
     await editFileTags(
-      fileStore,
       files.map((f) => f.id),
       addedTags.map((t) => t.id),
       removedTags.map((t) => t.id)
     );
 
-    closeModal();
+    handleClose();
   };
 
+  const openTagEditor = () => tagStore.setTaggerMode("create");
+
   return (
-    <Dialog open onClose={closeModal} scroll="paper" PaperComponent={DraggablePaper}>
+    <Dialog open onClose={handleClose} scroll="paper" PaperComponent={DraggablePaper}>
       <DialogTitle className={css.dialogTitle}>
-        {isCreateMode ? "Create Tag" : "Update Tags"}
+        {tagStore.taggerMode === "create" ? "Create Tag" : "Update Tags"}
       </DialogTitle>
 
-      {!isCreateMode ? (
+      {tagStore.taggerMode === "edit" ? (
         <>
-          <DialogContent dividers={true} className={css.dialogContent}>
+          <DialogContent dividers className={css.dialogContent}>
             <View column>
               <Text align="center" className={css.sectionTitle}>
                 Current Tags
               </Text>
-              <TagInput
-                value={tagStore.getTagCounts(files)}
-                disabled
-                opaque
-                className={css.input}
-              />
+              <TagInput value={tagStore.getTagCounts(files)} disabled opaque />
 
               <Text align="center" className={css.sectionTitle}>
                 Added Tags
@@ -86,7 +82,6 @@ const Tagger = observer(({ files, hasFocusOnOpen = false, setIsOpen }: TaggerPro
                 setValue={handleTagAdded}
                 options={tagStore.tagOptions}
                 autoFocus={hasFocusOnOpen}
-                className={css.input}
               />
 
               <Text align="center" className={css.sectionTitle}>
@@ -96,18 +91,17 @@ const Tagger = observer(({ files, hasFocusOnOpen = false, setIsOpen }: TaggerPro
                 value={removedTags}
                 setValue={handleTagRemoved}
                 options={tagStore.tagOptions}
-                className={css.input}
               />
             </View>
           </DialogContent>
 
           <DialogActions className={css.dialogActions}>
-            <Button text="Close" icon="Close" onClick={closeModal} color={colors.red["800"]} />
+            <Button text="Close" icon="Close" onClick={handleClose} color={colors.grey["700"]} />
 
             <Button
               text="New Tag"
               icon="Add"
-              onClick={() => setIsCreateMode(true)}
+              onClick={openTagEditor}
               color={colors.blueGrey["700"]}
             />
 
@@ -115,17 +109,11 @@ const Tagger = observer(({ files, hasFocusOnOpen = false, setIsOpen }: TaggerPro
           </DialogActions>
         </>
       ) : (
-        <TagEditor
-          isCreate
-          onCancel={() => setIsCreateMode(false)}
-          onSave={() => setIsCreateMode(false)}
-        />
+        <TagEditor isCreate onCancel={handleEditorBack} onSave={handleEditorBack} />
       )}
     </Dialog>
   );
 });
-
-export default Tagger;
 
 const DraggablePaper = (props: PaperProps) => {
   const { classes: css } = useClasses(null);
@@ -154,12 +142,7 @@ const useClasses = makeClasses({
     maxWidth: "28rem",
     cursor: "grab",
   },
-  input: {
-    marginBottom: "0.5rem",
-    minWidth: "15rem",
-  },
   sectionTitle: {
-    marginTop: "0.3rem",
     fontSize: "0.8em",
     textShadow: `0 0 10px ${colors.blue["600"]}`,
   },

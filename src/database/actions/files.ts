@@ -165,7 +165,6 @@ export const deleteFiles = async (fileStore: FileStore, files: File[], isUndelet
 };
 
 export const editFileTags = async (
-  fileStore: FileStore,
   fileIds: string[] = [],
   addedTagIds: string[] = [],
   removedTagIds: string[] = []
@@ -188,7 +187,6 @@ export const editFileTags = async (
 
     files.forEach(async (f) => {
       await FileModel.updateOne({ _id: f.id }, { tagIds: f.tagIds, dateModified });
-      fileStore.getById(f.id).updateTags(f.tagIds, dateModified);
     });
 
     return true;
@@ -243,7 +241,6 @@ export const refreshFile = async (fileStore: FileStore, id: string) => {
     };
 
     await FileModel.updateOne({ _id: id }, updates);
-    fileStore.getById(id).update(updates);
 
     return updates;
   } catch (err) {
@@ -252,18 +249,13 @@ export const refreshFile = async (fileStore: FileStore, id: string) => {
   }
 };
 
-export const setFileRating = async (
-  fileStore: FileStore,
-  fileIds: string[] = [],
-  rating: number
-) => {
+export const setFileRating = async (fileIds: string[] = [], rating: number) => {
   try {
     const dateModified = dayjs().toISOString();
 
     await Promise.all(
       fileIds.flatMap(async (id) => {
         await FileModel.updateOne({ _id: id }, { rating, dateModified });
-        fileStore.getById(id).update({ rating });
       })
     );
   } catch (err) {

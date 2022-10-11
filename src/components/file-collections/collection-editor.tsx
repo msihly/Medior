@@ -39,7 +39,7 @@ const FileCollectionEditor = observer(() => {
         {`${fileCollectionStore.activeCollectionId === null ? "Create" : "Edit"} Collection`}
       </DialogTitle>
 
-      <DialogContent dividers={true} className={css.dialogContent}>
+      <DialogContent dividers className={css.dialogContent}>
         <View row className={css.body}>
           <View column>
             <Input label="Title" value={title} setValue={handleTitleChange} />

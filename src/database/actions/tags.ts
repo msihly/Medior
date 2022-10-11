@@ -1,11 +1,10 @@
-import { Tag, TagModel } from "database";
+import { FileImportBatchModel, FileModel, Tag, TagModel } from "database";
 import { TagStore } from "store/tags";
 
 interface CreateTagProps {
   aliases?: string[];
   label: string;
   parentIds?: string[];
-  tagStore: TagStore;
 }
 
 interface CreateTagResult {
@@ -18,13 +17,32 @@ export const createTag = async ({
   aliases = [],
   label,
   parentIds = [],
-  tagStore,
 }: CreateTagProps): Promise<CreateTagResult> => {
   try {
     const tag = (await TagModel.create({ aliases, label, parentIds })).toJSON() as Tag;
-    tagStore.createTag(tag);
-
     return { success: true, tag };
+  } catch (err) {
+    console.error(err);
+    return { success: false, error: err?.message };
+  }
+};
+
+export const deleteTag = async (id: string) => {
+  try {
+    const fileRes = await FileModel.updateMany({ tagIds: id }, { $pull: { tagIds: id } });
+    if (fileRes?.matchedCount !== fileRes?.modifiedCount)
+      throw new Error("Failed to remove tag from all files");
+
+    const importRes = await FileImportBatchModel.updateMany(
+      { tagIds: id },
+      { $pull: { tagIds: id } }
+    );
+    if (importRes?.matchedCount !== importRes?.modifiedCount)
+      throw new Error("Failed to remove tag from all import batches");
+
+    await TagModel.deleteOne({ _id: id });
+
+    return { success: true };
   } catch (err) {
     console.error(err);
     return { success: false, error: err?.message };
@@ -36,24 +54,11 @@ interface EditTagProps {
   id: string;
   label?: string;
   parentIds?: string[];
-  tagStore: TagStore;
 }
 
-interface EditTagResult {
-  success: boolean;
-}
-
-export const editTag = async ({
-  aliases,
-  id,
-  label,
-  parentIds,
-  tagStore,
-}: EditTagProps): Promise<EditTagResult> => {
+export const editTag = async ({ aliases, id, label, parentIds }: EditTagProps) => {
   try {
     await TagModel.updateOne({ _id: id }, { aliases, label, parentIds });
-    tagStore.getById(id).update({ aliases, label, parentIds });
-
     return { success: true };
   } catch (err) {
     console.error(err);

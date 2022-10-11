@@ -1,4 +1,4 @@
-import { app, getCurrentWindow } from "@electron/remote";
+import { app } from "@electron/remote";
 import { useEffect, useState } from "react";
 import { BrowserRouter, HashRouter, Route, Switch } from "react-router-dom";
 import { ThemeProvider, createTheme } from "@mui/material";

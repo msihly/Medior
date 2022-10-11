@@ -1,9 +1,15 @@
+import { ipcRenderer } from "electron";
 import { createRef, useEffect } from "react";
 import Mongoose from "mongoose";
-import { DB_NAME } from "env";
-import { getAllFiles, getAllImportBatches, getAllTags } from "database";
+import {
+  FileImportBatchModel,
+  FileModel,
+  getAllFiles,
+  getAllImportBatches,
+  getAllTags,
+  TagModel,
+} from "database";
 import { observer } from "mobx-react-lite";
-import { onSnapshot } from "mobx-state-tree";
 import { useStores } from "store";
 import { Drawer, FileContainer, TopBar, View } from "components";
 import { makeClasses } from "utils";
@@ -13,7 +19,6 @@ const DRAWER_WIDTH = 200;
 const Home = observer(() => {
   const drawerRef = createRef();
 
-  const rootStore = useStores();
   const { appStore, fileStore, importStore, tagStore } = useStores();
 
   const { classes: css } = useClasses({
@@ -26,16 +31,11 @@ const Home = observer(() => {
     document.title = "Home";
     console.debug("Home window useEffect fired.");
 
-    localStorage.removeItem("mst");
-
-    onSnapshot(rootStore, (snapshot) => {
-      localStorage.setItem("mst", JSON.stringify(snapshot));
-    });
-
     const loadDatabase = async () => {
       try {
-        console.debug("Connecting to database...");
-        await Mongoose.connect(`mongodb://localhost:27017/${DB_NAME}`);
+        const databaseUri = await ipcRenderer.invoke("getDatabaseUri");
+        console.debug("Connecting to database:", databaseUri, "...");
+        await Mongoose.connect(databaseUri);
 
         console.debug("Connected to database. Retrieving data...");
         const [files, importBatches, tags] = await Promise.all([
@@ -50,6 +50,50 @@ const Home = observer(() => {
         importStore.overwrite(importBatches);
 
         console.debug("Data stored in MST.");
+
+        FileModel.watch().on("change", (data: any) => {
+          const id = Buffer.from(data.documentKey?._id).toString();
+          console.debug(`[File] ${id}:`, data);
+
+          switch (data.operationType) {
+            case "insert":
+              fileStore.addFiles({ ...data.fullDocument, id });
+              break;
+            case "update":
+              fileStore.getById(id).update(data.updateDescription?.updatedFields);
+              break;
+          }
+        });
+
+        FileImportBatchModel.watch().on("change", (data: any) => {
+          const id = Buffer.from(data.documentKey?._id).toString();
+          console.debug(`[FileImportBatch] ${id}:`, data);
+
+          if (data.operationType === "update") {
+            const updates = data.updateDescription?.updatedFields;
+            if (Object.keys(updates).includes("tagIds"))
+              importStore.getById(id).setTagIds(updates?.tagIds);
+          }
+        });
+
+        TagModel.watch().on("change", (data: any) => {
+          const id = Buffer.from(data.documentKey?._id).toString();
+          console.debug(`[Tag] ${id}:`, data);
+
+          switch (data.operationType) {
+            case "delete":
+              if (tagStore.activeTagId === id) tagStore.setActiveTagId(null);
+              if (tagStore.isTaggerOpen) tagStore.setTaggerMode("edit");
+              tagStore.deleteTag(id);
+              break;
+            case "insert":
+              tagStore.createTag({ ...data.fullDocument, id });
+              break;
+            case "update":
+              tagStore.getById(id).update(data.updateDescription?.updatedFields);
+              break;
+          }
+        });
       } catch (err) {
         console.error(err);
       }

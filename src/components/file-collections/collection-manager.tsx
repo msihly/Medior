@@ -37,7 +37,7 @@ const FileCollectionManager = observer(() => {
     <Dialog open onClose={closeModal} scroll="paper">
       <DialogTitle className={css.dialogTitle}>{"Manage Collections"}</DialogTitle>
 
-      <DialogContent dividers={true} className={css.dialogContent}>
+      <DialogContent dividers className={css.dialogContent}>
         <View className={css.collections}>
           {collections.length > 0 ? (
             collections.map((c) => <FileCollection key={c.id} id={c.id} active={c.isActive} />)
