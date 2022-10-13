@@ -45,17 +45,20 @@ export const copyFileTo = async ({
   const height = isAnimated ? videoInfo?.height : imageInfo?.height;
 
   try {
-    const thumbPaths = isAnimated
-      ? Array(9)
-          .fill("")
-          .map((_, i) => path.join(dirPath, `${hash}-thumb-${String(i + 1).padStart(2, "0")}.jpg`))
-      : [path.join(dirPath, `${hash}-thumb.${extFromPath}`)];
+    const thumbPaths =
+      duration > 0
+        ? Array(9)
+            .fill("")
+            .map((_, i) =>
+              path.join(dirPath, `${hash}-thumb-${String(i + 1).padStart(2, "0")}.jpg`)
+            )
+        : [path.join(dirPath, `${hash}-thumb.${extFromPath}`)];
 
     if (!dbOnly) {
       if (!(await checkFileExists(newPath)))
         if (await copyFile(dirPath, originalPath, newPath))
           // prettier-ignore
-          await (isAnimated
+          await (duration > 0
             ? generateFramesThumbnail(originalPath, dirPath, hash, duration)
             : sharp(originalPath).resize(300, 300).toFile(thumbPaths[0]));
     }

@@ -2,7 +2,6 @@ import { observer } from "mobx-react-lite";
 import { useStores } from "store";
 import { colors, LinearProgress } from "@mui/material";
 import {
-  Accordion,
   Icon,
   IconButton,
   Import,
@@ -25,57 +24,60 @@ const ImportBatch = observer(({ addedAt }: ImportBatchProps) => {
   const { importStore } = useStores();
 
   const batch = importStore.getByAddedAt(addedAt);
-  const isCompleted = batch.completedAt?.length > 0;
-  const status = IMPORT_STATUSES[isCompleted ? "COMPLETE" : "PENDING"];
+  const status = IMPORT_STATUSES[batch.status];
 
   const [expanded, setExpanded] = useState(false);
+  const { classes: css } = useClasses({ expanded, hasTags: batch.tagIds?.length > 0 });
 
   const handleDelete = async () => {
     await deleteImportBatch(importStore, addedAt);
     toast.success("Import batch deleted");
   };
 
-  const { classes: css } = useClasses({ expanded, hasTags: batch.tagIds?.length > 0 });
+  const toggleOpen = () => setExpanded(!expanded);
 
   return (
-    <View row className={css.card}>
-      <Icon name={status.icon} color={status.color} className={css.statusIcon} />
+    <View column className={css.root}>
+      <View row className={css.header}>
+        <View row onClick={toggleOpen} className={css.headerButton}>
+          <Icon name={status.icon} color={status.color} className={css.statusIcon} />
 
-      <View className={css.topRow}>
-        {batch.tagIds?.length > 0 && (
-          <SideScroller innerClassName={css.tags}>
-            {batch.tagIds.map((id) => (
-              <Tag key={id} id={id} size="small" />
-            ))}
-          </SideScroller>
-        )}
+          <View className={css.headerCenter}>
+            {batch.tagIds?.length > 0 && (
+              <SideScroller innerClassName={css.tags}>
+                {batch.tagIds.map((id) => (
+                  <Tag key={id} id={id} size="small" className={css.tag} />
+                ))}
+              </SideScroller>
+            )}
 
-        <Accordion
-          {...{ expanded, setExpanded }}
-          className={css.accordion}
-          header={
-            <View className={css.header} column>
-              <Text className={css.progress}>
-                {`${batch.imported.length} / ${batch.imports.length}`}
+            <View row className={css.progressContainer}>
+              <Text className={css.progressText}>
+                {`${batch.imported.length} / `}
+                <Text color={colors.grey["500"]}>{batch.imports.length}</Text>
               </Text>
 
               <LinearProgress
                 variant="determinate"
                 value={(batch.imported.length / batch.imports.length) * 100}
-                className={css.progress}
+                className={css.progressBar}
               />
+
+              <Icon name="ChevronRight" rotation={90} margins={{ right: "0.5rem" }} />
             </View>
-          }
-        >
-          <View column className={css.imports}>
-            {batch.imports.map((imp) => (
-              <Import key={imp.path} fileImport={imp} />
-            ))}
           </View>
-        </Accordion>
+        </View>
+
+        <IconButton name="Delete" onClick={handleDelete} className={css.deleteButton} />
       </View>
 
-      <IconButton name="Delete" onClick={handleDelete} className={css.deleteButton} />
+      {expanded && (
+        <View column className={css.imports}>
+          {batch.imports.map((imp) => (
+            <Import key={imp.path} fileImport={imp} />
+          ))}
+        </View>
+      )}
     </View>
   );
 });
@@ -83,57 +85,58 @@ const ImportBatch = observer(({ addedAt }: ImportBatchProps) => {
 export default ImportBatch;
 
 const useClasses = makeClasses((_, { expanded, hasTags }) => ({
-  accordion: {
-    flex: 1,
-    "& > button": {
-      padding: "0 0.5rem",
-      height: "2.5rem",
-      boxShadow: "none",
-    },
-  },
-  batchStatus: {
-    marginRight: "1em",
-  },
-  card: {
-    borderRadius: "0.5rem",
-    marginBottom: "0.5rem",
-    width: "20rem",
-    backgroundColor: colors.grey["900"],
-  },
   deleteButton: {
     borderRadius: `0 0.5rem ${expanded ? "0" : "0.5rem"} 0`,
     backgroundColor: colors.grey["700"],
-    "&:hover": {
-      backgroundColor: colors.red["900"],
-    },
-    height: hasTags ? "4rem" : "2.5rem",
+    "&:hover": { backgroundColor: colors.red["900"] },
   },
   header: {
-    width: "100%",
+    borderRadius: expanded ? "0.5rem 0.5rem 0 0" : "0.5rem",
+    backgroundColor: colors.grey["900"],
+  },
+  headerButton: {
+    flex: 1,
+    "&:hover": { cursor: "pointer" },
+  },
+  headerCenter: {
+    display: "flex",
+    flex: 1,
+    flexDirection: "column",
+    width: 0,
   },
   imports: {
-    margin: "0 -2rem",
+    borderRadius: "0 0 0.5rem 0.5rem",
     padding: "0.5rem",
+    maxHeight: "15rem",
+    backgroundColor: colors.grey["900"],
+    overflowY: "auto",
   },
-  progress: {
-    marginBottom: "0.3rem",
+  progressBar: {
+    flex: 1,
+    margin: "0 0.5rem",
+  },
+  progressContainer: {
+    flex: 1,
+    alignItems: "center",
+    width: "100%",
+    margin: hasTags ? "0.2rem 0.3rem 0.4rem" : "0.3rem",
+  },
+  progressText: {
     fontSize: "0.9em",
     textAlign: "left",
+  },
+  root: {
+    marginBottom: "0.5rem",
+    width: "20rem",
   },
   statusIcon: {
     borderRadius: "0.5rem 0 0 0.5rem",
     padding: "0 0.5rem",
-    height: hasTags ? "4rem" : "2.5rem",
+  },
+  tag: {
+    cursor: "pointer",
   },
   tags: {
-    marginTop: "0.15rem",
-    marginLeft: "0.3rem",
-    height: "1.35rem",
-  },
-  topRow: {
-    display: "flex",
-    flex: 1,
-    flexFlow: "column",
-    width: 0,
+    margin: "0.4rem 0.3rem 0.2rem",
   },
 }));

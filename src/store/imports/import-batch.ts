@@ -1,6 +1,7 @@
 import { cast, Instance, types } from "mobx-state-tree";
 import { FileImportInstance, FileImportModel } from ".";
 import { dayjs, DayJsInput } from "utils";
+import { ImportStatus } from "components";
 
 export const ImportBatchModel = types
   .model({
@@ -20,6 +21,15 @@ export const ImportBatchModel = types
     },
     get nextImport(): FileImportInstance {
       return self.imports.find((imp) => imp.status === "PENDING");
+    },
+    get status(): ImportStatus {
+      return self.imports.some((imp) => imp.status === "PENDING")
+        ? "PENDING"
+        : self.imports.some((imp) => imp.status === "ERROR")
+        ? "ERROR"
+        : self.imports.some((imp) => imp.status === "DUPLICATE")
+        ? "DUPLICATE"
+        : "COMPLETE";
     },
   }))
   .actions((self) => ({

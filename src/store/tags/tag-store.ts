@@ -3,7 +3,7 @@ import { RootStoreModel } from "store/root-store";
 import { File, FileStore, TagOptionSnapshot } from "store/files";
 import { Tag, TagModel } from ".";
 
-const getTagAncestry = (tags: Tag[]): string[] =>
+export const getTagAncestry = (tags: Tag[]): string[] =>
   tags.flatMap((t) => [t.id, ...getTagAncestry(t.parentTags)]);
 
 const TagCountModel = types.model({

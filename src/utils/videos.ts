@@ -19,7 +19,7 @@ export const getVideoInfo = async (path: string) => {
       const { duration, size } = info.format;
 
       return resolve({
-        duration,
+        duration: typeof duration === "number" ? duration : null,
         frameRate: fractionStringToNumber(r_frame_rate),
         height,
         size,

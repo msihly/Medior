@@ -17,9 +17,7 @@ export const ImportStoreModel = types
   })
   .views((self) => ({
     get batches(): ImportBatch[] {
-      return [...self.importBatches].sort((a, b) =>
-        dayjs(a.addedAt).isBefore(b.addedAt) ? 1 : -1
-      );
+      return [...self.importBatches].sort((a, b) => a.addedAt.localeCompare(b.addedAt));
     },
     getByAddedAt: (addedAt: string) => {
       return self.importBatches.find((batch) => batch.addedAt === addedAt);

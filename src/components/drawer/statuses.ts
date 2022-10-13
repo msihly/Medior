@@ -1,7 +1,7 @@
 import { colors } from "@mui/material";
 import { IconName } from "components";
 
-interface ImportStatus {
+interface Status {
   color: string;
   icon: IconName;
 }
@@ -10,17 +10,19 @@ export const IMPORT_STATUSES = {
   COMPLETE: {
     color: colors.green["700"],
     icon: "CheckCircle",
-  } as ImportStatus,
+  } as Status,
   DUPLICATE: {
     color: colors.amber["700"],
     icon: "ControlPointDuplicate",
-  } as ImportStatus,
+  } as Status,
   ERROR: {
     color: colors.red["800"],
     icon: "Error",
-  } as ImportStatus,
+  } as Status,
   PENDING: {
     color: colors.blueGrey["600"],
     icon: "Pending",
-  } as ImportStatus,
+  } as Status,
 };
+
+export type ImportStatus = keyof typeof IMPORT_STATUSES;

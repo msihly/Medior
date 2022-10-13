@@ -1,14 +1,12 @@
 import {
   applySnapshot,
   cast,
-  getParentOfType,
   Instance,
   SnapshotOrInstance,
   SnapshotOut,
   types,
 } from "mobx-state-tree";
-import { RootStoreModel } from "store/root-store";
-import { TagStoreModel } from "store/tags";
+import { getTagAncestry } from "store/tags";
 import { File, FileModel, IMAGE_EXT_REG_EXP, IMAGE_TYPES, VIDEO_EXT_REG_EXP, VIDEO_TYPES } from ".";
 import { sortArray } from "utils";
 import { toast } from "react-toastify";
@@ -38,7 +36,6 @@ export type TagOptionSnapshot = SnapshotOut<typeof TagOptionModel>;
 
 export const defaultFileStore = {
   duplicates: [],
-  excludeDescendants: false,
   excludedTags: [],
   files: [],
   imports: [],
@@ -58,7 +55,6 @@ export const defaultFileStore = {
 export const FileStoreModel = types
   .model("FileStore")
   .props({
-    excludeDescendants: types.boolean,
     excludedTags: types.array(TagOptionModel),
     files: types.array(FileModel),
     includeDescendants: types.boolean,
@@ -77,34 +73,25 @@ export const FileStoreModel = types
       return self.files.filter((f) => f.isArchived);
     },
     get filtered(): File[] {
-      const rootStore = getParentOfType(self, RootStoreModel);
-      const tagStore: Instance<typeof TagStoreModel> = rootStore.tagStore;
-
       const excludedTagIds = self.excludedTags.map((t) => t.id);
       const includedTagIds = self.includedTags.map((t) => t.id);
-      const unarchived = self.files.filter((f) => self.isArchiveOpen === f.isArchived);
 
-      const filtered = unarchived.filter((f) => {
+      const filtered = self.files.filter((f) => {
+        if (self.isArchiveOpen !== f.isArchived) return false;
+
         const hasTags = f.tagIds?.length > 0;
         if (!self.includeTagged || !self.includeUntagged) {
           if (self.includeTagged && !hasTags) return false;
           if (self.includeUntagged && hasTags) return false;
         }
 
-        const parentTagIds =
-          self.excludeDescendants || self.includeDescendants
-            ? [...new Set(f.tagIds.flatMap((tagId) => tagStore.getById(tagId)?.parentIds))]
-            : [];
+        const parentTagIds = self.includeDescendants ? [...new Set(getTagAncestry(f.tags))] : [];
 
         const hasExcluded = excludedTagIds.some((tagId) => f.tagIds.includes(tagId));
-        const hasExcludedParent =
-          self.excludeDescendants &&
-          parentTagIds.some((tagId: string) => excludedTagIds.includes(tagId));
+        const hasExcludedParent = parentTagIds.some((tagId) => excludedTagIds.includes(tagId));
 
         const hasIncluded = includedTagIds.every((tagId) => f.tagIds.includes(tagId));
-        const hasIncludedParent =
-          self.includeDescendants &&
-          parentTagIds.some((tagId: string) => includedTagIds.includes(tagId));
+        const hasIncludedParent = parentTagIds.some((tagId) => includedTagIds.includes(tagId));
 
         const hasExt = !!Object.entries({
           ...self.selectedImageTypes,
@@ -172,9 +159,6 @@ export const FileStoreModel = types
     },
     reset: () => {
       applySnapshot(self, defaultFileStore);
-    },
-    setExcludeDescendants: (isExcluded: boolean) => {
-      self.excludeDescendants = isExcluded;
     },
     setExcludedTags: (tagOptions: SnapshotOrInstance<TagOption>[]) => {
       self.excludedTags = cast(tagOptions);

@@ -29,14 +29,7 @@ const Drawer = observer(
     const [isImageTypesOpen, setIsImageTypesOpen] = useState(false);
     const [isVideoTypesOpen, setIsVideoTypesOpen] = useState(false);
 
-    const handleDescendants = () => {
-      if (!fileStore.includeDescendants && !fileStore.excludeDescendants)
-        fileStore.setIncludeDescendants(true);
-      else if (fileStore.includeDescendants) {
-        fileStore.setIncludeDescendants(false);
-        fileStore.setExcludeDescendants(true);
-      } else fileStore.setExcludeDescendants(false);
-    };
+    const handleDescendants = () => fileStore.setIncludeDescendants(!fileStore.includeDescendants);
 
     const handleManageTags = () => {
       tagStore.setTagManagerMode("search");
@@ -107,7 +100,6 @@ const Drawer = observer(
           <Checkbox
             label="Descendants"
             checked={fileStore.includeDescendants}
-            indeterminate={fileStore.excludeDescendants}
             setChecked={handleDescendants}
           />
 

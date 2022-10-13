@@ -75,7 +75,7 @@ const useClasses = makeClasses({
     borderRadius: "0.3rem",
     padding: "0.5rem",
     minHeight: "5rem",
-    width: "20rem",
+    minWidth: "20rem",
     backgroundColor: colors.grey["800"],
   },
   dialogActions: {

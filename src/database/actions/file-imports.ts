@@ -126,6 +126,7 @@ export const importFile = async (
     return true;
   } catch (err) {
     console.log("importFile error:", err);
+    fileImport.update({ status: "ERROR" });
     return false;
   }
 };

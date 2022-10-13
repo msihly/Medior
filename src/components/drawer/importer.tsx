@@ -14,7 +14,7 @@ import {
   useFileImportQueue,
 } from "database";
 import { Dialog, DialogTitle, DialogContent, DialogActions, colors } from "@mui/material";
-import { Button, ImportBatch, TagInput, TagOption, Text } from "components";
+import { Button, ImportBatch, TagInput, TagOption, Text, View } from "components";
 import { dayjs, makeClasses } from "utils";
 
 interface ImporterProps {
@@ -96,21 +96,24 @@ const Importer = observer(({ isOpen = false, setIsOpen }: ImporterProps) => {
       <DialogTitle className={css.dialogTitle}>Import Files</DialogTitle>
 
       <DialogContent dividers className={css.dialogContent}>
-        {importStore.batches.map((batch) => (
-          <ImportBatch key={batch.addedAt} addedAt={batch.addedAt} />
-        ))}
-
-        <Text align="center" className={css.sectionTitle}>
-          Add Tags
-        </Text>
-
-        <TagInput
-          value={tags}
-          setValue={setTags}
-          options={tagStore.tagOptions}
-          className={css.input}
-        />
+        {importStore.batches?.length > 0 ? (
+          importStore.batches.map((batch) => (
+            <ImportBatch key={batch.addedAt} addedAt={batch.addedAt} />
+          ))
+        ) : (
+          <Text color={colors.grey["300"]}>No Imports</Text>
+        )}
       </DialogContent>
+
+      <Text align="center" className={css.sectionTitle}>
+        Add Tags
+      </Text>
+      <TagInput
+        value={tags}
+        setValue={setTags}
+        options={tagStore.tagOptions}
+        className={css.input}
+      />
 
       <DialogActions className={css.dialogActions}>
         <Button text="Close" icon="Cancel" onClick={handleClose} color={colors.grey["700"]} />
@@ -134,6 +137,8 @@ const useClasses = makeClasses({
     flexDirection: "column",
     alignItems: "center",
     padding: "0.5rem 1rem",
+    maxHeight: "30rem",
+    overflowX: "hidden",
   },
   dialogTitle: {
     margin: 0,
@@ -141,7 +146,7 @@ const useClasses = makeClasses({
     textAlign: "center",
   },
   input: {
-    marginBottom: "0.5rem",
+    margin: "0 1rem 0.5rem",
     width: "20rem",
   },
   sectionTitle: {
