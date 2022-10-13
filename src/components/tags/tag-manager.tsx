@@ -51,7 +51,7 @@ export const TagManager = observer(() => {
   const handleEditorBack = () => tagStore.setTagManagerMode("search");
 
   return (
-    <Dialog open onClose={closeModal} scroll="paper">
+    <Dialog open onClose={closeModal} scroll="paper" PaperProps={{ className: css.dialog }}>
       <DialogTitle className={css.dialogTitle}>{TITLES[tagStore.tagManagerMode]}</DialogTitle>
 
       {tagStore.tagManagerMode === "search" ? (
@@ -102,6 +102,9 @@ export const TagManager = observer(() => {
 });
 
 const useClasses = makeClasses({
+  dialog: {
+    maxWidth: "50rem",
+  },
   dialogActions: {
     justifyContent: "center",
   },

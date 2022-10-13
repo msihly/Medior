@@ -103,6 +103,7 @@ const useClasses = makeClasses((_, { isVisible }) => ({
     bottom: isVisible ? 0 : -THUMB_WIDTH,
     right: 0,
     left: 0,
+    zIndex: 5,
     transition: "all 200ms ease-in-out",
   },
   scrollContainer: {

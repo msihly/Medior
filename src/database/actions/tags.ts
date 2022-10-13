@@ -40,6 +40,10 @@ export const deleteTag = async (id: string) => {
     if (importRes?.matchedCount !== importRes?.modifiedCount)
       throw new Error("Failed to remove tag from all import batches");
 
+    const tagRes = await TagModel.updateMany({ parentIds: id }, { $pull: { parentIds: id } });
+    if (tagRes?.matchedCount !== tagRes?.modifiedCount)
+      throw new Error("Failed to remove parent tag from all tags");
+
     await TagModel.deleteOne({ _id: id });
 
     return { success: true };

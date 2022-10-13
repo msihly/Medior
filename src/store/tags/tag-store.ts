@@ -59,6 +59,9 @@ export const TagStoreModel = types
     getByLabel: (label: string): Tag => {
       return self.tags.find((t) => t.label === label);
     },
+    listByParentId: (id: string): Tag[] => {
+      return self.tags.filter((t) => t.parentIds.includes(id));
+    },
   }))
   .views((self) => ({
     getTagCounts: (files: File[], includeParents = false): TagCount[] => {

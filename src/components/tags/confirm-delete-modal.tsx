@@ -47,6 +47,13 @@ export const ConfirmDeleteModal = observer(({ setVisible }: ConfirmDeleteModalPr
 
           <Text className={css.subText}>
             <Text color={colors.red["800"]} bold>
+              {tagStore.listByParentId(tagStore.activeTagId)?.length}
+            </Text>
+            {" child tags will be affected."}
+          </Text>
+
+          <Text className={css.subText}>
+            <Text color={colors.red["800"]} bold>
               {importStore.listByTagId(tagStore.activeTagId)?.length}
             </Text>
             {" import batches will be affected."}

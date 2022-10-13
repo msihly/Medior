@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
-import { createTag, deleteTag, editTag } from "database";
+import { createTag, editTag } from "database";
 import { DialogContent, DialogActions, colors } from "@mui/material";
 import { Button, ChipInput, ChipOption, Input, TagOption, TagInput, Text, View } from "components";
 import { ConfirmDeleteModal } from ".";
