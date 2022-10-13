@@ -1,5 +1,13 @@
 import { ipcRenderer } from "electron";
-import { createRef, useEffect } from "react";
+import {
+  createContext,
+  createRef,
+  Dispatch,
+  SetStateAction,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import Mongoose from "mongoose";
 import {
   FileImportBatchModel,
@@ -11,19 +19,55 @@ import {
 } from "database";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
-import { Drawer, FileContainer, TopBar, View } from "components";
-import { makeClasses } from "utils";
+import { Drawer, FileContainer, TagOption, TopBar, View } from "components";
+import { makeClasses, sortArray } from "utils";
+import { File, ImageType, IMAGE_TYPES, VideoType, VIDEO_TYPES } from "store/files";
+import { getTagAncestry } from "store/tags";
 
-const DRAWER_WIDTH = 200;
+const NUMERICAL_ATTRIBUTES = ["rating", "size"];
+const ROW_COUNT = 40;
 
-const Home = observer(() => {
+type SelectedImageTypes = { [ext in ImageType]: boolean };
+type SelectedVideoTypes = { [ext in VideoType]: boolean };
+
+interface HomeContextProps {
+  displayedFiles: File[];
+  excludedTags: TagOption[];
+  filteredFiles: File[];
+  includeDescendants: boolean;
+  includeTagged: boolean;
+  includeUntagged: boolean;
+  includedTags: TagOption[];
+  isArchiveOpen: boolean;
+  isSortDesc: boolean;
+  page: number;
+  pageCount: number;
+  selectedImageTypes: SelectedImageTypes;
+  selectedVideoTypes: SelectedVideoTypes;
+  sortKey: string;
+  setExcludedTags: Dispatch<SetStateAction<TagOption[]>>;
+  setIncludeDescendants: Dispatch<SetStateAction<boolean>>;
+  setIncludeTagged: Dispatch<SetStateAction<boolean>>;
+  setIncludeUntagged: Dispatch<SetStateAction<boolean>>;
+  setIncludedTags: Dispatch<SetStateAction<TagOption[]>>;
+  setIsArchiveOpen: Dispatch<SetStateAction<boolean>>;
+  setIsSortDesc: Dispatch<SetStateAction<boolean>>;
+  setPage: Dispatch<SetStateAction<number>>;
+  setSelectedImageTypes: Dispatch<SetStateAction<SelectedImageTypes>>;
+  setSelectedVideoTypes: Dispatch<SetStateAction<SelectedVideoTypes>>;
+  setSortKey: Dispatch<SetStateAction<string>>;
+}
+
+export const HomeContext = createContext<HomeContextProps>(null);
+
+export const Home = observer(() => {
   const drawerRef = createRef();
 
   const { appStore, fileStore, importStore, tagStore } = useStores();
 
   const { classes: css } = useClasses({
     drawerMode: appStore.drawerMode,
-    drawerWidth: DRAWER_WIDTH,
+    drawerWidth: 200,
     isDrawerOpen: appStore.isDrawerOpen,
   });
 
@@ -102,19 +146,105 @@ const Home = observer(() => {
     loadDatabase();
   }, []);
 
+  const [excludedTags, setExcludedTags] = useState<TagOption[]>([]);
+  const [includeDescendants, setIncludeDescendants] = useState(false);
+  const [includeTagged, setIncludeTagged] = useState(false);
+  const [includeUntagged, setIncludeUntagged] = useState(false);
+  const [includedTags, setIncludedTags] = useState<TagOption[]>([]);
+  const [isArchiveOpen, setIsArchiveOpen] = useState(false);
+  const [isSortDesc, setIsSortDesc] = useState(true);
+  const [page, setPage] = useState(1);
+  const [selectedImageTypes, setSelectedImageTypes] = useState(
+    Object.fromEntries(IMAGE_TYPES.map((ext) => [ext, true])) as SelectedImageTypes
+  );
+  const [selectedVideoTypes, setSelectedVideoTypes] = useState(
+    Object.fromEntries(VIDEO_TYPES.map((ext) => [ext, true])) as SelectedVideoTypes
+  );
+  const [sortKey, setSortKey] = useState("dateModified");
+
+  const filtered = useMemo(() => {
+    const excludedTagIds = excludedTags.map((t) => t.id);
+    const includedTagIds = includedTags.map((t) => t.id);
+
+    return fileStore.files.filter((f) => {
+      if (isArchiveOpen !== f.isArchived) return false;
+
+      const hasTags = f.tagIds?.length > 0;
+      if (includeTagged && !hasTags) return false;
+      if (includeUntagged && hasTags) return false;
+
+      const parentTagIds = includeDescendants ? [...new Set(getTagAncestry(f.tags))] : [];
+
+      const hasExcluded = excludedTagIds.some((tagId) => f.tagIds.includes(tagId));
+      const hasExcludedParent = parentTagIds.some((tagId) => excludedTagIds.includes(tagId));
+
+      const hasIncluded = includedTagIds.every((tagId) => f.tagIds.includes(tagId));
+      const hasIncludedParent = parentTagIds.some((tagId) => includedTagIds.includes(tagId));
+
+      const hasExt = !!Object.entries({ ...selectedImageTypes, ...selectedVideoTypes }).find(
+        ([key, value]) => key === f.ext.substring(1) && value
+      );
+
+      return (hasIncluded || hasIncludedParent) && !hasExcluded && !hasExcludedParent && hasExt;
+    });
+  }, [
+    excludedTags,
+    fileStore.files.slice(),
+    includeDescendants,
+    includeTagged,
+    includeUntagged,
+    includedTags,
+    isArchiveOpen,
+    selectedImageTypes,
+    selectedVideoTypes,
+  ]);
+
+  const [displayedFiles, filteredFiles, pageCount] = useMemo(() => {
+    const sorted = sortArray(filtered, sortKey, isSortDesc, NUMERICAL_ATTRIBUTES.includes(sortKey));
+    const displayed = sorted.slice((page - 1) * ROW_COUNT, page * ROW_COUNT);
+    const pageCount = sorted.length < ROW_COUNT ? 1 : Math.ceil(sorted.length / ROW_COUNT);
+    return [displayed, sorted, pageCount];
+  }, [filtered.slice(), isSortDesc, sortKey]);
+
   return (
-    <>
+    <HomeContext.Provider
+      value={{
+        displayedFiles,
+        excludedTags,
+        filteredFiles,
+        includeDescendants,
+        includeTagged,
+        includeUntagged,
+        includedTags,
+        isArchiveOpen,
+        isSortDesc,
+        page,
+        pageCount,
+        selectedImageTypes,
+        selectedVideoTypes,
+        sortKey,
+        setExcludedTags,
+        setIncludeDescendants,
+        setIncludeTagged,
+        setIncludeUntagged,
+        setIncludedTags,
+        setIsArchiveOpen,
+        setIsSortDesc,
+        setPage,
+        setSelectedImageTypes,
+        setSelectedVideoTypes,
+        setSortKey,
+      }}
+    >
       <Drawer ref={drawerRef} />
 
       <View className={css.main}>
         <TopBar />
         <FileContainer mode="grid" />
       </View>
-    </>
+    </HomeContext.Provider>
   );
 });
-
-export default Home;
 
 const useClasses = makeClasses((_, { drawerMode, drawerWidth, isDrawerOpen }) => ({
   main: {

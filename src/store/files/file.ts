@@ -4,10 +4,12 @@ import { FileCollection, FileCollectionStore } from "store/collections";
 import { Tag, TagStore } from "store/tags";
 import { dayjs } from "utils";
 
-export const IMAGE_TYPES = ["jpg", "jpeg", "png", "gif", "webp", "jif", "jiff", "jfif"];
+export const IMAGE_TYPES = ["jpg", "jpeg", "png", "gif", "webp", "jif", "jiff", "jfif"] as const;
+export type ImageType = typeof IMAGE_TYPES[number];
 export const IMAGE_EXT_REG_EXP = new RegExp(`${IMAGE_TYPES.join("|")}`, "i");
 
-export const VIDEO_TYPES = ["webm", "mp4", "mkv"];
+export const VIDEO_TYPES = ["webm", "mp4", "mkv"] as const;
+export type VideoType = typeof VIDEO_TYPES[number];
 export const VIDEO_EXT_REG_EXP = new RegExp(`${VIDEO_TYPES.join("|")}`, "i");
 export const ANIMATED_EXT_REG_EXP = new RegExp(`gif|${VIDEO_TYPES.join("|")}`, "i");
 

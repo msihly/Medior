@@ -3,7 +3,7 @@ import { observer } from "mobx-react-lite";
 import { useStores } from "store";
 import { FileIdIndex } from "store/collections";
 import { Dialog, DialogTitle, DialogContent, DialogActions, colors } from "@mui/material";
-import { Button, FileGrid, Input, Tag, TagInput, Text, View } from "components";
+import { Button, FileGrid, Input, Tag, View } from "components";
 import { makeClasses } from "utils";
 
 const FileCollectionEditor = observer(() => {

@@ -1,14 +1,16 @@
-import { useState } from "react";
+import { useContext, useState } from "react";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
 import { deleteFiles, FileInfoRefreshQueue, refreshFile } from "database";
 import { AppBar, colors } from "@mui/material";
+import { HomeContext } from "views";
 import { IconButton, Tagger, View } from "components";
 import { SortMenu } from ".";
 import { makeClasses } from "utils";
 import { toast } from "react-toastify";
 
 const TopBar = observer(() => {
+  const context = useContext(HomeContext);
   const { appStore, fileStore, tagStore } = useStores();
   const { classes: css } = useClasses(null);
 
@@ -36,12 +38,12 @@ const TopBar = observer(() => {
 
   const handleSelectAll = () => {
     fileStore.toggleFilesSelected(
-      fileStore.displayed.map((f) => f.id),
+      context.displayedFiles.map((f) => f.id),
       true
     );
 
     toast.info(
-      `Added ${fileStore.displayed.length} files to selection (${fileStore.selected.length})`
+      `Added ${context.displayedFiles.length} files to selection (${fileStore.selected.length})`
     );
   };
 
@@ -57,7 +59,7 @@ const TopBar = observer(() => {
         </span>
 
         <span className={css.divisions}>
-          {fileStore.isArchiveOpen && (
+          {context?.isArchiveOpen && (
             <IconButton
               name="Delete"
               onClick={handleDelete}
@@ -67,8 +69,8 @@ const TopBar = observer(() => {
           )}
 
           <IconButton
-            name={fileStore.isArchiveOpen ? "Unarchive" : "Archive"}
-            onClick={fileStore.isArchiveOpen ? handleUnarchive : handleDelete}
+            name={context?.isArchiveOpen ? "Unarchive" : "Archive"}
+            onClick={context?.isArchiveOpen ? handleUnarchive : handleDelete}
             disabled={fileStore.selected.length === 0}
             size="medium"
           />

@@ -1,37 +1,35 @@
+import { useContext } from "react";
 import { colors } from "@mui/material";
-import { observer } from "mobx-react-lite";
-import { useStores } from "store";
-import { makeClasses } from "utils";
+import { HomeContext } from "views";
 import { IconButton } from "components";
+import { makeClasses } from "utils";
 
 interface SortButtonProps {
   attribute: string;
-  dir: "asc" | "desc";
+  isDesc?: boolean;
 }
 
-const SortButton = observer(({ attribute, dir }: SortButtonProps) => {
-  const { fileStore } = useStores();
+export const SortButton = ({ attribute, isDesc = false }: SortButtonProps) => {
+  const context = useContext(HomeContext);
 
   const { classes: css } = useClasses({
-    isActive: attribute === fileStore.sortKey && dir === fileStore.sortDir,
+    isActive: attribute === context?.sortKey && isDesc === context?.isSortDesc,
   });
 
   const updateSort = () => {
-    fileStore.setSortKey(attribute);
-    fileStore.setSortDir(dir);
+    context?.setSortKey(attribute);
+    context?.setIsSortDesc(isDesc);
   };
 
   return (
     <IconButton
-      name={dir === "desc" ? "KeyboardArrowDown" : "KeyboardArrowUp"}
+      name={isDesc ? "KeyboardArrowDown" : "KeyboardArrowUp"}
       onClick={updateSort}
       size="small"
       className={css.button}
     />
   );
-});
-
-export default SortButton;
+};
 
 const useClasses = makeClasses((_, { isActive }) => ({
   attribute: {

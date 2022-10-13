@@ -1,8 +1,9 @@
 import { ipcRenderer } from "electron";
-import { useRef, useState } from "react";
+import { useContext, useRef, useState } from "react";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
 import { colors, Chip, Paper } from "@mui/material";
+import { HomeContext } from "views";
 import { Icon, SideScroller, Tag, View } from "components";
 import { ContextMenu } from ".";
 import { dayjs, makeClasses } from "utils";
@@ -12,6 +13,7 @@ interface FileGridProps {
 }
 
 const FileGrid = observer(({ id }: FileGridProps) => {
+  const context = useContext(HomeContext);
   const { fileStore, tagStore } = useStores();
   const file = fileStore.getById(id);
 
@@ -44,7 +46,7 @@ const FileGrid = observer(({ id }: FileGridProps) => {
     ipcRenderer.send("createCarouselWindow", {
       fileId: id,
       height: file.height,
-      selectedFileIds: fileStore.filtered.map((f) => f.id),
+      selectedFileIds: context.filteredFiles.map((f) => f.id),
       width: file.width,
     });
   };
@@ -103,12 +105,9 @@ export default FileGrid;
 const useClasses = makeClasses((theme, { selected }) => ({
   container: {
     flexBasis: "calc(100% / 7)",
-    [theme.breakpoints.down("xl")]: {
-      flexBasis: "calc(100% / 5)",
-    },
-    [theme.breakpoints.down("xl")]: {
-      flexBasis: "calc(100% / 3)",
-    },
+    [theme.breakpoints.down("xl")]: { flexBasis: "calc(100% / 5)" },
+    [theme.breakpoints.down("lg")]: { flexBasis: "calc(100% / 4)" },
+    [theme.breakpoints.down("md")]: { flexBasis: "calc(100% / 3)" },
     border: "1px solid",
     borderColor: "#0f0f0f",
     borderRadius: 4,

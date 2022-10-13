@@ -1,4 +1,4 @@
-import { forwardRef, useState } from "react";
+import { forwardRef, useContext, useState } from "react";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
 import { IMAGE_TYPES, VIDEO_TYPES } from "store/files";
@@ -18,9 +18,11 @@ import {
 import { ExtCheckbox, Importer } from ".";
 import { makeClasses } from "utils";
 import * as Media from "media";
+import { HomeContext } from "views";
 
 const Drawer = observer(
   forwardRef((_, drawerRef: any) => {
+    const context = useContext(HomeContext);
     const { appStore, fileCollectionStore, fileStore, tagStore } = useStores();
 
     const { classes: css } = useClasses({ drawerMode: appStore.drawerMode });
@@ -29,7 +31,7 @@ const Drawer = observer(
     const [isImageTypesOpen, setIsImageTypesOpen] = useState(false);
     const [isVideoTypesOpen, setIsVideoTypesOpen] = useState(false);
 
-    const handleDescendants = () => fileStore.setIncludeDescendants(!fileStore.includeDescendants);
+    const handleDescendants = () => context?.setIncludeDescendants(!context?.includeDescendants);
 
     const handleManageTags = () => {
       tagStore.setTagManagerMode("search");
@@ -37,12 +39,14 @@ const Drawer = observer(
     };
 
     const handleTagged = () => {
-      if (!fileStore.includeTagged && !fileStore.includeUntagged) fileStore.setIncludeTagged(true);
-      else if (fileStore.includeTagged) {
-        fileStore.setIncludeTagged(false);
-        fileStore.setIncludeUntagged(true);
-      } else fileStore.setIncludeUntagged(false);
+      if (!context?.includeTagged && !context?.includeUntagged) context?.setIncludeTagged(true);
+      else if (context?.includeTagged) {
+        context?.setIncludeTagged(false);
+        context?.setIncludeUntagged(true);
+      } else context?.setIncludeUntagged(false);
     };
+
+    const toggleArchiveOpen = () => context?.setIsArchiveOpen(!context.isArchiveOpen);
 
     return (
       <MuiDrawer
@@ -66,9 +70,9 @@ const Drawer = observer(
           <ListItem text="Import" icon="GetApp" onClick={() => setIsImporterOpen(true)} />
 
           <ListItem
-            text={`${fileStore.isArchiveOpen ? "Close" : "Open"} Archive`}
-            icon={fileStore.isArchiveOpen ? "Unarchive" : "Archive"}
-            onClick={() => fileStore.toggleArchiveOpen()}
+            text={`${context?.isArchiveOpen ? "Close" : "Open"} Archive`}
+            icon={context?.isArchiveOpen ? "Unarchive" : "Archive"}
+            onClick={toggleArchiveOpen}
           />
         </List>
 
@@ -78,8 +82,8 @@ const Drawer = observer(
           Include
         </Text>
         <TagInput
-          value={[...fileStore.includedTags]}
-          setValue={fileStore.setIncludedTags}
+          value={[...context?.includedTags]}
+          setValue={context?.setIncludedTags}
           options={tagStore.tagOptions}
           limitTags={3}
           className={css.input}
@@ -89,8 +93,8 @@ const Drawer = observer(
           Exclude
         </Text>
         <TagInput
-          value={[...fileStore.excludedTags]}
-          setValue={fileStore.setExcludedTags}
+          value={[...context?.excludedTags]}
+          setValue={context?.setExcludedTags}
           options={tagStore.tagOptions}
           limitTags={3}
           className={css.input}
@@ -99,14 +103,14 @@ const Drawer = observer(
         <View className={css.checkboxes} column>
           <Checkbox
             label="Descendants"
-            checked={fileStore.includeDescendants}
+            checked={context?.includeDescendants}
             setChecked={handleDescendants}
           />
 
           <Checkbox
             label="Tagged"
-            checked={fileStore.includeTagged}
-            indeterminate={fileStore.includeUntagged}
+            checked={context?.includeTagged}
+            indeterminate={context?.includeUntagged}
             setChecked={handleTagged}
           />
         </View>

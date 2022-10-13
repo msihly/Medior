@@ -14,7 +14,7 @@ import {
 } from "components";
 import { debounce, makeClasses } from "utils";
 
-const CarouselWindow = observer(() => {
+export const CarouselWindow = observer(() => {
   const { fileStore, tagStore } = useStores();
 
   const { classes: css } = useClasses(null);
@@ -130,8 +130,6 @@ const CarouselWindow = observer(() => {
     </CarouselContext.Provider>
   );
 });
-
-export default CarouselWindow;
 
 const useClasses = makeClasses({
   root: {

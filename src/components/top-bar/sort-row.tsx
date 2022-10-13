@@ -17,8 +17,8 @@ const SortRow = ({ attribute, label, icon, iconProps = {} }: SortRowProps) => {
     <View className={css.row}>
       <Icon name={icon} {...iconProps} />
       <Typography className={css.label}>{label}</Typography>
-      <SortButton {...{ attribute }} dir="desc" />
-      <SortButton {...{ attribute }} dir="asc" />
+      <SortButton {...{ attribute }} isDesc />
+      <SortButton {...{ attribute }} />
     </View>
   );
 };
