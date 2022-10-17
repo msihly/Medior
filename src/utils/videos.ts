@@ -1,4 +1,3 @@
-import ffmpeg from "fluent-ffmpeg";
 import path from "path";
 import { fractionStringToNumber } from "utils";
 // import { getRandomInt } from "utils";
@@ -12,7 +11,9 @@ interface VideoInfo {
 }
 
 export const getVideoInfo = async (path: string) => {
-  return (await new Promise((resolve, reject) => {
+  return (await new Promise(async (resolve, reject) => {
+    const ffmpeg = (await import("fluent-ffmpeg")).default;
+
     return ffmpeg.ffprobe(path, (err, info) => {
       if (err) return reject(err);
       const { height, r_frame_rate, width } = info.streams.find((s) => s.codec_type === "video");
@@ -41,7 +42,9 @@ export const generateFramesThumbnail = async (
     const frameInterval = duration / numOfFrames;
 
     try {
-      await new Promise((resolve, reject) => {
+      await new Promise(async (resolve, reject) => {
+        const ffmpeg = (await import("fluent-ffmpeg")).default;
+
         return ffmpeg()
           .input(inputPath)
           .outputOptions([

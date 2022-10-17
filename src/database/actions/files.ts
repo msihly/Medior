@@ -1,7 +1,6 @@
 import { promises as fs, constants as fsc } from "fs";
 import path from "path";
 import md5File from "md5-file";
-import sharp from "sharp";
 import { File, FileModel } from "database";
 import { FileStore, VIDEO_TYPES } from "store/files";
 import { FileImportInstance } from "store/imports";
@@ -37,6 +36,7 @@ export const copyFileTo = async ({
   const newPath = `${dirPath}\\${hash}.${extFromPath}`;
   const isAnimated = [...VIDEO_TYPES, "gif"].includes(extFromPath);
 
+  const sharp = !isAnimated ? (await import("sharp")).default : null;
   const imageInfo = !isAnimated ? await sharp(originalPath).metadata() : null;
   const videoInfo = isAnimated ? await getVideoInfo(originalPath) : null;
   const duration = isAnimated ? videoInfo?.duration : null;
@@ -222,6 +222,7 @@ export const getAllFiles = async () => {
 export const refreshFile = async (fileStore: FileStore, id: string) => {
   try {
     const file = fileStore.getById(id);
+    const sharp = !file.isAnimated ? (await import("sharp")).default : null;
 
     const [hash, { mtime, size }, imageInfo, videoInfo] = await Promise.all([
       md5File(file.path),

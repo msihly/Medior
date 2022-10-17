@@ -71,11 +71,7 @@
     "vite-tsconfig-paths": "^3.5.1",
     "wait-on": "^6.0.1"
   },
-  "resolutions": {
-    "react-error-overlay": "6.0.9"
-  },
   "scripts": {
-    "preinstall": "npx npm-force-resolutions",
     "start": "vite",
     "build": "vite build",
     "pack": "electron-builder --dir",
