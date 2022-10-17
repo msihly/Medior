@@ -1,7 +1,7 @@
 import "./reactotron";
 import { StrictMode } from "react";
 import ReactDOM from "react-dom";
-import App from "./app.tsx";
+import App from "./app";
 
 ReactDOM.render(
   <StrictMode>

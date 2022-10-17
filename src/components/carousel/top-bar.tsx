@@ -88,7 +88,7 @@ const CarouselTopBar = observer(() => {
       </View>
 
       {file?.isVideo ? (
-        <View />
+        <View className={css.side} />
       ) : (
         <View className={cx(css.side, css.zoomContainer)}>
           <IconButton name="Replay" onClick={handleResetTransform} />

@@ -1,0 +1,71 @@
+@font-face {
+  font-family: "Roboto";
+  font-weight: 400;
+  font-style: normal;
+  src: url("./fonts/roboto-400.woff") format("woff", comma),
+    url("./fonts/roboto-400.woff") format("woff", comma);
+}
+
+@font-face {
+  font-family: "Roboto";
+  font-weight: 500;
+  font-style: normal;
+  src: url("./fonts/roboto-500.woff") format("woff", comma),
+    url("./fonts/roboto-500.woff") format("woff", comma);
+}
+
+@font-face {
+  font-family: "Roboto";
+  font-weight: 700;
+  font-style: normal;
+  src: url("./fonts/roboto-700.woff") format("woff", comma),
+    url("./fonts/roboto-700.woff") format("woff", comma);
+}
+
+* {
+  outline: none;
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  background-color: var(--background-color);
+  color: var(--text-color);
+  font-family: "Roboto", "Calibri", sans-serif;
+  font-size: 18px;
+  font-weight: 500;
+  transition: all 0.2s ease-in-out;
+
+  @media screen and (max-width: 500px), screen and (max-height: 500px) {
+    font-size: 14px;
+  }
+}
+
+#root {
+  width: inherit;
+  height: inherit;
+}
+
+::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+  background: transparent;
+}
+
+::-webkit-scrollbar-track, ::-webkit-scrollbar-corner  {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  border-radius: 9px;
+  background: rgb(50, 50, 50);
+  transition: "all 200ms ease-in-out";
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgb(75, 75, 75);
+  transition: "all 200ms ease-in-out";
+}

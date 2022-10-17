@@ -1,32 +1,19 @@
 import { app } from "@electron/remote";
 import { useEffect, useState } from "react";
 import { BrowserRouter, HashRouter, Route, Switch } from "react-router-dom";
-import { ThemeProvider, createTheme } from "@mui/material";
+import { ThemeProvider, createTheme, colors, CssBaseline } from "@mui/material";
 import { CacheProvider } from "@emotion/react";
 import createCache from "@emotion/cache";
 import { createRootStore, RootStoreContext } from "store";
-import { ConditionalWrap } from "components";
+import { ConditionalWrap, ToastContainer } from "components";
 import { CarouselWindow, Home } from "./views";
-import { toast } from "react-toastify";
-import "./css/index.scss";
-
-toast.configure({
-  position: "bottom-left",
-  autoClose: 5000,
-  hideProgressBar: false,
-  newestOnTop: false,
-  closeOnClick: true,
-  pauseOnHover: true,
-  draggable: true,
-  toastClassName: "Toastify__toast--dark",
-});
-
-export const muiCache = createCache({
-  key: "mui",
-  prepend: true,
-});
+import "react-toastify/dist/ReactToastify.css";
+import "./css/index.css";
 
 export const rootStore = createRootStore();
+
+const darkTheme = createTheme({ palette: { mode: "dark" } });
+const muiCache = createCache({ key: "mui", prepend: true });
 
 const App = () => {
   const [isLoading, setIsLoading] = useState(true);
@@ -57,6 +44,8 @@ const App = () => {
               </Switch>
             )}
           </ConditionalWrap>
+
+          <ToastContainer />
         </ThemeProvider>
       </CacheProvider>
     </RootStoreContext.Provider>
@@ -64,9 +53,3 @@ const App = () => {
 };
 
 export default App;
-
-const darkTheme = createTheme({
-  palette: {
-    mode: "dark",
-  },
-});

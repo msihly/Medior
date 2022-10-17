@@ -17,7 +17,7 @@ export type Padding = {
   left?: CSSObject["paddingLeft"];
 };
 
-export const { makeStyles, withStyles } = createMakeAndWithStyles({ useTheme });
+const { makeStyles, withStyles } = createMakeAndWithStyles({ useTheme });
 
 export const makeClasses = (
   fnOrObj:

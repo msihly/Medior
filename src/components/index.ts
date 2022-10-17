@@ -8,6 +8,7 @@ export * from "./list";
 export * from "./media";
 export * from "./tags";
 export * from "./text";
+export * from "./toast";
 export * from "./toggles";
 export * from "./top-bar";
 export * from "./wrappers";
