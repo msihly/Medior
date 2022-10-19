@@ -61,7 +61,6 @@
     "electron-builder": "^22.14.13",
     "electron-devtools-installer": "^3.2.0",
     "patch-package": "^6.4.7",
-    "react-error-overlay": "6.0.9",
     "reactotron-mst": "^3.1.4",
     "reactotron-react-js": "^3.3.7",
     "ts-loader": "^8.2.0",

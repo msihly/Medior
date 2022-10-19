@@ -1,3 +1,6 @@
+export const compareLogic = (type: "AND" | "OR", ...items: any[]) =>
+  type === "AND" ? items.every(Boolean) : type === "OR" ? items.some(Boolean) : null;
+
 export const divide = (...nums: number[]) =>
   nums.length > 0 ? nums.reduce((acc, cur) => (acc /= cur)) || 0 : null;
 

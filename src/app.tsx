@@ -1,7 +1,7 @@
 import { app } from "@electron/remote";
 import { useEffect, useState } from "react";
 import { BrowserRouter, HashRouter, Route, Switch } from "react-router-dom";
-import { ThemeProvider, createTheme, colors, CssBaseline } from "@mui/material";
+import { ThemeProvider, createTheme } from "@mui/material";
 import { CacheProvider } from "@emotion/react";
 import createCache from "@emotion/cache";
 import { createRootStore, RootStoreContext } from "store";

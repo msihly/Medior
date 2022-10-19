@@ -1,4 +1,4 @@
-import React, { forwardRef, HTMLAttributes, MutableRefObject, ReactNode } from "react";
+import { forwardRef, HTMLAttributes, MutableRefObject, ReactNode } from "react";
 import { makeClasses } from "utils";
 
 export interface ViewProps extends HTMLAttributes<HTMLDivElement> {
