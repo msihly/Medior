@@ -18,7 +18,7 @@ export const CarouselThumbNavigator = () => {
   const [isVisible, setIsVisible] = useState(false);
   const [width, setWidth] = useState(0);
 
-  const { classes: css } = useClasses({ isVisible });
+  const { css } = useClasses({ isVisible });
 
   const { handleMouseDown, isDragging } = useDragScroll({
     listRef,

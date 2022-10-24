@@ -18,7 +18,7 @@ export const Text = ({
   fontWeight = 400,
   ...props
 }: TextProps) => {
-  const { classes: css, cx } = useClasses({ bold, color });
+  const { css, cx } = useClasses({ bold, color });
 
   return (
     <Typography

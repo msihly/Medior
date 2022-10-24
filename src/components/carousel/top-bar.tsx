@@ -7,7 +7,7 @@ import { getCurrentWindow, screen } from "@electron/remote";
 import { useStores } from "store";
 
 export const CarouselTopBar = observer(() => {
-  const { classes: css, cx } = useClasses(null);
+  const { css, cx } = useClasses(null);
 
   const { fileStore, tagStore } = useStores();
   const { activeFileId, panZoomRef } = useContext(CarouselContext);

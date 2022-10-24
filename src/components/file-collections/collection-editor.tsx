@@ -7,7 +7,7 @@ import { makeClasses } from "utils";
 
 export const FileCollectionEditor = observer(() => {
   const { fileCollectionStore, fileStore, tagStore } = useStores();
-  const { classes: css } = useClasses(null);
+  const { css } = useClasses(null);
 
   const [fileIdIndexes, setFileIdIndexes] = useState<FileIdIndex[]>(
     fileCollectionStore.activeCollection?.fileIdIndexes ?? []

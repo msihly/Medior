@@ -14,7 +14,7 @@ export const FileCollection = observer(({ active = false, id }: FileCollectionPr
   const { fileCollectionStore, tagStore } = useStores();
   const collection = fileCollectionStore.getById(id);
 
-  const { classes: css } = useClasses({ active });
+  const { css } = useClasses({ active });
 
   const thumbInterval = useRef(null);
   const [thumbIndex, setThumbIndex] = useState(0);

@@ -14,7 +14,7 @@ interface DetailRowsProps {
 }
 
 export const DetailRows = ({ labelWidth = "8rem", rows }: DetailRowsProps) => {
-  const { classes: css } = useClasses({ labelWidth });
+  const { css } = useClasses({ labelWidth });
 
   return (
     <View className={css.table}>

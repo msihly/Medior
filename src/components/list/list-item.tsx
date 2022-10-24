@@ -27,7 +27,7 @@ export const ListItem = ({
   text,
   ...props
 }: ListItemProps) => {
-  const { classes: css } = useClasses({ iconMargin, paddingLeft, paddingRight });
+  const { css } = useClasses({ iconMargin, paddingLeft, paddingRight });
 
   return (
     // @ts-expect-error

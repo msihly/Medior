@@ -19,7 +19,7 @@ export const Home = observer(() => {
 
   const { fileStore, homeStore, importStore, tagStore } = useStores();
 
-  const { classes: css } = useClasses({
+  const { css } = useClasses({
     drawerMode: homeStore.drawerMode,
     drawerWidth: 200,
     isDrawerOpen: homeStore.isDrawerOpen,

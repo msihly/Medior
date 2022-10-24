@@ -55,7 +55,7 @@ export const Carousel = observer(() => {
   const [lastVolume, setLastVolume] = useState(0.5);
   const [volume, setVolume] = useState(0);
 
-  const { classes: css } = useClasses({ isVolumeVisible });
+  const { css } = useClasses({ isVolumeVisible });
 
   const handleFrameSeek = (frame: number) => {
     setCurFrame(frame);

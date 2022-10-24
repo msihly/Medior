@@ -22,7 +22,7 @@ export const Drawer = observer(
   forwardRef((_, drawerRef: any) => {
     const { fileCollectionStore, homeStore, tagStore } = useStores();
 
-    const { classes: css } = useClasses({ drawerMode: homeStore.drawerMode });
+    const { css } = useClasses({ drawerMode: homeStore.drawerMode });
 
     const [isImporterOpen, setIsImporterOpen] = useState(false);
     const [isImageTypesOpen, setIsImageTypesOpen] = useState(false);

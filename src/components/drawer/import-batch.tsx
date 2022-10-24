@@ -27,7 +27,7 @@ export const ImportBatch = observer(({ addedAt }: ImportBatchProps) => {
   const status = IMPORT_STATUSES[batch.status];
 
   const [expanded, setExpanded] = useState(false);
-  const { classes: css } = useClasses({ expanded, hasTags: batch.tagIds?.length > 0 });
+  const { css } = useClasses({ expanded, hasTags: batch.tagIds?.length > 0 });
 
   const handleDelete = async () => {
     await deleteImportBatch(importStore, addedAt);

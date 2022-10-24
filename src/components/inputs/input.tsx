@@ -23,7 +23,7 @@ export const Input = ({
   variant = "outlined",
   ...props
 }: InputProps) => {
-  const { classes: css, cx } = useClasses({ color, hasHelperText: !!helperText, textAlign });
+  const { css, cx } = useClasses({ color, hasHelperText: !!helperText, textAlign });
 
   return (
     <TextField

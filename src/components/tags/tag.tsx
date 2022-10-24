@@ -8,7 +8,7 @@ interface TagProps extends ChipProps {
 }
 
 export const Tag = observer(({ className, id, size = "medium", ...props }: TagProps) => {
-  const { classes: css, cx } = useClasses({ size });
+  const { css, cx } = useClasses({ size });
   const { tagStore } = useStores();
 
   const tag = tagStore.getById(id);

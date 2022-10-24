@@ -20,7 +20,7 @@ export const Checkbox = ({
   label,
   setChecked,
 }: CheckboxProps) => {
-  const { classes: css, cx } = useClasses({ center, fullWidth });
+  const { css, cx } = useClasses({ center, fullWidth });
 
   return (
     <FormControlLabel

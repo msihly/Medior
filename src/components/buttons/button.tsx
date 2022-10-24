@@ -41,7 +41,7 @@ export const Button = ({
   variant = "contained",
   ...props
 }: ButtonProps) => {
-  const { classes: css, cx } = useClasses({
+  const { css, cx } = useClasses({
     color,
     margin: margins.all,
     marginTop: margins.top,

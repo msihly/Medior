@@ -16,7 +16,7 @@ interface TagEditorProps {
 
 export const TagEditor = observer(({ isCreate, onCancel, onSave }: TagEditorProps) => {
   const { tagStore } = useStores();
-  const { classes: css } = useClasses(null);
+  const { css } = useClasses(null);
 
   const [aliases, setAliases] = useState<ChipOption[]>(
     isCreate ? [] : tagStore.activeTag?.aliases?.map((a) => ({ label: a, value: a })) ?? []

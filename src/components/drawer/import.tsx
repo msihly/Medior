@@ -9,7 +9,7 @@ interface ImportProps {
 }
 
 export const Import = observer(({ fileImport }: ImportProps) => {
-  const { classes: css } = useClasses(null);
+  const { css } = useClasses(null);
 
   const status = IMPORT_STATUSES[fileImport.status];
 

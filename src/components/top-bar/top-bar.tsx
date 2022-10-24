@@ -10,7 +10,7 @@ import { toast } from "react-toastify";
 
 export const TopBar = observer(() => {
   const { homeStore, fileStore, tagStore } = useStores();
-  const { classes: css } = useClasses(null);
+  const { css } = useClasses(null);
 
   const [isCollectionEditorOpen, setIsCollectionEditorOpen] = useState(false);
 

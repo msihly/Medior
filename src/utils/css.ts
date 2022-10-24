@@ -1,5 +1,5 @@
 import { Theme, useTheme } from "@mui/material/styles";
-import { createMakeAndWithStyles, CSSObject } from "tss-react";
+import { createMakeAndWithStyles, CSSObject, Cx } from "tss-react";
 
 export type Margins = {
   all?: CSSObject["margin"];
@@ -17,12 +17,15 @@ export type Padding = {
   left?: CSSObject["paddingLeft"];
 };
 
-const { makeStyles, withStyles } = createMakeAndWithStyles({ useTheme });
+type ClassName<T> = { [P in keyof T]: CSSObject };
 
-export const makeClasses = (
-  fnOrObj:
-    | Record<string, CSSObject>
-    | ((theme: Theme, props: { [x: string]: any }) => Record<string, CSSObject>)
+const { makeStyles } = createMakeAndWithStyles({ useTheme });
+
+export const makeClasses = <T extends ClassName<T>>(
+  fnOrObj: ClassName<T> | ((theme: Theme, props: { [x: string]: any }) => ClassName<T>)
 ) => {
-  return makeStyles<CSSObject>()(fnOrObj);
+  return (params: CSSObject | { [x: string]: any }) => {
+    const { classes: css, cx } = makeStyles<typeof params>()(fnOrObj)(params);
+    return { css, cx } as { css: Record<keyof T, string>; cx: Cx };
+  };
 };

@@ -5,7 +5,7 @@ import { Text, View } from "components";
 import { makeClasses } from "utils";
 
 export const ImportsProgress = observer(() => {
-  const { classes: css } = useClasses(null);
+  const { css } = useClasses(null);
 
   const { fileStore, importStore } = useStores();
 

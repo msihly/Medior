@@ -33,7 +33,7 @@ export const TagInput = observer(
       ref?: MutableRefObject<HTMLDivElement>
     ) => {
       const { tagStore } = useStores();
-      const { classes: css, cx } = useClasses({ opaque });
+      const { css, cx } = useClasses({ opaque });
 
       return (
         <Autocomplete

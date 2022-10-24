@@ -21,7 +21,7 @@ type ChipInputProps = Omit<
 
 export const ChipInput = observer(
   ({ className, opaque = false, options = [], setValue, value = [], ...props }: ChipInputProps) => {
-    const { classes: css, cx } = useClasses({ opaque });
+    const { css, cx } = useClasses({ opaque });
 
     return (
       <Autocomplete

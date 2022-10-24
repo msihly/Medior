@@ -12,7 +12,7 @@ interface InfoModalProps {
 }
 
 export const InfoModal = observer(({ fileId, setVisible }: InfoModalProps) => {
-  const { classes: css } = useClasses(null);
+  const { css } = useClasses(null);
 
   const { fileStore } = useStores();
   const file = fileStore.getById(fileId);

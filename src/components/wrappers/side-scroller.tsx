@@ -17,7 +17,7 @@ export const SideScroller = ({ children, className, innerClassName }: SideScroll
   const [isRightButtonVisible, setIsRightButtonVisible] = useState(false);
   const [scrollPos, setScrollPos] = useState(0);
 
-  const { classes: css, cx } = useClasses({ isLeftButtonVisible, isRightButtonVisible });
+  const { css, cx } = useClasses({ isLeftButtonVisible, isRightButtonVisible });
 
   const getButtonVisibility = () => {
     if (!ref.current) return [false, false];

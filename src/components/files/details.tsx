@@ -14,7 +14,7 @@ export const FileDetails = observer(({ id }: FileDetailsProps) => {
   const { fileStore } = useStores();
   const file = fileStore.getById(id);
 
-  const { classes: css } = useClasses(null);
+  const { css } = useClasses(null);
 
   const openFile = () => shell.openPath(file.path);
 

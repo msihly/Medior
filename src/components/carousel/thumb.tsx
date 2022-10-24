@@ -17,7 +17,7 @@ export const CarouselThumb = observer(({ id, isDragging = false, style }: Carous
   const { fileStore } = useStores();
   const file = fileStore.getById(id);
 
-  const { classes: css } = useClasses({ active: activeFileId === id });
+  const { css } = useClasses({ active: activeFileId === id });
 
   const thumbInterval = useRef<NodeJS.Timer>(null);
   const [thumbIndex, setThumbIndex] = useState(0);
@@ -68,7 +68,7 @@ export const CarouselThumb = observer(({ id, isDragging = false, style }: Carous
         <Chip
           icon={<Icon name="Collections" size="inherit" margins={{ left: "0.5rem" }} />}
           label={file.collections.length}
-          className={css.collections}
+          // className={css.collections}
         />
       )}
 

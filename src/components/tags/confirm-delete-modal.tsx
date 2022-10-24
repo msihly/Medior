@@ -13,7 +13,7 @@ interface ConfirmDeleteModalProps {
 
 export const ConfirmDeleteModal = observer(({ setVisible }: ConfirmDeleteModalProps) => {
   const { fileStore, importStore, tagStore } = useStores();
-  const { classes: css } = useClasses(null);
+  const { css } = useClasses(null);
 
   const [confirmValue, setConfirmValue] = useState("");
 

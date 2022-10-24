@@ -8,7 +8,7 @@ import {
 import { makeClasses } from "utils";
 
 export const ToastContainer = (props: ToastContainerProps) => {
-  const { classes: css } = useClasses(null);
+  const { css } = useClasses(null);
   return (
     <ToastContainerBase
       position="bottom-left"

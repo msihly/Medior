@@ -8,7 +8,7 @@ import { useMemo } from "react";
 
 export const FileCollectionManager = observer(() => {
   const { fileCollectionStore } = useStores();
-  const { classes: css } = useClasses(null);
+  const { css } = useClasses(null);
 
   const collections = useMemo(() => {
     const activeCollectionIds = fileCollectionStore

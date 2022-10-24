@@ -13,7 +13,7 @@ interface FileContainerProps {
 }
 
 export const FileContainer = observer(({ mode }: FileContainerProps) => {
-  const { classes: css } = useClasses(null);
+  const { css } = useClasses(null);
   const { fileStore, homeStore, tagStore } = useStores();
 
   const selectRef = useRef(null);

@@ -20,7 +20,7 @@ export const IconButton = ({
   size,
   ...props
 }: IconButtonProps) => {
-  const { classes: css, cx } = useClasses({
+  const { css, cx } = useClasses({
     margin: margins.all,
     marginTop: margins.top,
     marginBottom: margins.bottom,

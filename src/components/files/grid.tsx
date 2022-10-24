@@ -15,7 +15,7 @@ export const FileGrid = observer(({ id }: FileGridProps) => {
   const { fileStore, homeStore, tagStore } = useStores();
   const file = fileStore.getById(id);
 
-  const { classes: css } = useClasses({ selected: file?.isSelected });
+  const { css } = useClasses({ selected: file?.isSelected });
 
   const thumbInterval = useRef(null);
   const [thumbIndex, setThumbIndex] = useState(0);
@@ -76,7 +76,7 @@ export const FileGrid = observer(({ id }: FileGridProps) => {
             <Chip
               icon={<Icon name="Collections" size="inherit" margins={{ left: "0.5rem" }} />}
               label={file.collections.length}
-              className={css.collections}
+              // className={css.collections}
             />
           )}
 

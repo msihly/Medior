@@ -17,7 +17,7 @@ import { debounce, makeClasses } from "utils";
 export const CarouselWindow = observer(() => {
   const { fileStore, tagStore } = useStores();
 
-  const { classes: css } = useClasses(null);
+  const { css } = useClasses(null);
 
   const panZoomRef = useRef(null);
   const rootRef = useRef<HTMLDivElement>(null);

@@ -11,7 +11,7 @@ interface SortRowProps {
 }
 
 export const SortRow = ({ attribute, label, icon, iconProps = {} }: SortRowProps) => {
-  const { classes: css } = useClasses(null);
+  const { css } = useClasses(null);
 
   return (
     <View className={css.row}>

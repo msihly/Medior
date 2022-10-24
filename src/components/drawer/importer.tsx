@@ -19,7 +19,7 @@ const EXT_REG_EXP = new RegExp(`\.(${IMAGE_TYPES.join("|")}|${VIDEO_TYPES.join("
 
 export const Importer = observer(({ isOpen = false, setIsOpen }: ImporterProps) => {
   const { importStore, tagStore } = useStores();
-  const { classes: css } = useClasses(null);
+  const { css } = useClasses(null);
 
   const [tags, setTags] = useState<TagOption[]>([]);
 

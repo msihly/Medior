@@ -13,7 +13,7 @@ export const View = forwardRef(
     { children, className, column = false, row = false, ...props }: ViewProps,
     ref?: MutableRefObject<HTMLDivElement>
   ) => {
-    const { classes: css, cx } = useClasses({ column, row });
+    const { css, cx } = useClasses({ column, row });
 
     return (
       <div {...props} ref={ref} className={cx(css.root, className)}>

@@ -24,7 +24,7 @@ interface TaggerProps {
 
 export const Tagger = observer(({ files, hasFocusOnOpen = false }: TaggerProps) => {
   const { tagStore } = useStores();
-  const { classes: css } = useClasses(null);
+  const { css } = useClasses(null);
 
   const [addedTags, setAddedTags] = useState<TagOption[]>([]);
   const [removedTags, setRemovedTags] = useState<TagOption[]>([]);
@@ -115,7 +115,7 @@ export const Tagger = observer(({ files, hasFocusOnOpen = false }: TaggerProps) 
 });
 
 const DraggablePaper = (props: PaperProps) => {
-  const { classes: css } = useClasses(null);
+  const { css } = useClasses(null);
   const ref = useRef(null);
 
   return (

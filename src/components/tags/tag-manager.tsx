@@ -14,7 +14,7 @@ const TITLES = {
 
 export const TagManager = observer(() => {
   const { tagStore } = useStores();
-  const { classes: css } = useClasses(null);
+  const { css } = useClasses(null);
 
   const [hasDescendents, setHasDescendents] = useState(false);
   const [searchValue, setSearchValue] = useState<string>("");

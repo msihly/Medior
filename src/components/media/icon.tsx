@@ -15,7 +15,7 @@ export interface IconProps extends Omit<MuiIconProps, "color" | "fontSize"> {
 }
 
 export const Icon = ({ className, color, margins = {}, name, rotation, size }: IconProps) => {
-  const { classes: css, cx } = useClasses({
+  const { css, cx } = useClasses({
     margin: margins.all,
     marginTop: margins.top,
     marginBottom: margins.bottom,

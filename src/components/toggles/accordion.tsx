@@ -21,7 +21,7 @@ export const Accordion = ({
   header,
   setExpanded,
 }: AccordionProps) => {
-  const { classes: css, cx } = useClasses({ expanded, fullWidth });
+  const { css, cx } = useClasses({ expanded, fullWidth });
 
   return (
     <MuiAccordion
