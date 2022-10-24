@@ -43,6 +43,12 @@ const FileSchema = new Schema<File>({
 
 FileSchema.index({ hash: 1 });
 
-FileSchema.set("toJSON", { virtuals: true });
+FileSchema.set("toJSON", {
+  transform: (_, ret) => {
+    delete ret._id;
+    delete ret.__v;
+  },
+  virtuals: true,
+});
 
 export const FileModel = model<File>("File", FileSchema);

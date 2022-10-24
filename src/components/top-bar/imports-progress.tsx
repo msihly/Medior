@@ -4,7 +4,7 @@ import { colors } from "@mui/material";
 import { Text, View } from "components";
 import { makeClasses } from "utils";
 
-const ImportsProgress = observer(() => {
+export const ImportsProgress = observer(() => {
   const { classes: css } = useClasses(null);
 
   const { fileStore, importStore } = useStores();
@@ -43,8 +43,6 @@ const ImportsProgress = observer(() => {
     </View>
   );
 });
-
-export default ImportsProgress;
 
 const useClasses = makeClasses({
   subtitle: {

@@ -1,83 +1,88 @@
-import { applySnapshot, cast, Instance, SnapshotOrInstance, types } from "mobx-state-tree";
-import { ImportBatchModel } from "./import-batch";
-import { FileImportSnapshot, ImportBatch } from ".";
+import {
+  applySnapshot,
+  arrayActions,
+  model,
+  Model,
+  modelAction,
+  ModelCreationData,
+  prop,
+} from "mobx-keystone";
+import { FileImport, ImportBatch } from ".";
+import { computed } from "mobx";
 
-export const defaultImportStore = {
-  importBatches: [],
-  isImporting: false,
-};
+@model("mediaViewer/ImportStore")
+export class ImportStore extends Model({
+  activeBatchAddedAt: prop<string>(null).withSetter(),
+  importBatches: prop<ImportBatch[]>(() => []),
+  isImporting: prop<boolean>(false).withSetter(),
+}) {
+  @modelAction
+  addImportToBatch(addedAt: string, fileImport: FileImport) {
+    const batch = this.getByAddedAt(addedAt);
+    if (!batch) throw new Error(`Can't find ImportBatch with addedAt = ${addedAt}`);
+    batch.imports.push(new FileImport(fileImport));
+  }
 
-export const ImportStoreModel = types
-  .model("FileStore")
-  .props({
-    activeBatchAddedAt: types.maybeNull(types.string),
-    importBatches: types.array(ImportBatchModel),
-    isImporting: types.boolean,
-  })
-  .views((self) => ({
-    get batches(): ImportBatch[] {
-      return [...self.importBatches].sort((a, b) => a.addedAt.localeCompare(b.addedAt));
-    },
-    getByAddedAt: (addedAt: string) => {
-      return self.importBatches.find((batch) => batch.addedAt === addedAt);
-    },
-    getById: (id: string) => {
-      return self.importBatches.find((batch) => batch.id === id);
-    },
-    listByTagId: (tagId: string) => {
-      return self.importBatches.filter((batch) => batch.tagIds.includes(tagId));
-    },
-  }))
-  .views((self) => ({
-    get activeBatch(): ImportBatch {
-      return self.getByAddedAt(self.activeBatchAddedAt);
-    },
-    get completedBatches(): ImportBatch[] {
-      return self.batches.filter((batch) => batch.completedAt?.length > 0);
-    },
-    get incompleteBatches(): ImportBatch[] {
-      return self.batches.filter((batch) => !batch.completedAt?.length);
-    },
-  }))
-  .actions((self) => ({
-    addImportToBatch: (addedAt: string, fileImport: FileImportSnapshot) => {
-      const batch = self.getByAddedAt(addedAt);
-      if (!batch) throw new Error(`Can't find ImportBatch with addedAt = ${addedAt}`);
-      batch.imports.push(fileImport);
-    },
-    addImportBatch: ({
-      addedAt,
-      id,
-      tagIds = [],
-    }: {
-      addedAt: string;
-      id: string;
-      tagIds?: string[];
-    }) => {
-      self.importBatches.push({
+  @modelAction
+  addImportBatch({ addedAt, id, tagIds = [] }: { addedAt: string; id: string; tagIds?: string[] }) {
+    this.importBatches.push(
+      new ImportBatch({
         addedAt,
         completedAt: null,
         id,
         imports: [],
         startedAt: null,
         tagIds,
-      });
-    },
-    deleteImportBatch: (addedAt: string) => {
-      self.importBatches = cast(self.importBatches.filter((batch) => batch.addedAt !== addedAt));
-    },
-    overwrite: (importBatches: SnapshotOrInstance<ImportBatch>[]) => {
-      self.importBatches = cast(importBatches);
-    },
-    reset: () => {
-      applySnapshot(self, defaultImportStore);
-    },
-    setActiveBatchAddedAt: (addedAt: string) => {
-      self.activeBatchAddedAt = addedAt;
-    },
-    setIsImporting: (isImporting: boolean) => {
-      self.isImporting = isImporting;
-    },
-  }));
+      })
+    );
+  }
 
-export interface ImportStore extends Instance<typeof ImportStoreModel> {}
+  @modelAction
+  deleteImportBatch(addedAt: string) {
+    this.importBatches = this.importBatches.filter((batch) => batch.addedAt !== addedAt);
+  }
+
+  @modelAction
+  overwrite(importBatches: ImportBatchInput[]) {
+    this.importBatches = importBatches.map(
+      (batch) =>
+        new ImportBatch({ ...batch, imports: batch.imports.map((imp) => new FileImport(imp)) })
+    );
+  }
+
+  getByAddedAt(addedAt: string) {
+    return this.importBatches.find((batch) => batch.addedAt === addedAt);
+  }
+
+  getById(id: string) {
+    return this.importBatches.find((batch) => batch.id === id);
+  }
+
+  listByTagId(tagId: string) {
+    return this.importBatches.filter((batch) => batch.tagIds.includes(tagId));
+  }
+
+  @computed
+  get batches() {
+    return [...this.importBatches].sort((a, b) => a.addedAt.localeCompare(b.addedAt));
+  }
+
+  @computed
+  get activeBatch() {
+    return this.getByAddedAt(this.activeBatchAddedAt);
+  }
+
+  @computed
+  get completedBatches() {
+    return this.batches.filter((batch) => batch.completedAt?.length > 0);
+  }
+
+  @computed
+  get incompleteBatches() {
+    return this.batches.filter((batch) => !batch.completedAt?.length);
+  }
+}
+
+type ImportBatchInput = Omit<ModelCreationData<ImportBatch>, "imports"> & {
+  imports?: ModelCreationData<FileImport>[];
+};

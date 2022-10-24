@@ -1,4 +1,4 @@
-export { default as ConditionalWrap } from "./conditional";
-export { default as SideScroller } from "./side-scroller";
-export { default as View } from "./view";
+export { ConditionalWrap } from "./conditional";
+export { SideScroller } from "./side-scroller";
+export { View } from "./view";
 export type { ViewProps } from "./view";

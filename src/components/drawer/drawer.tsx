@@ -1,7 +1,6 @@
-import { forwardRef, useContext, useState } from "react";
+import { forwardRef, useState } from "react";
 import { observer } from "mobx-react-lite";
-import { useStores } from "store";
-import { IMAGE_TYPES, VIDEO_TYPES } from "store/files";
+import { IMAGE_TYPES, useStores, VIDEO_TYPES } from "store";
 import { Divider, Drawer as MuiDrawer, List, colors } from "@mui/material";
 import {
   Accordion,
@@ -18,20 +17,18 @@ import {
 import { ExtCheckbox, Importer } from ".";
 import { makeClasses } from "utils";
 import * as Media from "media";
-import { HomeContext } from "views";
 
-const Drawer = observer(
+export const Drawer = observer(
   forwardRef((_, drawerRef: any) => {
-    const context = useContext(HomeContext);
-    const { appStore, fileCollectionStore, fileStore, tagStore } = useStores();
+    const { fileCollectionStore, homeStore, tagStore } = useStores();
 
-    const { classes: css } = useClasses({ drawerMode: appStore.drawerMode });
+    const { classes: css } = useClasses({ drawerMode: homeStore.drawerMode });
 
     const [isImporterOpen, setIsImporterOpen] = useState(false);
     const [isImageTypesOpen, setIsImageTypesOpen] = useState(false);
     const [isVideoTypesOpen, setIsVideoTypesOpen] = useState(false);
 
-    const handleDescendants = () => context?.setIncludeDescendants(!context?.includeDescendants);
+    const handleDescendants = () => homeStore.setIncludeDescendants(!homeStore.includeDescendants);
 
     const handleManageTags = () => {
       tagStore.setTagManagerMode("search");
@@ -39,27 +36,27 @@ const Drawer = observer(
     };
 
     const handleTagged = () => {
-      if (!context?.includeTagged && !context?.includeUntagged) context?.setIncludeTagged(true);
-      else if (context?.includeTagged) {
-        context?.setIncludeTagged(false);
-        context?.setIncludeUntagged(true);
-      } else context?.setIncludeUntagged(false);
+      if (!homeStore.includeTagged && !homeStore.includeUntagged) homeStore.setIncludeTagged(true);
+      else if (homeStore.includeTagged) {
+        homeStore.setIncludeTagged(false);
+        homeStore.setIncludeUntagged(true);
+      } else homeStore.setIncludeUntagged(false);
     };
 
-    const toggleArchiveOpen = () => context?.setIsArchiveOpen(!context.isArchiveOpen);
+    const toggleArchiveOpen = () => homeStore.setIsArchiveOpen(!homeStore.isArchiveOpen);
 
     return (
       <MuiDrawer
         PaperProps={{ className: css.drawer, ref: drawerRef }}
         ModalProps={{ keepMounted: true }}
-        open={appStore.isDrawerOpen}
-        onClose={() => appStore.setIsDrawerOpen(false)}
-        variant={appStore.drawerMode}
+        open={homeStore.isDrawerOpen}
+        onClose={() => homeStore.setIsDrawerOpen(false)}
+        variant={homeStore.drawerMode}
       >
         <View className={css.topActions}>
-          <IconButton name="Menu" onClick={() => appStore.setIsDrawerOpen(false)} size="medium" />
+          <IconButton name="Menu" onClick={() => homeStore.setIsDrawerOpen(false)} size="medium" />
 
-          <IconButton onClick={appStore.toggleDrawerMode} size="medium">
+          <IconButton onClick={homeStore.toggleDrawerMode} size="medium">
             <Media.PinSVG className={css.pin} />
           </IconButton>
         </View>
@@ -70,8 +67,8 @@ const Drawer = observer(
           <ListItem text="Import" icon="GetApp" onClick={() => setIsImporterOpen(true)} />
 
           <ListItem
-            text={`${context?.isArchiveOpen ? "Close" : "Open"} Archive`}
-            icon={context?.isArchiveOpen ? "Unarchive" : "Archive"}
+            text={`${homeStore.isArchiveOpen ? "Close" : "Open"} Archive`}
+            icon={homeStore.isArchiveOpen ? "Unarchive" : "Archive"}
             onClick={toggleArchiveOpen}
           />
         </List>
@@ -82,9 +79,9 @@ const Drawer = observer(
           Include
         </Text>
         <TagInput
-          value={[...context?.includedTags]}
-          setValue={context?.setIncludedTags}
-          options={tagStore.tagOptions}
+          value={[...homeStore.includedTags]}
+          setValue={(val) => homeStore.setIncludedTags(val)}
+          options={[...tagStore.tagOptions]}
           limitTags={3}
           className={css.input}
         />
@@ -93,9 +90,9 @@ const Drawer = observer(
           Exclude
         </Text>
         <TagInput
-          value={[...context?.excludedTags]}
-          setValue={context?.setExcludedTags}
-          options={tagStore.tagOptions}
+          value={[...homeStore.excludedTags]}
+          setValue={(val) => homeStore.setExcludedTags(val)}
+          options={[...tagStore.tagOptions]}
           limitTags={3}
           className={css.input}
         />
@@ -103,14 +100,14 @@ const Drawer = observer(
         <View className={css.checkboxes} column>
           <Checkbox
             label="Descendants"
-            checked={context?.includeDescendants}
+            checked={homeStore.includeDescendants}
             setChecked={handleDescendants}
           />
 
           <Checkbox
             label="Tagged"
-            checked={context?.includeTagged}
-            indeterminate={context?.includeUntagged}
+            checked={homeStore.includeTagged}
+            indeterminate={homeStore.includeUntagged}
             setChecked={handleTagged}
           />
         </View>
@@ -148,8 +145,6 @@ const Drawer = observer(
     );
   })
 );
-
-export default Drawer;
 
 const useClasses = makeClasses((_, { drawerMode }) => ({
   checkboxes: {

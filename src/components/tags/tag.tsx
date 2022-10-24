@@ -13,6 +13,9 @@ export const Tag = observer(({ className, id, size = "medium", ...props }: TagPr
 
   const tag = tagStore.getById(id);
 
+  // console.log(tagStore.tagCounts);
+  // console.log(tag.parentTags);
+
   return (
     <Chip
       avatar={<Avatar className={css.count}>{formatter.format(tag.count)}</Avatar>}

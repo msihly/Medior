@@ -6,7 +6,7 @@ import { useContext, useEffect, useState } from "react";
 import { getCurrentWindow, screen } from "@electron/remote";
 import { useStores } from "store";
 
-const CarouselTopBar = observer(() => {
+export const CarouselTopBar = observer(() => {
   const { classes: css, cx } = useClasses(null);
 
   const { fileStore, tagStore } = useStores();
@@ -110,8 +110,6 @@ const CarouselTopBar = observer(() => {
     </View>
   );
 });
-
-export default CarouselTopBar;
 
 const useClasses = makeClasses({
   aspectRatioLock: {

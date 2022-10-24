@@ -1,9 +1,8 @@
 import { ipcRenderer } from "electron";
-import { useContext, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
 import { colors, Chip, Paper } from "@mui/material";
-import { HomeContext } from "views";
 import { Icon, SideScroller, Tag, View } from "components";
 import { ContextMenu } from ".";
 import { dayjs, makeClasses } from "utils";
@@ -12,9 +11,8 @@ interface FileGridProps {
   id: string;
 }
 
-const FileGrid = observer(({ id }: FileGridProps) => {
-  const context = useContext(HomeContext);
-  const { fileStore, tagStore } = useStores();
+export const FileGrid = observer(({ id }: FileGridProps) => {
+  const { fileStore, homeStore, tagStore } = useStores();
   const file = fileStore.getById(id);
 
   const { classes: css } = useClasses({ selected: file?.isSelected });
@@ -46,7 +44,7 @@ const FileGrid = observer(({ id }: FileGridProps) => {
     ipcRenderer.send("createCarouselWindow", {
       fileId: id,
       height: file.height,
-      selectedFileIds: context.filteredFiles.map((f) => f.id),
+      selectedFileIds: homeStore.filteredFiles.map((f) => f.id),
       width: file.width,
     });
   };
@@ -99,8 +97,6 @@ const FileGrid = observer(({ id }: FileGridProps) => {
     </ContextMenu>
   );
 });
-
-export default FileGrid;
 
 const useClasses = makeClasses((theme, { selected }) => ({
   container: {

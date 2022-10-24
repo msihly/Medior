@@ -1,29 +1,28 @@
-import { applySnapshot, types, Instance } from "mobx-state-tree";
-import { AppStoreModel, defaultAppStore } from "./app";
-import { FileStoreModel, defaultFileStore } from "./files";
-import { FileCollectionStoreModel, defaultFileCollectionStore } from "./collections";
-import { ImportStoreModel, defaultImportStore } from "./imports";
-import { TagStoreModel, defaultTagStore } from "./tags";
+import { model, Model, prop, registerRootStore } from "mobx-keystone";
+import { FileCollectionStore } from "./collections";
+import { FileStore } from "./files";
+import { HomeStore } from "./home";
+import { ImportStore } from "./imports";
+import { TagStore } from "./tags";
 
-export const RootStoreModel = types
-  .model("RootStore")
-  .props({
-    appStore: types.optional(AppStoreModel, defaultAppStore),
-    fileStore: types.optional(FileStoreModel, defaultFileStore),
-    fileCollectionStore: types.optional(FileCollectionStoreModel, defaultFileCollectionStore),
-    importStore: types.optional(ImportStoreModel, defaultImportStore),
-    tagStore: types.optional(TagStoreModel, defaultTagStore),
-  })
-  .actions((self) => ({
-    reset: () => {
-      applySnapshot(self, {
-        appStore: defaultAppStore,
-        fileStore: defaultFileStore,
-        fileCollectionStore: defaultFileCollectionStore,
-        importStore: defaultImportStore,
-        tagStore: defaultTagStore,
-      });
-    },
-  }));
+@model("mediaViewer/RootStore")
+export class RootStore extends Model({
+  fileCollectionStore: prop<FileCollectionStore>(),
+  fileStore: prop<FileStore>(),
+  homeStore: prop<HomeStore>(),
+  importStore: prop<ImportStore>(),
+  tagStore: prop<TagStore>(),
+}) {}
 
-export interface RootStore extends Instance<typeof RootStoreModel> {}
+export const createRootStore = () => {
+  const rootStore = new RootStore({
+    fileCollectionStore: new FileCollectionStore({}),
+    fileStore: new FileStore({}),
+    homeStore: new HomeStore({}),
+    importStore: new ImportStore({}),
+    tagStore: new TagStore({}),
+  });
+
+  registerRootStore(rootStore);
+  return rootStore;
+};

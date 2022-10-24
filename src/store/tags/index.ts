@@ -1,4 +1,3 @@
-export { TagModel } from "./tag";
-export type { Tag } from "./tag";
-export { defaultTagStore, getTagAncestry, TagStoreModel } from "./tag-store";
-export type { TagCount, TagStore } from "./tag-store";
+export { getTagAncestry, Tag } from "./tag";
+export { TagStore } from "./tag-store";
+export type { TagCount, TagOption } from "./tag-store";

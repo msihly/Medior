@@ -1,20 +1,16 @@
-import { applySnapshot, Instance, SnapshotOut, types } from "mobx-state-tree";
+import { applySnapshot, getSnapshot, model, Model, modelAction, prop } from "mobx-keystone";
 
-export const FileImportModel = types
-  .model("File")
-  .props({
-    dateCreated: types.string,
-    extension: types.string,
-    path: types.string,
-    name: types.string,
-    size: types.number,
-    status: types.enumeration(["COMPLETE", "DUPLICATE", "ERROR", "PENDING"]),
-  })
-  .actions((self) => ({
-    update: (props: Partial<typeof self>) => {
-      applySnapshot(self, { ...self, ...props });
-    },
-  }));
-
-export interface FileImportInstance extends Instance<typeof FileImportModel> {}
-export interface FileImportSnapshot extends SnapshotOut<typeof FileImportModel> {}
+@model("mediaViewer/FileImport")
+export class FileImport extends Model({
+  dateCreated: prop<string>(),
+  extension: prop<string>(),
+  path: prop<string>(),
+  name: prop<string>(),
+  size: prop<number>(),
+  status: prop<"COMPLETE" | "DUPLICATE" | "ERROR" | "PENDING">(),
+}) {
+  @modelAction
+  update(fileImport: Partial<FileImport>) {
+    applySnapshot(this, { ...getSnapshot(this), ...fileImport });
+  }
+}

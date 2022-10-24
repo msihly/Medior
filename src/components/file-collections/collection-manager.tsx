@@ -6,7 +6,7 @@ import { FileCollection } from ".";
 import { makeClasses } from "utils";
 import { useMemo } from "react";
 
-const FileCollectionManager = observer(() => {
+export const FileCollectionManager = observer(() => {
   const { fileCollectionStore } = useStores();
   const { classes: css } = useClasses(null);
 
@@ -64,8 +64,6 @@ const FileCollectionManager = observer(() => {
     </Dialog>
   );
 });
-
-export default FileCollectionManager;
 
 const useClasses = makeClasses({
   collections: {

@@ -1,4 +1,4 @@
-export { default as Carousel, CarouselContext } from "./carousel";
-export { default as CarouselThumb } from "./thumb";
-export { default as CarouselThumbNavigator } from "./thumb-navigator";
-export { default as CarouselTopBar } from "./top-bar";
+export { Carousel, CarouselContext } from "./carousel";
+export { CarouselThumb } from "./thumb";
+export { CarouselThumbNavigator } from "./thumb-navigator";
+export { CarouselTopBar } from "./top-bar";

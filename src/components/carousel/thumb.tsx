@@ -11,7 +11,7 @@ interface CarouselThumbProps {
   style: React.CSSProperties;
 }
 
-const CarouselThumb = observer(({ id, isDragging = false, style }: CarouselThumbProps) => {
+export const CarouselThumb = observer(({ id, isDragging = false, style }: CarouselThumbProps) => {
   const { activeFileId, setActiveFileId } = useContext(CarouselContext);
 
   const { fileStore } = useStores();
@@ -81,8 +81,6 @@ const CarouselThumb = observer(({ id, isDragging = false, style }: CarouselThumb
     </View>
   );
 });
-
-export default CarouselThumb;
 
 const useClasses = makeClasses((_, { active }) => ({
   duration: {

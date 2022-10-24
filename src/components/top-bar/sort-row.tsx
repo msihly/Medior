@@ -10,7 +10,7 @@ interface SortRowProps {
   iconProps?: Partial<IconProps>;
 }
 
-const SortRow = ({ attribute, label, icon, iconProps = {} }: SortRowProps) => {
+export const SortRow = ({ attribute, label, icon, iconProps = {} }: SortRowProps) => {
   const { classes: css } = useClasses(null);
 
   return (
@@ -22,8 +22,6 @@ const SortRow = ({ attribute, label, icon, iconProps = {} }: SortRowProps) => {
     </View>
   );
 };
-
-export default SortRow;
 
 const useClasses = makeClasses({
   label: {

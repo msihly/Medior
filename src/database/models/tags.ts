@@ -13,6 +13,12 @@ const TagSchema = new Schema<Tag>({
   parentIds: [String],
 });
 
-TagSchema.set("toJSON", { virtuals: true });
+TagSchema.set("toJSON", {
+  transform: (_, ret) => {
+    delete ret._id;
+    delete ret.__v;
+  },
+  virtuals: true,
+});
 
 export const TagModel = model<Tag>("Tag", TagSchema);

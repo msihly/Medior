@@ -1,9 +1,8 @@
-import { useContext, useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
 import Selecto, { OnSelect } from "react-selecto";
 import { Pagination, colors } from "@mui/material";
-import { HomeContext } from "views";
 import { Text, View } from "components";
 import { FileDetails, FileGrid } from ".";
 import { makeClasses } from "utils";
@@ -13,18 +12,16 @@ interface FileContainerProps {
   mode: "details" | "grid";
 }
 
-const FileContainer = observer(({ mode }: FileContainerProps) => {
-  const context = useContext(HomeContext);
-
+export const FileContainer = observer(({ mode }: FileContainerProps) => {
   const { classes: css } = useClasses(null);
-  const { fileStore, tagStore } = useStores();
+  const { fileStore, homeStore, tagStore } = useStores();
 
   const selectRef = useRef(null);
   const selectoRef = useRef(null);
 
   useEffect(() => {
-    if (context?.page > context?.pageCount) context?.setPage(context?.pageCount);
-  }, [context?.page, context?.pageCount]);
+    if (homeStore.page > homeStore.pageCount) homeStore.setPage(homeStore.pageCount);
+  }, [homeStore.page, homeStore.pageCount]);
 
   useEffect(() => {
     if (fileStore.selected.length === 0) selectoRef.current?.setSelectedTargets?.([]);
@@ -36,17 +33,20 @@ const FileContainer = observer(({ mode }: FileContainerProps) => {
       tagStore.setIsTaggerOpen(true);
     } else if (fileStore.selected.length === 1) {
       const selectedId = fileStore.selected[0].id;
-      const indexOfSelected = context.filteredFiles.findIndex((f) => f.id === selectedId);
+      const indexOfSelected = homeStore.filteredFiles.findIndex((f) => f.id === selectedId);
       const nextIndex =
-        indexOfSelected === context.filteredFiles.length - 1 ? 0 : indexOfSelected + 1;
-      const nextId = context.filteredFiles[nextIndex].id;
+        indexOfSelected === homeStore.filteredFiles.length - 1 ? 0 : indexOfSelected + 1;
+      const nextId = homeStore.filteredFiles[nextIndex].id;
       const prevIndex =
-        indexOfSelected === 0 ? context.filteredFiles.length - 1 : indexOfSelected - 1;
-      const prevId = context.filteredFiles[prevIndex].id;
+        indexOfSelected === 0 ? homeStore.filteredFiles.length - 1 : indexOfSelected - 1;
+      const prevId = homeStore.filteredFiles[prevIndex].id;
 
       if (["ArrowLeft", "ArrowRight"].includes(e.key)) {
+        const newId = e.key === "ArrowLeft" ? prevId : nextId;
+        if (!homeStore.displayedFiles.find((f) => f.id === newId))
+          homeStore.setPage(homeStore.page + 1 * (e.key === "ArrowLeft" ? -1 : 1));
         fileStore.toggleFilesSelected([selectedId], false);
-        fileStore.toggleFilesSelected([e.key === "ArrowLeft" ? prevId : nextId], true);
+        fileStore.toggleFilesSelected([newId], true);
       } else if (["1", "2", "3", "4", "5", "6", "7", "8", "9"].includes(e.key)) {
         setFileRating([selectedId], +e.key);
       }
@@ -69,11 +69,11 @@ const FileContainer = observer(({ mode }: FileContainerProps) => {
 
     if (hasAdded) {
       if (isShiftClick) {
-        const lastIndex = context.displayedFiles.findIndex(
+        const lastIndex = homeStore.displayedFiles.findIndex(
           (f) => f.id === fileStore.selected[fileStore.selected.length - 1]?.id
         );
-        const addedIndex = context.displayedFiles.findIndex((f) => f.id === addedIds[0]);
-        const rangeIds = context.displayedFiles
+        const addedIndex = homeStore.displayedFiles.findIndex((f) => f.id === addedIds[0]);
+        const rangeIds = homeStore.displayedFiles
           .slice(
             lastIndex > addedIndex ? addedIndex : lastIndex,
             (addedIndex > lastIndex ? addedIndex : lastIndex) + 1
@@ -105,8 +105,8 @@ const FileContainer = observer(({ mode }: FileContainerProps) => {
       />
 
       <View ref={selectRef} onKeyDown={handleKeyPress} tabIndex={1} className={css.files}>
-        {context?.displayedFiles?.length > 0 ? (
-          context.displayedFiles.map((f) =>
+        {homeStore.displayedFiles?.length > 0 ? (
+          homeStore.displayedFiles.map((f) =>
             mode === "details" ? (
               <FileDetails key={f.id} id={f.id} />
             ) : (
@@ -115,15 +115,17 @@ const FileContainer = observer(({ mode }: FileContainerProps) => {
           )
         ) : (
           <View className={css.noResults}>
-            <Text variant="h5">No results found</Text>
+            <Text variant="h5" color={colors.grey["400"]}>
+              No results found
+            </Text>
           </View>
         )}
       </View>
 
       <Pagination
-        count={context?.pageCount}
-        page={context?.page}
-        onChange={(_, value) => context?.setPage(value)}
+        count={homeStore.pageCount}
+        page={homeStore.page}
+        onChange={(_, value) => homeStore.setPage(value)}
         showFirstButton
         showLastButton
         className={css.pagination}
@@ -131,8 +133,6 @@ const FileContainer = observer(({ mode }: FileContainerProps) => {
     </View>
   );
 });
-
-export default FileContainer;
 
 const useClasses = makeClasses({
   container: {

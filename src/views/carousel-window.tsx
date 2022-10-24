@@ -51,7 +51,7 @@ export const CarouselWindow = observer(() => {
 
         switch (data.operationType) {
           case "insert":
-            fileStore.addFiles({ ...data.fullDocument, id });
+            fileStore.addFiles({ ...data.fullDocument, id, _id: undefined, __v: undefined });
             break;
           case "update":
             fileStore.getById(id).update(data.updateDescription?.updatedFields);
@@ -67,10 +67,11 @@ export const CarouselWindow = observer(() => {
           case "delete":
             if (tagStore.activeTagId === id) tagStore.setActiveTagId(null);
             if (tagStore.isTaggerOpen) tagStore.setTaggerMode("edit");
+            if (tagStore.isTagManagerOpen) tagStore.setTagManagerMode("search");
             tagStore.deleteTag(id);
             break;
           case "insert":
-            tagStore.createTag({ ...data.fullDocument, id });
+            tagStore.createTag({ ...data.fullDocument, id, _id: undefined, __v: undefined });
             break;
           case "update":
             tagStore.getById(id).update(data.updateDescription?.updatedFields);

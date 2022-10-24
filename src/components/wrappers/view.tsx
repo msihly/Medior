@@ -8,7 +8,7 @@ export interface ViewProps extends HTMLAttributes<HTMLDivElement> {
   row?: boolean;
 }
 
-const View = forwardRef(
+export const View = forwardRef(
   (
     { children, className, column = false, row = false, ...props }: ViewProps,
     ref?: MutableRefObject<HTMLDivElement>
@@ -22,8 +22,6 @@ const View = forwardRef(
     );
   }
 );
-
-export default View;
 
 const useClasses = makeClasses((_, { column, row }) => ({
   root: {

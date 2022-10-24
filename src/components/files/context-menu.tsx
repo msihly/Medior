@@ -12,7 +12,7 @@ interface ContextMenuProps extends ViewProps {
   fileId: string;
 }
 
-const ContextMenu = observer(({ children, fileId, ...props }: ContextMenuProps) => {
+export const ContextMenu = observer(({ children, fileId, ...props }: ContextMenuProps) => {
   const { fileCollectionStore, fileStore } = useStores();
   const file = fileStore.getById(fileId);
 
@@ -110,5 +110,3 @@ const ContextMenu = observer(({ children, fileId, ...props }: ContextMenuProps) 
     </View>
   );
 });
-
-export default ContextMenu;

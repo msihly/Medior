@@ -1,126 +1,123 @@
-import { cast, getParentOfType, Instance, SnapshotOrInstance, types } from "mobx-state-tree";
-import { RootStoreModel } from "store/root-store";
-import { File, FileStore, TagOptionSnapshot } from "store/files";
-import { Tag, TagModel } from ".";
+import { computed } from "mobx";
+import {
+  applySnapshot,
+  arrayActions,
+  getRootStore,
+  model,
+  Model,
+  modelAction,
+  ModelCreationData,
+  prop,
+} from "mobx-keystone";
+import { File, RootStore } from "store";
+import { Tag } from ".";
 
-export const getTagAncestry = (tags: Tag[]): string[] =>
-  tags.flatMap((t) => [t.id, ...getTagAncestry(t.parentTags)]);
-
-const TagCountModel = types.model({
-  id: types.string,
-  count: types.number,
-});
-export type TagCount = Instance<typeof TagCountModel>;
-
-export const defaultTagStore = {
-  activeTagId: null,
-  isTaggerOpen: false,
-  isTagManagerOpen: false,
-  tags: [],
-  taggerMode: "edit",
-  tagManagerMode: "search",
+export type TagCount = {
+  count: number;
+  id: string;
 };
 
-export const TagStoreModel = types
-  .model("TagStore")
-  .props({
-    activeTagId: types.maybeNull(types.string),
-    isTaggerOpen: types.boolean,
-    isTagManagerOpen: types.boolean,
-    tags: types.array(TagModel),
-    taggerMode: types.enumeration(["create", "edit"]),
-    tagManagerMode: types.enumeration(["create", "edit", "search"]),
-  })
-  .views((self) => ({
-    get activeTag(): Tag {
-      return self.tags.find((t) => t.id === self.activeTagId);
-    },
-    get tagCounts(): TagCount[] {
-      const rootStore = getParentOfType(self, RootStoreModel);
-      const fileStore: FileStore = rootStore.fileStore;
+export type TagOption = {
+  aliases?: string[];
+  count: number;
+  id: string;
+  label?: string;
+  parentLabels?: string[];
+};
 
-      return fileStore.files
-        .map((f) => getTagAncestry(f.tags))
-        .flat(2)
-        .reduce((tagCounts, id) => {
-          if (!id) return tagCounts;
+@model("mediaViewer/TagStore")
+export class TagStore extends Model({
+  activeTagId: prop<string>(null).withSetter(),
+  isTaggerOpen: prop<boolean>(false),
+  isTagManagerOpen: prop<boolean>(false).withSetter(),
+  tags: prop<Tag[]>(() => []),
+  taggerMode: prop<"create" | "edit">("edit").withSetter(),
+  tagManagerMode: prop<"create" | "edit" | "search">("search").withSetter(),
+}) {
+  @modelAction
+  createTag(tag: ModelCreationData<Tag>) {
+    this.tags.push(new Tag(tag));
+  }
 
-          const tagCount = tagCounts.find((t) => t.id === id);
-          if (!tagCount) tagCounts.push({ count: 1, id });
-          else tagCount.count++;
+  @modelAction
+  deleteTag(id: string) {
+    this.tags = this.tags.filter((t) => t.id !== id);
+  }
 
-          return tagCounts;
-        }, [] as TagCount[])
-        .sort((a, b) => a.count - b.count);
-    },
-    getById: (id: string): Tag => {
-      return self.tags.find((t) => t.id === id);
-    },
-    getByLabel: (label: string): Tag => {
-      return self.tags.find((t) => t.label === label);
-    },
-    listByParentId: (id: string): Tag[] => {
-      return self.tags.filter((t) => t.parentIds.includes(id));
-    },
-  }))
-  .views((self) => ({
-    getTagCounts: (files: File[], includeParents = false): TagCount[] => {
-      const tagIds = [
-        ...new Set(
-          files
-            .map((f) => f.tags.map((t) => [t.id, ...(includeParents ? t.parentIds : [])]))
-            .flat(2)
-        ),
-      ];
+  @modelAction
+  overwrite(tags: ModelCreationData<Tag>[]) {
+    this.tags = tags.map((t) => new Tag(t));
+  }
 
-      return tagIds.map((id) => ({
-        id,
-        count: self.tagCounts.find((t) => t.id === id)?.count ?? 0,
-      }));
-    },
-    getTagCountById: (id: string): number => {
-      return self.tagCounts.find((t) => t.id === id)?.count ?? 0;
-    },
-  }))
-  .views((self) => ({
-    get tagOptions(): TagOptionSnapshot[] {
-      return self.tags
-        .map((t) => ({
-          aliases: [...t.aliases],
-          count: t.count,
-          id: t.id,
-          label: t.label,
-          parentLabels: t.parentTags.map((t) => t.label),
-        }))
-        .sort((a, b) => b.count - a.count);
-    },
-  }))
-  .actions((self) => ({
-    createTag: (tag: SnapshotOrInstance<Tag>) => {
-      self.tags.push(tag);
-    },
-    deleteTag: (id: string) => {
-      self.tags = cast(self.tags.filter((t) => t.id !== id));
-    },
-    overwrite: (tags: SnapshotOrInstance<Tag>[]) => {
-      self.tags = cast(tags);
-    },
-    setActiveTagId: (tagId: string) => {
-      self.activeTagId = tagId;
-    },
-    setIsTaggerOpen: (isOpen: boolean) => {
-      if (isOpen) self.taggerMode = "edit";
-      self.isTaggerOpen = isOpen;
-    },
-    setIsTagManagerOpen: (isOpen: boolean) => {
-      self.isTagManagerOpen = isOpen;
-    },
-    setTaggerMode: (mode: "create" | "edit") => {
-      self.taggerMode = mode;
-    },
-    setTagManagerMode: (mode: "create" | "edit" | "search") => {
-      self.tagManagerMode = mode;
-    },
-  }));
+  @modelAction
+  setIsTaggerOpen(isOpen: boolean) {
+    if (isOpen) this.taggerMode = "edit";
+    this.isTaggerOpen = isOpen;
+  }
 
-export interface TagStore extends Instance<typeof TagStoreModel> {}
+  getById(id: string) {
+    return this.tags.find((t) => t.id === id);
+  }
+
+  getByLabel(label: string) {
+    return this.tags.find((t) => t.label === label);
+  }
+
+  getTagCounts(files: File[], includeParents = false) {
+    const tagIds = [
+      ...new Set(
+        files.map((f) => f.tags.map((t) => [t.id, ...(includeParents ? t.parentIds : [])])).flat(2)
+      ),
+    ];
+
+    return tagIds.map((id) => ({
+      id,
+      count: this.tagCounts.find((t) => t.id === id)?.count ?? 0,
+    }));
+  }
+
+  getTagCountById(id: string) {
+    return this.tagCounts.find((t) => t.id === id)?.count ?? 0;
+  }
+
+  listByParentId(id: string) {
+    return this.tags.filter((t) => t.parentIds.includes(id));
+  }
+
+  @computed
+  get activeTag() {
+    return this.tags.find((t) => t.id === this.activeTagId);
+  }
+
+  @computed
+  get tagCounts() {
+    const { fileStore } = getRootStore<RootStore>(this);
+
+    return fileStore.files
+      .map((f) => f.tagAncestry)
+      .flat(2)
+      .reduce((tagCounts, id) => {
+        if (!id) return tagCounts;
+
+        const tagCount = tagCounts.find((t) => t.id === id);
+        if (!tagCount) tagCounts.push({ count: 1, id });
+        else tagCount.count++;
+
+        return tagCounts;
+      }, [] as TagCount[])
+      .sort((a, b) => a.count - b.count);
+  }
+
+  @computed
+  get tagOptions() {
+    return this.tags
+      .map((t) => ({
+        aliases: [...t.aliases],
+        count: t.count,
+        id: t.id,
+        label: t.label,
+        parentLabels: t.parentTags?.map((t) => t.label),
+      }))
+      .sort((a, b) => b.count - a.count);
+  }
+}

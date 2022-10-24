@@ -1,8 +1,7 @@
 import { useRef, useState } from "react";
 import { editFileTags } from "database";
 import { observer } from "mobx-react-lite";
-import { useStores } from "store";
-import { File } from "store/files";
+import { File, TagOption, useStores } from "store";
 import Draggable from "react-draggable";
 import {
   Dialog,
@@ -14,7 +13,7 @@ import {
   PaperProps,
 } from "@mui/material";
 import { Button, TagInput, Text, View } from "components";
-import { TagEditor, TagOption } from ".";
+import { TagEditor } from ".";
 import { makeClasses } from "utils";
 import { toast } from "react-toastify";
 

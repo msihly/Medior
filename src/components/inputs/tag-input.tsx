@@ -1,17 +1,10 @@
 import { ComponentProps, forwardRef, HTMLAttributes, MutableRefObject } from "react";
 import { Autocomplete, Chip, colors } from "@mui/material";
 import { observer } from "mobx-react-lite";
-import { useStores } from "store";
+import { TagOption, useStores } from "store";
 import { Tag, View } from "components";
 import { Input } from ".";
 import { makeClasses } from "utils";
-
-export type TagOption = {
-  aliases?: string[];
-  count: number;
-  id: string;
-  label?: string;
-};
 
 type TagInputProps = Omit<
   ComponentProps<typeof Autocomplete>,

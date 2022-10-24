@@ -13,7 +13,7 @@ interface DetailRowsProps {
   rows: Row[];
 }
 
-const DetailRows = ({ labelWidth = "8rem", rows }: DetailRowsProps) => {
+export const DetailRows = ({ labelWidth = "8rem", rows }: DetailRowsProps) => {
   const { classes: css } = useClasses({ labelWidth });
 
   return (
@@ -27,8 +27,6 @@ const DetailRows = ({ labelWidth = "8rem", rows }: DetailRowsProps) => {
     </View>
   );
 };
-
-export default DetailRows;
 
 const useClasses = makeClasses((_, { labelWidth }) => ({
   label: {

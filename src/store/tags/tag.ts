@@ -1,54 +1,60 @@
+import { computed } from "mobx";
 import {
   applySnapshot,
-  getParentOfType,
-  Instance,
-  SnapshotOrInstance,
-  SnapshotOut,
-  types,
-} from "mobx-state-tree";
-import { RootStoreModel } from "store/root-store";
-import { TagOptionSnapshot } from "store/files";
-import { TagStore } from "./tag-store";
+  getRootStore,
+  getSnapshot,
+  model,
+  Model,
+  modelAction,
+  prop,
+} from "mobx-keystone";
+import { RootStore } from "store";
 
-export const TagModel = types
-  .model("Tag")
-  .props({
-    aliases: types.array(types.string),
-    id: types.string,
-    label: types.string,
-    parentIds: types.array(types.string),
-  })
-  .views((self) => ({
-    get parentTags(): Tag[] {
-      const rootStore = getParentOfType(self, RootStoreModel);
-      const tagStore: TagStore = rootStore.tagStore;
-      return self.parentIds.map((id) => tagStore.getById(id));
-    },
-    get count(): number {
-      const rootStore = getParentOfType(self, RootStoreModel);
-      const tagStore: TagStore = rootStore.tagStore;
-      return tagStore.getTagCountById(self.id);
-    },
-  }))
-  .views((self) => ({
-    get parentTagOptions(): TagOptionSnapshot[] {
-      return self.parentTags.map((t) => t.tagOption);
-    },
-    get tagOption(): TagOptionSnapshot {
-      return {
-        aliases: [...self.aliases],
-        count: self.count,
-        id: self.id,
-        label: self.label,
-        parentLabels: self.parentTags.map((t) => t.label),
-      };
-    },
-  }))
-  .actions((self) => ({
-    update: (tag: Partial<SnapshotOrInstance<typeof self>>) => {
-      applySnapshot(self, { ...self, ...tag });
-    },
-  }));
+export const getTagAncestry = (tags: Tag[]): string[] =>
+  tags.flatMap((t) => [t.id, ...getTagAncestry(t.parentTags)]);
 
-export interface Tag extends Instance<typeof TagModel> {}
-export interface TagSnapshot extends SnapshotOut<typeof TagModel> {}
+@model("mediaViewer/Tag")
+export class Tag extends Model({
+  aliases: prop<string[]>(() => []),
+  id: prop<string>(),
+  label: prop<string>(),
+  parentIds: prop<string[]>(() => []),
+}) {
+  @modelAction
+  update(tag: Partial<Tag>) {
+    applySnapshot(this, { ...getSnapshot(this), ...tag });
+  }
+
+  @computed
+  get count() {
+    const { tagStore } = getRootStore<RootStore>(this);
+    return tagStore.getTagCountById(this.id);
+  }
+
+  @computed
+  get parentTags() {
+    const { tagStore } = getRootStore<RootStore>(this);
+    return this.parentIds.map((id) => tagStore.getById(id));
+  }
+
+  @computed
+  get tagAncestry() {
+    return getTagAncestry(this.parentTags);
+  }
+
+  @computed
+  get tagOption() {
+    return {
+      aliases: [...this.aliases],
+      count: this.count,
+      id: this.id,
+      label: this.label,
+      parentLabels: this.parentTags.map((t) => t.label),
+    };
+  }
+
+  @computed
+  get parentTagOptions() {
+    return this.parentTags.map((t) => t.tagOption);
+  }
+}

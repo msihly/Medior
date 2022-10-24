@@ -9,7 +9,7 @@ interface SideScrollerProps {
   innerClassName?: string;
 }
 
-const SideScroller = ({ children, className, innerClassName }: SideScrollerProps) => {
+export const SideScroller = ({ children, className, innerClassName }: SideScrollerProps) => {
   const ref = useRef<HTMLDivElement>(null);
   const { width } = useElementResize(ref);
 
@@ -77,8 +77,6 @@ const SideScroller = ({ children, className, innerClassName }: SideScrollerProps
     </View>
   );
 };
-
-export default SideScroller;
 
 const useClasses = makeClasses((_, { isLeftButtonVisible, isRightButtonVisible }) => ({
   items: {

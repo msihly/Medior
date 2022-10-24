@@ -8,7 +8,7 @@ interface TextProps extends Omit<TypographyProps, "color"> {
   component?: ElementType;
 }
 
-const Text = ({
+export const Text = ({
   bold = false,
   children,
   className = null,
@@ -30,8 +30,6 @@ const Text = ({
     </Typography>
   );
 };
-
-export default Text;
 
 const useClasses = makeClasses((_, { color }) => ({
   root: {

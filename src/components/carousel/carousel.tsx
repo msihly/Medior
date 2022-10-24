@@ -24,7 +24,7 @@ interface CarouselContextProps {
 
 export const CarouselContext = createContext<CarouselContextProps>(null);
 
-const Carousel = observer(() => {
+export const Carousel = observer(() => {
   const { activeFileId, panZoomRef } = useContext(CarouselContext);
 
   const { fileStore } = useStores();
@@ -171,8 +171,6 @@ const Carousel = observer(() => {
     </>
   );
 });
-
-export default Carousel;
 
 const useClasses = makeClasses((_, { isVolumeVisible }) => ({
   image: {

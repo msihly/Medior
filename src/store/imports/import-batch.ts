@@ -1,47 +1,50 @@
-import { cast, Instance, types } from "mobx-state-tree";
-import { FileImportInstance, FileImportModel } from ".";
+import { model, Model, modelAction, prop } from "mobx-keystone";
+import { FileImport } from ".";
 import { dayjs, DayJsInput } from "utils";
-import { ImportStatus } from "components";
+import { computed } from "mobx";
 
-export const ImportBatchModel = types
-  .model({
-    addedAt: types.string,
-    completedAt: types.maybeNull(types.string),
-    id: types.string,
-    imports: types.array(FileImportModel),
-    startedAt: types.maybeNull(types.string),
-    tagIds: types.array(types.string),
-  })
-  .views((self) => ({
-    get completed(): FileImportInstance[] {
-      return self.imports.filter((imp) => imp.status === "COMPLETE");
-    },
-    get imported(): FileImportInstance[] {
-      return self.imports.filter((imp) => imp.status !== "PENDING");
-    },
-    get nextImport(): FileImportInstance {
-      return self.imports.find((imp) => imp.status === "PENDING");
-    },
-    get status(): ImportStatus {
-      return self.imports.some((imp) => imp.status === "PENDING")
-        ? "PENDING"
-        : self.imports.some((imp) => imp.status === "ERROR")
-        ? "ERROR"
-        : self.imports.some((imp) => imp.status === "DUPLICATE")
-        ? "DUPLICATE"
-        : "COMPLETE";
-    },
-  }))
-  .actions((self) => ({
-    setCompletedAt: (completedAt: DayJsInput) => {
-      self.completedAt = dayjs(completedAt).toISOString();
-    },
-    setStartedAt: (startedAt: DayJsInput) => {
-      self.startedAt = dayjs(startedAt).toISOString();
-    },
-    setTagIds: (tagIds: string[]) => {
-      self.tagIds = cast(tagIds);
-    },
-  }));
+@model("mediaViewer/ImportBatch")
+export class ImportBatch extends Model({
+  addedAt: prop<string>(),
+  completedAt: prop<string>(null),
+  id: prop<string>(),
+  imports: prop<FileImport[]>(() => []),
+  startedAt: prop<string>(null),
+  tagIds: prop<string[]>().withSetter(),
+}) {
+  @modelAction
+  setCompletedAt(completedAt: DayJsInput) {
+    this.completedAt = dayjs(completedAt).toISOString();
+  }
 
-export interface ImportBatch extends Instance<typeof ImportBatchModel> {}
+  @modelAction
+  setStartedAt(startedAt: DayJsInput) {
+    this.startedAt = dayjs(startedAt).toISOString();
+  }
+
+  @computed
+  get completed() {
+    return this.imports.filter((imp) => imp.status === "COMPLETE");
+  }
+
+  @computed
+  get imported() {
+    return this.imports.filter((imp) => imp.status !== "PENDING");
+  }
+
+  @computed
+  get nextImport() {
+    return this.imports.find((imp) => imp.status === "PENDING");
+  }
+
+  @computed
+  get status() {
+    return this.imports.some((imp) => imp.status === "PENDING")
+      ? "PENDING"
+      : this.imports.some((imp) => imp.status === "ERROR")
+      ? "ERROR"
+      : this.imports.some((imp) => imp.status === "DUPLICATE")
+      ? "DUPLICATE"
+      : "COMPLETE";
+  }
+}

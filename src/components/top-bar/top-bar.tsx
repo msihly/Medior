@@ -1,17 +1,15 @@
-import { useContext, useState } from "react";
+import { useState } from "react";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
 import { deleteFiles, FileInfoRefreshQueue, refreshFile } from "database";
 import { AppBar, colors } from "@mui/material";
-import { HomeContext } from "views";
 import { IconButton, Tagger, View } from "components";
 import { SortMenu } from ".";
 import { makeClasses } from "utils";
 import { toast } from "react-toastify";
 
-const TopBar = observer(() => {
-  const context = useContext(HomeContext);
-  const { appStore, fileStore, tagStore } = useStores();
+export const TopBar = observer(() => {
+  const { homeStore, fileStore, tagStore } = useStores();
   const { classes: css } = useClasses(null);
 
   const [isCollectionEditorOpen, setIsCollectionEditorOpen] = useState(false);
@@ -38,12 +36,12 @@ const TopBar = observer(() => {
 
   const handleSelectAll = () => {
     fileStore.toggleFilesSelected(
-      context.displayedFiles.map((f) => f.id),
+      homeStore.displayedFiles.map((f) => f.id),
       true
     );
 
     toast.info(
-      `Added ${context.displayedFiles.length} files to selection (${fileStore.selected.length})`
+      `Added ${homeStore.displayedFiles.length} files to selection (${fileStore.selected.length})`
     );
   };
 
@@ -53,13 +51,13 @@ const TopBar = observer(() => {
     <AppBar position="relative" className={css.appBar}>
       <View className={css.container}>
         <span className={css.divisions}>
-          {!appStore.isDrawerOpen && (
-            <IconButton name="Menu" onClick={() => appStore.setIsDrawerOpen(true)} size="medium" />
+          {!homeStore.isDrawerOpen && (
+            <IconButton name="Menu" onClick={() => homeStore.setIsDrawerOpen(true)} size="medium" />
           )}
         </span>
 
         <span className={css.divisions}>
-          {context?.isArchiveOpen && (
+          {homeStore.isArchiveOpen && (
             <IconButton
               name="Delete"
               onClick={handleDelete}
@@ -69,8 +67,8 @@ const TopBar = observer(() => {
           )}
 
           <IconButton
-            name={context?.isArchiveOpen ? "Unarchive" : "Archive"}
-            onClick={context?.isArchiveOpen ? handleUnarchive : handleDelete}
+            name={homeStore.isArchiveOpen ? "Unarchive" : "Archive"}
+            onClick={homeStore.isArchiveOpen ? handleUnarchive : handleDelete}
             disabled={fileStore.selected.length === 0}
             size="medium"
           />
@@ -113,8 +111,6 @@ const TopBar = observer(() => {
     </AppBar>
   );
 });
-
-export default TopBar;
 
 const useClasses = makeClasses({
   appBar: {

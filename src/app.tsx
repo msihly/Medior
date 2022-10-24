@@ -15,7 +15,7 @@ export const rootStore = createRootStore();
 const darkTheme = createTheme({ palette: { mode: "dark" } });
 const muiCache = createCache({ key: "mui", prepend: true });
 
-const App = () => {
+export const App = () => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -51,5 +51,3 @@ const App = () => {
     </RootStoreContext.Provider>
   );
 };
-
-export default App;

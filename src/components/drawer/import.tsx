@@ -1,14 +1,14 @@
 import { observer } from "mobx-react-lite";
-import { FileImportSnapshot } from "store/imports";
+import { FileImport } from "store";
 import { colors } from "@mui/material";
 import { Icon, IMPORT_STATUSES, Text, View } from "components";
 import { makeClasses } from "utils";
 
 interface ImportProps {
-  fileImport: FileImportSnapshot;
+  fileImport: FileImport;
 }
 
-const Import = observer(({ fileImport }: ImportProps) => {
+export const Import = observer(({ fileImport }: ImportProps) => {
   const { classes: css } = useClasses(null);
 
   const status = IMPORT_STATUSES[fileImport.status];
@@ -29,8 +29,6 @@ const Import = observer(({ fileImport }: ImportProps) => {
     </View>
   );
 });
-
-export default Import;
 
 const useClasses = makeClasses({
   body: {

@@ -1,2 +1,2 @@
-export { default as DetailRows } from "./detail-rows";
-export { default as ListItem } from "./list-item";
+export { DetailRows } from "./detail-rows";
+export { ListItem } from "./list-item";

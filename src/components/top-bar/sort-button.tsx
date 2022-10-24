@@ -1,6 +1,6 @@
-import { useContext } from "react";
+import { observer } from "mobx-react-lite";
+import { useStores } from "store";
 import { colors } from "@mui/material";
-import { HomeContext } from "views";
 import { IconButton } from "components";
 import { makeClasses } from "utils";
 
@@ -9,16 +9,15 @@ interface SortButtonProps {
   isDesc?: boolean;
 }
 
-export const SortButton = ({ attribute, isDesc = false }: SortButtonProps) => {
-  const context = useContext(HomeContext);
-
+export const SortButton = observer(({ attribute, isDesc = false }: SortButtonProps) => {
+  const { homeStore } = useStores();
   const { classes: css } = useClasses({
-    isActive: attribute === context?.sortKey && isDesc === context?.isSortDesc,
+    isActive: attribute === homeStore.sortKey && isDesc === homeStore.isSortDesc,
   });
 
   const updateSort = () => {
-    context?.setSortKey(attribute);
-    context?.setIsSortDesc(isDesc);
+    homeStore.setSortKey(attribute);
+    homeStore.setIsSortDesc(isDesc);
   };
 
   return (
@@ -29,7 +28,7 @@ export const SortButton = ({ attribute, isDesc = false }: SortButtonProps) => {
       className={css.button}
     />
   );
-};
+});
 
 const useClasses = makeClasses((_, { isActive }) => ({
   attribute: {

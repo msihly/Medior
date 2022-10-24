@@ -2,8 +2,7 @@ import { promises as fs, constants as fsc } from "fs";
 import path from "path";
 import md5File from "md5-file";
 import { File, FileModel } from "database";
-import { FileStore, VIDEO_TYPES } from "store/files";
-import { FileImportInstance } from "store/imports";
+import { FileImport, FileStore, VIDEO_TYPES } from "store";
 import { dayjs, generateFramesThumbnail, getVideoInfo, splitArray } from "utils";
 
 const checkFileExists = async (path: string) => !!(await fs.stat(path).catch(() => false));
@@ -17,7 +16,7 @@ const copyFile = async (dirPath: string, originalPath: string, newPath: string) 
 
 interface CopyFileToProps {
   dbOnly?: boolean;
-  fileObj: FileImportInstance;
+  fileObj: FileImport;
   tagIds?: string[];
   targetDir: string;
 }

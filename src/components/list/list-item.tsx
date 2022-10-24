@@ -17,7 +17,7 @@ export interface ListItemProps extends MuiListItemProps {
   text: string;
 }
 
-const ListItem = ({
+export const ListItem = ({
   color,
   icon,
   iconMargin = "1rem",
@@ -44,8 +44,6 @@ const ListItem = ({
     </MuiListItem>
   );
 };
-
-export default ListItem;
 
 const useClasses = makeClasses((_, { iconMargin, paddingLeft, paddingRight }) => ({
   root: {

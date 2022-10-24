@@ -1,5 +1,5 @@
-export { default as ImportsProgress } from "./imports-progress";
+export { ImportsProgress } from "./imports-progress";
 export { SortButton } from "./sort-button";
-export { default as SortMenu } from "./sort-menu";
-export { default as SortRow } from "./sort-row";
-export { default as TopBar } from "./top-bar";
+export { SortMenu } from "./sort-menu";
+export { SortRow } from "./sort-row";
+export { TopBar } from "./top-bar";

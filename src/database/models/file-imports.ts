@@ -14,6 +14,7 @@ export interface FileImport {
 export interface FileImportBatch {
   addedAt: string;
   completedAt: string;
+  id: string;
   imports: FileImport[];
   startedAt: string;
   tagIds: string[];
@@ -41,7 +42,14 @@ const FileImportBatchSchema = new Schema<FileImportBatch>({
 
 FileImportBatchSchema.index({ addedAt: 1 });
 
-FileImportBatchSchema.set("toJSON", { virtuals: true });
+FileImportBatchSchema.set("toJSON", {
+  transform: (_, ret) => {
+    delete ret._id;
+    delete ret.__v;
+    ret.imports.forEach((imp) => delete imp._id);
+  },
+  virtuals: true,
+});
 
 export const FileImportBatchModel = model<FileImportBatch>(
   "FileImportBatch",

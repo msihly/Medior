@@ -4,17 +4,10 @@ import fs from "fs/promises";
 import path from "path";
 import dirTree from "directory-tree";
 import { observer } from "mobx-react-lite";
-import { useStores } from "store";
-import { IMAGE_TYPES, VIDEO_TYPES } from "store/files";
-import {
-  addImportToBatch,
-  createImportBatch,
-  FileImport,
-  ImportQueue,
-  useFileImportQueue,
-} from "database";
+import { FileImport, IMAGE_TYPES, TagOption, useStores, VIDEO_TYPES } from "store";
+import { addImportToBatch, createImportBatch, ImportQueue, useFileImportQueue } from "database";
 import { Dialog, DialogTitle, DialogContent, DialogActions, colors } from "@mui/material";
-import { Button, ImportBatch, TagInput, TagOption, Text, View } from "components";
+import { Button, ImportBatch, TagInput, Text } from "components";
 import { dayjs, makeClasses } from "utils";
 
 interface ImporterProps {
@@ -24,7 +17,7 @@ interface ImporterProps {
 
 const EXT_REG_EXP = new RegExp(`\.(${IMAGE_TYPES.join("|")}|${VIDEO_TYPES.join("|")})$`, "i");
 
-const Importer = observer(({ isOpen = false, setIsOpen }: ImporterProps) => {
+export const Importer = observer(({ isOpen = false, setIsOpen }: ImporterProps) => {
   const { importStore, tagStore } = useStores();
   const { classes: css } = useClasses(null);
 
@@ -56,14 +49,14 @@ const Importer = observer(({ isOpen = false, setIsOpen }: ImporterProps) => {
           res.filePaths[0],
           { extensions: EXT_REG_EXP, attributes: ["birthtime"] },
           async (fileObj, _, fileStats) => {
-            const fileImport: FileImport = {
+            const fileImport = {
               dateCreated: fileStats.birthtime.toISOString(),
               extension: fileObj.extension,
               name: fileObj.name,
               path: fileObj.path,
               size: fileObj.size,
               status: "PENDING",
-            };
+            } as FileImport;
 
             ImportQueue.add(() => addImportToBatch(importStore, addedAt, fileImport));
           }
@@ -72,14 +65,14 @@ const Importer = observer(({ isOpen = false, setIsOpen }: ImporterProps) => {
         res.filePaths.forEach(async (p) => {
           const { birthtime, size } = await fs.stat(p);
 
-          const fileImport: FileImport = {
+          const fileImport = {
             dateCreated: birthtime.toISOString(),
             extension: path.extname(p),
             name: path.parse(p).name,
             path: p,
             size,
             status: "PENDING",
-          };
+          } as FileImport;
 
           ImportQueue.add(() => addImportToBatch(importStore, addedAt, fileImport));
         });
@@ -125,8 +118,6 @@ const Importer = observer(({ isOpen = false, setIsOpen }: ImporterProps) => {
     </Dialog>
   );
 });
-
-export default Importer;
 
 const useClasses = makeClasses({
   dialogActions: {

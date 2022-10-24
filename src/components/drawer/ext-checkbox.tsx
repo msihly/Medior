@@ -1,7 +1,6 @@
-import { useContext } from "react";
-import { HomeContext } from "views";
+import { observer } from "mobx-react-lite";
+import { useStores, ImageType, VideoType } from "store";
 import { Checkbox } from "components";
-import { ImageType, VideoType } from "store/files";
 
 interface ExtCheckboxProps {
   ext: ImageType | VideoType;
@@ -9,19 +8,20 @@ interface ExtCheckboxProps {
   type: "Image" | "Video";
 }
 
-const ExtCheckbox = ({ ext, label = null, type }: ExtCheckboxProps) => {
-  const context = useContext(HomeContext);
+export const ExtCheckbox = observer(({ ext, label = null, type }: ExtCheckboxProps) => {
+  const { homeStore } = useStores();
+
   return (
     <Checkbox
       label={label || ext}
-      checked={type === "Image" ? context.selectedImageTypes[ext] : context.selectedVideoTypes[ext]}
+      checked={
+        type === "Image" ? homeStore.selectedImageTypes[ext] : homeStore.selectedVideoTypes[ext]
+      }
       setChecked={(checked) =>
         type === "Image"
-          ? context.setSelectedImageTypes((prev) => ({ ...prev, [ext]: checked }))
-          : context.setSelectedVideoTypes((prev) => ({ ...prev, [ext]: checked }))
+          ? homeStore.setSelectedImageTypes({ [ext]: checked })
+          : homeStore.setSelectedVideoTypes({ [ext]: checked })
       }
     />
   );
-};
-
-export default ExtCheckbox;
+});

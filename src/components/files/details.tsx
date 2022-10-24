@@ -10,7 +10,7 @@ interface FileDetailsProps {
   id: string;
 }
 
-const FileDetails = observer(({ id }: FileDetailsProps) => {
+export const FileDetails = observer(({ id }: FileDetailsProps) => {
   const { fileStore } = useStores();
   const file = fileStore.getById(id);
 
@@ -44,8 +44,6 @@ const FileDetails = observer(({ id }: FileDetailsProps) => {
     </ContextMenu>
   );
 });
-
-export default FileDetails;
 
 const useClasses = makeClasses({
   container: {

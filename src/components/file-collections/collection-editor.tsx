@@ -1,12 +1,11 @@
 import { useMemo, useState } from "react";
 import { observer } from "mobx-react-lite";
-import { useStores } from "store";
-import { FileIdIndex } from "store/collections";
+import { FileIdIndex, useStores } from "store";
 import { Dialog, DialogTitle, DialogContent, DialogActions, colors } from "@mui/material";
 import { Button, FileGrid, Input, Tag, View } from "components";
 import { makeClasses } from "utils";
 
-const FileCollectionEditor = observer(() => {
+export const FileCollectionEditor = observer(() => {
   const { fileCollectionStore, fileStore, tagStore } = useStores();
   const { classes: css } = useClasses(null);
 
@@ -67,8 +66,6 @@ const FileCollectionEditor = observer(() => {
     </Dialog>
   );
 });
-
-export default FileCollectionEditor;
 
 const useClasses = makeClasses({
   body: {

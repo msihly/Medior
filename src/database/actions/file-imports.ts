@@ -1,7 +1,6 @@
 import { useRef, useEffect } from "react";
 import { copyFileTo, FileImportBatch, FileImportBatchModel } from "database";
-import { RootStore, useStores } from "store";
-import { ImportStore, FileImportInstance, FileImportSnapshot } from "store/imports";
+import { FileImport, ImportStore, RootStore, useStores } from "store";
 import { dayjs, PromiseQueue } from "utils";
 import { OUTPUT_DIR } from "env";
 
@@ -12,7 +11,7 @@ export const ImportQueue = new PromiseQueue();
 export const addImportToBatch = async (
   importStore: ImportStore,
   addedAt: string,
-  fileImport: FileImportSnapshot
+  fileImport: FileImport
 ) => {
   try {
     const batch = importStore.getByAddedAt(addedAt);
@@ -83,21 +82,17 @@ export const deleteImportBatch = async (importStore: ImportStore, addedAt: strin
 
 export const getAllImportBatches = async () => {
   try {
-    const importBatches = (await FileImportBatchModel.find()).map(
-      (r) => r.toJSON() as FileImportBatch
-    );
-    return importBatches;
+    return (await FileImportBatchModel.find()).map((r) => {
+      const batch = r.toJSON() as FileImportBatch;
+      return { ...batch, imports: batch.imports as FileImport[] };
+    });
   } catch (err) {
     console.error(err?.message ?? err);
     return [];
   }
 };
 
-export const importFile = async (
-  rootStore: RootStore,
-  addedAt: string,
-  fileImport: FileImportInstance
-) => {
+export const importFile = async (rootStore: RootStore, addedAt: string, fileImport: FileImport) => {
   try {
     const { importStore } = rootStore;
     if (!addedAt || fileImport?.status !== "PENDING") return;

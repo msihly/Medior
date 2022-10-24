@@ -1,52 +1,37 @@
-import { cast, Instance, SnapshotOrInstance, types } from "mobx-state-tree";
-import { FileCollection, FileCollectionModel } from ".";
+import { computed } from "mobx";
+import { model, Model, modelAction, prop } from "mobx-keystone";
+import { FileCollection } from ".";
 
-export const defaultFileCollectionStore = {
-  activeCollectionId: null,
-  activeFileId: null,
-  collections: [],
-  isCollectionManagerOpen: false,
-  isCollectionEditorOpen: false,
-};
+@model("mediaViewer/FileCollectionStore")
+export class FileCollectionStore extends Model({
+  activeCollectionId: prop<string>(null).withSetter(),
+  activeFileId: prop<string>(null).withSetter(),
+  collections: prop<FileCollection[]>(() => []).withSetter(),
+  isCollectionManagerOpen: prop<boolean>(false),
+  isCollectionEditorOpen: prop<boolean>(false),
+}) {
+  @modelAction
+  setIsCollectionEditorOpen(isOpen: boolean) {
+    this.isCollectionEditorOpen = isOpen;
+    if (isOpen) this.isCollectionManagerOpen = false;
+  }
 
-export const FileCollectionStoreModel = types
-  .model("FileCollectionStore")
-  .props({
-    activeCollectionId: types.maybeNull(types.string),
-    activeFileId: types.maybeNull(types.string),
-    collections: types.array(FileCollectionModel),
-    isCollectionManagerOpen: types.boolean,
-    isCollectionEditorOpen: types.boolean,
-  })
-  .views((self) => ({
-    get activeCollection() {
-      return self.collections.find((c) => c.id === self.activeCollectionId);
-    },
-    getById: (id: string): FileCollection => {
-      return self.collections.find((c) => c.id === id);
-    },
-    listByFileId: (id: string): FileCollection[] => {
-      return self.collections.filter((c) => c.fileIdIndexes.find((f) => f.fileId === id));
-    },
-  }))
-  .actions((self) => ({
-    overwrite: (collections: SnapshotOrInstance<FileCollection>[]) => {
-      self.collections = cast(collections);
-    },
-    setActiveCollectionId: (id: string) => {
-      self.activeCollectionId = id;
-    },
-    setActiveFileId: (id: string) => {
-      self.activeFileId = id;
-    },
-    setIsCollectionEditorOpen: (isOpen: boolean) => {
-      self.isCollectionEditorOpen = isOpen;
-      if (isOpen) self.isCollectionManagerOpen = false;
-    },
-    setIsCollectionManagerOpen: (isOpen: boolean) => {
-      self.isCollectionManagerOpen = isOpen;
-      if (isOpen) self.isCollectionEditorOpen = false;
-    },
-  }));
+  @modelAction
+  setIsCollectionManagerOpen(isOpen: boolean) {
+    this.isCollectionManagerOpen = isOpen;
+    if (isOpen) this.isCollectionEditorOpen = false;
+  }
 
-export interface FileCollectionStore extends Instance<typeof FileCollectionStoreModel> {}
+  getById(id: string) {
+    return this.collections.find((c) => c.id === id);
+  }
+
+  listByFileId(id: string) {
+    return this.collections.filter((c) => c.fileIdIndexes.find((f) => f.fileId === id));
+  }
+
+  @computed
+  get activeCollection() {
+    return this.collections.find((c) => c.id === this.activeCollectionId);
+  }
+}

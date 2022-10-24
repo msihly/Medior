@@ -10,7 +10,7 @@ interface FileCollectionProps {
   id: string;
 }
 
-const FileCollection = observer(({ active = false, id }: FileCollectionProps) => {
+export const FileCollection = observer(({ active = false, id }: FileCollectionProps) => {
   const { fileCollectionStore, tagStore } = useStores();
   const collection = fileCollectionStore.getById(id);
 
@@ -77,8 +77,6 @@ const FileCollection = observer(({ active = false, id }: FileCollectionProps) =>
     </View>
   );
 });
-
-export default FileCollection;
 
 const useClasses = makeClasses((theme, { active }) => ({
   container: {

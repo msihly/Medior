@@ -1,23 +1,18 @@
 import { FileImportBatchModel, FileModel, Tag, TagModel } from "database";
-import { TagStore } from "store/tags";
-
-interface CreateTagProps {
-  aliases?: string[];
-  label: string;
-  parentIds?: string[];
-}
-
-interface CreateTagResult {
-  error?: string;
-  success: boolean;
-  tag?: Tag;
-}
 
 export const createTag = async ({
   aliases = [],
   label,
   parentIds = [],
-}: CreateTagProps): Promise<CreateTagResult> => {
+}: {
+  aliases?: string[];
+  label: string;
+  parentIds?: string[];
+}): Promise<{
+  error?: string;
+  success: boolean;
+  tag?: Tag;
+}> => {
   try {
     const tag = (await TagModel.create({ aliases, label, parentIds })).toJSON() as Tag;
     return { success: true, tag };
@@ -53,14 +48,17 @@ export const deleteTag = async (id: string) => {
   }
 };
 
-interface EditTagProps {
+export const editTag = async ({
+  aliases,
+  id,
+  label,
+  parentIds,
+}: {
   aliases?: string[];
   id: string;
   label?: string;
   parentIds?: string[];
-}
-
-export const editTag = async ({ aliases, id, label, parentIds }: EditTagProps) => {
+}) => {
   try {
     await TagModel.updateOne({ _id: id }, { aliases, label, parentIds });
     return { success: true };

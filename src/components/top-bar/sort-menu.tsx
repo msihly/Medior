@@ -3,7 +3,7 @@ import { colors, Menu } from "@mui/material";
 import { Button, View } from "components";
 import { SortRow } from ".";
 
-const SortMenu = () => {
+export const SortMenu = () => {
   const [anchorEl, setAnchorEl] = useState(null);
 
   const handleOpen = (event) => setAnchorEl(event.currentTarget);
@@ -29,5 +29,3 @@ const SortMenu = () => {
     </>
   );
 };
-
-export default SortMenu;

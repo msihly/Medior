@@ -11,7 +11,7 @@ interface InfoModalProps {
   setVisible: (visible: boolean) => void;
 }
 
-const InfoModal = observer(({ fileId, setVisible }: InfoModalProps) => {
+export const InfoModal = observer(({ fileId, setVisible }: InfoModalProps) => {
   const { classes: css } = useClasses(null);
 
   const { fileStore } = useStores();
@@ -83,8 +83,6 @@ const InfoModal = observer(({ fileId, setVisible }: InfoModalProps) => {
     </Dialog>
   );
 });
-
-export default InfoModal;
 
 const useClasses = makeClasses({
   buttons: {

@@ -20,7 +20,7 @@ interface ImportBatchProps {
   addedAt: string;
 }
 
-const ImportBatch = observer(({ addedAt }: ImportBatchProps) => {
+export const ImportBatch = observer(({ addedAt }: ImportBatchProps) => {
   const { importStore } = useStores();
 
   const batch = importStore.getByAddedAt(addedAt);
@@ -81,8 +81,6 @@ const ImportBatch = observer(({ addedAt }: ImportBatchProps) => {
     </View>
   );
 });
-
-export default ImportBatch;
 
 const useClasses = makeClasses((_, { expanded, hasTags }) => ({
   deleteButton: {

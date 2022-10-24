@@ -8,7 +8,7 @@ import Color from "color";
 
 const THUMB_WIDTH = 135; // px
 
-const CarouselThumbNavigator = () => {
+export const CarouselThumbNavigator = () => {
   const { activeFileId, selectedFileIds } = useContext(CarouselContext);
 
   const listRef = useRef<FixedSizeList>(null);
@@ -80,8 +80,6 @@ const CarouselThumbNavigator = () => {
     </View>
   );
 };
-
-export default CarouselThumbNavigator;
 
 const useClasses = makeClasses((_, { isVisible }) => ({
   hideButton: {
