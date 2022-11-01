@@ -157,7 +157,7 @@ export const Home = observer(() => {
       .sort(sortFn);
   }, [
     sortFn,
-    fileStore.files,
+    fileStore.files.slice(),
     homeStore.excludedTags,
     homeStore.includeDescendants,
     homeStore.includeTagged,

@@ -4,7 +4,7 @@ import pluginRenderer from "vite-plugin-electron-renderer";
 import pluginSVGR from "vite-plugin-svgr";
 import pluginTsconfigPaths from "vite-tsconfig-paths";
 
-const EXTERNALS = ["crypto", "fluent-ffmpeg", "fs", "mongoose", "sharp"];
+const EXTERNALS = ["crypto", "fluent-ffmpeg", "fs", "mongoose", "path", "sharp"];
 
 export default defineConfig({
   build: { outDir: "build" },
