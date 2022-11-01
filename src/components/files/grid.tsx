@@ -1,8 +1,9 @@
 import { ipcRenderer } from "electron";
-import { useRef, useState } from "react";
+import { useContext, useRef, useState } from "react";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
 import { colors, Chip, Paper } from "@mui/material";
+import { FilteredFilesContext } from "views";
 import { Icon, SideScroller, Tag, View } from "components";
 import { ContextMenu } from ".";
 import { dayjs, makeClasses } from "utils";
@@ -12,10 +13,12 @@ interface FileGridProps {
 }
 
 export const FileGrid = observer(({ id }: FileGridProps) => {
-  const { fileStore, homeStore, tagStore } = useStores();
+  const { fileStore, tagStore } = useStores();
   const file = fileStore.getById(id);
 
   const { css } = useClasses({ selected: file?.isSelected });
+
+  const filteredFiles = useContext(FilteredFilesContext);
 
   const thumbInterval = useRef(null);
   const [thumbIndex, setThumbIndex] = useState(0);
@@ -44,7 +47,7 @@ export const FileGrid = observer(({ id }: FileGridProps) => {
     ipcRenderer.send("createCarouselWindow", {
       fileId: id,
       height: file.height,
-      selectedFileIds: homeStore.filteredFiles.map((f) => f.id),
+      selectedFileIds: filteredFiles.map((f) => f.id),
       width: file.width,
     });
   };
@@ -140,7 +143,7 @@ const useClasses = makeClasses((theme, { selected }) => ({
   },
   image: {
     width: "100%",
-    height: "9rem",
+    minHeight: "9rem",
     objectFit: "cover",
     borderTopLeftRadius: "inherit",
     borderTopRightRadius: "inherit",

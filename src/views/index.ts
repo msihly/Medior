@@ -1,2 +1,2 @@
 export { CarouselWindow } from "./carousel-window";
-export { Home } from "./home";
+export { Home, DisplayedFilesContext, FilteredFilesContext } from "./home";

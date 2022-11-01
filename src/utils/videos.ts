@@ -12,9 +12,9 @@ interface VideoInfo {
 
 export const getVideoInfo = async (path: string) => {
   return (await new Promise(async (resolve, reject) => {
-    const ffmpeg = (await import("fluent-ffmpeg")).default;
+    const { ffprobe } = await import("fluent-ffmpeg");
 
-    return ffmpeg.ffprobe(path, (err, info) => {
+    return ffprobe(path, (err, info) => {
       if (err) return reject(err);
       const { height, r_frame_rate, width } = info.streams.find((s) => s.codec_type === "video");
       const { duration, size } = info.format;

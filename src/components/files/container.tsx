@@ -1,12 +1,13 @@
-import { useEffect, useRef } from "react";
+import { useContext, useEffect, useMemo, useRef } from "react";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
 import Selecto, { OnSelect } from "react-selecto";
 import { Pagination, colors } from "@mui/material";
 import { Text, View } from "components";
 import { FileDetails, FileGrid } from ".";
-import { makeClasses } from "utils";
+import { $C, makeClasses } from "utils";
 import { setFileRating } from "database";
+import { DisplayedFilesContext, FilteredFilesContext } from "views";
 
 interface FileContainerProps {
   mode: "details" | "grid";
@@ -16,12 +17,21 @@ export const FileContainer = observer(({ mode }: FileContainerProps) => {
   const { css } = useClasses(null);
   const { fileStore, homeStore, tagStore } = useStores();
 
+  const displayedFiles = useContext(DisplayedFilesContext);
+  const filteredFiles = useContext(FilteredFilesContext);
+
+  const pageCount = useMemo(() => {
+    return filteredFiles.length < $C.FILE_COUNT
+      ? 1
+      : Math.ceil(filteredFiles.length / $C.FILE_COUNT);
+  }, [filteredFiles]);
+
   const selectRef = useRef(null);
   const selectoRef = useRef(null);
 
   useEffect(() => {
-    if (homeStore.page > homeStore.pageCount) homeStore.setPage(homeStore.pageCount);
-  }, [homeStore.page, homeStore.pageCount]);
+    if (homeStore.page > pageCount) homeStore.setPage(pageCount);
+  }, [homeStore.page, pageCount]);
 
   useEffect(() => {
     if (fileStore.selected.length === 0) selectoRef.current?.setSelectedTargets?.([]);
@@ -33,17 +43,15 @@ export const FileContainer = observer(({ mode }: FileContainerProps) => {
       tagStore.setIsTaggerOpen(true);
     } else if (fileStore.selected.length === 1) {
       const selectedId = fileStore.selected[0].id;
-      const indexOfSelected = homeStore.filteredFiles.findIndex((f) => f.id === selectedId);
-      const nextIndex =
-        indexOfSelected === homeStore.filteredFiles.length - 1 ? 0 : indexOfSelected + 1;
-      const nextId = homeStore.filteredFiles[nextIndex].id;
-      const prevIndex =
-        indexOfSelected === 0 ? homeStore.filteredFiles.length - 1 : indexOfSelected - 1;
-      const prevId = homeStore.filteredFiles[prevIndex].id;
+      const indexOfSelected = filteredFiles.findIndex((f) => f.id === selectedId);
+      const nextIndex = indexOfSelected === filteredFiles.length - 1 ? 0 : indexOfSelected + 1;
+      const nextId = filteredFiles[nextIndex].id;
+      const prevIndex = indexOfSelected === 0 ? filteredFiles.length - 1 : indexOfSelected - 1;
+      const prevId = filteredFiles[prevIndex].id;
 
       if (["ArrowLeft", "ArrowRight"].includes(e.key)) {
         const newId = e.key === "ArrowLeft" ? prevId : nextId;
-        if (!homeStore.displayedFiles.find((f) => f.id === newId))
+        if (!displayedFiles.find((f) => f.id === newId))
           homeStore.setPage(homeStore.page + 1 * (e.key === "ArrowLeft" ? -1 : 1));
         fileStore.toggleFilesSelected([selectedId], false);
         fileStore.toggleFilesSelected([newId], true);
@@ -69,11 +77,11 @@ export const FileContainer = observer(({ mode }: FileContainerProps) => {
 
     if (hasAdded) {
       if (isShiftClick) {
-        const lastIndex = homeStore.displayedFiles.findIndex(
+        const lastIndex = displayedFiles.findIndex(
           (f) => f.id === fileStore.selected[fileStore.selected.length - 1]?.id
         );
-        const addedIndex = homeStore.displayedFiles.findIndex((f) => f.id === addedIds[0]);
-        const rangeIds = homeStore.displayedFiles
+        const addedIndex = displayedFiles.findIndex((f) => f.id === addedIds[0]);
+        const rangeIds = displayedFiles
           .slice(
             lastIndex > addedIndex ? addedIndex : lastIndex,
             (addedIndex > lastIndex ? addedIndex : lastIndex) + 1
@@ -105,8 +113,8 @@ export const FileContainer = observer(({ mode }: FileContainerProps) => {
       />
 
       <View ref={selectRef} onKeyDown={handleKeyPress} tabIndex={1} className={css.files}>
-        {homeStore.displayedFiles?.length > 0 ? (
-          homeStore.displayedFiles.map((f) =>
+        {displayedFiles?.length > 0 ? (
+          displayedFiles.map((f) =>
             mode === "details" ? (
               <FileDetails key={f.id} id={f.id} />
             ) : (
@@ -123,7 +131,7 @@ export const FileContainer = observer(({ mode }: FileContainerProps) => {
       </View>
 
       <Pagination
-        count={homeStore.pageCount}
+        count={pageCount}
         page={homeStore.page}
         onChange={(_, value) => homeStore.setPage(value)}
         showFirstButton

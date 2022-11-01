@@ -27,13 +27,16 @@ export const rotateArrayPos = (direction: "prev" | "next", current: number, leng
 
 export const sortArray = (arr: any[], key: string, isDesc = true, isNumber = false) => {
   if (!arr?.length) return [];
-  return [...arr].sort((a, b) => {
+
+  const sortFn = (a, b) => {
     const first = a[key] ?? (isNumber ? 0 : "");
     const second = b[key] ?? (isNumber ? 0 : "");
 
     const comparison = isNumber ? second - first : String(second).localeCompare(String(first));
     return isDesc ? comparison : comparison * -1;
-  });
+  };
+
+  return [...arr].sort(sortFn);
 };
 
 export const splitArray = (arr: any[], filterFn: (element: any) => boolean): any[][] =>
