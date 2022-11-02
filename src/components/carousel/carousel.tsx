@@ -107,6 +107,7 @@ export const Carousel = observer(() => {
             className={css.image}
             alt={activeFile?.originalName}
             draggable={false}
+            loading="lazy"
           />
         )}
       </View>

@@ -198,6 +198,16 @@ export const editFileTags = async (
   }
 };
 
+export const getAllFiles = async () => {
+  try {
+    const files = (await FileModel.find()).map((r) => r.toJSON() as File);
+    return files;
+  } catch (err) {
+    console.error(err);
+    return [];
+  }
+};
+
 export const getFileByHash = async (hash: string) => {
   try {
     const file = (await FileModel.findOne({ hash }))?.toJSON?.() as File;
@@ -208,9 +218,9 @@ export const getFileByHash = async (hash: string) => {
   }
 };
 
-export const getAllFiles = async () => {
+export const getFiles = async (ids: string[]) => {
   try {
-    const files = (await FileModel.find()).map((r) => r.toJSON() as File);
+    const files = (await FileModel.find({ _id: { $in: ids } })).map((r) => r.toJSON() as File);
     return files;
   } catch (err) {
     console.error(err);

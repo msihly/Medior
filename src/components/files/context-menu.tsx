@@ -1,7 +1,7 @@
 import { shell } from "electron";
 import { ReactNode, useState } from "react";
 import { observer } from "mobx-react-lite";
-import { useStores } from "store";
+import { File, useStores } from "store";
 import { deleteFiles } from "database";
 import { Menu } from "@mui/material";
 import { ListItem, View, ViewProps } from "components";
@@ -9,12 +9,11 @@ import { InfoModal } from ".";
 
 interface ContextMenuProps extends ViewProps {
   children?: ReactNode | ReactNode[];
-  fileId: string;
+  file: File;
 }
 
-export const ContextMenu = observer(({ children, fileId, ...props }: ContextMenuProps) => {
+export const ContextMenu = observer(({ children, file, ...props }: ContextMenuProps) => {
   const { fileCollectionStore, fileStore } = useStores();
-  const file = fileStore.getById(fileId);
 
   const [isInfoOpen, setIsInfoOpen] = useState(false);
   const [mouseX, setMouseX] = useState(null);
@@ -32,7 +31,7 @@ export const ContextMenu = observer(({ children, fileId, ...props }: ContextMenu
   };
 
   const handleCollections = () => {
-    fileCollectionStore.setActiveFileId(fileId);
+    fileCollectionStore.setActiveFileId(file.id);
     fileCollectionStore.setIsCollectionManagerOpen(true);
     handleClose();
   };
@@ -64,7 +63,7 @@ export const ContextMenu = observer(({ children, fileId, ...props }: ContextMenu
   };
 
   return (
-    <View {...props} id={fileId} onContextMenu={handleContext}>
+    <View {...props} id={file.id} onContextMenu={handleContext}>
       {children}
 
       <Menu
@@ -106,7 +105,7 @@ export const ContextMenu = observer(({ children, fileId, ...props }: ContextMenu
         />
       </Menu>
 
-      {isInfoOpen && <InfoModal fileId={fileId} setVisible={setIsInfoOpen} />}
+      {isInfoOpen && <InfoModal fileId={file.id} setVisible={setIsInfoOpen} />}
     </View>
   );
 });

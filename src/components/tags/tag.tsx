@@ -1,20 +1,18 @@
 import { Avatar, Chip, ChipProps, colors } from "@mui/material";
 import { observer } from "mobx-react-lite";
-import { useStores } from "store";
+import { Tag as TagType, useStores } from "store";
 import { makeClasses } from "utils";
 
 interface TagProps extends ChipProps {
-  id: string;
+  id?: string;
+  tag?: TagType;
 }
 
-export const Tag = observer(({ className, id, size = "medium", ...props }: TagProps) => {
-  const { css, cx } = useClasses({ size });
+export const Tag = observer(({ className, id, size = "medium", tag, ...props }: TagProps) => {
   const { tagStore } = useStores();
+  if (!tag) tag = tagStore.getById(id);
 
-  const tag = tagStore.getById(id);
-
-  // console.log(tagStore.tagCounts);
-  // console.log(tag.parentTags);
+  const { css, cx } = useClasses({ size });
 
   return (
     <Chip

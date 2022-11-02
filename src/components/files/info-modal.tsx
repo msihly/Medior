@@ -64,7 +64,7 @@ export const InfoModal = observer(({ fileId, setVisible }: InfoModalProps) => {
                 file?.tags?.length > 0 ? (
                   <SideScroller innerClassName={css.tags}>
                     {file.tags.map((t) => (
-                      <Tag key={t.id} id={t.id} size="small" />
+                      <Tag key={t.id} tag={t} size="small" />
                     ))}
                   </SideScroller>
                 ) : (

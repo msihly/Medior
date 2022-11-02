@@ -15,17 +15,13 @@ export const FileCollectionEditor = observer(() => {
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [title, setTitle] = useState<string>(fileCollectionStore.activeCollection?.title);
 
-  const handleEdit = (fn, ...args) => {
+  const handleTitleChange = (val: string) => {
     setHasUnsavedChanges(true);
-    fn(...args);
+    setTitle(val);
   };
 
-  const handleTitleChange = (val: string) => handleEdit(setTitle, val);
-
-  const tags = useMemo(() => {
-    return [...new Set(fileIdIndexes.flatMap((f) => fileStore.getById(f.fileId).tagIds))].map(
-      (tagId) => tagStore.getById(tagId)
-    );
+  const tagIds = useMemo(() => {
+    return [...new Set(fileIdIndexes.flatMap((f) => fileStore.getById(f.fileId).tagIds))];
   }, [fileIdIndexes]);
 
   const closeModal = () => fileCollectionStore.setIsCollectionEditorOpen(false);
@@ -44,8 +40,8 @@ export const FileCollectionEditor = observer(() => {
             <Input label="Title" value={title} setValue={handleTitleChange} />
 
             <View className={css.tags}>
-              {tags.map((t) => (
-                <Tag key={t.id} id={t.id} />
+              {tagIds.map((id) => (
+                <Tag key={id} id={id} />
               ))}
             </View>
 

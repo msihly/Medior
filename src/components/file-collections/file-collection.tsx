@@ -70,7 +70,7 @@ export const FileCollection = observer(({ active = false, id }: FileCollectionPr
 
         <SideScroller innerClassName={css.tags}>
           {collection?.tags?.map((t) => (
-            <Tag key={t.id} id={t.id} size="small" />
+            <Tag key={t.id} tag={t} size="small" />
           ))}
         </SideScroller>
       </Paper>

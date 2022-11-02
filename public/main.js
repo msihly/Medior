@@ -44,7 +44,8 @@ const createMainWindow = async () => {
   });
 
   remoteMain.enable(mainWindow.webContents);
-  mainWindow.loadURL(baseUrl);
+  await mainWindow.loadURL(baseUrl);
+
   if (!app.isPackaged) mainWindow.webContents.openDevTools({ mode: "bottom" });
 
   ipcMain.handle("getDatabaseUri", async () => {
@@ -52,7 +53,21 @@ const createMainWindow = async () => {
   });
 };
 
-app.whenReady().then(createMainWindow);
+app.whenReady().then(async () => {
+  if (!app.isPackaged) {
+    const {
+      default: installExtension,
+      REACT_DEVELOPER_TOOLS,
+      REDUX_DEVTOOLS,
+    } = require("electron-devtools-installer");
+
+    await installExtension([REACT_DEVELOPER_TOOLS, REDUX_DEVTOOLS]).catch((err) =>
+      console.error("Error loading extensions:", err)
+    );
+  }
+
+  return createMainWindow();
+});
 
 app.on("window-all-closed", app.quit);
 /* ------------------------------- END - MAIN WINDOW ------------------------------ */

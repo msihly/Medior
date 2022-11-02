@@ -1,7 +1,7 @@
 import { ipcRenderer } from "electron";
 import { useEffect, useRef, useState } from "react";
 import Mongoose from "mongoose";
-import { FileModel, getAllFiles, getAllTags, setFileRating, TagModel } from "database";
+import { FileModel, getAllTags, getFiles, setFileRating, TagModel } from "database";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
 import {
@@ -31,13 +31,13 @@ export const CarouselWindow = observer(() => {
     document.title = "Carousel";
     console.debug("Carousel window useEffect fired.");
 
-    const connectToDatabase = async () => {
+    const connectToDatabase = async (fileIds) => {
       const databaseUri = await ipcRenderer.invoke("getDatabaseUri");
       console.debug("Connecting to database:", databaseUri, "...");
       await Mongoose.connect(databaseUri);
 
       console.debug("Connected to database. Retrieving data...");
-      const [files, tags] = await Promise.all([getAllFiles(), getAllTags()]);
+      const [files, tags] = await Promise.all([getFiles(fileIds), getAllTags()]);
 
       console.debug("Data retrieved. Storing in MST...");
       tagStore.overwrite(tags);
@@ -80,9 +80,9 @@ export const CarouselWindow = observer(() => {
       });
     };
 
-    connectToDatabase();
+    ipcRenderer.on("init", async (_, { fileId, selectedFileIds }) => {
+      await connectToDatabase(selectedFileIds);
 
-    ipcRenderer.on("init", (_, { fileId, selectedFileIds }) => {
       setActiveFileId(fileId);
       setSelectedFileIds(selectedFileIds);
     });

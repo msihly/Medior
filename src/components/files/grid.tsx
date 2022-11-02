@@ -1,24 +1,22 @@
 import { ipcRenderer } from "electron";
-import { useContext, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { observer } from "mobx-react-lite";
-import { useStores } from "store";
+import { File, useStores } from "store";
 import { colors, Chip, Paper } from "@mui/material";
-import { FilteredFilesContext } from "views";
 import { Icon, SideScroller, Tag, View } from "components";
 import { ContextMenu } from ".";
 import { dayjs, makeClasses } from "utils";
 
 interface FileGridProps {
-  id: string;
+  file?: File;
+  id?: string;
 }
 
-export const FileGrid = observer(({ id }: FileGridProps) => {
-  const { fileStore, tagStore } = useStores();
-  const file = fileStore.getById(id);
+export const FileGrid = observer(({ file, id }: FileGridProps) => {
+  const { fileStore, homeStore, tagStore } = useStores();
+  if (!file) file = fileStore.getById(id);
 
   const { css } = useClasses({ selected: file?.isSelected });
-
-  const filteredFiles = useContext(FilteredFilesContext);
 
   const thumbInterval = useRef(null);
   const [thumbIndex, setThumbIndex] = useState(0);
@@ -45,15 +43,15 @@ export const FileGrid = observer(({ id }: FileGridProps) => {
 
   const openFile = () => {
     ipcRenderer.send("createCarouselWindow", {
-      fileId: id,
+      fileId: file.id,
       height: file.height,
-      selectedFileIds: filteredFiles.map((f) => f.id),
+      selectedFileIds: homeStore.filteredFiles.map((f) => f.id),
       width: file.width,
     });
   };
 
   return (
-    <ContextMenu fileId={id} className={`${css.container} selectable`}>
+    <ContextMenu key="context-menu" file={file} className={`${css.container} selectable`}>
       <Paper onDoubleClick={openFile} elevation={3} className={css.paper}>
         <View
           onMouseEnter={file?.isAnimated ? handleMouseEnter : null}
@@ -67,10 +65,11 @@ export const FileGrid = observer(({ id }: FileGridProps) => {
           />
 
           <img
-            src={file?.thumbPaths[thumbIndex] ?? file?.path}
+            src={file?.thumbPaths[thumbIndex]}
             className={css.image}
             alt={file?.originalName}
             draggable={false}
+            loading="lazy"
           />
 
           <Chip label={file?.ext} className={css.ext} />
@@ -92,8 +91,8 @@ export const FileGrid = observer(({ id }: FileGridProps) => {
         </View>
 
         <SideScroller innerClassName={css.tags}>
-          {file?.tags?.map?.((t) => (
-            <Tag key={t.id} id={t.id} onClick={() => handleTagPress(t.id)} size="small" />
+          {file?.tagIds?.map?.((id) => (
+            <Tag key={id} id={id} onClick={() => handleTagPress(id)} size="small" />
           ))}
         </SideScroller>
       </Paper>

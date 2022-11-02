@@ -1,4 +1,5 @@
-import { model, Model, prop, registerRootStore } from "mobx-keystone";
+import * as remoteDev from "remotedev";
+import { connectReduxDevTools, model, Model, prop, registerRootStore } from "mobx-keystone";
 import { FileCollectionStore } from "./collections";
 import { FileStore } from "./files";
 import { HomeStore } from "./home";
@@ -24,5 +25,13 @@ export const createRootStore = () => {
   });
 
   registerRootStore(rootStore);
+
+  if (import.meta.env.DEV)
+    connectReduxDevTools(
+      remoteDev,
+      remoteDev.connectViaExtension({ name: "RootStore" }),
+      rootStore
+    );
+
   return rootStore;
 };

@@ -1,4 +1,4 @@
-import { useContext, useState } from "react";
+import { useState } from "react";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
 import { deleteFiles, FileInfoRefreshQueue, refreshFile } from "database";
@@ -7,13 +7,10 @@ import { IconButton, Tagger, View } from "components";
 import { SortMenu } from ".";
 import { makeClasses } from "utils";
 import { toast } from "react-toastify";
-import { DisplayedFilesContext } from "views";
 
 export const TopBar = observer(() => {
-  const { homeStore, fileStore, tagStore } = useStores();
+  const { fileStore, homeStore, tagStore } = useStores();
   const { css } = useClasses(null);
-
-  const displayedFiles = useContext(DisplayedFilesContext);
 
   const [isCollectionEditorOpen, setIsCollectionEditorOpen] = useState(false);
 
@@ -39,11 +36,13 @@ export const TopBar = observer(() => {
 
   const handleSelectAll = () => {
     fileStore.toggleFilesSelected(
-      displayedFiles.map((f) => f.id),
+      homeStore.displayedFiles.map((f) => f.id),
       true
     );
 
-    toast.info(`Added ${displayedFiles.length} files to selection (${fileStore.selected.length})`);
+    toast.info(
+      `Added ${homeStore.displayedFiles.length} files to selection (${fileStore.selected.length})`
+    );
   };
 
   const handleUnarchive = () => deleteFiles(fileStore, fileStore.selected, true);
