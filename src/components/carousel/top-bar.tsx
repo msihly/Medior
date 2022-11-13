@@ -1,10 +1,10 @@
+import { getCurrentWindow, screen } from "@electron/remote";
+import { useContext, useEffect, useRef, useState } from "react";
 import { observer } from "mobx-react-lite";
+import { useStores } from "store";
 import { colors, Slider } from "@mui/material";
 import { CarouselContext, Icon, IconButton, SideScroller, Tag, Text, View } from "components";
-import { makeClasses } from "utils";
-import { useContext, useEffect, useState } from "react";
-import { getCurrentWindow, screen } from "@electron/remote";
-import { useStores } from "store";
+import { makeClasses, round } from "utils";
 
 export const CarouselTopBar = observer(() => {
   const { css, cx } = useClasses(null);
@@ -13,15 +13,10 @@ export const CarouselTopBar = observer(() => {
   const { activeFileId, panZoomRef } = useContext(CarouselContext);
   const file = fileStore.getById(activeFileId);
 
-  const [isAspectRatioLocked, setIsAspectRatioLocked] = useState(false);
+  const [isAspectRatioLocked, setIsAspectRatioLocked] = useState(true);
 
   const fitToAspectRatio = () => {
-    const win = getCurrentWindow();
-    const isLocked = !isAspectRatioLocked;
-    setIsAspectRatioLocked(isLocked);
-
-    if (!isLocked) win.setAspectRatio(0);
-    else {
+    try {
       const primaryDisplay = screen.getPrimaryDisplay();
       const { width: screenWidth, height: screenHeight } = primaryDisplay.workAreaSize;
 
@@ -32,16 +27,35 @@ export const CarouselTopBar = observer(() => {
           : Math.min(file?.height, screenHeight);
       if (winHeight === screenHeight) winWidth = (screenHeight / file?.height) * file?.width;
 
-      win.setContentSize(winWidth, winHeight);
+      const win = getCurrentWindow();
+      win.setContentSize(round(winWidth, 0), round(winHeight, 0), true);
 
       setTimeout(() => {
         const [width, height] = win.getSize();
         win.setAspectRatio(width / height);
       }, 0);
+    } catch (err) {
+      console.error("Error fitting to aspect ratio:", err);
+      setIsAspectRatioLocked(false);
     }
   };
 
+  const didAspectInit = useRef(false);
+  useEffect(() => {
+    if (!didAspectInit.current && file?.width > 0 && file?.height > 0) {
+      fitToAspectRatio();
+      didAspectInit.current = true;
+    }
+  }, [file]);
+
   const handleEditTags = () => tagStore.setIsTaggerOpen(true);
+
+  const toggleAspectRatioLock = () => {
+    const isLocked = !isAspectRatioLocked;
+    setIsAspectRatioLocked(isLocked);
+    if (isLocked) fitToAspectRatio();
+    else getCurrentWindow().setAspectRatio(0);
+  };
 
   /* ------------------------------ BEGIN - ZOOM ------------------------------ */
   const [zoomScale, setZoomScale] = useState(1);
@@ -63,7 +77,10 @@ export const CarouselTopBar = observer(() => {
   return (
     <View className={css.root}>
       <View className={css.side}>
-        <IconButton name={isAspectRatioLocked ? "Lock" : "LockOpen"} onClick={fitToAspectRatio} />
+        <IconButton
+          name={isAspectRatioLocked ? "Lock" : "LockOpen"}
+          onClick={toggleAspectRatioLock}
+        />
 
         <IconButton name="Label" onClick={handleEditTags} />
 

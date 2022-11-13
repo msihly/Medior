@@ -2,7 +2,7 @@ import { observer } from "mobx-react-lite";
 import { useStores } from "store";
 import { colors } from "@mui/material";
 import { Text, View } from "components";
-import { FileGrid } from "./";
+import { FileCard } from "./";
 import { makeClasses } from "utils";
 
 export const DisplayedFiles = observer(() => {
@@ -13,7 +13,7 @@ export const DisplayedFiles = observer(() => {
   return (
     <>
       {homeStore.displayedFiles?.length > 0 ? (
-        homeStore.displayedFiles.map((f) => <FileGrid key={f.id} file={f} />)
+        homeStore.displayedFiles.map((f) => <FileCard key={f.id} file={f} />)
       ) : (
         <View className={css.noResults}>
           <Text variant="h5" color={colors.grey["400"]}>

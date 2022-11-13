@@ -1,6 +1,6 @@
 import { forwardRef, useState } from "react";
 import { observer } from "mobx-react-lite";
-import { IMAGE_TYPES, useStores, VIDEO_TYPES } from "store";
+import { useStores } from "store";
 import { Divider, Drawer as MuiDrawer, List, colors } from "@mui/material";
 import {
   Accordion,
@@ -15,7 +15,7 @@ import {
   View,
 } from "components";
 import { ExtCheckbox, Importer } from ".";
-import { makeClasses } from "utils";
+import { IMAGE_TYPES, makeClasses, VIDEO_TYPES } from "utils";
 import * as Media from "media";
 
 export const Drawer = observer(

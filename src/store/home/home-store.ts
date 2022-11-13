@@ -1,7 +1,7 @@
 import { computed } from "mobx";
 import { getRootStore, Model, model, modelAction, prop } from "mobx-keystone";
-import { ImageType, IMAGE_TYPES, RootStore, TagOption, VideoType, VIDEO_TYPES } from "store";
-import { $C, dayjs } from "utils";
+import { RootStore, TagOption } from "store";
+import { CONSTANTS, dayjs, ImageType, IMAGE_TYPES, VideoType, VIDEO_TYPES } from "utils";
 
 const NUMERICAL_ATTRIBUTES = ["duration", "height", "rating", "size", "width"];
 
@@ -89,6 +89,9 @@ export class HomeStore extends Model({
 
   @computed
   get displayedFiles() {
-    return this.filteredFiles.slice((this.page - 1) * $C.FILE_COUNT, this.page * $C.FILE_COUNT);
+    return this.filteredFiles.slice(
+      (this.page - 1) * CONSTANTS.FILE_COUNT,
+      this.page * CONSTANTS.FILE_COUNT
+    );
   }
 }

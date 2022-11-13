@@ -1,6 +1,31 @@
 export const arrayIntersect = (...arrays: any[][]) =>
   [...arrays].reduce((acc, cur) => acc.filter((e) => cur.includes(e)));
 
+export const centeredSlice = (arr: any[], indexToCenter: number, maxCount?: number) => {
+  if (!arr || indexToCenter < 0 || indexToCenter > arr.length - 1) return null;
+
+  const count = Math.min(arr.length, maxCount ?? arr.length);
+  const delta = Math.floor(count / 2);
+  const isEven = count % 2 === 0;
+
+  const startIndex = indexToCenter - delta;
+  const left =
+    startIndex < 0
+      ? [...arr.slice(startIndex), ...arr.slice(0, indexToCenter)]
+      : arr.slice(startIndex, indexToCenter);
+
+  const endIndex = indexToCenter + delta;
+  const right =
+    endIndex > arr.length - 1
+      ? [
+          ...arr.slice(indexToCenter + 1, arr.length),
+          ...arr.slice(0, Math.abs(arr.length - (isEven ? 0 : 1) - endIndex)),
+        ]
+      : arr.slice(indexToCenter + 1, endIndex + (isEven ? 0 : 1));
+
+  return [...left, arr[indexToCenter], ...right];
+};
+
 interface CountItemsResult {
   value: any;
   count: number;

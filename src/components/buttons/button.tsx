@@ -1,6 +1,11 @@
 import { ReactNode } from "react";
-import { Button as MuiButton, ButtonProps as MuiButtonProps, colors } from "@mui/material";
-import { Icon, IconName, Text } from "components";
+import {
+  Button as MuiButton,
+  ButtonProps as MuiButtonProps,
+  CircularProgress,
+  colors,
+} from "@mui/material";
+import { Icon, IconName, Text, TextProps } from "components";
 import { makeClasses, Margins, Padding } from "utils";
 import { CSSObject } from "tss-react";
 import Color from "color";
@@ -11,14 +16,16 @@ interface ButtonProps extends Omit<MuiButtonProps, "color" | "endIcon" | "startI
   fontSize?: CSSObject["fontSize"];
   fontWeight?: CSSObject["fontWeight"];
   icon?: IconName;
-  iconEnd?: IconName;
-  iconEndSize?: string | number;
+  iconRight?: IconName;
   iconSize?: string | number;
+  loading?: boolean;
   margins?: Margins;
   padding?: Padding;
   startNode?: ReactNode;
   text?: string;
   textColor?: string;
+  textTransform?: TextProps["textTransform"];
+  variant?: "text" | "contained" | "outlined";
 }
 
 export const Button = ({
@@ -26,23 +33,67 @@ export const Button = ({
   className,
   color = colors.blue["800"],
   endNode,
-  fontSize,
-  fontWeight = 500,
+  fontSize = "1.15em",
+  fontWeight = 400,
   icon,
-  iconEnd,
-  iconEndSize = "1.15em",
+  iconRight,
   iconSize = "1.15em",
+  loading = false,
   margins = {},
   padding = { all: "0.5em 0.8em" },
   size = "small",
   startNode,
   text,
   textColor = colors.grey["200"],
+  textTransform = "none",
   variant = "contained",
   ...props
 }: ButtonProps) => {
-  const { css, cx } = useClasses({
-    color,
+  const { css, cx } = useClasses({ color, margins, padding, textColor });
+
+  return (
+    <MuiButton {...props} {...{ size, variant }} className={cx(css.root, className)}>
+      {startNode}
+
+      {icon &&
+        (!loading ? (
+          <Icon name={icon} size={iconSize} className={css.icon} />
+        ) : (
+          <CircularProgress color="inherit" size={iconSize} className={css.icon} />
+        ))}
+
+      {text && (
+        <Text {...{ fontSize, fontWeight, textTransform }} lineHeight={1}>
+          {text}
+        </Text>
+      )}
+
+      {children}
+
+      {iconRight &&
+        (!loading ? (
+          <Icon name={iconRight} size={iconSize} className={css.iconRight} />
+        ) : (
+          <CircularProgress color="inherit" size={iconSize} className={css.iconRight} />
+        ))}
+
+      {endNode}
+    </MuiButton>
+  );
+};
+
+const useClasses = makeClasses((_, { color, margins, padding, textColor }) => ({
+  icon: {
+    marginRight: "0.3em",
+  },
+  iconRight: {
+    marginLeft: "0.3em",
+  },
+  root: {
+    display: "flex",
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
     margin: margins.all,
     marginTop: margins.top,
     marginBottom: margins.bottom,
@@ -53,72 +104,10 @@ export const Button = ({
     paddingBottom: padding.bottom,
     paddingRight: padding.right,
     paddingLeft: padding.left,
-    textColor,
-  });
-
-  return (
-    <MuiButton {...props} {...{ size, variant }} className={cx(css.root, className)}>
-      {startNode}
-
-      {icon && <Icon name={icon} size={iconSize} className={css.icon} />}
-
-      {text && (
-        <Text {...{ fontSize, fontWeight }} lineHeight={1}>
-          {text}
-        </Text>
-      )}
-
-      {children}
-
-      {iconEnd && <Icon name={iconEnd} size={iconEndSize} className={css.iconEnd} />}
-
-      {endNode}
-    </MuiButton>
-  );
-};
-
-const useClasses = makeClasses(
-  (
-    _,
-    {
-      color,
-      margin,
-      marginTop,
-      marginBottom,
-      marginRight,
-      marginLeft,
-      padding,
-      paddingTop,
-      paddingBottom,
-      paddingRight,
-      paddingLeft,
-      textColor,
-    }
-  ) => ({
-    icon: {
-      marginRight: "0.25em",
+    backgroundColor: color,
+    color: textColor,
+    "&:hover": {
+      backgroundColor: Color(color).lighten(0.1).string(),
     },
-    iconEnd: {
-      marginLeft: "0.25em",
-    },
-    root: {
-      justifyContent: "center",
-      alignItems: "center",
-      margin,
-      marginTop,
-      marginBottom,
-      marginRight,
-      marginLeft,
-      padding,
-      paddingTop,
-      paddingBottom,
-      paddingRight,
-      paddingLeft,
-      backgroundColor: color,
-      color: textColor,
-      "&:hover": {
-        backgroundColor: Color(color).lighten(0.1).string(),
-      },
-    },
-  })
-);
+  },
+}));

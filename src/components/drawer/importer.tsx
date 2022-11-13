@@ -1,29 +1,22 @@
 import { useEffect, useState } from "react";
 import { dialog } from "@electron/remote";
-import fs from "fs/promises";
-import path from "path";
-import dirTree from "directory-tree";
 import { observer } from "mobx-react-lite";
-import { FileImport, IMAGE_TYPES, TagOption, useStores, VIDEO_TYPES } from "store";
-import { addImportToBatch, createImportBatch, ImportQueue, useFileImportQueue } from "database";
+import { TagOption, useStores } from "store";
 import { Dialog, DialogTitle, DialogContent, DialogActions, colors } from "@mui/material";
-import { Button, ImportBatch, TagInput, Text } from "components";
-import { dayjs, makeClasses } from "utils";
+import { Button, Checkbox, ImportBatch, TagInput, Text } from "components";
+import { dayjs, dirToFileImports, filePathsToImports, makeClasses } from "utils";
+import { createImportBatch } from "database";
 
 interface ImporterProps {
   isOpen: boolean;
   setIsOpen: (isOpen: boolean) => void;
 }
 
-const EXT_REG_EXP = new RegExp(`\.(${IMAGE_TYPES.join("|")}|${VIDEO_TYPES.join("|")})$`, "i");
-
 export const Importer = observer(({ isOpen = false, setIsOpen }: ImporterProps) => {
   const { importStore, tagStore } = useStores();
   const { css } = useClasses(null);
 
   const [tags, setTags] = useState<TagOption[]>([]);
-
-  useFileImportQueue();
 
   useEffect(() => {
     if (isOpen) setTags([]);
@@ -38,45 +31,14 @@ export const Importer = observer(({ isOpen = false, setIsOpen }: ImporterProps) 
       });
       if (res.canceled) return;
 
-      const tagIds = [...tags].map((t) => t.id);
       const addedAt = dayjs().toISOString();
+      const fileImports = await (isDir
+        ? dirToFileImports(res.filePaths[0])
+        : filePathsToImports(res.filePaths));
+      const tagIds = [...tags].map((t) => t.id);
 
-      const batchRes = await createImportBatch(importStore, addedAt, tagIds);
+      const batchRes = await createImportBatch(addedAt, fileImports, tagIds);
       if (!batchRes.success) throw new Error(batchRes?.error);
-
-      if (isDir) {
-        dirTree(
-          res.filePaths[0],
-          { extensions: EXT_REG_EXP, attributes: ["birthtime"] },
-          async (fileObj, _, fileStats) => {
-            const fileImport = {
-              dateCreated: fileStats.birthtime.toISOString(),
-              extension: fileObj.extension,
-              name: fileObj.name,
-              path: fileObj.path,
-              size: fileObj.size,
-              status: "PENDING",
-            } as FileImport;
-
-            ImportQueue.add(() => addImportToBatch(importStore, addedAt, fileImport));
-          }
-        );
-      } else {
-        res.filePaths.forEach(async (p) => {
-          const { birthtime, size } = await fs.stat(p);
-
-          const fileImport = {
-            dateCreated: birthtime.toISOString(),
-            extension: path.extname(p),
-            name: path.parse(p).name,
-            path: p,
-            size,
-            status: "PENDING",
-          } as FileImport;
-
-          ImportQueue.add(() => addImportToBatch(importStore, addedAt, fileImport));
-        });
-      }
 
       setTags([]);
     } catch (err) {
@@ -106,6 +68,13 @@ export const Importer = observer(({ isOpen = false, setIsOpen }: ImporterProps) 
         setValue={setTags}
         options={tagStore.tagOptions}
         className={css.input}
+      />
+
+      <Checkbox
+        label="Delete on Import"
+        checked={importStore.deleteOnImport}
+        setChecked={(checked) => importStore.setDeleteOnImport(checked)}
+        center
       />
 
       <DialogActions className={css.dialogActions}>

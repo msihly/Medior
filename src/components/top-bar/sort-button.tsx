@@ -36,9 +36,9 @@ const useClasses = makeClasses((_, { isActive }) => ({
   },
   button: {
     marginLeft: "0.5rem",
-    backgroundColor: isActive ? colors.blue["800"] : colors.grey["700"],
+    backgroundColor: isActive ? colors.blue["800"] : colors.grey["800"],
     "&:hover": {
-      backgroundColor: isActive ? colors.blue["700"] : colors.grey["600"],
+      backgroundColor: isActive ? colors.blue["700"] : colors.grey["700"],
     },
   },
 }));

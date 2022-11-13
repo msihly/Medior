@@ -28,3 +28,8 @@ export const getRandomInt = (min: number, max: number, cur: number = null) => {
   let num = Math.floor(Math.random() * (max - min + 1)) + min;
   return num === cur ? getRandomInt(min, max, cur) : num;
 };
+
+export const round = (num: number, decimals = 2) => {
+  const n = Math.pow(10, decimals);
+  return Math.round((num + Number.EPSILON) * n) / n;
+};

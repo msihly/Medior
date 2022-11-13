@@ -19,7 +19,6 @@
     "@panzoom/panzoom": "^4.5.1",
     "color": "^4.2.3",
     "dayjs": "^1.11.0",
-    "directory-tree": "^2.2.9",
     "embla-carousel-react": "^6.2.0",
     "fluent-ffmpeg": "^2.1.2",
     "jsonfile": "^6.1.0",

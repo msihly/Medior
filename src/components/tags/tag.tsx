@@ -32,7 +32,7 @@ const useClasses = makeClasses((_, { size }) => ({
     marginRight: "0.2em",
   },
   count: {
-    backgroundColor: colors.blue["800"],
+    background: `linear-gradient(to bottom right, ${colors.blue["700"]}, ${colors.blue["900"]})`,
     "&.MuiChip-avatar": {
       marginLeft: 2,
       width: size === "medium" ? 28 : 21,

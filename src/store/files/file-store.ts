@@ -1,14 +1,7 @@
 import { computed } from "mobx";
-import {
-  applySnapshot,
-  arrayActions,
-  Model,
-  model,
-  modelAction,
-  ModelCreationData,
-  prop,
-} from "mobx-keystone";
-import { File, IMAGE_EXT_REG_EXP, VIDEO_EXT_REG_EXP } from ".";
+import { Model, model, modelAction, ModelCreationData, prop } from "mobx-keystone";
+import { File } from ".";
+import { IMAGE_EXT_REG_EXP, VIDEO_EXT_REG_EXP } from "utils";
 import { toast } from "react-toastify";
 
 @model("mediaViewer/FileStore")

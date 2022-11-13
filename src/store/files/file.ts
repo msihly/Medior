@@ -9,16 +9,7 @@ import {
   prop,
 } from "mobx-keystone";
 import { getTagAncestry, RootStore } from "store";
-import { dayjs } from "utils";
-
-export const IMAGE_TYPES = ["jpg", "jpeg", "png", "gif", "webp", "jif", "jiff", "jfif"] as const;
-export type ImageType = typeof IMAGE_TYPES[number];
-export const IMAGE_EXT_REG_EXP = new RegExp(`${IMAGE_TYPES.join("|")}`, "i");
-
-export const VIDEO_TYPES = ["webm", "mp4", "mkv"] as const;
-export type VideoType = typeof VIDEO_TYPES[number];
-export const VIDEO_EXT_REG_EXP = new RegExp(`${VIDEO_TYPES.join("|")}`, "i");
-export const ANIMATED_EXT_REG_EXP = new RegExp(`gif|${VIDEO_TYPES.join("|")}`, "i");
+import { ANIMATED_EXT_REG_EXP, dayjs, VIDEO_EXT_REG_EXP } from "utils";
 
 @model("mediaViewer/File")
 export class File extends Model({

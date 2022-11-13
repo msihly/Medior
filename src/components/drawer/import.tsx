@@ -22,9 +22,11 @@ export const Import = observer(({ fileImport }: ImportProps) => {
           {fileImport.name}
         </Text>
 
-        <Text noWrap fontSize={12}>
-          {fileImport.path.slice(0, fileImport.path.lastIndexOf("\\"))}
-        </Text>
+        {fileImport.path && (
+          <Text noWrap fontSize={12}>
+            {fileImport.path.slice(0, fileImport.path.lastIndexOf("\\"))}
+          </Text>
+        )}
       </View>
     </View>
   );

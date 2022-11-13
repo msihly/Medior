@@ -32,7 +32,9 @@ const createDbServer = async () => {
 };
 
 const createMainWindow = async () => {
+  console.debug("Creating Mongo server...");
   mongoServer = await createDbServer();
+  console.debug("Mongo server created.");
 
   mainWindow = new BrowserWindow({
     backgroundColor: "#111",
@@ -44,13 +46,32 @@ const createMainWindow = async () => {
   });
 
   remoteMain.enable(mainWindow.webContents);
+
+  ipcMain.handle("getDatabaseUri", async () => mongoServer.getUri());
+
+  console.debug("Loading main window...");
   await mainWindow.loadURL(baseUrl);
+  console.debug("Main window loaded.");
 
   if (!app.isPackaged) mainWindow.webContents.openDevTools({ mode: "bottom" });
 
-  ipcMain.handle("getDatabaseUri", async () => {
-    return mongoServer.getUri();
+  const importWindow = new BrowserWindow({
+    backgroundColor: "#111",
+    show: false,
+    webPreferences: {
+      contextIsolation: false,
+      nodeIntegration: true,
+      webSecurity: false,
+    },
   });
+
+  remoteMain.enable(importWindow.webContents);
+
+  console.debug("Loading import worker...");
+  await importWindow.loadURL(`${baseUrl}${app.isPackaged ? "#" : "/"}import-worker`);
+  console.debug("Import worker loaded.");
+
+  if (!app.isPackaged) importWindow.webContents.openDevTools({ mode: "detach" });
 };
 
 app.whenReady().then(async () => {

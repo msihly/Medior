@@ -30,7 +30,7 @@ export const ImportBatch = observer(({ addedAt }: ImportBatchProps) => {
   const { css } = useClasses({ expanded, hasTags: batch.tagIds?.length > 0 });
 
   const handleDelete = async () => {
-    await deleteImportBatch(importStore, addedAt);
+    await deleteImportBatch(batch.id);
     toast.success("Import batch deleted");
   };
 
@@ -71,7 +71,7 @@ export const ImportBatch = observer(({ addedAt }: ImportBatchProps) => {
         <IconButton name="Delete" onClick={handleDelete} className={css.deleteButton} />
       </View>
 
-      {expanded && (
+      {expanded && batch.imports?.length > 0 && (
         <View column className={css.imports}>
           {batch.imports.map((imp) => (
             <Import key={imp.path} fileImport={imp} />

@@ -7,9 +7,10 @@ export { dayjs };
 
 export * from "./arrays";
 export * from "./css";
-export * as $C from "./constants";
+export * as CONSTANTS from "./constants";
 export * from "./date-and-time";
 export * from "./formatting";
+export * from "./files";
 export * from "./hooks";
 export * from "./math";
 export * from "./miscellaneous";

@@ -1,4 +1,4 @@
-import { model, Model, modelAction, prop } from "mobx-keystone";
+import { applySnapshot, getSnapshot, model, Model, modelAction, prop } from "mobx-keystone";
 import { FileImport } from ".";
 import { dayjs, DayJsInput } from "utils";
 import { computed } from "mobx";
@@ -10,8 +10,13 @@ export class ImportBatch extends Model({
   id: prop<string>(),
   imports: prop<FileImport[]>(() => []),
   startedAt: prop<string>(null),
-  tagIds: prop<string[]>().withSetter(),
+  tagIds: prop<string[]>(),
 }) {
+  @modelAction
+  addImport(fileImport: FileImport) {
+    this.imports.push(new FileImport(fileImport));
+  }
+
   @modelAction
   setCompletedAt(completedAt: DayJsInput) {
     this.completedAt = dayjs(completedAt).toISOString();
@@ -20,6 +25,11 @@ export class ImportBatch extends Model({
   @modelAction
   setStartedAt(startedAt: DayJsInput) {
     this.startedAt = dayjs(startedAt).toISOString();
+  }
+
+  @modelAction
+  update(batch: Partial<ImportBatch>) {
+    applySnapshot(this, { ...getSnapshot(this), ...batch });
   }
 
   @computed

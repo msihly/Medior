@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { observer } from "mobx-react-lite";
 import { FileIdIndex, useStores } from "store";
 import { Dialog, DialogTitle, DialogContent, DialogActions, colors } from "@mui/material";
-import { Button, FileGrid, Input, Tag, View } from "components";
+import { Button, FileCard, Input, Tag, View } from "components";
 import { makeClasses } from "utils";
 
 export const FileCollectionEditor = observer(() => {
@@ -47,7 +47,7 @@ export const FileCollectionEditor = observer(() => {
 
             <View className={css.collection}>
               {fileIdIndexes.map((f) => (
-                <FileGrid key={f.fileId} id={f.fileId} />
+                <FileCard key={f.fileId} id={f.fileId} />
               ))}
             </View>
           </View>

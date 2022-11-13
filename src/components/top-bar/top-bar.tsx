@@ -50,13 +50,13 @@ export const TopBar = observer(() => {
   return (
     <AppBar position="relative" className={css.appBar}>
       <View className={css.container}>
-        <span className={css.divisions}>
+        <View className={css.divisions}>
           {!homeStore.isDrawerOpen && (
             <IconButton name="Menu" onClick={() => homeStore.setIsDrawerOpen(true)} size="medium" />
           )}
-        </span>
+        </View>
 
-        <span className={css.divisions}>
+        <View className={css.divisions}>
           {homeStore.isArchiveOpen && (
             <IconButton
               name="Delete"
@@ -104,7 +104,7 @@ export const TopBar = observer(() => {
           <IconButton name="SelectAll" onClick={handleSelectAll} size="medium" />
 
           <SortMenu />
-        </span>
+        </View>
       </View>
 
       {tagStore.isTaggerOpen && <Tagger files={fileStore.selected} />}
@@ -116,13 +116,15 @@ const useClasses = makeClasses({
   appBar: {
     display: "flex",
     flexFlow: "row nowrap",
-    backgroundColor: colors.grey["900"],
+    boxShadow: "rgb(0 0 0 / 50%) 2px 2px 4px 0px",
+    zIndex: 5,
   },
   container: {
     display: "flex",
     flex: 1,
     justifyContent: "space-between",
     padding: "0.3rem 0.5rem",
+    backgroundColor: colors.grey["900"],
   },
   divisions: {
     display: "inline-flex",

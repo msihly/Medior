@@ -2,17 +2,18 @@ import { ipcRenderer } from "electron";
 import { createRef, useEffect } from "react";
 import Mongoose from "mongoose";
 import {
-  FileImportBatchModel,
   FileModel,
   getAllFiles,
   getAllImportBatches,
   getAllTags,
-  TagModel,
+  watchFileModel,
+  watchImportBatchModel,
+  watchTagModel,
 } from "database";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
 import { Drawer, FileContainer, TopBar, View } from "components";
-import { makeClasses } from "utils";
+import { CONSTANTS, makeClasses } from "utils";
 
 export const Home = observer(() => {
   const drawerRef = createRef();
@@ -33,7 +34,7 @@ export const Home = observer(() => {
       try {
         const databaseUri = await ipcRenderer.invoke("getDatabaseUri");
         console.debug("Connecting to database:", databaseUri, "...");
-        await Mongoose.connect(databaseUri);
+        await Mongoose.connect(databaseUri, CONSTANTS.MONGOOSE_OPTS);
 
         console.debug("Connected to database. Retrieving data...");
         const [files, importBatches, tags] = await Promise.all([
@@ -50,50 +51,9 @@ export const Home = observer(() => {
 
         console.debug("Data stored in MobX.");
 
-        FileModel.watch().on("change", (data: any) => {
-          const id = Buffer.from(data.documentKey?._id).toString();
-          console.debug(`[File] ${id}:`, data);
-
-          switch (data.operationType) {
-            case "insert":
-              fileStore.addFiles({ ...data.fullDocument, id, _id: undefined, __v: undefined });
-              break;
-            case "update":
-              fileStore.getById(id).update(data.updateDescription?.updatedFields);
-              break;
-          }
-        });
-
-        FileImportBatchModel.watch().on("change", (data: any) => {
-          const id = Buffer.from(data.documentKey?._id).toString();
-          console.debug(`[FileImportBatch] ${id}:`, data);
-
-          if (data.operationType === "update") {
-            const updates = data.updateDescription?.updatedFields;
-            if (Object.keys(updates).includes("tagIds"))
-              importStore.getById(id).setTagIds(updates?.tagIds);
-          }
-        });
-
-        TagModel.watch().on("change", (data: any) => {
-          const id = Buffer.from(data.documentKey?._id).toString();
-          console.debug(`[Tag] ${id}:`, data);
-
-          switch (data.operationType) {
-            case "delete":
-              if (tagStore.activeTagId === id) tagStore.setActiveTagId(null);
-              if (tagStore.isTaggerOpen) tagStore.setTaggerMode("edit");
-              if (tagStore.isTagManagerOpen) tagStore.setTagManagerMode("search");
-              tagStore.deleteTag(id);
-              break;
-            case "insert":
-              tagStore.createTag({ ...data.fullDocument, id, _id: undefined, __v: undefined });
-              break;
-            case "update":
-              tagStore.getById(id).update(data.updateDescription?.updatedFields);
-              break;
-          }
-        });
+        watchFileModel(fileStore);
+        watchImportBatchModel(importStore);
+        watchTagModel(tagStore);
       } catch (err) {
         console.error(err);
       }

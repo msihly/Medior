@@ -2,8 +2,8 @@ import { promises as fs, constants as fsc } from "fs";
 import path from "path";
 import md5File from "md5-file";
 import { File, FileModel } from "database";
-import { FileImport, FileStore, VIDEO_TYPES } from "store";
-import { dayjs, generateFramesThumbnail, getVideoInfo, splitArray } from "utils";
+import { FileImport, FileStore, ImportStore } from "store";
+import { dayjs, generateFramesThumbnail, getVideoInfo, splitArray, VIDEO_TYPES } from "utils";
 
 const checkFileExists = async (path: string) => !!(await fs.stat(path).catch(() => false));
 
@@ -14,19 +14,45 @@ const copyFile = async (dirPath: string, originalPath: string, newPath: string) 
   return true;
 };
 
+const deleteFile = async (path: string, copiedPath?: string) => {
+  try {
+    if (!(await checkFileExists(path)))
+      throw new Error(`Failed to delete ${path}. File does not exist.`);
+    if (copiedPath && !(await checkFileExists(copiedPath)))
+      throw new Error(
+        `Failed to delete ${path}. File does not exist at copied path ${copiedPath}.`
+      );
+
+    await fs.unlink(path);
+    return true;
+  } catch (err) {
+    console.error(err);
+    return false;
+  }
+};
+
 interface CopyFileToProps {
   dbOnly?: boolean;
   fileObj: FileImport;
+  importStore: ImportStore;
   tagIds?: string[];
   targetDir: string;
+}
+
+interface CopyFileToResult {
+  error?: string;
+  file?: File;
+  isDuplicate?: boolean;
+  success: boolean;
 }
 
 export const copyFileTo = async ({
   dbOnly = false,
   fileObj,
+  importStore,
   tagIds,
   targetDir,
-}: CopyFileToProps) => {
+}: CopyFileToProps): Promise<CopyFileToResult> => {
   const { dateCreated, extension: ext, name, path: originalPath, size } = fileObj;
 
   const hash = await md5File(originalPath);
@@ -87,10 +113,14 @@ export const copyFileTo = async ({
         })
       ).toJSON();
 
+      if (importStore.deleteOnImport) await deleteFile(originalPath, newPath);
       return { success: true, file, isDuplicate: false };
-    } else return { success: true, file, isDuplicate: true };
+    } else {
+      if (importStore.deleteOnImport) await deleteFile(originalPath, newPath);
+      return { success: true, file, isDuplicate: true };
+    }
   } catch (err) {
-    console.log("Error importing", { ...fileObj }, ":", err);
+    console.log("Error importing", fileObj.toString({ withData: true }), ":", err);
 
     if (err.code === "EEXIST") {
       const file = await getFileByHash(hash);
@@ -114,7 +144,7 @@ export const copyFileTo = async ({
           width,
         });
 
-        return await copyFileTo({ fileObj, targetDir, dbOnly: true });
+        return await copyFileTo({ fileObj, importStore, targetDir, dbOnly: true });
       }
 
       return { success: true, file, isDuplicate: true };
@@ -132,17 +162,14 @@ export const deleteFiles = async (fileStore: FileStore, files: File[], isUndelet
 
     if (isUndelete) {
       await FileModel.updateMany({ _id: { $in: fileIds } }, { isArchived: false });
-      fileStore.archiveFiles(fileIds, true);
       return true;
     }
 
     const [deleted, archived]: File[][] = splitArray(files, (f: File) => f.isArchived);
     const [deletedIds, archivedIds] = [deleted, archived].map((arr) => arr.map((f) => f.id));
 
-    if (archivedIds?.length > 0) {
+    if (archivedIds?.length > 0)
       await FileModel.updateMany({ _id: { $in: archivedIds } }, { isArchived: true });
-      fileStore.archiveFiles(archivedIds);
-    }
 
     if (deletedIds?.length > 0) {
       await FileModel.deleteMany({ _id: { $in: deletedIds } });
@@ -153,11 +180,7 @@ export const deleteFiles = async (fileStore: FileStore, files: File[], isUndelet
             : []
         )
       );
-
-      fileStore.deleteFiles(deletedIds);
     }
-
-    fileStore.toggleFilesSelected(fileIds, false);
 
     return true;
   } catch (err) {
@@ -174,22 +197,17 @@ export const editFileTags = async (
   if (!fileIds?.length || (!addedTagIds?.length && !removedTagIds?.length)) return false;
 
   try {
-    const files = (await FileModel.find({ _id: { $in: fileIds } })).map((f) => {
-      const file = f.toJSON();
-      const tagIds = file.tagIds.filter((tagId) => !removedTagIds.includes(tagId));
-
-      addedTagIds.forEach((tagId) => {
-        if (!tagIds.includes(tagId)) tagIds.push(tagId);
-      });
-
-      return { ...file, tagIds };
-    });
-
     const dateModified = dayjs().toISOString();
 
-    files.forEach(async (f) => {
-      await FileModel.updateOne({ _id: f.id }, { tagIds: f.tagIds, dateModified });
-    });
+    await FileModel.updateMany(
+      { _id: { $in: fileIds } },
+      { $pullAll: { tagIds: removedTagIds }, dateModified }
+    );
+
+    await FileModel.updateMany(
+      { _id: { $in: fileIds } },
+      { $push: { tagIds: addedTagIds }, dateModified }
+    );
 
     return true;
   } catch (err) {
@@ -265,13 +283,27 @@ export const refreshFile = async (fileStore: FileStore, id: string) => {
 export const setFileRating = async (fileIds: string[] = [], rating: number) => {
   try {
     const dateModified = dayjs().toISOString();
-
-    await Promise.all(
-      fileIds.flatMap(async (id) => {
-        await FileModel.updateOne({ _id: id }, { rating, dateModified });
-      })
-    );
+    await FileModel.updateMany({ _id: { $in: fileIds } }, { rating, dateModified });
   } catch (err) {
     console.error(err);
   }
+};
+
+export const watchFileModel = (fileStore: FileStore) => {
+  FileModel.watch().on("change", (data: any) => {
+    const id = Buffer.from(data.documentKey?._id).toString();
+    console.debug(`[File] ${id}:`, data);
+
+    if (data.operationType === "delete") fileStore.deleteFiles([id]);
+    else if (data.operationType === "insert") {
+      const file = { ...data.fullDocument, id };
+      delete file._id;
+      delete file.__v;
+      fileStore.addFiles(file);
+    } else if (data.operationType === "update") {
+      const updates = data.updateDescription?.updatedFields;
+      if (Object.keys(updates).includes("isArchived")) updates.isSelected = false;
+      fileStore.getById(id).update(updates);
+    }
+  });
 };

@@ -1,36 +1,31 @@
-import {
-  applySnapshot,
-  arrayActions,
-  model,
-  Model,
-  modelAction,
-  ModelCreationData,
-  prop,
-} from "mobx-keystone";
+import { model, Model, modelAction, ModelCreationData, prop } from "mobx-keystone";
 import { FileImport, ImportBatch } from ".";
 import { computed } from "mobx";
 
 @model("mediaViewer/ImportStore")
 export class ImportStore extends Model({
-  activeBatchAddedAt: prop<string>(null).withSetter(),
+  activeBatchId: prop<string>(null).withSetter(),
+  deleteOnImport: prop<boolean>(false).withSetter(),
   importBatches: prop<ImportBatch[]>(() => []),
-  isImporting: prop<boolean>(false).withSetter(),
 }) {
   @modelAction
-  addImportToBatch(addedAt: string, fileImport: FileImport) {
-    const batch = this.getByAddedAt(addedAt);
-    if (!batch) throw new Error(`Can't find ImportBatch with addedAt = ${addedAt}`);
-    batch.imports.push(new FileImport(fileImport));
-  }
-
-  @modelAction
-  addImportBatch({ addedAt, id, tagIds = [] }: { addedAt: string; id: string; tagIds?: string[] }) {
+  addImportBatch({
+    addedAt,
+    id,
+    imports,
+    tagIds = [],
+  }: {
+    addedAt: string;
+    id: string;
+    imports: FileImport[];
+    tagIds?: string[];
+  }) {
     this.importBatches.push(
       new ImportBatch({
         addedAt,
         completedAt: null,
         id,
-        imports: [],
+        imports,
         startedAt: null,
         tagIds,
       })
@@ -38,8 +33,8 @@ export class ImportStore extends Model({
   }
 
   @modelAction
-  deleteImportBatch(addedAt: string) {
-    this.importBatches = this.importBatches.filter((batch) => batch.addedAt !== addedAt);
+  deleteImportBatch(id: string) {
+    this.importBatches = this.importBatches.filter((batch) => batch.id !== id);
   }
 
   @modelAction
@@ -63,13 +58,13 @@ export class ImportStore extends Model({
   }
 
   @computed
-  get batches() {
-    return [...this.importBatches].sort((a, b) => a.addedAt.localeCompare(b.addedAt));
+  get activeBatch() {
+    return this.getById(this.activeBatchId);
   }
 
   @computed
-  get activeBatch() {
-    return this.getByAddedAt(this.activeBatchAddedAt);
+  get batches() {
+    return [...this.importBatches].sort((a, b) => a.addedAt.localeCompare(b.addedAt));
   }
 
   @computed
@@ -79,7 +74,7 @@ export class ImportStore extends Model({
 
   @computed
   get incompleteBatches() {
-    return this.batches.filter((batch) => !batch.completedAt?.length);
+    return this.batches.filter((batch) => batch.imports?.length > 0 && batch.nextImport);
   }
 }
 

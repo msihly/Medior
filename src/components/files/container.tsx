@@ -5,7 +5,7 @@ import Selecto, { OnSelect } from "react-selecto";
 import { Pagination, colors } from "@mui/material";
 import { View } from "components";
 import { DisplayedFiles } from ".";
-import { $C, makeClasses } from "utils";
+import { CONSTANTS, makeClasses } from "utils";
 import { setFileRating } from "database";
 
 export const FileContainer = observer(() => {
@@ -13,9 +13,9 @@ export const FileContainer = observer(() => {
   const { fileStore, homeStore, tagStore } = useStores();
 
   const pageCount =
-    homeStore.filteredFiles.length < $C.FILE_COUNT
+    homeStore.filteredFiles.length < CONSTANTS.FILE_COUNT
       ? 1
-      : Math.ceil(homeStore.filteredFiles.length / $C.FILE_COUNT);
+      : Math.ceil(homeStore.filteredFiles.length / CONSTANTS.FILE_COUNT);
 
   const selectRef = useRef(null);
   const selectoRef = useRef(null);

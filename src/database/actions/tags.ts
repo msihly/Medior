@@ -1,4 +1,5 @@
 import { FileImportBatchModel, FileModel, Tag, TagModel } from "database";
+import { TagStore } from "store";
 
 export const createTag = async ({
   aliases = [],
@@ -76,4 +77,26 @@ export const getAllTags = async () => {
     console.error(err?.message ?? err);
     return [];
   }
+};
+
+export const watchTagModel = (tagStore: TagStore) => {
+  TagModel.watch().on("change", (data: any) => {
+    const id = Buffer.from(data.documentKey?._id).toString();
+    console.debug(`[Tag] ${id}:`, data);
+
+    switch (data.operationType) {
+      case "delete":
+        if (tagStore.activeTagId === id) tagStore.setActiveTagId(null);
+        if (tagStore.isTaggerOpen) tagStore.setTaggerMode("edit");
+        if (tagStore.isTagManagerOpen) tagStore.setTagManagerMode("search");
+        tagStore.deleteTag(id);
+        break;
+      case "insert":
+        tagStore.createTag({ ...data.fullDocument, id, _id: undefined, __v: undefined });
+        break;
+      case "update":
+        tagStore.getById(id).update(data.updateDescription?.updatedFields);
+        break;
+    }
+  });
 };

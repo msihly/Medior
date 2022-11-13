@@ -12,7 +12,7 @@ export const SortMenu = () => {
 
   return (
     <>
-      <Button text="Sort" iconEnd="Sort" onClick={handleOpen} color={colors.grey["700"]} />
+      <Button text="Sort" iconRight="Sort" onClick={handleOpen} color={colors.grey["800"]} />
 
       <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={handleClose} keepMounted>
         <View>
