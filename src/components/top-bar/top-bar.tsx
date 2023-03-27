@@ -1,51 +1,39 @@
 import { useState } from "react";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
-import { deleteFiles, FileInfoRefreshQueue, refreshFile } from "database";
-import { AppBar, colors } from "@mui/material";
+import { deleteFiles, refreshSelectedFiles } from "database";
+import { AppBar, Chip, colors } from "@mui/material";
 import { IconButton, Tagger, View } from "components";
 import { SortMenu } from ".";
 import { makeClasses } from "utils";
 import { toast } from "react-toastify";
 
 export const TopBar = observer(() => {
-  const { fileStore, homeStore, tagStore } = useStores();
+  const rootStore = useStores();
+  const { fileStore, homeStore } = useStores();
   const { css } = useClasses(null);
 
-  const [isCollectionEditorOpen, setIsCollectionEditorOpen] = useState(false);
+  const hasNoSelection = fileStore.selected.length === 0;
 
-  const handleDelete = () => deleteFiles(fileStore, fileStore.selected);
+  const [isTaggerOpen, setIsTaggerOpen] = useState(false);
 
-  const handleEditCollections = () => setIsCollectionEditorOpen(true);
+  const handleDelete = () => deleteFiles(rootStore, fileStore.selected);
 
-  const handleEditTags = () => tagStore.setIsTaggerOpen(true);
+  const handleEditTags = () => setIsTaggerOpen(true);
 
-  const handleFileInfoRefresh = () => {
-    fileStore.selected.map((f) => FileInfoRefreshQueue.add(() => refreshFile(fileStore, f.id)));
-    toast.info(`Refreshing ${fileStore.selected?.length} files' info...`);
-  };
+  const handleFileInfoRefresh = () => refreshSelectedFiles(fileStore);
 
   const handleDeselectAll = () => {
-    fileStore.toggleFilesSelected(
-      fileStore.selected.map((f) => f.id),
-      false
-    );
-
+    fileStore.toggleFilesSelected(fileStore.selectedIds.map((id) => ({ id, isSelected: false })));
     toast.info("Deselected all files");
   };
 
   const handleSelectAll = () => {
-    fileStore.toggleFilesSelected(
-      homeStore.displayedFiles.map((f) => f.id),
-      true
-    );
-
-    toast.info(
-      `Added ${homeStore.displayedFiles.length} files to selection (${fileStore.selected.length})`
-    );
+    fileStore.toggleFilesSelected(fileStore.files.map(({ id }) => ({ id, isSelected: true })));
+    toast.info(`Added ${fileStore.files.length} files to selection`);
   };
 
-  const handleUnarchive = () => deleteFiles(fileStore, fileStore.selected, true);
+  const handleUnarchive = () => deleteFiles(rootStore, fileStore.selected, true);
 
   return (
     <AppBar position="relative" className={css.appBar}>
@@ -54,6 +42,10 @@ export const TopBar = observer(() => {
           {!homeStore.isDrawerOpen && (
             <IconButton name="Menu" onClick={() => homeStore.setIsDrawerOpen(true)} size="medium" />
           )}
+
+          {fileStore.selectedIds.length > 0 && (
+            <Chip label={`${fileStore.selectedIds.length} Selected`} />
+          )}
         </View>
 
         <View className={css.divisions}>
@@ -61,7 +53,7 @@ export const TopBar = observer(() => {
             <IconButton
               name="Delete"
               onClick={handleDelete}
-              disabled={fileStore.selected.length === 0}
+              disabled={hasNoSelection}
               size="medium"
             />
           )}
@@ -69,35 +61,28 @@ export const TopBar = observer(() => {
           <IconButton
             name={homeStore.isArchiveOpen ? "Unarchive" : "Archive"}
             onClick={homeStore.isArchiveOpen ? handleUnarchive : handleDelete}
-            disabled={fileStore.selected.length === 0}
+            disabled={hasNoSelection}
             size="medium"
           />
 
           <IconButton
             name="Refresh"
             onClick={handleFileInfoRefresh}
-            disabled={fileStore.selected.length === 0}
-            size="medium"
-          />
-
-          <IconButton
-            name="Collections"
-            onClick={handleEditCollections}
-            disabled={fileStore.selected.length === 0}
+            disabled={hasNoSelection}
             size="medium"
           />
 
           <IconButton
             name="Label"
             onClick={handleEditTags}
-            disabled={fileStore.selected.length === 0}
+            disabled={hasNoSelection}
             size="medium"
           />
 
           <IconButton
             name="Deselect"
             onClick={handleDeselectAll}
-            disabled={fileStore.selected.length === 0}
+            disabled={hasNoSelection}
             size="medium"
           />
 
@@ -107,7 +92,7 @@ export const TopBar = observer(() => {
         </View>
       </View>
 
-      {tagStore.isTaggerOpen && <Tagger files={fileStore.selected} />}
+      {isTaggerOpen && <Tagger files={fileStore.selected} setVisible={setIsTaggerOpen} />}
     </AppBar>
   );
 });

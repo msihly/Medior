@@ -3,17 +3,27 @@ import { useContext, useEffect, useRef, useState } from "react";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
 import { colors, Slider } from "@mui/material";
-import { CarouselContext, Icon, IconButton, SideScroller, Tag, Text, View } from "components";
+import {
+  CarouselContext,
+  Icon,
+  IconButton,
+  SideScroller,
+  Tag,
+  Tagger,
+  Text,
+  View,
+} from "components";
 import { makeClasses, round } from "utils";
 
 export const CarouselTopBar = observer(() => {
   const { css, cx } = useClasses(null);
 
-  const { fileStore, tagStore } = useStores();
+  const { fileStore } = useStores();
   const { activeFileId, panZoomRef } = useContext(CarouselContext);
   const file = fileStore.getById(activeFileId);
 
   const [isAspectRatioLocked, setIsAspectRatioLocked] = useState(true);
+  const [isTaggerOpen, setIsTaggerOpen] = useState(false);
 
   const fitToAspectRatio = () => {
     try {
@@ -48,7 +58,7 @@ export const CarouselTopBar = observer(() => {
     }
   }, [file]);
 
-  const handleEditTags = () => tagStore.setIsTaggerOpen(true);
+  const handleEditTags = () => setIsTaggerOpen(true);
 
   const toggleAspectRatioLock = () => {
     const isLocked = !isAspectRatioLocked;
@@ -124,6 +134,8 @@ export const CarouselTopBar = observer(() => {
           <IconButton name="ZoomIn" onClick={zoomIn} margins={{ left: "0.5rem" }} />
         </View>
       )}
+
+      {isTaggerOpen && <Tagger files={[file]} setVisible={setIsTaggerOpen} />}
     </View>
   );
 });
@@ -140,6 +152,7 @@ const useClasses = makeClasses({
     minWidth: 0,
   },
   rating: {
+    color: colors.grey["100"],
     lineHeight: 1,
   },
   ratingContainer: {

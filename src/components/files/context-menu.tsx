@@ -13,6 +13,7 @@ interface ContextMenuProps extends ViewProps {
 }
 
 export const ContextMenu = observer(({ children, file, ...props }: ContextMenuProps) => {
+  const rootStore = useStores();
   const { fileCollectionStore, fileStore } = useStores();
 
   const [isInfoOpen, setIsInfoOpen] = useState(false);
@@ -37,7 +38,7 @@ export const ContextMenu = observer(({ children, file, ...props }: ContextMenuPr
   };
 
   const handleDelete = () => {
-    deleteFiles(fileStore, file.isSelected ? fileStore.selected : [file]);
+    deleteFiles(rootStore, fileStore.getIsSelected(file.id) ? fileStore.selected : [file]);
     handleClose();
   };
 

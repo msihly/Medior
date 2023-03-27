@@ -1,15 +1,13 @@
-import { Typography, TypographyProps } from "@mui/material";
 import { ElementType } from "react";
+import { Typography, TypographyProps } from "@mui/material";
 import { makeClasses } from "utils";
 
 export interface TextProps extends Omit<TypographyProps, "color"> {
-  bold?: boolean;
   color?: string;
   component?: ElementType;
 }
 
 export const Text = ({
-  bold = false,
   children,
   className = null,
   color,
@@ -18,7 +16,7 @@ export const Text = ({
   fontWeight = 400,
   ...props
 }: TextProps) => {
-  const { css, cx } = useClasses({ bold, color });
+  const { css, cx } = useClasses({ color });
 
   return (
     <Typography

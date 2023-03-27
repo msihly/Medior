@@ -1,6 +1,7 @@
 import { model, Model, modelAction, ModelCreationData, prop } from "mobx-keystone";
 import { FileImport, ImportBatch } from ".";
 import { computed } from "mobx";
+import { uniqueArrayMerge } from "utils";
 
 @model("mediaViewer/ImportStore")
 export class ImportStore extends Model({
@@ -10,19 +11,19 @@ export class ImportStore extends Model({
 }) {
   @modelAction
   addImportBatch({
-    addedAt,
+    createdAt,
     id,
     imports,
     tagIds = [],
   }: {
-    addedAt: string;
+    createdAt: string;
     id: string;
     imports: FileImport[];
     tagIds?: string[];
   }) {
     this.importBatches.push(
       new ImportBatch({
-        addedAt,
+        createdAt,
         completedAt: null,
         id,
         imports,
@@ -38,6 +39,26 @@ export class ImportStore extends Model({
   }
 
   @modelAction
+  editBatchTags({
+    addedIds = [],
+    batchIds = [],
+    removedIds = [],
+  }: {
+    addedIds?: string[];
+    batchIds?: string[];
+    removedIds?: string[];
+  }) {
+    if (!addedIds?.length && removedIds?.length) return false;
+
+    this.importBatches.forEach((batch) => {
+      if (!batchIds.length || batchIds.includes(batch.id))
+        batch.tagIds = uniqueArrayMerge(batch.tagIds, addedIds).filter(
+          (id) => !removedIds.includes(id)
+        );
+    });
+  }
+
+  @modelAction
   overwrite(importBatches: ImportBatchInput[]) {
     this.importBatches = importBatches.map(
       (batch) =>
@@ -45,8 +66,8 @@ export class ImportStore extends Model({
     );
   }
 
-  getByAddedAt(addedAt: string) {
-    return this.importBatches.find((batch) => batch.addedAt === addedAt);
+  getByCreatedAt(createdAt: string) {
+    return this.importBatches.find((batch) => batch.createdAt === createdAt);
   }
 
   getById(id: string) {
@@ -64,7 +85,7 @@ export class ImportStore extends Model({
 
   @computed
   get batches() {
-    return [...this.importBatches].sort((a, b) => a.addedAt.localeCompare(b.addedAt));
+    return [...this.importBatches].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
   }
 
   @computed

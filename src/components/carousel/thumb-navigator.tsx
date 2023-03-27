@@ -2,8 +2,8 @@ import { useContext, useEffect, useRef, useState } from "react";
 import { FixedSizeList, ListOnScrollProps } from "react-window";
 import AutoSizer from "react-virtualized-auto-sizer";
 import { CarouselContext, CarouselThumb } from ".";
-import { makeClasses, useDragScroll } from "utils";
 import { IconButton, View } from "components";
+import { makeClasses, useDragScroll } from "utils";
 import Color from "color";
 
 const THUMB_WIDTH = 135; // px

@@ -1,9 +1,24 @@
+import { ipcRenderer } from "electron";
 import { promises as fs, constants as fsc } from "fs";
 import path from "path";
 import md5File from "md5-file";
-import { File, FileModel } from "database";
-import { FileImport, FileStore, ImportStore } from "store";
-import { dayjs, generateFramesThumbnail, getVideoInfo, splitArray, VIDEO_TYPES } from "utils";
+import {
+  File,
+  FileImportBatchModel,
+  FileInfoRefreshQueue,
+  FileModel,
+  refreshAllTagCounts,
+} from "database";
+import { FileImport, FileStore, ImportStore, RootStore, sortFiles, tagsToDescendants } from "store";
+import {
+  CONSTANTS,
+  dayjs,
+  generateFramesThumbnail,
+  getVideoInfo,
+  splitArray,
+  VIDEO_TYPES,
+} from "utils";
+import { toast } from "react-toastify";
 
 const checkFileExists = async (path: string) => !!(await fs.stat(path).catch(() => false));
 
@@ -53,11 +68,12 @@ export const copyFileTo = async ({
   tagIds,
   targetDir,
 }: CopyFileToProps): Promise<CopyFileToResult> => {
-  const { dateCreated, extension: ext, name, path: originalPath, size } = fileObj;
+  const { dateCreated, extension, name, path: originalPath, size } = fileObj;
+  const ext = extension.toLowerCase();
 
   const hash = await md5File(originalPath);
   const dirPath = `${targetDir}\\${hash.substring(0, 2)}\\${hash.substring(2, 4)}`;
-  const extFromPath = originalPath.split(".").pop();
+  const extFromPath = originalPath.split(".").pop().toLowerCase();
   const newPath = `${dirPath}\\${hash}.${extFromPath}`;
   const isAnimated = [...VIDEO_TYPES, "gif"].includes(extFromPath);
 
@@ -83,9 +99,11 @@ export const copyFileTo = async ({
       if (!(await checkFileExists(newPath)))
         if (await copyFile(dirPath, originalPath, newPath))
           // prettier-ignore
-          await (duration > 0
-            ? generateFramesThumbnail(originalPath, dirPath, hash, duration)
-            : sharp(originalPath).resize(300, 300).toFile(thumbPaths[0]));
+          await(
+            duration > 0
+              ? generateFramesThumbnail(originalPath, dirPath, hash, duration)
+              : sharp(originalPath).resize(null, 300).toFile(thumbPaths[0])
+          );
     }
 
     let file = await getFileByHash(hash);
@@ -154,14 +172,12 @@ export const copyFileTo = async ({
   }
 };
 
-export const deleteFiles = async (fileStore: FileStore, files: File[], isUndelete = false) => {
+export const deleteFiles = async (rootStore: RootStore, files: File[], isUndelete = false) => {
   if (!files?.length) return false;
 
   try {
-    const fileIds = files.map((f) => f.id);
-
     if (isUndelete) {
-      await FileModel.updateMany({ _id: { $in: fileIds } }, { isArchived: false });
+      await FileModel.updateMany({ _id: { $in: files.map((f) => f.id) } }, { isArchived: false });
       return true;
     }
 
@@ -175,12 +191,15 @@ export const deleteFiles = async (fileStore: FileStore, files: File[], isUndelet
       await FileModel.deleteMany({ _id: { $in: deletedIds } });
       await Promise.all(
         deleted.flatMap((file) =>
-          fileStore.listByHash(file.hash).length === 1
+          rootStore.fileStore.listByHash(file.hash).length === 1
             ? [fs.unlink(file.path), ...file.thumbPaths.map((thumbPath) => fs.unlink(thumbPath))]
             : []
         )
       );
     }
+
+    await getDisplayedFiles(rootStore);
+    await refreshAllTagCounts(rootStore, true);
 
     return true;
   } catch (err) {
@@ -189,25 +208,61 @@ export const deleteFiles = async (fileStore: FileStore, files: File[], isUndelet
   }
 };
 
-export const editFileTags = async (
-  fileIds: string[] = [],
-  addedTagIds: string[] = [],
-  removedTagIds: string[] = []
-) => {
-  if (!fileIds?.length || (!addedTagIds?.length && !removedTagIds?.length)) return false;
-
+export const editFileTags = async ({
+  addedTagIds = [],
+  batchId,
+  fileIds,
+  rootStore,
+  removedTagIds = [],
+}: {
+  addedTagIds?: string[];
+  batchId?: string;
+  fileIds: string[];
+  removedTagIds?: string[];
+  rootStore: RootStore;
+}) => {
   try {
+    if (!fileIds?.length || (!addedTagIds?.length && !removedTagIds?.length)) return false;
+
+    const { importStore } = rootStore;
     const dateModified = dayjs().toISOString();
 
-    await FileModel.updateMany(
-      { _id: { $in: fileIds } },
-      { $pullAll: { tagIds: removedTagIds }, dateModified }
-    );
+    if (removedTagIds?.length > 0) {
+      if (batchId?.length > 0)
+        await FileImportBatchModel.updateOne(
+          { _id: batchId },
+          { $pullAll: { tagIds: removedTagIds } }
+        );
 
-    await FileModel.updateMany(
-      { _id: { $in: fileIds } },
-      { $push: { tagIds: addedTagIds }, dateModified }
-    );
+      await FileModel.updateMany(
+        { _id: { $in: fileIds } },
+        { $pullAll: { tagIds: removedTagIds }, dateModified }
+      );
+    }
+
+    if (addedTagIds?.length > 0) {
+      if (batchId?.length > 0)
+        await FileImportBatchModel.updateOne(
+          { _id: batchId },
+          { $addToSet: { tagIds: { $each: addedTagIds } } }
+        );
+
+      await FileModel.updateMany(
+        { _id: { $in: fileIds } },
+        { $addToSet: { tagIds: { $each: addedTagIds } }, dateModified }
+      );
+    }
+
+    importStore.editBatchTags({
+      addedIds: addedTagIds,
+      batchIds: [batchId],
+      removedIds: removedTagIds,
+    });
+
+    await getDisplayedFiles(rootStore);
+    await refreshAllTagCounts(rootStore, true);
+
+    ipcRenderer.send("onFileTagsEdited");
 
     return true;
   } catch (err) {
@@ -246,7 +301,90 @@ export const getFiles = async (ids: string[]) => {
   }
 };
 
-export const refreshFile = async (fileStore: FileStore, id: string) => {
+export const getDisplayedFiles = async (
+  rootStore: RootStore,
+  { withAppend = true, withOverwrite = false } = {}
+) => {
+  try {
+    const { fileStore, homeStore, tagStore } = rootStore;
+
+    const excludedTagIds = homeStore.excludedTags.map((t) => t.id);
+    const allExcludedTagIds = [
+      ...excludedTagIds,
+      ...(homeStore.includeDescendants
+        ? tagsToDescendants(tagStore, tagStore.listByIds(excludedTagIds))
+        : []),
+    ];
+
+    const includedTagIds = homeStore.includedTags.map((t) => t.id);
+    const allIncludedTagIds = [
+      ...includedTagIds,
+      ...(homeStore.includeDescendants
+        ? tagsToDescendants(tagStore, tagStore.listByIds(includedTagIds))
+        : []),
+    ];
+
+    const enabledExts = Object.entries({
+      ...homeStore.selectedImageTypes,
+      ...homeStore.selectedVideoTypes,
+    }).reduce((acc, [key, isEnabled]) => {
+      if (isEnabled) acc.push(`.${key}`);
+      return acc;
+    }, [] as string[]);
+
+    const files = (
+      await FileModel.find({
+        isArchived: homeStore.isArchiveOpen,
+        ext: { $in: enabledExts },
+        ...(homeStore.includeTagged
+          ? { tagIds: { $ne: [] } }
+          : homeStore.includeUntagged
+          ? { tagIds: { $eq: [] } }
+          : {}),
+      })
+    ).map((r) => r.toJSON() as File);
+
+    const filtered = files
+      .filter((f) => {
+        const hasExcluded =
+          excludedTagIds.length > 0
+            ? f.tagIds.length > 0 &&
+              f.tagIds.some((tagId) => [...excludedTagIds, ...allExcludedTagIds].includes(tagId))
+            : false;
+
+        const hasIncluded =
+          includedTagIds.length > 0
+            ? f.tagIds.length > 0 &&
+              f.tagIds.some((tagId) => [...includedTagIds, ...allIncludedTagIds].includes(tagId))
+            : true;
+
+        return hasIncluded && !hasExcluded;
+      })
+      .sort((a, b) =>
+        sortFiles({ a, b, isSortDesc: homeStore.isSortDesc, sortKey: homeStore.sortKey })
+      );
+
+    const displayed = filtered.slice(
+      (fileStore.page - 1) * CONSTANTS.FILE_COUNT,
+      fileStore.page * CONSTANTS.FILE_COUNT
+    );
+
+    fileStore.setPageCount(
+      filtered.length < CONSTANTS.FILE_COUNT ? 1 : Math.ceil(filtered.length / CONSTANTS.FILE_COUNT)
+    );
+    fileStore.setFilteredFileIds(filtered.map((f) => f.id));
+
+    if (withOverwrite) fileStore.overwrite(displayed);
+    else if (withAppend) fileStore.appendFiles(displayed);
+
+    return { displayed, filtered };
+  } catch (err) {
+    console.error(err);
+    return { displayed: [], filtered: [] };
+  }
+};
+
+export const refreshFile = async (fileStore: FileStore, id: string, withThumbs = false) => {
   try {
     const file = fileStore.getById(id);
     const sharp = !file.isAnimated ? (await import("sharp")).default : null;
@@ -271,7 +409,26 @@ export const refreshFile = async (fileStore: FileStore, id: string) => {
       width: file.isAnimated ? videoInfo?.width : imageInfo?.width,
     };
 
+    if (withThumbs) {
+      const dirPath = path.dirname(file.path);
+
+      const thumbPaths = file.isAnimated
+        ? Array(9)
+            .fill("")
+            .map((_, i) =>
+              path.join(dirPath, `${hash}-thumb-${String(i + 1).padStart(2, "0")}.jpg`)
+            )
+        : [path.join(dirPath, `${hash}-thumb${file.ext}`)];
+
+      await (file.isAnimated
+        ? generateFramesThumbnail(file.path, dirPath, hash, videoInfo?.duration)
+        : sharp(file.path).resize(null, 300).toFile(thumbPaths[0]));
+
+      updates["thumbPaths"] = thumbPaths;
+    }
+
     await FileModel.updateOne({ _id: id }, updates);
+    file.update(updates);
 
     return updates;
   } catch (err) {
@@ -280,30 +437,45 @@ export const refreshFile = async (fileStore: FileStore, id: string) => {
   }
 };
 
-export const setFileRating = async (fileIds: string[] = [], rating: number) => {
+export const refreshSelectedFiles = async (fileStore: FileStore) => {
+  try {
+    let completedCount = 0;
+    const totalCount = fileStore.selected.length;
+
+    const toastId = toast.info(() => `Refreshed ${completedCount} files' info...`, {
+      autoClose: false,
+    });
+
+    fileStore.selected.map((f) =>
+      FileInfoRefreshQueue.add(async () => {
+        await refreshFile(fileStore, f.id);
+
+        completedCount++;
+        const isComplete = completedCount === totalCount;
+
+        toast.update(toastId, {
+          autoClose: isComplete ? 5000 : false,
+          render: `Refreshed ${completedCount} files${isComplete ? "." : "..."}`,
+        });
+      })
+    );
+  } catch (err) {
+    console.error(err);
+    return null;
+  }
+};
+
+export const setFileRating = async ({
+  fileIds = [],
+  rating,
+}: {
+  fileIds: string[];
+  rating: number;
+}) => {
   try {
     const dateModified = dayjs().toISOString();
     await FileModel.updateMany({ _id: { $in: fileIds } }, { rating, dateModified });
   } catch (err) {
     console.error(err);
   }
-};
-
-export const watchFileModel = (fileStore: FileStore) => {
-  FileModel.watch().on("change", (data: any) => {
-    const id = Buffer.from(data.documentKey?._id).toString();
-    console.debug(`[File] ${id}:`, data);
-
-    if (data.operationType === "delete") fileStore.deleteFiles([id]);
-    else if (data.operationType === "insert") {
-      const file = { ...data.fullDocument, id };
-      delete file._id;
-      delete file.__v;
-      fileStore.addFiles(file);
-    } else if (data.operationType === "update") {
-      const updates = data.updateDescription?.updatedFields;
-      if (Object.keys(updates).includes("isArchived")) updates.isSelected = false;
-      fileStore.getById(id).update(updates);
-    }
-  });
 };

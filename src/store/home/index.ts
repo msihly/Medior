@@ -1,1 +1,1 @@
-export { HomeStore } from "./home-store";
+export { HomeStore, sortFiles } from "./home-store";

@@ -11,6 +11,7 @@ interface SortButtonProps {
 
 export const SortButton = observer(({ attribute, isDesc = false }: SortButtonProps) => {
   const { homeStore } = useStores();
+
   const { css } = useClasses({
     isActive: attribute === homeStore.sortKey && isDesc === homeStore.isSortDesc,
   });

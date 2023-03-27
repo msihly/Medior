@@ -4,15 +4,17 @@ type FileImportStatus = "COMPLETE" | "DUPLICATE" | "ERROR" | "PENDING";
 
 export interface FileImport {
   dateCreated: string;
+  errorMsg?: string;
   extension: string;
-  path: string;
+  fileId?: string;
   name: string;
+  path: string;
   size: number;
   status: FileImportStatus | string;
 }
 
 export interface FileImportBatch {
-  addedAt: string;
+  createdAt: string;
   completedAt: string;
   id: string;
   imports: FileImport[];
@@ -21,12 +23,14 @@ export interface FileImportBatch {
 }
 
 const FileImportBatchSchema = new Schema<FileImportBatch>({
-  addedAt: String,
+  createdAt: String,
   completedAt: String,
   imports: [
     {
       dateCreated: String,
+      errorMsg: String,
       extension: String,
+      fileId: String,
       name: String,
       path: String,
       size: Number,
@@ -40,7 +44,7 @@ const FileImportBatchSchema = new Schema<FileImportBatch>({
   tagIds: [String],
 });
 
-FileImportBatchSchema.index({ addedAt: 1 });
+FileImportBatchSchema.index({ createdAt: 1 });
 
 FileImportBatchSchema.set("toJSON", {
   transform: (_, ret) => {

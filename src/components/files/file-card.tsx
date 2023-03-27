@@ -1,11 +1,10 @@
-import { ipcRenderer } from "electron";
-import { useRef, useState } from "react";
+import React, { useRef, useState } from "react";
 import { observer } from "mobx-react-lite";
 import { File, useStores } from "store";
-import { colors, Chip, Paper, Tooltip } from "@mui/material";
-import { Icon, Tag, Text, View } from "components";
-import { ContextMenu, FileTooltip } from ".";
-import { centeredSlice, dayjs, formatBytes, makeClasses } from "utils";
+import { colors, Chip, Paper } from "@mui/material";
+import { Icon, Tag, View } from "components";
+import { ContextMenu, FileTooltip, openFile } from ".";
+import { dayjs, makeClasses } from "utils";
 import Color from "color";
 
 interface FileCardProps {
@@ -17,10 +16,11 @@ export const FileCard = observer(({ file, id }: FileCardProps) => {
   const { fileStore, homeStore, tagStore } = useStores();
   if (!file) file = fileStore.getById(id);
 
-  const { css } = useClasses({ selected: file.isSelected });
-
   const thumbInterval = useRef(null);
   const [thumbIndex, setThumbIndex] = useState(0);
+  const [imagePos, setImagePos] = useState<string | null>(null);
+
+  const { css } = useClasses({ imagePos, selected: fileStore.getIsSelected(file.id) });
 
   const handleMouseEnter = () => {
     thumbInterval.current = setInterval(() => {
@@ -34,6 +34,17 @@ export const FileCard = observer(({ file, id }: FileCardProps) => {
     clearInterval(thumbInterval.current);
     thumbInterval.current = null;
     setThumbIndex(0);
+    setImagePos(null);
+  };
+
+  const handleMouseMove = (event: React.MouseEvent) => {
+    const { height, left, top, width } = event.currentTarget.getBoundingClientRect();
+    const offsetX = event.pageX - left;
+    const offsetY = event.pageY - top;
+    const pos = `${(Math.max(0, offsetX) / width) * 100}% ${
+      (Math.max(0, offsetY) / height) * 100
+    }%`;
+    setImagePos(pos);
   };
 
   const handleTagPress = (tagId: string) => {
@@ -42,25 +53,14 @@ export const FileCard = observer(({ file, id }: FileCardProps) => {
     tagStore.setIsTagManagerOpen(true);
   };
 
-  const openFile = () => {
-    ipcRenderer.send("createCarouselWindow", {
-      fileId: file.id,
-      height: file.height,
-      selectedFileIds: centeredSlice(
-        homeStore.filteredFiles,
-        homeStore.filteredFiles.findIndex((f) => f.id === file.id),
-        500
-      ).map((f) => f.id),
-      width: file.width,
-    });
-  };
+  const handleDoubleClick = () => openFile({ file, filteredFileIds: fileStore.filteredFileIds });
 
   return (
     <ContextMenu key="context-menu" file={file} className={`${css.container} selectable`}>
-      <Paper onDoubleClick={openFile} elevation={3} className={css.paper}>
+      <Paper onDoubleClick={handleDoubleClick} elevation={3} className={css.paper}>
         <View
           onMouseEnter={file.isAnimated ? handleMouseEnter : null}
-          onMouseLeave={file.isAnimated ? handleMouseLeave : null}
+          onMouseLeave={handleMouseLeave}
           className={css.imageContainer}
         >
           <Chip
@@ -71,10 +71,13 @@ export const FileCard = observer(({ file, id }: FileCardProps) => {
 
           <img
             src={file.thumbPaths[thumbIndex]}
-            className={css.image}
             alt={file.originalName}
+            onMouseMove={handleMouseMove}
+            onMouseLeave={handleMouseLeave}
             draggable={false}
             loading="lazy"
+            className={css.image}
+            style={{ objectPosition: imagePos }}
           />
 
           <Chip label={file.ext} className={css.ext} />
@@ -109,7 +112,7 @@ export const FileCard = observer(({ file, id }: FileCardProps) => {
   );
 });
 
-const useClasses = makeClasses((theme, { selected }) => ({
+const useClasses = makeClasses((theme, { imagePos, selected }) => ({
   container: {
     flexBasis: "calc(100% / 7)",
     [theme.breakpoints.down("xl")]: { flexBasis: "calc(100% / 5)" },
@@ -164,14 +167,17 @@ const useClasses = makeClasses((theme, { selected }) => ({
   },
   image: {
     width: "100%",
-    minHeight: "9rem",
+    height: "9rem",
     objectFit: "cover",
     borderTopLeftRadius: "inherit",
     borderTopRightRadius: "inherit",
     userSelect: "none",
+    transition: "all 100ms ease",
   },
   imageContainer: {
     position: "relative",
+    display: "flex",
+    flex: 1,
     borderTopLeftRadius: "inherit",
     borderTopRightRadius: "inherit",
     backgroundColor: "inherit",

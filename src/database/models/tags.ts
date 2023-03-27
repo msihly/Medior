@@ -2,6 +2,9 @@ import { model, Schema } from "mongoose";
 
 export interface Tag {
   aliases: string[];
+  childIds: string[];
+  count: number;
+  hidden: boolean;
   id: string;
   label: string;
   parentIds: string[];
@@ -9,6 +12,9 @@ export interface Tag {
 
 const TagSchema = new Schema<Tag>({
   aliases: [String],
+  childIds: [String],
+  count: Number,
+  hidden: Boolean,
   label: String,
   parentIds: [String],
 });

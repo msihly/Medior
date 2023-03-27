@@ -1,5 +1,5 @@
-import { useRef, useState } from "react";
-import { editFileTags } from "database";
+import { ipcRenderer } from "electron";
+import { useMemo, useRef, useState } from "react";
 import { observer } from "mobx-react-lite";
 import { File, TagOption, useStores } from "store";
 import Draggable from "react-draggable";
@@ -18,20 +18,26 @@ import { makeClasses } from "utils";
 import { toast } from "react-toastify";
 
 interface TaggerProps {
+  batchId?: string;
   files: File[];
-  hasFocusOnOpen?: boolean;
+  setVisible: (visible: boolean) => any;
 }
 
-export const Tagger = observer(({ files, hasFocusOnOpen = false }: TaggerProps) => {
+export const Tagger = observer(({ batchId, files, setVisible }: TaggerProps) => {
   const { tagStore } = useStores();
   const { css } = useClasses(null);
 
   const [addedTags, setAddedTags] = useState<TagOption[]>([]);
   const [removedTags, setRemovedTags] = useState<TagOption[]>([]);
+  const [mode, setMode] = useState<"create" | "edit">("edit");
 
-  const handleClose = () => tagStore.setIsTaggerOpen(false);
+  const currentTagOptions = useMemo(() => {
+    return [...new Set(files.flatMap((f) => f.tags.map((t) => t.tagOption)))];
+  }, [files, tagStore.tagOptions]);
 
-  const handleEditorBack = () => tagStore.setTaggerMode("edit");
+  const handleClose = () => setVisible(false);
+
+  const handleEditorBack = () => setMode("edit");
 
   const handleTagAdded = (tags: TagOption[]) => {
     setAddedTags(tags);
@@ -47,49 +53,52 @@ export const Tagger = observer(({ files, hasFocusOnOpen = false }: TaggerProps) 
     if (addedTags.length === 0 && removedTags.length === 0)
       return toast.error("You must enter at least one tag");
 
-    await editFileTags(
-      files.map((f) => f.id),
-      addedTags.map((t) => t.id),
-      removedTags.map((t) => t.id)
-    );
+    ipcRenderer.send("editFileTags", {
+      addedTagIds: addedTags.map((t) => t.id),
+      batchId,
+      fileIds: files.map((f) => f.id),
+      removedTagIds: removedTags.map((t) => t.id),
+    });
 
     handleClose();
   };
 
-  const openTagEditor = () => tagStore.setTaggerMode("create");
+  const openTagEditor = () => setMode("create");
 
   return (
     <Dialog open onClose={handleClose} scroll="paper" PaperComponent={DraggablePaper}>
       <DialogTitle className={css.dialogTitle}>
-        {tagStore.taggerMode === "create" ? "Create Tag" : "Update Tags"}
+        {mode === "create" ? "Create Tag" : "Update Tags"}
       </DialogTitle>
 
-      {tagStore.taggerMode === "edit" ? (
+      {mode === "edit" ? (
         <>
           <DialogContent dividers className={css.dialogContent}>
             <View column>
               <Text align="center" className={css.sectionTitle}>
-                Current Tags
+                {"Current Tags"}
               </Text>
-              <TagInput value={tagStore.getTagCounts(files)} disabled opaque />
+              <TagInput value={currentTagOptions} disabled opaque className={css.tagInput} />
 
               <Text align="center" className={css.sectionTitle}>
-                Added Tags
+                {"Added Tags"}
               </Text>
               <TagInput
                 value={addedTags}
                 setValue={handleTagAdded}
-                options={tagStore.tagOptions}
-                autoFocus={hasFocusOnOpen}
+                options={[...tagStore.tagOptions]}
+                autoFocus
+                className={css.tagInput}
               />
 
               <Text align="center" className={css.sectionTitle}>
-                Removed Tags
+                {"Removed Tags"}
               </Text>
               <TagInput
                 value={removedTags}
                 setValue={handleTagRemoved}
-                options={tagStore.tagOptions}
+                options={currentTagOptions}
+                className={css.tagInput}
               />
             </View>
           </DialogContent>
@@ -108,7 +117,7 @@ export const Tagger = observer(({ files, hasFocusOnOpen = false }: TaggerProps) 
           </DialogActions>
         </>
       ) : (
-        <TagEditor isCreate onCancel={handleEditorBack} onSave={handleEditorBack} />
+        <TagEditor isCreate goBack={handleEditorBack} />
       )}
     </Dialog>
   );
@@ -131,6 +140,7 @@ const useClasses = makeClasses({
   },
   dialogContent: {
     padding: "0.5rem 1rem",
+    width: "25rem",
   },
   dialogTitle: {
     margin: 0,
@@ -151,5 +161,8 @@ const useClasses = makeClasses({
     width: "1.5rem",
     backgroundColor: colors.blue["800"],
     textAlign: "center",
+  },
+  tagInput: {
+    marginBottom: "0.5rem",
   },
 });

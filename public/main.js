@@ -20,13 +20,7 @@ const createDbServer = async () => {
   if (!dbPathExists) await fs.mkdir(DB_PATH, { recursive: true });
 
   return await MongoMemoryReplSet.create({
-    instanceOpts: [
-      {
-        dbPath: DB_PATH,
-        port: DB_PORT,
-        storageEngine: "wiredTiger",
-      },
-    ],
+    instanceOpts: [{ dbPath: DB_PATH, port: DB_PORT, storageEngine: "wiredTiger" }],
     replSet: { dbName: "media-viewer", name: "rs0" },
   });
 };
@@ -38,11 +32,7 @@ const createMainWindow = async () => {
 
   mainWindow = new BrowserWindow({
     backgroundColor: "#111",
-    webPreferences: {
-      contextIsolation: false,
-      nodeIntegration: true,
-      webSecurity: false,
-    },
+    webPreferences: { contextIsolation: false, nodeIntegration: true, webSecurity: false },
   });
 
   remoteMain.enable(mainWindow.webContents);
@@ -55,45 +45,51 @@ const createMainWindow = async () => {
 
   if (!app.isPackaged) mainWindow.webContents.openDevTools({ mode: "bottom" });
 
-  const importWindow = new BrowserWindow({
-    backgroundColor: "#111",
-    show: false,
-    webPreferences: {
-      contextIsolation: false,
-      nodeIntegration: true,
-      webSecurity: false,
-    },
+  mainWindow.on("close", () => {
+    carouselWindows.forEach((win) => {
+      win.close();
+    });
   });
 
-  remoteMain.enable(importWindow.webContents);
+  ipcMain.on("createTag", (_, ...args) => {
+    mainWindow.webContents.send("createTag", ...args);
+  });
 
-  console.debug("Loading import worker...");
-  await importWindow.loadURL(`${baseUrl}${app.isPackaged ? "#" : "/"}import-worker`);
-  console.debug("Import worker loaded.");
+  ipcMain.on("editTag", (_, ...args) => {
+    mainWindow.webContents.send("editTag", ...args);
+  });
 
-  if (!app.isPackaged) importWindow.webContents.openDevTools({ mode: "detach" });
+  ipcMain.on("editFileTags", (_, ...args) => {
+    mainWindow.webContents.send("editFileTags", ...args);
+  });
+
+  ipcMain.on("setFileRating", (_, ...args) => {
+    mainWindow.webContents.send("setFileRating", ...args);
+  });
 };
 
 app.whenReady().then(async () => {
-  if (!app.isPackaged) {
-    const {
-      default: installExtension,
-      REACT_DEVELOPER_TOOLS,
-      REDUX_DEVTOOLS,
-    } = require("electron-devtools-installer");
+  // if (!app.isPackaged) {
+  //   const {
+  //     default: installExtension,
+  //     REACT_DEVELOPER_TOOLS,
+  //     REDUX_DEVTOOLS,
+  //   } = require("electron-devtools-installer");
 
-    await installExtension([REACT_DEVELOPER_TOOLS, REDUX_DEVTOOLS]).catch((err) =>
-      console.error("Error loading extensions:", err)
-    );
-  }
+  //   await installExtension([REACT_DEVELOPER_TOOLS, REDUX_DEVTOOLS]).catch((err) =>
+  //     console.error("Error loading extensions:", err)
+  //   );
+  // }
 
   return createMainWindow();
 });
 
-app.on("window-all-closed", app.quit);
+app.on("carouselWindow-all-closed", app.quit);
 /* ------------------------------- END - MAIN WINDOW ------------------------------ */
 
 /* ------------------------------- BEGIN - CAROUSEL WINDOWS ------------------------------ */
+let carouselWindows = [];
+
 const createCarouselWindow = async ({ fileId, height, selectedFileIds, width }) => {
   console.debug("Creating carousel window...");
 
@@ -103,7 +99,7 @@ const createCarouselWindow = async ({ fileId, height, selectedFileIds, width }) 
   const winWidth = Math.min(width, screenWidth);
   const winHeight = Math.min(height, screenHeight);
 
-  const window = new BrowserWindow({
+  const carouselWindow = new BrowserWindow({
     backgroundColor: "#111",
     width: winWidth,
     height: winHeight,
@@ -121,23 +117,40 @@ const createCarouselWindow = async ({ fileId, height, selectedFileIds, width }) 
     (winWidth > screenWidth * 0.8 && winHeight > screenHeight * 0.5) ||
     (winWidth > screenWidth * 0.5 && winHeight > screenHeight * 0.8)
   )
-    window.maximize();
+    carouselWindow.maximize();
 
-  remoteMain.enable(window.webContents);
-  // if (!app.isPackaged) window.webContents.openDevTools({ mode: "detach" });
+  remoteMain.enable(carouselWindow.webContents);
+  // if (!app.isPackaged) carouselWindow.webContents.openDevTools({ mode: "detach" });
 
-  window.show();
+  carouselWindow.show();
 
   console.debug("Loading carousel window...");
-  await window.loadURL(`${baseUrl}${app.isPackaged ? "#" : "/"}carousel`);
+  await carouselWindow.loadURL(`${baseUrl}${app.isPackaged ? "#" : "/"}carousel`);
   console.debug("Carousel window loaded.");
 
-  window.webContents.send("init", { fileId, selectedFileIds });
+  carouselWindow.webContents.send("init", { fileId, selectedFileIds });
+  carouselWindows.push(carouselWindow);
 
-  return window;
+  carouselWindow.on("close", () => {
+    carouselWindows = carouselWindows.filter((win) => win.id !== carouselWindow.id);
+  });
+
+  return carouselWindow;
 };
 
 ipcMain.on("createCarouselWindow", (_, { height, fileId, selectedFileIds, width }) => {
   createCarouselWindow({ height, fileId, selectedFileIds, width });
+});
+
+ipcMain.on("onFileTagsEdited", () => {
+  carouselWindows.forEach((win) => {
+    win.webContents.send("onFileTagsEdited");
+  });
+});
+
+ipcMain.on("onTagPatch", (_, { patches }) => {
+  carouselWindows.forEach((win) => {
+    win.webContents.send("onTagPatch", { patches });
+  });
 });
 /* ------------------------------- END - CAROUSEL WINDOWS ------------------------------ */

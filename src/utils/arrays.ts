@@ -1,7 +1,7 @@
-export const arrayIntersect = (...arrays: any[][]) =>
+export const arrayIntersect = <T>(...arrays: T[][]): T[] =>
   [...arrays].reduce((acc, cur) => acc.filter((e) => cur.includes(e)));
 
-export const centeredSlice = (arr: any[], indexToCenter: number, maxCount?: number) => {
+export const centeredSlice = <T>(arr: T[], indexToCenter: number, maxCount?: number): T[] => {
   if (!arr || indexToCenter < 0 || indexToCenter > arr.length - 1) return null;
 
   const count = Math.min(arr.length, maxCount ?? arr.length);
@@ -31,7 +31,7 @@ interface CountItemsResult {
   count: number;
 }
 
-export const countItems = (arr: any[]): CountItemsResult[] => {
+export const countItems = <T>(arr: T[]): CountItemsResult[] => {
   const map = arr.reduce((acc: CountItemsResult[], cur: CountItemsResult["value"]) => {
     const group = acc.find((e) => e.value === cur);
     if (!group) acc.push({ value: cur, count: 1 });
@@ -42,18 +42,20 @@ export const countItems = (arr: any[]): CountItemsResult[] => {
   return sortArray(map, "count", true, true);
 };
 
-export const getArrayDiff = (a: any[], b: any[]) =>
-  a.filter((e) => !b.includes(e)).concat(b.filter((e) => !a.includes(e)));
+export const getArrayDiff = <T>(a: T[], b: T[]): T[] => [
+  ...a.filter((e) => !b.includes(e)),
+  ...b.filter((e) => !a.includes(e)),
+];
 
 export const rotateArrayPos = (direction: "prev" | "next", current: number, length: number) => {
   if (direction === "next") return current + 1 < length ? current + 1 : 0;
   else if (direction === "prev") return current - 1 >= 0 ? current - 1 : length - 1;
 };
 
-export const sortArray = (arr: any[], key: string, isDesc = true, isNumber = false) => {
+export const sortArray = <T>(arr: T[], key: string, isDesc = true, isNumber = false): T[] => {
   if (!arr?.length) return [];
 
-  const sortFn = (a, b) => {
+  const sortFn = (a: T, b: T) => {
     const first = a[key] ?? (isNumber ? 0 : "");
     const second = b[key] ?? (isNumber ? 0 : "");
 
@@ -64,13 +66,13 @@ export const sortArray = (arr: any[], key: string, isDesc = true, isNumber = fal
   return [...arr].sort(sortFn);
 };
 
-export const splitArray = (arr: any[], filterFn: (element: any) => boolean): any[][] =>
+export const splitArray = <T>(arr: T[], filterFn: (element: T) => boolean): T[][] =>
   arr.reduce((acc, cur) => (acc[+!filterFn(cur)].push(cur), acc), [[], []]);
 
 export const sumArray = (arr: number[], fn: (num: number) => number) =>
   arr.reduce((acc, cur) => (acc += fn?.(cur) ?? cur), 0);
 
-export const uniqueArrayFilter = (...arrays: any[][]) => {
+export const uniqueArrayFilter = <T>(...arrays: T[][]): T[] => {
   const all = [].concat(...arrays);
   const nonUnique = all.filter(
     (
@@ -78,9 +80,10 @@ export const uniqueArrayFilter = (...arrays: any[][]) => {
         set.has(value) || !set.add(value)
     )(new Set())
   );
+
   return all.filter((e) => !nonUnique.includes(e));
 };
 
-export const uniqueArrayMerge = (oldArray: any[], newArrays: any[]) => [
+export const uniqueArrayMerge = <T>(oldArray: T[], newArrays: T[]): T[] => [
   ...new Set([...new Set(oldArray), ...[].concat(...newArrays)]),
 ];

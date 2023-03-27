@@ -1,7 +1,7 @@
 import { ComponentProps } from "react";
 import { Autocomplete, Chip, colors } from "@mui/material";
 import { observer } from "mobx-react-lite";
-import { Input } from ".";
+import { Input, InputProps } from ".";
 import { makeClasses } from "utils";
 
 export type ChipOption = {
@@ -13,6 +13,8 @@ type ChipInputProps = Omit<
   ComponentProps<typeof Autocomplete>,
   "renderInput" | "onChange" | "options"
 > & {
+  hasHelper?: boolean;
+  inputProps?: InputProps;
   opaque?: boolean;
   options?: ChipOption[];
   setValue?: (val: any) => void;
@@ -20,14 +22,30 @@ type ChipInputProps = Omit<
 };
 
 export const ChipInput = observer(
-  ({ className, opaque = false, options = [], setValue, value = [], ...props }: ChipInputProps) => {
+  ({
+    className,
+    hasHelper = false,
+    inputProps,
+    opaque = false,
+    options = [],
+    setValue,
+    value = [],
+    ...props
+  }: ChipInputProps) => {
     const { css, cx } = useClasses({ opaque });
 
     return (
       <Autocomplete
         {...{ options, value }}
         getOptionLabel={(option: ChipOption) => option.label}
-        renderInput={(params) => <Input {...params} className={cx(css.input, className)} />}
+        renderInput={(params) => (
+          <Input
+            {...params}
+            {...{ hasHelper }}
+            className={cx(css.input, className)}
+            {...inputProps}
+          />
+        )}
         renderTags={(val: ChipOption[], getTagProps) =>
           val.map((option: ChipOption, index) => (
             <Chip {...getTagProps({ index })} label={option.label} />

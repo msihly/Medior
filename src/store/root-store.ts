@@ -26,12 +26,12 @@ export const createRootStore = () => {
 
   registerRootStore(rootStore);
 
-  if (import.meta.env.DEV)
-    connectReduxDevTools(
-      remoteDev,
-      remoteDev.connectViaExtension({ name: "RootStore" }),
-      rootStore
-    );
+  // if (import.meta.env.DEV)
+  //   connectReduxDevTools(
+  //     remoteDev,
+  //     remoteDev.connectViaExtension({ name: "RootStore" }),
+  //     rootStore
+  //   );
 
   return rootStore;
 };

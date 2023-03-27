@@ -1,34 +1,63 @@
-import { useState } from "react";
+import { ipcRenderer } from "electron";
+import { useMemo, useRef, useState } from "react";
 import { observer } from "mobx-react-lite";
 import { TagOption, useStores } from "store";
-import { createTag, editTag } from "database";
 import { DialogContent, DialogActions, colors } from "@mui/material";
-import { Button, ChipInput, ChipOption, Input, TagInput, Text, View } from "components";
+import { Button, Checkbox, ChipInput, ChipOption, Input, TagInput, Text, View } from "components";
 import { ConfirmDeleteModal } from ".";
 import { makeClasses } from "utils";
 import { toast } from "react-toastify";
 
 interface TagEditorProps {
   isCreate: boolean;
-  onCancel: () => void;
-  onSave: () => void;
+  goBack: () => any;
 }
 
-export const TagEditor = observer(({ isCreate, onCancel, onSave }: TagEditorProps) => {
+export const TagEditor = observer(({ isCreate, goBack }: TagEditorProps) => {
   const { tagStore } = useStores();
   const { css } = useClasses(null);
+
+  const labelRef = useRef<HTMLDivElement>(null);
 
   const [aliases, setAliases] = useState<ChipOption[]>(
     isCreate ? [] : tagStore.activeTag?.aliases?.map((a) => ({ label: a, value: a })) ?? []
   );
+  const [childTags, setChildTags] = useState<TagOption[]>(
+    isCreate ? [] : tagStore.getChildTags(tagStore.activeTag)?.map((t) => t.tagOption) ?? []
+  );
+  const [hasContinue, setHasContinue] = useState(false);
+  const [hasKeepChildTags, setHasKeepChildTags] = useState(false);
+  const [hasKeepParentTags, setHasKeepParentTags] = useState(false);
   const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
   const [label, setLabel] = useState<string>(isCreate ? "" : tagStore.activeTag?.label ?? "");
   const [parentTags, setParentTags] = useState<TagOption[]>(
-    isCreate ? [] : tagStore.activeTag?.parentTagOptions ?? []
+    isCreate ? [] : tagStore.getParentTags(tagStore.activeTag)?.map((t) => t.tagOption) ?? []
   );
 
   const isDuplicateTag =
-    (isCreate || label !== tagStore.activeTag?.label) && !!tagStore.getByLabel(label);
+    (isCreate || label.toLowerCase() !== tagStore.activeTag?.label?.toLowerCase()) &&
+    !!tagStore.getByLabel(label);
+
+  const [childTagOptions, parentTagOptions] = useMemo(() => {
+    const invalidParentIds = [tagStore.activeTagId, ...childTags.map((t) => t.id)];
+    const invalidChildIds = [tagStore.activeTagId, ...parentTags.map((t) => t.id)];
+    return tagStore.tagOptions.reduce(
+      (acc, cur) => {
+        if (!invalidChildIds.includes(cur.id)) acc[0].push(cur);
+        if (!invalidParentIds.includes(cur.id)) acc[1].push(cur);
+        return acc;
+      },
+      [[], []] as TagOption[][]
+    );
+  }, [tagStore.activeTagId, tagStore.tagOptions]);
+
+  const clearInputs = () => {
+    setLabel("");
+    setAliases([]);
+    if (!hasKeepParentTags) setParentTags([]);
+    if (!hasKeepChildTags) setChildTags([]);
+    labelRef.current?.focus();
+  };
 
   const handleDelete = () => setIsConfirmDeleteOpen(true);
 
@@ -36,57 +65,89 @@ export const TagEditor = observer(({ isCreate, onCancel, onSave }: TagEditorProp
     if (isDuplicateTag) return toast.error("Tag label must be unique");
     if (!label.trim().length) return toast.error("Tag label cannot be blank");
 
+    const childIds = childTags.map((t) => t.id);
     const parentIds = parentTags.map((t) => t.id);
     const aliasStrings = aliases.map((a) => a.value);
 
-    if (isCreate) await createTag({ aliases: aliasStrings, label, parentIds });
-    else
-      await editTag({
-        aliases: aliasStrings,
-        id: tagStore.activeTagId,
-        label,
-        parentIds,
-      });
+    ipcRenderer.send(isCreate ? "createTag" : "editTag", {
+      aliases: aliasStrings,
+      childIds,
+      id: !isCreate ? tagStore.activeTagId : undefined,
+      label,
+      parentIds,
+    });
 
-    toast.success(`Tag '${label}' ${isCreate ? "created" : "edited"}`);
-    onSave();
+    hasContinue ? clearInputs() : goBack();
   };
 
   return (
     <>
       <DialogContent dividers className={css.dialogContent}>
         <View column>
-          <Text align="center" className={css.sectionTitle}>
-            Label
-          </Text>
+          <Text className={css.sectionTitle}>{"Label"}</Text>
           <Input
+            ref={labelRef}
             value={label}
             setValue={setLabel}
             textAlign="center"
             error={isDuplicateTag}
-            helperText={isDuplicateTag ? "Tag already exists" : undefined}
+            hasHelper
+            helperText={isDuplicateTag && "Tag already exists"}
           />
 
-          <Text align="center" className={css.sectionTitle}>
-            Aliases
-          </Text>
-          <ChipInput value={aliases} setValue={setAliases} />
+          <Text className={css.sectionTitle}>{"Aliases"}</Text>
+          <ChipInput value={aliases} setValue={setAliases} hasHelper />
 
-          <Text align="center" className={css.sectionTitle}>
-            Parent Tags
-          </Text>
+          <Text className={css.sectionTitle}>{"Parent Tags"}</Text>
           <TagInput
             value={parentTags}
             setValue={setParentTags}
-            options={tagStore.tagOptions.filter((opt) => opt.id !== tagStore.activeTagId)}
+            options={parentTagOptions}
+            hasHelper
           />
+
+          <Text className={css.sectionTitle}>{"Child Tags"}</Text>
+          <TagInput value={childTags} setValue={setChildTags} options={childTagOptions} hasHelper />
+
+          {isCreate && (
+            <View column justify="center">
+              <Text className={css.sectionTitle}>{"Create Options"}</Text>
+
+              <View row>
+                <Checkbox
+                  label="Continue"
+                  checked={hasContinue}
+                  setChecked={setHasContinue}
+                  center
+                />
+
+                <Checkbox
+                  label="Parent"
+                  checked={hasKeepParentTags}
+                  setChecked={setHasKeepParentTags}
+                  disabled={!hasContinue}
+                  center
+                />
+
+                <Checkbox
+                  label="Child"
+                  checked={hasKeepChildTags}
+                  setChecked={setHasKeepChildTags}
+                  disabled={!hasContinue}
+                  center
+                />
+              </View>
+            </View>
+          )}
         </View>
       </DialogContent>
 
-      {isConfirmDeleteOpen && <ConfirmDeleteModal setVisible={setIsConfirmDeleteOpen} />}
+      {isConfirmDeleteOpen && (
+        <ConfirmDeleteModal setVisible={setIsConfirmDeleteOpen} goBack={goBack} />
+      )}
 
       <DialogActions className={css.dialogActions}>
-        <Button text="Cancel" icon="Close" onClick={onCancel} color={colors.grey["700"]} />
+        <Button text="Cancel" icon="Close" onClick={goBack} color={colors.grey["700"]} />
 
         <Button text="Delete" icon="Delete" onClick={handleDelete} color={colors.red["800"]} />
 
@@ -102,9 +163,11 @@ const useClasses = makeClasses({
   },
   dialogContent: {
     padding: "0.5rem 1rem",
+    width: "25rem",
   },
   sectionTitle: {
     fontSize: "0.8em",
+    textAlign: "center",
     textShadow: `0 0 10px ${colors.blue["600"]}`,
   },
 });

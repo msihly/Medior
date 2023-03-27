@@ -14,7 +14,8 @@ export const FileTooltip = observer(({ file, onTagPress }: FileTooltipProps) => 
 
   return (
     <Tooltip
-      classes={{ tooltip: css.tooltip }}
+      arrow
+      classes={{ arrow: css.arrow, tooltip: css.tooltip }}
       title={
         <View column>
           <View row className={css.header}>
@@ -30,9 +31,15 @@ export const FileTooltip = observer(({ file, onTagPress }: FileTooltipProps) => 
           </View>
 
           {file.tags?.length > 0 && (
-            <View row margins={{ top: "0.3rem", bottom: "0.2rem" }}>
+            <View row margins={{ top: "0.3rem", bottom: "0.2rem" }} style={{ flexWrap: "wrap" }}>
               {file.tags.map((tag) => (
-                <Tag key={tag.id} tag={tag} onClick={() => onTagPress(tag.id)} size="small" />
+                <Tag
+                  key={tag.id}
+                  tag={tag}
+                  onClick={() => onTagPress(tag.id)}
+                  size="small"
+                  style={{ margin: "0 0.5em 0.5em 0" }}
+                />
               ))}
             </View>
           )}
@@ -52,11 +59,18 @@ export const FileTooltip = observer(({ file, onTagPress }: FileTooltipProps) => 
 });
 
 const useClasses = makeClasses({
+  arrow: {
+    color: colors.grey["900"],
+  },
   header: {
+    justifyContent: "space-between",
+    padding: "0.3rem",
     fontSize: "1.1em",
   },
   tooltip: {
+    minWidth: "20rem",
+    maxWidth: "25rem",
     backgroundColor: colors.grey["900"],
-    boxShadow: "rgb(0 0 0 / 50%) 1px 2px 4px 0px",
+    boxShadow: "rgb(0 0 0 / 80%) 1px 2px 4px 0px",
   },
 });

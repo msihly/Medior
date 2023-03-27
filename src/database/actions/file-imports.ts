@@ -1,50 +1,76 @@
 import { useRef, useEffect } from "react";
-import { copyFileTo, FileImportBatch, FileImportBatchModel } from "database";
-import { FileImport, ImportStore, useStores } from "store";
+import {
+  copyFileTo,
+  FileImportBatch,
+  FileImportBatchModel,
+  getDisplayedFiles,
+  refreshAllTagCounts,
+} from "database";
+import { FileImport, ImportBatch, ImportStore, RootStore, useStores } from "store";
 import { dayjs, PromiseQueue } from "utils";
 import { OUTPUT_DIR } from "env";
 
 export const FileInfoRefreshQueue = new PromiseQueue();
 
-export const completeImportBatch = async (addedAt: string) => {
+export const completeImportBatch = async ({
+  rootStore,
+  batch,
+}: {
+  rootStore: RootStore;
+  batch: ImportBatch;
+}) => {
   try {
+    await getDisplayedFiles(rootStore);
+    await refreshAllTagCounts(rootStore, true);
+
     const completedAt = dayjs().toISOString();
-    await FileImportBatchModel.updateOne({ addedAt }, { completedAt });
+    await FileImportBatchModel.updateOne({ _id: batch.id }, { completedAt });
+    batch.update({ completedAt });
+
     return { success: true, completedAt };
   } catch (err) {
-    console.error(err?.message ?? err);
-    return { success: false, error: err?.message ?? err };
+    console.error(err);
+    return { success: false, error: err?.message };
   }
 };
 
-export const createImportBatch = async (
-  addedAt: string,
-  imports: FileImport[],
-  tagIds: string[]
-) => {
+export const createImportBatch = async ({
+  createdAt,
+  imports,
+  importStore,
+  tagIds = [],
+}: {
+  createdAt: string;
+  imports: FileImport[];
+  importStore: ImportStore;
+  tagIds?: string[];
+}) => {
   try {
     const batch = await FileImportBatchModel.create({
-      addedAt,
+      createdAt,
       completedAt: null,
       imports,
       startedAt: null,
       tagIds,
     });
 
+    importStore.addImportBatch({ createdAt, id: batch.id, imports, tagIds });
+
     return { success: true, batch };
   } catch (err) {
-    console.error(err?.message ?? err);
-    return { success: false, error: err?.message ?? err };
+    console.error(err);
+    return { success: false, error: err?.message };
   }
 };
 
-export const deleteImportBatch = async (id: string) => {
+export const deleteImportBatch = async (importStore: ImportStore, id: string) => {
   try {
     await FileImportBatchModel.deleteOne({ _id: id });
+    importStore.deleteImportBatch(id);
     return { success: true };
   } catch (err) {
-    console.error(err?.message ?? err);
-    return { success: false, error: err?.message ?? err };
+    console.error(err);
+    return { success: false, error: err?.message };
   }
 };
 
@@ -55,90 +81,106 @@ export const getAllImportBatches = async () => {
       return { ...batch, imports: batch.imports as FileImport[] };
     });
   } catch (err) {
-    console.error(err?.message ?? err);
+    console.error(err);
     return [];
   }
 };
 
-export const importFile = async (
-  importStore: ImportStore,
-  addedAt: string,
-  fileImport: FileImport
-) => {
-  if (!addedAt || fileImport?.status !== "PENDING") return false;
-  const batch = importStore.getByAddedAt(addedAt);
+export const importFile = async ({
+  batchId,
+  filePath,
+  importStore,
+}: {
+  batchId: string;
+  filePath: string;
+  importStore: ImportStore;
+}) => {
+  const batch = importStore.getById(batchId);
+  const fileImport = batch.getByPath(filePath);
+
+  if (!batch || !fileImport) {
+    console.error({
+      batch: batch.toString({ withData: true }),
+      fileImport: fileImport.toString({ withData: true }),
+    });
+    return false;
+  }
 
   try {
+    if (fileImport?.status !== "PENDING") return false;
+
     const res = await copyFileTo({
       fileObj: fileImport,
       importStore,
       targetDir: OUTPUT_DIR,
       tagIds: batch.tagIds,
     });
-    console.debug("CopyFileTo res:", res);
-    if (!res?.success) throw new Error(res?.error);
 
     const status = !res?.success ? "ERROR" : res?.isDuplicate ? "DUPLICATE" : "COMPLETE";
+    const fileId = res.file?.id ?? null;
+    const errorMsg = res.error ?? null;
 
     await FileImportBatchModel.updateOne(
-      { addedAt },
-      { $set: { "imports.$[fileImport].status": status } },
+      { _id: batch.id },
+      {
+        $set: {
+          "imports.$[fileImport].errorMsg": errorMsg,
+          "imports.$[fileImport].fileId": fileId,
+          "imports.$[fileImport].status": status,
+        },
+      },
       { arrayFilters: [{ "fileImport.path": fileImport.path }] }
     );
+
+    importStore.getById(batchId).updateImport(filePath, { errorMsg, fileId, status });
 
     return true;
   } catch (err) {
-    console.log("importFile error:", err);
-
-    await FileImportBatchModel.updateOne(
-      { addedAt },
-      { $set: { "imports.$[fileImport].status": "ERROR" } },
-      { arrayFilters: [{ "fileImport.path": fileImport.path }] }
-    );
-
+    console.error("importFile error:", err);
     return false;
   }
 };
 
-export const startImportBatch = async (addedAt: string) => {
+export const startImportBatch = async (batch: ImportBatch) => {
   try {
     const startedAt = dayjs().toISOString();
-    await FileImportBatchModel.updateOne({ addedAt }, { startedAt });
+    await FileImportBatchModel.updateOne({ createdAt: batch.createdAt }, { startedAt });
+    batch.update({ startedAt });
     return { success: true, startedAt };
   } catch (err) {
-    console.error(err?.message ?? err);
-    return { success: false, error: err?.message ?? err };
+    console.error(err?.message);
+    return { success: false, error: err?.message };
   }
 };
 
 export const useFileImportQueue = () => {
+  const rootStore = useStores();
   const { importStore } = useStores();
 
   const currentImportPath = useRef<string>(null);
 
   const handlePhase = async () => {
-    console.debug("Import phase update:", {
-      activeBatch: { ...importStore.activeBatch },
-      currentPath: currentImportPath.current,
-      incompleteBatches: importStore.incompleteBatches,
-    });
+    // console.debug("Import phase update:", {
+    //   activeBatch: { ...importStore.activeBatch },
+    //   currentPath: currentImportPath.current,
+    //   incompleteBatches: importStore.incompleteBatches,
+    // });
 
     const activeBatch = importStore.activeBatch;
     const nextPath = activeBatch?.nextImport?.path;
 
     if (currentImportPath.current === nextPath) {
       console.debug("Import phase skipped: current path matches next path.");
-    } else if (activeBatch?.nextImport) {
-      console.debug("Importing file:", { ...activeBatch?.nextImport });
-
-      await importFile(importStore, activeBatch?.addedAt, activeBatch?.nextImport);
+    } else if (nextPath) {
+      console.debug("Importing file:", { ...activeBatch.nextImport });
       currentImportPath.current = nextPath;
+      await importFile({ batchId: importStore.activeBatchId, filePath: nextPath, importStore });
     } else if (!activeBatch && importStore.incompleteBatches?.length > 0) {
       const batch = importStore.incompleteBatches[0];
 
       if (batch?.imports?.length > 0) {
-        console.debug("Starting importBatch:", batch.addedAt);
-        await startImportBatch(batch.addedAt);
+        console.debug("Starting importBatch:", { ...batch.$ });
+        await startImportBatch(batch);
         importStore.setActiveBatchId(batch.id);
       } else {
         console.debug("Import phase skipped: incomplete batch has no imports yet.");
@@ -148,11 +190,11 @@ export const useFileImportQueue = () => {
       currentImportPath.current = null;
 
       if (activeBatch && !activeBatch?.nextImport) {
-        console.debug("Completing importBatch:", activeBatch?.addedAt);
-        await completeImportBatch(activeBatch?.addedAt);
+        console.debug("Completing importBatch:", { ...activeBatch });
+        await completeImportBatch({ rootStore, batch: activeBatch });
         importStore.setActiveBatchId(null);
       } else {
-        console.debug("Nothing happened.");
+        // console.debug("Nothing happened.");
       }
     }
   };

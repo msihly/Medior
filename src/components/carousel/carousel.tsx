@@ -11,9 +11,9 @@ import { observer } from "mobx-react-lite";
 import { useStores } from "store";
 import ReactPlayer from "react-player/file";
 import Panzoom, { PanzoomObject, PanzoomOptions } from "@panzoom/panzoom";
+import { colors, Slider } from "@mui/material";
 import { IconButton, Text, View } from "components";
 import { dayjs, makeClasses } from "utils";
-import { colors, Slider } from "@mui/material";
 
 interface CarouselContextProps {
   activeFileId: string;

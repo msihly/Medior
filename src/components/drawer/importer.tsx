@@ -1,11 +1,10 @@
-import { useEffect, useState } from "react";
 import { dialog } from "@electron/remote";
+import { createImportBatch, useFileImportQueue } from "database";
 import { observer } from "mobx-react-lite";
-import { TagOption, useStores } from "store";
+import { useStores } from "store";
 import { Dialog, DialogTitle, DialogContent, DialogActions, colors } from "@mui/material";
-import { Button, Checkbox, ImportBatch, TagInput, Text } from "components";
+import { Button, Checkbox, ImportBatch, Text } from "components";
 import { dayjs, dirToFileImports, filePathsToImports, makeClasses } from "utils";
-import { createImportBatch } from "database";
 
 interface ImporterProps {
   isOpen: boolean;
@@ -13,14 +12,10 @@ interface ImporterProps {
 }
 
 export const Importer = observer(({ isOpen = false, setIsOpen }: ImporterProps) => {
-  const { importStore, tagStore } = useStores();
+  const { importStore } = useStores();
   const { css } = useClasses(null);
 
-  const [tags, setTags] = useState<TagOption[]>([]);
-
-  useEffect(() => {
-    if (isOpen) setTags([]);
-  }, [isOpen]);
+  useFileImportQueue();
 
   const handleClose = () => setIsOpen(false);
 
@@ -31,16 +26,13 @@ export const Importer = observer(({ isOpen = false, setIsOpen }: ImporterProps) 
       });
       if (res.canceled) return;
 
-      const addedAt = dayjs().toISOString();
-      const fileImports = await (isDir
+      const createdAt = dayjs().toISOString();
+      const imports = await (isDir
         ? dirToFileImports(res.filePaths[0])
         : filePathsToImports(res.filePaths));
-      const tagIds = [...tags].map((t) => t.id);
 
-      const batchRes = await createImportBatch(addedAt, fileImports, tagIds);
+      const batchRes = await createImportBatch({ createdAt, imports, importStore });
       if (!batchRes.success) throw new Error(batchRes?.error);
-
-      setTags([]);
     } catch (err) {
       console.error(err);
     }
@@ -48,27 +40,17 @@ export const Importer = observer(({ isOpen = false, setIsOpen }: ImporterProps) 
 
   return (
     <Dialog open={isOpen} onClose={handleClose} scroll="paper">
-      <DialogTitle className={css.dialogTitle}>Import Files</DialogTitle>
+      <DialogTitle className={css.dialogTitle}>{"Import Files"}</DialogTitle>
 
       <DialogContent dividers className={css.dialogContent}>
         {importStore.batches?.length > 0 ? (
           importStore.batches.map((batch) => (
-            <ImportBatch key={batch.addedAt} addedAt={batch.addedAt} />
+            <ImportBatch key={batch.createdAt} createdAt={batch.createdAt} />
           ))
         ) : (
-          <Text color={colors.grey["300"]}>No Imports</Text>
+          <Text color={colors.grey["300"]}>{"No Imports"}</Text>
         )}
       </DialogContent>
-
-      <Text align="center" className={css.sectionTitle}>
-        Add Tags
-      </Text>
-      <TagInput
-        value={tags}
-        setValue={setTags}
-        options={tagStore.tagOptions}
-        className={css.input}
-      />
 
       <Checkbox
         label="Delete on Import"
@@ -97,17 +79,19 @@ const useClasses = makeClasses({
     flexDirection: "column",
     alignItems: "center",
     padding: "0.5rem 1rem",
-    maxHeight: "30rem",
+    height: "15rem",
+    width: "25rem",
     overflowX: "hidden",
   },
   dialogTitle: {
     margin: 0,
     padding: "0.5rem 0",
     textAlign: "center",
+    boxShadow: "0 0 2px black",
   },
   input: {
     margin: "0 1rem 0.5rem",
-    width: "20rem",
+    width: "100%",
   },
   sectionTitle: {
     marginTop: "0.3rem",

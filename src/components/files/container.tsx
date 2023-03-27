@@ -1,91 +1,128 @@
-import { useEffect, useRef } from "react";
+import { ipcRenderer } from "electron";
+import { useEffect, useRef, useState } from "react";
 import { observer } from "mobx-react-lite";
-import { useStores } from "store";
-import Selecto, { OnSelect } from "react-selecto";
+import { sortFiles, useStores } from "store";
+import Selecto, { OnDragStart, OnSelect } from "react-selecto";
 import { Pagination, colors } from "@mui/material";
-import { View } from "components";
+import { Tagger, View } from "components";
 import { DisplayedFiles } from ".";
-import { CONSTANTS, makeClasses } from "utils";
-import { setFileRating } from "database";
+import { makeClasses } from "utils";
+import { getDisplayedFiles } from "database";
 
 export const FileContainer = observer(() => {
   const { css } = useClasses(null);
+
+  const rootStore = useStores()
   const { fileStore, homeStore, tagStore } = useStores();
 
-  const pageCount =
-    homeStore.filteredFiles.length < CONSTANTS.FILE_COUNT
-      ? 1
-      : Math.ceil(homeStore.filteredFiles.length / CONSTANTS.FILE_COUNT);
+  const [isTaggerOpen, setIsTaggerOpen] = useState(false);
 
   const selectRef = useRef(null);
   const selectoRef = useRef(null);
 
   useEffect(() => {
-    if (homeStore.page > pageCount) homeStore.setPage(pageCount);
-  }, [homeStore.page, pageCount]);
+    if (fileStore.page > fileStore.pageCount) fileStore.setPage(fileStore.pageCount);
+  }, [fileStore.page, fileStore.pageCount]);
 
   useEffect(() => {
-    if (fileStore.selected.length === 0) selectoRef.current?.setSelectedTargets?.([]);
-  }, [fileStore.selected]);
+    if (!fileStore.selectedIds.length) selectoRef.current?.setSelectedTargets?.([]);
+  }, [fileStore.selectedIds]);
+
+  useEffect(() => {
+    const reloadDisplayedFiles = async () => {
+      const perfStart = performance.now();
+      await getDisplayedFiles(rootStore);
+      console.debug(`Loaded filtered files into MobX in ${performance.now() - perfStart}ms.`);
+    };
+
+    reloadDisplayedFiles();
+  }, [
+    fileStore.page,
+    homeStore.excludedTags,
+    homeStore.includeDescendants,
+    homeStore.includeTagged,
+    homeStore.includeUntagged,
+    homeStore.includedTags,
+    homeStore.isArchiveOpen,
+    homeStore.isSortDesc,
+    homeStore.selectedImageTypes,
+    homeStore.selectedVideoTypes,
+    homeStore.sortKey,
+    tagStore.tags,
+  ]);
 
   const handleKeyPress = (e) => {
-    if (e.key === "t" && !tagStore.isTaggerOpen) {
+    if (e.key === "t" && !isTaggerOpen) {
       e.preventDefault();
-      tagStore.setIsTaggerOpen(true);
+      setIsTaggerOpen(true);
     } else if (fileStore.selected.length === 1) {
       const selectedId = fileStore.selected[0].id;
-      const indexOfSelected = homeStore.filteredFiles.findIndex((f) => f.id === selectedId);
-      const nextIndex =
-        indexOfSelected === homeStore.filteredFiles.length - 1 ? 0 : indexOfSelected + 1;
-      const nextId = homeStore.filteredFiles[nextIndex].id;
-      const prevIndex =
-        indexOfSelected === 0 ? homeStore.filteredFiles.length - 1 : indexOfSelected - 1;
-      const prevId = homeStore.filteredFiles[prevIndex].id;
+      const indexOfSelected = fileStore.files.findIndex((f) => f.id === selectedId);
+      const nextIndex = indexOfSelected === fileStore.files.length - 1 ? 0 : indexOfSelected + 1;
+      const nextId = fileStore.files[nextIndex].id;
+      const prevIndex = indexOfSelected === 0 ? fileStore.files.length - 1 : indexOfSelected - 1;
+      const prevId = fileStore.files[prevIndex].id;
 
       if (["ArrowLeft", "ArrowRight"].includes(e.key)) {
         const newId = e.key === "ArrowLeft" ? prevId : nextId;
-        if (!homeStore.displayedFiles.find((f) => f.id === newId))
-          homeStore.setPage(homeStore.page + 1 * (e.key === "ArrowLeft" ? -1 : 1));
-        fileStore.toggleFilesSelected([selectedId], false);
-        fileStore.toggleFilesSelected([newId], true);
+        if (!fileStore.files.find((f) => f.id === newId))
+          fileStore.setPage(fileStore.page + 1 * (e.key === "ArrowLeft" ? -1 : 1));
+
+        fileStore.toggleFilesSelected([
+          { id: selectedId, isSelected: false },
+          { id: newId, isSelected: true },
+        ]);
       } else if (["1", "2", "3", "4", "5", "6", "7", "8", "9"].includes(e.key)) {
-        setFileRating([selectedId], +e.key);
+        ipcRenderer.send("setFileRating", { fileIds: [selectedId], rating: +e.key });
       }
     }
   };
 
-  const handleSelect = (e: OnSelect) => {
-    const addedIds = e.added.map((f) => f.id);
-    const removedIds = e.removed.map((f) => f.id);
-    const hasAdded = addedIds.length > 0;
-    const hasRemoved = removedIds.length > 0;
-    const isShiftClick = e.inputEvent?.shiftKey;
+  const handleSelect = (event: OnDragStart | OnSelect) => {
+    const curSelectedIds = event.currentTarget.getSelectedTargets().map((e) => e.id);
 
-    if (!hasAdded && !hasRemoved) {
-      return fileStore.toggleFilesSelected(
-        fileStore.selected.map((f) => f.id),
-        false
+    if (event.inputEvent?.shiftKey) {
+      const endId = fileStore.selectedIds[fileStore.selectedIds.length - 1];
+      const endIndex = fileStore.filteredFileIds.indexOf(endId);
+
+      const firstId = fileStore.selectedIds[0];
+      const firstIndex = fileStore.filteredFileIds.indexOf(firstId);
+
+      const selectedId = event.inputEvent?.path?.find((el) =>
+        el.classList?.value?.includes?.("selectable")
+      )?.id;
+      const selectedIndex = fileStore.filteredFileIds.indexOf(selectedId);
+
+      const selectedFiles = fileStore.filteredFileIds
+        .slice(firstIndex, selectedIndex + 1)
+        .map((id) => ({ id, isSelected: true }));
+      const unselectedFiles = fileStore.filteredFileIds
+        .slice(selectedIndex, endIndex + 1)
+        .map((id) => ({ id, isSelected: false }));
+
+      fileStore.toggleFilesSelected([...selectedFiles, ...unselectedFiles]);
+      event.currentTarget.setSelectedTargets(
+        selectedFiles.map((f) => document.getElementById(f.id))
+      );
+    } else if (curSelectedIds?.length > 0) {
+      const toggledFiles = [
+        ...curSelectedIds.map((id) => ({ id, isSelected: true })),
+        ...fileStore.filteredFileIds.reduce((acc, cur) => {
+          if (
+            !event.inputEvent?.ctrlKey &&
+            fileStore.getIsSelected(cur) &&
+            !curSelectedIds.includes(cur)
+          )
+            acc.push({ id: cur, isSelected: false });
+          return acc;
+        }, [] as { id: string; isSelected: boolean }[]),
+      ];
+
+      fileStore.toggleFilesSelected(toggledFiles);
+      event.currentTarget.setSelectedTargets(
+        curSelectedIds.map((id) => document.getElementById(id))
       );
     }
-
-    if (hasAdded) {
-      if (isShiftClick) {
-        const lastIndex = homeStore.displayedFiles.findIndex(
-          (f) => f.id === fileStore.selected[fileStore.selected.length - 1]?.id
-        );
-        const addedIndex = homeStore.displayedFiles.findIndex((f) => f.id === addedIds[0]);
-        const rangeIds = homeStore.displayedFiles
-          .slice(
-            lastIndex > addedIndex ? addedIndex : lastIndex,
-            (addedIndex > lastIndex ? addedIndex : lastIndex) + 1
-          )
-          .map((f) => f.id);
-
-        fileStore.toggleFilesSelected(rangeIds, true);
-      } else fileStore.toggleFilesSelected(addedIds, true);
-    }
-
-    if (hasRemoved) fileStore.toggleFilesSelected(removedIds, false);
   };
 
   const handleScroll = (e) => selectRef.current.scrollBy(e.direction[0] * 10, e.direction[1] * 10);
@@ -96,7 +133,6 @@ export const FileContainer = observer(() => {
         ref={selectoRef}
         dragContainer={selectRef.current}
         onSelect={handleSelect}
-        onSelectEnd={handleSelect}
         selectableTargets={[".selectable"]}
         continueSelect={false}
         toggleContinueSelect={[["ctrl"], ["shift"]]}
@@ -110,13 +146,15 @@ export const FileContainer = observer(() => {
       </View>
 
       <Pagination
-        count={pageCount}
-        page={homeStore.page}
-        onChange={(_, value) => homeStore.setPage(value)}
+        count={fileStore.pageCount}
+        page={fileStore.page}
+        onChange={(_, value) => fileStore.setPage(value)}
         showFirstButton
         showLastButton
         className={css.pagination}
       />
+
+      {isTaggerOpen && <Tagger files={fileStore.selected} setVisible={setIsTaggerOpen} />}
     </View>
   );
 });

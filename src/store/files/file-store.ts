@@ -2,43 +2,43 @@ import { computed } from "mobx";
 import { Model, model, modelAction, ModelCreationData, prop } from "mobx-keystone";
 import { File } from ".";
 import { IMAGE_EXT_REG_EXP, VIDEO_EXT_REG_EXP } from "utils";
-import { toast } from "react-toastify";
 
 @model("mediaViewer/FileStore")
 export class FileStore extends Model({
   files: prop<File[]>(() => []),
+  filteredFileIds: prop<string[]>(() => []).withSetter(),
+  page: prop<number>(1).withSetter(),
+  pageCount: prop<number>(1).withSetter(),
+  selectedIds: prop<string[]>(() => []),
 }) {
   @modelAction
-  addFiles(...files: File[]) {
-    this.files.push(...files.map((f) => new File({ ...f, isSelected: false })));
+  appendFiles(files: ModelCreationData<File>[]) {
+    this.files.push(
+      ...files.reduce((acc, cur) => {
+        if (!this.files.find((f) => f.id === cur.id)) acc.push(new File(cur));
+        return acc;
+      }, [])
+    );
   }
 
   @modelAction
-  archiveFiles(fileIds: string[], isUnarchive = false) {
-    if (!fileIds?.length) return false;
-    this.files.forEach((f) => {
-      if (fileIds.includes(f.id)) f.isArchived = !isUnarchive;
-    });
-    toast.warning(`${isUnarchive ? "Unarchived" : "Archived"} ${fileIds.length} files`);
+  overwrite(files: ModelCreationData<File>[]) {
+    this.files = files.map((f) => new File(f));
   }
 
   @modelAction
-  deleteFiles(fileIds: string[]) {
-    if (!fileIds?.length) return false;
-    this.files = this.files.filter((f) => !fileIds.includes(f.id));
-    toast.error(`Deleted ${fileIds.length} files`);
+  toggleFilesSelected(selected: { id: string; isSelected?: boolean }[]) {
+    const [added, removed] = selected.reduce(
+      (acc, cur) => (acc[cur.isSelected ? 0 : 1].push(cur.id), acc),
+      [[], []]
+    );
+    this.selectedIds = [...new Set(this.selectedIds.concat(added))].filter(
+      (id) => !removed.includes(id)
+    );
   }
 
-  @modelAction
-  overwrite(files: Omit<ModelCreationData<File>, "isSelected">[]) {
-    this.files = files.map((f) => new File({ ...f, isSelected: false }));
-  }
-
-  @modelAction
-  toggleFilesSelected(fileIds: string[], selected: boolean = null) {
-    this.files.forEach((f) => {
-      if (fileIds.includes(f.id)) f.isSelected = selected ?? !f.isSelected;
-    });
+  getIsSelected(id: string) {
+    return !!this.selectedIds.find((s) => s === id);
   }
 
   getById(id: string) {
@@ -47,6 +47,10 @@ export class FileStore extends Model({
 
   listByHash(hash: string) {
     return this.files.filter((f) => f.hash === hash);
+  }
+
+  listByIds(ids: string[]) {
+    return this.files.filter((f) => ids.includes(f.id));
   }
 
   listByTagId(tagId: string) {
@@ -65,7 +69,7 @@ export class FileStore extends Model({
 
   @computed
   get selected() {
-    return this.files.filter((f) => f.isSelected);
+    return this.files.filter((f) => this.selectedIds.includes(f.id));
   }
 
   @computed

@@ -1,12 +1,10 @@
-import { forwardRef, useState } from "react";
+import { forwardRef, useMemo, useState } from "react";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
 import { Divider, Drawer as MuiDrawer, List, colors } from "@mui/material";
 import {
   Accordion,
   Checkbox,
-  FileCollectionEditor,
-  FileCollectionManager,
   IconButton,
   ListItem,
   TagInput,
@@ -20,13 +18,37 @@ import * as Media from "media";
 
 export const Drawer = observer(
   forwardRef((_, drawerRef: any) => {
-    const { fileCollectionStore, homeStore, tagStore } = useStores();
+    const { homeStore, tagStore } = useStores();
 
     const { css } = useClasses({ drawerMode: homeStore.drawerMode });
 
     const [isImporterOpen, setIsImporterOpen] = useState(false);
-    const [isImageTypesOpen, setIsImageTypesOpen] = useState(false);
-    const [isVideoTypesOpen, setIsVideoTypesOpen] = useState(false);
+
+    const [isAllImageTypesSelected, isAnyImageTypesSelected] = useMemo(() => {
+      const allTypes = Object.values(homeStore.selectedImageTypes);
+      const selectedTypes = allTypes.filter((t) => t === true);
+      const isAllSelected = allTypes.length === selectedTypes.length;
+      const isAnySelected = selectedTypes.length > 0 && selectedTypes.length !== allTypes.length;
+      return [isAllSelected, isAnySelected];
+    }, [homeStore.selectedImageTypes]);
+
+    const [isAllVideoTypesSelected, isAnyVideoTypesSelected] = useMemo(() => {
+      const allTypes = Object.values(homeStore.selectedVideoTypes);
+      const selectedTypes = allTypes.filter((t) => t === true);
+      const isAllSelected = allTypes.length === selectedTypes.length;
+      const isAnySelected = selectedTypes.length > 0 && selectedTypes.length !== allTypes.length;
+      return [isAllSelected, isAnySelected];
+    }, [homeStore.selectedVideoTypes]);
+
+    const toggleImageTypes = () =>
+      homeStore.setSelectedImageTypes(
+        Object.fromEntries(IMAGE_TYPES.map((t) => [t, isAllImageTypesSelected ? false : true]))
+      );
+
+    const toggleVideoTypes = () =>
+      homeStore.setSelectedVideoTypes(
+        Object.fromEntries(VIDEO_TYPES.map((t) => [t, isAllVideoTypesSelected ? false : true]))
+      );
 
     const handleDescendants = () => homeStore.setIncludeDescendants(!homeStore.includeDescendants);
 
@@ -112,33 +134,41 @@ export const Drawer = observer(
           />
         </View>
 
-        <Accordion
-          header={<Text>Image Types</Text>}
-          expanded={isImageTypesOpen}
-          setExpanded={setIsImageTypesOpen}
-          fullWidth
-        >
-          {IMAGE_TYPES.map((ext) => (
-            <ExtCheckbox key={ext} ext={ext} type="Image" />
-          ))}
-        </Accordion>
+        <View row className={css.accordionContainer}>
+          <Checkbox
+            checked={isAllImageTypesSelected}
+            indeterminate={!isAllImageTypesSelected && isAnyImageTypesSelected}
+            setChecked={toggleImageTypes}
+            className={css.accordionHeaderCheckbox}
+          />
 
-        <Accordion
-          header={<Text>Video Types</Text>}
-          expanded={isVideoTypesOpen}
-          setExpanded={setIsVideoTypesOpen}
-          fullWidth
-        >
-          {VIDEO_TYPES.map((ext) => (
-            <ExtCheckbox key={ext} ext={ext} type="Video" />
-          ))}
-        </Accordion>
+          <Accordion header={<Text noWrap>Image Types</Text>} fullWidth className={css.accordion}>
+            {IMAGE_TYPES.map((ext) => (
+              <ExtCheckbox key={ext} ext={ext} type="Image" />
+            ))}
+          </Accordion>
+        </View>
+
+        <View row className={css.accordionContainer}>
+          <Checkbox
+            checked={isAllVideoTypesSelected}
+            indeterminate={!isAllVideoTypesSelected && isAnyVideoTypesSelected}
+            setChecked={toggleVideoTypes}
+            className={css.accordionHeaderCheckbox}
+          />
+
+          <Accordion header={<Text noWrap>Video Types</Text>} fullWidth className={css.accordion}>
+            {VIDEO_TYPES.map((ext) => (
+              <ExtCheckbox key={ext} ext={ext} type="Video" />
+            ))}
+          </Accordion>
+        </View>
 
         {tagStore.isTagManagerOpen && <TagManager />}
 
-        {fileCollectionStore.isCollectionManagerOpen && <FileCollectionManager />}
+        {/* {fileCollectionStore.isCollectionManagerOpen && <FileCollectionManager />}
 
-        {fileCollectionStore.isCollectionEditorOpen && <FileCollectionEditor />}
+        {fileCollectionStore.isCollectionEditorOpen && <FileCollectionEditor />} */}
 
         <Importer isOpen={isImporterOpen} setIsOpen={setIsImporterOpen} />
       </MuiDrawer>
@@ -147,6 +177,15 @@ export const Drawer = observer(
 );
 
 const useClasses = makeClasses((_, { drawerMode }) => ({
+  accordion: {
+    " > button": { padding: "0.5rem 0.2rem" },
+  },
+  accordionContainer: {
+    width: "100%",
+  },
+  accordionHeaderCheckbox: {
+    height: "fit-content",
+  },
   checkboxes: {
     padding: "0.3rem",
     width: "100%",
@@ -158,6 +197,7 @@ const useClasses = makeClasses((_, { drawerMode }) => ({
     borderRight: "1px solid #111",
     width: "200px",
     backgroundColor: colors.grey["900"],
+    zIndex: 20,
     "&::-webkit-scrollbar": {
       display: "none",
     },

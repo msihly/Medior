@@ -1,9 +1,9 @@
 import { Dialog, DialogTitle, DialogContent, DialogActions, colors } from "@mui/material";
+import { refreshFile } from "database";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
 import { Button, DetailRows, SideScroller, Tag, Text, View } from "components";
 import { dayjs, formatBytes, makeClasses } from "utils";
-import { refreshFile } from "database";
 import { toast } from "react-toastify";
 
 interface InfoModalProps {
@@ -27,7 +27,7 @@ export const InfoModal = observer(({ fileId, setVisible }: InfoModalProps) => {
 
   return (
     <Dialog open={true} onClose={handleClose} scroll="paper">
-      <DialogTitle className={css.title}>Info</DialogTitle>
+      <DialogTitle className={css.title}>{"Info"}</DialogTitle>
 
       <DialogContent dividers>
         <DetailRows
@@ -76,7 +76,7 @@ export const InfoModal = observer(({ fileId, setVisible }: InfoModalProps) => {
       </DialogContent>
 
       <DialogActions className={css.buttons}>
-        <Button text="Close" icon="Close" onClick={handleClose} className={css.closeButton} />
+        <Button text="Close" icon="Close" onClick={handleClose} color={colors.red["800"]} />
 
         <Button text="Refresh" icon="Refresh" onClick={handleRefresh} />
       </DialogActions>
@@ -87,12 +87,6 @@ export const InfoModal = observer(({ fileId, setVisible }: InfoModalProps) => {
 const useClasses = makeClasses({
   buttons: {
     justifyContent: "center",
-  },
-  closeButton: {
-    backgroundColor: colors.red["800"],
-    "&:hover": {
-      backgroundColor: colors.red["700"],
-    },
   },
   tags: {
     borderBottomLeftRadius: "inherit",

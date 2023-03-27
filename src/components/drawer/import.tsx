@@ -1,7 +1,8 @@
+import { shell } from "electron";
 import { observer } from "mobx-react-lite";
-import { FileImport } from "store";
+import { FileImport, useStores } from "store";
 import { colors } from "@mui/material";
-import { Icon, IMPORT_STATUSES, Text, View } from "components";
+import { Icon, IMPORT_STATUSES, openFile, Text, View } from "components";
 import { makeClasses } from "utils";
 
 interface ImportProps {
@@ -10,8 +11,19 @@ interface ImportProps {
 
 export const Import = observer(({ fileImport }: ImportProps) => {
   const { css } = useClasses(null);
+  const { fileStore } = useStores();
 
+  const dir = fileImport.path.slice(0, fileImport.path.lastIndexOf("\\"));
+  const hasFileId = fileImport.fileId?.length > 0;
   const status = IMPORT_STATUSES[fileImport.status];
+
+  const handleClick = () =>
+    hasFileId
+      ? openFile({
+          file: fileStore.getById(fileImport.fileId),
+          filteredFileIds: fileStore.filteredFileIds,
+        })
+      : shell.showItemInFolder(fileImport.path);
 
   return (
     <View row className={css.card}>
@@ -22,11 +34,9 @@ export const Import = observer(({ fileImport }: ImportProps) => {
           {fileImport.name}
         </Text>
 
-        {fileImport.path && (
-          <Text noWrap fontSize={12}>
-            {fileImport.path.slice(0, fileImport.path.lastIndexOf("\\"))}
-          </Text>
-        )}
+        <Text onClick={handleClick} noWrap fontSize={12} className={css.clickTarget}>
+          {hasFileId ? fileImport.fileId : dir}
+        </Text>
       </View>
     </View>
   );
@@ -42,6 +52,14 @@ const useClasses = makeClasses({
     marginBottom: "0.5rem",
     padding: "0.5rem",
     backgroundColor: colors.grey["800"],
+  },
+  clickTarget: {
+    color: colors.grey["400"],
+    cursor: "pointer",
+    transition: "all 200ms ease-in-out",
+    "&:hover": {
+      color: colors.grey["100"],
+    },
   },
   icon: {
     marginRight: "0.5rem",

@@ -2,15 +2,16 @@ import { ComponentProps, forwardRef, HTMLAttributes, MutableRefObject } from "re
 import { Autocomplete, Chip, colors } from "@mui/material";
 import { observer } from "mobx-react-lite";
 import { TagOption, useStores } from "store";
-import { Tag, View } from "components";
-import { Input } from ".";
+import { Input, InputProps, Tag, View } from "components";
 import { makeClasses } from "utils";
 
-type TagInputProps = Omit<
+export type TagInputProps = Omit<
   ComponentProps<typeof Autocomplete>,
   "renderInput" | "onChange" | "options"
 > & {
   autoFocus?: boolean;
+  hasHelper?: boolean;
+  inputProps?: InputProps;
   label?: string;
   opaque?: boolean;
   options?: TagOption[];
@@ -24,6 +25,8 @@ export const TagInput = observer(
       {
         autoFocus = false,
         className,
+        hasHelper = false,
+        inputProps,
         label,
         opaque = false,
         options = [],
@@ -45,8 +48,9 @@ export const TagInput = observer(
           renderInput={(params) => (
             <Input
               {...params}
-              {...{ autoFocus, label, ref }}
+              {...{ autoFocus, hasHelper, label, ref }}
               className={cx(css.input, className)}
+              {...inputProps}
             />
           )}
           renderTags={(val: TagOption[], getTagProps) =>
@@ -58,11 +62,13 @@ export const TagInput = observer(
           isOptionEqualToValue={(option: TagOption, val: TagOption) => option.id === val.id}
           filterOptions={(options: TagOption[], { inputValue }) => {
             const searchStr = inputValue.trim().toLowerCase();
-            return options.filter((o) =>
-              [o.label.toLowerCase(), ...(o.aliases?.map((a) => a.toLowerCase()) ?? [])].some(
-                (label) => label.includes(searchStr)
+            return options
+              .filter((o) =>
+                [o.label.toLowerCase(), ...(o.aliases?.map((a) => a.toLowerCase()) ?? [])].some(
+                  (label) => label.includes(searchStr)
+                )
               )
-            );
+              .slice(0, 100);
           }}
           renderOption={(
             props: HTMLAttributes<HTMLLIElement> & HTMLAttributes<HTMLDivElement>,

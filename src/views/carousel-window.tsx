@@ -1,7 +1,8 @@
 import { ipcRenderer } from "electron";
 import { useEffect, useRef, useState } from "react";
 import Mongoose from "mongoose";
-import { getAllTags, getFiles, setFileRating, watchFileModel, watchTagModel } from "database";
+import { getAllFiles, getAllTags, getFiles } from "database";
+import { applyPatches } from "mobx-keystone";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
 import {
@@ -23,6 +24,7 @@ export const CarouselWindow = observer(() => {
   const rootRef = useRef<HTMLDivElement>(null);
 
   const [activeFileId, setActiveFileId] = useState<string>(null);
+  const [isTaggerOpen, setIsTaggerOpen] = useState(false);
   const [selectedFileIds, setSelectedFileIds] = useState<string[]>([]);
 
   const file = activeFileId ? fileStore.getById(activeFileId) : null;
@@ -36,17 +38,20 @@ export const CarouselWindow = observer(() => {
       console.debug("Connecting to database:", databaseUri, "...");
       await Mongoose.connect(databaseUri, CONSTANTS.MONGOOSE_OPTS);
 
-      console.debug("Connected to database. Retrieving data...");
+      let perfStart = performance.now();
       const [files, tags] = await Promise.all([getFiles(fileIds), getAllTags()]);
-
-      console.debug("Data retrieved. Storing in MST...");
-      tagStore.overwrite(tags);
       fileStore.overwrite(files);
+      tagStore.overwrite(tags);
+      console.debug(`Files and tags loaded into MobX in ${performance.now() - perfStart}ms.`);
 
-      console.debug("Data stored in MST.");
+      ipcRenderer.on("onFileTagsEdited", async () => {
+        const files = await getFiles(fileIds);
+        fileStore.overwrite(files);
+      });
 
-      watchFileModel(fileStore);
-      watchTagModel(tagStore);
+      ipcRenderer.on("onTagPatch", (_, { patches }) => {
+        applyPatches(tagStore.tags, patches);
+      });
     };
 
     ipcRenderer.on("init", async (_, { fileId, selectedFileIds }) => {
@@ -57,6 +62,10 @@ export const CarouselWindow = observer(() => {
     });
 
     rootRef.current?.focus();
+
+    return () => {
+      Mongoose.disconnect();
+    };
   }, []);
 
   const handleScroll = (event) => debounce(handleNav, 100)(event.deltaY < 0);
@@ -69,13 +78,12 @@ export const CarouselWindow = observer(() => {
   };
 
   const handleKeyPress = (e: React.KeyboardEvent<HTMLElement>) => {
-    if (e.key === "t" && !tagStore.isTaggerOpen) {
+    if (e.key === "t" && !isTaggerOpen) {
       e.preventDefault();
-      tagStore.setIsTaggerOpen(true);
+      setIsTaggerOpen(true);
     } else if (["ArrowLeft", "ArrowRight"].includes(e.key)) handleNav(e.key === "ArrowLeft");
-    else if (["1", "2", "3", "4", "5", "6", "7", "8", "9"].includes(e.key)) {
-      setFileRating([activeFileId], +e.key);
-    }
+    else if (["1", "2", "3", "4", "5", "6", "7", "8", "9"].includes(e.key))
+      ipcRenderer.send("setFileRating", { fileIds: [activeFileId], rating: +e.key });
   };
 
   return (
@@ -95,7 +103,7 @@ export const CarouselWindow = observer(() => {
 
         <CarouselThumbNavigator />
 
-        {tagStore.isTaggerOpen && <Tagger files={[file]} hasFocusOnOpen />}
+        {isTaggerOpen && <Tagger files={[file]} setVisible={setIsTaggerOpen} />}
       </View>
     </CarouselContext.Provider>
   );

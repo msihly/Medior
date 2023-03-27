@@ -8,7 +8,7 @@ import {
   modelAction,
   prop,
 } from "mobx-keystone";
-import { getTagAncestry, RootStore } from "store";
+import { RootStore } from "store";
 import { ANIMATED_EXT_REG_EXP, dayjs, VIDEO_EXT_REG_EXP } from "utils";
 
 @model("mediaViewer/File")
@@ -22,7 +22,6 @@ export class File extends Model({
   height: prop<number>(),
   id: prop<string>(),
   isArchived: prop<boolean>(),
-  isSelected: prop<boolean>(),
   originalHash: prop<string>(null),
   originalName: prop<string>(null),
   originalPath: prop<string>(),
@@ -63,12 +62,11 @@ export class File extends Model({
   @computed
   get tags() {
     const { tagStore } = getRootStore<RootStore>(this);
-    return this.tagIds.map((id) => tagStore.getById(id));
-  }
-
-  @computed
-  get tagAncestry() {
-    return [...new Set(getTagAncestry(this.tags))];
+    return this.tagIds.reduce((acc, cur) => {
+      const tag = tagStore.getById(cur);
+      if (tag) acc.push(tag);
+      return acc;
+    }, []);
   }
 
   @computed

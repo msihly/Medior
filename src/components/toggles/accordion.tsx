@@ -1,4 +1,4 @@
-import { ReactNode } from "react";
+import { ReactNode, useState } from "react";
 import { Button, Icon, View } from "components";
 import { Accordion as MuiAccordion, AccordionProps as MuiAccordionProps } from "@mui/material";
 import { makeClasses } from "utils";
@@ -6,32 +6,41 @@ import { makeClasses } from "utils";
 interface AccordionProps extends MuiAccordionProps {
   children: ReactNode | ReactNode[];
   color?: string;
-  expanded: boolean;
+  dense?: boolean;
+  expanded?: boolean;
   fullWidth?: boolean;
   header: ReactNode;
-  setExpanded: (expanded: boolean) => void;
+  setExpanded?: (expanded: boolean) => void;
 }
 
 export const Accordion = ({
   children,
   className,
   color = "transparent",
-  expanded,
+  dense = false,
+  expanded = false,
   fullWidth = false,
   header,
   setExpanded,
 }: AccordionProps) => {
-  const { css, cx } = useClasses({ expanded, fullWidth });
+  const [isExpanded, setIsExpanded] = useState(expanded);
+
+  const handleClick = () => {
+    setIsExpanded(!isExpanded);
+    setExpanded?.(!isExpanded);
+  };
+
+  const { css, cx } = useClasses({ dense, expanded, fullWidth });
 
   return (
     <MuiAccordion
-      {...{ expanded }}
-      TransitionProps={{ unmountOnExit: true }}
+      expanded={isExpanded}
       disableGutters
+      TransitionProps={{ unmountOnExit: true }}
       className={cx(css.accordion, className)}
     >
       <Button
-        onClick={() => setExpanded(!expanded)}
+        onClick={handleClick}
         endNode={<Icon name="ExpandMore" rotation={expanded ? 180 : 0} />}
         color={color}
         fullWidth
@@ -45,7 +54,7 @@ export const Accordion = ({
   );
 };
 
-const useClasses = makeClasses((_, { fullWidth }) => ({
+const useClasses = makeClasses((_, { dense, fullWidth }) => ({
   accordion: {
     margin: 0,
     padding: 0,
@@ -61,7 +70,7 @@ const useClasses = makeClasses((_, { fullWidth }) => ({
   },
   button: {
     justifyContent: "space-between",
-    padding: "0.5em 1em",
+    padding: dense ? "0.2rem 0.6rem" : "0.5rem 1rem",
     fontSize: "1em",
     textTransform: "capitalize",
   },

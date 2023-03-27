@@ -1,66 +1,103 @@
-import { TextField, TextFieldProps } from "@mui/material";
-import { Text } from "components";
+import { colors, TextField, TextFieldProps } from "@mui/material";
+import { Text } from "..";
 import { CSSObject } from "tss-react";
-import { makeClasses } from "utils";
+import { makeClasses, Margins } from "../../utils";
 import Color from "color";
+import { forwardRef, MutableRefObject } from "react";
 
-interface InputProps extends Omit<TextFieldProps, "color" | "onChange" | "helperText"> {
+export interface InputProps extends Omit<TextFieldProps, "color" | "onChange" | "helperText"> {
   className?: string;
   color?: string;
+  hasHelper?: boolean;
   helperText?: string;
-  setValue?: (value: any) => void;
+  margins?: Margins;
+  maxLength?: number;
+  setValue?: (value: string) => any;
   textAlign?: CSSObject["textAlign"];
   value?: any;
+  width?: CSSObject["width"];
 }
 
-export const Input = ({
-  className,
-  color,
-  helperText,
-  setValue,
-  textAlign,
-  value,
-  variant = "outlined",
-  ...props
-}: InputProps) => {
-  const { css, cx } = useClasses({ color, hasHelperText: !!helperText, textAlign });
-
-  return (
-    <TextField
-      {...props}
-      {...{ value, variant }}
-      onChange={(event) => setValue?.(event.target.value)}
-      size="small"
-      helperText={helperText ? <Text>{helperText}</Text> : undefined}
-      className={cx(css.input, className)}
-    />
-  );
-};
-
-const useClasses = makeClasses((_, { color, hasHelperText, textAlign }) => ({
-  input: {
-    marginBottom: hasHelperText ? 0 : "1.3em",
-    "& input": {
+export const Input = forwardRef(
+  (
+    {
+      children,
+      className,
+      color,
+      hasHelper = false,
+      helperText,
+      margins = {},
+      maxLength,
+      setValue,
       textAlign,
-    },
-    "& .MuiOutlinedInput-root": {
-      "& fieldset": {
-        transition: "all 200ms ease-in-out",
-        borderColor: color,
+      value,
+      variant = "outlined",
+      width,
+      ...props
+    }: InputProps,
+    ref?: MutableRefObject<HTMLDivElement>
+  ) => {
+    const { css, cx } = useClasses({
+      color,
+      hasHelper,
+      hasHelperText: !!helperText,
+      margins,
+      textAlign,
+      width,
+    });
+
+    return (
+      <TextField
+        {...props}
+        {...{ value, variant }}
+        ref={ref}
+        onChange={(event) => setValue?.(event.target.value)}
+        helperText={helperText ? <Text>{helperText}</Text> : undefined}
+        inputProps={{ ...props.inputProps, maxLength }}
+        size="small"
+        className={cx(css.input, className)}
+      >
+        {children}
+      </TextField>
+    );
+  }
+);
+
+const useClasses = makeClasses(
+  (_, { bgColor, color, hasHelper, hasHelperText, margins, textAlign, width }) => ({
+    input: {
+      margin: margins.all,
+      marginTop: margins.top,
+      marginBottom: margins.bottom ?? (hasHelper && !hasHelperText ? "1.2em" : 0),
+      marginRight: margins.right,
+      marginLeft: margins.left,
+      width: width,
+      "& input": {
+        textAlign,
       },
-      "&:hover fieldset": {
-        borderColor: color ? Color(color).lighten(0.3).toString() : undefined,
+      "& .MuiTypography-root": {
+        textAlign,
       },
-      "&.Mui-focused fieldset": {
-        borderColor: color,
+      "& .MuiOutlinedInput-root": {
+        backgroundColor: bgColor ?? Color(colors.grey["900"]).fade(0.7).string(),
+        "& fieldset": {
+          transition: "all 200ms ease-in-out",
+          borderColor: color,
+        },
+        "&:hover fieldset": {
+          borderColor: color ? Color(color).lighten(0.3).toString() : undefined,
+        },
+        "&.Mui-focused fieldset": {
+          borderColor: color,
+        },
+      },
+      "& .MuiFormHelperText-root": {
+        margin: "0.25em 0 0 0",
+        color: color,
+        fontSize: "0.75em",
+        lineHeight: 1.5,
+        textAlign: "center",
       },
     },
-    "& .MuiFormHelperText-root": {
-      margin: "0.25em 0 0 0",
-      color: color,
-      fontSize: "0.75em",
-      lineHeight: 1.5,
-      textAlign: "center",
-    },
-  },
-}));
+  })
+);

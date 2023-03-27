@@ -1,36 +1,39 @@
+import { useState } from "react";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
+import { deleteImportBatch } from "database";
 import { colors, LinearProgress } from "@mui/material";
 import {
+  BatchTooltip,
   Icon,
   IconButton,
   Import,
   IMPORT_STATUSES,
-  SideScroller,
-  Tag,
+  Tagger,
   Text,
   View,
 } from "components";
 import { makeClasses } from "utils";
-import { useState } from "react";
-import { deleteImportBatch } from "database";
 import { toast } from "react-toastify";
 
 interface ImportBatchProps {
-  addedAt: string;
+  createdAt: string;
 }
 
-export const ImportBatch = observer(({ addedAt }: ImportBatchProps) => {
-  const { importStore } = useStores();
+export const ImportBatch = observer(({ createdAt }: ImportBatchProps) => {
+  const { fileStore, importStore } = useStores();
 
-  const batch = importStore.getByAddedAt(addedAt);
+  const batch = importStore.getByCreatedAt(createdAt);
+  const completedFiles = fileStore.listByIds(batch.completed.map((imp) => imp.fileId));
   const status = IMPORT_STATUSES[batch.status];
 
   const [expanded, setExpanded] = useState(false);
+  const [isTaggerOpen, setIsTaggerOpen] = useState(false);
+
   const { css } = useClasses({ expanded, hasTags: batch.tagIds?.length > 0 });
 
   const handleDelete = async () => {
-    await deleteImportBatch(batch.id);
+    await deleteImportBatch(importStore, batch.id);
     toast.success("Import batch deleted");
   };
 
@@ -40,17 +43,11 @@ export const ImportBatch = observer(({ addedAt }: ImportBatchProps) => {
     <View column className={css.root}>
       <View row className={css.header}>
         <View row onClick={toggleOpen} className={css.headerButton}>
-          <Icon name={status.icon} color={status.color} className={css.statusIcon} />
+          <BatchTooltip batch={batch}>
+            <Icon name={status.icon} color={status.color} className={css.statusIcon} />
+          </BatchTooltip>
 
           <View className={css.headerCenter}>
-            {batch.tagIds?.length > 0 && (
-              <SideScroller innerClassName={css.tags}>
-                {batch.tagIds.map((id) => (
-                  <Tag key={id} id={id} size="small" className={css.tag} />
-                ))}
-              </SideScroller>
-            )}
-
             <View row className={css.progressContainer}>
               <Text className={css.progressText}>
                 {`${batch.imported.length} / `}
@@ -68,7 +65,21 @@ export const ImportBatch = observer(({ addedAt }: ImportBatchProps) => {
           </View>
         </View>
 
-        <IconButton name="Delete" onClick={handleDelete} className={css.deleteButton} />
+        <IconButton
+          name="Label"
+          onClick={() => setIsTaggerOpen(true)}
+          iconProps={{ color: colors.grey["300"], size: "0.9em" }}
+        />
+
+        <IconButton
+          name="Delete"
+          onClick={handleDelete}
+          iconProps={{ color: colors.red["700"], size: "0.9em" }}
+        />
+
+        {isTaggerOpen && (
+          <Tagger files={completedFiles} batchId={batch.id} setVisible={setIsTaggerOpen} />
+        )}
       </View>
 
       {expanded && batch.imports?.length > 0 && (
@@ -83,13 +94,9 @@ export const ImportBatch = observer(({ addedAt }: ImportBatchProps) => {
 });
 
 const useClasses = makeClasses((_, { expanded, hasTags }) => ({
-  deleteButton: {
-    borderRadius: `0 0.5rem ${expanded ? "0" : "0.5rem"} 0`,
-    backgroundColor: colors.grey["700"],
-    "&:hover": { backgroundColor: colors.red["900"] },
-  },
   header: {
     borderRadius: expanded ? "0.5rem 0.5rem 0 0" : "0.5rem",
+    padding: "0.2rem",
     backgroundColor: colors.grey["900"],
   },
   headerButton: {
@@ -125,7 +132,7 @@ const useClasses = makeClasses((_, { expanded, hasTags }) => ({
   },
   root: {
     marginBottom: "0.5rem",
-    width: "20rem",
+    width: "100%",
   },
   statusIcon: {
     borderRadius: "0.5rem 0 0 0.5rem",

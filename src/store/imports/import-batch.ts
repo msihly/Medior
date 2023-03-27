@@ -1,11 +1,21 @@
-import { applySnapshot, getSnapshot, model, Model, modelAction, prop } from "mobx-keystone";
+import { computed } from "mobx";
+import {
+  applySnapshot,
+  arrayActions,
+  getRootStore,
+  getSnapshot,
+  model,
+  Model,
+  modelAction,
+  prop,
+} from "mobx-keystone";
 import { FileImport } from ".";
 import { dayjs, DayJsInput } from "utils";
-import { computed } from "mobx";
+import { RootStore } from "store";
 
 @model("mediaViewer/ImportBatch")
 export class ImportBatch extends Model({
-  addedAt: prop<string>(),
+  createdAt: prop<string>(),
   completedAt: prop<string>(null),
   id: prop<string>(),
   imports: prop<FileImport[]>(() => []),
@@ -30,6 +40,16 @@ export class ImportBatch extends Model({
   @modelAction
   update(batch: Partial<ImportBatch>) {
     applySnapshot(this, { ...getSnapshot(this), ...batch });
+  }
+
+  @modelAction
+  updateImport(filePath: string, updates: Partial<FileImport>) {
+    const index = this.imports.findIndex((imp) => imp.path === filePath);
+    arrayActions.set(this.imports, index, { ...this.imports[index], ...updates });
+  }
+
+  getByPath(filePath: string) {
+    return this.imports.find((imp) => imp.path === filePath);
   }
 
   @computed

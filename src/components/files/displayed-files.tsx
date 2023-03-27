@@ -1,19 +1,26 @@
+import { useMemo } from "react";
 import { observer } from "mobx-react-lite";
-import { useStores } from "store";
+import { File, useStores } from "store";
 import { colors } from "@mui/material";
 import { Text, View } from "components";
-import { FileCard } from "./";
-import { makeClasses } from "utils";
+import { FileCard } from ".";
+import { CONSTANTS, makeClasses } from "utils";
 
 export const DisplayedFiles = observer(() => {
   const { css } = useClasses(null);
 
-  const { homeStore } = useStores();
+  const { fileStore } = useStores();
+  const displayed = useMemo(() => {
+    return fileStore.files.slice(
+      (fileStore.page - 1) * CONSTANTS.FILE_COUNT,
+      fileStore.page * CONSTANTS.FILE_COUNT
+    );
+  }, [fileStore.files, fileStore.page]);
 
   return (
     <>
-      {homeStore.displayedFiles?.length > 0 ? (
-        homeStore.displayedFiles.map((f) => <FileCard key={f.id} file={f} />)
+      {displayed?.length > 0 ? (
+        displayed.map((f) => <FileCard key={f.id} file={f} />)
       ) : (
         <View className={css.noResults}>
           <Text variant="h5" color={colors.grey["400"]}>

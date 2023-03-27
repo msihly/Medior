@@ -5,6 +5,7 @@ interface CheckboxProps {
   center?: boolean;
   checked: boolean;
   className?: string;
+  disabled?: boolean;
   fullWidth?: boolean;
   indeterminate?: boolean;
   label?: string;
@@ -15,6 +16,7 @@ export const Checkbox = ({
   center = false,
   checked = false,
   className,
+  disabled = false,
   fullWidth = true,
   indeterminate,
   label,
@@ -22,10 +24,12 @@ export const Checkbox = ({
 }: CheckboxProps) => {
   const { css, cx } = useClasses({ center, fullWidth });
 
+  const toggleChecked = () => setChecked(!checked);
+
   return (
     <FormControlLabel
-      {...{ label }}
-      control={<MuiCheckbox {...{ checked, indeterminate }} onClick={() => setChecked(!checked)} />}
+      {...{ disabled, label }}
+      control={<MuiCheckbox {...{ checked, disabled, indeterminate }} onClick={toggleChecked} />}
       className={cx(css.label, className)}
     />
   );
