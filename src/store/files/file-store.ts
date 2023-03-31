@@ -1,7 +1,7 @@
 import { computed } from "mobx";
 import { Model, model, modelAction, ModelCreationData, prop } from "mobx-keystone";
 import { File } from ".";
-import { IMAGE_EXT_REG_EXP, VIDEO_EXT_REG_EXP } from "utils";
+import { CONSTANTS, IMAGE_EXT_REG_EXP, VIDEO_EXT_REG_EXP } from "utils";
 
 @model("mediaViewer/FileStore")
 export class FileStore extends Model({
@@ -60,6 +60,13 @@ export class FileStore extends Model({
   @computed
   get archived() {
     return this.files.filter((f) => f.isArchived);
+  }
+
+  @computed
+  get displayed() {
+    return this.files
+      .filter((f) => this.filteredFileIds.includes(f.id))
+      .slice((this.page - 1) * CONSTANTS.FILE_COUNT, this.page * CONSTANTS.FILE_COUNT);
   }
 
   @computed

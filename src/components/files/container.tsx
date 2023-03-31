@@ -31,8 +31,10 @@ export const FileContainer = observer(() => {
   useEffect(() => {
     const reloadDisplayedFiles = async () => {
       const perfStart = performance.now();
-      await getDisplayedFiles(rootStore);
-      console.debug(`Loaded filtered files into MobX in ${performance.now() - perfStart}ms.`);
+      const { filtered } = await getDisplayedFiles(rootStore);
+      console.debug(
+        `Loaded ${filtered.length} filtered files into MobX in ${performance.now() - perfStart}ms.`
+      );
     };
 
     reloadDisplayedFiles();

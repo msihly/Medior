@@ -4,23 +4,17 @@ import { File, useStores } from "store";
 import { colors } from "@mui/material";
 import { Text, View } from "components";
 import { FileCard } from ".";
-import { CONSTANTS, makeClasses } from "utils";
+import { makeClasses } from "utils";
 
 export const DisplayedFiles = observer(() => {
   const { css } = useClasses(null);
 
   const { fileStore } = useStores();
-  const displayed = useMemo(() => {
-    return fileStore.files.slice(
-      (fileStore.page - 1) * CONSTANTS.FILE_COUNT,
-      fileStore.page * CONSTANTS.FILE_COUNT
-    );
-  }, [fileStore.files, fileStore.page]);
 
   return (
     <>
-      {displayed?.length > 0 ? (
-        displayed.map((f) => <FileCard key={f.id} file={f} />)
+      {fileStore.displayed?.length > 0 ? (
+        fileStore.displayed.map((f) => <FileCard key={f.id} file={f} />)
       ) : (
         <View className={css.noResults}>
           <Text variant="h5" color={colors.grey["400"]}>
