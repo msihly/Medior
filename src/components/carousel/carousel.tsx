@@ -101,14 +101,16 @@ export const Carousel = observer(() => {
               volume={volume}
             />
           </View>
-        ) : (
+        ) : activeFile?.path ? (
           <img
-            src={activeFile?.path}
+            src={activeFile.path}
             className={css.image}
             alt={activeFile?.originalName}
             draggable={false}
             loading="lazy"
           />
+        ) : (
+          <Text align="center">{"Loading..."}</Text>
         )}
       </View>
 

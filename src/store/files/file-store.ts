@@ -6,24 +6,33 @@ import { CONSTANTS, IMAGE_EXT_REG_EXP, VIDEO_EXT_REG_EXP } from "utils";
 @model("mediaViewer/FileStore")
 export class FileStore extends Model({
   files: prop<File[]>(() => []),
-  filteredFileIds: prop<string[]>(() => []).withSetter(),
+  filteredFileIds: prop<string[]>(() => []),
   page: prop<number>(1).withSetter(),
-  pageCount: prop<number>(1).withSetter(),
   selectedIds: prop<string[]>(() => []),
 }) {
   @modelAction
-  appendFiles(files: ModelCreationData<File>[]) {
+  append(files: ModelCreationData<File>[]) {
     this.files.push(
       ...files.reduce((acc, cur) => {
-        if (!this.files.find((f) => f.id === cur.id)) acc.push(new File(cur));
+        const file = this.files.find((f) => f.id === cur.id);
+        if (!file) acc.push(new File(cur));
+        else file.update(cur);
         return acc;
       }, [])
     );
   }
 
   @modelAction
+  appendFiltered(files: ModelCreationData<File>[], page = this.page) {
+    const displayed = files.slice((page - 1) * CONSTANTS.FILE_COUNT, page * CONSTANTS.FILE_COUNT);
+    this.append(displayed);
+    this.filteredFileIds = files.map((f) => f.id);
+  }
+
+  @modelAction
   overwrite(files: ModelCreationData<File>[]) {
     this.files = files.map((f) => new File(f));
+    this.filteredFileIds = files.map((f) => f.id);
   }
 
   @modelAction
@@ -64,14 +73,24 @@ export class FileStore extends Model({
 
   @computed
   get displayed() {
-    return this.files
-      .filter((f) => this.filteredFileIds.includes(f.id))
-      .slice((this.page - 1) * CONSTANTS.FILE_COUNT, this.page * CONSTANTS.FILE_COUNT);
+    const displayedIds = this.filteredFileIds.slice(
+      (this.page - 1) * CONSTANTS.FILE_COUNT,
+      this.page * CONSTANTS.FILE_COUNT
+    );
+
+    return this.files.filter((f) => displayedIds.includes(f.id));
   }
 
   @computed
   get images() {
     return this.files.filter((f) => IMAGE_EXT_REG_EXP.test(f.ext));
+  }
+
+  @computed
+  get pageCount() {
+    return this.filteredFileIds.length < CONSTANTS.FILE_COUNT
+      ? 1
+      : Math.ceil(this.filteredFileIds.length / CONSTANTS.FILE_COUNT);
   }
 
   @computed

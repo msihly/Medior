@@ -33,6 +33,6 @@ const useClasses = makeClasses({
     display: "flex",
     flexFlow: "row nowrap",
     alignItems: "center",
-    padding: "0.5rem",
+    padding: "0.5rem 0.8rem",
   },
 });

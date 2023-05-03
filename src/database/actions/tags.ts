@@ -28,16 +28,9 @@ export const createTag = async ({
     ).toJSON() as Tag;
     tagStore.createTag(tag);
 
-    if (childIds?.length > 0)
-      await TagModel.updateMany({ _id: { $in: childIds } }, { $addToSet: { parentIds: tag.id } });
-
-    if (parentIds?.length > 0)
-      await TagModel.updateMany({ _id: { $in: parentIds } }, { $addToSet: { childIds: tag.id } });
-
-    tagStore.editRelatedTags({ childIds, parentIds, tagId: tag.id });
-
-    const mobXTag = tagStore.getById(tag.id);
-    await refreshRelatedTagCounts(tagStore, mobXTag);
+    await refreshTagRelations(tagStore, tag.id);
+    await refreshRelatedTagCounts(tagStore, tag.id);
+    tagStore.overwrite(await getAllTags());
 
     toast.success(`Tag '${label}' created`);
     return { success: true, tag };
@@ -72,8 +65,7 @@ export const deleteTag = async ({ id, rootStore }: { id: string; rootStore: Root
     if (tagRes?.matchedCount !== tagRes?.modifiedCount)
       throw new Error("Failed to remove parent tag from all tags");
 
-    const tag = tagStore.getById(id);
-    await refreshRelatedTagCounts(tagStore, tag);
+    await refreshRelatedTagCounts(tagStore, id);
 
     await TagModel.deleteOne({ _id: id });
     tagStore.deleteTag(id);
@@ -133,11 +125,6 @@ export const editTag = async ({
           { _id: { $in: addedParentIds } },
           { $addToSet: { childIds: id } }
         );
-      tagStore.editRelatedTags({
-        tagId: id,
-        childIds: addedChildIds,
-        parentIds: addedParentIds,
-      });
     }
 
     if (removedChildIds?.length > 0 || removedParentIds?.length > 0) {
@@ -145,17 +132,11 @@ export const editTag = async ({
         await TagModel.updateMany({ _id: { $in: removedChildIds } }, { $pull: { parentIds: id } });
       if (removedParentIds?.length > 0)
         await TagModel.updateMany({ _id: { $in: removedParentIds } }, { $pull: { childIds: id } });
-      tagStore.editRelatedTags({
-        tagId: id,
-        childIds: removedChildIds,
-        parentIds: removedParentIds,
-        remove: true,
-      });
     }
 
     await TagModel.updateOne({ _id: id }, { aliases, childIds, label, parentIds });
-    const count = await refreshTagCount(tagStore, tag, true);
-    tag.update({ aliases, childIds, count, label, parentIds });
+    await refreshTagCount(tagStore, id, true);
+    tagStore.overwrite(await getAllTags());
 
     toast.success("Tag edited");
     return { success: true };
@@ -176,13 +157,14 @@ export const getAllTags = async () => {
   }
 };
 
-export const refreshTagCount = async (tagStore: TagStore, tag: MobXTag, withRelated = false) => {
+export const refreshTagCount = async (tagStore: TagStore, id: string, withRelated = false) => {
   try {
+    const tag = tagStore.getById(id);
     const descendants = getTagDescendants(tagStore, tag);
-    const count = (await FileModel.find({ tagIds: { $in: [tag.id, ...descendants] } })).length;
+    const count = (await FileModel.find({ tagIds: { $in: [id, ...descendants] } })).length;
 
-    await TagModel.updateOne({ _id: tag.id }, { $set: { count } });
-    if (withRelated) await refreshRelatedTagCounts(tagStore, tag);
+    await TagModel.updateOne({ _id: id }, { $set: { count } });
+    if (withRelated) await refreshRelatedTagCounts(tagStore, id);
 
     return count;
   } catch (err) {
@@ -208,15 +190,11 @@ export const refreshAllTagCounts = async (rootStore: RootStore, silent = false) 
 
     tagStore.tags.map((t) =>
       TagCountsRefreshQueue.add(async () => {
-        await refreshTagCount(tagStore, t);
+        await refreshTagCount(tagStore, t.id);
 
         completedCount++;
         const isComplete = completedCount === totalCount;
-
-        if (isComplete) {
-          const tags = await getAllTags();
-          tagStore.overwrite(tags);
-        }
+        if (isComplete) tagStore.overwrite(await getAllTags());
 
         if (toastId)
           toast.update(toastId, {
@@ -231,12 +209,13 @@ export const refreshAllTagCounts = async (rootStore: RootStore, silent = false) 
   }
 };
 
-export const refreshRelatedTagCounts = async (tagStore: TagStore, tag: MobXTag) => {
+export const refreshRelatedTagCounts = async (tagStore: TagStore, id: string) => {
   try {
+    const tag = tagStore.getById(id);
     const relatedTags = [...tagStore.getChildTags(tag), ...tagStore.getParentTags(tag)];
     await Promise.all(
       relatedTags.map(async (t) => {
-        const count = await refreshTagCount(tagStore, t);
+        const count = await refreshTagCount(tagStore, id);
         t.update({ count });
       })
     );
@@ -304,11 +283,7 @@ export const refreshAllTagRelations = async (tagStore: TagStore) => {
 
         completedCount++;
         const isComplete = completedCount === totalCount;
-
-        if (isComplete) {
-          const tags = await getAllTags();
-          tagStore.overwrite(tags);
-        }
+        if (isComplete) tagStore.overwrite(await getAllTags());
 
         toast.update(toastId, {
           autoClose: isComplete ? 5000 : false,

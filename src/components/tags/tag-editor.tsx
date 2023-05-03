@@ -9,21 +9,25 @@ import { makeClasses } from "utils";
 import { toast } from "react-toastify";
 
 interface TagEditorProps {
-  isCreate: boolean;
-  goBack: () => any;
+  create: boolean;
+  goBack: () => void;
 }
 
-export const TagEditor = observer(({ isCreate, goBack }: TagEditorProps) => {
+export const TagEditor = observer(({ create, goBack }: TagEditorProps) => {
   const { tagStore } = useStores();
   const { css } = useClasses(null);
 
   const labelRef = useRef<HTMLDivElement>(null);
 
+  const [isCreate, setIsCreate] = useState(create);
+
   const [aliases, setAliases] = useState<ChipOption[]>(
     isCreate ? [] : tagStore.activeTag?.aliases?.map((a) => ({ label: a, value: a })) ?? []
   );
   const [childTags, setChildTags] = useState<TagOption[]>(
-    isCreate ? [] : tagStore.getChildTags(tagStore.activeTag)?.map((t) => t.tagOption) ?? []
+    isCreate || !tagStore.activeTag
+      ? []
+      : tagStore.getChildTags(tagStore.activeTag).map((t) => t.tagOption)
   );
   const [hasContinue, setHasContinue] = useState(false);
   const [hasKeepChildTags, setHasKeepChildTags] = useState(false);
@@ -31,7 +35,9 @@ export const TagEditor = observer(({ isCreate, goBack }: TagEditorProps) => {
   const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
   const [label, setLabel] = useState<string>(isCreate ? "" : tagStore.activeTag?.label ?? "");
   const [parentTags, setParentTags] = useState<TagOption[]>(
-    isCreate ? [] : tagStore.getParentTags(tagStore.activeTag)?.map((t) => t.tagOption) ?? []
+    isCreate || !tagStore.activeTag
+      ? []
+      : tagStore.getParentTags(tagStore.activeTag).map((t) => t.tagOption)
   );
 
   const isDuplicateTag =
@@ -60,6 +66,18 @@ export const TagEditor = observer(({ isCreate, goBack }: TagEditorProps) => {
   };
 
   const handleDelete = () => setIsConfirmDeleteOpen(true);
+
+  const handleEditExisting = () => {
+    setIsCreate(false);
+    tagStore.setTagManagerMode("edit");
+
+    const tag = tagStore.getByLabel(label);
+    setLabel(tag.label);
+    setAliases(tag.aliases.map((a) => ({ label: a, value: a })) ?? []);
+    setChildTags(tagStore.getChildTags(tag).map((t) => t.tagOption) ?? []);
+    setParentTags(tagStore.getParentTags(tag).map((t) => t.tagOption) ?? []);
+    tagStore.setActiveTagId(tag.id);
+  };
 
   const saveTag = async () => {
     if (isDuplicateTag) return toast.error("Tag label must be unique");
@@ -92,7 +110,19 @@ export const TagEditor = observer(({ isCreate, goBack }: TagEditorProps) => {
             textAlign="center"
             error={isDuplicateTag}
             hasHelper
-            helperText={isDuplicateTag && "Tag already exists"}
+            helperText={
+              isDuplicateTag && (
+                <View row align="center" justify="center">
+                  <Text>{"Tag already exists"}</Text>
+                  <Button
+                    variant="text"
+                    text="(Click to edit)"
+                    onClick={handleEditExisting}
+                    fontSize="0.85em"
+                  />
+                </View>
+              )
+            }
           />
 
           <Text className={css.sectionTitle}>{"Aliases"}</Text>
@@ -149,7 +179,9 @@ export const TagEditor = observer(({ isCreate, goBack }: TagEditorProps) => {
       <DialogActions className={css.dialogActions}>
         <Button text="Cancel" icon="Close" onClick={goBack} color={colors.grey["700"]} />
 
-        <Button text="Delete" icon="Delete" onClick={handleDelete} color={colors.red["800"]} />
+        {!isCreate && (
+          <Button text="Delete" icon="Delete" onClick={handleDelete} color={colors.red["800"]} />
+        )}
 
         <Button text="Confirm" icon="Check" onClick={saveTag} />
       </DialogActions>

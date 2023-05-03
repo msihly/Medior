@@ -9,12 +9,21 @@ import {
   FileModel,
   refreshAllTagCounts,
 } from "database";
-import { FileImport, FileStore, ImportStore, RootStore, sortFiles, tagsToDescendants } from "store";
+import {
+  FileImport,
+  FileStore,
+  ImportStore,
+  RootStore,
+  TagOption,
+  sortFiles,
+  tagsToDescendants,
+} from "store";
 import {
   CONSTANTS,
   dayjs,
   generateFramesThumbnail,
   getVideoInfo,
+  round,
   splitArray,
   VIDEO_TYPES,
 } from "utils";
@@ -178,27 +187,32 @@ export const deleteFiles = async (rootStore: RootStore, files: File[], isUndelet
   try {
     if (isUndelete) {
       await FileModel.updateMany({ _id: { $in: files.map((f) => f.id) } }, { isArchived: false });
-      return true;
+      toast.success(`${files.length} files unarchived`);
+    } else {
+      const [deleted, archived] = splitArray(files, (f: File) => f.isArchived);
+      const [deletedIds, archivedIds] = [deleted, archived].map((arr) => arr.map((f) => f.id));
+
+      if (archivedIds?.length > 0) {
+        await FileModel.updateMany({ _id: { $in: archivedIds } }, { isArchived: true });
+        toast.success(`${archivedIds.length} files archived`);
+      }
+
+      if (deletedIds?.length > 0) {
+        await FileModel.deleteMany({ _id: { $in: deletedIds } });
+        await Promise.all(
+          deleted.flatMap((file) =>
+            rootStore.fileStore.listByHash(file.hash).length === 1
+              ? [fs.unlink(file.path), ...file.thumbPaths.map((thumbPath) => fs.unlink(thumbPath))]
+              : []
+          )
+        );
+        toast.success(`${deletedIds.length} files deleted`);
+      }
     }
 
-    const [deleted, archived]: File[][] = splitArray(files, (f: File) => f.isArchived);
-    const [deletedIds, archivedIds] = [deleted, archived].map((arr) => arr.map((f) => f.id));
+    rootStore.fileStore.toggleFilesSelected(files.map((f) => ({ id: f.id, isSelected: false })));
 
-    if (archivedIds?.length > 0)
-      await FileModel.updateMany({ _id: { $in: archivedIds } }, { isArchived: true });
-
-    if (deletedIds?.length > 0) {
-      await FileModel.deleteMany({ _id: { $in: deletedIds } });
-      await Promise.all(
-        deleted.flatMap((file) =>
-          rootStore.fileStore.listByHash(file.hash).length === 1
-            ? [fs.unlink(file.path), ...file.thumbPaths.map((thumbPath) => fs.unlink(thumbPath))]
-            : []
-        )
-      );
-    }
-
-    await getDisplayedFiles(rootStore);
+    await reloadDisplayedFiles(rootStore);
     await refreshAllTagCounts(rootStore, true);
 
     return true;
@@ -259,11 +273,12 @@ export const editFileTags = async ({
       removedIds: removedTagIds,
     });
 
-    await getDisplayedFiles(rootStore);
+    await reloadDisplayedFiles(rootStore);
     await refreshAllTagCounts(rootStore, true);
 
-    ipcRenderer.send("onFileTagsEdited");
+    toast.success(`${fileIds.length} files updated`);
 
+    ipcRenderer.send("onFilesEdited", { fileIds });
     return true;
   } catch (err) {
     console.error(err);
@@ -298,89 +313,6 @@ export const getFiles = async (ids: string[]) => {
   } catch (err) {
     console.error(err);
     return [];
-  }
-};
-
-export const getDisplayedFiles = async (
-  rootStore: RootStore,
-  { withAppend = true, withOverwrite = false } = {}
-) => {
-  try {
-    const { fileStore, homeStore, tagStore } = rootStore;
-
-    const excludedTagIds = homeStore.excludedTags.map((t) => t.id);
-    const allExcludedTagIds = [
-      ...excludedTagIds,
-      ...(homeStore.includeDescendants
-        ? tagsToDescendants(tagStore, tagStore.listByIds(excludedTagIds))
-        : []),
-    ];
-
-    const includedTagIds = homeStore.includedTags.map((t) => t.id);
-    const allIncludedTagIds = [
-      ...includedTagIds,
-      ...(homeStore.includeDescendants
-        ? tagsToDescendants(tagStore, tagStore.listByIds(includedTagIds))
-        : []),
-    ];
-
-    const enabledExts = Object.entries({
-      ...homeStore.selectedImageTypes,
-      ...homeStore.selectedVideoTypes,
-    }).reduce((acc, [key, isEnabled]) => {
-      if (isEnabled) acc.push(`.${key}`);
-      return acc;
-    }, [] as string[]);
-
-    const files = (
-      await FileModel.find({
-        isArchived: homeStore.isArchiveOpen,
-        ext: { $in: enabledExts },
-        ...(homeStore.includeTagged
-          ? { tagIds: { $ne: [] } }
-          : homeStore.includeUntagged
-          ? { tagIds: { $eq: [] } }
-          : {}),
-      })
-    ).map((r) => r.toJSON() as File);
-
-    const filtered = files
-      .filter((f) => {
-        const hasExcluded =
-          excludedTagIds.length > 0
-            ? f.tagIds.length > 0 &&
-              f.tagIds.some((tagId) => [...excludedTagIds, ...allExcludedTagIds].includes(tagId))
-            : false;
-
-        const hasIncluded =
-          includedTagIds.length > 0
-            ? f.tagIds.length > 0 &&
-              f.tagIds.some((tagId) => [...includedTagIds, ...allIncludedTagIds].includes(tagId))
-            : true;
-
-        return hasIncluded && !hasExcluded;
-      })
-      .sort((a, b) =>
-        sortFiles({ a, b, isSortDesc: homeStore.isSortDesc, sortKey: homeStore.sortKey })
-      );
-
-    const displayed = filtered.slice(
-      (fileStore.page - 1) * CONSTANTS.FILE_COUNT,
-      fileStore.page * CONSTANTS.FILE_COUNT
-    );
-
-    fileStore.setPageCount(
-      filtered.length < CONSTANTS.FILE_COUNT ? 1 : Math.ceil(filtered.length / CONSTANTS.FILE_COUNT)
-    );
-    fileStore.setFilteredFileIds(filtered.map((f) => f.id));
-
-    if (withOverwrite) fileStore.overwrite(displayed);
-    else if (withAppend) fileStore.appendFiles(displayed);
-
-    return { displayed, filtered };
-  } catch (err) {
-    console.error(err);
-    return { displayed: [], filtered: [] };
   }
 };
 
@@ -446,12 +378,14 @@ export const refreshSelectedFiles = async (fileStore: FileStore) => {
       autoClose: false,
     });
 
-    fileStore.selected.map((f) =>
+    fileStore.selected.map((f, _, files) =>
       FileInfoRefreshQueue.add(async () => {
         await refreshFile(fileStore, f.id);
 
         completedCount++;
         const isComplete = completedCount === totalCount;
+
+        if (isComplete) ipcRenderer.send("onFilesEdited", { fileIds: files.map((f) => f.id) });
 
         toast.update(toastId, {
           autoClose: isComplete ? 5000 : false,
@@ -465,16 +399,135 @@ export const refreshSelectedFiles = async (fileStore: FileStore) => {
   }
 };
 
+type ReloadDisplayedFilesOptions = {
+  page?: number;
+  withAppend?: boolean;
+  withOverwrite?: boolean;
+};
+
+export const reloadDisplayedFiles = async (
+  rootStore: RootStore,
+  { page, withAppend = true, withOverwrite = false }: ReloadDisplayedFilesOptions = {}
+) => {
+  const logTag = "[Reload Displayed Files]";
+  const funcPerfStart = performance.now();
+
+  let perfStart = performance.now();
+  const perfLog = (str: string) => {
+    console.debug(logTag, round(performance.now() - perfStart, 0), "ms.", str);
+    perfStart = performance.now();
+  };
+
+  try {
+    const { fileStore, homeStore, tagStore } = rootStore;
+
+    const tagsToIds = (tags: TagOption[]) => {
+      const tagIds = tags.map((t) => t.id);
+      const tagIdsWithDesc = [
+        ...tagIds,
+        ...(homeStore.includeDescendants
+          ? tagsToDescendants(tagStore, tagStore.listByIds(tagIds))
+          : []),
+      ];
+      return [tagIds, tagIdsWithDesc];
+    };
+
+    const [excludedAnyTagIds, excludedAnyTagIdsDesc] = tagsToIds(homeStore.excludedAnyTags);
+    const [includedAllTagIds] = tagsToIds(homeStore.includedAllTags);
+    const [includedAnyTagIds, includedAnyTagIdsDesc] = tagsToIds(homeStore.includedAnyTags);
+
+    const enabledExts = Object.entries({
+      ...homeStore.selectedImageTypes,
+      ...homeStore.selectedVideoTypes,
+    }).reduce((acc, [key, isEnabled]) => {
+      if (isEnabled) acc.push(`.${key}`);
+      return acc;
+    }, [] as string[]);
+
+    const files = (
+      await FileModel.find({
+        isArchived: homeStore.isArchiveOpen,
+        ext: { $in: enabledExts },
+        ...(homeStore.includeTagged
+          ? { tagIds: { $ne: [] } }
+          : homeStore.includeUntagged
+          ? { tagIds: { $eq: [] } }
+          : {}),
+      })
+    ).map((r) => r.toJSON() as File);
+
+    perfLog("Mongo find"); // DEBUG
+
+    const filtered = files
+      .filter((f) => {
+        const hasExcludedAny =
+          excludedAnyTagIds.length > 0
+            ? f.tagIds.length > 0 && f.tagIds.some((tagId) => excludedAnyTagIdsDesc.includes(tagId))
+            : false;
+
+        const hasIncludedAll =
+          includedAllTagIds.length > 0
+            ? f.tagIds.length > 0 && includedAllTagIds.every((tagId) => f.tagIds.includes(tagId))
+            : true;
+
+        const hasIncludedAny =
+          includedAnyTagIds.length > 0
+            ? f.tagIds.length > 0 && f.tagIds.some((tagId) => includedAnyTagIdsDesc.includes(tagId))
+            : true;
+
+        return hasIncludedAll && hasIncludedAny && !hasExcludedAny;
+      })
+      .sort((a, b) =>
+        sortFiles({ a, b, isSortDesc: homeStore.isSortDesc, sortKey: homeStore.sortKey })
+      );
+
+    perfLog("Filtering and sorting"); // DEBUG
+
+    if (withOverwrite) fileStore.overwrite(filtered);
+    else if (withAppend) fileStore.appendFiltered(filtered, page);
+    if (page) fileStore.setPage(page);
+
+    perfLog(`${withOverwrite ? "Overwite" : "Append"}${page ? " and set page" : ""}`); // DEBUG
+
+    const filteredIds = filtered.map((f) => f.id);
+    const deselectedIds = fileStore.selectedIds.reduce((acc, cur) => {
+      if (!filteredIds.includes(cur)) acc.push({ id: cur, isSelected: false });
+      return acc;
+    }, [] as { id: string; isSelected: boolean }[]);
+
+    fileStore.toggleFilesSelected(deselectedIds);
+
+    perfLog("File deselection"); // DEBUG
+
+    const displayed = files.slice(
+      ((page ?? fileStore.page) - 1) * CONSTANTS.FILE_COUNT,
+      (page ?? fileStore.page) * CONSTANTS.FILE_COUNT
+    );
+
+    console.debug(
+      `Loaded ${displayed.length} displayed files in ${performance.now() - funcPerfStart}ms.`
+    );
+  } catch (err) {
+    console.error(err);
+  }
+};
+
 export const setFileRating = async ({
   fileIds = [],
   rating,
+  rootStore,
 }: {
   fileIds: string[];
   rating: number;
+  rootStore: RootStore;
 }) => {
   try {
+    if (!fileIds.length) return;
     const dateModified = dayjs().toISOString();
     await FileModel.updateMany({ _id: { $in: fileIds } }, { rating, dateModified });
+
+    ipcRenderer.send("onFilesEdited", { fileIds });
+    await reloadDisplayedFiles(rootStore);
   } catch (err) {
     console.error(err);
   }

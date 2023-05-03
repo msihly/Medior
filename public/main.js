@@ -8,7 +8,7 @@ const { MongoMemoryReplSet } = require("mongodb-memory-server");
 const { DB_PATH, DB_PORT } = require("./env");
 
 const baseUrl = !app.isPackaged
-  ? "http://localhost:3000"
+  ? "http://localhost:3333"
   : `file://${path.join(__dirname, "../build/index.html")}`;
 
 /* ------------------------------- BEGIN - MAIN WINDOW ------------------------------ */
@@ -26,11 +26,12 @@ const createDbServer = async () => {
 };
 
 const createMainWindow = async () => {
-  console.debug("Creating Mongo server...");
+  console.debug(`Creating Mongo server at ${DB_PATH}...`);
   mongoServer = await createDbServer();
   console.debug("Mongo server created.");
 
   mainWindow = new BrowserWindow({
+    autoHideMenuBar: true,
     backgroundColor: "#111",
     webPreferences: { contextIsolation: false, nodeIntegration: true, webSecurity: false },
   });
@@ -39,7 +40,7 @@ const createMainWindow = async () => {
 
   ipcMain.handle("getDatabaseUri", async () => mongoServer.getUri());
 
-  console.debug("Loading main window...");
+  console.debug(`Loading main window at ${baseUrl}...`);
   await mainWindow.loadURL(baseUrl);
   console.debug("Main window loaded.");
 
@@ -100,6 +101,7 @@ const createCarouselWindow = async ({ fileId, height, selectedFileIds, width }) 
   const winHeight = Math.min(height, screenHeight);
 
   const carouselWindow = new BrowserWindow({
+    autoHideMenuBar: true,
     backgroundColor: "#111",
     width: winWidth,
     height: winHeight,
@@ -138,19 +140,19 @@ const createCarouselWindow = async ({ fileId, height, selectedFileIds, width }) 
   return carouselWindow;
 };
 
-ipcMain.on("createCarouselWindow", (_, { height, fileId, selectedFileIds, width }) => {
-  createCarouselWindow({ height, fileId, selectedFileIds, width });
+ipcMain.on("createCarouselWindow", (_, args) => {
+  createCarouselWindow(args);
 });
 
-ipcMain.on("onFileTagsEdited", () => {
+ipcMain.on("onFilesEdited", (_, args) => {
   carouselWindows.forEach((win) => {
-    win.webContents.send("onFileTagsEdited");
+    win.webContents.send("onFilesEdited", args);
   });
 });
 
-ipcMain.on("onTagPatch", (_, { patches }) => {
+ipcMain.on("onTagPatch", (_, args) => {
   carouselWindows.forEach((win) => {
-    win.webContents.send("onTagPatch", { patches });
+    win.webContents.send("onTagPatch", args);
   });
 });
 /* ------------------------------- END - CAROUSEL WINDOWS ------------------------------ */

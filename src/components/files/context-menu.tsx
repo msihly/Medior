@@ -1,4 +1,4 @@
-import { shell } from "electron";
+import { shell } from "@electron/remote";
 import { ReactNode, useState } from "react";
 import { observer } from "mobx-react-lite";
 import { File, useStores } from "store";

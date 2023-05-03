@@ -15,6 +15,7 @@ import {
 import { ExtCheckbox, Importer } from ".";
 import { IMAGE_TYPES, makeClasses, VIDEO_TYPES } from "utils";
 import * as Media from "media";
+import Color from "color";
 
 export const Drawer = observer(
   forwardRef((_, drawerRef: any) => {
@@ -98,22 +99,33 @@ export const Drawer = observer(
         <Divider variant="middle" />
 
         <Text align="center" className={css.inputTitle}>
-          Include
+          {"Include - All"}
         </Text>
         <TagInput
-          value={[...homeStore.includedTags]}
-          setValue={(val) => homeStore.setIncludedTags(val)}
+          value={[...homeStore.includedAllTags]}
+          setValue={(val) => homeStore.setIncludedAllTags(val)}
           options={[...tagStore.tagOptions]}
           limitTags={3}
           className={css.input}
         />
 
         <Text align="center" className={css.inputTitle}>
-          Exclude
+          {"Include - Any"}
         </Text>
         <TagInput
-          value={[...homeStore.excludedTags]}
-          setValue={(val) => homeStore.setExcludedTags(val)}
+          value={[...homeStore.includedAnyTags]}
+          setValue={(val) => homeStore.setIncludedAnyTags(val)}
+          options={[...tagStore.tagOptions]}
+          limitTags={3}
+          className={css.input}
+        />
+
+        <Text align="center" className={css.inputTitle}>
+          {"Exclude - Any"}
+        </Text>
+        <TagInput
+          value={[...homeStore.excludedAnyTags]}
+          setValue={(val) => homeStore.setExcludedAnyTags(val)}
           options={[...tagStore.tagOptions]}
           limitTags={3}
           className={css.input}
@@ -187,7 +199,7 @@ const useClasses = makeClasses((_, { drawerMode }) => ({
     height: "fit-content",
   },
   checkboxes: {
-    padding: "0.3rem",
+    margin: "0.3rem 0",
     width: "100%",
   },
   drawer: {
@@ -196,7 +208,9 @@ const useClasses = makeClasses((_, { drawerMode }) => ({
     alignItems: "center",
     borderRight: "1px solid #111",
     width: "200px",
-    backgroundColor: colors.grey["900"],
+    background: `linear-gradient(to right, ${colors.grey["900"]}, ${Color(colors.grey["900"])
+      .darken(0.1)
+      .string()})`,
     zIndex: 20,
     "&::-webkit-scrollbar": {
       display: "none",

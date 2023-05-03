@@ -210,7 +210,7 @@ export const TagManager = observer(() => {
           </DialogActions>
         </>
       ) : (
-        <TagEditor isCreate={tagStore.tagManagerMode === "create"} goBack={handleEditorBack} />
+        <TagEditor create={tagStore.tagManagerMode === "create"} goBack={handleEditorBack} />
       )}
     </Dialog>
   );

@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { observer } from "mobx-react-lite";
-import { useStores } from "store";
-import { deleteImportBatch } from "database";
+import { File, useStores } from "store";
+import { deleteImportBatch, getFiles } from "database";
 import { colors, LinearProgress } from "@mui/material";
 import {
   BatchTooltip,
@@ -24,13 +24,27 @@ export const ImportBatch = observer(({ createdAt }: ImportBatchProps) => {
   const { fileStore, importStore } = useStores();
 
   const batch = importStore.getByCreatedAt(createdAt);
-  const completedFiles = fileStore.listByIds(batch.completed.map((imp) => imp.fileId));
   const status = IMPORT_STATUSES[batch.status];
 
+  const [completedFiles, setCompletedFiles] = useState<File[]>([]);
   const [expanded, setExpanded] = useState(false);
   const [isTaggerOpen, setIsTaggerOpen] = useState(false);
 
   const { css } = useClasses({ expanded, hasTags: batch.tagIds?.length > 0 });
+
+  useEffect(() => {
+    const loadCompletedFiles = async () => {
+      const completedIds = batch.completed.map((imp) => imp.fileId);
+      const files = fileStore.listByIds(completedIds);
+      if (files.length < completedIds.length) {
+        const allFiles = await getFiles(completedIds);
+        fileStore.append(allFiles);
+        setCompletedFiles(fileStore.listByIds(completedIds));
+      } else setCompletedFiles(files);
+    };
+
+    if (batch.status !== "PENDING") loadCompletedFiles();
+  }, [batch.status, isTaggerOpen]);
 
   const handleDelete = async () => {
     await deleteImportBatch(importStore, batch.id);
@@ -43,6 +57,10 @@ export const ImportBatch = observer(({ createdAt }: ImportBatchProps) => {
     <View column className={css.root}>
       <View row className={css.header}>
         <View row onClick={toggleOpen} className={css.headerButton}>
+          <Text className={css.index}>
+            {`${importStore.batches.findIndex((b) => b.createdAt === createdAt) + 1}.`}
+          </Text>
+
           <BatchTooltip batch={batch}>
             <Icon name={status.icon} color={status.color} className={css.statusIcon} />
           </BatchTooltip>
@@ -108,6 +126,14 @@ const useClasses = makeClasses((_, { expanded, hasTags }) => ({
     flex: 1,
     flexDirection: "column",
     width: 0,
+  },
+  index: {
+    justifyContent: "center",
+    alignSelf: "center",
+    paddingLeft: "0.5em",
+    fontSize: "0.8em",
+    textAlign: "center",
+    textShadow: `0px 0px 5px ${colors.blue["700"]}`,
   },
   imports: {
     borderRadius: "0 0 0.5rem 0.5rem",

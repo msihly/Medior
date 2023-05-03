@@ -18,5 +18,5 @@ export default defineConfig({
     pluginSVGR(),
     pluginTsconfigPaths(),
   ],
-  server: { port: 3000 },
+  server: { port: 3333 },
 });

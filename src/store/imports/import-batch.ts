@@ -54,7 +54,7 @@ export class ImportBatch extends Model({
 
   @computed
   get completed() {
-    return this.imports.filter((imp) => imp.status === "COMPLETE");
+    return this.imports.filter((imp) => ["COMPLETE", "DUPLICATE"].includes(imp.status));
   }
 
   @computed

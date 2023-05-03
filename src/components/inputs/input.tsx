@@ -1,15 +1,15 @@
+import { forwardRef, MutableRefObject, ReactNode } from "react";
 import { colors, TextField, TextFieldProps } from "@mui/material";
 import { Text } from "..";
 import { CSSObject } from "tss-react";
 import { makeClasses, Margins } from "../../utils";
 import Color from "color";
-import { forwardRef, MutableRefObject } from "react";
 
 export interface InputProps extends Omit<TextFieldProps, "color" | "onChange" | "helperText"> {
   className?: string;
   color?: string;
   hasHelper?: boolean;
-  helperText?: string;
+  helperText?: ReactNode;
   margins?: Margins;
   maxLength?: number;
   setValue?: (value: string) => any;
@@ -52,7 +52,15 @@ export const Input = forwardRef(
         {...{ value, variant }}
         ref={ref}
         onChange={(event) => setValue?.(event.target.value)}
-        helperText={helperText ? <Text>{helperText}</Text> : undefined}
+        helperText={
+          helperText ? (
+            typeof helperText === "string" ? (
+              <Text>{helperText}</Text>
+            ) : (
+              helperText
+            )
+          ) : undefined
+        }
         inputProps={{ ...props.inputProps, maxLength }}
         size="small"
         className={cx(css.input, className)}

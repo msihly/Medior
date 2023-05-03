@@ -19,12 +19,12 @@ export const FileTooltip = observer(({ file, onTagPress }: FileTooltipProps) => 
       title={
         <View column>
           <View row className={css.header}>
-            <View column margins={{ right: "1rem " }}>
+            <View column margins={{ right: "1rem" }}>
               <Text>{`${file.width}x${file.height}`}</Text>
               <Text>{formatBytes(file.size)}</Text>
             </View>
 
-            <View column margins={{ left: "1rem " }}>
+            <View column margins={{ left: "1rem" }}>
               <Text textAlign="right">{`Modified ${dayjs(file.dateModified).fromNow()}`}</Text>
               <Text textAlign="right">{`Created ${dayjs(file.dateCreated).fromNow()}`}</Text>
             </View>
@@ -60,7 +60,8 @@ export const FileTooltip = observer(({ file, onTagPress }: FileTooltipProps) => 
 
 const useClasses = makeClasses({
   arrow: {
-    color: colors.grey["900"],
+    color: colors.blue["900"],
+    paddingBottom: "4px",
   },
   header: {
     justifyContent: "space-between",
@@ -68,6 +69,7 @@ const useClasses = makeClasses({
     fontSize: "1.1em",
   },
   tooltip: {
+    borderTop: `4px solid ${colors.blue["900"]}`,
     minWidth: "20rem",
     maxWidth: "25rem",
     backgroundColor: colors.grey["900"],

@@ -18,12 +18,11 @@ export const SortMenu = () => {
         <View>
           <SortRow label="Date Modified" attribute="dateModified" icon="DateRange" />
           <SortRow label="Date Created" attribute="dateCreated" icon="DateRange" />
-          <SortRow label="Name" attribute="originalName" icon="SortByAlpha" />
+          <SortRow label="Rating" attribute="rating" icon="Star" />
           <SortRow label="Size" attribute="size" icon="FormatSize" />
+          <SortRow label="Duration" attribute="duration" icon="HourglassBottom" />
           <SortRow label="Width" attribute="width" icon="Height" iconProps={{ rotation: 90 }} />
           <SortRow label="Height" attribute="height" icon="Height" />
-          <SortRow label="Duration" attribute="duration" icon="HourglassBottom" />
-          <SortRow label="Rating" attribute="rating" icon="Star" />
         </View>
       </Menu>
     </>

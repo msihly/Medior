@@ -31,36 +31,6 @@ export class TagStore extends Model({
   }
 
   @modelAction
-  editRelatedTags({
-    childIds,
-    parentIds,
-    remove = false,
-    tagId,
-  }: {
-    childIds?: string[];
-    parentIds?: string[];
-    remove?: boolean;
-    tagId: string;
-  }) {
-    if (!childIds?.length && !parentIds?.length)
-      return console.debug("No childIds or parentIds passed to editRelatedTags");
-
-    this.tags.forEach((t) => {
-      if (childIds.includes(t.id)) {
-        if (remove) {
-          const parentIndex = t.parentIds.indexOf(tagId);
-          if (parentIndex > -1) t.parentIds.splice(parentIndex);
-        } else t.parentIds.push(tagId);
-      } else if (parentIds.includes(t.id)) {
-        if (remove) {
-          const childIndex = t.childIds.indexOf(tagId);
-          if (childIndex > -1) t.childIds.splice(childIndex);
-        } else t.childIds.push(tagId);
-      }
-    });
-  }
-
-  @modelAction
   overwrite(tags: ModelCreationData<Tag>[]) {
     this.tags = tags.map((t) => new Tag(t));
   }

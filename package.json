@@ -39,7 +39,7 @@
     "react-window": "^1.8.7",
     "sharp": "^0.30.3",
     "tss-react": "^3.6.0",
-    "vite-plugin-electron-renderer": "^0.10.1"
+    "vite-plugin-electron-renderer": "0.10.1"
   },
   "devDependencies": {
     "@types/color": "^3.0.3",
@@ -87,7 +87,7 @@
       "target": "portable"
     }
   },
-  "proxy": "http://localhost:3000",
+  "proxy": "http://localhost:3333",
   "browserslist": {
     "production": [
       "last 3 chrome version"

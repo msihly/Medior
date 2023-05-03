@@ -70,7 +70,7 @@ export const Home = observer(() => {
   };
 
   useEffect(() => {
-    document.title = "Home";
+    document.title = "Media Viewer // Home";
     console.debug("Home window useEffect fired.");
 
     const loadDatabase = async () => {
@@ -106,7 +106,7 @@ export const Home = observer(() => {
         });
 
         ipcRenderer.on("setFileRating", (_, { fileIds, rating }) => {
-          setFileRating({ fileIds, rating });
+          setFileRating({ fileIds, rating, rootStore });
         });
 
         setIsLoading(false);

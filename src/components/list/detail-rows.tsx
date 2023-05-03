@@ -1,4 +1,5 @@
 import { ReactNode } from "react";
+import { colors } from "@mui/material";
 import { Text, View } from "components";
 import { makeClasses } from "utils";
 import { CSSObject } from "tss-react";
@@ -21,7 +22,13 @@ export const DetailRows = ({ labelWidth = "8rem", rows }: DetailRowsProps) => {
       {rows.map(({ label, value }, i) => (
         <View key={`${i}-${label}`} className={css.row}>
           {typeof label === "string" ? <Text className={css.label}>{label}</Text> : label}
-          {typeof value === "string" ? <Text noWrap>{value}</Text> : value}
+          {typeof value === "string" ? (
+            <Text noWrap title={value}>
+              {value}
+            </Text>
+          ) : (
+            value
+          )}
         </View>
       ))}
     </View>
@@ -33,6 +40,7 @@ const useClasses = makeClasses((_, { labelWidth }) => ({
     flexShrink: 0,
     marginRight: "1rem",
     width: labelWidth,
+    color: colors.blue["600"],
     fontWeight: "bold",
     whiteSpace: "nowrap",
   },

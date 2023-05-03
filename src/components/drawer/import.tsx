@@ -1,4 +1,4 @@
-import { shell } from "electron";
+import { shell } from "@electron/remote";
 import { observer } from "mobx-react-lite";
 import { FileImport, useStores } from "store";
 import { colors } from "@mui/material";
@@ -14,7 +14,7 @@ export const Import = observer(({ fileImport }: ImportProps) => {
   const { fileStore } = useStores();
 
   const dir = fileImport.path.slice(0, fileImport.path.lastIndexOf("\\"));
-  const hasFileId = fileImport.fileId?.length > 0;
+  const hasFileId = fileImport.fileId?.length > 0 && fileStore.getById(fileImport.fileId);
   const status = IMPORT_STATUSES[fileImport.status];
 
   const handleClick = () =>

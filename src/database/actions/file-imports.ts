@@ -3,7 +3,7 @@ import {
   copyFileTo,
   FileImportBatch,
   FileImportBatchModel,
-  getDisplayedFiles,
+  reloadDisplayedFiles,
   refreshAllTagCounts,
 } from "database";
 import { FileImport, ImportBatch, ImportStore, RootStore, useStores } from "store";
@@ -20,7 +20,7 @@ export const completeImportBatch = async ({
   batch: ImportBatch;
 }) => {
   try {
-    await getDisplayedFiles(rootStore);
+    await reloadDisplayedFiles(rootStore);
     await refreshAllTagCounts(rootStore, true);
 
     const completedAt = dayjs().toISOString();
@@ -96,12 +96,12 @@ export const importFile = async ({
   importStore: ImportStore;
 }) => {
   const batch = importStore.getById(batchId);
-  const fileImport = batch.getByPath(filePath);
+  const fileImport = batch?.getByPath(filePath);
 
   if (!batch || !fileImport) {
     console.error({
-      batch: batch.toString({ withData: true }),
-      fileImport: fileImport.toString({ withData: true }),
+      batch: batch?.toString?.({ withData: true }),
+      fileImport: fileImport?.toString?.({ withData: true }),
     });
     return false;
   }

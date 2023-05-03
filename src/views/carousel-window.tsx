@@ -1,8 +1,8 @@
 import { ipcRenderer } from "electron";
 import { useEffect, useRef, useState } from "react";
 import Mongoose from "mongoose";
-import { getAllFiles, getAllTags, getFiles } from "database";
-import { applyPatches } from "mobx-keystone";
+import { getAllTags, getFiles } from "database";
+import { Patch, applyPatches } from "mobx-keystone";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
 import {
@@ -30,36 +30,56 @@ export const CarouselWindow = observer(() => {
   const file = activeFileId ? fileStore.getById(activeFileId) : null;
 
   useEffect(() => {
-    document.title = "Carousel";
+    document.title = "Media Viewer // Carousel";
     console.debug("Carousel window useEffect fired.");
 
-    const loadDatabase = async (fileIds: string[]) => {
-      const databaseUri = await ipcRenderer.invoke("getDatabaseUri");
-      console.debug("Connecting to database:", databaseUri, "...");
-      await Mongoose.connect(databaseUri, CONSTANTS.MONGOOSE_OPTS);
+    const connectToDb = async () => {
+      try {
+        const databaseUri = await ipcRenderer.invoke("getDatabaseUri");
+        console.debug("Connecting to database:", databaseUri, "...");
+        await Mongoose.connect(databaseUri, CONSTANTS.MONGOOSE_OPTS);
+        console.debug("Connected to database");
+        return true;
+      } catch (err) {
+        console.error(err);
+        return false;
+      }
+    };
 
+    const isDbConnected = connectToDb();
+
+    const loadDatabase = async (fileIds: string[]) => {
       let perfStart = performance.now();
+
       const [files, tags] = await Promise.all([getFiles(fileIds), getAllTags()]);
       fileStore.overwrite(files);
       tagStore.overwrite(tags);
+
       console.debug(`Files and tags loaded into MobX in ${performance.now() - perfStart}ms.`);
-
-      ipcRenderer.on("onFileTagsEdited", async () => {
-        const files = await getFiles(fileIds);
-        fileStore.overwrite(files);
-      });
-
-      ipcRenderer.on("onTagPatch", (_, { patches }) => {
-        applyPatches(tagStore.tags, patches);
-      });
     };
 
-    ipcRenderer.on("init", async (_, { fileId, selectedFileIds }) => {
-      await loadDatabase(selectedFileIds);
+    ipcRenderer.on(
+      "init",
+      async (_, { fileId, selectedFileIds }: { fileId: string; selectedFileIds: string[] }) => {
+        if (await isDbConnected) await loadDatabase(selectedFileIds);
+        setActiveFileId(fileId);
+        setSelectedFileIds(selectedFileIds);
 
-      setActiveFileId(fileId);
-      setSelectedFileIds(selectedFileIds);
-    });
+        ipcRenderer.on("onFilesEdited", async (_, { fileIds }: { fileIds: string[] }) => {
+          console.log({ fileIds, selectedFileIds });
+          if (fileIds.some((id) => selectedFileIds.includes(id))) {
+            const files = await getFiles(fileIds);
+            console.log(files);
+            files.forEach((f) => fileStore.getById(f.id).update(f));
+          }
+        });
+
+        ipcRenderer.on("onTagPatch", (_, { patches }: { patches: Patch[] }) => {
+          console.log("onTagPatch", patches);
+          applyPatches(tagStore.tags, patches);
+        });
+      }
+    );
 
     rootRef.current?.focus();
 

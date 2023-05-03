@@ -41,12 +41,12 @@ export const Tagger = observer(({ batchId, files, setVisible }: TaggerProps) => 
 
   const handleTagAdded = (tags: TagOption[]) => {
     setAddedTags(tags);
-    setRemovedTags(removedTags.filter((r) => !tags.find((t) => t.id === r.id)));
+    setRemovedTags((prev) => prev.filter((r) => !tags.find((t) => t.id === r.id)));
   };
 
   const handleTagRemoved = (tags: TagOption[]) => {
     setRemovedTags(tags);
-    setAddedTags(addedTags.filter((a) => !tags.find((t) => t.id === a.id)));
+    setAddedTags((prev) => prev.filter((a) => !tags.find((t) => t.id === a.id)));
   };
 
   const handleSubmit = async () => {
@@ -117,7 +117,7 @@ export const Tagger = observer(({ batchId, files, setVisible }: TaggerProps) => 
           </DialogActions>
         </>
       ) : (
-        <TagEditor isCreate goBack={handleEditorBack} />
+        <TagEditor create goBack={handleEditorBack} />
       )}
     </Dialog>
   );

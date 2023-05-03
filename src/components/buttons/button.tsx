@@ -10,7 +10,20 @@ import { makeClasses, Margins, Padding } from "utils";
 import { CSSObject } from "tss-react";
 import Color from "color";
 
-interface ButtonProps extends Omit<MuiButtonProps, "color" | "endIcon" | "startIcon"> {
+const DEFAULT_PADDING = {
+  CONTAINED: {
+    top: "0.5em",
+    bottom: "0.5em",
+    right: "0.8em",
+    left: "0.8em",
+  } as Padding,
+  TEXT: {
+    right: "0.4em",
+    left: "0.4em",
+  } as Padding,
+};
+
+export interface ButtonProps extends Omit<MuiButtonProps, "color" | "endIcon" | "startIcon"> {
   color?: string;
   endNode?: ReactNode;
   fontSize?: CSSObject["fontSize"];
@@ -40,16 +53,25 @@ export const Button = ({
   iconSize = "1.15em",
   loading = false,
   margins = {},
-  padding = { all: "0.5em 0.8em" },
+  padding,
   size = "small",
   startNode,
   text,
-  textColor = colors.grey["200"],
+  textColor,
   textTransform = "none",
   variant = "contained",
   ...props
 }: ButtonProps) => {
-  const { css, cx } = useClasses({ color, margins, padding, textColor });
+  const { css, cx } = useClasses({
+    color,
+    margins,
+    padding: {
+      ...(variant === "text" ? DEFAULT_PADDING.TEXT : DEFAULT_PADDING.CONTAINED),
+      ...padding,
+    },
+    textColor: textColor ?? (variant === "text" ? colors.blue["500"] : colors.grey["200"]),
+    variant,
+  });
 
   return (
     <MuiButton {...props} {...{ size, variant }} className={cx(css.root, className)}>
@@ -82,7 +104,7 @@ export const Button = ({
   );
 };
 
-const useClasses = makeClasses((_, { color, margins, padding, textColor }) => ({
+const useClasses = makeClasses((_, { color, margins, padding, textColor, variant }) => ({
   icon: {
     marginRight: "0.3em",
   },
@@ -104,10 +126,12 @@ const useClasses = makeClasses((_, { color, margins, padding, textColor }) => ({
     paddingBottom: padding.bottom,
     paddingRight: padding.right,
     paddingLeft: padding.left,
-    backgroundColor: color,
+    minWidth: 0,
+    backgroundColor: variant === "text" ? "transparent" : color,
     color: textColor,
     "&:hover": {
-      backgroundColor: Color(color).lighten(0.1).string(),
+      backgroundColor: variant === "text" ? "transparent" : Color(color).lighten(0.1).string(),
+      color: Color(textColor).lighten(0.2).string(),
     },
   },
 }));

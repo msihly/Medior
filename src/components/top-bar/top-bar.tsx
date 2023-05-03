@@ -7,6 +7,7 @@ import { IconButton, Tagger, View } from "components";
 import { SortMenu } from ".";
 import { makeClasses } from "utils";
 import { toast } from "react-toastify";
+import Color from "color";
 
 export const TopBar = observer(() => {
   const rootStore = useStores();
@@ -29,8 +30,8 @@ export const TopBar = observer(() => {
   };
 
   const handleSelectAll = () => {
-    fileStore.toggleFilesSelected(fileStore.files.map(({ id }) => ({ id, isSelected: true })));
-    toast.info(`Added ${fileStore.files.length} files to selection`);
+    fileStore.toggleFilesSelected(fileStore.displayed.map(({ id }) => ({ id, isSelected: true })));
+    toast.info(`Added ${fileStore.displayed.length} files to selection`);
   };
 
   const handleUnarchive = () => deleteFiles(rootStore, fileStore.selected, true);
@@ -109,7 +110,9 @@ const useClasses = makeClasses({
     flex: 1,
     justifyContent: "space-between",
     padding: "0.3rem 0.5rem",
-    backgroundColor: colors.grey["900"],
+    background: `linear-gradient(to left, ${colors.grey["900"]}, ${Color(colors.grey["900"])
+      .darken(0.1)
+      .string()})`,
   },
   divisions: {
     display: "inline-flex",

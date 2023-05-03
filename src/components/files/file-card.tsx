@@ -13,7 +13,7 @@ interface FileCardProps {
 }
 
 export const FileCard = observer(({ file, id }: FileCardProps) => {
-  const { fileStore, homeStore, tagStore } = useStores();
+  const { fileStore, tagStore } = useStores();
   if (!file) file = fileStore.getById(id);
 
   const thumbInterval = useRef(null);
@@ -37,15 +37,15 @@ export const FileCard = observer(({ file, id }: FileCardProps) => {
     setImagePos(null);
   };
 
-  const handleMouseMove = (event: React.MouseEvent) => {
-    const { height, left, top, width } = event.currentTarget.getBoundingClientRect();
-    const offsetX = event.pageX - left;
-    const offsetY = event.pageY - top;
-    const pos = `${(Math.max(0, offsetX) / width) * 100}% ${
-      (Math.max(0, offsetY) / height) * 100
-    }%`;
-    setImagePos(pos);
-  };
+  // const handleMouseMove = (event: React.MouseEvent) => {
+  //   const { height, left, top, width } = event.currentTarget.getBoundingClientRect();
+  //   const offsetX = event.pageX - left;
+  //   const offsetY = event.pageY - top;
+  //   const pos = `${(Math.max(0, offsetX) / width) * 100}% ${
+  //     (Math.max(0, offsetY) / height) * 100
+  //   }%`;
+  //   setImagePos(pos);
+  // };
 
   const handleTagPress = (tagId: string) => {
     tagStore.setActiveTagId(tagId);
@@ -72,7 +72,7 @@ export const FileCard = observer(({ file, id }: FileCardProps) => {
           <img
             src={file.thumbPaths[thumbIndex]}
             alt={file.originalName}
-            onMouseMove={handleMouseMove}
+            // onMouseMove={handleMouseMove}
             onMouseLeave={handleMouseLeave}
             draggable={false}
             loading="lazy"
@@ -168,11 +168,14 @@ const useClasses = makeClasses((theme, { imagePos, selected }) => ({
   image: {
     width: "100%",
     height: "9rem",
-    objectFit: "cover",
     borderTopLeftRadius: "inherit",
     borderTopRightRadius: "inherit",
     userSelect: "none",
     transition: "all 100ms ease",
+    objectFit: "cover",
+    "&:hover": {
+      objectFit: "contain",
+    },
   },
   imageContainer: {
     position: "relative",
@@ -205,6 +208,7 @@ const useClasses = makeClasses((theme, { imagePos, selected }) => ({
   tags: {
     position: "relative",
     overflow: "hidden",
+    width: "100%",
     "&::after": {
       content: '""',
       position: "absolute",

@@ -23,11 +23,12 @@ export const sortFiles = ({ a, b, isSortDesc, sortKey }) => {
 @model("mediaViewer/HomeStore")
 export class HomeStore extends Model({
   drawerMode: prop<"persistent" | "temporary">("persistent"),
-  excludedTags: prop<TagOption[]>(() => []).withSetter(),
+  excludedAnyTags: prop<TagOption[]>(() => []).withSetter(),
   includeDescendants: prop<boolean>(true).withSetter(),
   includeTagged: prop<boolean>(false).withSetter(),
   includeUntagged: prop<boolean>(false).withSetter(),
-  includedTags: prop<TagOption[]>(() => []).withSetter(),
+  includedAllTags: prop<TagOption[]>(() => []).withSetter(),
+  includedAnyTags: prop<TagOption[]>(() => []).withSetter(),
   isArchiveOpen: prop<boolean>(false).withSetter(),
   isDrawerOpen: prop<boolean>(true).withSetter(),
   isSortDesc: prop<boolean>(true).withSetter(),

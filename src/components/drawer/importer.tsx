@@ -3,7 +3,7 @@ import { createImportBatch, useFileImportQueue } from "database";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
 import { Dialog, DialogTitle, DialogContent, DialogActions, colors } from "@mui/material";
-import { Button, Checkbox, ImportBatch, Text } from "components";
+import { Button, Checkbox, ImportBatch, Text, View } from "components";
 import { dayjs, dirToFileImports, filePathsToImports, makeClasses } from "utils";
 
 interface ImporterProps {
@@ -44,11 +44,13 @@ export const Importer = observer(({ isOpen = false, setIsOpen }: ImporterProps) 
 
       <DialogContent dividers className={css.dialogContent}>
         {importStore.batches?.length > 0 ? (
-          importStore.batches.map((batch) => (
-            <ImportBatch key={batch.createdAt} createdAt={batch.createdAt} />
-          ))
+          [...importStore.batches]
+            .reverse()
+            .map((batch) => <ImportBatch key={batch.createdAt} createdAt={batch.createdAt} />)
         ) : (
-          <Text color={colors.grey["300"]}>{"No Imports"}</Text>
+          <View className={css.emptyContainer}>
+            <Text color={colors.grey["300"]}>{"No Imports"}</Text>
+          </View>
         )}
       </DialogContent>
 
@@ -88,6 +90,12 @@ const useClasses = makeClasses({
     padding: "0.5rem 0",
     textAlign: "center",
     boxShadow: "0 0 2px black",
+  },
+  emptyContainer: {
+    display: "flex",
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
   },
   input: {
     margin: "0 1rem 0.5rem",
