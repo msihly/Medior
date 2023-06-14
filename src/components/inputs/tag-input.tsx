@@ -61,11 +61,11 @@ export const TagInput = observer(
           onChange={(_, val: TagOption[]) => setValue?.(val)}
           isOptionEqualToValue={(option: TagOption, val: TagOption) => option.id === val.id}
           filterOptions={(options: TagOption[], { inputValue }) => {
-            const searchStr = inputValue.trim().toLowerCase();
+            const searchTerms = inputValue.trim().toLowerCase().split(" ");
             return options
               .filter((o) =>
                 [o.label.toLowerCase(), ...(o.aliases?.map((a) => a.toLowerCase()) ?? [])].some(
-                  (label) => label.includes(searchStr)
+                  (label) => searchTerms.every((t) => label.includes(t))
                 )
               )
               .slice(0, 100);

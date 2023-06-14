@@ -179,7 +179,7 @@ const useClasses = makeClasses((_, { isVolumeVisible }) => ({
   image: {
     borderRadius: "inherit",
     width: "100%",
-    objectFit: "contain",
+    objectFit: "scale-down",
     userSelect: "none",
   },
   videoControlBar: {

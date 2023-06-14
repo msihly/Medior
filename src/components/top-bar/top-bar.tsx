@@ -2,9 +2,9 @@ import { useState } from "react";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
 import { deleteFiles, refreshSelectedFiles } from "database";
-import { AppBar, Chip, colors } from "@mui/material";
+import { AppBar, colors } from "@mui/material";
 import { IconButton, Tagger, View } from "components";
-import { SortMenu } from ".";
+import { SelectedFilesInfo, SortMenu } from ".";
 import { makeClasses } from "utils";
 import { toast } from "react-toastify";
 import Color from "color";
@@ -44,9 +44,7 @@ export const TopBar = observer(() => {
             <IconButton name="Menu" onClick={() => homeStore.setIsDrawerOpen(true)} size="medium" />
           )}
 
-          {fileStore.selectedIds.length > 0 && (
-            <Chip label={`${fileStore.selectedIds.length} Selected`} />
-          )}
+          {fileStore.selectedIds.length > 0 && <SelectedFilesInfo />}
         </View>
 
         <View className={css.divisions}>

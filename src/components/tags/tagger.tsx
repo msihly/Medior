@@ -104,7 +104,7 @@ export const Tagger = observer(({ batchId, files, setVisible }: TaggerProps) => 
           </DialogContent>
 
           <DialogActions className={css.dialogActions}>
-            <Button text="Close" icon="Close" onClick={handleClose} color={colors.grey["700"]} />
+            <Button text="Submit" icon="Check" onClick={handleSubmit} />
 
             <Button
               text="New Tag"
@@ -113,7 +113,7 @@ export const Tagger = observer(({ batchId, files, setVisible }: TaggerProps) => 
               color={colors.blueGrey["700"]}
             />
 
-            <Button text="Submit" icon="Check" onClick={handleSubmit} />
+            <Button text="Close" icon="Close" onClick={handleClose} color={colors.grey["700"]} />
           </DialogActions>
         </>
       ) : (
