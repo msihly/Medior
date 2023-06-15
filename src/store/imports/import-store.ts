@@ -39,6 +39,11 @@ export class ImportStore extends Model({
   }
 
   @modelAction
+  deleteAllImportBatches() {
+    this.importBatches = [];
+  }
+
+  @modelAction
   editBatchTags({
     addedIds = [],
     batchIds = [],

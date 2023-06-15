@@ -1,10 +1,12 @@
 import { dialog } from "@electron/remote";
-import { createImportBatch, useFileImportQueue } from "database";
+import { useState } from "react";
+import { createImportBatch, deleteAllImportBatches, useFileImportQueue } from "database";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
 import { Dialog, DialogTitle, DialogContent, DialogActions, colors } from "@mui/material";
-import { Button, Checkbox, ImportBatch, Text, View } from "components";
+import { Button, Checkbox, IconButton, ImportBatch, Text, View } from "components";
 import { dayjs, dirToFileImports, filePathsToImports, makeClasses } from "utils";
+import { toast } from "react-toastify";
 
 interface ImporterProps {
   isOpen: boolean;
@@ -16,6 +18,14 @@ export const Importer = observer(({ isOpen = false, setIsOpen }: ImporterProps) 
   const { css } = useClasses(null);
 
   useFileImportQueue();
+
+  const [isConfirmDeleteAllOpen, setIsConfirmDeleteAllOpen] = useState(false);
+
+  const deleteAll = async () => {
+    await deleteAllImportBatches(importStore);
+    toast.success("All import batches deleted");
+    setIsConfirmDeleteAllOpen(false);
+  };
 
   const handleClose = () => setIsOpen(false);
 
@@ -40,7 +50,36 @@ export const Importer = observer(({ isOpen = false, setIsOpen }: ImporterProps) 
 
   return (
     <Dialog open={isOpen} onClose={handleClose} scroll="paper">
-      <DialogTitle className={css.dialogTitle}>{"Import Files"}</DialogTitle>
+      <DialogTitle className={css.dialogTitle}>
+        <View />
+
+        <Text>{"Import Files"}</Text>
+
+        <View row justify="flex-end" padding={{ right: "1.7rem" }}>
+          {!isConfirmDeleteAllOpen ? (
+            <IconButton
+              name="DeleteOutline"
+              onClick={() => setIsConfirmDeleteAllOpen(true)}
+              iconProps={{ color: colors.grey["500"], size: "0.9em" }}
+            />
+          ) : (
+            <>
+              <IconButton
+                name="CloseOutlined"
+                onClick={() => setIsConfirmDeleteAllOpen(false)}
+                iconProps={{ color: colors.grey["500"], size: "0.9em" }}
+                margins={{ right: "0.1rem" }}
+              />
+
+              <IconButton
+                name="Delete"
+                onClick={deleteAll}
+                iconProps={{ color: colors.red["700"], size: "0.9em" }}
+              />
+            </>
+          )}
+        </View>
+      </DialogTitle>
 
       <DialogContent dividers className={css.dialogContent}>
         {importStore.batches?.length > 0 ? (
@@ -86,10 +125,14 @@ const useClasses = makeClasses({
     overflowX: "hidden",
   },
   dialogTitle: {
+    display: "flex",
+    justifyContent: "space-between",
     margin: 0,
     padding: "0.5rem 0",
+    width: "100%",
     textAlign: "center",
     boxShadow: "0 0 2px black",
+    "> *": { flex: "33%" },
   },
   emptyContainer: {
     display: "flex",

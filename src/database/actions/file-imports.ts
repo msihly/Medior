@@ -74,6 +74,17 @@ export const deleteImportBatch = async (importStore: ImportStore, id: string) =>
   }
 };
 
+export const deleteAllImportBatches = async (importStore: ImportStore) => {
+  try {
+    await FileImportBatchModel.deleteMany({});
+    importStore.deleteAllImportBatches();
+    return { success: true };
+  } catch (err) {
+    console.error(err);
+    return { success: false, error: err?.message };
+  }
+};
+
 export const getAllImportBatches = async () => {
   try {
     return (await FileImportBatchModel.find()).map((r) => {
