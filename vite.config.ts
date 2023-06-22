@@ -1,20 +1,21 @@
 import { defineConfig } from "vite";
+import pluginCommonJs from "vite-plugin-commonjs";
 import pluginReact from "@vitejs/plugin-react";
 import pluginRenderer from "vite-plugin-electron-renderer";
 import pluginSVGR from "vite-plugin-svgr";
 import pluginTsconfigPaths from "vite-tsconfig-paths";
 
-const EXTERNALS = ["crypto", "fluent-ffmpeg", "fs", "mongoose", "path", "sharp"];
+const EXTERNALS = ["crypto", "electron-log", "fluent-ffmpeg", "fs", "mongoose", "path", "sharp"];
+
+const commonJs = pluginCommonJs();
+commonJs.apply = undefined;
 
 export default defineConfig({
   build: { outDir: "build" },
   optimizeDeps: { exclude: EXTERNALS },
   plugins: [
     pluginReact(),
-    pluginRenderer({
-      nodeIntegration: true,
-      resolve: () => EXTERNALS,
-    }),
+    pluginRenderer({ nodeIntegration: true, resolve: () => EXTERNALS }),
     pluginSVGR(),
     pluginTsconfigPaths(),
   ],

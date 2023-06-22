@@ -1,6 +1,5 @@
 import path from "path";
-import { fractionStringToNumber } from "utils";
-// import { getRandomInt } from "utils";
+import { fractionStringToNumber } from ".";
 
 interface VideoInfo {
   duration: number;

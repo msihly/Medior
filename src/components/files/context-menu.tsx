@@ -2,7 +2,6 @@ import { shell } from "@electron/remote";
 import { ReactNode, useState } from "react";
 import { observer } from "mobx-react-lite";
 import { File, useStores } from "store";
-import { deleteFiles } from "database";
 import { Menu } from "@mui/material";
 import { ListItem, View, ViewProps } from "components";
 import { InfoModal } from ".";
@@ -38,7 +37,10 @@ export const ContextMenu = observer(({ children, file, ...props }: ContextMenuPr
   };
 
   const handleDelete = () => {
-    deleteFiles(rootStore, fileStore.getIsSelected(file.id) ? fileStore.selected : [file]);
+    fileStore.deleteFiles({
+      rootStore,
+      files: fileStore.getIsSelected(file.id) ? fileStore.selected : [file],
+    });
     handleClose();
   };
 

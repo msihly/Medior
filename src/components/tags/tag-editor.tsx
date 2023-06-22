@@ -1,4 +1,3 @@
-import { ipcRenderer } from "electron";
 import { useMemo, useRef, useState } from "react";
 import { observer } from "mobx-react-lite";
 import { TagOption, useStores } from "store";
@@ -87,15 +86,17 @@ export const TagEditor = observer(({ create, goBack }: TagEditorProps) => {
     const parentIds = parentTags.map((t) => t.id);
     const aliasStrings = aliases.map((a) => a.value);
 
-    ipcRenderer.send(isCreate ? "createTag" : "editTag", {
-      aliases: aliasStrings,
-      childIds,
-      id: !isCreate ? tagStore.activeTagId : undefined,
-      label,
-      parentIds,
-    });
+    const res = await (isCreate
+      ? tagStore.createTag({ aliases: aliasStrings, childIds, label, parentIds })
+      : tagStore.editTag({
+          aliases: aliasStrings,
+          childIds,
+          id: tagStore.activeTagId,
+          label,
+          parentIds,
+        }));
 
-    hasContinue ? clearInputs() : goBack();
+    if (res.success) hasContinue ? clearInputs() : goBack();
   };
 
   return (

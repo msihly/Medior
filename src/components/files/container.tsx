@@ -1,8 +1,6 @@
-import { ipcRenderer } from "electron";
 import { useEffect, useRef, useState } from "react";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
-import { getFiles, reloadDisplayedFiles } from "database";
 import Selecto, { OnDragStart, OnSelect } from "react-selecto";
 import { Pagination, colors } from "@mui/material";
 import { Tagger, View } from "components";
@@ -27,21 +25,11 @@ export const FileContainer = observer(() => {
 
   useEffect(() => {
     if (!fileStore.selectedIds.length) selectoRef.current?.setSelectedTargets?.([]);
+    fileStore.loadMissingFiles();
   }, [fileStore.selectedIds]);
 
   useEffect(() => {
-    const loadMissingFiles = async () => {
-      if (fileStore.selected.length < fileStore.selectedIds.length) {
-        const files = await getFiles(fileStore.selectedIds);
-        fileStore.append(files);
-      }
-    };
-
-    loadMissingFiles();
-  }, [fileStore.selectedIds]);
-
-  useEffect(() => {
-    reloadDisplayedFiles(rootStore);
+    homeStore.reloadDisplayedFiles({ rootStore });
   }, [
     homeStore.excludedAnyTags,
     homeStore.includeDescendants,
@@ -57,7 +45,8 @@ export const FileContainer = observer(() => {
     tagStore.tags,
   ]);
 
-  const changePage = (page: number) => reloadDisplayedFiles(rootStore, { page, withAppend: true });
+  const changePage = (page: number) =>
+    homeStore.reloadDisplayedFiles({ rootStore, page, withAppend: true });
 
   const handlePageChange = (_, value: number) => changePage(value);
 
@@ -83,7 +72,7 @@ export const FileContainer = observer(() => {
           { id: newId, isSelected: true },
         ]);
       } else if (["1", "2", "3", "4", "5", "6", "7", "8", "9"].includes(e.key)) {
-        ipcRenderer.send("setFileRating", { fileIds: [selectedId], rating: +e.key });
+        fileStore.setFileRating({ fileIds: [selectedId], rating: +e.key, rootStore });
       }
     }
   };

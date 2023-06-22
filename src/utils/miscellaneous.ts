@@ -32,6 +32,17 @@ export const debounce = (fn, delay) => {
 
 export const generateRandomString = () => Math.random().toString(36).substring(2, 15);
 
+export const handleErrors = async <T>(
+  fn: () => Promise<T>
+): Promise<{ data?: T; error?: string; success: boolean }> => {
+  try {
+    return { success: true, data: await fn() };
+  } catch (err) {
+    console.error(err.stack);
+    return { success: false, error: err.message };
+  }
+};
+
 export const parseLocalStorage = (item, defaultValue = null) => {
   const stored = localStorage.getItem(item);
   if (stored) return JSON.parse(stored);

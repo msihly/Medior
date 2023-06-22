@@ -1,11 +1,20 @@
-import { Model, model, modelAction, prop } from "mobx-keystone";
-import { TagOption } from "store";
-import { dayjs, ImageType, IMAGE_TYPES, VideoType, VIDEO_TYPES } from "utils";
+import { Model, _async, _await, model, modelAction, modelFlow, prop } from "mobx-keystone";
+import { dayjs, ImageType, IMAGE_TYPES, VideoType, VIDEO_TYPES, handleErrors } from "utils";
+
+import { RootStore, TagOption, tagsToDescendants } from "store";
+import { CONSTANTS, round, trpc } from "utils";
 
 const NUMERICAL_ATTRIBUTES = ["duration", "height", "rating", "size", "width"];
 
-type SelectedImageTypes = { [ext in ImageType]: boolean };
-type SelectedVideoTypes = { [ext in VideoType]: boolean };
+export type ReloadDisplayedFilesInput = {
+  rootStore: RootStore;
+  page?: number;
+  withAppend?: boolean;
+  withOverwrite?: boolean;
+};
+
+export type SelectedImageTypes = { [ext in ImageType]: boolean };
+export type SelectedVideoTypes = { [ext in VideoType]: boolean };
 
 export const sortFiles = ({ a, b, isSortDesc, sortKey }) => {
   const first = a[sortKey];
@@ -54,4 +63,105 @@ export class HomeStore extends Model({
   setSelectedVideoTypes(types: Partial<SelectedVideoTypes>) {
     this.selectedVideoTypes = { ...this.selectedVideoTypes, ...types };
   }
+
+  @modelFlow
+  reloadDisplayedFiles = _async(function* (
+    this: HomeStore,
+    { rootStore, page, withAppend = true, withOverwrite = false }: ReloadDisplayedFilesInput = {
+      rootStore: null,
+    }
+  ) {
+    return yield* _await(
+      handleErrors(async () => {
+        const logTag = "[Reload Displayed Files]";
+        const funcPerfStart = performance.now();
+
+        let perfStart = performance.now();
+        const perfLog = (str: string) => {
+          console.debug(logTag, round(performance.now() - perfStart, 0), "ms.", str);
+          perfStart = performance.now();
+        };
+
+        const { fileStore, tagStore } = rootStore;
+
+        const tagsToIds = (tags: TagOption[]) => {
+          const tagIds = tags.map((t) => t.id);
+          const tagIdsWithDesc = [
+            ...tagIds,
+            ...(this.includeDescendants
+              ? tagsToDescendants(tagStore, tagStore.listByIds(tagIds))
+              : []),
+          ];
+          return [tagIds, tagIdsWithDesc];
+        };
+
+        const [excludedAnyTagIds, excludedAnyTagIdsDesc] = tagsToIds(this.excludedAnyTags);
+        const [includedAllTagIds] = tagsToIds(this.includedAllTags);
+        const [includedAnyTagIds, includedAnyTagIdsDesc] = tagsToIds(this.includedAnyTags);
+
+        const filesRes = await trpc.listFilteredFiles.mutate({
+          includeTagged: this.includeTagged,
+          includeUntagged: this.includeUntagged,
+          isArchived: this.isArchiveOpen,
+          selectedImageTypes: this.selectedImageTypes,
+          selectedVideoTypes: this.selectedVideoTypes,
+        });
+        if (!filesRes.success) throw new Error(filesRes.error);
+        const files = filesRes.data;
+
+        perfLog("Mongo find"); // DEBUG
+
+        const filtered = files
+          .filter((f) => {
+            const hasExcludedAny =
+              excludedAnyTagIds.length > 0
+                ? f.tagIds.length > 0 &&
+                  f.tagIds.some((tagId) => excludedAnyTagIdsDesc.includes(tagId))
+                : false;
+
+            const hasIncludedAll =
+              includedAllTagIds.length > 0
+                ? f.tagIds.length > 0 &&
+                  includedAllTagIds.every((tagId) => f.tagIds.includes(tagId))
+                : true;
+
+            const hasIncludedAny =
+              includedAnyTagIds.length > 0
+                ? f.tagIds.length > 0 &&
+                  f.tagIds.some((tagId) => includedAnyTagIdsDesc.includes(tagId))
+                : true;
+
+            return hasIncludedAll && hasIncludedAny && !hasExcludedAny;
+          })
+          .sort((a, b) => sortFiles({ a, b, isSortDesc: this.isSortDesc, sortKey: this.sortKey }));
+
+        perfLog("Filtering and sorting"); // DEBUG
+
+        if (withOverwrite) fileStore.overwrite(filtered);
+        else if (withAppend) fileStore.appendFiltered(filtered, page);
+        if (page) fileStore.setPage(page);
+
+        perfLog(`${withOverwrite ? "Overwite" : "Append"}${page ? " and set page" : ""}`); // DEBUG
+
+        const filteredIds = filtered.map((f) => f.id);
+        const deselectedIds = fileStore.selectedIds.reduce((acc, cur) => {
+          if (!filteredIds.includes(cur)) acc.push({ id: cur, isSelected: false });
+          return acc;
+        }, [] as { id: string; isSelected: boolean }[]);
+
+        fileStore.toggleFilesSelected(deselectedIds);
+
+        perfLog("File deselection"); // DEBUG
+
+        const displayed = files.slice(
+          ((page ?? fileStore.page) - 1) * CONSTANTS.FILE_COUNT,
+          (page ?? fileStore.page) * CONSTANTS.FILE_COUNT
+        );
+
+        console.debug(
+          `Loaded ${displayed.length} displayed files in ${performance.now() - funcPerfStart}ms.`
+        );
+      })
+    );
+  });
 }

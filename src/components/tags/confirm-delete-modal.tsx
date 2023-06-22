@@ -4,7 +4,6 @@ import { useStores } from "store";
 import { Dialog, DialogTitle, DialogContent, DialogActions, colors } from "@mui/material";
 import { Button, Icon, Input, Text, View } from "components";
 import { makeClasses } from "utils";
-import { deleteTag } from "database";
 import { toast } from "react-toastify";
 
 interface ConfirmDeleteModalProps {
@@ -22,14 +21,12 @@ export const ConfirmDeleteModal = observer(({ goBack, setVisible }: ConfirmDelet
   const handleClose = () => setVisible(false);
 
   const handleDelete = async () => {
-    try {
-      await deleteTag({ id: tagStore.activeTagId, rootStore });
+    const res = await tagStore.deleteTag({ id: tagStore.activeTagId, rootStore });
+    if (!res.success) toast.error("Failed to delete tag");
+    else {
       toast.success("Tag deleted");
       handleClose();
       goBack();
-    } catch (err) {
-      toast.error("Failed to delete tag");
-      console.error(err);
     }
   };
 

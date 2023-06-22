@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { observer } from "mobx-react-lite";
 import { TagOption, tagsToDescendants, useStores } from "store";
-// import { refreshAllTagRelations, refreshAllTagCounts } from "database";
 import { Dialog, DialogTitle, DialogContent, DialogActions, colors, Chip } from "@mui/material";
 import {
   Accordion,
@@ -97,9 +96,9 @@ export const TagManager = observer(() => {
 
   const handleEditorBack = () => tagStore.setTagManagerMode("search");
 
-  // const handleRefreshCounts = () => refreshAllTagCounts(rootStore);
+  // const handleRefreshCounts = () => tagStore.refreshAllTagCounts();
 
-  // const handleRefreshRelations = () => refreshAllTagRelations(tagStore);
+  // const handleRefreshRelations = () => tagStore.refreshAllTagRelations();
 
   const handleTagPress = (tagId: string) => {
     tagStore.setActiveTagId(tagId);

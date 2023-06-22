@@ -1,8 +1,7 @@
 import { Dialog, DialogTitle, DialogContent, DialogActions, colors } from "@mui/material";
-import { refreshFile } from "database";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
-import { Button, DetailRows, SideScroller, Tag, Text, View } from "components";
+import { Button, DetailRows, SideScroller, Tag, Text } from "components";
 import { dayjs, formatBytes, makeClasses } from "utils";
 import { toast } from "react-toastify";
 
@@ -20,8 +19,8 @@ export const InfoModal = observer(({ fileId, setVisible }: InfoModalProps) => {
   const handleClose = () => setVisible(false);
 
   const handleRefresh = async () => {
-    const res = await refreshFile(fileStore, fileId);
-    if (res === null) toast.error("Failed to refresh info");
+    const res = await fileStore.refreshFile({ id: fileId });
+    if (!res.success) toast.error("Failed to refresh info");
     else toast.success("File info refreshed");
   };
 

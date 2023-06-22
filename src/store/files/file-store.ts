@@ -1,7 +1,35 @@
+import { promises as fs } from "fs";
+import path from "path";
+import md5File from "md5-file";
 import { computed } from "mobx";
-import { Model, model, modelAction, ModelCreationData, prop } from "mobx-keystone";
+import {
+  _async,
+  _await,
+  Model,
+  model,
+  modelAction,
+  ModelCreationData,
+  modelFlow,
+  prop,
+} from "mobx-keystone";
+import { RootStore } from "store";
+import { EditFileTagsInput, RefreshFileInput, SetFileRatingInput } from "database";
 import { File } from ".";
-import { CONSTANTS, IMAGE_EXT_REG_EXP, VIDEO_EXT_REG_EXP } from "utils";
+import {
+  CONSTANTS,
+  dayjs,
+  generateFramesThumbnail,
+  getVideoInfo,
+  handleErrors,
+  IMAGE_EXT_REG_EXP,
+  PromiseQueue,
+  splitArray,
+  trpc,
+  VIDEO_EXT_REG_EXP,
+} from "utils";
+import { toast } from "react-toastify";
+
+export const FileInfoRefreshQueue = new PromiseQueue();
 
 @model("mediaViewer/FileStore")
 export class FileStore extends Model({
@@ -10,6 +38,7 @@ export class FileStore extends Model({
   page: prop<number>(1).withSetter(),
   selectedIds: prop<string[]>(() => []),
 }) {
+  /* ---------------------------- STANDARD ACTIONS ---------------------------- */
   @modelAction
   append(files: ModelCreationData<File>[]) {
     this.files.push(
@@ -46,6 +75,208 @@ export class FileStore extends Model({
     );
   }
 
+  /* ------------------------------ ASYNC ACTIONS ----------------------------- */
+  @modelFlow
+  deleteFiles = _async(function* (
+    this: FileStore,
+    {
+      files,
+      isUndelete = false,
+      rootStore,
+    }: { files: File[]; isUndelete?: boolean; rootStore: RootStore }
+  ) {
+    return yield* _await(
+      handleErrors(async () => {
+        if (!files?.length) return false;
+
+        if (isUndelete) {
+          await trpc.setFileIsArchived.mutate({
+            fileIds: files.map((f) => f.id),
+            isArchived: false,
+          });
+          toast.success(`${files.length} files unarchived`);
+        } else {
+          const [deleted, archived] = splitArray(files, (f: File) => f.isArchived);
+          const [deletedIds, archivedIds] = [deleted, archived].map((arr) => arr.map((f) => f.id));
+
+          if (archivedIds?.length > 0) {
+            await trpc.setFileIsArchived.mutate({ fileIds: archivedIds, isArchived: true });
+            toast.success(`${archivedIds.length} files archived`);
+          }
+
+          if (deletedIds?.length > 0) {
+            await trpc.deleteFiles.mutate({ fileIds: deletedIds });
+            await Promise.all(
+              deleted.flatMap((file) =>
+                this.listByHash(file.hash).length === 1
+                  ? [
+                      fs.unlink(file.path),
+                      ...file.thumbPaths.map((thumbPath) => fs.unlink(thumbPath)),
+                    ]
+                  : []
+              )
+            );
+            toast.success(`${deletedIds.length} files deleted`);
+          }
+        }
+
+        this.toggleFilesSelected(files.map((f) => ({ id: f.id, isSelected: false })));
+
+        await rootStore.homeStore.reloadDisplayedFiles({ rootStore });
+        await rootStore.tagStore.refreshAllTagCounts({ silent: true });
+
+        return true;
+      })
+    );
+  });
+
+  @modelFlow
+  editFileTags = _async(function* (
+    this: FileStore,
+    { addedTagIds = [], batchId, fileIds, rootStore, removedTagIds = [] }: EditFileTagsInput
+  ) {
+    return yield* _await(
+      handleErrors(async () => {
+        if (!fileIds?.length || (!addedTagIds?.length && !removedTagIds?.length)) return false;
+
+        if (removedTagIds?.length > 0) {
+          if (batchId?.length > 0)
+            await trpc.removeTagsFromBatch.mutate({ batchId, tagIds: removedTagIds });
+          await trpc.removeTagsFromFiles.mutate({ fileIds, tagIds: removedTagIds });
+        }
+
+        if (addedTagIds?.length > 0) {
+          if (batchId?.length > 0)
+            await trpc.addTagsToBatch.mutate({ batchId, tagIds: addedTagIds });
+          await trpc.addTagsToFiles.mutate({ fileIds, tagIds: addedTagIds });
+        }
+
+        rootStore.importStore.editBatchTags({
+          addedIds: addedTagIds,
+          batchIds: [batchId],
+          removedIds: removedTagIds,
+        });
+
+        await rootStore.homeStore.reloadDisplayedFiles({ rootStore });
+        await rootStore.tagStore.refreshAllTagCounts({ silent: true });
+
+        toast.success(`${fileIds.length} files updated`);
+
+        // ipcRenderer.send("onFilesEdited", { fileIds });
+      })
+    );
+  });
+
+  @modelFlow
+  loadMissingFiles = _async(function* (this: FileStore) {
+    return yield* _await(
+      handleErrors(async () => {
+        if (this.selected.length < this.selectedIds.length) {
+          const filesRes = await trpc.listFiles.mutate({ ids: this.selectedIds });
+          if (filesRes.success) this.append(filesRes.data);
+        }
+      })
+    );
+  });
+
+  @modelFlow
+  refreshFile = _async(function* (this: FileStore, { id, withThumbs = false }: RefreshFileInput) {
+    return yield* _await(
+      handleErrors(async () => {
+        const file = this.getById(id);
+        const sharp = !file.isAnimated ? (await import("sharp")).default : null;
+
+        const [hash, { mtime, size }, imageInfo, videoInfo] = await Promise.all([
+          md5File(file.path),
+          fs.stat(file.path),
+          !file.isAnimated ? sharp(file.path).metadata() : null,
+          file.isAnimated ? getVideoInfo(file.path) : null,
+        ]);
+
+        const updates: Partial<File> = {
+          dateModified: dayjs(mtime).isAfter(file.dateModified)
+            ? mtime.toISOString()
+            : file.dateModified,
+          duration: file.isAnimated ? videoInfo?.duration : file.duration,
+          frameRate: file.isAnimated ? videoInfo?.frameRate : file.frameRate,
+          hash,
+          height: file.isAnimated ? videoInfo?.height : imageInfo?.height,
+          originalHash: file.originalHash ?? hash,
+          size,
+          width: file.isAnimated ? videoInfo?.width : imageInfo?.width,
+        };
+
+        if (withThumbs) {
+          const dirPath = path.dirname(file.path);
+
+          const thumbPaths = file.isAnimated
+            ? Array(9)
+                .fill("")
+                .map((_, i) =>
+                  path.join(dirPath, `${hash}-thumb-${String(i + 1).padStart(2, "0")}.jpg`)
+                )
+            : [path.join(dirPath, `${hash}-thumb${file.ext}`)];
+
+          await (file.isAnimated
+            ? generateFramesThumbnail(file.path, dirPath, hash, videoInfo?.duration)
+            : sharp(file.path).resize(null, 300).toFile(thumbPaths[0]));
+
+          updates["thumbPaths"] = thumbPaths;
+        }
+
+        await trpc.updateFile.mutate({ id, ...updates });
+        file.update(updates);
+
+        return updates;
+      })
+    );
+  });
+
+  @modelFlow
+  refreshSelectedFiles = _async(function* (this: FileStore) {
+    return yield* _await(
+      handleErrors(async () => {
+        let completedCount = 0;
+        const totalCount = this.selected.length;
+
+        const toastId = toast.info(() => `Refreshed ${completedCount} files' info...`, {
+          autoClose: false,
+        });
+
+        this.selected.map((f, _, files) =>
+          FileInfoRefreshQueue.add(async () => {
+            await this.refreshFile({ id: f.id });
+
+            completedCount++;
+            const isComplete = completedCount === totalCount;
+
+            // if (isComplete) ipcRenderer.send("onFilesEdited", { fileIds: files.map((f) => f.id) });
+
+            toast.update(toastId, {
+              autoClose: isComplete ? 5000 : false,
+              render: `Refreshed ${completedCount} files${isComplete ? "." : "..."}`,
+            });
+          })
+        );
+      })
+    );
+  });
+
+  @modelFlow
+  setFileRating = _async(function* (
+    this: FileStore,
+    { fileIds = [], rating, rootStore }: SetFileRatingInput & { rootStore: RootStore }
+  ) {
+    return yield* _await(
+      handleErrors(async () => {
+        if (!fileIds.length) return;
+        await trpc.setFileRating.mutate({ fileIds, rating });
+        await rootStore.homeStore.reloadDisplayedFiles({ rootStore });
+      })
+    );
+  });
+
+  /* --------------------------------- DYNAMIC GETTERS -------------------------------- */
   getIsSelected(id: string) {
     return !!this.selectedIds.find((s) => s === id);
   }
@@ -66,6 +297,7 @@ export class FileStore extends Model({
     return this.files.filter((f) => f.tagIds.includes(tagId));
   }
 
+  /* --------------------------------- GETTERS -------------------------------- */
   @computed
   get archived() {
     return this.files.filter((f) => f.isArchived);

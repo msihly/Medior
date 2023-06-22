@@ -1,29 +1,23 @@
-import { ipcRenderer } from "electron";
 import { stat } from "fs/promises";
 import { createRef, useEffect, useState } from "react";
-import Mongoose from "mongoose";
-import {
-  createImportBatch,
-  createTag,
-  editFileTags,
-  editTag,
-  getAllImportBatches,
-  getAllTags,
-  setFileRating,
-} from "database";
-import { onPatches } from "mobx-keystone";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
 import { colors } from "@mui/material";
 import { Drawer, FileContainer, TopBar, View } from "components";
-import { CONSTANTS, dayjs, dirToFileImports, filePathsToImports, makeClasses } from "utils";
+import {
+  dayjs,
+  dirToFileImports,
+  filePathsToImports,
+  makeClasses,
+  setupSocketIO,
+  trpc,
+} from "utils";
 import { toast } from "react-toastify";
 import Color from "color";
 
 export const Home = observer(() => {
   const drawerRef = createRef();
 
-  const rootStore = useStores();
   const { homeStore, importStore, tagStore } = useStores();
 
   const [isLoading, setIsLoading] = useState(true);
@@ -60,8 +54,16 @@ export const Home = observer(() => {
         )
       ).flat();
 
-      const batchRes = await createImportBatch({ createdAt, imports, importStore });
+      const batchRes = await trpc.createImportBatch.mutate({ createdAt, imports });
       if (!batchRes.success) throw new Error(batchRes?.error);
+
+      importStore.addImportBatch({
+        createdAt,
+        id: batchRes.data.id,
+        imports,
+        tagIds: batchRes.data.tagIds,
+      });
+
       toast.success(`Queued ${imports.length} imports`);
     } catch (err) {
       toast.error("Error queuing imports");
@@ -76,40 +78,25 @@ export const Home = observer(() => {
     const loadDatabase = async () => {
       try {
         setIsLoading(true);
-
-        const databaseUri = await ipcRenderer.invoke("getDatabaseUri");
-        console.debug("Connecting to database:", databaseUri, "...");
-        await Mongoose.connect(databaseUri, CONSTANTS.MONGOOSE_OPTS);
-
         let perfStart = performance.now();
-        const [importBatches, tags] = await Promise.all([getAllImportBatches(), getAllTags()]);
-        tagStore.overwrite(tags);
-        importStore.overwrite(importBatches);
-        console.debug(
-          `Import batches and tags loaded into MobX in ${performance.now() - perfStart}ms.`
-        );
 
-        onPatches(tagStore.tags, (patches) => {
-          ipcRenderer.send("onTagPatch", { patches });
-        });
+        const [importBatchesRes, tagsRes] = await Promise.all([
+          trpc.listImportBatches.mutate(),
+          trpc.listTags.mutate(),
+        ]);
 
-        ipcRenderer.on("createTag", (_, { aliases, label, parentIds }) => {
-          createTag({ aliases, label, parentIds, rootStore });
-        });
+        if (importBatchesRes.success) importStore.overwrite(importBatchesRes.data);
+        if (tagsRes.success) tagStore.overwrite(tagsRes.data);
 
-        ipcRenderer.on("editTag", (_, { aliases, childIds, id, label, parentIds }) => {
-          editTag({ aliases, childIds, id, label, parentIds, rootStore });
-        });
-
-        ipcRenderer.on("editFileTags", (_, { addedTagIds, batchId, fileIds, removedTagIds }) => {
-          editFileTags({ addedTagIds, batchId, fileIds, removedTagIds, rootStore });
-        });
-
-        ipcRenderer.on("setFileRating", (_, { fileIds, rating }) => {
-          setFileRating({ fileIds, rating, rootStore });
-        });
-
+        console.debug(`Data loaded into MobX in ${performance.now() - perfStart}ms.`);
         setIsLoading(false);
+
+        const io = setupSocketIO();
+        io.on("connected", () => console.debug("Socket.io connected."));
+
+        io.on("onFilesEdited", ({ fileIds }: { fileIds: string[] }) =>
+          console.debug("onFilesEdited", fileIds)
+        );
       } catch (err) {
         console.error(err);
       }

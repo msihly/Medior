@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { observer } from "mobx-react-lite";
 import { File, useStores } from "store";
-import { deleteImportBatch, getFiles } from "database";
 import { colors, LinearProgress } from "@mui/material";
 import {
   BatchTooltip,
@@ -13,7 +12,7 @@ import {
   Text,
   View,
 } from "components";
-import { makeClasses } from "utils";
+import { makeClasses, trpc } from "utils";
 import { toast } from "react-toastify";
 
 interface ImportBatchProps {
@@ -37,7 +36,7 @@ export const ImportBatch = observer(({ createdAt }: ImportBatchProps) => {
       const completedIds = batch.completed.map((imp) => imp.fileId);
       const files = fileStore.listByIds(completedIds);
       if (files.length < completedIds.length) {
-        const allFiles = await getFiles(completedIds);
+        const allFiles = (await trpc.listFiles.mutate({ ids: completedIds }))?.data;
         fileStore.append(allFiles);
         setCompletedFiles(fileStore.listByIds(completedIds));
       } else setCompletedFiles(files);
@@ -47,7 +46,7 @@ export const ImportBatch = observer(({ createdAt }: ImportBatchProps) => {
   }, [batch.status, isTaggerOpen]);
 
   const handleDelete = async () => {
-    await deleteImportBatch(importStore, batch.id);
+    await trpc.deleteImportBatch.mutate({ id: batch.id });
     toast.success("Import batch deleted");
   };
 

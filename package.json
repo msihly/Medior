@@ -5,7 +5,7 @@
   "author": "Mohamed Sihly",
   "description": "Media Viewer",
   "homepage": "./",
-  "main": "public/main.js",
+  "main": "extraResources/main.js",
   "icon": "public/favicon.ico",
   "dependencies": {
     "@electron/remote": "^2.0.8",
@@ -17,8 +17,11 @@
     "@mui/material": "^5.5.2",
     "@mui/styles": "^5.5.1",
     "@panzoom/panzoom": "^4.5.1",
+    "@trpc/client": "^10.30.0",
+    "@trpc/server": "^10.30.0",
     "color": "^4.2.3",
     "dayjs": "^1.11.0",
+    "electron-log": "^4.4.8",
     "fluent-ffmpeg": "^2.1.2",
     "jsonfile": "^6.1.0",
     "md5-file": "^5.0.0",
@@ -38,7 +41,12 @@
     "react-virtualized-auto-sizer": "^1.0.6",
     "react-window": "^1.8.7",
     "sharp": "^0.30.3",
+    "socket.io": "^4.6.2",
+    "socket.io-client": "^4.6.2",
+    "superjson": "^1.12.3",
     "tss-react": "^3.6.0",
+    "util": "^0.12.5",
+    "vite-plugin-commonjs": "^0.7.1",
     "vite-plugin-electron-renderer": "0.10.1"
   },
   "devDependencies": {
@@ -54,12 +62,13 @@
     "@vitejs/plugin-react": "^2.1.0",
     "babel-loader": "8.1.0",
     "concurrently": "^7.2.2",
-    "electron": "^20.0.3",
+    "electron": "^25.1.1",
     "electron-builder": "^22.14.13",
     "electron-devtools-installer": "^3.2.0",
     "patch-package": "^6.4.7",
     "remotedev": "^0.2.9",
     "ts-loader": "^8.2.0",
+    "tsc-alias": "^1.8.6",
     "typescript": "^4.6.3",
     "vite": "^3.1.8",
     "vite-plugin-svgr": "^2.2.2",
@@ -67,16 +76,31 @@
     "wait-on": "^6.0.1"
   },
   "scripts": {
-    "start": "vite",
-    "build": "vite build",
+    "build": "npm run tsCompile && vite build && npx copyfiles extraResources/**/* build",
+    "dev": "npm run tsCompile && concurrently --kill-others \"SET BROWSER=none && npm start\" \"electron .\"",
+    "dist": "npm run build && npm run electron-build",
+    "electron-build": "electron-builder build --win --publish never",
     "pack": "electron-builder --dir",
-    "dist": "npm run build && electron-builder build --win -c.extraMetadata.main=build/main.js --publish never",
     "postinstall": "electron-builder install-app-deps && patch-package",
-    "dev": "concurrently --kill-others \"SET BROWSER=none && npm start\" \"electron .\""
+    "start": "vite",
+    "tsCompile": "tsc --p ./tsconfig.build.json && tsc-alias -p ./tsconfig.build.json",
+    "typecheck": "tsc --noEmit"
   },
   "build": {
     "appId": "com.msihly.media-viewer",
     "extends": null,
+    "extraMetadata": {
+      "main": "build/extraResources/main.js"
+    },
+    "extraResources": [
+      {
+        "from": "./extraResources/",
+        "to": "extraResources/",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
     "files": [
       "build/**/*",
       "node_modules/**/*"

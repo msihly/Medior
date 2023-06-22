@@ -1,6 +1,7 @@
 import { observer } from "mobx-react-lite";
-import { useStores, ImageType, VideoType } from "store";
+import { useStores } from "store";
 import { Checkbox } from "components";
+import { ImageType, VideoType } from "utils";
 
 interface ExtCheckboxProps {
   ext: ImageType | VideoType;

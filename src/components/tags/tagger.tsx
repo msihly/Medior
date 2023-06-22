@@ -1,4 +1,3 @@
-import { ipcRenderer } from "electron";
 import { useMemo, useRef, useState } from "react";
 import { observer } from "mobx-react-lite";
 import { File, TagOption, useStores } from "store";
@@ -24,7 +23,8 @@ interface TaggerProps {
 }
 
 export const Tagger = observer(({ batchId, files, setVisible }: TaggerProps) => {
-  const { tagStore } = useStores();
+  const rootStore = useStores();
+  const { fileStore, tagStore } = useStores();
   const { css } = useClasses(null);
 
   const [addedTags, setAddedTags] = useState<TagOption[]>([]);
@@ -53,11 +53,12 @@ export const Tagger = observer(({ batchId, files, setVisible }: TaggerProps) => 
     if (addedTags.length === 0 && removedTags.length === 0)
       return toast.error("You must enter at least one tag");
 
-    ipcRenderer.send("editFileTags", {
+    await fileStore.editFileTags({
       addedTagIds: addedTags.map((t) => t.id),
       batchId,
       fileIds: files.map((f) => f.id),
       removedTagIds: removedTags.map((t) => t.id),
+      rootStore,
     });
 
     handleClose();

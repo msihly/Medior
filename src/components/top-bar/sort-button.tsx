@@ -1,4 +1,3 @@
-import { reloadDisplayedFiles } from "database";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
 import { colors } from "@mui/material";
@@ -26,7 +25,7 @@ export const SortButton = observer(({ attribute, isDesc = false }: SortButtonPro
     if (hasSortKeyDiff) homeStore.setSortKey(attribute);
     if (hasSortDescDiff) homeStore.setIsSortDesc(isDesc);
     if (hasSortDescDiff || hasSortKeyDiff)
-      reloadDisplayedFiles(rootStore, { page: 1, withAppend: true });
+      homeStore.reloadDisplayedFiles({ rootStore, page: 1, withAppend: true });
   };
 
   return (

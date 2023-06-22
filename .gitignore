@@ -11,12 +11,14 @@
 # production
 build/
 dist/
+extraResources/
+*.exe
 
 # misc
 .DS_Store
 *.env
 *.env.*
-env.js
+env.*
 MongoDB
 npm-debug.log*
 .vscode/

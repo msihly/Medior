@@ -1,5 +1,5 @@
-import * as remoteDev from "remotedev";
-import { connectReduxDevTools, model, Model, prop, registerRootStore } from "mobx-keystone";
+// import * as remoteDev from "remotedev";
+import { model, Model, prop, registerRootStore } from "mobx-keystone";
 import { FileCollectionStore } from "./collections";
 import { FileStore } from "./files";
 import { HomeStore } from "./home";

@@ -1,11 +1,7 @@
-const { app, BrowserWindow, ipcMain, screen } = require("electron");
-const remoteMain = require("@electron/remote/main");
-remoteMain.initialize();
-
-const path = require("path");
-const fs = require("fs/promises");
-const { MongoMemoryReplSet } = require("mongodb-memory-server");
-const { DB_PATH, DB_PORT } = require("./env");
+import { app, BrowserWindow, ipcMain, screen } from "electron";
+import path from "path";
+import { readFile } from "fs/promises";
+import { logToFile } from "./utils";
 
 const baseUrl = !app.isPackaged
   ? "http://localhost:3333"
@@ -13,22 +9,16 @@ const baseUrl = !app.isPackaged
 
 /* ------------------------------- BEGIN - MAIN WINDOW ------------------------------ */
 let mainWindow = null;
-let mongoServer = null;
-
-const createDbServer = async () => {
-  const dbPathExists = await fs.stat(DB_PATH).catch(() => false);
-  if (!dbPathExists) await fs.mkdir(DB_PATH, { recursive: true });
-
-  return await MongoMemoryReplSet.create({
-    instanceOpts: [{ dbPath: DB_PATH, port: DB_PORT, storageEngine: "wiredTiger" }],
-    replSet: { dbName: "media-viewer", name: "rs0" },
-  });
-};
 
 const createMainWindow = async () => {
-  console.debug(`Creating Mongo server at ${DB_PATH}...`);
-  mongoServer = await createDbServer();
-  console.debug("Mongo server created.");
+  logToFile("debug", "Loading servers...");
+
+  const serverUrl = app.isPackaged
+    ? path.resolve(process.resourcesPath, "extraResources/server.js")
+    : path.join(__dirname, "../extraResources/server.js");
+
+  /** Using eval is the only method that works with packaged executable for indeterminable reason. */
+  eval(await readFile(serverUrl, { encoding: "utf8" }));
 
   mainWindow = new BrowserWindow({
     autoHideMenuBar: true,
@@ -36,36 +26,18 @@ const createMainWindow = async () => {
     webPreferences: { contextIsolation: false, nodeIntegration: true, webSecurity: false },
   });
 
+  const remoteMain = await import("@electron/remote/main");
+  remoteMain.initialize();
   remoteMain.enable(mainWindow.webContents);
 
-  ipcMain.handle("getDatabaseUri", async () => mongoServer.getUri());
-
-  console.debug(`Loading main window at ${baseUrl}...`);
+  logToFile("debug", "Loading main window...");
   await mainWindow.loadURL(baseUrl);
-  console.debug("Main window loaded.");
-
-  if (!app.isPackaged) mainWindow.webContents.openDevTools({ mode: "bottom" });
+  logToFile("debug", "Main window loaded.");
 
   mainWindow.on("close", () => {
     carouselWindows.forEach((win) => {
       win.close();
     });
-  });
-
-  ipcMain.on("createTag", (_, ...args) => {
-    mainWindow.webContents.send("createTag", ...args);
-  });
-
-  ipcMain.on("editTag", (_, ...args) => {
-    mainWindow.webContents.send("editTag", ...args);
-  });
-
-  ipcMain.on("editFileTags", (_, ...args) => {
-    mainWindow.webContents.send("editFileTags", ...args);
-  });
-
-  ipcMain.on("setFileRating", (_, ...args) => {
-    mainWindow.webContents.send("setFileRating", ...args);
   });
 };
 
@@ -85,14 +57,14 @@ app.whenReady().then(async () => {
   return createMainWindow();
 });
 
-app.on("carouselWindow-all-closed", app.quit);
+app.on("window-all-closed", app.quit);
 /* ------------------------------- END - MAIN WINDOW ------------------------------ */
 
 /* ------------------------------- BEGIN - CAROUSEL WINDOWS ------------------------------ */
 let carouselWindows = [];
 
 const createCarouselWindow = async ({ fileId, height, selectedFileIds, width }) => {
-  console.debug("Creating carousel window...");
+  logToFile("debug", "Creating carousel window...");
 
   const primaryDisplay = screen.getPrimaryDisplay();
   const { width: screenWidth, height: screenHeight } = primaryDisplay.workAreaSize;
@@ -121,14 +93,15 @@ const createCarouselWindow = async ({ fileId, height, selectedFileIds, width }) 
   )
     carouselWindow.maximize();
 
+  const remoteMain = await import("@electron/remote/main");
   remoteMain.enable(carouselWindow.webContents);
   // if (!app.isPackaged) carouselWindow.webContents.openDevTools({ mode: "detach" });
 
   carouselWindow.show();
 
-  console.debug("Loading carousel window...");
+  logToFile("debug", "Loading carousel window...");
   await carouselWindow.loadURL(`${baseUrl}${app.isPackaged ? "#" : "/"}carousel`);
-  console.debug("Carousel window loaded.");
+  logToFile("debug", "Carousel window loaded.");
 
   carouselWindow.webContents.send("init", { fileId, selectedFileIds });
   carouselWindows.push(carouselWindow);
@@ -142,17 +115,5 @@ const createCarouselWindow = async ({ fileId, height, selectedFileIds, width }) 
 
 ipcMain.on("createCarouselWindow", (_, args) => {
   createCarouselWindow(args);
-});
-
-ipcMain.on("onFilesEdited", (_, args) => {
-  carouselWindows.forEach((win) => {
-    win.webContents.send("onFilesEdited", args);
-  });
-});
-
-ipcMain.on("onTagPatch", (_, args) => {
-  carouselWindows.forEach((win) => {
-    win.webContents.send("onTagPatch", args);
-  });
 });
 /* ------------------------------- END - CAROUSEL WINDOWS ------------------------------ */

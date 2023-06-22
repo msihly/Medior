@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
-import { deleteFiles, refreshSelectedFiles } from "database";
 import { AppBar, colors } from "@mui/material";
 import { IconButton, Tagger, View } from "components";
 import { SelectedFilesInfo, SortMenu } from ".";
@@ -18,11 +17,11 @@ export const TopBar = observer(() => {
 
   const [isTaggerOpen, setIsTaggerOpen] = useState(false);
 
-  const handleDelete = () => deleteFiles(rootStore, fileStore.selected);
+  const handleDelete = () => fileStore.deleteFiles({ rootStore, files: fileStore.selected });
 
   const handleEditTags = () => setIsTaggerOpen(true);
 
-  const handleFileInfoRefresh = () => refreshSelectedFiles(fileStore);
+  const handleFileInfoRefresh = () => fileStore.refreshSelectedFiles();
 
   const handleDeselectAll = () => {
     fileStore.toggleFilesSelected(fileStore.selectedIds.map((id) => ({ id, isSelected: false })));
@@ -34,7 +33,8 @@ export const TopBar = observer(() => {
     toast.info(`Added ${fileStore.displayed.length} files to selection`);
   };
 
-  const handleUnarchive = () => deleteFiles(rootStore, fileStore.selected, true);
+  const handleUnarchive = () =>
+    fileStore.deleteFiles({ rootStore, files: fileStore.selected, isUndelete: true });
 
   return (
     <AppBar position="relative" className={css.appBar}>
