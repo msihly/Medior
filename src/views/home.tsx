@@ -4,14 +4,7 @@ import { observer } from "mobx-react-lite";
 import { useStores } from "store";
 import { colors } from "@mui/material";
 import { Drawer, FileContainer, TopBar, View } from "components";
-import {
-  dayjs,
-  dirToFileImports,
-  filePathsToImports,
-  makeClasses,
-  setupSocketIO,
-  trpc,
-} from "utils";
+import { dirToFileImports, filePathsToImports, makeClasses, setupSocketIO, trpc } from "utils";
 import { toast } from "react-toastify";
 import Color from "color";
 
@@ -45,7 +38,6 @@ export const Home = observer(() => {
 
       const paths: string[] = [...event.dataTransfer.files].map((f) => f.path);
 
-      const createdAt = dayjs().toISOString();
       const imports = (
         await Promise.all(
           paths.map(async (p) =>
@@ -54,15 +46,7 @@ export const Home = observer(() => {
         )
       ).flat();
 
-      const batchRes = await trpc.createImportBatch.mutate({ createdAt, imports });
-      if (!batchRes.success) throw new Error(batchRes?.error);
-
-      importStore.addImportBatch({
-        createdAt,
-        id: batchRes.data.id,
-        imports,
-        tagIds: batchRes.data.tagIds,
-      });
+      await importStore.createImportBatch({ imports });
 
       toast.success(`Queued ${imports.length} imports`);
     } catch (err) {

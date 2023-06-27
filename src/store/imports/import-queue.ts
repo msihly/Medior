@@ -10,6 +10,7 @@ import {
   deleteFile,
   generateFramesThumbnail,
   getVideoInfo,
+  logToFile,
   trpc,
   VIDEO_TYPES,
 } from "utils";
@@ -36,24 +37,27 @@ export const copyFileTo = async ({
   tagIds,
   targetDir,
 }: CopyFileToProps): Promise<CopyFileToResult> => {
-  const { dateCreated, extension, name, path: originalPath, size } = fileObj;
-  const ext = extension.toLowerCase();
-
-  const hash = await md5File(originalPath);
-  const dirPath = `${targetDir}\\${hash.substring(0, 2)}\\${hash.substring(2, 4)}`;
-  const extFromPath = originalPath.split(".").pop().toLowerCase();
-  const newPath = `${dirPath}\\${hash}.${extFromPath}`;
-  const isAnimated = [...VIDEO_TYPES, "gif"].includes(extFromPath);
-
-  const sharp = !isAnimated ? (await import("sharp")).default : null;
-  const imageInfo = !isAnimated ? await sharp(originalPath).metadata() : null;
-  const videoInfo = isAnimated ? await getVideoInfo(originalPath) : null;
-  const duration = isAnimated ? videoInfo?.duration : null;
-  const frameRate = isAnimated ? videoInfo?.frameRate : null;
-  const width = isAnimated ? videoInfo?.width : imageInfo?.width;
-  const height = isAnimated ? videoInfo?.height : imageInfo?.height;
+  let hash: string;
 
   try {
+    const { dateCreated, extension, name, path: originalPath, size } = fileObj;
+    const ext = extension.toLowerCase();
+
+    hash = await md5File(originalPath);
+
+    const dirPath = `${targetDir}\\${hash.substring(0, 2)}\\${hash.substring(2, 4)}`;
+    const extFromPath = originalPath.split(".").pop().toLowerCase();
+    const newPath = `${dirPath}\\${hash}.${extFromPath}`;
+    const isAnimated = [...VIDEO_TYPES, "gif"].includes(extFromPath);
+
+    const sharp = !isAnimated ? (await import("sharp")).default : null;
+    const imageInfo = !isAnimated ? await sharp(originalPath).metadata() : null;
+    const videoInfo = isAnimated ? await getVideoInfo(originalPath) : null;
+    const duration = isAnimated ? videoInfo?.duration : null;
+    const frameRate = isAnimated ? videoInfo?.frameRate : null;
+    const width = isAnimated ? videoInfo?.width : imageInfo?.width;
+    const height = isAnimated ? videoInfo?.height : imageInfo?.height;
+
     const thumbPaths =
       duration > 0
         ? Array(9)
@@ -77,89 +81,119 @@ export const copyFileTo = async ({
     let isDuplicate = false;
 
     if (!file) {
-      file = (
-        await FileModel.create({
-          dateCreated,
-          dateModified: dayjs().toISOString(),
-          duration,
-          ext,
-          frameRate,
-          hash,
-          height,
-          isArchived: false,
-          originalHash: hash,
-          originalName: name,
-          originalPath,
-          path: newPath,
-          rating: 0,
-          size,
-          tagIds,
-          thumbPaths,
-          width,
-        })
-      ).toJSON();
+      const res = await trpc.importFile.mutate({
+        dateCreated,
+        duration,
+        ext,
+        frameRate,
+        hash,
+        height,
+        originalName: name,
+        originalPath,
+        path: newPath,
+        size,
+        tagIds,
+        thumbPaths,
+        width,
+      });
+
+      if (!res.success) throw new Error(res.error);
+      file = res.data;
     } else isDuplicate = true;
 
     if (deleteOnImport) await deleteFile(originalPath, newPath);
     return { success: true, file, isDuplicate };
   } catch (err) {
-    console.error("Error importing", fileObj.toString({ withData: true }), ":", err);
+    logToFile("error", "Error importing", fileObj.toString({ withData: true }), ":", err.stack);
 
     if (err.code === "EEXIST") {
       const fileRes = await trpc.getFileByHash.mutate({ hash });
       if (!fileRes.data) {
-        console.log("File exists, but not in db. Inserting into db only...");
+        logToFile("debug", "File exists, but not in db. Inserting into db only...");
         return await copyFileTo({ dbOnly: true, deleteOnImport, fileObj, targetDir });
       } else return { success: true, file: fileRes.data, isDuplicate: true };
     } else return { success: false, error: err?.message };
   }
 };
 
-export const useFileImportQueue = () => {
+export const useFileImportQueue = (isDebug = false) => {
   const rootStore = useStores();
   const { importStore } = useStores();
 
   const currentImportPath = useRef<string>(null);
 
   const handlePhase = async () => {
-    // console.debug("Import phase update:", {
-    //   activeBatch: { ...importStore.activeBatch },
-    //   currentPath: currentImportPath.current,
-    //   incompleteBatches: importStore.incompleteBatches,
-    // });
+    try {
+      // if (isDebug)
+      //   logToFile(
+      //     "debug",
+      //     "Import phase update:",
+      //     JSON.stringify(
+      //       {
+      //         activeBatch: { ...importStore.activeBatch },
+      //         currentPath: currentImportPath.current,
+      //         incompleteBatches: importStore.incompleteBatches,
+      //       },
+      //       null,
+      //       2
+      //     )
+      //   );
 
-    const activeBatch = importStore.activeBatch;
-    const nextPath = activeBatch?.nextImport?.path;
+      const activeBatch = importStore.activeBatch;
+      const nextPath = activeBatch?.nextImport?.path;
 
-    if (currentImportPath.current === nextPath) {
-      console.debug("Import phase skipped: current path matches next path.");
-    } else if (nextPath) {
-      console.debug("Importing file:", { ...activeBatch.nextImport });
-      currentImportPath.current = nextPath;
-      await importStore.importFile({ batchId: importStore.activeBatchId, filePath: nextPath });
-    } else if (!activeBatch && importStore.incompleteBatches?.length > 0) {
-      const batch = importStore.incompleteBatches[0];
+      if (currentImportPath.current === nextPath) {
+        if (isDebug) logToFile("debug", "Import phase skipped: current path matches next path.");
+      } else if (nextPath) {
+        if (isDebug)
+          logToFile(
+            "debug",
+            "Importing file:",
+            JSON.stringify({ ...activeBatch.nextImport }, null, 2)
+          );
 
-      if (batch?.imports?.length > 0) {
-        console.debug("Starting importBatch:", { ...batch.$ });
-        await trpc.startImportBatch.mutate({ id: batch.id });
-        importStore.setActiveBatchId(batch.id);
+        currentImportPath.current = nextPath;
+        const res = await importStore.importFile({
+          batchId: importStore.activeBatchId,
+          filePath: nextPath,
+        });
+        if (!res.success) throw new Error(res.error);
+      } else if (!activeBatch && importStore.incompleteBatches?.length > 0) {
+        const batch = importStore.incompleteBatches[0];
+
+        if (batch?.imports?.length > 0) {
+          if (isDebug)
+            logToFile("debug", "Starting importBatch:", JSON.stringify({ ...batch.$ }, null, 2));
+
+          await importStore.startImportBatch({ id: batch.id });
+        } else {
+          if (isDebug)
+            logToFile("debug", "Import phase skipped: incomplete batch has no imports yet.");
+
+          currentImportPath.current = null;
+        }
       } else {
-        console.debug("Import phase skipped: incomplete batch has no imports yet.");
         currentImportPath.current = null;
-      }
-    } else {
-      currentImportPath.current = null;
 
-      if (activeBatch && !activeBatch?.nextImport) {
-        console.debug("Completing importBatch:", { ...activeBatch });
-        await importStore.completeImportBatch({ id: activeBatch.id, rootStore });
-        importStore.setActiveBatchId(null);
+        if (activeBatch && !activeBatch?.nextImport) {
+          if (isDebug)
+            logToFile(
+              "debug",
+              "Completing importBatch:",
+              JSON.stringify({ ...activeBatch }, null, 2)
+            );
+
+          const res = await importStore.completeImportBatch({ id: activeBatch.id, rootStore });
+          if (!res.success) throw new Error(res.error);
+          importStore.setActiveBatchId(null);
+        }
       }
+    } catch (err) {
+      logToFile("error", "Error in import phase update:", err.stack);
     }
   };
 
   useEffect(() => {
     handlePhase();
-  }, [handlePhase, importStore.activeBatch?.nextImport, importStore.incompleteBatches]);
+  }, [importStore.activeBatch?.nextImport, importStore.incompleteBatches]);
 };

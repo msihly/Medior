@@ -1,5 +1,4 @@
-import { Typography } from "@mui/material";
-import { Icon, IconName, IconProps, View } from "components";
+import { Icon, IconName, IconProps, Text, View } from "components";
 import { SortButton } from ".";
 import { makeClasses } from "utils";
 
@@ -16,7 +15,7 @@ export const SortRow = ({ attribute, label, icon, iconProps = {} }: SortRowProps
   return (
     <View className={css.row}>
       <Icon name={icon} {...iconProps} />
-      <Typography className={css.label}>{label}</Typography>
+      <Text className={css.label}>{label}</Text>
       <SortButton {...{ attribute }} isDesc />
       <SortButton {...{ attribute }} />
     </View>

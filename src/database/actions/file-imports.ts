@@ -3,14 +3,13 @@ import {
   CompleteImportBatchInput,
   CreateImportBatchInput,
   DeleteImportBatchInput,
-  FileImportBatch,
   FileImportBatchModel,
   RemoveTagFromAllBatchesInput,
   RemoveTagsFromBatchInput,
   StartImportBatchInput,
   UpdateFileImportByPathInput,
 } from "database";
-import { FileImport } from "store";
+import { ImportBatchInput } from "store";
 import { dayjs, handleErrors } from "utils";
 
 export const addTagsToBatch = ({ batchId, tagIds }: AddTagsToBatchInput) =>
@@ -49,10 +48,16 @@ export const deleteAllImportBatches = () =>
 
 export const listImportBatches = () =>
   handleErrors(async () =>
-    (await FileImportBatchModel.find()).map((r) => {
-      const batch = r.toJSON() as FileImportBatch;
-      return { ...batch, imports: batch.imports as FileImport[] };
-    })
+    (await FileImportBatchModel.find().lean()).map(
+      (b) =>
+        ({
+          ...b,
+          id: b._id.toString(),
+          imports: b.imports.map((i) => ({ ...i, _id: undefined })),
+          _id: undefined,
+          __v: undefined,
+        } as ImportBatchInput)
+    )
   );
 
 export const removeTagFromAllBatches = ({ tagId }: RemoveTagFromAllBatchesInput) =>

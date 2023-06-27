@@ -26,7 +26,7 @@ export const FileContainer = observer(() => {
   useEffect(() => {
     if (!fileStore.selectedIds.length) selectoRef.current?.setSelectedTargets?.([]);
     fileStore.loadMissingFiles();
-  }, [fileStore.selectedIds]);
+  }, [fileStore.displayed]);
 
   useEffect(() => {
     homeStore.reloadDisplayedFiles({ rootStore });

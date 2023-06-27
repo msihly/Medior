@@ -116,6 +116,13 @@ export class FileStore extends Model({
                   : []
               )
             );
+
+            await Promise.all(
+              [...new Set(deleted.flatMap((f) => f.tagIds))].map((id) =>
+                rootStore.tagStore.refreshTagCount({ id, withRelated: true })
+              )
+            );
+
             toast.success(`${deletedIds.length} files deleted`);
           }
         }
@@ -123,7 +130,6 @@ export class FileStore extends Model({
         this.toggleFilesSelected(files.map((f) => ({ id: f.id, isSelected: false })));
 
         await rootStore.homeStore.reloadDisplayedFiles({ rootStore });
-        await rootStore.tagStore.refreshAllTagCounts({ silent: true });
 
         return true;
       })
@@ -158,7 +164,11 @@ export class FileStore extends Model({
         });
 
         await rootStore.homeStore.reloadDisplayedFiles({ rootStore });
-        await rootStore.tagStore.refreshAllTagCounts({ silent: true });
+        await Promise.all(
+          [...addedTagIds, ...removedTagIds].map((id) =>
+            rootStore.tagStore.refreshTagCount({ id, withRelated: true })
+          )
+        );
 
         toast.success(`${fileIds.length} files updated`);
 
@@ -171,8 +181,12 @@ export class FileStore extends Model({
   loadMissingFiles = _async(function* (this: FileStore) {
     return yield* _await(
       handleErrors(async () => {
-        if (this.selected.length < this.selectedIds.length) {
-          const filesRes = await trpc.listFiles.mutate({ ids: this.selectedIds });
+        const selectedFiles = this.selected.map((f) => f.id);
+        if (selectedFiles.length < this.selectedIds.length) {
+          const missingFiles = this.selectedIds.filter((id) => !selectedFiles.includes(id));
+          console.debug(`Loading ${missingFiles.length} missing files`);
+
+          const filesRes = await trpc.listFiles.mutate({ ids: missingFiles });
           if (filesRes.success) this.append(filesRes.data);
         }
       })

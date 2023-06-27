@@ -8,14 +8,14 @@ import {
   modelFlow,
   prop,
 } from "mobx-keystone";
-import { FileImport, ImportBatch } from ".";
 import { computed } from "mobx";
 import { RootStore } from "store";
-import { handleErrors, trpc, uniqueArrayMerge } from "utils";
-import env from "env";
+import { FileImport, ImportBatch } from ".";
 import { copyFileTo } from "./import-queue";
+import { dayjs, handleErrors, trpc, uniqueArrayMerge } from "utils";
+import env from "env";
 
-type ImportBatchInput = Omit<ModelCreationData<ImportBatch>, "imports"> & {
+export type ImportBatchInput = Omit<ModelCreationData<ImportBatch>, "imports"> & {
   imports?: ModelCreationData<FileImport>[];
 };
 
@@ -27,7 +27,7 @@ export class ImportStore extends Model({
 }) {
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
   @modelAction
-  addImportBatch({
+  _createImportBatch({
     createdAt,
     id,
     imports,
@@ -51,12 +51,12 @@ export class ImportStore extends Model({
   }
 
   @modelAction
-  deleteImportBatch(id: string) {
+  _deleteBatch(id: string) {
     this.importBatches = this.importBatches.filter((batch) => batch.id !== id);
   }
 
   @modelAction
-  deleteAllImportBatches() {
+  _deleteAllBatches() {
     this.importBatches = [];
   }
 
@@ -96,11 +96,57 @@ export class ImportStore extends Model({
   ) {
     return yield* _await(
       handleErrors(async () => {
+        const batch = this.getById(id);
         await rootStore.homeStore.reloadDisplayedFiles({ rootStore });
-        await rootStore.tagStore.refreshAllTagCounts({ silent: true });
+        await Promise.all(
+          batch.tagIds.map((id) => rootStore.tagStore.refreshTagCount({ id, withRelated: true }))
+        );
 
         const completedAt = (await trpc.completeImportBatch.mutate({ id }))?.data;
-        this.getById(id).update({ completedAt });
+        batch.update({ completedAt });
+      })
+    );
+  });
+
+  @modelFlow
+  createImportBatch = _async(function* (this: ImportStore, { imports }: { imports: FileImport[] }) {
+    return yield* _await(
+      handleErrors(async () => {
+        const createdAt = dayjs().toISOString();
+
+        const batchRes = await trpc.createImportBatch.mutate({ createdAt, imports });
+        if (!batchRes.success) throw new Error(batchRes?.error);
+
+        this._createImportBatch({
+          createdAt,
+          id: batchRes.data.id,
+          imports,
+          tagIds: batchRes.data.tagIds,
+        });
+
+        return true;
+      })
+    );
+  });
+
+  @modelFlow
+  deleteAllImportBatches = _async(function* (this: ImportStore) {
+    return yield* _await(
+      handleErrors(async () => {
+        const deleteRes = await trpc.deleteAllImportBatches.mutate();
+        if (!deleteRes?.success) return false;
+        this._deleteAllBatches();
+      })
+    );
+  });
+
+  @modelFlow
+  deleteImportBatch = _async(function* (this: ImportStore, { id }: { id: string }) {
+    return yield* _await(
+      handleErrors(async () => {
+        const deleteRes = await trpc.deleteImportBatch.mutate({ id });
+        if (!deleteRes?.success) return false;
+        this._deleteBatch(id);
       })
     );
   });
@@ -123,24 +169,29 @@ export class ImportStore extends Model({
           return false;
         }
 
-        const res = await copyFileTo({
+        const copyRes = await copyFileTo({
           deleteOnImport: this.deleteOnImport,
           fileObj: fileImport,
           targetDir: env.OUTPUT_DIR,
           tagIds: batch.tagIds,
         });
 
-        const status = !res?.success ? "ERROR" : res?.isDuplicate ? "DUPLICATE" : "COMPLETE";
-        const fileId = res.file?.id ?? null;
-        const errorMsg = res.error ?? null;
+        const status = !copyRes?.success
+          ? "ERROR"
+          : copyRes?.isDuplicate
+          ? "DUPLICATE"
+          : "COMPLETE";
+        const fileId = copyRes.file?.id ?? null;
+        const errorMsg = copyRes.error ?? null;
 
-        await trpc.updateFileImportByPath.mutate({
+        const updateRes = await trpc.updateFileImportByPath.mutate({
           batchId,
           filePath,
           errorMsg,
           fileId,
           status,
         });
+        if (!updateRes?.success) return false;
 
         batch.updateImport(filePath, { errorMsg, fileId, status });
         return true;
@@ -153,8 +204,12 @@ export class ImportStore extends Model({
     return yield* _await(
       handleErrors(async () => {
         const batch = this.getById(id);
-        const startedAt = (await trpc.startImportBatch.mutate({ id }))?.data;
+        const res = await trpc.startImportBatch.mutate({ id });
+        if (!res.success) throw new Error(res.error);
+
+        const startedAt = res.data;
         batch.update({ startedAt });
+        this.setActiveBatchId(id);
         return startedAt;
       })
     );

@@ -4,6 +4,7 @@ import {
   File,
   FileModel,
   GetFileByHashInput,
+  ImportFileInput,
   ListFilesByTagIdsInput,
   ListFilesInput,
   ListFilteredFilesInput,
@@ -13,6 +14,7 @@ import {
   SetFileRatingInput,
   UpdateFileInput,
 } from "database";
+import { LeanDocument, Types } from "mongoose";
 import { dayjs, handleErrors } from "utils";
 
 export const addTagsToFiles = ({ fileIds = [], tagIds = [] }: AddTagsToFilesInput) =>
@@ -31,15 +33,62 @@ export const deleteFiles = ({ fileIds = [] }: DeleteFilesInput) =>
 export const getFileByHash = ({ hash }: GetFileByHashInput) =>
   handleErrors(async () => (await FileModel.findOne({ hash }))?.toJSON?.() as File);
 
-export const listFiles = ({ ids }: ListFilesInput = {}) =>
-  handleErrors(async () =>
-    (await FileModel.find(ids ? { _id: { $in: ids } } : undefined)).map((r) => r.toJSON() as File)
+export const importFile = ({
+  dateCreated,
+  duration,
+  ext,
+  frameRate,
+  hash,
+  height,
+  originalName,
+  originalPath,
+  path,
+  size,
+  tagIds,
+  thumbPaths,
+  width,
+}: ImportFileInput) =>
+  handleErrors(
+    async () =>
+      (
+        await FileModel.create({
+          dateCreated,
+          dateModified: dayjs().toISOString(),
+          duration,
+          ext,
+          frameRate,
+          hash,
+          height,
+          isArchived: false,
+          originalHash: hash,
+          originalName,
+          originalPath,
+          path,
+          rating: 0,
+          size,
+          tagIds,
+          thumbPaths,
+          width,
+        })
+      ).toJSON() as File
   );
 
+const leanFileToJson = (file: LeanDocument<File & { _id: Types.ObjectId }>) => {
+  const { _id, ...rest } = file;
+  return { ...rest, id: _id.toString() } as File;
+};
+
+export const listFiles = ({ ids }: ListFilesInput = {}) =>
+  handleErrors(async () => {
+    return (await FileModel.find(ids ? { _id: { $in: ids } } : undefined).lean()).map((f) =>
+      leanFileToJson(f)
+    );
+  });
+
 export const listFilesByTagIds = ({ tagIds }: ListFilesByTagIdsInput) =>
-  handleErrors(async () =>
-    (await FileModel.find({ tagIds: { $in: tagIds } })).map((r) => r.toJSON() as File)
-  );
+  handleErrors(async () => {
+    return (await FileModel.find({ tagIds: { $in: tagIds } }).lean()).map((f) => leanFileToJson(f));
+  });
 
 export const listFilteredFiles = ({
   includeTagged,
@@ -66,8 +115,8 @@ export const listFilteredFiles = ({
           : includeUntagged
           ? { tagIds: { $eq: [] } }
           : {}),
-      })
-    ).map((r) => r.toJSON() as File);
+      }).lean()
+    ).map((f) => leanFileToJson(f));
   });
 
 export const removeTagFromAllFiles = ({ tagId }: RemoveTagFromAllFilesInput) =>

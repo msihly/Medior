@@ -61,6 +61,8 @@ export const Input = forwardRef(
             )
           ) : undefined
         }
+        // @ts-expect-error https://github.com/mui/material-ui/issues/33339
+        FormHelperTextProps={{ component: "div" }}
         inputProps={{ ...props.inputProps, maxLength }}
         size="small"
         className={cx(css.input, className)}

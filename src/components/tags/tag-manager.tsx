@@ -61,7 +61,7 @@ export const TagManager = observer(() => {
 
     const sections = options
       .reduce((acc, cur) => {
-        const firstChar = cur.label.charAt(0);
+        const firstChar = cur.label.charAt(0).toUpperCase();
         const section = acc.find((a) => a.firstChar === firstChar);
         if (!section) acc.push({ firstChar, tagOptions: [cur] });
         else section.tagOptions.push(cur);

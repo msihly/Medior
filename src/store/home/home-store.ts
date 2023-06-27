@@ -1,8 +1,16 @@
 import { Model, _async, _await, model, modelAction, modelFlow, prop } from "mobx-keystone";
-import { dayjs, ImageType, IMAGE_TYPES, VideoType, VIDEO_TYPES, handleErrors } from "utils";
-
 import { RootStore, TagOption, tagsToDescendants } from "store";
-import { CONSTANTS, round, trpc } from "utils";
+import {
+  CONSTANTS,
+  IMAGE_TYPES,
+  ImageType,
+  VIDEO_TYPES,
+  VideoType,
+  dayjs,
+  handleErrors,
+  round,
+  trpc,
+} from "utils";
 
 const NUMERICAL_ATTRIBUTES = ["duration", "height", "rating", "size", "width"];
 
@@ -161,6 +169,8 @@ export class HomeStore extends Model({
         console.debug(
           `Loaded ${displayed.length} displayed files in ${performance.now() - funcPerfStart}ms.`
         );
+
+        return displayed;
       })
     );
   });

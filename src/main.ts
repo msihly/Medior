@@ -29,6 +29,7 @@ const createMainWindow = async () => {
   const remoteMain = await import("@electron/remote/main");
   remoteMain.initialize();
   remoteMain.enable(mainWindow.webContents);
+  if (!app.isPackaged) mainWindow.webContents.openDevTools({ mode: "bottom" });
 
   logToFile("debug", "Loading main window...");
   await mainWindow.loadURL(baseUrl);

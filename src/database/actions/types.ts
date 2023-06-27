@@ -43,6 +43,22 @@ export type EditFileTagsInput = {
 
 export type GetFileByHashInput = { hash: string };
 
+export type ImportFileInput = {
+  dateCreated: string;
+  duration: number;
+  ext: string;
+  frameRate: number;
+  hash: string;
+  height: number;
+  originalName: string;
+  originalPath: string;
+  path: string;
+  size: number;
+  tagIds: string[];
+  thumbPaths: string[];
+  width: number;
+};
+
 export type ListFilesInput = { ids?: string[] };
 
 export type ListFilesByTagIdsInput = { tagIds: string[] };

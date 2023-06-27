@@ -4,7 +4,6 @@ import { MongoMemoryReplSet } from "mongodb-memory-server";
 import Mongoose from "mongoose";
 import { initTRPC } from "@trpc/server";
 import { createHTTPServer } from "@trpc/server/adapters/standalone";
-import superjson from "superjson";
 import { Server } from "socket.io";
 import * as db from "./database";
 import { CONSTANTS, logToFile } from "./utils";
@@ -30,10 +29,18 @@ const createDbServer = async () => {
   logToFile("debug", "Connecting to database:", databaseUri, "...");
   await Mongoose.connect(databaseUri, CONSTANTS.MONGOOSE_OPTS);
   logToFile("debug", "Connected to database.");
+
+  // logToFile("debug", "Creating database indexes...");
+  // await db.FileModel.ensureIndexes();
+  // logToFile("debug", "Database indexes created.");
+
+  // logToFile("debug", "Syncing database indexes...");
+  // await Mongoose.syncIndexes();
+  // logToFile("debug", "Database indexes synced.");
 };
 
 /* ----------------------------- API / tRPC ROUTER ------------------------------ */
-const t = initTRPC.create({ transformer: superjson });
+const t = initTRPC.create();
 const tRouter = t.router;
 const tProc = t.procedure;
 
@@ -78,6 +85,9 @@ const trpcRouter = tRouter({
   getFileByHash: tProc
     .input((input: unknown) => input as db.GetFileByHashInput)
     .mutation(({ input }) => db.getFileByHash(input)),
+  importFile: tProc
+    .input((input: unknown) => input as db.ImportFileInput)
+    .mutation(({ input }) => db.importFile(input)),
   listFiles: tProc
     .input((input: unknown) => input as db.ListFilesInput)
     .mutation(({ input }) => db.listFiles(input)),
@@ -143,16 +153,18 @@ module.exports = (async () => {
   logToFile("debug", "Creating tRPC server...");
   const server = createHTTPServer({ router: trpcRouter });
 
-  const serverPort = +env.SERVER_PORT || 3738;
+  const serverPort = +env.SERVER_PORT || 3334;
   // @ts-expect-error
-  server.listen(serverPort, () => logToFile("debug", `Listening on port ${serverPort}...`));
-  logToFile("debug", "tRPC server created.");
+  server.listen(serverPort, () =>
+    logToFile("debug", `tRPC server listening on port ${serverPort}...`)
+  );
 
-  const io = new Server(server.server);
+  const socketPort = +env.SOCKET_PORT || 3335;
+  const io = new Server(+env.SOCKET_PORT || 3335);
   io.on("connection", (socket) => {
     socket.emit("connected");
+    logToFile("debug", `Socket server listening on port ${socketPort}.`);
   });
-  logToFile("debug", "Socket server created.");
 
   logToFile("debug", "Servers created.");
   return { server, trpcRouter };

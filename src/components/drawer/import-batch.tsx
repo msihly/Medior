@@ -46,8 +46,9 @@ export const ImportBatch = observer(({ createdAt }: ImportBatchProps) => {
   }, [batch.status, isTaggerOpen]);
 
   const handleDelete = async () => {
-    await trpc.deleteImportBatch.mutate({ id: batch.id });
-    toast.success("Import batch deleted");
+    const res = await importStore.deleteImportBatch({ id: batch.id });
+    if (!res.success) toast.error(`Error deleting import batch: ${res?.error}`);
+    else toast.success("Import batch deleted");
   };
 
   const toggleOpen = () => setExpanded(!expanded);

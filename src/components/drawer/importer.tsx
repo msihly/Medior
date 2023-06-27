@@ -4,7 +4,7 @@ import { observer } from "mobx-react-lite";
 import { useFileImportQueue, useStores } from "store";
 import { Dialog, DialogTitle, DialogContent, DialogActions, colors } from "@mui/material";
 import { Button, Checkbox, IconButton, ImportBatch, Text, View } from "components";
-import { dayjs, dirToFileImports, filePathsToImports, makeClasses, trpc } from "utils";
+import { dirToFileImports, filePathsToImports, makeClasses } from "utils";
 import { toast } from "react-toastify";
 
 interface ImporterProps {
@@ -21,7 +21,7 @@ export const Importer = observer(({ isOpen = false, setIsOpen }: ImporterProps) 
   const [isConfirmDeleteAllOpen, setIsConfirmDeleteAllOpen] = useState(false);
 
   const deleteAll = async () => {
-    await trpc.deleteAllImportBatches.mutate();
+    await importStore.deleteAllImportBatches();
     toast.success("All import batches deleted");
     setIsConfirmDeleteAllOpen(false);
   };
@@ -35,20 +35,11 @@ export const Importer = observer(({ isOpen = false, setIsOpen }: ImporterProps) 
       });
       if (res.canceled) return;
 
-      const createdAt = dayjs().toISOString();
       const imports = await (isDir
         ? dirToFileImports(res.filePaths[0])
         : filePathsToImports(res.filePaths));
 
-      const batchRes = await trpc.createImportBatch.mutate({ createdAt, imports });
-      if (!batchRes.success) throw new Error(batchRes?.error);
-
-      importStore.addImportBatch({
-        createdAt,
-        id: batchRes.data.id,
-        imports,
-        tagIds: batchRes.data.tagIds,
-      });
+      await importStore.createImportBatch({ imports });
     } catch (err) {
       console.error(err);
     }
