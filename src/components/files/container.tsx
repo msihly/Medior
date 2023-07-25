@@ -6,6 +6,7 @@ import { Pagination, colors } from "@mui/material";
 import { Tagger, View } from "components";
 import { DisplayedFiles } from ".";
 import { makeClasses } from "utils";
+import { toast } from "react-toastify";
 import Color from "color";
 
 export const FileContainer = observer(() => {
@@ -45,12 +46,12 @@ export const FileContainer = observer(() => {
     tagStore.tags,
   ]);
 
-  const changePage = (page: number) =>
-    homeStore.reloadDisplayedFiles({ rootStore, page, withAppend: true });
+  const changePage = async (page: number) =>
+    await homeStore.reloadDisplayedFiles({ rootStore, page, withAppend: true });
 
   const handlePageChange = (_, value: number) => changePage(value);
 
-  const handleKeyPress = (e) => {
+  const handleKeyPress = async (e: React.KeyboardEvent<HTMLElement>) => {
     if (e.key === "t" && !isTaggerOpen) {
       e.preventDefault();
       setIsTaggerOpen(true);
@@ -72,7 +73,9 @@ export const FileContainer = observer(() => {
           { id: newId, isSelected: true },
         ]);
       } else if (["1", "2", "3", "4", "5", "6", "7", "8", "9"].includes(e.key)) {
-        fileStore.setFileRating({ fileIds: [selectedId], rating: +e.key, rootStore });
+        const res = await fileStore.setFileRating({ fileIds: [selectedId], rating: +e.key });
+        if (res.success) toast.success("Rating updated");
+        else toast.error("Error updating rating");
       }
     }
   };

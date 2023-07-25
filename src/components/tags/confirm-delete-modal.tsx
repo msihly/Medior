@@ -12,7 +12,6 @@ interface ConfirmDeleteModalProps {
 }
 
 export const ConfirmDeleteModal = observer(({ goBack, setVisible }: ConfirmDeleteModalProps) => {
-  const rootStore = useStores();
   const { fileStore, importStore, tagStore } = useStores();
   const { css } = useClasses(null);
 
@@ -21,7 +20,7 @@ export const ConfirmDeleteModal = observer(({ goBack, setVisible }: ConfirmDelet
   const handleClose = () => setVisible(false);
 
   const handleDelete = async () => {
-    const res = await tagStore.deleteTag({ id: tagStore.activeTagId, rootStore });
+    const res = await tagStore.deleteTag({ id: tagStore.activeTagId });
     if (!res.success) toast.error("Failed to delete tag");
     else {
       toast.success("Tag deleted");

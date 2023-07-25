@@ -32,17 +32,29 @@ export class File extends Model({
   thumbPaths: prop<string[]>(null),
   width: prop<number>(),
 }) {
+  /* ---------------------------- STANDARD ACTIONS ---------------------------- */
   @modelAction
   update(file: Partial<File>) {
     applySnapshot(this, { ...getSnapshot(this), ...file });
   }
 
   @modelAction
-  updateTags(tagIds: string[], dateModified = dayjs().toISOString()) {
-    this.tagIds = tagIds;
+  updateTags({
+    addedTagIds,
+    dateModified = dayjs().toISOString(),
+    removedTagIds,
+  }: {
+    addedTagIds?: string[];
+    dateModified?: string;
+    removedTagIds?: string[];
+  }) {
+    this.tagIds = this.tagIds
+      .filter((tagId) => !removedTagIds?.includes(tagId))
+      .concat(addedTagIds ?? []);
     this.dateModified = dateModified;
   }
 
+  /* ----------------------------- GETTERS ----------------------------- */
   @computed
   get collections() {
     const { fileCollectionStore } = getRootStore<RootStore>(this);

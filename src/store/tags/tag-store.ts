@@ -9,7 +9,6 @@ import {
   modelFlow,
   prop,
 } from "mobx-keystone";
-import { RootStore } from "store";
 import { CreateTagInput, EditTagInput } from "database";
 import { getTagDescendants, Tag } from ".";
 import { getArrayDiff, handleErrors, PromiseQueue, trpc } from "utils";
@@ -40,6 +39,7 @@ export class TagStore extends Model({
   _deleteTag = (id: string) => {
     this.tags.forEach((t) => {
       if (t.parentIds.includes(id)) t.parentIds.splice(t.parentIds.indexOf(id));
+      if (t.childIds.includes(id)) t.childIds.splice(t.childIds.indexOf(id));
     });
     this.tags.splice(this.tags.findIndex((t) => t.id === id));
   };
@@ -62,10 +62,9 @@ export class TagStore extends Model({
         const tag = res.data;
 
         this._addTag(tag);
-
         await this.refreshTagRelations({ id: tag.id });
         await this.refreshRelatedTagCounts({ id: tag.id });
-        this.overwrite((await trpc.listTags.mutate())?.data);
+        await trpc.onTagCreated.mutate({ tag });
 
         toast.success(`Tag '${label}' created`);
         return tag;
@@ -74,24 +73,19 @@ export class TagStore extends Model({
   });
 
   @modelFlow
-  deleteTag = _async(function* (
-    this: TagStore,
-    { id, rootStore }: { id: string; rootStore: RootStore }
-  ) {
+  deleteTag = _async(function* (this: TagStore, { id }: { id: string }) {
     return yield* _await(
       handleErrors(async () => {
-        await trpc.removeTagFromAllFiles.mutate({ tagId: id });
-        await trpc.removeTagFromAllBatches.mutate({ tagId: id });
-        rootStore.importStore.editBatchTags({ removedIds: [id] });
-
-        await trpc.removeTagFromAllChildTags.mutate({ tagId: id });
-        await trpc.removeTagFromAllParentTags.mutate({ tagId: id });
+        await Promise.all([
+          trpc.removeTagFromAllFiles.mutate({ tagId: id }),
+          trpc.removeTagFromAllBatches.mutate({ tagId: id }),
+          trpc.removeTagFromAllChildTags.mutate({ tagId: id }),
+          trpc.removeTagFromAllParentTags.mutate({ tagId: id }),
+        ]);
 
         await this.refreshRelatedTagCounts({ id });
-
         await trpc.deleteTag.mutate({ id });
-
-        this._deleteTag(id);
+        await trpc.onTagDeleted.mutate({ tagId: id });
       })
     );
   });
@@ -141,9 +135,17 @@ export class TagStore extends Model({
 
         await trpc.editTag.mutate({ id, aliases, childIds, label, parentIds });
         await this.refreshTagCount({ id, withRelated: true });
-        this.overwrite((await trpc.listTags.mutate())?.data);
 
         toast.success("Tag edited");
+      })
+    );
+  });
+
+  @modelFlow
+  loadTags = _async(function* (this: TagStore) {
+    return yield* _await(
+      handleErrors(async () => {
+        this.overwrite((await trpc.listTags.mutate())?.data);
       })
     );
   });
@@ -168,7 +170,7 @@ export class TagStore extends Model({
 
             completedCount++;
             const isComplete = completedCount === totalCount;
-            if (isComplete) this.overwrite((await trpc.listTags.mutate())?.data);
+            if (isComplete) await this.loadTags();
 
             if (toastId)
               toast.update(toastId, {
@@ -198,7 +200,7 @@ export class TagStore extends Model({
 
             completedCount++;
             const isComplete = completedCount === totalCount;
-            if (isComplete) this.overwrite((await trpc.listTags.mutate())?.data);
+            if (isComplete) await this.loadTags();
 
             toast.update(toastId, {
               autoClose: isComplete ? 5000 : false,
@@ -223,9 +225,9 @@ export class TagStore extends Model({
         const count = filesRes.data.length;
 
         await trpc.setTagCount.mutate({ id, count });
-        tag.update({ count });
         if (withRelated) await this.refreshRelatedTagCounts({ id });
 
+        await trpc.onTagUpdated.mutate({ tagId: id, updates: { count } });
         return count;
       })
     );
@@ -303,12 +305,12 @@ export class TagStore extends Model({
     return this.tags.find((t) => t.label.toLowerCase() === label.toLowerCase());
   }
 
-  getChildTags(tag: Tag, recursive = false) {
+  getChildTags(tag: Tag, recursive = false): Tag[] {
     const childTags = this.listByIds(tag.childIds);
     return recursive ? childTags.flatMap((t) => [t, ...this.getChildTags(t, true)]) : childTags;
   }
 
-  getParentTags(tag: Tag, recursive = false) {
+  getParentTags(tag: Tag, recursive = false): Tag[] {
     const parentTags = this.listByIds(tag.parentIds);
     return recursive ? parentTags.flatMap((t) => [t, ...this.getParentTags(t, true)]) : parentTags;
   }

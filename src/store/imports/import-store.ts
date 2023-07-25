@@ -200,6 +200,16 @@ export class ImportStore extends Model({
   });
 
   @modelFlow
+  loadImportBatches = _async(function* (this: ImportStore) {
+    return yield* _await(
+      handleErrors(async () => {
+        const res = await trpc.listImportBatches.mutate();
+        if (res.success) this.overwrite(res.data);
+      })
+    );
+  });
+
+  @modelFlow
   startImportBatch = _async(function* (this: ImportStore, { id }: { id: string }) {
     return yield* _await(
       handleErrors(async () => {

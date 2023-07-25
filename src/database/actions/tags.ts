@@ -4,6 +4,9 @@ import {
   CreateTagInput,
   DeleteTagInput,
   EditTagInput,
+  OnTagCreatedInput,
+  OnTagDeletedInput,
+  OnTagUpdatedInput,
   RemoveChildTagIdsFromTagsInput,
   RemoveParentTagIdsFromTagsInput,
   RemoveTagFromAllChildTagsInput,
@@ -12,7 +15,7 @@ import {
   Tag,
   TagModel,
 } from "database";
-import { handleErrors } from "utils";
+import { handleErrors, socket } from "utils";
 
 export const addChildTagIdsToTags = ({ childTagIds, tagIds }: AddChildTagIdsToTagsInput) =>
   handleErrors(
@@ -49,8 +52,14 @@ export const editTag = ({ aliases, childIds, id, label, parentIds }: EditTagInpu
 export const getAllTags = () =>
   handleErrors(async () => (await TagModel.find()).map((r) => r.toJSON() as Tag));
 
-export const setTagCount = ({ count, id }: SetTagCountInput) =>
-  handleErrors(async () => TagModel.updateOne({ _id: id }, { $set: { count } }));
+export const onTagCreated = async ({ tag }: OnTagCreatedInput) =>
+  handleErrors(async () => !!socket.emit("tagCreated", { tag }));
+
+export const onTagDeleted = async ({ tagId }: OnTagDeletedInput) =>
+  handleErrors(async () => !!socket.emit("tagDeleted", { tagId }));
+
+export const onTagUpdated = async ({ tagId, updates }: OnTagUpdatedInput) =>
+  handleErrors(async () => !!socket.emit("tagUpdated", { tagId, updates }));
 
 export const removeTagFromAllChildTags = ({ tagId }: RemoveTagFromAllChildTagsInput) =>
   handleErrors(async () => {
@@ -83,3 +92,6 @@ export const removeParentTagIdsFromTags = ({
     async () =>
       await TagModel.updateMany({ _id: { $in: tagIds } }, { $pullAll: { parentIds: parentTagIds } })
   );
+
+export const setTagCount = ({ count, id }: SetTagCountInput) =>
+  handleErrors(async () => TagModel.updateOne({ _id: id }, { $set: { count } }));

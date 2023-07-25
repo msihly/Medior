@@ -1,6 +1,6 @@
 import { ipcRenderer } from "electron";
+import remote from "@electron/remote";
 import { useEffect, useRef, useState } from "react";
-import Mongoose from "mongoose";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
 import {
@@ -11,7 +11,8 @@ import {
   Tagger,
   View,
 } from "components";
-import { debounce, makeClasses, trpc } from "utils";
+import { debounce, makeClasses, setupSocketIO, socket } from "utils";
+import { toast } from "react-toastify";
 
 export const CarouselWindow = observer(() => {
   const { fileStore, tagStore } = useStores();
@@ -33,14 +34,8 @@ export const CarouselWindow = observer(() => {
 
     const loadDatabase = async (fileIds: string[]) => {
       let perfStart = performance.now();
-
-      const [filesRes, tagsRes] = await Promise.all([
-        trpc.listFiles.mutate({ ids: fileIds }),
-        trpc.listTags.mutate(),
-      ]);
-      if (filesRes.success) fileStore.overwrite(filesRes.data);
-      if (tagsRes.success) tagStore.overwrite(tagsRes.data);
-
+      setupSocketIO();
+      await Promise.all([fileStore.loadFiles({ fileIds }), tagStore.loadTags()]);
       console.debug(`Files and tags loaded into MobX in ${performance.now() - perfStart}ms.`);
     };
 
@@ -48,16 +43,42 @@ export const CarouselWindow = observer(() => {
       "init",
       async (_, { fileId, selectedFileIds }: { fileId: string; selectedFileIds: string[] }) => {
         await loadDatabase(selectedFileIds);
+
         setActiveFileId(fileId);
         setSelectedFileIds(selectedFileIds);
+
+        rootRef.current?.focus();
+
+        socket.on("filesDeleted", ({ fileIds }) => {
+          setSelectedFileIds((prev) => prev.filter((id) => !fileIds.includes(id)));
+
+          const newSelectedIds = selectedFileIds.filter((id) => !fileIds.includes(id));
+
+          if (fileIds.includes(activeFileId)) {
+            const nextIndex = selectedFileIds.indexOf(activeFileId) + 1;
+            if (!newSelectedIds.length) return remote.getCurrentWindow().close();
+            else if (nextIndex <= newSelectedIds.length) setActiveFileId(newSelectedIds[nextIndex]);
+            else setActiveFileId(newSelectedIds[0]);
+          }
+
+          fileStore.loadFiles({ fileIds: newSelectedIds });
+        });
+
+        socket.on("fileTagsUpdated", ({ addedTagIds, fileIds, removedTagIds }) =>
+          fileStore.updateFileTags({ addedTagIds, fileIds, removedTagIds })
+        );
+
+        socket.on("filesUpdated", ({ fileIds, updates }) =>
+          fileStore.updateFiles(fileIds, updates)
+        );
+
+        socket.on("tagCreated", () => tagStore.loadTags());
+
+        socket.on("tagDeleted", () => tagStore.loadTags());
+
+        socket.on("tagUpdated", () => tagStore.loadTags());
       }
     );
-
-    rootRef.current?.focus();
-
-    return () => {
-      Mongoose.disconnect();
-    };
   }, []);
 
   const handleScroll = (event) => debounce(handleNav, 100)(event.deltaY < 0);
@@ -69,13 +90,16 @@ export const CarouselWindow = observer(() => {
     rootRef.current?.focus();
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent<HTMLElement>) => {
+  const handleKeyPress = async (e: React.KeyboardEvent<HTMLElement>) => {
     if (e.key === "t" && !isTaggerOpen) {
       e.preventDefault();
       setIsTaggerOpen(true);
     } else if (["ArrowLeft", "ArrowRight"].includes(e.key)) handleNav(e.key === "ArrowLeft");
-    else if (["1", "2", "3", "4", "5", "6", "7", "8", "9"].includes(e.key))
-      ipcRenderer.send("setFileRating", { fileIds: [activeFileId], rating: +e.key });
+    else if (["1", "2", "3", "4", "5", "6", "7", "8", "9"].includes(e.key)) {
+      const res = await fileStore.setFileRating({ fileIds: [activeFileId], rating: +e.key });
+      if (res.success) toast.success("Rating updated");
+      else toast.error("Error updating rating");
+    }
   };
 
   return (

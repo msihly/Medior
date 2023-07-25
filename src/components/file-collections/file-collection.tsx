@@ -11,7 +11,7 @@ interface FileCollectionProps {
 }
 
 export const FileCollection = observer(({ active = false, id }: FileCollectionProps) => {
-  const { fileCollectionStore, tagStore } = useStores();
+  const { fileCollectionStore } = useStores();
   const collection = fileCollectionStore.getById(id);
 
   const { css } = useClasses({ active });

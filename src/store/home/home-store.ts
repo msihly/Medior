@@ -121,24 +121,19 @@ export class HomeStore extends Model({
 
         const filtered = files
           .filter((f) => {
+            const hasTags = f.tagIds.length > 0;
             const hasExcludedAny =
               excludedAnyTagIds.length > 0
-                ? f.tagIds.length > 0 &&
-                  f.tagIds.some((tagId) => excludedAnyTagIdsDesc.includes(tagId))
+                ? hasTags && f.tagIds.some((tagId) => excludedAnyTagIdsDesc.includes(tagId))
                 : false;
-
             const hasIncludedAll =
               includedAllTagIds.length > 0
-                ? f.tagIds.length > 0 &&
-                  includedAllTagIds.every((tagId) => f.tagIds.includes(tagId))
+                ? hasTags && includedAllTagIds.every((tagId) => f.tagIds.includes(tagId))
                 : true;
-
             const hasIncludedAny =
               includedAnyTagIds.length > 0
-                ? f.tagIds.length > 0 &&
-                  f.tagIds.some((tagId) => includedAnyTagIdsDesc.includes(tagId))
+                ? hasTags && f.tagIds.some((tagId) => includedAnyTagIdsDesc.includes(tagId))
                 : true;
-
             return hasIncludedAll && hasIncludedAny && !hasExcludedAny;
           })
           .sort((a, b) => sortFiles({ a, b, isSortDesc: this.isSortDesc, sortKey: this.sortKey }));

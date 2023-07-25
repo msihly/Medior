@@ -6,10 +6,10 @@ import { Button, FileCard, Input, Tag, View } from "components";
 import { makeClasses } from "utils";
 
 export const FileCollectionEditor = observer(() => {
-  const { fileCollectionStore, fileStore, tagStore } = useStores();
+  const { fileCollectionStore, fileStore } = useStores();
   const { css } = useClasses(null);
 
-  const [fileIdIndexes, setFileIdIndexes] = useState<FileIdIndex[]>(
+  const [fileIdIndexes] = useState<FileIdIndex[]>(
     fileCollectionStore.activeCollection?.fileIdIndexes ?? []
   );
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);

@@ -1,13 +1,16 @@
 import { Socket, io } from "socket.io-client";
-import { DefaultEventsMap } from "socket.io/dist/typed-events";
 import { createTRPCProxyClient, httpBatchLink } from "@trpc/client";
 import env from "../env";
-import { TRPCRouter } from "../server.js";
+import { SocketEvents, TRPCRouter } from "../server.js";
+import { logToFile } from "./logging";
 
-export let socket: Socket<DefaultEventsMap, DefaultEventsMap>;
+export let socket: Socket<SocketEvents, SocketEvents>;
 
 export const setupSocketIO = () => {
   socket = io(`ws://localhost:${env.SOCKET_PORT}`);
+  socket.on("connected", () =>
+    logToFile("debug", `Socket.io connected on port ${env.SOCKET_PORT}. ID: ${socket.id}`)
+  );
   return socket;
 };
 

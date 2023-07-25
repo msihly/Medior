@@ -5,7 +5,7 @@ import { logToFile } from "./utils";
 
 const baseUrl = !app.isPackaged
   ? "http://localhost:3333"
-  : `file://${path.join(__dirname, "../build/index.html")}`;
+  : `file://${path.join(__dirname, "..", "index.html")}`;
 
 /* ------------------------------- BEGIN - MAIN WINDOW ------------------------------ */
 let mainWindow = null;
@@ -14,8 +14,8 @@ const createMainWindow = async () => {
   logToFile("debug", "Loading servers...");
 
   const serverUrl = app.isPackaged
-    ? path.resolve(process.resourcesPath, "extraResources/server.js")
-    : path.join(__dirname, "../extraResources/server.js");
+    ? path.resolve(process.resourcesPath, "extraResources", "server.js")
+    : path.join(__dirname, "server.js");
 
   /** Using eval is the only method that works with packaged executable for indeterminable reason. */
   eval(await readFile(serverUrl, { encoding: "utf8" }));
@@ -62,7 +62,7 @@ app.on("window-all-closed", app.quit);
 /* ------------------------------- END - MAIN WINDOW ------------------------------ */
 
 /* ------------------------------- BEGIN - CAROUSEL WINDOWS ------------------------------ */
-let carouselWindows = [];
+let carouselWindows: BrowserWindow[] = [];
 
 const createCarouselWindow = async ({ fileId, height, selectedFileIds, width }) => {
   logToFile("debug", "Creating carousel window...");

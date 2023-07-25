@@ -15,7 +15,7 @@ export const BatchTooltip = observer(({ batch, children }: BatchTooltipProps) =>
   return (
     <Tooltip
       arrow
-      placement="bottom-end"
+      placement="bottom-start"
       classes={{ arrow: css.arrow, tooltip: css.tooltip }}
       title={
         <View column>
@@ -46,7 +46,7 @@ export const BatchTooltip = observer(({ batch, children }: BatchTooltipProps) =>
         </View>
       }
     >
-      <View column className={css.icon}>
+      <View column justify="center">
         {children}
       </View>
     </Tooltip>
@@ -60,9 +60,6 @@ const useClasses = makeClasses({
   header: {
     justifyContent: "space-between",
     fontSize: "1.1em",
-  },
-  icon: {
-    justifyContent: "center",
   },
   label: {
     color: colors.blue["700"],

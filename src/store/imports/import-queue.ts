@@ -1,12 +1,12 @@
 import { useRef, useEffect } from "react";
 import path from "path";
 import md5File from "md5-file";
-import { File, FileModel } from "database";
+import sharp from "sharp";
+import { File } from "database";
 import { FileImport, useStores } from "store";
 import {
   checkFileExists,
   copyFile,
-  dayjs,
   deleteFile,
   generateFramesThumbnail,
   getVideoInfo,
@@ -50,7 +50,7 @@ export const copyFileTo = async ({
     const newPath = `${dirPath}\\${hash}.${extFromPath}`;
     const isAnimated = [...VIDEO_TYPES, "gif"].includes(extFromPath);
 
-    const sharp = !isAnimated ? (await import("sharp")).default : null;
+    // const sharp = !isAnimated ? (await import("sharp")).default : null; // removed dynamic import due to packaged release issue
     const imageInfo = !isAnimated ? await sharp(originalPath).metadata() : null;
     const videoInfo = isAnimated ? await getVideoInfo(originalPath) : null;
     const duration = isAnimated ? videoInfo?.duration : null;
@@ -112,7 +112,7 @@ export const copyFileTo = async ({
         logToFile("debug", "File exists, but not in db. Inserting into db only...");
         return await copyFileTo({ dbOnly: true, deleteOnImport, fileObj, targetDir });
       } else return { success: true, file: fileRes.data, isDuplicate: true };
-    } else return { success: false, error: err?.message };
+    } else return { success: false, error: err?.stack };
   }
 };
 

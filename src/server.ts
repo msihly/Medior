@@ -6,7 +6,7 @@ import { initTRPC } from "@trpc/server";
 import { createHTTPServer } from "@trpc/server/adapters/standalone";
 import { Server } from "socket.io";
 import * as db from "./database";
-import { CONSTANTS, logToFile } from "./utils";
+import { CONSTANTS, logToFile, setupSocketIO } from "./utils";
 import env from "./env";
 
 /* ----------------------------- DATABASE SERVER ---------------------------- */
@@ -99,6 +99,24 @@ const trpcRouter = tRouter({
     .mutation(({ input }) => db.listFilteredFiles(input)),
   listImportBatches: tProc.mutation(db.listImportBatches),
   listTags: tProc.mutation(db.getAllTags),
+  onFilesDeleted: tProc
+    .input((input: unknown) => input as db.OnFilesDeletedInput)
+    .mutation(({ input }) => db.onFilesDeleted(input)),
+  onFilesUpdated: tProc
+    .input((input: unknown) => input as db.OnFilesUpdatedInput)
+    .mutation(({ input }) => db.onFilesUpdated(input)),
+  onFileTagsUpdated: tProc
+    .input((input: unknown) => input as db.OnFileTagsUpdatedInput)
+    .mutation(({ input }) => db.onFileTagsUpdated(input)),
+  onTagCreated: tProc
+    .input((input: unknown) => input as db.OnTagCreatedInput)
+    .mutation(({ input }) => db.onTagCreated(input)),
+  onTagDeleted: tProc
+    .input((input: unknown) => input as db.OnTagDeletedInput)
+    .mutation(({ input }) => db.onTagDeleted(input)),
+  onTagUpdated: tProc
+    .input((input: unknown) => input as db.OnTagUpdatedInput)
+    .mutation(({ input }) => db.onTagUpdated(input)),
   removeChildTagIdsFromTags: tProc
     .input((input: unknown) => input as db.RemoveChildTagIdsFromTagsInput)
     .mutation(({ input }) => db.removeChildTagIdsFromTags(input)),
@@ -145,6 +163,26 @@ const trpcRouter = tRouter({
 export type TRPCRouter = typeof trpcRouter;
 
 /* ----------------------------- CREATE SERVER ----------------------------- */
+export interface SocketEmitEvents {
+  filesDeleted: (args: { fileIds: string[] }) => void;
+  filesUpdated: (args: { fileIds: string[]; updates: Partial<db.File> }) => void;
+  fileTagsUpdated: (args: {
+    addedTagIds: string[];
+    batchId?: string;
+    fileIds?: string[];
+    removedTagIds: string[];
+  }) => void;
+  tagCreated: (args: { tag: db.Tag }) => void;
+  tagDeleted: (args: { tagId: string }) => void;
+  tagUpdated: (args: { tagId: string; updates: Partial<db.Tag> }) => void;
+}
+
+export type SocketEmitEvent = keyof SocketEmitEvents;
+
+export interface SocketEvents extends SocketEmitEvents {
+  connected: () => void;
+}
+
 module.exports = (async () => {
   logToFile("debug", "Creating database server...");
   await createDbServer();
@@ -160,12 +198,22 @@ module.exports = (async () => {
   );
 
   const socketPort = +env.SOCKET_PORT || 3335;
-  const io = new Server(+env.SOCKET_PORT || 3335);
+  const io = new Server<SocketEvents, SocketEvents>(+env.SOCKET_PORT || 3335);
+
   io.on("connection", (socket) => {
-    socket.emit("connected");
     logToFile("debug", `Socket server listening on port ${socketPort}.`);
+    socket.emit("connected");
+
+    socket.on("filesDeleted", (...args) => socket.broadcast.emit("filesDeleted", ...args));
+    socket.on("filesUpdated", (...args) => socket.broadcast.emit("filesUpdated", ...args));
+    socket.on("fileTagsUpdated", (...args) => socket.broadcast.emit("fileTagsUpdated", ...args));
+    socket.on("tagCreated", (...args) => socket.broadcast.emit("tagCreated", ...args));
+    socket.on("tagDeleted", (...args) => socket.broadcast.emit("tagDeleted", ...args));
+    socket.on("tagUpdated", (...args) => socket.broadcast.emit("tagUpdated", ...args));
   });
 
+  setupSocketIO();
+
   logToFile("debug", "Servers created.");
-  return { server, trpcRouter };
+  return { io, server, trpcRouter };
 })();

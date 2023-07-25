@@ -4,14 +4,15 @@ import { observer } from "mobx-react-lite";
 import { useStores } from "store";
 import { colors } from "@mui/material";
 import { Drawer, FileContainer, TopBar, View } from "components";
-import { dirToFileImports, filePathsToImports, makeClasses, setupSocketIO, trpc } from "utils";
+import { dirToFileImports, filePathsToImports, makeClasses, setupSocketIO, socket } from "utils";
 import { toast } from "react-toastify";
 import Color from "color";
 
 export const Home = observer(() => {
   const drawerRef = createRef();
 
-  const { homeStore, importStore, tagStore } = useStores();
+  const rootStore = useStores();
+  const { fileStore, homeStore, importStore, tagStore } = useStores();
 
   const [isLoading, setIsLoading] = useState(true);
   const [isOverlayVisible, setIsOverlayVisible] = useState(false);
@@ -64,29 +65,45 @@ export const Home = observer(() => {
         setIsLoading(true);
         let perfStart = performance.now();
 
-        const [importBatchesRes, tagsRes] = await Promise.all([
-          trpc.listImportBatches.mutate(),
-          trpc.listTags.mutate(),
-        ]);
-
-        if (importBatchesRes.success) importStore.overwrite(importBatchesRes.data);
-        if (tagsRes.success) tagStore.overwrite(tagsRes.data);
+        await Promise.all([importStore.loadImportBatches(), tagStore.loadTags()]);
 
         console.debug(`Data loaded into MobX in ${performance.now() - perfStart}ms.`);
         setIsLoading(false);
-
-        const io = setupSocketIO();
-        io.on("connected", () => console.debug("Socket.io connected."));
-
-        io.on("onFilesEdited", ({ fileIds }: { fileIds: string[] }) =>
-          console.debug("onFilesEdited", fileIds)
-        );
       } catch (err) {
         console.error(err);
       }
     };
 
     loadDatabase();
+
+    setupSocketIO();
+
+    socket.on("filesDeleted", () => homeStore.reloadDisplayedFiles({ rootStore }));
+
+    socket.on("filesUpdated", ({ fileIds, updates }) => {
+      fileStore.updateFiles(fileIds, updates);
+      homeStore.reloadDisplayedFiles({ rootStore });
+    });
+
+    socket.on("fileTagsUpdated", ({ addedTagIds, batchId, fileIds, removedTagIds }) => {
+      if (batchId?.length > 0)
+        importStore.editBatchTags({
+          addedIds: addedTagIds,
+          batchIds: [batchId],
+          removedIds: removedTagIds,
+        });
+      fileStore.updateFileTags({ addedTagIds, fileIds, removedTagIds });
+      homeStore.reloadDisplayedFiles({ rootStore });
+    });
+
+    socket.on("tagCreated", () => tagStore.loadTags());
+
+    socket.on("tagDeleted", ({ tagId }) => {
+      importStore.editBatchTags({ removedIds: [tagId] });
+      tagStore.loadTags();
+    });
+
+    socket.on("tagUpdated", () => tagStore.loadTags());
   }, []);
 
   return (

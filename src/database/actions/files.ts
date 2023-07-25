@@ -8,6 +8,8 @@ import {
   ListFilesByTagIdsInput,
   ListFilesInput,
   ListFilteredFilesInput,
+  OnFileTagsUpdatedInput,
+  OnFilesUpdatedInput,
   RemoveTagFromAllFilesInput,
   RemoveTagsFromFilesInput,
   SetFileIsArchivedInput,
@@ -15,7 +17,7 @@ import {
   UpdateFileInput,
 } from "database";
 import { LeanDocument, Types } from "mongoose";
-import { dayjs, handleErrors } from "utils";
+import { dayjs, handleErrors, socket, trpc } from "utils";
 
 export const addTagsToFiles = ({ fileIds = [], tagIds = [] }: AddTagsToFilesInput) =>
   handleErrors(async () => {
@@ -119,6 +121,21 @@ export const listFilteredFiles = ({
     ).map((f) => leanFileToJson(f));
   });
 
+export const onFilesDeleted = async ({ fileIds }: DeleteFilesInput) =>
+  handleErrors(async () => !!socket.emit("filesDeleted", { fileIds }));
+
+export const onFilesUpdated = async ({ fileIds, updates }: OnFilesUpdatedInput) =>
+  handleErrors(async () => !!socket.emit("filesUpdated", { fileIds, updates }));
+
+export const onFileTagsUpdated = async ({
+  addedTagIds,
+  fileIds,
+  removedTagIds,
+}: OnFileTagsUpdatedInput) =>
+  handleErrors(
+    async () => !!socket.emit("fileTagsUpdated", { addedTagIds, fileIds, removedTagIds })
+  );
+
 export const removeTagFromAllFiles = ({ tagId }: RemoveTagFromAllFilesInput) =>
   handleErrors(async () => {
     const dateModified = dayjs().toISOString();
@@ -141,8 +158,10 @@ export const removeTagsFromFiles = ({ fileIds = [], tagIds = [] }: RemoveTagsFro
 
 export const setFileRating = ({ fileIds = [], rating }: SetFileRatingInput) =>
   handleErrors(async () => {
-    const dateModified = dayjs().toISOString();
-    return await FileModel.updateMany({ _id: { $in: fileIds } }, { rating, dateModified });
+    const updates = { rating, dateModified: dayjs().toISOString() };
+    await FileModel.updateMany({ _id: { $in: fileIds } }, updates);
+    await trpc.onFilesUpdated.mutate({ fileIds, updates });
+    return { fileIds, updates };
   });
 
 export const setFileIsArchived = ({ fileIds = [], isArchived }: SetFileIsArchivedInput) =>

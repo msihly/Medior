@@ -1,5 +1,6 @@
-import { ImportStatus } from "components";
+import { File, Tag } from "database";
 import { FileImport, RootStore, SelectedImageTypes, SelectedVideoTypes } from "store";
+import { ImportStatus } from "components";
 
 /* ------------------------------ FILE IMPORTS ------------------------------ */
 export type AddTagsToBatchInput = { batchId: string; tagIds: string[] };
@@ -71,6 +72,19 @@ export type ListFilteredFilesInput = {
   selectedVideoTypes: SelectedVideoTypes;
 };
 
+export type LoadFilesInput = { fileIds?: string[] };
+
+export type OnFilesDeletedInput = { fileIds: string[] };
+
+export type OnFilesUpdatedInput = { fileIds: string[]; updates: Partial<File> };
+
+export type OnFileTagsUpdatedInput = {
+  addedTagIds: string[];
+  batchId?: string;
+  fileIds?: string[];
+  removedTagIds: string[];
+};
+
 export type RefreshFileInput = { id: string; withThumbs?: boolean };
 
 export type RemoveTagFromAllFilesInput = { tagId: string };
@@ -104,6 +118,12 @@ export type EditTagInput = {
   label?: string;
   parentIds?: string[];
 };
+
+export type OnTagCreatedInput = { tag: Tag };
+
+export type OnTagDeletedInput = { tagId: string };
+
+export type OnTagUpdatedInput = { tagId: string; updates: Partial<Tag> };
 
 export type RemoveChildTagIdsFromTagsInput = { childTagIds: string[]; tagIds: string[] };
 

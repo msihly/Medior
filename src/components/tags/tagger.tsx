@@ -53,13 +53,10 @@ export const Tagger = observer(({ batchId, files, setVisible }: TaggerProps) => 
     if (addedTags.length === 0 && removedTags.length === 0)
       return toast.error("You must enter at least one tag");
 
-    await fileStore.editFileTags({
-      addedTagIds: addedTags.map((t) => t.id),
-      batchId,
-      fileIds: files.map((f) => f.id),
-      removedTagIds: removedTags.map((t) => t.id),
-      rootStore,
-    });
+    const addedTagIds = addedTags.map((t) => t.id);
+    const fileIds = files.map((f) => f.id);
+    const removedTagIds = removedTags.map((t) => t.id);
+    await fileStore.editFileTags({ addedTagIds, batchId, fileIds, removedTagIds, rootStore });
 
     handleClose();
   };

@@ -13,7 +13,7 @@ import {
   prop,
 } from "mobx-keystone";
 import { RootStore } from "store";
-import { EditFileTagsInput, RefreshFileInput, SetFileRatingInput } from "database";
+import { EditFileTagsInput, LoadFilesInput, RefreshFileInput, SetFileRatingInput } from "database";
 import { File } from ".";
 import {
   CONSTANTS,
@@ -75,6 +75,24 @@ export class FileStore extends Model({
     );
   }
 
+  @modelAction
+  updateFiles(fileIds: string[], updates: Partial<File>) {
+    fileIds.forEach((id) => this.getById(id)?.update?.(updates));
+  }
+
+  @modelAction
+  updateFileTags({
+    addedTagIds,
+    fileIds,
+    removedTagIds,
+  }: {
+    addedTagIds: string[];
+    fileIds: string[];
+    removedTagIds: string[];
+  }) {
+    fileIds.forEach((id) => this.getById(id)?.updateTags?.({ addedTagIds, removedTagIds }));
+  }
+
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */
   @modelFlow
   deleteFiles = _async(function* (
@@ -90,10 +108,9 @@ export class FileStore extends Model({
         if (!files?.length) return false;
 
         if (isUndelete) {
-          await trpc.setFileIsArchived.mutate({
-            fileIds: files.map((f) => f.id),
-            isArchived: false,
-          });
+          const fileIds = files.map((f) => f.id);
+          await trpc.setFileIsArchived.mutate({ fileIds, isArchived: false });
+          await trpc.onFilesUpdated.mutate({ fileIds, updates: { isArchived: false } });
           toast.success(`${files.length} files unarchived`);
         } else {
           const [deleted, archived] = splitArray(files, (f: File) => f.isArchived);
@@ -101,6 +118,11 @@ export class FileStore extends Model({
 
           if (archivedIds?.length > 0) {
             await trpc.setFileIsArchived.mutate({ fileIds: archivedIds, isArchived: true });
+            await trpc.onFilesUpdated.mutate({
+              fileIds: archivedIds,
+              updates: { isArchived: true },
+            });
+
             toast.success(`${archivedIds.length} files archived`);
           }
 
@@ -123,13 +145,12 @@ export class FileStore extends Model({
               )
             );
 
+            await trpc.onFilesDeleted.mutate({ fileIds: deletedIds });
             toast.success(`${deletedIds.length} files deleted`);
           }
         }
 
         this.toggleFilesSelected(files.map((f) => ({ id: f.id, isSelected: false })));
-
-        await rootStore.homeStore.reloadDisplayedFiles({ rootStore });
 
         return true;
       })
@@ -157,22 +178,26 @@ export class FileStore extends Model({
           await trpc.addTagsToFiles.mutate({ fileIds, tagIds: addedTagIds });
         }
 
-        rootStore.importStore.editBatchTags({
-          addedIds: addedTagIds,
-          batchIds: [batchId],
-          removedIds: removedTagIds,
-        });
-
-        await rootStore.homeStore.reloadDisplayedFiles({ rootStore });
         await Promise.all(
           [...addedTagIds, ...removedTagIds].map((id) =>
             rootStore.tagStore.refreshTagCount({ id, withRelated: true })
           )
         );
 
+        await trpc.onFileTagsUpdated.mutate({ addedTagIds, batchId, fileIds, removedTagIds });
         toast.success(`${fileIds.length} files updated`);
+      })
+    );
+  });
 
-        // ipcRenderer.send("onFilesEdited", { fileIds });
+  @modelFlow
+  loadFiles = _async(function* (this: FileStore, { fileIds }: LoadFilesInput) {
+    return yield* _await(
+      handleErrors(async () => {
+        if (!fileIds?.length) return false;
+        const filesRes = await trpc.listFiles.mutate({ ids: fileIds });
+        if (filesRes.success) this.overwrite(filesRes.data);
+        return filesRes.success;
       })
     );
   });
@@ -277,15 +302,11 @@ export class FileStore extends Model({
   });
 
   @modelFlow
-  setFileRating = _async(function* (
-    this: FileStore,
-    { fileIds = [], rating, rootStore }: SetFileRatingInput & { rootStore: RootStore }
-  ) {
+  setFileRating = _async(function* (this: FileStore, { fileIds = [], rating }: SetFileRatingInput) {
     return yield* _await(
       handleErrors(async () => {
         if (!fileIds.length) return;
         await trpc.setFileRating.mutate({ fileIds, rating });
-        await rootStore.homeStore.reloadDisplayedFiles({ rootStore });
       })
     );
   });

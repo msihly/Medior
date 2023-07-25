@@ -2,7 +2,7 @@ import { ElementType } from "react";
 import { Typography, TypographyProps } from "@mui/material";
 import { makeClasses } from "utils";
 
-export interface TextProps extends Omit<TypographyProps, "color"> {
+export interface TextProps extends Omit<TypographyProps, "color" | "component"> {
   color?: string;
   component?: ElementType;
 }
