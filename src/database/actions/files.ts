@@ -1,23 +1,30 @@
+import fs from "fs/promises";
 import {
   AddTagsToFilesInput,
   DeleteFilesInput,
+  DetectFacesInput,
   File,
   FileModel,
   GetFileByHashInput,
   ImportFileInput,
+  ListFaceModelsInput,
   ListFilesByTagIdsInput,
   ListFilesInput,
-  listFilteredFileIdsInput,
   OnFileTagsUpdatedInput,
   OnFilesUpdatedInput,
   RemoveTagFromAllFilesInput,
   RemoveTagsFromFilesInput,
+  SetFileFaceModelsInput,
   SetFileIsArchivedInput,
   SetFileRatingInput,
   UpdateFileInput,
+  listFilteredFileIdsInput,
 } from "database";
 import { dayjs, handleErrors, socket, trpc } from "utils";
 import { leanModelToJson } from "./utils";
+
+const FACE_MIN_CONFIDENCE = 0.4;
+const FACE_MODELS_PATH = "src/face-recog-models";
 
 export const addTagsToFiles = ({ fileIds = [], tagIds = [] }: AddTagsToFilesInput) =>
   handleErrors(async () => {
@@ -31,6 +38,30 @@ export const addTagsToFiles = ({ fileIds = [], tagIds = [] }: AddTagsToFilesInpu
 
 export const deleteFiles = ({ fileIds = [] }: DeleteFilesInput) =>
   handleErrors(async () => await FileModel.deleteMany({ _id: { $in: fileIds } }));
+
+export const detectFaces = async ({ imagePath }: DetectFacesInput) =>
+  handleErrors(async () => {
+    const faceapi = await import("@vladmandic/face-api/dist/face-api.node-gpu.js");
+    const tf = await import("@tensorflow/tfjs-node-gpu");
+    const buffer = await fs.readFile(imagePath);
+    const tensor = tf.node.decodeImage(buffer);
+
+    try {
+      const options = new faceapi.SsdMobilenetv1Options({ minConfidence: FACE_MIN_CONFIDENCE });
+      const faces = await faceapi
+        .detectAllFaces(tensor as any, options)
+        .withFaceLandmarks()
+        .withFaceExpressions()
+        .withFaceDescriptors()
+        .run();
+
+      tf.dispose(tensor);
+      return faces;
+    } catch (err) {
+      tf.dispose(tensor);
+      throw new Error(err);
+    }
+  });
 
 export const getFileByHash = ({ hash }: GetFileByHashInput) =>
   handleErrors(async () => leanModelToJson<File>(await FileModel.findOne({ hash }).lean()));
@@ -73,6 +104,25 @@ export const importFile = ({
       })
     )
   );
+
+export const listFaceModels = ({ ids }: ListFaceModelsInput = {}) =>
+  handleErrors(async () => {
+    return (
+      await FileModel.find({
+        faceModels: { $exists: true, $ne: [] },
+        ...(ids ? { _id: { $in: ids } } : {}),
+      })
+        .select({ _id: 1, faceModels: 1 })
+        .lean()
+    ).flatMap((file) => {
+      return leanModelToJson<File>(file).faceModels.map((faceModel) => ({
+        box: faceModel.box,
+        descriptors: faceModel.descriptors,
+        fileId: file._id.toString(),
+        tagId: faceModel.tagId,
+      }));
+    });
+  });
 
 export const listFiles = ({ ids }: ListFilesInput = {}) =>
   handleErrors(async () => {
@@ -127,6 +177,15 @@ export const listFilteredFileIds = ({
     ).map((f) => f._id.toString());
   });
 
+export const loadFaceApiNets = async () =>
+  handleErrors(async () => {
+    const faceapi = await import("@vladmandic/face-api/dist/face-api.node-gpu.js");
+    await faceapi.nets.ssdMobilenetv1.loadFromDisk(FACE_MODELS_PATH);
+    await faceapi.nets.faceLandmark68Net.loadFromDisk(FACE_MODELS_PATH);
+    await faceapi.nets.faceExpressionNet.loadFromDisk(FACE_MODELS_PATH);
+    await faceapi.nets.faceRecognitionNet.loadFromDisk(FACE_MODELS_PATH);
+  });
+
 export const onFilesDeleted = async ({ fileIds }: DeleteFilesInput) =>
   handleErrors(async () => !!socket.emit("filesDeleted", { fileIds }));
 
@@ -162,6 +221,17 @@ export const removeTagsFromFiles = ({ fileIds = [], tagIds = [] }: RemoveTagsFro
     return dateModified;
   });
 
+export const setFileFaceModels = async ({ faceModels, id }: SetFileFaceModelsInput) =>
+  handleErrors(async () => {
+    const dateModified = dayjs().toISOString();
+    await FileModel.findOneAndUpdate({ _id: id }, { $set: { faceModels, dateModified } });
+    await trpc.onFilesUpdated.mutate({ fileIds: [id], updates: { faceModels, dateModified } });
+    return dateModified;
+  });
+
+export const setFileIsArchived = ({ fileIds = [], isArchived }: SetFileIsArchivedInput) =>
+  handleErrors(async () => await FileModel.updateMany({ _id: { $in: fileIds } }, { isArchived }));
+
 export const setFileRating = ({ fileIds = [], rating }: SetFileRatingInput) =>
   handleErrors(async () => {
     const updates = { rating, dateModified: dayjs().toISOString() };
@@ -169,9 +239,6 @@ export const setFileRating = ({ fileIds = [], rating }: SetFileRatingInput) =>
     await trpc.onFilesUpdated.mutate({ fileIds, updates });
     return { fileIds, updates };
   });
-
-export const setFileIsArchived = ({ fileIds = [], isArchived }: SetFileIsArchivedInput) =>
-  handleErrors(async () => await FileModel.updateMany({ _id: { $in: fileIds } }, { isArchived }));
 
 export const updateFile = async ({ id, ...updates }: UpdateFileInput) =>
   handleErrors(async () => await FileModel.updateOne({ _id: id }, updates));

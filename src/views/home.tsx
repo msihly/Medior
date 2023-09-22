@@ -3,14 +3,14 @@ import { useEffect, useState } from "react";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
 import { colors } from "@mui/material";
-import { Drawer, FileContainer, TopBar, View } from "components";
+import { Drawer, FaceRecognitionModal, FileContainer, TopBar, View } from "components";
 import { dirToFileImports, filePathsToImports, makeClasses, setupSocketIO, socket } from "utils";
 import { toast } from "react-toastify";
 import Color from "color";
 
 export const Home = observer(() => {
   const rootStore = useStores();
-  const { fileStore, homeStore, importStore, tagStore } = useStores();
+  const { faceRecognitionStore, fileStore, homeStore, importStore, tagStore } = useStores();
 
   const [isLoading, setIsLoading] = useState(true);
 
@@ -118,6 +118,8 @@ export const Home = observer(() => {
           <TopBar />
 
           {isLoading ? null : <FileContainer />}
+
+          {faceRecognitionStore.isModalOpen && <FaceRecognitionModal />}
         </View>
       </View>
     </View>

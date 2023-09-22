@@ -1,5 +1,5 @@
 import { Model, _async, _await, model, modelAction, modelFlow, prop } from "mobx-keystone";
-import { RootStore, TagOption, tagsToDescendants } from "store";
+import { RootStore, TagOption, mongoFileToMobX, tagsToDescendants } from "store";
 import {
   CONSTANTS,
   IMAGE_TYPES,
@@ -71,8 +71,10 @@ export class HomeStore extends Model({
 }) {
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
   @modelAction
-  toggleDrawerMode() {
-    this.drawerMode = this.drawerMode === "persistent" ? "temporary" : "persistent";
+  removeDeletedTag(id: string) {
+    this.excludedAnyTags.splice(this.excludedAnyTags.findIndex((t) => t.id === id));
+    this.includedAllTags.splice(this.includedAllTags.findIndex((t) => t.id === id));
+    this.includedAnyTags.splice(this.includedAnyTags.findIndex((t) => t.id === id));
   }
 
   @modelAction
@@ -83,6 +85,11 @@ export class HomeStore extends Model({
   @modelAction
   setSelectedVideoTypes(types: Partial<SelectedVideoTypes>) {
     this.selectedVideoTypes = { ...this.selectedVideoTypes, ...types };
+  }
+
+  @modelAction
+  toggleDrawerMode() {
+    this.drawerMode = this.drawerMode === "persistent" ? "temporary" : "persistent";
   }
 
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */
@@ -149,7 +156,7 @@ export class HomeStore extends Model({
 
         fileStore.setFilteredFileIds(filteredIds);
         perfLog("Set filtered file IDs"); // DEBUG
-        fileStore.overwrite(displayed);
+        fileStore.overwrite(displayed.map(mongoFileToMobX));
         perfLog("FileStore.files overwrite"); // DEBUG
 
         if (page) {

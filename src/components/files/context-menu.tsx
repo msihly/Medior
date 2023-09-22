@@ -17,7 +17,7 @@ export const ContextMenu = observer(({ children, file, ...props }: ContextMenuPr
   const { css } = useClasses(null);
 
   const rootStore = useStores();
-  const { fileStore } = useStores();
+  const { faceRecognitionStore, fileStore } = useStores();
 
   const [isInfoOpen, setIsInfoOpen] = useState(false);
   const [mouseX, setMouseX] = useState(null);
@@ -43,6 +43,12 @@ export const ContextMenu = observer(({ children, file, ...props }: ContextMenuPr
       rootStore,
       fileIds: fileStore.getIsSelected(file.id) ? fileStore.selectedIds : [file.id],
     });
+    handleClose();
+  };
+
+  const handleFaceRecognition = () => {
+    faceRecognitionStore.setActiveFileId(file.id);
+    faceRecognitionStore.setIsModalOpen(true);
     handleClose();
   };
 
@@ -80,7 +86,7 @@ export const ContextMenu = observer(({ children, file, ...props }: ContextMenuPr
         <ListItem text="Open in Explorer" icon="Search" onClick={openInExplorer} />
 
         <ListItem text="Copy" icon="ContentCopy" iconEnd="ArrowRight">
-            <View column>
+          <View column>
             <ListItem text="File Path" icon="Image" onClick={copyFilePath} />
 
             <ListItem text="Folder Path" icon="Folder" onClick={copyFolderPath} />
@@ -89,6 +95,9 @@ export const ContextMenu = observer(({ children, file, ...props }: ContextMenuPr
 
         <ListItem text="Info" icon="Info" onClick={openInfo} />
 
+        {!file.isAnimated && (
+          <ListItem text="Face Recognition" icon="Face" onClick={handleFaceRecognition} />
+        )}
 
         <ListItem
           text={file?.isArchived ? "Delete" : "Archive"}

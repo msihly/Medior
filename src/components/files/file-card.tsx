@@ -3,7 +3,7 @@ import { useRef, useState } from "react";
 import { observer } from "mobx-react-lite";
 import { File, useStores } from "store";
 import { colors, Chip, Paper } from "@mui/material";
-import { Icon, Tag, View } from "components";
+import { Icon, Tag, Text, View } from "components";
 import { ContextMenu, FileTooltip, openFile } from ".";
 import { dayjs, makeClasses, uniqueArrayFilter } from "utils";
 import { CSSObject } from "tss-react";
@@ -77,7 +77,7 @@ export const FileCard = observer(({ file, id }: FileCardProps) => {
     event.preventDefault();
     homeStore.setIsDraggingOut(true);
 
-    const hasSelected = fileStore.selectedIds.length > 0;
+    const hasSelected = fileStore.selectedIds.includes(file.id);
     const files = hasSelected ? await loadSelectedFiles() : null;
     const filePaths = hasSelected ? files.map((file) => file.path) : [file.path];
     const icon = hasSelected ? files[0].thumbPaths[0] : file.thumbPaths[0];
@@ -158,7 +158,22 @@ export const FileCard = observer(({ file, id }: FileCardProps) => {
             className={css.image}
           />
 
-          <Chip label={file.ext} className={css.ext} />
+          <Chip
+            label={
+              <View row>
+                {!file.isAnimated && (
+                  <Icon
+                    name="Face"
+                    size="1.2em"
+                    color={file.faceModels?.length > 0 ? colors.blue["500"] : colors.grey["600"]}
+                    margins={{ right: "0.3em" }}
+                  />
+                )}
+                <Text>{file.ext}</Text>
+              </View>
+            }
+            className={css.ext}
+          />
 
           {/* {file.collections.length > 0 && (
             <Chip

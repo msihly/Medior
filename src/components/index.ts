@@ -1,6 +1,7 @@
 export * from "./buttons";
 export * from "./carousel";
 export * from "./drawer";
+export * from "./face-recognition";
 export * from "./file-collections";
 export * from "./files";
 export * from "./inputs";

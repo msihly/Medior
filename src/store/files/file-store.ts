@@ -12,7 +12,7 @@ import {
   modelFlow,
   prop,
 } from "mobx-keystone";
-import { RootStore } from "store";
+import { FaceModel, RootStore } from "store";
 import {
   EditFileTagsInput,
   LoadFilesInput,
@@ -20,7 +20,7 @@ import {
   RefreshSelectedFilesInput,
   SetFileRatingInput,
 } from "database";
-import { File } from ".";
+import { File, mongoFileToMobX } from ".";
 import {
   CONSTANTS,
   dayjs,
@@ -66,8 +66,17 @@ export class FileStore extends Model({
   }
 
   @modelAction
-  updateFiles(fileIds: string[], updates: Partial<File>) {
-    fileIds.forEach((id) => this.getById(id)?.update?.(updates));
+  updateFiles(
+    fileIds: string[],
+    updates: Partial<
+      Omit<ModelCreationData<File>, "faceModels"> & { faceModels?: ModelCreationData<FaceModel>[] }
+    >
+  ) {
+    try {
+      fileIds.forEach((id) => this.getById(id)?.update?.(updates));
+    } catch (err) {
+      console.error("Error updating files:", err.message);
+    }
   }
 
   @modelAction
@@ -195,7 +204,7 @@ export class FileStore extends Model({
       handleErrors(async () => {
         if (!fileIds?.length) return [];
         const filesRes = await trpc.listFiles.mutate({ ids: fileIds });
-        if (filesRes.success && withOverwrite) this.overwrite(filesRes.data);
+        if (filesRes.success && withOverwrite) this.overwrite(filesRes.data.map(mongoFileToMobX));
         return filesRes.data;
       })
     );
@@ -209,7 +218,7 @@ export class FileStore extends Model({
     return yield* _await(
       handleErrors(async () => {
         if (!curFile && !id) throw new Error("No file or id provided");
-        const file = !curFile ? this.getById(id) : new File(curFile);
+        const file = !curFile ? this.getById(id) : new File(mongoFileToMobX(curFile));
         const sharp = !file.isAnimated ? (await import("sharp")).default : null;
 
         const [hash, { mtime, size }, imageInfo, videoInfo] = await Promise.all([

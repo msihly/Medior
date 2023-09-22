@@ -19,8 +19,8 @@ export const Tag = observer(
 
     return (
       <Chip
-        avatar={<Avatar className={css.count}>{formatter.format(tag.count)}</Avatar>}
-        label={tag.label}
+        avatar={<Avatar className={css.count}>{formatter.format(tag?.count)}</Avatar>}
+        label={tag?.label}
         className={cx(css.chip, className)}
         size={size}
         {...props}

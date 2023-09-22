@@ -60,6 +60,8 @@ export type ImportFileInput = {
   width: number;
 };
 
+export type ListFaceModelsInput = { ids?: string[] };
+
 export type ListFilesInput = { ids?: string[] };
 
 export type ListFilesByTagIdsInput = { tagIds: string[] };
@@ -98,6 +100,17 @@ export type RemoveTagFromAllFilesInput = { tagId: string };
 
 export type RemoveTagsFromFilesInput = { fileIds: string[]; tagIds: string[] };
 
+export type SetFileFaceModelsInput = {
+  faceModels: {
+    box: { height: number; width: number; x: number; y: number };
+    /** JSON representation of Float32Array[] */
+    descriptors: string;
+    fileId: string;
+    tagId: string;
+  }[];
+  id: string;
+};
+
 export type SetFileIsArchivedInput = { fileIds: string[]; isArchived: boolean };
 
 export type SetFileRatingInput = { fileIds: string[]; rating: number };
@@ -117,6 +130,8 @@ export type CreateTagInput = {
 };
 
 export type DeleteTagInput = { id: string };
+
+export type DetectFacesInput = { imagePath: string };
 
 export type EditTagInput = {
   aliases?: string[];

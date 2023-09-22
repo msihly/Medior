@@ -6,16 +6,15 @@ export const useElementResize = (ref: MutableRefObject<any>, condition?: any) =>
 
   useEffect(() => {
     const nodeRef = ref?.current;
-    if (!nodeRef) return;
 
     const getDimensions = () => ({
-      width: nodeRef.offsetWidth,
-      height: nodeRef.offsetHeight,
+      width: nodeRef?.offsetWidth || 0,
+      height: nodeRef?.offsetHeight || 0,
     });
 
     const getPosition = () => {
-      const rect = nodeRef.getBoundingClientRect();
-      return { top: rect.top, left: rect.left };
+      const rect = nodeRef?.getBoundingClientRect?.();
+      return { top: rect?.top || 0, left: rect?.left || 0 };
     };
 
     const handleResize = () => {

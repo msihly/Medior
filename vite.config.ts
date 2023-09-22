@@ -4,7 +4,20 @@ import pluginRenderer from "vite-plugin-electron-renderer";
 import pluginSVGR from "vite-plugin-svgr";
 import pluginTsconfigPaths from "vite-tsconfig-paths";
 
-const EXTERNALS = ["crypto", "electron-log", "fluent-ffmpeg", "fs", "mongoose", "path", "sharp"];
+const EXTERNALS = [
+  "@tensorflow/tfjs-node",
+  "@tensorflow/tfjs-node-gpu",
+  "aws-sdk",
+  "crypto",
+  "electron-log",
+  "fluent-ffmpeg",
+  "fs",
+  "mock-aws-s3",
+  "mongoose",
+  "nock",
+  "path",
+  "sharp",
+];
 
 export default defineConfig({
   build: { outDir: "build" },

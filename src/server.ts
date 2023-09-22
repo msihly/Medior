@@ -79,6 +79,9 @@ const trpcRouter = tRouter({
   deleteTag: tProc
     .input((input: unknown) => input as db.DeleteTagInput)
     .mutation(({ input }) => db.deleteTag(input)),
+  detectFaces: tProc
+    .input((input: unknown) => input as db.DetectFacesInput)
+    .mutation(({ input }) => db.detectFaces(input)),
   editTag: tProc
     .input((input: unknown) => input as db.EditTagInput)
     .mutation(({ input }) => db.editTag(input)),
@@ -88,6 +91,9 @@ const trpcRouter = tRouter({
   importFile: tProc
     .input((input: unknown) => input as db.ImportFileInput)
     .mutation(({ input }) => db.importFile(input)),
+  listFaceModels: tProc
+    .input((input: unknown) => input as db.ListFaceModelsInput)
+    .mutation(({ input }) => db.listFaceModels(input)),
   listFiles: tProc
     .input((input: unknown) => input as db.ListFilesInput)
     .mutation(({ input }) => db.listFiles(input)),
@@ -99,6 +105,7 @@ const trpcRouter = tRouter({
     .mutation(({ input }) => db.listFilteredFileIds(input)),
   listImportBatches: tProc.mutation(db.listImportBatches),
   listTags: tProc.mutation(db.getAllTags),
+  loadFaceApiNets: tProc.mutation(db.loadFaceApiNets),
   onFilesDeleted: tProc
     .input((input: unknown) => input as db.OnFilesDeletedInput)
     .mutation(({ input }) => db.onFilesDeleted(input)),
@@ -144,6 +151,9 @@ const trpcRouter = tRouter({
   removeTagsFromFiles: tProc
     .input((input: unknown) => input as db.RemoveTagsFromFilesInput)
     .mutation(({ input }) => db.removeTagsFromFiles(input)),
+  setFileFaceModels: tProc
+    .input((input: unknown) => input as db.SetFileFaceModelsInput)
+    .mutation(({ input }) => db.setFileFaceModels(input)),
   setFileIsArchived: tProc
     .input((input: unknown) => input as db.SetFileIsArchivedInput)
     .mutation(({ input }) => db.setFileIsArchived(input)),

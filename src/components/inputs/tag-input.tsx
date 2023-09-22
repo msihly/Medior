@@ -4,12 +4,14 @@ import { observer } from "mobx-react-lite";
 import { TagOption, useStores } from "store";
 import { Input, InputProps, Tag, View } from "components";
 import { makeClasses } from "utils";
+import { CSSObject } from "tss-react";
 
 export type TagInputProps = Omit<
   ComponentProps<typeof Autocomplete>,
   "renderInput" | "onChange" | "options"
 > & {
   autoFocus?: boolean;
+  center?: boolean;
   hasHelper?: boolean;
   inputProps?: InputProps;
   label?: string;
@@ -17,6 +19,7 @@ export type TagInputProps = Omit<
   options?: TagOption[];
   setValue?: (val: TagOption[]) => void;
   value: TagOption[];
+  width?: CSSObject["width"];
 };
 
 export const TagInput = observer(
@@ -24,6 +27,7 @@ export const TagInput = observer(
     (
       {
         autoFocus = false,
+        center,
         className,
         hasHelper = false,
         inputProps,
@@ -32,12 +36,13 @@ export const TagInput = observer(
         options = [],
         setValue,
         value = [],
+        width,
         ...props
       }: TagInputProps,
       ref?: MutableRefObject<HTMLDivElement>
     ) => {
       const { tagStore } = useStores();
-      const { css, cx } = useClasses({ opaque });
+      const { css, cx } = useClasses({ center, opaque, width });
 
       return (
         <Autocomplete
@@ -48,7 +53,7 @@ export const TagInput = observer(
           renderInput={(params) => (
             <Input
               {...params}
-              {...{ autoFocus, hasHelper, label, ref }}
+              {...{ autoFocus, hasHelper, label, ref, width }}
               className={cx(css.input, className)}
               {...inputProps}
             />
@@ -98,7 +103,7 @@ export const TagInput = observer(
   )
 );
 
-const useClasses = makeClasses((_, { opaque }) => ({
+const useClasses = makeClasses((_, { center, opaque, width }) => ({
   alias: {
     margin: "0.3rem 0 0 0.3rem",
     fontSize: "0.7em",
@@ -111,6 +116,14 @@ const useClasses = makeClasses((_, { opaque }) => ({
   },
   input: {
     backgroundColor: opaque ? colors.grey["800"] : "transparent",
+    "& .MuiAutocomplete-inputRoot": {
+      justifyContent: center ? "center" : undefined,
+    },
+    "& .MuiAutocomplete-input": {
+      // flex: 0,
+      // padding: "0 !important",
+      minWidth: "0 !important",
+    },
   },
   tag: {
     alignSelf: "flex-start",
@@ -120,6 +133,7 @@ const useClasses = makeClasses((_, { opaque }) => ({
     display: "flex",
     flexDirection: "column",
     marginBottom: "0.3rem",
+    width,
     "&.MuiAutocomplete-option": {
       padding: "0.2rem 0.5rem",
     },

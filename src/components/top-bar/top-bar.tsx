@@ -10,14 +10,17 @@ import Color from "color";
 
 export const TopBar = observer(() => {
   const rootStore = useStores();
-  const { fileStore, homeStore } = useStores();
+  const { faceRecognitionStore, fileStore, homeStore } = useStores();
   const { css } = useClasses(null);
 
   const hasNoSelection = fileStore.selectedIds.length === 0;
 
   const [isTaggerOpen, setIsTaggerOpen] = useState(false);
 
-  const handleDelete = () => fileStore.deleteFiles({ rootStore, fileIds: fileStore.selectedIds });
+  const handleAutoDetect = () =>
+    faceRecognitionStore.addFilesToAutoDetectQueue({ fileIds: fileStore.selectedIds, rootStore });
+
+  const handleDelete = () => fileStore.deleteFiles({ fileIds: fileStore.selectedIds, rootStore });
 
   const handleEditTags = () => setIsTaggerOpen(true);
 
@@ -34,7 +37,7 @@ export const TopBar = observer(() => {
   };
 
   const handleUnarchive = () =>
-    fileStore.deleteFiles({ rootStore, fileIds: fileStore.selectedIds, isUndelete: true });
+    fileStore.deleteFiles({ fileIds: fileStore.selectedIds, isUndelete: true, rootStore });
 
   const toggleFileCardFit = () =>
     homeStore.setFileCardFit(homeStore.fileCardFit === "cover" ? "contain" : "cover");
@@ -70,6 +73,13 @@ export const TopBar = observer(() => {
           <IconButton
             name="Refresh"
             onClick={handleFileInfoRefresh}
+            disabled={hasNoSelection}
+            size="medium"
+          />
+
+          <IconButton
+            name="Face"
+            onClick={handleAutoDetect}
             disabled={hasNoSelection}
             size="medium"
           />

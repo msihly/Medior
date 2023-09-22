@@ -3,6 +3,13 @@ import { model, Schema } from "mongoose";
 export interface File {
   dateCreated: string;
   dateModified: string;
+  faceModels?: {
+    box: { height: number; width: number; x: number; y: number };
+    /** JSON representation of Float32Array[] */
+    descriptors: string;
+    fileId: string;
+    tagId: string;
+  }[];
   duration?: number;
   ext: string;
   frameRate: number;
@@ -26,6 +33,14 @@ const FileSchema = new Schema<File>({
   dateModified: String,
   duration: Number,
   ext: String,
+  faceModels: [
+    {
+      box: { height: Number, width: Number, x: Number, y: Number },
+      descriptors: [Object],
+      fileId: Schema.Types.ObjectId,
+      tagId: Schema.Types.ObjectId,
+    },
+  ],
   frameRate: Number,
   hash: String,
   height: Number,

@@ -6,10 +6,21 @@ import {
   Model,
   model,
   modelAction,
+  ModelCreationData,
   prop,
 } from "mobx-keystone";
-import { RootStore, Tag } from "store";
+import { FaceModel, RootStore, Tag } from "store";
+import { File as MongoFile } from "database";
 import { ANIMATED_EXT_REG_EXP, dayjs, VIDEO_EXT_REG_EXP } from "utils";
+
+export const mongoFileToMobX = (file: MongoFile): ModelCreationData<File> => ({
+  ...file,
+  faceModels:
+    file.faceModels?.map?.(
+      (face) =>
+        new FaceModel({ ...face, descriptors: JSON.stringify(face.descriptors), fileId: file.id })
+    ) ?? [],
+});
 
 @model("mediaViewer/File")
 export class File extends Model({
@@ -17,6 +28,7 @@ export class File extends Model({
   dateModified: prop<string>(),
   duration: prop<number>(null),
   ext: prop<string>(),
+  faceModels: prop<FaceModel[] | null>(null),
   frameRate: prop<number>(null),
   hash: prop<string>(),
   height: prop<number>(),
@@ -34,8 +46,20 @@ export class File extends Model({
 }) {
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
   @modelAction
-  update(file: Partial<File>) {
-    applySnapshot(this, { ...getSnapshot(this), ...file });
+  update(
+    file: Partial<
+      Omit<ModelCreationData<File>, "faceModels"> & { faceModels?: ModelCreationData<FaceModel>[] }
+    >
+  ) {
+    const prev = getSnapshot(this);
+
+    applySnapshot(this, {
+      ...prev,
+      ...file,
+      faceModels: file.faceModels
+        ? file.faceModels.map((f) => getSnapshot(new FaceModel(f)))
+        : prev.faceModels,
+    });
   }
 
   @modelAction
