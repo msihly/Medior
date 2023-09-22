@@ -89,7 +89,7 @@ const useClasses = makeClasses(
         textAlign,
       },
       "& .MuiOutlinedInput-root": {
-        backgroundColor: bgColor ?? Color(colors.grey["900"]).fade(0.7).string(),
+        backgroundColor: Color(colors.grey["900"]).fade(0.7).string(),
         "& fieldset": {
           transition: "all 200ms ease-in-out",
           borderColor: color,

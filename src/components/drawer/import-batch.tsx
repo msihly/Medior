@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { observer } from "mobx-react-lite";
-import { File, useStores } from "store";
+import { useStores } from "store";
 import { colors, LinearProgress } from "@mui/material";
 import {
   BatchTooltip,
@@ -12,7 +12,7 @@ import {
   Text,
   View,
 } from "components";
-import { makeClasses, trpc } from "utils";
+import { makeClasses } from "utils";
 import { toast } from "react-toastify";
 
 interface ImportBatchProps {
@@ -20,30 +20,16 @@ interface ImportBatchProps {
 }
 
 export const ImportBatch = observer(({ createdAt }: ImportBatchProps) => {
-  const { fileStore, importStore } = useStores();
+  const { importStore } = useStores();
 
   const batch = importStore.getByCreatedAt(createdAt);
+  const completedFileIds = batch.completed.map((imp) => imp.fileId);
   const status = IMPORT_STATUSES[batch.status];
 
-  const [completedFiles, setCompletedFiles] = useState<File[]>([]);
   const [expanded, setExpanded] = useState(false);
   const [isTaggerOpen, setIsTaggerOpen] = useState(false);
 
   const { css } = useClasses({ expanded, hasTags: batch.tagIds?.length > 0 });
-
-  useEffect(() => {
-    const loadCompletedFiles = async () => {
-      const completedIds = batch.completed.map((imp) => imp.fileId);
-      const files = fileStore.listByIds(completedIds);
-      if (files.length < completedIds.length) {
-        const allFiles = (await trpc.listFiles.mutate({ ids: completedIds }))?.data;
-        fileStore.append(allFiles);
-        setCompletedFiles(fileStore.listByIds(completedIds));
-      } else setCompletedFiles(files);
-    };
-
-    if (batch.status !== "PENDING") loadCompletedFiles();
-  }, [batch.status, isTaggerOpen]);
 
   const handleDelete = async () => {
     const res = await importStore.deleteImportBatch({ id: batch.id });
@@ -96,7 +82,7 @@ export const ImportBatch = observer(({ createdAt }: ImportBatchProps) => {
         />
 
         {isTaggerOpen && (
-          <Tagger files={completedFiles} batchId={batch.id} setVisible={setIsTaggerOpen} />
+          <Tagger fileIds={completedFileIds} batchId={batch.id} setVisible={setIsTaggerOpen} />
         )}
       </View>
 

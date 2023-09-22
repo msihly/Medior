@@ -1,4 +1,4 @@
-import { forwardRef, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
 import { Divider, Drawer as MuiDrawer, List, colors } from "@mui/material";
@@ -17,176 +17,176 @@ import { IMAGE_TYPES, makeClasses, VIDEO_TYPES } from "utils";
 import * as Media from "media";
 import Color from "color";
 
-export const Drawer = observer(
-  forwardRef((_, drawerRef: any) => {
-    const { homeStore, tagStore } = useStores();
+export const Drawer = observer(() => {
+  const { homeStore, tagStore } = useStores();
 
-    const { css } = useClasses({ drawerMode: homeStore.drawerMode });
+  const { css } = useClasses({ drawerMode: homeStore.drawerMode });
 
-    const [isImporterOpen, setIsImporterOpen] = useState(false);
+  const [isImporterOpen, setIsImporterOpen] = useState(false);
 
-    const [isAllImageTypesSelected, isAnyImageTypesSelected] = useMemo(() => {
-      const allTypes = Object.values(homeStore.selectedImageTypes);
-      const selectedTypes = allTypes.filter((t) => t === true);
-      const isAllSelected = allTypes.length === selectedTypes.length;
-      const isAnySelected = selectedTypes.length > 0 && selectedTypes.length !== allTypes.length;
-      return [isAllSelected, isAnySelected];
-    }, [homeStore.selectedImageTypes]);
+  const [isAllImageTypesSelected, isAnyImageTypesSelected] = useMemo(() => {
+    const allTypes = Object.values(homeStore.selectedImageTypes);
+    const selectedTypes = allTypes.filter((t) => t === true);
+    const isAllSelected = allTypes.length === selectedTypes.length;
+    const isAnySelected = selectedTypes.length > 0 && selectedTypes.length !== allTypes.length;
+    return [isAllSelected, isAnySelected];
+  }, [homeStore.selectedImageTypes]);
 
-    const [isAllVideoTypesSelected, isAnyVideoTypesSelected] = useMemo(() => {
-      const allTypes = Object.values(homeStore.selectedVideoTypes);
-      const selectedTypes = allTypes.filter((t) => t === true);
-      const isAllSelected = allTypes.length === selectedTypes.length;
-      const isAnySelected = selectedTypes.length > 0 && selectedTypes.length !== allTypes.length;
-      return [isAllSelected, isAnySelected];
-    }, [homeStore.selectedVideoTypes]);
+  const [isAllVideoTypesSelected, isAnyVideoTypesSelected] = useMemo(() => {
+    const allTypes = Object.values(homeStore.selectedVideoTypes);
+    const selectedTypes = allTypes.filter((t) => t === true);
+    const isAllSelected = allTypes.length === selectedTypes.length;
+    const isAnySelected = selectedTypes.length > 0 && selectedTypes.length !== allTypes.length;
+    return [isAllSelected, isAnySelected];
+  }, [homeStore.selectedVideoTypes]);
 
-    const toggleImageTypes = () =>
-      homeStore.setSelectedImageTypes(
-        Object.fromEntries(IMAGE_TYPES.map((t) => [t, isAllImageTypesSelected ? false : true]))
-      );
+  const handleClose = () => homeStore.setIsDrawerOpen(false);
 
-    const toggleVideoTypes = () =>
-      homeStore.setSelectedVideoTypes(
-        Object.fromEntries(VIDEO_TYPES.map((t) => [t, isAllVideoTypesSelected ? false : true]))
-      );
+  const handleDescendants = () => homeStore.setIncludeDescendants(!homeStore.includeDescendants);
 
-    const handleDescendants = () => homeStore.setIncludeDescendants(!homeStore.includeDescendants);
+  const handleManageTags = () => {
+    tagStore.setTagManagerMode("search");
+    tagStore.setIsTagManagerOpen(true);
+  };
 
-    const handleManageTags = () => {
-      tagStore.setTagManagerMode("search");
-      tagStore.setIsTagManagerOpen(true);
-    };
+  const handleTagged = () => {
+    if (!homeStore.includeTagged && !homeStore.includeUntagged) homeStore.setIncludeTagged(true);
+    else if (homeStore.includeTagged) {
+      homeStore.setIncludeTagged(false);
+      homeStore.setIncludeUntagged(true);
+    } else homeStore.setIncludeUntagged(false);
+  };
 
-    const handleTagged = () => {
-      if (!homeStore.includeTagged && !homeStore.includeUntagged) homeStore.setIncludeTagged(true);
-      else if (homeStore.includeTagged) {
-        homeStore.setIncludeTagged(false);
-        homeStore.setIncludeUntagged(true);
-      } else homeStore.setIncludeUntagged(false);
-    };
+  const toggleArchiveOpen = () => homeStore.setIsArchiveOpen(!homeStore.isArchiveOpen);
 
-    const toggleArchiveOpen = () => homeStore.setIsArchiveOpen(!homeStore.isArchiveOpen);
+  const toggleImageTypes = () =>
+    homeStore.setSelectedImageTypes(
+      Object.fromEntries(IMAGE_TYPES.map((t) => [t, isAllImageTypesSelected ? false : true]))
+    );
 
-    return (
-      <MuiDrawer
-        PaperProps={{ className: css.drawer, ref: drawerRef }}
-        ModalProps={{ keepMounted: true }}
-        open={homeStore.isDrawerOpen}
-        onClose={() => homeStore.setIsDrawerOpen(false)}
-        variant={homeStore.drawerMode}
-      >
-        <View className={css.topActions}>
-          <IconButton name="Menu" onClick={() => homeStore.setIsDrawerOpen(false)} size="medium" />
+  const toggleVideoTypes = () =>
+    homeStore.setSelectedVideoTypes(
+      Object.fromEntries(VIDEO_TYPES.map((t) => [t, isAllVideoTypesSelected ? false : true]))
+    );
 
-          <IconButton onClick={homeStore.toggleDrawerMode} size="medium">
-            <Media.PinSVG className={css.pin} />
-          </IconButton>
-        </View>
+  return (
+    <MuiDrawer
+      PaperProps={{ className: css.drawer }}
+      ModalProps={{ keepMounted: true }}
+      open={homeStore.isDrawerOpen}
+      onClose={handleClose}
+      variant={homeStore.drawerMode}
+    >
+      <View className={css.topActions}>
+        <IconButton name="Menu" onClick={handleClose} size="medium" />
 
-        <List>
-          <ListItem text="Manage Tags" icon="More" onClick={handleManageTags} />
+        <IconButton onClick={homeStore.toggleDrawerMode} size="medium">
+          <Media.PinSVG className={css.pin} />
+        </IconButton>
+      </View>
 
-          <ListItem text="Import" icon="GetApp" onClick={() => setIsImporterOpen(true)} />
+      <List>
+        <ListItem text="Manage Tags" icon="More" onClick={handleManageTags} />
 
-          <ListItem
-            text={`${homeStore.isArchiveOpen ? "Close" : "Open"} Archive`}
-            icon={homeStore.isArchiveOpen ? "Unarchive" : "Archive"}
-            onClick={toggleArchiveOpen}
-          />
-        </List>
+        <ListItem text="Import" icon="GetApp" onClick={() => setIsImporterOpen(true)} />
 
-        <Divider variant="middle" />
+        <ListItem
+          text={`${homeStore.isArchiveOpen ? "Close" : "Open"} Archive`}
+          icon={homeStore.isArchiveOpen ? "Unarchive" : "Archive"}
+          onClick={toggleArchiveOpen}
+        />
+      </List>
 
-        <Text align="center" className={css.inputTitle}>
-          {"Include - All"}
-        </Text>
-        <TagInput
-          value={[...homeStore.includedAllTags]}
-          setValue={(val) => homeStore.setIncludedAllTags(val)}
-          options={[...tagStore.tagOptions]}
-          limitTags={3}
-          className={css.input}
+      <Divider variant="middle" />
+
+      <Text align="center" className={css.inputTitle}>
+        {"Include - All"}
+      </Text>
+      <TagInput
+        value={[...homeStore.includedAllTags]}
+        setValue={(val) => homeStore.setIncludedAllTags(val)}
+        options={[...tagStore.tagOptions]}
+        limitTags={3}
+        className={css.input}
+      />
+
+      <Text align="center" className={css.inputTitle}>
+        {"Include - Any"}
+      </Text>
+      <TagInput
+        value={[...homeStore.includedAnyTags]}
+        setValue={(val) => homeStore.setIncludedAnyTags(val)}
+        options={[...tagStore.tagOptions]}
+        limitTags={3}
+        className={css.input}
+      />
+
+      <Text align="center" className={css.inputTitle}>
+        {"Exclude - Any"}
+      </Text>
+      <TagInput
+        value={[...homeStore.excludedAnyTags]}
+        setValue={(val) => homeStore.setExcludedAnyTags(val)}
+        options={[...tagStore.tagOptions]}
+        limitTags={3}
+        className={css.input}
+      />
+
+      <View className={css.checkboxes} column>
+        <Checkbox
+          label="Descendants"
+          checked={homeStore.includeDescendants}
+          setChecked={handleDescendants}
         />
 
-        <Text align="center" className={css.inputTitle}>
-          {"Include - Any"}
-        </Text>
-        <TagInput
-          value={[...homeStore.includedAnyTags]}
-          setValue={(val) => homeStore.setIncludedAnyTags(val)}
-          options={[...tagStore.tagOptions]}
-          limitTags={3}
-          className={css.input}
+        <Checkbox
+          label="Tagged"
+          checked={homeStore.includeTagged}
+          indeterminate={homeStore.includeUntagged}
+          setChecked={handleTagged}
+        />
+      </View>
+
+      <View row className={css.accordionContainer}>
+        <Checkbox
+          checked={isAllImageTypesSelected}
+          indeterminate={!isAllImageTypesSelected && isAnyImageTypesSelected}
+          setChecked={toggleImageTypes}
+          className={css.accordionHeaderCheckbox}
         />
 
-        <Text align="center" className={css.inputTitle}>
-          {"Exclude - Any"}
-        </Text>
-        <TagInput
-          value={[...homeStore.excludedAnyTags]}
-          setValue={(val) => homeStore.setExcludedAnyTags(val)}
-          options={[...tagStore.tagOptions]}
-          limitTags={3}
-          className={css.input}
+        <Accordion header={<Text noWrap>Image Types</Text>} fullWidth className={css.accordion}>
+          {IMAGE_TYPES.map((ext) => (
+            <ExtCheckbox key={ext} ext={ext} type="Image" />
+          ))}
+        </Accordion>
+      </View>
+
+      <View row className={css.accordionContainer}>
+        <Checkbox
+          checked={isAllVideoTypesSelected}
+          indeterminate={!isAllVideoTypesSelected && isAnyVideoTypesSelected}
+          setChecked={toggleVideoTypes}
+          className={css.accordionHeaderCheckbox}
         />
 
-        <View className={css.checkboxes} column>
-          <Checkbox
-            label="Descendants"
-            checked={homeStore.includeDescendants}
-            setChecked={handleDescendants}
-          />
+        <Accordion header={<Text noWrap>Video Types</Text>} fullWidth className={css.accordion}>
+          {VIDEO_TYPES.map((ext) => (
+            <ExtCheckbox key={ext} ext={ext} type="Video" />
+          ))}
+        </Accordion>
+      </View>
 
-          <Checkbox
-            label="Tagged"
-            checked={homeStore.includeTagged}
-            indeterminate={homeStore.includeUntagged}
-            setChecked={handleTagged}
-          />
-        </View>
+      {tagStore.isTagManagerOpen && <TagManager />}
 
-        <View row className={css.accordionContainer}>
-          <Checkbox
-            checked={isAllImageTypesSelected}
-            indeterminate={!isAllImageTypesSelected && isAnyImageTypesSelected}
-            setChecked={toggleImageTypes}
-            className={css.accordionHeaderCheckbox}
-          />
-
-          <Accordion header={<Text noWrap>Image Types</Text>} fullWidth className={css.accordion}>
-            {IMAGE_TYPES.map((ext) => (
-              <ExtCheckbox key={ext} ext={ext} type="Image" />
-            ))}
-          </Accordion>
-        </View>
-
-        <View row className={css.accordionContainer}>
-          <Checkbox
-            checked={isAllVideoTypesSelected}
-            indeterminate={!isAllVideoTypesSelected && isAnyVideoTypesSelected}
-            setChecked={toggleVideoTypes}
-            className={css.accordionHeaderCheckbox}
-          />
-
-          <Accordion header={<Text noWrap>Video Types</Text>} fullWidth className={css.accordion}>
-            {VIDEO_TYPES.map((ext) => (
-              <ExtCheckbox key={ext} ext={ext} type="Video" />
-            ))}
-          </Accordion>
-        </View>
-
-        {tagStore.isTagManagerOpen && <TagManager />}
-
-        {/* {fileCollectionStore.isCollectionManagerOpen && <FileCollectionManager />}
+      {/* {fileCollectionStore.isCollectionManagerOpen && <FileCollectionManager />}
 
         {fileCollectionStore.isCollectionEditorOpen && <FileCollectionEditor />} */}
 
-        <Importer isOpen={isImporterOpen} setIsOpen={setIsImporterOpen} />
-      </MuiDrawer>
-    );
-  })
-);
+      <Importer isOpen={isImporterOpen} setIsOpen={setIsImporterOpen} />
+    </MuiDrawer>
+  );
+});
 
 const useClasses = makeClasses((_, { drawerMode }) => ({
   accordion: {

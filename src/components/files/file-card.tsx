@@ -1,10 +1,12 @@
+import { getCurrentWebContents } from "@electron/remote";
 import { useRef, useState } from "react";
 import { observer } from "mobx-react-lite";
 import { File, useStores } from "store";
 import { colors, Chip, Paper } from "@mui/material";
 import { Icon, Tag, View } from "components";
 import { ContextMenu, FileTooltip, openFile } from ".";
-import { dayjs, makeClasses } from "utils";
+import { dayjs, makeClasses, uniqueArrayFilter } from "utils";
+import { CSSObject } from "tss-react";
 import Color from "color";
 
 interface FileCardProps {
@@ -13,16 +15,80 @@ interface FileCardProps {
 }
 
 export const FileCard = observer(({ file, id }: FileCardProps) => {
-  const { fileStore, tagStore } = useStores();
+  const { fileStore, homeStore, tagStore } = useStores();
   if (!file) file = fileStore.getById(id);
 
   const thumbInterval = useRef(null);
-  const [thumbIndex, setThumbIndex] = useState(0);
-  const [imagePos, setImagePos] = useState<string | null>(null);
 
-  const { css } = useClasses({ imagePos, selected: fileStore.getIsSelected(file.id) });
+  const [imagePos, setImagePos] = useState<CSSObject["objectPosition"]>(null);
+  const [thumbIndex, setThumbIndex] = useState(0);
+
+  const { css } = useClasses({
+    fileCardFit: homeStore.fileCardFit,
+    imagePos,
+    selected: fileStore.getIsSelected(file.id),
+  });
+
+  const handleClick = (event: React.MouseEvent) => {
+    if (event.shiftKey) {
+      const clickedIndex = fileStore.filteredFileIds.indexOf(file.id);
+      const firstIndex = fileStore.filteredFileIds.indexOf(fileStore.selectedIds[0]);
+
+      const isFirstAfterClicked = firstIndex >= clickedIndex;
+      const startIndex = isFirstAfterClicked ? clickedIndex : firstIndex;
+      const endIndex = isFirstAfterClicked ? firstIndex : clickedIndex;
+
+      const selectedIds =
+        startIndex === endIndex
+          ? []
+          : uniqueArrayFilter(
+              fileStore.filteredFileIds.slice(startIndex, endIndex + 1),
+              fileStore.selectedIds
+            );
+
+      /** Deselect the files before the clicked file if the first index is after it, or deselect the files after the clicked file if the first index is before it. */
+      const unselectedIds = fileStore.selectedIds.filter(
+        (id) =>
+          (isFirstAfterClicked && fileStore.filteredFileIds.indexOf(id) < clickedIndex) ||
+          (!isFirstAfterClicked && fileStore.filteredFileIds.indexOf(id) > clickedIndex)
+      );
+
+      fileStore.toggleFilesSelected([
+        ...selectedIds.map((id) => ({ id, isSelected: true })),
+        ...unselectedIds.map((id) => ({ id, isSelected: false })),
+      ]);
+    } else if (event.ctrlKey) {
+      /** Toggle the selected state of the file that was clicked. */
+      fileStore.toggleFilesSelected([
+        { id: file.id, isSelected: !fileStore.getIsSelected(file.id) },
+      ]);
+    } else {
+      /** Deselect all the files and select the file that was clicked. */
+      fileStore.toggleFilesSelected([
+        ...fileStore.selectedIds.map((id) => ({ id, isSelected: false })),
+        { id: file.id, isSelected: true },
+      ]);
+    }
+  };
+
+  const handleDoubleClick = () => openFile({ file, filteredFileIds: fileStore.filteredFileIds });
+
+  const handleDragStart = async (event: React.DragEvent) => {
+    event.preventDefault();
+    homeStore.setIsDraggingOut(true);
+
+    const hasSelected = fileStore.selectedIds.length > 0;
+    const files = hasSelected ? await loadSelectedFiles() : null;
+    const filePaths = hasSelected ? files.map((file) => file.path) : [file.path];
+    const icon = hasSelected ? files[0].thumbPaths[0] : file.thumbPaths[0];
+
+    getCurrentWebContents().startDrag({ file: file.path, files: filePaths, icon });
+  };
+
+  const handleDragEnd = () => homeStore.setIsDraggingOut(false);
 
   const handleMouseEnter = () => {
+    clearInterval(thumbInterval.current); /** Safety check for failed onMouseLeave */
     thumbInterval.current = setInterval(() => {
       setThumbIndex((thumbIndex) =>
         thumbIndex + 1 === file.thumbPaths.length ? 0 : thumbIndex + 1
@@ -37,15 +103,16 @@ export const FileCard = observer(({ file, id }: FileCardProps) => {
     setImagePos(null);
   };
 
-  // const handleMouseMove = (event: React.MouseEvent) => {
-  //   const { height, left, top, width } = event.currentTarget.getBoundingClientRect();
-  //   const offsetX = event.pageX - left;
-  //   const offsetY = event.pageY - top;
-  //   const pos = `${(Math.max(0, offsetX) / width) * 100}% ${
-  //     (Math.max(0, offsetY) / height) * 100
-  //   }%`;
-  //   setImagePos(pos);
-  // };
+  const handleMouseMove = (event: React.MouseEvent) => {
+    const { height, left, top, width } = event.currentTarget.getBoundingClientRect();
+    const offsetX = event.pageX - left;
+    const offsetY = event.pageY - top;
+    const pos = `${(Math.max(0, offsetX) / width) * 100}% ${
+      (Math.max(0, offsetY) / height) * 100
+    }%`;
+
+    setImagePos(pos);
+  };
 
   const handleTagPress = (tagId: string) => {
     tagStore.setActiveTagId(tagId);
@@ -53,11 +120,20 @@ export const FileCard = observer(({ file, id }: FileCardProps) => {
     tagStore.setIsTagManagerOpen(true);
   };
 
-  const handleDoubleClick = () => openFile({ file, filteredFileIds: fileStore.filteredFileIds });
+  const loadSelectedFiles = async () => {
+    const res = await fileStore.loadFiles({ fileIds: fileStore.selectedIds, withOverwrite: false });
+    if (!res?.success) throw new Error(res.error);
+    return res.data;
+  };
 
   return (
     <ContextMenu key="context-menu" file={file} className={`${css.container} selectable`}>
-      <Paper onDoubleClick={handleDoubleClick} elevation={3} className={css.paper}>
+      <Paper
+        onClick={handleClick}
+        onDoubleClick={handleDoubleClick}
+        elevation={3}
+        className={css.paper}
+      >
         <View
           onMouseEnter={file.isAnimated ? handleMouseEnter : null}
           onMouseLeave={handleMouseLeave}
@@ -70,25 +146,27 @@ export const FileCard = observer(({ file, id }: FileCardProps) => {
           />
 
           <img
+            id={file.id}
             src={file.thumbPaths[thumbIndex]}
             alt={file.originalName}
-            // onMouseMove={handleMouseMove}
-            onMouseLeave={handleMouseLeave}
-            draggable={false}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+            onMouseMove={homeStore.fileCardFit === "cover" ? handleMouseMove : null}
+            onMouseLeave={homeStore.fileCardFit === "cover" ? handleMouseLeave : null}
+            draggable
             loading="lazy"
             className={css.image}
-            style={{ objectPosition: imagePos }}
           />
 
           <Chip label={file.ext} className={css.ext} />
 
-          {file.collections.length > 0 && (
+          {/* {file.collections.length > 0 && (
             <Chip
               icon={<Icon name="Collections" size="inherit" margins={{ left: "0.5rem" }} />}
               label={file.collections.length}
-              // className={css.collections}
+              className={css.collections}
             />
-          )}
+          )} */}
 
           {file.duration && (
             <Chip
@@ -112,12 +190,13 @@ export const FileCard = observer(({ file, id }: FileCardProps) => {
   );
 });
 
-const useClasses = makeClasses((theme, { imagePos, selected }) => ({
+const useClasses = makeClasses((theme, { fileCardFit, imagePos, selected }) => ({
   container: {
-    flexBasis: "calc(100% / 7)",
+    flexBasis: "calc(100% / 6)",
     [theme.breakpoints.down("xl")]: { flexBasis: "calc(100% / 5)" },
     [theme.breakpoints.down("lg")]: { flexBasis: "calc(100% / 4)" },
-    [theme.breakpoints.down("md")]: { flexBasis: "calc(100% / 3)" },
+    [theme.breakpoints.down("md")]: { flexBasis: "calc(100% / 2)" },
+    [theme.breakpoints.down("sm")]: { flexBasis: "calc(100% / 1)" },
     border: "1px solid",
     borderColor: "#0f0f0f",
     borderRadius: 4,
@@ -166,16 +245,16 @@ const useClasses = makeClasses((theme, { imagePos, selected }) => ({
     backgroundColor: "inherit",
   },
   image: {
-    width: "100%",
-    height: "9rem",
     borderTopLeftRadius: "inherit",
     borderTopRightRadius: "inherit",
+    width: "100%",
+    height: "22rem",
+    [theme.breakpoints.down("xl")]: { height: "14rem" },
+    [theme.breakpoints.down("sm")]: { height: "18rem" },
     userSelect: "none",
     transition: "all 100ms ease",
-    objectFit: "cover",
-    "&:hover": {
-      objectFit: "contain",
-    },
+    objectFit: fileCardFit,
+    objectPosition: imagePos,
   },
   imageContainer: {
     position: "relative",

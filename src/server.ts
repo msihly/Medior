@@ -94,9 +94,9 @@ const trpcRouter = tRouter({
   listFilesByTagIds: tProc
     .input((input: unknown) => input as db.ListFilesByTagIdsInput)
     .mutation(({ input }) => db.listFilesByTagIds(input)),
-  listFilteredFiles: tProc
-    .input((input: unknown) => input as db.ListFilteredFilesInput)
-    .mutation(({ input }) => db.listFilteredFiles(input)),
+  listFilteredFileIds: tProc
+    .input((input: unknown) => input as db.listFilteredFileIdsInput)
+    .mutation(({ input }) => db.listFilteredFileIds(input)),
   listImportBatches: tProc.mutation(db.listImportBatches),
   listTags: tProc.mutation(db.getAllTags),
   onFilesDeleted: tProc
@@ -117,6 +117,9 @@ const trpcRouter = tRouter({
   onTagUpdated: tProc
     .input((input: unknown) => input as db.OnTagUpdatedInput)
     .mutation(({ input }) => db.onTagUpdated(input)),
+  recalculateTagCounts: tProc
+    .input((input: unknown) => input as db.RecalculateTagCountsInput)
+    .mutation(({ input }) => db.recalculateTagCounts(input)),
   removeChildTagIdsFromTags: tProc
     .input((input: unknown) => input as db.RemoveChildTagIdsFromTagsInput)
     .mutation(({ input }) => db.removeChildTagIdsFromTags(input)),

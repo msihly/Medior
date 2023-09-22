@@ -7,7 +7,7 @@ import {
   ImportFileInput,
   ListFilesByTagIdsInput,
   ListFilesInput,
-  ListFilteredFilesInput,
+  listFilteredFileIdsInput,
   OnFileTagsUpdatedInput,
   OnFilesUpdatedInput,
   RemoveTagFromAllFilesInput,
@@ -16,8 +16,8 @@ import {
   SetFileRatingInput,
   UpdateFileInput,
 } from "database";
-import { LeanDocument, Types } from "mongoose";
 import { dayjs, handleErrors, socket, trpc } from "utils";
+import { leanModelToJson } from "./utils";
 
 export const addTagsToFiles = ({ fileIds = [], tagIds = [] }: AddTagsToFilesInput) =>
   handleErrors(async () => {
@@ -33,7 +33,7 @@ export const deleteFiles = ({ fileIds = [] }: DeleteFilesInput) =>
   handleErrors(async () => await FileModel.deleteMany({ _id: { $in: fileIds } }));
 
 export const getFileByHash = ({ hash }: GetFileByHashInput) =>
-  handleErrors(async () => (await FileModel.findOne({ hash }))?.toJSON?.() as File);
+  handleErrors(async () => leanModelToJson<File>(await FileModel.findOne({ hash }).lean()));
 
 export const importFile = ({
   dateCreated,
@@ -50,55 +50,56 @@ export const importFile = ({
   thumbPaths,
   width,
 }: ImportFileInput) =>
-  handleErrors(
-    async () =>
-      (
-        await FileModel.create({
-          dateCreated,
-          dateModified: dayjs().toISOString(),
-          duration,
-          ext,
-          frameRate,
-          hash,
-          height,
-          isArchived: false,
-          originalHash: hash,
-          originalName,
-          originalPath,
-          path,
-          rating: 0,
-          size,
-          tagIds,
-          thumbPaths,
-          width,
-        })
-      ).toJSON() as File
+  handleErrors(async () =>
+    leanModelToJson<File>(
+      await FileModel.create({
+        dateCreated,
+        dateModified: dayjs().toISOString(),
+        duration,
+        ext,
+        frameRate,
+        hash,
+        height,
+        isArchived: false,
+        originalHash: hash,
+        originalName,
+        originalPath,
+        path,
+        rating: 0,
+        size,
+        tagIds,
+        thumbPaths,
+        width,
+      })
+    )
   );
-
-const leanFileToJson = (file: LeanDocument<File & { _id: Types.ObjectId }>) => {
-  const { _id, ...rest } = file;
-  return { ...rest, id: _id.toString() } as File;
-};
 
 export const listFiles = ({ ids }: ListFilesInput = {}) =>
   handleErrors(async () => {
     return (await FileModel.find(ids ? { _id: { $in: ids } } : undefined).lean()).map((f) =>
-      leanFileToJson(f)
+      leanModelToJson<File>(f)
     );
   });
 
 export const listFilesByTagIds = ({ tagIds }: ListFilesByTagIdsInput) =>
   handleErrors(async () => {
-    return (await FileModel.find({ tagIds: { $in: tagIds } }).lean()).map((f) => leanFileToJson(f));
+    return (await FileModel.find({ tagIds: { $in: tagIds } }).lean()).map((f) =>
+      leanModelToJson<File>(f)
+    );
   });
 
-export const listFilteredFiles = ({
+export const listFilteredFileIds = ({
+  excludedAnyTagIds,
+  includedAllTagIds,
+  includedAnyTagIds,
   includeTagged,
   includeUntagged,
   isArchived,
+  isSortDesc,
   selectedImageTypes,
   selectedVideoTypes,
-}: ListFilteredFilesInput) =>
+  sortKey,
+}: listFilteredFileIdsInput) =>
   handleErrors(async () => {
     const enabledExts = Object.entries({
       ...selectedImageTypes,
@@ -112,13 +113,18 @@ export const listFilteredFiles = ({
       await FileModel.find({
         isArchived,
         ext: { $in: enabledExts },
-        ...(includeTagged
-          ? { tagIds: { $ne: [] } }
-          : includeUntagged
-          ? { tagIds: { $eq: [] } }
-          : {}),
-      }).lean()
-    ).map((f) => leanFileToJson(f));
+        $and: [
+          includeTagged ? { tagIds: { $ne: [] } } : {},
+          includeUntagged ? { tagIds: { $eq: [] } } : {},
+          includedAllTagIds?.length > 0 ? { tagIds: { $all: includedAllTagIds } } : {},
+          includedAnyTagIds?.length > 0 ? { tagIds: { $in: includedAnyTagIds } } : {},
+          excludedAnyTagIds?.length > 0 ? { tagIds: { $nin: excludedAnyTagIds } } : {},
+        ],
+      })
+        .select("_id")
+        .sort({ [sortKey]: isSortDesc ? -1 : 1 })
+        .lean()
+    ).map((f) => f._id.toString());
   });
 
 export const onFilesDeleted = async ({ fileIds }: DeleteFilesInput) =>

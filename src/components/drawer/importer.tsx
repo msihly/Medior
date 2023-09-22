@@ -1,7 +1,7 @@
 import { dialog } from "@electron/remote";
 import { useState } from "react";
 import { observer } from "mobx-react-lite";
-import { useFileImportQueue, useStores } from "store";
+import { useStores } from "store";
 import { Dialog, DialogTitle, DialogContent, DialogActions, colors } from "@mui/material";
 import { Button, Checkbox, IconButton, ImportBatch, Text, View } from "components";
 import { dirToFileImports, filePathsToImports, makeClasses } from "utils";
@@ -15,8 +15,6 @@ interface ImporterProps {
 export const Importer = observer(({ isOpen = false, setIsOpen }: ImporterProps) => {
   const { importStore } = useStores();
   const { css } = useClasses(null);
-
-  useFileImportQueue();
 
   const [isConfirmDeleteAllOpen, setIsConfirmDeleteAllOpen] = useState(false);
 

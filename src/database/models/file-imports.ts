@@ -30,7 +30,7 @@ const FileImportBatchSchema = new Schema<FileImportBatch>({
       dateCreated: String,
       errorMsg: String,
       extension: String,
-      fileId: String,
+      fileId: { type: Schema.Types.ObjectId, ref: "File" },
       name: String,
       path: String,
       size: Number,
@@ -41,19 +41,10 @@ const FileImportBatchSchema = new Schema<FileImportBatch>({
     },
   ],
   startedAt: String,
-  tagIds: [String],
+  tagIds: [[{ type: Schema.Types.ObjectId, ref: "Tag" }]],
 });
 
 FileImportBatchSchema.index({ createdAt: 1 });
-
-FileImportBatchSchema.set("toJSON", {
-  transform: (_, ret) => {
-    delete ret._id;
-    delete ret.__v;
-    ret.imports.forEach((imp) => delete imp._id);
-  },
-  virtuals: true,
-});
 
 export const FileImportBatchModel = model<FileImportBatch>(
   "FileImportBatch",

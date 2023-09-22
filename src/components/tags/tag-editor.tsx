@@ -96,7 +96,12 @@ export const TagEditor = observer(({ create, goBack }: TagEditorProps) => {
           parentIds,
         }));
 
-    if (res.success) hasContinue ? clearInputs() : goBack();
+    if (res.success) {
+      if (hasContinue) {
+        clearInputs();
+        labelRef.current?.focus();
+      } else goBack();
+    }
   };
 
   return (

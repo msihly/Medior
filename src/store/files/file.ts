@@ -8,7 +8,7 @@ import {
   modelAction,
   prop,
 } from "mobx-keystone";
-import { RootStore } from "store";
+import { RootStore, Tag } from "store";
 import { ANIMATED_EXT_REG_EXP, dayjs, VIDEO_EXT_REG_EXP } from "utils";
 
 @model("mediaViewer/File")
@@ -78,7 +78,7 @@ export class File extends Model({
       const tag = tagStore.getById(cur);
       if (tag) acc.push(tag);
       return acc;
-    }, []);
+    }, [] as Tag[]);
   }
 
   @computed

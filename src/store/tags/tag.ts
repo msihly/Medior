@@ -1,6 +1,6 @@
 import { computed } from "mobx";
 import { applySnapshot, getSnapshot, model, Model, modelAction, prop } from "mobx-keystone";
-import { TagStore } from "store";
+import { TagOption, TagStore } from "store";
 
 export const getTagDescendants = (tagStore: TagStore, tag: Tag, depth = -1): string[] =>
   tag.childIds.length === 0 || depth === 0
@@ -15,6 +15,13 @@ export const getTagDescendants = (tagStore: TagStore, tag: Tag, depth = -1): str
 export const tagsToDescendants = (tagStore: TagStore, tags: Tag[], depth = -1): string[] => [
   ...new Set(tags.flatMap((t) => getTagDescendants(tagStore, t, depth))),
 ];
+
+export const tagToOption = (tag: Tag): TagOption => ({
+  aliases: [...tag.aliases],
+  count: tag.count,
+  id: tag.id,
+  label: tag.label,
+});
 
 @model("mediaViewer/Tag")
 export class Tag extends Model({
@@ -33,11 +40,6 @@ export class Tag extends Model({
 
   @computed
   get tagOption() {
-    return {
-      aliases: [...this.aliases],
-      count: this.count,
-      id: this.id,
-      label: this.label,
-    };
+    return tagToOption(this);
   }
 }

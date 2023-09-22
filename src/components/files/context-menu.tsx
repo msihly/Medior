@@ -1,23 +1,31 @@
+import path from "path";
 import { shell } from "@electron/remote";
 import { ReactNode, useState } from "react";
 import { observer } from "mobx-react-lite";
 import { File, useStores } from "store";
-import { Menu } from "@mui/material";
+import { Menu, colors } from "@mui/material";
 import { ListItem, View, ViewProps } from "components";
 import { InfoModal } from ".";
+import { copyToClipboard, makeClasses } from "utils";
 
-interface ContextMenuProps extends ViewProps {
+export interface ContextMenuProps extends ViewProps {
   children?: ReactNode | ReactNode[];
   file: File;
 }
 
 export const ContextMenu = observer(({ children, file, ...props }: ContextMenuProps) => {
+  const { css } = useClasses(null);
+
   const rootStore = useStores();
-  const { fileCollectionStore, fileStore } = useStores();
+  const { fileStore } = useStores();
 
   const [isInfoOpen, setIsInfoOpen] = useState(false);
   const [mouseX, setMouseX] = useState(null);
   const [mouseY, setMouseY] = useState(null);
+
+  const copyFilePath = () => copyToClipboard(file.path, "Copied file path");
+
+  const copyFolderPath = () => copyToClipboard(path.dirname(file.path), "Copied folder path");
 
   const handleContext = (event) => {
     event.preventDefault();
@@ -30,16 +38,10 @@ export const ContextMenu = observer(({ children, file, ...props }: ContextMenuPr
     setMouseY(null);
   };
 
-  const handleCollections = () => {
-    fileCollectionStore.setActiveFileId(file.id);
-    fileCollectionStore.setIsCollectionManagerOpen(true);
-    handleClose();
-  };
-
   const handleDelete = () => {
     fileStore.deleteFiles({
       rootStore,
-      files: fileStore.getIsSelected(file.id) ? fileStore.selected : [file],
+      fileIds: fileStore.getIsSelected(file.id) ? fileStore.selectedIds : [file.id],
     });
     handleClose();
   };
@@ -59,12 +61,6 @@ export const ContextMenu = observer(({ children, file, ...props }: ContextMenuPr
     handleClose();
   };
 
-  const listItemProps = {
-    iconMargin: "0.5rem",
-    paddingLeft: "0.2em",
-    paddingRight: "0.5em",
-  };
-
   return (
     <View {...props} id={file.id} onContextMenu={handleContext}>
       {children}
@@ -76,39 +72,49 @@ export const ContextMenu = observer(({ children, file, ...props }: ContextMenuPr
         anchorPosition={
           mouseX !== null && mouseY !== null ? { top: mouseY, left: mouseX } : undefined
         }
+        PopoverClasses={{ paper: css.contextMenu }}
+        MenuListProps={{ className: css.contextMenuInner }}
       >
-        <ListItem
-          text="Open Natively"
-          icon="DesktopWindows"
-          onClick={openNatively}
-          {...listItemProps}
-        />
+        <ListItem text="Open Natively" icon="DesktopWindows" onClick={openNatively} />
 
-        <ListItem
-          text="Open in Explorer"
-          icon="Search"
-          onClick={openInExplorer}
-          {...listItemProps}
-        />
+        <ListItem text="Open in Explorer" icon="Search" onClick={openInExplorer} />
 
-        <ListItem text="Info" icon="Info" onClick={openInfo} {...listItemProps} />
+        <ListItem text="Copy" icon="ContentCopy" iconEnd="ArrowRight">
+            <View column>
+            <ListItem text="File Path" icon="Image" onClick={copyFilePath} />
 
-        <ListItem
-          text="Collections"
-          icon="Collections"
-          onClick={handleCollections}
-          {...listItemProps}
-        />
+            <ListItem text="Folder Path" icon="Folder" onClick={copyFolderPath} />
+          </View>
+        </ListItem>
+
+        <ListItem text="Info" icon="Info" onClick={openInfo} />
+
 
         <ListItem
           text={file?.isArchived ? "Delete" : "Archive"}
           icon={file?.isArchived ? "Delete" : "Archive"}
           onClick={handleDelete}
-          {...listItemProps}
         />
       </Menu>
 
       {isInfoOpen && <InfoModal fileId={file.id} setVisible={setIsInfoOpen} />}
     </View>
   );
+});
+
+const useClasses = makeClasses({
+  contextMenu: {
+    background: colors.grey["900"],
+  },
+  contextMenuInner: {
+    padding: 0,
+  },
+  tooltip: {
+    margin: 0,
+    padding: 0,
+    backgroundColor: colors.grey["900"],
+  },
+  tooltipPopper: {
+    "& > div": { marginLeft: 0 },
+  },
 });

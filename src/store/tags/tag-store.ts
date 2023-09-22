@@ -10,7 +10,7 @@ import {
   prop,
 } from "mobx-keystone";
 import { CreateTagInput, EditTagInput } from "database";
-import { getTagDescendants, Tag } from ".";
+import { Tag } from ".";
 import { getArrayDiff, handleErrors, PromiseQueue, trpc } from "utils";
 import { toast } from "react-toastify";
 
@@ -21,9 +21,6 @@ export type TagOption = {
   label?: string;
 };
 
-export const TagCountsRefreshQueue = new PromiseQueue();
-export const TagRelationsRefreshQueue = new PromiseQueue();
-
 @model("mediaViewer/TagStore")
 export class TagStore extends Model({
   activeTagId: prop<string>(null).withSetter(),
@@ -31,6 +28,9 @@ export class TagStore extends Model({
   tags: prop<Tag[]>(() => []),
   tagManagerMode: prop<"create" | "edit" | "search">("search").withSetter(),
 }) {
+  countsRefreshQueue = new PromiseQueue();
+  relationsRefreshQueue = new PromiseQueue();
+
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
   @modelAction
   _addTag = (tag: ModelCreationData<Tag>) => this.tags.push(new Tag(tag));
@@ -59,14 +59,15 @@ export class TagStore extends Model({
       handleErrors(async () => {
         const res = await trpc.createTag.mutate({ aliases, childIds, label, parentIds });
         if (!res.success) throw new Error(res.error);
-        const tag = res.data;
+        const id = res.data.id;
+        const tag = { aliases, childIds, count: 0, hidden: false, id, label, parentIds };
 
         this._addTag(tag);
-        await this.refreshTagRelations({ id: tag.id });
-        await this.refreshRelatedTagCounts({ id: tag.id });
-        await trpc.onTagCreated.mutate({ tag });
-
+        await this.refreshTagRelations({ id });
+        await this.refreshRelatedTagCounts({ id });
         toast.success(`Tag '${label}' created`);
+
+        trpc.onTagCreated.mutate({ tag });
         return tag;
       })
     );
@@ -134,7 +135,7 @@ export class TagStore extends Model({
           });
 
         await trpc.editTag.mutate({ id, aliases, childIds, label, parentIds });
-        await this.refreshTagCount({ id, withRelated: true });
+        await this.refreshTagCount({ id });
 
         toast.success("Tag edited");
       })
@@ -165,7 +166,7 @@ export class TagStore extends Model({
           : toast.info(() => `Refreshed ${completedCount} tag counts...`, { autoClose: false });
 
         this.tags.map((t) =>
-          TagCountsRefreshQueue.add(async () => {
+          this.countsRefreshQueue.add(async () => {
             await this.refreshTagCount({ id: t.id });
 
             completedCount++;
@@ -195,7 +196,7 @@ export class TagStore extends Model({
         });
 
         this.tags.map((t) =>
-          TagRelationsRefreshQueue.add(async () => {
+          this.relationsRefreshQueue.add(async () => {
             await this.refreshTagRelations({ id: t.id });
 
             completedCount++;
@@ -213,22 +214,17 @@ export class TagStore extends Model({
   });
 
   @modelFlow
-  refreshTagCount = _async(function* (
-    this: TagStore,
-    { id, withRelated = false }: { id: string; withRelated?: boolean }
-  ) {
+  refreshTagCount = _async(function* (this: TagStore, { id }: { id: string }) {
     return yield* _await(
       handleErrors(async () => {
-        const tag = this.getById(id);
-        const descendants = getTagDescendants(this, tag);
-        const filesRes = await trpc.listFilesByTagIds.mutate({ tagIds: [id, ...descendants] });
-        const count = filesRes.data.length;
+        const tagIds = [id, ...this.getParentTags(this.getById(id)).map((t) => t.id)];
+        const res = await trpc.recalculateTagCounts.mutate({ tagIds });
 
-        await trpc.setTagCount.mutate({ id, count });
-        if (withRelated) await this.refreshRelatedTagCounts({ id });
+        res.data.forEach(({ count, id }) =>
+          trpc.onTagUpdated.mutate({ tagId: id, updates: { count } })
+        );
 
-        await trpc.onTagUpdated.mutate({ tagId: id, updates: { count } });
-        return count;
+        return res.data;
       })
     );
   });
@@ -285,13 +281,8 @@ export class TagStore extends Model({
     return yield* _await(
       handleErrors(async () => {
         const tag = this.getById(id);
-        const relatedTags = [...this.getChildTags(tag, true), ...this.getParentTags(tag, true)];
-        await Promise.all(
-          relatedTags.map(async (t) => {
-            const count = (await this.refreshTagCount({ id }))?.data;
-            t.update({ count });
-          })
-        );
+        const relatedTags = [...this.getChildTags(tag, true), ...this.getParentTags(tag)];
+        await Promise.all(relatedTags.map((t) => this.refreshTagCount({ id: t.id })));
       })
     );
   });
@@ -307,12 +298,16 @@ export class TagStore extends Model({
 
   getChildTags(tag: Tag, recursive = false): Tag[] {
     const childTags = this.listByIds(tag.childIds);
-    return recursive ? childTags.flatMap((t) => [t, ...this.getChildTags(t, true)]) : childTags;
+    return (
+      recursive ? childTags.flatMap((t) => [t, ...this.getChildTags(t, true)]) : childTags
+    ).sort((a, b) => b.count - a.count);
   }
 
   getParentTags(tag: Tag, recursive = false): Tag[] {
     const parentTags = this.listByIds(tag.parentIds);
-    return recursive ? parentTags.flatMap((t) => [t, ...this.getParentTags(t, true)]) : parentTags;
+    return (
+      recursive ? parentTags.flatMap((t) => [t, ...this.getParentTags(t, true)]) : parentTags
+    ).sort((a, b) => b.count - a.count);
   }
 
   listByIds(ids: string[]) {

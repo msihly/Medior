@@ -1,6 +1,6 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { observer } from "mobx-react-lite";
-import { File, TagOption, useStores } from "store";
+import { TagOption, tagToOption, useStores } from "store";
 import Draggable from "react-draggable";
 import {
   Dialog,
@@ -18,22 +18,35 @@ import { toast } from "react-toastify";
 
 interface TaggerProps {
   batchId?: string;
-  files: File[];
+  fileIds: string[];
   setVisible: (visible: boolean) => any;
 }
 
-export const Tagger = observer(({ batchId, files, setVisible }: TaggerProps) => {
+export const Tagger = observer(({ batchId, fileIds, setVisible }: TaggerProps) => {
   const rootStore = useStores();
   const { fileStore, tagStore } = useStores();
   const { css } = useClasses(null);
 
   const [addedTags, setAddedTags] = useState<TagOption[]>([]);
+  const [currentTagOptions, setCurrentTagOptions] = useState<TagOption[]>([]);
   const [removedTags, setRemovedTags] = useState<TagOption[]>([]);
   const [mode, setMode] = useState<"create" | "edit">("edit");
 
-  const currentTagOptions = useMemo(() => {
-    return [...new Set(files.flatMap((f) => f.tags.map((t) => t.tagOption)))];
-  }, [files, tagStore.tagOptions]);
+  useEffect(() => {
+    const loadCurrentTags = async () => {
+      const res = await fileStore.loadFiles({ fileIds, withOverwrite: false });
+      if (!res?.success) throw new Error(res.error);
+
+      const tagIds = [...new Set(res.data.flatMap((f) => f.tagIds))];
+      setCurrentTagOptions(tagStore.listByIds(tagIds).map((t) => tagToOption(t)));
+    };
+
+    loadCurrentTags();
+
+    return () => {
+      setCurrentTagOptions([]);
+    };
+  }, [fileIds, tagStore.tags.toString()]);
 
   const handleClose = () => setVisible(false);
 
@@ -54,9 +67,15 @@ export const Tagger = observer(({ batchId, files, setVisible }: TaggerProps) => 
       return toast.error("You must enter at least one tag");
 
     const addedTagIds = addedTags.map((t) => t.id);
-    const fileIds = files.map((f) => f.id);
     const removedTagIds = removedTags.map((t) => t.id);
-    await fileStore.editFileTags({ addedTagIds, batchId, fileIds, removedTagIds, rootStore });
+    const res = await fileStore.editFileTags({
+      addedTagIds,
+      batchId,
+      fileIds,
+      removedTagIds,
+      rootStore,
+    });
+    if (!res?.success) return toast.error(res.error);
 
     handleClose();
   };

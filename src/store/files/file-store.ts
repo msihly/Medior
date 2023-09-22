@@ -13,7 +13,13 @@ import {
   prop,
 } from "mobx-keystone";
 import { RootStore } from "store";
-import { EditFileTagsInput, LoadFilesInput, RefreshFileInput, SetFileRatingInput } from "database";
+import {
+  EditFileTagsInput,
+  LoadFilesInput,
+  RefreshFileInput,
+  RefreshSelectedFilesInput,
+  SetFileRatingInput,
+} from "database";
 import { File } from ".";
 import {
   CONSTANTS,
@@ -24,52 +30,36 @@ import {
   IMAGE_EXT_REG_EXP,
   PromiseQueue,
   splitArray,
+  THUMB_WIDTH,
   trpc,
   VIDEO_EXT_REG_EXP,
 } from "utils";
 import { toast } from "react-toastify";
 
-export const FileInfoRefreshQueue = new PromiseQueue();
-
 @model("mediaViewer/FileStore")
 export class FileStore extends Model({
   files: prop<File[]>(() => []),
-  filteredFileIds: prop<string[]>(() => []),
+  filteredFileIds: prop<string[]>(() => []).withSetter(),
   page: prop<number>(1).withSetter(),
   selectedIds: prop<string[]>(() => []),
 }) {
+  infoRefreshQueue = new PromiseQueue();
+
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
-  @modelAction
-  append(files: ModelCreationData<File>[]) {
-    this.files.push(
-      ...files.reduce((acc, cur) => {
-        const file = this.files.find((f) => f.id === cur.id);
-        if (!file) acc.push(new File(cur));
-        else file.update(cur);
-        return acc;
-      }, [])
-    );
-  }
-
-  @modelAction
-  appendFiltered(files: ModelCreationData<File>[], page = this.page) {
-    const displayed = files.slice((page - 1) * CONSTANTS.FILE_COUNT, page * CONSTANTS.FILE_COUNT);
-    this.append(displayed);
-    this.filteredFileIds = files.map((f) => f.id);
-  }
-
   @modelAction
   overwrite(files: ModelCreationData<File>[]) {
     this.files = files.map((f) => new File(f));
-    this.filteredFileIds = files.map((f) => f.id);
   }
 
   @modelAction
   toggleFilesSelected(selected: { id: string; isSelected?: boolean }[]) {
+    if (!selected?.length) return;
+
     const [added, removed] = selected.reduce(
       (acc, cur) => (acc[cur.isSelected ? 0 : 1].push(cur.id), acc),
       [[], []]
     );
+
     this.selectedIds = [...new Set(this.selectedIds.concat(added))].filter(
       (id) => !removed.includes(id)
     );
@@ -98,22 +88,25 @@ export class FileStore extends Model({
   deleteFiles = _async(function* (
     this: FileStore,
     {
-      files,
+      fileIds,
       isUndelete = false,
       rootStore,
-    }: { files: File[]; isUndelete?: boolean; rootStore: RootStore }
+    }: { fileIds: string[]; isUndelete?: boolean; rootStore: RootStore }
   ) {
     return yield* _await(
       handleErrors(async () => {
-        if (!files?.length) return false;
+        if (!fileIds?.length) return false;
 
         if (isUndelete) {
-          const fileIds = files.map((f) => f.id);
           await trpc.setFileIsArchived.mutate({ fileIds, isArchived: false });
           await trpc.onFilesUpdated.mutate({ fileIds, updates: { isArchived: false } });
-          toast.success(`${files.length} files unarchived`);
+          toast.success(`${fileIds.length} files unarchived`);
         } else {
-          const [deleted, archived] = splitArray(files, (f: File) => f.isArchived);
+          const res = await trpc.listFiles.mutate({ ids: fileIds });
+          if (!res.success) return false;
+          const files = res.data;
+
+          const [deleted, archived] = splitArray(files, (f) => f.isArchived);
           const [deletedIds, archivedIds] = [deleted, archived].map((arr) => arr.map((f) => f.id));
 
           if (archivedIds?.length > 0) {
@@ -141,7 +134,7 @@ export class FileStore extends Model({
 
             await Promise.all(
               [...new Set(deleted.flatMap((f) => f.tagIds))].map((id) =>
-                rootStore.tagStore.refreshTagCount({ id, withRelated: true })
+                rootStore.tagStore.refreshTagCount({ id })
               )
             );
 
@@ -150,7 +143,7 @@ export class FileStore extends Model({
           }
         }
 
-        this.toggleFilesSelected(files.map((f) => ({ id: f.id, isSelected: false })));
+        this.toggleFilesSelected(fileIds.map((id) => ({ id, isSelected: false })));
 
         return true;
       })
@@ -167,62 +160,56 @@ export class FileStore extends Model({
         if (!fileIds?.length || (!addedTagIds?.length && !removedTagIds?.length)) return false;
 
         if (removedTagIds?.length > 0) {
-          if (batchId?.length > 0)
-            await trpc.removeTagsFromBatch.mutate({ batchId, tagIds: removedTagIds });
-          await trpc.removeTagsFromFiles.mutate({ fileIds, tagIds: removedTagIds });
+          await Promise.all([
+            batchId?.length > 0 &&
+              (await trpc.removeTagsFromBatch.mutate({ batchId, tagIds: removedTagIds })),
+            await trpc.removeTagsFromFiles.mutate({ fileIds, tagIds: removedTagIds }),
+          ]);
         }
 
         if (addedTagIds?.length > 0) {
-          if (batchId?.length > 0)
-            await trpc.addTagsToBatch.mutate({ batchId, tagIds: addedTagIds });
-          await trpc.addTagsToFiles.mutate({ fileIds, tagIds: addedTagIds });
+          await Promise.all([
+            batchId?.length > 0 &&
+              (await trpc.addTagsToBatch.mutate({ batchId, tagIds: addedTagIds })),
+            await trpc.addTagsToFiles.mutate({ fileIds, tagIds: addedTagIds }),
+          ]);
         }
 
         await Promise.all(
-          [...addedTagIds, ...removedTagIds].map((id) =>
-            rootStore.tagStore.refreshTagCount({ id, withRelated: true })
-          )
+          [...addedTagIds, ...removedTagIds].map((id) => rootStore.tagStore.refreshTagCount({ id }))
         );
 
-        await trpc.onFileTagsUpdated.mutate({ addedTagIds, batchId, fileIds, removedTagIds });
         toast.success(`${fileIds.length} files updated`);
+
+        trpc.onFileTagsUpdated.mutate({ addedTagIds, batchId, fileIds, removedTagIds });
       })
     );
   });
 
   @modelFlow
-  loadFiles = _async(function* (this: FileStore, { fileIds }: LoadFilesInput) {
+  loadFiles = _async(function* (
+    this: FileStore,
+    { fileIds, withOverwrite = true }: LoadFilesInput
+  ) {
     return yield* _await(
       handleErrors(async () => {
-        if (!fileIds?.length) return false;
+        if (!fileIds?.length) return [];
         const filesRes = await trpc.listFiles.mutate({ ids: fileIds });
-        if (filesRes.success) this.overwrite(filesRes.data);
-        return filesRes.success;
+        if (filesRes.success && withOverwrite) this.overwrite(filesRes.data);
+        return filesRes.data;
       })
     );
   });
 
   @modelFlow
-  loadMissingFiles = _async(function* (this: FileStore) {
+  refreshFile = _async(function* (
+    this: FileStore,
+    { curFile, id, withThumbs = false }: RefreshFileInput
+  ) {
     return yield* _await(
       handleErrors(async () => {
-        const selectedFiles = this.selected.map((f) => f.id);
-        if (selectedFiles.length < this.selectedIds.length) {
-          const missingFiles = this.selectedIds.filter((id) => !selectedFiles.includes(id));
-          console.debug(`Loading ${missingFiles.length} missing files`);
-
-          const filesRes = await trpc.listFiles.mutate({ ids: missingFiles });
-          if (filesRes.success) this.append(filesRes.data);
-        }
-      })
-    );
-  });
-
-  @modelFlow
-  refreshFile = _async(function* (this: FileStore, { id, withThumbs = false }: RefreshFileInput) {
-    return yield* _await(
-      handleErrors(async () => {
-        const file = this.getById(id);
+        if (!curFile && !id) throw new Error("No file or id provided");
+        const file = !curFile ? this.getById(id) : new File(curFile);
         const sharp = !file.isAnimated ? (await import("sharp")).default : null;
 
         const [hash, { mtime, size }, imageInfo, videoInfo] = await Promise.all([
@@ -258,13 +245,13 @@ export class FileStore extends Model({
 
           await (file.isAnimated
             ? generateFramesThumbnail(file.path, dirPath, hash, videoInfo?.duration)
-            : sharp(file.path).resize(null, 300).toFile(thumbPaths[0]));
+            : sharp(file.path).resize(null, THUMB_WIDTH).toFile(thumbPaths[0]));
 
           updates["thumbPaths"] = thumbPaths;
         }
 
         await trpc.updateFile.mutate({ id, ...updates });
-        file.update(updates);
+        file.update?.(updates);
 
         return updates;
       })
@@ -272,24 +259,28 @@ export class FileStore extends Model({
   });
 
   @modelFlow
-  refreshSelectedFiles = _async(function* (this: FileStore) {
+  refreshSelectedFiles = _async(function* (
+    this: FileStore,
+    { withThumbs = false }: RefreshSelectedFilesInput = {}
+  ) {
     return yield* _await(
       handleErrors(async () => {
         let completedCount = 0;
-        const totalCount = this.selected.length;
+        const totalCount = this.selectedIds.length;
 
         const toastId = toast.info(() => `Refreshed ${completedCount} files' info...`, {
           autoClose: false,
         });
 
-        this.selected.map((f, _, files) =>
-          FileInfoRefreshQueue.add(async () => {
-            await this.refreshFile({ id: f.id });
+        const filesRes = await this.loadFiles({ fileIds: this.selectedIds, withOverwrite: false });
+        if (!filesRes?.success) throw new Error("Failed to load files");
+
+        filesRes.data.map((curFile) =>
+          this.infoRefreshQueue.add(async () => {
+            await this.refreshFile({ curFile, withThumbs });
 
             completedCount++;
             const isComplete = completedCount === totalCount;
-
-            // if (isComplete) ipcRenderer.send("onFilesEdited", { fileIds: files.map((f) => f.id) });
 
             toast.update(toastId, {
               autoClose: isComplete ? 5000 : false,
@@ -339,16 +330,6 @@ export class FileStore extends Model({
   }
 
   @computed
-  get displayed() {
-    const displayedIds = this.filteredFileIds.slice(
-      (this.page - 1) * CONSTANTS.FILE_COUNT,
-      this.page * CONSTANTS.FILE_COUNT
-    );
-
-    return this.files.filter((f) => displayedIds.includes(f.id));
-  }
-
-  @computed
   get images() {
     return this.files.filter((f) => IMAGE_EXT_REG_EXP.test(f.ext));
   }
@@ -358,11 +339,6 @@ export class FileStore extends Model({
     return this.filteredFileIds.length < CONSTANTS.FILE_COUNT
       ? 1
       : Math.ceil(this.filteredFileIds.length / CONSTANTS.FILE_COUNT);
-  }
-
-  @computed
-  get selected() {
-    return this.files.filter((f) => this.selectedIds.includes(f.id));
   }
 
   @computed

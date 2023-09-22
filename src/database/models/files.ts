@@ -1,5 +1,4 @@
 import { model, Schema } from "mongoose";
-// import { logToFile } from "utils";
 
 export interface File {
   dateCreated: string;
@@ -37,13 +36,13 @@ const FileSchema = new Schema<File>({
   path: String,
   rating: Number,
   size: Number,
-  tagIds: [String],
+  tagIds: [{ type: Schema.Types.ObjectId, ref: "Tag" }],
   thumbPaths: [String],
   width: Number,
 });
 
 FileSchema.index({ hash: 1 }, { unique: true });
-FileSchema.index({ isArchived: 1, ext: 1, tagIds: 1 });
+FileSchema.index({ isArchived: 1, ext: 1 });
 FileSchema.index({ tagIds: 1 });
 
 // let startTime: number = null;
@@ -53,15 +52,7 @@ FileSchema.index({ tagIds: 1 });
 // });
 
 // FileSchema.post("find", () => {
-//   if (startTime !== null) logToFile("debug", `Mongo find Files: ${Date.now() - startTime}ms.`);
+//   if (startTime !== null) logToFile("debug", `Mongo find files: ${Date.now() - startTime}ms.`);
 // });
-
-FileSchema.set("toJSON", {
-  transform: (_, ret) => {
-    delete ret._id;
-    delete ret.__v;
-  },
-  virtuals: true,
-});
 
 export const FileModel = model<File>("File", FileSchema);

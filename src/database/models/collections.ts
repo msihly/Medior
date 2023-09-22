@@ -12,12 +12,12 @@ export interface FileCollection {
 
 const FileCollectionSchema = new Schema<FileCollection>({});
 
-FileCollectionSchema.set("toJSON", {
-  transform: (_, ret) => {
-    delete ret._id;
-    delete ret.__v;
-  },
-  virtuals: true,
-});
+// FileCollectionSchema.set("toJSON", {
+//   transform: (_, ret) => {
+//     delete ret._id;
+//     delete ret.__v;
+//   },
+//   virtuals: true,
+// });
 
 export const FileCollectionModel = model<FileCollection>("FileCollection", FileCollectionSchema);

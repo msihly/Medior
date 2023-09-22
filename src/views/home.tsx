@@ -1,5 +1,5 @@
 import { stat } from "fs/promises";
-import { createRef, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
 import { colors } from "@mui/material";
@@ -9,24 +9,20 @@ import { toast } from "react-toastify";
 import Color from "color";
 
 export const Home = observer(() => {
-  const drawerRef = createRef();
-
   const rootStore = useStores();
   const { fileStore, homeStore, importStore, tagStore } = useStores();
 
   const [isLoading, setIsLoading] = useState(true);
-  const [isOverlayVisible, setIsOverlayVisible] = useState(false);
 
   const { css } = useClasses({
     drawerMode: homeStore.drawerMode,
     drawerWidth: 200,
     isDrawerOpen: homeStore.isDrawerOpen,
-    isOverlayVisible,
   });
 
-  const handleDragEnter = () => setIsOverlayVisible(true);
+  const handleDragEnter = () => !homeStore.isDraggingOut && homeStore.setIsDraggingIn(true);
 
-  const handleDragLeave = () => setIsOverlayVisible(false);
+  const handleDragLeave = () => homeStore.setIsDraggingIn(false);
 
   const handleDragOver = (event: React.DragEvent) => {
     event.preventDefault();
@@ -35,7 +31,7 @@ export const Home = observer(() => {
 
   const handleFileDrop = async (event: React.DragEvent) => {
     try {
-      setIsOverlayVisible(false);
+      homeStore.setIsDraggingIn(false);
 
       const paths: string[] = [...event.dataTransfer.files].map((f) => f.path);
 
@@ -78,7 +74,9 @@ export const Home = observer(() => {
 
     setupSocketIO();
 
-    socket.on("filesDeleted", () => homeStore.reloadDisplayedFiles({ rootStore }));
+    socket.on("filesDeleted", () => {
+      homeStore.reloadDisplayedFiles({ rootStore });
+    });
 
     socket.on("filesUpdated", ({ fileIds, updates }) => {
       fileStore.updateFiles(fileIds, updates);
@@ -100,6 +98,7 @@ export const Home = observer(() => {
 
     socket.on("tagDeleted", ({ tagId }) => {
       importStore.editBatchTags({ removedIds: [tagId] });
+      homeStore.removeDeletedTag(tagId);
       tagStore.loadTags();
     });
 
@@ -108,12 +107,12 @@ export const Home = observer(() => {
 
   return (
     <View onDragOver={handleDragOver} onDragEnter={handleDragEnter}>
-      {isOverlayVisible && (
+      {homeStore.isDraggingIn && (
         <View onDragLeave={handleDragLeave} onDrop={handleFileDrop} className={css.overlay} />
       )}
 
       <View>
-        <Drawer ref={drawerRef} />
+        <Drawer />
 
         <View column className={css.main}>
           <TopBar />

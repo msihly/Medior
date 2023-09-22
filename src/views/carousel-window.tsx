@@ -26,8 +26,6 @@ export const CarouselWindow = observer(() => {
   const [isTaggerOpen, setIsTaggerOpen] = useState(false);
   const [selectedFileIds, setSelectedFileIds] = useState<string[]>([]);
 
-  const file = activeFileId ? fileStore.getById(activeFileId) : null;
-
   useEffect(() => {
     document.title = "Media Viewer // Carousel";
     console.debug("Carousel window useEffect fired.");
@@ -119,7 +117,7 @@ export const CarouselWindow = observer(() => {
 
         <CarouselThumbNavigator />
 
-        {isTaggerOpen && <Tagger files={[file]} setVisible={setIsTaggerOpen} />}
+        {isTaggerOpen && <Tagger fileIds={[activeFileId]} setVisible={setIsTaggerOpen} />}
       </View>
     </CarouselContext.Provider>
   );

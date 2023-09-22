@@ -12,6 +12,8 @@ export type VideoType = (typeof VIDEO_TYPES)[number];
 export const VIDEO_EXT_REG_EXP = new RegExp(`${VIDEO_TYPES.join("|")}`, "i");
 export const ANIMATED_EXT_REG_EXP = new RegExp(`gif|${VIDEO_TYPES.join("|")}`, "i");
 
+export const THUMB_WIDTH = 400;
+
 const EXT_REG_EXP = new RegExp(`\.(${IMAGE_TYPES.join("|")}|${VIDEO_TYPES.join("|")})$`, "i");
 
 export const checkFileExists = async (path: string) => !!(await fs.stat(path).catch(() => false));

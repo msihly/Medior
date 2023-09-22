@@ -6,6 +6,7 @@ export * from "./files";
 export * from "./inputs";
 export * from "./list";
 export * from "./media";
+export * from "./modal";
 export * from "./tags";
 export * from "./text";
 export * from "./toast";

@@ -24,8 +24,7 @@ export const SortButton = observer(({ attribute, isDesc = false }: SortButtonPro
     const hasSortKeyDiff = homeStore.sortKey !== attribute;
     if (hasSortKeyDiff) homeStore.setSortKey(attribute);
     if (hasSortDescDiff) homeStore.setIsSortDesc(isDesc);
-    if (hasSortDescDiff || hasSortKeyDiff)
-      homeStore.reloadDisplayedFiles({ rootStore, page: 1, withAppend: true });
+    if (hasSortDescDiff || hasSortKeyDiff) homeStore.reloadDisplayedFiles({ rootStore, page: 1 });
   };
 
   return (

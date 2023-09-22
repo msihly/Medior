@@ -21,11 +21,6 @@ export class ImportBatch extends Model({
   tagIds: prop<string[]>(),
 }) {
   @modelAction
-  addImport(fileImport: FileImport) {
-    this.imports.push(new FileImport(fileImport));
-  }
-
-  @modelAction
   setCompletedAt(completedAt: DayJsInput) {
     this.completedAt = dayjs(completedAt).toISOString();
   }

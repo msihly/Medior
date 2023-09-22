@@ -64,15 +64,20 @@ export type ListFilesInput = { ids?: string[] };
 
 export type ListFilesByTagIdsInput = { tagIds: string[] };
 
-export type ListFilteredFilesInput = {
+export type listFilteredFileIdsInput = {
+  excludedAnyTagIds: string[];
+  includedAllTagIds: string[];
+  includedAnyTagIds: string[];
+  isSortDesc: boolean;
   includeTagged: boolean;
   includeUntagged: boolean;
   isArchived: boolean;
   selectedImageTypes: SelectedImageTypes;
   selectedVideoTypes: SelectedVideoTypes;
+  sortKey: string;
 };
 
-export type LoadFilesInput = { fileIds?: string[] };
+export type LoadFilesInput = { fileIds?: string[]; withOverwrite?: boolean };
 
 export type OnFilesDeletedInput = { fileIds: string[] };
 
@@ -85,7 +90,9 @@ export type OnFileTagsUpdatedInput = {
   removedTagIds: string[];
 };
 
-export type RefreshFileInput = { id: string; withThumbs?: boolean };
+export type RefreshFileInput = { curFile?: File; id?: string; withThumbs?: boolean };
+
+export type RefreshSelectedFilesInput = { withThumbs?: boolean };
 
 export type RemoveTagFromAllFilesInput = { tagId: string };
 
@@ -124,6 +131,8 @@ export type OnTagCreatedInput = { tag: Tag };
 export type OnTagDeletedInput = { tagId: string };
 
 export type OnTagUpdatedInput = { tagId: string; updates: Partial<Tag> };
+
+export type RecalculateTagCountsInput = { tagIds: string[] };
 
 export type RemoveChildTagIdsFromTagsInput = { childTagIds: string[]; tagIds: string[] };
 

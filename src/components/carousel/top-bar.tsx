@@ -135,7 +135,7 @@ export const CarouselTopBar = observer(() => {
         </View>
       )}
 
-      {isTaggerOpen && <Tagger files={[file]} setVisible={setIsTaggerOpen} />}
+      {isTaggerOpen && <Tagger fileIds={[activeFileId]} setVisible={setIsTaggerOpen} />}
     </View>
   );
 });

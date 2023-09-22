@@ -80,13 +80,11 @@ export const FileCollection = observer(({ active = false, id }: FileCollectionPr
 
 const useClasses = makeClasses((theme, { active }) => ({
   container: {
-    flexBasis: "calc(100% / 7)",
-    [theme.breakpoints.down("xl")]: {
-      flexBasis: "calc(100% / 5)",
-    },
-    [theme.breakpoints.down("xl")]: {
-      flexBasis: "calc(100% / 3)",
-    },
+    flexBasis: "calc(100% / 6)",
+    [theme.breakpoints.down("xl")]: { flexBasis: "calc(100% / 5)" },
+    [theme.breakpoints.down("lg")]: { flexBasis: "calc(100% / 4)" },
+    [theme.breakpoints.down("md")]: { flexBasis: "calc(100% / 3)" },
+    [theme.breakpoints.down("sm")]: { flexBasis: "calc(100% / 2)" },
     border: "1px solid",
     borderColor: "#0f0f0f",
     borderRadius: 4,

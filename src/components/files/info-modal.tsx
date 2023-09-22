@@ -19,7 +19,7 @@ export const InfoModal = observer(({ fileId, setVisible }: InfoModalProps) => {
   const handleClose = () => setVisible(false);
 
   const handleRefresh = async () => {
-    const res = await fileStore.refreshFile({ id: fileId });
+    const res = await fileStore.refreshFile({ id: fileId, withThumbs: true });
     if (!res.success) toast.error("Failed to refresh info");
     else toast.success("File info refreshed");
   };

@@ -1,6 +1,5 @@
-import { useMemo } from "react";
 import { observer } from "mobx-react-lite";
-import { sortFiles, useStores } from "store";
+import { useStores } from "store";
 import { CircularProgress, colors } from "@mui/material";
 import { Text, View } from "components";
 import { FileCard } from ".";
@@ -9,20 +8,12 @@ import { makeClasses } from "utils";
 export const DisplayedFiles = observer(() => {
   const { css } = useClasses(null);
 
-  const { fileStore, homeStore } = useStores();
-
-  const displayed = useMemo(() => {
-    return fileStore.displayed?.length > 0
-      ? [...fileStore.displayed].sort((a, b) =>
-          sortFiles({ a, b, isSortDesc: homeStore.isSortDesc, sortKey: homeStore.sortKey })
-        )
-      : [];
-  }, [fileStore.displayed]);
+  const { fileStore } = useStores();
 
   return (
     <>
-      {displayed.length > 0 ? (
-        displayed.map((f) => <FileCard key={f.id} file={f} />)
+      {fileStore.files.length > 0 ? (
+        fileStore.files.map((f) => <FileCard key={f.id} file={f} />)
       ) : fileStore.filteredFileIds.length > 0 ? (
         <View column className={css.centeredContainer}>
           <CircularProgress size="3rem" />

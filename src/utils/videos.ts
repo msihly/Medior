@@ -1,5 +1,5 @@
 import path from "path";
-import { fractionStringToNumber } from ".";
+import { THUMB_WIDTH, fractionStringToNumber } from ".";
 import ffmpeg from "fluent-ffmpeg";
 
 interface VideoInfo {
@@ -48,7 +48,7 @@ export const generateFramesThumbnail = async (
         return ffmpeg()
           .input(inputPath)
           .outputOptions([
-            `-vf fps=1/${frameInterval},scale=300:300:force_original_aspect_ratio=increase,crop=300:300`,
+            `-vf fps=1/${frameInterval},scale=${THUMB_WIDTH}:-1:force_original_aspect_ratio=increase,crop=min(iw\\,${THUMB_WIDTH}):ih`,
             `-vframes ${numOfFrames}`,
           ])
           .output(path.join(outputPath, `${fileHash}-thumb-%02d.jpg`))

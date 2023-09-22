@@ -43,18 +43,6 @@ const createMainWindow = async () => {
 };
 
 app.whenReady().then(async () => {
-  // if (!app.isPackaged) {
-  //   const {
-  //     default: installExtension,
-  //     REACT_DEVELOPER_TOOLS,
-  //     REDUX_DEVTOOLS,
-  //   } = require("electron-devtools-installer");
-
-  //   await installExtension([REACT_DEVELOPER_TOOLS, REDUX_DEVTOOLS]).catch((err) =>
-  //     console.error("Error loading extensions:", err)
-  //   );
-  // }
-
   return createMainWindow();
 });
 

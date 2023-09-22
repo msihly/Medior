@@ -12,19 +12,11 @@ export interface Tag {
 
 const TagSchema = new Schema<Tag>({
   aliases: [String],
-  childIds: [String],
+  childIds: [{ type: Schema.Types.ObjectId, ref: "Tag" }],
   count: Number,
   hidden: Boolean,
   label: String,
-  parentIds: [String],
-});
-
-TagSchema.set("toJSON", {
-  transform: (_, ret) => {
-    delete ret._id;
-    delete ret.__v;
-  },
-  virtuals: true,
+  parentIds: [{ type: Schema.Types.ObjectId, ref: "Tag" }],
 });
 
 export const TagModel = model<Tag>("Tag", TagSchema);

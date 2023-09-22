@@ -7,6 +7,7 @@ export interface ViewProps extends HTMLAttributes<HTMLDivElement> {
   children?: ReactNode | ReactNode[];
   className?: string;
   column?: boolean;
+  flex?: CSSObject["flex"];
   justify?: CSSObject["justifyContent"];
   margins?: Margins;
   padding?: Padding;
@@ -20,6 +21,7 @@ export const View = forwardRef(
       children,
       className,
       column = false,
+      flex,
       justify,
       margins,
       padding,
@@ -28,7 +30,7 @@ export const View = forwardRef(
     }: ViewProps,
     ref?: MutableRefObject<HTMLDivElement>
   ) => {
-    const { css, cx } = useClasses({ align, column, justify, margins, padding, row });
+    const { css, cx } = useClasses({ align, column, flex, justify, margins, padding, row });
 
     return (
       <div {...props} ref={ref} className={cx(css.root, className)}>
@@ -38,10 +40,11 @@ export const View = forwardRef(
   }
 );
 
-const useClasses = makeClasses((_, { align, column, justify, margins, padding, row }) => ({
+const useClasses = makeClasses((_, { align, column, flex, justify, margins, padding, row }) => ({
   root: {
     display: column || row ? "flex" : undefined,
     flexDirection: column ? "column" : row ? "row" : undefined,
+    flex,
     alignItems: align,
     justifyContent: justify,
     margin: margins?.all,

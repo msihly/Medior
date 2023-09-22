@@ -1,21 +1,20 @@
-import { useRef, useEffect } from "react";
 import path from "path";
 import md5File from "md5-file";
 import sharp from "sharp";
 import { File } from "database";
-import { FileImport, useStores } from "store";
+import { FileImport } from "store";
 import {
   checkFileExists,
   copyFile,
   deleteFile,
   generateFramesThumbnail,
   getVideoInfo,
-  logToFile,
+  THUMB_WIDTH,
   trpc,
   VIDEO_TYPES,
 } from "utils";
 
-interface CopyFileToProps {
+interface CopyFileForImportProps {
   dbOnly?: boolean;
   deleteOnImport: boolean;
   fileObj: FileImport;
@@ -23,20 +22,20 @@ interface CopyFileToProps {
   targetDir: string;
 }
 
-interface CopyFileToResult {
+interface CopyFileForImportResult {
   error?: string;
   file?: File;
   isDuplicate?: boolean;
   success: boolean;
 }
 
-export const copyFileTo = async ({
+export const copyFileForImport = async ({
   dbOnly = false,
   deleteOnImport,
   fileObj,
   tagIds,
   targetDir,
-}: CopyFileToProps): Promise<CopyFileToResult> => {
+}: CopyFileForImportProps): Promise<CopyFileForImportResult> => {
   let hash: string;
 
   try {
@@ -72,7 +71,7 @@ export const copyFileTo = async ({
         if (await copyFile(dirPath, originalPath, newPath))
           await (duration > 0
             ? generateFramesThumbnail(originalPath, dirPath, hash, duration)
-            : sharp(originalPath).resize(null, 300).toFile(thumbPaths[0]));
+            : sharp(originalPath).resize(null, THUMB_WIDTH).toFile(thumbPaths[0]));
     }
 
     let fileRes = await trpc.getFileByHash.mutate({ hash });
@@ -104,96 +103,14 @@ export const copyFileTo = async ({
     if (deleteOnImport) await deleteFile(originalPath, newPath);
     return { success: true, file, isDuplicate };
   } catch (err) {
-    logToFile("error", "Error importing", fileObj.toString({ withData: true }), ":", err.stack);
+    console.error("Error importing", fileObj.toString({ withData: true }), ":", err.stack);
 
     if (err.code === "EEXIST") {
       const fileRes = await trpc.getFileByHash.mutate({ hash });
       if (!fileRes.data) {
-        logToFile("debug", "File exists, but not in db. Inserting into db only...");
-        return await copyFileTo({ dbOnly: true, deleteOnImport, fileObj, targetDir });
+        console.debug("File exists, but not in db. Inserting into db only...");
+        return await copyFileForImport({ dbOnly: true, deleteOnImport, fileObj, targetDir });
       } else return { success: true, file: fileRes.data, isDuplicate: true };
     } else return { success: false, error: err?.stack };
   }
-};
-
-export const useFileImportQueue = (isDebug = false) => {
-  const rootStore = useStores();
-  const { importStore } = useStores();
-
-  const currentImportPath = useRef<string>(null);
-
-  const handlePhase = async () => {
-    try {
-      // if (isDebug)
-      //   logToFile(
-      //     "debug",
-      //     "Import phase update:",
-      //     JSON.stringify(
-      //       {
-      //         activeBatch: { ...importStore.activeBatch },
-      //         currentPath: currentImportPath.current,
-      //         incompleteBatches: importStore.incompleteBatches,
-      //       },
-      //       null,
-      //       2
-      //     )
-      //   );
-
-      const activeBatch = importStore.activeBatch;
-      const nextPath = activeBatch?.nextImport?.path;
-
-      if (currentImportPath.current === nextPath) {
-        if (isDebug) logToFile("debug", "Import phase skipped: current path matches next path.");
-      } else if (nextPath) {
-        if (isDebug)
-          logToFile(
-            "debug",
-            "Importing file:",
-            JSON.stringify({ ...activeBatch.nextImport }, null, 2)
-          );
-
-        currentImportPath.current = nextPath;
-        const res = await importStore.importFile({
-          batchId: importStore.activeBatchId,
-          filePath: nextPath,
-        });
-        if (!res.success) throw new Error(res.error);
-      } else if (!activeBatch && importStore.incompleteBatches?.length > 0) {
-        const batch = importStore.incompleteBatches[0];
-
-        if (batch?.imports?.length > 0) {
-          if (isDebug)
-            logToFile("debug", "Starting importBatch:", JSON.stringify({ ...batch.$ }, null, 2));
-
-          await importStore.startImportBatch({ id: batch.id });
-        } else {
-          if (isDebug)
-            logToFile("debug", "Import phase skipped: incomplete batch has no imports yet.");
-
-          currentImportPath.current = null;
-        }
-      } else {
-        currentImportPath.current = null;
-
-        if (activeBatch && !activeBatch?.nextImport) {
-          if (isDebug)
-            logToFile(
-              "debug",
-              "Completing importBatch:",
-              JSON.stringify({ ...activeBatch }, null, 2)
-            );
-
-          const res = await importStore.completeImportBatch({ id: activeBatch.id, rootStore });
-          if (!res.success) throw new Error(res.error);
-          importStore.setActiveBatchId(null);
-        }
-      }
-    } catch (err) {
-      logToFile("error", "Error in import phase update:", err.stack);
-    }
-  };
-
-  useEffect(() => {
-    handlePhase();
-  }, [importStore.activeBatch?.nextImport, importStore.incompleteBatches]);
 };

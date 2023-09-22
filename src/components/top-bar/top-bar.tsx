@@ -13,15 +13,15 @@ export const TopBar = observer(() => {
   const { fileStore, homeStore } = useStores();
   const { css } = useClasses(null);
 
-  const hasNoSelection = fileStore.selected.length === 0;
+  const hasNoSelection = fileStore.selectedIds.length === 0;
 
   const [isTaggerOpen, setIsTaggerOpen] = useState(false);
 
-  const handleDelete = () => fileStore.deleteFiles({ rootStore, files: fileStore.selected });
+  const handleDelete = () => fileStore.deleteFiles({ rootStore, fileIds: fileStore.selectedIds });
 
   const handleEditTags = () => setIsTaggerOpen(true);
 
-  const handleFileInfoRefresh = () => fileStore.refreshSelectedFiles();
+  const handleFileInfoRefresh = () => fileStore.refreshSelectedFiles({ withThumbs: true });
 
   const handleDeselectAll = () => {
     fileStore.toggleFilesSelected(fileStore.selectedIds.map((id) => ({ id, isSelected: false })));
@@ -29,12 +29,15 @@ export const TopBar = observer(() => {
   };
 
   const handleSelectAll = () => {
-    fileStore.toggleFilesSelected(fileStore.displayed.map(({ id }) => ({ id, isSelected: true })));
-    toast.info(`Added ${fileStore.displayed.length} files to selection`);
+    fileStore.toggleFilesSelected(fileStore.files.map(({ id }) => ({ id, isSelected: true })));
+    toast.info(`Added ${fileStore.files.length} files to selection`);
   };
 
   const handleUnarchive = () =>
-    fileStore.deleteFiles({ rootStore, files: fileStore.selected, isUndelete: true });
+    fileStore.deleteFiles({ rootStore, fileIds: fileStore.selectedIds, isUndelete: true });
+
+  const toggleFileCardFit = () =>
+    homeStore.setFileCardFit(homeStore.fileCardFit === "cover" ? "contain" : "cover");
 
   return (
     <AppBar position="relative" className={css.appBar}>
@@ -87,11 +90,17 @@ export const TopBar = observer(() => {
 
           <IconButton name="SelectAll" onClick={handleSelectAll} size="medium" />
 
+          <IconButton
+            name={homeStore.fileCardFit === "cover" ? "Fullscreen" : "FullscreenExit"}
+            onClick={toggleFileCardFit}
+            size="medium"
+          />
+
           <SortMenu />
         </View>
       </View>
 
-      {isTaggerOpen && <Tagger files={fileStore.selected} setVisible={setIsTaggerOpen} />}
+      {isTaggerOpen && <Tagger fileIds={fileStore.selectedIds} setVisible={setIsTaggerOpen} />}
     </AppBar>
   );
 });

@@ -1,30 +1,55 @@
-import { useMemo } from "react";
+import { useState } from "react";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
 import { Chip, Tooltip, colors } from "@mui/material";
 import { Text, View } from "components";
-import { formatBytes, makeClasses } from "utils";
+import { VIDEO_EXT_REG_EXP, formatBytes, makeClasses } from "utils";
+import { toast } from "react-toastify";
 
 export const SelectedFilesInfo = observer(() => {
   const { css } = useClasses(null);
 
   const { fileStore } = useStores();
 
-  const [totalImages, totalSize, totalVideos] = useMemo(() => {
-    return fileStore.selected.reduce(
-      (acc, cur) => {
-        acc[cur.isVideo ? 2 : 0]++;
-        acc[1] += cur.size;
-        return acc;
-      },
-      [0, 0, 0]
-    );
-  }, [fileStore.selectedIds]);
+  const [totalImages, setTotalImages] = useState(0);
+  const [totalSize, setTotalSize] = useState(0);
+  const [totalVideos, setTotalVideos] = useState(0);
+
+  const handleOpen = async () => {
+    try {
+      const res = await fileStore.loadFiles({
+        fileIds: fileStore.selectedIds,
+        withOverwrite: false,
+      });
+      if (!res?.success) throw new Error(res.error);
+      const selectedFiles = res.data;
+
+      const [images, videos, size] = selectedFiles.reduce(
+        (acc, cur) => {
+          acc[VIDEO_EXT_REG_EXP.test(cur.ext) ? 1 : 0]++;
+          acc[2] += cur.size;
+          return acc;
+        },
+        [0, 0, 0]
+      );
+
+      setTotalImages(images);
+      setTotalVideos(videos);
+      setTotalSize(size);
+    } catch (err) {
+      console.error(err);
+      toast.error("Error loading selected files' info");
+      setTotalImages(0);
+      setTotalVideos(0);
+      setTotalSize(0);
+    }
+  };
 
   return (
     <Tooltip
       arrow
       classes={{ arrow: css.arrow, tooltip: css.tooltip }}
+      onOpen={handleOpen}
       title={
         <View column>
           <View className={css.valueRow}>
