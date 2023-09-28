@@ -125,6 +125,7 @@ export class FileStore extends Model({
               updates: { isArchived: true },
             });
 
+            await trpc.onFilesArchived.mutate({ fileIds: archivedIds });
             toast.success(`${archivedIds.length} files archived`);
           }
 

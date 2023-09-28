@@ -8,3 +8,7 @@ export const MONGOOSE_OPTS = {
   // minPoolSize: 50,
   // maxPoolSize: 500,
 };
+
+export const ZOOM_MIN_SCALE = 1;
+export const ZOOM_MAX_SCALE = 5;
+export const ZOOM_STEP = 0.1;

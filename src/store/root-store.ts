@@ -1,5 +1,6 @@
 // import * as remoteDev from "remotedev";
 import { model, Model, prop, registerRootStore } from "mobx-keystone";
+import { CarouselStore } from "./carousel";
 import { FileCollectionStore } from "./collections";
 import { FaceRecognitionStore } from "./face-recognition";
 import { FileStore } from "./files";
@@ -9,6 +10,7 @@ import { TagStore } from "./tags";
 
 @model("mediaViewer/RootStore")
 export class RootStore extends Model({
+  carouselStore: prop<CarouselStore>(),
   faceRecognitionStore: prop<FaceRecognitionStore>(),
   fileCollectionStore: prop<FileCollectionStore>(),
   fileStore: prop<FileStore>(),
@@ -19,6 +21,7 @@ export class RootStore extends Model({
 
 export const createRootStore = () => {
   const rootStore = new RootStore({
+    carouselStore: new CarouselStore({}),
     faceRecognitionStore: new FaceRecognitionStore({}),
     fileCollectionStore: new FileCollectionStore({}),
     fileStore: new FileStore({}),

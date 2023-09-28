@@ -1,6 +1,7 @@
 import fs from "fs/promises";
 import {
   AddTagsToFilesInput,
+  ArchiveFilesInput,
   DeleteFilesInput,
   DetectFacesInput,
   File,
@@ -185,6 +186,9 @@ export const loadFaceApiNets = async () =>
     await faceapi.nets.faceExpressionNet.loadFromDisk(FACE_MODELS_PATH);
     await faceapi.nets.faceRecognitionNet.loadFromDisk(FACE_MODELS_PATH);
   });
+
+export const onFilesArchived = async ({ fileIds }: ArchiveFilesInput) =>
+  handleErrors(async () => !!socket.emit("filesArchived", { fileIds }));
 
 export const onFilesDeleted = async ({ fileIds }: DeleteFilesInput) =>
   handleErrors(async () => !!socket.emit("filesDeleted", { fileIds }));

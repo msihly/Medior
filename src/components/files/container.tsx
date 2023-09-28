@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
 import { Pagination, colors } from "@mui/material";
-import { Tagger, View } from "components";
+import { View } from "components";
 import { DisplayedFiles } from ".";
 import { makeClasses } from "utils";
 import { toast } from "react-toastify";
@@ -12,9 +12,7 @@ export const FileContainer = observer(() => {
   const { css } = useClasses(null);
 
   const rootStore = useStores();
-  const { fileStore, homeStore } = useStores();
-
-  const [isTaggerOpen, setIsTaggerOpen] = useState(false);
+  const { faceRecognitionStore, fileStore, homeStore } = useStores();
 
   const selectRef = useRef(null);
 
@@ -23,7 +21,7 @@ export const FileContainer = observer(() => {
   }, [fileStore.page, fileStore.pageCount]);
 
   useEffect(() => {
-    homeStore.reloadDisplayedFiles({ rootStore });
+    homeStore.reloadDisplayedFiles({ rootStore, page: 1 });
   }, [
     homeStore.excludedAnyTags,
     homeStore.includeDescendants,
@@ -44,17 +42,30 @@ export const FileContainer = observer(() => {
   const handlePageChange = (_, value: number) => changePage(value);
 
   const handleKeyPress = async (e: React.KeyboardEvent<HTMLElement>) => {
-    if (e.key === "t" && !isTaggerOpen) {
-      e.preventDefault();
-      setIsTaggerOpen(true);
+    const fileIds = fileStore.selectedIds;
+    const isOneFileSelected = fileIds.length === 1;
+    const isMultipleFilesSelected = fileIds.length > 1;
+
+    if (!isOneFileSelected && !isMultipleFilesSelected) return;
+    e.preventDefault();
+
+    if (e.key === "t" && !homeStore.isTaggerOpen) {
+      homeStore.setTaggerBatchId(null);
+      homeStore.setTaggerFileIds([...fileStore.selectedIds]);
+      homeStore.setIsTaggerOpen(true);
     } else if (e.key === "Delete") {
-      fileStore.deleteFiles({ rootStore, fileIds: fileStore.selectedIds });
+      fileStore.deleteFiles({ rootStore, fileIds });
     } else if (e.ctrlKey && e.key === "a") {
-      e.preventDefault();
       fileStore.toggleFilesSelected(fileStore.files.map(({ id }) => ({ id, isSelected: true })));
       toast.info(`Added ${fileStore.files.length} files to selection`);
-    } else if (fileStore.selectedIds.length === 1) {
-      const selectedId = fileStore.selectedIds[0];
+    } else if (e.key === "f") {
+      if (isOneFileSelected) {
+        faceRecognitionStore.setActiveFileId(fileIds[0]);
+        faceRecognitionStore.setIsModalOpen(true);
+      } else if (isMultipleFilesSelected)
+        faceRecognitionStore.addFilesToAutoDetectQueue({ fileIds, rootStore });
+    } else if (isOneFileSelected) {
+      const selectedId = fileIds[0];
       const indexOfSelected = fileStore.files.findIndex((f) => f.id === selectedId);
       const nextIndex = indexOfSelected === fileStore.files.length - 1 ? 0 : indexOfSelected + 1;
       const nextId = fileStore.files[nextIndex].id;
@@ -92,8 +103,6 @@ export const FileContainer = observer(() => {
         showLastButton
         className={css.pagination}
       />
-
-      {isTaggerOpen && <Tagger fileIds={fileStore.selectedIds} setVisible={setIsTaggerOpen} />}
     </View>
   );
 });

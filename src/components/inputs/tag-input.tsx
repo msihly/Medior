@@ -15,6 +15,7 @@ export type TagInputProps = Omit<
   hasHelper?: boolean;
   inputProps?: InputProps;
   label?: string;
+  onTagClick?: (tagId: string) => void;
   opaque?: boolean;
   options?: TagOption[];
   setValue?: (val: TagOption[]) => void;
@@ -29,9 +30,11 @@ export const TagInput = observer(
         autoFocus = false,
         center,
         className,
+        disabled,
         hasHelper = false,
         inputProps,
         label,
+        onTagClick,
         opaque = false,
         options = [],
         setValue,
@@ -53,14 +56,19 @@ export const TagInput = observer(
           renderInput={(params) => (
             <Input
               {...params}
-              {...{ autoFocus, hasHelper, label, ref, width }}
+              {...{ autoFocus, disabled, hasHelper, label, ref, width }}
               className={cx(css.input, className)}
               {...inputProps}
             />
           )}
           renderTags={(val: TagOption[], getTagProps) =>
             val.map((option: TagOption, index) => (
-              <Tag {...getTagProps({ index })} key={option.id} id={option.id} />
+              <Tag
+                {...getTagProps({ index })}
+                key={option.id}
+                id={option.id}
+                onClick={onTagClick ? () => onTagClick(option.id) : null}
+              />
             ))
           }
           onChange={(_, val: TagOption[]) => setValue?.(val)}

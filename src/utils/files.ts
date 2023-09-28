@@ -3,7 +3,17 @@ import path from "path";
 import { FileImport } from "store";
 import { handleErrors } from "./miscellaneous";
 
-export const IMAGE_TYPES = ["jpg", "jpeg", "png", "gif", "webp", "jif", "jiff", "jfif"] as const;
+export const IMAGE_TYPES = [
+  "jpg",
+  "jpeg",
+  "png",
+  "gif",
+  "webp",
+  "heic",
+  "jif",
+  "jiff",
+  "jfif",
+] as const;
 export type ImageType = (typeof IMAGE_TYPES)[number];
 export const IMAGE_EXT_REG_EXP = new RegExp(`${IMAGE_TYPES.join("|")}`, "i");
 

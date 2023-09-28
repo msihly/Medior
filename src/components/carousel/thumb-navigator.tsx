@@ -1,15 +1,17 @@
-import { useContext, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { observer } from "mobx-react-lite";
+import { useStores } from "store";
 import { FixedSizeList, ListOnScrollProps } from "react-window";
 import AutoSizer from "react-virtualized-auto-sizer";
-import { CarouselContext, CarouselThumb } from ".";
+import { CarouselThumb } from ".";
 import { IconButton, View } from "components";
 import { makeClasses, useDragScroll } from "utils";
 import Color from "color";
 
 const THUMB_WIDTH = 135; // px
 
-export const CarouselThumbNavigator = () => {
-  const { activeFileId, selectedFileIds } = useContext(CarouselContext);
+export const CarouselThumbNavigator = observer(() => {
+  const { carouselStore } = useStores();
 
   const listRef = useRef<FixedSizeList>(null);
   const listOuterRef = useRef(null);
@@ -32,12 +34,12 @@ export const CarouselThumbNavigator = () => {
   const toggleVisibility = () => setIsVisible(!isVisible);
 
   useEffect(() => {
-    if (listRef.current !== null && selectedFileIds?.length > 0) {
-      const activeIndex = selectedFileIds.findIndex((id) => id === activeFileId);
-      const newScrollLeft = activeIndex * THUMB_WIDTH + THUMB_WIDTH / 2 - width / 2;
+    if (listRef.current !== null && carouselStore.activeFileIndex > -1) {
+      const newScrollLeft =
+        carouselStore.activeFileIndex * THUMB_WIDTH + THUMB_WIDTH / 2 - width / 2;
       listRef.current.scrollTo(newScrollLeft);
     }
-  }, [activeFileId, width, selectedFileIds]);
+  }, [carouselStore.activeFileIndex, width]);
 
   return (
     <View className={css.root}>
@@ -61,14 +63,14 @@ export const CarouselThumbNavigator = () => {
               width={width}
               height={THUMB_WIDTH}
               itemSize={THUMB_WIDTH}
-              itemCount={selectedFileIds.length}
+              itemCount={carouselStore.selectedFileIds.length}
               overscanCount={7}
               className={css.thumbnails}
             >
               {({ index, style }) => (
                 <CarouselThumb
                   key={index}
-                  id={selectedFileIds[index]}
+                  id={carouselStore.selectedFileIds[index]}
                   isDragging={isDragging}
                   style={style}
                 />
@@ -79,7 +81,7 @@ export const CarouselThumbNavigator = () => {
       </View>
     </View>
   );
-};
+});
 
 const useClasses = makeClasses((_, { isVisible }) => ({
   hideButton: {

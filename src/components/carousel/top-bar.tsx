@@ -3,27 +3,17 @@ import { useContext, useEffect, useRef, useState } from "react";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
 import { colors, Slider } from "@mui/material";
-import {
-  CarouselContext,
-  Icon,
-  IconButton,
-  SideScroller,
-  Tag,
-  Tagger,
-  Text,
-  View,
-} from "components";
-import { makeClasses, round } from "utils";
+import { ZoomContext, Icon, IconButton, SideScroller, Tag, Text, View } from "components";
+import { CONSTANTS, makeClasses, round } from "utils";
 
 export const CarouselTopBar = observer(() => {
   const { css, cx } = useClasses(null);
 
-  const { fileStore } = useStores();
-  const { activeFileId, panZoomRef } = useContext(CarouselContext);
-  const file = fileStore.getById(activeFileId);
+  const { carouselStore, fileStore } = useStores();
+  const panZoomRef = useContext(ZoomContext);
+  const file = fileStore.getById(carouselStore.activeFileId);
 
   const [isAspectRatioLocked, setIsAspectRatioLocked] = useState(true);
-  const [isTaggerOpen, setIsTaggerOpen] = useState(false);
 
   const fitToAspectRatio = () => {
     try {
@@ -58,7 +48,7 @@ export const CarouselTopBar = observer(() => {
     }
   }, [file]);
 
-  const handleEditTags = () => setIsTaggerOpen(true);
+  const handleEditTags = () => carouselStore.setIsTaggerOpen(true);
 
   const toggleAspectRatioLock = () => {
     const isLocked = !isAspectRatioLocked;
@@ -79,9 +69,11 @@ export const CarouselTopBar = observer(() => {
     panZoomRef.current.reset();
   };
 
-  const zoomIn = () => setZoomScale(Math.min(zoomScale + 1, 10));
+  const zoomIn = () =>
+    setZoomScale(Math.min(zoomScale + CONSTANTS.ZOOM_STEP * 5, CONSTANTS.ZOOM_MAX_SCALE));
 
-  const zoomOut = () => setZoomScale(Math.max(zoomScale - 1, 1));
+  const zoomOut = () =>
+    setZoomScale(Math.max(zoomScale - CONSTANTS.ZOOM_STEP * 5, CONSTANTS.ZOOM_MIN_SCALE));
   /* ------------------------------ END - ZOOM ------------------------------ */
 
   return (
@@ -125,17 +117,15 @@ export const CarouselTopBar = observer(() => {
           <Slider
             value={zoomScale}
             onChange={(_, val: number) => setZoomScale(val)}
-            min={1}
-            step={0.1}
-            max={10}
+            min={CONSTANTS.ZOOM_MIN_SCALE}
+            max={CONSTANTS.ZOOM_MAX_SCALE}
+            step={CONSTANTS.ZOOM_STEP}
             valueLabelDisplay="off"
           />
 
           <IconButton name="ZoomIn" onClick={zoomIn} margins={{ left: "0.5rem" }} />
         </View>
       )}
-
-      {isTaggerOpen && <Tagger fileIds={[activeFileId]} setVisible={setIsTaggerOpen} />}
     </View>
   );
 });

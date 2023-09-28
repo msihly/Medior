@@ -2,16 +2,7 @@ import { useState } from "react";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
 import { colors, LinearProgress } from "@mui/material";
-import {
-  BatchTooltip,
-  Icon,
-  IconButton,
-  Import,
-  IMPORT_STATUSES,
-  Tagger,
-  Text,
-  View,
-} from "components";
+import { BatchTooltip, Icon, IconButton, Import, IMPORT_STATUSES, Text, View } from "components";
 import { makeClasses } from "utils";
 import { toast } from "react-toastify";
 
@@ -20,16 +11,21 @@ interface ImportBatchProps {
 }
 
 export const ImportBatch = observer(({ createdAt }: ImportBatchProps) => {
-  const { importStore } = useStores();
+  const { homeStore, importStore } = useStores();
 
   const batch = importStore.getByCreatedAt(createdAt);
   const completedFileIds = batch.completed.map((imp) => imp.fileId);
   const status = IMPORT_STATUSES[batch.status];
 
   const [expanded, setExpanded] = useState(false);
-  const [isTaggerOpen, setIsTaggerOpen] = useState(false);
 
   const { css } = useClasses({ expanded, hasTags: batch.tagIds?.length > 0 });
+
+  const handleTag = () => {
+    homeStore.setTaggerBatchId(batch.id);
+    homeStore.setTaggerFileIds([...completedFileIds]);
+    homeStore.setIsTaggerOpen(true);
+  };
 
   const handleDelete = async () => {
     const res = await importStore.deleteImportBatch({ id: batch.id });
@@ -71,7 +67,8 @@ export const ImportBatch = observer(({ createdAt }: ImportBatchProps) => {
 
         <IconButton
           name="Label"
-          onClick={() => setIsTaggerOpen(true)}
+          onClick={handleTag}
+          disabled={batch.status === "PENDING"}
           iconProps={{ color: colors.grey["300"], size: "0.9em" }}
         />
 
@@ -80,10 +77,6 @@ export const ImportBatch = observer(({ createdAt }: ImportBatchProps) => {
           onClick={handleDelete}
           iconProps={{ color: colors.red["700"], size: "0.9em" }}
         />
-
-        {isTaggerOpen && (
-          <Tagger fileIds={completedFileIds} batchId={batch.id} setVisible={setIsTaggerOpen} />
-        )}
       </View>
 
       {expanded && batch.imports?.length > 0 && (

@@ -32,6 +32,8 @@ export type UpdateFileImportByPathInput = {
 /* ---------------------------------- FILES --------------------------------- */
 export type AddTagsToFilesInput = { fileIds: string[]; tagIds: string[] };
 
+export type ArchiveFilesInput = { fileIds: string[] };
+
 export type DeleteFilesInput = { fileIds: string[] };
 
 export type EditFileTagsInput = {
@@ -80,6 +82,8 @@ export type listFilteredFileIdsInput = {
 };
 
 export type LoadFilesInput = { fileIds?: string[]; withOverwrite?: boolean };
+
+export type OnFilesArchivedInput = { fileIds: string[] };
 
 export type OnFilesDeletedInput = { fileIds: string[] };
 

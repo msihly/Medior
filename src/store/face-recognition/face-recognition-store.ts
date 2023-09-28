@@ -15,7 +15,7 @@ import { FaceModel } from ".";
 import { handleErrors, IMAGE_EXT_REG_EXP, objectToFloat32Array, PromiseQueue, trpc } from "utils";
 import { toast } from "react-toastify";
 
-const DISTANCE_THRESHOLD = 0.4;
+const DISTANCE_THRESHOLD = 0.45;
 
 @model("mediaViewer/FaceRecognitionStore")
 export class FaceRecognitionStore extends Model({

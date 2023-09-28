@@ -1,34 +1,23 @@
-import {
-  createContext,
-  Dispatch,
-  MutableRefObject,
-  SetStateAction,
-  useContext,
-  useRef,
-  useState,
-} from "react";
+import { createContext, MutableRefObject, useContext, useEffect, useRef, useState } from "react";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
 import ReactPlayer from "react-player/file";
 import Panzoom, { PanzoomObject, PanzoomOptions } from "@panzoom/panzoom";
 import { colors, Slider } from "@mui/material";
 import { IconButton, Text, View } from "components";
-import { dayjs, makeClasses } from "utils";
+import { CONSTANTS, dayjs, makeClasses } from "utils";
 
-interface CarouselContextProps {
-  activeFileId: string;
-  panZoomRef: MutableRefObject<PanzoomObject>;
-  selectedFileIds: string[];
-  setActiveFileId: Dispatch<SetStateAction<string>>;
-}
-
-export const CarouselContext = createContext<CarouselContextProps>(null);
+export const ZoomContext = createContext<MutableRefObject<PanzoomObject>>(null);
 
 export const Carousel = observer(() => {
-  const { activeFileId, panZoomRef } = useContext(CarouselContext);
+  const panZoomRef = useContext(ZoomContext);
 
-  const { fileStore } = useStores();
-  const activeFile = fileStore.getById(activeFileId);
+  const { carouselStore, fileStore } = useStores();
+  const activeFile = fileStore.getById(carouselStore.activeFileId);
+
+  useEffect(() => {
+    if (activeFile?.isVideo) setIsPlaying(true);
+  }, [activeFile?.isVideo, carouselStore.activeFileId]);
 
   const zoomRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<ReactPlayer>(null);
@@ -41,10 +30,10 @@ export const Carousel = observer(() => {
           cursor: "grab",
           disablePan: activeFile?.isVideo,
           disableZoom: activeFile?.isVideo,
-          maxScale: 10,
-          minScale: 1,
+          maxScale: CONSTANTS.ZOOM_MAX_SCALE,
+          minScale: CONSTANTS.ZOOM_MIN_SCALE,
           panOnlyWhenZoomed: true,
-          step: 0.1,
+          step: CONSTANTS.ZOOM_STEP,
         } as PanzoomOptions)
       : null;
 
@@ -159,14 +148,12 @@ export const Carousel = observer(() => {
           </View>
 
           <View className={css.videoTimeContainer}>
-            <Text className={css.videoTimeCurrent}>
-              {dayjs.duration(Math.round(curTime * 1000)).format("HH:mm:ss.SSS")}
+            <Text color={colors.grey["200"]} className={css.videoTime}>
+              {dayjs.duration(Math.round(curTime * 1000)).format("HH:mm:ss")}
             </Text>
 
-            <Text className={css.videoTimeTotal}>
-              {`\u00A0/\u00A0${dayjs
-                .duration(Math.round(activeFile?.duration * 1000))
-                .format("HH:mm:ss.SSS")}`}
+            <Text color={colors.grey["400"]} className={css.videoTime}>
+              {dayjs.duration(Math.round(activeFile?.duration * 1000)).format("HH:mm:ss")}
             </Text>
           </View>
         </View>
@@ -214,17 +201,11 @@ const useClasses = makeClasses((_, { isVolumeVisible }) => ({
   },
   videoTimeContainer: {
     display: "flex",
-    flexFlow: "row nowrap",
-    justifyContent: "center",
-    alignItems: "center",
+    flexDirection: "column",
+    paddingRight: "0.5rem",
   },
-  videoTimeCurrent: {
-    lineHeight: 1,
-    color: colors.grey["400"],
-  },
-  videoTimeTotal: {
-    marginRight: "0.5rem",
-    color: colors.grey["600"],
+  videoTime: {
+    fontSize: "0.8em",
     lineHeight: 1,
   },
   viewContainer: {

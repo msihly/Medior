@@ -1,5 +1,6 @@
 import path from "path";
 import fs from "fs/promises";
+import killPort from "kill-port";
 import { MongoMemoryReplSet } from "mongodb-memory-server";
 import Mongoose from "mongoose";
 import { initTRPC } from "@trpc/server";
@@ -106,6 +107,9 @@ const trpcRouter = tRouter({
   listImportBatches: tProc.mutation(db.listImportBatches),
   listTags: tProc.mutation(db.getAllTags),
   loadFaceApiNets: tProc.mutation(db.loadFaceApiNets),
+  onFilesArchived: tProc
+    .input((input: unknown) => input as db.OnFilesArchivedInput)
+    .mutation(({ input }) => db.onFilesArchived(input)),
   onFilesDeleted: tProc
     .input((input: unknown) => input as db.OnFilesDeletedInput)
     .mutation(({ input }) => db.onFilesDeleted(input)),
@@ -177,6 +181,7 @@ export type TRPCRouter = typeof trpcRouter;
 
 /* ----------------------------- CREATE SERVER ----------------------------- */
 export interface SocketEmitEvents {
+  filesArchived: (args: { fileIds: string[] }) => void;
   filesDeleted: (args: { fileIds: string[] }) => void;
   filesUpdated: (args: { fileIds: string[]; updates: Partial<db.File> }) => void;
   fileTagsUpdated: (args: {
@@ -205,18 +210,22 @@ module.exports = (async () => {
   const server = createHTTPServer({ router: trpcRouter });
 
   const serverPort = +env.SERVER_PORT || 3334;
+  await killPort(serverPort);
+
   // @ts-expect-error
   server.listen(serverPort, () =>
     logToFile("debug", `tRPC server listening on port ${serverPort}...`)
   );
 
   const socketPort = +env.SOCKET_PORT || 3335;
+  await killPort(socketPort);
   const io = new Server<SocketEvents, SocketEvents>(+env.SOCKET_PORT || 3335);
 
   io.on("connection", (socket) => {
     logToFile("debug", `Socket server listening on port ${socketPort}.`);
     socket.emit("connected");
 
+    socket.on("filesArchived", (...args) => socket.broadcast.emit("filesArchived", ...args));
     socket.on("filesDeleted", (...args) => socket.broadcast.emit("filesDeleted", ...args));
     socket.on("filesUpdated", (...args) => socket.broadcast.emit("filesUpdated", ...args));
     socket.on("fileTagsUpdated", (...args) => socket.broadcast.emit("fileTagsUpdated", ...args));

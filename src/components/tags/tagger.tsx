@@ -30,7 +30,7 @@ export const Tagger = observer(({ batchId, fileIds, setVisible }: TaggerProps) =
   const [addedTags, setAddedTags] = useState<TagOption[]>([]);
   const [currentTagOptions, setCurrentTagOptions] = useState<TagOption[]>([]);
   const [removedTags, setRemovedTags] = useState<TagOption[]>([]);
-  const [mode, setMode] = useState<"create" | "edit">("edit");
+  const [mode, setMode] = useState<"createTag" | "editTag" | "editFileTags">("editFileTags");
 
   useEffect(() => {
     const loadCurrentTags = async () => {
@@ -50,7 +50,7 @@ export const Tagger = observer(({ batchId, fileIds, setVisible }: TaggerProps) =
 
   const handleClose = () => setVisible(false);
 
-  const handleEditorBack = () => setMode("edit");
+  const handleEditorBack = () => setMode("editFileTags");
 
   const handleTagAdded = (tags: TagOption[]) => {
     setAddedTags(tags);
@@ -80,22 +80,40 @@ export const Tagger = observer(({ batchId, fileIds, setVisible }: TaggerProps) =
     handleClose();
   };
 
-  const openTagEditor = () => setMode("create");
+  const handleTagClick = (tagId: string) => {
+    tagStore.setActiveTagId(tagId);
+    setMode("editTag");
+  };
+
+  const handleNewTag = () => {
+    tagStore.setActiveTagId(null);
+    setMode("createTag");
+  };
 
   return (
     <Dialog open onClose={handleClose} scroll="paper" PaperComponent={DraggablePaper}>
       <DialogTitle className={css.dialogTitle}>
-        {mode === "create" ? "Create Tag" : "Update Tags"}
+        {mode === "createTag"
+          ? "Create Tag"
+          : mode === "editTag"
+          ? "Update Tag"
+          : "Update File Tags"}
       </DialogTitle>
 
-      {mode === "edit" ? (
+      {mode === "editFileTags" ? (
         <>
           <DialogContent dividers className={css.dialogContent}>
             <View column>
               <Text align="center" className={css.sectionTitle}>
                 {"Current Tags"}
               </Text>
-              <TagInput value={currentTagOptions} disabled opaque className={css.tagInput} />
+              <TagInput
+                value={currentTagOptions}
+                onTagClick={handleTagClick}
+                disabled
+                opaque
+                className={css.tagInput}
+              />
 
               <Text align="center" className={css.sectionTitle}>
                 {"Added Tags"}
@@ -104,6 +122,7 @@ export const Tagger = observer(({ batchId, fileIds, setVisible }: TaggerProps) =
                 value={addedTags}
                 setValue={handleTagAdded}
                 options={[...tagStore.tagOptions]}
+                onTagClick={handleTagClick}
                 autoFocus
                 className={css.tagInput}
               />
@@ -115,6 +134,7 @@ export const Tagger = observer(({ batchId, fileIds, setVisible }: TaggerProps) =
                 value={removedTags}
                 setValue={handleTagRemoved}
                 options={currentTagOptions}
+                onTagClick={handleTagClick}
                 className={css.tagInput}
               />
             </View>
@@ -126,7 +146,7 @@ export const Tagger = observer(({ batchId, fileIds, setVisible }: TaggerProps) =
             <Button
               text="New Tag"
               icon="Add"
-              onClick={openTagEditor}
+              onClick={handleNewTag}
               color={colors.blueGrey["700"]}
             />
 
@@ -134,7 +154,7 @@ export const Tagger = observer(({ batchId, fileIds, setVisible }: TaggerProps) =
           </DialogActions>
         </>
       ) : (
-        <TagEditor create goBack={handleEditorBack} />
+        <TagEditor create={mode === "createTag"} goBack={handleEditorBack} />
       )}
     </Dialog>
   );

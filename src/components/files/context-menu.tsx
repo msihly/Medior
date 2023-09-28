@@ -68,46 +68,48 @@ export const ContextMenu = observer(({ children, file, ...props }: ContextMenuPr
   };
 
   return (
-    <View {...props} id={file.id} onContextMenu={handleContext}>
-      {children}
+    <>
+      <View {...props} id={file.id} onContextMenu={handleContext}>
+        {children}
 
-      <Menu
-        open={mouseY !== null}
-        onClose={handleClose}
-        anchorReference="anchorPosition"
-        anchorPosition={
-          mouseX !== null && mouseY !== null ? { top: mouseY, left: mouseX } : undefined
-        }
-        PopoverClasses={{ paper: css.contextMenu }}
-        MenuListProps={{ className: css.contextMenuInner }}
-      >
-        <ListItem text="Open Natively" icon="DesktopWindows" onClick={openNatively} />
+        <Menu
+          open={mouseY !== null}
+          onClose={handleClose}
+          anchorReference="anchorPosition"
+          anchorPosition={
+            mouseX !== null && mouseY !== null ? { top: mouseY, left: mouseX } : undefined
+          }
+          PopoverClasses={{ paper: css.contextMenu }}
+          MenuListProps={{ className: css.contextMenuInner }}
+        >
+          <ListItem text="Open Natively" icon="DesktopWindows" onClick={openNatively} />
 
-        <ListItem text="Open in Explorer" icon="Search" onClick={openInExplorer} />
+          <ListItem text="Open in Explorer" icon="Search" onClick={openInExplorer} />
 
-        <ListItem text="Copy" icon="ContentCopy" iconEnd="ArrowRight">
-          <View column>
-            <ListItem text="File Path" icon="Image" onClick={copyFilePath} />
+          <ListItem text="Copy" icon="ContentCopy" iconEnd="ArrowRight">
+            <View column>
+              <ListItem text="File Path" icon="Image" onClick={copyFilePath} />
 
-            <ListItem text="Folder Path" icon="Folder" onClick={copyFolderPath} />
-          </View>
-        </ListItem>
+              <ListItem text="Folder Path" icon="Folder" onClick={copyFolderPath} />
+            </View>
+          </ListItem>
 
-        <ListItem text="Info" icon="Info" onClick={openInfo} />
+          <ListItem text="Info" icon="Info" onClick={openInfo} />
 
-        {!file.isAnimated && (
-          <ListItem text="Face Recognition" icon="Face" onClick={handleFaceRecognition} />
-        )}
+          {!file.isAnimated && (
+            <ListItem text="Face Recognition" icon="Face" onClick={handleFaceRecognition} />
+          )}
 
-        <ListItem
-          text={file?.isArchived ? "Delete" : "Archive"}
-          icon={file?.isArchived ? "Delete" : "Archive"}
-          onClick={handleDelete}
-        />
-      </Menu>
+          <ListItem
+            text={file?.isArchived ? "Delete" : "Archive"}
+            icon={file?.isArchived ? "Delete" : "Archive"}
+            onClick={handleDelete}
+          />
+        </Menu>
+      </View>
 
       {isInfoOpen && <InfoModal fileId={file.id} setVisible={setIsInfoOpen} />}
-    </View>
+    </>
   );
 });
 

@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
 import { colors } from "@mui/material";
-import { Drawer, FaceRecognitionModal, FileContainer, TopBar, View } from "components";
+import { Drawer, FaceRecognitionModal, FileContainer, Tagger, TopBar, View } from "components";
 import { dirToFileImports, filePathsToImports, makeClasses, setupSocketIO, socket } from "utils";
 import { toast } from "react-toastify";
 import Color from "color";
@@ -51,6 +51,8 @@ export const Home = observer(() => {
       console.error(err);
     }
   };
+
+  const setTaggerVisible = (val: boolean) => homeStore.setIsTaggerOpen(val);
 
   useEffect(() => {
     document.title = "Media Viewer // Home";
@@ -120,6 +122,10 @@ export const Home = observer(() => {
           {isLoading ? null : <FileContainer />}
 
           {faceRecognitionStore.isModalOpen && <FaceRecognitionModal />}
+
+          {homeStore.isTaggerOpen && (
+            <Tagger fileIds={homeStore.taggerFileIds} setVisible={setTaggerVisible} />
+          )}
         </View>
       </View>
     </View>

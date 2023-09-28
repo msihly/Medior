@@ -1,8 +1,7 @@
-import { useState } from "react";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
 import { AppBar, colors } from "@mui/material";
-import { IconButton, Tagger, View } from "components";
+import { IconButton, View } from "components";
 import { SelectedFilesInfo, SortMenu } from ".";
 import { makeClasses } from "utils";
 import { toast } from "react-toastify";
@@ -15,14 +14,16 @@ export const TopBar = observer(() => {
 
   const hasNoSelection = fileStore.selectedIds.length === 0;
 
-  const [isTaggerOpen, setIsTaggerOpen] = useState(false);
-
   const handleAutoDetect = () =>
     faceRecognitionStore.addFilesToAutoDetectQueue({ fileIds: fileStore.selectedIds, rootStore });
 
   const handleDelete = () => fileStore.deleteFiles({ fileIds: fileStore.selectedIds, rootStore });
 
-  const handleEditTags = () => setIsTaggerOpen(true);
+  const handleEditTags = () => {
+    homeStore.setTaggerBatchId(null);
+    homeStore.setTaggerFileIds([...fileStore.selectedIds]);
+    homeStore.setIsTaggerOpen(true);
+  };
 
   const handleFileInfoRefresh = () => fileStore.refreshSelectedFiles({ withThumbs: true });
 
@@ -109,8 +110,6 @@ export const TopBar = observer(() => {
           <SortMenu />
         </View>
       </View>
-
-      {isTaggerOpen && <Tagger fileIds={fileStore.selectedIds} setVisible={setIsTaggerOpen} />}
     </AppBar>
   );
 });

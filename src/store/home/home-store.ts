@@ -61,6 +61,7 @@ export class HomeStore extends Model({
   isDraggingOut: prop<boolean>(false).withSetter(),
   isDrawerOpen: prop<boolean>(true).withSetter(),
   isSortDesc: prop<boolean>(true).withSetter(),
+  isTaggerOpen: prop<boolean>(false).withSetter(),
   selectedImageTypes: prop<SelectedImageTypes>(
     () => Object.fromEntries(IMAGE_TYPES.map((ext) => [ext, true])) as SelectedImageTypes
   ),
@@ -68,6 +69,8 @@ export class HomeStore extends Model({
     () => Object.fromEntries(VIDEO_TYPES.map((ext) => [ext, true])) as SelectedVideoTypes
   ),
   sortKey: prop<string>("dateModified").withSetter(),
+  taggerBatchId: prop<string | null>(null).withSetter(),
+  taggerFileIds: prop<string[]>(() => []).withSetter(),
 }) {
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
   @modelAction
