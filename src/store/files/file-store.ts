@@ -255,7 +255,7 @@ export class FileStore extends Model({
 
           await (file.isAnimated
             ? generateFramesThumbnail(file.path, dirPath, hash, videoInfo?.duration)
-            : sharp(file.path).resize(null, THUMB_WIDTH).toFile(thumbPaths[0]));
+            : sharp(file.path, { failOn: "none" }).resize(null, THUMB_WIDTH).toFile(thumbPaths[0]));
 
           updates["thumbPaths"] = thumbPaths;
         }

@@ -69,9 +69,13 @@ export const copyFileForImport = async ({
     if (!dbOnly) {
       if (!(await checkFileExists(newPath)))
         if (await copyFile(dirPath, originalPath, newPath))
-          await (duration > 0
-            ? generateFramesThumbnail(originalPath, dirPath, hash, duration)
-            : sharp(originalPath).resize(null, THUMB_WIDTH).toFile(thumbPaths[0]));
+          await(
+            duration > 0
+              ? generateFramesThumbnail(originalPath, dirPath, hash, duration)
+              : sharp(originalPath, { failOn: "none" })
+                  .resize(null, THUMB_WIDTH)
+                  .toFile(thumbPaths[0])
+          );
     }
 
     let fileRes = await trpc.getFileByHash.mutate({ hash });
