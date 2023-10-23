@@ -16,7 +16,11 @@ export const getVideoInfo = async (path: string) => {
 
     return ffmpeg.ffprobe(path, (err, info) => {
       if (err) return reject(err);
-      const { height, r_frame_rate, width } = info.streams.find((s) => s.codec_type === "video");
+
+      const videoStream = info.streams.find((s) => s.codec_type === "video");
+      if (!videoStream) return reject(new Error("No video stream found."));
+
+      const { height, r_frame_rate, width } = videoStream;
       const { duration, size } = info.format;
 
       return resolve({

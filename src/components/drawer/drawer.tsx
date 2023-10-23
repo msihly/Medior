@@ -2,25 +2,14 @@ import { useMemo, useState } from "react";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
 import { Divider, Drawer as MuiDrawer, List, colors } from "@mui/material";
-import {
-  Accordion,
-  Checkbox,
-  IconButton,
-  ListItem,
-  TagInput,
-  TagManager,
-  Text,
-  View,
-} from "components";
+import { Accordion, Checkbox, ListItem, TagInput, TagManager, Text, View } from "components";
 import { ExtCheckbox, Importer } from ".";
-import { IMAGE_TYPES, makeClasses, VIDEO_TYPES } from "utils";
-import * as Media from "media";
-import Color from "color";
+import { CONSTANTS, IMAGE_TYPES, makeClasses, VIDEO_TYPES } from "utils";
 
 export const Drawer = observer(() => {
   const { homeStore, tagStore } = useStores();
 
-  const { css } = useClasses({ drawerMode: homeStore.drawerMode });
+  const { css } = useClasses(null);
 
   const [isImporterOpen, setIsImporterOpen] = useState(false);
 
@@ -75,18 +64,10 @@ export const Drawer = observer(() => {
       ModalProps={{ keepMounted: true }}
       open={homeStore.isDrawerOpen}
       onClose={handleClose}
-      variant={homeStore.drawerMode}
+      variant="persistent"
     >
-      <View className={css.topActions}>
-        <IconButton name="Menu" onClick={handleClose} size="medium" />
-
-        <IconButton onClick={homeStore.toggleDrawerMode} size="medium">
-          <Media.PinSVG className={css.pin} />
-        </IconButton>
-      </View>
-
-      <List>
-        <ListItem text="Manage Tags" icon="More" onClick={handleManageTags} />
+      <List disablePadding className={css.list}>
+        <ListItem text="Tags" icon="More" onClick={handleManageTags} />
 
         <ListItem text="Import" icon="GetApp" onClick={() => setIsImporterOpen(true)} />
 
@@ -97,14 +78,14 @@ export const Drawer = observer(() => {
         />
       </List>
 
-      <Divider variant="middle" />
+      <Divider className={css.divider} />
 
       <Text align="center" className={css.inputTitle}>
         {"Include - All"}
       </Text>
       <TagInput
         value={[...homeStore.includedAllTags]}
-        setValue={(val) => homeStore.setIncludedAllTags(val)}
+        onChange={(val) => homeStore.setIncludedAllTags(val)}
         options={[...tagStore.tagOptions]}
         limitTags={3}
         className={css.input}
@@ -115,7 +96,7 @@ export const Drawer = observer(() => {
       </Text>
       <TagInput
         value={[...homeStore.includedAnyTags]}
-        setValue={(val) => homeStore.setIncludedAnyTags(val)}
+        onChange={(val) => homeStore.setIncludedAnyTags(val)}
         options={[...tagStore.tagOptions]}
         limitTags={3}
         className={css.input}
@@ -126,7 +107,7 @@ export const Drawer = observer(() => {
       </Text>
       <TagInput
         value={[...homeStore.excludedAnyTags]}
-        setValue={(val) => homeStore.setExcludedAnyTags(val)}
+        onChange={(val) => homeStore.setExcludedAnyTags(val)}
         options={[...tagStore.tagOptions]}
         limitTags={3}
         className={css.input}
@@ -155,7 +136,7 @@ export const Drawer = observer(() => {
           className={css.accordionHeaderCheckbox}
         />
 
-        <Accordion header={<Text noWrap>Image Types</Text>} fullWidth className={css.accordion}>
+        <Accordion header={<Text noWrap>Images</Text>} fullWidth className={css.accordion}>
           {IMAGE_TYPES.map((ext) => (
             <ExtCheckbox key={ext} ext={ext} type="Image" />
           ))}
@@ -170,7 +151,7 @@ export const Drawer = observer(() => {
           className={css.accordionHeaderCheckbox}
         />
 
-        <Accordion header={<Text noWrap>Video Types</Text>} fullWidth className={css.accordion}>
+        <Accordion header={<Text noWrap>Videos</Text>} fullWidth className={css.accordion}>
           {VIDEO_TYPES.map((ext) => (
             <ExtCheckbox key={ext} ext={ext} type="Video" />
           ))}
@@ -188,7 +169,7 @@ export const Drawer = observer(() => {
   );
 });
 
-const useClasses = makeClasses((_, { drawerMode }) => ({
+const useClasses = makeClasses({
   accordion: {
     " > button": { padding: "0.5rem 0.2rem" },
   },
@@ -202,15 +183,17 @@ const useClasses = makeClasses((_, { drawerMode }) => ({
     margin: "0.3rem 0",
     width: "100%",
   },
+  divider: {
+    width: "100%",
+  },
   drawer: {
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
     borderRight: "1px solid #111",
-    width: "200px",
-    background: `linear-gradient(to right, ${colors.grey["900"]}, ${Color(colors.grey["900"])
-      .darken(0.1)
-      .string()})`,
+    marginTop: CONSTANTS.TOP_BAR_HEIGHT,
+    width: CONSTANTS.DRAWER_WIDTH,
+    background: colors.grey["900"],
     zIndex: 20,
     "&::-webkit-scrollbar": {
       display: "none",
@@ -220,22 +203,12 @@ const useClasses = makeClasses((_, { drawerMode }) => ({
     padding: "0.1rem 0.4rem",
     width: "192px",
   },
-  pin: {
-    padding: "0.2rem",
-    fill: "white",
-    transform: `rotate(${drawerMode === "persistent" ? "0" : "30"}deg)`,
-  },
   inputTitle: {
     marginTop: "0.3rem",
     textShadow: `0 0 10px ${colors.blue["600"]}`,
     fontSize: "0.8em",
   },
-  topActions: {
-    display: "flex",
-    flexFlow: "row nowrap",
-    alignItems: "center",
-    justifyContent: "space-between",
-    padding: "0.3rem 0.5rem",
+  list: {
     width: "100%",
   },
-}));
+});

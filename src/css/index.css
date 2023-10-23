@@ -50,6 +50,7 @@ body {
 #root {
   width: inherit;
   height: inherit;
+  overflow: hidden;
 }
 
 ::-webkit-scrollbar {

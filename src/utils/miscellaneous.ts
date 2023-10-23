@@ -1,5 +1,6 @@
-import { toast } from "react-toastify";
+import path from "path";
 import { inspect } from "util";
+import { toast } from "react-toastify";
 
 export class PromiseQueue {
   queue = Promise.resolve();
@@ -23,6 +24,20 @@ export const copyToClipboard = (value: string, message: string) => {
     () => toast.error("Failed to copy to clipboard")
   );
 };
+
+export type TreeNode = { children: TreeNode[]; name: string };
+
+const createTreeNode = (dirPath: string, tree: TreeNode[]) => {
+  const dirNames = path.normalize(dirPath).split(path.sep) as string[];
+  const [rootDirName, ...remainingDirNames] = dirNames;
+  const treeNode = tree.find((t) => t.name === rootDirName);
+  if (!treeNode) tree.push({ name: rootDirName, children: [] });
+  if (remainingDirNames.length > 0)
+    createTreeNode(path.join(...remainingDirNames), (treeNode ?? tree[tree.length - 1]).children);
+};
+
+export const createTree = (paths: string[]): TreeNode[] =>
+  paths.reduce((acc, cur) => (createTreeNode(cur, acc), acc), []);
 
 export const debounce = (fn, delay) => {
   let timeout;

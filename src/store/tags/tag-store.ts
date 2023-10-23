@@ -53,7 +53,7 @@ export class TagStore extends Model({
   @modelFlow
   createTag = _async(function* (
     this: TagStore,
-    { aliases = [], childIds = [], label, parentIds = [] }: CreateTagInput
+    { aliases = [], childIds = [], label, parentIds = [], withSub = true }: CreateTagInput
   ) {
     return yield* _await(
       handleErrors(async () => {
@@ -67,7 +67,7 @@ export class TagStore extends Model({
         await this.refreshRelatedTagCounts({ id });
         toast.success(`Tag '${label}' created`);
 
-        trpc.onTagCreated.mutate({ tag });
+        if (withSub) trpc.onTagCreated.mutate({ tag });
         return tag;
       })
     );

@@ -4,7 +4,16 @@ import { observer } from "mobx-react-lite";
 import { useStores } from "store";
 import { colors } from "@mui/material";
 import { Drawer, FaceRecognitionModal, FileContainer, Tagger, TopBar, View } from "components";
-import { dirToFileImports, filePathsToImports, makeClasses, setupSocketIO, socket } from "utils";
+import {
+  CONSTANTS,
+  TreeNode,
+  createTree,
+  dirToFileImports,
+  filePathsToImports,
+  makeClasses,
+  setupSocketIO,
+  socket,
+} from "utils";
 import { toast } from "react-toastify";
 import Color from "color";
 
@@ -14,11 +23,7 @@ export const Home = observer(() => {
 
   const [isLoading, setIsLoading] = useState(true);
 
-  const { css } = useClasses({
-    drawerMode: homeStore.drawerMode,
-    drawerWidth: 200,
-    isDrawerOpen: homeStore.isDrawerOpen,
-  });
+  const { css } = useClasses({ isDrawerOpen: homeStore.isDrawerOpen });
 
   const handleDragEnter = () => !homeStore.isDraggingOut && homeStore.setIsDraggingIn(true);
 
@@ -113,12 +118,13 @@ export const Home = observer(() => {
         <View onDragLeave={handleDragLeave} onDrop={handleFileDrop} className={css.overlay} />
       )}
 
-      <View>
+      <View column className={css.root}>
+        <TopBar />
+
+        <View row>
         <Drawer />
 
         <View column className={css.main}>
-          <TopBar />
-
           {isLoading ? null : <FileContainer />}
 
           {faceRecognitionStore.isModalOpen && <FaceRecognitionModal />}
@@ -126,21 +132,21 @@ export const Home = observer(() => {
           {homeStore.isTaggerOpen && (
             <Tagger fileIds={homeStore.taggerFileIds} setVisible={setTaggerVisible} />
           )}
+          </View>
         </View>
       </View>
     </View>
   );
 });
 
-const useClasses = makeClasses((_, { drawerMode, drawerWidth, isDrawerOpen }) => ({
+const useClasses = makeClasses((_, { isDrawerOpen }) => ({
   main: {
     display: "flex",
     flexFlow: "column",
-    marginLeft: drawerMode === "persistent" && isDrawerOpen ? drawerWidth : 0,
-    width:
-      drawerMode === "persistent" && isDrawerOpen ? `calc(100% - ${drawerWidth}px)` : "inherit",
-    height: "100vh",
-    overflow: "hidden",
+    marginLeft: isDrawerOpen ? CONSTANTS.DRAWER_WIDTH : 0,
+    width: isDrawerOpen ? `calc(100% - ${CONSTANTS.DRAWER_WIDTH}px)` : "inherit",
+    height: `calc(100vh - ${CONSTANTS.TOP_BAR_HEIGHT})`,
+    overflow: "auto",
     transition: "all 225ms ease-in-out",
   },
   overlay: {
@@ -154,5 +160,9 @@ const useClasses = makeClasses((_, { drawerMode, drawerWidth, isDrawerOpen }) =>
     opacity: 0.3,
     // pointerEvents: "none",
     zIndex: 5000, // necessary for MUI z-index values
+  },
+  root: {
+    height: "100vh",
+    overflow: "hidden",
   },
 }));

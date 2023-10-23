@@ -48,7 +48,6 @@ export const sortFiles = <File>({
 
 @model("mediaViewer/HomeStore")
 export class HomeStore extends Model({
-  drawerMode: prop<"persistent" | "temporary">("persistent"),
   excludedAnyTags: prop<TagOption[]>(() => []).withSetter(),
   fileCardFit: prop<"contain" | "cover">("cover").withSetter(),
   includeDescendants: prop<boolean>(true).withSetter(),
@@ -71,6 +70,8 @@ export class HomeStore extends Model({
   sortKey: prop<string>("dateModified").withSetter(),
   taggerBatchId: prop<string | null>(null).withSetter(),
   taggerFileIds: prop<string[]>(() => []).withSetter(),
+  tagSearchDepth: prop<number>(-1).withSetter(),
+  tagSearchHasSections: prop<boolean>(false).withSetter(),
 }) {
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
   @modelAction
@@ -88,11 +89,6 @@ export class HomeStore extends Model({
   @modelAction
   setSelectedVideoTypes(types: Partial<SelectedVideoTypes>) {
     this.selectedVideoTypes = { ...this.selectedVideoTypes, ...types };
-  }
-
-  @modelAction
-  toggleDrawerMode() {
-    this.drawerMode = this.drawerMode === "persistent" ? "temporary" : "persistent";
   }
 
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */

@@ -205,7 +205,7 @@ export const FaceRecognitionModal = observer(() => {
                 <TagInput
                   options={tagStore.tagOptions}
                   value={face.selectedTag ? [face.selectedTag] : []}
-                  setValue={(val) => face.setSelectedTag(val[0])}
+                  onChange={(val) => face.setSelectedTag(val[0])}
                   inputProps={{ color: face.boxColor, margins: { top: "0.4rem" } }}
                   center
                   fullWidth

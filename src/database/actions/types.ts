@@ -131,6 +131,7 @@ export type CreateTagInput = {
   childIds?: string[];
   label: string;
   parentIds?: string[];
+  withSub?: boolean;
 };
 
 export type DeleteTagInput = { id: string };
@@ -145,7 +146,7 @@ export type EditTagInput = {
   parentIds?: string[];
 };
 
-export type OnTagCreatedInput = { tag: Tag };
+export type OnTagCreatedInput = { tag?: Tag };
 
 export type OnTagDeletedInput = { tagId: string };
 

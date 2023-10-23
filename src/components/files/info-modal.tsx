@@ -5,21 +5,16 @@ import { Button, DetailRows, SideScroller, Tag, Text } from "components";
 import { dayjs, formatBytes, makeClasses } from "utils";
 import { toast } from "react-toastify";
 
-interface InfoModalProps {
-  fileId: string;
-  setVisible: (visible: boolean) => void;
-}
-
-export const InfoModal = observer(({ fileId, setVisible }: InfoModalProps) => {
+export const InfoModal = observer(() => {
   const { css } = useClasses(null);
 
   const { fileStore } = useStores();
-  const file = fileStore.getById(fileId);
+  const file = fileStore.getById(fileStore.activeFileId);
 
-  const handleClose = () => setVisible(false);
+  const handleClose = () => fileStore.setIsInfoModalOpen(false);
 
   const handleRefresh = async () => {
-    const res = await fileStore.refreshFile({ id: fileId, withThumbs: true });
+    const res = await fileStore.refreshFile({ id: fileStore.activeFileId, withThumbs: true });
     if (!res.success) toast.error("Failed to refresh info");
     else toast.success("File info refreshed");
   };
@@ -32,7 +27,7 @@ export const InfoModal = observer(({ fileId, setVisible }: InfoModalProps) => {
         <DetailRows
           labelWidth="6em"
           rows={[
-            { label: "ID", value: fileId || "N/A" },
+            { label: "ID", value: fileStore.activeFileId || "N/A" },
             { label: "Name", value: file?.originalName || "N/A" },
             { label: "Path", value: file?.path || "N/A" },
             { label: "Original Path", value: file?.originalPath || "N/A" },

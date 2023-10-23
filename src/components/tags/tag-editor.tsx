@@ -2,7 +2,7 @@ import { useMemo, useRef, useState } from "react";
 import { observer } from "mobx-react-lite";
 import { TagOption, useStores } from "store";
 import { DialogContent, DialogActions, colors } from "@mui/material";
-import { Button, Checkbox, ChipInput, ChipOption, Input, TagInput, Text, View } from "components";
+import { Button, Checkbox, ChipInput, ChipOption, TagInput, Text, View } from "components";
 import { ConfirmDeleteModal } from ".";
 import { makeClasses } from "utils";
 import { toast } from "react-toastify";
@@ -40,6 +40,7 @@ export const TagEditor = observer(({ create, goBack }: TagEditorProps) => {
   );
 
   const isDuplicateTag =
+    label.length > 0 &&
     (isCreate || label.toLowerCase() !== tagStore.activeTag?.label?.toLowerCase()) &&
     !!tagStore.getByLabel(label);
 
@@ -66,16 +67,17 @@ export const TagEditor = observer(({ create, goBack }: TagEditorProps) => {
 
   const handleDelete = () => setIsConfirmDeleteOpen(true);
 
-  const handleEditExisting = () => {
+  const handleEditExisting = (val: string) => {
     setIsCreate(false);
     tagStore.setTagManagerMode("edit");
 
-    const tag = tagStore.getByLabel(label);
+    const tag = tagStore.getByLabel(val);
+    tagStore.setActiveTagId(tag.id);
+
     setLabel(tag.label);
     setAliases(tag.aliases.map((a) => ({ label: a, value: a })) ?? []);
     setChildTags(tagStore.getChildTags(tag).map((t) => t.tagOption) ?? []);
     setParentTags(tagStore.getParentTags(tag).map((t) => t.tagOption) ?? []);
-    tagStore.setActiveTagId(tag.id);
   };
 
   const saveTag = async () => {
@@ -109,26 +111,30 @@ export const TagEditor = observer(({ create, goBack }: TagEditorProps) => {
       <DialogContent dividers className={css.dialogContent}>
         <View column>
           <Text className={css.sectionTitle}>{"Label"}</Text>
-          <Input
-            ref={labelRef}
-            value={label}
-            setValue={setLabel}
-            textAlign="center"
-            error={isDuplicateTag}
-            hasHelper
-            helperText={
-              isDuplicateTag && (
+          <TagInput
+            value={undefined}
+            hasCreate={false}
+            options={[...tagStore.tagOptions]}
+            onSelect={(option) => handleEditExisting(option.label)}
+            inputProps={{
+              error: isDuplicateTag,
+              hasHelper: true,
+              helperText: isDuplicateTag && (
                 <View row align="center" justify="center">
                   <Text>{"Tag already exists"}</Text>
                   <Button
                     variant="text"
                     text="(Click to edit)"
-                    onClick={handleEditExisting}
+                    onClick={() => handleEditExisting(label)}
                     fontSize="0.85em"
                   />
                 </View>
-              )
-            }
+              ),
+              ref: labelRef,
+              setValue: setLabel,
+              textAlign: "center",
+              value: label,
+            }}
           />
 
           <Text className={css.sectionTitle}>{"Aliases"}</Text>
@@ -137,13 +143,13 @@ export const TagEditor = observer(({ create, goBack }: TagEditorProps) => {
           <Text className={css.sectionTitle}>{"Parent Tags"}</Text>
           <TagInput
             value={parentTags}
-            setValue={setParentTags}
+            onChange={setParentTags}
             options={parentTagOptions}
             hasHelper
           />
 
           <Text className={css.sectionTitle}>{"Child Tags"}</Text>
-          <TagInput value={childTags} setValue={setChildTags} options={childTagOptions} hasHelper />
+          <TagInput value={childTags} onChange={setChildTags} options={childTagOptions} hasHelper />
 
           {isCreate && (
             <View column justify="center">
@@ -183,13 +189,13 @@ export const TagEditor = observer(({ create, goBack }: TagEditorProps) => {
       )}
 
       <DialogActions className={css.dialogActions}>
+        <Button text="Confirm" icon="Check" onClick={saveTag} />
+
         <Button text="Cancel" icon="Close" onClick={goBack} color={colors.grey["700"]} />
 
         {!isCreate && (
           <Button text="Delete" icon="Delete" onClick={handleDelete} color={colors.red["800"]} />
         )}
-
-        <Button text="Confirm" icon="Check" onClick={saveTag} />
       </DialogActions>
     </>
   );
@@ -201,6 +207,7 @@ const useClasses = makeClasses({
   },
   dialogContent: {
     padding: "0.5rem 1rem",
+    maxHeight: "75vh",
     width: "25rem",
   },
   sectionTitle: {

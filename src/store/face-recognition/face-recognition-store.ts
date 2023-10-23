@@ -143,10 +143,12 @@ export class FaceRecognitionStore extends Model({
         const facesRes = await this.detectFaces(imagePath);
         if (!facesRes.success) throw new Error(facesRes.error);
 
-        const storedDescriptors = this.faceModels.flatMap(
-          (m) => new faceapi.LabeledFaceDescriptors(m.tagId, m.descriptorsFloat32)
-        );
-        if (!storedDescriptors.length) return [];
+        const storedDescriptors = this.faceModels.reduce((acc, cur) => {
+          if (cur.descriptorsFloat32.some((d) => d.some((n) => isNaN(n))))
+            console.error(`NaN found in descriptors for tag ${cur.tagId}`, cur.descriptorsFloat32);
+          else acc.push(new faceapi.LabeledFaceDescriptors(cur.tagId, cur.descriptorsFloat32));
+          return acc;
+        }, [] as faceapi.LabeledFaceDescriptors[]);
 
         const matcher = new faceapi.FaceMatcher(storedDescriptors, DISTANCE_THRESHOLD);
         return facesRes.data.map((f) => {

@@ -74,7 +74,7 @@ export class File extends Model({
   }) {
     this.tagIds = this.tagIds
       .filter((tagId) => !removedTagIds?.includes(tagId))
-      .concat(addedTagIds ?? []);
+      .concat(addedTagIds?.filter?.((tagId) => !this.tagIds.includes(tagId)) ?? []);
     this.dateModified = dateModified;
   }
 

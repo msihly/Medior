@@ -38,8 +38,10 @@ import { toast } from "react-toastify";
 
 @model("mediaViewer/FileStore")
 export class FileStore extends Model({
+  activeFileId: prop<string | null>(null).withSetter(),
   files: prop<File[]>(() => []),
   filteredFileIds: prop<string[]>(() => []).withSetter(),
+  isInfoModalOpen: prop<boolean>(false).withSetter(),
   page: prop<number>(1).withSetter(),
   selectedIds: prop<string[]>(() => []),
 }) {

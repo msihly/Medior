@@ -13,8 +13,16 @@ import { computed } from "mobx";
 import { RootStore } from "store";
 import { FileImport, ImportBatch } from ".";
 import { copyFileForImport } from "./import-queue";
-import { dayjs, handleErrors, PromiseQueue, trpc, uniqueArrayMerge } from "utils";
+import {
+  dayjs,
+  handleErrors,
+  PromiseQueue,
+  removeEmptyFolders,
+  trpc,
+  uniqueArrayMerge,
+} from "utils";
 import env from "env";
+import path from "path";
 
 export type ImportBatchInput = Omit<ModelCreationData<ImportBatch>, "imports"> & {
   imports?: ModelCreationData<FileImport>[];
@@ -69,6 +77,7 @@ export class ImportStore extends Model({
       //   "Starting importBatch:",
       //   JSON.stringify({ batchId, files, tagIds, targetDir }, null, 2)
       // );
+
       const res = await trpc.startImportBatch.mutate({ id: batchId });
       if (!res.success) throw new Error(res.error);
       this.getById(batchId)?.update({ startedAt: res.data });
@@ -77,6 +86,7 @@ export class ImportStore extends Model({
     files.forEach((file) => {
       this.queue.add(async () => {
         // console.debug("Importing file:", JSON.stringify({ ...file }, null, 2));
+
         const res = await this.importFile({ batchId, filePath: file.path });
         if (!res.success) throw new Error(res.error);
       });
@@ -84,8 +94,19 @@ export class ImportStore extends Model({
 
     this.queue.add(async () => {
       // console.debug("Completing importBatch:", batchId);
+
+      if (this.deleteOnImport) {
+        try {
+          const parentDirs = [...new Set(files.map((file) => path.dirname(file.path)))];
+          await Promise.all(parentDirs.map((dir) => removeEmptyFolders(dir)));
+        } catch (err) {
+          console.error("Error removing empty folders:", err);
+        }
+      }
+
       const res = await this.completeImportBatch({ id: batchId });
       if (!res.success) throw new Error(res.error);
+
       // console.debug("Completed importBatch:", batchId);
     });
   }

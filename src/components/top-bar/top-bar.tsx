@@ -3,9 +3,8 @@ import { useStores } from "store";
 import { AppBar, colors } from "@mui/material";
 import { IconButton, View } from "components";
 import { SelectedFilesInfo, SortMenu } from ".";
-import { makeClasses } from "utils";
+import { CONSTANTS, makeClasses } from "utils";
 import { toast } from "react-toastify";
-import Color from "color";
 
 export const TopBar = observer(() => {
   const rootStore = useStores();
@@ -40,16 +39,16 @@ export const TopBar = observer(() => {
   const handleUnarchive = () =>
     fileStore.deleteFiles({ fileIds: fileStore.selectedIds, isUndelete: true, rootStore });
 
+  const toggleDrawerOpen = () => homeStore.setIsDrawerOpen(!homeStore.isDrawerOpen);
+
   const toggleFileCardFit = () =>
     homeStore.setFileCardFit(homeStore.fileCardFit === "cover" ? "contain" : "cover");
 
   return (
-    <AppBar position="relative" className={css.appBar}>
+    <AppBar position="static" className={css.appBar}>
       <View className={css.container}>
         <View className={css.divisions}>
-          {!homeStore.isDrawerOpen && (
-            <IconButton name="Menu" onClick={() => homeStore.setIsDrawerOpen(true)} size="medium" />
-          )}
+          <IconButton name="Menu" onClick={toggleDrawerOpen} size="medium" />
 
           {fileStore.selectedIds.length > 0 && <SelectedFilesInfo />}
         </View>
@@ -118,17 +117,19 @@ const useClasses = makeClasses({
   appBar: {
     display: "flex",
     flexFlow: "row nowrap",
+    flexGrow: 1,
+    flexShrink: 0,
     boxShadow: "rgb(0 0 0 / 50%) 2px 2px 4px 0px",
     zIndex: 5,
   },
   container: {
     display: "flex",
-    flex: 1,
+    flexGrow: 1,
+    flexShrink: 0,
     justifyContent: "space-between",
+    height: CONSTANTS.TOP_BAR_HEIGHT,
     padding: "0.3rem 0.5rem",
-    background: `linear-gradient(to left, ${colors.grey["900"]}, ${Color(colors.grey["900"])
-      .darken(0.1)
-      .string()})`,
+    background: colors.grey["900"],
   },
   divisions: {
     display: "inline-flex",

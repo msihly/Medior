@@ -3,7 +3,7 @@ import { observer } from "mobx-react-lite";
 import { useStores } from "store";
 import { Pagination, colors } from "@mui/material";
 import { View } from "components";
-import { DisplayedFiles } from ".";
+import { DisplayedFiles, InfoModal } from ".";
 import { makeClasses } from "utils";
 import { toast } from "react-toastify";
 import Color from "color";
@@ -66,14 +66,18 @@ export const FileContainer = observer(() => {
         faceRecognitionStore.addFilesToAutoDetectQueue({ fileIds, rootStore });
     } else if (isOneFileSelected) {
       const selectedId = fileIds[0];
-      const indexOfSelected = fileStore.files.findIndex((f) => f.id === selectedId);
-      const nextIndex = indexOfSelected === fileStore.files.length - 1 ? 0 : indexOfSelected + 1;
-      const nextId = fileStore.files[nextIndex].id;
-      const prevIndex = indexOfSelected === 0 ? fileStore.files.length - 1 : indexOfSelected - 1;
-      const prevId = fileStore.files[prevIndex].id;
 
-      if (["ArrowLeft", "ArrowRight"].includes(e.key)) {
+      if (e.key === "i") {
+        fileStore.setActiveFileId(selectedId);
+        fileStore.setIsInfoModalOpen(true);
+      } else if (["ArrowLeft", "ArrowRight"].includes(e.key)) {
+        const indexOfSelected = fileStore.files.findIndex((f) => f.id === selectedId);
+        const nextIndex = indexOfSelected === fileStore.files.length - 1 ? 0 : indexOfSelected + 1;
+        const nextId = fileStore.files[nextIndex].id;
+        const prevIndex = indexOfSelected === 0 ? fileStore.files.length - 1 : indexOfSelected - 1;
+        const prevId = fileStore.files[prevIndex].id;
         const newId = e.key === "ArrowLeft" ? prevId : nextId;
+
         if (!fileStore.files.find((f) => f.id === newId))
           changePage(fileStore.page + 1 * (e.key === "ArrowLeft" ? -1 : 1));
 
@@ -103,6 +107,8 @@ export const FileContainer = observer(() => {
         showLastButton
         className={css.pagination}
       />
+
+      {fileStore.isInfoModalOpen && <InfoModal />}
     </View>
   );
 });
@@ -118,7 +124,7 @@ const useClasses = makeClasses({
   files: {
     display: "flex",
     flexFlow: "row wrap",
-    paddingBottom: "3rem",
+    paddingBottom: "7rem",
     overflowY: "auto",
   },
   pagination: {
@@ -129,7 +135,7 @@ const useClasses = makeClasses({
     borderRight: `3px solid ${colors.blue["800"]}`,
     borderLeft: `3px solid ${colors.blue["800"]}`,
     borderRadius: "0.5rem",
-    margin: "0 auto",
+    margin: "0 auto 1rem",
     padding: "0.3rem",
     width: "fit-content",
     background: `linear-gradient(to top, ${colors.grey["900"]}, ${Color(colors.grey["900"])

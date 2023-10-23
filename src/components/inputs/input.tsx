@@ -1,4 +1,4 @@
-import { forwardRef, MutableRefObject, ReactNode } from "react";
+import { ChangeEvent, forwardRef, MutableRefObject, ReactNode } from "react";
 import { colors, TextField, TextFieldProps } from "@mui/material";
 import { Text } from "..";
 import { CSSObject } from "tss-react";
@@ -26,6 +26,7 @@ export const Input = forwardRef(
       color,
       hasHelper = false,
       helperText,
+      inputProps,
       margins = {},
       maxLength,
       setValue,
@@ -46,12 +47,15 @@ export const Input = forwardRef(
       width,
     });
 
+    const handleChange = (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+      setValue?.(event.target.value);
+
     return (
       <TextField
         {...props}
         {...{ value, variant }}
         ref={ref}
-        onChange={(event) => setValue?.(event.target.value)}
+        onChange={handleChange}
         helperText={
           helperText ? (
             typeof helperText === "string" ? (
@@ -63,7 +67,7 @@ export const Input = forwardRef(
         }
         // @ts-expect-error https://github.com/mui/material-ui/issues/33339
         FormHelperTextProps={{ component: "div" }}
-        inputProps={{ ...props.inputProps, maxLength }}
+        inputProps={{ ...inputProps, maxLength, value: value ?? "" }}
         size="small"
         className={cx(css.input, className)}
       >

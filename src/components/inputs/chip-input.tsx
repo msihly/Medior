@@ -1,5 +1,5 @@
-import { ComponentProps } from "react";
-import { Autocomplete, Chip, colors } from "@mui/material";
+import { ComponentProps, useState } from "react";
+import { Autocomplete, AutocompleteChangeReason, Chip, colors } from "@mui/material";
 import { observer } from "mobx-react-lite";
 import { Input, InputProps } from ".";
 import { makeClasses } from "utils";
@@ -34,6 +34,20 @@ export const ChipInput = observer(
   }: ChipInputProps) => {
     const { css, cx } = useClasses({ opaque });
 
+    const [inputValue, setInputValue] = useState<string>(inputProps?.value ?? "");
+
+    const handleChange = (_, val: ChipOption[], reason?: AutocompleteChangeReason) => {
+      setValue?.(
+        val.map((v: ChipOption | string) => (typeof v === "string" ? { label: v, value: v } : v))
+      );
+      if (reason === "createOption") setInputValue("");
+    };
+
+    const handleInputChange = (val: string) => {
+      setInputValue(val);
+      inputProps?.setValue?.(val);
+    };
+
     return (
       <Autocomplete
         {...{ options, value }}
@@ -42,6 +56,8 @@ export const ChipInput = observer(
           <Input
             {...params}
             {...{ hasHelper }}
+            value={inputValue}
+            setValue={handleInputChange}
             className={cx(css.input, className)}
             {...inputProps}
           />
@@ -51,13 +67,7 @@ export const ChipInput = observer(
             <Chip {...getTagProps({ index })} label={option.label} />
           ))
         }
-        onChange={(_, val: ChipOption[] | string[]) => {
-          setValue?.(
-            val.map((v: ChipOption | string) =>
-              typeof v === "string" ? { label: v, value: v } : v
-            )
-          );
-        }}
+        onChange={handleChange}
         isOptionEqualToValue={(option: ChipOption, val: ChipOption) => option.value === val.value}
         size="small"
         freeSolo

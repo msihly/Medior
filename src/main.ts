@@ -1,11 +1,17 @@
 import { app, BrowserWindow, ipcMain, screen } from "electron";
 import path from "path";
 import { readFile } from "fs/promises";
-import { logToFile } from "./utils";
+import { logToFile, setLogDir } from "./utils";
 
 const baseUrl = !app.isPackaged
   ? "http://localhost:3333"
   : `file://${path.join(__dirname, "..", "index.html")}`;
+
+const folderPath = app.isPackaged ? process.resourcesPath : __dirname;
+app.setPath("appData", folderPath);
+app.setPath("userData", path.resolve(folderPath, "userData"));
+app.setAppLogsPath(path.resolve(folderPath, "logs"));
+setLogDir(path.resolve(folderPath, "logs"));
 
 /* ------------------------------- BEGIN - MAIN WINDOW ------------------------------ */
 let mainWindow = null;
@@ -13,9 +19,10 @@ let mainWindow = null;
 const createMainWindow = async () => {
   logToFile("debug", "Loading servers...");
 
-  const serverUrl = app.isPackaged
-    ? path.resolve(process.resourcesPath, "extraResources", "server.js")
-    : path.join(__dirname, "server.js");
+  const serverUrl = path.resolve(
+    folderPath,
+    `${app.isPackaged ? "extraResources\\" : ""}server.js`
+  );
 
   /** Using eval is the only method that works with packaged executable for indeterminable reason. */
   eval(await readFile(serverUrl, { encoding: "utf8" }));

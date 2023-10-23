@@ -69,9 +69,10 @@ export const CarouselWindow = observer(() => {
   }, []);
 
   const handleKeyPress = async (e: React.KeyboardEvent<HTMLElement>) => {
-    const fileIds = [carouselStore.activeFileId];
+    if (carouselStore.isTaggerOpen) return;
 
-    if (e.key === "t" && !carouselStore.isTaggerOpen) carouselStore.setIsTaggerOpen(true);
+    const fileIds = [carouselStore.activeFileId];
+    if (e.key === "t") carouselStore.setIsTaggerOpen(true);
     else if (e.key === "Delete") fileStore.deleteFiles({ rootStore, fileIds });
     else if (["ArrowLeft", "ArrowRight"].includes(e.key)) handleNav(e.key === "ArrowLeft");
     else if (["1", "2", "3", "4", "5", "6", "7", "8", "9"].includes(e.key)) {
