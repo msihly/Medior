@@ -1,8 +1,7 @@
-import { Dialog, DialogTitle, DialogContent, DialogActions, colors } from "@mui/material";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
-import { Button, DetailRows, SideScroller, Tag, Text } from "components";
-import { dayjs, formatBytes, makeClasses } from "utils";
+import { Button, DetailRows, Modal, SideScroller, Tag, Text } from "components";
+import { colors, dayjs, formatBytes, makeClasses } from "utils";
 import { toast } from "react-toastify";
 
 export const InfoModal = observer(() => {
@@ -20,10 +19,10 @@ export const InfoModal = observer(() => {
   };
 
   return (
-    <Dialog open={true} onClose={handleClose} scroll="paper">
-      <DialogTitle className={css.title}>{"Info"}</DialogTitle>
+    <Modal.Container onClose={handleClose}>
+      <Modal.Header>{"Info"}</Modal.Header>
 
-      <DialogContent dividers>
+      <Modal.Content dividers>
         <DetailRows
           labelWidth="6em"
           rows={[
@@ -67,29 +66,22 @@ export const InfoModal = observer(() => {
             },
           ]}
         />
-      </DialogContent>
+      </Modal.Content>
 
-      <DialogActions className={css.buttons}>
+      <Modal.Footer>
         <Button text="Close" icon="Close" onClick={handleClose} color={colors.red["800"]} />
 
         <Button text="Refresh" icon="Refresh" onClick={handleRefresh} />
-      </DialogActions>
-    </Dialog>
+      </Modal.Footer>
+    </Modal.Container>
   );
 });
 
 const useClasses = makeClasses({
-  buttons: {
-    justifyContent: "center",
-  },
   tags: {
     borderBottomLeftRadius: "inherit",
     borderBottomRightRadius: "inherit",
     padding: "0.2em 0.3em",
     height: "1.8rem",
-  },
-  title: {
-    padding: "0.4em",
-    textAlign: "center",
   },
 });

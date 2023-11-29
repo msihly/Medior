@@ -2,18 +2,10 @@ import { useEffect, useRef, useState } from "react";
 import { observer } from "mobx-react-lite";
 import { TagOption, tagToOption, useStores } from "store";
 import Draggable from "react-draggable";
-import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  colors,
-  Paper,
-  PaperProps,
-} from "@mui/material";
-import { Button, TagInput, Text, View } from "components";
+import { Paper, PaperProps } from "@mui/material";
+import { Button, Modal, TagInput, Text, View } from "components";
 import { TagEditor } from ".";
-import { makeClasses } from "utils";
+import { colors, makeClasses } from "utils";
 import { toast } from "react-toastify";
 
 interface TaggerProps {
@@ -85,24 +77,19 @@ export const Tagger = observer(({ batchId, fileIds, setVisible }: TaggerProps) =
     setMode("editTag");
   };
 
-  const handleNewTag = () => {
-    tagStore.setActiveTagId(null);
-    setMode("createTag");
-  };
-
   return (
-    <Dialog open onClose={handleClose} scroll="paper" PaperComponent={DraggablePaper}>
-      <DialogTitle className={css.dialogTitle}>
+    <Modal.Container onClose={handleClose} PaperComponent={DraggablePaper}>
+      <Modal.Header>
         {mode === "createTag"
           ? "Create Tag"
           : mode === "editTag"
           ? "Update Tag"
           : "Update File Tags"}
-      </DialogTitle>
+      </Modal.Header>
 
       {mode === "editFileTags" ? (
         <>
-          <DialogContent dividers className={css.dialogContent}>
+          <Modal.Content>
             <View column>
               <Text align="center" className={css.sectionTitle}>
                 {"Current Tags"}
@@ -125,6 +112,7 @@ export const Tagger = observer(({ batchId, fileIds, setVisible }: TaggerProps) =
                 options={[...tagStore.tagOptions]}
                 onTagClick={handleTagClick}
                 autoFocus
+                hasCreate
                 className={css.tagInput}
               />
 
@@ -140,25 +128,18 @@ export const Tagger = observer(({ batchId, fileIds, setVisible }: TaggerProps) =
                 className={css.tagInput}
               />
             </View>
-          </DialogContent>
+          </Modal.Content>
 
-          <DialogActions className={css.dialogActions}>
+          <Modal.Footer>
             <Button text="Submit" icon="Check" onClick={handleSubmit} />
 
-            <Button
-              text="New Tag"
-              icon="Add"
-              onClick={handleNewTag}
-              color={colors.blueGrey["700"]}
-            />
-
             <Button text="Close" icon="Close" onClick={handleClose} color={colors.grey["700"]} />
-          </DialogActions>
+          </Modal.Footer>
         </>
       ) : (
         <TagEditor create={mode === "createTag"} goBack={handleEditorBack} />
       )}
-    </Dialog>
+    </Modal.Container>
   );
 });
 
@@ -174,18 +155,6 @@ const DraggablePaper = (props: PaperProps) => {
 };
 
 const useClasses = makeClasses({
-  dialogActions: {
-    justifyContent: "center",
-  },
-  dialogContent: {
-    padding: "0.5rem 1rem",
-    width: "25rem",
-  },
-  dialogTitle: {
-    margin: 0,
-    padding: "0.5rem 0",
-    textAlign: "center",
-  },
   draggablePaper: {
     maxWidth: "28rem",
     cursor: "grab",
@@ -193,13 +162,6 @@ const useClasses = makeClasses({
   sectionTitle: {
     fontSize: "0.8em",
     textShadow: `0 0 10px ${colors.blue["600"]}`,
-  },
-  tagCount: {
-    borderRadius: "0.3rem",
-    marginRight: "0.5em",
-    width: "1.5rem",
-    backgroundColor: colors.blue["800"],
-    textAlign: "center",
   },
   tagInput: {
     marginBottom: "0.5rem",

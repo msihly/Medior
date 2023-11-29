@@ -1,10 +1,9 @@
 import { useMemo, useRef, useState } from "react";
 import { observer } from "mobx-react-lite";
 import { TagOption, useStores } from "store";
-import { DialogContent, DialogActions, colors } from "@mui/material";
-import { Button, Checkbox, ChipInput, ChipOption, TagInput, Text, View } from "components";
+import { Button, Checkbox, ChipInput, ChipOption, Modal, TagInput, Text, View } from "components";
 import { ConfirmDeleteModal } from ".";
-import { makeClasses } from "utils";
+import { colors, makeClasses } from "utils";
 import { toast } from "react-toastify";
 
 interface TagEditorProps {
@@ -108,12 +107,11 @@ export const TagEditor = observer(({ create, goBack }: TagEditorProps) => {
 
   return (
     <>
-      <DialogContent dividers className={css.dialogContent}>
+      <Modal.Content>
         <View column>
           <Text className={css.sectionTitle}>{"Label"}</Text>
           <TagInput
             value={undefined}
-            hasCreate={false}
             options={[...tagStore.tagOptions]}
             onSelect={(option) => handleEditExisting(option.label)}
             inputProps={{
@@ -123,7 +121,7 @@ export const TagEditor = observer(({ create, goBack }: TagEditorProps) => {
                 <View row align="center" justify="center">
                   <Text>{"Tag already exists"}</Text>
                   <Button
-                    variant="text"
+                    type="link"
                     text="(Click to edit)"
                     onClick={() => handleEditExisting(label)}
                     fontSize="0.85em"
@@ -145,11 +143,18 @@ export const TagEditor = observer(({ create, goBack }: TagEditorProps) => {
             value={parentTags}
             onChange={setParentTags}
             options={parentTagOptions}
+            hasCreate
             hasHelper
           />
 
           <Text className={css.sectionTitle}>{"Child Tags"}</Text>
-          <TagInput value={childTags} onChange={setChildTags} options={childTagOptions} hasHelper />
+          <TagInput
+            value={childTags}
+            onChange={setChildTags}
+            options={childTagOptions}
+            hasCreate
+            hasHelper
+          />
 
           {isCreate && (
             <View column justify="center">
@@ -182,13 +187,13 @@ export const TagEditor = observer(({ create, goBack }: TagEditorProps) => {
             </View>
           )}
         </View>
-      </DialogContent>
+      </Modal.Content>
 
       {isConfirmDeleteOpen && (
         <ConfirmDeleteModal setVisible={setIsConfirmDeleteOpen} goBack={goBack} />
       )}
 
-      <DialogActions className={css.dialogActions}>
+      <Modal.Footer>
         <Button text="Confirm" icon="Check" onClick={saveTag} />
 
         <Button text="Cancel" icon="Close" onClick={goBack} color={colors.grey["700"]} />
@@ -196,20 +201,12 @@ export const TagEditor = observer(({ create, goBack }: TagEditorProps) => {
         {!isCreate && (
           <Button text="Delete" icon="Delete" onClick={handleDelete} color={colors.red["800"]} />
         )}
-      </DialogActions>
+      </Modal.Footer>
     </>
   );
 });
 
 const useClasses = makeClasses({
-  dialogActions: {
-    justifyContent: "center",
-  },
-  dialogContent: {
-    padding: "0.5rem 1rem",
-    maxHeight: "75vh",
-    width: "25rem",
-  },
   sectionTitle: {
     fontSize: "0.8em",
     textAlign: "center",

@@ -1,9 +1,8 @@
 import { Dispatch, SetStateAction, useState } from "react";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
-import { Dialog, DialogTitle, DialogContent, DialogActions, colors } from "@mui/material";
-import { Button, Icon, Input, Text, View } from "components";
-import { makeClasses } from "utils";
+import { Button, Icon, Input, Modal, Text, View } from "components";
+import { colors, makeClasses } from "utils";
 import { toast } from "react-toastify";
 
 interface ConfirmDeleteModalProps {
@@ -30,11 +29,11 @@ export const ConfirmDeleteModal = observer(({ goBack, setVisible }: ConfirmDelet
   };
 
   return (
-    <Dialog open onClose={handleClose} scroll="paper">
-      <DialogTitle className={css.dialogTitle}>{"Confirm Delete"}</DialogTitle>
+    <Modal.Container onClose={handleClose}>
+      <Modal.Header className={css.title}>{"Confirm Delete"}</Modal.Header>
 
-      <DialogContent className={css.dialogContent}>
-        <View column className={css.body}>
+      <Modal.Content>
+        <View column align="center">
           <Text className={css.tagLabel}>{tagStore.activeTag?.label}</Text>
 
           <Icon name="Delete" color={colors.red["900"]} size="5rem" />
@@ -68,9 +67,9 @@ export const ConfirmDeleteModal = observer(({ goBack, setVisible }: ConfirmDelet
             textAlign="center"
           />
         </View>
-      </DialogContent>
+      </Modal.Content>
 
-      <DialogActions className={css.dialogActions}>
+      <Modal.Footer>
         <Button text="Cancel" icon="Close" onClick={handleClose} color={colors.grey["700"]} />
 
         <Button
@@ -80,23 +79,13 @@ export const ConfirmDeleteModal = observer(({ goBack, setVisible }: ConfirmDelet
           disabled={confirmValue !== tagStore.activeTag?.label}
           color={colors.red["800"]}
         />
-      </DialogActions>
-    </Dialog>
+      </Modal.Footer>
+    </Modal.Container>
   );
 });
 
 const useClasses = makeClasses({
-  body: {
-    flexDirection: "column",
-    alignItems: "center",
-  },
-  dialogActions: {
-    justifyContent: "center",
-  },
-  dialogContent: {
-    padding: "0.5rem 1rem",
-  },
-  dialogTitle: {
+  title: {
     margin: 0,
     padding: "0.5rem 0",
     color: colors.grey["400"],

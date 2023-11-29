@@ -155,83 +155,83 @@ export const FaceRecognitionModal = observer(() => {
   const offsetTop = imageRef.current?.offsetTop || 0;
 
   return (
-    <Modal
-      title="Face Recognition"
-      width="100%"
-      height="100%"
-      actions={
-        <>
-          <Button
-            text="Close"
-            icon="Close"
-            onClick={handleClose}
-            disabled={faceRecognitionStore.isDisabled}
-            color={colors.red["900"]}
-          />
+    <Modal.Container width="100%" height="100%">
+      <Modal.Header>{"Face Recognition"}</Modal.Header>
 
-          <Button
-            text={hasDetectedFaces ? "Redetect" : "Detect"}
-            icon="Search"
-            onClick={handleDetect}
-            disabled={faceRecognitionStore.isDisabled}
-            color={hasDetectedFaces ? colors.blueGrey["700"] : undefined}
-          />
-
-          {hasDetectedFaces && (
-            <Button
-              text="Save"
-              icon="Save"
-              onClick={handleSave}
-              disabled={faceRecognitionStore.isDisabled}
-            />
-          )}
-        </>
-      }
-    >
-      {faceRecognitionStore.isInitializing ? (
-        <View row flex={1} justify="center" align="center">
-          <Text fontSize="1.2em" marginRight="1rem">
-            {"Initializing..."}
-          </Text>
-          <CircularProgress size="1.5em" />
-        </View>
-      ) : (
-        <View row flex={1}>
-          <View className={css.facesColumn}>
-            {detectedFacesWithImages?.map?.(({ dataUrl, faceModel: face }, i) => (
-              <View key={i} className={css.faceCard}>
-                <img src={dataUrl} draggable={false} />
-
-                <TagInput
-                  options={tagStore.tagOptions}
-                  value={face.selectedTag ? [face.selectedTag] : []}
-                  onChange={(val) => face.setSelectedTag(val[0])}
-                  inputProps={{ color: face.boxColor, margins: { top: "0.4rem" } }}
-                  center
-                  fullWidth
-                />
-              </View>
-            ))}
+      <Modal.Content padding={{ all: 0 }}>
+        {faceRecognitionStore.isInitializing ? (
+          <View row flex={1} justify="center" align="center">
+            <Text fontSize="1.2em" marginRight="1rem">
+              {"Initializing..."}
+            </Text>
+            <CircularProgress size="1.5em" />
           </View>
+        ) : (
+          <View row flex={1}>
+            <View className={css.facesColumn}>
+              {detectedFacesWithImages?.map?.(({ dataUrl, faceModel: face }, i) => (
+                <View key={i} className={css.faceCard}>
+                  <img src={dataUrl} draggable={false} />
 
-          <View className={css.outerContainer}>
-            <View className={css.imageContainer}>
-              <img
-                ref={imageRef}
-                src={file?.path}
-                className={css.image}
-                alt={file?.originalName}
-                draggable={false}
-              />
-
-              {detectedFacesWithImages?.map?.(({ faceModel: face }, i) => (
-                <FaceBox key={i} {...{ face, heightScale, offsetLeft, offsetTop, widthScale }} />
+                  <TagInput
+                    options={tagStore.tagOptions}
+                    value={face.selectedTag ? [face.selectedTag] : []}
+                    onChange={(val) => face.setSelectedTag(val[0])}
+                    inputProps={{ color: face.boxColor, margins: { top: "0.4rem" } }}
+                    hasCreate
+                    center
+                    fullWidth
+                  />
+                </View>
               ))}
             </View>
+
+            <View className={css.outerContainer}>
+              <View className={css.imageContainer}>
+                <img
+                  ref={imageRef}
+                  src={file?.path}
+                  className={css.image}
+                  alt={file?.originalName}
+                  draggable={false}
+                />
+
+                {detectedFacesWithImages?.map?.(({ faceModel: face }, i) => (
+                  <FaceBox key={i} {...{ face, heightScale, offsetLeft, offsetTop, widthScale }} />
+                ))}
+              </View>
+            </View>
           </View>
-        </View>
-      )}
-    </Modal>
+        )}
+      </Modal.Content>
+
+      <Modal.Footer>
+        <Button
+          text="Close"
+          icon="Close"
+          onClick={handleClose}
+          disabled={faceRecognitionStore.isDisabled}
+          color={colors.red["900"]}
+        />
+
+        <Button
+          text={hasDetectedFaces ? "Redetect" : "Detect"}
+          icon="Search"
+          onClick={handleDetect}
+          disabled={faceRecognitionStore.isDisabled}
+          color={hasDetectedFaces ? colors.blueGrey["700"] : undefined}
+        />
+
+        {hasDetectedFaces && (
+          <Button
+            text="Save"
+            icon="Save"
+            onClick={handleSave}
+            disabled={faceRecognitionStore.isDisabled}
+          />
+        )}
+      </Modal.Footer>
+    </Modal.Container>
   );
 });
 

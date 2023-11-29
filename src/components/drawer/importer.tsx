@@ -1,18 +1,11 @@
-import { dialog } from "@electron/remote";
 import { useState } from "react";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
-import { Dialog, DialogTitle, DialogContent, DialogActions, colors } from "@mui/material";
-import { Button, Checkbox, IconButton, ImportBatch, Text, View } from "components";
-import { dirToFileImports, filePathsToImports, makeClasses } from "utils";
+import { Button, Checkbox, IconButton, ImportBatch, Modal, Text, View } from "components";
+import { colors, makeClasses } from "utils";
 import { toast } from "react-toastify";
 
-interface ImporterProps {
-  isOpen: boolean;
-  setIsOpen: (isOpen: boolean) => void;
-}
-
-export const Importer = observer(({ isOpen = false, setIsOpen }: ImporterProps) => {
+export const Importer = observer(() => {
   const { importStore } = useStores();
   const { css } = useClasses(null);
 
@@ -24,28 +17,16 @@ export const Importer = observer(({ isOpen = false, setIsOpen }: ImporterProps) 
     setIsConfirmDeleteAllOpen(false);
   };
 
-  const handleClose = () => setIsOpen(false);
-
-  const importFiles = async (isDir = false) => {
-    try {
-      const res = await dialog.showOpenDialog({
-        properties: isDir ? ["openDirectory"] : ["openFile", "multiSelections"],
-      });
-      if (res.canceled) return;
-
-      const imports = await (isDir
-        ? dirToFileImports(res.filePaths[0])
-        : filePathsToImports(res.filePaths));
-
-      await importStore.createImportBatch({ imports });
-    } catch (err) {
-      console.error(err);
-    }
-  };
+  const handleClose = () => importStore.setIsImporterOpen(false);
 
   return (
-    <Dialog open={isOpen} onClose={handleClose} scroll="paper">
-      <DialogTitle className={css.dialogTitle}>
+    <Modal.Container
+      visible={importStore.isImporterOpen}
+      onClose={handleClose}
+      width="40rem"
+      height="30rem"
+    >
+      <Modal.Header>
         <View />
 
         <Text>{"Import Files"}</Text>
@@ -74,74 +55,71 @@ export const Importer = observer(({ isOpen = false, setIsOpen }: ImporterProps) 
             </>
           )}
         </View>
-      </DialogTitle>
+      </Modal.Header>
 
-      <DialogContent dividers className={css.dialogContent}>
+      <Modal.Content className={css.modalContent}>
         {importStore.batches?.length > 0 ? (
           [...importStore.batches]
             .reverse()
-            .map((batch) => <ImportBatch key={batch.createdAt} createdAt={batch.createdAt} />)
+            .map((batch, i) => (
+              <ImportBatch key={`${batch.createdAt}-${i}`} createdAt={batch.createdAt} />
+            ))
         ) : (
           <View className={css.emptyContainer}>
             <Text color={colors.grey["300"]}>{"No Imports"}</Text>
           </View>
         )}
-      </DialogContent>
+      </Modal.Content>
 
-      <Checkbox
-        label="Delete on Import"
-        checked={importStore.deleteOnImport}
-        setChecked={(checked) => importStore.setDeleteOnImport(checked)}
-        center
-      />
+      <View row>
+        <Checkbox
+          label="Folders to Tags"
+          checked={importStore.folderToTags}
+          setChecked={(checked) => importStore.setFolderToTags(checked)}
+          center={!importStore.folderToTags}
+        />
 
-      <DialogActions className={css.dialogActions}>
-        <Button text="Close" icon="Cancel" onClick={handleClose} color={colors.grey["700"]} />
+        <Checkbox
+          label="Delete on Import"
+          checked={importStore.deleteOnImport}
+          setChecked={(checked) => importStore.setDeleteOnImport(checked)}
+          center={!importStore.folderToTags}
+        />
+      </View>
 
-        <Button text="Files" icon="InsertDriveFile" onClick={() => importFiles(false)} />
+      {importStore.folderToTags && (
+        <View row>
+          <Checkbox
+            label="Parent Folders to Parent Tags"
+            checked={importStore.folderToTagsMode === "parent"}
+            setChecked={() => importStore.setFolderToTagsMode("parent")}
+          />
 
-        <Button text="Folder" icon="Folder" onClick={() => importFiles(true)} />
-      </DialogActions>
-    </Dialog>
+          <Checkbox
+            label="Parent Folders to Multi-Tags"
+            checked={importStore.folderToTagsMode === "multi"}
+            setChecked={() => importStore.setFolderToTagsMode("multi")}
+          />
+        </View>
+      )}
+
+      <Modal.Footer>
+        <Button text="Close" icon="Close" onClick={handleClose} color={colors.grey["700"]} />
+      </Modal.Footer>
+    </Modal.Container>
   );
 });
 
 const useClasses = makeClasses({
-  dialogActions: {
-    justifyContent: "center",
-  },
-  dialogContent: {
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    padding: "0.5rem 1rem",
-    height: "15rem",
-    width: "25rem",
-    overflowX: "hidden",
-  },
-  dialogTitle: {
-    display: "flex",
-    justifyContent: "space-between",
-    margin: 0,
-    padding: "0.5rem 0",
-    width: "100%",
-    textAlign: "center",
-    boxShadow: "0 0 2px black",
-    "> *": { flex: "33%" },
-  },
   emptyContainer: {
     display: "flex",
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
   },
-  input: {
-    margin: "0 1rem 0.5rem",
-    width: "100%",
-  },
-  sectionTitle: {
-    marginTop: "0.3rem",
-    fontSize: "0.8em",
-    textShadow: `0 0 10px ${colors.blue["600"]}`,
+  modalContent: {
+    flexDirection: "column",
+    alignItems: "center",
+    overflowX: "hidden",
   },
 });
