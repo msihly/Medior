@@ -1,21 +1,19 @@
-import { Tooltip, colors } from "@mui/material";
-import { Icon, Tag, Text, View } from "components";
+import { Icon, Tag, Text, Tooltip as TooltipBase, View } from "components";
 import { observer } from "mobx-react-lite";
 import { File } from "store";
-import { dayjs, formatBytes, makeClasses } from "utils";
+import { colors, dayjs, formatBytes, makeClasses } from "utils";
 
-interface FileTooltipProps {
+interface TooltipProps {
+  disabled?: boolean;
   file: File;
   onTagPress: (id: string) => any;
 }
 
-export const FileTooltip = observer(({ file, onTagPress }: FileTooltipProps) => {
+export const Tooltip = observer(({ disabled, file, onTagPress }: TooltipProps) => {
   const { css } = useClasses(null);
 
   return (
-    <Tooltip
-      arrow
-      classes={{ arrow: css.arrow, tooltip: css.tooltip }}
+    <TooltipBase
       title={
         <View column>
           <View row className={css.header}>
@@ -36,7 +34,7 @@ export const FileTooltip = observer(({ file, onTagPress }: FileTooltipProps) => 
                 <Tag
                   key={tag.id}
                   tag={tag}
-                  onClick={() => onTagPress(tag.id)}
+                  onClick={!disabled ? () => onTagPress(tag.id) : undefined}
                   size="small"
                   style={{ margin: "0 0.5em 0.5em 0" }}
                 />
@@ -46,33 +44,20 @@ export const FileTooltip = observer(({ file, onTagPress }: FileTooltipProps) => 
         </View>
       }
     >
-      <View>
-        <Icon
-          name="InfoOutlined"
-          color={colors.grey["600"]}
-          size="1em"
-          margins={{ left: "0.3rem" }}
-        />
-      </View>
-    </Tooltip>
+      <Icon
+        name="InfoOutlined"
+        color={colors.grey["600"]}
+        size="1em"
+        margins={{ left: "0.3rem" }}
+      />
+    </TooltipBase>
   );
 });
 
 const useClasses = makeClasses({
-  arrow: {
-    color: colors.blue["900"],
-    paddingBottom: "4px",
-  },
   header: {
     justifyContent: "space-between",
     padding: "0.3rem",
     fontSize: "1.1em",
-  },
-  tooltip: {
-    borderTop: `4px solid ${colors.blue["900"]}`,
-    minWidth: "20rem",
-    maxWidth: "25rem",
-    backgroundColor: colors.grey["900"],
-    boxShadow: "rgb(0 0 0 / 80%) 1px 2px 4px 0px",
   },
 });

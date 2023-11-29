@@ -3,12 +3,10 @@ import { observer } from "mobx-react-lite";
 import { useStores } from "store";
 import { FixedSizeList, ListOnScrollProps } from "react-window";
 import AutoSizer from "react-virtualized-auto-sizer";
-import { CarouselThumb } from ".";
+import { CarouselThumb, THUMB_WIDTH } from ".";
 import { IconButton, View } from "components";
 import { makeClasses, useDragScroll } from "utils";
 import Color from "color";
-
-const THUMB_WIDTH = 135; // px
 
 export const CarouselThumbNavigator = observer(() => {
   const { carouselStore } = useStores();

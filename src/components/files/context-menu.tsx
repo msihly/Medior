@@ -9,10 +9,11 @@ import { colors, copyToClipboard, makeClasses } from "utils";
 
 export interface ContextMenuProps extends ViewProps {
   children?: ReactNode | ReactNode[];
+  disabled?: boolean;
   file: File;
 }
 
-export const ContextMenu = observer(({ children, file, ...props }: ContextMenuProps) => {
+export const ContextMenu = observer(({ children, disabled, file, ...props }: ContextMenuProps) => {
   const { css } = useClasses(null);
 
   const rootStore = useStores();
@@ -27,6 +28,7 @@ export const ContextMenu = observer(({ children, file, ...props }: ContextMenuPr
 
   const handleContext = (event) => {
     event.preventDefault();
+    if (disabled) return;
     setMouseX(event.clientX - 2);
     setMouseY(event.clientY - 4);
   };

@@ -60,14 +60,4 @@ FileSchema.index({ hash: 1 }, { unique: true });
 FileSchema.index({ isArchived: 1, ext: 1 });
 FileSchema.index({ tagIds: 1 });
 
-// let startTime: number = null;
-
-// FileSchema.pre("find", () => {
-//   startTime = Date.now();
-// });
-
-// FileSchema.post("find", () => {
-//   if (startTime !== null) logToFile("debug", `Mongo find files: ${Date.now() - startTime}ms.`);
-// });
-
 export const FileModel = model<File>("File", FileSchema);

@@ -80,12 +80,6 @@ export class File extends Model({
 
   /* ----------------------------- GETTERS ----------------------------- */
   @computed
-  get collections() {
-    const { fileCollectionStore } = getRootStore<RootStore>(this);
-    return fileCollectionStore.listByFileId(this.id);
-  }
-
-  @computed
   get isAnimated() {
     return ANIMATED_EXT_REG_EXP.test(this.ext);
   }
@@ -97,9 +91,11 @@ export class File extends Model({
 
   @computed
   get tags() {
-    const { tagStore } = getRootStore<RootStore>(this);
+    const rootStore = getRootStore<RootStore>(this);
+    if (!rootStore) return [];
+
     return this.tagIds.reduce((acc, cur) => {
-      const tag = tagStore.getById(cur);
+      const tag = rootStore.tagStore.getById(cur);
       if (tag) acc.push(tag);
       return acc;
     }, [] as Tag[]);

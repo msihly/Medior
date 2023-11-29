@@ -1,35 +1,26 @@
 import { getCurrentWebContents } from "@electron/remote";
-import { useRef, useState } from "react";
 import { observer } from "mobx-react-lite";
 import { File, useStores } from "store";
-import { colors, Chip, Paper } from "@mui/material";
-import { Icon, Tag, Text, View } from "components";
-import { ContextMenu, FileTooltip, openFile } from ".";
-import { dayjs, makeClasses, uniqueArrayFilter } from "utils";
+import { Icon, Text, View } from "components";
+import { ContextMenu, FileBase, openFile } from ".";
+import { colors, dayjs, uniqueArrayFilter } from "utils";
 import { CSSObject } from "tss-react";
-import Color from "color";
 
 interface FileCardProps {
+  disabled?: boolean;
   file?: File;
+  height?: CSSObject["height"];
   id?: string;
+  width?: CSSObject["width"];
 }
 
-export const FileCard = observer(({ file, id }: FileCardProps) => {
-  const { fileStore, homeStore, tagStore } = useStores();
+export const FileCard = observer(({ disabled, file, height, id, width }: FileCardProps) => {
+  const { fileCollectionStore, fileStore, homeStore, tagStore } = useStores();
   if (!file) file = fileStore.getById(id);
-
-  const thumbInterval = useRef(null);
-
-  const [imagePos, setImagePos] = useState<CSSObject["objectPosition"]>(null);
-  const [thumbIndex, setThumbIndex] = useState(0);
-
-  const { css } = useClasses({
-    fileCardFit: homeStore.fileCardFit,
-    imagePos,
-    selected: fileStore.getIsSelected(file.id),
-  });
+  const collections = fileCollectionStore.listByFileId(id);
 
   const handleClick = (event: React.MouseEvent) => {
+    if (disabled) return;
     if (event.shiftKey) {
       const clickedIndex = fileStore.filteredFileIds.indexOf(file.id);
       const firstIndex = fileStore.filteredFileIds.indexOf(fileStore.selectedIds[0]);
@@ -71,7 +62,10 @@ export const FileCard = observer(({ file, id }: FileCardProps) => {
     }
   };
 
-  const handleDoubleClick = () => openFile({ file, filteredFileIds: fileStore.filteredFileIds });
+  const handleDoubleClick = () =>
+    !disabled && openFile({ file, filteredFileIds: fileStore.filteredFileIds });
+
+  const handleDragEnd = () => homeStore.setIsDraggingOut(false);
 
   const handleDragStart = async (event: React.DragEvent) => {
     event.preventDefault();
@@ -83,35 +77,6 @@ export const FileCard = observer(({ file, id }: FileCardProps) => {
     const icon = hasSelected ? files[0].thumbPaths[0] : file.thumbPaths[0];
 
     getCurrentWebContents().startDrag({ file: file.path, files: filePaths, icon });
-  };
-
-  const handleDragEnd = () => homeStore.setIsDraggingOut(false);
-
-  const handleMouseEnter = () => {
-    clearInterval(thumbInterval.current); /** Safety check for failed onMouseLeave */
-    thumbInterval.current = setInterval(() => {
-      setThumbIndex((thumbIndex) =>
-        thumbIndex + 1 === file.thumbPaths.length ? 0 : thumbIndex + 1
-      );
-    }, 300);
-  };
-
-  const handleMouseLeave = () => {
-    clearInterval(thumbInterval.current);
-    thumbInterval.current = null;
-    setThumbIndex(0);
-    setImagePos(null);
-  };
-
-  const handleMouseMove = (event: React.MouseEvent) => {
-    const { height, left, top, width } = event.currentTarget.getBoundingClientRect();
-    const offsetX = event.pageX - left;
-    const offsetY = event.pageY - top;
-    const pos = `${(Math.max(0, offsetX) / width) * 100}% ${
-      (Math.max(0, offsetY) / height) * 100
-    }%`;
-
-    setImagePos(pos);
   };
 
   const handleTagPress = (tagId: string) => {
@@ -127,38 +92,32 @@ export const FileCard = observer(({ file, id }: FileCardProps) => {
   };
 
   return (
-    <ContextMenu key="context-menu" file={file} className={`${css.container} selectable`}>
-      <Paper
+    <ContextMenu key="context-menu" {...{ disabled, file }}>
+      <FileBase.Container
+        {...{ disabled, height, width }}
         onClick={handleClick}
         onDoubleClick={handleDoubleClick}
-        elevation={3}
-        className={css.paper}
+        selected={fileStore.getIsSelected(file.id)}
       >
-        <View
-          onMouseEnter={file.isAnimated ? handleMouseEnter : null}
-          onMouseLeave={handleMouseLeave}
-          className={css.imageContainer}
+        <FileBase.Image
+          thumbPaths={file.thumbPaths}
+          title={file.originalName}
+          height={height}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+          fit={homeStore.fileCardFit}
+          disabled={disabled}
+          draggable
         >
-          <Chip
-            icon={<Icon name="Star" color={colors.amber["600"]} size="inherit" />}
+          <FileBase.Chip
+            position="top-left"
+            icon="Star"
+            iconColor={colors.amber["600"]}
             label={file.rating}
-            className={css.rating}
           />
 
-          <img
-            id={file.id}
-            src={file.thumbPaths[thumbIndex]}
-            alt={file.originalName}
-            onDragStart={handleDragStart}
-            onDragEnd={handleDragEnd}
-            onMouseMove={homeStore.fileCardFit === "cover" ? handleMouseMove : null}
-            onMouseLeave={homeStore.fileCardFit === "cover" ? handleMouseLeave : null}
-            draggable
-            loading="lazy"
-            className={css.image}
-          />
-
-          <Chip
+          <FileBase.Chip
+            position="top-right"
             label={
               <View row>
                 {!file.isAnimated && (
@@ -172,149 +131,30 @@ export const FileCard = observer(({ file, id }: FileCardProps) => {
                 <Text>{file.ext}</Text>
               </View>
             }
-            className={css.ext}
           />
 
-          {/* {file.collections.length > 0 && (
-            <Chip
-              icon={<Icon name="Collections" size="inherit" margins={{ left: "0.5rem" }} />}
-              label={file.collections.length}
-              className={css.collections}
-            />
-          )} */}
+          {collections.length > 0 && (
+            <FileBase.Chip position="bottom-left" icon="Collections" label={collections.length} />
+          )}
 
           {file.duration && (
-            <Chip
+            <FileBase.Chip
+              position="bottom-right"
               label={dayjs.duration(file.duration, "s").format("HH:mm:ss")}
-              className={css.duration}
             />
           )}
-        </View>
+        </FileBase.Image>
 
-        <View row className={css.footer}>
-          <View row className={css.tags}>
-            {file.tags.slice(0, 5).map((tag) => (
-              <Tag key={tag.id} tag={tag} onClick={() => handleTagPress(tag.id)} size="small" />
-            ))}
-          </View>
+        <FileBase.Footer>
+          {file.tags?.length > 0 ? (
+            <FileBase.Tags {...{ disabled }} tags={file.tags} onTagPress={handleTagPress} />
+          ) : (
+            <View />
+          )}
 
-          <FileTooltip file={file} onTagPress={handleTagPress} />
-        </View>
-      </Paper>
+          <FileBase.Tooltip {...{ file }} onTagPress={handleTagPress} />
+        </FileBase.Footer>
+      </FileBase.Container>
     </ContextMenu>
   );
 });
-
-const useClasses = makeClasses((theme, { fileCardFit, imagePos, selected }) => ({
-  container: {
-    flexBasis: "calc(100% / 6)",
-    [theme.breakpoints.down("xl")]: { flexBasis: "calc(100% / 5)" },
-    [theme.breakpoints.down("lg")]: { flexBasis: "calc(100% / 4)" },
-    [theme.breakpoints.down("md")]: { flexBasis: "calc(100% / 2)" },
-    [theme.breakpoints.down("sm")]: { flexBasis: "calc(100% / 1)" },
-    border: "1px solid",
-    borderColor: "#0f0f0f",
-    borderRadius: 4,
-    padding: "0.25rem",
-    height: "fit-content",
-    background: selected
-      ? `linear-gradient(to bottom right, ${colors.blue["800"]}, ${Color(colors.blue["900"])
-          .fade(0.5)
-          .string()} 60%)`
-      : "transparent",
-    overflow: "hidden",
-    cursor: "pointer",
-    userSelect: "none",
-  },
-  duration: {
-    position: "absolute",
-    bottom: "0.5rem",
-    right: "0.5rem",
-    backgroundColor: colors.grey["900"],
-    opacity: 0.5,
-    cursor: "pointer",
-    transition: "all 200ms ease-in-out",
-    "&:hover": {
-      opacity: 0.8,
-    },
-  },
-  ext: {
-    position: "absolute",
-    top: "0.5rem",
-    right: "0.5rem",
-    backgroundColor: colors.grey["900"],
-    opacity: 0.5,
-    cursor: "pointer",
-    transition: "all 200ms ease-in-out",
-    "&:hover": {
-      opacity: 0.8,
-    },
-  },
-  footer: {
-    justifyContent: "space-between",
-    alignItems: "center",
-    borderBottomLeftRadius: "inherit",
-    borderBottomRightRadius: "inherit",
-    padding: "0.2em 0.3em",
-    height: "1.8rem",
-    backgroundColor: "inherit",
-  },
-  image: {
-    borderTopLeftRadius: "inherit",
-    borderTopRightRadius: "inherit",
-    width: "100%",
-    height: "22rem",
-    [theme.breakpoints.down("xl")]: { height: "14rem" },
-    [theme.breakpoints.down("sm")]: { height: "18rem" },
-    userSelect: "none",
-    transition: "all 100ms ease",
-    objectFit: fileCardFit,
-    objectPosition: imagePos,
-  },
-  imageContainer: {
-    position: "relative",
-    display: "flex",
-    flex: 1,
-    borderTopLeftRadius: "inherit",
-    borderTopRightRadius: "inherit",
-    backgroundColor: "inherit",
-  },
-  paper: {
-    display: "flex",
-    flexDirection: "column",
-    flex: 1,
-    height: "auto",
-    backgroundColor: colors.grey["900"],
-    userSelect: "none",
-  },
-  rating: {
-    position: "absolute",
-    top: "0.5rem",
-    left: "0.5rem",
-    backgroundColor: colors.grey["900"],
-    opacity: 0.7,
-    cursor: "pointer",
-    transition: "all 200ms ease-in-out",
-    "&:hover": {
-      opacity: 0.85,
-    },
-  },
-  tags: {
-    position: "relative",
-    overflow: "hidden",
-    width: "100%",
-    "&::after": {
-      content: '""',
-      position: "absolute",
-      top: 0,
-      bottom: 0,
-      right: 0,
-      left: 0,
-      background: `linear-gradient(to right, transparent 60%, ${colors.grey["900"]})`,
-    },
-  },
-  tooltip: {
-    backgroundColor: colors.grey["900"],
-    boxShadow: "rgb(0 0 0 / 50%) 1px 2px 4px 0px",
-  },
-}));
