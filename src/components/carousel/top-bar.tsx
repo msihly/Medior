@@ -2,9 +2,9 @@ import { getCurrentWindow, screen } from "@electron/remote";
 import { useContext, useEffect, useRef, useState } from "react";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
-import { colors, Slider } from "@mui/material";
+import { Slider } from "@mui/material";
 import { ZoomContext, Icon, IconButton, SideScroller, Tag, Text, View } from "components";
-import { CONSTANTS, makeClasses, round } from "utils";
+import { colors, CONSTANTS, makeClasses, round } from "utils";
 
 export const CarouselTopBar = observer(() => {
   const { css, cx } = useClasses(null);
@@ -131,9 +131,6 @@ export const CarouselTopBar = observer(() => {
 });
 
 const useClasses = makeClasses({
-  aspectRatioLock: {
-    opacity: 0.7,
-  },
   center: {
     display: "flex",
     flex: 3,

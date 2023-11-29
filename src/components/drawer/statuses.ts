@@ -1,5 +1,5 @@
-import { colors } from "@mui/material";
 import { IconName } from "components";
+import { colors } from "utils";
 
 interface Status {
   color: string;

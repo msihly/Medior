@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { colors } from "@mui/material";
 import { IconButton, View } from "components";
-import { debounce, makeClasses, useElementResize } from "utils";
+import { colors, debounce, makeClasses, useElementResize } from "utils";
 
 interface SideScrollerProps {
   children: JSX.Element[];

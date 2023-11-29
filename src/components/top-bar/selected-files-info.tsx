@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
-import { Chip, Tooltip, colors } from "@mui/material";
-import { Text, View } from "components";
-import { VIDEO_EXT_REG_EXP, formatBytes, makeClasses } from "utils";
+import { Chip } from "@mui/material";
+import { Text, Tooltip, View } from "components";
+import { formatBytes, makeClasses, VIDEO_EXT_REG_EXP } from "utils";
 import { toast } from "react-toastify";
 
 export const SelectedFilesInfo = observer(() => {
@@ -47,9 +47,8 @@ export const SelectedFilesInfo = observer(() => {
 
   return (
     <Tooltip
-      arrow
-      classes={{ arrow: css.arrow, tooltip: css.tooltip }}
       onOpen={handleOpen}
+      minWidth="11rem"
       title={
         <View column>
           <View className={css.valueRow}>
@@ -75,25 +74,10 @@ export const SelectedFilesInfo = observer(() => {
 });
 
 const useClasses = makeClasses({
-  arrow: {
-    color: colors.blue["900"],
-    paddingBottom: "4px",
-  },
-  header: {
-    justifyContent: "space-between",
-    padding: "0.3rem",
-    fontSize: "1.1em",
-  },
   label: {
     marginRight: "0.5em",
     fontSize: 16,
     fontWeight: 500,
-  },
-  tooltip: {
-    borderTop: `4px solid ${colors.blue["900"]}`,
-    minWidth: "11rem",
-    backgroundColor: colors.grey["900"],
-    boxShadow: "rgb(0 0 0 / 80%) 1px 2px 4px 0px",
   },
   value: {
     fontSize: 16,

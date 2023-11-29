@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
-import { colors, LinearProgress } from "@mui/material";
+import { LinearProgress } from "@mui/material";
 import { BatchTooltip, Icon, IconButton, Import, IMPORT_STATUSES, Text, View } from "components";
-import { makeClasses } from "utils";
+import { colors, makeClasses } from "utils";
 import { toast } from "react-toastify";
+import Color from "color";
 
 interface ImportBatchProps {
   createdAt: string;
@@ -69,7 +70,13 @@ export const ImportBatch = observer(({ createdAt }: ImportBatchProps) => {
           name="Label"
           onClick={handleTag}
           disabled={batch.status === "PENDING"}
-          iconProps={{ color: colors.grey["300"], size: "0.9em" }}
+          iconProps={{
+            color:
+              batch.status === "PENDING"
+                ? Color(colors.grey["300"]).fade(0.5).string()
+                : colors.grey["300"],
+            size: "0.9em",
+          }}
         />
 
         <IconButton
@@ -142,11 +149,5 @@ const useClasses = makeClasses((_, { expanded, hasTags }) => ({
   statusIcon: {
     borderRadius: "0.5rem 0 0 0.5rem",
     padding: "0 0.5rem",
-  },
-  tag: {
-    cursor: "pointer",
-  },
-  tags: {
-    margin: "0.4rem 0.3rem 0.2rem",
   },
 }));

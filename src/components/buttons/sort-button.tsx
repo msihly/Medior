@@ -1,30 +1,29 @@
+import { useContext } from "react";
 import { observer } from "mobx-react-lite";
-import { useStores } from "store";
-import { colors } from "@mui/material";
 import { IconButton } from "components";
-import { makeClasses } from "utils";
+import { SortMenuContext } from "./sort-menu";
+import { colors, makeClasses } from "utils";
 import Color from "color";
 
-interface SortButtonProps {
+export interface SortButtonProps {
   attribute: string;
   isDesc?: boolean;
 }
 
 export const SortButton = observer(({ attribute, isDesc = false }: SortButtonProps) => {
-  const rootStore = useStores();
-  const { homeStore } = useStores();
+  const ctx = useContext(SortMenuContext);
 
-  const isActive = attribute === homeStore.sortKey && isDesc === homeStore.isSortDesc;
+  const isActive = attribute === ctx.sortKey && isDesc === ctx.isSortDesc;
   const color = isActive ? colors.blue["700"] : colors.grey["700"];
 
   const { css } = useClasses({ color });
 
   const updateSort = () => {
-    const hasSortDescDiff = homeStore.isSortDesc !== isDesc;
-    const hasSortKeyDiff = homeStore.sortKey !== attribute;
-    if (hasSortKeyDiff) homeStore.setSortKey(attribute);
-    if (hasSortDescDiff) homeStore.setIsSortDesc(isDesc);
-    if (hasSortDescDiff || hasSortKeyDiff) homeStore.reloadDisplayedFiles({ rootStore, page: 1 });
+    const hasSortDescDiff = ctx.isSortDesc !== isDesc;
+    const hasSortKeyDiff = ctx.sortKey !== attribute;
+    if (hasSortKeyDiff) ctx.setSortKey(attribute);
+    if (hasSortDescDiff) ctx.setIsSortDesc(isDesc);
+    if (hasSortDescDiff || hasSortKeyDiff) ctx.onChange?.();
   };
 
   return (
@@ -38,9 +37,6 @@ export const SortButton = observer(({ attribute, isDesc = false }: SortButtonPro
 });
 
 const useClasses = makeClasses((_, { color }) => ({
-  attribute: {
-    flex: 1,
-  },
   button: {
     marginLeft: "0.5rem",
     background: `linear-gradient(to bottom right, ${color}, ${Color(color).darken(0.3).string()})`,

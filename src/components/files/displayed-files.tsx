@@ -1,9 +1,9 @@
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
-import { CircularProgress, colors } from "@mui/material";
+import { CircularProgress } from "@mui/material";
 import { Text, View } from "components";
 import { FileCard } from ".";
-import { makeClasses } from "utils";
+import { colors, makeClasses } from "utils";
 
 export const DisplayedFiles = observer(() => {
   const { css } = useClasses(null);

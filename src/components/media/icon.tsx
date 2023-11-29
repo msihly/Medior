@@ -1,5 +1,6 @@
 import { createElement } from "react";
 import { View } from "components";
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { IconProps as MuiIconProps } from "@mui/material";
 import * as Icons from "@mui/icons-material";
 import { makeClasses, Margins } from "utils";

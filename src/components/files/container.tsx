@@ -1,10 +1,10 @@
 import { useEffect, useRef } from "react";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
-import { Pagination, colors } from "@mui/material";
+import { Pagination } from "@mui/material";
 import { View } from "components";
 import { DisplayedFiles, InfoModal } from ".";
-import { makeClasses } from "utils";
+import { colors, makeClasses } from "utils";
 import { toast } from "react-toastify";
 import Color from "color";
 
@@ -105,6 +105,8 @@ export const FileContainer = observer(() => {
         onChange={handlePageChange}
         showFirstButton
         showLastButton
+        siblingCount={2}
+        boundaryCount={2}
         className={css.pagination}
       />
 

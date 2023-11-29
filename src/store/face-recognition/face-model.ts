@@ -1,8 +1,7 @@
 import { computed } from "mobx";
 import { _async, _await, Model, model, prop } from "mobx-keystone";
 import { TagOption } from "store";
-import { colors } from "@mui/material";
-import { objectToFloat32Array } from "utils";
+import { colors, objectToFloat32Array } from "utils";
 
 @model("mediaViewer/FaceModel")
 export class FaceModel extends Model({

@@ -1,9 +1,8 @@
 import { shell } from "@electron/remote";
 import { observer } from "mobx-react-lite";
 import { FileImport, useStores } from "store";
-import { Tooltip, colors } from "@mui/material";
-import { Icon, IMPORT_STATUSES, openFile, Text, View } from "components";
-import { makeClasses } from "utils";
+import { Icon, IMPORT_STATUSES, openFile, Text, Tooltip, View } from "components";
+import { colors, makeClasses } from "utils";
 
 interface ImportProps {
   fileImport: FileImport;
@@ -27,14 +26,9 @@ export const Import = observer(({ fileImport }: ImportProps) => {
 
   return (
     <View row className={css.card}>
-      <Tooltip
-        arrow
-        placement="bottom-start"
-        classes={{ arrow: css.arrow, tooltip: css.tooltip }}
-        title={fileImport.errorMsg}
-      >
+      <Tooltip minWidth="20rem" title={fileImport.errorMsg}>
         <View column justify="center">
-          <Icon name={status?.icon} color={status?.color} size={30} className={css.icon} />
+          <Icon name={status?.icon} color={status?.color} size={30} margins={{ right: "0.5rem" }} />
         </View>
       </Tooltip>
 
@@ -52,9 +46,6 @@ export const Import = observer(({ fileImport }: ImportProps) => {
 });
 
 const useClasses = makeClasses({
-  arrow: {
-    color: colors.grey["900"],
-  },
   body: {
     overflow: "hidden",
   },
@@ -72,14 +63,5 @@ const useClasses = makeClasses({
     "&:hover": {
       color: colors.grey["100"],
     },
-  },
-  icon: {
-    marginRight: "0.5rem",
-  },
-  tooltip: {
-    minWidth: "20rem",
-    maxWidth: "25rem",
-    backgroundColor: colors.grey["900"],
-    boxShadow: "rgb(0 0 0 / 80%) 1px 2px 4px 0px",
   },
 });

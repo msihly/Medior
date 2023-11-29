@@ -64,11 +64,14 @@
     "@types/react-virtualized-auto-sizer": "^1.0.1",
     "@types/react-window": "^1.8.5",
     "@types/sharp": "^0.32.0",
+    "@typescript-eslint/eslint-plugin": "^6.12.0",
     "@vitejs/plugin-react": "^4.0.3",
     "concurrently": "^7.2.2",
     "electron": "^25.1.1",
     "electron-builder": "^22.14.13",
     "electron-devtools-installer": "^3.2.0",
+    "eslint": "^8.54.0",
+    "eslint-plugin-tss-unused-classes": "^1.0.2",
     "mock-aws-s3": "^4.0.2",
     "nock": "^13.3.3",
     "patch-package": "^6.4.7",
@@ -81,12 +84,14 @@
   },
   "scripts": {
     "build": "npm run tsCompile && vite build && npx copyfiles extraResources/**/* build && npx copyfiles src/face-recog-models build",
+    "check": "npm run typecheck && npm run lint",
     "dev": "npm run tsCompile && concurrently --kill-others \"SET BROWSER=none && npm start\" \"electron .\"",
     "dist": "npm run build && npm run electron-build",
     "electron-build": "electron-builder build --win --publish never",
+    "lint": "eslint src/**/*{.ts,.tsx}",
     "pack": "electron-builder --dir",
     "postinstall": "electron-builder install-app-deps && patch-package",
-    "start": "npx kill-port 3333 && vite",
+    "start": "vite",
     "tsCompile": "tsc --p ./tsconfig.build.json && tsc-alias -p ./tsconfig.build.json",
     "typecheck": "tsc --noEmit"
   },
@@ -123,5 +128,101 @@
     "development": [
       "last 3 chrome version"
     ]
+  },
+  "eslintConfig": {
+    "root": true,
+    "parser": "@typescript-eslint/parser",
+    "parserOptions": {
+      "project": [
+        "./tsconfig.json"
+      ]
+    },
+    "plugins": [
+      "@typescript-eslint",
+      "tss-unused-classes"
+    ],
+    "ignorePatterns": [
+      "build",
+      "node_modules",
+      "src/face-recog-models",
+      "vite.config.ts"
+    ],
+    "rules": {
+      "tss-unused-classes/unused-classes": "warn",
+      "@typescript-eslint/no-restricted-imports": [
+        "error",
+        {
+          "paths": [
+            {
+              "name": "@mui/material",
+              "importNames": [
+                "TextField",
+                "TextFieldProps"
+              ],
+              "message": "Import 'Input' from 'components' instead.",
+              "allowTypeImports": true
+            },
+            {
+              "name": "@mui/material",
+              "importNames": [
+                "Dialog",
+                "DialogActions",
+                "DialogContent",
+                "DialogTitle"
+              ],
+              "message": "Import 'Modal' from 'components' instead.",
+              "allowTypeImports": true
+            },
+            {
+              "name": "@mui/material",
+              "importNames": [
+                "Typography",
+                "TypographyProps"
+              ],
+              "message": "Import 'Text' from 'components' instead.",
+              "allowTypeImports": true
+            },
+            {
+              "name": "@mui/material",
+              "importNames": [
+                "Accordion",
+                "AccordionProps",
+                "Button",
+                "ButtonProps",
+                "Checkbox",
+                "CheckboxProps",
+                "Icon",
+                "IconProps",
+                "IconButton",
+                "IconButtonProps",
+                "ListItem",
+                "ListItemProps",
+                "Modal",
+                "Tooltip",
+                "TooltipProps"
+              ],
+              "message": "Import from 'components' instead.",
+              "allowTypeImports": true
+            },
+            {
+              "name": "@mui/material",
+              "importNames": [
+                "colors"
+              ],
+              "message": "Import from 'utils' instead.",
+              "allowTypeImports": true
+            },
+            {
+              "name": "dayjs",
+              "importNames": [
+                "default"
+              ],
+              "message": "Import from 'utils' instead.",
+              "allowTypeImports": true
+            }
+          ]
+        }
+      ]
+    }
   }
 }

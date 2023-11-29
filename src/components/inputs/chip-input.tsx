@@ -1,8 +1,8 @@
 import { ComponentProps, useState } from "react";
-import { Autocomplete, AutocompleteChangeReason, Chip, colors } from "@mui/material";
+import { Autocomplete, AutocompleteChangeReason, Chip } from "@mui/material";
 import { observer } from "mobx-react-lite";
 import { Input, InputProps } from ".";
-import { makeClasses } from "utils";
+import { colors, makeClasses } from "utils";
 
 export type ChipOption = {
   label: string;
@@ -17,7 +17,7 @@ type ChipInputProps = Omit<
   inputProps?: InputProps;
   opaque?: boolean;
   options?: ChipOption[];
-  setValue?: (val: any) => void;
+  setValue?: (val: ChipOption[]) => void;
   value: ChipOption[];
 };
 
@@ -34,7 +34,7 @@ export const ChipInput = observer(
   }: ChipInputProps) => {
     const { css, cx } = useClasses({ opaque });
 
-    const [inputValue, setInputValue] = useState<string>(inputProps?.value ?? "");
+    const [inputValue, setInputValue] = useState((inputProps?.value ?? "") as string);
 
     const handleChange = (_, val: ChipOption[], reason?: AutocompleteChangeReason) => {
       setValue?.(

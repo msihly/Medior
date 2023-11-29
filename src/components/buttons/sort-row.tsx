@@ -2,7 +2,7 @@ import { Icon, IconName, IconProps, Text, View } from "components";
 import { SortButton } from ".";
 import { makeClasses } from "utils";
 
-interface SortRowProps {
+export interface SortRowProps {
   attribute: string;
   label: string;
   icon: IconName;

@@ -1,10 +1,10 @@
 import { useMemo, useState } from "react";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
-import { Divider, Drawer as MuiDrawer, List, colors } from "@mui/material";
+import { Divider, Drawer as MuiDrawer, List } from "@mui/material";
 import { Accordion, Checkbox, ListItem, TagInput, TagManager, Text, View } from "components";
 import { ExtCheckbox, Importer } from ".";
-import { CONSTANTS, IMAGE_TYPES, makeClasses, VIDEO_TYPES } from "utils";
+import { colors, CONSTANTS, IMAGE_TYPES, makeClasses, VIDEO_TYPES } from "utils";
 
 export const Drawer = observer(() => {
   const { homeStore, tagStore } = useStores();
@@ -171,7 +171,7 @@ export const Drawer = observer(() => {
 
 const useClasses = makeClasses({
   accordion: {
-    " > button": { padding: "0.5rem 0.2rem" },
+    "& > button": { padding: "0.5rem 0.2rem" },
   },
   accordionContainer: {
     width: "100%",
@@ -198,10 +198,6 @@ const useClasses = makeClasses({
     "&::-webkit-scrollbar": {
       display: "none",
     },
-  },
-  input: {
-    padding: "0.1rem 0.4rem",
-    width: "192px",
   },
   inputTitle: {
     marginTop: "0.3rem",

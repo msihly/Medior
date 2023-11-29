@@ -1,7 +1,6 @@
 import { ReactNode } from "react";
-import { colors } from "@mui/material";
 import { Text, View } from "components";
-import { makeClasses } from "utils";
+import { colors, makeClasses } from "utils";
 import { CSSObject } from "tss-react";
 
 type Row = {
@@ -23,7 +22,7 @@ export const DetailRows = ({ labelWidth = "8rem", rows }: DetailRowsProps) => {
         <View key={`${i}-${label}`} className={css.row}>
           {typeof label === "string" ? <Text className={css.label}>{label}</Text> : label}
           {typeof value === "string" ? (
-            <Text noWrap title={value}>
+            <Text noWrap tooltip={value}>
               {value}
             </Text>
           ) : (
@@ -44,11 +43,6 @@ const useClasses = makeClasses((_, { labelWidth }) => ({
     fontWeight: "bold",
     whiteSpace: "nowrap",
   },
-  labels: {
-    display: "flex",
-    flexFlow: "column nowrap",
-    padding: "0.5rem",
-  },
   row: {
     display: "flex",
     flexFlow: "row nowrap",
@@ -57,11 +51,5 @@ const useClasses = makeClasses((_, { labelWidth }) => ({
     display: "flex",
     flexFlow: "column nowrap",
     padding: "0.5rem",
-  },
-  values: {
-    display: "flex",
-    flexFlow: "column nowrap",
-    padding: "0.5rem",
-    overflow: "hidden",
   },
 }));

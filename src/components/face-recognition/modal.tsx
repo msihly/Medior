@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { observer } from "mobx-react-lite";
 import { FaceModel, useStores } from "store";
-import { CircularProgress, colors } from "@mui/material";
+import { CircularProgress } from "@mui/material";
 import { Button, Modal, TagInput, Text, View } from "components";
 import { FaceBox } from ".";
-import { makeClasses, useElementResize } from "utils";
+import { colors, makeClasses, useElementResize } from "utils";
 import { toast } from "react-toastify";
 import Color from "color";
 
@@ -280,19 +280,5 @@ const useClasses = makeClasses({
       .lighten(0.15)
       .string()})`,
     overflow: "hidden",
-  },
-  tagColumn: {
-    display: "flex",
-    flexDirection: "column",
-    justifyContent: "space-between",
-    width: "10rem",
-    marginRight: "1rem",
-  },
-  tagColumnGroup: {
-    display: "flex",
-    flexDirection: "column",
-    "& > *:not(:last-child)": {
-      marginBottom: "1rem",
-    },
   },
 });

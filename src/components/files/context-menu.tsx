@@ -3,9 +3,9 @@ import { shell } from "@electron/remote";
 import { ReactNode, useState } from "react";
 import { observer } from "mobx-react-lite";
 import { File, useStores } from "store";
-import { Menu, colors } from "@mui/material";
+import { Menu } from "@mui/material";
 import { ListItem, View, ViewProps } from "components";
-import { copyToClipboard, makeClasses } from "utils";
+import { colors, copyToClipboard, makeClasses } from "utils";
 
 export interface ContextMenuProps extends ViewProps {
   children?: ReactNode | ReactNode[];
@@ -114,13 +114,5 @@ const useClasses = makeClasses({
   },
   contextMenuInner: {
     padding: 0,
-  },
-  tooltip: {
-    margin: 0,
-    padding: 0,
-    backgroundColor: colors.grey["900"],
-  },
-  tooltipPopper: {
-    "& > div": { marginLeft: 0 },
   },
 });

@@ -1,11 +1,10 @@
-import { colors } from "@mui/material";
 import { Icon, IconName } from "components";
 import {
   ToastContainer as ToastContainerBase,
   ToastContainerProps,
   TypeOptions,
 } from "react-toastify";
-import { makeClasses } from "utils";
+import { colors, makeClasses } from "utils";
 
 export const ToastContainer = (props: ToastContainerProps) => {
   const { css } = useClasses(null);

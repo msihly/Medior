@@ -1,19 +1,20 @@
-import { ReactElement, ReactNode } from "react";
+import { ReactNode } from "react";
 import {
+  // eslint-disable-next-line @typescript-eslint/no-restricted-imports
   ListItem as MuiListItem,
+  // eslint-disable-next-line @typescript-eslint/no-restricted-imports
   ListItemProps as MuiListItemProps,
   ListItemIcon,
   ListItemText,
-  Tooltip,
-  colors,
 } from "@mui/material";
-import { ConditionalWrap, Icon, IconName } from "components";
+import { Icon, IconName, IconProps, TooltipWrapper } from "components";
 import { Margins, makeClasses } from "utils";
 
 export interface ListItemProps extends Omit<MuiListItemProps, "children"> {
   children?: ReactNode;
   color?: string;
   icon?: IconName;
+  iconProps?: Partial<IconProps>;
   iconEnd?: IconName;
   iconEndMargins?: Margins;
   iconMargins?: Margins;
@@ -28,6 +29,7 @@ export const ListItem = ({
   children,
   color,
   icon,
+  iconProps,
   iconEnd,
   iconEndMargins,
   iconMargins,
@@ -38,31 +40,26 @@ export const ListItem = ({
   iconMargins = { ...DEFAULT_ICON_MARGINS, ...iconMargins };
   iconEndMargins = { ...DEFAULT_ICON_END_MARGINS, ...iconEndMargins };
 
-  const { css } = useClasses({ iconMargins, iconEndMargins });
+  const { css } = useClasses({ color });
 
   return (
-    <ConditionalWrap
-      condition={!!children}
-      wrap={(c: ReactElement) => (
-        <Tooltip
-          title={children}
-          placement="right-start"
-          classes={{ tooltip: css.tooltip }}
-          PopperProps={{ className: css.tooltipPopper }}
-        >
-          {c}
-        </Tooltip>
-      )}
+    <TooltipWrapper
+      tooltip={children}
+      tooltipProps={{
+        classes: { tooltip: css.tooltip },
+        placement: "right-start",
+        PopperProps: { className: css.tooltipPopper },
+      }}
     >
       {/* @ts-expect-error */}
       <MuiListItem onClick={onClick} button={Boolean(onClick)} className={css.root} {...props}>
         {icon && (
           <ListItemIcon className={css.icon}>
-            <Icon name={icon} margins={iconMargins} />
+            <Icon {...iconProps} name={icon} margins={iconMargins} />
           </ListItemIcon>
         )}
 
-        <ListItemText color={color}>{text}</ListItemText>
+        <ListItemText className={css.text}>{text}</ListItemText>
 
         {iconEnd && (
           <ListItemIcon className={css.icon}>
@@ -70,23 +67,25 @@ export const ListItem = ({
           </ListItemIcon>
         )}
       </MuiListItem>
-    </ConditionalWrap>
+    </TooltipWrapper>
   );
 };
 
-const useClasses = makeClasses({
+const useClasses = makeClasses((_, { color }) => ({
   icon: {
     minWidth: 0,
   },
   root: {
     padding: "0.5rem 1rem",
   },
+  text: {
+    color,
+  },
   tooltip: {
     margin: 0,
     padding: 0,
-    backgroundColor: colors.grey["900"],
   },
   tooltipPopper: {
     marginLeft: "-0.75rem !important",
   },
-});
+}));

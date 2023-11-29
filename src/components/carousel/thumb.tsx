@@ -1,9 +1,9 @@
 import { useRef, useState } from "react";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
-import { colors, Chip } from "@mui/material";
+import { Chip } from "@mui/material";
 import { Icon, View } from "components";
-import { dayjs, makeClasses } from "utils";
+import { colors, dayjs, makeClasses } from "utils";
 
 interface CarouselThumbProps {
   id: string;

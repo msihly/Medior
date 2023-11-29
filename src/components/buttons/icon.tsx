@@ -1,3 +1,4 @@
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { IconButton as MuiIconButton, IconButtonProps as MuiIconButtonProps } from "@mui/material";
 import { Icon, IconName, IconProps } from "components";
 import { ReactNode } from "react";
