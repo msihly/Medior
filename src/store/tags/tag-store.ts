@@ -14,26 +14,24 @@ import { Tag } from ".";
 import { getArrayDiff, handleErrors, PromiseQueue, trpc } from "utils";
 import { toast } from "react-toastify";
 
-export type TagOption = {
-  aliases?: string[];
-  count: number;
-  id: string;
-  label?: string;
-};
+export type TagManagerMode = "create" | "edit" | "search";
 
 @model("mediaViewer/TagStore")
 export class TagStore extends Model({
   activeTagId: prop<string>(null).withSetter(),
   isTagManagerOpen: prop<boolean>(false).withSetter(),
   tags: prop<Tag[]>(() => []),
-  tagManagerMode: prop<"create" | "edit" | "search">("search").withSetter(),
+  tagManagerMode: prop<TagManagerMode>("search"),
+  tagManagerPrevMode: prop<TagManagerMode>("search"),
 }) {
   countsRefreshQueue = new PromiseQueue();
   relationsRefreshQueue = new PromiseQueue();
 
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
   @modelAction
-  _addTag = (tag: ModelCreationData<Tag>) => this.tags.push(new Tag(tag));
+  _addTag = (tag: ModelCreationData<Tag>) => {
+    if (!this.getById(tag.id)) this.tags.push(new Tag(tag));
+  };
 
   @modelAction
   _deleteTag = (id: string) => {
@@ -49,6 +47,12 @@ export class TagStore extends Model({
     this.tags = tags.map((t) => new Tag(t));
   };
 
+  @modelAction
+  setTagManagerMode = (mode: TagManagerMode) => {
+    this.tagManagerPrevMode = this.tagManagerMode;
+    this.tagManagerMode = mode;
+  };
+
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */
   @modelFlow
   createTag = _async(function* (
@@ -60,7 +64,16 @@ export class TagStore extends Model({
         const res = await trpc.createTag.mutate({ aliases, childIds, label, parentIds });
         if (!res.success) throw new Error(res.error);
         const id = res.data.id;
-        const tag = { aliases, childIds, count: 0, hidden: false, id, label, parentIds };
+        const tag = {
+          aliases,
+          childIds,
+          count: 0,
+          dateCreated: res.data.dateCreated,
+          dateModified: res.data.dateModified,
+          id,
+          label,
+          parentIds,
+        };
 
         this._addTag(tag);
         await this.refreshTagRelations({ id });
@@ -100,23 +113,29 @@ export class TagStore extends Model({
       handleErrors(async () => {
         const tag = this.getById(id);
 
-        const [addedChildIds, removedChildIds] = getArrayDiff(tag.childIds, childIds).reduce(
-          (acc, cur) => {
-            if (childIds.includes(cur)) acc[0].push(cur);
-            else if (tag.childIds.includes(cur)) acc[1].push(cur);
-            return acc;
-          },
-          [[], []] as string[][]
-        );
+        const [addedChildIds, removedChildIds] =
+          childIds === undefined
+            ? [[], []]
+            : getArrayDiff(tag.childIds, childIds).reduce(
+                (acc, cur) => {
+                  if (childIds.includes(cur)) acc[0].push(cur);
+                  else if (tag.childIds.includes(cur)) acc[1].push(cur);
+                  return acc;
+                },
+                [[], []] as string[][]
+              );
 
-        const [addedParentIds, removedParentIds] = getArrayDiff(tag.parentIds, parentIds).reduce(
-          (acc, cur) => {
-            if (parentIds.includes(cur)) acc[0].push(cur);
-            else if (tag.parentIds.includes(cur)) acc[1].push(cur);
-            return acc;
-          },
-          [[], []] as string[][]
-        );
+        const [addedParentIds, removedParentIds] =
+          parentIds === undefined
+            ? [[], []]
+            : getArrayDiff(tag.parentIds, parentIds).reduce(
+                (acc, cur) => {
+                  if (parentIds.includes(cur)) acc[0].push(cur);
+                  else if (tag.parentIds.includes(cur)) acc[1].push(cur);
+                  return acc;
+                },
+                [[], []] as string[][]
+              );
 
         if (addedChildIds?.length > 0)
           await trpc.addParentTagIdsToTags.mutate({ tagIds: addedChildIds, parentTagIds: [id] });
@@ -137,7 +156,7 @@ export class TagStore extends Model({
         await trpc.editTag.mutate({ id, aliases, childIds, label, parentIds });
         await this.refreshTagCount({ id });
 
-        toast.success("Tag edited");
+        toast.success(`Tag '${tag.label}' edited`);
       })
     );
   });

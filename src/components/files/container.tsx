@@ -23,14 +23,11 @@ export const FileContainer = observer(() => {
   useEffect(() => {
     homeStore.reloadDisplayedFiles({ rootStore, page: 1 });
   }, [
-    homeStore.excludedAnyTags,
-    homeStore.includeDescendants,
     homeStore.includeTagged,
     homeStore.includeUntagged,
-    homeStore.includedAllTags,
-    homeStore.includedAnyTags,
     homeStore.isArchiveOpen,
     homeStore.isSortDesc,
+    homeStore.searchValue,
     homeStore.selectedImageTypes,
     homeStore.selectedVideoTypes,
     homeStore.sortKey,

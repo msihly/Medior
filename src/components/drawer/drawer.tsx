@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { observer } from "mobx-react-lite";
-import { useStores } from "store";
+import { SearchTagType, useStores } from "store";
 import { Divider, Drawer as MuiDrawer, List } from "@mui/material";
 import { Accordion, Checkbox, ListItem, TagInput, TagManager, Text, View } from "components";
 import { ExtCheckbox, Importer } from ".";
@@ -11,7 +11,12 @@ export const Drawer = observer(() => {
 
   const { css } = useClasses(null);
 
-  const [isImporterOpen, setIsImporterOpen] = useState(false);
+  const tagOptions = useMemo(() => {
+    return [...tagStore.tagOptions].map((t) => ({
+      ...t,
+      searchType: "includeDesc" as SearchTagType,
+    }));
+  }, [tagStore.tagOptions.toString()]);
 
   const [isAllImageTypesSelected, isAnyImageTypesSelected] = useMemo(() => {
     const allTypes = Object.values(homeStore.selectedImageTypes);
@@ -81,45 +86,17 @@ export const Drawer = observer(() => {
       <Divider className={css.divider} />
 
       <Text align="center" className={css.inputTitle}>
-        {"Include - All"}
+        {"Search"}
       </Text>
       <TagInput
-        value={[...homeStore.includedAllTags]}
-        onChange={(val) => homeStore.setIncludedAllTags(val)}
-        options={[...tagStore.tagOptions]}
-        limitTags={3}
-        className={css.input}
-      />
-
-      <Text align="center" className={css.inputTitle}>
-        {"Include - Any"}
-      </Text>
-      <TagInput
-        value={[...homeStore.includedAnyTags]}
-        onChange={(val) => homeStore.setIncludedAnyTags(val)}
-        options={[...tagStore.tagOptions]}
-        limitTags={3}
-        className={css.input}
-      />
-
-      <Text align="center" className={css.inputTitle}>
-        {"Exclude - Any"}
-      </Text>
-      <TagInput
-        value={[...homeStore.excludedAnyTags]}
-        onChange={(val) => homeStore.setExcludedAnyTags(val)}
-        options={[...tagStore.tagOptions]}
-        limitTags={3}
-        className={css.input}
+        value={[...homeStore.searchValue]}
+        onChange={(val) => homeStore.setSearchValue(val)}
+        options={tagOptions}
+        width={CONSTANTS.DRAWER_WIDTH - 20}
+        hasSearchMenu
       />
 
       <View className={css.checkboxes} column>
-        <Checkbox
-          label="Descendants"
-          checked={homeStore.includeDescendants}
-          setChecked={handleDescendants}
-        />
-
         <Checkbox
           label="Tagged"
           checked={homeStore.includeTagged}

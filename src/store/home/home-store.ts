@@ -12,7 +12,7 @@ import {
   trpc,
 } from "utils";
 
-const NUMERICAL_ATTRIBUTES = ["duration", "height", "rating", "size", "width"];
+const NUMERICAL_ATTRIBUTES = ["count", "duration", "height", "rating", "size", "width"];
 
 export type ReloadDisplayedFilesInput = {
   rootStore: RootStore;
@@ -23,7 +23,7 @@ export type ReloadDisplayedFilesInput = {
 export type SelectedImageTypes = { [ext in ImageType]: boolean };
 export type SelectedVideoTypes = { [ext in VideoType]: boolean };
 
-export const sortFiles = <File>({
+export const sortFn = <File>({
   a,
   b,
   isSortDesc,
@@ -48,19 +48,16 @@ export const sortFiles = <File>({
 
 @model("mediaViewer/HomeStore")
 export class HomeStore extends Model({
-  excludedAnyTags: prop<TagOption[]>(() => []).withSetter(),
   fileCardFit: prop<"contain" | "cover">("cover").withSetter(),
-  includeDescendants: prop<boolean>(true).withSetter(),
   includeTagged: prop<boolean>(false).withSetter(),
   includeUntagged: prop<boolean>(false).withSetter(),
-  includedAllTags: prop<TagOption[]>(() => []).withSetter(),
-  includedAnyTags: prop<TagOption[]>(() => []).withSetter(),
   isArchiveOpen: prop<boolean>(false).withSetter(),
   isDraggingIn: prop<boolean>(false).withSetter(),
   isDraggingOut: prop<boolean>(false).withSetter(),
   isDrawerOpen: prop<boolean>(true).withSetter(),
   isSortDesc: prop<boolean>(true).withSetter(),
   isTaggerOpen: prop<boolean>(false).withSetter(),
+  searchValue: prop<TagOption[]>(() => []).withSetter(),
   selectedImageTypes: prop<SelectedImageTypes>(
     () => Object.fromEntries(IMAGE_TYPES.map((ext) => [ext, true])) as SelectedImageTypes
   ),
@@ -72,13 +69,13 @@ export class HomeStore extends Model({
   taggerFileIds: prop<string[]>(() => []).withSetter(),
   tagSearchDepth: prop<number>(-1).withSetter(),
   tagSearchHasSections: prop<boolean>(false).withSetter(),
+  tagSearchSortIsDesc: prop<boolean>(true).withSetter(),
+  tagSearchSortKey: prop<string>("count").withSetter(),
 }) {
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
   @modelAction
   removeDeletedTag(id: string) {
-    this.excludedAnyTags.splice(this.excludedAnyTags.findIndex((t) => t.id === id));
-    this.includedAllTags.splice(this.includedAllTags.findIndex((t) => t.id === id));
-    this.includedAnyTags.splice(this.includedAnyTags.findIndex((t) => t.id === id));
+    this.searchValue.splice(this.searchValue.findIndex((t) => t.id === id));
   }
 
   @modelAction
@@ -110,25 +107,38 @@ export class HomeStore extends Model({
 
         const { fileStore, tagStore } = rootStore;
 
-        const tagsToIds = (tags: TagOption[]) => {
+        const tagsToIds = (tags: TagOption[], withDesc = false) => {
           const tagIds = tags.map((t) => t.id);
-          const tagIdsWithDesc = [
+          return [
             ...tagIds,
-            ...(this.includeDescendants
-              ? tagsToDescendants(tagStore, tagStore.listByIds(tagIds))
-              : []),
+            ...(withDesc ? tagsToDescendants(tagStore, tagStore.listByIds(tagIds)) : []),
           ];
-          return { tagIds, tagIdsWithDesc };
         };
 
-        const { tagIdsWithDesc: excludedAnyTagIdsDesc } = tagsToIds(this.excludedAnyTags);
-        const { tagIds: includedAllTagIds } = tagsToIds(this.includedAllTags);
-        const { tagIdsWithDesc: includedAnyTagIdsDesc } = tagsToIds(this.includedAnyTags);
+        const excludedAnyTagIds = [
+          ...tagsToIds(this.searchValue.filter((t) => t.searchType === "exclude")),
+          ...tagsToIds(
+            this.searchValue.filter((t) => t.searchType === "excludeDesc"),
+            true
+          ),
+        ];
+
+        const includedAnyTagIds = [
+          ...tagsToIds(this.searchValue.filter((t) => t.searchType === "includeOr")),
+          ...tagsToIds(
+            this.searchValue.filter((t) => t.searchType === "includeDesc"),
+            true
+          ),
+        ];
+
+        const includedAllTagIds = tagsToIds(
+          this.searchValue.filter((t) => t.searchType === "includeAnd")
+        );
 
         const filteredRes = await trpc.listFilteredFileIds.mutate({
-          excludedAnyTagIds: excludedAnyTagIdsDesc,
+          excludedAnyTagIds,
           includedAllTagIds,
-          includedAnyTagIds: includedAnyTagIdsDesc,
+          includedAnyTagIds,
           includeTagged: this.includeTagged,
           includeUntagged: this.includeUntagged,
           isArchived: this.isArchiveOpen,
@@ -149,7 +159,7 @@ export class HomeStore extends Model({
         const displayedRes = await trpc.listFiles.mutate({ ids: displayedIds });
         if (!displayedRes.success) throw new Error(displayedRes.error);
         const displayed = displayedRes.data.sort((a, b) =>
-          sortFiles({ a, b, isSortDesc: this.isSortDesc, sortKey: this.sortKey })
+          sortFn({ a, b, isSortDesc: this.isSortDesc, sortKey: this.sortKey })
         );
         perfLog(`Loaded ${displayed.length} displayed files`); // DEBUG
 

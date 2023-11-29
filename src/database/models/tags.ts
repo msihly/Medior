@@ -4,7 +4,8 @@ export interface Tag {
   aliases: string[];
   childIds: string[];
   count: number;
-  hidden: boolean;
+  dateCreated: string;
+  dateModified: string;
   id: string;
   label: string;
   parentIds: string[];
@@ -14,7 +15,8 @@ const TagSchema = new Schema<Tag>({
   aliases: [String],
   childIds: [{ type: Schema.Types.ObjectId, ref: "Tag" }],
   count: Number,
-  hidden: Boolean,
+  dateCreated: String,
+  dateModified: String,
   label: String,
   parentIds: [{ type: Schema.Types.ObjectId, ref: "Tag" }],
 });

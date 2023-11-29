@@ -9,19 +9,48 @@ import {
   useState,
 } from "react";
 import { observer } from "mobx-react-lite";
-import { TagOption, useStores } from "store";
+import { SearchTagType, TagOption, useStores } from "store";
 import {
   Autocomplete,
   AutocompleteChangeReason,
   AutocompleteRenderGetTagProps,
   AutocompleteRenderInputParams,
   Chip,
-  colors,
 } from "@mui/material";
-import { Button, Input, InputProps, Tag, View } from "components";
-import { makeClasses, socket } from "utils";
+import { Button, IconName, Input, InputProps, ListItem, Tag, View } from "components";
+import { colors, makeClasses, Margins, socket } from "utils";
 import { CSSObject } from "tss-react";
 import { toast } from "react-toastify";
+
+const SEARCH_MENU_META: {
+  [key in SearchTagType]: { color: string; icon: IconName; text: string };
+} = {
+  exclude: {
+    color: colors.red["700"],
+    icon: "RemoveCircleOutline",
+    text: "Exclude",
+  },
+  excludeDesc: {
+    color: colors.red["700"],
+    icon: "RemoveCircle",
+    text: "Exclude (Descendants)",
+  },
+  includeAnd: {
+    color: colors.green["700"],
+    icon: "AddCircle",
+    text: "Include (Required)",
+  },
+  includeOr: {
+    color: colors.green["700"],
+    icon: "AddCircleOutline",
+    text: "Include (Optional)",
+  },
+  includeDesc: {
+    color: colors.green["700"],
+    icon: "ControlPointDuplicate",
+    text: "Include (Descendants)",
+  },
+};
 
 export type TagInputProps = Omit<
   ComponentProps<typeof Autocomplete>,
@@ -31,8 +60,10 @@ export type TagInputProps = Omit<
   center?: boolean;
   hasCreate?: boolean;
   hasHelper?: boolean;
+  hasSearchMenu?: boolean;
   inputProps?: InputProps;
   label?: string;
+  margins?: Margins;
   onTagClick?: (tagId: string) => void;
   opaque?: boolean;
   options?: TagOption[];
@@ -51,10 +82,12 @@ export const TagInput = observer(
         center,
         className,
         disabled,
-        hasCreate = true,
+        hasCreate = false,
         hasHelper = false,
+        hasSearchMenu,
         inputProps,
         label,
+        margins,
         onChange,
         onSelect,
         onTagClick,
@@ -68,9 +101,9 @@ export const TagInput = observer(
       inputRef?: MutableRefObject<HTMLDivElement>
     ) => {
       const { tagStore } = useStores();
-      const { css, cx } = useClasses({ center, opaque, width });
+      const { css, cx } = useClasses({ center, margins, opaque, width });
 
-      const [inputValue, setInputValue] = useState<string>(inputProps?.value ?? "");
+      const [inputValue, setInputValue] = useState((inputProps?.value ?? "") as string);
       const [isOpen, setIsOpen] = useState(false);
 
       useEffect(() => {
@@ -80,7 +113,7 @@ export const TagInput = observer(
       }, [socket, onChange]);
 
       useEffect(() => {
-        setInputValue(inputProps?.value);
+        setInputValue(inputProps?.value as string);
       }, [inputProps?.value]);
 
       const filterOptions = (options: TagOption[], { inputValue }) => {
@@ -173,12 +206,54 @@ export const TagInput = observer(
             key={option.id}
             id={option.id}
             onClick={onTagClick ? () => onTagClick(option.id) : null}
+            menuButtonProps={
+              !hasSearchMenu
+                ? undefined
+                : {
+                    icon: SEARCH_MENU_META[option.searchType]?.icon,
+                    iconProps: { color: SEARCH_MENU_META[option.searchType]?.color },
+                    padding: { all: 0 },
+                    iconSize: "1.6rem",
+                    color: "transparent",
+                  }
+            }
+            menu={
+              hasSearchMenu ? (
+                <View>
+                  <ListItem
+                    text="Remove"
+                    icon="Delete"
+                    color={colors.red["700"]}
+                    iconProps={{ color: colors.red["700"] }}
+                    onClick={() => {
+                      onChange?.(value.filter((t) => t.id !== option.id));
+                    }}
+                  />
+
+                  {Object.entries(SEARCH_MENU_META).map(([type, { color, icon, text }]) => (
+                    <ListItem
+                      key={text}
+                      {...{ icon, text }}
+                      iconProps={{ color }}
+                      onClick={() => {
+                        onChange?.(
+                          value.map((t) =>
+                            t.id === option.id ? { ...t, searchType: type as SearchTagType } : t
+                          )
+                        );
+                      }}
+                    />
+                  ))}
+                </View>
+              ) : null
+            }
           />
         ));
 
       return (
         <Autocomplete
           {...{ filterOptions, options, renderInput, renderOption, renderTags, value }}
+          ListboxProps={{ className: css.listbox }}
           getOptionLabel={(option: TagOption) =>
             option?.label ?? tagStore.getById(option.id)?.label ?? ""
           }
@@ -199,7 +274,7 @@ export const TagInput = observer(
   )
 );
 
-const useClasses = makeClasses((_, { center, opaque, width }) => ({
+const useClasses = makeClasses((_, { center, margins, opaque, width }) => ({
   alias: {
     margin: "0.3rem 0 0 0.3rem",
     fontSize: "0.7em",
@@ -210,8 +285,17 @@ const useClasses = makeClasses((_, { center, opaque, width }) => ({
     flexFlow: "row wrap",
     alignSelf: "flex-start",
   },
+  listbox: {
+    overflowX: "hidden",
+    overflowY: "auto",
+  },
   input: {
     backgroundColor: opaque ? colors.grey["800"] : "transparent",
+    margin: margins?.all,
+    marginTop: margins?.top,
+    marginBottom: margins?.bottom,
+    marginRight: margins?.right,
+    marginLeft: margins?.left,
     "& .MuiAutocomplete-inputRoot": {
       justifyContent: center ? "center" : undefined,
     },
