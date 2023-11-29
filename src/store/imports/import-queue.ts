@@ -1,3 +1,4 @@
+import fs from "fs/promises";
 import path from "path";
 import md5File from "md5-file";
 import sharp from "sharp";
@@ -7,8 +8,10 @@ import {
   checkFileExists,
   copyFile,
   deleteFile,
+  dirToFilePaths,
   generateFramesThumbnail,
   getVideoInfo,
+  IMAGE_TYPES,
   THUMB_WIDTH,
   trpc,
   VIDEO_TYPES,
@@ -69,13 +72,11 @@ export const copyFileForImport = async ({
     if (!dbOnly) {
       if (!(await checkFileExists(newPath)))
         if (await copyFile(dirPath, originalPath, newPath))
-          await(
-            duration > 0
-              ? generateFramesThumbnail(originalPath, dirPath, hash, duration)
-              : sharp(originalPath, { failOn: "none" })
-                  .resize(null, THUMB_WIDTH)
-                  .toFile(thumbPaths[0])
-          );
+          await (duration > 0
+            ? generateFramesThumbnail(originalPath, dirPath, hash, duration)
+            : sharp(originalPath, { failOn: "none" })
+                .resize(null, THUMB_WIDTH)
+                .toFile(thumbPaths[0]));
     }
 
     let fileRes = await trpc.getFileByHash.mutate({ hash });
@@ -117,4 +118,30 @@ export const copyFileForImport = async ({
       } else return { success: true, file: fileRes.data, isDuplicate: true };
     } else return { success: false, error: err?.stack };
   }
+};
+
+export const dirToFileImports = async (dirPath: string) =>
+  await filePathsToImports(await dirToFilePaths(dirPath));
+
+const EXT_REG_EXP = new RegExp(`\.(${IMAGE_TYPES.join("|")}|${VIDEO_TYPES.join("|")})$`, "i");
+
+export const filePathsToImports = async (filePaths: string[]) => {
+  return (
+    await Promise.all(
+      filePaths.map(async (filePath) => {
+        const extension = path.extname(filePath);
+        if (!EXT_REG_EXP.test(extension)) return null;
+
+        const { birthtime, size } = await fs.stat(filePath);
+        return {
+          dateCreated: birthtime.toISOString(),
+          extension,
+          name: path.parse(filePath).name,
+          path: filePath,
+          size,
+          status: "PENDING",
+        } as FileImport;
+      })
+    )
+  ).filter((filePath) => filePath !== null);
 };

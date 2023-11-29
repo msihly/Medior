@@ -31,7 +31,10 @@ export type ImportBatchInput = Omit<ModelCreationData<ImportBatch>, "imports"> &
 @model("mediaViewer/ImportStore")
 export class ImportStore extends Model({
   deleteOnImport: prop<boolean>(true).withSetter(),
+  folderToTags: prop<boolean>(false).withSetter(),
+  folderToTagsMode: prop<"parent" | "multi">("parent").withSetter(),
   importBatches: prop<ImportBatch[]>(() => []),
+  isImporterOpen: prop<boolean>(false).withSetter(),
 }) {
   queue: PromiseQueue = new PromiseQueue();
 
@@ -71,7 +74,7 @@ export class ImportStore extends Model({
   }
 
   @modelAction
-  addImportBatch({ batchId, files }: { batchId: string; files: FileImport[] }) {
+  addImportBatch({ batchId, files }: { batchId: string; files: ModelCreationData<FileImport>[] }) {
     this.queue.add(async () => {
       // console.debug(
       //   "Starting importBatch:",
@@ -157,16 +160,19 @@ export class ImportStore extends Model({
   });
 
   @modelFlow
-  createImportBatch = _async(function* (this: ImportStore, { imports }: { imports: FileImport[] }) {
+  createImportBatch = _async(function* (
+    this: ImportStore,
+    { imports, tagIds }: { imports: FileImport[]; tagIds?: string[] }
+  ) {
     return yield* _await(
       handleErrors(async () => {
         const createdAt = dayjs().toISOString();
 
-        const batchRes = await trpc.createImportBatch.mutate({ createdAt, imports });
+        const batchRes = await trpc.createImportBatch.mutate({ createdAt, imports, tagIds });
         if (!batchRes.success) throw new Error(batchRes?.error);
         const id = batchRes.data._id.toString();
 
-        this._createImportBatch({ createdAt, id, imports });
+        this._createImportBatch({ createdAt, id, imports, tagIds });
         this.addImportBatch({ batchId: id, files: imports });
 
         return true;
@@ -250,6 +256,10 @@ export class ImportStore extends Model({
       handleErrors(async () => {
         const res = await trpc.listImportBatches.mutate();
         if (res.success) this.overwrite(res.data);
+        this.batches.forEach((batch) => {
+          if (batch.status !== "PENDING") return;
+          this.addImportBatch({ batchId: batch.id, files: batch.imports });
+        });
       })
     );
   });

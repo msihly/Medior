@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { observer } from "mobx-react-lite";
 import { SearchTagType, useStores } from "store";
 import { Divider, Drawer as MuiDrawer, List } from "@mui/material";
@@ -7,7 +7,7 @@ import { ExtCheckbox, Importer } from ".";
 import { colors, CONSTANTS, IMAGE_TYPES, makeClasses, VIDEO_TYPES } from "utils";
 
 export const Drawer = observer(() => {
-  const { homeStore, tagStore } = useStores();
+  const { fileCollectionStore, homeStore, importStore, tagStore } = useStores();
 
   const { css } = useClasses(null);
 
@@ -74,7 +74,8 @@ export const Drawer = observer(() => {
       <List disablePadding className={css.list}>
         <ListItem text="Tags" icon="More" onClick={handleManageTags} />
 
-        <ListItem text="Import" icon="GetApp" onClick={() => setIsImporterOpen(true)} />
+
+        <ListItem text="Import" icon="GetApp" onClick={handleImport} />
 
         <ListItem
           text={`${homeStore.isArchiveOpen ? "Close" : "Open"} Archive`}
@@ -141,7 +142,7 @@ export const Drawer = observer(() => {
 
         {fileCollectionStore.isCollectionEditorOpen && <FileCollectionEditor />} */}
 
-      <Importer isOpen={isImporterOpen} setIsOpen={setIsImporterOpen} />
+      <Importer />
     </MuiDrawer>
   );
 });
