@@ -1,55 +1,134 @@
+import { useEffect, useMemo, useState } from "react";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
-import { Dialog, DialogTitle, DialogContent, DialogActions, colors } from "@mui/material";
-import { Button, Text, View } from "components";
+import { Button, FileCard, Input, Modal, Text, View } from "components";
 import { FileCollection } from ".";
-import { makeClasses } from "utils";
-import { useMemo } from "react";
+import { colors, makeClasses } from "utils";
+import { toast } from "react-toastify";
 
 export const FileCollectionManager = observer(() => {
-  const { fileCollectionStore } = useStores();
   const { css } = useClasses(null);
 
-  const collections = useMemo(() => {
-    const activeCollectionIds = fileCollectionStore
-      .listByFileId(fileCollectionStore.activeFileId)
-      .map((c) => c.id);
+  const { fileCollectionStore } = useStores();
 
-    return fileCollectionStore.collections
-      .reduce((acc, cur) => {
-        acc.push({ id: cur.id, isActive: activeCollectionIds.includes(cur.id) });
-        return acc;
-      }, [] as { id: string; isActive: boolean }[])
-      .sort((a, b) => +a.isActive - +b.isActive);
-  }, [fileCollectionStore.collections]);
+  const hasAnySelected = fileCollectionStore.selectedFileIds.length > 0;
+  const hasOneSelected = fileCollectionStore.selectedFiles.length === 1;
+  const currentCollections = hasOneSelected
+    ? fileCollectionStore.listByFileId(fileCollectionStore.selectedFileIds[0])
+    : [];
+
+  const [searchValue, setSearchValue] = useState("");
+
+  useEffect(() => {
+    fileCollectionStore.loadSelectedFiles();
+  }, [fileCollectionStore.selectedFileIds]);
+
+  const filteredCollections = useMemo(() => {
+    const searchStr = searchValue.toLowerCase();
+    return fileCollectionStore.collections.filter((c) => c.title.toLowerCase().includes(searchStr));
+  }, [fileCollectionStore.collections.toString(), searchValue]);
 
   const closeModal = () => fileCollectionStore.setIsCollectionManagerOpen(false);
 
-  const handleNewCollection = () => {
-    fileCollectionStore.setActiveCollectionId(null);
-    fileCollectionStore.setIsCollectionEditorOpen(true);
-    closeModal();
+  const handleNewCollection = async () => {
+    const res = await fileCollectionStore.createCollection({
+      fileIdIndexes: fileCollectionStore.selectedFileIds.map((id, index) => ({
+        fileId: id,
+        index,
+      })),
+      title: "Untitled Collection",
+    });
+
+    if (!res.success) toast.error(res.error);
+    else {
+      fileCollectionStore.setActiveCollectionId(res.data.id);
+      fileCollectionStore.setIsCollectionEditorOpen(true);
+      closeModal();
+    }
   };
 
-  const handleSave = async () => {};
-
   return (
-    <Dialog open onClose={closeModal} scroll="paper">
-      <DialogTitle className={css.dialogTitle}>{"Manage Collections"}</DialogTitle>
+    <Modal.Container maxWidth="65rem" width="100%" onClose={closeModal}>
+      <Modal.Header>{"Manage Collections"}</Modal.Header>
 
-      <DialogContent dividers className={css.dialogContent}>
-        <View className={css.collections}>
-          {collections.length > 0 ? (
-            collections.map((c) => <FileCollection key={c.id} id={c.id} active={c.isActive} />)
-          ) : (
-            <View className={css.emptyContainer}>
-              <Text color={colors.grey["600"]}>{"No collections found"}</Text>
+      <Modal.Content>
+        {!hasAnySelected ? null : hasOneSelected ? (
+          <View row>
+            <View className={css.leftColumn}>
+              <Text className={css.sectionTitle}>{"Selected File"}</Text>
+
+              <View className={css.container}>
+                {fileCollectionStore.selectedFiles.length > 0 ? (
+                  <FileCard
+                    file={fileCollectionStore.selectedFiles[0]}
+                    height="13rem"
+                    width="12rem"
+                    disabled
+                  />
+                ) : (
+                  <EmptyText text="Loading selected file..." />
+                )}
+              </View>
             </View>
-          )}
-        </View>
-      </DialogContent>
 
-      <DialogActions className={css.dialogActions}>
+            <View column flex={1}>
+              <View row justify="center">
+                <Text className={css.sectionTitle}>{"Current Collections"}</Text>
+              </View>
+
+              <View className={css.container}>
+                {currentCollections.length > 0 ? (
+                  currentCollections.map((c) => (
+                    <FileCollection key={c.id} id={c.id} width="12rem" height="14rem" />
+                  ))
+                ) : (
+                  <EmptyText text="No collections found" />
+                )}
+              </View>
+            </View>
+          </View>
+        ) : (
+          <View column>
+            <Text className={css.sectionTitle}>{"Selected Files"}</Text>
+
+            <View className={css.container}>
+              {fileCollectionStore.selectedFiles.length > 0 ? (
+                fileCollectionStore.selectedFiles.map((f) => (
+                  <FileCard key={f.id} file={f} width="12rem" height="14rem" disabled />
+                ))
+              ) : (
+                <EmptyText text="Loading selected files..." />
+              )}
+            </View>
+          </View>
+        )}
+
+        <View row margins={{ top: "0.5rem" }}>
+          <View className={css.leftColumn}>
+            <Text className={css.sectionTitle}>{"Search"}</Text>
+
+            <View className={css.container}>
+              <Input label="Search" value={searchValue} setValue={setSearchValue} fullWidth />
+            </View>
+          </View>
+
+          <View column flex={1}>
+            <Text className={css.sectionTitle}>{"All Collections"}</Text>
+
+            <View className={css.container}>
+              {filteredCollections.length > 0 ? (
+                filteredCollections.map((c) => (
+                  <FileCollection key={c.id} id={c.id} width="12rem" height="14rem" />
+                ))
+              ) : (
+                <EmptyText text="No collections found" />
+              )}
+            </View>
+          </View>
+        </View>
+      </Modal.Content>
+
+      <Modal.Footer>
         <Button text="Close" icon="Close" onClick={closeModal} color={colors.grey["700"]} />
 
         <Button
@@ -58,48 +137,40 @@ export const FileCollectionManager = observer(() => {
           onClick={handleNewCollection}
           color={colors.blueGrey["700"]}
         />
-
-        <Button text="Save" icon="Save" onClick={handleSave} />
-      </DialogActions>
-    </Dialog>
+      </Modal.Footer>
+    </Modal.Container>
   );
 });
 
+const EmptyText = ({ text }: { text: string }) => (
+  <View row justify="center" align="center" flex={1}>
+    <Text color={colors.grey["600"]}>{text}</Text>
+  </View>
+);
+
 const useClasses = makeClasses({
-  collections: {
+  container: {
     display: "flex",
-    flexDirection: "row",
-    flexWrap: "wrap",
+    flexFlow: "row wrap",
     borderRadius: "0.3rem",
     padding: "0.5rem",
-    minHeight: "5rem",
-    minWidth: "20rem",
+    minHeight: "15rem",
+    maxHeight: "20rem",
+    height: "100%",
+    width: "100%",
     backgroundColor: colors.grey["800"],
+    overflow: "auto",
   },
-  dialogActions: {
-    justifyContent: "center",
-  },
-  dialogContent: {
-    padding: "0.5rem 1rem",
-  },
-  dialogTitle: {
-    margin: 0,
-    padding: "0.5rem 0",
-    textAlign: "center",
-  },
-  emptyContainer: {
+  leftColumn: {
     display: "flex",
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  input: {
-    marginBottom: "0.5rem",
-    minWidth: "15rem",
+    flexDirection: "column",
+    width: "13rem",
+    marginRight: "0.5rem",
   },
   sectionTitle: {
-    marginTop: "0.3rem",
-    textShadow: `0 0 10px ${colors.blue["600"]}`,
+    alignSelf: "center",
+    margin: "0.2rem 0",
     fontSize: "0.8em",
+    textShadow: `0 0 10px ${colors.blue["600"]}`,
   },
 });

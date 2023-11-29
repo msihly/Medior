@@ -36,7 +36,12 @@ export const Drawer = observer(() => {
 
   const handleClose = () => homeStore.setIsDrawerOpen(false);
 
-  const handleDescendants = () => homeStore.setIncludeDescendants(!homeStore.includeDescendants);
+  const handleCollections = () => {
+    fileCollectionStore.setSelectedFileIds([]);
+    fileCollectionStore.setIsCollectionManagerOpen(true);
+  };
+
+  const handleImport = () => importStore.setIsImporterOpen(true);
 
   const handleManageTags = () => {
     tagStore.setTagManagerMode("search");
@@ -74,6 +79,7 @@ export const Drawer = observer(() => {
       <List disablePadding className={css.list}>
         <ListItem text="Tags" icon="More" onClick={handleManageTags} />
 
+        <ListItem text="Collections" icon="Collections" onClick={handleCollections} />
 
         <ListItem text="Import" icon="GetApp" onClick={handleImport} />
 

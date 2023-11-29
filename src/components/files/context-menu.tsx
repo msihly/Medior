@@ -17,7 +17,7 @@ export const ContextMenu = observer(({ children, disabled, file, ...props }: Con
   const { css } = useClasses(null);
 
   const rootStore = useStores();
-  const { faceRecognitionStore, fileStore } = useStores();
+  const { faceRecognitionStore, fileCollectionStore, fileStore } = useStores();
 
   const [mouseX, setMouseX] = useState(null);
   const [mouseY, setMouseY] = useState(null);
@@ -36,6 +36,12 @@ export const ContextMenu = observer(({ children, disabled, file, ...props }: Con
   const handleClose = () => {
     setMouseX(null);
     setMouseY(null);
+  };
+
+  const handleCollections = () => {
+    fileCollectionStore.setSelectedFileIds([file.id]);
+    fileCollectionStore.setIsCollectionManagerOpen(true);
+    handleClose();
   };
 
   const handleDelete = () => {
@@ -105,6 +111,8 @@ export const ContextMenu = observer(({ children, disabled, file, ...props }: Con
           icon={file?.isArchived ? "Delete" : "Archive"}
           onClick={handleDelete}
         />
+
+        <ListItem text="Collections" icon="Collections" onClick={handleCollections} />
       </Menu>
     </View>
   );

@@ -3,13 +3,23 @@ import { useEffect, useState } from "react";
 import { observer } from "mobx-react-lite";
 import { FileImport, dirToFileImports, filePathsToImports, useStores } from "store";
 import {
+  Drawer,
+  FaceRecognitionModal,
+  FileCollectionEditor,
+  FileCollectionManager,
+  FileContainer,
+  Tagger,
+  TopBar,
+  View,
+} from "components";
 import { colors, CONSTANTS, PromiseQueue, makeClasses, setupSocketIO, socket } from "utils";
 import { toast } from "react-toastify";
 import Color from "color";
 
 export const Home = observer(() => {
   const rootStore = useStores();
-  const { faceRecognitionStore, fileStore, homeStore, importStore, tagStore } = useStores();
+  const { faceRecognitionStore, fileCollectionStore, fileStore, homeStore, importStore, tagStore } =
+    useStores();
 
   const [isLoading, setIsLoading] = useState(true);
 
@@ -170,7 +180,7 @@ export const Home = observer(() => {
 
           await importQueue.queue;
 
-      toast.success(`Queued ${imports.length} imports`);
+          toast.success(`Queued ${imports.length} imports`);
         }
       }
     } catch (err) {
@@ -190,7 +200,11 @@ export const Home = observer(() => {
         setIsLoading(true);
         let perfStart = performance.now();
 
-        await Promise.all([importStore.loadImportBatches(), tagStore.loadTags()]);
+        await Promise.all([
+          fileCollectionStore.loadCollections(),
+          importStore.loadImportBatches(),
+          tagStore.loadTags(),
+        ]);
 
         console.debug(`Data loaded into MobX in ${performance.now() - perfStart}ms.`);
         setIsLoading(false);
@@ -204,6 +218,7 @@ export const Home = observer(() => {
     setupSocketIO();
 
     socket.on("filesDeleted", () => {
+      fileCollectionStore.loadCollections();
       homeStore.reloadDisplayedFiles({ rootStore });
     });
 
@@ -244,16 +259,20 @@ export const Home = observer(() => {
         <TopBar />
 
         <View row>
-        <Drawer />
+          <Drawer />
 
-        <View column className={css.main}>
-          {isLoading ? null : <FileContainer />}
+          <View column className={css.main}>
+            {isLoading ? null : <FileContainer />}
 
-          {faceRecognitionStore.isModalOpen && <FaceRecognitionModal />}
+            {faceRecognitionStore.isModalOpen && <FaceRecognitionModal />}
 
-          {homeStore.isTaggerOpen && (
-            <Tagger fileIds={homeStore.taggerFileIds} setVisible={setTaggerVisible} />
-          )}
+            {homeStore.isTaggerOpen && (
+              <Tagger fileIds={homeStore.taggerFileIds} setVisible={setTaggerVisible} />
+            )}
+
+            {fileCollectionStore.isCollectionManagerOpen && <FileCollectionManager />}
+
+            {fileCollectionStore.isCollectionEditorOpen && <FileCollectionEditor />}
           </View>
         </View>
       </View>

@@ -8,7 +8,7 @@ import { toast } from "react-toastify";
 
 export const TopBar = observer(() => {
   const rootStore = useStores();
-  const { faceRecognitionStore, fileStore, homeStore } = useStores();
+  const { faceRecognitionStore, fileCollectionStore, fileStore, homeStore } = useStores();
   const { css } = useClasses(null);
 
   const hasNoSelection = fileStore.selectedIds.length === 0;
@@ -23,6 +23,10 @@ export const TopBar = observer(() => {
     toast.info("Deselected all files");
   };
 
+  const handleEditCollections = () => {
+    fileCollectionStore.setSelectedFileIds([...fileStore.selectedIds]);
+    fileCollectionStore.setIsCollectionManagerOpen(true);
+  };
 
   const handleEditTags = () => {
     homeStore.setTaggerBatchId(null);
@@ -87,6 +91,13 @@ export const TopBar = observer(() => {
           <IconButton
             name="Face"
             onClick={handleAutoDetect}
+            disabled={hasNoSelection}
+            size="medium"
+          />
+
+          <IconButton
+            name="Collections"
+            onClick={handleEditCollections}
             disabled={hasNoSelection}
             size="medium"
           />

@@ -1,23 +1,29 @@
 import { model, Schema } from "mongoose";
 
-interface File {
+interface FileIdIndex {
   fileId: string;
   index: number;
 }
 
 export interface FileCollection {
-  fileIndexes: File[];
+  dateCreated: string;
+  dateModified: string;
+  fileIdIndexes: FileIdIndex[];
+  id: string;
+  rating: number;
+  tagIds: string[];
+  thumbPaths: string[];
   title: string;
 }
 
-const FileCollectionSchema = new Schema<FileCollection>({});
-
-// FileCollectionSchema.set("toJSON", {
-//   transform: (_, ret) => {
-//     delete ret._id;
-//     delete ret.__v;
-//   },
-//   virtuals: true,
-// });
+const FileCollectionSchema = new Schema<FileCollection>({
+  dateCreated: String,
+  dateModified: String,
+  fileIdIndexes: [{ fileId: Schema.Types.ObjectId, index: Number }],
+  rating: Number,
+  tagIds: [Schema.Types.ObjectId],
+  thumbPaths: [String],
+  title: String,
+});
 
 export const FileCollectionModel = model<FileCollection>("FileCollection", FileCollectionSchema);

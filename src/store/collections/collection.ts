@@ -1,14 +1,4 @@
-import { computed } from "mobx";
-import {
-  applySnapshot,
-  getRootStore,
-  getSnapshot,
-  Model,
-  model,
-  modelAction,
-  prop,
-} from "mobx-keystone";
-import { RootStore } from "store";
+import { applySnapshot, getSnapshot, Model, model, modelAction, prop } from "mobx-keystone";
 
 export type FileIdIndex = {
   fileId: string;
@@ -17,50 +7,23 @@ export type FileIdIndex = {
 
 @model("mediaViewer/FileCollection")
 export class FileCollection extends Model({
+  dateCreated: prop<string>(null),
+  dateModified: prop<string>(null),
   fileIdIndexes: prop<FileIdIndex[]>(),
   id: prop<string>(),
+  rating: prop<number>(0),
+  tagIds: prop<string[]>(() => []),
+  thumbPaths: prop<string[]>(() => []),
   title: prop<string>(),
 }) {
+  /* ---------------------------- STANDARD ACTIONS ---------------------------- */
   @modelAction
-  update(tag: Partial<FileCollection>) {
-    applySnapshot(this, { ...getSnapshot(this), ...tag });
+  update(collection: Partial<FileCollection>) {
+    applySnapshot(this, { ...getSnapshot(this), ...collection });
   }
 
-  @computed
-  get fileIndexes() {
-    const { fileStore } = getRootStore<RootStore>(this);
-    return this.fileIdIndexes.map(({ fileId, index }) => ({
-      file: fileStore.getById(fileId),
-      index,
-    }));
-  }
-
-  @computed
-  get rating() {
-    const ratingTotals = this.fileIndexes.reduce(
-      (acc, cur) => {
-        if (cur.file.rating > 0) {
-          acc.numerator += cur.file.rating;
-          acc.denominator++;
-        }
-        return acc;
-      },
-      { numerator: 0, denominator: 0 }
-    );
-
-    return ratingTotals.denominator > 0 ? ratingTotals.numerator / ratingTotals.denominator : 0;
-  }
-
-  @computed
-  get tags() {
-    const { tagStore } = getRootStore<RootStore>(this);
-    return [...new Set(this.fileIndexes.flatMap((f) => f.file.tagIds))].map((tagId) =>
-      tagStore.getById(tagId)
-    );
-  }
-
-  @computed
-  get thumbPaths() {
-    return this.fileIndexes.map((f) => f.file.thumbPaths[0]);
+  /* ----------------------------- DYNAMIC GETTERS ---------------------------- */
+  getIndexById(id: string) {
+    return this.fileIdIndexes.find((f) => f.fileId === id)?.index;
   }
 }

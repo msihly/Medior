@@ -1,10 +1,11 @@
 import fs from "fs/promises";
 import {
   AddTagsToFilesInput,
-  ArchiveFilesInput,
   DeleteFilesInput,
   DetectFacesInput,
   File,
+  FileCollection,
+  FileCollectionModel,
   FileModel,
   GetFileByHashInput,
   ImportFileInput,
@@ -12,6 +13,8 @@ import {
   ListFilesByTagIdsInput,
   ListFilesInput,
   OnFileTagsUpdatedInput,
+  OnFilesArchivedInput,
+  OnFilesDeletedInput,
   OnFilesUpdatedInput,
   RemoveTagFromAllFilesInput,
   RemoveTagsFromFilesInput,
@@ -20,6 +23,7 @@ import {
   SetFileRatingInput,
   UpdateFileInput,
   listFilteredFileIdsInput,
+  updateCollection,
 } from "database";
 import { dayjs, handleErrors, socket, trpc } from "utils";
 import { leanModelToJson } from "./utils";
@@ -37,8 +41,29 @@ export const addTagsToFiles = ({ fileIds = [], tagIds = [] }: AddTagsToFilesInpu
     return dateModified;
   });
 
-export const deleteFiles = ({ fileIds = [] }: DeleteFilesInput) =>
-  handleErrors(async () => await FileModel.deleteMany({ _id: { $in: fileIds } }));
+export const deleteFiles = ({ fileIds }: DeleteFilesInput) =>
+  handleErrors(async () => {
+    const collections = (
+      await FileCollectionModel.find({
+        fileIdIndexes: { $elemMatch: { fileId: { $in: fileIds } } },
+      }).lean()
+    ).map((c) => leanModelToJson<FileCollection>(c));
+
+    await Promise.all(
+      collections.map((collection) =>
+        updateCollection({
+          collection: {
+            ...collection,
+            fileIdIndexes: collection.fileIdIndexes.filter(
+              (fileIdIndex) => !fileIds.includes(fileIdIndex.fileId)
+            ),
+          },
+        })
+      )
+    );
+
+    await FileModel.deleteMany({ _id: { $in: fileIds } });
+  });
 
 export const detectFaces = async ({ imagePath }: DetectFacesInput) =>
   handleErrors(async () => {
@@ -187,10 +212,10 @@ export const loadFaceApiNets = async () =>
     await faceapi.nets.faceRecognitionNet.loadFromDisk(FACE_MODELS_PATH);
   });
 
-export const onFilesArchived = async ({ fileIds }: ArchiveFilesInput) =>
+export const onFilesArchived = async ({ fileIds }: OnFilesArchivedInput) =>
   handleErrors(async () => !!socket.emit("filesArchived", { fileIds }));
 
-export const onFilesDeleted = async ({ fileIds }: DeleteFilesInput) =>
+export const onFilesDeleted = async ({ fileIds }: OnFilesDeletedInput) =>
   handleErrors(async () => !!socket.emit("filesDeleted", { fileIds }));
 
 export const onFilesUpdated = async ({ fileIds, updates }: OnFilesUpdatedInput) =>

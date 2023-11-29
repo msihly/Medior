@@ -1,6 +1,25 @@
-import { File, Tag } from "database";
+import { File, FileCollection, Tag } from "database";
 import { FileImport, RootStore, SelectedImageTypes, SelectedVideoTypes } from "store";
 import { ImportStatus } from "components";
+
+/* -------------------------------- COLLECTIONS ------------------------------- */
+export type CreateCollectionInput = {
+  fileIdIndexes: { fileId: string; index: number }[];
+  title: string;
+  withSub?: boolean;
+};
+
+export type DeleteCollectionInput = { id: string };
+
+export type UpdateCollectionInput = { collection: Partial<FileCollection> & { id: string } };
+
+export type LoadCollectionsInput = { collectionIds?: string[]; withOverwrite?: boolean };
+
+export type LoadSearchResultsInput = { page?: number; rootStore: RootStore };
+
+export type ListCollectionsInput = { ids?: string[] };
+
+export type OnCollectionCreatedInput = { collection: FileCollection };
 
 /* ------------------------------ FILE IMPORTS ------------------------------ */
 export type AddTagsToBatchInput = { batchId: string; tagIds: string[] };

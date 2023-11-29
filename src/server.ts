@@ -64,6 +64,9 @@ const trpcRouter = tRouter({
   completeImportBatch: tProc
     .input((input: unknown) => input as db.CompleteImportBatchInput)
     .mutation(({ input }) => db.completeImportBatch(input)),
+  createCollection: tProc
+    .input((input: unknown) => input as db.CreateCollectionInput)
+    .mutation(({ input }) => db.createCollection(input)),
   createImportBatch: tProc
     .input((input: unknown) => input as db.CreateImportBatchInput)
     .mutation(({ input }) => db.createImportBatch(input)),
@@ -71,6 +74,9 @@ const trpcRouter = tRouter({
     .input((input: unknown) => input as db.CreateTagInput)
     .mutation(({ input }) => db.createTag(input)),
   deleteAllImportBatches: tProc.mutation(db.deleteAllImportBatches),
+  deleteCollection: tProc
+    .input((input: unknown) => input as db.DeleteCollectionInput)
+    .mutation(({ input }) => db.deleteCollection(input)),
   deleteFiles: tProc
     .input((input: unknown) => input as db.DeleteFilesInput)
     .mutation(({ input }) => db.deleteFiles(input)),
@@ -92,6 +98,9 @@ const trpcRouter = tRouter({
   importFile: tProc
     .input((input: unknown) => input as db.ImportFileInput)
     .mutation(({ input }) => db.importFile(input)),
+  listCollections: tProc
+    .input((input: unknown) => input as db.ListCollectionsInput)
+    .mutation(({ input }) => db.listCollections(input)),
   listFaceModels: tProc
     .input((input: unknown) => input as db.ListFaceModelsInput)
     .mutation(({ input }) => db.listFaceModels(input)),
@@ -107,6 +116,9 @@ const trpcRouter = tRouter({
   listImportBatches: tProc.mutation(db.listImportBatches),
   listTags: tProc.mutation(db.getAllTags),
   loadFaceApiNets: tProc.mutation(db.loadFaceApiNets),
+  onCollectionCreated: tProc
+    .input((input: unknown) => input as db.OnCollectionCreatedInput)
+    .mutation(({ input }) => db.onCollectionCreated(input)),
   onFilesArchived: tProc
     .input((input: unknown) => input as db.OnFilesArchivedInput)
     .mutation(({ input }) => db.onFilesArchived(input)),
@@ -176,11 +188,15 @@ const trpcRouter = tRouter({
   updateFileImportByPath: tProc
     .input((input: unknown) => input as db.UpdateFileImportByPathInput)
     .mutation(({ input }) => db.updateFileImportByPath(input)),
+  updateCollection: tProc
+    .input((input: unknown) => input as db.UpdateCollectionInput)
+    .mutation(({ input }) => db.updateCollection(input)),
 });
 export type TRPCRouter = typeof trpcRouter;
 
 /* ----------------------------- CREATE SERVER ----------------------------- */
 export interface SocketEmitEvents {
+  collectionCreated: (args: { collection: db.FileCollection }) => void;
   filesArchived: (args: { fileIds: string[] }) => void;
   filesDeleted: (args: { fileIds: string[] }) => void;
   filesUpdated: (args: { fileIds: string[]; updates: Partial<db.File> }) => void;
@@ -225,6 +241,9 @@ module.exports = (async () => {
     logToFile("debug", `Socket server listening on port ${socketPort}.`);
     socket.emit("connected");
 
+    socket.on("collectionCreated", (...args) =>
+      socket.broadcast.emit("collectionCreated", ...args)
+    );
     socket.on("filesArchived", (...args) => socket.broadcast.emit("filesArchived", ...args));
     socket.on("filesDeleted", (...args) => socket.broadcast.emit("filesDeleted", ...args));
     socket.on("filesUpdated", (...args) => socket.broadcast.emit("filesUpdated", ...args));

@@ -1,169 +1,78 @@
-import { useRef, useState } from "react";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
-import { colors, Chip, Paper } from "@mui/material";
-import { Icon, SideScroller, Tag, Text, View } from "components";
-import { makeClasses } from "utils";
+import { FileBase, Text } from "components";
+import { CollectionTooltip } from ".";
+import { colors, makeClasses } from "utils";
+import { CSSObject } from "tss-react";
 
-interface FileCollectionProps {
-  active?: boolean;
+export interface FileCollectionProps {
+  height?: CSSObject["height"];
   id: string;
+  width?: CSSObject["width"];
 }
 
-export const FileCollection = observer(({ active = false, id }: FileCollectionProps) => {
-  const { fileCollectionStore } = useStores();
+export const FileCollection = observer(({ height, id, width }: FileCollectionProps) => {
+  const { fileCollectionStore, tagStore } = useStores();
   const collection = fileCollectionStore.getById(id);
 
-  const { css } = useClasses({ active });
+  const { css } = useClasses(null);
 
-  const thumbInterval = useRef(null);
-  const [thumbIndex, setThumbIndex] = useState(0);
-
-  const handleMouseEnter = () => {
-    thumbInterval.current = setInterval(() => {
-      setThumbIndex((thumbIndex) =>
-        thumbIndex + 1 === collection.fileIndexes?.length ? 0 : thumbIndex + 1
-      );
-    }, 300);
-  };
-
-  const handleMouseLeave = () => {
-    clearInterval(thumbInterval.current);
-    thumbInterval.current = null;
-    setThumbIndex(0);
+  const handleTagPress = (tagId: string) => {
+    tagStore.setActiveTagId(tagId);
+    tagStore.setTagManagerMode("edit");
+    tagStore.setIsTagManagerOpen(true);
   };
 
   const openCollection = () => {
+    fileCollectionStore.setActiveFiles([]);
     fileCollectionStore.setActiveCollectionId(id);
     fileCollectionStore.setIsCollectionEditorOpen(true);
   };
 
   return (
-    <View className={css.container}>
-      <Paper onDoubleClick={openCollection} elevation={3} className={css.paper}>
-        <View
-          onMouseEnter={handleMouseEnter}
-          onMouseLeave={handleMouseLeave}
-          className={css.imageContainer}
-        >
-          <Chip
-            icon={<Icon name="Star" color={colors.amber["600"]} size="inherit" />}
-            label={collection?.rating}
-            className={css.rating}
-          />
+    <FileBase.Container {...{ height, width }} onDoubleClick={openCollection}>
+      <FileBase.Image
+        thumbPaths={collection.thumbPaths}
+        title={collection.title}
+        height={height}
+        width={width}
+        fit="cover"
+        disabled
+      >
+        <FileBase.Chip
+          position="top-left"
+          icon="Star"
+          iconColor={colors.amber["600"]}
+          label={collection.rating}
+        />
 
-          <Chip
-            icon={<Icon name="Collections" size="inherit" margins={{ left: "0.5rem" }} />}
-            label={collection?.fileIndexes?.length}
-            className={css.fileCount}
-          />
+        <FileBase.Chip
+          position="top-right"
+          icon="Collections"
+          label={collection.fileIdIndexes.length}
+        />
+      </FileBase.Image>
 
-          <img
-            src={collection?.thumbPaths[thumbIndex]}
-            className={css.image}
-            alt={collection?.title}
-            draggable={false}
-          />
+      <FileBase.Footer>
+        {collection.title.length > 0 && (
+          <Text tooltip={collection.title} className={css.title}>
+            {collection.title}
+          </Text>
+        )}
 
-          {collection?.title?.length > 0 && <Text>{collection.title}</Text>}
-        </View>
-
-        <SideScroller innerClassName={css.tags}>
-          {collection?.tags?.map((t) => (
-            <Tag key={t.id} tag={t} size="small" />
-          ))}
-        </SideScroller>
-      </Paper>
-    </View>
+        <CollectionTooltip {...{ collection }} onTagPress={handleTagPress} />
+      </FileBase.Footer>
+    </FileBase.Container>
   );
 });
 
-const useClasses = makeClasses((theme, { active }) => ({
-  container: {
-    flexBasis: "calc(100% / 6)",
-    [theme.breakpoints.down("xl")]: { flexBasis: "calc(100% / 5)" },
-    [theme.breakpoints.down("lg")]: { flexBasis: "calc(100% / 4)" },
-    [theme.breakpoints.down("md")]: { flexBasis: "calc(100% / 3)" },
-    [theme.breakpoints.down("sm")]: { flexBasis: "calc(100% / 2)" },
-    border: "1px solid",
-    borderColor: "#0f0f0f",
-    borderRadius: 4,
-    padding: "0.25rem",
-    height: "fit-content",
-    backgroundColor: active ? colors.blue["600"] : "transparent",
-    overflow: "hidden",
-    cursor: "pointer",
-    userSelect: "none",
-  },
-  duration: {
-    position: "absolute",
-    bottom: "0.5rem",
-    right: "0.5rem",
-    backgroundColor: colors.grey["900"],
-    opacity: 0.5,
-    cursor: "pointer",
-    transition: "all 200ms ease-in-out",
-    "&:hover": {
-      opacity: 0.8,
-    },
-  },
-  fileCount: {
-    position: "absolute",
-    top: "0.5rem",
-    right: "0.5rem",
-    backgroundColor: colors.grey["900"],
-    opacity: 0.5,
-    cursor: "pointer",
-    transition: "all 200ms ease-in-out",
-    "&:hover": {
-      opacity: 0.8,
-    },
-  },
-  image: {
+const useClasses = makeClasses({
+  title: {
     width: "100%",
-    height: "9rem",
-    objectFit: "cover",
-    borderTopLeftRadius: "inherit",
-    borderTopRightRadius: "inherit",
-    userSelect: "none",
-  },
-  imageContainer: {
-    position: "relative",
-    borderTopLeftRadius: "inherit",
-    borderTopRightRadius: "inherit",
-  },
-  paper: {
-    display: "flex",
-    flexDirection: "column",
-    flex: 1,
-    height: "auto",
-    userSelect: "none",
-  },
-  name: {
-    borderBottomLeftRadius: "inherit",
-    borderBottomRightRadius: "inherit",
-    padding: "0.2em 0.3em",
+    fontSize: "0.9em",
     textAlign: "center",
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
   },
-  rating: {
-    position: "absolute",
-    top: "0.5rem",
-    left: "0.5rem",
-    backgroundColor: colors.grey["900"],
-    opacity: 0.7,
-    cursor: "pointer",
-    transition: "all 200ms ease-in-out",
-    "&:hover": {
-      opacity: 0.85,
-    },
-  },
-  tags: {
-    borderBottomLeftRadius: "inherit",
-    borderBottomRightRadius: "inherit",
-    padding: "0.2em 0.3em",
-    height: "1.8rem",
-  },
-}));
+});
