@@ -1,5 +1,7 @@
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
-import { Dialog, DialogProps } from "@mui/material";
+import { Dialog, DialogProps, Paper, PaperProps } from "@mui/material";
+import { useRef } from "react";
+import Draggable from "react-draggable";
 import { CSSObject } from "tss-react";
 import { makeClasses } from "utils";
 
@@ -18,6 +20,7 @@ export const Container = ({
   children,
   className,
   closeOnBackdrop = true,
+  draggable = false,
   height,
   maxHeight,
   maxWidth = "none",
@@ -30,12 +33,13 @@ export const Container = ({
   const { css, cx } = useClasses({ height, maxHeight, maxWidth, width });
 
   const handleClose = (_, reason: "backdropClick" | "escapeKeyDown") =>
-    reason !== "backdropClick" && onClose?.();
+    (reason === "backdropClick" ? closeOnBackdrop : true) && onClose?.();
 
   return (
     <Dialog
       {...props}
       {...{ scroll }}
+      PaperComponent={draggable ? DraggablePaper : undefined}
       open={visible}
       onClose={handleClose}
       className={cx(css.modal, className)}
@@ -45,7 +49,25 @@ export const Container = ({
   );
 };
 
+const DraggablePaper = (props: PaperProps) => {
+  const { css, cx } = useClasses({});
+
+  const ref = useRef(null);
+
+  return (
+    <Draggable nodeRef={ref} cancel={'[class*="MuiDialogContent-root"]'}>
+      <Paper {...props} ref={ref} className={cx(props.className, css.draggable)} />
+    </Draggable>
+  );
+};
+
 const useClasses = makeClasses((_, { height, maxHeight, maxWidth, width }) => ({
+  draggable: {
+    cursor: "grab",
+    "& .MuiDialogContent-root": {
+      cursor: "initial",
+    },
+  },
   modal: {
     "& .MuiDialog-paper": { maxHeight, maxWidth, height, width },
   },

@@ -215,6 +215,14 @@
               "allowTypeImports": true
             },
             {
+              "name": "@mui/material",
+              "importNames": [
+                "CSSObject"
+              ],
+              "message": "Import from 'tss-react' instead.",
+              "allowTypeImports": true
+            },
+            {
               "name": "dayjs",
               "importNames": [
                 "default"

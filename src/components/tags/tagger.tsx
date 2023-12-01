@@ -1,8 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { observer } from "mobx-react-lite";
 import { TagOption, tagToOption, useStores } from "store";
-import Draggable from "react-draggable";
-import { Paper, PaperProps } from "@mui/material";
 import { Button, Modal, TagInput, Text, View } from "components";
 import { TagEditor } from ".";
 import { colors, makeClasses } from "utils";
@@ -78,7 +76,7 @@ export const Tagger = observer(({ batchId, fileIds, setVisible }: TaggerProps) =
   };
 
   return (
-    <Modal.Container onClose={handleClose} PaperComponent={DraggablePaper}>
+    <Modal.Container onClose={handleClose} width="25rem" draggable>
       <Modal.Header>
         {mode === "createTag"
           ? "Create Tag"
@@ -143,22 +141,7 @@ export const Tagger = observer(({ batchId, fileIds, setVisible }: TaggerProps) =
   );
 });
 
-const DraggablePaper = (props: PaperProps) => {
-  const { css } = useClasses(null);
-  const ref = useRef(null);
-
-  return (
-    <Draggable nodeRef={ref} cancel={'[class*="MuiDialogContent-root"]'}>
-      <Paper {...props} ref={ref} className={css.draggablePaper} />
-    </Draggable>
-  );
-};
-
 const useClasses = makeClasses({
-  draggablePaper: {
-    maxWidth: "28rem",
-    cursor: "grab",
-  },
   sectionTitle: {
     fontSize: "0.8em",
     textShadow: `0 0 10px ${colors.blue["600"]}`,
