@@ -1,0 +1,13 @@
+diff --git a/node_modules/@alissavrk/dnd-kit-utilities/package.json b/node_modules/@alissavrk/dnd-kit-utilities/package.json
+index 10bb731..7043113 100644
+--- a/node_modules/@alissavrk/dnd-kit-utilities/package.json
++++ b/node_modules/@alissavrk/dnd-kit-utilities/package.json
+@@ -17,7 +17,7 @@
+     "prepublish": "npm run build"
+   },
+   "main": "dist/index.js",
+-  "module": "dist/utilities.esm.js",
++  "module": "dist/dnd-kit-utilities.esm.js",
+   "typings": "dist/index.d.ts",
+   "files": [
+     "README.md",
