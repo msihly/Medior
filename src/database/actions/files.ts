@@ -1,3 +1,5 @@
+import { app } from "electron";
+import path from "path";
 import fs from "fs/promises";
 import {
   AddTagsToFilesInput,
@@ -29,7 +31,9 @@ import { dayjs, handleErrors, socket, trpc } from "utils";
 import { leanModelToJson } from "./utils";
 
 const FACE_MIN_CONFIDENCE = 0.4;
-const FACE_MODELS_PATH = "src/face-recog-models";
+const FACE_MODELS_PATH = app.isPackaged
+  ? path.resolve(process.resourcesPath, "extraResources/face-models")
+  : "src/face-models";
 
 export const addTagsToFiles = ({ fileIds = [], tagIds = [] }: AddTagsToFilesInput) =>
   handleErrors(async () => {

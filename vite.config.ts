@@ -28,5 +28,8 @@ export default defineConfig({
     pluginSVGR(),
     pluginTsconfigPaths(),
   ],
+  resolve: {
+    extensions: [".tsx", ".ts", ".mts", ".jsx", ".js", ".mjs", ".json"],
+  },
   server: { port: 3333 },
 });

@@ -14,3 +14,14 @@ export const TOP_BAR_HEIGHT = "3rem";
 export const ZOOM_MIN_SCALE = 1;
 export const ZOOM_MAX_SCALE = 5;
 export const ZOOM_STEP = 0.1;
+
+export const CONSTANTS = {
+  COLLECTION_SEARCH_FILE_COUNT,
+  DRAWER_WIDTH,
+  FILE_COUNT,
+  MONGOOSE_OPTS,
+  TOP_BAR_HEIGHT,
+  ZOOM_MIN_SCALE,
+  ZOOM_MAX_SCALE,
+  ZOOM_STEP,
+};

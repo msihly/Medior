@@ -1,4 +1,4 @@
-// import * as remoteDev from "remotedev";
+import { createContext, useContext } from "react";
 import { model, Model, prop, registerRootStore } from "mobx-keystone";
 import { CarouselStore } from "./carousel";
 import { FileCollectionStore } from "./collections";
@@ -32,12 +32,9 @@ export const createRootStore = () => {
 
   registerRootStore(rootStore);
 
-  // if (import.meta.env.DEV)
-  //   connectReduxDevTools(
-  //     remoteDev,
-  //     remoteDev.connectViaExtension({ name: "RootStore" }),
-  //     rootStore
-  //   );
-
   return rootStore;
 };
+
+export const RootStoreContext = createContext<RootStore>({} as RootStore);
+
+export const useStores = () => useContext<RootStore>(RootStoreContext);
