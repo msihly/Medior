@@ -85,7 +85,7 @@
     "vite-tsconfig-paths": "^4.2.0"
   },
   "scripts": {
-    "build": "npm run tsCompile && vite build && npx copyfiles extraResources/**/* build && npx copyfiles src/face-recog-models build",
+    "build": "npm run tsCompile && vite build && npx copyfiles -f src/face-models/**/* extraResources/face-models && npx copyfiles extraResources/**/* build",
     "check": "npm run typecheck && npm run lint",
     "dev": "npm run tsCompile && concurrently --kill-others \"SET BROWSER=none && npm start\" \"electron .\"",
     "dist": "npm run build && npm run electron-build",
@@ -146,7 +146,7 @@
     "ignorePatterns": [
       "build",
       "node_modules",
-      "src/face-recog-models",
+      "src/face-models",
       "vite.config.ts"
     ],
     "rules": {

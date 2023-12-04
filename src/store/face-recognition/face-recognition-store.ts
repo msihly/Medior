@@ -1,4 +1,4 @@
-import * as faceapi from "@vladmandic/face-api";
+import type { LabeledFaceDescriptors } from "@vladmandic/face-api";
 import { computed } from "mobx";
 import {
   _async,
@@ -140,17 +140,19 @@ export class FaceRecognitionStore extends Model({
   findMatches = _async(function* (this: FaceRecognitionStore, imagePath: string) {
     return yield* _await(
       handleErrors(async () => {
+        const { FaceMatcher, LabeledFaceDescriptors } = await import("@vladmandic/face-api");
+
         const facesRes = await this.detectFaces(imagePath);
         if (!facesRes.success) throw new Error(facesRes.error);
 
         const storedDescriptors = this.faceModels.reduce((acc, cur) => {
           if (cur.descriptorsFloat32.some((d) => d.some((n) => isNaN(n))))
             console.error(`NaN found in descriptors for tag ${cur.tagId}`, cur.descriptorsFloat32);
-          else acc.push(new faceapi.LabeledFaceDescriptors(cur.tagId, cur.descriptorsFloat32));
+          else acc.push(new LabeledFaceDescriptors(cur.tagId, cur.descriptorsFloat32));
           return acc;
-        }, [] as faceapi.LabeledFaceDescriptors[]);
+        }, [] as LabeledFaceDescriptors[]);
 
-        const matcher = new faceapi.FaceMatcher(storedDescriptors, DISTANCE_THRESHOLD);
+        const matcher = new FaceMatcher(storedDescriptors, DISTANCE_THRESHOLD);
         return facesRes.data.map((f) => {
           const descriptor = objectToFloat32Array(f.descriptor);
           const match = matcher.findBestMatch(descriptor);
