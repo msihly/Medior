@@ -26,12 +26,12 @@ export const Importer = observer(() => {
       width="40rem"
       height="30rem"
     >
-      <Modal.Header>
+      <Modal.Header justify="space-between" className={css.modalHeader}>
         <View />
 
         <Text>{"Import Files"}</Text>
 
-        <View row justify="flex-end" padding={{ right: "1.7rem" }}>
+        <View row justify="flex-end" padding={{ right: "1rem" }}>
           {!isConfirmDeleteAllOpen ? (
             <IconButton
               name="DeleteOutline"
@@ -121,5 +121,10 @@ const useClasses = makeClasses({
     flexDirection: "column",
     alignItems: "center",
     overflowX: "hidden",
+  },
+  modalHeader: {
+    "& > &": {
+      flexBasis: "100%",
+    },
   },
 });

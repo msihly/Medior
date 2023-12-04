@@ -160,14 +160,14 @@ export const FaceRecognitionModal = observer(() => {
 
       <Modal.Content padding={{ all: 0 }}>
         {faceRecognitionStore.isInitializing ? (
-          <View row flex={1} justify="center" align="center">
+          <View justify="center" align="center" className={css.rootContainer}>
             <Text fontSize="1.2em" marginRight="1rem">
               {"Initializing..."}
             </Text>
             <CircularProgress size="1.5em" />
           </View>
         ) : (
-          <View row flex={1}>
+          <View className={css.rootContainer}>
             <View className={css.facesColumn}>
               {detectedFacesWithImages?.map?.(({ dataUrl, faceModel: face }, i) => (
                 <View key={i} className={css.faceCard}>
@@ -280,5 +280,11 @@ const useClasses = makeClasses({
       .lighten(0.15)
       .string()})`,
     overflow: "hidden",
+  },
+  rootContainer: {
+    display: "flex",
+    flex: 1,
+    flexDirection: "row",
+    maxHeight: "-webkit-fill-available",
   },
 });
