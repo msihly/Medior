@@ -1,11 +1,10 @@
-import { createElement } from "react";
 import { View } from "components";
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
-import { IconProps as MuiIconProps } from "@mui/material";
-import * as Icons from "@mui/icons-material";
+import { Icon as MuiIcon, IconProps as MuiIconProps } from "@mui/material";
+import { IconName as MuiIconName } from "@mui/icons-material";
 import { makeClasses, Margins } from "utils";
 
-export type IconName = keyof typeof Icons;
+export type IconName = MuiIconName;
 
 export interface IconProps extends Omit<MuiIconProps, "color" | "fontSize"> {
   color?: string;
@@ -25,9 +24,14 @@ export const Icon = ({ className, color, margins = {}, name, rotation, size }: I
     rotation,
   });
 
+  const nameToSnakeCase = name
+    .split(/(?=[A-Z])/)
+    .join("_")
+    .toLowerCase();
+
   return (
     <View column className={cx(css.root, className)}>
-      {createElement(Icons[name], { style: { color, fontSize: size } })}
+      <MuiIcon style={{ color, fontSize: size }}>{nameToSnakeCase}</MuiIcon>
     </View>
   );
 };
