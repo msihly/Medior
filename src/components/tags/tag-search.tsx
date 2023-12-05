@@ -50,14 +50,16 @@ export const TagSearch = observer(() => {
       tagIds !== null
         ? tagStore.tagOptions.filter((opt) => tagIds.includes(opt.id))
         : tagStore.tagOptions
-    ).sort((a, b) =>
-      sortFn({
-        a,
-        b,
-        isSortDesc: homeStore.tagSearchSortIsDesc,
-        sortKey: homeStore.tagSearchSortKey,
-      })
-    );
+    )
+      .slice()
+      .sort((a, b) =>
+        sortFn({
+          a,
+          b,
+          isSortDesc: homeStore.tagSearchSortIsDesc,
+          sortKey: homeStore.tagSearchSortKey,
+        })
+      );
 
     const sections = !homeStore.tagSearchHasSections
       ? []
