@@ -1,5 +1,6 @@
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { Checkbox as MuiCheckbox, FormControlLabel } from "@mui/material";
+import { CSSObject } from "tss-react";
 import { colors, makeClasses } from "utils";
 
 export interface CheckboxProps {
@@ -8,6 +9,7 @@ export interface CheckboxProps {
   className?: string;
   color?: string;
   disabled?: boolean;
+  flex?: CSSObject["flex"];
   fullWidth?: boolean;
   indeterminate?: boolean;
   label?: string;
@@ -20,12 +22,13 @@ export const Checkbox = ({
   className,
   color = colors.blue["600"],
   disabled = false,
+  flex = 1,
   fullWidth = true,
   indeterminate,
   label,
   setChecked,
 }: CheckboxProps) => {
-  const { css, cx } = useClasses({ center, color, fullWidth });
+  const { css, cx } = useClasses({ center, color, disabled, flex, fullWidth });
 
   const toggleChecked = () => setChecked(!checked);
 
@@ -44,13 +47,14 @@ export const Checkbox = ({
   );
 };
 
-const useClasses = makeClasses((_, { center, color, fullWidth }) => ({
+const useClasses = makeClasses((_, { center, color, disabled, flex, fullWidth }) => ({
   checkbox: {
     color: `${color} !important`,
+    opacity: disabled ? 0.5 : 1,
   },
   label: {
     display: "flex",
-    flex: 1,
+    flex,
     justifyContent: center ? "center" : "auto",
     borderRadius: "0.5rem",
     marginLeft: 0,
@@ -58,6 +62,7 @@ const useClasses = makeClasses((_, { center, color, fullWidth }) => ({
     marginBottom: "0.2rem",
     width: fullWidth ? "100%" : "auto",
     transition: "all 200ms ease-in-out",
+    userSelect: "none",
     "&:hover": {
       backgroundColor: colors.grey["800"],
     },

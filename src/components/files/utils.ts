@@ -1,5 +1,5 @@
 import { ipcRenderer } from "electron";
-import { File } from "store";
+import { File } from "database";
 import { centeredSlice } from "utils";
 
 export const openFile = ({ file, filteredFileIds }: { file: File; filteredFileIds: string[] }) =>

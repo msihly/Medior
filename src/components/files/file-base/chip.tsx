@@ -2,8 +2,10 @@ import { ReactNode } from "react";
 import { Chip as MuiChip } from "@mui/material";
 import { Icon, IconName } from "components";
 import { Padding, colors, makeClasses } from "utils";
+import { CSSObject } from "tss-react";
 
 interface ChipProps {
+  height?: CSSObject["height"];
   icon?: IconName;
   iconColor?: string;
   label: ReactNode;
@@ -12,8 +14,16 @@ interface ChipProps {
   position: "top-left" | "top-right" | "bottom-left" | "bottom-right";
 }
 
-export const Chip = ({ icon, iconColor, label, opacity = 0.5, padding, position }: ChipProps) => {
-  const { css } = useClasses({ opacity, padding, position });
+export const Chip = ({
+  height,
+  icon,
+  iconColor,
+  label,
+  opacity = 0.5,
+  padding,
+  position,
+}: ChipProps) => {
+  const { css } = useClasses({ height, opacity, padding, position });
 
   return (
     <MuiChip
@@ -28,13 +38,14 @@ export const Chip = ({ icon, iconColor, label, opacity = 0.5, padding, position 
   );
 };
 
-const useClasses = makeClasses((_, { opacity, padding, position }) => ({
+const useClasses = makeClasses((_, { height, opacity, padding, position }) => ({
   chip: {
     position: "absolute",
     top: position.includes("top") ? "0.5rem" : undefined,
     right: position.includes("right") ? "0.5rem" : undefined,
     bottom: position.includes("bottom") ? "0.5rem" : undefined,
     left: position.includes("left") ? "0.5rem" : undefined,
+    height,
     backgroundColor: colors.grey["900"],
     cursor: "pointer",
     transition: "all 200ms ease-in-out",

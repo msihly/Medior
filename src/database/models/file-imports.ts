@@ -11,11 +11,15 @@ export interface FileImport {
   path: string;
   size: number;
   status: FileImportStatus | string;
+  thumbPaths?: string[];
 }
 
 export interface FileImportBatch {
-  createdAt: string;
+  collectionId?: string;
+  collectionTitle?: string;
   completedAt: string;
+  createdAt: string;
+  deleteOnImport: boolean;
   id: string;
   imports: FileImport[];
   startedAt: string;
@@ -23,8 +27,11 @@ export interface FileImportBatch {
 }
 
 const FileImportBatchSchema = new Schema<FileImportBatch>({
-  createdAt: String,
+  collectionId: String,
+  collectionTitle: String,
   completedAt: String,
+  createdAt: String,
+  deleteOnImport: Boolean,
   imports: [
     {
       dateCreated: String,
@@ -38,6 +45,7 @@ const FileImportBatchSchema = new Schema<FileImportBatch>({
         type: String,
         enum: ["COMPLETE", "DUPLICATE", "ERROR", "PENDING"],
       },
+      thumbPaths: [String],
     },
   ],
   startedAt: String,

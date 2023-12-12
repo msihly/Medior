@@ -1,6 +1,7 @@
 import { File, FileCollection, Tag } from "database";
 import { FileImport, RootStore, SelectedImageTypes, SelectedVideoTypes } from "store";
 import { ImportStatus } from "components";
+import { ModelCreationData } from "mobx-keystone";
 
 /* -------------------------------- COLLECTIONS ------------------------------- */
 export type CreateCollectionInput = {
@@ -27,14 +28,16 @@ export type AddTagsToBatchInput = { batchId: string; tagIds: string[] };
 export type CompleteImportBatchInput = { id: string };
 
 export type CreateImportBatchInput = {
+  collectionTitle?: string;
   createdAt: string;
-  imports: FileImport[];
+  deleteOnImport: boolean;
+  imports: ModelCreationData<FileImport>[];
   tagIds?: string[];
 };
 
 export type DeleteImportBatchInput = { id: string };
 
-export type RemoveTagFromAllBatchesInput = { tagId: string };
+export type RemoveTagsFromAllBatchesInput = { tagIds: string[] };
 
 export type RemoveTagsFromBatchInput = { batchId: string; tagIds: string[] };
 
@@ -43,9 +46,10 @@ export type StartImportBatchInput = { id: string };
 export type UpdateFileImportByPathInput = {
   batchId: string;
   errorMsg?: string;
-  filePath?: string;
   fileId: string;
+  filePath?: string;
   status?: ImportStatus;
+  thumbPaths?: string[];
 };
 
 /* ---------------------------------- FILES --------------------------------- */
@@ -166,8 +170,6 @@ export type EditTagInput = {
 };
 
 export type OnTagCreatedInput = { tag?: Tag };
-
-export type OnTagDeletedInput = { tagId: string };
 
 export type OnTagUpdatedInput = { tagId: string; updates: Partial<Tag> };
 

@@ -3,7 +3,7 @@ import path from "path";
 import md5File from "md5-file";
 import sharp from "sharp";
 import { File } from "database";
-import { FileImport } from "store";
+import { FileImport, RootStore } from "store";
 import {
   checkFileExists,
   copyFile,
@@ -16,6 +16,7 @@ import {
   trpc,
   VIDEO_TYPES,
 } from "utils";
+import { toast } from "react-toastify";
 
 interface CopyFileForImportProps {
   dbOnly?: boolean;
@@ -144,4 +145,46 @@ export const filePathsToImports = async (filePaths: string[]) => {
       })
     )
   ).filter((filePath) => filePath !== null);
+};
+
+export const handleIngest = async ({
+  fileList,
+  rootStore,
+}: {
+  fileList: FileList;
+  rootStore: RootStore;
+}) => {
+  try {
+    const { importStore } = rootStore;
+    const [filePaths, folderPaths] = [...fileList]
+      .sort((a, b) => {
+        const lengthDiff = a.path.split(path.sep).length - b.path.split(path.sep).length;
+        if (lengthDiff !== 0) return lengthDiff;
+        return a.name.localeCompare(b.name);
+      })
+      .reduce((acc, cur) => (acc[cur.type === "" ? 1 : 0].push(cur.path), acc), [
+        [],
+        [],
+      ] as string[][]);
+
+    const initialRootIndex =
+      (filePaths[0] ? path.dirname(filePaths[0]) : folderPaths[0]).split(path.sep).length - 1;
+
+    importStore.setEditorFilePaths(filePaths);
+    importStore.setEditorFolderPaths(folderPaths);
+    importStore.setEditorRootFolderIndex(initialRootIndex);
+
+    const imports = (
+      await Promise.all([
+        ...folderPaths.map((f) => dirToFileImports(f)),
+        ...filePaths.map((f) => filePathsToImports([f])),
+      ])
+    ).flat();
+
+    importStore.setEditorImports(imports);
+    importStore.setIsImportEditorOpen(true);
+  } catch (err) {
+    toast.error("Error queuing imports");
+    console.error(err);
+  }
 };

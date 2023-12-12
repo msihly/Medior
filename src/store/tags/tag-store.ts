@@ -92,14 +92,13 @@ export class TagStore extends Model({
       handleErrors(async () => {
         await Promise.all([
           trpc.removeTagFromAllFiles.mutate({ tagId: id }),
-          trpc.removeTagFromAllBatches.mutate({ tagId: id }),
+          trpc.removeTagsFromAllBatches.mutate({ tagIds: [id] }),
           trpc.removeTagFromAllChildTags.mutate({ tagId: id }),
           trpc.removeTagFromAllParentTags.mutate({ tagId: id }),
         ]);
 
         await this.refreshRelatedTagCounts({ id });
         await trpc.deleteTag.mutate({ id });
-        await trpc.onTagDeleted.mutate({ tagId: id });
       })
     );
   });

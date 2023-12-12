@@ -1,11 +1,11 @@
 import { useState } from "react";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
-import { Button, Checkbox, IconButton, ImportBatch, Modal, Text, View } from "components";
+import { Button, IconButton, ImportBatch, Modal, Text, View } from "components";
 import { colors, makeClasses } from "utils";
 import { toast } from "react-toastify";
 
-export const Importer = observer(() => {
+export const ImportManager = observer(() => {
   const { importStore } = useStores();
   const { css } = useClasses(null);
 
@@ -17,19 +17,19 @@ export const Importer = observer(() => {
     setIsConfirmDeleteAllOpen(false);
   };
 
-  const handleClose = () => importStore.setIsImporterOpen(false);
+  const handleClose = () => importStore.setIsImportManagerOpen(false);
 
   return (
     <Modal.Container
-      visible={importStore.isImporterOpen}
+      visible={importStore.isImportManagerOpen}
       onClose={handleClose}
-      width="40rem"
-      height="30rem"
+      width="100%"
+      height="100%"
     >
       <Modal.Header justify="space-between" className={css.modalHeader}>
         <View />
 
-        <Text>{"Import Files"}</Text>
+        <Text>{"Import Manager"}</Text>
 
         <View row justify="flex-end" padding={{ right: "1rem" }}>
           {!isConfirmDeleteAllOpen ? (
@@ -70,38 +70,6 @@ export const Importer = observer(() => {
           </View>
         )}
       </Modal.Content>
-
-      <View row>
-        <Checkbox
-          label="Folders to Tags"
-          checked={importStore.folderToTags}
-          setChecked={(checked) => importStore.setFolderToTags(checked)}
-          center={!importStore.folderToTags}
-        />
-
-        <Checkbox
-          label="Delete on Import"
-          checked={importStore.deleteOnImport}
-          setChecked={(checked) => importStore.setDeleteOnImport(checked)}
-          center={!importStore.folderToTags}
-        />
-      </View>
-
-      {importStore.folderToTags && (
-        <View row>
-          <Checkbox
-            label="Parent Folders to Parent Tags"
-            checked={importStore.folderToTagsMode === "parent"}
-            setChecked={() => importStore.setFolderToTagsMode("parent")}
-          />
-
-          <Checkbox
-            label="Parent Folders to Multi-Tags"
-            checked={importStore.folderToTagsMode === "multi"}
-            setChecked={() => importStore.setFolderToTagsMode("multi")}
-          />
-        </View>
-      )}
 
       <Modal.Footer>
         <Button text="Close" icon="Close" onClick={handleClose} color={colors.grey["700"]} />

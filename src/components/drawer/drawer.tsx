@@ -2,8 +2,8 @@ import { useMemo } from "react";
 import { observer } from "mobx-react-lite";
 import { SearchTagType, useStores } from "store";
 import { Divider, Drawer as MuiDrawer, List } from "@mui/material";
-import { Accordion, Checkbox, ListItem, TagInput, TagManager, Text, View } from "components";
-import { ExtCheckbox, Importer } from ".";
+import { Accordion, Checkbox, ListItem, TagInput, Text, View } from "components";
+import { ExtCheckbox } from ".";
 import { colors, CONSTANTS, IMAGE_TYPES, makeClasses, VIDEO_TYPES } from "utils";
 
 export const Drawer = observer(() => {
@@ -41,7 +41,7 @@ export const Drawer = observer(() => {
     fileCollectionStore.setIsCollectionManagerOpen(true);
   };
 
-  const handleImport = () => importStore.setIsImporterOpen(true);
+  const handleImport = () => importStore.setIsImportManagerOpen(true);
 
   const handleManageTags = () => {
     tagStore.setTagManagerMode("search");
@@ -81,7 +81,7 @@ export const Drawer = observer(() => {
 
         <ListItem text="Collections" icon="Collections" onClick={handleCollections} />
 
-        <ListItem text="Import" icon="GetApp" onClick={handleImport} />
+        <ListItem text="Imports" icon="GetApp" onClick={handleImport} />
 
         <ListItem
           text={`${homeStore.isArchiveOpen ? "Close" : "Open"} Archive`}
@@ -141,14 +141,6 @@ export const Drawer = observer(() => {
           ))}
         </Accordion>
       </View>
-
-      {tagStore.isTagManagerOpen && <TagManager />}
-
-      {/* {fileCollectionStore.isCollectionManagerOpen && <FileCollectionManager />}
-
-        {fileCollectionStore.isCollectionEditorOpen && <FileCollectionEditor />} */}
-
-      <Importer />
     </MuiDrawer>
   );
 });

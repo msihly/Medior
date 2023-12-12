@@ -13,15 +13,7 @@ export {
 } from "./carousel";
 
 // drawer
-export {
-  BatchTooltip,
-  IMPORT_STATUSES,
-  Drawer,
-  ExtCheckbox,
-  Import,
-  ImportBatch,
-  Importer,
-} from "./drawer";
+export { BatchTooltip, IMPORT_STATUSES, Drawer, ExtCheckbox } from "./drawer";
 export type { ImportStatus } from "./drawer";
 
 // face-recognition
@@ -51,6 +43,9 @@ export {
 // inputs
 export { ChipInput, Dropdown, Input, TagInput } from "./inputs";
 export type { ChipOption, DropdownOption, InputProps } from "./inputs";
+
+// imports
+export { ImportBatch, ImportEditor, ImportManager } from "./imports";
 
 // list
 export { DetailRows, ListItem } from "./list";

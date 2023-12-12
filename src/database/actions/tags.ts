@@ -6,7 +6,6 @@ import {
   DeleteTagInput,
   EditTagInput,
   OnTagCreatedInput,
-  OnTagDeletedInput,
   OnTagUpdatedInput,
   RecalculateTagCountsInput,
   RemoveChildTagIdsFromTagsInput,
@@ -57,7 +56,10 @@ export const createTag = ({ aliases = [], childIds = [], label, parentIds = [] }
   });
 
 export const deleteTag = ({ id }: DeleteTagInput) =>
-  handleErrors(async () => await TagModel.deleteOne({ _id: id }));
+  handleErrors(async () => {
+    await TagModel.deleteOne({ _id: id });
+    socket.emit("tagDeleted", { tagId: id });
+  });
 
 export const editTag = ({ aliases, childIds, id, label, parentIds }: EditTagInput) =>
   handleErrors(async () => {
@@ -73,9 +75,6 @@ export const getAllTags = () =>
 
 export const onTagCreated = async ({ tag }: OnTagCreatedInput) =>
   handleErrors(async () => !!socket.emit("tagCreated", { tag }));
-
-export const onTagDeleted = async ({ tagId }: OnTagDeletedInput) =>
-  handleErrors(async () => !!socket.emit("tagDeleted", { tagId }));
 
 export const onTagUpdated = async ({ tagId, updates }: OnTagUpdatedInput) =>
   handleErrors(async () => !!socket.emit("tagUpdated", { tagId, updates }));

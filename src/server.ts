@@ -134,9 +134,6 @@ const trpcRouter = tRouter({
   onTagCreated: tProc
     .input((input: unknown) => input as db.OnTagCreatedInput)
     .mutation(({ input }) => db.onTagCreated(input)),
-  onTagDeleted: tProc
-    .input((input: unknown) => input as db.OnTagDeletedInput)
-    .mutation(({ input }) => db.onTagDeleted(input)),
   onTagUpdated: tProc
     .input((input: unknown) => input as db.OnTagUpdatedInput)
     .mutation(({ input }) => db.onTagUpdated(input)),
@@ -152,15 +149,15 @@ const trpcRouter = tRouter({
   removeTagFromAllFiles: tProc
     .input((input: unknown) => input as db.RemoveTagFromAllFilesInput)
     .mutation(({ input }) => db.removeTagFromAllFiles(input)),
-  removeTagFromAllBatches: tProc
-    .input((input: unknown) => input as db.RemoveTagFromAllBatchesInput)
-    .mutation(({ input }) => db.removeTagFromAllBatches(input)),
   removeTagFromAllChildTags: tProc
     .input((input: unknown) => input as db.RemoveTagFromAllChildTagsInput)
     .mutation(({ input }) => db.removeTagFromAllChildTags(input)),
   removeTagFromAllParentTags: tProc
     .input((input: unknown) => input as db.RemoveTagFromAllParentTagsInput)
     .mutation(({ input }) => db.removeTagFromAllParentTags(input)),
+  removeTagsFromAllBatches: tProc
+    .input((input: unknown) => input as db.RemoveTagsFromAllBatchesInput)
+    .mutation(({ input }) => db.removeTagsFromAllBatches(input)),
   removeTagsFromBatch: tProc
     .input((input: unknown) => input as db.RemoveTagsFromBatchInput)
     .mutation(({ input }) => db.removeTagsFromBatch(input)),

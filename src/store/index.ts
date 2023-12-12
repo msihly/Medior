@@ -15,10 +15,11 @@ export type { SelectedImageTypes, SelectedVideoTypes } from "./home";
 // imports
 export {
   FileImport,
-  ImportStore,
   ImportBatch,
+  ImportStore,
   dirToFileImports,
   filePathsToImports,
+  handleIngest,
 } from "./imports";
 export type { ImportBatchInput } from "./imports";
 

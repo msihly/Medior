@@ -30,33 +30,39 @@ export type ImportBatchInput = Omit<ModelCreationData<ImportBatch>, "imports"> &
 
 @model("mediaViewer/ImportStore")
 export class ImportStore extends Model({
-  deleteOnImport: prop<boolean>(true).withSetter(),
-  folderToTags: prop<boolean>(false).withSetter(),
-  folderToTagsMode: prop<"parent" | "multi">("parent").withSetter(),
+  editorFilePaths: prop<string[]>(() => []).withSetter(),
+  editorFolderPaths: prop<string[]>(() => []).withSetter(),
+  editorRootFolderIndex: prop<number>(0).withSetter(),
+  editorImports: prop<FileImport[]>(() => []).withSetter(),
   importBatches: prop<ImportBatch[]>(() => []),
-  isImporterOpen: prop<boolean>(false).withSetter(),
+  isImportEditorOpen: prop<boolean>(false).withSetter(),
+  isImportManagerOpen: prop<boolean>(false).withSetter(),
 }) {
   queue: PromiseQueue = new PromiseQueue();
 
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
   @modelAction
   _createImportBatch({
+    collectionTitle,
     createdAt,
     id,
     imports,
     tagIds = [],
   }: {
+    collectionTitle?: string;
     createdAt: string;
     id: string;
-    imports: FileImport[];
+    imports: ModelCreationData<FileImport>[];
     tagIds?: string[];
   }) {
     this.importBatches.push(
       new ImportBatch({
-        createdAt,
+        collectionTitle,
         completedAt: null,
+        createdAt,
+        deleteOnImport: false,
         id,
-        imports,
+        imports: imports.map((imp) => new FileImport(imp)),
         startedAt: null,
         tagIds,
       })
@@ -74,47 +80,6 @@ export class ImportStore extends Model({
   }
 
   @modelAction
-  addImportBatch({ batchId, files }: { batchId: string; files: ModelCreationData<FileImport>[] }) {
-    this.queue.add(async () => {
-      // console.debug(
-      //   "Starting importBatch:",
-      //   JSON.stringify({ batchId, files, tagIds, targetDir }, null, 2)
-      // );
-
-      const res = await trpc.startImportBatch.mutate({ id: batchId });
-      if (!res.success) throw new Error(res.error);
-      this.getById(batchId)?.update({ startedAt: res.data });
-    });
-
-    files.forEach((file) => {
-      this.queue.add(async () => {
-        // console.debug("Importing file:", JSON.stringify({ ...file }, null, 2));
-
-        const res = await this.importFile({ batchId, filePath: file.path });
-        if (!res.success) throw new Error(res.error);
-      });
-    });
-
-    this.queue.add(async () => {
-      // console.debug("Completing importBatch:", batchId);
-
-      if (this.deleteOnImport) {
-        try {
-          const parentDirs = [...new Set(files.map((file) => path.dirname(file.path)))];
-          await Promise.all(parentDirs.map((dir) => removeEmptyFolders(dir)));
-        } catch (err) {
-          console.error("Error removing empty folders:", err);
-        }
-      }
-
-      const res = await this.completeImportBatch({ id: batchId });
-      if (!res.success) throw new Error(res.error);
-
-      // console.debug("Completed importBatch:", batchId);
-    });
-  }
-
-  @modelAction
   editBatchTags({
     addedIds = [],
     batchIds = [],
@@ -124,13 +89,13 @@ export class ImportStore extends Model({
     batchIds?: string[];
     removedIds?: string[];
   }) {
-    if (!addedIds?.length && removedIds?.length) return false;
+    if (!addedIds?.length && !removedIds?.length) return false;
 
     this.importBatches.forEach((batch) => {
       if (!batchIds.length || batchIds.includes(batch.id))
-        batch.tagIds = uniqueArrayMerge(batch.tagIds, addedIds).filter(
-          (id) => !removedIds.includes(id)
-        );
+        batch.update({
+          tagIds: uniqueArrayMerge(batch.tagIds, addedIds).filter((id) => !removedIds.includes(id)),
+        });
     });
   }
 
@@ -140,6 +105,79 @@ export class ImportStore extends Model({
       (batch) =>
         new ImportBatch({ ...batch, imports: batch.imports.map((imp) => new FileImport(imp)) })
     );
+  }
+
+  @modelAction
+  queueImportBatch(batchId: string) {
+    const DEBUG = true;
+
+    this.queue.add(async () => {
+      const batch = this.getById(batchId);
+
+      if (DEBUG)
+        console.debug(
+          "Starting importBatch:",
+          JSON.stringify({ batchId, files: batch.imports }, null, 2)
+        );
+
+      const res = await trpc.startImportBatch.mutate({ id: batchId });
+      if (!res.success) throw new Error(res.error);
+      this.getById(batchId)?.update({ startedAt: res.data });
+
+      batch.imports.forEach((file) => {
+        this.queue.add(async () => {
+          if (DEBUG) console.debug("Importing file:", JSON.stringify({ ...file }, null, 2));
+          const res = await this.importFile({ batchId, filePath: file.path });
+          if (!res.success) throw new Error(res.error);
+        });
+      });
+
+      this.queue.add(async () => {
+        const batch = this.getById(batchId);
+
+        if (DEBUG) console.debug("Completing importBatch:", batchId);
+
+        const duplicateFileIds = batch.imports
+          .filter((file) => file.status === "DUPLICATE")
+          .map((file) => file.fileId);
+        if (duplicateFileIds.length) {
+          try {
+            const res = await trpc.addTagsToFiles.mutate({
+              fileIds: duplicateFileIds,
+              tagIds: batch.tagIds,
+            });
+            if (!res.success) throw new Error(res.error);
+          } catch (err) {
+            console.error("Error adding tags to duplicate files:", err);
+          }
+        }
+
+        if (batch.collectionTitle) {
+          try {
+            const res = await trpc.createCollection.mutate({
+              fileIdIndexes: batch.completed.map((f, i) => ({ fileId: f.fileId, index: i })),
+              title: batch.collectionTitle,
+            });
+            if (!res.success) throw new Error(res.error);
+          } catch (err) {
+            console.error("Error creating collection:", err);
+          }
+        }
+
+        if (batch.deleteOnImport) {
+          try {
+            const parentDirs = [...new Set(batch.imports.map((file) => path.dirname(file.path)))];
+            await Promise.all(parentDirs.map((dir) => removeEmptyFolders(dir)));
+          } catch (err) {
+            console.error("Error removing empty folders:", err);
+          }
+        }
+
+        const res = await this.completeImportBatch({ id: batchId });
+        if (!res.success) throw new Error(res.error);
+        if (DEBUG) console.debug("Completed importBatch:", batchId);
+      });
+    });
   }
 
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */
@@ -162,18 +200,35 @@ export class ImportStore extends Model({
   @modelFlow
   createImportBatch = _async(function* (
     this: ImportStore,
-    { imports, tagIds }: { imports: FileImport[]; tagIds?: string[] }
+    {
+      collectionTitle,
+      deleteOnImport,
+      imports,
+      tagIds,
+    }: {
+      collectionTitle?: string;
+      deleteOnImport: boolean;
+      imports: ModelCreationData<FileImport>[];
+      tagIds?: string[];
+    }
   ) {
     return yield* _await(
       handleErrors(async () => {
         const createdAt = dayjs().toISOString();
 
-        const batchRes = await trpc.createImportBatch.mutate({ createdAt, imports, tagIds });
+        const batchRes = await trpc.createImportBatch.mutate({
+          collectionTitle,
+          createdAt,
+          deleteOnImport,
+          imports,
+          tagIds,
+        });
         if (!batchRes.success) throw new Error(batchRes?.error);
         const id = batchRes.data._id.toString();
+        if (!id) throw new Error("No id returned from createImportBatch");
 
-        this._createImportBatch({ createdAt, id, imports, tagIds });
-        this.addImportBatch({ batchId: id, files: imports });
+        this._createImportBatch({ collectionTitle, createdAt, id, imports, tagIds });
+        this.queueImportBatch(id);
 
         return true;
       })
@@ -221,31 +276,36 @@ export class ImportStore extends Model({
         }
 
         const copyRes = await copyFileForImport({
-          deleteOnImport: this.deleteOnImport,
+          deleteOnImport: batch.deleteOnImport,
           fileObj: fileImport,
           targetDir: env.OUTPUT_DIR,
           tagIds: batch.tagIds,
         });
 
+        const errorMsg = copyRes.error ?? null;
+        const fileId = copyRes.file?.id ?? null;
         const status = !copyRes?.success
           ? "ERROR"
           : copyRes?.isDuplicate
           ? "DUPLICATE"
           : "COMPLETE";
-        const fileId = copyRes.file?.id ?? null;
-        const errorMsg = copyRes.error ?? null;
+        const thumbPaths = copyRes.file?.thumbPaths ?? [];
 
         const updateRes = await trpc.updateFileImportByPath.mutate({
           batchId,
-          filePath,
           errorMsg,
           fileId,
+          filePath,
           status,
+          thumbPaths,
         });
         if (!updateRes?.success) throw new Error(updateRes?.error);
 
-        batch.updateImport(filePath, { errorMsg, fileId, status });
-        return true;
+        try {
+          batch.updateImport(filePath, { errorMsg, fileId, status, thumbPaths });
+        } catch (err) {
+          console.error("Error updating import:", err);
+        }
       })
     );
   });
@@ -256,10 +316,10 @@ export class ImportStore extends Model({
       handleErrors(async () => {
         const res = await trpc.listImportBatches.mutate();
         if (res.success) this.overwrite(res.data);
-        this.batches.forEach((batch) => {
-          if (batch.status !== "PENDING") return;
-          this.addImportBatch({ batchId: batch.id, files: batch.imports });
-        });
+
+        this.batches.forEach(
+          (batch) => batch.status === "PENDING" && this.queueImportBatch(batch.id)
+        );
       })
     );
   });
@@ -291,5 +351,17 @@ export class ImportStore extends Model({
   @computed
   get incompleteBatches() {
     return this.batches.filter((batch) => batch.imports?.length > 0 && batch.nextImport);
+  }
+
+  @computed
+  get editorRootFolder() {
+    return this.editorRootPath.split(path.sep)[this.editorRootFolderIndex];
+  }
+
+  @computed
+  get editorRootPath() {
+    return this.editorFilePaths[0]
+      ? path.dirname(this.editorFilePaths[0])
+      : this.editorFolderPaths[0];
   }
 }

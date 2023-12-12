@@ -1,25 +1,21 @@
 import { computed } from "mobx";
-import {
-  applySnapshot,
-  arrayActions,
-  getSnapshot,
-  model,
-  Model,
-  modelAction,
-  prop,
-} from "mobx-keystone";
+import { applySnapshot, getSnapshot, model, Model, modelAction, prop } from "mobx-keystone";
 import { FileImport } from ".";
 import { dayjs, DayJsInput } from "utils";
 
 @model("mediaViewer/ImportBatch")
 export class ImportBatch extends Model({
-  createdAt: prop<string>(),
+  collectionId: prop<string>(null).withSetter(),
+  collectionTitle: prop<string>(null).withSetter(),
   completedAt: prop<string>(null),
+  createdAt: prop<string>(),
+  deleteOnImport: prop<boolean>(),
   id: prop<string>(),
   imports: prop<FileImport[]>(() => []),
   startedAt: prop<string>(null),
   tagIds: prop<string[]>(),
 }) {
+  /* ---------------------------- STANDARD ACTIONS ---------------------------- */
   @modelAction
   setCompletedAt(completedAt: DayJsInput) {
     this.completedAt = dayjs(completedAt).toISOString();
@@ -38,13 +34,15 @@ export class ImportBatch extends Model({
   @modelAction
   updateImport(filePath: string, updates: Partial<FileImport>) {
     const index = this.imports.findIndex((imp) => imp.path === filePath);
-    arrayActions.set(this.imports, index, { ...this.imports[index], ...updates });
+    this.imports[index].update(updates);
   }
 
+  /* ----------------------------- DYNAMIC GETTERS ---------------------------- */
   getByPath(filePath: string) {
     return this.imports.find((imp) => imp.path === filePath);
   }
 
+  /* ------------------------------ GETTERS ----------------------------- */
   @computed
   get completed() {
     return this.imports.filter((imp) => ["COMPLETE", "DUPLICATE"].includes(imp.status));

@@ -253,7 +253,7 @@ const useClasses = makeClasses({
     alignItems: "center",
   },
   sortMenu: {
-    width: "6rem",
+    width: "3rem",
   },
   tag: {
     marginBottom: "0.3em",

@@ -33,7 +33,7 @@ export const View = forwardRef(
     const { css, cx } = useClasses({ align, column, flex, justify, margins, padding, row });
 
     return (
-      <div {...props} ref={ref} className={cx(css.root, className)}>
+      <div {...props} ref={ref} className={cx(className, css.root)}>
         {children}
       </div>
     );

@@ -39,6 +39,7 @@ export interface ButtonProps
   startNode?: ReactNode;
   text?: string;
   textColor?: string;
+  textClassName?: string;
   textTransform?: TextProps["textTransform"];
   tooltip?: TooltipProps["title"];
   tooltipProps?: Partial<TooltipProps>;
@@ -68,6 +69,7 @@ export const Button = ({
   startNode,
   text,
   textColor,
+  textClassName,
   textTransform = "none",
   tooltip,
   tooltipProps,
@@ -114,7 +116,7 @@ export const Button = ({
         {text && (
           <Text
             {...{ fontSize, fontWeight, textTransform, tooltip, tooltipProps }}
-            className={css.text}
+            className={cx(css.text, className)}
           >
             {text}
           </Text>
@@ -177,6 +179,7 @@ const useClasses = makeClasses(
       lineHeight: 1,
       overflow: "hidden",
       textOverflow: "ellipsis",
+      transition: "all 100ms ease-in-out",
     },
   })
 );

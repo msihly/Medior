@@ -1,19 +1,20 @@
-import path from "path";
 import { useEffect, useState } from "react";
 import { observer } from "mobx-react-lite";
-import { FileImport, dirToFileImports, filePathsToImports, useStores } from "store";
+import { handleIngest, useStores } from "store";
 import {
   Drawer,
   FaceRecognitionModal,
   FileCollectionEditor,
   FileCollectionManager,
   FileContainer,
+  ImportEditor,
+  ImportManager,
+  TagManager,
   Tagger,
   TopBar,
   View,
 } from "components";
-import { colors, CONSTANTS, PromiseQueue, makeClasses, setupSocketIO, socket } from "utils";
-import { toast } from "react-toastify";
+import { colors, CONSTANTS, makeClasses, setupSocketIO, socket } from "utils";
 import Color from "color";
 
 export const Home = observer(() => {
@@ -34,159 +35,9 @@ export const Home = observer(() => {
     event.stopPropagation();
   };
 
-  const handleFileDrop = async (event: React.DragEvent) => {
+  const handleFileDrop = (event: React.DragEvent) => {
     homeStore.setIsDraggingIn(false);
-
-    const files = [...event.dataTransfer.files];
-
-    try {
-      const imports = (
-        await Promise.all(
-          files.flatMap(async (f) =>
-            f.type === "" ? dirToFileImports(f.path) : filePathsToImports([f.path])
-          )
-        )
-      ).flat();
-
-      if (!importStore.folderToTags) {
-        const res = await importStore.createImportBatch({ imports });
-        if (!res.success) throw new Error(res.error);
-        toast.success(`Queued ${files.length} imports`);
-      } else {
-        const folders = files.filter((f) => f.type === "");
-        const folderPrefix = folders[0]?.path ? path.dirname(folders[0].path) : null;
-
-        if (importStore.folderToTagsMode === "parent") {
-          const tagsToCreate: { label: string; parentLabel?: string }[] = [];
-          const tagsToEdit: { id: string; label: string; parentLabel?: string }[] = [];
-
-          const flatFolderHeirarchy = imports
-            .reduce((acc, cur) => {
-              const folderName = path.dirname(cur.path).replace(`${folderPrefix}${path.sep}`, "");
-              const folder = acc.find((f) => f.folderName === folderName);
-              const parentLabel = folderName.split(path.sep).slice(0, -1).pop();
-              const tagLabel = folderName.split(path.sep).pop()!;
-
-              if (!folder) acc.push({ folderName, imports: [cur], parentLabel, tagLabel });
-              else folder.imports.push(cur);
-
-              const tag = tagStore.getByLabel(tagLabel);
-              if (!tag && !tagsToCreate.find((t) => t.label === tagLabel))
-                tagsToCreate.push({ label: tagLabel, parentLabel });
-              else if (
-                tag &&
-                !tagsToEdit.find((t) => t.id === tag.id) &&
-                parentLabel &&
-                !tag.parentIds.includes(tagStore.getByLabel(parentLabel)?.id)
-              )
-                tagsToEdit.push({ id: tag.id, label: tagLabel, parentLabel });
-
-              return acc;
-            }, [] as { folderName: string; imports: FileImport[]; parentLabel?: string; tagLabel: string; tagId?: string }[])
-            .sort(
-              (a, b) => a.folderName.split(path.sep).length - b.folderName.split(path.sep).length
-            );
-
-          const tagQueue = new PromiseQueue();
-          tagsToCreate.forEach((tagToCreate) => {
-            tagQueue.add(async () => {
-              const parentTag = tagToCreate.parentLabel
-                ? tagStore.getByLabel(tagToCreate.parentLabel)
-                : null;
-
-              const res = await tagStore.createTag({
-                label: tagToCreate.label,
-                parentIds: parentTag ? [parentTag.id] : [],
-              });
-              if (!res.success) throw new Error(res.error);
-              return res.data;
-            });
-          });
-
-          tagsToEdit.forEach((tagToEdit) => {
-            tagQueue.add(async () => {
-              const parentTag = tagToEdit.parentLabel
-                ? tagStore.getByLabel(tagToEdit.parentLabel)
-                : null;
-
-              const res = await tagStore.editTag({
-                id: tagToEdit.id,
-                parentIds: parentTag ? [parentTag.id] : [],
-              });
-              if (!res.success) throw new Error(res.error);
-            });
-          });
-
-          await tagQueue.queue;
-
-          const importQueue = new PromiseQueue();
-          flatFolderHeirarchy.forEach((folder) => {
-            importQueue.add(async () => {
-              const tag = tagStore.getByLabel(folder.tagLabel);
-              const res = await importStore.createImportBatch({
-                imports: folder.imports,
-                tagIds: tag ? [tag.id] : [],
-              });
-              if (!res.success) throw new Error(res.error);
-            });
-          });
-
-          await importQueue.queue;
-
-          toast.success(`Queued ${imports.length} imports`);
-        } else {
-          const tagsToCreate: string[] = [];
-
-          const flatFolderHeirarchy = imports.reduce((acc, cur) => {
-            const folderName = path.dirname(cur.path).replace(`${folderPrefix}${path.sep}`, "");
-            const folder = acc.find((f) => f.folderName === folderName);
-
-            const tagLabels = folderName.split(path.sep);
-            tagLabels.forEach((label) => {
-              const tag = tagStore.getByLabel(label);
-              if (!tag && !tagsToCreate.find((t) => t === label)) tagsToCreate.push(label);
-            });
-
-            if (!folder) acc.push({ folderName, imports: [cur], tagLabels });
-            else folder.imports.push(cur);
-
-            return acc;
-          }, [] as { folderName: string; imports: FileImport[]; tagLabels: string[] }[]);
-
-          const tagQueue = new PromiseQueue();
-          tagsToCreate.forEach((label) => {
-            tagQueue.add(async () => {
-              const res = await tagStore.createTag({ label });
-              if (!res.success) throw new Error(res.error);
-              return res.data;
-            });
-          });
-
-          await tagQueue.queue;
-
-          const importQueue = new PromiseQueue();
-          flatFolderHeirarchy.forEach((folder) => {
-            importQueue.add(async () => {
-              const tags = folder.tagLabels
-                .map((label) => tagStore.getByLabel(label))
-                .filter(Boolean);
-              const res = await importStore.createImportBatch({
-                imports: folder.imports,
-                tagIds: tags.map((t) => t.id),
-              });
-              if (!res.success) throw new Error(res.error);
-            });
-          });
-
-          await importQueue.queue;
-
-          toast.success(`Queued ${imports.length} imports`);
-        }
-      }
-    } catch (err) {
-      toast.error("Error queuing imports");
-      console.error(err);
-    }
+    handleIngest({ fileList: event.dataTransfer.files, rootStore });
   };
 
   const setTaggerVisible = (val: boolean) => homeStore.setIsTaggerOpen(val);
@@ -273,6 +124,12 @@ export const Home = observer(() => {
             {fileCollectionStore.isCollectionManagerOpen && <FileCollectionManager />}
 
             {fileCollectionStore.isCollectionEditorOpen && <FileCollectionEditor />}
+
+            {tagStore.isTagManagerOpen && <TagManager />}
+
+            <ImportManager />
+
+            {importStore.isImportEditorOpen && <ImportEditor />}
           </View>
         </View>
       </View>

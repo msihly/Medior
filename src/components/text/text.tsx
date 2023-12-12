@@ -1,14 +1,14 @@
 import { ElementType } from "react";
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { Typography, TypographyProps } from "@mui/material";
-import { TooltipProps, TooltipWrapper, TooltipWrapperProps } from "components";
+import { TooltipProps, TooltipWrapper } from "components";
 import { makeClasses } from "utils";
 
 export interface TextProps extends Omit<TypographyProps, "color" | "component" | "title"> {
   color?: string;
   component?: ElementType;
   tooltip?: TooltipProps["title"];
-  tooltipProps?: Partial<TooltipWrapperProps>;
+  tooltipProps?: Partial<TooltipProps>;
 }
 
 export const Text = ({

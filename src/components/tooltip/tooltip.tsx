@@ -9,6 +9,7 @@ export interface TooltipProps extends Omit<MuiTooltipProps, "children" | "color"
   bgColor?: CSSObject["backgroundColor"];
   children: JSX.Element | JSX.Element[];
   color?: CSSObject["color"];
+  flexShrink?: CSSObject["flexShrink"];
   fontSize?: CSSObject["fontSize"];
   maxWidth?: CSSObject["maxWidth"];
   minWidth?: CSSObject["minWidth"];
@@ -20,6 +21,7 @@ export const Tooltip = ({
   bgColor = colors.grey["900"],
   children,
   color,
+  flexShrink = 0,
   fontSize = "0.85em",
   minWidth,
   maxWidth = "25rem",
@@ -27,7 +29,15 @@ export const Tooltip = ({
   title,
   ...props
 }: TooltipProps) => {
-  const { css } = useClasses({ arrowColor, bgColor, color, fontSize, maxWidth, minWidth });
+  const { css } = useClasses({
+    arrowColor,
+    bgColor,
+    color,
+    flexShrink,
+    fontSize,
+    maxWidth,
+    minWidth,
+  });
 
   return (
     <MuiTooltip
@@ -41,13 +51,14 @@ export const Tooltip = ({
 };
 
 const useClasses = makeClasses(
-  (_, { arrowColor, bgColor, color, fontSize, maxWidth, minWidth }) => ({
+  (_, { arrowColor, bgColor, color, flexShrink, fontSize, maxWidth, minWidth }) => ({
     arrow: {
       paddingBottom: "4px",
       color: arrowColor,
     },
     container: {
       display: "flex",
+      flexShrink,
       overflow: "hidden",
       textOverflow: "ellipsis",
     },

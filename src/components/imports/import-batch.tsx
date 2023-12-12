@@ -2,7 +2,8 @@ import { useState } from "react";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
 import { LinearProgress } from "@mui/material";
-import { BatchTooltip, Icon, IconButton, Import, IMPORT_STATUSES, Text, View } from "components";
+import { BatchTooltip, Icon, IconButton, IMPORT_STATUSES, Text, View } from "components";
+import { ImportFolder } from ".";
 import { colors, makeClasses } from "utils";
 import { toast } from "react-toastify";
 import Color from "color";
@@ -87,10 +88,8 @@ export const ImportBatch = observer(({ createdAt }: ImportBatchProps) => {
       </View>
 
       {expanded && batch.imports?.length > 0 && (
-        <View column className={css.imports}>
-          {batch.imports.map((imp) => (
-            <Import key={imp.path} fileImport={imp} />
-          ))}
+        <View row className={css.imports}>
+          <ImportFolder mode="cards" imports={batch.imports} />
         </View>
       )}
     </View>
@@ -124,9 +123,9 @@ const useClasses = makeClasses((_, { expanded, hasTags }) => ({
   imports: {
     borderRadius: "0 0 0.5rem 0.5rem",
     padding: "0.5rem",
-    maxHeight: "15rem",
+    width: "-webkit-fill-available",
     backgroundColor: colors.grey["900"],
-    overflowY: "auto",
+    overflowX: "auto",
   },
   progressBar: {
     flex: 1,
@@ -145,6 +144,7 @@ const useClasses = makeClasses((_, { expanded, hasTags }) => ({
   root: {
     marginBottom: "0.5rem",
     width: "100%",
+    overflow: "hidden",
   },
   statusIcon: {
     borderRadius: "0.5rem 0 0 0.5rem",

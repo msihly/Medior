@@ -1,4 +1,4 @@
-import { model, Model, prop } from "mobx-keystone";
+import { applySnapshot, getSnapshot, model, Model, modelAction, prop } from "mobx-keystone";
 
 @model("mediaViewer/FileImport")
 export class FileImport extends Model({
@@ -10,4 +10,10 @@ export class FileImport extends Model({
   name: prop<string>(),
   size: prop<number>(),
   status: prop<"COMPLETE" | "DUPLICATE" | "ERROR" | "PENDING">(),
-}) {}
+  thumbPaths: prop<string[]>(() => []),
+}) {
+  @modelAction
+  update(updates: Partial<FileImport>) {
+    applySnapshot(this, { ...getSnapshot(this), ...updates });
+  }
+}

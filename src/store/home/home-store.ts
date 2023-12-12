@@ -38,7 +38,9 @@ export const sortFn = <File>({
   const second = b[sortKey];
 
   let comparison: number = null;
-  if (NUMERICAL_ATTRIBUTES.includes(sortKey)) comparison = second - first;
+  if (!first) comparison = 1;
+  else if (!second) comparison = -1;
+  else if (NUMERICAL_ATTRIBUTES.includes(sortKey)) comparison = second - first;
   else if (["dateCreated", "dateModified"].includes(sortKey))
     comparison = dayjs(second).isBefore(first) ? -1 : 1;
   else comparison = String(second).localeCompare(String(first));

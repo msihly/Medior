@@ -13,7 +13,7 @@ export const BatchTooltip = observer(({ batch, children }: BatchTooltipProps) =>
 
   return (
     <Tooltip
-      minWidth="20rem"
+      minWidth="25rem"
       title={
         <View column>
           <View row className={css.header}>
@@ -40,7 +40,7 @@ export const BatchTooltip = observer(({ batch, children }: BatchTooltipProps) =>
           {batch.tagIds?.length > 0 && (
             <View row className={css.tags}>
               {batch.tagIds.map((id) => (
-                <Tag key={id} id={id} size="small" />
+                <Tag key={id} id={String(id)} size="small" />
               ))}
             </View>
           )}

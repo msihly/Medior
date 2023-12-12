@@ -4,7 +4,7 @@ import {
   CreateImportBatchInput,
   DeleteImportBatchInput,
   FileImportBatchModel,
-  RemoveTagFromAllBatchesInput,
+  RemoveTagsFromAllBatchesInput,
   RemoveTagsFromBatchInput,
   StartImportBatchInput,
   UpdateFileImportByPathInput,
@@ -28,12 +28,20 @@ export const completeImportBatch = ({ id }: CompleteImportBatchInput) =>
     return completedAt;
   });
 
-export const createImportBatch = ({ createdAt, imports, tagIds = [] }: CreateImportBatchInput) =>
+export const createImportBatch = ({
+  collectionTitle,
+  createdAt,
+  deleteOnImport,
+  imports,
+  tagIds = [],
+}: CreateImportBatchInput) =>
   handleErrors(
     async () =>
       await FileImportBatchModel.create({
-        createdAt,
+        collectionTitle,
         completedAt: null,
+        createdAt,
+        deleteOnImport,
         imports,
         startedAt: null,
         tagIds,
@@ -60,12 +68,9 @@ export const listImportBatches = () =>
     )
   );
 
-export const removeTagFromAllBatches = ({ tagId }: RemoveTagFromAllBatchesInput) =>
+export const removeTagsFromAllBatches = ({ tagIds }: RemoveTagsFromAllBatchesInput) =>
   handleErrors(async () => {
-    const importRes = await FileImportBatchModel.updateMany(
-      { tagIds: tagId },
-      { $pull: { tagIds: tagId } }
-    );
+    const importRes = await FileImportBatchModel.updateMany({ tagIds }, { $pull: { tagIds } });
     if (importRes?.matchedCount !== importRes?.modifiedCount)
       throw new Error("Failed to remove tag from all import batches");
   });
@@ -85,9 +90,10 @@ export const startImportBatch = ({ id }: StartImportBatchInput) =>
 export const updateFileImportByPath = async ({
   batchId,
   errorMsg,
-  filePath,
   fileId,
+  filePath,
   status,
+  thumbPaths,
 }: UpdateFileImportByPathInput) =>
   handleErrors(
     async () =>
@@ -98,6 +104,7 @@ export const updateFileImportByPath = async ({
             "imports.$[fileImport].errorMsg": errorMsg,
             "imports.$[fileImport].fileId": fileId,
             "imports.$[fileImport].status": status,
+            "imports.$[fileImport].thumbPaths": thumbPaths,
           },
         },
         { arrayFilters: [{ "fileImport.path": filePath }] }
