@@ -1,12 +1,12 @@
 import { ReactNode, useState } from "react";
 import { observer } from "mobx-react-lite";
 import { Tag as TagType, useStores } from "store";
-import { Avatar, Chip, ChipProps, Menu } from "@mui/material";
-import { Button, ButtonProps, Text, View } from "components";
+import { Avatar, Menu } from "@mui/material";
+import { Button, ButtonProps, Chip, ChipProps, Text, View } from "components";
 import { colors, makeClasses } from "utils";
 import Color from "color";
 
-export interface TagProps extends Omit<ChipProps, "color"> {
+export interface TagProps extends Omit<ChipProps, "color" | "label"> {
   color?: string;
   id?: string;
   menu?: ReactNode;

@@ -1,6 +1,7 @@
 import { ComponentProps, useState } from "react";
-import { Autocomplete, AutocompleteChangeReason, Chip } from "@mui/material";
 import { observer } from "mobx-react-lite";
+import { Autocomplete, AutocompleteChangeReason } from "@mui/material";
+import { Chip } from "components";
 import { Input, InputProps } from ".";
 import { colors, makeClasses } from "utils";
 

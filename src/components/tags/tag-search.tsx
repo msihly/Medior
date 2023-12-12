@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { observer } from "mobx-react-lite";
 import { TagOption, sortFn, tagsToDescendants, useStores } from "store";
-import { Chip } from "@mui/material";
 import {
   Accordion,
   Button,
   Checkbox,
+  Chip,
   Dropdown,
   DropdownOption,
   Input,

@@ -1,8 +1,7 @@
 import { useState } from "react";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
-import { Chip } from "@mui/material";
-import { Text, Tooltip, View } from "components";
+import { Chip, Text, Tooltip, View } from "components";
 import { formatBytes, makeClasses, VIDEO_EXT_REG_EXP } from "utils";
 import { toast } from "react-toastify";
 

@@ -15,9 +15,8 @@ import {
   AutocompleteChangeReason,
   AutocompleteRenderGetTagProps,
   AutocompleteRenderInputParams,
-  Chip,
 } from "@mui/material";
-import { Button, IconName, Input, InputProps, ListItem, Tag, View } from "components";
+import { Button, Chip, IconName, Input, InputProps, ListItem, Tag, View } from "components";
 import { colors, makeClasses, Margins, socket } from "utils";
 import { CSSObject } from "tss-react";
 import { toast } from "react-toastify";

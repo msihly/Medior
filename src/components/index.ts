@@ -58,6 +58,9 @@ export type { IconName, IconProps } from "./media";
 // modal
 export { Modal } from "./modal";
 
+// table
+export { Table } from "./table";
+
 // tags
 export { ConfirmDeleteModal, Tag, Tagger, TagEditor, TagManager, TagSearch } from "./tags";
 
@@ -79,5 +82,5 @@ export type { TooltipProps, TooltipWrapperProps } from "./tooltip";
 export { SelectedFilesInfo, TopBar } from "./top-bar";
 
 // wrappers
-export { ConditionalWrap, SideScroller, View } from "./wrappers";
-export type { ViewProps } from "./wrappers";
+export { Chip, ConditionalWrap, SideScroller, View } from "./wrappers";
+export type { ChipProps, ViewProps } from "./wrappers";

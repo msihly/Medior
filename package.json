@@ -193,6 +193,7 @@
                 "ButtonProps",
                 "Checkbox",
                 "CheckboxProps",
+                "Chip",
                 "Icon",
                 "IconProps",
                 "IconButton",
