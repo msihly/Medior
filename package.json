@@ -70,7 +70,7 @@
     "@vitejs/plugin-react": "^4.0.3",
     "concurrently": "^7.2.2",
     "electron": "^25.1.1",
-    "electron-builder": "^22.14.13",
+    "electron-builder": "^24.9.1",
     "electron-devtools-installer": "^3.2.0",
     "eslint": "^8.54.0",
     "eslint-plugin-tss-unused-classes": "^1.0.2",
@@ -100,6 +100,7 @@
   },
   "build": {
     "appId": "com.msihly.media-viewer",
+    "executableName": "Media-Viewer",
     "extends": null,
     "extraMetadata": {
       "main": "build/extraResources/main.js"
@@ -117,6 +118,7 @@
       "build/**/*",
       "node_modules/**/*"
     ],
+    "productName": "Media Viewer",
     "win": {
       "artifactName": "Media-Viewer.exe",
       "icon": "build/app-icon.ico",

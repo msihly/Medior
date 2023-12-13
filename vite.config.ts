@@ -7,6 +7,7 @@ import pluginTsconfigPaths from "vite-tsconfig-paths";
 const EXTERNALS = [
   "@tensorflow/tfjs-node",
   "@tensorflow/tfjs-node-gpu",
+  "@vladmandic/face-api/dist/face-api.node-gpu.js",
   "aws-sdk",
   "crypto",
   "electron-log",
