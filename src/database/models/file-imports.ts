@@ -4,6 +4,7 @@ type FileImportStatus = "COMPLETE" | "DUPLICATE" | "ERROR" | "PENDING";
 
 export interface FileImport {
   dateCreated: string;
+  diffusionParams?: string;
   errorMsg?: string;
   extension: string;
   fileId?: string;
@@ -35,6 +36,7 @@ const FileImportBatchSchema = new Schema<FileImportBatch>({
   imports: [
     {
       dateCreated: String,
+      diffusionParams: String,
       errorMsg: String,
       extension: String,
       fileId: { type: Schema.Types.ObjectId, ref: "File" },

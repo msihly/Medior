@@ -1,3 +1,4 @@
+import fs from "fs/promises";
 import path from "path";
 import env from "env";
 import {
@@ -18,6 +19,7 @@ import { FileImport, ImportBatch } from ".";
 import { copyFileForImport } from "./import-queue";
 import {
   dayjs,
+  extendFileName,
   handleErrors,
   PromiseQueue,
   removeEmptyFolders,
@@ -183,6 +185,13 @@ export class ImportStore extends Model({
     });
   }
 
+  @modelAction
+  removeDiffusionParams() {
+    this.editorImports.forEach(
+      (imp) => imp.diffusionParams?.length > 0 && imp.update({ diffusionParams: null })
+    );
+  }
+
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */
   @modelFlow
   completeImportBatch = _async(function* (this: ImportStore, { id }: { id: string }) {
@@ -316,6 +325,32 @@ export class ImportStore extends Model({
         } catch (err) {
           console.error("Error updating import:", err);
         }
+      })
+    );
+  });
+
+  @modelFlow
+  loadDiffusionParams = _async(function* (this: ImportStore) {
+    return yield* _await(
+      handleErrors(async () => {
+        const paramFilePaths = this.editorImports.reduce((acc, cur) => {
+          if (cur.extension !== ".jpg") return acc;
+          const paramFileName = extendFileName(cur.path, "txt");
+          if (this.editorFilePaths.find((p) => p === paramFileName)) acc.push(paramFileName);
+          return acc;
+        }, [] as string[]);
+
+        const paramFiles = await Promise.all(
+          paramFilePaths.map(async (p) => {
+            const params = await fs.readFile(p, { encoding: "utf8" });
+            return { params, path: p };
+          })
+        );
+
+        this.editorImports.forEach((imp) => {
+          const paramFile = paramFiles.find((p) => p.path === extendFileName(imp.path, "txt"));
+          if (paramFile) imp.update({ diffusionParams: paramFile.params });
+        });
       })
     );
   });

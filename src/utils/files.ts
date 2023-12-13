@@ -70,6 +70,9 @@ export const dirToFolderPaths = async (dirPath: string): Promise<string[]> => {
     .filter((filePath) => filePath !== null);
 };
 
+export const extendFileName = (fileName: string, ext: string) =>
+  `${path.relative(".", fileName).replace(/\.\w+$/, "")}.${ext}`;
+
 export const removeEmptyFolders = async (dirPath: string = ".", excluded?: string[]) => {
   if (!(await fs.stat(dirPath)).isDirectory() || excluded?.includes(path.basename(dirPath))) return;
 

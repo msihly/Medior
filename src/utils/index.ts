@@ -34,6 +34,7 @@ export {
   deleteFile,
   dirToFilePaths,
   dirToFolderPaths,
+  extendFileName,
   removeEmptyFolders,
 } from "./files";
 export type { ImageType, VideoType } from "./files";

@@ -3,10 +3,10 @@ import { observer } from "mobx-react-lite";
 import { FileImport } from "store";
 import { FixedSizeList } from "react-window";
 import AutoSizer from "react-virtualized-auto-sizer";
-import { Text, View } from "components";
+import { Chip, Text, TooltipWrapper, View } from "components";
 import { IMPORT_CARD_SIZE, ImportCard, TagHierarchy, TagToUpsert } from ".";
 import { colors, formatBytes, makeClasses } from "utils";
-import { Chip, Divider } from "@mui/material";
+import { Divider } from "@mui/material";
 import Color from "color";
 
 export interface ImportFolderProps {
@@ -87,6 +87,20 @@ export const ImportFolder = observer(
                 </Text>
 
                 <View row>
+                  {imp.diffusionParams?.length > 0 && (
+                    <TooltipWrapper
+                      tooltip={imp.diffusionParams}
+                      tooltipProps={{ maxWidth: "40rem" }}
+                    >
+                      <Chip
+                        label="Params"
+                        icon="Notes"
+                        bgColor={colors.blue["800"]}
+                        className={css.chip}
+                      />
+                    </TooltipWrapper>
+                  )}
+
                   <Chip label={formatBytes(imp.size)} className={css.chip} />
 
                   <Chip label={imp.extension.substring(1)} className={css.chip} />

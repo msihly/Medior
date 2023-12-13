@@ -3,6 +3,7 @@ import { applySnapshot, getSnapshot, model, Model, modelAction, prop } from "mob
 @model("mediaViewer/FileImport")
 export class FileImport extends Model({
   dateCreated: prop<string>(),
+  diffusionParams: prop<string>(null),
   errorMsg: prop<string>(null),
   extension: prop<string>(),
   fileId: prop<string>(null),

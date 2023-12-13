@@ -2,7 +2,8 @@ import path from "path";
 import { useEffect, useState } from "react";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
-import { Button, Checkbox, Modal, Text, View } from "components";
+import { Divider } from "@mui/material";
+import { Button, Checkbox, IconButton, Input, Modal, Text, View } from "components";
 import {
   FlatFolderHierarchy,
   FolderToCollMode,
@@ -21,11 +22,24 @@ export const ImportEditor = observer(() => {
   const { importStore, tagStore } = useStores();
 
   const [deleteOnImport, setDeleteOnImport] = useState(true);
+  const [diffusionTags, setDiffusionTags] = useState<{
+    model: boolean;
+    promptRegexes: string[];
+    restoredFaces: boolean;
+    sampler: boolean;
+  }>({
+    model: true,
+    promptRegexes: [],
+    restoredFaces: true,
+    sampler: false,
+  });
   const [flatFolderHierarchy, setFlatFolderHierarchy] = useState<FlatFolderHierarchy>([]);
   const [flatTagsToUpsert, setFlatTagsToUpsert] = useState<TagToUpsert[]>([]);
   const [folderToCollectionMode, setFolderToCollectionMode] = useState<FolderToCollMode>("none");
   const [folderToTagsMode, setFolderToTagsMode] = useState<FolderToTagsMode>("hierarchical");
   const [tagHierarchy, setTagHierarchy] = useState<TagToUpsert[]>([]);
+  const [withDiffusionParams, setWithDiffusionParams] = useState(false);
+  const [withDiffusionTags, setWithDiffusionTags] = useState(true);
 
   useEffect(() => {
     const tagsToCreate: TagToUpsert[] = [];
@@ -109,7 +123,10 @@ export const ImportEditor = observer(() => {
     importStore.editorRootFolderIndex,
   ]);
 
-  useEffect(() => {}, [importStore.editorImports]);
+  useEffect(() => {
+    if (withDiffusionParams) importStore.loadDiffusionParams();
+    else importStore.removeDiffusionParams();
+  }, [importStore.editorImports, withDiffusionParams]);
 
   const createTagHierarchy = (tags: TagToUpsert[], label: string): TagToUpsert[] =>
     tags
@@ -177,6 +194,15 @@ export const ImportEditor = observer(() => {
   const handleFoldersToTags = (checked: boolean) =>
     setFolderToTagsMode(checked ? "hierarchical" : "none");
 
+  const toggleDiffusionTagModel = (checked: boolean) =>
+    setDiffusionTags((prev) => ({ ...prev, model: checked }));
+
+  const toggleDiffusionTagRestoredFaces = (checked: boolean) =>
+    setDiffusionTags((prev) => ({ ...prev, restoredFaces: checked }));
+
+  const toggleDiffusionTagSampler = (checked: boolean) =>
+    setDiffusionTags((prev) => ({ ...prev, sampler: checked }));
+
   const toggleFolderToCollWithTag = () =>
     setFolderToCollectionMode((prev) => (prev === "withTag" ? "withoutTag" : "withTag"));
 
@@ -197,6 +223,8 @@ export const ImportEditor = observer(() => {
               setChecked={setDeleteOnImport}
               flex="initial"
             />
+
+            <Divider />
 
             <Checkbox
               label="Folders to Tags"
@@ -223,6 +251,8 @@ export const ImportEditor = observer(() => {
               />
             </View>
 
+            <Divider />
+
             <Checkbox
               label="Folder to Collection"
               checked={folderToCollectionMode !== "none"}
@@ -236,7 +266,95 @@ export const ImportEditor = observer(() => {
                 checked={folderToCollectionMode === "withTag"}
                 setChecked={toggleFolderToCollWithTag}
                 disabled={folderToCollectionMode === "none"}
+                flex="initial"
               />
+            </View>
+
+            <Divider />
+
+            <Checkbox
+              label="Diffusion Params"
+              checked={withDiffusionParams}
+              setChecked={setWithDiffusionParams}
+              flex="initial"
+            />
+
+            <View column margins={{ left: "1rem" }}>
+              <Checkbox
+                label="With Tags"
+                checked={withDiffusionTags}
+                setChecked={setWithDiffusionTags}
+                disabled={!withDiffusionParams}
+                flex="initial"
+              />
+
+              <View column margins={{ left: "1rem" }}>
+                <Checkbox
+                  label="Model"
+                  checked={diffusionTags.model}
+                  setChecked={toggleDiffusionTagModel}
+                  disabled={!withDiffusionParams || !withDiffusionTags}
+                  flex="initial"
+                />
+
+                <Checkbox
+                  label="Restored Faces"
+                  checked={diffusionTags.restoredFaces}
+                  setChecked={toggleDiffusionTagRestoredFaces}
+                  disabled={!withDiffusionParams || !withDiffusionTags}
+                  flex="initial"
+                />
+
+                <Checkbox
+                  label="Sampler"
+                  checked={diffusionTags.sampler}
+                  setChecked={toggleDiffusionTagSampler}
+                  disabled={!withDiffusionParams || !withDiffusionTags}
+                  flex="initial"
+                />
+
+                {diffusionTags.promptRegexes.map((regex, idx) => (
+                  <View key={idx} row align="center" margins={{ bottom: "0.5rem" }}>
+                    <IconButton
+                      name="Delete"
+                      iconProps={{ color: colors.button.red }}
+                      onClick={() =>
+                        setDiffusionTags((prev) => ({
+                          ...prev,
+                          promptRegexes: prev.promptRegexes.filter((_, i) => i !== idx),
+                        }))
+                      }
+                      disabled={!withDiffusionParams || !withDiffusionTags}
+                      margins={{ left: "0.5rem", right: "0.5rem" }}
+                    />
+
+                    <Input
+                      placeholder="RegExp"
+                      value={regex}
+                      setValue={(value) =>
+                        setDiffusionTags((prev) => ({
+                          ...prev,
+                          promptRegexes: prev.promptRegexes.map((r, i) => (i === idx ? value : r)),
+                        }))
+                      }
+                      disabled={!withDiffusionParams || !withDiffusionTags}
+                    />
+                  </View>
+                ))}
+
+                <Button
+                  text="Prompt RegExp"
+                  icon="Add"
+                  onClick={() =>
+                    setDiffusionTags((prev) => ({
+                      ...prev,
+                      promptRegexes: [...prev.promptRegexes, ""],
+                    }))
+                  }
+                  disabled={!withDiffusionParams || !withDiffusionTags}
+                  margins={{ left: "0.5rem" }}
+                />
+              </View>
             </View>
           </View>
 
