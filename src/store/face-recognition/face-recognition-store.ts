@@ -147,7 +147,10 @@ export class FaceRecognitionStore extends Model({
 
         const storedDescriptors = this.faceModels.reduce((acc, cur) => {
           if (cur.descriptorsFloat32.some((d) => d.some((n) => isNaN(n))))
-            console.error(`NaN found in descriptors for tag ${cur.tagId}`, cur.descriptorsFloat32);
+            console.error(
+              `NaN found in descriptors for fileId ${cur.fileId}`,
+              cur.descriptorsFloat32
+            );
           else acc.push(new LabeledFaceDescriptors(cur.tagId, cur.descriptorsFloat32));
           return acc;
         }, [] as LabeledFaceDescriptors[]);

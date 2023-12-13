@@ -24,11 +24,10 @@ export const ConfirmDeleteModal = observer(({ setVisible }: ConfirmDeleteModalPr
     const res = await fileCollectionStore.deleteCollection(fileCollectionStore.activeCollectionId);
     if (!res.success) toast.error("Failed to delete collection");
     else {
+      handleClose();
       fileCollectionStore.setActiveCollectionId(null);
       fileCollectionStore.setIsCollectionEditorOpen(false);
-
       toast.success("Collection deleted");
-      handleClose();
     }
   };
 
@@ -48,6 +47,7 @@ export const ConfirmDeleteModal = observer(({ setVisible }: ConfirmDeleteModalPr
             setValue={setConfirmValue}
             color={colors.red["800"]}
             textAlign="center"
+            width="100%"
           />
         </View>
       </Modal.Content>

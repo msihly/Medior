@@ -90,6 +90,7 @@
     "dev": "npm run tsCompile && concurrently --kill-others \"SET BROWSER=none && npm start\" \"electron .\"",
     "dist": "npm run build && npm run electron-build",
     "electron-build": "electron-builder build --win --publish never",
+    "killPorts": "kill-port 3333 3334 3335",
     "lint": "eslint src/**/*{.ts,.tsx}",
     "pack": "electron-builder --dir",
     "postinstall": "electron-builder install-app-deps && patch-package",

@@ -27,6 +27,8 @@ const createDbServer = async () => {
   const databaseUri = mongoServer.getUri();
   logToFile("debug", "Mongo server created:", databaseUri);
 
+  Mongoose.set("strictQuery", true);
+
   logToFile("debug", "Connecting to database:", databaseUri, "...");
   await Mongoose.connect(databaseUri, CONSTANTS.MONGOOSE_OPTS);
   logToFile("debug", "Connected to database.");

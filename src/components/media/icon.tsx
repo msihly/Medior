@@ -24,10 +24,12 @@ export const Icon = ({ className, color, margins = {}, name, rotation, size }: I
     rotation,
   });
 
-  const nameToSnakeCase = name
-    .split(/(?=[A-Z])/)
-    .join("_")
-    .toLowerCase();
+  const nameToSnakeCase =
+    name?.length &&
+    name
+      .split(/(?=[A-Z])/)
+      .join("_")
+      .toLowerCase();
 
   return (
     <View column className={cx(css.root, className)}>
