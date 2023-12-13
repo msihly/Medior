@@ -5,11 +5,11 @@ export type { ButtonProps } from "./buttons";
 // carousel
 export {
   Carousel,
-  ZoomContext,
   CarouselThumb,
-  THUMB_WIDTH,
   CarouselThumbNavigator,
   CarouselTopBar,
+  THUMB_WIDTH,
+  ZoomContext,
 } from "./carousel";
 
 // drawer
