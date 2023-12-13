@@ -154,7 +154,7 @@ export const ImportEditor = observer(() => {
         const res = await importStore.createImportBatch({
           collectionTitle: folder.collectionTitle,
           deleteOnImport,
-          imports: folder.imports.map((imp) => ({ ...imp })),
+          imports: [...folder.imports],
           tagIds,
         });
         if (!res.success) throw new Error(res.error);
@@ -248,7 +248,7 @@ export const ImportEditor = observer(() => {
                     {"Select Root Tag"}
                   </Text>
 
-                  {[...importStore.editorRootPath.split(path.sep), "*"].map((p, i) => (
+                  {[...importStore.editorRootFolderPath.split(path.sep), "*"].map((p, i) => (
                     <RootFolderButton key={i} index={i} folderPart={p} />
                   ))}
                 </View>

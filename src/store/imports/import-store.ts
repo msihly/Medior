@@ -1,6 +1,9 @@
+import path from "path";
+import env from "env";
 import {
   _async,
   _await,
+  clone,
   getRootStore,
   model,
   Model,
@@ -21,8 +24,6 @@ import {
   trpc,
   uniqueArrayMerge,
 } from "utils";
-import env from "env";
-import path from "path";
 
 export type ImportBatchInput = Omit<ModelCreationData<ImportBatch>, "imports"> & {
   imports?: ModelCreationData<FileImport>[];
@@ -31,8 +32,8 @@ export type ImportBatchInput = Omit<ModelCreationData<ImportBatch>, "imports"> &
 @model("mediaViewer/ImportStore")
 export class ImportStore extends Model({
   editorFilePaths: prop<string[]>(() => []).withSetter(),
-  editorFolderPaths: prop<string[]>(() => []).withSetter(),
   editorRootFolderIndex: prop<number>(0).withSetter(),
+  editorRootFolderPath: prop<string>("").withSetter(),
   editorImports: prop<FileImport[]>(() => []).withSetter(),
   importBatches: prop<ImportBatch[]>(() => []),
   isImportEditorOpen: prop<boolean>(false).withSetter(),
@@ -45,14 +46,16 @@ export class ImportStore extends Model({
   _createImportBatch({
     collectionTitle,
     createdAt,
+    deleteOnImport,
     id,
     imports,
     tagIds = [],
   }: {
     collectionTitle?: string;
     createdAt: string;
+    deleteOnImport: boolean;
     id: string;
-    imports: ModelCreationData<FileImport>[];
+    imports: FileImport[];
     tagIds?: string[];
   }) {
     this.importBatches.push(
@@ -60,9 +63,9 @@ export class ImportStore extends Model({
         collectionTitle,
         completedAt: null,
         createdAt,
-        deleteOnImport: false,
+        deleteOnImport,
         id,
-        imports: imports.map((imp) => new FileImport(imp)),
+        imports: imports.map((imp) => clone(imp)),
         startedAt: null,
         tagIds,
       })
@@ -109,7 +112,7 @@ export class ImportStore extends Model({
 
   @modelAction
   queueImportBatch(batchId: string) {
-    const DEBUG = true;
+    const DEBUG = false;
 
     this.queue.add(async () => {
       const batch = this.getById(batchId);
@@ -208,7 +211,7 @@ export class ImportStore extends Model({
     }: {
       collectionTitle?: string;
       deleteOnImport: boolean;
-      imports: ModelCreationData<FileImport>[];
+      imports: FileImport[];
       tagIds?: string[];
     }
   ) {
@@ -220,14 +223,21 @@ export class ImportStore extends Model({
           collectionTitle,
           createdAt,
           deleteOnImport,
-          imports,
+          imports: imports.map((imp) => imp.$ as ModelCreationData<FileImport>),
           tagIds,
         });
         if (!batchRes.success) throw new Error(batchRes?.error);
         const id = batchRes.data._id.toString();
         if (!id) throw new Error("No id returned from createImportBatch");
 
-        this._createImportBatch({ collectionTitle, createdAt, id, imports, tagIds });
+        this._createImportBatch({
+          collectionTitle,
+          createdAt,
+          deleteOnImport,
+          id,
+          imports,
+          tagIds,
+        });
         this.queueImportBatch(id);
 
         return true;
@@ -355,13 +365,9 @@ export class ImportStore extends Model({
 
   @computed
   get editorRootFolder() {
-    return this.editorRootPath.split(path.sep)[this.editorRootFolderIndex];
-  }
-
-  @computed
-  get editorRootPath() {
-    return this.editorFilePaths[0]
-      ? path.dirname(this.editorFilePaths[0])
-      : this.editorFolderPaths[0];
+    return (
+      this.editorRootFolderPath.length &&
+      this.editorRootFolderPath.split(path.sep)[this.editorRootFolderIndex]
+    );
   }
 }

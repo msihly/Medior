@@ -95,18 +95,20 @@ export const updateFileImportByPath = async ({
   status,
   thumbPaths,
 }: UpdateFileImportByPathInput) =>
-  handleErrors(
-    async () =>
-      await FileImportBatchModel.updateOne(
-        { _id: batchId },
-        {
-          $set: {
-            "imports.$[fileImport].errorMsg": errorMsg,
-            "imports.$[fileImport].fileId": fileId,
-            "imports.$[fileImport].status": status,
-            "imports.$[fileImport].thumbPaths": thumbPaths,
-          },
+  handleErrors(async () => {
+    const res = await FileImportBatchModel.updateOne(
+      { _id: batchId },
+      {
+        $set: {
+          "imports.$[fileImport].errorMsg": errorMsg,
+          "imports.$[fileImport].fileId": fileId,
+          "imports.$[fileImport].status": status,
+          "imports.$[fileImport].thumbPaths": thumbPaths,
         },
-        { arrayFilters: [{ "fileImport.path": filePath }] }
-      )
-  );
+      },
+      { arrayFilters: [{ "fileImport.path": filePath }] }
+    );
+
+    if (res?.matchedCount !== res?.modifiedCount)
+      throw new Error("Failed to update file import by path");
+  });

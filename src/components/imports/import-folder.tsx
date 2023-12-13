@@ -23,7 +23,9 @@ export const ImportFolder = observer(
     return (
       <View className={css.container}>
         <View className={css.header}>
-          <Text className={css.folderPath}>{path.dirname(imports[0].path)}</Text>
+          <Text className={css.folderPath}>
+            {imports[0]?.path && path.dirname(imports[0].path)}
+          </Text>
 
           <Chip label={`${imports.length} files`} className={css.chip} />
         </View>

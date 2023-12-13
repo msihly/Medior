@@ -134,14 +134,14 @@ export const filePathsToImports = async (filePaths: string[]) => {
         if (!EXT_REG_EXP.test(extension)) return null;
 
         const { birthtime, size } = await fs.stat(filePath);
-        return {
+        return new FileImport({
           dateCreated: birthtime.toISOString(),
           extension,
           name: path.parse(filePath).name,
           path: filePath,
           size,
           status: "PENDING",
-        } as FileImport;
+        });
       })
     )
   ).filter((filePath) => filePath !== null);
@@ -170,19 +170,23 @@ export const handleIngest = async ({
     const initialRootIndex =
       (filePaths[0] ? path.dirname(filePaths[0]) : folderPaths[0]).split(path.sep).length - 1;
 
-    importStore.setEditorFilePaths(filePaths);
-    importStore.setEditorFolderPaths(folderPaths);
+    importStore.setEditorRootFolderPath(filePaths[0] ? path.dirname(filePaths[0]) : folderPaths[0]);
     importStore.setEditorRootFolderIndex(initialRootIndex);
-
-    const imports = (
-      await Promise.all([
-        ...folderPaths.map((f) => dirToFileImports(f)),
-        ...filePaths.map((f) => filePathsToImports([f])),
-      ])
-    ).flat();
-
-    importStore.setEditorImports(imports);
     importStore.setIsImportEditorOpen(true);
+
+    importStore.setEditorFilePaths([
+      ...(await Promise.all(folderPaths.map((f) => dirToFilePaths(f)))).flat(),
+      ...filePaths,
+    ]);
+
+    importStore.setEditorImports(
+      (
+        await Promise.all([
+          ...folderPaths.map((f) => dirToFileImports(f)),
+          ...filePaths.map((f) => filePathsToImports([f])),
+        ])
+      ).flat()
+    );
   } catch (err) {
     toast.error("Error queuing imports");
     console.error(err);
