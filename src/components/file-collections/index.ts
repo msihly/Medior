@@ -1,6 +1,6 @@
-export { CollectionTooltip } from "./collection-tooltip";
-export { FileCollection } from "./file-collection";
-export { FileCollectionEditor } from "./collection-editor";
-export { FileCollectionFile } from "./file-collection-file";
-export { FileCollectionManager } from "./collection-manager";
-export { SortedFiles } from "./sorted-files";
+export * from "./collection-editor";
+export * from "./collection-manager";
+export * from "./collection-tooltip";
+export * from "./file-collection-file";
+export * from "./file-collection";
+export * from "./sorted-files";

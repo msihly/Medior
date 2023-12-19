@@ -1,2 +1,2 @@
-export { FaceBox } from "./face-box";
-export { FaceRecognitionModal } from "./modal";
+export * from "./face-box";
+export * from "./modal";

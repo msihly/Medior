@@ -1,2 +1,2 @@
-export { FaceModel } from "./face-model";
-export { FaceRecognitionStore } from "./face-recognition-store";
+export * from "./face-model";
+export * from "./face-recognition-store";

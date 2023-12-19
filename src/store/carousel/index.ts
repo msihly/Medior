@@ -1,1 +1,1 @@
-export { CarouselStore } from "./carousel-store";
+export * from "./carousel-store";

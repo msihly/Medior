@@ -1,6 +1,6 @@
-export { ConfirmDeleteModal } from "./confirm-delete-modal";
-export { Tag } from "./tag";
-export { Tagger } from "./tagger";
-export { TagEditor } from "./tag-editor";
-export { TagManager } from "./tag-manager";
-export { TagSearch } from "./tag-search";
+export * from "./confirm-delete-modal";
+export * from "./tag-editor";
+export * from "./tag-manager";
+export * from "./tag-search";
+export * from "./tag";
+export * from "./tagger";

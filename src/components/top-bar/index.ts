@@ -1,2 +1,2 @@
-export { SelectedFilesInfo } from "./selected-files-info";
-export { TopBar } from "./top-bar";
+export * from "./selected-files-info";
+export * from "./top-bar";
