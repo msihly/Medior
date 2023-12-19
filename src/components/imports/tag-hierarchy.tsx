@@ -20,7 +20,7 @@ export const TagHierarchy = ({ className, tag }: TagHierarchyProps) => {
 const TagLevel = ({ tag }: TagHierarchyProps) => {
   return (
     <View column>
-      <View row>
+      <View row align="center">
         <Icon
           name={tag.id ? "Edit" : "AddCircle"}
           color={tag.id ? colors.blue["700"] : colors.green["700"]}
@@ -48,5 +48,6 @@ const useClasses = makeClasses({
     marginRight: "0.5rem",
     padding: "0.5rem 1rem 0.5rem 0.5rem",
     backgroundColor: colors.grey["900"],
+    overflowY: "auto",
   },
 });

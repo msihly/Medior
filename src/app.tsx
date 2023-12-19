@@ -13,7 +13,7 @@ import "./css/index.css";
 export const rootStore = createRootStore();
 
 const darkTheme = createTheme({ palette: { mode: "dark" } });
-const muiCache = createCache({ key: "mui", prepend: true });
+const muiCache = createCache({ key: "mui", prepend: true, stylisPlugins: [] });
 
 export const App = () => {
   const [isLoading, setIsLoading] = useState(true);

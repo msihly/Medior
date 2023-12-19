@@ -38,9 +38,9 @@ export const BatchTooltip = observer(({ batch, children }: BatchTooltipProps) =>
           </View>
 
           {batch.tagIds?.length > 0 && (
-            <View row className={css.tags}>
+            <View className={css.tags}>
               {batch.tagIds.map((id) => (
-                <Tag key={id} id={String(id)} size="small" />
+                <Tag key={id} id={String(id)} size="small" className={css.tag} />
               ))}
             </View>
           )}
@@ -64,7 +64,12 @@ const useClasses = makeClasses({
     fontWeight: 500,
     textAlign: "center",
   },
+  tag: {
+    marginBottom: "0.3rem",
+  },
   tags: {
+    display: "flex",
+    flexFlow: "row wrap",
     justifyContent: "center",
     margin: "0.3rem 0 0.2rem",
   },

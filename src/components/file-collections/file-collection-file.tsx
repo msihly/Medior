@@ -63,6 +63,7 @@ export const FileCollectionFile = observer(
             thumbPaths={file.thumbPaths}
             title={file.originalName}
             disabled={disabled}
+            fit="contain"
             height={200}
           >
             <FileBase.Chip position="top-left" label={fileColFile.index} opacity={0.8} />

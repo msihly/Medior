@@ -55,7 +55,7 @@ export const FileCollection = observer(({ height, id, width }: FileCollectionPro
 
       <FileBase.Footer>
         {collection.title.length > 0 && (
-          <Text tooltip={collection.title} className={css.title}>
+          <Text tooltip={collection.title} tooltipProps={{ flexShrink: 1 }} className={css.title}>
             {collection.title}
           </Text>
         )}
