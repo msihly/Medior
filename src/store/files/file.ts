@@ -26,6 +26,7 @@ export const mongoFileToMobX = (file: MongoFile): ModelCreationData<File> => ({
 export class File extends Model({
   dateCreated: prop<string>(),
   dateModified: prop<string>(),
+  diffusionParams: prop<string>(null),
   duration: prop<number>(null),
   ext: prop<string>(),
   faceModels: prop<FaceModel[] | null>(null),

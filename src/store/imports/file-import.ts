@@ -1,3 +1,4 @@
+import { TagToUpsert } from "components";
 import { applySnapshot, getSnapshot, model, Model, modelAction, prop } from "mobx-keystone";
 
 @model("mediaViewer/FileImport")
@@ -11,6 +12,8 @@ export class FileImport extends Model({
   name: prop<string>(),
   size: prop<number>(),
   status: prop<"COMPLETE" | "DUPLICATE" | "ERROR" | "PENDING">(),
+  tagIds: prop<string[]>(() => []),
+  tagsToUpsert: prop<TagToUpsert[]>(() => []),
   thumbPaths: prop<string[]>(() => []),
 }) {
   @modelAction

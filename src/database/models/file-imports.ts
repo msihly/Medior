@@ -12,6 +12,7 @@ export interface FileImport {
   path: string;
   size: number;
   status: FileImportStatus | string;
+  tagIds?: string[];
   thumbPaths?: string[];
 }
 
@@ -47,6 +48,7 @@ const FileImportBatchSchema = new Schema<FileImportBatch>({
         type: String,
         enum: ["COMPLETE", "DUPLICATE", "ERROR", "PENDING"],
       },
+      tagIds: [{ type: Schema.Types.ObjectId, ref: "Tag" }],
       thumbPaths: [String],
     },
   ],

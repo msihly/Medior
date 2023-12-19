@@ -1,4 +1,4 @@
-import { File, FileCollection, Tag } from "database";
+import { File, FileCollection, RegExMap, Tag } from "database";
 import { FileImport, RootStore, SelectedImageTypes, SelectedVideoTypes } from "store";
 import { ImportStatus } from "components";
 import { ModelCreationData } from "mobx-keystone";
@@ -35,7 +35,11 @@ export type CreateImportBatchInput = {
   tagIds?: string[];
 };
 
+export type CreateRegExMapsInput = { regExMaps: ModelCreationData<RegExMap>[] };
+
 export type DeleteImportBatchInput = { id: string };
+
+export type DeleteRegExMapsInput = { ids: string[] };
 
 export type RemoveTagsFromAllBatchesInput = { tagIds: string[] };
 
@@ -51,6 +55,8 @@ export type UpdateFileImportByPathInput = {
   status?: ImportStatus;
   thumbPaths?: string[];
 };
+
+export type UpdateRegExMapsInput = { regExMaps: RegExMap[] & { id: string }[] };
 
 /* ---------------------------------- FILES --------------------------------- */
 export type AddTagsToFilesInput = { fileIds: string[]; tagIds: string[] };
@@ -71,6 +77,7 @@ export type GetFileByHashInput = { hash: string };
 
 export type ImportFileInput = {
   dateCreated: string;
+  diffusionParams: string;
   duration: number;
   ext: string;
   frameRate: number;

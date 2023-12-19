@@ -9,6 +9,7 @@ import {
   copyFile,
   deleteFile,
   dirToFilePaths,
+  extendFileName,
   generateFramesThumbnail,
   getVideoInfo,
   IMAGE_TYPES,
@@ -21,7 +22,7 @@ import { toast } from "react-toastify";
 interface CopyFileForImportProps {
   dbOnly?: boolean;
   deleteOnImport: boolean;
-  fileObj: FileImport;
+  fileImport: FileImport;
   tagIds?: string[];
   targetDir: string;
 }
@@ -36,14 +37,14 @@ interface CopyFileForImportResult {
 export const copyFileForImport = async ({
   dbOnly = false,
   deleteOnImport,
-  fileObj,
+  fileImport,
   tagIds,
   targetDir,
 }: CopyFileForImportProps): Promise<CopyFileForImportResult> => {
   let hash: string;
 
   try {
-    const { dateCreated, extension, name, path: originalPath, size } = fileObj;
+    const { dateCreated, extension, name, path: originalPath, size } = fileImport;
     const ext = extension.toLowerCase();
 
     hash = await md5File(originalPath);
@@ -80,15 +81,29 @@ export const copyFileForImport = async ({
                 .toFile(thumbPaths[0]));
     }
 
-    let fileRes = await trpc.getFileByHash.mutate({ hash });
+    const fileRes = await trpc.getFileByHash.mutate({ hash });
     if (!fileRes.success) throw new Error(fileRes.error);
     let file = fileRes.data;
-    let isDuplicate = false;
+    const isDuplicate = !!file;
 
-    if (!file) {
+    if (isDuplicate) {
+      if (tagIds?.length > 0) {
+        const res = await trpc.addTagsToFiles.mutate({ fileIds: [file.id], tagIds });
+        if (!res.success) throw new Error(res.error);
+      }
+
+      if (fileImport.diffusionParams?.length > 0) {
+        const res = await trpc.updateFile.mutate({
+          id: file.id,
+          diffusionParams: fileImport.diffusionParams,
+        });
+        if (!res.success) throw new Error(res.error);
+      }
+    } else {
       const res = await trpc.importFile.mutate({
         dateCreated,
         duration,
+        diffusionParams: fileImport.diffusionParams,
         ext,
         frameRate,
         hash,
@@ -104,18 +119,23 @@ export const copyFileForImport = async ({
 
       if (!res.success) throw new Error(res.error);
       file = res.data;
-    } else isDuplicate = true;
+    }
 
-    if (deleteOnImport) await deleteFile(originalPath, newPath);
+    if (deleteOnImport) {
+      await deleteFile(originalPath, newPath);
+      if (fileImport.diffusionParams?.length > 0)
+        await deleteFile(extendFileName(originalPath, "txt"));
+    }
+
     return { success: true, file, isDuplicate };
   } catch (err) {
-    console.error("Error importing", fileObj.toString({ withData: true }), ":", err.stack);
+    console.error("Error importing", fileImport.toString({ withData: true }), ":", err.stack);
 
     if (err.code === "EEXIST") {
       const fileRes = await trpc.getFileByHash.mutate({ hash });
       if (!fileRes.data) {
         console.debug("File exists, but not in db. Inserting into db only...");
-        return await copyFileForImport({ dbOnly: true, deleteOnImport, fileObj, targetDir });
+        return await copyFileForImport({ dbOnly: true, deleteOnImport, fileImport, targetDir });
       } else return { success: true, file: fileRes.data, isDuplicate: true };
     } else return { success: false, error: err?.stack };
   }

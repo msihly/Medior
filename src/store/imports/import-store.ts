@@ -15,7 +15,8 @@ import {
 } from "mobx-keystone";
 import { computed } from "mobx";
 import { RootStore } from "store";
-import { FileImport, ImportBatch } from ".";
+import { CreateRegExMapsInput, UpdateRegExMapsInput } from "database";
+import { FileImport, ImportBatch, RegExMap } from ".";
 import { copyFileForImport } from "./import-queue";
 import {
   dayjs,
@@ -40,6 +41,8 @@ export class ImportStore extends Model({
   importBatches: prop<ImportBatch[]>(() => []),
   isImportEditorOpen: prop<boolean>(false).withSetter(),
   isImportManagerOpen: prop<boolean>(false).withSetter(),
+  isImportRegExMapperOpen: prop<boolean>(false).withSetter(),
+  regExMaps: prop<RegExMap[]>(() => []).withSetter(),
 }) {
   queue: PromiseQueue = new PromiseQueue();
 
@@ -85,6 +88,22 @@ export class ImportStore extends Model({
   }
 
   @modelAction
+  addRegExMap(type: RegExMap["type"]) {
+    this.regExMaps.push(new RegExMap({ delimiter: type === "diffusionToTags" ? "," : "", type }));
+  }
+
+  @modelAction
+  clearValues({ diffusionParams = false, tagIds = false, tagsToUpsert = false } = {}) {
+    this.editorImports.forEach((imp) =>
+      imp.update({
+        ...(diffusionParams ? { diffusionParams: null } : {}),
+        ...(tagIds ? { tagIds: [] } : {}),
+        ...(tagsToUpsert ? { tagsToUpsert: [] } : {}),
+      })
+    );
+  }
+
+  @modelAction
   editBatchTags({
     addedIds = [],
     batchIds = [],
@@ -105,11 +124,16 @@ export class ImportStore extends Model({
   }
 
   @modelAction
-  overwrite(importBatches: ImportBatchInput[]) {
+  overwriteBatches(importBatches: ImportBatchInput[]) {
     this.importBatches = importBatches.map(
       (batch) =>
         new ImportBatch({ ...batch, imports: batch.imports.map((imp) => new FileImport(imp)) })
     );
+  }
+
+  @modelAction
+  overwriteRegExMaps(regExMaps: ModelCreationData<RegExMap>[]) {
+    this.regExMaps = regExMaps.map((map) => new RegExMap(map));
   }
 
   @modelAction
@@ -171,13 +195,6 @@ export class ImportStore extends Model({
         if (DEBUG) console.debug("Completed importBatch:", batchId);
       });
     });
-  }
-
-  @modelAction
-  removeDiffusionParams() {
-    this.editorImports.forEach(
-      (imp) => imp.diffusionParams?.length > 0 && imp.update({ diffusionParams: null })
-    );
   }
 
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */
@@ -282,6 +299,8 @@ export class ImportStore extends Model({
   ) {
     return yield* _await(
       handleErrors(async () => {
+        const rootStore = getRootStore<RootStore>(this);
+
         const batch = this.getById(batchId);
         const fileImport = batch?.getByPath(filePath);
 
@@ -293,11 +312,36 @@ export class ImportStore extends Model({
           throw new Error("Invalid batch or fileImport");
         }
 
+        const tagIds = [...batch.tagIds, ...fileImport.tagIds];
+
+        if (fileImport.tagsToUpsert?.length) {
+          await Promise.all(
+            fileImport.tagsToUpsert.map(async (t) => {
+              const tag = rootStore.tagStore.getByLabel(t.label);
+              if (tag) tagIds.push(tag.id);
+              else {
+                const parentTag = t.parentLabel
+                  ? rootStore.tagStore.getByLabel(t.parentLabel)
+                  : null;
+
+                const res = await rootStore.tagStore.createTag({
+                  aliases: [...t.aliases],
+                  label: t.label,
+                  parentIds: parentTag ? [parentTag.id] : [],
+                });
+                if (!res.success) throw new Error(res.error);
+
+                tagIds.push(res.data.id);
+              }
+            })
+          );
+        }
+
         const copyRes = await copyFileForImport({
           deleteOnImport: batch.deleteOnImport,
-          fileObj: fileImport,
+          fileImport,
           targetDir: env.OUTPUT_DIR,
-          tagIds: batch.tagIds,
+          tagIds: [...new Set(tagIds)],
         });
 
         const errorMsg = copyRes.error ?? null;
@@ -359,11 +403,58 @@ export class ImportStore extends Model({
     return yield* _await(
       handleErrors(async () => {
         const res = await trpc.listImportBatches.mutate();
-        if (res.success) this.overwrite(res.data);
+        if (res.success) this.overwriteBatches(res.data);
 
         this.batches.forEach(
           (batch) => batch.status === "PENDING" && this.queueImportBatch(batch.id)
         );
+      })
+    );
+  });
+
+  @modelFlow
+  loadRegExMaps = _async(function* (this: ImportStore) {
+    return yield* _await(
+      handleErrors(async () => {
+        const res = await trpc.listRegExMaps.mutate();
+        if (res.success) this.overwriteRegExMaps(res.data);
+      })
+    );
+  });
+
+  @modelFlow
+  saveRegExMaps = _async(function* (this: ImportStore) {
+    return yield* _await(
+      handleErrors(async () => {
+        const [created, deleted, updated] = this.regExMaps.reduce(
+          (acc, cur) => {
+            if (!cur.hasUnsavedChanges || (!cur.id && cur.isDeleted)) return acc;
+            else if (cur.isDeleted) acc[1].push(cur.id);
+            else if (!cur.id) acc[0].push(cur.$);
+            else acc[2].push(cur.$);
+            return acc;
+          },
+          [[], [], []] as [
+            CreateRegExMapsInput["regExMaps"],
+            string[],
+            UpdateRegExMapsInput["regExMaps"]
+          ]
+        );
+
+        if (deleted.length > 0) {
+          const deleteRes = await trpc.deleteRegExMaps.mutate({ ids: deleted });
+          if (!deleteRes.success) throw new Error(deleteRes.error);
+        }
+
+        if (created.length > 0) {
+          const createRes = await trpc.createRegExMaps.mutate({ regExMaps: created });
+          if (!createRes.success) throw new Error(createRes.error);
+        }
+
+        if (updated.length > 0) {
+          const updateRes = await trpc.updateRegExMaps.mutate({ regExMaps: updated });
+          if (!updateRes.success) throw new Error(updateRes.error);
+        }
       })
     );
   });
@@ -379,6 +470,10 @@ export class ImportStore extends Model({
 
   listByTagId(tagId: string) {
     return this.importBatches.filter((batch) => batch.tagIds.includes(tagId));
+  }
+
+  listRegExMapsByType(type: RegExMap["type"]) {
+    return this.regExMaps.filter((map) => map.type === type);
   }
 
   /* --------------------------------- GETTERS -------------------------------- */

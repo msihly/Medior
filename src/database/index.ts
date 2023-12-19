@@ -1,8 +1,17 @@
+// export * from "./actions";
+// export * from "./models";
+
 /* -------------------------------------------------------------------------- */
 /*                                   MODELS                                   */
 /* -------------------------------------------------------------------------- */
-export { FileCollectionModel, FileImportBatchModel, FileModel, TagModel } from "./models";
-export type { FileCollection, FileImport, FileImportBatch, File, Tag } from "./models";
+export {
+  FileCollectionModel,
+  FileImportBatchModel,
+  FileModel,
+  RegExMapModel,
+  TagModel,
+} from "./models";
+export type { FileCollection, FileImport, FileImportBatch, File, Tag, RegExMap } from "./models";
 
 /* -------------------------------------------------------------------------- */
 /*                                   ACTIONS                                  */
@@ -18,13 +27,16 @@ export {
   addTagsToBatch,
   completeImportBatch,
   createImportBatch,
+  createRegExMaps,
   deleteAllImportBatches,
   deleteImportBatch,
+  deleteRegExMaps,
   listImportBatches,
   removeTagsFromAllBatches,
   removeTagsFromBatch,
   startImportBatch,
   updateFileImportByPath,
+  updateRegExMaps,
   /** Files */
   addTagsToFiles,
   deleteFiles,
@@ -35,6 +47,7 @@ export {
   listFiles,
   listFilesByTagIds,
   listFilteredFileIds,
+  listRegExMaps,
   loadFaceApiNets,
   onFileTagsUpdated,
   onFilesArchived,
@@ -76,11 +89,14 @@ export type {
   AddTagsToBatchInput,
   CompleteImportBatchInput,
   CreateImportBatchInput,
+  CreateRegExMapsInput,
   DeleteImportBatchInput,
+  DeleteRegExMapsInput,
   RemoveTagsFromAllBatchesInput,
   RemoveTagsFromBatchInput,
   StartImportBatchInput,
   UpdateFileImportByPathInput,
+  UpdateRegExMapsInput,
   /** Files */
   AddTagsToFilesInput,
   ArchiveFilesInput,

@@ -45,7 +45,13 @@ export { ChipInput, Dropdown, Input, TagInput } from "./inputs";
 export type { ChipOption, DropdownOption, InputProps } from "./inputs";
 
 // imports
-export { ImportBatch, ImportEditor, ImportManager } from "./imports";
+export { ImportBatch, ImportEditor, ImportManager, ImportRegExMapper } from "./imports";
+export type {
+  FlatFolderHierarchy,
+  FolderToCollMode,
+  FolderToTagsMode,
+  TagToUpsert,
+} from "./imports";
 
 // list
 export { DetailRows, ListItem } from "./list";

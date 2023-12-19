@@ -3,10 +3,17 @@ import { observer } from "mobx-react-lite";
 import { FileImport } from "store";
 import { FixedSizeList } from "react-window";
 import AutoSizer from "react-virtualized-auto-sizer";
-import { Chip, Text, TooltipWrapper, View } from "components";
-import { IMPORT_CARD_SIZE, ImportCard, TagHierarchy, TagToUpsert } from ".";
-import { colors, formatBytes, makeClasses } from "utils";
 import { Divider } from "@mui/material";
+import { Chip, Text, View } from "components";
+import {
+  IMPORT_CARD_SIZE,
+  IMPORT_LIST_ITEM_HEIGHT,
+  ImportCard,
+  ImportListItem,
+  TagHierarchy,
+  TagToUpsert,
+} from ".";
+import { colors, makeClasses } from "utils";
 import Color from "color";
 
 export interface ImportFolderProps {
@@ -75,38 +82,25 @@ export const ImportFolder = observer(
           </View>
         ) : (
           <View className={css.list}>
-            {imports.map((imp, i) => (
-              <View key={imp.path} row align="center" justify="space-between">
-                <Text
-                  tooltip={imp.path}
-                  tooltipProps={{ enterDelay: 1000, flexShrink: "inherit" }}
-                  color={i % 2 === 0 ? colors.blueGrey["200"] : colors.grey["200"]}
-                  className={css.listItem}
-                >
-                  {imp.name}
-                </Text>
-
-                <View row>
-                  {imp.diffusionParams?.length > 0 && (
-                    <TooltipWrapper
-                      tooltip={imp.diffusionParams}
-                      tooltipProps={{ maxWidth: "40rem" }}
-                    >
-                      <Chip
-                        label="Params"
-                        icon="Notes"
-                        bgColor={colors.blue["800"]}
-                        className={css.chip}
-                      />
-                    </TooltipWrapper>
-                  )}
-
-                  <Chip label={formatBytes(imp.size)} className={css.chip} />
-
-                  <Chip label={imp.extension.substring(1)} className={css.chip} />
-                </View>
-              </View>
-            ))}
+            <FixedSizeList
+              layout="vertical"
+              width="100%"
+              height={Math.min(
+                imports.length * IMPORT_LIST_ITEM_HEIGHT,
+                7.5 * IMPORT_LIST_ITEM_HEIGHT
+              )}
+              itemSize={IMPORT_LIST_ITEM_HEIGHT}
+              itemCount={imports.length}
+            >
+              {({ index, style }) => (
+                <ImportListItem
+                  key={index}
+                  fileImport={imports[index]}
+                  color={index % 2 === 0 ? colors.blueGrey["200"] : colors.grey["200"]}
+                  style={style}
+                />
+              )}
+            </FixedSizeList>
           </View>
         )}
       </View>
@@ -170,15 +164,11 @@ const useClasses = makeClasses((_, { mode }) => ({
   list: {
     display: "flex",
     flexDirection: "column",
-    padding: "0.2rem 0.5rem",
+    // padding: "0.2rem 0.5rem",
+    padding: "0.2rem 0",
     maxHeight: "20rem",
     overflowY: "auto",
-  },
-  listItem: {
-    flex: "none",
-    width: "-webkit-fill-available",
-    textOverflow: "ellipsis",
-    textWrap: "nowrap",
+    // "& > div": { flex: 1 },
   },
   tag: {
     padding: "0.2rem 0.4rem 0.2rem 0.2rem",
@@ -188,5 +178,6 @@ const useClasses = makeClasses((_, { mode }) => ({
     flexDirection: "row",
     alignItems: "center",
     padding: "0.2rem 0.3rem",
+    overflowX: "auto",
   },
 }));

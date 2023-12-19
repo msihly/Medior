@@ -97,6 +97,7 @@ export const getFileByHash = ({ hash }: GetFileByHashInput) =>
 
 export const importFile = ({
   dateCreated,
+  diffusionParams,
   duration,
   ext,
   frameRate,
@@ -115,6 +116,7 @@ export const importFile = ({
       await FileModel.create({
         dateCreated,
         dateModified: dayjs().toISOString(),
+        diffusionParams,
         duration,
         ext,
         frameRate,

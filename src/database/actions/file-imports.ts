@@ -2,15 +2,21 @@ import {
   AddTagsToBatchInput,
   CompleteImportBatchInput,
   CreateImportBatchInput,
+  CreateRegExMapsInput,
   DeleteImportBatchInput,
+  DeleteRegExMapsInput,
   FileImportBatchModel,
+  RegExMap,
+  RegExMapModel,
   RemoveTagsFromAllBatchesInput,
   RemoveTagsFromBatchInput,
   StartImportBatchInput,
   UpdateFileImportByPathInput,
+  UpdateRegExMapsInput,
 } from "database";
 import { ImportBatchInput } from "store";
 import { dayjs, handleErrors } from "utils";
+import { leanModelToJson } from "./utils";
 
 export const addTagsToBatch = ({ batchId, tagIds }: AddTagsToBatchInput) =>
   handleErrors(
@@ -48,11 +54,17 @@ export const createImportBatch = ({
       })
   );
 
-export const deleteImportBatch = ({ id }: DeleteImportBatchInput) =>
-  handleErrors(async () => await FileImportBatchModel.deleteOne({ _id: id }));
+export const createRegExMaps = ({ regExMaps }: CreateRegExMapsInput) =>
+  handleErrors(async () => await RegExMapModel.insertMany(regExMaps));
 
 export const deleteAllImportBatches = () =>
   handleErrors(async () => await FileImportBatchModel.deleteMany({}));
+
+export const deleteImportBatch = ({ id }: DeleteImportBatchInput) =>
+  handleErrors(async () => await FileImportBatchModel.deleteOne({ _id: id }));
+
+export const deleteRegExMaps = ({ ids }: DeleteRegExMapsInput) =>
+  handleErrors(async () => await RegExMapModel.deleteMany({ _id: { $in: ids } }));
 
 export const listImportBatches = () =>
   handleErrors(async () =>
@@ -66,6 +78,11 @@ export const listImportBatches = () =>
           __v: undefined,
         } as ImportBatchInput)
     )
+  );
+
+export const listRegExMaps = () =>
+  handleErrors(async () =>
+    (await RegExMapModel.find().lean()).map((r) => leanModelToJson<RegExMap>(r))
   );
 
 export const removeTagsFromAllBatches = ({ tagIds }: RemoveTagsFromAllBatchesInput) =>
@@ -112,3 +129,8 @@ export const updateFileImportByPath = async ({
     if (res?.matchedCount !== res?.modifiedCount)
       throw new Error("Failed to update file import by path");
   });
+
+export const updateRegExMaps = ({ regExMaps }: UpdateRegExMapsInput) =>
+  handleErrors(() =>
+    Promise.all(regExMaps.map((r) => RegExMapModel.updateOne({ _id: r.id }, { $set: r })))
+  );

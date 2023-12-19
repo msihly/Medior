@@ -19,6 +19,11 @@ export const ImportManager = observer(() => {
 
   const handleClose = () => importStore.setIsImportManagerOpen(false);
 
+  const handleRegExMapper = () => {
+    importStore.setIsImportManagerOpen(false);
+    importStore.setIsImportRegExMapperOpen(true);
+  };
+
   return (
     <Modal.Container
       visible={importStore.isImportManagerOpen}
@@ -27,31 +32,32 @@ export const ImportManager = observer(() => {
       height="100%"
     >
       <Modal.Header
+        leftNode={<Button text="RegEx Mapper" icon="MultipleStop" onClick={handleRegExMapper} />}
         rightNode={
-        <View row justify="flex-end" padding={{ right: "1rem" }}>
-          {!isConfirmDeleteAllOpen ? (
-            <IconButton
-              name="DeleteOutline"
-              onClick={() => setIsConfirmDeleteAllOpen(true)}
-              iconProps={{ color: colors.grey["500"], size: "0.9em" }}
-            />
-          ) : (
-            <>
+          <View row justify="flex-end" padding={{ right: "1rem" }}>
+            {!isConfirmDeleteAllOpen ? (
               <IconButton
-                name="CloseOutlined"
-                onClick={() => setIsConfirmDeleteAllOpen(false)}
+                name="DeleteOutline"
+                onClick={() => setIsConfirmDeleteAllOpen(true)}
                 iconProps={{ color: colors.grey["500"], size: "0.9em" }}
-                margins={{ right: "0.1rem" }}
               />
+            ) : (
+              <>
+                <IconButton
+                  name="CloseOutlined"
+                  onClick={() => setIsConfirmDeleteAllOpen(false)}
+                  iconProps={{ color: colors.grey["500"], size: "0.9em" }}
+                  margins={{ right: "0.1rem" }}
+                />
 
-              <IconButton
-                name="Delete"
-                onClick={deleteAll}
-                iconProps={{ color: colors.red["700"], size: "0.9em" }}
-              />
-            </>
-          )}
-        </View>
+                <IconButton
+                  name="Delete"
+                  onClick={deleteAll}
+                  iconProps={{ color: colors.red["700"], size: "0.9em" }}
+                />
+              </>
+            )}
+          </View>
         }
       >
         <Text>{"Import Manager"}</Text>
@@ -70,7 +76,7 @@ export const ImportManager = observer(() => {
       </Modal.Content>
 
       <Modal.Footer>
-        <Button text="Close" icon="Close" onClick={handleClose} color={colors.grey["700"]} />
+        <Button text="Close" icon="Close" onClick={handleClose} color={colors.button.grey} />
       </Modal.Footer>
     </Modal.Container>
   );

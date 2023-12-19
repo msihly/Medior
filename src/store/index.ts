@@ -6,7 +6,7 @@ export type { FileIdIndex } from "./collections";
 export { FaceModel, FaceRecognitionStore } from "./face-recognition";
 
 // files
-export { File, mongoFileToMobX, FileStore } from "./files";
+export { File, FileStore, mongoFileToMobX } from "./files";
 
 // home
 export { HomeStore, sortFn } from "./home";
@@ -14,12 +14,13 @@ export type { SelectedImageTypes, SelectedVideoTypes } from "./home";
 
 // imports
 export {
-  FileImport,
-  ImportBatch,
-  ImportStore,
   dirToFileImports,
+  FileImport,
   filePathsToImports,
   handleIngest,
+  ImportBatch,
+  ImportStore,
+  RegExMap,
 } from "./imports";
 export type { ImportBatchInput } from "./imports";
 

@@ -1,3 +1,9 @@
+// export * from "./collections";
+// export * from "./file-imports";
+// export * from "./files";
+// export * from "./tags";
+// export * from "./types";
+
 export {
   createCollection,
   deleteCollection,
@@ -10,13 +16,17 @@ export {
   addTagsToBatch,
   completeImportBatch,
   createImportBatch,
+  createRegExMaps,
   deleteAllImportBatches,
   deleteImportBatch,
+  deleteRegExMaps,
   listImportBatches,
+  listRegExMaps,
   removeTagsFromAllBatches,
   removeTagsFromBatch,
   startImportBatch,
   updateFileImportByPath,
+  updateRegExMaps,
 } from "./file-imports";
 
 export {
@@ -72,11 +82,14 @@ export type {
   AddTagsToBatchInput,
   CompleteImportBatchInput,
   CreateImportBatchInput,
+  CreateRegExMapsInput,
   DeleteImportBatchInput,
+  DeleteRegExMapsInput,
   RemoveTagsFromAllBatchesInput,
   RemoveTagsFromBatchInput,
   StartImportBatchInput,
   UpdateFileImportByPathInput,
+  UpdateRegExMapsInput,
   /** Files */
   AddTagsToFilesInput,
   ArchiveFilesInput,

@@ -3,6 +3,7 @@ import { model, Schema } from "mongoose";
 export interface File {
   dateCreated: string;
   dateModified: string;
+  diffusionParams?: string;
   faceModels?: {
     box: { height: number; width: number; x: number; y: number };
     /** JSON representation of Float32Array[] */
@@ -31,6 +32,7 @@ export interface File {
 const FileSchema = new Schema<File>({
   dateCreated: String,
   dateModified: String,
+  diffusionParams: String,
   duration: Number,
   ext: String,
   faceModels: [

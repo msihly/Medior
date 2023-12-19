@@ -1,6 +1,6 @@
-import { Icon, Tag, Text, Tooltip as TooltipBase, View } from "components";
 import { observer } from "mobx-react-lite";
 import { File } from "store";
+import { Detail, DetailRow, Icon, Tag, Text, Tooltip as TooltipBase, View } from "components";
 import { colors, dayjs, formatBytes, makeClasses } from "utils";
 
 interface TooltipProps {
@@ -15,35 +15,49 @@ export const Tooltip = observer(({ disabled, file, onTagPress }: TooltipProps) =
   return (
     <TooltipBase
       title={
-        <View column>
-          <View row className={css.header}>
-            <View column margins={{ right: "1rem" }}>
-              <Text>{`${file.width}x${file.height}`}</Text>
-              <Text>{formatBytes(file.size)}</Text>
-            </View>
-
-            <View column margins={{ left: "1rem" }}>
-              <Text textAlign="right">{`Modified ${dayjs(file.dateModified).fromNow()}`}</Text>
-              <Text textAlign="right">{`Created ${dayjs(file.dateCreated).fromNow()}`}</Text>
-            </View>
-          </View>
-
+        <View className={css.root}>
           {file.tags?.length > 0 && (
-            <View row margins={{ top: "0.3rem", bottom: "0.2rem" }} style={{ flexWrap: "wrap" }}>
+            <View className={css.tags}>
               {file.tags.map((tag) => (
                 <Tag
                   key={tag.id}
                   tag={tag}
                   onClick={!disabled ? () => onTagPress(tag.id) : undefined}
                   size="small"
-                  style={{ margin: "0 0.5em 0.5em 0" }}
                 />
               ))}
             </View>
           )}
+
+          <DetailRow>
+            <Detail label="Size" value={formatBytes(file.size)} />
+
+            <Detail label="Dimensions" value={`${file.width} x ${file.height}`} />
+          </DetailRow>
+
+          <DetailRow>
+            <Detail label="Date Created" value={dayjs(file.dateCreated).fromNow()} />
+
+            <Detail label="Date Modified" value={dayjs(file.dateModified).fromNow()} />
+          </DetailRow>
+
+          {file.diffusionParams?.length > 0 && (
+            <Detail
+              label="Diffusion Params"
+              value={
+                <View className={css.diffContainer}>
+                  <Text>{file.diffusionParams}</Text>
+                </View>
+              }
+            />
+          )}
         </View>
       }
     >
+      {file.diffusionParams?.length > 0 && (
+        <Icon name="Notes" size="1em" color={colors.blue["500"]} />
+      )}
+
       <Icon
         name="InfoOutlined"
         color={colors.grey["600"]}
@@ -55,9 +69,30 @@ export const Tooltip = observer(({ disabled, file, onTagPress }: TooltipProps) =
 });
 
 const useClasses = makeClasses({
-  header: {
-    justifyContent: "space-between",
+  diffContainer: {
+    borderRadius: "0.25rem",
+    padding: "0.4rem 0.6rem",
+    maxHeight: "10rem",
+    backgroundColor: colors.grey["800"],
+    overflowY: "auto",
+  },
+  root: {
+    display: "flex",
+    flexDirection: "column",
     padding: "0.3rem",
-    fontSize: "1.1em",
+    fontSize: "1.15em",
+  },
+  tags: {
+    display: "flex",
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "center",
+    padding: "0.3rem",
+    "& > *": {
+      marginBottom: "0.2rem",
+      "&:not(:last-child)": {
+        marginRight: "0.3rem",
+      },
+    },
   },
 });

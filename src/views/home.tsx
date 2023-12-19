@@ -9,6 +9,7 @@ import {
   FileContainer,
   ImportEditor,
   ImportManager,
+  ImportRegExMapper,
   TagManager,
   Tagger,
   TopBar,
@@ -57,6 +58,7 @@ export const Home = observer(() => {
         await Promise.all([
           fileCollectionStore.loadCollections(),
           importStore.loadImportBatches(),
+          importStore.loadRegExMaps(),
           tagStore.loadTags(),
         ]);
 
@@ -133,6 +135,8 @@ export const Home = observer(() => {
             <ImportManager />
 
             {importStore.isImportEditorOpen && <ImportEditor />}
+
+            {importStore.isImportRegExMapperOpen && <ImportRegExMapper />}
           </View>
         </View>
       </View>
