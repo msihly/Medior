@@ -33,7 +33,9 @@ export const ConfirmDeleteModal = observer(({ setVisible }: ConfirmDeleteModalPr
 
   return (
     <Modal.Container onClose={handleClose}>
-      <Modal.Header className={css.modalTitle}>{"Delete Collection"}</Modal.Header>
+      <Modal.Header>
+        <Text className={css.modalTitle}>{"Delete Collection"}</Text>
+      </Modal.Header>
 
       <Modal.Content>
         <View column align="center">

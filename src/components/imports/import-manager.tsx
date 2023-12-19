@@ -26,11 +26,8 @@ export const ImportManager = observer(() => {
       width="100%"
       height="100%"
     >
-      <Modal.Header justify="space-between" className={css.modalHeader}>
-        <View />
-
-        <Text>{"Import Manager"}</Text>
-
+      <Modal.Header
+        rightNode={
         <View row justify="flex-end" padding={{ right: "1rem" }}>
           {!isConfirmDeleteAllOpen ? (
             <IconButton
@@ -55,6 +52,9 @@ export const ImportManager = observer(() => {
             </>
           )}
         </View>
+        }
+      >
+        <Text>{"Import Manager"}</Text>
       </Modal.Header>
 
       <Modal.Content className={css.modalContent}>
@@ -89,10 +89,5 @@ const useClasses = makeClasses({
     flexDirection: "column",
     alignItems: "center",
     overflowX: "hidden",
-  },
-  modalHeader: {
-    "& > &": {
-      flexBasis: "100%",
-    },
   },
 });

@@ -1,7 +1,7 @@
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
+import { Modal, Text } from "components";
 import { TagEditor, TagSearch } from ".";
-import { Modal } from "components";
 
 const TITLES = {
   create: "Create Tag",
@@ -18,7 +18,9 @@ export const TagManager = observer(() => {
 
   return (
     <Modal.Container onClose={closeModal} maxHeight="90vh" maxWidth="30rem" width="100%">
-      <Modal.Header>{TITLES[tagStore.tagManagerMode]}</Modal.Header>
+      <Modal.Header>
+        <Text>{TITLES[tagStore.tagManagerMode]}</Text>
+      </Modal.Header>
 
       {tagStore.tagManagerMode === "search" ? (
         <TagSearch />

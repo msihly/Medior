@@ -156,7 +156,9 @@ export const FaceRecognitionModal = observer(() => {
 
   return (
     <Modal.Container width="100%" height="100%">
-      <Modal.Header>{"Face Recognition"}</Modal.Header>
+      <Modal.Header>
+        <Text>{"Face Recognition"}</Text>
+      </Modal.Header>
 
       <Modal.Content padding={{ all: 0 }}>
         {faceRecognitionStore.isInitializing ? (

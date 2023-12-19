@@ -212,7 +212,11 @@ export const ImportEditor = observer(() => {
 
   return (
     <Modal.Container width="100%" height="100%">
-      <Modal.Header>{"Import Editor"}</Modal.Header>
+      <Modal.Header
+        leftNode={<Button text="RegEx Mapper" icon="MultipleStop" onClick={handleRegExMapper} />}
+      >
+        <Text>{"Import Editor"}</Text>
+      </Modal.Header>
 
       <Modal.Content className={css.vertScroll}>
         <View className={css.body}>

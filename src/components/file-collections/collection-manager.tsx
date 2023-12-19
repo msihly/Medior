@@ -48,8 +48,10 @@ export const FileCollectionManager = observer(() => {
   };
 
   return (
-    <Modal.Container maxWidth="65rem" width="100%" onClose={closeModal}>
-      <Modal.Header>{"Manage Collections"}</Modal.Header>
+    <Modal.Container height="100%" width="100%" onClose={closeModal}>
+      <Modal.Header>
+        <Text>{"Manage Collections"}</Text>
+      </Modal.Header>
 
       <Modal.Content>
         {!hasAnySelected ? null : hasOneSelected ? (

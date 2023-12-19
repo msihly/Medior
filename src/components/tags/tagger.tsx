@@ -78,11 +78,13 @@ export const Tagger = observer(({ batchId, fileIds, setVisible }: TaggerProps) =
   return (
     <Modal.Container onClose={handleClose} width="25rem" draggable>
       <Modal.Header>
-        {mode === "createTag"
-          ? "Create Tag"
-          : mode === "editTag"
-          ? "Update Tag"
-          : "Update File Tags"}
+        <Text>
+          {mode === "createTag"
+            ? "Create Tag"
+            : mode === "editTag"
+            ? "Update Tag"
+            : "Update File Tags"}
+        </Text>
       </Modal.Header>
 
       {mode === "editFileTags" ? (

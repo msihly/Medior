@@ -19,8 +19,16 @@ export const InfoModal = observer(() => {
   };
 
   return (
-    <Modal.Container onClose={handleClose}>
-      <Modal.Header>{"Info"}</Modal.Header>
+    <Modal.Container width="100%" maxWidth="50rem" onClose={handleClose}>
+      <Modal.Header
+        leftNode={
+          <Text fontSize="0.7em" color={colors.grey["600"]}>
+            {`ID: ${fileStore.activeFileId}`}
+          </Text>
+        }
+      >
+        <Text>{"File Info"}</Text>
+      </Modal.Header>
 
       <Modal.Content dividers>
         <DetailRows

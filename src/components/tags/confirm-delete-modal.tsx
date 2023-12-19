@@ -30,7 +30,9 @@ export const ConfirmDeleteModal = observer(({ goBack, setVisible }: ConfirmDelet
 
   return (
     <Modal.Container onClose={handleClose}>
-      <Modal.Header className={css.title}>{"Confirm Delete"}</Modal.Header>
+      <Modal.Header className={css.title}>
+        <Text>{"Confirm Delete"}</Text>
+      </Modal.Header>
 
       <Modal.Content>
         <View column align="center">
