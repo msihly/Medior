@@ -26,7 +26,10 @@ export const Home = observer(() => {
 
   const { css } = useClasses({ isDrawerOpen: homeStore.isDrawerOpen });
 
-  const handleDragEnter = () => !homeStore.isDraggingOut && homeStore.setIsDraggingIn(true);
+  const handleDragEnter = (event: React.DragEvent) => {
+    const items = [...event.dataTransfer.items].filter((item) => item.kind === "file");
+    if (items.length > 0 && !homeStore.isDraggingOut) homeStore.setIsDraggingIn(true);
+  };
 
   const handleDragLeave = () => homeStore.setIsDraggingIn(false);
 
