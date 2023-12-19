@@ -41,6 +41,7 @@ export const FileCollectionEditor = observer(() => {
   const [draggedFileId, setDraggedFileId] = useState<string>(null);
   const [isAddingFiles, setIsAddingFiles] = useState(false);
   const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [title, setTitle] = useState<string>(fileCollectionStore.activeCollection?.title);
 
@@ -53,7 +54,12 @@ export const FileCollectionEditor = observer(() => {
 
   useEffect(() => {
     if (!fileCollectionStore.activeCollectionId) return;
-    fileCollectionStore.loadActiveCollection();
+
+    (async () => {
+      setIsLoading(true);
+      await fileCollectionStore.loadActiveCollection();
+      setIsLoading(false);
+    })();
 
     return () => {
       fileCollectionStore.setActiveCollectionId(null);

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { observer } from "mobx-react-lite";
-import { useStores } from "store";
+import { TagOption, useStores } from "store";
 import { Button, CenteredText, FileCard, Input, Modal, TagInput, Text, View } from "components";
 import { FileCollection } from ".";
 import { colors, makeClasses } from "utils";
@@ -9,7 +9,7 @@ import { toast } from "react-toastify";
 export const FileCollectionManager = observer(() => {
   const { css } = useClasses(null);
 
-  const { fileCollectionStore } = useStores();
+  const { fileCollectionStore, tagStore } = useStores();
 
   const hasAnySelected = fileCollectionStore.selectedFileIds.length > 0;
   const hasOneSelected = fileCollectionStore.selectedFiles.length === 1;
@@ -17,16 +17,17 @@ export const FileCollectionManager = observer(() => {
     ? fileCollectionStore.listByFileId(fileCollectionStore.selectedFileIds[0])
     : [];
 
-  const [searchValue, setSearchValue] = useState("");
+  const [tagSearchValue, setTagSearchValue] = useState<TagOption[]>([]);
+  const [titleSearchValue, setTitleSearchValue] = useState("");
 
   useEffect(() => {
     fileCollectionStore.loadSelectedFiles();
   }, [fileCollectionStore.selectedFileIds]);
 
   const filteredCollections = useMemo(() => {
-    const searchStr = searchValue.toLowerCase();
+    const searchStr = titleSearchValue.toLowerCase();
     return fileCollectionStore.collections.filter((c) => c.title.toLowerCase().includes(searchStr));
-  }, [fileCollectionStore.collections.toString(), searchValue]);
+  }, [fileCollectionStore.collections.toString(), tagSearchValue, titleSearchValue]);
 
   const closeModal = () => fileCollectionStore.setIsCollectionManagerOpen(false);
 
@@ -43,7 +44,6 @@ export const FileCollectionManager = observer(() => {
     else {
       fileCollectionStore.setActiveCollectionId(res.data.id);
       fileCollectionStore.setIsCollectionEditorOpen(true);
-      closeModal();
     }
   };
 
@@ -109,8 +109,23 @@ export const FileCollectionManager = observer(() => {
           <View className={css.leftColumn}>
             <Text className={css.sectionTitle}>{"Search"}</Text>
 
-            <View className={css.container}>
-              <Input label="Search" value={searchValue} setValue={setSearchValue} fullWidth />
+            <View column className={css.container}>
+              <Input
+                label="Search Titles"
+                value={titleSearchValue}
+                setValue={setTitleSearchValue}
+                fullWidth
+                margins={{ bottom: "0.5rem" }}
+              />
+
+              <TagInput
+                label="Search Tags"
+                value={tagSearchValue}
+                onChange={setTagSearchValue}
+                options={tagStore.tagOptions}
+                fullWidth
+                hasSearchMenu
+              />
             </View>
           </View>
 
@@ -151,7 +166,6 @@ const useClasses = makeClasses({
     borderRadius: "0.3rem",
     padding: "0.5rem",
     minHeight: "15rem",
-    maxHeight: "20rem",
     height: "100%",
     width: "100%",
     backgroundColor: colors.grey["800"],

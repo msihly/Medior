@@ -90,7 +90,6 @@ export class FileCollectionStore extends Model({
   @modelAction
   setIsCollectionEditorOpen(isOpen: boolean) {
     this.isCollectionEditorOpen = isOpen;
-    if (isOpen) this.isCollectionManagerOpen = false;
   }
 
   @modelAction
@@ -168,7 +167,8 @@ export class FileCollectionStore extends Model({
     return yield* _await(
       handleErrors(async () => {
         const collectionsRes = await trpc.listCollections.mutate({ ids: collectionIds });
-        if (collectionsRes.success && withOverwrite) this.overwrite(collectionsRes.data);
+        if (!collectionsRes.success) throw new Error(collectionsRes.error);
+        if (withOverwrite) this.overwrite(collectionsRes.data);
         return collectionsRes.data;
       })
     );
@@ -265,15 +265,15 @@ export class FileCollectionStore extends Model({
   @modelFlow
   updateCollection = _async(function* (
     this: FileCollectionStore,
-    collection: ModelCreationData<FileCollection>
+    updates: ModelCreationData<FileCollection>
   ) {
     return yield* _await(
       handleErrors(async () => {
-        const res = await trpc.updateCollection.mutate({ collection });
+        const res = await trpc.updateCollection.mutate(updates);
         if (!res.success) throw new Error(res.error);
-        this.getById(collection.id).update(collection);
+        this.getById(updates.id).update(updates);
 
-        if (this.activeCollectionId === collection.id) this.loadActiveCollection();
+        if (this.activeCollectionId === updates.id) this.loadActiveCollection();
       })
     );
   });
