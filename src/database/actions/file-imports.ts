@@ -21,10 +21,10 @@ export const addTagsToBatch = ({ batchId, tagIds }: AddTagsToBatchInput) =>
       )
   );
 
-export const completeImportBatch = ({ id }: CompleteImportBatchInput) =>
+export const completeImportBatch = ({ collectionId, id }: CompleteImportBatchInput) =>
   handleErrors(async () => {
     const completedAt = dayjs().toISOString();
-    await FileImportBatchModel.updateOne({ _id: id }, { completedAt });
+    await FileImportBatchModel.updateOne({ _id: id }, { collectionId, completedAt });
     return completedAt;
   });
 

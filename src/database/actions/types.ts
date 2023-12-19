@@ -25,7 +25,7 @@ export type OnCollectionCreatedInput = { collection: FileCollection };
 /* ------------------------------ FILE IMPORTS ------------------------------ */
 export type AddTagsToBatchInput = { batchId: string; tagIds: string[] };
 
-export type CompleteImportBatchInput = { id: string };
+export type CompleteImportBatchInput = { collectionId?: string; id: string };
 
 export type CreateImportBatchInput = {
   collectionTitle?: string;

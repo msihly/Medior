@@ -157,18 +157,6 @@ export class ImportStore extends Model({
           }
         }
 
-        if (batch.collectionTitle) {
-          try {
-            const res = await trpc.createCollection.mutate({
-              fileIdIndexes: batch.completed.map((f, i) => ({ fileId: f.fileId, index: i })),
-              title: batch.collectionTitle,
-            });
-            if (!res.success) throw new Error(res.error);
-          } catch (err) {
-            console.error("Error creating collection:", err);
-          }
-        }
-
         if (batch.deleteOnImport) {
           try {
             const parentDirs = [...new Set(batch.imports.map((file) => path.dirname(file.path)))];
@@ -198,13 +186,24 @@ export class ImportStore extends Model({
     return yield* _await(
       handleErrors(async () => {
         const rootStore = getRootStore<RootStore>(this);
+        const batch = this.getById(id);
+
+        let collectionId: string = null;
+        if (batch.collectionTitle) {
+          const res = await rootStore.fileCollectionStore.createCollection({
+            fileIdIndexes: batch.completed.map((f, i) => ({ fileId: f.fileId, index: i })),
+            title: batch.collectionTitle,
+          });
+          if (!res.success) throw new Error(res.error);
+          collectionId = res.data.id;
+        }
+
         await rootStore.homeStore.reloadDisplayedFiles({ rootStore });
 
-        const batch = this.getById(id);
         await Promise.all(batch.tagIds.map((id) => rootStore.tagStore.refreshTagCount({ id })));
 
-        const completedAt = (await trpc.completeImportBatch.mutate({ id }))?.data;
-        batch.update({ completedAt });
+        const completedAt = (await trpc.completeImportBatch.mutate({ collectionId, id }))?.data;
+        batch.update({ collectionId, completedAt });
       })
     );
   });
@@ -394,15 +393,15 @@ export class ImportStore extends Model({
   }
 
   @computed
-  get incompleteBatches() {
-    return this.batches.filter((batch) => batch.imports?.length > 0 && batch.nextImport);
-  }
-
-  @computed
   get editorRootFolder() {
     return (
       this.editorRootFolderPath.length &&
       this.editorRootFolderPath.split(path.sep)[this.editorRootFolderIndex]
     );
+  }
+
+  @computed
+  get incompleteBatches() {
+    return this.batches.filter((batch) => batch.imports?.length > 0 && batch.nextImport);
   }
 }

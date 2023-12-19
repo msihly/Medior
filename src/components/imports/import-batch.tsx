@@ -13,7 +13,7 @@ interface ImportBatchProps {
 }
 
 export const ImportBatch = observer(({ createdAt }: ImportBatchProps) => {
-  const { homeStore, importStore } = useStores();
+  const { fileCollectionStore, homeStore, importStore } = useStores();
 
   const batch = importStore.getByCreatedAt(createdAt);
   const completedFileIds = batch.completed.map((imp) => imp.fileId);
@@ -23,16 +23,23 @@ export const ImportBatch = observer(({ createdAt }: ImportBatchProps) => {
 
   const { css } = useClasses({ expanded, hasTags: batch.tagIds?.length > 0 });
 
-  const handleTag = () => {
-    homeStore.setTaggerBatchId(batch.id);
-    homeStore.setTaggerFileIds([...completedFileIds]);
-    homeStore.setIsTaggerOpen(true);
+  const handleCollections = () => {
+    if (!fileCollectionStore.getById(batch.collectionId))
+      return toast.error("Collection not found");
+    fileCollectionStore.setActiveCollectionId(batch.collectionId);
+    fileCollectionStore.setIsCollectionEditorOpen(true);
   };
 
   const handleDelete = async () => {
     const res = await importStore.deleteImportBatch({ id: batch.id });
     if (!res.success) toast.error(`Error deleting import batch: ${res?.error}`);
     else toast.success("Import batch deleted");
+  };
+
+  const handleTag = () => {
+    homeStore.setTaggerBatchId(batch.id);
+    homeStore.setTaggerFileIds([...completedFileIds]);
+    homeStore.setIsTaggerOpen(true);
   };
 
   const toggleOpen = () => setExpanded(!expanded);
@@ -66,6 +73,14 @@ export const ImportBatch = observer(({ createdAt }: ImportBatchProps) => {
             </View>
           </View>
         </View>
+
+        {batch.collectionId && (
+          <IconButton
+            name="Collections"
+            onClick={handleCollections}
+            iconProps={{ color: colors.grey["300"], size: "0.9em" }}
+          />
+        )}
 
         <IconButton
           name="Label"
