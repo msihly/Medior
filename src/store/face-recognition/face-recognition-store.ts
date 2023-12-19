@@ -1,4 +1,4 @@
-import { FaceMatcher, LabeledFaceDescriptors } from "@vladmandic/face-api";
+import type { LabeledFaceDescriptors } from "@vladmandic/face-api";
 import { computed } from "mobx";
 import {
   _async,
@@ -140,6 +140,8 @@ export class FaceRecognitionStore extends Model({
   findMatches = _async(function* (this: FaceRecognitionStore, imagePath: string) {
     return yield* _await(
       handleErrors(async () => {
+        const { FaceMatcher, LabeledFaceDescriptors } = await import("@vladmandic/face-api");
+
         const facesRes = await this.detectFaces(imagePath);
         if (!facesRes.success) throw new Error(facesRes.error);
 
