@@ -3,11 +3,15 @@ import path from "path";
 import { readFile } from "fs/promises";
 import { logToFile, setLogDir } from "./utils";
 
-const baseUrl = !app.isPackaged
-  ? "http://localhost:3333"
-  : `file://${path.join(__dirname, "..", "index.html")}`;
+const isDevWatch = !!process.env.DEV_WATCH;
+const isPackaged = app.isPackaged;
+const isBundled = isPackaged || isDevWatch;
 
-const folderPath = app.isPackaged ? process.resourcesPath : __dirname;
+const baseUrl = isBundled
+  ? `file://${path.join(__dirname, "..", isPackaged ? "" : "build", "index.html")}`
+  : "http://localhost:3333";
+
+const folderPath = isPackaged ? process.resourcesPath : __dirname;
 app.setPath("appData", folderPath);
 app.setPath("userData", path.resolve(folderPath, "userData"));
 app.setAppLogsPath(path.resolve(folderPath, "logs"));
@@ -19,10 +23,7 @@ let mainWindow = null;
 const createMainWindow = async () => {
   logToFile("debug", "Loading servers...");
 
-  const serverUrl = path.resolve(
-    folderPath,
-    `${app.isPackaged ? "extraResources\\" : ""}server.js`
-  );
+  const serverUrl = path.resolve(folderPath, `${isPackaged ? "extraResources\\" : ""}server.js`);
 
   /** Using eval is the only method that works with packaged executable for indeterminable reason. */
   eval(await readFile(serverUrl, { encoding: "utf8" }));
@@ -36,7 +37,7 @@ const createMainWindow = async () => {
   const remoteMain = await import("@electron/remote/main");
   remoteMain.initialize();
   remoteMain.enable(mainWindow.webContents);
-  if (!app.isPackaged) mainWindow.webContents.openDevTools({ mode: "left" });
+  if (!isPackaged) mainWindow.webContents.openDevTools({ mode: "left" });
 
   logToFile("debug", "Loading main window...");
   await mainWindow.loadURL(baseUrl);
@@ -91,12 +92,12 @@ const createCarouselWindow = async ({ fileId, height, selectedFileIds, width }) 
 
   const remoteMain = await import("@electron/remote/main");
   remoteMain.enable(carouselWindow.webContents);
-  // if (!app.isPackaged) carouselWindow.webContents.openDevTools({ mode: "detach" });
+  // if (!isPackaged) carouselWindow.webContents.openDevTools({ mode: "detach" });
 
   carouselWindow.show();
 
   logToFile("debug", "Loading carousel window...");
-  await carouselWindow.loadURL(`${baseUrl}${app.isPackaged ? "#" : "/"}carousel`);
+  await carouselWindow.loadURL(`${baseUrl}${isBundled ? "#" : "/"}carousel`);
   logToFile("debug", "Carousel window loaded.");
 
   carouselWindow.webContents.send("init", { fileId, selectedFileIds });
