@@ -9,8 +9,9 @@ export const formatBytes = (bytes: number) => {
 
 export const leadZeros = (num: number, places: number) => String(num).padStart(places, "0");
 
-export const regexEscape = (string: string) => {
-  if (string === undefined)
-    return console.debug("String reference is undefined in regexEscape(...)");
-  return String(string).replace(/[-/\\^$*+?.()|[\]{}]/g, "\\$&");
-};
+export const regexEscape = (string: string, replacementOnly = false) =>
+  string
+    ? replacementOnly
+      ? String(string).replace(/\\/g, "\\\\")
+      : String(string).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+    : string;

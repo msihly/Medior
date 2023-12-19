@@ -140,8 +140,22 @@ export const Button = ({
   );
 };
 
+interface ClassesProps {
+  color: string;
+  isCircle: boolean;
+  isLink: boolean;
+  margins?: Margins;
+  outlined: boolean;
+  outlineFill: string;
+  padding?: Padding;
+  textColor?: string;
+}
+
 const useClasses = makeClasses(
-  (_, { color, isCircle, isLink, margins, outlined, outlineFill, padding, textColor }) => ({
+  (
+    _,
+    { color, isCircle, isLink, margins, outlined, outlineFill, padding, textColor }: ClassesProps
+  ) => ({
     root: {
       display: "flex",
       flexDirection: "row",
@@ -155,10 +169,10 @@ const useClasses = makeClasses(
       marginRight: margins?.right,
       marginLeft: margins?.left,
       padding: padding?.all,
-      paddingTop: padding?.top ?? isLink ? 0 : undefined,
-      paddingBottom: padding?.bottom ?? isLink ? 0 : undefined,
-      paddingRight: padding?.right ?? isLink ? 0 : undefined,
-      paddingLeft: padding?.left ?? isLink ? 0 : undefined,
+      paddingTop: padding?.top ?? (isLink ? 0 : undefined),
+      paddingBottom: padding?.bottom ?? (isLink ? 0 : undefined),
+      paddingRight: padding?.right ?? (isLink ? 0 : undefined),
+      paddingLeft: padding?.left ?? (isLink ? 0 : undefined),
       minWidth: "fit-content",
       backgroundColor: isLink ? "transparent" : outlined ? outlineFill : color,
       boxShadow: isLink ? "none" : undefined,

@@ -23,11 +23,11 @@ type ClassName<T> = { [P in keyof T]: CSSObject };
 
 const { makeStyles } = createMakeAndWithStyles({ useTheme });
 
-export const makeClasses = <T extends ClassName<T>>(
-  fnOrObj: ClassName<T> | ((theme: Theme, props: Record<string, any>) => ClassName<T>)
+export const makeClasses = <T extends ClassName<T>, P = Record<string, any>>(
+  fnOrObj: ClassName<T> | ((theme: Theme, props: P) => ClassName<T>)
 ) => {
-  return (params: CSSObject | Record<string, any>) => {
-    const { classes: css, cx } = makeStyles<typeof params>()(fnOrObj)(params);
+  return (params: P) => {
+    const { classes: css, cx } = makeStyles<P>()(fnOrObj)(params);
     return { css, cx } as { css: Record<keyof T, string>; cx: Cx };
   };
 };
@@ -36,7 +36,8 @@ export const colors = {
   ...muiColors,
   button: {
     blue: muiColors.blue["800"],
-    grey: muiColors.grey["300"],
+    grey: muiColors.grey["700"],
+    darkGrey: muiColors.grey["900"],
     purple: muiColors.purple["700"],
     red: muiColors.red["900"],
   },

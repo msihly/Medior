@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
-import { Button, FileCard, Input, Modal, Text, View } from "components";
+import { Button, CenteredText, FileCard, Input, Modal, TagInput, Text, View } from "components";
 import { FileCollection } from ".";
 import { colors, makeClasses } from "utils";
 import { toast } from "react-toastify";
@@ -68,7 +68,7 @@ export const FileCollectionManager = observer(() => {
                     disabled
                   />
                 ) : (
-                  <EmptyText text="Loading selected file..." />
+                  <CenteredText text="Loading selected file..." />
                 )}
               </View>
             </View>
@@ -84,7 +84,7 @@ export const FileCollectionManager = observer(() => {
                     <FileCollection key={c.id} id={c.id} width="12rem" height="14rem" />
                   ))
                 ) : (
-                  <EmptyText text="No collections found" />
+                  <CenteredText text="No collections found" />
                 )}
               </View>
             </View>
@@ -99,7 +99,7 @@ export const FileCollectionManager = observer(() => {
                   <FileCard key={f.id} file={f} width="12rem" height="14rem" disabled />
                 ))
               ) : (
-                <EmptyText text="Loading selected files..." />
+                <CenteredText text="Loading selected files..." />
               )}
             </View>
           </View>
@@ -123,7 +123,7 @@ export const FileCollectionManager = observer(() => {
                   <FileCollection key={c.id} id={c.id} width="12rem" height="14rem" />
                 ))
               ) : (
-                <EmptyText text="No collections found" />
+                <CenteredText text="No collections found" />
               )}
             </View>
           </View>
@@ -143,12 +143,6 @@ export const FileCollectionManager = observer(() => {
     </Modal.Container>
   );
 });
-
-const EmptyText = ({ text }: { text: string }) => (
-  <View row justify="center" align="center" flex={1}>
-    <Text color={colors.grey["600"]}>{text}</Text>
-  </View>
-);
 
 const useClasses = makeClasses({
   container: {

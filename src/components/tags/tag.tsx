@@ -43,7 +43,7 @@ export const Tag = observer(
           avatar={<Avatar className={css.count}>{formatter.format(tag?.count)}</Avatar>}
           label={
             <View row align="center">
-              <Text tooltip={tag?.label} className={css.label}>
+              <Text tooltip={tag?.label} tooltipProps={{ flexShrink: 1 }} className={css.label}>
                 {tag?.label}
               </Text>
 

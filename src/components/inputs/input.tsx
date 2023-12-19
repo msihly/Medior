@@ -9,6 +9,7 @@ import Color from "color";
 export interface InputProps extends Omit<TextFieldProps, "color" | "onChange" | "helperText"> {
   className?: string;
   color?: string;
+  flexShrink?: CSSObject["flexShrink"];
   hasHelper?: boolean;
   helperText?: ReactNode;
   margins?: Margins;
@@ -25,6 +26,7 @@ export const Input = forwardRef(
       children,
       className,
       color,
+      flexShrink,
       hasHelper = false,
       helperText,
       inputProps,
@@ -41,6 +43,7 @@ export const Input = forwardRef(
   ) => {
     const { css, cx } = useClasses({
       color,
+      flexShrink,
       hasHelper,
       hasHelperText: !!helperText,
       margins,
@@ -78,14 +81,15 @@ export const Input = forwardRef(
 );
 
 const useClasses = makeClasses(
-  (_, { color, hasHelper, hasHelperText, margins, textAlign, width }) => ({
+  (_, { color, flexShrink, hasHelper, hasHelperText, margins, textAlign, width }) => ({
     input: {
+      flexShrink,
       margin: margins.all,
       marginTop: margins.top,
       marginBottom: margins.bottom ?? (hasHelper && !hasHelperText ? "1.2em" : 0),
       marginRight: margins.right,
       marginLeft: margins.left,
-      width: width,
+      width,
       "& input": {
         textAlign,
       },

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
-import { Button, IconButton, ImportBatch, Modal, Text, View } from "components";
+import { Button, CenteredText, IconButton, ImportBatch, Modal, Text, View } from "components";
 import { colors, makeClasses } from "utils";
 import { toast } from "react-toastify";
 
@@ -65,9 +65,7 @@ export const ImportManager = observer(() => {
               <ImportBatch key={`${batch.createdAt}-${i}`} createdAt={batch.createdAt} />
             ))
         ) : (
-          <View className={css.emptyContainer}>
-            <Text color={colors.grey["300"]}>{"No Imports"}</Text>
-          </View>
+          <CenteredText text="No Imports" color={colors.grey["300"]} />
         )}
       </Modal.Content>
 
@@ -79,12 +77,6 @@ export const ImportManager = observer(() => {
 });
 
 const useClasses = makeClasses({
-  emptyContainer: {
-    display: "flex",
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
   modalContent: {
     flexDirection: "column",
     alignItems: "center",

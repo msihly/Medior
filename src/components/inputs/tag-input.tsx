@@ -68,6 +68,7 @@ export type TagInputProps = Omit<
   options?: TagOption[];
   onChange?: (val: TagOption[]) => void;
   onSelect?: (val: TagOption) => void;
+  /** Only for specific use cases. Use onChange instead. */
   setValue?: Dispatch<SetStateAction<TagOption[]>>;
   value: TagOption[];
   width?: CSSObject["width"];
@@ -266,6 +267,7 @@ export const TagInput = observer(
           open={isOpen}
           onOpen={handleOpen}
           onClose={handleClose}
+          className={css.root}
           {...props}
         />
       );
@@ -303,6 +305,9 @@ const useClasses = makeClasses((_, { center, margins, opaque, width }) => ({
       // padding: "0 !important",
       minWidth: "0 !important",
     },
+  },
+  root: {
+    width,
   },
   tag: {
     alignSelf: "flex-start",

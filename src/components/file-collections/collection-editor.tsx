@@ -15,6 +15,7 @@ import { SortableContext, SortingStrategy, arrayMove } from "@alissavrk/dnd-kit-
 import { Pagination } from "@mui/material";
 import {
   Button,
+  CenteredText,
   FileCard,
   FileCollectionFile,
   Input,
@@ -239,7 +240,7 @@ export const FileCollectionEditor = observer(() => {
                 </DndContext>
               </View>
             ) : (
-              <EmptyText text="Loading files..." />
+              <CenteredText text={isLoading ? "Loading files..." : "No files found"} />
             )}
           </View>
         </View>
@@ -266,12 +267,6 @@ export const FileCollectionEditor = observer(() => {
     </Modal.Container>
   );
 });
-
-const EmptyText = ({ text }: { text: string }) => (
-  <View row justify="center" align="center" flex={1}>
-    <Text color={colors.grey["600"]}>{text}</Text>
-  </View>
-);
 
 const useClasses = makeClasses({
   body: {

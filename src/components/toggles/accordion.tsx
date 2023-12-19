@@ -31,7 +31,7 @@ export const Accordion = ({
     setExpanded?.(!isExpanded);
   };
 
-  const { css, cx } = useClasses({ dense, expanded, fullWidth });
+  const { css, cx } = useClasses({ dense, expanded: isExpanded, fullWidth });
 
   return (
     <MuiAccordion
@@ -55,7 +55,7 @@ export const Accordion = ({
   );
 };
 
-const useClasses = makeClasses((_, { dense, fullWidth }) => ({
+const useClasses = makeClasses((_, { dense, expanded, fullWidth }) => ({
   accordion: {
     margin: 0,
     padding: 0,
@@ -71,6 +71,8 @@ const useClasses = makeClasses((_, { dense, fullWidth }) => ({
   },
   button: {
     justifyContent: "space-between",
+    borderBottomRightRadius: expanded ? 0 : undefined,
+    borderBottomLeftRadius: expanded ? 0 : undefined,
     padding: dense ? "0.2rem 0.6rem" : "0.5rem 1rem",
     fontSize: "1em",
     textTransform: "capitalize",

@@ -65,14 +65,15 @@ export { Table } from "./table";
 export { ConfirmDeleteModal, Tag, Tagger, TagEditor, TagManager, TagSearch } from "./tags";
 
 // text
-export { Text } from "./text";
-export type { TextProps } from "./text";
+export { CenteredText, Detail, DetailRow, Text } from "./text";
+export type { CenteredTextProps, DetailProps, DetailRowProps, TextProps } from "./text";
 
 // toast
 export { ToastContainer } from "./toast";
 
 // toggles
 export { Accordion, Checkbox } from "./toggles";
+export type { AccordionProps, CheckboxProps } from "./toggles";
 
 // tooltip
 export { Tooltip, TooltipWrapper } from "./tooltip";
