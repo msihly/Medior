@@ -100,7 +100,7 @@ export type {
   SetFileIsArchivedInput,
   SetFileRatingInput,
   UpdateFileInput,
-  listFilteredFileIdsInput,
+  ListFilteredFileIdsInput,
   /** Tags */
   AddChildTagIdsToTagsInput,
   AddParentTagIdsToTagsInput,

@@ -12,7 +12,7 @@ export type CreateCollectionInput = {
 
 export type DeleteCollectionInput = { id: string };
 
-export type UpdateCollectionInput = { collection: Partial<FileCollection> & { id: string } };
+export type UpdateCollectionInput = Partial<FileCollection> & { id: string };
 
 export type LoadCollectionsInput = { collectionIds?: string[]; withOverwrite?: boolean };
 
@@ -91,7 +91,7 @@ export type ListFilesInput = { ids?: string[] };
 
 export type ListFilesByTagIdsInput = { tagIds: string[] };
 
-export type listFilteredFileIdsInput = {
+export type ListFilteredFileIdsInput = {
   excludedAnyTagIds: string[];
   includedAllTagIds: string[];
   includedAnyTagIds: string[];

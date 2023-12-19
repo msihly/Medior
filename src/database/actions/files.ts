@@ -24,7 +24,8 @@ import {
   SetFileIsArchivedInput,
   SetFileRatingInput,
   UpdateFileInput,
-  listFilteredFileIdsInput,
+  deleteCollection,
+  ListFilteredFileIdsInput,
   updateCollection,
 } from "database";
 import { dayjs, handleErrors, socket, trpc } from "utils";
@@ -54,16 +55,14 @@ export const deleteFiles = ({ fileIds }: DeleteFilesInput) =>
     ).map((c) => leanModelToJson<FileCollection>(c));
 
     await Promise.all(
-      collections.map((collection) =>
-        updateCollection({
-          collection: {
-            ...collection,
-            fileIdIndexes: collection.fileIdIndexes.filter(
-              (fileIdIndex) => !fileIds.includes(fileIdIndex.fileId)
-            ),
-          },
-        })
-      )
+      collections.map((collection) => {
+        const fileIdIndexes = collection.fileIdIndexes.filter(
+          (fileIdIndex) => !fileIds.includes(String(fileIdIndex.fileId))
+        );
+
+        if (!fileIdIndexes.length) return deleteCollection({ id: collection.id });
+        return updateCollection({ fileIdIndexes, id: collection.id });
+      })
     );
 
     await FileModel.deleteMany({ _id: { $in: fileIds } });
@@ -179,7 +178,7 @@ export const listFilteredFileIds = ({
   selectedImageTypes,
   selectedVideoTypes,
   sortKey,
-}: listFilteredFileIdsInput) =>
+}: ListFilteredFileIdsInput) =>
   handleErrors(async () => {
     const enabledExts = Object.entries({
       ...selectedImageTypes,

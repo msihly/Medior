@@ -1,6 +1,7 @@
 import {
   CreateCollectionInput,
   DeleteCollectionInput,
+  File,
   FileCollection,
   FileCollectionModel,
   ListCollectionsInput,
@@ -11,6 +12,13 @@ import {
 import { dayjs, handleErrors, socket } from "utils";
 import { leanModelToJson } from "./utils";
 
+const makeCollAttrs = (files: File[]) => {
+  const rating = files.reduce((acc, f) => acc + f.rating, 0) / files.length;
+  const tagIds = [...new Set(files.flatMap((f) => f.tagIds))];
+  const thumbPaths = files.slice(0, 10).map((f) => f.thumbPaths[0]);
+  return { rating, tagIds, thumbPaths };
+};
+
 export const createCollection = ({ fileIdIndexes, title }: CreateCollectionInput) =>
   handleErrors(async () => {
     const filesRes = await listFiles({ ids: fileIdIndexes.map((f) => f.fileId) });
@@ -19,12 +27,10 @@ export const createCollection = ({ fileIdIndexes, title }: CreateCollectionInput
 
     const dateCreated = dayjs().toISOString();
     const collection = {
+      ...makeCollAttrs(files),
       dateCreated,
       dateModified: dateCreated,
       fileIdIndexes,
-      rating: files.reduce((acc, f) => acc + f.rating, 0) / files.length,
-      tagIds: [...new Set(files.flatMap((f) => f.tagIds))],
-      thumbPaths: files.slice(0, 10).map((f) => f.thumbPaths[0]),
       title,
     };
 
@@ -45,19 +51,20 @@ export const listCollections = ({ ids }: ListCollectionsInput = {}) =>
 export const onCollectionCreated = async ({ collection }: OnCollectionCreatedInput) =>
   handleErrors(async () => !!socket.emit("collectionCreated", { collection }));
 
-export const updateCollection = ({ collection }: UpdateCollectionInput) =>
+export const updateCollection = (updates: UpdateCollectionInput) =>
   handleErrors(async () => {
-    const updates = { ...collection, dateModified: dayjs().toISOString() };
+    updates.dateModified = dayjs().toISOString();
 
     if (updates.fileIdIndexes) {
       const filesRes = await listFiles({ ids: updates.fileIdIndexes.map((f) => f.fileId) });
       if (!filesRes.success) throw new Error(filesRes.error);
       const files = filesRes.data;
 
-      updates.rating = files.reduce((acc, f) => acc + f.rating, 0) / files.length;
-      updates.tagIds = [...new Set(files.flatMap((f) => f.tagIds))];
-      updates.thumbPaths = files.slice(0, 10).map((f) => f.thumbPaths[0]);
+      const { rating, tagIds, thumbPaths } = makeCollAttrs(files);
+      updates.rating = rating;
+      updates.tagIds = tagIds;
+      updates.thumbPaths = thumbPaths;
     }
 
-    return await FileCollectionModel.updateOne({ _id: collection.id }, updates);
+    return await FileCollectionModel.updateOne({ _id: updates.id }, updates);
   });
