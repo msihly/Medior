@@ -21,7 +21,7 @@ export const Tag = observer(
     id,
     menu,
     menuButtonProps = {},
-    size = "medium",
+    size = "small",
     tag,
     ...props
   }: TagProps) => {
@@ -55,6 +55,7 @@ export const Tag = observer(
                   padding={{ all: "0.25em" }}
                   onClick={handleOpen}
                   margins={{ left: "0.3em", right: "-0.4rem" }}
+                  iconSize="1.6em"
                   {...menuButtonProps}
                 />
               )}
@@ -78,13 +79,15 @@ const formatter = Intl.NumberFormat("en", { notation: "compact" });
 const useClasses = makeClasses((_, { color, size }) => ({
   chip: {
     marginRight: "0.2em",
+    padding: "0.3em 0",
+    height: size === "medium" ? 32 : 26,
   },
   count: {
     background: `linear-gradient(to bottom right, ${color}, ${Color(color).darken(0.3).string()})`,
     "&.MuiChip-avatar": {
       marginLeft: "0.25em",
-      width: size === "medium" ? 28 : 21,
-      height: size === "medium" ? 28 : 21,
+      width: size === "medium" ? 28 : 23,
+      height: size === "medium" ? 28 : 23,
       fontSize: "0.75em",
     },
   },

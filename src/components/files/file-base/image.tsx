@@ -54,7 +54,7 @@ export const Image = ({
   const handleMouseEnter = () => {
     clearInterval(thumbInterval.current); /** Safety check for failed onMouseLeave */
     thumbInterval.current = setInterval(() => {
-      setThumbIndex((thumbIndex) => (thumbIndex + 1 === thumbPaths.length ? 0 : thumbIndex + 1));
+      setThumbIndex((thumbIndex) => (thumbIndex + 1 === thumbPaths?.length ? 0 : thumbIndex + 1));
     }, 300);
   };
 
@@ -78,11 +78,11 @@ export const Image = ({
 
   return (
     <View
-      onMouseEnter={!disabled && thumbPaths.length > 1 ? handleMouseEnter : undefined}
-      onMouseLeave={!disabled && thumbPaths.length > 1 ? handleMouseLeave : undefined}
+      onMouseEnter={!disabled && thumbPaths?.length > 1 ? handleMouseEnter : undefined}
+      onMouseLeave={!disabled && thumbPaths?.length > 1 ? handleMouseLeave : undefined}
       className={css.imageContainer}
     >
-      {thumbPaths.length > 0 ? (
+      {thumbPaths?.length > 0 ? (
         <img
           {...{ draggable, loading, onDragEnd, onDragStart }}
           src={thumbPaths[thumbIndex]}

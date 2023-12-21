@@ -6,7 +6,7 @@ import { colors, dayjs, formatBytes, makeClasses } from "utils";
 interface TooltipProps {
   disabled?: boolean;
   file: File;
-  onTagPress: (id: string) => any;
+  onTagPress?: (id: string) => any;
 }
 
 export const Tooltip = observer(({ disabled, file, onTagPress }: TooltipProps) => {
@@ -22,7 +22,7 @@ export const Tooltip = observer(({ disabled, file, onTagPress }: TooltipProps) =
                 <Tag
                   key={tag.id}
                   tag={tag}
-                  onClick={!disabled ? () => onTagPress(tag.id) : undefined}
+                  onClick={!disabled ? () => onTagPress?.(tag.id) : undefined}
                   size="small"
                 />
               ))}

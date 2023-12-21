@@ -7,9 +7,10 @@ export interface DetailProps {
   labelProps?: Partial<TextProps>;
   value: ReactNode;
   valueProps?: Partial<TextProps>;
+  withTooltip?: boolean;
 }
 
-export const Detail = ({ label, labelProps, value, valueProps }: DetailProps) => {
+export const Detail = ({ label, labelProps, value, valueProps, withTooltip }: DetailProps) => {
   const { css, cx } = useClasses(null);
 
   return (
@@ -22,7 +23,11 @@ export const Detail = ({ label, labelProps, value, valueProps }: DetailProps) =>
         label
       )}
       {typeof value === "string" ? (
-        <Text {...valueProps} className={cx(css.value, valueProps?.className)}>
+        <Text
+          tooltip={withTooltip ? value : undefined}
+          {...valueProps}
+          className={cx(css.value, valueProps?.className)}
+        >
           {value}
         </Text>
       ) : (

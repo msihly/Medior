@@ -50,6 +50,24 @@ export const debounce = (fn, delay) => {
   };
 };
 
+export type DeepPartial<T> = { [P in keyof T]?: DeepPartial<T[P]> };
+
+export const deepMerge = <T>(target: T, ...sources: DeepPartial<T>[]): T => {
+  if (!sources.length) return target;
+  const source = sources.shift();
+
+  if (isObject(target) && isObject(source)) {
+    for (const key in source) {
+      if (isObject(source[key])) {
+        if (!target[key] || !isObject(target[key])) target[key] = {} as any;
+        target[key] = deepMerge(target[key], source[key] as any);
+      } else target[key] = source[key] as any;
+    }
+  }
+
+  return deepMerge(target, ...(sources as DeepPartial<T>[]));
+};
+
 export const generateRandomString = () => Math.random().toString(36).substring(2, 15);
 
 export const handleErrors = async <T>(
@@ -62,6 +80,9 @@ export const handleErrors = async <T>(
     return { success: false, error: err.message };
   }
 };
+
+export const isObject = (item: any): boolean =>
+  item && typeof item === "object" && !Array.isArray(item);
 
 export const parseLocalStorage = (item, defaultValue = null) => {
   const stored = localStorage.getItem(item);
