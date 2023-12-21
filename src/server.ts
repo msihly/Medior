@@ -250,16 +250,21 @@ module.exports = (async () => {
     logToFile("debug", `Socket server listening on port ${socketPort}.`);
     socket.emit("connected");
 
-    socket.on("collectionCreated", (...args) =>
-      socket.broadcast.emit("collectionCreated", ...args)
+    [
+      "collectionCreated",
+      "filesArchived",
+      "filesDeleted",
+      "filesUpdated",
+      "fileTagsUpdated",
+      "tagCreated",
+      "tagDeleted",
+      "tagUpdated",
+    ].forEach((event: SocketEmitEvent) =>
+      socket.on(event, (...args: any[]) => {
+        // @ts-expect-error
+        socket.broadcast.emit(event, ...args);
+      })
     );
-    socket.on("filesArchived", (...args) => socket.broadcast.emit("filesArchived", ...args));
-    socket.on("filesDeleted", (...args) => socket.broadcast.emit("filesDeleted", ...args));
-    socket.on("filesUpdated", (...args) => socket.broadcast.emit("filesUpdated", ...args));
-    socket.on("fileTagsUpdated", (...args) => socket.broadcast.emit("fileTagsUpdated", ...args));
-    socket.on("tagCreated", (...args) => socket.broadcast.emit("tagCreated", ...args));
-    socket.on("tagDeleted", (...args) => socket.broadcast.emit("tagDeleted", ...args));
-    socket.on("tagUpdated", (...args) => socket.broadcast.emit("tagUpdated", ...args));
   });
 
   setupSocketIO();

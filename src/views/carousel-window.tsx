@@ -1,5 +1,6 @@
 import { ipcRenderer } from "electron";
 import { useEffect, useRef } from "react";
+import { SocketEmitEvent } from "server";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
 import {
@@ -44,13 +45,13 @@ export const CarouselWindow = observer(() => {
 
         rootRef.current?.focus();
 
-        socket.on("filesArchived", ({ fileIds }) => {
-          carouselStore.removeFiles({ fileIds, rootStore });
-        });
+        ["filesArchived", "filesDeleted"].forEach((event: SocketEmitEvent) =>
+          socket.on(event, ({ fileIds }) => carouselStore.removeFiles(fileIds))
+        );
 
-        socket.on("filesDeleted", ({ fileIds }) => {
-          carouselStore.removeFiles({ fileIds, rootStore });
-        });
+        ["tagCreated", "tagDeleted", "tagUpdated"].forEach((event: SocketEmitEvent) =>
+          socket.on(event, () => tagStore.loadTags())
+        );
 
         socket.on("fileTagsUpdated", ({ addedTagIds, fileIds, removedTagIds }) =>
           fileStore.updateFileTags({ addedTagIds, fileIds, removedTagIds })
@@ -59,12 +60,6 @@ export const CarouselWindow = observer(() => {
         socket.on("filesUpdated", ({ fileIds, updates }) =>
           fileStore.updateFiles(fileIds, updates)
         );
-
-        socket.on("tagCreated", () => tagStore.loadTags());
-
-        socket.on("tagDeleted", () => tagStore.loadTags());
-
-        socket.on("tagUpdated", () => tagStore.loadTags());
       }
     );
   }, []);
