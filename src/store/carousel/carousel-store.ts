@@ -1,8 +1,7 @@
 import remote from "@electron/remote";
 import { computed } from "mobx";
-import { Model, _async, _await, model, modelFlow, prop } from "mobx-keystone";
+import { Model, _async, _await, getRootStore, model, modelAction, prop } from "mobx-keystone";
 import { RootStore } from "store";
-import { handleErrors } from "utils";
 
 @model("mediaViewer/CarouselStore")
 export class CarouselStore extends Model({
@@ -11,27 +10,24 @@ export class CarouselStore extends Model({
   selectedFileIds: prop<string[]>(() => []).withSetter(),
 }) {
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
+  @modelAction
+  removeFiles(fileIds: string[]) {
+    const newSelectedIds = this.selectedFileIds.filter((id) => !fileIds.includes(id));
+    if (!newSelectedIds.length) return remote.getCurrentWindow().close();
+
+    if (fileIds.includes(this.activeFileId))
+      this.setActiveFileId(
+        newSelectedIds[this.activeFileIndex] ?? newSelectedIds[this.activeFileIndex - 1]
+      );
+
+    this.setSelectedFileIds(newSelectedIds);
+
+    const rootStore = getRootStore<RootStore>(this);
+    if (!rootStore) return;
+    rootStore.fileStore.loadFiles({ fileIds: newSelectedIds });
+  }
+
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */
-  @modelFlow
-  removeFiles = _async(function* (
-    this: CarouselStore,
-    { fileIds, rootStore }: { fileIds: string[]; rootStore: RootStore }
-  ) {
-    return yield* _await(
-      handleErrors(async () => {
-        const newSelectedIds = this.selectedFileIds.filter((id) => !fileIds.includes(id));
-        if (!newSelectedIds.length) return remote.getCurrentWindow().close();
-
-        if (fileIds.includes(this.activeFileId))
-          this.setActiveFileId(
-            newSelectedIds[this.activeFileIndex <= newSelectedIds.length ? this.activeFileIndex : 0]
-          );
-
-        this.setSelectedFileIds(newSelectedIds);
-        rootStore.fileStore.loadFiles({ fileIds: newSelectedIds });
-      })
-    );
-  });
 
   /* --------------------------------- GETTERS -------------------------------- */
   @computed
