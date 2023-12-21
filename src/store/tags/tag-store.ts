@@ -2,6 +2,7 @@ import { computed } from "mobx";
 import {
   _async,
   _await,
+  getRootStore,
   model,
   Model,
   modelAction,
@@ -10,8 +11,9 @@ import {
   prop,
 } from "mobx-keystone";
 import { CreateTagInput, EditTagInput } from "database";
-import { Tag } from ".";
-import { getArrayDiff, handleErrors, PromiseQueue, trpc } from "utils";
+import { RegExMap, RootStore } from "store";
+import { Tag, TagOption, tagsToDescendants } from ".";
+import { getArrayDiff, handleErrors, PromiseQueue, regexEscape, trpc } from "utils";
 import { toast } from "react-toastify";
 
 export type TagManagerMode = "create" | "edit" | "search";
@@ -57,7 +59,14 @@ export class TagStore extends Model({
   @modelFlow
   createTag = _async(function* (
     this: TagStore,
-    { aliases = [], childIds = [], label, parentIds = [], withSub = true }: CreateTagInput
+    {
+      aliases = [],
+      childIds = [],
+      label,
+      parentIds = [],
+      withRegEx = false,
+      withSub = true,
+    }: CreateTagInput
   ) {
     return yield* _await(
       handleErrors(async () => {
@@ -79,6 +88,21 @@ export class TagStore extends Model({
         await this.refreshTagRelations({ id });
         await this.refreshRelatedTagCounts({ id });
         toast.success(`Tag '${label}' created`);
+
+        if (withRegEx) {
+          const regExMap: ModelCreationData<RegExMap> = {
+            regEx: this.tagsToRegEx([tag]),
+            tagIds: [id],
+            testString: label,
+            types: ["diffusionParams", "fileName", "folderName"],
+          };
+
+          const res = await trpc.createRegExMaps.mutate({ regExMaps: [regExMap] });
+          toast.success(`RegEx map for '${label}' created`);
+
+          const rootStore = getRootStore<RootStore>(this);
+          rootStore.importStore._addRegExMap({ ...regExMap, id: res.data[0]._id.toString() });
+        }
 
         if (withSub) trpc.onTagCreated.mutate({ tag });
         return tag;
@@ -334,6 +358,34 @@ export class TagStore extends Model({
 
   listByParentId(id: string) {
     return this.tags.filter((t) => t.parentIds.includes(id));
+  }
+
+  tagsToRegEx(tags: { aliases?: string[]; label: string }[]) {
+    return `(${tags
+      .flatMap((tag) => [tag.label, ...tag.aliases])
+      .map((s) => `\\b${regexEscape(s).replaceAll(/[\s-_]+/g, "[\\s-_\\.]+")}\\b`)
+      .join(")|(")})`;
+  }
+
+  tagSearchOptsToIds(options: TagOption[]) {
+    const [excludedAnyTagIds, includedAnyTagIds, includedAllTagIds] = options.reduce(
+      (acc, cur) => {
+        if (cur.searchType === "exclude") acc[0].push(cur.id);
+        else if (cur.searchType === "excludeDesc") acc[0].push(...this.tagOptsToIds([cur], true));
+        else if (cur.searchType === "includeOr") acc[1].push(cur.id);
+        else if (cur.searchType === "includeDesc") acc[1].push(...this.tagOptsToIds([cur], true));
+        else if (cur.searchType === "includeAnd") acc[2].push(cur.id);
+        return acc;
+      },
+      [[], [], []] as string[][]
+    );
+
+    return { excludedAnyTagIds, includedAllTagIds, includedAnyTagIds };
+  }
+
+  tagOptsToIds(opts: TagOption[], withDesc = false) {
+    const tagIds = opts.map((t) => t.id);
+    return [...tagIds, ...(withDesc ? tagsToDescendants(this, this.listByIds(tagIds)) : [])];
   }
 
   /* --------------------------------- GETTERS -------------------------------- */

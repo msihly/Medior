@@ -161,6 +161,7 @@ export type CreateTagInput = {
   childIds?: string[];
   label: string;
   parentIds?: string[];
+  withRegEx?: boolean;
   withSub?: boolean;
 };
 

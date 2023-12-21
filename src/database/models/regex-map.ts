@@ -1,20 +1,20 @@
 import { model, Schema } from "mongoose";
 
+export type RegExMapType = "diffusionParams" | "fileName" | "folderName";
+
 export interface RegExMap {
   id: string;
   regEx: string;
-  tagIds?: string[];
+  tagIds: string[];
   testString?: string;
-  title?: string;
-  type: "diffusionToTags" | "fileToTags" | "folderToCollection" | "folderToTags";
+  types: RegExMapType[];
 }
 
 const RegExMapSchema = new Schema<RegExMap>({
   regEx: String,
   tagIds: [Schema.Types.ObjectId],
   testString: String,
-  title: String,
-  type: String,
+  types: [String],
 });
 
 export const RegExMapModel = model<RegExMap>("RegExMap", RegExMapSchema);

@@ -18,4 +18,5 @@ export type TagToUpsert = {
   id?: string;
   label: string;
   parentLabel?: string;
+  withRegEx?: boolean;
 };

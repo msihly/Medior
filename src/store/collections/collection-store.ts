@@ -17,7 +17,6 @@ import {
   SelectedVideoTypes,
   sortFn,
   TagOption,
-  tagsToDescendants,
 } from "store";
 import { CreateCollectionInput, LoadCollectionsInput, LoadSearchResultsInput } from "database";
 import { FileCollection, FileCollectionFile } from ".";
@@ -183,33 +182,8 @@ export class FileCollectionStore extends Model({
       handleErrors(async () => {
         const { tagStore } = rootStore;
 
-        const tagsToIds = (tags: TagOption[], withDesc = false) => {
-          const tagIds = tags.map((t) => t.id);
-          return [
-            ...tagIds,
-            ...(withDesc ? tagsToDescendants(tagStore, tagStore.listByIds(tagIds)) : []),
-          ];
-        };
-
-        const excludedAnyTagIds = [
-          ...tagsToIds(this.searchValue.filter((t) => t.searchType === "exclude")),
-          ...tagsToIds(
-            this.searchValue.filter((t) => t.searchType === "excludeDesc"),
-            true
-          ),
-        ];
-
-        const includedAnyTagIds = [
-          ...tagsToIds(this.searchValue.filter((t) => t.searchType === "includeOr")),
-          ...tagsToIds(
-            this.searchValue.filter((t) => t.searchType === "includeDesc"),
-            true
-          ),
-        ];
-
-        const includedAllTagIds = tagsToIds(
-          this.searchValue.filter((t) => t.searchType === "includeAnd")
-        );
+        const { excludedAnyTagIds, includedAllTagIds, includedAnyTagIds } =
+          tagStore.tagSearchOptsToIds(this.searchValue);
 
         const filteredRes = await trpc.listFilteredFileIds.mutate({
           excludedAnyTagIds,

@@ -1,5 +1,5 @@
 import { Model, _async, _await, model, modelAction, modelFlow, prop } from "mobx-keystone";
-import { RootStore, TagOption, mongoFileToMobX, tagsToDescendants } from "store";
+import { RootStore, TagOption, mongoFileToMobX } from "store";
 import {
   CONSTANTS,
   IMAGE_TYPES,
@@ -109,33 +109,8 @@ export class HomeStore extends Model({
 
         const { fileStore, tagStore } = rootStore;
 
-        const tagsToIds = (tags: TagOption[], withDesc = false) => {
-          const tagIds = tags.map((t) => t.id);
-          return [
-            ...tagIds,
-            ...(withDesc ? tagsToDescendants(tagStore, tagStore.listByIds(tagIds)) : []),
-          ];
-        };
-
-        const excludedAnyTagIds = [
-          ...tagsToIds(this.searchValue.filter((t) => t.searchType === "exclude")),
-          ...tagsToIds(
-            this.searchValue.filter((t) => t.searchType === "excludeDesc"),
-            true
-          ),
-        ];
-
-        const includedAnyTagIds = [
-          ...tagsToIds(this.searchValue.filter((t) => t.searchType === "includeOr")),
-          ...tagsToIds(
-            this.searchValue.filter((t) => t.searchType === "includeDesc"),
-            true
-          ),
-        ];
-
-        const includedAllTagIds = tagsToIds(
-          this.searchValue.filter((t) => t.searchType === "includeAnd")
-        );
+        const { excludedAnyTagIds, includedAllTagIds, includedAnyTagIds } =
+          tagStore.tagSearchOptsToIds(this.searchValue);
 
         const filteredRes = await trpc.listFilteredFileIds.mutate({
           excludedAnyTagIds,

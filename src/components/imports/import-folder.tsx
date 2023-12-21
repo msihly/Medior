@@ -2,30 +2,21 @@ import path from "path";
 import { observer } from "mobx-react-lite";
 import { FileImport } from "store";
 import { FixedSizeList } from "react-window";
-import AutoSizer from "react-virtualized-auto-sizer";
 import { Divider } from "@mui/material";
 import { Chip, Text, View } from "components";
-import {
-  IMPORT_CARD_SIZE,
-  IMPORT_LIST_ITEM_HEIGHT,
-  ImportCard,
-  ImportListItem,
-  TagHierarchy,
-  TagToUpsert,
-} from ".";
+import { IMPORT_LIST_ITEM_HEIGHT, ImportListItem, TagHierarchy, TagToUpsert } from ".";
 import { colors, makeClasses } from "utils";
 import Color from "color";
 
-export interface ImportFolderProps {
+export interface ImportFolderListProps {
   collectionTitle?: string;
   imports: FileImport[];
-  mode: "cards" | "list";
   tags?: TagToUpsert[];
 }
 
-export const ImportFolder = observer(
-  ({ collectionTitle, imports, mode, tags }: ImportFolderProps) => {
-    const { css } = useClasses({ mode });
+export const ImportFolderList = observer(
+  ({ collectionTitle, imports, tags }: ImportFolderListProps) => {
+    const { css } = useClasses(null);
 
     return (
       <View className={css.container}>
@@ -62,60 +53,33 @@ export const ImportFolder = observer(
           </>
         )}
 
-        {mode === "cards" ? (
-          <View className={css.cards}>
-            <AutoSizer disableHeight>
-              {({ width }) => (
-                <FixedSizeList
-                  layout="horizontal"
-                  width={width}
-                  height={IMPORT_CARD_SIZE}
-                  itemSize={IMPORT_CARD_SIZE}
-                  itemCount={imports.length}
-                >
-                  {({ index, style }) => (
-                    <ImportCard key={index} fileImport={imports[index]} style={style} />
-                  )}
-                </FixedSizeList>
-              )}
-            </AutoSizer>
-          </View>
-        ) : (
-          <View className={css.list}>
-            <FixedSizeList
-              layout="vertical"
-              width="100%"
-              height={Math.min(
-                imports.length * IMPORT_LIST_ITEM_HEIGHT,
-                7.5 * IMPORT_LIST_ITEM_HEIGHT
-              )}
-              itemSize={IMPORT_LIST_ITEM_HEIGHT}
-              itemCount={imports.length}
-            >
-              {({ index, style }) => (
-                <ImportListItem
-                  key={index}
-                  fileImport={imports[index]}
-                  color={index % 2 === 0 ? colors.blueGrey["200"] : colors.grey["200"]}
-                  style={style}
-                />
-              )}
-            </FixedSizeList>
-          </View>
-        )}
+        <View className={css.list}>
+          <FixedSizeList
+            layout="vertical"
+            width="100%"
+            height={Math.min(
+              imports.length * IMPORT_LIST_ITEM_HEIGHT,
+              7.5 * IMPORT_LIST_ITEM_HEIGHT
+            )}
+            itemSize={IMPORT_LIST_ITEM_HEIGHT}
+            itemCount={imports.length}
+          >
+            {({ index, style }) => (
+              <ImportListItem
+                key={index}
+                fileImport={imports[index]}
+                color={index % 2 === 0 ? colors.blueGrey["200"] : colors.grey["200"]}
+                style={style}
+              />
+            )}
+          </FixedSizeList>
+        </View>
       </View>
     );
   }
 );
 
-const useClasses = makeClasses((_, { mode }) => ({
-  cards: {
-    display: "flex",
-    flexDirection: "row",
-    width: "inherit",
-    whiteSpace: "nowrap",
-    overflowX: "auto",
-  },
+const useClasses = makeClasses({
   chip: {
     flexShrink: 0,
     padding: "0.2em",
@@ -135,15 +99,11 @@ const useClasses = makeClasses((_, { mode }) => ({
     display: "flex",
     flexDirection: "column",
     flex: "none",
+    borderRadius: 4,
+    marginBottom: "0.5rem",
     width: "inherit",
+    backgroundColor: colors.grey["900"],
     overflowX: "auto",
-    ...(mode === "list"
-      ? {
-          borderRadius: 4,
-          marginBottom: "0.5rem",
-          backgroundColor: colors.grey["900"],
-        }
-      : {}),
   },
   folderPath: {
     color: colors.grey["200"],
@@ -164,11 +124,9 @@ const useClasses = makeClasses((_, { mode }) => ({
   list: {
     display: "flex",
     flexDirection: "column",
-    // padding: "0.2rem 0.5rem",
     padding: "0.2rem 0",
     maxHeight: "20rem",
     overflowY: "auto",
-    // "& > div": { flex: 1 },
   },
   tag: {
     padding: "0.2rem 0.4rem 0.2rem 0.2rem",
@@ -180,4 +138,4 @@ const useClasses = makeClasses((_, { mode }) => ({
     padding: "0.2rem 0.3rem",
     overflowX: "auto",
   },
-}));
+});

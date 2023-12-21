@@ -26,13 +26,12 @@ export const ImportCard = observer(({ fileImport, style }: ImportCardProps) => {
       : shell.showItemInFolder(fileImport.path);
 
   return (
-    <TooltipWrapper tooltip={fileImport.path}>
+    <TooltipWrapper tooltip={fileImport.path} tooltipProps={{ style }}>
       <FileBase.Container
         onClick={handleClick}
         height={IMPORT_CARD_SIZE}
         width={IMPORT_CARD_SIZE}
         disabled
-        {...{ style }}
       >
         {fileImport?.thumbPaths?.length > 0 ? (
           <FileBase.Image

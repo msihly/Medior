@@ -14,8 +14,8 @@ import {
   prop,
 } from "mobx-keystone";
 import { computed } from "mobx";
-import { RootStore } from "store";
-import { CreateRegExMapsInput, UpdateRegExMapsInput } from "database";
+import { RootStore, TagOption } from "store";
+import { CreateRegExMapsInput, RegExMapType, UpdateRegExMapsInput } from "database";
 import { FileImport, ImportBatch, RegExMap } from ".";
 import { copyFileForImport } from "./import-queue";
 import {
@@ -43,10 +43,17 @@ export class ImportStore extends Model({
   isImportManagerOpen: prop<boolean>(false).withSetter(),
   isImportRegExMapperOpen: prop<boolean>(false).withSetter(),
   regExMaps: prop<RegExMap[]>(() => []).withSetter(),
+  regExSearchValue: prop<string>("").withSetter(),
+  tagSearchValue: prop<TagOption[]>(() => []).withSetter(),
 }) {
   queue: PromiseQueue = new PromiseQueue();
 
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
+  @modelAction
+  _addRegExMap(map: ModelCreationData<RegExMap>) {
+    this.regExMaps.push(new RegExMap(map));
+  }
+
   @modelAction
   _createImportBatch({
     collectionTitle,
@@ -88,8 +95,13 @@ export class ImportStore extends Model({
   }
 
   @modelAction
-  addRegExMap(type: RegExMap["type"]) {
-    this.regExMaps.push(new RegExMap({ delimiter: type === "diffusionToTags" ? "," : "", type }));
+  addRegExMap() {
+    this.regExMaps.push(
+      new RegExMap({
+        hasUnsavedChanges: true,
+        types: ["diffusionParams", "fileName", "folderName"],
+      })
+    );
   }
 
   @modelAction
@@ -252,7 +264,7 @@ export class ImportStore extends Model({
           tagIds,
         });
         if (!batchRes.success) throw new Error(batchRes?.error);
-        const id = batchRes.data._id.toString();
+        const id = batchRes.data.id;
         if (!id) throw new Error("No id returned from createImportBatch");
 
         this._createImportBatch({
@@ -472,8 +484,8 @@ export class ImportStore extends Model({
     return this.importBatches.filter((batch) => batch.tagIds.includes(tagId));
   }
 
-  listRegExMapsByType(type: RegExMap["type"]) {
-    return this.regExMaps.filter((map) => map.type === type);
+  listRegExMapsByType(type: RegExMapType) {
+    return this.regExMaps.filter((map) => map.types.includes(type));
   }
 
   /* --------------------------------- GETTERS -------------------------------- */
@@ -493,6 +505,28 @@ export class ImportStore extends Model({
       this.editorRootFolderPath.length &&
       this.editorRootFolderPath.split(path.sep)[this.editorRootFolderIndex]
     );
+  }
+
+  @computed
+  get filteredRegExMaps() {
+    const rootStore = getRootStore<RootStore>(this);
+    if (!rootStore) return [];
+    const { tagStore } = rootStore;
+
+    return this.regExMaps.filter((map) => {
+      if (this.regExSearchValue.length > 0 && !map.regEx.includes(this.regExSearchValue))
+        return false;
+
+      const { excludedAnyTagIds, includedAllTagIds, includedAnyTagIds } =
+        tagStore.tagSearchOptsToIds(this.tagSearchValue);
+
+      if (excludedAnyTagIds.some((id) => map.tagIds.includes(id))) return false;
+      if (includedAllTagIds.some((id) => !map.tagIds.includes(id))) return false;
+      if (includedAnyTagIds.length > 0 && !includedAnyTagIds.some((id) => map.tagIds.includes(id)))
+        return false;
+
+      return true;
+    });
   }
 
   @computed

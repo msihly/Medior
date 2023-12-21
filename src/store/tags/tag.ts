@@ -32,7 +32,7 @@ export type TagOption = {
   dateCreated: string;
   dateModified: string;
   id: string;
-  label?: string;
+  label: string;
   searchType?: SearchTagType;
 };
 
@@ -57,4 +57,5 @@ export const tagToOption = (tag: Tag): TagOption => ({
   dateModified: tag.dateModified,
   id: tag.id,
   label: tag.label,
+  searchType: "includeDesc",
 });

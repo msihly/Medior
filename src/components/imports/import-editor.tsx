@@ -1,5 +1,6 @@
 import path from "path";
 import { useEffect, useState } from "react";
+import { RegExMapType } from "database";
 import { observer } from "mobx-react-lite";
 import { Tag, useStores } from "store";
 import { Divider } from "@mui/material";
@@ -8,7 +9,7 @@ import {
   FlatFolderHierarchy,
   FolderToCollMode,
   FolderToTagsMode,
-  ImportFolder,
+  ImportFolderList,
   RootFolderButton,
   TagHierarchy,
   TagToUpsert,
@@ -36,12 +37,20 @@ export const ImportEditor = observer(() => {
   const [withDiffusionRegExMaps, setWithDiffusionRegExMaps] = useState(true);
   const [withDiffusionParams, setWithDiffusionParams] = useState(false);
   const [withDiffusionTags, setWithDiffusionTags] = useState(true);
-  const [withFileToTags, setWithFileToTags] = useState(true);
+  const [withFileNameToTags, setWithFileNameToTags] = useState(true);
+  const [withFolderNameRegEx, setWithFolderNameRegEx] = useState(true);
+  const [withNewTagsToRegEx, setWithNewTagsToRegEx] = useState(true);
 
   useEffect(() => {
     (async () => {
       const tagsToCreate: TagToUpsert[] = [];
       const tagsToEdit: TagToUpsert[] = [];
+      const [fileNameRegExMaps, folderNameRegExMaps] = ["fileName", "folderName"].map(
+        (type: RegExMapType) =>
+          importStore
+            .listRegExMapsByType(type)
+            .map((map) => ({ regEx: new RegExp(map.regEx, "im"), tagIds: map.tagIds }))
+      );
 
       /* ---------------------------------- Files --------------------------------- */
       if (!withDiffusionParams)
@@ -51,7 +60,25 @@ export const ImportEditor = observer(() => {
       const { diffMetaTagsToEdit, originalTag, upscaledTag } = await upsertDiffMetaTags();
       tagsToEdit.push(...diffMetaTagsToEdit);
 
-      updateFileTags({ originalTagId: originalTag.id, upscaledTagId: upscaledTag.id });
+      importStore.editorImports.forEach((imp) => {
+        const fileTagIds: string[] = [];
+        const fileTagsToUpsert: TagToUpsert[] = [];
+
+        if (withFileNameToTags) fileTagIds.push(...parseFileTags(fileNameRegExMaps, imp.name));
+
+        if (imp.diffusionParams?.length) {
+          const { diffFileTagIds, diffFileTagsToUpsert } = parseDiffTags({
+            diffusionParams: imp.diffusionParams,
+            originalTagId: originalTag.id,
+            upscaledTagId: upscaledTag.id,
+          });
+
+          fileTagIds.push(...diffFileTagIds);
+          fileTagsToUpsert.push(...diffFileTagsToUpsert);
+        }
+
+        imp.update({ tagIds: [...new Set(fileTagIds)], tagsToUpsert: fileTagsToUpsert });
+      });
 
       /* --------------------------------- Folders -------------------------------- */
       const flatFolderHierarchy = importStore.editorImports
@@ -71,20 +98,9 @@ export const ImportEditor = observer(() => {
           const tagLabel = folderNameParts.slice().pop()!;
           const tagParentLabel = folderNameParts.slice(0, -1).pop();
 
-          /** TODO: Add regEx "folderToCollection" logic */
-
-          // const fileTagsToUpsert = [
-          //   ...cur.tagsToUpsert,
-          //   ...cur.tagIds.map((id) => ({ id, label: tagStore.getById(id).label } as TagToUpsert)),
-          // ];
-
           /* ----------------------- Create FlatFolderHierarchy ----------------------- */
-          if (folder) {
-            folder.imports.push(cur);
-            // folder.tags.push(
-            //   ...fileTagsToUpsert.filter((t) => !folder.tags.find((f) => f.label === t.label))
-            // );
-          } else {
+          if (folder) folder.imports.push(cur);
+          else {
             const folderTags: TagToUpsert[] =
               folderToTagsMode === "cascading"
                 ? folderNameParts.map((part) => ({
@@ -101,10 +117,15 @@ export const ImportEditor = observer(() => {
                   ]
                 : [];
 
-            const tags = [
-              ...folderTags,
-              // ...fileTagsToUpsert.filter((t) => !folderTags.find((f) => f.label === t.label)),
-            ];
+            const tags = [...folderTags];
+
+            if (folderToTagsMode !== "none" && withFolderNameRegEx)
+              tags.push(
+                ...parseFileTags(folderNameRegExMaps, folderName).map((id) => ({
+                  id,
+                  label: tagStore.getById(id).label,
+                }))
+              );
 
             acc.push({
               collectionTitle,
@@ -120,7 +141,7 @@ export const ImportEditor = observer(() => {
             folderNameParts.forEach((label) => {
               const tag = tagStore.getByLabel(label);
               if (!tag && !tagsToCreate.find((t) => t.label === label))
-                tagsToCreate.push({ label });
+                tagsToCreate.push({ label, withRegEx: withNewTagsToRegEx });
             });
           } else if (folderToTagsMode === "hierarchical") {
             folderNameParts.forEach((label, idx) => {
@@ -128,7 +149,7 @@ export const ImportEditor = observer(() => {
               const parentLabel = folderNameParts[idx - 1];
 
               if (!tag && !tagsToCreate.find((t) => t.label === label))
-                tagsToCreate.push({ label, parentLabel });
+                tagsToCreate.push({ label, parentLabel, withRegEx: withNewTagsToRegEx });
               else if (tag && !tagsToEdit.find((t) => t.id === tag.id))
                 tagsToEdit.push({ id: tag.id, label, parentLabel });
             });
@@ -158,7 +179,7 @@ export const ImportEditor = observer(() => {
     withDiffusionParams,
     withDiffusionRegExMaps,
     withDiffusionTags,
-    withFileToTags,
+    withFileNameToTags,
   ]);
 
   const createTagHierarchy = (tags: TagToUpsert[], label: string): TagToUpsert[] =>
@@ -188,6 +209,7 @@ export const ImportEditor = observer(() => {
             const res = await tagStore.createTag({
               label: t.label,
               parentIds: parentTag ? [parentTag.id] : [],
+              withRegEx: t.withRegEx,
             });
             if (!res.success) throw new Error(res.error);
           }
@@ -286,7 +308,7 @@ export const ImportEditor = observer(() => {
     const restParams = diffusionParams.substring(negPromptEndIndex);
 
     if (withDiffusionRegExMaps) {
-      importStore.listRegExMapsByType("diffusionToTags").forEach((map) => {
+      importStore.listRegExMapsByType("diffusionParams").forEach((map) => {
         const regEx = new RegExp(map.regEx, "im");
         if (regEx.test(prompt)) diffFileTagIds.push(...map.tagIds);
       });
@@ -306,7 +328,6 @@ export const ImportEditor = observer(() => {
         };
 
         diffFileTagsToUpsert.push(tagToUpsert);
-        // if (!tagsToCreate.find((t) => t.label === modelTagLabel)) tagsToCreate.push(tagToUpsert);
       }
     }
 
@@ -317,9 +338,9 @@ export const ImportEditor = observer(() => {
     return { diffFileTagIds, diffFileTagsToUpsert };
   };
 
-  const parseFileTags = (name: string) =>
-    importStore.listRegExMapsByType("fileToTags").reduce((acc, cur) => {
-      if (new RegExp(cur.regEx, "im").test(name)) acc.push(...cur.tagIds);
+  const parseFileTags = (regExMaps: { regEx: RegExp; tagIds: string[] }[], name: string) =>
+    regExMaps.reduce((acc, cur) => {
+      if (cur.regEx.test(name)) acc.push(...cur.tagIds);
       return acc;
     }, [] as string[]);
 
@@ -330,33 +351,7 @@ export const ImportEditor = observer(() => {
 
   const toggleFoldersToTagsHierarchical = () => setFolderToTagsMode("hierarchical");
 
-  const updateFileTags = async ({
-    originalTagId,
-    upscaledTagId,
-  }: {
-    originalTagId: string;
-    upscaledTagId: string;
-  }) => {
-    importStore.editorImports.forEach((imp) => {
-      const fileTagIds: string[] = [];
-      const fileTagsToUpsert: TagToUpsert[] = [];
-
-      if (withFileToTags) fileTagIds.push(...parseFileTags(imp.name));
-
-      if (imp.diffusionParams?.length) {
-        const { diffFileTagIds, diffFileTagsToUpsert } = parseDiffTags({
-          diffusionParams: imp.diffusionParams,
-          originalTagId,
-          upscaledTagId,
-        });
-
-        fileTagIds.push(...diffFileTagIds);
-        fileTagsToUpsert.push(...diffFileTagsToUpsert);
-      }
-
-      imp.update({ tagIds: [...new Set(fileTagIds)], tagsToUpsert: fileTagsToUpsert });
-    });
-  };
+  const toggleWithFolderNameRegEx = () => setWithFolderNameRegEx((prev) => !prev);
 
   const upsertDiffMetaTags = async () => {
     const diffMetaTagsToEdit: TagToUpsert[] = [];
@@ -424,22 +419,39 @@ export const ImportEditor = observer(() => {
             <Divider />
 
             <Checkbox
-              label="File to Tags"
-              checked={withFileToTags}
-              setChecked={setWithFileToTags}
+              label="New Tags to RegEx"
+              checked={withNewTagsToRegEx}
+              setChecked={setWithNewTagsToRegEx}
               flex="initial"
             />
 
             <Divider />
 
             <Checkbox
-              label="Folders to Tags"
+              label="File to Tags (RegEx)"
+              checked={withFileNameToTags}
+              setChecked={setWithFileNameToTags}
+              flex="initial"
+            />
+
+            <Divider />
+
+            <Checkbox
+              label="Folder to Tags"
               checked={folderToTagsMode !== "none"}
               setChecked={handleFoldersToTags}
               flex="initial"
             />
 
             <View column margins={{ left: "1rem" }}>
+              <Checkbox
+                label="With RegEx"
+                checked={withFolderNameRegEx}
+                setChecked={toggleWithFolderNameRegEx}
+                disabled={folderToTagsMode === "none"}
+                flex="initial"
+              />
+
               <Checkbox
                 label="Hierarchical"
                 checked={folderToTagsMode === "hierarchical"}
@@ -504,7 +516,7 @@ export const ImportEditor = observer(() => {
                 />
 
                 <Checkbox
-                  label="Prompt RegEx Maps"
+                  label="With RegEx"
                   checked={withDiffusionRegExMaps}
                   setChecked={setWithDiffusionRegExMaps}
                   disabled={!withDiffusionParams || !withDiffusionTags}
@@ -539,9 +551,8 @@ export const ImportEditor = observer(() => {
 
             <View flex={1} className={cx(css.container, css.vertScroll)}>
               {flatFolderHierarchy.map((f, i) => (
-                <ImportFolder
+                <ImportFolderList
                   key={i}
-                  mode="list"
                   collectionTitle={f.collectionTitle}
                   imports={f.imports}
                   tags={f.tags}

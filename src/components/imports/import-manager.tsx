@@ -87,5 +87,6 @@ const useClasses = makeClasses({
     flexDirection: "column",
     alignItems: "center",
     overflowX: "hidden",
+    overflowY: "auto",
   },
 });

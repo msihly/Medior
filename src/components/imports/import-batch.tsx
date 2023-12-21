@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
+import AutoSizer from "react-virtualized-auto-sizer";
+import { FixedSizeList } from "react-window";
 import { LinearProgress } from "@mui/material";
 import { BatchTooltip, Icon, IconButton, IMPORT_STATUSES, Text, View } from "components";
-import { ImportFolder } from ".";
+import { IMPORT_CARD_SIZE, ImportCard } from ".";
 import { colors, makeClasses } from "utils";
 import { toast } from "react-toastify";
 import Color from "color";
@@ -103,8 +105,22 @@ export const ImportBatch = observer(({ createdAt }: ImportBatchProps) => {
       </View>
 
       {expanded && batch.imports?.length > 0 && (
-        <View row className={css.imports}>
-          <ImportFolder mode="cards" imports={batch.imports} />
+        <View className={css.importCards}>
+          <AutoSizer disableHeight>
+            {({ width }) => (
+              <FixedSizeList
+                layout="horizontal"
+                width={width}
+                height={IMPORT_CARD_SIZE}
+                itemSize={IMPORT_CARD_SIZE}
+                itemCount={batch.imports.length}
+              >
+                {({ index, style }) => (
+                  <ImportCard key={index} fileImport={batch.imports[index]} style={style} />
+                )}
+              </FixedSizeList>
+            )}
+          </AutoSizer>
         </View>
       )}
     </View>
@@ -135,11 +151,14 @@ const useClasses = makeClasses((_, { expanded, hasTags }) => ({
     textAlign: "center",
     textShadow: `0px 0px 5px ${colors.blue["700"]}`,
   },
-  imports: {
+  importCards: {
+    display: "flex",
+    flexDirection: "row",
     borderRadius: "0 0 0.5rem 0.5rem",
     padding: "0.5rem",
     width: "-webkit-fill-available",
     backgroundColor: colors.grey["900"],
+    whiteSpace: "nowrap",
     overflowX: "auto",
   },
   progressBar: {
@@ -157,6 +176,7 @@ const useClasses = makeClasses((_, { expanded, hasTags }) => ({
     textAlign: "left",
   },
   root: {
+    flex: "none",
     marginBottom: "0.5rem",
     width: "100%",
     overflow: "hidden",

@@ -1,7 +1,6 @@
+import { RegExMapType } from "database";
 import { reaction } from "mobx";
-import { applySnapshot, getSnapshot, model, Model, modelAction, prop } from "mobx-keystone";
-
-export type RegExMapType = "diffusionToTags" | "fileToTags" | "folderToCollection" | "folderToTags";
+import { model, Model, modelAction, prop } from "mobx-keystone";
 
 @model("mediaViewer/RegExMap")
 export class RegExMap extends Model({
@@ -11,16 +10,15 @@ export class RegExMap extends Model({
   regEx: prop<string>("").withSetter(),
   tagIds: prop<string[]>(() => []).withSetter(),
   testString: prop<string>("").withSetter(),
-  title: prop<string>("").withSetter(),
-  type: prop<RegExMapType>(),
+  types: prop<RegExMapType[]>(() => []).withSetter(),
 }) {
   /* -------------------------------- REACTIONS ------------------------------- */
-  constructor(props: Partial<typeof RegExMap> & { delimiter?: string; type: RegExMapType }) {
+  constructor(props: Partial<RegExMap>) {
     super(props);
     reaction(
-      () => [this.isDeleted, this.regEx, this.tagIds.length, this.testString, this.title],
+      () => [this.isDeleted, this.regEx, this.tagIds.length, this.testString, this.types.length],
       () => {
-        this.hasUnsavedChanges = true;
+        if (!this.hasUnsavedChanges) this.hasUnsavedChanges = true;
       }
     );
   }
@@ -32,7 +30,9 @@ export class RegExMap extends Model({
   }
 
   @modelAction
-  update(updates: Partial<RegExMap>) {
-    applySnapshot(this, { ...getSnapshot(this), ...updates });
+  toggleType(type: RegExMapType) {
+    this.types = this.types.includes(type)
+      ? this.types.filter((t) => t !== type)
+      : [...this.types, type];
   }
 }
