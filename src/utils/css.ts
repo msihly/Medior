@@ -1,6 +1,7 @@
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { colors as muiColors } from "@mui/material";
 import { Theme, useTheme } from "@mui/material/styles";
+import Color from "color";
 import { createMakeAndWithStyles, CSSObject, Cx } from "tss-react";
 
 export type Margins = {
@@ -41,6 +42,7 @@ export const colors = {
     purple: muiColors.purple["700"],
     red: muiColors.red["900"],
   },
+  darkGrey: Color(muiColors.grey["900"]).darken(0.4).string(),
   error: muiColors.red["900"],
   primary: muiColors.blue["800"],
   success: muiColors.green["800"],

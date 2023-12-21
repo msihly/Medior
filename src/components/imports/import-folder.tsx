@@ -6,7 +6,6 @@ import { Divider } from "@mui/material";
 import { Chip, Text, View } from "components";
 import { IMPORT_LIST_ITEM_HEIGHT, ImportListItem, TagHierarchy, TagToUpsert } from ".";
 import { colors, makeClasses } from "utils";
-import Color from "color";
 
 export interface ImportFolderListProps {
   collectionTitle?: string;
@@ -119,7 +118,7 @@ const useClasses = makeClasses({
     alignItems: "center",
     borderRadius: 4,
     padding: "0.5rem",
-    backgroundColor: Color(colors.grey["900"]).darken(0.4).string(),
+    backgroundColor: colors.darkGrey,
   },
   list: {
     display: "flex",

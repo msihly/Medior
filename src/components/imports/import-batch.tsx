@@ -1,3 +1,4 @@
+import path from "path";
 import { useState } from "react";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
@@ -49,59 +50,74 @@ export const ImportBatch = observer(({ createdAt }: ImportBatchProps) => {
   return (
     <View column className={css.root}>
       <View row className={css.header}>
-        <View row onClick={toggleOpen} className={css.headerButton}>
-          <Text className={css.index}>
-            {`${importStore.batches.findIndex((b) => b.createdAt === createdAt) + 1}.`}
-          </Text>
+        <View onClick={toggleOpen} className={css.headerButton}>
+          <View className={css.headerTop}>
+            <Text className={css.folderPath}>
+              {batch.imports[0]?.path && path.dirname(batch.imports[0].path)}
+            </Text>
 
-          <BatchTooltip batch={batch}>
-            <Icon name={status.icon} color={status.color} className={css.statusIcon} />
-          </BatchTooltip>
+            <Icon name="ChevronRight" rotation={90} margins={{ right: "0.5rem" }} />
+          </View>
 
-          <View className={css.headerCenter}>
-            <View row className={css.progressContainer}>
-              <Text className={css.progressText}>
-                {`${batch.imported.length} / `}
-                <Text color={colors.grey["500"]}>{batch.imports.length}</Text>
-              </Text>
+          <View className={css.headerBottom}>
+            <Text className={css.index}>
+              {`${importStore.batches.findIndex((b) => b.createdAt === createdAt) + 1}.`}
+            </Text>
 
-              <LinearProgress
-                variant="determinate"
-                value={(batch.imported.length / batch.imports.length) * 100}
-                className={css.progressBar}
-              />
+            <BatchTooltip batch={batch}>
+              <Icon name={status.icon} color={status.color} className={css.statusIcon} />
+            </BatchTooltip>
 
-              <Icon name="ChevronRight" rotation={90} margins={{ right: "0.5rem" }} />
+            <View className={css.headerCenter}>
+              <View row className={css.progressContainer}>
+                <Text className={css.progressText}>
+                  {`${batch.imported.length} / `}
+                  <Text color={colors.grey["500"]}>{batch.imports.length}</Text>
+                </Text>
+
+                <LinearProgress
+                  variant="determinate"
+                  value={(batch.imported.length / batch.imports.length) * 100}
+                  className={css.progressBar}
+                />
+              </View>
             </View>
           </View>
         </View>
 
-        {batch.collectionId && (
-          <IconButton
-            name="Collections"
-            onClick={handleCollections}
-            iconProps={{ color: colors.grey["300"], size: "0.9em" }}
-          />
-        )}
+        <View column>
+          <View row justify="space-between">
+            <IconButton
+              name="Collections"
+              onClick={handleCollections}
+              disabled={!batch.collectionId}
+              iconProps={{ color: colors.grey["300"], size: "0.9em" }}
+            />
 
-        <IconButton
-          name="Label"
-          onClick={handleTag}
-          disabled={batch.status === "PENDING"}
-          iconProps={{
-            color:
-              batch.status === "PENDING"
-                ? Color(colors.grey["300"]).fade(0.5).string()
-                : colors.grey["300"],
-            size: "0.9em",
-          }}
-        />
+            <IconButton
+              name="Label"
+              onClick={handleTag}
+              disabled={batch.status === "PENDING"}
+              iconProps={{
+                color:
+                  batch.status === "PENDING"
+                    ? Color(colors.grey["300"]).fade(0.5).string()
+                    : colors.grey["300"],
+                size: "0.9em",
+              }}
+            />
+          </View>
 
-        <IconButton
-          name="Delete"
-          onClick={handleDelete}
-          iconProps={{ color: colors.red["700"], size: "0.9em" }}
-        />
+          <View row justify="space-between">
+            <View />
+
+            <IconButton
+              name="Delete"
+              onClick={handleDelete}
+              iconProps={{ color: colors.red["700"], size: "0.9em" }}
+            />
+          </View>
+        </View>
       </View>
 
       {expanded && batch.imports?.length > 0 && (
@@ -128,12 +144,25 @@ export const ImportBatch = observer(({ createdAt }: ImportBatchProps) => {
 });
 
 const useClasses = makeClasses((_, { expanded, hasTags }) => ({
+  folderPath: {
+    color: colors.grey["300"],
+    fontSize: "0.9em",
+    textOverflow: "ellipsis",
+    overflow: "hidden",
+    whiteSpace: "nowrap",
+  },
   header: {
-    borderRadius: expanded ? "0.5rem 0.5rem 0 0" : "0.5rem",
-    padding: "0.2rem",
+    borderRadius: expanded ? "0.4rem 0.4rem 0 0" : "0.4rem",
     backgroundColor: colors.grey["900"],
   },
+  headerBottom: {
+    display: "flex",
+    flexDirection: "row",
+    flexBasis: "50%",
+  },
   headerButton: {
+    display: "flex",
+    flexDirection: "column",
     flex: 1,
     "&:hover": { cursor: "pointer" },
   },
@@ -142,6 +171,15 @@ const useClasses = makeClasses((_, { expanded, hasTags }) => ({
     flex: 1,
     flexDirection: "column",
     width: 0,
+  },
+  headerTop: {
+    display: "flex",
+    flexDirection: "row",
+    flexBasis: "50%",
+    justifyContent: "space-between",
+    borderTopLeftRadius: "0.4rem",
+    padding: "0.3em 0.5em",
+    backgroundColor: colors.darkGrey,
   },
   index: {
     justifyContent: "center",
