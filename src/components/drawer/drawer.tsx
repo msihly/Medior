@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { observer } from "mobx-react-lite";
-import { SearchTagType, useStores } from "store";
+import { useStores } from "store";
 import { Divider, Drawer as MuiDrawer, List } from "@mui/material";
 import { Accordion, Checkbox, ListItem, TagInput, Text, View } from "components";
 import { ExtCheckbox } from ".";
@@ -10,13 +10,6 @@ export const Drawer = observer(() => {
   const { fileCollectionStore, homeStore, importStore, tagStore } = useStores();
 
   const { css } = useClasses(null);
-
-  const tagOptions = useMemo(() => {
-    return [...tagStore.tagOptions].map((t) => ({
-      ...t,
-      searchType: "includeDesc" as SearchTagType,
-    }));
-  }, [tagStore.tagOptions.toString()]);
 
   const [isAllImageTypesSelected, isAnyImageTypesSelected] = useMemo(() => {
     const allTypes = Object.values(homeStore.selectedImageTypes);
@@ -98,7 +91,6 @@ export const Drawer = observer(() => {
       <TagInput
         value={[...homeStore.searchValue]}
         onChange={(val) => homeStore.setSearchValue(val)}
-        options={tagOptions}
         width={CONSTANTS.DRAWER_WIDTH - 20}
         hasSearchMenu
       />

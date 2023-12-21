@@ -55,6 +55,8 @@ export type TagInputProps = Omit<
   ComponentProps<typeof Autocomplete>,
   "renderInput" | "onChange" | "onSelect" | "options"
 > & {
+  /** Only for specific use cases. Use onChange instead. */
+  _setValue?: Dispatch<SetStateAction<TagOption[]>>;
   autoFocus?: boolean;
   center?: boolean;
   hasCreate?: boolean;
@@ -68,8 +70,6 @@ export type TagInputProps = Omit<
   options?: TagOption[];
   onChange?: (val: TagOption[]) => void;
   onSelect?: (val: TagOption) => void;
-  /** Only for specific use cases. Use onChange instead. */
-  setValue?: Dispatch<SetStateAction<TagOption[]>>;
   value: TagOption[];
   width?: CSSObject["width"];
 };
@@ -78,6 +78,7 @@ export const TagInput = observer(
   forwardRef(
     (
       {
+        _setValue,
         autoFocus = false,
         center,
         className,
@@ -92,8 +93,7 @@ export const TagInput = observer(
         onSelect,
         onTagClick,
         opaque = false,
-        options = [],
-        setValue,
+        options,
         value = [],
         width,
         ...props
@@ -103,12 +103,14 @@ export const TagInput = observer(
       const { tagStore } = useStores();
       const { css, cx } = useClasses({ center, margins, opaque, width });
 
+      options = options ?? [...tagStore.tagOptions];
+
       const [inputValue, setInputValue] = useState((inputProps?.value ?? "") as string);
       const [isOpen, setIsOpen] = useState(false);
 
       useEffect(() => {
         socket?.on?.("tagDeleted", ({ tagId }) => {
-          setValue?.((prev) => prev.filter((t) => t.id !== tagId));
+          _setValue?.((prev) => prev.filter((t) => t.id !== tagId));
         });
       }, [socket, onChange]);
 
@@ -213,7 +215,6 @@ export const TagInput = observer(
                     icon: SEARCH_MENU_META[option.searchType]?.icon,
                     iconProps: { color: SEARCH_MENU_META[option.searchType]?.color },
                     padding: { all: 0 },
-                    iconSize: "1.6rem",
                     color: "transparent",
                   }
             }
@@ -267,7 +268,7 @@ export const TagInput = observer(
           open={isOpen}
           onOpen={handleOpen}
           onClose={handleClose}
-          className={css.root}
+          classes={{ root: css.root }}
           {...props}
         />
       );
@@ -301,13 +302,16 @@ const useClasses = makeClasses((_, { center, margins, opaque, width }) => ({
       justifyContent: center ? "center" : undefined,
     },
     "& .MuiAutocomplete-input": {
-      // flex: 0,
-      // padding: "0 !important",
       minWidth: "0 !important",
     },
   },
   root: {
+    display: "flex",
+    alignItems: "center",
     width,
+    "& > div": {
+      width: "100%",
+    },
   },
   tag: {
     alignSelf: "flex-start",
@@ -317,7 +321,6 @@ const useClasses = makeClasses((_, { center, margins, opaque, width }) => ({
     display: "flex",
     flexDirection: "column",
     marginBottom: "0.3rem",
-    width,
     "&.MuiAutocomplete-option": {
       padding: "0.2rem 0.5rem",
     },

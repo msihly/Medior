@@ -9,7 +9,7 @@ import { toast } from "react-toastify";
 export const FileCollectionManager = observer(() => {
   const { css } = useClasses(null);
 
-  const { fileCollectionStore, tagStore } = useStores();
+  const { fileCollectionStore } = useStores();
 
   const hasAnySelected = fileCollectionStore.selectedFileIds.length > 0;
   const hasOneSelected = fileCollectionStore.selectedFiles.length === 1;
@@ -122,7 +122,6 @@ export const FileCollectionManager = observer(() => {
                 label="Search Tags"
                 value={tagSearchValue}
                 onChange={setTagSearchValue}
-                options={tagStore.tagOptions}
                 fullWidth
                 hasSearchMenu
               />

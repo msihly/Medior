@@ -112,7 +112,6 @@ export const TagEditor = observer(({ create, goBack }: TagEditorProps) => {
           <Text className={css.sectionTitle}>{"Label"}</Text>
           <TagInput
             value={undefined}
-            options={[...tagStore.tagOptions]}
             onSelect={(option) => handleEditExisting(option.label)}
             inputProps={{
               error: isDuplicateTag,

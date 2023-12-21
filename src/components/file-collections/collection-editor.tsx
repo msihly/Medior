@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { observer } from "mobx-react-lite";
-import { SearchTagType, useStores } from "store";
+import { useStores } from "store";
 import {
   DndContext,
   DragEndEvent,
@@ -44,13 +44,6 @@ export const FileCollectionEditor = observer(() => {
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [title, setTitle] = useState<string>(fileCollectionStore.activeCollection?.title);
-
-  const tagOptions = useMemo(() => {
-    return [...tagStore.tagOptions].map((t) => ({
-      ...t,
-      searchType: "includeDesc" as SearchTagType,
-    }));
-  }, [tagStore.tagOptions.toString()]);
 
   useEffect(() => {
     if (!fileCollectionStore.activeCollectionId) return;
@@ -181,7 +174,6 @@ export const FileCollectionEditor = observer(() => {
               <TagInput
                 value={[...fileCollectionStore.searchValue]}
                 onChange={(val) => fileCollectionStore.setSearchValue(val)}
-                options={tagOptions}
                 hasSearchMenu
                 margins={{ bottom: "0.5rem" }}
               />

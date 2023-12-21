@@ -176,7 +176,6 @@ export const FaceRecognitionModal = observer(() => {
                   <img src={dataUrl} draggable={false} />
 
                   <TagInput
-                    options={tagStore.tagOptions}
                     value={face.selectedTag ? [face.selectedTag] : []}
                     onChange={(val) => face.setSelectedTag(val[0])}
                     inputProps={{ color: face.boxColor, margins: { top: "0.4rem" } }}
