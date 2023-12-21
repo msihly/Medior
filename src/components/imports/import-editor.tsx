@@ -121,10 +121,12 @@ export const ImportEditor = observer(() => {
 
             if (folderToTagsMode !== "none" && withFolderNameRegEx)
               tags.push(
-                ...parseFileTags(folderNameRegExMaps, folderName).map((id) => ({
-                  id,
-                  label: tagStore.getById(id).label,
-                }))
+                ...parseFileTags(folderNameRegExMaps, folderName).reduce((acc, id) => {
+                  const label = tagStore.getById(id).label;
+                  if (!acc.find((t) => t.label === label) && !tags.find((t) => t.label === label))
+                    acc.push({ id, label });
+                  return acc;
+                }, [] as TagToUpsert[])
               );
 
             acc.push({
