@@ -16,8 +16,8 @@ import { Pagination } from "@mui/material";
 import {
   Button,
   CenteredText,
-  FileCard,
   FileCollectionFile,
+  FileSearchFile,
   Input,
   Modal,
   SortedFiles,
@@ -36,7 +36,7 @@ export const FileCollectionEditor = observer(() => {
   const sensors = useSensors(useSensor(MouseSensor, { activationConstraint: { distance: 4 } }));
 
   const rootStore = useStores();
-  const { fileCollectionStore, tagStore } = useStores();
+  const { fileCollectionStore } = useStores();
 
   const [draggedFileId, setDraggedFileId] = useState<string>(null);
   const [isAddingFiles, setIsAddingFiles] = useState(false);
@@ -142,26 +142,29 @@ export const FileCollectionEditor = observer(() => {
 
   return (
     <Modal.Container onClose={closeModal} closeOnBackdrop={false} maxWidth="65rem" width="100%">
-      <Modal.Header>
-        <Button
-          text={isAddingFiles ? "Hide Search" : "Add Files"}
-          icon={isAddingFiles ? "VisibilityOff" : "Add"}
-          onClick={toggleAddingFiles}
-          disabled={isSaving}
-          color={colors.blueGrey["700"]}
-        />
-
-        <Text align="center" flex={1}>
+      <Modal.Header
+        leftNode={
+          <Button
+            text={isAddingFiles ? "Hide Search" : "Add Files"}
+            icon={isAddingFiles ? "VisibilityOff" : "Add"}
+            onClick={toggleAddingFiles}
+            disabled={isSaving}
+            color={colors.blueGrey["700"]}
+          />
+        }
+        rightNode={
+          <Button
+            text="Delete"
+            icon="Delete"
+            onClick={handleDelete}
+            disabled={isSaving}
+            color={colors.red["800"]}
+          />
+        }
+      >
+        <Text align="center">
           {`${fileCollectionStore.activeCollectionId === null ? "Create" : "Edit"} Collection`}
         </Text>
-
-        <Button
-          text="Delete"
-          icon="Delete"
-          onClick={handleDelete}
-          disabled={isSaving}
-          color={colors.red["800"]}
-        />
       </Modal.Header>
 
       <Modal.Content>
@@ -180,8 +183,7 @@ export const FileCollectionEditor = observer(() => {
 
               <View column className={css.searchResults}>
                 {fileCollectionStore.searchResults.map((f) => (
-                  // TODO: Replace with custom component that can be dragged into collection without removing from results
-                  <FileCard key={f.id} file={f} height="14rem" />
+                  <FileSearchFile key={f.id} file={f} height="14rem" />
                 ))}
               </View>
 
@@ -212,7 +214,7 @@ export const FileCollectionEditor = observer(() => {
 
             <View className={css.tags}>
               {fileCollectionStore.activeTagIds.map((id) => (
-                <Tag key={id} id={id} />
+                <Tag key={id} id={id} className={css.tag} />
               ))}
             </View>
 
@@ -312,6 +314,9 @@ const useClasses = makeClasses({
     flex: 1,
     overflowY: "auto",
     overflowX: "hidden",
+  },
+  tag: {
+    marginBottom: "0.2rem",
   },
   tags: {
     display: "flex",

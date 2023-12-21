@@ -3,4 +3,5 @@ export * from "./collection-manager";
 export * from "./collection-tooltip";
 export * from "./file-collection-file";
 export * from "./file-collection";
+export * from "./file-search-file";
 export * from "./sorted-files";

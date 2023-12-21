@@ -53,6 +53,13 @@ export class FileCollectionStore extends Model({
   }
 
   @modelAction
+  addFileToActiveCollection(file: File) {
+    const index = this.activeFiles.length;
+    this.activeFiles.push(new FileCollectionFile({ file: clone(file), id: file.id, index }));
+    this.searchResults = this.searchResults.filter((f) => f.id !== file.id);
+  }
+
+  @modelAction
   clearSearch() {
     this.searchPage = 1;
     this.searchPageCount = 1;
@@ -186,7 +193,12 @@ export class FileCollectionStore extends Model({
           tagStore.tagSearchOptsToIds(this.searchValue);
 
         const filteredRes = await trpc.listFilteredFileIds.mutate({
-          excludedAnyTagIds,
+          excludedAnyTagIds: [
+            ...new Set([
+              ...excludedAnyTagIds,
+              ...this.activeCollection.fileIdIndexes.map((f) => f.fileId),
+            ]),
+          ],
           includedAllTagIds,
           includedAnyTagIds,
           includeTagged: false,
