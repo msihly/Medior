@@ -202,54 +202,56 @@ export const TagInput = observer(
       );
 
       const renderTags = (val: TagOption[], getTagProps: AutocompleteRenderGetTagProps) =>
-        val.map((option: TagOption, index: number) => (
-          <Tag
-            {...getTagProps({ index })}
-            key={option.id}
-            id={option.id}
-            onClick={onTagClick ? () => onTagClick(option.id) : null}
-            menuButtonProps={
-              !hasSearchMenu
-                ? undefined
-                : {
-                    icon: SEARCH_MENU_META[option.searchType]?.icon,
-                    iconProps: { color: SEARCH_MENU_META[option.searchType]?.color },
-                    padding: { all: 0 },
-                    color: "transparent",
-                  }
-            }
-            menu={
-              hasSearchMenu ? (
-                <View>
-                  <ListItem
-                    text="Remove"
-                    icon="Delete"
-                    color={colors.red["700"]}
-                    iconProps={{ color: colors.red["700"] }}
-                    onClick={() => {
-                      onChange?.(value.filter((t) => t.id !== option.id));
-                    }}
-                  />
-
-                  {Object.entries(SEARCH_MENU_META).map(([type, { color, icon, text }]) => (
+        val.map((option: TagOption, index: number) =>
+          !option ? null : (
+            <Tag
+              {...getTagProps({ index })}
+              key={option.id}
+              id={option.id}
+              onClick={onTagClick ? () => onTagClick(option.id) : null}
+              menuButtonProps={
+                !hasSearchMenu
+                  ? undefined
+                  : {
+                      icon: SEARCH_MENU_META[option.searchType]?.icon,
+                      iconProps: { color: SEARCH_MENU_META[option.searchType]?.color },
+                      padding: { all: 0 },
+                      color: "transparent",
+                    }
+              }
+              menu={
+                hasSearchMenu ? (
+                  <View>
                     <ListItem
-                      key={text}
-                      {...{ icon, text }}
-                      iconProps={{ color }}
+                      text="Remove"
+                      icon="Delete"
+                      color={colors.red["700"]}
+                      iconProps={{ color: colors.red["700"] }}
                       onClick={() => {
-                        onChange?.(
-                          value.map((t) =>
-                            t.id === option.id ? { ...t, searchType: type as SearchTagType } : t
-                          )
-                        );
+                        onChange?.(value.filter((t) => t.id !== option.id));
                       }}
                     />
-                  ))}
-                </View>
-              ) : null
-            }
-          />
-        ));
+
+                    {Object.entries(SEARCH_MENU_META).map(([type, { color, icon, text }]) => (
+                      <ListItem
+                        key={text}
+                        {...{ icon, text }}
+                        iconProps={{ color }}
+                        onClick={() => {
+                          onChange?.(
+                            value.map((t) =>
+                              t.id === option.id ? { ...t, searchType: type as SearchTagType } : t
+                            )
+                          );
+                        }}
+                      />
+                    ))}
+                  </View>
+                ) : null
+              }
+            />
+          )
+        );
 
       return (
         <Autocomplete
