@@ -1,4 +1,5 @@
 import path from "path";
+import ffmpeg from "fluent-ffmpeg";
 import { THUMB_WIDTH, fractionStringToNumber } from ".";
 
 interface VideoInfo {
@@ -11,8 +12,6 @@ interface VideoInfo {
 
 export const getVideoInfo = async (path: string) => {
   return (await new Promise(async (resolve, reject) => {
-    const ffmpeg = await import("fluent-ffmpeg");
-
     return ffmpeg.ffprobe(path, (err, info) => {
       if (err) return reject(err);
 
@@ -46,8 +45,6 @@ export const generateFramesThumbnail = async (
 
     try {
       await new Promise(async (resolve, reject) => {
-        const ffmpeg = (await import("fluent-ffmpeg")).default;
-
         return ffmpeg()
           .input(inputPath)
           .outputOptions([
