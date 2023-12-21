@@ -111,30 +111,31 @@ export const importFile = ({
   thumbPaths,
   width,
 }: ImportFileInput) =>
-  handleErrors(async () =>
-    leanModelToJson<File>(
-      await FileModel.create({
-        dateCreated,
-        dateModified: dayjs().toISOString(),
-        diffusionParams,
-        duration,
-        ext,
-        frameRate,
-        hash,
-        height,
-        isArchived: false,
-        originalHash: hash,
-        originalName,
-        originalPath,
-        path,
-        rating: 0,
-        size,
-        tagIds,
-        thumbPaths,
-        width,
-      })
-    )
-  );
+  handleErrors(async () => {
+    const file = {
+      dateCreated,
+      dateModified: dayjs().toISOString(),
+      diffusionParams,
+      duration,
+      ext,
+      frameRate,
+      hash,
+      height,
+      isArchived: false,
+      originalHash: hash,
+      originalName,
+      originalPath,
+      path,
+      rating: 0,
+      size,
+      tagIds,
+      thumbPaths,
+      width,
+    };
+
+    const res = await FileModel.create(file);
+    return { ...file, id: res._id.toString() };
+  });
 
 export const listFaceModels = ({ ids }: ListFaceModelsInput = {}) =>
   handleErrors(async () => {

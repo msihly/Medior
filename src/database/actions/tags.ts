@@ -42,17 +42,18 @@ export const addParentTagIdsToTags = ({ parentTagIds, tagIds }: AddParentTagIdsT
 export const createTag = ({ aliases = [], childIds = [], label, parentIds = [] }: CreateTagInput) =>
   handleErrors(async () => {
     const dateCreated = dayjs().toISOString();
-    return leanModelToJson<Tag>(
-      await TagModel.create({
-        aliases,
-        childIds,
-        count: 0,
-        dateCreated,
-        dateModified: dateCreated,
-        label,
-        parentIds,
-      })
-    );
+    const tag = {
+      aliases,
+      childIds,
+      count: 0,
+      dateCreated,
+      dateModified: dateCreated,
+      label,
+      parentIds,
+    };
+
+    const res = await TagModel.create(tag);
+    return { ...tag, id: res._id.toString() };
   });
 
 export const deleteTag = ({ id }: DeleteTagInput) =>

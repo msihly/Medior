@@ -41,21 +41,26 @@ export const createImportBatch = ({
   imports,
   tagIds = [],
 }: CreateImportBatchInput) =>
-  handleErrors(
-    async () =>
-      await FileImportBatchModel.create({
-        collectionTitle,
-        completedAt: null,
-        createdAt,
-        deleteOnImport,
-        imports,
-        startedAt: null,
-        tagIds,
-      })
-  );
+  handleErrors(async () => {
+    const importBatch = {
+      collectionTitle,
+      completedAt: null,
+      createdAt,
+      deleteOnImport,
+      imports,
+      startedAt: null,
+      tagIds,
+    };
+
+    const res = await FileImportBatchModel.create(importBatch);
+    return { ...importBatch, id: res._id.toString() };
+  });
 
 export const createRegExMaps = ({ regExMaps }: CreateRegExMapsInput) =>
-  handleErrors(async () => await RegExMapModel.insertMany(regExMaps));
+  handleErrors(async () => {
+    const res = await RegExMapModel.insertMany(regExMaps);
+    return res;
+  });
 
 export const deleteAllImportBatches = () =>
   handleErrors(async () => await FileImportBatchModel.deleteMany({}));
