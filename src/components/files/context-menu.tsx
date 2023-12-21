@@ -7,116 +7,151 @@ import { Menu } from "@mui/material";
 import { ListItem, View, ViewProps } from "components";
 import { colors, copyToClipboard, makeClasses } from "utils";
 
+interface Options {
+  collections?: boolean;
+  copy?: boolean;
+  delete?: boolean;
+  faceRecognition?: boolean;
+  info?: boolean;
+  openInExplorer?: boolean;
+  openNatively?: boolean;
+}
+
+const DEFAULT_OPTIONS: Options = {
+  collections: true,
+  copy: true,
+  delete: true,
+  faceRecognition: true,
+  info: true,
+  openInExplorer: true,
+  openNatively: true,
+};
+
 export interface ContextMenuProps extends ViewProps {
   children?: ReactNode | ReactNode[];
   disabled?: boolean;
   file: File;
+  options?: Partial<Options>;
 }
 
-export const ContextMenu = observer(({ children, disabled, file, ...props }: ContextMenuProps) => {
-  const { css } = useClasses(null);
+export const ContextMenu = observer(
+  ({ children, disabled, file, options = {}, ...props }: ContextMenuProps) => {
+    options = { ...DEFAULT_OPTIONS, ...options };
 
-  const rootStore = useStores();
-  const { faceRecognitionStore, fileCollectionStore, fileStore } = useStores();
+    const { css } = useClasses(null);
 
-  const [mouseX, setMouseX] = useState(null);
-  const [mouseY, setMouseY] = useState(null);
+    const rootStore = useStores();
+    const { faceRecognitionStore, fileCollectionStore, fileStore } = useStores();
 
-  const copyFilePath = () => copyToClipboard(file.path, "Copied file path");
+    const [mouseX, setMouseX] = useState(null);
+    const [mouseY, setMouseY] = useState(null);
 
-  const copyFolderPath = () => copyToClipboard(path.dirname(file.path), "Copied folder path");
+    const copyFilePath = () => copyToClipboard(file.path, "Copied file path");
 
-  const handleContext = (event) => {
-    event.preventDefault();
-    if (disabled) return;
-    setMouseX(event.clientX - 2);
-    setMouseY(event.clientY - 4);
-  };
+    const copyFolderPath = () => copyToClipboard(path.dirname(file.path), "Copied folder path");
 
-  const handleClose = () => {
-    setMouseX(null);
-    setMouseY(null);
-  };
+    const handleContext = (event) => {
+      event.preventDefault();
+      if (disabled) return;
+      setMouseX(event.clientX - 2);
+      setMouseY(event.clientY - 4);
+    };
 
-  const handleCollections = () => {
-    fileCollectionStore.setSelectedFileIds([file.id]);
-    fileCollectionStore.setIsCollectionManagerOpen(true);
-    handleClose();
-  };
+    const handleClose = () => {
+      setMouseX(null);
+      setMouseY(null);
+    };
 
-  const handleDelete = () => {
-    fileStore.deleteFiles({
-      rootStore,
-      fileIds: fileStore.getIsSelected(file.id) ? fileStore.selectedIds : [file.id],
-    });
-    handleClose();
-  };
+    const handleCollections = () => {
+      fileCollectionStore.setSelectedFileIds([file.id]);
+      fileCollectionStore.setIsCollectionManagerOpen(true);
+      handleClose();
+    };
 
-  const handleFaceRecognition = () => {
-    faceRecognitionStore.setActiveFileId(file.id);
-    faceRecognitionStore.setIsModalOpen(true);
-    handleClose();
-  };
+    const handleDelete = () => {
+      fileStore.deleteFiles({
+        rootStore,
+        fileIds: fileStore.getIsSelected(file.id) ? fileStore.selectedIds : [file.id],
+      });
+      handleClose();
+    };
 
-  const openInfo = () => {
-    fileStore.setActiveFileId(file.id);
-    fileStore.setIsInfoModalOpen(true);
-    handleClose();
-  };
+    const handleFaceRecognition = () => {
+      faceRecognitionStore.setActiveFileId(file.id);
+      faceRecognitionStore.setIsModalOpen(true);
+      handleClose();
+    };
 
-  const openInExplorer = () => {
-    shell.showItemInFolder(file.path);
-    handleClose();
-  };
+    const openInfo = () => {
+      fileStore.setActiveFileId(file.id);
+      fileStore.setIsInfoModalOpen(true);
+      handleClose();
+    };
 
-  const openNatively = () => {
-    shell.openPath(file.path);
-    handleClose();
-  };
+    const openInExplorer = () => {
+      shell.showItemInFolder(file.path);
+      handleClose();
+    };
 
-  return (
-    <View {...props} id={file.id} onContextMenu={handleContext}>
-      {children}
+    const openNatively = () => {
+      shell.openPath(file.path);
+      handleClose();
+    };
 
-      <Menu
-        open={mouseY !== null}
-        onClose={handleClose}
-        anchorReference="anchorPosition"
-        anchorPosition={
-          mouseX !== null && mouseY !== null ? { top: mouseY, left: mouseX } : undefined
-        }
-        PopoverClasses={{ paper: css.contextMenu }}
-        MenuListProps={{ className: css.contextMenuInner }}
-      >
-        <ListItem text="Open Natively" icon="DesktopWindows" onClick={openNatively} />
+    return (
+      <View {...props} id={file.id} onContextMenu={handleContext}>
+        {children}
 
-        <ListItem text="Open in Explorer" icon="Search" onClick={openInExplorer} />
+        <Menu
+          open={mouseY !== null}
+          onClose={handleClose}
+          anchorReference="anchorPosition"
+          anchorPosition={
+            mouseX !== null && mouseY !== null ? { top: mouseY, left: mouseX } : undefined
+          }
+          PopoverClasses={{ paper: css.contextMenu }}
+          MenuListProps={{ className: css.contextMenuInner }}
+        >
+          {options.openNatively && (
+            <ListItem text="Open Natively" icon="DesktopWindows" onClick={openNatively} />
+          )}
 
-        <ListItem text="Copy" icon="ContentCopy" iconEnd="ArrowRight">
-          <View column>
-            <ListItem text="File Path" icon="Image" onClick={copyFilePath} />
+          {options.openInExplorer && (
+            <ListItem text="Open in Explorer" icon="Search" onClick={openInExplorer} />
+          )}
 
-            <ListItem text="Folder Path" icon="Folder" onClick={copyFolderPath} />
-          </View>
-        </ListItem>
+          {options.copy && (
+            <ListItem text="Copy" icon="ContentCopy" iconEnd="ArrowRight">
+              <View column>
+                <ListItem text="File Path" icon="Image" onClick={copyFilePath} />
 
-        <ListItem text="Info" icon="Info" onClick={openInfo} />
+                <ListItem text="Folder Path" icon="Folder" onClick={copyFolderPath} />
+              </View>
+            </ListItem>
+          )}
 
-        {!file.isAnimated && (
-          <ListItem text="Face Recognition" icon="Face" onClick={handleFaceRecognition} />
-        )}
+          {options.info && <ListItem text="Info" icon="Info" onClick={openInfo} />}
 
-        <ListItem
-          text={file?.isArchived ? "Delete" : "Archive"}
-          icon={file?.isArchived ? "Delete" : "Archive"}
-          onClick={handleDelete}
-        />
+          {options.faceRecognition && !file.isAnimated && (
+            <ListItem text="Face Recognition" icon="Face" onClick={handleFaceRecognition} />
+          )}
 
-        <ListItem text="Collections" icon="Collections" onClick={handleCollections} />
-      </Menu>
-    </View>
-  );
-});
+          {options.delete && (
+            <ListItem
+              text={file?.isArchived ? "Delete" : "Archive"}
+              icon={file?.isArchived ? "Delete" : "Archive"}
+              onClick={handleDelete}
+            />
+          )}
+
+          {options.collections && (
+            <ListItem text="Collections" icon="Collections" onClick={handleCollections} />
+          )}
+        </Menu>
+      </View>
+    );
+  }
+);
 
 const useClasses = makeClasses({
   contextMenu: {

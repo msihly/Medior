@@ -2,9 +2,10 @@ import { createContext, MutableRefObject, useContext, useEffect, useRef, useStat
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
 import ReactPlayer from "react-player/file";
+import { OnProgressProps } from "react-player/base";
 import Panzoom, { PanzoomObject, PanzoomOptions } from "@panzoom/panzoom";
 import { Slider } from "@mui/material";
-import { IconButton, Text, View } from "components";
+import { ContextMenu, IconButton, Text, View } from "components";
 import { colors, CONSTANTS, dayjs, makeClasses } from "utils";
 
 export const ZoomContext = createContext<MutableRefObject<PanzoomObject>>(null);
@@ -52,7 +53,7 @@ export const Carousel = observer(() => {
     videoRef.current.seekTo(frame / activeFile?.frameRate);
   };
 
-  const handleVideoProgress = ({ playedSeconds }) => {
+  const handleVideoProgress = ({ playedSeconds }: OnProgressProps) => {
     setCurFrame(playedSeconds * activeFile?.frameRate);
     setCurTime(playedSeconds);
   };
@@ -75,31 +76,39 @@ export const Carousel = observer(() => {
   return (
     <>
       <View ref={zoomRef} className={css.viewContainer}>
-        {activeFile?.isVideo ? (
-          <View onClick={togglePlaying} className={css.videoContainer}>
-            <ReactPlayer
-              ref={videoRef}
-              url={activeFile?.path}
-              playing={isPlaying}
-              onProgress={handleVideoProgress}
-              progressInterval={100}
-              width="100%"
-              height="100%"
-              loop
-              muted={volume === 0}
-              volume={volume}
-            />
-          </View>
-        ) : activeFile?.path ? (
-          <img
-            src={activeFile.path}
-            className={css.image}
-            alt={activeFile?.originalName}
-            draggable={false}
-            loading="lazy"
-          />
-        ) : (
+        {!activeFile ? (
           <Text align="center">{"Loading..."}</Text>
+        ) : (
+          <ContextMenu
+            file={activeFile}
+            options={{ collections: false, faceRecognition: false }}
+            className={css.contextMenu}
+          >
+            {activeFile.isVideo ? (
+              <View onClick={togglePlaying} className={css.videoContainer}>
+                <ReactPlayer
+                  ref={videoRef}
+                  url={activeFile.path}
+                  playing={isPlaying}
+                  onProgress={handleVideoProgress}
+                  progressInterval={100}
+                  width="100%"
+                  height="100%"
+                  loop
+                  muted={volume === 0}
+                  volume={volume}
+                />
+              </View>
+            ) : (
+              <img
+                src={activeFile.path}
+                className={css.image}
+                alt={activeFile.originalName}
+                draggable={false}
+                loading="lazy"
+              />
+            )}
+          </ContextMenu>
         )}
       </View>
 
@@ -163,6 +172,9 @@ export const Carousel = observer(() => {
 });
 
 const useClasses = makeClasses((_, { isVolumeVisible }) => ({
+  contextMenu: {
+    display: "contents",
+  },
   image: {
     borderRadius: "inherit",
     width: "100%",

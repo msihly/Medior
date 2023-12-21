@@ -4,11 +4,12 @@ import { observer } from "mobx-react-lite";
 import { useStores } from "store";
 import {
   Carousel,
-  ZoomContext,
   CarouselThumbNavigator,
   CarouselTopBar,
+  InfoModal,
   Tagger,
   View,
+  ZoomContext,
 } from "components";
 import { debounce, makeClasses, setupSocketIO, socket } from "utils";
 import { toast } from "react-toastify";
@@ -117,6 +118,8 @@ export const CarouselWindow = observer(() => {
         {carouselStore.isTaggerOpen && (
           <Tagger fileIds={[carouselStore.activeFileId]} setVisible={setTaggerVisible} />
         )}
+
+        {fileStore.isInfoModalOpen && <InfoModal />}
       </View>
     </ZoomContext.Provider>
   );

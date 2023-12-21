@@ -35,7 +35,7 @@ export const InfoModal = observer(() => {
 
       <Modal.Content dividers className={css.content}>
         <DetailRow>
-          <Detail label="Original File Name" value={file?.originalName || "N/A"} />
+          <Detail label="Original File Name" value={file?.originalName || "N/A"} withTooltip />
 
           <Detail label="Extension" value={file?.ext || "N/A"} />
         </DetailRow>
@@ -57,7 +57,7 @@ export const InfoModal = observer(() => {
             }
           />
 
-          <Detail label="Original Path" value={file?.originalPath || "N/A"} />
+          <Detail label="Original Path" value={file?.originalPath || "N/A"} withTooltip />
         </DetailRow>
 
         <DetailRow>
