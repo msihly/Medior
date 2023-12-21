@@ -3,9 +3,8 @@ import path from "path";
 import { readFile } from "fs/promises";
 import { logToFile, setLogDir } from "./utils";
 
-const isDevWatch = !!process.env.DEV_WATCH;
 const isPackaged = app.isPackaged;
-const isBundled = isPackaged || isDevWatch;
+const isBundled = isPackaged || !!process.env.BUILD_DEV;
 
 const baseUrl = isBundled
   ? `file://${path.join(__dirname, "..", isPackaged ? "" : "build", "index.html")}`

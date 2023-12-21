@@ -84,20 +84,20 @@
     "vite-tsconfig-paths": "^4.2.0"
   },
   "scripts": {
-    "build": "npm run tsCompile && vite build && npx copyfiles -f src/face-models/**/* extraResources/face-models && npx copyfiles extraResources/**/* build",
-    "buildDev": "npm run build -- --mode development",
-    "check": "npm run typecheck && npm run lint",
-    "dev": "npm run tsCompile && concurrently --kill-others \"SET BROWSER=none && npm start\" \"electron .\"",
-    "devWatch": "npm run buildDev -- --minify false --watch && SET BROWSER=none && SET DEV_WATCH=true && electron .",
+    "build": "npm run copy-files && npm run ts-compile && vite build",
+    "build-dev": "SET BUILD_DEV=true&& npm run build -- --mode development --watch --config ./vite.config.watch.ts",
+    "check": "npm run ts-check && npm run lint",
+    "copy-files": "npx copyfiles -f src/face-models/**/* extraResources/face-models && npx copyfiles extraResources/**/* build",
     "dist": "npm run build && npm run electron-build",
     "electron-build": "electron-builder build --win --publish never",
-    "killPorts": "kill-port 3333 3334 3335",
+    "hmr": "npm run ts-compile && concurrently --kill-others \"SET BROWSER=none && npm start\" \"electron .\"",
+    "kill-ports": "kill-port 3333 3334 3335",
     "lint": "eslint src/**/*{.ts,.tsx}",
     "pack": "electron-builder --dir",
     "postinstall": "electron-builder install-app-deps && patch-package",
     "start": "vite",
-    "tsCompile": "tsc --p ./tsconfig.build.json && tsc-alias -p ./tsconfig.build.json",
-    "typecheck": "tsc --noEmit"
+    "ts-compile": "tsc --p ./tsconfig.build.json && tsc-alias -p ./tsconfig.build.json",
+    "ts-check": "tsc --noEmit"
   },
   "build": {
     "appId": "com.msihly.media-viewer",
@@ -150,7 +150,7 @@
       "build",
       "node_modules",
       "src/face-models",
-      "vite.config.ts"
+      "vite.config.*"
     ],
     "rules": {
       "tss-unused-classes/unused-classes": "warn",

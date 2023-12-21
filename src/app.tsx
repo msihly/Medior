@@ -28,9 +28,9 @@ export const App = () => {
       <CacheProvider value={muiCache}>
         <ThemeProvider theme={darkTheme}>
           <ConditionalWrap
-            condition={app.isPackaged !== undefined}
+            condition={app.isPackaged !== undefined || !!process.env.BUILD_DEV}
             wrap={(children) =>
-              app.isPackaged ? (
+              app.isPackaged || !!process.env.BUILD_DEV ? (
                 <HashRouter>{children}</HashRouter>
               ) : (
                 <BrowserRouter>{children}</BrowserRouter>
@@ -41,7 +41,6 @@ export const App = () => {
               <Switch>
                 <Route exact path="/" component={Home} />
                 <Route path="/carousel" component={CarouselWindow} />
-                {/* <Route path="/import-worker" component={ImportWorker} /> */}
               </Switch>
             )}
           </ConditionalWrap>
