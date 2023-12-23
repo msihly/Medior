@@ -27,13 +27,13 @@ export type AddTagsToBatchInput = { batchId: string; tagIds: string[] };
 
 export type CompleteImportBatchInput = { collectionId?: string; id: string };
 
-export type CreateImportBatchInput = {
+export type CreateImportBatchesInput = {
   collectionTitle?: string;
   createdAt: string;
   deleteOnImport: boolean;
   imports: ModelCreationData<FileImport>[];
   tagIds?: string[];
-};
+}[];
 
 export type CreateRegExMapsInput = { regExMaps: ModelCreationData<RegExMap>[] };
 

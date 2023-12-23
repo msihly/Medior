@@ -10,13 +10,13 @@ export type FlatFolderHierarchy = {
 
 export type FolderToCollMode = "none" | "withoutTag" | "withTag";
 
-export type FolderToTagsMode = "cascading" | "hierarchical" | "none";
+export type FolderToTagsMode = "cascading" | "hierarchical" | "hierarchicalDelimited" | "none";
 
 export type TagToUpsert = {
   aliases?: string[];
   children?: TagToUpsert[];
   id?: string;
   label: string;
-  parentLabel?: string;
+  parentLabels?: string[];
   withRegEx?: boolean;
 };

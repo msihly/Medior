@@ -54,11 +54,6 @@ export class ImportBatch extends Model({
   }
 
   @computed
-  get nextImport() {
-    return this.imports.find((imp) => imp.status === "PENDING");
-  }
-
-  @computed
   get status() {
     return this.imports.some((imp) => imp.status === "PENDING")
       ? "PENDING"

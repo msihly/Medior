@@ -4,7 +4,7 @@ import { RegExMapType } from "database";
 import { observer } from "mobx-react-lite";
 import { Tag, useStores } from "store";
 import { Divider } from "@mui/material";
-import { Button, Checkbox, Modal, Text, View } from "components";
+import { Button, CenteredText, Checkbox, CheckboxProps, Modal, Text, View } from "components";
 import {
   FlatFolderHierarchy,
   FolderToCollMode,
@@ -14,9 +14,11 @@ import {
   TagHierarchy,
   TagToUpsert,
 } from ".";
-import { PromiseQueue, colors, makeClasses } from "utils";
+import { colors, makeClasses, rateLimitPromiseAll } from "utils";
 import { toast } from "react-toastify";
+import Color from "color";
 
+const FOLDER_DELIMITER = ";;";
 const LABEL_DIFF = "Diffusion";
 const LABEL_DIFF_MODEL = "Diffusion Model";
 const LABEL_DIFF_ORIGINAL = "Diff: Original";
@@ -32,17 +34,23 @@ export const ImportEditor = observer(() => {
   const [flatTagsToUpsert, setFlatTagsToUpsert] = useState<TagToUpsert[]>([]);
   const [folderToCollectionMode, setFolderToCollectionMode] = useState<FolderToCollMode>("none");
   const [folderToTagsMode, setFolderToTagsMode] = useState<FolderToTagsMode>("none");
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [tagHierarchy, setTagHierarchy] = useState<TagToUpsert[]>([]);
   const [withDiffusionModel, setWithDiffusionModel] = useState(true);
   const [withDiffusionRegExMaps, setWithDiffusionRegExMaps] = useState(true);
   const [withDiffusionParams, setWithDiffusionParams] = useState(false);
   const [withDiffusionTags, setWithDiffusionTags] = useState(true);
-  const [withFileNameToTags, setWithFileNameToTags] = useState(true);
+  const [withFileNameToTags, setWithFileNameToTags] = useState(false);
   const [withFolderNameRegEx, setWithFolderNameRegEx] = useState(true);
   const [withNewTagsToRegEx, setWithNewTagsToRegEx] = useState(true);
 
+  const isDisabled = isLoading || isSaving;
+
   useEffect(() => {
-    (async () => {
+    setIsLoading(true);
+
+    setTimeout(async () => {
       const tagsToCreate: TagToUpsert[] = [];
       const tagsToEdit: TagToUpsert[] = [];
       const [fileNameRegExMaps, folderNameRegExMaps] = ["fileName", "folderName"].map(
@@ -83,6 +91,7 @@ export const ImportEditor = observer(() => {
       /* --------------------------------- Folders -------------------------------- */
       const flatFolderHierarchy = importStore.editorImports
         .reduce((acc, cur) => {
+          const folderTags: TagToUpsert[] = [];
           const folderName = path.dirname(cur.path);
           const folder = acc.find((f) => f.folderName === folderName);
           const folderNameParts = folderName
@@ -98,32 +107,64 @@ export const ImportEditor = observer(() => {
           const tagLabel = folderNameParts.slice().pop()!;
           const tagParentLabel = folderNameParts.slice(0, -1).pop();
 
-          /* ----------------------- Create FlatFolderHierarchy ----------------------- */
           if (folder) folder.imports.push(cur);
           else {
-            const folderTags: TagToUpsert[] =
-              folderToTagsMode === "cascading"
-                ? folderNameParts.map((part) => ({
-                    id: tagStore.getByLabel(part)?.id,
-                    label: part,
-                  }))
-                : folderToTagsMode === "hierarchical" && tagLabel
-                ? [
-                    {
-                      id: tagStore.getByLabel(tagLabel)?.id,
-                      label: tagLabel,
-                      parentLabel: tagParentLabel,
-                    },
-                  ]
-                : [];
+            const withDelimiters = folderToTagsMode === "hierarchicalDelimited";
 
-            const tags = [...folderTags];
+            if (folderToTagsMode === "cascading") {
+              folderNameParts.forEach((label) => {
+                const tag = tagStore.getByLabel(label);
+                if (!tag && !tagsToCreate.find((t) => t.label === label))
+                  tagsToCreate.push({ label, withRegEx: withNewTagsToRegEx });
+                else folderTags.push({ id: tag?.id, label });
+              });
+            } else if (folderToTagsMode.includes("hierarchical") && tagLabel) {
+              const labels = withDelimiters
+                ? tagLabel.split(FOLDER_DELIMITER).map((l) => l.trim())
+                : [tagLabel];
+
+              labels.forEach((tagLabel) => {
+                const tag = tagStore.getByLabel(tagLabel);
+                const parentLabel = tagParentLabel;
+                const parentLabels = parentLabel
+                  ? withDelimiters
+                    ? parentLabel.split(FOLDER_DELIMITER).map((l) => l.trim())
+                    : [parentLabel]
+                  : [];
+
+                folderTags.push({ id: tag?.id, label: tagLabel, parentLabels });
+
+                folderNameParts.forEach((l, idx) => {
+                  const labels = withDelimiters
+                    ? l.split(FOLDER_DELIMITER).map((l) => l.trim())
+                    : [l];
+
+                  labels.forEach((label) => {
+                    const tag = tagStore.getByLabel(label);
+                    const parentLabel = folderNameParts[idx - 1];
+                    const parentLabels = parentLabel
+                      ? withDelimiters
+                        ? parentLabel.split(FOLDER_DELIMITER).map((l) => l.trim())
+                        : [parentLabel]
+                      : [];
+
+                    if (!tag && !tagsToCreate.find((t) => t.label === label))
+                      tagsToCreate.push({ label, parentLabels, withRegEx: withNewTagsToRegEx });
+                    else if (tag && !tagsToEdit.find((t) => t.id === tag.id))
+                      tagsToEdit.push({ id: tag.id, label, parentLabels });
+                  });
+                });
+              });
+            }
 
             if (folderToTagsMode !== "none" && withFolderNameRegEx)
-              tags.push(
+              folderTags.push(
                 ...parseFileTags(folderNameRegExMaps, folderName).reduce((acc, id) => {
                   const label = tagStore.getById(id).label;
-                  if (!acc.find((t) => t.label === label) && !tags.find((t) => t.label === label))
+                  if (
+                    !acc.find((t) => t.label === label) &&
+                    !folderTags.find((t) => t.label === label)
+                  )
                     acc.push({ id, label });
                   return acc;
                 }, [] as TagToUpsert[])
@@ -134,26 +175,7 @@ export const ImportEditor = observer(() => {
               folderName,
               folderNameParts,
               imports: [cur],
-              tags,
-            });
-          }
-
-          /** Create TagsToUpsert */
-          if (folderToTagsMode === "cascading") {
-            folderNameParts.forEach((label) => {
-              const tag = tagStore.getByLabel(label);
-              if (!tag && !tagsToCreate.find((t) => t.label === label))
-                tagsToCreate.push({ label, withRegEx: withNewTagsToRegEx });
-            });
-          } else if (folderToTagsMode === "hierarchical") {
-            folderNameParts.forEach((label, idx) => {
-              const tag = tagStore.getByLabel(label);
-              const parentLabel = folderNameParts[idx - 1];
-
-              if (!tag && !tagsToCreate.find((t) => t.label === label))
-                tagsToCreate.push({ label, parentLabel, withRegEx: withNewTagsToRegEx });
-              else if (tag && !tagsToEdit.find((t) => t.id === tag.id))
-                tagsToEdit.push({ id: tag.id, label, parentLabel });
+              tags: folderTags,
             });
           }
 
@@ -164,13 +186,16 @@ export const ImportEditor = observer(() => {
       setFlatFolderHierarchy(flatFolderHierarchy);
 
       const tagsToUpsert = [...tagsToCreate, ...tagsToEdit];
+
       setFlatTagsToUpsert(tagsToUpsert);
       setTagHierarchy(
         tagsToUpsert
-          .filter((t) => !t.parentLabel)
+          .filter((t) => !t.parentLabels?.length)
           .map((t) => ({ ...t, children: createTagHierarchy(tagsToUpsert, t.label) }))
       );
-    })();
+
+      setIsLoading(false);
+    }, 50);
   }, [
     folderToCollectionMode,
     folderToTagsMode,
@@ -182,60 +207,62 @@ export const ImportEditor = observer(() => {
     withDiffusionRegExMaps,
     withDiffusionTags,
     withFileNameToTags,
+    withFolderNameRegEx,
   ]);
 
   const createTagHierarchy = (tags: TagToUpsert[], label: string): TagToUpsert[] =>
     tags
-      .filter((c) => c.parentLabel === label)
+      .filter((c) => c.parentLabels?.includes(label))
       .map((c) => ({ ...c, children: createTagHierarchy(tags, c.label) }));
 
   const handleClose = () => importStore.setIsImportEditorOpen(false);
 
   const handleConfirm = async () => {
+    setIsSaving(true);
+
     if (flatTagsToUpsert.length > 0) {
-      const tagQueue = new PromiseQueue();
-      flatTagsToUpsert.forEach((t) => {
-        tagQueue.add(async () => {
-          const parentTag = t.parentLabel ? tagStore.getByLabel(t.parentLabel) : null;
+      await rateLimitPromiseAll(
+        10,
+        flatTagsToUpsert.map(async (t) => {
+          const parentTags = t.parentLabels
+            ? t.parentLabels.map((l) => tagStore.getByLabel(l)).filter(Boolean)
+            : null;
+          const parentIds = parentTags?.map((t) => t.id) ?? [];
 
           if (t.id) {
             const tag = tagStore.getById(t.id);
-            if (!parentTag || tag.parentIds.includes(parentTag?.id)) return;
+            if (!parentIds.length || tag.parentIds.some((id) => parentIds.includes(id))) return;
 
             const res = await tagStore.editTag({
               id: t.id,
-              parentIds: parentTag ? [...tag.parentIds, parentTag.id] : [],
+              parentIds: parentIds.length ? [...tag.parentIds, ...parentIds] : [],
             });
             if (!res.success) throw new Error(res.error);
           } else {
             const res = await tagStore.createTag({
               label: t.label,
-              parentIds: parentTag ? [parentTag.id] : [],
+              parentIds,
               withRegEx: t.withRegEx,
             });
             if (!res.success) throw new Error(res.error);
           }
-        });
-      });
+        })
+      );
 
-      await tagQueue.queue;
+      await tagStore.loadTags();
     }
 
-    const importQueue = new PromiseQueue();
-    flatFolderHierarchy.forEach((folder) => {
-      importQueue.add(async () => {
-        const tagIds = folder.tags.map((t) => tagStore.getByLabel(t.label)?.id).filter(Boolean);
-        const res = await importStore.createImportBatch({
-          collectionTitle: folder.collectionTitle,
-          deleteOnImport,
-          imports: [...folder.imports],
-          tagIds,
-        });
-        if (!res.success) throw new Error(res.error);
-      });
-    });
+    const batches = flatFolderHierarchy.map((folder) => ({
+      collectionTitle: folder.collectionTitle,
+      deleteOnImport,
+      imports: [...folder.imports],
+      tagIds: folder.tags.map((t) => tagStore.getByLabel(t.label)?.id).filter(Boolean),
+    }));
 
-    await importQueue.queue;
+    const res = await importStore.createImportBatches(batches);
+    if (!res.success) throw new Error(res.error);
+
+    setIsSaving(false);
 
     toast.success(
       `Queued ${flatFolderHierarchy.reduce((acc, cur) => acc + cur.imports.length, 0)} imports`
@@ -249,7 +276,7 @@ export const ImportEditor = observer(() => {
     setFolderToCollectionMode(checked ? "withoutTag" : "none");
 
   const handleFoldersToTags = (checked: boolean) =>
-    setFolderToTagsMode(checked ? "hierarchical" : "none");
+    setFolderToTagsMode(checked ? "hierarchicalDelimited" : "none");
 
   const handleRegExMapper = () => importStore.setIsImportRegExMapperOpen(true);
 
@@ -353,6 +380,11 @@ export const ImportEditor = observer(() => {
 
   const toggleFoldersToTagsHierarchical = () => setFolderToTagsMode("hierarchical");
 
+  const toggleFoldersToTagsHierDelimited = () =>
+    setFolderToTagsMode((prev) =>
+      prev === "hierarchicalDelimited" ? "hierarchical" : "hierarchicalDelimited"
+    );
+
   const toggleWithFolderNameRegEx = () => setWithFolderNameRegEx((prev) => !prev);
 
   const upsertDiffMetaTags = async () => {
@@ -389,9 +421,9 @@ export const ImportEditor = observer(() => {
         diffMetaTagsToEdit.push(
           ...[
             { id: diffTag.id, label: LABEL_DIFF },
-            { id: modelTag.id, label: LABEL_DIFF_MODEL, parentLabel: LABEL_DIFF },
-            { id: originalTag.id, label: LABEL_DIFF_ORIGINAL, parentLabel: LABEL_DIFF },
-            { id: upscaledTag.id, label: LABEL_DIFF_UPSCALED, parentLabel: LABEL_DIFF },
+            { id: modelTag.id, label: LABEL_DIFF_MODEL, parentLabels: [LABEL_DIFF] },
+            { id: originalTag.id, label: LABEL_DIFF_ORIGINAL, parentLabels: [LABEL_DIFF] },
+            { id: upscaledTag.id, label: LABEL_DIFF_UPSCALED, parentLabels: [LABEL_DIFF] },
           ]
         );
       }
@@ -399,6 +431,8 @@ export const ImportEditor = observer(() => {
 
     return { diffMetaTagsToEdit, modelTag, originalTag, upscaledTag };
   };
+
+  const checkboxProps: Partial<CheckboxProps> = { disabled: isDisabled, flex: "initial" };
 
   return (
     <Modal.Container width="100%" height="100%">
@@ -415,7 +449,7 @@ export const ImportEditor = observer(() => {
               label="Delete on Import"
               checked={deleteOnImport}
               setChecked={setDeleteOnImport}
-              flex="initial"
+              {...checkboxProps}
             />
 
             <Divider />
@@ -424,7 +458,7 @@ export const ImportEditor = observer(() => {
               label="New Tags to RegEx"
               checked={withNewTagsToRegEx}
               setChecked={setWithNewTagsToRegEx}
-              flex="initial"
+              {...checkboxProps}
             />
 
             <Divider />
@@ -433,7 +467,7 @@ export const ImportEditor = observer(() => {
               label="File to Tags (RegEx)"
               checked={withFileNameToTags}
               setChecked={setWithFileNameToTags}
-              flex="initial"
+              {...checkboxProps}
             />
 
             <Divider />
@@ -442,7 +476,7 @@ export const ImportEditor = observer(() => {
               label="Folder to Tags"
               checked={folderToTagsMode !== "none"}
               setChecked={handleFoldersToTags}
-              flex="initial"
+              {...checkboxProps}
             />
 
             <View column margins={{ left: "1rem" }}>
@@ -451,23 +485,33 @@ export const ImportEditor = observer(() => {
                 checked={withFolderNameRegEx}
                 setChecked={toggleWithFolderNameRegEx}
                 disabled={folderToTagsMode === "none"}
-                flex="initial"
+                {...checkboxProps}
               />
 
               <Checkbox
                 label="Hierarchical"
-                checked={folderToTagsMode === "hierarchical"}
+                checked={folderToTagsMode.includes("hierarchical")}
                 setChecked={toggleFoldersToTagsHierarchical}
                 disabled={folderToTagsMode === "none"}
-                flex="initial"
+                {...checkboxProps}
               />
+
+              <View column margins={{ left: "1rem" }}>
+                <Checkbox
+                  label="Delimited"
+                  checked={folderToTagsMode === "hierarchicalDelimited"}
+                  setChecked={toggleFoldersToTagsHierDelimited}
+                  disabled={!folderToTagsMode.includes("hierarchical")}
+                  {...checkboxProps}
+                />
+              </View>
 
               <Checkbox
                 label="Cascading"
                 checked={folderToTagsMode === "cascading"}
                 setChecked={toggleFoldersToTagsCascading}
                 disabled={folderToTagsMode === "none"}
-                flex="initial"
+                {...checkboxProps}
               />
             </View>
 
@@ -477,7 +521,7 @@ export const ImportEditor = observer(() => {
               label="Folder to Collection"
               checked={folderToCollectionMode !== "none"}
               setChecked={handleFolderToCollection}
-              flex="initial"
+              {...checkboxProps}
             />
 
             <View column margins={{ left: "1rem" }}>
@@ -486,7 +530,7 @@ export const ImportEditor = observer(() => {
                 checked={folderToCollectionMode === "withTag"}
                 setChecked={toggleFolderToCollWithTag}
                 disabled={folderToCollectionMode === "none"}
-                flex="initial"
+                {...checkboxProps}
               />
             </View>
 
@@ -496,7 +540,7 @@ export const ImportEditor = observer(() => {
               label="Diffusion Params"
               checked={withDiffusionParams}
               setChecked={setWithDiffusionParams}
-              flex="initial"
+              {...checkboxProps}
             />
 
             <View column margins={{ left: "1rem" }}>
@@ -505,7 +549,7 @@ export const ImportEditor = observer(() => {
                 checked={withDiffusionTags}
                 setChecked={setWithDiffusionTags}
                 disabled={!withDiffusionParams}
-                flex="initial"
+                {...checkboxProps}
               />
 
               <View column margins={{ left: "1rem" }}>
@@ -514,7 +558,7 @@ export const ImportEditor = observer(() => {
                   checked={withDiffusionModel}
                   setChecked={setWithDiffusionModel}
                   disabled={!withDiffusionParams || !withDiffusionTags}
-                  flex="initial"
+                  {...checkboxProps}
                 />
 
                 <Checkbox
@@ -522,13 +566,21 @@ export const ImportEditor = observer(() => {
                   checked={withDiffusionRegExMaps}
                   setChecked={setWithDiffusionRegExMaps}
                   disabled={!withDiffusionParams || !withDiffusionTags}
-                  flex="initial"
+                  {...checkboxProps}
                 />
               </View>
             </View>
           </View>
 
           <View className={css.rightColumn}>
+            {isDisabled ? (
+              <CenteredText
+                text={isLoading ? "Loading..." : "Saving..."}
+                fontSize="2em"
+                viewProps={{ className: css.loadingOverlay }}
+              />
+            ) : null}
+
             {(folderToTagsMode !== "none" ||
               folderToCollectionMode === "withTag" ||
               (withDiffusionParams && withDiffusionTags)) && (
@@ -566,9 +618,21 @@ export const ImportEditor = observer(() => {
       </Modal.Content>
 
       <Modal.Footer>
-        <Button text="Close" icon="Close" onClick={handleClose} color={colors.button.red} />
+        <Button
+          text="Close"
+          icon="Close"
+          onClick={handleClose}
+          disabled={isDisabled}
+          color={colors.button.red}
+        />
 
-        <Button text="Confirm" icon="Check" onClick={handleConfirm} color={colors.button.blue} />
+        <Button
+          text="Confirm"
+          icon="Check"
+          onClick={handleConfirm}
+          disabled={isDisabled}
+          color={colors.button.blue}
+        />
       </Modal.Footer>
     </Modal.Container>
   );
@@ -595,7 +659,20 @@ const useClasses = makeClasses({
     marginRight: "0.5rem",
     overflowY: "auto",
   },
+  loadingOverlay: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    borderRadius: 4,
+    marginBottom: "0 !important",
+    backgroundColor: Color(colors.grey["900"]).alpha(0.9).string(),
+    zIndex: 10,
+    transition: "all 200ms ease-in-out",
+  },
   rightColumn: {
+    position: "relative",
     display: "flex",
     flexDirection: "column",
     flex: 1,

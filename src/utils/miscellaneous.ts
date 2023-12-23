@@ -11,6 +11,10 @@ export class PromiseQueue {
     });
   }
 
+  clear() {
+    this.queue = Promise.resolve();
+  }
+
   isPending() {
     return inspect(this.queue).includes("pending");
   }
@@ -90,4 +94,30 @@ export const parseLocalStorage = (item, defaultValue = null) => {
 
   localStorage.setItem(item, defaultValue);
   return defaultValue;
+};
+
+export const rateLimitPromiseAll = async <T>(
+  rateLimit: number,
+  promises: Promise<T>[]
+): Promise<T[]> => {
+  const generators = promises.map((promise) => () => promise);
+  const iterator = generators.entries();
+  const ret: T[] = [];
+  let done = false;
+
+  await Promise.all(
+    Array.from(Array(rateLimit), async () => {
+      for (const [idx, fn] of iterator) {
+        if (done) break;
+        try {
+          ret[idx] = await fn();
+        } catch (err) {
+          done = true;
+          throw err;
+        }
+      }
+    })
+  );
+
+  return ret;
 };

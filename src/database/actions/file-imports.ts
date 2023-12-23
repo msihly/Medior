@@ -1,7 +1,7 @@
 import {
   AddTagsToBatchInput,
   CompleteImportBatchInput,
-  CreateImportBatchInput,
+  CreateImportBatchesInput,
   CreateRegExMapsInput,
   DeleteImportBatchInput,
   DeleteRegExMapsInput,
@@ -34,26 +34,22 @@ export const completeImportBatch = ({ collectionId, id }: CompleteImportBatchInp
     return completedAt;
   });
 
-export const createImportBatch = ({
-  collectionTitle,
-  createdAt,
-  deleteOnImport,
-  imports,
-  tagIds = [],
-}: CreateImportBatchInput) =>
+export const createImportBatches = (batches: CreateImportBatchesInput) =>
   handleErrors(async () => {
-    const importBatch = {
-      collectionTitle,
-      completedAt: null,
-      createdAt,
-      deleteOnImport,
-      imports,
-      startedAt: null,
-      tagIds,
-    };
+    const importBatches = batches.map(
+      ({ collectionTitle, createdAt, deleteOnImport, imports, tagIds }) => ({
+        collectionTitle,
+        completedAt: null,
+        createdAt,
+        deleteOnImport,
+        imports,
+        startedAt: null,
+        tagIds: tagIds ? [...tagIds].flat() : [],
+      })
+    );
 
-    const res = await FileImportBatchModel.create(importBatch);
-    return { ...importBatch, id: res._id.toString() };
+    const res = await FileImportBatchModel.insertMany(importBatches);
+    if (res.length !== importBatches.length) throw new Error("Failed to create import batches");
   });
 
 export const createRegExMaps = ({ regExMaps }: CreateRegExMapsInput) =>

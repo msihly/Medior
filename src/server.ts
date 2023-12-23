@@ -69,9 +69,9 @@ const trpcRouter = tRouter({
   createCollection: tProc
     .input((input: unknown) => input as db.CreateCollectionInput)
     .mutation(({ input }) => db.createCollection(input)),
-  createImportBatch: tProc
-    .input((input: unknown) => input as db.CreateImportBatchInput)
-    .mutation(({ input }) => db.createImportBatch(input)),
+  createImportBatches: tProc
+    .input((input: unknown) => input as db.CreateImportBatchesInput)
+    .mutation(({ input }) => db.createImportBatches(input)),
   createRegExMaps: tProc
     .input((input: unknown) => input as db.CreateRegExMapsInput)
     .mutation(({ input }) => db.createRegExMaps(input)),
