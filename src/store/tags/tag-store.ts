@@ -259,7 +259,13 @@ export class TagStore extends Model({
   refreshTagCount = _async(function* (this: TagStore, { id }: { id: string }) {
     return yield* _await(
       handleErrors(async () => {
-        const tagIds = [id, ...this.getParentTags(this.getById(id)).map((t) => t.id)];
+        const tag = this.getById(id);
+        if (!tag) {
+          console.error(`[RefreshTagCount] Tag with id '${id}' not found`);
+          return null;
+        }
+
+        const tagIds = [id, ...this.getParentTags(tag).map((t) => t.id)];
         const res = await trpc.recalculateTagCounts.mutate({ tagIds });
 
         res.data.forEach(({ count, id }) =>
@@ -363,7 +369,7 @@ export class TagStore extends Model({
   tagsToRegEx(tags: { aliases?: string[]; label: string }[]) {
     return `(${tags
       .flatMap((tag) => [tag.label, ...tag.aliases])
-      .map((s) => `\\b${regexEscape(s).replaceAll(/[\s-_]+/g, "[\\s-_\\.]+")}\\b`)
+      .map((s) => `\\b${regexEscape(s).replaceAll(/[\s-_]+/g, "[\\s\\-_\\.]+")}\\b`)
       .join(")|(")})`;
   }
 

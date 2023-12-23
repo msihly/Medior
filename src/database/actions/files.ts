@@ -203,6 +203,7 @@ export const listFilteredFileIds = ({
           excludedAnyTagIds?.length > 0 ? { tagIds: { $nin: excludedAnyTagIds } } : {},
         ],
       })
+        .allowDiskUse(true)
         .select("_id")
         .sort({ [sortKey]: isSortDesc ? -1 : 1 })
         .lean()

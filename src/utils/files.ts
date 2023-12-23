@@ -16,7 +16,17 @@ export const IMAGE_TYPES = [
 export type ImageType = (typeof IMAGE_TYPES)[number];
 export const IMAGE_EXT_REG_EXP = new RegExp(`${IMAGE_TYPES.join("|")}`, "i");
 
-export const VIDEO_TYPES = ["webm", "mp4", "mkv", "mov", "m4v", "f4v", "flv", "3gp"] as const;
+export const VIDEO_TYPES = [
+  "webm",
+  "mp4",
+  "mkv",
+  "mov",
+  "avi",
+  "m4v",
+  "f4v",
+  "flv",
+  "3gp",
+] as const;
 export type VideoType = (typeof VIDEO_TYPES)[number];
 export const VIDEO_EXT_REG_EXP = new RegExp(`${VIDEO_TYPES.join("|")}`, "i");
 export const ANIMATED_EXT_REG_EXP = new RegExp(`gif|${VIDEO_TYPES.join("|")}`, "i");
