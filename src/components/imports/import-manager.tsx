@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
 import { Button, CenteredText, IconButton, ImportBatch, Modal, Text, View } from "components";
@@ -6,8 +6,16 @@ import { colors, makeClasses } from "utils";
 import { toast } from "react-toastify";
 
 export const ImportManager = observer(() => {
-  const { importStore } = useStores();
   const { css } = useClasses(null);
+
+  const { importStore } = useStores();
+
+  const completedRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (completedRef.current && importStore.completedBatches?.length)
+      completedRef.current.scrollTo({ behavior: "smooth", top: completedRef.current.scrollHeight });
+  }, [importStore.completedBatches?.length]);
 
   const [isConfirmDeleteAllOpen, setIsConfirmDeleteAllOpen] = useState(false);
 
@@ -64,15 +72,27 @@ export const ImportManager = observer(() => {
       </Modal.Header>
 
       <Modal.Content className={css.modalContent}>
-        {importStore.batches?.length > 0 ? (
-          [...importStore.batches]
-            .reverse()
-            .map((batch, i) => (
-              <ImportBatch key={`${batch.createdAt}-${i}`} createdAt={batch.createdAt} />
+        <Text className={css.containerTitle}>{"Completed"}</Text>
+        <View ref={completedRef} className={css.batchesContainer} margins={{ bottom: "1rem" }}>
+          {importStore.completedBatches?.length > 0 ? (
+            [...importStore.completedBatches].map((batch) => (
+              <ImportBatch key={batch.id} {...{ batch }} />
             ))
-        ) : (
-          <CenteredText text="No Imports" color={colors.grey["300"]} />
-        )}
+          ) : (
+            <CenteredText text="No Completed Imports" color={colors.grey["300"]} />
+          )}
+        </View>
+
+        <Text className={css.containerTitle}>{"Pending"}</Text>
+        <View className={css.batchesContainer}>
+          {importStore.incompleteBatches?.length > 0 ? (
+            [...importStore.incompleteBatches].map((batch) => (
+              <ImportBatch key={batch.id} {...{ batch }} />
+            ))
+          ) : (
+            <CenteredText text="No Pending Imports" color={colors.grey["300"]} />
+          )}
+        </View>
       </Modal.Content>
 
       <Modal.Footer>
@@ -83,9 +103,27 @@ export const ImportManager = observer(() => {
 });
 
 const useClasses = makeClasses({
+  batchesContainer: {
+    display: "flex",
+    flexDirection: "column",
+    borderRadius: "0.5rem",
+    padding: "0.7rem",
+    height: "100%",
+    width: "100%",
+    backgroundColor: colors.grey["800"],
+    overflowX: "hidden",
+    overflowY: "auto",
+  },
+  containerTitle: {
+    marginLeft: "0.3rem",
+    fontSize: "1.1em",
+    fontWeight: 500,
+    textAlign: "center",
+    overflow: "visible",
+  },
   modalContent: {
     flexDirection: "column",
-    alignItems: "center",
+    padding: "1rem",
     overflowX: "hidden",
     overflowY: "auto",
   },

@@ -38,6 +38,7 @@ export const ImportCard = observer(({ fileImport, style }: ImportCardProps) => {
             thumbPaths={fileImport.thumbPaths}
             title={fileImport.path}
             rounded="all"
+            height="100%"
             disabled
           >
             <FileBase.Chip

@@ -1,7 +1,7 @@
 import path from "path";
 import { useState } from "react";
 import { observer } from "mobx-react-lite";
-import { useStores } from "store";
+import { ImportBatch as ImportBatchType, useStores } from "store";
 import AutoSizer from "react-virtualized-auto-sizer";
 import { FixedSizeList } from "react-window";
 import { LinearProgress } from "@mui/material";
@@ -12,14 +12,14 @@ import { toast } from "react-toastify";
 import Color from "color";
 
 interface ImportBatchProps {
-  createdAt: string;
+  batch: ImportBatchType;
 }
 
-export const ImportBatch = observer(({ createdAt }: ImportBatchProps) => {
+export const ImportBatch = observer(({ batch }: ImportBatchProps) => {
   const { fileCollectionStore, homeStore, importStore } = useStores();
 
-  const batch = importStore.getByCreatedAt(createdAt);
   const completedFileIds = batch.completed.map((imp) => imp.fileId);
+  const index = importStore.batches.findIndex((b) => b.id === batch.id);
   const status = IMPORT_STATUSES[batch.status];
 
   const [expanded, setExpanded] = useState(false);
@@ -60,9 +60,7 @@ export const ImportBatch = observer(({ createdAt }: ImportBatchProps) => {
           </View>
 
           <View className={css.headerBottom}>
-            <Text className={css.index}>
-              {`${importStore.batches.findIndex((b) => b.createdAt === createdAt) + 1}.`}
-            </Text>
+            <Text className={css.index}>{`${index + 1}.`}</Text>
 
             <BatchTooltip batch={batch}>
               <Icon name={status.icon} color={status.color} className={css.statusIcon} />
@@ -91,7 +89,12 @@ export const ImportBatch = observer(({ createdAt }: ImportBatchProps) => {
               name="Collections"
               onClick={handleCollections}
               disabled={!batch.collectionId}
-              iconProps={{ color: colors.grey["300"], size: "0.9em" }}
+              iconProps={{
+                color: !batch.collectionId
+                  ? Color(colors.grey["300"]).fade(0.5).string()
+                  : colors.grey["300"],
+                size: "0.9em",
+              }}
             />
 
             <IconButton
@@ -164,6 +167,7 @@ const useClasses = makeClasses((_, { expanded, hasTags }) => ({
     display: "flex",
     flexDirection: "column",
     flex: 1,
+    overflow: "hidden",
     "&:hover": { cursor: "pointer" },
   },
   headerCenter: {
