@@ -36,26 +36,25 @@ export const RegExMapRow = observer(({ index, style }: RegExMapRowProps) => {
   const { importStore, tagStore } = useStores();
 
   const map = importStore.filteredRegExMaps[importStore.filteredRegExMaps.length - 1 - index];
-  if (!map) return <View className={css.root} {...{ style }} />;
 
   const [isRegExValid, isTestStringValid] = useMemo(() => {
     try {
-      const regEx = new RegExp(map.regEx, "im");
-      return [true, map.testString?.length > 0 ? regEx.test(map.testString) : true];
+      const regEx = new RegExp(map?.regEx, "im");
+      return [true, map?.testString?.length > 0 ? regEx.test(map.testString) : true];
     } catch (error) {
       return [false, false];
     }
-  }, [map.regEx, map.testString]);
+  }, [map?.regEx, map?.testString]);
 
-  const status: Status = map.isDeleted
+  const status: Status = map?.isDeleted
     ? "delete"
-    : !map.id
+    : !map?.id
     ? "create"
-    : map.hasUnsavedChanges
+    : map?.hasUnsavedChanges
     ? "edit"
     : null;
 
-  const tags = map.tagIds.map((id) => tagStore.getById(id)?.tagOption);
+  const tags = map?.tagIds?.map((id) => tagStore.getById(id)?.tagOption);
 
   const genRegExFromTags = () => setRegEx(tagStore.tagsToRegEx(tags));
 
@@ -81,12 +80,14 @@ export const RegExMapRow = observer(({ index, style }: RegExMapRowProps) => {
 
   const inputProps: Partial<InputProps> = {
     className: css.input,
-    disabled: map.isDeleted,
+    disabled: map?.isDeleted,
     hasHelper: true,
     InputLabelProps: { shrink: true },
   };
 
-  return (
+  return !map ? (
+    <View className={css.root} {...{ style }} />
+  ) : (
     <View className={css.root} {...{ style }}>
       <View className={css.row}>
         {status ? (
