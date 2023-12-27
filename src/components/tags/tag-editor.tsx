@@ -114,6 +114,20 @@ export const TagEditor = observer(({ create, goBack }: TagEditorProps) => {
     <>
       <Modal.Content>
         <View column>
+          {/* TEMP / DEBUG */}
+          {!isCreate && (
+            <View row>
+              <Button
+                icon="Refresh"
+                onClick={handleRefreshCount}
+                color={colors.blueGrey["700"]}
+                margins={{ right: "0.5rem" }}
+              />
+
+              <Text fontWeight={500}>{`Count: ${tagStore.activeTag.count}`}</Text>
+            </View>
+          )}
+
           <Text className={css.sectionTitle}>{"Label"}</Text>
           <TagInput
             value={undefined}
@@ -149,6 +163,7 @@ export const TagEditor = observer(({ create, goBack }: TagEditorProps) => {
             options={parentTagOptions}
             hasCreate
             hasHelper
+            limitTags={20}
           />
 
           <Text className={css.sectionTitle}>{"Child Tags"}</Text>
@@ -158,6 +173,7 @@ export const TagEditor = observer(({ create, goBack }: TagEditorProps) => {
             options={childTagOptions}
             hasCreate
             hasHelper
+            limitTags={20}
           />
 
           {isCreate && (
@@ -201,15 +217,6 @@ export const TagEditor = observer(({ create, goBack }: TagEditorProps) => {
         <Button text="Confirm" icon="Check" onClick={saveTag} />
 
         <Button text="Cancel" icon="Close" onClick={goBack} color={colors.grey["700"]} />
-
-        {!isCreate && (
-          <Button
-            text="Refresh Count"
-            icon="Refresh"
-            onClick={handleRefreshCount}
-            color={colors.blueGrey["700"]}
-          />
-        )}
 
         {!isCreate && (
           <Button text="Delete" icon="Delete" onClick={handleDelete} color={colors.red["800"]} />

@@ -8,7 +8,7 @@ export const addChildTagIdsToTags = ({ childTagIds, tagIds }: db.AddChildTagIdsT
     const dateModified = dayjs().toISOString();
     await db.TagModel.updateMany(
       { _id: { $in: tagIds } },
-      { $addToSet: { childIds: childTagIds as any }, dateModified }
+      { $addToSet: { childIds: childTagIds }, dateModified }
     );
     return dateModified;
   });
@@ -18,7 +18,7 @@ export const addParentTagIdsToTags = ({ parentTagIds, tagIds }: db.AddParentTagI
     const dateModified = dayjs().toISOString();
     await db.TagModel.updateMany(
       { _id: { $in: tagIds } },
-      { $addToSet: { parentIds: parentTagIds as any }, dateModified }
+      { $addToSet: { parentIds: parentTagIds }, dateModified }
     );
     return dateModified;
   });

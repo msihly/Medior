@@ -190,6 +190,7 @@ export type EditTagInput = {
   id: string;
   label?: string;
   parentIds?: string[];
+  withSub?: boolean;
 };
 
 export type OnTagCreatedInput = { tag?: Tag };

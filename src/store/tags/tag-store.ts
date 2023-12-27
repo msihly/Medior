@@ -17,6 +17,18 @@ import { Tag, TagOption, tagsToDescendants } from ".";
 import { getArrayDiff, handleErrors, PromiseQueue, regexEscape, trpc } from "utils";
 import { toast } from "react-toastify";
 
+const bisectChangedIds = (curIds: string[], newIds?: string[]) =>
+  newIds === undefined
+    ? [[], []]
+    : getArrayDiff(curIds, newIds).reduce(
+        (acc, cur) => {
+          if (newIds.includes(cur)) acc[0].push(cur);
+          else if (curIds.includes(cur)) acc[1].push(cur);
+          return acc;
+        },
+        [[], []] as string[][]
+      );
+
 export type TagManagerMode = "create" | "edit" | "search";
 
 @model("mediaViewer/TagStore")
@@ -125,35 +137,15 @@ export class TagStore extends Model({
   @modelFlow
   editTag = _async(function* (
     this: TagStore,
-    { aliases, childIds, id, label, parentIds }: EditTagInput
+    { aliases, childIds, id, label, parentIds, withSub = true }: EditTagInput
   ) {
     return yield* _await(
       handleErrors(async () => {
+        // TODO: Convert this all into an aggregate pipeline
         const tag = this.getById(id);
 
-        const [addedChildIds, removedChildIds] =
-          childIds === undefined
-            ? [[], []]
-            : getArrayDiff(tag.childIds, childIds).reduce(
-                (acc, cur) => {
-                  if (childIds.includes(cur)) acc[0].push(cur);
-                  else if (tag.childIds.includes(cur)) acc[1].push(cur);
-                  return acc;
-                },
-                [[], []] as string[][]
-              );
-
-        const [addedParentIds, removedParentIds] =
-          parentIds === undefined
-            ? [[], []]
-            : getArrayDiff(tag.parentIds, parentIds).reduce(
-                (acc, cur) => {
-                  if (parentIds.includes(cur)) acc[0].push(cur);
-                  else if (tag.parentIds.includes(cur)) acc[1].push(cur);
-                  return acc;
-                },
-                [[], []] as string[][]
-              );
+        const [addedChildIds, removedChildIds] = bisectChangedIds(tag.childIds, childIds);
+        const [addedParentIds, removedParentIds] = bisectChangedIds(tag.parentIds, parentIds);
 
         if (addedChildIds?.length > 0)
           await trpc.addParentTagIdsToTags.mutate({ tagIds: addedChildIds, parentTagIds: [id] });
@@ -173,6 +165,13 @@ export class TagStore extends Model({
 
         await trpc.editTag.mutate({ id, aliases, childIds, label, parentIds });
         await this.refreshTagCount(id);
+
+        /** TODO:
+         *  This is likely the cause of scaling lag on import tag creation.
+         *  Group updates in previous steps by id.
+         *  Update onTagUpdated to handle multiple tag updates to reduce network overhead. */
+        await this.loadTags();
+        // if (withSub) trpc.onTagUpdated.mutate({ tagId: id, updates: { aliases, label } });
 
         toast.success(`Tag '${tag.label}' edited`);
       })
@@ -253,7 +252,7 @@ export class TagStore extends Model({
   });
 
   @modelFlow
-  refreshTagCount = _async(function* (this: TagStore, id: string) {
+  refreshTagCount = _async(function* (this: TagStore, id: string, withSub = true) {
     return yield* _await(
       handleErrors(async () => {
         const tag = this.getById(id);
@@ -262,9 +261,10 @@ export class TagStore extends Model({
         const res = await trpc.recalculateTagCounts.mutate({ tagId: id });
         if (!res.success) throw new Error(res.error);
 
-        res.data.forEach(({ _id, count }) =>
-          trpc.onTagUpdated.mutate({ tagId: _id, updates: { count } })
-        );
+        if (withSub)
+          res.data.forEach(({ _id, count }) =>
+            trpc.onTagUpdated.mutate({ tagId: _id, updates: { count } })
+          );
 
         return res.data;
       })
@@ -275,18 +275,27 @@ export class TagStore extends Model({
   refreshTagRelations = _async(function* (this: TagStore, { id }: { id: string }) {
     return yield* _await(
       handleErrors(async () => {
+        // TODO: Convert this all into an aggregate pipeline
         const tag = this.getById(id);
 
-        const [childTagsToAdd, childTagsToRemove] = this.getChildTags(tag).reduce(
-          (acc, cur) => {
-            if (!this.getById(cur.id)) {
-              acc[1].push(cur.id);
+        const bisectRelatedTags = (tags: Tag[], type: "child" | "parent") =>
+          tags.reduce(
+            (acc, cur) => {
+              if (!this.getById(cur.id)) acc["removed"].push(cur.id);
+              else if (!cur[`${type}Ids`].includes(id)) acc["added"].push(cur.id);
               return acc;
-            }
-            if (!cur.parentIds.includes(id)) acc[0].push(cur.id);
-            return acc;
-          },
-          [[], []] as string[][]
+            },
+            { added: [], removed: [] } as { added: string[]; removed: string[] }
+          );
+
+        const { added: childTagsToAdd, removed: childTagsToRemove } = bisectRelatedTags(
+          this.getChildTags(tag),
+          "parent"
+        );
+
+        const { added: parentTagsToAdd, removed: parentTagsToRemove } = bisectRelatedTags(
+          this.getParentTags(tag),
+          "child"
         );
 
         await trpc.addParentTagIdsToTags.mutate({ tagIds: childTagsToAdd, parentTagIds: [id] });
@@ -294,18 +303,6 @@ export class TagStore extends Model({
           tagIds: [id],
           parentTagIds: childTagsToRemove,
         });
-
-        const [parentTagsToAdd, parentTagsToRemove] = this.getParentTags(tag).reduce(
-          (acc, cur) => {
-            if (!this.getById(cur.id)) {
-              acc[1].push(cur.id);
-              return acc;
-            }
-            if (!cur.childIds.includes(id)) acc[0].push(cur.id);
-            return acc;
-          },
-          [[], []] as string[][]
-        );
 
         await trpc.addChildTagIdsToTags.mutate({ tagIds: parentTagsToAdd, childTagIds: [id] });
         await trpc.removeChildTagIdsFromTags.mutate({

@@ -36,6 +36,7 @@ export const RegExMapRow = observer(({ index, style }: RegExMapRowProps) => {
   const { importStore, tagStore } = useStores();
 
   const map = importStore.filteredRegExMaps[importStore.filteredRegExMaps.length - 1 - index];
+  if (!map) return <View className={css.root} {...{ style }} />;
 
   const [isRegExValid, isTestStringValid] = useMemo(() => {
     try {
