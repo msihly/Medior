@@ -123,6 +123,7 @@ const useClasses = makeClasses({
   files: {
     display: "flex",
     flexFlow: "row wrap",
+    flex: 1,
     paddingBottom: "7rem",
     overflowY: "auto",
   },

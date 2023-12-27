@@ -1,54 +1,28 @@
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
-import { CircularProgress } from "@mui/material";
-import { Text, View } from "components";
+import { CenteredText, View } from "components";
 import { FileCard } from ".";
-import { colors, makeClasses } from "utils";
+import { makeClasses } from "utils";
 
 export const DisplayedFiles = observer(() => {
   const { css } = useClasses(null);
 
   const { fileStore } = useStores();
 
-  return (
-    <>
-      {fileStore.files.length > 0 ? (
-        <View className={css.fileContainer}>
-          {fileStore.files.map((f) => (
-            <FileCard key={f.id} file={f} />
-          ))}
-        </View>
-      ) : fileStore.filteredFileIds.length > 0 ? (
-        <View className={css.centeredContainer}>
-          <CircularProgress size="3rem" />
-
-          <Text variant="h3" color={colors.grey["400"]} marginTop="2rem">
-            {"Loading..."}
-          </Text>
-        </View>
-      ) : (
-        <View className={css.centeredContainer}>
-          <Text variant="h3" color={colors.grey["400"]}>
-            {"No results found"}
-          </Text>
-        </View>
-      )}
-    </>
+  return fileStore.files.length > 0 ? (
+    <View className={css.fileContainer}>
+      {fileStore.files.map((f) => (
+        <FileCard key={f.id} file={f} />
+      ))}
+    </View>
+  ) : (
+    <View column flex={1}>
+      <CenteredText text="No results found" />
+    </View>
   );
 });
 
 const useClasses = makeClasses((theme) => ({
-  centeredContainer: {
-    position: "absolute",
-    top: 0,
-    bottom: 0,
-    left: 0,
-    right: 0,
-    display: "flex",
-    flexDirection: "column",
-    justifyContent: "center",
-    alignItems: "center",
-  },
   fileContainer: {
     display: "flex",
     flexFlow: "row wrap",
