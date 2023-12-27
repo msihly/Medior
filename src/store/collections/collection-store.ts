@@ -205,6 +205,8 @@ export class FileCollectionStore extends Model({
           includeUntagged: false,
           isArchived: false,
           isSortDesc: this.searchIsSortDesc,
+          page: page ?? this.searchPage,
+          pageSize: CONSTANTS.COLLECTION_SEARCH_FILE_COUNT,
           selectedImageTypes: Object.fromEntries(
             IMAGE_TYPES.map((ext) => [ext, true])
           ) as SelectedImageTypes,
@@ -215,10 +217,7 @@ export class FileCollectionStore extends Model({
         });
         if (!filteredRes.success) throw new Error(filteredRes.error);
 
-        const displayedIds = filteredRes.data.slice(
-          ((page ?? this.searchPage) - 1) * CONSTANTS.COLLECTION_SEARCH_FILE_COUNT,
-          (page ?? this.searchPage) * CONSTANTS.COLLECTION_SEARCH_FILE_COUNT
-        );
+        const { displayedIds } = filteredRes.data;
 
         const displayedRes = await trpc.listFiles.mutate({ ids: displayedIds });
         if (!displayedRes.success) throw new Error(displayedRes.error);
@@ -227,9 +226,7 @@ export class FileCollectionStore extends Model({
         );
 
         this.setSearchResults(displayed.map((f) => new File(mongoFileToMobX(f))));
-        this.setSearchPageCount(
-          Math.ceil(filteredRes.data.length / CONSTANTS.COLLECTION_SEARCH_FILE_COUNT)
-        );
+        this.setSearchPageCount(filteredRes.data.pageCount);
         if (page) this.setSearchPage(page);
 
         return displayed;

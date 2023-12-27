@@ -21,7 +21,7 @@ export const ImportCard = observer(({ fileImport, style }: ImportCardProps) => {
     hasFileId
       ? openFile({
           file: (await trpc.listFiles.mutate({ ids: [fileImport.fileId] })).data[0],
-          filteredFileIds: [fileImport.fileId],
+          selectedFileIds: [fileImport.fileId],
         })
       : shell.showItemInFolder(fileImport.path);
 

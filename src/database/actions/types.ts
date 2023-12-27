@@ -61,6 +61,17 @@ export type AddTagsToFilesInput = { fileIds: string[]; tagIds: string[] };
 
 export type ArchiveFilesInput = { fileIds: string[] };
 
+export type CreateFilterPipelineInput = {
+  excludedAnyTagIds: string[];
+  includedAllTagIds: string[];
+  includedAnyTagIds: string[];
+  includeTagged: boolean;
+  includeUntagged: boolean;
+  isArchived: boolean;
+  selectedImageTypes: SelectedImageTypes;
+  selectedVideoTypes: SelectedVideoTypes;
+};
+
 export type DeleteFilesInput = { fileIds: string[] };
 
 export type EditFileTagsInput = {
@@ -72,6 +83,13 @@ export type EditFileTagsInput = {
 };
 
 export type GetFileByHashInput = { hash: string };
+
+export type GetShiftSelectedFilesInput = CreateFilterPipelineInput & {
+  clickedId: string;
+  isSortDesc: boolean;
+  selectedIds: string[];
+  sortKey: string;
+};
 
 export type ImportFileInput = {
   dateCreated: string;
@@ -92,20 +110,21 @@ export type ImportFileInput = {
 
 export type ListFaceModelsInput = { ids?: string[] };
 
+export type ListFileIdsForCarouselInput = CreateFilterPipelineInput & {
+  clickedId: string;
+  isSortDesc: boolean;
+  sortKey: string;
+};
+
 export type ListFilesInput = { ids?: string[] };
 
 export type ListFilesByTagIdsInput = { tagIds: string[] };
 
-export type ListFilteredFileIdsInput = {
-  excludedAnyTagIds: string[];
-  includedAllTagIds: string[];
-  includedAnyTagIds: string[];
+export type ListFilteredFileIdsInput = CreateFilterPipelineInput & {
   isSortDesc: boolean;
-  includeTagged: boolean;
-  includeUntagged: boolean;
-  isArchived: boolean;
-  selectedImageTypes: SelectedImageTypes;
-  selectedVideoTypes: SelectedVideoTypes;
+  page: number;
+  pageSize: number;
+  selectedFileIds?: string[];
   sortKey: string;
 };
 

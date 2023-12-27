@@ -22,7 +22,6 @@ import {
 } from "database";
 import { File, mongoFileToMobX } from ".";
 import {
-  CONSTANTS,
   dayjs,
   generateFramesThumbnail,
   getVideoInfo,
@@ -40,9 +39,9 @@ import { toast } from "react-toastify";
 export class FileStore extends Model({
   activeFileId: prop<string | null>(null).withSetter(),
   files: prop<File[]>(() => []),
-  filteredFileIds: prop<string[]>(() => []).withSetter(),
   isInfoModalOpen: prop<boolean>(false).withSetter(),
   page: prop<number>(1).withSetter(),
+  pageCount: prop<number>(1).withSetter(),
   selectedIds: prop<string[]>(() => []),
 }) {
   infoRefreshQueue = new PromiseQueue();
@@ -62,8 +61,9 @@ export class FileStore extends Model({
       [[], []]
     );
 
+    const removedSet = new Set(removed);
     this.selectedIds = [...new Set(this.selectedIds.concat(added))].filter(
-      (id) => !removed.includes(id)
+      (id) => !removedSet.has(id)
     );
   }
 
@@ -146,7 +146,7 @@ export class FileStore extends Model({
 
             await Promise.all(
               [...new Set(deleted.flatMap((f) => f.tagIds))].map((id) =>
-                rootStore.tagStore.refreshTagCount({ id })
+                rootStore.tagStore.refreshTagCount(id)
               )
             );
 
@@ -188,7 +188,7 @@ export class FileStore extends Model({
         }
 
         await Promise.all(
-          [...addedTagIds, ...removedTagIds].map((id) => rootStore.tagStore.refreshTagCount({ id }))
+          [...addedTagIds, ...removedTagIds].map((id) => rootStore.tagStore.refreshTagCount(id))
         );
 
         toast.success(`${fileIds.length} files updated`);
@@ -344,13 +344,6 @@ export class FileStore extends Model({
   @computed
   get images() {
     return this.files.filter((f) => IMAGE_EXT_REG_EXP.test(f.ext));
-  }
-
-  @computed
-  get pageCount() {
-    return this.filteredFileIds.length < CONSTANTS.FILE_COUNT
-      ? 1
-      : Math.ceil(this.filteredFileIds.length / CONSTANTS.FILE_COUNT);
   }
 
   @computed

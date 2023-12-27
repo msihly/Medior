@@ -1,8 +1,11 @@
 import { app } from "electron";
 import path from "path";
 import fs from "fs/promises";
+import mongoose, { PipelineStage } from "mongoose";
 import {
   AddTagsToFilesInput,
+  CreateFilterPipelineInput,
+  deleteCollection,
   DeleteFilesInput,
   DetectFacesInput,
   File,
@@ -10,25 +13,25 @@ import {
   FileCollectionModel,
   FileModel,
   GetFileByHashInput,
+  GetShiftSelectedFilesInput,
   ImportFileInput,
   ListFaceModelsInput,
+  ListFileIdsForCarouselInput,
   ListFilesByTagIdsInput,
   ListFilesInput,
-  OnFileTagsUpdatedInput,
+  ListFilteredFileIdsInput,
   OnFilesArchivedInput,
   OnFilesDeletedInput,
   OnFilesUpdatedInput,
-  RemoveTagFromAllFilesInput,
+  OnFileTagsUpdatedInput,
   RemoveTagsFromFilesInput,
   SetFileFaceModelsInput,
   SetFileIsArchivedInput,
   SetFileRatingInput,
-  UpdateFileInput,
-  deleteCollection,
-  ListFilteredFileIdsInput,
   updateCollection,
+  UpdateFileInput,
 } from "database";
-import { dayjs, handleErrors, socket, trpc } from "utils";
+import { centeredSlice, dayjs, handleErrors, socket, trpc, uniqueArrayFilter } from "utils";
 import { leanModelToJson } from "./utils";
 
 const FACE_MIN_CONFIDENCE = 0.4;
@@ -45,6 +48,57 @@ export const addTagsToFiles = ({ fileIds = [], tagIds = [] }: AddTagsToFilesInpu
     );
     return dateModified;
   });
+
+const createFilterPipeline = ({
+  excludedAnyTagIds,
+  includedAllTagIds,
+  includedAnyTagIds,
+  includeTagged,
+  includeUntagged,
+  isArchived,
+  selectedImageTypes,
+  selectedVideoTypes,
+}: CreateFilterPipelineInput) => {
+  const enabledExts = Object.entries({
+    ...selectedImageTypes,
+    ...selectedVideoTypes,
+  }).reduce((acc, [key, isEnabled]) => {
+    if (isEnabled) acc.push(`.${key}`);
+    return acc;
+  }, [] as string[]);
+
+  return {
+    $match: {
+      isArchived,
+      ext: { $in: enabledExts },
+      $and: [
+        includeTagged ? { tagIds: { $ne: [] } } : {},
+        includeUntagged ? { tagIds: { $eq: [] } } : {},
+        includedAllTagIds?.length > 0
+          ? {
+              tagIds: {
+                $all: includedAllTagIds.map((tagId) => new mongoose.Types.ObjectId(tagId)),
+              },
+            }
+          : {},
+        includedAnyTagIds?.length > 0
+          ? {
+              tagIds: {
+                $in: includedAnyTagIds.map((tagId) => new mongoose.Types.ObjectId(tagId)),
+              },
+            }
+          : {},
+        excludedAnyTagIds?.length > 0
+          ? {
+              tagIds: {
+                $nin: excludedAnyTagIds.map((tagId) => new mongoose.Types.ObjectId(tagId)),
+              },
+            }
+          : {},
+      ],
+    },
+  };
+};
 
 export const deleteFiles = ({ fileIds }: DeleteFilesInput) =>
   handleErrors(async () => {
@@ -94,6 +148,68 @@ export const detectFaces = async ({ imagePath }: DetectFacesInput) =>
 
 export const getFileByHash = ({ hash }: GetFileByHashInput) =>
   handleErrors(async () => leanModelToJson<File>(await FileModel.findOne({ hash }).lean()));
+
+export const getShiftSelectedFiles = ({
+  clickedId,
+  excludedAnyTagIds,
+  includedAllTagIds,
+  includedAnyTagIds,
+  includeTagged,
+  includeUntagged,
+  isArchived,
+  isSortDesc,
+  selectedIds,
+  selectedImageTypes,
+  selectedVideoTypes,
+  sortKey,
+}: GetShiftSelectedFilesInput) =>
+  handleErrors(async () => {
+    const pipeline: PipelineStage[] = [
+      createFilterPipeline({
+        excludedAnyTagIds,
+        includedAllTagIds,
+        includedAnyTagIds,
+        includeTagged,
+        includeUntagged,
+        isArchived,
+        selectedImageTypes,
+        selectedVideoTypes,
+      }),
+      {
+        $facet: {
+          filteredFileIds: [
+            { $sort: { [sortKey]: isSortDesc ? -1 : 1 } },
+            { $group: { _id: null, filteredFileIds: { $push: "$_id" } } },
+          ],
+        },
+      },
+    ];
+
+    const res: { filteredFileIds: { filteredFileIds: string[] }[] }[] = (
+      await FileModel.aggregate(pipeline).allowDiskUse(true)
+    ).flatMap((f) => f);
+    if (!res) throw new Error("Failed to load filtered file IDs");
+
+    const filteredFileIds = res[0].filteredFileIds[0].filteredFileIds.map((id) => id.toString());
+
+    const clickedIndex = filteredFileIds.indexOf(clickedId);
+    const firstIndex = filteredFileIds.indexOf(selectedIds[0]);
+    const isFirstAfterClicked = firstIndex >= clickedIndex;
+    const startIndex = isFirstAfterClicked ? clickedIndex : firstIndex;
+    const endIndex = isFirstAfterClicked ? firstIndex : clickedIndex;
+    const idsToSelect =
+      startIndex === endIndex
+        ? []
+        : uniqueArrayFilter(filteredFileIds.slice(startIndex, endIndex + 1), selectedIds);
+    /** Deselect the files before the clicked file if the first index is after it, or deselect the files after the clicked file if the first index is before it. */
+    const idsToDeselect = selectedIds.filter(
+      (id) =>
+        (isFirstAfterClicked && filteredFileIds.indexOf(id) < clickedIndex) ||
+        (!isFirstAfterClicked && filteredFileIds.indexOf(id) > clickedIndex)
+    );
+
+    return { idsToDeselect, idsToSelect };
+  });
 
 export const importFile = ({
   dateCreated,
@@ -170,7 +286,8 @@ export const listFilesByTagIds = ({ tagIds }: ListFilesByTagIdsInput) =>
     );
   });
 
-export const listFilteredFileIds = ({
+export const listFileIdsForCarousel = ({
+  clickedId,
   excludedAnyTagIds,
   includedAllTagIds,
   includedAnyTagIds,
@@ -181,33 +298,104 @@ export const listFilteredFileIds = ({
   selectedImageTypes,
   selectedVideoTypes,
   sortKey,
+}: ListFileIdsForCarouselInput) =>
+  handleErrors(async () => {
+    const pipeline: PipelineStage[] = [
+      createFilterPipeline({
+        excludedAnyTagIds,
+        includedAllTagIds,
+        includedAnyTagIds,
+        includeTagged,
+        includeUntagged,
+        isArchived,
+        selectedImageTypes,
+        selectedVideoTypes,
+      }),
+      {
+        $facet: {
+          filteredFileIds: [
+            { $sort: { [sortKey]: isSortDesc ? -1 : 1 } },
+            { $group: { _id: null, filteredFileIds: { $push: "$_id" } } },
+          ],
+        },
+      },
+    ];
+
+    const res: { filteredFileIds: { filteredFileIds: string[] }[] }[] = (
+      await FileModel.aggregate(pipeline).allowDiskUse(true)
+    ).flatMap((f) => f);
+    if (!res) throw new Error("Failed to load filtered file IDs");
+
+    const filteredFileIds = res[0].filteredFileIds[0].filteredFileIds.map((id) => id.toString());
+    const selectedIds = centeredSlice(filteredFileIds, filteredFileIds.indexOf(clickedId), 2000);
+    return selectedIds;
+  });
+
+export const listFilteredFileIds = ({
+  excludedAnyTagIds,
+  includedAllTagIds,
+  includedAnyTagIds,
+  includeTagged,
+  includeUntagged,
+  isArchived,
+  isSortDesc,
+  selectedFileIds,
+  selectedImageTypes,
+  selectedVideoTypes,
+  sortKey,
+  page,
+  pageSize,
 }: ListFilteredFileIdsInput) =>
   handleErrors(async () => {
-    const enabledExts = Object.entries({
-      ...selectedImageTypes,
-      ...selectedVideoTypes,
-    }).reduce((acc, [key, isEnabled]) => {
-      if (isEnabled) acc.push(`.${key}`);
-      return acc;
-    }, [] as string[]);
-
-    return (
-      await FileModel.find({
+    const pipeline: PipelineStage[] = [
+      createFilterPipeline({
+        excludedAnyTagIds,
+        includedAllTagIds,
+        includedAnyTagIds,
+        includeTagged,
+        includeUntagged,
         isArchived,
-        ext: { $in: enabledExts },
-        $and: [
-          includeTagged ? { tagIds: { $ne: [] } } : {},
-          includeUntagged ? { tagIds: { $eq: [] } } : {},
-          includedAllTagIds?.length > 0 ? { tagIds: { $all: includedAllTagIds } } : {},
-          includedAnyTagIds?.length > 0 ? { tagIds: { $in: includedAnyTagIds } } : {},
-          excludedAnyTagIds?.length > 0 ? { tagIds: { $nin: excludedAnyTagIds } } : {},
-        ],
-      })
-        .allowDiskUse(true)
-        .select("_id")
-        .sort({ [sortKey]: isSortDesc ? -1 : 1 })
-        .lean()
-    ).map((f) => f._id.toString());
+        selectedImageTypes,
+        selectedVideoTypes,
+      }),
+      {
+        $facet: {
+          totalDocuments: [{ $count: "count" }],
+          displayedIds: [
+            { $sort: { [sortKey]: isSortDesc ? -1 : 1 } },
+            { $skip: Math.max(0, page - 1) * pageSize },
+            { $limit: pageSize },
+            { $project: { _id: 1 } },
+          ],
+          ...(selectedFileIds?.length > 0
+            ? {
+                deselectedIds: [
+                  {
+                    $match: {
+                      _id: { $nin: selectedFileIds.map((id) => new mongoose.Types.ObjectId(id)) },
+                    },
+                  },
+                  { $project: { _id: 1 } },
+                ],
+              }
+            : {}),
+        },
+      },
+    ];
+
+    const result: {
+      totalDocuments: { count: number }[];
+      displayedIds: { _id: string }[];
+      deselectedIds?: { _id: string }[];
+    } = (await FileModel.aggregate(pipeline).allowDiskUse(true))?.[0];
+
+    if (!result) throw new Error("Failed to load filtered file IDs");
+
+    const totalDocuments = result.totalDocuments[0]?.count || 0;
+    const displayedIds = result.displayedIds.map((f) => f._id.toString());
+    const deselectedIds = result.deselectedIds?.map((f) => f._id.toString()) || [];
+
+    return { deselectedIds, displayedIds, pageCount: Math.ceil(totalDocuments / pageSize) };
   });
 
 export const loadFaceApiNets = async () =>

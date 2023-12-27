@@ -103,6 +103,9 @@ const trpcRouter = tRouter({
   getFileByHash: tProc
     .input((input: unknown) => input as db.GetFileByHashInput)
     .mutation(({ input }) => db.getFileByHash(input)),
+  getShiftSelectedFiles: tProc
+    .input((input: unknown) => input as db.GetShiftSelectedFilesInput)
+    .mutation(({ input }) => db.getShiftSelectedFiles(input)),
   importFile: tProc
     .input((input: unknown) => input as db.ImportFileInput)
     .mutation(({ input }) => db.importFile(input)),
@@ -121,6 +124,9 @@ const trpcRouter = tRouter({
   listFilteredFileIds: tProc
     .input((input: unknown) => input as db.ListFilteredFileIdsInput)
     .mutation(({ input }) => db.listFilteredFileIds(input)),
+  listFileIdsForCarousel: tProc
+    .input((input: unknown) => input as db.ListFileIdsForCarouselInput)
+    .mutation(({ input }) => db.listFileIdsForCarousel(input)),
   listImportBatches: tProc.mutation(db.listImportBatches),
   listRegExMaps: tProc.mutation(db.listRegExMaps),
   listTags: tProc.mutation(db.getAllTags),

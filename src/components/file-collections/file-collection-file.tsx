@@ -30,7 +30,7 @@ export const FileCollectionFile = observer(
     const handleDoubleClick = () =>
       openFile({
         file,
-        filteredFileIds: fileCollectionStore.activeCollection.fileIdIndexes.map(
+        selectedFileIds: fileCollectionStore.activeCollection.fileIdIndexes.map(
           ({ fileId }) => fileId
         ),
       });

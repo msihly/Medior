@@ -92,6 +92,73 @@ export class HomeStore extends Model({
 
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */
   @modelFlow
+  getShiftSelectedFiles = _async(function* (
+    this: HomeStore,
+    { id, rootStore, selectedIds }: { id: string; rootStore: RootStore; selectedIds: string[] }
+  ) {
+    return yield* _await(
+      handleErrors(async () => {
+        const { tagStore } = rootStore;
+
+        const { excludedAnyTagIds, includedAllTagIds, includedAnyTagIds } =
+          tagStore.tagSearchOptsToIds(this.searchValue);
+
+        const res = await trpc.getShiftSelectedFiles.mutate({
+          clickedId: id,
+          excludedAnyTagIds,
+          includedAllTagIds,
+          includedAnyTagIds,
+          includeTagged: this.includeTagged,
+          includeUntagged: this.includeUntagged,
+          isArchived: this.isArchiveOpen,
+          isSortDesc: this.isSortDesc,
+          selectedIds,
+          selectedImageTypes: this.selectedImageTypes,
+          selectedVideoTypes: this.selectedVideoTypes,
+          sortKey: this.sortKey,
+        });
+        if (!res.success) throw new Error(res.error);
+        return res.data;
+      })
+    );
+  });
+
+  @modelFlow
+  listIdsForCarousel = _async(function* (
+    this: HomeStore,
+    { id, rootStore }: { id: string; rootStore: RootStore }
+  ) {
+    return yield* _await(
+      handleErrors(async () => {
+        const { tagStore } = rootStore;
+
+        const { excludedAnyTagIds, includedAllTagIds, includedAnyTagIds } =
+          tagStore.tagSearchOptsToIds(this.searchValue);
+
+        if (!id) throw new Error("Invalid ID provided");
+
+        const res = await trpc.listFileIdsForCarousel.mutate({
+          clickedId: id,
+          excludedAnyTagIds,
+          includedAllTagIds,
+          includedAnyTagIds,
+          includeTagged: this.includeTagged,
+          includeUntagged: this.includeUntagged,
+          isArchived: this.isArchiveOpen,
+          isSortDesc: this.isSortDesc,
+          selectedImageTypes: this.selectedImageTypes,
+          selectedVideoTypes: this.selectedVideoTypes,
+          sortKey: this.sortKey,
+        });
+        if (!res.success) throw new Error(res.error);
+        if (!res.data?.length) throw new Error("No files found");
+
+        return res.data;
+      })
+    );
+  });
+
+  @modelFlow
   reloadDisplayedFiles = _async(function* (
     this: HomeStore,
     { rootStore, page }: ReloadDisplayedFilesInput = { rootStore: null }
@@ -120,18 +187,16 @@ export class HomeStore extends Model({
           includeUntagged: this.includeUntagged,
           isArchived: this.isArchiveOpen,
           isSortDesc: this.isSortDesc,
+          page: page ?? fileStore.page,
+          pageSize: CONSTANTS.FILE_COUNT,
           selectedImageTypes: this.selectedImageTypes,
           selectedVideoTypes: this.selectedVideoTypes,
           sortKey: this.sortKey,
         });
         if (!filteredRes.success) throw new Error(filteredRes.error);
-        const filteredIds = filteredRes.data;
-        perfLog(`Loaded ${filteredIds.length} filtered files`); // DEBUG
 
-        const displayedIds = filteredIds.slice(
-          ((page ?? fileStore.page) - 1) * CONSTANTS.FILE_COUNT,
-          (page ?? fileStore.page) * CONSTANTS.FILE_COUNT
-        );
+        const { displayedIds, deselectedIds, pageCount } = filteredRes.data;
+        perfLog(`Loaded ${displayedIds.length} displayed fileIds`); // DEBUG
 
         const displayedRes = await trpc.listFiles.mutate({ ids: displayedIds });
         if (!displayedRes.success) throw new Error(displayedRes.error);
@@ -140,22 +205,15 @@ export class HomeStore extends Model({
         );
         perfLog(`Loaded ${displayed.length} displayed files`); // DEBUG
 
-        fileStore.setFilteredFileIds(filteredIds);
         perfLog("Set filtered file IDs"); // DEBUG
         fileStore.overwrite(displayed.map(mongoFileToMobX));
         perfLog("FileStore.files overwrite"); // DEBUG
 
-        if (page) {
-          fileStore.setPage(page);
-          perfLog(`Set page to ${page}`); // DEBUG
-        }
+        if (page) fileStore.setPage(page);
+        fileStore.setPageCount(pageCount);
+        perfLog(`Set page to ${page ?? fileStore.pageCount} and pageCount to ${pageCount}`); // DEBUG
 
-        const deselectedIds = fileStore.selectedIds.reduce((acc, cur) => {
-          if (!filteredIds.includes(cur)) acc.push({ id: cur, isSelected: false });
-          return acc;
-        }, [] as { id: string; isSelected: boolean }[]);
-
-        fileStore.toggleFilesSelected(deselectedIds);
+        fileStore.toggleFilesSelected(deselectedIds.map((id) => ({ id, isSelected: false })));
         perfLog(`${deselectedIds.length} files deselected`); // DEBUG
 
         console.debug(

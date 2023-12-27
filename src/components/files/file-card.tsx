@@ -3,7 +3,7 @@ import { observer } from "mobx-react-lite";
 import { File, useStores } from "store";
 import { Icon, Text, View } from "components";
 import { ContextMenu, FileBase, openFile } from ".";
-import { colors, dayjs, uniqueArrayFilter } from "utils";
+import { colors, dayjs } from "utils";
 import { CSSObject } from "tss-react";
 
 interface FileCardProps {
@@ -15,38 +15,25 @@ interface FileCardProps {
 }
 
 export const FileCard = observer(({ disabled, file, height, id, width }: FileCardProps) => {
+  const rootStore = useStores();
   const { fileCollectionStore, fileStore, homeStore, tagStore } = useStores();
+
   if (!file) file = fileStore.getById(id);
   const collections = fileCollectionStore.listByFileId(id);
 
-  const handleClick = (event: React.MouseEvent) => {
+  const handleClick = async (event: React.MouseEvent) => {
     if (disabled) return;
     if (event.shiftKey) {
-      const clickedIndex = fileStore.filteredFileIds.indexOf(file.id);
-      const firstIndex = fileStore.filteredFileIds.indexOf(fileStore.selectedIds[0]);
-
-      const isFirstAfterClicked = firstIndex >= clickedIndex;
-      const startIndex = isFirstAfterClicked ? clickedIndex : firstIndex;
-      const endIndex = isFirstAfterClicked ? firstIndex : clickedIndex;
-
-      const selectedIds =
-        startIndex === endIndex
-          ? []
-          : uniqueArrayFilter(
-              fileStore.filteredFileIds.slice(startIndex, endIndex + 1),
-              fileStore.selectedIds
-            );
-
-      /** Deselect the files before the clicked file if the first index is after it, or deselect the files after the clicked file if the first index is before it. */
-      const unselectedIds = fileStore.selectedIds.filter(
-        (id) =>
-          (isFirstAfterClicked && fileStore.filteredFileIds.indexOf(id) < clickedIndex) ||
-          (!isFirstAfterClicked && fileStore.filteredFileIds.indexOf(id) > clickedIndex)
-      );
+      const res = await homeStore.getShiftSelectedFiles({
+        id: file.id,
+        rootStore,
+        selectedIds: fileStore.selectedIds,
+      });
+      if (!res?.success) throw new Error(res.error);
 
       fileStore.toggleFilesSelected([
-        ...selectedIds.map((id) => ({ id, isSelected: true })),
-        ...unselectedIds.map((id) => ({ id, isSelected: false })),
+        ...res.data.idsToDeselect.map((i) => ({ id: i, isSelected: false })),
+        ...res.data.idsToSelect.map((i) => ({ id: i, isSelected: true })),
       ]);
     } else if (event.ctrlKey) {
       /** Toggle the selected state of the file that was clicked. */
@@ -62,8 +49,13 @@ export const FileCard = observer(({ disabled, file, height, id, width }: FileCar
     }
   };
 
-  const handleDoubleClick = () =>
-    !disabled && openFile({ file, filteredFileIds: fileStore.filteredFileIds });
+  const handleDoubleClick = async () => {
+    if (!disabled) {
+      const res = await homeStore.listIdsForCarousel({ id: file.id, rootStore });
+      if (!res?.success) console.error(res.error);
+      else openFile({ file, selectedFileIds: res.data });
+    }
+  };
 
   const handleDragEnd = () => homeStore.setIsDraggingOut(false);
 
