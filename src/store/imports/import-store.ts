@@ -231,7 +231,7 @@ export class ImportStore extends Model({
 
         rootStore.homeStore.reloadDisplayedFiles({ rootStore });
 
-        [...batch.tagIds].flat().map((tagId) => rootStore.tagStore.refreshTagCount({ id: tagId }));
+        [...batch.tagIds].flat().map((tagId) => rootStore.tagStore.refreshTagCount(tagId));
       })
     );
   });
@@ -516,6 +516,9 @@ export class ImportStore extends Model({
     const { tagStore } = rootStore;
 
     return this.regExMaps.filter((map) => {
+      /** Always show maps with empty tags, which are errors */
+      if (!map.tagIds.length) return true;
+
       if (this.regExSearchValue.length > 0 && !map.regEx.includes(this.regExSearchValue))
         return false;
 

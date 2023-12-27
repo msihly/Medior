@@ -95,65 +95,107 @@ export const onTagCreated = async ({ tag }: OnTagCreatedInput) =>
 export const onTagUpdated = async ({ tagId, updates }: OnTagUpdatedInput) =>
   handleErrors(async () => !!socket.emit("tagUpdated", { tagId, updates }));
 
-export const recalculateTagCounts = async ({ tagIds }: RecalculateTagCountsInput) =>
+export const recalculateTagCounts = async ({ tagId }: RecalculateTagCountsInput) =>
   handleErrors(async () => {
     const pipeline: PipelineStage[] = [
-      {
-        $match: {
-          _id: { $in: tagIds.map((id) => new mongoose.Types.ObjectId(id)) },
-        },
-      },
+      { $match: { _id: new mongoose.Types.ObjectId(tagId) } },
       {
         $graphLookup: {
           from: "tags",
           startWith: "$_id",
           connectFromField: "_id",
-          connectToField: "parentIds",
-          as: "descendants",
+          connectToField: "childIds",
+          as: "ancestors",
           depthField: "depth",
         },
       },
       {
         $project: {
-          descendantIds: {
+          _id: 1,
+          label: 1,
+          ancestors: { _id: 1, label: 1 },
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          tagIds: {
             $concatArrays: [
-              ["$_id"],
+              [{ _id: "$_id", label: "$label" }],
               {
                 $map: {
-                  input: "$descendants",
-                  as: "descendant",
-                  in: "$$descendant._id",
+                  input: "$ancestors",
+                  in: { _id: "$$this._id", label: "$$this.label" },
                 },
               },
             ],
           },
         },
       },
+      { $unwind: { path: "$tagIds" } },
       {
-        $lookup: {
-          from: "files",
-          localField: "descendantIds",
-          foreignField: "tagIds",
-          as: "descendantFiles",
+        $graphLookup: {
+          from: "tags",
+          startWith: "$tagIds._id",
+          connectFromField: "_id",
+          connectToField: "parentIds",
+          as: "descendantTags",
+          depthField: "depth",
         },
       },
       {
         $project: {
-          _id: 0,
-          id: "$_id",
-          count: {
-            $size: "$descendantFiles",
+          _id: "$tagIds._id",
+          label: "$tagIds.label",
+          descendantTags: { _id: 1, label: 1 },
+        },
+      },
+      {
+        $project: {
+          _id: 1,
+          label: 1,
+          tagIds: {
+            $reduce: {
+              input: {
+                $concatArrays: [
+                  [{ _id: "$_id" }],
+                  {
+                    $map: {
+                      input: "$descendantTags",
+                      in: { _id: "$$this._id" },
+                    },
+                  },
+                ],
+              },
+              initialValue: [],
+              in: { $concatArrays: ["$$value", ["$$this._id"]] },
+            },
           },
+        },
+      },
+      {
+        $lookup: {
+          from: "files",
+          localField: "tagIds",
+          foreignField: "tagIds",
+          as: "descendantFiles",
+          pipeline: [{ $project: { _id: 1 } }],
+        },
+      },
+      {
+        $group: {
+          _id: "$_id",
+          count: { $sum: { $size: "$descendantFiles" } },
         },
       },
     ];
 
-    const results: { count: number; id: string }[] = await TagModel.aggregate(pipeline);
-    const dateModified = dayjs().toISOString();
+    const results: { _id: string; count: number }[] = await TagModel.aggregate(pipeline);
 
+    const dateModified = dayjs().toISOString();
     await Promise.all(
-      results.map(({ count, id }) =>
-        TagModel.updateOne({ _id: id }, { $set: { count, dateModified } })
+      results.map(({ _id, count }) =>
+        TagModel.updateOne({ _id }, { $set: { count, dateModified } })
       )
     );
 

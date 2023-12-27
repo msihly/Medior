@@ -196,7 +196,7 @@ export type OnTagCreatedInput = { tag?: Tag };
 
 export type OnTagUpdatedInput = { tagId: string; updates: Partial<Tag> };
 
-export type RecalculateTagCountsInput = { tagIds: string[] };
+export type RecalculateTagCountsInput = { tagId: string };
 
 export type RemoveChildTagIdsFromTagsInput = { childTagIds: string[]; tagIds: string[] };
 

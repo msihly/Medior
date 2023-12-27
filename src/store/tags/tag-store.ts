@@ -2,6 +2,7 @@ import { computed } from "mobx";
 import {
   _async,
   _await,
+  clone,
   getRootStore,
   model,
   Model,
@@ -31,8 +32,8 @@ export class TagStore extends Model({
 
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
   @modelAction
-  _addTag = (tag: ModelCreationData<Tag>) => {
-    if (!this.getById(tag.id)) this.tags.push(new Tag(tag));
+  _addTag = (tag: Tag) => {
+    if (!this.getById(tag.id)) this.tags.push(tag);
   };
 
   @modelAction
@@ -73,7 +74,7 @@ export class TagStore extends Model({
         const res = await trpc.createTag.mutate({ aliases, childIds, label, parentIds });
         if (!res.success) throw new Error(res.error);
         const id = res.data.id;
-        const tag = {
+        const tag = new Tag({
           aliases,
           childIds,
           count: 0,
@@ -82,11 +83,11 @@ export class TagStore extends Model({
           id,
           label,
           parentIds,
-        };
+        });
 
         this._addTag(tag);
         await this.refreshTagRelations({ id });
-        await this.refreshRelatedTagCounts({ id });
+        await this.refreshRelatedTagCounts(tag);
         toast.success(`Tag '${label}' created`);
 
         if (withRegEx) {
@@ -116,6 +117,7 @@ export class TagStore extends Model({
       handleErrors(async () => {
         const tag = clone(this.getById(id));
         await trpc.deleteTag.mutate({ id });
+        await this.refreshRelatedTagCounts(tag);
       })
     );
   });
@@ -170,7 +172,7 @@ export class TagStore extends Model({
           });
 
         await trpc.editTag.mutate({ id, aliases, childIds, label, parentIds });
-        await this.refreshTagCount({ id });
+        await this.refreshTagCount(id);
 
         toast.success(`Tag '${tag.label}' edited`);
       })
@@ -202,7 +204,7 @@ export class TagStore extends Model({
 
         this.tags.map((t) =>
           this.countsRefreshQueue.add(async () => {
-            await this.refreshTagCount({ id: t.id });
+            await this.refreshTagCount(t.id);
 
             completedCount++;
             const isComplete = completedCount === totalCount;
@@ -211,7 +213,9 @@ export class TagStore extends Model({
             if (toastId)
               toast.update(toastId, {
                 autoClose: isComplete ? 5000 : false,
-                render: `Refreshed ${completedCount} tag counts${isComplete ? "." : "..."}`,
+                render: `Refreshed ${completedCount} / ${totalCount} tag counts${
+                  isComplete ? "." : "..."
+                }`,
               });
           })
         );
@@ -249,20 +253,17 @@ export class TagStore extends Model({
   });
 
   @modelFlow
-  refreshTagCount = _async(function* (this: TagStore, { id }: { id: string }) {
+  refreshTagCount = _async(function* (this: TagStore, id: string) {
     return yield* _await(
       handleErrors(async () => {
         const tag = this.getById(id);
-        if (!tag) {
-          console.error(`[RefreshTagCount] Tag with id '${id}' not found`);
-          return null;
-        }
+        if (!tag) throw new Error(`[RefreshTagCount] Tag with id '${id}' not found`);
 
-        const tagIds = [id, ...this.getParentTags(tag).map((t) => t.id)];
-        const res = await trpc.recalculateTagCounts.mutate({ tagIds });
+        const res = await trpc.recalculateTagCounts.mutate({ tagId: id });
+        if (!res.success) throw new Error(res.error);
 
-        res.data.forEach(({ count, id }) =>
-          trpc.onTagUpdated.mutate({ tagId: id, updates: { count } })
+        res.data.forEach(({ _id, count }) =>
+          trpc.onTagUpdated.mutate({ tagId: _id, updates: { count } })
         );
 
         return res.data;
@@ -318,12 +319,11 @@ export class TagStore extends Model({
   });
 
   @modelFlow
-  refreshRelatedTagCounts = _async(function* (this: TagStore, { id }: { id: string }) {
+  refreshRelatedTagCounts = _async(function* (this: TagStore, tag: Tag) {
     return yield* _await(
       handleErrors(async () => {
-        const tag = this.getById(id);
-        const relatedTags = [...this.getChildTags(tag, true), ...this.getParentTags(tag)];
-        await Promise.all(relatedTags.map((t) => this.refreshTagCount({ id: t.id })));
+        const relatedTags = [...this.getChildTags(tag, true), ...this.getParentTags(tag, true)];
+        await Promise.all(relatedTags.map((t) => this.refreshTagCount(t.id)));
       })
     );
   });

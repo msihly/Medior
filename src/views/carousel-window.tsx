@@ -2,7 +2,7 @@ import { ipcRenderer } from "electron";
 import { useEffect, useRef } from "react";
 import { SocketEmitEvent } from "server";
 import { observer } from "mobx-react-lite";
-import { useStores } from "store";
+import { Tag, useStores } from "store";
 import {
   Carousel,
   CarouselThumbNavigator,
@@ -49,9 +49,13 @@ export const CarouselWindow = observer(() => {
           socket.on(event, ({ fileIds }) => carouselStore.removeFiles(fileIds))
         );
 
-        ["tagCreated", "tagDeleted", "tagUpdated"].forEach((event: SocketEmitEvent) =>
-          socket.on(event, () => tagStore.loadTags())
-        );
+        socket.on("tagCreated", ({ tag }) => tagStore._addTag(new Tag(tag)));
+
+        socket.on("tagDeleted", ({ tagId }) => {
+          tagStore._deleteTag(tagId);
+        });
+
+        socket.on("tagUpdated", ({ tagId, updates }) => tagStore.getById(tagId)?.update(updates));
 
         socket.on("fileTagsUpdated", ({ addedTagIds, fileIds, removedTagIds }) =>
           fileStore.updateFileTags({ addedTagIds, fileIds, removedTagIds })

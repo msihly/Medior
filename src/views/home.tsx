@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { observer } from "mobx-react-lite";
-import { handleIngest, useStores } from "store";
+import { Tag, handleIngest, useStores } from "store";
 import {
   Drawer,
   FaceRecognitionModal,
@@ -94,15 +94,15 @@ export const Home = observer(() => {
       homeStore.reloadDisplayedFiles({ rootStore });
     });
 
-    socket.on("tagCreated", () => tagStore.loadTags());
+    socket.on("tagCreated", ({ tag }) => tagStore._addTag(new Tag(tag)));
 
     socket.on("tagDeleted", ({ tagId }) => {
       importStore.editBatchTags({ removedIds: [tagId] });
       homeStore.removeDeletedTag(tagId);
-      tagStore.loadTags();
+      tagStore._deleteTag(tagId);
     });
 
-    socket.on("tagUpdated", () => tagStore.loadTags());
+    socket.on("tagUpdated", ({ tagId, updates }) => tagStore.getById(tagId)?.update(updates));
   }, []);
 
   return (

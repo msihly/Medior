@@ -79,6 +79,11 @@ export const TagEditor = observer(({ create, goBack }: TagEditorProps) => {
     setParentTags(tagStore.getParentTags(tag).map((t) => t.tagOption) ?? []);
   };
 
+  const handleRefreshCount = async () => {
+    const res = await tagStore.refreshTagCount(tagStore.activeTagId);
+    if (res.success) toast.success("Tag count refreshed");
+  };
+
   const saveTag = async () => {
     if (isDuplicateTag) return toast.error("Tag label must be unique");
     if (!label.trim().length) return toast.error("Tag label cannot be blank");
@@ -196,6 +201,15 @@ export const TagEditor = observer(({ create, goBack }: TagEditorProps) => {
         <Button text="Confirm" icon="Check" onClick={saveTag} />
 
         <Button text="Cancel" icon="Close" onClick={goBack} color={colors.grey["700"]} />
+
+        {!isCreate && (
+          <Button
+            text="Refresh Count"
+            icon="Refresh"
+            onClick={handleRefreshCount}
+            color={colors.blueGrey["700"]}
+          />
+        )}
 
         {!isCreate && (
           <Button text="Delete" icon="Delete" onClick={handleDelete} color={colors.red["800"]} />
