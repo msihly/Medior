@@ -114,14 +114,7 @@ export class TagStore extends Model({
   deleteTag = _async(function* (this: TagStore, { id }: { id: string }) {
     return yield* _await(
       handleErrors(async () => {
-        await Promise.all([
-          trpc.removeTagFromAllFiles.mutate({ tagId: id }),
-          trpc.removeTagsFromAllBatches.mutate({ tagIds: [id] }),
-          trpc.removeTagFromAllChildTags.mutate({ tagId: id }),
-          trpc.removeTagFromAllParentTags.mutate({ tagId: id }),
-        ]);
-
-        await this.refreshRelatedTagCounts({ id });
+        const tag = clone(this.getById(id));
         await trpc.deleteTag.mutate({ id });
       })
     );

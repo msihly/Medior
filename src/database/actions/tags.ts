@@ -5,13 +5,14 @@ import {
   CreateTagInput,
   DeleteTagInput,
   EditTagInput,
+  FileImportBatchModel,
+  FileModel,
   OnTagCreatedInput,
   OnTagUpdatedInput,
   RecalculateTagCountsInput,
+  RegExMapModel,
   RemoveChildTagIdsFromTagsInput,
   RemoveParentTagIdsFromTagsInput,
-  RemoveTagFromAllChildTagsInput,
-  RemoveTagFromAllParentTagsInput,
   SetTagCountInput,
   Tag,
   TagModel,
@@ -58,7 +59,21 @@ export const createTag = ({ aliases = [], childIds = [], label, parentIds = [] }
 
 export const deleteTag = ({ id }: DeleteTagInput) =>
   handleErrors(async () => {
+    const dateModified = dayjs().toISOString();
+    const tagIds = [id];
+
+    await Promise.all([
+      await FileImportBatchModel.updateMany({ tagIds }, { $pull: { tagIds } }),
+      await FileModel.updateMany({ tagIds }, { $pull: { tagIds }, dateModified }),
+      await RegExMapModel.updateMany({ tagIds }, { $pull: { tagIds } }),
+      await TagModel.updateMany(
+        { $or: [{ childIds: id }, { parentIds: id }] },
+        { $pullAll: { childIds: tagIds, parentIds: tagIds }, dateModified }
+      ),
+    ]);
+
     await TagModel.deleteOne({ _id: id });
+
     socket.emit("tagDeleted", { tagId: id });
   });
 
@@ -143,28 +158,6 @@ export const recalculateTagCounts = async ({ tagIds }: RecalculateTagCountsInput
     );
 
     return results;
-  });
-
-export const removeTagFromAllChildTags = ({ tagId }: RemoveTagFromAllChildTagsInput) =>
-  handleErrors(async () => {
-    const dateModified = dayjs().toISOString();
-    const tagRes = await TagModel.updateMany(
-      { childIds: tagId },
-      { $pull: { childIds: tagId }, dateModified }
-    );
-    if (tagRes?.matchedCount !== tagRes?.modifiedCount)
-      throw new Error("Failed to remove child tag from all tags");
-  });
-
-export const removeTagFromAllParentTags = ({ tagId }: RemoveTagFromAllParentTagsInput) =>
-  handleErrors(async () => {
-    const dateModified = dayjs().toISOString();
-    const tagRes = await TagModel.updateMany(
-      { parentIds: tagId },
-      { $pull: { parentIds: tagId }, dateModified }
-    );
-    if (tagRes?.matchedCount !== tagRes?.modifiedCount)
-      throw new Error("Failed to remove parent tag from all tags");
   });
 
 export const removeChildTagIdsFromTags = ({

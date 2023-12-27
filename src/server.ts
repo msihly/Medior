@@ -155,18 +155,6 @@ const trpcRouter = tRouter({
   removeParentTagIdsFromTags: tProc
     .input((input: unknown) => input as db.RemoveParentTagIdsFromTagsInput)
     .mutation(({ input }) => db.removeParentTagIdsFromTags(input)),
-  removeTagFromAllFiles: tProc
-    .input((input: unknown) => input as db.RemoveTagFromAllFilesInput)
-    .mutation(({ input }) => db.removeTagFromAllFiles(input)),
-  removeTagFromAllChildTags: tProc
-    .input((input: unknown) => input as db.RemoveTagFromAllChildTagsInput)
-    .mutation(({ input }) => db.removeTagFromAllChildTags(input)),
-  removeTagFromAllParentTags: tProc
-    .input((input: unknown) => input as db.RemoveTagFromAllParentTagsInput)
-    .mutation(({ input }) => db.removeTagFromAllParentTags(input)),
-  removeTagsFromAllBatches: tProc
-    .input((input: unknown) => input as db.RemoveTagsFromAllBatchesInput)
-    .mutation(({ input }) => db.removeTagsFromAllBatches(input)),
   removeTagsFromBatch: tProc
     .input((input: unknown) => input as db.RemoveTagsFromBatchInput)
     .mutation(({ input }) => db.removeTagsFromBatch(input)),

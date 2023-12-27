@@ -8,7 +8,6 @@ import {
   FileImportBatchModel,
   RegExMap,
   RegExMapModel,
-  RemoveTagsFromAllBatchesInput,
   RemoveTagsFromBatchInput,
   StartImportBatchInput,
   UpdateFileImportByPathInput,
@@ -85,13 +84,6 @@ export const listRegExMaps = () =>
   handleErrors(async () =>
     (await RegExMapModel.find().lean()).map((r) => leanModelToJson<RegExMap>(r))
   );
-
-export const removeTagsFromAllBatches = ({ tagIds }: RemoveTagsFromAllBatchesInput) =>
-  handleErrors(async () => {
-    const importRes = await FileImportBatchModel.updateMany({ tagIds }, { $pull: { tagIds } });
-    if (importRes?.matchedCount !== importRes?.modifiedCount)
-      throw new Error("Failed to remove tag from all import batches");
-  });
 
 export const removeTagsFromBatch = ({ batchId, tagIds }: RemoveTagsFromBatchInput) =>
   handleErrors(

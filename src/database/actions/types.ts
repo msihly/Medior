@@ -41,8 +41,6 @@ export type DeleteImportBatchInput = { id: string };
 
 export type DeleteRegExMapsInput = { ids: string[] };
 
-export type RemoveTagsFromAllBatchesInput = { tagIds: string[] };
-
 export type RemoveTagsFromBatchInput = { batchId: string; tagIds: string[] };
 
 export type StartImportBatchInput = { id: string };
@@ -130,8 +128,6 @@ export type RefreshFileInput = { curFile?: File; id?: string; withThumbs?: boole
 
 export type RefreshSelectedFilesInput = { withThumbs?: boolean };
 
-export type RemoveTagFromAllFilesInput = { tagId: string };
-
 export type RemoveTagsFromFilesInput = { fileIds: string[]; tagIds: string[] };
 
 export type SetFileFaceModelsInput = {
@@ -186,9 +182,5 @@ export type RecalculateTagCountsInput = { tagIds: string[] };
 export type RemoveChildTagIdsFromTagsInput = { childTagIds: string[]; tagIds: string[] };
 
 export type RemoveParentTagIdsFromTagsInput = { parentTagIds: string[]; tagIds: string[] };
-
-export type RemoveTagFromAllChildTagsInput = { tagId: string };
-
-export type RemoveTagFromAllParentTagsInput = { tagId: string };
 
 export type SetTagCountInput = { count: number; id: string };

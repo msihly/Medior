@@ -237,19 +237,6 @@ export const onFileTagsUpdated = async ({
     async () => !!socket.emit("fileTagsUpdated", { addedTagIds, fileIds, removedTagIds })
   );
 
-export const removeTagFromAllFiles = ({ tagId }: RemoveTagFromAllFilesInput) =>
-  handleErrors(async () => {
-    const dateModified = dayjs().toISOString();
-    const fileRes = await FileModel.updateMany(
-      { tagIds: tagId },
-      { $pull: { tagIds: tagId }, dateModified }
-    );
-    if (fileRes?.matchedCount !== fileRes?.modifiedCount)
-      throw new Error("Failed to remove tag from all files");
-
-    return dateModified;
-  });
-
 export const removeTagsFromFiles = ({ fileIds = [], tagIds = [] }: RemoveTagsFromFilesInput) =>
   handleErrors(async () => {
     const dateModified = dayjs().toISOString();
