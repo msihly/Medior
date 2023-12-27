@@ -222,7 +222,7 @@ export const ImportEditor = observer(() => {
 
     if (flatTagsToUpsert.length > 0) {
       await rateLimitPromiseAll(
-        10,
+        5,
         flatTagsToUpsert.map(async (t) => {
           const parentTags = t.parentLabels
             ? t.parentLabels.map((l) => tagStore.getByLabel(l)).filter(Boolean)

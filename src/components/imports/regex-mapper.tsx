@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import { observer } from "mobx-react-lite";
 import { TagOption, useStores } from "store";
 import { FixedSizeList } from "react-window";
@@ -15,12 +15,11 @@ export const ImportRegExMapper = observer(() => {
 
   const { importStore } = useStores();
 
-  const hasUnsavedChanges = importStore.regExMaps.some((map) => map.hasUnsavedChanges);
+  useEffect(() => {
+    if (listRef.current) listRef.current.scrollTo({ behavior: "smooth", top: 0 });
+  }, [importStore.regExMaps.length]);
 
-  const handleAdd = () => {
-    importStore.addRegExMap();
-    setTimeout(scrollToBottom, 100);
-  };
+  const handleAdd = () => importStore.addRegExMap();
 
   const handleClose = () => {
     importStore.setIsImportRegExMapperOpen(false);
@@ -36,9 +35,6 @@ export const ImportRegExMapper = observer(() => {
   const handleRegExSearchChange = (value: string) => importStore.setRegExSearchValue(value);
 
   const handleTagSearchChange = (value: TagOption[]) => importStore.setTagSearchValue(value);
-
-  const scrollToBottom = () =>
-    listRef.current.scrollTo({ behavior: "smooth", top: listRef.current.scrollHeight });
 
   return (
     <Modal.Container onClose={handleClose} width="100%" height="100%">
@@ -77,7 +73,7 @@ export const ImportRegExMapper = observer(() => {
                 itemCount={importStore.filteredRegExMaps.length}
               >
                 {({ index, style }) => (
-                  <RegExMapRow key={index} index={index} style={style} />
+                  <RegExMapRow key={index} index={index} {...{ index, style }} />
                 )}
               </FixedSizeList>
             )}
@@ -90,12 +86,17 @@ export const ImportRegExMapper = observer(() => {
           text="Close"
           icon="Close"
           onClick={handleClose}
-          color={hasUnsavedChanges ? colors.button.red : colors.button.grey}
+          color={importStore.regExHasUnsavedChanges ? colors.button.red : colors.button.grey}
         />
 
         <Button text="New Mapping" icon="Add" onClick={handleAdd} />
 
-        <Button text="Save" icon="Save" onClick={handleSave} disabled={!hasUnsavedChanges} />
+        <Button
+          text="Save"
+          icon="Save"
+          onClick={handleSave}
+          disabled={!importStore.regExHasUnsavedChanges}
+        />
       </Modal.Footer>
     </Modal.Container>
   );

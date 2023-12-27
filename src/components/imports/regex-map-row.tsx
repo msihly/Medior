@@ -35,7 +35,7 @@ export const RegExMapRow = observer(({ index, style }: RegExMapRowProps) => {
 
   const { importStore, tagStore } = useStores();
 
-  const map = importStore.filteredRegExMaps[index];
+  const map = importStore.filteredRegExMaps[importStore.filteredRegExMaps.length - 1 - index];
 
   const [isRegExValid, isTestStringValid] = useMemo(() => {
     try {
@@ -164,12 +164,16 @@ export const RegExMapRow = observer(({ index, style }: RegExMapRowProps) => {
         />
 
         <TagInput
-          {...{ inputProps }}
           label="Tags"
           value={tags}
           onChange={handleTagsChange}
-          hasCreate
           onTagClick={handleTagClick}
+          hasCreate
+          inputProps={{
+            ...inputProps,
+            helperText: !tags.length ? "Must have tags" : null,
+            error: !tags.length,
+          }}
           className={cx(css.input, css.tagInput)}
         />
       </View>

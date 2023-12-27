@@ -514,6 +514,9 @@ export class ImportStore extends Model({
     const rootStore = getRootStore<RootStore>(this);
     if (!rootStore) return [];
     const { tagStore } = rootStore;
+    const { excludedAnyTagIds, includedAllTagIds, includedAnyTagIds } = tagStore.tagSearchOptsToIds(
+      this.tagSearchValue
+    );
 
     return this.regExMaps.filter((map) => {
       /** Always show maps with empty tags, which are errors */
@@ -522,11 +525,8 @@ export class ImportStore extends Model({
       if (this.regExSearchValue.length > 0 && !map.regEx.includes(this.regExSearchValue))
         return false;
 
-      const { excludedAnyTagIds, includedAllTagIds, includedAnyTagIds } =
-        tagStore.tagSearchOptsToIds(this.tagSearchValue);
-
-      if (excludedAnyTagIds.some((id) => map.tagIds.includes(id))) return false;
-      if (includedAllTagIds.some((id) => !map.tagIds.includes(id))) return false;
+      if (excludedAnyTagIds.length > 0 && excludedAnyTagIds.some((id) => map.tagIds.includes(id))) return false;
+      if (includedAllTagIds.length > 0 && includedAllTagIds.some((id) => !map.tagIds.includes(id))) return false;
       if (includedAnyTagIds.length > 0 && !includedAnyTagIds.some((id) => map.tagIds.includes(id)))
         return false;
 
@@ -537,5 +537,10 @@ export class ImportStore extends Model({
   @computed
   get incompleteBatches() {
     return this.batches.filter((batch) => !batch.completedAt);
+  }
+
+  @computed
+  get regExHasUnsavedChanges() {
+    return this.regExMaps.some((map) => map.hasUnsavedChanges);
   }
 }
