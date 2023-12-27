@@ -1,39 +1,25 @@
-import {
-  AddTagsToBatchInput,
-  CompleteImportBatchInput,
-  CreateImportBatchesInput,
-  CreateRegExMapsInput,
-  DeleteImportBatchInput,
-  DeleteRegExMapsInput,
-  FileImportBatchModel,
-  RegExMap,
-  RegExMapModel,
-  RemoveTagsFromBatchInput,
-  StartImportBatchInput,
-  UpdateFileImportByPathInput,
-  UpdateRegExMapsInput,
-} from "database";
+import * as db from "database";
 import { ImportBatchInput } from "store";
 import { dayjs, handleErrors } from "utils";
 import { leanModelToJson } from "./utils";
 
-export const addTagsToBatch = ({ batchId, tagIds }: AddTagsToBatchInput) =>
+export const addTagsToBatch = ({ batchId, tagIds }: db.AddTagsToBatchInput) =>
   handleErrors(
     async () =>
-      await FileImportBatchModel.updateOne(
+      await db.FileImportBatchModel.updateOne(
         { _id: batchId },
         { $addToSet: { tagIds: { $each: tagIds } } }
       )
   );
 
-export const completeImportBatch = ({ collectionId, id }: CompleteImportBatchInput) =>
+export const completeImportBatch = ({ collectionId, id }: db.CompleteImportBatchInput) =>
   handleErrors(async () => {
     const completedAt = dayjs().toISOString();
-    await FileImportBatchModel.updateOne({ _id: id }, { collectionId, completedAt });
+    await db.FileImportBatchModel.updateOne({ _id: id }, { collectionId, completedAt });
     return completedAt;
   });
 
-export const createImportBatches = (batches: CreateImportBatchesInput) =>
+export const createImportBatches = (batches: db.CreateImportBatchesInput) =>
   handleErrors(async () => {
     const importBatches = batches.map(
       ({ collectionTitle, createdAt, deleteOnImport, imports, tagIds }) => ({
@@ -47,28 +33,28 @@ export const createImportBatches = (batches: CreateImportBatchesInput) =>
       })
     );
 
-    const res = await FileImportBatchModel.insertMany(importBatches);
+    const res = await db.FileImportBatchModel.insertMany(importBatches);
     if (res.length !== importBatches.length) throw new Error("Failed to create import batches");
   });
 
-export const createRegExMaps = ({ regExMaps }: CreateRegExMapsInput) =>
+export const createRegExMaps = ({ regExMaps }: db.CreateRegExMapsInput) =>
   handleErrors(async () => {
-    const res = await RegExMapModel.insertMany(regExMaps);
+    const res = await db.RegExMapModel.insertMany(regExMaps);
     return res;
   });
 
 export const deleteAllImportBatches = () =>
-  handleErrors(async () => await FileImportBatchModel.deleteMany({}));
+  handleErrors(async () => await db.FileImportBatchModel.deleteMany({}));
 
-export const deleteImportBatch = ({ id }: DeleteImportBatchInput) =>
-  handleErrors(async () => await FileImportBatchModel.deleteOne({ _id: id }));
+export const deleteImportBatch = ({ id }: db.DeleteImportBatchInput) =>
+  handleErrors(async () => await db.FileImportBatchModel.deleteOne({ _id: id }));
 
-export const deleteRegExMaps = ({ ids }: DeleteRegExMapsInput) =>
-  handleErrors(async () => await RegExMapModel.deleteMany({ _id: { $in: ids } }));
+export const deleteRegExMaps = ({ ids }: db.DeleteRegExMapsInput) =>
+  handleErrors(async () => await db.RegExMapModel.deleteMany({ _id: { $in: ids } }));
 
 export const listImportBatches = () =>
   handleErrors(async () =>
-    (await FileImportBatchModel.find().lean()).map(
+    (await db.FileImportBatchModel.find().lean()).map(
       (b) =>
         ({
           ...b,
@@ -82,18 +68,18 @@ export const listImportBatches = () =>
 
 export const listRegExMaps = () =>
   handleErrors(async () =>
-    (await RegExMapModel.find().lean()).map((r) => leanModelToJson<RegExMap>(r))
+    (await db.RegExMapModel.find().lean()).map((r) => leanModelToJson<db.RegExMap>(r))
   );
 
-export const removeTagsFromBatch = ({ batchId, tagIds }: RemoveTagsFromBatchInput) =>
+export const removeTagsFromBatch = ({ batchId, tagIds }: db.RemoveTagsFromBatchInput) =>
   handleErrors(
-    async () => await FileImportBatchModel.updateOne({ _id: batchId }, { $pullAll: { tagIds } })
+    async () => await db.FileImportBatchModel.updateOne({ _id: batchId }, { $pullAll: { tagIds } })
   );
 
-export const startImportBatch = ({ id }: StartImportBatchInput) =>
+export const startImportBatch = ({ id }: db.StartImportBatchInput) =>
   handleErrors(async () => {
     const startedAt = dayjs().toISOString();
-    await FileImportBatchModel.updateOne({ _id: id }, { startedAt });
+    await db.FileImportBatchModel.updateOne({ _id: id }, { startedAt });
     return startedAt;
   });
 
@@ -104,9 +90,9 @@ export const updateFileImportByPath = async ({
   filePath,
   status,
   thumbPaths,
-}: UpdateFileImportByPathInput) =>
+}: db.UpdateFileImportByPathInput) =>
   handleErrors(async () => {
-    const res = await FileImportBatchModel.updateOne(
+    const res = await db.FileImportBatchModel.updateOne(
       { _id: batchId },
       {
         $set: {
@@ -123,7 +109,7 @@ export const updateFileImportByPath = async ({
       throw new Error("Failed to update file import by path");
   });
 
-export const updateRegExMaps = ({ regExMaps }: UpdateRegExMapsInput) =>
+export const updateRegExMaps = ({ regExMaps }: db.UpdateRegExMapsInput) =>
   handleErrors(() =>
-    Promise.all(regExMaps.map((r) => RegExMapModel.updateOne({ _id: r.id }, { $set: r })))
+    Promise.all(regExMaps.map((r) => db.RegExMapModel.updateOne({ _id: r.id }, { $set: r })))
   );

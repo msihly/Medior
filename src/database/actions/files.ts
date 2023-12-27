@@ -2,35 +2,7 @@ import { app } from "electron";
 import path from "path";
 import fs from "fs/promises";
 import mongoose, { PipelineStage } from "mongoose";
-import {
-  AddTagsToFilesInput,
-  CreateFilterPipelineInput,
-  deleteCollection,
-  DeleteFilesInput,
-  DetectFacesInput,
-  File,
-  FileCollection,
-  FileCollectionModel,
-  FileModel,
-  GetFileByHashInput,
-  GetShiftSelectedFilesInput,
-  ImportFileInput,
-  ListFaceModelsInput,
-  ListFileIdsForCarouselInput,
-  ListFilesByTagIdsInput,
-  ListFilesInput,
-  ListFilteredFileIdsInput,
-  OnFilesArchivedInput,
-  OnFilesDeletedInput,
-  OnFilesUpdatedInput,
-  OnFileTagsUpdatedInput,
-  RemoveTagsFromFilesInput,
-  SetFileFaceModelsInput,
-  SetFileIsArchivedInput,
-  SetFileRatingInput,
-  updateCollection,
-  UpdateFileInput,
-} from "database";
+import * as db from "database";
 import { centeredSlice, dayjs, handleErrors, socket, trpc, uniqueArrayFilter } from "utils";
 import { leanModelToJson } from "./utils";
 
@@ -39,10 +11,10 @@ const FACE_MODELS_PATH = app.isPackaged
   ? path.resolve(process.resourcesPath, "extraResources/face-models")
   : "src/face-models";
 
-export const addTagsToFiles = ({ fileIds = [], tagIds = [] }: AddTagsToFilesInput) =>
+export const addTagsToFiles = ({ fileIds = [], tagIds = [] }: db.AddTagsToFilesInput) =>
   handleErrors(async () => {
     const dateModified = dayjs().toISOString();
-    await FileModel.updateMany(
+    await db.FileModel.updateMany(
       { _id: { $in: fileIds } },
       { $addToSet: { tagIds: { $each: tagIds } }, dateModified }
     );
@@ -58,7 +30,7 @@ const createFilterPipeline = ({
   isArchived,
   selectedImageTypes,
   selectedVideoTypes,
-}: CreateFilterPipelineInput) => {
+}: db.CreateFilterPipelineInput) => {
   const enabledExts = Object.entries({
     ...selectedImageTypes,
     ...selectedVideoTypes,
@@ -100,13 +72,13 @@ const createFilterPipeline = ({
   };
 };
 
-export const deleteFiles = ({ fileIds }: DeleteFilesInput) =>
+export const deleteFiles = ({ fileIds }: db.DeleteFilesInput) =>
   handleErrors(async () => {
     const collections = (
-      await FileCollectionModel.find({
+      await db.FileCollectionModel.find({
         fileIdIndexes: { $elemMatch: { fileId: { $in: fileIds } } },
       }).lean()
-    ).map((c) => leanModelToJson<FileCollection>(c));
+    ).map((c) => leanModelToJson<db.FileCollection>(c));
 
     await Promise.all(
       collections.map((collection) => {
@@ -114,15 +86,15 @@ export const deleteFiles = ({ fileIds }: DeleteFilesInput) =>
           (fileIdIndex) => !fileIds.includes(String(fileIdIndex.fileId))
         );
 
-        if (!fileIdIndexes.length) return deleteCollection({ id: collection.id });
-        return updateCollection({ fileIdIndexes, id: collection.id });
+        if (!fileIdIndexes.length) return db.deleteCollection({ id: collection.id });
+        return db.updateCollection({ fileIdIndexes, id: collection.id });
       })
     );
 
-    await FileModel.deleteMany({ _id: { $in: fileIds } });
+    await db.FileModel.deleteMany({ _id: { $in: fileIds } });
   });
 
-export const detectFaces = async ({ imagePath }: DetectFacesInput) =>
+export const detectFaces = async ({ imagePath }: db.DetectFacesInput) =>
   handleErrors(async () => {
     const faceapi = await import("@vladmandic/face-api/dist/face-api.node-gpu.js");
     const tf = await import("@tensorflow/tfjs-node-gpu");
@@ -146,8 +118,8 @@ export const detectFaces = async ({ imagePath }: DetectFacesInput) =>
     }
   });
 
-export const getFileByHash = ({ hash }: GetFileByHashInput) =>
-  handleErrors(async () => leanModelToJson<File>(await FileModel.findOne({ hash }).lean()));
+export const getFileByHash = ({ hash }: db.GetFileByHashInput) =>
+  handleErrors(async () => leanModelToJson<db.File>(await db.FileModel.findOne({ hash }).lean()));
 
 export const getShiftSelectedFiles = ({
   clickedId,
@@ -162,7 +134,7 @@ export const getShiftSelectedFiles = ({
   selectedImageTypes,
   selectedVideoTypes,
   sortKey,
-}: GetShiftSelectedFilesInput) =>
+}: db.GetShiftSelectedFilesInput) =>
   handleErrors(async () => {
     const pipeline: PipelineStage[] = [
       createFilterPipeline({
@@ -186,7 +158,7 @@ export const getShiftSelectedFiles = ({
     ];
 
     const res: { filteredFileIds: { filteredFileIds: string[] }[] }[] = (
-      await FileModel.aggregate(pipeline).allowDiskUse(true)
+      await db.FileModel.aggregate(pipeline).allowDiskUse(true)
     ).flatMap((f) => f);
     if (!res) throw new Error("Failed to load filtered file IDs");
 
@@ -226,7 +198,7 @@ export const importFile = ({
   tagIds,
   thumbPaths,
   width,
-}: ImportFileInput) =>
+}: db.ImportFileInput) =>
   handleErrors(async () => {
     const file = {
       dateCreated,
@@ -249,21 +221,21 @@ export const importFile = ({
       width,
     };
 
-    const res = await FileModel.create(file);
+    const res = await db.FileModel.create(file);
     return { ...file, id: res._id.toString() };
   });
 
-export const listFaceModels = ({ ids }: ListFaceModelsInput = {}) =>
+export const listFaceModels = ({ ids }: db.ListFaceModelsInput = {}) =>
   handleErrors(async () => {
     return (
-      await FileModel.find({
+      await db.FileModel.find({
         faceModels: { $exists: true, $ne: [] },
         ...(ids ? { _id: { $in: ids } } : {}),
       })
         .select({ _id: 1, faceModels: 1 })
         .lean()
     ).flatMap((file) => {
-      return leanModelToJson<File>(file).faceModels.map((faceModel) => ({
+      return leanModelToJson<db.File>(file).faceModels.map((faceModel) => ({
         box: faceModel.box,
         descriptors: faceModel.descriptors,
         fileId: file._id.toString(),
@@ -272,17 +244,17 @@ export const listFaceModels = ({ ids }: ListFaceModelsInput = {}) =>
     });
   });
 
-export const listFiles = ({ ids }: ListFilesInput = {}) =>
+export const listFiles = ({ ids }: db.ListFilesInput = {}) =>
   handleErrors(async () => {
-    return (await FileModel.find(ids ? { _id: { $in: ids } } : undefined).lean()).map((f) =>
-      leanModelToJson<File>(f)
+    return (await db.FileModel.find(ids ? { _id: { $in: ids } } : undefined).lean()).map((f) =>
+      leanModelToJson<db.File>(f)
     );
   });
 
-export const listFilesByTagIds = ({ tagIds }: ListFilesByTagIdsInput) =>
+export const listFilesByTagIds = ({ tagIds }: db.ListFilesByTagIdsInput) =>
   handleErrors(async () => {
-    return (await FileModel.find({ tagIds: { $in: tagIds } }).lean()).map((f) =>
-      leanModelToJson<File>(f)
+    return (await db.FileModel.find({ tagIds: { $in: tagIds } }).lean()).map((f) =>
+      leanModelToJson<db.File>(f)
     );
   });
 
@@ -298,7 +270,7 @@ export const listFileIdsForCarousel = ({
   selectedImageTypes,
   selectedVideoTypes,
   sortKey,
-}: ListFileIdsForCarouselInput) =>
+}: db.ListFileIdsForCarouselInput) =>
   handleErrors(async () => {
     const pipeline: PipelineStage[] = [
       createFilterPipeline({
@@ -322,7 +294,7 @@ export const listFileIdsForCarousel = ({
     ];
 
     const res: { filteredFileIds: { filteredFileIds: string[] }[] }[] = (
-      await FileModel.aggregate(pipeline).allowDiskUse(true)
+      await db.FileModel.aggregate(pipeline).allowDiskUse(true)
     ).flatMap((f) => f);
     if (!res) throw new Error("Failed to load filtered file IDs");
 
@@ -345,7 +317,7 @@ export const listFilteredFileIds = ({
   sortKey,
   page,
   pageSize,
-}: ListFilteredFileIdsInput) =>
+}: db.ListFilteredFileIdsInput) =>
   handleErrors(async () => {
     const pipeline: PipelineStage[] = [
       createFilterPipeline({
@@ -387,7 +359,7 @@ export const listFilteredFileIds = ({
       totalDocuments: { count: number }[];
       displayedIds: { _id: string }[];
       deselectedIds?: { _id: string }[];
-    } = (await FileModel.aggregate(pipeline).allowDiskUse(true))?.[0];
+    } = (await db.FileModel.aggregate(pipeline).allowDiskUse(true))?.[0];
 
     if (!result) throw new Error("Failed to load filtered file IDs");
 
@@ -407,49 +379,54 @@ export const loadFaceApiNets = async () =>
     await faceapi.nets.faceRecognitionNet.loadFromDisk(FACE_MODELS_PATH);
   });
 
-export const onFilesArchived = async ({ fileIds }: OnFilesArchivedInput) =>
+export const onFilesArchived = async ({ fileIds }: db.OnFilesArchivedInput) =>
   handleErrors(async () => !!socket.emit("filesArchived", { fileIds }));
 
-export const onFilesDeleted = async ({ fileIds }: OnFilesDeletedInput) =>
+export const onFilesDeleted = async ({ fileIds }: db.OnFilesDeletedInput) =>
   handleErrors(async () => !!socket.emit("filesDeleted", { fileIds }));
 
-export const onFilesUpdated = async ({ fileIds, updates }: OnFilesUpdatedInput) =>
+export const onFilesUpdated = async ({ fileIds, updates }: db.OnFilesUpdatedInput) =>
   handleErrors(async () => !!socket.emit("filesUpdated", { fileIds, updates }));
 
 export const onFileTagsUpdated = async ({
   addedTagIds,
   fileIds,
   removedTagIds,
-}: OnFileTagsUpdatedInput) =>
+}: db.OnFileTagsUpdatedInput) =>
   handleErrors(
     async () => !!socket.emit("fileTagsUpdated", { addedTagIds, fileIds, removedTagIds })
   );
 
-export const removeTagsFromFiles = ({ fileIds = [], tagIds = [] }: RemoveTagsFromFilesInput) =>
+export const removeTagsFromFiles = ({ fileIds = [], tagIds = [] }: db.RemoveTagsFromFilesInput) =>
   handleErrors(async () => {
     const dateModified = dayjs().toISOString();
-    await FileModel.updateMany({ _id: { $in: fileIds } }, { $pullAll: { tagIds }, dateModified });
+    await db.FileModel.updateMany(
+      { _id: { $in: fileIds } },
+      { $pullAll: { tagIds }, dateModified }
+    );
     return dateModified;
   });
 
-export const setFileFaceModels = async ({ faceModels, id }: SetFileFaceModelsInput) =>
+export const setFileFaceModels = async ({ faceModels, id }: db.SetFileFaceModelsInput) =>
   handleErrors(async () => {
     const dateModified = dayjs().toISOString();
-    await FileModel.findOneAndUpdate({ _id: id }, { $set: { faceModels, dateModified } });
+    await db.FileModel.findOneAndUpdate({ _id: id }, { $set: { faceModels, dateModified } });
     await trpc.onFilesUpdated.mutate({ fileIds: [id], updates: { faceModels, dateModified } });
     return dateModified;
   });
 
-export const setFileIsArchived = ({ fileIds = [], isArchived }: SetFileIsArchivedInput) =>
-  handleErrors(async () => await FileModel.updateMany({ _id: { $in: fileIds } }, { isArchived }));
+export const setFileIsArchived = ({ fileIds = [], isArchived }: db.SetFileIsArchivedInput) =>
+  handleErrors(
+    async () => await db.FileModel.updateMany({ _id: { $in: fileIds } }, { isArchived })
+  );
 
-export const setFileRating = ({ fileIds = [], rating }: SetFileRatingInput) =>
+export const setFileRating = ({ fileIds = [], rating }: db.SetFileRatingInput) =>
   handleErrors(async () => {
     const updates = { rating, dateModified: dayjs().toISOString() };
-    await FileModel.updateMany({ _id: { $in: fileIds } }, updates);
+    await db.FileModel.updateMany({ _id: { $in: fileIds } }, updates);
     await trpc.onFilesUpdated.mutate({ fileIds, updates });
     return { fileIds, updates };
   });
 
-export const updateFile = async ({ id, ...updates }: UpdateFileInput) =>
-  handleErrors(async () => await FileModel.updateOne({ _id: id }, updates));
+export const updateFile = async ({ id, ...updates }: db.UpdateFileInput) =>
+  handleErrors(async () => await db.FileModel.updateOne({ _id: id }, updates));

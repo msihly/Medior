@@ -1,46 +1,34 @@
 import mongoose, { PipelineStage } from "mongoose";
-import {
-  AddChildTagIdsToTagsInput,
-  AddParentTagIdsToTagsInput,
-  CreateTagInput,
-  DeleteTagInput,
-  EditTagInput,
-  FileImportBatchModel,
-  FileModel,
-  OnTagCreatedInput,
-  OnTagUpdatedInput,
-  RecalculateTagCountsInput,
-  RegExMapModel,
-  RemoveChildTagIdsFromTagsInput,
-  RemoveParentTagIdsFromTagsInput,
-  SetTagCountInput,
-  Tag,
-  TagModel,
-} from "database";
+import * as db from "database";
 import { dayjs, handleErrors, socket } from "utils";
 import { leanModelToJson } from "./utils";
 
-export const addChildTagIdsToTags = ({ childTagIds, tagIds }: AddChildTagIdsToTagsInput) =>
+export const addChildTagIdsToTags = ({ childTagIds, tagIds }: db.AddChildTagIdsToTagsInput) =>
   handleErrors(async () => {
     const dateModified = dayjs().toISOString();
-    await TagModel.updateMany(
+    await db.TagModel.updateMany(
       { _id: { $in: tagIds } },
       { $addToSet: { childIds: childTagIds as any }, dateModified }
     );
     return dateModified;
   });
 
-export const addParentTagIdsToTags = ({ parentTagIds, tagIds }: AddParentTagIdsToTagsInput) =>
+export const addParentTagIdsToTags = ({ parentTagIds, tagIds }: db.AddParentTagIdsToTagsInput) =>
   handleErrors(async () => {
     const dateModified = dayjs().toISOString();
-    await TagModel.updateMany(
+    await db.TagModel.updateMany(
       { _id: { $in: tagIds } },
       { $addToSet: { parentIds: parentTagIds as any }, dateModified }
     );
     return dateModified;
   });
 
-export const createTag = ({ aliases = [], childIds = [], label, parentIds = [] }: CreateTagInput) =>
+export const createTag = ({
+  aliases = [],
+  childIds = [],
+  label,
+  parentIds = [],
+}: db.CreateTagInput) =>
   handleErrors(async () => {
     const dateCreated = dayjs().toISOString();
     const tag = {
@@ -53,49 +41,51 @@ export const createTag = ({ aliases = [], childIds = [], label, parentIds = [] }
       parentIds,
     };
 
-    const res = await TagModel.create(tag);
+    const res = await db.TagModel.create(tag);
     return { ...tag, id: res._id.toString() };
   });
 
-export const deleteTag = ({ id }: DeleteTagInput) =>
+export const deleteTag = ({ id }: db.DeleteTagInput) =>
   handleErrors(async () => {
     const dateModified = dayjs().toISOString();
     const tagIds = [id];
 
     await Promise.all([
-      await FileImportBatchModel.updateMany({ tagIds }, { $pull: { tagIds } }),
-      await FileModel.updateMany({ tagIds }, { $pull: { tagIds }, dateModified }),
-      await RegExMapModel.updateMany({ tagIds }, { $pull: { tagIds } }),
-      await TagModel.updateMany(
+      await db.FileImportBatchModel.updateMany({ tagIds }, { $pull: { tagIds } }),
+      await db.FileModel.updateMany({ tagIds }, { $pull: { tagIds }, dateModified }),
+      await db.RegExMapModel.updateMany({ tagIds }, { $pull: { tagIds } }),
+      await db.TagModel.updateMany(
         { $or: [{ childIds: id }, { parentIds: id }] },
         { $pullAll: { childIds: tagIds, parentIds: tagIds }, dateModified }
       ),
     ]);
 
-    await TagModel.deleteOne({ _id: id });
+    await db.TagModel.deleteOne({ _id: id });
 
     socket.emit("tagDeleted", { tagId: id });
   });
 
-export const editTag = ({ aliases, childIds, id, label, parentIds }: EditTagInput) =>
+export const editTag = ({ aliases, childIds, id, label, parentIds }: db.EditTagInput) =>
   handleErrors(async () => {
     const dateModified = dayjs().toISOString();
-    return await TagModel.updateOne(
+    return await db.TagModel.updateOne(
       { _id: id },
       { aliases, childIds, dateModified, label, parentIds }
     );
   });
 
 export const getAllTags = () =>
-  handleErrors(async () => (await TagModel.find().lean()).map((r) => leanModelToJson<Tag>(r)));
+  handleErrors(async () =>
+    (await db.TagModel.find().lean()).map((r) => leanModelToJson<db.Tag>(r))
+  );
 
-export const onTagCreated = async ({ tag }: OnTagCreatedInput) =>
+export const onTagCreated = async ({ tag }: db.OnTagCreatedInput) =>
   handleErrors(async () => !!socket.emit("tagCreated", { tag }));
 
-export const onTagUpdated = async ({ tagId, updates }: OnTagUpdatedInput) =>
+export const onTagUpdated = async ({ tagId, updates }: db.OnTagUpdatedInput) =>
   handleErrors(async () => !!socket.emit("tagUpdated", { tagId, updates }));
 
-export const recalculateTagCounts = async ({ tagId }: RecalculateTagCountsInput) =>
+export const recalculateTagCounts = async ({ tagId }: db.RecalculateTagCountsInput) =>
   handleErrors(async () => {
     const pipeline: PipelineStage[] = [
       { $match: { _id: new mongoose.Types.ObjectId(tagId) } },
@@ -190,12 +180,12 @@ export const recalculateTagCounts = async ({ tagId }: RecalculateTagCountsInput)
       },
     ];
 
-    const results: { _id: string; count: number }[] = await TagModel.aggregate(pipeline);
+    const results: { _id: string; count: number }[] = await db.TagModel.aggregate(pipeline);
 
     const dateModified = dayjs().toISOString();
     await Promise.all(
       results.map(({ _id, count }) =>
-        TagModel.updateOne({ _id }, { $set: { count, dateModified } })
+        db.TagModel.updateOne({ _id }, { $set: { count, dateModified } })
       )
     );
 
@@ -205,10 +195,10 @@ export const recalculateTagCounts = async ({ tagId }: RecalculateTagCountsInput)
 export const removeChildTagIdsFromTags = ({
   childTagIds,
   tagIds,
-}: RemoveChildTagIdsFromTagsInput) =>
+}: db.RemoveChildTagIdsFromTagsInput) =>
   handleErrors(async () => {
     const dateModified = dayjs().toISOString();
-    return await TagModel.updateMany(
+    return await db.TagModel.updateMany(
       { _id: { $in: tagIds } },
       { $pullAll: { childIds: childTagIds }, dateModified }
     );
@@ -217,17 +207,17 @@ export const removeChildTagIdsFromTags = ({
 export const removeParentTagIdsFromTags = ({
   parentTagIds,
   tagIds,
-}: RemoveParentTagIdsFromTagsInput) =>
+}: db.RemoveParentTagIdsFromTagsInput) =>
   handleErrors(async () => {
     const dateModified = dayjs().toISOString();
-    return await TagModel.updateMany(
+    return await db.TagModel.updateMany(
       { _id: { $in: tagIds } },
       { $pullAll: { parentIds: parentTagIds }, dateModified }
     );
   });
 
-export const setTagCount = ({ count, id }: SetTagCountInput) =>
+export const setTagCount = ({ count, id }: db.SetTagCountInput) =>
   handleErrors(async () => {
     const dateModified = dayjs().toISOString();
-    return TagModel.updateOne({ _id: id }, { $set: { count }, dateModified });
+    return db.TagModel.updateOne({ _id: id }, { $set: { count }, dateModified });
   });
