@@ -73,6 +73,7 @@
     "electron-devtools-installer": "^3.2.0",
     "eslint": "^8.54.0",
     "eslint-plugin-tss-unused-classes": "^1.0.2",
+    "fast-glob": "^3.3.2",
     "mock-aws-s3": "^4.0.2",
     "nock": "^13.3.3",
     "patch-package": "^6.4.7",
@@ -85,7 +86,7 @@
   },
   "scripts": {
     "build": "npm run copy-files && npm run ts-compile && vite build",
-    "build-dev": "SET BUILD_DEV=true&& npm run build -- --mode development --watch --config ./vite.config.watch.ts",
+    "build-dev": "SET BUILD_DEV=true&& npm run build -- --mode development --config ./vite.config.watch.ts",
     "check": "npm run ts-check && npm run lint",
     "copy-files": "npx copyfiles -f src/face-models/**/* extraResources/face-models && npx copyfiles extraResources/**/* build",
     "dist": "npm run build && npm run electron-build",

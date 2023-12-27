@@ -26,13 +26,13 @@ export const centeredSlice = <T>(arr: T[], indexToCenter: number, maxCount?: num
   return [...left, arr[indexToCenter], ...right];
 };
 
-interface CountItemsResult {
-  value: any;
+interface CountItemsResult<T> {
+  value: T;
   count: number;
 }
 
-export const countItems = <T>(arr: T[]): CountItemsResult[] => {
-  const map = arr.reduce((acc: CountItemsResult[], cur: CountItemsResult["value"]) => {
+export const countItems = <T>(arr: T[]): CountItemsResult<T>[] => {
+  const map = arr.reduce((acc: CountItemsResult<T>[], cur: CountItemsResult<T>["value"]) => {
     const group = acc.find((e) => e.value === cur);
     if (!group) acc.push({ value: cur, count: 1 });
     else group.count += 1;

@@ -54,16 +54,25 @@ export const deleteFile = (path: string, copiedPath?: string) =>
     await fs.unlink(path);
   });
 
-export const dirToFilePaths = async (dirPath: string): Promise<string[]> => {
+export const dirToFilePaths = async (
+  dirPath: string,
+  recursive: boolean = true
+): Promise<string[]> => {
   const paths = await fs.readdir(dirPath, { withFileTypes: true });
   return (
     await Promise.all(
       paths.map(async (dirent) => {
         const filePath = path.join(dirPath, dirent.name);
-        return dirent.isDirectory() ? await dirToFilePaths(filePath) : filePath;
+        return dirent.isDirectory()
+          ? recursive
+            ? await dirToFilePaths(filePath)
+            : null
+          : filePath;
       })
     )
-  ).flat();
+  )
+    .flat()
+    .filter((p) => p !== null);
 };
 
 export const dirToFolderPaths = async (dirPath: string): Promise<string[]> => {
