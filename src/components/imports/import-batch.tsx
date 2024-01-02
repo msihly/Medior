@@ -34,7 +34,7 @@ export const ImportBatch = observer(({ batch }: ImportBatchProps) => {
   };
 
   const handleDelete = async () => {
-    const res = await importStore.deleteImportBatch({ id: batch.id });
+    const res = await importStore.deleteImportBatches({ ids: [batch.id] });
     if (!res.success) toast.error(`Error deleting import batch: ${res?.error}`);
     else toast.success("Import batch deleted");
   };

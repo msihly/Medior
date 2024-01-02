@@ -43,11 +43,8 @@ export const createRegExMaps = ({ regExMaps }: db.CreateRegExMapsInput) =>
     return res;
   });
 
-export const deleteAllImportBatches = () =>
-  handleErrors(async () => await db.FileImportBatchModel.deleteMany({}));
-
-export const deleteImportBatch = ({ id }: db.DeleteImportBatchInput) =>
-  handleErrors(async () => await db.FileImportBatchModel.deleteOne({ _id: id }));
+export const deleteImportBatches = ({ ids }: db.DeleteImportBatchesInput) =>
+  handleErrors(async () => await db.FileImportBatchModel.deleteMany({ _id: { $in: ids } }));
 
 export const deleteRegExMaps = ({ ids }: db.DeleteRegExMapsInput) =>
   handleErrors(async () => await db.RegExMapModel.deleteMany({ _id: { $in: ids } }));

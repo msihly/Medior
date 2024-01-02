@@ -78,16 +78,15 @@ const trpcRouter = tRouter({
   createTag: tProc
     .input((input: unknown) => input as db.CreateTagInput)
     .mutation(({ input }) => db.createTag(input)),
-  deleteAllImportBatches: tProc.mutation(db.deleteAllImportBatches),
   deleteCollection: tProc
     .input((input: unknown) => input as db.DeleteCollectionInput)
     .mutation(({ input }) => db.deleteCollection(input)),
   deleteFiles: tProc
     .input((input: unknown) => input as db.DeleteFilesInput)
     .mutation(({ input }) => db.deleteFiles(input)),
-  deleteImportBatch: tProc
-    .input((input: unknown) => input as db.DeleteImportBatchInput)
-    .mutation(({ input }) => db.deleteImportBatch(input)),
+  deleteImportBatches: tProc
+    .input((input: unknown) => input as db.DeleteImportBatchesInput)
+    .mutation(({ input }) => db.deleteImportBatches(input)),
   deleteRegExMaps: tProc
     .input((input: unknown) => input as db.DeleteRegExMapsInput)
     .mutation(({ input }) => db.deleteRegExMaps(input)),

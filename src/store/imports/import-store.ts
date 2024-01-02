@@ -15,7 +15,7 @@ import {
 } from "mobx-keystone";
 import { computed } from "mobx";
 import { RootStore, TagOption } from "store";
-import { CreateRegExMapsInput, RegExMapType, UpdateRegExMapsInput } from "database";
+import * as db from "database";
 import { FileImport, ImportBatch, RegExMap } from ".";
 import { copyFileForImport } from "./import-queue";
 import {
@@ -85,13 +85,8 @@ export class ImportStore extends Model({
   }
 
   @modelAction
-  _deleteBatch(id: string) {
-    this.importBatches = this.importBatches.filter((batch) => batch.id !== id);
-  }
-
-  @modelAction
-  _deleteAllBatches() {
-    this.importBatches = [];
+  _deleteBatches(ids: string[]) {
+    this.importBatches = this.importBatches.filter((batch) => !ids.includes(batch.id));
   }
 
   @modelAction
@@ -266,24 +261,12 @@ export class ImportStore extends Model({
   });
 
   @modelFlow
-  deleteAllImportBatches = _async(function* (this: ImportStore) {
+  deleteImportBatches = _async(function* (this: ImportStore, { ids }: db.DeleteImportBatchesInput) {
     return yield* _await(
       handleErrors(async () => {
-        this.queue.clear();
-        const deleteRes = await trpc.deleteAllImportBatches.mutate();
+        const deleteRes = await trpc.deleteImportBatches.mutate({ ids });
         if (!deleteRes?.success) return false;
-        this._deleteAllBatches();
-      })
-    );
-  });
-
-  @modelFlow
-  deleteImportBatch = _async(function* (this: ImportStore, { id }: { id: string }) {
-    return yield* _await(
-      handleErrors(async () => {
-        const deleteRes = await trpc.deleteImportBatch.mutate({ id });
-        if (!deleteRes?.success) return false;
-        this._deleteBatch(id);
+        this._deleteBatches(ids);
       })
     );
   });
@@ -449,9 +432,9 @@ export class ImportStore extends Model({
             return acc;
           },
           [[], [], []] as [
-            CreateRegExMapsInput["regExMaps"],
+            db.CreateRegExMapsInput["regExMaps"],
             string[],
-            UpdateRegExMapsInput["regExMaps"]
+            db.UpdateRegExMapsInput["regExMaps"]
           ]
         );
 
@@ -486,7 +469,7 @@ export class ImportStore extends Model({
     return this.importBatches.filter((batch) => [...batch.tagIds].flat().includes(tagId));
   }
 
-  listRegExMapsByType(type: RegExMapType) {
+  listRegExMapsByType(type: db.RegExMapType) {
     return this.regExMaps.filter((map) => map.types.includes(type));
   }
 
@@ -525,8 +508,10 @@ export class ImportStore extends Model({
       if (this.regExSearchValue.length > 0 && !map.regEx.includes(this.regExSearchValue))
         return false;
 
-      if (excludedAnyTagIds.length > 0 && excludedAnyTagIds.some((id) => map.tagIds.includes(id))) return false;
-      if (includedAllTagIds.length > 0 && includedAllTagIds.some((id) => !map.tagIds.includes(id))) return false;
+      if (excludedAnyTagIds.length > 0 && excludedAnyTagIds.some((id) => map.tagIds.includes(id)))
+        return false;
+      if (includedAllTagIds.length > 0 && includedAllTagIds.some((id) => !map.tagIds.includes(id)))
+        return false;
       if (includedAnyTagIds.length > 0 && !includedAnyTagIds.some((id) => map.tagIds.includes(id)))
         return false;
 

@@ -17,14 +17,6 @@ export const ImportManager = observer(() => {
       completedRef.current.scrollTo({ behavior: "smooth", top: completedRef.current.scrollHeight });
   }, [importStore.completedBatches?.length]);
 
-  const [isConfirmDeleteAllOpen, setIsConfirmDeleteAllOpen] = useState(false);
-
-  const deleteAll = async () => {
-    await importStore.deleteAllImportBatches();
-    toast.success("All import batches deleted");
-    setIsConfirmDeleteAllOpen(false);
-  };
-
   const handleClose = () => importStore.setIsImportManagerOpen(false);
 
   const handleRegExMapper = () => {
@@ -41,38 +33,12 @@ export const ImportManager = observer(() => {
     >
       <Modal.Header
         leftNode={<Button text="RegEx Mapper" icon="MultipleStop" onClick={handleRegExMapper} />}
-        rightNode={
-          <View row justify="flex-end" padding={{ right: "1rem" }}>
-            {!isConfirmDeleteAllOpen ? (
-              <IconButton
-                name="DeleteOutline"
-                onClick={() => setIsConfirmDeleteAllOpen(true)}
-                iconProps={{ color: colors.grey["500"], size: "0.9em" }}
-              />
-            ) : (
-              <>
-                <IconButton
-                  name="CloseOutlined"
-                  onClick={() => setIsConfirmDeleteAllOpen(false)}
-                  iconProps={{ color: colors.grey["500"], size: "0.9em" }}
-                  margins={{ right: "0.1rem" }}
-                />
-
-                <IconButton
-                  name="Delete"
-                  onClick={deleteAll}
-                  iconProps={{ color: colors.red["700"], size: "0.9em" }}
-                />
-              </>
-            )}
-          </View>
-        }
       >
         <Text>{"Import Manager"}</Text>
       </Modal.Header>
 
       <Modal.Content className={css.modalContent}>
-        <Text className={css.containerTitle}>{"Completed"}</Text>
+        <ContainerHeader type="completed" />
         <View ref={completedRef} className={css.batchesContainer} margins={{ bottom: "1rem" }}>
           {importStore.completedBatches?.length > 0 ? (
             [...importStore.completedBatches].map((batch) => (
@@ -83,7 +49,7 @@ export const ImportManager = observer(() => {
           )}
         </View>
 
-        <Text className={css.containerTitle}>{"Pending"}</Text>
+        <ContainerHeader type="pending" />
         <View className={css.batchesContainer}>
           {importStore.incompleteBatches?.length > 0 ? (
             [...importStore.incompleteBatches].map((batch) => (
@@ -102,6 +68,71 @@ export const ImportManager = observer(() => {
   );
 });
 
+interface ContainerHeaderProps {
+  type: "completed" | "pending";
+}
+
+const ContainerHeader = ({ type }: ContainerHeaderProps) => {
+  const { css } = useClasses(null);
+
+  return (
+    <View className={css.containerHeader}>
+      <View />
+      <Text className={css.containerTitle}>{type === "completed" ? "Completed" : "Pending"}</Text>
+      <DeleteToggleButton {...{ type }} />
+    </View>
+  );
+};
+
+interface DeleteToggleButtonProps {
+  type: "completed" | "pending";
+}
+
+const DeleteToggleButton = observer(({ type }: DeleteToggleButtonProps) => {
+  const { importStore } = useStores();
+
+  const [isConfirmDeleteAllOpen, setIsConfirmDeleteAllOpen] = useState(false);
+
+  const deleteAll = async () => {
+    await importStore.deleteImportBatches({
+      ids: (type === "completed"
+        ? importStore.completedBatches
+        : importStore.incompleteBatches
+      ).map((batch) => batch.id),
+    });
+
+    toast.success(`Deleted all ${type} import batches`);
+    setIsConfirmDeleteAllOpen(false);
+  };
+
+  return (
+    <View row justify="flex-end" padding={{ right: "1rem" }}>
+      {!isConfirmDeleteAllOpen ? (
+        <IconButton
+          name="DeleteOutline"
+          onClick={() => setIsConfirmDeleteAllOpen(true)}
+          iconProps={{ color: colors.grey["500"], size: "0.9em" }}
+        />
+      ) : (
+        <>
+          <IconButton
+            name="CloseOutlined"
+            onClick={() => setIsConfirmDeleteAllOpen(false)}
+            iconProps={{ color: colors.grey["500"], size: "0.9em" }}
+            margins={{ right: "0.1rem" }}
+          />
+
+          <IconButton
+            name="Delete"
+            onClick={deleteAll}
+            iconProps={{ color: colors.red["700"], size: "0.9em" }}
+          />
+        </>
+      )}
+    </View>
+  );
+});
+
 const useClasses = makeClasses({
   batchesContainer: {
     display: "flex",
@@ -114,8 +145,17 @@ const useClasses = makeClasses({
     overflowX: "hidden",
     overflowY: "auto",
   },
+  containerHeader: {
+    display: "flex",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: "0.5rem",
+    "& > *": {
+      width: "calc(100% / 3)",
+    },
+  },
   containerTitle: {
-    marginLeft: "0.3rem",
     fontSize: "1.1em",
     fontWeight: 500,
     textAlign: "center",

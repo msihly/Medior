@@ -37,7 +37,7 @@ export type CreateImportBatchesInput = {
 
 export type CreateRegExMapsInput = { regExMaps: ModelCreationData<RegExMap>[] };
 
-export type DeleteImportBatchInput = { id: string };
+export type DeleteImportBatchesInput = { ids: string[] };
 
 export type DeleteRegExMapsInput = { ids: string[] };
 
