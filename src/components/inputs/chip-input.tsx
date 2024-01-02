@@ -10,10 +10,11 @@ export type ChipOption = {
   value: any;
 };
 
-type ChipInputProps = Omit<
+export type ChipInputProps = Omit<
   ComponentProps<typeof Autocomplete>,
   "renderInput" | "onChange" | "options"
 > & {
+  disableWithoutFade?: boolean;
   hasHelper?: boolean;
   inputProps?: InputProps;
   opaque?: boolean;
@@ -25,6 +26,8 @@ type ChipInputProps = Omit<
 export const ChipInput = observer(
   ({
     className,
+    disabled,
+    disableWithoutFade,
     hasHelper = false,
     inputProps,
     opaque = false,
@@ -38,6 +41,7 @@ export const ChipInput = observer(
     const [inputValue, setInputValue] = useState((inputProps?.value ?? "") as string);
 
     const handleChange = (_, val: ChipOption[], reason?: AutocompleteChangeReason) => {
+      if (disabled) return;
       setValue?.(
         val.map((v: ChipOption | string) => (typeof v === "string" ? { label: v, value: v } : v))
       );
@@ -45,11 +49,13 @@ export const ChipInput = observer(
     };
 
     const handleInputChange = (val: string) => {
+      if (disabled) return;
       setInputValue(val);
       inputProps?.setValue?.(val);
     };
 
     return (
+      // TODO: Replace with mui-chips-input for ability to edit chips + other config
       <Autocomplete
         {...{ options, value }}
         getOptionLabel={(option: ChipOption) => option.label}
@@ -59,17 +65,27 @@ export const ChipInput = observer(
             {...{ hasHelper }}
             value={inputValue}
             setValue={handleInputChange}
+            disabled={!disableWithoutFade && disabled}
             className={cx(css.input, className)}
             {...inputProps}
           />
         )}
         renderTags={(val: ChipOption[], getTagProps) =>
-          val.map((option: ChipOption, index) => (
-            <Chip {...getTagProps({ index })} label={option.label} />
-          ))
+          val.map((option: ChipOption, index) => {
+            const props = { ...getTagProps({ index }) };
+            return (
+              <Chip
+                {...props}
+                label={option.label}
+                onDelete={disabled ? undefined : props.onDelete}
+                size="small"
+              />
+            );
+          })
         }
         onChange={handleChange}
         isOptionEqualToValue={(option: ChipOption, val: ChipOption) => option.value === val.value}
+        disabled={!disableWithoutFade && disabled}
         size="small"
         freeSolo
         forcePopupIcon={false}

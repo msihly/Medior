@@ -10,7 +10,9 @@ import {
   ImportEditor,
   ImportManager,
   ImportRegExMapper,
+  TagEditor,
   TagManager,
+  TagMerger,
   Tagger,
   TopBar,
   View,
@@ -130,7 +132,11 @@ export const Home = observer(() => {
 
             {fileCollectionStore.isCollectionEditorOpen && <FileCollectionEditor />}
 
+            {tagStore.isTagEditorOpen && <TagEditor />}
+
             {tagStore.isTagManagerOpen && <TagManager />}
+
+            {tagStore.isTagMergerOpen && <TagMerger />}
 
             <ImportManager />
 

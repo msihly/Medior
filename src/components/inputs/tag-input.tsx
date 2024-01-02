@@ -59,12 +59,16 @@ export type TagInputProps = Omit<
   _setValue?: Dispatch<SetStateAction<TagOption[]>>;
   autoFocus?: boolean;
   center?: boolean;
+  disableWithoutFade?: boolean;
+  excludedIds?: string[];
   hasCreate?: boolean;
+  hasDelete?: boolean;
   hasHelper?: boolean;
   hasSearchMenu?: boolean;
   inputProps?: InputProps;
   label?: string;
   margins?: Margins;
+  maxTags?: number;
   onTagClick?: (tagId: string) => void;
   opaque?: boolean;
   options?: TagOption[];
@@ -83,12 +87,16 @@ export const TagInput = observer(
         center,
         className,
         disabled,
+        disableWithoutFade = false,
+        excludedIds = [],
         hasCreate = false,
+        hasDelete = false,
         hasHelper = false,
         hasSearchMenu,
         inputProps,
         label,
         margins,
+        maxTags,
         onChange,
         onSelect,
         onTagClick,
@@ -103,6 +111,9 @@ export const TagInput = observer(
       const { tagStore } = useStores();
       const { css, cx } = useClasses({ center, margins, opaque, width });
 
+      const isMaxTags = maxTags > 0 && value.length >= maxTags;
+      disabled = disabled || isMaxTags;
+      disableWithoutFade = disableWithoutFade || isMaxTags;
       options = options ?? [...tagStore.tagOptions];
 
       const [inputValue, setInputValue] = useState((inputProps?.value ?? "") as string);
@@ -118,13 +129,16 @@ export const TagInput = observer(
         setInputValue(inputProps?.value as string);
       }, [inputProps?.value]);
 
-      const filterOptions = (options: TagOption[], { inputValue }) => {
+      const filterOptions = (options: TagOption[], { inputValue }: { inputValue: string }) => {
         const searchTerms = inputValue.trim().toLowerCase().split(" ");
         const filtered = options
-          .filter((o) =>
-            [o.label.toLowerCase(), ...(o.aliases?.map((a) => a.toLowerCase()) ?? [])].some(
-              (label) => searchTerms.every((t) => label.includes(t))
-            )
+          .filter(
+            (o) =>
+              o.label?.length > 0 &&
+              excludedIds.every((id) => id !== o.id) &&
+              [o.label.toLowerCase(), ...(o.aliases?.map((a) => a.toLowerCase()) ?? [])].some(
+                (label) => searchTerms.every((t) => label.includes(t))
+              )
           )
           .slice(0, 100);
 
@@ -136,6 +150,7 @@ export const TagInput = observer(
       };
 
       const handleChange = (_, val: TagOption[], reason?: AutocompleteChangeReason) => {
+        if (disabled) return;
         onChange?.(val);
         if (reason === "selectOption") setInputValue("");
       };
@@ -151,20 +166,22 @@ export const TagInput = observer(
       };
 
       const handleInputChange = (val: string) => {
+        if (disabled) return;
         setInputValue(val);
         inputProps?.setValue?.(val);
       };
 
-      const handleOpen = () => setIsOpen(true);
+      const handleOpen = () => !disabled && setIsOpen(true);
 
       const renderInput = (params: AutocompleteRenderInputParams) => (
         <Input
           {...params}
-          {...{ autoFocus, disabled, hasHelper, label, width }}
+          {...{ autoFocus, hasHelper, label, width }}
           {...inputProps}
           ref={inputRef}
           value={inputValue}
           setValue={handleInputChange}
+          disabled={!disableWithoutFade && disabled}
           className={cx(css.input, className)}
         />
       );
@@ -202,13 +219,21 @@ export const TagInput = observer(
       );
 
       const renderTags = (val: TagOption[], getTagProps: AutocompleteRenderGetTagProps) =>
-        val.map((option: TagOption, index: number) =>
-          !option ? null : (
+        val.map((option: TagOption, index: number) => {
+          const handleClick = () => onTagClick(option.id);
+
+          const handleDelete = () => onChange?.(value.filter((t) => t.id !== option.id));
+
+          const handleMenuClick = (searchType: SearchTagType) =>
+            onChange?.(value.map((t) => (t.id === option.id ? { ...t, searchType } : t)));
+
+          return !option ? null : (
             <Tag
               {...getTagProps({ index })}
               key={option.id}
               id={option.id}
-              onClick={onTagClick ? () => onTagClick(option.id) : null}
+              onClick={onTagClick ? handleClick : null}
+              onDelete={hasDelete ? handleDelete : null}
               menuButtonProps={
                 !hasSearchMenu
                   ? undefined
@@ -227,9 +252,7 @@ export const TagInput = observer(
                       icon="Delete"
                       color={colors.red["700"]}
                       iconProps={{ color: colors.red["700"] }}
-                      onClick={() => {
-                        onChange?.(value.filter((t) => t.id !== option.id));
-                      }}
+                      onClick={handleDelete}
                     />
 
                     {Object.entries(SEARCH_MENU_META).map(([type, { color, icon, text }]) => (
@@ -237,21 +260,15 @@ export const TagInput = observer(
                         key={text}
                         {...{ icon, text }}
                         iconProps={{ color }}
-                        onClick={() => {
-                          onChange?.(
-                            value.map((t) =>
-                              t.id === option.id ? { ...t, searchType: type as SearchTagType } : t
-                            )
-                          );
-                        }}
+                        onClick={() => handleMenuClick(type as SearchTagType)}
                       />
                     ))}
                   </View>
                 ) : null
               }
             />
-          )
-        );
+          );
+        });
 
       return (
         <Autocomplete
@@ -262,6 +279,7 @@ export const TagInput = observer(
           }
           onChange={handleChange}
           isOptionEqualToValue={(option: TagOption, val: TagOption) => option.id === val.id}
+          disabled={!disableWithoutFade && disabled}
           size="small"
           forcePopupIcon={false}
           clearOnBlur={false}

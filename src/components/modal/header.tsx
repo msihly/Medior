@@ -60,7 +60,7 @@ const useClasses = makeClasses((_, { justify }) => ({
     flexDirection: "row",
     flex: 1,
     "& > *": {
-      flexBasis: "100%",
+      width: "calc(100% / 3)",
     },
   },
   root: {

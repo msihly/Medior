@@ -36,10 +36,7 @@ export const Drawer = observer(() => {
 
   const handleImport = () => importStore.setIsImportManagerOpen(true);
 
-  const handleManageTags = () => {
-    tagStore.setTagManagerMode("search");
-    tagStore.setIsTagManagerOpen(true);
-  };
+  const handleManageTags = () => tagStore.setIsTagManagerOpen(true);
 
   const handleTagged = () => {
     if (!homeStore.includeTagged && !homeStore.includeUntagged) homeStore.setIncludeTagged(true);

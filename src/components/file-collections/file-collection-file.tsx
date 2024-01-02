@@ -37,8 +37,7 @@ export const FileCollectionFile = observer(
 
     const handleTagPress = (tagId: string) => {
       tagStore.setActiveTagId(tagId);
-      tagStore.setTagManagerMode("edit");
-      tagStore.setIsTagManagerOpen(true);
+      tagStore.setIsTagEditorOpen(true);
     };
 
     const toggleDeleted = () => {

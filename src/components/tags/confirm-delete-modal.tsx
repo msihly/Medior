@@ -1,20 +1,18 @@
-import { Dispatch, SetStateAction, useState } from "react";
+import { Dispatch, SetStateAction } from "react";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
-import { Button, Icon, Input, Modal, Text, View } from "components";
+import { Button, Icon, Modal, Text, View } from "components";
 import { colors, makeClasses } from "utils";
 import { toast } from "react-toastify";
 
 interface ConfirmDeleteModalProps {
-  goBack: () => any;
   setVisible: Dispatch<SetStateAction<boolean>>;
 }
 
-export const ConfirmDeleteModal = observer(({ goBack, setVisible }: ConfirmDeleteModalProps) => {
-  const { fileStore, importStore, tagStore } = useStores();
+export const ConfirmDeleteModal = observer(({ setVisible }: ConfirmDeleteModalProps) => {
   const { css } = useClasses(null);
 
-  const [confirmValue, setConfirmValue] = useState("");
+  const { fileStore, importStore, tagStore } = useStores();
 
   const handleClose = () => setVisible(false);
 
@@ -24,7 +22,7 @@ export const ConfirmDeleteModal = observer(({ goBack, setVisible }: ConfirmDelet
     else {
       toast.success("Tag deleted");
       handleClose();
-      goBack();
+      tagStore.setIsTagEditorOpen(false);
     }
   };
 
@@ -38,49 +36,33 @@ export const ConfirmDeleteModal = observer(({ goBack, setVisible }: ConfirmDelet
         <View column align="center">
           <Text className={css.tagLabel}>{tagStore.activeTag?.label}</Text>
 
-          <Icon name="Delete" color={colors.red["900"]} size="5rem" />
+          <Icon name="Delete" color={colors.error} size="5rem" />
 
           <Text className={css.subText}>
-            <Text color={colors.red["800"]}>
-              {fileStore.listByTagId(tagStore.activeTagId)?.length}
-            </Text>
+            <Text color={colors.error}>{fileStore.listByTagId(tagStore.activeTagId)?.length}</Text>
             {" files will be affected."}
           </Text>
 
           <Text className={css.subText}>
-            <Text color={colors.red["800"]}>
+            <Text color={colors.error}>
               {tagStore.listByParentId(tagStore.activeTagId)?.length}
             </Text>
             {" child tags will be affected."}
           </Text>
 
           <Text className={css.subText}>
-            <Text color={colors.red["800"]}>
+            <Text color={colors.error}>
               {importStore.listByTagId(tagStore.activeTagId)?.length}
             </Text>
             {" import batches will be affected."}
           </Text>
-
-          <Input
-            placeholder={`Enter "${tagStore.activeTag?.label}"`}
-            value={confirmValue}
-            setValue={setConfirmValue}
-            color={colors.red["800"]}
-            textAlign="center"
-          />
         </View>
       </Modal.Content>
 
       <Modal.Footer>
         <Button text="Cancel" icon="Close" onClick={handleClose} color={colors.grey["700"]} />
 
-        <Button
-          text="Delete"
-          icon="Delete"
-          onClick={handleDelete}
-          disabled={confirmValue !== tagStore.activeTag?.label}
-          color={colors.red["800"]}
-        />
+        <Button text="Delete" icon="Delete" onClick={handleDelete} color={colors.error} />
       </Modal.Footer>
     </Modal.Container>
   );
@@ -100,7 +82,7 @@ const useClasses = makeClasses({
     textAlign: "center",
   },
   tagLabel: {
-    color: colors.red["800"],
+    color: colors.error,
     fontWeight: 500,
     fontSize: "1.5em",
     textAlign: "center",

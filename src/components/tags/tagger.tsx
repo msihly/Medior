@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { observer } from "mobx-react-lite";
 import { TagOption, tagToOption, useStores } from "store";
 import { Button, Modal, TagInput, Text, View } from "components";
-import { TagEditor } from ".";
 import { colors, makeClasses } from "utils";
 import { toast } from "react-toastify";
 
@@ -20,7 +19,6 @@ export const Tagger = observer(({ batchId, fileIds, setVisible }: TaggerProps) =
   const [addedTags, setAddedTags] = useState<TagOption[]>([]);
   const [currentTagOptions, setCurrentTagOptions] = useState<TagOption[]>([]);
   const [removedTags, setRemovedTags] = useState<TagOption[]>([]);
-  const [mode, setMode] = useState<"createTag" | "editTag" | "editFileTags">("editFileTags");
 
   useEffect(() => {
     const loadCurrentTags = async () => {
@@ -39,8 +37,6 @@ export const Tagger = observer(({ batchId, fileIds, setVisible }: TaggerProps) =
   }, [fileIds, tagStore.tags.toString()]);
 
   const handleClose = () => setVisible(false);
-
-  const handleEditorBack = () => setMode("editFileTags");
 
   const handleTagAdded = (tags: TagOption[]) => {
     setAddedTags(tags);
@@ -72,72 +68,55 @@ export const Tagger = observer(({ batchId, fileIds, setVisible }: TaggerProps) =
 
   const handleTagClick = (tagId: string) => {
     tagStore.setActiveTagId(tagId);
-    setMode("editTag");
+    tagStore.setIsTagEditorOpen(true);
   };
 
   return (
     <Modal.Container onClose={handleClose} width="25rem" draggable>
       <Modal.Header>
-        <Text>
-          {mode === "createTag"
-            ? "Create Tag"
-            : mode === "editTag"
-            ? "Update Tag"
-            : "Update File Tags"}
-        </Text>
+        <Text>{"Update File Tags"}</Text>
       </Modal.Header>
 
-      {mode === "editFileTags" ? (
-        <>
-          <Modal.Content>
-            <View column>
-              <Text align="center" className={css.sectionTitle}>
-                {"Current Tags"}
-              </Text>
-              <TagInput
-                value={currentTagOptions}
-                onTagClick={handleTagClick}
-                disabled
-                opaque
-                className={css.tagInput}
-              />
+      <Modal.Content>
+        <View column>
+          <Text className={css.sectionTitle}>{"Current Tags"}</Text>
+          <TagInput
+            value={currentTagOptions}
+            onTagClick={handleTagClick}
+            disabled
+            disableWithoutFade
+            opaque
+            className={css.tagInput}
+          />
 
-              <Text align="center" className={css.sectionTitle}>
-                {"Added Tags"}
-              </Text>
-              <TagInput
-                value={addedTags}
-                onChange={handleTagAdded}
-                _setValue={setAddedTags}
-                onTagClick={handleTagClick}
-                autoFocus
-                hasCreate
-                className={css.tagInput}
-              />
+          <Text className={css.sectionTitle}>{"Added Tags"}</Text>
+          <TagInput
+            value={addedTags}
+            onChange={handleTagAdded}
+            _setValue={setAddedTags}
+            onTagClick={handleTagClick}
+            autoFocus
+            hasCreate
+            className={css.tagInput}
+          />
 
-              <Text align="center" className={css.sectionTitle}>
-                {"Removed Tags"}
-              </Text>
-              <TagInput
-                value={removedTags}
-                onChange={handleTagRemoved}
-                _setValue={setRemovedTags}
-                options={currentTagOptions}
-                onTagClick={handleTagClick}
-                className={css.tagInput}
-              />
-            </View>
-          </Modal.Content>
+          <Text className={css.sectionTitle}>{"Removed Tags"}</Text>
+          <TagInput
+            value={removedTags}
+            onChange={handleTagRemoved}
+            _setValue={setRemovedTags}
+            options={currentTagOptions}
+            onTagClick={handleTagClick}
+            className={css.tagInput}
+          />
+        </View>
+      </Modal.Content>
 
-          <Modal.Footer>
-            <Button text="Submit" icon="Check" onClick={handleSubmit} />
+      <Modal.Footer>
+        <Button text="Submit" icon="Check" onClick={handleSubmit} />
 
-            <Button text="Close" icon="Close" onClick={handleClose} color={colors.grey["700"]} />
-          </Modal.Footer>
-        </>
-      ) : (
-        <TagEditor create={mode === "createTag"} goBack={handleEditorBack} />
-      )}
+        <Button text="Close" icon="Close" onClick={handleClose} color={colors.grey["700"]} />
+      </Modal.Footer>
     </Modal.Container>
   );
 });
@@ -146,6 +125,7 @@ const useClasses = makeClasses({
   sectionTitle: {
     fontSize: "0.8em",
     textShadow: `0 0 10px ${colors.blue["600"]}`,
+    textAlign: "center",
   },
   tagInput: {
     marginBottom: "0.5rem",

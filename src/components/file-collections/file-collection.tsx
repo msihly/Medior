@@ -19,8 +19,7 @@ export const FileCollection = observer(({ height, id, width }: FileCollectionPro
 
   const handleTagPress = (tagId: string) => {
     tagStore.setActiveTagId(tagId);
-    tagStore.setTagManagerMode("edit");
-    tagStore.setIsTagManagerOpen(true);
+    tagStore.setIsTagEditorOpen(true);
   };
 
   const openCollection = () => {

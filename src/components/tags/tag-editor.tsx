@@ -1,23 +1,20 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { observer } from "mobx-react-lite";
 import { TagOption, useStores } from "store";
-import { Button, Checkbox, ChipInput, ChipOption, Modal, TagInput, Text, View } from "components";
-import { ConfirmDeleteModal } from ".";
+import { Divider } from "@mui/material";
+import { Button, Checkbox, ChipOption, IconButton, Modal, Text, View } from "components";
+import { ConfirmDeleteModal, TagInputs } from ".";
 import { colors, makeClasses } from "utils";
 import { toast } from "react-toastify";
 
-interface TagEditorProps {
-  create: boolean;
-  goBack: () => void;
-}
-
-export const TagEditor = observer(({ create, goBack }: TagEditorProps) => {
-  const { tagStore } = useStores();
+export const TagEditor = observer(() => {
   const { css } = useClasses(null);
 
   const labelRef = useRef<HTMLDivElement>(null);
 
-  const [isCreate, setIsCreate] = useState(create);
+  const { tagStore } = useStores();
+
+  const isCreate = !tagStore.activeTagId;
 
   const [aliases, setAliases] = useState<ChipOption[]>(
     isCreate ? [] : tagStore.activeTag?.aliases?.map((a) => ({ label: a, value: a })) ?? []
@@ -43,18 +40,15 @@ export const TagEditor = observer(({ create, goBack }: TagEditorProps) => {
     (isCreate || label.toLowerCase() !== tagStore.activeTag?.label?.toLowerCase()) &&
     !!tagStore.getByLabel(label);
 
-  const [childTagOptions, parentTagOptions] = useMemo(() => {
-    const invalidParentIds = [tagStore.activeTagId, ...childTags.map((t) => t.id)];
-    const invalidChildIds = [tagStore.activeTagId, ...parentTags.map((t) => t.id)];
-    return tagStore.tagOptions.reduce(
-      (acc, cur) => {
-        if (!invalidChildIds.includes(cur.id)) acc[0].push(cur);
-        if (!invalidParentIds.includes(cur.id)) acc[1].push(cur);
-        return acc;
-      },
-      [[], []] as TagOption[][]
-    );
-  }, [tagStore.activeTagId, tagStore.tagOptions]);
+  useEffect(() => {
+    if (tagStore.activeTagId) {
+      const tag = tagStore.getById(tagStore.activeTagId);
+      setLabel(tag.label);
+      setAliases(tag.aliases.map((a) => ({ label: a, value: a })) ?? []);
+      setChildTags(tagStore.getChildTags(tag).map((t) => t.tagOption) ?? []);
+      setParentTags(tagStore.getParentTags(tag).map((t) => t.tagOption) ?? []);
+    }
+  }, [tagStore.activeTagId]);
 
   const clearInputs = () => {
     setLabel("");
@@ -64,19 +58,13 @@ export const TagEditor = observer(({ create, goBack }: TagEditorProps) => {
     labelRef.current?.focus();
   };
 
+  const handleClose = () => tagStore.setIsTagEditorOpen(false);
+
   const handleDelete = () => setIsConfirmDeleteOpen(true);
 
-  const handleEditExisting = (val: string) => {
-    setIsCreate(false);
-    tagStore.setTagManagerMode("edit");
-
-    const tag = tagStore.getByLabel(val);
-    tagStore.setActiveTagId(tag.id);
-
-    setLabel(tag.label);
-    setAliases(tag.aliases.map((a) => ({ label: a, value: a })) ?? []);
-    setChildTags(tagStore.getChildTags(tag).map((t) => t.tagOption) ?? []);
-    setParentTags(tagStore.getParentTags(tag).map((t) => t.tagOption) ?? []);
+  const handleMerge = () => {
+    tagStore.setIsTagMergerOpen(true);
+    handleClose();
   };
 
   const handleRefreshCount = async () => {
@@ -106,130 +94,148 @@ export const TagEditor = observer(({ create, goBack }: TagEditorProps) => {
       if (hasContinue) {
         clearInputs();
         labelRef.current?.focus();
-      } else goBack();
+      } else handleClose();
     }
   };
 
   return (
-    <>
-      <Modal.Content>
-        <View column>
-          {/* TEMP / DEBUG */}
-          {!isCreate && (
-            <View row>
-              <Button
-                icon="Refresh"
+    <Modal.Container onClose={handleClose} width="50rem" draggable>
+      <Modal.Header
+        leftNode={
+          !isCreate && (
+            <Text
+              tooltip={tagStore.activeTagId}
+              tooltipProps={{ flexShrink: 1 }}
+              className={css.headerText}
+            >
+              {`ID: ${tagStore.activeTagId}`}
+            </Text>
+          )
+        }
+        rightNode={
+          !isCreate && (
+            <View className={css.spacedRow}>
+              <Text
+                tooltip={tagStore.activeTag?.count}
+                tooltipProps={{ flexShrink: 1 }}
+                className={css.headerText}
+              >
+                {`Count: ${tagStore.activeTag?.count}`}
+              </Text>
+
+              <IconButton
+                name="Refresh"
+                iconProps={{ color: colors.button.grey }}
                 onClick={handleRefreshCount}
-                color={colors.blueGrey["700"]}
-                margins={{ right: "0.5rem" }}
               />
 
-              <Text fontWeight={500}>{`Count: ${tagStore.activeTag.count}`}</Text>
+              <Divider orientation="vertical" flexItem />
+
+              <IconButton
+                name="Delete"
+                iconProps={{ color: colors.button.red }}
+                onClick={handleDelete}
+              />
             </View>
-          )}
+          )
+        }
+      >
+        <Text alignSelf="center">{isCreate ? "Create Tag" : "Edit Tag"}</Text>
+      </Modal.Header>
 
-          <Text className={css.sectionTitle}>{"Label"}</Text>
-          <TagInput
-            value={undefined}
-            onSelect={(option) => handleEditExisting(option.label)}
-            inputProps={{
-              error: isDuplicateTag,
-              hasHelper: true,
-              helperText: isDuplicateTag && (
-                <View row align="center" justify="center">
-                  <Text>{"Tag already exists"}</Text>
-                  <Button
-                    type="link"
-                    text="(Click to edit)"
-                    onClick={() => handleEditExisting(label)}
-                    fontSize="0.85em"
-                  />
-                </View>
-              ),
-              ref: labelRef,
-              setValue: setLabel,
-              textAlign: "center",
-              value: label,
-            }}
+      <Modal.Content>
+        <View className={css.spacedRow}>
+          <TagInputs.Label
+            ref={labelRef}
+            value={label}
+            setValue={setLabel}
+            isDuplicate={isDuplicateTag}
           />
 
-          <Text className={css.sectionTitle}>{"Aliases"}</Text>
-          <ChipInput value={aliases} setValue={setAliases} hasHelper />
-
-          <Text className={css.sectionTitle}>{"Parent Tags"}</Text>
-          <TagInput
-            value={parentTags}
-            onChange={setParentTags}
-            options={parentTagOptions}
-            hasCreate
-            hasHelper
-            limitTags={20}
-          />
-
-          <Text className={css.sectionTitle}>{"Child Tags"}</Text>
-          <TagInput
-            value={childTags}
-            onChange={setChildTags}
-            options={childTagOptions}
-            hasCreate
-            hasHelper
-            limitTags={20}
-          />
-
-          {isCreate && (
-            <View column justify="center">
-              <Text className={css.sectionTitle}>{"Create Options"}</Text>
-
-              <View row>
-                <Checkbox
-                  label="Continue"
-                  checked={hasContinue}
-                  setChecked={setHasContinue}
-                  center
-                />
-
-                <Checkbox
-                  label="Parent"
-                  checked={hasKeepParentTags}
-                  setChecked={setHasKeepParentTags}
-                  disabled={!hasContinue}
-                  center
-                />
-
-                <Checkbox
-                  label="Child"
-                  checked={hasKeepChildTags}
-                  setChecked={setHasKeepChildTags}
-                  disabled={!hasContinue}
-                  center
-                />
-              </View>
-            </View>
-          )}
+          <TagInputs.Aliases value={aliases} setValue={setAliases} />
         </View>
+
+        <TagInputs.Relations
+          label="Parent Tags"
+          options={[...tagStore.tagOptions]}
+          excludedIds={[tagStore.activeTagId, ...childTags.map((t) => t.id)]}
+          value={parentTags}
+          setValue={setParentTags}
+        />
+
+        <TagInputs.Relations
+          label="Child Tags"
+          options={[...tagStore.tagOptions]}
+          excludedIds={[tagStore.activeTagId, ...parentTags.map((t) => t.id)]}
+          value={childTags}
+          setValue={setChildTags}
+        />
+
+        {isCreate && (
+          <View column justify="center">
+            <Text className={css.sectionTitle}>{"Create Options"}</Text>
+
+            <View row>
+              <Checkbox label="Continue" checked={hasContinue} setChecked={setHasContinue} center />
+
+              <Checkbox
+                label="Parent"
+                checked={hasKeepParentTags}
+                setChecked={setHasKeepParentTags}
+                disabled={!hasContinue}
+                center
+              />
+
+              <Checkbox
+                label="Child"
+                checked={hasKeepChildTags}
+                setChecked={setHasKeepChildTags}
+                disabled={!hasContinue}
+                center
+              />
+            </View>
+          </View>
+        )}
       </Modal.Content>
 
-      {isConfirmDeleteOpen && (
-        <ConfirmDeleteModal setVisible={setIsConfirmDeleteOpen} goBack={goBack} />
-      )}
+      {isConfirmDeleteOpen && <ConfirmDeleteModal setVisible={setIsConfirmDeleteOpen} />}
 
       <Modal.Footer>
-        <Button text="Confirm" icon="Check" onClick={saveTag} />
-
-        <Button text="Cancel" icon="Close" onClick={goBack} color={colors.grey["700"]} />
+        <Button text="Cancel" icon="Close" onClick={handleClose} color={colors.grey["700"]} />
 
         {!isCreate && (
-          <Button text="Delete" icon="Delete" onClick={handleDelete} color={colors.red["800"]} />
+          <Button
+            text="Merge Tags"
+            icon="Merge"
+            onClick={handleMerge}
+            color={colors.blueGrey["700"]}
+          />
         )}
+
+        <Button text="Confirm" icon="Check" onClick={saveTag} />
       </Modal.Footer>
-    </>
+    </Modal.Container>
   );
 });
 
 const useClasses = makeClasses({
+  headerText: {
+    color: colors.grey["600"],
+    fontSize: "0.7em",
+    whiteSpace: "nowrap",
+    textOverflow: "ellipsis",
+  },
   sectionTitle: {
     fontSize: "0.8em",
     textAlign: "center",
     textShadow: `0 0 10px ${colors.blue["600"]}`,
+  },
+  spacedRow: {
+    display: "flex",
+    flexDirection: "row",
+    alignItems: "center",
+    "& > *:not(:last-child)": {
+      marginRight: "0.5rem",
+    },
   },
 });

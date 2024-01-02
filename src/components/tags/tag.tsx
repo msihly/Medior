@@ -21,6 +21,7 @@ export const Tag = observer(
     id,
     menu,
     menuButtonProps = {},
+    onDelete = null,
     size = "small",
     tag,
     ...props
@@ -40,6 +41,7 @@ export const Tag = observer(
       <>
         <Chip
           {...props}
+          {...{ onDelete }}
           avatar={<Avatar className={css.count}>{formatter.format(tag?.count)}</Avatar>}
           label={
             <View row align="center">
@@ -63,7 +65,6 @@ export const Tag = observer(
           }
           size={size}
           className={cx(css.chip, className)}
-          onDelete={null}
         />
 
         <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={handleClose} keepMounted>

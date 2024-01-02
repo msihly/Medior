@@ -34,10 +34,10 @@ export type TagManagerMode = "create" | "edit" | "search";
 @model("mediaViewer/TagStore")
 export class TagStore extends Model({
   activeTagId: prop<string>(null).withSetter(),
+  isTagEditorOpen: prop<boolean>(false).withSetter(),
   isTagManagerOpen: prop<boolean>(false).withSetter(),
+  isTagMergerOpen: prop<boolean>(false).withSetter(),
   tags: prop<Tag[]>(() => []),
-  tagManagerMode: prop<TagManagerMode>("search"),
-  tagManagerPrevMode: prop<TagManagerMode>("search"),
 }) {
   countsRefreshQueue = new PromiseQueue();
   relationsRefreshQueue = new PromiseQueue();
@@ -60,12 +60,6 @@ export class TagStore extends Model({
   @modelAction
   overwrite = (tags: ModelCreationData<Tag>[]) => {
     this.tags = tags.map((t) => new Tag(t));
-  };
-
-  @modelAction
-  setTagManagerMode = (mode: TagManagerMode) => {
-    this.tagManagerPrevMode = this.tagManagerMode;
-    this.tagManagerMode = mode;
   };
 
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */

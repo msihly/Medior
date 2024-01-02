@@ -62,8 +62,7 @@ export const RegExMapRow = observer(({ index, style }: RegExMapRowProps) => {
 
   const handleTagClick = (id: string) => {
     tagStore.setActiveTagId(id);
-    tagStore.setTagManagerMode("edit");
-    tagStore.setIsTagManagerOpen(true);
+    tagStore.setIsTagEditorOpen(true);
   };
 
   const setRegEx = (value: string) => map.setRegEx(value);
@@ -171,6 +170,7 @@ export const RegExMapRow = observer(({ index, style }: RegExMapRowProps) => {
           onChange={handleTagsChange}
           onTagClick={handleTagClick}
           hasCreate
+          hasDelete
           inputProps={{
             ...inputProps,
             helperText: !tags.length ? "Must have tags" : null,

@@ -8,6 +8,7 @@ import {
   CarouselThumbNavigator,
   CarouselTopBar,
   InfoModal,
+  TagEditor,
   Tagger,
   View,
   ZoomContext,
@@ -117,6 +118,8 @@ export const CarouselWindow = observer(() => {
         {carouselStore.isTaggerOpen && (
           <Tagger fileIds={[carouselStore.activeFileId]} setVisible={setTaggerVisible} />
         )}
+
+        {tagStore.isTagEditorOpen && <TagEditor />}
 
         {fileStore.isInfoModalOpen && <InfoModal />}
       </View>
