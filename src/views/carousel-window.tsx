@@ -50,21 +50,19 @@ export const CarouselWindow = observer(() => {
           socket.on(event, ({ fileIds }) => carouselStore.removeFiles(fileIds))
         );
 
-        socket.on("tagCreated", ({ tag }) => tagStore._addTag(new Tag(tag)));
-
-        socket.on("tagDeleted", ({ tagId }) => {
-          tagStore._deleteTag(tagId);
-        });
-
-        socket.on("tagUpdated", ({ tagId, updates }) => tagStore.getById(tagId)?.update(updates));
-
         socket.on("fileTagsUpdated", ({ addedTagIds, fileIds, removedTagIds }) =>
           fileStore.updateFileTags({ addedTagIds, fileIds, removedTagIds })
         );
-
         socket.on("filesUpdated", ({ fileIds, updates }) =>
           fileStore.updateFiles(fileIds, updates)
         );
+
+        socket.on("reloadFiles", () => fileStore.loadFiles({ fileIds: selectedFileIds }));
+        socket.on("reloadTags", () => tagStore.loadTags());
+
+        socket.on("tagCreated", ({ tag }) => tagStore._addTag(new Tag(tag)));
+        socket.on("tagDeleted", ({ tagId }) => tagStore._deleteTag(tagId));
+        socket.on("tagUpdated", ({ tagId, updates }) => tagStore.getById(tagId)?.update(updates));
       }
     );
   }, []);

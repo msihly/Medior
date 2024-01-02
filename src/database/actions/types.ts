@@ -193,6 +193,15 @@ export type EditTagInput = {
   withSub?: boolean;
 };
 
+export type MergeTagsInput = {
+  aliases: string[];
+  childIds: string[];
+  label: string;
+  parentIds: string[];
+  tagIdToKeep: string;
+  tagIdToMerge: string;
+};
+
 export type OnTagCreatedInput = { tag?: Tag };
 
 export type OnTagUpdatedInput = { tagId: string; updates: Partial<Tag> };

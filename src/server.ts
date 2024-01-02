@@ -131,6 +131,9 @@ const trpcRouter = tRouter({
   listRegExMaps: tProc.mutation(db.listRegExMaps),
   listTags: tProc.mutation(db.getAllTags),
   loadFaceApiNets: tProc.mutation(db.loadFaceApiNets),
+  mergeTags: tProc
+    .input((input: unknown) => input as db.MergeTagsInput)
+    .mutation(({ input }) => db.mergeTags(input)),
   onCollectionCreated: tProc
     .input((input: unknown) => input as db.OnCollectionCreatedInput)
     .mutation(({ input }) => db.onCollectionCreated(input)),
@@ -209,6 +212,11 @@ export interface SocketEmitEvents {
     fileIds?: string[];
     removedTagIds: string[];
   }) => void;
+  reloadFileCollections: () => void;
+  reloadFiles: () => void;
+  reloadImportBatches: () => void;
+  reloadRegExMaps: () => void;
+  reloadTags: () => void;
   tagCreated: (args: { tag: db.Tag }) => void;
   tagDeleted: (args: { tagId: string }) => void;
   tagUpdated: (args: { tagId: string; updates: Partial<db.Tag> }) => void;
@@ -250,6 +258,11 @@ module.exports = (async () => {
       "filesDeleted",
       "filesUpdated",
       "fileTagsUpdated",
+      "reloadFileCollections",
+      "reloadFiles",
+      "reloadImportBatches",
+      "reloadRegExMaps",
+      "reloadTags",
       "tagCreated",
       "tagDeleted",
       "tagUpdated",

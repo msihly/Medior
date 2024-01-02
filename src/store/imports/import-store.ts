@@ -406,10 +406,10 @@ export class ImportStore extends Model({
   loadImportBatches = _async(function* (this: ImportStore) {
     return yield* _await(
       handleErrors(async () => {
+        this.queue.clear();
+
         const res = await trpc.listImportBatches.mutate();
         if (res.success) {
-          this.queue.clear();
-
           const batches = res.data.map(
             (batch) =>
               new ImportBatch({

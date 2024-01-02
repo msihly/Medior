@@ -11,7 +11,7 @@ import {
   modelFlow,
   prop,
 } from "mobx-keystone";
-import { CreateTagInput, EditTagInput } from "database";
+import * as db from "database";
 import { RegExMap, RootStore } from "store";
 import { Tag, TagOption, tagsToDescendants } from ".";
 import { getArrayDiff, handleErrors, PromiseQueue, regexEscape, trpc } from "utils";
@@ -50,11 +50,14 @@ export class TagStore extends Model({
 
   @modelAction
   _deleteTag = (id: string) => {
-    this.tags.forEach((t) => {
-      if (t.parentIds.includes(id)) t.parentIds.splice(t.parentIds.indexOf(id));
-      if (t.childIds.includes(id)) t.childIds.splice(t.childIds.indexOf(id));
-    });
-    this.tags.splice(this.tags.findIndex((t) => t.id === id));
+    this.tags = this.tags.reduce((acc, cur) => {
+      if (cur.id !== id) {
+        if (cur.parentIds.includes(id)) cur.parentIds.splice(cur.parentIds.indexOf(id));
+        if (cur.childIds.includes(id)) cur.childIds.splice(cur.childIds.indexOf(id));
+        acc.push(cur);
+      }
+      return acc;
+    }, [] as Tag[]);
   };
 
   @modelAction
@@ -73,7 +76,7 @@ export class TagStore extends Model({
       parentIds = [],
       withRegEx = false,
       withSub = true,
-    }: CreateTagInput
+    }: db.CreateTagInput
   ) {
     return yield* _await(
       handleErrors(async () => {
@@ -131,7 +134,7 @@ export class TagStore extends Model({
   @modelFlow
   editTag = _async(function* (
     this: TagStore,
-    { aliases, childIds, id, label, parentIds, withSub = true }: EditTagInput
+    { aliases, childIds, id, label, parentIds, withSub = true }: db.EditTagInput
   ) {
     return yield* _await(
       handleErrors(async () => {
@@ -177,6 +180,22 @@ export class TagStore extends Model({
     return yield* _await(
       handleErrors(async () => {
         this.overwrite((await trpc.listTags.mutate())?.data);
+      })
+    );
+  });
+
+  @modelFlow
+  mergeTags = _async(function* (this: TagStore, args: db.MergeTagsInput) {
+    return yield* _await(
+      handleErrors(async () => {
+        /** Clear import queue first to prevent data corruption from race condition.
+         *  Queue is reloaded via socket upon mergeTags resolution.
+         */
+        const rootStore = getRootStore<RootStore>(this);
+        rootStore.importStore.queue.clear();
+
+        const res = await trpc.mergeTags.mutate(args);
+        if (!res.success) throw new Error(res.error);
       })
     );
   });

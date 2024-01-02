@@ -96,6 +96,12 @@ export const Home = observer(() => {
       homeStore.reloadDisplayedFiles({ rootStore });
     });
 
+    socket.on("reloadFileCollections", () => fileCollectionStore.loadCollections());
+    socket.on("reloadFiles", () => homeStore.reloadDisplayedFiles({ rootStore }));
+    socket.on("reloadImportBatches", () => importStore.loadImportBatches());
+    socket.on("reloadRegExMaps", () => importStore.loadRegExMaps());
+    socket.on("reloadTags", () => tagStore.loadTags());
+
     socket.on("tagCreated", ({ tag }) => tagStore._addTag(new Tag(tag)));
 
     socket.on("tagDeleted", ({ tagId }) => {

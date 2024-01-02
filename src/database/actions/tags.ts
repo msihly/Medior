@@ -1,6 +1,7 @@
 import mongoose, { PipelineStage } from "mongoose";
 import * as db from "database";
-import { dayjs, handleErrors, socket } from "utils";
+import { SocketEmitEvent } from "server";
+import { dayjs, handleErrors, logToFile, socket } from "utils";
 import { leanModelToJson } from "./utils";
 
 export const addChildTagIdsToTags = ({ childTagIds, tagIds }: db.AddChildTagIdsToTagsInput) =>
@@ -78,6 +79,115 @@ export const getAllTags = () =>
   handleErrors(async () =>
     (await db.TagModel.find().lean()).map((r) => leanModelToJson<db.Tag>(r))
   );
+
+export const mergeTags = ({
+  aliases,
+  childIds,
+  label,
+  parentIds,
+  tagIdToKeep,
+  tagIdToMerge,
+}: db.MergeTagsInput) =>
+  handleErrors(async () => {
+    let error: string | undefined;
+
+    try {
+      const _tagIdToKeep = new mongoose.Types.ObjectId(tagIdToKeep);
+      const _tagIdToMerge = new mongoose.Types.ObjectId(tagIdToMerge);
+      const dateModified = dayjs().toISOString();
+
+      const updateMany = {
+        filter: { tagIds: _tagIdToMerge },
+        update: { $set: { "tagIds.$": tagIdToKeep } },
+      };
+
+      await Promise.all([
+        db.FileCollectionModel.updateMany(updateMany.filter, updateMany.update),
+        db.FileImportBatchModel.updateMany(updateMany.filter, updateMany.update),
+        db.FileModel.updateMany(updateMany.filter, updateMany.update),
+        db.RegExMapModel.updateMany(updateMany.filter, updateMany.update),
+      ]);
+
+      const makeRelationsPipeline = (field: string, otherField: string) => ({
+        $let: {
+          vars: {
+            filteredIds: {
+              $cond: {
+                if: { $in: [_tagIdToKeep, `$${otherField}`] },
+                then: {
+                  $filter: {
+                    input: `$${field}`,
+                    as: "id",
+                    cond: { $ne: ["$$id", _tagIdToMerge] },
+                  },
+                },
+                else: `$${field}`,
+              },
+            },
+          },
+          in: {
+            $map: {
+              input: "$$filteredIds",
+              as: "id",
+              in: {
+                $cond: {
+                  if: { $eq: ["$$id", _tagIdToMerge] },
+                  then: _tagIdToKeep,
+                  else: "$$id",
+                },
+              },
+            },
+          },
+        },
+      });
+
+      const relationsFilter = { $or: [{ childIds: tagIdToMerge }, { parentIds: tagIdToMerge }] };
+
+      const tagIdsToUpdate = (await db.TagModel.find(relationsFilter, { _id: 1 }).lean()).map((r) =>
+        r._id.toString()
+      );
+
+      await db.TagModel.bulkWrite([
+        {
+          updateMany: {
+            filter: relationsFilter,
+            update: [
+              {
+                $set: {
+                  childIds: makeRelationsPipeline("childIds", "parentIds"),
+                  parentIds: makeRelationsPipeline("parentIds", "childIds"),
+                },
+              },
+            ],
+          },
+        },
+        {
+          updateOne: {
+            filter: { _id: _tagIdToKeep },
+            update: { $set: { aliases, childIds, dateModified, label, parentIds } },
+          },
+        },
+        { deleteOne: { filter: { _id: _tagIdToMerge } } },
+      ]);
+
+      await Promise.all(tagIdsToUpdate.map((tagId) => recalculateTagCounts({ tagId })));
+    } catch (err) {
+      error = err.message;
+      logToFile("error", JSON.stringify(err.stack, null, 2));
+    } finally {
+      (
+        [
+          "reloadFileCollections",
+          "reloadFiles",
+          "reloadImportBatches",
+          "reloadRegExMaps",
+          "reloadTags",
+        ] as SocketEmitEvent[]
+      ).forEach((event) => socket.emit(event));
+
+      if (error) throw new Error(error);
+    }
+  });
 
 export const onTagCreated = async ({ tag }: db.OnTagCreatedInput) =>
   handleErrors(async () => !!socket.emit("tagCreated", { tag }));
