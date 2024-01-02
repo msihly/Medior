@@ -44,18 +44,30 @@ export const generateFramesThumbnail = async (
     const frameInterval = duration / numOfFrames;
 
     try {
-      await new Promise(async (resolve, reject) => {
-        return ffmpeg()
-          .input(inputPath)
-          .outputOptions([
-            `-vf fps=1/${frameInterval},scale=${THUMB_WIDTH}:-1:force_original_aspect_ratio=increase,crop=min(iw\\,${THUMB_WIDTH}):ih`,
-            `-vframes ${numOfFrames}`,
-          ])
-          .output(path.join(outputPath, `${fileHash}-thumb-%02d.jpg`))
-          .on("end", resolve)
-          .on("error", reject)
-          .run();
-      });
+      const timestamps = Array(numOfFrames)
+        .fill("")
+        .map((_, i) => i * frameInterval);
+
+      await Promise.all(
+        timestamps.map(
+          (timestamp, idx) =>
+            new Promise(async (resolve, reject) => {
+              return ffmpeg()
+                .input(inputPath)
+                .inputOptions([`-ss ${timestamp}`])
+                .outputOptions([
+                  `-vf scale=${THUMB_WIDTH}:-1:force_original_aspect_ratio=increase,crop=min(iw\\,${THUMB_WIDTH}):ih`,
+                  `-vframes 1`,
+                ])
+                .output(
+                  path.join(outputPath, `${fileHash}-thumb-${String(idx + 1).padStart(2, "0")}.jpg`)
+                )
+                .on("end", resolve)
+                .on("error", reject)
+                .run();
+            })
+        )
+      );
 
       return Array(numOfFrames)
         .fill("")
