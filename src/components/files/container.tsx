@@ -14,15 +14,9 @@ export const FileContainer = observer(() => {
   const rootStore = useStores();
   const { faceRecognitionStore, fileStore, homeStore } = useStores();
 
-  const selectRef = useRef(null);
+  const filesRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (fileStore.page > fileStore.pageCount) changePage(fileStore.pageCount);
-  }, [fileStore.page, fileStore.pageCount]);
-
-  useEffect(() => {
-    homeStore.reloadDisplayedFiles({ rootStore, page: 1 });
-  }, [
+  const searchDeps = [
     homeStore.includeTagged,
     homeStore.includeUntagged,
     homeStore.isArchiveOpen,
@@ -31,10 +25,21 @@ export const FileContainer = observer(() => {
     homeStore.selectedImageTypes,
     homeStore.selectedVideoTypes,
     homeStore.sortKey,
-  ]);
+  ];
 
-  const changePage = async (page: number) =>
-    await homeStore.reloadDisplayedFiles({ rootStore, page });
+  useEffect(() => {
+    if (fileStore.page > fileStore.pageCount) changePage(fileStore.pageCount);
+  }, [fileStore.page, fileStore.pageCount]);
+
+  useEffect(() => {
+    filesRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+  }, [fileStore.page, ...searchDeps]);
+
+  useEffect(() => {
+    homeStore.reloadDisplayedFiles({ rootStore, page: 1 });
+  }, [...searchDeps]);
+
+  const changePage = (page: number) => homeStore.reloadDisplayedFiles({ rootStore, page });
 
   const handlePageChange = (_, value: number) => changePage(value);
 
@@ -92,7 +97,7 @@ export const FileContainer = observer(() => {
 
   return (
     <View className={css.container}>
-      <View ref={selectRef} onKeyDown={handleKeyPress} tabIndex={1} className={css.files}>
+      <View ref={filesRef} onKeyDown={handleKeyPress} tabIndex={1} className={css.files}>
         <DisplayedFiles />
       </View>
 

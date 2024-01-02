@@ -14,6 +14,7 @@ export const Tooltip = observer(({ disabled, file, onTagPress }: TooltipProps) =
 
   return (
     <TooltipBase
+      minWidth="15rem"
       title={
         <View className={css.root}>
           {file.tags?.length > 0 && (
