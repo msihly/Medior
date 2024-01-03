@@ -38,7 +38,7 @@ export const colors = {
   button: {
     blue: muiColors.blue["800"],
     grey: muiColors.grey["700"],
-    darkGrey: muiColors.grey["900"],
+    darkGrey: "rgb(40 40 40)",
     purple: muiColors.purple["700"],
     red: muiColors.red["900"],
   },

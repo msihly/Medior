@@ -23,29 +23,29 @@ export type ReloadDisplayedFilesInput = {
 export type SelectedImageTypes = { [ext in ImageType]: boolean };
 export type SelectedVideoTypes = { [ext in VideoType]: boolean };
 
-export const sortFn = <File>({
+export const sortFiles = <File>({
   a,
   b,
-  isSortDesc,
-  sortKey,
+  isDesc,
+  key,
 }: {
   a: File;
   b: File;
-  isSortDesc: boolean;
-  sortKey: string;
+  isDesc: boolean;
+  key: string;
 }) => {
-  const first = a[sortKey];
-  const second = b[sortKey];
+  const first = a[key];
+  const second = b[key];
 
   let comparison: number = null;
   if (!first) comparison = 1;
   else if (!second) comparison = -1;
-  else if (NUMERICAL_ATTRIBUTES.includes(sortKey)) comparison = second - first;
-  else if (["dateCreated", "dateModified"].includes(sortKey))
+  else if (NUMERICAL_ATTRIBUTES.includes(key)) comparison = second - first;
+  else if (["dateCreated", "dateModified"].includes(key))
     comparison = dayjs(second).isBefore(first) ? -1 : 1;
   else comparison = String(second).localeCompare(String(first));
 
-  return isSortDesc ? comparison : comparison * -1;
+  return isDesc ? comparison : comparison * -1;
 };
 
 @model("mediaViewer/HomeStore")
@@ -57,7 +57,6 @@ export class HomeStore extends Model({
   isDraggingIn: prop<boolean>(false).withSetter(),
   isDraggingOut: prop<boolean>(false).withSetter(),
   isDrawerOpen: prop<boolean>(true).withSetter(),
-  isSortDesc: prop<boolean>(true).withSetter(),
   isTaggerOpen: prop<boolean>(false).withSetter(),
   searchValue: prop<TagOption[]>(() => []).withSetter(),
   selectedImageTypes: prop<SelectedImageTypes>(
@@ -66,13 +65,12 @@ export class HomeStore extends Model({
   selectedVideoTypes: prop<SelectedVideoTypes>(
     () => Object.fromEntries(VIDEO_TYPES.map((ext) => [ext, true])) as SelectedVideoTypes
   ),
-  sortKey: prop<string>("dateModified").withSetter(),
+  sortValue: prop<{ isDesc: boolean; key: string }>(() => ({
+    isDesc: true,
+    key: "dateModified",
+  })).withSetter(),
   taggerBatchId: prop<string | null>(null).withSetter(),
   taggerFileIds: prop<string[]>(() => []).withSetter(),
-  tagSearchDepth: prop<number>(-1).withSetter(),
-  tagSearchHasSections: prop<boolean>(false).withSetter(),
-  tagSearchSortIsDesc: prop<boolean>(true).withSetter(),
-  tagSearchSortKey: prop<string>("count").withSetter(),
 }) {
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
   @modelAction
@@ -111,11 +109,11 @@ export class HomeStore extends Model({
           includeTagged: this.includeTagged,
           includeUntagged: this.includeUntagged,
           isArchived: this.isArchiveOpen,
-          isSortDesc: this.isSortDesc,
+          isSortDesc: this.sortValue.isDesc,
           selectedIds,
           selectedImageTypes: this.selectedImageTypes,
           selectedVideoTypes: this.selectedVideoTypes,
-          sortKey: this.sortKey,
+          sortKey: this.sortValue.key,
         });
         if (!res.success) throw new Error(res.error);
         return res.data;
@@ -145,10 +143,10 @@ export class HomeStore extends Model({
           includeTagged: this.includeTagged,
           includeUntagged: this.includeUntagged,
           isArchived: this.isArchiveOpen,
-          isSortDesc: this.isSortDesc,
+          isSortDesc: this.sortValue.isDesc,
           selectedImageTypes: this.selectedImageTypes,
           selectedVideoTypes: this.selectedVideoTypes,
-          sortKey: this.sortKey,
+          sortKey: this.sortValue.key,
         });
         if (!res.success) throw new Error(res.error);
         if (!res.data?.length) throw new Error("No files found");
@@ -186,12 +184,12 @@ export class HomeStore extends Model({
           includeTagged: this.includeTagged,
           includeUntagged: this.includeUntagged,
           isArchived: this.isArchiveOpen,
-          isSortDesc: this.isSortDesc,
+          isSortDesc: this.sortValue.isDesc,
           page: page ?? fileStore.page,
           pageSize: CONSTANTS.FILE_COUNT,
           selectedImageTypes: this.selectedImageTypes,
           selectedVideoTypes: this.selectedVideoTypes,
-          sortKey: this.sortKey,
+          sortKey: this.sortValue.key,
         });
         if (!filteredRes.success) throw new Error(filteredRes.error);
 
@@ -201,7 +199,7 @@ export class HomeStore extends Model({
         const displayedRes = await trpc.listFiles.mutate({ ids: displayedIds });
         if (!displayedRes.success) throw new Error(displayedRes.error);
         const displayed = displayedRes.data.sort((a, b) =>
-          sortFn({ a, b, isSortDesc: this.isSortDesc, sortKey: this.sortKey })
+          sortFiles({ a, b, isDesc: this.sortValue.isDesc, key: this.sortValue.key })
         );
         perfLog(`Loaded ${displayed.length} displayed files`); // DEBUG
 

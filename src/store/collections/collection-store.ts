@@ -15,7 +15,7 @@ import {
   mongoFileToMobX,
   SelectedImageTypes,
   SelectedVideoTypes,
-  sortFn,
+  sortFiles,
   TagOption,
 } from "store";
 import { CreateCollectionInput, LoadCollectionsInput, LoadSearchResultsInput } from "database";
@@ -34,9 +34,11 @@ export class FileCollectionStore extends Model({
   isCollectionManagerOpen: prop<boolean>(false),
   searchPage: prop<number>(1).withSetter(),
   searchPageCount: prop<number>(1).withSetter(),
-  searchIsSortDesc: prop<boolean>(true).withSetter(),
   searchResults: prop<File[]>(() => []).withSetter(),
-  searchSortKey: prop<string>("dateModified").withSetter(),
+  searchSortValue: prop<{ isDesc: boolean; key: string }>(() => ({
+    isDesc: true,
+    key: "dateModified",
+  })).withSetter(),
   searchValue: prop<TagOption[]>(() => []).withSetter(),
   selectedFileIds: prop<string[]>(() => []).withSetter(),
   selectedFiles: prop<File[]>(() => []).withSetter(),
@@ -63,9 +65,8 @@ export class FileCollectionStore extends Model({
   clearSearch() {
     this.searchPage = 1;
     this.searchPageCount = 1;
-    this.searchIsSortDesc = true;
     this.searchResults = [];
-    this.searchSortKey = "dateModified";
+    this.searchSortValue = { isDesc: true, key: "dateModified" };
     this.searchValue = [];
   }
 
@@ -204,7 +205,7 @@ export class FileCollectionStore extends Model({
           includeTagged: false,
           includeUntagged: false,
           isArchived: false,
-          isSortDesc: this.searchIsSortDesc,
+          isSortDesc: this.searchSortValue.isDesc,
           page: page ?? this.searchPage,
           pageSize: CONSTANTS.COLLECTION_SEARCH_FILE_COUNT,
           selectedImageTypes: Object.fromEntries(
@@ -213,7 +214,7 @@ export class FileCollectionStore extends Model({
           selectedVideoTypes: Object.fromEntries(
             VIDEO_TYPES.map((ext) => [ext, true])
           ) as SelectedVideoTypes,
-          sortKey: this.searchSortKey,
+          sortKey: this.searchSortValue.key,
         });
         if (!filteredRes.success) throw new Error(filteredRes.error);
 
@@ -222,7 +223,7 @@ export class FileCollectionStore extends Model({
         const displayedRes = await trpc.listFiles.mutate({ ids: displayedIds });
         if (!displayedRes.success) throw new Error(displayedRes.error);
         const displayed = displayedRes.data.sort((a, b) =>
-          sortFn({ a, b, isSortDesc: this.searchIsSortDesc, sortKey: this.searchSortKey })
+          sortFiles({ a, b, isDesc: this.searchSortValue.isDesc, key: this.searchSortValue.key })
         );
 
         this.setSearchResults(displayed.map((f) => new File(mongoFileToMobX(f))));

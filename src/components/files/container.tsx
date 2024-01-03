@@ -20,11 +20,10 @@ export const FileContainer = observer(() => {
     homeStore.includeTagged,
     homeStore.includeUntagged,
     homeStore.isArchiveOpen,
-    homeStore.isSortDesc,
     homeStore.searchValue,
     homeStore.selectedImageTypes,
     homeStore.selectedVideoTypes,
-    homeStore.sortKey,
+    JSON.stringify(homeStore.sortValue),
   ];
 
   useEffect(() => {

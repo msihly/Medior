@@ -1,7 +1,7 @@
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
 import { AppBar } from "@mui/material";
-import { IconButton, SortMenu, SortRow, View } from "components";
+import { IconButton, SortMenu, View } from "components";
 import { SelectedFilesInfo } from ".";
 import { colors, CONSTANTS, makeClasses } from "utils";
 import { toast } from "react-toastify";
@@ -36,16 +36,12 @@ export const TopBar = observer(() => {
 
   const handleFileInfoRefresh = () => fileStore.refreshSelectedFiles({ withThumbs: true });
 
-  const handleIsSortDescChange = (isSortDesc: boolean) => homeStore.setIsSortDesc(isSortDesc);
-
   const handleSelectAll = () => {
     fileStore.toggleFilesSelected(fileStore.files.map(({ id }) => ({ id, isSelected: true })));
     toast.info(`Added ${fileStore.files.length} files to selection`);
   };
 
-  const handleSortChange = () => homeStore.reloadDisplayedFiles({ rootStore, page: 1 });
-
-  const handleSortKeyChange = (sortKey: string) => homeStore.setSortKey(sortKey);
+  const handleSortChange = (val: { isDesc: boolean; key: string }) => homeStore.setSortValue(val);
 
   const handleUnarchive = () =>
     fileStore.deleteFiles({ fileIds: fileStore.selectedIds, isUndelete: true, rootStore });
@@ -125,20 +121,18 @@ export const TopBar = observer(() => {
           />
 
           <SortMenu
-            onChange={handleSortChange}
-            isSortDesc={homeStore.isSortDesc}
-            sortKey={homeStore.sortKey}
-            setIsSortDesc={handleIsSortDescChange}
-            setSortKey={handleSortKeyChange}
-          >
-            <SortRow label="Date Modified" attribute="dateModified" icon="DateRange" />
-            <SortRow label="Date Created" attribute="dateCreated" icon="DateRange" />
-            <SortRow label="Rating" attribute="rating" icon="Star" />
-            <SortRow label="Size" attribute="size" icon="FormatSize" />
-            <SortRow label="Duration" attribute="duration" icon="HourglassBottom" />
-            <SortRow label="Width" attribute="width" icon="Height" iconProps={{ rotation: 90 }} />
-            <SortRow label="Height" attribute="height" icon="Height" />
-          </SortMenu>
+            rows={[
+              { label: "Date Modified", attribute: "dateModified", icon: "DateRange" },
+              { label: "Date Created", attribute: "dateCreated", icon: "DateRange" },
+              { label: "Rating", attribute: "rating", icon: "Star" },
+              { label: "Size", attribute: "size", icon: "FormatSize" },
+              { label: "Duration", attribute: "duration", icon: "HourglassBottom" },
+              { label: "Width", attribute: "width", icon: "Height", iconProps: { rotation: 90 } },
+              { label: "Height", attribute: "height", icon: "Height" },
+            ]}
+            value={homeStore.sortValue}
+            setValue={handleSortChange}
+          />
         </View>
       </View>
     </AppBar>

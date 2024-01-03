@@ -1,24 +1,57 @@
 import { Icon, IconName, IconProps, Text, View } from "components";
-import { SortButton } from ".";
-import { makeClasses } from "utils";
+import { IconButton, SortMenuProps } from ".";
+import { colors, makeClasses } from "utils";
 
 export interface SortRowProps {
   attribute: string;
   label: string;
   icon: IconName;
   iconProps?: Partial<IconProps>;
+  setValue: SortMenuProps["setValue"];
+  value: SortMenuProps["value"];
 }
 
-export const SortRow = ({ attribute, label, icon, iconProps = {} }: SortRowProps) => {
+export const SortRow = ({
+  attribute,
+  label,
+  icon,
+  iconProps = {},
+  setValue,
+  value,
+}: SortRowProps) => {
   const { css } = useClasses(null);
 
   return (
     <View className={css.row}>
       <Icon name={icon} {...iconProps} />
       <Text className={css.label}>{label}</Text>
-      <SortButton {...{ attribute }} isDesc />
-      <SortButton {...{ attribute }} />
+      <SortButton {...{ attribute, setValue, value }} isDesc />
+      <SortButton {...{ attribute, setValue, value }} />
     </View>
+  );
+};
+
+interface SortButtonProps {
+  attribute: string;
+  isDesc?: boolean;
+  setValue: SortMenuProps["setValue"];
+  value: SortMenuProps["value"];
+}
+
+const SortButton = ({ attribute, isDesc = false, setValue, value }: SortButtonProps) => {
+  const isActive = attribute === value.key && isDesc === value.isDesc;
+  const color = isActive ? colors.blue["500"] : colors.grey["500"];
+
+  const updateSort = () => setValue({ key: attribute, isDesc });
+
+  return (
+    <IconButton
+      name={isDesc ? "ArrowDownward" : "ArrowUpward"}
+      onClick={updateSort}
+      iconProps={{ color }}
+      margins={{ left: "0.5rem" }}
+      size="small"
+    />
   );
 };
 

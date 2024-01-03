@@ -1,102 +1,42 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { observer } from "mobx-react-lite";
-import { TagOption, sortFn, tagsToDescendants, useStores } from "store";
-import {
-  Accordion,
-  Button,
-  Checkbox,
-  Chip,
-  Dropdown,
-  DropdownOption,
-  Input,
-  Modal,
-  SortMenu,
-  SortRow,
-  Tag,
-  Text,
-  View,
-} from "components";
+import { TagOption, sortFiles, useStores } from "store";
+import AutoSizer from "react-virtualized-auto-sizer";
+import { FixedSizeGrid } from "react-window";
+import { Button, Modal, SortMenu, SortMenuProps, Tag, TagInput, Text, View } from "components";
 import { colors, makeClasses } from "utils";
 
-const DEPTH_OPTIONS: DropdownOption[] = [
-  { label: "\u221E", value: -1 },
-  ...Array(10)
-    .fill("")
-    .map((_, i) => ({ label: String(i), value: i })),
-];
-
 export const TagManager = observer(() => {
-  const { homeStore, tagStore } = useStores();
   const { css } = useClasses(null);
 
-  const [searchValue, setSearchValue] = useState<string>("");
+  const { tagStore } = useStores();
 
-  const [tagOptions, tagSections] = useMemo(() => {
-    const searchStr = searchValue.toLowerCase();
+  const [searchValue, setSearchValue] = useState<TagOption[]>([]);
+  const [sortValue, setSortValue] = useState<SortMenuProps["value"]>({
+    isDesc: true,
+    key: "dateModified",
+  });
+  const [width, setWidth] = useState(0);
 
-    const tags =
-      searchValue.length > 0
-        ? tagStore.tags.filter((t) =>
-            [t.label, ...t.aliases].some((s) => s.toLowerCase().includes(searchStr))
-          )
-        : null;
+  const columnWidth = 250;
+  const rowHeight = 50;
 
-    const tagIds =
-      tags !== null
-        ? [...tags.map((t) => t.id), ...tagsToDescendants(tagStore, tags, homeStore.tagSearchDepth)]
-        : null;
+  const columnCount = Math.floor(width / columnWidth);
+  const rowCount = Math.ceil(tagStore.tagOptions.length / columnCount);
 
-    const options = (
-      tagIds !== null
-        ? tagStore.tagOptions.filter((opt) => tagIds.includes(opt.id))
-        : tagStore.tagOptions
-    )
-      .slice()
-      .sort((a, b) =>
-        sortFn({
-          a,
-          b,
-          isSortDesc: homeStore.tagSearchSortIsDesc,
-          sortKey: homeStore.tagSearchSortKey,
-        })
-      );
+  const tagOptions = useMemo(() => {
+    const { excludedAnyTagIds, includedAllTagIds, includedAnyTagIds } =
+      tagStore.tagSearchOptsToIds(searchValue);
 
-    const sections = !homeStore.tagSearchHasSections
-      ? []
-      : options
-          .reduce((acc, cur) => {
-            const firstChar = cur.label.charAt(0).toUpperCase();
-            const section = acc.find((a) => a.firstChar === firstChar);
-            if (!section) acc.push({ firstChar, tagOptions: [cur] });
-            else section.tagOptions.push(cur);
-            return acc;
-          }, [] as { firstChar: string; tagOptions: TagOption[] }[])
-          .sort((a, b) => a.firstChar.localeCompare(b.firstChar))
-          .map((s) => ({
-            firstChar: s.firstChar,
-            header: (
-              <View row className={css.sectionHeader}>
-                <Text>{s.firstChar}</Text>
-                <Text color={colors.grey["400"]} margin="0 0.5rem">
-                  {"-"}
-                </Text>
-                <Text color={colors.grey["400"]} fontSize="0.9em">
-                  {s.tagOptions.length}
-                </Text>
-              </View>
-            ),
-            tagOptions: s.tagOptions,
-          }));
-
-    return [options, sections];
-  }, [
-    homeStore.tagSearchDepth,
-    homeStore.tagSearchHasSections,
-    homeStore.tagSearchSortIsDesc,
-    homeStore.tagSearchSortKey,
-    searchValue,
-    tagStore.tagOptions,
-  ]);
+    return [...tagStore.tagOptions]
+      .filter((t) => {
+        if (excludedAnyTagIds.includes(t.id)) return false;
+        if (includedAllTagIds.length && !includedAllTagIds.includes(t.id)) return false;
+        if (includedAnyTagIds.length && !includedAnyTagIds.includes(t.id)) return false;
+        return true;
+      })
+      .sort((a, b) => sortFiles({ a, b, isDesc: sortValue.isDesc, key: sortValue.key }));
+  }, [searchValue, sortValue]);
 
   const closeModal = () => tagStore.setIsTagManagerOpen(false);
 
@@ -109,87 +49,66 @@ export const TagManager = observer(() => {
 
   // const handleRefreshRelations = () => tagStore.refreshAllTagRelations();
 
-  const setIsSortDesc = (isSortDesc: boolean) => homeStore.setTagSearchSortIsDesc(isSortDesc);
+  const handleResize = ({ width }) => setWidth(width);
 
-  const setDepth = (depth: number) => homeStore.setTagSearchDepth(depth);
+  const renderTag = useCallback(
+    ({ columnIndex, rowIndex, style }) => {
+      const index = rowIndex * columnCount + columnIndex;
+      if (index >= tagOptions.length) return null;
 
-  const setHasSections = (hasSections: boolean) => homeStore.setTagSearchHasSections(hasSections);
+      const id = tagOptions[index].id;
 
-  const setSortKey = (sortKey: string) => homeStore.setTagSearchSortKey(sortKey);
+      const handleClick = () => {
+        tagStore.setActiveTagId(id);
+        tagStore.setIsTagEditorOpen(true);
+      };
+
+      return (
+        <View key={`${columnIndex}-${rowIndex}`} padding={{ right: "0.5rem" }} {...{ style }}>
+          <Tag id={id} onClick={handleClick} />
+        </View>
+      );
+    },
+    [columnCount, columnWidth, JSON.stringify(tagOptions)]
+  );
 
   return (
-    <Modal.Container
-      onClose={closeModal}
-      maxHeight="40rem"
-      maxWidth="40rem"
-      height="100%"
-      width="100%"
-    >
+    <Modal.Container onClose={closeModal} height="80%" width="80%">
       <Modal.Header>
         <Text>{"Manage Tags"}</Text>
       </Modal.Header>
 
-      <Modal.Content>
-        <View column>
-          <View row justify="space-between">
-            <Input label="Search" value={searchValue} setValue={setSearchValue} fullWidth />
+      <Modal.Content className={css.modalContent}>
+        <View row justify="space-between" margins={{ bottom: "0.5rem" }}>
+          <TagInput value={searchValue} onChange={setSearchValue} hasSearchMenu width="100%" />
 
-            <Dropdown
-              label="Depth"
-              value={homeStore.tagSearchDepth}
-              onChange={setDepth}
-              options={DEPTH_OPTIONS}
-              margins={{ left: "0.5rem" }}
-              width="6rem"
-            />
+          <SortMenu
+            rows={[
+              { label: "Count", attribute: "count", icon: "Numbers" },
+              { label: "Date Modified", attribute: "dateModified", icon: "DateRange" },
+              { label: "Date Created", attribute: "dateCreated", icon: "DateRange" },
+              { label: "Label", attribute: "label", icon: "Label" },
+            ]}
+            value={sortValue}
+            setValue={setSortValue}
+            color={colors.button.darkGrey}
+            margins={{ left: "0.5rem" }}
+          />
+        </View>
 
-            <SortMenu
-              isSortDesc={homeStore.tagSearchSortIsDesc}
-              sortKey={homeStore.tagSearchSortKey}
-              setIsSortDesc={setIsSortDesc}
-              setSortKey={setSortKey}
-              margins={{ left: "0.5rem" }}
-              color={colors.grey["700"]}
-              className={css.sortMenu}
-            >
-              <SortRow label="Count" attribute="count" icon="Numbers" />
-              <SortRow label="Date Modified" attribute="dateModified" icon="DateRange" />
-              <SortRow label="Date Created" attribute="dateCreated" icon="DateRange" />
-              <SortRow label="Label" attribute="label" icon="Label" />
-            </SortMenu>
-          </View>
-
-          <View row>
-            <Checkbox
-              label="A-Z Sections"
-              checked={homeStore.tagSearchHasSections}
-              setChecked={setHasSections}
-              center
-            />
-          </View>
-
-          <View className={css.tagContainer}>
-            {homeStore.tagSearchHasSections ? (
-              tagSections.map((s) => (
-                <Accordion
-                  key={s.firstChar}
-                  header={s.header}
-                  color={colors.grey["900"]}
-                  dense
-                  expanded
-                >
-                  <TagSection {...{ searchValue }} tagOptions={s.tagOptions} limit={15} />
-                </Accordion>
-              ))
-            ) : (
-              <TagSection {...{ searchValue }} tagOptions={[...tagOptions]} limit={50} />
+        <View className={css.tags}>
+          <AutoSizer onResize={handleResize}>
+            {({ height, width }) => (
+              <FixedSizeGrid {...{ columnCount, columnWidth, height, rowCount, rowHeight, width }}>
+                {renderTag}
+              </FixedSizeGrid>
             )}
-          </View>
+          </AutoSizer>
         </View>
       </Modal.Content>
 
       <Modal.Footer>
-        <Button text="Close" icon="Close" onClick={closeModal} color={colors.grey["700"]} />
+        <Button text="Close" icon="Close" onClick={closeModal} color={colors.button.grey} />
 
         {/* <Button
           text="Refresh Counts"
@@ -211,73 +130,16 @@ export const TagManager = observer(() => {
   );
 });
 
-const TagSection = observer(
-  ({
-    limit,
-    searchValue,
-    tagOptions,
-  }: {
-    limit: number;
-    searchValue: string;
-    tagOptions: TagOption[];
-  }) => {
-    const { css } = useClasses(null);
-
-    const { tagStore } = useStores();
-
-    const [isMoreExpanded, setIsMoreExpanded] = useState(false);
-
-    useEffect(() => {
-      setIsMoreExpanded(false);
-    }, [searchValue]);
-
-    const handleTagPress = (tagId: string) => {
-      tagStore.setActiveTagId(tagId);
-      tagStore.setIsTagEditorOpen(true);
-    };
-
-    return (
-      <View className={css.tags}>
-        {(isMoreExpanded ? tagOptions : tagOptions.slice(0, limit)).map((t) => (
-          <Tag key={t.id} id={t.id} onClick={() => handleTagPress(t.id)} className={css.tag} />
-        ))}
-
-        {tagOptions.length > limit && !isMoreExpanded && (
-          <Chip
-            label={`+${tagOptions.length - limit} More`}
-            size="medium"
-            className={css.moreTag}
-            onClick={() => setIsMoreExpanded(true)}
-          />
-        )}
-      </View>
-    );
-  }
-);
-
 const useClasses = makeClasses({
-  moreTag: {
-    backgroundColor: colors.grey["900"],
-  },
-  sectionHeader: {
-    alignItems: "center",
-  },
-  sortMenu: {
-    width: "3rem",
-  },
-  tag: {
-    marginBottom: "0.3em",
+  modalContent: {
+    overflow: "hidden",
   },
   tags: {
     display: "flex",
-    flexFlow: "row wrap",
+    borderRadius: "0.4rem",
     padding: "0.5rem",
-  },
-  tagContainer: {
-    borderRadius: "0.3rem",
-    height: "20rem",
+    height: "100%",
     width: "100%",
     backgroundColor: colors.grey["800"],
-    overflow: "auto",
   },
 });

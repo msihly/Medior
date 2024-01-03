@@ -6,16 +6,7 @@ import {
   ButtonProps as MuiButtonProps,
   CircularProgress,
 } from "@mui/material";
-import {
-  Icon,
-  IconName,
-  IconProps,
-  Text,
-  TextProps,
-  TooltipProps,
-  TooltipWrapper,
-  View,
-} from "components";
+import { Icon, IconName, IconProps, Text, TooltipProps, TooltipWrapper, View } from "components";
 import { colors, makeClasses, Margins, Padding } from "utils";
 import { CSSObject } from "tss-react";
 import Color from "color";
@@ -40,7 +31,7 @@ export interface ButtonProps
   text?: string;
   textColor?: string;
   textClassName?: string;
-  textTransform?: TextProps["textTransform"];
+  textTransform?: CSSObject["textTransform"];
   tooltip?: TooltipProps["title"];
   tooltipProps?: Partial<TooltipProps>;
   type?: "button" | "link";
@@ -85,6 +76,7 @@ export const Button = ({
     outlineFill,
     padding: { all: !text?.length ? "0.4em" : "0.4em 0.8em", ...padding },
     textColor,
+    textTransform,
   });
 
   const handleClick = (event: MouseEvent<HTMLButtonElement>) => {
@@ -115,7 +107,7 @@ export const Button = ({
 
         {text && (
           <Text
-            {...{ fontSize, fontWeight, textTransform, tooltip, tooltipProps }}
+            {...{ fontSize, fontWeight, tooltip, tooltipProps }}
             className={cx(css.text, className)}
           >
             {text}
@@ -149,12 +141,23 @@ interface ClassesProps {
   outlineFill: string;
   padding?: Padding;
   textColor?: string;
+  textTransform: CSSObject["textTransform"];
 }
 
 const useClasses = makeClasses(
   (
     _,
-    { color, isCircle, isLink, margins, outlined, outlineFill, padding, textColor }: ClassesProps
+    {
+      color,
+      isCircle,
+      isLink,
+      margins,
+      outlined,
+      outlineFill,
+      padding,
+      textColor,
+      textTransform,
+    }: ClassesProps
   ) => ({
     root: {
       display: "flex",
@@ -179,6 +182,7 @@ const useClasses = makeClasses(
       color: outlined
         ? color
         : textColor ?? (isLink ? colors.blue["300"] : outlined ? color : colors.grey["200"]),
+      textTransform,
       "&:hover": {
         backgroundColor: isLink
           ? "transparent"
@@ -194,6 +198,7 @@ const useClasses = makeClasses(
       overflow: "hidden",
       textOverflow: "ellipsis",
       transition: "all 100ms ease-in-out",
+      textTransform,
     },
   })
 );
