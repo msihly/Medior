@@ -13,8 +13,9 @@ import {
 } from "mobx-keystone";
 import * as db from "database";
 import { RegExMap, RootStore } from "store";
-import { Tag, TagOption, tagsToDescendants } from ".";
-import { getArrayDiff, handleErrors, PromiseQueue, regexEscape, trpc } from "utils";
+import { SortMenuProps } from "components";
+import { Tag, TagOption } from ".";
+import { dayjs, handleErrors, PromiseQueue, regexEscape, trpc } from "utils";
 import { toast } from "react-toastify";
 
 const bisectChangedIds = (curIds: string[], newIds?: string[]) =>
@@ -37,6 +38,10 @@ export class TagStore extends Model({
   isTagEditorOpen: prop<boolean>(false).withSetter(),
   isTagManagerOpen: prop<boolean>(false).withSetter(),
   isTagMergerOpen: prop<boolean>(false).withSetter(),
+  tagManagerSort: prop<SortMenuProps["value"]>(() => ({
+    isDesc: true,
+    key: "dateModified",
+  })).withSetter(),
   tags: prop<Tag[]>(() => []),
 }) {
   countsRefreshQueue = new PromiseQueue();

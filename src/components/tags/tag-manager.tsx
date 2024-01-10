@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { observer } from "mobx-react-lite";
 import { TagOption, sortFiles, useStores } from "store";
 import AutoSizer from "react-virtualized-auto-sizer";
@@ -12,17 +12,7 @@ export const TagManager = observer(() => {
   const { tagStore } = useStores();
 
   const [searchValue, setSearchValue] = useState<TagOption[]>([]);
-  const [sortValue, setSortValue] = useState<SortMenuProps["value"]>({
-    isDesc: true,
-    key: "dateModified",
-  });
   const [width, setWidth] = useState(0);
-
-  const columnWidth = 250;
-  const rowHeight = 50;
-
-  const columnCount = Math.floor(width / columnWidth);
-  const rowCount = Math.ceil(tagStore.tagOptions.length / columnCount);
 
   const tagOptions = useMemo(() => {
     const { excludedAnyTagIds, includedAllTagIds, includedAnyTagIds } =
@@ -35,8 +25,19 @@ export const TagManager = observer(() => {
         if (includedAnyTagIds.length && !includedAnyTagIds.includes(t.id)) return false;
         return true;
       })
-      .sort((a, b) => sortFiles({ a, b, isDesc: sortValue.isDesc, key: sortValue.key }));
-  }, [searchValue, sortValue]);
+      .sort((a, b) => sortFiles({ a, b, ...tagStore.tagManagerSort }));
+  }, [searchValue, tagStore.tagOptions.slice(), JSON.stringify(tagStore.tagManagerSort)]);
+
+  const resultsRef = useRef<FixedSizeGrid>(null);
+  useEffect(() => {
+    if (resultsRef.current) resultsRef.current.scrollTo({ scrollTop: 0 });
+  }, [JSON.stringify(tagOptions)]);
+
+  const columnWidth = 250;
+  const rowHeight = 50;
+
+  const columnCount = Math.floor(width / columnWidth);
+  const rowCount = Math.ceil(tagOptions.length / columnCount);
 
   const closeModal = () => tagStore.setIsTagManagerOpen(false);
 
@@ -72,6 +73,8 @@ export const TagManager = observer(() => {
     [columnCount, columnWidth, JSON.stringify(tagOptions)]
   );
 
+  const setTagManagerSort = (val: SortMenuProps["value"]) => tagStore.setTagManagerSort(val);
+
   return (
     <Modal.Container onClose={closeModal} height="80%" width="80%">
       <Modal.Header>
@@ -89,8 +92,8 @@ export const TagManager = observer(() => {
               { label: "Date Created", attribute: "dateCreated", icon: "DateRange" },
               { label: "Label", attribute: "label", icon: "Label" },
             ]}
-            value={sortValue}
-            setValue={setSortValue}
+            value={tagStore.tagManagerSort}
+            setValue={setTagManagerSort}
             color={colors.button.darkGrey}
             margins={{ left: "0.5rem" }}
           />
@@ -99,7 +102,10 @@ export const TagManager = observer(() => {
         <View className={css.tags}>
           <AutoSizer onResize={handleResize}>
             {({ height, width }) => (
-              <FixedSizeGrid {...{ columnCount, columnWidth, height, rowCount, rowHeight, width }}>
+              <FixedSizeGrid
+                ref={resultsRef}
+                {...{ columnCount, columnWidth, height, rowCount, rowHeight, width }}
+              >
                 {renderTag}
               </FixedSizeGrid>
             )}
