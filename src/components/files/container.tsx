@@ -9,10 +9,10 @@ import { toast } from "react-toastify";
 import Color from "color";
 
 export const FileContainer = observer(() => {
-  const { css } = useClasses(null);
-
   const rootStore = useStores();
   const { faceRecognitionStore, fileStore, homeStore } = useStores();
+
+  const { css } = useClasses({ hasFiles: fileStore.files.length > 0 });
 
   const filesRef = useRef<HTMLDivElement>(null);
 
@@ -116,7 +116,7 @@ export const FileContainer = observer(() => {
   );
 });
 
-const useClasses = makeClasses({
+const useClasses = makeClasses((_, { hasFiles }) => ({
   container: {
     position: "relative",
     display: "flex",
@@ -127,9 +127,9 @@ const useClasses = makeClasses({
   files: {
     display: "flex",
     flexFlow: "row wrap",
-    flex: 1,
     paddingBottom: "7rem",
     overflowY: "auto",
+    ...(!hasFiles ? { height: "-webkit-fill-available" } : {}),
   },
   pagination: {
     position: "absolute",
@@ -146,4 +146,4 @@ const useClasses = makeClasses({
       .darken(0.1)
       .string()})`,
   },
-});
+}));
