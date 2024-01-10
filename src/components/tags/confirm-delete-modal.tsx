@@ -12,7 +12,7 @@ interface ConfirmDeleteModalProps {
 export const ConfirmDeleteModal = observer(({ setVisible }: ConfirmDeleteModalProps) => {
   const { css } = useClasses(null);
 
-  const { fileStore, importStore, tagStore } = useStores();
+  const { tagStore } = useStores();
 
   const handleClose = () => setVisible(false);
 
@@ -37,25 +37,6 @@ export const ConfirmDeleteModal = observer(({ setVisible }: ConfirmDeleteModalPr
           <Text className={css.tagLabel}>{tagStore.activeTag?.label}</Text>
 
           <Icon name="Delete" color={colors.error} size="5rem" />
-
-          <Text className={css.subText}>
-            <Text color={colors.error}>{fileStore.listByTagId(tagStore.activeTagId)?.length}</Text>
-            {" files will be affected."}
-          </Text>
-
-          <Text className={css.subText}>
-            <Text color={colors.error}>
-              {tagStore.listByParentId(tagStore.activeTagId)?.length}
-            </Text>
-            {" child tags will be affected."}
-          </Text>
-
-          <Text className={css.subText}>
-            <Text color={colors.error}>
-              {importStore.listByTagId(tagStore.activeTagId)?.length}
-            </Text>
-            {" import batches will be affected."}
-          </Text>
         </View>
       </Modal.Content>
 
@@ -74,11 +55,6 @@ const useClasses = makeClasses({
     padding: "0.5rem 0",
     color: colors.grey["400"],
     fontSize: "1.3em",
-    textAlign: "center",
-  },
-  subText: {
-    margin: "0.5rem 0",
-    color: colors.grey["400"],
     textAlign: "center",
   },
   tagLabel: {

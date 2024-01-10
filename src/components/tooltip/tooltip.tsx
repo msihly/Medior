@@ -61,6 +61,7 @@ const useClasses = makeClasses(
       flexShrink,
       overflow: "hidden",
       textOverflow: "ellipsis",
+      userSelect: "auto",
     },
     tooltip: {
       borderTop: `4px solid ${arrowColor}`,
