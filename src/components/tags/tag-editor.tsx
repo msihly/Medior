@@ -28,6 +28,7 @@ export const TagEditor = observer(() => {
   const [hasKeepChildTags, setHasKeepChildTags] = useState(false);
   const [hasKeepParentTags, setHasKeepParentTags] = useState(false);
   const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [label, setLabel] = useState<string>(isCreate ? "" : tagStore.activeTag?.label ?? "");
   const [parentTags, setParentTags] = useState<TagOption[]>(
     isCreate || !tagStore.activeTag
@@ -48,7 +49,7 @@ export const TagEditor = observer(() => {
       setChildTags(tagStore.getChildTags(tag).map((t) => t.tagOption) ?? []);
       setParentTags(tagStore.getParentTags(tag).map((t) => t.tagOption) ?? []);
     }
-  }, [tagStore.activeTagId]);
+  }, [tagStore.activeTagId, JSON.stringify(tagStore.activeTag)]);
 
   const clearInputs = () => {
     setLabel("");
@@ -85,6 +86,7 @@ export const TagEditor = observer(() => {
     const parentIds = parentTags.map((t) => t.id);
     const aliasStrings = aliases.map((a) => a.value);
 
+    setIsSaving(true);
     const res = await (isCreate
       ? tagStore.createTag({ aliases: aliasStrings, childIds, label, parentIds })
       : tagStore.editTag({
@@ -94,17 +96,18 @@ export const TagEditor = observer(() => {
           label,
           parentIds,
         }));
+    setIsSaving(false);
 
     if (res.success) {
       if (hasContinue) {
         clearInputs();
         labelRef.current?.focus();
       } else handleClose();
-    }
+    } else toast.error(res.error);
   };
 
   return (
-    <Modal.Container onClose={handleClose} width="50rem" draggable>
+    <Modal.Container onClose={handleClose} width="50rem">
       <Modal.Header
         leftNode={
           !isCreate && (
@@ -119,7 +122,7 @@ export const TagEditor = observer(() => {
         }
         rightNode={
           !isCreate && (
-            <View className={css.spacedRow}>
+            <View align="center" className={css.spacedRow}>
               <Text
                 tooltip={tagStore.activeTag?.count}
                 tooltipProps={{ flexShrink: 1 }}
@@ -132,6 +135,7 @@ export const TagEditor = observer(() => {
                 name="Refresh"
                 iconProps={{ color: colors.button.grey }}
                 onClick={handleRefreshCount}
+                disabled={isSaving}
               />
 
               <Divider orientation="vertical" flexItem />
@@ -140,6 +144,7 @@ export const TagEditor = observer(() => {
                 name="Delete"
                 iconProps={{ color: colors.button.red }}
                 onClick={handleDelete}
+                disabled={isSaving}
               />
             </View>
           )
@@ -149,15 +154,16 @@ export const TagEditor = observer(() => {
       </Modal.Header>
 
       <Modal.Content>
-        <View className={css.spacedRow}>
+        <View align="flex-start" className={css.spacedRow}>
           <TagInputs.Label
             ref={labelRef}
             value={label}
             setValue={setLabel}
+            disabled={isSaving}
             isDuplicate={isDuplicateTag}
           />
 
-          <TagInputs.Aliases value={aliases} setValue={setAliases} />
+          <TagInputs.Aliases value={aliases} setValue={setAliases} disabled={isSaving} />
         </View>
 
         <TagInputs.Relations
@@ -166,6 +172,7 @@ export const TagEditor = observer(() => {
           excludedIds={[tagStore.activeTagId, ...childTags.map((t) => t.id)]}
           value={parentTags}
           setValue={setParentTags}
+          disabled={isSaving}
         />
 
         <TagInputs.Relations
@@ -174,6 +181,7 @@ export const TagEditor = observer(() => {
           excludedIds={[tagStore.activeTagId, ...parentTags.map((t) => t.id)]}
           value={childTags}
           setValue={setChildTags}
+          disabled={isSaving}
         />
 
         {isCreate && (
@@ -181,13 +189,19 @@ export const TagEditor = observer(() => {
             <Text className={css.sectionTitle}>{"Create Options"}</Text>
 
             <View row>
-              <Checkbox label="Continue" checked={hasContinue} setChecked={setHasContinue} center />
+              <Checkbox
+                label="Continue"
+                checked={hasContinue}
+                setChecked={setHasContinue}
+                disabled={isSaving}
+                center
+              />
 
               <Checkbox
                 label="Parent"
                 checked={hasKeepParentTags}
                 setChecked={setHasKeepParentTags}
-                disabled={!hasContinue}
+                disabled={!hasContinue || isSaving}
                 center
               />
 
@@ -195,7 +209,7 @@ export const TagEditor = observer(() => {
                 label="Child"
                 checked={hasKeepChildTags}
                 setChecked={setHasKeepChildTags}
-                disabled={!hasContinue}
+                disabled={!hasContinue || isSaving}
                 center
               />
             </View>
@@ -206,18 +220,25 @@ export const TagEditor = observer(() => {
       {isConfirmDeleteOpen && <ConfirmDeleteModal setVisible={setIsConfirmDeleteOpen} />}
 
       <Modal.Footer>
-        <Button text="Cancel" icon="Close" onClick={handleClose} color={colors.grey["700"]} />
+        <Button
+          text="Cancel"
+          icon="Close"
+          onClick={handleClose}
+          disabled={isSaving}
+          color={colors.button.grey}
+        />
 
         {!isCreate && (
           <Button
             text="Merge Tags"
             icon="Merge"
             onClick={handleMerge}
+            disabled={isSaving}
             color={colors.blueGrey["700"]}
           />
         )}
 
-        <Button text="Confirm" icon="Check" onClick={saveTag} />
+        <Button text="Confirm" icon="Check" onClick={saveTag} disabled={isSaving} />
       </Modal.Footer>
     </Modal.Container>
   );
@@ -238,7 +259,6 @@ const useClasses = makeClasses({
   spacedRow: {
     display: "flex",
     flexDirection: "row",
-    alignItems: "center",
     "& > *:not(:last-child)": {
       marginRight: "0.5rem",
     },
