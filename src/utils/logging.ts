@@ -1,15 +1,27 @@
+import fs from "fs/promises";
 import path from "path";
-import electronLog from "electron-log";
 import { dayjs } from "./date-and-time";
+import { ipcRenderer } from "electron";
 
-const logger = electronLog.create("logger");
+let logsPath: string;
 
-export const logToFile = (type: "debug" | "error" | "log" | "warn", ...args: any[]) => {
-  console[type](...args);
-  logger[type](...args);
+export const logToFile = async (type: "debug" | "error" | "warn", ...args: any[]) => {
+  try {
+    console[type](...args);
+
+    if (!logsPath) await setLogsPath(await ipcRenderer.invoke("getLogsPath"));
+
+    const logContent = `[${dayjs().format(
+      "YYYY-MM-DD HH:mm:ss"
+    )}] [${type.toUpperCase()}] ${args.join(" ")}\n`;
+
+    await fs.appendFile(logsPath, logContent, { encoding: "utf8" });
+  } catch (err) {
+    console.error("Failed to log to file:", err);
+  }
 };
 
-export const setLogDir = (dir: string) => {
-  logger.transports.file.resolvePath = () =>
-    path.resolve(dir, "logs", `${dayjs().format("YYYY-MM-DD")}.log`);
+export const setLogsPath = async (filePath: string) => {
+  await fs.mkdir(path.dirname(filePath), { recursive: true });
+  logsPath = path.resolve(filePath);
 };

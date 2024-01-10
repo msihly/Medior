@@ -10,7 +10,6 @@ const EXTERNALS = [
   "@vladmandic/face-api/dist/face-api.node-gpu.js",
   "aws-sdk",
   "crypto",
-  "electron-log",
   "fluent-ffmpeg",
   "fs",
   "mock-aws-s3",

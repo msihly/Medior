@@ -1,6 +1,7 @@
 import path from "path";
 import { inspect } from "util";
 import { toast } from "react-toastify";
+import { logToFile } from "./logging";
 
 export class PromiseQueue {
   queue = Promise.resolve();
@@ -80,7 +81,7 @@ export const handleErrors = async <T>(
   try {
     return { success: true, data: await fn() };
   } catch (err) {
-    console.error(err.stack);
+    logToFile("error", err.stack);
     return { success: false, error: err.message };
   }
 };

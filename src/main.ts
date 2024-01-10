@@ -1,7 +1,7 @@
 import { app, BrowserWindow, ipcMain, screen } from "electron";
 import path from "path";
 import { readFile } from "fs/promises";
-import { logToFile, setLogDir } from "./utils";
+import { dayjs, logToFile, setLogsPath } from "./utils";
 
 const isPackaged = app.isPackaged;
 const isBundled = isPackaged || !!process.env.BUILD_DEV;
@@ -13,8 +13,12 @@ const baseUrl = isBundled
 const folderPath = isPackaged ? process.resourcesPath : __dirname;
 app.setPath("appData", folderPath);
 app.setPath("userData", path.resolve(folderPath, "userData"));
-app.setAppLogsPath(path.resolve(folderPath, "logs"));
-setLogDir(path.resolve(folderPath, "logs"));
+
+const logsDir = path.resolve(folderPath, "..", "logs", dayjs().format("YYYY-MM-DD"));
+const logsPath = path.resolve(logsDir, `${dayjs().format("HH[h]mm[m]ss[s]")}.log`);
+app.setAppLogsPath(logsDir);
+
+ipcMain.handle("getLogsPath", () => logsPath);
 
 /* ------------------------------- BEGIN - MAIN WINDOW ------------------------------ */
 let mainWindow = null;
@@ -50,6 +54,7 @@ const createMainWindow = async () => {
 };
 
 app.whenReady().then(async () => {
+  await setLogsPath(logsPath);
   return createMainWindow();
 });
 

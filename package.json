@@ -29,7 +29,7 @@
     "aws-sdk": "^2.1450.0",
     "color": "^4.2.3",
     "dayjs": "^1.11.0",
-    "electron-log": "^4.4.8",
+    "fastest-levenshtein": "^1.0.16",
     "fluent-ffmpeg": "^2.1.2",
     "jsonfile": "^6.1.0",
     "kill-port": "^2.0.1",

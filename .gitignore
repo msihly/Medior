@@ -27,6 +27,8 @@ _components/
 *.ai
 *.db
 
+logs/
+*.log
 test_dir/
 output_dir/
 _readme
