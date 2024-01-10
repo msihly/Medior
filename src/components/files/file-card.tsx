@@ -68,7 +68,21 @@ export const FileCard = observer(({ disabled, file, height, id, width }: FileCar
     const filePaths = hasSelected ? files.map((file) => file.path) : [file.path];
     const icon = hasSelected ? files[0].thumbPaths[0] : file.thumbPaths[0];
 
-    getCurrentWebContents().startDrag({ file: file.path, files: filePaths, icon });
+    try {
+      getCurrentWebContents().startDrag({ file: file.path, files: filePaths, icon });
+    } catch (err) {
+      if (err.message.includes("Failed to load image from path")) {
+        try {
+          getCurrentWebContents().startDrag({
+            file: file.path,
+            files: filePaths,
+            icon: hasSelected ? files[0].path : file.path,
+          });
+        } catch (err) {
+          console.error(err);
+        }
+      } else console.error(err);
+    }
   };
 
   const handleTagPress = (tagId: string) => {
