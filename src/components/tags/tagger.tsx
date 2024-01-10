@@ -93,10 +93,10 @@ export const Tagger = observer(({ batchId, fileIds, setVisible }: TaggerProps) =
           <TagInput
             value={addedTags}
             onChange={handleTagAdded}
-            _setValue={setAddedTags}
             onTagClick={handleTagClick}
             autoFocus
             hasCreate
+            hasDelete
             className={css.tagInput}
           />
 
@@ -104,9 +104,9 @@ export const Tagger = observer(({ batchId, fileIds, setVisible }: TaggerProps) =
           <TagInput
             value={removedTags}
             onChange={handleTagRemoved}
-            _setValue={setRemovedTags}
             options={currentTagOptions}
             onTagClick={handleTagClick}
+            hasDelete
             className={css.tagInput}
           />
         </View>

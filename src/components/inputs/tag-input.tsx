@@ -1,10 +1,8 @@
 import {
   ComponentProps,
-  Dispatch,
   forwardRef,
   HTMLAttributes,
   MutableRefObject,
-  SetStateAction,
   useEffect,
   useState,
 } from "react";
@@ -17,7 +15,7 @@ import {
   AutocompleteRenderInputParams,
 } from "@mui/material";
 import { Button, Chip, IconName, Input, InputProps, ListItem, Tag, View } from "components";
-import { colors, makeClasses, Margins, socket } from "utils";
+import { colors, makeClasses, Margins } from "utils";
 import { CSSObject } from "tss-react";
 import { toast } from "react-toastify";
 
@@ -55,8 +53,6 @@ export type TagInputProps = Omit<
   ComponentProps<typeof Autocomplete>,
   "renderInput" | "onChange" | "onSelect" | "options"
 > & {
-  /** Only for specific use cases. Use onChange instead. */
-  _setValue?: Dispatch<SetStateAction<TagOption[]>>;
   autoFocus?: boolean;
   center?: boolean;
   disableWithoutFade?: boolean;
@@ -82,7 +78,6 @@ export const TagInput = observer(
   forwardRef(
     (
       {
-        _setValue,
         autoFocus = false,
         center,
         className,
@@ -119,11 +114,11 @@ export const TagInput = observer(
       const [inputValue, setInputValue] = useState((inputProps?.value ?? "") as string);
       const [isOpen, setIsOpen] = useState(false);
 
+      /** Handle deleted tags */
       useEffect(() => {
-        socket?.on?.("tagDeleted", ({ tagId }) => {
-          _setValue?.((prev) => prev.filter((t) => t.id !== tagId));
-        });
-      }, [socket, onChange]);
+        const validValues = value.filter((t) => t && tagStore.getById(t.id));
+        if (validValues.length !== value.length) onChange?.(validValues);
+      }, [options.toString()]);
 
       useEffect(() => {
         setInputValue(inputProps?.value as string);

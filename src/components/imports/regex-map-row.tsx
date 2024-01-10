@@ -54,11 +54,11 @@ export const RegExMapRow = observer(({ index, style }: RegExMapRowProps) => {
     ? "edit"
     : null;
 
-  const tags = map?.tagIds?.map((id) => tagStore.getById(id)?.tagOption);
+  const tagOption = map?.tagId ? tagStore.getById(map.tagId)?.tagOption : null;
 
-  const genRegExFromTags = () => setRegEx(tagStore.tagsToRegEx(tags));
+  const genRegExFromTags = () => setRegEx(tagStore.tagsToRegEx([tagOption]));
 
-  const handleTagsChange = (value: TagOption[]) => map.setTagIds(value.map((opt) => opt.id));
+  const handleTagsChange = (value: TagOption[]) => map.setTagId(value[0]?.id || null);
 
   const handleTagClick = (id: string) => {
     tagStore.setActiveTagId(id);
@@ -165,16 +165,17 @@ export const RegExMapRow = observer(({ index, style }: RegExMapRowProps) => {
         />
 
         <TagInput
-          label="Tags"
-          value={tags}
+          label="Tag"
+          value={[tagOption]}
           onChange={handleTagsChange}
           onTagClick={handleTagClick}
           hasCreate
           hasDelete
+          maxTags={1}
           inputProps={{
             ...inputProps,
-            helperText: !tags.length ? "Must have tags" : null,
-            error: !tags.length,
+            helperText: !tagOption ? "Must have tag" : null,
+            error: !tagOption,
           }}
           className={cx(css.input, css.tagInput)}
         />

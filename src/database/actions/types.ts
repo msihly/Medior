@@ -202,11 +202,17 @@ export type MergeTagsInput = {
   tagIdToMerge: string;
 };
 
-export type OnTagCreatedInput = { tag?: Tag };
-
 export type OnTagUpdatedInput = { tagId: string; updates: Partial<Tag> };
 
-export type RecalculateTagCountsInput = { tagId: string };
+export type RecalculateTagCountsInput = { tagIds: string[]; withSub?: boolean };
+
+export type RefreshTagRelationsInput = {
+  changedChildIds?: { added?: string[]; removed?: string[] };
+  changedParentIds?: { added?: string[]; removed?: string[] };
+  dateModified: string;
+  tagId: string;
+  withSub?: boolean;
+};
 
 export type RemoveChildTagIdsFromTagsInput = { childTagIds: string[]; tagIds: string[] };
 

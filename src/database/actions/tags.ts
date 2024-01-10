@@ -1,49 +1,47 @@
 import mongoose, { PipelineStage } from "mongoose";
+import { AnyBulkWriteOperation } from "mongodb";
 import * as db from "database";
 import { SocketEmitEvent } from "server";
-import { dayjs, handleErrors, logToFile, socket } from "utils";
-import { leanModelToJson } from "./utils";
-
-export const addChildTagIdsToTags = ({ childTagIds, tagIds }: db.AddChildTagIdsToTagsInput) =>
-  handleErrors(async () => {
-    const dateModified = dayjs().toISOString();
-    await db.TagModel.updateMany(
-      { _id: { $in: tagIds } },
-      { $addToSet: { childIds: childTagIds }, dateModified }
-    );
-    return dateModified;
-  });
-
-export const addParentTagIdsToTags = ({ parentTagIds, tagIds }: db.AddParentTagIdsToTagsInput) =>
-  handleErrors(async () => {
-    const dateModified = dayjs().toISOString();
-    await db.TagModel.updateMany(
-      { _id: { $in: tagIds } },
-      { $addToSet: { parentIds: parentTagIds }, dateModified }
-    );
-    return dateModified;
-  });
+import { bisectArrayChanges, dayjs, handleErrors, logToFile, socket } from "utils";
+import { leanModelToJson, objectIds } from "./utils";
 
 export const createTag = ({
   aliases = [],
   childIds = [],
   label,
   parentIds = [],
+  withSub = true,
 }: db.CreateTagInput) =>
   handleErrors(async () => {
-    const dateCreated = dayjs().toISOString();
+    const dateModified = dayjs().toISOString();
     const tag = {
       aliases,
       childIds,
       count: 0,
-      dateCreated,
-      dateModified: dateCreated,
+      dateCreated: dateModified,
+      dateModified,
       label,
       parentIds,
     };
 
     const res = await db.TagModel.create(tag);
-    return { ...tag, id: res._id.toString() };
+    const id = res._id.toString();
+
+    const changedChildIds = bisectArrayChanges([], childIds);
+    const changedParentIds = bisectArrayChanges([], parentIds);
+
+    const tagBulkWriteOps = await makeRelationsUpdateOps({
+      changedChildIds,
+      changedParentIds,
+      dateModified,
+      tagId: id,
+    });
+
+    await db.TagModel.bulkWrite(tagBulkWriteOps);
+
+    if (withSub) socket.emit("tagCreated", { tag: { ...tag, id } });
+
+    return { ...tag, id };
   });
 
 export const deleteTag = ({ id }: db.DeleteTagInput) =>
@@ -51,34 +49,204 @@ export const deleteTag = ({ id }: db.DeleteTagInput) =>
     const dateModified = dayjs().toISOString();
     const tagIds = [id];
 
+    const tag = await db.TagModel.findById(id);
+    const parentIds = tag.parentIds.map((i) => i.toString());
+
     await Promise.all([
-      await db.FileImportBatchModel.updateMany({ tagIds }, { $pull: { tagIds } }),
-      await db.FileModel.updateMany({ tagIds }, { $pull: { tagIds }, dateModified }),
-      await db.RegExMapModel.updateMany({ tagIds }, { $pull: { tagIds } }),
-      await db.TagModel.updateMany(
+      db.FileImportBatchModel.updateMany({ tagIds }, { $pull: { tagIds } }),
+      db.FileModel.updateMany({ tagIds }, { $pull: { tagIds }, dateModified }),
+      db.RegExMapModel.updateMany({ tagId: id }, { $unset: { tagId: "" } }),
+      db.TagModel.updateMany(
         { $or: [{ childIds: id }, { parentIds: id }] },
         { $pullAll: { childIds: tagIds, parentIds: tagIds }, dateModified }
       ),
+      db.TagModel.deleteOne({ _id: id }),
     ]);
 
-    await db.TagModel.deleteOne({ _id: id });
+    const countRes = await recalculateTagCounts({ tagIds: parentIds });
+    if (!countRes.success) throw new Error(countRes.error);
 
     socket.emit("tagDeleted", { tagId: id });
   });
 
-export const editTag = ({ aliases, childIds, id, label, parentIds }: db.EditTagInput) =>
+export const editTag = ({
+  aliases,
+  childIds,
+  id,
+  label,
+  parentIds,
+  withSub = true,
+}: db.EditTagInput) =>
   handleErrors(async () => {
     const dateModified = dayjs().toISOString();
-    return await db.TagModel.updateOne(
-      { _id: id },
-      { aliases, childIds, dateModified, label, parentIds }
-    );
+
+    const tag = await db.TagModel.findById(id);
+
+    const changedChildIds = childIds
+      ? bisectArrayChanges(tag.childIds?.map((i) => i.toString()) ?? [], childIds)
+      : { added: [], removed: [] };
+    const changedParentIds = parentIds
+      ? bisectArrayChanges(tag.parentIds?.map((i) => i.toString()) ?? [], parentIds)
+      : { added: [], removed: [] };
+
+    const bulkWriteOps = await makeRelationsUpdateOps({
+      changedChildIds,
+      changedParentIds,
+      dateModified,
+      tagId: id,
+    });
+
+    let operations: AnyBulkWriteOperation[] = [
+      ...bulkWriteOps,
+      {
+        updateOne: {
+          filter: { _id: new mongoose.Types.ObjectId(id) },
+          update: {
+            aliases,
+            dateModified,
+            label,
+            ...(childIds?.length > 0 ? { childIds: objectIds(childIds) } : {}),
+            ...(parentIds?.length > 0 ? { parentIds: objectIds(parentIds) } : {}),
+          },
+        },
+      },
+    ];
+
+    logToFile("debug", JSON.stringify(operations, null, 2));
+
+    operations = operations.filter(Boolean);
+
+    const res = await db.TagModel.bulkWrite(operations);
+
+    if (withSub) {
+      const updatedTags = (
+        await db.TagModel.find({
+          _id: {
+            $in: objectIds([
+              ...changedChildIds.added,
+              ...changedChildIds.removed,
+              ...changedParentIds.added,
+              ...changedParentIds.removed,
+            ]),
+          },
+        }).lean()
+      ).map((r) => leanModelToJson<db.Tag>(r));
+
+      socket.emit("tagsUpdated", [
+        ...updatedTags.map((tag) => ({ tagId: tag.id, updates: { ...tag } })),
+        {
+          tagId: id,
+          updates: { aliases, childIds, dateModified, label, parentIds },
+        },
+      ]);
+    }
+
+    return { changedChildIds, changedParentIds, dateModified, operations, res };
   });
 
 export const getAllTags = () =>
   handleErrors(async () =>
     (await db.TagModel.find().lean()).map((r) => leanModelToJson<db.Tag>(r))
   );
+
+const makeMergeRelationsPipeline = ({
+  attr,
+  tagIdToKeep,
+  tagIdToMerge,
+}: {
+  attr: "childIds" | "parentIds";
+  tagIdToKeep: mongoose.Types.ObjectId;
+  tagIdToMerge: mongoose.Types.ObjectId;
+}) => ({
+  $let: {
+    vars: {
+      filteredIds: {
+        $cond: {
+          if: { $in: [tagIdToKeep, `$${attr === "childIds" ? "parentIds" : "childIds"}`] },
+          then: {
+            $filter: {
+              input: `$${attr}`,
+              as: "id",
+              cond: { $ne: ["$$id", tagIdToMerge] },
+            },
+          },
+          else: `$${attr}`,
+        },
+      },
+    },
+    in: {
+      $map: {
+        input: "$$filteredIds",
+        as: "id",
+        in: {
+          $cond: {
+            if: { $eq: ["$$id", tagIdToMerge] },
+            then: tagIdToKeep,
+            else: "$$id",
+          },
+        },
+      },
+    },
+  },
+});
+
+/** Adds or removes `tagId` to the opposite type (`childIds` or `parentIds`) to create hierarchical relations.
+ *  For example, adds `tagId` to the `parentIds` of every id in `changedChildIds.added.` */
+const makeRelationsUpdateOps = async ({
+  changedChildIds,
+  changedParentIds,
+  dateModified,
+  tagId,
+}: {
+  changedChildIds?: { added?: string[]; removed?: string[] };
+  changedParentIds?: { added?: string[]; removed?: string[] };
+  dateModified: string;
+  tagId: string;
+}) => {
+  const ids = [tagId];
+
+  const updateRelatedTags = (
+    type: "child" | "parent",
+    changedIds: { added?: string[]; removed?: string[] }
+  ) => {
+    const ops: AnyBulkWriteOperation[] = [];
+
+    const keyOfOppType = type === "child" ? "parentIds" : "childIds";
+
+    if (changedIds.added.length > 0) {
+      ops.push({
+        updateMany: {
+          filter: { _id: { $in: objectIds(changedIds.added) } },
+          update: {
+            // @ts-expect-error
+            $addToSet: { [keyOfOppType]: { $each: objectIds(ids) } },
+            $set: { dateModified },
+          },
+        },
+      });
+    }
+
+    if (changedIds.removed.length > 0) {
+      ops.push({
+        updateMany: {
+          filter: { _id: { $in: objectIds(changedIds.removed) } },
+          update: {
+            // @ts-expect-error
+            $pullAll: { [keyOfOppType]: objectIds(ids) },
+            $set: { dateModified },
+          },
+        },
+      });
+    }
+
+    return ops;
+  };
+
+  return [
+    ...updateRelatedTags("child", changedChildIds),
+    ...updateRelatedTags("parent", changedParentIds),
+  ];
+};
 
 export const mergeTags = ({
   aliases,
@@ -108,44 +276,13 @@ export const mergeTags = ({
         db.RegExMapModel.updateMany(updateMany.filter, updateMany.update),
       ]);
 
-      const makeRelationsPipeline = (field: string, otherField: string) => ({
-        $let: {
-          vars: {
-            filteredIds: {
-              $cond: {
-                if: { $in: [_tagIdToKeep, `$${otherField}`] },
-                then: {
-                  $filter: {
-                    input: `$${field}`,
-                    as: "id",
-                    cond: { $ne: ["$$id", _tagIdToMerge] },
-                  },
-                },
-                else: `$${field}`,
-              },
-            },
-          },
-          in: {
-            $map: {
-              input: "$$filteredIds",
-              as: "id",
-              in: {
-                $cond: {
-                  if: { $eq: ["$$id", _tagIdToMerge] },
-                  then: _tagIdToKeep,
-                  else: "$$id",
-                },
-              },
-            },
-          },
-        },
-      });
-
       const relationsFilter = { $or: [{ childIds: tagIdToMerge }, { parentIds: tagIdToMerge }] };
 
       const tagIdsToUpdate = (await db.TagModel.find(relationsFilter, { _id: 1 }).lean()).map((r) =>
         r._id.toString()
       );
+
+      const tagToKeepUpdates = { aliases, childIds, dateModified, label, parentIds };
 
       await db.TagModel.bulkWrite([
         {
@@ -154,8 +291,16 @@ export const mergeTags = ({
             update: [
               {
                 $set: {
-                  childIds: makeRelationsPipeline("childIds", "parentIds"),
-                  parentIds: makeRelationsPipeline("parentIds", "childIds"),
+                  childIds: makeMergeRelationsPipeline({
+                    attr: "childIds",
+                    tagIdToKeep: _tagIdToKeep,
+                    tagIdToMerge: _tagIdToMerge,
+                  }),
+                  parentIds: makeMergeRelationsPipeline({
+                    attr: "parentIds",
+                    tagIdToKeep: _tagIdToKeep,
+                    tagIdToMerge: _tagIdToMerge,
+                  }),
                 },
               },
             ],
@@ -164,13 +309,16 @@ export const mergeTags = ({
         {
           updateOne: {
             filter: { _id: _tagIdToKeep },
-            update: { $set: { aliases, childIds, dateModified, label, parentIds } },
+            update: { $set: tagToKeepUpdates },
           },
         },
         { deleteOne: { filter: { _id: _tagIdToMerge } } },
       ]);
 
-      await Promise.all(tagIdsToUpdate.map((tagId) => recalculateTagCounts({ tagId })));
+      await recalculateTagCounts({ tagIds: tagIdsToUpdate });
+
+      socket.emit("tagDeleted", { tagId: tagIdToMerge });
+      socket.emit("tagsUpdated", [{ tagId: tagIdToKeep, updates: tagToKeepUpdates }]);
     } catch (err) {
       error = err.message;
       logToFile("error", JSON.stringify(err.stack, null, 2));
@@ -189,16 +337,13 @@ export const mergeTags = ({
     }
   });
 
-export const onTagCreated = async ({ tag }: db.OnTagCreatedInput) =>
-  handleErrors(async () => !!socket.emit("tagCreated", { tag }));
-
-export const onTagUpdated = async ({ tagId, updates }: db.OnTagUpdatedInput) =>
-  handleErrors(async () => !!socket.emit("tagUpdated", { tagId, updates }));
-
-export const recalculateTagCounts = async ({ tagId }: db.RecalculateTagCountsInput) =>
+export const recalculateTagCounts = async ({
+  tagIds,
+  withSub = true,
+}: db.RecalculateTagCountsInput) =>
   handleErrors(async () => {
     const pipeline: PipelineStage[] = [
-      { $match: { _id: new mongoose.Types.ObjectId(tagId) } },
+      { $match: { _id: { $in: objectIds(tagIds) } } },
       {
         $graphLookup: {
           from: "tags",
@@ -299,31 +444,104 @@ export const recalculateTagCounts = async ({ tagId }: db.RecalculateTagCountsInp
       )
     );
 
+    if (withSub)
+      socket.emit(
+        "tagsUpdated",
+        results.map(({ _id, count }) => ({ tagId: _id, updates: { count } }))
+      );
+
     return results;
   });
 
-export const removeChildTagIdsFromTags = ({
-  childTagIds,
-  tagIds,
-}: db.RemoveChildTagIdsFromTagsInput) =>
+export const refreshTagRelations = ({
+  changedChildIds,
+  changedParentIds,
+  dateModified,
+  tagId,
+  withSub = true,
+}: db.RefreshTagRelationsInput) =>
   handleErrors(async () => {
-    const dateModified = dayjs().toISOString();
-    return await db.TagModel.updateMany(
-      { _id: { $in: tagIds } },
-      { $pullAll: { childIds: childTagIds }, dateModified }
-    );
-  });
+    const tag = await db.TagModel.findById(tagId);
+    if (!tag) throw new Error(`Tag not found: ${tagId}`);
 
-export const removeParentTagIdsFromTags = ({
-  parentTagIds,
-  tagIds,
-}: db.RemoveParentTagIdsFromTagsInput) =>
-  handleErrors(async () => {
-    const dateModified = dayjs().toISOString();
-    return await db.TagModel.updateMany(
-      { _id: { $in: tagIds } },
-      { $pullAll: { parentIds: parentTagIds }, dateModified }
+    const childIds = tag.childIds?.map((i) => i.toString()) ?? [];
+    const parentIds = tag.parentIds?.map((i) => i.toString()) ?? [];
+
+    const idsWithOrphanedChild = (await db.TagModel.find({ childIds: tagId }).lean()).reduce(
+      (acc, cur) => {
+        const otherTag = leanModelToJson<db.Tag>(cur);
+        if (parentIds.includes(otherTag.id)) return acc;
+        return [...acc, otherTag.id];
+      },
+      [] as string[]
     );
+
+    const idsWithOrphanedParent = (await db.TagModel.find({ parentIds: tagId }).lean()).reduce(
+      (acc, cur) => {
+        const otherTag = leanModelToJson<db.Tag>(cur);
+        if (childIds.includes(otherTag.id)) return acc;
+        return [...acc, otherTag.id];
+      },
+      [] as string[]
+    );
+
+    await db.TagModel.bulkWrite(
+      // @ts-expect-error
+      [
+        ...(await makeRelationsUpdateOps({
+          changedChildIds,
+          changedParentIds,
+          dateModified,
+          tagId,
+        })),
+        !tag.childIds || !tag.parentIds
+          ? {
+              updateOne: {
+                filter: { _id: new mongoose.Types.ObjectId(tagId) },
+                update: {
+                  $set: {
+                    ...(!tag.childIds ? { childIds: [] } : {}),
+                    ...(!tag.parentIds ? { parentIds: [] } : {}),
+                  },
+                },
+              },
+            }
+          : false,
+        {
+          updateOne: {
+            filter: { _id: new mongoose.Types.ObjectId(tagId) },
+            update: {
+              $addToSet: {
+                childIds: { $each: objectIds(idsWithOrphanedParent) },
+                parentIds: { $each: objectIds(idsWithOrphanedChild) },
+              },
+              $set: { dateModified },
+            },
+          },
+        },
+      ].filter(Boolean)
+    );
+
+    if (withSub) {
+      const updatedTags = (
+        await db.TagModel.find({
+          _id: {
+            $in: objectIds([
+              tag.id,
+              ...changedChildIds.added,
+              ...changedChildIds.removed,
+              ...changedParentIds.added,
+              ...changedParentIds.removed,
+            ]),
+          },
+        }).lean()
+      ).map((r) => leanModelToJson<db.Tag>(r));
+
+      socket.emit(
+        "tagsUpdated",
+        updatedTags.map((tag) => ({ tagId: tag.id, updates: { ...tag } }))
+      );
+    }
   });
 
 export const setTagCount = ({ count, id }: db.SetTagCountInput) =>

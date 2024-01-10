@@ -144,11 +144,9 @@ export class FileStore extends Model({
               )
             );
 
-            await Promise.all(
-              [...new Set(deleted.flatMap((f) => f.tagIds))].map((id) =>
-                rootStore.tagStore.refreshTagCount(id)
-              )
-            );
+            await rootStore.tagStore.refreshTagCounts([
+              ...new Set(deleted.flatMap((f) => f.tagIds)),
+            ]);
 
             await trpc.onFilesDeleted.mutate({ fileIds: deletedIds });
             toast.success(`${deletedIds.length} files deleted`);
@@ -187,9 +185,7 @@ export class FileStore extends Model({
           ]);
         }
 
-        await Promise.all(
-          [...addedTagIds, ...removedTagIds].map((id) => rootStore.tagStore.refreshTagCount(id))
-        );
+        await rootStore.tagStore.refreshTagCounts([...new Set([...addedTagIds, ...removedTagIds])]);
 
         toast.success(`${fileIds.length} files updated`);
 

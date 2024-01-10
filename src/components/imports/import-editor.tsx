@@ -2,7 +2,7 @@ import path from "path";
 import { useEffect, useState } from "react";
 import { RegExMapType } from "database";
 import { observer } from "mobx-react-lite";
-import { Tag, useStores } from "store";
+import { FileImport, Tag, useStores } from "store";
 import { Divider } from "@mui/material";
 import { Button, CenteredText, Checkbox, CheckboxProps, Modal, Text, View } from "components";
 import {
@@ -14,9 +14,11 @@ import {
   TagHierarchy,
   TagToUpsert,
 } from ".";
-import { colors, makeClasses, rateLimitPromiseAll } from "utils";
+import { PromiseQueue, colors, makeClasses } from "utils";
 import { toast } from "react-toastify";
 import Color from "color";
+
+type RegExMaps = { regEx: RegExp; tagId: string }[];
 
 const FOLDER_DELIMITER = ";;";
 const LABEL_DIFF = "Diffusion";
@@ -37,6 +39,7 @@ export const ImportEditor = observer(() => {
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [tagHierarchy, setTagHierarchy] = useState<TagToUpsert[]>([]);
+  const [withDelimiters, setWithDelimiters] = useState(true);
   const [withDiffusionModel, setWithDiffusionModel] = useState(true);
   const [withDiffusionRegExMaps, setWithDiffusionRegExMaps] = useState(true);
   const [withDiffusionParams, setWithDiffusionParams] = useState(false);
@@ -47,209 +50,242 @@ export const ImportEditor = observer(() => {
 
   const isDisabled = isLoading || isSaving;
 
-  useEffect(() => {
-    setIsLoading(true);
+  const handleClose = () => importStore.setIsImportEditorOpen(false);
 
-    setTimeout(async () => {
-      const tagsToCreate: TagToUpsert[] = [];
-      const tagsToEdit: TagToUpsert[] = [];
-      const [fileNameRegExMaps, folderNameRegExMaps] = ["fileName", "folderName"].map(
-        (type: RegExMapType) =>
-          importStore
-            .listRegExMapsByType(type)
-            .map((map) => ({ regEx: new RegExp(map.regEx, "im"), tagIds: map.tagIds }))
-      );
+  const handleFolderToCollection = (checked: boolean) =>
+    setFolderToCollectionMode(checked ? "withoutTag" : "none");
 
-      /* ---------------------------------- Files --------------------------------- */
-      if (!withDiffusionParams)
-        importStore.clearValues({ diffusionParams: true, tagIds: true, tagsToUpsert: true });
-      else await importStore.loadDiffusionParams();
+  const handleFoldersToTags = (checked: boolean) =>
+    setFolderToTagsMode(checked ? "hierarchical" : "none");
 
-      const { diffMetaTagsToEdit, originalTag, upscaledTag } = await upsertDiffMetaTags();
-      tagsToEdit.push(...diffMetaTagsToEdit);
+  const handleRegExMapper = () => importStore.setIsImportRegExMapperOpen(true);
 
-      importStore.editorImports.forEach((imp) => {
-        const fileTagIds: string[] = [];
-        const fileTagsToUpsert: TagToUpsert[] = [];
+  const toggleFolderToCollWithTag = () =>
+    setFolderToCollectionMode((prev) => (prev === "withTag" ? "withoutTag" : "withTag"));
 
-        if (withFileNameToTags) fileTagIds.push(...parseFileTags(fileNameRegExMaps, imp.name));
+  const toggleFoldersToTagsCascading = () => setFolderToTagsMode("cascading");
 
-        if (imp.diffusionParams?.length) {
-          const { diffFileTagIds, diffFileTagsToUpsert } = parseDiffTags({
-            diffusionParams: imp.diffusionParams,
-            originalTagId: originalTag.id,
-            upscaledTagId: upscaledTag.id,
+  const toggleFoldersToTagsHierarchical = () => setFolderToTagsMode("hierarchical");
+
+  const toggleWithFolderNameRegEx = () => setWithFolderNameRegEx((prev) => !prev);
+
+  const checkboxProps: Partial<CheckboxProps> = { disabled: isDisabled, flex: "initial" };
+
+  /* -------------------------------------------------------------------------- */
+  /*                                INGEST LOGIC                                */
+  /* -------------------------------------------------------------------------- */
+  const createFolder = ({
+    fileImport,
+    folderName,
+    folderNameRegExMaps,
+    tagsToCreate,
+    tagsToEdit,
+  }: {
+    fileImport: FileImport;
+    folderName: string;
+    folderNameRegExMaps: RegExMaps;
+    tagsToCreate: TagToUpsert[];
+    tagsToEdit: TagToUpsert[];
+  }) => {
+    const _tagsToCreate = [];
+    const _tagsToEdit = [];
+    const folderTags: TagToUpsert[] = [];
+
+    const folderNameParts = folderName.split(path.sep).slice(importStore.editorRootFolderIndex);
+    const collectionTitle =
+      folderToCollectionMode !== "none"
+        ? (folderToCollectionMode === "withTag" ? folderNameParts.slice() : folderNameParts).pop()
+        : null;
+
+    const tagLabel = folderNameParts.slice().pop()!;
+    const tagParentLabel = folderNameParts.slice(0, -1).pop();
+
+    if (folderToTagsMode !== "none") {
+      /** Parse cascading tags from folder hierarchy */
+      if (folderToTagsMode === "cascading") {
+        const labels = withDelimiters ? folderNameParts.flatMap(delimit) : folderNameParts;
+        labels.forEach((label) => {
+          const tag = tagStore.getByLabel(label);
+          if (!tag && !tagsToCreate.find((t) => t.label === label)) {
+            _tagsToCreate.push({ label, withRegEx: withNewTagsToRegEx });
+            folderTags.push({ label });
+          } else folderTags.push({ id: tag?.id, label });
+        });
+      }
+
+      /** Parse hierarchical tags from folder hierarchy */
+      if (folderToTagsMode === "hierarchical" && tagLabel) {
+        delimit(tagLabel).forEach((label) => {
+          const id = tagStore.getByLabel(label)?.id;
+          const parentLabels = tagParentLabel ? delimit(tagParentLabel) : [];
+          folderTags.push({ id, label, parentLabels });
+        });
+
+        folderNameParts.forEach((label, idx) => {
+          delimit(label).forEach((label) => {
+            const tag = tagStore.getByLabel(label);
+            const parentLabel = folderNameParts[idx - 1];
+            const parentLabels = parentLabel ? delimit(parentLabel) : [];
+
+            if (!tag && !tagsToCreate.find((t) => t.label === label))
+              _tagsToCreate.push({ label, parentLabels, withRegEx: withNewTagsToRegEx });
+            else if (tag && !tagsToEdit.find((t) => t.id === tag.id))
+              _tagsToEdit.push({ id: tag.id, label, parentLabels });
           });
+        });
+      }
 
-          fileTagIds.push(...diffFileTagIds);
-          fileTagsToUpsert.push(...diffFileTagsToUpsert);
-        }
-
-        imp.update({ tagIds: [...new Set(fileTagIds)], tagsToUpsert: fileTagsToUpsert });
-      });
-
-      /* --------------------------------- Folders -------------------------------- */
-      const flatFolderHierarchy = importStore.editorImports
-        .reduce((acc, cur) => {
-          const folderTags: TagToUpsert[] = [];
-          const folderName = path.dirname(cur.path);
-          const folder = acc.find((f) => f.folderName === folderName);
-          const folderNameParts = folderName
-            .split(path.sep)
-            .slice(importStore.editorRootFolderIndex);
-          const collectionTitle =
-            folderToCollectionMode !== "none"
-              ? (folderToCollectionMode === "withTag"
-                  ? folderNameParts.slice()
-                  : folderNameParts
-                ).pop()
-              : null;
-          const tagLabel = folderNameParts.slice().pop()!;
-          const tagParentLabel = folderNameParts.slice(0, -1).pop();
-
-          if (folder) folder.imports.push(cur);
-          else {
-            const withDelimiters = folderToTagsMode === "hierarchicalDelimited";
-
-            if (folderToTagsMode === "cascading") {
-              folderNameParts.forEach((label) => {
-                const tag = tagStore.getByLabel(label);
-                if (!tag && !tagsToCreate.find((t) => t.label === label))
-                  tagsToCreate.push({ label, withRegEx: withNewTagsToRegEx });
-                else folderTags.push({ id: tag?.id, label });
-              });
-            } else if (folderToTagsMode.includes("hierarchical") && tagLabel) {
-              const labels = withDelimiters
-                ? tagLabel.split(FOLDER_DELIMITER).map((l) => l.trim())
-                : [tagLabel];
-
-              labels.forEach((tagLabel) => {
-                const tag = tagStore.getByLabel(tagLabel);
-                const parentLabel = tagParentLabel;
-                const parentLabels = parentLabel
-                  ? withDelimiters
-                    ? parentLabel.split(FOLDER_DELIMITER).map((l) => l.trim())
-                    : [parentLabel]
-                  : [];
-
-                folderTags.push({ id: tag?.id, label: tagLabel, parentLabels });
-
-                folderNameParts.forEach((l, idx) => {
-                  const labels = withDelimiters
-                    ? l.split(FOLDER_DELIMITER).map((l) => l.trim())
-                    : [l];
-
-                  labels.forEach((label) => {
-                    const tag = tagStore.getByLabel(label);
-                    const parentLabel = folderNameParts[idx - 1];
-                    const parentLabels = parentLabel
-                      ? withDelimiters
-                        ? parentLabel.split(FOLDER_DELIMITER).map((l) => l.trim())
-                        : [parentLabel]
-                      : [];
-
-                    if (!tag && !tagsToCreate.find((t) => t.label === label))
-                      tagsToCreate.push({ label, parentLabels, withRegEx: withNewTagsToRegEx });
-                    else if (tag && !tagsToEdit.find((t) => t.id === tag.id))
-                      tagsToEdit.push({ id: tag.id, label, parentLabels });
-                  });
-                });
-              });
+      /** Parse folder name regex mappings; replace duplicate tags to upsert */
+      if (withFolderNameRegEx) {
+        folderTags.push(
+          ...parseTagsFromRegEx(folderNameRegExMaps, folderName).reduce((acc, id) => {
+            const label = tagStore.getById(id)?.label;
+            if (!label) {
+              console.error(`Tag with id ${id} not found in tagStore`);
+              return acc;
             }
 
-            if (folderToTagsMode !== "none" && withFolderNameRegEx)
-              folderTags.push(
-                ...parseFileTags(folderNameRegExMaps, folderName).reduce((acc, id) => {
-                  const label = tagStore.getById(id).label;
-                  if (
-                    !acc.find((t) => t.label === label) &&
-                    !folderTags.find((t) => t.label === label)
-                  )
-                    acc.push({ id, label });
-                  return acc;
-                }, [] as TagToUpsert[])
-              );
+            const hasFolderTag = [...acc, ...folderTags].find((t) => t.label === label);
+            if (!hasFolderTag) acc.push({ id, label });
 
-            acc.push({
-              collectionTitle,
-              folderName,
-              folderNameParts,
-              imports: [cur],
-              tags: folderTags,
-            });
-          }
+            return acc;
+          }, [] as TagToUpsert[])
+        );
+      }
+    }
 
-          return acc;
-        }, [] as FlatFolderHierarchy)
-        .sort((a, b) => a.folderNameParts.length - b.folderNameParts.length);
+    /** Filter out ancestors of other tags in the folder or duplicates from regex maps */
+    const tags = folderTags.reduce((acc, tag) => {
+      const hasDescendants = folderTags.some((otherTag) => {
+        const parentLabels = [
+          ...new Set([
+            otherTag.parentLabels ?? [],
+            otherTag.id
+              ? tagStore.getParentTags(tagStore.getById(otherTag.id), true).map((t) => t.label)
+              : [],
+          ]),
+        ].flat();
 
-      setFlatFolderHierarchy(flatFolderHierarchy);
+        return parentLabels.includes(tag.label);
+      });
 
-      const tagsToUpsert = [...tagsToCreate, ...tagsToEdit];
+      if (hasDescendants) return acc;
 
-      setFlatTagsToUpsert(tagsToUpsert);
-      setTagHierarchy(
-        tagsToUpsert
-          .filter((t) => !t.parentLabels?.length)
-          .map((t) => ({ ...t, children: createTagHierarchy(tagsToUpsert, t.label) }))
-      );
+      const tagToPush = withFolderNameRegEx ? replaceTagsFromRegEx(tag, folderNameRegExMaps) : tag;
+      if (acc.find((t) => t.label === tagToPush.label)) return acc;
+      else acc.push(tagToPush);
 
-      setIsLoading(false);
-    }, 50);
-  }, [
-    folderToCollectionMode,
-    folderToTagsMode,
-    importStore.editorImports,
-    importStore.editorRootFolderIndex,
-    importStore.regExMaps,
-    withDiffusionModel,
-    withDiffusionParams,
-    withDiffusionRegExMaps,
-    withDiffusionTags,
-    withFileNameToTags,
-    withFolderNameRegEx,
-  ]);
+      return acc;
+    }, [] as TagToUpsert[]);
+
+    return {
+      _tagsToCreate,
+      _tagsToEdit,
+      /** The folder to be added to the hierarchy */
+      folder: {
+        collectionTitle,
+        folderName,
+        folderNameParts,
+        imports: [fileImport],
+        tags,
+      },
+    };
+  };
 
   const createTagHierarchy = (tags: TagToUpsert[], label: string): TagToUpsert[] =>
     tags
       .filter((c) => c.parentLabels?.includes(label))
       .map((c) => ({ ...c, children: createTagHierarchy(tags, c.label) }));
 
-  const handleClose = () => importStore.setIsImportEditorOpen(false);
+  const delimit = (str: string) =>
+    withDelimiters ? str.split(FOLDER_DELIMITER).map((l) => l.trim()) : [str];
+
+  const fileToTagsAndDiffParams = async () => {
+    const fileNameRegExMaps = getRegExMaps("fileName");
+
+    if (!withDiffusionParams)
+      importStore.clearValues({ diffusionParams: true, tagIds: true, tagsToUpsert: true });
+    else await importStore.loadDiffusionParams();
+
+    /** Create meta tags for diffusion params if not found. */
+    const { diffMetaTagsToEdit, originalTag, upscaledTag } = await upsertDiffMetaTags();
+
+    /** Directly update file imports with their own tags derived from RegEx maps and diffusion params. */
+    importStore.editorImports.forEach((imp) => {
+      const fileTagIds: string[] = [];
+      const fileTagsToUpsert: TagToUpsert[] = [];
+
+      if (withFileNameToTags) fileTagIds.push(...parseTagsFromRegEx(fileNameRegExMaps, imp.name));
+
+      if (imp.diffusionParams?.length) {
+        const { diffFileTagIds, diffFileTagsToUpsert } = parseDiffTags({
+          diffusionParams: imp.diffusionParams,
+          originalTagId: originalTag.id,
+          upscaledTagId: upscaledTag.id,
+        });
+
+        fileTagIds.push(...diffFileTagIds);
+        fileTagsToUpsert.push(...diffFileTagsToUpsert);
+      }
+
+      imp.update({ tagIds: [...new Set(fileTagIds)], tagsToUpsert: fileTagsToUpsert });
+    });
+
+    return diffMetaTagsToEdit;
+  };
+
+  const getRegExMaps = (type: RegExMapType): RegExMaps =>
+    importStore
+      .listRegExMapsByType(type)
+      .map((map) => ({ regEx: new RegExp(map.regEx, "im"), tagId: map.tagId }));
 
   const handleConfirm = async () => {
     setIsSaving(true);
 
     if (flatTagsToUpsert.length > 0) {
-      await rateLimitPromiseAll(
-        5,
-        flatTagsToUpsert.map(async (t) => {
-          const parentTags = t.parentLabels
-            ? t.parentLabels.map((l) => tagStore.getByLabel(l)).filter(Boolean)
-            : null;
-          const parentIds = parentTags?.map((t) => t.id) ?? [];
+      const tagQueue = new PromiseQueue();
+      const errors: string[] = [];
 
-          if (t.id) {
-            const tag = tagStore.getById(t.id);
-            if (!parentIds.length || tag.parentIds.some((id) => parentIds.includes(id))) return;
+      flatTagsToUpsert.forEach((t) =>
+        tagQueue.add(async () => {
+          try {
+            const parentTags = t.parentLabels
+              ? t.parentLabels.map((l) => tagStore.getByLabel(l)).filter(Boolean)
+              : null;
+            const parentIds = parentTags?.map((t) => t.id) ?? [];
 
-            const res = await tagStore.editTag({
-              id: t.id,
-              parentIds: parentIds.length ? [...tag.parentIds, ...parentIds] : [],
-            });
-            if (!res.success) throw new Error(res.error);
-          } else {
-            const res = await tagStore.createTag({
-              label: t.label,
-              parentIds,
-              withRegEx: t.withRegEx,
-            });
-            if (!res.success) throw new Error(res.error);
+            if (t.id) {
+              const tag = tagStore.getById(t.id);
+              if (!parentIds.length || tag.parentIds.some((id) => parentIds.includes(id))) return;
+
+              const res = await tagStore.editTag({
+                id: t.id,
+                parentIds: parentIds.length ? [...tag.parentIds, ...parentIds] : [],
+              });
+              if (!res.success) throw new Error(res.error);
+            } else {
+              const res = await tagStore.createTag({
+                label: t.label,
+                parentIds,
+                withRegEx: t.withRegEx,
+              });
+              if (!res.success) throw new Error(res.error);
+            }
+          } catch (err) {
+            errors.push(err.message);
           }
         })
       );
 
+      await tagQueue.queue;
+
       await tagStore.loadTags();
+
+      if (errors.length) {
+        console.error(errors);
+        toast.error("Failed to create tags");
+        return setIsSaving(false);
+      }
     }
 
     const batches = flatFolderHierarchy.map((folder) => ({
@@ -271,14 +307,6 @@ export const ImportEditor = observer(() => {
     handleClose();
     importStore.setIsImportManagerOpen(true);
   };
-
-  const handleFolderToCollection = (checked: boolean) =>
-    setFolderToCollectionMode(checked ? "withoutTag" : "none");
-
-  const handleFoldersToTags = (checked: boolean) =>
-    setFolderToTagsMode(checked ? "hierarchicalDelimited" : "none");
-
-  const handleRegExMapper = () => importStore.setIsImportRegExMapperOpen(true);
 
   const parseDiffParam = <IsNum extends boolean>(
     diffParams: string,
@@ -339,7 +367,7 @@ export const ImportEditor = observer(() => {
     if (withDiffusionRegExMaps) {
       importStore.listRegExMapsByType("diffusionParams").forEach((map) => {
         const regEx = new RegExp(map.regEx, "im");
-        if (regEx.test(prompt)) diffFileTagIds.push(...map.tagIds);
+        if (regEx.test(prompt)) diffFileTagIds.push(map.tagId);
       });
     }
 
@@ -367,25 +395,37 @@ export const ImportEditor = observer(() => {
     return { diffFileTagIds, diffFileTagsToUpsert };
   };
 
-  const parseFileTags = (regExMaps: { regEx: RegExp; tagIds: string[] }[], name: string) =>
+  const parseTagsFromRegEx = (regExMaps: RegExMaps, name: string) =>
     regExMaps.reduce((acc, cur) => {
-      if (cur.regEx.test(name)) acc.push(...cur.tagIds);
+      if (cur.regEx.test(name)) acc.push(cur.tagId);
       return acc;
     }, [] as string[]);
 
-  const toggleFolderToCollWithTag = () =>
-    setFolderToCollectionMode((prev) => (prev === "withTag" ? "withoutTag" : "withTag"));
+  const replaceTagsFromRegEx = (tag: TagToUpsert, regExMaps: RegExMaps) => {
+    const _tag = { ...tag };
 
-  const toggleFoldersToTagsCascading = () => setFolderToTagsMode("cascading");
+    const labelMatch = regExMaps.find((map) => map.regEx.test(_tag.label));
+    if (labelMatch) {
+      const label = tagStore.getById(labelMatch.tagId)?.label;
+      if (label && !_tag.parentLabels?.includes(label)) {
+        _tag.id = labelMatch.tagId;
+        _tag.label = label;
+      }
+    }
 
-  const toggleFoldersToTagsHierarchical = () => setFolderToTagsMode("hierarchical");
+    if (_tag.parentLabels) {
+      _tag.parentLabels.forEach((parentLabel, idx) => {
+        const parentLabelMatch = regExMaps.find((map) => map.regEx.test(parentLabel));
+        if (parentLabelMatch) {
+          const parentLabel = tagStore.getById(parentLabelMatch.tagId)?.label;
+          if (parentLabel && parentLabel !== _tag.label && !_tag.parentLabels.includes(parentLabel))
+            _tag.parentLabels[idx] = parentLabel;
+        }
+      });
+    }
 
-  const toggleFoldersToTagsHierDelimited = () =>
-    setFolderToTagsMode((prev) =>
-      prev === "hierarchicalDelimited" ? "hierarchical" : "hierarchicalDelimited"
-    );
-
-  const toggleWithFolderNameRegEx = () => setWithFolderNameRegEx((prev) => !prev);
+    return _tag;
+  };
 
   const upsertDiffMetaTags = async () => {
     const diffMetaTagsToEdit: TagToUpsert[] = [];
@@ -432,7 +472,73 @@ export const ImportEditor = observer(() => {
     return { diffMetaTagsToEdit, modelTag, originalTag, upscaledTag };
   };
 
-  const checkboxProps: Partial<CheckboxProps> = { disabled: isDisabled, flex: "initial" };
+  useEffect(() => {
+    setIsLoading(true);
+
+    setTimeout(async () => {
+      const folderNameRegExMaps = getRegExMaps("folderName");
+      const tagsToCreate: TagToUpsert[] = [];
+      const tagsToEdit: TagToUpsert[] = [];
+
+      /* ---------------------------------- Files --------------------------------- */
+      const fileTagsToEdit = await fileToTagsAndDiffParams();
+      tagsToEdit.push(...fileTagsToEdit);
+
+      /* --------------------------------- Folders -------------------------------- */
+      const flatFolderHierarchy = importStore.editorImports
+        .reduce((hierarchy, imp) => {
+          const folderName = path.dirname(imp.path);
+          const folder = hierarchy.find((f) => f.folderName === folderName);
+
+          if (folder) folder.imports.push(imp);
+          else {
+            const { folder, _tagsToCreate, _tagsToEdit } = createFolder({
+              fileImport: imp,
+              folderName,
+              folderNameRegExMaps,
+              tagsToCreate,
+              tagsToEdit,
+            });
+
+            hierarchy.push(folder);
+            tagsToCreate.push(..._tagsToCreate);
+            tagsToEdit.push(..._tagsToEdit);
+          }
+
+          return hierarchy;
+        }, [] as FlatFolderHierarchy)
+        .sort((a, b) => a.folderNameParts.length - b.folderNameParts.length);
+
+      setFlatFolderHierarchy(flatFolderHierarchy);
+
+      /* ----------------------------------- Tags ---------------------------------- */
+      const tagsToUpsert = [...tagsToCreate, ...tagsToEdit].map((tag) => {
+        return withFolderNameRegEx ? replaceTagsFromRegEx(tag, folderNameRegExMaps) : tag;
+      });
+      setFlatTagsToUpsert(tagsToUpsert);
+
+      setTagHierarchy(
+        tagsToUpsert
+          .filter((t) => !t.parentLabels?.length)
+          .map((t) => ({ ...t, children: createTagHierarchy(tagsToUpsert, t.label) }))
+      );
+
+      setIsLoading(false);
+    }, 50);
+  }, [
+    folderToCollectionMode,
+    folderToTagsMode,
+    importStore.editorImports,
+    importStore.editorRootFolderIndex,
+    importStore.regExMaps,
+    withDelimiters,
+    withDiffusionModel,
+    withDiffusionParams,
+    withDiffusionRegExMaps,
+    withDiffusionTags,
+    withFileNameToTags,
+    withFolderNameRegEx,
+  ]);
 
   return (
     <Modal.Container width="100%" height="100%">
@@ -481,14 +587,6 @@ export const ImportEditor = observer(() => {
 
             <View column margins={{ left: "1rem" }}>
               <Checkbox
-                label="With RegEx"
-                checked={withFolderNameRegEx}
-                setChecked={toggleWithFolderNameRegEx}
-                disabled={folderToTagsMode === "none"}
-                {...checkboxProps}
-              />
-
-              <Checkbox
                 label="Hierarchical"
                 checked={folderToTagsMode.includes("hierarchical")}
                 setChecked={toggleFoldersToTagsHierarchical}
@@ -496,20 +594,26 @@ export const ImportEditor = observer(() => {
                 {...checkboxProps}
               />
 
-              <View column margins={{ left: "1rem" }}>
-                <Checkbox
-                  label="Delimited"
-                  checked={folderToTagsMode === "hierarchicalDelimited"}
-                  setChecked={toggleFoldersToTagsHierDelimited}
-                  disabled={!folderToTagsMode.includes("hierarchical")}
-                  {...checkboxProps}
-                />
-              </View>
-
               <Checkbox
                 label="Cascading"
                 checked={folderToTagsMode === "cascading"}
                 setChecked={toggleFoldersToTagsCascading}
+                disabled={folderToTagsMode === "none"}
+                {...checkboxProps}
+              />
+
+              <Checkbox
+                label="Delimited"
+                checked={withDelimiters}
+                setChecked={setWithDelimiters}
+                disabled={folderToTagsMode === "none"}
+                {...checkboxProps}
+              />
+
+              <Checkbox
+                label="With RegEx"
+                checked={withFolderNameRegEx}
+                setChecked={toggleWithFolderNameRegEx}
                 disabled={folderToTagsMode === "none"}
                 {...checkboxProps}
               />

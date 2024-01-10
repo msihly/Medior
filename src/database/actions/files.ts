@@ -4,7 +4,7 @@ import fs from "fs/promises";
 import mongoose, { PipelineStage } from "mongoose";
 import * as db from "database";
 import { centeredSlice, dayjs, handleErrors, socket, trpc, uniqueArrayFilter } from "utils";
-import { leanModelToJson } from "./utils";
+import { leanModelToJson, objectIds } from "./utils";
 
 const FACE_MIN_CONFIDENCE = 0.4;
 const FACE_MODELS_PATH = app.isPackaged
@@ -46,27 +46,9 @@ const createFilterPipeline = ({
       $and: [
         includeTagged ? { tagIds: { $ne: [] } } : {},
         includeUntagged ? { tagIds: { $eq: [] } } : {},
-        includedAllTagIds?.length > 0
-          ? {
-              tagIds: {
-                $all: includedAllTagIds.map((tagId) => new mongoose.Types.ObjectId(tagId)),
-              },
-            }
-          : {},
-        includedAnyTagIds?.length > 0
-          ? {
-              tagIds: {
-                $in: includedAnyTagIds.map((tagId) => new mongoose.Types.ObjectId(tagId)),
-              },
-            }
-          : {},
-        excludedAnyTagIds?.length > 0
-          ? {
-              tagIds: {
-                $nin: excludedAnyTagIds.map((tagId) => new mongoose.Types.ObjectId(tagId)),
-              },
-            }
-          : {},
+        includedAllTagIds?.length > 0 ? { tagIds: { $all: objectIds(includedAllTagIds) } } : {},
+        includedAnyTagIds?.length > 0 ? { tagIds: { $in: objectIds(includedAnyTagIds) } } : {},
+        excludedAnyTagIds?.length > 0 ? { tagIds: { $nin: objectIds(excludedAnyTagIds) } } : {},
       ],
     },
   };

@@ -51,12 +51,6 @@ const tProc = t.procedure;
  * @see https://github.com/trpc/trpc/discussions/1936
  */
 const trpcRouter = tRouter({
-  addChildTagIdsToTags: tProc
-    .input((input: unknown) => input as db.AddChildTagIdsToTagsInput)
-    .mutation(({ input }) => db.addChildTagIdsToTags(input)),
-  addParentTagIdsToTags: tProc
-    .input((input: unknown) => input as db.AddParentTagIdsToTagsInput)
-    .mutation(({ input }) => db.addParentTagIdsToTags(input)),
   addTagsToBatch: tProc
     .input((input: unknown) => input as db.AddTagsToBatchInput)
     .mutation(({ input }) => db.addTagsToBatch(input)),
@@ -148,21 +142,12 @@ const trpcRouter = tRouter({
   onFileTagsUpdated: tProc
     .input((input: unknown) => input as db.OnFileTagsUpdatedInput)
     .mutation(({ input }) => db.onFileTagsUpdated(input)),
-  onTagCreated: tProc
-    .input((input: unknown) => input as db.OnTagCreatedInput)
-    .mutation(({ input }) => db.onTagCreated(input)),
-  onTagUpdated: tProc
-    .input((input: unknown) => input as db.OnTagUpdatedInput)
-    .mutation(({ input }) => db.onTagUpdated(input)),
   recalculateTagCounts: tProc
     .input((input: unknown) => input as db.RecalculateTagCountsInput)
     .mutation(({ input }) => db.recalculateTagCounts(input)),
-  removeChildTagIdsFromTags: tProc
-    .input((input: unknown) => input as db.RemoveChildTagIdsFromTagsInput)
-    .mutation(({ input }) => db.removeChildTagIdsFromTags(input)),
-  removeParentTagIdsFromTags: tProc
-    .input((input: unknown) => input as db.RemoveParentTagIdsFromTagsInput)
-    .mutation(({ input }) => db.removeParentTagIdsFromTags(input)),
+  refreshTagRelations: tProc
+    .input((input: unknown) => input as db.RefreshTagRelationsInput)
+    .mutation(({ input }) => db.refreshTagRelations(input)),
   removeTagsFromBatch: tProc
     .input((input: unknown) => input as db.RemoveTagsFromBatchInput)
     .mutation(({ input }) => db.removeTagsFromBatch(input)),
@@ -218,7 +203,7 @@ export interface SocketEmitEvents {
   reloadTags: () => void;
   tagCreated: (args: { tag: db.Tag }) => void;
   tagDeleted: (args: { tagId: string }) => void;
-  tagUpdated: (args: { tagId: string; updates: Partial<db.Tag> }) => void;
+  tagsUpdated: (args: { tagId: string; updates: Partial<db.Tag> }[]) => void;
 }
 
 export type SocketEmitEvent = keyof SocketEmitEvents;
@@ -227,13 +212,15 @@ export interface SocketEvents extends SocketEmitEvents {
   connected: () => void;
 }
 
-module.exports = (async () => {
+let io: Server, server: ReturnType<typeof createHTTPServer>;
+
+const startServers = async () => {
   logToFile("debug", "Creating database server...");
   await createDbServer();
   logToFile("debug", "Database server created.");
 
   logToFile("debug", "Creating tRPC server...");
-  const server = createHTTPServer({ router: trpcRouter });
+  server = createHTTPServer({ router: trpcRouter });
 
   const serverPort = +env.SERVER_PORT || 3334;
   await killPort(serverPort);
@@ -245,13 +232,13 @@ module.exports = (async () => {
 
   const socketPort = +env.SOCKET_PORT || 3335;
   await killPort(socketPort);
-  const io = new Server<SocketEvents, SocketEvents>(+env.SOCKET_PORT || 3335);
+  io = new Server<SocketEvents, SocketEvents>(+env.SOCKET_PORT || 3335);
 
   io.on("connection", (socket) => {
     logToFile("debug", `Socket server listening on port ${socketPort}.`);
     socket.emit("connected");
 
-    [
+    const socketEvents: SocketEmitEvent[] = [
       "collectionCreated",
       "filesArchived",
       "filesDeleted",
@@ -264,10 +251,11 @@ module.exports = (async () => {
       "reloadTags",
       "tagCreated",
       "tagDeleted",
-      "tagUpdated",
-    ].forEach((event: SocketEmitEvent) =>
+      "tagsUpdated",
+    ];
+
+    socketEvents.forEach((event) =>
       socket.on(event, (...args: any[]) => {
-        // @ts-expect-error
         socket.broadcast.emit(event, ...args);
       })
     );
@@ -276,5 +264,6 @@ module.exports = (async () => {
   setupSocketIO();
 
   logToFile("debug", "Servers created.");
-  return { io, server, trpcRouter };
-})();
+};
+
+startServers();

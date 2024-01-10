@@ -8,7 +8,7 @@ export class RegExMap extends Model({
   id: prop<string | null>(null),
   isDeleted: prop<boolean>(false),
   regEx: prop<string>("").withSetter(),
-  tagIds: prop<string[]>(() => []).withSetter(),
+  tagId: prop<string | null>(null).withSetter(),
   testString: prop<string>("").withSetter(),
   types: prop<RegExMapType[]>(() => []).withSetter(),
 }) {
@@ -16,7 +16,7 @@ export class RegExMap extends Model({
   constructor(props: Partial<RegExMap>) {
     super(props);
     reaction(
-      () => [this.isDeleted, this.regEx, this.tagIds.length, this.testString, this.types.length],
+      () => [this.isDeleted, this.regEx, this.tagId, this.testString, this.types.length],
       () => {
         if (!this.hasUnsavedChanges) this.hasUnsavedChanges = true;
       }

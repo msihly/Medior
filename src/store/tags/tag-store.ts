@@ -2,7 +2,6 @@ import { computed } from "mobx";
 import {
   _async,
   _await,
-  clone,
   getRootStore,
   model,
   Model,
@@ -17,18 +16,6 @@ import { SortMenuProps } from "components";
 import { Tag, TagOption } from ".";
 import { dayjs, handleErrors, PromiseQueue, regexEscape, trpc } from "utils";
 import { toast } from "react-toastify";
-
-const bisectChangedIds = (curIds: string[], newIds?: string[]) =>
-  newIds === undefined
-    ? [[], []]
-    : getArrayDiff(curIds, newIds).reduce(
-        (acc, cur) => {
-          if (newIds.includes(cur)) acc[0].push(cur);
-          else if (curIds.includes(cur)) acc[1].push(cur);
-          return acc;
-        },
-        [[], []] as string[][]
-      );
 
 export type TagManagerMode = "create" | "edit" | "search";
 
@@ -49,8 +36,8 @@ export class TagStore extends Model({
 
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
   @modelAction
-  _addTag = (tag: Tag) => {
-    if (!this.getById(tag.id)) this.tags.push(tag);
+  _addTag = (tag: ModelCreationData<Tag>) => {
+    if (!this.getById(tag.id)) this.tags.push(new Tag(tag));
   };
 
   @modelAction
@@ -85,10 +72,11 @@ export class TagStore extends Model({
   ) {
     return yield* _await(
       handleErrors(async () => {
-        const res = await trpc.createTag.mutate({ aliases, childIds, label, parentIds });
+        const res = await trpc.createTag.mutate({ aliases, childIds, label, parentIds, withSub });
         if (!res.success) throw new Error(res.error);
         const id = res.data.id;
-        const tag = new Tag({
+
+        const tag = {
           aliases,
           childIds,
           count: 0,
@@ -97,29 +85,24 @@ export class TagStore extends Model({
           id,
           label,
           parentIds,
-        });
-
-        this._addTag(tag);
-        await this.refreshTagRelations({ id });
-        await this.refreshRelatedTagCounts(tag);
-        toast.success(`Tag '${label}' created`);
+        };
 
         if (withRegEx) {
           const regExMap: ModelCreationData<RegExMap> = {
             regEx: this.tagsToRegEx([tag]),
-            tagIds: [id],
+            tagId: id,
             testString: label,
             types: ["diffusionParams", "fileName", "folderName"],
           };
 
           const res = await trpc.createRegExMaps.mutate({ regExMaps: [regExMap] });
-          toast.success(`RegEx map for '${label}' created`);
 
           const rootStore = getRootStore<RootStore>(this);
           rootStore.importStore._addRegExMap({ ...regExMap, id: res.data[0]._id.toString() });
         }
 
-        if (withSub) trpc.onTagCreated.mutate({ tag });
+        toast.success(`Tag '${label}' created${withRegEx ? " with RegEx map" : ""}`);
+
         return tag;
       })
     );
@@ -129,9 +112,7 @@ export class TagStore extends Model({
   deleteTag = _async(function* (this: TagStore, { id }: { id: string }) {
     return yield* _await(
       handleErrors(async () => {
-        const tag = clone(this.getById(id));
         await trpc.deleteTag.mutate({ id });
-        await this.refreshRelatedTagCounts(tag);
       })
     );
   });
@@ -143,39 +124,24 @@ export class TagStore extends Model({
   ) {
     return yield* _await(
       handleErrors(async () => {
-        // TODO: Convert this all into an aggregate pipeline
-        const tag = this.getById(id);
+        const origTag = this.getById(id);
+        const origLabel = origTag.label;
+        const origParentIds = [...this.getParentTags(origTag)].map((t) => t.id);
 
-        const [addedChildIds, removedChildIds] = bisectChangedIds(tag.childIds, childIds);
-        const [addedParentIds, removedParentIds] = bisectChangedIds(tag.parentIds, parentIds);
+        const editRes = await trpc.editTag.mutate({
+          aliases,
+          childIds,
+          id,
+          label,
+          parentIds,
+          withSub,
+        });
+        if (!editRes.success) throw new Error(editRes.error);
 
-        if (addedChildIds?.length > 0)
-          await trpc.addParentTagIdsToTags.mutate({ tagIds: addedChildIds, parentTagIds: [id] });
-        if (addedParentIds?.length > 0)
-          await trpc.addChildTagIdsToTags.mutate({ tagIds: addedParentIds, childTagIds: [id] });
+        const countRes = await this.refreshTagCounts([...origParentIds, id], withSub);
+        if (!countRes.success) throw new Error(countRes.error);
 
-        if (removedChildIds?.length > 0)
-          await trpc.removeParentTagIdsFromTags.mutate({
-            tagIds: removedChildIds,
-            parentTagIds: [id],
-          });
-        if (removedParentIds?.length > 0)
-          await trpc.removeChildTagIdsFromTags.mutate({
-            tagIds: removedParentIds,
-            childTagIds: [id],
-          });
-
-        await trpc.editTag.mutate({ id, aliases, childIds, label, parentIds });
-        await this.refreshTagCount(id);
-
-        /** TODO:
-         *  This is likely the cause of scaling lag on import tag creation.
-         *  Group updates in previous steps by id.
-         *  Update onTagUpdated to handle multiple tag updates to reduce network overhead. */
-        await this.loadTags();
-        // if (withSub) trpc.onTagUpdated.mutate({ tagId: id, updates: { aliases, label } });
-
-        toast.success(`Tag '${tag.label}' edited`);
+        toast.success(`Tag '${origLabel}' edited`);
       })
     );
   });
@@ -221,7 +187,7 @@ export class TagStore extends Model({
 
         this.tags.map((t) =>
           this.countsRefreshQueue.add(async () => {
-            await this.refreshTagCount(t.id);
+            await this.refreshTagCounts([t.id]);
 
             completedCount++;
             const isComplete = completedCount === totalCount;
@@ -270,20 +236,11 @@ export class TagStore extends Model({
   });
 
   @modelFlow
-  refreshTagCount = _async(function* (this: TagStore, id: string, withSub = true) {
+  refreshTagCounts = _async(function* (this: TagStore, tagIds: string[], withSub: boolean = true) {
     return yield* _await(
       handleErrors(async () => {
-        const tag = this.getById(id);
-        if (!tag) throw new Error(`[RefreshTagCount] Tag with id '${id}' not found`);
-
-        const res = await trpc.recalculateTagCounts.mutate({ tagId: id });
+        const res = await trpc.recalculateTagCounts.mutate({ tagIds, withSub });
         if (!res.success) throw new Error(res.error);
-
-        if (withSub)
-          res.data.forEach(({ _id, count }) =>
-            trpc.onTagUpdated.mutate({ tagId: _id, updates: { count } })
-          );
-
         return res.data;
       })
     );
@@ -293,52 +250,32 @@ export class TagStore extends Model({
   refreshTagRelations = _async(function* (this: TagStore, { id }: { id: string }) {
     return yield* _await(
       handleErrors(async () => {
-        // TODO: Convert this all into an aggregate pipeline
         const tag = this.getById(id);
 
-        const bisectRelatedTags = (tags: Tag[], type: "child" | "parent") =>
+        const bisectRelatedTags = (type: "child" | "parent", tags: Tag[]) =>
           tags.reduce(
             (acc, cur) => {
               if (!this.getById(cur.id)) acc["removed"].push(cur.id);
-              else if (!cur[`${type}Ids`].includes(id)) acc["added"].push(cur.id);
+              else if (!cur[`${type === "child" ? "parent" : "child"}Ids`].includes(id))
+                acc["added"].push(cur.id);
               return acc;
             },
             { added: [], removed: [] } as { added: string[]; removed: string[] }
           );
 
-        const { added: childTagsToAdd, removed: childTagsToRemove } = bisectRelatedTags(
-          this.getChildTags(tag),
-          "parent"
-        );
+        const changedChildIds = bisectRelatedTags("child", this.getChildTags(tag));
+        const changedParentIds = bisectRelatedTags("parent", this.getParentTags(tag));
+        const dateModified = dayjs().toISOString();
 
-        const { added: parentTagsToAdd, removed: parentTagsToRemove } = bisectRelatedTags(
-          this.getParentTags(tag),
-          "child"
-        );
-
-        await trpc.addParentTagIdsToTags.mutate({ tagIds: childTagsToAdd, parentTagIds: [id] });
-        await trpc.removeParentTagIdsFromTags.mutate({
-          tagIds: [id],
-          parentTagIds: childTagsToRemove,
+        const res = await trpc.refreshTagRelations.mutate({
+          changedChildIds,
+          changedParentIds,
+          dateModified,
+          tagId: id,
         });
+        if (!res.success) throw new Error(res.error);
 
-        await trpc.addChildTagIdsToTags.mutate({ tagIds: parentTagsToAdd, childTagIds: [id] });
-        await trpc.removeChildTagIdsFromTags.mutate({
-          tagIds: [id],
-          childTagIds: parentTagsToRemove,
-        });
-
-        return { childTagsToAdd, childTagsToRemove, parentTagsToAdd, parentTagsToRemove };
-      })
-    );
-  });
-
-  @modelFlow
-  refreshRelatedTagCounts = _async(function* (this: TagStore, tag: Tag) {
-    return yield* _await(
-      handleErrors(async () => {
-        const relatedTags = [...this.getChildTags(tag, true), ...this.getParentTags(tag, true)];
-        await Promise.all(relatedTags.map((t) => this.refreshTagCount(t.id)));
+        return { changedChildIds, changedParentIds, dateModified };
       })
     );
   });
@@ -384,22 +321,20 @@ export class TagStore extends Model({
   tagSearchOptsToIds(options: TagOption[]) {
     const [excludedAnyTagIds, includedAnyTagIds, includedAllTagIds] = options.reduce(
       (acc, cur) => {
-        if (cur.searchType === "exclude") acc[0].push(cur.id);
-        else if (cur.searchType === "excludeDesc") acc[0].push(...this.tagOptsToIds([cur], true));
-        else if (cur.searchType === "includeOr") acc[1].push(cur.id);
-        else if (cur.searchType === "includeDesc") acc[1].push(...this.tagOptsToIds([cur], true));
+        if (cur.searchType.includes("Desc"))
+          acc[cur.searchType === "excludeDesc" ? 0 : 1].push(
+            cur.id,
+            ...this.getChildTags(this.getById(cur.id), true).map((t) => t.id)
+          );
         else if (cur.searchType === "includeAnd") acc[2].push(cur.id);
+        else if (cur.searchType === "includeOr") acc[1].push(cur.id);
+        else if (cur.searchType === "exclude") acc[0].push(cur.id);
         return acc;
       },
       [[], [], []] as string[][]
     );
 
     return { excludedAnyTagIds, includedAllTagIds, includedAnyTagIds };
-  }
-
-  tagOptsToIds(opts: TagOption[], withDesc = false) {
-    const tagIds = opts.map((t) => t.id);
-    return [...tagIds, ...(withDesc ? tagsToDescendants(this, this.listByIds(tagIds)) : [])];
   }
 
   /* --------------------------------- GETTERS -------------------------------- */

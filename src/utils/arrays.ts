@@ -1,5 +1,21 @@
+import { logToFile } from "./logging";
+
 export const arrayIntersect = <T>(...arrays: T[][]): T[] =>
   [...arrays].reduce((acc, cur) => acc.filter((e) => cur.includes(e)));
+
+export const bisectArrayChanges = <T>(oldArr: T[], newArr: T[]) => {
+  if (!oldArr || !newArr) {
+    logToFile("error", "bisectArrayChanges: oldArr or newArr is undefined");
+    return { added: [], removed: [] };
+  } else
+    return getArrayDiff(oldArr, newArr).reduce(
+      (acc, cur) => {
+        acc[newArr.includes(cur) ? "added" : "removed"].push(cur);
+        return acc;
+      },
+      { added: [], removed: [] } as { added: T[]; removed: T[] }
+    );
+};
 
 export const centeredSlice = <T>(arr: T[], indexToCenter: number, maxCount?: number): T[] => {
   if (!arr || indexToCenter < 0 || indexToCenter > arr.length - 1) return null;

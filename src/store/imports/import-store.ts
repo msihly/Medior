@@ -225,8 +225,7 @@ export class ImportStore extends Model({
         batch.update({ collectionId, completedAt });
 
         rootStore.homeStore.reloadDisplayedFiles({ rootStore });
-
-        [...batch.tagIds].flat().map((tagId) => rootStore.tagStore.refreshTagCount(tagId));
+        rootStore.tagStore.refreshTagCounts([...batch.tagIds].flat());
       })
     );
   });
@@ -470,7 +469,7 @@ export class ImportStore extends Model({
   }
 
   listRegExMapsByType(type: db.RegExMapType) {
-    return this.regExMaps.filter((map) => map.types.includes(type));
+    return this.regExMaps.filter((map) => map.types.includes(type) && map.tagId?.length);
   }
 
   /* --------------------------------- GETTERS -------------------------------- */
@@ -502,17 +501,20 @@ export class ImportStore extends Model({
     );
 
     return this.regExMaps.filter((map) => {
-      /** Always show maps with empty tags, which are errors */
-      if (!map.tagIds.length) return true;
+      /** Always show maps without a tag, which are errors */
+      if (!map.tagId) return true;
 
-      if (this.regExSearchValue.length > 0 && !map.regEx.includes(this.regExSearchValue))
+      if (
+        this.regExSearchValue.length > 0 &&
+        !map.regEx.toLowerCase().includes(this.regExSearchValue.toLowerCase())
+      )
         return false;
 
-      if (excludedAnyTagIds.length > 0 && excludedAnyTagIds.some((id) => map.tagIds.includes(id)))
+      if (excludedAnyTagIds.length > 0 && excludedAnyTagIds.some((id) => map.tagId === id))
         return false;
-      if (includedAllTagIds.length > 0 && includedAllTagIds.some((id) => !map.tagIds.includes(id)))
+      if (includedAllTagIds.length > 0 && includedAllTagIds.some((id) => map.tagId !== id))
         return false;
-      if (includedAnyTagIds.length > 0 && !includedAnyTagIds.some((id) => map.tagIds.includes(id)))
+      if (includedAnyTagIds.length > 0 && !includedAnyTagIds.some((id) => map.tagId === id))
         return false;
 
       return true;
