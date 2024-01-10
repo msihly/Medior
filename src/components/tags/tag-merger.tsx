@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { observer } from "mobx-react-lite";
 import { TagOption, useStores } from "store";
 import { Divider } from "@mui/material";
 import {
   Button,
+  Checkbox,
   ChipOption,
   InputWrapper,
   Modal,
@@ -29,9 +30,45 @@ export const TagMerger = observer(() => {
   const [selectedTagValue, setSelectedTagValue] = useState<TagOption[]>([]);
   const [tagIdToKeep, setTagIdToKeep] = useState<string>("");
   const [tagIdToMerge, setTagIdToMerge] = useState<string>("");
+  const [tagLabelToKeep, setTagLabelToKeep] = useState<null | "base" | "merge">(null);
 
   const hasSelectedTag = selectedTagValue.length > 0;
   const disabled = isSaving || !hasSelectedTag;
+
+  useEffect(() => {
+    if (!selectedTagValue.length) {
+      setLabel("");
+      setAliases([]);
+      setParentTags([]);
+      setChildTags([]);
+      setTagLabelToKeep(null);
+      return;
+    }
+
+    const tag = tagStore.getById(selectedTagValue[0].id);
+    const tagToKeep = tag.count > tagStore.activeTag.count ? tag : tagStore.activeTag;
+    const tagToMerge = !(tag.count > tagStore.activeTag.count) ? tag : tagStore.activeTag;
+    setTagIdToKeep(tagToKeep.id);
+    setTagIdToMerge(tagToMerge.id);
+    if (!tagLabelToKeep)
+      setTagLabelToKeep(tagToKeep.id === tagStore.activeTagId ? "base" : "merge");
+
+    const aliasToSet = tagLabelToKeep === "merge" ? tagStore.activeTag.label : tag.label;
+    const labelToSet = tagLabelToKeep === "base" ? tagStore.activeTag.label : tag.label;
+    setLabel(labelToSet);
+    setAliases(
+      [...new Set([aliasToSet, ...tagToKeep.aliases, ...tagToMerge.aliases])].map((a) => ({
+        label: a,
+        value: a,
+      }))
+    );
+
+    const childIds = [...tagToKeep.childIds, ...tagToMerge.childIds];
+    const parentIds = [...tagToKeep.parentIds, ...tagToMerge.parentIds];
+    const tagIdsToExclude = [tagToKeep.id, tagToMerge.id];
+    setChildTags(mergeRelatedTags(childIds, tagIdsToExclude));
+    setParentTags(mergeRelatedTags(parentIds, tagIdsToExclude));
+  }, [JSON.stringify(selectedTagValue), tagLabelToKeep]);
 
   const handleClose = () => tagStore.setIsTagMergerOpen(false);
 
@@ -61,43 +98,18 @@ export const TagMerger = observer(() => {
     }
   };
 
-  const handleSelectedTagChange = (val: TagOption[]) => {
-    setSelectedTagValue(val);
-    if (!val.length) {
-      setLabel("");
-      setAliases([]);
-      setParentTags([]);
-      setChildTags([]);
-      return;
-    }
+  const handleSelectedTagChange = (val: TagOption[]) => setSelectedTagValue(val);
 
-    const tag = tagStore.getById(val[0].id);
-    const tagToKeep = tag.count > tagStore.activeTag.count ? tag : tagStore.activeTag;
-    const tagToMerge = tag.count > tagStore.activeTag.count ? tagStore.activeTag : tag;
-
-    setTagIdToKeep(tagToKeep.id);
-    setTagIdToMerge(tagToMerge.id);
-    setLabel(tagToKeep.label);
-    setAliases(
-      [...new Set([tagToMerge.label, ...tagToKeep.aliases, ...tagToMerge.aliases])].map((a) => ({
-        label: a,
-        value: a,
-      }))
-    );
-
-    const childIds = [...tagToKeep.childIds, ...tagToMerge.childIds];
-    const parentIds = [...tagToKeep.parentIds, ...tagToMerge.parentIds];
-    const tagIdsToExclude = [tagToKeep.id, tagToMerge.id];
-    setChildTags(mergeRelatedTags(childIds, tagIdsToExclude));
-    setParentTags(mergeRelatedTags(parentIds, [...tagIdsToExclude, ...tagToMerge.parentIds]));
-  };
-
-  const mergeRelatedTags = (tagIds: string[], tagIdsToExclude: string[]) =>
-    [...new Set(tagIds)].reduce((acc, cur) => {
-      if (tagIdsToExclude.includes(cur)) return acc;
-      else acc.push(tagStore.getById(cur).tagOption);
+  const mergeRelatedTags = (tagIds: string[], tagIdsToExclude: string[]) => {
+    const filteredTagIds = [...new Set(tagIds)].filter((t) => !tagIdsToExclude.includes(t));
+    return filteredTagIds.reduce((acc, cur) => {
+      const tag = tagStore.getById(cur);
+      const ancestorIds = tagStore.getParentTags(tag, true).map((t) => t.id);
+      if (filteredTagIds.some((t) => ancestorIds.includes(t))) return acc;
+      else acc.push(tag.tagOption);
       return acc;
     }, [] as TagOption[]);
+  };
 
   return (
     <Modal.Container onClose={handleClose} width="50rem" draggable>
@@ -106,28 +118,50 @@ export const TagMerger = observer(() => {
       </Modal.Header>
 
       <Modal.Content>
-        <InputWrapper label="Base Tag" align="center" margins={{ bottom: "1rem" }}>
-          <Tag tag={tagStore.activeTag} />
-        </InputWrapper>
+        <View align="center" className={css.spacedRow}>
+          <View column flex={1}>
+            <InputWrapper label="Base Tag" align="center" margins={{ bottom: "1rem" }}>
+              <Tag tag={tagStore.activeTag} />
+            </InputWrapper>
 
-        <InputWrapper label="Select Tag to Merge" align="center">
-          <TagInput
-            options={[...tagStore.tagOptions]}
-            excludedIds={[tagStore.activeTagId]}
-            value={selectedTagValue}
-            onChange={handleSelectedTagChange}
-            hasDelete
-            maxTags={1}
-            width="20rem"
-          />
-        </InputWrapper>
+            <Checkbox
+              label="Keep This Label"
+              checked={tagLabelToKeep === "base"}
+              setChecked={() => setTagLabelToKeep("base")}
+              disabled={disabled}
+              center
+            />
+          </View>
+
+          <View column flex={1}>
+            <InputWrapper label="Select Tag to Merge" align="center">
+              <TagInput
+                options={[...tagStore.tagOptions]}
+                excludedIds={[tagStore.activeTagId]}
+                value={selectedTagValue}
+                onChange={handleSelectedTagChange}
+                hasDelete
+                maxTags={1}
+                width="20rem"
+              />
+            </InputWrapper>
+
+            <Checkbox
+              label="Keep This Label"
+              checked={tagLabelToKeep === "merge"}
+              setChecked={() => setTagLabelToKeep("merge")}
+              disabled={disabled}
+              center
+            />
+          </View>
+        </View>
 
         <Divider className={css.divider} />
 
         <View className={css.editorContainer}>
           {disabled && <View className={css.disabledOverlay} />}
 
-          <View className={css.spacedRow}>
+          <View align="flex-start" className={css.spacedRow}>
             <TagInputs.Label value={label} setValue={setLabel} disabled disableWithoutFade />
 
             <TagInputs.Aliases value={aliases} setValue={setAliases} disabled disableWithoutFade />
@@ -196,7 +230,6 @@ const useClasses = makeClasses({
   spacedRow: {
     display: "flex",
     flexDirection: "row",
-    alignItems: "center",
     "& > *:not(:last-child)": {
       marginRight: "0.5rem",
     },
