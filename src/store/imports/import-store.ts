@@ -176,9 +176,9 @@ export class ImportStore extends Model({
           .map((file) => file.fileId);
         if (duplicateFileIds.length) {
           try {
-            const res = await trpc.addTagsToFiles.mutate({
+            const res = await trpc.editFileTags.mutate({
               fileIds: duplicateFileIds,
-              tagIds: [...batch.tagIds].flat(),
+              addedTagIds: [...batch.tagIds].flat(),
             });
             if (!res.success) throw new Error(res.error);
           } catch (err) {

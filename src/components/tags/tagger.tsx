@@ -12,9 +12,9 @@ interface TaggerProps {
 }
 
 export const Tagger = observer(({ batchId, fileIds, setVisible }: TaggerProps) => {
-  const rootStore = useStores();
-  const { fileStore, tagStore } = useStores();
   const { css } = useClasses(null);
+
+  const { fileStore, tagStore } = useStores();
 
   const [addedTags, setAddedTags] = useState<TagOption[]>([]);
   const [currentTagOptions, setCurrentTagOptions] = useState<TagOption[]>([]);
@@ -59,16 +59,10 @@ export const Tagger = observer(({ batchId, fileIds, setVisible }: TaggerProps) =
       batchId,
       fileIds,
       removedTagIds,
-      rootStore,
     });
     if (!res?.success) return toast.error(res.error);
 
     handleClose();
-  };
-
-  const handleTagClick = (tagId: string) => {
-    tagStore.setActiveTagId(tagId);
-    tagStore.setIsTagEditorOpen(true);
   };
 
   return (
@@ -82,7 +76,6 @@ export const Tagger = observer(({ batchId, fileIds, setVisible }: TaggerProps) =
           <Text className={css.sectionTitle}>{"Current Tags"}</Text>
           <TagInput
             value={currentTagOptions}
-            onTagClick={handleTagClick}
             disabled
             disableWithoutFade
             opaque
@@ -93,7 +86,6 @@ export const Tagger = observer(({ batchId, fileIds, setVisible }: TaggerProps) =
           <TagInput
             value={addedTags}
             onChange={handleTagAdded}
-            onTagClick={handleTagClick}
             autoFocus
             hasCreate
             hasDelete
@@ -105,7 +97,6 @@ export const Tagger = observer(({ batchId, fileIds, setVisible }: TaggerProps) =
             value={removedTags}
             onChange={handleTagRemoved}
             options={currentTagOptions}
-            onTagClick={handleTagClick}
             hasDelete
             className={css.tagInput}
           />

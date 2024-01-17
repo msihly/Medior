@@ -140,7 +140,9 @@ export const Home = observer(() => {
 
             {fileCollectionStore.isCollectionEditorOpen && <FileCollectionEditor />}
 
-            {tagStore.isTagEditorOpen && <TagEditor />}
+            {tagStore.isTagEditorOpen && <TagEditor id={tagStore.activeTagId} hasSubEditor />}
+
+            {tagStore.isTagSubEditorOpen && <TagEditor id={tagStore.subEditorTagId} isSubEditor />}
 
             {tagStore.isTagManagerOpen && <TagManager />}
 

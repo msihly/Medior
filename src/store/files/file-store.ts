@@ -110,7 +110,6 @@ export class FileStore extends Model({
 
         if (isUndelete) {
           await trpc.setFileIsArchived.mutate({ fileIds, isArchived: false });
-          await trpc.onFilesUpdated.mutate({ fileIds, updates: { isArchived: false } });
           toast.success(`${fileIds.length} files unarchived`);
         } else {
           const res = await trpc.listFiles.mutate({ ids: fileIds });
@@ -122,12 +121,6 @@ export class FileStore extends Model({
 
           if (archivedIds?.length > 0) {
             await trpc.setFileIsArchived.mutate({ fileIds: archivedIds, isArchived: true });
-            await trpc.onFilesUpdated.mutate({
-              fileIds: archivedIds,
-              updates: { isArchived: true },
-            });
-
-            await trpc.onFilesArchived.mutate({ fileIds: archivedIds });
             toast.success(`${archivedIds.length} files archived`);
           }
 
@@ -148,7 +141,6 @@ export class FileStore extends Model({
               ...new Set(deleted.flatMap((f) => f.tagIds)),
             ]);
 
-            await trpc.onFilesDeleted.mutate({ fileIds: deletedIds });
             toast.success(`${deletedIds.length} files deleted`);
           }
         }
@@ -163,33 +155,19 @@ export class FileStore extends Model({
   @modelFlow
   editFileTags = _async(function* (
     this: FileStore,
-    { addedTagIds = [], batchId, fileIds, rootStore, removedTagIds = [] }: EditFileTagsInput
+    { addedTagIds = [], batchId, fileIds, removedTagIds = [] }: EditFileTagsInput
   ) {
     return yield* _await(
       handleErrors(async () => {
-        if (!fileIds?.length || (!addedTagIds?.length && !removedTagIds?.length)) return false;
+        const res = await trpc.editFileTags.mutate({
+          addedTagIds,
+          batchId,
+          fileIds,
+          removedTagIds,
+        });
 
-        if (removedTagIds?.length > 0) {
-          await Promise.all([
-            batchId?.length > 0 &&
-              (await trpc.removeTagsFromBatch.mutate({ batchId, tagIds: removedTagIds })),
-            await trpc.removeTagsFromFiles.mutate({ fileIds, tagIds: removedTagIds }),
-          ]);
-        }
-
-        if (addedTagIds?.length > 0) {
-          await Promise.all([
-            batchId?.length > 0 &&
-              (await trpc.addTagsToBatch.mutate({ batchId, tagIds: addedTagIds })),
-            await trpc.addTagsToFiles.mutate({ fileIds, tagIds: addedTagIds }),
-          ]);
-        }
-
-        await rootStore.tagStore.refreshTagCounts([...new Set([...addedTagIds, ...removedTagIds])]);
-
+        if (!res.success) throw new Error(res.error);
         toast.success(`${fileIds.length} files updated`);
-
-        trpc.onFileTagsUpdated.mutate({ addedTagIds, batchId, fileIds, removedTagIds });
       })
     );
   });

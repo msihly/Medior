@@ -225,11 +225,7 @@ export class FaceRecognitionStore extends Model({
         }, []);
 
         if (newTagIds.length > 0)
-          await rootStore.fileStore.editFileTags({
-            addedTagIds: newTagIds,
-            fileIds: [file.id],
-            rootStore,
-          });
+          await rootStore.fileStore.editFileTags({ addedTagIds: newTagIds, fileIds: [file.id] });
 
         this.setIsSaving(false);
         return this.faceModels;

@@ -3,23 +3,13 @@ import path from "path";
 import fs from "fs/promises";
 import mongoose, { PipelineStage } from "mongoose";
 import * as db from "database";
-import { centeredSlice, dayjs, handleErrors, socket, trpc, uniqueArrayFilter } from "utils";
+import { centeredSlice, dayjs, handleErrors, socket, uniqueArrayFilter } from "utils";
 import { leanModelToJson, objectIds } from "./utils";
 
 const FACE_MIN_CONFIDENCE = 0.4;
 const FACE_MODELS_PATH = app.isPackaged
   ? path.resolve(process.resourcesPath, "extraResources/face-models")
   : "src/face-models";
-
-export const addTagsToFiles = ({ fileIds = [], tagIds = [] }: db.AddTagsToFilesInput) =>
-  handleErrors(async () => {
-    const dateModified = dayjs().toISOString();
-    await db.FileModel.updateMany(
-      { _id: { $in: fileIds } },
-      { $addToSet: { tagIds: { $each: tagIds } }, dateModified }
-    );
-    return dateModified;
-  });
 
 const createFilterPipeline = ({
   excludedAnyTagIds,
@@ -74,6 +64,8 @@ export const deleteFiles = ({ fileIds }: db.DeleteFilesInput) =>
     );
 
     await db.FileModel.deleteMany({ _id: { $in: fileIds } });
+
+    socket.emit("filesDeleted", { fileIds });
   });
 
 export const detectFaces = async ({ imagePath }: db.DetectFacesInput) =>
@@ -98,6 +90,42 @@ export const detectFaces = async ({ imagePath }: db.DetectFacesInput) =>
       tf.dispose(tensor);
       throw new Error(err);
     }
+  });
+
+export const editFileTags = ({
+  addedTagIds = [],
+  batchId,
+  fileIds,
+  removedTagIds = [],
+}: db.EditFileTagsInput) =>
+  handleErrors(async () => {
+    if (!fileIds.length) throw new Error("Missing fileIds in editFileTags");
+    if (!addedTagIds.length && !removedTagIds.length)
+      throw new Error("Missing updated tagIds in editFileTags");
+
+    const dateModified = dayjs().toISOString();
+
+    await db.FileModel.updateMany(
+      { _id: { $in: fileIds } },
+      {
+        $addToSet: { tagIds: { $each: addedTagIds } },
+        $pullAll: { tagIds: removedTagIds },
+        dateModified,
+      }
+    );
+
+    if (batchId)
+      await db.FileImportBatchModel.updateMany(
+        { _id: batchId },
+        {
+          $addToSet: { tagIds: { $each: addedTagIds } },
+          $pullAll: { tagIds: removedTagIds },
+        }
+      );
+
+    await db.recalculateTagCounts({ tagIds: [...new Set([...addedTagIds, ...removedTagIds])] });
+
+    socket.emit("fileTagsUpdated", { addedTagIds, batchId, fileIds, removedTagIds });
   });
 
 export const getFileByHash = ({ hash }: db.GetFileByHashInput) =>
@@ -361,53 +389,27 @@ export const loadFaceApiNets = async () =>
     await faceapi.nets.faceRecognitionNet.loadFromDisk(FACE_MODELS_PATH);
   });
 
-export const onFilesArchived = async ({ fileIds }: db.OnFilesArchivedInput) =>
-  handleErrors(async () => !!socket.emit("filesArchived", { fileIds }));
-
-export const onFilesDeleted = async ({ fileIds }: db.OnFilesDeletedInput) =>
-  handleErrors(async () => !!socket.emit("filesDeleted", { fileIds }));
-
-export const onFilesUpdated = async ({ fileIds, updates }: db.OnFilesUpdatedInput) =>
-  handleErrors(async () => !!socket.emit("filesUpdated", { fileIds, updates }));
-
-export const onFileTagsUpdated = async ({
-  addedTagIds,
-  fileIds,
-  removedTagIds,
-}: db.OnFileTagsUpdatedInput) =>
-  handleErrors(
-    async () => !!socket.emit("fileTagsUpdated", { addedTagIds, fileIds, removedTagIds })
-  );
-
-export const removeTagsFromFiles = ({ fileIds = [], tagIds = [] }: db.RemoveTagsFromFilesInput) =>
-  handleErrors(async () => {
-    const dateModified = dayjs().toISOString();
-    await db.FileModel.updateMany(
-      { _id: { $in: fileIds } },
-      { $pullAll: { tagIds }, dateModified }
-    );
-    return dateModified;
-  });
-
 export const setFileFaceModels = async ({ faceModels, id }: db.SetFileFaceModelsInput) =>
   handleErrors(async () => {
-    const dateModified = dayjs().toISOString();
-    await db.FileModel.findOneAndUpdate({ _id: id }, { $set: { faceModels, dateModified } });
-    await trpc.onFilesUpdated.mutate({ fileIds: [id], updates: { faceModels, dateModified } });
-    return dateModified;
+    const updates = { faceModels, dateModified: dayjs().toISOString() };
+    await db.FileModel.findOneAndUpdate({ _id: id }, { $set: updates });
+    socket.emit("filesUpdated", { fileIds: [id], updates });
   });
 
 export const setFileIsArchived = ({ fileIds = [], isArchived }: db.SetFileIsArchivedInput) =>
-  handleErrors(
-    async () => await db.FileModel.updateMany({ _id: { $in: fileIds } }, { isArchived })
-  );
+  handleErrors(async () => {
+    const updates = { isArchived };
+    await db.FileModel.updateMany({ _id: { $in: fileIds } }, updates);
+
+    if (isArchived) socket.emit("filesArchived", { fileIds });
+    socket.emit("filesUpdated", { fileIds, updates });
+  });
 
 export const setFileRating = ({ fileIds = [], rating }: db.SetFileRatingInput) =>
   handleErrors(async () => {
     const updates = { rating, dateModified: dayjs().toISOString() };
     await db.FileModel.updateMany({ _id: { $in: fileIds } }, updates);
-    await trpc.onFilesUpdated.mutate({ fileIds, updates });
-    return { fileIds, updates };
+    socket.emit("filesUpdated", { fileIds, updates });
   });
 
 export const updateFile = async ({ id, ...updates }: db.UpdateFileInput) =>

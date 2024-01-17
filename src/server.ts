@@ -51,12 +51,6 @@ const tProc = t.procedure;
  * @see https://github.com/trpc/trpc/discussions/1936
  */
 const trpcRouter = tRouter({
-  addTagsToBatch: tProc
-    .input((input: unknown) => input as db.AddTagsToBatchInput)
-    .mutation(({ input }) => db.addTagsToBatch(input)),
-  addTagsToFiles: tProc
-    .input((input: unknown) => input as db.AddTagsToFilesInput)
-    .mutation(({ input }) => db.addTagsToFiles(input)),
   completeImportBatch: tProc
     .input((input: unknown) => input as db.CompleteImportBatchInput)
     .mutation(({ input }) => db.completeImportBatch(input)),
@@ -90,6 +84,9 @@ const trpcRouter = tRouter({
   detectFaces: tProc
     .input((input: unknown) => input as db.DetectFacesInput)
     .mutation(({ input }) => db.detectFaces(input)),
+  editFileTags: tProc
+    .input((input: unknown) => input as db.EditFileTagsInput)
+    .mutation(({ input }) => db.editFileTags(input)),
   editTag: tProc
     .input((input: unknown) => input as db.EditTagInput)
     .mutation(({ input }) => db.editTag(input)),
@@ -130,30 +127,12 @@ const trpcRouter = tRouter({
   onCollectionCreated: tProc
     .input((input: unknown) => input as db.OnCollectionCreatedInput)
     .mutation(({ input }) => db.onCollectionCreated(input)),
-  onFilesArchived: tProc
-    .input((input: unknown) => input as db.OnFilesArchivedInput)
-    .mutation(({ input }) => db.onFilesArchived(input)),
-  onFilesDeleted: tProc
-    .input((input: unknown) => input as db.OnFilesDeletedInput)
-    .mutation(({ input }) => db.onFilesDeleted(input)),
-  onFilesUpdated: tProc
-    .input((input: unknown) => input as db.OnFilesUpdatedInput)
-    .mutation(({ input }) => db.onFilesUpdated(input)),
-  onFileTagsUpdated: tProc
-    .input((input: unknown) => input as db.OnFileTagsUpdatedInput)
-    .mutation(({ input }) => db.onFileTagsUpdated(input)),
   recalculateTagCounts: tProc
     .input((input: unknown) => input as db.RecalculateTagCountsInput)
     .mutation(({ input }) => db.recalculateTagCounts(input)),
   refreshTagRelations: tProc
     .input((input: unknown) => input as db.RefreshTagRelationsInput)
     .mutation(({ input }) => db.refreshTagRelations(input)),
-  removeTagsFromBatch: tProc
-    .input((input: unknown) => input as db.RemoveTagsFromBatchInput)
-    .mutation(({ input }) => db.removeTagsFromBatch(input)),
-  removeTagsFromFiles: tProc
-    .input((input: unknown) => input as db.RemoveTagsFromFilesInput)
-    .mutation(({ input }) => db.removeTagsFromFiles(input)),
   setFileFaceModels: tProc
     .input((input: unknown) => input as db.SetFileFaceModelsInput)
     .mutation(({ input }) => db.setFileFaceModels(input)),

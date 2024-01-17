@@ -60,11 +60,6 @@ export const RegExMapRow = observer(({ index, style }: RegExMapRowProps) => {
 
   const handleTagsChange = (value: TagOption[]) => map.setTagId(value[0]?.id || null);
 
-  const handleTagClick = (id: string) => {
-    tagStore.setActiveTagId(id);
-    tagStore.setIsTagEditorOpen(true);
-  };
-
   const setRegEx = (value: string) => map.setRegEx(value);
 
   const setTestString = (value: string) => map.setTestString(value);
@@ -168,7 +163,6 @@ export const RegExMapRow = observer(({ index, style }: RegExMapRowProps) => {
           label="Tag"
           value={[tagOption]}
           onChange={handleTagsChange}
-          onTagClick={handleTagClick}
           hasCreate
           hasDelete
           maxTags={1}

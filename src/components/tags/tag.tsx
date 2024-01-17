@@ -6,11 +6,16 @@ import { Button, ButtonProps, Chip, ChipProps, Text, View } from "components";
 import { colors, makeClasses } from "utils";
 import Color from "color";
 
-export interface TagProps extends Omit<ChipProps, "color" | "label"> {
+const HEIGHT_MEDIUM = 32;
+const HEIGHT_SMALL = 26;
+
+export interface TagProps extends Omit<ChipProps, "color" | "label" | "onClick"> {
   color?: string;
+  hasEditor?: boolean;
   id?: string;
   menu?: ReactNode;
   menuButtonProps?: Partial<ButtonProps>;
+  onClick?: (id: string) => void;
   tag?: TagType;
 }
 
@@ -18,9 +23,11 @@ export const Tag = observer(
   ({
     className,
     color = colors.blue["700"],
+    hasEditor = false,
     id,
     menu,
     menuButtonProps = {},
+    onClick,
     onDelete = null,
     size = "small",
     tag,
@@ -33,15 +40,27 @@ export const Tag = observer(
 
     const [anchorEl, setAnchorEl] = useState(null);
 
+    const handleClick = () => {
+      onClick?.(tag?.id);
+      if (hasEditor) {
+        tagStore.setActiveTagId(tag?.id);
+        tagStore.setIsTagEditorOpen(true);
+      }
+    };
+
     const handleClose = () => setAnchorEl(null);
 
-    const handleOpen = (event) => setAnchorEl(event.currentTarget);
+    const handleOpen = (event) => {
+      event.stopPropagation();
+      setAnchorEl(event.currentTarget);
+    };
 
     return (
       <>
         <Chip
           {...props}
           {...{ onDelete }}
+          onClick={hasEditor || onClick ? handleClick : null}
           avatar={<Avatar className={css.count}>{formatter.format(tag?.count)}</Avatar>}
           label={
             <View row align="center">
@@ -81,15 +100,16 @@ const useClasses = makeClasses((_, { color, size }) => ({
   chip: {
     marginRight: "0.2em",
     padding: "0.3em 0",
-    height: size === "medium" ? 32 : 26,
+    height: size === "medium" ? HEIGHT_MEDIUM : HEIGHT_SMALL,
   },
   count: {
     background: `linear-gradient(to bottom right, ${color}, ${Color(color).darken(0.3).string()})`,
     "&.MuiChip-avatar": {
-      marginLeft: "0.25em",
-      width: size === "medium" ? 28 : 23,
-      height: size === "medium" ? 28 : 23,
-      fontSize: "0.75em",
+      borderRadius: "50% 0 0 50%",
+      marginLeft: 0,
+      width: size === "medium" ? HEIGHT_MEDIUM : HEIGHT_SMALL,
+      height: size === "medium" ? HEIGHT_MEDIUM : HEIGHT_SMALL,
+      fontSize: "0.7em",
     },
   },
   label: {

@@ -3,15 +3,6 @@ import { ImportBatchInput } from "store";
 import { dayjs, handleErrors } from "utils";
 import { leanModelToJson } from "./utils";
 
-export const addTagsToBatch = ({ batchId, tagIds }: db.AddTagsToBatchInput) =>
-  handleErrors(
-    async () =>
-      await db.FileImportBatchModel.updateOne(
-        { _id: batchId },
-        { $addToSet: { tagIds: { $each: tagIds } } }
-      )
-  );
-
 export const completeImportBatch = ({ collectionId, id }: db.CompleteImportBatchInput) =>
   handleErrors(async () => {
     const completedAt = dayjs().toISOString();
@@ -68,10 +59,6 @@ export const listRegExMaps = () =>
     (await db.RegExMapModel.find().lean()).map((r) => leanModelToJson<db.RegExMap>(r))
   );
 
-export const removeTagsFromBatch = ({ batchId, tagIds }: db.RemoveTagsFromBatchInput) =>
-  handleErrors(
-    async () => await db.FileImportBatchModel.updateOne({ _id: batchId }, { $pullAll: { tagIds } })
-  );
 
 export const startImportBatch = ({ id }: db.StartImportBatchInput) =>
   handleErrors(async () => {

@@ -59,6 +59,7 @@ export type TagInputProps = Omit<
   excludedIds?: string[];
   hasCreate?: boolean;
   hasDelete?: boolean;
+  hasEditor?: boolean;
   hasHelper?: boolean;
   hasSearchMenu?: boolean;
   inputProps?: InputProps;
@@ -86,6 +87,7 @@ export const TagInput = observer(
         excludedIds = [],
         hasCreate = false,
         hasDelete = false,
+        hasEditor = true,
         hasHelper = false,
         hasSearchMenu,
         inputProps,
@@ -215,7 +217,7 @@ export const TagInput = observer(
 
       const renderTags = (val: TagOption[], getTagProps: AutocompleteRenderGetTagProps) =>
         val.map((option: TagOption, index: number) => {
-          const handleClick = () => onTagClick(option.id);
+          const handleClick = () => onTagClick?.(option.id);
 
           const handleDelete = () => onChange?.(value.filter((t) => t.id !== option.id));
 
@@ -227,7 +229,8 @@ export const TagInput = observer(
               {...getTagProps({ index })}
               key={option.id}
               id={option.id}
-              onClick={onTagClick ? handleClick : null}
+              hasEditor={hasEditor}
+              onClick={hasEditor || onTagClick ? handleClick : null}
               onDelete={hasDelete ? handleDelete : null}
               menuButtonProps={
                 !hasSearchMenu

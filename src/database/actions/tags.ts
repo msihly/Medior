@@ -467,23 +467,30 @@ export const refreshTagRelations = ({
     const childIds = tag.childIds?.map((i) => i.toString()) ?? [];
     const parentIds = tag.parentIds?.map((i) => i.toString()) ?? [];
 
-    const idsWithOrphanedChild = (await db.TagModel.find({ childIds: tagId }).lean()).reduce(
-      (acc, cur) => {
+    const getOrphanedIds = async (field: string, oppIds: string[]) => {
+      const tags = await db.TagModel.find({ [field]: tagId }).lean();
+      return tags.reduce((acc, cur) => {
         const otherTag = leanModelToJson<db.Tag>(cur);
-        if (parentIds.includes(otherTag.id)) return acc;
+        if (oppIds.includes(otherTag.id)) return acc;
         return [...acc, otherTag.id];
-      },
-      [] as string[]
-    );
+      }, [] as string[]);
+    };
 
-    const idsWithOrphanedParent = (await db.TagModel.find({ parentIds: tagId }).lean()).reduce(
-      (acc, cur) => {
-        const otherTag = leanModelToJson<db.Tag>(cur);
-        if (childIds.includes(otherTag.id)) return acc;
-        return [...acc, otherTag.id];
-      },
-      [] as string[]
-    );
+    const [idsWithOrphanedChild, idsWithOrphanedParent] = await Promise.all([
+      getOrphanedIds("childIds", parentIds),
+      getOrphanedIds("parentIds", childIds),
+    ]);
+
+    if (!tag.childIds || !tag.parentIds)
+      await db.TagModel.updateOne(
+        { _id: tagId },
+        {
+          $set: {
+            ...(!tag.childIds ? { childIds: [] } : {}),
+            ...(!tag.parentIds ? { parentIds: [] } : {}),
+          },
+        }
+      );
 
     await db.TagModel.bulkWrite(
       // @ts-expect-error
@@ -494,19 +501,6 @@ export const refreshTagRelations = ({
           dateModified,
           tagId,
         })),
-        !tag.childIds || !tag.parentIds
-          ? {
-              updateOne: {
-                filter: { _id: new mongoose.Types.ObjectId(tagId) },
-                update: {
-                  $set: {
-                    ...(!tag.childIds ? { childIds: [] } : {}),
-                    ...(!tag.parentIds ? { parentIds: [] } : {}),
-                  },
-                },
-              },
-            }
-          : false,
         {
           updateOne: {
             filter: { _id: new mongoose.Types.ObjectId(tagId) },

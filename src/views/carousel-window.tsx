@@ -119,7 +119,9 @@ export const CarouselWindow = observer(() => {
           <Tagger fileIds={[carouselStore.activeFileId]} setVisible={setTaggerVisible} />
         )}
 
-        {tagStore.isTagEditorOpen && <TagEditor />}
+        {tagStore.isTagEditorOpen && <TagEditor id={tagStore.activeTagId} hasSubEditor />}
+
+        {tagStore.isTagSubEditorOpen && <TagEditor id={tagStore.subEditorTagId} isSubEditor />}
 
         {fileStore.isInfoModalOpen && <InfoModal />}
       </View>

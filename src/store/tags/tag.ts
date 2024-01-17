@@ -31,6 +31,7 @@ export type TagOption = {
   count: number;
   dateCreated: string;
   dateModified: string;
+  distance?: number;
   id: string;
   label: string;
   searchType?: SearchTagType;

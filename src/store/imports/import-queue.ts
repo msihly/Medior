@@ -88,7 +88,7 @@ export const copyFileForImport = async ({
 
     if (isDuplicate) {
       if (tagIds?.length > 0) {
-        const res = await trpc.addTagsToFiles.mutate({ fileIds: [file.id], tagIds });
+        const res = await trpc.editFileTags.mutate({ addedTagIds: tagIds, fileIds: [file.id] });
         if (!res.success) throw new Error(res.error);
       }
 

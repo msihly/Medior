@@ -34,6 +34,7 @@ export const TagMerger = observer(() => {
 
   const hasSelectedTag = selectedTagValue.length > 0;
   const disabled = isSaving || !hasSelectedTag;
+  const baseTag = tagStore.getById(tagStore.activeTagId);
 
   useEffect(() => {
     if (!selectedTagValue.length) {
@@ -46,15 +47,15 @@ export const TagMerger = observer(() => {
     }
 
     const tag = tagStore.getById(selectedTagValue[0].id);
-    const tagToKeep = tag.count > tagStore.activeTag.count ? tag : tagStore.activeTag;
-    const tagToMerge = !(tag.count > tagStore.activeTag.count) ? tag : tagStore.activeTag;
+    const tagToKeep = tag.count > baseTag.count ? tag : baseTag;
+    const tagToMerge = !(tag.count > baseTag.count) ? tag : baseTag;
     setTagIdToKeep(tagToKeep.id);
     setTagIdToMerge(tagToMerge.id);
     if (!tagLabelToKeep)
       setTagLabelToKeep(tagToKeep.id === tagStore.activeTagId ? "base" : "merge");
 
-    const aliasToSet = tagLabelToKeep === "merge" ? tagStore.activeTag.label : tag.label;
-    const labelToSet = tagLabelToKeep === "base" ? tagStore.activeTag.label : tag.label;
+    const aliasToSet = tagLabelToKeep === "merge" ? baseTag.label : tag.label;
+    const labelToSet = tagLabelToKeep === "base" ? baseTag.label : tag.label;
     setLabel(labelToSet);
     setAliases(
       [...new Set([aliasToSet, ...tagToKeep.aliases, ...tagToMerge.aliases])].map((a) => ({
@@ -121,7 +122,7 @@ export const TagMerger = observer(() => {
         <View align="center" className={css.spacedRow}>
           <View column flex={1}>
             <InputWrapper label="Base Tag" align="center" margins={{ bottom: "1rem" }}>
-              <Tag tag={tagStore.activeTag} />
+              <Tag tag={baseTag} />
             </InputWrapper>
 
             <Checkbox

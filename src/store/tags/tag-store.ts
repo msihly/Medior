@@ -25,6 +25,8 @@ export class TagStore extends Model({
   isTagEditorOpen: prop<boolean>(false).withSetter(),
   isTagManagerOpen: prop<boolean>(false).withSetter(),
   isTagMergerOpen: prop<boolean>(false).withSetter(),
+  isTagSubEditorOpen: prop<boolean>(false).withSetter(),
+  subEditorTagId: prop<string>(null).withSetter(),
   tagManagerSort: prop<SortMenuProps["value"]>(() => ({
     isDesc: true,
     key: "dateModified",
@@ -338,11 +340,6 @@ export class TagStore extends Model({
   }
 
   /* --------------------------------- GETTERS -------------------------------- */
-  @computed
-  get activeTag() {
-    return this.tags.find((t) => t.id === this.activeTagId);
-  }
-
   @computed
   get tagOptions() {
     return this.tags.map((t) => t.tagOption).sort((a, b) => b.count - a.count);

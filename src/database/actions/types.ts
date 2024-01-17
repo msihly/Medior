@@ -79,7 +79,6 @@ export type EditFileTagsInput = {
   batchId?: string;
   fileIds: string[];
   removedTagIds?: string[];
-  rootStore: RootStore;
 };
 
 export type GetFileByHashInput = { hash: string };

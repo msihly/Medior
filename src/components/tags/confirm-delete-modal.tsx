@@ -14,6 +14,8 @@ export const ConfirmDeleteModal = observer(({ setVisible }: ConfirmDeleteModalPr
 
   const { tagStore } = useStores();
 
+  const tag = tagStore.getById(tagStore.activeTagId);
+
   const handleClose = () => setVisible(false);
 
   const handleDelete = async () => {
@@ -27,16 +29,22 @@ export const ConfirmDeleteModal = observer(({ setVisible }: ConfirmDeleteModalPr
   };
 
   return (
-    <Modal.Container onClose={handleClose}>
+    <Modal.Container
+      onClose={handleClose}
+      height="100%"
+      width="100%"
+      maxHeight="15rem"
+      maxWidth="20rem"
+    >
       <Modal.Header className={css.title}>
         <Text>{"Confirm Delete"}</Text>
       </Modal.Header>
 
       <Modal.Content>
         <View column align="center">
-          <Text className={css.tagLabel}>{tagStore.activeTag?.label}</Text>
-
           <Icon name="Delete" color={colors.error} size="5rem" />
+
+          <Text className={css.tagLabel}>{tag?.label}</Text>
         </View>
       </Modal.Content>
 
@@ -58,7 +66,6 @@ const useClasses = makeClasses({
     textAlign: "center",
   },
   tagLabel: {
-    color: colors.error,
     fontWeight: 500,
     fontSize: "1.5em",
     textAlign: "center",
