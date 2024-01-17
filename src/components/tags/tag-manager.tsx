@@ -3,7 +3,18 @@ import { observer } from "mobx-react-lite";
 import { TagOption, sortFiles, useStores } from "store";
 import AutoSizer from "react-virtualized-auto-sizer";
 import { FixedSizeGrid } from "react-window";
-import { Button, Modal, SortMenu, SortMenuProps, Tag, TagInput, Text, View } from "components";
+import {
+  Button,
+  ListItem,
+  MenuButton,
+  Modal,
+  SortMenu,
+  SortMenuProps,
+  Tag,
+  TagInput,
+  Text,
+  View,
+} from "components";
 import { colors, makeClasses } from "utils";
 
 export const TagManager = observer(() => {
@@ -46,9 +57,9 @@ export const TagManager = observer(() => {
     tagStore.setIsTagEditorOpen(true);
   };
 
-  // const handleRefreshCounts = () => tagStore.refreshAllTagCounts();
+  const handleRefreshCounts = () => tagStore.refreshAllTagCounts();
 
-  // const handleRefreshRelations = () => tagStore.refreshAllTagRelations();
+  const handleRefreshRelations = () => tagStore.refreshAllTagRelations();
 
   const handleResize = ({ width }) => setWidth(width);
 
@@ -77,7 +88,14 @@ export const TagManager = observer(() => {
 
   return (
     <Modal.Container onClose={closeModal} height="80%" width="80%">
-      <Modal.Header>
+      <Modal.Header
+        rightNode={
+          <MenuButton color={colors.grey["700"]}>
+            <ListItem text="Refresh Counts" icon="Refresh" onClick={handleRefreshCounts} />
+            <ListItem text="Refresh Relations" icon="Refresh" onClick={handleRefreshRelations} />
+          </MenuButton>
+        }
+      >
         <Text>{"Manage Tags"}</Text>
       </Modal.Header>
 
@@ -115,20 +133,6 @@ export const TagManager = observer(() => {
 
       <Modal.Footer>
         <Button text="Close" icon="Close" onClick={closeModal} color={colors.button.grey} />
-
-        {/* <Button
-          text="Refresh Counts"
-          icon="Refresh"
-          onClick={handleRefreshCounts}
-          color={colors.blueGrey["700"]}
-        /> */}
-
-        {/* <Button
-          text="Refresh Relations"
-          icon="Refresh"
-          onClick={handleRefreshRelations}
-          color={colors.blueGrey["700"]}
-        /> */}
 
         <Button text="Create" icon="Add" onClick={handleCreate} />
       </Modal.Footer>
