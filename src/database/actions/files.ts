@@ -151,14 +151,6 @@ export const getShiftSelectedFiles = ({
 
     const filterPipeline = createFilterPipeline({ ...filterParams, isSortDesc, sortKey });
 
-    // const funcPerfStart = performance.now();
-
-    // let perfStart = performance.now();
-    // const perfLog = (str: string) => {
-    //   logToFile("debug", round(performance.now() - perfStart, 0), "ms -", str);
-    //   perfStart = performance.now();
-    // };
-
     const getSelectedIndex = async (type: "first" | "last") => {
       const sortOp = isSortDesc ? "$gt" : "$lt";
 
@@ -173,8 +165,6 @@ export const getShiftSelectedFiles = ({
       const selectedFile =
         type === "first" ? selectedFiles[0] : selectedFiles[selectedFiles.length - 1];
 
-      // perfLog(`Get ${type} selected document`);
-
       const selectedFileIndex = await db.FileModel.countDocuments({
         ...filterPipeline.$match,
         $or: [
@@ -184,124 +174,12 @@ export const getShiftSelectedFiles = ({
       });
       if (!(selectedFileIndex > -1)) throw new Error(`Failed to load ${type} selected index`);
 
-      // perfLog(`Get ${type} selected index`);
-
-      // logToFile(
-      //   "debug",
-      //   JSON.stringify(
-      //     { [`${type}SelectedId`]: selectedFile._id.toString(), selectedFileIndex },
-      //     null,
-      //     2
-      //   )
-      // );
-
       return selectedFileIndex;
     };
 
     const firstSelectedIndex = await getSelectedIndex("first");
     if (!(firstSelectedIndex > -1)) return { idsToDeselect: [], idsToSelect: [clickedId] };
     if (firstSelectedIndex === clickedIndex) return { idsToDeselect: [clickedId], idsToSelect: [] };
-
-    /*
-    const cursor = db.FileModel.find(filterPipeline.$match)
-      .sort(filterPipeline.$sort)
-      .allowDiskUse(true)
-      .cursor();
-    let count = 0;
-
-    for await (const doc of cursor) {
-      if (doc._id.toString() === firstSelectedId) break;
-      count++;
-    }
-
-    const firstSelectedIndex = count;
-    perfLog("Get first selected index");
-    */
-
-    /*
-    const firstSelectedIndexPipeline: PipelineStage[] = [
-      { $match: filterPipeline.$match },
-      { $project: { _id: 1, [sortKey]: 1 } },
-      {
-        $addFields: {
-          rankSortBy: {
-            $concat: [{ $toString: `$${sortKey}` }, "_", { $toString: "$_id" }],
-          },
-        },
-      },
-      { $project: { rankSortBy: 1 } },
-      {
-        $setWindowFields: {
-          sortBy: { rankSortBy: isSortDesc ? -1 : 1 },
-          output: { rank: { $rank: {} } },
-        },
-      },
-      { $match: { _id: objectId(firstSelectedId) } },
-      { $project: { _id: 0, rank: 1 } },
-    ];
-
-    logToFile(
-      "debug",
-      "First selected index pipeline:",
-      JSON.stringify(firstSelectedIndexPipeline, null, 2)
-    );
-
-    const firstSelectedIndexRes: { rank: number } = (
-      await db.FileModel.aggregate(firstSelectedIndexPipeline).allowDiskUse(true)
-    )?.[0];
-    if (!firstSelectedIndexRes) throw new Error("Failed to load first selected index");
-    const firstSelectedIndex = firstSelectedIndexRes.rank - 1;
-
-    perfLog("Get first selected index");
-    */
-
-    /*
-    let firstSelected = null;
-    let firstSelectedIndex = -1;
-
-    const cursor = db.FileModel.find(filterPipeline.$match)
-      .sort(filterPipeline.$sort)
-      .limit(clickedIndex)
-      .allowDiskUse(true)
-      .cursor();
-
-    for (let doc = await cursor.next(); doc != null; doc = await cursor.next()) {
-      firstSelectedIndex++;
-      if (selectedIds.includes(doc._id.toString())) {
-        firstSelected = doc;
-        break;
-      }
-    }
-
-    logToFile(
-      "debug",
-      "First selected:",
-      JSON.stringify(
-        {
-          firstSelectedId: firstSelected?.id,
-          firstSelectedIndex,
-        },
-        null,
-        2
-      )
-    );
-    perfLog("Get first selected index");
-
-    if (!(firstSelectedIndex > -1)) return { idsToDeselect: [], idsToSelect: [clickedId] };
-    if (firstSelectedIndex === clickedIndex) return { idsToDeselect: [clickedId], idsToSelect: [] };
-    */
-
-    /*
-    const firstSelectedId = firstSelected?._id?.toString?.();
-    if (!firstSelectedId) return { idsToDeselect: [], idsToSelect: [clickedId] };
-    if (firstSelectedId === clickedId) return { idsToDeselect: [clickedId], idsToSelect: [] };
-
-    const firstIndex = await db.FileModel.countDocuments({
-      [sortKey]: { [isSortDesc ? "$gt" : "$lt"]: firstSelected[sortKey] },
-    });
-
-    perfLog("Get first index");
-    */
 
     const isFirstAfterClicked = firstSelectedIndex > clickedIndex;
     const lastSelectedIndex = isFirstAfterClicked ? await getSelectedIndex("last") : null;
@@ -373,71 +251,13 @@ export const getShiftSelectedFiles = ({
       { $project: { _id: 0, idsToDeselect: 1, idsToSelect: 1 } },
     ];
 
-    // logToFile(
-    //   "debug",
-    //   JSON.stringify(
-    //     {
-    //       clickedId,
-    //       clickedIndex,
-    //       firstSelectedIndex,
-    //       lastSelectedIndex,
-    //       startIndex,
-    //       endIndex,
-    //       limit,
-    //       skip,
-    //     },
-    //     null,
-    //     2
-    //   )
-    // );
-
-    // logToFile("debug", "Main pipeline:", JSON.stringify(mainPipeline, null, 2));
-
     const mainRes: {
       idsToDeselect: string[];
       idsToSelect: string[];
     } = (await db.FileModel.aggregate(mainPipeline).allowDiskUse(true)).flatMap((f) => f)?.[0];
     if (!mainRes) throw new Error("Failed to load shift selected file IDs");
 
-    // perfLog("Get main res");
-    // logToFile("debug", "Main res:", JSON.stringify(mainRes, null, 2));
-    // logToFile("debug", `Total time: ${round(performance.now() - funcPerfStart, 0)} ms`);
-
     return mainRes;
-
-    /* -------------------------------- OLD LOGIC ------------------------------- */
-    /*
-    const res: {
-      filteredIds: { _id: string }[];
-    } = (await db.FileModel.aggregate(pipeline).allowDiskUse(true)).flatMap((f) => f)?.[0];
-    if (!res) throw new Error("Failed to load shift selected file IDs");
-
-    const filteredIds = res.filteredIds.map((f) => f._id.toString());
-
-    const [selectedIdsNotInFiltered, selectedIdsInFiltered] = selectedIds.reduce(
-      (acc, cur) => (acc[!filteredIds.includes(cur) ? 0 : 1].push(cur), acc),
-      [[], []] as string[][]
-    );
-
-    const clickedIndex = filteredIds.indexOf(clickedId);
-    const firstIndex = filteredIds.indexOf(selectedIdsInFiltered[0]);
-    const isFirstAfterClicked = firstIndex >= clickedIndex;
-
-    const startIndex = isFirstAfterClicked ? clickedIndex : firstIndex;
-    const endIndex = isFirstAfterClicked ? firstIndex : clickedIndex;
-
-    const newSelectedIds =
-      startIndex === endIndex ? [] : filteredIds.slice(startIndex, endIndex + 1);
-    const idsToDeselect = [
-      ...selectedIdsNotInFiltered,
-      ...selectedIdsInFiltered.filter((id) => !newSelectedIds.includes(id)),
-    ];
-
-    const alreadySelectedIds = new Set(selectedIds);
-    const idsToSelect = newSelectedIds.filter((id) => !alreadySelectedIds.has(id));
-
-    return { idsToDeselect, idsToSelect };
-    */
   });
 
 export const importFile = ({
