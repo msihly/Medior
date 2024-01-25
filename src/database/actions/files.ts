@@ -110,23 +110,33 @@ export const editFileTags = ({
 
     const dateModified = dayjs().toISOString();
 
-    await db.FileModel.updateMany(
-      { _id: { $in: fileIds } },
-      {
-        $addToSet: { tagIds: { $each: addedTagIds } },
-        $pullAll: { tagIds: removedTagIds },
-        dateModified,
-      }
-    );
+    await Promise.all([
+      addedTagIds.length > 0 &&
+        db.FileModel.updateMany(
+          { _id: { $in: fileIds } },
+          { $addToSet: { tagIds: { $each: addedTagIds } }, dateModified }
+        ),
+      removedTagIds.length > 0 &&
+        db.FileModel.updateMany(
+          { _id: { $in: fileIds } },
+          { $pullAll: { tagIds: removedTagIds }, dateModified }
+        ),
+    ]);
 
-    if (batchId)
-      await db.FileImportBatchModel.updateMany(
-        { _id: batchId },
-        {
-          $addToSet: { tagIds: { $each: addedTagIds } },
-          $pullAll: { tagIds: removedTagIds },
-        }
-      );
+    if (batchId) {
+      await Promise.all([
+        addedTagIds.length > 0 &&
+          db.FileImportBatchModel.updateMany(
+            { _id: batchId },
+            { $addToSet: { tagIds: { $each: addedTagIds } } }
+          ),
+        removedTagIds.length > 0 &&
+          db.FileImportBatchModel.updateMany(
+            { _id: batchId },
+            { $pullAll: { tagIds: removedTagIds } }
+          ),
+      ]);
+    }
 
     await db.recalculateTagCounts({ tagIds: [...new Set([...addedTagIds, ...removedTagIds])] });
 
