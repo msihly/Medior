@@ -1,2 +1,3 @@
-export { CarouselWindow } from "./carousel-window";
-export { Home } from "./home";
+export * from "./carousel-window";
+export * from "./home";
+export * from "./hmr";

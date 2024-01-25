@@ -8,7 +8,7 @@ const isBundled = isPackaged || !!process.env.BUILD_DEV;
 
 const baseUrl = isBundled
   ? `file://${path.join(__dirname, "..", isPackaged ? "" : "build", "index.html")}`
-  : "http://localhost:3333";
+  : `http://localhost:3333${!!process.env.HMR ? "/index.hmr.html" : ""}`;
 
 const folderPath = isPackaged ? process.resourcesPath : __dirname;
 app.setPath("appData", folderPath);
