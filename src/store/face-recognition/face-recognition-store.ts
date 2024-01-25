@@ -57,7 +57,7 @@ export class FaceRecognitionStore extends Model({
         );
 
         try {
-          const filesRes = await trpc.listFiles.mutate({ ids: fileIds });
+          const filesRes = await trpc.listFiles.mutate({ ids: fileIds, withFaceModels: true });
           if (!filesRes?.success) throw new Error("Failed to load files");
 
           const images = filesRes.data.filter((f) => IMAGE_EXT_REG_EXP.test(f.ext));

@@ -205,7 +205,7 @@ export const getShiftSelectedFiles = ({
               as: "id",
               cond: { $not: { $in: ["$$id", "$filteredIds"] } },
             },
-      },
+          },
           selectedIdsInFiltered: {
             $filter: {
               input: objectIds(selectedIds),
@@ -321,11 +321,32 @@ export const listFaceModels = ({ ids }: db.ListFaceModelsInput = {}) =>
     });
   });
 
-export const listFiles = ({ ids }: db.ListFilesInput = {}) =>
+type ListFilesResult = db.File & { hasFaceModels: boolean };
+
+export const listFiles = ({ ids, withFaceModels = false }: db.ListFilesInput = {}) =>
   handleErrors(async () => {
-    return (await db.FileModel.find(ids ? { _id: { $in: ids } } : undefined).lean()).map((f) =>
-      leanModelToJson<db.File>(f)
-    );
+    const res: ListFilesResult[] = await db.FileModel.aggregate([
+      { $match: ids ? { _id: { $in: objectIds(ids) } } : {} },
+      ...(!withFaceModels
+        ? [
+            {
+              $addFields: {
+                hasFaceModels: {
+                  $cond: {
+                    if: { $gt: [{ $size: { $ifNull: ["$faceModels", []] } }, 0] },
+                    then: true,
+                    else: false,
+                  },
+                },
+                id: "$_id",
+              },
+            },
+            { $project: { faceModels: 0, _id: 0 } },
+          ]
+        : []),
+    ]);
+
+    return res;
   });
 
 export const listFilesByTagIds = ({ tagIds }: db.ListFilesByTagIdsInput) =>

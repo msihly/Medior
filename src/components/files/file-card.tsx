@@ -129,7 +129,7 @@ export const FileCard = observer(({ disabled, file, height, id, width }: FileCar
                   <Icon
                     name="Face"
                     size="1.2em"
-                    color={file.faceModels?.length > 0 ? colors.blue["500"] : colors.grey["600"]}
+                    color={file.hasFaceModels ? colors.blue["500"] : colors.grey["600"]}
                     margins={{ right: "0.3em" }}
                   />
                 )}

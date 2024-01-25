@@ -118,7 +118,7 @@ export type ListFileIdsForCarouselInput = CreateFilterPipelineInput & {
   sortKey: string;
 };
 
-export type ListFilesInput = { ids?: string[] };
+export type ListFilesInput = { ids?: string[]; withFaceModels?: boolean };
 
 export type ListFilesByTagIdsInput = { tagIds: string[] };
 

@@ -31,6 +31,7 @@ export class File extends Model({
   ext: prop<string>(),
   faceModels: prop<FaceModel[] | null>(null),
   frameRate: prop<number>(null),
+  hasFaceModels: prop<boolean>(false),
   hash: prop<string>(),
   height: prop<number>(),
   id: prop<string>(),
