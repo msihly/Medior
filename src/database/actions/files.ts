@@ -1,9 +1,9 @@
 import { app } from "electron";
 import path from "path";
 import fs from "fs/promises";
-import mongoose, { PipelineStage } from "mongoose";
+import { PipelineStage } from "mongoose";
 import * as db from "database";
-import { centeredSlice, dayjs, handleErrors, socket, uniqueArrayFilter } from "utils";
+import { dayjs, handleErrors, socket } from "utils";
 import { leanModelToJson, objectIds } from "./utils";
 
 const FACE_MIN_CONFIDENCE = 0.4;
@@ -18,8 +18,10 @@ const createFilterPipeline = ({
   includeTagged,
   includeUntagged,
   isArchived,
+  isSortDesc,
   selectedImageTypes,
   selectedVideoTypes,
+  sortKey,
 }: db.CreateFilterPipelineInput) => {
   const enabledExts = Object.entries({
     ...selectedImageTypes,
@@ -28,6 +30,8 @@ const createFilterPipeline = ({
     if (isEnabled) acc.push(`.${key}`);
     return acc;
   }, [] as string[]);
+
+  const sortDir = isSortDesc ? -1 : 1;
 
   return {
     $match: {
@@ -41,6 +45,7 @@ const createFilterPipeline = ({
         excludedAnyTagIds?.length > 0 ? { tagIds: { $nin: objectIds(excludedAnyTagIds) } } : {},
       ],
     },
+    $sort: { [sortKey]: sortDir, _id: sortDir } as { [key: string]: 1 | -1 },
   };
 };
 
@@ -133,64 +138,306 @@ export const getFileByHash = ({ hash }: db.GetFileByHashInput) =>
 
 export const getShiftSelectedFiles = ({
   clickedId,
-  excludedAnyTagIds,
-  includedAllTagIds,
-  includedAnyTagIds,
-  includeTagged,
-  includeUntagged,
-  isArchived,
+  clickedIndex,
   isSortDesc,
   selectedIds,
-  selectedImageTypes,
-  selectedVideoTypes,
   sortKey,
+  ...filterParams
 }: db.GetShiftSelectedFilesInput) =>
   handleErrors(async () => {
-    const pipeline: PipelineStage[] = [
-      createFilterPipeline({
-        excludedAnyTagIds,
-        includedAllTagIds,
-        includedAnyTagIds,
-        includeTagged,
-        includeUntagged,
-        isArchived,
-        selectedImageTypes,
-        selectedVideoTypes,
-      }),
+    if (selectedIds.length === 0) return { idsToDeselect: [], idsToSelect: [clickedId] };
+    if (selectedIds.length === 1 && selectedIds[0] === clickedId)
+      return { idsToDeselect: [clickedId], idsToSelect: [] };
+
+    const filterPipeline = createFilterPipeline({ ...filterParams, isSortDesc, sortKey });
+
+    // const funcPerfStart = performance.now();
+
+    // let perfStart = performance.now();
+    // const perfLog = (str: string) => {
+    //   logToFile("debug", round(performance.now() - perfStart, 0), "ms -", str);
+    //   perfStart = performance.now();
+    // };
+
+    const getSelectedIndex = async (type: "first" | "last") => {
+      const sortOp = isSortDesc ? "$gt" : "$lt";
+
+      const selectedFiles = await db.FileModel.find({
+        ...filterPipeline.$match,
+        _id: { $in: objectIds(selectedIds) },
+      }).sort(filterPipeline.$sort);
+
+      if (!selectedFiles || selectedFiles.length === 0)
+        throw new Error(`Failed to load selected files`);
+
+      const selectedFile =
+        type === "first" ? selectedFiles[0] : selectedFiles[selectedFiles.length - 1];
+
+      // perfLog(`Get ${type} selected document`);
+
+      const selectedFileIndex = await db.FileModel.countDocuments({
+        ...filterPipeline.$match,
+        $or: [
+          { [sortKey]: selectedFile[sortKey], _id: { [sortOp]: selectedFile._id } },
+          { [sortKey]: { [sortOp]: selectedFile[sortKey] } },
+        ],
+      });
+      if (!(selectedFileIndex > -1)) throw new Error(`Failed to load ${type} selected index`);
+
+      // perfLog(`Get ${type} selected index`);
+
+      // logToFile(
+      //   "debug",
+      //   JSON.stringify(
+      //     { [`${type}SelectedId`]: selectedFile._id.toString(), selectedFileIndex },
+      //     null,
+      //     2
+      //   )
+      // );
+
+      return selectedFileIndex;
+    };
+
+    const firstSelectedIndex = await getSelectedIndex("first");
+    if (!(firstSelectedIndex > -1)) return { idsToDeselect: [], idsToSelect: [clickedId] };
+    if (firstSelectedIndex === clickedIndex) return { idsToDeselect: [clickedId], idsToSelect: [] };
+
+    /*
+    const cursor = db.FileModel.find(filterPipeline.$match)
+      .sort(filterPipeline.$sort)
+      .allowDiskUse(true)
+      .cursor();
+    let count = 0;
+
+    for await (const doc of cursor) {
+      if (doc._id.toString() === firstSelectedId) break;
+      count++;
+    }
+
+    const firstSelectedIndex = count;
+    perfLog("Get first selected index");
+    */
+
+    /*
+    const firstSelectedIndexPipeline: PipelineStage[] = [
+      { $match: filterPipeline.$match },
+      { $project: { _id: 1, [sortKey]: 1 } },
       {
-        $facet: {
-          filteredFileIds: [
-            { $sort: { [sortKey]: isSortDesc ? -1 : 1 } },
-            { $group: { _id: null, filteredFileIds: { $push: "$_id" } } },
-          ],
+        $addFields: {
+          rankSortBy: {
+            $concat: [{ $toString: `$${sortKey}` }, "_", { $toString: "$_id" }],
+          },
         },
       },
+      { $project: { rankSortBy: 1 } },
+      {
+        $setWindowFields: {
+          sortBy: { rankSortBy: isSortDesc ? -1 : 1 },
+          output: { rank: { $rank: {} } },
+        },
+      },
+      { $match: { _id: objectId(firstSelectedId) } },
+      { $project: { _id: 0, rank: 1 } },
     ];
 
-    const res: { filteredFileIds: { filteredFileIds: string[] }[] }[] = (
-      await db.FileModel.aggregate(pipeline).allowDiskUse(true)
-    ).flatMap((f) => f);
-    if (!res) throw new Error("Failed to load filtered file IDs");
-
-    const filteredFileIds = res[0].filteredFileIds[0].filteredFileIds.map((id) => id.toString());
-
-    const clickedIndex = filteredFileIds.indexOf(clickedId);
-    const firstIndex = filteredFileIds.indexOf(selectedIds[0]);
-    const isFirstAfterClicked = firstIndex >= clickedIndex;
-    const startIndex = isFirstAfterClicked ? clickedIndex : firstIndex;
-    const endIndex = isFirstAfterClicked ? firstIndex : clickedIndex;
-    const idsToSelect =
-      startIndex === endIndex
-        ? []
-        : uniqueArrayFilter(filteredFileIds.slice(startIndex, endIndex + 1), selectedIds);
-    /** Deselect the files before the clicked file if the first index is after it, or deselect the files after the clicked file if the first index is before it. */
-    const idsToDeselect = selectedIds.filter(
-      (id) =>
-        (isFirstAfterClicked && filteredFileIds.indexOf(id) < clickedIndex) ||
-        (!isFirstAfterClicked && filteredFileIds.indexOf(id) > clickedIndex)
+    logToFile(
+      "debug",
+      "First selected index pipeline:",
+      JSON.stringify(firstSelectedIndexPipeline, null, 2)
     );
 
+    const firstSelectedIndexRes: { rank: number } = (
+      await db.FileModel.aggregate(firstSelectedIndexPipeline).allowDiskUse(true)
+    )?.[0];
+    if (!firstSelectedIndexRes) throw new Error("Failed to load first selected index");
+    const firstSelectedIndex = firstSelectedIndexRes.rank - 1;
+
+    perfLog("Get first selected index");
+    */
+
+    /*
+    let firstSelected = null;
+    let firstSelectedIndex = -1;
+
+    const cursor = db.FileModel.find(filterPipeline.$match)
+      .sort(filterPipeline.$sort)
+      .limit(clickedIndex)
+      .allowDiskUse(true)
+      .cursor();
+
+    for (let doc = await cursor.next(); doc != null; doc = await cursor.next()) {
+      firstSelectedIndex++;
+      if (selectedIds.includes(doc._id.toString())) {
+        firstSelected = doc;
+        break;
+      }
+    }
+
+    logToFile(
+      "debug",
+      "First selected:",
+      JSON.stringify(
+        {
+          firstSelectedId: firstSelected?.id,
+          firstSelectedIndex,
+        },
+        null,
+        2
+      )
+    );
+    perfLog("Get first selected index");
+
+    if (!(firstSelectedIndex > -1)) return { idsToDeselect: [], idsToSelect: [clickedId] };
+    if (firstSelectedIndex === clickedIndex) return { idsToDeselect: [clickedId], idsToSelect: [] };
+    */
+
+    /*
+    const firstSelectedId = firstSelected?._id?.toString?.();
+    if (!firstSelectedId) return { idsToDeselect: [], idsToSelect: [clickedId] };
+    if (firstSelectedId === clickedId) return { idsToDeselect: [clickedId], idsToSelect: [] };
+
+    const firstIndex = await db.FileModel.countDocuments({
+      [sortKey]: { [isSortDesc ? "$gt" : "$lt"]: firstSelected[sortKey] },
+    });
+
+    perfLog("Get first index");
+    */
+
+    const isFirstAfterClicked = firstSelectedIndex > clickedIndex;
+    const lastSelectedIndex = isFirstAfterClicked ? await getSelectedIndex("last") : null;
+
+    const endIndex = isFirstAfterClicked ? lastSelectedIndex : clickedIndex;
+    const startIndex = isFirstAfterClicked ? clickedIndex : firstSelectedIndex;
+
+    const limit = endIndex + 1;
+    const skip = startIndex;
+
+    const mainPipeline: PipelineStage[] = [
+      { $match: filterPipeline.$match },
+      { $sort: filterPipeline.$sort },
+      ...(limit > -1 ? [{ $limit: limit }] : []),
+      ...(skip > -1 ? [{ $skip: skip }] : []),
+      { $project: { _id: 1 } },
+      { $group: { _id: null, filteredIds: { $push: "$_id" } } },
+      {
+        $addFields: {
+          selectedIdsNotInFiltered: {
+            $filter: {
+              input: objectIds(selectedIds),
+              as: "id",
+              cond: { $not: { $in: ["$$id", "$filteredIds"] } },
+            },
+      },
+          selectedIdsInFiltered: {
+            $filter: {
+              input: objectIds(selectedIds),
+              as: "id",
+              cond: { $in: ["$$id", "$filteredIds"] },
+            },
+          },
+        },
+      },
+      {
+        $addFields: {
+          newSelectedIds:
+            startIndex === endIndex
+              ? []
+              : isFirstAfterClicked
+              ? { $slice: ["$filteredIds", 0, limit] }
+              : { $slice: ["$filteredIds", 0, limit - skip] },
+        },
+      },
+      {
+        $addFields: {
+          idsToDeselect: {
+            $concatArrays: [
+              "$selectedIdsNotInFiltered",
+              {
+                $filter: {
+                  input: "$selectedIdsInFiltered",
+                  as: "id",
+                  cond: { $not: { $in: ["$$id", "$newSelectedIds"] } },
+                },
+              },
+            ],
+          },
+          idsToSelect: {
+            $filter: {
+              input: "$newSelectedIds",
+              as: "id",
+              cond: { $not: { $in: ["$$id", objectIds(selectedIds)] } },
+            },
+          },
+        },
+      },
+      { $project: { _id: 0, idsToDeselect: 1, idsToSelect: 1 } },
+    ];
+
+    // logToFile(
+    //   "debug",
+    //   JSON.stringify(
+    //     {
+    //       clickedId,
+    //       clickedIndex,
+    //       firstSelectedIndex,
+    //       lastSelectedIndex,
+    //       startIndex,
+    //       endIndex,
+    //       limit,
+    //       skip,
+    //     },
+    //     null,
+    //     2
+    //   )
+    // );
+
+    // logToFile("debug", "Main pipeline:", JSON.stringify(mainPipeline, null, 2));
+
+    const mainRes: {
+      idsToDeselect: string[];
+      idsToSelect: string[];
+    } = (await db.FileModel.aggregate(mainPipeline).allowDiskUse(true)).flatMap((f) => f)?.[0];
+    if (!mainRes) throw new Error("Failed to load shift selected file IDs");
+
+    // perfLog("Get main res");
+    // logToFile("debug", "Main res:", JSON.stringify(mainRes, null, 2));
+    // logToFile("debug", `Total time: ${round(performance.now() - funcPerfStart, 0)} ms`);
+
+    return mainRes;
+
+    /* -------------------------------- OLD LOGIC ------------------------------- */
+    /*
+    const res: {
+      filteredIds: { _id: string }[];
+    } = (await db.FileModel.aggregate(pipeline).allowDiskUse(true)).flatMap((f) => f)?.[0];
+    if (!res) throw new Error("Failed to load shift selected file IDs");
+
+    const filteredIds = res.filteredIds.map((f) => f._id.toString());
+
+    const [selectedIdsNotInFiltered, selectedIdsInFiltered] = selectedIds.reduce(
+      (acc, cur) => (acc[!filteredIds.includes(cur) ? 0 : 1].push(cur), acc),
+      [[], []] as string[][]
+    );
+
+    const clickedIndex = filteredIds.indexOf(clickedId);
+    const firstIndex = filteredIds.indexOf(selectedIdsInFiltered[0]);
+    const isFirstAfterClicked = firstIndex >= clickedIndex;
+
+    const startIndex = isFirstAfterClicked ? clickedIndex : firstIndex;
+    const endIndex = isFirstAfterClicked ? firstIndex : clickedIndex;
+
+    const newSelectedIds =
+      startIndex === endIndex ? [] : filteredIds.slice(startIndex, endIndex + 1);
+    const idsToDeselect = [
+      ...selectedIdsNotInFiltered,
+      ...selectedIdsInFiltered.filter((id) => !newSelectedIds.includes(id)),
+    ];
+
+    const alreadySelectedIds = new Set(selectedIds);
+    const idsToSelect = newSelectedIds.filter((id) => !alreadySelectedIds.has(id));
+
     return { idsToDeselect, idsToSelect };
+    */
   });
 
 export const importFile = ({
@@ -270,114 +517,58 @@ export const listFilesByTagIds = ({ tagIds }: db.ListFilesByTagIdsInput) =>
 
 export const listFileIdsForCarousel = ({
   clickedId,
-  excludedAnyTagIds,
-  includedAllTagIds,
-  includedAnyTagIds,
-  includeTagged,
-  includeUntagged,
-  isArchived,
-  isSortDesc,
-  selectedImageTypes,
-  selectedVideoTypes,
-  sortKey,
+  ...filterParams
 }: db.ListFileIdsForCarouselInput) =>
   handleErrors(async () => {
+    const filterPipeline = createFilterPipeline(filterParams);
+
     const pipeline: PipelineStage[] = [
-      createFilterPipeline({
-        excludedAnyTagIds,
-        includedAllTagIds,
-        includedAnyTagIds,
-        includeTagged,
-        includeUntagged,
-        isArchived,
-        selectedImageTypes,
-        selectedVideoTypes,
-      }),
+      { $match: filterPipeline.$match },
       {
         $facet: {
-          filteredFileIds: [
-            { $sort: { [sortKey]: isSortDesc ? -1 : 1 } },
-            { $group: { _id: null, filteredFileIds: { $push: "$_id" } } },
-          ],
-        },
-      },
-    ];
-
-    const res: { filteredFileIds: { filteredFileIds: string[] }[] }[] = (
-      await db.FileModel.aggregate(pipeline).allowDiskUse(true)
-    ).flatMap((f) => f);
-    if (!res) throw new Error("Failed to load filtered file IDs");
-
-    const filteredFileIds = res[0].filteredFileIds[0].filteredFileIds.map((id) => id.toString());
-    const selectedIds = centeredSlice(filteredFileIds, filteredFileIds.indexOf(clickedId), 2000);
-    return selectedIds;
-  });
-
-export const listFilteredFileIds = ({
-  excludedAnyTagIds,
-  includedAllTagIds,
-  includedAnyTagIds,
-  includeTagged,
-  includeUntagged,
-  isArchived,
-  isSortDesc,
-  selectedFileIds,
-  selectedImageTypes,
-  selectedVideoTypes,
-  sortKey,
-  page,
-  pageSize,
-}: db.ListFilteredFileIdsInput) =>
-  handleErrors(async () => {
-    const pipeline: PipelineStage[] = [
-      createFilterPipeline({
-        excludedAnyTagIds,
-        includedAllTagIds,
-        includedAnyTagIds,
-        includeTagged,
-        includeUntagged,
-        isArchived,
-        selectedImageTypes,
-        selectedVideoTypes,
-      }),
-      {
-        $facet: {
-          totalDocuments: [{ $count: "count" }],
-          displayedIds: [
-            { $sort: { [sortKey]: isSortDesc ? -1 : 1 } },
-            { $skip: Math.max(0, page - 1) * pageSize },
-            { $limit: pageSize },
+          filteredIds: [
+            { $sort: filterPipeline.$sort },
+            { $limit: 2000 },
             { $project: { _id: 1 } },
           ],
-          ...(selectedFileIds?.length > 0
-            ? {
-                deselectedIds: [
-                  {
-                    $match: {
-                      _id: { $nin: selectedFileIds.map((id) => new mongoose.Types.ObjectId(id)) },
-                    },
-                  },
-                  { $project: { _id: 1 } },
-                ],
-              }
-            : {}),
         },
       },
     ];
 
-    const result: {
+    const res: {
+      filteredIds: { _id: string }[];
+    } = (await db.FileModel.aggregate(pipeline).allowDiskUse(true)).flatMap((f) => f)?.[0];
+    if (!res) throw new Error("Failed to load filtered file IDs");
+
+    return res.filteredIds.map((f) => f._id.toString());
+  });
+
+export const listFilteredFiles = ({ page, pageSize, ...filterParams }: db.ListFilteredFilesInput) =>
+  handleErrors(async () => {
+    const filterPipeline = createFilterPipeline(filterParams);
+    const pipeline: PipelineStage[] = [
+      { $match: filterPipeline.$match },
+      {
+        $facet: {
+          files: [
+            { $sort: filterPipeline.$sort },
+            { $skip: Math.max(0, page - 1) * pageSize },
+            { $limit: pageSize },
+            { $addFields: { id: "$_id" } },
+          ],
+          totalDocuments: [{ $count: "count" }],
+        },
+      },
+    ];
+
+    const res: {
+      files: db.File[];
       totalDocuments: { count: number }[];
-      displayedIds: { _id: string }[];
-      deselectedIds?: { _id: string }[];
     } = (await db.FileModel.aggregate(pipeline).allowDiskUse(true))?.[0];
+    if (!res) throw new Error("Failed to load filtered file IDs");
 
-    if (!result) throw new Error("Failed to load filtered file IDs");
-
-    const totalDocuments = result.totalDocuments[0]?.count || 0;
-    const displayedIds = result.displayedIds.map((f) => f._id.toString());
-    const deselectedIds = result.deselectedIds?.map((f) => f._id.toString()) || [];
-
-    return { deselectedIds, displayedIds, pageCount: Math.ceil(totalDocuments / pageSize) };
+    const totalDocuments = res.totalDocuments[0]?.count || 0;
+    return { files: res.files, pageCount: Math.ceil(totalDocuments / pageSize) };
   });
 
 export const loadFaceApiNets = async () =>

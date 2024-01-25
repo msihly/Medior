@@ -62,4 +62,12 @@ FileSchema.index({ hash: 1 }, { unique: true });
 FileSchema.index({ isArchived: 1, ext: 1 });
 FileSchema.index({ tagIds: 1 });
 
+FileSchema.index({ dateCreated: 1, _id: 1 }, { unique: true });
+FileSchema.index({ dateModified: 1, _id: 1 }, { unique: true });
+FileSchema.index({ duration: 1, _id: 1 }, { unique: true });
+FileSchema.index({ height: 1, _id: 1 }, { unique: true });
+FileSchema.index({ rating: 1, _id: 1 }, { unique: true });
+FileSchema.index({ size: 1, _id: 1 }, { unique: true });
+FileSchema.index({ width: 1, _id: 1 }, { unique: true });
+
 export const FileModel = model<File>("File", FileSchema);

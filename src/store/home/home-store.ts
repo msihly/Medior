@@ -15,9 +15,9 @@ import {
 const NUMERICAL_ATTRIBUTES = ["count", "duration", "height", "rating", "size", "width"];
 
 export type ReloadDisplayedFilesInput = {
+  debug?: boolean;
   rootStore: RootStore;
   page?: number;
-  withOverwrite?: boolean;
 };
 
 export type SelectedImageTypes = { [ext in ImageType]: boolean };
@@ -96,13 +96,18 @@ export class HomeStore extends Model({
   ) {
     return yield* _await(
       handleErrors(async () => {
-        const { tagStore } = rootStore;
+        const { fileStore, tagStore } = rootStore;
 
         const { excludedAnyTagIds, includedAllTagIds, includedAnyTagIds } =
           tagStore.tagSearchOptsToIds(this.searchValue);
 
+        const clickedIndex =
+          (fileStore.page - 1) * CONSTANTS.FILE_COUNT +
+          fileStore.files.findIndex((f) => f.id === id);
+
         const res = await trpc.getShiftSelectedFiles.mutate({
           clickedId: id,
+          clickedIndex,
           excludedAnyTagIds,
           includedAllTagIds,
           includedAnyTagIds,
@@ -159,7 +164,7 @@ export class HomeStore extends Model({
   @modelFlow
   reloadDisplayedFiles = _async(function* (
     this: HomeStore,
-    { rootStore, page }: ReloadDisplayedFilesInput = { rootStore: null }
+    { debug, page, rootStore }: ReloadDisplayedFilesInput = { rootStore: null }
   ) {
     return yield* _await(
       handleErrors(async () => {
@@ -177,7 +182,7 @@ export class HomeStore extends Model({
         const { excludedAnyTagIds, includedAllTagIds, includedAnyTagIds } =
           tagStore.tagSearchOptsToIds(this.searchValue);
 
-        const filteredRes = await trpc.listFilteredFileIds.mutate({
+        const filteredRes = await trpc.listFilteredFiles.mutate({
           excludedAnyTagIds,
           includedAllTagIds,
           includedAnyTagIds,
@@ -193,32 +198,21 @@ export class HomeStore extends Model({
         });
         if (!filteredRes.success) throw new Error(filteredRes.error);
 
-        const { displayedIds, deselectedIds, pageCount } = filteredRes.data;
-        perfLog(`Loaded ${displayedIds.length} displayed fileIds`); // DEBUG
+        const { files, pageCount } = filteredRes.data;
+        if (debug) perfLog(`Loaded ${files.length} filtered files`);
 
-        const displayedRes = await trpc.listFiles.mutate({ ids: displayedIds });
-        if (!displayedRes.success) throw new Error(displayedRes.error);
-        const displayed = displayedRes.data.sort((a, b) =>
-          sortFiles({ a, b, isDesc: this.sortValue.isDesc, key: this.sortValue.key })
-        );
-        perfLog(`Loaded ${displayed.length} displayed files`); // DEBUG
-
-        perfLog("Set filtered file IDs"); // DEBUG
-        fileStore.overwrite(displayed.map(mongoFileToMobX));
-        perfLog("FileStore.files overwrite"); // DEBUG
+        fileStore.overwrite(files.map(mongoFileToMobX));
+        if (debug) perfLog("FileStore.files overwrite");
 
         if (page) fileStore.setPage(page);
         fileStore.setPageCount(pageCount);
-        perfLog(`Set page to ${page ?? fileStore.pageCount} and pageCount to ${pageCount}`); // DEBUG
+        if (debug)
+          perfLog(`Set page to ${page ?? fileStore.pageCount} and pageCount to ${pageCount}`);
 
-        fileStore.toggleFilesSelected(deselectedIds.map((id) => ({ id, isSelected: false })));
-        perfLog(`${deselectedIds.length} files deselected`); // DEBUG
+        if (debug)
+          console.debug(`Loaded ${files.length} files in ${performance.now() - funcPerfStart}ms.`);
 
-        console.debug(
-          `Loaded ${displayed.length} displayed files in ${performance.now() - funcPerfStart}ms.`
-        );
-
-        return displayed;
+        return files;
       })
     );
   });

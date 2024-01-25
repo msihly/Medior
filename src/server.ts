@@ -111,9 +111,9 @@ const trpcRouter = tRouter({
   listFilesByTagIds: tProc
     .input((input: unknown) => input as db.ListFilesByTagIdsInput)
     .mutation(({ input }) => db.listFilesByTagIds(input)),
-  listFilteredFileIds: tProc
-    .input((input: unknown) => input as db.ListFilteredFileIdsInput)
-    .mutation(({ input }) => db.listFilteredFileIds(input)),
+  listFilteredFiles: tProc
+    .input((input: unknown) => input as db.ListFilteredFilesInput)
+    .mutation(({ input }) => db.listFilteredFiles(input)),
   listFileIdsForCarousel: tProc
     .input((input: unknown) => input as db.ListFileIdsForCarouselInput)
     .mutation(({ input }) => db.listFileIdsForCarousel(input)),

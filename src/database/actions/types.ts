@@ -68,8 +68,10 @@ export type CreateFilterPipelineInput = {
   includeTagged: boolean;
   includeUntagged: boolean;
   isArchived: boolean;
+  isSortDesc: boolean;
   selectedImageTypes: SelectedImageTypes;
   selectedVideoTypes: SelectedVideoTypes;
+  sortKey: string;
 };
 
 export type DeleteFilesInput = { fileIds: string[] };
@@ -85,6 +87,7 @@ export type GetFileByHashInput = { hash: string };
 
 export type GetShiftSelectedFilesInput = CreateFilterPipelineInput & {
   clickedId: string;
+  clickedIndex: number;
   isSortDesc: boolean;
   selectedIds: string[];
   sortKey: string;
@@ -119,11 +122,10 @@ export type ListFilesInput = { ids?: string[] };
 
 export type ListFilesByTagIdsInput = { tagIds: string[] };
 
-export type ListFilteredFileIdsInput = CreateFilterPipelineInput & {
+export type ListFilteredFilesInput = CreateFilterPipelineInput & {
   isSortDesc: boolean;
   page: number;
   pageSize: number;
-  selectedFileIds?: string[];
   sortKey: string;
 };
 

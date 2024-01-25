@@ -10,14 +10,7 @@ import {
   modelFlow,
   prop,
 } from "mobx-keystone";
-import {
-  File,
-  mongoFileToMobX,
-  SelectedImageTypes,
-  SelectedVideoTypes,
-  sortFiles,
-  TagOption,
-} from "store";
+import { File, mongoFileToMobX, SelectedImageTypes, SelectedVideoTypes, TagOption } from "store";
 import { CreateCollectionInput, LoadCollectionsInput, LoadSearchResultsInput } from "database";
 import { FileCollection, FileCollectionFile } from ".";
 import { CONSTANTS, handleErrors, IMAGE_TYPES, trpc, VIDEO_TYPES } from "utils";
@@ -193,7 +186,7 @@ export class FileCollectionStore extends Model({
         const { excludedAnyTagIds, includedAllTagIds, includedAnyTagIds } =
           tagStore.tagSearchOptsToIds(this.searchValue);
 
-        const filteredRes = await trpc.listFilteredFileIds.mutate({
+        const filteredRes = await trpc.listFilteredFiles.mutate({
           excludedAnyTagIds: [
             ...new Set([
               ...excludedAnyTagIds,
@@ -218,19 +211,13 @@ export class FileCollectionStore extends Model({
         });
         if (!filteredRes.success) throw new Error(filteredRes.error);
 
-        const { displayedIds } = filteredRes.data;
+        const { files, pageCount } = filteredRes.data;
 
-        const displayedRes = await trpc.listFiles.mutate({ ids: displayedIds });
-        if (!displayedRes.success) throw new Error(displayedRes.error);
-        const displayed = displayedRes.data.sort((a, b) =>
-          sortFiles({ a, b, isDesc: this.searchSortValue.isDesc, key: this.searchSortValue.key })
-        );
-
-        this.setSearchResults(displayed.map((f) => new File(mongoFileToMobX(f))));
-        this.setSearchPageCount(filteredRes.data.pageCount);
+        this.setSearchResults(files.map((f) => new File(mongoFileToMobX(f))));
+        this.setSearchPageCount(pageCount);
         if (page) this.setSearchPage(page);
 
-        return displayed;
+        return files;
       })
     );
   });

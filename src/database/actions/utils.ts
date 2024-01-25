@@ -13,4 +13,6 @@ export const leanModelToJson = <T>(
   }
 };
 
-export const objectIds = (ids: string[]) => ids.map((id) => new Types.ObjectId(id));
+export const objectId = (id: string) => new Types.ObjectId(id);
+
+export const objectIds = (ids: string[]) => ids.map(objectId);

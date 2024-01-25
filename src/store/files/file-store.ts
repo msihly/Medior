@@ -53,7 +53,7 @@ export class FileStore extends Model({
   }
 
   @modelAction
-  toggleFilesSelected(selected: { id: string; isSelected?: boolean }[]) {
+  toggleFilesSelected(selected: { id: string; isSelected?: boolean }[], withToast = false) {
     if (!selected?.length) return;
 
     const [added, removed] = selected.reduce(
@@ -65,6 +65,13 @@ export class FileStore extends Model({
     this.selectedIds = [...new Set(this.selectedIds.concat(added))].filter(
       (id) => !removedSet.has(id)
     );
+
+    if (withToast)
+      toast.info(
+        `${added.length ? `${added.length} files selected.` : ""}${
+          added.length && removed.length ? "\n" : ""
+        }${removed.length ? `${removed.length} files deselected.` : ""}`
+      );
   }
 
   @modelAction
