@@ -1,7 +1,7 @@
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
 import { AppBar } from "@mui/material";
-import { IconButton, SortMenu, View } from "components";
+import { IconButton, IconButtonProps, SortMenu, View } from "components";
 import { SelectedFilesInfo } from ".";
 import { colors, CONSTANTS, makeClasses } from "utils";
 import { toast } from "react-toastify";
@@ -55,69 +55,78 @@ export const TopBar = observer(() => {
     <AppBar position="static" className={css.appBar}>
       <View className={css.container}>
         <View className={css.divisions}>
-          <IconButton name="Menu" onClick={toggleDrawerOpen} size="medium" />
+          <TopIconButton name="Menu" onClick={toggleDrawerOpen} />
 
           {fileStore.selectedIds.length > 0 && <SelectedFilesInfo />}
         </View>
 
         <View className={css.divisions}>
           {homeStore.isArchiveOpen && (
-            <IconButton
+            <TopIconButton
               name="Delete"
+              tooltip="Delete"
+              iconProps={{ color: colors.button.red }}
               onClick={handleDelete}
               disabled={hasNoSelection}
-              size="medium"
             />
           )}
 
-          <IconButton
+          <TopIconButton
             name={homeStore.isArchiveOpen ? "Unarchive" : "Archive"}
+            tooltip={homeStore.isArchiveOpen ? "Unarchive" : "Archive"}
             onClick={homeStore.isArchiveOpen ? handleUnarchive : handleDelete}
             disabled={hasNoSelection}
-            size="medium"
           />
 
-          <IconButton
+          <TopIconButton
             name="Refresh"
+            tooltip="Refresh File Info"
             onClick={handleFileInfoRefresh}
             disabled={hasNoSelection}
-            size="medium"
           />
 
-          <IconButton
+          <TopIconButton
             name="Face"
+            tooltip="Auto Detect Faces"
             onClick={handleAutoDetect}
             disabled={hasNoSelection}
-            size="medium"
           />
 
-          <IconButton
+          <TopIconButton
             name="Collections"
+            tooltip="Edit Collections"
             onClick={handleEditCollections}
             disabled={hasNoSelection}
-            size="medium"
           />
 
-          <IconButton
+          <TopIconButton
             name="Label"
+            tooltip="Edit Tags"
             onClick={handleEditTags}
             disabled={hasNoSelection}
-            size="medium"
           />
 
-          <IconButton
+          <TopIconButton
             name="Deselect"
+            tooltip="Deselect All Files"
             onClick={handleDeselectAll}
             disabled={hasNoSelection}
-            size="medium"
           />
 
-          <IconButton name="SelectAll" onClick={handleSelectAll} size="medium" />
+          <TopIconButton
+            name="SelectAll"
+            tooltip="Select All Files in View"
+            onClick={handleSelectAll}
+          />
 
-          <IconButton
+          <TopIconButton
             name={homeStore.fileCardFit === "cover" ? "Fullscreen" : "FullscreenExit"}
+            tooltip={
+              homeStore.fileCardFit === "cover"
+                ? "Thumbnail Fit (Cover)"
+                : "Thumbnail Fit (Contain)"
+            }
             onClick={toggleFileCardFit}
-            size="medium"
           />
 
           <SortMenu
@@ -138,6 +147,14 @@ export const TopBar = observer(() => {
     </AppBar>
   );
 });
+
+interface TopIconButtonProps extends IconButtonProps {}
+
+const TopIconButton = ({ tooltipProps = {}, ...props }: TopIconButtonProps) => {
+  return (
+    <IconButton {...props} size="medium" tooltipProps={{ placement: "bottom", ...tooltipProps }} />
+  );
+};
 
 const useClasses = makeClasses({
   appBar: {
@@ -160,11 +177,8 @@ const useClasses = makeClasses({
   divisions: {
     display: "inline-flex",
     alignItems: "center",
-    "&:first-of-type > *:not(:last-child)": {
+    "& > *:not(:last-child)": {
       marginRight: "0.5rem",
-    },
-    "&:last-of-type > *:not(:first-of-type)": {
-      marginLeft: "0.5rem",
     },
   },
 });

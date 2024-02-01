@@ -1,7 +1,7 @@
 import { ReactNode } from "react";
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { IconButton as MuiIconButton, IconButtonProps as MuiIconButtonProps } from "@mui/material";
-import { Icon, IconName, IconProps } from "components";
+import { Icon, IconName, IconProps, TooltipWrapper, TooltipWrapperProps } from "components";
 import { makeClasses, Margins } from "utils";
 
 export interface IconButtonProps extends Omit<MuiIconButtonProps, "color"> {
@@ -9,6 +9,8 @@ export interface IconButtonProps extends Omit<MuiIconButtonProps, "color"> {
   iconProps?: Partial<IconProps>;
   margins?: Margins;
   name?: IconName;
+  tooltip?: TooltipWrapperProps["tooltip"];
+  tooltipProps?: TooltipWrapperProps["tooltipProps"];
 }
 
 export const IconButton = ({
@@ -20,15 +22,23 @@ export const IconButton = ({
   name,
   onClick,
   size,
+  tooltip,
+  tooltipProps,
   ...props
 }: IconButtonProps) => {
   const { css, cx } = useClasses({ disabled, margins });
 
   return (
-    <MuiIconButton {...props} {...{ disabled, onClick, size }} className={cx(css.root, className)}>
-      {name && <Icon {...iconProps} name={name} />}
-      {children}
-    </MuiIconButton>
+    <TooltipWrapper {...{ tooltip, tooltipProps }}>
+      <MuiIconButton
+        {...props}
+        {...{ disabled, onClick, size }}
+        className={cx(css.root, className)}
+      >
+        {name && <Icon {...iconProps} name={name} />}
+        {children}
+      </MuiIconButton>
+    </TooltipWrapper>
   );
 };
 
