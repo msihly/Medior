@@ -30,7 +30,7 @@ export class TagStore extends Model({
   tagManagerRegExMode: prop<"any" | "hasRegEx" | "hasNoRegEx">("any").withSetter(),
   tagManagerSort: prop<SortMenuProps["value"]>(() => ({
     isDesc: true,
-    key: "dateModified",
+    key: "dateCreated",
   })).withSetter(),
   tags: prop<Tag[]>(() => []),
 }) {

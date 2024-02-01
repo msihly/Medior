@@ -50,7 +50,7 @@ export const sortFiles = <File>({
 
 @model("mediaViewer/HomeStore")
 export class HomeStore extends Model({
-  fileCardFit: prop<"contain" | "cover">("cover").withSetter(),
+  fileCardFit: prop<"contain" | "cover">("contain").withSetter(),
   includeTagged: prop<boolean>(false).withSetter(),
   includeUntagged: prop<boolean>(false).withSetter(),
   isArchiveOpen: prop<boolean>(false).withSetter(),
@@ -67,7 +67,7 @@ export class HomeStore extends Model({
   ),
   sortValue: prop<{ isDesc: boolean; key: string }>(() => ({
     isDesc: true,
-    key: "dateModified",
+    key: "dateCreated",
   })).withSetter(),
   taggerBatchId: prop<string | null>(null).withSetter(),
   taggerFileIds: prop<string[]>(() => []).withSetter(),
