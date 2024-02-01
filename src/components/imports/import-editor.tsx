@@ -58,7 +58,10 @@ export const ImportEditor = observer(() => {
   const handleFoldersToTags = (checked: boolean) =>
     setFolderToTagsMode(checked ? "hierarchical" : "none");
 
-  const handleRegExMapper = () => importStore.setIsImportRegExMapperOpen(true);
+  const handleRegExMapper = () => {
+    if (importStore.isImportRegExMapperOpen) importStore.setIsImportRegExMapperOpen(false);
+    setTimeout(() => importStore.setIsImportRegExMapperOpen(true), 0);
+  };
 
   const toggleFolderToCollWithTag = () =>
     setFolderToCollectionMode((prev) => (prev === "withTag" ? "withoutTag" : "withTag"));
