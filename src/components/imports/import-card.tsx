@@ -1,17 +1,8 @@
 import { shell } from "@electron/remote";
 import { observer } from "mobx-react-lite";
 import { FileImport } from "store";
-import {
-  FileBase,
-  Icon,
-  IMPORT_STATUSES,
-  openFile,
-  Text,
-  TooltipWrapper,
-  View,
-  ViewProps,
-} from "components";
-import { colors, makeClasses, trpc } from "utils";
+import { FileBase, Icon, IMPORT_STATUSES, Text, TooltipWrapper, View, ViewProps } from "components";
+import { colors, makeClasses, openCarouselWindow, trpc } from "utils";
 
 export const IMPORT_CARD_SIZE = 100;
 
@@ -28,7 +19,7 @@ export const ImportCard = observer(({ fileImport, style }: ImportCardProps) => {
 
   const handleClick = async () =>
     hasFileId
-      ? openFile({
+      ? openCarouselWindow({
           file: (await trpc.listFiles.mutate({ ids: [fileImport.fileId] })).data[0],
           selectedFileIds: [fileImport.fileId],
         })

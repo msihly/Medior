@@ -1,14 +1,12 @@
 import { useEffect, useState } from "react";
 import { observer } from "mobx-react-lite";
-import { handleIngest, useStores } from "store";
+import { useStores } from "store";
 import {
   Drawer,
   FaceRecognitionModal,
   FileCollectionEditor,
   FileCollectionManager,
   FileContainer,
-  ImportEditor,
-  ImportManager,
   ImportRegExMapper,
   TagEditor,
   TagManager,
@@ -17,10 +15,9 @@ import {
   TopBar,
   View,
 } from "components";
-import { colors, CONSTANTS, makeClasses, setupSocketIO, socket } from "utils";
-import Color from "color";
+import { CONSTANTS, makeClasses, setupSocketIO, socket } from "utils";
 
-export const Home = observer(() => {
+export const SearchWindow = observer(() => {
   const rootStore = useStores();
   const { faceRecognitionStore, fileCollectionStore, fileStore, homeStore, importStore, tagStore } =
     useStores();
@@ -29,28 +26,11 @@ export const Home = observer(() => {
 
   const { css } = useClasses({ isDrawerOpen: homeStore.isDrawerOpen });
 
-  const handleDragEnter = (event: React.DragEvent) => {
-    const items = [...event.dataTransfer.items].filter((item) => item.kind === "file");
-    if (items.length > 0 && !homeStore.isDraggingOut) homeStore.setIsDraggingIn(true);
-  };
-
-  const handleDragLeave = () => homeStore.setIsDraggingIn(false);
-
-  const handleDragOver = (event: React.DragEvent) => {
-    event.preventDefault();
-    event.stopPropagation();
-  };
-
-  const handleFileDrop = (event: React.DragEvent) => {
-    homeStore.setIsDraggingIn(false);
-    handleIngest({ fileList: event.dataTransfer.files, rootStore });
-  };
-
   const setTaggerVisible = (val: boolean) => homeStore.setIsTaggerOpen(val);
 
   useEffect(() => {
-    document.title = "Media Viewer // Home";
-    console.debug("Home window useEffect fired.");
+    document.title = "Media Viewer // Search";
+    console.debug("Search window useEffect fired.");
 
     const loadDatabase = async () => {
       try {
@@ -59,7 +39,6 @@ export const Home = observer(() => {
 
         await Promise.all([
           fileCollectionStore.loadCollections(),
-          importStore.loadImportBatches(),
           importStore.loadRegExMaps(),
           tagStore.loadTags(),
         ]);
@@ -98,7 +77,6 @@ export const Home = observer(() => {
 
     socket.on("reloadFileCollections", () => fileCollectionStore.loadCollections());
     socket.on("reloadFiles", () => homeStore.reloadDisplayedFiles({ rootStore }));
-    socket.on("reloadImportBatches", () => importStore.loadImportBatches());
     socket.on("reloadRegExMaps", () => importStore.loadRegExMaps());
     socket.on("reloadTags", () => tagStore.loadTags());
 
@@ -116,44 +94,34 @@ export const Home = observer(() => {
   }, []);
 
   return (
-    <View onDragOver={handleDragOver} onDragEnter={handleDragEnter}>
-      {homeStore.isDraggingIn && (
-        <View onDragLeave={handleDragLeave} onDrop={handleFileDrop} className={css.overlay} />
-      )}
+    <View column className={css.root}>
+      <TopBar />
 
-      <View column className={css.root}>
-        <TopBar />
+      <View row>
+        <Drawer />
 
-        <View row>
-          <Drawer hasImports />
+        <View column className={css.main}>
+          {isLoading ? null : <FileContainer />}
 
-          <View column className={css.main}>
-            {isLoading ? null : <FileContainer />}
+          {faceRecognitionStore.isModalOpen && <FaceRecognitionModal />}
 
-            {faceRecognitionStore.isModalOpen && <FaceRecognitionModal />}
+          {homeStore.isTaggerOpen && (
+            <Tagger fileIds={homeStore.taggerFileIds} setVisible={setTaggerVisible} />
+          )}
 
-            {homeStore.isTaggerOpen && (
-              <Tagger fileIds={homeStore.taggerFileIds} setVisible={setTaggerVisible} />
-            )}
+          {fileCollectionStore.isCollectionManagerOpen && <FileCollectionManager />}
 
-            {fileCollectionStore.isCollectionManagerOpen && <FileCollectionManager />}
+          {fileCollectionStore.isCollectionEditorOpen && <FileCollectionEditor />}
 
-            {fileCollectionStore.isCollectionEditorOpen && <FileCollectionEditor />}
+          {tagStore.isTagEditorOpen && <TagEditor id={tagStore.activeTagId} hasSubEditor />}
 
-            {tagStore.isTagEditorOpen && <TagEditor id={tagStore.activeTagId} hasSubEditor />}
+          {tagStore.isTagSubEditorOpen && <TagEditor id={tagStore.subEditorTagId} isSubEditor />}
 
-            {tagStore.isTagSubEditorOpen && <TagEditor id={tagStore.subEditorTagId} isSubEditor />}
+          {tagStore.isTagManagerOpen && <TagManager />}
 
-            {tagStore.isTagManagerOpen && <TagManager />}
+          {tagStore.isTagMergerOpen && <TagMerger />}
 
-            {tagStore.isTagMergerOpen && <TagMerger />}
-
-            <ImportManager />
-
-            {importStore.isImportEditorOpen && <ImportEditor />}
-
-            {importStore.isImportRegExMapperOpen && <ImportRegExMapper />}
-          </View>
+          {importStore.isImportRegExMapperOpen && <ImportRegExMapper />}
         </View>
       </View>
     </View>
@@ -169,18 +137,6 @@ const useClasses = makeClasses((_, { isDrawerOpen }) => ({
     height: `calc(100vh - ${CONSTANTS.TOP_BAR_HEIGHT})`,
     overflow: "auto",
     transition: "all 225ms ease-in-out",
-  },
-  overlay: {
-    position: "fixed",
-    top: 0,
-    bottom: 0,
-    right: 0,
-    left: 0,
-    border: `15px dashed ${colors.blue["600"]}`,
-    backgroundColor: Color(colors.blue["800"]).fade(0.5).string(),
-    opacity: 0.3,
-    // pointerEvents: "none",
-    zIndex: 5000, // necessary for MUI z-index values
   },
   root: {
     height: "100vh",

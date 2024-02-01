@@ -1,6 +1,6 @@
 export const COLLECTION_SEARCH_FILE_COUNT = 10;
 
-export const DRAWER_WIDTH = 200;
+export const DRAWER_WIDTH = 210;
 
 export const FILE_COUNT = 50;
 

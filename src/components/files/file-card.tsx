@@ -2,8 +2,8 @@ import { getCurrentWebContents } from "@electron/remote";
 import { observer } from "mobx-react-lite";
 import { File, useStores } from "store";
 import { Icon, Text, View } from "components";
-import { ContextMenu, FileBase, openFile } from ".";
-import { colors, dayjs } from "utils";
+import { ContextMenu, FileBase } from ".";
+import { colors, dayjs, openCarouselWindow } from "utils";
 import { CSSObject } from "tss-react";
 
 interface FileCardProps {
@@ -53,7 +53,7 @@ export const FileCard = observer(({ disabled, file, height, id, width }: FileCar
     if (!disabled) {
       const res = await homeStore.listIdsForCarousel({ id: file.id, rootStore });
       if (!res?.success) console.error(res.error);
-      else openFile({ file, selectedFileIds: res.data });
+      else openCarouselWindow({ file, selectedFileIds: res.data });
     }
   };
 

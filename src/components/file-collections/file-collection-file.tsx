@@ -3,8 +3,8 @@ import { observer } from "mobx-react-lite";
 import { FileCollectionFile as FileColFile, useStores } from "store";
 import { useSortable } from "@alissavrk/dnd-kit-sortable";
 import { CSS } from "@alissavrk/dnd-kit-utilities";
-import { Button, FileBase, View, openFile } from "components";
-import { colors, dayjs } from "utils";
+import { Button, FileBase, View } from "components";
+import { colors, dayjs, openCarouselWindow } from "utils";
 
 export interface FileCollectionFileProps {
   disabled?: boolean;
@@ -28,7 +28,7 @@ export const FileCollectionFile = observer(
     });
 
     const handleDoubleClick = () =>
-      openFile({
+      openCarouselWindow({
         file,
         selectedFileIds: fileCollectionStore.activeCollection.fileIdIndexes.map(
           ({ fileId }) => fileId

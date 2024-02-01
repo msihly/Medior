@@ -1,15 +1,24 @@
 import { useMemo } from "react";
 import { observer } from "mobx-react-lite";
-import { useStores } from "store";
+import { TagOption, useStores } from "store";
 import { Divider, Drawer as MuiDrawer, List } from "@mui/material";
 import { Accordion, Checkbox, ListItem, TagInput, Text, View } from "components";
 import { ExtCheckbox } from ".";
-import { colors, CONSTANTS, IMAGE_TYPES, makeClasses, VIDEO_TYPES } from "utils";
+import { colors, CONSTANTS, IMAGE_TYPES, makeClasses, openSearchWindow, VIDEO_TYPES } from "utils";
 
-export const Drawer = observer(() => {
+export interface DrawerProps {
+  hasImports?: boolean;
+}
+
+export const Drawer = observer(({ hasImports = false }: DrawerProps) => {
   const { fileCollectionStore, homeStore, importStore, tagStore } = useStores();
 
   const { css } = useClasses(null);
+
+  const searchValue = useMemo(
+    () => [...homeStore.searchValue],
+    [JSON.stringify(homeStore.searchValue)]
+  );
 
   const [isAllImageTypesSelected, isAnyImageTypesSelected] = useMemo(() => {
     const allTypes = Object.values(homeStore.selectedImageTypes);
@@ -38,6 +47,8 @@ export const Drawer = observer(() => {
 
   const handleManageTags = () => tagStore.setIsTagManagerOpen(true);
 
+  const handleSearchWindow = () => openSearchWindow();
+
   const handleTagged = () => {
     if (!homeStore.includeTagged && !homeStore.includeUntagged) homeStore.setIncludeTagged(true);
     else if (homeStore.includeTagged) {
@@ -45,6 +56,8 @@ export const Drawer = observer(() => {
       homeStore.setIncludeUntagged(true);
     } else homeStore.setIncludeUntagged(false);
   };
+
+  const setSearchValue = (val: TagOption[]) => homeStore.setSearchValue(val);
 
   const toggleArchiveOpen = () => homeStore.setIsArchiveOpen(!homeStore.isArchiveOpen);
 
@@ -67,11 +80,13 @@ export const Drawer = observer(() => {
       variant="persistent"
     >
       <List disablePadding className={css.list}>
+        <ListItem text="Search Window" icon="Search" onClick={handleSearchWindow} />
+
         <ListItem text="Tags" icon="More" onClick={handleManageTags} />
 
         <ListItem text="Collections" icon="Collections" onClick={handleCollections} />
 
-        <ListItem text="Imports" icon="GetApp" onClick={handleImport} />
+        {hasImports && <ListItem text="Imports" icon="GetApp" onClick={handleImport} />}
       </List>
 
       <Divider className={css.divider} />
@@ -80,8 +95,8 @@ export const Drawer = observer(() => {
         {"Search"}
       </Text>
       <TagInput
-        value={[...homeStore.searchValue]}
-        onChange={(val) => homeStore.setSearchValue(val)}
+        value={searchValue}
+        onChange={setSearchValue}
         width={CONSTANTS.DRAWER_WIDTH - 20}
         hasSearchMenu
       />
