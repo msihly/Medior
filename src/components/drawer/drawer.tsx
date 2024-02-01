@@ -72,12 +72,6 @@ export const Drawer = observer(() => {
         <ListItem text="Collections" icon="Collections" onClick={handleCollections} />
 
         <ListItem text="Imports" icon="GetApp" onClick={handleImport} />
-
-        <ListItem
-          text={`${homeStore.isArchiveOpen ? "Close" : "Open"} Archive`}
-          icon={homeStore.isArchiveOpen ? "Unarchive" : "Archive"}
-          onClick={toggleArchiveOpen}
-        />
       </List>
 
       <Divider className={css.divider} />
@@ -93,6 +87,12 @@ export const Drawer = observer(() => {
       />
 
       <View className={css.checkboxes} column>
+        <Checkbox
+          label="Archived"
+          checked={homeStore.isArchiveOpen}
+          setChecked={toggleArchiveOpen}
+        />
+
         <Checkbox
           label="Tagged"
           checked={homeStore.includeTagged}
