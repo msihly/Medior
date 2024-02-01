@@ -1,6 +1,6 @@
 import { CSSProperties, useMemo } from "react";
 import { observer } from "mobx-react-lite";
-import { TagOption, useStores } from "store";
+import { RegExMap, TagOption, useStores } from "store";
 import { InputAdornment } from "@mui/material";
 import { Button, Icon, IconName, Input, InputProps, TagInput, View } from "components";
 import { colors, makeClasses } from "utils";
@@ -26,16 +26,15 @@ const STATUS_META: { [key: string]: { color: string; icon: IconName } } = {
 type Status = keyof typeof STATUS_META;
 
 export interface RegExMapRowProps {
-  index: number;
+  map: RegExMap;
   style?: CSSProperties;
+  withTagInput?: boolean;
 }
 
-export const RegExMapRow = observer(({ index, style }: RegExMapRowProps) => {
+export const RegExMapRow = observer(({ map, style, withTagInput = false }: RegExMapRowProps) => {
   const { css, cx } = useClasses(null);
 
-  const { importStore, tagStore } = useStores();
-
-  const map = importStore.filteredRegExMaps[importStore.filteredRegExMaps.length - 1 - index];
+  const { tagStore } = useStores();
 
   const [isRegExValid, isTestStringValid] = useMemo(() => {
     try {
@@ -150,29 +149,33 @@ export const RegExMapRow = observer(({ index, style }: RegExMapRowProps) => {
           helperText={!isTestStringValid ? "Does not match RegExp" : null}
         />
 
-        <Icon name="KeyboardDoubleArrowRight" size="1.8em" margins={{ top: "0.4rem" }} />
+        {withTagInput && (
+          <>
+            <Icon name="KeyboardDoubleArrowRight" size="1.8em" margins={{ top: "0.4rem" }} />
 
-        <Button
-          icon="AccountTree"
-          iconSize="1.8em"
-          onClick={genRegExFromTags}
-          tooltip="Generate RegEx From Tags"
-        />
+            <Button
+              icon="AccountTree"
+              iconSize="1.8em"
+              onClick={genRegExFromTags}
+              tooltip="Generate RegEx From Tags"
+            />
 
-        <TagInput
-          label="Tag"
-          value={[tagOption]}
-          onChange={handleTagsChange}
-          hasCreate
-          hasDelete
-          maxTags={1}
-          inputProps={{
-            ...inputProps,
-            helperText: !tagOption ? "Must have tag" : null,
-            error: !tagOption,
-          }}
-          className={cx(css.input, css.tagInput)}
-        />
+            <TagInput
+              label="Tag"
+              value={tagOption ? [tagOption] : []}
+              onChange={handleTagsChange}
+              hasCreate
+              hasDelete
+              maxTags={1}
+              inputProps={{
+                ...inputProps,
+                helperText: !tagOption ? "Must have tag" : null,
+                error: !tagOption,
+              }}
+              className={cx(css.input, css.tagInput)}
+            />
+          </>
+        )}
       </View>
     </View>
   );

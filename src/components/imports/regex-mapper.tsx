@@ -73,7 +73,16 @@ export const ImportRegExMapper = observer(() => {
                 itemCount={importStore.filteredRegExMaps.length}
               >
                 {({ index, style }) => (
-                  <RegExMapRow key={index} index={index} {...{ index, style }} />
+                  <RegExMapRow
+                    key={index}
+                    map={
+                      importStore.filteredRegExMaps[
+                        importStore.filteredRegExMaps.length - 1 - index
+                      ]
+                    }
+                    withTagInput
+                    {...{ style }}
+                  />
                 )}
               </FixedSizeList>
             )}
