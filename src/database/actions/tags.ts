@@ -144,7 +144,7 @@ export const editTag = ({
     return { changedChildIds, changedParentIds, dateModified, operations, res };
   });
 
-export const getAllTags = () =>
+export const listTags = () =>
   handleErrors(async () =>
     (await db.TagModel.find().lean()).map((r) => leanModelToJson<db.Tag>(r))
   );

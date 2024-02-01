@@ -2,12 +2,11 @@ import * as db from "database";
 import { dayjs, handleErrors, socket } from "utils";
 import { leanModelToJson } from "./utils";
 
-const makeCollAttrs = (files: db.File[]) => {
-  const rating = files.reduce((acc, f) => acc + f.rating, 0) / files.length;
-  const tagIds = [...new Set(files.flatMap((f) => f.tagIds))];
-  const thumbPaths = files.slice(0, 10).map((f) => f.thumbPaths[0]);
-  return { rating, tagIds, thumbPaths };
-};
+const makeCollAttrs = (files: db.File[]) => ({
+  rating: files.reduce((acc, f) => acc + f.rating, 0) / files.length,
+  tagIds: [...new Set(files.flatMap((f) => f.tagIds))],
+  thumbPaths: files.slice(0, 10).map((f) => f.thumbPaths[0]),
+});
 
 export const createCollection = ({ fileIdIndexes, title }: db.CreateCollectionInput) =>
   handleErrors(async () => {
