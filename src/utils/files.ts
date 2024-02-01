@@ -92,15 +92,25 @@ export const dirToFolderPaths = async (dirPath: string): Promise<string[]> => {
 export const extendFileName = (fileName: string, ext: string) =>
   `${path.relative(".", fileName).replace(/\.\w+$/, "")}.${ext}`;
 
-export const removeEmptyFolders = async (dirPath: string = ".", excluded?: string[]) => {
-  if (!(await fs.stat(dirPath)).isDirectory() || excluded?.includes(path.basename(dirPath))) return;
+export const removeEmptyFolders = async (
+  dirPath: string = ".",
+  options: { excludedPaths?: string[]; removeEmptyParent?: boolean } = {}
+) => {
+  if (
+    !(await fs.stat(dirPath)).isDirectory() ||
+    options.excludedPaths?.includes(path.basename(dirPath))
+  )
+    return;
 
   let files = await fs.readdir(dirPath);
   if (files.length) {
-    await Promise.all(files.map((f) => removeEmptyFolders(path.join(dirPath, f), excluded)));
+    await Promise.all(files.map((f) => removeEmptyFolders(path.join(dirPath, f), options)));
     files = await fs.readdir(dirPath);
   }
 
   if (!files.length && path.resolve(dirPath) !== path.resolve(process.cwd()))
     await fs.rmdir(dirPath);
+
+  if (options.removeEmptyParent)
+    await removeEmptyFolders(path.dirname(dirPath), { ...options, removeEmptyParent: false });
 };

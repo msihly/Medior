@@ -189,7 +189,9 @@ export class ImportStore extends Model({
         if (batch.deleteOnImport) {
           try {
             const parentDirs = [...new Set(batch.imports.map((file) => path.dirname(file.path)))];
-            await Promise.all(parentDirs.map((dir) => removeEmptyFolders(dir)));
+            await Promise.all(
+              parentDirs.map((dir) => removeEmptyFolders(dir, { removeEmptyParent: true }))
+            );
           } catch (err) {
             console.error("Error removing empty folders:", err);
           }
