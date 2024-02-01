@@ -27,6 +27,7 @@ export class TagStore extends Model({
   isTagMergerOpen: prop<boolean>(false).withSetter(),
   isTagSubEditorOpen: prop<boolean>(false).withSetter(),
   subEditorTagId: prop<string>(null).withSetter(),
+  tagManagerRegExMode: prop<"any" | "hasRegEx" | "hasNoRegEx">("any").withSetter(),
   tagManagerSort: prop<SortMenuProps["value"]>(() => ({
     isDesc: true,
     key: "dateModified",
@@ -57,6 +58,16 @@ export class TagStore extends Model({
   @modelAction
   overwrite = (tags: ModelCreationData<Tag>[]) => {
     this.tags = tags.map((t) => new Tag(t));
+  };
+
+  @modelAction
+  toggleTagManagerRegExMode = () => {
+    this.tagManagerRegExMode =
+      this.tagManagerRegExMode === "any"
+        ? "hasRegEx"
+        : this.tagManagerRegExMode === "hasRegEx"
+        ? "hasNoRegEx"
+        : "any";
   };
 
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */
@@ -306,7 +317,8 @@ export class TagStore extends Model({
   }
 
   listByIds(ids: string[]) {
-    return this.tags.filter((t) => ids.includes(t.id));
+    const idsSet = new Set(ids.map(String));
+    return this.tags.filter((t) => idsSet.has(t.id));
   }
 
   listByParentId(id: string) {

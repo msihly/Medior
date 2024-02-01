@@ -5,6 +5,7 @@ import AutoSizer from "react-virtualized-auto-sizer";
 import { FixedSizeGrid } from "react-window";
 import {
   Button,
+  Checkbox,
   ListItem,
   MenuButton,
   Modal,
@@ -20,7 +21,7 @@ import { colors, makeClasses } from "utils";
 export const TagManager = observer(() => {
   const { css } = useClasses(null);
 
-  const { tagStore } = useStores();
+  const { importStore, tagStore } = useStores();
 
   const [searchValue, setSearchValue] = useState<TagOption[]>([]);
   const [width, setWidth] = useState(0);
@@ -34,6 +35,11 @@ export const TagManager = observer(() => {
         if (excludedAnyTagIds.includes(t.id)) return false;
         if (includedAllTagIds.length && !includedAllTagIds.includes(t.id)) return false;
         if (includedAnyTagIds.length && !includedAnyTagIds.includes(t.id)) return false;
+        if (tagStore.tagManagerRegExMode !== "any") {
+          const hasRegEx = importStore.listRegExMapsByTagId(t.id).length > 0;
+          if (tagStore.tagManagerRegExMode === "hasRegEx" && !hasRegEx) return false;
+          if (tagStore.tagManagerRegExMode === "hasNoRegEx" && hasRegEx) return false;
+        }
         return true;
       })
       .sort((a, b) => sortFiles({ a, b, ...tagStore.tagManagerSort }));
@@ -63,6 +69,8 @@ export const TagManager = observer(() => {
 
   const handleResize = ({ width }) => setWidth(width);
 
+  const setTagManagerSort = (val: SortMenuProps["value"]) => tagStore.setTagManagerSort(val);
+
   const renderTag = useCallback(
     ({ columnIndex, rowIndex, style }) => {
       const index = rowIndex * columnCount + columnIndex;
@@ -84,8 +92,6 @@ export const TagManager = observer(() => {
     [columnCount, columnWidth, JSON.stringify(tagOptions)]
   );
 
-  const setTagManagerSort = (val: SortMenuProps["value"]) => tagStore.setTagManagerSort(val);
-
   return (
     <Modal.Container onClose={closeModal} height="80%" width="80%">
       <Modal.Header
@@ -100,8 +106,21 @@ export const TagManager = observer(() => {
       </Modal.Header>
 
       <Modal.Content className={css.modalContent}>
-        <View row justify="space-between" margins={{ bottom: "0.5rem" }}>
-          <TagInput value={searchValue} onChange={setSearchValue} hasSearchMenu width="100%" />
+        <View className={css.searchRow}>
+          <TagInput
+            label="Search Tags"
+            value={searchValue}
+            onChange={setSearchValue}
+            hasSearchMenu
+            width="100%"
+          />
+
+          <Checkbox
+            label="Has RegEx"
+            checked={tagStore.tagManagerRegExMode === "hasRegEx"}
+            indeterminate={tagStore.tagManagerRegExMode === "hasNoRegEx"}
+            setChecked={tagStore.toggleTagManagerRegExMode}
+          />
 
           <SortMenu
             rows={[
@@ -113,7 +132,6 @@ export const TagManager = observer(() => {
             value={tagStore.tagManagerSort}
             setValue={setTagManagerSort}
             color={colors.button.darkGrey}
-            margins={{ left: "0.5rem" }}
           />
         </View>
 
@@ -143,6 +161,15 @@ export const TagManager = observer(() => {
 const useClasses = makeClasses({
   modalContent: {
     overflow: "hidden",
+  },
+  searchRow: {
+    display: "flex",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: "0.5rem",
+    "& > *:not(:last-child)": {
+      marginRight: "0.5rem",
+    },
   },
   tags: {
     display: "flex",
