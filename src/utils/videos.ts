@@ -1,6 +1,6 @@
 import path from "path";
 import ffmpeg from "fluent-ffmpeg";
-import { THUMB_WIDTH, fractionStringToNumber } from ".";
+import { CONSTANTS, THUMB_WIDTH, fractionStringToNumber, range } from ".";
 
 interface VideoInfo {
   duration: number;
@@ -41,65 +41,61 @@ export const generateFramesThumbnail = async (
 ) => {
   try {
     duration ??= (await getVideoInfo(inputPath))?.duration;
-    const frameInterval = duration / numOfFrames;
+    const skipDuration = duration * CONSTANTS.THUMB_FRAME_SKIP_PERCENT;
+    const frameInterval = (duration - skipDuration) / numOfFrames;
+    const frameIndices = range(numOfFrames);
 
-    try {
-      const timestamps = Array(numOfFrames)
-        .fill("")
-        .map((_, i) => i * frameInterval);
+    const filePaths = frameIndices.map((idx) =>
+      path.join(outputPath, `${fileHash}-thumb-${String(idx + 1).padStart(2, "0")}.jpg`)
+    );
+    const timestamps = frameIndices.map((idx) => idx * frameInterval + skipDuration);
 
-      await Promise.all(
-        timestamps.map(
-          (timestamp, idx) =>
-            new Promise(async (resolve, reject) => {
-              return ffmpeg()
-                .input(inputPath)
-                .inputOptions([`-ss ${timestamp}`])
-                .outputOptions([
-                  `-vf scale=${THUMB_WIDTH}:-1:force_original_aspect_ratio=increase,crop=min(iw\\,${THUMB_WIDTH}):ih`,
-                  `-vframes 1`,
-                ])
-                .output(
-                  path.join(outputPath, `${fileHash}-thumb-${String(idx + 1).padStart(2, "0")}.jpg`)
-                )
-                .on("end", resolve)
-                .on("error", reject)
-                .run();
-            })
-        )
-      );
+    await Promise.all(
+      timestamps.map(
+        (timestamp, idx) =>
+          new Promise(async (resolve, reject) => {
+            return ffmpeg()
+              .input(inputPath)
+              .inputOptions([`-ss ${timestamp}`])
+              .outputOptions([
+                `-vf scale=${THUMB_WIDTH}:-1:force_original_aspect_ratio=increase,crop=min(iw\\,${THUMB_WIDTH}):ih`,
+                `-vframes 1`,
+              ])
+              .output(filePaths[idx])
+              .on("end", resolve)
+              .on("error", reject)
+              .run();
+          })
+      )
+    );
 
-      return Array(numOfFrames)
-        .fill("")
-        .map((_, i) => path.join(outputPath, `${fileHash}-thumb-${i + 1}.jpg`));
-    } catch (err) {
-      console.error("ERR::generateFramesThumbnail()", err);
-      return [];
-    }
+    return filePaths;
   } catch (err) {
-    console.error("ERR::getVideoInfo()", err);
+    console.error("ERR::generateFramesThumbnail()", err);
     return [];
   }
 };
 
-// export const generateVideoThumbnail = async (
-//   inputPath: string,
-//   outputPath: string,
-//   thumbDuration = 3
-// ) => {
-//   const { duration } = await getVideoInfo(inputPath);
-//   const safeThumbDur = duration - thumbDuration;
-//   const startTime = safeThumbDur <= 0 ? 0 : getRandomInt(0.1 * safeThumbDur, 0.9 * safeThumbDur);
+/*
+export const generateVideoThumbnail = async (
+  inputPath: string,
+  outputPath: string,
+  thumbDuration = 3
+) => {
+  const { duration } = await getVideoInfo(inputPath);
+  const safeThumbDur = duration - thumbDuration;
+  const startTime = safeThumbDur <= 0 ? 0 : getRandomInt(0.1 * safeThumbDur, 0.9 * safeThumbDur);
 
-//   return await new Promise((resolve, reject) => {
-//     return ffmpeg()
-//       .input(inputPath)
-//       .inputOptions([`-ss ${startTime}`])
-//       .outputOptions([`-t ${thumbDuration}`])
-//       .noAudio()
-//       .output(path.join(outputPath, "test.mp4"))
-//       .on("end", resolve)
-//       .on("error", reject)
-//       .run();
-//   });
-// };
+  return await new Promise((resolve, reject) => {
+    return ffmpeg()
+      .input(inputPath)
+      .inputOptions([`-ss ${startTime}`])
+      .outputOptions([`-t ${thumbDuration}`])
+      .noAudio()
+      .output(path.join(outputPath, "test.mp4"))
+      .on("end", resolve)
+      .on("error", reject)
+      .run();
+  });
+};
+*/

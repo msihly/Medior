@@ -6,6 +6,8 @@ export const FILE_COUNT = 50;
 
 export const MONGOOSE_OPTS = { family: 4 };
 
+export const THUMB_FRAME_SKIP_PERCENT = 0.03;
+
 export const TOP_BAR_HEIGHT = "3rem";
 
 export const ZOOM_MIN_SCALE = 1;
@@ -18,6 +20,7 @@ export const CONSTANTS = {
   FILE_COUNT,
   MONGOOSE_OPTS,
   TOP_BAR_HEIGHT,
+  THUMB_FRAME_SKIP_PERCENT,
   ZOOM_MIN_SCALE,
   ZOOM_MAX_SCALE,
   ZOOM_STEP,

@@ -65,6 +65,8 @@ export const getArrayDiff = <T>(a: T[], b: T[]): T[] => [
 
 export const objectToFloat32Array = (obj: object) => new Float32Array(Object.values(obj));
 
+export const range = (length: number) => [...Array(length).keys()];
+
 export const rotateArrayPos = (direction: "prev" | "next", current: number, length: number) => {
   if (direction === "next") return current + 1 < length ? current + 1 : 0;
   else if (direction === "prev") return current - 1 >= 0 ? current - 1 : length - 1;
