@@ -2,9 +2,18 @@ import { useEffect, useRef, useState } from "react";
 import { observer } from "mobx-react-lite";
 import { TagOption, useStores } from "store";
 import { Divider } from "@mui/material";
-import { Button, Checkbox, ChipOption, IconButton, Modal, Text, View } from "components";
-import { ConfirmDeleteModal, TagInputs } from ".";
-import { colors, copyToClipboard, makeClasses } from "utils";
+import {
+  Button,
+  Checkbox,
+  ChipOption,
+  ConfirmModal,
+  IconButton,
+  Modal,
+  Text,
+  View,
+} from "components";
+import { TagInputs } from ".";
+import { colors, makeClasses } from "utils";
 import { toast } from "react-toastify";
 
 export interface TagEditorProps {
@@ -66,9 +75,20 @@ export const TagEditor = observer(
     const handleClose = () =>
       isSubEditor ? tagStore.setIsTagSubEditorOpen(false) : tagStore.setIsTagEditorOpen(false);
 
-    const handleDelete = () => setIsConfirmDeleteOpen(true);
+    const handleConfirmDelete = async () => {
+      const res = await tagStore.deleteTag({ id: tag.id });
 
-    const handleIdClick = () => copyToClipboard(id, "Tag ID copied to clipboard");
+      if (!res.success) toast.error("Failed to delete tag");
+      else {
+        toast.success("Tag deleted");
+        setIsConfirmDeleteOpen(false);
+        tagStore.setIsTagEditorOpen(false);
+      }
+
+      return res.success;
+    };
+
+    const handleDelete = () => setIsConfirmDeleteOpen(true);
 
     const handleMerge = () => {
       tagStore.setIsTagMergerOpen(true);
@@ -229,8 +249,6 @@ export const TagEditor = observer(
           )}
         </Modal.Content>
 
-        {isConfirmDeleteOpen && <ConfirmDeleteModal setVisible={setIsConfirmDeleteOpen} />}
-
         <Modal.Footer>
           <Button
             text="Cancel"
@@ -252,6 +270,15 @@ export const TagEditor = observer(
 
           <Button text="Confirm" icon="Check" onClick={saveTag} disabled={isSaving} />
         </Modal.Footer>
+
+        {isConfirmDeleteOpen && (
+          <ConfirmModal
+            headerText="Delete Tag"
+            subText={tag.label}
+            onConfirm={handleConfirmDelete}
+            setVisible={setIsConfirmDeleteOpen}
+          />
+        )}
       </Modal.Container>
     );
   }

@@ -8,7 +8,7 @@ export * from "./inputs";
 export * from "./imports";
 export * from "./list";
 export * from "./media";
-export * from "./modal";
+export * from "./modals";
 export * from "./table";
 export * from "./tags";
 export * from "./text";

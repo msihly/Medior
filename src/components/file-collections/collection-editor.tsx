@@ -16,6 +16,7 @@ import { Pagination } from "@mui/material";
 import {
   Button,
   CenteredText,
+  ConfirmModal,
   FileCollectionFile,
   FileSearchFile,
   Input,
@@ -26,7 +27,6 @@ import {
   Text,
   View,
 } from "components";
-import { ConfirmDeleteModal } from "./confirm-delete-modal";
 import { colors, makeClasses } from "utils";
 import { toast } from "react-toastify";
 
@@ -91,6 +91,19 @@ export const FileCollectionEditor = observer(() => {
           x: newRect.left - oldRect.left,
           y: newRect.top - oldRect.top,
         };
+  };
+
+  const handleConfirmDelete = async () => {
+    const res = await fileCollectionStore.deleteCollection(fileCollectionStore.activeCollectionId);
+
+    if (!res.success) toast.error("Failed to delete collection");
+    else {
+      fileCollectionStore.setActiveCollectionId(null);
+      fileCollectionStore.setIsCollectionEditorOpen(false);
+      toast.success("Collection deleted");
+    }
+
+    return res.success;
   };
 
   const handleDelete = () => setIsConfirmDeleteOpen(true);
@@ -263,7 +276,14 @@ export const FileCollectionEditor = observer(() => {
         />
       </Modal.Footer>
 
-      {isConfirmDeleteOpen && <ConfirmDeleteModal setVisible={setIsConfirmDeleteOpen} />}
+      {isConfirmDeleteOpen && (
+        <ConfirmModal
+          headerText="Delete Collection"
+          subText={fileCollectionStore.activeCollection?.title}
+          onConfirm={handleConfirmDelete}
+          setVisible={setIsConfirmDeleteOpen}
+        />
+      )}
     </Modal.Container>
   );
 });
