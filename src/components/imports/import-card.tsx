@@ -1,8 +1,17 @@
 import { shell } from "@electron/remote";
 import { observer } from "mobx-react-lite";
 import { FileImport } from "store";
-import { FileBase, Icon, IMPORT_STATUSES, openFile, TooltipWrapper, ViewProps } from "components";
-import { makeClasses, trpc } from "utils";
+import {
+  FileBase,
+  Icon,
+  IMPORT_STATUSES,
+  openFile,
+  Text,
+  TooltipWrapper,
+  View,
+  ViewProps,
+} from "components";
+import { colors, makeClasses, trpc } from "utils";
 
 export const IMPORT_CARD_SIZE = 100;
 
@@ -26,7 +35,28 @@ export const ImportCard = observer(({ fileImport, style }: ImportCardProps) => {
       : shell.showItemInFolder(fileImport.path);
 
   return (
-    <TooltipWrapper tooltip={fileImport.path} tooltipProps={{ style }}>
+    <TooltipWrapper
+      tooltip={
+        <View column>
+          <Text>
+            <Text color={colors.text.blue} fontWeight={600} marginRight="0.3em">
+              {"Path:"}
+            </Text>
+            {fileImport.path}
+          </Text>
+
+          {fileImport.errorMsg && (
+            <Text marginTop="0.5em">
+              <Text color={colors.text.red} fontWeight={600} marginRight="0.3em">
+                {"Error:"}
+              </Text>
+              {fileImport.errorMsg}
+            </Text>
+          )}
+        </View>
+      }
+      tooltipProps={{ style }}
+    >
       <FileBase.Container
         onClick={handleClick}
         height={IMPORT_CARD_SIZE}
