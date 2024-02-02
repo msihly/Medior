@@ -102,15 +102,16 @@ export const removeEmptyFolders = async (
   )
     return;
 
+  const subOptions = { ...options, removeEmptyParent: false };
+
   let files = await fs.readdir(dirPath);
   if (files.length) {
-    await Promise.all(files.map((f) => removeEmptyFolders(path.join(dirPath, f), options)));
+    await Promise.all(files.map((f) => removeEmptyFolders(path.join(dirPath, f), subOptions)));
     files = await fs.readdir(dirPath);
   }
 
   if (!files.length && path.resolve(dirPath) !== path.resolve(process.cwd()))
     await fs.rmdir(dirPath);
 
-  if (options.removeEmptyParent)
-    await removeEmptyFolders(path.dirname(dirPath), { ...options, removeEmptyParent: false });
+  if (options.removeEmptyParent) await removeEmptyFolders(path.dirname(dirPath), subOptions);
 };
