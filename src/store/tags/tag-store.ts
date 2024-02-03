@@ -335,17 +335,16 @@ export class TagStore extends Model({
   tagSearchOptsToIds(options: TagOption[]) {
     const [excludedAnyTagIds, includedAnyTagIds, includedAllTagIds] = options.reduce(
       (acc, cur) => {
-        if (cur.searchType.includes("Desc"))
-          acc[cur.searchType === "excludeDesc" ? 0 : 1].push(
-            cur.id,
-            ...this.getChildTags(this.getById(cur.id), true).map((t) => t.id)
-          );
-        else if (cur.searchType === "includeAnd") acc[2].push(cur.id);
+        if (cur.searchType.includes("Desc")) {
+          const childTagIds = this.getChildTags(this.getById(cur.id), true).map((t) => t.id);
+          if (cur.searchType === "excludeDesc") acc[0].push(cur.id, ...childTagIds);
+          else if (cur.searchType === "includeDesc") acc[2].push([cur.id, ...childTagIds]);
+        } else if (cur.searchType === "includeAnd") acc[2].push(cur.id);
         else if (cur.searchType === "includeOr") acc[1].push(cur.id);
         else if (cur.searchType === "exclude") acc[0].push(cur.id);
         return acc;
       },
-      [[], [], []] as string[][]
+      [[], [], []] as [string[], string[], db.IncludedAllTagItem[]]
     );
 
     return { excludedAnyTagIds, includedAllTagIds, includedAnyTagIds };

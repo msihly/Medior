@@ -63,7 +63,7 @@ export type ArchiveFilesInput = { fileIds: string[] };
 
 export type CreateFilterPipelineInput = {
   excludedAnyTagIds: string[];
-  includedAllTagIds: string[];
+  includedAllTagIds: IncludedAllTagItem[];
   includedAnyTagIds: string[];
   includeTagged: boolean;
   includeUntagged: boolean;
@@ -109,6 +109,8 @@ export type ImportFileInput = {
   thumbPaths: string[];
   width: number;
 };
+
+export type IncludedAllTagItem = string | string[];
 
 export type ListFaceModelsInput = { ids?: string[] };
 

@@ -1,10 +1,10 @@
 import { app } from "electron";
 import path from "path";
 import fs from "fs/promises";
-import { PipelineStage } from "mongoose";
+import { PipelineStage, Types } from "mongoose";
 import * as db from "database";
 import { dayjs, handleErrors, socket } from "utils";
-import { leanModelToJson, objectIds } from "./utils";
+import { leanModelToJson, objectId, objectIds } from "./utils";
 
 const FACE_MIN_CONFIDENCE = 0.4;
 const FACE_MODELS_PATH = app.isPackaged
@@ -33,6 +33,17 @@ const createFilterPipeline = ({
 
   const sortDir = isSortDesc ? -1 : 1;
 
+  const [requiredTagIds, requiredTagIdArrays] =
+    includedAllTagIds?.length > 0
+      ? includedAllTagIds.reduce(
+          (acc, cur) => {
+            Array.isArray(cur) ? acc[1].push(objectIds(cur)) : acc[0].push(objectId(cur));
+            return acc;
+          },
+          [[], []] as [Types.ObjectId[], Types.ObjectId[][]]
+        )
+      : [[], []];
+
   return {
     $match: {
       isArchived,
@@ -40,9 +51,12 @@ const createFilterPipeline = ({
       $and: [
         includeTagged ? { tagIds: { $ne: [] } } : {},
         includeUntagged ? { tagIds: { $eq: [] } } : {},
-        includedAllTagIds?.length > 0 ? { tagIds: { $all: objectIds(includedAllTagIds) } } : {},
         includedAnyTagIds?.length > 0 ? { tagIds: { $in: objectIds(includedAnyTagIds) } } : {},
         excludedAnyTagIds?.length > 0 ? { tagIds: { $nin: objectIds(excludedAnyTagIds) } } : {},
+        requiredTagIds.length > 0 ? { tagIds: { $all: requiredTagIds } } : {},
+        ...(requiredTagIdArrays.length > 0
+          ? requiredTagIdArrays.map((ids) => ({ tagIds: { $in: ids } }))
+          : []),
       ],
     },
     $sort: { [sortKey]: sortDir, _id: sortDir } as { [key: string]: 1 | -1 },
