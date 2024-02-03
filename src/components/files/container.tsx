@@ -55,7 +55,7 @@ export const FileContainer = observer(() => {
       homeStore.setTaggerFileIds([...fileStore.selectedIds]);
       homeStore.setIsTaggerOpen(true);
     } else if (e.key === "Delete") {
-      fileStore.deleteFiles({ rootStore, fileIds });
+      fileStore.confirmDeleteFiles(fileIds);
     } else if (e.ctrlKey && e.key === "a") {
       fileStore.toggleFilesSelected(fileStore.files.map(({ id }) => ({ id, isSelected: true })));
       toast.info(`Added ${fileStore.files.length} files to selection`);

@@ -16,7 +16,7 @@ export const TopBar = observer(() => {
   const handleAutoDetect = () =>
     faceRecognitionStore.addFilesToAutoDetectQueue({ fileIds: fileStore.selectedIds, rootStore });
 
-  const handleDelete = () => fileStore.deleteFiles({ fileIds: fileStore.selectedIds, rootStore });
+  const handleDelete = () => fileStore.confirmDeleteFiles(fileStore.selectedIds);
 
   const handleDeselectAll = () => {
     fileStore.toggleFilesSelected(fileStore.selectedIds.map((id) => ({ id, isSelected: false })));
@@ -43,8 +43,7 @@ export const TopBar = observer(() => {
 
   const handleSortChange = (val: { isDesc: boolean; key: string }) => homeStore.setSortValue(val);
 
-  const handleUnarchive = () =>
-    fileStore.deleteFiles({ fileIds: fileStore.selectedIds, isUndelete: true, rootStore });
+  const handleUnarchive = () => fileStore.unarchiveFiles({ fileIds: fileStore.selectedIds });
 
   const toggleDrawerOpen = () => homeStore.setIsDrawerOpen(!homeStore.isDrawerOpen);
 

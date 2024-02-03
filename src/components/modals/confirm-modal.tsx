@@ -1,5 +1,5 @@
 import { Dispatch, SetStateAction } from "react";
-import { Button, Icon, IconName, Modal, Text, View } from "components";
+import { Button, Icon, IconName, Modal, Text } from "components";
 import { colors, makeClasses } from "utils";
 
 export interface ConfirmModalProps {
@@ -11,7 +11,7 @@ export interface ConfirmModalProps {
   confirmText?: string;
   headerText?: string;
   onCancel?: () => void;
-  onConfirm: () => Promise<boolean>;
+  onConfirm: () => Promise<boolean> | void;
   setVisible: Dispatch<SetStateAction<boolean>>;
   subText: string;
 }
@@ -39,8 +39,13 @@ export const ConfirmModal = ({
   };
 
   const handleConfirm = async () => {
-    const success = await onConfirm();
-    if (success) handleClose();
+    if (onConfirm instanceof Promise) {
+      const success = await onConfirm();
+      if (success) handleClose();
+    } else {
+      onConfirm();
+      handleClose();
+    }
   };
 
   return (
@@ -48,19 +53,21 @@ export const ConfirmModal = ({
       onClose={handleCancel}
       height="100%"
       width="100%"
-      maxHeight="15rem"
-      maxWidth="20rem"
+      maxHeight="20rem"
+      maxWidth="25rem"
     >
-      <Modal.Header className={css.title}>
-        <Text>{headerText}</Text>
+      <Modal.Header className={css.modalHeader}>
+        <Text color={colors.grey["400"]} fontSize="1.1em" fontWeight={500}>
+          {headerText}
+        </Text>
       </Modal.Header>
 
-      <Modal.Content>
-        <View column align="center">
-          <Icon name="Delete" color={colors.error} size="5rem" />
+      <Modal.Content className={css.modalContent}>
+        <Icon name="Delete" color={colors.error} size="5rem" />
 
-          <Text className={css.subText}>{subText}</Text>
-        </View>
+        <Text color={colors.grey["300"]} fontSize="1.3em" textAlign="center">
+          {subText}
+        </Text>
       </Modal.Content>
 
       <Modal.Footer>
@@ -78,16 +85,12 @@ export const ConfirmModal = ({
 };
 
 const useClasses = makeClasses({
-  subText: {
-    fontWeight: 500,
-    fontSize: "1.5em",
-    textAlign: "center",
+  modalContent: {
+    justifyContent: "center",
+    alignItems: "center",
   },
-  title: {
+  modalHeader: {
     margin: 0,
     padding: "0.5rem 0",
-    color: colors.grey["400"],
-    fontSize: "1.3em",
-    textAlign: "center",
   },
 });

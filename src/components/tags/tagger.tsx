@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { observer } from "mobx-react-lite";
 import { TagOption, tagToOption, useStores } from "store";
-import { Button, Modal, TagInput, Text, View } from "components";
+import { Button, ConfirmModal, Modal, TagInput, Text, View } from "components";
 import { colors, makeClasses } from "utils";
 import { toast } from "react-toastify";
 
@@ -18,6 +18,8 @@ export const Tagger = observer(({ batchId, fileIds, setVisible }: TaggerProps) =
 
   const [addedTags, setAddedTags] = useState<TagOption[]>([]);
   const [currentTagOptions, setCurrentTagOptions] = useState<TagOption[]>([]);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [isConfirmDiscardOpen, setIsConfirmDiscardOpen] = useState(false);
   const [removedTags, setRemovedTags] = useState<TagOption[]>([]);
 
   useEffect(() => {
@@ -36,16 +38,26 @@ export const Tagger = observer(({ batchId, fileIds, setVisible }: TaggerProps) =
     };
   }, [fileIds, tagStore.tags.toString()]);
 
-  const handleClose = () => setVisible(false);
+  const handleClose = () => {
+    if (hasUnsavedChanges) return setIsConfirmDiscardOpen(true);
+    setVisible(false);
+  };
+
+  const handleCloseForced = () => {
+    setHasUnsavedChanges(false);
+    setVisible(false);
+  };
 
   const handleTagAdded = (tags: TagOption[]) => {
     setAddedTags(tags);
     setRemovedTags((prev) => prev.filter((r) => !tags.find((t) => t.id === r.id)));
+    setHasUnsavedChanges(true);
   };
 
   const handleTagRemoved = (tags: TagOption[]) => {
     setRemovedTags(tags);
     setAddedTags((prev) => prev.filter((a) => !tags.find((t) => t.id === a.id)));
+    setHasUnsavedChanges(true);
   };
 
   const handleSubmit = async () => {
@@ -62,7 +74,7 @@ export const Tagger = observer(({ batchId, fileIds, setVisible }: TaggerProps) =
     });
     if (!res?.success) return toast.error(res.error);
 
-    handleClose();
+    handleCloseForced();
   };
 
   return (
@@ -104,10 +116,20 @@ export const Tagger = observer(({ batchId, fileIds, setVisible }: TaggerProps) =
       </Modal.Content>
 
       <Modal.Footer>
-        <Button text="Submit" icon="Check" onClick={handleSubmit} />
+        <Button text="Close" icon="Close" onClick={handleClose} color={colors.button.grey} />
 
-        <Button text="Close" icon="Close" onClick={handleClose} color={colors.grey["700"]} />
+        <Button text="Submit" icon="Check" onClick={handleSubmit} />
       </Modal.Footer>
+
+      {isConfirmDiscardOpen && (
+        <ConfirmModal
+          headerText="Discard Changes"
+          subText="Are you sure you want to discard your changes?"
+          confirmText="Discard"
+          setVisible={setIsConfirmDiscardOpen}
+          onConfirm={handleCloseForced}
+        />
+      )}
     </Modal.Container>
   );
 });

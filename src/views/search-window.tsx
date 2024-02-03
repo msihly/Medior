@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
 import {
+  ConfirmModal,
   Drawer,
   FaceRecognitionModal,
   FileCollectionEditor,
@@ -25,6 +26,10 @@ export const SearchWindow = observer(() => {
   const [isLoading, setIsLoading] = useState(true);
 
   const { css } = useClasses({ isDrawerOpen: homeStore.isDrawerOpen });
+
+  const handleDeleteFilesConfirm = async () => (await fileStore.deleteFiles({ rootStore })).success;
+
+  const setDeleteFilesModalVisible = (val: boolean) => fileStore.setIsConfirmDeleteOpen(val);
 
   const setTaggerVisible = (val: boolean) => homeStore.setIsTaggerOpen(val);
 
@@ -122,6 +127,15 @@ export const SearchWindow = observer(() => {
           {tagStore.isTagMergerOpen && <TagMerger />}
 
           {importStore.isImportRegExMapperOpen && <ImportRegExMapper />}
+
+          {fileStore.isConfirmDeleteOpen && (
+            <ConfirmModal
+              headerText="Delete Files"
+              subText="Are you sure you want to delete these files?"
+              setVisible={setDeleteFilesModalVisible}
+              onConfirm={handleDeleteFilesConfirm}
+            />
+          )}
         </View>
       </View>
     </View>

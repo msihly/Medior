@@ -40,7 +40,6 @@ export const ContextMenu = observer(
 
     const { css } = useClasses(null);
 
-    const rootStore = useStores();
     const { faceRecognitionStore, fileCollectionStore, fileStore } = useStores();
 
     const [mouseX, setMouseX] = useState(null);
@@ -69,10 +68,9 @@ export const ContextMenu = observer(
     };
 
     const handleDelete = () => {
-      fileStore.deleteFiles({
-        rootStore,
-        fileIds: fileStore.getIsSelected(file.id) ? fileStore.selectedIds : [file.id],
-      });
+      fileStore.confirmDeleteFiles(
+        fileStore.getIsSelected(file.id) ? fileStore.selectedIds : [file.id]
+      );
       handleClose();
     };
 

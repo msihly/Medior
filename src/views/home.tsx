@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { observer } from "mobx-react-lite";
 import { handleIngest, useStores } from "store";
 import {
+  ConfirmModal,
   Drawer,
   FaceRecognitionModal,
   FileCollectionEditor,
@@ -29,6 +30,8 @@ export const Home = observer(() => {
 
   const { css } = useClasses({ isDrawerOpen: homeStore.isDrawerOpen });
 
+  const handleDeleteFilesConfirm = async () => (await fileStore.deleteFiles({ rootStore })).success;
+
   const handleDragEnter = (event: React.DragEvent) => {
     const items = [...event.dataTransfer.items].filter((item) => item.kind === "file");
     if (items.length > 0 && !homeStore.isDraggingOut) homeStore.setIsDraggingIn(true);
@@ -45,6 +48,8 @@ export const Home = observer(() => {
     homeStore.setIsDraggingIn(false);
     handleIngest({ fileList: event.dataTransfer.files, rootStore });
   };
+
+  const setDeleteFilesModalVisible = (val: boolean) => fileStore.setIsConfirmDeleteOpen(val);
 
   const setTaggerVisible = (val: boolean) => homeStore.setIsTaggerOpen(val);
 
@@ -153,6 +158,15 @@ export const Home = observer(() => {
             {importStore.isImportEditorOpen && <ImportEditor />}
 
             {importStore.isImportRegExMapperOpen && <ImportRegExMapper />}
+
+            {fileStore.isConfirmDeleteOpen && (
+              <ConfirmModal
+                headerText="Delete Files"
+                subText="Are you sure you want to delete these files?"
+                setVisible={setDeleteFilesModalVisible}
+                onConfirm={handleDeleteFilesConfirm}
+              />
+            )}
           </View>
         </View>
       </View>

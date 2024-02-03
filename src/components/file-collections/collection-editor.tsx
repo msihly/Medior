@@ -43,6 +43,7 @@ export const FileCollectionEditor = observer(() => {
   const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isConfirmDiscardOpen, setIsConfirmDiscardOpen] = useState(false);
   const [title, setTitle] = useState<string>(fileCollectionStore.activeCollection?.title);
 
   useEffect(() => {
@@ -68,7 +69,10 @@ export const FileCollectionEditor = observer(() => {
     })();
   }, [fileCollectionStore.searchValue]);
 
-  const closeModal = () => fileCollectionStore.setIsCollectionEditorOpen(false);
+  const confirmClose = () => {
+    if (fileCollectionStore.hasUnsavedChanges) setIsConfirmDiscardOpen(true);
+    else handleClose();
+  };
 
   const gridSortingStrategy: SortingStrategy = ({
     activeIndex,
@@ -92,6 +96,8 @@ export const FileCollectionEditor = observer(() => {
           y: newRect.top - oldRect.top,
         };
   };
+
+  const handleClose = () => fileCollectionStore.setIsCollectionEditorOpen(false);
 
   const handleConfirmDelete = async () => {
     const res = await fileCollectionStore.deleteCollection(fileCollectionStore.activeCollectionId);
@@ -154,7 +160,7 @@ export const FileCollectionEditor = observer(() => {
   const toggleAddingFiles = () => setIsAddingFiles((prev) => !prev);
 
   return (
-    <Modal.Container onClose={closeModal} closeOnBackdrop={false} maxWidth="65rem" width="100%">
+    <Modal.Container onClose={confirmClose} maxWidth="65rem" width="100%">
       <Modal.Header
         leftNode={
           <Button
@@ -263,7 +269,7 @@ export const FileCollectionEditor = observer(() => {
         <Button
           text={fileCollectionStore.hasUnsavedChanges ? "Cancel" : "Close"}
           icon="Close"
-          onClick={closeModal}
+          onClick={confirmClose}
           disabled={isSaving}
           color={fileCollectionStore.hasUnsavedChanges ? colors.red["800"] : colors.blueGrey["700"]}
         />
@@ -280,8 +286,18 @@ export const FileCollectionEditor = observer(() => {
         <ConfirmModal
           headerText="Delete Collection"
           subText={fileCollectionStore.activeCollection?.title}
-          onConfirm={handleConfirmDelete}
           setVisible={setIsConfirmDeleteOpen}
+          onConfirm={handleConfirmDelete}
+        />
+      )}
+
+      {isConfirmDiscardOpen && (
+        <ConfirmModal
+          headerText="Discard Changes"
+          subText="Are you sure you want to discard changes?"
+          confirmText="Discard"
+          setVisible={setIsConfirmDiscardOpen}
+          onConfirm={handleClose}
         />
       )}
     </Modal.Container>

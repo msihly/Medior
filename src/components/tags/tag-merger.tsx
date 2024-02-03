@@ -6,6 +6,7 @@ import {
   Button,
   Checkbox,
   ChipOption,
+  ConfirmModal,
   InputWrapper,
   Modal,
   Tag,
@@ -24,6 +25,7 @@ export const TagMerger = observer(() => {
 
   const [aliases, setAliases] = useState<ChipOption[]>([]);
   const [childTags, setChildTags] = useState<TagOption[]>([]);
+  const [isConfirmDiscardOpen, setIsConfirmDiscardOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [label, setLabel] = useState<string>("");
   const [parentTags, setParentTags] = useState<TagOption[]>([]);
@@ -71,7 +73,10 @@ export const TagMerger = observer(() => {
     setParentTags(mergeRelatedTags(parentIds, tagIdsToExclude));
   }, [JSON.stringify(selectedTagValue), tagLabelToKeep]);
 
-  const handleClose = () => tagStore.setIsTagMergerOpen(false);
+  const handleClose = () => {
+    setIsConfirmDiscardOpen(false);
+    tagStore.setIsTagMergerOpen(false);
+  };
 
   const handleConfirm = async () => {
     try {
@@ -209,6 +214,15 @@ export const TagMerger = observer(() => {
 
         <Button text="Confirm" icon="Check" onClick={handleConfirm} {...{ disabled }} />
       </Modal.Footer>
+
+      {isConfirmDiscardOpen && (
+        <ConfirmModal
+          headerText="Discard Changes"
+          subText="Are you sure you want to cancel merging?"
+          setVisible={setIsConfirmDiscardOpen}
+          onConfirm={handleClose}
+        />
+      )}
     </Modal.Container>
   );
 });

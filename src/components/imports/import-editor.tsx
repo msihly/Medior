@@ -4,7 +4,16 @@ import { RegExMapType } from "database";
 import { observer } from "mobx-react-lite";
 import { FileImport, Tag, useStores } from "store";
 import { Divider } from "@mui/material";
-import { Button, CenteredText, Checkbox, CheckboxProps, Modal, Text, View } from "components";
+import {
+  Button,
+  CenteredText,
+  Checkbox,
+  CheckboxProps,
+  ConfirmModal,
+  Modal,
+  Text,
+  View,
+} from "components";
 import {
   FlatFolderHierarchy,
   FolderToCollMode,
@@ -36,6 +45,7 @@ export const ImportEditor = observer(() => {
   const [flatTagsToUpsert, setFlatTagsToUpsert] = useState<TagToUpsert[]>([]);
   const [folderToCollectionMode, setFolderToCollectionMode] = useState<FolderToCollMode>("none");
   const [folderToTagsMode, setFolderToTagsMode] = useState<FolderToTagsMode>("none");
+  const [isConfirmDiscardOpen, setIsConfirmDiscardOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [tagHierarchy, setTagHierarchy] = useState<TagToUpsert[]>([]);
@@ -49,6 +59,8 @@ export const ImportEditor = observer(() => {
   const [withNewTagsToRegEx, setWithNewTagsToRegEx] = useState(true);
 
   const isDisabled = isLoading || isSaving;
+
+  const confirmDiscard = () => setIsConfirmDiscardOpen(true);
 
   const handleClose = () => importStore.setIsImportEditorOpen(false);
 
@@ -728,7 +740,7 @@ export const ImportEditor = observer(() => {
         <Button
           text="Close"
           icon="Close"
-          onClick={handleClose}
+          onClick={confirmDiscard}
           disabled={isDisabled}
           color={colors.button.red}
         />
@@ -741,6 +753,15 @@ export const ImportEditor = observer(() => {
           color={colors.button.blue}
         />
       </Modal.Footer>
+
+      {isConfirmDiscardOpen && (
+        <ConfirmModal
+          headerText="Discard Changes"
+          subText="Are you sure you want to cancel importing?"
+          setVisible={setIsConfirmDiscardOpen}
+          onConfirm={handleClose}
+        />
+      )}
     </Modal.Container>
   );
 });

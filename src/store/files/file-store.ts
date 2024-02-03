@@ -39,6 +39,8 @@ import { toast } from "react-toastify";
 export class FileStore extends Model({
   activeFileId: prop<string | null>(null).withSetter(),
   files: prop<File[]>(() => []),
+  idsForConfirmDelete: prop<string[]>(() => []),
+  isConfirmDeleteOpen: prop<boolean>(false).withSetter(),
   isInfoModalOpen: prop<boolean>(false).withSetter(),
   page: prop<number>(1).withSetter(),
   pageCount: prop<number>(1).withSetter(),
@@ -47,6 +49,12 @@ export class FileStore extends Model({
   infoRefreshQueue = new PromiseQueue();
 
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
+  @modelAction
+  confirmDeleteFiles(ids: string[]) {
+    this.idsForConfirmDelete = [...ids];
+    this.isConfirmDeleteOpen = true;
+  }
+
   @modelAction
   overwrite(files: ModelCreationData<File>[]) {
     this.files = files.map((f) => new File(f));
@@ -103,53 +111,40 @@ export class FileStore extends Model({
 
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */
   @modelFlow
-  deleteFiles = _async(function* (
-    this: FileStore,
-    {
-      fileIds,
-      isUndelete = false,
-      rootStore,
-    }: { fileIds: string[]; isUndelete?: boolean; rootStore: RootStore }
-  ) {
+  deleteFiles = _async(function* (this: FileStore, { rootStore }: { rootStore: RootStore }) {
     return yield* _await(
       handleErrors(async () => {
+        const fileIds = [...this.idsForConfirmDelete];
         if (!fileIds?.length) return false;
 
-        if (isUndelete) {
-          await trpc.setFileIsArchived.mutate({ fileIds, isArchived: false });
-          toast.success(`${fileIds.length} files unarchived`);
-        } else {
-          const res = await trpc.listFiles.mutate({ ids: fileIds });
-          if (!res.success) return false;
-          const files = res.data;
+        const res = await trpc.listFiles.mutate({ ids: fileIds });
+        if (!res.success) return false;
+        const files = res.data;
 
-          const [deleted, archived] = splitArray(files, (f) => f.isArchived);
-          const [deletedIds, archivedIds] = [deleted, archived].map((arr) => arr.map((f) => f.id));
+        const [deleted, archived] = splitArray(files, (f) => f.isArchived);
+        const [deletedIds, archivedIds] = [deleted, archived].map((arr) => arr.map((f) => f.id));
 
-          if (archivedIds?.length > 0) {
-            await trpc.setFileIsArchived.mutate({ fileIds: archivedIds, isArchived: true });
-            toast.success(`${archivedIds.length} files archived`);
-          }
+        if (archivedIds?.length > 0) {
+          await trpc.setFileIsArchived.mutate({ fileIds: archivedIds, isArchived: true });
+          toast.success(`${archivedIds.length} files archived`);
+        }
 
-          if (deletedIds?.length > 0) {
-            await trpc.deleteFiles.mutate({ fileIds: deletedIds });
-            await Promise.all(
-              deleted.flatMap((file) =>
-                this.listByHash(file.hash).length === 1
-                  ? [
-                      fs.unlink(file.path),
-                      ...file.thumbPaths.map((thumbPath) => fs.unlink(thumbPath)),
-                    ]
-                  : []
-              )
-            );
+        if (deletedIds?.length > 0) {
+          await trpc.deleteFiles.mutate({ fileIds: deletedIds });
+          await Promise.all(
+            deleted.flatMap((file) =>
+              this.listByHash(file.hash).length === 1
+                ? [
+                    fs.unlink(file.path),
+                    ...file.thumbPaths.map((thumbPath) => fs.unlink(thumbPath)),
+                  ]
+                : []
+            )
+          );
 
-            await rootStore.tagStore.refreshTagCounts([
-              ...new Set(deleted.flatMap((f) => f.tagIds)),
-            ]);
+          await rootStore.tagStore.refreshTagCounts([...new Set(deleted.flatMap((f) => f.tagIds))]);
 
-            toast.success(`${deletedIds.length} files deleted`);
-          }
+          toast.success(`${deletedIds.length} files deleted`);
         }
 
         this.toggleFilesSelected(fileIds.map((id) => ({ id, isSelected: false })));
@@ -291,6 +286,21 @@ export class FileStore extends Model({
       handleErrors(async () => {
         if (!fileIds.length) return;
         await trpc.setFileRating.mutate({ fileIds, rating });
+      })
+    );
+  });
+
+  @modelFlow
+  unarchiveFiles = _async(function* (this: FileStore, { fileIds }: { fileIds: string[] }) {
+    return yield* _await(
+      handleErrors(async () => {
+        if (!fileIds?.length) return false;
+
+        await trpc.setFileIsArchived.mutate({ fileIds, isArchived: false });
+        this.toggleFilesSelected(fileIds.map((id) => ({ id, isSelected: false })));
+
+        toast.success(`${fileIds.length} files unarchived`);
+        return true;
       })
     );
   });
