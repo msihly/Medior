@@ -6,7 +6,7 @@ import { CacheProvider } from "@emotion/react";
 import createCache from "@emotion/cache";
 import { createRootStore, RootStoreContext } from "store";
 import { ConditionalWrap, ToastContainer } from "components";
-import { CarouselWindow, Home, SearchWindow } from "views";
+import { CarouselWindow, HomeWindow, SearchWindow } from "views";
 import "react-toastify/dist/ReactToastify.css";
 import "./css/index.css";
 
@@ -39,7 +39,7 @@ export const App = () => {
           >
             {isLoading ? null : (
               <Switch>
-                <Route exact path="/" component={Home} />
+                <Route exact path="/" component={HomeWindow} />
                 <Route path="/carousel" component={CarouselWindow} />
                 <Route path="/search" component={SearchWindow} />
               </Switch>

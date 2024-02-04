@@ -2,19 +2,21 @@ import { useEffect, useRef } from "react";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
 import { Pagination } from "@mui/material";
+import { useHotkeys } from "views";
 import { View } from "components";
-import { DisplayedFiles, InfoModal } from ".";
+import { DisplayedFiles } from ".";
 import { colors, makeClasses } from "utils";
-import { toast } from "react-toastify";
 import Color from "color";
 
 export const FileContainer = observer(() => {
   const rootStore = useStores();
-  const { faceRecognitionStore, fileStore, homeStore } = useStores();
+  const { fileStore, homeStore } = useStores();
 
   const { css } = useClasses({ hasFiles: fileStore.files.length > 0 });
 
   const filesRef = useRef<HTMLDivElement>(null);
+
+  const { handleKeyPress } = useHotkeys({ view: "home" });
 
   const searchDeps = [
     homeStore.includeTagged,
@@ -27,7 +29,7 @@ export const FileContainer = observer(() => {
   ];
 
   useEffect(() => {
-    if (fileStore.page > fileStore.pageCount) changePage(fileStore.pageCount);
+    if (fileStore.page > fileStore.pageCount) handlePageChange(null, fileStore.pageCount);
   }, [fileStore.page, fileStore.pageCount]);
 
   useEffect(() => {
@@ -38,61 +40,7 @@ export const FileContainer = observer(() => {
     homeStore.reloadDisplayedFiles({ rootStore, page: 1 });
   }, [...searchDeps]);
 
-  const changePage = (page: number) => homeStore.reloadDisplayedFiles({ rootStore, page });
-
-  const handlePageChange = (_, value: number) => changePage(value);
-
-  const handleKeyPress = async (e: React.KeyboardEvent<HTMLElement>) => {
-    const fileIds = fileStore.selectedIds;
-    const isOneFileSelected = fileIds.length === 1;
-    const isMultipleFilesSelected = fileIds.length > 1;
-
-    if (!isOneFileSelected && !isMultipleFilesSelected) return;
-    e.preventDefault();
-
-    if (e.key === "t" && !homeStore.isTaggerOpen) {
-      homeStore.setTaggerBatchId(null);
-      homeStore.setTaggerFileIds([...fileStore.selectedIds]);
-      homeStore.setIsTaggerOpen(true);
-    } else if (e.key === "Delete") {
-      fileStore.confirmDeleteFiles(fileIds);
-    } else if (e.ctrlKey && e.key === "a") {
-      fileStore.toggleFilesSelected(fileStore.files.map(({ id }) => ({ id, isSelected: true })));
-      toast.info(`Added ${fileStore.files.length} files to selection`);
-    } else if (e.key === "f") {
-      if (isOneFileSelected) {
-        faceRecognitionStore.setActiveFileId(fileIds[0]);
-        faceRecognitionStore.setIsModalOpen(true);
-      } else if (isMultipleFilesSelected)
-        faceRecognitionStore.addFilesToAutoDetectQueue({ fileIds, rootStore });
-    } else if (isOneFileSelected) {
-      const selectedId = fileIds[0];
-
-      if (e.key === "i") {
-        fileStore.setActiveFileId(selectedId);
-        fileStore.setIsInfoModalOpen(true);
-      } else if (["ArrowLeft", "ArrowRight"].includes(e.key)) {
-        const indexOfSelected = fileStore.files.findIndex((f) => f.id === selectedId);
-        const nextIndex = indexOfSelected === fileStore.files.length - 1 ? 0 : indexOfSelected + 1;
-        const nextId = fileStore.files[nextIndex].id;
-        const prevIndex = indexOfSelected === 0 ? fileStore.files.length - 1 : indexOfSelected - 1;
-        const prevId = fileStore.files[prevIndex].id;
-        const newId = e.key === "ArrowLeft" ? prevId : nextId;
-
-        if (!fileStore.files.find((f) => f.id === newId))
-          changePage(fileStore.page + 1 * (e.key === "ArrowLeft" ? -1 : 1));
-
-        fileStore.toggleFilesSelected([
-          { id: selectedId, isSelected: false },
-          { id: newId, isSelected: true },
-        ]);
-      } else if (["1", "2", "3", "4", "5", "6", "7", "8", "9"].includes(e.key)) {
-        const res = await fileStore.setFileRating({ fileIds: [selectedId], rating: +e.key });
-        if (res.success) toast.success("Rating updated");
-        else toast.error("Error updating rating");
-      }
-    }
-  };
+  const handlePageChange = (_, page: number) => homeStore.reloadDisplayedFiles({ rootStore, page });
 
   return (
     <View className={css.container}>
@@ -110,8 +58,6 @@ export const FileContainer = observer(() => {
         boundaryCount={2}
         className={css.pagination}
       />
-
-      {fileStore.isInfoModalOpen && <InfoModal />}
     </View>
   );
 });

@@ -285,7 +285,12 @@ export class FileStore extends Model({
     return yield* _await(
       handleErrors(async () => {
         if (!fileIds.length) return;
-        await trpc.setFileRating.mutate({ fileIds, rating });
+        const res = await trpc.setFileRating.mutate({ fileIds, rating });
+        if (res.success) toast.success("Rating updated");
+        else {
+          console.error("Error updating rating:", res.error);
+          toast.error("Error updating rating");
+        }
       })
     );
   });

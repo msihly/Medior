@@ -5,17 +5,17 @@ import { View } from "components";
 import { Views, useSockets } from "./common";
 import { makeClasses } from "utils";
 
-export const SearchWindow = observer(() => {
+export const HomeWindow = observer(() => {
   const { fileCollectionStore, homeStore, importStore, tagStore } = useStores();
 
   const { css } = useClasses({ isDrawerOpen: homeStore.isDrawerOpen });
 
   const [isLoading, setIsLoading] = useState(true);
 
-  useSockets({ view: "search" });
+  useSockets({ view: "home" });
 
   useEffect(() => {
-    document.title = "Media Viewer // Search";
+    document.title = "Media Viewer // Home";
 
     const loadDatabase = async () => {
       try {
@@ -23,6 +23,7 @@ export const SearchWindow = observer(() => {
 
         await Promise.all([
           fileCollectionStore.loadCollections(),
+          importStore.loadImportBatches(),
           importStore.loadRegExMaps(),
           tagStore.loadTags(),
         ]);
@@ -38,15 +39,19 @@ export const SearchWindow = observer(() => {
   }, []);
 
   return (
-    <View column className={css.root}>
-      <Views.Search {...{ isLoading }} />
+    <Views.ImportDnD>
+      <View column className={css.root}>
+        <Views.Search {...{ isLoading }} hasImports />
 
-      <Views.CollectionModals />
+        <Views.CollectionModals />
 
-      <Views.FileModals />
+        <Views.FileModals />
 
-      <Views.TagModals view="search" />
-    </View>
+        <Views.ImportModals />
+
+        <Views.TagModals view="home" />
+      </View>
+    </Views.ImportDnD>
   );
 });
 
