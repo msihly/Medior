@@ -16,7 +16,7 @@ interface ImportBatchProps {
 }
 
 export const ImportBatch = observer(({ batch }: ImportBatchProps) => {
-  const { fileCollectionStore, homeStore, importStore } = useStores();
+  const { fileCollectionStore, importStore, tagStore } = useStores();
 
   const completedFileIds = batch.completed.map((imp) => imp.fileId);
   const index = importStore.batches.findIndex((b) => b.id === batch.id);
@@ -40,9 +40,9 @@ export const ImportBatch = observer(({ batch }: ImportBatchProps) => {
   };
 
   const handleTag = () => {
-    homeStore.setTaggerBatchId(batch.id);
-    homeStore.setTaggerFileIds([...completedFileIds]);
-    homeStore.setIsTaggerOpen(true);
+    tagStore.setTaggerBatchId(batch.id);
+    tagStore.setTaggerFileIds([...completedFileIds]);
+    tagStore.setIsTaggerOpen(true);
   };
 
   const toggleOpen = () => setExpanded(!expanded);

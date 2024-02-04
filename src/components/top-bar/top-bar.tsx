@@ -8,7 +8,7 @@ import { toast } from "react-toastify";
 
 export const TopBar = observer(() => {
   const rootStore = useStores();
-  const { faceRecognitionStore, fileCollectionStore, fileStore, homeStore } = useStores();
+  const { faceRecognitionStore, fileCollectionStore, fileStore, homeStore, tagStore } = useStores();
   const { css } = useClasses(null);
 
   const hasNoSelection = fileStore.selectedIds.length === 0;
@@ -29,9 +29,9 @@ export const TopBar = observer(() => {
   };
 
   const handleEditTags = () => {
-    homeStore.setTaggerBatchId(null);
-    homeStore.setTaggerFileIds([...fileStore.selectedIds]);
-    homeStore.setIsTaggerOpen(true);
+    tagStore.setTaggerBatchId(null);
+    tagStore.setTaggerFileIds([...fileStore.selectedIds]);
+    tagStore.setIsTaggerOpen(true);
   };
 
   const handleFileInfoRefresh = () => fileStore.refreshSelectedFiles({ withThumbs: true });

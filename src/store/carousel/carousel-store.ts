@@ -6,7 +6,6 @@ import { RootStore } from "store";
 @model("mediaViewer/CarouselStore")
 export class CarouselStore extends Model({
   activeFileId: prop<string>("").withSetter(),
-  isTaggerOpen: prop<boolean>(false).withSetter(),
   selectedFileIds: prop<string[]>(() => []).withSetter(),
 }) {
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */

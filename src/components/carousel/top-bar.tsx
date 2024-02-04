@@ -9,7 +9,8 @@ import { colors, CONSTANTS, makeClasses, round } from "utils";
 export const CarouselTopBar = observer(() => {
   const { css, cx } = useClasses(null);
 
-  const { carouselStore, fileStore } = useStores();
+  const { carouselStore, fileStore, tagStore } = useStores();
+
   const panZoomRef = useContext(ZoomContext);
   const file = fileStore.getById(carouselStore.activeFileId);
 
@@ -48,7 +49,7 @@ export const CarouselTopBar = observer(() => {
     }
   }, [file]);
 
-  const handleEditTags = () => carouselStore.setIsTaggerOpen(true);
+  const handleEditTags = () => tagStore.setIsTaggerOpen(true);
 
   const toggleAspectRatioLock = () => {
     const isLocked = !isAspectRatioLocked;
