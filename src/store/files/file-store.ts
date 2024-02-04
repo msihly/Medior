@@ -1,6 +1,7 @@
 import { promises as fs } from "fs";
 import path from "path";
 import md5File from "md5-file";
+import sharp from "sharp";
 import { computed } from "mobx";
 import {
   _async,
@@ -198,7 +199,6 @@ export class FileStore extends Model({
       handleErrors(async () => {
         if (!curFile && !id) throw new Error("No file or id provided");
         const file = !curFile ? this.getById(id) : new File(mongoFileToMobX(curFile));
-        const sharp = !file.isAnimated ? (await import("sharp")).default : null;
 
         const [hash, { mtime, size }, imageInfo, videoInfo] = await Promise.all([
           md5File(file.path),

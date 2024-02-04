@@ -54,7 +54,6 @@ export const copyFileForImport = async ({
     const newPath = `${dirPath}\\${hash}.${extFromPath}`;
     const isAnimated = [...VIDEO_TYPES, "gif"].includes(extFromPath);
 
-    // const sharp = !isAnimated ? (await import("sharp")).default : null; // removed dynamic import due to packaged release issue
     const imageInfo = !isAnimated ? await sharp(originalPath).metadata() : null;
     const videoInfo = isAnimated ? await getVideoInfo(originalPath) : null;
     const duration = isAnimated ? videoInfo?.duration : null;
