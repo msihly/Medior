@@ -1,6 +1,13 @@
 import { computed } from "mobx";
 import { applySnapshot, getSnapshot, model, Model, modelAction, prop } from "mobx-keystone";
-import { TagStore } from "store";
+import { TagStore } from ".";
+import { RegExMapType } from "database";
+
+export interface RegExMap {
+  regEx: string;
+  testString?: string;
+  types: RegExMapType[];
+}
 
 @model("mediaViewer/Tag")
 export class Tag extends Model({
@@ -12,6 +19,7 @@ export class Tag extends Model({
   id: prop<string>(),
   label: prop<string>(),
   parentIds: prop<string[]>(() => []),
+  regExMap: prop<RegExMap>(null),
 }) {
   @modelAction
   update(tag: Partial<Tag>) {

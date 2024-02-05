@@ -12,6 +12,7 @@ export interface ViewProps extends HTMLAttributes<HTMLDivElement> {
   margins?: Margins;
   padding?: Padding;
   row?: boolean;
+  spacing?: CSSObject["marginRight"];
 }
 
 export const View = forwardRef(
@@ -26,11 +27,21 @@ export const View = forwardRef(
       margins,
       padding,
       row = false,
+      spacing,
       ...props
     }: ViewProps,
     ref?: MutableRefObject<HTMLDivElement>
   ) => {
-    const { css, cx } = useClasses({ align, column, flex, justify, margins, padding, row });
+    const { css, cx } = useClasses({
+      align,
+      column,
+      flex,
+      justify,
+      margins,
+      padding,
+      row,
+      spacing,
+    });
 
     return (
       <div {...props} ref={ref} className={cx(className, css.root)}>
@@ -40,22 +51,36 @@ export const View = forwardRef(
   }
 );
 
-const useClasses = makeClasses((_, { align, column, flex, justify, margins, padding, row }) => ({
-  root: {
-    display: column || row ? "flex" : undefined,
-    flexDirection: column ? "column" : row ? "row" : undefined,
-    flex,
-    alignItems: align,
-    justifyContent: justify,
-    margin: margins?.all,
-    marginTop: margins?.top,
-    marginBottom: margins?.bottom,
-    marginRight: margins?.right,
-    marginLeft: margins?.left,
-    padding: padding?.all,
-    paddingTop: padding?.top,
-    paddingBottom: padding?.bottom,
-    paddingRight: padding?.right,
-    paddingLeft: padding?.left,
-  },
-}));
+interface ClassesProps {
+  align: CSSObject["alignItems"];
+  column: boolean;
+  flex: CSSObject["flex"];
+  justify: CSSObject["justifyContent"];
+  margins: Margins;
+  padding: Padding;
+  row: boolean;
+  spacing: CSSObject["marginRight"];
+}
+
+const useClasses = makeClasses(
+  (_, { align, column, flex, justify, margins, padding, row, spacing }: ClassesProps) => ({
+    root: {
+      display: column || row ? "flex" : undefined,
+      flexDirection: column ? "column" : row ? "row" : undefined,
+      flex,
+      alignItems: align,
+      justifyContent: justify,
+      margin: margins?.all,
+      marginTop: margins?.top,
+      marginBottom: margins?.bottom,
+      marginRight: margins?.right,
+      marginLeft: margins?.left,
+      padding: padding?.all,
+      paddingTop: padding?.top,
+      paddingBottom: padding?.bottom,
+      paddingRight: padding?.right,
+      paddingLeft: padding?.left,
+      ...(spacing ? { "& > *:not(:last-child)": { marginRight: spacing } } : {}),
+    },
+  })
+);

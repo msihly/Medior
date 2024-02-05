@@ -10,6 +10,7 @@ export const createTag = ({
   childIds = [],
   label,
   parentIds = [],
+  regExMap,
   withSub = true,
 }: db.CreateTagInput) =>
   handleErrors(async () => {
@@ -22,6 +23,7 @@ export const createTag = ({
       dateModified,
       label,
       parentIds,
+      regExMap,
     };
 
     const res = await db.TagModel.create(tag);
@@ -55,7 +57,6 @@ export const deleteTag = ({ id }: db.DeleteTagInput) =>
     await Promise.all([
       db.FileImportBatchModel.updateMany({ tagIds }, { $pull: { tagIds } }),
       db.FileModel.updateMany({ tagIds }, { $pull: { tagIds }, dateModified }),
-      db.RegExMapModel.updateMany({ tagId: id }, { $unset: { tagId: "" } }),
       db.TagModel.updateMany(
         { $or: [{ childIds: id }, { parentIds: id }] },
         { $pullAll: { childIds: tagIds, parentIds: tagIds }, dateModified }
@@ -75,6 +76,7 @@ export const editTag = ({
   id,
   label,
   parentIds,
+  regExMap,
   withSub = true,
 }: db.EditTagInput) =>
   handleErrors(async () => {
@@ -105,14 +107,13 @@ export const editTag = ({
             aliases,
             dateModified,
             label,
+            regExMap,
             ...(childIds?.length > 0 ? { childIds: objectIds(childIds) } : {}),
             ...(parentIds?.length > 0 ? { parentIds: objectIds(parentIds) } : {}),
           },
         },
       },
     ];
-
-    logToFile("debug", JSON.stringify(operations, null, 2));
 
     operations = operations.filter(Boolean);
 
@@ -136,7 +137,7 @@ export const editTag = ({
         ...updatedTags.map((tag) => ({ tagId: tag.id, updates: { ...tag } })),
         {
           tagId: id,
-          updates: { aliases, childIds, dateModified, label, parentIds },
+          updates: { aliases, childIds, dateModified, label, parentIds, regExMap },
         },
       ]);
     }
@@ -273,7 +274,6 @@ export const mergeTags = ({
         db.FileCollectionModel.updateMany(updateMany.filter, updateMany.update),
         db.FileImportBatchModel.updateMany(updateMany.filter, updateMany.update),
         db.FileModel.updateMany(updateMany.filter, updateMany.update),
-        db.RegExMapModel.updateMany(updateMany.filter, updateMany.update),
       ]);
 
       const relationsFilter = { $or: [{ childIds: tagIdToMerge }, { parentIds: tagIdToMerge }] };
@@ -328,7 +328,6 @@ export const mergeTags = ({
           "reloadFileCollections",
           "reloadFiles",
           "reloadImportBatches",
-          "reloadRegExMaps",
           "reloadTags",
         ] as SocketEmitEvent[]
       ).forEach((event) => socket.emit(event));

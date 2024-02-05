@@ -21,7 +21,7 @@ import { colors, makeClasses } from "utils";
 export const TagManager = observer(() => {
   const { css } = useClasses(null);
 
-  const { importStore, tagStore } = useStores();
+  const { tagStore } = useStores();
 
   const [searchValue, setSearchValue] = useState<TagOption[]>([]);
   const [width, setWidth] = useState(0);
@@ -30,20 +30,41 @@ export const TagManager = observer(() => {
     const { excludedAnyTagIds, includedAllTagIds, includedAnyTagIds } =
       tagStore.tagSearchOptsToIds(searchValue);
 
-    return [...tagStore.tagOptions]
-      .filter((t) => {
-        if (excludedAnyTagIds.includes(t.id)) return false;
-        if (includedAllTagIds.length && !includedAllTagIds.includes(t.id)) return false;
-        if (includedAnyTagIds.length && !includedAnyTagIds.includes(t.id)) return false;
-        if (tagStore.tagManagerRegExMode !== "any") {
-          const hasRegEx = importStore.listRegExMapsByTagId(t.id).length > 0;
-          if (tagStore.tagManagerRegExMode === "hasRegEx" && !hasRegEx) return false;
-          if (tagStore.tagManagerRegExMode === "hasNoRegEx" && hasRegEx) return false;
+    const [requiredTagIds, requiredTagIdArrays] = includedAllTagIds.reduce(
+      (acc, cur) => {
+        Array.isArray(cur) ? acc[1].push(cur) : acc[0].push(cur);
+        return acc;
+      },
+      [[], []] as [string[], string[][]]
+    );
+
+    return [...tagStore.tags]
+      .reduce((acc, cur) => {
+        if (excludedAnyTagIds.includes(cur.id)) return acc;
+        if (includedAnyTagIds.length && !includedAnyTagIds.includes(cur.id)) return acc;
+        if (includedAllTagIds.length) {
+          if (
+            !requiredTagIds.includes(cur.id) &&
+            !requiredTagIdArrays.some((ids) => ids.includes(cur.id))
+          )
+            return acc;
         }
-        return true;
-      })
+        if (tagStore.tagManagerRegExMode !== "any") {
+          const hasRegEx = cur.regExMap?.regEx?.length > 0;
+          if (tagStore.tagManagerRegExMode === "hasRegEx" && !hasRegEx) return acc;
+          if (tagStore.tagManagerRegExMode === "hasNoRegEx" && hasRegEx) return acc;
+        }
+
+        acc.push(cur.tagOption);
+        return acc;
+      }, [] as TagOption[])
       .sort((a, b) => sortFiles({ a, b, ...tagStore.tagManagerSort }));
-  }, [searchValue, tagStore.tagOptions.slice(), JSON.stringify(tagStore.tagManagerSort)]);
+  }, [
+    tagStore.tagManagerRegExMode,
+    JSON.stringify(searchValue),
+    JSON.stringify(tagStore.tags),
+    JSON.stringify(tagStore.tagManagerSort),
+  ]);
 
   const resultsRef = useRef<FixedSizeGrid>(null);
   useEffect(() => {

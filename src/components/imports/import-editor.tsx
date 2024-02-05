@@ -70,9 +70,9 @@ export const ImportEditor = observer(() => {
   const handleFoldersToTags = (checked: boolean) =>
     setFolderToTagsMode(checked ? "hierarchical" : "none");
 
-  const handleRegExMapper = () => {
-    if (importStore.isImportRegExMapperOpen) importStore.setIsImportRegExMapperOpen(false);
-    setTimeout(() => importStore.setIsImportRegExMapperOpen(true), 0);
+  const handleTagManager = () => {
+    if (tagStore.isTagManagerOpen) tagStore.setIsTagManagerOpen(false);
+    setTimeout(() => tagStore.setIsTagManagerOpen(true), 0);
   };
 
   const toggleFolderToCollWithTag = () =>
@@ -250,7 +250,7 @@ export const ImportEditor = observer(() => {
   };
 
   const getRegExMaps = (type: RegExMapType): RegExMaps =>
-    importStore
+    tagStore
       .listRegExMapsByType(type)
       .map((map) => ({ regEx: new RegExp(map.regEx, "im"), tagId: map.tagId }));
 
@@ -380,7 +380,7 @@ export const ImportEditor = observer(() => {
     const restParams = diffusionParams.substring(negPromptEndIndex);
 
     if (withDiffusionRegExMaps) {
-      importStore.listRegExMapsByType("diffusionParams").forEach((map) => {
+      tagStore.listRegExMapsByType("diffusionParams").forEach((map) => {
         const regEx = new RegExp(map.regEx, "im");
         if (regEx.test(prompt)) diffFileTagIds.push(map.tagId);
       });
@@ -545,7 +545,7 @@ export const ImportEditor = observer(() => {
     folderToTagsMode,
     importStore.editorImports,
     importStore.editorRootFolderIndex,
-    importStore.regExMaps,
+    tagStore.tags,
     withDelimiters,
     withDiffusionModel,
     withDiffusionParams,
@@ -557,9 +557,7 @@ export const ImportEditor = observer(() => {
 
   return (
     <Modal.Container width="100%" height="100%">
-      <Modal.Header
-        leftNode={<Button text="RegEx Mapper" icon="MultipleStop" onClick={handleRegExMapper} />}
-      >
+      <Modal.Header leftNode={<Button text="Tag Manager" icon="More" onClick={handleTagManager} />}>
         <Text>{"Import Editor"}</Text>
       </Modal.Header>
 

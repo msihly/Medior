@@ -8,7 +8,7 @@ import { toast } from "react-toastify";
 export const ImportManager = observer(() => {
   const { css } = useClasses(null);
 
-  const { importStore } = useStores();
+  const { importStore, tagStore } = useStores();
 
   const completedRef = useRef<HTMLDivElement>(null);
 
@@ -19,10 +19,7 @@ export const ImportManager = observer(() => {
 
   const handleClose = () => importStore.setIsImportManagerOpen(false);
 
-  const handleRegExMapper = () => {
-    importStore.setIsImportManagerOpen(false);
-    importStore.setIsImportRegExMapperOpen(true);
-  };
+  const handleTagManager = () => tagStore.setIsTagManagerOpen(true);
 
   return (
     <Modal.Container
@@ -31,9 +28,7 @@ export const ImportManager = observer(() => {
       width="100%"
       height="100%"
     >
-      <Modal.Header
-        leftNode={<Button text="RegEx Mapper" icon="MultipleStop" onClick={handleRegExMapper} />}
-      >
+      <Modal.Header leftNode={<Button text="Tag Manager" icon="More" onClick={handleTagManager} />}>
         <Text>{"Import Manager"}</Text>
       </Modal.Header>
 

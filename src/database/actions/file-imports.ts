@@ -1,7 +1,6 @@
 import * as db from "database";
 import { ImportBatchInput } from "store";
 import { dayjs, handleErrors } from "utils";
-import { leanModelToJson } from "./utils";
 
 export const completeImportBatch = ({ collectionId, id }: db.CompleteImportBatchInput) =>
   handleErrors(async () => {
@@ -28,17 +27,8 @@ export const createImportBatches = (batches: db.CreateImportBatchesInput) =>
     if (res.length !== importBatches.length) throw new Error("Failed to create import batches");
   });
 
-export const createRegExMaps = ({ regExMaps }: db.CreateRegExMapsInput) =>
-  handleErrors(async () => {
-    const res = await db.RegExMapModel.insertMany(regExMaps);
-    return res;
-  });
-
 export const deleteImportBatches = ({ ids }: db.DeleteImportBatchesInput) =>
   handleErrors(async () => await db.FileImportBatchModel.deleteMany({ _id: { $in: ids } }));
-
-export const deleteRegExMaps = ({ ids }: db.DeleteRegExMapsInput) =>
-  handleErrors(async () => await db.RegExMapModel.deleteMany({ _id: { $in: ids } }));
 
 export const listImportBatches = () =>
   handleErrors(async () =>
@@ -53,12 +43,6 @@ export const listImportBatches = () =>
         } as ImportBatchInput)
     )
   );
-
-export const listRegExMaps = () =>
-  handleErrors(async () =>
-    (await db.RegExMapModel.find().lean()).map((r) => leanModelToJson<db.RegExMap>(r))
-  );
-
 
 export const startImportBatch = ({ id }: db.StartImportBatchInput) =>
   handleErrors(async () => {
@@ -92,8 +76,3 @@ export const updateFileImportByPath = async ({
     if (res?.matchedCount !== res?.modifiedCount)
       throw new Error("Failed to update file import by path");
   });
-
-export const updateRegExMaps = ({ regExMaps }: db.UpdateRegExMapsInput) =>
-  handleErrors(() =>
-    Promise.all(regExMaps.map((r) => db.RegExMapModel.updateOne({ _id: r.id }, { $set: r })))
-  );

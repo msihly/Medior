@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { observer } from "mobx-react-lite";
-import { TagOption, useStores } from "store";
+import { RegExMap, TagOption, useStores } from "store";
 import { Divider } from "@mui/material";
 import {
   Button,
@@ -9,6 +9,7 @@ import {
   ConfirmModal,
   IconButton,
   Modal,
+  RegExMapRow,
   Text,
   View,
 } from "components";
@@ -24,7 +25,7 @@ export interface TagEditorProps {
 
 export const TagEditor = observer(
   ({ hasSubEditor = false, id, isSubEditor = false }: TagEditorProps) => {
-    const { css, cx } = useClasses(null);
+    const { css } = useClasses(null);
 
     const labelRef = useRef<HTMLDivElement>(null);
 
@@ -34,19 +35,24 @@ export const TagEditor = observer(
     const tag = isCreate ? null : tagStore.getById(id);
 
     const [aliases, setAliases] = useState<ChipOption[]>(
-      isCreate ? [] : tag?.aliases?.map((a) => ({ label: a, value: a })) ?? []
+      tag?.aliases ? tag.aliases.map((a) => ({ label: a, value: a })) : []
     );
     const [childTags, setChildTags] = useState<TagOption[]>(
-      isCreate || !tag ? [] : tagStore.getChildTags(tag).map((t) => t.tagOption)
+      tag ? tagStore.getChildTags(tag).map((t) => t.tagOption) : []
     );
     const [hasContinue, setHasContinue] = useState(false);
     const [hasKeepChildTags, setHasKeepChildTags] = useState(false);
     const [hasKeepParentTags, setHasKeepParentTags] = useState(false);
     const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
-    const [label, setLabel] = useState<string>(isCreate ? "" : tag?.label ?? "");
+    const [label, setLabel] = useState<string>(tag?.label ?? "");
     const [parentTags, setParentTags] = useState<TagOption[]>(
-      isCreate || !tag ? [] : tagStore.getParentTags(tag).map((t) => t.tagOption)
+      tag ? tagStore.getParentTags(tag).map((t) => t.tagOption) : []
+    );
+    const [regExValue, setRegExValue] = useState<string>(tag?.regExMap?.regEx ?? "");
+    const [regExTestString, setRegExTestString] = useState<string>(tag?.regExMap?.testString ?? "");
+    const [regExTypes, setRegExTypes] = useState<RegExMap["types"]>(
+      tag?.regExMap?.types ?? ["diffusionParams", "fileName", "folderName"]
     );
 
     const isDuplicateTag =
@@ -117,16 +123,21 @@ export const TagEditor = observer(
       const childIds = childTags.map((t) => t.id);
       const parentIds = parentTags.map((t) => t.id);
       const aliasStrings = aliases.map((a) => a.value);
+      const regExMap =
+        regExValue.length > 0 && regExTypes.length
+          ? { regEx: regExValue, testString: regExTestString, types: regExTypes }
+          : null;
 
       setIsSaving(true);
       const res = await (isCreate
-        ? tagStore.createTag({ aliases: aliasStrings, childIds, label, parentIds })
+        ? tagStore.createTag({ aliases: aliasStrings, childIds, label, parentIds, regExMap })
         : tagStore.editTag({
             aliases: aliasStrings,
             childIds,
             id: id,
             label,
             parentIds,
+            regExMap,
           }));
       setIsSaving(false);
 
@@ -139,15 +150,9 @@ export const TagEditor = observer(
     };
 
     return (
-      <Modal.Container onClose={handleClose} width="50rem" draggable>
+      <Modal.Container onClose={handleClose} width="50rem">
         <Modal.Header
-          leftNode={
-            !isCreate && (
-              <Text onClick={handleIdClick} className={cx(css.headerText, css.id)}>
-                {`ID: ${id}`}
-              </Text>
-            )
-          }
+          leftNode={!isCreate && <Text className={css.headerText}>{`ID: ${id}`}</Text>}
           rightNode={
             !isCreate && (
               <View align="center" className={css.spacedRow}>
@@ -215,6 +220,21 @@ export const TagEditor = observer(
             hasEditor={false}
             onTagClick={hasSubEditor ? handleSubEditorClick : null}
           />
+
+          <View column justify="center">
+            <Text className={css.sectionTitle}>{"RegEx Mapping"}</Text>
+
+            <RegExMapRow
+              disabled={isSaving}
+              regEx={regExValue}
+              setRegEx={setRegExValue}
+              setTestString={setRegExTestString}
+              setTypes={setRegExTypes}
+              tagId={id}
+              testString={regExTestString}
+              types={regExTypes}
+            />
+          </View>
 
           {isCreate && (
             <View column justify="center">
@@ -290,9 +310,6 @@ const useClasses = makeClasses({
     fontSize: "0.7em",
     whiteSpace: "nowrap",
     textOverflow: "ellipsis",
-  },
-  id: {
-    cursor: "copy",
   },
   sectionTitle: {
     fontSize: "0.8em",

@@ -14,9 +14,9 @@ import {
   prop,
 } from "mobx-keystone";
 import { computed } from "mobx";
-import { RootStore, TagOption } from "store";
+import { RootStore } from "store";
 import * as db from "database";
-import { FileImport, ImportBatch, RegExMap } from ".";
+import { FileImport, ImportBatch } from ".";
 import { copyFileForImport } from "./import-queue";
 import {
   dayjs,
@@ -41,19 +41,10 @@ export class ImportStore extends Model({
   importBatches: prop<ImportBatch[]>(() => []),
   isImportEditorOpen: prop<boolean>(false).withSetter(),
   isImportManagerOpen: prop<boolean>(false).withSetter(),
-  isImportRegExMapperOpen: prop<boolean>(false).withSetter(),
-  regExMaps: prop<RegExMap[]>(() => []).withSetter(),
-  regExSearchValue: prop<string>("").withSetter(),
-  tagSearchValue: prop<TagOption[]>(() => []).withSetter(),
 }) {
   queue: PromiseQueue = new PromiseQueue();
 
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
-  @modelAction
-  _addRegExMap(map: ModelCreationData<RegExMap>) {
-    this.regExMaps.push(new RegExMap(map));
-  }
-
   @modelAction
   _createImportBatch({
     collectionTitle,
@@ -87,16 +78,6 @@ export class ImportStore extends Model({
   @modelAction
   _deleteBatches(ids: string[]) {
     this.importBatches = this.importBatches.filter((batch) => !ids.includes(batch.id));
-  }
-
-  @modelAction
-  addRegExMap() {
-    this.regExMaps.push(
-      new RegExMap({
-        hasUnsavedChanges: true,
-        types: ["diffusionParams", "fileName", "folderName"],
-      })
-    );
   }
 
   @modelAction
@@ -135,11 +116,6 @@ export class ImportStore extends Model({
   @modelAction
   overwriteBatches(batches: ImportBatch[]) {
     this.importBatches = batches;
-  }
-
-  @modelAction
-  overwriteRegExMaps(regExMaps: ModelCreationData<RegExMap>[]) {
-    this.regExMaps = regExMaps.map((map) => new RegExMap(map));
   }
 
   @modelAction
@@ -410,53 +386,6 @@ export class ImportStore extends Model({
     );
   });
 
-  @modelFlow
-  loadRegExMaps = _async(function* (this: ImportStore) {
-    return yield* _await(
-      handleErrors(async () => {
-        const res = await trpc.listRegExMaps.mutate();
-        if (res.success) this.overwriteRegExMaps(res.data);
-      })
-    );
-  });
-
-  @modelFlow
-  saveRegExMaps = _async(function* (this: ImportStore) {
-    return yield* _await(
-      handleErrors(async () => {
-        const [created, deleted, updated] = this.regExMaps.reduce(
-          (acc, cur) => {
-            if (!cur.hasUnsavedChanges || (!cur.id && cur.isDeleted)) return acc;
-            else if (cur.isDeleted) acc[1].push(cur.id);
-            else if (!cur.id) acc[0].push(cur.$);
-            else acc[2].push(cur.$);
-            return acc;
-          },
-          [[], [], []] as [
-            db.CreateRegExMapsInput["regExMaps"],
-            string[],
-            db.UpdateRegExMapsInput["regExMaps"]
-          ]
-        );
-
-        if (deleted.length > 0) {
-          const deleteRes = await trpc.deleteRegExMaps.mutate({ ids: deleted });
-          if (!deleteRes.success) throw new Error(deleteRes.error);
-        }
-
-        if (created.length > 0) {
-          const createRes = await trpc.createRegExMaps.mutate({ regExMaps: created });
-          if (!createRes.success) throw new Error(createRes.error);
-        }
-
-        if (updated.length > 0) {
-          const updateRes = await trpc.updateRegExMaps.mutate({ regExMaps: updated });
-          if (!updateRes.success) throw new Error(updateRes.error);
-        }
-      })
-    );
-  });
-
   /* ----------------------------- DYNAMIC GETTERS ---------------------------- */
   getByCreatedAt(createdAt: string) {
     return this.importBatches.find((batch) => batch.createdAt === createdAt);
@@ -468,10 +397,6 @@ export class ImportStore extends Model({
 
   listByTagId(tagId: string) {
     return this.importBatches.filter((batch) => [...batch.tagIds].flat().includes(tagId));
-  }
-
-  listRegExMapsByType(type: db.RegExMapType) {
-    return this.regExMaps.filter((map) => map.types.includes(type) && map.tagId?.length);
   }
 
   /* --------------------------------- GETTERS -------------------------------- */
@@ -494,42 +419,7 @@ export class ImportStore extends Model({
   }
 
   @computed
-  get filteredRegExMaps() {
-    const rootStore = getRootStore<RootStore>(this);
-    if (!rootStore) return [];
-    const { tagStore } = rootStore;
-    const { excludedAnyTagIds, includedAllTagIds, includedAnyTagIds } = tagStore.tagSearchOptsToIds(
-      this.tagSearchValue
-    );
-
-    return this.regExMaps.filter((map) => {
-      /** Always show maps without a tag, which are errors */
-      if (!map.tagId) return true;
-
-      if (
-        this.regExSearchValue.length > 0 &&
-        !map.regEx.toLowerCase().includes(this.regExSearchValue.toLowerCase())
-      )
-        return false;
-
-      if (excludedAnyTagIds.length > 0 && excludedAnyTagIds.some((id) => map.tagId === id))
-        return false;
-      if (includedAllTagIds.length > 0 && includedAllTagIds.some((id) => map.tagId !== id))
-        return false;
-      if (includedAnyTagIds.length > 0 && !includedAnyTagIds.some((id) => map.tagId === id))
-        return false;
-
-      return true;
-    });
-  }
-
-  @computed
   get incompleteBatches() {
     return this.batches.filter((batch) => !batch.completedAt);
-  }
-
-  @computed
-  get regExHasUnsavedChanges() {
-    return this.regExMaps.some((map) => map.hasUnsavedChanges);
   }
 }

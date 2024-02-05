@@ -11,7 +11,7 @@ import {
   prop,
 } from "mobx-keystone";
 import * as db from "database";
-import { RegExMap, RootStore } from "store";
+import { RootStore } from "store";
 import { SortMenuProps } from "components";
 import { Tag, TagOption } from ".";
 import { dayjs, handleErrors, PromiseQueue, regexEscape, trpc } from "utils";
@@ -27,6 +27,10 @@ export class TagStore extends Model({
   isTagManagerOpen: prop<boolean>(false).withSetter(),
   isTagMergerOpen: prop<boolean>(false).withSetter(),
   isTagSubEditorOpen: prop<boolean>(false).withSetter(),
+  regExSearch: prop<{ regEx: string; tagOpts: TagOption[] }>(() => ({
+    regEx: "",
+    tagOpts: [],
+  })),
   subEditorTagId: prop<string>(null).withSetter(),
   taggerBatchId: prop<string | null>(null).withSetter(),
   taggerFileIds: prop<string[]>(() => []).withSetter(),
@@ -73,6 +77,11 @@ export class TagStore extends Model({
         : "any";
   };
 
+  @modelAction
+  updateRegExSearch = (search: Partial<TagStore["regExSearch"]>) => {
+    this.regExSearch = { ...this.regExSearch, ...search };
+  };
+
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */
   @modelFlow
   createTag = _async(function* (
@@ -82,9 +91,10 @@ export class TagStore extends Model({
       childIds = [],
       label,
       parentIds = [],
+      regExMap,
       withRegEx = false,
       withSub = true,
-    }: db.CreateTagInput
+    }: db.CreateTagInput & { withRegEx?: boolean }
   ) {
     return yield* _await(
       handleErrors(async () => {
@@ -92,7 +102,7 @@ export class TagStore extends Model({
         if (!res.success) throw new Error(res.error);
         const id = res.data.id;
 
-        const tag = {
+        const tag: ModelCreationData<Tag> = {
           aliases,
           childIds,
           count: 0,
@@ -101,21 +111,14 @@ export class TagStore extends Model({
           id,
           label,
           parentIds,
+          regExMap: withRegEx
+            ? {
+                regEx: regExMap?.regEx || this.tagsToRegEx([{ aliases, label }]),
+                testString: regExMap?.testString || "",
+                types: regExMap?.types || ["diffusionParams", "fileName", "folderName"],
+              }
+            : null,
         };
-
-        if (withRegEx) {
-          const regExMap: ModelCreationData<RegExMap> = {
-            regEx: this.tagsToRegEx([tag]),
-            tagId: id,
-            testString: label,
-            types: ["diffusionParams", "fileName", "folderName"],
-          };
-
-          const res = await trpc.createRegExMaps.mutate({ regExMaps: [regExMap] });
-
-          const rootStore = getRootStore<RootStore>(this);
-          rootStore.importStore._addRegExMap({ ...regExMap, id: res.data[0]._id.toString() });
-        }
 
         toast.success(`Tag '${label}' created${withRegEx ? " with RegEx map" : ""}`);
 
@@ -136,7 +139,7 @@ export class TagStore extends Model({
   @modelFlow
   editTag = _async(function* (
     this: TagStore,
-    { aliases, childIds, id, label, parentIds, withSub = true }: db.EditTagInput
+    { aliases, childIds, id, label, parentIds, regExMap, withSub = true }: db.EditTagInput
   ) {
     return yield* _await(
       handleErrors(async () => {
@@ -150,6 +153,7 @@ export class TagStore extends Model({
           id,
           label,
           parentIds,
+          regExMap,
           withSub,
         });
         if (!editRes.success) throw new Error(editRes.error);
@@ -166,7 +170,9 @@ export class TagStore extends Model({
   loadTags = _async(function* (this: TagStore) {
     return yield* _await(
       handleErrors(async () => {
-        this.overwrite((await trpc.listTags.mutate())?.data);
+        const res = await trpc.listTags.mutate();
+        if (!res.success) throw new Error(res.error);
+        this.overwrite(res.data);
       })
     );
   });
@@ -326,6 +332,13 @@ export class TagStore extends Model({
 
   listByParentId(id: string) {
     return this.tags.filter((t) => t.parentIds.includes(id));
+  }
+
+  listRegExMapsByType(type: db.RegExMapType) {
+    return this.tags.reduce((acc, cur) => {
+      if (cur.regExMap?.types.includes(type)) acc.push({ ...cur.regExMap, tagId: cur.id });
+      return acc;
+    }, [] as Array<db.RegExMap & { tagId: string }>);
   }
 
   tagsToRegEx(tags: { aliases?: string[]; label: string }[]) {

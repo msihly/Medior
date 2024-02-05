@@ -60,9 +60,6 @@ const trpcRouter = tRouter({
   createImportBatches: tProc
     .input((input: unknown) => input as db.CreateImportBatchesInput)
     .mutation(({ input }) => db.createImportBatches(input)),
-  createRegExMaps: tProc
-    .input((input: unknown) => input as db.CreateRegExMapsInput)
-    .mutation(({ input }) => db.createRegExMaps(input)),
   createTag: tProc
     .input((input: unknown) => input as db.CreateTagInput)
     .mutation(({ input }) => db.createTag(input)),
@@ -75,9 +72,6 @@ const trpcRouter = tRouter({
   deleteImportBatches: tProc
     .input((input: unknown) => input as db.DeleteImportBatchesInput)
     .mutation(({ input }) => db.deleteImportBatches(input)),
-  deleteRegExMaps: tProc
-    .input((input: unknown) => input as db.DeleteRegExMapsInput)
-    .mutation(({ input }) => db.deleteRegExMaps(input)),
   deleteTag: tProc
     .input((input: unknown) => input as db.DeleteTagInput)
     .mutation(({ input }) => db.deleteTag(input)),
@@ -118,7 +112,6 @@ const trpcRouter = tRouter({
     .input((input: unknown) => input as db.ListFileIdsForCarouselInput)
     .mutation(({ input }) => db.listFileIdsForCarousel(input)),
   listImportBatches: tProc.mutation(db.listImportBatches),
-  listRegExMaps: tProc.mutation(db.listRegExMaps),
   listTags: tProc.mutation(db.listTags),
   loadFaceApiNets: tProc.mutation(db.loadFaceApiNets),
   mergeTags: tProc
@@ -157,9 +150,6 @@ const trpcRouter = tRouter({
   updateCollection: tProc
     .input((input: unknown) => input as db.UpdateCollectionInput)
     .mutation(({ input }) => db.updateCollection(input)),
-  updateRegExMaps: tProc
-    .input((input: unknown) => input as db.UpdateRegExMapsInput)
-    .mutation(({ input }) => db.updateRegExMaps(input)),
 });
 export type TRPCRouter = typeof trpcRouter;
 

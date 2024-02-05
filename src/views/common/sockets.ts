@@ -62,10 +62,8 @@ export const useSockets = ({ view }: UseSocketsProps) => {
     if (view === "carousel")
       socket.on("filesArchived", ({ fileIds }) => carouselStore.removeFiles(fileIds));
 
-    if (view !== "carousel") {
+    if (view !== "carousel")
       socket.on("reloadFileCollections", () => fileCollectionStore.loadCollections());
-      socket.on("reloadRegExMaps", () => importStore.loadRegExMaps());
-    }
 
     if (view === "home") socket.on("reloadImportBatches", () => importStore.loadImportBatches());
   }, []);

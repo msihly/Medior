@@ -1,7 +1,7 @@
-import { File, FileCollection, RegExMap, Tag } from "database";
+import { File, FileCollection, RegExMap } from "database";
 import { FileImport, RootStore, SelectedImageTypes, SelectedVideoTypes } from "store";
-import { ImportStatus } from "components";
 import { ModelCreationData } from "mobx-keystone";
+import { ImportStatus } from "components";
 
 /* -------------------------------- COLLECTIONS ------------------------------- */
 export type CreateCollectionInput = {
@@ -12,15 +12,15 @@ export type CreateCollectionInput = {
 
 export type DeleteCollectionInput = { id: string };
 
-export type UpdateCollectionInput = Partial<FileCollection> & { id: string };
+export type ListCollectionsInput = { ids?: string[] };
 
 export type LoadCollectionsInput = { collectionIds?: string[]; withOverwrite?: boolean };
 
 export type LoadSearchResultsInput = { page?: number; rootStore: RootStore };
 
-export type ListCollectionsInput = { ids?: string[] };
-
 export type OnCollectionCreatedInput = { collection: FileCollection };
+
+export type UpdateCollectionInput = Partial<FileCollection> & { id: string };
 
 /* ------------------------------ FILE IMPORTS ------------------------------ */
 export type AddTagsToBatchInput = { batchId: string; tagIds: string[] };
@@ -35,11 +35,7 @@ export type CreateImportBatchesInput = {
   tagIds?: string[];
 }[];
 
-export type CreateRegExMapsInput = { regExMaps: ModelCreationData<RegExMap>[] };
-
 export type DeleteImportBatchesInput = { ids: string[] };
-
-export type DeleteRegExMapsInput = { ids: string[] };
 
 export type RemoveTagsFromBatchInput = { batchId: string; tagIds: string[] };
 
@@ -53,8 +49,6 @@ export type UpdateFileImportByPathInput = {
   status?: ImportStatus;
   thumbPaths?: string[];
 };
-
-export type UpdateRegExMapsInput = { regExMaps: RegExMap[] & { id: string }[] };
 
 /* ---------------------------------- FILES --------------------------------- */
 export type AddTagsToFilesInput = { fileIds: string[]; tagIds: string[] };
@@ -133,19 +127,6 @@ export type ListFilteredFilesInput = CreateFilterPipelineInput & {
 
 export type LoadFilesInput = { fileIds?: string[]; withOverwrite?: boolean };
 
-export type OnFilesArchivedInput = { fileIds: string[] };
-
-export type OnFilesDeletedInput = { fileIds: string[] };
-
-export type OnFilesUpdatedInput = { fileIds: string[]; updates: Partial<File> };
-
-export type OnFileTagsUpdatedInput = {
-  addedTagIds: string[];
-  batchId?: string;
-  fileIds?: string[];
-  removedTagIds: string[];
-};
-
 export type RefreshFileInput = { curFile?: File; id?: string; withThumbs?: boolean };
 
 export type RefreshSelectedFilesInput = { withThumbs?: boolean };
@@ -170,16 +151,12 @@ export type SetFileRatingInput = { fileIds: string[]; rating: number };
 export type UpdateFileInput = Partial<File> & { id: string };
 
 /* ---------------------------------- TAGS ---------------------------------- */
-export type AddChildTagIdsToTagsInput = { childTagIds: string[]; tagIds: string[] };
-
-export type AddParentTagIdsToTagsInput = { parentTagIds: string[]; tagIds: string[] };
-
 export type CreateTagInput = {
   aliases?: string[];
   childIds?: string[];
   label: string;
   parentIds?: string[];
-  withRegEx?: boolean;
+  regExMap?: RegExMap;
   withSub?: boolean;
 };
 
@@ -187,25 +164,12 @@ export type DeleteTagInput = { id: string };
 
 export type DetectFacesInput = { imagePath: string };
 
-export type EditTagInput = {
-  aliases?: string[];
-  childIds?: string[];
-  id: string;
-  label?: string;
-  parentIds?: string[];
-  withSub?: boolean;
-};
+export type EditTagInput = Partial<CreateTagInput> & { id: string };
 
-export type MergeTagsInput = {
-  aliases: string[];
-  childIds: string[];
-  label: string;
-  parentIds: string[];
+export type MergeTagsInput = Omit<Required<CreateTagInput>, "withSub"> & {
   tagIdToKeep: string;
   tagIdToMerge: string;
 };
-
-export type OnTagUpdatedInput = { tagId: string; updates: Partial<Tag> };
 
 export type RecalculateTagCountsInput = { tagIds: string[]; withSub?: boolean };
 

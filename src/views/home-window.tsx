@@ -24,7 +24,6 @@ export const HomeWindow = observer(() => {
         await Promise.all([
           fileCollectionStore.loadCollections(),
           importStore.loadImportBatches(),
-          importStore.loadRegExMaps(),
           tagStore.loadTags(),
         ]);
 

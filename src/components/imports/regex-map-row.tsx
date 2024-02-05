@@ -1,139 +1,85 @@
-import { CSSProperties, useMemo } from "react";
+import { useMemo } from "react";
+import { RegExMapType } from "database";
 import { observer } from "mobx-react-lite";
-import { RegExMap, TagOption, useStores } from "store";
+import { useStores } from "store";
 import { InputAdornment } from "@mui/material";
-import { Button, Icon, IconName, Input, InputProps, TagInput, View } from "components";
+import { Button, Input, InputProps, View } from "components";
 import { colors, makeClasses } from "utils";
 
-export const REGEX_ROW_CARD_HEIGHT = 95;
-export const REGEX_ROW_HEIGHT = REGEX_ROW_CARD_HEIGHT + 20;
-
-const STATUS_META: { [key: string]: { color: string; icon: IconName } } = {
-  create: {
-    color: colors.green["700"],
-    icon: "AddCircle",
-  },
-  delete: {
-    color: colors.red["700"],
-    icon: "Delete",
-  },
-  edit: {
-    color: colors.blue["700"],
-    icon: "Edit",
-  },
-};
-
-type Status = keyof typeof STATUS_META;
-
 export interface RegExMapRowProps {
-  map: RegExMap;
-  style?: CSSProperties;
-  withTagInput?: boolean;
+  disabled?: boolean;
+  regEx: string;
+  setRegEx: (regEx: string) => void;
+  setTestString: (testString: string) => void;
+  setTypes: (types: RegExMapType[]) => void;
+  tagId: string | null;
+  testString: string;
+  types: RegExMapType[];
 }
 
-export const RegExMapRow = observer(({ map, style, withTagInput = false }: RegExMapRowProps) => {
-  const { css, cx } = useClasses(null);
+export const RegExMapRow = observer(
+  ({
+    disabled = false,
+    regEx,
+    setRegEx,
+    setTestString,
+    setTypes,
+    tagId,
+    testString,
+    types,
+  }: RegExMapRowProps) => {
+    const { css } = useClasses(null);
 
-  const { tagStore } = useStores();
+    const { tagStore } = useStores();
 
-  const [isRegExValid, isTestStringValid] = useMemo(() => {
-    try {
-      const regEx = new RegExp(map?.regEx, "im");
-      return [true, map?.testString?.length > 0 ? regEx.test(map.testString) : true];
-    } catch (error) {
-      return [false, false];
-    }
-  }, [map?.regEx, map?.testString]);
+    const tag = tagId ? tagStore.getById(tagId) : null;
 
-  const status: Status = map?.isDeleted
-    ? "delete"
-    : !map?.id
-    ? "create"
-    : map?.hasUnsavedChanges
-    ? "edit"
-    : null;
+    const [isRegExValid, isTestStringValid] = useMemo(() => {
+      try {
+        return [true, testString.length > 0 ? new RegExp(regEx, "im").test(testString) : true];
+      } catch (error) {
+        return [false, false];
+      }
+    }, [regEx, testString]);
 
-  const tagOption = map?.tagId ? tagStore.getById(map.tagId)?.tagOption : null;
+    const generateRegEx = () => setRegEx(tagStore.tagsToRegEx([tag?.tagOption]));
 
-  const genRegExFromTags = () => setRegEx(tagStore.tagsToRegEx([tagOption]));
+    const toggleType = (type: RegExMapType) =>
+      setTypes(types.includes(type) ? types.filter((t) => t !== type) : [...types, type]);
 
-  const handleTagsChange = (value: TagOption[]) => map.setTagId(value[0]?.id || null);
+    const toggleTypeDiffusion = () => toggleType("diffusionParams");
 
-  const setRegEx = (value: string) => map.setRegEx(value);
+    const toggleTypeFile = () => toggleType("fileName");
 
-  const setTestString = (value: string) => map.setTestString(value);
+    const toggleTypeFolder = () => toggleType("folderName");
 
-  const toggleDeleted = () => map.toggleDeleted();
+    const inputProps: Partial<InputProps> = {
+      className: css.input,
+      disabled,
+      hasHelper: true,
+      InputLabelProps: { shrink: true },
+    };
 
-  const toggleTypeDiffusion = () => map.toggleType("diffusionParams");
-
-  const toggleTypeFile = () => map.toggleType("fileName");
-
-  const toggleTypeFolder = () => map.toggleType("folderName");
-
-  const inputProps: Partial<InputProps> = {
-    className: css.input,
-    disabled: map?.isDeleted,
-    hasHelper: true,
-    InputLabelProps: { shrink: true },
-  };
-
-  return !map ? (
-    <View className={css.root} {...{ style }} />
-  ) : (
-    <View className={css.root} {...{ style }}>
-      <View className={css.row}>
-        {status ? (
-          <Icon
-            name={STATUS_META[status].icon}
-            color={STATUS_META[status].color}
-            size="1.8em"
-            margins={{ top: "0.3rem" }}
-          />
-        ) : (
-          <View padding={{ right: "1.8em" }} />
-        )}
-
-        <View className={css.buttons}>
+    return (
+      <View row spacing="0.5rem" className={css.regExRow}>
+        <View row spacing="0.5rem">
           <Button
-            icon="InsertDriveFile"
+            icon="AccountTree"
             iconSize="1.8em"
-            tooltip="File Name"
-            onClick={toggleTypeFile}
-            color={map.types.includes("fileName") ? colors.button.blue : colors.button.grey}
-          />
-
-          <Button
-            icon="Folder"
-            iconSize="1.8em"
-            tooltip="Folder Name"
-            onClick={toggleTypeFolder}
-            color={map.types.includes("folderName") ? colors.button.blue : colors.button.grey}
-          />
-
-          <Button
-            icon="TextSnippet"
-            iconSize="1.8em"
-            tooltip="Diffusion Parameters"
-            onClick={toggleTypeDiffusion}
-            color={map.types.includes("diffusionParams") ? colors.button.blue : colors.button.grey}
-          />
-
-          <Button
-            icon={map.isDeleted ? "Reply" : "Delete"}
-            iconSize="1.8em"
-            onClick={toggleDeleted}
-            color={colors.button.red}
+            onClick={generateRegEx}
+            disabled={disabled}
+            tooltip="Generate RegEx from Label and Aliases"
           />
         </View>
 
         <Input
           {...inputProps}
           label="RegExp"
-          value={map.regEx}
+          value={regEx}
           setValue={setRegEx}
           error={!isRegExValid}
           helperText={!isRegExValid ? "Invalid RegExp" : null}
+          fullWidth
           InputProps={{
             endAdornment: <InputAdornment position="end">{"/"}</InputAdornment>,
             startAdornment: <InputAdornment position="start">{"/"}</InputAdornment>,
@@ -143,78 +89,55 @@ export const RegExMapRow = observer(({ map, style, withTagInput = false }: RegEx
         <Input
           {...inputProps}
           label="Test String"
-          value={map.testString}
+          value={testString}
           setValue={setTestString}
           error={!isTestStringValid}
           helperText={!isTestStringValid ? "Does not match RegExp" : null}
         />
 
-        {withTagInput && (
-          <>
-            <Icon name="KeyboardDoubleArrowRight" size="1.8em" margins={{ top: "0.4rem" }} />
+        <View row spacing="0.5rem">
+          <Button
+            icon="InsertDriveFile"
+            iconSize="1.8em"
+            tooltip="File Name"
+            onClick={toggleTypeFile}
+            disabled={disabled}
+            color={types.includes("fileName") ? colors.button.blue : colors.button.grey}
+          />
 
-            <Button
-              icon="AccountTree"
-              iconSize="1.8em"
-              onClick={genRegExFromTags}
-              tooltip="Generate RegEx From Tags"
-            />
+          <Button
+            icon="Folder"
+            iconSize="1.8em"
+            tooltip="Folder Name"
+            onClick={toggleTypeFolder}
+            disabled={disabled}
+            color={types.includes("folderName") ? colors.button.blue : colors.button.grey}
+          />
 
-            <TagInput
-              label="Tag"
-              value={tagOption ? [tagOption] : []}
-              onChange={handleTagsChange}
-              hasCreate
-              hasDelete
-              maxTags={1}
-              inputProps={{
-                ...inputProps,
-                helperText: !tagOption ? "Must have tag" : null,
-                error: !tagOption,
-              }}
-              className={cx(css.input, css.tagInput)}
-            />
-          </>
-        )}
+          <Button
+            icon="TextSnippet"
+            iconSize="1.8em"
+            tooltip="Diffusion Parameters"
+            onClick={toggleTypeDiffusion}
+            disabled={disabled}
+            color={types.includes("diffusionParams") ? colors.button.blue : colors.button.grey}
+          />
+        </View>
       </View>
-    </View>
-  );
-});
+    );
+  }
+);
 
 const useClasses = makeClasses({
-  buttons: {
-    display: "flex",
-    flexDirection: "row",
-    "& > *:not(:last-child)": {
-      marginRight: "0.5rem",
-    },
-  },
   input: {
-    minWidth: "15rem",
+    minWidth: "12rem",
   },
-  root: {
-    display: "flex",
-    flexDirection: "row",
-    flex: 1,
-    width: "fit-content",
-  },
-  row: {
-    display: "flex",
-    flexDirection: "row",
+  regExRow: {
     flex: 1,
     alignItems: "flex-start",
     borderRadius: "0.5rem",
-    padding: "1.2rem 1rem 0.4rem 0.5rem",
-    height: REGEX_ROW_CARD_HEIGHT,
+    padding: "1.2rem 1rem 0.4rem",
     backgroundColor: colors.grey["800"],
-    "& > *:not(:last-child)": {
-      marginRight: "0.5rem",
-    },
-  },
-  tagInput: {
-    "& .MuiAutocomplete-inputRoot": {
-      flexWrap: "nowrap",
-      overflow: "hidden",
-    },
+    overflow: "auto",
   },
 });

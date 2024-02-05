@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { observer } from "mobx-react-lite";
-import { TagOption, useStores } from "store";
+import { RegExMap, TagOption, useStores } from "store";
 import { Divider } from "@mui/material";
 import {
   Button,
@@ -29,6 +29,7 @@ export const TagMerger = observer(() => {
   const [isSaving, setIsSaving] = useState(false);
   const [label, setLabel] = useState<string>("");
   const [parentTags, setParentTags] = useState<TagOption[]>([]);
+  const [regExMap, setRegExMap] = useState<RegExMap>({ regEx: "", testString: "", types: [] });
   const [selectedTagValue, setSelectedTagValue] = useState<TagOption[]>([]);
   const [tagIdToKeep, setTagIdToKeep] = useState<string>("");
   const [tagIdToMerge, setTagIdToMerge] = useState<string>("");
@@ -40,10 +41,11 @@ export const TagMerger = observer(() => {
 
   useEffect(() => {
     if (!selectedTagValue.length) {
-      setLabel("");
       setAliases([]);
-      setParentTags([]);
       setChildTags([]);
+      setLabel("");
+      setParentTags([]);
+      setRegExMap({ regEx: "", testString: "", types: [] });
       setTagLabelToKeep(null);
       return;
     }
@@ -57,14 +59,17 @@ export const TagMerger = observer(() => {
       setTagLabelToKeep(tagToKeep.id === tagStore.activeTagId ? "base" : "merge");
 
     const aliasToSet = tagLabelToKeep === "merge" ? baseTag.label : tag.label;
-    const labelToSet = tagLabelToKeep === "base" ? baseTag.label : tag.label;
-    setLabel(labelToSet);
     setAliases(
       [...new Set([aliasToSet, ...tagToKeep.aliases, ...tagToMerge.aliases])].map((a) => ({
         label: a,
         value: a,
       }))
     );
+
+    const labelToSet = tagLabelToKeep === "base" ? baseTag.label : tag.label;
+    setLabel(labelToSet);
+
+    setRegExMap({ ...tagToMerge.regExMap, ...tagToKeep.regExMap });
 
     const childIds = [...tagToKeep.childIds, ...tagToMerge.childIds];
     const parentIds = [...tagToKeep.parentIds, ...tagToMerge.parentIds];
@@ -86,6 +91,7 @@ export const TagMerger = observer(() => {
         childIds: childTags.map((t) => t.id),
         label,
         parentIds: parentTags.map((t) => t.id),
+        regExMap,
         tagIdToKeep,
         tagIdToMerge,
       });
