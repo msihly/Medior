@@ -91,7 +91,7 @@ export const FileCollectionFile = observer(
           </FileBase.Image>
 
           <FileBase.Footer>
-            <FileBase.Tags {...{ disabled }} tags={file.tags} onTagPress={handleTagPress} />
+            <FileBase.Tags tagIds={file.tagIds} />
 
             <FileBase.Tooltip {...{ disabled, file }} onTagPress={handleTagPress} />
           </FileBase.Footer>

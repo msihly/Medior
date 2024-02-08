@@ -11,8 +11,8 @@ export const DisplayedFiles = observer(() => {
 
   return fileStore.files.length > 0 ? (
     <View className={css.fileContainer}>
-      {fileStore.files.map((f) => (
-        <FileCard key={f.id} file={f} />
+      {fileStore.files.map((f, i) => (
+        <FileCard key={i} file={f} />
       ))}
     </View>
   ) : (

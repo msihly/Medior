@@ -1,7 +1,6 @@
 import { computed } from "mobx";
 import {
   applySnapshot,
-  getRootStore,
   getSnapshot,
   Model,
   model,
@@ -89,18 +88,6 @@ export class File extends Model({
   @computed
   get isVideo() {
     return VIDEO_EXT_REG_EXP.test(this.ext);
-  }
-
-  @computed
-  get tags() {
-    const rootStore = getRootStore<RootStore>(this);
-    if (!rootStore) return [];
-
-    return this.tagIds.reduce((acc, cur) => {
-      const tag = rootStore.tagStore.getById(cur);
-      if (tag) acc.push(tag);
-      return acc;
-    }, [] as Tag[]);
   }
 
   @computed

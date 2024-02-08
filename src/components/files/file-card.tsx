@@ -16,10 +16,10 @@ interface FileCardProps {
 
 export const FileCard = observer(({ disabled, file, height, id, width }: FileCardProps) => {
   const rootStore = useStores();
-  const { fileCollectionStore, fileStore, homeStore, tagStore } = useStores();
+  const { fileStore, homeStore, tagStore } = useStores();
 
   if (!file) file = fileStore.getById(id);
-  const collections = fileCollectionStore.listByFileId(id);
+  // const collections = fileCollectionStore.listByFileId(id);
 
   const handleClick = async (event: React.MouseEvent) => {
     if (disabled) return;
@@ -138,9 +138,9 @@ export const FileCard = observer(({ disabled, file, height, id, width }: FileCar
             }
           />
 
-          {collections.length > 0 && (
+          {/* {collections.length > 0 && (
             <FileBase.Chip position="bottom-left" icon="Collections" label={collections.length} />
-          )}
+          )} */}
 
           {file.duration && (
             <FileBase.Chip
@@ -151,8 +151,8 @@ export const FileCard = observer(({ disabled, file, height, id, width }: FileCar
         </FileBase.Image>
 
         <FileBase.Footer>
-          {file.tags?.length > 0 ? (
-            <FileBase.Tags {...{ disabled }} tags={file.tags} onTagPress={handleTagPress} />
+          {file.tagIds?.length > 0 ? (
+            <FileBase.Tags {...{ disabled }} tagIds={file.tagIds} />
           ) : (
             <View />
           )}

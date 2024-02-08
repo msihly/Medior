@@ -46,7 +46,7 @@ export const FileSearchFile = observer(
         </FileBase.Image>
 
         <FileBase.Footer>
-          <FileBase.Tags {...{ disabled }} tags={file.tags} />
+          <FileBase.Tags tagIds={file.tagIds} />
 
           <FileBase.Tooltip {...{ disabled, file }} />
         </FileBase.Footer>

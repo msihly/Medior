@@ -102,13 +102,13 @@ export const InfoModal = observer(() => {
           />
         </DetailRow>
 
-        {file?.tags?.length > 0 && (
+        {file?.tagIds?.length > 0 && (
           <Detail
             label="Tags"
             value={
               <SideScroller innerClassName={css.tags}>
-                {file.tags.map((t) => (
-                  <Tag key={t.id} tag={t} size="small" />
+                {file.tagIds.map((tagId) => (
+                  <Tag key={tagId} id={tagId} size="small" />
                 ))}
               </SideScroller>
             }

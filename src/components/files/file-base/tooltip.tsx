@@ -17,13 +17,13 @@ export const Tooltip = observer(({ disabled, file, onTagPress }: TooltipProps) =
       minWidth="15rem"
       title={
         <View className={css.root}>
-          {file.tags?.length > 0 && (
+          {file.tagIds?.length > 0 && (
             <View className={css.tags}>
-              {file.tags.map((tag) => (
+              {file.tagIds.map((tagId) => (
                 <Tag
-                  key={tag.id}
-                  tag={tag}
-                  onClick={!disabled ? () => onTagPress?.(tag.id) : undefined}
+                  key={tagId}
+                  id={tagId}
+                  onClick={!disabled ? () => onTagPress?.(tagId) : undefined}
                   size="small"
                 />
               ))}
