@@ -36,7 +36,7 @@ export const Tagger = observer(({ batchId, fileIds, setVisible }: TaggerProps) =
     return () => {
       setCurrentTagOptions([]);
     };
-  }, [fileIds, tagStore.tags.toString()]);
+  }, [fileIds, JSON.stringify(tagStore.tags)]);
 
   const handleClose = () => {
     if (hasUnsavedChanges) return setIsConfirmDiscardOpen(true);

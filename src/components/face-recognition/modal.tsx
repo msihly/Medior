@@ -160,7 +160,7 @@ export const FaceRecognitionModal = observer(() => {
         <Text>{"Face Recognition"}</Text>
       </Modal.Header>
 
-      <Modal.Content padding={{ all: 0 }}>
+      <Modal.Content>
         {faceRecognitionStore.isInitializing ? (
           <View justify="center" align="center" className={css.rootContainer}>
             <Text fontSize="1.2em" marginRight="1rem">

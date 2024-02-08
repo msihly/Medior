@@ -53,7 +53,7 @@ export const FileCollectionManager = observer(() => {
         <Text>{"Manage Collections"}</Text>
       </Modal.Header>
 
-      <Modal.Content>
+      <Modal.Content className={css.modalContent}>
         {!hasAnySelected ? null : hasOneSelected ? (
           <View row>
             <View className={css.leftColumn}>
@@ -73,7 +73,7 @@ export const FileCollectionManager = observer(() => {
               </View>
             </View>
 
-            <View column flex={1}>
+            <View className={css.rightColumn}>
               <View row justify="center">
                 <Text className={css.sectionTitle}>{"Current Collections"}</Text>
               </View>
@@ -105,7 +105,7 @@ export const FileCollectionManager = observer(() => {
           </View>
         )}
 
-        <View row margins={{ top: "0.5rem" }}>
+        <View row margins={{ top: "0.5rem" }} overflow="hidden">
           <View className={css.leftColumn}>
             <Text className={css.sectionTitle}>{"Search"}</Text>
 
@@ -145,14 +145,9 @@ export const FileCollectionManager = observer(() => {
       </Modal.Content>
 
       <Modal.Footer>
-        <Button text="Close" icon="Close" onClick={closeModal} color={colors.grey["700"]} />
+        <Button text="Close" icon="Close" onClick={closeModal} color={colors.button.grey} />
 
-        <Button
-          text="New Collection"
-          icon="Add"
-          onClick={handleNewCollection}
-          color={colors.blueGrey["700"]}
-        />
+        <Button text="New Collection" icon="Add" onClick={handleNewCollection} />
       </Modal.Footer>
     </Modal.Container>
   );
@@ -175,6 +170,14 @@ const useClasses = makeClasses({
     flexDirection: "column",
     width: "13rem",
     marginRight: "0.5rem",
+  },
+  modalContent: {
+    overflow: "hidden",
+  },
+  rightColumn: {
+    display: "flex",
+    flexDirection: "column",
+    flex: 1,
   },
   sectionTitle: {
     alignSelf: "center",

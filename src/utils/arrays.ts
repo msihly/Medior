@@ -42,6 +42,9 @@ export const centeredSlice = <T>(arr: T[], indexToCenter: number, maxCount?: num
   return [...left, arr[indexToCenter], ...right];
 };
 
+export const chunkArray = <T>(arr: T[], size: number): T[][] =>
+  [...Array(Math.ceil(arr.length / size))].map((_, i) => arr.slice(i * size, i * size + size));
+
 interface CountItemsResult<T> {
   value: T;
   count: number;

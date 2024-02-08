@@ -117,7 +117,7 @@ export const TagManager = observer(() => {
     <Modal.Container onClose={closeModal} height="80%" width="80%">
       <Modal.Header
         rightNode={
-          <MenuButton color={colors.grey["700"]}>
+          <MenuButton color={colors.button.grey}>
             <ListItem text="Refresh Counts" icon="Refresh" onClick={handleRefreshCounts} />
             <ListItem text="Refresh Relations" icon="Refresh" onClick={handleRefreshRelations} />
           </MenuButton>

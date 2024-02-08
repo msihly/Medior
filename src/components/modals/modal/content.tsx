@@ -24,11 +24,20 @@ export const Content = ({ children, className, dividers = true, padding }: Conte
   );
 };
 
-const useClasses = makeClasses((_, { padding }) => ({
+interface ClassesProps {
+  padding: Padding;
+}
+
+const useClasses = makeClasses((_, { padding }: ClassesProps) => ({
   content: {
     display: "flex",
     flexDirection: "column",
     flex: 1,
-    padding,
+    padding: padding?.all,
+    paddingTop: padding?.top,
+    paddingBottom: padding?.bottom,
+    paddingRight: padding?.right,
+    paddingLeft: padding?.left,
+    overflow: "inherit",
   },
 }));

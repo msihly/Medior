@@ -160,7 +160,7 @@ export const FileCollectionEditor = observer(() => {
   const toggleAddingFiles = () => setIsAddingFiles((prev) => !prev);
 
   return (
-    <Modal.Container onClose={confirmClose} maxWidth="65rem" width="100%">
+    <Modal.Container onClose={confirmClose} maxWidth="100%" width="90%" height="90%">
       <Modal.Header
         leftNode={
           <Button
@@ -308,8 +308,7 @@ const useClasses = makeClasses({
   body: {
     display: "flex",
     flexDirection: "row",
-    minHeight: "30rem",
-    maxHeight: "40rem",
+    height: "100%",
     width: "100%",
   },
   collection: {

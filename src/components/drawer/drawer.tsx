@@ -80,13 +80,13 @@ export const Drawer = observer(({ hasImports = false }: DrawerProps) => {
       variant="persistent"
     >
       <List disablePadding className={css.list}>
-        <ListItem text="Search Window" icon="Search" onClick={handleSearchWindow} />
+        {hasImports && <ListItem text="Imports" icon="GetApp" onClick={handleImport} />}
 
         <ListItem text="Tags" icon="More" onClick={handleManageTags} />
 
         <ListItem text="Collections" icon="Collections" onClick={handleCollections} />
 
-        {hasImports && <ListItem text="Imports" icon="GetApp" onClick={handleImport} />}
+        <ListItem text="Search Window" icon="Search" onClick={handleSearchWindow} />
       </List>
 
       <Divider className={css.divider} />

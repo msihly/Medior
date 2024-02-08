@@ -27,6 +27,7 @@ const useClasses = makeClasses((theme) => ({
     display: "flex",
     flexFlow: "row wrap",
     flex: 1,
+    overflow: "auto",
     "& > *": {
       overflow: "hidden",
       flexBasis: "calc(100% / 6)",

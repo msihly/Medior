@@ -10,6 +10,7 @@ export interface ViewProps extends HTMLAttributes<HTMLDivElement> {
   flex?: CSSObject["flex"];
   justify?: CSSObject["justifyContent"];
   margins?: Margins;
+  overflow?: CSSObject["overflow"];
   padding?: Padding;
   row?: boolean;
   spacing?: CSSObject["marginRight"];
@@ -25,6 +26,7 @@ export const View = forwardRef(
       flex,
       justify,
       margins,
+      overflow,
       padding,
       row = false,
       spacing,
@@ -41,6 +43,7 @@ export const View = forwardRef(
       padding,
       row,
       spacing,
+      overflow,
     });
 
     return (
@@ -60,10 +63,14 @@ interface ClassesProps {
   padding: Padding;
   row: boolean;
   spacing: CSSObject["marginRight"];
+  overflow: CSSObject["overflow"];
 }
 
 const useClasses = makeClasses(
-  (_, { align, column, flex, justify, margins, padding, row, spacing }: ClassesProps) => ({
+  (
+    _,
+    { align, column, flex, justify, margins, padding, row, spacing, overflow }: ClassesProps
+  ) => ({
     root: {
       display: column || row ? "flex" : undefined,
       flexDirection: column ? "column" : row ? "row" : undefined,
@@ -80,6 +87,7 @@ const useClasses = makeClasses(
       paddingBottom: padding?.bottom,
       paddingRight: padding?.right,
       paddingLeft: padding?.left,
+      overflow,
       ...(spacing ? { "& > *:not(:last-child)": { marginRight: spacing } } : {}),
     },
   })

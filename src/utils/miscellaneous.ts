@@ -122,3 +122,5 @@ export const rateLimitPromiseAll = async <T>(
 
   return ret;
 };
+
+export const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
