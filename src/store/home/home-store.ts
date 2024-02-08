@@ -165,6 +165,8 @@ export class HomeStore extends Model({
   ) {
     return yield* _await(
       handleErrors(async () => {
+        debug = false;
+
         const logTag = "[RDF]";
         const funcPerfStart = performance.now();
 
@@ -199,15 +201,16 @@ export class HomeStore extends Model({
         if (debug) perfLog(`Loaded ${files.length} filtered files`);
 
         fileStore.overwrite(files);
-        if (debug) perfLog("FileStore.files overwrite");
+        if (debug) perfLog("FileStore.files overwrite + re-render");
 
         if (page) fileStore.setPage(page);
         fileStore.setPageCount(pageCount);
-        if (debug)
-          perfLog(`Set page to ${page ?? fileStore.pageCount} and pageCount to ${pageCount}`);
+        if (debug) perfLog(`Set page to ${page ?? fileStore.page} and pageCount to ${pageCount}`);
 
         if (debug)
-          console.debug(`Loaded ${files.length} files in ${performance.now() - funcPerfStart}ms.`);
+          console.debug(
+            `${logTag} Loaded ${files.length} files in ${performance.now() - funcPerfStart}ms.`
+          );
 
         return files;
       })
