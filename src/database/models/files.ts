@@ -59,8 +59,8 @@ const FileSchema = new Schema<File>({
 });
 
 FileSchema.index({ hash: 1 }, { unique: true });
-FileSchema.index({ isArchived: 1, ext: 1 });
-FileSchema.index({ tagIds: 1 });
+FileSchema.index({ isArchived: 1, ext: 1, tagIds: 1, _id: 1 }, { unique: true });
+FileSchema.index({ tagIds: 1, _id: 1 }, { unique: true });
 
 FileSchema.index({ dateCreated: 1, _id: 1 }, { unique: true });
 FileSchema.index({ dateModified: 1, _id: 1 }, { unique: true });
