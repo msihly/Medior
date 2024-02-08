@@ -385,31 +385,21 @@ export const listFilesByTagIds = ({ tagIds }: db.ListFilesByTagIdsInput) =>
   });
 
 export const listFileIdsForCarousel = ({
-  clickedId,
+  page,
+  pageSize,
   ...filterParams
 }: db.ListFileIdsForCarouselInput) =>
   handleErrors(async () => {
     const filterPipeline = createFilterPipeline(filterParams);
 
-    const pipeline: PipelineStage[] = [
-      { $match: filterPipeline.$match },
-      {
-        $facet: {
-          filteredIds: [
-            { $sort: filterPipeline.$sort },
-            { $limit: 2000 },
-            { $project: { _id: 1 } },
-          ],
-        },
-      },
-    ];
+    const files = await db.FileModel.find(filterPipeline.$match)
+      .sort(filterPipeline.$sort)
+      .skip(Math.max(0, Math.max(0, page - 1) * pageSize - 500))
+      .limit(1001)
+      .allowDiskUse(true)
+      .select({ _id: 1 });
 
-    const res: {
-      filteredIds: { _id: string }[];
-    } = (await db.FileModel.aggregate(pipeline).allowDiskUse(true)).flatMap((f) => f)?.[0];
-    if (!res) throw new Error("Failed to load filtered file IDs");
-
-    return res.filteredIds.map((f) => f._id.toString());
+    return files.map((f) => f._id.toString());
   });
 
 export const listFilteredFiles = ({ page, pageSize, ...filterParams }: db.ListFilteredFilesInput) =>

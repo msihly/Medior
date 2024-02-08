@@ -110,11 +110,7 @@ export type IncludedAllTagItem = string | string[];
 
 export type ListFaceModelsInput = { ids?: string[] };
 
-export type ListFileIdsForCarouselInput = CreateFilterPipelineInput & {
-  clickedId: string;
-  isSortDesc: boolean;
-  sortKey: string;
-};
+export type ListFileIdsForCarouselInput = ListFilteredFilesInput;
 
 export type ListFilesInput = { ids?: string[]; withFaceModels?: boolean };
 

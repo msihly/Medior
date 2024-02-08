@@ -131,7 +131,7 @@ export class HomeStore extends Model({
   ) {
     return yield* _await(
       handleErrors(async () => {
-        const { tagStore } = rootStore;
+        const { fileStore, tagStore } = rootStore;
 
         const { excludedTagIds, requiredTagIds, requiredTagIdArrays, optionalTagIds } =
           tagStore.tagSearchOptsToIds(this.searchValue);
@@ -147,6 +147,8 @@ export class HomeStore extends Model({
           includeUntagged: this.includeUntagged,
           isArchived: this.isArchiveOpen,
           isSortDesc: this.sortValue.isDesc,
+          page: fileStore.page,
+          pageSize: CONSTANTS.FILE_COUNT,
           selectedImageTypes: this.selectedImageTypes,
           selectedVideoTypes: this.selectedVideoTypes,
           sortKey: this.sortValue.key,
