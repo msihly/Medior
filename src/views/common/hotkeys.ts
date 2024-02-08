@@ -59,37 +59,37 @@ export const useHotkeys = ({ rootRef, view }: UseHotkeysProps) => {
       fileStore.toggleFilesSelected(fileStore.files.map(({ id }) => ({ id, isSelected: true })));
       toast.info(`Added ${fileStore.files.length} files to selection`);
     } else if (isOneFileSelected) {
-      const selectedId = fileIds[0];
-
-      if (key === "f") {
-        faceRecognitionStore.setActiveFileId(fileIds[0]);
-        faceRecognitionStore.setIsModalOpen(true);
-      }
-
       if (key === "i") {
-        fileStore.setActiveFileId(selectedId);
+        fileStore.setActiveFileId(fileIds[0]);
         fileStore.setIsInfoModalOpen(true);
       }
 
       if (["ArrowLeft", "ArrowRight"].includes(key)) {
         const isLeft = key === "ArrowLeft";
         if (view === "carousel") navCarouselByArrowKey(isLeft);
-        else selectFileByArrowKey(isLeft, selectedId);
+        else selectFileByArrowKey(isLeft, fileIds[0]);
       }
 
-      if (RATING_KEYS.includes(key))
-        await fileStore.setFileRating({ fileIds: [selectedId], rating: +key });
-    } else {
-      if (key === "f") faceRecognitionStore.addFilesToAutoDetectQueue({ fileIds, rootStore });
-
-      if (key === "t") {
-        tagStore.setTaggerBatchId(null);
-        tagStore.setTaggerFileIds(fileIds);
-        tagStore.setIsTaggerOpen(true);
-      }
-
-      if (key === "Delete") fileStore.confirmDeleteFiles(fileIds);
+      if (RATING_KEYS.includes(key)) await fileStore.setFileRating({ fileIds, rating: +key });
     }
+
+    if (key === "f") {
+      if (isOneFileSelected) {
+        const file = fileStore.getById(fileIds[0]);
+        if (file.isAnimated) return toast.error("Cannot detect faces in animated files");
+
+        faceRecognitionStore.setActiveFileId(file.id);
+        faceRecognitionStore.setIsModalOpen(true);
+      } else faceRecognitionStore.addFilesToAutoDetectQueue({ fileIds, rootStore });
+    }
+
+    if (key === "t") {
+      tagStore.setTaggerBatchId(null);
+      tagStore.setTaggerFileIds(fileIds);
+      tagStore.setIsTaggerOpen(true);
+    }
+
+    if (key === "Delete") fileStore.confirmDeleteFiles(fileIds);
   };
 
   return {
