@@ -9,7 +9,7 @@ import { toast } from "react-toastify";
 export const FileCollectionManager = observer(() => {
   const { css } = useClasses(null);
 
-  const { fileCollectionStore } = useStores();
+  const { fileCollectionStore, tagStore } = useStores();
 
   const hasAnySelected = fileCollectionStore.selectedFileIds.length > 0;
   const hasOneSelected = fileCollectionStore.selectedFiles.length === 1;
@@ -26,8 +26,29 @@ export const FileCollectionManager = observer(() => {
 
   const filteredCollections = useMemo(() => {
     const searchStr = titleSearchValue.toLowerCase();
-    return fileCollectionStore.collections.filter((c) => c.title.toLowerCase().includes(searchStr));
-  }, [fileCollectionStore.collections.toString(), tagSearchValue, titleSearchValue]);
+    const { excludedTagIds, optionalTagIds, requiredTagIds, requiredTagIdArrays } =
+      tagStore.tagSearchOptsToIds(tagSearchValue);
+
+    return fileCollectionStore.collections.filter((c) => {
+      if (searchStr.length && !c.title.toLowerCase().includes(searchStr)) return false;
+      if (excludedTagIds.length && excludedTagIds.some((id) => c.tagIds.includes(id))) return false;
+      if (requiredTagIds.length && !requiredTagIds.some((id) => c.tagIds.includes(id)))
+        return false;
+      if (
+        requiredTagIdArrays.length &&
+        !requiredTagIdArrays.every((ids) => ids.some((id) => c.tagIds.includes(id)))
+      )
+        return false;
+      if (optionalTagIds.length && !c.tagIds.some((id) => optionalTagIds.includes(id)))
+        return false;
+
+      return true;
+    });
+  }, [
+    titleSearchValue,
+    JSON.stringify(fileCollectionStore.collections),
+    JSON.stringify(tagSearchValue),
+  ]);
 
   const closeModal = () => fileCollectionStore.setIsCollectionManagerOpen(false);
 
