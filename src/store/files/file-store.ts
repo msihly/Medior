@@ -2,7 +2,6 @@ import { promises as fs } from "fs";
 import path from "path";
 import md5File from "md5-file";
 import sharp from "sharp";
-import { computed } from "mobx";
 import {
   _async,
   _await,
@@ -27,12 +26,10 @@ import {
   generateFramesThumbnail,
   getVideoInfo,
   handleErrors,
-  IMAGE_EXT_REG_EXP,
   PromiseQueue,
   splitArray,
   THUMB_WIDTH,
   trpc,
-  VIDEO_EXT_REG_EXP,
 } from "utils";
 import { toast } from "react-toastify";
 
@@ -329,21 +326,5 @@ export class FileStore extends Model({
 
   listByTagId(tagId: string) {
     return this.files.filter((f) => f.tagIds.includes(tagId));
-  }
-
-  /* --------------------------------- GETTERS -------------------------------- */
-  @computed
-  get archived() {
-    return this.files.filter((f) => f.isArchived);
-  }
-
-  @computed
-  get images() {
-    return this.files.filter((f) => IMAGE_EXT_REG_EXP.test(f.ext));
-  }
-
-  @computed
-  get videos() {
-    return this.files.filter((f) => VIDEO_EXT_REG_EXP.test(f.ext));
   }
 }
