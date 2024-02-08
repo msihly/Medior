@@ -349,21 +349,25 @@ export class TagStore extends Model({
   }
 
   tagSearchOptsToIds(options: TagOption[]) {
-    const [excludedAnyTagIds, includedAnyTagIds, includedAllTagIds] = options.reduce(
+    return options.reduce(
       (acc, cur) => {
         if (cur.searchType.includes("Desc")) {
           const childTagIds = this.getChildTags(this.getById(cur.id), true).map((t) => t.id);
-          if (cur.searchType === "excludeDesc") acc[0].push(cur.id, ...childTagIds);
-          else if (cur.searchType === "includeDesc") acc[2].push([cur.id, ...childTagIds]);
-        } else if (cur.searchType === "includeAnd") acc[2].push(cur.id);
-        else if (cur.searchType === "includeOr") acc[1].push(cur.id);
-        else if (cur.searchType === "exclude") acc[0].push(cur.id);
+          const tagIds = [cur.id, ...childTagIds];
+          if (cur.searchType === "excludeDesc") acc["excludedTagIds"].push(...tagIds);
+          else if (cur.searchType === "includeDesc") acc["requiredTagIdArrays"].push(tagIds);
+        } else if (cur.searchType === "includeAnd") acc["requiredTagIds"].push(cur.id);
+        else if (cur.searchType === "includeOr") acc["optionalTagIds"].push(cur.id);
+        else if (cur.searchType === "exclude") acc["excludedTagIds"].push(cur.id);
         return acc;
       },
-      [[], [], []] as [string[], string[], db.IncludedAllTagItem[]]
+      { excludedTagIds: [], optionalTagIds: [], requiredTagIds: [], requiredTagIdArrays: [] } as {
+        excludedTagIds: string[];
+        optionalTagIds: string[];
+        requiredTagIds: string[];
+        requiredTagIdArrays: string[][];
+      }
     );
-
-    return { excludedAnyTagIds, includedAllTagIds, includedAnyTagIds };
   }
 
   /* --------------------------------- GETTERS -------------------------------- */

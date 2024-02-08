@@ -95,7 +95,7 @@ export class HomeStore extends Model({
       handleErrors(async () => {
         const { fileStore, tagStore } = rootStore;
 
-        const { excludedAnyTagIds, includedAllTagIds, includedAnyTagIds } =
+        const { excludedTagIds, optionalTagIds, requiredTagIds, requiredTagIdArrays } =
           tagStore.tagSearchOptsToIds(this.searchValue);
 
         const clickedIndex =
@@ -105,9 +105,10 @@ export class HomeStore extends Model({
         const res = await trpc.getShiftSelectedFiles.mutate({
           clickedId: id,
           clickedIndex,
-          excludedAnyTagIds,
-          includedAllTagIds,
-          includedAnyTagIds,
+          excludedTagIds,
+          requiredTagIds,
+          requiredTagIdArrays,
+          optionalTagIds,
           includeTagged: this.includeTagged,
           includeUntagged: this.includeUntagged,
           isArchived: this.isArchiveOpen,
@@ -132,16 +133,16 @@ export class HomeStore extends Model({
       handleErrors(async () => {
         const { tagStore } = rootStore;
 
-        const { excludedAnyTagIds, includedAllTagIds, includedAnyTagIds } =
+        const { excludedTagIds, requiredTagIds, requiredTagIdArrays, optionalTagIds } =
           tagStore.tagSearchOptsToIds(this.searchValue);
 
         if (!id) throw new Error("Invalid ID provided");
 
         const res = await trpc.listFileIdsForCarousel.mutate({
-          clickedId: id,
-          excludedAnyTagIds,
-          includedAllTagIds,
-          includedAnyTagIds,
+          excludedTagIds,
+          requiredTagIds,
+          requiredTagIdArrays,
+          optionalTagIds,
           includeTagged: this.includeTagged,
           includeUntagged: this.includeUntagged,
           isArchived: this.isArchiveOpen,
@@ -178,13 +179,14 @@ export class HomeStore extends Model({
 
         const { fileStore, tagStore } = rootStore;
 
-        const { excludedAnyTagIds, includedAllTagIds, includedAnyTagIds } =
+        const { excludedTagIds, optionalTagIds, requiredTagIds, requiredTagIdArrays } =
           tagStore.tagSearchOptsToIds(this.searchValue);
 
         const filteredRes = await trpc.listFilteredFiles.mutate({
-          excludedAnyTagIds,
-          includedAllTagIds,
-          includedAnyTagIds,
+          excludedTagIds,
+          requiredTagIds,
+          requiredTagIdArrays,
+          optionalTagIds,
           includeTagged: this.includeTagged,
           includeUntagged: this.includeUntagged,
           isArchived: this.isArchiveOpen,

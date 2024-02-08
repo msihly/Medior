@@ -183,18 +183,19 @@ export class FileCollectionStore extends Model({
       handleErrors(async () => {
         const { tagStore } = rootStore;
 
-        const { excludedAnyTagIds, includedAllTagIds, includedAnyTagIds } =
+        const { excludedTagIds, optionalTagIds, requiredTagIds, requiredTagIdArrays } =
           tagStore.tagSearchOptsToIds(this.searchValue);
 
         const filteredRes = await trpc.listFilteredFiles.mutate({
-          excludedAnyTagIds: [
+          excludedTagIds: [
             ...new Set([
-              ...excludedAnyTagIds,
+              ...excludedTagIds,
               ...this.activeCollection.fileIdIndexes.map((f) => f.fileId),
             ]),
           ],
-          includedAllTagIds,
-          includedAnyTagIds,
+          requiredTagIds,
+          requiredTagIdArrays,
+          optionalTagIds,
           includeTagged: false,
           includeUntagged: false,
           isArchived: false,

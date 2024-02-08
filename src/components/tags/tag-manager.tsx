@@ -27,25 +27,17 @@ export const TagManager = observer(() => {
   const [width, setWidth] = useState(0);
 
   const tagOptions = useMemo(() => {
-    const { excludedAnyTagIds, includedAllTagIds, includedAnyTagIds } =
+    const { excludedTagIds, optionalTagIds, requiredTagIds, requiredTagIdArrays } =
       tagStore.tagSearchOptsToIds(searchValue);
-
-    const [requiredTagIds, requiredTagIdArrays] = includedAllTagIds.reduce(
-      (acc, cur) => {
-        Array.isArray(cur) ? acc[1].push(cur) : acc[0].push(cur);
-        return acc;
-      },
-      [[], []] as [string[], string[][]]
-    );
 
     return [...tagStore.tags]
       .reduce((acc, cur) => {
-        if (excludedAnyTagIds.includes(cur.id)) return acc;
-        if (includedAnyTagIds.length && !includedAnyTagIds.includes(cur.id)) return acc;
-        if (includedAllTagIds.length) {
+        if (excludedTagIds.includes(cur.id)) return acc;
+        if (optionalTagIds.length && !optionalTagIds.includes(cur.id)) return acc;
+        if (requiredTagIds.length || requiredTagIdArrays.length) {
           if (
             !requiredTagIds.includes(cur.id) &&
-            !requiredTagIdArrays.some((ids) => ids.includes(cur.id))
+            !requiredTagIdArrays.every((ids) => ids.some((id) => id === cur.id))
           )
             return acc;
         }

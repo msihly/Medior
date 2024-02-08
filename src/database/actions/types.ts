@@ -56,13 +56,14 @@ export type AddTagsToFilesInput = { fileIds: string[]; tagIds: string[] };
 export type ArchiveFilesInput = { fileIds: string[] };
 
 export type CreateFilterPipelineInput = {
-  excludedAnyTagIds: string[];
-  includedAllTagIds: IncludedAllTagItem[];
-  includedAnyTagIds: string[];
+  excludedTagIds: string[];
   includeTagged: boolean;
   includeUntagged: boolean;
   isArchived: boolean;
   isSortDesc: boolean;
+  optionalTagIds: string[];
+  requiredTagIdArrays: string[][];
+  requiredTagIds: string[];
   selectedImageTypes: SelectedImageTypes;
   selectedVideoTypes: SelectedVideoTypes;
   sortKey: string;

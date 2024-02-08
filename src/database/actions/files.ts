@@ -12,13 +12,14 @@ const FACE_MODELS_PATH = app.isPackaged
   : "src/face-models";
 
 const createFilterPipeline = ({
-  excludedAnyTagIds,
-  includedAllTagIds,
-  includedAnyTagIds,
+  excludedTagIds,
   includeTagged,
   includeUntagged,
   isArchived,
   isSortDesc,
+  optionalTagIds,
+  requiredTagIdArrays,
+  requiredTagIds,
   selectedImageTypes,
   selectedVideoTypes,
   sortKey,
@@ -33,31 +34,28 @@ const createFilterPipeline = ({
 
   const sortDir = isSortDesc ? -1 : 1;
 
-  const [requiredTagIds, requiredTagIdArrays] =
-    includedAllTagIds?.length > 0
-      ? includedAllTagIds.reduce(
-          (acc, cur) => {
-            Array.isArray(cur) ? acc[1].push(objectIds(cur)) : acc[0].push(objectId(cur));
-            return acc;
-          },
-          [[], []] as [Types.ObjectId[], Types.ObjectId[][]]
-        )
-      : [[], []];
+  const hasExcludedTags = excludedTagIds?.length > 0;
+  const hasOptionalTags = optionalTagIds?.length > 0;
+  const hasRequiredTags = requiredTagIds.length > 0;
 
   return {
     $match: {
       isArchived,
       ext: { $in: enabledExts },
-      $and: [
-        includeTagged ? { tagIds: { $ne: [] } } : {},
-        includeUntagged ? { tagIds: { $eq: [] } } : {},
-        includedAnyTagIds?.length > 0 ? { tagIds: { $in: objectIds(includedAnyTagIds) } } : {},
-        excludedAnyTagIds?.length > 0 ? { tagIds: { $nin: objectIds(excludedAnyTagIds) } } : {},
-        requiredTagIds.length > 0 ? { tagIds: { $all: requiredTagIds } } : {},
+      ...(hasExcludedTags || hasOptionalTags || hasRequiredTags || includeTagged || includeUntagged
+        ? {
+            tagIds: {
+              ...(hasExcludedTags ? { $nin: objectIds(excludedTagIds) } : {}),
+              ...(hasOptionalTags ? { $in: objectIds(optionalTagIds) } : {}),
+              ...(hasRequiredTags ? { $all: objectIds(requiredTagIds) } : {}),
+              ...(includeTagged ? { $ne: [] } : {}),
+              ...(includeUntagged ? { $eq: [] } : {}),
+            },
+          }
+        : {}),
         ...(requiredTagIdArrays.length > 0
-          ? requiredTagIdArrays.map((ids) => ({ tagIds: { $in: ids } }))
-          : []),
-      ],
+        ? { $and: requiredTagIdArrays.map((ids) => ({ tagIds: { $in: objectIds(ids) } })) }
+        : {}),
     },
     $sort: { [sortKey]: sortDir, _id: sortDir } as { [key: string]: 1 | -1 },
   };
