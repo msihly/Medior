@@ -2,9 +2,10 @@ import { app } from "electron";
 import path from "path";
 import fs from "fs/promises";
 import sharp from "sharp";
+import { PipelineStage } from "mongoose";
 import * as db from "database";
 import { dayjs, handleErrors, socket } from "utils";
-import { leanModelToJson, objectId, objectIds } from "./utils";
+import { leanModelToJson, objectIds } from "./utils";
 
 const FACE_MIN_CONFIDENCE = 0.4;
 const FACE_MODELS_PATH = app.isPackaged
@@ -54,7 +55,7 @@ const createFilterPipeline = ({
             },
           }
         : {}),
-        ...(requiredTagIdArrays.length > 0
+      ...(requiredTagIdArrays.length > 0
         ? { $and: requiredTagIdArrays.map((ids) => ({ tagIds: { $in: objectIds(ids) } })) }
         : {}),
     },
@@ -405,29 +406,23 @@ export const listFileIdsForCarousel = ({
 export const listFilteredFiles = ({ page, pageSize, ...filterParams }: db.ListFilteredFilesInput) =>
   handleErrors(async () => {
     const filterPipeline = createFilterPipeline(filterParams);
-    const pipeline: PipelineStage[] = [
-      { $match: filterPipeline.$match },
-      {
-        $facet: {
-          files: [
-            { $sort: filterPipeline.$sort },
-            { $skip: Math.max(0, page - 1) * pageSize },
-            { $limit: pageSize },
-            { $addFields: { id: "$_id" } },
-          ],
-          totalDocuments: [{ $count: "count" }],
-        },
-      },
-    ];
 
-    const res: {
-      files: db.File[];
-      totalDocuments: { count: number }[];
-    } = (await db.FileModel.aggregate(pipeline).allowDiskUse(true))?.[0];
-    if (!res) throw new Error("Failed to load filtered file IDs");
+    const [files, totalDocuments] = await Promise.all([
+      db.FileModel.find(filterPipeline.$match)
+        .sort(filterPipeline.$sort)
+        .skip(Math.max(0, page - 1) * pageSize)
+        .limit(pageSize)
+        .allowDiskUse(true)
+        .lean(),
+      db.FileModel.countDocuments(filterPipeline.$match),
+    ]);
 
-    const totalDocuments = res.totalDocuments[0]?.count || 0;
-    return { files: res.files, pageCount: Math.ceil(totalDocuments / pageSize) };
+    if (!files || !(totalDocuments > -1)) throw new Error("Failed to load filtered file IDs");
+
+    return {
+      files: files.map((f) => leanModelToJson<db.File>(f)),
+      pageCount: Math.ceil(totalDocuments / pageSize),
+    };
   });
 
 export const loadFaceApiNets = async () =>
