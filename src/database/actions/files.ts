@@ -1,7 +1,7 @@
 import { app } from "electron";
 import path from "path";
 import fs from "fs/promises";
-import { PipelineStage, Types } from "mongoose";
+import sharp from "sharp";
 import * as db from "database";
 import { dayjs, handleErrors, socket } from "utils";
 import { leanModelToJson, objectId, objectIds } from "./utils";
@@ -10,6 +10,7 @@ const FACE_MIN_CONFIDENCE = 0.4;
 const FACE_MODELS_PATH = app.isPackaged
   ? path.resolve(process.resourcesPath, "extraResources/face-models")
   : "src/face-models";
+const VALID_TF_DECODE_IMAGE_EXTS = ["bmp", "gif", "jpg", "jpeg", "png"];
 
 const createFilterPipeline = ({
   excludedTagIds,
@@ -89,7 +90,11 @@ export const detectFaces = async ({ imagePath }: db.DetectFacesInput) =>
   handleErrors(async () => {
     const faceapi = await import("@vladmandic/face-api/dist/face-api.node-gpu.js");
     const tf = await import("@tensorflow/tfjs-node-gpu");
-    const buffer = await fs.readFile(imagePath);
+
+    let buffer = await fs.readFile(imagePath);
+    const ext = path.extname(imagePath).toLowerCase().substring(1);
+    if (!VALID_TF_DECODE_IMAGE_EXTS.includes(ext)) buffer = await sharp(buffer).png().toBuffer();
+
     const tensor = tf.node.decodeImage(buffer);
 
     try {

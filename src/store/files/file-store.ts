@@ -197,6 +197,9 @@ export class FileStore extends Model({
         if (!curFile && !id) throw new Error("No file or id provided");
         const file = !curFile ? this.getById(id) : new File(curFile);
 
+        sharp.cache(
+          false
+        ); /** Prevents WEBP lockout during deletion. See: https://github.com/lovell/sharp/issues/415#issuecomment-212817987 */
         const [hash, { mtime, size }, imageInfo, videoInfo] = await Promise.all([
           md5File(file.path),
           fs.stat(file.path),
