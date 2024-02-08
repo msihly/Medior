@@ -1,8 +1,8 @@
-import { ReactNode, useState } from "react";
+import { ReactNode } from "react";
 import { observer } from "mobx-react-lite";
 import { Tag as TagType, useStores } from "store";
-import { Avatar, Menu } from "@mui/material";
-import { Button, ButtonProps, Chip, ChipProps, Text, View } from "components";
+import { Avatar } from "@mui/material";
+import { Button, ButtonProps, Chip, ChipProps, MenuButton, Text, View } from "components";
 import { colors, makeClasses } from "utils";
 import Color from "color";
 
@@ -38,8 +38,6 @@ export const Tag = observer(
     const { tagStore } = useStores();
     if (!tag) tag = tagStore.getById(id);
 
-    const [anchorEl, setAnchorEl] = useState(null);
-
     const handleClick = () => {
       onClick?.(tag?.id);
       if (hasEditor) {
@@ -48,48 +46,36 @@ export const Tag = observer(
       }
     };
 
-    const handleClose = () => setAnchorEl(null);
-
-    const handleOpen = (event) => {
-      event.stopPropagation();
-      setAnchorEl(event.currentTarget);
-    };
+    const renderMenuButton = (onOpen: (event: React.MouseEvent<HTMLButtonElement>) => void) => (
+      <Button
+        icon="MoreVert"
+        onClick={onOpen}
+        color={colors.button.grey}
+        iconSize="1.6em"
+        padding={{ all: "0.25em" }}
+        margins={{ left: "0.3em", right: "-0.4rem" }}
+        circle
+        {...menuButtonProps}
+      />
+    );
 
     return (
-      <>
-        <Chip
-          {...props}
-          {...{ onDelete }}
-          onClick={hasEditor || onClick ? handleClick : null}
-          avatar={<Avatar className={css.count}>{formatter.format(tag?.count)}</Avatar>}
-          label={
-            <View row align="center">
-              <Text tooltip={tag?.label} tooltipProps={{ flexShrink: 1 }} className={css.label}>
-                {tag?.label}
-              </Text>
+      <Chip
+        {...props}
+        {...{ onDelete, size }}
+        onClick={hasEditor || onClick ? handleClick : null}
+        avatar={<Avatar className={css.count}>{formatter.format(tag?.count)}</Avatar>}
+        label={
+          <View row align="center">
+            <Text tooltip={tag?.label} tooltipProps={{ flexShrink: 1 }} className={css.label}>
+              {tag?.label}
+            </Text>
 
-              {menu && (
-                <Button
-                  circle
-                  color={colors.grey["700"]}
-                  icon="MoreVert"
-                  padding={{ all: "0.25em" }}
-                  onClick={handleOpen}
-                  margins={{ left: "0.3em", right: "-0.4rem" }}
-                  iconSize="1.6em"
-                  {...menuButtonProps}
-                />
-              )}
-            </View>
-          }
-          size={size}
-          className={cx(css.chip, className)}
-        />
-
-        <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={handleClose} keepMounted>
-          <View>{menu}</View>
-        </Menu>
-      </>
+            {menu && <MenuButton button={renderMenuButton}>{menu}</MenuButton>}
+          </View>
+        }
+        className={cx(css.chip, className)}
+      />
     );
   }
 );

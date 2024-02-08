@@ -8,6 +8,7 @@ export interface MenuButtonProps extends IconButtonProps {
   children: ReactNode;
   color?: string;
   icon?: IconName;
+  keepMounted?: boolean;
 }
 
 export const MenuButton = ({
@@ -15,13 +16,17 @@ export const MenuButton = ({
   children,
   color,
   icon = "MoreVert",
+  keepMounted = true,
   ...props
 }: MenuButtonProps) => {
   const [anchorEl, setAnchorEl] = useState(null);
 
   const handleClose = () => setAnchorEl(null);
 
-  const handleOpen = (event: MouseEvent<HTMLButtonElement>) => setAnchorEl(event.currentTarget);
+  const handleOpen = (event: MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
+    setAnchorEl(event.currentTarget);
+  };
 
   return (
     <>
@@ -32,12 +37,11 @@ export const MenuButton = ({
       )}
 
       <Menu
-        anchorEl={anchorEl}
-        anchorOrigin={{ horizontal: "right", vertical: "bottom" }}
-        transformOrigin={{ horizontal: "right", vertical: "top" }}
+        {...{ anchorEl, keepMounted }}
         open={Boolean(anchorEl)}
         onClose={handleClose}
-        keepMounted
+        anchorOrigin={{ horizontal: "right", vertical: "bottom" }}
+        transformOrigin={{ horizontal: "right", vertical: "top" }}
       >
         {children}
       </Menu>

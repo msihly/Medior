@@ -26,27 +26,27 @@ export const SortMenu = ({
 
   const activeRow = rows.find(({ attribute }) => attribute === value.key);
 
-  return (
-    <MenuButton
-      button={(onOpen) => (
-        <Button
-          icon="Sort"
-          iconRight={value.isDesc ? "ArrowDownward" : "ArrowUpward"}
-          onClick={onOpen}
-          color={colors.grey["800"]}
-          {...buttonProps}
-        >
-          <View column align="flex-start">
-            <Text className={css.topText}>{"Sort By"}</Text>
-
-            <Text className={css.label}>{activeRow?.label}</Text>
-          </View>
-        </Button>
-      )}
+  const renderButton = (onOpen: (event: React.MouseEvent<HTMLButtonElement>) => void) => (
+    <Button
+      icon="Sort"
+      iconRight={value.isDesc ? "ArrowDownward" : "ArrowUpward"}
+      onClick={onOpen}
+      color={colors.grey["800"]}
+      {...buttonProps}
     >
+      <View column align="flex-start">
+        <Text className={css.topText}>{"Sort By"}</Text>
+
+        <Text className={css.label}>{activeRow?.label}</Text>
+      </View>
+    </Button>
+  );
+
+  return (
+    <MenuButton button={renderButton}>
       <View column>
         {rows.map((rowProps) => (
-          <SortRow {...rowProps} key={rowProps.attribute} value={value} setValue={setValue} />
+          <SortRow {...rowProps} {...{ setValue, value }} key={rowProps.attribute} />
         ))}
       </View>
     </MenuButton>
