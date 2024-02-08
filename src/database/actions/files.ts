@@ -119,6 +119,7 @@ export const editFileTags = ({
   batchId,
   fileIds,
   removedTagIds = [],
+  withSub = true,
 }: db.EditFileTagsInput) =>
   handleErrors(async () => {
     if (!fileIds.length) throw new Error("Missing fileIds in editFileTags");
@@ -157,7 +158,7 @@ export const editFileTags = ({
 
     await db.recalculateTagCounts({ tagIds: [...new Set([...addedTagIds, ...removedTagIds])] });
 
-    socket.emit("fileTagsUpdated", { addedTagIds, batchId, fileIds, removedTagIds });
+    if (withSub) socket.emit("fileTagsUpdated", { addedTagIds, batchId, fileIds, removedTagIds });
   });
 
 export const getFileByHash = ({ hash }: db.GetFileByHashInput) =>

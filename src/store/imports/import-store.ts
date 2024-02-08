@@ -155,6 +155,7 @@ export class ImportStore extends Model({
             const res = await trpc.editFileTags.mutate({
               fileIds: duplicateFileIds,
               addedTagIds: [...batch.tagIds].flat(),
+              withSub: false,
             });
             if (!res.success) throw new Error(res.error);
           } catch (err) {
@@ -241,9 +242,15 @@ export class ImportStore extends Model({
   deleteImportBatches = _async(function* (this: ImportStore, { ids }: db.DeleteImportBatchesInput) {
     return yield* _await(
       handleErrors(async () => {
+        this.queue.clear();
+
         const deleteRes = await trpc.deleteImportBatches.mutate({ ids });
         if (!deleteRes?.success) return false;
         this._deleteBatches(ids);
+
+        this.batches.forEach(
+          (batch) => batch.status === "PENDING" && this.queueImportBatch(batch.id)
+        );
       })
     );
   });

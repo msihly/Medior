@@ -78,9 +78,9 @@ export const copyFileForImport = async ({
         if (await copyFile(dirPath, originalPath, newPath))
           await(
             duration > 0
-            ? generateFramesThumbnail(originalPath, dirPath, hash, duration)
-            : sharp(originalPath, { failOn: "none" })
-                .resize(null, THUMB_WIDTH)
+              ? generateFramesThumbnail(originalPath, dirPath, hash, duration)
+              : sharp(originalPath, { failOn: "none" })
+                  .resize(null, THUMB_WIDTH)
                   .toFile(thumbPaths[0])
           );
     }
@@ -92,7 +92,11 @@ export const copyFileForImport = async ({
 
     if (isDuplicate) {
       if (tagIds?.length > 0) {
-        const res = await trpc.editFileTags.mutate({ addedTagIds: tagIds, fileIds: [file.id] });
+        const res = await trpc.editFileTags.mutate({
+          addedTagIds: tagIds,
+          fileIds: [file.id],
+          withSub: false,
+        });
         if (!res.success) throw new Error(res.error);
       }
 
