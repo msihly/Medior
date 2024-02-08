@@ -125,6 +125,8 @@ export type ListFilteredFilesInput = CreateFilterPipelineInput & {
   sortKey: string;
 };
 
+export type LoadFaceModelsInput = { fileIds?: string[]; withOverwrite?: boolean };
+
 export type LoadFilesInput = { fileIds?: string[]; withOverwrite?: boolean };
 
 export type RefreshFileInput = { curFile?: File; id?: string; withThumbs?: boolean };

@@ -1,5 +1,5 @@
 import { Model, _async, _await, model, modelAction, modelFlow, prop } from "mobx-keystone";
-import { RootStore, TagOption, mongoFileToMobX } from "store";
+import { RootStore, TagOption } from "store";
 import {
   CONSTANTS,
   IMAGE_TYPES,
@@ -198,7 +198,7 @@ export class HomeStore extends Model({
         const { files, pageCount } = filteredRes.data;
         if (debug) perfLog(`Loaded ${files.length} filtered files`);
 
-        fileStore.overwrite(files.map(mongoFileToMobX));
+        fileStore.overwrite(files);
         if (debug) perfLog("FileStore.files overwrite");
 
         if (page) fileStore.setPage(page);

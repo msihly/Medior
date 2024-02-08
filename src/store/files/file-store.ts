@@ -21,7 +21,7 @@ import {
   RefreshSelectedFilesInput,
   SetFileRatingInput,
 } from "database";
-import { File, mongoFileToMobX } from ".";
+import { File } from ".";
 import {
   dayjs,
   generateFramesThumbnail,
@@ -184,7 +184,7 @@ export class FileStore extends Model({
       handleErrors(async () => {
         if (!fileIds?.length) return [];
         const filesRes = await trpc.listFiles.mutate({ ids: fileIds });
-        if (filesRes.success && withOverwrite) this.overwrite(filesRes.data.map(mongoFileToMobX));
+        if (filesRes.success && withOverwrite) this.overwrite(filesRes.data);
         return filesRes.data;
       })
     );
@@ -198,7 +198,7 @@ export class FileStore extends Model({
     return yield* _await(
       handleErrors(async () => {
         if (!curFile && !id) throw new Error("No file or id provided");
-        const file = !curFile ? this.getById(id) : new File(mongoFileToMobX(curFile));
+        const file = !curFile ? this.getById(id) : new File(curFile);
 
         const [hash, { mtime, size }, imageInfo, videoInfo] = await Promise.all([
           md5File(file.path),

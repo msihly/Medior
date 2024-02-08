@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { observer } from "mobx-react-lite";
+import { ModelCreationData } from "mobx-keystone";
 import { FaceModel, useStores } from "store";
 import { CircularProgress } from "@mui/material";
 import { Button, Modal, TagInput, Text, View } from "components";
@@ -74,7 +75,7 @@ export const FaceRecognitionModal = observer(() => {
     });
   };
 
-  const fileToDetectedFaces = (fileFaceModels: FaceModel[]) => {
+  const fileToDetectedFaces = (fileFaceModels: ModelCreationData<FaceModel>[]) => {
     try {
       const faceModels = fileFaceModels.map((face) => ({
         box: { ...face.box },
@@ -128,6 +129,20 @@ export const FaceRecognitionModal = observer(() => {
     }
   };
 
+  const loadFaceModels = async () => {
+    try {
+      const res = await faceRecognitionStore.loadFaceModels({
+        fileIds: [file.id],
+        withOverwrite: false,
+      });
+      if (!res.success) throw new Error(res.error);
+      faceRecognitionStore.setDetectedFaces(fileToDetectedFaces(res.data));
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to load file's face models");
+    }
+  };
+
   useEffect(() => {
     faceRecognitionStore.init();
   }, []);
@@ -136,8 +151,7 @@ export const FaceRecognitionModal = observer(() => {
     if (faceRecognitionStore.isModalOpen)
       setTimeout(() => {
         if (faceRecognitionStore.isInitializing) return;
-        if (file.faceModels?.length > 0)
-          faceRecognitionStore.setDetectedFaces(fileToDetectedFaces(file.faceModels));
+        if (file.hasFaceModels) loadFaceModels();
         else handleDetect();
       }, 100);
     else faceRecognitionStore.setDetectedFaces([]);
@@ -145,8 +159,8 @@ export const FaceRecognitionModal = observer(() => {
 
   useEffect(() => {
     if (!faceRecognitionStore.isModalOpen) return;
-    faceRecognitionStore.setDetectedFaces(fileToDetectedFaces(file.faceModels));
-  }, [faceRecognitionStore.isModalOpen, file.faceModels.toString()]);
+    loadFaceModels();
+  }, [faceRecognitionStore.isModalOpen]);
 
   const imageDims = useElementResize(imageRef);
   const heightScale = (imageDims?.height || imageRef.current?.height) / file.height;

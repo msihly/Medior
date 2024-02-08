@@ -10,7 +10,7 @@ import {
   modelFlow,
   prop,
 } from "mobx-keystone";
-import { File, mongoFileToMobX, SelectedImageTypes, SelectedVideoTypes, TagOption } from "store";
+import { File, SelectedImageTypes, SelectedVideoTypes, TagOption } from "store";
 import { CreateCollectionInput, LoadCollectionsInput, LoadSearchResultsInput } from "database";
 import { FileCollection, FileCollectionFile } from ".";
 import { CONSTANTS, handleErrors, IMAGE_TYPES, trpc, VIDEO_TYPES } from "utils";
@@ -148,7 +148,7 @@ export class FileCollectionStore extends Model({
               .map(
                 (f) =>
                   new FileCollectionFile({
-                    file: new File(mongoFileToMobX(f)),
+                    file: new File(f),
                     id: f.id,
                     index: this.activeCollection.getIndexById(f.id),
                   })
@@ -213,7 +213,7 @@ export class FileCollectionStore extends Model({
 
         const { files, pageCount } = filteredRes.data;
 
-        this.setSearchResults(files.map((f) => new File(mongoFileToMobX(f))));
+        this.setSearchResults(files.map((f) => new File(f)));
         this.setSearchPageCount(pageCount);
         if (page) this.setSearchPage(page);
 
@@ -228,7 +228,7 @@ export class FileCollectionStore extends Model({
       handleErrors(async () => {
         const res = await trpc.listFiles.mutate({ ids: this.selectedFileIds });
         if (!res.success) throw new Error(res.error);
-        this.setSelectedFiles(res.data.map((f) => new File(mongoFileToMobX(f))));
+        this.setSelectedFiles(res.data.map((f) => new File(f)));
       })
     );
   });

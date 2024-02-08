@@ -6,7 +6,7 @@ import { Views, useSockets } from "./common";
 import { makeClasses } from "utils";
 
 export const HomeWindow = observer(() => {
-  const { fileCollectionStore, homeStore, importStore, tagStore } = useStores();
+  const { homeStore, importStore, tagStore } = useStores();
 
   const { css } = useClasses({ isDrawerOpen: homeStore.isDrawerOpen });
 
@@ -21,11 +21,7 @@ export const HomeWindow = observer(() => {
       try {
         let perfStart = performance.now();
 
-        await Promise.all([
-          fileCollectionStore.loadCollections(),
-          importStore.loadImportBatches(),
-          tagStore.loadTags(),
-        ]);
+        await Promise.all([importStore.loadImportBatches(), tagStore.loadTags()]);
 
         console.debug(`Data loaded into MobX in ${performance.now() - perfStart}ms.`);
         setIsLoading(false);

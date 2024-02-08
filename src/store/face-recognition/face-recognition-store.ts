@@ -1,4 +1,5 @@
 import type { LabeledFaceDescriptors } from "@vladmandic/face-api";
+import { LoadFaceModelsInput } from "database";
 import { computed } from "mobx";
 import {
   _async,
@@ -22,6 +23,7 @@ export class FaceRecognitionStore extends Model({
   activeFileId: prop<string | null>(null).withSetter(),
   detectedFaces: prop<FaceModel[]>(() => []).withSetter(),
   faceModels: prop<FaceModel[]>(() => []).withSetter(),
+  isDetecting: prop<boolean>(false).withSetter(),
   isInitializing: prop<boolean>(true).withSetter(),
   isModalOpen: prop<boolean>(false).withSetter(),
   isSaving: prop<boolean>(false).withSetter(),
@@ -68,7 +70,7 @@ export class FaceRecognitionStore extends Model({
             if (!initRes.success) throw new Error(`Init error: ${initRes.error}`);
           }
 
-          filesRes.data.map((file) =>
+          images.map((file) =>
             this.autoDetectQueue.add(async () => {
               try {
                 this.setDetectedFaces(file.faceModels?.map?.((f) => new FaceModel(f)) ?? []);
@@ -91,10 +93,7 @@ export class FaceRecognitionStore extends Model({
                 );
 
                 const registerRes = await this.registerDetectedFaces({
-                  file: new File({
-                    ...file,
-                    faceModels: file.faceModels?.map?.((face) => new FaceModel(face)) ?? [],
-                  }),
+                  file: new File(file),
                   rootStore,
                 });
                 if (!registerRes.success)
@@ -140,10 +139,14 @@ export class FaceRecognitionStore extends Model({
   findMatches = _async(function* (this: FaceRecognitionStore, imagePath: string) {
     return yield* _await(
       handleErrors(async () => {
+        this.setIsDetecting(true);
+
         const { FaceMatcher, LabeledFaceDescriptors } = await import("@vladmandic/face-api");
 
         const facesRes = await this.detectFaces(imagePath);
         if (!facesRes.success) throw new Error(facesRes.error);
+
+        this.setIsDetecting(false);
 
         const storedDescriptors = this.faceModels.reduce((acc, cur) => {
           if (cur.descriptorsFloat32.some((d) => d.some((n) => isNaN(n))))
@@ -184,12 +187,16 @@ export class FaceRecognitionStore extends Model({
   });
 
   @modelFlow
-  loadFaceModels = _async(function* (this: FaceRecognitionStore) {
+  loadFaceModels = _async(function* (
+    this: FaceRecognitionStore,
+    { fileIds, withOverwrite = true }: LoadFaceModelsInput = { withOverwrite: true }
+  ) {
     return yield* _await(
       handleErrors(async () => {
-        const res = await trpc.listFaceModels.mutate();
+        const res = await trpc.listFaceModels.mutate({ ids: fileIds });
         if (!res.success) throw new Error(res.error);
-        this.setFaceModels(res.data.map((f) => new FaceModel(f)));
+        if (withOverwrite) this.setFaceModels(res.data.map((f) => new FaceModel(f)));
+        return res.data;
       })
     );
   });
@@ -236,6 +243,6 @@ export class FaceRecognitionStore extends Model({
   /* --------------------------------- GETTERS -------------------------------- */
   @computed
   get isDisabled() {
-    return this.isInitializing || this.isSaving;
+    return this.isDetecting || this.isInitializing || this.isSaving;
   }
 }
