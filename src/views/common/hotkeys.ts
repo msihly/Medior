@@ -33,8 +33,7 @@ export const useHotkeys = ({ rootRef, view }: UseHotkeysProps) => {
     const newId = isLeft ? prevId : nextId;
 
     if (!fileStore.files.find((f) => f.id === newId))
-      homeStore.reloadDisplayedFiles({
-        rootStore,
+      homeStore.loadFilteredFiles({
         page: fileStore.page + 1 * (isLeft ? -1 : 1),
       });
 

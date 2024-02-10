@@ -9,7 +9,6 @@ import { colors, makeClasses } from "utils";
 import Color from "color";
 
 export const FileContainer = observer(() => {
-  const rootStore = useStores();
   const { fileStore, homeStore } = useStores();
 
   const { css } = useClasses({ hasFiles: fileStore.files.length > 0 });
@@ -37,10 +36,10 @@ export const FileContainer = observer(() => {
   }, [fileStore.page, ...searchDeps]);
 
   useEffect(() => {
-    homeStore.reloadDisplayedFiles({ rootStore, page: 1 });
+    homeStore.loadFilteredFiles({ page: 1 });
   }, [...searchDeps]);
 
-  const handlePageChange = (_, page: number) => homeStore.reloadDisplayedFiles({ rootStore, page });
+  const handlePageChange = (_, page: number) => homeStore.loadFilteredFiles({ page });
 
   return (
     <View className={css.container}>

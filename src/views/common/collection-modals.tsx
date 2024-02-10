@@ -7,9 +7,9 @@ export const CollectionModals = observer(() => {
 
   return (
     <>
-      {fileCollectionStore.isCollectionManagerOpen && <FileCollectionManager />}
+      {fileCollectionStore.isManagerOpen && <FileCollectionManager />}
 
-      {fileCollectionStore.isCollectionEditorOpen && <FileCollectionEditor />}
+      {fileCollectionStore.isEditorOpen && <FileCollectionEditor />}
     </>
   );
 });

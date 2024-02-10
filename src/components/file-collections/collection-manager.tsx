@@ -50,7 +50,7 @@ export const FileCollectionManager = observer(() => {
     JSON.stringify(tagSearchValue),
   ]);
 
-  const closeModal = () => fileCollectionStore.setIsCollectionManagerOpen(false);
+  const closeModal = () => fileCollectionStore.setIsManagerOpen(false);
 
   const handleNewCollection = async () => {
     const res = await fileCollectionStore.createCollection({
@@ -64,7 +64,7 @@ export const FileCollectionManager = observer(() => {
     if (!res.success) toast.error(res.error);
     else {
       fileCollectionStore.setActiveCollectionId(res.data.id);
-      fileCollectionStore.setIsCollectionEditorOpen(true);
+      fileCollectionStore.setIsEditorOpen(true);
     }
   };
 

@@ -64,10 +64,11 @@ export const FileCollectionEditor = observer(() => {
 
   useEffect(() => {
     (async () => {
-      if (!fileCollectionStore.searchValue.length) return fileCollectionStore.setSearchResults([]);
+      if (!fileCollectionStore.editorSearchValue.length)
+        return fileCollectionStore.setEditorSearchResults([]);
       await fileCollectionStore.loadSearchResults({ rootStore });
     })();
-  }, [fileCollectionStore.searchValue]);
+  }, [fileCollectionStore.editorSearchValue]);
 
   const confirmClose = () => {
     if (fileCollectionStore.hasUnsavedChanges) setIsConfirmDiscardOpen(true);
@@ -97,7 +98,7 @@ export const FileCollectionEditor = observer(() => {
         };
   };
 
-  const handleClose = () => fileCollectionStore.setIsCollectionEditorOpen(false);
+  const handleClose = () => fileCollectionStore.setIsEditorOpen(false);
 
   const handleConfirmDelete = async () => {
     const res = await fileCollectionStore.deleteCollection(fileCollectionStore.activeCollectionId);
@@ -105,7 +106,7 @@ export const FileCollectionEditor = observer(() => {
     if (!res.success) toast.error("Failed to delete collection");
     else {
       fileCollectionStore.setActiveCollectionId(null);
-      fileCollectionStore.setIsCollectionEditorOpen(false);
+      fileCollectionStore.setIsEditorOpen(false);
       toast.success("Collection deleted");
     }
 
@@ -194,21 +195,21 @@ export const FileCollectionEditor = observer(() => {
                 {"File Search"}
               </Text>
               <TagInput
-                value={[...fileCollectionStore.searchValue]}
-                onChange={(val) => fileCollectionStore.setSearchValue(val)}
+                value={[...fileCollectionStore.editorSearchValue]}
+                onChange={(val) => fileCollectionStore.setEditorSearchValue(val)}
                 hasSearchMenu
                 margins={{ bottom: "0.5rem" }}
               />
 
               <View column className={css.searchResults}>
-                {fileCollectionStore.searchResults.map((f) => (
+                {fileCollectionStore.editorSearchResults.map((f) => (
                   <FileSearchFile key={f.id} file={f} height="14rem" />
                 ))}
               </View>
 
               <Pagination
-                count={fileCollectionStore.searchPageCount}
-                page={fileCollectionStore.searchPage}
+                count={fileCollectionStore.editorSearchPageCount}
+                page={fileCollectionStore.editorSearchPage}
                 onChange={handlePageChange}
                 showFirstButton
                 showLastButton

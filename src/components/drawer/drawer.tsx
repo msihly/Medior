@@ -40,7 +40,7 @@ export const Drawer = observer(({ hasImports = false }: DrawerProps) => {
 
   const handleCollections = () => {
     fileCollectionStore.setSelectedFileIds([]);
-    fileCollectionStore.setIsCollectionManagerOpen(true);
+    fileCollectionStore.setIsManagerOpen(true);
   };
 
   const handleImport = () => importStore.setIsImportManagerOpen(true);

@@ -13,7 +13,7 @@ const FACE_MODELS_PATH = app.isPackaged
   : "src/face-models";
 const VALID_TF_DECODE_IMAGE_EXTS = ["bmp", "gif", "jpg", "jpeg", "png"];
 
-const createFilterPipeline = ({
+const createFileFilterPipeline = ({
   excludedTagIds,
   includeTagged,
   includeUntagged,
@@ -25,7 +25,7 @@ const createFilterPipeline = ({
   selectedImageTypes,
   selectedVideoTypes,
   sortKey,
-}: db.CreateFilterPipelineInput) => {
+}: db.CreateFileFilterPipelineInput) => {
   const enabledExts = Object.entries({
     ...selectedImageTypes,
     ...selectedVideoTypes,
@@ -178,7 +178,7 @@ export const getShiftSelectedFiles = ({
     if (selectedIds.length === 1 && selectedIds[0] === clickedId)
       return { idsToDeselect: [clickedId], idsToSelect: [] };
 
-    const filterPipeline = createFilterPipeline({ ...filterParams, isSortDesc, sortKey });
+    const filterPipeline = createFileFilterPipeline({ ...filterParams, isSortDesc, sortKey });
 
     const getSelectedIndex = async (type: "first" | "last") => {
       const sortOp = isSortDesc ? "$gt" : "$lt";
@@ -391,7 +391,7 @@ export const listFileIdsForCarousel = ({
   ...filterParams
 }: db.ListFileIdsForCarouselInput) =>
   handleErrors(async () => {
-    const filterPipeline = createFilterPipeline(filterParams);
+    const filterPipeline = createFileFilterPipeline(filterParams);
 
     const files = await db.FileModel.find(filterPipeline.$match)
       .sort(filterPipeline.$sort)
@@ -405,7 +405,7 @@ export const listFileIdsForCarousel = ({
 
 export const listFilteredFiles = ({ page, pageSize, ...filterParams }: db.ListFilteredFilesInput) =>
   handleErrors(async () => {
-    const filterPipeline = createFilterPipeline(filterParams);
+    const filterPipeline = createFileFilterPipeline(filterParams);
 
     const [files, totalDocuments] = await Promise.all([
       db.FileModel.find(filterPipeline.$match)

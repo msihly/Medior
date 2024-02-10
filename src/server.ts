@@ -93,9 +93,9 @@ const trpcRouter = tRouter({
   importFile: tProc
     .input((input: unknown) => input as db.ImportFileInput)
     .mutation(({ input }) => db.importFile(input)),
-  listCollections: tProc
-    .input((input: unknown) => input as db.ListCollectionsInput)
-    .mutation(({ input }) => db.listCollections(input)),
+  listFilteredCollections: tProc
+    .input((input: unknown) => input as db.ListFilteredCollectionsInput)
+    .mutation(({ input }) => db.listFilteredCollections(input)),
   listFaceModels: tProc
     .input((input: unknown) => input as db.ListFaceModelsInput)
     .mutation(({ input }) => db.listFaceModels(input)),

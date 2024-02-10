@@ -30,7 +30,7 @@ export const ImportBatch = observer(({ batch }: ImportBatchProps) => {
     if (!fileCollectionStore.getById(batch.collectionId))
       return toast.error("Collection not found");
     fileCollectionStore.setActiveCollectionId(batch.collectionId);
-    fileCollectionStore.setIsCollectionEditorOpen(true);
+    fileCollectionStore.setIsEditorOpen(true);
   };
 
   const handleDelete = async () => {

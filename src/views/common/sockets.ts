@@ -9,7 +9,6 @@ export interface UseSocketsProps {
 export const useSockets = ({ view }: UseSocketsProps) => {
   const debug = false;
 
-  const rootStore = useStores();
   const { carouselStore, fileCollectionStore, fileStore, homeStore, importStore, tagStore } =
     useStores();
 
@@ -20,15 +19,15 @@ export const useSockets = ({ view }: UseSocketsProps) => {
       if (debug) console.debug("[Socket] filesDeleted", { fileIds });
       if (view === "carousel") carouselStore.removeFiles(fileIds);
       else {
-        fileCollectionStore.loadCollections();
-        homeStore.reloadDisplayedFiles({ rootStore });
+        if (fileCollectionStore.isManagerOpen) fileCollectionStore.listFilteredCollections();
+        homeStore.loadFilteredFiles();
       }
     });
 
     socket.on("filesUpdated", ({ fileIds, updates }) => {
       if (debug) console.debug("[Socket] filesUpdated", { fileIds, updates });
       fileStore.updateFiles(fileIds, updates);
-      if (view !== "carousel") homeStore.reloadDisplayedFiles({ rootStore });
+      if (view !== "carousel") homeStore.loadFilteredFiles();
     });
 
     socket.on("fileTagsUpdated", ({ addedTagIds, batchId, fileIds, removedTagIds }) => {
@@ -42,7 +41,7 @@ export const useSockets = ({ view }: UseSocketsProps) => {
 
       fileStore.updateFileTags({ addedTagIds, fileIds, removedTagIds });
 
-      if (view !== "carousel") homeStore.reloadDisplayedFiles({ rootStore });
+      if (view !== "carousel") homeStore.loadFilteredFiles();
 
       if (view === "home" && batchId?.length > 0)
         importStore.editBatchTags({
@@ -55,7 +54,7 @@ export const useSockets = ({ view }: UseSocketsProps) => {
     socket.on("reloadFiles", () => {
       if (debug) console.debug("[Socket] reloadFiles");
       if (view === "carousel") fileStore.loadFiles({ fileIds: carouselStore.selectedFileIds });
-      else homeStore.reloadDisplayedFiles({ rootStore });
+      else homeStore.loadFilteredFiles();
     });
 
     socket.on("reloadTags", () => {
@@ -74,7 +73,7 @@ export const useSockets = ({ view }: UseSocketsProps) => {
       if (view === "home") importStore.editBatchTags({ removedIds: [tagId] });
       if (view !== "carousel") {
         homeStore.removeDeletedTag(tagId);
-        homeStore.reloadDisplayedFiles({ rootStore });
+        homeStore.loadFilteredFiles();
       }
     });
 
@@ -92,7 +91,7 @@ export const useSockets = ({ view }: UseSocketsProps) => {
     if (view !== "carousel")
       socket.on("reloadFileCollections", () => {
         if (debug) console.debug("[Socket] reloadFileCollections");
-        fileCollectionStore.loadCollections();
+        if (fileCollectionStore.isManagerOpen) fileCollectionStore.listFilteredCollections();
       });
 
     if (view === "home")

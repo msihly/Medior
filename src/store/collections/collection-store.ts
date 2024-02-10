@@ -3,6 +3,7 @@ import {
   _async,
   _await,
   clone,
+  getRootStore,
   model,
   Model,
   modelAction,
@@ -10,10 +11,10 @@ import {
   modelFlow,
   prop,
 } from "mobx-keystone";
-import { File, SelectedImageTypes, SelectedVideoTypes, TagOption } from "store";
-import { CreateCollectionInput, LoadCollectionsInput, LoadSearchResultsInput } from "database";
+import { File, RootStore, SelectedImageTypes, SelectedVideoTypes, TagOption } from "store";
+import * as db from "database";
 import { FileCollection, FileCollectionFile } from ".";
-import { CONSTANTS, handleErrors, IMAGE_TYPES, trpc, VIDEO_TYPES } from "utils";
+import { CONSTANTS, handleErrors, IMAGE_TYPES, makePerfLog, trpc, VIDEO_TYPES } from "utils";
 import { toast } from "react-toastify";
 import { arrayMove } from "@alissavrk/dnd-kit-sortable";
 
@@ -22,17 +23,26 @@ export class FileCollectionStore extends Model({
   activeCollectionId: prop<string>(null).withSetter(),
   activeFiles: prop<FileCollectionFile[]>(() => []).withSetter(),
   collections: prop<FileCollection[]>(() => []).withSetter(),
-  hasUnsavedChanges: prop<boolean>(false).withSetter(),
-  isCollectionEditorOpen: prop<boolean>(false),
-  isCollectionManagerOpen: prop<boolean>(false),
-  searchPage: prop<number>(1).withSetter(),
-  searchPageCount: prop<number>(1).withSetter(),
-  searchResults: prop<File[]>(() => []).withSetter(),
-  searchSortValue: prop<{ isDesc: boolean; key: string }>(() => ({
+  editorSearchPage: prop<number>(1).withSetter(),
+  editorSearchPageCount: prop<number>(1).withSetter(),
+  editorSearchResults: prop<File[]>(() => []).withSetter(),
+  editorSearchSort: prop<{ isDesc: boolean; key: string }>(() => ({
     isDesc: true,
     key: "dateModified",
   })).withSetter(),
-  searchValue: prop<TagOption[]>(() => []).withSetter(),
+  editorSearchValue: prop<TagOption[]>(() => []).withSetter(),
+  hasUnsavedChanges: prop<boolean>(false).withSetter(),
+  isEditorOpen: prop<boolean>(false),
+  isManagerOpen: prop<boolean>(false),
+  managerSearchPage: prop<number>(1).withSetter(),
+  managerSearchPageCount: prop<number>(1).withSetter(),
+  managerSearchResults: prop<FileCollection[]>(() => []).withSetter(),
+  managerSearchSort: prop<{ isDesc: boolean; key: string }>(() => ({
+    isDesc: true,
+    key: "dateModified",
+  })).withSetter(),
+  managerTagSearchValue: prop<TagOption[]>(() => []).withSetter(),
+  managerTitleSearchValue: prop<string>("").withSetter(),
   selectedFileIds: prop<string[]>(() => []).withSetter(),
   selectedFiles: prop<File[]>(() => []).withSetter(),
 }) {
@@ -51,16 +61,16 @@ export class FileCollectionStore extends Model({
   addFileToActiveCollection(file: File) {
     const index = this.activeFiles.length;
     this.activeFiles.push(new FileCollectionFile({ file: clone(file), id: file.id, index }));
-    this.searchResults = this.searchResults.filter((f) => f.id !== file.id);
+    this.editorSearchResults = this.editorSearchResults.filter((f) => f.id !== file.id);
   }
 
   @modelAction
   clearSearch() {
-    this.searchPage = 1;
-    this.searchPageCount = 1;
-    this.searchResults = [];
-    this.searchSortValue = { isDesc: true, key: "dateModified" };
-    this.searchValue = [];
+    this.editorSearchPage = 1;
+    this.editorSearchPageCount = 1;
+    this.editorSearchResults = [];
+    this.editorSearchSort = { isDesc: true, key: "dateModified" };
+    this.editorSearchValue = [];
   }
 
   @modelAction
@@ -88,21 +98,21 @@ export class FileCollectionStore extends Model({
   }
 
   @modelAction
-  setIsCollectionEditorOpen(isOpen: boolean) {
-    this.isCollectionEditorOpen = isOpen;
+  setIsEditorOpen(isOpen: boolean) {
+    this.isEditorOpen = isOpen;
   }
 
   @modelAction
-  setIsCollectionManagerOpen(isOpen: boolean) {
-    this.isCollectionManagerOpen = isOpen;
-    if (isOpen) this.isCollectionEditorOpen = false;
+  setIsManagerOpen(isOpen: boolean) {
+    this.isManagerOpen = isOpen;
+    if (isOpen) this.isEditorOpen = false;
   }
 
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */
   @modelFlow
   createCollection = _async(function* (
     this: FileCollectionStore,
-    { fileIdIndexes, title, withSub = true }: CreateCollectionInput
+    { fileIdIndexes, title, withSub = true }: db.CreateCollectionInput
   ) {
     return yield* _await(
       handleErrors(async () => {
@@ -160,7 +170,7 @@ export class FileCollectionStore extends Model({
   });
 
   @modelFlow
-  loadCollections = _async(function* (
+  listFilteredCollections = _async(function* (
     this: FileCollectionStore,
     { collectionIds, withOverwrite = true }: LoadCollectionsInput = {}
   ) {
@@ -177,14 +187,14 @@ export class FileCollectionStore extends Model({
   @modelFlow
   loadSearchResults = _async(function* (
     this: FileCollectionStore,
-    { page, rootStore }: LoadSearchResultsInput = { rootStore: null }
+    { page, rootStore }: db.LoadSearchResultsInput
   ) {
     return yield* _await(
       handleErrors(async () => {
         const { tagStore } = rootStore;
 
         const { excludedTagIds, optionalTagIds, requiredTagIds, requiredTagIdArrays } =
-          tagStore.tagSearchOptsToIds(this.searchValue);
+          tagStore.tagSearchOptsToIds(this.editorSearchValue);
 
         const filteredRes = await trpc.listFilteredFiles.mutate({
           excludedTagIds: [
@@ -199,8 +209,8 @@ export class FileCollectionStore extends Model({
           includeTagged: false,
           includeUntagged: false,
           isArchived: false,
-          isSortDesc: this.searchSortValue.isDesc,
-          page: page ?? this.searchPage,
+          isSortDesc: this.editorSearchSort.isDesc,
+          page: page ?? this.editorSearchPage,
           pageSize: CONSTANTS.COLLECTION_SEARCH_FILE_COUNT,
           selectedImageTypes: Object.fromEntries(
             IMAGE_TYPES.map((ext) => [ext, true])
@@ -208,15 +218,15 @@ export class FileCollectionStore extends Model({
           selectedVideoTypes: Object.fromEntries(
             VIDEO_TYPES.map((ext) => [ext, true])
           ) as SelectedVideoTypes,
-          sortKey: this.searchSortValue.key,
+          sortKey: this.editorSearchSort.key,
         });
         if (!filteredRes.success) throw new Error(filteredRes.error);
 
         const { files, pageCount } = filteredRes.data;
 
-        this.setSearchResults(files.map((f) => new File(f)));
-        this.setSearchPageCount(pageCount);
-        if (page) this.setSearchPage(page);
+        this.setEditorSearchResults(files.map((f) => new File(f)));
+        this.setEditorSearchPageCount(pageCount);
+        if (page) this.setEditorSearchPage(page);
 
         return files;
       })

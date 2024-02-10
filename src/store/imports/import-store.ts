@@ -203,7 +203,7 @@ export class ImportStore extends Model({
           ?.data;
         batch.update({ collectionId, completedAt });
 
-        rootStore.homeStore.reloadDisplayedFiles({ rootStore });
+        rootStore.homeStore.loadFilteredFiles();
         rootStore.tagStore.refreshTagCounts([...batch.tagIds].flat());
       })
     );

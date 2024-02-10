@@ -55,7 +55,7 @@ export type AddTagsToFilesInput = { fileIds: string[]; tagIds: string[] };
 
 export type ArchiveFilesInput = { fileIds: string[] };
 
-export type CreateFilterPipelineInput = {
+export type CreateFileFilterPipelineInput = {
   excludedTagIds: string[];
   includeTagged: boolean;
   includeUntagged: boolean;
@@ -81,7 +81,7 @@ export type EditFileTagsInput = {
 
 export type GetFileByHashInput = { hash: string };
 
-export type GetShiftSelectedFilesInput = CreateFilterPipelineInput & {
+export type GetShiftSelectedFilesInput = CreateFileFilterPipelineInput & {
   clickedId: string;
   clickedIndex: number;
   isSortDesc: boolean;
@@ -116,7 +116,7 @@ export type ListFilesInput = { ids?: string[]; withFaceModels?: boolean };
 
 export type ListFilesByTagIdsInput = { tagIds: string[] };
 
-export type ListFilteredFilesInput = CreateFilterPipelineInput & {
+export type ListFilteredFilesInput = CreateFileFilterPipelineInput & {
   isSortDesc: boolean;
   page: number;
   pageSize: number;

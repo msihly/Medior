@@ -1,4 +1,13 @@
-import { Model, _async, _await, model, modelAction, modelFlow, prop } from "mobx-keystone";
+import {
+  Model,
+  _async,
+  _await,
+  getRootStore,
+  model,
+  modelAction,
+  modelFlow,
+  prop,
+} from "mobx-keystone";
 import { RootStore, TagOption } from "store";
 import {
   CONSTANTS,
@@ -8,17 +17,11 @@ import {
   VideoType,
   dayjs,
   handleErrors,
-  round,
+  makePerfLog,
   trpc,
 } from "utils";
 
 const NUMERICAL_ATTRIBUTES = ["count", "duration", "height", "rating", "size", "width"];
-
-export type ReloadDisplayedFilesInput = {
-  debug?: boolean;
-  rootStore: RootStore;
-  page?: number;
-};
 
 export type SelectedImageTypes = { [ext in ImageType]: boolean };
 export type SelectedVideoTypes = { [ext in VideoType]: boolean };
@@ -103,20 +106,14 @@ export class HomeStore extends Model({
           fileStore.files.findIndex((f) => f.id === id);
 
         const res = await trpc.getShiftSelectedFiles.mutate({
+          ...this.getFilterProps(),
           clickedId: id,
           clickedIndex,
           excludedTagIds,
           requiredTagIds,
           requiredTagIdArrays,
           optionalTagIds,
-          includeTagged: this.includeTagged,
-          includeUntagged: this.includeUntagged,
-          isArchived: this.isArchiveOpen,
-          isSortDesc: this.sortValue.isDesc,
           selectedIds,
-          selectedImageTypes: this.selectedImageTypes,
-          selectedVideoTypes: this.selectedVideoTypes,
-          sortKey: this.sortValue.key,
         });
         if (!res.success) throw new Error(res.error);
         return res.data;
@@ -139,19 +136,13 @@ export class HomeStore extends Model({
         if (!id) throw new Error("Invalid ID provided");
 
         const res = await trpc.listFileIdsForCarousel.mutate({
+          ...this.getFilterProps(),
           excludedTagIds,
           requiredTagIds,
           requiredTagIdArrays,
           optionalTagIds,
-          includeTagged: this.includeTagged,
-          includeUntagged: this.includeUntagged,
-          isArchived: this.isArchiveOpen,
-          isSortDesc: this.sortValue.isDesc,
           page: fileStore.page,
           pageSize: CONSTANTS.FILE_COUNT,
-          selectedImageTypes: this.selectedImageTypes,
-          selectedVideoTypes: this.selectedVideoTypes,
-          sortKey: this.sortValue.key,
         });
         if (!res.success) throw new Error(res.error);
         if (!res.data?.length) throw new Error("No files found");
@@ -162,42 +153,28 @@ export class HomeStore extends Model({
   });
 
   @modelFlow
-  reloadDisplayedFiles = _async(function* (
-    this: HomeStore,
-    { debug, page, rootStore }: ReloadDisplayedFilesInput = { rootStore: null }
-  ) {
+  loadFilteredFiles = _async(function* (this: HomeStore, { page }: { page?: number } = {}) {
     return yield* _await(
       handleErrors(async () => {
-        debug = false;
+        const debug = false;
 
-        const logTag = "[RDF]";
-        const funcPerfStart = performance.now();
-
-        let perfStart = performance.now();
-        const perfLog = (str: string) => {
-          console.debug(logTag, round(performance.now() - perfStart, 0), "ms -", str);
-          perfStart = performance.now();
-        };
-
+        const rootStore = getRootStore<RootStore>(this);
+        if (!rootStore) throw new Error("RootStore not found");
         const { fileStore, tagStore } = rootStore;
+
+        const { perfLog, perfLogTotal } = makePerfLog("[LFF]");
 
         const { excludedTagIds, optionalTagIds, requiredTagIds, requiredTagIdArrays } =
           tagStore.tagSearchOptsToIds(this.searchValue);
 
         const filteredRes = await trpc.listFilteredFiles.mutate({
+          ...this.getFilterProps(),
           excludedTagIds,
           requiredTagIds,
           requiredTagIdArrays,
           optionalTagIds,
-          includeTagged: this.includeTagged,
-          includeUntagged: this.includeUntagged,
-          isArchived: this.isArchiveOpen,
-          isSortDesc: this.sortValue.isDesc,
           page: page ?? fileStore.page,
           pageSize: CONSTANTS.FILE_COUNT,
-          selectedImageTypes: this.selectedImageTypes,
-          selectedVideoTypes: this.selectedVideoTypes,
-          sortKey: this.sortValue.key,
         });
         if (!filteredRes.success) throw new Error(filteredRes.error);
 
@@ -205,19 +182,30 @@ export class HomeStore extends Model({
         if (debug) perfLog(`Loaded ${files.length} filtered files`);
 
         fileStore.overwrite(files);
-        if (debug) perfLog("FileStore.files overwrite + re-render");
+        if (debug) perfLog("FileStore.files overwrite and re-render");
 
-        if (page) fileStore.setPage(page);
         fileStore.setPageCount(pageCount);
+        if (page) fileStore.setPage(page);
         if (debug) perfLog(`Set page to ${page ?? fileStore.page} and pageCount to ${pageCount}`);
 
-        if (debug)
-          console.debug(
-            `${logTag} Loaded ${files.length} files in ${performance.now() - funcPerfStart}ms.`
-          );
+        if (debug) perfLogTotal(`Loaded ${files.length} files`);
 
         return files;
       })
     );
   });
+
+  /* --------------------------------- DYNAMIC GETTERS -------------------------------- */
+  getFilterProps() {
+    return {
+      includeTagged: this.includeTagged,
+      includeUntagged: this.includeUntagged,
+      isArchived: this.isArchiveOpen,
+      isSortDesc: this.sortValue.isDesc,
+      searchValue: this.searchValue,
+      selectedImageTypes: this.selectedImageTypes,
+      selectedVideoTypes: this.selectedVideoTypes,
+      sortKey: this.sortValue.key,
+    };
+  }
 }

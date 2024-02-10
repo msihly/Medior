@@ -63,7 +63,7 @@ export const ContextMenu = observer(
 
     const handleCollections = () => {
       fileCollectionStore.setSelectedFileIds([file.id]);
-      fileCollectionStore.setIsCollectionManagerOpen(true);
+      fileCollectionStore.setIsManagerOpen(true);
       handleClose();
     };
 
