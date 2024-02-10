@@ -1,9 +1,10 @@
-import { Button, IconName, IconProps, Text, View } from "components";
+import { Button, Icon, IconName, IconProps, Text, View } from "components";
 import { ButtonProps, MenuButton, SortRow } from ".";
 import { colors, makeClasses } from "utils";
 import { CSSObject } from "tss-react";
 
 export interface SortMenuProps extends Omit<ButtonProps, "onChange" | "value"> {
+  color?: string;
   labelWidth?: CSSObject["width"];
   rows: {
     attribute: string;
@@ -16,6 +17,7 @@ export interface SortMenuProps extends Omit<ButtonProps, "onChange" | "value"> {
 }
 
 export const SortMenu = ({
+  color = colors.grey["800"],
   labelWidth = "5rem",
   rows,
   setValue,
@@ -28,17 +30,23 @@ export const SortMenu = ({
 
   const renderButton = (onOpen: (event: React.MouseEvent<HTMLButtonElement>) => void) => (
     <Button
-      icon="Sort"
-      iconRight={value.isDesc ? "ArrowDownward" : "ArrowUpward"}
       onClick={onOpen}
-      color={colors.grey["800"]}
+      color={color}
+      justify="space-between"
+      padding={{ left: "0.5em", right: "0.5em" }}
       {...buttonProps}
     >
-      <View column align="flex-start">
-        <Text className={css.topText}>{"Sort By"}</Text>
+      <View row>
+        <Icon name="Sort" size="1.15em" />
 
-        <Text className={css.label}>{activeRow?.label}</Text>
+        <View column align="flex-start" margins={{ left: "0.5em", right: "0.5em" }}>
+          <Text className={css.topText}>{"Sort By"}</Text>
+
+          <Text className={css.label}>{activeRow?.label}</Text>
+        </View>
       </View>
+
+      <Icon name={value.isDesc ? "ArrowDownward" : "ArrowUpward"} size="1.15em" />
     </Button>
   );
 

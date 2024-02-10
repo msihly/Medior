@@ -8,6 +8,7 @@ interface FileIdIndex {
 export interface FileCollection {
   dateCreated: string;
   dateModified: string;
+  fileCount: number;
   fileIdIndexes: FileIdIndex[];
   id: string;
   rating: number;
@@ -19,6 +20,7 @@ export interface FileCollection {
 const FileCollectionSchema = new Schema<FileCollection>({
   dateCreated: String,
   dateModified: String,
+  fileCount: Number,
   fileIdIndexes: [{ fileId: Schema.Types.ObjectId, index: Number }],
   rating: Number,
   tagIds: [Schema.Types.ObjectId],

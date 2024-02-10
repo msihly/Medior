@@ -4,6 +4,16 @@ import { ModelCreationData } from "mobx-keystone";
 import { ImportStatus } from "components";
 
 /* -------------------------------- COLLECTIONS ------------------------------- */
+export type CreateCollectionFilterPipelineInput = {
+  excludedTagIds: string[];
+  isSortDesc: boolean;
+  optionalTagIds: string[];
+  requiredTagIdArrays: string[][];
+  requiredTagIds: string[];
+  sortKey: string;
+  title: string;
+};
+
 export type CreateCollectionInput = {
   fileIdIndexes: { fileId: string; index: number }[];
   title: string;
@@ -12,9 +22,10 @@ export type CreateCollectionInput = {
 
 export type DeleteCollectionInput = { id: string };
 
-export type ListCollectionsInput = { ids?: string[] };
-
-export type LoadCollectionsInput = { collectionIds?: string[]; withOverwrite?: boolean };
+export type ListFilteredCollectionsInput = CreateCollectionFilterPipelineInput & {
+  page: number;
+  pageSize: number;
+};
 
 export type LoadSearchResultsInput = { page?: number; rootStore: RootStore };
 
@@ -84,9 +95,7 @@ export type GetFileByHashInput = { hash: string };
 export type GetShiftSelectedFilesInput = CreateFileFilterPipelineInput & {
   clickedId: string;
   clickedIndex: number;
-  isSortDesc: boolean;
   selectedIds: string[];
-  sortKey: string;
 };
 
 export type ImportFileInput = {
@@ -117,10 +126,8 @@ export type ListFilesInput = { ids?: string[]; withFaceModels?: boolean };
 export type ListFilesByTagIdsInput = { tagIds: string[] };
 
 export type ListFilteredFilesInput = CreateFileFilterPipelineInput & {
-  isSortDesc: boolean;
   page: number;
   pageSize: number;
-  sortKey: string;
 };
 
 export type LoadFaceModelsInput = { fileIds?: string[]; withOverwrite?: boolean };

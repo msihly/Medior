@@ -22,6 +22,7 @@ export interface ButtonProps
   iconProps?: Partial<IconProps>;
   iconRight?: IconName;
   iconSize?: string | number;
+  justify?: CSSObject["justifyContent"];
   loading?: boolean;
   margins?: Margins;
   outlined?: boolean;
@@ -50,6 +51,7 @@ export const Button = ({
   iconProps,
   iconRight,
   iconSize = "1.15em",
+  justify = "center",
   loading = false,
   margins,
   onClick,
@@ -68,9 +70,10 @@ export const Button = ({
   ...props
 }: ButtonProps) => {
   const { css, cx } = useClasses({
+    color,
     isCircle: circle,
     isLink: type === "link",
-    color,
+    justify,
     margins,
     outlined,
     outlineFill,
@@ -136,11 +139,12 @@ interface ClassesProps {
   color: string;
   isCircle: boolean;
   isLink: boolean;
-  margins?: Margins;
+  justify: CSSObject["justifyContent"];
+  margins: Margins;
   outlined: boolean;
   outlineFill: string;
-  padding?: Padding;
-  textColor?: string;
+  padding: Padding;
+  textColor: string;
   textTransform: CSSObject["textTransform"];
 }
 
@@ -151,6 +155,7 @@ const useClasses = makeClasses(
       color,
       isCircle,
       isLink,
+      justify,
       margins,
       outlined,
       outlineFill,
@@ -162,7 +167,7 @@ const useClasses = makeClasses(
     root: {
       display: "flex",
       flexDirection: "row",
-      justifyContent: "center",
+      justifyContent: justify,
       alignItems: "center",
       border: `1px solid ${outlined ? color : "transparent"}`,
       borderRadius: isCircle ? "50%" : undefined,

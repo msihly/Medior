@@ -172,14 +172,48 @@ export class FileCollectionStore extends Model({
   @modelFlow
   listFilteredCollections = _async(function* (
     this: FileCollectionStore,
-    { collectionIds, withOverwrite = true }: LoadCollectionsInput = {}
+    { page }: { page?: number } = {}
   ) {
     return yield* _await(
       handleErrors(async () => {
-        const collectionsRes = await trpc.listCollections.mutate({ ids: collectionIds });
+        const debug = false;
+
+        const rootStore = getRootStore<RootStore>(this);
+        if (!rootStore) throw new Error("RootStore not found");
+        const { tagStore } = rootStore;
+
+        const { perfLog, perfLogTotal } = makePerfLog("[LFC]");
+
+        const { excludedTagIds, optionalTagIds, requiredTagIds, requiredTagIdArrays } =
+          tagStore.tagSearchOptsToIds(this.managerTagSearchValue);
+
+        const collectionsRes = await trpc.listFilteredCollections.mutate({
+          excludedTagIds,
+          isSortDesc: this.managerSearchSort.isDesc,
+          optionalTagIds,
+          page: page ?? this.managerSearchPage,
+          pageSize: CONSTANTS.COLLECTION_SEARCH_PAGE_SIZE,
+          requiredTagIdArrays,
+          requiredTagIds,
+          sortKey: this.managerSearchSort.key,
+          title: this.managerTitleSearchValue,
+        });
         if (!collectionsRes.success) throw new Error(collectionsRes.error);
-        if (withOverwrite) this.overwrite(collectionsRes.data);
-        return collectionsRes.data;
+
+        const { collections, pageCount } = collectionsRes.data;
+        if (debug) perfLog(`Loaded ${collections.length} filtered collections`);
+
+        this.overwrite(collections);
+        if (debug) perfLog("CollectionStore.collections overwrite and re-render");
+
+        this.setManagerSearchPageCount(pageCount);
+        if (page) this.setManagerSearchPage(page);
+        if (debug)
+          perfLog(`Set page to ${page ?? this.managerSearchPage} and pageCount to ${pageCount}`);
+
+        if (debug) perfLogTotal(`Loaded ${collections.length} collections`);
+
+        return collections;
       })
     );
   });

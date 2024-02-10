@@ -1,15 +1,29 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { observer } from "mobx-react-lite";
 import { TagOption, useStores } from "store";
-import { Button, CenteredText, FileCard, Input, Modal, TagInput, Text, View } from "components";
-import { FileCollection } from ".";
+import { Pagination } from "@mui/material";
+import {
+  Button,
+  CenteredText,
+  FileCard,
+  Input,
+  Modal,
+  SortMenu,
+  TagInput,
+  Text,
+  View,
+} from "components";
+import { DisplayedCollections, FileCollection } from ".";
 import { colors, makeClasses } from "utils";
 import { toast } from "react-toastify";
+import Color from "color";
 
 export const FileCollectionManager = observer(() => {
   const { css } = useClasses(null);
 
-  const { fileCollectionStore, tagStore } = useStores();
+  const { fileCollectionStore } = useStores();
+
+  const collectionsRef = useRef<HTMLDivElement>(null);
 
   const hasAnySelected = fileCollectionStore.selectedFileIds.length > 0;
   const hasOneSelected = fileCollectionStore.selectedFiles.length === 1;
@@ -17,38 +31,33 @@ export const FileCollectionManager = observer(() => {
     ? fileCollectionStore.listByFileId(fileCollectionStore.selectedFileIds[0])
     : [];
 
-  const [tagSearchValue, setTagSearchValue] = useState<TagOption[]>([]);
-  const [titleSearchValue, setTitleSearchValue] = useState("");
+  const tagSearchValue = useMemo(
+    () => [...fileCollectionStore.managerTagSearchValue],
+    [JSON.stringify(fileCollectionStore.managerTagSearchValue)]
+  );
+
+  const searchDeps = [
+    fileCollectionStore.managerTagSearchValue,
+    fileCollectionStore.managerTitleSearchValue,
+    JSON.stringify(fileCollectionStore.managerSearchSort),
+  ];
 
   useEffect(() => {
     fileCollectionStore.loadSelectedFiles();
   }, [fileCollectionStore.selectedFileIds]);
 
-  const filteredCollections = useMemo(() => {
-    const searchStr = titleSearchValue.toLowerCase();
-    const { excludedTagIds, optionalTagIds, requiredTagIds, requiredTagIdArrays } =
-      tagStore.tagSearchOptsToIds(tagSearchValue);
+  useEffect(() => {
+    if (fileCollectionStore.managerSearchPage > fileCollectionStore.managerSearchPageCount)
+      handlePageChange(null, fileCollectionStore.managerSearchPageCount);
+  }, [fileCollectionStore.managerSearchPage, fileCollectionStore.managerSearchPageCount]);
 
-    return fileCollectionStore.collections.filter((c) => {
-      if (searchStr.length && !c.title.toLowerCase().includes(searchStr)) return false;
-      if (excludedTagIds.length && excludedTagIds.some((id) => c.tagIds.includes(id))) return false;
-      if (requiredTagIds.length && !requiredTagIds.some((id) => c.tagIds.includes(id)))
-        return false;
-      if (
-        requiredTagIdArrays.length &&
-        !requiredTagIdArrays.every((ids) => ids.some((id) => c.tagIds.includes(id)))
-      )
-        return false;
-      if (optionalTagIds.length && !c.tagIds.some((id) => optionalTagIds.includes(id)))
-        return false;
+  useEffect(() => {
+    collectionsRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+  }, [fileCollectionStore.managerSearchPage, ...searchDeps]);
 
-      return true;
-    });
-  }, [
-    titleSearchValue,
-    JSON.stringify(fileCollectionStore.collections),
-    JSON.stringify(tagSearchValue),
-  ]);
+  useEffect(() => {
+    fileCollectionStore.listFilteredCollections({ page: 1 });
+  }, [...searchDeps]);
 
   const closeModal = () => fileCollectionStore.setIsManagerOpen(false);
 
@@ -67,6 +76,18 @@ export const FileCollectionManager = observer(() => {
       fileCollectionStore.setIsEditorOpen(true);
     }
   };
+
+  const handlePageChange = (_, page: number) =>
+    fileCollectionStore.listFilteredCollections({ page });
+
+  const handleSortChange = (val: { isDesc: boolean; key: string }) =>
+    fileCollectionStore.setManagerSearchSort(val);
+
+  const setTagSearchValue = (value: TagOption[]) =>
+    fileCollectionStore.setManagerTagSearchValue(value);
+
+  const setTitleSearchValue = (value: string) =>
+    fileCollectionStore.setManagerTitleSearchValue(value);
 
   return (
     <Modal.Container height="100%" width="100%" onClose={closeModal}>
@@ -131,16 +152,30 @@ export const FileCollectionManager = observer(() => {
             <Text className={css.sectionTitle}>{"Search"}</Text>
 
             <View column className={css.container}>
+              <SortMenu
+                rows={[
+                  { label: "Date Modified", attribute: "dateModified", icon: "DateRange" },
+                  { label: "Date Created", attribute: "dateCreated", icon: "DateRange" },
+                  { label: "File Count", attribute: "fileCount", icon: "Numbers" },
+                  { label: "Rating", attribute: "rating", icon: "Star" },
+                  { label: "Title", attribute: "title", icon: "Title" },
+                ]}
+                value={fileCollectionStore.managerSearchSort}
+                setValue={handleSortChange}
+                color={colors.button.darkGrey}
+                margins={{ bottom: "0.5rem" }}
+              />
+
+              <Text className={css.sectionTitle}>{"Titles"}</Text>
               <Input
-                label="Search Titles"
-                value={titleSearchValue}
+                value={fileCollectionStore.managerTitleSearchValue}
                 setValue={setTitleSearchValue}
                 fullWidth
                 margins={{ bottom: "0.5rem" }}
               />
 
+              <Text className={css.sectionTitle}>{"Tags"}</Text>
               <TagInput
-                label="Search Tags"
                 value={tagSearchValue}
                 onChange={setTagSearchValue}
                 fullWidth
@@ -149,17 +184,22 @@ export const FileCollectionManager = observer(() => {
             </View>
           </View>
 
-          <View column flex={1}>
+          <View className={css.rightColumn}>
             <Text className={css.sectionTitle}>{"All Collections"}</Text>
 
-            <View className={css.container}>
-              {filteredCollections.length > 0 ? (
-                filteredCollections.map((c) => (
-                  <FileCollection key={c.id} id={c.id} width="12rem" height="14rem" />
-                ))
-              ) : (
-                <CenteredText text="No collections found" />
-              )}
+            <View ref={collectionsRef} className={css.container}>
+              <DisplayedCollections />
+
+              <Pagination
+                count={fileCollectionStore.managerSearchPageCount}
+                page={fileCollectionStore.managerSearchPage}
+                onChange={handlePageChange}
+                showFirstButton
+                showLastButton
+                siblingCount={2}
+                boundaryCount={2}
+                className={css.pagination}
+              />
             </View>
           </View>
         </View>
@@ -179,7 +219,7 @@ const useClasses = makeClasses({
     display: "flex",
     flexFlow: "row wrap",
     borderRadius: "0.3rem",
-    padding: "0.5rem",
+    padding: "0.5rem 0.5rem 3.5rem",
     minHeight: "15rem",
     height: "100%",
     width: "100%",
@@ -195,7 +235,23 @@ const useClasses = makeClasses({
   modalContent: {
     overflow: "hidden",
   },
+  pagination: {
+    position: "absolute",
+    bottom: "0.5rem",
+    left: 0,
+    right: 0,
+    borderRight: `3px solid ${colors.blue["800"]}`,
+    borderLeft: `3px solid ${colors.blue["800"]}`,
+    borderRadius: "0.5rem",
+    margin: "0 auto",
+    padding: "0.3rem",
+    width: "fit-content",
+    background: `linear-gradient(to top, ${colors.grey["900"]}, ${Color(colors.grey["900"])
+      .darken(0.1)
+      .string()})`,
+  },
   rightColumn: {
+    position: "relative",
     display: "flex",
     flexDirection: "column",
     flex: 1,

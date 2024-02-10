@@ -36,7 +36,6 @@ export const FileCollection = observer(({ height, id, width }: FileCollectionPro
         height={height}
         width={width}
         fit="cover"
-        disabled
       >
         <FileBase.Chip
           position="top-left"
