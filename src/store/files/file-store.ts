@@ -5,6 +5,7 @@ import sharp from "sharp";
 import {
   _async,
   _await,
+  getRootStore,
   Model,
   model,
   modelAction,
@@ -50,7 +51,8 @@ export class FileStore extends Model({
   @modelAction
   confirmDeleteFiles(ids: string[]) {
     this.idsForConfirmDelete = [...ids];
-    this.isConfirmDeleteOpen = true;
+    if (this.listByIds(ids).some((f) => f.isArchived)) this.isConfirmDeleteOpen = true;
+    else this.deleteFiles();
   }
 
   @modelAction
@@ -109,7 +111,7 @@ export class FileStore extends Model({
 
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */
   @modelFlow
-  deleteFiles = _async(function* (this: FileStore, { rootStore }: { rootStore: RootStore }) {
+  deleteFiles = _async(function* (this: FileStore) {
     return yield* _await(
       handleErrors(async () => {
         const fileIds = [...this.idsForConfirmDelete];
@@ -140,6 +142,7 @@ export class FileStore extends Model({
             )
           );
 
+          const rootStore = getRootStore<RootStore>(this);
           await rootStore.tagStore.refreshTagCounts([...new Set(deleted.flatMap((f) => f.tagIds))]);
 
           toast.success(`${deletedIds.length} files deleted`);
