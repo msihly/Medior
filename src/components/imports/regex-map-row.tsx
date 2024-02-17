@@ -1,38 +1,38 @@
 import { useMemo } from "react";
 import { RegExMapType } from "database";
 import { observer } from "mobx-react-lite";
-import { useStores } from "store";
+import { Tag, useStores } from "store";
 import { InputAdornment } from "@mui/material";
 import { Button, Input, InputProps, View } from "components";
 import { colors, makeClasses } from "utils";
 
 export interface RegExMapRowProps {
+  aliases: Tag["aliases"];
   disabled?: boolean;
+  label: Tag["label"];
   regEx: string;
   setRegEx: (regEx: string) => void;
   setTestString: (testString: string) => void;
   setTypes: (types: RegExMapType[]) => void;
-  tagId: string | null;
   testString: string;
   types: RegExMapType[];
 }
 
 export const RegExMapRow = observer(
   ({
+    aliases,
     disabled = false,
+    label,
     regEx,
     setRegEx,
     setTestString,
     setTypes,
-    tagId,
     testString,
     types,
   }: RegExMapRowProps) => {
     const { css } = useClasses(null);
 
     const { tagStore } = useStores();
-
-    const tag = tagId ? tagStore.getById(tagId) : null;
 
     const [isRegExValid, isTestStringValid] = useMemo(() => {
       try {
@@ -42,7 +42,7 @@ export const RegExMapRow = observer(
       }
     }, [regEx, testString]);
 
-    const generateRegEx = () => setRegEx(tagStore.tagsToRegEx([tag?.tagOption]));
+    const generateRegEx = () => setRegEx(tagStore.tagsToRegEx([{ aliases, label }]));
 
     const toggleType = (type: RegExMapType) =>
       setTypes(types.includes(type) ? types.filter((t) => t !== type) : [...types, type]);

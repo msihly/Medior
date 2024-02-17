@@ -225,12 +225,13 @@ export const TagEditor = observer(
             <Text className={css.sectionTitle}>{"RegEx Mapping"}</Text>
 
             <RegExMapRow
+              aliases={aliases.map((a) => a.value)}
               disabled={isSaving}
+              label={label}
               regEx={regExValue}
               setRegEx={setRegExValue}
               setTestString={setRegExTestString}
               setTypes={setRegExTypes}
-              tagId={id}
               testString={regExTestString}
               types={regExTypes}
             />
