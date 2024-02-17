@@ -546,7 +546,6 @@ export const ImportEditor = observer(() => {
     folderToTagsMode,
     importStore.editorImports,
     importStore.editorRootFolderIndex,
-    tagStore.tags,
     withDelimiters,
     withDiffusionModel,
     withDiffusionParams,
@@ -554,6 +553,7 @@ export const ImportEditor = observer(() => {
     withDiffusionTags,
     withFileNameToTags,
     withFolderNameRegEx,
+    JSON.stringify(tagStore.tags),
   ]);
 
   return (
