@@ -12,12 +12,13 @@ export const completeImportBatch = ({ collectionId, id }: db.CompleteImportBatch
 export const createImportBatches = (batches: db.CreateImportBatchesInput) =>
   handleErrors(async () => {
     const importBatches = batches.map(
-      ({ collectionTitle, createdAt, deleteOnImport, imports, tagIds }) => ({
+      ({ collectionTitle, createdAt, deleteOnImport, imports, rootFolderPath, tagIds }) => ({
         collectionTitle,
         completedAt: null,
         createdAt,
         deleteOnImport,
         imports,
+        rootFolderPath,
         startedAt: null,
         tagIds: tagIds ? [...tagIds].flat() : [],
       })

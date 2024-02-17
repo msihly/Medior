@@ -24,6 +24,7 @@ export interface FileImportBatch {
   deleteOnImport: boolean;
   id: string;
   imports: FileImport[];
+  rootFolderPath: string;
   startedAt: string;
   tagIds: string[];
 }
@@ -52,6 +53,7 @@ const FileImportBatchSchema = new Schema<FileImportBatch>({
       thumbPaths: [String],
     },
   ],
+  rootFolderPath: String,
   startedAt: String,
   tagIds: [[{ type: Schema.Types.ObjectId, ref: "Tag" }]],
 });

@@ -307,6 +307,7 @@ export const ImportEditor = observer(() => {
       collectionTitle: folder.collectionTitle,
       deleteOnImport,
       imports: [...folder.imports],
+      rootFolderPath: folder.folderName,
       tagIds: folder.tags.map((t) => tagStore.getByLabel(t.label)?.id).filter(Boolean),
     }));
 

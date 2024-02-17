@@ -52,6 +52,7 @@ export class ImportStore extends Model({
     deleteOnImport,
     id,
     imports,
+    rootFolderPath,
     tagIds = [],
   }: {
     collectionTitle?: string;
@@ -59,6 +60,7 @@ export class ImportStore extends Model({
     deleteOnImport: boolean;
     id: string;
     imports: FileImport[];
+    rootFolderPath: string;
     tagIds?: string[];
   }) {
     this.importBatches.push(
@@ -69,6 +71,7 @@ export class ImportStore extends Model({
         deleteOnImport,
         id,
         imports: imports.map((imp) => clone(imp)),
+        rootFolderPath,
         startedAt: null,
         tagIds,
       })
@@ -165,10 +168,7 @@ export class ImportStore extends Model({
 
         if (batch.deleteOnImport) {
           try {
-            const parentDirs = [...new Set(batch.imports.map((file) => path.dirname(file.path)))];
-            await Promise.all(
-              parentDirs.map((dir) => removeEmptyFolders(dir, { removeEmptyParent: true }))
-            );
+            await removeEmptyFolders(batch.rootFolderPath);
           } catch (err) {
             console.error("Error removing empty folders:", err);
           }
@@ -216,6 +216,7 @@ export class ImportStore extends Model({
       collectionTitle?: string;
       deleteOnImport: boolean;
       imports: FileImport[];
+      rootFolderPath: string;
       tagIds?: string[];
     }[]
   ) {
@@ -228,6 +229,7 @@ export class ImportStore extends Model({
             ...b,
             createdAt,
             imports: b.imports.map((imp) => imp.$ as ModelCreationData<FileImport>),
+            rootFolderPath: b.rootFolderPath,
             tagIds: b.tagIds ? [...new Set(b.tagIds)].flat() : [],
           }))
         );

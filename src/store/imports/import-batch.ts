@@ -12,6 +12,7 @@ export class ImportBatch extends Model({
   deleteOnImport: prop<boolean>(),
   id: prop<string>(),
   imports: prop<FileImport[]>(() => []),
+  rootFolderPath: prop<string>(),
   startedAt: prop<string>(null),
   tagIds: prop<string[]>(),
 }) {

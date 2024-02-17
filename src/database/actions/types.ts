@@ -43,6 +43,7 @@ export type CreateImportBatchesInput = {
   createdAt: string;
   deleteOnImport: boolean;
   imports: ModelCreationData<FileImport>[];
+  rootFolderPath: string;
   tagIds?: string[];
 }[];
 
