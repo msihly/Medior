@@ -5,10 +5,11 @@ import { ImportStatus } from "components";
 
 /* -------------------------------- COLLECTIONS ------------------------------- */
 export type CreateCollectionFilterPipelineInput = {
+  excludedDescTagIds: string[];
   excludedTagIds: string[];
   isSortDesc: boolean;
   optionalTagIds: string[];
-  requiredTagIdArrays: string[][];
+  requiredDescTagIds: string[];
   requiredTagIds: string[];
   sortKey: string;
   title: string;
@@ -28,8 +29,6 @@ export type ListFilteredCollectionsInput = CreateCollectionFilterPipelineInput &
 };
 
 export type LoadSearchResultsInput = { page?: number; rootStore: RootStore };
-
-export type OnCollectionCreatedInput = { collection: FileCollection };
 
 export type UpdateCollectionInput = Partial<FileCollection> & { id: string };
 
@@ -68,13 +67,14 @@ export type AddTagsToFilesInput = { fileIds: string[]; tagIds: string[] };
 export type ArchiveFilesInput = { fileIds: string[] };
 
 export type CreateFileFilterPipelineInput = {
+  excludedDescTagIds: string[];
   excludedTagIds: string[];
   includeTagged: boolean;
   includeUntagged: boolean;
   isArchived: boolean;
   isSortDesc: boolean;
   optionalTagIds: string[];
-  requiredTagIdArrays: string[][];
+  requiredDescTagIds: string[];
   requiredTagIds: string[];
   selectedImageTypes: SelectedImageTypes;
   selectedVideoTypes: SelectedVideoTypes;
@@ -112,6 +112,7 @@ export type ImportFileInput = {
   path: string;
   size: number;
   tagIds: string[];
+  tagIdsWithAncestors: string[];
   thumbPaths: string[];
   width: number;
 };
@@ -182,8 +183,8 @@ export type MergeTagsInput = Omit<Required<CreateTagInput>, "withSub"> & {
 export type RecalculateTagCountsInput = { tagIds: string[]; withSub?: boolean };
 
 export type RefreshTagRelationsInput = {
-  changedChildIds?: { added?: string[]; removed?: string[] };
-  changedParentIds?: { added?: string[]; removed?: string[] };
+  changedChildIds: { added: string[]; removed: string[] };
+  changedParentIds: { added: string[]; removed: string[] };
   dateModified: string;
   tagId: string;
   withSub?: boolean;

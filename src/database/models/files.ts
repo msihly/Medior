@@ -25,6 +25,7 @@ export interface File {
   rating: number;
   size: number;
   tagIds: string[];
+  tagIdsWithAncestors: string[];
   thumbPaths: string[];
   width: number;
 }
@@ -54,13 +55,18 @@ const FileSchema = new Schema<File>({
   rating: Number,
   size: Number,
   tagIds: [{ type: Schema.Types.ObjectId, ref: "Tag" }],
+  tagIdsWithAncestors: [{ type: Schema.Types.ObjectId, ref: "Tag" }],
   thumbPaths: [String],
   width: Number,
 });
 
 FileSchema.index({ hash: 1 }, { unique: true });
-FileSchema.index({ isArchived: 1, ext: 1, tagIds: 1, _id: 1 }, { unique: true });
 FileSchema.index({ tagIds: 1, _id: 1 }, { unique: true });
+FileSchema.index({ tagIdsWithAncestors: 1, _id: 1 }, { unique: true });
+FileSchema.index(
+  { isArchived: 1, ext: 1, tagIds: 1, tagIdsWithAncestors: 1, _id: 1 },
+  { unique: true }
+);
 
 FileSchema.index({ dateCreated: 1, _id: 1 }, { unique: true });
 FileSchema.index({ dateModified: 1, _id: 1 }, { unique: true });

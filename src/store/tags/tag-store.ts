@@ -348,24 +348,42 @@ export class TagStore extends Model({
       .join(")|(")})`;
   }
 
-  tagSearchOptsToIds(options: TagOption[]) {
+  tagSearchOptsToIds(options: TagOption[], withDescArrays = false) {
     return options.reduce(
       (acc, cur) => {
         if (cur.searchType.includes("Desc")) {
-          const childTagIds = this.getChildTags(this.getById(cur.id), true).map((t) => t.id);
+          const childTagIds = withDescArrays
+            ? this.getChildTags(this.getById(cur.id), true).map((t) => t.id)
+            : [];
           const tagIds = [cur.id, ...childTagIds];
-          if (cur.searchType === "excludeDesc") acc["excludedTagIds"].push(...tagIds);
-          else if (cur.searchType === "includeDesc") acc["requiredTagIdArrays"].push(tagIds);
+          if (cur.searchType === "excludeDesc") {
+            acc["excludedDescTagIds"].push(cur.id);
+            if (withDescArrays) acc["excludedDescTagIdArrays"].push(tagIds);
+          } else if (cur.searchType === "includeDesc") {
+            acc["requiredDescTagIds"].push(cur.id);
+            if (withDescArrays) acc["requiredDescTagIdArrays"].push(tagIds);
+          }
         } else if (cur.searchType === "includeAnd") acc["requiredTagIds"].push(cur.id);
         else if (cur.searchType === "includeOr") acc["optionalTagIds"].push(cur.id);
         else if (cur.searchType === "exclude") acc["excludedTagIds"].push(cur.id);
         return acc;
       },
-      { excludedTagIds: [], optionalTagIds: [], requiredTagIds: [], requiredTagIdArrays: [] } as {
+      {
+        excludedTagIds: [],
+        excludedDescTagIds: [],
+        excludedDescTagIdArrays: [],
+        optionalTagIds: [],
+        requiredTagIds: [],
+        requiredDescTagIds: [],
+        requiredDescTagIdArrays: [],
+      } as {
         excludedTagIds: string[];
+        excludedDescTagIds: string[];
+        excludedDescTagIdArrays: string[][];
         optionalTagIds: string[];
         requiredTagIds: string[];
-        requiredTagIdArrays: string[][];
+        requiredDescTagIds: string[];
+        requiredDescTagIdArrays: string[][];
       }
     );
   }

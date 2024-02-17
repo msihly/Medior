@@ -117,9 +117,6 @@ const trpcRouter = tRouter({
   mergeTags: tProc
     .input((input: unknown) => input as db.MergeTagsInput)
     .mutation(({ input }) => db.mergeTags(input)),
-  onCollectionCreated: tProc
-    .input((input: unknown) => input as db.OnCollectionCreatedInput)
-    .mutation(({ input }) => db.onCollectionCreated(input)),
   recalculateTagCounts: tProc
     .input((input: unknown) => input as db.RecalculateTagCountsInput)
     .mutation(({ input }) => db.recalculateTagCounts(input)),

@@ -116,13 +116,12 @@ export class FileCollectionStore extends Model({
   ) {
     return yield* _await(
       handleErrors(async () => {
-        const res = await trpc.createCollection.mutate({ fileIdIndexes, title });
+        const res = await trpc.createCollection.mutate({ fileIdIndexes, title, withSub });
         if (!res.success) throw new Error(res.error);
 
         this._addCollection(res.data);
         toast.success(`Collection "${title}" created!`);
 
-        if (withSub) trpc.onCollectionCreated.mutate({ collection: res.data });
         return res.data;
       })
     );
@@ -184,16 +183,22 @@ export class FileCollectionStore extends Model({
 
         const { perfLog, perfLogTotal } = makePerfLog("[LFC]");
 
-        const { excludedTagIds, optionalTagIds, requiredTagIds, requiredTagIdArrays } =
-          tagStore.tagSearchOptsToIds(this.managerTagSearchValue);
+        const {
+          excludedDescTagIds,
+          excludedTagIds,
+          optionalTagIds,
+          requiredDescTagIds,
+          requiredTagIds,
+        } = tagStore.tagSearchOptsToIds(this.managerTagSearchValue);
 
         const collectionsRes = await trpc.listFilteredCollections.mutate({
+          excludedDescTagIds,
           excludedTagIds,
           isSortDesc: this.managerSearchSort.isDesc,
           optionalTagIds,
           page: page ?? this.managerSearchPage,
           pageSize: CONSTANTS.COLLECTION_SEARCH_PAGE_SIZE,
-          requiredTagIdArrays,
+          requiredDescTagIds,
           requiredTagIds,
           sortKey: this.managerSearchSort.key,
           title: this.managerTitleSearchValue,
@@ -227,25 +232,26 @@ export class FileCollectionStore extends Model({
       handleErrors(async () => {
         const { tagStore } = rootStore;
 
-        const { excludedTagIds, optionalTagIds, requiredTagIds, requiredTagIdArrays } =
-          tagStore.tagSearchOptsToIds(this.editorSearchValue);
+        const {
+          excludedDescTagIds,
+          excludedTagIds,
+          optionalTagIds,
+          requiredDescTagIds,
+          requiredTagIds,
+        } = tagStore.tagSearchOptsToIds(this.editorSearchValue);
 
         const filteredRes = await trpc.listFilteredFiles.mutate({
-          excludedTagIds: [
-            ...new Set([
-              ...excludedTagIds,
-              ...this.activeCollection.fileIdIndexes.map((f) => f.fileId),
-            ]),
-          ],
-          requiredTagIds,
-          requiredTagIdArrays,
-          optionalTagIds,
+          excludedDescTagIds,
+          excludedTagIds,
           includeTagged: false,
           includeUntagged: false,
           isArchived: false,
           isSortDesc: this.editorSearchSort.isDesc,
+          optionalTagIds,
           page: page ?? this.editorSearchPage,
           pageSize: CONSTANTS.COLLECTION_SEARCH_FILE_COUNT,
+          requiredDescTagIds,
+          requiredTagIds,
           selectedImageTypes: Object.fromEntries(
             IMAGE_TYPES.map((ext) => [ext, true])
           ) as SelectedImageTypes,

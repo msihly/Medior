@@ -27,20 +27,34 @@ export const TagManager = observer(() => {
   const [width, setWidth] = useState(0);
 
   const tagOptions = useMemo(() => {
-    const { excludedTagIds, optionalTagIds, requiredTagIds, requiredTagIdArrays } =
-      tagStore.tagSearchOptsToIds(searchValue);
+    const {
+      excludedDescTagIdArrays,
+      excludedTagIds,
+      optionalTagIds,
+      requiredTagIds,
+      requiredDescTagIdArrays,
+    } = tagStore.tagSearchOptsToIds(searchValue, true);
 
     return [...tagStore.tags]
       .reduce((acc, cur) => {
-        if (excludedTagIds.includes(cur.id)) return acc;
         if (optionalTagIds.length && !optionalTagIds.includes(cur.id)) return acc;
-        if (requiredTagIds.length || requiredTagIdArrays.length) {
+
+        if (excludedTagIds.length || excludedDescTagIdArrays.length) {
           if (
-            !requiredTagIds.includes(cur.id) &&
-            !requiredTagIdArrays.every((ids) => ids.some((id) => id === cur.id))
+            excludedTagIds.includes(cur.id) ||
+            excludedDescTagIdArrays.some((ids) => ids.some((id) => id === cur.id))
           )
             return acc;
         }
+
+        if (requiredTagIds.length || requiredDescTagIdArrays.length) {
+          if (
+            !requiredTagIds.includes(cur.id) &&
+            !requiredDescTagIdArrays.every((ids) => ids.some((id) => id === cur.id))
+          )
+            return acc;
+        }
+
         if (tagStore.tagManagerRegExMode !== "any") {
           const hasRegEx = cur.regExMap?.regEx?.length > 0;
           if (tagStore.tagManagerRegExMode === "hasRegEx" && !hasRegEx) return acc;

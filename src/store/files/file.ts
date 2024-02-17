@@ -30,6 +30,7 @@ export class File extends Model({
   rating: prop<number>(),
   size: prop<number>(),
   tagIds: prop<string[]>(null),
+  tagIdsWithAncestors: prop<string[]>(null),
   thumbPaths: prop<string[]>(null),
   width: prop<number>(),
 }) {

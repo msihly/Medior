@@ -265,6 +265,7 @@ export class ImportStore extends Model({
     return yield* _await(
       handleErrors(async () => {
         const rootStore = getRootStore<RootStore>(this);
+        const { tagStore } = rootStore;
 
         const batch = this.getById(batchId);
         const fileImport = batch?.getByPath(filePath);
@@ -283,21 +284,21 @@ export class ImportStore extends Model({
             fileImport.path
           );
 
-        const tagIds = [...batch.tagIds, ...fileImport.tagIds].flat();
+        let tagIds = [...batch.tagIds, ...fileImport.tagIds].flat();
 
         if (fileImport.tagsToUpsert?.length) {
           await Promise.all(
             fileImport.tagsToUpsert.map(async (t) => {
-              const tag = rootStore.tagStore.getByLabel(t.label);
+              const tag = tagStore.getByLabel(t.label);
               if (tag) tagIds.push(tag.id);
               else {
                 const parentTags = t.parentLabels?.length
-                  ? t.parentLabels.map((l) => rootStore.tagStore.getByLabel(l)).filter(Boolean)
+                  ? t.parentLabels.map((l) => tagStore.getByLabel(l)).filter(Boolean)
                   : null;
 
                 const parentIds = parentTags?.map((t) => t.id) ?? [];
 
-                const res = await rootStore.tagStore.createTag({
+                const res = await tagStore.createTag({
                   aliases: [...t.aliases],
                   label: t.label,
                   parentIds,
@@ -310,11 +311,17 @@ export class ImportStore extends Model({
           );
         }
 
+        tagIds = [...new Set(tagIds)];
+        const tagIdsWithAncestors = tagIds.flatMap((id) =>
+          tagStore.getParentTags(tagStore.getById(id), true).map((t) => t.id)
+        );
+
         const copyRes = await copyFileForImport({
           deleteOnImport: batch.deleteOnImport,
           fileImport,
           targetDir: env.OUTPUT_DIR,
-          tagIds: [...new Set(tagIds)],
+          tagIds,
+          tagIdsWithAncestors,
         });
 
         const errorMsg = copyRes.error ?? null;

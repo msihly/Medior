@@ -23,7 +23,8 @@ interface CopyFileForImportProps {
   dbOnly?: boolean;
   deleteOnImport: boolean;
   fileImport: FileImport;
-  tagIds?: string[];
+  tagIds: string[];
+  tagIdsWithAncestors: string[];
   targetDir: string;
 }
 
@@ -39,6 +40,7 @@ export const copyFileForImport = async ({
   deleteOnImport,
   fileImport,
   tagIds,
+  tagIdsWithAncestors,
   targetDir,
 }: CopyFileForImportProps): Promise<CopyFileForImportResult> => {
   let hash: string;
@@ -76,13 +78,11 @@ export const copyFileForImport = async ({
     if (!dbOnly) {
       if (!(await checkFileExists(newPath)))
         if (await copyFile(dirPath, originalPath, newPath))
-          await(
-            duration > 0
-              ? generateFramesThumbnail(originalPath, dirPath, hash, duration)
-              : sharp(originalPath, { failOn: "none" })
-                  .resize(null, THUMB_WIDTH)
-                  .toFile(thumbPaths[0])
-          );
+          await (duration > 0
+            ? generateFramesThumbnail(originalPath, dirPath, hash, duration)
+            : sharp(originalPath, { failOn: "none" })
+                .resize(null, THUMB_WIDTH)
+                .toFile(thumbPaths[0]));
     }
 
     const fileRes = await trpc.getFileByHash.mutate({ hash });
@@ -121,6 +121,7 @@ export const copyFileForImport = async ({
         path: newPath,
         size,
         tagIds,
+        tagIdsWithAncestors,
         thumbPaths,
         width,
       });
@@ -143,7 +144,14 @@ export const copyFileForImport = async ({
       const fileRes = await trpc.getFileByHash.mutate({ hash });
       if (!fileRes.data) {
         console.debug("File exists, but not in db. Inserting into db only...");
-        return await copyFileForImport({ dbOnly: true, deleteOnImport, fileImport, targetDir });
+        return await copyFileForImport({
+          dbOnly: true,
+          deleteOnImport,
+          fileImport,
+          targetDir,
+          tagIds,
+          tagIdsWithAncestors,
+        });
       } else return { success: true, file: fileRes.data, isDuplicate: true };
     } else return { success: false, error: err?.stack };
   }

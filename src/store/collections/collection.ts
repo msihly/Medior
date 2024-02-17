@@ -13,6 +13,7 @@ export class FileCollection extends Model({
   id: prop<string>(),
   rating: prop<number>(0),
   tagIds: prop<string[]>(() => []),
+  tagIdsWithAncestors: prop<string[]>(() => []),
   thumbPaths: prop<string[]>(() => []),
   title: prop<string>(),
 }) {

@@ -2,7 +2,7 @@ import { app } from "electron";
 import path from "path";
 import fs from "fs/promises";
 import sharp from "sharp";
-import { PipelineStage } from "mongoose";
+import { FilterQuery, PipelineStage } from "mongoose";
 import * as db from "database";
 import { dayjs, handleErrors, socket } from "utils";
 import { leanModelToJson, objectIds } from "./utils";
@@ -13,14 +13,16 @@ const FACE_MODELS_PATH = app.isPackaged
   : "src/face-models";
 const VALID_TF_DECODE_IMAGE_EXTS = ["bmp", "gif", "jpg", "jpeg", "png"];
 
+/* ---------------------------- HELPER FUNCTIONS ---------------------------- */
 const createFileFilterPipeline = ({
+  excludedDescTagIds,
   excludedTagIds,
   includeTagged,
   includeUntagged,
   isArchived,
   isSortDesc,
   optionalTagIds,
-  requiredTagIdArrays,
+  requiredDescTagIds,
   requiredTagIds,
   selectedImageTypes,
   selectedVideoTypes,
@@ -55,14 +57,35 @@ const createFileFilterPipeline = ({
             },
           }
         : {}),
-      ...(requiredTagIdArrays.length > 0
-        ? { $and: requiredTagIdArrays.map((ids) => ({ tagIds: { $in: objectIds(ids) } })) }
+      ...(excludedDescTagIds?.length > 0
+        ? { tagIdsWithAncestors: { $nin: objectIds(excludedDescTagIds) } }
+        : {}),
+      ...(requiredDescTagIds?.length > 0
+        ? { tagIdsWithAncestors: { $all: objectIds(requiredDescTagIds) } }
         : {}),
     },
     $sort: { [sortKey]: sortDir, _id: sortDir } as { [key: string]: 1 | -1 },
   };
 };
 
+export const regenFileTagAncestors = async (tagIdsFilter: FilterQuery<db.File>) =>
+  handleErrors(async () => {
+    const files = (await db.FileModel.find(tagIdsFilter).select({ _id: 1, tagIds: 1 }).lean()).map(
+      (r) => leanModelToJson<db.File>(r)
+    );
+
+    await Promise.all(
+      files.map(async (file) => {
+        const tagIdsWithAncestors = await db.deriveTagIdsWithAncestors(file.tagIds);
+        await db.FileModel.updateOne(
+          { _id: file.id },
+          { $set: { tagIdsWithAncestors, dateModified: dayjs().toISOString() } }
+        );
+      })
+    );
+  });
+
+/* ------------------------------ API ENDPOINTS ----------------------------- */
 export const deleteFiles = ({ fileIds }: db.DeleteFilesInput) =>
   handleErrors(async () => {
     const collections = (
@@ -140,24 +163,28 @@ export const editFileTags = ({
           { _id: { $in: fileIds } },
           { $pullAll: { tagIds: removedTagIds }, dateModified }
         ),
+      batchId &&
+        addedTagIds.length > 0 &&
+        db.FileImportBatchModel.updateMany(
+          { _id: batchId },
+          { $addToSet: { tagIds: { $each: addedTagIds } } }
+        ),
+      batchId &&
+        removedTagIds.length > 0 &&
+        db.FileImportBatchModel.updateMany(
+          { _id: batchId },
+          { $pullAll: { tagIds: removedTagIds } }
+        ),
     ]);
 
-    if (batchId) {
-      await Promise.all([
-        addedTagIds.length > 0 &&
-          db.FileImportBatchModel.updateMany(
-            { _id: batchId },
-            { $addToSet: { tagIds: { $each: addedTagIds } } }
-          ),
-        removedTagIds.length > 0 &&
-          db.FileImportBatchModel.updateMany(
-            { _id: batchId },
-            { $pullAll: { tagIds: removedTagIds } }
-          ),
-      ]);
-    }
+    const files = (await db.FileModel.find({ _id: { $in: fileIds } }).lean()).map((f) =>
+      leanModelToJson<db.File>(f)
+    );
 
-    await db.recalculateTagCounts({ tagIds: [...new Set([...addedTagIds, ...removedTagIds])] });
+    await Promise.all([
+      regenFileTagAncestors(files),
+      db.recalculateTagCounts({ tagIds: [...new Set([...addedTagIds, ...removedTagIds])] }),
+    ]);
 
     if (withSub) socket.emit("fileTagsUpdated", { addedTagIds, batchId, fileIds, removedTagIds });
   });
@@ -302,6 +329,7 @@ export const importFile = ({
   path,
   size,
   tagIds,
+  tagIdsWithAncestors,
   thumbPaths,
   width,
 }: db.ImportFileInput) =>
@@ -323,6 +351,7 @@ export const importFile = ({
       rating: 0,
       size,
       tagIds,
+      tagIdsWithAncestors,
       thumbPaths,
       width,
     };

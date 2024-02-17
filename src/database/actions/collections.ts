@@ -1,12 +1,15 @@
+import { FilterQuery } from "mongoose";
 import * as db from "database";
 import { dayjs, handleErrors, socket } from "utils";
 import { leanModelToJson, objectIds } from "./utils";
 
+/* ---------------------------- HELPER FUNCTIONS ---------------------------- */
 const createCollectionFilterPipeline = ({
+  excludedDescTagIds,
   excludedTagIds,
   isSortDesc,
   optionalTagIds,
-  requiredTagIdArrays,
+  requiredDescTagIds,
   requiredTagIds,
   sortKey,
   title,
@@ -29,30 +32,54 @@ const createCollectionFilterPipeline = ({
             },
           }
         : {}),
-      ...(requiredTagIdArrays.length > 0
-        ? { $and: requiredTagIdArrays.map((ids) => ({ tagIds: { $in: objectIds(ids) } })) }
+      ...(excludedDescTagIds?.length > 0
+        ? { tagIdsWithAncestors: { $nin: objectIds(excludedDescTagIds) } }
+        : {}),
+      ...(requiredDescTagIds?.length > 0
+        ? { tagIdsWithAncestors: { $in: objectIds(requiredDescTagIds) } }
         : {}),
     },
     $sort: { [sortKey]: sortDir, _id: sortDir } as { [key: string]: 1 | -1 },
   };
 };
 
-const makeCollAttrs = (files: db.File[]) => ({
-  fileCount: files.length,
-  rating: files.reduce((acc, f) => acc + f.rating, 0) / files.length,
-  tagIds: [...new Set(files.flatMap((f) => f.tagIds))],
-  thumbPaths: files.slice(0, 10).map((f) => f.thumbPaths[0]),
-});
+const makeCollAttrs = async (files: db.File[]) => {
+  const tagIds = [...new Set(files.flatMap((f) => f.tagIds))];
+  return {
+    fileCount: files.length,
+    rating: files.reduce((acc, f) => acc + f.rating, 0) / files.length,
+    tagIds,
+    tagIdsWithAncestors: await db.deriveTagIdsWithAncestors(tagIds),
+    thumbPaths: files.slice(0, 10).map((f) => f.thumbPaths[0]),
+  };
+};
 
-export const createCollection = ({ fileIdIndexes, title }: db.CreateCollectionInput) =>
+export const regenCollTagAncestors = async (tagIdsFilter: FilterQuery<db.FileCollection>) =>
+  handleErrors(async () => {
+    const collections = (
+      await db.FileCollectionModel.find(tagIdsFilter).select({ _id: 1, tagIds: 1 }).lean()
+    ).map((r) => leanModelToJson<db.FileCollection>(r));
+
+    await Promise.all(
+      collections.map(async (collection) => {
+        const tagIdsWithAncestors = await db.deriveTagIdsWithAncestors(collection.tagIds);
+        await db.FileCollectionModel.updateOne(
+          { _id: collection.id },
+          { $set: { tagIdsWithAncestors, dateModified: dayjs().toISOString() } }
+        );
+      })
+    );
+  });
+
+/* ------------------------------ API ENDPOINTS ----------------------------- */
+export const createCollection = ({ fileIdIndexes, title, withSub }: db.CreateCollectionInput) =>
   handleErrors(async () => {
     const filesRes = await db.listFiles({ ids: fileIdIndexes.map((f) => f.fileId) });
     if (!filesRes.success) throw new Error(filesRes.error);
-    const files = filesRes.data;
 
     const dateCreated = dayjs().toISOString();
     const collection = {
-      ...makeCollAttrs(files),
+      ...(await makeCollAttrs(filesRes.data)),
       dateCreated,
       dateModified: dateCreated,
       fileIdIndexes,
@@ -60,6 +87,7 @@ export const createCollection = ({ fileIdIndexes, title }: db.CreateCollectionIn
     };
 
     const res = await db.FileCollectionModel.create(collection);
+    if (withSub) socket.emit("collectionCreated", { collection: res });
     return { ...collection, id: res._id.toString() };
   });
 
@@ -93,9 +121,6 @@ export const listFilteredCollections = ({
     };
   });
 
-export const onCollectionCreated = async ({ collection }: db.OnCollectionCreatedInput) =>
-  handleErrors(async () => !!socket.emit("collectionCreated", { collection }));
-
 export const updateCollection = (updates: db.UpdateCollectionInput) =>
   handleErrors(async () => {
     updates.dateModified = dayjs().toISOString();
@@ -103,13 +128,7 @@ export const updateCollection = (updates: db.UpdateCollectionInput) =>
     if (updates.fileIdIndexes) {
       const filesRes = await db.listFiles({ ids: updates.fileIdIndexes.map((f) => f.fileId) });
       if (!filesRes.success) throw new Error(filesRes.error);
-      const files = filesRes.data;
-
-      const { fileCount, rating, tagIds, thumbPaths } = makeCollAttrs(files);
-      updates.fileCount = fileCount;
-      updates.rating = rating;
-      updates.tagIds = tagIds;
-      updates.thumbPaths = thumbPaths;
+      updates = { ...updates, ...(await makeCollAttrs(filesRes.data)) };
     }
 
     return await db.FileCollectionModel.updateOne({ _id: updates.id }, updates);

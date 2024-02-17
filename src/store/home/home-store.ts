@@ -98,8 +98,13 @@ export class HomeStore extends Model({
       handleErrors(async () => {
         const { fileStore, tagStore } = rootStore;
 
-        const { excludedTagIds, optionalTagIds, requiredTagIds, requiredTagIdArrays } =
-          tagStore.tagSearchOptsToIds(this.searchValue);
+        const {
+          excludedDescTagIds,
+          excludedTagIds,
+          optionalTagIds,
+          requiredDescTagIds,
+          requiredTagIds,
+        } = tagStore.tagSearchOptsToIds(this.searchValue);
 
         const clickedIndex =
           (fileStore.page - 1) * CONSTANTS.FILE_COUNT +
@@ -109,10 +114,11 @@ export class HomeStore extends Model({
           ...this.getFilterProps(),
           clickedId: id,
           clickedIndex,
+          excludedDescTagIds,
           excludedTagIds,
-          requiredTagIds,
-          requiredTagIdArrays,
           optionalTagIds,
+          requiredDescTagIds,
+          requiredTagIds,
           selectedIds,
         });
         if (!res.success) throw new Error(res.error);
@@ -130,19 +136,20 @@ export class HomeStore extends Model({
       handleErrors(async () => {
         const { fileStore, tagStore } = rootStore;
 
-        const { excludedTagIds, requiredTagIds, requiredTagIdArrays, optionalTagIds } =
+        const { excludedDescTagIds, excludedTagIds, optionalTagIds, requiredDescTagIds, requiredTagIds } =
           tagStore.tagSearchOptsToIds(this.searchValue);
 
         if (!id) throw new Error("Invalid ID provided");
 
         const res = await trpc.listFileIdsForCarousel.mutate({
           ...this.getFilterProps(),
+          excludedDescTagIds,
           excludedTagIds,
-          requiredTagIds,
-          requiredTagIdArrays,
           optionalTagIds,
           page: fileStore.page,
           pageSize: CONSTANTS.FILE_COUNT,
+          requiredDescTagIds,
+          requiredTagIds,
         });
         if (!res.success) throw new Error(res.error);
         if (!res.data?.length) throw new Error("No files found");
@@ -164,17 +171,23 @@ export class HomeStore extends Model({
 
         const { perfLog, perfLogTotal } = makePerfLog("[LFF]");
 
-        const { excludedTagIds, optionalTagIds, requiredTagIds, requiredTagIdArrays } =
-          tagStore.tagSearchOptsToIds(this.searchValue);
+        const {
+          excludedDescTagIds,
+          excludedTagIds,
+          optionalTagIds,
+          requiredDescTagIds,
+          requiredTagIds,
+        } = tagStore.tagSearchOptsToIds(this.searchValue);
 
         const filteredRes = await trpc.listFilteredFiles.mutate({
           ...this.getFilterProps(),
+          excludedDescTagIds,
           excludedTagIds,
-          requiredTagIds,
-          requiredTagIdArrays,
           optionalTagIds,
           page: page ?? fileStore.page,
           pageSize: CONSTANTS.FILE_COUNT,
+          requiredDescTagIds,
+          requiredTagIds,
         });
         if (!filteredRes.success) throw new Error(filteredRes.error);
 
