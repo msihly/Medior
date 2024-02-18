@@ -1,5 +1,5 @@
 import { File, FileCollection, RegExMap } from "database";
-import { FileImport, RootStore, SelectedImageTypes, SelectedVideoTypes } from "store";
+import { FileImport, SelectedImageTypes, SelectedVideoTypes } from "store";
 import { ModelCreationData } from "mobx-keystone";
 import { ImportStatus } from "components";
 
@@ -27,8 +27,6 @@ export type ListFilteredCollectionsInput = CreateCollectionFilterPipelineInput &
   page: number;
   pageSize: number;
 };
-
-export type LoadSearchResultsInput = { page?: number; rootStore: RootStore };
 
 export type UpdateCollectionInput = Partial<FileCollection> & { id: string };
 
@@ -69,6 +67,7 @@ export type ArchiveFilesInput = { fileIds: string[] };
 
 export type CreateFileFilterPipelineInput = {
   excludedDescTagIds: string[];
+  excludedFileIds?: string[];
   excludedTagIds: string[];
   includeTagged: boolean;
   includeUntagged: boolean;

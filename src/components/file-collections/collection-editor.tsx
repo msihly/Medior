@@ -35,7 +35,6 @@ export const FileCollectionEditor = observer(() => {
 
   const sensors = useSensors(useSensor(MouseSensor, { activationConstraint: { distance: 4 } }));
 
-  const rootStore = useStores();
   const { fileCollectionStore } = useStores();
 
   const [draggedFileId, setDraggedFileId] = useState<string>(null);
@@ -66,7 +65,7 @@ export const FileCollectionEditor = observer(() => {
     (async () => {
       if (!fileCollectionStore.editorSearchValue.length)
         return fileCollectionStore.setEditorSearchResults([]);
-      await fileCollectionStore.loadSearchResults({ rootStore });
+      await fileCollectionStore.loadSearchResults();
     })();
   }, [fileCollectionStore.editorSearchValue]);
 
@@ -119,14 +118,12 @@ export const FileCollectionEditor = observer(() => {
 
   const handleDragEnd = (event: DragEndEvent) => {
     fileCollectionStore.moveFileIndex(draggedFileId, event.over.id as string);
-    fileCollectionStore.setHasUnsavedChanges(true);
     setDraggedFileId(null);
   };
 
   const handleDragStart = (event: DragStartEvent) => setDraggedFileId(event.active.id as string);
 
-  const handlePageChange = (_, page: number) =>
-    fileCollectionStore.loadSearchResults({ page, rootStore });
+  const handlePageChange = (_, page: number) => fileCollectionStore.loadSearchResults({ page });
 
   const handleSave = async () => {
     try {

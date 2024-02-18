@@ -16,6 +16,7 @@ const VALID_TF_DECODE_IMAGE_EXTS = ["bmp", "gif", "jpg", "jpeg", "png"];
 /* ---------------------------- HELPER FUNCTIONS ---------------------------- */
 const createFileFilterPipeline = ({
   excludedDescTagIds,
+  excludedFileIds,
   excludedTagIds,
   includeTagged,
   includeUntagged,
@@ -46,6 +47,7 @@ const createFileFilterPipeline = ({
     $match: {
       isArchived,
       ext: { $in: enabledExts },
+      ...(excludedFileIds?.length > 0 ? { _id: { $nin: objectIds(excludedFileIds) } } : {}),
       ...(hasExcludedTags || hasOptionalTags || hasRequiredTags || includeTagged || includeUntagged
         ? {
             tagIds: {

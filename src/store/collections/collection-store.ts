@@ -61,7 +61,8 @@ export class FileCollectionStore extends Model({
   addFileToActiveCollection(file: File) {
     const index = this.activeFiles.length;
     this.activeFiles.push(new FileCollectionFile({ file: clone(file), id: file.id, index }));
-    this.editorSearchResults = this.editorSearchResults.filter((f) => f.id !== file.id);
+    this.setHasUnsavedChanges(true);
+    this.loadSearchResults();
   }
 
   @modelAction
@@ -90,6 +91,8 @@ export class FileCollectionStore extends Model({
           })
       )
     );
+
+    this.setHasUnsavedChanges(true);
   }
 
   @modelAction
@@ -226,10 +229,11 @@ export class FileCollectionStore extends Model({
   @modelFlow
   loadSearchResults = _async(function* (
     this: FileCollectionStore,
-    { page, rootStore }: db.LoadSearchResultsInput
+    { page }: { page?: number } = {}
   ) {
     return yield* _await(
       handleErrors(async () => {
+        const rootStore = getRootStore<RootStore>(this);
         const { tagStore } = rootStore;
 
         const {
@@ -242,6 +246,7 @@ export class FileCollectionStore extends Model({
 
         const filteredRes = await trpc.listFilteredFiles.mutate({
           excludedDescTagIds,
+          excludedFileIds: this.activeFiles.map((f) => f.id),
           excludedTagIds,
           includeTagged: false,
           includeUntagged: false,
