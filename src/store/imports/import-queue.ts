@@ -23,6 +23,7 @@ interface CopyFileForImportProps {
   dbOnly?: boolean;
   deleteOnImport: boolean;
   fileImport: FileImport;
+  ignorePrevDeleted: boolean;
   tagIds: string[];
   tagIdsWithAncestors: string[];
   targetDir: string;
@@ -32,6 +33,7 @@ interface CopyFileForImportResult {
   error?: string;
   file?: File;
   isDuplicate?: boolean;
+  isPrevDeleted?: boolean;
   success: boolean;
 }
 
@@ -39,6 +41,7 @@ export const copyFileForImport = async ({
   dbOnly = false,
   deleteOnImport,
   fileImport,
+  ignorePrevDeleted,
   tagIds,
   tagIdsWithAncestors,
   targetDir,
@@ -54,41 +57,15 @@ export const copyFileForImport = async ({
     const dirPath = `${targetDir}\\${hash.substring(0, 2)}\\${hash.substring(2, 4)}`;
     const extFromPath = originalPath.split(".").pop().toLowerCase();
     const newPath = `${dirPath}\\${hash}.${extFromPath}`;
-    const isAnimated = [...VIDEO_TYPES, "gif"].includes(extFromPath);
 
-    sharp.cache(
-      false
-    ); /** Prevents WEBP lockout during deletion. See: https://github.com/lovell/sharp/issues/415#issuecomment-212817987 */
-    const imageInfo = !isAnimated ? await sharp(originalPath).metadata() : null;
-    const videoInfo = isAnimated ? await getVideoInfo(originalPath) : null;
-    const duration = isAnimated ? videoInfo?.duration : null;
-    const frameRate = isAnimated ? videoInfo?.frameRate : null;
-    const width = isAnimated ? videoInfo?.width : imageInfo?.width;
-    const height = isAnimated ? videoInfo?.height : imageInfo?.height;
-
-    const thumbPaths =
-      duration > 0
-        ? Array(9)
-            .fill("")
-            .map((_, i) =>
-              path.join(dirPath, `${hash}-thumb-${String(i + 1).padStart(2, "0")}.jpg`)
-            )
-        : [path.join(dirPath, `${hash}-thumb.${extFromPath}`)];
-
-    if (!dbOnly) {
-      if (!(await checkFileExists(newPath)))
-        if (await copyFile(dirPath, originalPath, newPath))
-          await (duration > 0
-            ? generateFramesThumbnail(originalPath, dirPath, hash, duration)
-            : sharp(originalPath, { failOn: "none" })
-                .resize(null, THUMB_WIDTH)
-                .toFile(thumbPaths[0]));
-    }
-
-    const fileRes = await trpc.getFileByHash.mutate({ hash });
+    const [deletedFileRes, fileRes] = await Promise.all([
+      trpc.getDeletedFile.mutate({ hash }),
+      trpc.getFileByHash.mutate({ hash }),
+    ]);
     if (!fileRes.success) throw new Error(fileRes.error);
     let file = fileRes.data;
     const isDuplicate = !!file;
+    const isPrevDeleted = !!deletedFileRes.data;
 
     if (isDuplicate) {
       if (tagIds?.length > 0) {
@@ -107,7 +84,38 @@ export const copyFileForImport = async ({
         });
         if (!res.success) throw new Error(res.error);
       }
-    } else {
+    } else if (!(isPrevDeleted && ignorePrevDeleted)) {
+      const isAnimated = [...VIDEO_TYPES, "gif"].includes(extFromPath);
+
+      sharp.cache(
+        false
+      ); /** Prevents WEBP lockout during deletion. See: https://github.com/lovell/sharp/issues/415#issuecomment-212817987 */
+      const imageInfo = !isAnimated ? await sharp(originalPath).metadata() : null;
+      const videoInfo = isAnimated ? await getVideoInfo(originalPath) : null;
+      const duration = isAnimated ? videoInfo?.duration : null;
+      const frameRate = isAnimated ? videoInfo?.frameRate : null;
+      const width = isAnimated ? videoInfo?.width : imageInfo?.width;
+      const height = isAnimated ? videoInfo?.height : imageInfo?.height;
+
+      const thumbPaths =
+        duration > 0
+          ? Array(9)
+              .fill("")
+              .map((_, i) =>
+                path.join(dirPath, `${hash}-thumb-${String(i + 1).padStart(2, "0")}.jpg`)
+              )
+          : [path.join(dirPath, `${hash}-thumb.${extFromPath}`)];
+
+      if (!dbOnly) {
+        if (!(await checkFileExists(newPath)))
+          if (await copyFile(dirPath, originalPath, newPath))
+            await (duration > 0
+              ? generateFramesThumbnail(originalPath, dirPath, hash, duration)
+              : sharp(originalPath, { failOn: "none" })
+                  .resize(null, THUMB_WIDTH)
+                  .toFile(thumbPaths[0]));
+      }
+
       const res = await trpc.importFile.mutate({
         dateCreated,
         duration,
@@ -130,13 +138,13 @@ export const copyFileForImport = async ({
       file = res.data;
     }
 
-    if (deleteOnImport) {
+    if (deleteOnImport && !(isPrevDeleted && ignorePrevDeleted)) {
       await deleteFile(originalPath, newPath);
       if (fileImport.diffusionParams?.length > 0)
         await deleteFile(extendFileName(originalPath, "txt"));
     }
 
-    return { success: true, file, isDuplicate };
+    return { success: true, file, isDuplicate, isPrevDeleted };
   } catch (err) {
     console.error("Error importing", fileImport.toString({ withData: true }), ":", err.stack);
 
@@ -147,6 +155,7 @@ export const copyFileForImport = async ({
         return await copyFileForImport({
           dbOnly: true,
           deleteOnImport,
+          ignorePrevDeleted,
           fileImport,
           targetDir,
           tagIds,

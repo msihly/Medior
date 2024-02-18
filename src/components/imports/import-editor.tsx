@@ -45,6 +45,7 @@ export const ImportEditor = observer(() => {
   const [flatTagsToUpsert, setFlatTagsToUpsert] = useState<TagToUpsert[]>([]);
   const [folderToCollectionMode, setFolderToCollectionMode] = useState<FolderToCollMode>("none");
   const [folderToTagsMode, setFolderToTagsMode] = useState<FolderToTagsMode>("none");
+  const [ignorePrevDeleted, setIgnorePrevDeleted] = useState(true);
   const [isConfirmDiscardOpen, setIsConfirmDiscardOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -276,6 +277,7 @@ export const ImportEditor = observer(() => {
               const res = await tagStore.editTag({
                 id: t.id,
                 parentIds: parentIds.length ? [...tag.parentIds, ...parentIds] : [],
+                withSub: false,
               });
               if (!res.success) throw new Error(res.error);
             } else {
@@ -283,6 +285,7 @@ export const ImportEditor = observer(() => {
                 label: t.label,
                 parentIds,
                 withRegEx: t.withRegEx,
+                withSub: false,
               });
               if (!res.success) throw new Error(res.error);
             }
@@ -293,7 +296,6 @@ export const ImportEditor = observer(() => {
       );
 
       await tagQueue.queue;
-
       await tagStore.loadTags();
 
       if (errors.length) {
@@ -306,6 +308,7 @@ export const ImportEditor = observer(() => {
     const batches = flatFolderHierarchy.map((folder) => ({
       collectionTitle: folder.collectionTitle,
       deleteOnImport,
+      ignorePrevDeleted,
       imports: [...folder.imports],
       rootFolderPath: folder.folderName,
       tagIds: folder.tags.map((t) => tagStore.getByLabel(t.label)?.id).filter(Boolean),
@@ -569,6 +572,13 @@ export const ImportEditor = observer(() => {
               label="Delete on Import"
               checked={deleteOnImport}
               setChecked={setDeleteOnImport}
+              {...checkboxProps}
+            />
+
+            <Checkbox
+              label="Ignore Prev. Deleted"
+              checked={ignorePrevDeleted}
+              setChecked={setIgnorePrevDeleted}
               {...checkboxProps}
             />
 

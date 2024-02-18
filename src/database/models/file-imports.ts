@@ -1,6 +1,6 @@
 import { model, Schema } from "mongoose";
 
-type FileImportStatus = "COMPLETE" | "DUPLICATE" | "ERROR" | "PENDING";
+type FileImportStatus = "COMPLETE" | "DELETED" | "DUPLICATE" | "ERROR" | "PENDING";
 
 export interface FileImport {
   dateCreated: string;
@@ -23,6 +23,7 @@ export interface FileImportBatch {
   createdAt: string;
   deleteOnImport: boolean;
   id: string;
+  ignorePrevDeleted: boolean;
   imports: FileImport[];
   rootFolderPath: string;
   startedAt: string;
@@ -35,6 +36,7 @@ const FileImportBatchSchema = new Schema<FileImportBatch>({
   completedAt: String,
   createdAt: String,
   deleteOnImport: Boolean,
+  ignorePrevDeleted: Boolean,
   imports: [
     {
       dateCreated: String,
@@ -47,7 +49,7 @@ const FileImportBatchSchema = new Schema<FileImportBatch>({
       size: Number,
       status: {
         type: String,
-        enum: ["COMPLETE", "DUPLICATE", "ERROR", "PENDING"],
+        enum: ["COMPLETE", "DELETED", "DUPLICATE", "ERROR", "PENDING"],
       },
       tagIds: [{ type: Schema.Types.ObjectId, ref: "Tag" }],
       thumbPaths: [String],

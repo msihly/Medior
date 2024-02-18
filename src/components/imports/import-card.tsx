@@ -29,6 +29,10 @@ export const ImportCard = observer(({ fileImport, style }: ImportCardProps) => {
     <TooltipWrapper
       tooltip={
         <View column>
+          <Text color={status?.color} fontWeight={600} align="center">
+            {status?.label}
+          </Text>
+
           <Text>
             <Text color={colors.text.blue} fontWeight={600} marginRight="0.3em">
               {"Path:"}

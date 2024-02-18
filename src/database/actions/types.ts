@@ -41,6 +41,7 @@ export type CreateImportBatchesInput = {
   collectionTitle?: string;
   createdAt: string;
   deleteOnImport: boolean;
+  ignorePrevDeleted: boolean;
   imports: ModelCreationData<FileImport>[];
   rootFolderPath: string;
   tagIds?: string[];
@@ -90,6 +91,8 @@ export type EditFileTagsInput = {
   removedTagIds?: string[];
   withSub?: boolean;
 };
+
+export type GetDeletedFileInput = { hash: string };
 
 export type GetFileByHashInput = { hash: string };
 

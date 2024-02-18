@@ -11,7 +11,7 @@ export class FileImport extends Model({
   path: prop<string>(),
   name: prop<string>(),
   size: prop<number>(),
-  status: prop<"COMPLETE" | "DUPLICATE" | "ERROR" | "PENDING">(),
+  status: prop<"COMPLETE" | "DELETED" | "DUPLICATE" | "ERROR" | "PENDING">(),
   tagIds: prop<string[]>(() => []),
   tagsToUpsert: prop<TagToUpsert[]>(() => []),
   thumbPaths: prop<string[]>(() => []),

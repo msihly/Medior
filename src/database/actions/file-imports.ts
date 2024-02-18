@@ -11,21 +11,16 @@ export const completeImportBatch = ({ collectionId, id }: db.CompleteImportBatch
 
 export const createImportBatches = (batches: db.CreateImportBatchesInput) =>
   handleErrors(async () => {
-    const importBatches = batches.map(
-      ({ collectionTitle, createdAt, deleteOnImport, imports, rootFolderPath, tagIds }) => ({
-        collectionTitle,
+    const res = await db.FileImportBatchModel.insertMany(
+      batches.map((batch) => ({
+        ...batch,
         completedAt: null,
-        createdAt,
-        deleteOnImport,
-        imports,
-        rootFolderPath,
         startedAt: null,
-        tagIds: tagIds ? [...tagIds].flat() : [],
-      })
+        tagIds: batch.tagIds ? [...batch.tagIds].flat() : [],
+      }))
     );
 
-    const res = await db.FileImportBatchModel.insertMany(importBatches);
-    if (res.length !== importBatches.length) throw new Error("Failed to create import batches");
+    if (res.length !== batches.length) throw new Error("Failed to create import batches");
   });
 
 export const deleteImportBatches = ({ ids }: db.DeleteImportBatchesInput) =>

@@ -34,6 +34,7 @@ export type ImportBatchInput = Omit<ModelCreationData<ImportBatch>, "imports"> &
 
 @model("mediaViewer/ImportStore")
 export class ImportStore extends Model({
+  deletedFileHashes: prop<string[]>(() => []).withSetter(),
   editorFilePaths: prop<string[]>(() => []).withSetter(),
   editorRootFolderIndex: prop<number>(0).withSetter(),
   editorRootFolderPath: prop<string>("").withSetter(),
@@ -51,6 +52,7 @@ export class ImportStore extends Model({
     createdAt,
     deleteOnImport,
     id,
+    ignorePrevDeleted,
     imports,
     rootFolderPath,
     tagIds = [],
@@ -59,6 +61,7 @@ export class ImportStore extends Model({
     createdAt: string;
     deleteOnImport: boolean;
     id: string;
+    ignorePrevDeleted: boolean;
     imports: FileImport[];
     rootFolderPath: string;
     tagIds?: string[];
@@ -70,6 +73,7 @@ export class ImportStore extends Model({
         createdAt,
         deleteOnImport,
         id,
+        ignorePrevDeleted,
         imports: imports.map((imp) => clone(imp)),
         rootFolderPath,
         startedAt: null,
@@ -81,6 +85,11 @@ export class ImportStore extends Model({
   @modelAction
   _deleteBatches(ids: string[]) {
     this.importBatches = this.importBatches.filter((batch) => !ids.includes(batch.id));
+  }
+
+  @modelAction
+  addDeletedFileHashes(hashes: string[]) {
+    this.deletedFileHashes = [...new Set(...this.deletedFileHashes, ...hashes)];
   }
 
   @modelAction
@@ -215,6 +224,7 @@ export class ImportStore extends Model({
     batches: {
       collectionTitle?: string;
       deleteOnImport: boolean;
+      ignorePrevDeleted: boolean;
       imports: FileImport[];
       rootFolderPath: string;
       tagIds?: string[];
@@ -222,6 +232,8 @@ export class ImportStore extends Model({
   ) {
     return yield* _await(
       handleErrors(async () => {
+        this.queue.clear();
+
         const createdAt = dayjs().toISOString();
 
         const batchRes = await trpc.createImportBatches.mutate(
@@ -312,13 +324,19 @@ export class ImportStore extends Model({
         }
 
         tagIds = [...new Set(tagIds)];
-        const tagIdsWithAncestors = tagIds.flatMap((id) =>
-          tagStore.getParentTags(tagStore.getById(id), true).map((t) => t.id)
-        );
+        const tagIdsWithAncestors = [
+          ...new Set([
+            ...tagIds,
+            ...tagIds.flatMap((id) =>
+              tagStore.getParentTags(tagStore.getById(id), true).map((t) => t.id)
+            ),
+          ]),
+        ];
 
         const copyRes = await copyFileForImport({
           deleteOnImport: batch.deleteOnImport,
           fileImport,
+          ignorePrevDeleted: batch.ignorePrevDeleted,
           targetDir: env.OUTPUT_DIR,
           tagIds,
           tagIdsWithAncestors,
@@ -328,6 +346,8 @@ export class ImportStore extends Model({
         const fileId = copyRes.file?.id ?? null;
         const status = !copyRes?.success
           ? "ERROR"
+          : copyRes?.isPrevDeleted
+          ? "DELETED"
           : copyRes?.isDuplicate
           ? "DUPLICATE"
           : "COMPLETE";
@@ -348,6 +368,16 @@ export class ImportStore extends Model({
         } catch (err) {
           console.error("Error updating import:", err);
         }
+      })
+    );
+  });
+
+  @modelFlow
+  loadDeletedFiles = _async(function* (this: ImportStore) {
+    return yield* _await(
+      handleErrors(async () => {
+        const res = await trpc.listDeletedFiles.mutate();
+        if (res.success) this.deletedFileHashes = res.data.map((f) => f.hash);
       })
     );
   });

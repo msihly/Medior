@@ -84,6 +84,9 @@ const trpcRouter = tRouter({
   editTag: tProc
     .input((input: unknown) => input as db.EditTagInput)
     .mutation(({ input }) => db.editTag(input)),
+  getDeletedFile: tProc
+    .input((input: unknown) => input as db.GetDeletedFileInput)
+    .mutation(({ input }) => db.getDeletedFile(input)),
   getFileByHash: tProc
     .input((input: unknown) => input as db.GetFileByHashInput)
     .mutation(({ input }) => db.getFileByHash(input)),
@@ -93,6 +96,7 @@ const trpcRouter = tRouter({
   importFile: tProc
     .input((input: unknown) => input as db.ImportFileInput)
     .mutation(({ input }) => db.importFile(input)),
+  listDeletedFiles: tProc.mutation(db.listDeletedFiles),
   listFilteredCollections: tProc
     .input((input: unknown) => input as db.ListFilteredCollectionsInput)
     .mutation(({ input }) => db.listFilteredCollections(input)),
@@ -154,7 +158,7 @@ export type TRPCRouter = typeof trpcRouter;
 export interface SocketEmitEvents {
   collectionCreated: (args: { collection: db.FileCollection }) => void;
   filesArchived: (args: { fileIds: string[] }) => void;
-  filesDeleted: (args: { fileIds: string[] }) => void;
+  filesDeleted: (args: { fileHashes: string[]; fileIds: string[] }) => void;
   filesUpdated: (args: { fileIds: string[]; updates: Partial<db.File> }) => void;
   fileTagsUpdated: (args: {
     addedTagIds: string[];

@@ -11,6 +11,7 @@ export class ImportBatch extends Model({
   createdAt: prop<string>(),
   deleteOnImport: prop<boolean>(),
   id: prop<string>(),
+  ignorePrevDeleted: prop<boolean>(),
   imports: prop<FileImport[]>(() => []),
   rootFolderPath: prop<string>(),
   startedAt: prop<string>(null),

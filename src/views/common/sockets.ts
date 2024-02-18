@@ -15,10 +15,11 @@ export const useSockets = ({ view }: UseSocketsProps) => {
   useEffect(() => {
     setupSocketIO();
 
-    socket.on("filesDeleted", ({ fileIds }) => {
+    socket.on("filesDeleted", ({ fileHashes, fileIds }) => {
       if (debug) console.debug("[Socket] filesDeleted", { fileIds });
       if (view === "carousel") carouselStore.removeFiles(fileIds);
       else {
+        if (view === "home") importStore.addDeletedFileHashes(fileHashes);
         if (fileCollectionStore.isManagerOpen) fileCollectionStore.listFilteredCollections();
         homeStore.loadFilteredFiles();
       }

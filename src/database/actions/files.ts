@@ -105,9 +105,26 @@ export const deleteFiles = ({ fileIds }: db.DeleteFilesInput) =>
       })
     );
 
-    await db.FileModel.deleteMany({ _id: { $in: fileIds } });
+    const fileHashes = (
+      await db.FileModel.find({ _id: { $in: fileIds } })
+        .select({ _id: 1, hash: 1 })
+        .lean()
+    ).map((f) => leanModelToJson<db.File>(f).hash);
 
-    socket.emit("filesDeleted", { fileIds });
+    const deletedHashesBulkOps = fileHashes.map((hash) => ({
+      updateOne: {
+        filter: { hash },
+        update: { $setOnInsert: { hash } },
+        upsert: true,
+      },
+    }));
+
+    await Promise.all([
+      db.FileModel.deleteMany({ _id: { $in: fileIds } }),
+      db.DeletedFileModel.bulkWrite(deletedHashesBulkOps),
+    ]);
+
+    socket.emit("filesDeleted", { fileHashes, fileIds });
   });
 
 export const detectFaces = async ({ imagePath }: db.DetectFacesInput) =>
@@ -188,6 +205,11 @@ export const editFileTags = ({
 
     if (withSub) socket.emit("fileTagsUpdated", { addedTagIds, batchId, fileIds, removedTagIds });
   });
+
+export const getDeletedFile = ({ hash }: db.GetDeletedFileInput) =>
+  handleErrors(async () =>
+    leanModelToJson<db.DeletedFile>(await db.DeletedFileModel.findOne({ hash }).lean())
+  );
 
 export const getFileByHash = ({ hash }: db.GetFileByHashInput) =>
   handleErrors(async () => leanModelToJson<db.File>(await db.FileModel.findOne({ hash }).lean()));
@@ -405,6 +427,11 @@ export const listFiles = ({ ids, withFaceModels = false }: db.ListFilesInput = {
     ]);
 
     return res;
+  });
+
+export const listDeletedFiles = () =>
+  handleErrors(async () => {
+    return (await db.DeletedFileModel.find().lean()).map((f) => leanModelToJson<db.DeletedFile>(f));
   });
 
 export const listFilesByTagIds = ({ tagIds }: db.ListFilesByTagIdsInput) =>
