@@ -2,7 +2,7 @@ import { observer } from "mobx-react-lite";
 import { useStores } from "store";
 import { FileBase, Text } from "components";
 import { CollectionTooltip } from ".";
-import { colors, makeClasses } from "utils";
+import { colors, makeClasses, round } from "utils";
 import { CSSObject } from "tss-react";
 
 export interface FileCollectionProps {
@@ -41,7 +41,7 @@ export const FileCollection = observer(({ height, id, width }: FileCollectionPro
           position="top-left"
           icon="Star"
           iconColor={colors.amber["600"]}
-          label={collection.rating}
+          label={round(collection.rating, 1)}
         />
 
         <FileBase.Chip
