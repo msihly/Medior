@@ -17,6 +17,8 @@ export const FileContainer = observer(() => {
 
   const { handleKeyPress } = useHotkeys({ view: "home" });
 
+  const isInitMount = useRef(true);
+
   const searchDeps = [
     homeStore.includeTagged,
     homeStore.includeUntagged,
@@ -36,7 +38,8 @@ export const FileContainer = observer(() => {
   }, [fileStore.page, ...searchDeps]);
 
   useEffect(() => {
-    homeStore.loadFilteredFiles({ page: 1 });
+    if (isInitMount.current) isInitMount.current = false;
+    else homeStore.loadFilteredFiles({ page: 1 });
   }, [...searchDeps]);
 
   const handlePageChange = (_, page: number) => homeStore.loadFilteredFiles({ page });

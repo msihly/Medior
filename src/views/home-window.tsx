@@ -21,7 +21,11 @@ export const HomeWindow = observer(() => {
       try {
         let perfStart = performance.now();
 
-        await Promise.all([importStore.loadImportBatches(), tagStore.loadTags()]);
+        await Promise.all([
+          homeStore.loadFilteredFiles({ page: 1 }),
+          importStore.loadImportBatches(),
+          tagStore.loadTags(),
+        ]);
 
         console.debug(`Data loaded into MobX in ${performance.now() - perfStart}ms.`);
         setIsLoading(false);

@@ -21,7 +21,7 @@ export const SearchWindow = observer(() => {
       try {
         let perfStart = performance.now();
 
-        await tagStore.loadTags();
+        await Promise.all([homeStore.loadFilteredFiles({ page: 1 }), tagStore.loadTags()]);
 
         console.debug(`Data loaded into MobX in ${performance.now() - perfStart}ms.`);
         setIsLoading(false);
