@@ -1,5 +1,6 @@
 import { ReactNode } from "react";
 import { observer } from "mobx-react-lite";
+import { ModelCreationData } from "mobx-keystone";
 import { FileImport } from "store";
 import { Chip, IconName, Tag, Text, TooltipWrapper, View } from "components";
 import { TagHierarchy } from ".";
@@ -9,7 +10,7 @@ export const IMPORT_LIST_ITEM_HEIGHT = 30;
 
 export interface ImportListItemProps {
   color?: string;
-  fileImport: FileImport;
+  fileImport: ModelCreationData<FileImport>;
   style?: React.CSSProperties;
 }
 

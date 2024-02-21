@@ -1,10 +1,11 @@
+import { ModelCreationData } from "mobx-keystone";
 import { FileImport } from "store";
 
 export type FlatFolderHierarchy = {
   collectionTitle?: string;
   folderName: string;
   folderNameParts: string[];
-  imports: FileImport[];
+  imports: ModelCreationData<FileImport>[];
   tags: TagToUpsert[];
 }[];
 

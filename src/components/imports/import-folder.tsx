@@ -1,5 +1,6 @@
 import path from "path";
 import { observer } from "mobx-react-lite";
+import { ModelCreationData } from "mobx-keystone";
 import { FileImport } from "store";
 import { FixedSizeList } from "react-window";
 import { Divider } from "@mui/material";
@@ -9,7 +10,7 @@ import { colors, makeClasses } from "utils";
 
 export interface ImportFolderListProps {
   collectionTitle?: string;
-  imports: FileImport[];
+  imports: ModelCreationData<FileImport>[];
   tags?: TagToUpsert[];
 }
 

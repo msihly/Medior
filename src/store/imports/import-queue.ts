@@ -217,7 +217,6 @@ export const handleIngest = async ({
 
     importStore.setEditorRootFolderPath(filePaths[0] ? path.dirname(filePaths[0]) : folderPaths[0]);
     importStore.setEditorRootFolderIndex(initialRootIndex);
-    importStore.setIsImportEditorOpen(true);
 
     importStore.setEditorFilePaths([
       ...(await Promise.all(folderPaths.map((f) => dirToFilePaths(f)))).flat(),
@@ -232,6 +231,8 @@ export const handleIngest = async ({
         ])
       ).flat()
     );
+
+    importStore.setIsImportEditorOpen(true);
   } catch (err) {
     toast.error("Error queuing imports");
     console.error(err);

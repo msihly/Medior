@@ -225,7 +225,7 @@ export class ImportStore extends Model({
       collectionTitle?: string;
       deleteOnImport: boolean;
       ignorePrevDeleted: boolean;
-      imports: FileImport[];
+      imports: ModelCreationData<FileImport>[];
       rootFolderPath: string;
       tagIds?: string[];
     }[]
@@ -240,7 +240,7 @@ export class ImportStore extends Model({
           batches.map((b) => ({
             ...b,
             createdAt,
-            imports: b.imports.map((imp) => imp.$ as ModelCreationData<FileImport>),
+            imports: b.imports,
             rootFolderPath: b.rootFolderPath,
             tagIds: b.tagIds ? [...new Set(b.tagIds)].flat() : [],
           }))

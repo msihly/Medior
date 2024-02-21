@@ -2,6 +2,7 @@ import path from "path";
 import { useEffect, useState } from "react";
 import { RegExMapType } from "database";
 import { observer } from "mobx-react-lite";
+import { ModelCreationData } from "mobx-keystone";
 import { FileImport, Tag, useStores } from "store";
 import { Divider } from "@mui/material";
 import {
@@ -97,7 +98,7 @@ export const ImportEditor = observer(() => {
     tagsToCreate,
     tagsToEdit,
   }: {
-    fileImport: FileImport;
+    fileImport: ModelCreationData<FileImport>;
     folderName: string;
     folderNameRegExMaps: RegExMaps;
     tagsToCreate: TagToUpsert[];
@@ -227,7 +228,7 @@ export const ImportEditor = observer(() => {
     const { diffMetaTagsToEdit, originalTag, upscaledTag } = await upsertDiffMetaTags();
 
     /** Directly update file imports with their own tags derived from RegEx maps and diffusion params. */
-    importStore.editorImports.forEach((imp) => {
+    const editorImports = importStore.editorImports.map((imp) => {
       const fileTagIds: string[] = [];
       const fileTagsToUpsert: TagToUpsert[] = [];
 
@@ -244,10 +245,12 @@ export const ImportEditor = observer(() => {
         fileTagsToUpsert.push(...diffFileTagsToUpsert);
       }
 
-      imp.update({ tagIds: [...new Set(fileTagIds)], tagsToUpsert: fileTagsToUpsert });
+      const updates = { tagIds: [...new Set(fileTagIds)], tagsToUpsert: fileTagsToUpsert };
+      imp.update(updates);
+      return { ...imp.$, ...updates };
     });
 
-    return diffMetaTagsToEdit;
+    return { diffMetaTagsToEdit, editorImports };
   };
 
   const getRegExMaps = (type: RegExMapType): RegExMaps =>
@@ -492,6 +495,7 @@ export const ImportEditor = observer(() => {
   };
 
   useEffect(() => {
+    if (isSaving) return;
     setIsLoading(true);
 
     setTimeout(async () => {
@@ -500,11 +504,11 @@ export const ImportEditor = observer(() => {
       const tagsToEdit: TagToUpsert[] = [];
 
       /* ---------------------------------- Files --------------------------------- */
-      const fileTagsToEdit = await fileToTagsAndDiffParams();
-      tagsToEdit.push(...fileTagsToEdit);
+      const { diffMetaTagsToEdit, editorImports } = await fileToTagsAndDiffParams();
+      tagsToEdit.push(...diffMetaTagsToEdit);
 
       /* --------------------------------- Folders -------------------------------- */
-      const flatFolderHierarchy = importStore.editorImports
+      const flatFolderHierarchy = editorImports
         .reduce((hierarchy, imp) => {
           const folderName = path.dirname(imp.path);
           const folder = hierarchy.find((f) => f.folderName === folderName);
@@ -549,6 +553,7 @@ export const ImportEditor = observer(() => {
     folderToTagsMode,
     importStore.editorImports,
     importStore.editorRootFolderIndex,
+    isSaving,
     withDelimiters,
     withDiffusionModel,
     withDiffusionParams,
