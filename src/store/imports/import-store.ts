@@ -314,6 +314,7 @@ export class ImportStore extends Model({
                   aliases: [...t.aliases],
                   label: t.label,
                   parentIds,
+                  withRegEx: t.withRegEx,
                 });
                 if (!res.success) throw new Error(res.error);
 
