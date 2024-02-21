@@ -351,10 +351,11 @@ export class TagStore extends Model({
   tagSearchOptsToIds(options: TagOption[], withDescArrays = false) {
     return options.reduce(
       (acc, cur) => {
+        const tag = this.getById(cur.id);
+        if (!tag) return acc;
+
         if (cur.searchType.includes("Desc")) {
-          const childTagIds = withDescArrays
-            ? this.getChildTags(this.getById(cur.id), true).map((t) => t.id)
-            : [];
+          const childTagIds = withDescArrays ? this.getChildTags(tag, true).map((t) => t.id) : [];
           const tagIds = [cur.id, ...childTagIds];
           if (cur.searchType === "excludeDesc") {
             acc["excludedDescTagIds"].push(cur.id);
@@ -366,6 +367,7 @@ export class TagStore extends Model({
         } else if (cur.searchType === "includeAnd") acc["requiredTagIds"].push(cur.id);
         else if (cur.searchType === "includeOr") acc["optionalTagIds"].push(cur.id);
         else if (cur.searchType === "exclude") acc["excludedTagIds"].push(cur.id);
+
         return acc;
       },
       {
