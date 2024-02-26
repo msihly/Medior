@@ -143,9 +143,7 @@ export class TagStore extends Model({
   ) {
     return yield* _await(
       handleErrors(async () => {
-        const origTag = this.getById(id);
-        const origLabel = origTag.label;
-        const origParentIds = [...this.getParentTags(origTag)].map((t) => t.id);
+        const origLabel = this.getById(id).label;
 
         const editRes = await trpc.editTag.mutate({
           aliases,
@@ -157,9 +155,6 @@ export class TagStore extends Model({
           withSub,
         });
         if (!editRes.success) throw new Error(editRes.error);
-
-        const countRes = await this.refreshTagCounts([...origParentIds, id], withSub);
-        if (!countRes.success) throw new Error(countRes.error);
 
         toast.success(`Tag '${origLabel}' edited`);
       })

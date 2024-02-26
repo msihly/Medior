@@ -210,7 +210,7 @@ export const deleteTag = ({ id }: db.DeleteTagInput) =>
       db.TagModel.deleteOne({ _id: id }),
     ]);
 
-    const countRes = await recalculateTagCounts({ tagIds: parentIds });
+    const countRes = await recalculateTagCounts({ tagIds: parentIds, withSub: true });
     if (!countRes.success) throw new Error(countRes.error);
 
     socket.emit("tagDeleted", { tagId: id });
@@ -229,12 +229,14 @@ export const editTag = ({
     const dateModified = dayjs().toISOString();
 
     const tag = await db.TagModel.findById(id);
+    const origChildIds = tag.childIds?.map((i) => i.toString()) ?? [];
+    const origParentIds = tag.parentIds?.map((i) => i.toString()) ?? [];
 
     const changedChildIds = childIds
-      ? bisectArrayChanges(tag.childIds?.map((i) => i.toString()) ?? [], childIds)
+      ? bisectArrayChanges(origChildIds, childIds)
       : { added: [], removed: [] };
     const changedParentIds = parentIds
-      ? bisectArrayChanges(tag.parentIds?.map((i) => i.toString()) ?? [], parentIds)
+      ? bisectArrayChanges(origParentIds, parentIds)
       : { added: [], removed: [] };
 
     const bulkWriteOps = await makeRelationsUpdateOps({
@@ -282,6 +284,7 @@ export const editTag = ({
       await Promise.all([
         db.regenCollTagAncestors(tagIdsFilter),
         db.regenFileTagAncestors(tagIdsFilter),
+        recalculateTagCounts({ tagIds: [id, ...origParentIds], withSub }),
       ]);
     }
 
@@ -369,7 +372,7 @@ export const mergeTags = ({
       await Promise.all([
         db.regenCollTagAncestors({ tagIds: [_tagIdToKeep] }),
         db.regenFileTagAncestors({ tagIds: [_tagIdToKeep] }),
-        recalculateTagCounts({ tagIds: tagIdsToUpdate }),
+        recalculateTagCounts({ tagIds: tagIdsToUpdate, withSub: true }),
       ]);
 
       socket.emit("tagDeleted", { tagId: tagIdToMerge });
