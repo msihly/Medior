@@ -30,14 +30,12 @@ const FileCollectionSchema = new Schema<FileCollection>({
   title: String,
 });
 
-FileCollectionSchema.index({ tagIds: 1, _id: 1 }, { unique: true });
-FileCollectionSchema.index({ tagIdsWithAncestors: 1, _id: 1 }, { unique: true });
-FileCollectionSchema.index({ tagIds: 1, tagIdsWithAncestors: 1, _id: 1 }, { unique: true });
-
 FileCollectionSchema.index({ dateCreated: 1, _id: 1 }, { unique: true });
 FileCollectionSchema.index({ dateModified: 1, _id: 1 }, { unique: true });
 FileCollectionSchema.index({ fileCount: 1, _id: 1 }, { unique: true });
 FileCollectionSchema.index({ rating: 1, _id: 1 }, { unique: true });
+FileCollectionSchema.index({ tagIds: 1, _id: 1 }, { unique: true });
+FileCollectionSchema.index({ tagIdsWithAncestors: 1, _id: 1 }, { unique: true });
 FileCollectionSchema.index({ title: 1, _id: 1 }, { unique: true });
 
 export const FileCollectionModel = model<FileCollection>("FileCollection", FileCollectionSchema);
