@@ -15,7 +15,7 @@ export const SearchWindow = observer(() => {
   useSockets({ view: "search" });
 
   useEffect(() => {
-    document.title = "Media Viewer // Search";
+    document.title = "Medior // Search";
 
     const loadDatabase = async () => {
       try {

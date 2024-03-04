@@ -22,7 +22,7 @@ export const CarouselWindow = observer(() => {
   useSockets({ view: "carousel" });
 
   useEffect(() => {
-    document.title = "Media Viewer // Carousel";
+    document.title = "Medior // Carousel";
 
     ipcRenderer.on(
       "init",

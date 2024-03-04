@@ -1,9 +1,9 @@
 {
-  "name": "media-viewer",
+  "name": "medior",
   "version": "2.0.0",
   "private": true,
   "author": "Mohamed Sihly",
-  "description": "Media Viewer",
+  "description": "Medior",
   "homepage": "./",
   "main": "extraResources/main.js",
   "icon": "public/favicon.ico",
@@ -99,8 +99,8 @@
     "ts-check": "tsc --noEmit"
   },
   "build": {
-    "appId": "com.msihly.media-viewer",
-    "executableName": "Media-Viewer",
+    "appId": "com.msihly.medior",
+    "executableName": "Medior",
     "extends": null,
     "extraMetadata": {
       "main": "build/extraResources/main.js"
@@ -118,9 +118,9 @@
       "build/**/*",
       "node_modules/**/*"
     ],
-    "productName": "Media Viewer",
+    "productName": "Medior",
     "win": {
-      "artifactName": "Media-Viewer.exe",
+      "artifactName": "Medior.exe",
       "icon": "build/app-icon.ico",
       "target": "portable"
     }

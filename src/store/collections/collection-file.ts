@@ -1,7 +1,7 @@
 import { Model, model, prop } from "mobx-keystone";
 import { File } from "store";
 
-@model("mediaViewer/FileCollectionFile")
+@model("medior/FileCollectionFile")
 export class FileCollectionFile extends Model({
   file: prop<File>(),
   /** id is required for SortableContext.items */

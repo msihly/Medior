@@ -8,7 +8,7 @@ import { HomeStore } from "./home";
 import { ImportStore } from "./imports";
 import { TagStore } from "./tags";
 
-@model("mediaViewer/RootStore")
+@model("medior/RootStore")
 export class RootStore extends Model({
   carouselStore: prop<CarouselStore>(),
   faceRecognitionStore: prop<FaceRecognitionStore>(),

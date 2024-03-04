@@ -42,7 +42,7 @@ export const sortFiles = <File>({
   return isDesc ? comparison : comparison * -1;
 };
 
-@model("mediaViewer/HomeStore")
+@model("medior/HomeStore")
 export class HomeStore extends Model({
   fileCardFit: prop<"contain" | "cover">(() => getConfig().file.fileCardFit).withSetter(),
   includeTagged: prop<boolean>(false).withSetter(),

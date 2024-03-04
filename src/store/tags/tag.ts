@@ -9,7 +9,7 @@ export interface RegExMap {
   types: RegExMapType[];
 }
 
-@model("mediaViewer/Tag")
+@model("medior/Tag")
 export class Tag extends Model({
   aliases: prop<string[]>(() => []),
   childIds: prop<string[]>(() => []),

@@ -19,7 +19,7 @@ import { toast } from "react-toastify";
 
 export type TagManagerMode = "create" | "edit" | "search";
 
-@model("mediaViewer/TagStore")
+@model("medior/TagStore")
 export class TagStore extends Model({
   activeTagId: prop<string>(null).withSetter(),
   isTagEditorOpen: prop<boolean>(false).withSetter(),
@@ -119,6 +119,7 @@ export class TagStore extends Model({
             : null,
         };
 
+        this._addTag(tag);
         toast.success(`Tag '${label}' created${withRegEx ? " with RegEx map" : ""}`);
 
         return tag;

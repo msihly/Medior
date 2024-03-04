@@ -1,7 +1,7 @@
 import { TagToUpsert } from "components";
 import { applySnapshot, getSnapshot, model, Model, modelAction, prop } from "mobx-keystone";
 
-@model("mediaViewer/FileImport")
+@model("medior/FileImport")
 export class FileImport extends Model({
   dateCreated: prop<string>(),
   diffusionParams: prop<string>(null),

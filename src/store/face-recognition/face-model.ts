@@ -3,7 +3,7 @@ import { _async, _await, Model, model, prop } from "mobx-keystone";
 import { TagOption } from "store";
 import { colors, objectToFloat32Array } from "utils";
 
-@model("mediaViewer/FaceModel")
+@model("medior/FaceModel")
 export class FaceModel extends Model({
   box: prop<{ height: number; width: number; x: number; y: number }>().withSetter(),
   /** JSON representation of Float32Array[] */

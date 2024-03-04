@@ -19,7 +19,7 @@ import { getConfig, handleErrors, makePerfLog, trpc } from "utils";
 import { toast } from "react-toastify";
 import { arrayMove } from "@alissavrk/dnd-kit-sortable";
 
-@model("mediaViewer/FileCollectionStore")
+@model("medior/FileCollectionStore")
 export class FileCollectionStore extends Model({
   activeCollectionId: prop<string>(null).withSetter(),
   activeFiles: prop<FileCollectionFile[]>(() => []).withSetter(),

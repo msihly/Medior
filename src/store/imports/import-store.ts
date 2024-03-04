@@ -32,7 +32,7 @@ export type ImportBatchInput = Omit<ModelCreationData<ImportBatch>, "imports"> &
   imports?: ModelCreationData<FileImport>[];
 };
 
-@model("mediaViewer/ImportStore")
+@model("medior/ImportStore")
 export class ImportStore extends Model({
   deletedFileHashes: prop<string[]>(() => []).withSetter(),
   editorFilePaths: prop<string[]>(() => []).withSetter(),

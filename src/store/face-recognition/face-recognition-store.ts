@@ -18,7 +18,7 @@ import { toast } from "react-toastify";
 
 const DISTANCE_THRESHOLD = 0.45;
 
-@model("mediaViewer/FaceRecognitionStore")
+@model("medior/FaceRecognitionStore")
 export class FaceRecognitionStore extends Model({
   activeFileId: prop<string | null>(null).withSetter(),
   detectedFaces: prop<FaceModel[]>(() => []).withSetter(),

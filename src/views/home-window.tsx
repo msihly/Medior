@@ -15,7 +15,7 @@ export const HomeWindow = observer(() => {
   useSockets({ view: "home" });
 
   useEffect(() => {
-    document.title = "Media Viewer // Home";
+    document.title = "Medior // Home";
 
     const loadDatabase = async () => {
       try {

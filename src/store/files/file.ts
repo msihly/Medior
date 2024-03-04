@@ -10,7 +10,7 @@ import {
 } from "mobx-keystone";
 import { dayjs, getConfig } from "utils";
 
-@model("mediaViewer/File")
+@model("medior/File")
 export class File extends Model({
   dateCreated: prop<string>(),
   dateModified: prop<string>(),

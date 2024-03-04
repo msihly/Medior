@@ -5,7 +5,7 @@ export type FileIdIndex = {
   index: number;
 };
 
-@model("mediaViewer/FileCollection")
+@model("medior/FileCollection")
 export class FileCollection extends Model({
   dateCreated: prop<string>(null),
   dateModified: prop<string>(null),

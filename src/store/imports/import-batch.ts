@@ -3,7 +3,7 @@ import { applySnapshot, getSnapshot, model, Model, modelAction, prop } from "mob
 import { FileImport } from ".";
 import { dayjs, DayJsInput } from "utils";
 
-@model("mediaViewer/ImportBatch")
+@model("medior/ImportBatch")
 export class ImportBatch extends Model({
   collectionId: prop<string>(null).withSetter(),
   collectionTitle: prop<string>(null).withSetter(),

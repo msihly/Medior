@@ -3,7 +3,7 @@ import { computed } from "mobx";
 import { Model, _async, _await, getRootStore, model, modelAction, prop } from "mobx-keystone";
 import { RootStore } from "store";
 
-@model("mediaViewer/CarouselStore")
+@model("medior/CarouselStore")
 export class CarouselStore extends Model({
   activeFileId: prop<string>("").withSetter(),
   selectedFileIds: prop<string[]>(() => []).withSetter(),

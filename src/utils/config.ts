@@ -87,8 +87,8 @@ export const DEFAULT_CONFIG: Config = {
     withNewTagsToRegEx: true,
   },
   mongo: {
-    dbPath: path.resolve("MongoDB", "media-viewer"),
-    outputDir: path.resolve("output_dir"),
+    dbPath: path.resolve("MongoDB"),
+    outputDir: path.resolve("FileStorage"),
   },
   ports: {
     db: 27070,

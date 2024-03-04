@@ -34,7 +34,7 @@ import {
 } from "utils";
 import { toast } from "react-toastify";
 
-@model("mediaViewer/FileStore")
+@model("medior/FileStore")
 export class FileStore extends Model({
   activeFileId: prop<string | null>(null).withSetter(),
   files: prop<File[]>(() => []),
