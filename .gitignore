@@ -19,6 +19,7 @@ extraResources/
 *.env
 *.env.*
 env.*
+config.json
 MongoDB
 npm-debug.log*
 .vscode/

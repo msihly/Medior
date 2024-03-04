@@ -2,7 +2,7 @@ import { useState } from "react";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
 import { Chip, Text, Tooltip, View } from "components";
-import { formatBytes, makeClasses, VIDEO_EXT_REG_EXP } from "utils";
+import { formatBytes, getConfig, makeClasses } from "utils";
 import { toast } from "react-toastify";
 
 export const SelectedFilesInfo = observer(() => {
@@ -23,9 +23,11 @@ export const SelectedFilesInfo = observer(() => {
       if (!res?.success) throw new Error(res.error);
       const selectedFiles = res.data;
 
+      const videoExtRegExp = new RegExp(`${getConfig().file.videoTypes.join("|")}`, "i");
+
       const [images, videos, size] = selectedFiles.reduce(
         (acc, cur) => {
-          acc[VIDEO_EXT_REG_EXP.test(cur.ext) ? 1 : 0]++;
+          acc[videoExtRegExp.test(cur.ext) ? 1 : 0]++;
           acc[2] += cur.size;
           return acc;
         },

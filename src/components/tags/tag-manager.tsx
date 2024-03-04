@@ -16,7 +16,7 @@ import {
   Text,
   View,
 } from "components";
-import { colors, makeClasses } from "utils";
+import { CONSTANTS, colors, makeClasses } from "utils";
 
 export const TagManager = observer(() => {
   const { css } = useClasses(null);
@@ -150,12 +150,7 @@ export const TagManager = observer(() => {
           />
 
           <SortMenu
-            rows={[
-              { label: "Count", attribute: "count", icon: "Numbers" },
-              { label: "Date Modified", attribute: "dateModified", icon: "DateRange" },
-              { label: "Date Created", attribute: "dateCreated", icon: "DateRange" },
-              { label: "Label", attribute: "label", icon: "Label" },
-            ]}
+            rows={CONSTANTS.SORT_MENU_OPTS.TAG_SEARCH}
             value={tagStore.tagManagerSort}
             setValue={setTagManagerSort}
             color={colors.button.darkGrey}

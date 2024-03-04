@@ -21,13 +21,15 @@ import {
   FileSearchFile,
   Input,
   Modal,
+  SortMenu,
+  SortMenuProps,
   SortedFiles,
   Tag,
   TagInput,
   Text,
   View,
 } from "components";
-import { colors, makeClasses } from "utils";
+import { CONSTANTS, colors, makeClasses } from "utils";
 import { toast } from "react-toastify";
 
 export const FileCollectionEditor = observer(() => {
@@ -40,9 +42,9 @@ export const FileCollectionEditor = observer(() => {
   const [draggedFileId, setDraggedFileId] = useState<string>(null);
   const [isAddingFiles, setIsAddingFiles] = useState(false);
   const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
+  const [isConfirmDiscardOpen, setIsConfirmDiscardOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [isConfirmDiscardOpen, setIsConfirmDiscardOpen] = useState(false);
   const [title, setTitle] = useState<string>(fileCollectionStore.activeCollection?.title);
 
   useEffect(() => {
@@ -67,7 +69,7 @@ export const FileCollectionEditor = observer(() => {
         return fileCollectionStore.setEditorSearchResults([]);
       await fileCollectionStore.loadSearchResults();
     })();
-  }, [fileCollectionStore.editorSearchValue]);
+  }, [fileCollectionStore.editorSearchValue, JSON.stringify(fileCollectionStore.editorSearchSort)]);
 
   const confirmClose = () => {
     if (fileCollectionStore.hasUnsavedChanges) setIsConfirmDiscardOpen(true);
@@ -150,6 +152,9 @@ export const FileCollectionEditor = observer(() => {
     }
   };
 
+  const handleSearchSortChange = (val: SortMenuProps["value"]) =>
+    fileCollectionStore.setEditorSearchSort(val);
+
   const handleTitleChange = (val: string) => {
     fileCollectionStore.setHasUnsavedChanges(true);
     setTitle(val);
@@ -196,6 +201,14 @@ export const FileCollectionEditor = observer(() => {
                 onChange={(val) => fileCollectionStore.setEditorSearchValue(val)}
                 hasSearchMenu
                 margins={{ bottom: "0.5rem" }}
+              />
+
+              <SortMenu
+                rows={CONSTANTS.SORT_MENU_OPTS.FILE_SEARCH}
+                value={fileCollectionStore.editorSearchSort}
+                setValue={handleSearchSortChange}
+                color={colors.button.darkGrey}
+                width="100%"
               />
 
               <View column className={css.searchResults}>

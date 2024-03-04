@@ -8,7 +8,7 @@ import {
   ModelCreationData,
   prop,
 } from "mobx-keystone";
-import { ANIMATED_EXT_REG_EXP, dayjs, VIDEO_EXT_REG_EXP } from "utils";
+import { dayjs, getConfig } from "utils";
 
 @model("mediaViewer/File")
 export class File extends Model({
@@ -59,12 +59,14 @@ export class File extends Model({
   /* ----------------------------- GETTERS ----------------------------- */
   @computed
   get isAnimated() {
-    return ANIMATED_EXT_REG_EXP.test(this.ext);
+    const regExp = new RegExp(`gif|${getConfig().file.videoTypes.join("|")}`, "i");
+    return regExp.test(this.ext);
   }
 
   @computed
   get isVideo() {
-    return VIDEO_EXT_REG_EXP.test(this.ext);
+    const regExp = new RegExp(`${getConfig().file.videoTypes.join("|")}`, "i");
+    return regExp.test(this.ext);
   }
 
   @computed

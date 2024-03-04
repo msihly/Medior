@@ -1,6 +1,6 @@
 import path from "path";
 import ffmpeg from "fluent-ffmpeg";
-import { CONSTANTS, THUMB_WIDTH, fractionStringToNumber, range } from ".";
+import { CONSTANTS, fractionStringToNumber, range } from ".";
 
 interface VideoInfo {
   duration: number;
@@ -41,7 +41,7 @@ export const generateFramesThumbnail = async (
 ) => {
   try {
     duration ??= (await getVideoInfo(inputPath))?.duration;
-    const skipDuration = duration * CONSTANTS.THUMB_FRAME_SKIP_PERCENT;
+    const skipDuration = duration * CONSTANTS.THUMB.FRAME_SKIP_PERCENT;
     const frameInterval = (duration - skipDuration) / numOfFrames;
     const frameIndices = range(numOfFrames);
 
@@ -58,7 +58,7 @@ export const generateFramesThumbnail = async (
               .input(inputPath)
               .inputOptions([`-ss ${timestamp}`])
               .outputOptions([
-                `-vf scale=${THUMB_WIDTH}:-1:force_original_aspect_ratio=increase,crop=min(iw\\,${THUMB_WIDTH}):ih`,
+                `-vf scale=${CONSTANTS.THUMB.WIDTH}:-1:force_original_aspect_ratio=increase,crop=min(iw\\,${CONSTANTS.THUMB.WIDTH}):ih`,
                 `-vframes 1`,
               ])
               .output(filePaths[idx])

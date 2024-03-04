@@ -23,13 +23,13 @@ import {
 } from "database";
 import { File } from ".";
 import {
+  CONSTANTS,
   dayjs,
   generateFramesThumbnail,
   getVideoInfo,
   handleErrors,
   PromiseQueue,
   splitArray,
-  THUMB_WIDTH,
   trpc,
 } from "utils";
 import { toast } from "react-toastify";
@@ -236,7 +236,9 @@ export class FileStore extends Model({
 
           await (file.isAnimated
             ? generateFramesThumbnail(file.path, dirPath, hash, videoInfo?.duration)
-            : sharp(file.path, { failOn: "none" }).resize(null, THUMB_WIDTH).toFile(thumbPaths[0]));
+            : sharp(file.path, { failOn: "none" })
+                .resize(null, CONSTANTS.THUMB.WIDTH)
+                .toFile(thumbPaths[0]));
 
           updates["thumbPaths"] = thumbPaths;
         }

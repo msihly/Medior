@@ -1,7 +1,7 @@
 import { app, BrowserWindow, ipcMain, screen } from "electron";
 import path from "path";
 import { readFile } from "fs/promises";
-import { dayjs, logToFile, setLogsPath } from "./utils";
+import { dayjs, loadConfig, logToFile, setLogsPath, setupTRPC } from "./utils";
 
 const isPackaged = app.isPackaged;
 const isBundled = isPackaged || !!process.env.BUILD_DEV;
@@ -17,8 +17,10 @@ app.setPath("userData", path.resolve(folderPath, "userData"));
 const logsDir = path.resolve(folderPath, "..", "logs", dayjs().format("YYYY-MM-DD"));
 const logsPath = path.resolve(logsDir, `${dayjs().format("HH[h]mm[m]ss[s]")}.log`);
 app.setAppLogsPath(logsDir);
-
 ipcMain.handle("getLogsPath", () => logsPath);
+
+const configPath = path.resolve(folderPath, "..", "config.json");
+ipcMain.handle("getConfigPath", () => configPath);
 
 /* ------------------------------- BEGIN - MAIN WINDOW ------------------------------ */
 let mainWindow = null;
@@ -58,6 +60,8 @@ const createMainWindow = async () => {
 
 app.whenReady().then(async () => {
   await setLogsPath(logsPath);
+  await loadConfig(configPath);
+  setupTRPC();
   return createMainWindow();
 });
 
@@ -135,12 +139,7 @@ const createCarouselWindow = async ({ fileId, height, selectedFileIds, width }) 
       },
     });
 
-    /** Use dimensions of file as window size, or maximize if too large */
-    if (
-      (winWidth > screenWidth * 0.8 && winHeight > screenHeight * 0.5) ||
-      (winWidth > screenWidth * 0.5 && winHeight > screenHeight * 0.8)
-    )
-      carouselWindow.maximize();
+    carouselWindow.maximize();
 
     const remoteMain = await import("@electron/remote/main");
     remoteMain.enable(carouselWindow.webContents);

@@ -14,7 +14,7 @@ import * as db from "database";
 import { RootStore } from "store";
 import { SortMenuProps } from "components";
 import { Tag, TagOption } from ".";
-import { dayjs, handleErrors, PromiseQueue, regexEscape, trpc } from "utils";
+import { dayjs, getConfig, handleErrors, PromiseQueue, regexEscape, trpc } from "utils";
 import { toast } from "react-toastify";
 
 export type TagManagerMode = "create" | "edit" | "search";
@@ -35,10 +35,9 @@ export class TagStore extends Model({
   taggerBatchId: prop<string | null>(null).withSetter(),
   taggerFileIds: prop<string[]>(() => []).withSetter(),
   tagManagerRegExMode: prop<"any" | "hasRegEx" | "hasNoRegEx">("any").withSetter(),
-  tagManagerSort: prop<SortMenuProps["value"]>(() => ({
-    isDesc: true,
-    key: "dateCreated",
-  })).withSetter(),
+  tagManagerSort: prop<SortMenuProps["value"]>(
+    () => getConfig().tags.managerSearchSort
+  ).withSetter(),
   tags: prop<Tag[]>(() => []),
 }) {
   countsRefreshQueue = new PromiseQueue();

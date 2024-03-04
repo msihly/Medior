@@ -14,7 +14,7 @@ import {
   View,
 } from "components";
 import { DisplayedCollections, FileCollection } from ".";
-import { colors, makeClasses } from "utils";
+import { CONSTANTS, colors, makeClasses } from "utils";
 import { toast } from "react-toastify";
 import Color from "color";
 
@@ -153,16 +153,11 @@ export const FileCollectionManager = observer(() => {
 
             <View column className={css.container}>
               <SortMenu
-                rows={[
-                  { label: "Date Modified", attribute: "dateModified", icon: "DateRange" },
-                  { label: "Date Created", attribute: "dateCreated", icon: "DateRange" },
-                  { label: "File Count", attribute: "fileCount", icon: "Numbers" },
-                  { label: "Rating", attribute: "rating", icon: "Star" },
-                  { label: "Title", attribute: "title", icon: "Title" },
-                ]}
+                rows={CONSTANTS.SORT_MENU_OPTS.COLLECTION_SEARCH}
                 value={fileCollectionStore.managerSearchSort}
                 setValue={handleSortChange}
                 color={colors.button.darkGrey}
+                width="100%"
                 margins={{ bottom: "0.5rem" }}
               />
 

@@ -1,4 +1,3 @@
-import path from "path";
 import fs from "fs/promises";
 import killPort from "kill-port";
 import { MongoMemoryReplSet } from "mongodb-memory-server";
@@ -7,40 +6,154 @@ import { initTRPC } from "@trpc/server";
 import { createHTTPServer } from "@trpc/server/adapters/standalone";
 import { Server } from "socket.io";
 import * as db from "./database";
-import { CONSTANTS, logToFile, setupSocketIO } from "./utils";
-import env from "./env";
+import { CONSTANTS, getConfig, logToFile, setupSocketIO, sleep } from "./utils";
 
 /* ----------------------------- DATABASE SERVER ---------------------------- */
+let mongoServer: MongoMemoryReplSet;
+
 const createDbServer = async () => {
-  logToFile("debug", "Creating Mongo server...");
-  const dbPath = env.DB_PATH || path.join(path.resolve(), "MongoDB", "media-viewer");
-  const port = +env.DB_PORT || 27070;
+  const config = getConfig();
+  const dbPath = config.mongo.dbPath;
+  const port = config.ports.db;
 
-  const dbPathExists = await fs.stat(dbPath).catch(() => false);
-  if (!dbPathExists) await fs.mkdir(dbPath, { recursive: true });
+  try {
+    const dbPathExists = await fs.stat(dbPath).catch(() => false);
+    if (!dbPathExists) await fs.mkdir(dbPath, { recursive: true });
+  } catch (err) {
+    logToFile("error", "Error creating database path:", err);
+  }
 
-  const mongoServer = await MongoMemoryReplSet.create({
-    instanceOpts: [{ dbPath, port, storageEngine: "wiredTiger" }],
-    replSet: { dbName: "media-viewer", name: "rs0" },
-  });
+  if (mongoServer) {
+    try {
+      logToFile("debug", "Stopping existing Mongo server...");
+      await Mongoose.disconnect();
+      await mongoServer.stop();
+      await killPort(port);
+      logToFile("debug", "Existing Mongo server stopped.");
+      await sleep(1000);
+    } catch (err) {
+      logToFile("error", "Error stopping existing Mongo server:", err);
+    }
+  }
 
-  const databaseUri = mongoServer.getUri();
-  logToFile("debug", "Mongo server created:", databaseUri);
+  try {
+    logToFile("debug", `Creating database server on port ${port} from path ${dbPath}...`);
 
-  Mongoose.set("strictQuery", true);
+    mongoServer = await MongoMemoryReplSet.create({
+      instanceOpts: [{ dbPath, port, storageEngine: "wiredTiger" }],
+      replSet: { dbName: "media-viewer", name: "rs0" },
+    });
+  } catch (err) {
+    logToFile("error", "Error creating Mongo server:", err);
+  }
 
-  logToFile("debug", "Connecting to database:", databaseUri, "...");
-  await Mongoose.connect(databaseUri, CONSTANTS.MONGOOSE_OPTS);
-  logToFile("debug", "Connected to database.");
+  try {
+    Mongoose.set("strictQuery", true);
 
-  // logToFile("debug", "Creating database indexes...");
+    const databaseUri = mongoServer.getUri();
+    logToFile("debug", "Connecting to database:", databaseUri);
+    await Mongoose.connect(databaseUri, CONSTANTS.MONGOOSE_OPTS);
+    logToFile("debug", "Connected to database.");
+  } catch (err) {
+    logToFile("error", "Error connecting to database:", err);
+  }
+
   // await db.FileModel.ensureIndexes();
   // logToFile("debug", "Database indexes created.");
 
-  // logToFile("debug", "Syncing database indexes...");
   // await Mongoose.syncIndexes();
   // logToFile("debug", "Database indexes synced.");
 };
+
+/* ------------------------------- tRPC SERVER ------------------------------ */
+let server: ReturnType<typeof createHTTPServer>;
+
+const createTRPCServer = async () => {
+  const config = getConfig();
+  const serverPort = config.ports.server;
+
+  try {
+    logToFile("debug", `Creating tRPC server on port ${serverPort}...`);
+    if (server) {
+      server.server.close(() => logToFile("debug", `Server on port ${serverPort} closed.`));
+      await sleep(1000);
+    }
+
+    server = createHTTPServer({ router: trpcRouter });
+    server.listen(
+      serverPort,
+      // @ts-expect-error
+      () => logToFile("debug", `tRPC server listening on port ${serverPort}.`)
+    );
+  } catch (err) {
+    logToFile("error", "Error creating tRPC server:", err);
+  }
+};
+
+/* ---------------------------- SOCKET.IO SERVER ---------------------------- */
+let io: Server;
+
+const createSocketIOServer = async () => {
+  const config = getConfig();
+  const socketPort = config.ports.socket;
+
+  try {
+    logToFile("debug", `Creating socket server on port ${socketPort}...`);
+    if (io) {
+      io.close(() => logToFile("debug", `Socket server on port ${socketPort} closed.`));
+      await sleep(1000);
+    }
+
+    io = new Server<SocketEvents, SocketEvents>(socketPort);
+    io.on("connection", (socket) => {
+      logToFile("debug", `Socket server listening on port ${socketPort}.`);
+      socket.emit("connected");
+
+      const socketEvents: SocketEmitEvent[] = [
+        "collectionCreated",
+        "filesArchived",
+        "filesDeleted",
+        "filesUpdated",
+        "fileTagsUpdated",
+        "reloadFileCollections",
+        "reloadFiles",
+        "reloadImportBatches",
+        "reloadRegExMaps",
+        "reloadTags",
+        "tagCreated",
+        "tagDeleted",
+        "tagsUpdated",
+      ];
+
+      socketEvents.forEach((event) =>
+        socket.on(event, (...args: any[]) => {
+          socket.broadcast.emit(event, ...args);
+        })
+      );
+    });
+
+    setupSocketIO();
+  } catch (err) {
+    logToFile("error", "Error creating socket server:", err);
+  }
+};
+
+/* ----------------------------- START SERVERS ----------------------------- */
+const startServers = async (
+  { withDatabase, withServer, withSocket }: db.StartServersInput = {
+    withDatabase: true,
+    withServer: true,
+    withSocket: true,
+  }
+) => {
+  if (withDatabase) await createDbServer();
+  if (withServer) await createTRPCServer();
+  if (withSocket) await createSocketIOServer();
+
+  logToFile("debug", "Servers created.");
+};
+
+startServers();
 
 /* ----------------------------- API / tRPC ROUTER ------------------------------ */
 const t = initTRPC.create();
@@ -127,6 +240,9 @@ const trpcRouter = tRouter({
   refreshTagRelations: tProc
     .input((input: unknown) => input as db.RefreshTagRelationsInput)
     .mutation(({ input }) => db.refreshTagRelations(input)),
+  reloadServers: tProc
+    .input((input: unknown) => input as db.StartServersInput)
+    .mutation(({ input }) => startServers(input)),
   setFileFaceModels: tProc
     .input((input: unknown) => input as db.SetFileFaceModelsInput)
     .mutation(({ input }) => db.setFileFaceModels(input)),
@@ -154,7 +270,7 @@ const trpcRouter = tRouter({
 });
 export type TRPCRouter = typeof trpcRouter;
 
-/* ----------------------------- CREATE SERVER ----------------------------- */
+/* ------------------------------ SOCKET ROUTER ----------------------------- */
 export interface SocketEmitEvents {
   collectionCreated: (args: { collection: db.FileCollection }) => void;
   filesArchived: (args: { fileIds: string[] }) => void;
@@ -181,59 +297,3 @@ export type SocketEmitEvent = keyof SocketEmitEvents;
 export interface SocketEvents extends SocketEmitEvents {
   connected: () => void;
 }
-
-let io: Server, server: ReturnType<typeof createHTTPServer>;
-
-const startServers = async () => {
-  logToFile("debug", "Creating database server...");
-  await createDbServer();
-  logToFile("debug", "Database server created.");
-
-  logToFile("debug", "Creating tRPC server...");
-  server = createHTTPServer({ router: trpcRouter });
-
-  const serverPort = +env.SERVER_PORT || 3334;
-  await killPort(serverPort);
-
-  // @ts-expect-error
-  server.listen(serverPort, () =>
-    logToFile("debug", `tRPC server listening on port ${serverPort}...`)
-  );
-
-  const socketPort = +env.SOCKET_PORT || 3335;
-  await killPort(socketPort);
-  io = new Server<SocketEvents, SocketEvents>(+env.SOCKET_PORT || 3335);
-
-  io.on("connection", (socket) => {
-    logToFile("debug", `Socket server listening on port ${socketPort}.`);
-    socket.emit("connected");
-
-    const socketEvents: SocketEmitEvent[] = [
-      "collectionCreated",
-      "filesArchived",
-      "filesDeleted",
-      "filesUpdated",
-      "fileTagsUpdated",
-      "reloadFileCollections",
-      "reloadFiles",
-      "reloadImportBatches",
-      "reloadRegExMaps",
-      "reloadTags",
-      "tagCreated",
-      "tagDeleted",
-      "tagsUpdated",
-    ];
-
-    socketEvents.forEach((event) =>
-      socket.on(event, (...args: any[]) => {
-        socket.broadcast.emit(event, ...args);
-      })
-    );
-  });
-
-  setupSocketIO();
-
-  logToFile("debug", "Servers created.");
-};
-
-startServers();

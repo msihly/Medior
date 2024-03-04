@@ -1,3 +1,4 @@
+import { SortMenuProps } from "components";
 import {
   Model,
   _async,
@@ -9,17 +10,7 @@ import {
   prop,
 } from "mobx-keystone";
 import { RootStore, TagOption } from "store";
-import {
-  CONSTANTS,
-  IMAGE_TYPES,
-  ImageType,
-  VIDEO_TYPES,
-  VideoType,
-  dayjs,
-  handleErrors,
-  makePerfLog,
-  trpc,
-} from "utils";
+import { dayjs, getConfig, handleErrors, ImageType, makePerfLog, trpc, VideoType } from "utils";
 
 const NUMERICAL_ATTRIBUTES = ["count", "duration", "height", "rating", "size", "width"];
 
@@ -53,24 +44,30 @@ export const sortFiles = <File>({
 
 @model("mediaViewer/HomeStore")
 export class HomeStore extends Model({
-  fileCardFit: prop<"contain" | "cover">("contain").withSetter(),
+  fileCardFit: prop<"contain" | "cover">(() => getConfig().file.fileCardFit).withSetter(),
   includeTagged: prop<boolean>(false).withSetter(),
   includeUntagged: prop<boolean>(false).withSetter(),
   isArchiveOpen: prop<boolean>(false).withSetter(),
   isDraggingIn: prop<boolean>(false).withSetter(),
   isDraggingOut: prop<boolean>(false).withSetter(),
   isDrawerOpen: prop<boolean>(true).withSetter(),
+  isSettingsOpen: prop<boolean>(false).withSetter(),
+  isSettingsLoading: prop<boolean>(false).withSetter(),
   searchValue: prop<TagOption[]>(() => []).withSetter(),
   selectedImageTypes: prop<SelectedImageTypes>(
-    () => Object.fromEntries(IMAGE_TYPES.map((ext) => [ext, true])) as SelectedImageTypes
+    () =>
+      Object.fromEntries(
+        getConfig().file.imageTypes.map((ext) => [ext, true])
+      ) as SelectedImageTypes
   ),
   selectedVideoTypes: prop<SelectedVideoTypes>(
-    () => Object.fromEntries(VIDEO_TYPES.map((ext) => [ext, true])) as SelectedVideoTypes
+    () =>
+      Object.fromEntries(
+        getConfig().file.videoTypes.map((ext) => [ext, true])
+      ) as SelectedVideoTypes
   ),
-  sortValue: prop<{ isDesc: boolean; key: string }>(() => ({
-    isDesc: true,
-    key: "dateCreated",
-  })).withSetter(),
+  settingsHasUnsavedChanges: prop<boolean>(false).withSetter(),
+  sortValue: prop<SortMenuProps["value"]>(() => getConfig().file.searchSort).withSetter(),
 }) {
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
   @modelAction
@@ -92,33 +89,22 @@ export class HomeStore extends Model({
   @modelFlow
   getShiftSelectedFiles = _async(function* (
     this: HomeStore,
-    { id, rootStore, selectedIds }: { id: string; rootStore: RootStore; selectedIds: string[] }
+    { id, selectedIds }: { id: string; selectedIds: string[] }
   ) {
     return yield* _await(
       handleErrors(async () => {
+        const rootStore = getRootStore<RootStore>(this);
         const { fileStore, tagStore } = rootStore;
 
-        const {
-          excludedDescTagIds,
-          excludedTagIds,
-          optionalTagIds,
-          requiredDescTagIds,
-          requiredTagIds,
-        } = tagStore.tagSearchOptsToIds(this.searchValue);
-
         const clickedIndex =
-          (fileStore.page - 1) * CONSTANTS.FILE_COUNT +
+          (fileStore.page - 1) * getConfig().file.searchFileCount +
           fileStore.files.findIndex((f) => f.id === id);
 
         const res = await trpc.getShiftSelectedFiles.mutate({
           ...this.getFilterProps(),
+          ...tagStore.tagSearchOptsToIds(this.searchValue),
           clickedId: id,
           clickedIndex,
-          excludedDescTagIds,
-          excludedTagIds,
-          optionalTagIds,
-          requiredDescTagIds,
-          requiredTagIds,
           selectedIds,
         });
         if (!res.success) throw new Error(res.error);
@@ -128,32 +114,20 @@ export class HomeStore extends Model({
   });
 
   @modelFlow
-  listIdsForCarousel = _async(function* (
-    this: HomeStore,
-    { id, rootStore }: { id: string; rootStore: RootStore }
-  ) {
+  listIdsForCarousel = _async(function* (this: HomeStore) {
     return yield* _await(
       handleErrors(async () => {
+        const rootStore = getRootStore<RootStore>(this);
         const { fileStore, tagStore } = rootStore;
-
-        const { excludedDescTagIds, excludedTagIds, optionalTagIds, requiredDescTagIds, requiredTagIds } =
-          tagStore.tagSearchOptsToIds(this.searchValue);
-
-        if (!id) throw new Error("Invalid ID provided");
 
         const res = await trpc.listFileIdsForCarousel.mutate({
           ...this.getFilterProps(),
-          excludedDescTagIds,
-          excludedTagIds,
-          optionalTagIds,
+          ...tagStore.tagSearchOptsToIds(this.searchValue),
           page: fileStore.page,
-          pageSize: CONSTANTS.FILE_COUNT,
-          requiredDescTagIds,
-          requiredTagIds,
+          pageSize: getConfig().file.searchFileCount,
         });
         if (!res.success) throw new Error(res.error);
         if (!res.data?.length) throw new Error("No files found");
-
         return res.data;
       })
     );
@@ -164,30 +138,17 @@ export class HomeStore extends Model({
     return yield* _await(
       handleErrors(async () => {
         const debug = false;
+        const { perfLog, perfLogTotal } = makePerfLog("[LFF]");
 
         const rootStore = getRootStore<RootStore>(this);
         if (!rootStore) throw new Error("RootStore not found");
         const { fileStore, tagStore } = rootStore;
 
-        const { perfLog, perfLogTotal } = makePerfLog("[LFF]");
-
-        const {
-          excludedDescTagIds,
-          excludedTagIds,
-          optionalTagIds,
-          requiredDescTagIds,
-          requiredTagIds,
-        } = tagStore.tagSearchOptsToIds(this.searchValue);
-
         const filteredRes = await trpc.listFilteredFiles.mutate({
           ...this.getFilterProps(),
-          excludedDescTagIds,
-          excludedTagIds,
-          optionalTagIds,
+          ...tagStore.tagSearchOptsToIds(this.searchValue),
           page: page ?? fileStore.page,
-          pageSize: CONSTANTS.FILE_COUNT,
-          requiredDescTagIds,
-          requiredTagIds,
+          pageSize: getConfig().file.searchFileCount,
         });
         if (!filteredRes.success) throw new Error(filteredRes.error);
 

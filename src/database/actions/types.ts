@@ -3,6 +3,13 @@ import { FileImport, SelectedImageTypes, SelectedVideoTypes } from "store";
 import { ModelCreationData } from "mobx-keystone";
 import { ImportStatus } from "components";
 
+/* --------------------------- DATABASE / SERVERS --------------------------- */
+export type StartServersInput = {
+  withDatabase?: boolean;
+  withServer?: boolean;
+  withSocket?: boolean;
+}
+
 /* -------------------------------- COLLECTIONS ------------------------------- */
 export type CreateCollectionFilterPipelineInput = {
   excludedDescTagIds: string[];

@@ -3,7 +3,7 @@ import { observer } from "mobx-react-lite";
 import { File, useStores } from "store";
 import { Icon, Text, View } from "components";
 import { ContextMenu, FileBase } from ".";
-import { colors, dayjs, openCarouselWindow } from "utils";
+import { colors, dayjs, getConfig, openCarouselWindow } from "utils";
 import { CSSObject } from "tss-react";
 
 interface FileCardProps {
@@ -15,7 +15,8 @@ interface FileCardProps {
 }
 
 export const FileCard = observer(({ disabled, file, height, id, width }: FileCardProps) => {
-  const rootStore = useStores();
+  const config = getConfig();
+
   const { fileStore, homeStore, tagStore } = useStores();
 
   if (!file) file = fileStore.getById(id);
@@ -26,7 +27,6 @@ export const FileCard = observer(({ disabled, file, height, id, width }: FileCar
     if (event.shiftKey) {
       const res = await homeStore.getShiftSelectedFiles({
         id: file.id,
-        rootStore,
         selectedIds: fileStore.selectedIds,
       });
       if (!res?.success) throw new Error(res.error);
@@ -51,7 +51,7 @@ export const FileCard = observer(({ disabled, file, height, id, width }: FileCar
 
   const handleDoubleClick = async () => {
     if (!disabled) {
-      const res = await homeStore.listIdsForCarousel({ id: file.id, rootStore });
+      const res = await homeStore.listIdsForCarousel();
       if (!res?.success) console.error(res.error);
       else openCarouselWindow({ file, selectedFileIds: res.data });
     }
@@ -114,12 +114,14 @@ export const FileCard = observer(({ disabled, file, height, id, width }: FileCar
           disabled={disabled}
           draggable
         >
-          <FileBase.Chip
-            position="top-left"
-            icon="Star"
-            iconColor={colors.amber["600"]}
-            label={file.rating}
-          />
+          {file.rating > 0 && !config.file.hideUnratedIcon && (
+            <FileBase.Chip
+              position="top-left"
+              icon="Star"
+              iconColor={colors.amber["600"]}
+              label={file.rating}
+            />
+          )}
 
           <FileBase.Chip
             position="top-right"

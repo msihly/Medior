@@ -4,16 +4,19 @@ import { TagOption, useStores } from "store";
 import { Divider, Drawer as MuiDrawer, List } from "@mui/material";
 import { Accordion, Checkbox, ListItem, TagInput, Text, View } from "components";
 import { ExtCheckbox } from ".";
-import { colors, CONSTANTS, IMAGE_TYPES, makeClasses, openSearchWindow, VIDEO_TYPES } from "utils";
+import { colors, CONSTANTS, getConfig, makeClasses, openSearchWindow } from "utils";
 
 export interface DrawerProps {
   hasImports?: boolean;
+  hasSettings?: boolean;
 }
 
-export const Drawer = observer(({ hasImports = false }: DrawerProps) => {
-  const { fileCollectionStore, homeStore, importStore, tagStore } = useStores();
+export const Drawer = observer(({ hasImports = false, hasSettings = false }: DrawerProps) => {
+  const config = getConfig();
 
   const { css } = useClasses(null);
+
+  const { fileCollectionStore, homeStore, importStore, tagStore } = useStores();
 
   const searchValue = useMemo(
     () => [...homeStore.searchValue],
@@ -49,6 +52,8 @@ export const Drawer = observer(({ hasImports = false }: DrawerProps) => {
 
   const handleSearchWindow = () => openSearchWindow();
 
+  const handleSettings = () => homeStore.setIsSettingsOpen(true);
+
   const handleTagged = () => {
     if (!homeStore.includeTagged && !homeStore.includeUntagged) homeStore.setIncludeTagged(true);
     else if (homeStore.includeTagged) {
@@ -63,12 +68,16 @@ export const Drawer = observer(({ hasImports = false }: DrawerProps) => {
 
   const toggleImageTypes = () =>
     homeStore.setSelectedImageTypes(
-      Object.fromEntries(IMAGE_TYPES.map((t) => [t, isAllImageTypesSelected ? false : true]))
+      Object.fromEntries(
+        config.file.imageTypes.map((t) => [t, isAllImageTypesSelected ? false : true])
+      )
     );
 
   const toggleVideoTypes = () =>
     homeStore.setSelectedVideoTypes(
-      Object.fromEntries(VIDEO_TYPES.map((t) => [t, isAllVideoTypesSelected ? false : true]))
+      Object.fromEntries(
+        config.file.videoTypes.map((t) => [t, isAllVideoTypesSelected ? false : true])
+      )
     );
 
   return (
@@ -80,6 +89,8 @@ export const Drawer = observer(({ hasImports = false }: DrawerProps) => {
       variant="persistent"
     >
       <List disablePadding className={css.list}>
+        {hasSettings && <ListItem text="Settings" icon="Settings" onClick={handleSettings} />}
+
         {hasImports && <ListItem text="Imports" icon="GetApp" onClick={handleImport} />}
 
         <ListItem text="Tags" icon="More" onClick={handleManageTags} />
@@ -124,8 +135,8 @@ export const Drawer = observer(({ hasImports = false }: DrawerProps) => {
           className={css.accordionHeaderCheckbox}
         />
 
-        <Accordion header={<Text noWrap>Images</Text>} fullWidth className={css.accordion}>
-          {IMAGE_TYPES.map((ext) => (
+        <Accordion header={<Text noWrap>{"Images"}</Text>} fullWidth className={css.accordion}>
+          {config.file.imageTypes.map((ext) => (
             <ExtCheckbox key={ext} ext={ext} type="Image" />
           ))}
         </Accordion>
@@ -139,8 +150,8 @@ export const Drawer = observer(({ hasImports = false }: DrawerProps) => {
           className={css.accordionHeaderCheckbox}
         />
 
-        <Accordion header={<Text noWrap>Videos</Text>} fullWidth className={css.accordion}>
-          {VIDEO_TYPES.map((ext) => (
+        <Accordion header={<Text noWrap>{"Videos"}</Text>} fullWidth className={css.accordion}>
+          {config.file.videoTypes.map((ext) => (
             <ExtCheckbox key={ext} ext={ext} type="Video" />
           ))}
         </Accordion>

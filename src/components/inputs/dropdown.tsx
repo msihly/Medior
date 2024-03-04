@@ -3,7 +3,7 @@ import { Input, InputProps, Text } from "components";
 
 export type DropdownOption = {
   label: string;
-  value: any;
+  value: string;
 };
 
 export interface DropdownProps extends InputProps {

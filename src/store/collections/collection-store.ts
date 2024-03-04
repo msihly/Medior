@@ -13,8 +13,9 @@ import {
 } from "mobx-keystone";
 import { File, RootStore, SelectedImageTypes, SelectedVideoTypes, TagOption } from "store";
 import * as db from "database";
+import { SortMenuProps } from "components";
 import { FileCollection, FileCollectionFile } from ".";
-import { CONSTANTS, handleErrors, IMAGE_TYPES, makePerfLog, trpc, VIDEO_TYPES } from "utils";
+import { getConfig, handleErrors, makePerfLog, trpc } from "utils";
 import { toast } from "react-toastify";
 import { arrayMove } from "@alissavrk/dnd-kit-sortable";
 
@@ -26,10 +27,9 @@ export class FileCollectionStore extends Model({
   editorSearchPage: prop<number>(1).withSetter(),
   editorSearchPageCount: prop<number>(1).withSetter(),
   editorSearchResults: prop<File[]>(() => []).withSetter(),
-  editorSearchSort: prop<{ isDesc: boolean; key: string }>(() => ({
-    isDesc: true,
-    key: "dateModified",
-  })).withSetter(),
+  editorSearchSort: prop<SortMenuProps["value"]>(
+    () => getConfig().collection.editorSearchSort
+  ).withSetter(),
   editorSearchValue: prop<TagOption[]>(() => []).withSetter(),
   hasUnsavedChanges: prop<boolean>(false).withSetter(),
   isEditorOpen: prop<boolean>(false),
@@ -37,10 +37,9 @@ export class FileCollectionStore extends Model({
   managerSearchPage: prop<number>(1).withSetter(),
   managerSearchPageCount: prop<number>(1).withSetter(),
   managerSearchResults: prop<FileCollection[]>(() => []).withSetter(),
-  managerSearchSort: prop<{ isDesc: boolean; key: string }>(() => ({
-    isDesc: true,
-    key: "dateModified",
-  })).withSetter(),
+  managerSearchSort: prop<SortMenuProps["value"]>(
+    () => getConfig().collection.managerSearchSort
+  ).withSetter(),
   managerTagSearchValue: prop<TagOption[]>(() => []).withSetter(),
   managerTitleSearchValue: prop<string>("").withSetter(),
   selectedFileIds: prop<string[]>(() => []).withSetter(),
@@ -179,30 +178,17 @@ export class FileCollectionStore extends Model({
     return yield* _await(
       handleErrors(async () => {
         const debug = false;
+        const { perfLog, perfLogTotal } = makePerfLog("[LFC]");
 
         const rootStore = getRootStore<RootStore>(this);
         if (!rootStore) throw new Error("RootStore not found");
         const { tagStore } = rootStore;
 
-        const { perfLog, perfLogTotal } = makePerfLog("[LFC]");
-
-        const {
-          excludedDescTagIds,
-          excludedTagIds,
-          optionalTagIds,
-          requiredDescTagIds,
-          requiredTagIds,
-        } = tagStore.tagSearchOptsToIds(this.managerTagSearchValue);
-
         const collectionsRes = await trpc.listFilteredCollections.mutate({
-          excludedDescTagIds,
-          excludedTagIds,
+          ...tagStore.tagSearchOptsToIds(this.managerTagSearchValue),
           isSortDesc: this.managerSearchSort.isDesc,
-          optionalTagIds,
           page: page ?? this.managerSearchPage,
-          pageSize: CONSTANTS.COLLECTION_SEARCH_PAGE_SIZE,
-          requiredDescTagIds,
-          requiredTagIds,
+          pageSize: getConfig().collection.editorPageSize,
           sortKey: this.managerSearchSort.key,
           title: this.managerTitleSearchValue,
         });
@@ -233,35 +219,24 @@ export class FileCollectionStore extends Model({
   ) {
     return yield* _await(
       handleErrors(async () => {
+        const config = getConfig();
         const rootStore = getRootStore<RootStore>(this);
         const { tagStore } = rootStore;
 
-        const {
-          excludedDescTagIds,
-          excludedTagIds,
-          optionalTagIds,
-          requiredDescTagIds,
-          requiredTagIds,
-        } = tagStore.tagSearchOptsToIds(this.editorSearchValue);
-
         const filteredRes = await trpc.listFilteredFiles.mutate({
-          excludedDescTagIds,
+          ...tagStore.tagSearchOptsToIds(this.editorSearchValue),
           excludedFileIds: this.activeFiles.map((f) => f.id),
-          excludedTagIds,
           includeTagged: false,
           includeUntagged: false,
           isArchived: false,
           isSortDesc: this.editorSearchSort.isDesc,
-          optionalTagIds,
           page: page ?? this.editorSearchPage,
-          pageSize: CONSTANTS.COLLECTION_SEARCH_FILE_COUNT,
-          requiredDescTagIds,
-          requiredTagIds,
+          pageSize: getConfig().collection.searchFileCount,
           selectedImageTypes: Object.fromEntries(
-            IMAGE_TYPES.map((ext) => [ext, true])
+            config.file.imageTypes.map((ext) => [ext, true])
           ) as SelectedImageTypes,
           selectedVideoTypes: Object.fromEntries(
-            VIDEO_TYPES.map((ext) => [ext, true])
+            config.file.videoTypes.map((ext) => [ext, true])
           ) as SelectedVideoTypes,
           sortKey: this.editorSearchSort.key,
         });

@@ -14,6 +14,7 @@ export interface SortMenuProps extends Omit<ButtonProps, "onChange" | "value"> {
   }[];
   setValue: (value: { isDesc: boolean; key: string }) => void;
   value: { isDesc: boolean; key: string };
+  width?: CSSObject["width"];
 }
 
 export const SortMenu = ({
@@ -22,11 +23,12 @@ export const SortMenu = ({
   rows,
   setValue,
   value,
+  width = "fit-content",
   ...buttonProps
 }: SortMenuProps) => {
-  const { css } = useClasses({ labelWidth });
+  const { css, cx } = useClasses({ labelWidth, width });
 
-  const activeRow = rows.find(({ attribute }) => attribute === value.key);
+  const activeRow = rows.find(({ attribute }) => attribute === value?.key);
 
   const renderButton = (onOpen: (event: React.MouseEvent<HTMLButtonElement>) => void) => (
     <Button
@@ -34,6 +36,7 @@ export const SortMenu = ({
       color={color}
       justify="space-between"
       padding={{ left: "0.5em", right: "0.5em" }}
+      className={cx(css.button, buttonProps?.className)}
       {...buttonProps}
     >
       <View row>
@@ -46,7 +49,7 @@ export const SortMenu = ({
         </View>
       </View>
 
-      <Icon name={value.isDesc ? "ArrowDownward" : "ArrowUpward"} size="1.15em" />
+      <Icon name={value?.isDesc ? "ArrowDownward" : "ArrowUpward"} size="1.15em" />
     </Button>
   );
 
@@ -62,10 +65,14 @@ export const SortMenu = ({
 };
 
 interface ClassesProps {
-  labelWidth?: CSSObject["width"];
+  labelWidth: CSSObject["width"];
+  width: CSSObject["width"];
 }
 
-const useClasses = makeClasses((_, { labelWidth }: ClassesProps) => ({
+const useClasses = makeClasses((_, { labelWidth, width }: ClassesProps) => ({
+  button: {
+    width,
+  },
   label: {
     width: labelWidth,
     fontSize: "0.9em",

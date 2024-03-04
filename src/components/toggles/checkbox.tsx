@@ -72,7 +72,7 @@ const useClasses = makeClasses(
     label: {
       display: "flex",
       flex,
-      justifyContent: center ? "center" : "auto",
+      justifyContent: center ? "center" : undefined,
       borderRadius: "0.5rem",
       marginLeft: 0,
       marginRight: 0,

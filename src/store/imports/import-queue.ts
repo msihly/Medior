@@ -5,17 +5,16 @@ import sharp from "sharp";
 import { File } from "database";
 import { FileImport, RootStore } from "store";
 import {
+  CONSTANTS,
   checkFileExists,
   copyFile,
   deleteFile,
   dirToFilePaths,
   extendFileName,
   generateFramesThumbnail,
+  getConfig,
   getVideoInfo,
-  IMAGE_TYPES,
-  THUMB_WIDTH,
   trpc,
-  VIDEO_TYPES,
 } from "utils";
 import { toast } from "react-toastify";
 
@@ -46,6 +45,7 @@ export const copyFileForImport = async ({
   tagIdsWithAncestors,
   targetDir,
 }: CopyFileForImportProps): Promise<CopyFileForImportResult> => {
+  const config = getConfig();
   let hash: string;
 
   try {
@@ -85,7 +85,7 @@ export const copyFileForImport = async ({
         if (!res.success) throw new Error(res.error);
       }
     } else if (!(isPrevDeleted && ignorePrevDeleted)) {
-      const isAnimated = [...VIDEO_TYPES, "gif"].includes(extFromPath);
+      const isAnimated = [...config.file.videoTypes, "gif"].includes(extFromPath);
 
       sharp.cache(
         false
@@ -112,7 +112,7 @@ export const copyFileForImport = async ({
             await (duration > 0
               ? generateFramesThumbnail(originalPath, dirPath, hash, duration)
               : sharp(originalPath, { failOn: "none" })
-                  .resize(null, THUMB_WIDTH)
+                  .resize(null, CONSTANTS.THUMB.WIDTH)
                   .toFile(thumbPaths[0]));
       }
 
@@ -169,9 +169,14 @@ export const copyFileForImport = async ({
 export const dirToFileImports = async (dirPath: string) =>
   await filePathsToImports(await dirToFilePaths(dirPath));
 
-const EXT_REG_EXP = new RegExp(`\.(${IMAGE_TYPES.join("|")}|${VIDEO_TYPES.join("|")})$`, "i");
-
 export const filePathsToImports = async (filePaths: string[]) => {
+  const config = getConfig();
+
+  const EXT_REG_EXP = new RegExp(
+    `\.(${config.file.imageTypes.join("|")}|${config.file.videoTypes.join("|")})$`,
+    "i"
+  );
+
   return (
     await Promise.all(
       filePaths.map(async (filePath) => {

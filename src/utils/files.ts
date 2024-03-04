@@ -2,37 +2,6 @@ import { promises as fs, constants as fsc } from "fs";
 import path from "path";
 import { handleErrors } from "./miscellaneous";
 
-export const IMAGE_TYPES = [
-  "jpg",
-  "jpeg",
-  "png",
-  "gif",
-  "webp",
-  "heic",
-  "jif",
-  "jiff",
-  "jfif",
-] as const;
-export type ImageType = (typeof IMAGE_TYPES)[number];
-export const IMAGE_EXT_REG_EXP = new RegExp(`${IMAGE_TYPES.join("|")}`, "i");
-
-export const VIDEO_TYPES = [
-  "webm",
-  "mp4",
-  "mkv",
-  "mov",
-  "avi",
-  "m4v",
-  "f4v",
-  "flv",
-  "3gp",
-] as const;
-export type VideoType = (typeof VIDEO_TYPES)[number];
-export const VIDEO_EXT_REG_EXP = new RegExp(`${VIDEO_TYPES.join("|")}`, "i");
-export const ANIMATED_EXT_REG_EXP = new RegExp(`gif|${VIDEO_TYPES.join("|")}`, "i");
-
-export const THUMB_WIDTH = 400;
-
 export const checkFileExists = async (path: string) => !!(await fs.stat(path).catch(() => false));
 
 export const copyFile = async (dirPath: string, originalPath: string, newPath: string) => {

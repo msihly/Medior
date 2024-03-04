@@ -31,10 +31,10 @@ export const Carousel = observer(() => {
           cursor: "grab",
           disablePan: activeFile?.isVideo,
           disableZoom: activeFile?.isVideo,
-          maxScale: CONSTANTS.ZOOM_MAX_SCALE,
-          minScale: CONSTANTS.ZOOM_MIN_SCALE,
+          maxScale: CONSTANTS.ZOOM.MAX_SCALE,
+          minScale: CONSTANTS.ZOOM.MIN_SCALE,
           panOnlyWhenZoomed: true,
-          step: CONSTANTS.ZOOM_STEP,
+          step: CONSTANTS.ZOOM.STEP,
         } as PanzoomOptions)
       : null;
 

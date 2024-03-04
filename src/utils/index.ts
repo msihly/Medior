@@ -1,5 +1,6 @@
 export * from "./arrays";
 export * from "./browser-windows";
+export * from "./config";
 export * from "./constants";
 export * from "./css";
 export * from "./date-and-time";

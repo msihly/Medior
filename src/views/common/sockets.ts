@@ -12,7 +12,7 @@ export const useSockets = ({ view }: UseSocketsProps) => {
   const { carouselStore, fileCollectionStore, fileStore, homeStore, importStore, tagStore } =
     useStores();
 
-  useEffect(() => {
+  const setupSockets = () => {
     setupSocketIO();
 
     socket.on("filesDeleted", ({ fileHashes, fileIds }) => {
@@ -100,5 +100,12 @@ export const useSockets = ({ view }: UseSocketsProps) => {
         if (debug) console.debug("[Socket] reloadImportBatches");
         importStore.loadImportBatches();
       });
+  };
+
+  useEffect(() => {
+    setupSockets();
+    return () => {
+      socket.disconnect();
+    };
   }, []);
 };

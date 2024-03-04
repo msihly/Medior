@@ -1,6 +1,5 @@
 import fs from "fs/promises";
 import path from "path";
-import env from "env";
 import {
   _async,
   _await,
@@ -21,6 +20,7 @@ import { copyFileForImport } from "./import-queue";
 import {
   dayjs,
   extendFileName,
+  getConfig,
   handleErrors,
   PromiseQueue,
   removeEmptyFolders,
@@ -338,7 +338,7 @@ export class ImportStore extends Model({
           deleteOnImport: batch.deleteOnImport,
           fileImport,
           ignorePrevDeleted: batch.ignorePrevDeleted,
-          targetDir: env.OUTPUT_DIR,
+          targetDir: getConfig().mongo.outputDir,
           tagIds,
           tagIdsWithAncestors,
         });

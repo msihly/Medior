@@ -13,7 +13,7 @@ import {
 } from "mobx-keystone";
 import { File, RootStore } from "store";
 import { FaceModel } from ".";
-import { handleErrors, IMAGE_EXT_REG_EXP, objectToFloat32Array, PromiseQueue, trpc } from "utils";
+import { getConfig, handleErrors, objectToFloat32Array, PromiseQueue, trpc } from "utils";
 import { toast } from "react-toastify";
 
 const DISTANCE_THRESHOLD = 0.45;
@@ -62,7 +62,8 @@ export class FaceRecognitionStore extends Model({
           const filesRes = await trpc.listFiles.mutate({ ids: fileIds, withFaceModels: true });
           if (!filesRes?.success) throw new Error("Failed to load files");
 
-          const images = filesRes.data.filter((f) => IMAGE_EXT_REG_EXP.test(f.ext));
+          const imageExtRegExp = new RegExp(`${getConfig().file.imageTypes.join("|")}`, "i");
+          const images = filesRes.data.filter((f) => imageExtRegExp.test(f.ext));
           if (!images.length) throw new Error("No images found");
 
           if (this.isInitializing) {

@@ -1,7 +1,7 @@
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
 import { AppBar } from "@mui/material";
-import { IconButton, IconButtonProps, SortMenu, View } from "components";
+import { IconButton, IconButtonProps, SortMenu, SortMenuProps, View } from "components";
 import { SelectedFilesInfo } from ".";
 import { colors, CONSTANTS, makeClasses } from "utils";
 import { toast } from "react-toastify";
@@ -41,7 +41,7 @@ export const TopBar = observer(() => {
     toast.info(`Added ${fileStore.files.length} files to selection`);
   };
 
-  const handleSortChange = (val: { isDesc: boolean; key: string }) => homeStore.setSortValue(val);
+  const handleSortChange = (val: SortMenuProps["value"]) => homeStore.setSortValue(val);
 
   const handleUnarchive = () => fileStore.unarchiveFiles({ fileIds: fileStore.selectedIds });
 
@@ -129,15 +129,7 @@ export const TopBar = observer(() => {
           />
 
           <SortMenu
-            rows={[
-              { label: "Date Modified", attribute: "dateModified", icon: "DateRange" },
-              { label: "Date Created", attribute: "dateCreated", icon: "DateRange" },
-              { label: "Rating", attribute: "rating", icon: "Star" },
-              { label: "Size", attribute: "size", icon: "FormatSize" },
-              { label: "Duration", attribute: "duration", icon: "HourglassBottom" },
-              { label: "Width", attribute: "width", icon: "Height", iconProps: { rotation: 90 } },
-              { label: "Height", attribute: "height", icon: "Height" },
-            ]}
+            rows={CONSTANTS.SORT_MENU_OPTS.FILE_SEARCH}
             value={homeStore.sortValue}
             setValue={handleSortChange}
           />

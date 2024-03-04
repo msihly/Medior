@@ -71,10 +71,10 @@ export const CarouselTopBar = observer(() => {
   };
 
   const zoomIn = () =>
-    setZoomScale(Math.min(zoomScale + CONSTANTS.ZOOM_STEP * 5, CONSTANTS.ZOOM_MAX_SCALE));
+    setZoomScale(Math.min(zoomScale + CONSTANTS.ZOOM.STEP * 5, CONSTANTS.ZOOM.MAX_SCALE));
 
   const zoomOut = () =>
-    setZoomScale(Math.max(zoomScale - CONSTANTS.ZOOM_STEP * 5, CONSTANTS.ZOOM_MIN_SCALE));
+    setZoomScale(Math.max(zoomScale - CONSTANTS.ZOOM.STEP * 5, CONSTANTS.ZOOM.MIN_SCALE));
   /* ------------------------------ END - ZOOM ------------------------------ */
 
   return (
@@ -118,9 +118,9 @@ export const CarouselTopBar = observer(() => {
           <Slider
             value={zoomScale}
             onChange={(_, val: number) => setZoomScale(val)}
-            min={CONSTANTS.ZOOM_MIN_SCALE}
-            max={CONSTANTS.ZOOM_MAX_SCALE}
-            step={CONSTANTS.ZOOM_STEP}
+            min={CONSTANTS.ZOOM.MIN_SCALE}
+            max={CONSTANTS.ZOOM.MAX_SCALE}
+            step={CONSTANTS.ZOOM.STEP}
             valueLabelDisplay="off"
           />
 

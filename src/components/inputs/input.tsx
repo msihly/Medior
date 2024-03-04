@@ -1,7 +1,7 @@
 import { ChangeEvent, forwardRef, MutableRefObject, ReactNode } from "react";
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { TextField, TextFieldProps } from "@mui/material";
-import { Text } from "components";
+import { ConditionalWrap, Text, View } from "components";
 import { CSSObject } from "tss-react";
 import { colors, makeClasses, Margins } from "utils";
 import Color from "color";
@@ -9,14 +9,16 @@ import Color from "color";
 export interface InputProps extends Omit<TextFieldProps, "color" | "onChange" | "helperText"> {
   className?: string;
   color?: string;
+  detachLabel?: boolean;
   flexShrink?: CSSObject["flexShrink"];
   hasHelper?: boolean;
   helperText?: ReactNode;
+  labelClassName?: string;
   margins?: Margins;
   maxLength?: number;
-  setValue?: (value: string) => any;
+  setValue?: (value: string) => void;
   textAlign?: CSSObject["textAlign"];
-  value?: TextFieldProps["value"];
+  value?: string;
   width?: CSSObject["width"];
 }
 
@@ -26,12 +28,16 @@ export const Input = forwardRef(
       children,
       className,
       color,
+      detachLabel = false,
       flexShrink,
       hasHelper = false,
       helperText,
       inputProps,
+      label,
+      labelClassName,
       margins = {},
       maxLength,
+      onClick,
       setValue,
       textAlign,
       value,
@@ -46,6 +52,7 @@ export const Input = forwardRef(
       flexShrink,
       hasHelper,
       hasHelperText: !!helperText,
+      hasOnClick: !!onClick,
       margins,
       textAlign,
       width,
@@ -55,33 +62,46 @@ export const Input = forwardRef(
       setValue?.(event.target.value);
 
     return (
-      <TextField
-        {...props}
-        {...{ value, variant }}
-        ref={ref}
-        onChange={handleChange}
-        helperText={
-          helperText ? (
-            typeof helperText === "string" ? (
-              <Text>{helperText}</Text>
-            ) : (
-              helperText
-            )
-          ) : undefined
-        }
-        FormHelperTextProps={{ component: "div" }}
-        inputProps={{ ...inputProps, maxLength, value: value ?? "" }}
-        size="small"
-        className={cx(css.input, className)}
+      <ConditionalWrap
+        condition={detachLabel}
+        wrap={(c) => (
+          <View column className={css.container}>
+            <Text className={cx(css.label, labelClassName)}>{label}</Text>
+            {c}
+          </View>
+        )}
       >
-        {children}
-      </TextField>
+        <TextField
+          {...props}
+          {...{ onClick, ref, value, variant }}
+          label={detachLabel ? undefined : label}
+          onChange={handleChange}
+          helperText={
+            helperText ? (
+              typeof helperText === "string" ? (
+                <Text>{helperText}</Text>
+              ) : (
+                helperText
+              )
+            ) : undefined
+          }
+          FormHelperTextProps={{ component: "div" }}
+          inputProps={{ ...inputProps, maxLength, value: value ?? "" }}
+          size="small"
+          className={cx(css.input, className)}
+        >
+          {children}
+        </TextField>
+      </ConditionalWrap>
     );
   }
 );
 
 const useClasses = makeClasses(
-  (_, { color, flexShrink, hasHelper, hasHelperText, margins, textAlign, width }) => ({
+  (_, { color, flexShrink, hasHelper, hasHelperText, hasOnClick, margins, textAlign, width }) => ({
+    container: {
+      width,
+    },
     input: {
       flexShrink,
       margin: margins.all,
@@ -92,6 +112,7 @@ const useClasses = makeClasses(
       width,
       "& input": {
         textAlign,
+        cursor: hasOnClick ? "pointer" : undefined,
       },
       "& .MuiTypography-root": {
         textAlign,
@@ -116,6 +137,10 @@ const useClasses = makeClasses(
         lineHeight: 1,
         textAlign: "center",
       },
+    },
+    label: {
+      textShadow: `0 0 10px ${colors.blue["600"]}`,
+      fontSize: "0.8em",
     },
   })
 );

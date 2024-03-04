@@ -88,7 +88,9 @@ const useClasses = makeClasses(
       paddingRight: padding?.right,
       paddingLeft: padding?.left,
       overflow,
-      ...(spacing ? { "& > *:not(:last-child)": { marginRight: spacing } } : {}),
+      ...(spacing
+        ? { "& > *:not(:last-child)": { [column ? "marginBottom" : "marginRight"]: spacing } }
+        : {}),
     },
   })
 );

@@ -24,41 +24,45 @@ import {
   TagHierarchy,
   TagToUpsert,
 } from ".";
-import { PromiseQueue, colors, makeClasses } from "utils";
+import { PromiseQueue, colors, getConfig, makeClasses } from "utils";
 import { toast } from "react-toastify";
 import Color from "color";
 
 type RegExMaps = { regEx: RegExp; tagId: string }[];
 
-const FOLDER_DELIMITER = ";;";
-const LABEL_DIFF = "Diffusion";
-const LABEL_DIFF_MODEL = "Diffusion Model";
-const LABEL_DIFF_ORIGINAL = "Diff: Original";
-const LABEL_DIFF_UPSCALED = "Diff: Upscaled";
-
 export const ImportEditor = observer(() => {
+  const config = getConfig();
+
   const { css, cx } = useClasses(null);
 
   const { importStore, tagStore } = useStores();
 
-  const [deleteOnImport, setDeleteOnImport] = useState(true);
+  const [deleteOnImport, setDeleteOnImport] = useState(config.imports.deleteOnImport);
   const [flatFolderHierarchy, setFlatFolderHierarchy] = useState<FlatFolderHierarchy>([]);
   const [flatTagsToUpsert, setFlatTagsToUpsert] = useState<TagToUpsert[]>([]);
-  const [folderToCollectionMode, setFolderToCollectionMode] = useState<FolderToCollMode>("none");
-  const [folderToTagsMode, setFolderToTagsMode] = useState<FolderToTagsMode>("none");
-  const [ignorePrevDeleted, setIgnorePrevDeleted] = useState(true);
+  const [folderToCollectionMode, setFolderToCollectionMode] = useState<FolderToCollMode>(
+    config.imports.folderToCollMode
+  );
+  const [folderToTagsMode, setFolderToTagsMode] = useState<FolderToTagsMode>(
+    config.imports.folderToTagsMode
+  );
+  const [ignorePrevDeleted, setIgnorePrevDeleted] = useState(config.imports.ignorePrevDeleted);
   const [isConfirmDiscardOpen, setIsConfirmDiscardOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [tagHierarchy, setTagHierarchy] = useState<TagToUpsert[]>([]);
-  const [withDelimiters, setWithDelimiters] = useState(true);
-  const [withDiffusionModel, setWithDiffusionModel] = useState(true);
-  const [withDiffusionRegExMaps, setWithDiffusionRegExMaps] = useState(true);
-  const [withDiffusionParams, setWithDiffusionParams] = useState(false);
-  const [withDiffusionTags, setWithDiffusionTags] = useState(true);
-  const [withFileNameToTags, setWithFileNameToTags] = useState(false);
-  const [withFolderNameRegEx, setWithFolderNameRegEx] = useState(true);
-  const [withNewTagsToRegEx, setWithNewTagsToRegEx] = useState(true);
+  const [withDelimiters, setWithDelimiters] = useState(config.imports.withDelimiters);
+  const [withDiffusionModel, setWithDiffusionModel] = useState(config.imports.withDiffModel);
+  const [withDiffusionParams, setWithDiffusionParams] = useState(config.imports.withDiffParams);
+  const [withDiffusionRegExMaps, setWithDiffusionRegExMaps] = useState(
+    config.imports.withDiffRegEx
+  );
+  const [withDiffusionTags, setWithDiffusionTags] = useState(config.imports.withDiffTags);
+  const [withFileNameToTags, setWithFileNameToTags] = useState(config.imports.withFileNameToTags);
+  const [withFolderNameRegEx, setWithFolderNameRegEx] = useState(
+    config.imports.withFolderNameRegEx
+  );
+  const [withNewTagsToRegEx, setWithNewTagsToRegEx] = useState(config.imports.withNewTagsToRegEx);
 
   const isDisabled = isLoading || isSaving;
 
@@ -215,7 +219,7 @@ export const ImportEditor = observer(() => {
       .map((c) => ({ ...c, children: createTagHierarchy(tags, c.label) }));
 
   const delimit = (str: string) =>
-    withDelimiters ? str.split(FOLDER_DELIMITER).map((l) => l.trim()) : [str];
+    withDelimiters ? str.split(config.imports.folderDelimiter).map((l) => l.trim()) : [str];
 
   const fileToTagsAndDiffParams = async () => {
     const fileNameRegExMaps = getRegExMaps("fileName");
@@ -403,7 +407,7 @@ export const ImportEditor = observer(() => {
         const tagToUpsert = {
           aliases: [`Model Hash: ${parseDiffParam(restParams, "Model hash", false)}`],
           label: modelTagLabel,
-          parentLabel: LABEL_DIFF_MODEL,
+          parentLabel: config.imports.labelDiffModel,
         };
 
         diffFileTagsToUpsert.push(tagToUpsert);
@@ -457,23 +461,27 @@ export const ImportEditor = observer(() => {
 
     if (!withDiffusionTags) importStore.clearValues({ tagIds: true, tagsToUpsert: true });
     else {
-      let diffTag = tagStore.getByLabel(LABEL_DIFF);
+      let diffTag = tagStore.getByLabel(config.imports.labelDiff);
       if (!diffTag) {
-        const res = await tagStore.createTag({ label: LABEL_DIFF });
+        const res = await tagStore.createTag({ label: config.imports.labelDiff });
         if (!res.success) throw new Error(res.error);
         diffTag = tagStore.getById(res.data.id);
       }
 
       await Promise.all(
-        [LABEL_DIFF_MODEL, LABEL_DIFF_ORIGINAL, LABEL_DIFF_UPSCALED].map(async (label) => {
+        [
+          config.imports.labelDiffModel,
+          config.imports.labelDiffOriginal,
+          config.imports.labelDiffUpscaled,
+        ].map(async (label) => {
           const tag = tagStore.getByLabel(label);
           if (!tag) await tagStore.createTag({ label, parentIds: [diffTag.id] });
         })
       );
 
-      modelTag = tagStore.getByLabel(LABEL_DIFF_MODEL);
-      originalTag = tagStore.getByLabel(LABEL_DIFF_ORIGINAL);
-      upscaledTag = tagStore.getByLabel(LABEL_DIFF_UPSCALED);
+      modelTag = tagStore.getByLabel(config.imports.labelDiffModel);
+      originalTag = tagStore.getByLabel(config.imports.labelDiffOriginal);
+      upscaledTag = tagStore.getByLabel(config.imports.labelDiffUpscaled);
 
       const importsWithParams = importStore.editorImports.filter(
         (imp) => imp.diffusionParams?.length
@@ -482,10 +490,22 @@ export const ImportEditor = observer(() => {
       if (importsWithParams.length > 0) {
         diffMetaTagsToEdit.push(
           ...[
-            { id: diffTag.id, label: LABEL_DIFF },
-            { id: modelTag.id, label: LABEL_DIFF_MODEL, parentLabels: [LABEL_DIFF] },
-            { id: originalTag.id, label: LABEL_DIFF_ORIGINAL, parentLabels: [LABEL_DIFF] },
-            { id: upscaledTag.id, label: LABEL_DIFF_UPSCALED, parentLabels: [LABEL_DIFF] },
+            { id: diffTag.id, label: config.imports.labelDiff },
+            {
+              id: modelTag.id,
+              label: config.imports.labelDiffModel,
+              parentLabels: [config.imports.labelDiff],
+            },
+            {
+              id: originalTag.id,
+              label: config.imports.labelDiffOriginal,
+              parentLabels: [config.imports.labelDiff],
+            },
+            {
+              id: upscaledTag.id,
+              label: config.imports.labelDiffUpscaled,
+              parentLabels: [config.imports.labelDiff],
+            },
           ]
         );
       }

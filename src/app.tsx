@@ -4,13 +4,14 @@ import { BrowserRouter, HashRouter, Route, Switch } from "react-router-dom";
 import { ThemeProvider, createTheme } from "@mui/material";
 import { CacheProvider } from "@emotion/react";
 import createCache from "@emotion/cache";
-import { createRootStore, RootStoreContext } from "store";
+import { createRootStore, RootStore, RootStoreContext } from "store";
 import { ConditionalWrap, ToastContainer } from "components";
 import { CarouselWindow, HomeWindow, SearchWindow } from "views";
+import { loadConfig, setupTRPC } from "utils";
 import "react-toastify/dist/ReactToastify.css";
 import "./css/index.css";
 
-export const rootStore = createRootStore();
+export let rootStore: RootStore;
 
 const darkTheme = createTheme({ palette: { mode: "dark" } });
 const muiCache = createCache({ key: "mui", prepend: true, stylisPlugins: [] });
@@ -19,8 +20,12 @@ export const App = () => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    console.debug("App useEffect fired");
-    setIsLoading(false);
+    (async () => {
+      await loadConfig();
+      setupTRPC();
+      rootStore = createRootStore();
+      setIsLoading(false);
+    })();
   }, []);
 
   return (

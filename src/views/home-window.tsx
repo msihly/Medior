@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
-import { View } from "components";
+import { SettingsModal, View } from "components";
 import { Views, useSockets } from "./common";
 import { makeClasses } from "utils";
 
@@ -40,7 +40,7 @@ export const HomeWindow = observer(() => {
   return (
     <Views.ImportDnD>
       <View column className={css.root}>
-        <Views.Search {...{ isLoading }} hasImports />
+        <Views.Search {...{ isLoading }} hasImports hasSettings />
 
         <Views.CollectionModals />
 
@@ -49,6 +49,8 @@ export const HomeWindow = observer(() => {
         <Views.ImportModals />
 
         <Views.TagModals view="home" />
+
+        {homeStore.isSettingsOpen && <SettingsModal />}
       </View>
     </Views.ImportDnD>
   );

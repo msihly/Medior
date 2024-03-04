@@ -5,28 +5,31 @@ import { CONSTANTS, makeClasses } from "utils";
 
 interface SearchProps {
   hasImports?: boolean;
+  hasSettings?: boolean;
   isLoading: boolean;
 }
 
-export const Search = observer(({ hasImports = false, isLoading }: SearchProps) => {
-  const { homeStore } = useStores();
+export const Search = observer(
+  ({ hasImports = false, hasSettings = false, isLoading }: SearchProps) => {
+    const { homeStore } = useStores();
 
-  const { css } = useClasses({ isDrawerOpen: homeStore.isDrawerOpen });
+    const { css } = useClasses({ isDrawerOpen: homeStore.isDrawerOpen });
 
-  return (
-    <>
-      <TopBar />
+    return (
+      <>
+        <TopBar />
 
-      <View row>
-        <Drawer {...{ hasImports }} />
+        <View row>
+          <Drawer {...{ hasImports, hasSettings }} />
 
-        <View column className={css.main}>
-          {isLoading ? null : <FileContainer />}
+          <View column className={css.main}>
+            {isLoading ? null : <FileContainer />}
+          </View>
         </View>
-      </View>
-    </>
-  );
-});
+      </>
+    );
+  }
+);
 
 const useClasses = makeClasses((_, { isDrawerOpen }) => ({
   main: {
