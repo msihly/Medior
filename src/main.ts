@@ -91,6 +91,7 @@ const createSearchWindow = async () => {
     remoteMain.enable(searchWindow.webContents);
 
     searchWindow.show();
+    if (!isPackaged) searchWindow.webContents.openDevTools({ mode: "left" });
 
     logToFile("debug", "Creating search window...");
     await searchWindow.loadURL(`${baseUrl}${isBundled ? "#" : "/"}search`);
@@ -146,11 +147,13 @@ const createCarouselWindow = async ({ fileId, height, selectedFileIds, width }) 
 
     carouselWindow.show();
 
+    if (!isPackaged) carouselWindow.webContents.openDevTools({ mode: "left" });
+
     logToFile("debug", "Loading carousel window...");
     await carouselWindow.loadURL(`${baseUrl}${isBundled ? "#" : "/"}carousel`);
     logToFile("debug", "Carousel window loaded.");
 
-    carouselWindow.webContents.send("init", { fileId, selectedFileIds });
+    setTimeout(() => carouselWindow.webContents.send("init", { fileId, selectedFileIds }), 100);
     carouselWindows.push(carouselWindow);
 
     carouselWindow.on("close", () => {
