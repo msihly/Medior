@@ -339,14 +339,14 @@ export const SettingsModal = observer(() => {
               label="Database Path"
               value={mongoDbPath}
               onClick={handleMongoDbPathClick}
-              width="100%"
+              flex={1}
             />
 
             <SettingsInput
               label="File Output Directory"
               value={mongoOutputDir}
               onClick={handleMongoOutputDirClick}
-              width="100%"
+              flex={1}
             />
           </View>
 

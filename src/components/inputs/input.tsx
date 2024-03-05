@@ -10,7 +10,7 @@ export interface InputProps extends Omit<TextFieldProps, "color" | "onChange" | 
   className?: string;
   color?: string;
   detachLabel?: boolean;
-  flexShrink?: CSSObject["flexShrink"];
+  flex?: CSSObject["flex"];
   hasHelper?: boolean;
   helperText?: ReactNode;
   labelClassName?: string;
@@ -29,7 +29,7 @@ export const Input = forwardRef(
       className,
       color,
       detachLabel = false,
-      flexShrink,
+      flex,
       hasHelper = false,
       helperText,
       inputProps,
@@ -49,7 +49,7 @@ export const Input = forwardRef(
   ) => {
     const { css, cx } = useClasses({
       color,
-      flexShrink,
+      flex,
       hasHelper,
       hasHelperText: !!helperText,
       hasOnClick: !!onClick,
@@ -97,13 +97,27 @@ export const Input = forwardRef(
   }
 );
 
+interface ClassesProps {
+  color: string;
+  flex: CSSObject["flex"];
+  hasHelper: boolean;
+  hasHelperText: boolean;
+  hasOnClick: boolean;
+  margins: Margins;
+  textAlign: CSSObject["textAlign"];
+  width: CSSObject["width"];
+}
+
 const useClasses = makeClasses(
-  (_, { color, flexShrink, hasHelper, hasHelperText, hasOnClick, margins, textAlign, width }) => ({
+  (
+    _,
+    { color, flex, hasHelper, hasHelperText, hasOnClick, margins, textAlign, width }: ClassesProps
+  ) => ({
     container: {
+      flex,
       width,
     },
     input: {
-      flexShrink,
       margin: margins.all,
       marginTop: margins.top,
       marginBottom: margins.bottom ?? (hasHelper && !hasHelperText ? "1.3em" : 0),
