@@ -200,13 +200,11 @@ export const editFileTags = ({
         ),
     ]);
 
-    const files = (await db.FileModel.find({ _id: { $in: fileIds } }).lean()).map((f) =>
-      leanModelToJson<db.File>(f)
-    );
+    const updatedTagIds = [...new Set([...addedTagIds, ...removedTagIds])];
 
     await Promise.all([
-      regenFileTagAncestors(files),
-      db.recalculateTagCounts({ tagIds: [...new Set([...addedTagIds, ...removedTagIds])] }),
+      regenFileTagAncestors({ tagIds: { $in: updatedTagIds } }),
+      db.recalculateTagCounts({ tagIds: updatedTagIds }),
     ]);
 
     if (withSub) socket.emit("fileTagsUpdated", { addedTagIds, batchId, fileIds, removedTagIds });
