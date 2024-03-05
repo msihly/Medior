@@ -97,7 +97,22 @@ export class TagStore extends Model({
   ) {
     return yield* _await(
       handleErrors(async () => {
-        const res = await trpc.createTag.mutate({ aliases, childIds, label, parentIds, withSub });
+        const regEx = withRegEx
+          ? {
+              regEx: regExMap?.regEx || this.tagsToRegEx([{ aliases, label }]),
+              testString: regExMap?.testString || "",
+              types: regExMap?.types || ["diffusionParams", "fileName", "folderName"],
+            }
+          : null;
+
+        const res = await trpc.createTag.mutate({
+          aliases,
+          childIds,
+          label,
+          parentIds,
+          regExMap: regEx,
+          withSub,
+        });
         if (!res.success) throw new Error(res.error);
         const id = res.data.id;
 
@@ -110,13 +125,7 @@ export class TagStore extends Model({
           id,
           label,
           parentIds,
-          regExMap: withRegEx
-            ? {
-                regEx: regExMap?.regEx || this.tagsToRegEx([{ aliases, label }]),
-                testString: regExMap?.testString || "",
-                types: regExMap?.types || ["diffusionParams", "fileName", "folderName"],
-              }
-            : null,
+          regExMap: regEx,
         };
 
         this._addTag(tag);
