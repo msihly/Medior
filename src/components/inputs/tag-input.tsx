@@ -2,6 +2,7 @@ import {
   ComponentProps,
   forwardRef,
   HTMLAttributes,
+  MouseEvent,
   MutableRefObject,
   useEffect,
   useState,
@@ -146,10 +147,16 @@ export const TagInput = observer(
           : filtered;
       };
 
+      const getOptionLabel = (option: TagOption) =>
+        option?.label ?? tagStore.getById(option.id)?.label ?? "";
+
       const handleChange = (_, val: TagOption[], reason?: AutocompleteChangeReason) => {
         if (disabled) return;
+        if (reason === "selectOption") {
+          if (val.some((t) => t.id === "optionsEndNode")) return handleCreateTag();
+          setInputValue("");
+        }
         onChange?.(val);
-        if (reason === "selectOption") setInputValue("");
       };
 
       const handleClose = () => setIsOpen(false);
@@ -170,6 +177,8 @@ export const TagInput = observer(
 
       const handleOpen = () => !disabled && setIsOpen(true);
 
+      const isOptionEqualToValue = (option: TagOption, val: TagOption) => option.id === val.id;
+
       const renderInput = (params: AutocompleteRenderInputParams) => (
         <Input
           {...params}
@@ -186,34 +195,34 @@ export const TagInput = observer(
       const renderOption = (
         props: HTMLAttributes<HTMLLIElement> & HTMLAttributes<HTMLDivElement>,
         option: TagOption
-      ) => (
-        <View
-          {...props}
-          onClick={(event) => {
-            if (option.id === "optionsEndNode") return;
-            onSelect ? onSelect(option) : props.onClick?.(event);
-            setInputValue("");
-            handleClose();
-          }}
-          className={cx(props.className, css.tagOption)}
-        >
-          {option.id === "optionsEndNode" ? (
-            <Button text={`Create Tag '${inputValue}'`} icon="Add" onClick={handleCreateTag} />
-          ) : (
-            <>
-              <Tag key={option.id} id={option.id} className={css.tag} />
+      ) => {
+        const handleClick = (event: MouseEvent<HTMLDivElement>) => {
+          if (option.id === "optionsEndNode") return;
+          onSelect ? onSelect(option) : props.onClick?.(event);
+          setInputValue("");
+          handleClose();
+        };
 
-              {option.aliases?.length > 0 && (
-                <View className={css.aliases}>
-                  {option.aliases.map((a) => (
-                    <Chip key={a} label={a} size="small" className={css.alias} />
-                  ))}
-                </View>
-              )}
-            </>
-          )}
-        </View>
-      );
+        return (
+          <View {...props} onClick={handleClick} className={cx(props.className, css.tagOption)}>
+            {option.id === "optionsEndNode" ? (
+              <Button text={`Create Tag '${inputValue}'`} icon="Add" onClick={handleCreateTag} />
+            ) : (
+              <>
+                <Tag key={option.id} id={option.id} className={css.tag} />
+
+                {option.aliases?.length > 0 && (
+                  <View className={css.aliases}>
+                    {option.aliases.map((a) => (
+                      <Chip key={a} label={a} size="small" className={css.alias} />
+                    ))}
+                  </View>
+                )}
+              </>
+            )}
+          </View>
+        );
+      };
 
       const renderTags = (val: TagOption[], getTagProps: AutocompleteRenderGetTagProps) =>
         val.map((option: TagOption, index: number) => {
@@ -270,23 +279,28 @@ export const TagInput = observer(
 
       return (
         <Autocomplete
-          {...{ filterOptions, options, renderInput, renderOption, renderTags, value }}
-          ListboxProps={{ className: css.listbox }}
-          getOptionLabel={(option: TagOption) =>
-            option?.label ?? tagStore.getById(option.id)?.label ?? ""
-          }
-          onChange={handleChange}
-          isOptionEqualToValue={(option: TagOption, val: TagOption) => option.id === val.id}
-          disabled={!disableWithoutFade && disabled}
-          size="small"
-          forcePopupIcon={false}
+          {...{
+            filterOptions,
+            getOptionLabel,
+            isOptionEqualToValue,
+            options,
+            renderInput,
+            renderOption,
+            renderTags,
+            value,
+          }}
+          classes={{ root: css.root }}
           clearOnBlur={false}
           disableClearable
+          disabled={!disableWithoutFade && disabled}
+          forcePopupIcon={false}
+          ListboxProps={{ className: css.listbox }}
           multiple
-          open={isOpen}
-          onOpen={handleOpen}
+          onChange={handleChange}
           onClose={handleClose}
-          classes={{ root: css.root }}
+          onOpen={handleOpen}
+          open={isOpen}
+          size="small"
           {...props}
         />
       );
