@@ -14,60 +14,64 @@ import { CONSTANTS, getConfig, logToFile, setupSocketIO, sleep } from "./utils";
 let mongoServer: MongoMemoryReplSet;
 
 const createDbServer = async () => {
-  const config = getConfig();
-  const dbPath = config.mongo.dbPath;
-  const port = config.ports.db;
-
   try {
-    const dbPathExists = await fs.stat(dbPath).catch(() => false);
-    if (!dbPathExists) await fs.mkdir(dbPath, { recursive: true });
-  } catch (err) {
-    logToFile("error", "Error creating database path:", err);
-  }
+    const config = getConfig();
+    const dbPath = config.mongo.dbPath;
+    const port = config.ports.db;
 
-  if (mongoServer) {
     try {
-      logToFile("debug", "Stopping existing Mongo server...");
-      await Mongoose.disconnect();
-      await mongoServer.stop();
-      await killPort(port);
-      logToFile("debug", "Existing Mongo server stopped.");
-      await sleep(1000);
+      const dbPathExists = await fs.stat(dbPath).catch(() => false);
+      if (!dbPathExists) await fs.mkdir(dbPath, { recursive: true });
     } catch (err) {
-      logToFile("error", "Error stopping existing Mongo server:", err);
+      throw new Error(`Error creating database path: ${err}`);
     }
-  }
 
-  try {
-    logToFile("debug", `Creating database server on port ${port} from path ${dbPath}...`);
+    if (mongoServer) {
+      try {
+        logToFile("debug", "Stopping existing Mongo server...");
+        await Mongoose.disconnect();
+        await mongoServer.stop();
+        await killPort(port);
+        logToFile("debug", "Existing Mongo server stopped.");
+        await sleep(1000);
+      } catch (err) {
+        throw new Error(`Error stopping existing Mongo server: ${err}`);
+      }
+    }
 
-    mongoServer = await MongoMemoryReplSet.create({
-      instanceOpts: [{ dbPath, port, storageEngine: "wiredTiger" }],
-      replSet: { dbName: "medior", name: "rs0" },
-    });
-  } catch (err) {
-    logToFile("error", "Error creating Mongo server:", err);
-  }
+    try {
+      logToFile("debug", `Creating database server on port ${port} from path ${dbPath}...`);
 
-  try {
-    Mongoose.set("strictQuery", true);
+      mongoServer = await MongoMemoryReplSet.create({
+        instanceOpts: [{ dbPath, port, storageEngine: "wiredTiger" }],
+        replSet: { dbName: "medior", name: "rs0" },
+      });
+    } catch (err) {
+      throw new Error(`Error creating Mongo server: ${err}`);
+    }
 
-    const databaseUri = mongoServer.getUri();
-    logToFile("debug", "Connecting to database:", databaseUri);
-    await Mongoose.connect(databaseUri, CONSTANTS.MONGOOSE_OPTS);
-    logToFile("debug", "Connected to database.");
-  } catch (err) {
-    logToFile("error", "Error connecting to database:", err);
-  }
+    try {
+      Mongoose.set("strictQuery", true);
 
-  try {
-    await db.FileModel.ensureIndexes();
-    logToFile("debug", "Database indexes created.");
+      const databaseUri = mongoServer.getUri();
+      logToFile("debug", "Connecting to database:", databaseUri);
+      await Mongoose.connect(databaseUri, CONSTANTS.MONGOOSE_OPTS);
+      logToFile("debug", "Connected to database.");
+    } catch (err) {
+      throw new Error(`Error connecting to database: ${err}`);
+    }
 
-    await Mongoose.syncIndexes();
-    logToFile("debug", "Database indexes synced.");
-  } catch (err) {
-    logToFile("error", "Error syncing database indexes:", err);
+    try {
+      await db.FileModel.ensureIndexes();
+      logToFile("debug", "Database indexes created.");
+
+      await Mongoose.syncIndexes();
+      logToFile("debug", "Database indexes synced.");
+    } catch (err) {
+      throw new Error(`Error syncing database indexes: ${err}`);
+    }
+  } catch (error) {
+    logToFile("error", error);
   }
 };
 
