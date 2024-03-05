@@ -21,6 +21,7 @@ ipcMain.handle("getLogsPath", () => logsPath);
 
 const configPath = path.resolve(folderPath, "..", "config.json");
 ipcMain.handle("getConfigPath", () => configPath);
+ipcMain.handle("reloadConfig", () => loadConfig(configPath));
 
 /* ------------------------------- BEGIN - MAIN WINDOW ------------------------------ */
 let mainWindow = null;

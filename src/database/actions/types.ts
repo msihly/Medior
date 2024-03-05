@@ -5,10 +5,11 @@ import { ImportStatus } from "components";
 
 /* --------------------------- DATABASE / SERVERS --------------------------- */
 export type StartServersInput = {
+  emitReloadEvents?: boolean;
   withDatabase?: boolean;
   withServer?: boolean;
   withSocket?: boolean;
-}
+};
 
 /* -------------------------------- COLLECTIONS ------------------------------- */
 export type CreateCollectionFilterPipelineInput = {

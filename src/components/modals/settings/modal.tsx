@@ -1,5 +1,4 @@
 import { dialog } from "@electron/remote";
-import { SocketEmitEvent } from "server";
 import { useEffect, useState } from "react";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
@@ -31,7 +30,6 @@ import {
   loadConfig,
   makeClasses,
   saveConfig,
-  socket,
   trpc,
   VideoType,
 } from "utils";
@@ -289,18 +287,11 @@ export const SettingsModal = observer(() => {
 
       if (hasDbDiff || hasServerDiff || hasSocketDiff)
         await trpc.reloadServers.mutate({
+          emitReloadEvents: true,
           withDatabase: hasDbDiff,
           withServer: hasServerDiff,
           withSocket: hasSocketDiff,
         });
-
-      [
-        "reloadFileCollections",
-        "reloadFiles",
-        "reloadImportBatches",
-        "reloadRegExMaps",
-        "reloadTags",
-      ].forEach((event: SocketEmitEvent) => socket.emit(event));
 
       homeStore.setIsSettingsLoading(false);
       homeStore.setSettingsHasUnsavedChanges(false);

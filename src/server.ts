@@ -39,15 +39,30 @@ const createDbServer = async () => {
       }
     }
 
-    try {
-      logToFile("debug", `Creating database server on port ${port} from path ${dbPath}...`);
+    const maxRetries = 5;
+    let retries = 0;
 
-      mongoServer = await MongoMemoryReplSet.create({
-        instanceOpts: [{ dbPath, port, storageEngine: "wiredTiger" }],
-        replSet: { dbName: "medior", name: "rs0" },
-      });
-    } catch (err) {
-      throw new Error(`Error creating Mongo server: ${err}`);
+    while (retries < maxRetries) {
+      try {
+        logToFile("debug", `Creating database server on port ${port} from path ${dbPath}...`);
+
+        mongoServer = await MongoMemoryReplSet.create({
+          instanceOpts: [{ dbPath, port, storageEngine: "wiredTiger" }],
+          replSet: { dbName: "medior", name: "rs0" },
+        });
+
+        break;
+      } catch (err) {
+        retries++;
+        if (retries === maxRetries) throw new Error(`Error creating Mongo server: ${err}`);
+        else {
+          logToFile(
+            "error",
+            `Error creating Mongo server: ${err}. Attempt ${retries} of ${maxRetries}.`
+          );
+          await sleep(100);
+        }
+      }
     }
 
     try {
@@ -62,9 +77,6 @@ const createDbServer = async () => {
     }
 
     try {
-      await db.FileModel.ensureIndexes();
-      logToFile("debug", "Database indexes created.");
-
       await Mongoose.syncIndexes();
       logToFile("debug", "Database indexes synced.");
     } catch (err) {
@@ -301,7 +313,8 @@ const createSocketIOServer = async () => {
 /*                                START SERVERS                               */
 /* -------------------------------------------------------------------------- */
 const startServers = async (
-  { withDatabase, withServer, withSocket }: db.StartServersInput = {
+  { emitReloadEvents, withDatabase, withServer, withSocket }: db.StartServersInput = {
+    emitReloadEvents: false,
     withDatabase: true,
     withServer: true,
     withSocket: true,
@@ -310,6 +323,16 @@ const startServers = async (
   if (withDatabase) await createDbServer();
   if (withServer) await createTRPCServer();
   if (withSocket) await createSocketIOServer();
+
+  if (emitReloadEvents) {
+    [
+      "reloadFileCollections",
+      "reloadFiles",
+      "reloadImportBatches",
+      "reloadRegExMaps",
+      "reloadTags",
+    ].forEach((event: SocketEmitEvent) => io.emit(event));
+  }
 
   logToFile("debug", "Servers created.");
 };

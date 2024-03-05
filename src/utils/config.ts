@@ -201,6 +201,7 @@ export const saveConfig = async (config: Config) => {
     const newConfig = JSON.stringify({ ...DEFAULT_CONFIG, ...config }, null, 2);
     logToFile("debug", `Saving config to ${filePath}...`);
     await fs.writeFile(filePath, newConfig);
+    await ipcRenderer.invoke("reloadConfig");
   } catch (err) {
     logToFile("error", "Failed to save config:", err);
   }
