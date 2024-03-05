@@ -409,11 +409,15 @@ export const listFaceModels = ({ ids }: db.ListFaceModelsInput = {}) =>
 
 type ListFilesResult = db.File & { hasFaceModels: boolean };
 
-export const listFiles = ({ ids, withFaceModels = false }: db.ListFilesInput = {}) =>
+export const listFiles = ({
+  ids,
+  withFaceModels = false,
+  withHasFaceModels = false,
+}: db.ListFilesInput = {}) =>
   handleErrors(async () => {
     const res: ListFilesResult[] = await db.FileModel.aggregate([
       { $match: ids ? { _id: { $in: objectIds(ids) } } : {} },
-      ...(!withFaceModels
+      ...(withHasFaceModels
         ? [
             {
               $addFields: {
@@ -429,6 +433,8 @@ export const listFiles = ({ ids, withFaceModels = false }: db.ListFilesInput = {
             },
             { $project: { faceModels: 0, _id: 0 } },
           ]
+        : !withFaceModels
+        ? [{ $project: { faceModels: 0 } }]
         : []),
     ]);
 

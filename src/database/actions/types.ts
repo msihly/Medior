@@ -132,7 +132,11 @@ export type ListFaceModelsInput = { ids?: string[] };
 
 export type ListFileIdsForCarouselInput = ListFilteredFilesInput;
 
-export type ListFilesInput = { ids?: string[]; withFaceModels?: boolean };
+export type ListFilesInput = {
+  ids?: string[];
+  withFaceModels?: boolean;
+  withHasFaceModels?: boolean;
+};
 
 export type ListFilesByTagIdsInput = { tagIds: string[] };
 

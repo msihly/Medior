@@ -114,7 +114,7 @@ export const FileCard = observer(({ disabled, file, height, id, width }: FileCar
           disabled={disabled}
           draggable
         >
-          {file.rating > 0 && !config.file.hideUnratedIcon && (
+          {(file.rating > 0 || !config.file.hideUnratedIcon) && (
             <FileBase.Chip
               position="top-left"
               icon="Star"

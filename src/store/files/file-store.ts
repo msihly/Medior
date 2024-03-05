@@ -183,7 +183,7 @@ export class FileStore extends Model({
     return yield* _await(
       handleErrors(async () => {
         if (!fileIds?.length) return [];
-        const filesRes = await trpc.listFiles.mutate({ ids: fileIds });
+        const filesRes = await trpc.listFiles.mutate({ ids: fileIds, withHasFaceModels: true });
         if (filesRes.success && withOverwrite) this.overwrite(filesRes.data);
         return filesRes.data;
       })

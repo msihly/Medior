@@ -155,7 +155,7 @@ export class HomeStore extends Model({
         const { files, pageCount } = filteredRes.data;
         if (debug) perfLog(`Loaded ${files.length} filtered files`);
 
-        fileStore.overwrite(files);
+        fileStore.overwrite(files.map((f) => ({ ...f, hasFaceModels: f.faceModels?.length > 0 })));
         if (debug) perfLog("FileStore.files overwrite and re-render");
 
         fileStore.setPageCount(pageCount);
