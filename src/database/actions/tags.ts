@@ -314,18 +314,19 @@ export const mergeTags = ({
       const _tagIdToMerge = new mongoose.Types.ObjectId(tagIdToMerge);
       const dateModified = dayjs().toISOString();
 
-      const updateMany: {
-        filter: FilterQuery<db.File | db.FileImportBatch | db.FileCollection>;
-        update: UpdateQuery<db.File | db.FileImportBatch | db.FileCollection>;
-      } = {
-        filter: { tagIds: _tagIdToMerge },
-        update: { $set: { "tagIds.$": _tagIdToKeep } },
-      };
+      type Collections = db.File | db.FileImportBatch | db.FileCollection;
+
+      const updateManyAddToSet: UpdateQuery<Collections> = { $addToSet: { tagIds: _tagIdToKeep } };
+      const updateManyFilter: FilterQuery<Collections> = { tagIds: _tagIdToMerge };
+      const updateManyPull: UpdateQuery<Collections> = { $pull: { tagIds: _tagIdToMerge } };
 
       await Promise.all([
-        db.FileCollectionModel.updateMany(updateMany.filter, updateMany.update),
-        db.FileImportBatchModel.updateMany(updateMany.filter, updateMany.update),
-        db.FileModel.updateMany(updateMany.filter, updateMany.update),
+        db.FileCollectionModel.updateMany(updateManyFilter, updateManyAddToSet),
+        db.FileCollectionModel.updateMany(updateManyFilter, updateManyPull),
+        db.FileImportBatchModel.updateMany(updateManyFilter, updateManyAddToSet),
+        db.FileImportBatchModel.updateMany(updateManyFilter, updateManyPull),
+        db.FileModel.updateMany(updateManyFilter, updateManyAddToSet),
+        db.FileModel.updateMany(updateManyFilter, updateManyPull),
       ]);
 
       const relationsFilter = {
