@@ -1,35 +1,26 @@
-# dependencies
-*node_modules
-/.pnp
-.pnp.js
-
-# testing
-/coverage
-.old/
-.ignore*
-
-# production
-build/
-dist/
-extraResources/
-*.exe
-
-# misc
-.DS_Store
-*.env
-*.env.*
-env.*
-config.json
-MongoDB
-npm-debug.log*
-.vscode/
+_assets/
 _components/
-*.psd
+.DS_Store
+.ignore*
+.old/
+.pnp.js
+.vscode/
 *.ai
 *.db
-
-logs/
+*.env
+*.env.*
+*.exe
 *.log
-test_dir/
-output_dir/
-_readme
+*.psd
+*node_modules
+/.pnp
+/coverage
+build/
+config.json
+dist/
+env.*
+extraResources/
+FileStorage/
+logs/
+MongoDB/
+npm-debug.log*
