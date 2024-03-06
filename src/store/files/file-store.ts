@@ -124,13 +124,25 @@ export class FileStore extends Model({
         const [deleted, archived] = splitArray(files, (f) => f.isArchived);
         const [deletedIds, archivedIds] = [deleted, archived].map((arr) => arr.map((f) => f.id));
 
+        if (!deletedIds.length && !archivedIds.length)
+          throw new Error("No files to delete or archive");
+
         if (archivedIds?.length > 0) {
-          await trpc.setFileIsArchived.mutate({ fileIds: archivedIds, isArchived: true });
-          toast.success(`${archivedIds.length} files archived`);
+          const res = await trpc.setFileIsArchived.mutate({
+            fileIds: archivedIds,
+            isArchived: true,
+          });
+          if (res.success) toast.success(`${archivedIds.length} files archived`);
+          else {
+            console.error("Error archiving files:", res.error);
+            toast.error("Error archiving files");
+          }
         }
 
         if (deletedIds?.length > 0) {
-          await trpc.deleteFiles.mutate({ fileIds: deletedIds });
+          const deleteRes = await trpc.deleteFiles.mutate({ fileIds: deletedIds });
+          if (!deleteRes.success) throw new Error(deleteRes.error);
+
           await Promise.all(
             deleted.flatMap((file) =>
               this.listByHash(file.hash).length === 1
@@ -143,7 +155,10 @@ export class FileStore extends Model({
           );
 
           const rootStore = getRootStore<RootStore>(this);
-          await rootStore.tagStore.refreshTagCounts([...new Set(deleted.flatMap((f) => f.tagIds))]);
+          const tagCountRes = await rootStore.tagStore.refreshTagCounts([
+            ...new Set(deleted.flatMap((f) => f.tagIds)),
+          ]);
+          if (!tagCountRes.success) throw new Error(tagCountRes.error);
 
           toast.success(`${deletedIds.length} files deleted`);
         }

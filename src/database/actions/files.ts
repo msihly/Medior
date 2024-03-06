@@ -405,7 +405,7 @@ export const listFaceModels = ({ ids }: db.ListFaceModelsInput = {}) =>
     });
   });
 
-type ListFilesResult = db.File & { hasFaceModels: boolean };
+type ListFilesResult = db.File & { _id: string; hasFaceModels: boolean };
 
 export const listFiles = ({
   ids,
@@ -426,17 +426,16 @@ export const listFiles = ({
                     else: false,
                   },
                 },
-                id: "$_id",
               },
             },
-            { $project: { faceModels: 0, _id: 0 } },
+            { $project: { faceModels: 0 } },
           ]
         : !withFaceModels
         ? [{ $project: { faceModels: 0 } }]
         : []),
     ]);
 
-    return res;
+    return res.map((r) => ({ ...r, id: r._id.toString() }));
   });
 
 export const listDeletedFiles = () =>
