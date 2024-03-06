@@ -67,6 +67,9 @@ export const copyFileForImport = async ({
     const isDuplicate = !!file;
     const isPrevDeleted = !!deletedFileRes.data;
 
+    const fileExistsAtPath = await checkFileExists(newPath);
+    if (!fileExistsAtPath) await copyFile(dirPath, originalPath, newPath);
+
     if (isDuplicate) {
       if (tagIds?.length > 0) {
         const res = await trpc.editFileTags.mutate({
@@ -106,14 +109,14 @@ export const copyFileForImport = async ({
               )
           : [path.join(dirPath, `${hash}-thumb.${extFromPath}`)];
 
-      if (!dbOnly) {
-        if (!(await checkFileExists(newPath)))
-          if (await copyFile(dirPath, originalPath, newPath))
-            await (duration > 0
-              ? generateFramesThumbnail(originalPath, dirPath, hash, duration)
-              : sharp(originalPath, { failOn: "none" })
-                  .resize(null, CONSTANTS.THUMB.WIDTH)
-                  .toFile(thumbPaths[0]));
+      if (!dbOnly && !fileExistsAtPath) {
+        await(
+          duration > 0
+            ? generateFramesThumbnail(originalPath, dirPath, hash, duration)
+            : sharp(originalPath, { failOn: "none" })
+                .resize(null, CONSTANTS.THUMB.WIDTH)
+                .toFile(thumbPaths[0])
+        );
       }
 
       const res = await trpc.importFile.mutate({
