@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="_readme/logo.png" alt="Logo" width="200" />
+  <img src="_readme/Logo.png" alt="Logo" width="200" />
   <h1 style="color: #782C2EFF;">Medior</h1>
 </div>
 
@@ -29,7 +29,7 @@
 <div align="center">
   <p>Parse folder paths, file names, and matching text files on import to automatically create hierarchical tags, collections, and diffusion params.</p>
 
-  <div style="display: flex; flex-direction: row; justify-content: center;">
+  <div style="display: flex; flex-flow: row nowrap; justify-content: center;">
     <img src="./_readme/Imports-Hierarchical.png" height="350" style="border-radius: 0.5rem; margin-right: 1rem;" />
     <img src="./_readme/Imports-Hierarchical.gif" height="350" style="border-radius: 0.5rem;" />
   </div>
