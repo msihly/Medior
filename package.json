@@ -84,7 +84,7 @@
     "vite-tsconfig-paths": "^4.2.0"
   },
   "scripts": {
-    "build": "npm run copy-files && npm run ts-compile && vite build",
+    "build": "npm run ts-compile && npm run copy-files && vite build",
     "build-dev": "SET BUILD_DEV=true&& npm run build -- --mode development --config ./vite.config.watch.ts",
     "check": "npm run ts-check && npm run lint",
     "copy-files": "npx copyfiles -f src/config.json extraResources && npx copyfiles -f src/face-models/**/* extraResources/face-models && npx copyfiles extraResources/**/* build",
