@@ -5,7 +5,7 @@
 
 <div align="center">
   <p>
-  An offline desktop app for managing mass mediav in a portable database.
+  An offline desktop app for managing mass media in a portable database.
   </p>
 
   <p>Features a hierarchical tagging system with comprehensive search and sorting, automated tag creation / parsing from multiple sources, batch editing and organization, collections / albums, AI facial recognition, Stable Diffusion integration, and built-in media viewers.
@@ -24,7 +24,7 @@
   </div>
 </div>
 
-<div style="border-top: 1px solid #782C2E88; margin: 1rem auto; width: 25rem;"></div>
+<br />
 
 <div align="center">
   <p>Parse folder paths, file names, and matching text files on import to automatically create hierarchical tags, collections, and diffusion params.</p>
@@ -35,7 +35,7 @@
   </div>
 </div>
 
-<div style="border-top: 1px solid #782C2E88; margin: 1rem auto; width: 25rem;"></div>
+<br />
 
 <div align="center">
   <p>Edit tag aliases, hierarchical relationships, and RegEx mappings for import parsing, or merge tags together.</p>
@@ -46,7 +46,7 @@
   </div>
 </div>
 
-<div style="border-top: 1px solid #782C2E88; margin: 1rem auto; width: 25rem;"></div>
+<br />
 
 <div align="center">
   <p>Quickly edit file tags or ratings via hotkeys in home, search, and carousel windows.</p>
@@ -56,7 +56,7 @@
   </div>
 </div>
 
-<div style="border-top: 1px solid #782C2E88; margin: 1rem auto; width: 25rem;"></div>
+<br />
 
 <div align="center">
   <p>Create file collections with searchable titles and tags and manual ordering of files.</p>
@@ -66,7 +66,7 @@
   </div>
 </div>
 
-<div style="border-top: 1px solid #782C2E88; margin: 1rem auto; width: 25rem;"></div>
+<br />
 
 <div align="center">
   <p>Carousel window with custom media viewer support for all supported file types.</p>
@@ -77,7 +77,7 @@
   </div>
 </div>
 
-<div style="border-top: 1px solid #782C2E88; margin: 1rem auto; width: 25rem;"></div>
+<br />
 
 <div align="center">
   <p>Import Stable Diffusion generation parameters from text files and parse prompts and models into tags.</p>
@@ -88,7 +88,7 @@
   </div>
 </div>
 
-<div style="border-top: 1px solid #782C2E88; margin: 1rem auto; width: 25rem;"></div>
+<br />
 
 <div align="center">
   <p>Build your own database of faces starting from only one image per person to automatically tag images via AI facial recognition.</p>
