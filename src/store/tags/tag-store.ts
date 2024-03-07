@@ -97,13 +97,14 @@ export class TagStore extends Model({
   ) {
     return yield* _await(
       handleErrors(async () => {
-        const regEx = withRegEx
-          ? {
-              regEx: regExMap?.regEx || this.tagsToRegEx([{ aliases, label }]),
-              testString: regExMap?.testString || "",
-              types: regExMap?.types || ["diffusionParams", "fileName", "folderName"],
-            }
-          : null;
+        const regEx =
+          regExMap || withRegEx
+            ? {
+                regEx: regExMap?.regEx || this.tagsToRegEx([{ aliases, label }]),
+                testString: regExMap?.testString || "",
+                types: regExMap?.types || ["diffusionParams", "fileName", "folderName"],
+              }
+            : null;
 
         const res = await trpc.createTag.mutate({
           aliases,
