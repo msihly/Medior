@@ -102,7 +102,6 @@ export const FaceRecognitionModal = observer(() => {
 
       const res = await faceRecognitionStore.findMatches(file.path);
       const detectedFaces = res.data.map(
-        // @ts-expect-error
         ({ detection: { _box: box }, descriptor, tagId }) =>
           new FaceModel({
             box: { height: box._height, width: box._width, x: box._x, y: box._y },

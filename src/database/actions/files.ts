@@ -11,7 +11,6 @@ const FACE_MIN_CONFIDENCE = 0.4;
 const FACE_MODELS_PATH = app.isPackaged
   ? path.resolve(process.resourcesPath, "extraResources/face-models")
   : "src/face-models";
-const VALID_TF_DECODE_IMAGE_EXTS = ["bmp", "gif", "jpg", "jpeg", "png"];
 
 /* ---------------------------- HELPER FUNCTIONS ---------------------------- */
 const createFileFilterPipeline = ({
@@ -138,9 +137,14 @@ export const detectFaces = async ({ imagePath }: db.DetectFacesInput) =>
     const faceapi = await import("@vladmandic/face-api/dist/face-api.node-gpu.js");
     const tf = await import("@tensorflow/tfjs-node-gpu");
 
-    let buffer = await fs.readFile(imagePath);
-    const ext = path.extname(imagePath).toLowerCase().substring(1);
-    if (!VALID_TF_DECODE_IMAGE_EXTS.includes(ext)) buffer = await sharp(buffer).png().toBuffer();
+    let buffer: Buffer;
+
+    try {
+      buffer = await fs.readFile(imagePath);
+      buffer = await sharp(buffer).png().toBuffer();
+    } catch (err) {
+      throw new Error(`Failed to convert image to buffer: ${err.message}`);
+    }
 
     const tensor = tf.node.decodeImage(buffer);
 

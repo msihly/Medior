@@ -82,7 +82,6 @@ export class FaceRecognitionStore extends Model({
 
                 this.addDetectedFaces(
                   matchesRes.data.map(
-                    // @ts-expect-error
                     ({ detection: { _box: box }, descriptor, tagId }) =>
                       new FaceModel({
                         box: { height: box._height, width: box._width, x: box._x, y: box._y },
@@ -158,6 +157,14 @@ export class FaceRecognitionStore extends Model({
           else acc.push(new LabeledFaceDescriptors(cur.tagId, cur.descriptorsFloat32));
           return acc;
         }, [] as LabeledFaceDescriptors[]);
+
+        if (!storedDescriptors.length)
+          return facesRes.data.map((f) => ({
+            descriptor: objectToFloat32Array(f.descriptor),
+            detection: null,
+            distance: null,
+            tagId: null,
+          }));
 
         const matcher = new FaceMatcher(storedDescriptors, DISTANCE_THRESHOLD);
         return facesRes.data.map((f) => {
