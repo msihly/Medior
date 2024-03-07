@@ -389,20 +389,25 @@ export class ImportStore extends Model({
       handleErrors(async () => {
         const paramFilePaths = this.editorImports.reduce((acc, cur) => {
           if (cur.extension !== ".jpg") return acc;
-          const paramFileName = extendFileName(cur.path, "txt");
-          if (this.editorFilePaths.find((p) => p === paramFileName)) acc.push(paramFileName);
+
+          const paramFileName = path.resolve(extendFileName(cur.path, "txt"));
+          if (this.editorFilePaths.find((p) => path.resolve(p) === paramFileName))
+            acc.push(paramFileName);
+
           return acc;
         }, [] as string[]);
 
         const paramFiles = await Promise.all(
-          paramFilePaths.map(async (p) => {
-            const params = await fs.readFile(p, { encoding: "utf8" });
-            return { params, path: p };
-          })
+          paramFilePaths.map(async (p) => ({
+            params: await fs.readFile(p, { encoding: "utf8" }),
+            path: p,
+          }))
         );
 
         this.editorImports.forEach((imp) => {
-          const paramFile = paramFiles.find((p) => p.path === extendFileName(imp.path, "txt"));
+          const paramFile = paramFiles.find(
+            (p) => p.path === path.resolve(extendFileName(imp.path, "txt"))
+          );
           if (paramFile) imp.update({ diffusionParams: paramFile.params });
         });
       })
