@@ -20,7 +20,7 @@
   <p>Import and export files and folders via drag-and-drop.</p>
 
   <div style="display: flex; flex-flow: row nowrap; justify-content: center;">
-    <img src="./_readme/Drag-and-Drop.gif" alt="Drag-and-Drop Animation" width="400" />
+    <img src="./_readme/Drag-and-Drop.gif" alt="Drag-and-Drop Animation" width="400" height="325" />
   </div>
 </div>
 
@@ -30,8 +30,8 @@
   <p>Parse folder paths, file names, and matching text files on import to automatically create hierarchical tags, collections, and diffusion params.</p>
 
   <div style="display: flex; flex-flow: row nowrap; justify-content: center;">
-    <img src="./_readme/Imports-Hierarchical.png" alt="Hierarchical Imports Screenshot" width="400" style="margin-right: 1rem;" />
-    <img src="./_readme/Imports-Hierarchical.gif" alt="Hierarchical Imports Animation" width="400" />
+    <img src="./_readme/Imports-Hierarchical.png" alt="Hierarchical Imports Screenshot" width="400" height="325" style="margin-right: 1rem;" />
+    <img src="./_readme/Imports-Hierarchical.gif" alt="Hierarchical Imports Animation" width="400" height="325" />
   </div>
 </div>
 
@@ -41,8 +41,8 @@
   <p>Edit tag aliases, hierarchical relationships, and RegEx mappings for import parsing, or merge tags together.</p>
 
   <div style="display: flex; flex-flow: row nowrap; justify-content: center;">
-    <img src="./_readme/Tag-Editor.png" alt="Tag Editor Screenshot" width="400" style="margin-right: 1rem;" />
-    <img src="./_readme/Merge-Tags.png" alt="Tag Merging Screenshot" width="400" />
+    <img src="./_readme/Tag-Editor.png" alt="Tag Editor Screenshot" width="400" height="325" style="margin-right: 1rem;" />
+    <img src="./_readme/Merge-Tags.png" alt="Tag Merging Screenshot" width="400" height="325" />
   </div>
 </div>
 
@@ -52,7 +52,7 @@
   <p>Quickly edit file tags or ratings via hotkeys in home, search, and carousel windows.</p>
 
   <div style="display: flex; flex-flow: row nowrap; justify-content: center;">
-    <img src="./_readme/File-Tags-Editor.png" alt="File Tags Editor Screenshot" width="400" />
+    <img src="./_readme/File-Tags-Editor.png" alt="File Tags Editor Screenshot" width="400" height="325" />
   </div>
 </div>
 
@@ -61,8 +61,8 @@
 <div align="center">
   <p>Create file collections with searchable titles and tags and manual ordering of files.</p>
   <div style="display: flex; flex-flow: row nowrap; justify-content: center;">
-    <img src="./_readme/Collection-Manager.png" alt="Collection Manager Screenshot" width="400" style="margin-right: 1rem;" />
-    <img src="./_readme/Collection-Editor.png" alt="Collection Editor Screenshot" width="400" />
+    <img src="./_readme/Collection-Manager.png" alt="Collection Manager Screenshot" width="400" height="325" style="margin-right: 1rem;" />
+    <img src="./_readme/Collection-Editor.png" alt="Collection Editor Screenshot" width="400" height="325" />
   </div>
 </div>
 
@@ -72,8 +72,8 @@
   <p>Carousel window with custom media viewer support for all supported file types.</p>
 
   <div style="display: flex; flex-flow: row nowrap; justify-content: center;">
-    <img src="./_readme/Carousel-Thumb-Nav.png" alt="Carousel Thumb Navigator Screenshot" width="400" style="margin-right: 1rem;" />
-    <img src="./_readme/Carousel-Video.gif" alt="Carousel Video Animation" width="400" />
+    <img src="./_readme/Carousel-Thumb-Nav.png" alt="Carousel Thumb Navigator Screenshot" width="400" height="325" style="margin-right: 1rem;" />
+    <img src="./_readme/Carousel-Video.gif" alt="Carousel Video Animation" width="400" height="325" />
   </div>
 </div>
 
@@ -83,8 +83,8 @@
   <p>Import Stable Diffusion generation parameters from text files and parse prompts and models into tags.</p>
 
   <div style="display: flex; flex-flow: row nowrap; justify-content: center;">
-    <img src="./_readme/Diffusion-Params.png" alt="Diffusion Params Screenshot" width="400" style="margin-right: 1rem;" />
-    <img src="./_readme/File-Tooltip-with-Diffusion-Params.png" alt="File Tooltip with Diffusion Params Screenshot" width="400" />
+    <img src="./_readme/Diffusion-Params.png" alt="Diffusion Params Screenshot" width="400" height="325" style="margin-right: 1rem;" />
+    <img src="./_readme/File-Tooltip-with-Diffusion-Params.png" alt="File Tooltip with Diffusion Params Screenshot" width="400" height="325" />
   </div>
 </div>
 
@@ -94,6 +94,6 @@
   <p>Build your own database of faces starting from only one image per person to automatically tag images via AI facial recognition.</p>
 
   <div style="display: flex; flex-flow: row nowrap; justify-content: center;">
-    <img src="./_readme/Face-Recognition.png" alt="Face Recognition Screenshot" width="400" />
+    <img src="./_readme/Face-Recognition.png" alt="Face Recognition Screenshot" width="400" height="325" />
   </div>
 </div>
