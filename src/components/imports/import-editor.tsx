@@ -24,7 +24,7 @@ import {
   TagHierarchy,
   TagToUpsert,
 } from ".";
-import { PromiseQueue, colors, getConfig, makeClasses } from "utils";
+import { colors, getConfig, makeClasses, parseDiffParam, parseDiffParams } from "utils";
 import { toast } from "react-toastify";
 import Color from "color";
 
@@ -327,43 +327,6 @@ export const ImportEditor = observer(() => {
     importStore.setIsImportManagerOpen(true);
   };
 
-  const parseDiffParam = <IsNum extends boolean>(
-    diffParams: string,
-    paramName: string,
-    isNumber: IsNum,
-    optional = false,
-    endDelimiter = ",",
-    startDelimeter = ": "
-  ): IsNum extends true ? number : string => {
-    try {
-      const hasParam = diffParams.includes(`${paramName}: `);
-      if (!hasParam) {
-        if (!optional)
-          throw new Error(
-            `Param "${paramName}" not found in generation parameters: ${diffParams}.`
-          );
-        return undefined;
-      }
-
-      const rawParamUnterminated = diffParams.substring(
-        diffParams.indexOf(`${paramName}${startDelimeter}`)
-      );
-      const startIndex = rawParamUnterminated.indexOf(startDelimeter) + startDelimeter.length;
-      let endIndex = rawParamUnterminated.indexOf(endDelimiter, startIndex);
-      if (!(endIndex > 0)) endIndex = undefined;
-
-      const value = rawParamUnterminated
-        .substring(startIndex, endIndex)
-        ?.replace?.(/^(\s|\r)|(\s|\r)$/gim, "");
-      if (isNumber) {
-        if (isNaN(+value)) throw new Error(`Received NaN when parsing ${paramName}`);
-        return +value as any;
-      } else return value as any;
-    } catch (err) {
-      return undefined;
-    }
-  };
-
   const parseDiffTags = ({
     diffusionParams,
     originalTagId,
@@ -376,29 +339,23 @@ export const ImportEditor = observer(() => {
     const diffFileTagIds: string[] = [];
     const diffFileTagsToUpsert: TagToUpsert[] = [];
 
-    const negPromptEndIndex = diffusionParams.indexOf("Steps: ");
-    let negPromptStartIndex = diffusionParams.indexOf("Negative prompt: ");
-    if (negPromptStartIndex < 0) negPromptStartIndex = negPromptEndIndex;
-
-    const prompt = diffusionParams.substring(0, negPromptStartIndex).replace(/(\n|\r)$/gim, "");
-    const restParams = diffusionParams.substring(negPromptEndIndex);
+    const parsedParams = parseDiffParams(diffusionParams);
 
     if (withDiffusionRegExMaps) {
       tagStore.listRegExMapsByType("diffusionParams").forEach((map) => {
         const regEx = new RegExp(map.regEx, "im");
-        if (regEx.test(prompt)) diffFileTagIds.push(map.tagId);
+        if (regEx.test(parsedParams.prompt)) diffFileTagIds.push(map.tagId);
       });
     }
 
     if (withDiffusionModel) {
-      const rawModelName = parseDiffParam(restParams, "Model", false);
-      const modelTagLabel = `Diff Model: ${rawModelName}`;
+      const modelTagLabel = `Diff Model: ${parsedParams.model}`;
       const modelTag = tagStore.getByLabel(modelTagLabel);
 
       if (modelTag) diffFileTagIds.push(modelTag.id);
       else {
         const tagToUpsert = {
-          aliases: [`Model Hash: ${parseDiffParam(restParams, "Model hash", false)}`],
+          aliases: [`Model Hash: ${parseDiffParam(parsedParams.modelHash, "Model hash", false)}`],
           label: modelTagLabel,
           parentLabel: config.imports.labelDiffModel,
         };
@@ -407,8 +364,7 @@ export const ImportEditor = observer(() => {
       }
     }
 
-    const isUpscaled = parseDiffParam(restParams, "Hires upscaler", false, true) !== undefined;
-    const upscaledTypeTagId = isUpscaled ? upscaledTagId : originalTagId;
+    const upscaledTypeTagId = parsedParams.isUpscaled ? upscaledTagId : originalTagId;
     if (!diffFileTagIds.includes(upscaledTypeTagId)) diffFileTagIds.push(upscaledTypeTagId);
 
     return { diffFileTagIds, diffFileTagsToUpsert };

@@ -4,6 +4,7 @@ export * from "./config";
 export * from "./constants";
 export * from "./css";
 export * from "./date-and-time";
+export * from "./diffusion";
 export * from "./formatting";
 export * from "./files";
 export * from "./hooks";

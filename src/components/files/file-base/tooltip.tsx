@@ -45,6 +45,7 @@ export const Tooltip = observer(({ disabled, file, onTagPress }: TooltipProps) =
           {file.diffusionParams?.length > 0 && (
             <Detail
               label="Diffusion Params"
+              labelProps={{ textAlign: "center", marginTop: "0.5rem" }}
               value={
                 <View className={css.diffContainer}>
                   <Text>{file.diffusionParams}</Text>
