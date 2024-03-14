@@ -53,10 +53,9 @@ export const ImportCard = observer(({ fileImport, style }: ImportCardProps) => {
       tooltipProps={{ style }}
     >
       <FileBase.Container
-        onClick={handleClick}
+        onDoubleClick={handleClick}
         height={IMPORT_CARD_SIZE}
         width={IMPORT_CARD_SIZE}
-        disabled
       >
         {fileImport?.thumbPaths?.length > 0 ? (
           <FileBase.Image

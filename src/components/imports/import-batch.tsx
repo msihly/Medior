@@ -5,7 +5,15 @@ import { ImportBatch as ImportBatchType, useStores } from "store";
 import AutoSizer from "react-virtualized-auto-sizer";
 import { FixedSizeList } from "react-window";
 import { LinearProgress } from "@mui/material";
-import { BatchTooltip, Icon, IconButton, IMPORT_STATUSES, Text, View } from "components";
+import {
+  BatchTooltip,
+  Icon,
+  IconButton,
+  IMPORT_STATUSES,
+  ImportStatus,
+  Text,
+  View,
+} from "components";
 import { IMPORT_CARD_SIZE, ImportCard } from ".";
 import { colors, makeClasses } from "utils";
 import { toast } from "react-toastify";
@@ -18,7 +26,6 @@ interface ImportBatchProps {
 export const ImportBatch = observer(({ batch }: ImportBatchProps) => {
   const { fileCollectionStore, importStore, tagStore } = useStores();
 
-  const completedFileIds = batch.completed.map((imp) => imp.fileId);
   const index = importStore.batches.findIndex((b) => b.id === batch.id);
   const status = IMPORT_STATUSES[batch.status];
 
@@ -41,7 +48,7 @@ export const ImportBatch = observer(({ batch }: ImportBatchProps) => {
 
   const handleTag = () => {
     tagStore.setTaggerBatchId(batch.id);
-    tagStore.setTaggerFileIds([...completedFileIds]);
+    tagStore.setTaggerFileIds([...batch.completed.map((imp) => imp.fileId)]);
     tagStore.setIsTaggerOpen(true);
   };
 
@@ -124,27 +131,56 @@ export const ImportBatch = observer(({ batch }: ImportBatchProps) => {
       </View>
 
       {expanded && batch.imports?.length > 0 && (
-        <View className={css.importCards}>
-          <AutoSizer disableHeight>
-            {({ width }) => (
-              <FixedSizeList
-                layout="horizontal"
-                width={width}
-                height={IMPORT_CARD_SIZE}
-                itemSize={IMPORT_CARD_SIZE}
-                itemCount={batch.imports.length}
-              >
-                {({ index, style }) => (
-                  <ImportCard key={index} fileImport={batch.imports[index]} style={style} />
-                )}
-              </FixedSizeList>
-            )}
-          </AutoSizer>
+        <View column spacing="0.3rem" className={css.importCards}>
+          <ImportCardRow {...{ batch, status: "PENDING" }} />
+          <ImportCardRow {...{ batch, status: "COMPLETE" }} />
+          <ImportCardRow {...{ batch, status: "ERROR" }} />
+          <ImportCardRow {...{ batch, status: "DUPLICATE" }} />
+          <ImportCardRow {...{ batch, status: "DELETED" }} />
         </View>
       )}
     </View>
   );
 });
+
+const ImportCardRow = observer(
+  ({ batch, status }: { batch: ImportBatchType; status: ImportStatus }) => {
+    const { css } = useClasses({ expanded: true, hasTags: batch.tagIds?.length > 0 });
+
+    const meta = IMPORT_STATUSES[status];
+    const imports = batch.imports.filter((imp) => imp.status === status);
+
+    return !imports?.length ? null : (
+      <View column>
+        <View row spacing="0.5rem" margins={{ left: "0.3rem" }}>
+          <Icon name={meta.icon} color={meta.color} />
+          <Text color={meta.color} fontWeight={500}>
+            {meta.label}
+          </Text>
+          <Text color={colors.grey["700"]}>{` - ${imports.length}`}</Text>
+        </View>
+
+        <View className={css.importCardRow}>
+          <AutoSizer disableHeight>
+            {({ width }) => (
+              <FixedSizeList
+                {...{ width }}
+                layout="horizontal"
+                height={IMPORT_CARD_SIZE + 10}
+                itemSize={IMPORT_CARD_SIZE}
+                itemCount={imports.length}
+              >
+                {({ index, style }) => (
+                  <ImportCard {...{ style }} key={index} fileImport={imports[index]} />
+                )}
+              </FixedSizeList>
+            )}
+          </AutoSizer>
+        </View>
+      </View>
+    );
+  }
+);
 
 const useClasses = makeClasses((_, { expanded, hasTags }) => ({
   folderPath: {
@@ -194,12 +230,14 @@ const useClasses = makeClasses((_, { expanded, hasTags }) => ({
     textShadow: `0px 0px 5px ${colors.blue["700"]}`,
   },
   importCards: {
-    display: "flex",
-    flexDirection: "row",
     borderRadius: "0 0 0.5rem 0.5rem",
     padding: "0.5rem",
     width: "-webkit-fill-available",
     backgroundColor: colors.grey["900"],
+  },
+  importCardRow: {
+    display: "flex",
+    flexDirection: "row",
     whiteSpace: "nowrap",
     overflowX: "auto",
   },
