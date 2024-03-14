@@ -15,6 +15,21 @@ export const useSockets = ({ view }: UseSocketsProps) => {
   const setupSockets = () => {
     setupSocketIO();
 
+    socket.on("collectionCreated", ({ collection }) => {
+      if (debug) console.debug("[Socket] collectionCreated", { collection });
+      if (view !== "carousel") fileCollectionStore._addCollection(collection);
+    });
+
+    socket.on("collectionDeleted", ({ collectionId }) => {
+      if (debug) console.debug("[Socket] collectionDeleted", { collectionId });
+      if (view !== "carousel") fileCollectionStore._deleteCollection(collectionId);
+    });
+
+    socket.on("collectionUpdated", ({ collectionId, updates }) => {
+      if (debug) console.debug("[Socket] collectionUpdated", { collectionId, updates });
+      if (view !== "carousel") fileCollectionStore.getById(collectionId)?.update(updates);
+    });
+
     socket.on("filesDeleted", ({ fileHashes, fileIds }) => {
       if (debug) console.debug("[Socket] filesDeleted", { fileIds });
       if (view === "carousel") carouselStore.removeFiles(fileIds);

@@ -236,6 +236,8 @@ const createTRPCServer = async () => {
 /* ------------------------------ EVENTS ----------------------------- */
 export interface SocketEmitEvents {
   collectionCreated: (args: { collection: db.FileCollection }) => void;
+  collectionDeleted: (args: { collectionId: string }) => void;
+  collectionUpdated: (args: { collectionId: string; updates: Partial<db.FileCollection> }) => void;
   filesArchived: (args: { fileIds: string[] }) => void;
   filesDeleted: (args: { fileHashes: string[]; fileIds: string[] }) => void;
   filesUpdated: (args: { fileIds: string[]; updates: Partial<db.File> }) => void;
@@ -282,6 +284,8 @@ const createSocketIOServer = async () => {
 
       const socketEvents: SocketEmitEvent[] = [
         "collectionCreated",
+        "collectionDeleted",
+        "collectionUpdated",
         "filesArchived",
         "filesDeleted",
         "filesUpdated",

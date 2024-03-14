@@ -524,6 +524,8 @@ export const setFileRating = ({ fileIds = [], rating }: db.SetFileRatingInput) =
     const updates = { rating, dateModified: dayjs().toISOString() };
     await db.FileModel.updateMany({ _id: { $in: fileIds } }, updates);
     socket.emit("filesUpdated", { fileIds, updates });
+
+    await db.regenCollRating(fileIds);
   });
 
 export const updateFile = async ({ id, ...updates }: db.UpdateFileInput) =>

@@ -71,6 +71,29 @@ export const regenCollTagAncestors = async (tagIdsFilter: FilterQuery<db.FileCol
     );
   });
 
+export const regenCollRating = async (fileIds: string[]) =>
+  handleErrors(async () => {
+    const collections = (
+      await db.FileCollectionModel.find({
+        fileIdIndexes: { $elemMatch: { fileId: { $in: fileIds } } },
+      })
+        .select({ _id: 1, fileIdIndexes: 1 })
+        .lean()
+    ).map((r) => leanModelToJson<db.FileCollection>(r));
+
+    await Promise.all(
+      collections.map(async (collection) => {
+        const filesRes = await db.listFiles({ ids: collection.fileIdIndexes.map((f) => f.fileId) });
+        if (!filesRes.success) throw new Error(filesRes.error);
+
+        const rating = filesRes.data.reduce((acc, f) => acc + f.rating, 0) / filesRes.data.length;
+        await db.FileCollectionModel.updateOne({ _id: collection.id }, { $set: { rating } });
+
+        socket.emit("collectionUpdated", { collectionId: collection.id, updates: { rating } });
+      })
+    );
+  });
+
 /* ------------------------------ API ENDPOINTS ----------------------------- */
 export const createCollection = ({ fileIdIndexes, title, withSub }: db.CreateCollectionInput) =>
   handleErrors(async () => {
@@ -92,7 +115,11 @@ export const createCollection = ({ fileIdIndexes, title, withSub }: db.CreateCol
   });
 
 export const deleteCollection = ({ id }: db.DeleteCollectionInput) =>
-  handleErrors(async () => await db.FileCollectionModel.deleteOne({ _id: id }));
+  handleErrors(async () => {
+    const res = await db.FileCollectionModel.deleteOne({ _id: id });
+    if (res.deletedCount) socket.emit("collectionDeleted", { collectionId: id });
+    return res;
+  });
 
 export const listFilteredCollections = ({
   page,
