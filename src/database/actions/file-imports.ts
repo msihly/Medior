@@ -1,11 +1,22 @@
 import * as db from "database";
 import { ImportBatchInput } from "store";
-import { dayjs, handleErrors } from "utils";
+import { dayjs, handleErrors, socket } from "utils";
 
-export const completeImportBatch = ({ collectionId, id }: db.CompleteImportBatchInput) =>
+export const completeImportBatch = ({
+  collectionId,
+  fileIds,
+  id,
+  tagIds,
+}: db.CompleteImportBatchInput) =>
   handleErrors(async () => {
     const completedAt = dayjs().toISOString();
-    await db.FileImportBatchModel.updateOne({ _id: id }, { collectionId, completedAt });
+    await Promise.all([
+      db.FileImportBatchModel.updateOne({ _id: id }, { collectionId, completedAt }),
+      tagIds.length && db.regenFileTagAncestors({ _id: { $in: fileIds } }),
+      tagIds.length && db.recalculateTagCounts({ tagIds }),
+    ]);
+
+    socket.emit("reloadFiles");
     return completedAt;
   });
 

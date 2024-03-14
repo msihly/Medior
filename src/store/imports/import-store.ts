@@ -159,14 +159,16 @@ export class ImportStore extends Model({
         if (DEBUG) console.debug("Completing importBatch:", batchId);
         const batch = this.getById(batchId);
 
+        const addedTagIds = [...batch.tagIds].flat();
         const duplicateFileIds = batch.imports
           .filter((file) => file.status === "DUPLICATE")
           .map((file) => file.fileId);
-        if (duplicateFileIds.length) {
+
+        if (addedTagIds.length && duplicateFileIds.length) {
           try {
             const res = await trpc.editFileTags.mutate({
               fileIds: duplicateFileIds,
-              addedTagIds: [...batch.tagIds].flat(),
+              addedTagIds,
               withSub: false,
             });
             if (!res.success) throw new Error(res.error);
@@ -208,12 +210,16 @@ export class ImportStore extends Model({
           collectionId = res.data.id;
         }
 
-        const completedAt = (await trpc.completeImportBatch.mutate({ collectionId, id: batchId }))
-          ?.data;
-        batch.update({ collectionId, completedAt });
+        const completedAt = (
+          await trpc.completeImportBatch.mutate({
+            collectionId,
+            fileIds: batch.completed.map((f) => f.fileId),
+            id: batchId,
+            tagIds: [...batch.tagIds, ...batch.imports.flatMap((imp) => imp.tagIds)].flat(),
+          })
+        )?.data;
 
-        rootStore.homeStore.loadFilteredFiles();
-        rootStore.tagStore.refreshTagCounts([...batch.tagIds].flat());
+        batch.update({ collectionId, completedAt });
       })
     );
   });

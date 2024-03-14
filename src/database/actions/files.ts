@@ -82,10 +82,7 @@ export const regenFileTagAncestors = async (tagIdsFilter: FilterQuery<db.File>) 
     await Promise.all(
       files.map(async (file) => {
         const tagIdsWithAncestors = await db.deriveTagIdsWithAncestors(file.tagIds);
-        await db.FileModel.updateOne(
-          { _id: file.id },
-          { $set: { tagIdsWithAncestors, dateModified: dayjs().toISOString() } }
-        );
+        await db.FileModel.updateOne({ _id: file.id }, { $set: { tagIdsWithAncestors } });
       })
     );
   });

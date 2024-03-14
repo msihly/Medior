@@ -41,7 +41,12 @@ export type UpdateCollectionInput = Partial<FileCollection> & { id: string };
 /* ------------------------------ FILE IMPORTS ------------------------------ */
 export type AddTagsToBatchInput = { batchId: string; tagIds: string[] };
 
-export type CompleteImportBatchInput = { collectionId?: string; id: string };
+export type CompleteImportBatchInput = {
+  collectionId?: string;
+  fileIds: string[];
+  id: string;
+  tagIds: string[];
+};
 
 export type CreateImportBatchesInput = {
   collectionTitle?: string;

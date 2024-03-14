@@ -115,7 +115,7 @@ const makeRelationsUpdateOps = async ({
 
     const keyOfOppType = type === "child" ? "parentIds" : "childIds";
 
-    if (changedIds.added.length > 0) {
+    if (changedIds?.added?.length > 0) {
       ops.push({
         updateMany: {
           filter: { _id: { $in: objectIds(changedIds.added) } },
@@ -128,7 +128,7 @@ const makeRelationsUpdateOps = async ({
       });
     }
 
-    if (changedIds.removed.length > 0) {
+    if (changedIds?.removed?.length > 0) {
       ops.push({
         updateMany: {
           filter: { _id: { $in: objectIds(changedIds.removed) } },

@@ -316,7 +316,7 @@ export const ImportEditor = observer(() => {
               if (!res.success) throw new Error(res.error);
             }
           } catch (err) {
-            errors.push(err.message);
+            errors.push(`Tag: ${JSON.stringify(t, null, 2)}\nError: ${err.message}`);
           }
         })
       );
@@ -566,6 +566,8 @@ export const ImportEditor = observer(() => {
             tagsToCreate.push(..._tagsToCreate);
             tagsToEdit.push(..._tagsToEdit);
           }
+
+          if (imp.tagsToUpsert) tagsToCreate.push(...imp.tagsToUpsert);
 
           return hierarchy;
         }, [] as FlatFolderHierarchy)
