@@ -63,6 +63,7 @@ export const TagEditor = observer(
     useEffect(() => {
       if (id) {
         const tag = tagStore.getById(id);
+        if (!tag) return;
         setLabel(tag.label);
         setAliases(tag.aliases.map((a) => ({ label: a, value: a })) ?? []);
         setChildTags(tagStore.getChildTags(tag).map((t) => t.tagOption) ?? []);

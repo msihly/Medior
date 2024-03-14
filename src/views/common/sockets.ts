@@ -96,6 +96,7 @@ export const useSockets = ({ view }: UseSocketsProps) => {
     socket.on("tagsUpdated", (tags) => {
       if (debug) console.debug("[Socket] tagsUpdated", { tags });
       tags.forEach((t) => tagStore.getById(t.tagId)?.update(t.updates));
+      if (view !== "carousel") homeStore.loadFilteredFiles();
     });
 
     if (view === "carousel")

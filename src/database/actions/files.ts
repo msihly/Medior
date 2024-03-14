@@ -207,7 +207,7 @@ export const editFileTags = ({
     const updatedTagIds = [...new Set([...addedTagIds, ...removedTagIds])];
 
     await Promise.all([
-      regenFileTagAncestors({ tagIds: { $in: updatedTagIds } }),
+      regenFileTagAncestors({ _id: { $in: fileIds } }),
       db.recalculateTagCounts({ tagIds: updatedTagIds }),
     ]);
 
