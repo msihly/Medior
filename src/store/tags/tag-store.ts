@@ -336,7 +336,7 @@ export class TagStore extends Model({
                 tagIds.push(t.id);
               } else {
                 const res = await this.createTag({
-                  aliases: [...t.aliases],
+                  aliases: t.aliases?.length ? [...t.aliases] : [],
                   label: t.label,
                   parentIds,
                   withRegEx: t.withRegEx,
