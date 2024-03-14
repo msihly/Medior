@@ -6,6 +6,7 @@ import { RootStore } from "store";
 @model("medior/CarouselStore")
 export class CarouselStore extends Model({
   activeFileId: prop<string>("").withSetter(),
+  isMouseMoving: prop<boolean>(false).withSetter(),
   selectedFileIds: prop<string[]>(() => []).withSetter(),
 }) {
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */

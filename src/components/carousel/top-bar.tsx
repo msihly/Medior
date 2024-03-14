@@ -7,9 +7,9 @@ import { ZoomContext, Icon, IconButton, SideScroller, Tag, Text, View } from "co
 import { colors, CONSTANTS, makeClasses, round } from "utils";
 
 export const CarouselTopBar = observer(() => {
-  const { css, cx } = useClasses(null);
-
   const { carouselStore, fileStore, tagStore } = useStores();
+
+  const { css, cx } = useClasses({ isMouseMoving: carouselStore.isMouseMoving });
 
   const panZoomRef = useContext(ZoomContext);
   const file = fileStore.getById(carouselStore.activeFileId);
@@ -102,7 +102,7 @@ export const CarouselTopBar = observer(() => {
       <View className={css.center}>
         <SideScroller innerClassName={css.tags}>
           {file?.tagIds?.map((tagId) => (
-            <Tag key={tagId} id={tagId} />
+            <Tag key={tagId} id={tagId} hasEditor />
           ))}
         </SideScroller>
       </View>
@@ -131,7 +131,11 @@ export const CarouselTopBar = observer(() => {
   );
 });
 
-const useClasses = makeClasses({
+interface ClassesProps {
+  isMouseMoving: boolean;
+}
+
+const useClasses = makeClasses((_, { isMouseMoving }: ClassesProps) => ({
   center: {
     display: "flex",
     flex: 3,
@@ -161,12 +165,10 @@ const useClasses = makeClasses({
     justifyContent: "space-between",
     padding: "0.2rem 0.5rem",
     backgroundColor: "black",
-    opacity: 0.3,
+    opacity: isMouseMoving ? 0.3 : 0,
     zIndex: 10,
     transition: "all 200ms ease-in-out",
-    "&:hover": {
-      opacity: 1,
-    },
+    "&:hover": { opacity: 1 },
   },
   side: {
     display: "flex",
@@ -182,4 +184,4 @@ const useClasses = makeClasses({
     width: "18rem",
     minWidth: "12rem",
   },
-});
+}));

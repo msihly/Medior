@@ -18,7 +18,7 @@ export const CarouselThumbNavigator = observer(() => {
   const [isVisible, setIsVisible] = useState(false);
   const [width, setWidth] = useState(0);
 
-  const { css } = useClasses({ isVisible });
+  const { css } = useClasses({ isMouseMoving: carouselStore.isMouseMoving, isVisible });
 
   const { handleMouseDown, isDragging } = useDragScroll({
     listRef,
@@ -81,11 +81,16 @@ export const CarouselThumbNavigator = observer(() => {
   );
 });
 
-const useClasses = makeClasses((_, { isVisible }) => ({
+interface ClassesProps {
+  isMouseMoving: boolean;
+  isVisible: boolean;
+}
+
+const useClasses = makeClasses((_, { isMouseMoving, isVisible }: ClassesProps) => ({
   hideButton: {
     marginBottom: "0.3rem",
     backgroundColor: "rgba(0, 0, 0, 0.3)",
-    opacity: 0.4,
+    opacity: isMouseMoving || isVisible ? 0.4 : 0,
     transition: "all 200ms ease-in-out",
     "&:hover": {
       backgroundColor: "rgba(0, 0, 0, 0.6)",

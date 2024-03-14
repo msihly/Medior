@@ -21,6 +21,19 @@ export const CarouselWindow = observer(() => {
 
   useSockets({ view: "carousel" });
 
+  const mouseMoveTimeout = useRef<number | null>(null);
+
+  const handleMouseMove = () => {
+    if (mouseMoveTimeout.current) clearTimeout(mouseMoveTimeout.current);
+    carouselStore.setIsMouseMoving(true);
+    mouseMoveTimeout.current = window.setTimeout(() => carouselStore.setIsMouseMoving(false), 1000);
+  };
+
+  useEffect(() => {
+    window.addEventListener("mousemove", handleMouseMove);
+    return () => window.removeEventListener("mousemove", handleMouseMove);
+  }, []);
+
   useEffect(() => {
     document.title = "Medior // Carousel";
 
@@ -52,8 +65,9 @@ export const CarouselWindow = observer(() => {
     <ZoomContext.Provider value={panZoomRef}>
       <View
         ref={rootRef}
-        onWheel={handleScroll}
         onKeyDown={handleKeyPress}
+        onMouseMove={handleMouseMove}
+        onWheel={handleScroll}
         tabIndex={-1}
         className={css.root}
       >

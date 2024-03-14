@@ -45,7 +45,7 @@ export const Carousel = observer(() => {
   const [lastVolume, setLastVolume] = useState(0.5);
   const [volume, setVolume] = useState(0);
 
-  const { css } = useClasses({ isVolumeVisible });
+  const { css } = useClasses({ isMouseMoving: carouselStore.isMouseMoving, isVolumeVisible });
 
   const handleFrameSeek = (frame: number) => {
     setCurFrame(frame);
@@ -171,7 +171,12 @@ export const Carousel = observer(() => {
   );
 });
 
-const useClasses = makeClasses((_, { isVolumeVisible }) => ({
+interface ClassesProps {
+  isMouseMoving: boolean;
+  isVolumeVisible: boolean;
+}
+
+const useClasses = makeClasses((_, { isMouseMoving, isVolumeVisible }: ClassesProps) => ({
   contextMenu: {
     display: "contents",
   },
@@ -197,10 +202,8 @@ const useClasses = makeClasses((_, { isVolumeVisible }) => ({
     backgroundColor: "rgb(0, 0, 0, 0.5)",
     cursor: "default",
     zIndex: 5,
-    opacity: 0.3,
-    "&:hover": {
-      opacity: 1,
-    },
+    opacity: isMouseMoving ? 0.3 : 0,
+    "&:hover": { opacity: 1 },
   },
   videoContainer: {
     display: "flex",
@@ -228,8 +231,8 @@ const useClasses = makeClasses((_, { isVolumeVisible }) => ({
   volumeSlider: {
     display: isVolumeVisible ? "block" : "none",
     position: "absolute",
-    bottom: "2.75rem",
-    padding: "0.8rem 0.2rem",
+    bottom: "2.7rem",
+    padding: "0.8rem 0.3rem 0.4rem",
     height: "8rem",
     backgroundColor: "rgb(0, 0, 0, 0.5)",
     borderRadius: "1rem 1rem 0 0",
