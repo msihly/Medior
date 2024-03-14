@@ -43,15 +43,16 @@ export const CarouselWindow = observer(() => {
         try {
           let perfStart = performance.now();
 
+          await fileStore.loadFiles({ fileIds: [fileId] });
+          carouselStore.setActiveFileId(fileId);
+
           await Promise.all([
             fileStore.loadFiles({ fileIds: selectedFileIds }),
             tagStore.loadTags(),
           ]);
+          carouselStore.setSelectedFileIds(selectedFileIds);
 
           console.debug(`Data loaded into MobX in ${performance.now() - perfStart}ms.`);
-
-          carouselStore.setActiveFileId(fileId);
-          carouselStore.setSelectedFileIds(selectedFileIds);
 
           rootRef.current?.focus();
         } catch (err) {

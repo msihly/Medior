@@ -61,7 +61,11 @@ export const Tag = observer(
           {...props}
           {...{ onDelete }}
           onClick={hasEditor || onClick ? handleClick : null}
-          avatar={<Avatar className={css.count}>{formatter.format(tag?.count)}</Avatar>}
+          avatar={
+            <Avatar className={css.count}>
+              {tag?.count !== undefined ? formatter.format(tag.count) : "-"}
+            </Avatar>
+          }
           label={
             <View row align="center">
               <Text tooltip={tag?.label} tooltipProps={{ flexShrink: 1 }} className={css.label}>

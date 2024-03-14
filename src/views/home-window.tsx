@@ -21,14 +21,12 @@ export const HomeWindow = observer(() => {
       try {
         let perfStart = performance.now();
 
-        await Promise.all([
-          homeStore.loadFilteredFiles({ page: 1 }),
-          importStore.loadImportBatches(),
-          tagStore.loadTags(),
-        ]);
-
-        console.debug(`Data loaded into MobX in ${performance.now() - perfStart}ms.`);
+        await homeStore.loadFilteredFiles({ page: 1 });
+        console.debug(`Filtered files loaded in ${performance.now() - perfStart}ms.`);
         setIsLoading(false);
+
+        await Promise.all([importStore.loadImportBatches(), tagStore.loadTags()]);
+        console.debug(`Imports and tags loaded in ${performance.now() - perfStart}ms.`);
       } catch (err) {
         console.error(err);
       }
