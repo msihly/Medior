@@ -175,20 +175,25 @@ export const createTag = ({
     const res = await db.TagModel.create(tag);
     const id = res._id.toString();
 
-    const changedChildIds = bisectArrayChanges([], childIds);
-    const changedParentIds = bisectArrayChanges([], parentIds);
-
     const tagBulkWriteOps = await makeRelationsUpdateOps({
-      changedChildIds,
-      changedParentIds,
+      changedChildIds: { added: childIds },
+      changedParentIds: { added: parentIds },
       dateModified,
       tagId: id,
     });
 
     await db.TagModel.bulkWrite(tagBulkWriteOps);
 
-    if (withSub) socket.emit("tagCreated", { tag: { ...tag, id } });
+    if (childIds.length > 0 || parentIds.length > 0) {
+      const tagIdsFilter = { tagIds: { $in: objectIds([id, ...childIds, ...parentIds]) } };
 
+      await Promise.all([
+        db.regenCollTagAncestors(tagIdsFilter),
+        db.regenFileTagAncestors(tagIdsFilter),
+      ]);
+    }
+
+    if (withSub) socket.emit("tagCreated", { tag: { ...tag, id } });
     return { ...tag, id };
   });
 
@@ -256,8 +261,8 @@ export const editTag = ({
             dateModified,
             label,
             regExMap,
-            ...(childIds?.length > 0 ? { childIds: objectIds(childIds) } : {}),
-            ...(parentIds?.length > 0 ? { parentIds: objectIds(parentIds) } : {}),
+            ...(childIds !== undefined ? { childIds: objectIds(childIds) } : {}),
+            ...(parentIds !== undefined ? { parentIds: objectIds(parentIds) } : {}),
           },
         },
       },
@@ -265,21 +270,15 @@ export const editTag = ({
 
     const res = await db.TagModel.bulkWrite(operations);
 
-    if (
-      changedChildIds.added.length > 0 ||
-      changedChildIds.removed.length > 0 ||
-      changedParentIds.added.length > 0 ||
-      changedParentIds.removed.length > 0
-    ) {
-      const tagIdsFilter = {
-        $or: [
-          { tagIds: id },
-          { tagIds: { $in: objectIds([...changedChildIds.added, ...changedChildIds.removed]) } },
-          {
-            tagIds: { $in: objectIds([...changedParentIds.added, ...changedParentIds.removed]) },
-          },
-        ],
-      };
+    const changedTagIds = [
+      ...changedChildIds.added,
+      ...changedChildIds.removed,
+      ...changedParentIds.added,
+      ...changedParentIds.removed,
+    ];
+
+    if (changedTagIds.length > 0) {
+      const tagIdsFilter = { tagIds: { $in: objectIds([id, ...changedTagIds]) } };
 
       await Promise.all([
         db.regenCollTagAncestors(tagIdsFilter),
@@ -289,7 +288,6 @@ export const editTag = ({
     }
 
     if (withSub) await emitTagUpdates(id, changedChildIds, changedParentIds);
-
     return { changedChildIds, changedParentIds, dateModified, operations, res };
   });
 
@@ -573,6 +571,23 @@ export const refreshTagRelations = ({
         },
       ].filter(Boolean)
     );
+
+    const changedTagIds = [
+      ...changedChildIds.added,
+      ...changedChildIds.removed,
+      ...changedParentIds.added,
+      ...changedParentIds.removed,
+    ];
+
+    if (changedTagIds.length > 0) {
+      const tagIdsFilter = { tagIds: { $in: objectIds([tagId, ...changedTagIds]) } };
+
+      await Promise.all([
+        db.regenCollTagAncestors(tagIdsFilter),
+        db.regenFileTagAncestors(tagIdsFilter),
+        recalculateTagCounts({ tagIds: [tagId, ...parentIds], withSub }),
+      ]);
+    }
 
     if (withSub) await emitTagUpdates(tagId, changedChildIds, changedParentIds);
   });
