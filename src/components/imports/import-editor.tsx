@@ -249,7 +249,26 @@ export const ImportEditor = observer(() => {
         fileTagsToUpsert.push(...diffFileTagsToUpsert);
       }
 
-      const updates = { tagIds: [...new Set(fileTagIds)], tagsToUpsert: fileTagsToUpsert };
+      const tagIds = [...new Set(fileTagIds)].reduce((acc, curId) => {
+        if (acc.find((id) => id === curId)) return acc;
+
+        const hasDescendants = fileTagIds.some((otherId) => {
+          const otherTag = tagStore.getById(otherId);
+          const parentIds = [
+            ...new Set([
+              otherTag?.parentIds ?? [],
+              otherTag ? tagStore.getParentTags(otherTag, true).map((t) => t.id) : [],
+            ]),
+          ].flat();
+
+          return parentIds.includes(curId);
+        });
+
+        if (!hasDescendants) acc.push(curId);
+        return acc;
+      }, [] as string[]);
+
+      const updates = { tagIds, tagsToUpsert: fileTagsToUpsert };
       imp.update(updates);
       return { ...imp.$, ...updates };
     });

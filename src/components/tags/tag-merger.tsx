@@ -113,12 +113,23 @@ export const TagMerger = observer(() => {
   const handleSelectedTagChange = (val: TagOption[]) => setSelectedTagValue(val);
 
   const mergeRelatedTags = (tagIds: string[], tagIdsToExclude: string[]) => {
-    const filteredTagIds = [...new Set(tagIds)].filter((t) => !tagIdsToExclude.includes(t));
-    return filteredTagIds.reduce((acc, cur) => {
-      const tag = tagStore.getById(cur);
-      const ancestorIds = tagStore.getParentTags(tag, true).map((t) => t.id);
-      if (filteredTagIds.some((t) => ancestorIds.includes(t))) return acc;
-      else acc.push(tag.tagOption);
+    const filteredTagIds = [...new Set(tagIds)];
+    return filteredTagIds.reduce((acc, curId) => {
+      if (tagIdsToExclude.includes(curId) || acc.find((t) => t.id === curId)) return acc;
+
+      const hasDescendants = filteredTagIds.some((otherId) => {
+        const otherTag = tagStore.getById(otherId);
+        const parentIds = [
+          ...new Set([
+            otherTag?.parentIds ?? [],
+            otherTag ? tagStore.getParentTags(otherTag, true).map((t) => t.id) : [],
+          ]),
+        ].flat();
+
+        return parentIds.includes(curId);
+      });
+
+      if (!hasDescendants) acc.push(tagStore.getById(curId).tagOption);
       return acc;
     }, [] as TagOption[]);
   };
