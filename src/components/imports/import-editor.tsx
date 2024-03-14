@@ -285,47 +285,11 @@ export const ImportEditor = observer(() => {
     setIsSaving(true);
 
     if (flatTagsToUpsert.length > 0) {
-      const tagQueue = new PromiseQueue();
-      const errors: string[] = [];
-
-      flatTagsToUpsert.forEach((t) =>
-        tagQueue.add(async () => {
-          try {
-            const parentTags = t.parentLabels
-              ? t.parentLabels.map((l) => tagStore.getByLabel(l)).filter(Boolean)
-              : null;
-            const parentIds = parentTags?.map((t) => t.id) ?? [];
-
-            if (t.id) {
-              const tag = tagStore.getById(t.id);
-              if (!parentIds.length || tag.parentIds.some((id) => parentIds.includes(id))) return;
-
-              const res = await tagStore.editTag({
-                id: t.id,
-                parentIds: parentIds.length ? [...tag.parentIds, ...parentIds] : [],
-                withSub: false,
-              });
-              if (!res.success) throw new Error(res.error);
-            } else {
-              const res = await tagStore.createTag({
-                label: t.label,
-                parentIds,
-                withRegEx: t.withRegEx,
-                withSub: false,
-              });
-              if (!res.success) throw new Error(res.error);
-            }
-          } catch (err) {
-            errors.push(`Tag: ${JSON.stringify(t, null, 2)}\nError: ${err.message}`);
-          }
-        })
-      );
-
-      await tagQueue.queue;
+      const res = await tagStore.upsertTags(flatTagsToUpsert);
       await tagStore.loadTags();
 
-      if (errors.length) {
-        console.error(errors);
+      if (!res.success) {
+        console.error(res.error);
         toast.error("Failed to create tags");
         return setIsSaving(false);
       }
@@ -335,7 +299,17 @@ export const ImportEditor = observer(() => {
       collectionTitle: folder.collectionTitle,
       deleteOnImport,
       ignorePrevDeleted,
-      imports: [...folder.imports],
+      imports: folder.imports.map((imp) => ({
+        ...imp,
+        tagIds: [
+          ...new Set(
+            [
+              ...imp.tagIds,
+              ...imp.tagsToUpsert.map((t) => tagStore.getByLabel(t.label)?.id),
+            ].filter(Boolean)
+          ),
+        ],
+      })),
       rootFolderPath: folder.folderName,
       tagIds: folder.tags.map((t) => tagStore.getByLabel(t.label)?.id).filter(Boolean),
     }));
@@ -576,9 +550,11 @@ export const ImportEditor = observer(() => {
       setFlatFolderHierarchy(flatFolderHierarchy);
 
       /* ----------------------------------- Tags ---------------------------------- */
-      const tagsToUpsert = [...tagsToCreate, ...tagsToEdit].map((tag) => {
-        return withFolderNameRegEx ? replaceTagsFromRegEx(tag, folderNameRegExMaps) : tag;
-      });
+      const tagsToUpsert = [...tagsToCreate, ...tagsToEdit].reduce((acc, cur) => {
+        const tag = withFolderNameRegEx ? replaceTagsFromRegEx(cur, folderNameRegExMaps) : cur;
+        if (!acc.find((t) => t.label === tag.label)) acc.push(tag);
+        return acc;
+      }, [] as TagToUpsert[]);
       setFlatTagsToUpsert(tagsToUpsert);
 
       setTagHierarchy(

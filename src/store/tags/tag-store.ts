@@ -12,7 +12,7 @@ import {
 } from "mobx-keystone";
 import * as db from "database";
 import { RootStore } from "store";
-import { SortMenuProps } from "components";
+import { SortMenuProps, TagToUpsert } from "components";
 import { Tag, TagOption } from ".";
 import { dayjs, getConfig, handleErrors, PromiseQueue, regexEscape, trpc } from "utils";
 import { toast } from "react-toastify";
@@ -303,6 +303,57 @@ export class TagStore extends Model({
         if (!res.success) throw new Error(res.error);
 
         return { changedChildIds, changedParentIds, dateModified };
+      })
+    );
+  });
+
+  @modelFlow
+  upsertTags = _async(function* (this: TagStore, tagsToUpsert: TagToUpsert[]) {
+    return yield* _await(
+      handleErrors(async () => {
+        const tagQueue = new PromiseQueue();
+        const errors: string[] = [];
+        const tagIds: string[] = [];
+
+        tagsToUpsert.forEach((t) =>
+          tagQueue.add(async () => {
+            try {
+              const parentTags = t.parentLabels
+                ? t.parentLabels.map((l) => this.getByLabel(l)).filter(Boolean)
+                : null;
+              const parentIds = parentTags?.map((t) => t.id) ?? [];
+
+              if (t.id) {
+                const tag = this.getById(t.id);
+                if (!parentIds.length || tag.parentIds.some((id) => parentIds.includes(id))) return;
+
+                const res = await this.editTag({
+                  id: t.id,
+                  parentIds: parentIds.length ? [...tag.parentIds, ...parentIds] : [],
+                  withSub: false,
+                });
+                if (!res.success) throw new Error(res.error);
+                tagIds.push(t.id);
+              } else {
+                const res = await this.createTag({
+                  aliases: [...t.aliases],
+                  label: t.label,
+                  parentIds,
+                  withRegEx: t.withRegEx,
+                  withSub: false,
+                });
+                if (!res.success) throw new Error(res.error);
+                tagIds.push(res.data.id);
+              }
+            } catch (err) {
+              errors.push(`Tag: ${JSON.stringify(t, null, 2)}\nError: ${err.message}`);
+            }
+          })
+        );
+
+        await tagQueue.queue;
+        if (errors.length) throw new Error(errors.join("\n"));
+        return tagIds;
       })
     );
   });

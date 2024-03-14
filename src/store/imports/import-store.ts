@@ -215,7 +215,9 @@ export class ImportStore extends Model({
             collectionId,
             fileIds: batch.completed.map((f) => f.fileId),
             id: batchId,
-            tagIds: [...batch.tagIds, ...batch.imports.flatMap((imp) => imp.tagIds)].flat(),
+            tagIds: [
+              ...new Set([...batch.tagIds, ...batch.imports.flatMap((imp) => imp.tagIds)].flat()),
+            ],
           })
         )?.data;
 
@@ -302,35 +304,7 @@ export class ImportStore extends Model({
             fileImport.path
           );
 
-        let tagIds = [...batch.tagIds, ...fileImport.tagIds].flat();
-
-        if (fileImport.tagsToUpsert?.length) {
-          await Promise.all(
-            fileImport.tagsToUpsert.map(async (t) => {
-              const tag = tagStore.getByLabel(t.label);
-              if (tag) tagIds.push(tag.id);
-              else {
-                const parentTags = t.parentLabels?.length
-                  ? t.parentLabels.map((l) => tagStore.getByLabel(l)).filter(Boolean)
-                  : null;
-
-                const parentIds = parentTags?.map((t) => t.id) ?? [];
-
-                const res = await tagStore.createTag({
-                  aliases: [...t.aliases],
-                  label: t.label,
-                  parentIds,
-                  withRegEx: t.withRegEx,
-                });
-                if (!res.success) throw new Error(res.error);
-
-                tagIds.push(res.data.id);
-              }
-            })
-          );
-        }
-
-        tagIds = [...new Set(tagIds)];
+        const tagIds = [...new Set([...batch.tagIds, ...fileImport.tagIds].flat())];
         const tagIdsWithAncestors = [
           ...new Set([
             ...tagIds,
