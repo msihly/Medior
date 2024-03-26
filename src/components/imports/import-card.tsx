@@ -64,15 +64,7 @@ export const ImportCard = observer(({ fileImport, style }: ImportCardProps) => {
             rounded="all"
             height="100%"
             disabled
-          >
-            <FileBase.Chip
-              position="top-left"
-              label={<Icon name={status?.icon} color={status?.color} size={20} />}
-              opacity={1}
-              padding={{ all: 0 }}
-              height="auto"
-            />
-          </FileBase.Image>
+          />
         ) : (
           <Icon name={status?.icon} color={status?.color} size={50} className={css.icon} />
         )}
