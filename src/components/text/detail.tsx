@@ -1,17 +1,28 @@
 import { ReactNode } from "react";
 import { Text, TextProps, View } from "components";
 import { colors, makeClasses } from "utils";
+import { CSSObject } from "tss-react";
 
 export interface DetailProps {
   label: ReactNode;
   labelProps?: Partial<TextProps>;
+  overflowX?: CSSObject["overflowX"];
+  overflowY?: CSSObject["overflowY"];
   value: ReactNode;
   valueProps?: Partial<TextProps>;
   withTooltip?: boolean;
 }
 
-export const Detail = ({ label, labelProps, value, valueProps, withTooltip }: DetailProps) => {
-  const { css, cx } = useClasses(null);
+export const Detail = ({
+  label,
+  labelProps,
+  overflowX = "auto",
+  overflowY = "hidden",
+  value,
+  valueProps,
+  withTooltip,
+}: DetailProps) => {
+  const { css, cx } = useClasses({ overflowX, overflowY });
 
   return (
     <View column>
@@ -37,14 +48,19 @@ export const Detail = ({ label, labelProps, value, valueProps, withTooltip }: De
   );
 };
 
-const useClasses = makeClasses({
+interface ClassesProps {
+  overflowX: CSSObject["overflowX"];
+  overflowY: CSSObject["overflowY"];
+}
+
+const useClasses = makeClasses((_, { overflowX, overflowY }: ClassesProps) => ({
   label: {
     fontSize: "0.8em",
     color: colors.blue["500"],
   },
   value: {
-    overflow: "hidden",
-    textOverflow: "ellipsis",
+    overflowX,
+    overflowY,
     whiteSpace: "nowrap",
   },
-});
+}));
