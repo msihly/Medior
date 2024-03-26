@@ -3,7 +3,7 @@ import { observer } from "mobx-react-lite";
 import { useStores } from "store";
 import { SettingsModal, View } from "components";
 import { Views, useSockets } from "./common";
-import { makeClasses } from "utils";
+import { makeClasses, makePerfLog } from "utils";
 
 export const HomeWindow = observer(() => {
   const { homeStore, importStore, tagStore } = useStores();
@@ -19,14 +19,19 @@ export const HomeWindow = observer(() => {
 
     const loadDatabase = async () => {
       try {
-        let perfStart = performance.now();
+        const { perfLog, perfLogTotal } = makePerfLog("[Home]");
 
         await homeStore.loadFilteredFiles({ page: 1 });
-        console.debug(`Filtered files loaded in ${performance.now() - perfStart}ms.`);
+        perfLog("Filtered files loaded");
         setIsLoading(false);
 
-        await Promise.all([importStore.loadImportBatches(), tagStore.loadTags()]);
-        console.debug(`Imports and tags loaded in ${performance.now() - perfStart}ms.`);
+        await tagStore.loadTags();
+        perfLog("Tags loaded");
+
+        await importStore.loadImportBatches();
+        perfLog("Import batches loaded");
+
+        perfLogTotal("Data loaded into MobX");
       } catch (err) {
         console.error(err);
       }

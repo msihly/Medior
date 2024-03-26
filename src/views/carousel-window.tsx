@@ -4,7 +4,7 @@ import { observer } from "mobx-react-lite";
 import { useStores } from "store";
 import { Carousel, CarouselThumbNavigator, CarouselTopBar, View, ZoomContext } from "components";
 import { Views, useHotkeys, useSockets } from "./common";
-import { debounce, makeClasses } from "utils";
+import { debounce, makeClasses, makePerfLog } from "utils";
 
 export const CarouselWindow = observer(() => {
   const { css } = useClasses(null);
@@ -41,10 +41,12 @@ export const CarouselWindow = observer(() => {
       "init",
       async (_, { fileId, selectedFileIds }: { fileId: string; selectedFileIds: string[] }) => {
         try {
-          let perfStart = performance.now();
+          const { perfLog, perfLogTotal } = makePerfLog("[Carousel]");
 
           await fileStore.loadFiles({ fileIds: [fileId] });
           carouselStore.setActiveFileId(fileId);
+
+          perfLog("Active file loaded");
 
           await Promise.all([
             fileStore.loadFiles({ fileIds: selectedFileIds }),
@@ -52,7 +54,7 @@ export const CarouselWindow = observer(() => {
           ]);
           carouselStore.setSelectedFileIds(selectedFileIds);
 
-          console.debug(`Data loaded into MobX in ${performance.now() - perfStart}ms.`);
+          perfLogTotal("Data loaded into MobX");
 
           rootRef.current?.focus();
         } catch (err) {
