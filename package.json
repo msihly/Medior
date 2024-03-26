@@ -47,6 +47,7 @@
     "react-virtualized-auto-sizer": "^1.0.6",
     "react-window": "^1.8.7",
     "sharp": "^0.32.4",
+    "sharp-bmp": "^0.1.5",
     "socket.io": "^4.6.2",
     "socket.io-client": "^4.6.2",
     "tss-react": "^3.6.0",
@@ -165,6 +166,14 @@
                 "useDeepCompareMemoize"
               ],
               "message": "Import 'useDeepEffect' or 'useDeepMemo' from 'utils' instead.",
+              "allowTypeImports": true
+            },
+            {
+              "name": "sharp",
+              "importNames": [
+                "default"
+              ],
+              "message": "Import from from 'utils' instead.",
               "allowTypeImports": true
             },
             {

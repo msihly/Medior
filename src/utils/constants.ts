@@ -27,7 +27,19 @@ export interface Constants {
   };
 }
 
-const IMAGE_TYPES = ["gif", "heic", "jfif", "jif", "jiff", "jpeg", "jpg", "png", "webp"] as const;
+const IMAGE_TYPES = [
+  "bmp",
+  "gif",
+  "heic",
+  "jfif",
+  "jif",
+  "jiff",
+  "jpeg",
+  "jpg",
+  "png",
+  "tiff",
+  "webp",
+] as const;
 export type ImageType = (typeof IMAGE_TYPES)[number];
 
 const VIDEO_TYPES = [

@@ -1,7 +1,6 @@
 import fs from "fs/promises";
 import path from "path";
 import md5File from "md5-file";
-import sharp from "sharp";
 import { File } from "database";
 import { FileImport, RootStore } from "store";
 import {
@@ -14,6 +13,7 @@ import {
   generateFramesThumbnail,
   getConfig,
   getVideoInfo,
+  sharp,
   trpc,
 } from "utils";
 import { toast } from "react-toastify";
@@ -90,9 +90,6 @@ export const copyFileForImport = async ({
     } else if (!(isPrevDeleted && ignorePrevDeleted)) {
       const isAnimated = [...config.file.videoTypes, "gif"].includes(extFromPath);
 
-      sharp.cache(
-        false
-      ); /** Prevents WEBP lockout during deletion. See: https://github.com/lovell/sharp/issues/415#issuecomment-212817987 */
       const imageInfo = !isAnimated ? await sharp(originalPath).metadata() : null;
       const videoInfo = isAnimated ? await getVideoInfo(originalPath) : null;
       const duration = isAnimated ? videoInfo?.duration : null;
@@ -110,13 +107,9 @@ export const copyFileForImport = async ({
           : [path.join(dirPath, `${hash}-thumb.${extFromPath}`)];
 
       if (!dbOnly && !fileExistsAtPath) {
-        await(
-          duration > 0
-            ? generateFramesThumbnail(originalPath, dirPath, hash, duration)
-            : sharp(originalPath, { failOn: "none" })
-                .resize(null, CONSTANTS.THUMB.WIDTH)
-                .toFile(thumbPaths[0])
-        );
+        await (duration > 0
+          ? generateFramesThumbnail(originalPath, dirPath, hash, duration)
+          : sharp(originalPath).resize(null, CONSTANTS.THUMB.WIDTH).toFile(thumbPaths[0]));
       }
 
       const res = await trpc.importFile.mutate({

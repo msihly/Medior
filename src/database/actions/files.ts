@@ -1,10 +1,9 @@
 import { app } from "electron";
 import path from "path";
 import fs from "fs/promises";
-import sharp from "sharp";
 import { FilterQuery, PipelineStage } from "mongoose";
 import * as db from "database";
-import { dayjs, handleErrors, socket } from "utils";
+import { dayjs, handleErrors, sharp, socket } from "utils";
 import { leanModelToJson, objectIds } from "./utils";
 
 const FACE_MIN_CONFIDENCE = 0.4;

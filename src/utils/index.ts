@@ -8,6 +8,7 @@ export * from "./diffusion";
 export * from "./formatting";
 export * from "./files";
 export * from "./hooks";
+export * from "./images";
 export * from "./logging";
 export * from "./math";
 export * from "./miscellaneous";

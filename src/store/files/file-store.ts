@@ -1,7 +1,6 @@
 import { promises as fs } from "fs";
 import path from "path";
 import md5File from "md5-file";
-import sharp from "sharp";
 import {
   _async,
   _await,
@@ -29,6 +28,7 @@ import {
   getVideoInfo,
   handleErrors,
   PromiseQueue,
+  sharp,
   splitArray,
   trpc,
 } from "utils";
@@ -215,9 +215,6 @@ export class FileStore extends Model({
         if (!curFile && !id) throw new Error("No file or id provided");
         const file = !curFile ? this.getById(id) : new File(curFile);
 
-        sharp.cache(
-          false
-        ); /** Prevents WEBP lockout during deletion. See: https://github.com/lovell/sharp/issues/415#issuecomment-212817987 */
         const [hash, { mtime, size }, imageInfo, videoInfo] = await Promise.all([
           md5File(file.path),
           fs.stat(file.path),
@@ -247,7 +244,7 @@ export class FileStore extends Model({
                 .map((_, i) =>
                   path.join(dirPath, `${hash}-thumb-${String(i + 1).padStart(2, "0")}.jpg`)
                 )
-            : [path.join(dirPath, `${hash}-thumb${file.ext}`)];
+            : [path.join(dirPath, `${hash}-thumb.jpg`)];
 
           await (file.isAnimated
             ? generateFramesThumbnail(file.path, dirPath, hash, videoInfo?.duration)
