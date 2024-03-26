@@ -29,7 +29,7 @@ import {
   Text,
   View,
 } from "components";
-import { CONSTANTS, colors, makeClasses } from "utils";
+import { CONSTANTS, colors, makeClasses, useDeepEffect } from "utils";
 import { toast } from "react-toastify";
 
 export const FileCollectionEditor = observer(() => {
@@ -63,13 +63,13 @@ export const FileCollectionEditor = observer(() => {
     };
   }, [fileCollectionStore.activeCollectionId]);
 
-  useEffect(() => {
+  useDeepEffect(() => {
     (async () => {
       if (!fileCollectionStore.editorSearchValue.length)
         return fileCollectionStore.setEditorSearchResults([]);
       await fileCollectionStore.loadSearchResults();
     })();
-  }, [fileCollectionStore.editorSearchValue, JSON.stringify(fileCollectionStore.editorSearchSort)]);
+  }, [fileCollectionStore.editorSearchValue, fileCollectionStore.editorSearchSort]);
 
   const confirmClose = () => {
     if (fileCollectionStore.hasUnsavedChanges) setIsConfirmDiscardOpen(true);

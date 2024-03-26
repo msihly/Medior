@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { observer } from "mobx-react-lite";
 import { TagOption, sortFiles, useStores } from "store";
 import AutoSizer from "react-virtualized-auto-sizer";
@@ -16,7 +16,7 @@ import {
   Text,
   View,
 } from "components";
-import { CONSTANTS, colors, makeClasses } from "utils";
+import { CONSTANTS, colors, makeClasses, useDeepEffect, useDeepMemo } from "utils";
 
 export const TagManager = observer(() => {
   const { css } = useClasses(null);
@@ -25,6 +25,9 @@ export const TagManager = observer(() => {
 
   const [searchValue, setSearchValue] = useState<TagOption[]>([]);
   const [width, setWidth] = useState(0);
+
+  const tags = useDeepMemo(tagStore.tags);
+  const tagManagerSort = useDeepMemo(tagStore.tagManagerSort);
 
   const tagOptions = useMemo(() => {
     const {
@@ -65,17 +68,12 @@ export const TagManager = observer(() => {
         return acc;
       }, [] as TagOption[])
       .sort((a, b) => sortFiles({ a, b, ...tagStore.tagManagerSort }));
-  }, [
-    tagStore.tagManagerRegExMode,
-    JSON.stringify(searchValue),
-    JSON.stringify(tagStore.tags),
-    JSON.stringify(tagStore.tagManagerSort),
-  ]);
+  }, [JSON.stringify(searchValue), tagStore.tagManagerRegExMode, tags, tagManagerSort]);
 
   const resultsRef = useRef<FixedSizeGrid>(null);
-  useEffect(() => {
+  useDeepEffect(() => {
     if (resultsRef.current) resultsRef.current.scrollTo({ scrollTop: 0 });
-  }, [JSON.stringify(tagOptions)]);
+  }, [tagOptions]);
 
   const columnWidth = 250;
   const rowHeight = 50;

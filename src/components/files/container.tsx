@@ -5,7 +5,7 @@ import { Pagination } from "@mui/material";
 import { useHotkeys } from "views";
 import { View } from "components";
 import { DisplayedFiles } from ".";
-import { colors, makeClasses } from "utils";
+import { colors, makeClasses, useDeepEffect } from "utils";
 import Color from "color";
 
 export const FileContainer = observer(() => {
@@ -26,18 +26,18 @@ export const FileContainer = observer(() => {
     homeStore.searchValue,
     homeStore.selectedImageTypes,
     homeStore.selectedVideoTypes,
-    JSON.stringify(homeStore.sortValue),
+    homeStore.sortValue,
   ];
 
   useEffect(() => {
     if (fileStore.page > fileStore.pageCount) handlePageChange(null, fileStore.pageCount);
   }, [fileStore.page, fileStore.pageCount]);
 
-  useEffect(() => {
+  useDeepEffect(() => {
     filesRef.current?.scrollTo({ top: 0, behavior: "smooth" });
   }, [fileStore.page, ...searchDeps]);
 
-  useEffect(() => {
+  useDeepEffect(() => {
     if (isInitMount.current) isInitMount.current = false;
     else homeStore.loadFilteredFiles({ page: 1 });
   }, [...searchDeps]);
@@ -64,7 +64,11 @@ export const FileContainer = observer(() => {
   );
 });
 
-const useClasses = makeClasses((_, { hasFiles }) => ({
+interface ClassesProps {
+  hasFiles: boolean;
+}
+
+const useClasses = makeClasses((_, { hasFiles }: ClassesProps) => ({
   container: {
     position: "relative",
     display: "flex",

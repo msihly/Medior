@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { observer } from "mobx-react-lite";
 import { RegExMap, TagOption, useStores } from "store";
 import { Divider } from "@mui/material";
@@ -14,7 +14,7 @@ import {
   View,
 } from "components";
 import { TagInputs } from ".";
-import { colors, makeClasses } from "utils";
+import { colors, makeClasses, useDeepEffect } from "utils";
 import { toast } from "react-toastify";
 
 export interface TagEditorProps {
@@ -60,7 +60,7 @@ export const TagEditor = observer(
       (isCreate || label.toLowerCase() !== tag?.label?.toLowerCase()) &&
       !!tagStore.getByLabel(label);
 
-    useEffect(() => {
+    useDeepEffect(() => {
       if (id) {
         const tag = tagStore.getById(id);
         if (!tag) return;
@@ -69,7 +69,7 @@ export const TagEditor = observer(
         setChildTags(tagStore.getChildTags(tag).map((t) => t.tagOption) ?? []);
         setParentTags(tagStore.getParentTags(tag).map((t) => t.tagOption) ?? []);
       }
-    }, [id, JSON.stringify(tag)]);
+    }, [id, tag]);
 
     const clearInputs = () => {
       setLabel("");

@@ -4,7 +4,7 @@ import { TagOption, useStores } from "store";
 import { Divider, Drawer as MuiDrawer, List } from "@mui/material";
 import { Accordion, Checkbox, ListItem, TagInput, Text, View } from "components";
 import { ExtCheckbox } from ".";
-import { colors, CONSTANTS, getConfig, makeClasses, openSearchWindow } from "utils";
+import { colors, CONSTANTS, getConfig, makeClasses, openSearchWindow, useDeepMemo } from "utils";
 
 export interface DrawerProps {
   hasImports?: boolean;
@@ -18,10 +18,7 @@ export const Drawer = observer(({ hasImports = false, hasSettings = false }: Dra
 
   const { fileCollectionStore, homeStore, importStore, tagStore } = useStores();
 
-  const searchValue = useMemo(
-    () => [...homeStore.searchValue],
-    [JSON.stringify(homeStore.searchValue)]
-  );
+  const searchValue = useDeepMemo(homeStore.searchValue);
 
   const [isAllImageTypesSelected, isAnyImageTypesSelected] = useMemo(() => {
     const allTypes = Object.values(homeStore.selectedImageTypes);

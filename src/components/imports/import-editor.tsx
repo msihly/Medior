@@ -1,5 +1,5 @@
 import path from "path";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { RegExMapType } from "database";
 import { observer } from "mobx-react-lite";
 import { ModelCreationData } from "mobx-keystone";
@@ -24,7 +24,14 @@ import {
   TagHierarchy,
   TagToUpsert,
 } from ".";
-import { colors, getConfig, makeClasses, parseDiffParam, parseDiffParams } from "utils";
+import {
+  colors,
+  getConfig,
+  makeClasses,
+  parseDiffParam,
+  parseDiffParams,
+  useDeepEffect,
+} from "utils";
 import { toast } from "react-toastify";
 import Color from "color";
 
@@ -463,7 +470,7 @@ export const ImportEditor = observer(() => {
     return { diffMetaTagsToEdit, modelTag, originalTag, upscaledTag };
   };
 
-  useEffect(() => {
+  useDeepEffect(() => {
     if (isSaving) return;
     setIsLoading(true);
 
@@ -534,7 +541,7 @@ export const ImportEditor = observer(() => {
     withDiffusionTags,
     withFileNameToTags,
     withFolderNameRegEx,
-    JSON.stringify(tagStore.tags),
+    tagStore.tags,
   ]);
 
   return (

@@ -1,8 +1,8 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { observer } from "mobx-react-lite";
 import { TagOption, tagToOption, useStores } from "store";
 import { Button, ConfirmModal, Modal, TagInput, Text, View } from "components";
-import { colors, makeClasses } from "utils";
+import { colors, makeClasses, useDeepEffect } from "utils";
 import { toast } from "react-toastify";
 
 interface TaggerProps {
@@ -22,7 +22,7 @@ export const Tagger = observer(({ batchId, fileIds, setVisible }: TaggerProps) =
   const [isConfirmDiscardOpen, setIsConfirmDiscardOpen] = useState(false);
   const [removedTags, setRemovedTags] = useState<TagOption[]>([]);
 
-  useEffect(() => {
+  useDeepEffect(() => {
     const loadCurrentTags = async () => {
       const res = await fileStore.loadFiles({ fileIds, withOverwrite: false });
       if (!res?.success) throw new Error(res.error);
@@ -36,7 +36,7 @@ export const Tagger = observer(({ batchId, fileIds, setVisible }: TaggerProps) =
     return () => {
       setCurrentTagOptions([]);
     };
-  }, [fileIds, JSON.stringify(tagStore.tags)]);
+  }, [fileIds, tagStore.tags]);
 
   const handleClose = () => {
     if (hasUnsavedChanges) return setIsConfirmDiscardOpen(true);

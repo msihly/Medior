@@ -50,6 +50,7 @@
     "socket.io": "^4.6.2",
     "socket.io-client": "^4.6.2",
     "tss-react": "^3.6.0",
+    "use-deep-compare-effect": "^1.8.1",
     "util": "^0.12.5",
     "vite-plugin-electron-renderer": "0.10.1"
   },
@@ -156,6 +157,16 @@
         "error",
         {
           "paths": [
+            {
+              "name": "use-deep-compare-effect",
+              "importNames": [
+                "default",
+                "useDeepCompareEffect",
+                "useDeepCompareMemoize"
+              ],
+              "message": "Import 'useDeepEffect' or 'useDeepMemo' from 'utils' instead.",
+              "allowTypeImports": true
+            },
             {
               "name": "@mui/material",
               "importNames": [

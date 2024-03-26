@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { observer } from "mobx-react-lite";
 import { RegExMap, TagOption, useStores } from "store";
 import { Divider } from "@mui/material";
@@ -15,7 +15,7 @@ import {
   Text,
   View,
 } from "components";
-import { colors, makeClasses } from "utils";
+import { colors, makeClasses, useDeepEffect, useDeepMemo } from "utils";
 import { toast } from "react-toastify";
 
 export const TagMerger = observer(() => {
@@ -38,8 +38,9 @@ export const TagMerger = observer(() => {
   const hasSelectedTag = selectedTagValue.length > 0;
   const disabled = isSaving || !hasSelectedTag;
   const baseTag = tagStore.getById(tagStore.activeTagId);
+  const tagOptions = useDeepMemo(tagStore.tagOptions);
 
-  useEffect(() => {
+  useDeepEffect(() => {
     if (!selectedTagValue.length) {
       setAliases([]);
       setChildTags([]);
@@ -76,7 +77,7 @@ export const TagMerger = observer(() => {
     const tagIdsToExclude = [tagToKeep.id, tagToMerge.id];
     setChildTags(mergeRelatedTags(childIds, tagIdsToExclude));
     setParentTags(mergeRelatedTags(parentIds, tagIdsToExclude));
-  }, [JSON.stringify(selectedTagValue), tagLabelToKeep]);
+  }, [selectedTagValue, tagLabelToKeep]);
 
   const handleClose = () => {
     setIsConfirmDiscardOpen(false);
@@ -159,7 +160,7 @@ export const TagMerger = observer(() => {
           <View column flex={1}>
             <InputWrapper label="Select Tag to Merge" align="center">
               <TagInput
-                options={[...tagStore.tagOptions]}
+                options={tagOptions}
                 excludedIds={[tagStore.activeTagId]}
                 value={selectedTagValue}
                 onChange={handleSelectedTagChange}
@@ -192,7 +193,7 @@ export const TagMerger = observer(() => {
 
           <TagInputs.Relations
             label="Parent Tags"
-            options={[...tagStore.tagOptions]}
+            options={tagOptions}
             excludedIds={[tagStore.activeTagId, ...childTags.map((t) => t.id)]}
             value={parentTags}
             setValue={setParentTags}
@@ -203,7 +204,7 @@ export const TagMerger = observer(() => {
 
           <TagInputs.Relations
             label="Child Tags"
-            options={[...tagStore.tagOptions]}
+            options={tagOptions}
             excludedIds={[tagStore.activeTagId, ...parentTags.map((t) => t.id)]}
             value={childTags}
             setValue={setChildTags}

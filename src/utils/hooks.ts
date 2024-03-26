@@ -1,4 +1,9 @@
 import { MutableRefObject, useCallback, useEffect, useState } from "react";
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
+import useDeepCompareEffect, { useDeepCompareMemoize } from "use-deep-compare-effect";
+
+export const useDeepEffect = useDeepCompareEffect;
+export const useDeepMemo = useDeepCompareMemoize;
 
 export const useElementResize = (ref: MutableRefObject<any>, condition?: any) => {
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });

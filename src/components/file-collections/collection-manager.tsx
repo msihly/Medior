@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { observer } from "mobx-react-lite";
 import { TagOption, useStores } from "store";
 import { Pagination } from "@mui/material";
@@ -14,7 +14,7 @@ import {
   View,
 } from "components";
 import { DisplayedCollections, FileCollection } from ".";
-import { CONSTANTS, colors, makeClasses } from "utils";
+import { CONSTANTS, colors, makeClasses, useDeepEffect, useDeepMemo } from "utils";
 import { toast } from "react-toastify";
 import Color from "color";
 
@@ -31,16 +31,7 @@ export const FileCollectionManager = observer(() => {
     ? fileCollectionStore.listByFileId(fileCollectionStore.selectedFileIds[0])
     : [];
 
-  const tagSearchValue = useMemo(
-    () => [...fileCollectionStore.managerTagSearchValue],
-    [JSON.stringify(fileCollectionStore.managerTagSearchValue)]
-  );
-
-  const searchDeps = [
-    fileCollectionStore.managerTagSearchValue,
-    fileCollectionStore.managerTitleSearchValue,
-    JSON.stringify(fileCollectionStore.managerSearchSort),
-  ];
+  const tagSearchValue = useDeepMemo(fileCollectionStore.managerTagSearchValue);
 
   useEffect(() => {
     fileCollectionStore.loadSelectedFiles();
@@ -51,11 +42,17 @@ export const FileCollectionManager = observer(() => {
       handlePageChange(null, fileCollectionStore.managerSearchPageCount);
   }, [fileCollectionStore.managerSearchPage, fileCollectionStore.managerSearchPageCount]);
 
-  useEffect(() => {
+  const searchDeps = [
+    fileCollectionStore.managerTagSearchValue,
+    fileCollectionStore.managerTitleSearchValue,
+    fileCollectionStore.managerSearchSort,
+  ];
+
+  useDeepEffect(() => {
     collectionsRef.current?.scrollTo({ top: 0, behavior: "smooth" });
   }, [fileCollectionStore.managerSearchPage, ...searchDeps]);
 
-  useEffect(() => {
+  useDeepEffect(() => {
     fileCollectionStore.listFilteredCollections({ page: 1 });
   }, [...searchDeps]);
 
