@@ -8,6 +8,7 @@ import {
   ChipOption,
   ConfirmModal,
   IconButton,
+  LoadingOverlay,
   Modal,
   RegExMapRow,
   Text,
@@ -44,7 +45,7 @@ export const TagEditor = observer(
     const [hasKeepChildTags, setHasKeepChildTags] = useState(false);
     const [hasKeepParentTags, setHasKeepParentTags] = useState(false);
     const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
-    const [isSaving, setIsSaving] = useState(false);
+    const [isLoading, setIsLoading] = useState(false);
     const [label, setLabel] = useState<string>(tag?.label ?? "");
     const [parentTags, setParentTags] = useState<TagOption[]>(
       tag ? tagStore.getParentTags(tag).map((t) => t.tagOption) : []
@@ -83,6 +84,7 @@ export const TagEditor = observer(
       isSubEditor ? tagStore.setIsTagSubEditorOpen(false) : tagStore.setIsTagEditorOpen(false);
 
     const handleConfirmDelete = async () => {
+      setIsLoading(true);
       const res = await tagStore.deleteTag({ id: tag.id });
 
       if (!res.success) toast.error("Failed to delete tag");
@@ -92,6 +94,7 @@ export const TagEditor = observer(
         tagStore.setIsTagEditorOpen(false);
       }
 
+      setIsLoading(false);
       return res.success;
     };
 
@@ -102,13 +105,16 @@ export const TagEditor = observer(
       handleClose();
     };
 
-    const handleRefreshCount = async () => {
-      const relationRes = await tagStore.refreshTagRelations({ id: id });
+    const handleRefresh = async () => {
+      setIsLoading(true);
+
+      const relationRes = await tagStore.refreshTagRelations({ id });
       if (!relationRes.success) return toast.error("Failed to refresh tag relations");
 
       const countRes = await tagStore.refreshTagCounts([id]);
       if (!countRes.success) return toast.error("Failed to refresh tag count");
 
+      setIsLoading(false);
       toast.success("Tag refreshed");
     };
 
@@ -129,7 +135,7 @@ export const TagEditor = observer(
           ? { regEx: regExValue, testString: regExTestString, types: regExTypes }
           : null;
 
-      setIsSaving(true);
+      setIsLoading(true);
       const res = await (isCreate
         ? tagStore.createTag({ aliases: aliasStrings, childIds, label, parentIds, regExMap })
         : tagStore.editTag({
@@ -140,7 +146,7 @@ export const TagEditor = observer(
             parentIds,
             regExMap,
           }));
-      setIsSaving(false);
+      setIsLoading(false);
 
       if (res.success) {
         if (hasContinue) {
@@ -152,6 +158,8 @@ export const TagEditor = observer(
 
     return (
       <Modal.Container onClose={handleClose} width="50rem">
+        <LoadingOverlay {...{ isLoading }} />
+
         <Modal.Header
           leftNode={!isCreate && <Text className={css.headerText}>{`ID: ${id}`}</Text>}
           rightNode={
@@ -168,8 +176,8 @@ export const TagEditor = observer(
                 <IconButton
                   name="Refresh"
                   iconProps={{ color: colors.button.grey }}
-                  onClick={handleRefreshCount}
-                  disabled={isSaving}
+                  onClick={handleRefresh}
+                  disabled={isLoading}
                 />
 
                 <Divider orientation="vertical" flexItem />
@@ -178,7 +186,7 @@ export const TagEditor = observer(
                   name="Delete"
                   iconProps={{ color: colors.button.red }}
                   onClick={handleDelete}
-                  disabled={isSaving}
+                  disabled={isLoading}
                 />
               </View>
             )
@@ -193,11 +201,11 @@ export const TagEditor = observer(
               ref={labelRef}
               value={label}
               setValue={setLabel}
-              disabled={isSaving}
+              disabled={isLoading}
               isDuplicate={isDuplicateTag}
             />
 
-            <TagInputs.Aliases value={aliases} setValue={setAliases} disabled={isSaving} />
+            <TagInputs.Aliases value={aliases} setValue={setAliases} disabled={isLoading} />
           </View>
 
           <TagInputs.Relations
@@ -206,7 +214,7 @@ export const TagEditor = observer(
             excludedIds={[id, ...childTags.map((t) => t.id)]}
             value={parentTags}
             setValue={setParentTags}
-            disabled={isSaving}
+            disabled={isLoading}
             hasEditor={false}
             onTagClick={hasSubEditor ? handleSubEditorClick : null}
           />
@@ -217,7 +225,7 @@ export const TagEditor = observer(
             excludedIds={[id, ...parentTags.map((t) => t.id)]}
             value={childTags}
             setValue={setChildTags}
-            disabled={isSaving}
+            disabled={isLoading}
             hasEditor={false}
             onTagClick={hasSubEditor ? handleSubEditorClick : null}
           />
@@ -227,7 +235,7 @@ export const TagEditor = observer(
 
             <RegExMapRow
               aliases={aliases.map((a) => a.value)}
-              disabled={isSaving}
+              disabled={isLoading}
               label={label}
               regEx={regExValue}
               setRegEx={setRegExValue}
@@ -247,7 +255,7 @@ export const TagEditor = observer(
                   label="Continue"
                   checked={hasContinue}
                   setChecked={setHasContinue}
-                  disabled={isSaving}
+                  disabled={isLoading}
                   center
                 />
 
@@ -255,7 +263,7 @@ export const TagEditor = observer(
                   label="Parent"
                   checked={hasKeepParentTags}
                   setChecked={setHasKeepParentTags}
-                  disabled={!hasContinue || isSaving}
+                  disabled={!hasContinue || isLoading}
                   center
                 />
 
@@ -263,7 +271,7 @@ export const TagEditor = observer(
                   label="Child"
                   checked={hasKeepChildTags}
                   setChecked={setHasKeepChildTags}
-                  disabled={!hasContinue || isSaving}
+                  disabled={!hasContinue || isLoading}
                   center
                 />
               </View>
@@ -276,7 +284,7 @@ export const TagEditor = observer(
             text="Cancel"
             icon="Close"
             onClick={handleClose}
-            disabled={isSaving}
+            disabled={isLoading}
             color={colors.button.grey}
           />
 
@@ -285,12 +293,12 @@ export const TagEditor = observer(
               text="Merge Tags"
               icon="Merge"
               onClick={handleMerge}
-              disabled={isSaving}
+              disabled={isLoading}
               color={colors.blueGrey["700"]}
             />
           )}
 
-          <Button text="Confirm" icon="Check" onClick={saveTag} disabled={isSaving} />
+          <Button text="Confirm" icon="Check" onClick={saveTag} disabled={isLoading} />
         </Modal.Footer>
 
         {isConfirmDeleteOpen && (

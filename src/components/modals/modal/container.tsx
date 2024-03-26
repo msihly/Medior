@@ -69,6 +69,6 @@ const useClasses = makeClasses((_, { height, maxHeight, maxWidth, width }) => ({
     },
   },
   modal: {
-    "& .MuiDialog-paper": { maxHeight, maxWidth, height, width },
+    "& .MuiDialog-paper": { position: "relative", maxHeight, maxWidth, height, width },
   },
 }));

@@ -51,6 +51,7 @@ export class HomeStore extends Model({
   isDraggingIn: prop<boolean>(false).withSetter(),
   isDraggingOut: prop<boolean>(false).withSetter(),
   isDrawerOpen: prop<boolean>(true).withSetter(),
+  isLoading: prop<boolean>(false).withSetter(),
   isSettingsOpen: prop<boolean>(false).withSetter(),
   isSettingsLoading: prop<boolean>(false).withSetter(),
   searchValue: prop<TagOption[]>(() => []).withSetter(),
@@ -144,6 +145,8 @@ export class HomeStore extends Model({
         if (!rootStore) throw new Error("RootStore not found");
         const { fileStore, tagStore } = rootStore;
 
+        this.setIsLoading(true);
+
         const filteredRes = await trpc.listFilteredFiles.mutate({
           ...this.getFilterProps(),
           ...tagStore.tagSearchOptsToIds(this.searchValue),
@@ -163,6 +166,7 @@ export class HomeStore extends Model({
         if (debug) perfLog(`Set page to ${page ?? fileStore.page} and pageCount to ${pageCount}`);
 
         if (debug) perfLogTotal(`Loaded ${files.length} files`);
+        this.setIsLoading(false);
 
         return files;
       })

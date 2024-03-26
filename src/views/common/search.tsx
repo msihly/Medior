@@ -1,6 +1,6 @@
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
-import { Drawer, FileContainer, TopBar, View } from "components";
+import { Drawer, FileContainer, LoadingOverlay, TopBar, View } from "components";
 import { CONSTANTS, makeClasses } from "utils";
 
 interface SearchProps {
@@ -26,12 +26,18 @@ export const Search = observer(
             {isLoading ? null : <FileContainer />}
           </View>
         </View>
+
+        <LoadingOverlay isLoading={homeStore.isLoading} />
       </>
     );
   }
 );
 
-const useClasses = makeClasses((_, { isDrawerOpen }) => ({
+interface ClassesProps {
+  isDrawerOpen: boolean;
+}
+
+const useClasses = makeClasses((_, { isDrawerOpen }: ClassesProps) => ({
   main: {
     display: "flex",
     flexFlow: "column",
