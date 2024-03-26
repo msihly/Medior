@@ -246,7 +246,7 @@ const useClasses = makeClasses({
     position: "relative",
     display: "flex",
     flexDirection: "column",
-    flex: 1,
+    width: "calc(100% - 13rem)",
   },
   sectionTitle: {
     alignSelf: "center",

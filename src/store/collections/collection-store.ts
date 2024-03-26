@@ -23,6 +23,7 @@ import { arrayMove } from "@alissavrk/dnd-kit-sortable";
 export class FileCollectionStore extends Model({
   activeCollectionId: prop<string>(null).withSetter(),
   activeFiles: prop<FileCollectionFile[]>(() => []).withSetter(),
+  collectionFitMode: prop<"cover" | "contain">("contain").withSetter(),
   collections: prop<FileCollection[]>(() => []).withSetter(),
   editorSearchPage: prop<number>(1).withSetter(),
   editorSearchPageCount: prop<number>(1).withSetter(),
