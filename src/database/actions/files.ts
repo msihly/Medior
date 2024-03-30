@@ -1,10 +1,11 @@
 import { app } from "electron";
 import path from "path";
 import fs from "fs/promises";
-import { FilterQuery, PipelineStage } from "mongoose";
+import { AnyBulkWriteOperation } from "mongodb";
+import { PipelineStage } from "mongoose";
 import * as db from "database";
-import { dayjs, handleErrors, sharp, socket } from "utils";
-import { leanModelToJson, objectIds } from "./utils";
+import { dayjs, handleErrors, makePerfLog, sharp, socket } from "utils";
+import { leanModelToJson, objectId, objectIds } from "./utils";
 
 const FACE_MIN_CONFIDENCE = 0.4;
 const FACE_MODELS_PATH = app.isPackaged
@@ -72,18 +73,59 @@ const createFileFilterPipeline = ({
   };
 };
 
-export const regenFileTagAncestors = async (tagIdsFilter: FilterQuery<db.File>) =>
+export const listFileIdsByTagIds = async ({ tagIds }: db.ListFileIdsByTagIdsInput) =>
   handleErrors(async () => {
-    const files = (await db.FileModel.find(tagIdsFilter).select({ _id: 1, tagIds: 1 }).lean()).map(
-      (r) => leanModelToJson<db.File>(r)
-    );
+    return (
+      await db.FileModel.find({ tagIds: { $in: objectIds(tagIds) } })
+        .select({ _id: 1 })
+        .lean()
+    ).map((f) => f._id.toString());
+  });
+
+export const regenFileTagAncestors = async ({
+  fileIds,
+  tagIds,
+}: { fileIds: string[]; tagIds?: never } | { fileIds?: never; tagIds: string[] }) =>
+  handleErrors(async () => {
+    const debug = false;
+    const { perfLog, perfLogTotal } = makePerfLog("[regenFileTagAncestors]", true);
+
+    const files = (
+      await db.FileModel.find({
+        ...(fileIds ? { _id: { $in: objectIds(fileIds) } } : {}),
+        ...(tagIds
+          ? {
+              $or: [
+                { tagIds: { $in: objectIds(tagIds) } },
+                { tagIdsWithAncestors: { $in: objectIds(tagIds) } },
+              ],
+            }
+          : {}),
+      })
+        .select({ _id: 1, tagIds: 1, tagIdsWithAncestors: 1 })
+        .lean()
+    ).map(leanModelToJson<db.File>);
+
+    if (debug) perfLog(`Loaded files (${files.length})`);
+
+    const ancestorsMap = await db.makeAncestorIdsMap(files.flatMap((f) => f.tagIds));
+
+    if (debug) perfLog(`Loaded ancestorsMap (${Object.keys(ancestorsMap).length})`);
 
     await Promise.all(
-      files.map(async (file) => {
-        const tagIdsWithAncestors = await db.deriveTagIdsWithAncestors(file.tagIds);
-        await db.FileModel.updateOne({ _id: file.id }, { $set: { tagIdsWithAncestors } });
+      files.map(async (f) => {
+        const { hasUpdates, tagIdsWithAncestors } = db.makeUniqueAncestorUpdates({
+          ancestorsMap,
+          oldTagIdsWithAncestors: f.tagIdsWithAncestors,
+          tagIds: f.tagIds,
+        });
+
+        if (!hasUpdates) return;
+        await db.FileModel.updateOne({ _id: f.id }, { $set: { tagIdsWithAncestors } });
       })
     );
+
+    if (debug) perfLogTotal("Updated file tag ancestors");
   });
 
 /* ------------------------------ API ENDPOINTS ----------------------------- */
@@ -174,37 +216,55 @@ export const editFileTags = ({
       throw new Error("Missing updated tagIds in editFileTags");
 
     const dateModified = dayjs().toISOString();
+    const fileBulkWriteOps: AnyBulkWriteOperation<db.File>[] = [];
+    const fileImportBatchBulkWriteOps: AnyBulkWriteOperation<db.FileImportBatch>[] = [];
+
+    if (addedTagIds.length > 0) {
+      fileBulkWriteOps.push({
+        updateMany: {
+          filter: { _id: objectIds(fileIds) },
+          update: { $addToSet: { tagIds: { $each: addedTagIds } }, dateModified },
+        },
+      });
+
+      if (batchId)
+        fileImportBatchBulkWriteOps.push({
+          updateMany: {
+            filter: { _id: objectId(batchId) },
+            update: { $addToSet: { tagIds: { $each: addedTagIds } } },
+          },
+        });
+    }
+
+    if (removedTagIds.length > 0) {
+      fileBulkWriteOps.push({
+        updateMany: {
+          filter: { _id: objectIds(fileIds) },
+          update: { $pullAll: { tagIds: removedTagIds }, dateModified },
+        },
+      });
+
+      if (batchId)
+        fileImportBatchBulkWriteOps.push({
+          updateMany: {
+            filter: { _id: objectId(batchId) },
+            update: { $pullAll: { tagIds: removedTagIds } },
+          },
+        });
+    }
 
     await Promise.all([
-      addedTagIds.length > 0 &&
-        db.FileModel.updateMany(
-          { _id: { $in: fileIds } },
-          { $addToSet: { tagIds: { $each: addedTagIds } }, dateModified }
-        ),
-      removedTagIds.length > 0 &&
-        db.FileModel.updateMany(
-          { _id: { $in: fileIds } },
-          { $pullAll: { tagIds: removedTagIds }, dateModified }
-        ),
-      batchId &&
-        addedTagIds.length > 0 &&
-        db.FileImportBatchModel.updateMany(
-          { _id: batchId },
-          { $addToSet: { tagIds: { $each: addedTagIds } } }
-        ),
-      batchId &&
-        removedTagIds.length > 0 &&
-        db.FileImportBatchModel.updateMany(
-          { _id: batchId },
-          { $pullAll: { tagIds: removedTagIds } }
-        ),
+      fileBulkWriteOps.length > 0 ? db.FileModel.bulkWrite(fileBulkWriteOps) : null,
+      fileImportBatchBulkWriteOps.length > 0
+        ? db.FileImportBatchModel.bulkWrite(fileImportBatchBulkWriteOps)
+        : null,
     ]);
 
-    const updatedTagIds = [...new Set([...addedTagIds, ...removedTagIds])];
+    await regenFileTagAncestors({ fileIds });
 
     await Promise.all([
-      regenFileTagAncestors({ _id: { $in: fileIds } }),
-      db.recalculateTagCounts({ tagIds: updatedTagIds }),
+      db.recalculateTagCounts({ tagIds: [...new Set([...addedTagIds, ...removedTagIds])] }),
+      db.regenCollAttrsByFileIds(fileIds),
     ]);
 
     if (withSub) socket.emit("fileTagsUpdated", { addedTagIds, batchId, fileIds, removedTagIds });

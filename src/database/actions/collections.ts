@@ -1,4 +1,3 @@
-import { FilterQuery } from "mongoose";
 import * as db from "database";
 import { dayjs, handleErrors, socket } from "utils";
 import { leanModelToJson, objectIds } from "./utils";
@@ -43,6 +42,15 @@ const createCollectionFilterPipeline = ({
   };
 };
 
+export const listCollectionIdsByTagIds = async ({ tagIds }: db.ListCollectionIdsByTagIdsInput) =>
+  handleErrors(async () => {
+    return (
+      await db.FileCollectionModel.find({ tagIds: { $in: objectIds(tagIds) } })
+        .select({ _id: 1 })
+        .lean()
+    ).map((f) => f._id.toString());
+  });
+
 const makeCollAttrs = async (files: db.File[]) => {
   const tagIds = [...new Set(files.flatMap((f) => f.tagIds))];
   return {
@@ -54,19 +62,25 @@ const makeCollAttrs = async (files: db.File[]) => {
   };
 };
 
-export const regenCollTagAncestors = async (tagIdsFilter: FilterQuery<db.FileCollection>) =>
+export const regenCollAttrsByFileIds = async (fileIds: string[]) =>
   handleErrors(async () => {
     const collections = (
-      await db.FileCollectionModel.find(tagIdsFilter).select({ _id: 1, tagIds: 1 }).lean()
+      await db.FileCollectionModel.find({
+        fileIdIndexes: { $elemMatch: { fileId: { $in: fileIds } } },
+      })
+        .select({ _id: 1, fileIdIndexes: 1 })
+        .lean()
     ).map((r) => leanModelToJson<db.FileCollection>(r));
 
     await Promise.all(
       collections.map(async (collection) => {
-        const tagIdsWithAncestors = await db.deriveTagIdsWithAncestors(collection.tagIds);
-        await db.FileCollectionModel.updateOne(
-          { _id: collection.id },
-          { $set: { tagIdsWithAncestors, dateModified: dayjs().toISOString() } }
-        );
+        const filesRes = await db.listFiles({ ids: collection.fileIdIndexes.map((f) => f.fileId) });
+        if (!filesRes.success) throw new Error(filesRes.error);
+
+        const updates = await makeCollAttrs(filesRes.data);
+        await db.FileCollectionModel.updateOne({ _id: collection.id }, { $set: updates });
+
+        socket.emit("collectionUpdated", { collectionId: collection.id, updates });
       })
     );
   });
@@ -90,6 +104,36 @@ export const regenCollRating = async (fileIds: string[]) =>
         await db.FileCollectionModel.updateOne({ _id: collection.id }, { $set: { rating } });
 
         socket.emit("collectionUpdated", { collectionId: collection.id, updates: { rating } });
+      })
+    );
+  });
+
+export const regenCollTagAncestors = async ({
+  collectionIds,
+  tagIds,
+}: { collectionIds: string[]; tagIds?: never } | { collectionIds?: never; tagIds: string[] }) =>
+  handleErrors(async () => {
+    const collections = (
+      await db.FileCollectionModel.find({
+        ...(collectionIds ? { _id: { $in: objectIds(collectionIds) } } : {}),
+        ...(tagIds ? { tagIdsWithAncestors: { $in: objectIds(tagIds) } } : {}),
+      })
+        .select({ _id: 1, tagIds: 1, tagIdsWithAncestors: 1 })
+        .lean()
+    ).map(leanModelToJson<db.FileCollection>);
+
+    const ancestorsMap = await db.makeAncestorIdsMap(collections.flatMap((c) => c.tagIds));
+
+    await Promise.all(
+      collections.map(async (c) => {
+        const { hasUpdates, tagIdsWithAncestors } = db.makeUniqueAncestorUpdates({
+          ancestorsMap,
+          oldTagIdsWithAncestors: c.tagIdsWithAncestors,
+          tagIds: c.tagIds,
+        });
+
+        if (!hasUpdates) return;
+        await db.FileCollectionModel.updateOne({ _id: c.id }, { $set: { tagIdsWithAncestors } });
       })
     );
   });

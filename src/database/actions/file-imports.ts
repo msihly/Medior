@@ -12,7 +12,7 @@ export const completeImportBatch = ({
     const completedAt = dayjs().toISOString();
     await Promise.all([
       db.FileImportBatchModel.updateOne({ _id: id }, { collectionId, completedAt }),
-      tagIds.length && db.regenFileTagAncestors({ _id: { $in: fileIds } }),
+      tagIds.length && db.regenFileTagAncestors({ fileIds }),
       tagIds.length && db.recalculateTagCounts({ tagIds }),
     ]);
 
@@ -27,11 +27,12 @@ export const createImportBatches = (batches: db.CreateImportBatchesInput) =>
         ...batch,
         completedAt: null,
         startedAt: null,
-        tagIds: batch.tagIds ? [...batch.tagIds].flat() : [],
+        tagIds: batch.tagIds ? [...new Set(batch.tagIds)].flat() : [],
       }))
     );
 
     if (res.length !== batches.length) throw new Error("Failed to create import batches");
+    return res;
   });
 
 export const deleteImportBatches = ({ ids }: db.DeleteImportBatchesInput) =>

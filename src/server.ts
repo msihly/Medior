@@ -202,6 +202,9 @@ const trpcRouter = tRouter({
   updateCollection: tProc
     .input((input: unknown) => input as db.UpdateCollectionInput)
     .mutation(({ input }) => db.updateCollection(input)),
+  upsertTag: tProc
+    .input((input: unknown) => input as db.UpsertTagInput)
+    .mutation(({ input }) => db.upsertTag(input)),
 });
 export type TRPCRouter = typeof trpcRouter;
 

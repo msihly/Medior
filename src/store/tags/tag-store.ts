@@ -14,7 +14,7 @@ import * as db from "database";
 import { RootStore } from "store";
 import { SortMenuProps, TagToUpsert } from "components";
 import { Tag, TagOption } from ".";
-import { dayjs, getConfig, handleErrors, PromiseQueue, regexEscape, trpc } from "utils";
+import { getConfig, handleErrors, PromiseQueue, regexEscape, trpc } from "utils";
 import { toast } from "react-toastify";
 
 export type TagManagerMode = "create" | "edit" | "search";
@@ -199,34 +199,30 @@ export class TagStore extends Model({
   });
 
   @modelFlow
-  refreshAllTagCounts = _async(function* (
-    this: TagStore,
-    { silent = false }: { silent?: boolean } = {}
-  ) {
+  refreshAllTagCounts = _async(function* (this: TagStore) {
     return yield* _await(
       handleErrors(async () => {
         let completedCount = 0;
         const totalCount = this.tags.length;
 
-        const toastId = silent
-          ? null
-          : toast.info(() => `Refreshed ${completedCount} tag counts...`, { autoClose: false });
+        const toastId = toast.info(() => `Refreshed ${completedCount} tag counts...`, {
+          autoClose: false,
+        });
 
         this.tags.map((t) =>
           this.countsRefreshQueue.add(async () => {
-            await this.refreshTagCounts([t.id]);
+            await this.refreshTagCounts([t.id], false);
 
             completedCount++;
             const isComplete = completedCount === totalCount;
             if (isComplete) await this.loadTags();
 
-            if (toastId)
-              toast.update(toastId, {
-                autoClose: isComplete ? 5000 : false,
-                render: `Refreshed ${completedCount} / ${totalCount} tag counts${
-                  isComplete ? "." : "..."
-                }`,
-              });
+            toast.update(toastId, {
+              autoClose: isComplete ? 5000 : false,
+              render: `Refreshed ${completedCount} / ${totalCount} tag counts${
+                isComplete ? "." : "..."
+              }`,
+            });
           })
         );
       })
@@ -246,7 +242,7 @@ export class TagStore extends Model({
 
         this.tags.map((t) =>
           this.relationsRefreshQueue.add(async () => {
-            await this.refreshTagRelations({ id: t.id });
+            await this.refreshTagRelations({ id: t.id, withSub: false });
 
             completedCount++;
             const isComplete = completedCount === totalCount;
@@ -254,7 +250,9 @@ export class TagStore extends Model({
 
             toast.update(toastId, {
               autoClose: isComplete ? 5000 : false,
-              render: `Refreshed ${completedCount} tag relations${isComplete ? "." : "..."}`,
+              render: `Refreshed ${completedCount} / ${totalCount} tag relations${
+                isComplete ? "." : "..."
+              }`,
             });
           })
         );
@@ -274,35 +272,17 @@ export class TagStore extends Model({
   });
 
   @modelFlow
-  refreshTagRelations = _async(function* (this: TagStore, { id }: { id: string }) {
+  refreshTagRelations = _async(function* (
+    this: TagStore,
+    { id, withSub = true }: { id: string; withSub?: boolean }
+  ) {
     return yield* _await(
       handleErrors(async () => {
-        const tag = this.getById(id);
-
-        const bisectRelatedTags = (type: "child" | "parent", tags: Tag[]) =>
-          tags.reduce(
-            (acc, cur) => {
-              if (!this.getById(cur.id)) acc["removed"].push(cur.id);
-              else if (!cur[`${type === "child" ? "parent" : "child"}Ids`].includes(id))
-                acc["added"].push(cur.id);
-              return acc;
-            },
-            { added: [], removed: [] } as { added: string[]; removed: string[] }
-          );
-
-        const changedChildIds = bisectRelatedTags("child", this.getChildTags(tag));
-        const changedParentIds = bisectRelatedTags("parent", this.getParentTags(tag));
-        const dateModified = dayjs().toISOString();
-
         const res = await trpc.refreshTagRelations.mutate({
-          changedChildIds,
-          changedParentIds,
-          dateModified,
           tagId: id,
+          withSub,
         });
         if (!res.success) throw new Error(res.error);
-
-        return { changedChildIds, changedParentIds, dateModified };
       })
     );
   });

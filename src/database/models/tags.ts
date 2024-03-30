@@ -10,6 +10,7 @@ export interface RegExMap {
 
 export interface Tag {
   aliases: string[];
+  ancestorIds: string[];
   childIds: string[];
   count: number;
   dateCreated: string;
@@ -28,6 +29,7 @@ const RegExMapSchema = new Schema<RegExMap>({
 
 const TagSchema = new Schema<Tag>({
   aliases: [String],
+  ancestorIds: [{ type: Schema.Types.ObjectId, ref: "Tag" }],
   childIds: [{ type: Schema.Types.ObjectId, ref: "Tag" }],
   count: Number,
   dateCreated: String,

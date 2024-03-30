@@ -62,15 +62,16 @@ export const TagEditor = observer(
       !!tagStore.getByLabel(label);
 
     useDeepEffect(() => {
-      if (id) {
-        const tag = tagStore.getById(id);
-        if (!tag) return;
+      if (id && tagStore.getById(id)) {
         setLabel(tag.label);
         setAliases(tag.aliases.map((a) => ({ label: a, value: a })) ?? []);
         setChildTags(tagStore.getChildTags(tag).map((t) => t.tagOption) ?? []);
         setParentTags(tagStore.getParentTags(tag).map((t) => t.tagOption) ?? []);
+        setRegExValue(tag.regExMap?.regEx ?? "");
+        setRegExTestString(tag.regExMap?.testString ?? "");
+        setRegExTypes(tag.regExMap?.types ?? ["diffusionParams", "fileName", "folderName"]);
       }
-    }, [id, tag]);
+    }, [id, JSON.stringify(tag)]);
 
     const clearInputs = () => {
       setLabel("");

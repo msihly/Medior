@@ -22,17 +22,19 @@ export const logToFile = async (type: "debug" | "error" | "warn", ...args: any[]
   }
 };
 
-export const makePerfLog = (logTag: string) => {
+export const makePerfLog = (logTag: string, toFile = false) => {
   const funcPerfStart = performance.now();
   let perfStart = performance.now();
 
   const perfLog = (logStr: string) => {
-    console.debug(`${logTag} ${round(performance.now() - perfStart, 0)} ms - ${logStr}`);
+    const str = `${logTag} ${round(performance.now() - perfStart, 0)} ms - ${logStr}`;
+    toFile ? logToFile("debug", str) : console.debug(str);
     perfStart = performance.now();
   };
 
   const perfLogTotal = (logStr: string) => {
-    console.debug(`${logTag} Total: ${round(performance.now() - funcPerfStart, 0)} ms - ${logStr}`);
+    const str = `${logTag} Total: ${round(performance.now() - funcPerfStart, 0)} ms - ${logStr}`;
+    toFile ? logToFile("debug", str) : console.debug(str);
   };
 
   return { perfLog, perfLogTotal, perfStart };

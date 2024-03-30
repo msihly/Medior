@@ -31,6 +31,8 @@ export type CreateCollectionInput = {
 
 export type DeleteCollectionInput = { id: string };
 
+export type ListCollectionIdsByTagIdsInput = { tagIds: string[] };
+
 export type ListFilteredCollectionsInput = CreateCollectionFilterPipelineInput & {
   page: number;
   pageSize: number;
@@ -136,6 +138,8 @@ export type IncludedAllTagItem = string | string[];
 
 export type ListFaceModelsInput = { ids?: string[] };
 
+export type ListFileIdsByTagIdsInput = { tagIds: string[] };
+
 export type ListFileIdsForCarouselInput = ListFilteredFilesInput;
 
 export type ListFilesInput = {
@@ -202,9 +206,6 @@ export type MergeTagsInput = Omit<Required<CreateTagInput>, "withSub"> & {
 export type RecalculateTagCountsInput = { tagIds: string[]; withSub?: boolean };
 
 export type RefreshTagRelationsInput = {
-  changedChildIds: { added: string[]; removed: string[] };
-  changedParentIds: { added: string[]; removed: string[] };
-  dateModified: string;
   tagId: string;
   withSub?: boolean;
 };
@@ -214,3 +215,5 @@ export type RemoveChildTagIdsFromTagsInput = { childTagIds: string[]; tagIds: st
 export type RemoveParentTagIdsFromTagsInput = { parentTagIds: string[]; tagIds: string[] };
 
 export type SetTagCountInput = { count: number; id: string };
+
+export type UpsertTagInput = { label: string; parentLabels?: string[] };

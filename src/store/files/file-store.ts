@@ -289,7 +289,9 @@ export class FileStore extends Model({
 
             toast.update(toastId, {
               autoClose: isComplete ? 5000 : false,
-              render: `Refreshed ${completedCount} files${isComplete ? "." : "..."}`,
+              render: `Refreshed ${completedCount} / ${totalCount} files${
+                isComplete ? "." : "..."
+              }`,
             });
           })
         );
