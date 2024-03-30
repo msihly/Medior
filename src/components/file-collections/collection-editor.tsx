@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
 import {
@@ -29,7 +29,7 @@ import {
   Text,
   View,
 } from "components";
-import { CONSTANTS, colors, makeClasses, useDeepEffect } from "utils";
+import { CONSTANTS, colors, makeClasses, useDeepEffect, useDeepMemo } from "utils";
 import { toast } from "react-toastify";
 
 export const FileCollectionEditor = observer(() => {
@@ -37,7 +37,7 @@ export const FileCollectionEditor = observer(() => {
 
   const sensors = useSensors(useSensor(MouseSensor, { activationConstraint: { distance: 4 } }));
 
-  const { fileCollectionStore } = useStores();
+  const { fileCollectionStore, tagStore } = useStores();
 
   const [draggedFileId, setDraggedFileId] = useState<string>(null);
   const [isAddingFiles, setIsAddingFiles] = useState(false);
@@ -46,6 +46,10 @@ export const FileCollectionEditor = observer(() => {
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [title, setTitle] = useState<string>(fileCollectionStore.activeCollection?.title);
+
+  const tags = useDeepMemo(fileCollectionStore.activeTagIds.map((id) => tagStore.getById(id)));
+
+  const sortedTags = useMemo(() => tags.sort((a, b) => a.count - b.count), [tags]);
 
   useEffect(() => {
     if (!fileCollectionStore.activeCollectionId) return;
@@ -243,8 +247,8 @@ export const FileCollectionEditor = observer(() => {
             </View>
 
             <View className={css.tags}>
-              {fileCollectionStore.activeTagIds.map((id) => (
-                <Tag key={id} id={id} className={css.tag} />
+              {sortedTags.map((tag) => (
+                <Tag key={tag.id} tag={tag} className={css.tag} />
               ))}
             </View>
 
@@ -369,6 +373,8 @@ const useClasses = makeClasses({
     flexFlow: "row wrap",
     justifyContent: "center",
     margin: "0.5rem 0",
+    maxHeight: "5rem",
+    overflowY: "auto",
   },
   titleInput: {
     width: "100%",
