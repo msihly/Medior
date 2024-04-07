@@ -159,9 +159,7 @@ export type LoadFaceModelsInput = { fileIds?: string[]; withOverwrite?: boolean 
 
 export type LoadFilesInput = { fileIds?: string[]; withOverwrite?: boolean };
 
-export type RefreshFileInput = { curFile?: File; id?: string; withThumbs?: boolean };
-
-export type RefreshSelectedFilesInput = { withThumbs?: boolean };
+export type RefreshFileInput = { curFile?: File; id: string };
 
 export type RemoveTagsFromFilesInput = { fileIds: string[]; tagIds: string[] };
 

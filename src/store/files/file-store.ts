@@ -13,13 +13,7 @@ import {
   prop,
 } from "mobx-keystone";
 import { FaceModel, RootStore } from "store";
-import {
-  EditFileTagsInput,
-  LoadFilesInput,
-  RefreshFileInput,
-  RefreshSelectedFilesInput,
-  SetFileRatingInput,
-} from "database";
+import { EditFileTagsInput, LoadFilesInput, RefreshFileInput, SetFileRatingInput } from "database";
 import { File } from ".";
 import {
   CONSTANTS,
@@ -206,10 +200,7 @@ export class FileStore extends Model({
   });
 
   @modelFlow
-  refreshFile = _async(function* (
-    this: FileStore,
-    { curFile, id, withThumbs = false }: RefreshFileInput
-  ) {
+  refreshFile = _async(function* (this: FileStore, { curFile, id }: RefreshFileInput) {
     return yield* _await(
       handleErrors(async () => {
         if (!curFile && !id) throw new Error("No file or id provided");
@@ -235,25 +226,23 @@ export class FileStore extends Model({
           width: file.isAnimated ? videoInfo?.width : imageInfo?.width,
         };
 
-        if (withThumbs) {
-          const dirPath = path.dirname(file.path);
+        const dirPath = path.dirname(file.path);
 
-          const thumbPaths = file.isAnimated
-            ? Array(9)
-                .fill("")
-                .map((_, i) =>
-                  path.join(dirPath, `${hash}-thumb-${String(i + 1).padStart(2, "0")}.jpg`)
-                )
-            : [path.join(dirPath, `${hash}-thumb.jpg`)];
+        const thumbPaths = file.isAnimated
+          ? Array(9)
+              .fill("")
+              .map((_, i) =>
+                path.join(dirPath, `${hash}-thumb-${String(i + 1).padStart(2, "0")}.jpg`)
+              )
+          : [path.join(dirPath, `${hash}-thumb.jpg`)];
 
-          await (file.isAnimated
-            ? generateFramesThumbnail(file.path, dirPath, hash, videoInfo?.duration)
-            : sharp(file.path, { failOn: "none" })
-                .resize(null, CONSTANTS.THUMB.WIDTH)
-                .toFile(thumbPaths[0]));
+        await (file.isAnimated
+          ? generateFramesThumbnail(file.path, dirPath, hash, videoInfo?.duration)
+          : sharp(file.path, { failOn: "none" })
+              .resize(null, CONSTANTS.THUMB.WIDTH)
+              .toFile(thumbPaths[0]));
 
-          updates["thumbPaths"] = thumbPaths;
-        }
+        updates["thumbPaths"] = thumbPaths;
 
         await trpc.updateFile.mutate({ id, ...updates });
         file.update?.(updates);
@@ -264,10 +253,7 @@ export class FileStore extends Model({
   });
 
   @modelFlow
-  refreshSelectedFiles = _async(function* (
-    this: FileStore,
-    { withThumbs = false }: RefreshSelectedFilesInput = {}
-  ) {
+  refreshSelectedFiles = _async(function* (this: FileStore) {
     return yield* _await(
       handleErrors(async () => {
         let completedCount = 0;
@@ -282,7 +268,7 @@ export class FileStore extends Model({
 
         filesRes.data.map((curFile) =>
           this.infoRefreshQueue.add(async () => {
-            await this.refreshFile({ curFile, withThumbs });
+            await this.refreshFile({ curFile, id: curFile.id });
 
             completedCount++;
             const isComplete = completedCount === totalCount;
@@ -293,6 +279,11 @@ export class FileStore extends Model({
                 isComplete ? "." : "..."
               }`,
             });
+
+            if (isComplete) {
+              const rootStore = getRootStore<RootStore>(this);
+              await rootStore.homeStore.loadFilteredFiles();
+            }
           })
         );
       })

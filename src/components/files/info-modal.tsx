@@ -16,7 +16,7 @@ export const InfoModal = observer(() => {
   const handleCurrentPath = () => shell.showItemInFolder(file.path);
 
   const handleRefresh = async () => {
-    const res = await fileStore.refreshFile({ id: fileStore.activeFileId, withThumbs: true });
+    const res = await fileStore.refreshFile({ id: fileStore.activeFileId });
     if (!res.success) toast.error("Failed to refresh info");
     else toast.success("File info refreshed");
   };

@@ -34,7 +34,7 @@ export const TopBar = observer(() => {
     tagStore.setIsTaggerOpen(true);
   };
 
-  const handleFileInfoRefresh = () => fileStore.refreshSelectedFiles({ withThumbs: true });
+  const handleFileInfoRefresh = () => fileStore.refreshSelectedFiles();
 
   const handleSelectAll = () => {
     fileStore.toggleFilesSelected(fileStore.files.map(({ id }) => ({ id, isSelected: true })));
