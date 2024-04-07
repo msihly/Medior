@@ -43,7 +43,14 @@ export const useSockets = ({ view }: UseSocketsProps) => {
     socket.on("filesUpdated", ({ fileIds, updates }) => {
       if (debug) console.debug("[Socket] filesUpdated", { fileIds, updates });
       fileStore.updateFiles(fileIds, updates);
-      if (view !== "carousel") homeStore.loadFilteredFiles();
+
+      const updatedKeys = Object.keys(updates);
+      if (
+        view !== "carousel" &&
+        (updatedKeys.includes("tagIds") || updatedKeys.includes(homeStore.sortValue.key))
+      ) {
+        homeStore.loadFilteredFiles();
+      }
     });
 
     socket.on("fileTagsUpdated", ({ addedTagIds, batchId, fileIds, removedTagIds }) => {
