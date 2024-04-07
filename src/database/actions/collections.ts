@@ -16,7 +16,9 @@ const createCollectionFilterPipeline = ({
   const sortDir = isSortDesc ? -1 : 1;
 
   const hasExcludedTags = excludedTagIds?.length > 0;
+  const hasExcludedDescTags = excludedDescTagIds?.length > 0;
   const hasOptionalTags = optionalTagIds?.length > 0;
+  const hasRequiredDescTags = requiredDescTagIds?.length > 0;
   const hasRequiredTags = requiredTagIds.length > 0;
 
   return {
@@ -31,11 +33,13 @@ const createCollectionFilterPipeline = ({
             },
           }
         : {}),
-      ...(excludedDescTagIds?.length > 0
-        ? { tagIdsWithAncestors: { $nin: objectIds(excludedDescTagIds) } }
-        : {}),
-      ...(requiredDescTagIds?.length > 0
-        ? { tagIdsWithAncestors: { $in: objectIds(requiredDescTagIds) } }
+      ...(hasExcludedDescTags || hasRequiredDescTags
+        ? {
+            tagIdsWithAncestors: {
+              ...(hasExcludedDescTags ? { $nin: objectIds(excludedDescTagIds) } : {}),
+              ...(hasRequiredDescTags ? { $all: objectIds(requiredDescTagIds) } : {}),
+            },
+          }
         : {}),
     },
     $sort: { [sortKey]: sortDir, _id: sortDir } as { [key: string]: 1 | -1 },
