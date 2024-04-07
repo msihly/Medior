@@ -1,7 +1,8 @@
 import { shell } from "@electron/remote";
 import { observer } from "mobx-react-lite";
 import { FileImport } from "store";
-import { FileBase, Icon, IMPORT_STATUSES, Text, TooltipWrapper, View, ViewProps } from "components";
+import { FileBase, Icon, Text, TooltipWrapper, View, ViewProps } from "components";
+import { IMPORT_STATUSES } from ".";
 import { colors, makeClasses, openCarouselWindow, trpc } from "utils";
 
 export const IMPORT_CARD_SIZE = 100;

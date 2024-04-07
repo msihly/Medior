@@ -15,7 +15,7 @@ import {
   View,
 } from "components";
 import { TagInputs } from ".";
-import { colors, makeClasses, useDeepEffect } from "utils";
+import { colors, makeClasses, useDeepEffect, useDeepMemo } from "utils";
 import { toast } from "react-toastify";
 
 export interface TagEditorProps {
@@ -60,6 +60,8 @@ export const TagEditor = observer(
       label.length > 0 &&
       (isCreate || label.toLowerCase() !== tag?.label?.toLowerCase()) &&
       !!tagStore.getByLabel(label);
+
+    const tagOptions = useDeepMemo(tagStore.tagOptions);
 
     useDeepEffect(() => {
       if (id && tagStore.getById(id)) {
@@ -211,7 +213,7 @@ export const TagEditor = observer(
 
           <TagInputs.Relations
             label="Parent Tags"
-            options={[...tagStore.tagOptions]}
+            options={tagOptions}
             excludedIds={[id, ...childTags.map((t) => t.id)]}
             value={parentTags}
             setValue={setParentTags}
@@ -222,7 +224,7 @@ export const TagEditor = observer(
 
           <TagInputs.Relations
             label="Child Tags"
-            options={[...tagStore.tagOptions]}
+            options={tagOptions}
             excludedIds={[id, ...parentTags.map((t) => t.id)]}
             value={childTags}
             setValue={setChildTags}

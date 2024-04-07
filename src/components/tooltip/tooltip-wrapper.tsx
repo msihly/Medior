@@ -7,14 +7,16 @@ export interface TooltipWrapperProps {
 }
 
 export const TooltipWrapper = ({ children, tooltip, tooltipProps = {} }: TooltipWrapperProps) => {
+  const wrap = (c: JSX.Element) => (
+    <Tooltip title={tooltip} {...tooltipProps}>
+      {c}
+    </Tooltip>
+  );
+
   return (
     <ConditionalWrap
+      wrap={wrap}
       condition={tooltip !== undefined && !(typeof tooltip === "string" && !tooltip?.length)}
-      wrap={(c) => (
-        <Tooltip title={tooltip} {...tooltipProps}>
-          {c}
-        </Tooltip>
-      )}
     >
       {children}
     </ConditionalWrap>

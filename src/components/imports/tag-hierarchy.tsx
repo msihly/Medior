@@ -1,3 +1,5 @@
+import { observer } from "mobx-react-lite";
+import { useStores } from "store";
 import { Icon, Text, View } from "components";
 import { TagToUpsert } from ".";
 import { colors, makeClasses } from "utils";
@@ -8,7 +10,7 @@ export interface TagHierarchyProps {
 }
 
 export const TagHierarchy = ({ className, tag }: TagHierarchyProps) => {
-  const { css, cx } = useClasses(null);
+  const { css, cx } = useClasses({});
 
   return (
     <View column className={cx(css.container, className)}>
@@ -17,10 +19,19 @@ export const TagHierarchy = ({ className, tag }: TagHierarchyProps) => {
   );
 };
 
-const TagLevel = ({ tag }: TagHierarchyProps) => {
+const TagLevel = observer(({ tag }: TagHierarchyProps) => {
+  const { css } = useClasses({ hasId: !!tag.id });
+
+  const { tagStore } = useStores();
+
+  const handleClick = () => {
+    tagStore.setActiveTagId(tag?.id);
+    tagStore.setIsTagEditorOpen(true);
+  };
+
   return (
     <View column>
-      <View row align="center">
+      <View onClick={tag.id ? handleClick : null} row align="center" className={css.tagLevel}>
         <Icon
           name={tag.id ? "Edit" : "AddCircle"}
           color={tag.id ? colors.blue["700"] : colors.green["700"]}
@@ -39,9 +50,9 @@ const TagLevel = ({ tag }: TagHierarchyProps) => {
       )}
     </View>
   );
-};
+});
 
-const useClasses = makeClasses({
+const useClasses = makeClasses((_, { hasId }) => ({
   container: {
     flexShrink: 0,
     borderRadius: 4,
@@ -50,4 +61,7 @@ const useClasses = makeClasses({
     backgroundColor: colors.grey["900"],
     overflowY: "auto",
   },
-});
+  tagLevel: {
+    cursor: hasId ? "pointer" : "default",
+  },
+}));

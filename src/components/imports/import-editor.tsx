@@ -7,10 +7,10 @@ import { FileImport, Tag, useStores } from "store";
 import { Divider } from "@mui/material";
 import {
   Button,
-  CenteredText,
   Checkbox,
   CheckboxProps,
   ConfirmModal,
+  LoadingOverlay,
   Modal,
   Text,
   View,
@@ -33,7 +33,6 @@ import {
   useDeepEffect,
 } from "utils";
 import { toast } from "react-toastify";
-import Color from "color";
 
 type RegExMaps = { regEx: RegExp; tagId: string }[];
 
@@ -546,6 +545,8 @@ export const ImportEditor = observer(() => {
 
   return (
     <Modal.Container width="100%" height="100%">
+      <LoadingOverlay isLoading={isDisabled} />
+
       <Modal.Header leftNode={<Button text="Tag Manager" icon="More" onClick={handleTagManager} />}>
         <Text>{"Import Editor"}</Text>
       </Modal.Header>
@@ -686,14 +687,6 @@ export const ImportEditor = observer(() => {
           </View>
 
           <View className={css.rightColumn}>
-            {isDisabled ? (
-              <CenteredText
-                text={isLoading ? "Loading..." : "Saving..."}
-                fontSize="2em"
-                viewProps={{ className: css.loadingOverlay }}
-              />
-            ) : null}
-
             {(folderToTagsMode !== "none" ||
               folderToCollectionMode === "withTag" ||
               (withDiffusionParams && withDiffusionTags)) && (
@@ -781,20 +774,7 @@ const useClasses = makeClasses({
     marginRight: "0.5rem",
     overflowY: "auto",
   },
-  loadingOverlay: {
-    position: "absolute",
-    top: 0,
-    right: 0,
-    bottom: 0,
-    left: 0,
-    borderRadius: 4,
-    marginBottom: "0 !important",
-    backgroundColor: Color(colors.grey["900"]).alpha(0.9).string(),
-    zIndex: 10,
-    transition: "all 200ms ease-in-out",
-  },
   rightColumn: {
-    position: "relative",
     display: "flex",
     flexDirection: "column",
     flex: 1,

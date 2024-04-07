@@ -1,6 +1,6 @@
-import { Tag, Text, Tooltip, View } from "components";
 import { observer } from "mobx-react-lite";
 import { ImportBatch } from "store";
+import { Tag, Text, Tooltip, View } from "components";
 import { colors, dayjs, makeClasses } from "utils";
 
 interface BatchTooltipProps {
@@ -16,13 +16,13 @@ export const BatchTooltip = observer(({ batch, children }: BatchTooltipProps) =>
       minWidth="25rem"
       title={
         <View column>
-          <View row className={css.header}>
+          <View row spacing="1rem" justify="space-between">
             <View column>
               <Text className={css.label}>{"Created"}</Text>
               <Text className={css.value}>{dayjs(batch.createdAt).fromNow()}</Text>
             </View>
 
-            <View column margins={{ all: "0 1rem" }}>
+            <View column>
               <Text className={css.label}>{"Started"}</Text>
               <Text className={css.value}>
                 {batch.startedAt ? dayjs(batch.startedAt).fromNow() : "N/A"}
@@ -55,13 +55,10 @@ export const BatchTooltip = observer(({ batch, children }: BatchTooltipProps) =>
 });
 
 const useClasses = makeClasses({
-  header: {
-    justifyContent: "space-between",
-    fontSize: "1.1em",
-  },
   label: {
     color: colors.blue["700"],
     fontWeight: 500,
+    fontSize: "1.1em",
     textAlign: "center",
   },
   tag: {
@@ -75,6 +72,7 @@ const useClasses = makeClasses({
   },
   value: {
     color: colors.grey["200"],
+    fontSize: "1.1em",
     textAlign: "center",
   },
 });
