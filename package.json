@@ -32,6 +32,10 @@
     "fluent-ffmpeg": "^2.1.2",
     "jsonfile": "^6.1.0",
     "kill-port": "^2.0.1",
+    "lodash.clonedeep": "^4.5.0",
+    "lodash.debounce": "^4.0.8",
+    "lodash.isequal": "^4.5.0",
+    "lodash.throttle": "^4.1.1",
     "md5-file": "^5.0.0",
     "mobx": "^6.5.0",
     "mobx-keystone": "^1.6.3",
@@ -51,7 +55,6 @@
     "socket.io": "^4.6.2",
     "socket.io-client": "^4.6.2",
     "tss-react": "^3.6.0",
-    "use-deep-compare-effect": "^1.8.1",
     "util": "^0.12.5",
     "vite-plugin-electron-renderer": "0.10.1"
   },
@@ -59,6 +62,10 @@
     "@types/color": "^3.0.3",
     "@types/fluent-ffmpeg": "^2.1.20",
     "@types/kill-port": "^2.0.1",
+    "@types/lodash.clonedeep": "^4.5.9",
+    "@types/lodash.debounce": "^4.0.9",
+    "@types/lodash.isequal": "^4.5.8",
+    "@types/lodash.throttle": "^4.1.9",
     "@types/node": "^17.0.45",
     "@types/react": "^17.0.43",
     "@types/react-dom": "^17.0.14",
@@ -159,13 +166,35 @@
         {
           "paths": [
             {
-              "name": "use-deep-compare-effect",
+              "name": "lodash.clonedeep",
               "importNames": [
-                "default",
-                "useDeepCompareEffect",
-                "useDeepCompareMemoize"
+                "default"
               ],
-              "message": "Import 'useDeepEffect' or 'useDeepMemo' from 'utils' instead.",
+              "message": "Import 'deepClone' from 'utils' instead.",
+              "allowTypeImports": true
+            },
+            {
+              "name": "lodash.debounce",
+              "importNames": [
+                "default"
+              ],
+              "message": "Import 'debounce' from 'utils' instead.",
+              "allowTypeImports": true
+            },
+            {
+              "name": "lodash.isequal",
+              "importNames": [
+                "default"
+              ],
+              "message": "Import 'isDeepEqual' from 'utils' instead.",
+              "allowTypeImports": true
+            },
+            {
+              "name": "lodash.throttle",
+              "importNames": [
+                "default"
+              ],
+              "message": "Import 'throttle' from 'utils' instead.",
               "allowTypeImports": true
             },
             {

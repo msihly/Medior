@@ -1,5 +1,13 @@
 import path from "path";
 import { inspect } from "util";
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
+import _cloneDeep from "lodash.clonedeep";
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
+import _debounce from "lodash.debounce";
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
+import _isEqual from "lodash.isequal";
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
+import _throttle from "lodash.throttle";
 import { toast } from "react-toastify";
 import { logToFile } from "./logging";
 
@@ -44,16 +52,9 @@ const createTreeNode = (dirPath: string, tree: TreeNode[]) => {
 export const createTree = (paths: string[]): TreeNode[] =>
   paths.reduce((acc, cur) => (createTreeNode(cur, acc), acc), []);
 
-export const debounce = (fn, delay) => {
-  let timeout;
-  return (...args) => {
-    if (timeout) clearTimeout(timeout);
-    timeout = setTimeout(() => {
-      fn(...args);
-      timeout = null;
-    }, delay);
-  };
-};
+export const debounce = _debounce;
+
+export const deepClone = _cloneDeep;
 
 export type DeepPartial<T> = { [P in keyof T]?: DeepPartial<T[P]> };
 
@@ -85,6 +86,8 @@ export const handleErrors = async <T>(
     return { success: false, error: err.message };
   }
 };
+
+export const isDeepEqual = _isEqual;
 
 export const isObject = (item: any): boolean =>
   item && typeof item === "object" && !Array.isArray(item);
@@ -124,3 +127,5 @@ export const rateLimitPromiseAll = async <T>(
 };
 
 export const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+export const throttle = _throttle

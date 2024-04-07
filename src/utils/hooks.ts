@@ -1,9 +1,36 @@
-import { MutableRefObject, useCallback, useEffect, useState } from "react";
-// eslint-disable-next-line @typescript-eslint/no-restricted-imports
-import useDeepCompareEffect, { useDeepCompareMemoize } from "use-deep-compare-effect";
+import {
+  DependencyList,
+  EffectCallback,
+  MutableRefObject,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { isObservable } from "mobx";
+import { getSnapshot } from "mobx-keystone";
+import { isDeepEqual } from "./miscellaneous";
 
-export const useDeepEffect = useDeepCompareEffect;
-export const useDeepMemo = useDeepCompareMemoize;
+export const useDeepEffect = (cb: EffectCallback, deps: DependencyList) =>
+  useEffect(cb, [...deps.map((dep) => (isObservable(dep) ? getSnapshot(dep) : useDeepMemo(dep)))]);
+
+export const useDeepMemo = <T>(value: T) => {
+  const valueRef = useRef<T>(value);
+  const depRef = useRef<number>(0);
+
+  const compareValue = isObservable(value) ? getSnapshot(value) : value;
+  const compareValueRef = isObservable(valueRef.current)
+    ? getSnapshot(valueRef.current)
+    : valueRef.current;
+
+  if (!isDeepEqual(compareValue, compareValueRef)) {
+    valueRef.current = value;
+    depRef.current += 1;
+  }
+
+  return useMemo(() => valueRef.current, [depRef.current]);
+};
 
 export const useElementResize = (ref: MutableRefObject<any>, condition?: any) => {
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
