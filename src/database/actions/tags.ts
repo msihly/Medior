@@ -463,7 +463,7 @@ export const editTag = ({
     const res = await db.TagModel.bulkWrite(operations);
 
     if (changedTagIds.length > 0) {
-      await regenTagAncestors({ tagIds: changedTagIds });
+      await regenTagAncestors({ tagIds: changedTagIds, withSub });
 
       await Promise.all([
         db.regenCollTagAncestors({ collectionIds: affectedCollIds }),
