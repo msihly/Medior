@@ -7,6 +7,7 @@ import {
   CenteredText,
   FileCard,
   Input,
+  LoadingOverlay,
   Modal,
   SortMenu,
   TagInput,
@@ -14,7 +15,7 @@ import {
   View,
 } from "components";
 import { DisplayedCollections, FileCollection } from ".";
-import { CONSTANTS, colors, makeClasses, useDeepEffect, useDeepMemo } from "utils";
+import { CONSTANTS, colors, debounce, makeClasses, useDeepEffect, useDeepMemo } from "utils";
 import { toast } from "react-toastify";
 import Color from "color";
 
@@ -31,6 +32,7 @@ export const FileCollectionManager = observer(() => {
     ? fileCollectionStore.listByFileId(fileCollectionStore.selectedFileIds[0])
     : [];
 
+  const sortValue = useDeepMemo(fileCollectionStore.managerSearchSort);
   const tagSearchValue = useDeepMemo(fileCollectionStore.managerTagSearchValue);
 
   useEffect(() => {
@@ -42,18 +44,14 @@ export const FileCollectionManager = observer(() => {
       handlePageChange(null, fileCollectionStore.managerSearchPageCount);
   }, [fileCollectionStore.managerSearchPage, fileCollectionStore.managerSearchPageCount]);
 
-  const searchDeps = [
-    fileCollectionStore.managerTagSearchValue,
-    fileCollectionStore.managerTitleSearchValue,
-    fileCollectionStore.managerSearchSort,
-  ];
+  const searchDeps = [fileCollectionStore.managerTitleSearchValue, sortValue, tagSearchValue];
 
   useDeepEffect(() => {
     collectionsRef.current?.scrollTo({ top: 0, behavior: "smooth" });
   }, [fileCollectionStore.managerSearchPage, ...searchDeps]);
 
   useDeepEffect(() => {
-    fileCollectionStore.listFilteredCollections({ page: 1 });
+    debounce(() => fileCollectionStore.listFilteredCollections({ page: 1 }), 800)();
   }, [...searchDeps]);
 
   const closeModal = () => fileCollectionStore.setIsManagerOpen(false);
@@ -84,10 +82,12 @@ export const FileCollectionManager = observer(() => {
     fileCollectionStore.setManagerTagSearchValue(value);
 
   const setTitleSearchValue = (value: string) =>
-    fileCollectionStore.setManagerTitleSearchValue(value);
+    !fileCollectionStore.isManagerLoading && fileCollectionStore.setManagerTitleSearchValue(value);
 
   return (
     <Modal.Container height="100%" width="100%" onClose={closeModal}>
+      <LoadingOverlay isLoading={fileCollectionStore.isManagerLoading} />
+
       <Modal.Header>
         <Text>{"Manage Collections"}</Text>
       </Modal.Header>
@@ -151,7 +151,7 @@ export const FileCollectionManager = observer(() => {
             <View column className={css.container}>
               <SortMenu
                 rows={CONSTANTS.SORT_MENU_OPTS.COLLECTION_SEARCH}
-                value={fileCollectionStore.managerSearchSort}
+                value={sortValue}
                 setValue={handleSortChange}
                 color={colors.button.darkGrey}
                 width="100%"

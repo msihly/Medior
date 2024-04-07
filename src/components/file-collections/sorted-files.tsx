@@ -6,8 +6,8 @@ import AutoSizer from "react-virtualized-auto-sizer";
 import { FileCollectionFile } from "components";
 import { useDeepMemo } from "utils";
 
-const CARD_HEIGHT = 250;
-const CARD_MAX_WIDTH = 250;
+const CARD_HEIGHT = 300;
+const CARD_MAX_WIDTH = 300;
 
 export const SortedFiles = observer(() => {
   const { fileCollectionStore } = useStores();

@@ -49,7 +49,7 @@ export const FileCollectionEditor = observer(() => {
 
   const tags = useDeepMemo(fileCollectionStore.activeTagIds.map((id) => tagStore.getById(id)));
 
-  const sortedTags = useMemo(() => tags.sort((a, b) => a.count - b.count), [tags]);
+  const sortedTags = useMemo(() => tags.sort((a, b) => b.count - a.count), [tags]);
 
   useEffect(() => {
     if (!fileCollectionStore.activeCollectionId) return;
@@ -248,7 +248,7 @@ export const FileCollectionEditor = observer(() => {
 
             <View className={css.tags}>
               {sortedTags.map((tag) => (
-                <Tag key={tag.id} tag={tag} className={css.tag} />
+                <Tag key={tag.id} tag={tag} hasEditor className={css.tag} />
               ))}
             </View>
 

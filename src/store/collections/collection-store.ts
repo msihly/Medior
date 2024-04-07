@@ -34,6 +34,7 @@ export class FileCollectionStore extends Model({
   editorSearchValue: prop<TagOption[]>(() => []).withSetter(),
   hasUnsavedChanges: prop<boolean>(false).withSetter(),
   isEditorOpen: prop<boolean>(false),
+  isManagerLoading: prop<boolean>(false).withSetter(),
   isManagerOpen: prop<boolean>(false),
   managerSearchPage: prop<number>(1).withSetter(),
   managerSearchPageCount: prop<number>(1).withSetter(),
@@ -185,6 +186,8 @@ export class FileCollectionStore extends Model({
         if (!rootStore) throw new Error("RootStore not found");
         const { tagStore } = rootStore;
 
+        this.setIsManagerLoading(true);
+
         const collectionsRes = await trpc.listFilteredCollections.mutate({
           ...tagStore.tagSearchOptsToIds(this.managerTagSearchValue),
           isSortDesc: this.managerSearchSort.isDesc,
@@ -206,6 +209,7 @@ export class FileCollectionStore extends Model({
         if (debug)
           perfLog(`Set page to ${page ?? this.managerSearchPage} and pageCount to ${pageCount}`);
 
+        this.setIsManagerLoading(false);
         if (debug) perfLogTotal(`Loaded ${collections.length} collections`);
 
         return collections;
