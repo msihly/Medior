@@ -9,20 +9,28 @@ import {
   useState,
 } from "react";
 import { isObservable } from "mobx";
-import { getSnapshot } from "mobx-keystone";
+import { getSnapshot, isModel } from "mobx-keystone";
 import { isDeepEqual } from "./miscellaneous";
 
 export const useDeepEffect = (cb: EffectCallback, deps: DependencyList) =>
-  useEffect(cb, [...deps.map((dep) => (isObservable(dep) ? getSnapshot(dep) : useDeepMemo(dep)))]);
+  useEffect(cb, [...deps.map((dep) => (isModel(dep) ? getSnapshot(dep) : useDeepMemo(dep)))]);
 
 export const useDeepMemo = <T>(value: T) => {
   const valueRef = useRef<T>(value);
   const depRef = useRef<number>(0);
 
-  const compareValue = isObservable(value) ? getSnapshot(value) : value;
-  const compareValueRef = isObservable(valueRef.current)
-    ? getSnapshot(valueRef.current)
-    : valueRef.current;
+  let compareValue: any;
+  let compareValueRef: any;
+
+  try {
+    compareValue = isObservable(value) ? getSnapshot(value) : value;
+    compareValueRef = isObservable(valueRef.current)
+      ? getSnapshot(valueRef.current)
+      : valueRef.current;
+  } catch (err) {
+    compareValue = JSON.stringify(value);
+    compareValueRef = JSON.stringify(valueRef.current);
+  }
 
   if (!isDeepEqual(compareValue, compareValueRef)) {
     valueRef.current = value;
