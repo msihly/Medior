@@ -9,11 +9,19 @@ import {
   useState,
 } from "react";
 import { isObservable } from "mobx";
-import { getSnapshot, isModel } from "mobx-keystone";
+import { getSnapshot } from "mobx-keystone";
 import { isDeepEqual } from "./miscellaneous";
 
 export const useDeepEffect = (cb: EffectCallback, deps: DependencyList) =>
-  useEffect(cb, [...deps.map((dep) => (isModel(dep) ? getSnapshot(dep) : useDeepMemo(dep)))]);
+  useEffect(cb, [
+    ...deps.map((dep) => {
+      try {
+        return isObservable(dep) ? getSnapshot(dep) : useDeepMemo(dep);
+      } catch (err) {
+        return JSON.stringify(dep);
+      }
+    }),
+  ]);
 
 export const useDeepMemo = <T>(value: T) => {
   const valueRef = useRef<T>(value);
