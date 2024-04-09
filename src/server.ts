@@ -250,6 +250,7 @@ export interface SocketEmitEvents {
     fileIds?: string[];
     removedTagIds: string[];
   }) => void;
+  importBatchCompleted: () => void;
   reloadFileCollections: () => void;
   reloadFiles: () => void;
   reloadImportBatches: () => void;
@@ -293,6 +294,7 @@ const createSocketIOServer = async () => {
         "filesDeleted",
         "filesUpdated",
         "fileTagsUpdated",
+        "importBatchCompleted",
         "reloadFileCollections",
         "reloadFiles",
         "reloadImportBatches",

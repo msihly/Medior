@@ -112,11 +112,17 @@ export const useSockets = ({ view }: UseSocketsProps) => {
         carouselStore.removeFiles(fileIds);
       });
 
-    if (view !== "carousel")
+    if (view !== "carousel") {
+      socket.on("importBatchCompleted", () => {
+        if (debug) console.debug("[Socket] importBatchCompleted");
+        if (!importStore.isImportManagerOpen) homeStore.loadFilteredFiles();
+      });
+
       socket.on("reloadFileCollections", () => {
         if (debug) console.debug("[Socket] reloadFileCollections");
         if (fileCollectionStore.isManagerOpen) fileCollectionStore.listFilteredCollections();
       });
+    }
 
     if (view === "home")
       socket.on("reloadImportBatches", () => {

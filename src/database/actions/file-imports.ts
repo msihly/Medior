@@ -16,7 +16,7 @@ export const completeImportBatch = ({
       tagIds.length && db.recalculateTagCounts({ tagIds }),
     ]);
 
-    socket.emit("reloadFiles");
+    socket.emit("importBatchCompleted");
     return completedAt;
   });
 
