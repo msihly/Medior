@@ -2,11 +2,12 @@ import { ElementType } from "react";
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { Typography, TypographyProps } from "@mui/material";
 import { TooltipProps, TooltipWrapper } from "components";
-import { makeClasses } from "utils";
+import { colors, makeClasses } from "utils";
 
 export interface TextProps extends Omit<TypographyProps, "color" | "component" | "title"> {
   color?: string;
   component?: ElementType;
+  preset?: "label-glow";
   tooltip?: TooltipProps["title"];
   tooltipProps?: Partial<TooltipProps>;
 }
@@ -18,11 +19,12 @@ export const Text = ({
   component = "span",
   fontSize = "1em",
   fontWeight = 400,
+  preset,
   tooltip,
   tooltipProps,
   ...props
 }: TextProps) => {
-  const { css, cx } = useClasses({ color });
+  const { css, cx } = useClasses({ color, preset });
 
   return (
     <TooltipWrapper {...{ tooltip, tooltipProps }}>
@@ -37,9 +39,22 @@ export const Text = ({
   );
 };
 
-const useClasses = makeClasses((_, { color }) => ({
+interface ClassesProps {
+  color?: string;
+  preset?: TextProps["preset"];
+}
+
+const useClasses = makeClasses((_, { color, preset }: ClassesProps) => ({
   root: {
-    color: color,
+    color,
     overflow: "hidden",
+    ...(preset === "label-glow"
+      ? {
+          fontSize: "0.8em",
+          textAlign: "center",
+          textShadow: `0 0 10px ${colors.blue["600"]}`,
+          overflow: "visible",
+        }
+      : {}),
   },
 }));

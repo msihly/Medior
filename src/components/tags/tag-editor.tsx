@@ -234,7 +234,7 @@ export const TagEditor = observer(
           />
 
           <View column justify="center">
-            <Text className={css.sectionTitle}>{"RegEx Mapping"}</Text>
+            <Text preset="label-glow">{"RegEx Mapping"}</Text>
 
             <RegExMapRow
               aliases={aliases.map((a) => a.value)}
@@ -251,7 +251,7 @@ export const TagEditor = observer(
 
           {isCreate && (
             <View column justify="center">
-              <Text className={css.sectionTitle}>{"Create Options"}</Text>
+              <Text preset="label-glow">{"Create Options"}</Text>
 
               <View row>
                 <Checkbox
@@ -323,11 +323,6 @@ const useClasses = makeClasses({
     fontSize: "0.7em",
     whiteSpace: "nowrap",
     textOverflow: "ellipsis",
-  },
-  sectionTitle: {
-    fontSize: "0.8em",
-    textAlign: "center",
-    textShadow: `0 0 10px ${colors.blue["600"]}`,
   },
   spacedRow: {
     display: "flex",

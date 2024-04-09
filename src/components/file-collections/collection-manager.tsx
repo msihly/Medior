@@ -96,7 +96,7 @@ export const FileCollectionManager = observer(() => {
         {!hasAnySelected ? null : hasOneSelected ? (
           <View row>
             <View className={css.leftColumn}>
-              <Text className={css.sectionTitle}>{"Selected File"}</Text>
+              <Text preset="label-glow">{"Selected File"}</Text>
 
               <View className={css.container}>
                 {fileCollectionStore.selectedFiles.length > 0 ? (
@@ -114,7 +114,7 @@ export const FileCollectionManager = observer(() => {
 
             <View className={css.rightColumn}>
               <View row justify="center">
-                <Text className={css.sectionTitle}>{"Current Collections"}</Text>
+                <Text preset="label-glow">{"Current Collections"}</Text>
               </View>
 
               <View className={css.container}>
@@ -130,7 +130,7 @@ export const FileCollectionManager = observer(() => {
           </View>
         ) : (
           <View column>
-            <Text className={css.sectionTitle}>{"Selected Files"}</Text>
+            <Text preset="label-glow">{"Selected Files"}</Text>
 
             <View className={css.container}>
               {fileCollectionStore.selectedFiles.length > 0 ? (
@@ -146,7 +146,7 @@ export const FileCollectionManager = observer(() => {
 
         <View row margins={{ top: "0.5rem" }} overflow="hidden">
           <View className={css.leftColumn}>
-            <Text className={css.sectionTitle}>{"Search"}</Text>
+            <Text preset="label-glow">{"Search"}</Text>
 
             <View column className={css.container}>
               <SortMenu
@@ -158,7 +158,7 @@ export const FileCollectionManager = observer(() => {
                 margins={{ bottom: "0.5rem" }}
               />
 
-              <Text className={css.sectionTitle}>{"Titles"}</Text>
+              <Text preset="label-glow">{"Titles"}</Text>
               <Input
                 value={fileCollectionStore.managerTitleSearchValue}
                 setValue={setTitleSearchValue}
@@ -166,7 +166,7 @@ export const FileCollectionManager = observer(() => {
                 margins={{ bottom: "0.5rem" }}
               />
 
-              <Text className={css.sectionTitle}>{"Tags"}</Text>
+              <Text preset="label-glow">{"Tags"}</Text>
               <TagInput
                 value={tagSearchValue}
                 onChange={setTagSearchValue}
@@ -177,7 +177,7 @@ export const FileCollectionManager = observer(() => {
           </View>
 
           <View className={css.rightColumn}>
-            <Text className={css.sectionTitle}>{"All Collections"}</Text>
+            <Text preset="label-glow">{"All Collections"}</Text>
 
             <View ref={collectionsRef} className={css.container}>
               <DisplayedCollections />
@@ -247,11 +247,5 @@ const useClasses = makeClasses({
     display: "flex",
     flexDirection: "column",
     width: "calc(100% - 13rem)",
-  },
-  sectionTitle: {
-    alignSelf: "center",
-    margin: "0.2rem 0",
-    fontSize: "0.8em",
-    textShadow: `0 0 10px ${colors.blue["600"]}`,
   },
 });

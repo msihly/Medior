@@ -57,7 +57,7 @@ export const ImportBatch = observer(({ batch }: ImportBatchProps) => {
           </View>
 
           <View className={css.headerBottom}>
-            <Text className={css.index}>{`${index + 1}.`}</Text>
+            <Text preset="label-glow" className={css.index}>{`${index + 1}.`}</Text>
 
             <BatchTooltip batch={batch}>
               <Icon name={status.icon} color={status.color} className={css.statusIcon} />
@@ -176,9 +176,6 @@ const useClasses = makeClasses((_, { expanded, hasTags }) => ({
     justifyContent: "center",
     alignSelf: "center",
     paddingLeft: "0.5em",
-    fontSize: "0.8em",
-    textAlign: "center",
-    textShadow: `0px 0px 5px ${colors.blue["700"]}`,
   },
   importCards: {
     borderRadius: "0 0 0.5rem 0.5rem",

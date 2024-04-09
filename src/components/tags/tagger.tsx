@@ -85,7 +85,7 @@ export const Tagger = observer(({ batchId, fileIds, setVisible }: TaggerProps) =
 
       <Modal.Content>
         <View column>
-          <Text className={css.sectionTitle}>{"Current Tags"}</Text>
+          <Text preset="label-glow">{"Current Tags"}</Text>
           <TagInput
             value={currentTagOptions}
             disabled
@@ -94,7 +94,7 @@ export const Tagger = observer(({ batchId, fileIds, setVisible }: TaggerProps) =
             className={css.tagInput}
           />
 
-          <Text className={css.sectionTitle}>{"Added Tags"}</Text>
+          <Text preset="label-glow">{"Added Tags"}</Text>
           <TagInput
             value={addedTags}
             onChange={handleTagAdded}
@@ -104,7 +104,7 @@ export const Tagger = observer(({ batchId, fileIds, setVisible }: TaggerProps) =
             className={css.tagInput}
           />
 
-          <Text className={css.sectionTitle}>{"Removed Tags"}</Text>
+          <Text preset="label-glow">{"Removed Tags"}</Text>
           <TagInput
             value={removedTags}
             onChange={handleTagRemoved}
@@ -135,11 +135,6 @@ export const Tagger = observer(({ batchId, fileIds, setVisible }: TaggerProps) =
 });
 
 const useClasses = makeClasses({
-  sectionTitle: {
-    fontSize: "0.8em",
-    textShadow: `0 0 10px ${colors.blue["600"]}`,
-    textAlign: "center",
-  },
   tagInput: {
     marginBottom: "0.5rem",
   },

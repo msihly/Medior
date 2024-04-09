@@ -99,7 +99,7 @@ export const Drawer = observer(({ hasImports = false, hasSettings = false }: Dra
 
       <Divider className={css.divider} />
 
-      <Text align="center" className={css.inputTitle}>
+      <Text preset="label-glow" marginTop="0.3rem">
         {"Search"}
       </Text>
       <TagInput
@@ -180,17 +180,13 @@ const useClasses = makeClasses({
     alignItems: "center",
     borderRight: "1px solid #111",
     marginTop: CONSTANTS.TOP_BAR_HEIGHT,
+    paddingBottom: "5rem",
     width: CONSTANTS.DRAWER_WIDTH,
     background: colors.grey["900"],
     zIndex: 20,
     "&::-webkit-scrollbar": {
       display: "none",
     },
-  },
-  inputTitle: {
-    marginTop: "0.3rem",
-    textShadow: `0 0 10px ${colors.blue["600"]}`,
-    fontSize: "0.8em",
   },
   list: {
     width: "100%",

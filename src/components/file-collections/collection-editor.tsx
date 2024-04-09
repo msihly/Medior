@@ -197,9 +197,7 @@ export const FileCollectionEditor = observer(() => {
         <View className={css.body}>
           {isAddingFiles && (
             <View column className={css.leftColumn}>
-              <Text align="center" className={css.inputTitle}>
-                {"File Search"}
-              </Text>
+              <Text preset="label-glow">{"File Search"}</Text>
               <TagInput
                 value={[...fileCollectionStore.editorSearchValue]}
                 onChange={(val) => fileCollectionStore.setEditorSearchValue(val)}
@@ -335,11 +333,6 @@ const useClasses = makeClasses({
     width: "100%",
     backgroundColor: colors.grey["800"],
     overflow: "hidden",
-  },
-  inputTitle: {
-    marginTop: "0.3rem",
-    textShadow: `0 0 10px ${colors.blue["600"]}`,
-    fontSize: "0.8em",
   },
   leftColumn: {
     borderRadius: 4,

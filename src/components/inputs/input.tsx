@@ -1,7 +1,7 @@
 import { ChangeEvent, forwardRef, MutableRefObject, ReactNode } from "react";
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { TextField, TextFieldProps } from "@mui/material";
-import { ConditionalWrap, Text, View } from "components";
+import { ConditionalWrap, Text, TextProps, View } from "components";
 import { CSSObject } from "tss-react";
 import { colors, makeClasses, Margins } from "utils";
 import Color from "color";
@@ -13,7 +13,7 @@ export interface InputProps extends Omit<TextFieldProps, "color" | "onChange" | 
   flex?: CSSObject["flex"];
   hasHelper?: boolean;
   helperText?: ReactNode;
-  labelClassName?: string;
+  labelProps?: Partial<TextProps>;
   margins?: Margins;
   maxLength?: number;
   setValue?: (value: string) => void;
@@ -34,7 +34,7 @@ export const Input = forwardRef(
       helperText,
       inputProps,
       label,
-      labelClassName,
+      labelProps = {},
       margins = {},
       maxLength,
       onClick,
@@ -66,7 +66,9 @@ export const Input = forwardRef(
         condition={detachLabel}
         wrap={(c) => (
           <View column className={css.container}>
-            <Text className={cx(css.label, labelClassName)}>{label}</Text>
+            <Text preset="label-glow" {...labelProps}>
+              {label}
+            </Text>
             {c}
           </View>
         )}
@@ -151,10 +153,6 @@ const useClasses = makeClasses(
         lineHeight: 1,
         textAlign: "center",
       },
-    },
-    label: {
-      textShadow: `0 0 10px ${colors.blue["600"]}`,
-      fontSize: "0.8em",
     },
   })
 );
