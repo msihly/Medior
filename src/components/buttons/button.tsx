@@ -12,7 +12,10 @@ import { CSSObject } from "tss-react";
 import Color from "color";
 
 export interface ButtonProps
-  extends Omit<MuiButtonProps, "color" | "endIcon" | "startIcon" | "type" | "variant"> {
+  extends Omit<
+    MuiButtonProps,
+    "color" | "endIcon" | "fullWidth" | "startIcon" | "type" | "variant"
+  > {
   color?: string;
   circle?: boolean;
   endNode?: ReactNode;
@@ -36,6 +39,7 @@ export interface ButtonProps
   tooltip?: TooltipProps["title"];
   tooltipProps?: Partial<TooltipProps>;
   type?: "button" | "link";
+  width?: CSSObject["width"];
 }
 
 export const Button = ({
@@ -67,6 +71,7 @@ export const Button = ({
   tooltip,
   tooltipProps,
   type = "button",
+  width,
   ...props
 }: ButtonProps) => {
   const { css, cx } = useClasses({
@@ -80,6 +85,7 @@ export const Button = ({
     padding: { all: !text?.length ? "0.4em" : "0.4em 0.8em", ...padding },
     textColor,
     textTransform,
+    width,
   });
 
   const handleClick = (event: MouseEvent<HTMLButtonElement>) => {
@@ -146,6 +152,7 @@ interface ClassesProps {
   padding: Padding;
   textColor: string;
   textTransform: CSSObject["textTransform"];
+  width: CSSObject["width"];
 }
 
 const useClasses = makeClasses(
@@ -162,6 +169,7 @@ const useClasses = makeClasses(
       padding,
       textColor,
       textTransform,
+      width,
     }: ClassesProps
   ) => ({
     root: {
@@ -182,6 +190,7 @@ const useClasses = makeClasses(
       paddingRight: padding?.right ?? (isLink ? 0 : undefined),
       paddingLeft: padding?.left ?? (isLink ? 0 : undefined),
       minWidth: "fit-content",
+      width,
       backgroundColor: isLink ? "transparent" : outlined ? outlineFill : color,
       boxShadow: isLink ? "none" : undefined,
       color: outlined

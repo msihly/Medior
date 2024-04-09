@@ -44,7 +44,7 @@ export const Accordion = ({
         onClick={handleClick}
         endNode={<Icon name="ExpandMore" rotation={expanded ? 180 : 0} />}
         color={color}
-        fullWidth
+        width="100%"
         className={css.button}
       >
         {header}
