@@ -316,7 +316,10 @@ export const ImportEditor = observer(() => {
           ),
         ],
       })),
-      rootFolderPath: folder.folderName,
+      rootFolderPath: folder.folderName
+        .split(path.sep)
+        .slice(0, importStore.editorRootFolderIndex + 1)
+        .join(path.sep),
       tagIds: folder.tags.map((t) => tagStore.getByLabel(t.label)?.id).filter(Boolean),
     }));
 

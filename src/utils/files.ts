@@ -79,8 +79,13 @@ export const removeEmptyFolders = async (
     files = await fs.readdir(dirPath);
   }
 
-  if (!files.length && path.resolve(dirPath) !== path.resolve(process.cwd()))
-    await fs.rmdir(dirPath);
+  if (!files.length) {
+    try {
+      await fs.rmdir(dirPath);
+    } catch (err) {
+      console.error(`Failed to remove ${dirPath}`, err);
+    }
+  }
 
   if (options.removeEmptyParent) await removeEmptyFolders(path.dirname(dirPath), subOptions);
 };
