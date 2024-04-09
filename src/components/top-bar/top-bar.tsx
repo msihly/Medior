@@ -41,7 +41,10 @@ export const TopBar = observer(() => {
     toast.info(`Added ${fileStore.files.length} files to selection`);
   };
 
-  const handleSortChange = (val: SortMenuProps["value"]) => homeStore.setSortValue(val);
+  const handleSortChange = (val: SortMenuProps["value"]) => {
+    homeStore.setSortValue(val);
+    homeStore.loadFilteredFiles({ page: 1 });
+  };
 
   const handleUnarchive = () => fileStore.unarchiveFiles({ fileIds: fileStore.selectedIds });
 

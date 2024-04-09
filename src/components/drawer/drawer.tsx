@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { observer } from "mobx-react-lite";
 import { TagOption, useStores } from "store";
 import { Divider, Drawer as MuiDrawer, List } from "@mui/material";
-import { Accordion, Checkbox, ListItem, TagInput, Text, View } from "components";
+import { Accordion, Button, Checkbox, ListItem, TagInput, Text, View } from "components";
 import { ExtCheckbox } from ".";
 import { colors, CONSTANTS, getConfig, makeClasses, openSearchWindow, useDeepMemo } from "utils";
 
@@ -46,6 +46,8 @@ export const Drawer = observer(({ hasImports = false, hasSettings = false }: Dra
   const handleImport = () => importStore.setIsImportManagerOpen(true);
 
   const handleManageTags = () => tagStore.setIsTagManagerOpen(true);
+
+  const handleSearch = () => homeStore.loadFilteredFiles({ page: 1 });
 
   const handleSearchWindow = () => openSearchWindow();
 
@@ -99,8 +101,16 @@ export const Drawer = observer(({ hasImports = false, hasSettings = false }: Dra
 
       <Divider className={css.divider} />
 
+      <Button
+        text="Search"
+        icon="Search"
+        onClick={handleSearch}
+        width="-webkit-fill-available"
+        margins={{ top: "0.5rem", left: "0.5rem", right: "0.5rem" }}
+      />
+
       <Text preset="label-glow" marginTop="0.3rem">
-        {"Search"}
+        {"Tags"}
       </Text>
       <TagInput
         value={searchValue}

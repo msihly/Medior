@@ -17,30 +17,13 @@ export const FileContainer = observer(() => {
 
   const { handleKeyPress } = useHotkeys({ view: "home" });
 
-  const isInitMount = useRef(true);
-
-  const searchDeps = [
-    homeStore.includeTagged,
-    homeStore.includeUntagged,
-    homeStore.isArchiveOpen,
-    homeStore.searchValue,
-    homeStore.selectedImageTypes,
-    homeStore.selectedVideoTypes,
-    homeStore.sortValue,
-  ];
-
   useEffect(() => {
     if (fileStore.page > fileStore.pageCount) handlePageChange(null, fileStore.pageCount);
   }, [fileStore.page, fileStore.pageCount]);
 
   useDeepEffect(() => {
     filesRef.current?.scrollTo({ top: 0, behavior: "smooth" });
-  }, [fileStore.page, ...searchDeps]);
-
-  useDeepEffect(() => {
-    if (isInitMount.current) isInitMount.current = false;
-    else homeStore.loadFilteredFiles({ page: 1 });
-  }, [...searchDeps]);
+  }, [fileStore.files]);
 
   const handlePageChange = (_, page: number) => homeStore.loadFilteredFiles({ page });
 
