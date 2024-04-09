@@ -50,8 +50,17 @@ export const Container = observer(
   }
 );
 
+interface ClassesProps {
+  disabled?: boolean;
+  display: CSSObject["display"];
+  height?: CSSObject["height"];
+  selected?: boolean;
+  selectedColor: string;
+  width?: CSSObject["width"];
+}
+
 const useClasses = makeClasses(
-  (_, { disabled, display, height, selected, selectedColor, width }) => ({
+  (_, { disabled, display, height, selected, selectedColor, width }: ClassesProps) => ({
     container: {
       position: "relative",
       display,

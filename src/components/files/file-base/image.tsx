@@ -23,7 +23,6 @@ interface ImageProps
   rounded?: "all" | "bottom" | "top";
   title?: string;
   thumbPaths: string[];
-  width?: CSSObject["width"];
 }
 
 export const Image = ({
@@ -38,14 +37,13 @@ export const Image = ({
   rounded = "top",
   thumbPaths,
   title,
-  width,
 }: ImageProps) => {
   const thumbInterval = useRef(null);
 
   const [imagePos, setImagePos] = useState<CSSObject["objectPosition"]>(null);
   const [thumbIndex, setThumbIndex] = useState(0);
 
-  const { css } = useClasses({ fit, height, imagePos, rounded, width });
+  const { css } = useClasses({ fit, height, imagePos, rounded });
 
   useEffect(() => {
     return () => clearInterval(thumbInterval.current);
@@ -100,7 +98,14 @@ export const Image = ({
   );
 };
 
-const useClasses = makeClasses((theme, { fit, height, imagePos, rounded, width }) => ({
+interface ClassesProps {
+  fit: ImageProps["fit"];
+  height: ImageProps["height"];
+  imagePos: CSSObject["objectPosition"];
+  rounded: ImageProps["rounded"];
+}
+
+const useClasses = makeClasses((theme, { fit, height, imagePos, rounded }: ClassesProps) => ({
   image: {
     ...(["all", "top"].includes(rounded) && {
       borderTopLeftRadius: "inherit",

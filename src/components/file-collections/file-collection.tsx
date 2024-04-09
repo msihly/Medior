@@ -34,7 +34,6 @@ export const FileCollection = observer(({ height, id, width }: FileCollectionPro
         thumbPaths={collection.thumbPaths}
         title={collection.title}
         height={height}
-        width={width}
         fit={fileCollectionStore.collectionFitMode}
       >
         <FileBase.Chip
