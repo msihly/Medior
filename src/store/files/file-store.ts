@@ -206,6 +206,8 @@ export class FileStore extends Model({
         if (!curFile && !id) throw new Error("No file or id provided");
         const file = !curFile ? this.getById(id) : new File(curFile);
 
+        const curThumbPaths = [...file.thumbPaths];
+
         const [hash, { mtime, size }, imageInfo, videoInfo] = await Promise.all([
           md5File(file.path),
           fs.stat(file.path),
@@ -236,16 +238,20 @@ export class FileStore extends Model({
               )
           : [path.join(dirPath, `${hash}-thumb.jpg`)];
 
-        await (file.isAnimated
-          ? generateFramesThumbnail(file.path, dirPath, hash, videoInfo?.duration)
-          : sharp(file.path, { failOn: "none" })
-              .resize(null, CONSTANTS.THUMB.WIDTH)
-              .toFile(thumbPaths[0]));
+        await(
+          file.isAnimated
+            ? generateFramesThumbnail(file.path, dirPath, hash, videoInfo?.duration)
+            : sharp(file.path, { failOn: "none" })
+                .resize(null, CONSTANTS.THUMB.WIDTH)
+                .toFile(thumbPaths[0])
+        );
 
         updates["thumbPaths"] = thumbPaths;
 
         await trpc.updateFile.mutate({ id, ...updates });
         file.update?.(updates);
+
+        await Promise.all(curThumbPaths.map((t) => !t.endsWith(".jpg") && fs.unlink(t)));
 
         return updates;
       })

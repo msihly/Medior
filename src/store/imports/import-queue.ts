@@ -104,7 +104,7 @@ export const copyFileForImport = async ({
               .map((_, i) =>
                 path.join(dirPath, `${hash}-thumb-${String(i + 1).padStart(2, "0")}.jpg`)
               )
-          : [path.join(dirPath, `${hash}-thumb.${extFromPath}`)];
+          : [path.join(dirPath, `${hash}-thumb.jpg`)];
 
       if (!dbOnly && !fileExistsAtPath) {
         await (duration > 0
