@@ -2,22 +2,31 @@ import { ipcRenderer } from "electron";
 import { WheelEvent, useEffect, useRef } from "react";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
+import { PanzoomObject } from "@panzoom/panzoom";
 import { Carousel, CarouselThumbNavigator, CarouselTopBar, View, ZoomContext } from "components";
 import { Views, useHotkeys, useSockets } from "./common";
-import { debounce, makeClasses, makePerfLog } from "utils";
+import { debounce, makeClasses, makePerfLog, zoomScaleStepIn, zoomScaleStepOut } from "utils";
 
 export const CarouselWindow = observer(() => {
   const { css } = useClasses(null);
 
   const { carouselStore, fileStore, tagStore } = useStores();
 
-  const panZoomRef = useRef(null);
+  const panZoomRef = useRef<PanzoomObject>(null);
   const rootRef = useRef<HTMLDivElement>(null);
 
   const { handleKeyPress, navCarouselByArrowKey } = useHotkeys({ rootRef, view: "carousel" });
 
-  const handleScroll = (event: WheelEvent) =>
-    debounce(navCarouselByArrowKey, 100)(event.deltaY < 0);
+  const handleScroll = (event: WheelEvent) => {
+    const isLeft = event.deltaY > 0;
+    if (event.ctrlKey) {
+      if (!panZoomRef.current) return console.error("Panzoom ref not set");
+
+      const curScale = panZoomRef.current.getScale();
+      const newScale = isLeft ? zoomScaleStepOut(curScale) : zoomScaleStepIn(curScale);
+      panZoomRef.current.zoomToPoint(newScale, { clientX: event.clientX, clientY: event.clientY });
+    } else debounce(navCarouselByArrowKey, 100)(isLeft);
+  };
 
   useSockets({ view: "carousel" });
 

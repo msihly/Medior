@@ -2,9 +2,8 @@ import { getCurrentWindow, screen } from "@electron/remote";
 import { useContext, useEffect, useRef, useState } from "react";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
-import { Slider } from "@mui/material";
 import { ZoomContext, Icon, IconButton, SideScroller, Tag, Text, View } from "components";
-import { colors, CONSTANTS, makeClasses, round } from "utils";
+import { colors, makeClasses, round, zoomScaleStepIn, zoomScaleStepOut } from "utils";
 
 export const CarouselTopBar = observer(() => {
   const { carouselStore, fileStore, tagStore } = useStores();
@@ -62,24 +61,14 @@ export const CarouselTopBar = observer(() => {
 
   const toggleIsPinned = () => setIsPinned(!isPinned);
 
-  /* ------------------------------ BEGIN - ZOOM ------------------------------ */
-  const [zoomScale, setZoomScale] = useState(1);
+  const zoomIn = () => panZoomRef.current.zoom(zoomScaleStepIn(panZoomRef.current.getScale()));
 
-  useEffect(() => {
-    panZoomRef.current?.zoom(zoomScale);
-  }, [zoomScale]);
+  const zoomOut = () => panZoomRef.current.zoom(zoomScaleStepOut(panZoomRef.current.getScale()));
 
-  const handleResetTransform = () => {
-    setZoomScale(1);
+  const zoomReset = () => {
+    panZoomRef.current.zoom(1);
     panZoomRef.current.reset();
   };
-
-  const zoomIn = () =>
-    setZoomScale(Math.min(zoomScale + CONSTANTS.ZOOM.STEP * 5, CONSTANTS.ZOOM.MAX_SCALE));
-
-  const zoomOut = () =>
-    setZoomScale(Math.max(zoomScale - CONSTANTS.ZOOM.STEP * 5, CONSTANTS.ZOOM.MIN_SCALE));
-  /* ------------------------------ END - ZOOM ------------------------------ */
 
   return (
     <View className={css.root}>
@@ -122,21 +111,12 @@ export const CarouselTopBar = observer(() => {
       {file?.isVideo ? (
         <View className={css.side} />
       ) : (
-        <View className={cx(css.side, css.zoomContainer)}>
-          <IconButton name="Replay" onClick={handleResetTransform} />
+        <View spacing="0.5rem" className={cx(css.side, css.zoomContainer)}>
+          <IconButton name="Replay" onClick={zoomReset} />
 
-          <IconButton name="ZoomOut" onClick={zoomOut} margins={{ right: "0.5rem" }} />
+          <IconButton name="ZoomOut" onClick={zoomOut} />
 
-          <Slider
-            value={zoomScale}
-            onChange={(_, val: number) => setZoomScale(val)}
-            min={CONSTANTS.ZOOM.MIN_SCALE}
-            max={CONSTANTS.ZOOM.MAX_SCALE}
-            step={CONSTANTS.ZOOM.STEP}
-            valueLabelDisplay="off"
-          />
-
-          <IconButton name="ZoomIn" onClick={zoomIn} margins={{ left: "0.5rem" }} />
+          <IconButton name="ZoomIn" onClick={zoomIn} />
         </View>
       )}
     </View>
@@ -193,8 +173,7 @@ const useClasses = makeClasses((_, { isMouseMoving, isPinned }: ClassesProps) =>
   zoomContainer: {
     display: "flex",
     flexFlow: "row nowrap",
+    justifyContent: "flex-end",
     alignItems: "center",
-    width: "18rem",
-    minWidth: "12rem",
   },
 }));

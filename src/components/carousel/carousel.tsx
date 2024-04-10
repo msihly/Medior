@@ -16,27 +16,28 @@ export const Carousel = observer(() => {
   const { carouselStore, fileStore } = useStores();
   const activeFile = fileStore.getById(carouselStore.activeFileId);
 
+  const videoRef = useRef<ReactPlayer>(null);
+  const zoomRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     if (activeFile?.isVideo) setIsPlaying(true);
+
+    panZoomRef.current =
+      zoomRef.current !== null
+        ? Panzoom(zoomRef.current, {
+            animate: true,
+            contain: "outside",
+            cursor: "grab",
+            disablePan: activeFile?.isVideo,
+            disableZoom: activeFile?.isVideo,
+            maxScale: CONSTANTS.ZOOM.MAX_SCALE,
+            minScale: CONSTANTS.ZOOM.MIN_SCALE,
+            panOnlyWhenZoomed: true,
+            startScale: 1,
+            step: CONSTANTS.ZOOM.STEP,
+          } as PanzoomOptions)
+        : null;
   }, [activeFile?.isVideo, carouselStore.activeFileId]);
-
-  const zoomRef = useRef<HTMLDivElement>(null);
-  const videoRef = useRef<ReactPlayer>(null);
-
-  panZoomRef.current =
-    zoomRef.current !== null
-      ? Panzoom(zoomRef.current, {
-          animate: true,
-          contain: "outside",
-          cursor: "grab",
-          disablePan: activeFile?.isVideo,
-          disableZoom: activeFile?.isVideo,
-          maxScale: CONSTANTS.ZOOM.MAX_SCALE,
-          minScale: CONSTANTS.ZOOM.MIN_SCALE,
-          panOnlyWhenZoomed: true,
-          step: CONSTANTS.ZOOM.STEP,
-        } as PanzoomOptions)
-      : null;
 
   const [curFrame, setCurFrame] = useState(1);
   const [curTime, setCurTime] = useState(0);

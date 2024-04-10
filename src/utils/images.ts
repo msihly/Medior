@@ -1,6 +1,7 @@
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import sharpBase, { Sharp, SharpOptions } from "sharp";
 import { sharpFromBmp } from "sharp-bmp";
+import { CONSTANTS } from "./constants";
 
 export const sharp = (input: string | Buffer, opts?: SharpOptions): Sharp => {
   /** Prevents WEBP lockout during deletion. See: https://github.com/lovell/sharp/issues/415#issuecomment-212817987 */
@@ -13,3 +14,9 @@ export const sharp = (input: string | Buffer, opts?: SharpOptions): Sharp => {
 
   return isBmp ? (sharpFromBmp(input, opts) as Sharp) : sharpBase(input, opts);
 };
+
+export const zoomScaleStepIn = (curZoomScale: number) =>
+  Math.min(curZoomScale + CONSTANTS.ZOOM.STEP * 5, CONSTANTS.ZOOM.MAX_SCALE);
+
+export const zoomScaleStepOut = (curZoomScale: number) =>
+  Math.max(curZoomScale - CONSTANTS.ZOOM.STEP * 5, CONSTANTS.ZOOM.MIN_SCALE);
