@@ -9,12 +9,14 @@ import { colors, CONSTANTS, makeClasses, round } from "utils";
 export const CarouselTopBar = observer(() => {
   const { carouselStore, fileStore, tagStore } = useStores();
 
-  const { css, cx } = useClasses({ isMouseMoving: carouselStore.isMouseMoving });
-
-  const panZoomRef = useContext(ZoomContext);
   const file = fileStore.getById(carouselStore.activeFileId);
 
   const [isAspectRatioLocked, setIsAspectRatioLocked] = useState(true);
+  const [isPinned, setIsPinned] = useState(false);
+
+  const { css, cx } = useClasses({ isMouseMoving: carouselStore.isMouseMoving, isPinned });
+
+  const panZoomRef = useContext(ZoomContext);
 
   const fitToAspectRatio = () => {
     try {
@@ -58,6 +60,8 @@ export const CarouselTopBar = observer(() => {
     else getCurrentWindow().setAspectRatio(0);
   };
 
+  const toggleIsPinned = () => setIsPinned(!isPinned);
+
   /* ------------------------------ BEGIN - ZOOM ------------------------------ */
   const [zoomScale, setZoomScale] = useState(1);
 
@@ -81,11 +85,19 @@ export const CarouselTopBar = observer(() => {
     <View className={css.root}>
       <View className={css.side}>
         <IconButton
-          name={isAspectRatioLocked ? "Lock" : "LockOpen"}
-          onClick={toggleAspectRatioLock}
+          name="PushPin"
+          iconProps={{ rotation: isPinned ? 45 : 0 }}
+          onClick={toggleIsPinned}
+          tooltip={`${isPinned ? "Unpin" : "Pin"} Top Bar`}
         />
 
-        <IconButton name="Label" onClick={handleEditTags} />
+        <IconButton
+          name={isAspectRatioLocked ? "Lock" : "LockOpen"}
+          onClick={toggleAspectRatioLock}
+          tooltip={`${isAspectRatioLocked ? "Unlock" : "Lock"} Aspect Ratio`}
+        />
+
+        <IconButton name="Label" onClick={handleEditTags} tooltip="Edit Tags" />
 
         <View className={css.ratingContainer}>
           <Icon
@@ -133,9 +145,10 @@ export const CarouselTopBar = observer(() => {
 
 interface ClassesProps {
   isMouseMoving: boolean;
+  isPinned: boolean;
 }
 
-const useClasses = makeClasses((_, { isMouseMoving }: ClassesProps) => ({
+const useClasses = makeClasses((_, { isMouseMoving, isPinned }: ClassesProps) => ({
   center: {
     display: "flex",
     flex: 3,
@@ -165,7 +178,7 @@ const useClasses = makeClasses((_, { isMouseMoving }: ClassesProps) => ({
     justifyContent: "space-between",
     padding: "0.2rem 0.5rem",
     backgroundColor: "black",
-    opacity: isMouseMoving ? 0.3 : 0,
+    opacity: isPinned ? 1 : isMouseMoving ? 0.3 : 0,
     zIndex: 10,
     transition: "all 200ms ease-in-out",
     "&:hover": { opacity: 1 },
