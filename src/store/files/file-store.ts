@@ -23,6 +23,7 @@ import {
   handleErrors,
   PromiseQueue,
   sharp,
+  socket,
   splitArray,
   trpc,
 } from "utils";
@@ -113,6 +114,8 @@ export class FileStore extends Model({
   deleteFiles = _async(function* (this: FileStore) {
     return yield* _await(
       handleErrors(async () => {
+        const rootStore = getRootStore<RootStore>(this);
+
         const fileIds = [...this.idsForConfirmDelete];
         if (!fileIds?.length) return false;
 
@@ -153,7 +156,6 @@ export class FileStore extends Model({
             )
           );
 
-          const rootStore = getRootStore<RootStore>(this);
           const tagCountRes = await rootStore.tagStore.refreshTagCounts([
             ...new Set(deleted.flatMap((f) => f.tagIds)),
           ]);
@@ -164,6 +166,7 @@ export class FileStore extends Model({
 
         this.toggleFilesSelected(fileIds.map((id) => ({ id, isSelected: false })));
 
+        socket.emit("reloadFiles");
         return true;
       })
     );
