@@ -20,7 +20,7 @@ export const Carousel = observer(() => {
   const zoomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (activeFile?.isVideo) setIsPlaying(true);
+    if (activeFile?.isVideo) carouselStore.setIsPlaying(true);
 
     panZoomRef.current =
       zoomRef.current !== null
@@ -39,9 +39,7 @@ export const Carousel = observer(() => {
         : null;
   }, [activeFile?.isVideo, carouselStore.activeFileId]);
 
-  const [curFrame, setCurFrame] = useState(1);
   const [curTime, setCurTime] = useState(0);
-  const [isPlaying, setIsPlaying] = useState(true);
   const [isVolumeVisible, setIsVolumeVisible] = useState(false);
   const [lastVolume, setLastVolume] = useState(0.5);
   const [volume, setVolume] = useState(0);
@@ -49,13 +47,17 @@ export const Carousel = observer(() => {
   const { css } = useClasses({ isMouseMoving: carouselStore.isMouseMoving, isVolumeVisible });
 
   const handleFrameSeek = (frame: number) => {
-    setCurFrame(frame);
+    carouselStore.setIsPlaying(false);
+
+    carouselStore.setCurFrame(frame);
     setCurTime(frame / activeFile?.frameRate);
     videoRef.current.seekTo(frame / activeFile?.frameRate);
+
+    carouselStore.setIsPlaying(true);
   };
 
   const handleVideoProgress = ({ playedSeconds }: OnProgressProps) => {
-    setCurFrame(playedSeconds * activeFile?.frameRate);
+    carouselStore.setCurFrame(playedSeconds * activeFile?.frameRate);
     setCurTime(playedSeconds);
   };
 
@@ -72,7 +74,7 @@ export const Carousel = observer(() => {
     }
   };
 
-  const togglePlaying = () => setIsPlaying(!isPlaying);
+  const togglePlaying = () => carouselStore.setIsPlaying(!carouselStore.isPlaying);
 
   return (
     <>
@@ -90,7 +92,7 @@ export const Carousel = observer(() => {
                 <ReactPlayer
                   ref={videoRef}
                   url={activeFile.path}
-                  playing={isPlaying}
+                  playing={carouselStore.isPlaying}
                   onProgress={handleVideoProgress}
                   progressInterval={100}
                   width="100%"
@@ -115,11 +117,11 @@ export const Carousel = observer(() => {
 
       {activeFile?.isVideo && (
         <View className={css.videoControlBar}>
-          <IconButton name={isPlaying ? "Pause" : "PlayArrow"} onClick={togglePlaying} />
+          <IconButton name={carouselStore.isPlaying ? "Pause" : "PlayArrow"} onClick={togglePlaying} />
 
           <View className={css.videoProgressBar}>
             <Slider
-              value={curFrame}
+              value={carouselStore.curFrame}
               onChange={(_, frame: number) => handleFrameSeek(frame)}
               min={1}
               max={activeFile?.totalFrames}

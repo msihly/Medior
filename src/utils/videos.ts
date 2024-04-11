@@ -1,6 +1,37 @@
+import fs from "fs/promises";
 import path from "path";
 import ffmpeg from "fluent-ffmpeg";
-import { CONSTANTS, fractionStringToNumber, range } from ".";
+import { CONSTANTS, checkFileExists, fractionStringToNumber, getConfig, range, round } from ".";
+
+export const extractVideoFrame = async (inputPath: string, frameIndex: number): Promise<string> => {
+  try {
+    const frame = round(frameIndex, 0);
+    const outputPath = path.join(getConfig().mongo.outputDir, "_tmp", "extracted-frame.jpg");
+
+    await fs.mkdir(path.dirname(outputPath), { recursive: true });
+
+    await new Promise((resolve, reject) => {
+      ffmpeg()
+        .input(inputPath)
+        .outputOptions([`-vf select='eq(n\\,${frame})'`, `-vframes 1`])
+        .output(outputPath)
+        .on("end", resolve)
+        .on("error", (err) => {
+          console.error(`Error extracting frame: ${err}`);
+          reject(err);
+        })
+        .run();
+    });
+
+    const fileExists = await checkFileExists(outputPath);
+    if (!fileExists) throw new Error("Extracted frame not found.");
+
+    return outputPath;
+  } catch (err) {
+    console.error("Error in extractVideoFrame:", err);
+    return null;
+  }
+};
 
 interface VideoInfo {
   duration: number;

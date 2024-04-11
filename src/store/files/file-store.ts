@@ -43,6 +43,11 @@ export class FileStore extends Model({
 
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
   @modelAction
+  addFileAfterIndex(file: ModelCreationData<File>, index: number) {
+    this.files.splice(index + 1, 0, new File(file));
+  }
+
+  @modelAction
   confirmDeleteFiles(ids: string[]) {
     this.idsForConfirmDelete = [...ids];
     if (this.listByIds(ids).some((f) => f.isArchived)) this.isConfirmDeleteOpen = true;
@@ -238,13 +243,11 @@ export class FileStore extends Model({
               )
           : [path.join(dirPath, `${hash}-thumb.jpg`)];
 
-        await(
-          file.isAnimated
-            ? generateFramesThumbnail(file.path, dirPath, hash, videoInfo?.duration)
-            : sharp(file.path, { failOn: "none" })
-                .resize(null, CONSTANTS.THUMB.WIDTH)
-                .toFile(thumbPaths[0])
-        );
+        await (file.isAnimated
+          ? generateFramesThumbnail(file.path, dirPath, hash, videoInfo?.duration)
+          : sharp(file.path, { failOn: "none" })
+              .resize(null, CONSTANTS.THUMB.WIDTH)
+              .toFile(thumbPaths[0]));
 
         updates["thumbPaths"] = thumbPaths;
 

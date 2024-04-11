@@ -2,7 +2,15 @@ import { getCurrentWindow, screen } from "@electron/remote";
 import { useContext, useEffect, useRef, useState } from "react";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
-import { ZoomContext, Icon, IconButton, SideScroller, Tag, Text, View } from "components";
+import {
+  ZoomContext,
+  Icon,
+  IconButton,
+  SideScroller,
+  Tag,
+  Text,
+  View,
+} from "components";
 import { colors, makeClasses, round, zoomScaleStepIn, zoomScaleStepOut } from "utils";
 
 export const CarouselTopBar = observer(() => {
@@ -13,7 +21,7 @@ export const CarouselTopBar = observer(() => {
   const [isAspectRatioLocked, setIsAspectRatioLocked] = useState(true);
   const [isPinned, setIsPinned] = useState(false);
 
-  const { css, cx } = useClasses({ isMouseMoving: carouselStore.isMouseMoving, isPinned });
+  const { css } = useClasses({ isMouseMoving: carouselStore.isMouseMoving, isPinned });
 
   const panZoomRef = useContext(ZoomContext);
 
@@ -52,6 +60,8 @@ export const CarouselTopBar = observer(() => {
 
   const handleEditTags = () => tagStore.setIsTaggerOpen(true);
 
+  const handleExtractFrame = () => carouselStore.extractFrame();
+
   const toggleAspectRatioLock = () => {
     const isLocked = !isAspectRatioLocked;
     setIsAspectRatioLocked(isLocked);
@@ -72,7 +82,7 @@ export const CarouselTopBar = observer(() => {
 
   return (
     <View className={css.root}>
-      <View className={css.side}>
+      <View row flex={1}>
         <IconButton
           name="PushPin"
           iconProps={{ rotation: isPinned ? 45 : 0 }}
@@ -108,17 +118,19 @@ export const CarouselTopBar = observer(() => {
         </SideScroller>
       </View>
 
-      {file?.isVideo ? (
-        <View className={css.side} />
-      ) : (
-        <View spacing="0.5rem" className={cx(css.side, css.zoomContainer)}>
-          <IconButton name="Replay" onClick={zoomReset} />
+      <View row flex={1} justify="flex-end">
+        {file?.isVideo ? (
+          <IconButton name="Camera" onClick={handleExtractFrame} tooltip="Extract Frame" />
+        ) : (
+          <>
+            <IconButton name="Replay" onClick={zoomReset} tooltip="Reset Zoom" />
 
-          <IconButton name="ZoomOut" onClick={zoomOut} />
+            <IconButton name="ZoomOut" onClick={zoomOut} tooltip="Zoom Out" />
 
-          <IconButton name="ZoomIn" onClick={zoomIn} />
-        </View>
-      )}
+            <IconButton name="ZoomIn" onClick={zoomIn} tooltip="Zoom In" />
+          </>
+        )}
+      </View>
     </View>
   );
 });
@@ -163,17 +175,7 @@ const useClasses = makeClasses((_, { isMouseMoving, isPinned }: ClassesProps) =>
     transition: "all 200ms ease-in-out",
     "&:hover": { opacity: 1 },
   },
-  side: {
-    display: "flex",
-    flex: 1,
-  },
   tags: {
     justifyContent: "center",
-  },
-  zoomContainer: {
-    display: "flex",
-    flexFlow: "row nowrap",
-    justifyContent: "flex-end",
-    alignItems: "center",
   },
 }));
