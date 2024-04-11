@@ -18,14 +18,13 @@ export const CarouselWindow = observer(() => {
   const { handleKeyPress, navCarouselByArrowKey } = useHotkeys({ rootRef, view: "carousel" });
 
   const handleScroll = (event: WheelEvent) => {
-    const isLeft = event.deltaY > 0;
     if (event.ctrlKey) {
       if (!panZoomRef.current) return console.error("Panzoom ref not set");
 
       const curScale = panZoomRef.current.getScale();
-      const newScale = isLeft ? zoomScaleStepOut(curScale) : zoomScaleStepIn(curScale);
+      const newScale = event.deltaY > 0 ? zoomScaleStepOut(curScale) : zoomScaleStepIn(curScale);
       panZoomRef.current.zoomToPoint(newScale, { clientX: event.clientX, clientY: event.clientY });
-    } else debounce(navCarouselByArrowKey, 100)(isLeft);
+    } else debounce(navCarouselByArrowKey, 100)(event.deltaY < 0);
   };
 
   useSockets({ view: "carousel" });
