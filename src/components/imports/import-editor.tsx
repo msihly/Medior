@@ -533,7 +533,7 @@ export const ImportEditor = observer(() => {
   }, [
     folderToCollectionMode,
     folderToTagsMode,
-    importStore.editorImports,
+    importStore.editorFilePaths,
     importStore.editorRootFolderIndex,
     isSaving,
     withDelimiters,
