@@ -10,7 +10,16 @@ import {
   prop,
 } from "mobx-keystone";
 import { RootStore, TagOption } from "store";
-import { dayjs, getConfig, handleErrors, ImageType, makePerfLog, trpc, VideoType } from "utils";
+import {
+  dayjs,
+  getConfig,
+  handleErrors,
+  ImageType,
+  LogicalOp,
+  makePerfLog,
+  trpc,
+  VideoType,
+} from "utils";
 
 const NUMERICAL_ATTRIBUTES = ["count", "duration", "height", "rating", "size", "width"];
 
@@ -45,8 +54,7 @@ export const sortFiles = <File>({
 @model("medior/HomeStore")
 export class HomeStore extends Model({
   fileCardFit: prop<"contain" | "cover">(() => getConfig().file.fileCardFit).withSetter(),
-  includeTagged: prop<boolean>(false).withSetter(),
-  includeUntagged: prop<boolean>(false).withSetter(),
+  hasDiffParams: prop<boolean>(false).withSetter(),
   isArchiveOpen: prop<boolean>(false).withSetter(),
   isDraggingIn: prop<boolean>(false).withSetter(),
   isDraggingOut: prop<boolean>(false).withSetter(),
@@ -54,6 +62,8 @@ export class HomeStore extends Model({
   isLoading: prop<boolean>(false).withSetter(),
   isSettingsOpen: prop<boolean>(false).withSetter(),
   isSettingsLoading: prop<boolean>(false).withSetter(),
+  numOfTagsOp: prop<LogicalOp | "">("").withSetter(),
+  numOfTagsValue: prop<number>(0).withSetter(),
   searchValue: prop<TagOption[]>(() => []).withSetter(),
   selectedImageTypes: prop<SelectedImageTypes>(
     () =>
@@ -176,10 +186,11 @@ export class HomeStore extends Model({
   /* --------------------------------- DYNAMIC GETTERS -------------------------------- */
   getFilterProps() {
     return {
-      includeTagged: this.includeTagged,
-      includeUntagged: this.includeUntagged,
+      hasDiffParams: this.hasDiffParams,
       isArchived: this.isArchiveOpen,
       isSortDesc: this.sortValue.isDesc,
+      numOfTagsOp: this.numOfTagsOp,
+      numOfTagsValue: this.numOfTagsValue,
       searchValue: this.searchValue,
       selectedImageTypes: this.selectedImageTypes,
       selectedVideoTypes: this.selectedVideoTypes,

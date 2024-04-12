@@ -4,7 +4,7 @@ import fs from "fs/promises";
 import { AnyBulkWriteOperation } from "mongodb";
 import { PipelineStage } from "mongoose";
 import * as db from "database";
-import { dayjs, handleErrors, makePerfLog, sharp, socket } from "utils";
+import { dayjs, handleErrors, logicOpsToMongo, makePerfLog, sharp, socket } from "utils";
 import { leanModelToJson, objectId, objectIds } from "./utils";
 
 const FACE_MIN_CONFIDENCE = 0.4;
@@ -17,10 +17,11 @@ const createFileFilterPipeline = ({
   excludedDescTagIds,
   excludedFileIds,
   excludedTagIds,
-  includeTagged,
-  includeUntagged,
+  hasDiffParams,
   isArchived,
   isSortDesc,
+  numOfTagsOp,
+  numOfTagsValue,
   optionalTagIds,
   requiredDescTagIds,
   requiredTagIds,
@@ -40,6 +41,7 @@ const createFileFilterPipeline = ({
 
   const hasExcludedTags = excludedTagIds?.length > 0;
   const hasExcludedDescTags = excludedDescTagIds?.length > 0;
+  const hasNumfOfTags = numOfTagsOp !== "" && numOfTagsValue !== undefined;
   const hasOptionalTags = optionalTagIds?.length > 0;
   const hasRequiredDescTags = requiredDescTagIds?.length > 0;
   const hasRequiredTags = requiredTagIds.length > 0;
@@ -49,14 +51,29 @@ const createFileFilterPipeline = ({
       isArchived,
       ext: { $in: enabledExts },
       ...(excludedFileIds?.length > 0 ? { _id: { $nin: objectIds(excludedFileIds) } } : {}),
-      ...(hasExcludedTags || hasOptionalTags || hasRequiredTags || includeTagged || includeUntagged
+      ...(hasDiffParams || hasNumfOfTags
+        ? {
+            $expr: {
+              ...(hasDiffParams
+                ? {
+                    $and: [
+                      { $eq: [{ $type: "$diffusionParams" }, "string"] },
+                      { $ne: ["$diffusionParams", ""] },
+                    ],
+                  }
+                : {}),
+              ...(hasNumfOfTags
+                ? { [logicOpsToMongo(numOfTagsOp)]: [{ $size: "$tagIds" }, numOfTagsValue] }
+                : {}),
+            },
+          }
+        : {}),
+      ...(hasExcludedTags || hasOptionalTags || hasRequiredTags
         ? {
             tagIds: {
               ...(hasExcludedTags ? { $nin: objectIds(excludedTagIds) } : {}),
               ...(hasOptionalTags ? { $in: objectIds(optionalTagIds) } : {}),
               ...(hasRequiredTags ? { $all: objectIds(requiredTagIds) } : {}),
-              ...(includeTagged ? { $ne: [] } : {}),
-              ...(includeUntagged ? { $eq: [] } : {}),
             },
           }
         : {}),

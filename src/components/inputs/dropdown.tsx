@@ -8,7 +8,7 @@ export type DropdownOption = {
 
 export interface DropdownProps extends InputProps {
   fullWidth?: boolean;
-  label: string;
+  label?: string;
   options: DropdownOption[];
 }
 

@@ -15,7 +15,7 @@ import { File, RootStore, SelectedImageTypes, SelectedVideoTypes, TagOption } fr
 import * as db from "database";
 import { SortMenuProps } from "components";
 import { FileCollection, FileCollectionFile } from ".";
-import { getConfig, handleErrors, makePerfLog, trpc } from "utils";
+import { getConfig, handleErrors, LogicalOp, makePerfLog, trpc } from "utils";
 import { toast } from "react-toastify";
 import { arrayMove } from "@alissavrk/dnd-kit-sortable";
 
@@ -25,6 +25,9 @@ export class FileCollectionStore extends Model({
   activeFiles: prop<FileCollectionFile[]>(() => []).withSetter(),
   collectionFitMode: prop<"cover" | "contain">("contain").withSetter(),
   collections: prop<FileCollection[]>(() => []).withSetter(),
+  editorSearchHasDiffParams: prop<boolean>(false).withSetter(),
+  editorSearchNumOfTagsOp: prop<LogicalOp | "">("").withSetter(),
+  editorSearchNumOfTagsValue: prop<number>(0).withSetter(),
   editorSearchPage: prop<number>(1).withSetter(),
   editorSearchPageCount: prop<number>(1).withSetter(),
   editorSearchResults: prop<File[]>(() => []).withSetter(),
@@ -231,10 +234,11 @@ export class FileCollectionStore extends Model({
         const filteredRes = await trpc.listFilteredFiles.mutate({
           ...tagStore.tagSearchOptsToIds(this.editorSearchValue),
           excludedFileIds: this.activeFiles.map((f) => f.id),
-          includeTagged: false,
-          includeUntagged: false,
+          hasDiffParams: this.editorSearchHasDiffParams,
           isArchived: false,
           isSortDesc: this.editorSearchSort.isDesc,
+          numOfTagsOp: this.editorSearchNumOfTagsOp,
+          numOfTagsValue: this.editorSearchNumOfTagsValue,
           page: page ?? this.editorSearchPage,
           pageSize: getConfig().collection.searchFileCount,
           selectedImageTypes: Object.fromEntries(

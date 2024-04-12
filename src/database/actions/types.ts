@@ -2,6 +2,7 @@ import { File, FileCollection, RegExMap } from "database";
 import { FileImport, SelectedImageTypes, SelectedVideoTypes } from "store";
 import { ModelCreationData } from "mobx-keystone";
 import { ImportStatus } from "components";
+import { LogicalOp } from "utils";
 
 /* --------------------------- DATABASE / SERVERS --------------------------- */
 export type StartServersInput = {
@@ -84,10 +85,11 @@ export type CreateFileFilterPipelineInput = {
   excludedDescTagIds: string[];
   excludedFileIds?: string[];
   excludedTagIds: string[];
-  includeTagged: boolean;
-  includeUntagged: boolean;
+  hasDiffParams: boolean;
   isArchived: boolean;
   isSortDesc: boolean;
+  numOfTagsOp: LogicalOp | "";
+  numOfTagsValue?: number;
   optionalTagIds: string[];
   requiredDescTagIds: string[];
   requiredTagIds: string[];

@@ -2,9 +2,33 @@ import { useMemo } from "react";
 import { observer } from "mobx-react-lite";
 import { TagOption, useStores } from "store";
 import { Divider, Drawer as MuiDrawer, List } from "@mui/material";
-import { Accordion, Button, Checkbox, ListItem, TagInput, Text, View } from "components";
+import {
+  Accordion,
+  Button,
+  Checkbox,
+  Dropdown,
+  ListItem,
+  NumInput,
+  TagInput,
+  Text,
+  View,
+} from "components";
 import { ExtCheckbox } from ".";
-import { colors, CONSTANTS, getConfig, makeClasses, openSearchWindow, useDeepMemo } from "utils";
+import {
+  colors,
+  CONSTANTS,
+  getConfig,
+  LOGICAL_OPS,
+  LogicalOp,
+  makeClasses,
+  openSearchWindow,
+  useDeepMemo,
+} from "utils";
+
+const NUM_OF_TAGS_OPS = [
+  { label: "Any", value: "" },
+  ...LOGICAL_OPS.map((op) => ({ label: op, value: op })),
+];
 
 export interface DrawerProps {
   hasImports?: boolean;
@@ -47,23 +71,21 @@ export const Drawer = observer(({ hasImports = false, hasSettings = false }: Dra
 
   const handleManageTags = () => tagStore.setIsTagManagerOpen(true);
 
+  const handleNumOfTagsOpChange = (val: LogicalOp | "") => homeStore.setNumOfTagsOp(val);
+
+  const handleNumOfTagsValueChange = (val: number) => homeStore.setNumOfTagsValue(val);
+
   const handleSearch = () => homeStore.loadFilteredFiles({ page: 1 });
 
   const handleSearchWindow = () => openSearchWindow();
 
   const handleSettings = () => homeStore.setIsSettingsOpen(true);
 
-  const handleTagged = () => {
-    if (!homeStore.includeTagged && !homeStore.includeUntagged) homeStore.setIncludeTagged(true);
-    else if (homeStore.includeTagged) {
-      homeStore.setIncludeTagged(false);
-      homeStore.setIncludeUntagged(true);
-    } else homeStore.setIncludeUntagged(false);
-  };
-
   const setSearchValue = (val: TagOption[]) => homeStore.setSearchValue(val);
 
   const toggleArchiveOpen = () => homeStore.setIsArchiveOpen(!homeStore.isArchiveOpen);
+
+  const toggleHasDiffParams = () => homeStore.setHasDiffParams(!homeStore.hasDiffParams);
 
   const toggleImageTypes = () =>
     homeStore.setSelectedImageTypes(
@@ -120,6 +142,33 @@ export const Drawer = observer(({ hasImports = false, hasSettings = false }: Dra
       />
 
       <View className={css.checkboxes} column>
+        <View column>
+          <Text preset="label-glow">{"# of Tags"}</Text>
+
+          <View
+            row
+            justify="space-between"
+            spacing="0.3rem"
+            margins={{ left: "0.5rem", right: "0.5rem" }}
+          >
+            <Dropdown
+              value={homeStore.numOfTagsOp}
+              setValue={handleNumOfTagsOpChange}
+              options={NUM_OF_TAGS_OPS}
+              width="5rem"
+            />
+
+            <NumInput
+              value={homeStore.numOfTagsValue}
+              setValue={handleNumOfTagsValueChange}
+              maxValue={50}
+              disabled={homeStore.numOfTagsOp === ""}
+              width="5rem"
+              textAlign="center"
+            />
+          </View>
+        </View>
+
         <Checkbox
           label="Archived"
           checked={homeStore.isArchiveOpen}
@@ -127,10 +176,9 @@ export const Drawer = observer(({ hasImports = false, hasSettings = false }: Dra
         />
 
         <Checkbox
-          label="Tagged"
-          checked={homeStore.includeTagged}
-          indeterminate={homeStore.includeUntagged}
-          setChecked={handleTagged}
+          label="Diffusion"
+          checked={homeStore.hasDiffParams}
+          setChecked={toggleHasDiffParams}
         />
       </View>
 
