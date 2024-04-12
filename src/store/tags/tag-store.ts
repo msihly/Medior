@@ -129,8 +129,8 @@ export class TagStore extends Model({
           regExMap: regEx,
         };
 
-        this._addTag(tag);
-        toast.success(`Tag '${label}' created${withRegEx ? " with RegEx map" : ""}`);
+        if (withSub) this._addTag(tag);
+        toast.success(`Tag '${label}' created`);
 
         return tag;
       })
@@ -294,6 +294,7 @@ export class TagStore extends Model({
         const tagQueue = new PromiseQueue();
         const errors: string[] = [];
         const tagIds: string[] = [];
+        const tagsToInsert: ModelCreationData<Tag>[] = [];
 
         tagsToUpsert.forEach((t) =>
           tagQueue.add(async () => {
@@ -313,6 +314,7 @@ export class TagStore extends Model({
                   withSub: false,
                 });
                 if (!res.success) throw new Error(res.error);
+
                 tagIds.push(t.id);
               } else {
                 const res = await this.createTag({
@@ -323,7 +325,9 @@ export class TagStore extends Model({
                   withSub: false,
                 });
                 if (!res.success) throw new Error(res.error);
+
                 tagIds.push(res.data.id);
+                tagsToInsert.push(res.data);
               }
             } catch (err) {
               errors.push(`Tag: ${JSON.stringify(t, null, 2)}\nError: ${err.message}`);
@@ -333,6 +337,9 @@ export class TagStore extends Model({
 
         await tagQueue.queue;
         if (errors.length) throw new Error(errors.join("\n"));
+
+        if (tagsToInsert.length) tagsToInsert.forEach((t) => this._addTag(t));
+
         return tagIds;
       })
     );
