@@ -356,4 +356,13 @@ export class FileCollectionStore extends Model({
   get sortedActiveFiles() {
     return [...this.activeFiles].sort((a, b) => a.index - b.index);
   }
+
+  @computed
+  get sortedActiveTags() {
+    const rootStore = getRootStore<RootStore>(this);
+    return this.activeTagIds
+      .map((id) => rootStore.tagStore.getById(id))
+      .filter((t) => t)
+      .sort((a, b) => b.count - a.count);
+  }
 }
