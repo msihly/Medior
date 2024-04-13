@@ -210,6 +210,8 @@ export type RefreshTagRelationsInput = {
   withSub?: boolean;
 };
 
+export type RegenCollAttrsInput = { collIds?: string[]; fileIds?: string[] };
+
 export type RemoveChildTagIdsFromTagsInput = { childTagIds: string[]; tagIds: string[] };
 
 export type RemoveParentTagIdsFromTagsInput = { parentTagIds: string[]; tagIds: string[] };

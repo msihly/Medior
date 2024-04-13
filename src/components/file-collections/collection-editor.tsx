@@ -20,6 +20,9 @@ import {
   FileCollectionFile,
   FileSearchFile,
   Input,
+  ListItem,
+  LoadingOverlay,
+  MenuButton,
   Modal,
   SortMenu,
   SortMenuProps,
@@ -44,7 +47,6 @@ export const FileCollectionEditor = observer(() => {
   const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
   const [isConfirmDiscardOpen, setIsConfirmDiscardOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
   const [title, setTitle] = useState<string>(fileCollectionStore.activeCollection?.title);
 
   const tags = useDeepMemo(fileCollectionStore.activeTagIds.map((id) => tagStore.getById(id)));
@@ -131,11 +133,19 @@ export const FileCollectionEditor = observer(() => {
 
   const handlePageChange = (_, page: number) => fileCollectionStore.loadSearchResults({ page });
 
+  const handleRefreshMeta = async () => {
+    setIsLoading(true);
+    const res = await fileCollectionStore.regenCollMeta([fileCollectionStore.activeCollectionId]);
+    setIsLoading(false);
+
+    res.success ? toast.success("Metadata refreshed!") : toast.error(res.error);
+  };
+
   const handleSave = async () => {
     try {
       if (!title) return toast.error("Title is required!");
 
-      setIsSaving(true);
+      setIsLoading(true);
 
       const res = await fileCollectionStore.updateCollection({
         fileIdIndexes: fileCollectionStore.sortedActiveFiles
@@ -152,7 +162,7 @@ export const FileCollectionEditor = observer(() => {
     } catch (err) {
       console.error(err);
     } finally {
-      setIsSaving(false);
+      setIsLoading(false);
     }
   };
 
@@ -168,24 +178,23 @@ export const FileCollectionEditor = observer(() => {
 
   return (
     <Modal.Container onClose={confirmClose} maxWidth="100%" width="90%" height="90%">
+      <LoadingOverlay isLoading={isLoading} />
+
       <Modal.Header
         leftNode={
           <Button
             text={isAddingFiles ? "Hide Search" : "Add Files"}
             icon={isAddingFiles ? "VisibilityOff" : "Add"}
             onClick={toggleAddingFiles}
-            disabled={isSaving}
+            disabled={isLoading}
             color={colors.blueGrey["700"]}
           />
         }
         rightNode={
-          <Button
-            text="Delete"
-            icon="Delete"
-            onClick={handleDelete}
-            disabled={isSaving}
-            color={colors.red["800"]}
-          />
+          <MenuButton color={colors.button.grey}>
+            <ListItem text="Delete" icon="Delete" onClick={handleDelete} />
+            <ListItem text="Refresh Metadata" icon="Refresh" onClick={handleRefreshMeta} />
+          </MenuButton>
         }
       >
         <Text align="center">
@@ -272,7 +281,7 @@ export const FileCollectionEditor = observer(() => {
                 </DndContext>
               </View>
             ) : (
-              <CenteredText text={isLoading ? "Loading files..." : "No files found"} />
+              <CenteredText text="No files found" />
             )}
           </View>
         </View>
@@ -283,7 +292,7 @@ export const FileCollectionEditor = observer(() => {
           text={fileCollectionStore.hasUnsavedChanges ? "Cancel" : "Close"}
           icon="Close"
           onClick={confirmClose}
-          disabled={isSaving}
+          disabled={isLoading}
           color={fileCollectionStore.hasUnsavedChanges ? colors.red["800"] : colors.blueGrey["700"]}
         />
 
@@ -291,7 +300,7 @@ export const FileCollectionEditor = observer(() => {
           text="Save"
           icon="Save"
           onClick={handleSave}
-          disabled={!fileCollectionStore.hasUnsavedChanges || isSaving}
+          disabled={!fileCollectionStore.hasUnsavedChanges || isLoading}
         />
       </Modal.Footer>
 

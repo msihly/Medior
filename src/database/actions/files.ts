@@ -284,7 +284,7 @@ export const editFileTags = ({
         tagIds: [...new Set([...addedTagIds, ...removedTagIds])],
         withSub,
       }),
-      db.regenCollAttrsByFileIds(fileIds),
+      db.regenCollAttrs({ fileIds }),
     ]);
 
     if (withSub) socket.emit("fileTagsUpdated", { addedTagIds, batchId, fileIds, removedTagIds });

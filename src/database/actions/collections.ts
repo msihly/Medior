@@ -66,11 +66,15 @@ const makeCollAttrs = async (files: db.File[]) => {
   };
 };
 
-export const regenCollAttrsByFileIds = async (fileIds: string[]) =>
+export const regenCollAttrs = async ({ collIds, fileIds }: db.RegenCollAttrsInput = {}) =>
   handleErrors(async () => {
     const collections = (
       await db.FileCollectionModel.find({
-        fileIdIndexes: { $elemMatch: { fileId: { $in: fileIds } } },
+        ...(collIds.length
+          ? { _id: { $in: objectIds(collIds) } }
+          : fileIds.length
+          ? { fileIdIndexes: { $elemMatch: { fileId: { $in: fileIds } } } }
+          : {}),
       })
         .select({ _id: 1, fileIdIndexes: 1 })
         .lean()
@@ -167,6 +171,13 @@ export const deleteCollection = ({ id }: db.DeleteCollectionInput) =>
     const res = await db.FileCollectionModel.deleteOne({ _id: id });
     if (res.deletedCount) socket.emit("collectionDeleted", { collectionId: id });
     return res;
+  });
+
+export const listAllCollectionIds = () =>
+  handleErrors(async () => {
+    return (await db.FileCollectionModel.find().select({ _id: 1 }).lean()).map((c) =>
+      c._id.toString()
+    );
   });
 
 export const listFilteredCollections = ({

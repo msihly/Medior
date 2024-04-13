@@ -144,6 +144,7 @@ const trpcRouter = tRouter({
   importFile: tProc
     .input((input: unknown) => input as db.ImportFileInput)
     .mutation(({ input }) => db.importFile(input)),
+  listAllCollectionIds: tProc.mutation(db.listAllCollectionIds),
   listDeletedFiles: tProc.mutation(db.listDeletedFiles),
   listFilteredCollections: tProc
     .input((input: unknown) => input as db.ListFilteredCollectionsInput)
@@ -175,6 +176,9 @@ const trpcRouter = tRouter({
   refreshTagRelations: tProc
     .input((input: unknown) => input as db.RefreshTagRelationsInput)
     .mutation(({ input }) => db.refreshTagRelations(input)),
+  regenCollAttrs: tProc
+    .input((input: unknown) => input as db.RegenCollAttrsInput)
+    .mutation(({ input }) => db.regenCollAttrs(input)),
   reloadServers: tProc
     .input((input: unknown) => input as db.StartServersInput)
     .mutation(({ input }) => startServers(input)),

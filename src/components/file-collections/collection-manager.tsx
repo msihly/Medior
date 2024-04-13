@@ -7,7 +7,9 @@ import {
   CenteredText,
   FileCard,
   Input,
+  ListItem,
   LoadingOverlay,
+  MenuButton,
   Modal,
   SortMenu,
   TagInput,
@@ -56,6 +58,8 @@ export const FileCollectionManager = observer(() => {
 
   const closeModal = () => fileCollectionStore.setIsManagerOpen(false);
 
+  const handleRefreshMeta = () => fileCollectionStore.regenAllCollMeta();
+
   const handleNewCollection = async () => {
     const res = await fileCollectionStore.createCollection({
       fileIdIndexes: fileCollectionStore.selectedFileIds.map((id, index) => ({
@@ -88,7 +92,13 @@ export const FileCollectionManager = observer(() => {
     <Modal.Container height="100%" width="100%" onClose={closeModal}>
       <LoadingOverlay isLoading={fileCollectionStore.isManagerLoading} />
 
-      <Modal.Header>
+      <Modal.Header
+        rightNode={
+          <MenuButton color={colors.button.grey}>
+            <ListItem text="Refresh Metadata" icon="Refresh" onClick={handleRefreshMeta} />
+          </MenuButton>
+        }
+      >
         <Text>{"Manage Collections"}</Text>
       </Modal.Header>
 

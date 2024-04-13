@@ -15,7 +15,15 @@ import { File, RootStore, SelectedImageTypes, SelectedVideoTypes, TagOption } fr
 import * as db from "database";
 import { SortMenuProps } from "components";
 import { FileCollection, FileCollectionFile } from ".";
-import { getConfig, handleErrors, LogicalOp, makePerfLog, trpc } from "utils";
+import {
+  getConfig,
+  handleErrors,
+  LogicalOp,
+  makePerfLog,
+  makeQueue,
+  PromiseQueue,
+  trpc,
+} from "utils";
 import { toast } from "react-toastify";
 import { arrayMove } from "@alissavrk/dnd-kit-sortable";
 
@@ -50,6 +58,8 @@ export class FileCollectionStore extends Model({
   selectedFileIds: prop<string[]>(() => []).withSetter(),
   selectedFiles: prop<File[]>(() => []).withSetter(),
 }) {
+  metaRefreshQueue = new PromiseQueue();
+
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
   @modelAction
   _addCollection(collection: ModelCreationData<FileCollection>) {
@@ -269,6 +279,35 @@ export class FileCollectionStore extends Model({
         const res = await trpc.listFiles.mutate({ ids: this.selectedFileIds });
         if (!res.success) throw new Error(res.error);
         this.setSelectedFiles(res.data.map((f) => new File(f)));
+      })
+    );
+  });
+
+  @modelFlow
+  regenAllCollMeta = _async(function* (this: FileCollectionStore) {
+    return yield* _await(
+      handleErrors(async () => {
+        const collectionIdsRes = await trpc.listAllCollectionIds.mutate();
+        if (!collectionIdsRes.success) throw new Error(collectionIdsRes.error);
+
+        makeQueue({
+          action: (id) => this.regenCollMeta([id]),
+          items: collectionIdsRes.data,
+          logSuffix: "collections",
+          onComplete: this.listFilteredCollections,
+          queue: this.metaRefreshQueue,
+        });
+      })
+    );
+  });
+
+  @modelFlow
+  regenCollMeta = _async(function* (this: FileCollectionStore, collIds: string[]) {
+    return yield* _await(
+      handleErrors(async () => {
+        const res = await trpc.regenCollAttrs.mutate({ collIds });
+        if (!res.success) throw new Error(res.error);
+        return res.data;
       })
     );
   });
