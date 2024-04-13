@@ -117,10 +117,10 @@ export class FileStore extends Model({
         const rootStore = getRootStore<RootStore>(this);
 
         const fileIds = [...this.idsForConfirmDelete];
-        if (!fileIds?.length) return false;
+        if (!fileIds?.length) throw new Error("No files to delete");
 
         const res = await trpc.listFiles.mutate({ ids: fileIds });
-        if (!res.success) return false;
+        if (!res.success) throw new Error(res.error);
         const files = res.data;
 
         const [deleted, archived] = splitArray(files, (f) => f.isArchived);
@@ -135,10 +135,7 @@ export class FileStore extends Model({
             isArchived: true,
           });
           if (res.success) toast.success(`${archivedIds.length} files archived`);
-          else {
-            console.error("Error archiving files:", res.error);
-            toast.error("Error archiving files");
-          }
+          else throw new Error(`Error archiving files: ${res.error}`);
         }
 
         if (deletedIds?.length > 0) {
@@ -165,9 +162,6 @@ export class FileStore extends Model({
         }
 
         this.toggleFilesSelected(fileIds.map((id) => ({ id, isSelected: false })));
-
-        socket.emit("reloadFiles");
-        return true;
       })
     );
   });

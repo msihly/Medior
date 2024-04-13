@@ -47,7 +47,8 @@ export const useSockets = ({ view }: UseSocketsProps) => {
       const updatedKeys = Object.keys(updates);
       if (
         view !== "carousel" &&
-        (updatedKeys.includes("tagIds") || updatedKeys.includes(homeStore.sortValue.key))
+        (updatedKeys.some((k) => ["isArchived", "tagIds"].includes(k)) ||
+          updatedKeys.includes(homeStore.sortValue.key))
       ) {
         homeStore.loadFilteredFiles();
       }
