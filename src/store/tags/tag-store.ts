@@ -14,7 +14,7 @@ import * as db from "database";
 import { RootStore } from "store";
 import { SortMenuProps, TagToUpsert } from "components";
 import { Tag, TagOption } from ".";
-import { getConfig, handleErrors, PromiseQueue, regexEscape, trpc } from "utils";
+import { getConfig, handleErrors, makeQueue, PromiseQueue, regexEscape, trpc } from "utils";
 import { toast } from "react-toastify";
 
 export type TagManagerMode = "create" | "edit" | "search";
@@ -202,29 +202,13 @@ export class TagStore extends Model({
   refreshAllTagCounts = _async(function* (this: TagStore) {
     return yield* _await(
       handleErrors(async () => {
-        let completedCount = 0;
-        const totalCount = this.tags.length;
-
-        const toastId = toast.info(() => `Refreshed ${completedCount} tag counts...`, {
-          autoClose: false,
+        makeQueue({
+          action: (item) => this.refreshTagCounts([item.id], false),
+          items: this.tags,
+          logSuffix: "tag counts",
+          onComplete: this.loadTags,
+          queue: this.countsRefreshQueue,
         });
-
-        this.tags.map((t) =>
-          this.countsRefreshQueue.add(async () => {
-            await this.refreshTagCounts([t.id], false);
-
-            completedCount++;
-            const isComplete = completedCount === totalCount;
-            if (isComplete) await this.loadTags();
-
-            toast.update(toastId, {
-              autoClose: isComplete ? 5000 : false,
-              render: `Refreshed ${completedCount} / ${totalCount} tag counts${
-                isComplete ? "." : "..."
-              }`,
-            });
-          })
-        );
       })
     );
   });
@@ -233,29 +217,13 @@ export class TagStore extends Model({
   refreshAllTagRelations = _async(function* (this: TagStore) {
     return yield* _await(
       handleErrors(async () => {
-        let completedCount = 0;
-        const totalCount = this.tags.length;
-
-        const toastId = toast.info(() => `Refreshed ${completedCount} tag relations...`, {
-          autoClose: false,
+        makeQueue({
+          action: (item) => this.refreshTagRelations({ id: item.id, withSub: false }),
+          items: this.tags,
+          logSuffix: "tag counts",
+          onComplete: this.loadTags,
+          queue: this.relationsRefreshQueue,
         });
-
-        this.tags.map((t) =>
-          this.relationsRefreshQueue.add(async () => {
-            await this.refreshTagRelations({ id: t.id, withSub: false });
-
-            completedCount++;
-            const isComplete = completedCount === totalCount;
-            if (isComplete) await this.loadTags();
-
-            toast.update(toastId, {
-              autoClose: isComplete ? 5000 : false,
-              render: `Refreshed ${completedCount} / ${totalCount} tag relations${
-                isComplete ? "." : "..."
-              }`,
-            });
-          })
-        );
       })
     );
   });

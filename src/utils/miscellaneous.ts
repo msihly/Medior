@@ -1,5 +1,4 @@
 import path from "path";
-import { inspect } from "util";
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import _cloneDeep from "lodash.clonedeep";
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
@@ -10,24 +9,6 @@ import _isEqual from "lodash.isequal";
 import _throttle from "lodash.throttle";
 import { toast } from "react-toastify";
 import { logToFile } from "./logging";
-
-export class PromiseQueue {
-  queue = Promise.resolve();
-
-  add<T>(fn: (...args: any) => Promise<T>): Promise<T> {
-    return new Promise((resolve, reject) => {
-      this.queue = this.queue.then(fn).then(resolve).catch(reject);
-    });
-  }
-
-  clear() {
-    this.queue = Promise.resolve();
-  }
-
-  isPending() {
-    return inspect(this.queue).includes("pending");
-  }
-}
 
 export const callOptFunc = (fn, ...args) => (typeof fn === "function" ? fn(...args) : fn);
 
@@ -128,4 +109,4 @@ export const rateLimitPromiseAll = async <T>(
 
 export const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-export const throttle = _throttle
+export const throttle = _throttle;

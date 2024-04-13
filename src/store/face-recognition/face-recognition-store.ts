@@ -13,8 +13,14 @@ import {
 } from "mobx-keystone";
 import { File, RootStore } from "store";
 import { FaceModel } from ".";
-import { getConfig, handleErrors, objectToFloat32Array, PromiseQueue, trpc } from "utils";
-import { toast } from "react-toastify";
+import {
+  getConfig,
+  handleErrors,
+  makeQueue,
+  objectToFloat32Array,
+  PromiseQueue,
+  trpc,
+} from "utils";
 
 const DISTANCE_THRESHOLD = 0.45;
 
@@ -50,76 +56,50 @@ export class FaceRecognitionStore extends Model({
   ) {
     return yield* _await(
       handleErrors(async () => {
-        let completedCount = 0;
-        const totalCount = fileIds.length;
+        const filesRes = await trpc.listFiles.mutate({ ids: fileIds, withFaceModels: true });
+        if (!filesRes?.success) throw new Error("Failed to load files");
 
-        const toastId = toast.info(
-          () => `Auto Face Detection: ${completedCount} / ${totalCount}...`,
-          { autoClose: false }
-        );
+        const imageExtRegExp = new RegExp(`${getConfig().file.imageTypes.join("|")}`, "i");
+        const images = filesRes.data.filter((f) => imageExtRegExp.test(f.ext));
+        if (!images.length) throw new Error("No images found");
 
-        try {
-          const filesRes = await trpc.listFiles.mutate({ ids: fileIds, withFaceModels: true });
-          if (!filesRes?.success) throw new Error("Failed to load files");
-
-          const imageExtRegExp = new RegExp(`${getConfig().file.imageTypes.join("|")}`, "i");
-          const images = filesRes.data.filter((f) => imageExtRegExp.test(f.ext));
-          if (!images.length) throw new Error("No images found");
-
-          if (this.isInitializing) {
-            const initRes = await this.init();
-            if (!initRes.success) throw new Error(`Init error: ${initRes.error}`);
-          }
-
-          images.map((file) =>
-            this.autoDetectQueue.add(async () => {
-              try {
-                this.setDetectedFaces(file.faceModels?.map?.((f) => new FaceModel(f)) ?? []);
-
-                const matchesRes = await this.findMatches(file.path);
-                if (!matchesRes.success)
-                  throw new Error(`Error finding matches: ${matchesRes.error}`);
-
-                this.addDetectedFaces(
-                  matchesRes.data.map(
-                    ({ detection: { _box: box }, descriptor, tagId }) =>
-                      new FaceModel({
-                        box: { height: box._height, width: box._width, x: box._x, y: box._y },
-                        descriptors: JSON.stringify([descriptor]),
-                        fileId: file.id,
-                        tagId,
-                      })
-                  )
-                );
-
-                const registerRes = await this.registerDetectedFaces({
-                  file: new File(file),
-                  rootStore,
-                });
-                if (!registerRes.success)
-                  throw new Error(`Error registering faces: ${registerRes.error}`);
-
-                completedCount++;
-                const isComplete = completedCount === totalCount;
-
-                toast.update(toastId, {
-                  autoClose: isComplete ? 5000 : false,
-                  render: `Auto Face Detection: ${completedCount} / ${totalCount}${
-                    isComplete ? "." : "..."
-                  }`,
-                });
-              } catch (error) {
-                console.error(error);
-              }
-            })
-          );
-        } catch (error) {
-          return toast.update(toastId, {
-            autoClose: 5000,
-            render: `Auto Face Detection: ${error.message}`,
-            type: "error",
-          });
+        if (this.isInitializing) {
+          const initRes = await this.init();
+          if (!initRes.success) throw new Error(`Init error: ${initRes.error}`);
         }
+
+        makeQueue({
+          action: async (item) => {
+            this.setDetectedFaces(item.faceModels?.map?.((f) => new FaceModel(f)) ?? []);
+
+            const matchesRes = await this.findMatches(item.path);
+            if (!matchesRes.success) throw new Error(`Error finding matches: ${matchesRes.error}`);
+
+            this.addDetectedFaces(
+              matchesRes.data.map(
+                ({ detection: { _box: box }, descriptor, tagId }) =>
+                  new FaceModel({
+                    box: { height: box._height, width: box._width, x: box._x, y: box._y },
+                    descriptors: JSON.stringify([descriptor]),
+                    fileId: item.id,
+                    tagId,
+                  })
+              )
+            );
+
+            const registerRes = await this.registerDetectedFaces({
+              file: new File(item),
+              rootStore,
+            });
+            if (!registerRes.success)
+              throw new Error(`Error registering faces: ${registerRes.error}`);
+          },
+          items: images,
+          logPrefix: "Facial Recognition:",
+          logSuffix: "images",
+          onComplete: () => null,
+          queue: this.autoDetectQueue,
+        });
       })
     );
   });

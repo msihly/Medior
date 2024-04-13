@@ -21,9 +21,9 @@ import {
   generateFramesThumbnail,
   getVideoInfo,
   handleErrors,
+  makeQueue,
   PromiseQueue,
   sharp,
-  socket,
   splitArray,
   trpc,
 } from "utils";
@@ -262,36 +262,19 @@ export class FileStore extends Model({
   refreshSelectedFiles = _async(function* (this: FileStore) {
     return yield* _await(
       handleErrors(async () => {
-        let completedCount = 0;
-        const totalCount = this.selectedIds.length;
-
-        const toastId = toast.info(() => `Refreshed ${completedCount} files' info...`, {
-          autoClose: false,
-        });
-
         const filesRes = await this.loadFiles({ fileIds: this.selectedIds, withOverwrite: false });
         if (!filesRes?.success) throw new Error("Failed to load files");
 
-        filesRes.data.map((curFile) =>
-          this.infoRefreshQueue.add(async () => {
-            await this.refreshFile({ curFile, id: curFile.id });
-
-            completedCount++;
-            const isComplete = completedCount === totalCount;
-
-            toast.update(toastId, {
-              autoClose: isComplete ? 5000 : false,
-              render: `Refreshed ${completedCount} / ${totalCount} files${
-                isComplete ? "." : "..."
-              }`,
-            });
-
-            if (isComplete) {
-              const rootStore = getRootStore<RootStore>(this);
-              await rootStore.homeStore.loadFilteredFiles();
-            }
-          })
-        );
+        makeQueue({
+          action: (item) => this.refreshFile({ curFile: item, id: item.id }),
+          items: filesRes.data,
+          logSuffix: "files",
+          onComplete: async () => {
+            const rootStore = getRootStore<RootStore>(this);
+            await rootStore.homeStore.loadFilteredFiles();
+          },
+          queue: this.infoRefreshQueue,
+        });
       })
     );
   });
