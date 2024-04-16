@@ -6,7 +6,7 @@ import { OnProgressProps } from "react-player/base";
 import Panzoom, { PanzoomObject, PanzoomOptions } from "@panzoom/panzoom";
 import { Slider } from "@mui/material";
 import { ContextMenu, IconButton, Text, View } from "components";
-import { colors, CONSTANTS, dayjs, makeClasses } from "utils";
+import { colors, CONSTANTS, dayjs, makeClasses, round } from "utils";
 
 export const ZoomContext = createContext<MutableRefObject<PanzoomObject>>(null);
 
@@ -40,31 +40,48 @@ export const Carousel = observer(() => {
   }, [activeFile?.isVideo, carouselStore.activeFileId]);
 
   const [curTime, setCurTime] = useState(0);
+  const [lastPlayingState, setLastPlayingState] = useState(false);
   const [isVolumeVisible, setIsVolumeVisible] = useState(false);
   const [lastVolume, setLastVolume] = useState(0.5);
   const [volume, setVolume] = useState(0);
 
   const { css } = useClasses({ isMouseMoving: carouselStore.isMouseMoving, isVolumeVisible });
 
-  const handleFrameSeek = (frame: number) => {
-    carouselStore.setIsPlaying(false);
-
+  const handleFrameChange = (frame: number) => {
     carouselStore.setCurFrame(frame);
-    setCurTime(frame / activeFile?.frameRate);
-    videoRef.current.seekTo(frame / activeFile?.frameRate);
+    const time = round(frame / activeFile?.frameRate || 1, 3);
+    setCurTime(time);
+    videoRef.current?.seekTo(time, "seconds");
+  };
 
-    carouselStore.setIsPlaying(true);
+  const handleFrameSeek = (event: any) => {
+    if (carouselStore.isPlaying) {
+      setLastPlayingState(true);
+      carouselStore.setIsPlaying(false);
+    }
+    handleFrameChange(event.target.value);
+  };
+
+  const handleFrameSeekCommit = () => {
+    if (lastPlayingState) {
+      carouselStore.setIsPlaying(true);
+      setLastPlayingState(false);
+    }
   };
 
   const handleVideoProgress = ({ playedSeconds }: OnProgressProps) => {
-    carouselStore.setCurFrame(playedSeconds * activeFile?.frameRate);
+    carouselStore.setCurFrame(round(playedSeconds * activeFile?.frameRate, 0));
     setCurTime(playedSeconds);
   };
 
-  const handleVolumeChange = (vol: number) => {
+  const handleVolumeChange = (_, vol: number) => {
     setVolume(vol);
     setLastVolume(vol);
   };
+
+  const handleVolumeEnter = () => setIsVolumeVisible(true);
+
+  const handleVolumeLeave = () => setIsVolumeVisible(false);
 
   const toggleMute = () => {
     if (volume === 0) setVolume(lastVolume);
@@ -117,21 +134,25 @@ export const Carousel = observer(() => {
 
       {activeFile?.isVideo && (
         <View className={css.videoControlBar}>
-          <IconButton name={carouselStore.isPlaying ? "Pause" : "PlayArrow"} onClick={togglePlaying} />
+          <IconButton
+            name={carouselStore.isPlaying ? "Pause" : "PlayArrow"}
+            onClick={togglePlaying}
+          />
 
           <View className={css.videoProgressBar}>
             <Slider
               value={carouselStore.curFrame}
-              onChange={(_, frame: number) => handleFrameSeek(frame)}
+              onChange={handleFrameSeek}
+              onChangeCommitted={handleFrameSeekCommit}
               min={1}
               max={activeFile?.totalFrames}
               step={1}
-              valueLabelDisplay="off"
+              valueLabelDisplay="auto"
             />
           </View>
 
-          <View onMouseLeave={() => setIsVolumeVisible(false)}>
-            <View onMouseEnter={() => setIsVolumeVisible(true)}>
+          <View onMouseLeave={handleVolumeLeave}>
+            <View onMouseEnter={handleVolumeEnter}>
               <IconButton
                 name={
                   volume > 0.65
@@ -149,7 +170,7 @@ export const Carousel = observer(() => {
             <View className={css.volumeSlider}>
               <Slider
                 value={volume}
-                onChange={(_, vol: number) => handleVolumeChange(vol)}
+                onChange={handleVolumeChange}
                 min={0}
                 max={1}
                 step={0.01}
@@ -234,7 +255,7 @@ const useClasses = makeClasses((_, { isMouseMoving, isVolumeVisible }: ClassesPr
   volumeSlider: {
     display: isVolumeVisible ? "block" : "none",
     position: "absolute",
-    bottom: "2.7rem",
+    bottom: "2.5rem",
     padding: "0.8rem 0.3rem 0.4rem",
     height: "8rem",
     backgroundColor: "rgb(0, 0, 0, 0.5)",
