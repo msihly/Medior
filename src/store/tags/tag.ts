@@ -12,10 +12,12 @@ export interface RegExMap {
 @model("medior/Tag")
 export class Tag extends Model({
   aliases: prop<string[]>(() => []),
+  ancestorIds: prop<string[]>(() => []),
   childIds: prop<string[]>(() => []),
   count: prop<number>(),
   dateCreated: prop<string>(),
   dateModified: prop<string>(),
+  // descendantIds: prop<string[]>(() => []),
   id: prop<string>(),
   label: prop<string>(),
   parentIds: prop<string[]>(() => []),

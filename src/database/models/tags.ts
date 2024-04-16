@@ -15,6 +15,7 @@ export interface Tag {
   count: number;
   dateCreated: string;
   dateModified: string;
+  // descendantIds: string[];
   id: string;
   label: string;
   parentIds: string[];
@@ -34,6 +35,7 @@ const TagSchema = new Schema<Tag>({
   count: Number,
   dateCreated: String,
   dateModified: String,
+  // descendantIds: [{ type: Schema.Types.ObjectId, ref: "Tag" }],
   label: String,
   parentIds: [{ type: Schema.Types.ObjectId, ref: "Tag" }],
   regExMap: RegExMapSchema,

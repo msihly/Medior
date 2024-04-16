@@ -16,7 +16,7 @@ import {
   AutocompleteRenderInputParams,
 } from "@mui/material";
 import { Button, Chip, IconName, Input, InputProps, ListItem, Tag, View } from "components";
-import { colors, makeClasses, Margins } from "utils";
+import { colors, makeClasses, Margins, useDeepMemo } from "utils";
 import { CSSObject } from "tss-react";
 import { toast } from "react-toastify";
 
@@ -112,16 +112,17 @@ export const TagInput = observer(
       const isMaxTags = maxTags > 0 && value.length >= maxTags;
       disabled = disabled || isMaxTags;
       disableWithoutFade = disableWithoutFade || isMaxTags;
-      options = options ?? [...tagStore.tagOptions];
 
       const [inputValue, setInputValue] = useState((inputProps?.value ?? "") as string);
       const [isOpen, setIsOpen] = useState(false);
+
+      const opts = useDeepMemo(options ?? [...tagStore.tagOptions]);
 
       /** Handle deleted tags */
       useEffect(() => {
         const validValues = value.filter((t) => t && tagStore.getById(t.id));
         if (validValues.length !== value.length) onChange?.(validValues);
-      }, [options.toString()]);
+      }, [opts]);
 
       useEffect(() => {
         setInputValue(inputProps?.value as string);
@@ -283,7 +284,6 @@ export const TagInput = observer(
             filterOptions,
             getOptionLabel,
             isOptionEqualToValue,
-            options,
             renderInput,
             renderOption,
             renderTags,
@@ -300,6 +300,7 @@ export const TagInput = observer(
           onClose={handleClose}
           onOpen={handleOpen}
           open={isOpen}
+          options={opts}
           size="small"
           {...props}
         />

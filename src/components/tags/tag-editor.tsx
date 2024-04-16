@@ -217,6 +217,8 @@ export const TagEditor = observer(
             excludedIds={[id, ...childTags.map((t) => t.id)]}
             value={parentTags}
             setValue={setParentTags}
+            ancestryType="ancestors"
+            ancestryTagIds={tag?.ancestorIds}
             disabled={isLoading}
             hasEditor={false}
             onTagClick={hasSubEditor ? handleSubEditorClick : null}
@@ -228,6 +230,8 @@ export const TagEditor = observer(
             excludedIds={[id, ...parentTags.map((t) => t.id)]}
             value={childTags}
             setValue={setChildTags}
+            // ancestryType="descendants"
+            // ancestryTagIds={tag?.descendantIds}
             disabled={isLoading}
             hasEditor={false}
             onTagClick={hasSubEditor ? handleSubEditorClick : null}
