@@ -65,7 +65,8 @@ export class File extends Model({
 
   @computed
   get isPlayableVideo() {
-    return PLAYABLE_VIDEO_TYPES.includes(this.ext);
+    const regExp = new RegExp(`${PLAYABLE_VIDEO_TYPES.join("|")}`, "i");
+    return regExp.test(this.ext);
   }
 
   @computed
