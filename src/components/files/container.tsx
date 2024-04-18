@@ -17,19 +17,19 @@ export const FileContainer = observer(() => {
 
   const { handleKeyPress } = useHotkeys({ view: "home" });
 
+  const scrollToTop = () => filesRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+
   useEffect(() => {
     if (fileStore.page > fileStore.pageCount) handlePageChange(null, fileStore.pageCount);
+    scrollToTop();
   }, [fileStore.page, fileStore.pageCount]);
 
   useEffect(() => {
     socket.on("filesUpdated", ({ updates }) => {
       const updatedKeys = Object.keys(updates);
-      if (
-        updatedKeys.some((k) => ["isArchived", "tagIds"].includes(k)) ||
-        updatedKeys.includes(homeStore.sortValue.key)
-      ) {
-        filesRef.current?.scrollTo({ top: 0, behavior: "smooth" });
-      }
+      const archivedOrTagsEdited = updatedKeys.some((k) => ["isArchived", "tagIds"].includes(k));
+      const sortValueEdited = updatedKeys.includes(homeStore.sortValue.key);
+      if (archivedOrTagsEdited || sortValueEdited) scrollToTop();
     });
   }, []);
 
