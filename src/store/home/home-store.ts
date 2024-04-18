@@ -53,6 +53,10 @@ export const sortFiles = <File>({
 
 @model("medior/HomeStore")
 export class HomeStore extends Model({
+  dateCreatedEnd: prop<string>("").withSetter(),
+  dateCreatedStart: prop<string>("").withSetter(),
+  dateModifiedEnd: prop<string>("").withSetter(),
+  dateModifiedStart: prop<string>("").withSetter(),
   fileCardFit: prop<"contain" | "cover">(() => getConfig().file.fileCardFit).withSetter(),
   hasDiffParams: prop<boolean>(false).withSetter(),
   isArchiveOpen: prop<boolean>(false).withSetter(),
@@ -186,6 +190,10 @@ export class HomeStore extends Model({
   /* --------------------------------- DYNAMIC GETTERS -------------------------------- */
   getFilterProps() {
     return {
+      dateCreatedEnd: this.dateCreatedEnd,
+      dateCreatedStart: this.dateCreatedStart,
+      dateModifiedEnd: this.dateModifiedEnd,
+      dateModifiedStart: this.dateModifiedStart,
       hasDiffParams: this.hasDiffParams,
       isArchived: this.isArchiveOpen,
       isSortDesc: this.sortValue.isDesc,

@@ -6,6 +6,7 @@ import {
   Accordion,
   Button,
   Checkbox,
+  DateRange,
   Dropdown,
   ListItem,
   NumInput,
@@ -66,6 +67,14 @@ export const Drawer = observer(({ hasImports = false, hasSettings = false }: Dra
     fileCollectionStore.setSelectedFileIds([]);
     fileCollectionStore.setIsManagerOpen(true);
   };
+
+  const handleDateCreatedEndChange = (val: string) => homeStore.setDateCreatedEnd(val);
+
+  const handleDateCreatedStartChange = (val: string) => homeStore.setDateCreatedStart(val);
+
+  const handleDateModifiedEndChange = (val: string) => homeStore.setDateModifiedEnd(val);
+
+  const handleDateModifiedStartChange = (val: string) => homeStore.setDateModifiedStart(val);
 
   const handleImport = () => importStore.setIsImportManagerOpen(true);
 
@@ -210,6 +219,28 @@ export const Drawer = observer(({ hasImports = false, hasSettings = false }: Dra
             <ExtCheckbox key={ext} ext={ext} type="Video" />
           ))}
         </Accordion>
+      </View>
+
+      <View column spacing="0.4rem" margins={{ left: "0.5rem", right: "0.5rem" }}>
+        <DateRange
+          startDate={homeStore.dateCreatedStart}
+          setStartDate={handleDateCreatedStartChange}
+          startLabel="Date Created - Start"
+          endDate={homeStore.dateCreatedEnd}
+          setEndDate={handleDateCreatedEndChange}
+          endLabel="Date Created - End"
+          column
+        />
+
+        <DateRange
+          startDate={homeStore.dateModifiedStart}
+          setStartDate={handleDateModifiedStartChange}
+          startLabel="Date Modified - Start"
+          endDate={homeStore.dateModifiedEnd}
+          setEndDate={handleDateModifiedEndChange}
+          endLabel="Date Modified - End"
+          column
+        />
       </View>
     </MuiDrawer>
   );

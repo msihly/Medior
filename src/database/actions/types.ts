@@ -82,6 +82,10 @@ export type AddTagsToFilesInput = { fileIds: string[]; tagIds: string[] };
 export type ArchiveFilesInput = { fileIds: string[] };
 
 export type CreateFileFilterPipelineInput = {
+  dateCreatedEnd?: string;
+  dateCreatedStart?: string;
+  dateModifiedEnd?: string;
+  dateModifiedStart?: string;
   excludedDescTagIds: string[];
   excludedFileIds?: string[];
   excludedTagIds: string[];

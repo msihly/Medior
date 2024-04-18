@@ -14,6 +14,10 @@ const FACE_MODELS_PATH = app.isPackaged
 
 /* ---------------------------- HELPER FUNCTIONS ---------------------------- */
 const createFileFilterPipeline = ({
+  dateCreatedEnd,
+  dateCreatedStart,
+  dateModifiedEnd,
+  dateModifiedStart,
   excludedDescTagIds,
   excludedFileIds,
   excludedTagIds,
@@ -50,6 +54,22 @@ const createFileFilterPipeline = ({
     $match: {
       isArchived,
       ext: { $in: enabledExts },
+      ...(dateCreatedEnd || dateCreatedStart
+        ? {
+            dateCreated: {
+              ...(dateCreatedEnd ? { $lte: dateCreatedEnd } : {}),
+              ...(dateCreatedStart ? { $gte: dateCreatedStart } : {}),
+            },
+          }
+        : {}),
+      ...(dateModifiedEnd || dateModifiedStart
+        ? {
+            dateModified: {
+              ...(dateModifiedEnd ? { $lte: dateModifiedEnd } : {}),
+              ...(dateModifiedStart ? { $gte: dateModifiedStart } : {}),
+            },
+          }
+        : {}),
       ...(excludedFileIds?.length > 0 ? { _id: { $nin: objectIds(excludedFileIds) } } : {}),
       ...(hasDiffParams || hasNumfOfTags
         ? {
