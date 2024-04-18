@@ -57,6 +57,8 @@ const VIDEO_TYPES = [
 ] as const;
 export type VideoType = (typeof VIDEO_TYPES)[number];
 
+export const PLAYABLE_VIDEO_TYPES = ["m4v", "mov", "mp4", "webm"];
+
 export const CONSTANTS: Constants = {
   DRAWER_WIDTH: 210,
   IMAGE_TYPES,

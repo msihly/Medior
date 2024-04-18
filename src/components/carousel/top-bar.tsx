@@ -2,15 +2,7 @@ import { getCurrentWindow, screen } from "@electron/remote";
 import { useContext, useEffect, useRef, useState } from "react";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
-import {
-  ZoomContext,
-  Icon,
-  IconButton,
-  SideScroller,
-  Tag,
-  Text,
-  View,
-} from "components";
+import { ZoomContext, Icon, IconButton, SideScroller, Tag, Text, View } from "components";
 import { colors, makeClasses, round, zoomScaleStepIn, zoomScaleStepOut } from "utils";
 
 export const CarouselTopBar = observer(() => {
@@ -119,7 +111,7 @@ export const CarouselTopBar = observer(() => {
       </View>
 
       <View row flex={1} justify="flex-end">
-        {file?.isVideo ? (
+        {file?.isPlayableVideo ? (
           <IconButton name="Camera" onClick={handleExtractFrame} tooltip="Extract Frame" />
         ) : (
           <>

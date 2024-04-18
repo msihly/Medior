@@ -1,3 +1,4 @@
+import { shell } from "@electron/remote";
 import { createContext, MutableRefObject, useContext, useEffect, useRef, useState } from "react";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
@@ -5,7 +6,7 @@ import ReactPlayer from "react-player/file";
 import { OnProgressProps } from "react-player/base";
 import Panzoom, { PanzoomObject, PanzoomOptions } from "@panzoom/panzoom";
 import { Slider } from "@mui/material";
-import { ContextMenu, IconButton, Text, View } from "components";
+import { Button, ContextMenu, FileBase, IconButton, Text, THUMB_WIDTH, View } from "components";
 import { colors, CONSTANTS, dayjs, makeClasses, round } from "utils";
 
 export const ZoomContext = createContext<MutableRefObject<PanzoomObject>>(null);
@@ -69,6 +70,8 @@ export const Carousel = observer(() => {
     }
   };
 
+  const handleOpenNatively = () => shell.openPath(activeFile.path);
+
   const handleVideoProgress = ({ playedSeconds }: OnProgressProps) => {
     carouselStore.setCurFrame(round(playedSeconds * activeFile?.frameRate, 0));
     setCurTime(playedSeconds);
@@ -105,34 +108,53 @@ export const Carousel = observer(() => {
             className={css.contextMenu}
           >
             {activeFile.isVideo ? (
-              <View onClick={togglePlaying} className={css.videoContainer}>
-                <ReactPlayer
-                  ref={videoRef}
-                  url={activeFile.path}
-                  playing={carouselStore.isPlaying}
-                  onProgress={handleVideoProgress}
-                  progressInterval={100}
-                  width="100%"
-                  height="100%"
-                  loop
-                  muted={volume === 0}
-                  volume={volume}
-                />
-              </View>
+              activeFile.isPlayableVideo ? (
+                <View onClick={togglePlaying} className={css.videoContainer}>
+                  <ReactPlayer
+                    ref={videoRef}
+                    url={activeFile.path}
+                    playing={carouselStore.isPlaying}
+                    onProgress={handleVideoProgress}
+                    progressInterval={100}
+                    width="100%"
+                    height="100%"
+                    loop
+                    muted={volume === 0}
+                    volume={volume}
+                  />
+                </View>
+              ) : (
+                <View column flex={1} justify="center">
+                  <FileBase.Image
+                    thumbPaths={activeFile.thumbPaths}
+                    title={activeFile.originalName}
+                    height={THUMB_WIDTH * 2}
+                    fit="contain"
+                    autoAnimate
+                    draggable={false}
+                    className={css.videoThumbs}
+                  />
+
+                  <View row justify="center" align="center" spacing="0.2em">
+                    <Text>{`'${activeFile.ext}' not supported.`}</Text>
+                    <Button type="link" text="Open Natively." onClick={handleOpenNatively} />
+                  </View>
+                </View>
+              )
             ) : (
               <img
                 src={activeFile.path}
-                className={css.image}
                 alt={activeFile.originalName}
                 draggable={false}
                 loading="lazy"
+                className={css.image}
               />
             )}
           </ContextMenu>
         )}
       </View>
 
-      {activeFile?.isVideo && (
+      {activeFile?.isPlayableVideo && (
         <View className={css.videoControlBar}>
           <IconButton
             name={carouselStore.isPlaying ? "Pause" : "PlayArrow"}
@@ -260,5 +282,11 @@ const useClasses = makeClasses((_, { isMouseMoving, isVolumeVisible }: ClassesPr
     height: "8rem",
     backgroundColor: "rgb(0, 0, 0, 0.5)",
     borderRadius: "1rem 1rem 0 0",
+  },
+  videoThumbs: {
+    borderRadius: "0.4rem",
+    margin: "0 auto 0.5rem",
+    height: "auto",
+    width: "fit-content",
   },
 }));

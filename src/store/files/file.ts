@@ -8,7 +8,7 @@ import {
   ModelCreationData,
   prop,
 } from "mobx-keystone";
-import { dayjs, getConfig } from "utils";
+import { dayjs, getConfig, PLAYABLE_VIDEO_TYPES } from "utils";
 
 @model("medior/File")
 export class File extends Model({
@@ -61,6 +61,11 @@ export class File extends Model({
   get isAnimated() {
     const regExp = new RegExp(`gif|${getConfig().file.videoTypes.join("|")}`, "i");
     return regExp.test(this.ext);
+  }
+
+  @computed
+  get isPlayableVideo() {
+    return PLAYABLE_VIDEO_TYPES.includes(this.ext);
   }
 
   @computed

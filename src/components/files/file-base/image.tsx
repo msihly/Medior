@@ -15,6 +15,7 @@ interface ImageProps
     DetailedHTMLProps<ImgHTMLAttributes<HTMLImageElement>, HTMLImageElement>,
     "alt" | "height" | "src" | "title" | "width"
   > {
+  autoAnimate?: boolean;
   children?: ReactNode | ReactNode[];
   disabled?: boolean;
   draggable?: boolean;
@@ -26,7 +27,9 @@ interface ImageProps
 }
 
 export const Image = ({
+  autoAnimate = false,
   children,
+  className,
   disabled,
   draggable = false,
   fit = "cover",
@@ -43,17 +46,25 @@ export const Image = ({
   const [imagePos, setImagePos] = useState<CSSObject["objectPosition"]>(null);
   const [thumbIndex, setThumbIndex] = useState(0);
 
-  const { css } = useClasses({ fit, height, imagePos, rounded });
+  const { css, cx } = useClasses({ fit, height, imagePos, rounded });
+
+  const hasListeners = !disabled && !autoAnimate && thumbPaths?.length > 1;
+
+  const createThumbInterval = () => {
+    thumbInterval.current = setInterval(() => {
+      setThumbIndex((thumbIndex) => (thumbIndex + 1 === thumbPaths?.length ? 0 : thumbIndex + 1));
+    }, 300);
+  };
 
   useEffect(() => {
+    if (!autoAnimate) return;
+    createThumbInterval();
     return () => clearInterval(thumbInterval.current);
   }, []);
 
   const handleMouseEnter = () => {
-    clearInterval(thumbInterval.current); /** Safety check for failed onMouseLeave */
-    thumbInterval.current = setInterval(() => {
-      setThumbIndex((thumbIndex) => (thumbIndex + 1 === thumbPaths?.length ? 0 : thumbIndex + 1));
-    }, 300);
+    clearInterval(thumbInterval.current);
+    createThumbInterval();
   };
 
   const handleMouseLeave = () => {
@@ -76,9 +87,9 @@ export const Image = ({
 
   return (
     <View
-      onMouseEnter={!disabled && thumbPaths?.length > 1 ? handleMouseEnter : undefined}
-      onMouseLeave={!disabled && thumbPaths?.length > 1 ? handleMouseLeave : undefined}
-      className={css.imageContainer}
+      onMouseEnter={hasListeners ? handleMouseEnter : undefined}
+      onMouseLeave={hasListeners ? handleMouseLeave : undefined}
+      className={cx(css.imageContainer, className)}
     >
       {thumbPaths?.length > 0 ? (
         <img
