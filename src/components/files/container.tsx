@@ -5,7 +5,7 @@ import { Pagination } from "@mui/material";
 import { useHotkeys } from "views";
 import { View } from "components";
 import { DisplayedFiles } from ".";
-import { colors, makeClasses, useDeepEffect } from "utils";
+import { colors, makeClasses, socket } from "utils";
 import Color from "color";
 
 export const FileContainer = observer(() => {
@@ -21,9 +21,17 @@ export const FileContainer = observer(() => {
     if (fileStore.page > fileStore.pageCount) handlePageChange(null, fileStore.pageCount);
   }, [fileStore.page, fileStore.pageCount]);
 
-  useDeepEffect(() => {
-    filesRef.current?.scrollTo({ top: 0, behavior: "smooth" });
-  }, [fileStore.files]);
+  useEffect(() => {
+    socket.on("filesUpdated", ({ updates }) => {
+      const updatedKeys = Object.keys(updates);
+      if (
+        updatedKeys.some((k) => ["isArchived", "tagIds"].includes(k)) ||
+        updatedKeys.includes(homeStore.sortValue.key)
+      ) {
+        filesRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+      }
+    });
+  }, []);
 
   const handlePageChange = (_, page: number) => homeStore.loadFilteredFiles({ page });
 
