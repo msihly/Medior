@@ -84,6 +84,11 @@ export const Drawer = observer(({ hasImports = false, hasSettings = false }: Dra
 
   const handleNumOfTagsValueChange = (val: number) => homeStore.setNumOfTagsValue(val);
 
+  const handleResetSearch = () => {
+    homeStore.resetSearch();
+    handleSearch();
+  };
+
   const handleSearch = () => homeStore.loadFilteredFiles({ page: 1 });
 
   const handleSearchWindow = () => openSearchWindow();
@@ -138,6 +143,15 @@ export const Drawer = observer(({ hasImports = false, hasSettings = false }: Dra
         onClick={handleSearch}
         width="-webkit-fill-available"
         margins={{ top: "0.5rem", left: "0.5rem", right: "0.5rem" }}
+      />
+
+      <Button
+        text="Reset"
+        icon="Refresh"
+        onClick={handleResetSearch}
+        width="-webkit-fill-available"
+        color={colors.button.grey}
+        margins={{ all: "0.5rem" }}
       />
 
       <Text preset="label-glow" marginTop="0.3rem">

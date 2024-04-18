@@ -91,6 +91,27 @@ export class HomeStore extends Model({
   }
 
   @modelAction
+  resetSearch() {
+    const config = getConfig();
+
+    this.dateCreatedEnd = "";
+    this.dateCreatedStart = "";
+    this.dateModifiedEnd = "";
+    this.dateModifiedStart = "";
+    this.hasDiffParams = false;
+    this.numOfTagsOp = "";
+    this.numOfTagsValue = 0;
+    this.searchValue = [];
+    this.selectedImageTypes = Object.fromEntries(
+      config.file.imageTypes.map((ext) => [ext, true])
+    ) as SelectedImageTypes;
+    this.selectedVideoTypes = Object.fromEntries(
+      config.file.videoTypes.map((ext) => [ext, true])
+    ) as SelectedVideoTypes;
+    this.sortValue = config.file.searchSort;
+  }
+
+  @modelAction
   setSelectedImageTypes(types: Partial<SelectedImageTypes>) {
     this.selectedImageTypes = { ...this.selectedImageTypes, ...types };
   }
