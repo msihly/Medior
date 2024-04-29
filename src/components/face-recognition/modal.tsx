@@ -82,7 +82,7 @@ export const FaceRecognitionModal = observer(() => {
         descriptors: face.descriptors,
         fileId: face.fileId,
         tagId: face.tagId,
-        selectedTag: tagStore.getById(face.tagId).tagOption,
+        selectedTag: tagStore.getById(face.tagId)?.tagOption,
       }));
 
       return faceModels.map((face) => new FaceModel(face));
@@ -107,7 +107,7 @@ export const FaceRecognitionModal = observer(() => {
             box: { height: box._height, width: box._width, x: box._x, y: box._y },
             descriptors: JSON.stringify([descriptor]),
             fileId: file.id,
-            selectedTag: tagId ? tagStore.getById(tagId).tagOption : null,
+            selectedTag: tagId ? tagStore.getById(tagId)?.tagOption : null,
           })
       );
 
