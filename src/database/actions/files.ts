@@ -185,11 +185,14 @@ export const deleteFiles = ({ fileIds }: db.DeleteFilesInput) =>
       })
     );
 
-    const fileHashes = (
+    const files = (
       await db.FileModel.find({ _id: { $in: fileIds } })
-        .select({ _id: 1, hash: 1 })
+        .select({ _id: 1, hash: 1, tagIds: 1 })
         .lean()
-    ).map((f) => leanModelToJson<db.File>(f).hash);
+    ).map((f) => leanModelToJson<db.File>(f));
+
+    const fileHashes = files.map((f) => f.hash);
+    const tagIds = [...new Set(files.flatMap((f) => f.tagIds))];
 
     const deletedHashesBulkOps = fileHashes.map((hash) => ({
       updateOne: {
@@ -203,6 +206,8 @@ export const deleteFiles = ({ fileIds }: db.DeleteFilesInput) =>
       db.FileModel.deleteMany({ _id: { $in: fileIds } }),
       db.DeletedFileModel.bulkWrite(deletedHashesBulkOps),
     ]);
+
+    await db.recalculateTagCounts({ tagIds });
 
     socket.emit("filesDeleted", { fileHashes, fileIds });
   });
