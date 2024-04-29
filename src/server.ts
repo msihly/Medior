@@ -165,7 +165,9 @@ const trpcRouter = tRouter({
     .input((input: unknown) => input as db.ListFileIdsForCarouselInput)
     .mutation(({ input }) => db.listFileIdsForCarousel(input)),
   listImportBatches: tProc.mutation(db.listImportBatches),
-  listTags: tProc.mutation(db.listTags),
+  listTags: tProc
+    .input((input: unknown) => input as db.ListTagsInput)
+    .mutation(({ input }) => db.listTags(input)),
   loadFaceApiNets: tProc.mutation(db.loadFaceApiNets),
   mergeTags: tProc
     .input((input: unknown) => input as db.MergeTagsInput)

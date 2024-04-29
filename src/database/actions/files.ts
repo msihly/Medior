@@ -513,13 +513,14 @@ export const listFaceModels = ({ ids }: db.ListFaceModelsInput = {}) =>
 type ListFilesResult = db.File & { _id: string; hasFaceModels: boolean };
 
 export const listFiles = ({
+  filter,
   ids,
   withFaceModels = false,
   withHasFaceModels = false,
 }: db.ListFilesInput = {}) =>
   handleErrors(async () => {
     const res: ListFilesResult[] = await db.FileModel.aggregate([
-      { $match: ids ? { _id: { $in: objectIds(ids) } } : {} },
+      { $match: filter ? filter : ids ? { _id: { $in: objectIds(ids) } } : {} },
       ...(withHasFaceModels
         ? [
             {

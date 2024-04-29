@@ -480,9 +480,9 @@ export const editTag = ({
     return { changedChildIds, changedParentIds, dateModified, operations, res };
   });
 
-export const listTags = () =>
+export const listTags = ({ filter }: db.ListTagsInput = {}) =>
   handleErrors(async () =>
-    (await db.TagModel.find().lean()).map((r) => leanModelToJson<db.Tag>(r))
+    (await db.TagModel.find(filter).lean()).map((r) => leanModelToJson<db.Tag>(r))
   );
 
 export const mergeTags = ({

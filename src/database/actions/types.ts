@@ -1,4 +1,5 @@
-import { File, FileCollection, RegExMap } from "database";
+import * as db from "database";
+import { FilterQuery } from "mongoose";
 import { FileImport, SelectedImageTypes, SelectedVideoTypes } from "store";
 import { ModelCreationData } from "mobx-keystone";
 import { ImportStatus } from "components";
@@ -39,7 +40,7 @@ export type ListFilteredCollectionsInput = CreateCollectionFilterPipelineInput &
   pageSize: number;
 };
 
-export type UpdateCollectionInput = Partial<FileCollection> & { id: string };
+export type UpdateCollectionInput = Partial<db.FileCollection> & { id: string };
 
 /* ------------------------------ FILE IMPORTS ------------------------------ */
 export type AddTagsToBatchInput = { batchId: string; tagIds: string[] };
@@ -149,10 +150,9 @@ export type ListFileIdsByTagIdsInput = { tagIds: string[] };
 export type ListFileIdsForCarouselInput = ListFilteredFilesInput;
 
 export type ListFilesInput = {
-  ids?: string[];
   withFaceModels?: boolean;
   withHasFaceModels?: boolean;
-};
+} & ({ filter?: FilterQuery<db.File>; ids?: never } | { filter?: never; ids?: string[] });
 
 export type ListFilesByTagIdsInput = { tagIds: string[] };
 
@@ -161,11 +161,13 @@ export type ListFilteredFilesInput = CreateFileFilterPipelineInput & {
   pageSize: number;
 };
 
+export type ListTagsInput = { filter?: FilterQuery<db.Tag> };
+
 export type LoadFaceModelsInput = { fileIds?: string[]; withOverwrite?: boolean };
 
 export type LoadFilesInput = { fileIds?: string[]; withOverwrite?: boolean };
 
-export type RefreshFileInput = { curFile?: File; id: string };
+export type RefreshFileInput = { curFile?: db.File; id: string };
 
 export type RemoveTagsFromFilesInput = { fileIds: string[]; tagIds: string[] };
 
@@ -184,7 +186,7 @@ export type SetFileIsArchivedInput = { fileIds: string[]; isArchived: boolean };
 
 export type SetFileRatingInput = { fileIds: string[]; rating: number };
 
-export type UpdateFileInput = Partial<File> & { id: string };
+export type UpdateFileInput = Partial<db.File> & { id: string };
 
 /* ---------------------------------- TAGS ---------------------------------- */
 export type CreateTagInput = {
@@ -192,7 +194,7 @@ export type CreateTagInput = {
   childIds?: string[];
   label: string;
   parentIds?: string[];
-  regExMap?: RegExMap;
+  regExMap?: db.RegExMap;
   withSub?: boolean;
 };
 
