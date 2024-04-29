@@ -262,6 +262,7 @@ export interface SocketEmitEvents {
   reloadTags: () => void;
   tagCreated: (args: { tag: db.Tag }) => void;
   tagDeleted: (args: { tagId: string }) => void;
+  tagMerged: (args: { oldTagId: string; newTagId: string }) => void;
   tagsUpdated: (args: { tagId: string; updates: Partial<db.Tag> }[]) => void;
 }
 
@@ -306,6 +307,7 @@ const createSocketIOServer = async () => {
         "reloadTags",
         "tagCreated",
         "tagDeleted",
+        "tagMerged",
         "tagsUpdated",
       ];
 

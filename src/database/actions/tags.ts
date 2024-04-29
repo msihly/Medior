@@ -566,10 +566,17 @@ export const mergeTags = ({
         regenTagAncestors({ tagIds: [tagIdToKeep, ...tagIdsToUpdate] }),
       ]);
 
-      await recalculateTagCounts({ tagIds: [tagIdToKeep, ...tagIdsToUpdate], withSub: true });
+      const countRes = await recalculateTagCounts({
+        tagIds: [tagIdToKeep, ...tagIdsToUpdate],
+        withSub: false,
+      });
+      if (!countRes.success) throw new Error(countRes.error);
 
-      socket.emit("tagDeleted", { tagId: tagIdToMerge });
-      socket.emit("tagsUpdated", [{ tagId: tagIdToKeep, updates: tagToKeepUpdates }]);
+      socket.emit("tagMerged", { newTagId: tagIdToKeep, oldTagId: tagIdToMerge });
+      socket.emit("tagsUpdated", [
+        ...countRes.data,
+        { tagId: tagIdToKeep, updates: tagToKeepUpdates },
+      ]);
     } catch (err) {
       error = err.message;
       logToFile("error", JSON.stringify(err.stack, null, 2));

@@ -86,11 +86,6 @@ export class HomeStore extends Model({
 }) {
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
   @modelAction
-  removeDeletedTag(id: string) {
-    this.searchValue.splice(this.searchValue.findIndex((t) => t.id === id));
-  }
-
-  @modelAction
   resetSearch() {
     const config = getConfig();
 

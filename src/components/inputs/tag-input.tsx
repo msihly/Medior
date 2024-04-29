@@ -4,6 +4,7 @@ import {
   HTMLAttributes,
   MouseEvent,
   MutableRefObject,
+  useCallback,
   useEffect,
   useState,
 } from "react";
@@ -16,7 +17,7 @@ import {
   AutocompleteRenderInputParams,
 } from "@mui/material";
 import { Button, Chip, IconName, Input, InputProps, ListItem, Tag, View } from "components";
-import { colors, makeClasses, Margins, useDeepMemo } from "utils";
+import { colors, makeClasses, Margins, socket, useDeepMemo } from "utils";
 import { CSSObject } from "tss-react";
 import { toast } from "react-toastify";
 
@@ -118,11 +119,36 @@ export const TagInput = observer(
 
       const opts = useDeepMemo(options ?? [...tagStore.tagOptions]);
 
-      /** Handle deleted tags */
+      const removeDeletedTag = useCallback(
+        ({ tagId }: { tagId: string }) => {
+          const newValue = value.filter((t) => t.id !== tagId);
+          if (newValue.length !== value.length) onChange?.(newValue);
+        },
+        [onChange, value]
+      );
+
+      const replaceMergedTag = useCallback(
+        ({ oldTagId, newTagId }: { oldTagId: string; newTagId: string }) => {
+          const oldTag = value.find((t) => t.id === oldTagId);
+          if (!oldTag) return;
+
+          const newTagOption = tagStore.getById(newTagId)?.tagOption;
+          const newValue = value.map((t) => (t.id === oldTagId ? newTagOption : t));
+          onChange?.(newValue);
+        },
+        [onChange, value]
+      );
+
       useEffect(() => {
-        const validValues = value.filter((t) => t && tagStore.getById(t.id));
-        if (validValues.length !== value.length) onChange?.(validValues);
-      }, [opts]);
+        if (!socket?.connected) return;
+        socket.on("tagDeleted", removeDeletedTag);
+        socket.on("tagMerged", replaceMergedTag);
+
+        return () => {
+          socket.off("tagDeleted", removeDeletedTag);
+          socket.off("tagMerged", replaceMergedTag);
+        };
+      }, [replaceMergedTag, socket?.connected]);
 
       useEffect(() => {
         setInputValue(inputProps?.value as string);
