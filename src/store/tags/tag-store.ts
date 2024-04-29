@@ -11,7 +11,7 @@ import {
   prop,
 } from "mobx-keystone";
 import * as db from "database";
-import { RootStore } from "store";
+import { RootStore, sortFiles } from "store";
 import { SortMenuProps, TagToUpsert } from "components";
 import { Tag, TagOption } from ".";
 import { getConfig, handleErrors, makeQueue, PromiseQueue, regexEscape, trpc } from "utils";
@@ -35,6 +35,7 @@ export class TagStore extends Model({
   taggerBatchId: prop<string | null>(null).withSetter(),
   taggerFileIds: prop<string[]>(() => []).withSetter(),
   tagManagerRegExMode: prop<"any" | "hasRegEx" | "hasNoRegEx">("any").withSetter(),
+  tagManagerSearchValue: prop<TagOption[]>(() => []).withSetter(),
   tagManagerSort: prop<SortMenuProps["value"]>(
     () => getConfig().tags.managerSearchSort
   ).withSetter(),
@@ -402,6 +403,48 @@ export class TagStore extends Model({
   }
 
   /* --------------------------------- GETTERS -------------------------------- */
+  @computed
+  get tagManagerOptions() {
+    const {
+      excludedDescTagIdArrays,
+      excludedTagIds,
+      optionalTagIds,
+      requiredTagIds,
+      requiredDescTagIdArrays,
+    } = this.tagSearchOptsToIds(this.tagManagerSearchValue, true);
+
+    return [...this.tags]
+      .reduce((acc, cur) => {
+        if (optionalTagIds.length && !optionalTagIds.includes(cur.id)) return acc;
+
+        if (excludedTagIds.length || excludedDescTagIdArrays.length) {
+          if (
+            excludedTagIds.includes(cur.id) ||
+            excludedDescTagIdArrays.some((ids) => ids.some((id) => id === cur.id))
+          )
+            return acc;
+        }
+
+        if (requiredTagIds.length || requiredDescTagIdArrays.length) {
+          if (
+            !requiredTagIds.includes(cur.id) &&
+            !requiredDescTagIdArrays.every((ids) => ids.some((id) => id === cur.id))
+          )
+            return acc;
+        }
+
+        if (this.tagManagerRegExMode !== "any") {
+          const hasRegEx = cur.regExMap?.regEx?.length > 0;
+          if (this.tagManagerRegExMode === "hasRegEx" && !hasRegEx) return acc;
+          if (this.tagManagerRegExMode === "hasNoRegEx" && hasRegEx) return acc;
+        }
+
+        acc.push(cur.tagOption);
+        return acc;
+      }, [] as TagOption[])
+      .sort((a, b) => sortFiles({ a, b, ...this.tagManagerSort }));
+  }
+
   @computed
   get tagOptions() {
     return this.tags.map((t) => t.tagOption).sort((a, b) => b.count - a.count);

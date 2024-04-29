@@ -81,7 +81,7 @@ const useClasses = makeClasses(
       transition: "all 200ms ease-in-out",
       userSelect: "none",
       "&:hover": {
-        backgroundColor: colors.grey["800"],
+        backgroundColor: "rgb(50 50 50 / 0.3)"
       },
       "& .MuiFormControlLabel-label": {
         paddingRight: "0.4em",

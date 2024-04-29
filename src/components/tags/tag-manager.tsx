@@ -1,6 +1,6 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { observer } from "mobx-react-lite";
-import { TagOption, sortFiles, useStores } from "store";
+import { TagOption, useStores } from "store";
 import AutoSizer from "react-virtualized-auto-sizer";
 import { FixedSizeGrid } from "react-window";
 import {
@@ -16,70 +16,27 @@ import {
   Text,
   View,
 } from "components";
-import { CONSTANTS, colors, makeClasses, useDeepEffect, useDeepMemo } from "utils";
+import { CONSTANTS, colors, makeClasses, useDeepEffect } from "utils";
+
+const COLUMN_MIN_WIDTH = 200;
+const COLUMN_SPACING = 10;
+const ROW_HEIGHT = 50;
 
 export const TagManager = observer(() => {
   const { css } = useClasses(null);
 
   const { tagStore } = useStores();
 
-  const [searchValue, setSearchValue] = useState<TagOption[]>([]);
   const [width, setWidth] = useState(0);
-
-  const tags = useDeepMemo(tagStore.tags);
-  const tagManagerSort = useDeepMemo(tagStore.tagManagerSort);
-
-  const tagOptions = useMemo(() => {
-    const {
-      excludedDescTagIdArrays,
-      excludedTagIds,
-      optionalTagIds,
-      requiredTagIds,
-      requiredDescTagIdArrays,
-    } = tagStore.tagSearchOptsToIds(searchValue, true);
-
-    return [...tagStore.tags]
-      .reduce((acc, cur) => {
-        if (optionalTagIds.length && !optionalTagIds.includes(cur.id)) return acc;
-
-        if (excludedTagIds.length || excludedDescTagIdArrays.length) {
-          if (
-            excludedTagIds.includes(cur.id) ||
-            excludedDescTagIdArrays.some((ids) => ids.some((id) => id === cur.id))
-          )
-            return acc;
-        }
-
-        if (requiredTagIds.length || requiredDescTagIdArrays.length) {
-          if (
-            !requiredTagIds.includes(cur.id) &&
-            !requiredDescTagIdArrays.every((ids) => ids.some((id) => id === cur.id))
-          )
-            return acc;
-        }
-
-        if (tagStore.tagManagerRegExMode !== "any") {
-          const hasRegEx = cur.regExMap?.regEx?.length > 0;
-          if (tagStore.tagManagerRegExMode === "hasRegEx" && !hasRegEx) return acc;
-          if (tagStore.tagManagerRegExMode === "hasNoRegEx" && hasRegEx) return acc;
-        }
-
-        acc.push(cur.tagOption);
-        return acc;
-      }, [] as TagOption[])
-      .sort((a, b) => sortFiles({ a, b, ...tagStore.tagManagerSort }));
-  }, [JSON.stringify(searchValue), tagStore.tagManagerRegExMode, tags, tagManagerSort]);
 
   const resultsRef = useRef<FixedSizeGrid>(null);
   useDeepEffect(() => {
     if (resultsRef.current) resultsRef.current.scrollTo({ scrollTop: 0 });
-  }, [tagOptions]);
+  }, [tagStore.tagManagerOptions]);
 
-  const columnWidth = 250;
-  const rowHeight = 50;
-
+  const columnWidth = Math.max(COLUMN_MIN_WIDTH, Math.floor(width / COLUMN_MIN_WIDTH));
   const columnCount = Math.floor(width / columnWidth);
-  const rowCount = Math.ceil(tagOptions.length / columnCount);
+  const rowCount = Math.ceil(tagStore.tagManagerOptions.length / columnCount);
 
   const closeModal = () => tagStore.setIsTagManagerOpen(false);
 
@@ -94,28 +51,27 @@ export const TagManager = observer(() => {
 
   const handleResize = ({ width }) => setWidth(width);
 
+  const handleSearchChange = (val: TagOption[]) => tagStore.setTagManagerSearchValue(val);
+
   const setTagManagerSort = (val: SortMenuProps["value"]) => tagStore.setTagManagerSort(val);
 
-  const renderTag = useCallback(
-    ({ columnIndex, rowIndex, style }) => {
-      const index = rowIndex * columnCount + columnIndex;
-      if (index >= tagOptions.length) return null;
+  const renderTag = ({ columnIndex, rowIndex, style }) => {
+    const index = rowIndex * columnCount + columnIndex;
+    if (index >= tagStore.tagManagerOptions.length) return null;
 
-      const id = tagOptions[index].id;
+    const id = tagStore.tagManagerOptions[index].id;
 
-      const handleClick = () => {
-        tagStore.setActiveTagId(id);
-        tagStore.setIsTagEditorOpen(true);
-      };
+    const handleClick = () => {
+      tagStore.setActiveTagId(id);
+      tagStore.setIsTagEditorOpen(true);
+    };
 
-      return (
-        <View key={`${columnIndex}-${rowIndex}`} padding={{ right: "0.5rem" }} {...{ style }}>
-          <Tag id={id} onClick={handleClick} />
-        </View>
-      );
-    },
-    [columnCount, columnWidth, JSON.stringify(tagOptions)]
-  );
+    return (
+      <View key={`${columnIndex}-${rowIndex}`} padding={{ right: COLUMN_SPACING }} {...{ style }}>
+        <Tag id={id} onClick={handleClick} />
+      </View>
+    );
+  };
 
   return (
     <Modal.Container onClose={closeModal} height="80%" width="80%">
@@ -131,12 +87,20 @@ export const TagManager = observer(() => {
       </Modal.Header>
 
       <Modal.Content className={css.modalContent}>
-        <View className={css.searchRow}>
+        <View column spacing="0.5rem" className={css.searchColumn}>
           <TagInput
             label="Search Tags"
-            value={searchValue}
-            onChange={setSearchValue}
+            value={tagStore.tagManagerSearchValue}
+            onChange={handleSearchChange}
             hasSearchMenu
+            width="100%"
+          />
+
+          <SortMenu
+            rows={CONSTANTS.SORT_MENU_OPTS.TAG_SEARCH}
+            value={tagStore.tagManagerSort}
+            setValue={setTagManagerSort}
+            color={colors.button.darkGrey}
             width="100%"
           />
 
@@ -145,13 +109,7 @@ export const TagManager = observer(() => {
             checked={tagStore.tagManagerRegExMode === "hasRegEx"}
             indeterminate={tagStore.tagManagerRegExMode === "hasNoRegEx"}
             setChecked={tagStore.toggleTagManagerRegExMode}
-          />
-
-          <SortMenu
-            rows={CONSTANTS.SORT_MENU_OPTS.TAG_SEARCH}
-            value={tagStore.tagManagerSort}
-            setValue={setTagManagerSort}
-            color={colors.button.darkGrey}
+            flex={0}
           />
         </View>
 
@@ -160,7 +118,8 @@ export const TagManager = observer(() => {
             {({ height, width }) => (
               <FixedSizeGrid
                 ref={resultsRef}
-                {...{ columnCount, columnWidth, height, rowCount, rowHeight, width }}
+                {...{ columnCount, columnWidth, height, rowCount, width }}
+                rowHeight={ROW_HEIGHT}
               >
                 {renderTag}
               </FixedSizeGrid>
@@ -180,16 +139,19 @@ export const TagManager = observer(() => {
 
 const useClasses = makeClasses({
   modalContent: {
-    overflow: "hidden",
-  },
-  searchRow: {
     display: "flex",
     flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: "0.5rem",
-    "& > *:not(:last-child)": {
-      marginRight: "0.5rem",
-    },
+    height: "100%",
+    width: "100%",
+    overflow: "hidden",
+  },
+  searchColumn: {
+    borderRadius: 4,
+    marginRight: "0.5rem",
+    padding: "0.5rem",
+    width: "15rem",
+    backgroundColor: colors.grey["800"],
+    overflow: "hidden",
   },
   tags: {
     display: "flex",
