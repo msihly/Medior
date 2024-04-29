@@ -56,10 +56,11 @@ export const listCollectionIdsByTagIds = async ({ tagIds }: db.ListCollectionIds
   });
 
 const makeCollAttrs = async (files: db.File[]) => {
+  const ratedFiles = files.filter((f) => f.rating > 0);
   const tagIds = [...new Set(files.flatMap((f) => f.tagIds))];
   return {
     fileCount: files.length,
-    rating: files.reduce((acc, f) => acc + f.rating, 0) / files.length,
+    rating: ratedFiles.reduce((acc, f) => acc + f.rating, 0) / ratedFiles.length,
     tagIds,
     tagIdsWithAncestors: await db.deriveTagIdsWithAncestors(tagIds),
     thumbPaths: files.slice(0, 10).map((f) => f.thumbPaths[0]),

@@ -285,7 +285,7 @@ export class FileStore extends Model({
       handleErrors(async () => {
         if (!fileIds.length) return;
         const res = await trpc.setFileRating.mutate({ fileIds, rating });
-        if (res.success) toast.success("Rating updated");
+        if (res.success) toast.success(`Rating updated to ${rating}`);
         else {
           console.error("Error updating rating:", res.error);
           toast.error("Error updating rating");
