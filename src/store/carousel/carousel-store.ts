@@ -31,18 +31,21 @@ export class CarouselStore extends Model({
 
   @modelAction
   removeFiles(fileIds: string[]) {
+    const rootStore = getRootStore<RootStore>(this);
+    if (!rootStore) throw new Error("Root store not found");
+
     const newSelectedIds = this.selectedFileIds.filter((id) => !fileIds.includes(id));
     if (!newSelectedIds.length) return remote.getCurrentWindow().close();
 
-    if (fileIds.includes(this.activeFileId))
-      this.setActiveFileId(
-        newSelectedIds[this.activeFileIndex] ?? newSelectedIds[this.activeFileIndex - 1]
-      );
+    if (fileIds.includes(this.activeFileId)) {
+      const newFileId =
+        newSelectedIds[this.activeFileIndex] ?? newSelectedIds[this.activeFileIndex - 1];
+      this.setActiveFileId(newFileId);
+      rootStore.fileStore.setActiveFileId(newFileId);
+    }
 
     this.setSelectedFileIds(newSelectedIds);
 
-    const rootStore = getRootStore<RootStore>(this);
-    if (!rootStore) return;
     rootStore.fileStore.loadFiles({ fileIds: newSelectedIds });
   }
 

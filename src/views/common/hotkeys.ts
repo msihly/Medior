@@ -17,9 +17,10 @@ export const useHotkeys = ({ rootRef, view }: UseHotkeysProps) => {
     if (carouselStore.activeFileIndex === (isLeft ? 0 : carouselStore.selectedFileIds.length - 1))
       return;
 
-    carouselStore.setActiveFileId(
-      carouselStore.selectedFileIds[carouselStore.activeFileIndex + (isLeft ? -1 : 1)]
-    );
+    const newFileId =
+      carouselStore.selectedFileIds[carouselStore.activeFileIndex + (isLeft ? -1 : 1)];
+    carouselStore.setActiveFileId(newFileId);
+    fileStore.setActiveFileId(newFileId);
 
     rootRef.current?.focus();
   };
@@ -44,7 +45,7 @@ export const useHotkeys = ({ rootRef, view }: UseHotkeysProps) => {
   };
 
   const handleKeyPress = async (event: KeyboardEvent) => {
-    if (tagStore.isTaggerOpen) return;
+    if (tagStore.isTaggerOpen || tagStore.isTagEditorOpen) return;
 
     const fileIds = view === "carousel" ? [carouselStore.activeFileId] : [...fileStore.selectedIds];
     if (!fileIds.length) return;
