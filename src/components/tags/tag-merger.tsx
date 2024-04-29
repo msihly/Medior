@@ -37,7 +37,9 @@ export const TagMerger = observer(() => {
 
   const hasSelectedTag = selectedTagValue.length > 0;
   const disabled = isSaving || !hasSelectedTag;
-  const baseTag = tagStore.getById(tagStore.activeTagId);
+  const baseTag = tagStore.getById(
+    tagStore.isTagSubEditorOpen ? tagStore.subEditorTagId : tagStore.activeTagId
+  );
   const tagOptions = useDeepMemo(tagStore.tagOptions);
 
   useDeepEffect(() => {
