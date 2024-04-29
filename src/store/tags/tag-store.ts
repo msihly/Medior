@@ -269,7 +269,9 @@ export class TagStore extends Model({
           tagQueue.add(async () => {
             try {
               const parentTags = t.parentLabels
-                ? t.parentLabels.map((l) => this.getByLabel(l)).filter(Boolean)
+                ? t.parentLabels
+                    .map((l) => this.getByLabel(l) || tagsToInsert.find((tag) => tag.label === l))
+                    .filter(Boolean)
                 : null;
               const parentIds = parentTags?.map((t) => t.id) ?? [];
 
