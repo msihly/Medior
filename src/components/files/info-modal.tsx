@@ -71,12 +71,12 @@ export const InfoModal = observer(() => {
 
           <Detail
             label="Dimensions"
-            value={`${file.width} x ${file.height}`}
+            value={`${file?.width} x ${file?.height}`}
             valueProps={{
               tooltip: (
                 <DetailRow>
-                  <Detail label="Width" value={file.width} />
-                  <Detail label="Height" value={file.height} />
+                  <Detail label="Width" value={file?.width} />
+                  <Detail label="Height" value={file?.height} />
                 </DetailRow>
               ),
             }}
