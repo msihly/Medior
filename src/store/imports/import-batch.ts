@@ -63,6 +63,8 @@ export class ImportBatch extends Model({
       ? "ERROR"
       : this.imports.some((imp) => imp.status === "DUPLICATE")
       ? "DUPLICATE"
+      : !this.completedAt?.length
+      ? "PENDING"
       : "COMPLETE";
   }
 }

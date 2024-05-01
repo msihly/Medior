@@ -60,7 +60,10 @@ const makeCollAttrs = async (files: db.File[]) => {
   const tagIds = [...new Set(files.flatMap((f) => f.tagIds))];
   return {
     fileCount: files.length,
-    rating: ratedFiles.reduce((acc, f) => acc + f.rating, 0) / ratedFiles.length,
+    rating:
+      ratedFiles.length > 0
+        ? ratedFiles.reduce((acc, f) => acc + f.rating, 0) / ratedFiles.length
+        : 0,
     tagIds,
     tagIdsWithAncestors: await db.deriveTagIdsWithAncestors(tagIds),
     thumbPaths: files.slice(0, 10).map((f) => f.thumbPaths[0]),
