@@ -45,7 +45,13 @@ export const useHotkeys = ({ rootRef, view }: UseHotkeysProps) => {
   };
 
   const handleKeyPress = async (event: KeyboardEvent) => {
-    if (tagStore.isTaggerOpen || tagStore.isTagEditorOpen) return;
+    if (
+      tagStore.isTaggerOpen ||
+      tagStore.isTagEditorOpen ||
+      tagStore.isTagSubEditorOpen ||
+      tagStore.isTagMergerOpen
+    )
+      return;
 
     const fileIds = view === "carousel" ? [carouselStore.activeFileId] : [...fileStore.selectedIds];
     if (!fileIds.length) return;
