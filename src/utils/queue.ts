@@ -2,15 +2,28 @@ import { toast } from "react-toastify";
 import { inspect } from "util";
 
 export class PromiseQueue {
+  cancelled = false;
   queue = Promise.resolve();
 
   add<T>(fn: (...args: any) => Promise<T>): Promise<T> {
-    return new Promise((resolve, reject) => {
-      this.queue = this.queue.then(fn).then(resolve).catch(reject);
-    });
+    this.cancelled = false;
+    try {
+      return new Promise((resolve, reject) => {
+        this.queue = this.queue
+          .then(() => {
+            if (!this.cancelled) return fn();
+            else throw { cancelled: true };
+          })
+          .then(resolve)
+          .catch((error) => !error?.cancelled && reject(error));
+      });
+    } catch (error) {
+      return Promise.reject(error);
+    }
   }
 
   clear() {
+    this.cancelled = true;
     this.queue = Promise.resolve();
   }
 
