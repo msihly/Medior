@@ -50,10 +50,10 @@ const emitTagUpdates = (
       }).lean()
     ).map((r) => leanModelToJson<db.Tag>(r));
 
-    socket.emit(
-      "tagsUpdated",
-      updatedTags.map((tag) => ({ tagId: tag.id, updates: { ...tag } }))
-    );
+    socket.emit("tagsUpdated", {
+      tags: updatedTags.map((tag) => ({ tagId: tag.id, updates: { ...tag } })),
+      withFileReload: true,
+    });
   });
 
 const getOrphanedIds = async (tagId: string, field: string, oppIds: string[]) => {
@@ -321,7 +321,7 @@ export const regenTagAncestors = async ({
       })
     );
 
-    if (withSub) socket.emit("tagsUpdated", updates);
+    if (withSub) socket.emit("tagsUpdated", { tags: updates, withFileReload: true });
   });
 
 /* ------------------------------ API ENDPOINTS ----------------------------- */
@@ -573,10 +573,10 @@ export const mergeTags = ({
       if (!countRes.success) throw new Error(countRes.error);
 
       socket.emit("tagMerged", { newTagId: tagIdToKeep, oldTagId: tagIdToMerge });
-      socket.emit("tagsUpdated", [
-        ...countRes.data,
-        { tagId: tagIdToKeep, updates: tagToKeepUpdates },
-      ]);
+      socket.emit("tagsUpdated", {
+        tags: [...countRes.data, { tagId: tagIdToKeep, updates: tagToKeepUpdates }],
+        withFileReload: true,
+      });
     } catch (err) {
       error = err.message;
       logToFile("error", JSON.stringify(err.stack, null, 2));
@@ -609,7 +609,7 @@ export const recalculateTagCounts = async ({
       })
     );
 
-    if (withSub) socket.emit("tagsUpdated", updatedTags);
+    if (withSub) socket.emit("tagsUpdated", { tags: updatedTags, withFileReload: false });
     return updatedTags;
   });
 

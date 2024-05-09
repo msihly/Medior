@@ -265,7 +265,10 @@ export interface SocketEmitEvents {
   tagCreated: (args: { tag: db.Tag }) => void;
   tagDeleted: (args: { tagId: string }) => void;
   tagMerged: (args: { oldTagId: string; newTagId: string }) => void;
-  tagsUpdated: (args: { tagId: string; updates: Partial<db.Tag> }[]) => void;
+  tagsUpdated: (args: {
+    tags: Array<{ tagId: string; updates: Partial<db.Tag> }>;
+    withFileReload: boolean;
+  }) => void;
 }
 
 export type SocketEmitEvent = keyof SocketEmitEvents;

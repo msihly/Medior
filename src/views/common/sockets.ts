@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { SocketEmitEvent, SocketEmitEvents } from "server";
 import { useStores } from "store";
-import { setupSocketIO, socket } from "utils";
+import { setupSocketIO, socket, throttle } from "utils";
 
 export interface UseSocketsProps {
   view: "carousel" | "home" | "search";
@@ -83,9 +83,9 @@ export const useSockets = ({ view }: UseSocketsProps) => {
       if (view === "home") importStore.editBatchTags({ removedIds: [oldTagId] });
     });
 
-    makeSocket("tagsUpdated", (tags) => {
+    makeSocket("tagsUpdated", ({ tags, withFileReload }) => {
       tags.forEach((t) => tagStore.getById(t.tagId)?.update(t.updates));
-      if (view !== "carousel") homeStore.loadFilteredFiles();
+      if (withFileReload && view !== "carousel") homeStore.loadFilteredFiles();
     });
 
     if (view === "carousel") {
@@ -104,7 +104,8 @@ export const useSockets = ({ view }: UseSocketsProps) => {
       );
 
       makeSocket("importBatchCompleted", () => {
-        if (!importStore.isImportManagerOpen) homeStore.loadFilteredFiles();
+        if (!importStore.isImportManagerOpen && !importStore.isImportEditorOpen)
+          throttle(() => homeStore.loadFilteredFiles(), 5000)();
       });
 
       makeSocket("reloadFileCollections", () => {
