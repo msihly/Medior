@@ -28,6 +28,8 @@ export interface Constants {
 }
 
 const IMAGE_TYPES = [
+  "apng",
+  "avif",
   "bmp",
   "gif",
   "heic",
@@ -37,6 +39,7 @@ const IMAGE_TYPES = [
   "jpeg",
   "jpg",
   "png",
+  "svg",
   "tiff",
   "webp",
 ] as const;
@@ -44,15 +47,33 @@ export type ImageType = (typeof IMAGE_TYPES)[number];
 
 const VIDEO_TYPES = [
   "3gp",
+  "3gp2",
+  "3gpp",
+  "amv",
+  "asf",
   "avi",
+  "divx",
   "f4v",
   "flv",
+  "m2t",
+  "m2ts",
+  "m2v",
+  "m4b",
+  "m4p",
   "m4v",
   "mkv",
   "mov",
   "mp4",
+  "mpeg",
+  "mpg",
+  "mts",
+  "ogv",
+  "qt",
   "ts",
+  "vob",
   "webm",
+  "wm",
+  "wmp",
   "wmv",
 ] as const;
 export type VideoType = (typeof VIDEO_TYPES)[number];

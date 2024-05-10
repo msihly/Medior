@@ -25,6 +25,7 @@ export const ImportManager = observer(() => {
     <Modal.Container
       visible={importStore.isImportManagerOpen}
       onClose={handleClose}
+      maxWidth="60rem"
       width="100%"
       height="100%"
     >
