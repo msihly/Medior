@@ -8,7 +8,7 @@ import { toast } from "react-toastify";
 export const ImportManager = observer(() => {
   const { css } = useClasses(null);
 
-  const { importStore, tagStore } = useStores();
+  const { homeStore, importStore, tagStore } = useStores();
 
   const completedRef = useRef<HTMLDivElement>(null);
 
@@ -17,7 +17,10 @@ export const ImportManager = observer(() => {
       completedRef.current.scrollTo({ behavior: "smooth", top: completedRef.current.scrollHeight });
   }, [importStore.completedBatches?.length]);
 
-  const handleClose = () => importStore.setIsImportManagerOpen(false);
+  const handleClose = () => {
+    importStore.setIsImportManagerOpen(false);
+    homeStore.reloadIfQueued();
+  }
 
   const handleTagManager = () => tagStore.setIsTagManagerOpen(true);
 

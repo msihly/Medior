@@ -41,7 +41,7 @@ export const ImportEditor = observer(() => {
 
   const { css, cx } = useClasses(null);
 
-  const { importStore, tagStore } = useStores();
+  const { homeStore, importStore, tagStore } = useStores();
 
   const [deleteOnImport, setDeleteOnImport] = useState(config.imports.deleteOnImport);
   const [flatFolderHierarchy, setFlatFolderHierarchy] = useState<FlatFolderHierarchy>([]);
@@ -72,9 +72,12 @@ export const ImportEditor = observer(() => {
 
   const isDisabled = isLoading || isSaving;
 
-  const confirmDiscard = () => setIsConfirmDiscardOpen(true);
+  const confirmDiscard = () => {
+    importStore.setIsImportEditorOpen(false);
+    homeStore.reloadIfQueued();
+  };
 
-  const handleClose = () => importStore.setIsImportEditorOpen(false);
+  const handleCancel = () => setIsConfirmDiscardOpen(true);
 
   const handleFolderToCollection = (checked: boolean) =>
     setFolderToCollectionMode(checked ? "withoutTag" : "none");
@@ -332,7 +335,7 @@ export const ImportEditor = observer(() => {
       `Queued ${flatFolderHierarchy.reduce((acc, cur) => acc + cur.imports.length, 0)} imports`
     );
 
-    handleClose();
+    importStore.setIsImportEditorOpen(false);
     importStore.setIsImportManagerOpen(true);
   };
 
@@ -730,7 +733,7 @@ export const ImportEditor = observer(() => {
         <Button
           text="Close"
           icon="Close"
-          onClick={confirmDiscard}
+          onClick={handleCancel}
           disabled={isDisabled}
           color={colors.button.red}
         />
@@ -749,7 +752,7 @@ export const ImportEditor = observer(() => {
           headerText="Discard Changes"
           subText="Are you sure you want to cancel importing?"
           setVisible={setIsConfirmDiscardOpen}
-          onConfirm={handleClose}
+          onConfirm={confirmDiscard}
         />
       )}
     </Modal.Container>

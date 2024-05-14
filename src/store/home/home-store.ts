@@ -59,6 +59,7 @@ export class HomeStore extends Model({
   dateModifiedStart: prop<string>("").withSetter(),
   fileCardFit: prop<"contain" | "cover">(() => getConfig().file.fileCardFit).withSetter(),
   hasDiffParams: prop<boolean>(false).withSetter(),
+  hasQueuedReload: prop<boolean>(false).withSetter(),
   isArchiveOpen: prop<boolean>(false).withSetter(),
   isDraggingIn: prop<boolean>(false).withSetter(),
   isDraggingOut: prop<boolean>(false).withSetter(),
@@ -85,6 +86,15 @@ export class HomeStore extends Model({
   sortValue: prop<SortMenuProps["value"]>(() => getConfig().file.searchSort).withSetter(),
 }) {
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
+  @modelAction
+  reloadIfQueued() {
+    const rootStore = getRootStore<RootStore>(this);
+    if (this.hasQueuedReload && !rootStore.getIsBlockingModalOpen()) {
+      this.setHasQueuedReload(false);
+      this.loadFilteredFiles();
+    }
+  }
+
   @modelAction
   resetSearch() {
     const config = getConfig();

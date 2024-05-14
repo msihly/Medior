@@ -25,7 +25,7 @@ const ROW_HEIGHT = 50;
 export const TagManager = observer(() => {
   const { css } = useClasses(null);
 
-  const { tagStore } = useStores();
+  const { homeStore, tagStore } = useStores();
 
   const [width, setWidth] = useState(0);
 
@@ -38,7 +38,10 @@ export const TagManager = observer(() => {
   const columnCount = Math.floor(width / columnWidth);
   const rowCount = Math.ceil(tagStore.tagManagerOptions.length / columnCount);
 
-  const closeModal = () => tagStore.setIsTagManagerOpen(false);
+  const handleClose = () => {
+    tagStore.setIsTagManagerOpen(false);
+    homeStore.reloadIfQueued();
+  };
 
   const handleCreate = () => {
     tagStore.setActiveTagId(null);
@@ -74,7 +77,7 @@ export const TagManager = observer(() => {
   };
 
   return (
-    <Modal.Container onClose={closeModal} height="80%" width="80%">
+    <Modal.Container onClose={handleClose} height="80%" width="80%">
       <Modal.Header
         rightNode={
           <MenuButton color={colors.button.grey}>
@@ -129,7 +132,7 @@ export const TagManager = observer(() => {
       </Modal.Content>
 
       <Modal.Footer>
-        <Button text="Close" icon="Close" onClick={closeModal} color={colors.button.grey} />
+        <Button text="Close" icon="Close" onClick={handleClose} color={colors.button.grey} />
 
         <Button text="Create" icon="Add" onClick={handleCreate} />
       </Modal.Footer>

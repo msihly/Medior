@@ -15,7 +15,7 @@ export const FaceRecognitionModal = observer(() => {
   const { css } = useClasses(null);
 
   const rootStore = useStores();
-  const { faceRecognitionStore, fileStore, tagStore } = useStores();
+  const { faceRecognitionStore, fileStore, homeStore, tagStore } = useStores();
 
   const imageRef = useRef<HTMLImageElement>();
 
@@ -94,6 +94,7 @@ export const FaceRecognitionModal = observer(() => {
   const handleClose = () => {
     faceRecognitionStore.setDetectedFaces([]);
     faceRecognitionStore.setIsModalOpen(false);
+    homeStore.reloadIfQueued();
   };
 
   const handleDetect = async () => {

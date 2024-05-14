@@ -14,7 +14,7 @@ interface TaggerProps {
 export const Tagger = observer(({ batchId, fileIds, setVisible }: TaggerProps) => {
   const { css } = useClasses(null);
 
-  const { fileStore, tagStore } = useStores();
+  const { fileStore, homeStore, tagStore } = useStores();
 
   const [addedTags, setAddedTags] = useState<TagOption[]>([]);
   const [currentTagOptions, setCurrentTagOptions] = useState<TagOption[]>([]);
@@ -41,11 +41,13 @@ export const Tagger = observer(({ batchId, fileIds, setVisible }: TaggerProps) =
   const handleClose = () => {
     if (hasUnsavedChanges) return setIsConfirmDiscardOpen(true);
     setVisible(false);
+    homeStore.reloadIfQueued();
   };
 
   const handleCloseForced = () => {
     setHasUnsavedChanges(false);
     setVisible(false);
+    homeStore.reloadIfQueued();
   };
 
   const handleTagAdded = (tags: TagOption[]) => {

@@ -17,7 +17,22 @@ export class RootStore extends Model({
   homeStore: prop<HomeStore>(),
   importStore: prop<ImportStore>(),
   tagStore: prop<TagStore>(),
-}) {}
+}) {
+  /* ----------------------------- DYNAMIC GETTERS ---------------------------- */
+  getIsBlockingModalOpen() {
+    return (
+      this.faceRecognitionStore?.isModalOpen ||
+      this.fileCollectionStore?.isEditorOpen ||
+      this.fileCollectionStore?.isManagerOpen ||
+      this.importStore?.isImportEditorOpen ||
+      this.importStore?.isImportManagerOpen ||
+      this.tagStore?.isTagEditorOpen ||
+      this.tagStore?.isTaggerOpen ||
+      this.tagStore?.isTagManagerOpen ||
+      this.tagStore?.isTagMergerOpen
+    );
+  }
+}
 
 export const createRootStore = () => {
   const rootStore = new RootStore({

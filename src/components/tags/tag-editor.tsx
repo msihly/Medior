@@ -30,7 +30,7 @@ export const TagEditor = observer(
 
     const labelRef = useRef<HTMLDivElement>(null);
 
-    const { tagStore } = useStores();
+    const { homeStore, tagStore } = useStores();
 
     const isCreate = !id;
     const tag = isCreate ? null : tagStore.getById(id);
@@ -83,8 +83,13 @@ export const TagEditor = observer(
       labelRef.current?.focus();
     };
 
-    const handleClose = () =>
-      isSubEditor ? tagStore.setIsTagSubEditorOpen(false) : tagStore.setIsTagEditorOpen(false);
+    const handleClose = () => {
+      if (isSubEditor) tagStore.setIsTagSubEditorOpen(false);
+      else {
+        tagStore.setIsTagEditorOpen(false);
+        homeStore.reloadIfQueued();
+      }
+    };
 
     const handleConfirmDelete = async () => {
       setIsLoading(true);

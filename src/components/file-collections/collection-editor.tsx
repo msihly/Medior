@@ -41,7 +41,7 @@ export const FileCollectionEditor = observer(() => {
 
   const sensors = useSensors(useSensor(MouseSensor, { activationConstraint: { distance: 4 } }));
 
-  const { fileCollectionStore, fileStore, tagStore } = useStores();
+  const { fileCollectionStore, fileStore, homeStore, tagStore } = useStores();
 
   const hasNoSelection = fileCollectionStore.editorSelectedIds.length === 0;
 
@@ -118,7 +118,10 @@ export const FileCollectionEditor = observer(() => {
         };
   };
 
-  const handleClose = () => fileCollectionStore.setIsEditorOpen(false);
+  const handleClose = () => {
+    fileCollectionStore.setIsEditorOpen(false);
+    homeStore.reloadIfQueued();
+  };
 
   const handleConfirmDelete = async () => {
     const res = await fileCollectionStore.deleteCollection(fileCollectionStore.editorId);

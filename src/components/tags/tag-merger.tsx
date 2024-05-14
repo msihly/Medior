@@ -21,7 +21,7 @@ import { toast } from "react-toastify";
 export const TagMerger = observer(() => {
   const { css } = useClasses(null);
 
-  const { tagStore } = useStores();
+  const { homeStore, tagStore } = useStores();
 
   const [aliases, setAliases] = useState<ChipOption[]>([]);
   const [childTags, setChildTags] = useState<TagOption[]>([]);
@@ -84,6 +84,7 @@ export const TagMerger = observer(() => {
   const handleClose = () => {
     setIsConfirmDiscardOpen(false);
     tagStore.setIsTagMergerOpen(false);
+    homeStore.reloadIfQueued();
   };
 
   const handleConfirm = async () => {

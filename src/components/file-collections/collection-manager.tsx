@@ -24,7 +24,7 @@ import Color from "color";
 export const FileCollectionManager = observer(() => {
   const { css } = useClasses(null);
 
-  const { fileCollectionStore } = useStores();
+  const { fileCollectionStore, homeStore } = useStores();
 
   const collectionsRef = useRef<HTMLDivElement>(null);
 
@@ -56,7 +56,10 @@ export const FileCollectionManager = observer(() => {
     debounce(() => fileCollectionStore.listFilteredCollections({ page: 1 }), 800)();
   }, [...searchDeps]);
 
-  const closeModal = () => fileCollectionStore.setIsManagerOpen(false);
+  const handleClose = () => {
+    fileCollectionStore.setIsManagerOpen(false);
+    homeStore.reloadIfQueued();
+  };
 
   const handleRefreshMeta = () => fileCollectionStore.regenAllCollMeta();
 
@@ -89,7 +92,7 @@ export const FileCollectionManager = observer(() => {
     !fileCollectionStore.isManagerLoading && fileCollectionStore.setManagerTitleSearchValue(value);
 
   return (
-    <Modal.Container height="100%" width="100%" onClose={closeModal}>
+    <Modal.Container height="100%" width="100%" onClose={handleClose}>
       <LoadingOverlay isLoading={fileCollectionStore.isManagerLoading} />
 
       <Modal.Header
@@ -208,7 +211,7 @@ export const FileCollectionManager = observer(() => {
       </Modal.Content>
 
       <Modal.Footer>
-        <Button text="Close" icon="Close" onClick={closeModal} color={colors.button.grey} />
+        <Button text="Close" icon="Close" onClick={handleClose} color={colors.button.grey} />
 
         <Button text="New Collection" icon="Add" onClick={handleNewCollection} />
       </Modal.Footer>

@@ -10,6 +10,7 @@ export interface UseSocketsProps {
 export const useSockets = ({ view }: UseSocketsProps) => {
   const debug = false;
 
+  const rootStore = useStores();
   const { carouselStore, fileCollectionStore, fileStore, homeStore, importStore, tagStore } =
     useStores();
 
@@ -28,6 +29,11 @@ export const useSockets = ({ view }: UseSocketsProps) => {
       callback(eventArgs);
     });
 
+  const queueFileReload = () =>
+    rootStore.getIsBlockingModalOpen()
+      ? homeStore.setHasQueuedReload(true)
+      : homeStore.loadFilteredFiles();
+
   const setupSockets = () => {
     setupSocketIO();
 
@@ -36,7 +42,7 @@ export const useSockets = ({ view }: UseSocketsProps) => {
       else {
         if (view === "home") importStore.addDeletedFileHashes(fileHashes);
         if (fileCollectionStore.isManagerOpen) fileCollectionStore.listFilteredCollections();
-        homeStore.loadFilteredFiles();
+        queueFileReload();
       }
     });
 
@@ -48,14 +54,14 @@ export const useSockets = ({ view }: UseSocketsProps) => {
         const shouldReload =
           updatedKeys.some((k) => ["isArchived", "tagIds"].includes(k)) ||
           updatedKeys.includes(homeStore.sortValue.key);
-        if (shouldReload) homeStore.loadFilteredFiles();
+        if (shouldReload) queueFileReload();
       }
     });
 
     makeSocket("fileTagsUpdated", ({ addedTagIds, batchId, fileIds, removedTagIds }) => {
       fileStore.updateFileTags({ addedTagIds, fileIds, removedTagIds });
 
-      if (view !== "carousel") homeStore.loadFilteredFiles();
+      if (view !== "carousel") queueFileReload();
       if (view === "home" && batchId?.length > 0)
         importStore.editBatchTags({
           addedIds: addedTagIds,
@@ -66,7 +72,7 @@ export const useSockets = ({ view }: UseSocketsProps) => {
 
     makeSocket("reloadFiles", () => {
       if (view === "carousel") fileStore.loadFiles({ fileIds: carouselStore.selectedFileIds });
-      else homeStore.loadFilteredFiles();
+      else queueFileReload();
     });
 
     makeSocket("reloadTags", () => tagStore.loadTags());
@@ -76,7 +82,7 @@ export const useSockets = ({ view }: UseSocketsProps) => {
     makeSocket("tagDeleted", ({ tagId }) => {
       tagStore._deleteTag(tagId);
       if (view === "home") importStore.editBatchTags({ removedIds: [tagId] });
-      if (view !== "carousel") homeStore.loadFilteredFiles();
+      if (view !== "carousel") queueFileReload();
     });
 
     makeSocket("tagMerged", ({ oldTagId }) => {
@@ -85,7 +91,7 @@ export const useSockets = ({ view }: UseSocketsProps) => {
 
     makeSocket("tagsUpdated", ({ tags, withFileReload }) => {
       tags.forEach((t) => tagStore.getById(t.tagId)?.update(t.updates));
-      if (withFileReload && view !== "carousel") homeStore.loadFilteredFiles();
+      if (withFileReload && view !== "carousel") throttle(queueFileReload, 2000)();
     });
 
     if (view === "carousel") {
@@ -104,8 +110,7 @@ export const useSockets = ({ view }: UseSocketsProps) => {
       );
 
       makeSocket("importBatchCompleted", () => {
-        if (!importStore.isImportManagerOpen && !importStore.isImportEditorOpen)
-          throttle(() => homeStore.loadFilteredFiles(), 5000)();
+        throttle(queueFileReload, 5000)();
       });
 
       makeSocket("reloadFileCollections", () => {
