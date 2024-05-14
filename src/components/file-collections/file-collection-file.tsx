@@ -3,7 +3,7 @@ import { observer } from "mobx-react-lite";
 import { FileCollectionFile as FileColFile, useStores } from "store";
 import { useSortable } from "@alissavrk/dnd-kit-sortable";
 import { CSS } from "@alissavrk/dnd-kit-utilities";
-import { Button, FileBase, View } from "components";
+import { FileBase, View } from "components";
 import { colors, dayjs, openCarouselWindow } from "utils";
 
 export interface FileCollectionFileProps {
@@ -27,6 +27,29 @@ export const FileCollectionFile = observer(
       id: file?.id,
     });
 
+    const handleClick = async (event: React.MouseEvent) => {
+      if (disabled) return;
+      if (event.shiftKey) {
+        const { idsToDeselect, idsToSelect } = fileCollectionStore.getShiftSelectedIds(file.id);
+
+        fileCollectionStore.toggleFilesSelected([
+          ...idsToDeselect.map((i) => ({ id: i, isSelected: false })),
+          ...idsToSelect.map((i) => ({ id: i, isSelected: true })),
+        ]);
+      } else if (event.ctrlKey) {
+        /** Toggle the selected state of the file that was clicked. */
+        fileCollectionStore.toggleFilesSelected([
+          { id: file.id, isSelected: !fileCollectionStore.getIsSelected(file.id) },
+        ]);
+      } else {
+        /** Deselect all the files and select the file that was clicked. */
+        fileCollectionStore.toggleFilesSelected([
+          ...fileCollectionStore.editorSelectedIds.map((id) => ({ id, isSelected: false })),
+          { id: file.id, isSelected: true },
+        ]);
+      }
+    };
+
     const handleDoubleClick = () =>
       openCarouselWindow({
         file,
@@ -40,11 +63,6 @@ export const FileCollectionFile = observer(
       tagStore.setIsTagEditorOpen(true);
     };
 
-    const toggleDeleted = () => {
-      fileColFile.setIsDeleted(!fileColFile.isDeleted);
-      fileCollectionStore.setHasUnsavedChanges(true);
-    };
-
     return (
       <View
         ref={setNodeRef}
@@ -54,9 +72,9 @@ export const FileCollectionFile = observer(
       >
         <FileBase.Container
           {...{ disabled, height, width }}
+          onClick={handleClick}
           onDoubleClick={handleDoubleClick}
-          selected={fileColFile.isDeleted}
-          selectedColor={colors.red["900"]}
+          selected={fileCollectionStore.getIsSelected(file.id)}
         >
           <FileBase.Image
             thumbPaths={file.thumbPaths}
@@ -72,14 +90,6 @@ export const FileCollectionFile = observer(
               icon="Star"
               iconColor={colors.amber["600"]}
               label={file.rating}
-            />
-
-            <FileBase.Chip
-              position="bottom-left"
-              label={
-                <Button icon="Delete" onClick={toggleDeleted} color={colors.red["900"]} circle />
-              }
-              padding={{ all: "0 1px" }}
             />
 
             {file.duration && (

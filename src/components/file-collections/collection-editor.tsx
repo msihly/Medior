@@ -24,6 +24,7 @@ import {
   LoadingOverlay,
   MenuButton,
   Modal,
+  MultiActionButton,
   SortMenu,
   SortMenuProps,
   Tag,
@@ -40,10 +41,13 @@ export const FileCollectionEditor = observer(() => {
 
   const sensors = useSensors(useSensor(MouseSensor, { activationConstraint: { distance: 4 } }));
 
-  const { fileCollectionStore } = useStores();
+  const { fileCollectionStore, fileStore, tagStore } = useStores();
+
+  const hasNoSelection = fileCollectionStore.editorSelectedIds.length === 0;
 
   const [draggedFileId, setDraggedFileId] = useState<string>(null);
   const [isAddingFiles, setIsAddingFiles] = useState(false);
+  const [isConfirmRemoveFilesOpen, setIsConfirmRemoveFilesOpen] = useState(false);
   const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
   const [isConfirmDiscardOpen, setIsConfirmDiscardOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -76,6 +80,19 @@ export const FileCollectionEditor = observer(() => {
   const confirmClose = () => {
     if (fileCollectionStore.hasUnsavedChanges) setIsConfirmDiscardOpen(true);
     else handleClose();
+  };
+
+  const confirmRemoveFiles = async () => {
+    const res = await fileCollectionStore.updateCollection({
+      fileIdIndexes: fileCollectionStore.sortedEditorFiles
+        .filter((f) => fileCollectionStore.editorSelectedIds.includes(f.file.id))
+        .map((f, i) => ({ fileId: f.file.id, index: i })),
+      id: fileCollectionStore.editorId,
+    });
+
+    if (!res.success) toast.error(res.error);
+    else toast.success("Files removed from collection");
+    return res.success;
   };
 
   const gridSortingStrategy: SortingStrategy = ({
@@ -118,6 +135,13 @@ export const FileCollectionEditor = observer(() => {
 
   const handleDelete = () => setIsConfirmDeleteOpen(true);
 
+  const handleDeselectAll = () => {
+    fileCollectionStore.toggleFilesSelected(
+      fileCollectionStore.editorSelectedIds.map((id) => ({ id, isSelected: false }))
+    );
+    toast.info("Deselected all files");
+  };
+
   const handleDragCancel = () => setDraggedFileId(null);
 
   const handleDragEnd = (event: DragEndEvent) => {
@@ -126,6 +150,14 @@ export const FileCollectionEditor = observer(() => {
   };
 
   const handleDragStart = (event: DragStartEvent) => setDraggedFileId(event.active.id as string);
+
+  const handleEditTags = () => {
+    tagStore.setTaggerBatchId(null);
+    tagStore.setTaggerFileIds([...fileCollectionStore.editorSelectedIds]);
+    tagStore.setIsTaggerOpen(true);
+  };
+
+  const handleFileInfoRefresh = () => fileStore.refreshSelectedFiles();
 
   const handlePageChange = (_, page: number) => fileCollectionStore.loadSearchResults({ page });
 
@@ -137,6 +169,8 @@ export const FileCollectionEditor = observer(() => {
     res.success ? toast.success("Metadata refreshed!") : toast.error(res.error);
   };
 
+  const handleRemoveFiles = () => setIsConfirmRemoveFilesOpen(true);
+
   const handleSave = async () => {
     try {
       if (!title) return toast.error("Title is required!");
@@ -144,11 +178,11 @@ export const FileCollectionEditor = observer(() => {
       setIsLoading(true);
 
       const res = await fileCollectionStore.updateCollection({
-        fileIdIndexes: fileCollectionStore.sortedEditorFiles
-          .filter((f) => !f.isDeleted)
-          .map((f, i) => ({ fileId: f.file.id, index: i })),
+        fileIdIndexes: fileCollectionStore.sortedEditorFiles.map((f, i) => ({
+          fileId: f.file.id,
+          index: i,
+        })),
         id: fileCollectionStore.editorId,
-        tagIds: fileCollectionStore.activeTagIds,
         title,
       });
       if (!res.success) return toast.error(res.error);
@@ -164,6 +198,13 @@ export const FileCollectionEditor = observer(() => {
 
   const handleSearchSortChange = (val: SortMenuProps["value"]) =>
     fileCollectionStore.setEditorSearchSort(val);
+
+  const handleSelectAll = () => {
+    fileCollectionStore.toggleFilesSelected(
+      fileCollectionStore.sortedEditorFiles.map(({ id }) => ({ id, isSelected: true }))
+    );
+    toast.info(`Added ${fileStore.files.length} files to selection`);
+  };
 
   const handleTitleChange = (val: string) => {
     fileCollectionStore.setHasUnsavedChanges(true);
@@ -239,14 +280,53 @@ export const FileCollectionEditor = observer(() => {
           )}
 
           <View column flex={1}>
-            <View row justify="center" align="center">
-              <Input
-                label="Title"
-                value={title}
-                setValue={handleTitleChange}
-                textAlign="center"
-                className={css.titleInput}
-              />
+            <View row>
+              <View row justify="center" align="center" flex={1}>
+                <Input
+                  label="Title"
+                  value={title}
+                  setValue={handleTitleChange}
+                  textAlign="center"
+                  className={css.titleInput}
+                />
+              </View>
+
+              <View row align="center">
+                <MultiActionButton
+                  name="Delete"
+                  tooltip="Remove Files From Collection"
+                  iconProps={{ color: colors.button.red }}
+                  onClick={handleRemoveFiles}
+                  disabled={hasNoSelection}
+                />
+
+                <MultiActionButton
+                  name="Refresh"
+                  tooltip="Refresh File Info"
+                  onClick={handleFileInfoRefresh}
+                  disabled={hasNoSelection}
+                />
+
+                <MultiActionButton
+                  name="Label"
+                  tooltip="Edit Tags"
+                  onClick={handleEditTags}
+                  disabled={hasNoSelection}
+                />
+
+                <MultiActionButton
+                  name="Deselect"
+                  tooltip="Deselect All Files"
+                  onClick={handleDeselectAll}
+                  disabled={hasNoSelection}
+                />
+
+                <MultiActionButton
+                  name="SelectAll"
+                  tooltip="Select All Files in View"
+                  onClick={handleSelectAll}
+                />
+              </View>
             </View>
 
             <View className={css.tags}>
@@ -299,6 +379,15 @@ export const FileCollectionEditor = observer(() => {
           disabled={!fileCollectionStore.hasUnsavedChanges || isLoading}
         />
       </Modal.Footer>
+
+      {isConfirmRemoveFilesOpen && (
+        <ConfirmModal
+          headerText="Remove Files"
+          subText="Are you sure you want to remove the selected files from the collection?"
+          setVisible={setIsConfirmRemoveFilesOpen}
+          onConfirm={confirmRemoveFiles}
+        />
+      )}
 
       {isConfirmDeleteOpen && (
         <ConfirmModal

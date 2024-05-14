@@ -40,7 +40,7 @@ export type ListFilteredCollectionsInput = CreateCollectionFilterPipelineInput &
   pageSize: number;
 };
 
-export type UpdateCollectionInput = Partial<db.FileCollection> & { id: string };
+export type UpdateCollectionInput = Omit<Partial<db.FileCollection>, "tagIds"> & { id: string };
 
 /* ------------------------------ FILE IMPORTS ------------------------------ */
 export type AddTagsToBatchInput = { batchId: string; tagIds: string[] };

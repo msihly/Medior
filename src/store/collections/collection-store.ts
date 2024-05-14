@@ -43,6 +43,7 @@ export class FileCollectionStore extends Model({
     () => getConfig().collection.editorSearchSort
   ).withSetter(),
   editorSearchValue: prop<TagOption[]>(() => []).withSetter(),
+  editorSelectedIds: prop<string[]>(() => []).withSetter(),
   hasUnsavedChanges: prop<boolean>(false).withSetter(),
   isEditorOpen: prop<boolean>(false),
   isManagerLoading: prop<boolean>(false).withSetter(),
@@ -89,6 +90,38 @@ export class FileCollectionStore extends Model({
   }
 
   @modelAction
+  getShiftSelectedIds(clickedId: string): { idsToDeselect: string[]; idsToSelect: string[] } {
+    if (this.editorSelectedIds.length === 0) return { idsToDeselect: [], idsToSelect: [clickedId] };
+    if (this.editorSelectedIds.length === 1 && this.editorSelectedIds[0] === clickedId)
+      return { idsToDeselect: [clickedId], idsToSelect: [] };
+
+    const clickedIndex = this.editorFiles.findIndex((f) => f.id === clickedId);
+    const editorFileIds = this.editorFiles.map((f) => f.id);
+
+    const firstSelectedIndex = editorFileIds.indexOf(this.editorSelectedIds[0]);
+    const lastSelectedIndex = editorFileIds.indexOf(
+      this.editorSelectedIds[this.editorSelectedIds.length - 1]
+    );
+
+    if (clickedIndex > firstSelectedIndex && clickedIndex < lastSelectedIndex) {
+      const distanceToStart = clickedIndex - firstSelectedIndex;
+      const distanceToEnd = lastSelectedIndex - clickedIndex;
+
+      return {
+        idsToDeselect:
+          distanceToStart < distanceToEnd
+            ? editorFileIds.slice(firstSelectedIndex, clickedIndex)
+            : editorFileIds.slice(clickedIndex + 1, lastSelectedIndex + 1),
+        idsToSelect: [],
+      };
+    } else {
+      const startIndex = Math.min(firstSelectedIndex, clickedIndex);
+      const endIndex = Math.max(lastSelectedIndex, clickedIndex);
+      return { idsToDeselect: [], idsToSelect: editorFileIds.slice(startIndex, endIndex + 1) };
+    }
+  }
+
+  @modelAction
   moveFileIndex(fromFileId: string, toFileId: string) {
     const fileIdIndexes = this.editorFiles.map((f) => ({ id: f.id, index: f.index }));
     const [from, to] = [fromFileId, toFileId].map((id) => fileIdIndexes.find((f) => f.id === id));
@@ -116,6 +149,7 @@ export class FileCollectionStore extends Model({
 
   @modelAction
   setIsEditorOpen(isOpen: boolean) {
+    this.editorSelectedIds = [];
     this.isEditorOpen = isOpen;
   }
 
@@ -123,6 +157,28 @@ export class FileCollectionStore extends Model({
   setIsManagerOpen(isOpen: boolean) {
     this.isManagerOpen = isOpen;
     if (isOpen) this.isEditorOpen = false;
+  }
+
+  @modelAction
+  toggleFilesSelected(selected: { id: string; isSelected?: boolean }[], withToast = false) {
+    if (!selected?.length) return;
+
+    const [added, removed] = selected.reduce(
+      (acc, cur) => (acc[cur.isSelected ? 0 : 1].push(cur.id), acc),
+      [[], []]
+    );
+
+    const removedSet = new Set(removed);
+    this.editorSelectedIds = [...new Set(this.editorSelectedIds.concat(added))].filter(
+      (id) => !removedSet.has(id)
+    );
+
+    if (withToast)
+      toast.info(
+        `${added.length ? `${added.length} files selected.` : ""}${
+          added.length && removed.length ? "\n" : ""
+        }${removed.length ? `${removed.length} files deselected.` : ""}`
+      );
   }
 
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */
@@ -315,7 +371,7 @@ export class FileCollectionStore extends Model({
   @modelFlow
   updateCollection = _async(function* (
     this: FileCollectionStore,
-    updates: ModelCreationData<FileCollection>
+    updates: db.UpdateCollectionInput
   ) {
     return yield* _await(
       handleErrors(async () => {
@@ -335,6 +391,10 @@ export class FileCollectionStore extends Model({
 
   getFileById(id: string) {
     return this.editorFiles.find((f) => f.id === id);
+  }
+
+  getIsSelected(id: string) {
+    return !!this.editorSelectedIds.find((s) => s === id);
   }
 
   listByFileId(id: string) {

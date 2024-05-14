@@ -1,12 +1,12 @@
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
 import { AppBar } from "@mui/material";
-import { IconButton, IconButtonProps, SortMenu, SortMenuProps, View } from "components";
-import { SelectedFilesInfo } from ".";
+import { SortMenu, SortMenuProps, View } from "components";
+import { MultiActionButton, SelectedFilesInfo } from ".";
 import { colors, CONSTANTS, makeClasses } from "utils";
 import { toast } from "react-toastify";
 
-export const TopBar = observer(() => {
+export const HomeMultiActionBar = observer(() => {
   const rootStore = useStores();
   const { faceRecognitionStore, fileCollectionStore, fileStore, homeStore, tagStore } = useStores();
   const { css } = useClasses(null);
@@ -57,14 +57,14 @@ export const TopBar = observer(() => {
     <AppBar position="static" className={css.appBar}>
       <View className={css.container}>
         <View className={css.divisions}>
-          <TopIconButton name="Menu" onClick={toggleDrawerOpen} />
+          <MultiActionButton name="Menu" onClick={toggleDrawerOpen} />
 
           {fileStore.selectedIds.length > 0 && <SelectedFilesInfo />}
         </View>
 
         <View className={css.divisions}>
           {homeStore.isArchiveOpen && (
-            <TopIconButton
+            <MultiActionButton
               name="Delete"
               tooltip="Delete"
               iconProps={{ color: colors.button.red }}
@@ -73,55 +73,55 @@ export const TopBar = observer(() => {
             />
           )}
 
-          <TopIconButton
+          <MultiActionButton
             name={homeStore.isArchiveOpen ? "Unarchive" : "Archive"}
             tooltip={homeStore.isArchiveOpen ? "Unarchive" : "Archive"}
             onClick={homeStore.isArchiveOpen ? handleUnarchive : handleDelete}
             disabled={hasNoSelection}
           />
 
-          <TopIconButton
+          <MultiActionButton
             name="Refresh"
             tooltip="Refresh File Info"
             onClick={handleFileInfoRefresh}
             disabled={hasNoSelection}
           />
 
-          <TopIconButton
+          <MultiActionButton
             name="Face"
             tooltip="Auto Detect Faces"
             onClick={handleAutoDetect}
             disabled={hasNoSelection}
           />
 
-          <TopIconButton
+          <MultiActionButton
             name="Collections"
             tooltip="Edit Collections"
             onClick={handleEditCollections}
             disabled={hasNoSelection}
           />
 
-          <TopIconButton
+          <MultiActionButton
             name="Label"
             tooltip="Edit Tags"
             onClick={handleEditTags}
             disabled={hasNoSelection}
           />
 
-          <TopIconButton
+          <MultiActionButton
             name="Deselect"
             tooltip="Deselect All Files"
             onClick={handleDeselectAll}
             disabled={hasNoSelection}
           />
 
-          <TopIconButton
+          <MultiActionButton
             name="SelectAll"
             tooltip="Select All Files in View"
             onClick={handleSelectAll}
           />
 
-          <TopIconButton
+          <MultiActionButton
             name={homeStore.fileCardFit === "cover" ? "Fullscreen" : "FullscreenExit"}
             tooltip={
               homeStore.fileCardFit === "cover"
@@ -141,14 +141,6 @@ export const TopBar = observer(() => {
     </AppBar>
   );
 });
-
-interface TopIconButtonProps extends IconButtonProps {}
-
-const TopIconButton = ({ tooltipProps = {}, ...props }: TopIconButtonProps) => {
-  return (
-    <IconButton {...props} size="medium" tooltipProps={{ placement: "bottom", ...tooltipProps }} />
-  );
-};
 
 const useClasses = makeClasses({
   appBar: {

@@ -1,6 +1,6 @@
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
-import { Drawer, FileContainer, LoadingOverlay, TopBar, View } from "components";
+import { Drawer, FileContainer, HomeMultiActionBar, LoadingOverlay, View } from "components";
 import { CONSTANTS, makeClasses } from "utils";
 
 interface SearchProps {
@@ -17,7 +17,7 @@ export const Search = observer(
 
     return (
       <>
-        <TopBar />
+        <HomeMultiActionBar />
 
         <View row>
           <Drawer {...{ hasImports, hasSettings }} />

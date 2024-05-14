@@ -7,5 +7,4 @@ export class FileCollectionFile extends Model({
   /** id is required for SortableContext.items */
   id: prop<string>(),
   index: prop<number>(),
-  isDeleted: prop<boolean>(false).withSetter(),
 }) {}
