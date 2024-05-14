@@ -10,39 +10,39 @@ import { TagStore } from "./tags";
 
 @model("medior/RootStore")
 export class RootStore extends Model({
-  carouselStore: prop<CarouselStore>(),
-  faceRecognitionStore: prop<FaceRecognitionStore>(),
-  fileCollectionStore: prop<FileCollectionStore>(),
-  fileStore: prop<FileStore>(),
-  homeStore: prop<HomeStore>(),
-  importStore: prop<ImportStore>(),
-  tagStore: prop<TagStore>(),
+  carousel: prop<CarouselStore>(),
+  collection: prop<FileCollectionStore>(),
+  faceRecog: prop<FaceRecognitionStore>(),
+  file: prop<FileStore>(),
+  home: prop<HomeStore>(),
+  import: prop<ImportStore>(),
+  tag: prop<TagStore>(),
 }) {
   /* ----------------------------- DYNAMIC GETTERS ---------------------------- */
-  getIsBlockingModalOpen() {
+  _getIsBlockingModalOpen() {
     return (
-      this.faceRecognitionStore?.isModalOpen ||
-      this.fileCollectionStore?.isEditorOpen ||
-      this.fileCollectionStore?.isManagerOpen ||
-      this.importStore?.isImportEditorOpen ||
-      this.importStore?.isImportManagerOpen ||
-      this.tagStore?.isTagEditorOpen ||
-      this.tagStore?.isTaggerOpen ||
-      this.tagStore?.isTagManagerOpen ||
-      this.tagStore?.isTagMergerOpen
+      this.faceRecog?.isModalOpen ||
+      this.collection?.isEditorOpen ||
+      this.collection?.isManagerOpen ||
+      this.import?.isImportEditorOpen ||
+      this.import?.isImportManagerOpen ||
+      this.tag?.isTagEditorOpen ||
+      this.tag?.isTaggerOpen ||
+      this.tag?.isTagManagerOpen ||
+      this.tag?.isTagMergerOpen
     );
   }
 }
 
 export const createRootStore = () => {
   const rootStore = new RootStore({
-    carouselStore: new CarouselStore({}),
-    faceRecognitionStore: new FaceRecognitionStore({}),
-    fileCollectionStore: new FileCollectionStore({}),
-    fileStore: new FileStore({}),
-    homeStore: new HomeStore({}),
-    importStore: new ImportStore({}),
-    tagStore: new TagStore({}),
+    carousel: new CarouselStore({}),
+    collection: new FileCollectionStore({}),
+    faceRecog: new FaceRecognitionStore({}),
+    file: new FileStore({}),
+    home: new HomeStore({}),
+    import: new ImportStore({}),
+    tag: new TagStore({}),
   });
 
   registerRootStore(rootStore);

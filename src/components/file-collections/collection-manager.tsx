@@ -24,48 +24,48 @@ import Color from "color";
 export const FileCollectionManager = observer(() => {
   const { css } = useClasses(null);
 
-  const { fileCollectionStore, homeStore } = useStores();
+  const stores = useStores();
 
   const collectionsRef = useRef<HTMLDivElement>(null);
 
-  const hasAnySelected = fileCollectionStore.managerFileIds.length > 0;
-  const hasOneSelected = fileCollectionStore.managerFileIds.length === 1;
+  const hasAnySelected = stores.collection.managerFileIds.length > 0;
+  const hasOneSelected = stores.collection.managerFileIds.length === 1;
   const currentCollections = hasOneSelected
-    ? fileCollectionStore.listByFileId(fileCollectionStore.managerFileIds[0])
+    ? stores.collection.listByFileId(stores.collection.managerFileIds[0])
     : [];
 
-  const sortValue = useDeepMemo(fileCollectionStore.managerSearchSort);
-  const tagSearchValue = useDeepMemo(fileCollectionStore.managerTagSearchValue);
+  const sortValue = useDeepMemo(stores.collection.managerSearchSort);
+  const tagSearchValue = useDeepMemo(stores.collection.managerTagSearchValue);
 
   useEffect(() => {
-    fileCollectionStore.loadManagerFiles();
-  }, [fileCollectionStore.managerFileIds]);
+    stores.collection.loadManagerFiles();
+  }, [stores.collection.managerFileIds]);
 
   useEffect(() => {
-    if (fileCollectionStore.managerSearchPage > fileCollectionStore.managerSearchPageCount)
-      handlePageChange(null, fileCollectionStore.managerSearchPageCount);
-  }, [fileCollectionStore.managerSearchPage, fileCollectionStore.managerSearchPageCount]);
+    if (stores.collection.managerSearchPage > stores.collection.managerSearchPageCount)
+      handlePageChange(null, stores.collection.managerSearchPageCount);
+  }, [stores.collection.managerSearchPage, stores.collection.managerSearchPageCount]);
 
-  const searchDeps = [fileCollectionStore.managerTitleSearchValue, sortValue, tagSearchValue];
+  const searchDeps = [stores.collection.managerTitleSearchValue, sortValue, tagSearchValue];
 
   useDeepEffect(() => {
     collectionsRef.current?.scrollTo({ top: 0, behavior: "smooth" });
-  }, [fileCollectionStore.managerSearchPage, ...searchDeps]);
+  }, [stores.collection.managerSearchPage, ...searchDeps]);
 
   useDeepEffect(() => {
-    debounce(() => fileCollectionStore.listFilteredCollections({ page: 1 }), 800)();
+    debounce(() => stores.collection.listFilteredCollections({ page: 1 }), 800)();
   }, [...searchDeps]);
 
   const handleClose = () => {
-    fileCollectionStore.setIsManagerOpen(false);
-    homeStore.reloadIfQueued();
+    stores.collection.setIsManagerOpen(false);
+    stores.home.reloadIfQueued();
   };
 
-  const handleRefreshMeta = () => fileCollectionStore.regenAllCollMeta();
+  const handleRefreshMeta = () => stores.collection.regenAllCollMeta();
 
   const handleNewCollection = async () => {
-    const res = await fileCollectionStore.createCollection({
-      fileIdIndexes: fileCollectionStore.managerFileIds.map((id, index) => ({
+    const res = await stores.collection.createCollection({
+      fileIdIndexes: stores.collection.managerFileIds.map((id, index) => ({
         fileId: id,
         index,
       })),
@@ -74,26 +74,26 @@ export const FileCollectionManager = observer(() => {
 
     if (!res.success) toast.error(res.error);
     else {
-      fileCollectionStore.setEditorId(res.data.id);
-      fileCollectionStore.setIsEditorOpen(true);
+      stores.collection.setEditorId(res.data.id);
+      stores.collection.setIsEditorOpen(true);
     }
   };
 
   const handlePageChange = (_, page: number) =>
-    fileCollectionStore.listFilteredCollections({ page });
+    stores.collection.listFilteredCollections({ page });
 
   const handleSortChange = (val: { isDesc: boolean; key: string }) =>
-    fileCollectionStore.setManagerSearchSort(val);
+    stores.collection.setManagerSearchSort(val);
 
   const setTagSearchValue = (value: TagOption[]) =>
-    fileCollectionStore.setManagerTagSearchValue(value);
+    stores.collection.setManagerTagSearchValue(value);
 
   const setTitleSearchValue = (value: string) =>
-    !fileCollectionStore.isManagerLoading && fileCollectionStore.setManagerTitleSearchValue(value);
+    !stores.collection.isManagerLoading && stores.collection.setManagerTitleSearchValue(value);
 
   return (
     <Modal.Container height="100%" width="100%" onClose={handleClose}>
-      <LoadingOverlay isLoading={fileCollectionStore.isManagerLoading} />
+      <LoadingOverlay isLoading={stores.collection.isManagerLoading} />
 
       <Modal.Header
         rightNode={
@@ -112,9 +112,9 @@ export const FileCollectionManager = observer(() => {
               <Text preset="label-glow">{"Selected File"}</Text>
 
               <View className={css.container}>
-                {fileCollectionStore.managerFiles.length > 0 ? (
+                {stores.collection.managerFiles.length > 0 ? (
                   <FileCard
-                    file={fileCollectionStore.managerFiles[0]}
+                    file={stores.collection.managerFiles[0]}
                     height="13rem"
                     width="12rem"
                     disabled
@@ -146,8 +146,8 @@ export const FileCollectionManager = observer(() => {
             <Text preset="label-glow">{"Selected Files"}</Text>
 
             <View className={css.container}>
-              {fileCollectionStore.managerFiles.length > 0 ? (
-                fileCollectionStore.managerFiles.map((f) => (
+              {stores.collection.managerFiles.length > 0 ? (
+                stores.collection.managerFiles.map((f) => (
                   <FileCard key={f.id} file={f} width="12rem" height="14rem" disabled />
                 ))
               ) : (
@@ -173,7 +173,7 @@ export const FileCollectionManager = observer(() => {
 
               <Text preset="label-glow">{"Titles"}</Text>
               <Input
-                value={fileCollectionStore.managerTitleSearchValue}
+                value={stores.collection.managerTitleSearchValue}
                 setValue={setTitleSearchValue}
                 fullWidth
                 margins={{ bottom: "0.5rem" }}
@@ -196,8 +196,8 @@ export const FileCollectionManager = observer(() => {
               <DisplayedCollections />
 
               <Pagination
-                count={fileCollectionStore.managerSearchPageCount}
-                page={fileCollectionStore.managerSearchPage}
+                count={stores.collection.managerSearchPageCount}
+                page={stores.collection.managerSearchPage}
                 onChange={handlePageChange}
                 showFirstButton
                 showLastButton

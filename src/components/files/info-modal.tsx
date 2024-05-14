@@ -8,15 +8,15 @@ import { toast } from "react-toastify";
 export const InfoModal = observer(() => {
   const { css } = useClasses(null);
 
-  const { fileStore } = useStores();
-  const file = fileStore.getById(fileStore.activeFileId);
+  const stores = useStores();
+  const file = stores.file.getById(stores.file.activeFileId);
 
-  const handleClose = () => fileStore.setIsInfoModalOpen(false);
+  const handleClose = () => stores.file.setIsInfoModalOpen(false);
 
   const handleCurrentPath = () => shell.showItemInFolder(file.path);
 
   const handleRefresh = async () => {
-    const res = await fileStore.refreshFile({ id: fileStore.activeFileId });
+    const res = await stores.file.refreshFile({ id: stores.file.activeFileId });
     if (!res.success) toast.error("Failed to refresh info");
     else toast.success("File info refreshed");
   };
@@ -26,7 +26,7 @@ export const InfoModal = observer(() => {
       <Modal.Header
         leftNode={
           <Text fontSize="0.7em" color={colors.grey["600"]}>
-            {`ID: ${fileStore.activeFileId}`}
+            {`ID: ${stores.file.activeFileId}`}
           </Text>
         }
       >

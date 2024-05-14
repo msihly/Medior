@@ -12,11 +12,11 @@ export interface SettingsExtCheckboxProps
 
 export const SettingsExtCheckbox = observer(
   ({ ext, extTypes, setExtTypes, ...props }: SettingsExtCheckboxProps) => {
-    const { homeStore } = useStores();
+    const stores = useStores();
 
     const handleChange = (checked: boolean) => {
       setExtTypes((prev) => (checked ? [...prev, ext] : prev.filter((type) => type !== ext)));
-      homeStore.setSettingsHasUnsavedChanges(true);
+      stores.home.setSettingsHasUnsavedChanges(true);
     };
 
     return (
@@ -24,7 +24,7 @@ export const SettingsExtCheckbox = observer(
         label={ext}
         checked={extTypes?.includes(ext)}
         setChecked={handleChange}
-        disabled={homeStore.isSettingsLoading}
+        disabled={stores.home.isSettingsLoading}
         flex="inherit"
         fullWidth={false}
         {...props}

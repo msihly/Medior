@@ -13,14 +13,14 @@ export interface CollectionTooltipProps {
 export const CollectionTooltip = observer(({ collection, onTagPress }: CollectionTooltipProps) => {
   const { css } = useClasses(null);
 
-  const { fileStore, tagStore } = useStores();
+  const stores = useStores();
 
   const [tagIds, setTagIds] = useState<string[]>([]);
-  const tags = tagIds.map((id) => tagStore.getById(id));
+  const tags = tagIds.map((id) => stores.tag.getById(id));
 
   const handleOpen = async () => {
     try {
-      const res = await fileStore.loadFiles({
+      const res = await stores.file.loadFiles({
         fileIds: collection.fileIdIndexes.map(({ fileId }) => fileId),
         withOverwrite: false,
       });

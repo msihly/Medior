@@ -10,11 +10,11 @@ export interface SettingsSortMenuProps extends SortMenuProps {
 }
 
 export const SettingsSortMenu = observer(({ label, setValue, ...props }: SettingsSortMenuProps) => {
-  const { homeStore } = useStores();
+  const stores = useStores();
 
   const handleChange = (value: SortMenuProps["value"]) => {
     setValue(value);
-    homeStore.setSettingsHasUnsavedChanges(true);
+    stores.home.setSettingsHasUnsavedChanges(true);
   };
 
   return (
@@ -22,7 +22,7 @@ export const SettingsSortMenu = observer(({ label, setValue, ...props }: Setting
       <SettingsLabel {...{ label }} />
       <SortMenu
         setValue={handleChange}
-        disabled={homeStore.isSettingsLoading}
+        disabled={stores.home.isSettingsLoading}
         labelWidth="6rem"
         color={Color(colors.grey["800"]).darken(0.25).string()}
         {...props}

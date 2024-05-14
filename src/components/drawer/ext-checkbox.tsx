@@ -10,18 +10,18 @@ interface ExtCheckboxProps {
 }
 
 export const ExtCheckbox = observer(({ ext, label = null, type }: ExtCheckboxProps) => {
-  const { homeStore } = useStores();
+  const stores = useStores();
 
   return (
     <Checkbox
       label={label || ext}
       checked={
-        type === "Image" ? homeStore.selectedImageTypes[ext] : homeStore.selectedVideoTypes[ext]
+        type === "Image" ? stores.home.selectedImageTypes[ext] : stores.home.selectedVideoTypes[ext]
       }
       setChecked={(checked) =>
         type === "Image"
-          ? homeStore.setSelectedImageTypes({ [ext]: checked })
-          : homeStore.setSelectedVideoTypes({ [ext]: checked })
+          ? stores.home.setSelectedImageTypes({ [ext]: checked })
+          : stores.home.setSelectedVideoTypes({ [ext]: checked })
       }
     />
   );

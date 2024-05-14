@@ -22,11 +22,11 @@ export const TagHierarchy = ({ className, tag }: TagHierarchyProps) => {
 const TagLevel = observer(({ tag }: TagHierarchyProps) => {
   const { css } = useClasses({ hasId: !!tag.id });
 
-  const { tagStore } = useStores();
+  const stores = useStores();
 
   const handleClick = () => {
-    tagStore.setActiveTagId(tag?.id);
-    tagStore.setIsTagEditorOpen(true);
+    stores.tag.setActiveTagId(tag?.id);
+    stores.tag.setIsTagEditorOpen(true);
   };
 
   return (

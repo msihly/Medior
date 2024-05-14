@@ -10,35 +10,34 @@ export interface UseHotkeysProps {
 }
 
 export const useHotkeys = ({ rootRef, view }: UseHotkeysProps) => {
-  const rootStore = useStores();
-  const { carouselStore, faceRecognitionStore, fileStore, homeStore, tagStore } = useStores();
+  const stores = useStores();
 
   const navCarouselByArrowKey = (isLeft: boolean) => {
-    if (carouselStore.activeFileIndex === (isLeft ? 0 : carouselStore.selectedFileIds.length - 1))
+    if (stores.carousel.activeFileIndex === (isLeft ? 0 : stores.carousel.selectedFileIds.length - 1))
       return;
 
     const newFileId =
-      carouselStore.selectedFileIds[carouselStore.activeFileIndex + (isLeft ? -1 : 1)];
-    carouselStore.setActiveFileId(newFileId);
-    fileStore.setActiveFileId(newFileId);
+      stores.carousel.selectedFileIds[stores.carousel.activeFileIndex + (isLeft ? -1 : 1)];
+    stores.carousel.setActiveFileId(newFileId);
+    stores.file.setActiveFileId(newFileId);
 
     rootRef.current?.focus();
   };
 
   const selectFileByArrowKey = (isLeft: boolean, selectedId: string) => {
-    const indexOfSelected = fileStore.files.findIndex((f) => f.id === selectedId);
-    const nextIndex = indexOfSelected === fileStore.files.length - 1 ? 0 : indexOfSelected + 1;
-    const nextId = fileStore.files[nextIndex].id;
-    const prevIndex = indexOfSelected === 0 ? fileStore.files.length - 1 : indexOfSelected - 1;
-    const prevId = fileStore.files[prevIndex].id;
+    const indexOfSelected = stores.file.files.findIndex((f) => f.id === selectedId);
+    const nextIndex = indexOfSelected === stores.file.files.length - 1 ? 0 : indexOfSelected + 1;
+    const nextId = stores.file.files[nextIndex].id;
+    const prevIndex = indexOfSelected === 0 ? stores.file.files.length - 1 : indexOfSelected - 1;
+    const prevId = stores.file.files[prevIndex].id;
     const newId = isLeft ? prevId : nextId;
 
-    if (!fileStore.files.find((f) => f.id === newId))
-      homeStore.loadFilteredFiles({
-        page: fileStore.page + 1 * (isLeft ? -1 : 1),
+    if (!stores.file.files.find((f) => f.id === newId))
+      stores.home.loadFilteredFiles({
+        page: stores.file.page + 1 * (isLeft ? -1 : 1),
       });
 
-    fileStore.toggleFilesSelected([
+    stores.file.toggleFilesSelected([
       { id: selectedId, isSelected: false },
       { id: newId, isSelected: true },
     ]);
@@ -46,14 +45,14 @@ export const useHotkeys = ({ rootRef, view }: UseHotkeysProps) => {
 
   const handleKeyPress = async (event: KeyboardEvent) => {
     if (
-      tagStore.isTaggerOpen ||
-      tagStore.isTagEditorOpen ||
-      tagStore.isTagSubEditorOpen ||
-      tagStore.isTagMergerOpen
+      stores.tag.isTaggerOpen ||
+      stores.tag.isTagEditorOpen ||
+      stores.tag.isTagSubEditorOpen ||
+      stores.tag.isTagMergerOpen
     )
       return;
 
-    const fileIds = view === "carousel" ? [carouselStore.activeFileId] : [...fileStore.selectedIds];
+    const fileIds = view === "carousel" ? [stores.carousel.activeFileId] : [...stores.file.selectedIds];
     if (!fileIds.length) return;
 
     const isOneFileSelected = fileIds.length === 1;
@@ -62,12 +61,12 @@ export const useHotkeys = ({ rootRef, view }: UseHotkeysProps) => {
     event.preventDefault();
 
     if (view !== "carousel" && event.ctrlKey && key === "a") {
-      fileStore.toggleFilesSelected(fileStore.files.map(({ id }) => ({ id, isSelected: true })));
-      toast.info(`Added ${fileStore.files.length} files to selection`);
+      stores.file.toggleFilesSelected(stores.file.files.map(({ id }) => ({ id, isSelected: true })));
+      toast.info(`Added ${stores.file.files.length} files to selection`);
     } else if (isOneFileSelected) {
       if (key === "i") {
-        fileStore.setActiveFileId(fileIds[0]);
-        fileStore.setIsInfoModalOpen(true);
+        stores.file.setActiveFileId(fileIds[0]);
+        stores.file.setIsInfoModalOpen(true);
       }
 
       if (["ArrowLeft", "ArrowRight"].includes(key)) {
@@ -76,26 +75,26 @@ export const useHotkeys = ({ rootRef, view }: UseHotkeysProps) => {
         else selectFileByArrowKey(isLeft, fileIds[0]);
       }
 
-      if (RATING_KEYS.includes(key)) await fileStore.setFileRating({ fileIds, rating: +key });
+      if (RATING_KEYS.includes(key)) await stores.file.setFileRating({ fileIds, rating: +key });
     }
 
     if (key === "f") {
       if (isOneFileSelected) {
-        const file = fileStore.getById(fileIds[0]);
+        const file = stores.file.getById(fileIds[0]);
         if (file.isAnimated) return toast.error("Cannot detect faces in animated files");
 
-        faceRecognitionStore.setActiveFileId(file.id);
-        faceRecognitionStore.setIsModalOpen(true);
-      } else faceRecognitionStore.addFilesToAutoDetectQueue({ fileIds, rootStore });
+        stores.faceRecog.setActiveFileId(file.id);
+        stores.faceRecog.setIsModalOpen(true);
+      } else stores.faceRecog.addFilesToAutoDetectQueue(fileIds);
     }
 
     if (key === "t") {
-      tagStore.setTaggerBatchId(null);
-      tagStore.setTaggerFileIds(fileIds);
-      tagStore.setIsTaggerOpen(true);
+      stores.tag.setTaggerBatchId(null);
+      stores.tag.setTaggerFileIds(fileIds);
+      stores.tag.setIsTaggerOpen(true);
     }
 
-    if (key === "Delete") fileStore.confirmDeleteFiles(fileIds);
+    if (key === "Delete") stores.file.confirmDeleteFiles(fileIds);
   };
 
   return {

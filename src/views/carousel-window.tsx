@@ -10,7 +10,7 @@ import { debounce, makeClasses, makePerfLog, zoomScaleStepIn, zoomScaleStepOut }
 export const CarouselWindow = observer(() => {
   const { css } = useClasses(null);
 
-  const { carouselStore, fileStore, tagStore } = useStores();
+  const stores = useStores();
 
   const panZoomRef = useRef<PanzoomObject>(null);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -33,8 +33,8 @@ export const CarouselWindow = observer(() => {
 
   const handleMouseMove = () => {
     if (mouseMoveTimeout.current) clearTimeout(mouseMoveTimeout.current);
-    carouselStore.setIsMouseMoving(true);
-    mouseMoveTimeout.current = window.setTimeout(() => carouselStore.setIsMouseMoving(false), 1000);
+    stores.carousel.setIsMouseMoving(true);
+    mouseMoveTimeout.current = window.setTimeout(() => stores.carousel.setIsMouseMoving(false), 1000);
   };
 
   useEffect(() => {
@@ -51,16 +51,16 @@ export const CarouselWindow = observer(() => {
         try {
           const { perfLog, perfLogTotal } = makePerfLog("[Carousel]");
 
-          await fileStore.loadFiles({ fileIds: [fileId] });
-          carouselStore.setActiveFileId(fileId);
+          await stores.file.loadFiles({ fileIds: [fileId] });
+          stores.carousel.setActiveFileId(fileId);
 
           perfLog("Active file loaded");
 
           await Promise.all([
-            fileStore.loadFiles({ fileIds: selectedFileIds }),
-            tagStore.loadTags(),
+            stores.file.loadFiles({ fileIds: selectedFileIds }),
+            stores.tag.loadTags(),
           ]);
-          carouselStore.setSelectedFileIds(selectedFileIds);
+          stores.carousel.setSelectedFileIds(selectedFileIds);
 
           perfLogTotal("Data loaded into MobX");
 

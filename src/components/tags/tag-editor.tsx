@@ -30,16 +30,16 @@ export const TagEditor = observer(
 
     const labelRef = useRef<HTMLDivElement>(null);
 
-    const { homeStore, tagStore } = useStores();
+    const stores = useStores();
 
     const isCreate = !id;
-    const tag = isCreate ? null : tagStore.getById(id);
+    const tag = isCreate ? null : stores.tag.getById(id);
 
     const [aliases, setAliases] = useState<ChipOption[]>(
       tag?.aliases ? tag.aliases.map((a) => ({ label: a, value: a })) : []
     );
     const [childTags, setChildTags] = useState<TagOption[]>(
-      tag ? tagStore.getChildTags(tag).map((t) => t.tagOption) : []
+      tag ? stores.tag.getChildTags(tag).map((t) => t.tagOption) : []
     );
     const [hasContinue, setHasContinue] = useState(false);
     const [hasKeepChildTags, setHasKeepChildTags] = useState(false);
@@ -48,7 +48,7 @@ export const TagEditor = observer(
     const [isLoading, setIsLoading] = useState(false);
     const [label, setLabel] = useState<string>(tag?.label ?? "");
     const [parentTags, setParentTags] = useState<TagOption[]>(
-      tag ? tagStore.getParentTags(tag).map((t) => t.tagOption) : []
+      tag ? stores.tag.getParentTags(tag).map((t) => t.tagOption) : []
     );
     const [regExValue, setRegExValue] = useState<string>(tag?.regExMap?.regEx ?? "");
     const [regExTestString, setRegExTestString] = useState<string>(tag?.regExMap?.testString ?? "");
@@ -59,16 +59,16 @@ export const TagEditor = observer(
     const isDuplicateTag =
       label.length > 0 &&
       (isCreate || label.toLowerCase() !== tag?.label?.toLowerCase()) &&
-      !!tagStore.getByLabel(label);
+      !!stores.tag.getByLabel(label);
 
-    const tagOptions = useDeepMemo(tagStore.tagOptions);
+    const tagOptions = useDeepMemo(stores.tag.tagOptions);
 
     useDeepEffect(() => {
-      if (id && tagStore.getById(id)) {
+      if (id && stores.tag.getById(id)) {
         setLabel(tag.label);
         setAliases(tag.aliases.map((a) => ({ label: a, value: a })) ?? []);
-        setChildTags(tagStore.getChildTags(tag).map((t) => t.tagOption) ?? []);
-        setParentTags(tagStore.getParentTags(tag).map((t) => t.tagOption) ?? []);
+        setChildTags(stores.tag.getChildTags(tag).map((t) => t.tagOption) ?? []);
+        setParentTags(stores.tag.getParentTags(tag).map((t) => t.tagOption) ?? []);
         setRegExValue(tag.regExMap?.regEx ?? "");
         setRegExTestString(tag.regExMap?.testString ?? "");
         setRegExTypes(tag.regExMap?.types ?? ["diffusionParams", "fileName", "folderName"]);
@@ -84,22 +84,22 @@ export const TagEditor = observer(
     };
 
     const handleClose = () => {
-      if (isSubEditor) tagStore.setIsTagSubEditorOpen(false);
+      if (isSubEditor) stores.tag.setIsTagSubEditorOpen(false);
       else {
-        tagStore.setIsTagEditorOpen(false);
-        homeStore.reloadIfQueued();
+        stores.tag.setIsTagEditorOpen(false);
+        stores.home.reloadIfQueued();
       }
     };
 
     const handleConfirmDelete = async () => {
       setIsLoading(true);
-      const res = await tagStore.deleteTag({ id: tag.id });
+      const res = await stores.tag.deleteTag({ id: tag.id });
 
       if (!res.success) toast.error("Failed to delete tag");
       else {
         toast.success("Tag deleted");
         setIsConfirmDeleteOpen(false);
-        tagStore.setIsTagEditorOpen(false);
+        stores.tag.setIsTagEditorOpen(false);
       }
 
       setIsLoading(false);
@@ -109,17 +109,17 @@ export const TagEditor = observer(
     const handleDelete = () => setIsConfirmDeleteOpen(true);
 
     const handleMerge = () => {
-      tagStore.setIsTagMergerOpen(true);
+      stores.tag.setIsTagMergerOpen(true);
       handleClose();
     };
 
     const handleRefresh = async () => {
       setIsLoading(true);
 
-      const relationRes = await tagStore.refreshTagRelations({ id });
+      const relationRes = await stores.tag.refreshTagRelations({ id });
       if (!relationRes.success) return toast.error("Failed to refresh tag relations");
 
-      const countRes = await tagStore.refreshTagCounts([id]);
+      const countRes = await stores.tag.refreshTagCounts([id]);
       if (!countRes.success) return toast.error("Failed to refresh tag count");
 
       setIsLoading(false);
@@ -127,8 +127,8 @@ export const TagEditor = observer(
     };
 
     const handleSubEditorClick = (tagId: string) => {
-      tagStore.setSubEditorTagId(tagId);
-      tagStore.setIsTagSubEditorOpen(true);
+      stores.tag.setSubEditorTagId(tagId);
+      stores.tag.setIsTagSubEditorOpen(true);
     };
 
     const saveTag = async () => {
@@ -145,8 +145,8 @@ export const TagEditor = observer(
 
       setIsLoading(true);
       const res = await (isCreate
-        ? tagStore.createTag({ aliases: aliasStrings, childIds, label, parentIds, regExMap })
-        : tagStore.editTag({
+        ? stores.tag.createTag({ aliases: aliasStrings, childIds, label, parentIds, regExMap })
+        : stores.tag.editTag({
             aliases: aliasStrings,
             childIds,
             id: id,

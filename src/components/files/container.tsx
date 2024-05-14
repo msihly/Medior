@@ -9,9 +9,9 @@ import { colors, makeClasses, socket } from "utils";
 import Color from "color";
 
 export const FileContainer = observer(() => {
-  const { fileStore, homeStore } = useStores();
+  const stores = useStores();
 
-  const { css } = useClasses({ hasFiles: fileStore.files.length > 0 });
+  const { css } = useClasses({ hasFiles: stores.file.files.length > 0 });
 
   const filesRef = useRef<HTMLDivElement>(null);
 
@@ -20,20 +20,20 @@ export const FileContainer = observer(() => {
   const scrollToTop = () => filesRef.current?.scrollTo({ top: 0, behavior: "smooth" });
 
   useEffect(() => {
-    if (fileStore.page > fileStore.pageCount) handlePageChange(null, fileStore.pageCount);
+    if (stores.file.page > stores.file.pageCount) handlePageChange(null, stores.file.pageCount);
     scrollToTop();
-  }, [fileStore.page, fileStore.pageCount]);
+  }, [stores.file.page, stores.file.pageCount]);
 
   useEffect(() => {
     socket.on("filesUpdated", ({ updates }) => {
       const updatedKeys = Object.keys(updates);
       const archivedOrTagsEdited = updatedKeys.some((k) => ["isArchived", "tagIds"].includes(k));
-      const sortValueEdited = updatedKeys.includes(homeStore.sortValue.key);
+      const sortValueEdited = updatedKeys.includes(stores.home.sortValue.key);
       if (archivedOrTagsEdited || sortValueEdited) scrollToTop();
     });
   }, []);
 
-  const handlePageChange = (_, page: number) => homeStore.loadFilteredFiles({ page });
+  const handlePageChange = (_, page: number) => stores.home.loadFilteredFiles({ page });
 
   return (
     <View className={css.container}>
@@ -42,8 +42,8 @@ export const FileContainer = observer(() => {
       </View>
 
       <Pagination
-        count={fileStore.pageCount}
-        page={fileStore.page}
+        count={stores.file.pageCount}
+        page={stores.file.page}
         onChange={handlePageChange}
         showFirstButton
         showLastButton

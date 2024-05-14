@@ -8,25 +8,25 @@ import { toast } from "react-toastify";
 export const ImportManager = observer(() => {
   const { css } = useClasses(null);
 
-  const { homeStore, importStore, tagStore } = useStores();
+  const stores = useStores();
 
   const completedRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (completedRef.current && importStore.completedBatches?.length)
+    if (completedRef.current && stores.import.completedBatches?.length)
       completedRef.current.scrollTo({ behavior: "smooth", top: completedRef.current.scrollHeight });
-  }, [importStore.completedBatches?.length]);
+  }, [stores.import.completedBatches?.length]);
 
   const handleClose = () => {
-    importStore.setIsImportManagerOpen(false);
-    homeStore.reloadIfQueued();
+    stores.import.setIsImportManagerOpen(false);
+    stores.home.reloadIfQueued();
   }
 
-  const handleTagManager = () => tagStore.setIsTagManagerOpen(true);
+  const handleTagManager = () => stores.tag.setIsTagManagerOpen(true);
 
   return (
     <Modal.Container
-      visible={importStore.isImportManagerOpen}
+      visible={stores.import.isImportManagerOpen}
       onClose={handleClose}
       maxWidth="60rem"
       width="100%"
@@ -39,8 +39,8 @@ export const ImportManager = observer(() => {
       <Modal.Content className={css.modalContent}>
         <ContainerHeader type="completed" />
         <View ref={completedRef} className={css.batchesContainer} margins={{ bottom: "1rem" }}>
-          {importStore.completedBatches?.length > 0 ? (
-            [...importStore.completedBatches].map((batch) => (
+          {stores.import.completedBatches?.length > 0 ? (
+            [...stores.import.completedBatches].map((batch) => (
               <ImportBatch key={batch.id} {...{ batch }} />
             ))
           ) : (
@@ -50,8 +50,8 @@ export const ImportManager = observer(() => {
 
         <ContainerHeader type="pending" />
         <View className={css.batchesContainer}>
-          {importStore.incompleteBatches?.length > 0 ? (
-            [...importStore.incompleteBatches].map((batch) => (
+          {stores.import.incompleteBatches?.length > 0 ? (
+            [...stores.import.incompleteBatches].map((batch) => (
               <ImportBatch key={batch.id} {...{ batch }} />
             ))
           ) : (
@@ -88,15 +88,15 @@ interface DeleteToggleButtonProps {
 }
 
 const DeleteToggleButton = observer(({ type }: DeleteToggleButtonProps) => {
-  const { importStore } = useStores();
+  const stores = useStores();
 
   const [isConfirmDeleteAllOpen, setIsConfirmDeleteAllOpen] = useState(false);
 
   const deleteAll = async () => {
-    await importStore.deleteImportBatches({
+    await stores.import.deleteImportBatches({
       ids: (type === "completed"
-        ? importStore.completedBatches
-        : importStore.incompleteBatches
+        ? stores.import.completedBatches
+        : stores.import.incompleteBatches
       ).map((batch) => batch.id),
     });
 

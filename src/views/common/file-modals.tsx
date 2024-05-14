@@ -3,19 +3,19 @@ import { observer } from "mobx-react-lite";
 import { ConfirmModal, FaceRecognitionModal, InfoModal } from "components";
 
 export const FileModals = observer(() => {
-  const { faceRecognitionStore, fileStore } = useStores();
+  const stores = useStores();
 
-  const handleDeleteFilesConfirm = async () => (await fileStore.deleteFiles()).success;
+  const handleDeleteFilesConfirm = async () => (await stores.file.deleteFiles()).success;
 
-  const setDeleteFilesModalVisible = (val: boolean) => fileStore.setIsConfirmDeleteOpen(val);
+  const setDeleteFilesModalVisible = (val: boolean) => stores.file.setIsConfirmDeleteOpen(val);
 
   return (
     <>
-      {faceRecognitionStore.isModalOpen && <FaceRecognitionModal />}
+      {stores.faceRecog.isModalOpen && <FaceRecognitionModal />}
 
-      {fileStore.isInfoModalOpen && <InfoModal />}
+      {stores.file.isInfoModalOpen && <InfoModal />}
 
-      {fileStore.isConfirmDeleteOpen && (
+      {stores.file.isConfirmDeleteOpen && (
         <ConfirmModal
           headerText="Delete Files"
           subText="Are you sure you want to delete these files?"

@@ -35,16 +35,16 @@ export const Tag = observer(
   }: TagProps) => {
     const { css, cx } = useClasses({ color, size });
 
-    const { tagStore } = useStores();
-    if (!tag) tag = tagStore.getById(id);
+    const stores = useStores();
+    if (!tag) tag = stores.tag.getById(id);
 
     const [anchorEl, setAnchorEl] = useState(null);
 
     const handleClick = () => {
       onClick?.(tag?.id);
       if (hasEditor) {
-        tagStore.setActiveTagId(tag?.id);
-        tagStore.setIsTagEditorOpen(true);
+        stores.tag.setActiveTagId(tag?.id);
+        stores.tag.setIsTagEditorOpen(true);
       }
     };
 

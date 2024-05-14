@@ -14,23 +14,22 @@ type FaceModelWithImage = { dataUrl: string; faceModel: FaceModel };
 export const FaceRecognitionModal = observer(() => {
   const { css } = useClasses(null);
 
-  const rootStore = useStores();
-  const { faceRecognitionStore, fileStore, homeStore, tagStore } = useStores();
+  const stores = useStores();
 
   const imageRef = useRef<HTMLImageElement>();
 
-  const file = fileStore.getById(faceRecognitionStore.activeFileId);
-  const hasDetectedFaces = faceRecognitionStore.detectedFaces?.length > 0;
+  const file = stores.file.getById(stores.faceRecog.activeFileId);
+  const hasDetectedFaces = stores.faceRecog.detectedFaces?.length > 0;
 
   const [detectedFacesWithImages, setDetectedFacesWithImages] = useState<FaceModelWithImage[]>([]);
   useEffect(() => {
-    const faceModels = faceRecognitionStore.detectedFaces;
+    const faceModels = stores.faceRecog.detectedFaces;
     if (!faceModels?.length) return;
 
     (async () => {
       setDetectedFacesWithImages(await addImagesToDetectedFaces(file.path, faceModels));
     })();
-  }, [faceRecognitionStore.detectedFaces.length]);
+  }, [stores.faceRecog.detectedFaces.length]);
 
   const addImagesToDetectedFaces = (
     filePath: string,
@@ -82,7 +81,7 @@ export const FaceRecognitionModal = observer(() => {
         descriptors: face.descriptors,
         fileId: face.fileId,
         tagId: face.tagId,
-        selectedTag: tagStore.getById(face.tagId)?.tagOption,
+        selectedTag: stores.tag.getById(face.tagId)?.tagOption,
       }));
 
       return faceModels.map((face) => new FaceModel(face));
@@ -92,36 +91,36 @@ export const FaceRecognitionModal = observer(() => {
   };
 
   const handleClose = () => {
-    faceRecognitionStore.setDetectedFaces([]);
-    faceRecognitionStore.setIsModalOpen(false);
-    homeStore.reloadIfQueued();
+    stores.faceRecog.setDetectedFaces([]);
+    stores.faceRecog.setIsModalOpen(false);
+    stores.home.reloadIfQueued();
   };
 
   const handleDetect = async () => {
     try {
-      if (faceRecognitionStore.isDisabled) return;
+      if (stores.faceRecog.isDisabled) return;
 
-      const res = await faceRecognitionStore.findMatches(file.path);
+      const res = await stores.faceRecog.findMatches(file.path);
       const detectedFaces = res.data.map(
         ({ detection: { _box: box }, descriptor, tagId }) =>
           new FaceModel({
             box: { height: box._height, width: box._width, x: box._x, y: box._y },
             descriptors: JSON.stringify([descriptor]),
             fileId: file.id,
-            selectedTag: tagId ? tagStore.getById(tagId)?.tagOption : null,
+            selectedTag: tagId ? stores.tag.getById(tagId)?.tagOption : null,
           })
       );
 
       if (detectedFaces.length === 0) return toast.warn("No new faces detected");
 
-      faceRecognitionStore.addDetectedFaces(detectedFaces);
+      stores.faceRecog.addDetectedFaces(detectedFaces);
     } catch (err) {
       toast.error(err.message);
     }
   };
 
   const handleSave = async () => {
-    const res = await faceRecognitionStore.registerDetectedFaces({ rootStore });
+    const res = await stores.faceRecog.registerDetectedFaces();
     if (!res.success) toast.error(res.error);
     else {
       toast.success("Faces saved successfully!");
@@ -131,12 +130,12 @@ export const FaceRecognitionModal = observer(() => {
 
   const loadFaceModels = async () => {
     try {
-      const res = await faceRecognitionStore.loadFaceModels({
+      const res = await stores.faceRecog.loadFaceModels({
         fileIds: [file.id],
         withOverwrite: false,
       });
       if (!res.success) throw new Error(res.error);
-      faceRecognitionStore.setDetectedFaces(fileToDetectedFaces(res.data));
+      stores.faceRecog.setDetectedFaces(fileToDetectedFaces(res.data));
     } catch (err) {
       console.error(err);
       toast.error("Failed to load file's face models");
@@ -144,23 +143,23 @@ export const FaceRecognitionModal = observer(() => {
   };
 
   useEffect(() => {
-    faceRecognitionStore.init();
+    stores.faceRecog.init();
   }, []);
 
   useEffect(() => {
-    if (faceRecognitionStore.isModalOpen)
+    if (stores.faceRecog.isModalOpen)
       setTimeout(() => {
-        if (faceRecognitionStore.isInitializing) return;
+        if (stores.faceRecog.isInitializing) return;
         if (file.hasFaceModels) loadFaceModels();
         else handleDetect();
       }, 100);
-    else faceRecognitionStore.setDetectedFaces([]);
-  }, [faceRecognitionStore.isModalOpen, faceRecognitionStore.isInitializing]);
+    else stores.faceRecog.setDetectedFaces([]);
+  }, [stores.faceRecog.isModalOpen, stores.faceRecog.isInitializing]);
 
   useEffect(() => {
-    if (!faceRecognitionStore.isModalOpen) return;
+    if (!stores.faceRecog.isModalOpen) return;
     loadFaceModels();
-  }, [faceRecognitionStore.isModalOpen]);
+  }, [stores.faceRecog.isModalOpen]);
 
   const imageDims = useElementResize(imageRef);
   const heightScale = (imageDims?.height || imageRef.current?.height) / file.height;
@@ -175,7 +174,7 @@ export const FaceRecognitionModal = observer(() => {
       </Modal.Header>
 
       <Modal.Content>
-        {faceRecognitionStore.isInitializing ? (
+        {stores.faceRecog.isInitializing ? (
           <View justify="center" align="center" className={css.rootContainer}>
             <Text fontSize="1.2em" marginRight="1rem">
               {"Initializing..."}
@@ -225,7 +224,7 @@ export const FaceRecognitionModal = observer(() => {
           text="Close"
           icon="Close"
           onClick={handleClose}
-          disabled={faceRecognitionStore.isDisabled}
+          disabled={stores.faceRecog.isDisabled}
           color={colors.red["900"]}
         />
 
@@ -233,7 +232,7 @@ export const FaceRecognitionModal = observer(() => {
           text={hasDetectedFaces ? "Redetect" : "Detect"}
           icon="Search"
           onClick={handleDetect}
-          disabled={faceRecognitionStore.isDisabled}
+          disabled={stores.faceRecog.isDisabled}
           color={hasDetectedFaces ? colors.blueGrey["700"] : undefined}
         />
 
@@ -242,7 +241,7 @@ export const FaceRecognitionModal = observer(() => {
             text="Save"
             icon="Save"
             onClick={handleSave}
-            disabled={faceRecognitionStore.isDisabled}
+            disabled={stores.faceRecog.isDisabled}
           />
         )}
       </Modal.Footer>

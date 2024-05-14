@@ -7,11 +7,11 @@ import { makeClasses } from "utils";
 export const DisplayedFiles = observer(() => {
   const { css } = useClasses(null);
 
-  const { fileStore } = useStores();
+  const stores = useStores();
 
-  return fileStore.files.length > 0 ? (
+  return stores.file.files.length > 0 ? (
     <View className={css.fileContainer}>
-      {fileStore.files.map((f, i) => (
+      {stores.file.files.map((f, i) => (
         <FileCard key={i} file={f} />
       ))}
     </View>

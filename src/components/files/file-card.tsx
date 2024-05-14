@@ -17,33 +17,33 @@ interface FileCardProps {
 export const FileCard = observer(({ disabled, file, height, id, width }: FileCardProps) => {
   const config = getConfig();
 
-  const { fileStore, homeStore, tagStore } = useStores();
+  const stores = useStores();
 
-  if (!file) file = fileStore.getById(id);
-  // const collections = fileCollectionStore.listByFileId(id);
+  if (!file) file = stores.file.getById(id);
+  // const collections = stores.collection.listByFileId(id);
 
   const handleClick = async (event: React.MouseEvent) => {
     if (disabled) return;
     if (event.shiftKey) {
-      const res = await homeStore.getShiftSelectedFiles({
+      const res = await stores.home.getShiftSelectedFiles({
         id: file.id,
-        selectedIds: fileStore.selectedIds,
+        selectedIds: stores.file.selectedIds,
       });
       if (!res?.success) throw new Error(res.error);
 
-      fileStore.toggleFilesSelected([
+      stores.file.toggleFilesSelected([
         ...res.data.idsToDeselect.map((i) => ({ id: i, isSelected: false })),
         ...res.data.idsToSelect.map((i) => ({ id: i, isSelected: true })),
       ]);
     } else if (event.ctrlKey) {
       /** Toggle the selected state of the file that was clicked. */
-      fileStore.toggleFilesSelected([
-        { id: file.id, isSelected: !fileStore.getIsSelected(file.id) },
+      stores.file.toggleFilesSelected([
+        { id: file.id, isSelected: !stores.file.getIsSelected(file.id) },
       ]);
     } else {
       /** Deselect all the files and select the file that was clicked. */
-      fileStore.toggleFilesSelected([
-        ...fileStore.selectedIds.map((id) => ({ id, isSelected: false })),
+      stores.file.toggleFilesSelected([
+        ...stores.file.selectedIds.map((id) => ({ id, isSelected: false })),
         { id: file.id, isSelected: true },
       ]);
     }
@@ -51,19 +51,19 @@ export const FileCard = observer(({ disabled, file, height, id, width }: FileCar
 
   const handleDoubleClick = async () => {
     if (!disabled) {
-      const res = await homeStore.listIdsForCarousel();
+      const res = await stores.home.listIdsForCarousel();
       if (!res?.success) console.error(res.error);
       else openCarouselWindow({ file, selectedFileIds: res.data });
     }
   };
 
-  const handleDragEnd = () => homeStore.setIsDraggingOut(false);
+  const handleDragEnd = () => stores.home.setIsDraggingOut(false);
 
   const handleDragStart = async (event: React.DragEvent) => {
     event.preventDefault();
-    homeStore.setIsDraggingOut(true);
+    stores.home.setIsDraggingOut(true);
 
-    const hasSelected = fileStore.selectedIds.includes(file.id);
+    const hasSelected = stores.file.selectedIds.includes(file.id);
     const files = hasSelected ? await loadSelectedFiles() : null;
     const filePaths = hasSelected ? files.map((file) => file.path) : [file.path];
     const icon = hasSelected ? files[0].thumbPaths[0] : file.thumbPaths[0];
@@ -76,12 +76,12 @@ export const FileCard = observer(({ disabled, file, height, id, width }: FileCar
   };
 
   const handleTagPress = (tagId: string) => {
-    tagStore.setActiveTagId(tagId);
-    tagStore.setIsTagEditorOpen(true);
+    stores.tag.setActiveTagId(tagId);
+    stores.tag.setIsTagEditorOpen(true);
   };
 
   const loadSelectedFiles = async () => {
-    const res = await fileStore.loadFiles({ fileIds: fileStore.selectedIds, withOverwrite: false });
+    const res = await stores.file.loadFiles({ fileIds: stores.file.selectedIds, withOverwrite: false });
     if (!res?.success) throw new Error(res.error);
     return res.data;
   };
@@ -92,7 +92,7 @@ export const FileCard = observer(({ disabled, file, height, id, width }: FileCar
         {...{ disabled, height, width }}
         onClick={handleClick}
         onDoubleClick={handleDoubleClick}
-        selected={fileStore.getIsSelected(file.id)}
+        selected={stores.file.getIsSelected(file.id)}
       >
         <FileBase.Image
           thumbPaths={file.thumbPaths}
@@ -100,7 +100,7 @@ export const FileCard = observer(({ disabled, file, height, id, width }: FileCar
           height={height}
           onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
-          fit={homeStore.fileCardFit}
+          fit={stores.home.fileCardFit}
           disabled={disabled}
           draggable
         >

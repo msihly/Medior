@@ -40,7 +40,7 @@ export const ContextMenu = observer(
 
     const { css } = useClasses(null);
 
-    const { faceRecognitionStore, fileCollectionStore, fileStore } = useStores();
+    const stores = useStores();
 
     const [mouseX, setMouseX] = useState(null);
     const [mouseY, setMouseY] = useState(null);
@@ -62,27 +62,27 @@ export const ContextMenu = observer(
     };
 
     const handleCollections = () => {
-      fileCollectionStore.setManagerFileIds([file.id]);
-      fileCollectionStore.setIsManagerOpen(true);
+      stores.collection.setManagerFileIds([file.id]);
+      stores.collection.setIsManagerOpen(true);
       handleClose();
     };
 
     const handleDelete = () => {
-      fileStore.confirmDeleteFiles(
-        fileStore.getIsSelected(file.id) ? fileStore.selectedIds : [file.id]
+      stores.file.confirmDeleteFiles(
+        stores.file.getIsSelected(file.id) ? stores.file.selectedIds : [file.id]
       );
       handleClose();
     };
 
     const handleFaceRecognition = () => {
-      faceRecognitionStore.setActiveFileId(file.id);
-      faceRecognitionStore.setIsModalOpen(true);
+      stores.faceRecog.setActiveFileId(file.id);
+      stores.faceRecog.setIsModalOpen(true);
       handleClose();
     };
 
     const openInfo = () => {
-      fileStore.setActiveFileId(file.id);
-      fileStore.setIsInfoModalOpen(true);
+      stores.file.setActiveFileId(file.id);
+      stores.file.setIsInfoModalOpen(true);
       handleClose();
     };
 

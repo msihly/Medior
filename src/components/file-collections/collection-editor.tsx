@@ -41,9 +41,9 @@ export const FileCollectionEditor = observer(() => {
 
   const sensors = useSensors(useSensor(MouseSensor, { activationConstraint: { distance: 4 } }));
 
-  const { fileCollectionStore, fileStore, homeStore, tagStore } = useStores();
+  const stores = useStores();
 
-  const hasNoSelection = fileCollectionStore.editorSelectedIds.length === 0;
+  const hasNoSelection = stores.collection.editorSelectedIds.length === 0;
 
   const [draggedFileId, setDraggedFileId] = useState<string>(null);
   const [isAddingFiles, setIsAddingFiles] = useState(false);
@@ -51,43 +51,43 @@ export const FileCollectionEditor = observer(() => {
   const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
   const [isConfirmDiscardOpen, setIsConfirmDiscardOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [title, setTitle] = useState<string>(fileCollectionStore.activeCollection?.title);
+  const [title, setTitle] = useState<string>(stores.collection.activeCollection?.title);
 
   useEffect(() => {
-    if (!fileCollectionStore.editorId) return;
+    if (!stores.collection.editorId) return;
 
     (async () => {
       setIsLoading(true);
-      await fileCollectionStore.loadActiveCollection();
+      await stores.collection.loadActiveCollection();
       setIsLoading(false);
     })();
 
     return () => {
-      fileCollectionStore.setEditorId(null);
-      fileCollectionStore.setEditorFiles([]);
-      fileCollectionStore.clearSearch();
+      stores.collection.setEditorId(null);
+      stores.collection.setEditorFiles([]);
+      stores.collection.clearSearch();
     };
-  }, [fileCollectionStore.editorId]);
+  }, [stores.collection.editorId]);
 
   useDeepEffect(() => {
     (async () => {
-      if (!fileCollectionStore.editorSearchValue.length)
-        return fileCollectionStore.setEditorSearchResults([]);
-      await fileCollectionStore.loadSearchResults();
+      if (!stores.collection.editorSearchValue.length)
+        return stores.collection.setEditorSearchResults([]);
+      await stores.collection.loadSearchResults();
     })();
-  }, [fileCollectionStore.editorSearchValue, fileCollectionStore.editorSearchSort]);
+  }, [stores.collection.editorSearchValue, stores.collection.editorSearchSort]);
 
   const confirmClose = () => {
-    if (fileCollectionStore.hasUnsavedChanges) setIsConfirmDiscardOpen(true);
+    if (stores.collection.hasUnsavedChanges) setIsConfirmDiscardOpen(true);
     else handleClose();
   };
 
   const confirmRemoveFiles = async () => {
-    const res = await fileCollectionStore.updateCollection({
-      fileIdIndexes: fileCollectionStore.sortedEditorFiles
-        .filter((f) => fileCollectionStore.editorSelectedIds.includes(f.file.id))
+    const res = await stores.collection.updateCollection({
+      fileIdIndexes: stores.collection.sortedEditorFiles
+        .filter((f) => stores.collection.editorSelectedIds.includes(f.file.id))
         .map((f, i) => ({ fileId: f.file.id, index: i })),
-      id: fileCollectionStore.editorId,
+      id: stores.collection.editorId,
     });
 
     if (!res.success) toast.error(res.error);
@@ -119,17 +119,17 @@ export const FileCollectionEditor = observer(() => {
   };
 
   const handleClose = () => {
-    fileCollectionStore.setIsEditorOpen(false);
-    homeStore.reloadIfQueued();
+    stores.collection.setIsEditorOpen(false);
+    stores.home.reloadIfQueued();
   };
 
   const handleConfirmDelete = async () => {
-    const res = await fileCollectionStore.deleteCollection(fileCollectionStore.editorId);
+    const res = await stores.collection.deleteCollection(stores.collection.editorId);
 
     if (!res.success) toast.error("Failed to delete collection");
     else {
-      fileCollectionStore.setEditorId(null);
-      fileCollectionStore.setIsEditorOpen(false);
+      stores.collection.setEditorId(null);
+      stores.collection.setIsEditorOpen(false);
       toast.success("Collection deleted");
     }
 
@@ -139,8 +139,8 @@ export const FileCollectionEditor = observer(() => {
   const handleDelete = () => setIsConfirmDeleteOpen(true);
 
   const handleDeselectAll = () => {
-    fileCollectionStore.toggleFilesSelected(
-      fileCollectionStore.editorSelectedIds.map((id) => ({ id, isSelected: false }))
+    stores.collection.toggleFilesSelected(
+      stores.collection.editorSelectedIds.map((id) => ({ id, isSelected: false }))
     );
     toast.info("Deselected all files");
   };
@@ -148,25 +148,25 @@ export const FileCollectionEditor = observer(() => {
   const handleDragCancel = () => setDraggedFileId(null);
 
   const handleDragEnd = (event: DragEndEvent) => {
-    fileCollectionStore.moveFileIndex(draggedFileId, event.over.id as string);
+    stores.collection.moveFileIndex(draggedFileId, event.over.id as string);
     setDraggedFileId(null);
   };
 
   const handleDragStart = (event: DragStartEvent) => setDraggedFileId(event.active.id as string);
 
   const handleEditTags = () => {
-    tagStore.setTaggerBatchId(null);
-    tagStore.setTaggerFileIds([...fileCollectionStore.editorSelectedIds]);
-    tagStore.setIsTaggerOpen(true);
+    stores.tag.setTaggerBatchId(null);
+    stores.tag.setTaggerFileIds([...stores.collection.editorSelectedIds]);
+    stores.tag.setIsTaggerOpen(true);
   };
 
-  const handleFileInfoRefresh = () => fileStore.refreshSelectedFiles();
+  const handleFileInfoRefresh = () => stores.file.refreshSelectedFiles();
 
-  const handlePageChange = (_, page: number) => fileCollectionStore.loadSearchResults({ page });
+  const handlePageChange = (_, page: number) => stores.collection.loadSearchResults({ page });
 
   const handleRefreshMeta = async () => {
     setIsLoading(true);
-    const res = await fileCollectionStore.regenCollMeta([fileCollectionStore.editorId]);
+    const res = await stores.collection.regenCollMeta([stores.collection.editorId]);
     setIsLoading(false);
 
     res.success ? toast.success("Metadata refreshed!") : toast.error(res.error);
@@ -180,18 +180,18 @@ export const FileCollectionEditor = observer(() => {
 
       setIsLoading(true);
 
-      const res = await fileCollectionStore.updateCollection({
-        fileIdIndexes: fileCollectionStore.sortedEditorFiles.map((f, i) => ({
+      const res = await stores.collection.updateCollection({
+        fileIdIndexes: stores.collection.sortedEditorFiles.map((f, i) => ({
           fileId: f.file.id,
           index: i,
         })),
-        id: fileCollectionStore.editorId,
+        id: stores.collection.editorId,
         title,
       });
       if (!res.success) return toast.error(res.error);
 
       toast.success("Collection saved!");
-      fileCollectionStore.setHasUnsavedChanges(false);
+      stores.collection.setHasUnsavedChanges(false);
     } catch (err) {
       console.error(err);
     } finally {
@@ -200,17 +200,17 @@ export const FileCollectionEditor = observer(() => {
   };
 
   const handleSearchSortChange = (val: SortMenuProps["value"]) =>
-    fileCollectionStore.setEditorSearchSort(val);
+    stores.collection.setEditorSearchSort(val);
 
   const handleSelectAll = () => {
-    fileCollectionStore.toggleFilesSelected(
-      fileCollectionStore.sortedEditorFiles.map(({ id }) => ({ id, isSelected: true }))
+    stores.collection.toggleFilesSelected(
+      stores.collection.sortedEditorFiles.map(({ id }) => ({ id, isSelected: true }))
     );
-    toast.info(`Added ${fileStore.files.length} files to selection`);
+    toast.info(`Added ${stores.file.files.length} files to selection`);
   };
 
   const handleTitleChange = (val: string) => {
-    fileCollectionStore.setHasUnsavedChanges(true);
+    stores.collection.setHasUnsavedChanges(true);
     setTitle(val);
   };
 
@@ -238,7 +238,7 @@ export const FileCollectionEditor = observer(() => {
         }
       >
         <Text align="center">
-          {`${fileCollectionStore.editorId === null ? "Create" : "Edit"} Collection`}
+          {`${stores.collection.editorId === null ? "Create" : "Edit"} Collection`}
         </Text>
       </Modal.Header>
 
@@ -248,29 +248,29 @@ export const FileCollectionEditor = observer(() => {
             <View column className={css.leftColumn}>
               <Text preset="label-glow">{"File Search"}</Text>
               <TagInput
-                value={[...fileCollectionStore.editorSearchValue]}
-                onChange={(val) => fileCollectionStore.setEditorSearchValue(val)}
+                value={[...stores.collection.editorSearchValue]}
+                onChange={(val) => stores.collection.setEditorSearchValue(val)}
                 hasSearchMenu
                 margins={{ bottom: "0.5rem" }}
               />
 
               <SortMenu
                 rows={CONSTANTS.SORT_MENU_OPTS.FILE_SEARCH}
-                value={fileCollectionStore.editorSearchSort}
+                value={stores.collection.editorSearchSort}
                 setValue={handleSearchSortChange}
                 color={colors.button.darkGrey}
                 width="100%"
               />
 
               <View column className={css.searchResults}>
-                {fileCollectionStore.editorSearchResults.map((f) => (
+                {stores.collection.editorSearchResults.map((f) => (
                   <FileSearchFile key={f.id} file={f} height="14rem" />
                 ))}
               </View>
 
               <Pagination
-                count={fileCollectionStore.editorSearchPageCount}
-                page={fileCollectionStore.editorSearchPage}
+                count={stores.collection.editorSearchPageCount}
+                page={stores.collection.editorSearchPage}
                 onChange={handlePageChange}
                 showFirstButton
                 showLastButton
@@ -333,12 +333,12 @@ export const FileCollectionEditor = observer(() => {
             </View>
 
             <View className={css.tags}>
-              {fileCollectionStore.sortedActiveTags.map((tag) => (
+              {stores.collection.sortedActiveTags.map((tag) => (
                 <Tag key={tag.id} tag={tag} hasEditor className={css.tag} />
               ))}
             </View>
 
-            {fileCollectionStore.editorFiles.length > 0 ? (
+            {stores.collection.editorFiles.length > 0 ? (
               <View className={css.collection}>
                 <DndContext
                   sensors={sensors}
@@ -348,7 +348,7 @@ export const FileCollectionEditor = observer(() => {
                   onDragStart={handleDragStart}
                 >
                   <SortableContext
-                    items={fileCollectionStore.sortedEditorFiles}
+                    items={stores.collection.sortedEditorFiles}
                     strategy={gridSortingStrategy}
                   >
                     <EditorFiles />
@@ -368,18 +368,18 @@ export const FileCollectionEditor = observer(() => {
 
       <Modal.Footer>
         <Button
-          text={fileCollectionStore.hasUnsavedChanges ? "Cancel" : "Close"}
+          text={stores.collection.hasUnsavedChanges ? "Cancel" : "Close"}
           icon="Close"
           onClick={confirmClose}
           disabled={isLoading}
-          color={fileCollectionStore.hasUnsavedChanges ? colors.red["800"] : colors.blueGrey["700"]}
+          color={stores.collection.hasUnsavedChanges ? colors.red["800"] : colors.blueGrey["700"]}
         />
 
         <Button
           text="Save"
           icon="Save"
           onClick={handleSave}
-          disabled={!fileCollectionStore.hasUnsavedChanges || isLoading}
+          disabled={!stores.collection.hasUnsavedChanges || isLoading}
         />
       </Modal.Footer>
 
@@ -395,7 +395,7 @@ export const FileCollectionEditor = observer(() => {
       {isConfirmDeleteOpen && (
         <ConfirmModal
           headerText="Delete Collection"
-          subText={fileCollectionStore.activeCollection?.title}
+          subText={stores.collection.activeCollection?.title}
           setVisible={setIsConfirmDeleteOpen}
           onConfirm={handleConfirmDelete}
         />

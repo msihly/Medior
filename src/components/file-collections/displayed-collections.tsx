@@ -7,11 +7,11 @@ import { makeClasses } from "utils";
 export const DisplayedCollections = observer(() => {
   const { css } = useClasses(null);
 
-  const { fileCollectionStore } = useStores();
+  const stores = useStores();
 
-  return fileCollectionStore.collections.length > 0 ? (
+  return stores.collection.collections.length > 0 ? (
     <View className={css.fileContainer}>
-      {fileCollectionStore.collections.map((c) => (
+      {stores.collection.collections.map((c) => (
         <FileCollection key={c.id} id={c.id} />
       ))}
     </View>

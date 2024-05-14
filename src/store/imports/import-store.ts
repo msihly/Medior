@@ -197,12 +197,12 @@ export class ImportStore extends Model({
   completeImportBatch = _async(function* (this: ImportStore, { batchId }: { batchId: string }) {
     return yield* _await(
       handleErrors(async () => {
-        const rootStore = getRootStore<RootStore>(this);
+        const stores = getRootStore<RootStore>(this);
         const batch = this.getById(batchId);
 
         let collectionId: string = null;
         if (batch.collectionTitle) {
-          const res = await rootStore.fileCollectionStore.createCollection({
+          const res = await stores.collection.createCollection({
             fileIdIndexes: batch.completed.map((f, i) => ({ fileId: f.fileId, index: i })),
             title: batch.collectionTitle,
           });
@@ -284,8 +284,7 @@ export class ImportStore extends Model({
   ) {
     return yield* _await(
       handleErrors(async () => {
-        const rootStore = getRootStore<RootStore>(this);
-        const { tagStore } = rootStore;
+        const stores = getRootStore<RootStore>(this);
 
         const batch = this.getById(batchId);
         const fileImport = batch?.getByPath(filePath);
@@ -309,7 +308,7 @@ export class ImportStore extends Model({
           ...new Set([
             ...tagIds,
             ...tagIds.flatMap((id) =>
-              tagStore.getParentTags(tagStore.getById(id), true).map((t) => t.id)
+              stores.tag.getParentTags(stores.tag.getById(id), true).map((t) => t.id)
             ),
           ]),
         ];

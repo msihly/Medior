@@ -195,13 +195,12 @@ export const filePathsToImports = async (filePaths: string[]) => {
 
 export const handleIngest = async ({
   fileList,
-  rootStore,
+  stores,
 }: {
   fileList: FileList;
-  rootStore: RootStore;
+  stores: RootStore;
 }) => {
   try {
-    const { importStore } = rootStore;
     const [filePaths, folderPaths] = [...fileList]
       .sort((a, b) => {
         const lengthDiff = a.path.split(path.sep).length - b.path.split(path.sep).length;
@@ -216,15 +215,17 @@ export const handleIngest = async ({
     const initialRootIndex =
       (filePaths[0] ? path.dirname(filePaths[0]) : folderPaths[0]).split(path.sep).length - 1;
 
-    importStore.setEditorRootFolderPath(filePaths[0] ? path.dirname(filePaths[0]) : folderPaths[0]);
-    importStore.setEditorRootFolderIndex(initialRootIndex);
+    stores.import.setEditorRootFolderPath(
+      filePaths[0] ? path.dirname(filePaths[0]) : folderPaths[0]
+    );
+    stores.import.setEditorRootFolderIndex(initialRootIndex);
 
-    importStore.setEditorFilePaths([
+    stores.import.setEditorFilePaths([
       ...(await Promise.all(folderPaths.map((f) => dirToFilePaths(f)))).flat(),
       ...filePaths,
     ]);
 
-    importStore.setEditorImports(
+    stores.import.setEditorImports(
       (
         await Promise.all([
           ...folderPaths.map((f) => dirToFileImports(f)),
@@ -233,7 +234,7 @@ export const handleIngest = async ({
       ).flat()
     );
 
-    importStore.setIsImportEditorOpen(true);
+    stores.import.setIsImportEditorOpen(true);
   } catch (err) {
     toast.error("Error queuing imports");
     console.error(err);

@@ -12,20 +12,20 @@ export interface FileCollectionProps {
 }
 
 export const FileCollection = observer(({ height, id, width }: FileCollectionProps) => {
-  const { fileCollectionStore, tagStore } = useStores();
-  const collection = fileCollectionStore.getById(id);
+  const stores = useStores();
+  const collection = stores.collection.getById(id);
 
   const { css } = useClasses(null);
 
   const handleTagPress = (tagId: string) => {
-    tagStore.setActiveTagId(tagId);
-    tagStore.setIsTagEditorOpen(true);
+    stores.tag.setActiveTagId(tagId);
+    stores.tag.setIsTagEditorOpen(true);
   };
 
   const openCollection = () => {
-    fileCollectionStore.setEditorFiles([]);
-    fileCollectionStore.setEditorId(id);
-    fileCollectionStore.setIsEditorOpen(true);
+    stores.collection.setEditorFiles([]);
+    stores.collection.setEditorId(id);
+    stores.collection.setIsEditorOpen(true);
   };
 
   return (
@@ -34,7 +34,7 @@ export const FileCollection = observer(({ height, id, width }: FileCollectionPro
         thumbPaths={collection.thumbPaths}
         title={collection.title}
         height={height}
-        fit={fileCollectionStore.collectionFitMode}
+        fit={stores.collection.collectionFitMode}
       >
         <FileBase.Chip
           position="top-left"

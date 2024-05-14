@@ -10,9 +10,9 @@ interface TagsProps {
 export const Tags = observer(({ tagIds }: TagsProps) => {
   const { css } = useClasses(null);
 
-  const { tagStore } = useStores();
+  const stores = useStores();
 
-  const tags = tagStore.listByIds(tagIds.slice(0, 3));
+  const tags = stores.tag.listByIds(tagIds.slice(0, 3));
 
   return (
     <View row className={css.tags}>

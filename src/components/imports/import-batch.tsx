@@ -14,9 +14,9 @@ interface ImportBatchProps {
 }
 
 export const ImportBatch = observer(({ batch }: ImportBatchProps) => {
-  const { fileCollectionStore, importStore, tagStore } = useStores();
+  const stores = useStores();
 
-  const index = importStore.batches.findIndex((b) => b.id === batch.id);
+  const index = stores.import.batches.findIndex((b) => b.id === batch.id);
   const status = IMPORT_STATUSES[batch.status];
 
   const [expanded, setExpanded] = useState(false);
@@ -24,22 +24,22 @@ export const ImportBatch = observer(({ batch }: ImportBatchProps) => {
   const { css } = useClasses({ expanded, hasTags: batch.tagIds?.length > 0 });
 
   const handleCollections = () => {
-    if (!fileCollectionStore.getById(batch.collectionId))
+    if (!stores.collection.getById(batch.collectionId))
       return toast.error("Collection not found");
-    fileCollectionStore.setEditorId(batch.collectionId);
-    fileCollectionStore.setIsEditorOpen(true);
+    stores.collection.setEditorId(batch.collectionId);
+    stores.collection.setIsEditorOpen(true);
   };
 
   const handleDelete = async () => {
-    const res = await importStore.deleteImportBatches({ ids: [batch.id] });
+    const res = await stores.import.deleteImportBatches({ ids: [batch.id] });
     if (!res.success) toast.error(`Error deleting import batch: ${res?.error}`);
     else toast.success("Import batch deleted");
   };
 
   const handleTag = () => {
-    tagStore.setTaggerBatchId(batch.id);
-    tagStore.setTaggerFileIds([...batch.completed.map((imp) => imp.fileId)]);
-    tagStore.setIsTaggerOpen(true);
+    stores.tag.setTaggerBatchId(batch.id);
+    stores.tag.setTaggerFileIds([...batch.completed.map((imp) => imp.fileId)]);
+    stores.tag.setIsTaggerOpen(true);
   };
 
   const toggleOpen = () => setExpanded(!expanded);

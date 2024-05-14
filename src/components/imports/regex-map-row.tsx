@@ -32,7 +32,7 @@ export const RegExMapRow = observer(
   }: RegExMapRowProps) => {
     const { css } = useClasses(null);
 
-    const { tagStore } = useStores();
+    const stores = useStores();
 
     const [isRegExValid, isTestStringValid] = useMemo(() => {
       try {
@@ -42,7 +42,7 @@ export const RegExMapRow = observer(
       }
     }, [regEx, testString]);
 
-    const generateRegEx = () => setRegEx(tagStore.tagsToRegEx([{ aliases, label }]));
+    const generateRegEx = () => setRegEx(stores.tag.tagsToRegEx([{ aliases, label }]));
 
     const toggleType = (type: RegExMapType) =>
       setTypes(types.includes(type) ? types.filter((t) => t !== type) : [...types, type]);

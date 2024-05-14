@@ -9,7 +9,7 @@ import { makeClasses, useDragScroll } from "utils";
 import Color from "color";
 
 export const CarouselThumbNavigator = observer(() => {
-  const { carouselStore } = useStores();
+  const stores = useStores();
 
   const listRef = useRef<FixedSizeList>(null);
   const listOuterRef = useRef(null);
@@ -18,7 +18,7 @@ export const CarouselThumbNavigator = observer(() => {
   const [isVisible, setIsVisible] = useState(false);
   const [width, setWidth] = useState(0);
 
-  const { css } = useClasses({ isMouseMoving: carouselStore.isMouseMoving, isVisible });
+  const { css } = useClasses({ isMouseMoving: stores.carousel.isMouseMoving, isVisible });
 
   const { handleMouseDown, isDragging } = useDragScroll({
     listRef,
@@ -32,12 +32,12 @@ export const CarouselThumbNavigator = observer(() => {
   const toggleVisibility = () => setIsVisible(!isVisible);
 
   useEffect(() => {
-    if (listRef.current !== null && carouselStore.activeFileIndex > -1) {
+    if (listRef.current !== null && stores.carousel.activeFileIndex > -1) {
       const newScrollLeft =
-        carouselStore.activeFileIndex * THUMB_WIDTH + THUMB_WIDTH / 2 - width / 2;
+        stores.carousel.activeFileIndex * THUMB_WIDTH + THUMB_WIDTH / 2 - width / 2;
       listRef.current.scrollTo(newScrollLeft);
     }
-  }, [carouselStore.activeFileIndex, width]);
+  }, [stores.carousel.activeFileIndex, width]);
 
   return (
     <View className={css.root}>
@@ -61,14 +61,14 @@ export const CarouselThumbNavigator = observer(() => {
               width={width}
               height={THUMB_WIDTH}
               itemSize={THUMB_WIDTH}
-              itemCount={carouselStore.selectedFileIds.length}
+              itemCount={stores.carousel.selectedFileIds.length}
               overscanCount={7}
               className={css.thumbnails}
             >
               {({ index, style }) => (
                 <CarouselThumb
                   key={index}
-                  id={carouselStore.selectedFileIds[index]}
+                  id={stores.carousel.selectedFileIds[index]}
                   isDragging={isDragging}
                   style={style}
                 />

@@ -17,9 +17,9 @@ export interface FileCollectionFileProps {
 
 export const FileCollectionFile = observer(
   ({ disabled, fileColFile, height, fileId, style = {}, width }: FileCollectionFileProps) => {
-    const { fileCollectionStore, tagStore } = useStores();
+    const stores = useStores();
 
-    if (!fileColFile) fileColFile = fileCollectionStore.getFileById(fileId);
+    if (!fileColFile) fileColFile = stores.collection.getFileById(fileId);
     const file = fileColFile?.file;
     if (!fileColFile || !file) return null;
 
@@ -30,21 +30,21 @@ export const FileCollectionFile = observer(
     const handleClick = async (event: React.MouseEvent) => {
       if (disabled) return;
       if (event.shiftKey) {
-        const { idsToDeselect, idsToSelect } = fileCollectionStore.getShiftSelectedIds(file.id);
+        const { idsToDeselect, idsToSelect } = stores.collection.getShiftSelectedIds(file.id);
 
-        fileCollectionStore.toggleFilesSelected([
+        stores.collection.toggleFilesSelected([
           ...idsToDeselect.map((i) => ({ id: i, isSelected: false })),
           ...idsToSelect.map((i) => ({ id: i, isSelected: true })),
         ]);
       } else if (event.ctrlKey) {
         /** Toggle the selected state of the file that was clicked. */
-        fileCollectionStore.toggleFilesSelected([
-          { id: file.id, isSelected: !fileCollectionStore.getIsSelected(file.id) },
+        stores.collection.toggleFilesSelected([
+          { id: file.id, isSelected: !stores.collection.getIsSelected(file.id) },
         ]);
       } else {
         /** Deselect all the files and select the file that was clicked. */
-        fileCollectionStore.toggleFilesSelected([
-          ...fileCollectionStore.editorSelectedIds.map((id) => ({ id, isSelected: false })),
+        stores.collection.toggleFilesSelected([
+          ...stores.collection.editorSelectedIds.map((id) => ({ id, isSelected: false })),
           { id: file.id, isSelected: true },
         ]);
       }
@@ -53,14 +53,14 @@ export const FileCollectionFile = observer(
     const handleDoubleClick = () =>
       openCarouselWindow({
         file,
-        selectedFileIds: fileCollectionStore.activeCollection.fileIdIndexes.map(
+        selectedFileIds: stores.collection.activeCollection.fileIdIndexes.map(
           ({ fileId }) => fileId
         ),
       });
 
     const handleTagPress = (tagId: string) => {
-      tagStore.setActiveTagId(tagId);
-      tagStore.setIsTagEditorOpen(true);
+      stores.tag.setActiveTagId(tagId);
+      stores.tag.setIsTagEditorOpen(true);
     };
 
     return (
@@ -74,7 +74,7 @@ export const FileCollectionFile = observer(
           {...{ disabled, height, width }}
           onClick={handleClick}
           onDoubleClick={handleDoubleClick}
-          selected={fileCollectionStore.getIsSelected(file.id)}
+          selected={stores.collection.getIsSelected(file.id)}
         >
           <FileBase.Image
             thumbPaths={file.thumbPaths}

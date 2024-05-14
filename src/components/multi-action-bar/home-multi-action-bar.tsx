@@ -7,51 +7,52 @@ import { colors, CONSTANTS, makeClasses } from "utils";
 import { toast } from "react-toastify";
 
 export const HomeMultiActionBar = observer(() => {
-  const rootStore = useStores();
-  const { faceRecognitionStore, fileCollectionStore, fileStore, homeStore, tagStore } = useStores();
+  const stores = useStores();
   const { css } = useClasses(null);
 
-  const hasNoSelection = fileStore.selectedIds.length === 0;
+  const hasNoSelection = stores.file.selectedIds.length === 0;
 
   const handleAutoDetect = () =>
-    faceRecognitionStore.addFilesToAutoDetectQueue({ fileIds: fileStore.selectedIds, rootStore });
+    stores.faceRecog.addFilesToAutoDetectQueue(stores.file.selectedIds);
 
-  const handleDelete = () => fileStore.confirmDeleteFiles(fileStore.selectedIds);
+  const handleDelete = () => stores.file.confirmDeleteFiles(stores.file.selectedIds);
 
   const handleDeselectAll = () => {
-    fileStore.toggleFilesSelected(fileStore.selectedIds.map((id) => ({ id, isSelected: false })));
+    stores.file.toggleFilesSelected(
+      stores.file.selectedIds.map((id) => ({ id, isSelected: false }))
+    );
     toast.info("Deselected all files");
   };
 
   const handleEditCollections = () => {
-    fileCollectionStore.setManagerFileIds([...fileStore.selectedIds]);
-    fileCollectionStore.setIsManagerOpen(true);
+    stores.collection.setManagerFileIds([...stores.file.selectedIds]);
+    stores.collection.setIsManagerOpen(true);
   };
 
   const handleEditTags = () => {
-    tagStore.setTaggerBatchId(null);
-    tagStore.setTaggerFileIds([...fileStore.selectedIds]);
-    tagStore.setIsTaggerOpen(true);
+    stores.tag.setTaggerBatchId(null);
+    stores.tag.setTaggerFileIds([...stores.file.selectedIds]);
+    stores.tag.setIsTaggerOpen(true);
   };
 
-  const handleFileInfoRefresh = () => fileStore.refreshSelectedFiles();
+  const handleFileInfoRefresh = () => stores.file.refreshSelectedFiles();
 
   const handleSelectAll = () => {
-    fileStore.toggleFilesSelected(fileStore.files.map(({ id }) => ({ id, isSelected: true })));
-    toast.info(`Added ${fileStore.files.length} files to selection`);
+    stores.file.toggleFilesSelected(stores.file.files.map(({ id }) => ({ id, isSelected: true })));
+    toast.info(`Added ${stores.file.files.length} files to selection`);
   };
 
   const handleSortChange = (val: SortMenuProps["value"]) => {
-    homeStore.setSortValue(val);
-    homeStore.loadFilteredFiles({ page: 1 });
+    stores.home.setSortValue(val);
+    stores.home.loadFilteredFiles({ page: 1 });
   };
 
-  const handleUnarchive = () => fileStore.unarchiveFiles({ fileIds: fileStore.selectedIds });
+  const handleUnarchive = () => stores.file.unarchiveFiles({ fileIds: stores.file.selectedIds });
 
-  const toggleDrawerOpen = () => homeStore.setIsDrawerOpen(!homeStore.isDrawerOpen);
+  const toggleDrawerOpen = () => stores.home.setIsDrawerOpen(!stores.home.isDrawerOpen);
 
   const toggleFileCardFit = () =>
-    homeStore.setFileCardFit(homeStore.fileCardFit === "cover" ? "contain" : "cover");
+    stores.home.setFileCardFit(stores.home.fileCardFit === "cover" ? "contain" : "cover");
 
   return (
     <AppBar position="static" className={css.appBar}>
@@ -59,11 +60,11 @@ export const HomeMultiActionBar = observer(() => {
         <View className={css.divisions}>
           <MultiActionButton name="Menu" onClick={toggleDrawerOpen} />
 
-          {fileStore.selectedIds.length > 0 && <SelectedFilesInfo />}
+          {stores.file.selectedIds.length > 0 && <SelectedFilesInfo />}
         </View>
 
         <View className={css.divisions}>
-          {homeStore.isArchiveOpen && (
+          {stores.home.isArchiveOpen && (
             <MultiActionButton
               name="Delete"
               tooltip="Delete"
@@ -74,9 +75,9 @@ export const HomeMultiActionBar = observer(() => {
           )}
 
           <MultiActionButton
-            name={homeStore.isArchiveOpen ? "Unarchive" : "Archive"}
-            tooltip={homeStore.isArchiveOpen ? "Unarchive" : "Archive"}
-            onClick={homeStore.isArchiveOpen ? handleUnarchive : handleDelete}
+            name={stores.home.isArchiveOpen ? "Unarchive" : "Archive"}
+            tooltip={stores.home.isArchiveOpen ? "Unarchive" : "Archive"}
+            onClick={stores.home.isArchiveOpen ? handleUnarchive : handleDelete}
             disabled={hasNoSelection}
           />
 
@@ -122,9 +123,9 @@ export const HomeMultiActionBar = observer(() => {
           />
 
           <MultiActionButton
-            name={homeStore.fileCardFit === "cover" ? "Fullscreen" : "FullscreenExit"}
+            name={stores.home.fileCardFit === "cover" ? "Fullscreen" : "FullscreenExit"}
             tooltip={
-              homeStore.fileCardFit === "cover"
+              stores.home.fileCardFit === "cover"
                 ? "Thumbnail Fit (Cover)"
                 : "Thumbnail Fit (Contain)"
             }
@@ -133,7 +134,7 @@ export const HomeMultiActionBar = observer(() => {
 
           <SortMenu
             rows={CONSTANTS.SORT_MENU_OPTS.FILE_SEARCH}
-            value={homeStore.sortValue}
+            value={stores.home.sortValue}
             setValue={handleSortChange}
           />
         </View>

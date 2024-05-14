@@ -41,7 +41,7 @@ export const ImportEditor = observer(() => {
 
   const { css, cx } = useClasses(null);
 
-  const { homeStore, importStore, tagStore } = useStores();
+  const stores = useStores();
 
   const [deleteOnImport, setDeleteOnImport] = useState(config.imports.deleteOnImport);
   const [flatFolderHierarchy, setFlatFolderHierarchy] = useState<FlatFolderHierarchy>([]);
@@ -73,8 +73,8 @@ export const ImportEditor = observer(() => {
   const isDisabled = isLoading || isSaving;
 
   const confirmDiscard = () => {
-    importStore.setIsImportEditorOpen(false);
-    homeStore.reloadIfQueued();
+    stores.import.setIsImportEditorOpen(false);
+    stores.home.reloadIfQueued();
   };
 
   const handleCancel = () => setIsConfirmDiscardOpen(true);
@@ -86,8 +86,8 @@ export const ImportEditor = observer(() => {
     setFolderToTagsMode(checked ? "hierarchical" : "none");
 
   const handleTagManager = () => {
-    if (tagStore.isTagManagerOpen) tagStore.setIsTagManagerOpen(false);
-    setTimeout(() => tagStore.setIsTagManagerOpen(true), 0);
+    if (stores.tag.isTagManagerOpen) stores.tag.setIsTagManagerOpen(false);
+    setTimeout(() => stores.tag.setIsTagManagerOpen(true), 0);
   };
 
   const toggleFolderToCollWithTag = () =>
@@ -121,7 +121,7 @@ export const ImportEditor = observer(() => {
     const _tagsToEdit = [];
     const folderTags: TagToUpsert[] = [];
 
-    const folderNameParts = folderName.split(path.sep).slice(importStore.editorRootFolderIndex);
+    const folderNameParts = folderName.split(path.sep).slice(stores.import.editorRootFolderIndex);
     const collectionTitle =
       folderToCollectionMode !== "none"
         ? (folderToCollectionMode === "withTag" ? folderNameParts.slice() : folderNameParts).pop()
@@ -135,7 +135,7 @@ export const ImportEditor = observer(() => {
       if (folderToTagsMode === "cascading") {
         const labels = withDelimiters ? folderNameParts.flatMap(delimit) : folderNameParts;
         labels.forEach((label) => {
-          const tag = tagStore.getByLabel(label);
+          const tag = stores.tag.getByLabel(label);
           if (!tag && !tagsToCreate.find((t) => t.label === label)) {
             _tagsToCreate.push({ label, withRegEx: withNewTagsToRegEx });
             folderTags.push({ label });
@@ -146,14 +146,14 @@ export const ImportEditor = observer(() => {
       /** Parse hierarchical tags from folder hierarchy */
       if (folderToTagsMode === "hierarchical" && tagLabel) {
         delimit(tagLabel).forEach((label) => {
-          const id = tagStore.getByLabel(label)?.id;
+          const id = stores.tag.getByLabel(label)?.id;
           const parentLabels = tagParentLabel ? delimit(tagParentLabel) : [];
           folderTags.push({ id, label, parentLabels });
         });
 
         folderNameParts.forEach((label, idx) => {
           delimit(label).forEach((label) => {
-            const tag = tagStore.getByLabel(label);
+            const tag = stores.tag.getByLabel(label);
             const parentLabel = folderNameParts[idx - 1];
             const parentLabels = parentLabel ? delimit(parentLabel) : [];
 
@@ -169,9 +169,9 @@ export const ImportEditor = observer(() => {
       if (withFolderNameRegEx) {
         folderTags.push(
           ...parseTagsFromRegEx(folderNameRegExMaps, folderName).reduce((acc, id) => {
-            const label = tagStore.getById(id)?.label;
+            const label = stores.tag.getById(id)?.label;
             if (!label) {
-              console.error(`Tag with id ${id} not found in tagStore`);
+              console.error(`Tag with id ${id} not found in stores.tag`);
               return acc;
             }
 
@@ -191,7 +191,7 @@ export const ImportEditor = observer(() => {
           ...new Set([
             otherTag.parentLabels ?? [],
             otherTag.id
-              ? tagStore.getParentTags(tagStore.getById(otherTag.id), true).map((t) => t.label)
+              ? stores.tag.getParentTags(stores.tag.getById(otherTag.id), true).map((t) => t.label)
               : [],
           ]),
         ].flat();
@@ -234,14 +234,14 @@ export const ImportEditor = observer(() => {
     const fileNameRegExMaps = getRegExMaps("fileName");
 
     if (!withDiffusionParams)
-      importStore.clearValues({ diffusionParams: true, tagIds: true, tagsToUpsert: true });
-    else await importStore.loadDiffusionParams();
+      stores.import.clearValues({ diffusionParams: true, tagIds: true, tagsToUpsert: true });
+    else await stores.import.loadDiffusionParams();
 
     /** Create meta tags for diffusion params if not found. */
     const { diffMetaTagsToEdit, originalTag, upscaledTag } = await upsertDiffMetaTags();
 
     /** Directly update file imports with their own tags derived from RegEx maps and diffusion params. */
-    const editorImports = importStore.editorImports.map((imp) => {
+    const editorImports = stores.import.editorImports.map((imp) => {
       const fileTagIds: string[] = [];
       const fileTagsToUpsert: TagToUpsert[] = [];
 
@@ -262,11 +262,11 @@ export const ImportEditor = observer(() => {
         if (acc.find((id) => id === curId)) return acc;
 
         const hasDescendants = fileTagIds.some((otherId) => {
-          const otherTag = tagStore.getById(otherId);
+          const otherTag = stores.tag.getById(otherId);
           const parentIds = [
             ...new Set([
               otherTag?.parentIds ?? [],
-              otherTag ? tagStore.getParentTags(otherTag, true).map((t) => t.id) : [],
+              otherTag ? stores.tag.getParentTags(otherTag, true).map((t) => t.id) : [],
             ]),
           ].flat();
 
@@ -286,7 +286,7 @@ export const ImportEditor = observer(() => {
   };
 
   const getRegExMaps = (type: RegExMapType): RegExMaps =>
-    tagStore
+    stores.tag
       .listRegExMapsByType(type)
       .map((map) => ({ regEx: new RegExp(map.regEx, "im"), tagId: map.tagId }));
 
@@ -294,8 +294,8 @@ export const ImportEditor = observer(() => {
     setIsSaving(true);
 
     if (flatTagsToUpsert.length > 0) {
-      const res = await tagStore.upsertTags(flatTagsToUpsert);
-      await tagStore.loadTags();
+      const res = await stores.tag.upsertTags(flatTagsToUpsert);
+      await stores.tag.loadTags();
 
       if (!res.success) {
         console.error(res.error);
@@ -314,19 +314,19 @@ export const ImportEditor = observer(() => {
           ...new Set(
             [
               ...imp.tagIds,
-              ...imp.tagsToUpsert.map((t) => tagStore.getByLabel(t.label)?.id),
+              ...imp.tagsToUpsert.map((t) => stores.tag.getByLabel(t.label)?.id),
             ].filter(Boolean)
           ),
         ],
       })),
       rootFolderPath: folder.folderName
         .split(path.sep)
-        .slice(0, importStore.editorRootFolderIndex + 1)
+        .slice(0, stores.import.editorRootFolderIndex + 1)
         .join(path.sep),
-      tagIds: folder.tags.map((t) => tagStore.getByLabel(t.label)?.id).filter(Boolean),
+      tagIds: folder.tags.map((t) => stores.tag.getByLabel(t.label)?.id).filter(Boolean),
     }));
 
-    const res = await importStore.createImportBatches(batches);
+    const res = await stores.import.createImportBatches(batches);
     if (!res.success) throw new Error(res.error);
 
     setIsSaving(false);
@@ -335,8 +335,8 @@ export const ImportEditor = observer(() => {
       `Queued ${flatFolderHierarchy.reduce((acc, cur) => acc + cur.imports.length, 0)} imports`
     );
 
-    importStore.setIsImportEditorOpen(false);
-    importStore.setIsImportManagerOpen(true);
+    stores.import.setIsImportEditorOpen(false);
+    stores.import.setIsImportManagerOpen(true);
   };
 
   const parseDiffTags = ({
@@ -354,7 +354,7 @@ export const ImportEditor = observer(() => {
     const parsedParams = parseDiffParams(diffusionParams);
 
     if (withDiffusionRegExMaps) {
-      tagStore.listRegExMapsByType("diffusionParams").forEach((map) => {
+      stores.tag.listRegExMapsByType("diffusionParams").forEach((map) => {
         const regEx = new RegExp(map.regEx, "im");
         if (regEx.test(parsedParams.prompt)) diffFileTagIds.push(map.tagId);
       });
@@ -362,7 +362,7 @@ export const ImportEditor = observer(() => {
 
     if (withDiffusionModel) {
       const modelTagLabel = `Diff Model: ${parsedParams.model}`;
-      const modelTag = tagStore.getByLabel(modelTagLabel);
+      const modelTag = stores.tag.getByLabel(modelTagLabel);
 
       if (modelTag) diffFileTagIds.push(modelTag.id);
       else {
@@ -393,7 +393,7 @@ export const ImportEditor = observer(() => {
 
     const labelMatch = regExMaps.find((map) => map.regEx.test(_tag.label));
     if (labelMatch) {
-      const label = tagStore.getById(labelMatch.tagId)?.label;
+      const label = stores.tag.getById(labelMatch.tagId)?.label;
       if (label && !_tag.parentLabels?.includes(label)) {
         _tag.id = labelMatch.tagId;
         _tag.label = label;
@@ -404,7 +404,7 @@ export const ImportEditor = observer(() => {
       _tag.parentLabels.forEach((parentLabel, idx) => {
         const parentLabelMatch = regExMaps.find((map) => map.regEx.test(parentLabel));
         if (parentLabelMatch) {
-          const parentLabel = tagStore.getById(parentLabelMatch.tagId)?.label;
+          const parentLabel = stores.tag.getById(parentLabelMatch.tagId)?.label;
           if (parentLabel && parentLabel !== _tag.label && !_tag.parentLabels.includes(parentLabel))
             _tag.parentLabels[idx] = parentLabel;
         }
@@ -420,13 +420,13 @@ export const ImportEditor = observer(() => {
     let originalTag: Tag;
     let upscaledTag: Tag;
 
-    if (!withDiffusionTags) importStore.clearValues({ tagIds: true, tagsToUpsert: true });
+    if (!withDiffusionTags) stores.import.clearValues({ tagIds: true, tagsToUpsert: true });
     else {
-      let diffTag = tagStore.getByLabel(config.imports.labelDiff);
+      let diffTag = stores.tag.getByLabel(config.imports.labelDiff);
       if (!diffTag) {
-        const res = await tagStore.createTag({ label: config.imports.labelDiff });
+        const res = await stores.tag.createTag({ label: config.imports.labelDiff });
         if (!res.success) throw new Error(res.error);
-        diffTag = tagStore.getById(res.data.id);
+        diffTag = stores.tag.getById(res.data.id);
       }
 
       await Promise.all(
@@ -435,16 +435,16 @@ export const ImportEditor = observer(() => {
           config.imports.labelDiffOriginal,
           config.imports.labelDiffUpscaled,
         ].map(async (label) => {
-          const tag = tagStore.getByLabel(label);
-          if (!tag) await tagStore.createTag({ label, parentIds: [diffTag.id] });
+          const tag = stores.tag.getByLabel(label);
+          if (!tag) await stores.tag.createTag({ label, parentIds: [diffTag.id] });
         })
       );
 
-      modelTag = tagStore.getByLabel(config.imports.labelDiffModel);
-      originalTag = tagStore.getByLabel(config.imports.labelDiffOriginal);
-      upscaledTag = tagStore.getByLabel(config.imports.labelDiffUpscaled);
+      modelTag = stores.tag.getByLabel(config.imports.labelDiffModel);
+      originalTag = stores.tag.getByLabel(config.imports.labelDiffOriginal);
+      upscaledTag = stores.tag.getByLabel(config.imports.labelDiffUpscaled);
 
-      const importsWithParams = importStore.editorImports.filter(
+      const importsWithParams = stores.import.editorImports.filter(
         (imp) => imp.diffusionParams?.length
       );
 
@@ -536,8 +536,8 @@ export const ImportEditor = observer(() => {
   }, [
     folderToCollectionMode,
     folderToTagsMode,
-    importStore.editorFilePaths,
-    importStore.editorRootFolderIndex,
+    stores.import.editorFilePaths,
+    stores.import.editorRootFolderIndex,
     isSaving,
     withDelimiters,
     withDiffusionModel,
@@ -546,7 +546,7 @@ export const ImportEditor = observer(() => {
     withDiffusionTags,
     withFileNameToTags,
     withFolderNameRegEx,
-    tagStore.tags,
+    stores.tag.tags,
   ]);
 
   return (
@@ -702,7 +702,7 @@ export const ImportEditor = observer(() => {
                     {"Select Root Tag"}
                   </Text>
 
-                  {[...importStore.editorRootFolderPath.split(path.sep), "*"].map((p, i) => (
+                  {[...stores.import.editorRootFolderPath.split(path.sep), "*"].map((p, i) => (
                     <RootFolderButton key={i} index={i} folderPart={p} />
                   ))}
                 </View>

@@ -8,7 +8,7 @@ import { toast } from "react-toastify";
 export const SelectedFilesInfo = observer(() => {
   const { css } = useClasses(null);
 
-  const { fileStore } = useStores();
+  const stores = useStores();
 
   const [totalImages, setTotalImages] = useState(0);
   const [totalSize, setTotalSize] = useState(0);
@@ -16,8 +16,8 @@ export const SelectedFilesInfo = observer(() => {
 
   const handleOpen = async () => {
     try {
-      const res = await fileStore.loadFiles({
-        fileIds: fileStore.selectedIds,
+      const res = await stores.file.loadFiles({
+        fileIds: stores.file.selectedIds,
         withOverwrite: false,
       });
       if (!res?.success) throw new Error(res.error);
@@ -69,7 +69,7 @@ export const SelectedFilesInfo = observer(() => {
         </View>
       }
     >
-      <Chip label={`${fileStore.selectedIds.length} Selected`} />
+      <Chip label={`${stores.file.selectedIds.length} Selected`} />
     </Tooltip>
   );
 });

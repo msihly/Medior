@@ -6,14 +6,14 @@ import { ZoomContext, Icon, IconButton, SideScroller, Tag, Text, View } from "co
 import { colors, makeClasses, round, zoomScaleStepIn, zoomScaleStepOut } from "utils";
 
 export const CarouselTopBar = observer(() => {
-  const { carouselStore, fileStore, tagStore } = useStores();
+  const stores = useStores();
 
-  const file = fileStore.getById(carouselStore.activeFileId);
+  const file = stores.file.getById(stores.carousel.activeFileId);
 
   const [isAspectRatioLocked, setIsAspectRatioLocked] = useState(true);
   const [isPinned, setIsPinned] = useState(false);
 
-  const { css } = useClasses({ isMouseMoving: carouselStore.isMouseMoving, isPinned });
+  const { css } = useClasses({ isMouseMoving: stores.carousel.isMouseMoving, isPinned });
 
   const panZoomRef = useContext(ZoomContext);
 
@@ -50,9 +50,9 @@ export const CarouselTopBar = observer(() => {
     }
   }, [file]);
 
-  const handleEditTags = () => tagStore.setIsTaggerOpen(true);
+  const handleEditTags = () => stores.tag.setIsTaggerOpen(true);
 
-  const handleExtractFrame = () => carouselStore.extractFrame();
+  const handleExtractFrame = () => stores.carousel.extractFrame();
 
   const toggleAspectRatioLock = () => {
     const isLocked = !isAspectRatioLocked;

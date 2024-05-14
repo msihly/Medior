@@ -11,9 +11,9 @@ interface SearchProps {
 
 export const Search = observer(
   ({ hasImports = false, hasSettings = false, isLoading }: SearchProps) => {
-    const { homeStore } = useStores();
+    const stores = useStores();
 
-    const { css } = useClasses({ isDrawerOpen: homeStore.isDrawerOpen });
+    const { css } = useClasses({ isDrawerOpen: stores.home.isDrawerOpen });
 
     return (
       <>
@@ -27,7 +27,7 @@ export const Search = observer(
           </View>
         </View>
 
-        <LoadingOverlay isLoading={homeStore.isLoading} />
+        <LoadingOverlay isLoading={stores.home.isLoading} />
       </>
     );
   }

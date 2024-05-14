@@ -21,7 +21,7 @@ import { toast } from "react-toastify";
 export const TagMerger = observer(() => {
   const { css } = useClasses(null);
 
-  const { homeStore, tagStore } = useStores();
+  const stores = useStores();
 
   const [aliases, setAliases] = useState<ChipOption[]>([]);
   const [childTags, setChildTags] = useState<TagOption[]>([]);
@@ -37,10 +37,10 @@ export const TagMerger = observer(() => {
 
   const hasSelectedTag = selectedTagValue.length > 0;
   const disabled = isSaving || !hasSelectedTag;
-  const baseTag = tagStore.getById(
-    tagStore.isTagSubEditorOpen ? tagStore.subEditorTagId : tagStore.activeTagId
+  const baseTag = stores.tag.getById(
+    stores.tag.isTagSubEditorOpen ? stores.tag.subEditorTagId : stores.tag.activeTagId
   );
-  const tagOptions = useDeepMemo(tagStore.tagOptions);
+  const tagOptions = useDeepMemo(stores.tag.tagOptions);
 
   useDeepEffect(() => {
     if (!selectedTagValue.length) {
@@ -53,13 +53,13 @@ export const TagMerger = observer(() => {
       return;
     }
 
-    const tag = tagStore.getById(selectedTagValue[0].id);
+    const tag = stores.tag.getById(selectedTagValue[0].id);
     const tagToKeep = tag.count > baseTag.count ? tag : baseTag;
     const tagToMerge = !(tag.count > baseTag.count) ? tag : baseTag;
     setTagIdToKeep(tagToKeep.id);
     setTagIdToMerge(tagToMerge.id);
     if (!tagLabelToKeep)
-      setTagLabelToKeep(tagToKeep.id === tagStore.activeTagId ? "base" : "merge");
+      setTagLabelToKeep(tagToKeep.id === stores.tag.activeTagId ? "base" : "merge");
 
     const aliasToSet = tagLabelToKeep === "merge" ? baseTag.label : tag.label;
     setAliases(
@@ -83,14 +83,14 @@ export const TagMerger = observer(() => {
 
   const handleClose = () => {
     setIsConfirmDiscardOpen(false);
-    tagStore.setIsTagMergerOpen(false);
-    homeStore.reloadIfQueued();
+    stores.tag.setIsTagMergerOpen(false);
+    stores.home.reloadIfQueued();
   };
 
   const handleConfirm = async () => {
     try {
       setIsSaving(true);
-      const res = await tagStore.mergeTags({
+      const res = await stores.tag.mergeTags({
         aliases: aliases.map((a) => a.value),
         childIds: childTags.map((t) => t.id),
         label,
@@ -102,9 +102,9 @@ export const TagMerger = observer(() => {
       if (!res.success) throw new Error(res.error);
       setIsSaving(false);
 
-      tagStore.setIsTagMergerOpen(false);
-      tagStore.setActiveTagId(tagIdToKeep);
-      tagStore.setIsTagEditorOpen(true);
+      stores.tag.setIsTagMergerOpen(false);
+      stores.tag.setActiveTagId(tagIdToKeep);
+      stores.tag.setIsTagEditorOpen(true);
 
       toast.success("Tags merged successfully!");
     } catch (err) {
@@ -122,18 +122,18 @@ export const TagMerger = observer(() => {
       if (tagIdsToExclude.includes(curId) || acc.find((t) => t.id === curId)) return acc;
 
       const hasDescendants = filteredTagIds.some((otherId) => {
-        const otherTag = tagStore.getById(otherId);
+        const otherTag = stores.tag.getById(otherId);
         const parentIds = [
           ...new Set([
             otherTag?.parentIds ?? [],
-            otherTag ? tagStore.getParentTags(otherTag, true).map((t) => t.id) : [],
+            otherTag ? stores.tag.getParentTags(otherTag, true).map((t) => t.id) : [],
           ]),
         ].flat();
 
         return parentIds.includes(curId);
       });
 
-      if (!hasDescendants) acc.push(tagStore.getById(curId).tagOption);
+      if (!hasDescendants) acc.push(stores.tag.getById(curId).tagOption);
       return acc;
     }, [] as TagOption[]);
   };
@@ -164,7 +164,7 @@ export const TagMerger = observer(() => {
             <InputWrapper label="Select Tag to Merge" align="center">
               <TagInput
                 options={tagOptions}
-                excludedIds={[tagStore.activeTagId]}
+                excludedIds={[stores.tag.activeTagId]}
                 value={selectedTagValue}
                 onChange={handleSelectedTagChange}
                 hasDelete
@@ -197,7 +197,7 @@ export const TagMerger = observer(() => {
           <TagInputs.Relations
             label="Parent Tags"
             options={tagOptions}
-            excludedIds={[tagStore.activeTagId, ...childTags.map((t) => t.id)]}
+            excludedIds={[stores.tag.activeTagId, ...childTags.map((t) => t.id)]}
             value={parentTags}
             setValue={setParentTags}
             disabled
@@ -208,7 +208,7 @@ export const TagMerger = observer(() => {
           <TagInputs.Relations
             label="Child Tags"
             options={tagOptions}
-            excludedIds={[tagStore.activeTagId, ...parentTags.map((t) => t.id)]}
+            excludedIds={[stores.tag.activeTagId, ...parentTags.map((t) => t.id)]}
             value={childTags}
             setValue={setChildTags}
             disabled

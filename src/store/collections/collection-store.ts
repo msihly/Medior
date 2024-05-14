@@ -251,14 +251,12 @@ export class FileCollectionStore extends Model({
         const debug = false;
         const { perfLog, perfLogTotal } = makePerfLog("[LFC]");
 
-        const rootStore = getRootStore<RootStore>(this);
-        if (!rootStore) throw new Error("RootStore not found");
-        const { tagStore } = rootStore;
-
+        const stores = getRootStore<RootStore>(this);
+        if (!stores) throw new Error("RootStore not found");
         this.setIsManagerLoading(true);
 
         const collectionsRes = await trpc.listFilteredCollections.mutate({
-          ...tagStore.tagSearchOptsToIds(this.managerTagSearchValue),
+          ...stores.tag.tagSearchOptsToIds(this.managerTagSearchValue),
           isSortDesc: this.managerSearchSort.isDesc,
           page: page ?? this.managerSearchPage,
           pageSize: getConfig().collection.editorPageSize,
@@ -294,11 +292,10 @@ export class FileCollectionStore extends Model({
     return yield* _await(
       handleErrors(async () => {
         const config = getConfig();
-        const rootStore = getRootStore<RootStore>(this);
-        const { tagStore } = rootStore;
+        const stores = getRootStore<RootStore>(this);
 
         const filteredRes = await trpc.listFilteredFiles.mutate({
-          ...tagStore.tagSearchOptsToIds(this.editorSearchValue),
+          ...stores.tag.tagSearchOptsToIds(this.editorSearchValue),
           excludedFileIds: this.editorFiles.map((f) => f.id),
           hasDiffParams: this.editorSearchHasDiffParams,
           isArchived: false,
@@ -419,9 +416,9 @@ export class FileCollectionStore extends Model({
 
   @computed
   get sortedActiveTags() {
-    const rootStore = getRootStore<RootStore>(this);
+    const stores = getRootStore<RootStore>(this);
     return this.activeTagIds
-      .map((id) => rootStore.tagStore.getById(id))
+      .map((id) => stores.tag.getById(id))
       .filter((t) => t)
       .sort((a, b) => b.count - a.count);
   }

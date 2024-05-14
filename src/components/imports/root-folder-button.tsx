@@ -11,11 +11,11 @@ export interface RootFolderButtonProps {
 }
 
 export const RootFolderButton = observer(({ folderPart, index }: RootFolderButtonProps) => {
-  const { importStore } = useStores();
+  const stores = useStores();
 
-  const isSelected = importStore.editorRootFolderIndex === index;
+  const isSelected = stores.import.editorRootFolderIndex === index;
 
-  const handleClick = () => importStore.setEditorRootFolderIndex(index);
+  const handleClick = () => stores.import.setEditorRootFolderIndex(index);
 
   return (
     <Fragment key={index}>

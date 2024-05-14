@@ -25,48 +25,48 @@ const ROW_HEIGHT = 50;
 export const TagManager = observer(() => {
   const { css } = useClasses(null);
 
-  const { homeStore, tagStore } = useStores();
+  const stores = useStores();
 
   const [width, setWidth] = useState(0);
 
   const resultsRef = useRef<FixedSizeGrid>(null);
   useDeepEffect(() => {
     if (resultsRef.current) resultsRef.current.scrollTo({ scrollTop: 0 });
-  }, [tagStore.tagManagerOptions]);
+  }, [stores.tag.tagManagerOptions]);
 
   const columnWidth = Math.max(COLUMN_MIN_WIDTH, Math.floor(width / COLUMN_MIN_WIDTH));
   const columnCount = Math.floor(width / columnWidth);
-  const rowCount = Math.ceil(tagStore.tagManagerOptions.length / columnCount);
+  const rowCount = Math.ceil(stores.tag.tagManagerOptions.length / columnCount);
 
   const handleClose = () => {
-    tagStore.setIsTagManagerOpen(false);
-    homeStore.reloadIfQueued();
+    stores.tag.setIsTagManagerOpen(false);
+    stores.home.reloadIfQueued();
   };
 
   const handleCreate = () => {
-    tagStore.setActiveTagId(null);
-    tagStore.setIsTagEditorOpen(true);
+    stores.tag.setActiveTagId(null);
+    stores.tag.setIsTagEditorOpen(true);
   };
 
-  const handleRefreshCounts = () => tagStore.refreshAllTagCounts();
+  const handleRefreshCounts = () => stores.tag.refreshAllTagCounts();
 
-  const handleRefreshRelations = () => tagStore.refreshAllTagRelations();
+  const handleRefreshRelations = () => stores.tag.refreshAllTagRelations();
 
   const handleResize = ({ width }) => setWidth(width);
 
-  const handleSearchChange = (val: TagOption[]) => tagStore.setTagManagerSearchValue(val);
+  const handleSearchChange = (val: TagOption[]) => stores.tag.setTagManagerSearchValue(val);
 
-  const setTagManagerSort = (val: SortMenuProps["value"]) => tagStore.setTagManagerSort(val);
+  const setTagManagerSort = (val: SortMenuProps["value"]) => stores.tag.setTagManagerSort(val);
 
   const renderTag = ({ columnIndex, rowIndex, style }) => {
     const index = rowIndex * columnCount + columnIndex;
-    if (index >= tagStore.tagManagerOptions.length) return null;
+    if (index >= stores.tag.tagManagerOptions.length) return null;
 
-    const id = tagStore.tagManagerOptions[index].id;
+    const id = stores.tag.tagManagerOptions[index].id;
 
     const handleClick = () => {
-      tagStore.setActiveTagId(id);
-      tagStore.setIsTagEditorOpen(true);
+      stores.tag.setActiveTagId(id);
+      stores.tag.setIsTagEditorOpen(true);
     };
 
     return (
@@ -93,7 +93,7 @@ export const TagManager = observer(() => {
         <View column spacing="0.5rem" className={css.searchColumn}>
           <TagInput
             label="Search Tags"
-            value={tagStore.tagManagerSearchValue}
+            value={stores.tag.tagManagerSearchValue}
             onChange={handleSearchChange}
             hasSearchMenu
             width="100%"
@@ -101,7 +101,7 @@ export const TagManager = observer(() => {
 
           <SortMenu
             rows={CONSTANTS.SORT_MENU_OPTS.TAG_SEARCH}
-            value={tagStore.tagManagerSort}
+            value={stores.tag.tagManagerSort}
             setValue={setTagManagerSort}
             color={colors.button.darkGrey}
             width="100%"
@@ -109,9 +109,9 @@ export const TagManager = observer(() => {
 
           <Checkbox
             label="Has RegEx"
-            checked={tagStore.tagManagerRegExMode === "hasRegEx"}
-            indeterminate={tagStore.tagManagerRegExMode === "hasNoRegEx"}
-            setChecked={tagStore.toggleTagManagerRegExMode}
+            checked={stores.tag.tagManagerRegExMode === "hasRegEx"}
+            indeterminate={stores.tag.tagManagerRegExMode === "hasNoRegEx"}
+            setChecked={stores.tag.toggleTagManagerRegExMode}
             flex={0}
           />
         </View>

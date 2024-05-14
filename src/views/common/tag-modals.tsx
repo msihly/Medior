@@ -7,26 +7,26 @@ interface TagModalsProps {
 }
 
 export const TagModals = observer(({ view }: TagModalsProps) => {
-  const { carouselStore, tagStore } = useStores();
+  const stores = useStores();
 
-  const setTaggerVisible = (val: boolean) => tagStore.setIsTaggerOpen(val);
+  const setTaggerVisible = (val: boolean) => stores.tag.setIsTaggerOpen(val);
 
   return (
     <>
-      {tagStore.isTaggerOpen && (
+      {stores.tag.isTaggerOpen && (
         <Tagger
-          fileIds={view === "carousel" ? [carouselStore.activeFileId] : tagStore.taggerFileIds}
+          fileIds={view === "carousel" ? [stores.carousel.activeFileId] : stores.tag.taggerFileIds}
           setVisible={setTaggerVisible}
         />
       )}
 
-      {tagStore.isTagEditorOpen && <TagEditor id={tagStore.activeTagId} hasSubEditor />}
+      {stores.tag.isTagEditorOpen && <TagEditor id={stores.tag.activeTagId} hasSubEditor />}
 
-      {tagStore.isTagSubEditorOpen && <TagEditor id={tagStore.subEditorTagId} isSubEditor />}
+      {stores.tag.isTagSubEditorOpen && <TagEditor id={stores.tag.subEditorTagId} isSubEditor />}
 
-      {tagStore.isTagManagerOpen && <TagManager />}
+      {stores.tag.isTagManagerOpen && <TagManager />}
 
-      {tagStore.isTagMergerOpen && <TagMerger />}
+      {stores.tag.isTagMergerOpen && <TagMerger />}
     </>
   );
 });

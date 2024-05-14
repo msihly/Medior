@@ -5,17 +5,17 @@ import { Checkbox, CheckboxProps } from "components";
 export interface SettingsCheckboxProps extends CheckboxProps {}
 
 export const SettingsCheckbox = observer(({ setChecked, ...props }: SettingsCheckboxProps) => {
-  const { homeStore } = useStores();
+  const stores = useStores();
 
   const handleChange = (checked: boolean) => {
     setChecked(checked);
-    homeStore.setSettingsHasUnsavedChanges(true);
+    stores.home.setSettingsHasUnsavedChanges(true);
   };
 
   return (
     <Checkbox
       setChecked={handleChange}
-      disabled={homeStore.isSettingsLoading}
+      disabled={stores.home.isSettingsLoading}
       flex="inherit"
       {...props}
     />

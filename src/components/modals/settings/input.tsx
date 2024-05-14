@@ -5,14 +5,19 @@ import { Input, InputProps } from "components";
 export interface SettingsInputProps extends InputProps {}
 
 export const SettingsInput = observer(({ setValue, ...props }: SettingsInputProps) => {
-  const { homeStore } = useStores();
+  const stores = useStores();
 
   const handleChange = (val: string) => {
     setValue(val);
-    homeStore.setSettingsHasUnsavedChanges(true);
+    stores.home.setSettingsHasUnsavedChanges(true);
   };
 
   return (
-    <Input setValue={handleChange} disabled={homeStore.isSettingsLoading} detachLabel {...props} />
+    <Input
+      setValue={handleChange}
+      disabled={stores.home.isSettingsLoading}
+      detachLabel
+      {...props}
+    />
   );
 });

@@ -3,13 +3,13 @@ import { observer } from "mobx-react-lite";
 import { ImportEditor, ImportManager } from "components";
 
 export const ImportModals = observer(() => {
-  const { importStore } = useStores();
+  const stores = useStores();
 
   return (
     <>
       <ImportManager />
 
-      {importStore.isImportEditorOpen && <ImportEditor />}
+      {stores.import.isImportEditorOpen && <ImportEditor />}
     </>
   );
 });

@@ -10,8 +10,8 @@ const CARD_HEIGHT = 300;
 const CARD_MAX_WIDTH = 300;
 
 export const EditorFiles = observer(() => {
-  const { fileCollectionStore } = useStores();
-  const sortedFiles = useDeepMemo(fileCollectionStore.sortedEditorFiles);
+  const stores = useStores();
+  const sortedFiles = useDeepMemo(stores.collection.sortedEditorFiles);
 
   const [width, setWidth] = useState(0);
   const handleResize = ({ width }) => setWidth(width);

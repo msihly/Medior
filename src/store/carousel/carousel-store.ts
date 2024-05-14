@@ -31,8 +31,8 @@ export class CarouselStore extends Model({
 
   @modelAction
   removeFiles(fileIds: string[]) {
-    const rootStore = getRootStore<RootStore>(this);
-    if (!rootStore) throw new Error("Root store not found");
+    const stores = getRootStore<RootStore>(this);
+    if (!stores) throw new Error("Root store not found");
 
     const newSelectedIds = this.selectedFileIds.filter((id) => !fileIds.includes(id));
     if (!newSelectedIds.length) return remote.getCurrentWindow().close();
@@ -41,12 +41,12 @@ export class CarouselStore extends Model({
       const newFileId =
         newSelectedIds[this.activeFileIndex] ?? newSelectedIds[this.activeFileIndex - 1];
       this.setActiveFileId(newFileId);
-      rootStore.fileStore.setActiveFileId(newFileId);
+      stores.file.setActiveFileId(newFileId);
     }
 
     this.setSelectedFileIds(newSelectedIds);
 
-    rootStore.fileStore.loadFiles({ fileIds: newSelectedIds });
+    stores.file.loadFiles({ fileIds: newSelectedIds });
   }
 
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */
@@ -54,8 +54,8 @@ export class CarouselStore extends Model({
   extractFrame = _async(function* (this: CarouselStore) {
     return yield* _await(
       handleErrors(async () => {
-        const rootStore = getRootStore<RootStore>(this);
-        const activeFile = rootStore.fileStore.getById(this.activeFileId);
+        const stores = getRootStore<RootStore>(this);
+        const activeFile = stores.file.getById(this.activeFileId);
         if (!activeFile) throw new Error("Active file not found");
 
         this.setIsPlaying(false);
@@ -83,7 +83,7 @@ export class CarouselStore extends Model({
 
         await trpc.recalculateTagCounts.mutate({ tagIds: activeFile.tagIds });
 
-        rootStore.fileStore.addFileAfterIndex(copyRes.file, this.activeFileIndex);
+        stores.file.addFileAfterIndex(copyRes.file, this.activeFileIndex);
         this.addFileAfterIndex(copyRes.file.id, this.activeFileIndex);
         this.setActiveFileId(copyRes.file.id);
 

@@ -14,7 +14,7 @@ interface TaggerProps {
 export const Tagger = observer(({ batchId, fileIds, setVisible }: TaggerProps) => {
   const { css } = useClasses(null);
 
-  const { fileStore, homeStore, tagStore } = useStores();
+  const stores = useStores();
 
   const [addedTags, setAddedTags] = useState<TagOption[]>([]);
   const [currentTagOptions, setCurrentTagOptions] = useState<TagOption[]>([]);
@@ -24,11 +24,11 @@ export const Tagger = observer(({ batchId, fileIds, setVisible }: TaggerProps) =
 
   useDeepEffect(() => {
     const loadCurrentTags = async () => {
-      const res = await fileStore.loadFiles({ fileIds, withOverwrite: false });
+      const res = await stores.file.loadFiles({ fileIds, withOverwrite: false });
       if (!res?.success) throw new Error(res.error);
 
       const tagIds = [...new Set(res.data.flatMap((f) => f.tagIds))];
-      setCurrentTagOptions(tagStore.listByIds(tagIds).map((t) => tagToOption(t)));
+      setCurrentTagOptions(stores.tag.listByIds(tagIds).map((t) => tagToOption(t)));
     };
 
     loadCurrentTags();
@@ -36,18 +36,18 @@ export const Tagger = observer(({ batchId, fileIds, setVisible }: TaggerProps) =
     return () => {
       setCurrentTagOptions([]);
     };
-  }, [fileIds, tagStore.tags]);
+  }, [fileIds, stores.tag.tags]);
 
   const handleClose = () => {
     if (hasUnsavedChanges) return setIsConfirmDiscardOpen(true);
     setVisible(false);
-    homeStore.reloadIfQueued();
+    stores.home.reloadIfQueued();
   };
 
   const handleCloseForced = () => {
     setHasUnsavedChanges(false);
     setVisible(false);
-    homeStore.reloadIfQueued();
+    stores.home.reloadIfQueued();
   };
 
   const handleTagAdded = (tags: TagOption[]) => {
@@ -68,7 +68,7 @@ export const Tagger = observer(({ batchId, fileIds, setVisible }: TaggerProps) =
 
     const addedTagIds = addedTags.map((t) => t.id);
     const removedTagIds = removedTags.map((t) => t.id);
-    const res = await fileStore.editFileTags({
+    const res = await stores.file.editFileTags({
       addedTagIds,
       batchId,
       fileIds,

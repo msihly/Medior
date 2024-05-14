@@ -7,15 +7,14 @@ import Color from "color";
 export const ImportDnD = observer(({ children }) => {
   const { css } = useClasses(null);
 
-  const rootStore = useStores();
-  const { homeStore } = useStores();
+  const stores = useStores();
 
   const handleDragEnter = (event: React.DragEvent) => {
     const items = [...event.dataTransfer.items].filter((item) => item.kind === "file");
-    if (items.length > 0 && !homeStore.isDraggingOut) homeStore.setIsDraggingIn(true);
+    if (items.length > 0 && !stores.home.isDraggingOut) stores.home.setIsDraggingIn(true);
   };
 
-  const handleDragLeave = () => homeStore.setIsDraggingIn(false);
+  const handleDragLeave = () => stores.home.setIsDraggingIn(false);
 
   const handleDragOver = (event: React.DragEvent) => {
     event.preventDefault();
@@ -23,13 +22,13 @@ export const ImportDnD = observer(({ children }) => {
   };
 
   const handleFileDrop = (event: React.DragEvent) => {
-    homeStore.setIsDraggingIn(false);
-    handleIngest({ fileList: event.dataTransfer.files, rootStore });
+    stores.home.setIsDraggingIn(false);
+    handleIngest({ fileList: event.dataTransfer.files, stores });
   };
 
   return (
     <View onDragOver={handleDragOver} onDragEnter={handleDragEnter}>
-      {homeStore.isDraggingIn && (
+      {stores.home.isDraggingIn && (
         <View onDragLeave={handleDragLeave} onDrop={handleFileDrop} className={css.overlay} />
       )}
 

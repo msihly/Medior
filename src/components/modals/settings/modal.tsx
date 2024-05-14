@@ -39,7 +39,7 @@ import Color from "color";
 export const SettingsModal = observer(() => {
   const { css } = useClasses(null);
 
-  const { homeStore, faceRecognitionStore, fileStore, importStore, tagStore } = useStores();
+  const stores = useStores();
 
   const [collEditorPageSize, setCollEditorPageSize] = useState<number>(
     DEFAULT_CONFIG.collection.editorPageSize
@@ -133,17 +133,17 @@ export const SettingsModal = observer(() => {
   }, []);
 
   const handleCancel = () => {
-    if (homeStore.settingsHasUnsavedChanges) setIsConfirmDiscardOpen(true);
+    if (stores.home.settingsHasUnsavedChanges) setIsConfirmDiscardOpen(true);
     else handleClose();
   };
 
   const handleClose = () => {
-    homeStore.setIsSettingsOpen(false);
-    homeStore.setSettingsHasUnsavedChanges(false);
+    stores.home.setIsSettingsOpen(false);
+    stores.home.setSettingsHasUnsavedChanges(false);
   };
 
   const handleLoadConfig = async () => {
-    homeStore.setIsSettingsLoading(true);
+    stores.home.setIsSettingsLoading(true);
 
     const config = await loadConfig();
     setCollEditorPageSize(config.collection.editorPageSize);
@@ -183,27 +183,27 @@ export const SettingsModal = observer(() => {
     setTagManagerSort(config.tags.managerSearchSort);
     setVideoTypes(config.file.videoTypes);
 
-    homeStore.setIsSettingsLoading(false);
+    stores.home.setIsSettingsLoading(false);
   };
 
   const handleFileCardFitContain = () => {
     setFileCardFit("contain");
-    homeStore.setSettingsHasUnsavedChanges(true);
+    stores.home.setSettingsHasUnsavedChanges(true);
   };
 
   const handleFileCardFitCover = () => {
     setFileCardFit("cover");
-    homeStore.setSettingsHasUnsavedChanges(true);
+    stores.home.setSettingsHasUnsavedChanges(true);
   };
 
   const handleFolderToCollection = (checked: boolean) => {
     setImportsFolderToCollMode(checked ? "withoutTag" : "none");
-    homeStore.setSettingsHasUnsavedChanges(true);
+    stores.home.setSettingsHasUnsavedChanges(true);
   };
 
   const handleFoldersToTags = (checked: boolean) => {
     setImportsFolderToTagsMode(checked ? "hierarchical" : "none");
-    homeStore.setSettingsHasUnsavedChanges(true);
+    stores.home.setSettingsHasUnsavedChanges(true);
   };
 
   const handleMongoDbPathClick = async (event: React.MouseEvent) => {
@@ -211,7 +211,7 @@ export const SettingsModal = observer(() => {
     const res = await dialog.showOpenDialog({ properties: ["openDirectory"] });
     if (res.canceled) return;
     setMongoDbPath(res.filePaths[0]);
-    homeStore.setSettingsHasUnsavedChanges(true);
+    stores.home.setSettingsHasUnsavedChanges(true);
   };
 
   const handleMongoOutputDirClick = async (event: React.MouseEvent) => {
@@ -219,12 +219,12 @@ export const SettingsModal = observer(() => {
     const res = await dialog.showOpenDialog({ properties: ["openDirectory"] });
     if (res.canceled) return;
     setMongoOutputDir(res.filePaths[0]);
-    homeStore.setSettingsHasUnsavedChanges(true);
+    stores.home.setSettingsHasUnsavedChanges(true);
   };
 
   const handleSaveConfig = async () => {
     try {
-      homeStore.setIsSettingsLoading(true);
+      stores.home.setIsSettingsLoading(true);
 
       const oldConfig = await loadConfig();
       const hasDbDiff = oldConfig.mongo.dbPath !== mongoDbPath || oldConfig.ports.db !== dbPort;
@@ -279,11 +279,11 @@ export const SettingsModal = observer(() => {
         },
       });
 
-      faceRecognitionStore.autoDetectQueue.clear();
-      fileStore.infoRefreshQueue.clear();
-      importStore.queue.clear();
-      tagStore.countsRefreshQueue.clear();
-      tagStore.relationsRefreshQueue.clear();
+      stores.faceRecog.autoDetectQueue.clear();
+      stores.file.infoRefreshQueue.clear();
+      stores.import.queue.clear();
+      stores.tag.countsRefreshQueue.clear();
+      stores.tag.relationsRefreshQueue.clear();
 
       if (hasDbDiff || hasServerDiff || hasSocketDiff)
         await trpc.reloadServers.mutate({
@@ -293,28 +293,28 @@ export const SettingsModal = observer(() => {
           withSocket: hasSocketDiff,
         });
 
-      homeStore.setIsSettingsLoading(false);
-      homeStore.setSettingsHasUnsavedChanges(false);
+      stores.home.setIsSettingsLoading(false);
+      stores.home.setSettingsHasUnsavedChanges(false);
       toast.success("Settings saved!");
     } catch (err) {
-      homeStore.setIsSettingsLoading(false);
+      stores.home.setIsSettingsLoading(false);
       toast.error("Failed to save settings.");
     }
   };
 
   const toggleFolderToCollWithTag = () => {
     setImportsFolderToCollMode((prev) => (prev === "withTag" ? "withoutTag" : "withTag"));
-    homeStore.setSettingsHasUnsavedChanges(true);
+    stores.home.setSettingsHasUnsavedChanges(true);
   };
 
   const toggleFoldersToTagsCascading = () => {
     setImportsFolderToTagsMode("cascading");
-    homeStore.setSettingsHasUnsavedChanges(true);
+    stores.home.setSettingsHasUnsavedChanges(true);
   };
 
   const toggleFoldersToTagsHierarchical = () => {
     setImportsFolderToTagsMode("hierarchical");
-    homeStore.setSettingsHasUnsavedChanges(true);
+    stores.home.setSettingsHasUnsavedChanges(true);
   };
 
   return (
@@ -647,7 +647,7 @@ export const SettingsModal = observer(() => {
           text="Cancel"
           icon="Close"
           onClick={handleCancel}
-          disabled={homeStore.isSettingsLoading}
+          disabled={stores.home.isSettingsLoading}
           color={colors.button.grey}
         />
 
@@ -655,7 +655,7 @@ export const SettingsModal = observer(() => {
           text="Save"
           icon="Save"
           onClick={handleSaveConfig}
-          disabled={homeStore.isSettingsLoading}
+          disabled={stores.home.isSettingsLoading}
         />
       </Modal.Footer>
     </Modal.Container>

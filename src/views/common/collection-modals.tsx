@@ -3,13 +3,13 @@ import { observer } from "mobx-react-lite";
 import { FileCollectionEditor, FileCollectionManager } from "components";
 
 export const CollectionModals = observer(() => {
-  const { fileCollectionStore } = useStores();
+  const stores = useStores();
 
   return (
     <>
-      {fileCollectionStore.isManagerOpen && <FileCollectionManager />}
+      {stores.collection.isManagerOpen && <FileCollectionManager />}
 
-      {fileCollectionStore.isEditorOpen && <FileCollectionEditor />}
+      {stores.collection.isEditorOpen && <FileCollectionEditor />}
     </>
   );
 });

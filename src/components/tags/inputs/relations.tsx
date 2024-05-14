@@ -35,7 +35,7 @@ export const Relations = observer(
   }: RelationsProps) => {
     const { css } = useClasses(null);
 
-    const { tagStore } = useStores();
+    const stores = useStores();
 
     const ancestryLabel = ancestryType === "ancestors" ? "Ancestors" : "Descendants";
 
@@ -45,18 +45,18 @@ export const Relations = observer(
       if (!ancestryType || !ancestryTagIds) return [];
 
       const oldTags = ancestryTagIds
-        .map((tagId) => tagStore.getById(tagId))
+        .map((tagId) => stores.tag.getById(tagId))
         .sort((a, b) => b.count - a.count);
 
       const newTags = [
         ...new Set(
           value.flatMap((tagOpt) => {
-            const tag = tagStore.getById(tagOpt.id);
+            const tag = stores.tag.getById(tagOpt.id);
             return [
               tag,
               ...(ancestryType === "ancestors"
-                ? tagStore.getParentTags(tag, true)
-                : tagStore.getChildTags(tag, true)),
+                ? stores.tag.getParentTags(tag, true)
+                : stores.tag.getChildTags(tag, true)),
             ];
           })
         ),

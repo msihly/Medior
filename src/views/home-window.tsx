@@ -6,9 +6,9 @@ import { Views, useSockets } from "./common";
 import { makeClasses, makePerfLog } from "utils";
 
 export const HomeWindow = observer(() => {
-  const { homeStore, importStore, tagStore } = useStores();
+  const stores = useStores();
 
-  const { css } = useClasses({ isDrawerOpen: homeStore.isDrawerOpen });
+  const { css } = useClasses({ isDrawerOpen: stores.home.isDrawerOpen });
 
   const [isLoading, setIsLoading] = useState(true);
 
@@ -21,14 +21,14 @@ export const HomeWindow = observer(() => {
       try {
         const { perfLog, perfLogTotal } = makePerfLog("[Home]");
 
-        await homeStore.loadFilteredFiles({ page: 1 });
+        await stores.home.loadFilteredFiles({ page: 1 });
         perfLog("Filtered files loaded");
         setIsLoading(false);
 
-        await tagStore.loadTags();
+        await stores.tag.loadTags();
         perfLog("Tags loaded");
 
-        await importStore.loadImportBatches();
+        await stores.import.loadImportBatches();
         perfLog("Import batches loaded");
 
         perfLogTotal("Data loaded into MobX");
@@ -53,7 +53,7 @@ export const HomeWindow = observer(() => {
 
         <Views.TagModals view="home" />
 
-        {homeStore.isSettingsOpen && <SettingsModal />}
+        {stores.home.isSettingsOpen && <SettingsModal />}
       </View>
     </Views.ImportDnD>
   );

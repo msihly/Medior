@@ -190,8 +190,8 @@ export class TagStore extends Model({
         /** Clear import queue first to prevent data corruption from race condition.
          *  Queue is reloaded via socket upon mergeTags resolution.
          */
-        const rootStore = getRootStore<RootStore>(this);
-        rootStore.importStore.queue.clear();
+        const stores = getRootStore<RootStore>(this);
+        stores.import.queue.clear();
 
         const res = await trpc.mergeTags.mutate(args);
         if (!res.success) throw new Error(res.error);

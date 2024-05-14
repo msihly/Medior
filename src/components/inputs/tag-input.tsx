@@ -107,7 +107,7 @@ export const TagInput = observer(
       }: TagInputProps,
       inputRef?: MutableRefObject<HTMLDivElement>
     ) => {
-      const { tagStore } = useStores();
+      const stores = useStores();
       const { css, cx } = useClasses({ center, margins, opaque, width });
 
       const isMaxTags = maxTags > 0 && value.length >= maxTags;
@@ -117,7 +117,7 @@ export const TagInput = observer(
       const [inputValue, setInputValue] = useState((inputProps?.value ?? "") as string);
       const [isOpen, setIsOpen] = useState(false);
 
-      const opts = useDeepMemo(options ?? [...tagStore.tagOptions]);
+      const opts = useDeepMemo(options ?? [...stores.tag.tagOptions]);
 
       const removeDeletedTag = useCallback(
         ({ tagId }: { tagId: string }) => {
@@ -132,7 +132,7 @@ export const TagInput = observer(
           const oldTag = value.find((t) => t.id === oldTagId);
           if (!oldTag) return;
 
-          const newTagOption = tagStore.getById(newTagId)?.tagOption;
+          const newTagOption = stores.tag.getById(newTagId)?.tagOption;
           const newValue = value.map((t) => (t.id === oldTagId ? newTagOption : t));
           onChange?.(newValue);
         },
@@ -175,7 +175,7 @@ export const TagInput = observer(
       };
 
       const getOptionLabel = (option: TagOption) =>
-        option?.label ?? tagStore.getById(option.id)?.label ?? "";
+        option?.label ?? stores.tag.getById(option.id)?.label ?? "";
 
       const handleChange = (_, val: TagOption[], reason?: AutocompleteChangeReason) => {
         if (disabled) return;
@@ -189,7 +189,7 @@ export const TagInput = observer(
       const handleClose = () => setIsOpen(false);
 
       const handleCreateTag = async () => {
-        const res = await tagStore.createTag({ label: inputValue });
+        const res = await stores.tag.createTag({ label: inputValue });
         if (!res.success) return toast.error(res.error);
         onChange?.([...value, res.data]);
         setInputValue("");

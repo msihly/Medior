@@ -33,11 +33,11 @@ export const Label = observer(
       }: LabelProps,
       ref?: MutableRefObject<HTMLDivElement>
     ) => {
-      const { tagStore } = useStores();
+      const stores = useStores();
 
       const handleEditExisting = (val: string) => {
-        const tag = tagStore.getByLabel(val);
-        tagStore.setActiveTagId(tag.id);
+        const tag = stores.tag.getByLabel(val);
+        stores.tag.setActiveTagId(tag.id);
       };
 
       return (

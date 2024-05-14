@@ -6,9 +6,9 @@ import { Views, useSockets } from "./common";
 import { makeClasses, makePerfLog } from "utils";
 
 export const SearchWindow = observer(() => {
-  const { homeStore, tagStore } = useStores();
+  const stores = useStores();
 
-  const { css } = useClasses({ isDrawerOpen: homeStore.isDrawerOpen });
+  const { css } = useClasses({ isDrawerOpen: stores.home.isDrawerOpen });
 
   const [isLoading, setIsLoading] = useState(true);
 
@@ -21,11 +21,11 @@ export const SearchWindow = observer(() => {
       try {
         const { perfLog, perfLogTotal } = makePerfLog("[Home]");
 
-        await homeStore.loadFilteredFiles({ page: 1 });
+        await stores.home.loadFilteredFiles({ page: 1 });
         perfLog("Filtered files loaded");
         setIsLoading(false);
 
-        await tagStore.loadTags();
+        await stores.tag.loadTags();
         perfLog("Tags loaded");
 
         perfLogTotal("Data loaded into MobX");

@@ -5,6 +5,7 @@ import {
   _async,
   _await,
   arrayActions,
+  getRootStore,
   Model,
   model,
   modelAction,
@@ -50,10 +51,7 @@ export class FaceRecognitionStore extends Model({
 
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */
   @modelFlow
-  addFilesToAutoDetectQueue = _async(function* (
-    this: FaceRecognitionStore,
-    { fileIds, rootStore }: { fileIds: string[]; rootStore: RootStore }
-  ) {
+  addFilesToAutoDetectQueue = _async(function* (this: FaceRecognitionStore, fileIds: string[]) {
     return yield* _await(
       handleErrors(async () => {
         const filesRes = await trpc.listFiles.mutate({ ids: fileIds, withFaceModels: true });
@@ -87,10 +85,7 @@ export class FaceRecognitionStore extends Model({
               )
             );
 
-            const registerRes = await this.registerDetectedFaces({
-              file: new File(item),
-              rootStore,
-            });
+            const registerRes = await this.registerDetectedFaces(new File(item));
             if (!registerRes.success)
               throw new Error(`Error registering faces: ${registerRes.error}`);
           },
@@ -190,15 +185,13 @@ export class FaceRecognitionStore extends Model({
   });
 
   @modelFlow
-  registerDetectedFaces = _async(function* (
-    this: FaceRecognitionStore,
-    { file, rootStore }: { file?: File; rootStore: RootStore }
-  ) {
+  registerDetectedFaces = _async(function* (this: FaceRecognitionStore, file?: File) {
     return yield* _await(
       handleErrors(async () => {
         this.setIsSaving(true);
 
-        file = file ?? rootStore.fileStore.getById(this.activeFileId);
+        const stores = getRootStore<RootStore>(this);
+        if (!file) file = stores.file.getById(this.activeFileId);
 
         const faceModels = this.detectedFaces
           .filter((f) => f.selectedTag !== null || f.tagId !== null)
@@ -220,7 +213,7 @@ export class FaceRecognitionStore extends Model({
         }, []);
 
         if (newTagIds.length > 0)
-          await rootStore.fileStore.editFileTags({ addedTagIds: newTagIds, fileIds: [file.id] });
+          await stores.file.editFileTags({ addedTagIds: newTagIds, fileIds: [file.id] });
 
         this.setIsSaving(false);
         return this.faceModels;

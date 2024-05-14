@@ -88,8 +88,8 @@ export class HomeStore extends Model({
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
   @modelAction
   reloadIfQueued() {
-    const rootStore = getRootStore<RootStore>(this);
-    if (this.hasQueuedReload && !rootStore.getIsBlockingModalOpen()) {
+    const stores = getRootStore<RootStore>(this);
+    if (this.hasQueuedReload && !stores._getIsBlockingModalOpen()) {
       this.setHasQueuedReload(false);
       this.loadFilteredFiles();
     }
@@ -134,16 +134,15 @@ export class HomeStore extends Model({
   ) {
     return yield* _await(
       handleErrors(async () => {
-        const rootStore = getRootStore<RootStore>(this);
-        const { fileStore, tagStore } = rootStore;
+        const stores = getRootStore<RootStore>(this);
 
         const clickedIndex =
-          (fileStore.page - 1) * getConfig().file.searchFileCount +
-          fileStore.files.findIndex((f) => f.id === id);
+          (stores.file.page - 1) * getConfig().file.searchFileCount +
+          stores.file.files.findIndex((f) => f.id === id);
 
         const res = await trpc.getShiftSelectedFiles.mutate({
           ...this.getFilterProps(),
-          ...tagStore.tagSearchOptsToIds(this.searchValue),
+          ...stores.tag.tagSearchOptsToIds(this.searchValue),
           clickedId: id,
           clickedIndex,
           selectedIds,
@@ -158,13 +157,12 @@ export class HomeStore extends Model({
   listIdsForCarousel = _async(function* (this: HomeStore) {
     return yield* _await(
       handleErrors(async () => {
-        const rootStore = getRootStore<RootStore>(this);
-        const { fileStore, tagStore } = rootStore;
+        const stores = getRootStore<RootStore>(this);
 
         const res = await trpc.listFileIdsForCarousel.mutate({
           ...this.getFilterProps(),
-          ...tagStore.tagSearchOptsToIds(this.searchValue),
-          page: fileStore.page,
+          ...stores.tag.tagSearchOptsToIds(this.searchValue),
+          page: stores.file.page,
           pageSize: getConfig().file.searchFileCount,
         });
         if (!res.success) throw new Error(res.error);
@@ -181,16 +179,15 @@ export class HomeStore extends Model({
         const debug = false;
         const { perfLog, perfLogTotal } = makePerfLog("[LFF]");
 
-        const rootStore = getRootStore<RootStore>(this);
-        if (!rootStore) throw new Error("RootStore not found");
-        const { fileStore, tagStore } = rootStore;
+        const stores = getRootStore<RootStore>(this);
+        if (!stores) throw new Error("RootStore not found");
 
         this.setIsLoading(true);
 
         const filteredRes = await trpc.listFilteredFiles.mutate({
           ...this.getFilterProps(),
-          ...tagStore.tagSearchOptsToIds(this.searchValue),
-          page: page ?? fileStore.page,
+          ...stores.tag.tagSearchOptsToIds(this.searchValue),
+          page: page ?? stores.file.page,
           pageSize: getConfig().file.searchFileCount,
         });
         if (!filteredRes.success) throw new Error(filteredRes.error);
@@ -198,12 +195,14 @@ export class HomeStore extends Model({
         const { files, pageCount } = filteredRes.data;
         if (debug) perfLog(`Loaded ${files.length} filtered files`);
 
-        fileStore.overwrite(files.map((f) => ({ ...f, hasFaceModels: f.faceModels?.length > 0 })));
+        stores.file.overwrite(
+          files.map((f) => ({ ...f, hasFaceModels: f.faceModels?.length > 0 }))
+        );
         if (debug) perfLog("FileStore.files overwrite and re-render");
 
-        fileStore.setPageCount(pageCount);
-        if (page) fileStore.setPage(page);
-        if (debug) perfLog(`Set page to ${page ?? fileStore.page} and pageCount to ${pageCount}`);
+        stores.file.setPageCount(pageCount);
+        if (page) stores.file.setPage(page);
+        if (debug) perfLog(`Set page to ${page ?? stores.file.page} and pageCount to ${pageCount}`);
 
         if (debug) perfLogTotal(`Loaded ${files.length} files`);
         this.setIsLoading(false);
