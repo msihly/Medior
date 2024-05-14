@@ -26,7 +26,7 @@ export const ImportBatch = observer(({ batch }: ImportBatchProps) => {
   const handleCollections = () => {
     if (!fileCollectionStore.getById(batch.collectionId))
       return toast.error("Collection not found");
-    fileCollectionStore.setActiveCollectionId(batch.collectionId);
+    fileCollectionStore.setEditorId(batch.collectionId);
     fileCollectionStore.setIsEditorOpen(true);
   };
 

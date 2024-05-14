@@ -28,18 +28,18 @@ export const FileCollectionManager = observer(() => {
 
   const collectionsRef = useRef<HTMLDivElement>(null);
 
-  const hasAnySelected = fileCollectionStore.selectedFileIds.length > 0;
-  const hasOneSelected = fileCollectionStore.selectedFiles.length === 1;
+  const hasAnySelected = fileCollectionStore.managerFileIds.length > 0;
+  const hasOneSelected = fileCollectionStore.managerFileIds.length === 1;
   const currentCollections = hasOneSelected
-    ? fileCollectionStore.listByFileId(fileCollectionStore.selectedFileIds[0])
+    ? fileCollectionStore.listByFileId(fileCollectionStore.managerFileIds[0])
     : [];
 
   const sortValue = useDeepMemo(fileCollectionStore.managerSearchSort);
   const tagSearchValue = useDeepMemo(fileCollectionStore.managerTagSearchValue);
 
   useEffect(() => {
-    fileCollectionStore.loadSelectedFiles();
-  }, [fileCollectionStore.selectedFileIds]);
+    fileCollectionStore.loadManagerFiles();
+  }, [fileCollectionStore.managerFileIds]);
 
   useEffect(() => {
     if (fileCollectionStore.managerSearchPage > fileCollectionStore.managerSearchPageCount)
@@ -62,7 +62,7 @@ export const FileCollectionManager = observer(() => {
 
   const handleNewCollection = async () => {
     const res = await fileCollectionStore.createCollection({
-      fileIdIndexes: fileCollectionStore.selectedFileIds.map((id, index) => ({
+      fileIdIndexes: fileCollectionStore.managerFileIds.map((id, index) => ({
         fileId: id,
         index,
       })),
@@ -71,7 +71,7 @@ export const FileCollectionManager = observer(() => {
 
     if (!res.success) toast.error(res.error);
     else {
-      fileCollectionStore.setActiveCollectionId(res.data.id);
+      fileCollectionStore.setEditorId(res.data.id);
       fileCollectionStore.setIsEditorOpen(true);
     }
   };
@@ -109,9 +109,9 @@ export const FileCollectionManager = observer(() => {
               <Text preset="label-glow">{"Selected File"}</Text>
 
               <View className={css.container}>
-                {fileCollectionStore.selectedFiles.length > 0 ? (
+                {fileCollectionStore.managerFiles.length > 0 ? (
                   <FileCard
-                    file={fileCollectionStore.selectedFiles[0]}
+                    file={fileCollectionStore.managerFiles[0]}
                     height="13rem"
                     width="12rem"
                     disabled
@@ -143,8 +143,8 @@ export const FileCollectionManager = observer(() => {
             <Text preset="label-glow">{"Selected Files"}</Text>
 
             <View className={css.container}>
-              {fileCollectionStore.selectedFiles.length > 0 ? (
-                fileCollectionStore.selectedFiles.map((f) => (
+              {fileCollectionStore.managerFiles.length > 0 ? (
+                fileCollectionStore.managerFiles.map((f) => (
                   <FileCard key={f.id} file={f} width="12rem" height="14rem" disabled />
                 ))
               ) : (

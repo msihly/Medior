@@ -64,7 +64,7 @@ export const Drawer = observer(({ hasImports = false, hasSettings = false }: Dra
   const handleClose = () => homeStore.setIsDrawerOpen(false);
 
   const handleCollections = () => {
-    fileCollectionStore.setSelectedFileIds([]);
+    fileCollectionStore.setManagerFileIds([]);
     fileCollectionStore.setIsManagerOpen(true);
   };
 

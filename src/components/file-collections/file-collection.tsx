@@ -23,8 +23,8 @@ export const FileCollection = observer(({ height, id, width }: FileCollectionPro
   };
 
   const openCollection = () => {
-    fileCollectionStore.setActiveFiles([]);
-    fileCollectionStore.setActiveCollectionId(id);
+    fileCollectionStore.setEditorFiles([]);
+    fileCollectionStore.setEditorId(id);
     fileCollectionStore.setIsEditorOpen(true);
   };
 

@@ -26,12 +26,12 @@ import {
   Modal,
   SortMenu,
   SortMenuProps,
-  SortedFiles,
   Tag,
   TagInput,
   Text,
   View,
 } from "components";
+import { EditorFiles } from ".";
 import { CONSTANTS, colors, makeClasses, useDeepEffect } from "utils";
 import { toast } from "react-toastify";
 
@@ -50,7 +50,7 @@ export const FileCollectionEditor = observer(() => {
   const [title, setTitle] = useState<string>(fileCollectionStore.activeCollection?.title);
 
   useEffect(() => {
-    if (!fileCollectionStore.activeCollectionId) return;
+    if (!fileCollectionStore.editorId) return;
 
     (async () => {
       setIsLoading(true);
@@ -59,11 +59,11 @@ export const FileCollectionEditor = observer(() => {
     })();
 
     return () => {
-      fileCollectionStore.setActiveCollectionId(null);
-      fileCollectionStore.setActiveFiles([]);
+      fileCollectionStore.setEditorId(null);
+      fileCollectionStore.setEditorFiles([]);
       fileCollectionStore.clearSearch();
     };
-  }, [fileCollectionStore.activeCollectionId]);
+  }, [fileCollectionStore.editorId]);
 
   useDeepEffect(() => {
     (async () => {
@@ -104,11 +104,11 @@ export const FileCollectionEditor = observer(() => {
   const handleClose = () => fileCollectionStore.setIsEditorOpen(false);
 
   const handleConfirmDelete = async () => {
-    const res = await fileCollectionStore.deleteCollection(fileCollectionStore.activeCollectionId);
+    const res = await fileCollectionStore.deleteCollection(fileCollectionStore.editorId);
 
     if (!res.success) toast.error("Failed to delete collection");
     else {
-      fileCollectionStore.setActiveCollectionId(null);
+      fileCollectionStore.setEditorId(null);
       fileCollectionStore.setIsEditorOpen(false);
       toast.success("Collection deleted");
     }
@@ -131,7 +131,7 @@ export const FileCollectionEditor = observer(() => {
 
   const handleRefreshMeta = async () => {
     setIsLoading(true);
-    const res = await fileCollectionStore.regenCollMeta([fileCollectionStore.activeCollectionId]);
+    const res = await fileCollectionStore.regenCollMeta([fileCollectionStore.editorId]);
     setIsLoading(false);
 
     res.success ? toast.success("Metadata refreshed!") : toast.error(res.error);
@@ -144,10 +144,10 @@ export const FileCollectionEditor = observer(() => {
       setIsLoading(true);
 
       const res = await fileCollectionStore.updateCollection({
-        fileIdIndexes: fileCollectionStore.sortedActiveFiles
+        fileIdIndexes: fileCollectionStore.sortedEditorFiles
           .filter((f) => !f.isDeleted)
           .map((f, i) => ({ fileId: f.file.id, index: i })),
-        id: fileCollectionStore.activeCollectionId,
+        id: fileCollectionStore.editorId,
         tagIds: fileCollectionStore.activeTagIds,
         title,
       });
@@ -194,7 +194,7 @@ export const FileCollectionEditor = observer(() => {
         }
       >
         <Text align="center">
-          {`${fileCollectionStore.activeCollectionId === null ? "Create" : "Edit"} Collection`}
+          {`${fileCollectionStore.editorId === null ? "Create" : "Edit"} Collection`}
         </Text>
       </Modal.Header>
 
@@ -255,7 +255,7 @@ export const FileCollectionEditor = observer(() => {
               ))}
             </View>
 
-            {fileCollectionStore.activeFiles.length > 0 ? (
+            {fileCollectionStore.editorFiles.length > 0 ? (
               <View className={css.collection}>
                 <DndContext
                   sensors={sensors}
@@ -265,10 +265,10 @@ export const FileCollectionEditor = observer(() => {
                   onDragStart={handleDragStart}
                 >
                   <SortableContext
-                    items={fileCollectionStore.sortedActiveFiles}
+                    items={fileCollectionStore.sortedEditorFiles}
                     strategy={gridSortingStrategy}
                   >
-                    <SortedFiles />
+                    <EditorFiles />
                   </SortableContext>
 
                   <DragOverlay adjustScale>

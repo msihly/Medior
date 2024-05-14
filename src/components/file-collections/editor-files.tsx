@@ -9,9 +9,9 @@ import { useDeepMemo } from "utils";
 const CARD_HEIGHT = 300;
 const CARD_MAX_WIDTH = 300;
 
-export const SortedFiles = observer(() => {
+export const EditorFiles = observer(() => {
   const { fileCollectionStore } = useStores();
-  const sortedActiveFiles = useDeepMemo(fileCollectionStore.sortedActiveFiles);
+  const sortedFiles = useDeepMemo(fileCollectionStore.sortedEditorFiles);
 
   const [width, setWidth] = useState(0);
   const handleResize = ({ width }) => setWidth(width);
@@ -19,17 +19,17 @@ export const SortedFiles = observer(() => {
   const [columnCount, columnWidth, rowCount] = useMemo(() => {
     const columnCount = Math.floor(width / CARD_MAX_WIDTH);
     const columnWidth = width / columnCount;
-    const rowCount = Math.ceil(sortedActiveFiles.length / columnCount);
+    const rowCount = Math.ceil(sortedFiles.length / columnCount);
     return [columnCount, columnWidth, rowCount];
-  }, [sortedActiveFiles.length, width]);
+  }, [sortedFiles.length, width]);
 
   const renderFile = useCallback(
     ({ columnIndex, rowIndex, style }) => {
       const index = rowIndex * columnCount + columnIndex;
-      if (index >= sortedActiveFiles.length) return null;
-      const newIndex = sortedActiveFiles[index]?.index;
+      if (index >= sortedFiles.length) return null;
+      const newIndex = sortedFiles[index]?.index;
 
-      const file = sortedActiveFiles.find((f) => f.index === newIndex);
+      const file = sortedFiles.find((f) => f.index === newIndex);
       if (!file) return null;
 
       return (
@@ -41,7 +41,7 @@ export const SortedFiles = observer(() => {
         />
       );
     },
-    [columnCount, columnWidth, rowCount, sortedActiveFiles]
+    [columnCount, columnWidth, rowCount, sortedFiles]
   );
 
   return (

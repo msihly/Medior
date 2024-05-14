@@ -29,10 +29,10 @@ import { arrayMove } from "@alissavrk/dnd-kit-sortable";
 
 @model("medior/FileCollectionStore")
 export class FileCollectionStore extends Model({
-  activeCollectionId: prop<string>(null).withSetter(),
-  activeFiles: prop<FileCollectionFile[]>(() => []).withSetter(),
   collectionFitMode: prop<"cover" | "contain">("contain").withSetter(),
   collections: prop<FileCollection[]>(() => []).withSetter(),
+  editorFiles: prop<FileCollectionFile[]>(() => []).withSetter(),
+  editorId: prop<string>(null).withSetter(),
   editorSearchHasDiffParams: prop<boolean>(false).withSetter(),
   editorSearchNumOfTagsOp: prop<LogicalOp | "">("").withSetter(),
   editorSearchNumOfTagsValue: prop<number>(0).withSetter(),
@@ -53,10 +53,10 @@ export class FileCollectionStore extends Model({
   managerSearchSort: prop<SortMenuProps["value"]>(
     () => getConfig().collection.managerSearchSort
   ).withSetter(),
+  managerFileIds: prop<string[]>(() => []).withSetter(),
+  managerFiles: prop<File[]>(() => []).withSetter(),
   managerTagSearchValue: prop<TagOption[]>(() => []).withSetter(),
   managerTitleSearchValue: prop<string>("").withSetter(),
-  selectedFileIds: prop<string[]>(() => []).withSetter(),
-  selectedFiles: prop<File[]>(() => []).withSetter(),
 }) {
   metaRefreshQueue = new PromiseQueue();
 
@@ -73,8 +73,8 @@ export class FileCollectionStore extends Model({
 
   @modelAction
   addFileToActiveCollection(file: File) {
-    const index = this.activeFiles.length;
-    this.activeFiles.push(new FileCollectionFile({ file: clone(file), id: file.id, index }));
+    const index = this.editorFiles.length;
+    this.editorFiles.push(new FileCollectionFile({ file: clone(file), id: file.id, index }));
     this.setHasUnsavedChanges(true);
     this.loadSearchResults();
   }
@@ -90,12 +90,12 @@ export class FileCollectionStore extends Model({
 
   @modelAction
   moveFileIndex(fromFileId: string, toFileId: string) {
-    const fileIdIndexes = this.activeFiles.map((f) => ({ id: f.id, index: f.index }));
+    const fileIdIndexes = this.editorFiles.map((f) => ({ id: f.id, index: f.index }));
     const [from, to] = [fromFileId, toFileId].map((id) => fileIdIndexes.find((f) => f.id === id));
     if (!from || !to) return console.error(`Missing file for ${fromFileId} or ${toFileId}`);
     if (from.index === to.index) return console.debug("Indexes are the same, no move needed");
 
-    this.setActiveFiles(
+    this.setEditorFiles(
       arrayMove(fileIdIndexes, from.index, to.index).map(
         (f, i) =>
           new FileCollectionFile({
@@ -169,7 +169,7 @@ export class FileCollectionStore extends Model({
 
         if (!res.success) toast.error(res.error);
         else
-          this.setActiveFiles(
+          this.setEditorFiles(
             res.data
               .map(
                 (f) =>
@@ -243,7 +243,7 @@ export class FileCollectionStore extends Model({
 
         const filteredRes = await trpc.listFilteredFiles.mutate({
           ...tagStore.tagSearchOptsToIds(this.editorSearchValue),
-          excludedFileIds: this.activeFiles.map((f) => f.id),
+          excludedFileIds: this.editorFiles.map((f) => f.id),
           hasDiffParams: this.editorSearchHasDiffParams,
           isArchived: false,
           isSortDesc: this.editorSearchSort.isDesc,
@@ -273,12 +273,12 @@ export class FileCollectionStore extends Model({
   });
 
   @modelFlow
-  loadSelectedFiles = _async(function* (this: FileCollectionStore) {
+  loadManagerFiles = _async(function* (this: FileCollectionStore) {
     return yield* _await(
       handleErrors(async () => {
-        const res = await trpc.listFiles.mutate({ ids: this.selectedFileIds });
+        const res = await trpc.listFiles.mutate({ ids: this.managerFileIds });
         if (!res.success) throw new Error(res.error);
-        this.setSelectedFiles(res.data.map((f) => new File(f)));
+        this.setManagerFiles(res.data.map((f) => new File(f)));
       })
     );
   });
@@ -323,7 +323,7 @@ export class FileCollectionStore extends Model({
         if (!res.success) throw new Error(res.error);
         this.getById(updates.id).update(updates);
 
-        if (this.activeCollectionId === updates.id) this.loadActiveCollection();
+        if (this.editorId === updates.id) this.loadActiveCollection();
       })
     );
   });
@@ -334,7 +334,7 @@ export class FileCollectionStore extends Model({
   }
 
   getFileById(id: string) {
-    return this.activeFiles.find((f) => f.id === id);
+    return this.editorFiles.find((f) => f.id === id);
   }
 
   listByFileId(id: string) {
@@ -344,17 +344,17 @@ export class FileCollectionStore extends Model({
   /* --------------------------------- GETTERS -------------------------------- */
   @computed
   get activeCollection() {
-    return this.collections.find((c) => c.id === this.activeCollectionId);
+    return this.collections.find((c) => c.id === this.editorId);
   }
 
   @computed
   get activeTagIds() {
-    return [...new Set(this.activeFiles.flatMap((f) => f.file?.tagIds ?? []))];
+    return [...new Set(this.editorFiles.flatMap((f) => f.file?.tagIds ?? []))];
   }
 
   @computed
-  get sortedActiveFiles() {
-    return [...this.activeFiles].sort((a, b) => a.index - b.index);
+  get sortedEditorFiles() {
+    return [...this.editorFiles].sort((a, b) => a.index - b.index);
   }
 
   @computed

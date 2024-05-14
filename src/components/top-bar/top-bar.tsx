@@ -24,7 +24,7 @@ export const TopBar = observer(() => {
   };
 
   const handleEditCollections = () => {
-    fileCollectionStore.setSelectedFileIds([...fileStore.selectedIds]);
+    fileCollectionStore.setManagerFileIds([...fileStore.selectedIds]);
     fileCollectionStore.setIsManagerOpen(true);
   };
 
