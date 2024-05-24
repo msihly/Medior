@@ -56,6 +56,12 @@ export const FileCollectionManager = observer(() => {
     debounce(() => stores.collection.listFilteredCollections({ page: 1 }), 800)();
   }, [...searchDeps]);
 
+  const handleAddToCollection = () => {
+    stores.collection.setEditorWithSelectedFiles(true);
+    stores.collection.setEditorId(stores.collection.selectedCollectionId);
+    stores.collection.setIsEditorOpen(true);
+  };
+
   const handleClose = () => {
     stores.collection.setIsManagerOpen(false);
     stores.home.reloadIfQueued();
@@ -79,8 +85,7 @@ export const FileCollectionManager = observer(() => {
     }
   };
 
-  const handlePageChange = (_, page: number) =>
-    stores.collection.listFilteredCollections({ page });
+  const handlePageChange = (_, page: number) => stores.collection.listFilteredCollections({ page });
 
   const handleSortChange = (val: { isDesc: boolean; key: string }) =>
     stores.collection.setManagerSearchSort(val);
@@ -157,7 +162,7 @@ export const FileCollectionManager = observer(() => {
           </View>
         )}
 
-        <View row margins={{ top: "0.5rem" }} overflow="hidden">
+        <View row flex={1} margins={{ top: "0.5rem" }} overflow="hidden">
           <View className={css.leftColumn}>
             <Text preset="label-glow">{"Search"}</Text>
 
@@ -214,6 +219,15 @@ export const FileCollectionManager = observer(() => {
         <Button text="Close" icon="Close" onClick={handleClose} color={colors.button.grey} />
 
         <Button text="New Collection" icon="Add" onClick={handleNewCollection} />
+
+        {!hasAnySelected ? null : (
+          <Button
+            text="Add to Collection"
+            icon="Add"
+            onClick={handleAddToCollection}
+            disabled={!stores.collection.selectedCollectionId}
+          />
+        )}
       </Modal.Footer>
     </Modal.Container>
   );

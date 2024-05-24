@@ -12,10 +12,14 @@ export interface FileCollectionProps {
 }
 
 export const FileCollection = observer(({ height, id, width }: FileCollectionProps) => {
-  const stores = useStores();
-  const collection = stores.collection.getById(id);
-
   const { css } = useClasses(null);
+
+  const stores = useStores();
+
+  const collection = stores.collection.getById(id);
+  const hasSelectedFiles = stores.collection.managerFileIds.length > 0;
+
+  const handleSelect = () => stores.collection.setSelectedCollectionId(id);
 
   const handleTagPress = (tagId: string) => {
     stores.tag.setActiveTagId(tagId);
@@ -29,7 +33,12 @@ export const FileCollection = observer(({ height, id, width }: FileCollectionPro
   };
 
   return (
-    <FileBase.Container {...{ height, width }} onDoubleClick={openCollection}>
+    <FileBase.Container
+      {...{ height, width }}
+      onClick={hasSelectedFiles ? handleSelect : null}
+      onDoubleClick={openCollection}
+      selected={hasSelectedFiles && id === stores.collection.selectedCollectionId}
+    >
       <FileBase.Image
         thumbPaths={collection.thumbPaths}
         title={collection.title}

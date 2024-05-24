@@ -44,6 +44,7 @@ export class FileCollectionStore extends Model({
   ).withSetter(),
   editorSearchValue: prop<TagOption[]>(() => []).withSetter(),
   editorSelectedIds: prop<string[]>(() => []).withSetter(),
+  editorWithSelectedFiles: prop<boolean>(false).withSetter(),
   hasUnsavedChanges: prop<boolean>(false).withSetter(),
   isEditorOpen: prop<boolean>(false),
   isManagerLoading: prop<boolean>(false).withSetter(),
@@ -58,6 +59,7 @@ export class FileCollectionStore extends Model({
   managerFiles: prop<File[]>(() => []).withSetter(),
   managerTagSearchValue: prop<TagOption[]>(() => []).withSetter(),
   managerTitleSearchValue: prop<string>("").withSetter(),
+  selectedCollectionId: prop<string>(null).withSetter(),
 }) {
   metaRefreshQueue = new PromiseQueue();
 
@@ -73,9 +75,14 @@ export class FileCollectionStore extends Model({
   }
 
   @modelAction
-  addFileToActiveCollection(file: File) {
-    const index = this.editorFiles.length;
-    this.editorFiles.push(new FileCollectionFile({ file: clone(file), id: file.id, index }));
+  addFilesToActiveCollection(files: File[]) {
+    const startIndex = this.editorFiles.length;
+    this.editorFiles.push(
+      ...files.map(
+        (file, idx) =>
+          new FileCollectionFile({ file: clone(file), id: file.id, index: startIndex + idx })
+      )
+    );
     this.setHasUnsavedChanges(true);
     this.loadSearchResults();
   }
@@ -276,6 +283,7 @@ export class FileCollectionStore extends Model({
         if (debug)
           perfLog(`Set page to ${page ?? this.managerSearchPage} and pageCount to ${pageCount}`);
 
+        this.setSelectedCollectionId(null);
         this.setIsManagerLoading(false);
         if (debug) perfLogTotal(`Loaded ${collections.length} collections`);
 

@@ -18,7 +18,7 @@ export const EditorFiles = observer(() => {
 
   const [columnCount, columnWidth, rowCount] = useMemo(() => {
     const columnCount = Math.floor(width / CARD_MAX_WIDTH);
-    const columnWidth = width / columnCount;
+    const columnWidth = width / columnCount - 3;
     const rowCount = Math.ceil(sortedFiles.length / columnCount);
     return [columnCount, columnWidth, rowCount];
   }, [sortedFiles.length, width]);

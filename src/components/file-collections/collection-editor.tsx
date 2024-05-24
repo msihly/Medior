@@ -58,13 +58,18 @@ export const FileCollectionEditor = observer(() => {
 
     (async () => {
       setIsLoading(true);
+
       await stores.collection.loadActiveCollection();
+      if (stores.collection.editorWithSelectedFiles)
+        stores.collection.addFilesToActiveCollection(stores.collection.managerFiles);
+
       setIsLoading(false);
     })();
 
     return () => {
       stores.collection.setEditorId(null);
       stores.collection.setEditorFiles([]);
+      stores.collection.setEditorWithSelectedFiles(false);
       stores.collection.clearSearch();
     };
   }, [stores.collection.editorId]);
