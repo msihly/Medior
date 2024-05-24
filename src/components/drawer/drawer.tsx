@@ -10,6 +10,8 @@ import {
   Dropdown,
   ListItem,
   NumInput,
+  SortMenu,
+  SortMenuProps,
   TagInput,
   Text,
   View,
@@ -95,6 +97,8 @@ export const Drawer = observer(({ hasImports = false, hasSettings = false }: Dra
 
   const handleSettings = () => stores.home.setIsSettingsOpen(true);
 
+  const handleSortChange = (val: SortMenuProps["value"]) => stores.home.setSortValue(val);
+
   const setSearchValue = (val: TagOption[]) => stores.home.setSearchValue(val);
 
   const toggleArchiveOpen = () => stores.home.setIsArchiveOpen(!stores.home.isArchiveOpen);
@@ -137,43 +141,37 @@ export const Drawer = observer(({ hasImports = false, hasSettings = false }: Dra
 
       <Divider className={css.divider} />
 
-      <Button
-        text="Search"
-        icon="Search"
-        onClick={handleSearch}
-        width="-webkit-fill-available"
-        margins={{ top: "0.5rem", left: "0.5rem", right: "0.5rem" }}
-      />
+      <View column spacing="0.5rem" margins={{ left: "0.5rem", right: "0.5rem" }}>
+        <Button text="Search" icon="Search" onClick={handleSearch} width="-webkit-fill-available" />
 
-      <Button
-        text="Reset"
-        icon="Refresh"
-        onClick={handleResetSearch}
-        width="-webkit-fill-available"
-        color={colors.button.grey}
-        margins={{ all: "0.5rem" }}
-      />
+        <Button
+          text="Reset"
+          icon="Refresh"
+          onClick={handleResetSearch}
+          width="-webkit-fill-available"
+          color={colors.button.grey}
+        />
 
-      <Text preset="label-glow" marginTop="0.3rem">
-        {"Tags"}
-      </Text>
-      <TagInput
-        value={searchValue}
-        onChange={setSearchValue}
-        width={CONSTANTS.DRAWER_WIDTH - 20}
-        hasSearchMenu
-      />
+        <SortMenu
+          rows={CONSTANTS.SORT_MENU_OPTS.FILE_SEARCH}
+          value={stores.home.sortValue}
+          setValue={handleSortChange}
+          width="100%"
+        />
 
-      <View className={css.checkboxes} column>
+        <View column>
+          <Text preset="label-glow">{"Tags"}</Text>
+          <TagInput
+            value={searchValue}
+            onChange={setSearchValue}
+            width={CONSTANTS.DRAWER_WIDTH - 20}
+            hasSearchMenu
+          />
+        </View>
+
         <View column>
           <Text preset="label-glow">{"# of Tags"}</Text>
-
-          <View
-            row
-            justify="space-between"
-            spacing="0.3rem"
-            margins={{ left: "0.5rem", right: "0.5rem" }}
-          >
+          <View row justify="space-between" spacing="0.3rem">
             <Dropdown
               value={stores.home.numOfTagsOp}
               setValue={handleNumOfTagsOpChange}
@@ -188,22 +186,23 @@ export const Drawer = observer(({ hasImports = false, hasSettings = false }: Dra
               disabled={stores.home.numOfTagsOp === ""}
               width="5rem"
               textAlign="center"
+              hasHelper={false}
             />
           </View>
         </View>
-
-        <Checkbox
-          label="Archived"
-          checked={stores.home.isArchiveOpen}
-          setChecked={toggleArchiveOpen}
-        />
-
-        <Checkbox
-          label="Diffusion"
-          checked={stores.home.hasDiffParams}
-          setChecked={toggleHasDiffParams}
-        />
       </View>
+
+      <Checkbox
+        label="Archived"
+        checked={stores.home.isArchiveOpen}
+        setChecked={toggleArchiveOpen}
+      />
+
+      <Checkbox
+        label="Diffusion"
+        checked={stores.home.hasDiffParams}
+        setChecked={toggleHasDiffParams}
+      />
 
       <View row className={css.accordionContainer}>
         <Checkbox
@@ -269,10 +268,6 @@ const useClasses = makeClasses({
   },
   accordionHeaderCheckbox: {
     height: "fit-content",
-  },
-  checkboxes: {
-    margin: "0.3rem 0",
-    width: "100%",
   },
   divider: {
     width: "100%",

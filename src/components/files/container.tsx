@@ -58,6 +58,7 @@ const useClasses = makeClasses((_, { hasFiles }: ClassesProps) => ({
     display: "flex",
     flexDirection: "column",
     flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.35)",
     overflowY: "auto",
   },
   files: {

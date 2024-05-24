@@ -1,7 +1,7 @@
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
 import { AppBar } from "@mui/material";
-import { SortMenu, SortMenuProps, View } from "components";
+import { View } from "components";
 import { MultiActionButton, SelectedFilesInfo } from ".";
 import { colors, CONSTANTS, makeClasses } from "utils";
 import { toast } from "react-toastify";
@@ -40,11 +40,6 @@ export const HomeMultiActionBar = observer(() => {
   const handleSelectAll = () => {
     stores.file.toggleFilesSelected(stores.file.files.map(({ id }) => ({ id, isSelected: true })));
     toast.info(`Added ${stores.file.files.length} files to selection`);
-  };
-
-  const handleSortChange = (val: SortMenuProps["value"]) => {
-    stores.home.setSortValue(val);
-    stores.home.loadFilteredFiles({ page: 1 });
   };
 
   const handleUnarchive = () => stores.file.unarchiveFiles({ fileIds: stores.file.selectedIds });
@@ -130,12 +125,6 @@ export const HomeMultiActionBar = observer(() => {
                 : "Thumbnail Fit (Contain)"
             }
             onClick={toggleFileCardFit}
-          />
-
-          <SortMenu
-            rows={CONSTANTS.SORT_MENU_OPTS.FILE_SEARCH}
-            value={stores.home.sortValue}
-            setValue={handleSortChange}
           />
         </View>
       </View>
