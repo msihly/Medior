@@ -1,4 +1,2 @@
-// export { Table } from "./table";
-// export type { TableColumn, TableProps } from "./table";
-
+export * from "./pagination";
 export * from "./table";

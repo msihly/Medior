@@ -12,7 +12,6 @@ import {
   useSensors,
 } from "@alissavrk/dnd-kit-core";
 import { SortableContext, SortingStrategy, arrayMove } from "@alissavrk/dnd-kit-sortable";
-import { Pagination } from "@mui/material";
 import {
   Button,
   CenteredText,
@@ -25,6 +24,7 @@ import {
   MenuButton,
   Modal,
   MultiActionButton,
+  Pagination,
   SortMenu,
   SortMenuProps,
   Tag,
@@ -167,7 +167,7 @@ export const FileCollectionEditor = observer(() => {
 
   const handleFileInfoRefresh = () => stores.file.refreshSelectedFiles();
 
-  const handlePageChange = (_, page: number) => stores.collection.loadSearchResults({ page });
+  const handlePageChange = (page: number) => stores.collection.loadSearchResults({ page });
 
   const handleRefreshMeta = async () => {
     setIsLoading(true);
@@ -277,12 +277,7 @@ export const FileCollectionEditor = observer(() => {
                 count={stores.collection.editorSearchPageCount}
                 page={stores.collection.editorSearchPage}
                 onChange={handlePageChange}
-                showFirstButton
-                showLastButton
-                siblingCount={2}
-                boundaryCount={2}
                 size="small"
-                className={css.pagination}
               />
             </View>
           )}
@@ -443,17 +438,6 @@ const useClasses = makeClasses({
     width: "15rem",
     backgroundColor: colors.grey["800"],
     overflow: "hidden",
-  },
-  pagination: {
-    borderRight: `3px solid ${colors.blue["800"]}`,
-    borderLeft: `3px solid ${colors.blue["800"]}`,
-    borderRadius: "0.5rem",
-    marginTop: "0.5rem",
-    padding: "0.3rem",
-    background: colors.grey["900"],
-    "& > ul": {
-      justifyContent: "center",
-    },
   },
   searchResults: {
     flex: 1,

@@ -1,7 +1,6 @@
 import { useEffect, useRef } from "react";
 import { observer } from "mobx-react-lite";
 import { TagOption, useStores } from "store";
-import { Pagination } from "@mui/material";
 import {
   Button,
   CenteredText,
@@ -11,6 +10,7 @@ import {
   LoadingOverlay,
   MenuButton,
   Modal,
+  Pagination,
   SortMenu,
   TagInput,
   Text,
@@ -19,7 +19,6 @@ import {
 import { DisplayedCollections, FileCollection } from ".";
 import { CONSTANTS, colors, debounce, makeClasses, useDeepEffect, useDeepMemo } from "utils";
 import { toast } from "react-toastify";
-import Color from "color";
 
 export const FileCollectionManager = observer(() => {
   const { css } = useClasses(null);
@@ -43,7 +42,7 @@ export const FileCollectionManager = observer(() => {
 
   useEffect(() => {
     if (stores.collection.managerSearchPage > stores.collection.managerSearchPageCount)
-      handlePageChange(null, stores.collection.managerSearchPageCount);
+      handlePageChange(stores.collection.managerSearchPageCount);
   }, [stores.collection.managerSearchPage, stores.collection.managerSearchPageCount]);
 
   const searchDeps = [stores.collection.managerTitleSearchValue, sortValue, tagSearchValue];
@@ -85,7 +84,7 @@ export const FileCollectionManager = observer(() => {
     }
   };
 
-  const handlePageChange = (_, page: number) => stores.collection.listFilteredCollections({ page });
+  const handlePageChange = (page: number) => stores.collection.listFilteredCollections({ page });
 
   const handleSortChange = (val: { isDesc: boolean; key: string }) =>
     stores.collection.setManagerSearchSort(val);
@@ -204,11 +203,6 @@ export const FileCollectionManager = observer(() => {
                 count={stores.collection.managerSearchPageCount}
                 page={stores.collection.managerSearchPage}
                 onChange={handlePageChange}
-                showFirstButton
-                showLastButton
-                siblingCount={2}
-                boundaryCount={2}
-                className={css.pagination}
               />
             </View>
           </View>
@@ -253,21 +247,6 @@ const useClasses = makeClasses({
   },
   modalContent: {
     overflow: "hidden",
-  },
-  pagination: {
-    position: "absolute",
-    bottom: "0.5rem",
-    left: 0,
-    right: 0,
-    borderRight: `3px solid ${colors.blue["800"]}`,
-    borderLeft: `3px solid ${colors.blue["800"]}`,
-    borderRadius: "0.5rem",
-    margin: "0 auto",
-    padding: "0.3rem",
-    width: "fit-content",
-    background: `linear-gradient(to top, ${colors.grey["900"]}, ${Color(colors.grey["900"])
-      .darken(0.1)
-      .string()})`,
   },
   rightColumn: {
     position: "relative",

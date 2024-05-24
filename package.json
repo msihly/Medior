@@ -229,6 +229,14 @@
             {
               "name": "@mui/material",
               "importNames": [
+                "Pagination"
+              ],
+              "message": "Import 'Pagination' from 'components' instead.",
+              "allowTypeImports": true
+            },
+            {
+              "name": "@mui/material",
+              "importNames": [
                 "Typography",
                 "TypographyProps"
               ],
