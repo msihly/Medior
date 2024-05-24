@@ -14,6 +14,7 @@ export const completeImportBatch = ({
       db.FileImportBatchModel.updateOne({ _id: id }, { collectionId, completedAt }),
       tagIds.length && db.regenFileTagAncestors({ fileIds }),
       tagIds.length && db.recalculateTagCounts({ tagIds }),
+      ...tagIds.map((tagId) => db.regenTagThumbPaths({ tagId })),
     ]);
 
     socket.emit("importBatchCompleted");

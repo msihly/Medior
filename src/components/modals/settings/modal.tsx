@@ -126,6 +126,9 @@ export const SettingsModal = observer(() => {
   const [tagManagerSort, setTagManagerSort] = useState<SortMenuProps["value"]>(
     DEFAULT_CONFIG.tags.managerSearchSort
   );
+  const [tagSearchTagCount, setTagSearchTagCount] = useState<number>(
+    DEFAULT_CONFIG.tags.searchTagCount
+  );
   const [videoTypes, setVideoTypes] = useState<VideoType[]>(DEFAULT_CONFIG.file.videoTypes);
 
   useEffect(() => {
@@ -181,6 +184,7 @@ export const SettingsModal = observer(() => {
     setSocketPort(config.ports.socket);
     setSocketPort(config.ports.socket);
     setTagManagerSort(config.tags.managerSearchSort);
+    setTagSearchTagCount(config.tags.searchTagCount);
     setVideoTypes(config.file.videoTypes);
 
     stores.home.setIsSettingsLoading(false);
@@ -276,14 +280,15 @@ export const SettingsModal = observer(() => {
         },
         tags: {
           managerSearchSort: tagManagerSort,
+          searchTagCount: tagSearchTagCount,
         },
       });
 
       stores.faceRecog.autoDetectQueue.clear();
       stores.file.infoRefreshQueue.clear();
       stores.import.queue.clear();
-      stores.tag.countsRefreshQueue.clear();
-      stores.tag.relationsRefreshQueue.clear();
+      stores.tagManager.countsRefreshQueue.clear();
+      stores.tagManager.relationsRefreshQueue.clear();
 
       if (hasDbDiff || hasServerDiff || hasSocketDiff)
         await trpc.reloadServers.mutate({

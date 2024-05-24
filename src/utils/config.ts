@@ -49,6 +49,7 @@ export interface Config {
   };
   tags: {
     managerSearchSort: SortMenuProps["value"];
+    searchTagCount: number;
   };
 }
 
@@ -97,6 +98,7 @@ export const DEFAULT_CONFIG: Config = {
   },
   tags: {
     managerSearchSort: { isDesc: true, key: "dateCreated" },
+    searchTagCount: 200,
   },
 };
 
@@ -184,6 +186,7 @@ export const loadConfig = async (configPath?: string) => {
       tags: {
         managerSearchSort:
           loadedConfig.tags?.managerSearchSort || DEFAULT_CONFIG.tags.managerSearchSort,
+        searchTagCount: +loadedConfig.tags?.searchTagCount || DEFAULT_CONFIG.tags.searchTagCount,
       },
     };
 

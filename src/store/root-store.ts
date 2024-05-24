@@ -6,7 +6,7 @@ import { FaceRecognitionStore } from "./face-recognition";
 import { FileStore } from "./files";
 import { HomeStore } from "./home";
 import { ImportStore } from "./imports";
-import { TagStore } from "./tags";
+import { TagManagerStore, TagStore } from "./tags";
 
 @model("medior/RootStore")
 export class RootStore extends Model({
@@ -17,6 +17,7 @@ export class RootStore extends Model({
   home: prop<HomeStore>(),
   import: prop<ImportStore>(),
   tag: prop<TagStore>(),
+  tagManager: prop<TagManagerStore>(),
 }) {
   /* ----------------------------- DYNAMIC GETTERS ---------------------------- */
   _getIsBlockingModalOpen() {
@@ -28,8 +29,8 @@ export class RootStore extends Model({
       this.import?.isImportManagerOpen ||
       this.tag?.isTagEditorOpen ||
       this.tag?.isTaggerOpen ||
-      this.tag?.isTagManagerOpen ||
-      this.tag?.isTagMergerOpen
+      this.tag?.isTagMergerOpen ||
+      this.tagManager?.isOpen
     );
   }
 }
@@ -43,6 +44,7 @@ export const createRootStore = () => {
     home: new HomeStore({}),
     import: new ImportStore({}),
     tag: new TagStore({}),
+    tagManager: new TagManagerStore({}),
   });
 
   registerRootStore(rootStore);

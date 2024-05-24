@@ -189,6 +189,23 @@ export type SetFileRatingInput = { fileIds: string[]; rating: number };
 export type UpdateFileInput = Partial<db.File> & { id: string };
 
 /* ---------------------------------- TAGS ---------------------------------- */
+export type CreateTagFilterPipelineInput = {
+  countOp: LogicalOp | "";
+  countValue?: number;
+  dateCreatedEnd?: string;
+  dateCreatedStart?: string;
+  dateModifiedEnd?: string;
+  dateModifiedStart?: string;
+  excludedDescTagIds: string[];
+  excludedTagIds: string[];
+  isSortDesc: boolean;
+  optionalTagIds: string[];
+  regExMode: "any" | "hasRegEx" | "hasNoRegEx";
+  requiredDescTagIds: string[];
+  requiredTagIds: string[];
+  sortKey: string;
+};
+
 export type CreateTagInput = {
   aliases?: string[];
   childIds?: string[];
@@ -204,6 +221,17 @@ export type DetectFacesInput = { imagePath: string };
 
 export type EditTagInput = Partial<CreateTagInput> & { id: string };
 
+export type GetShiftSelectedTagsInput = CreateTagFilterPipelineInput & {
+  clickedId: string;
+  clickedIndex: number;
+  selectedIds: string[];
+};
+
+export type ListFilteredTagsInput = CreateTagFilterPipelineInput & {
+  page: number;
+  pageSize: number;
+};
+
 export type MergeTagsInput = Omit<Required<CreateTagInput>, "withSub"> & {
   tagIdToKeep: string;
   tagIdToMerge: string;
@@ -217,6 +245,8 @@ export type RefreshTagRelationsInput = {
 };
 
 export type RegenCollAttrsInput = { collIds?: string[]; fileIds?: string[] };
+
+export type RegenTagThumbPathsInput = { tagId: string };
 
 export type RemoveChildTagIdsFromTagsInput = { childTagIds: string[]; tagIds: string[] };
 

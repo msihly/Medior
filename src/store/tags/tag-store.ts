@@ -11,39 +11,24 @@ import {
   prop,
 } from "mobx-keystone";
 import * as db from "database";
-import { RootStore, sortFiles } from "store";
-import { SortMenuProps, TagToUpsert } from "components";
+import { RootStore } from "store";
+import { TagToUpsert } from "components";
 import { Tag, TagOption } from ".";
-import { getConfig, handleErrors, makeQueue, PromiseQueue, regexEscape, trpc } from "utils";
+import { handleErrors, PromiseQueue, regexEscape, trpc } from "utils";
 import { toast } from "react-toastify";
-
-export type TagManagerMode = "create" | "edit" | "search";
 
 @model("medior/TagStore")
 export class TagStore extends Model({
   activeTagId: prop<string>(null).withSetter(),
   isTagEditorOpen: prop<boolean>(false).withSetter(),
   isTaggerOpen: prop<boolean>(false).withSetter(),
-  isTagManagerOpen: prop<boolean>(false).withSetter(),
   isTagMergerOpen: prop<boolean>(false).withSetter(),
   isTagSubEditorOpen: prop<boolean>(false).withSetter(),
-  regExSearch: prop<{ regEx: string; tagOpts: TagOption[] }>(() => ({
-    regEx: "",
-    tagOpts: [],
-  })),
   subEditorTagId: prop<string>(null).withSetter(),
   taggerBatchId: prop<string | null>(null).withSetter(),
   taggerFileIds: prop<string[]>(() => []).withSetter(),
-  tagManagerRegExMode: prop<"any" | "hasRegEx" | "hasNoRegEx">("any").withSetter(),
-  tagManagerSearchValue: prop<TagOption[]>(() => []).withSetter(),
-  tagManagerSort: prop<SortMenuProps["value"]>(
-    () => getConfig().tags.managerSearchSort
-  ).withSetter(),
   tags: prop<Tag[]>(() => []),
 }) {
-  countsRefreshQueue = new PromiseQueue();
-  relationsRefreshQueue = new PromiseQueue();
-
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
   @modelAction
   _addTag = (tag: ModelCreationData<Tag>) => {
@@ -65,21 +50,6 @@ export class TagStore extends Model({
   @modelAction
   overwrite = (tags: ModelCreationData<Tag>[]) => {
     this.tags = tags.map((t) => new Tag(t));
-  };
-
-  @modelAction
-  toggleTagManagerRegExMode = () => {
-    this.tagManagerRegExMode =
-      this.tagManagerRegExMode === "any"
-        ? "hasRegEx"
-        : this.tagManagerRegExMode === "hasRegEx"
-        ? "hasNoRegEx"
-        : "any";
-  };
-
-  @modelAction
-  updateRegExSearch = (search: Partial<TagStore["regExSearch"]>) => {
-    this.regExSearch = { ...this.regExSearch, ...search };
   };
 
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */
@@ -194,63 +164,6 @@ export class TagStore extends Model({
         stores.import.queue.clear();
 
         const res = await trpc.mergeTags.mutate(args);
-        if (!res.success) throw new Error(res.error);
-      })
-    );
-  });
-
-  @modelFlow
-  refreshAllTagCounts = _async(function* (this: TagStore) {
-    return yield* _await(
-      handleErrors(async () => {
-        makeQueue({
-          action: (item) => this.refreshTagCounts([item.id], false),
-          items: this.tags,
-          logSuffix: "tag counts",
-          onComplete: this.loadTags,
-          queue: this.countsRefreshQueue,
-        });
-      })
-    );
-  });
-
-  @modelFlow
-  refreshAllTagRelations = _async(function* (this: TagStore) {
-    return yield* _await(
-      handleErrors(async () => {
-        makeQueue({
-          action: (item) => this.refreshTagRelations({ id: item.id, withSub: false }),
-          items: this.tags,
-          logSuffix: "tag counts",
-          onComplete: this.loadTags,
-          queue: this.relationsRefreshQueue,
-        });
-      })
-    );
-  });
-
-  @modelFlow
-  refreshTagCounts = _async(function* (this: TagStore, tagIds: string[], withSub: boolean = true) {
-    return yield* _await(
-      handleErrors(async () => {
-        const res = await trpc.recalculateTagCounts.mutate({ tagIds, withSub });
-        if (!res.success) throw new Error(res.error);
-        return res.data;
-      })
-    );
-  });
-
-  @modelFlow
-  refreshTagRelations = _async(function* (
-    this: TagStore,
-    { id, withSub = true }: { id: string; withSub?: boolean }
-  ) {
-    return yield* _await(
-      handleErrors(async () => {
-        const res = await trpc.refreshTagRelations.mutate({
-          tagId: id,
-          withSub,
-        });
         if (!res.success) throw new Error(res.error);
       })
     );
@@ -405,48 +318,6 @@ export class TagStore extends Model({
   }
 
   /* --------------------------------- GETTERS -------------------------------- */
-  @computed
-  get tagManagerOptions() {
-    const {
-      excludedDescTagIdArrays,
-      excludedTagIds,
-      optionalTagIds,
-      requiredTagIds,
-      requiredDescTagIdArrays,
-    } = this.tagSearchOptsToIds(this.tagManagerSearchValue, true);
-
-    return [...this.tags]
-      .reduce((acc, cur) => {
-        if (optionalTagIds.length && !optionalTagIds.includes(cur.id)) return acc;
-
-        if (excludedTagIds.length || excludedDescTagIdArrays.length) {
-          if (
-            excludedTagIds.includes(cur.id) ||
-            excludedDescTagIdArrays.some((ids) => ids.some((id) => id === cur.id))
-          )
-            return acc;
-        }
-
-        if (requiredTagIds.length || requiredDescTagIdArrays.length) {
-          if (
-            !requiredTagIds.includes(cur.id) &&
-            !requiredDescTagIdArrays.every((ids) => ids.some((id) => id === cur.id))
-          )
-            return acc;
-        }
-
-        if (this.tagManagerRegExMode !== "any") {
-          const hasRegEx = cur.regExMap?.regEx?.length > 0;
-          if (this.tagManagerRegExMode === "hasRegEx" && !hasRegEx) return acc;
-          if (this.tagManagerRegExMode === "hasNoRegEx" && hasRegEx) return acc;
-        }
-
-        acc.push(cur.tagOption);
-        return acc;
-      }, [] as TagOption[])
-      .sort((a, b) => sortFiles({ a, b, ...this.tagManagerSort }));
-  }
-
   @computed
   get tagOptions() {
     return this.tags.map((t) => t.tagOption).sort((a, b) => b.count - a.count);

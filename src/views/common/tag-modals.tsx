@@ -24,9 +24,9 @@ export const TagModals = observer(({ view }: TagModalsProps) => {
 
       {stores.tag.isTagSubEditorOpen && <TagEditor id={stores.tag.subEditorTagId} isSubEditor />}
 
-      {stores.tag.isTagManagerOpen && <TagManager />}
-
       {stores.tag.isTagMergerOpen && <TagMerger />}
+
+      {stores.tagManager.isOpen && <TagManager />}
     </>
   );
 });

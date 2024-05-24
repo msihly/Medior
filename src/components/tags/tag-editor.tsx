@@ -116,10 +116,10 @@ export const TagEditor = observer(
     const handleRefresh = async () => {
       setIsLoading(true);
 
-      const relationRes = await stores.tag.refreshTagRelations({ id });
+      const relationRes = await stores.tagManager.refreshTagRelations({ id });
       if (!relationRes.success) return toast.error("Failed to refresh tag relations");
 
-      const countRes = await stores.tag.refreshTagCounts([id]);
+      const countRes = await stores.tagManager.refreshTagCounts([id]);
       if (!countRes.success) return toast.error("Failed to refresh tag count");
 
       setIsLoading(false);

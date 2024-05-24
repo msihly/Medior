@@ -1,88 +1,97 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { observer } from "mobx-react-lite";
 import { TagOption, useStores } from "store";
-import AutoSizer from "react-virtualized-auto-sizer";
 import { FixedSizeGrid } from "react-window";
 import {
   Button,
   Checkbox,
+  DateRange,
+  DisplayedTags,
+  Dropdown,
   ListItem,
+  LoadingOverlay,
   MenuButton,
   Modal,
+  NumInput,
+  Pagination,
   SortMenu,
   SortMenuProps,
-  Tag,
   TagInput,
   Text,
   View,
 } from "components";
-import { CONSTANTS, colors, makeClasses, useDeepEffect } from "utils";
+import { CONSTANTS, LOGICAL_OPS, LogicalOp, colors, makeClasses, useDeepEffect } from "utils";
 
-const COLUMN_MIN_WIDTH = 200;
-const COLUMN_SPACING = 10;
-const ROW_HEIGHT = 50;
+const COUNT_OPS = [
+  { label: "Any", value: "" },
+  ...LOGICAL_OPS.map((op) => ({ label: op, value: op })),
+];
 
 export const TagManager = observer(() => {
   const { css } = useClasses(null);
 
   const stores = useStores();
 
-  const [width, setWidth] = useState(0);
-
   const resultsRef = useRef<FixedSizeGrid>(null);
   useDeepEffect(() => {
     if (resultsRef.current) resultsRef.current.scrollTo({ scrollTop: 0 });
-  }, [stores.tag.tagManagerOptions]);
+  }, [stores.tagManager.tags]);
 
-  const columnWidth = Math.max(COLUMN_MIN_WIDTH, Math.floor(width / COLUMN_MIN_WIDTH));
-  const columnCount = Math.floor(width / columnWidth);
-  const rowCount = Math.ceil(stores.tag.tagManagerOptions.length / columnCount);
+  useEffect(() => {
+    stores.tagManager.resetSearch();
+    stores.tagManager.loadFilteredTags({ page: 1 });
+  }, []);
 
   const handleClose = () => {
-    stores.tag.setIsTagManagerOpen(false);
+    stores.tagManager.setIsOpen(false);
     stores.home.reloadIfQueued();
   };
+
+  const handleCountChange = (val: LogicalOp | "") => stores.tagManager.setCountOp(val);
+
+  const handleCountValueChange = (val: number) => stores.tagManager.setCountValue(val);
 
   const handleCreate = () => {
     stores.tag.setActiveTagId(null);
     stores.tag.setIsTagEditorOpen(true);
   };
 
-  const handleRefreshCounts = () => stores.tag.refreshAllTagCounts();
+  const handleDateCreatedEndChange = (val: string) => stores.tagManager.setDateCreatedEnd(val);
 
-  const handleRefreshRelations = () => stores.tag.refreshAllTagRelations();
+  const handleDateCreatedStartChange = (val: string) => stores.tagManager.setDateCreatedStart(val);
 
-  const handleResize = ({ width }) => setWidth(width);
+  const handleDateModifiedEndChange = (val: string) => stores.tagManager.setDateModifiedEnd(val);
 
-  const handleSearchChange = (val: TagOption[]) => stores.tag.setTagManagerSearchValue(val);
+  const handleDateModifiedStartChange = (val: string) =>
+    stores.tagManager.setDateModifiedStart(val);
 
-  const setTagManagerSort = (val: SortMenuProps["value"]) => stores.tag.setTagManagerSort(val);
+  const handlePageChange = (page: number) => stores.tagManager.loadFilteredTags({ page });
 
-  const renderTag = ({ columnIndex, rowIndex, style }) => {
-    const index = rowIndex * columnCount + columnIndex;
-    if (index >= stores.tag.tagManagerOptions.length) return null;
+  const handleRefreshCounts = () => stores.tagManager.refreshAllTagCounts();
 
-    const id = stores.tag.tagManagerOptions[index].id;
+  const handleRefreshRelations = () => stores.tagManager.refreshAllTagRelations();
 
-    const handleClick = () => {
-      stores.tag.setActiveTagId(id);
-      stores.tag.setIsTagEditorOpen(true);
-    };
+  const handleRefreshThumbPaths = () => stores.tagManager.refreshAllTagThumbPaths();
 
-    return (
-      <View key={`${columnIndex}-${rowIndex}`} padding={{ right: COLUMN_SPACING }} {...{ style }}>
-        <Tag id={id} onClick={handleClick} />
-      </View>
-    );
+  const handleResetSearch = () => {
+    stores.tagManager.resetSearch();
+    handleSearch();
   };
 
+  const handleSearch = () => stores.tagManager.loadFilteredTags({ page: 1 });
+
+  const handleSearchChange = (val: TagOption[]) => stores.tagManager.setSearchValue(val);
+
+  const setTagManagerSort = (val: SortMenuProps["value"]) => stores.tagManager.setSortValue(val);
+
   return (
-    <Modal.Container onClose={handleClose} height="80%" width="80%">
+    <Modal.Container onClose={handleClose} height="100%" width="100%">
       <Modal.Header
         rightNode={
           <MenuButton color={colors.button.grey}>
             <ListItem text="Refresh Counts" icon="Refresh" onClick={handleRefreshCounts} />
             <ListItem text="Refresh Relations" icon="Refresh" onClick={handleRefreshRelations} />
+            <ListItem text="Refresh Thumbnails" icon="Refresh" onClick={handleRefreshThumbPaths} />
           </MenuButton>
         }
       >
@@ -91,43 +100,103 @@ export const TagManager = observer(() => {
 
       <Modal.Content className={css.modalContent}>
         <View column spacing="0.5rem" className={css.searchColumn}>
-          <TagInput
-            label="Search Tags"
-            value={stores.tag.tagManagerSearchValue}
-            onChange={handleSearchChange}
-            hasSearchMenu
-            width="100%"
+          <Button
+            text="Search"
+            icon="Search"
+            onClick={handleSearch}
+            disabled={stores.tagManager.isLoading}
+            width="-webkit-fill-available"
+          />
+
+          <Button
+            text="Reset"
+            icon="Refresh"
+            onClick={handleResetSearch}
+            disabled={stores.tagManager.isLoading}
+            color={colors.button.grey}
+            width="-webkit-fill-available"
           />
 
           <SortMenu
             rows={CONSTANTS.SORT_MENU_OPTS.TAG_SEARCH}
-            value={stores.tag.tagManagerSort}
+            value={stores.tagManager.sortValue}
             setValue={setTagManagerSort}
             color={colors.button.darkGrey}
             width="100%"
           />
 
+          <View column>
+            <Text preset="label-glow">{"Tags"}</Text>
+            <TagInput
+              value={stores.tagManager.searchValue}
+              onChange={handleSearchChange}
+              hasSearchMenu
+              width="100%"
+            />
+          </View>
+
+          <View column>
+            <Text preset="label-glow">{"Tag File Count"}</Text>
+
+            <View row justify="space-between" spacing="0.3rem">
+              <Dropdown
+                value={stores.tagManager.countOp}
+                setValue={handleCountChange}
+                options={COUNT_OPS}
+                width="8rem"
+              />
+
+              <NumInput
+                value={stores.tagManager.countValue}
+                setValue={handleCountValueChange}
+                disabled={stores.tagManager.countOp === ""}
+                textAlign="center"
+                hasHelper={false}
+              />
+            </View>
+          </View>
+
           <Checkbox
             label="Has RegEx"
-            checked={stores.tag.tagManagerRegExMode === "hasRegEx"}
-            indeterminate={stores.tag.tagManagerRegExMode === "hasNoRegEx"}
-            setChecked={stores.tag.toggleTagManagerRegExMode}
+            checked={stores.tagManager.regExMode === "hasRegEx"}
+            indeterminate={stores.tagManager.regExMode === "hasNoRegEx"}
+            setChecked={stores.tagManager.toggleRegExMode}
             flex={0}
           />
+
+          <View column spacing="0.4rem">
+            <DateRange
+              startDate={stores.tagManager.dateCreatedStart}
+              setStartDate={handleDateCreatedStartChange}
+              startLabel="Date Created - Start"
+              endDate={stores.tagManager.dateCreatedEnd}
+              setEndDate={handleDateCreatedEndChange}
+              endLabel="Date Created - End"
+              column
+            />
+
+            <DateRange
+              startDate={stores.tagManager.dateModifiedStart}
+              setStartDate={handleDateModifiedStartChange}
+              startLabel="Date Modified - Start"
+              endDate={stores.tagManager.dateModifiedEnd}
+              setEndDate={handleDateModifiedEndChange}
+              endLabel="Date Modified - End"
+              column
+            />
+          </View>
         </View>
 
         <View className={css.tags}>
-          <AutoSizer onResize={handleResize}>
-            {({ height, width }) => (
-              <FixedSizeGrid
-                ref={resultsRef}
-                {...{ columnCount, columnWidth, height, rowCount, width }}
-                rowHeight={ROW_HEIGHT}
-              >
-                {renderTag}
-              </FixedSizeGrid>
-            )}
-          </AutoSizer>
+          <LoadingOverlay isLoading={stores.tagManager.isLoading} />
+
+          <DisplayedTags />
+
+          <Pagination
+            count={stores.tagManager.pageCount}
+            page={stores.tagManager.page}
+            onChange={handlePageChange}
+          />
         </View>
       </Modal.Content>
 
@@ -157,6 +226,7 @@ const useClasses = makeClasses({
     overflow: "hidden",
   },
   tags: {
+    position: "relative",
     display: "flex",
     borderRadius: "0.4rem",
     padding: "0.5rem",

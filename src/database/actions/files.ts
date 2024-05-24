@@ -45,7 +45,7 @@ const createFileFilterPipeline = ({
 
   const hasExcludedTags = excludedTagIds?.length > 0;
   const hasExcludedDescTags = excludedDescTagIds?.length > 0;
-  const hasNumfOfTags = numOfTagsOp !== "" && numOfTagsValue !== undefined;
+  const hasNumOfTags = numOfTagsOp !== "" && numOfTagsValue !== undefined;
   const hasOptionalTags = optionalTagIds?.length > 0;
   const hasRequiredDescTags = requiredDescTagIds?.length > 0;
   const hasRequiredTags = requiredTagIds.length > 0;
@@ -71,7 +71,7 @@ const createFileFilterPipeline = ({
           }
         : {}),
       ...(excludedFileIds?.length > 0 ? { _id: { $nin: objectIds(excludedFileIds) } } : {}),
-      ...(hasDiffParams || hasNumfOfTags
+      ...(hasDiffParams || hasNumOfTags
         ? {
             $expr: {
               ...(hasDiffParams
@@ -82,7 +82,7 @@ const createFileFilterPipeline = ({
                     ],
                   }
                 : {}),
-              ...(hasNumfOfTags
+              ...(hasNumOfTags
                 ? { [logicOpsToMongo(numOfTagsOp)]: [{ $size: "$tagIds" }, numOfTagsValue] }
                 : {}),
             },
@@ -207,7 +207,11 @@ export const deleteFiles = ({ fileIds }: db.DeleteFilesInput) =>
       db.DeletedFileModel.bulkWrite(deletedHashesBulkOps),
     ]);
 
-    await db.recalculateTagCounts({ tagIds });
+    await Promise.all([
+      db.recalculateTagCounts({ tagIds }),
+      db.regenCollAttrs({ fileIds }),
+      ...tagIds.map((tagId) => db.regenTagThumbPaths({ tagId })),
+    ]);
 
     socket.emit("filesDeleted", { fileHashes, fileIds });
   });
@@ -304,12 +308,11 @@ export const editFileTags = ({
 
     await regenFileTagAncestors({ fileIds });
 
+    const changedTagIds = [...new Set([...addedTagIds, ...removedTagIds])];
     await Promise.all([
-      db.recalculateTagCounts({
-        tagIds: [...new Set([...addedTagIds, ...removedTagIds])],
-        withSub,
-      }),
+      db.recalculateTagCounts({ tagIds: changedTagIds, withSub }),
       db.regenCollAttrs({ fileIds }),
+      ...changedTagIds.map((tagId) => db.regenTagThumbPaths({ tagId })),
     ]);
 
     if (withSub) socket.emit("fileTagsUpdated", { addedTagIds, batchId, fileIds, removedTagIds });

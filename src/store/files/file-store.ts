@@ -153,7 +153,7 @@ export class FileStore extends Model({
             )
           );
 
-          const tagCountRes = await stores.tag.refreshTagCounts([
+          const tagCountRes = await stores.tagManager.refreshTagCounts([
             ...new Set(deleted.flatMap((f) => f.tagIds)),
           ]);
           if (!tagCountRes.success) throw new Error(tagCountRes.error);

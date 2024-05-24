@@ -86,8 +86,8 @@ export const ImportEditor = observer(() => {
     setFolderToTagsMode(checked ? "hierarchical" : "none");
 
   const handleTagManager = () => {
-    if (stores.tag.isTagManagerOpen) stores.tag.setIsTagManagerOpen(false);
-    setTimeout(() => stores.tag.setIsTagManagerOpen(true), 0);
+    if (stores.tagManager.isOpen) stores.tagManager.setIsOpen(false);
+    setTimeout(() => stores.tagManager.setIsOpen(true), 0);
   };
 
   const toggleFolderToCollWithTag = () =>

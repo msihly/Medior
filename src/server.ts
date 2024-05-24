@@ -141,6 +141,9 @@ const trpcRouter = tRouter({
   getShiftSelectedFiles: tProc
     .input((input: unknown) => input as db.GetShiftSelectedFilesInput)
     .mutation(({ input }) => db.getShiftSelectedFiles(input)),
+  getShiftSelectedTags: tProc
+    .input((input: unknown) => input as db.GetShiftSelectedTagsInput)
+    .mutation(({ input }) => db.getShiftSelectedTags(input)),
   importFile: tProc
     .input((input: unknown) => input as db.ImportFileInput)
     .mutation(({ input }) => db.importFile(input)),
@@ -158,12 +161,15 @@ const trpcRouter = tRouter({
   listFilesByTagIds: tProc
     .input((input: unknown) => input as db.ListFilesByTagIdsInput)
     .mutation(({ input }) => db.listFilesByTagIds(input)),
-  listFilteredFiles: tProc
-    .input((input: unknown) => input as db.ListFilteredFilesInput)
-    .mutation(({ input }) => db.listFilteredFiles(input)),
   listFileIdsForCarousel: tProc
     .input((input: unknown) => input as db.ListFileIdsForCarouselInput)
     .mutation(({ input }) => db.listFileIdsForCarousel(input)),
+  listFilteredFiles: tProc
+    .input((input: unknown) => input as db.ListFilteredFilesInput)
+    .mutation(({ input }) => db.listFilteredFiles(input)),
+  listFilteredTags: tProc
+    .input((input: unknown) => input as db.ListFilteredTagsInput)
+    .mutation(({ input }) => db.listFilteredTags(input)),
   listImportBatches: tProc.mutation(db.listImportBatches),
   listTags: tProc
     .input((input: unknown) => input as db.ListTagsInput)
@@ -178,6 +184,9 @@ const trpcRouter = tRouter({
   refreshTagRelations: tProc
     .input((input: unknown) => input as db.RefreshTagRelationsInput)
     .mutation(({ input }) => db.refreshTagRelations(input)),
+  regenTagThumbPaths: tProc
+    .input((input: unknown) => input as db.RegenTagThumbPathsInput)
+    .mutation(({ input }) => db.regenTagThumbPaths(input)),
   regenCollAttrs: tProc
     .input((input: unknown) => input as db.RegenCollAttrsInput)
     .mutation(({ input }) => db.regenCollAttrs(input)),

@@ -20,6 +20,7 @@ export interface Tag {
   label: string;
   parentIds: string[];
   regExMap: RegExMap;
+  thumbPaths: string[];
 }
 
 const RegExMapSchema = new Schema<RegExMap>({
@@ -39,6 +40,7 @@ const TagSchema = new Schema<Tag>({
   label: String,
   parentIds: [{ type: Schema.Types.ObjectId, ref: "Tag" }],
   regExMap: RegExMapSchema,
+  thumbPaths: [String],
 });
 
 export const TagModel = model<Tag>("Tag", TagSchema);

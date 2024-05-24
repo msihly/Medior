@@ -22,7 +22,7 @@ export const ImportManager = observer(() => {
     stores.home.reloadIfQueued();
   }
 
-  const handleTagManager = () => stores.tag.setIsTagManagerOpen(true);
+  const handleTagManager = () => stores.tagManager.setIsOpen(true);
 
   return (
     <Modal.Container

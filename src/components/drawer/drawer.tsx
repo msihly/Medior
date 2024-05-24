@@ -78,7 +78,7 @@ export const Drawer = observer(({ hasImports = false, hasSettings = false }: Dra
 
   const handleImport = () => stores.import.setIsImportManagerOpen(true);
 
-  const handleManageTags = () => stores.tag.setIsTagManagerOpen(true);
+  const handleManageTags = () => stores.tagManager.setIsOpen(true);
 
   const handleNumOfTagsOpChange = (val: LogicalOp | "") => stores.home.setNumOfTagsOp(val);
 

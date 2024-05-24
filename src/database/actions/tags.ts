@@ -2,10 +2,143 @@ import mongoose, { FilterQuery, PipelineStage, UpdateQuery } from "mongoose";
 import { AnyBulkWriteOperation } from "mongodb";
 import * as db from "database";
 import { SocketEmitEvent } from "server";
-import { bisectArrayChanges, dayjs, handleErrors, logToFile, makePerfLog, socket } from "utils";
+import {
+  bisectArrayChanges,
+  dayjs,
+  handleErrors,
+  logToFile,
+  logicOpsToMongo,
+  makePerfLog,
+  socket,
+} from "utils";
 import { leanModelToJson, objectId, objectIds } from "./utils";
 
 /* ---------------------------- HELPER FUNCTIONS ---------------------------- */
+const createTagFilterPipeline = ({
+  countOp,
+  countValue,
+  dateCreatedEnd,
+  dateCreatedStart,
+  dateModifiedEnd,
+  dateModifiedStart,
+  excludedDescTagIds,
+  excludedTagIds,
+  isSortDesc,
+  optionalTagIds,
+  regExMode,
+  requiredDescTagIds,
+  requiredTagIds,
+  sortKey,
+}: db.CreateTagFilterPipelineInput) => {
+  const sortDir = isSortDesc ? -1 : 1;
+
+  const hasCount = countOp !== "" && countValue !== undefined;
+  const hasExcludedDescTags = excludedDescTagIds?.length > 0;
+  const hasExcludedTags = excludedTagIds?.length > 0;
+  const hasOptionalTags = optionalTagIds?.length > 0;
+  const hasRequiredDescTags = requiredDescTagIds?.length > 0;
+  const hasRequiredTags = requiredTagIds.length > 0;
+
+  return {
+    $match: {
+      ...(dateCreatedEnd || dateCreatedStart
+        ? {
+            dateCreated: {
+              ...(dateCreatedEnd ? { $lte: dateCreatedEnd } : {}),
+              ...(dateCreatedStart ? { $gte: dateCreatedStart } : {}),
+            },
+          }
+        : {}),
+      ...(dateModifiedEnd || dateModifiedStart
+        ? {
+            dateModified: {
+              ...(dateModifiedEnd ? { $lte: dateModifiedEnd } : {}),
+              ...(dateModifiedStart ? { $gte: dateModifiedStart } : {}),
+            },
+          }
+        : {}),
+      ...(hasCount
+        ? {
+            $expr: {
+              ...(hasCount ? { [logicOpsToMongo(countOp)]: ["$count", countValue] } : {}),
+            },
+          }
+        : {}),
+      ...(regExMode !== "any" ? { "regExMap.regEx": { $exists: regExMode === "hasRegEx" } } : {}),
+      ...(hasExcludedTags || hasOptionalTags || hasRequiredTags
+        ? {
+            _id: {
+              ...(hasExcludedTags ? { $nin: objectIds(excludedTagIds) } : {}),
+              ...(hasOptionalTags ? { $in: objectIds(optionalTagIds) } : {}),
+              ...(hasRequiredTags ? { $all: objectIds(requiredTagIds) } : {}),
+            },
+          }
+        : {}),
+      ...(hasExcludedDescTags || hasRequiredDescTags
+        ? {
+            ancestorIds: {
+              ...(hasExcludedDescTags ? { $nin: objectIds(excludedDescTagIds) } : {}),
+              ...(hasRequiredDescTags ? { $all: objectIds(requiredDescTagIds) } : {}),
+            },
+          }
+        : {}),
+    },
+    $sort: { [sortKey]: sortDir, _id: sortDir } as { [key: string]: 1 | -1 },
+  };
+};
+
+/*
+const createTagThumbPathPipeline = (tagIds: string[]): PipelineStage[] => [
+  { $match: { _id: { $in: objectIds(tagIds) } } },
+  {
+    $lookup: {
+      from: "files",
+      localField: "_id",
+      foreignField: "tagIds",
+      as: "files",
+    },
+  },
+  {
+    $project: {
+      _id: 1,
+      thumbPaths: {
+        $arrayElemAt: [
+          {
+            $map: {
+              input: {
+                $filter: {
+                  input: "$files",
+                  as: "file",
+                  cond: {
+                    $eq: [
+                      "$$file.dateCreated",
+                      {
+                        $min: "$files.dateCreated",
+                      },
+                    ],
+                  },
+                },
+              },
+              as: "file",
+              in: "$$file.thumbPaths",
+            },
+          },
+          0,
+        ],
+      },
+    },
+  },
+];
+*/
+
+const deriveTagThumbPaths = async (tagId: string) =>
+  (
+    await db.FileModel.findOne({ tagIdsWithAncestors: tagId })
+      .sort({ dateCreated: 1 })
+      .select({ thumbPaths: 1 })
+      .lean()
+  )?.thumbPaths ?? [];
+
 export const deriveTagIdsWithAncestors = async (
   tagIds: string[],
   withBaseId = true
@@ -324,6 +457,12 @@ export const regenTagAncestors = async ({
     if (withSub) socket.emit("tagsUpdated", { tags: updates, withFileReload: true });
   });
 
+export const regenTagThumbPaths = async ({ tagId }: db.RegenTagThumbPathsInput) =>
+  handleErrors(async () => {
+    const thumbPaths = await deriveTagThumbPaths(tagId);
+    return db.TagModel.updateOne({ _id: tagId }, { $set: { thumbPaths } });
+  });
+
 /* ------------------------------ API ENDPOINTS ----------------------------- */
 export const createTag = ({
   aliases = [],
@@ -345,6 +484,7 @@ export const createTag = ({
       label,
       parentIds,
       regExMap,
+      thumbPaths: [],
     };
 
     const res = await db.TagModel.create(tag);
@@ -466,6 +606,7 @@ export const editTag = ({
       await regenTagAncestors({ tagIds: changedTagIds, withSub });
 
       await Promise.all([
+        regenTagThumbPaths({ tagId: id }),
         db.regenCollTagAncestors({ collectionIds: affectedCollIds }),
         db.regenFileTagAncestors({ fileIds: affectedFileIds }),
       ]);
@@ -478,6 +619,149 @@ export const editTag = ({
 
     if (withSub) await emitTagUpdates(id, changedChildIds, changedParentIds);
     return { changedChildIds, changedParentIds, dateModified, operations, res };
+  });
+
+export const getShiftSelectedTags = ({
+  clickedId,
+  clickedIndex,
+  isSortDesc,
+  selectedIds,
+  sortKey,
+  ...filterParams
+}: db.GetShiftSelectedTagsInput) =>
+  handleErrors(async () => {
+    if (selectedIds.length === 0) return { idsToDeselect: [], idsToSelect: [clickedId] };
+    if (selectedIds.length === 1 && selectedIds[0] === clickedId)
+      return { idsToDeselect: [clickedId], idsToSelect: [] };
+
+    const filterPipeline = createTagFilterPipeline({ ...filterParams, isSortDesc, sortKey });
+
+    const getSelectedIndex = async (type: "first" | "last") => {
+      const sortOp = isSortDesc ? "$gt" : "$lt";
+
+      const selectedTags = await db.TagModel.find({
+        ...filterPipeline.$match,
+        _id: { $in: objectIds(selectedIds) },
+      }).sort(filterPipeline.$sort);
+
+      if (!selectedTags || selectedTags.length === 0)
+        throw new Error(`Failed to load selected tags`);
+
+      const selectedTag =
+        type === "first" ? selectedTags[0] : selectedTags[selectedTags.length - 1];
+
+      const selectedTagIndex = await db.TagModel.countDocuments({
+        ...filterPipeline.$match,
+        $or: [
+          { [sortKey]: selectedTag[sortKey], _id: { [sortOp]: selectedTag._id } },
+          { [sortKey]: { [sortOp]: selectedTag[sortKey] } },
+        ],
+      });
+      if (!(selectedTagIndex > -1)) throw new Error(`Failed to load ${type} selected index`);
+
+      return selectedTagIndex;
+    };
+
+    const firstSelectedIndex = await getSelectedIndex("first");
+    if (!(firstSelectedIndex > -1)) return { idsToDeselect: [], idsToSelect: [clickedId] };
+    if (firstSelectedIndex === clickedIndex) return { idsToDeselect: [clickedId], idsToSelect: [] };
+
+    const isFirstAfterClicked = firstSelectedIndex > clickedIndex;
+    const lastSelectedIndex = isFirstAfterClicked ? await getSelectedIndex("last") : null;
+
+    const endIndex = isFirstAfterClicked ? lastSelectedIndex : clickedIndex;
+    const startIndex = isFirstAfterClicked ? clickedIndex : firstSelectedIndex;
+
+    const limit = endIndex + 1;
+    const skip = startIndex;
+
+    const mainPipeline: PipelineStage[] = [
+      { $match: filterPipeline.$match },
+      { $sort: filterPipeline.$sort },
+      ...(limit > -1 ? [{ $limit: limit }] : []),
+      ...(skip > -1 ? [{ $skip: skip }] : []),
+      { $project: { _id: 1 } },
+      { $group: { _id: null, filteredIds: { $push: "$_id" } } },
+      {
+        $addFields: {
+          selectedIdsNotInFiltered: {
+            $filter: {
+              input: objectIds(selectedIds),
+              as: "id",
+              cond: { $not: { $in: ["$$id", "$filteredIds"] } },
+            },
+          },
+          selectedIdsInFiltered: {
+            $filter: {
+              input: objectIds(selectedIds),
+              as: "id",
+              cond: { $in: ["$$id", "$filteredIds"] },
+            },
+          },
+        },
+      },
+      {
+        $addFields: {
+          newSelectedIds:
+            startIndex === endIndex
+              ? []
+              : isFirstAfterClicked
+              ? { $slice: ["$filteredIds", 0, limit] }
+              : { $slice: ["$filteredIds", 0, limit - skip] },
+        },
+      },
+      {
+        $addFields: {
+          idsToDeselect: {
+            $concatArrays: [
+              "$selectedIdsNotInFiltered",
+              {
+                $filter: {
+                  input: "$selectedIdsInFiltered",
+                  as: "id",
+                  cond: { $not: { $in: ["$$id", "$newSelectedIds"] } },
+                },
+              },
+            ],
+          },
+          idsToSelect: {
+            $filter: {
+              input: "$newSelectedIds",
+              as: "id",
+              cond: { $not: { $in: ["$$id", objectIds(selectedIds)] } },
+            },
+          },
+        },
+      },
+      { $project: { _id: 0, idsToDeselect: 1, idsToSelect: 1 } },
+    ];
+
+    const mainRes: {
+      idsToDeselect: string[];
+      idsToSelect: string[];
+    } = (await db.TagModel.aggregate(mainPipeline).allowDiskUse(true)).flatMap((f) => f)?.[0];
+    if (!mainRes) throw new Error("Failed to load shift selected tag IDs");
+
+    return mainRes;
+  });
+
+export const listFilteredTags = ({ page, pageSize, ...filterParams }: db.ListFilteredTagsInput) =>
+  handleErrors(async () => {
+    const filterPipeline = createTagFilterPipeline(filterParams);
+
+    const [_tags, totalDocuments] = await Promise.all([
+      db.TagModel.find(filterPipeline.$match)
+        .sort(filterPipeline.$sort)
+        .skip(Math.max(0, page - 1) * pageSize)
+        .limit(pageSize)
+        .allowDiskUse(true)
+        .lean(),
+      db.TagModel.countDocuments(filterPipeline.$match),
+    ]);
+    if (!_tags || !(totalDocuments > -1)) throw new Error("Failed to load filtered tags");
+
+    const tags = _tags.map((t) => leanModelToJson<db.Tag>(t));
+    return { tags, pageCount: Math.ceil(totalDocuments / pageSize) };
   });
 
 export const listTags = ({ filter }: db.ListTagsInput = {}) =>
@@ -563,6 +847,7 @@ export const mergeTags = ({
       await Promise.all([
         db.regenCollTagAncestors({ tagIds: [tagIdToKeep] }),
         db.regenFileTagAncestors({ tagIds: [tagIdToKeep] }),
+        regenTagThumbPaths({ tagId: tagIdToKeep }),
         regenTagAncestors({ tagIds: [tagIdToKeep, ...tagIdsToUpdate] }),
       ]);
 
