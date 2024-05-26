@@ -1,3 +1,4 @@
+import path from "path";
 import { shell } from "@electron/remote";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
@@ -35,39 +36,9 @@ export const InfoModal = observer(() => {
 
       <Modal.Content dividers className={css.content}>
         <DetailRow>
-          <Detail label="Original File Name" value={file?.originalName || "N/A"} withTooltip />
-
           <Detail label="Extension" value={file?.ext || "N/A"} />
-        </DetailRow>
 
-        <DetailRow>
-          <Detail
-            label="Current Path"
-            value={
-              file?.path ? (
-                <Button
-                  type="link"
-                  text={file.path}
-                  onClick={handleCurrentPath}
-                  className={css.link}
-                />
-              ) : (
-                "N/A"
-              )
-            }
-          />
-
-          <Detail label="Original Path" value={file?.originalPath || "N/A"} withTooltip />
-        </DetailRow>
-
-        <DetailRow>
-          <Detail label="Hash" value={file?.hash || "N/A"} />
-
-          <Detail label="Original Hash" value={file?.originalHash || "N/A"} />
-        </DetailRow>
-
-        <DetailRow>
-          <Detail label="Size" value={formatBytes(file?.size)} />
+          <Detail label="Size" value={formatBytes(file?.size)} tooltip={file?.size} />
 
           <Detail
             label="Dimensions"
@@ -90,6 +61,36 @@ export const InfoModal = observer(() => {
           <Detail label="Frame Rate" value={file?.frameRate || "N/A"} />
         </DetailRow>
 
+        <Detail label="Original File Name" value={file?.originalName || "N/A"} withTooltip />
+
+        <Detail
+          label="Original Folder"
+          value={file?.originalPath ? path.dirname(file.originalPath) : "N/A"}
+          withTooltip
+        />
+
+        <Detail
+          label="Current Path"
+          value={
+            file?.path ? (
+              <Button
+                type="link"
+                text={file.path}
+                onClick={handleCurrentPath}
+                className={css.link}
+              />
+            ) : (
+              "N/A"
+            )
+          }
+        />
+
+        <DetailRow>
+          <Detail label="Hash" value={file?.hash || "N/A"} />
+
+          <Detail label="Original Hash" value={file?.originalHash || "N/A"} />
+        </DetailRow>
+
         <DetailRow>
           <Detail
             label="Date Created"
@@ -108,7 +109,7 @@ export const InfoModal = observer(() => {
             value={
               <SideScroller innerClassName={css.tags}>
                 {file.tagIds.map((tagId) => (
-                  <Tag key={tagId} id={tagId} size="small" />
+                  <Tag key={tagId} id={tagId} hasEditor size="small" />
                 ))}
               </SideScroller>
             }

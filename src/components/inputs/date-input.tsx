@@ -71,6 +71,7 @@ const useClasses = makeClasses((_, { flex, width }: ClassesProps) => ({
   },
   datePicker: {
     width,
+    backgroundColor: "rgb(0 0 0 / 0.2)",
     "& .MuiInputBase-input": {
       padding: "0.5rem 0 0.5rem 0.5rem",
     },

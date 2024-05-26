@@ -196,12 +196,14 @@ export const Drawer = observer(({ hasImports = false, hasSettings = false }: Dra
         label="Archived"
         checked={stores.home.isArchiveOpen}
         setChecked={toggleArchiveOpen}
+        flex="none"
       />
 
       <Checkbox
         label="Diffusion"
         checked={stores.home.hasDiffParams}
         setChecked={toggleHasDiffParams}
+        flex="none"
       />
 
       <View row className={css.accordionContainer}>
@@ -270,6 +272,7 @@ const useClasses = makeClasses({
     height: "fit-content",
   },
   divider: {
+    margin: "0.5rem 0",
     width: "100%",
   },
   drawer: {

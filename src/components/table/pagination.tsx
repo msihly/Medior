@@ -1,4 +1,5 @@
 import {
+  // eslint-disable-next-line @typescript-eslint/no-restricted-imports
   Pagination as PaginationBase,
   PaginationProps as PaginationBaseProps,
 } from "@mui/material";

@@ -3,7 +3,7 @@ import { ChangeEvent, forwardRef, MutableRefObject, ReactNode } from "react";
 import { TextField, TextFieldProps } from "@mui/material";
 import { ConditionalWrap, Text, TextProps, View } from "components";
 import { CSSObject } from "tss-react";
-import { colors, makeClasses, Margins } from "utils";
+import { makeClasses, Margins } from "utils";
 import Color from "color";
 
 export interface InputProps extends Omit<TextFieldProps, "color" | "onChange" | "helperText"> {
@@ -134,7 +134,7 @@ const useClasses = makeClasses(
         textAlign,
       },
       "& .MuiOutlinedInput-root": {
-        backgroundColor: Color(colors.grey["900"]).fade(0.7).string(),
+        backgroundColor: "rgb(0 0 0 / 0.2)",
         "& fieldset": {
           transition: "all 200ms ease-in-out",
           borderColor: color,

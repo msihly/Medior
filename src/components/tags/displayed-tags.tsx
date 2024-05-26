@@ -27,7 +27,7 @@ const useClasses = makeClasses((theme) => ({
     display: "flex",
     flexFlow: "row wrap",
     flex: 1,
-    paddingBottom: "3rem",
+    padding: "0.3rem 0.3rem 3rem",
     overflow: "auto",
     "& > *": {
       overflow: "hidden",
