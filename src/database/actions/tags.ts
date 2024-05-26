@@ -448,7 +448,7 @@ export const regenTagAncestors = async ({
 
     await Promise.all(
       tagIds.map(async (tagId) => {
-        const ancestorIds = await deriveTagIdsWithAncestors([tagId], false);
+        const ancestorIds = await deriveTagIdsWithAncestors([tagId]);
         await db.TagModel.updateOne({ _id: tagId }, { $set: { ancestorIds } });
         updates.push({ tagId, updates: { ancestorIds } });
       })
@@ -476,7 +476,7 @@ export const createTag = ({
     const dateModified = dayjs().toISOString();
     const tag: Omit<db.Tag, "id"> = {
       aliases,
-      ancestorIds: await deriveTagIdsWithAncestors(parentIds, false),
+      ancestorIds: await deriveTagIdsWithAncestors(parentIds),
       childIds,
       count: 0,
       dateCreated: dateModified,
@@ -591,7 +591,7 @@ export const editTag = ({
             ...(childIds !== undefined ? { childIds: objectIds(childIds) } : {}),
             ...(parentIds !== undefined
               ? {
-                  ancestorIds: await deriveTagIdsWithAncestors(parentIds, false),
+                  ancestorIds: await deriveTagIdsWithAncestors(parentIds),
                   parentIds: objectIds(parentIds),
                 }
               : {}),
@@ -963,6 +963,21 @@ export const refreshTagRelations = ({ tagId, withSub = true }: db.RefreshTagRela
 
     if (withSub) await emitTagUpdates(tagId, changedChildIds, changedParentIds);
     if (debug) perfLogTotal("Refreshed tag relations");
+  });
+
+export const refreshTag = ({ tagId }: db.RefreshTagInput) =>
+  handleErrors(async () => {
+    const debug = false;
+    const { perfLogTotal } = makePerfLog("[refreshTags]", true);
+
+    await Promise.all([
+      recalculateTagCounts({ tagIds: [tagId], withSub: false }),
+      refreshTagRelations({ tagId, withSub: false }),
+      regenTagAncestors({ tagIds: [tagId], withSub: false }),
+      regenTagThumbPaths({ tagId }),
+    ]);
+
+    if (debug) perfLogTotal(`Refreshed tag ${tagId}`);
   });
 
 export const setTagCount = ({ count, id }: db.SetTagCountInput) =>

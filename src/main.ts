@@ -72,7 +72,7 @@ app.on("window-all-closed", app.quit);
 /* ------------------------------- BEGIN - SEARCH WINDOWS ------------------------------ */
 let searchWindows: BrowserWindow[] = [];
 
-const createSearchWindow = async () => {
+const createSearchWindow = async ({ tagIds }) => {
   try {
     const searchWindow = new BrowserWindow({
       autoHideMenuBar: true,
@@ -98,6 +98,7 @@ const createSearchWindow = async () => {
     await searchWindow.loadURL(`${baseUrl}${isBundled ? "#" : "/"}search`);
     logToFile("debug", "Search window created.");
 
+    setTimeout(() => searchWindow.webContents.send("init", { tagIds }), 100);
     searchWindows.push(searchWindow);
 
     searchWindow.on("close", () => {
@@ -110,7 +111,7 @@ const createSearchWindow = async () => {
   }
 };
 
-ipcMain.on("createSearchWindow", () => createSearchWindow());
+ipcMain.on("createSearchWindow", (_, args) => createSearchWindow(args));
 /* ------------------------------- END - SEARCH WINDOWS ------------------------------ */
 
 /* ------------------------------- BEGIN - CAROUSEL WINDOWS ------------------------------ */

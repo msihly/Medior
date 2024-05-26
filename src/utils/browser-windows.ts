@@ -15,4 +15,5 @@ export const openCarouselWindow = ({
     width: file.width,
   });
 
-export const openSearchWindow = () => ipcRenderer.send("createSearchWindow");
+export const openSearchWindow = ({ tagIds }: { tagIds?: string[] } = {}) =>
+  ipcRenderer.send("createSearchWindow", { tagIds: tagIds?.length ? [...tagIds] : [] });

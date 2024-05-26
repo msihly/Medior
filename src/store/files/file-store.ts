@@ -114,8 +114,6 @@ export class FileStore extends Model({
   deleteFiles = _async(function* (this: FileStore) {
     return yield* _await(
       handleErrors(async () => {
-        const stores = getRootStore<RootStore>(this);
-
         const fileIds = [...this.idsForConfirmDelete];
         if (!fileIds?.length) throw new Error("No files to delete");
 
@@ -152,11 +150,6 @@ export class FileStore extends Model({
                 : []
             )
           );
-
-          const tagCountRes = await stores.tagManager.refreshTagCounts([
-            ...new Set(deleted.flatMap((f) => f.tagIds)),
-          ]);
-          if (!tagCountRes.success) throw new Error(tagCountRes.error);
 
           toast.success(`${deletedIds.length} files deleted`);
         }

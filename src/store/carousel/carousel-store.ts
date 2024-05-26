@@ -77,7 +77,6 @@ export class CarouselStore extends Model({
           ignorePrevDeleted: false,
           targetDir: getConfig().mongo.outputDir,
           tagIds: activeFile.tagIds,
-          tagIdsWithAncestors: activeFile.tagIdsWithAncestors,
         });
         if (!copyRes.success) throw new Error(copyRes.error);
 

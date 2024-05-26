@@ -24,7 +24,6 @@ interface CopyFileForImportProps {
   fileImport: FileImport;
   ignorePrevDeleted: boolean;
   tagIds: string[];
-  tagIdsWithAncestors: string[];
   targetDir: string;
 }
 
@@ -42,7 +41,6 @@ export const copyFileForImport = async ({
   fileImport,
   ignorePrevDeleted,
   tagIds,
-  tagIdsWithAncestors,
   targetDir,
 }: CopyFileForImportProps): Promise<CopyFileForImportResult> => {
   const config = getConfig();
@@ -125,7 +123,6 @@ export const copyFileForImport = async ({
         path: newPath,
         size,
         tagIds,
-        tagIdsWithAncestors,
         thumbPaths,
         width,
       });
@@ -155,7 +152,6 @@ export const copyFileForImport = async ({
           fileImport,
           targetDir,
           tagIds,
-          tagIdsWithAncestors,
         });
       } else return { success: true, file: fileRes.data, isDuplicate: true };
     } else return { success: false, error: err?.stack };

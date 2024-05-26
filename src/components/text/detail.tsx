@@ -8,6 +8,7 @@ export interface DetailProps {
   labelProps?: Partial<TextProps>;
   overflowX?: CSSObject["overflowX"];
   overflowY?: CSSObject["overflowY"];
+  tooltip?: ReactNode;
   value: ReactNode;
   valueProps?: Partial<TextProps>;
   withTooltip?: boolean;
@@ -18,6 +19,7 @@ export const Detail = ({
   labelProps,
   overflowX = "auto",
   overflowY = "hidden",
+  tooltip,
   value,
   valueProps,
   withTooltip,
@@ -35,7 +37,7 @@ export const Detail = ({
       )}
       {typeof value === "string" ? (
         <Text
-          tooltip={withTooltip ? value : undefined}
+          tooltip={tooltip ?? (withTooltip ? value : undefined)}
           {...valueProps}
           className={cx(css.value, valueProps?.className)}
         >

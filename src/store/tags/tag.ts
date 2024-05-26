@@ -39,8 +39,6 @@ export type SearchTagType = "exclude" | "excludeDesc" | "includeAnd" | "includeD
 export type TagOption = {
   aliases?: string[];
   count: number;
-  dateCreated: string;
-  dateModified: string;
   distance?: number;
   id: string;
   label: string;
@@ -64,8 +62,6 @@ export const tagsToDescendants = (stores: RootStore, tags: Tag[], depth = -1): s
 export const tagToOption = (tag: Tag): TagOption => ({
   aliases: [...tag.aliases],
   count: tag.count,
-  dateCreated: tag.dateCreated,
-  dateModified: tag.dateModified,
   id: tag.id,
   label: tag.label,
   searchType: "includeDesc",

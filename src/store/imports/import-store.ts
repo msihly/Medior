@@ -284,8 +284,6 @@ export class ImportStore extends Model({
   ) {
     return yield* _await(
       handleErrors(async () => {
-        const stores = getRootStore<RootStore>(this);
-
         const batch = this.getById(batchId);
         const fileImport = batch?.getByPath(filePath);
 
@@ -304,14 +302,6 @@ export class ImportStore extends Model({
           );
 
         const tagIds = [...new Set([...batch.tagIds, ...fileImport.tagIds].flat())];
-        const tagIdsWithAncestors = [
-          ...new Set([
-            ...tagIds,
-            ...tagIds.flatMap((id) =>
-              stores.tag.getParentTags(stores.tag.getById(id), true).map((t) => t.id)
-            ),
-          ]),
-        ];
 
         const copyRes = await copyFileForImport({
           deleteOnImport: batch.deleteOnImport,
@@ -319,7 +309,6 @@ export class ImportStore extends Model({
           ignorePrevDeleted: batch.ignorePrevDeleted,
           targetDir: getConfig().mongo.outputDir,
           tagIds,
-          tagIdsWithAncestors,
         });
 
         const errorMsg = copyRes.error ?? null;

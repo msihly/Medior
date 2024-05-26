@@ -1,3 +1,4 @@
+import { ipcRenderer } from "electron";
 import { useEffect, useState } from "react";
 import { observer } from "mobx-react-lite";
 import { useStores } from "store";
@@ -17,24 +18,26 @@ export const SearchWindow = observer(() => {
   useEffect(() => {
     document.title = "Medior // Search";
 
-    const loadDatabase = async () => {
+    ipcRenderer.on("init", async (_, { tagIds }: { tagIds: string[] }) => {
       try {
         const { perfLog, perfLogTotal } = makePerfLog("[Home]");
+
+        await stores.tag.loadTags();
+        perfLog("Tags loaded");
+
+        stores.home.setSearchValue(
+          tagIds.map((id) => stores.tag.tagOptions.find((tag) => tag.id === id))
+        );
 
         await stores.home.loadFilteredFiles({ page: 1 });
         perfLog("Filtered files loaded");
         setIsLoading(false);
 
-        await stores.tag.loadTags();
-        perfLog("Tags loaded");
-
         perfLogTotal("Data loaded into MobX");
       } catch (err) {
         console.error(err);
       }
-    };
-
-    loadDatabase();
+    });
   }, []);
 
   return (

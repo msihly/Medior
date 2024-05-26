@@ -193,6 +193,9 @@ const trpcRouter = tRouter({
   reloadServers: tProc
     .input((input: unknown) => input as db.StartServersInput)
     .mutation(({ input }) => startServers(input)),
+  refreshTags: tProc
+    .input((input: unknown) => input as db.RefreshTagInput)
+    .mutation(({ input }) => db.refreshTag(input)),
   setFileFaceModels: tProc
     .input((input: unknown) => input as db.SetFileFaceModelsInput)
     .mutation(({ input }) => db.setFileFaceModels(input)),

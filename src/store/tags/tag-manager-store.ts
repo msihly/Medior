@@ -52,9 +52,7 @@ export class TagManagerStore extends Model({
   sortValue: prop<SortMenuProps["value"]>(() => getConfig().tags.managerSearchSort).withSetter(),
   tags: prop<TagManagerTag[]>(() => []),
 }) {
-  countsRefreshQueue = new PromiseQueue();
-  relationsRefreshQueue = new PromiseQueue();
-  thumbPathsRefreshQueue = new PromiseQueue();
+  tagRefreshQueue = new PromiseQueue();
 
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
   @modelAction
@@ -132,7 +130,6 @@ export class TagManagerStore extends Model({
     );
   });
 
-
   @modelFlow
   loadFilteredTags = _async(function* (this: TagManagerStore, { page }: { page?: number } = {}) {
     return yield* _await(
@@ -172,84 +169,27 @@ export class TagManagerStore extends Model({
   });
 
   @modelFlow
-  refreshAllTagCounts = _async(function* (this: TagManagerStore) {
+  refreshSelectedTags = _async(function* (this: TagManagerStore) {
     return yield* _await(
       handleErrors(async () => {
+        const stores = getRootStore<RootStore>(this);
         makeQueue({
-          action: (item) => this.refreshTagCounts([item.id], false),
-          items: getRootStore<RootStore>(this)?.tag?.tags ?? [],
-          logSuffix: "tag counts",
-          onComplete: () => getRootStore<RootStore>(this)?.tag.loadTags(),
-          queue: this.countsRefreshQueue,
+          action: (id) => this.refreshTag(id),
+          items: this.selectedIds,
+          logSuffix: "tags",
+          onComplete: () => Promise.all([stores.tag.loadTags(), this.loadFilteredTags()]),
+          queue: this.tagRefreshQueue,
         });
       })
     );
   });
 
   @modelFlow
-  refreshAllTagRelations = _async(function* (this: TagManagerStore) {
+  refreshTag = _async(function* (this: TagStore, tagId: string) {
     return yield* _await(
       handleErrors(async () => {
-        makeQueue({
-          action: (item) => this.refreshTagRelations({ id: item.id, withSub: false }),
-          items: getRootStore<RootStore>(this)?.tag?.tags ?? [],
-          logSuffix: "tag counts",
-          onComplete: () => getRootStore<RootStore>(this)?.tag.loadTags(),
-          queue: this.relationsRefreshQueue,
-        });
-      })
-    );
-  });
-
-  @modelFlow
-  refreshAllTagThumbPaths = _async(function* (this: TagManagerStore) {
-    return yield* _await(
-      handleErrors(async () => {
-        makeQueue({
-          action: (item) => this.refreshTagThumbPaths(item.id),
-          items: getRootStore<RootStore>(this)?.tag?.tags ?? [],
-          logSuffix: "tag thumb paths",
-          onComplete: () => getRootStore<RootStore>(this)?.tag.loadTags(),
-          queue: this.thumbPathsRefreshQueue,
-        });
-      })
-    );
-  });
-
-  @modelFlow
-  refreshTagCounts = _async(function* (this: TagStore, tagIds: string[], withSub: boolean = true) {
-    return yield* _await(
-      handleErrors(async () => {
-        const res = await trpc.recalculateTagCounts.mutate({ tagIds, withSub });
+        const res = await trpc.refreshTags.mutate({ tagId });
         if (!res.success) throw new Error(res.error);
-        return res.data;
-      })
-    );
-  });
-
-  @modelFlow
-  refreshTagRelations = _async(function* (
-    this: TagStore,
-    { id, withSub = true }: { id: string; withSub?: boolean }
-  ) {
-    return yield* _await(
-      handleErrors(async () => {
-        const res = await trpc.refreshTagRelations.mutate({
-          tagId: id,
-          withSub,
-        });
-        if (!res.success) throw new Error(res.error);
-      })
-    );
-  });
-
-  @modelFlow
-  refreshTagThumbPaths = _async(function* (this: TagStore, tagId: string) {
-    return yield* _await(
-      handleErrors(async () => {
-        const res = await trpc.regenTagThumbPaths.mutate({ tagId });
-        if (!res.success) throw new Error(res.error);
-        return res.data;
       })
     );
   });

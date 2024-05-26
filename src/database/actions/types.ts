@@ -136,7 +136,6 @@ export type ImportFileInput = {
   path: string;
   size: number;
   tagIds: string[];
-  tagIdsWithAncestors: string[];
   thumbPaths: string[];
   width: number;
 };
@@ -243,6 +242,8 @@ export type RefreshTagRelationsInput = {
   tagId: string;
   withSub?: boolean;
 };
+
+export type RefreshTagInput = { tagId: string; };
 
 export type RegenCollAttrsInput = { collIds?: string[]; fileIds?: string[] };
 
