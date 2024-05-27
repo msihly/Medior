@@ -165,28 +165,28 @@ export const FileCollectionManager = observer(() => {
           <View className={css.leftColumn}>
             <Text preset="label-glow">{"Search"}</Text>
 
-            <View column className={css.container}>
+            <View column spacing="0.5rem" className={css.container}>
               <SortMenu
                 rows={CONSTANTS.SORT_MENU_OPTS.COLLECTION_SEARCH}
                 value={sortValue}
                 setValue={handleSortChange}
                 color={colors.button.darkGrey}
                 width="100%"
-                margins={{ bottom: "0.5rem" }}
               />
 
-              <Text preset="label-glow">{"Titles"}</Text>
               <Input
+                label="Titles"
                 value={stores.collection.managerTitleSearchValue}
                 setValue={setTitleSearchValue}
+                detachLabel
                 fullWidth
-                margins={{ bottom: "0.5rem" }}
               />
 
-              <Text preset="label-glow">{"Tags"}</Text>
               <TagInput
+                label="Tags"
                 value={tagSearchValue}
                 onChange={setTagSearchValue}
+                detachLabel
                 fullWidth
                 hasSearchMenu
               />

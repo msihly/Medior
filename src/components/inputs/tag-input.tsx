@@ -57,6 +57,7 @@ export type TagInputProps = Omit<
 > & {
   autoFocus?: boolean;
   center?: boolean;
+  detachLabel?: boolean;
   disableWithoutFade?: boolean;
   excludedIds?: string[];
   hasCreate?: boolean;
@@ -84,6 +85,7 @@ export const TagInput = observer(
         autoFocus = false,
         center,
         className,
+        detachLabel,
         disabled,
         disableWithoutFade = false,
         excludedIds = [],
@@ -209,7 +211,7 @@ export const TagInput = observer(
       const renderInput = (params: AutocompleteRenderInputParams) => (
         <Input
           {...params}
-          {...{ autoFocus, hasHelper, label, width }}
+          {...{ autoFocus, detachLabel, hasHelper, label, width }}
           {...inputProps}
           ref={inputRef}
           value={inputValue}

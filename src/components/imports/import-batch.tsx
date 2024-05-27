@@ -37,9 +37,9 @@ export const ImportBatch = observer(({ batch }: ImportBatchProps) => {
   };
 
   const handleTag = () => {
-    stores.tag.setTaggerBatchId(batch.id);
-    stores.tag.setTaggerFileIds([...batch.completed.map((imp) => imp.fileId)]);
-    stores.tag.setIsTaggerOpen(true);
+    stores.tag.setFileTagEditorBatchId(batch.id);
+    stores.tag.setFileTagEditorFileIds([...batch.completed.map((imp) => imp.fileId)]);
+    stores.tag.setIsFileTagEditorOpen(true);
   };
 
   const toggleOpen = () => setExpanded(!expanded);

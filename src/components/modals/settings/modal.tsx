@@ -287,8 +287,7 @@ export const SettingsModal = observer(() => {
       stores.faceRecog.autoDetectQueue.clear();
       stores.file.infoRefreshQueue.clear();
       stores.import.queue.clear();
-      stores.tagManager.countsRefreshQueue.clear();
-      stores.tagManager.relationsRefreshQueue.clear();
+      stores.tagManager.tagRefreshQueue.clear();
 
       if (hasDbDiff || hasServerDiff || hasSocketDiff)
         await trpc.reloadServers.mutate({

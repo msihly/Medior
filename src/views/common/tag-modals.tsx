@@ -1,6 +1,6 @@
 import { useStores } from "store";
 import { observer } from "mobx-react-lite";
-import { TagEditor, TagManager, TagMerger, Tagger } from "components";
+import { FileTagEditor, TagEditor, TagManager, TagMerger } from "components";
 
 interface TagModalsProps {
   view: "carousel" | "home" | "search";
@@ -9,14 +9,13 @@ interface TagModalsProps {
 export const TagModals = observer(({ view }: TagModalsProps) => {
   const stores = useStores();
 
-  const setTaggerVisible = (val: boolean) => stores.tag.setIsTaggerOpen(val);
-
   return (
     <>
-      {stores.tag.isTaggerOpen && (
-        <Tagger
-          fileIds={view === "carousel" ? [stores.carousel.activeFileId] : stores.tag.taggerFileIds}
-          setVisible={setTaggerVisible}
+      {stores.tag.isFileTagEditorOpen && (
+        <FileTagEditor
+          fileIds={
+            view === "carousel" ? [stores.carousel.activeFileId] : stores.tag.fileTagEditorFileIds
+          }
         />
       )}
 

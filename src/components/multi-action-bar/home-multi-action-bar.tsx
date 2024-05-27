@@ -30,9 +30,9 @@ export const HomeMultiActionBar = observer(() => {
   };
 
   const handleEditTags = () => {
-    stores.tag.setTaggerBatchId(null);
-    stores.tag.setTaggerFileIds([...stores.file.selectedIds]);
-    stores.tag.setIsTaggerOpen(true);
+    stores.tag.setFileTagEditorBatchId(null);
+    stores.tag.setFileTagEditorFileIds([...stores.file.selectedIds]);
+    stores.tag.setIsFileTagEditorOpen(true);
   };
 
   const handleFileInfoRefresh = () => stores.file.refreshSelectedFiles();

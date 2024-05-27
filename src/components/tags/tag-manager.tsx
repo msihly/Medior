@@ -140,15 +140,14 @@ export const TagManager = observer(() => {
             width="100%"
           />
 
-          <View column>
-            <Text preset="label-glow">{"Tags"}</Text>
-            <TagInput
-              value={stores.tagManager.searchValue}
-              onChange={handleSearchChange}
-              hasSearchMenu
-              width="100%"
-            />
-          </View>
+          <TagInput
+            label="Tags"
+            value={stores.tagManager.searchValue}
+            onChange={handleSearchChange}
+            detachLabel
+            hasSearchMenu
+            width="100%"
+          />
 
           <View column>
             <Text preset="label-glow">{"Tag File Count"}</Text>

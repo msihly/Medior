@@ -160,9 +160,9 @@ export const FileCollectionEditor = observer(() => {
   const handleDragStart = (event: DragStartEvent) => setDraggedFileId(event.active.id as string);
 
   const handleEditTags = () => {
-    stores.tag.setTaggerBatchId(null);
-    stores.tag.setTaggerFileIds([...stores.collection.editorSelectedIds]);
-    stores.tag.setIsTaggerOpen(true);
+    stores.tag.setFileTagEditorBatchId(null);
+    stores.tag.setFileTagEditorFileIds([...stores.collection.editorSelectedIds]);
+    stores.tag.setIsFileTagEditorOpen(true);
   };
 
   const handleFileInfoRefresh = () => stores.file.refreshSelectedFiles();
@@ -250,13 +250,13 @@ export const FileCollectionEditor = observer(() => {
       <Modal.Content>
         <View className={css.body}>
           {isAddingFiles && (
-            <View column className={css.leftColumn}>
-              <Text preset="label-glow">{"File Search"}</Text>
+            <View column spacing="0.5rem" className={css.leftColumn}>
               <TagInput
+                label="File Search"
                 value={[...stores.collection.editorSearchValue]}
                 onChange={(val) => stores.collection.setEditorSearchValue(val)}
+                detachLabel
                 hasSearchMenu
-                margins={{ bottom: "0.5rem" }}
               />
 
               <SortMenu

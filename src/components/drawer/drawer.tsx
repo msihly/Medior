@@ -159,15 +159,14 @@ export const Drawer = observer(({ hasImports = false, hasSettings = false }: Dra
           width="100%"
         />
 
-        <View column>
-          <Text preset="label-glow">{"Tags"}</Text>
-          <TagInput
-            value={searchValue}
-            onChange={setSearchValue}
-            width={CONSTANTS.DRAWER_WIDTH - 20}
-            hasSearchMenu
-          />
-        </View>
+        <TagInput
+          label="Tags"
+          value={searchValue}
+          onChange={setSearchValue}
+          width={CONSTANTS.DRAWER_WIDTH - 20}
+          detachLabel
+          hasSearchMenu
+        />
 
         <View column>
           <Text preset="label-glow">{"# of Tags"}</Text>

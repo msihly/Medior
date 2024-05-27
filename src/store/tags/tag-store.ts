@@ -21,12 +21,12 @@ import { toast } from "react-toastify";
 export class TagStore extends Model({
   activeTagId: prop<string>(null).withSetter(),
   isTagEditorOpen: prop<boolean>(false).withSetter(),
-  isTaggerOpen: prop<boolean>(false).withSetter(),
+  isFileTagEditorOpen: prop<boolean>(false).withSetter(),
   isTagMergerOpen: prop<boolean>(false).withSetter(),
   isTagSubEditorOpen: prop<boolean>(false).withSetter(),
   subEditorTagId: prop<string>(null).withSetter(),
-  taggerBatchId: prop<string | null>(null).withSetter(),
-  taggerFileIds: prop<string[]>(() => []).withSetter(),
+  fileTagEditorBatchId: prop<string | null>(null).withSetter(),
+  fileTagEditorFileIds: prop<string[]>(() => []).withSetter(),
   tags: prop<Tag[]>(() => []),
 }) {
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */

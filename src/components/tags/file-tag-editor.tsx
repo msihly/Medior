@@ -2,18 +2,15 @@ import { useState } from "react";
 import { observer } from "mobx-react-lite";
 import { TagOption, tagToOption, useStores } from "store";
 import { Button, ConfirmModal, Modal, TagInput, Text, View } from "components";
-import { colors, makeClasses, useDeepEffect } from "utils";
+import { colors, useDeepEffect } from "utils";
 import { toast } from "react-toastify";
 
-interface TaggerProps {
+interface FileTagEditorProps {
   batchId?: string;
   fileIds: string[];
-  setVisible: (visible: boolean) => any;
 }
 
-export const Tagger = observer(({ batchId, fileIds, setVisible }: TaggerProps) => {
-  const { css } = useClasses(null);
-
+export const FileTagEditor = observer(({ batchId, fileIds }: FileTagEditorProps) => {
   const stores = useStores();
 
   const [addedTags, setAddedTags] = useState<TagOption[]>([]);
@@ -40,13 +37,13 @@ export const Tagger = observer(({ batchId, fileIds, setVisible }: TaggerProps) =
 
   const handleClose = () => {
     if (hasUnsavedChanges) return setIsConfirmDiscardOpen(true);
-    setVisible(false);
+    stores.tag.setIsFileTagEditorOpen(false);
     stores.home.reloadIfQueued();
   };
 
   const handleCloseForced = () => {
     setHasUnsavedChanges(false);
-    setVisible(false);
+    stores.tag.setIsFileTagEditorOpen(false);
     stores.home.reloadIfQueued();
   };
 
@@ -86,33 +83,33 @@ export const Tagger = observer(({ batchId, fileIds, setVisible }: TaggerProps) =
       </Modal.Header>
 
       <Modal.Content>
-        <View column>
-          <Text preset="label-glow">{"Current Tags"}</Text>
+        <View column spacing="0.5rem">
           <TagInput
+            label="Current Tags"
             value={currentTagOptions}
+            detachLabel
             disabled
             disableWithoutFade
             opaque
-            className={css.tagInput}
           />
 
-          <Text preset="label-glow">{"Added Tags"}</Text>
           <TagInput
+            label="Added Tags"
             value={addedTags}
             onChange={handleTagAdded}
+            detachLabel
             autoFocus
             hasCreate
             hasDelete
-            className={css.tagInput}
           />
 
-          <Text preset="label-glow">{"Removed Tags"}</Text>
           <TagInput
+            label="Removed Tags"
             value={removedTags}
             onChange={handleTagRemoved}
             options={currentTagOptions}
+            detachLabel
             hasDelete
-            className={css.tagInput}
           />
         </View>
       </Modal.Content>
@@ -134,10 +131,4 @@ export const Tagger = observer(({ batchId, fileIds, setVisible }: TaggerProps) =
       )}
     </Modal.Container>
   );
-});
-
-const useClasses = makeClasses({
-  tagInput: {
-    marginBottom: "0.5rem",
-  },
 });

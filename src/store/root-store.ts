@@ -22,13 +22,13 @@ export class RootStore extends Model({
   /* ----------------------------- DYNAMIC GETTERS ---------------------------- */
   _getIsBlockingModalOpen() {
     return (
-      this.faceRecog?.isModalOpen ||
       this.collection?.isEditorOpen ||
       this.collection?.isManagerOpen ||
+      this.faceRecog?.isModalOpen ||
       this.import?.isImportEditorOpen ||
       this.import?.isImportManagerOpen ||
+      this.tag?.isFileTagEditorOpen ||
       this.tag?.isTagEditorOpen ||
-      this.tag?.isTaggerOpen ||
       this.tag?.isTagMergerOpen ||
       this.tagManager?.isOpen
     );
