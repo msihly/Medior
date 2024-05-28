@@ -76,6 +76,8 @@ export const TagManager = observer(() => {
   const handleDateModifiedStartChange = (val: string) =>
     stores.tagManager.setDateModifiedStart(val);
 
+  const handleEditRelations = () => stores.tagManager.setIsMultiTagEditorOpen(true);
+
   const handlePageChange = (page: number) => stores.tagManager.loadFilteredTags({ page });
 
   const handleRefreshTags = () => stores.tagManager.refreshSelectedTags();
@@ -229,6 +231,13 @@ export const TagManager = observer(() => {
                 name="Refresh"
                 tooltip="Refresh Selected Tags"
                 onClick={handleRefreshTags}
+                disabled={hasNoSelection}
+              />
+
+              <MultiActionButton
+                name="Label"
+                tooltip="Edit Tag Relations"
+                onClick={handleEditRelations}
                 disabled={hasNoSelection}
               />
 

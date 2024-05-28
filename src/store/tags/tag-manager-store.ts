@@ -43,6 +43,7 @@ export class TagManagerStore extends Model({
   dateModifiedEnd: prop<string>("").withSetter(),
   dateModifiedStart: prop<string>("").withSetter(),
   isLoading: prop<boolean>(false).withSetter(),
+  isMultiTagEditorOpen: prop<boolean>(false).withSetter(),
   isOpen: prop<boolean>(false).withSetter(),
   page: prop<number>(1).withSetter(),
   pageCount: prop<number>(0).withSetter(),
@@ -104,6 +105,36 @@ export class TagManagerStore extends Model({
   }
 
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */
+  @modelFlow
+  editMultiTagRelations = _async(function* (
+    this: TagManagerStore,
+    {
+      childIdsToAdd,
+      childIdsToRemove,
+      parentIdsToAdd,
+      parentIdsToRemove,
+    }: {
+      childIdsToAdd: string[];
+      childIdsToRemove: string[];
+      parentIdsToAdd: string[];
+      parentIdsToRemove: string[];
+    }
+  ) {
+    return yield* _await(
+      handleErrors(async () => {
+        const res = await trpc.editMultiTagRelations.mutate({
+          childIdsToAdd,
+          childIdsToRemove,
+          parentIdsToAdd,
+          parentIdsToRemove,
+          tagIds: this.selectedIds,
+        });
+        if (!res.success) throw new Error(res.error);
+        return res.data;
+      })
+    );
+  });
+
   @modelFlow
   getShiftSelectedTags = _async(function* (
     this: TagManagerStore,

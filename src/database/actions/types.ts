@@ -5,7 +5,9 @@ import { ModelCreationData } from "mobx-keystone";
 import { ImportStatus } from "components";
 import { LogicalOp } from "utils";
 
-/* --------------------------- DATABASE / SERVERS --------------------------- */
+/* -------------------------------------------------------------------------- */
+/*                             DATABASE / SERVERS                             */
+/* -------------------------------------------------------------------------- */
 export type StartServersInput = {
   emitReloadEvents?: boolean;
   withDatabase?: boolean;
@@ -13,7 +15,9 @@ export type StartServersInput = {
   withSocket?: boolean;
 };
 
-/* -------------------------------- COLLECTIONS ------------------------------- */
+/* -------------------------------------------------------------------------- */
+/*                                 COLLECTIONS                                */
+/* -------------------------------------------------------------------------- */
 export type CreateCollectionFilterPipelineInput = {
   excludedDescTagIds: string[];
   excludedTagIds: string[];
@@ -42,7 +46,9 @@ export type ListFilteredCollectionsInput = CreateCollectionFilterPipelineInput &
 
 export type UpdateCollectionInput = Omit<Partial<db.FileCollection>, "tagIds"> & { id: string };
 
-/* ------------------------------ FILE IMPORTS ------------------------------ */
+/* -------------------------------------------------------------------------- */
+/*                                FILE IMPORTS                                */
+/* -------------------------------------------------------------------------- */
 export type AddTagsToBatchInput = { batchId: string; tagIds: string[] };
 
 export type CompleteImportBatchInput = {
@@ -77,7 +83,9 @@ export type UpdateFileImportByPathInput = {
   thumbPaths?: string[];
 };
 
-/* ---------------------------------- FILES --------------------------------- */
+/* -------------------------------------------------------------------------- */
+/*                                    FILES                                   */
+/* -------------------------------------------------------------------------- */
 export type AddTagsToFilesInput = { fileIds: string[]; tagIds: string[] };
 
 export type ArchiveFilesInput = { fileIds: string[] };
@@ -187,7 +195,9 @@ export type SetFileRatingInput = { fileIds: string[]; rating: number };
 
 export type UpdateFileInput = Partial<db.File> & { id: string };
 
-/* ---------------------------------- TAGS ---------------------------------- */
+/* -------------------------------------------------------------------------- */
+/*                                    TAGS                                    */
+/* -------------------------------------------------------------------------- */
 export type CreateTagFilterPipelineInput = {
   countOp: LogicalOp | "";
   countValue?: number;
@@ -220,6 +230,14 @@ export type DetectFacesInput = { imagePath: string };
 
 export type EditTagInput = Partial<CreateTagInput> & { id: string };
 
+export type EditMultiTagRelationsInput = {
+  childIdsToAdd?: string[];
+  childIdsToRemove?: string[];
+  parentIdsToAdd?: string[];
+  parentIdsToRemove?: string[];
+  tagIds: string[];
+};
+
 export type GetShiftSelectedTagsInput = CreateTagFilterPipelineInput & {
   clickedId: string;
   clickedIndex: number;
@@ -243,7 +261,7 @@ export type RefreshTagRelationsInput = {
   withSub?: boolean;
 };
 
-export type RefreshTagInput = { tagId: string; };
+export type RefreshTagInput = { tagId: string };
 
 export type RegenCollAttrsInput = { collIds?: string[]; fileIds?: string[] };
 

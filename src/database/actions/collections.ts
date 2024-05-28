@@ -65,7 +65,7 @@ const makeCollAttrs = async (files: db.File[]) => {
         ? ratedFiles.reduce((acc, f) => acc + f.rating, 0) / ratedFiles.length
         : 0,
     tagIds,
-    tagIdsWithAncestors: await db.deriveTagIdsWithAncestors(tagIds),
+    tagIdsWithAncestors: await db.deriveAncestorTagIds(tagIds),
     thumbPaths: files.slice(0, 10).map((f) => f.thumbPaths[0]),
   };
 };

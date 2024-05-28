@@ -17,7 +17,7 @@ export class Tag extends Model({
   count: prop<number>(),
   dateCreated: prop<string>(),
   dateModified: prop<string>(),
-  // descendantIds: prop<string[]>(() => []),
+  descendantIds: prop<string[]>(() => []),
   id: prop<string>(),
   label: prop<string>(),
   parentIds: prop<string[]>(() => []),

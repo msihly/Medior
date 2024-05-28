@@ -1,6 +1,6 @@
 import { useStores } from "store";
 import { observer } from "mobx-react-lite";
-import { FileTagEditor, TagEditor, TagManager, TagMerger } from "components";
+import { FileTagEditor, MultiTagEditor, TagEditor, TagManager, TagMerger } from "components";
 
 interface TagModalsProps {
   view: "carousel" | "home" | "search";
@@ -18,6 +18,8 @@ export const TagModals = observer(({ view }: TagModalsProps) => {
           }
         />
       )}
+
+      {stores.tagManager.isMultiTagEditorOpen && <MultiTagEditor />}
 
       {stores.tag.isTagEditorOpen && <TagEditor id={stores.tag.activeTagId} hasSubEditor />}
 

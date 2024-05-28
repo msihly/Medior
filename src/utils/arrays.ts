@@ -89,6 +89,7 @@ export const sortArray = <T>(arr: T[], key: string, isDesc = true, isNumber = fa
   return [...arr].sort(sortFn);
 };
 
+/** @return [falsy values, truthy values] */
 export const splitArray = <T>(arr: T[], filterFn: (element: T) => boolean): T[][] =>
   arr.reduce((acc, cur) => (acc[+!filterFn(cur)].push(cur), acc), [[], []]);
 

@@ -484,7 +484,7 @@ export const importFile = ({
       rating: 0,
       size,
       tagIds,
-      tagIdsWithAncestors: await db.deriveTagIdsWithAncestors(tagIds),
+      tagIdsWithAncestors: await db.deriveAncestorTagIds(tagIds),
       thumbPaths,
       width,
     };

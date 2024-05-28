@@ -129,6 +129,9 @@ const trpcRouter = tRouter({
   editFileTags: tProc
     .input((input: unknown) => input as db.EditFileTagsInput)
     .mutation(({ input }) => db.editFileTags(input)),
+  editMultiTagRelations: tProc
+    .input((input: unknown) => input as db.EditMultiTagRelationsInput)
+    .mutation(({ input }) => db.editMultiTagRelations(input)),
   editTag: tProc
     .input((input: unknown) => input as db.EditTagInput)
     .mutation(({ input }) => db.editTag(input)),

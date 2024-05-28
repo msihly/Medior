@@ -12,7 +12,7 @@ import {
   TooltipWrapper,
   View,
 } from "components";
-import { colors, makeClasses, useDeepMemo } from "utils";
+import { colors, makeClasses } from "utils";
 
 interface RelationsProps extends Omit<TagInputProps, "label" | "onChange" | "ref"> {
   ancestryTagIds?: string[];
@@ -39,31 +39,13 @@ export const Relations = observer(
 
     const ancestryLabel = ancestryType === "ancestors" ? "Ancestors" : "Descendants";
 
-    const valueMemo = useDeepMemo(value);
-
-    const [oldAncestryTags, newAncestryTags] = useMemo(() => {
+    const ancestryTags = useMemo(() => {
       if (!ancestryType || !ancestryTagIds) return [];
 
-      const oldTags = ancestryTagIds
+      return ancestryTagIds
         .map((tagId) => stores.tag.getById(tagId))
         .sort((a, b) => b.count - a.count);
-
-      const newTags = [
-        ...new Set(
-          value.flatMap((tagOpt) => {
-            const tag = stores.tag.getById(tagOpt.id);
-            return [
-              tag,
-              ...(ancestryType === "ancestors"
-                ? stores.tag.getParentTags(tag, true)
-                : stores.tag.getChildTags(tag, true)),
-            ];
-          })
-        ),
-      ].sort((a, b) => b.count - a.count);
-
-      return [oldTags, newTags];
-    }, [ancestryTagIds, ancestryType, valueMemo]);
+    }, [ancestryTagIds, ancestryType]);
 
     return (
       <InputWrapper
@@ -74,23 +56,12 @@ export const Relations = observer(
           ancestryTagIds && (
             <TooltipWrapper
               tooltip={
-                <View column spacing="0.5rem">
-                  <View column align="center">
-                    <Text>{`Current Tag ${ancestryLabel}`}</Text>
-                    <View className={css.tagRow}>
-                      {oldAncestryTags.map((tag) => (
-                        <Tag key={tag.id} tag={tag} hasEditor className={css.tag} />
-                      ))}
-                    </View>
-                  </View>
-
-                  <View column align="center">
-                    <Text>{`New Tag ${ancestryLabel}`}</Text>
-                    <View className={css.tagRow}>
-                      {newAncestryTags.map((tag) => (
-                        <Tag key={tag.id} tag={tag} hasEditor className={css.tag} />
-                      ))}
-                    </View>
+                <View column align="center">
+                  <Text>{`Current Tag ${ancestryLabel}`}</Text>
+                  <View className={css.tagRow}>
+                    {ancestryTags.map((tag) => (
+                      <Tag key={tag.id} tag={tag} hasEditor className={css.tag} />
+                    ))}
                   </View>
                 </View>
               }
@@ -127,6 +98,7 @@ const useClasses = makeClasses({
     display: "flex",
     flexFlow: "row wrap",
     justifyContent: "center",
+    maxHeight: "10rem",
     overflow: "auto",
   },
 });
