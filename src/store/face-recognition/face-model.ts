@@ -1,5 +1,5 @@
 import { computed } from "mobx";
-import { _async, _await, Model, model, prop } from "mobx-keystone";
+import { Model, model, prop } from "mobx-keystone";
 import { TagOption } from "store";
 import { colors, objectToFloat32Array } from "utils";
 

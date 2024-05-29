@@ -1,7 +1,7 @@
+import { TagToUpsert } from "components";
+import * as db from "database";
 import { computed } from "mobx";
 import {
-  _async,
-  _await,
   getRootStore,
   model,
   Model,
@@ -10,12 +10,10 @@ import {
   modelFlow,
   prop,
 } from "mobx-keystone";
-import * as db from "database";
-import { RootStore } from "store";
-import { TagToUpsert } from "components";
-import { Tag, TagOption } from ".";
-import { handleErrors, PromiseQueue, regexEscape, trpc } from "utils";
 import { toast } from "react-toastify";
+import { asyncAction, RootStore } from "store";
+import { PromiseQueue, regexEscape, trpc } from "utils";
+import { Tag, TagOption } from ".";
 
 @model("medior/TagStore")
 export class TagStore extends Model({
@@ -31,12 +29,12 @@ export class TagStore extends Model({
 }) {
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
   @modelAction
-  _addTag = (tag: ModelCreationData<Tag>) => {
+  _addTag(tag: ModelCreationData<Tag>) {
     if (!this.getById(tag.id)) this.tags.push(new Tag(tag));
-  };
+  }
 
   @modelAction
-  _deleteTag = (id: string) => {
+  _deleteTag(id: string) {
     this.tags = this.tags.reduce((acc, cur) => {
       if (cur.id !== id) {
         if (cur.parentIds.includes(id)) cur.parentIds.splice(cur.parentIds.indexOf(id));
@@ -45,18 +43,17 @@ export class TagStore extends Model({
       }
       return acc;
     }, [] as Tag[]);
-  };
+  }
 
   @modelAction
-  overwrite = (tags: ModelCreationData<Tag>[]) => {
+  overwrite(tags: ModelCreationData<Tag>[]) {
     this.tags = tags.map((t) => new Tag(t));
-  };
+  }
 
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */
   @modelFlow
-  createTag = _async(function* (
-    this: TagStore,
-    {
+  createTag = asyncAction(
+    async ({
       aliases = [],
       childIds = [],
       label,
@@ -64,169 +61,152 @@ export class TagStore extends Model({
       regExMap,
       withRegEx = false,
       withSub = true,
-    }: db.CreateTagInput & { withRegEx?: boolean }
-  ) {
-    return yield* _await(
-      handleErrors(async () => {
-        const regEx =
-          regExMap || withRegEx
-            ? {
-                regEx: regExMap?.regEx || this.tagsToRegEx([{ aliases, label }]),
-                testString: regExMap?.testString || "",
-                types: regExMap?.types || ["diffusionParams", "fileName", "folderName"],
-              }
-            : null;
-
-        const res = await trpc.createTag.mutate({
-          aliases,
-          childIds,
-          label,
-          parentIds,
-          regExMap: regEx,
-          withSub,
-        });
-        if (!res.success) throw new Error(res.error);
-        const id = res.data.id;
-
-        const tag: ModelCreationData<Tag> = {
-          aliases,
-          childIds,
-          count: 0,
-          dateCreated: res.data.dateCreated,
-          dateModified: res.data.dateModified,
-          id,
-          label,
-          parentIds,
-          regExMap: regEx,
-        };
-
-        if (withSub) this._addTag(tag);
-        toast.success(`Tag '${label}' created`);
-
-        return tag;
-      })
-    );
-  });
-
-  @modelFlow
-  deleteTag = _async(function* (this: TagStore, { id }: { id: string }) {
-    return yield* _await(
-      handleErrors(async () => {
-        await trpc.deleteTag.mutate({ id });
-      })
-    );
-  });
-
-  @modelFlow
-  editTag = _async(function* (
-    this: TagStore,
-    { aliases, childIds, id, label, parentIds, regExMap, withSub = true }: db.EditTagInput
-  ) {
-    return yield* _await(
-      handleErrors(async () => {
-        const origLabel = this.getById(id).label;
-
-        const editRes = await trpc.editTag.mutate({
-          aliases,
-          childIds,
-          id,
-          label,
-          parentIds,
-          regExMap,
-          withSub,
-        });
-        if (!editRes.success) throw new Error(editRes.error);
-
-        toast.success(`Tag '${origLabel}' edited`);
-      })
-    );
-  });
-
-  @modelFlow
-  loadTags = _async(function* (this: TagStore) {
-    return yield* _await(
-      handleErrors(async () => {
-        const res = await trpc.listTags.mutate();
-        if (!res.success) throw new Error(res.error);
-        this.overwrite(res.data);
-      })
-    );
-  });
-
-  @modelFlow
-  mergeTags = _async(function* (this: TagStore, args: db.MergeTagsInput) {
-    return yield* _await(
-      handleErrors(async () => {
-        /** Clear import queue first to prevent data corruption from race condition.
-         *  Queue is reloaded via socket upon mergeTags resolution.
-         */
-        const stores = getRootStore<RootStore>(this);
-        stores.import.queue.clear();
-
-        const res = await trpc.mergeTags.mutate(args);
-        if (!res.success) throw new Error(res.error);
-      })
-    );
-  });
-
-  @modelFlow
-  upsertTags = _async(function* (this: TagStore, tagsToUpsert: TagToUpsert[]) {
-    return yield* _await(
-      handleErrors(async () => {
-        const tagQueue = new PromiseQueue();
-        const errors: string[] = [];
-        const tagIds: string[] = [];
-        const tagsToInsert: ModelCreationData<Tag>[] = [];
-
-        tagsToUpsert.forEach((t) =>
-          tagQueue.add(async () => {
-            try {
-              const parentTags = t.parentLabels
-                ? t.parentLabels
-                    .map((l) => this.getByLabel(l) || tagsToInsert.find((tag) => tag.label === l))
-                    .filter(Boolean)
-                : null;
-              const parentIds = parentTags?.map((t) => t.id) ?? [];
-
-              if (t.id) {
-                const tag = this.getById(t.id);
-                if (!parentIds.length || tag.parentIds.some((id) => parentIds.includes(id))) return;
-
-                const res = await this.editTag({
-                  id: t.id,
-                  parentIds: parentIds.length ? [...tag.parentIds, ...parentIds] : [],
-                  withSub: false,
-                });
-                if (!res.success) throw new Error(res.error);
-
-                tagIds.push(t.id);
-              } else {
-                const res = await this.createTag({
-                  aliases: t.aliases?.length ? [...t.aliases] : [],
-                  label: t.label,
-                  parentIds,
-                  withRegEx: t.withRegEx,
-                  withSub: false,
-                });
-                if (!res.success) throw new Error(res.error);
-
-                tagIds.push(res.data.id);
-                tagsToInsert.push(res.data);
-              }
-            } catch (err) {
-              errors.push(`Tag: ${JSON.stringify(t, null, 2)}\nError: ${err.message}`);
+    }: db.CreateTagInput & { withRegEx?: boolean }) => {
+      const regEx =
+        regExMap || withRegEx
+          ? {
+              regEx: regExMap?.regEx || this.tagsToRegEx([{ aliases, label }]),
+              testString: regExMap?.testString || "",
+              types: regExMap?.types || ["diffusionParams", "fileName", "folderName"],
             }
-          })
-        );
+          : null;
 
-        await tagQueue.queue;
-        if (errors.length) throw new Error(errors.join("\n"));
+      const res = await trpc.createTag.mutate({
+        aliases,
+        childIds,
+        label,
+        parentIds,
+        regExMap: regEx,
+        withSub,
+      });
+      if (!res.success) throw new Error(res.error);
+      const id = res.data.id;
 
-        if (tagsToInsert.length) tagsToInsert.forEach((t) => this._addTag(t));
+      const tag: ModelCreationData<Tag> = {
+        aliases,
+        childIds,
+        count: 0,
+        dateCreated: res.data.dateCreated,
+        dateModified: res.data.dateModified,
+        id,
+        label,
+        parentIds,
+        regExMap: regEx,
+      };
 
-        return tagIds;
+      if (withSub) this._addTag(tag);
+      toast.success(`Tag '${label}' created`);
+
+      return tag;
+    }
+  );
+
+  @modelFlow
+  deleteTag = asyncAction(async ({ id }: { id: string }) => {
+    await trpc.deleteTag.mutate({ id });
+  });
+
+  @modelFlow
+  editTag = asyncAction(
+    async ({
+      aliases,
+      childIds,
+      id,
+      label,
+      parentIds,
+      regExMap,
+      withSub = true,
+    }: db.EditTagInput) => {
+      const origLabel = this.getById(id).label;
+
+      const editRes = await trpc.editTag.mutate({
+        aliases,
+        childIds,
+        id,
+        label,
+        parentIds,
+        regExMap,
+        withSub,
+      });
+      if (!editRes.success) throw new Error(editRes.error);
+
+      toast.success(`Tag '${origLabel}' edited`);
+    }
+  );
+
+  @modelFlow
+  loadTags = asyncAction(async () => {
+    const res = await trpc.listTags.mutate();
+    if (!res.success) throw new Error(res.error);
+    this.overwrite(res.data);
+  });
+
+  @modelFlow
+  mergeTags = asyncAction(async (args: db.MergeTagsInput) => {
+    /** Clear import queue first to prevent data corruption from race condition.
+     *  Queue is reloaded via socket upon mergeTags resolution.
+     */
+    const stores = getRootStore<RootStore>(this);
+    stores.import.queue.clear();
+
+    const res = await trpc.mergeTags.mutate(args);
+    if (!res.success) throw new Error(res.error);
+  });
+
+  @modelFlow
+  upsertTags = asyncAction(async (tagsToUpsert: TagToUpsert[]) => {
+    const tagQueue = new PromiseQueue();
+    const errors: string[] = [];
+    const tagIds: string[] = [];
+    const tagsToInsert: ModelCreationData<Tag>[] = [];
+
+    tagsToUpsert.forEach((t) =>
+      tagQueue.add(async () => {
+        try {
+          const parentTags = t.parentLabels
+            ? t.parentLabels
+                .map((l) => this.getByLabel(l) || tagsToInsert.find((tag) => tag.label === l))
+                .filter(Boolean)
+            : null;
+          const parentIds = parentTags?.map((t) => t.id) ?? [];
+
+          if (t.id) {
+            const tag = this.getById(t.id);
+            if (!parentIds.length || tag.parentIds.some((id) => parentIds.includes(id))) return;
+
+            const res = await this.editTag({
+              id: t.id,
+              parentIds: parentIds.length ? [...tag.parentIds, ...parentIds] : [],
+              withSub: false,
+            });
+            if (!res.success) throw new Error(res.error);
+
+            tagIds.push(t.id);
+          } else {
+            const res = await this.createTag({
+              aliases: t.aliases?.length ? [...t.aliases] : [],
+              label: t.label,
+              parentIds,
+              withRegEx: t.withRegEx,
+              withSub: false,
+            });
+            if (!res.success) throw new Error(res.error);
+
+            tagIds.push(res.data.id);
+            tagsToInsert.push(res.data);
+          }
+        } catch (err) {
+          errors.push(`Tag: ${JSON.stringify(t, null, 2)}\nError: ${err.message}`);
+        }
       })
     );
+
+    await tagQueue.queue;
+    if (errors.length) throw new Error(errors.join("\n"));
+
+    if (tagsToInsert.length) tagsToInsert.forEach((t) => this._addTag(t));
+
+    return tagIds;
   });
 
   /* ----------------------------- DYNAMIC GETTERS ---------------------------- */

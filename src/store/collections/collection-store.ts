@@ -1,7 +1,5 @@
 import { computed } from "mobx";
 import {
-  _async,
-  _await,
   clone,
   getRootStore,
   model,
@@ -11,19 +9,18 @@ import {
   modelFlow,
   prop,
 } from "mobx-keystone";
-import { File, RootStore, SelectedImageTypes, SelectedVideoTypes, TagOption } from "store";
+import {
+  asyncAction,
+  File,
+  RootStore,
+  SelectedImageTypes,
+  SelectedVideoTypes,
+  TagOption,
+} from "store";
 import * as db from "database";
 import { SortMenuProps } from "components";
 import { FileCollection, FileCollectionFile } from ".";
-import {
-  getConfig,
-  handleErrors,
-  LogicalOp,
-  makePerfLog,
-  makeQueue,
-  PromiseQueue,
-  trpc,
-} from "utils";
+import { getConfig, LogicalOp, makePerfLog, makeQueue, PromiseQueue, trpc } from "utils";
 import { toast } from "react-toastify";
 import { arrayMove } from "@alissavrk/dnd-kit-sortable";
 
@@ -190,203 +187,157 @@ export class FileCollectionStore extends Model({
 
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */
   @modelFlow
-  createCollection = _async(function* (
-    this: FileCollectionStore,
-    { fileIdIndexes, title, withSub = true }: db.CreateCollectionInput
-  ) {
-    return yield* _await(
-      handleErrors(async () => {
-        const res = await trpc.createCollection.mutate({ fileIdIndexes, title, withSub });
-        if (!res.success) throw new Error(res.error);
+  createCollection = asyncAction(
+    async ({ fileIdIndexes, title, withSub = true }: db.CreateCollectionInput) => {
+      const res = await trpc.createCollection.mutate({ fileIdIndexes, title, withSub });
+      if (!res.success) throw new Error(res.error);
 
-        this._addCollection(res.data);
-        toast.success(`Collection "${title}" created!`);
+      this._addCollection(res.data);
+      toast.success(`Collection "${title}" created!`);
 
-        return res.data;
-      })
-    );
+      return res.data;
+    }
+  );
+
+  @modelFlow
+  deleteCollection = asyncAction(async (id: string) => {
+    const res = await trpc.deleteCollection.mutate({ id });
+    if (!res.success) throw new Error(res.error);
+    this._deleteCollection(id);
   });
 
   @modelFlow
-  deleteCollection = _async(function* (this: FileCollectionStore, id: string) {
-    return yield* _await(
-      handleErrors(async () => {
-        const res = await trpc.deleteCollection.mutate({ id });
-        if (!res.success) throw new Error(res.error);
-        this._deleteCollection(id);
-      })
-    );
+  loadActiveCollection = asyncAction(async () => {
+    const fileIdIndexes = this.activeCollection.fileIdIndexes.map(({ fileId, index }) => ({
+      fileId,
+      index,
+    }));
+
+    const fileIds = fileIdIndexes.map(({ fileId }) => fileId);
+    const res = await trpc.listFiles.mutate({ ids: fileIds });
+
+    if (!res.success) toast.error(res.error);
+    else
+      this.setEditorFiles(
+        res.data
+          .map(
+            (f) =>
+              new FileCollectionFile({
+                file: new File(f),
+                id: f.id,
+                index: this.activeCollection.getIndexById(f.id),
+              })
+          )
+          .sort((a, b) => a.index - b.index)
+      );
   });
 
   @modelFlow
-  loadActiveCollection = _async(function* (this: FileCollectionStore) {
-    return yield* _await(
-      handleErrors(async () => {
-        const fileIdIndexes = this.activeCollection.fileIdIndexes.map(({ fileId, index }) => ({
-          fileId,
-          index,
-        }));
+  listFilteredCollections = asyncAction(async ({ page }: { page?: number } = {}) => {
+    const debug = false;
+    const { perfLog, perfLogTotal } = makePerfLog("[LFC]");
 
-        const fileIds = fileIdIndexes.map(({ fileId }) => fileId);
-        const res = await trpc.listFiles.mutate({ ids: fileIds });
+    const stores = getRootStore<RootStore>(this);
+    if (!stores) throw new Error("RootStore not found");
+    this.setIsManagerLoading(true);
 
-        if (!res.success) toast.error(res.error);
-        else
-          this.setEditorFiles(
-            res.data
-              .map(
-                (f) =>
-                  new FileCollectionFile({
-                    file: new File(f),
-                    id: f.id,
-                    index: this.activeCollection.getIndexById(f.id),
-                  })
-              )
-              .sort((a, b) => a.index - b.index)
-          );
-      })
-    );
+    const collectionsRes = await trpc.listFilteredCollections.mutate({
+      ...stores.tag.tagSearchOptsToIds(this.managerTagSearchValue),
+      isSortDesc: this.managerSearchSort.isDesc,
+      page: page ?? this.managerSearchPage,
+      pageSize: getConfig().collection.editorPageSize,
+      sortKey: this.managerSearchSort.key,
+      title: this.managerTitleSearchValue,
+    });
+    if (!collectionsRes.success) throw new Error(collectionsRes.error);
+
+    const { collections, pageCount } = collectionsRes.data;
+    if (debug) perfLog(`Loaded ${collections.length} filtered collections`);
+
+    this.overwrite(collections);
+    if (debug) perfLog("CollectionStore.collections overwrite and re-render");
+
+    this.setManagerSearchPageCount(pageCount);
+    if (page) this.setManagerSearchPage(page);
+    if (debug)
+      perfLog(`Set page to ${page ?? this.managerSearchPage} and pageCount to ${pageCount}`);
+
+    this.setSelectedCollectionId(null);
+    this.setIsManagerLoading(false);
+    if (debug) perfLogTotal(`Loaded ${collections.length} collections`);
+
+    return collections;
   });
 
   @modelFlow
-  listFilteredCollections = _async(function* (
-    this: FileCollectionStore,
-    { page }: { page?: number } = {}
-  ) {
-    return yield* _await(
-      handleErrors(async () => {
-        const debug = false;
-        const { perfLog, perfLogTotal } = makePerfLog("[LFC]");
+  loadSearchResults = asyncAction(async ({ page }: { page?: number } = {}) => {
+    const config = getConfig();
+    const stores = getRootStore<RootStore>(this);
 
-        const stores = getRootStore<RootStore>(this);
-        if (!stores) throw new Error("RootStore not found");
-        this.setIsManagerLoading(true);
+    const filteredRes = await trpc.listFilteredFiles.mutate({
+      ...stores.tag.tagSearchOptsToIds(this.editorSearchValue),
+      excludedFileIds: this.editorFiles.map((f) => f.id),
+      hasDiffParams: this.editorSearchHasDiffParams,
+      isArchived: false,
+      isSortDesc: this.editorSearchSort.isDesc,
+      numOfTagsOp: this.editorSearchNumOfTagsOp,
+      numOfTagsValue: this.editorSearchNumOfTagsValue,
+      page: page ?? this.editorSearchPage,
+      pageSize: getConfig().collection.searchFileCount,
+      selectedImageTypes: Object.fromEntries(
+        config.file.imageTypes.map((ext) => [ext, true])
+      ) as SelectedImageTypes,
+      selectedVideoTypes: Object.fromEntries(
+        config.file.videoTypes.map((ext) => [ext, true])
+      ) as SelectedVideoTypes,
+      sortKey: this.editorSearchSort.key,
+    });
+    if (!filteredRes.success) throw new Error(filteredRes.error);
 
-        const collectionsRes = await trpc.listFilteredCollections.mutate({
-          ...stores.tag.tagSearchOptsToIds(this.managerTagSearchValue),
-          isSortDesc: this.managerSearchSort.isDesc,
-          page: page ?? this.managerSearchPage,
-          pageSize: getConfig().collection.editorPageSize,
-          sortKey: this.managerSearchSort.key,
-          title: this.managerTitleSearchValue,
-        });
-        if (!collectionsRes.success) throw new Error(collectionsRes.error);
+    const { files, pageCount } = filteredRes.data;
 
-        const { collections, pageCount } = collectionsRes.data;
-        if (debug) perfLog(`Loaded ${collections.length} filtered collections`);
+    this.setEditorSearchResults(files.map((f) => new File(f)));
+    this.setEditorSearchPageCount(pageCount);
+    if (page) this.setEditorSearchPage(page);
 
-        this.overwrite(collections);
-        if (debug) perfLog("CollectionStore.collections overwrite and re-render");
-
-        this.setManagerSearchPageCount(pageCount);
-        if (page) this.setManagerSearchPage(page);
-        if (debug)
-          perfLog(`Set page to ${page ?? this.managerSearchPage} and pageCount to ${pageCount}`);
-
-        this.setSelectedCollectionId(null);
-        this.setIsManagerLoading(false);
-        if (debug) perfLogTotal(`Loaded ${collections.length} collections`);
-
-        return collections;
-      })
-    );
+    return files;
   });
 
   @modelFlow
-  loadSearchResults = _async(function* (
-    this: FileCollectionStore,
-    { page }: { page?: number } = {}
-  ) {
-    return yield* _await(
-      handleErrors(async () => {
-        const config = getConfig();
-        const stores = getRootStore<RootStore>(this);
-
-        const filteredRes = await trpc.listFilteredFiles.mutate({
-          ...stores.tag.tagSearchOptsToIds(this.editorSearchValue),
-          excludedFileIds: this.editorFiles.map((f) => f.id),
-          hasDiffParams: this.editorSearchHasDiffParams,
-          isArchived: false,
-          isSortDesc: this.editorSearchSort.isDesc,
-          numOfTagsOp: this.editorSearchNumOfTagsOp,
-          numOfTagsValue: this.editorSearchNumOfTagsValue,
-          page: page ?? this.editorSearchPage,
-          pageSize: getConfig().collection.searchFileCount,
-          selectedImageTypes: Object.fromEntries(
-            config.file.imageTypes.map((ext) => [ext, true])
-          ) as SelectedImageTypes,
-          selectedVideoTypes: Object.fromEntries(
-            config.file.videoTypes.map((ext) => [ext, true])
-          ) as SelectedVideoTypes,
-          sortKey: this.editorSearchSort.key,
-        });
-        if (!filteredRes.success) throw new Error(filteredRes.error);
-
-        const { files, pageCount } = filteredRes.data;
-
-        this.setEditorSearchResults(files.map((f) => new File(f)));
-        this.setEditorSearchPageCount(pageCount);
-        if (page) this.setEditorSearchPage(page);
-
-        return files;
-      })
-    );
+  loadManagerFiles = asyncAction(async () => {
+    const res = await trpc.listFiles.mutate({ ids: this.managerFileIds });
+    if (!res.success) throw new Error(res.error);
+    this.setManagerFiles(res.data.map((f) => new File(f)));
   });
 
   @modelFlow
-  loadManagerFiles = _async(function* (this: FileCollectionStore) {
-    return yield* _await(
-      handleErrors(async () => {
-        const res = await trpc.listFiles.mutate({ ids: this.managerFileIds });
-        if (!res.success) throw new Error(res.error);
-        this.setManagerFiles(res.data.map((f) => new File(f)));
-      })
-    );
+  regenAllCollMeta = asyncAction(async () => {
+    const collectionIdsRes = await trpc.listAllCollectionIds.mutate();
+    if (!collectionIdsRes.success) throw new Error(collectionIdsRes.error);
+
+    makeQueue({
+      action: (id) => this.regenCollMeta([id]),
+      items: collectionIdsRes.data,
+      logSuffix: "collections",
+      onComplete: this.listFilteredCollections,
+      queue: this.metaRefreshQueue,
+    });
   });
 
   @modelFlow
-  regenAllCollMeta = _async(function* (this: FileCollectionStore) {
-    return yield* _await(
-      handleErrors(async () => {
-        const collectionIdsRes = await trpc.listAllCollectionIds.mutate();
-        if (!collectionIdsRes.success) throw new Error(collectionIdsRes.error);
-
-        makeQueue({
-          action: (id) => this.regenCollMeta([id]),
-          items: collectionIdsRes.data,
-          logSuffix: "collections",
-          onComplete: this.listFilteredCollections,
-          queue: this.metaRefreshQueue,
-        });
-      })
-    );
+  regenCollMeta = asyncAction(async (collIds: string[]) => {
+    const res = await trpc.regenCollAttrs.mutate({ collIds });
+    if (!res.success) throw new Error(res.error);
+    return res.data;
   });
 
   @modelFlow
-  regenCollMeta = _async(function* (this: FileCollectionStore, collIds: string[]) {
-    return yield* _await(
-      handleErrors(async () => {
-        const res = await trpc.regenCollAttrs.mutate({ collIds });
-        if (!res.success) throw new Error(res.error);
-        return res.data;
-      })
-    );
-  });
+  updateCollection = asyncAction(async (updates: db.UpdateCollectionInput) => {
+    const res = await trpc.updateCollection.mutate(updates);
+    if (!res.success) throw new Error(res.error);
+    this.getById(updates.id).update(updates);
 
-  @modelFlow
-  updateCollection = _async(function* (
-    this: FileCollectionStore,
-    updates: db.UpdateCollectionInput
-  ) {
-    return yield* _await(
-      handleErrors(async () => {
-        const res = await trpc.updateCollection.mutate(updates);
-        if (!res.success) throw new Error(res.error);
-        this.getById(updates.id).update(updates);
-
-        if (this.editorId === updates.id) this.loadActiveCollection();
-      })
-    );
+    if (this.editorId === updates.id) this.loadActiveCollection();
   });
 
   /* --------------------------------- DYNAMIC GETTERS -------------------------------- */

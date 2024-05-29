@@ -1,19 +1,10 @@
 import remote from "@electron/remote";
 import fs from "fs/promises";
 import { computed } from "mobx";
-import {
-  Model,
-  _async,
-  _await,
-  getRootStore,
-  model,
-  modelAction,
-  modelFlow,
-  prop,
-} from "mobx-keystone";
+import { Model, getRootStore, model, modelAction, modelFlow, prop } from "mobx-keystone";
 import { toast } from "react-toastify";
-import { FileImport, RootStore, copyFileForImport } from "store";
-import { dayjs, extractVideoFrame, getConfig, handleErrors, trpc } from "utils";
+import { FileImport, RootStore, asyncAction, copyFileForImport } from "store";
+import { dayjs, extractVideoFrame, getConfig, trpc } from "utils";
 
 @model("medior/CarouselStore")
 export class CarouselStore extends Model({
@@ -51,44 +42,40 @@ export class CarouselStore extends Model({
 
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */
   @modelFlow
-  extractFrame = _async(function* (this: CarouselStore) {
-    return yield* _await(
-      handleErrors(async () => {
-        const stores = getRootStore<RootStore>(this);
-        const activeFile = stores.file.getById(this.activeFileId);
-        if (!activeFile) throw new Error("Active file not found");
+  extractFrame = asyncAction(async () => {
+    const stores = getRootStore<RootStore>(this);
+    const activeFile = stores.file.getById(this.activeFileId);
+    if (!activeFile) throw new Error("Active file not found");
 
-        this.setIsPlaying(false);
-        const filePath = await extractVideoFrame(activeFile.path, this.curFrame);
-        if (!filePath) throw new Error("Error extracting frame");
+    this.setIsPlaying(false);
+    const filePath = await extractVideoFrame(activeFile.path, this.curFrame);
+    if (!filePath) throw new Error("Error extracting frame");
 
-        const { size } = await fs.stat(filePath);
+    const { size } = await fs.stat(filePath);
 
-        const copyRes = await copyFileForImport({
-          deleteOnImport: false,
-          fileImport: new FileImport({
-            dateCreated: dayjs().toISOString(),
-            extension: ".jpg",
-            name: activeFile.originalName,
-            path: filePath,
-            size,
-            status: "PENDING",
-          }),
-          ignorePrevDeleted: false,
-          targetDir: getConfig().mongo.outputDir,
-          tagIds: activeFile.tagIds,
-        });
-        if (!copyRes.success) throw new Error(copyRes.error);
+    const copyRes = await copyFileForImport({
+      deleteOnImport: false,
+      fileImport: new FileImport({
+        dateCreated: dayjs().toISOString(),
+        extension: ".jpg",
+        name: activeFile.originalName,
+        path: filePath,
+        size,
+        status: "PENDING",
+      }),
+      ignorePrevDeleted: false,
+      targetDir: getConfig().mongo.outputDir,
+      tagIds: activeFile.tagIds,
+    });
+    if (!copyRes.success) throw new Error(copyRes.error);
 
-        await trpc.recalculateTagCounts.mutate({ tagIds: activeFile.tagIds });
+    await trpc.recalculateTagCounts.mutate({ tagIds: activeFile.tagIds });
 
-        stores.file.addFileAfterIndex(copyRes.file, this.activeFileIndex);
-        this.addFileAfterIndex(copyRes.file.id, this.activeFileIndex);
-        this.setActiveFileId(copyRes.file.id);
+    stores.file.addFileAfterIndex(copyRes.file, this.activeFileIndex);
+    this.addFileAfterIndex(copyRes.file.id, this.activeFileIndex);
+    this.setActiveFileId(copyRes.file.id);
 
-        toast.success("Frame extracted");
-      })
-    );
+    toast.success("Frame extracted");
   });
 
   /* --------------------------------- GETTERS -------------------------------- */

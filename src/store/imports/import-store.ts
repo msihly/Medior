@@ -1,8 +1,6 @@
 import fs from "fs/promises";
 import path from "path";
 import {
-  _async,
-  _await,
   clone,
   getRootStore,
   model,
@@ -13,7 +11,7 @@ import {
   prop,
 } from "mobx-keystone";
 import { computed } from "mobx";
-import { RootStore } from "store";
+import { asyncAction, RootStore } from "store";
 import * as db from "database";
 import { FileImport, ImportBatch } from ".";
 import { copyFileForImport } from "./import-queue";
@@ -21,7 +19,6 @@ import {
   dayjs,
   extendFileName,
   getConfig,
-  handleErrors,
   PromiseQueue,
   removeEmptyFolders,
   trpc,
@@ -194,216 +191,181 @@ export class ImportStore extends Model({
 
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */
   @modelFlow
-  completeImportBatch = _async(function* (this: ImportStore, { batchId }: { batchId: string }) {
-    return yield* _await(
-      handleErrors(async () => {
-        const stores = getRootStore<RootStore>(this);
-        const batch = this.getById(batchId);
+  completeImportBatch = asyncAction(async ({ batchId }: { batchId: string }) => {
+    const stores = getRootStore<RootStore>(this);
+    const batch = this.getById(batchId);
 
-        let collectionId: string = null;
-        if (batch.collectionTitle) {
-          const res = await stores.collection.createCollection({
-            fileIdIndexes: batch.completed.map((f, i) => ({ fileId: f.fileId, index: i })),
-            title: batch.collectionTitle,
-          });
-          if (!res.success) throw new Error(res.error);
-          collectionId = res.data.id;
-        }
+    let collectionId: string = null;
+    if (batch.collectionTitle) {
+      const res = await stores.collection.createCollection({
+        fileIdIndexes: batch.completed.map((f, i) => ({ fileId: f.fileId, index: i })),
+        title: batch.collectionTitle,
+      });
+      if (!res.success) throw new Error(res.error);
+      collectionId = res.data.id;
+    }
 
-        const completedAt = (
-          await trpc.completeImportBatch.mutate({
-            collectionId,
-            fileIds: batch.completed.map((f) => f.fileId),
-            id: batchId,
-            tagIds: [
-              ...new Set([...batch.tagIds, ...batch.imports.flatMap((imp) => imp.tagIds)].flat()),
-            ],
+    const completedAt = (
+      await trpc.completeImportBatch.mutate({
+        collectionId,
+        fileIds: batch.completed.map((f) => f.fileId),
+        id: batchId,
+        tagIds: [
+          ...new Set([...batch.tagIds, ...batch.imports.flatMap((imp) => imp.tagIds)].flat()),
+        ],
+      })
+    )?.data;
+
+    batch.update({ collectionId, completedAt });
+  });
+
+  @modelFlow
+  createImportBatches = asyncAction(
+    async (
+      batches: {
+        collectionTitle?: string;
+        deleteOnImport: boolean;
+        ignorePrevDeleted: boolean;
+        imports: ModelCreationData<FileImport>[];
+        rootFolderPath: string;
+        tagIds?: string[];
+      }[]
+    ) => {
+      this.queue.clear();
+
+      const createdAt = dayjs().toISOString();
+
+      const batchRes = await trpc.createImportBatches.mutate(
+        batches.map((b) => ({
+          ...b,
+          createdAt,
+          imports: b.imports,
+          rootFolderPath: b.rootFolderPath,
+          tagIds: b.tagIds ? [...new Set(b.tagIds)].flat() : [],
+        }))
+      );
+      if (!batchRes.success) throw new Error(batchRes?.error);
+
+      await this.loadImportBatches();
+    }
+  );
+
+  @modelFlow
+  deleteImportBatches = asyncAction(async ({ ids }: db.DeleteImportBatchesInput) => {
+    this.queue.clear();
+
+    const deleteRes = await trpc.deleteImportBatches.mutate({ ids });
+    if (!deleteRes?.success) return false;
+    this._deleteBatches(ids);
+
+    this.batches.forEach((batch) => batch.status === "PENDING" && this.queueImportBatch(batch.id));
+  });
+
+  @modelFlow
+  importFile = asyncAction(async ({ batchId, filePath }: { batchId: string; filePath: string }) => {
+    const batch = this.getById(batchId);
+    const fileImport = batch?.getByPath(filePath);
+
+    if (!batch || !fileImport) {
+      console.error({
+        batch: batch?.toString?.({ withData: true }),
+        fileImport: fileImport?.toString?.({ withData: true }),
+      });
+      throw new Error("Invalid batch or fileImport");
+    }
+
+    if (fileImport.status !== "PENDING")
+      return console.warn(`File already imported (Status: ${fileImport.status}):`, fileImport.path);
+
+    const tagIds = [...new Set([...batch.tagIds, ...fileImport.tagIds].flat())];
+
+    const copyRes = await copyFileForImport({
+      deleteOnImport: batch.deleteOnImport,
+      fileImport,
+      ignorePrevDeleted: batch.ignorePrevDeleted,
+      targetDir: getConfig().mongo.outputDir,
+      tagIds,
+    });
+
+    const errorMsg = copyRes.error ?? null;
+    const fileId = copyRes.file?.id ?? null;
+    const status = !copyRes?.success
+      ? "ERROR"
+      : copyRes?.isPrevDeleted
+      ? "DELETED"
+      : copyRes?.isDuplicate
+      ? "DUPLICATE"
+      : "COMPLETE";
+    const thumbPaths = copyRes.file?.thumbPaths ?? [];
+
+    const updateRes = await trpc.updateFileImportByPath.mutate({
+      batchId,
+      errorMsg,
+      fileId,
+      filePath,
+      status,
+      thumbPaths,
+    });
+    if (!updateRes?.success) throw new Error(updateRes?.error);
+
+    try {
+      batch.updateImport(filePath, { errorMsg, fileId, status, thumbPaths });
+    } catch (err) {
+      console.error("Error updating import:", err);
+    }
+  });
+
+  @modelFlow
+  loadDeletedFiles = asyncAction(async () => {
+    const res = await trpc.listDeletedFiles.mutate();
+    if (res.success) this.deletedFileHashes = res.data.map((f) => f.hash);
+  });
+
+  @modelFlow
+  loadDiffusionParams = asyncAction(async () => {
+    const paramFilePaths = this.editorImports.reduce((acc, cur) => {
+      if (cur.extension !== ".jpg") return acc;
+
+      const paramFileName = path.resolve(extendFileName(cur.path, "txt"));
+      if (this.editorFilePaths.find((p) => path.resolve(p) === paramFileName))
+        acc.push(paramFileName);
+
+      return acc;
+    }, [] as string[]);
+
+    const paramFiles = await Promise.all(
+      paramFilePaths.map(async (p) => ({
+        params: await fs.readFile(p, { encoding: "utf8" }),
+        path: p,
+      }))
+    );
+
+    this.editorImports.forEach((imp) => {
+      const paramFile = paramFiles.find(
+        (p) => p.path === path.resolve(extendFileName(imp.path, "txt"))
+      );
+      if (paramFile) imp.update({ diffusionParams: paramFile.params });
+    });
+  });
+
+  @modelFlow
+  loadImportBatches = asyncAction(async () => {
+    this.queue.clear();
+
+    const res = await trpc.listImportBatches.mutate();
+    if (res.success) {
+      const batches = res.data.map(
+        (batch) =>
+          new ImportBatch({
+            ...batch,
+            imports: batch.imports.map((imp) => new FileImport(imp)),
           })
-        )?.data;
+      );
 
-        batch.update({ collectionId, completedAt });
-      })
-    );
-  });
+      this.overwriteBatches(batches);
 
-  @modelFlow
-  createImportBatches = _async(function* (
-    this: ImportStore,
-    batches: {
-      collectionTitle?: string;
-      deleteOnImport: boolean;
-      ignorePrevDeleted: boolean;
-      imports: ModelCreationData<FileImport>[];
-      rootFolderPath: string;
-      tagIds?: string[];
-    }[]
-  ) {
-    return yield* _await(
-      handleErrors(async () => {
-        this.queue.clear();
-
-        const createdAt = dayjs().toISOString();
-
-        const batchRes = await trpc.createImportBatches.mutate(
-          batches.map((b) => ({
-            ...b,
-            createdAt,
-            imports: b.imports,
-            rootFolderPath: b.rootFolderPath,
-            tagIds: b.tagIds ? [...new Set(b.tagIds)].flat() : [],
-          }))
-        );
-        if (!batchRes.success) throw new Error(batchRes?.error);
-
-        await this.loadImportBatches();
-      })
-    );
-  });
-
-  @modelFlow
-  deleteImportBatches = _async(function* (this: ImportStore, { ids }: db.DeleteImportBatchesInput) {
-    return yield* _await(
-      handleErrors(async () => {
-        this.queue.clear();
-
-        const deleteRes = await trpc.deleteImportBatches.mutate({ ids });
-        if (!deleteRes?.success) return false;
-        this._deleteBatches(ids);
-
-        this.batches.forEach(
-          (batch) => batch.status === "PENDING" && this.queueImportBatch(batch.id)
-        );
-      })
-    );
-  });
-
-  @modelFlow
-  importFile = _async(function* (
-    this: ImportStore,
-    { batchId, filePath }: { batchId: string; filePath: string }
-  ) {
-    return yield* _await(
-      handleErrors(async () => {
-        const batch = this.getById(batchId);
-        const fileImport = batch?.getByPath(filePath);
-
-        if (!batch || !fileImport) {
-          console.error({
-            batch: batch?.toString?.({ withData: true }),
-            fileImport: fileImport?.toString?.({ withData: true }),
-          });
-          throw new Error("Invalid batch or fileImport");
-        }
-
-        if (fileImport.status !== "PENDING")
-          return console.warn(
-            `File already imported (Status: ${fileImport.status}):`,
-            fileImport.path
-          );
-
-        const tagIds = [...new Set([...batch.tagIds, ...fileImport.tagIds].flat())];
-
-        const copyRes = await copyFileForImport({
-          deleteOnImport: batch.deleteOnImport,
-          fileImport,
-          ignorePrevDeleted: batch.ignorePrevDeleted,
-          targetDir: getConfig().mongo.outputDir,
-          tagIds,
-        });
-
-        const errorMsg = copyRes.error ?? null;
-        const fileId = copyRes.file?.id ?? null;
-        const status = !copyRes?.success
-          ? "ERROR"
-          : copyRes?.isPrevDeleted
-          ? "DELETED"
-          : copyRes?.isDuplicate
-          ? "DUPLICATE"
-          : "COMPLETE";
-        const thumbPaths = copyRes.file?.thumbPaths ?? [];
-
-        const updateRes = await trpc.updateFileImportByPath.mutate({
-          batchId,
-          errorMsg,
-          fileId,
-          filePath,
-          status,
-          thumbPaths,
-        });
-        if (!updateRes?.success) throw new Error(updateRes?.error);
-
-        try {
-          batch.updateImport(filePath, { errorMsg, fileId, status, thumbPaths });
-        } catch (err) {
-          console.error("Error updating import:", err);
-        }
-      })
-    );
-  });
-
-  @modelFlow
-  loadDeletedFiles = _async(function* (this: ImportStore) {
-    return yield* _await(
-      handleErrors(async () => {
-        const res = await trpc.listDeletedFiles.mutate();
-        if (res.success) this.deletedFileHashes = res.data.map((f) => f.hash);
-      })
-    );
-  });
-
-  @modelFlow
-  loadDiffusionParams = _async(function* (this: ImportStore) {
-    return yield* _await(
-      handleErrors(async () => {
-        const paramFilePaths = this.editorImports.reduce((acc, cur) => {
-          if (cur.extension !== ".jpg") return acc;
-
-          const paramFileName = path.resolve(extendFileName(cur.path, "txt"));
-          if (this.editorFilePaths.find((p) => path.resolve(p) === paramFileName))
-            acc.push(paramFileName);
-
-          return acc;
-        }, [] as string[]);
-
-        const paramFiles = await Promise.all(
-          paramFilePaths.map(async (p) => ({
-            params: await fs.readFile(p, { encoding: "utf8" }),
-            path: p,
-          }))
-        );
-
-        this.editorImports.forEach((imp) => {
-          const paramFile = paramFiles.find(
-            (p) => p.path === path.resolve(extendFileName(imp.path, "txt"))
-          );
-          if (paramFile) imp.update({ diffusionParams: paramFile.params });
-        });
-      })
-    );
-  });
-
-  @modelFlow
-  loadImportBatches = _async(function* (this: ImportStore) {
-    return yield* _await(
-      handleErrors(async () => {
-        this.queue.clear();
-
-        const res = await trpc.listImportBatches.mutate();
-        if (res.success) {
-          const batches = res.data.map(
-            (batch) =>
-              new ImportBatch({
-                ...batch,
-                imports: batch.imports.map((imp) => new FileImport(imp)),
-              })
-          );
-
-          this.overwriteBatches(batches);
-
-          batches.forEach((batch) => batch.status === "PENDING" && this.queueImportBatch(batch.id));
-        }
-      })
-    );
+      batches.forEach((batch) => batch.status === "PENDING" && this.queueImportBatch(batch.id));
+    }
   });
 
   /* ----------------------------- DYNAMIC GETTERS ---------------------------- */

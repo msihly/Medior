@@ -1,25 +1,7 @@
 import { SortMenuProps } from "components";
-import {
-  Model,
-  _async,
-  _await,
-  getRootStore,
-  model,
-  modelAction,
-  modelFlow,
-  prop,
-} from "mobx-keystone";
-import { RootStore, TagOption } from "store";
-import {
-  dayjs,
-  getConfig,
-  handleErrors,
-  ImageType,
-  LogicalOp,
-  makePerfLog,
-  trpc,
-  VideoType,
-} from "utils";
+import { Model, getRootStore, model, modelAction, modelFlow, prop } from "mobx-keystone";
+import { RootStore, TagOption, asyncAction } from "store";
+import { dayjs, getConfig, ImageType, LogicalOp, makePerfLog, trpc, VideoType } from "utils";
 
 const NUMERICAL_ATTRIBUTES = ["count", "duration", "height", "rating", "size", "width"];
 
@@ -128,88 +110,73 @@ export class HomeStore extends Model({
 
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */
   @modelFlow
-  getShiftSelectedFiles = _async(function* (
-    this: HomeStore,
-    { id, selectedIds }: { id: string; selectedIds: string[] }
-  ) {
-    return yield* _await(
-      handleErrors(async () => {
-        const stores = getRootStore<RootStore>(this);
+  getShiftSelectedFiles = asyncAction(
+    async ({ id, selectedIds }: { id: string; selectedIds: string[] }) => {
+      const stores = getRootStore<RootStore>(this);
 
-        const clickedIndex =
-          (stores.file.page - 1) * getConfig().file.searchFileCount +
-          stores.file.files.findIndex((f) => f.id === id);
+      const clickedIndex =
+        (stores.file.page - 1) * getConfig().file.searchFileCount +
+        stores.file.files.findIndex((f) => f.id === id);
 
-        const res = await trpc.getShiftSelectedFiles.mutate({
-          ...this.getFilterProps(),
-          ...stores.tag.tagSearchOptsToIds(this.searchValue),
-          clickedId: id,
-          clickedIndex,
-          selectedIds,
-        });
-        if (!res.success) throw new Error(res.error);
-        return res.data;
-      })
-    );
+      const res = await trpc.getShiftSelectedFiles.mutate({
+        ...this.getFilterProps(),
+        ...stores.tag.tagSearchOptsToIds(this.searchValue),
+        clickedId: id,
+        clickedIndex,
+        selectedIds,
+      });
+      if (!res.success) throw new Error(res.error);
+      return res.data;
+    }
+  );
+
+  @modelFlow
+  listIdsForCarousel = asyncAction(async () => {
+    const stores = getRootStore<RootStore>(this);
+
+    const res = await trpc.listFileIdsForCarousel.mutate({
+      ...this.getFilterProps(),
+      ...stores.tag.tagSearchOptsToIds(this.searchValue),
+      page: stores.file.page,
+      pageSize: getConfig().file.searchFileCount,
+    });
+    if (!res.success) throw new Error(res.error);
+    if (!res.data?.length) throw new Error("No files found");
+    return res.data;
   });
 
   @modelFlow
-  listIdsForCarousel = _async(function* (this: HomeStore) {
-    return yield* _await(
-      handleErrors(async () => {
-        const stores = getRootStore<RootStore>(this);
+  loadFilteredFiles = asyncAction(async ({ page }: { page?: number } = {}) => {
+    const debug = false;
+    const { perfLog, perfLogTotal } = makePerfLog("[LFF]");
 
-        const res = await trpc.listFileIdsForCarousel.mutate({
-          ...this.getFilterProps(),
-          ...stores.tag.tagSearchOptsToIds(this.searchValue),
-          page: stores.file.page,
-          pageSize: getConfig().file.searchFileCount,
-        });
-        if (!res.success) throw new Error(res.error);
-        if (!res.data?.length) throw new Error("No files found");
-        return res.data;
-      })
-    );
-  });
+    const stores = getRootStore<RootStore>(this);
+    if (!stores) throw new Error("RootStore not found");
 
-  @modelFlow
-  loadFilteredFiles = _async(function* (this: HomeStore, { page }: { page?: number } = {}) {
-    return yield* _await(
-      handleErrors(async () => {
-        const debug = false;
-        const { perfLog, perfLogTotal } = makePerfLog("[LFF]");
+    this.setIsLoading(true);
 
-        const stores = getRootStore<RootStore>(this);
-        if (!stores) throw new Error("RootStore not found");
+    const filteredRes = await trpc.listFilteredFiles.mutate({
+      ...this.getFilterProps(),
+      ...stores.tag.tagSearchOptsToIds(this.searchValue),
+      page: page ?? stores.file.page,
+      pageSize: getConfig().file.searchFileCount,
+    });
+    if (!filteredRes.success) throw new Error(filteredRes.error);
 
-        this.setIsLoading(true);
+    const { files, pageCount } = filteredRes.data;
+    if (debug) perfLog(`Loaded ${files.length} filtered files`);
 
-        const filteredRes = await trpc.listFilteredFiles.mutate({
-          ...this.getFilterProps(),
-          ...stores.tag.tagSearchOptsToIds(this.searchValue),
-          page: page ?? stores.file.page,
-          pageSize: getConfig().file.searchFileCount,
-        });
-        if (!filteredRes.success) throw new Error(filteredRes.error);
+    stores.file.overwrite(files.map((f) => ({ ...f, hasFaceModels: f.faceModels?.length > 0 })));
+    if (debug) perfLog("FileStore.files overwrite and re-render");
 
-        const { files, pageCount } = filteredRes.data;
-        if (debug) perfLog(`Loaded ${files.length} filtered files`);
+    stores.file.setPageCount(pageCount);
+    if (page) stores.file.setPage(page);
+    if (debug) perfLog(`Set page to ${page ?? stores.file.page} and pageCount to ${pageCount}`);
 
-        stores.file.overwrite(
-          files.map((f) => ({ ...f, hasFaceModels: f.faceModels?.length > 0 }))
-        );
-        if (debug) perfLog("FileStore.files overwrite and re-render");
+    if (debug) perfLogTotal(`Loaded ${files.length} files`);
+    this.setIsLoading(false);
 
-        stores.file.setPageCount(pageCount);
-        if (page) stores.file.setPage(page);
-        if (debug) perfLog(`Set page to ${page ?? stores.file.page} and pageCount to ${pageCount}`);
-
-        if (debug) perfLogTotal(`Loaded ${files.length} files`);
-        this.setIsLoading(false);
-
-        return files;
-      })
-    );
+    return files;
   });
 
   /* --------------------------------- DYNAMIC GETTERS -------------------------------- */
