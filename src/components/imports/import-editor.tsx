@@ -24,14 +24,7 @@ import {
   TagHierarchy,
   TagToUpsert,
 } from ".";
-import {
-  colors,
-  getConfig,
-  makeClasses,
-  parseDiffParam,
-  parseDiffParams,
-  useDeepEffect,
-} from "utils";
+import { colors, getConfig, makeClasses, parseDiffParams, useDeepEffect } from "utils";
 import { toast } from "react-toastify";
 
 type RegExMaps = { regEx: RegExp; tagId: string }[];
@@ -240,6 +233,7 @@ export const ImportEditor = observer(() => {
     /** Create meta tags for diffusion params if not found. */
     const { diffMetaTagsToEdit, originalTag, upscaledTag } = await upsertDiffMetaTags();
 
+    const tagsToUpsert: TagToUpsert[] = [];
     /** Directly update file imports with their own tags derived from RegEx maps and diffusion params. */
     const editorImports = stores.import.editorImports.map((imp) => {
       const fileTagIds: string[] = [];
@@ -277,12 +271,13 @@ export const ImportEditor = observer(() => {
         return acc;
       }, [] as string[]);
 
+      tagsToUpsert.push(...fileTagsToUpsert);
       const updates = { tagIds, tagsToUpsert: fileTagsToUpsert };
       imp.update(updates);
       return { ...imp.$, ...updates };
     });
 
-    return { diffMetaTagsToEdit, editorImports };
+    return { diffMetaTagsToEdit, editorImports, fileTagsToUpsert: tagsToUpsert };
   };
 
   const getRegExMaps = (type: RegExMapType): RegExMaps =>
@@ -366,10 +361,11 @@ export const ImportEditor = observer(() => {
 
       if (modelTag) diffFileTagIds.push(modelTag.id);
       else {
-        const tagToUpsert = {
-          aliases: [`Model Hash: ${parseDiffParam(parsedParams.modelHash, "Model hash", false)}`],
+        const tagToUpsert: TagToUpsert = {
+          aliases: [`Model Hash: ${parsedParams.modelHash}`],
           label: modelTagLabel,
-          parentLabel: config.imports.labelDiffModel,
+          parentLabels: [config.imports.labelDiffModel],
+          withRegEx: true,
         };
 
         diffFileTagsToUpsert.push(tagToUpsert);
@@ -485,7 +481,8 @@ export const ImportEditor = observer(() => {
       const tagsToEdit: TagToUpsert[] = [];
 
       /* ---------------------------------- Files --------------------------------- */
-      const { diffMetaTagsToEdit, editorImports } = await fileToTagsAndDiffParams();
+      const { diffMetaTagsToEdit, editorImports, fileTagsToUpsert } =
+        await fileToTagsAndDiffParams();
       tagsToEdit.push(...diffMetaTagsToEdit);
 
       /* --------------------------------- Folders -------------------------------- */
@@ -518,11 +515,14 @@ export const ImportEditor = observer(() => {
       setFlatFolderHierarchy(flatFolderHierarchy);
 
       /* ----------------------------------- Tags ---------------------------------- */
-      const tagsToUpsert = [...tagsToCreate, ...tagsToEdit].reduce((acc, cur) => {
-        const tag = withFolderNameRegEx ? replaceTagsFromRegEx(cur, folderNameRegExMaps) : cur;
-        if (!acc.find((t) => t.label === tag.label)) acc.push(tag);
-        return acc;
-      }, [] as TagToUpsert[]);
+      const tagsToUpsert = [...fileTagsToUpsert, ...tagsToCreate, ...tagsToEdit].reduce(
+        (acc, cur) => {
+          const tag = withFolderNameRegEx ? replaceTagsFromRegEx(cur, folderNameRegExMaps) : cur;
+          if (!acc.find((t) => t.label === tag.label)) acc.push(tag);
+          return acc;
+        },
+        [] as TagToUpsert[]
+      );
       setFlatTagsToUpsert(tagsToUpsert);
 
       setTagHierarchy(

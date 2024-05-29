@@ -16,6 +16,7 @@ import { leanModelToJson, objectId, objectIds } from "./utils";
 
 /* ---------------------------- HELPER FUNCTIONS ---------------------------- */
 const createTagFilterPipeline = ({
+  alias,
   countOp,
   countValue,
   dateCreatedEnd,
@@ -25,6 +26,7 @@ const createTagFilterPipeline = ({
   excludedDescTagIds,
   excludedTagIds,
   isSortDesc,
+  label,
   optionalTagIds,
   regExMode,
   requiredDescTagIds,
@@ -65,6 +67,8 @@ const createTagFilterPipeline = ({
             },
           }
         : {}),
+      ...(label ? { label: new RegExp(label, "i") } : {}),
+      ...(alias ? { aliases: { $elemMatch: { $regex: new RegExp(alias, "i") } } } : {}),
       ...(regExMode !== "any" ? { "regExMap.regEx": { $exists: regExMode === "hasRegEx" } } : {}),
       ...(hasExcludedTags || hasOptionalTags || hasRequiredTags
         ? {

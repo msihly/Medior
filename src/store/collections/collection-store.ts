@@ -425,9 +425,6 @@ export class FileCollectionStore extends Model({
   @computed
   get sortedActiveTags() {
     const stores = getRootStore<RootStore>(this);
-    return this.activeTagIds
-      .map((id) => stores.tag.getById(id))
-      .filter((t) => t)
-      .sort((a, b) => b.count - a.count);
+    return stores.tag.listByIds(this.activeTagIds).sort((a, b) => b.count - a.count);
   }
 }

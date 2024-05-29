@@ -42,9 +42,7 @@ export const Relations = observer(
     const ancestryTags = useMemo(() => {
       if (!ancestryType || !ancestryTagIds) return [];
 
-      return ancestryTagIds
-        .map((tagId) => stores.tag.getById(tagId))
-        .sort((a, b) => b.count - a.count);
+      return stores.tag.listByIds(ancestryTagIds).sort((a, b) => b.count - a.count);
     }, [ancestryTagIds, ancestryType]);
 
     return (
@@ -60,7 +58,7 @@ export const Relations = observer(
                   <Text>{`Current Tag ${ancestryLabel}`}</Text>
                   <View className={css.tagRow}>
                     {ancestryTags.map((tag) => (
-                      <Tag key={tag.id} tag={tag} hasEditor className={css.tag} />
+                      <Tag key={tag?.id} tag={tag} hasEditor className={css.tag} />
                     ))}
                   </View>
                 </View>

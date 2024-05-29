@@ -75,16 +75,23 @@ export const useSockets = ({ view }: UseSocketsProps) => {
 
     makeSocket("reloadTags", () => stores.tag.loadTags());
 
-    makeSocket("tagCreated", ({ tag }) => stores.tag._addTag(tag));
+    makeSocket("tagCreated", ({ tag }) => {
+      stores.tag._addTag(tag);
+      if (view !== "carousel" && stores.tagManager.isOpen) stores.tagManager.loadFilteredTags();
+    });
 
     makeSocket("tagDeleted", ({ tagId }) => {
       stores.tag._deleteTag(tagId);
       if (view === "home") stores.import.editBatchTags({ removedIds: [tagId] });
-      if (view !== "carousel") queueFileReload();
+      if (view !== "carousel") {
+        queueFileReload();
+        if (stores.tagManager.isOpen) stores.tagManager.loadFilteredTags();
+      }
     });
 
     makeSocket("tagMerged", ({ oldTagId }) => {
       if (view === "home") stores.import.editBatchTags({ removedIds: [oldTagId] });
+      if (view !== "carousel" && stores.tagManager.isOpen) stores.tagManager.loadFilteredTags();
     });
 
     makeSocket("tagsUpdated", ({ tags, withFileReload }) => {

@@ -9,6 +9,7 @@ import {
   DateRange,
   DisplayedTags,
   Dropdown,
+  Input,
   LoadingOverlay,
   Modal,
   MultiActionButton,
@@ -107,6 +108,10 @@ export const TagManager = observer(() => {
     toast.info("Deselected all tags");
   };
 
+  const setAliasesValue = (val: string) => stores.tagManager.setAliasesValue(val);
+
+  const setLabelValue = (val: string) => stores.tagManager.setLabelValue(val);
+
   const setTagManagerSort = (val: SortMenuProps["value"]) => stores.tagManager.setSortValue(val);
 
   return (
@@ -140,6 +145,20 @@ export const TagManager = observer(() => {
             setValue={setTagManagerSort}
             color={colors.button.darkGrey}
             width="100%"
+          />
+
+          <Input
+            label="Label"
+            value={stores.tagManager.labelValue}
+            setValue={setLabelValue}
+            detachLabel
+          />
+
+          <Input
+            label="Aliases"
+            value={stores.tagManager.aliasesValue}
+            setValue={setAliasesValue}
+            detachLabel
           />
 
           <TagInput

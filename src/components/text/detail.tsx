@@ -1,9 +1,9 @@
 import { ReactNode } from "react";
-import { Text, TextProps, View } from "components";
+import { Text, TextProps, View, ViewProps } from "components";
 import { colors, makeClasses } from "utils";
 import { CSSObject } from "tss-react";
 
-export interface DetailProps {
+export interface DetailProps extends ViewProps {
   label: ReactNode;
   labelProps?: Partial<TextProps>;
   overflowX?: CSSObject["overflowX"];
@@ -23,11 +23,12 @@ export const Detail = ({
   value,
   valueProps,
   withTooltip,
+  ...props
 }: DetailProps) => {
   const { css, cx } = useClasses({ overflowX, overflowY });
 
   return (
-    <View column>
+    <View column {...props}>
       {typeof label === "string" ? (
         <Text {...labelProps} className={cx(css.label, labelProps?.className)}>
           {label}

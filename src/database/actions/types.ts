@@ -199,6 +199,7 @@ export type UpdateFileInput = Partial<db.File> & { id: string };
 /*                                    TAGS                                    */
 /* -------------------------------------------------------------------------- */
 export type CreateTagFilterPipelineInput = {
+  alias?: string;
   countOp: LogicalOp | "";
   countValue?: number;
   dateCreatedEnd?: string;
@@ -208,6 +209,7 @@ export type CreateTagFilterPipelineInput = {
   excludedDescTagIds: string[];
   excludedTagIds: string[];
   isSortDesc: boolean;
+  label?: string;
   optionalTagIds: string[];
   regExMode: "any" | "hasRegEx" | "hasNoRegEx";
   requiredDescTagIds: string[];

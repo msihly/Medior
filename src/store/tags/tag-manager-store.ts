@@ -10,7 +10,7 @@ import {
 } from "mobx-keystone";
 import { RootStore } from "store";
 import { SortMenuProps } from "components";
-import { TagOption, TagStore } from ".";
+import { TagOption } from ".";
 import {
   getConfig,
   handleErrors,
@@ -36,6 +36,7 @@ export type TagManagerTag = {
 
 @model("medior/TagManagerStore")
 export class TagManagerStore extends Model({
+  aliasesValue: prop<string>("").withSetter(),
   countOp: prop<LogicalOp | "">("").withSetter(),
   countValue: prop<number>(0).withSetter(),
   dateCreatedEnd: prop<string>("").withSetter(),
@@ -45,6 +46,7 @@ export class TagManagerStore extends Model({
   isLoading: prop<boolean>(false).withSetter(),
   isMultiTagEditorOpen: prop<boolean>(false).withSetter(),
   isOpen: prop<boolean>(false).withSetter(),
+  labelValue: prop<string>("").withSetter(),
   page: prop<number>(1).withSetter(),
   pageCount: prop<number>(0).withSetter(),
   regExMode: prop<"any" | "hasRegEx" | "hasNoRegEx">("any").withSetter(),
@@ -216,7 +218,7 @@ export class TagManagerStore extends Model({
   });
 
   @modelFlow
-  refreshTag = _async(function* (this: TagStore, tagId: string) {
+  refreshTag = _async(function* (this: TagManagerStore, tagId: string) {
     return yield* _await(
       handleErrors(async () => {
         const res = await trpc.refreshTags.mutate({ tagId });
@@ -232,6 +234,7 @@ export class TagManagerStore extends Model({
 
   getFilterProps() {
     return {
+      alias: this.aliasesValue,
       countOp: this.countOp,
       countValue: this.countValue,
       dateCreatedEnd: this.dateCreatedEnd,
@@ -239,6 +242,7 @@ export class TagManagerStore extends Model({
       dateModifiedEnd: this.dateModifiedEnd,
       dateModifiedStart: this.dateModifiedStart,
       isSortDesc: this.sortValue.isDesc,
+      label: this.labelValue,
       regExMode: this.regExMode,
       searchValue: this.searchValue,
       sortKey: this.sortValue.key,

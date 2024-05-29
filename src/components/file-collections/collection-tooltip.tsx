@@ -16,7 +16,7 @@ export const CollectionTooltip = observer(({ collection, onTagPress }: Collectio
   const stores = useStores();
 
   const [tagIds, setTagIds] = useState<string[]>([]);
-  const tags = tagIds.map((id) => stores.tag.getById(id));
+  const tags = stores.tag.listByIds(tagIds);
 
   const handleOpen = async () => {
     try {

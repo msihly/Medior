@@ -26,7 +26,6 @@ const useClasses = makeClasses((theme) => ({
   fileContainer: {
     display: "flex",
     flexFlow: "row wrap",
-    flex: 1,
     padding: "0.3rem 0.3rem 3rem",
     overflow: "auto",
     "& > *": {
