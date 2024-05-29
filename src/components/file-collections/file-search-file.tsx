@@ -1,6 +1,5 @@
 import { CSSProperties } from "react";
-import { observer } from "mobx-react-lite";
-import { File, useStores } from "store";
+import { File, observer, useStores } from "store";
 import { Button, FileBase } from "components";
 import { colors, dayjs } from "utils";
 

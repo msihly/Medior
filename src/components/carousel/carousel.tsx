@@ -1,7 +1,6 @@
 import { shell } from "@electron/remote";
 import { createContext, MutableRefObject, useContext, useEffect, useRef, useState } from "react";
-import { observer } from "mobx-react-lite";
-import { useStores } from "store";
+import { observer, useStores } from "store";
 import ReactPlayer from "react-player/file";
 import { OnProgressProps } from "react-player/base";
 import Panzoom, { PanzoomObject, PanzoomOptions } from "@panzoom/panzoom";

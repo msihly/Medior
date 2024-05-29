@@ -1,7 +1,6 @@
 import { getCurrentWindow, screen } from "@electron/remote";
 import { useContext, useEffect, useRef, useState } from "react";
-import { observer } from "mobx-react-lite";
-import { useStores } from "store";
+import { observer, useStores } from "store";
 import { ZoomContext, Icon, IconButton, SideScroller, Tag, Text, View } from "components";
 import { colors, makeClasses, round, zoomScaleStepIn, zoomScaleStepOut } from "utils";
 

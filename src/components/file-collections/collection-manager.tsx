@@ -1,6 +1,5 @@
 import { useEffect, useRef } from "react";
-import { observer } from "mobx-react-lite";
-import { TagOption, useStores } from "store";
+import { TagOption, observer, useStores } from "store";
 import {
   Button,
   CenteredText,

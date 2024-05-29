@@ -1,5 +1,4 @@
-import { useStores } from "store";
-import { observer } from "mobx-react-lite";
+import { observer, useStores } from "store";
 import { ImportEditor, ImportManager } from "components";
 
 export const ImportModals = observer(() => {

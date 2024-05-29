@@ -1,5 +1,4 @@
-import { observer } from "mobx-react-lite";
-import { useStores } from "store";
+import { observer, useStores } from "store";
 import { FileBase, Text } from "components";
 import { CollectionTooltip } from ".";
 import { colors, makeClasses, round } from "utils";

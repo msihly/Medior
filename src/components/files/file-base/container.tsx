@@ -1,5 +1,4 @@
 import { MouseEvent, ReactNode } from "react";
-import { observer } from "mobx-react-lite";
 import { Paper } from "@mui/material";
 import { View, ViewProps } from "components";
 import { CSSObject } from "tss-react";
@@ -19,36 +18,34 @@ interface ContainerProps extends ViewProps {
   width?: CSSObject["width"];
 }
 
-export const Container = observer(
-  ({
-    children,
-    className,
-    disabled,
-    display = "block",
-    height,
-    onClick,
-    onDoubleClick,
-    selected,
-    selectedColor = colors.blue["900"],
-    width,
-    ...viewProps
-  }: ContainerProps) => {
-    const { css, cx } = useClasses({ disabled, display, height, selected, selectedColor, width });
+export const Container = ({
+  children,
+  className,
+  disabled,
+  display = "block",
+  height,
+  onClick,
+  onDoubleClick,
+  selected,
+  selectedColor = colors.blue["900"],
+  width,
+  ...viewProps
+}: ContainerProps) => {
+  const { css, cx } = useClasses({ disabled, display, height, selected, selectedColor, width });
 
-    return (
-      <View {...viewProps} className={cx(css.container, className)}>
-        <Paper
-          onClick={!disabled ? onClick : undefined}
-          onDoubleClick={!disabled ? onDoubleClick : undefined}
-          elevation={3}
-          className={css.paper}
-        >
-          {children}
-        </Paper>
-      </View>
-    );
-  }
-);
+  return (
+    <View {...viewProps} className={cx(css.container, className)}>
+      <Paper
+        onClick={!disabled ? onClick : undefined}
+        onDoubleClick={!disabled ? onDoubleClick : undefined}
+        elevation={3}
+        className={css.paper}
+      >
+        {children}
+      </Paper>
+    </View>
+  );
+};
 
 interface ClassesProps {
   disabled?: boolean;

@@ -1,5 +1,4 @@
-import { observer } from "mobx-react-lite";
-import { useStores } from "store";
+import { observer, useStores } from "store";
 import { SortMenu, SortMenuProps, View } from "components";
 import { SettingsLabel } from ".";
 import { colors } from "utils";

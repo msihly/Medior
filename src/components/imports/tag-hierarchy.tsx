@@ -1,5 +1,4 @@
-import { observer } from "mobx-react-lite";
-import { useStores } from "store";
+import { observer, useStores } from "store";
 import { Icon, Text, View } from "components";
 import { TagToUpsert } from ".";
 import { colors, makeClasses } from "utils";

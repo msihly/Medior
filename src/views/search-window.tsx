@@ -1,7 +1,6 @@
 import { ipcRenderer } from "electron";
 import { useEffect, useState } from "react";
-import { observer } from "mobx-react-lite";
-import { useStores } from "store";
+import { observer, useStores } from "store";
 import { View } from "components";
 import { Views, useSockets } from "./common";
 import { makeClasses, makePerfLog } from "utils";

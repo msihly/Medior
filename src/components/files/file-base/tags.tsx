@@ -1,6 +1,5 @@
 import { Tag, View } from "components";
-import { observer } from "mobx-react-lite";
-import { useStores } from "store";
+import { observer, useStores } from "store";
 import { colors, makeClasses } from "utils";
 
 interface TagsProps {

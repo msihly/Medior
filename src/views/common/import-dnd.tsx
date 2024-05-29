@@ -1,5 +1,4 @@
-import { handleIngest, useStores } from "store";
-import { observer } from "mobx-react-lite";
+import { handleIngest, observer, useStores } from "store";
 import { View } from "components";
 import { colors, makeClasses } from "utils";
 import Color from "color";

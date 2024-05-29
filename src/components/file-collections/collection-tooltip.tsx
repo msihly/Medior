@@ -1,8 +1,7 @@
 import { Icon, Tag, Text, Tooltip, View } from "components";
-import { observer } from "mobx-react-lite";
 import { useState } from "react";
 import { toast } from "react-toastify";
-import { FileCollection, useStores } from "store";
+import { FileCollection, observer, useStores } from "store";
 import { colors, dayjs, makeClasses } from "utils";
 
 export interface CollectionTooltipProps {

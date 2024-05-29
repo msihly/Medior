@@ -1,6 +1,5 @@
 import { useCallback } from "react";
-import { observer } from "mobx-react-lite";
-import { ImportBatch as ImportBatchType } from "store";
+import { ImportBatch as ImportBatchType, observer } from "store";
 import AutoSizer from "react-virtualized-auto-sizer";
 import { FixedSizeList, ListChildComponentProps } from "react-window";
 import { Icon, Text, View } from "components";

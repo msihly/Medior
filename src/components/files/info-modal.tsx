@@ -1,7 +1,6 @@
 import path from "path";
 import { shell } from "@electron/remote";
-import { observer } from "mobx-react-lite";
-import { useStores } from "store";
+import { observer, useStores } from "store";
 import { Button, Detail, DetailRow, Modal, SideScroller, Tag, Text, View } from "components";
 import { colors, dayjs, formatBytes, makeClasses } from "utils";
 import { toast } from "react-toastify";

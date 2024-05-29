@@ -1,6 +1,5 @@
 import { CSSProperties } from "react";
-import { observer } from "mobx-react-lite";
-import { FileCollectionFile as FileColFile, useStores } from "store";
+import { FileCollectionFile as FileColFile, observer, useStores } from "store";
 import { useSortable } from "@alissavrk/dnd-kit-sortable";
 import { CSS } from "@alissavrk/dnd-kit-utilities";
 import { FileBase, View } from "components";

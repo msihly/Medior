@@ -1,6 +1,5 @@
 import { useState } from "react";
-import { observer } from "mobx-react-lite";
-import { TagOption, useStores } from "store";
+import { TagOption, observer, useStores } from "store";
 import { Button, ConfirmModal, LoadingOverlay, Modal, TagInput, Text, View } from "components";
 import { colors } from "utils";
 import { toast } from "react-toastify";
@@ -43,7 +42,8 @@ export const MultiTagEditor = observer(() => {
       toast.error("Failed to update tags");
     } else {
       toast.success("Tags updated");
-      if (res.data.errors?.length) toast.warn("Some changes were ignored. See logs folder for details");
+      if (res.data.errors?.length)
+        toast.warn("Some changes were ignored. See logs folder for details");
 
       setHasUnsavedChanges(false);
       stores.tagManager.setIsMultiTagEditorOpen(false);

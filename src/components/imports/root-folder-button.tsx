@@ -1,6 +1,5 @@
 import { Fragment } from "react";
-import { observer } from "mobx-react-lite";
-import { useStores } from "store";
+import { observer, useStores } from "store";
 import { Button, Text } from "components";
 import { colors } from "utils";
 import Color from "color";

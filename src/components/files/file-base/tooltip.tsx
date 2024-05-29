@@ -1,5 +1,4 @@
-import { observer } from "mobx-react-lite";
-import { File } from "store";
+import { File, observer } from "store";
 import { Detail, DetailRow, Icon, Tag, Text, Tooltip as TooltipBase, View } from "components";
 import { colors, dayjs, formatBytes, makeClasses } from "utils";
 

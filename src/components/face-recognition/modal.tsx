@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { observer } from "mobx-react-lite";
 import { ModelCreationData } from "mobx-keystone";
-import { FaceModel, useStores } from "store";
+import { FaceModel, observer, useStores } from "store";
 import { CircularProgress } from "@mui/material";
 import { Button, Modal, TagInput, Text, View } from "components";
 import { FaceBox } from ".";

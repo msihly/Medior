@@ -1,5 +1,4 @@
-import { observer } from "mobx-react-lite";
-import { useStores } from "store";
+import { observer, useStores } from "store";
 import { CenteredText, View } from "components";
 import { TagCard } from ".";
 import { makeClasses } from "utils";

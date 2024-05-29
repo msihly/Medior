@@ -9,8 +9,7 @@ import {
   Text,
   View,
 } from "components";
-import { observer } from "mobx-react-lite";
-import { useStores } from "store";
+import { observer, useStores } from "store";
 
 interface LabelProps extends Omit<TagInputProps, "ref" | "value"> {
   inputProps?: Partial<InputProps>;

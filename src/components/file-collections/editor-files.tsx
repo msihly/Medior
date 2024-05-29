@@ -1,6 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
-import { observer } from "mobx-react-lite";
-import { useStores } from "store";
+import { observer, useStores } from "store";
 import { FixedSizeGrid } from "react-window";
 import AutoSizer from "react-virtualized-auto-sizer";
 import { FileCollectionFile } from "components";

@@ -1,6 +1,5 @@
 import { ReactNode, useState } from "react";
-import { observer } from "mobx-react-lite";
-import { Tag as TagType, useStores } from "store";
+import { Tag as TagType, observer, useStores } from "store";
 import { Avatar, Menu } from "@mui/material";
 import { Button, ButtonProps, Chip, ChipProps, Text, View } from "components";
 import { colors, makeClasses } from "utils";

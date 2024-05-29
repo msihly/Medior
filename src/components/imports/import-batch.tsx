@@ -1,7 +1,6 @@
 import path from "path";
 import { useState } from "react";
-import { observer } from "mobx-react-lite";
-import { ImportBatch as ImportBatchType, useStores } from "store";
+import { ImportBatch as ImportBatchType, observer, useStores } from "store";
 import { LinearProgress } from "@mui/material";
 import { Icon, IconButton, Text, View } from "components";
 import { BatchTooltip, ImportCardRow, IMPORT_STATUSES } from ".";

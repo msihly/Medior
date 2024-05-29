@@ -1,7 +1,6 @@
 import { ipcRenderer } from "electron";
 import { WheelEvent, useEffect, useRef } from "react";
-import { observer } from "mobx-react-lite";
-import { useStores } from "store";
+import { observer, useStores } from "store";
 import { PanzoomObject } from "@panzoom/panzoom";
 import { Carousel, CarouselThumbNavigator, CarouselTopBar, View, ZoomContext } from "components";
 import { Views, useHotkeys, useSockets } from "./common";

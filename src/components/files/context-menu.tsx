@@ -1,8 +1,7 @@
 import path from "path";
 import { shell } from "@electron/remote";
 import { ReactNode, useState } from "react";
-import { observer } from "mobx-react-lite";
-import { File, useStores } from "store";
+import { File, observer, useStores } from "store";
 import { Menu } from "@mui/material";
 import { ListItem, View, ViewProps } from "components";
 import { colors, copyToClipboard, makeClasses } from "utils";

@@ -1,7 +1,6 @@
 import { ReactNode, useMemo } from "react";
-import { observer } from "mobx-react-lite";
 import { ModelCreationData } from "mobx-keystone";
-import { FileImport } from "store";
+import { FileImport, observer } from "store";
 import { Divider } from "@mui/material";
 import { Chip, Detail, DetailRow, IconName, Tag, Text, TooltipWrapper, View } from "components";
 import { TagHierarchy } from ".";

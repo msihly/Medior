@@ -1,6 +1,5 @@
-import { observer } from "mobx-react-lite";
-import { TagManagerTag, useStores } from "store";
 import { FileBase, Text } from "components";
+import { TagManagerTag, observer, useStores } from "store";
 import { CONSTANTS, colors, makeClasses } from "utils";
 
 export interface TagCardProps {

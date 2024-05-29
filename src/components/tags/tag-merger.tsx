@@ -1,6 +1,5 @@
 import { useState } from "react";
-import { observer } from "mobx-react-lite";
-import { RegExMap, TagOption, useStores } from "store";
+import { RegExMap, TagOption, observer, useStores } from "store";
 import { Divider } from "@mui/material";
 import {
   Button,

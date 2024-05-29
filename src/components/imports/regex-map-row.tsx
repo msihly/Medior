@@ -1,7 +1,6 @@
 import { useMemo } from "react";
 import { RegExMapType } from "database";
-import { observer } from "mobx-react-lite";
-import { Tag, useStores } from "store";
+import { Tag, observer, useStores } from "store";
 import { InputAdornment } from "@mui/material";
 import { Button, Input, InputProps, View } from "components";
 import { colors, makeClasses } from "utils";

@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { observer } from "mobx-react-lite";
-import { useStores } from "store";
+import { observer, useStores } from "store";
 import { FixedSizeList, ListOnScrollProps } from "react-window";
 import AutoSizer from "react-virtualized-auto-sizer";
 import { CarouselThumb, THUMB_WIDTH } from ".";

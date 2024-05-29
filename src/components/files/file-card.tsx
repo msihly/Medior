@@ -1,6 +1,5 @@
 import { getCurrentWebContents } from "@electron/remote";
-import { observer } from "mobx-react-lite";
-import { File, useStores } from "store";
+import { File, observer, useStores } from "store";
 import { Icon, Text, View } from "components";
 import { ContextMenu, FileBase } from ".";
 import { colors, dayjs, getConfig, openCarouselWindow } from "utils";
@@ -81,7 +80,10 @@ export const FileCard = observer(({ disabled, file, height, id, width }: FileCar
   };
 
   const loadSelectedFiles = async () => {
-    const res = await stores.file.loadFiles({ fileIds: stores.file.selectedIds, withOverwrite: false });
+    const res = await stores.file.loadFiles({
+      fileIds: stores.file.selectedIds,
+      withOverwrite: false,
+    });
     if (!res?.success) throw new Error(res.error);
     return res.data;
   };

@@ -1,6 +1,5 @@
 import { useEffect, useRef } from "react";
-import { observer } from "mobx-react-lite";
-import { useStores } from "store";
+import { observer, useStores } from "store";
 import { useHotkeys } from "views";
 import { Pagination, View } from "components";
 import { DisplayedFiles } from ".";

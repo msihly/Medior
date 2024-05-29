@@ -207,6 +207,14 @@
               "allowTypeImports": true
             },
             {
+              "name": "mobx-react-lite",
+              "importNames": [
+                "observer"
+              ],
+              "message": "Import from from 'store' instead.",
+              "allowTypeImports": true
+            },
+            {
               "name": "@mui/material",
               "importNames": [
                 "TextField",

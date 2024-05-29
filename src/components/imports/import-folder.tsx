@@ -1,7 +1,6 @@
 import path from "path";
-import { observer } from "mobx-react-lite";
 import { ModelCreationData } from "mobx-keystone";
-import { FileImport } from "store";
+import { FileImport, observer } from "store";
 import { FixedSizeList } from "react-window";
 import { Divider } from "@mui/material";
 import { Chip, Text, View } from "components";

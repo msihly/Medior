@@ -1,4 +1,4 @@
-import { observer } from "mobx-react-lite";
+import { observer } from "store";
 import { View } from "components";
 import { colors, makeClasses } from "utils";
 import Color from "color";
@@ -22,6 +22,7 @@ const useClasses = makeClasses({
     padding: "1rem",
     height: "100%",
     backgroundColor: Color(colors.grey["800"]).fade(0.8).string(),
+    overflow: "auto",
   },
   root: {
     height: "100vh",

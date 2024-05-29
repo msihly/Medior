@@ -1,9 +1,8 @@
 import path from "path";
 import { useState } from "react";
 import { RegExMapType } from "database";
-import { observer } from "mobx-react-lite";
 import { ModelCreationData } from "mobx-keystone";
-import { FileImport, Tag, useStores } from "store";
+import { FileImport, Tag, observer, useStores } from "store";
 import { Divider } from "@mui/material";
 import {
   Button,

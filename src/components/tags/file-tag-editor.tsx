@@ -1,6 +1,5 @@
 import { useState } from "react";
-import { observer } from "mobx-react-lite";
-import { TagOption, tagToOption, useStores } from "store";
+import { TagOption, tagToOption, observer, useStores } from "store";
 import { Button, ConfirmModal, Modal, TagInput, Text, View } from "components";
 import { colors, useDeepEffect } from "utils";
 import { toast } from "react-toastify";

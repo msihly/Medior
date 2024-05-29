@@ -1,5 +1,4 @@
-import { observer } from "mobx-react-lite";
-import { FaceModel } from "store";
+import { FaceModel, observer } from "store";
 import { View } from "components";
 import { makeClasses } from "utils";
 

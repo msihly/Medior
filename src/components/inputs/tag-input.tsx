@@ -8,8 +8,7 @@ import {
   useEffect,
   useState,
 } from "react";
-import { observer } from "mobx-react-lite";
-import { SearchTagType, TagOption, useStores } from "store";
+import { SearchTagType, TagOption, observer, useStores } from "store";
 import {
   Autocomplete,
   AutocompleteChangeReason,

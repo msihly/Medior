@@ -1,5 +1,4 @@
-import { observer } from "mobx-react-lite";
-import { useStores } from "store";
+import { observer, useStores } from "store";
 import { NumInput, NumInputProps } from "components";
 
 export interface SettingsNumInputProps extends NumInputProps {}
