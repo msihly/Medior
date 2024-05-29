@@ -93,139 +93,59 @@ const createDbServer = async () => {
 /* ----------------------------- API / ROUTER ------------------------------ */
 const t = initTRPC.create();
 const tRouter = t.router;
-const tProc = t.procedure;
 
 /** All resources defined as mutation to deal with max length URLs in GET requests.
  * @see https://github.com/trpc/trpc/discussions/1936
  */
+const endpoint = <Input, Output>(fn: (input: Input) => Output) =>
+  t.procedure.input((input: Input) => input).mutation(({ input }) => fn(input));
+
 const trpcRouter = tRouter({
-  completeImportBatch: tProc
-    .input((input: unknown) => input as db.CompleteImportBatchInput)
-    .mutation(({ input }) => db.completeImportBatch(input)),
-  createCollection: tProc
-    .input((input: unknown) => input as db.CreateCollectionInput)
-    .mutation(({ input }) => db.createCollection(input)),
-  createImportBatches: tProc
-    .input((input: unknown) => input as db.CreateImportBatchesInput)
-    .mutation(({ input }) => db.createImportBatches(input)),
-  createTag: tProc
-    .input((input: unknown) => input as db.CreateTagInput)
-    .mutation(({ input }) => db.createTag(input)),
-  deleteCollection: tProc
-    .input((input: unknown) => input as db.DeleteCollectionInput)
-    .mutation(({ input }) => db.deleteCollection(input)),
-  deleteFiles: tProc
-    .input((input: unknown) => input as db.DeleteFilesInput)
-    .mutation(({ input }) => db.deleteFiles(input)),
-  deleteImportBatches: tProc
-    .input((input: unknown) => input as db.DeleteImportBatchesInput)
-    .mutation(({ input }) => db.deleteImportBatches(input)),
-  deleteTag: tProc
-    .input((input: unknown) => input as db.DeleteTagInput)
-    .mutation(({ input }) => db.deleteTag(input)),
-  detectFaces: tProc
-    .input((input: unknown) => input as db.DetectFacesInput)
-    .mutation(({ input }) => db.detectFaces(input)),
-  editFileTags: tProc
-    .input((input: unknown) => input as db.EditFileTagsInput)
-    .mutation(({ input }) => db.editFileTags(input)),
-  editMultiTagRelations: tProc
-    .input((input: unknown) => input as db.EditMultiTagRelationsInput)
-    .mutation(({ input }) => db.editMultiTagRelations(input)),
-  editTag: tProc
-    .input((input: unknown) => input as db.EditTagInput)
-    .mutation(({ input }) => db.editTag(input)),
-  getDeletedFile: tProc
-    .input((input: unknown) => input as db.GetDeletedFileInput)
-    .mutation(({ input }) => db.getDeletedFile(input)),
-  getFileByHash: tProc
-    .input((input: unknown) => input as db.GetFileByHashInput)
-    .mutation(({ input }) => db.getFileByHash(input)),
-  getShiftSelectedFiles: tProc
-    .input((input: unknown) => input as db.GetShiftSelectedFilesInput)
-    .mutation(({ input }) => db.getShiftSelectedFiles(input)),
-  getShiftSelectedTags: tProc
-    .input((input: unknown) => input as db.GetShiftSelectedTagsInput)
-    .mutation(({ input }) => db.getShiftSelectedTags(input)),
-  importFile: tProc
-    .input((input: unknown) => input as db.ImportFileInput)
-    .mutation(({ input }) => db.importFile(input)),
-  listAllCollectionIds: tProc.mutation(db.listAllCollectionIds),
-  listDeletedFiles: tProc.mutation(db.listDeletedFiles),
-  listFilteredCollections: tProc
-    .input((input: unknown) => input as db.ListFilteredCollectionsInput)
-    .mutation(({ input }) => db.listFilteredCollections(input)),
-  listFaceModels: tProc
-    .input((input: unknown) => input as db.ListFaceModelsInput)
-    .mutation(({ input }) => db.listFaceModels(input)),
-  listFiles: tProc
-    .input((input: unknown) => input as db.ListFilesInput)
-    .mutation(({ input }) => db.listFiles(input)),
-  listFilesByTagIds: tProc
-    .input((input: unknown) => input as db.ListFilesByTagIdsInput)
-    .mutation(({ input }) => db.listFilesByTagIds(input)),
-  listFileIdsForCarousel: tProc
-    .input((input: unknown) => input as db.ListFileIdsForCarouselInput)
-    .mutation(({ input }) => db.listFileIdsForCarousel(input)),
-  listFilteredFiles: tProc
-    .input((input: unknown) => input as db.ListFilteredFilesInput)
-    .mutation(({ input }) => db.listFilteredFiles(input)),
-  listFilteredTags: tProc
-    .input((input: unknown) => input as db.ListFilteredTagsInput)
-    .mutation(({ input }) => db.listFilteredTags(input)),
-  listImportBatches: tProc.mutation(db.listImportBatches),
-  listTags: tProc
-    .input((input: unknown) => input as db.ListTagsInput)
-    .mutation(({ input }) => db.listTags(input)),
-  loadFaceApiNets: tProc.mutation(db.loadFaceApiNets),
-  mergeTags: tProc
-    .input((input: unknown) => input as db.MergeTagsInput)
-    .mutation(({ input }) => db.mergeTags(input)),
-  recalculateTagCounts: tProc
-    .input((input: unknown) => input as db.RecalculateTagCountsInput)
-    .mutation(({ input }) => db.recalculateTagCounts(input)),
-  refreshTagRelations: tProc
-    .input((input: unknown) => input as db.RefreshTagRelationsInput)
-    .mutation(({ input }) => db.refreshTagRelations(input)),
-  regenTagThumbPaths: tProc
-    .input((input: unknown) => input as db.RegenTagThumbPathsInput)
-    .mutation(({ input }) => db.regenTagThumbPaths(input)),
-  regenCollAttrs: tProc
-    .input((input: unknown) => input as db.RegenCollAttrsInput)
-    .mutation(({ input }) => db.regenCollAttrs(input)),
-  reloadServers: tProc
-    .input((input: unknown) => input as db.StartServersInput)
-    .mutation(({ input }) => startServers(input)),
-  refreshTags: tProc
-    .input((input: unknown) => input as db.RefreshTagInput)
-    .mutation(({ input }) => db.refreshTag(input)),
-  setFileFaceModels: tProc
-    .input((input: unknown) => input as db.SetFileFaceModelsInput)
-    .mutation(({ input }) => db.setFileFaceModels(input)),
-  setFileIsArchived: tProc
-    .input((input: unknown) => input as db.SetFileIsArchivedInput)
-    .mutation(({ input }) => db.setFileIsArchived(input)),
-  setFileRating: tProc
-    .input((input: unknown) => input as db.SetFileRatingInput)
-    .mutation(({ input }) => db.setFileRating(input)),
-  setTagCount: tProc
-    .input((input: unknown) => input as db.SetTagCountInput)
-    .mutation(({ input }) => db.setTagCount(input)),
-  startImportBatch: tProc
-    .input((input: unknown) => input as db.StartImportBatchInput)
-    .mutation(({ input }) => db.startImportBatch(input)),
-  updateFile: tProc
-    .input((input: unknown) => input as db.UpdateFileInput)
-    .mutation(({ input }) => db.updateFile(input)),
-  updateFileImportByPath: tProc
-    .input((input: unknown) => input as db.UpdateFileImportByPathInput)
-    .mutation(({ input }) => db.updateFileImportByPath(input)),
-  updateCollection: tProc
-    .input((input: unknown) => input as db.UpdateCollectionInput)
-    .mutation(({ input }) => db.updateCollection(input)),
-  upsertTag: tProc
-    .input((input: unknown) => input as db.UpsertTagInput)
-    .mutation(({ input }) => db.upsertTag(input)),
+  completeImportBatch: endpoint(db.completeImportBatch),
+  createCollection: endpoint(db.createCollection),
+  createImportBatches: endpoint(db.createImportBatches),
+  createTag: endpoint(db.createTag),
+  deleteCollection: endpoint(db.deleteCollection),
+  deleteFiles: endpoint(db.deleteFiles),
+  deleteImportBatches: endpoint(db.deleteImportBatches),
+  deleteTag: endpoint(db.deleteTag),
+  detectFaces: endpoint(db.detectFaces),
+  editFileTags: endpoint(db.editFileTags),
+  editMultiTagRelations: endpoint(db.editMultiTagRelations),
+  editTag: endpoint(db.editTag),
+  getDeletedFile: endpoint(db.getDeletedFile),
+  getFileByHash: endpoint(db.getFileByHash),
+  getShiftSelectedFiles: endpoint(db.getShiftSelectedFiles),
+  getShiftSelectedTags: endpoint(db.getShiftSelectedTags),
+  importFile: endpoint(db.importFile),
+  listAllCollectionIds: endpoint(db.listAllCollectionIds),
+  listDeletedFiles: endpoint(db.listDeletedFiles),
+  listFilteredCollections: endpoint(db.listFilteredCollections),
+  listFaceModels: endpoint(db.listFaceModels),
+  listFiles: endpoint(db.listFiles),
+  listFilesByTagIds: endpoint(db.listFilesByTagIds),
+  listFileIdsForCarousel: endpoint(db.listFileIdsForCarousel),
+  listFilteredFiles: endpoint(db.listFilteredFiles),
+  listFilteredTags: endpoint(db.listFilteredTags),
+  listImportBatches: endpoint(db.listImportBatches),
+  listTags: endpoint(db.listTags),
+  loadFaceApiNets: endpoint(db.loadFaceApiNets),
+  mergeTags: endpoint(db.mergeTags),
+  recalculateTagCounts: endpoint(db.recalculateTagCounts),
+  refreshTagRelations: endpoint(db.refreshTagRelations),
+  regenTagThumbPaths: endpoint(db.regenTagThumbPaths),
+  regenCollAttrs: endpoint(db.regenCollAttrs),
+  reloadServers: endpoint((args) => startServers(args)),
+  refreshTag: endpoint(db.refreshTag),
+  setFileFaceModels: endpoint(db.setFileFaceModels),
+  setFileIsArchived: endpoint(db.setFileIsArchived),
+  setFileRating: endpoint(db.setFileRating),
+  setTagCount: endpoint(db.setTagCount),
+  startImportBatch: endpoint(db.startImportBatch),
+  updateFile: endpoint(db.updateFile),
+  updateCollection: endpoint(db.updateCollection),
+  updateFileImportByPath: endpoint(db.updateFileImportByPath),
+  upsertTag: endpoint(db.upsertTag),
 });
 export type TRPCRouter = typeof trpcRouter;
 
