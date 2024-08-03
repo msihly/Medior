@@ -1,7 +1,6 @@
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { Checkbox as MuiCheckbox, FormControlLabel } from "@mui/material";
-import { CSSObject } from "tss-react";
-import { Padding, colors, makeClasses } from "utils";
+import { colors, CSS, makeClasses, Padding } from "utils";
 
 export interface CheckboxProps {
   center?: boolean;
@@ -9,7 +8,7 @@ export interface CheckboxProps {
   className?: string;
   color?: string;
   disabled?: boolean;
-  flex?: CSSObject["flex"];
+  flex?: CSS["flex"];
   fullWidth?: boolean;
   indeterminate?: boolean;
   label?: string;
@@ -53,7 +52,7 @@ interface ClassesProps {
   center: boolean;
   color: string;
   disabled: boolean;
-  flex: CSSObject["flex"];
+  flex: CSS["flex"];
   fullWidth: boolean;
   padding?: Padding;
 }
@@ -81,7 +80,7 @@ const useClasses = makeClasses(
       transition: "all 200ms ease-in-out",
       userSelect: "none",
       "&:hover": {
-        backgroundColor: "rgb(50 50 50 / 0.3)"
+        backgroundColor: "rgb(50 50 50 / 0.3)",
       },
       "& .MuiFormControlLabel-label": {
         paddingRight: "0.4em",

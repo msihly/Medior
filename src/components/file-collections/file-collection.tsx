@@ -1,13 +1,12 @@
 import { observer, useStores } from "store";
 import { FileBase, Text } from "components";
 import { CollectionTooltip } from ".";
-import { colors, makeClasses, round } from "utils";
-import { CSSObject } from "tss-react";
+import { colors, CSS, makeClasses, round } from "utils";
 
 export interface FileCollectionProps {
-  height?: CSSObject["height"];
+  height?: CSS["height"];
   id: string;
-  width?: CSSObject["width"];
+  width?: CSS["width"];
 }
 
 export const FileCollection = observer(({ height, id, width }: FileCollectionProps) => {

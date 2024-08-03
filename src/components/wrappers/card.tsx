@@ -1,11 +1,10 @@
 import { View, ViewProps } from ".";
-import { makeClasses } from "utils";
-import { CSSObject } from "tss-react";
+import { CSS, makeClasses } from "utils";
 
 export interface CardProps extends Omit<ViewProps, "padding"> {
-  bgColor?: CSSObject["backgroundColor"];
-  borderRadius?: CSSObject["borderRadius"];
-  padding?: CSSObject["padding"];
+  bgColor?: CSS["backgroundColor"];
+  borderRadius?: CSS["borderRadius"];
+  padding?: CSS["padding"];
 }
 
 export const Card = ({
@@ -26,9 +25,9 @@ export const Card = ({
 };
 
 interface ClassesProps {
-  bgColor: CSSObject["backgroundColor"];
-  borderRadius: CSSObject["borderRadius"];
-  padding: CSSObject["padding"];
+  bgColor: CSS["backgroundColor"];
+  borderRadius: CSS["borderRadius"];
+  padding: CSS["padding"];
 }
 
 const useClasses = makeClasses((_, { bgColor, borderRadius, padding }: ClassesProps) => ({

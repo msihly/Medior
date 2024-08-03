@@ -1,11 +1,10 @@
 import { Button, Icon, IconName, IconProps, Text, View } from "components";
 import { ButtonProps, MenuButton, SortRow } from ".";
-import { colors, makeClasses } from "utils";
-import { CSSObject } from "tss-react";
+import { colors, CSS, makeClasses } from "utils";
 
 export interface SortMenuProps extends Omit<ButtonProps, "onChange" | "value"> {
   color?: string;
-  labelWidth?: CSSObject["width"];
+  labelWidth?: CSS["width"];
   rows: {
     attribute: string;
     label: string;
@@ -14,7 +13,7 @@ export interface SortMenuProps extends Omit<ButtonProps, "onChange" | "value"> {
   }[];
   setValue: (value: { isDesc: boolean; key: string }) => void;
   value: { isDesc: boolean; key: string };
-  width?: CSSObject["width"];
+  width?: CSS["width"];
 }
 
 export const SortMenu = ({
@@ -65,8 +64,8 @@ export const SortMenu = ({
 };
 
 interface ClassesProps {
-  labelWidth: CSSObject["width"];
-  width: CSSObject["width"];
+  labelWidth: CSS["width"];
+  width: CSS["width"];
 }
 
 const useClasses = makeClasses((_, { labelWidth, width }: ClassesProps) => ({

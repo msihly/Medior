@@ -1,7 +1,6 @@
 import { ReactNode } from "react";
 import { Text, View } from "components";
-import { colors, makeClasses } from "utils";
-import { CSSObject } from "tss-react";
+import { colors, CSS, makeClasses } from "utils";
 
 type Row = {
   label: string | ReactNode;
@@ -9,7 +8,7 @@ type Row = {
 };
 
 interface DetailRowsProps {
-  labelWidth?: CSSObject["maxWidth"];
+  labelWidth?: CSS["maxWidth"];
   rows: Row[];
 }
 

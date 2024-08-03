@@ -2,25 +2,28 @@
 import { colors as muiColors } from "@mui/material";
 import { Theme, useTheme } from "@mui/material/styles";
 import Color from "color";
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { createMakeAndWithStyles, CSSObject, Cx } from "tss-react";
 
+export type CSS = CSSObject;
+
 export type Margins = {
-  all?: CSSObject["margin"];
-  top?: CSSObject["marginTop"];
-  bottom?: CSSObject["marginBottom"];
-  right?: CSSObject["marginRight"];
-  left?: CSSObject["marginLeft"];
+  all?: CSS["margin"];
+  top?: CSS["marginTop"];
+  bottom?: CSS["marginBottom"];
+  right?: CSS["marginRight"];
+  left?: CSS["marginLeft"];
 };
 
 export type Padding = {
-  all?: CSSObject["padding"];
-  top?: CSSObject["paddingTop"];
-  bottom?: CSSObject["paddingBottom"];
-  right?: CSSObject["paddingRight"];
-  left?: CSSObject["paddingLeft"];
+  all?: CSS["padding"];
+  top?: CSS["paddingTop"];
+  bottom?: CSS["paddingBottom"];
+  right?: CSS["paddingRight"];
+  left?: CSS["paddingLeft"];
 };
 
-type ClassName<T> = { [P in keyof T]: CSSObject };
+type ClassName<T> = { [P in keyof T]: CSS };
 
 const { makeStyles } = createMakeAndWithStyles({ useTheme });
 

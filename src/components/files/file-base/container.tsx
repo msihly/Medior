@@ -1,21 +1,20 @@
 import { MouseEvent, ReactNode } from "react";
 import { Paper } from "@mui/material";
 import { View, ViewProps } from "components";
-import { CSSObject } from "tss-react";
-import { colors, makeClasses } from "utils";
+import { colors, CSS, makeClasses } from "utils";
 import Color from "color";
 
 interface ContainerProps extends ViewProps {
   children: ReactNode | ReactNode[];
   className?: string;
   disabled?: boolean;
-  display?: CSSObject["display"];
-  height?: CSSObject["height"];
+  display?: CSS["display"];
+  height?: CSS["height"];
   onClick?: (event: MouseEvent) => void;
   onDoubleClick?: () => void;
   selected?: boolean;
   selectedColor?: string;
-  width?: CSSObject["width"];
+  width?: CSS["width"];
 }
 
 export const Container = ({
@@ -49,11 +48,11 @@ export const Container = ({
 
 interface ClassesProps {
   disabled?: boolean;
-  display: CSSObject["display"];
-  height?: CSSObject["height"];
+  display: CSS["display"];
+  height?: CSS["height"];
   selected?: boolean;
   selectedColor: string;
-  width?: CSSObject["width"];
+  width?: CSS["width"];
 }
 
 const useClasses = makeClasses(

@@ -1,13 +1,12 @@
 import { ReactNode } from "react";
 import { Text, TextProps, View, ViewProps } from "components";
-import { colors, makeClasses } from "utils";
-import { CSSObject } from "tss-react";
+import { CSS, colors, makeClasses } from "utils";
 
 export interface DetailProps extends ViewProps {
   label: ReactNode;
   labelProps?: Partial<TextProps>;
-  overflowX?: CSSObject["overflowX"];
-  overflowY?: CSSObject["overflowY"];
+  overflowX?: CSS["overflowX"];
+  overflowY?: CSS["overflowY"];
   tooltip?: ReactNode;
   value: ReactNode;
   valueProps?: Partial<TextProps>;
@@ -58,8 +57,8 @@ export const Detail = ({
 };
 
 interface ClassesProps {
-  overflowX: CSSObject["overflowX"];
-  overflowY: CSSObject["overflowY"];
+  overflowX: CSS["overflowX"];
+  overflowY: CSS["overflowY"];
 }
 
 const useClasses = makeClasses((_, { overflowX, overflowY }: ClassesProps) => ({

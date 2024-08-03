@@ -288,8 +288,16 @@
               "importNames": [
                 "CSSObject"
               ],
-              "message": "Import from 'tss-react' instead.",
-              "allowTypeImports": true
+              "message": "Import 'CSS' from 'utils' instead.",
+              "allowTypeImports": false
+            },
+            {
+              "name": "tss-react",
+              "importNames": [
+                "CSSObject"
+              ],
+              "message": "Import 'CSS' from 'utils' instead.",
+              "allowTypeImports": false
             },
             {
               "name": "dayjs",

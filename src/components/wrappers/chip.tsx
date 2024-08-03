@@ -2,14 +2,13 @@ import { ReactNode } from "react";
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { Chip as MuiChip, ChipProps as MuiChipProps } from "@mui/material";
 import { Icon, IconName } from "components";
-import { Padding, makeClasses } from "utils";
-import { CSSObject } from "tss-react";
+import { CSS, makeClasses, Padding } from "utils";
 
 export interface ChipProps extends Omit<MuiChipProps, "color" | "icon"> {
-  bgColor?: CSSObject["backgroundColor"];
+  bgColor?: CSS["backgroundColor"];
   className?: string;
-  color?: CSSObject["color"];
-  height?: CSSObject["height"];
+  color?: CSS["color"];
+  height?: CSS["height"];
   icon?: IconName;
   iconColor?: string;
   label: ReactNode;

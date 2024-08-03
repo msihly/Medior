@@ -2,24 +2,23 @@ import { ChangeEvent, forwardRef, MutableRefObject, ReactNode } from "react";
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { TextField, TextFieldProps } from "@mui/material";
 import { ConditionalWrap, Text, TextProps, View } from "components";
-import { CSSObject } from "tss-react";
-import { makeClasses, Margins } from "utils";
+import { CSS, makeClasses, Margins } from "utils";
 import Color from "color";
 
 export interface InputProps extends Omit<TextFieldProps, "color" | "onChange" | "helperText"> {
   className?: string;
   color?: string;
   detachLabel?: boolean;
-  flex?: CSSObject["flex"];
+  flex?: CSS["flex"];
   hasHelper?: boolean;
   helperText?: ReactNode;
   labelProps?: Partial<TextProps>;
   margins?: Margins;
   maxLength?: number;
   setValue?: (value: string) => void;
-  textAlign?: CSSObject["textAlign"];
+  textAlign?: CSS["textAlign"];
   value?: string;
-  width?: CSSObject["width"];
+  width?: CSS["width"];
 }
 
 export const Input = forwardRef(
@@ -101,13 +100,13 @@ export const Input = forwardRef(
 
 interface ClassesProps {
   color: string;
-  flex: CSSObject["flex"];
+  flex: CSS["flex"];
   hasHelper: boolean;
   hasHelperText: boolean;
   hasOnClick: boolean;
   margins: Margins;
-  textAlign: CSSObject["textAlign"];
-  width: CSSObject["width"];
+  textAlign: CSS["textAlign"];
+  width: CSS["width"];
 }
 
 const useClasses = makeClasses(

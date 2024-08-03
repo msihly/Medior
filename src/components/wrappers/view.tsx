@@ -1,21 +1,20 @@
 import { forwardRef, HTMLAttributes, MutableRefObject, ReactNode } from "react";
-import { CSSObject } from "tss-react";
-import { makeClasses, Margins, Padding } from "utils";
+import { CSS, makeClasses, Margins, Padding } from "utils";
 
 export interface ViewProps extends HTMLAttributes<HTMLDivElement> {
-  align?: CSSObject["alignItems"];
+  align?: CSS["alignItems"];
   children?: ReactNode | ReactNode[];
   className?: string;
   column?: boolean;
-  flex?: CSSObject["flex"];
-  height?: CSSObject["height"];
-  justify?: CSSObject["justifyContent"];
+  flex?: CSS["flex"];
+  height?: CSS["height"];
+  justify?: CSS["justifyContent"];
   margins?: Margins;
-  overflow?: CSSObject["overflow"];
+  overflow?: CSS["overflow"];
   padding?: Padding;
   row?: boolean;
-  spacing?: CSSObject["marginRight"];
-  width?: CSSObject["width"];
+  spacing?: CSS["marginRight"];
+  width?: CSS["width"];
 }
 
 export const View = forwardRef(
@@ -61,17 +60,17 @@ export const View = forwardRef(
 );
 
 interface ClassesProps {
-  align: CSSObject["alignItems"];
+  align: CSS["alignItems"];
   column: boolean;
-  flex: CSSObject["flex"];
-  height: CSSObject["height"];
-  justify: CSSObject["justifyContent"];
+  flex: CSS["flex"];
+  height: CSS["height"];
+  justify: CSS["justifyContent"];
   margins: Margins;
-  overflow: CSSObject["overflow"];
+  overflow: CSS["overflow"];
   padding: Padding;
   row: boolean;
-  spacing: CSSObject["marginRight"];
-  width: CSSObject["width"];
+  spacing: CSS["marginRight"];
+  width: CSS["width"];
 }
 
 const useClasses = makeClasses((_, props: ClassesProps) => ({

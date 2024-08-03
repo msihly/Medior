@@ -7,8 +7,7 @@ import {
   useState,
 } from "react";
 import { View } from "components";
-import { makeClasses } from "utils";
-import { CSSObject } from "tss-react";
+import { CSS, makeClasses } from "utils";
 
 interface ImageProps
   extends Omit<
@@ -20,7 +19,7 @@ interface ImageProps
   disabled?: boolean;
   draggable?: boolean;
   fit?: "contain" | "cover";
-  height?: CSSObject["height"];
+  height?: CSS["height"];
   rounded?: "all" | "bottom" | "top";
   title?: string;
   thumbPaths: string[];
@@ -43,7 +42,7 @@ export const Image = ({
 }: ImageProps) => {
   const thumbInterval = useRef(null);
 
-  const [imagePos, setImagePos] = useState<CSSObject["objectPosition"]>(null);
+  const [imagePos, setImagePos] = useState<CSS["objectPosition"]>(null);
   const [thumbIndex, setThumbIndex] = useState(0);
 
   const { css, cx } = useClasses({ fit, height, imagePos, rounded });
@@ -112,7 +111,7 @@ export const Image = ({
 interface ClassesProps {
   fit: ImageProps["fit"];
   height: ImageProps["height"];
-  imagePos: CSSObject["objectPosition"];
+  imagePos: CSS["objectPosition"];
   rounded: ImageProps["rounded"];
 }
 

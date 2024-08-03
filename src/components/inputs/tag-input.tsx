@@ -16,8 +16,7 @@ import {
   AutocompleteRenderInputParams,
 } from "@mui/material";
 import { Button, Chip, IconName, Input, InputProps, ListItem, Tag, View } from "components";
-import { colors, makeClasses, Margins, socket, useDeepMemo } from "utils";
-import { CSSObject } from "tss-react";
+import { colors, CSS, makeClasses, Margins, socket, useDeepMemo } from "utils";
 import { toast } from "react-toastify";
 
 const SEARCH_MENU_META: {
@@ -74,7 +73,7 @@ export type TagInputProps = Omit<
   onChange?: (val: TagOption[]) => void;
   onSelect?: (val: TagOption) => void;
   value: TagOption[];
-  width?: CSSObject["width"];
+  width?: CSS["width"];
 };
 
 export const TagInput = observer(

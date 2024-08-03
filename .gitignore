@@ -24,3 +24,4 @@ FileStorage/
 logs/
 MongoDB/
 npm-debug.log*
+plugins/

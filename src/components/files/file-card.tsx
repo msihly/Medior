@@ -2,15 +2,14 @@ import { getCurrentWebContents } from "@electron/remote";
 import { File, observer, useStores } from "store";
 import { Icon, Text, View } from "components";
 import { ContextMenu, FileBase } from ".";
-import { colors, dayjs, getConfig, openCarouselWindow } from "utils";
-import { CSSObject } from "tss-react";
+import { colors, CSS, dayjs, getConfig, openCarouselWindow } from "utils";
 
 interface FileCardProps {
   disabled?: boolean;
   file?: File;
-  height?: CSSObject["height"];
+  height?: CSS["height"];
   id?: string;
-  width?: CSSObject["width"];
+  width?: CSS["width"];
 }
 
 export const FileCard = observer(({ disabled, file, height, id, width }: FileCardProps) => {

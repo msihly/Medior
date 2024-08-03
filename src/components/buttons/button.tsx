@@ -7,8 +7,7 @@ import {
   CircularProgress,
 } from "@mui/material";
 import { Icon, IconName, IconProps, Text, TooltipProps, TooltipWrapper, View } from "components";
-import { colors, makeClasses, Margins, Padding } from "utils";
-import { CSSObject } from "tss-react";
+import { colors, CSS, makeClasses, Margins, Padding } from "utils";
 import Color from "color";
 
 export interface ButtonProps
@@ -19,13 +18,13 @@ export interface ButtonProps
   color?: string;
   circle?: boolean;
   endNode?: ReactNode;
-  fontSize?: CSSObject["fontSize"];
-  fontWeight?: CSSObject["fontWeight"];
+  fontSize?: CSS["fontSize"];
+  fontWeight?: CSS["fontWeight"];
   icon?: IconName;
   iconProps?: Partial<IconProps>;
   iconRight?: IconName;
   iconSize?: string | number;
-  justify?: CSSObject["justifyContent"];
+  justify?: CSS["justifyContent"];
   loading?: boolean;
   margins?: Margins;
   outlined?: boolean;
@@ -35,11 +34,11 @@ export interface ButtonProps
   text?: string;
   textColor?: string;
   textClassName?: string;
-  textTransform?: CSSObject["textTransform"];
+  textTransform?: CSS["textTransform"];
   tooltip?: TooltipProps["title"];
   tooltipProps?: Partial<TooltipProps>;
   type?: "button" | "link";
-  width?: CSSObject["width"];
+  width?: CSS["width"];
 }
 
 export const Button = ({
@@ -145,14 +144,14 @@ interface ClassesProps {
   color: string;
   isCircle: boolean;
   isLink: boolean;
-  justify: CSSObject["justifyContent"];
+  justify: CSS["justifyContent"];
   margins: Margins;
   outlined: boolean;
   outlineFill: string;
   padding: Padding;
   textColor: string;
-  textTransform: CSSObject["textTransform"];
-  width: CSSObject["width"];
+  textTransform: CSS["textTransform"];
+  width: CSS["width"];
 }
 
 const useClasses = makeClasses(

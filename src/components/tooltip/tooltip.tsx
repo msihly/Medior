@@ -1,18 +1,17 @@
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { Tooltip as MuiTooltip, TooltipProps as MuiTooltipProps } from "@mui/material";
 import { View } from "components";
-import { colors, makeClasses } from "utils";
-import { CSSObject } from "tss-react";
+import { colors, CSS, makeClasses } from "utils";
 
 export interface TooltipProps extends Omit<MuiTooltipProps, "children" | "color"> {
-  arrowColor?: CSSObject["color"];
-  bgColor?: CSSObject["backgroundColor"];
+  arrowColor?: CSS["color"];
+  bgColor?: CSS["backgroundColor"];
   children: JSX.Element | JSX.Element[];
-  color?: CSSObject["color"];
-  flexShrink?: CSSObject["flexShrink"];
-  fontSize?: CSSObject["fontSize"];
-  maxWidth?: CSSObject["maxWidth"];
-  minWidth?: CSSObject["minWidth"];
+  color?: CSS["color"];
+  flexShrink?: CSS["flexShrink"];
+  fontSize?: CSS["fontSize"];
+  maxWidth?: CSS["maxWidth"];
+  minWidth?: CSS["minWidth"];
 }
 
 export const Tooltip = ({

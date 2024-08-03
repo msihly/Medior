@@ -1,18 +1,17 @@
+import { useEffect, useState } from "react";
 import { DatePicker, DatePickerProps } from "@mui/x-date-pickers/DatePicker";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import { ConditionalWrap, Text, TextProps, View } from "components";
-import { dayjs, makeClasses } from "utils";
-import { CSSObject } from "tss-react";
-import { useEffect, useState } from "react";
+import { CSS, dayjs, makeClasses } from "utils";
 
 export interface DateInputProps extends Omit<DatePickerProps<dayjs.Dayjs>, "onChange" | "value"> {
   detachLabel?: boolean;
-  flex?: CSSObject["flex"];
+  flex?: CSS["flex"];
   labelProps?: TextProps;
   setValue?: (val: string) => void;
   value: string;
-  width?: CSSObject["width"];
+  width?: CSS["width"];
 }
 
 export const DateInput = ({
@@ -60,8 +59,8 @@ export const DateInput = ({
 };
 
 interface ClassesProps {
-  flex?: CSSObject["flex"];
-  width?: CSSObject["width"];
+  flex?: CSS["flex"];
+  width?: CSS["width"];
 }
 
 const useClasses = makeClasses((_, { flex, width }: ClassesProps) => ({

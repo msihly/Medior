@@ -2,13 +2,12 @@ import { ReactNode } from "react";
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { DialogTitle } from "@mui/material";
 import { ConditionalWrap, View } from "components";
-import { makeClasses } from "utils";
-import { CSSObject } from "tss-react";
+import { CSS, makeClasses } from "utils";
 
 interface HeaderProps {
   children: JSX.Element | JSX.Element[];
   className?: string;
-  justify?: CSSObject["justifyContent"];
+  justify?: CSS["justifyContent"];
   leftNode?: ReactNode;
   rightNode?: ReactNode;
 }

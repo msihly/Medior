@@ -1,19 +1,18 @@
-// eslint-disable-next-line @typescript-eslint/no-restricted-imports
-import { Dialog, DialogProps, Paper, PaperProps } from "@mui/material";
 import { useRef } from "react";
 import Draggable from "react-draggable";
-import { CSSObject } from "tss-react";
-import { makeClasses } from "utils";
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
+import { Dialog, DialogProps, Paper, PaperProps } from "@mui/material";
+import { CSS, makeClasses } from "utils";
 
 export interface ContainerProps
   extends Omit<DialogProps, "maxWidth" | "open" | "onClose" | "title"> {
   closeOnBackdrop?: boolean;
-  height?: CSSObject["height"];
-  maxHeight?: CSSObject["maxHeight"];
-  maxWidth?: CSSObject["maxWidth"];
+  height?: CSS["height"];
+  maxHeight?: CSS["maxHeight"];
+  maxWidth?: CSS["maxWidth"];
   onClose?: () => void;
   visible?: boolean;
-  width?: CSSObject["width"];
+  width?: CSS["width"];
 }
 
 export const Container = ({

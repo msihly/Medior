@@ -1,7 +1,7 @@
 import { CSSProperties } from "react";
 import { FileCollectionFile as FileColFile, observer, useStores } from "store";
 import { useSortable } from "@alissavrk/dnd-kit-sortable";
-import { CSS } from "@alissavrk/dnd-kit-utilities";
+import { CSS as CSSUtils } from "@alissavrk/dnd-kit-utilities";
 import { FileBase, View } from "components";
 import { colors, dayjs, openCarouselWindow } from "utils";
 
@@ -67,7 +67,7 @@ export const FileCollectionFile = observer(
         ref={setNodeRef}
         {...attributes}
         {...listeners}
-        style={{ ...style, transform: CSS.Transform.toString(transform), transition }}
+        style={{ ...style, transform: CSSUtils.Transform.toString(transform), transition }}
       >
         <FileBase.Container
           {...{ disabled, height, width }}
