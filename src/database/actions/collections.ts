@@ -74,9 +74,9 @@ export const regenCollAttrs = async ({ collIds, fileIds }: db.RegenCollAttrsInpu
   handleErrors(async () => {
     const collections = (
       await db.FileCollectionModel.find({
-        ...(collIds.length
+        ...(collIds?.length
           ? { _id: { $in: objectIds(collIds) } }
-          : fileIds.length
+          : fileIds?.length
           ? { fileIdIndexes: { $elemMatch: { fileId: { $in: fileIds } } } }
           : {}),
       })

@@ -69,6 +69,13 @@ export type CreateImportBatchesInput = {
 
 export type DeleteImportBatchesInput = { ids: string[] };
 
+export type ImportStats = {
+  completedBytes: number;
+  elapsedTime: number;
+  rateInBytes: number;
+  totalBytes: number;
+};
+
 export type RemoveTagsFromBatchInput = { batchId: string; tagIds: string[] };
 
 export type StartImportBatchInput = { id: string };
@@ -226,6 +233,7 @@ export type CreateTagInput = {
   label: string;
   parentIds?: string[];
   regExMap?: db.RegExMap;
+  withRegen?: boolean;
   withSub?: boolean;
 };
 
@@ -254,7 +262,7 @@ export type ListFilteredTagsInput = CreateTagFilterPipelineInput & {
   pageSize: number;
 };
 
-export type MergeTagsInput = Omit<Required<CreateTagInput>, "withSub"> & {
+export type MergeTagsInput = Omit<Required<CreateTagInput>, "withRegen" | "withSub"> & {
   tagIdToKeep: string;
   tagIdToMerge: string;
 };

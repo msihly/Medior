@@ -40,6 +40,11 @@ export const createImportBatches = (batches: db.CreateImportBatchesInput) =>
 export const deleteImportBatches = ({ ids }: db.DeleteImportBatchesInput) =>
   handleErrors(async () => await db.FileImportBatchModel.deleteMany({ _id: { $in: ids } }));
 
+export const emitImportStatsUpdated = ({ importStats }: { importStats: db.ImportStats }) =>
+  handleErrors(async () => {
+    socket.emit("importStatsUpdated", { importStats });
+  });
+
 export const listImportBatches = () =>
   handleErrors(async () =>
     (await db.FileImportBatchModel.find().lean()).map(

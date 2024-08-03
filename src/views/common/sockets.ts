@@ -118,12 +118,18 @@ export const useSockets = ({ view }: UseSocketsProps) => {
         throttle(queueFileReload, 5000)();
       });
 
+      makeSocket("importStatsUpdated", ({ importStats }) =>
+        stores.import.setImportStats(importStats)
+      );
+
       makeSocket("reloadFileCollections", () => {
         if (stores.collection.isManagerOpen) stores.collection.listFilteredCollections();
       });
     }
 
-    if (view === "home") makeSocket("reloadImportBatches", () => stores.import.loadImportBatches());
+    if (view === "home") {
+      makeSocket("reloadImportBatches", () => stores.import.loadImportBatches());
+    }
   };
 
   useEffect(() => {

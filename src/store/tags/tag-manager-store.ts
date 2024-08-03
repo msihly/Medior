@@ -38,7 +38,7 @@ export class TagManagerStore extends Model({
   isOpen: prop<boolean>(false).withSetter(),
   labelValue: prop<string>("").withSetter(),
   page: prop<number>(1).withSetter(),
-  pageCount: prop<number>(0).withSetter(),
+  pageCount: prop<number>(1).withSetter(),
   regExMode: prop<"any" | "hasRegEx" | "hasNoRegEx">("any").withSetter(),
   selectedIds: prop<string[]>(() => []).withSetter(),
   searchValue: prop<TagOption[]>(() => []).withSetter(),

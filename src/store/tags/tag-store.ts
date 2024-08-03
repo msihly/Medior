@@ -177,6 +177,7 @@ export class TagStore extends Model({
             const res = await this.editTag({
               id: t.id,
               parentIds: parentIds.length ? [...tag.parentIds, ...parentIds] : [],
+              withRegen: false,
               withSub: false,
             });
             if (!res.success) throw new Error(res.error);
@@ -202,9 +203,11 @@ export class TagStore extends Model({
     );
 
     await tagQueue.queue;
+    if (tagsToInsert.length) tagsToInsert.forEach((t) => this._addTag(t));
     if (errors.length) throw new Error(errors.join("\n"));
 
-    if (tagsToInsert.length) tagsToInsert.forEach((t) => this._addTag(t));
+    const regenRes = await trpc.regenTags.mutate({ tagIds, withSub: true });
+    if (!regenRes.success) throw new Error(regenRes.error);
 
     return tagIds;
   });

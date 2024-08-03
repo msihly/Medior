@@ -113,6 +113,7 @@ const trpcRouter = tRouter({
   editFileTags: endpoint(db.editFileTags),
   editMultiTagRelations: endpoint(db.editMultiTagRelations),
   editTag: endpoint(db.editTag),
+  emitImportStatsUpdated: endpoint(db.emitImportStatsUpdated),
   getDeletedFile: endpoint(db.getDeletedFile),
   getDiskStats: endpoint(db.getDiskStats),
   getFileByHash: endpoint(db.getFileByHash),
@@ -196,6 +197,7 @@ export interface SocketEmitEvents {
     removedTagIds: string[];
   }) => void;
   importBatchCompleted: () => void;
+  importStatsUpdated: (args: { importStats: db.ImportStats }) => void;
   reloadFileCollections: () => void;
   reloadFiles: () => void;
   reloadImportBatches: () => void;
@@ -244,6 +246,7 @@ const createSocketIOServer = async () => {
         "filesUpdated",
         "fileTagsUpdated",
         "importBatchCompleted",
+        "importStatsUpdated",
         "reloadFileCollections",
         "reloadFiles",
         "reloadImportBatches",

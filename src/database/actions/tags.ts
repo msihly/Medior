@@ -465,6 +465,22 @@ export const makeUniqueAncestorUpdates = ({
   };
 };
 
+export const regenTags = async ({
+  tagIds,
+  withSub = false,
+}: {
+  tagIds: string[];
+  withSub?: boolean;
+}) =>
+  handleErrors(async () => {
+    await Promise.all([
+      regenTagAncestors({ tagIds, withSub }),
+      tagIds.map((tagId) => regenTagThumbPaths({ tagId })),
+    ]);
+
+    await Promise.all([db.regenCollTagAncestors({ tagIds }), db.regenFileTagAncestors({ tagIds })]);
+  });
+
 export const regenTagAncestors = async ({
   tagIds,
   withSub = false,
@@ -500,6 +516,7 @@ export const createTag = ({
   label,
   parentIds = [],
   regExMap,
+  withRegen = true,
   withSub = true,
 }: db.CreateTagInput) =>
   handleErrors(async () => {
@@ -530,20 +547,12 @@ export const createTag = ({
 
     await db.TagModel.bulkWrite(tagBulkWriteOps);
 
-    if (childIds.length > 0 || parentIds.length > 0) {
+    if (withRegen && (childIds.length > 0 || parentIds.length > 0)) {
       const tagIds = [id, ...childIds, ...parentIds];
-
-      await regenTagAncestors({ tagIds, withSub });
-
-      await Promise.all([
-        db.regenCollTagAncestors({ tagIds }),
-        db.regenFileTagAncestors({ tagIds }),
-      ]);
-
-      await regenTagThumbPaths({ tagId: id });
+      await regenTags({ tagIds, withSub });
     }
 
-    if (withSub) socket.emit("tagCreated", { tag: { ...tag, id } });
+    if (withRegen || withSub) socket.emit("tagCreated", { tag: { ...tag, id } });
     return { ...tag, id };
   });
 

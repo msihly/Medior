@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { ReactNode, useEffect, useRef, useState } from "react";
 import { observer, useStores } from "store";
 import { Button, CenteredText, IconButton, ImportBatch, Modal, Text, View } from "components";
-import { colors, makeClasses } from "utils";
+import { colors, formatBytes, makeClasses } from "utils";
 import { toast } from "react-toastify";
 
 export const ImportManager = observer(() => {
@@ -19,7 +19,7 @@ export const ImportManager = observer(() => {
   const handleClose = () => {
     stores.import.setIsImportManagerOpen(false);
     stores.home.reloadIfQueued();
-  }
+  };
 
   const handleTagManager = () => stores.tagManager.setIsOpen(true);
 
@@ -37,6 +37,7 @@ export const ImportManager = observer(() => {
 
       <Modal.Content className={css.modalContent}>
         <ContainerHeader type="completed" />
+
         <View ref={completedRef} className={css.batchesContainer} margins={{ bottom: "1rem" }}>
           {stores.import.completedBatches?.length > 0 ? (
             [...stores.import.completedBatches].map((batch) => (
@@ -47,7 +48,10 @@ export const ImportManager = observer(() => {
           )}
         </View>
 
-        <ContainerHeader type="pending" />
+        <ContainerHeader type="pending">
+          <ImportStats />
+        </ContainerHeader>
+
         <View className={css.batchesContainer}>
           {stores.import.incompleteBatches?.length > 0 ? (
             [...stores.import.incompleteBatches].map((batch) => (
@@ -67,15 +71,16 @@ export const ImportManager = observer(() => {
 });
 
 interface ContainerHeaderProps {
+  children?: ReactNode;
   type: "completed" | "pending";
 }
 
-const ContainerHeader = ({ type }: ContainerHeaderProps) => {
+const ContainerHeader = ({ children, type }: ContainerHeaderProps) => {
   const { css } = useClasses(null);
 
   return (
     <View className={css.containerHeader}>
-      <View />
+      {children ?? <View />}
       <Text className={css.containerTitle}>{type === "completed" ? "Completed" : "Pending"}</Text>
       <DeleteToggleButton {...{ type }} />
     </View>
@@ -128,6 +133,18 @@ const DeleteToggleButton = observer(({ type }: DeleteToggleButtonProps) => {
         </>
       )}
     </View>
+  );
+});
+
+const ImportStats = observer(() => {
+  const stores = useStores();
+
+  return (
+    <Text>
+      {`${formatBytes(stores.import.importStats.completedBytes)} / ${formatBytes(
+        stores.import.importStats.totalBytes
+      )} - ${formatBytes(stores.import.importStats.rateInBytes)}/s`}
+    </Text>
   );
 });
 
