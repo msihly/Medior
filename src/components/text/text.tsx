@@ -19,6 +19,7 @@ export const Text = ({
   component = "span",
   fontSize = "1em",
   fontWeight = 400,
+  overflow = "hidden",
   preset,
   tooltip,
   tooltipProps,
@@ -29,7 +30,7 @@ export const Text = ({
   return (
     <TooltipWrapper {...{ tooltip, tooltipProps }}>
       <Typography
-        {...{ component, fontSize, fontWeight }}
+        {...{ component, fontSize, fontWeight, overflow }}
         {...props}
         className={cx(css.root, className)}
       >
@@ -47,7 +48,6 @@ interface ClassesProps {
 const useClasses = makeClasses((_, { color, preset }: ClassesProps) => ({
   root: {
     color,
-    overflow: "hidden",
     ...(preset === "label-glow"
       ? {
           fontSize: "0.8em",

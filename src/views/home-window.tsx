@@ -52,7 +52,7 @@ export const HomeWindow = observer(() => {
 
         <Views.TagModals view="home" />
 
-        {stores.home.isSettingsOpen && <SettingsModal />}
+        {stores.home.settings.isOpen && <SettingsModal />}
       </View>
     </Views.ImportDnD>
   );

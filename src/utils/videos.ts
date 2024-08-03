@@ -1,19 +1,28 @@
 import fs from "fs/promises";
 import path from "path";
 import ffmpeg from "fluent-ffmpeg";
-import { CONSTANTS, checkFileExists, fractionStringToNumber, getConfig, range, round } from ".";
+import {
+  CONSTANTS,
+  checkFileExists,
+  fractionStringToNumber,
+  getAvailableFileStorage,
+  range,
+  round,
+} from ".";
 
 export const extractVideoFrame = async (inputPath: string, frameIndex: number): Promise<string> => {
   try {
-    const frame = round(frameIndex, 0);
-    const outputPath = path.join(getConfig().mongo.outputDir, "_tmp", "extracted-frame.jpg");
+    const fileStorageRes = await getAvailableFileStorage(10000);
+    if (!fileStorageRes.success) throw new Error(fileStorageRes.error);
+    const targetDir = fileStorageRes.data;
 
+    const outputPath = path.join(targetDir, "_tmp", "extracted-frame.jpg");
     await fs.mkdir(path.dirname(outputPath), { recursive: true });
 
     await new Promise((resolve, reject) => {
       ffmpeg()
         .input(inputPath)
-        .outputOptions([`-vf select='eq(n\\,${frame})'`, `-vframes 1`])
+        .outputOptions([`-vf select='eq(n\\,${round(frameIndex, 0)})'`, `-vframes 1`])
         .output(outputPath)
         .on("end", resolve)
         .on("error", (err) => {

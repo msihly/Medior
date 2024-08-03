@@ -10,6 +10,7 @@ export * from "./list";
 export * from "./media";
 export * from "./modals";
 export * from "./multi-action-bar";
+export * from "./settings";
 export * from "./table";
 export * from "./tags";
 export * from "./text";

@@ -4,7 +4,7 @@ import { computed } from "mobx";
 import { Model, getRootStore, model, modelAction, modelFlow, prop } from "mobx-keystone";
 import { toast } from "react-toastify";
 import { FileImport, RootStore, asyncAction, copyFileForImport } from "store";
-import { dayjs, extractVideoFrame, getConfig, trpc } from "utils";
+import { dayjs, extractVideoFrame, trpc } from "utils";
 
 @model("medior/CarouselStore")
 export class CarouselStore extends Model({
@@ -64,7 +64,6 @@ export class CarouselStore extends Model({
         status: "PENDING",
       }),
       ignorePrevDeleted: false,
-      targetDir: getConfig().mongo.outputDir,
       tagIds: activeFile.tagIds,
     });
     if (!copyRes.success) throw new Error(copyRes.error);

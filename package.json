@@ -30,6 +30,7 @@
     "aws-sdk": "^2.1450.0",
     "color": "^4.2.3",
     "dayjs": "^1.11.0",
+    "diskusage": "^1.2.0",
     "fluent-ffmpeg": "^2.1.2",
     "jsonfile": "^6.1.0",
     "kill-port": "^2.0.1",

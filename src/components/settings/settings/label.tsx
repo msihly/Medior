@@ -1,10 +1,10 @@
 import { Text, TextProps } from "components";
 
-export interface SettingsLabelProps extends TextProps {
+export interface LabelProps extends TextProps {
   label: string;
 }
 
-export const SettingsLabel = ({ label, ...props }: SettingsLabelProps) => {
+export const Label = ({ label, ...props }: LabelProps) => {
   return (
     <Text preset="label-glow" whiteSpace="nowrap" {...props}>
       {label}

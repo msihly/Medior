@@ -15,15 +15,7 @@ import { asyncAction, RootStore } from "store";
 import * as db from "database";
 import { FileImport, ImportBatch } from ".";
 import { copyFileForImport } from "./import-queue";
-import {
-  dayjs,
-  extendFileName,
-  getConfig,
-  PromiseQueue,
-  removeEmptyFolders,
-  trpc,
-  uniqueArrayMerge,
-} from "utils";
+import { extendFileName, PromiseQueue, removeEmptyFolders, trpc, uniqueArrayMerge } from "utils";
 
 export type ImportBatchInput = Omit<ModelCreationData<ImportBatch>, "imports"> & {
   imports?: ModelCreationData<FileImport>[];
@@ -37,6 +29,12 @@ export class ImportStore extends Model({
   editorRootFolderPath: prop<string>("").withSetter(),
   editorImports: prop<FileImport[]>(() => []).withSetter(),
   importBatches: prop<ImportBatch[]>(() => []),
+  importStats: prop<db.ImportStats>(() => ({
+    completedBytes: 0,
+    elapsedTime: 0,
+    rateInBytes: 0,
+    totalBytes: 0,
+  })).withSetter(),
   isImportEditorOpen: prop<boolean>(false).withSetter(),
   isImportManagerOpen: prop<boolean>(false).withSetter(),
 }) {
@@ -220,35 +218,19 @@ export class ImportStore extends Model({
   });
 
   @modelFlow
-  createImportBatches = asyncAction(
-    async (
-      batches: {
-        collectionTitle?: string;
-        deleteOnImport: boolean;
-        ignorePrevDeleted: boolean;
-        imports: ModelCreationData<FileImport>[];
-        rootFolderPath: string;
-        tagIds?: string[];
-      }[]
-    ) => {
-      this.queue.clear();
+  createImportBatches = asyncAction(async (batches: db.CreateImportBatchesInput) => {
+    this.queue.clear();
 
-      const createdAt = dayjs().toISOString();
+    const batchRes = await trpc.createImportBatches.mutate(
+      batches.map((b) => ({
+        ...b,
+        tagIds: b.tagIds ? [...new Set(b.tagIds)].flat() : [],
+      }))
+    );
+    if (!batchRes.success) throw new Error(batchRes?.error);
 
-      const batchRes = await trpc.createImportBatches.mutate(
-        batches.map((b) => ({
-          ...b,
-          createdAt,
-          imports: b.imports,
-          rootFolderPath: b.rootFolderPath,
-          tagIds: b.tagIds ? [...new Set(b.tagIds)].flat() : [],
-        }))
-      );
-      if (!batchRes.success) throw new Error(batchRes?.error);
-
-      await this.loadImportBatches();
-    }
-  );
+    await this.loadImportBatches();
+  });
 
   @modelFlow
   deleteImportBatches = asyncAction(async ({ ids }: db.DeleteImportBatchesInput) => {
@@ -283,7 +265,6 @@ export class ImportStore extends Model({
       deleteOnImport: batch.deleteOnImport,
       fileImport,
       ignorePrevDeleted: batch.ignorePrevDeleted,
-      targetDir: getConfig().mongo.outputDir,
       tagIds,
     });
 

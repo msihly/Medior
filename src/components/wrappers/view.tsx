@@ -8,12 +8,14 @@ export interface ViewProps extends HTMLAttributes<HTMLDivElement> {
   className?: string;
   column?: boolean;
   flex?: CSSObject["flex"];
+  height?: CSSObject["height"];
   justify?: CSSObject["justifyContent"];
   margins?: Margins;
   overflow?: CSSObject["overflow"];
   padding?: Padding;
   row?: boolean;
   spacing?: CSSObject["marginRight"];
+  width?: CSSObject["width"];
 }
 
 export const View = forwardRef(
@@ -24,12 +26,14 @@ export const View = forwardRef(
       className,
       column = false,
       flex,
+      height,
       justify,
       margins,
       overflow,
       padding,
       row = false,
       spacing,
+      width,
       ...props
     }: ViewProps,
     ref?: MutableRefObject<HTMLDivElement>
@@ -38,12 +42,14 @@ export const View = forwardRef(
       align,
       column,
       flex,
+      height,
       justify,
       margins,
+      overflow,
       padding,
       row,
       spacing,
-      overflow,
+      width,
     });
 
     return (
@@ -58,39 +64,42 @@ interface ClassesProps {
   align: CSSObject["alignItems"];
   column: boolean;
   flex: CSSObject["flex"];
+  height: CSSObject["height"];
   justify: CSSObject["justifyContent"];
   margins: Margins;
+  overflow: CSSObject["overflow"];
   padding: Padding;
   row: boolean;
   spacing: CSSObject["marginRight"];
-  overflow: CSSObject["overflow"];
+  width: CSSObject["width"];
 }
 
-const useClasses = makeClasses(
-  (
-    _,
-    { align, column, flex, justify, margins, padding, row, spacing, overflow }: ClassesProps
-  ) => ({
-    root: {
-      display: column || row ? "flex" : undefined,
-      flexDirection: column ? "column" : row ? "row" : undefined,
-      flex,
-      alignItems: align,
-      justifyContent: justify,
-      margin: margins?.all,
-      marginTop: margins?.top,
-      marginBottom: margins?.bottom,
-      marginRight: margins?.right,
-      marginLeft: margins?.left,
-      padding: padding?.all,
-      paddingTop: padding?.top,
-      paddingBottom: padding?.bottom,
-      paddingRight: padding?.right,
-      paddingLeft: padding?.left,
-      overflow,
-      ...(spacing
-        ? { "& > *:not(:last-child)": { [column ? "marginBottom" : "marginRight"]: spacing } }
-        : {}),
-    },
-  })
-);
+const useClasses = makeClasses((_, props: ClassesProps) => ({
+  root: {
+    display: props?.column || props?.row ? "flex" : undefined,
+    flexDirection: props?.column ? "column" : props?.row ? "row" : undefined,
+    flex: props?.flex,
+    alignItems: props?.align,
+    justifyContent: props?.justify,
+    margin: props?.margins?.all,
+    marginTop: props?.margins?.top,
+    marginBottom: props?.margins?.bottom,
+    marginRight: props?.margins?.right,
+    marginLeft: props?.margins?.left,
+    padding: props?.padding?.all,
+    paddingTop: props?.padding?.top,
+    paddingBottom: props?.padding?.bottom,
+    paddingRight: props?.padding?.right,
+    paddingLeft: props?.padding?.left,
+    overflow: props?.overflow,
+    height: props?.height,
+    width: props?.width,
+    ...(props?.spacing
+      ? {
+          "& > *:not(:last-child)": {
+            [props?.column ? "marginBottom" : "marginRight"]: props?.spacing,
+          },
+        }
+      : {}),
+  },
+}));

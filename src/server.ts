@@ -16,7 +16,7 @@ let mongoServer: MongoMemoryReplSet;
 const createDbServer = async () => {
   try {
     const config = getConfig();
-    const dbPath = config.mongo.dbPath;
+    const dbPath = config.db.path;
     const port = config.ports.db;
 
     try {
@@ -114,17 +114,19 @@ const trpcRouter = tRouter({
   editMultiTagRelations: endpoint(db.editMultiTagRelations),
   editTag: endpoint(db.editTag),
   getDeletedFile: endpoint(db.getDeletedFile),
+  getDiskStats: endpoint(db.getDiskStats),
   getFileByHash: endpoint(db.getFileByHash),
   getShiftSelectedFiles: endpoint(db.getShiftSelectedFiles),
   getShiftSelectedTags: endpoint(db.getShiftSelectedTags),
   importFile: endpoint(db.importFile),
   listAllCollectionIds: endpoint(db.listAllCollectionIds),
   listDeletedFiles: endpoint(db.listDeletedFiles),
-  listFilteredCollections: endpoint(db.listFilteredCollections),
   listFaceModels: endpoint(db.listFaceModels),
+  listFileIdsForCarousel: endpoint(db.listFileIdsForCarousel),
+  listFilePaths: endpoint(db.listFilePaths),
   listFiles: endpoint(db.listFiles),
   listFilesByTagIds: endpoint(db.listFilesByTagIds),
-  listFileIdsForCarousel: endpoint(db.listFileIdsForCarousel),
+  listFilteredCollections: endpoint(db.listFilteredCollections),
   listFilteredFiles: endpoint(db.listFilteredFiles),
   listFilteredTags: endpoint(db.listFilteredTags),
   listImportBatches: endpoint(db.listImportBatches),
@@ -132,11 +134,13 @@ const trpcRouter = tRouter({
   loadFaceApiNets: endpoint(db.loadFaceApiNets),
   mergeTags: endpoint(db.mergeTags),
   recalculateTagCounts: endpoint(db.recalculateTagCounts),
-  refreshTagRelations: endpoint(db.refreshTagRelations),
-  regenTagThumbPaths: endpoint(db.regenTagThumbPaths),
-  regenCollAttrs: endpoint(db.regenCollAttrs),
-  reloadServers: endpoint((args) => startServers(args)),
   refreshTag: endpoint(db.refreshTag),
+  refreshTagRelations: endpoint(db.refreshTagRelations),
+  regenCollAttrs: endpoint(db.regenCollAttrs),
+  regenTags: endpoint(db.regenTags),
+  regenTagThumbPaths: endpoint(db.regenTagThumbPaths),
+  relinkFiles: endpoint(db.relinkFiles),
+  reloadServers: endpoint((args) => startServers(args)),
   setFileFaceModels: endpoint(db.setFileFaceModels),
   setFileIsArchived: endpoint(db.setFileIsArchived),
   setFileRating: endpoint(db.setFileRating),

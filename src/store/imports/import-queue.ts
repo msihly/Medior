@@ -11,6 +11,7 @@ import {
   dirToFilePaths,
   extendFileName,
   generateFramesThumbnail,
+  getAvailableFileStorage,
   getConfig,
   getVideoInfo,
   sharp,
@@ -24,7 +25,6 @@ interface CopyFileForImportProps {
   fileImport: FileImport;
   ignorePrevDeleted: boolean;
   tagIds: string[];
-  targetDir: string;
 }
 
 interface CopyFileForImportResult {
@@ -41,7 +41,6 @@ export const copyFileForImport = async ({
   fileImport,
   ignorePrevDeleted,
   tagIds,
-  targetDir,
 }: CopyFileForImportProps): Promise<CopyFileForImportResult> => {
   const config = getConfig();
   let hash: string;
@@ -51,6 +50,10 @@ export const copyFileForImport = async ({
     const ext = extension.toLowerCase();
 
     hash = await md5File(originalPath);
+
+    const fileStorageRes = await getAvailableFileStorage(size);
+    if (!fileStorageRes.success) throw new Error(fileStorageRes.error);
+    const targetDir = fileStorageRes.data;
 
     const dirPath = `${targetDir}\\${hash.substring(0, 2)}\\${hash.substring(2, 4)}`;
     const extFromPath = originalPath.split(".").pop().toLowerCase();
@@ -150,7 +153,6 @@ export const copyFileForImport = async ({
           deleteOnImport,
           ignorePrevDeleted,
           fileImport,
-          targetDir,
           tagIds,
         });
       } else return { success: true, file: fileRes.data, isDuplicate: true };

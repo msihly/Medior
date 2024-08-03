@@ -94,7 +94,7 @@ export const Drawer = observer(({ hasImports = false, hasSettings = false }: Dra
 
   const handleSearchWindow = () => openSearchWindow();
 
-  const handleSettings = () => stores.home.setIsSettingsOpen(true);
+  const handleSettings = () => stores.home.settings.setIsOpen(true);
 
   const handleSortChange = (val: SortMenuProps["value"]) => stores.home.setSortValue(val);
 

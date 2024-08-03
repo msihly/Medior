@@ -60,7 +60,6 @@ export type CompleteImportBatchInput = {
 
 export type CreateImportBatchesInput = {
   collectionTitle?: string;
-  createdAt: string;
   deleteOnImport: boolean;
   ignorePrevDeleted: boolean;
   imports: ModelCreationData<FileImport>[];
@@ -123,6 +122,8 @@ export type EditFileTagsInput = {
 
 export type GetDeletedFileInput = { hash: string };
 
+export type GetDiskStatsInput = { diskPath: string };
+
 export type GetFileByHashInput = { hash: string };
 
 export type GetShiftSelectedFilesInput = CreateFileFilterPipelineInput & {
@@ -175,6 +176,8 @@ export type LoadFaceModelsInput = { fileIds?: string[]; withOverwrite?: boolean 
 export type LoadFilesInput = { fileIds?: string[]; withOverwrite?: boolean };
 
 export type RefreshFileInput = { curFile?: db.File; id: string };
+
+export type RelinkFilesInput = { files: { id: string; path: string; thumbPaths: string[] }[] };
 
 export type RemoveTagsFromFilesInput = { fileIds: string[]; tagIds: string[] };
 

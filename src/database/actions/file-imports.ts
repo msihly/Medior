@@ -27,6 +27,7 @@ export const createImportBatches = (batches: db.CreateImportBatchesInput) =>
       batches.map((batch) => ({
         ...batch,
         completedAt: null,
+        createdAt: dayjs().toISOString(),
         startedAt: null,
         tagIds: batch.tagIds ? [...new Set(batch.tagIds)].flat() : [],
       }))

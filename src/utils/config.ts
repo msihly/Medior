@@ -2,7 +2,16 @@ import fs from "fs/promises";
 import path from "path";
 import { ipcRenderer } from "electron";
 import { FolderToCollMode, FolderToTagsMode, SortMenuProps } from "components";
-import { ImageType, VideoType, checkFileExists, logToFile } from ".";
+import {
+  ImageType,
+  NestedKeys,
+  VideoType,
+  checkFileExists,
+  deepMerge,
+  handleErrors,
+  logToFile,
+  trpc,
+} from ".";
 
 export interface Config {
   collection: {
@@ -10,6 +19,13 @@ export interface Config {
     editorSearchSort: SortMenuProps["value"];
     managerSearchSort: SortMenuProps["value"];
     searchFileCount: number;
+  };
+  db: {
+    fileStorage: {
+      locations: string[];
+      threshold: number;
+    };
+    path: string;
   };
   file: {
     fileCardFit: "contain" | "cover";
@@ -38,10 +54,6 @@ export interface Config {
     withFolderNameRegEx: boolean;
     withNewTagsToRegEx: boolean;
   };
-  mongo: {
-    dbPath: string;
-    outputDir: string;
-  };
   ports: {
     db: number;
     server: number;
@@ -53,12 +65,21 @@ export interface Config {
   };
 }
 
+export type ConfigKey = NestedKeys<Config>;
+
 export const DEFAULT_CONFIG: Config = {
   collection: {
     editorPageSize: 50,
     editorSearchSort: { isDesc: true, key: "dateCreated" },
     managerSearchSort: { isDesc: true, key: "dateModified" },
     searchFileCount: 20,
+  },
+  db: {
+    fileStorage: {
+      locations: [path.resolve("FileStorage")],
+      threshold: 0.9,
+    },
+    path: path.resolve("MongoDB"),
   },
   file: {
     fileCardFit: "contain",
@@ -87,10 +108,6 @@ export const DEFAULT_CONFIG: Config = {
     withFolderNameRegEx: true,
     withNewTagsToRegEx: true,
   },
-  mongo: {
-    dbPath: path.resolve("MongoDB"),
-    outputDir: path.resolve("FileStorage"),
-  },
   ports: {
     db: 27070,
     server: 3334,
@@ -103,6 +120,16 @@ export const DEFAULT_CONFIG: Config = {
 };
 
 let config: Config;
+
+export const getAvailableFileStorage = (bytesNeeded: number) =>
+  handleErrors(async () => {
+    for (const location of config.db.fileStorage.locations) {
+      const res = await trpc.getDiskStats.mutate({ diskPath: location });
+      if (!res.success) throw new Error(res.error);
+      if (res.data.available > bytesNeeded) return location;
+    }
+    throw new Error("No available file storage location found.");
+  });
 
 export const getConfig = (debugLoc?: string) => {
   if (!config) throw new Error(`Config not loaded. ${debugLoc}`);
@@ -123,72 +150,15 @@ export const loadConfig = async (configPath?: string) => {
 
     const loadedConfig = JSON.parse(await fs.readFile(filePath, "utf-8")) as Config;
 
-    config = {
-      collection: {
-        editorPageSize:
-          +loadedConfig.collection?.editorPageSize || DEFAULT_CONFIG.collection.editorPageSize,
-        editorSearchSort:
-          loadedConfig.collection?.editorSearchSort || DEFAULT_CONFIG.collection.editorSearchSort,
-        managerSearchSort:
-          loadedConfig.collection?.managerSearchSort || DEFAULT_CONFIG.collection.managerSearchSort,
-        searchFileCount:
-          +loadedConfig.collection?.searchFileCount || DEFAULT_CONFIG.collection.searchFileCount,
-      },
-      file: {
-        fileCardFit: loadedConfig.file?.fileCardFit || DEFAULT_CONFIG.file.fileCardFit,
-        imageTypes: loadedConfig.file?.imageTypes || DEFAULT_CONFIG.file.imageTypes,
-        hideUnratedIcon: loadedConfig.file?.hideUnratedIcon || DEFAULT_CONFIG.file.hideUnratedIcon,
-        searchFileCount: +loadedConfig.file?.searchFileCount || DEFAULT_CONFIG.file.searchFileCount,
-        searchSort: loadedConfig.file?.searchSort || DEFAULT_CONFIG.file.searchSort,
-        videoTypes: loadedConfig.file?.videoTypes || DEFAULT_CONFIG.file.videoTypes,
-      },
-      imports: {
-        deleteOnImport:
-          loadedConfig.imports?.deleteOnImport || DEFAULT_CONFIG.imports.deleteOnImport,
-        folderDelimiter:
-          loadedConfig.imports?.folderDelimiter || DEFAULT_CONFIG.imports.folderDelimiter,
-        folderToCollMode:
-          loadedConfig.imports?.folderToCollMode || DEFAULT_CONFIG.imports.folderToCollMode,
-        folderToTagsMode:
-          loadedConfig.imports?.folderToTagsMode || DEFAULT_CONFIG.imports.folderToTagsMode,
-        ignorePrevDeleted:
-          loadedConfig.imports?.ignorePrevDeleted || DEFAULT_CONFIG.imports.ignorePrevDeleted,
-        labelDiff: loadedConfig.imports?.labelDiff || DEFAULT_CONFIG.imports.labelDiff,
-        labelDiffModel:
-          loadedConfig.imports?.labelDiffModel || DEFAULT_CONFIG.imports.labelDiffModel,
-        labelDiffOriginal:
-          loadedConfig.imports?.labelDiffOriginal || DEFAULT_CONFIG.imports.labelDiffOriginal,
-        labelDiffUpscaled:
-          loadedConfig.imports?.labelDiffUpscaled || DEFAULT_CONFIG.imports.labelDiffUpscaled,
-        withDelimiters:
-          loadedConfig.imports?.withDelimiters || DEFAULT_CONFIG.imports.withDelimiters,
-        withDiffModel: loadedConfig.imports?.withDiffModel || DEFAULT_CONFIG.imports.withDiffModel,
-        withDiffParams:
-          loadedConfig.imports?.withDiffParams || DEFAULT_CONFIG.imports.withDiffParams,
-        withDiffRegEx: loadedConfig.imports?.withDiffRegEx || DEFAULT_CONFIG.imports.withDiffRegEx,
-        withDiffTags: loadedConfig.imports?.withDiffTags || DEFAULT_CONFIG.imports.withDiffTags,
-        withFileNameToTags:
-          loadedConfig.imports?.withFileNameToTags || DEFAULT_CONFIG.imports.withFileNameToTags,
-        withFolderNameRegEx:
-          loadedConfig.imports?.withFolderNameRegEx || DEFAULT_CONFIG.imports.withFolderNameRegEx,
-        withNewTagsToRegEx:
-          loadedConfig.imports?.withNewTagsToRegEx || DEFAULT_CONFIG.imports.withNewTagsToRegEx,
-      },
-      mongo: {
-        dbPath: loadedConfig.mongo?.dbPath || DEFAULT_CONFIG.mongo.dbPath,
-        outputDir: loadedConfig.mongo?.outputDir || DEFAULT_CONFIG.mongo.outputDir,
-      },
-      ports: {
-        db: +loadedConfig.ports?.db || DEFAULT_CONFIG.ports.db,
-        server: +loadedConfig.ports?.server || DEFAULT_CONFIG.ports.server,
-        socket: +loadedConfig.ports?.socket || DEFAULT_CONFIG.ports.socket,
-      },
-      tags: {
-        managerSearchSort:
-          loadedConfig.tags?.managerSearchSort || DEFAULT_CONFIG.tags.managerSearchSort,
-        searchTagCount: +loadedConfig.tags?.searchTagCount || DEFAULT_CONFIG.tags.searchTagCount,
-      },
-    };
+    config = deepMerge(DEFAULT_CONFIG, loadedConfig);
+    config.collection.editorPageSize = +config.collection.editorPageSize;
+    config.collection.searchFileCount = +config.collection.searchFileCount;
+    config.db.fileStorage.threshold = +config.db.fileStorage.threshold;
+    config.file.searchFileCount = +config.file.searchFileCount;
+    config.ports.db = +config.ports.db;
+    config.ports.server = +config.ports.server;
+    config.ports.socket = +config.ports.socket;
+    config.tags.searchTagCount = +config.tags.searchTagCount;
 
     return config;
   } catch (err) {

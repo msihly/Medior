@@ -1,6 +1,7 @@
 import { app } from "electron";
 import path from "path";
 import fs from "fs/promises";
+import disk from "diskusage";
 import { AnyBulkWriteOperation } from "mongodb";
 import { PipelineStage } from "mongoose";
 import * as db from "database";
@@ -323,6 +324,11 @@ export const getDeletedFile = ({ hash }: db.GetDeletedFileInput) =>
     leanModelToJson<db.DeletedFile>(await db.DeletedFileModel.findOne({ hash }).lean())
   );
 
+export const getDiskStats = ({ diskPath }: db.GetDiskStatsInput) =>
+  handleErrors(async () => {
+    return await disk.check(diskPath);
+  });
+
 export const getFileByHash = ({ hash }: db.GetFileByHashInput) =>
   handleErrors(async () => leanModelToJson<db.File>(await db.FileModel.findOne({ hash }).lean()));
 
@@ -493,6 +499,11 @@ export const importFile = ({
     return { ...file, id: res._id.toString() };
   });
 
+export const listDeletedFiles = () =>
+  handleErrors(async () => {
+    return (await db.DeletedFileModel.find().lean()).map((f) => leanModelToJson<db.DeletedFile>(f));
+  });
+
 export const listFaceModels = ({ ids }: db.ListFaceModelsInput = {}) =>
   handleErrors(async () => {
     return (
@@ -546,11 +557,6 @@ export const listFiles = ({
     return res.map((r) => ({ ...r, id: r._id.toString() }));
   });
 
-export const listDeletedFiles = () =>
-  handleErrors(async () => {
-    return (await db.DeletedFileModel.find().lean()).map((f) => leanModelToJson<db.DeletedFile>(f));
-  });
-
 export const listFilesByTagIds = ({ tagIds }: db.ListFilesByTagIdsInput) =>
   handleErrors(async () => {
     return (await db.FileModel.find({ tagIds: { $in: tagIds } }).lean()).map((f) =>
@@ -574,6 +580,15 @@ export const listFileIdsForCarousel = ({
       .select({ _id: 1 });
 
     return files.map((f) => f._id.toString());
+  });
+
+export const listFilePaths = () =>
+  handleErrors(async () => {
+    return (await db.FileModel.find().select({ _id: 1, path: 1 }).lean()).map((f) => ({
+      id: f._id.toString(),
+      path: f.path,
+      thumbPaths: f.thumbPaths,
+    }));
   });
 
 export const listFilteredFiles = ({ page, pageSize, ...filterParams }: db.ListFilteredFilesInput) =>
@@ -606,6 +621,17 @@ export const loadFaceApiNets = async () =>
     await faceapi.nets.faceExpressionNet.loadFromDisk(FACE_MODELS_PATH);
     await faceapi.nets.faceRecognitionNet.loadFromDisk(FACE_MODELS_PATH);
   });
+
+export const relinkFiles = ({ files }: db.RelinkFilesInput) => handleErrors(async () => {
+  const bulkOps = files.map(({ id, path, thumbPaths }) => ({
+    updateOne: {
+      filter: { _id: objectId(id) },
+      update: { $set: { path, thumbPaths } },
+    },
+  }));
+
+  await db.FileModel.bulkWrite(bulkOps);
+});
 
 export const setFileFaceModels = async ({ faceModels, id }: db.SetFileFaceModelsInput) =>
   handleErrors(async () => {

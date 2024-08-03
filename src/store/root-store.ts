@@ -12,14 +12,14 @@ import { TagManagerStore, TagStore } from "./tags";
 
 @model("medior/RootStore")
 export class RootStore extends Model({
-  carousel: prop<CarouselStore>(),
-  collection: prop<FileCollectionStore>(),
-  faceRecog: prop<FaceRecognitionStore>(),
-  file: prop<FileStore>(),
-  home: prop<HomeStore>(),
-  import: prop<ImportStore>(),
-  tag: prop<TagStore>(),
-  tagManager: prop<TagManagerStore>(),
+  carousel: prop<CarouselStore>(() => new CarouselStore({})),
+  collection: prop<FileCollectionStore>(() => new FileCollectionStore({})),
+  faceRecog: prop<FaceRecognitionStore>(() => new FaceRecognitionStore({})),
+  file: prop<FileStore>(() => new FileStore({})),
+  home: prop<HomeStore>(() => new HomeStore({})),
+  import: prop<ImportStore>(() => new ImportStore({})),
+  tag: prop<TagStore>(() => new TagStore({})),
+  tagManager: prop<TagManagerStore>(() => new TagManagerStore({})),
 }) {
   /* ----------------------------- DYNAMIC GETTERS ---------------------------- */
   _getIsBlockingModalOpen() {
@@ -38,19 +38,8 @@ export class RootStore extends Model({
 }
 
 export const createRootStore = () => {
-  const rootStore = new RootStore({
-    carousel: new CarouselStore({}),
-    collection: new FileCollectionStore({}),
-    faceRecog: new FaceRecognitionStore({}),
-    file: new FileStore({}),
-    home: new HomeStore({}),
-    import: new ImportStore({}),
-    tag: new TagStore({}),
-    tagManager: new TagManagerStore({}),
-  });
-
+  const rootStore = new RootStore({});
   registerRootStore(rootStore);
-
   return rootStore;
 };
 

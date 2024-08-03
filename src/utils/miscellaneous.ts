@@ -10,6 +10,31 @@ import _throttle from "lodash.throttle";
 import { toast } from "react-toastify";
 import { logToFile } from "./logging";
 
+type IsPlainObject<T> = T extends object
+  ? T extends any[]
+    ? false
+    : T extends Function
+    ? false
+    : true
+  : false;
+
+export type NestedKeys<T> = {
+  [K in keyof T]: K extends string
+    ? IsPlainObject<T[K]> extends true
+      ? K | `${K}.${NestedKeys<T[K]>}`
+      : K
+    : never;
+}[keyof T];
+
+export const convertNestedKeys = (updates: Record<string, any>): Record<string, any> => {
+  return Object.entries(updates).reduce((acc, [key, value]) => {
+    key.split(".").reduce((nested, k, i, arr) => {
+      return nested[k] || (nested[k] = i === arr.length - 1 ? value : {});
+    }, acc);
+    return acc;
+  }, {});
+};
+
 export const callOptFunc = (fn, ...args) => (typeof fn === "function" ? fn(...args) : fn);
 
 export const copyToClipboard = (value: string, message: string) => {

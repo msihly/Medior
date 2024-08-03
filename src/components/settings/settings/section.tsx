@@ -2,12 +2,12 @@ import { ReactNode } from "react";
 import { Text, View } from "components";
 import { colors, makeClasses } from "utils";
 
-export interface SettingsSectionProps {
+export interface SectionProps {
   children: ReactNode | ReactNode[];
   title: string;
 }
 
-export const SettingsSection = ({ children, title }: SettingsSectionProps) => {
+export const Section = ({ children, title }: SectionProps) => {
   const { css } = useClasses(null);
 
   return (

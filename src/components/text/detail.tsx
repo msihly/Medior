@@ -19,6 +19,7 @@ export const Detail = ({
   labelProps,
   overflowX = "auto",
   overflowY = "hidden",
+  row = false,
   tooltip,
   value,
   valueProps,
@@ -28,9 +29,14 @@ export const Detail = ({
   const { css, cx } = useClasses({ overflowX, overflowY });
 
   return (
-    <View column {...props}>
+    <View column={!row} row={row} spacing={row ? "0.5rem" : null} {...props}>
       {typeof label === "string" ? (
-        <Text {...labelProps} className={cx(css.label, labelProps?.className)}>
+        <Text
+          color={colors.text.blue}
+          fontWeight={row ? 500 : undefined}
+          fontSize={row ? "1em" : "0.8em"}
+          {...labelProps}
+        >
           {label}
         </Text>
       ) : (
@@ -57,10 +63,6 @@ interface ClassesProps {
 }
 
 const useClasses = makeClasses((_, { overflowX, overflowY }: ClassesProps) => ({
-  label: {
-    fontSize: "0.8em",
-    color: colors.blue["500"],
-  },
   value: {
     overflowX,
     overflowY,

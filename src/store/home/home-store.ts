@@ -1,6 +1,6 @@
 import { SortMenuProps } from "components";
 import { Model, getRootStore, model, modelAction, modelFlow, prop } from "mobx-keystone";
-import { RootStore, TagOption, asyncAction } from "store";
+import { RootStore, SettingsStore, TagOption, asyncAction } from "store";
 import { dayjs, getConfig, ImageType, LogicalOp, makePerfLog, trpc, VideoType } from "utils";
 
 const NUMERICAL_ATTRIBUTES = ["count", "duration", "height", "rating", "size", "width"];
@@ -47,8 +47,6 @@ export class HomeStore extends Model({
   isDraggingOut: prop<boolean>(false).withSetter(),
   isDrawerOpen: prop<boolean>(true).withSetter(),
   isLoading: prop<boolean>(false).withSetter(),
-  isSettingsOpen: prop<boolean>(false).withSetter(),
-  isSettingsLoading: prop<boolean>(false).withSetter(),
   numOfTagsOp: prop<LogicalOp | "">("").withSetter(),
   numOfTagsValue: prop<number>(0).withSetter(),
   searchValue: prop<TagOption[]>(() => []).withSetter(),
@@ -64,7 +62,7 @@ export class HomeStore extends Model({
         getConfig().file.videoTypes.map((ext) => [ext, true])
       ) as SelectedVideoTypes
   ),
-  settingsHasUnsavedChanges: prop<boolean>(false).withSetter(),
+  settings: prop<SettingsStore>(() => new SettingsStore({})),
   sortValue: prop<SortMenuProps["value"]>(() => getConfig().file.searchSort).withSetter(),
 }) {
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
