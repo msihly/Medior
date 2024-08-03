@@ -1,5 +1,5 @@
-import { observer, useStores } from "store";
-import { FileTagEditor, MultiTagEditor, TagEditor, TagManager, TagMerger } from "components";
+import { observer, useStores } from "src/store";
+import { FileTagEditor, MultiTagEditor, TagEditor, TagManager, TagMerger } from "src/components";
 
 interface TagModalsProps {
   view: "carousel" | "home" | "search";

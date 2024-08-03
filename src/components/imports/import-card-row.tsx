@@ -1,10 +1,10 @@
 import { useCallback } from "react";
-import { ImportBatch as ImportBatchType, observer } from "store";
+import { ImportBatch as ImportBatchType, observer } from "src/store";
 import AutoSizer from "react-virtualized-auto-sizer";
 import { FixedSizeList, ListChildComponentProps } from "react-window";
-import { Icon, Text, View } from "components";
+import { Icon, Text, View } from "src/components";
 import { IMPORT_CARD_SIZE, IMPORT_STATUSES, ImportCard, ImportStatus } from ".";
-import { colors, makeClasses, useDeepMemo } from "utils";
+import { colors, makeClasses, useDeepMemo } from "src/utils";
 
 export const ImportCardRow = observer(
   ({ batch, status }: { batch: ImportBatchType; status: ImportStatus }) => {

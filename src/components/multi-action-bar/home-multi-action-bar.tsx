@@ -1,8 +1,8 @@
-import { observer, useStores } from "store";
+import { observer, useStores } from "src/store";
 import { AppBar } from "@mui/material";
-import { View } from "components";
+import { View } from "src/components";
 import { MultiActionButton, SelectedFilesInfo } from ".";
-import { colors, CONSTANTS, makeClasses } from "utils";
+import { colors, CONSTANTS, makeClasses } from "src/utils";
 import { toast } from "react-toastify";
 
 export const HomeMultiActionBar = observer(() => {

@@ -1,7 +1,7 @@
-import { observer, useStores } from "store";
-import { FileBase, Text } from "components";
+import { observer, useStores } from "src/store";
+import { FileBase, Text } from "src/components";
 import { CollectionTooltip } from ".";
-import { colors, CSS, makeClasses, round } from "utils";
+import { colors, CSS, makeClasses, round } from "src/utils";
 
 export interface FileCollectionProps {
   height?: CSS["height"];

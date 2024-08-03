@@ -1,6 +1,6 @@
-import { FaceModel, observer } from "store";
-import { View } from "components";
-import { makeClasses } from "utils";
+import { FaceModel, observer } from "src/store";
+import { View } from "src/components";
+import { makeClasses } from "src/utils";
 
 export interface FaceBoxProps {
   face: FaceModel;

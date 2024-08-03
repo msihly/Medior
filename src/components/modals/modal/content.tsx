@@ -1,7 +1,7 @@
 import { ReactNode } from "react";
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { DialogContent } from "@mui/material";
-import { Padding, makeClasses } from "utils";
+import { Padding, makeClasses } from "src/utils";
 
 const DEFAULT_PADDING: Padding = { all: "0.5rem 1rem" };
 

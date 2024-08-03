@@ -1,6 +1,6 @@
-import { ImportBatch, observer } from "store";
-import { Tag, Text, Tooltip, View } from "components";
-import { colors, dayjs, makeClasses } from "utils";
+import { ImportBatch, observer } from "src/store";
+import { Tag, Text, Tooltip, View } from "src/components";
+import { colors, dayjs, makeClasses } from "src/utils";
 
 interface BatchTooltipProps {
   batch: ImportBatch;

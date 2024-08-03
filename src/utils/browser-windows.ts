@@ -1,5 +1,5 @@
 import { ipcRenderer } from "electron";
-import { File } from "database";
+import { File } from "src/database";
 
 export const openCarouselWindow = ({
   file,

@@ -1,8 +1,8 @@
 import fs from "fs/promises";
 import path from "path";
 import md5File from "md5-file";
-import { File } from "database";
-import { FileImport, RootStore } from "store";
+import { File } from "src/database";
+import { FileImport, RootStore } from "src/store";
 import {
   CONSTANTS,
   checkFileExists,
@@ -16,7 +16,7 @@ import {
   getVideoInfo,
   sharp,
   trpc,
-} from "utils";
+} from "src/utils";
 import { toast } from "react-toastify";
 
 interface CopyFileForImportProps {

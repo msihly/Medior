@@ -1,6 +1,6 @@
-import { observer, useStores } from "store";
-import { Checkbox } from "components";
-import { ImageType, VideoType } from "utils";
+import { observer, useStores } from "src/store";
+import { Checkbox } from "src/components";
+import { ImageType, VideoType } from "src/utils";
 
 interface ExtCheckboxProps {
   ext: ImageType | VideoType;

@@ -8,8 +8,8 @@ import {
   TagInputProps,
   Text,
   View,
-} from "components";
-import { observer, useStores } from "store";
+} from "src/components";
+import { observer, useStores } from "src/store";
 
 interface LabelProps extends Omit<TagInputProps, "ref" | "value"> {
   inputProps?: Partial<InputProps>;

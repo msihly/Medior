@@ -1,8 +1,8 @@
 import { ReactNode, useState } from "react";
-import { Tag as TagType, observer, useStores } from "store";
+import { Tag as TagType, observer, useStores } from "src/store";
 import { Avatar, Menu } from "@mui/material";
-import { Button, ButtonProps, Chip, ChipProps, Text, View } from "components";
-import { colors, makeClasses } from "utils";
+import { Button, ButtonProps, Chip, ChipProps, Text, View } from "src/components";
+import { colors, makeClasses } from "src/utils";
 import Color from "color";
 
 const HEIGHT_MEDIUM = 32;

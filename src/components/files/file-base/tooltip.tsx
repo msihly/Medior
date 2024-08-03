@@ -1,6 +1,6 @@
-import { File, observer } from "store";
-import { Detail, DetailRow, Icon, Tag, Text, Tooltip as TooltipBase, View } from "components";
-import { colors, dayjs, formatBytes, makeClasses } from "utils";
+import { File, observer } from "src/store";
+import { Detail, DetailRow, Icon, Tag, Text, Tooltip as TooltipBase, View } from "src/components";
+import { colors, dayjs, formatBytes, makeClasses } from "src/utils";
 
 interface TooltipProps {
   disabled?: boolean;

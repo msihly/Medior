@@ -1,11 +1,11 @@
 import { basename, dirname } from "path";
 import { dialog } from "@electron/remote";
 import { useState } from "react";
-import { filePathsToImports, observer, useStores } from "store";
+import { filePathsToImports, observer, useStores } from "src/store";
 import { CircularProgress } from "@mui/material";
-import { Button, Card, Divider, Modal, Text, View } from "components";
+import { Button, Card, Divider, Modal, Text, View } from "src/components";
 import { StorageInput } from "./storage-input";
-import { colors, dayjs, deleteFile, dirToFilePaths, getConfig, makePerfLog, trpc } from "utils";
+import { colors, dayjs, deleteFile, dirToFilePaths, getConfig, makePerfLog, trpc } from "src/utils";
 
 export const StorageInputs = observer(() => {
   const stores = useStores();

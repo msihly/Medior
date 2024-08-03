@@ -1,6 +1,6 @@
 import { ReactNode } from "react";
-import { Text, View } from "components";
-import { colors, CSS, makeClasses } from "utils";
+import { Text, View } from "src/components";
+import { colors, CSS, makeClasses } from "src/utils";
 
 type Row = {
   label: string | ReactNode;

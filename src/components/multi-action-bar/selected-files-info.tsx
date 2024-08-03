@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { observer, useStores } from "store";
-import { Chip, Text, Tooltip, View } from "components";
-import { formatBytes, getConfig, makeClasses } from "utils";
+import { observer, useStores } from "src/store";
+import { Chip, Text, Tooltip, View } from "src/components";
+import { formatBytes, getConfig, makeClasses } from "src/utils";
 import { toast } from "react-toastify";
 
 export const SelectedFilesInfo = observer(() => {

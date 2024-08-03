@@ -1,8 +1,8 @@
 import { getCurrentWindow, screen } from "@electron/remote";
 import { useContext, useEffect, useRef, useState } from "react";
-import { observer, useStores } from "store";
-import { ZoomContext, Icon, IconButton, SideScroller, Tag, Text, View } from "components";
-import { colors, makeClasses, round, zoomScaleStepIn, zoomScaleStepOut } from "utils";
+import { observer, useStores } from "src/store";
+import { ZoomContext, Icon, IconButton, SideScroller, Tag, Text, View } from "src/components";
+import { colors, makeClasses, round, zoomScaleStepIn, zoomScaleStepOut } from "src/utils";
 
 export const CarouselTopBar = observer(() => {
   const stores = useStores();

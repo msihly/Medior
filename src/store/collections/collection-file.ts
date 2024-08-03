@@ -1,5 +1,5 @@
 import { Model, model, prop } from "mobx-keystone";
-import { File } from "store";
+import { File } from "src/store";
 
 @model("medior/FileCollectionFile")
 export class FileCollectionFile extends Model({

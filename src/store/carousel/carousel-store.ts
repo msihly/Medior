@@ -3,8 +3,8 @@ import fs from "fs/promises";
 import { computed } from "mobx";
 import { Model, getRootStore, model, modelAction, modelFlow, prop } from "mobx-keystone";
 import { toast } from "react-toastify";
-import { FileImport, RootStore, asyncAction, copyFileForImport } from "store";
-import { dayjs, extractVideoFrame, trpc } from "utils";
+import { FileImport, RootStore, asyncAction, copyFileForImport } from "src/store";
+import { dayjs, extractVideoFrame, trpc } from "src/utils";
 
 @model("medior/CarouselStore")
 export class CarouselStore extends Model({

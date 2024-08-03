@@ -1,6 +1,6 @@
-import { View } from "components";
+import { View } from "src/components";
 import { CircularProgress } from "@mui/material";
-import { makeClasses } from "utils";
+import { makeClasses } from "src/utils";
 import { ReactNode } from "react";
 
 export interface LoadingOverlayProps {

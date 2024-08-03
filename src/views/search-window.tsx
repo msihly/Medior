@@ -1,9 +1,9 @@
 import { ipcRenderer } from "electron";
 import { useEffect, useState } from "react";
-import { observer, useStores } from "store";
-import { View } from "components";
+import { observer, useStores } from "src/store";
+import { View } from "src/components";
 import { Views, useSockets } from "./common";
-import { makeClasses, makePerfLog } from "utils";
+import { makeClasses, makePerfLog } from "src/utils";
 
 export const SearchWindow = observer(() => {
   const stores = useStores();

@@ -1,5 +1,5 @@
-import { observer, useStores } from "store";
-import { FileCollectionEditor, FileCollectionManager } from "components";
+import { observer, useStores } from "src/store";
+import { FileCollectionEditor, FileCollectionManager } from "src/components";
 
 export const CollectionModals = observer(() => {
   const stores = useStores();

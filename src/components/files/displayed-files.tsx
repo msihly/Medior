@@ -1,7 +1,7 @@
-import { observer, useStores } from "store";
-import { CenteredText, View } from "components";
+import { observer, useStores } from "src/store";
+import { CenteredText, View } from "src/components";
 import { FileCard } from ".";
-import { makeClasses } from "utils";
+import { makeClasses } from "src/utils";
 
 export const DisplayedFiles = observer(() => {
   const { css } = useClasses(null);

@@ -1,4 +1,4 @@
-import { DateInput, DateInputProps, Text, View } from "components";
+import { DateInput, DateInputProps, Text, View } from "src/components";
 
 export type DateRangeProps = {
   dateInputProps?: Partial<DateInputProps>;

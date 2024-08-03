@@ -9,7 +9,7 @@ import {
   TablePagination,
   TableRow,
 } from "@mui/material";
-import { colors, makeClasses } from "utils";
+import { colors, makeClasses } from "src/utils";
 
 const MUI_TABLE_ROW_HEIGHT = 33;
 

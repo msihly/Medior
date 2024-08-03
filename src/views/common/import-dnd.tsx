@@ -1,6 +1,6 @@
-import { handleIngest, observer, useStores } from "store";
-import { View } from "components";
-import { colors, makeClasses } from "utils";
+import { handleIngest, observer, useStores } from "src/store";
+import { View } from "src/components";
+import { colors, makeClasses } from "src/utils";
 import Color from "color";
 
 export const ImportDnD = observer(({ children }) => {

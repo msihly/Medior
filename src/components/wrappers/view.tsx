@@ -1,5 +1,5 @@
 import { forwardRef, HTMLAttributes, MutableRefObject, ReactNode } from "react";
-import { CSS, makeClasses, Margins, Padding } from "utils";
+import { CSS, makeClasses, Margins, Padding } from "src/utils";
 
 export interface ViewProps extends HTMLAttributes<HTMLDivElement> {
   align?: CSS["alignItems"];

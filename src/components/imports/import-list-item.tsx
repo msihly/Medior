@@ -1,10 +1,10 @@
 import { ReactNode, useMemo } from "react";
 import { ModelCreationData } from "mobx-keystone";
-import { FileImport, observer } from "store";
+import { FileImport, observer } from "src/store";
 import { Divider } from "@mui/material";
-import { Chip, Detail, DetailRow, IconName, Tag, Text, TooltipWrapper, View } from "components";
+import { Chip, Detail, DetailRow, IconName, Tag, Text, TooltipWrapper, View } from "src/components";
 import { TagHierarchy } from ".";
-import { colors, formatBytes, makeClasses, parseDiffParams } from "utils";
+import { colors, formatBytes, makeClasses, parseDiffParams } from "src/utils";
 
 export const IMPORT_LIST_ITEM_HEIGHT = 30;
 

@@ -1,9 +1,9 @@
 import { CSSProperties } from "react";
-import { FileCollectionFile as FileColFile, observer, useStores } from "store";
+import { FileCollectionFile as FileColFile, observer, useStores } from "src/store";
 import { useSortable } from "@alissavrk/dnd-kit-sortable";
 import { CSS as CSSUtils } from "@alissavrk/dnd-kit-utilities";
-import { FileBase, View } from "components";
-import { colors, dayjs, openCarouselWindow } from "utils";
+import { FileBase, View } from "src/components";
+import { colors, dayjs, openCarouselWindow } from "src/utils";
 
 export interface FileCollectionFileProps {
   disabled?: boolean;

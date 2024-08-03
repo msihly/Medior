@@ -1,5 +1,5 @@
-import { observer, useStores } from "store";
-import { ConfirmModal, FaceRecognitionModal, InfoModal } from "components";
+import { observer, useStores } from "src/store";
+import { ConfirmModal, FaceRecognitionModal, InfoModal } from "src/components";
 
 export const FileModals = observer(() => {
   const stores = useStores();

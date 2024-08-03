@@ -1,6 +1,6 @@
-import { observer, useStores } from "store";
-import { FileBase } from "components";
-import { colors, dayjs } from "utils";
+import { observer, useStores } from "src/store";
+import { FileBase } from "src/components";
+import { colors, dayjs } from "src/utils";
 
 export const THUMB_WIDTH = 135; // px
 

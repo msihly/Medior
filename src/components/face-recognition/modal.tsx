@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { ModelCreationData } from "mobx-keystone";
-import { FaceModel, observer, useStores } from "store";
+import { FaceModel, observer, useStores } from "src/store";
 import { CircularProgress } from "@mui/material";
-import { Button, Modal, TagInput, Text, View } from "components";
+import { Button, Modal, TagInput, Text, View } from "src/components";
 import { FaceBox } from ".";
-import { colors, makeClasses, useElementResize } from "utils";
+import { colors, makeClasses, useElementResize } from "src/utils";
 import { toast } from "react-toastify";
 import Color from "color";
 

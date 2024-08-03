@@ -1,9 +1,9 @@
 import { useEffect, useRef } from "react";
-import { observer, useStores } from "store";
-import { useHotkeys } from "views";
-import { Pagination, View } from "components";
+import { observer, useStores } from "src/store";
+import { useHotkeys } from "src/views";
+import { Pagination, View } from "src/components";
 import { DisplayedFiles } from ".";
-import { makeClasses, socket } from "utils";
+import { makeClasses, socket } from "src/utils";
 
 export const FileContainer = observer(() => {
   const stores = useStores();

@@ -1,9 +1,9 @@
 import { useCallback, useMemo, useState } from "react";
-import { observer, useStores } from "store";
+import { observer, useStores } from "src/store";
 import { FixedSizeGrid } from "react-window";
 import AutoSizer from "react-virtualized-auto-sizer";
-import { FileCollectionFile } from "components";
-import { useDeepMemo } from "utils";
+import { FileCollectionFile } from "src/components";
+import { useDeepMemo } from "src/utils";
 
 const CARD_HEIGHT = 300;
 const CARD_MAX_WIDTH = 300;

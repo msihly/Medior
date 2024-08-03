@@ -1,9 +1,9 @@
 import { useMemo } from "react";
-import { RegExMapType } from "database";
-import { Tag, observer, useStores } from "store";
+import { RegExMapType } from "src/database";
+import { Tag, observer, useStores } from "src/store";
 import { InputAdornment } from "@mui/material";
-import { Button, Input, InputProps, View } from "components";
-import { colors, makeClasses } from "utils";
+import { Button, Input, InputProps, View } from "src/components";
+import { colors, makeClasses } from "src/utils";
 
 export interface RegExMapRowProps {
   aliases: Tag["aliases"];

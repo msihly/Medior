@@ -1,6 +1,6 @@
 import { ReactNode } from "react";
-import { Text, TextProps, View, ViewProps } from "components";
-import { CSS, colors, makeClasses } from "utils";
+import { Text, TextProps, View, ViewProps } from "src/components";
+import { CSS, colors, makeClasses } from "src/utils";
 
 export interface DetailProps extends ViewProps {
   label: ReactNode;

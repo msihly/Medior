@@ -1,6 +1,6 @@
-import { Icon, IconName, IconProps, Text, View } from "components";
+import { Icon, IconName, IconProps, Text, View } from "src/components";
 import { IconButton, SortMenuProps } from ".";
-import { colors, makeClasses } from "utils";
+import { colors, makeClasses } from "src/utils";
 
 export interface SortRowProps {
   attribute: string;

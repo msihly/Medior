@@ -1,6 +1,6 @@
 import { Dispatch, SetStateAction } from "react";
-import { Button, Icon, IconName, Modal, Text } from "components";
-import { colors, makeClasses } from "utils";
+import { Button, Icon, IconName, Modal, Text } from "src/components";
+import { colors, makeClasses } from "src/utils";
 
 export interface ConfirmModalProps {
   cancelColor?: string;

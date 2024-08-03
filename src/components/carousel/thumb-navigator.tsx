@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import { observer, useStores } from "store";
+import { observer, useStores } from "src/store";
 import { FixedSizeList, ListOnScrollProps } from "react-window";
 import AutoSizer from "react-virtualized-auto-sizer";
 import { CarouselThumb, THUMB_WIDTH } from ".";
-import { IconButton, View } from "components";
-import { makeClasses, useDragScroll } from "utils";
+import { IconButton, View } from "src/components";
+import { makeClasses, useDragScroll } from "src/utils";
 import Color from "color";
 
 export const CarouselThumbNavigator = observer(() => {

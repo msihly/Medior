@@ -1,7 +1,7 @@
-import { RegExMapType } from "database";
+import { RegExMapType } from "src/database";
 import { computed } from "mobx";
 import { applySnapshot, getSnapshot, model, Model, modelAction, prop } from "mobx-keystone";
-import { RootStore } from "store";
+import { RootStore } from "src/store";
 
 export interface RegExMap {
   regEx: string;

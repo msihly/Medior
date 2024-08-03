@@ -1,8 +1,8 @@
 import { shell } from "@electron/remote";
-import { FileImport, observer } from "store";
-import { FileBase, Icon, Text, TooltipWrapper, View, ViewProps } from "components";
+import { FileImport, observer } from "src/store";
+import { FileBase, Icon, Text, TooltipWrapper, View, ViewProps } from "src/components";
 import { IMPORT_STATUSES } from ".";
-import { colors, makeClasses, openCarouselWindow, trpc } from "utils";
+import { colors, makeClasses, openCarouselWindow, trpc } from "src/utils";
 
 export const IMPORT_CARD_SIZE = 100;
 

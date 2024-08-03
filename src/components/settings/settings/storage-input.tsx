@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
-import { observer, useStores } from "store";
-import { Icon, IconButton, IconName, Text, View } from "components";
+import { observer, useStores } from "src/store";
+import { Icon, IconButton, IconName, Text, View } from "src/components";
 import { Input, InputProps } from "./input";
-import { colors, formatBytes, round, trpc } from "utils";
+import { colors, formatBytes, round, trpc } from "src/utils";
 import { DiskUsage } from "diskusage";
 
 interface Status {

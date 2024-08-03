@@ -1,9 +1,9 @@
 import { dialog } from "@electron/remote";
 import { useEffect, useState } from "react";
-import { observer, useStores } from "store";
-import { Button, ConfirmModal, Divider, LoadingOverlay, Modal, Text, View } from "components";
+import { observer, useStores } from "src/store";
+import { Button, ConfirmModal, Divider, LoadingOverlay, Modal, Text, View } from "src/components";
 import { Settings } from ".";
-import { colors, CONSTANTS, loadConfig, makeClasses, saveConfig, trpc } from "utils";
+import { colors, CONSTANTS, loadConfig, makeClasses, saveConfig, trpc } from "src/utils";
 import { toast } from "react-toastify";
 import Color from "color";
 

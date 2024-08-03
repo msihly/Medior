@@ -1,12 +1,12 @@
 import { shell } from "@electron/remote";
 import { createContext, MutableRefObject, useContext, useEffect, useRef, useState } from "react";
-import { observer, useStores } from "store";
+import { observer, useStores } from "src/store";
 import ReactPlayer from "react-player/file";
 import { OnProgressProps } from "react-player/base";
 import Panzoom, { PanzoomObject, PanzoomOptions } from "@panzoom/panzoom";
 import { Slider } from "@mui/material";
-import { Button, ContextMenu, FileBase, IconButton, Text, THUMB_WIDTH, View } from "components";
-import { colors, CONSTANTS, dayjs, makeClasses, round } from "utils";
+import { Button, ContextMenu, FileBase, IconButton, Text, THUMB_WIDTH, View } from "src/components";
+import { colors, CONSTANTS, dayjs, makeClasses, round } from "src/utils";
 
 export const ZoomContext = createContext<MutableRefObject<PanzoomObject>>(null);
 

@@ -1,6 +1,6 @@
-import { Button, Icon, IconName, IconProps, Text, View } from "components";
+import { Button, Icon, IconName, IconProps, Text, View } from "src/components";
 import { ButtonProps, MenuButton, SortRow } from ".";
-import { colors, CSS, makeClasses } from "utils";
+import { colors, CSS, makeClasses } from "src/utils";
 
 export interface SortMenuProps extends Omit<ButtonProps, "onChange" | "value"> {
   color?: string;

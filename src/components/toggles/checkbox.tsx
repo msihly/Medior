@@ -1,6 +1,6 @@
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { Checkbox as MuiCheckbox, FormControlLabel } from "@mui/material";
-import { colors, CSS, makeClasses, Padding } from "utils";
+import { colors, CSS, makeClasses, Padding } from "src/utils";
 
 export interface CheckboxProps {
   center?: boolean;

@@ -1,5 +1,5 @@
 import { MenuItem } from "@mui/material";
-import { Input, InputProps, Text } from "components";
+import { Input, InputProps, Text } from "src/components";
 
 export type DropdownOption = {
   label: string;

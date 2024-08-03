@@ -6,8 +6,8 @@ import {
   useRef,
   useState,
 } from "react";
-import { View } from "components";
-import { CSS, makeClasses } from "utils";
+import { View } from "src/components";
+import { CSS, makeClasses } from "src/utils";
 
 interface ImageProps
   extends Omit<

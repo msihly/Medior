@@ -1,4 +1,4 @@
-import { SortMenuProps } from "components";
+import { SortMenuProps } from "src/components";
 import {
   getRootStore,
   model,
@@ -8,8 +8,8 @@ import {
   prop,
 } from "mobx-keystone";
 import { toast } from "react-toastify";
-import { asyncAction, RootStore } from "store";
-import { getConfig, LogicalOp, makePerfLog, makeQueue, PromiseQueue, trpc } from "utils";
+import { asyncAction, RootStore } from "src/store";
+import { getConfig, LogicalOp, makePerfLog, makeQueue, PromiseQueue, trpc } from "src/utils";
 import { TagOption } from ".";
 
 export type TagManagerMode = "create" | "edit" | "search";

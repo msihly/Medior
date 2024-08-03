@@ -4,8 +4,8 @@ import fs from "fs/promises";
 import disk from "diskusage";
 import { AnyBulkWriteOperation } from "mongodb";
 import { PipelineStage } from "mongoose";
-import * as db from "database";
-import { dayjs, handleErrors, logicOpsToMongo, makePerfLog, sharp, socket } from "utils";
+import * as db from "src/database";
+import { dayjs, handleErrors, logicOpsToMongo, makePerfLog, sharp, socket } from "src/utils";
 import { leanModelToJson, objectId, objectIds } from "./utils";
 
 const FACE_MIN_CONFIDENCE = 0.4;

@@ -8,7 +8,7 @@ import {
   ModelCreationData,
   prop,
 } from "mobx-keystone";
-import { dayjs, getConfig, PLAYABLE_VIDEO_TYPES } from "utils";
+import { dayjs, getConfig, PLAYABLE_VIDEO_TYPES } from "src/utils";
 
 @model("medior/File")
 export class File extends Model({

@@ -1,4 +1,4 @@
-import { ChipInput, ChipInputProps, InputWrapper, InputWrapperProps } from "components";
+import { ChipInput, ChipInputProps, InputWrapper, InputWrapperProps } from "src/components";
 
 interface AliasesProps extends ChipInputProps {
   wrapperProps?: Partial<InputWrapperProps>;

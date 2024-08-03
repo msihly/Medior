@@ -1,6 +1,6 @@
 import { ReactNode } from "react";
-import { Text, View } from "components";
-import { colors, makeClasses } from "utils";
+import { Text, View } from "src/components";
+import { colors, makeClasses } from "src/utils";
 
 export interface SectionProps {
   children: ReactNode | ReactNode[];

@@ -1,4 +1,4 @@
-import { IconButton, IconButtonProps } from "components";
+import { IconButton, IconButtonProps } from "src/components";
 
 export interface MultiActionButtonProps extends IconButtonProps {}
 

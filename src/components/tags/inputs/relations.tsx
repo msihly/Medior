@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { observer, useStores } from "store";
+import { observer, useStores } from "src/store";
 import {
   Icon,
   InputWrapper,
@@ -10,8 +10,8 @@ import {
   Text,
   TooltipWrapper,
   View,
-} from "components";
-import { colors, makeClasses } from "utils";
+} from "src/components";
+import { colors, makeClasses } from "src/utils";
 
 interface RelationsProps extends Omit<TagInputProps, "label" | "onChange" | "ref"> {
   ancestryTagIds?: string[];

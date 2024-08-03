@@ -1,7 +1,7 @@
 import * as fss from "fs";
 import { promises as fs } from "fs";
 import path from "path";
-import { handleErrors, throttle, trpc } from "utils";
+import { handleErrors, throttle, trpc } from "src/utils";
 
 export const checkFileExists = async (path: string) => !!(await fs.stat(path).catch(() => false));
 

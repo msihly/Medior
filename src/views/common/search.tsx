@@ -1,6 +1,6 @@
-import { observer, useStores } from "store";
-import { Drawer, FileContainer, HomeMultiActionBar, LoadingOverlay, View } from "components";
-import { CONSTANTS, makeClasses } from "utils";
+import { observer, useStores } from "src/store";
+import { Drawer, FileContainer, HomeMultiActionBar, LoadingOverlay, View } from "src/components";
+import { CONSTANTS, makeClasses } from "src/utils";
 
 interface SearchProps {
   hasImports?: boolean;

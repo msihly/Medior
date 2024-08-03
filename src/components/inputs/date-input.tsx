@@ -2,8 +2,8 @@ import { useEffect, useState } from "react";
 import { DatePicker, DatePickerProps } from "@mui/x-date-pickers/DatePicker";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
-import { ConditionalWrap, Text, TextProps, View } from "components";
-import { CSS, dayjs, makeClasses } from "utils";
+import { ConditionalWrap, Text, TextProps, View } from "src/components";
+import { CSS, dayjs, makeClasses } from "src/utils";
 
 export interface DateInputProps extends Omit<DatePickerProps<dayjs.Dayjs>, "onChange" | "value"> {
   detachLabel?: boolean;

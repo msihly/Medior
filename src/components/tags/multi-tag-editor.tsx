@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { TagOption, observer, useStores } from "store";
-import { Button, ConfirmModal, LoadingOverlay, Modal, TagInput, Text, View } from "components";
-import { colors } from "utils";
+import { TagOption, observer, useStores } from "src/store";
+import { Button, ConfirmModal, LoadingOverlay, Modal, TagInput, Text, View } from "src/components";
+import { colors } from "src/utils";
 import { toast } from "react-toastify";
 
 export const MultiTagEditor = observer(() => {

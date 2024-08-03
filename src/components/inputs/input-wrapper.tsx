@@ -1,4 +1,4 @@
-import { Text, TextProps, View, ViewProps } from "components";
+import { Text, TextProps, View, ViewProps } from "src/components";
 
 export interface InputWrapperProps extends Partial<ViewProps> {
   children: JSX.Element;

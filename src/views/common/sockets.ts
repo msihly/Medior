@@ -1,7 +1,7 @@
 import { useEffect } from "react";
-import { SocketEmitEvent, SocketEmitEvents } from "server";
-import { useStores } from "store";
-import { setupSocketIO, socket, throttle } from "utils";
+import { SocketEmitEvent, SocketEmitEvents } from "src/server";
+import { useStores } from "src/store";
+import { setupSocketIO, socket, throttle } from "src/utils";
 
 export interface UseSocketsProps {
   view: "carousel" | "home" | "search";

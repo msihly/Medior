@@ -1,4 +1,4 @@
-import { IconName, IconProps } from "components";
+import { IconName, IconProps } from "src/components";
 import { ConnectOptions } from "mongoose";
 
 export interface Constants {

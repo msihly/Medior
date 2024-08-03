@@ -1,7 +1,7 @@
 import fs from "fs/promises";
 import path from "path";
 import { ipcRenderer } from "electron";
-import { FolderToCollMode, FolderToTagsMode, SortMenuProps } from "components";
+import { FolderToCollMode, FolderToTagsMode, SortMenuProps } from "src/components";
 import {
   ImageType,
   NestedKeys,

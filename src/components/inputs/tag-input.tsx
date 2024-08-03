@@ -8,15 +8,15 @@ import {
   useEffect,
   useState,
 } from "react";
-import { SearchTagType, TagOption, observer, useStores } from "store";
+import { SearchTagType, TagOption, observer, useStores } from "src/store";
 import {
   Autocomplete,
   AutocompleteChangeReason,
   AutocompleteRenderGetTagProps,
   AutocompleteRenderInputParams,
 } from "@mui/material";
-import { Button, Chip, IconName, Input, InputProps, ListItem, Tag, View } from "components";
-import { colors, CSS, makeClasses, Margins, socket, useDeepMemo } from "utils";
+import { Button, Chip, IconName, Input, InputProps, ListItem, Tag, View } from "src/components";
+import { colors, CSS, makeClasses, Margins, socket, useDeepMemo } from "src/utils";
 import { toast } from "react-toastify";
 
 const SEARCH_MENU_META: {

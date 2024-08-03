@@ -1,6 +1,6 @@
-import { observer, useStores } from "store";
-import { NumInput as NumInputBase, NumInputProps as NumInputBaseProps } from "components";
-import { ConfigKey } from "utils";
+import { observer, useStores } from "src/store";
+import { NumInput as NumInputBase, NumInputProps as NumInputBaseProps } from "src/components";
+import { ConfigKey } from "src/utils";
 
 export interface NumInputProps extends NumInputBaseProps {
   configKey: ConfigKey;

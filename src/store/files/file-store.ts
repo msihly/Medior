@@ -10,8 +10,8 @@ import {
   modelFlow,
   prop,
 } from "mobx-keystone";
-import { asyncAction, FaceModel, RootStore } from "store";
-import { EditFileTagsInput, LoadFilesInput, RefreshFileInput, SetFileRatingInput } from "database";
+import { asyncAction, FaceModel, RootStore } from "src/store";
+import { EditFileTagsInput, LoadFilesInput, RefreshFileInput, SetFileRatingInput } from "src/database";
 import { File } from ".";
 import {
   CONSTANTS,
@@ -23,7 +23,7 @@ import {
   sharp,
   splitArray,
   trpc,
-} from "utils";
+} from "src/utils";
 import { toast } from "react-toastify";
 
 @model("medior/FileStore")

@@ -1,7 +1,7 @@
-import { observer, useStores } from "store";
-import { Icon, Text, View } from "components";
+import { observer, useStores } from "src/store";
+import { Icon, Text, View } from "src/components";
 import { TagToUpsert } from ".";
-import { colors, makeClasses } from "utils";
+import { colors, makeClasses } from "src/utils";
 
 export interface TagHierarchyProps {
   className?: string;

@@ -1,5 +1,5 @@
 import { KeyboardEvent, MutableRefObject } from "react";
-import { useStores } from "store";
+import { useStores } from "src/store";
 import { toast } from "react-toastify";
 
 const RATING_KEYS = ["1", "2", "3", "4", "5", "6", "7", "8", "9"];

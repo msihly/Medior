@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { TagOption, tagToOption, observer, useStores } from "store";
-import { Button, ConfirmModal, Modal, TagInput, Text, View } from "components";
-import { colors, useDeepEffect } from "utils";
+import { TagOption, tagToOption, observer, useStores } from "src/store";
+import { Button, ConfirmModal, Modal, TagInput, Text, View } from "src/components";
+import { colors, useDeepEffect } from "src/utils";
 import { toast } from "react-toastify";
 
 interface FileTagEditorProps {

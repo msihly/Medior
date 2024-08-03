@@ -7,8 +7,8 @@ import {
   ListItemIcon,
   ListItemText,
 } from "@mui/material";
-import { Icon, IconName, IconProps, TooltipWrapper } from "components";
-import { Margins, makeClasses } from "utils";
+import { Icon, IconName, IconProps, TooltipWrapper } from "src/components";
+import { Margins, makeClasses } from "src/utils";
 
 export interface ListItemProps extends Omit<MuiListItemProps, "children"> {
   children?: ReactNode;

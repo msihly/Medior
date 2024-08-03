@@ -1,4 +1,4 @@
-import { Text, TextProps } from "components";
+import { Text, TextProps } from "src/components";
 
 export interface LabelProps extends TextProps {
   label: string;

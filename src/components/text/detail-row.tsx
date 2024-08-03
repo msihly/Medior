@@ -1,6 +1,6 @@
 import { ReactNode } from "react";
-import { View } from "components";
-import { makeClasses } from "utils";
+import { View } from "src/components";
+import { makeClasses } from "src/utils";
 
 export interface DetailRowProps {
   children: ReactNode | ReactNode[];

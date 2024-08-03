@@ -1,6 +1,6 @@
 import { MouseEvent, ReactNode, useState } from "react";
 import { Menu } from "@mui/material";
-import { IconName } from "components";
+import { IconName } from "src/components";
 import { IconButton, IconButtonProps } from ".";
 
 export interface MenuButtonProps extends IconButtonProps {

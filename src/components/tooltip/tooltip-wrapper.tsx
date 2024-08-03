@@ -1,4 +1,4 @@
-import { ConditionalWrap, Tooltip, TooltipProps } from "components";
+import { ConditionalWrap, Tooltip, TooltipProps } from "src/components";
 
 export interface TooltipWrapperProps {
   children: JSX.Element | JSX.Element[];

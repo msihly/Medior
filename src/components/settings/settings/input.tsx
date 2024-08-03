@@ -1,6 +1,6 @@
-import { observer, useStores } from "store";
-import { Input as InputBase, InputProps as InputBaseProps } from "components";
-import { ConfigKey } from "utils";
+import { observer, useStores } from "src/store";
+import { Input as InputBase, InputProps as InputBaseProps } from "src/components";
+import { ConfigKey } from "src/utils";
 
 export interface InputProps extends InputBaseProps {
   configKey: ConfigKey;

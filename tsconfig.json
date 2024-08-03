@@ -2,7 +2,7 @@
   "compilerOptions": {
     "allowJs": true,
     "allowSyntheticDefaultImports": true,
-    "baseUrl": "src",
+    "baseUrl": ".",
     "esModuleInterop": true,
     "experimentalDecorators": true,
     "forceConsistentCasingInFileNames": true,
@@ -15,6 +15,9 @@
     "noFallthroughCasesInSwitch": false,
     "noImplicitAny": false,
     "noUnusedLocals": true,
+    "paths": {
+      "src/*": ["./src/*"]
+    },
     "resolveJsonModule": true,
     "skipLibCheck": true,
     "strict": false,
@@ -22,6 +25,6 @@
     "types": ["vite/client", "vite-plugin-svgr/client"],
     "useDefineForClassFields": true
   },
-  "include": ["src"],
-  "exclude": ["node_modules"]
+  "include": ["./src"],
+  "exclude": ["./node_modules"]
 }

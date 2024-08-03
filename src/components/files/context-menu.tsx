@@ -1,10 +1,10 @@
 import path from "path";
 import { shell } from "@electron/remote";
 import { ReactNode, useState } from "react";
-import { File, observer, useStores } from "store";
+import { File, observer, useStores } from "src/store";
 import { Menu } from "@mui/material";
-import { ListItem, View, ViewProps } from "components";
-import { colors, copyToClipboard, makeClasses } from "utils";
+import { ListItem, View, ViewProps } from "src/components";
+import { colors, copyToClipboard, makeClasses } from "src/utils";
 
 interface Options {
   collections?: boolean;

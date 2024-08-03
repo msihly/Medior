@@ -1,5 +1,5 @@
-import { Text, TextProps, View, ViewProps } from "components";
-import { colors } from "utils";
+import { Text, TextProps, View, ViewProps } from "src/components";
+import { colors } from "src/utils";
 
 export interface CenteredTextProps extends TextProps {
   color?: string;

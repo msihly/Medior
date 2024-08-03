@@ -1,8 +1,8 @@
 import { ComponentProps, useState } from "react";
 import { Autocomplete, AutocompleteChangeReason } from "@mui/material";
-import { Chip } from "components";
+import { Chip } from "src/components";
 import { Input, InputProps } from ".";
-import { colors, makeClasses } from "utils";
+import { colors, makeClasses } from "src/utils";
 
 export type ChipOption = {
   label: string;

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { observer, useStores } from "store";
+import { observer, useStores } from "src/store";
 import {
   DndContext,
   DragEndEvent,
@@ -30,9 +30,9 @@ import {
   TagInput,
   Text,
   View,
-} from "components";
+} from "src/components";
 import { EditorFiles } from ".";
-import { CONSTANTS, colors, makeClasses, useDeepEffect } from "utils";
+import { CONSTANTS, colors, makeClasses, useDeepEffect } from "src/utils";
 import { toast } from "react-toastify";
 
 export const FileCollectionEditor = observer(() => {

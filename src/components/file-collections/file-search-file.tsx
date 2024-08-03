@@ -1,7 +1,7 @@
 import { CSSProperties } from "react";
-import { File, observer, useStores } from "store";
-import { Button, FileBase } from "components";
-import { colors, dayjs } from "utils";
+import { File, observer, useStores } from "src/store";
+import { Button, FileBase } from "src/components";
+import { colors, dayjs } from "src/utils";
 
 export interface FileSearchFileProps {
   disabled?: boolean;

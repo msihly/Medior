@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { RegExMap, TagOption, observer, useStores } from "store";
+import { RegExMap, TagOption, observer, useStores } from "src/store";
 import { Divider } from "@mui/material";
 import {
   Button,
@@ -13,8 +13,8 @@ import {
   TagInputs,
   Text,
   View,
-} from "components";
-import { colors, makeClasses, useDeepEffect, useDeepMemo } from "utils";
+} from "src/components";
+import { colors, makeClasses, useDeepEffect, useDeepMemo } from "src/utils";
 import { toast } from "react-toastify";
 
 export const TagMerger = observer(() => {

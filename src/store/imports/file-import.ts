@@ -1,4 +1,4 @@
-import { TagToUpsert } from "components";
+import { TagToUpsert } from "src/components";
 import { applySnapshot, getSnapshot, model, Model, modelAction, prop } from "mobx-keystone";
 
 @model("medior/FileImport")

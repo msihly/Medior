@@ -4,10 +4,10 @@ import { BrowserRouter, HashRouter, Route, Switch } from "react-router-dom";
 import { ThemeProvider, createTheme } from "@mui/material";
 import { CacheProvider } from "@emotion/react";
 import createCache from "@emotion/cache";
-import { createRootStore, RootStore, RootStoreContext } from "store";
-import { ConditionalWrap, ToastContainer } from "components";
-import { CarouselWindow, HomeWindow, SearchWindow } from "views";
-import { loadConfig, setupTRPC } from "utils";
+import { createRootStore, RootStore, RootStoreContext } from "src/store";
+import { ConditionalWrap, ToastContainer } from "src/components";
+import { CarouselWindow, HomeWindow, SearchWindow } from "src/views";
+import { loadConfig, setupTRPC } from "src/utils";
 import "react-toastify/dist/ReactToastify.css";
 import "./css/index.css";
 

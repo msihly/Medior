@@ -3,7 +3,7 @@ import {
   Pagination as PaginationBase,
   PaginationProps as PaginationBaseProps,
 } from "@mui/material";
-import { colors, makeClasses } from "utils";
+import { colors, makeClasses } from "src/utils";
 import Color from "color";
 
 export interface PaginationProps extends Omit<PaginationBaseProps, "onChange"> {

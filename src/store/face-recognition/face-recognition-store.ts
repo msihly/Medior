@@ -1,5 +1,5 @@
 import type { LabeledFaceDescriptors } from "@vladmandic/face-api";
-import { LoadFaceModelsInput } from "database";
+import { LoadFaceModelsInput } from "src/database";
 import { computed } from "mobx";
 import {
   arrayActions,
@@ -10,9 +10,9 @@ import {
   modelFlow,
   prop,
 } from "mobx-keystone";
-import { asyncAction, File, RootStore } from "store";
+import { asyncAction, File, RootStore } from "src/store";
 import { FaceModel } from ".";
-import { getConfig, makeQueue, objectToFloat32Array, PromiseQueue, trpc } from "utils";
+import { getConfig, makeQueue, objectToFloat32Array, PromiseQueue, trpc } from "src/utils";
 
 const DISTANCE_THRESHOLD = 0.45;
 

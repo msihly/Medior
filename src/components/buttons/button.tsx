@@ -6,8 +6,8 @@ import {
   ButtonProps as MuiButtonProps,
   CircularProgress,
 } from "@mui/material";
-import { Icon, IconName, IconProps, Text, TooltipProps, TooltipWrapper, View } from "components";
-import { colors, CSS, makeClasses, Margins, Padding } from "utils";
+import { Icon, IconName, IconProps, Text, TooltipProps, TooltipWrapper, View } from "src/components";
+import { colors, CSS, makeClasses, Margins, Padding } from "src/utils";
 import Color from "color";
 
 export interface ButtonProps

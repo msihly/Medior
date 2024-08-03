@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { TagOption, observer, useStores } from "store";
+import { TagOption, observer, useStores } from "src/store";
 import { Divider, Drawer as MuiDrawer, List } from "@mui/material";
 import {
   Accordion,
@@ -14,7 +14,7 @@ import {
   TagInput,
   Text,
   View,
-} from "components";
+} from "src/components";
 import { ExtCheckbox } from ".";
 import {
   colors,
@@ -25,7 +25,7 @@ import {
   makeClasses,
   openSearchWindow,
   useDeepMemo,
-} from "utils";
+} from "src/utils";
 
 const NUM_OF_TAGS_OPS = [
   { label: "Any", value: "" },

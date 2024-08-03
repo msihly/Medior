@@ -1,7 +1,7 @@
-import { observer, useStores } from "store";
-import { SortMenu as SortMenuBase, SortMenuProps as SortMenuBaseProps, View } from "components";
+import { observer, useStores } from "src/store";
+import { SortMenu as SortMenuBase, SortMenuProps as SortMenuBaseProps, View } from "src/components";
 import { Label } from "./label";
-import { colors, ConfigKey } from "utils";
+import { colors, ConfigKey } from "src/utils";
 import Color from "color";
 
 export interface SortMenuProps extends Omit<SortMenuBaseProps, "setValue" | "value"> {

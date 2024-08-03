@@ -1,11 +1,11 @@
 import path from "path";
 import { ModelCreationData } from "mobx-keystone";
-import { FileImport, observer } from "store";
+import { FileImport, observer } from "src/store";
 import { FixedSizeList } from "react-window";
 import { Divider } from "@mui/material";
-import { Chip, Text, View } from "components";
+import { Chip, Text, View } from "src/components";
 import { IMPORT_LIST_ITEM_HEIGHT, ImportListItem, TagHierarchy, TagToUpsert } from ".";
-import { colors, makeClasses } from "utils";
+import { colors, makeClasses } from "src/utils";
 
 export interface ImportFolderListProps {
   collectionTitle?: string;

@@ -1,6 +1,6 @@
-import { observer, useStores } from "store";
-import { Checkbox, CheckboxProps } from "components";
-import { ConfigKey } from "utils";
+import { observer, useStores } from "src/store";
+import { Checkbox, CheckboxProps } from "src/components";
+import { ConfigKey } from "src/utils";
 
 export interface ExtCheckboxProps extends Omit<CheckboxProps, "checked" | "label" | "setChecked"> {
   configKey: ConfigKey;

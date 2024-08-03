@@ -1,7 +1,7 @@
 import { ReactNode } from "react";
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { DialogActions } from "@mui/material";
-import { makeClasses } from "utils";
+import { makeClasses } from "src/utils";
 
 interface FooterProps {
   children: ReactNode | ReactNode[];

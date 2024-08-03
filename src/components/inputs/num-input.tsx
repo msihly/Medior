@@ -1,5 +1,5 @@
 import { forwardRef, MutableRefObject, useState } from "react";
-import { Input, InputProps } from "components";
+import { Input, InputProps } from "src/components";
 import { toast } from "react-toastify";
 
 export interface NumInputProps extends Omit<InputProps, "setValue" | "value"> {

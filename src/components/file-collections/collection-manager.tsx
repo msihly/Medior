@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { TagOption, observer, useStores } from "store";
+import { TagOption, observer, useStores } from "src/store";
 import {
   Button,
   CenteredText,
@@ -14,9 +14,9 @@ import {
   TagInput,
   Text,
   View,
-} from "components";
+} from "src/components";
 import { DisplayedCollections, FileCollection } from ".";
-import { CONSTANTS, colors, debounce, makeClasses, useDeepEffect, useDeepMemo } from "utils";
+import { CONSTANTS, colors, debounce, makeClasses, useDeepEffect, useDeepMemo } from "src/utils";
 import { toast } from "react-toastify";
 
 export const FileCollectionManager = observer(() => {

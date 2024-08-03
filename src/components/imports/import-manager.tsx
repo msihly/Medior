@@ -1,7 +1,7 @@
 import { ReactNode, useEffect, useRef, useState } from "react";
-import { observer, useStores } from "store";
-import { Button, CenteredText, IconButton, ImportBatch, Modal, Text, View } from "components";
-import { colors, formatBytes, makeClasses } from "utils";
+import { observer, useStores } from "src/store";
+import { Button, CenteredText, IconButton, ImportBatch, Modal, Text, View } from "src/components";
+import { colors, formatBytes, makeClasses } from "src/utils";
 import { toast } from "react-toastify";
 
 export const ImportManager = observer(() => {

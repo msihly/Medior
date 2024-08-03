@@ -1,6 +1,6 @@
-import { FileBase, Text } from "components";
-import { TagManagerTag, observer, useStores } from "store";
-import { CONSTANTS, colors, makeClasses } from "utils";
+import { FileBase, Text } from "src/components";
+import { TagManagerTag, observer, useStores } from "src/store";
+import { CONSTANTS, colors, makeClasses } from "src/utils";
 
 export interface TagCardProps {
   tag: TagManagerTag;

@@ -1,8 +1,8 @@
 import path from "path";
 import { useState } from "react";
-import { RegExMapType } from "database";
+import { RegExMapType } from "src/database";
 import { ModelCreationData } from "mobx-keystone";
-import { FileImport, Tag, observer, useStores } from "store";
+import { FileImport, Tag, observer, useStores } from "src/store";
 import { Divider } from "@mui/material";
 import {
   Button,
@@ -13,7 +13,7 @@ import {
   Modal,
   Text,
   View,
-} from "components";
+} from "src/components";
 import {
   FlatFolderHierarchy,
   FolderToCollMode,
@@ -23,7 +23,7 @@ import {
   TagHierarchy,
   TagToUpsert,
 } from ".";
-import { colors, getConfig, makeClasses, parseDiffParams, useDeepEffect } from "utils";
+import { colors, getConfig, makeClasses, parseDiffParams, useDeepEffect } from "src/utils";
 import { toast } from "react-toastify";
 
 type RegExMaps = { regEx: RegExp; tagId: string }[];

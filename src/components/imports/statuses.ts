@@ -1,5 +1,5 @@
-import { IconName } from "components";
-import { colors } from "utils";
+import { IconName } from "src/components";
+import { colors } from "src/utils";
 
 interface Status {
   color: string;

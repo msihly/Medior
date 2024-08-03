@@ -1,8 +1,8 @@
-import { Icon, Tag, Text, Tooltip, View } from "components";
+import { Icon, Tag, Text, Tooltip, View } from "src/components";
 import { useState } from "react";
 import { toast } from "react-toastify";
-import { FileCollection, observer, useStores } from "store";
-import { colors, dayjs, makeClasses } from "utils";
+import { FileCollection, observer, useStores } from "src/store";
+import { colors, dayjs, makeClasses } from "src/utils";
 
 export interface CollectionTooltipProps {
   collection: FileCollection;

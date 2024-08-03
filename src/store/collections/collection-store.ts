@@ -16,11 +16,11 @@ import {
   SelectedImageTypes,
   SelectedVideoTypes,
   TagOption,
-} from "store";
-import * as db from "database";
-import { SortMenuProps } from "components";
+} from "src/store";
+import * as db from "src/database";
+import { SortMenuProps } from "src/components";
 import { FileCollection, FileCollectionFile } from ".";
-import { getConfig, LogicalOp, makePerfLog, makeQueue, PromiseQueue, trpc } from "utils";
+import { getConfig, LogicalOp, makePerfLog, makeQueue, PromiseQueue, trpc } from "src/utils";
 import { toast } from "react-toastify";
 import { arrayMove } from "@alissavrk/dnd-kit-sortable";
 

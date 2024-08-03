@@ -1,10 +1,10 @@
-import { Icon, IconName } from "components";
+import { Icon, IconName } from "src/components";
 import {
   ToastContainer as ToastContainerBase,
   ToastContainerProps,
   TypeOptions,
 } from "react-toastify";
-import { colors, makeClasses } from "utils";
+import { colors, makeClasses } from "src/utils";
 
 export const ToastContainer = (props: ToastContainerProps) => {
   const { css } = useClasses(null);

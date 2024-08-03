@@ -2,7 +2,7 @@ import { useRef } from "react";
 import Draggable from "react-draggable";
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { Dialog, DialogProps, Paper, PaperProps } from "@mui/material";
-import { CSS, makeClasses } from "utils";
+import { CSS, makeClasses } from "src/utils";
 
 export interface ContainerProps
   extends Omit<DialogProps, "maxWidth" | "open" | "onClose" | "title"> {

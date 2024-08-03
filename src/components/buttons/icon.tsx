@@ -1,8 +1,8 @@
 import { ReactNode } from "react";
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { IconButton as MuiIconButton, IconButtonProps as MuiIconButtonProps } from "@mui/material";
-import { Icon, IconName, IconProps, TooltipWrapper, TooltipWrapperProps } from "components";
-import { makeClasses, Margins } from "utils";
+import { Icon, IconName, IconProps, TooltipWrapper, TooltipWrapperProps } from "src/components";
+import { makeClasses, Margins } from "src/utils";
 
 export interface IconButtonProps extends Omit<MuiIconButtonProps, "color"> {
   children?: ReactNode | ReactNode[];

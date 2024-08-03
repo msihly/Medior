@@ -1,7 +1,7 @@
 import { Fragment } from "react";
-import { observer, useStores } from "store";
-import { Button, Text } from "components";
-import { colors } from "utils";
+import { observer, useStores } from "src/store";
+import { Button, Text } from "src/components";
+import { colors } from "src/utils";
 import Color from "color";
 
 export interface RootFolderButtonProps {

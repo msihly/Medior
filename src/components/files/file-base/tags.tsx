@@ -1,6 +1,6 @@
-import { Tag, View } from "components";
-import { observer, useStores } from "store";
-import { colors, makeClasses } from "utils";
+import { Tag, View } from "src/components";
+import { observer, useStores } from "src/store";
+import { colors, makeClasses } from "src/utils";
 
 interface TagsProps {
   tagIds: string[];

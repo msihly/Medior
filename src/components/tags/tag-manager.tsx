@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { TagOption, observer, useStores } from "store";
+import { TagOption, observer, useStores } from "src/store";
 import { FixedSizeGrid } from "react-window";
 import {
   Button,
@@ -19,7 +19,7 @@ import {
   TagInput,
   Text,
   View,
-} from "components";
+} from "src/components";
 import {
   CONSTANTS,
   LOGICAL_OPS,
@@ -28,7 +28,7 @@ import {
   makeClasses,
   openSearchWindow,
   useDeepEffect,
-} from "utils";
+} from "src/utils";
 import { toast } from "react-toastify";
 
 const COUNT_OPS = [

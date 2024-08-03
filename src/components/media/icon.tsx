@@ -1,8 +1,8 @@
-import { View } from "components";
+import { View } from "src/components";
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { Icon as MuiIcon, IconProps as MuiIconProps } from "@mui/material";
 import { IconName as MuiIconName } from "@mui/icons-material";
-import { makeClasses, Margins } from "utils";
+import { makeClasses, Margins } from "src/utils";
 
 export type IconName = MuiIconName;
 

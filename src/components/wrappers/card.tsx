@@ -1,5 +1,5 @@
 import { View, ViewProps } from ".";
-import { CSS, makeClasses } from "utils";
+import { CSS, makeClasses } from "src/utils";
 
 export interface CardProps extends Omit<ViewProps, "padding"> {
   bgColor?: CSS["backgroundColor"];

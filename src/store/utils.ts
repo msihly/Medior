@@ -1,5 +1,5 @@
 import { _async, _await } from "mobx-keystone";
-import { handleErrors } from "utils";
+import { handleErrors } from "src/utils";
 
 export const asyncAction = <ThisArg, Output, Input>(fn: (input: Input) => Promise<Output>) => {
   return _async(function* (this: ThisArg, input?: Input) {

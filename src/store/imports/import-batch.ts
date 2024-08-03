@@ -1,7 +1,7 @@
 import { computed } from "mobx";
 import { applySnapshot, getSnapshot, model, Model, modelAction, prop } from "mobx-keystone";
 import { FileImport } from ".";
-import { dayjs, DayJsInput } from "utils";
+import { dayjs, DayJsInput } from "src/utils";
 
 @model("medior/ImportBatch")
 export class ImportBatch extends Model({

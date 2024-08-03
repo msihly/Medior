@@ -1,8 +1,8 @@
 import { getCurrentWebContents } from "@electron/remote";
-import { File, observer, useStores } from "store";
-import { Icon, Text, View } from "components";
+import { File, observer, useStores } from "src/store";
+import { Icon, Text, View } from "src/components";
 import { ContextMenu, FileBase } from ".";
-import { colors, CSS, dayjs, getConfig, openCarouselWindow } from "utils";
+import { colors, CSS, dayjs, getConfig, openCarouselWindow } from "src/utils";
 
 interface FileCardProps {
   disabled?: boolean;

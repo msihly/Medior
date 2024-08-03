@@ -1,10 +1,10 @@
 import { ipcRenderer } from "electron";
 import { WheelEvent, useEffect, useRef } from "react";
-import { observer, useStores } from "store";
+import { observer, useStores } from "src/store";
 import { PanzoomObject } from "@panzoom/panzoom";
-import { Carousel, CarouselThumbNavigator, CarouselTopBar, View, ZoomContext } from "components";
+import { Carousel, CarouselThumbNavigator, CarouselTopBar, View, ZoomContext } from "src/components";
 import { Views, useHotkeys, useSockets } from "./common";
-import { debounce, makeClasses, makePerfLog, zoomScaleStepIn, zoomScaleStepOut } from "utils";
+import { debounce, makeClasses, makePerfLog, zoomScaleStepIn, zoomScaleStepOut } from "src/utils";
 
 export const CarouselWindow = observer(() => {
   const { css } = useClasses(null);

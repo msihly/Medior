@@ -1,6 +1,6 @@
-import { observer, useStores } from "store";
-import { Checkbox as CheckboxBase, CheckboxProps as CheckboxBaseProps } from "components";
-import { ConfigKey } from "utils";
+import { observer, useStores } from "src/store";
+import { Checkbox as CheckboxBase, CheckboxProps as CheckboxBaseProps } from "src/components";
+import { ConfigKey } from "src/utils";
 
 export interface CheckboxProps extends Omit<CheckboxBaseProps, "checked" | "setChecked"> {
   checked?: boolean;

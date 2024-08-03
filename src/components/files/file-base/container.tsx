@@ -1,7 +1,7 @@
 import { MouseEvent, ReactNode } from "react";
 import { Paper } from "@mui/material";
-import { View, ViewProps } from "components";
-import { colors, CSS, makeClasses } from "utils";
+import { View, ViewProps } from "src/components";
+import { colors, CSS, makeClasses } from "src/utils";
 import Color from "color";
 
 interface ContainerProps extends ViewProps {

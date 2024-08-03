@@ -1,10 +1,10 @@
 import path from "path";
 import { useState } from "react";
-import { ImportBatch as ImportBatchType, observer, useStores } from "store";
+import { ImportBatch as ImportBatchType, observer, useStores } from "src/store";
 import { LinearProgress } from "@mui/material";
-import { Icon, IconButton, Text, View } from "components";
+import { Icon, IconButton, Text, View } from "src/components";
 import { BatchTooltip, ImportCardRow, IMPORT_STATUSES } from ".";
-import { colors, makeClasses } from "utils";
+import { colors, makeClasses } from "src/utils";
 import { toast } from "react-toastify";
 import Color from "color";
 

@@ -1,5 +1,5 @@
 import { ModelCreationData } from "mobx-keystone";
-import { FileImport } from "store";
+import { FileImport } from "src/store";
 
 export type FlatFolderHierarchy = {
   collectionTitle?: string;

@@ -1,5 +1,5 @@
-import { TagToUpsert } from "components";
-import * as db from "database";
+import { TagToUpsert } from "src/components";
+import * as db from "src/database";
 import { computed } from "mobx";
 import {
   getRootStore,
@@ -11,8 +11,8 @@ import {
   prop,
 } from "mobx-keystone";
 import { toast } from "react-toastify";
-import { asyncAction, RootStore } from "store";
-import { PromiseQueue, regexEscape, trpc } from "utils";
+import { asyncAction, RootStore } from "src/store";
+import { PromiseQueue, regexEscape, trpc } from "src/utils";
 import { Tag, TagOption } from ".";
 
 @model("medior/TagStore")

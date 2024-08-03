@@ -1,8 +1,8 @@
 import path from "path";
 import { shell } from "@electron/remote";
-import { observer, useStores } from "store";
-import { Button, Detail, DetailRow, Modal, SideScroller, Tag, Text, View } from "components";
-import { colors, dayjs, formatBytes, makeClasses } from "utils";
+import { observer, useStores } from "src/store";
+import { Button, Detail, DetailRow, Modal, SideScroller, Tag, Text, View } from "src/components";
+import { colors, dayjs, formatBytes, makeClasses } from "src/utils";
 import { toast } from "react-toastify";
 
 export const InfoModal = observer(() => {

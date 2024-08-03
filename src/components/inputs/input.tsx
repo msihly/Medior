@@ -1,8 +1,8 @@
 import { ChangeEvent, forwardRef, MutableRefObject, ReactNode } from "react";
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { TextField, TextFieldProps } from "@mui/material";
-import { ConditionalWrap, Text, TextProps, View } from "components";
-import { CSS, makeClasses, Margins } from "utils";
+import { ConditionalWrap, Text, TextProps, View } from "src/components";
+import { CSS, makeClasses, Margins } from "src/utils";
 import Color from "color";
 
 export interface InputProps extends Omit<TextFieldProps, "color" | "onChange" | "helperText"> {

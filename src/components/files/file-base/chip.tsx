@@ -1,5 +1,5 @@
-import { Chip as ChipBase, ChipProps as ChipBaseProps } from "components";
-import { colors, makeClasses } from "utils";
+import { Chip as ChipBase, ChipProps as ChipBaseProps } from "src/components";
+import { colors, makeClasses } from "src/utils";
 
 interface ChipProps extends ChipBaseProps {
   opacity?: number;
