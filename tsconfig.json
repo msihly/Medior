@@ -16,7 +16,7 @@
     "noImplicitAny": false,
     "noUnusedLocals": true,
     "paths": {
-      "src/*": ["./src/*"]
+      "medior/*": ["./medior/*"]
     },
     "resolveJsonModule": true,
     "skipLibCheck": true,
@@ -25,6 +25,6 @@
     "types": ["vite/client", "vite-plugin-svgr/client"],
     "useDefineForClassFields": true
   },
-  "include": ["./src"],
+  "include": ["./medior"],
   "exclude": ["./node_modules"]
 }

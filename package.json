@@ -98,12 +98,12 @@
     "build": "npm run ts-compile && npm run copy-files && vite build",
     "build-dev": "SET BUILD_DEV=true&& npm run build -- --mode development --config ./vite.config.watch.ts",
     "check": "npm run ts-check && npm run lint",
-    "copy-files": "npx copyfiles -f src/config.json extraResources && npx copyfiles -f src/face-models/**/* extraResources/face-models && npx copyfiles extraResources/**/* build",
+    "copy-files": "npx copyfiles -f medior/config.json extraResources && npx copyfiles -f medior/face-models/**/* extraResources/face-models && npx copyfiles extraResources/**/* build",
     "dist": "rimraf build dist extraResources && npm run build && npm run electron-build",
     "electron-build": "electron-builder build --dir --win --publish never",
     "hmr": "SET HMR=true&& SET BROWSER=none&& npm run ts-compile && concurrently --kill-others \"vite --config ./vite.config.hmr.ts\" \"electron .\"",
     "kill-ports": "kill-port 3333 3334 3335",
-    "lint": "eslint src/**/*{.ts,.tsx}",
+    "lint": "eslint medior/**/*{.ts,.tsx}",
     "postinstall": "electron-builder install-app-deps && patch-package",
     "ts-compile": "tsc --p ./tsconfig.build.json && tsc-alias -p ./tsconfig.build.json",
     "ts-check": "tsc --noEmit"
@@ -158,7 +158,7 @@
     "ignorePatterns": [
       "build",
       "node_modules",
-      "src/face-models",
+      "medior/face-models",
       "vite.config.*"
     ],
     "rules": {

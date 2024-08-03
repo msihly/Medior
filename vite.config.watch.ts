@@ -5,7 +5,6 @@ import pluginSVGR from "vite-plugin-svgr";
 import pluginTsconfigPaths from "vite-tsconfig-paths";
 import glob from "fast-glob";
 import path from "path";
-// import { logToFile } from "./src/utils";
 
 const EXTERNALS = [
   "@tensorflow/tfjs-node",
@@ -30,7 +29,7 @@ export default defineConfig({
     outDir: "build",
     sourcemap: true,
     watch: {
-      include: ["src/**/*"],
+      include: ["medior/**/*"],
     },
   },
   define: {
@@ -47,7 +46,7 @@ export default defineConfig({
       apply: "build",
       enforce: "pre",
       async buildStart() {
-        const files = await glob(["src/**/*"]);
+        const files = await glob(["medior/**/*"]);
         files.forEach((file) => this.addWatchFile(path.resolve(file)));
       },
     },
