@@ -70,23 +70,21 @@ export const deleteFile = (path: string, copiedPath?: string) =>
 
 export const dirToFilePaths = async (
   dirPath: string,
-  recursive: boolean = true
+  recursive: boolean = true,
+  blacklistRegex?: RegExp
 ): Promise<string[]> => {
   const paths = await fs.readdir(dirPath, { withFileTypes: true });
   return (
     await Promise.all(
-      paths.map(async (dirent) => {
+      paths.flatMap(async (dirent) => {
         const filePath = path.join(dirPath, dirent.name);
-        return dirent.isDirectory()
-          ? recursive
-            ? await dirToFilePaths(filePath)
-            : null
-          : filePath;
+        if (blacklistRegex?.test(filePath)) return [];
+        if (dirent.isDirectory())
+          return recursive ? await dirToFilePaths(filePath, recursive, blacklistRegex) : [];
+        return [filePath];
       })
     )
-  )
-    .flat()
-    .filter((p) => p !== null);
+  ).flat();
 };
 
 export const dirToFolderPaths = async (dirPath: string): Promise<string[]> => {

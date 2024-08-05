@@ -1,199 +1,197 @@
-import { basename, dirname } from "path";
+import { basename } from "path";
 import { dialog } from "@electron/remote";
 import { useState } from "react";
 import { filePathsToImports, observer, useStores } from "medior/store";
 import { CircularProgress } from "@mui/material";
 import { Button, Card, Divider, Modal, Text, View } from "medior/components";
 import { StorageInput } from "./storage-input";
-import { colors, dayjs, deleteFile, dirToFilePaths, getConfig, makePerfLog, trpc } from "medior/utils";
+import {
+  colors,
+  dayjs,
+  deleteFile,
+  dirToFilePaths,
+  getConfig,
+  makePerfLog,
+  trpc,
+} from "medior/utils";
 
 export const StorageInputs = observer(() => {
   const stores = useStores();
 
+  const [fileIdsLeftInDbOnly, setFileIdsLeftInDbOnly] = useState<string[]>([]);
+  const [filesLeftInStorageOnly, setFilesLeftInStorageOnly] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalOutput, setModalOutput] = useState<string>("");
-  const [filesInDbOnly, setFilesInDbOnly] = useState<{ id: string; path: string }[]>([]);
-  const [filesInStorageOnly, setFilesInStorageOnly] = useState<string[]>([]);
+
+  const _asyncTry = async (fn: () => Promise<void>) => {
+    try {
+      setIsLoading(true);
+      await fn();
+    } catch (error) {
+      console.error(error);
+      _log(`ERROR: ${error.message}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const _log = (msg: string) =>
     setModalOutput((prev) => `[${dayjs().format("hh:mm:ss.SSS")}] ${msg}\n${prev}`);
+
+  const getDesyncedFiles = async (pathsInDb: Set<string>, pathsInStorage: Set<string>) => {
+    const pathsInDbOnly = new Set<string>();
+    const pathsInStorageOnly = new Set<string>();
+
+    for (const pathInDb of pathsInDb) {
+      if (!pathsInStorage.has(pathInDb)) pathsInDbOnly.add(pathInDb);
+    }
+    _log(`Found ${pathsInDbOnly.size} files in database only.`);
+
+    for (const pathInStorage of pathsInStorage) {
+      if (!pathsInDb.has(pathInStorage)) pathsInStorageOnly.add(pathInStorage);
+    }
+    _log(`Found ${pathsInStorageOnly.size} files in storage only.`);
+
+    return { pathsInDbOnly, pathsInStorageOnly };
+  };
+
+  const getFilesInStorage = async () => {
+    const locations = getConfig().db.fileStorage.locations;
+    _log(`Scanning ${locations.length} file storage locations...`);
+
+    const fileStorages = await Promise.all(
+      locations.map(async (location) => ({
+        location,
+        filePaths: new Set(await dirToFilePaths(location, true, /-thumb(-\d+)?\.\w+$/)),
+      }))
+    );
+
+    const pathsInStorage = new Set(fileStorages.flatMap(({ filePaths }) => [...filePaths]));
+    _log(`Found ${pathsInStorage.size} files in storage.`);
+    return { pathsInStorage };
+  };
+
+  const getFilesInDatabase = async () => {
+    _log("Loading files in database...");
+    const filePathsRes = await trpc.listFilePaths.mutate();
+    if (!filePathsRes.success) throw new Error(filePathsRes.error);
+    const pathToIdMap = new Map(filePathsRes.data.map((file) => [file.path, file.id]));
+    const pathsInDb = new Set(pathToIdMap.keys());
+    _log(`Loaded ${pathsInDb.size} files in database.`);
+    return { pathsInDb, pathToIdMap };
+  };
+
+  const getFilesToRelink = async (pathsInDb: Set<string>, pathsInStorage: Set<string>) => {
+    const storageBasenameMap = new Map<string, string>();
+    for (const pathInStorage of pathsInStorage) {
+      storageBasenameMap.set(basename(pathInStorage).toLowerCase(), pathInStorage);
+    }
+
+    const filesToRelinkMap = new Map<string, string>();
+    for (const pathInDb of pathsInDb) {
+      const pathInStorage = storageBasenameMap.get(basename(pathInDb).toLowerCase());
+      if (pathInStorage && pathInDb !== pathInStorage)
+        filesToRelinkMap.set(pathInDb, pathInStorage);
+    }
+
+    return { filesToRelinkMap };
+  };
 
   const handleAddLocation = async () => {
     const location = await selectLocation();
     if (location) stores.home.settings.addFileStorageLocation(location);
   };
 
-  const handleDeleteFilesInDbOnly = async () => {
-    try {
-      setIsLoading(true);
-      _log(`Deleting ${filesInDbOnly.length} files in database only...`);
-      const res = await trpc.deleteFiles.mutate({ fileIds: filesInDbOnly.map(({ id }) => id) });
+  const handleDeleteFilesInDbOnly = () =>
+    _asyncTry(async () => {
+      _log(`Deleting ${fileIdsLeftInDbOnly.length} files in database only...`);
+      const res = await trpc.deleteFiles.mutate({ fileIds: fileIdsLeftInDbOnly });
       if (!res.success) throw new Error(res.error);
-      _log(`Deleted ${filesInDbOnly.length} files.`);
-      setFilesInDbOnly([]);
-    } catch (error) {
-      console.error(error);
-      _log(`ERROR: ${error.message}`);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+      _log(`Deleted ${fileIdsLeftInDbOnly.length} files.`);
+      setFileIdsLeftInDbOnly([]);
+    });
 
-  const handleDeleteFilesInStorageOnly = async () => {
-    try {
-      setIsLoading(true);
-      _log(`Deleting ${filesInStorageOnly.length} files in storage only...`);
-      await Promise.all(filesInStorageOnly.map((path) => deleteFile(path)));
-      _log(`Deleted ${filesInStorageOnly.length} files.`);
-      setFilesInStorageOnly([]);
-    } catch (error) {
-      console.error(error);
-      _log(`ERROR: ${error.message}`);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const handleDeleteFilesInStorageOnly = () =>
+    _asyncTry(async () => {
+      _log(`Deleting ${filesLeftInStorageOnly.length} files in storage only...`);
+      await Promise.all(filesLeftInStorageOnly.map((path) => deleteFile(path)));
+      _log(`Deleted ${filesLeftInStorageOnly.length} files.`);
+      setFilesLeftInStorageOnly([]);
+    });
 
-  const handleReImportFilesInStorageOnly = async () => {
-    try {
-      setIsLoading(true);
-      _log(`Re-importing ${filesInStorageOnly.length} files in storage only...`);
+  const handleReImportFilesInStorageOnly = () =>
+    _asyncTry(async () => {
+      _log(`Re-importing ${filesLeftInStorageOnly.length} files in storage only...`);
       const res = await stores.import.createImportBatches([
         {
           deleteOnImport: false,
           ignorePrevDeleted: false,
-          imports: await filePathsToImports(filesInStorageOnly),
+          imports: await filePathsToImports(filesLeftInStorageOnly),
           rootFolderPath: stores.import.editorRootFolder,
         },
       ]);
       if (!res.success) throw new Error(res.error);
       _log("Created import batch. Check Import Manager for progress.");
-      setFilesInStorageOnly([]);
-    } catch (error) {
-      console.error(error);
-      _log(`ERROR: ${error.message}`);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+      setFilesLeftInStorageOnly([]);
+    });
 
-  const handleScan = async () => {
-    try {
+  const handleScan = () =>
+    _asyncTry(async () => {
       setModalOutput("");
-      setIsLoading(true);
       setIsModalOpen(true);
 
-      const logGap = "\n     ";
       const { perfLog, perfLogTotal } = makePerfLog("[SCAN]");
 
-      const _logPerf = (msg: string) => {
-        perfLog(msg);
-        _log(msg);
-      };
+      const { pathsInStorage } = await getFilesInStorage();
+      perfLog(`Found ${pathsInStorage.size} files in storage.`);
 
-      const fileStorageLocations = getConfig().db.fileStorage.locations;
-      _logPerf(`Scanning ${fileStorageLocations.length} file storage locations...`);
+      const { pathsInDb, pathToIdMap } = await getFilesInDatabase();
+      perfLog(`Loaded ${pathsInDb.size} files from database.`);
 
-      const fileStorages = await Promise.all(
-        fileStorageLocations.map(async (location) => ({
-          location,
-          filePaths: new Set(
-            (await dirToFilePaths(location)).filter((path) => !/-thumb(-\d+)?\.\w+$/.test(path))
-          ),
-        }))
+      const { pathsInDbOnly, pathsInStorageOnly } = await getDesyncedFiles(
+        pathsInDb,
+        pathsInStorage
+      );
+      perfLog(
+        `Found ${pathsInDbOnly.size} files in database only and ${pathsInStorageOnly.size} files in storage only.`
       );
 
-      const pathsInFileStorage = new Set(fileStorages.flatMap(({ filePaths }) => [...filePaths]));
-      _logPerf(`Found ${pathsInFileStorage.size} files in storage. Scanning database...`);
+      const { filesToRelinkMap } = await getFilesToRelink(pathsInDb, pathsInStorage);
+      perfLog(`Found ${filesToRelinkMap.size} files to relink.`);
 
-      const filePathsRes = await trpc.listFilePaths.mutate();
-      if (!filePathsRes.success) throw new Error(filePathsRes.error);
-      const dbFiles = filePathsRes.data;
+      await relinkFiles(pathToIdMap, filesToRelinkMap);
+      perfLog("Relinked files.");
 
-      const pathsInDb = new Set(dbFiles.map(({ path }) => path));
-      _logPerf(`Found ${pathsInDb.size} files in database.`);
+      const fileIdsInDbOnly = [...pathsInDbOnly]
+        .map((path) => pathToIdMap.get(path))
+        .filter(Boolean);
+      setFileIdsLeftInDbOnly(fileIdsInDbOnly);
+      _log(`${fileIdsInDbOnly.length} files remaining in database only.`);
 
-      const filesInDbOnly = new Set<string>();
-      const filesInStorageOnly = new Set<string>();
+      const filesInStorageOnly = [...pathsInStorageOnly];
+      setFilesLeftInStorageOnly(filesInStorageOnly);
+      _log(`${filesInStorageOnly.length} files remaining in storage only.`);
 
-      for (const pathInDb of pathsInDb) {
-        if (!pathsInFileStorage.has(pathInDb)) filesInDbOnly.add(pathInDb);
-      }
-
-      for (const pathInStorage of pathsInFileStorage) {
-        if (!pathsInDb.has(pathInStorage)) pathsInFileStorage.add(pathInStorage);
-      }
-      _logPerf(
-        `Found ${filesInDbOnly.size} files in database only. Found ${filesInStorageOnly.size} files in storage only.`
-      );
-
-      _log(`Files in storage only:${logGap}${[...filesInStorageOnly].join(logGap)}`);
-      _log(`Files in db only:${logGap}${[...filesInDbOnly].join(logGap)}`);
-
-      const fileInStorageToBasenameMap = new Map<string, string>();
-      for (const pathInStorage of pathsInFileStorage) {
-        fileInStorageToBasenameMap.set(basename(pathInStorage), pathInStorage);
-      }
-
-      const originalFilesInDbOnlySize = filesInDbOnly.size;
-      const filesToRelinkMap = new Map<string, string>();
-
-      for (const dbFilePath of filesInDbOnly) {
-        const dbFileBasename = basename(dbFilePath);
-        const pathInStorage = fileInStorageToBasenameMap.get(dbFileBasename);
-        if (pathInStorage) filesToRelinkMap.set(dbFilePath, pathInStorage);
-      }
-
-      const filesToRelink = [...filesToRelinkMap.entries()];
-      perfLog(`Found ${filesToRelink.length} files to relink.`);
-      _log(
-        `Found ${filesToRelink.length} files to relink:${filesToRelink.map(
-          ([a, b]) => `${logGap}${a}${logGap}└─> ${b}`
-        )}`
-      );
-
-      const files = filesToRelink.map(([dbFilePath, pathInStorage]) => {
-        const dbFile = dbFiles.find((file) => file.path === dbFilePath);
-
-        const thumbPaths =
-          dbFile!.thumbPaths?.map((thumbPath) =>
-            thumbPath.replace(dirname(thumbPath), dirname(pathInStorage))
-          ) ?? [];
-
-        filesInDbOnly.delete(dbFilePath);
-
-        return {
-          id: dbFile.id,
-          path: pathInStorage,
-          thumbPaths,
-        };
-      });
-
-      const relinkRes = await trpc.relinkFiles.mutate({ files });
-      if (!relinkRes.success) throw new Error(relinkRes.error);
-
-      _logPerf(
-        `Relinked ${originalFilesInDbOnlySize - filesInDbOnly.size} files. ${
-          filesInDbOnly.size
-        } files remaining.`
-      );
-
-      setFilesInDbOnly(
-        [...filesInDbOnly].map((path) => ({
-          id: dbFiles.find((file) => file.path === path)!.id,
-          path,
-        }))
-      );
-      setFilesInStorageOnly([...filesInStorageOnly]);
-
-      _logPerf("Scan complete.");
+      _log("Scan complete.");
       perfLogTotal("Scan complete.");
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setIsLoading(false);
-    }
+    });
+
+  const relinkFiles = async (
+    pathToIdMap: Map<string, string>,
+    filesToRelinkMap: Map<string, string>
+  ) => {
+    _log(`Relinking ${filesToRelinkMap.size} files and associated collections and imports...`);
+
+    const filesToRelink = [...filesToRelinkMap.entries()].map(([oldPath, newPath]) => {
+      const id = pathToIdMap.get(oldPath);
+      pathToIdMap.delete(oldPath);
+      return { id, path: newPath };
+    });
+
+    const res = await trpc.relinkFiles.mutate({ filesToRelink });
+    if (!res.success) throw new Error(res.error);
+    _log("Relinked files.");
   };
 
   const selectLocation = async () => {
@@ -229,7 +227,7 @@ export const StorageInputs = observer(() => {
                   <View row spacing="0.5rem">
                     {isLoading && <CircularProgress size="1em" />}
 
-                    {filesInDbOnly.length > 0 && (
+                    {fileIdsLeftInDbOnly.length > 0 && (
                       <Button
                         text="Delete Files in Database Only"
                         icon="Delete"
@@ -239,10 +237,10 @@ export const StorageInputs = observer(() => {
                       />
                     )}
 
-                    {filesInStorageOnly.length > 0 && (
+                    {filesLeftInStorageOnly.length > 0 && (
                       <>
                         <Button
-                          text="Delete Files in File Storages Only"
+                          text="Delete Files in Storages Only"
                           icon="Delete"
                           color={colors.button.red}
                           onClick={handleDeleteFilesInStorageOnly}
@@ -250,7 +248,7 @@ export const StorageInputs = observer(() => {
                         />
 
                         <Button
-                          text="Re-Import Files in File Storages Only"
+                          text="Re-Import Files in Storages Only"
                           icon="Refresh"
                           onClick={handleReImportFilesInStorageOnly}
                           disabled={isLoading}

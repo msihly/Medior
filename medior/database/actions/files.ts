@@ -5,7 +5,14 @@ import disk from "diskusage";
 import { AnyBulkWriteOperation } from "mongodb";
 import { PipelineStage } from "mongoose";
 import * as db from "medior/database";
-import { dayjs, handleErrors, logicOpsToMongo, makePerfLog, sharp, socket } from "medior/utils";
+import {
+  dayjs,
+  handleErrors,
+  logicOpsToMongo,
+  makePerfLog,
+  sharp,
+  socket,
+} from "medior/utils";
 import { leanModelToJson, objectId, objectIds } from "./utils";
 
 const FACE_MIN_CONFIDENCE = 0.4;
@@ -587,7 +594,6 @@ export const listFilePaths = () =>
     return (await db.FileModel.find().select({ _id: 1, path: 1 }).lean()).map((f) => ({
       id: f._id.toString(),
       path: f.path,
-      thumbPaths: f.thumbPaths,
     }));
   });
 
@@ -622,16 +628,78 @@ export const loadFaceApiNets = async () =>
     await faceapi.nets.faceRecognitionNet.loadFromDisk(FACE_MODELS_PATH);
   });
 
-export const relinkFiles = ({ files }: db.RelinkFilesInput) => handleErrors(async () => {
-  const bulkOps = files.map(({ id, path, thumbPaths }) => ({
-    updateOne: {
-      filter: { _id: objectId(id) },
-      update: { $set: { path, thumbPaths } },
-    },
-  }));
+export const relinkFiles = ({ filesToRelink }: db.RelinkFilesInput) =>
+  handleErrors(async () => {
+    const oldFiles = (
+      await db.FileModel.find({
+        _id: { $in: objectIds(filesToRelink.map((f) => f.id)) },
+      })
+        .select({ _id: 1, path: 1, thumbPaths: 1 })
+        .lean()
+    ).map(leanModelToJson<{ id: string; path: string; thumbPaths: string[] }>);
 
-  await db.FileModel.bulkWrite(bulkOps);
-});
+    const filesToRelinkMap = new Map(filesToRelink.map((f) => [f.id, f.path]));
+    const oldThumbsMap = new Map(oldFiles.map((f) => [f.id, f.thumbPaths]));
+    const newFilesMap = new Map<string, { path: string; thumbPaths: string[] }>();
+
+    oldFiles.forEach((f) => {
+      const oldThumbs = oldThumbsMap.get(f.id);
+      const newPath = filesToRelinkMap.get(f.id);
+      const newThumbPaths =
+        oldThumbs.length > 0
+          ? oldThumbs.map((thumbPath) =>
+              path.resolve(
+                path.dirname(newPath),
+                path.basename(thumbPath, path.extname(thumbPath)),
+                ".jpg"
+              )
+            )
+          : [];
+
+      newFilesMap.set(f.id, { path: newPath, thumbPaths: newThumbPaths });
+    });
+
+    const fileRes = await db.FileModel.bulkWrite(
+      [...newFilesMap].map(([id, { path, thumbPaths }]) => ({
+        updateOne: {
+          filter: { _id: objectId(id) },
+          update: { $set: { path, thumbPaths } },
+        },
+      }))
+    );
+
+    if (fileRes.modifiedCount !== fileRes.matchedCount)
+      throw new Error(`Failed to bulk write relinked file: ${JSON.stringify(fileRes, null, 2)}`);
+
+    const fileIds = [...newFilesMap.keys()];
+    const collRes = await db.regenCollAttrs({ fileIds });
+    if (!collRes.success) throw new Error(`Failed to update collections: ${collRes.error}`);
+
+    const importBatches = (
+      await db.FileImportBatchModel.find({
+        imports: { $elemMatch: { fileId: { $in: objectIds(fileIds) } } },
+      }).lean()
+    ).map(leanModelToJson<db.FileImportBatch>);
+
+    const importsRes = await db.FileImportBatchModel.bulkWrite(
+      importBatches.map((importBatch) => ({
+        updateOne: {
+          filter: { _id: objectId(importBatch.id) },
+          update: {
+            $set: {
+              imports: importBatch.imports.map((fileImport) => {
+                if (!fileIds.includes(fileImport.fileId)) return fileImport;
+                return { ...fileImport, ...newFilesMap.get(fileImport.fileId) };
+              }),
+            },
+          },
+        },
+      }))
+    );
+
+    if (importsRes.modifiedCount !== importBatches.length)
+      throw new Error("Failed to bulk write relinked file imports");
+  });
 
 export const setFileFaceModels = async ({ faceModels, id }: db.SetFileFaceModelsInput) =>
   handleErrors(async () => {
