@@ -179,6 +179,15 @@ export class FileCollectionStore extends Model({
   });
 
   @modelFlow
+  deleteEmptyCollections = asyncAction(async () => {
+    const res = await trpc.deleteEmptyCollections.mutate();
+    if (!res.success) throw new Error(res.error);
+    toast.success(`Deleted ${res.data} empty collections`);
+
+    await this.listFilteredCollections();
+  });
+
+  @modelFlow
   loadActiveCollection = asyncAction(async () => {
     const fileIdIndexes = this.activeCollection.fileIdIndexes.map(({ fileId, index }) => ({
       fileId,

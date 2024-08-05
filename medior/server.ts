@@ -106,6 +106,7 @@ const trpcRouter = tRouter({
   createImportBatches: endpoint(db.createImportBatches),
   createTag: endpoint(db.createTag),
   deleteCollection: endpoint(db.deleteCollection),
+  deleteEmptyCollections: endpoint(db.deleteEmptyCollections),
   deleteFiles: endpoint(db.deleteFiles),
   deleteImportBatches: endpoint(db.deleteImportBatches),
   deleteTag: endpoint(db.deleteTag),

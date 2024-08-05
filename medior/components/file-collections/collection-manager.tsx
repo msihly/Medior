@@ -65,6 +65,8 @@ export const FileCollectionManager = observer(() => {
     stores.file.search.reloadIfQueued();
   };
 
+  const handleDeleteEmpty = () => stores.collection.deleteEmptyCollections();
+
   const handleRefreshMeta = () => stores.collection.regenAllCollMeta();
 
   const handleNewCollection = async () => {
@@ -102,6 +104,7 @@ export const FileCollectionManager = observer(() => {
         rightNode={
           <MenuButton color={colors.button.grey}>
             <ListItem text="Refresh Metadata" icon="Refresh" onClick={handleRefreshMeta} />
+            <ListItem text="Delete Empty" icon="Delete" onClick={handleDeleteEmpty} />
           </MenuButton>
         }
       >
@@ -189,6 +192,28 @@ export const FileCollectionManager = observer(() => {
                 fullWidth
                 hasSearchMenu
               />
+
+              {/* <View column>
+                <Text preset="label-glow">{"# of Files"}</Text>
+                <View row justify="space-between" spacing="0.3rem">
+                  <Dropdown
+                    value={stores.collection.manager.}
+                    setValue={handleNumOfTagsOpChange}
+                    options={NUM_OF_TAGS_OPS}
+                    width="5rem"
+                  />
+
+                  <NumInput
+                    value={stores.collection}
+                    setValue={handleNumOfTagsValueChange}
+                    maxValue={50}
+                    disabled={stores.home.numOfTagsOp === ""}
+                    width="5rem"
+                    textAlign="center"
+                    hasHelper={false}
+                  />
+                </View>
+              </View> */}
             </View>
           </View>
 

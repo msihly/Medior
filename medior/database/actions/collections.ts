@@ -177,6 +177,12 @@ export const deleteCollection = ({ id }: db.DeleteCollectionInput) =>
     return res;
   });
 
+export const deleteEmptyCollections = () =>
+  handleErrors(async () => {
+    const res = await db.FileCollectionModel.deleteMany({ fileCount: 0 });
+    return res.deletedCount;
+  });
+
 export const listAllCollectionIds = () =>
   handleErrors(async () => {
     return (await db.FileCollectionModel.find().select({ _id: 1 }).lean()).map((c) =>
