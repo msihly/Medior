@@ -29,8 +29,8 @@ export const useSockets = ({ view }: UseSocketsProps) => {
 
   const queueFileReload = () =>
     stores._getIsBlockingModalOpen()
-      ? stores.home.setHasQueuedReload(true)
-      : stores.home.loadFilteredFiles();
+      ? stores.file.search.setHasQueuedReload(true)
+      : stores.file.search.loadFilteredFiles();
 
   const setupSockets = () => {
     setupSocketIO();
@@ -39,7 +39,7 @@ export const useSockets = ({ view }: UseSocketsProps) => {
       if (view === "carousel") stores.carousel.removeFiles(fileIds);
       else {
         if (view === "home") stores.import.addDeletedFileHashes(fileHashes);
-        if (stores.collection.isManagerOpen) stores.collection.listFilteredCollections();
+        if (stores.collection.manager.isOpen) stores.collection.listFilteredCollections();
         queueFileReload();
       }
     });
@@ -51,7 +51,7 @@ export const useSockets = ({ view }: UseSocketsProps) => {
         const updatedKeys = Object.keys(updates);
         const shouldReload =
           updatedKeys.some((k) => ["isArchived", "tagIds"].includes(k)) ||
-          updatedKeys.includes(stores.home.sortValue.key);
+          updatedKeys.includes(stores.file.search.sortValue.key);
         if (shouldReload) queueFileReload();
       }
     });
@@ -77,7 +77,7 @@ export const useSockets = ({ view }: UseSocketsProps) => {
 
     makeSocket("tagCreated", ({ tag }) => {
       stores.tag._addTag(tag);
-      if (view !== "carousel" && stores.tagManager.isOpen) stores.tagManager.loadFilteredTags();
+      if (view !== "carousel" && stores.tag.manager.isOpen) stores.tag.manager.loadFilteredTags();
     });
 
     makeSocket("tagDeleted", ({ tagId }) => {
@@ -85,13 +85,13 @@ export const useSockets = ({ view }: UseSocketsProps) => {
       if (view === "home") stores.import.editBatchTags({ removedIds: [tagId] });
       if (view !== "carousel") {
         queueFileReload();
-        if (stores.tagManager.isOpen) stores.tagManager.loadFilteredTags();
+        if (stores.tag.manager.isOpen) stores.tag.manager.loadFilteredTags();
       }
     });
 
     makeSocket("tagMerged", ({ oldTagId }) => {
       if (view === "home") stores.import.editBatchTags({ removedIds: [oldTagId] });
-      if (view !== "carousel" && stores.tagManager.isOpen) stores.tagManager.loadFilteredTags();
+      if (view !== "carousel" && stores.tag.manager.isOpen) stores.tag.manager.loadFilteredTags();
     });
 
     makeSocket("tagsUpdated", ({ tags, withFileReload }) => {
@@ -123,7 +123,7 @@ export const useSockets = ({ view }: UseSocketsProps) => {
       );
 
       makeSocket("reloadFileCollections", () => {
-        if (stores.collection.isManagerOpen) stores.collection.listFilteredCollections();
+        if (stores.collection.manager.isOpen) stores.collection.listFilteredCollections();
       });
     }
 

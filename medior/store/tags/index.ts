@@ -1,3 +1,3 @@
-export * from "./tag-manager-store";
+export * from "./manager";
 export * from "./tag-store";
 export * from "./tag";

@@ -4,7 +4,7 @@ import { ImportBatch as ImportBatchType, observer, useStores } from "medior/stor
 import { LinearProgress } from "@mui/material";
 import { Icon, IconButton, Text, View } from "medior/components";
 import { BatchTooltip, ImportCardRow, IMPORT_STATUSES } from ".";
-import { colors, makeClasses } from "medior/utils";
+import { colors, formatBytes, makeClasses } from "medior/utils";
 import { toast } from "react-toastify";
 import Color from "color";
 
@@ -23,9 +23,8 @@ export const ImportBatch = observer(({ batch }: ImportBatchProps) => {
   const { css } = useClasses({ expanded, hasTags: batch.tagIds?.length > 0 });
 
   const handleCollections = () => {
-    if (!stores.collection.getById(batch.collectionId))
-      return toast.error("Collection not found");
-    stores.collection.setEditorId(batch.collectionId);
+    if (!stores.collection.getById(batch.collectionId)) return toast.error("Collection not found");
+    stores.collection.editor.setId(batch.collectionId);
     stores.collection.setIsEditorOpen(true);
   };
 
@@ -121,6 +120,8 @@ export const ImportBatch = observer(({ batch }: ImportBatchProps) => {
 
       {expanded && batch.imports?.length > 0 && (
         <View column spacing="0.3rem" className={css.importCards}>
+          {batch.status === "PENDING" && <ImportStats />}
+
           <ImportCardRow {...{ batch, status: "PENDING" }} />
           <ImportCardRow {...{ batch, status: "COMPLETE" }} />
           <ImportCardRow {...{ batch, status: "ERROR" }} />
@@ -132,7 +133,46 @@ export const ImportBatch = observer(({ batch }: ImportBatchProps) => {
   );
 });
 
-const useClasses = makeClasses((_, { expanded, hasTags }) => ({
+const ImportStats = observer(() => {
+  const { css } = useClasses(null);
+
+  const stores = useStores();
+
+  return (
+    <View column>
+      <View row spacing="1rem">
+        <View row align="center" spacing="0.5rem">
+          <Text width="5.5rem">{formatBytes(stores.import.importStats.completedBytes)}</Text>
+          <Text>{"/"}</Text>
+          <Text color={colors.grey["500"]} width="5.5rem">
+            {formatBytes(stores.import.importStats.totalBytes)}
+          </Text>
+        </View>
+
+        <LinearProgress
+          variant="determinate"
+          value={
+            (stores.import.importStats.completedBytes / stores.import.importStats.totalBytes) * 100
+          }
+          className={css.progressBar}
+        />
+
+        <View width="3rem" />
+      </View>
+
+      <Text fontSize="0.8em" color={colors.grey["500"]}>
+        {`${formatBytes(stores.import.importStats.rateInBytes)}/s`}
+      </Text>
+    </View>
+  );
+});
+
+interface ClassesProps {
+  expanded: boolean;
+  hasTags: boolean;
+}
+
+const useClasses = makeClasses((_, props: ClassesProps) => ({
   folderPath: {
     color: colors.grey["300"],
     fontSize: "0.9em",
@@ -141,7 +181,7 @@ const useClasses = makeClasses((_, { expanded, hasTags }) => ({
     whiteSpace: "nowrap",
   },
   header: {
-    borderRadius: expanded ? "0.4rem 0.4rem 0 0" : "0.4rem",
+    borderRadius: props?.expanded ? "0.4rem 0.4rem 0 0" : "0.4rem",
     backgroundColor: colors.grey["900"],
   },
   headerBottom: {
@@ -190,7 +230,7 @@ const useClasses = makeClasses((_, { expanded, hasTags }) => ({
     flex: 1,
     alignItems: "center",
     width: "100%",
-    margin: hasTags ? "0.2rem 0.3rem 0.4rem" : "0.3rem",
+    margin: props?.hasTags ? "0.2rem 0.3rem 0.4rem" : "0.3rem",
   },
   progressText: {
     fontSize: "0.9em",

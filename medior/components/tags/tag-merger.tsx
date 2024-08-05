@@ -83,7 +83,7 @@ export const TagMerger = observer(() => {
   const handleClose = () => {
     setIsConfirmDiscardOpen(false);
     stores.tag.setIsTagMergerOpen(false);
-    stores.home.reloadIfQueued();
+    stores.file.search.reloadIfQueued();
   };
 
   const handleConfirm = async () => {

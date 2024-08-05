@@ -92,7 +92,7 @@ export const FaceRecognitionModal = observer(() => {
   const handleClose = () => {
     stores.faceRecog.setDetectedFaces([]);
     stores.faceRecog.setIsModalOpen(false);
-    stores.home.reloadIfQueued();
+    stores.file.search.reloadIfQueued();
   };
 
   const handleDetect = async () => {

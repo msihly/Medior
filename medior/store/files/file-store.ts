@@ -1,18 +1,15 @@
 import { promises as fs } from "fs";
 import path from "path";
 import md5File from "md5-file";
+import { Model, model, modelAction, ModelCreationData, modelFlow, prop } from "mobx-keystone";
+import { asyncAction, FaceModel } from "medior/store";
 import {
-  getRootStore,
-  Model,
-  model,
-  modelAction,
-  ModelCreationData,
-  modelFlow,
-  prop,
-} from "mobx-keystone";
-import { asyncAction, FaceModel, RootStore } from "medior/store";
-import { EditFileTagsInput, LoadFilesInput, RefreshFileInput, SetFileRatingInput } from "medior/database";
-import { File } from ".";
+  EditFileTagsInput,
+  LoadFilesInput,
+  RefreshFileInput,
+  SetFileRatingInput,
+} from "medior/database";
+import { File, FileSearch } from ".";
 import {
   CONSTANTS,
   dayjs,
@@ -33,8 +30,7 @@ export class FileStore extends Model({
   idsForConfirmDelete: prop<string[]>(() => []),
   isConfirmDeleteOpen: prop<boolean>(false).withSetter(),
   isInfoModalOpen: prop<boolean>(false).withSetter(),
-  page: prop<number>(1).withSetter(),
-  pageCount: prop<number>(1).withSetter(),
+  search: prop<FileSearch>(() => new FileSearch({})),
   selectedIds: prop<string[]>(() => []),
 }) {
   infoRefreshQueue = new PromiseQueue();
@@ -86,11 +82,7 @@ export class FileStore extends Model({
       Omit<ModelCreationData<File>, "faceModels"> & { faceModels?: ModelCreationData<FaceModel>[] }
     >
   ) {
-    try {
-      fileIds.forEach((id) => this.getById(id)?.update?.(updates));
-    } catch (err) {
-      console.error("Error updating files:", err.message);
-    }
+    fileIds.forEach((id) => this.getById(id)?.update?.(updates));
   }
 
   @modelAction
@@ -231,10 +223,7 @@ export class FileStore extends Model({
       action: (item) => this.refreshFile({ curFile: item, id: item.id }),
       items: filesRes.data,
       logSuffix: "files",
-      onComplete: async () => {
-        const stores = getRootStore<RootStore>(this);
-        await stores.home.loadFilteredFiles();
-      },
+      onComplete: () => this.search.loadFilteredFiles(),
       queue: this.infoRefreshQueue,
     });
   });

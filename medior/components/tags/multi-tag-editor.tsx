@@ -19,18 +19,18 @@ export const MultiTagEditor = observer(() => {
 
   const handleClose = () => {
     if (hasUnsavedChanges) return setIsConfirmDiscardOpen(true);
-    stores.tagManager.setIsMultiTagEditorOpen(false);
+    stores.tag.manager.setIsMultiTagEditorOpen(false);
   };
 
   const handleDiscard = () => {
     setHasUnsavedChanges(false);
     setIsConfirmDiscardOpen(false);
-    stores.tagManager.setIsMultiTagEditorOpen(false);
+    stores.tag.manager.setIsMultiTagEditorOpen(false);
   };
 
   const handleSubmit = async () => {
     setIsLoading(true);
-    const res = await stores.tagManager.editMultiTagRelations({
+    const res = await stores.tag.manager.editMultiTagRelations({
       childIdsToAdd: childTagsToAdd.map((t) => t.id),
       childIdsToRemove: childTagsToRemove.map((t) => t.id),
       parentIdsToAdd: parentTagsToAdd.map((t) => t.id),
@@ -46,8 +46,8 @@ export const MultiTagEditor = observer(() => {
         toast.warn("Some changes were ignored. See logs folder for details");
 
       setHasUnsavedChanges(false);
-      stores.tagManager.setIsMultiTagEditorOpen(false);
-      stores.tagManager.loadFilteredTags();
+      stores.tag.manager.setIsMultiTagEditorOpen(false);
+      stores.tag.manager.loadFilteredTags();
       stores.tag.loadTags();
     }
   };
@@ -65,7 +65,7 @@ export const MultiTagEditor = observer(() => {
           <TagInput
             label="Selected Tags"
             value={stores.tag.tagOptions.filter((t) =>
-              stores.tagManager.selectedIds.includes(t.id)
+              stores.tag.manager.selectedIds.includes(t.id)
             )}
             detachLabel
             disabled

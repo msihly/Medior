@@ -15,7 +15,7 @@ export const FileCollection = observer(({ height, id, width }: FileCollectionPro
   const stores = useStores();
 
   const collection = stores.collection.getById(id);
-  const hasSelectedFiles = stores.collection.managerFileIds.length > 0;
+  const hasSelectedFiles = stores.collection.manager.fileIds.length > 0;
 
   const handleSelect = () => stores.collection.setSelectedCollectionId(id);
 
@@ -25,8 +25,8 @@ export const FileCollection = observer(({ height, id, width }: FileCollectionPro
   };
 
   const openCollection = () => {
-    stores.collection.setEditorFiles([]);
-    stores.collection.setEditorId(id);
+    stores.collection.editor.setFiles([]);
+    stores.collection.editor.setId(id);
     stores.collection.setIsEditorOpen(true);
   };
 

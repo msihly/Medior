@@ -128,8 +128,8 @@ export class TagManagerStore extends Model({
       const stores = getRootStore<RootStore>(this);
 
       const clickedIndex =
-        (stores.tagManager.page - 1) * getConfig().tags.searchTagCount +
-        stores.tagManager.tags.findIndex((t) => t.id === id);
+        (stores.tag.manager.page - 1) * getConfig().tags.searchTagCount +
+        stores.tag.manager.tags.findIndex((t) => t.id === id);
 
       const res = await trpc.getShiftSelectedTags.mutate({
         ...this.getFilterProps(),

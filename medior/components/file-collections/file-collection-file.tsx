@@ -43,7 +43,7 @@ export const FileCollectionFile = observer(
       } else {
         /** Deselect all the files and select the file that was clicked. */
         stores.collection.toggleFilesSelected([
-          ...stores.collection.editorSelectedIds.map((id) => ({ id, isSelected: false })),
+          ...stores.collection.editor.selectedIds.map((id) => ({ id, isSelected: false })),
           { id: file.id, isSelected: true },
         ]);
       }

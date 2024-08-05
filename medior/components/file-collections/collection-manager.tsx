@@ -26,50 +26,50 @@ export const FileCollectionManager = observer(() => {
 
   const collectionsRef = useRef<HTMLDivElement>(null);
 
-  const hasAnySelected = stores.collection.managerFileIds.length > 0;
-  const hasOneSelected = stores.collection.managerFileIds.length === 1;
+  const hasAnySelected = stores.collection.manager.fileIds.length > 0;
+  const hasOneSelected = stores.collection.manager.fileIds.length === 1;
   const currentCollections = hasOneSelected
-    ? stores.collection.listByFileId(stores.collection.managerFileIds[0])
+    ? stores.collection.listByFileId(stores.collection.manager.fileIds[0])
     : [];
 
-  const sortValue = useDeepMemo(stores.collection.managerSearchSort);
-  const tagSearchValue = useDeepMemo(stores.collection.managerTagSearchValue);
+  const sortValue = useDeepMemo(stores.collection.manager.searchSort);
+  const tagSearchValue = useDeepMemo(stores.collection.manager.tagSearchValue);
 
   useEffect(() => {
     stores.collection.loadManagerFiles();
-  }, [stores.collection.managerFileIds]);
+  }, [stores.collection.manager.fileIds]);
 
   useEffect(() => {
-    if (stores.collection.managerSearchPage > stores.collection.managerSearchPageCount)
-      handlePageChange(stores.collection.managerSearchPageCount);
-  }, [stores.collection.managerSearchPage, stores.collection.managerSearchPageCount]);
+    if (stores.collection.manager.searchPage > stores.collection.manager.searchPageCount)
+      handlePageChange(stores.collection.manager.searchPageCount);
+  }, [stores.collection.manager.searchPage, stores.collection.manager.searchPageCount]);
 
-  const searchDeps = [stores.collection.managerTitleSearchValue, sortValue, tagSearchValue];
+  const searchDeps = [stores.collection.manager.titleSearchValue, sortValue, tagSearchValue];
 
   useDeepEffect(() => {
     collectionsRef.current?.scrollTo({ top: 0, behavior: "smooth" });
-  }, [stores.collection.managerSearchPage, ...searchDeps]);
+  }, [stores.collection.manager.searchPage, ...searchDeps]);
 
   useDeepEffect(() => {
     debounce(() => stores.collection.listFilteredCollections({ page: 1 }), 800)();
   }, [...searchDeps]);
 
   const handleAddToCollection = () => {
-    stores.collection.setEditorWithSelectedFiles(true);
-    stores.collection.setEditorId(stores.collection.selectedCollectionId);
+    stores.collection.editor.setWithSelectedFiles(true);
+    stores.collection.editor.setId(stores.collection.selectedCollectionId);
     stores.collection.setIsEditorOpen(true);
   };
 
   const handleClose = () => {
     stores.collection.setIsManagerOpen(false);
-    stores.home.reloadIfQueued();
+    stores.file.search.reloadIfQueued();
   };
 
   const handleRefreshMeta = () => stores.collection.regenAllCollMeta();
 
   const handleNewCollection = async () => {
     const res = await stores.collection.createCollection({
-      fileIdIndexes: stores.collection.managerFileIds.map((id, index) => ({
+      fileIdIndexes: stores.collection.manager.fileIds.map((id, index) => ({
         fileId: id,
         index,
       })),
@@ -78,7 +78,7 @@ export const FileCollectionManager = observer(() => {
 
     if (!res.success) toast.error(res.error);
     else {
-      stores.collection.setEditorId(res.data.id);
+      stores.collection.editor.setId(res.data.id);
       stores.collection.setIsEditorOpen(true);
     }
   };
@@ -86,17 +86,17 @@ export const FileCollectionManager = observer(() => {
   const handlePageChange = (page: number) => stores.collection.listFilteredCollections({ page });
 
   const handleSortChange = (val: { isDesc: boolean; key: string }) =>
-    stores.collection.setManagerSearchSort(val);
+    stores.collection.manager.setSearchSort(val);
 
   const setTagSearchValue = (value: TagOption[]) =>
-    stores.collection.setManagerTagSearchValue(value);
+    stores.collection.manager.setTagSearchValue(value);
 
   const setTitleSearchValue = (value: string) =>
-    !stores.collection.isManagerLoading && stores.collection.setManagerTitleSearchValue(value);
+    !stores.collection.manager.isLoading && stores.collection.manager.setTitleSearchValue(value);
 
   return (
     <Modal.Container height="100%" width="100%" onClose={handleClose}>
-      <LoadingOverlay isLoading={stores.collection.isManagerLoading} />
+      <LoadingOverlay isLoading={stores.collection.manager.isLoading} />
 
       <Modal.Header
         rightNode={
@@ -115,9 +115,9 @@ export const FileCollectionManager = observer(() => {
               <Text preset="label-glow">{"Selected File"}</Text>
 
               <View className={css.container}>
-                {stores.collection.managerFiles.length > 0 ? (
+                {stores.collection.manager.files.length > 0 ? (
                   <FileCard
-                    file={stores.collection.managerFiles[0]}
+                    file={stores.collection.manager.files[0]}
                     height="13rem"
                     width="12rem"
                     disabled
@@ -149,8 +149,8 @@ export const FileCollectionManager = observer(() => {
             <Text preset="label-glow">{"Selected Files"}</Text>
 
             <View className={css.container}>
-              {stores.collection.managerFiles.length > 0 ? (
-                stores.collection.managerFiles.map((f) => (
+              {stores.collection.manager.files.length > 0 ? (
+                stores.collection.manager.files.map((f) => (
                   <FileCard key={f.id} file={f} width="12rem" height="14rem" disabled />
                 ))
               ) : (
@@ -175,7 +175,7 @@ export const FileCollectionManager = observer(() => {
 
               <Input
                 label="Titles"
-                value={stores.collection.managerTitleSearchValue}
+                value={stores.collection.manager.titleSearchValue}
                 setValue={setTitleSearchValue}
                 detachLabel
                 fullWidth
@@ -199,8 +199,8 @@ export const FileCollectionManager = observer(() => {
               <DisplayedCollections />
 
               <Pagination
-                count={stores.collection.managerSearchPageCount}
-                page={stores.collection.managerSearchPage}
+                count={stores.collection.manager.searchPageCount}
+                page={stores.collection.manager.searchPage}
                 onChange={handlePageChange}
               />
             </View>

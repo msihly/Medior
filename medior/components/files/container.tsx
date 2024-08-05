@@ -17,20 +17,20 @@ export const FileContainer = observer(() => {
   const scrollToTop = () => filesRef.current?.scrollTo({ top: 0, behavior: "smooth" });
 
   useEffect(() => {
-    if (stores.file.page > stores.file.pageCount) handlePageChange(stores.file.pageCount);
+    if (stores.file.search.page > stores.file.search.pageCount) handlePageChange(stores.file.search.pageCount);
     scrollToTop();
-  }, [stores.file.page, stores.file.pageCount]);
+  }, [stores.file.search.page, stores.file.search.pageCount]);
 
   useEffect(() => {
     socket.on("filesUpdated", ({ updates }) => {
       const updatedKeys = Object.keys(updates);
       const archivedOrTagsEdited = updatedKeys.some((k) => ["isArchived", "tagIds"].includes(k));
-      const sortValueEdited = updatedKeys.includes(stores.home.sortValue.key);
+      const sortValueEdited = updatedKeys.includes(stores.file.search.sortValue.key);
       if (archivedOrTagsEdited || sortValueEdited) scrollToTop();
     });
   }, []);
 
-  const handlePageChange = (page: number) => stores.home.loadFilteredFiles({ page });
+  const handlePageChange = (page: number) => stores.file.search.loadFilteredFiles({ page });
 
   return (
     <View className={css.container}>
@@ -39,8 +39,8 @@ export const FileContainer = observer(() => {
       </View>
 
       <Pagination
-        count={stores.file.pageCount}
-        page={stores.file.page}
+        count={stores.file.search.pageCount}
+        page={stores.file.search.page}
         onChange={handlePageChange}
       />
     </View>

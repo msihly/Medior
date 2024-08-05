@@ -15,12 +15,12 @@ export const ExtCheckbox = observer(({ ext, label = null, type }: ExtCheckboxPro
     <Checkbox
       label={label || ext}
       checked={
-        type === "Image" ? stores.home.selectedImageTypes[ext] : stores.home.selectedVideoTypes[ext]
+        type === "Image" ? stores.file.search.selectedImageTypes[ext] : stores.file.search.selectedVideoTypes[ext]
       }
       setChecked={(checked) =>
         type === "Image"
-          ? stores.home.setSelectedImageTypes({ [ext]: checked })
-          : stores.home.setSelectedVideoTypes({ [ext]: checked })
+          ? stores.file.search.setSelectedImageTypes({ [ext]: checked })
+          : stores.file.search.setSelectedVideoTypes({ [ext]: checked })
       }
     />
   );

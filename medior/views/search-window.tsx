@@ -24,11 +24,11 @@ export const SearchWindow = observer(() => {
         await stores.tag.loadTags();
         perfLog("Tags loaded");
 
-        stores.home.setSearchValue(
+        stores.file.search.setSearchValue(
           tagIds.map((id) => stores.tag.tagOptions.find((tag) => tag.id === id))
         );
 
-        await stores.home.loadFilteredFiles({ page: 1 });
+        await stores.file.search.loadFilteredFiles({ page: 1 });
         perfLog("Filtered files loaded");
         setIsLoading(false);
 

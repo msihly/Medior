@@ -13,25 +13,25 @@ export const TagCard = observer(({ tag }: TagCardProps) => {
 
   const handleClick = async (event: React.MouseEvent) => {
     if (event.shiftKey) {
-      const res = await stores.tagManager.getShiftSelectedTags({
+      const res = await stores.tag.manager.getShiftSelectedTags({
         id: tag.id,
-        selectedIds: stores.tagManager.selectedIds,
+        selectedIds: stores.tag.manager.selectedIds,
       });
       if (!res?.success) throw new Error(res.error);
 
-      stores.tagManager.toggleTagsSelected([
+      stores.tag.manager.toggleTagsSelected([
         ...res.data.idsToDeselect.map((i) => ({ id: i, isSelected: false })),
         ...res.data.idsToSelect.map((i) => ({ id: i, isSelected: true })),
       ]);
     } else if (event.ctrlKey) {
       /** Toggle the selected state of the tag that was clicked. */
-      stores.tagManager.toggleTagsSelected([
-        { id: tag.id, isSelected: !stores.tagManager.getIsSelected(tag.id) },
+      stores.tag.manager.toggleTagsSelected([
+        { id: tag.id, isSelected: !stores.tag.manager.getIsSelected(tag.id) },
       ]);
     } else {
       /** Deselect all the tags and select the tag that was clicked. */
-      stores.tagManager.toggleTagsSelected([
-        ...stores.tagManager.selectedIds.map((id) => ({ id, isSelected: false })),
+      stores.tag.manager.toggleTagsSelected([
+        ...stores.tag.manager.selectedIds.map((id) => ({ id, isSelected: false })),
         { id: tag.id, isSelected: true },
       ]);
     }
@@ -46,7 +46,7 @@ export const TagCard = observer(({ tag }: TagCardProps) => {
     <FileBase.Container
       onClick={handleClick}
       onDoubleClick={handleDoubleClick}
-      selected={stores.tagManager.selectedIds.includes(tag.id)}
+      selected={stores.tag.manager.selectedIds.includes(tag.id)}
     >
       <FileBase.Image
         thumbPaths={tag.thumbPaths}

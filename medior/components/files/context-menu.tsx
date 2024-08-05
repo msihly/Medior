@@ -61,7 +61,7 @@ export const ContextMenu = observer(
     };
 
     const handleCollections = () => {
-      stores.collection.setManagerFileIds([file.id]);
+      stores.collection.manager.setFileIds([file.id]);
       stores.collection.setIsManagerOpen(true);
       handleClose();
     };

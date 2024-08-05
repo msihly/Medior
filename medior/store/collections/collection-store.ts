@@ -15,12 +15,10 @@ import {
   RootStore,
   SelectedImageTypes,
   SelectedVideoTypes,
-  TagOption,
 } from "medior/store";
 import * as db from "medior/database";
-import { SortMenuProps } from "medior/components";
-import { FileCollection, FileCollectionFile } from ".";
-import { getConfig, LogicalOp, makePerfLog, makeQueue, PromiseQueue, trpc } from "medior/utils";
+import { CollectionEditor, CollectionManager, FileCollection, FileCollectionFile } from ".";
+import { getConfig, makePerfLog, makeQueue, PromiseQueue, trpc } from "medior/utils";
 import { toast } from "react-toastify";
 import { arrayMove } from "@alissavrk/dnd-kit-sortable";
 
@@ -28,34 +26,8 @@ import { arrayMove } from "@alissavrk/dnd-kit-sortable";
 export class FileCollectionStore extends Model({
   collectionFitMode: prop<"cover" | "contain">("contain").withSetter(),
   collections: prop<FileCollection[]>(() => []).withSetter(),
-  editorFiles: prop<FileCollectionFile[]>(() => []).withSetter(),
-  editorId: prop<string>(null).withSetter(),
-  editorSearchHasDiffParams: prop<boolean>(false).withSetter(),
-  editorSearchNumOfTagsOp: prop<LogicalOp | "">("").withSetter(),
-  editorSearchNumOfTagsValue: prop<number>(0).withSetter(),
-  editorSearchPage: prop<number>(1).withSetter(),
-  editorSearchPageCount: prop<number>(1).withSetter(),
-  editorSearchResults: prop<File[]>(() => []).withSetter(),
-  editorSearchSort: prop<SortMenuProps["value"]>(
-    () => getConfig().collection.editorSearchSort
-  ).withSetter(),
-  editorSearchValue: prop<TagOption[]>(() => []).withSetter(),
-  editorSelectedIds: prop<string[]>(() => []).withSetter(),
-  editorWithSelectedFiles: prop<boolean>(false).withSetter(),
-  hasUnsavedChanges: prop<boolean>(false).withSetter(),
-  isEditorOpen: prop<boolean>(false),
-  isManagerLoading: prop<boolean>(false).withSetter(),
-  isManagerOpen: prop<boolean>(false),
-  managerSearchPage: prop<number>(1).withSetter(),
-  managerSearchPageCount: prop<number>(1).withSetter(),
-  managerSearchResults: prop<FileCollection[]>(() => []).withSetter(),
-  managerSearchSort: prop<SortMenuProps["value"]>(
-    () => getConfig().collection.managerSearchSort
-  ).withSetter(),
-  managerFileIds: prop<string[]>(() => []).withSetter(),
-  managerFiles: prop<File[]>(() => []).withSetter(),
-  managerTagSearchValue: prop<TagOption[]>(() => []).withSetter(),
-  managerTitleSearchValue: prop<string>("").withSetter(),
+  editor: prop<CollectionEditor>(() => new CollectionEditor({})),
+  manager: prop<CollectionManager>(() => new CollectionManager({})),
   selectedCollectionId: prop<string>(null).withSetter(),
 }) {
   metaRefreshQueue = new PromiseQueue();
@@ -73,38 +45,38 @@ export class FileCollectionStore extends Model({
 
   @modelAction
   addFilesToActiveCollection(files: File[]) {
-    const startIndex = this.editorFiles.length;
-    this.editorFiles.push(
+    const startIndex = this.editor.files.length;
+    this.editor.files.push(
       ...files.map(
         (file, idx) =>
           new FileCollectionFile({ file: clone(file), id: file.id, index: startIndex + idx })
       )
     );
-    this.setHasUnsavedChanges(true);
+    this.editor.setHasUnsavedChanges(true);
     this.loadSearchResults();
   }
 
   @modelAction
   clearSearch() {
-    this.editorSearchPage = 1;
-    this.editorSearchPageCount = 1;
-    this.editorSearchResults = [];
-    this.editorSearchSort = { isDesc: true, key: "dateModified" };
-    this.editorSearchValue = [];
+    this.editor.search.page = 1;
+    this.editor.search.pageCount = 1;
+    this.editor.search.results = [];
+    this.editor.search.sort = { isDesc: true, key: "dateModified" };
+    this.editor.search.value = [];
   }
 
   @modelAction
   getShiftSelectedIds(clickedId: string): { idsToDeselect: string[]; idsToSelect: string[] } {
-    if (this.editorSelectedIds.length === 0) return { idsToDeselect: [], idsToSelect: [clickedId] };
-    if (this.editorSelectedIds.length === 1 && this.editorSelectedIds[0] === clickedId)
+    if (this.editor.selectedIds.length === 0) return { idsToDeselect: [], idsToSelect: [clickedId] };
+    if (this.editor.selectedIds.length === 1 && this.editor.selectedIds[0] === clickedId)
       return { idsToDeselect: [clickedId], idsToSelect: [] };
 
-    const clickedIndex = this.editorFiles.findIndex((f) => f.id === clickedId);
-    const editorFileIds = this.editorFiles.map((f) => f.id);
+    const clickedIndex = this.editor.files.findIndex((f) => f.id === clickedId);
+    const editorFileIds = this.editor.files.map((f) => f.id);
 
-    const firstSelectedIndex = editorFileIds.indexOf(this.editorSelectedIds[0]);
+    const firstSelectedIndex = editorFileIds.indexOf(this.editor.selectedIds[0]);
     const lastSelectedIndex = editorFileIds.indexOf(
-      this.editorSelectedIds[this.editorSelectedIds.length - 1]
+      this.editor.selectedIds[this.editor.selectedIds.length - 1]
     );
 
     if (clickedIndex > firstSelectedIndex && clickedIndex < lastSelectedIndex) {
@@ -127,12 +99,12 @@ export class FileCollectionStore extends Model({
 
   @modelAction
   moveFileIndex(fromFileId: string, toFileId: string) {
-    const fileIdIndexes = this.editorFiles.map((f) => ({ id: f.id, index: f.index }));
+    const fileIdIndexes = this.editor.files.map((f) => ({ id: f.id, index: f.index }));
     const [from, to] = [fromFileId, toFileId].map((id) => fileIdIndexes.find((f) => f.id === id));
     if (!from || !to) return console.error(`Missing file for ${fromFileId} or ${toFileId}`);
     if (from.index === to.index) return console.debug("Indexes are the same, no move needed");
 
-    this.setEditorFiles(
+    this.editor.setFiles(
       arrayMove(fileIdIndexes, from.index, to.index).map(
         (f, i) =>
           new FileCollectionFile({
@@ -143,7 +115,7 @@ export class FileCollectionStore extends Model({
       )
     );
 
-    this.setHasUnsavedChanges(true);
+    this.editor.setHasUnsavedChanges(true);
   }
 
   @modelAction
@@ -153,14 +125,14 @@ export class FileCollectionStore extends Model({
 
   @modelAction
   setIsEditorOpen(isOpen: boolean) {
-    this.editorSelectedIds = [];
-    this.isEditorOpen = isOpen;
+    this.editor.selectedIds = [];
+    this.editor.isOpen = isOpen;
   }
 
   @modelAction
   setIsManagerOpen(isOpen: boolean) {
-    this.isManagerOpen = isOpen;
-    if (isOpen) this.isEditorOpen = false;
+    this.manager.isOpen = isOpen;
+    if (isOpen) this.editor.isOpen = false;
   }
 
   @modelAction
@@ -173,7 +145,7 @@ export class FileCollectionStore extends Model({
     );
 
     const removedSet = new Set(removed);
-    this.editorSelectedIds = [...new Set(this.editorSelectedIds.concat(added))].filter(
+    this.editor.selectedIds = [...new Set(this.editor.selectedIds.concat(added))].filter(
       (id) => !removedSet.has(id)
     );
 
@@ -218,7 +190,7 @@ export class FileCollectionStore extends Model({
 
     if (!res.success) toast.error(res.error);
     else
-      this.setEditorFiles(
+      this.editor.setFiles(
         res.data
           .map(
             (f) =>
@@ -239,15 +211,15 @@ export class FileCollectionStore extends Model({
 
     const stores = getRootStore<RootStore>(this);
     if (!stores) throw new Error("RootStore not found");
-    this.setIsManagerLoading(true);
+    this.manager.setIsLoading(true);
 
     const collectionsRes = await trpc.listFilteredCollections.mutate({
-      ...stores.tag.tagSearchOptsToIds(this.managerTagSearchValue),
-      isSortDesc: this.managerSearchSort.isDesc,
-      page: page ?? this.managerSearchPage,
+      ...stores.tag.tagSearchOptsToIds(this.manager.tagSearchValue),
+      isSortDesc: this.manager.searchSort.isDesc,
+      page: page ?? this.manager.searchPage,
       pageSize: getConfig().collection.editorPageSize,
-      sortKey: this.managerSearchSort.key,
-      title: this.managerTitleSearchValue,
+      sortKey: this.manager.searchSort.key,
+      title: this.manager.titleSearchValue,
     });
     if (!collectionsRes.success) throw new Error(collectionsRes.error);
 
@@ -257,13 +229,13 @@ export class FileCollectionStore extends Model({
     this.overwrite(collections);
     if (debug) perfLog("CollectionStore.collections overwrite and re-render");
 
-    this.setManagerSearchPageCount(pageCount);
-    if (page) this.setManagerSearchPage(page);
+    this.manager.setSearchPageCount(pageCount);
+    if (page) this.manager.setSearchPage(page);
     if (debug)
-      perfLog(`Set page to ${page ?? this.managerSearchPage} and pageCount to ${pageCount}`);
+      perfLog(`Set page to ${page ?? this.manager.searchPage} and pageCount to ${pageCount}`);
 
     this.setSelectedCollectionId(null);
-    this.setIsManagerLoading(false);
+    this.manager.setIsLoading(false);
     if (debug) perfLogTotal(`Loaded ${collections.length} collections`);
 
     return collections;
@@ -275,14 +247,14 @@ export class FileCollectionStore extends Model({
     const stores = getRootStore<RootStore>(this);
 
     const filteredRes = await trpc.listFilteredFiles.mutate({
-      ...stores.tag.tagSearchOptsToIds(this.editorSearchValue),
-      excludedFileIds: this.editorFiles.map((f) => f.id),
-      hasDiffParams: this.editorSearchHasDiffParams,
+      ...stores.tag.tagSearchOptsToIds(this.editor.search.value),
+      excludedFileIds: this.editor.files.map((f) => f.id),
+      hasDiffParams: this.editor.search.hasDiffParams,
       isArchived: false,
-      isSortDesc: this.editorSearchSort.isDesc,
-      numOfTagsOp: this.editorSearchNumOfTagsOp,
-      numOfTagsValue: this.editorSearchNumOfTagsValue,
-      page: page ?? this.editorSearchPage,
+      isSortDesc: this.editor.search.sort.isDesc,
+      numOfTagsOp: this.editor.search.numOfTagsOp,
+      numOfTagsValue: this.editor.search.numOfTagsValue,
+      page: page ?? this.editor.search.page,
       pageSize: getConfig().collection.searchFileCount,
       selectedImageTypes: Object.fromEntries(
         config.file.imageTypes.map((ext) => [ext, true])
@@ -290,24 +262,24 @@ export class FileCollectionStore extends Model({
       selectedVideoTypes: Object.fromEntries(
         config.file.videoTypes.map((ext) => [ext, true])
       ) as SelectedVideoTypes,
-      sortKey: this.editorSearchSort.key,
+      sortKey: this.editor.search.sort.key,
     });
     if (!filteredRes.success) throw new Error(filteredRes.error);
 
     const { files, pageCount } = filteredRes.data;
 
-    this.setEditorSearchResults(files.map((f) => new File(f)));
-    this.setEditorSearchPageCount(pageCount);
-    if (page) this.setEditorSearchPage(page);
+    this.editor.search.setResults(files.map((f) => new File(f)));
+    this.editor.search.setPageCount(pageCount);
+    if (page) this.editor.search.setPage(page);
 
     return files;
   });
 
   @modelFlow
   loadManagerFiles = asyncAction(async () => {
-    const res = await trpc.listFiles.mutate({ ids: this.managerFileIds });
+    const res = await trpc.listFiles.mutate({ ids: this.manager.fileIds });
     if (!res.success) throw new Error(res.error);
-    this.setManagerFiles(res.data.map((f) => new File(f)));
+    this.manager.setFiles(res.data.map((f) => new File(f)));
   });
 
   @modelFlow
@@ -337,7 +309,7 @@ export class FileCollectionStore extends Model({
     if (!res.success) throw new Error(res.error);
     this.getById(updates.id).update(updates);
 
-    if (this.editorId === updates.id) this.loadActiveCollection();
+    if (this.editor.id === updates.id) this.loadActiveCollection();
   });
 
   /* --------------------------------- DYNAMIC GETTERS -------------------------------- */
@@ -346,11 +318,11 @@ export class FileCollectionStore extends Model({
   }
 
   getFileById(id: string) {
-    return this.editorFiles.find((f) => f.id === id);
+    return this.editor.files.find((f) => f.id === id);
   }
 
   getIsSelected(id: string) {
-    return !!this.editorSelectedIds.find((s) => s === id);
+    return !!this.editor.selectedIds.find((s) => s === id);
   }
 
   listByFileId(id: string) {
@@ -360,17 +332,17 @@ export class FileCollectionStore extends Model({
   /* --------------------------------- GETTERS -------------------------------- */
   @computed
   get activeCollection() {
-    return this.collections.find((c) => c.id === this.editorId);
+    return this.collections.find((c) => c.id === this.editor.id);
   }
 
   @computed
   get activeTagIds() {
-    return [...new Set(this.editorFiles.flatMap((f) => f.file?.tagIds ?? []))];
+    return [...new Set(this.editor.files.flatMap((f) => f.file?.tagIds ?? []))];
   }
 
   @computed
   get sortedEditorFiles() {
-    return [...this.editorFiles].sort((a, b) => a.index - b.index);
+    return [...this.editor.files].sort((a, b) => a.index - b.index);
   }
 
   @computed

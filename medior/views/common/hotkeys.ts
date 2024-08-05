@@ -33,8 +33,8 @@ export const useHotkeys = ({ rootRef, view }: UseHotkeysProps) => {
     const newId = isLeft ? prevId : nextId;
 
     if (!stores.file.files.find((f) => f.id === newId))
-      stores.home.loadFilteredFiles({
-        page: stores.file.page + 1 * (isLeft ? -1 : 1),
+      stores.file.search.loadFilteredFiles({
+        page: stores.file.search.page + 1 * (isLeft ? -1 : 1),
       });
 
     stores.file.toggleFilesSelected([

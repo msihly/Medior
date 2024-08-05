@@ -1,7 +1,15 @@
 import { ReactNode, useEffect, useRef, useState } from "react";
 import { observer, useStores } from "medior/store";
-import { Button, CenteredText, IconButton, ImportBatch, Modal, Text, View } from "medior/components";
-import { colors, formatBytes, makeClasses } from "medior/utils";
+import {
+  Button,
+  CenteredText,
+  IconButton,
+  ImportBatch,
+  Modal,
+  Text,
+  View,
+} from "medior/components";
+import { colors, makeClasses } from "medior/utils";
 import { toast } from "react-toastify";
 
 export const ImportManager = observer(() => {
@@ -18,10 +26,10 @@ export const ImportManager = observer(() => {
 
   const handleClose = () => {
     stores.import.setIsImportManagerOpen(false);
-    stores.home.reloadIfQueued();
+    stores.file.search.reloadIfQueued();
   };
 
-  const handleTagManager = () => stores.tagManager.setIsOpen(true);
+  const handleTagManager = () => stores.tag.manager.setIsOpen(true);
 
   return (
     <Modal.Container
@@ -48,9 +56,7 @@ export const ImportManager = observer(() => {
           )}
         </View>
 
-        <ContainerHeader type="pending">
-          <ImportStats />
-        </ContainerHeader>
+        <ContainerHeader type="pending" />
 
         <View className={css.batchesContainer}>
           {stores.import.incompleteBatches?.length > 0 ? (
@@ -133,18 +139,6 @@ const DeleteToggleButton = observer(({ type }: DeleteToggleButtonProps) => {
         </>
       )}
     </View>
-  );
-});
-
-const ImportStats = observer(() => {
-  const stores = useStores();
-
-  return (
-    <Text>
-      {`${formatBytes(stores.import.importStats.completedBytes)} / ${formatBytes(
-        stores.import.importStats.totalBytes
-      )} - ${formatBytes(stores.import.importStats.rateInBytes)}/s`}
-    </Text>
   );
 });
 

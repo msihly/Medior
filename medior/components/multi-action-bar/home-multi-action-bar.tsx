@@ -24,7 +24,7 @@ export const HomeMultiActionBar = observer(() => {
   };
 
   const handleEditCollections = () => {
-    stores.collection.setManagerFileIds([...stores.file.selectedIds]);
+    stores.collection.manager.setFileIds([...stores.file.selectedIds]);
     stores.collection.setIsManagerOpen(true);
   };
 
@@ -58,7 +58,7 @@ export const HomeMultiActionBar = observer(() => {
         </View>
 
         <View className={css.divisions}>
-          {stores.home.isArchiveOpen && (
+          {stores.file.search.isArchiveOpen && (
             <MultiActionButton
               name="Delete"
               tooltip="Delete"
@@ -69,9 +69,9 @@ export const HomeMultiActionBar = observer(() => {
           )}
 
           <MultiActionButton
-            name={stores.home.isArchiveOpen ? "Unarchive" : "Archive"}
-            tooltip={stores.home.isArchiveOpen ? "Unarchive" : "Archive"}
-            onClick={stores.home.isArchiveOpen ? handleUnarchive : handleDelete}
+            name={stores.file.search.isArchiveOpen ? "Unarchive" : "Archive"}
+            tooltip={stores.file.search.isArchiveOpen ? "Unarchive" : "Archive"}
+            onClick={stores.file.search.isArchiveOpen ? handleUnarchive : handleDelete}
             disabled={hasNoSelection}
           />
 

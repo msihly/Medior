@@ -66,7 +66,7 @@ export const ImportEditor = observer(() => {
 
   const confirmDiscard = () => {
     stores.import.setIsImportEditorOpen(false);
-    stores.home.reloadIfQueued();
+    stores.file.search.reloadIfQueued();
   };
 
   const handleCancel = () => setIsConfirmDiscardOpen(true);
@@ -78,8 +78,8 @@ export const ImportEditor = observer(() => {
     setFolderToTagsMode(checked ? "hierarchical" : "none");
 
   const handleTagManager = () => {
-    if (stores.tagManager.isOpen) stores.tagManager.setIsOpen(false);
-    setTimeout(() => stores.tagManager.setIsOpen(true), 0);
+    if (stores.tag.manager.isOpen) stores.tag.manager.setIsOpen(false);
+    setTimeout(() => stores.tag.manager.setIsOpen(true), 0);
   };
 
   const toggleFolderToCollWithTag = () =>

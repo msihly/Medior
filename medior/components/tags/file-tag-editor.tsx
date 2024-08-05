@@ -37,13 +37,13 @@ export const FileTagEditor = observer(({ batchId, fileIds }: FileTagEditorProps)
   const handleClose = () => {
     if (hasUnsavedChanges) return setIsConfirmDiscardOpen(true);
     stores.tag.setIsFileTagEditorOpen(false);
-    stores.home.reloadIfQueued();
+    stores.file.search.reloadIfQueued();
   };
 
   const handleCloseForced = () => {
     setHasUnsavedChanges(false);
     stores.tag.setIsFileTagEditorOpen(false);
-    stores.home.reloadIfQueued();
+    stores.file.search.reloadIfQueued();
   };
 
   const handleTagAdded = (tags: TagOption[]) => {

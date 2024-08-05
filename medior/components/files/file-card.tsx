@@ -23,7 +23,7 @@ export const FileCard = observer(({ disabled, file, height, id, width }: FileCar
   const handleClick = async (event: React.MouseEvent) => {
     if (disabled) return;
     if (event.shiftKey) {
-      const res = await stores.home.getShiftSelectedFiles({
+      const res = await stores.file.search.getShiftSelectedFiles({
         id: file.id,
         selectedIds: stores.file.selectedIds,
       });
@@ -49,7 +49,7 @@ export const FileCard = observer(({ disabled, file, height, id, width }: FileCar
 
   const handleDoubleClick = async () => {
     if (!disabled) {
-      const res = await stores.home.listIdsForCarousel();
+      const res = await stores.file.search.listIdsForCarousel();
       if (!res?.success) console.error(res.error);
       else openCarouselWindow({ file, selectedFileIds: res.data });
     }

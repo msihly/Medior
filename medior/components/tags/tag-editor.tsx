@@ -86,7 +86,7 @@ export const TagEditor = observer(
       if (isSubEditor) stores.tag.setIsTagSubEditorOpen(false);
       else {
         stores.tag.setIsTagEditorOpen(false);
-        stores.home.reloadIfQueued();
+        stores.file.search.reloadIfQueued();
       }
     };
 
@@ -114,7 +114,7 @@ export const TagEditor = observer(
 
     const handleRefresh = async () => {
       setIsLoading(true);
-      const res = await stores.tagManager.refreshTag(id);
+      const res = await stores.tag.manager.refreshTag(id);
       if (!res.success) return toast.error("Failed to refresh tag relations");
       setIsLoading(false);
       toast.success("Tag refreshed");

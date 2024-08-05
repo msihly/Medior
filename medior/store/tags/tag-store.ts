@@ -1,6 +1,4 @@
-import { TagToUpsert } from "medior/components";
 import * as db from "medior/database";
-import { computed } from "mobx";
 import {
   getRootStore,
   model,
@@ -10,21 +8,24 @@ import {
   modelFlow,
   prop,
 } from "mobx-keystone";
-import { toast } from "react-toastify";
+import { computed } from "mobx";
+import { TagToUpsert } from "medior/components";
 import { asyncAction, RootStore } from "medior/store";
+import { Tag, TagManagerStore, TagOption } from ".";
 import { PromiseQueue, regexEscape, trpc } from "medior/utils";
-import { Tag, TagOption } from ".";
+import { toast } from "react-toastify";
 
 @model("medior/TagStore")
 export class TagStore extends Model({
   activeTagId: prop<string>(null).withSetter(),
-  isTagEditorOpen: prop<boolean>(false).withSetter(),
-  isFileTagEditorOpen: prop<boolean>(false).withSetter(),
-  isTagMergerOpen: prop<boolean>(false).withSetter(),
-  isTagSubEditorOpen: prop<boolean>(false).withSetter(),
-  subEditorTagId: prop<string>(null).withSetter(),
   fileTagEditorBatchId: prop<string | null>(null).withSetter(),
   fileTagEditorFileIds: prop<string[]>(() => []).withSetter(),
+  isFileTagEditorOpen: prop<boolean>(false).withSetter(),
+  isTagEditorOpen: prop<boolean>(false).withSetter(),
+  isTagMergerOpen: prop<boolean>(false).withSetter(),
+  isTagSubEditorOpen: prop<boolean>(false).withSetter(),
+  manager: prop<TagManagerStore>(() => new TagManagerStore({})),
+  subEditorTagId: prop<string>(null).withSetter(),
   tags: prop<Tag[]>(() => []),
 }) {
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */

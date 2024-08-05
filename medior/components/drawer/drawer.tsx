@@ -44,75 +44,75 @@ export const Drawer = observer(({ hasImports = false, hasSettings = false }: Dra
 
   const stores = useStores();
 
-  const searchValue = useDeepMemo(stores.home.searchValue);
+  const searchValue = useDeepMemo(stores.file.search.searchValue);
 
   const [isAllImageTypesSelected, isAnyImageTypesSelected] = useMemo(() => {
-    const allTypes = Object.values(stores.home.selectedImageTypes);
+    const allTypes = Object.values(stores.file.search.selectedImageTypes);
     const selectedTypes = allTypes.filter((t) => t === true);
     const isAllSelected = allTypes.length === selectedTypes.length;
     const isAnySelected = selectedTypes.length > 0 && selectedTypes.length !== allTypes.length;
     return [isAllSelected, isAnySelected];
-  }, [stores.home.selectedImageTypes]);
+  }, [stores.file.search.selectedImageTypes]);
 
   const [isAllVideoTypesSelected, isAnyVideoTypesSelected] = useMemo(() => {
-    const allTypes = Object.values(stores.home.selectedVideoTypes);
+    const allTypes = Object.values(stores.file.search.selectedImageTypes);
     const selectedTypes = allTypes.filter((t) => t === true);
     const isAllSelected = allTypes.length === selectedTypes.length;
     const isAnySelected = selectedTypes.length > 0 && selectedTypes.length !== allTypes.length;
     return [isAllSelected, isAnySelected];
-  }, [stores.home.selectedVideoTypes]);
+  }, [stores.file.search.selectedImageTypes]);
 
   const handleClose = () => stores.home.setIsDrawerOpen(false);
 
   const handleCollections = () => {
-    stores.collection.setManagerFileIds([]);
+    stores.collection.manager.setFileIds([]);
     stores.collection.setIsManagerOpen(true);
   };
 
-  const handleDateCreatedEndChange = (val: string) => stores.home.setDateCreatedEnd(val);
+  const handleDateCreatedEndChange = (val: string) => stores.file.search.setDateCreatedEnd(val);
 
-  const handleDateCreatedStartChange = (val: string) => stores.home.setDateCreatedStart(val);
+  const handleDateCreatedStartChange = (val: string) => stores.file.search.setDateCreatedStart(val);
 
-  const handleDateModifiedEndChange = (val: string) => stores.home.setDateModifiedEnd(val);
+  const handleDateModifiedEndChange = (val: string) => stores.file.search.setDateModifiedEnd(val);
 
-  const handleDateModifiedStartChange = (val: string) => stores.home.setDateModifiedStart(val);
+  const handleDateModifiedStartChange = (val: string) => stores.file.search.setDateModifiedStart(val);
 
   const handleImport = () => stores.import.setIsImportManagerOpen(true);
 
-  const handleManageTags = () => stores.tagManager.setIsOpen(true);
+  const handleManageTags = () => stores.tag.manager.setIsOpen(true);
 
-  const handleNumOfTagsOpChange = (val: LogicalOp | "") => stores.home.setNumOfTagsOp(val);
+  const handleNumOfTagsOpChange = (val: LogicalOp | "") => stores.file.search.setNumOfTagsOp(val);
 
-  const handleNumOfTagsValueChange = (val: number) => stores.home.setNumOfTagsValue(val);
+  const handleNumOfTagsValueChange = (val: number) => stores.file.search.setNumOfTagsValue(val);
 
   const handleResetSearch = () => {
-    stores.home.resetSearch();
+    stores.file.search.reset();
     handleSearch();
   };
 
-  const handleSearch = () => stores.home.loadFilteredFiles({ page: 1 });
+  const handleSearch = () => stores.file.search.loadFilteredFiles({ page: 1 });
 
   const handleSearchWindow = () => openSearchWindow();
 
   const handleSettings = () => stores.home.settings.setIsOpen(true);
 
-  const handleSortChange = (val: SortMenuProps["value"]) => stores.home.setSortValue(val);
+  const handleSortChange = (val: SortMenuProps["value"]) => stores.file.search.setSortValue(val);
 
-  const setSearchValue = (val: TagOption[]) => stores.home.setSearchValue(val);
+  const setSearchValue = (val: TagOption[]) => stores.file.search.setSearchValue(val);
 
-  const toggleArchiveOpen = () => stores.home.setIsArchiveOpen(!stores.home.isArchiveOpen);
+  const toggleArchiveOpen = () => stores.file.search.setIsArchiveOpen(!stores.file.search.isArchiveOpen);
 
-  const toggleHasDiffParams = () => stores.home.setHasDiffParams(!stores.home.hasDiffParams);
+  const toggleHasDiffParams = () => stores.file.search.setHasDiffParams(!stores.file.search.hasDiffParams);
 
   const toggleImageTypes = () =>
-    stores.home.setSelectedImageTypes(
+    stores.file.search.setSelectedImageTypes(
       Object.fromEntries(
         config.file.imageTypes.map((t) => [t, isAllImageTypesSelected ? false : true])
       )
     );
 
   const toggleVideoTypes = () =>
-    stores.home.setSelectedVideoTypes(
+    stores.file.search.setSelectedVideoTypes(
       Object.fromEntries(
         config.file.videoTypes.map((t) => [t, isAllVideoTypesSelected ? false : true])
       )
@@ -153,7 +153,7 @@ export const Drawer = observer(({ hasImports = false, hasSettings = false }: Dra
 
         <SortMenu
           rows={CONSTANTS.SORT_MENU_OPTS.FILE_SEARCH}
-          value={stores.home.sortValue}
+          value={stores.file.search.sortValue}
           setValue={handleSortChange}
           width="100%"
         />
@@ -171,17 +171,17 @@ export const Drawer = observer(({ hasImports = false, hasSettings = false }: Dra
           <Text preset="label-glow">{"# of Tags"}</Text>
           <View row justify="space-between" spacing="0.3rem">
             <Dropdown
-              value={stores.home.numOfTagsOp}
+              value={stores.file.search.numOfTagsOp}
               setValue={handleNumOfTagsOpChange}
               options={NUM_OF_TAGS_OPS}
               width="5rem"
             />
 
             <NumInput
-              value={stores.home.numOfTagsValue}
+              value={stores.file.search.numOfTagsValue}
               setValue={handleNumOfTagsValueChange}
               maxValue={50}
-              disabled={stores.home.numOfTagsOp === ""}
+              disabled={stores.file.search.numOfTagsOp === ""}
               width="5rem"
               textAlign="center"
               hasHelper={false}
@@ -192,14 +192,14 @@ export const Drawer = observer(({ hasImports = false, hasSettings = false }: Dra
 
       <Checkbox
         label="Archived"
-        checked={stores.home.isArchiveOpen}
+        checked={stores.file.search.isArchiveOpen}
         setChecked={toggleArchiveOpen}
         flex="none"
       />
 
       <Checkbox
         label="Diffusion"
-        checked={stores.home.hasDiffParams}
+        checked={stores.file.search.hasDiffParams}
         setChecked={toggleHasDiffParams}
         flex="none"
       />
@@ -236,20 +236,20 @@ export const Drawer = observer(({ hasImports = false, hasSettings = false }: Dra
 
       <View column spacing="0.4rem" margins={{ left: "0.5rem", right: "0.5rem" }}>
         <DateRange
-          startDate={stores.home.dateCreatedStart}
+          startDate={stores.file.search.dateCreatedStart}
           setStartDate={handleDateCreatedStartChange}
           startLabel="Date Created - Start"
-          endDate={stores.home.dateCreatedEnd}
+          endDate={stores.file.search.dateCreatedEnd}
           setEndDate={handleDateCreatedEndChange}
           endLabel="Date Created - End"
           column
         />
 
         <DateRange
-          startDate={stores.home.dateModifiedStart}
+          startDate={stores.file.search.dateModifiedStart}
           setStartDate={handleDateModifiedStartChange}
           startLabel="Date Modified - Start"
-          endDate={stores.home.dateModifiedEnd}
+          endDate={stores.file.search.dateModifiedEnd}
           setEndDate={handleDateModifiedEndChange}
           endLabel="Date Modified - End"
           column

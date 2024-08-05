@@ -8,9 +8,9 @@ export const DisplayedTags = observer(() => {
 
   const stores = useStores();
 
-  return stores.tagManager.tags.length > 0 ? (
+  return stores.tag.manager.tags.length > 0 ? (
     <View className={css.fileContainer}>
-      {stores.tagManager.tags.map((t) => (
+      {stores.tag.manager.tags.map((t) => (
         <TagCard key={t.id} tag={t} />
       ))}
     </View>

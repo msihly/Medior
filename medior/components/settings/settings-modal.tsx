@@ -68,7 +68,7 @@ export const SettingsModal = observer(() => {
       stores.faceRecog.autoDetectQueue.clear();
       stores.file.infoRefreshQueue.clear();
       stores.import.queue.clear();
-      stores.tagManager.tagRefreshQueue.clear();
+      stores.tag.manager.tagRefreshQueue.clear();
 
       if (hasDbDiff || hasServerDiff || hasSocketDiff)
         await trpc.reloadServers.mutate({
