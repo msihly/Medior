@@ -1,14 +1,14 @@
 import { useEffect, useRef } from "react";
 import { observer, useStores } from "medior/store";
 import { useHotkeys } from "medior/views";
-import { Pagination, View } from "medior/components";
-import { DisplayedFiles } from ".";
+import { CardGrid, Pagination } from "medior/components";
+import { FileCard } from ".";
 import { makeClasses, socket } from "medior/utils";
 
 export const FileContainer = observer(() => {
-  const stores = useStores();
+  const { css } = useClasses(null);
 
-  const { css } = useClasses({ hasFiles: stores.file.files.length > 0 });
+  const stores = useStores();
 
   const filesRef = useRef<HTMLDivElement>(null);
 
@@ -17,7 +17,8 @@ export const FileContainer = observer(() => {
   const scrollToTop = () => filesRef.current?.scrollTo({ top: 0, behavior: "smooth" });
 
   useEffect(() => {
-    if (stores.file.search.page > stores.file.search.pageCount) handlePageChange(stores.file.search.pageCount);
+    if (stores.file.search.page > stores.file.search.pageCount)
+      handlePageChange(stores.file.search.pageCount);
     scrollToTop();
   }, [stores.file.search.page, stores.file.search.pageCount]);
 
@@ -33,38 +34,25 @@ export const FileContainer = observer(() => {
   const handlePageChange = (page: number) => stores.file.search.loadFilteredFiles({ page });
 
   return (
-    <View className={css.container}>
-      <View ref={filesRef} onKeyDown={handleKeyPress} tabIndex={1} className={css.files}>
-        <DisplayedFiles />
-      </View>
-
+    <CardGrid
+      ref={filesRef}
+      cards={stores.file.files.map((f, i) => (
+        <FileCard key={i} file={f} />
+      ))}
+      cardsProps={{ onKeyDown: handleKeyPress, tabIndex: 1 }}
+      className={css.cardGrid}
+    >
       <Pagination
         count={stores.file.search.pageCount}
         page={stores.file.search.page}
         onChange={handlePageChange}
       />
-    </View>
+    </CardGrid>
   );
 });
 
-interface ClassesProps {
-  hasFiles: boolean;
-}
-
-const useClasses = makeClasses((_, { hasFiles }: ClassesProps) => ({
-  container: {
-    position: "relative",
-    display: "flex",
-    flexDirection: "column",
-    flex: 1,
+const useClasses = makeClasses({
+  cardGrid: {
     backgroundColor: "rgba(0, 0, 0, 0.35)",
-    overflowY: "auto",
   },
-  files: {
-    display: "flex",
-    flexFlow: "row wrap",
-    paddingBottom: "7rem",
-    overflowY: "auto",
-    ...(!hasFiles ? { height: "-webkit-fill-available" } : {}),
-  },
-}));
+});

@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { TagOption, observer, useStores } from "medior/store";
 import {
   Button,
+  CardGrid,
   CenteredText,
   FileCard,
   Input,
@@ -15,7 +16,7 @@ import {
   Text,
   View,
 } from "medior/components";
-import { DisplayedCollections, FileCollection } from ".";
+import { FileCollection } from ".";
 import { CONSTANTS, colors, debounce, makeClasses, useDeepEffect, useDeepMemo } from "medior/utils";
 import { toast } from "react-toastify";
 
@@ -113,7 +114,7 @@ export const FileCollectionManager = observer(() => {
 
       <Modal.Content className={css.modalContent}>
         {!hasAnySelected ? null : hasOneSelected ? (
-          <View row>
+          <View row spacing="0.5rem">
             <View className={css.leftColumn}>
               <Text preset="label-glow">{"Selected File"}</Text>
 
@@ -163,7 +164,7 @@ export const FileCollectionManager = observer(() => {
           </View>
         )}
 
-        <View row flex={1} margins={{ top: "0.5rem" }} overflow="hidden">
+        <View row flex={1} margins={{ top: "0.5rem" }} spacing="0.5rem" overflow="hidden">
           <View className={css.leftColumn}>
             <Text preset="label-glow">{"Search"}</Text>
 
@@ -220,15 +221,20 @@ export const FileCollectionManager = observer(() => {
           <View className={css.rightColumn}>
             <Text preset="label-glow">{"All Collections"}</Text>
 
-            <View ref={collectionsRef} className={css.container}>
-              <DisplayedCollections />
-
+            <CardGrid
+              ref={collectionsRef}
+              cards={stores.collection.collections.map((c) => (
+                <FileCollection key={c.id} id={c.id} />
+              ))}
+              position="unset"
+              className={css.container}
+            >
               <Pagination
                 count={stores.collection.manager.searchPageCount}
                 page={stores.collection.manager.searchPage}
                 onChange={handlePageChange}
               />
-            </View>
+            </CardGrid>
           </View>
         </View>
       </Modal.Content>
@@ -267,7 +273,6 @@ const useClasses = makeClasses({
     display: "flex",
     flexDirection: "column",
     width: "13rem",
-    marginRight: "0.5rem",
   },
   modalContent: {
     overflow: "hidden",

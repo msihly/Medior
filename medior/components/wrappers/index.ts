@@ -1,4 +1,5 @@
 export * from "./card";
+export * from "./card-grid";
 export * from "./chip";
 export * from "./conditional";
 export * from "./divider";

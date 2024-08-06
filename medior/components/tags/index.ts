@@ -1,4 +1,3 @@
-export * from "./displayed-tags";
 export * from "./file-tag-editor";
 export { TagInputs } from "./inputs";
 export * from "./multi-tag-editor";

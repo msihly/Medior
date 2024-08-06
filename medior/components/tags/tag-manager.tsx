@@ -3,10 +3,10 @@ import { TagOption, observer, useStores } from "medior/store";
 import { FixedSizeGrid } from "react-window";
 import {
   Button,
+  CardGrid,
   Checkbox,
   Chip,
   DateRange,
-  DisplayedTags,
   Dropdown,
   Input,
   LoadingOverlay,
@@ -16,6 +16,7 @@ import {
   Pagination,
   SortMenu,
   SortMenuProps,
+  TagCard,
   TagInput,
   Text,
   View,
@@ -268,13 +269,17 @@ export const TagManager = observer(() => {
             </View>
           </View>
 
-          <DisplayedTags />
-
-          <Pagination
-            count={stores.tag.manager.pageCount}
-            page={stores.tag.manager.page}
-            onChange={handlePageChange}
-          />
+          <CardGrid
+            cards={stores.tag.manager.tags.map((t) => (
+              <TagCard key={t.id} tag={t} />
+            ))}
+          >
+            <Pagination
+              count={stores.tag.manager.pageCount}
+              page={stores.tag.manager.page}
+              onChange={handlePageChange}
+            />
+          </CardGrid>
         </View>
       </Modal.Content>
 
