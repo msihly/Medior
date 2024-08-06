@@ -3,86 +3,85 @@ import path from "path";
 import fs from "fs/promises";
 import disk from "diskusage";
 import { AnyBulkWriteOperation } from "mongodb";
-import { PipelineStage } from "mongoose";
+import { FilterQuery, PipelineStage } from "mongoose";
 import * as db from "medior/database";
-import {
-  dayjs,
-  handleErrors,
-  logicOpsToMongo,
-  makePerfLog,
-  sharp,
-  socket,
-} from "medior/utils";
-import { leanModelToJson, objectId, objectIds } from "./utils";
+import * as _gen from "medior/database/_generated";
+import { leanModelToJson, makeAction, objectId, objectIds } from "medior/database/utils";
+import { dayjs, LogicalOp, logicOpsToMongo, makePerfLog, sharp, socket } from "medior/utils";
+import { SelectedImageTypes, SelectedVideoTypes } from "medior/store";
 
 const FACE_MIN_CONFIDENCE = 0.4;
 const FACE_MODELS_PATH = app.isPackaged
   ? path.resolve(process.resourcesPath, "extraResources/face-models")
   : "medior/face-models";
 
-/* ---------------------------- HELPER FUNCTIONS ---------------------------- */
-const createFileFilterPipeline = ({
-  dateCreatedEnd,
-  dateCreatedStart,
-  dateModifiedEnd,
-  dateModifiedStart,
-  excludedDescTagIds,
-  excludedFileIds,
-  excludedTagIds,
-  hasDiffParams,
-  isArchived,
-  isSortDesc,
-  numOfTagsOp,
-  numOfTagsValue,
-  optionalTagIds,
-  requiredDescTagIds,
-  requiredTagIds,
-  selectedImageTypes,
-  selectedVideoTypes,
-  sortKey,
-}: db.CreateFileFilterPipelineInput) => {
+/* -------------------------------------------------------------------------- */
+/*                              HELPER FUNCTIONS                              */
+/* -------------------------------------------------------------------------- */
+export const createFileFilterPipeline = (args: {
+  dateCreatedEnd?: string;
+  dateCreatedStart?: string;
+  dateModifiedEnd?: string;
+  dateModifiedStart?: string;
+  excludedDescTagIds: string[];
+  excludedFileIds?: string[];
+  excludedTagIds: string[];
+  hasDiffParams: boolean;
+  isArchived: boolean;
+  isSortDesc: boolean;
+  numOfTagsOp: LogicalOp | "";
+  numOfTagsValue?: number;
+  optionalTagIds: string[];
+  requiredDescTagIds: string[];
+  requiredTagIds: string[];
+  selectedImageTypes: SelectedImageTypes;
+  selectedVideoTypes: SelectedVideoTypes;
+  sortKey: string;
+}) => {
   const enabledExts = Object.entries({
-    ...selectedImageTypes,
-    ...selectedVideoTypes,
+    ...args.selectedImageTypes,
+    ...args.selectedVideoTypes,
   }).reduce((acc, [key, isEnabled]) => {
     if (isEnabled) acc.push(`.${key}`);
     return acc;
   }, [] as string[]);
 
-  const sortDir = isSortDesc ? -1 : 1;
+  const sortDir = args.isSortDesc ? -1 : 1;
 
-  const hasExcludedTags = excludedTagIds?.length > 0;
-  const hasExcludedDescTags = excludedDescTagIds?.length > 0;
-  const hasNumOfTags = numOfTagsOp !== "" && numOfTagsValue !== undefined;
-  const hasOptionalTags = optionalTagIds?.length > 0;
-  const hasRequiredDescTags = requiredDescTagIds?.length > 0;
-  const hasRequiredTags = requiredTagIds.length > 0;
+  const hasExcludedTags = args.excludedTagIds?.length > 0;
+  const hasExcludedDescTags = args.excludedDescTagIds?.length > 0;
+  const hasNumOfTags = args.numOfTagsOp !== "" && args.numOfTagsValue !== undefined;
+  const hasOptionalTags = args.optionalTagIds?.length > 0;
+  const hasRequiredDescTags = args.requiredDescTagIds?.length > 0;
+  const hasRequiredTags = args.requiredTagIds.length > 0;
 
   return {
     $match: {
-      isArchived,
+      isArchived: args.isArchived,
       ext: { $in: enabledExts },
-      ...(dateCreatedEnd || dateCreatedStart
+      ...(args.dateCreatedEnd || args.dateCreatedStart
         ? {
             dateCreated: {
-              ...(dateCreatedEnd ? { $lte: dateCreatedEnd } : {}),
-              ...(dateCreatedStart ? { $gte: dateCreatedStart } : {}),
+              ...(args.dateCreatedEnd ? { $lte: args.dateCreatedEnd } : {}),
+              ...(args.dateCreatedStart ? { $gte: args.dateCreatedStart } : {}),
             },
           }
         : {}),
-      ...(dateModifiedEnd || dateModifiedStart
+      ...(args.dateModifiedEnd || args.dateModifiedStart
         ? {
             dateModified: {
-              ...(dateModifiedEnd ? { $lte: dateModifiedEnd } : {}),
-              ...(dateModifiedStart ? { $gte: dateModifiedStart } : {}),
+              ...(args.dateModifiedEnd ? { $lte: args.dateModifiedEnd } : {}),
+              ...(args.dateModifiedStart ? { $gte: args.dateModifiedStart } : {}),
             },
           }
         : {}),
-      ...(excludedFileIds?.length > 0 ? { _id: { $nin: objectIds(excludedFileIds) } } : {}),
-      ...(hasDiffParams || hasNumOfTags
+      ...(args.excludedFileIds?.length > 0
+        ? { _id: { $nin: objectIds(args.excludedFileIds) } }
+        : {}),
+      ...(args.hasDiffParams || hasNumOfTags
         ? {
             $expr: {
-              ...(hasDiffParams
+              ...(args.hasDiffParams
                 ? {
                     $and: [
                       { $eq: [{ $type: "$diffusionParams" }, "string"] },
@@ -91,7 +90,12 @@ const createFileFilterPipeline = ({
                   }
                 : {}),
               ...(hasNumOfTags
-                ? { [logicOpsToMongo(numOfTagsOp)]: [{ $size: "$tagIds" }, numOfTagsValue] }
+                ? {
+                    [logicOpsToMongo(args.numOfTagsOp)]: [
+                      { $size: "$tagIds" },
+                      args.numOfTagsValue,
+                    ],
+                  }
                 : {}),
             },
           }
@@ -99,50 +103,46 @@ const createFileFilterPipeline = ({
       ...(hasExcludedTags || hasOptionalTags || hasRequiredTags
         ? {
             tagIds: {
-              ...(hasExcludedTags ? { $nin: objectIds(excludedTagIds) } : {}),
-              ...(hasOptionalTags ? { $in: objectIds(optionalTagIds) } : {}),
-              ...(hasRequiredTags ? { $all: objectIds(requiredTagIds) } : {}),
+              ...(hasExcludedTags ? { $nin: objectIds(args.excludedTagIds) } : {}),
+              ...(hasOptionalTags ? { $in: objectIds(args.optionalTagIds) } : {}),
+              ...(hasRequiredTags ? { $all: objectIds(args.requiredTagIds) } : {}),
             },
           }
         : {}),
       ...(hasExcludedDescTags || hasRequiredDescTags
         ? {
             tagIdsWithAncestors: {
-              ...(hasExcludedDescTags ? { $nin: objectIds(excludedDescTagIds) } : {}),
-              ...(hasRequiredDescTags ? { $all: objectIds(requiredDescTagIds) } : {}),
+              ...(hasExcludedDescTags ? { $nin: objectIds(args.excludedDescTagIds) } : {}),
+              ...(hasRequiredDescTags ? { $all: objectIds(args.requiredDescTagIds) } : {}),
             },
           }
         : {}),
     },
-    $sort: { [sortKey]: sortDir, _id: sortDir } as { [key: string]: 1 | -1 },
+    $sort: { [args.sortKey]: sortDir, _id: sortDir } as { [key: string]: 1 | -1 },
   };
 };
 
-export const listFileIdsByTagIds = async ({ tagIds }: db.ListFileIdsByTagIdsInput) =>
-  handleErrors(async () => {
-    return (
-      await db.FileModel.find({ tagIds: { $in: objectIds(tagIds) } })
-        .select({ _id: 1 })
-        .lean()
-    ).map((f) => f._id.toString());
-  });
+export const listFileIdsByTagIds = makeAction(async (args: { tagIds: string[] }) => {
+  return (
+    await db.FileModel.find({ tagIds: { $in: objectIds(args.tagIds) } })
+      .select({ _id: 1 })
+      .lean()
+  ).map((f) => f._id.toString());
+});
 
-export const regenFileTagAncestors = async ({
-  fileIds,
-  tagIds,
-}: { fileIds: string[]; tagIds?: never } | { fileIds?: never; tagIds: string[] }) =>
-  handleErrors(async () => {
+export const regenFileTagAncestors = makeAction(
+  async (args: { fileIds: string[]; tagIds?: never } | { fileIds?: never; tagIds: string[] }) => {
     const debug = false;
     const { perfLog, perfLogTotal } = makePerfLog("[regenFileTagAncestors]", true);
 
     const files = (
       await db.FileModel.find({
-        ...(fileIds ? { _id: { $in: objectIds(fileIds) } } : {}),
-        ...(tagIds
+        ...(args.fileIds ? { _id: { $in: objectIds(args.fileIds) } } : {}),
+        ...(args.tagIds
           ? {
               $or: [
-                { tagIds: { $in: objectIds(tagIds) } },
-                { tagIdsWithAncestors: { $in: objectIds(tagIds) } },
+                { tagIds: { $in: objectIds(args.tagIds) } },
+                { tagIdsWithAncestors: { $in: objectIds(args.tagIds) } },
               ],
             }
           : {}),
@@ -171,100 +171,107 @@ export const regenFileTagAncestors = async ({
     );
 
     if (debug) perfLogTotal("Updated file tag ancestors");
-  });
+  }
+);
 
-/* ------------------------------ API ENDPOINTS ----------------------------- */
-export const deleteFiles = ({ fileIds }: db.DeleteFilesInput) =>
-  handleErrors(async () => {
-    const collections = (
-      await db.FileCollectionModel.find({
-        fileIdIndexes: { $elemMatch: { fileId: { $in: fileIds } } },
-      }).lean()
-    ).map((c) => leanModelToJson<db.FileCollection>(c));
+/* -------------------------------------------------------------------------- */
+/*                                API ENDPOINTS                               */
+/* -------------------------------------------------------------------------- */
+export const deleteFiles = makeAction(async (args: { fileIds: string[] }) => {
+  const collections = (
+    await db.FileCollectionModel.find({
+      fileIdIndexes: { $elemMatch: { fileId: { $in: args.fileIds } } },
+    }).lean()
+  ).map((c) => leanModelToJson<db.FileCollection>(c));
 
-    await Promise.all(
-      collections.map((collection) => {
-        const fileIdIndexes = collection.fileIdIndexes.filter(
-          (fileIdIndex) => !fileIds.includes(String(fileIdIndex.fileId))
-        );
+  await Promise.all(
+    collections.map((collection) => {
+      const fileIdIndexes = collection.fileIdIndexes.filter(
+        (fileIdIndex) => !args.fileIds.includes(String(fileIdIndex.fileId))
+      );
 
-        if (!fileIdIndexes.length) return db.deleteCollection({ id: collection.id });
-        return db.updateCollection({ fileIdIndexes, id: collection.id });
-      })
-    );
+      if (!fileIdIndexes.length) return db.deleteCollection({ id: collection.id });
+      return db.updateCollection({ fileIdIndexes, id: collection.id });
+    })
+  );
 
-    const files = (
-      await db.FileModel.find({ _id: { $in: fileIds } })
-        .select({ _id: 1, hash: 1, tagIds: 1 })
-        .lean()
-    ).map((f) => leanModelToJson<db.File>(f));
+  const files = (
+    await db.FileModel.find({ _id: { $in: args.fileIds } })
+      .select({ _id: 1, hash: 1, tagIds: 1 })
+      .lean()
+  ).map((f) => leanModelToJson<db.File>(f));
 
-    const fileHashes = files.map((f) => f.hash);
-    const tagIds = [...new Set(files.flatMap((f) => f.tagIds))];
+  const fileHashes = files.map((f) => f.hash);
+  const tagIds = [...new Set(files.flatMap((f) => f.tagIds))];
 
-    const deletedHashesBulkOps = fileHashes.map((hash) => ({
-      updateOne: {
-        filter: { hash },
-        update: { $setOnInsert: { hash } },
-        upsert: true,
-      },
-    }));
+  const deletedHashesBulkOps = fileHashes.map((hash) => ({
+    updateOne: {
+      filter: { hash },
+      update: { $setOnInsert: { hash } },
+      upsert: true,
+    },
+  }));
 
-    await Promise.all([
-      db.FileModel.deleteMany({ _id: { $in: fileIds } }),
-      db.DeletedFileModel.bulkWrite(deletedHashesBulkOps),
-    ]);
+  await Promise.all([
+    db.FileModel.deleteMany({ _id: { $in: args.fileIds } }),
+    db.DeletedFileModel.bulkWrite(deletedHashesBulkOps),
+  ]);
 
-    await Promise.all([
-      db.recalculateTagCounts({ tagIds }),
-      db.regenCollAttrs({ fileIds }),
-      ...tagIds.map((tagId) => db.regenTagThumbPaths({ tagId })),
-    ]);
+  await Promise.all([
+    db.recalculateTagCounts({ tagIds }),
+    db.regenCollAttrs({ fileIds: args.fileIds }),
+    ...tagIds.map((tagId) => db.regenTagThumbPaths({ tagId })),
+  ]);
 
-    socket.emit("filesDeleted", { fileHashes, fileIds });
-  });
+  socket.emit("filesDeleted", { fileHashes, fileIds: args.fileIds });
+});
 
-export const detectFaces = async ({ imagePath }: db.DetectFacesInput) =>
-  handleErrors(async () => {
-    const faceapi = await import("@vladmandic/face-api/dist/face-api.node-gpu.js");
-    const tf = await import("@tensorflow/tfjs-node-gpu");
+export const detectFaces = makeAction(async ({ imagePath }: { imagePath: string }) => {
+  const faceapi = await import("@vladmandic/face-api/dist/face-api.node-gpu.js");
+  const tf = await import("@tensorflow/tfjs-node-gpu");
 
-    let buffer: Buffer;
+  let buffer: Buffer;
 
-    try {
-      buffer = await fs.readFile(imagePath);
-      buffer = await sharp(buffer).png().toBuffer();
-    } catch (err) {
-      throw new Error(`Failed to convert image to buffer: ${err.message}`);
-    }
+  try {
+    buffer = await fs.readFile(imagePath);
+    buffer = await sharp(buffer).png().toBuffer();
+  } catch (err) {
+    throw new Error(`Failed to convert image to buffer: ${err.message}`);
+  }
 
-    const tensor = tf.node.decodeImage(buffer);
+  const tensor = tf.node.decodeImage(buffer);
 
-    try {
-      const options = new faceapi.SsdMobilenetv1Options({ minConfidence: FACE_MIN_CONFIDENCE });
-      const faces = await faceapi
-        .detectAllFaces(tensor as any, options)
-        .withFaceLandmarks()
-        .withFaceExpressions()
-        .withFaceDescriptors()
-        .run();
+  try {
+    const options = new faceapi.SsdMobilenetv1Options({ minConfidence: FACE_MIN_CONFIDENCE });
+    const faces = await faceapi
+      .detectAllFaces(tensor as any, options)
+      .withFaceLandmarks()
+      .withFaceExpressions()
+      .withFaceDescriptors()
+      .run();
 
-      tf.dispose(tensor);
-      return faces;
-    } catch (err) {
-      tf.dispose(tensor);
-      throw new Error(err);
-    }
-  });
+    tf.dispose(tensor);
+    return faces;
+  } catch (err) {
+    tf.dispose(tensor);
+    throw new Error(err);
+  }
+});
 
-export const editFileTags = ({
-  addedTagIds = [],
-  batchId,
-  fileIds,
-  removedTagIds = [],
-  withSub = true,
-}: db.EditFileTagsInput) =>
-  handleErrors(async () => {
+export const editFileTags = makeAction(
+  async ({
+    addedTagIds = [],
+    batchId,
+    fileIds,
+    removedTagIds = [],
+    withSub = true,
+  }: {
+    addedTagIds?: string[];
+    batchId?: string;
+    fileIds: string[];
+    removedTagIds?: string[];
+    withSub?: boolean;
+  }) => {
     if (!fileIds.length) throw new Error("Missing fileIds in editFileTags");
     if (!addedTagIds.length && !removedTagIds.length)
       throw new Error("Missing updated tagIds in editFileTags");
@@ -324,30 +331,34 @@ export const editFileTags = ({
     ]);
 
     if (withSub) socket.emit("fileTagsUpdated", { addedTagIds, batchId, fileIds, removedTagIds });
-  });
+  }
+);
 
-export const getDeletedFile = ({ hash }: db.GetDeletedFileInput) =>
-  handleErrors(async () =>
-    leanModelToJson<db.DeletedFile>(await db.DeletedFileModel.findOne({ hash }).lean())
-  );
+export const getDeletedFile = makeAction(async ({ hash }: { hash: string }) =>
+  leanModelToJson<db.DeletedFile>(await db.DeletedFileModel.findOne({ hash }).lean())
+);
 
-export const getDiskStats = ({ diskPath }: db.GetDiskStatsInput) =>
-  handleErrors(async () => {
-    return await disk.check(diskPath);
-  });
+export const getDiskStats = makeAction(async ({ diskPath }: { diskPath: string }) => {
+  return await disk.check(diskPath);
+});
 
-export const getFileByHash = ({ hash }: db.GetFileByHashInput) =>
-  handleErrors(async () => leanModelToJson<db.File>(await db.FileModel.findOne({ hash }).lean()));
+export const getFileByHash = makeAction(async ({ hash }: { hash: string }) =>
+  leanModelToJson<db.File>(await db.FileModel.findOne({ hash }).lean())
+);
 
-export const getShiftSelectedFiles = ({
-  clickedId,
-  clickedIndex,
-  isSortDesc,
-  selectedIds,
-  sortKey,
-  ...filterParams
-}: db.GetShiftSelectedFilesInput) =>
-  handleErrors(async () => {
+export const getShiftSelectedFiles = makeAction(
+  async ({
+    clickedId,
+    clickedIndex,
+    isSortDesc,
+    selectedIds,
+    sortKey,
+    ...filterParams
+  }: _gen.CreateFileFilterPipelineInput & {
+    clickedId: string;
+    clickedIndex: number;
+    selectedIds: string[];
+  }) => {
     if (selectedIds.length === 0) return { idsToDeselect: [], idsToSelect: [clickedId] };
     if (selectedIds.length === 1 && selectedIds[0] === clickedId)
       return { idsToDeselect: [clickedId], idsToSelect: [] };
@@ -424,8 +435,8 @@ export const getShiftSelectedFiles = ({
             startIndex === endIndex
               ? []
               : isFirstAfterClicked
-              ? { $slice: ["$filteredIds", 0, limit] }
-              : { $slice: ["$filteredIds", 0, limit - skip] },
+                ? { $slice: ["$filteredIds", 0, limit] }
+                : { $slice: ["$filteredIds", 0, limit - skip] },
         },
       },
       {
@@ -461,84 +472,78 @@ export const getShiftSelectedFiles = ({
     if (!mainRes) throw new Error("Failed to load shift selected file IDs");
 
     return mainRes;
-  });
+  }
+);
 
-export const importFile = ({
-  dateCreated,
-  diffusionParams,
-  duration,
-  ext,
-  frameRate,
-  hash,
-  height,
-  originalName,
-  originalPath,
-  path,
-  size,
-  tagIds,
-  thumbPaths,
-  width,
-}: db.ImportFileInput) =>
-  handleErrors(async () => {
+export const importFile = makeAction(
+  async (args: {
+    dateCreated: string;
+    diffusionParams: string;
+    duration: number;
+    ext: string;
+    frameRate: number;
+    hash: string;
+    height: number;
+    originalName: string;
+    originalPath: string;
+    path: string;
+    size: number;
+    tagIds: string[];
+    thumbPaths: string[];
+    width: number;
+  }) => {
     const file = {
-      dateCreated,
+      ...args,
       dateModified: dayjs().toISOString(),
-      diffusionParams,
-      duration,
-      ext,
-      frameRate,
-      hash,
-      height,
       isArchived: false,
-      originalHash: hash,
-      originalName,
-      originalPath,
-      path,
+      originalHash: args.hash,
+      path: args.path,
       rating: 0,
-      size,
-      tagIds,
-      tagIdsWithAncestors: await db.deriveAncestorTagIds(tagIds),
-      thumbPaths,
-      width,
+      tagIdsWithAncestors: await db.deriveAncestorTagIds(args.tagIds),
     };
 
     const res = await db.FileModel.create(file);
     return { ...file, id: res._id.toString() };
-  });
+  }
+);
 
-export const listDeletedFiles = () =>
-  handleErrors(async () => {
-    return (await db.DeletedFileModel.find().lean()).map((f) => leanModelToJson<db.DeletedFile>(f));
-  });
+export const listDeletedFiles = makeAction(async () =>
+  (await db.DeletedFileModel.find().lean()).map((f) => leanModelToJson<db.DeletedFile>(f))
+);
 
-export const listFaceModels = ({ ids }: db.ListFaceModelsInput = {}) =>
-  handleErrors(async () => {
-    return (
-      await db.FileModel.find({
-        faceModels: { $exists: true, $ne: [] },
-        ...(ids ? { _id: { $in: ids } } : {}),
-      })
-        .select({ _id: 1, faceModels: 1 })
-        .lean()
-    ).flatMap((file) => {
-      return leanModelToJson<db.File>(file).faceModels.map((faceModel) => ({
-        box: faceModel.box,
-        descriptors: faceModel.descriptors,
-        fileId: file._id.toString(),
-        tagId: faceModel.tagId,
-      }));
-    });
+export const listFaceModels = makeAction(async ({ ids }: { ids?: string[] } = {}) => {
+  return (
+    await db.FileModel.find({
+      faceModels: { $exists: true, $ne: [] },
+      ...(ids ? { _id: { $in: ids } } : {}),
+    })
+      .select({ _id: 1, faceModels: 1 })
+      .lean()
+  ).flatMap((file) => {
+    return leanModelToJson<db.File>(file).faceModels.map((faceModel) => ({
+      box: faceModel.box,
+      descriptors: faceModel.descriptors,
+      fileId: file._id.toString(),
+      tagId: faceModel.tagId,
+    }));
   });
+});
 
 type ListFilesResult = db.File & { _id: string; hasFaceModels: boolean };
 
-export const listFiles = ({
-  filter,
-  ids,
-  withFaceModels = false,
-  withHasFaceModels = false,
-}: db.ListFilesInput = {}) =>
-  handleErrors(async () => {
+export const listFiles = makeAction(
+  async ({
+    filter,
+    ids,
+    withFaceModels = false,
+    withHasFaceModels = false,
+  }: {
+    withFaceModels?: boolean;
+    withHasFaceModels?: boolean;
+  } & (
+    | { filter?: FilterQuery<db.File>; ids?: never }
+    | { filter?: never; ids?: string[] }
+  ) = {}) => {
     const res: ListFilesResult[] = await db.FileModel.aggregate([
       { $match: filter ? filter : ids ? { _id: { $in: objectIds(ids) } } : {} },
       ...(withHasFaceModels
@@ -557,26 +562,29 @@ export const listFiles = ({
             { $project: { faceModels: 0 } },
           ]
         : !withFaceModels
-        ? [{ $project: { faceModels: 0 } }]
-        : []),
+          ? [{ $project: { faceModels: 0 } }]
+          : []),
     ]);
 
     return res.map((r) => ({ ...r, id: r._id.toString() }));
-  });
+  }
+);
 
-export const listFilesByTagIds = ({ tagIds }: db.ListFilesByTagIdsInput) =>
-  handleErrors(async () => {
-    return (await db.FileModel.find({ tagIds: { $in: tagIds } }).lean()).map((f) =>
-      leanModelToJson<db.File>(f)
-    );
-  });
+export const listFilesByTagIds = makeAction(async ({ tagIds }: { tagIds: string[] }) => {
+  return (await db.FileModel.find({ tagIds: { $in: tagIds } }).lean()).map((f) =>
+    leanModelToJson<db.File>(f)
+  );
+});
 
-export const listFileIdsForCarousel = ({
-  page,
-  pageSize,
-  ...filterParams
-}: db.ListFileIdsForCarouselInput) =>
-  handleErrors(async () => {
+export const listFileIdsForCarousel = makeAction(
+  async ({
+    page,
+    pageSize,
+    ...filterParams
+  }: _gen.CreateFileFilterPipelineInput & {
+    page: number;
+    pageSize: number;
+  }) => {
     const filterPipeline = createFileFilterPipeline(filterParams);
 
     const files = await db.FileModel.find(filterPipeline.$match)
@@ -587,18 +595,25 @@ export const listFileIdsForCarousel = ({
       .select({ _id: 1 });
 
     return files.map((f) => f._id.toString());
-  });
+  }
+);
 
-export const listFilePaths = () =>
-  handleErrors(async () => {
-    return (await db.FileModel.find().select({ _id: 1, path: 1 }).lean()).map((f) => ({
-      id: f._id.toString(),
-      path: f.path,
-    }));
-  });
+export const listFilePaths = makeAction(async () => {
+  return (await db.FileModel.find().select({ _id: 1, path: 1 }).lean()).map((f) => ({
+    id: f._id.toString(),
+    path: f.path,
+  }));
+});
 
-export const listFilteredFiles = ({ page, pageSize, ...filterParams }: db.ListFilteredFilesInput) =>
-  handleErrors(async () => {
+export const listFilteredFiles = makeAction(
+  async ({
+    page,
+    pageSize,
+    ...filterParams
+  }: _gen.CreateFileFilterPipelineInput & {
+    page: number;
+    pageSize: number;
+  }) => {
     const filterPipeline = createFileFilterPipeline(filterParams);
 
     const [files, totalDocuments] = await Promise.all([
@@ -617,28 +632,28 @@ export const listFilteredFiles = ({ page, pageSize, ...filterParams }: db.ListFi
       files: files.map((f) => leanModelToJson<db.File>(f)),
       pageCount: Math.ceil(totalDocuments / pageSize),
     };
-  });
+  }
+);
 
-export const loadFaceApiNets = async () =>
-  handleErrors(async () => {
-    const faceapi = await import("@vladmandic/face-api/dist/face-api.node-gpu.js");
-    await faceapi.nets.ssdMobilenetv1.loadFromDisk(FACE_MODELS_PATH);
-    await faceapi.nets.faceLandmark68Net.loadFromDisk(FACE_MODELS_PATH);
-    await faceapi.nets.faceExpressionNet.loadFromDisk(FACE_MODELS_PATH);
-    await faceapi.nets.faceRecognitionNet.loadFromDisk(FACE_MODELS_PATH);
-  });
+export const loadFaceApiNets = makeAction(async () => {
+  const faceapi = await import("@vladmandic/face-api/dist/face-api.node-gpu.js");
+  await faceapi.nets.ssdMobilenetv1.loadFromDisk(FACE_MODELS_PATH);
+  await faceapi.nets.faceLandmark68Net.loadFromDisk(FACE_MODELS_PATH);
+  await faceapi.nets.faceExpressionNet.loadFromDisk(FACE_MODELS_PATH);
+  await faceapi.nets.faceRecognitionNet.loadFromDisk(FACE_MODELS_PATH);
+});
 
-export const relinkFiles = ({ filesToRelink }: db.RelinkFilesInput) =>
-  handleErrors(async () => {
+export const relinkFiles = makeAction(
+  async (args: { filesToRelink: { id: string; path: string }[] }) => {
     const oldFiles = (
       await db.FileModel.find({
-        _id: { $in: objectIds(filesToRelink.map((f) => f.id)) },
+        _id: { $in: objectIds(args.filesToRelink.map((f) => f.id)) },
       })
         .select({ _id: 1, path: 1, thumbPaths: 1 })
         .lean()
     ).map(leanModelToJson<{ id: string; path: string; thumbPaths: string[] }>);
 
-    const filesToRelinkMap = new Map(filesToRelink.map((f) => [f.id, f.path]));
+    const filesToRelinkMap = new Map(args.filesToRelink.map((f) => [f.id, f.path]));
     const oldThumbsMap = new Map(oldFiles.map((f) => [f.id, f.thumbPaths]));
     const newFilesMap = new Map<string, { path: string; thumbPaths: string[] }>();
 
@@ -699,32 +714,45 @@ export const relinkFiles = ({ filesToRelink }: db.RelinkFilesInput) =>
 
     if (importsRes.modifiedCount !== importBatches.length)
       throw new Error("Failed to bulk write relinked file imports");
-  });
+  }
+);
 
-export const setFileFaceModels = async ({ faceModels, id }: db.SetFileFaceModelsInput) =>
-  handleErrors(async () => {
-    const updates = { faceModels, dateModified: dayjs().toISOString() };
-    await db.FileModel.findOneAndUpdate({ _id: id }, { $set: updates });
-    socket.emit("filesUpdated", { fileIds: [id], updates });
-  });
+export const setFileFaceModels = makeAction(
+  async (args: {
+    faceModels: {
+      box: { height: number; width: number; x: number; y: number };
+      /** JSON representation of Float32Array[] */
+      descriptors: string;
+      fileId: string;
+      tagId: string;
+    }[];
+    id: string;
+  }) => {
+    const updates = { faceModels: args.faceModels, dateModified: dayjs().toISOString() };
+    await db.FileModel.findOneAndUpdate({ _id: args.id }, { $set: updates });
+    socket.emit("filesUpdated", { fileIds: [args.id], updates });
+  }
+);
 
-export const setFileIsArchived = ({ fileIds = [], isArchived }: db.SetFileIsArchivedInput) =>
-  handleErrors(async () => {
-    const updates = { isArchived };
-    await db.FileModel.updateMany({ _id: { $in: fileIds } }, updates);
+export const setFileIsArchived = makeAction(
+  async (args: { fileIds: string[]; isArchived: boolean }) => {
+    const updates = { isArchived: args.isArchived };
+    await db.FileModel.updateMany({ _id: { $in: args.fileIds } }, updates);
 
-    if (isArchived) socket.emit("filesArchived", { fileIds });
-    socket.emit("filesUpdated", { fileIds, updates });
-  });
+    if (args.isArchived) socket.emit("filesArchived", { fileIds: args.fileIds });
+    socket.emit("filesUpdated", { fileIds: args.fileIds, updates });
+  }
+);
 
-export const setFileRating = ({ fileIds = [], rating }: db.SetFileRatingInput) =>
-  handleErrors(async () => {
-    const updates = { rating, dateModified: dayjs().toISOString() };
-    await db.FileModel.updateMany({ _id: { $in: fileIds } }, updates);
-    socket.emit("filesUpdated", { fileIds, updates });
+export const setFileRating = makeAction(async (args: { fileIds: string[]; rating: number }) => {
+  const updates = { rating: args.rating, dateModified: dayjs().toISOString() };
+  await db.FileModel.updateMany({ _id: { $in: args.fileIds } }, updates);
+  socket.emit("filesUpdated", { fileIds: args.fileIds, updates });
 
-    await db.regenCollRating(fileIds);
-  });
+  await db.regenCollRating(args.fileIds);
+});
 
-export const updateFile = async ({ id, ...updates }: db.UpdateFileInput) =>
-  handleErrors(async () => await db.FileModel.updateOne({ _id: id }, updates));
+export const updateFile = makeAction(
+  async ({ id, ...updates }: Partial<db.File> & { id: string }) =>
+    await db.FileModel.updateOne({ _id: id }, updates)
+);

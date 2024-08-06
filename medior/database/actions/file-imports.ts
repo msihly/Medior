@@ -1,28 +1,39 @@
+import { ImportStatus } from "medior/components";
 import * as db from "medior/database";
-import { ImportBatchInput } from "medior/store";
-import { dayjs, handleErrors, socket } from "medior/utils";
+import { makeAction } from "medior/database/utils";
+import { FileImport, ImportBatchInput } from "medior/store";
+import { dayjs, socket } from "medior/utils";
+import { ModelCreationData } from "mobx-keystone";
 
-export const completeImportBatch = ({
-  collectionId,
-  fileIds,
-  id,
-  tagIds,
-}: db.CompleteImportBatchInput) =>
-  handleErrors(async () => {
+export const completeImportBatch = makeAction(
+  async (args: { collectionId?: string; fileIds: string[]; id: string; tagIds: string[] }) => {
     const completedAt = dayjs().toISOString();
     await Promise.all([
-      db.FileImportBatchModel.updateOne({ _id: id }, { collectionId, completedAt }),
-      tagIds.length && db.regenFileTagAncestors({ fileIds }),
-      tagIds.length && db.recalculateTagCounts({ tagIds }),
-      ...tagIds.map((tagId) => db.regenTagThumbPaths({ tagId })),
+      db.FileImportBatchModel.updateOne(
+        { _id: args.id },
+        { collectionId: args.collectionId, completedAt }
+      ),
+      args.tagIds.length && db.regenFileTagAncestors({ fileIds: args.fileIds }),
+      args.tagIds.length && db.recalculateTagCounts({ tagIds: args.tagIds }),
+      ...args.tagIds.map((tagId) => db.regenTagThumbPaths({ tagId })),
     ]);
 
     socket.emit("importBatchCompleted");
     return completedAt;
-  });
+  }
+);
 
-export const createImportBatches = (batches: db.CreateImportBatchesInput) =>
-  handleErrors(async () => {
+export const createImportBatches = makeAction(
+  async (
+    batches: {
+      collectionTitle?: string;
+      deleteOnImport: boolean;
+      ignorePrevDeleted: boolean;
+      imports: ModelCreationData<FileImport>[];
+      rootFolderPath: string;
+      tagIds?: string[];
+    }[]
+  ) => {
     const res = await db.FileImportBatchModel.insertMany(
       batches.map((batch) => ({
         ...batch,
@@ -35,59 +46,61 @@ export const createImportBatches = (batches: db.CreateImportBatchesInput) =>
 
     if (res.length !== batches.length) throw new Error("Failed to create import batches");
     return res;
-  });
+  }
+);
 
-export const deleteImportBatches = ({ ids }: db.DeleteImportBatchesInput) =>
-  handleErrors(async () => await db.FileImportBatchModel.deleteMany({ _id: { $in: ids } }));
+export const deleteImportBatches = makeAction(
+  async (args: { ids: string[] }) =>
+    await db.FileImportBatchModel.deleteMany({ _id: { $in: args.ids } })
+);
 
-export const emitImportStatsUpdated = ({ importStats }: { importStats: db.ImportStats }) =>
-  handleErrors(async () => {
-    socket.emit("importStatsUpdated", { importStats });
-  });
+export const emitImportStatsUpdated = makeAction(
+  async ({ importStats }: { importStats: db.ImportStats }) =>
+    socket.emit("importStatsUpdated", { importStats })
+);
 
-export const listImportBatches = () =>
-  handleErrors(async () =>
-    (await db.FileImportBatchModel.find().lean()).map(
-      (b) =>
-        ({
-          ...b,
-          id: b._id.toString(),
-          imports: b.imports.map((i) => ({ ...i, _id: undefined })),
-          _id: undefined,
-          __v: undefined,
-        } as ImportBatchInput)
-    )
-  );
+export const listImportBatches = makeAction(async () =>
+  (await db.FileImportBatchModel.find().lean()).map(
+    (b) =>
+      ({
+        ...b,
+        id: b._id.toString(),
+        imports: b.imports.map((i) => ({ ...i, _id: undefined })),
+        _id: undefined,
+        __v: undefined,
+      }) as ImportBatchInput
+  )
+);
 
-export const startImportBatch = ({ id }: db.StartImportBatchInput) =>
-  handleErrors(async () => {
-    const startedAt = dayjs().toISOString();
-    await db.FileImportBatchModel.updateOne({ _id: id }, { startedAt });
-    return startedAt;
-  });
+export const startImportBatch = makeAction(async (args: { id: string }) => {
+  const startedAt = dayjs().toISOString();
+  await db.FileImportBatchModel.updateOne({ _id: args.id }, { startedAt });
+  return startedAt;
+});
 
-export const updateFileImportByPath = async ({
-  batchId,
-  errorMsg,
-  fileId,
-  filePath,
-  status,
-  thumbPaths,
-}: db.UpdateFileImportByPathInput) =>
-  handleErrors(async () => {
+export const updateFileImportByPath = makeAction(
+  async (args: {
+    batchId: string;
+    errorMsg?: string;
+    fileId: string;
+    filePath?: string;
+    status?: ImportStatus;
+    thumbPaths?: string[];
+  }) => {
     const res = await db.FileImportBatchModel.updateOne(
-      { _id: batchId },
+      { _id: args.batchId },
       {
         $set: {
-          "imports.$[fileImport].errorMsg": errorMsg,
-          "imports.$[fileImport].fileId": fileId,
-          "imports.$[fileImport].status": status,
-          "imports.$[fileImport].thumbPaths": thumbPaths,
+          "imports.$[fileImport].errorMsg": args.errorMsg,
+          "imports.$[fileImport].fileId": args.fileId,
+          "imports.$[fileImport].status": args.status,
+          "imports.$[fileImport].thumbPaths": args.thumbPaths,
         },
       },
-      { arrayFilters: [{ "fileImport.path": filePath }] }
+      { arrayFilters: [{ "fileImport.path": args.filePath }] }
     );
 
     if (res?.matchedCount !== res?.modifiedCount)
       throw new Error("Failed to update file import by path");
-  });
+  }
+);

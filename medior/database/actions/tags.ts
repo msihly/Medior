@@ -1,8 +1,11 @@
 import mongoose, { FilterQuery, PipelineStage, UpdateQuery } from "mongoose";
 import { AnyBulkWriteOperation } from "mongodb";
 import * as db from "medior/database";
+import * as _gen from "medior/database/_generated";
+import { leanModelToJson, makeAction, objectId, objectIds } from "medior/database/utils";
 import { SocketEmitEvent } from "medior/server";
 import {
+  LogicalOp,
   bisectArrayChanges,
   dayjs,
   handleErrors,
@@ -12,83 +15,86 @@ import {
   socket,
   splitArray,
 } from "medior/utils";
-import { leanModelToJson, objectId, objectIds } from "./utils";
 
-/* ---------------------------- HELPER FUNCTIONS ---------------------------- */
-const createTagFilterPipeline = ({
-  alias,
-  countOp,
-  countValue,
-  dateCreatedEnd,
-  dateCreatedStart,
-  dateModifiedEnd,
-  dateModifiedStart,
-  excludedDescTagIds,
-  excludedTagIds,
-  isSortDesc,
-  label,
-  optionalTagIds,
-  regExMode,
-  requiredDescTagIds,
-  requiredTagIds,
-  sortKey,
-}: db.CreateTagFilterPipelineInput) => {
-  const sortDir = isSortDesc ? -1 : 1;
+/* -------------------------------------------------------------------------- */
+/*                              HELPER FUNCTIONS                              */
+/* -------------------------------------------------------------------------- */
+export const createTagFilterPipeline = (args: {
+  alias?: string;
+  countOp: LogicalOp | "";
+  countValue?: number;
+  dateCreatedEnd?: string;
+  dateCreatedStart?: string;
+  dateModifiedEnd?: string;
+  dateModifiedStart?: string;
+  excludedDescTagIds: string[];
+  excludedTagIds: string[];
+  isSortDesc: boolean;
+  label?: string;
+  optionalTagIds: string[];
+  regExMode: "any" | "hasRegEx" | "hasNoRegEx";
+  requiredDescTagIds: string[];
+  requiredTagIds: string[];
+  sortKey: string;
+}) => {
+  const sortDir = args.isSortDesc ? -1 : 1;
 
-  const hasCount = countOp !== "" && countValue !== undefined;
-  const hasExcludedDescTags = excludedDescTagIds?.length > 0;
-  const hasExcludedTags = excludedTagIds?.length > 0;
-  const hasOptionalTags = optionalTagIds?.length > 0;
-  const hasRequiredDescTags = requiredDescTagIds?.length > 0;
-  const hasRequiredTags = requiredTagIds.length > 0;
+  const hasCount = args.countOp !== "" && args.countValue !== undefined;
+  const hasExcludedDescTags = args.excludedDescTagIds?.length > 0;
+  const hasExcludedTags = args.excludedTagIds?.length > 0;
+  const hasOptionalTags = args.optionalTagIds?.length > 0;
+  const hasRequiredDescTags = args.requiredDescTagIds?.length > 0;
+  const hasRequiredTags = args.requiredTagIds.length > 0;
 
   return {
     $match: {
-      ...(dateCreatedEnd || dateCreatedStart
+      ...(args.dateCreatedEnd || args.dateCreatedStart
         ? {
             dateCreated: {
-              ...(dateCreatedEnd ? { $lte: dateCreatedEnd } : {}),
-              ...(dateCreatedStart ? { $gte: dateCreatedStart } : {}),
+              ...(args.dateCreatedEnd ? { $lte: args.dateCreatedEnd } : {}),
+              ...(args.dateCreatedStart ? { $gte: args.dateCreatedStart } : {}),
             },
           }
         : {}),
-      ...(dateModifiedEnd || dateModifiedStart
+      ...(args.dateModifiedEnd || args.dateModifiedStart
         ? {
             dateModified: {
-              ...(dateModifiedEnd ? { $lte: dateModifiedEnd } : {}),
-              ...(dateModifiedStart ? { $gte: dateModifiedStart } : {}),
+              ...(args.dateModifiedEnd ? { $lte: args.dateModifiedEnd } : {}),
+              ...(args.dateModifiedStart ? { $gte: args.dateModifiedStart } : {}),
             },
           }
         : {}),
       ...(hasCount
         ? {
             $expr: {
-              ...(hasCount ? { [logicOpsToMongo(countOp)]: ["$count", countValue] } : {}),
+              ...(hasCount ? { [logicOpsToMongo(args.countOp)]: ["$count", args.countValue] } : {}),
             },
           }
         : {}),
-      ...(label ? { label: new RegExp(label, "i") } : {}),
-      ...(alias ? { aliases: { $elemMatch: { $regex: new RegExp(alias, "i") } } } : {}),
-      ...(regExMode !== "any" ? { "regExMap.regEx": { $exists: regExMode === "hasRegEx" } } : {}),
+      ...(args.label ? { label: new RegExp(args.label, "i") } : {}),
+      ...(args.alias ? { aliases: { $elemMatch: { $regex: new RegExp(args.alias, "i") } } } : {}),
+      ...(args.regExMode !== "any"
+        ? { "regExMap.regEx": { $exists: args.regExMode === "hasRegEx" } }
+        : {}),
       ...(hasExcludedTags || hasOptionalTags || hasRequiredTags
         ? {
             _id: {
-              ...(hasExcludedTags ? { $nin: objectIds(excludedTagIds) } : {}),
-              ...(hasOptionalTags ? { $in: objectIds(optionalTagIds) } : {}),
-              ...(hasRequiredTags ? { $all: objectIds(requiredTagIds) } : {}),
+              ...(hasExcludedTags ? { $nin: objectIds(args.excludedTagIds) } : {}),
+              ...(hasOptionalTags ? { $in: objectIds(args.optionalTagIds) } : {}),
+              ...(hasRequiredTags ? { $all: objectIds(args.requiredTagIds) } : {}),
             },
           }
         : {}),
       ...(hasExcludedDescTags || hasRequiredDescTags
         ? {
             ancestorIds: {
-              ...(hasExcludedDescTags ? { $nin: objectIds(excludedDescTagIds) } : {}),
-              ...(hasRequiredDescTags ? { $all: objectIds(requiredDescTagIds) } : {}),
+              ...(hasExcludedDescTags ? { $nin: objectIds(args.excludedDescTagIds) } : {}),
+              ...(hasRequiredDescTags ? { $all: objectIds(args.requiredDescTagIds) } : {}),
             },
           }
         : {}),
     },
-    $sort: { [sortKey]: sortDir, _id: sortDir } as { [key: string]: 1 | -1 },
+    $sort: { [args.sortKey]: sortDir, _id: sortDir } as { [key: string]: 1 | -1 },
   };
 };
 
@@ -465,30 +471,19 @@ export const makeUniqueAncestorUpdates = ({
   };
 };
 
-export const regenTags = async ({
-  tagIds,
-  withSub = false,
-}: {
-  tagIds: string[];
-  withSub?: boolean;
-}) =>
-  handleErrors(async () => {
+export const regenTags = makeAction(
+  async ({ tagIds, withSub = false }: { tagIds: string[]; withSub?: boolean }) => {
     await Promise.all([
       regenTagAncestors({ tagIds, withSub }),
       tagIds.map((tagId) => regenTagThumbPaths({ tagId })),
     ]);
 
     await Promise.all([db.regenCollTagAncestors({ tagIds }), db.regenFileTagAncestors({ tagIds })]);
-  });
+  }
+);
 
-export const regenTagAncestors = async ({
-  tagIds,
-  withSub = false,
-}: {
-  tagIds: string[];
-  withSub?: boolean;
-}) =>
-  handleErrors(async () => {
+export const regenTagAncestors = makeAction(
+  async ({ tagIds, withSub = false }: { tagIds: string[]; withSub?: boolean }) => {
     const updates: { tagId: string; updates: Partial<db.Tag> }[] = [];
 
     await Promise.all(
@@ -501,25 +496,35 @@ export const regenTagAncestors = async ({
     );
 
     if (withSub) socket.emit("tagsUpdated", { tags: updates, withFileReload: true });
-  });
+  }
+);
 
-export const regenTagThumbPaths = async ({ tagId }: db.RegenTagThumbPathsInput) =>
-  handleErrors(async () => {
-    const thumbPaths = await deriveTagThumbPaths(tagId);
-    return db.TagModel.updateOne({ _id: tagId }, { $set: { thumbPaths } });
-  });
+export const regenTagThumbPaths = makeAction(async ({ tagId }: { tagId: string }) => {
+  const thumbPaths = await deriveTagThumbPaths(tagId);
+  return db.TagModel.updateOne({ _id: tagId }, { $set: { thumbPaths } });
+});
 
-/* ------------------------------ API ENDPOINTS ----------------------------- */
-export const createTag = ({
-  aliases = [],
-  childIds = [],
-  label,
-  parentIds = [],
-  regExMap,
-  withRegen = true,
-  withSub = true,
-}: db.CreateTagInput) =>
-  handleErrors(async () => {
+/* -------------------------------------------------------------------------- */
+/*                                API ENDPOINTS                               */
+/* -------------------------------------------------------------------------- */
+export const createTag = makeAction(
+  async ({
+    aliases = [],
+    childIds = [],
+    label,
+    parentIds = [],
+    regExMap,
+    withRegen = true,
+    withSub = true,
+  }: {
+    aliases?: string[];
+    childIds?: string[];
+    label: string;
+    parentIds?: string[];
+    regExMap?: db.RegExMap;
+    withRegen?: boolean;
+    withSub?: boolean;
+  }) => {
     const dateModified = dayjs().toISOString();
     const tag: Omit<db.Tag, "id"> = {
       aliases,
@@ -554,42 +559,42 @@ export const createTag = ({
 
     if (withRegen || withSub) socket.emit("tagCreated", { tag: { ...tag, id } });
     return { ...tag, id };
-  });
+  }
+);
 
-export const deleteTag = ({ id }: db.DeleteTagInput) =>
-  handleErrors(async () => {
-    const dateModified = dayjs().toISOString();
-    const tagIds = [id];
+export const deleteTag = makeAction(async ({ id }: { id: string }) => {
+  const dateModified = dayjs().toISOString();
+  const tagIds = [id];
 
-    const tag = await db.TagModel.findById(id);
-    const parentIds = tag.parentIds.map((i) => i.toString());
+  const tag = await db.TagModel.findById(id);
+  const parentIds = tag.parentIds.map((i) => i.toString());
 
-    await Promise.all([
-      db.FileImportBatchModel.updateMany({ tagIds }, { $pull: { tagIds } }),
-      db.FileModel.updateMany({ tagIds }, { $pull: { tagIds }, dateModified }),
-      db.TagModel.updateMany(
-        { $or: [{ childIds: id }, { parentIds: id }] },
-        { $pullAll: { childIds: tagIds, parentIds: tagIds }, dateModified }
-      ),
-      db.TagModel.deleteOne({ _id: id }),
-    ]);
+  await Promise.all([
+    db.FileImportBatchModel.updateMany({ tagIds }, { $pull: { tagIds } }),
+    db.FileModel.updateMany({ tagIds }, { $pull: { tagIds }, dateModified }),
+    db.TagModel.updateMany(
+      { $or: [{ childIds: id }, { parentIds: id }] },
+      { $pullAll: { childIds: tagIds, parentIds: tagIds }, dateModified }
+    ),
+    db.TagModel.deleteOne({ _id: id }),
+  ]);
 
-    const countRes = await recalculateTagCounts({ tagIds: parentIds, withSub: true });
-    if (!countRes.success) throw new Error(countRes.error);
+  const countRes = await recalculateTagCounts({ tagIds: parentIds, withSub: true });
+  if (!countRes.success) throw new Error(countRes.error);
 
-    socket.emit("tagDeleted", { tagId: id });
-  });
+  socket.emit("tagDeleted", { tagId: id });
+});
 
-export const editTag = ({
-  aliases,
-  childIds,
-  id,
-  label,
-  parentIds,
-  regExMap,
-  withSub = true,
-}: db.EditTagInput) =>
-  handleErrors(async () => {
+export const editTag = makeAction(
+  async ({
+    aliases,
+    childIds,
+    id,
+    label,
+    parentIds,
+    regExMap,
+    withSub = true,
+  }: Partial<_gen.CreateTagInput> & { id: string }) => {
     const dateModified = dayjs().toISOString();
 
     const tag = await db.TagModel.findById(id);
@@ -660,29 +665,36 @@ export const editTag = ({
 
     if (withSub) await emitTagUpdates(id, changedChildIds, changedParentIds);
     return { changedChildIds, changedParentIds, dateModified, operations, res };
-  });
+  }
+);
 
-export const editMultiTagRelations = ({
-  childIdsToAdd,
-  childIdsToRemove,
-  parentIdsToAdd,
-  parentIdsToRemove,
-  tagIds,
-}: db.EditMultiTagRelationsInput) =>
-  handleErrors(async () => {
+export const editMultiTagRelations = makeAction(
+  async (args: {
+    childIdsToAdd?: string[];
+    childIdsToRemove?: string[];
+    parentIdsToAdd?: string[];
+    parentIdsToRemove?: string[];
+    tagIds: string[];
+  }) => {
     const dateModified = dayjs().toISOString();
 
-    const changedChildIds = { added: childIdsToAdd ?? [], removed: childIdsToRemove ?? [] };
-    const changedParentIds = { added: parentIdsToAdd ?? [], removed: parentIdsToRemove ?? [] };
+    const changedChildIds = {
+      added: args.childIdsToAdd ?? [],
+      removed: args.childIdsToRemove ?? [],
+    };
+    const changedParentIds = {
+      added: args.parentIdsToAdd ?? [],
+      removed: args.parentIdsToRemove ?? [],
+    };
     const changedTagIds = [
-      ...tagIds,
+      ...args.tagIds,
       ...changedChildIds.added,
       ...changedChildIds.removed,
       ...changedParentIds.added,
       ...changedParentIds.removed,
     ];
 
-    const tags = (await db.TagModel.find({ _id: { $in: objectIds(tagIds) } }).lean()).map(
+    const tags = (await db.TagModel.find({ _id: { $in: objectIds(args.tagIds) } }).lean()).map(
       leanModelToJson<db.Tag>
     );
 
@@ -701,10 +713,10 @@ export const editMultiTagRelations = ({
         const descendantIds = tag.descendantIds?.map((i) => i.toString()) ?? [];
 
         /** Prevent creating an invalid hierarchy */
-        const [invalidChildIdsToAdd, validChildIdsToAdd] = splitArray(childIdsToAdd, (id) =>
+        const [invalidChildIdsToAdd, validChildIdsToAdd] = splitArray(args.childIdsToAdd, (id) =>
           ancestorIds.includes(id)
         );
-        const [invalidParentIdsToAdd, validParentIdsToAdd] = splitArray(parentIdsToAdd, (id) =>
+        const [invalidParentIdsToAdd, validParentIdsToAdd] = splitArray(args.parentIdsToAdd, (id) =>
           descendantIds.includes(id)
         );
 
@@ -728,11 +740,11 @@ export const editMultiTagRelations = ({
         const relationOps = await makeRelationsUpdateOps({
           changedChildIds: {
             added: validChildIdsToAdd,
-            removed: childIdsToRemove ?? [],
+            removed: args.childIdsToRemove ?? [],
           },
           changedParentIds: {
             added: validParentIdsToAdd,
-            removed: parentIdsToRemove ?? [],
+            removed: args.parentIdsToRemove ?? [],
           },
           dateModified,
           tagId: tag.id,
@@ -762,8 +774,8 @@ export const editMultiTagRelations = ({
               update: {
                 $set: { dateModified },
                 $pullAll: {
-                  childIds: childIdsToRemove ? objectIds(childIdsToRemove) : [],
-                  parentIds: parentIdsToRemove ? objectIds(parentIdsToRemove) : [],
+                  childIds: args.childIdsToRemove ? objectIds(args.childIdsToRemove) : [],
+                  parentIds: args.parentIdsToRemove ? objectIds(args.parentIdsToRemove) : [],
                 },
               },
             },
@@ -787,22 +799,27 @@ export const editMultiTagRelations = ({
     ]);
 
     await Promise.all([
-      ...tagIds.map((tagId) => regenTagThumbPaths({ tagId })),
+      ...args.tagIds.map((tagId) => regenTagThumbPaths({ tagId })),
       recalculateTagCounts({ tagIds: changedTagIds, withSub: false }),
     ]);
 
     return { bulkWriteRes, changedChildIds, changedParentIds, dateModified, errors };
-  });
+  }
+);
 
-export const getShiftSelectedTags = ({
-  clickedId,
-  clickedIndex,
-  isSortDesc,
-  selectedIds,
-  sortKey,
-  ...filterParams
-}: db.GetShiftSelectedTagsInput) =>
-  handleErrors(async () => {
+export const getShiftSelectedTags = makeAction(
+  async ({
+    clickedId,
+    clickedIndex,
+    isSortDesc,
+    selectedIds,
+    sortKey,
+    ...filterParams
+  }: _gen.CreateTagFilterPipelineInput & {
+    clickedId: string;
+    clickedIndex: number;
+    selectedIds: string[];
+  }) => {
     if (selectedIds.length === 0) return { idsToDeselect: [], idsToSelect: [clickedId] };
     if (selectedIds.length === 1 && selectedIds[0] === clickedId)
       return { idsToDeselect: [clickedId], idsToSelect: [] };
@@ -879,8 +896,8 @@ export const getShiftSelectedTags = ({
             startIndex === endIndex
               ? []
               : isFirstAfterClicked
-              ? { $slice: ["$filteredIds", 0, limit] }
-              : { $slice: ["$filteredIds", 0, limit - skip] },
+                ? { $slice: ["$filteredIds", 0, limit] }
+                : { $slice: ["$filteredIds", 0, limit - skip] },
         },
       },
       {
@@ -916,10 +933,18 @@ export const getShiftSelectedTags = ({
     if (!mainRes) throw new Error("Failed to load shift selected tag IDs");
 
     return mainRes;
-  });
+  }
+);
 
-export const listFilteredTags = ({ page, pageSize, ...filterParams }: db.ListFilteredTagsInput) =>
-  handleErrors(async () => {
+export const listFilteredTags = makeAction(
+  async ({
+    page,
+    pageSize,
+    ...filterParams
+  }: _gen.CreateTagFilterPipelineInput & {
+    page: number;
+    pageSize: number;
+  }) => {
     const filterPipeline = createTagFilterPipeline(filterParams);
 
     const [_tags, totalDocuments] = await Promise.all([
@@ -935,27 +960,25 @@ export const listFilteredTags = ({ page, pageSize, ...filterParams }: db.ListFil
 
     const tags = _tags.map((t) => leanModelToJson<db.Tag>(t));
     return { tags, pageCount: Math.ceil(totalDocuments / pageSize) };
-  });
+  }
+);
 
-export const listTags = ({ filter }: db.ListTagsInput = {}) =>
-  handleErrors(async () =>
-    (await db.TagModel.find(filter).lean()).map((r) => leanModelToJson<db.Tag>(r))
-  );
+export const listTags = makeAction(async ({ filter }: { filter?: FilterQuery<db.Tag> } = {}) =>
+  (await db.TagModel.find(filter).lean()).map((r) => leanModelToJson<db.Tag>(r))
+);
 
-export const mergeTags = ({
-  aliases,
-  childIds,
-  label,
-  parentIds,
-  tagIdToKeep,
-  tagIdToMerge,
-}: db.MergeTagsInput) =>
-  handleErrors(async () => {
+export const mergeTags = makeAction(
+  async (
+    args: Omit<Required<_gen.CreateTagInput>, "withRegen" | "withSub"> & {
+      tagIdToKeep: string;
+      tagIdToMerge: string;
+    }
+  ) => {
     let error: string | undefined;
 
     try {
-      const _tagIdToKeep = objectId(tagIdToKeep);
-      const _tagIdToMerge = objectId(tagIdToMerge);
+      const _tagIdToKeep = objectId(args.tagIdToKeep);
+      const _tagIdToMerge = objectId(args.tagIdToMerge);
       const dateModified = dayjs().toISOString();
 
       type Collections = db.File | db.FileImportBatch | db.FileCollection;
@@ -984,7 +1007,13 @@ export const mergeTags = ({
         r._id.toString()
       );
 
-      const tagToKeepUpdates = { aliases, childIds, dateModified, label, parentIds };
+      const tagToKeepUpdates = {
+        aliases: args.aliases,
+        childIds: args.childIds,
+        dateModified,
+        label: args.label,
+        parentIds: args.parentIds,
+      };
 
       await db.TagModel.bulkWrite([
         {
@@ -1017,22 +1046,22 @@ export const mergeTags = ({
         { deleteOne: { filter: { _id: _tagIdToMerge } } },
       ]);
 
-      await regenTagAncestors({ tagIds: [tagIdToKeep, ...tagIdsToUpdate] });
+      await regenTagAncestors({ tagIds: [args.tagIdToKeep, ...tagIdsToUpdate] });
 
       await Promise.all([
-        db.regenCollTagAncestors({ tagIds: [tagIdToKeep] }),
-        db.regenFileTagAncestors({ tagIds: [tagIdToKeep] }),
+        db.regenCollTagAncestors({ tagIds: [args.tagIdToKeep] }),
+        db.regenFileTagAncestors({ tagIds: [args.tagIdToKeep] }),
       ]);
 
       const [countRes] = await Promise.all([
-        recalculateTagCounts({ tagIds: [tagIdToKeep, ...tagIdsToUpdate], withSub: false }),
-        regenTagThumbPaths({ tagId: tagIdToKeep }),
+        recalculateTagCounts({ tagIds: [args.tagIdToKeep, ...tagIdsToUpdate], withSub: false }),
+        regenTagThumbPaths({ tagId: args.tagIdToKeep }),
       ]);
       if (!countRes.success) throw new Error(countRes.error);
 
-      socket.emit("tagMerged", { newTagId: tagIdToKeep, oldTagId: tagIdToMerge });
+      socket.emit("tagMerged", { newTagId: args.tagIdToKeep, oldTagId: args.tagIdToMerge });
       socket.emit("tagsUpdated", {
-        tags: [...countRes.data, { tagId: tagIdToKeep, updates: tagToKeepUpdates }],
+        tags: [...countRes.data, { tagId: args.tagIdToKeep, updates: tagToKeepUpdates }],
         withFileReload: true,
       });
     } catch (err) {
@@ -1050,13 +1079,11 @@ export const mergeTags = ({
 
       if (error) throw new Error(error);
     }
-  });
+  }
+);
 
-export const recalculateTagCounts = async ({
-  tagIds,
-  withSub = true,
-}: db.RecalculateTagCountsInput) =>
-  handleErrors(async () => {
+export const recalculateTagCounts = makeAction(
+  async ({ tagIds, withSub = true }: { tagIds: string[]; withSub?: boolean }) => {
     const updatedTags: { tagId: string; updates: Partial<db.Tag> }[] = [];
 
     await Promise.all(
@@ -1069,10 +1096,11 @@ export const recalculateTagCounts = async ({
 
     if (withSub) socket.emit("tagsUpdated", { tags: updatedTags, withFileReload: false });
     return updatedTags;
-  });
+  }
+);
 
-export const refreshTagRelations = ({ tagId, withSub = true }: db.RefreshTagRelationsInput) =>
-  handleErrors(async () => {
+export const refreshTagRelations = makeAction(
+  async ({ tagId, withSub = true }: { tagId: string; withSub?: boolean }) => {
     const debug = false;
 
     const tag = await db.TagModel.findById(tagId);
@@ -1119,9 +1147,6 @@ export const refreshTagRelations = ({ tagId, withSub = true }: db.RefreshTagRela
     await db.TagModel.bulkWrite(bulkWriteOps);
     if (debug) perfLog("Bulk write operations executed");
 
-    // await regenTagAncestors({ tagIds: [tagId], withSub: false });
-    // if (debug) perfLog("Regenerated tag ancestors");
-
     await Promise.all([
       db.regenCollTagAncestors({ tagIds: [tagId] }),
       db.regenFileTagAncestors({ tagIds: [tagId] }),
@@ -1137,32 +1162,31 @@ export const refreshTagRelations = ({ tagId, withSub = true }: db.RefreshTagRela
 
     if (withSub) await emitTagUpdates(tagId, changedChildIds, changedParentIds);
     if (debug) perfLogTotal("Refreshed tag relations");
-  });
+  }
+);
 
-export const refreshTag = ({ tagId }: db.RefreshTagInput) =>
-  handleErrors(async () => {
-    const debug = false;
-    const { perfLogTotal } = makePerfLog("[refreshTags]", true);
+export const refreshTag = makeAction(async ({ tagId }: { tagId: string }) => {
+  const debug = false;
+  const { perfLogTotal } = makePerfLog("[refreshTags]", true);
 
-    await refreshTagRelations({ tagId, withSub: false });
-    await regenTagAncestors({ tagIds: [tagId], withSub: false });
+  await refreshTagRelations({ tagId, withSub: false });
+  await regenTagAncestors({ tagIds: [tagId], withSub: false });
 
-    await Promise.all([
-      recalculateTagCounts({ tagIds: [tagId], withSub: false }),
-      regenTagThumbPaths({ tagId }),
-    ]);
+  await Promise.all([
+    recalculateTagCounts({ tagIds: [tagId], withSub: false }),
+    regenTagThumbPaths({ tagId }),
+  ]);
 
-    if (debug) perfLogTotal(`Refreshed tag ${tagId}`);
-  });
+  if (debug) perfLogTotal(`Refreshed tag ${tagId}`);
+});
 
-export const setTagCount = ({ count, id }: db.SetTagCountInput) =>
-  handleErrors(async () => {
-    const dateModified = dayjs().toISOString();
-    return db.TagModel.updateOne({ _id: id }, { $set: { count }, dateModified });
-  });
+export const setTagCount = makeAction(async ({ count, id }: { count: number; id: string }) => {
+  const dateModified = dayjs().toISOString();
+  return db.TagModel.updateOne({ _id: id }, { $set: { count }, dateModified });
+});
 
-export const upsertTag = ({ label, parentLabels }: db.UpsertTagInput) =>
-  handleErrors<{ id: string; parentIds: string[] }>(async () => {
+export const upsertTag = makeAction(
+  async ({ label, parentLabels }: { label: string; parentLabels?: string[] }) => {
     const parentIds: string[] =
       parentLabels?.length > 0
         ? (await Promise.all(parentLabels.map(async (pLabel) => upsertTag({ label: pLabel }))))
@@ -1182,4 +1206,5 @@ export const upsertTag = ({ label, parentLabels }: db.UpsertTagInput) =>
     const res = await createTag({ label, parentIds, withSub: false });
     if (!res.success) throw new Error(res.error);
     return { id: res.data.id, parentIds };
-  });
+  }
+);

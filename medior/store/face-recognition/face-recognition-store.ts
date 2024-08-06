@@ -1,5 +1,4 @@
 import type { LabeledFaceDescriptors } from "@vladmandic/face-api";
-import { LoadFaceModelsInput } from "medior/database";
 import { computed } from "mobx";
 import {
   arrayActions,
@@ -142,7 +141,11 @@ export class FaceRecognitionStore extends Model({
 
   @modelFlow
   loadFaceModels = asyncAction(
-    async ({ fileIds, withOverwrite = true }: LoadFaceModelsInput = { withOverwrite: true }) => {
+    async (
+      { fileIds, withOverwrite = true }: { fileIds?: string[]; withOverwrite?: boolean } = {
+        withOverwrite: true,
+      }
+    ) => {
       const res = await trpc.listFaceModels.mutate({ ids: fileIds });
       if (!res.success) throw new Error(res.error);
       if (withOverwrite) this.setFaceModels(res.data.map((f) => new FaceModel(f)));

@@ -2,13 +2,8 @@ import { promises as fs } from "fs";
 import path from "path";
 import md5File from "md5-file";
 import { Model, model, modelAction, ModelCreationData, modelFlow, prop } from "mobx-keystone";
+import * as db from "medior/database";
 import { asyncAction, FaceModel } from "medior/store";
-import {
-  EditFileTagsInput,
-  LoadFilesInput,
-  RefreshFileInput,
-  SetFileRatingInput,
-} from "medior/database";
 import { File, FileSearch } from ".";
 import {
   CONSTANTS,
@@ -142,7 +137,7 @@ export class FileStore extends Model({
 
   @modelFlow
   editFileTags = asyncAction(
-    async ({ addedTagIds = [], batchId, fileIds, removedTagIds = [] }: EditFileTagsInput) => {
+    async ({ addedTagIds = [], batchId, fileIds, removedTagIds = [] }: db.EditFileTagsInput) => {
       const res = await trpc.editFileTags.mutate({
         addedTagIds,
         batchId,
@@ -156,15 +151,17 @@ export class FileStore extends Model({
   );
 
   @modelFlow
-  loadFiles = asyncAction(async ({ fileIds, withOverwrite = true }: LoadFilesInput) => {
-    if (!fileIds?.length) return [];
-    const filesRes = await trpc.listFiles.mutate({ ids: fileIds, withHasFaceModels: true });
-    if (filesRes.success && withOverwrite) this.overwrite(filesRes.data);
-    return filesRes.data;
-  });
+  loadFiles = asyncAction(
+    async ({ fileIds, withOverwrite = true }: { fileIds: string[]; withOverwrite?: boolean }) => {
+      if (!fileIds?.length) return [];
+      const filesRes = await trpc.listFiles.mutate({ ids: fileIds, withHasFaceModels: true });
+      if (filesRes.success && withOverwrite) this.overwrite(filesRes.data);
+      return filesRes.data;
+    }
+  );
 
   @modelFlow
-  refreshFile = asyncAction(async ({ curFile, id }: RefreshFileInput) => {
+  refreshFile = asyncAction(async ({ curFile, id }: { curFile?: db.File; id: string }) => {
     if (!curFile && !id) throw new Error("No file or id provided");
     const file = !curFile ? this.getById(id) : new File(curFile);
 
@@ -229,7 +226,7 @@ export class FileStore extends Model({
   });
 
   @modelFlow
-  setFileRating = asyncAction(async ({ fileIds = [], rating }: SetFileRatingInput) => {
+  setFileRating = asyncAction(async ({ fileIds = [], rating }: db.SetFileRatingInput) => {
     if (!fileIds.length) return;
     const res = await trpc.setFileRating.mutate({ fileIds, rating });
     if (res.success) toast.success(`Rating updated to ${rating}`);

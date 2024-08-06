@@ -276,18 +276,23 @@ const createSocketIOServer = async () => {
 /*                                START SERVERS                               */
 /* -------------------------------------------------------------------------- */
 const startServers = async (
-  { emitReloadEvents, withDatabase, withServer, withSocket }: db.StartServersInput = {
+  args: {
+    emitReloadEvents?: boolean;
+    withDatabase?: boolean;
+    withServer?: boolean;
+    withSocket?: boolean;
+  } = {
     emitReloadEvents: false,
     withDatabase: true,
     withServer: true,
     withSocket: true,
   }
 ) => {
-  if (withDatabase) await createDbServer();
-  if (withServer) await createTRPCServer();
-  if (withSocket) await createSocketIOServer();
+  if (args.withDatabase) await createDbServer();
+  if (args.withServer) await createTRPCServer();
+  if (args.withSocket) await createSocketIOServer();
 
-  if (emitReloadEvents) {
+  if (args.emitReloadEvents) {
     [
       "reloadFileCollections",
       "reloadFiles",

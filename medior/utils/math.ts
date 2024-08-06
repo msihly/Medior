@@ -28,7 +28,7 @@ export const getRandomInt = (min: number, max: number, cur: number = null) => {
   return num === cur ? getRandomInt(min, max, cur) : num;
 };
 
-export const logicOpsToMongo = (op: LogicalOp) => {
+export const logicOpsToMongo = (op: LogicalOp | "") => {
   // prettier-ignore
   switch (op) {
     case "=": return "$eq";
