@@ -55,8 +55,9 @@ export const deleteImportBatches = makeAction(
 );
 
 export const emitImportStatsUpdated = makeAction(
-  async ({ importStats }: { importStats: db.ImportStats }) =>
-    socket.emit("importStatsUpdated", { importStats })
+  async ({ importStats }: { importStats: db.ImportStats }) => {
+    socket.emit("importStatsUpdated", { importStats });
+  }
 );
 
 export const listImportBatches = makeAction(async () =>
