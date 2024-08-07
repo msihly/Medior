@@ -5,7 +5,7 @@ import ReactPlayer from "react-player/file";
 import { OnProgressProps } from "react-player/base";
 import Panzoom, { PanzoomObject, PanzoomOptions } from "@panzoom/panzoom";
 import { Slider } from "@mui/material";
-import { Button, ContextMenu, FileBase, IconButton, Text, THUMB_WIDTH, View } from "medior/components";
+import { Button, FileBase, IconButton, Text, THUMB_WIDTH, View } from "medior/components";
 import { colors, CONSTANTS, dayjs, makeClasses, round } from "medior/utils";
 
 export const ZoomContext = createContext<MutableRefObject<PanzoomObject>>(null);
@@ -101,7 +101,7 @@ export const Carousel = observer(() => {
         {!activeFile ? (
           <Text align="center">{"Loading..."}</Text>
         ) : (
-          <ContextMenu
+          <FileBase.ContextMenu
             file={activeFile}
             options={{ collections: false, faceRecognition: false }}
             className={css.contextMenu}
@@ -149,7 +149,7 @@ export const Carousel = observer(() => {
                 className={css.image}
               />
             )}
-          </ContextMenu>
+          </FileBase.ContextMenu>
         )}
       </View>
 
@@ -179,10 +179,10 @@ export const Carousel = observer(() => {
                   volume > 0.65
                     ? "VolumeUp"
                     : volume > 0.3
-                    ? "VolumeDown"
-                    : volume > 0
-                    ? "VolumeMute"
-                    : "VolumeOff"
+                      ? "VolumeDown"
+                      : volume > 0
+                        ? "VolumeMute"
+                        : "VolumeOff"
                 }
                 onClick={toggleMute}
               />

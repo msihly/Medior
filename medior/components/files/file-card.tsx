@@ -1,8 +1,8 @@
 import { getCurrentWebContents } from "@electron/remote";
 import { File, observer, useStores } from "medior/store";
 import { Icon, Text, View } from "medior/components";
-import { ContextMenu, FileBase } from ".";
-import { colors, CSS, dayjs, getConfig, openCarouselWindow } from "medior/utils";
+import { FileBase } from ".";
+import { colors, CSS, dayjs, openCarouselWindow } from "medior/utils";
 
 interface FileCardProps {
   disabled?: boolean;
@@ -13,8 +13,6 @@ interface FileCardProps {
 }
 
 export const FileCard = observer(({ disabled, file, height, id, width }: FileCardProps) => {
-  const config = getConfig();
-
   const stores = useStores();
 
   if (!file) file = stores.file.getById(id);
@@ -88,7 +86,7 @@ export const FileCard = observer(({ disabled, file, height, id, width }: FileCar
   };
 
   return (
-    <ContextMenu key="context-menu" {...{ disabled, file }}>
+    <FileBase.ContextMenu key="context-menu" {...{ disabled, file }}>
       <FileBase.Container
         {...{ disabled, height, width }}
         onClick={handleClick}
@@ -105,14 +103,7 @@ export const FileCard = observer(({ disabled, file, height, id, width }: FileCar
           disabled={disabled}
           draggable
         >
-          {(file.rating > 0 || !config.file.hideUnratedIcon) && (
-            <FileBase.Chip
-              position="top-left"
-              icon="Star"
-              iconColor={colors.amber["600"]}
-              label={file.rating}
-            />
-          )}
+          <FileBase.RatingChip position="top-left" rating={file.rating} />
 
           <FileBase.Chip
             position="top-right"
@@ -153,6 +144,6 @@ export const FileCard = observer(({ disabled, file, height, id, width }: FileCar
           <FileBase.Tooltip {...{ file }} onTagPress={handleTagPress} />
         </FileBase.Footer>
       </FileBase.Container>
-    </ContextMenu>
+    </FileBase.ContextMenu>
   );
 });

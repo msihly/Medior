@@ -1,7 +1,7 @@
 import { observer, useStores } from "medior/store";
-import { FileBase, Text } from "medior/components";
+import { ContextMenu, FileBase, Text } from "medior/components";
 import { CollectionTooltip } from ".";
-import { colors, CSS, makeClasses, round } from "medior/utils";
+import { CSS, makeClasses, round } from "medior/utils";
 
 export interface FileCollectionProps {
   height?: CSS["height"];
@@ -17,6 +17,13 @@ export const FileCollection = observer(({ height, id, width }: FileCollectionPro
   const collection = stores.collection.getById(id);
   const hasSelectedFiles = stores.collection.manager.fileIds.length > 0;
 
+  const handleDelete = () => {
+    stores.collection.editor.setId(id);
+    stores.collection.setIsConfirmDeleteOpen(true);
+  };
+
+  const handleRefreshMeta = () => stores.collection.regenCollMeta([id]);
+
   const handleSelect = () => stores.collection.setSelectedCollectionId(id);
 
   const handleTagPress = (tagId: string) => {
@@ -31,42 +38,45 @@ export const FileCollection = observer(({ height, id, width }: FileCollectionPro
   };
 
   return (
-    <FileBase.Container
-      {...{ height, width }}
-      onClick={hasSelectedFiles ? handleSelect : null}
-      onDoubleClick={openCollection}
-      selected={hasSelectedFiles && id === stores.collection.selectedCollectionId}
+    <ContextMenu
+      id={id}
+      menuItems={[
+        { label: "Refresh Metadata", icon: "Refresh", onClick: handleRefreshMeta },
+        { label: "Delete", icon: "Delete", onClick: handleDelete },
+      ]}
     >
-      <FileBase.Image
-        thumbPaths={collection.thumbPaths}
-        title={collection.title}
-        height={height}
-        fit={stores.collection.collectionFitMode}
+      <FileBase.Container
+        {...{ height, width }}
+        onClick={hasSelectedFiles ? handleSelect : null}
+        onDoubleClick={openCollection}
+        selected={hasSelectedFiles && id === stores.collection.selectedCollectionId}
       >
-        <FileBase.Chip
-          position="top-left"
-          icon="Star"
-          iconColor={colors.amber["600"]}
-          label={round(collection.rating, 1)}
-        />
+        <FileBase.Image
+          thumbPaths={collection.thumbPaths}
+          title={collection.title}
+          height={height}
+          fit={stores.collection.collectionFitMode}
+        >
+          <FileBase.RatingChip position="top-left" rating={round(collection.rating, 1)} />
 
-        <FileBase.Chip
-          position="top-right"
-          icon="Collections"
-          label={collection.fileIdIndexes.length}
-        />
-      </FileBase.Image>
+          <FileBase.Chip
+            position="top-right"
+            icon="Collections"
+            label={collection.fileIdIndexes.length}
+          />
+        </FileBase.Image>
 
-      <FileBase.Footer>
-        {collection.title.length > 0 && (
-          <Text tooltip={collection.title} tooltipProps={{ flexShrink: 1 }} className={css.title}>
-            {collection.title}
-          </Text>
-        )}
+        <FileBase.Footer>
+          {collection.title.length > 0 && (
+            <Text tooltip={collection.title} tooltipProps={{ flexShrink: 1 }} className={css.title}>
+              {collection.title}
+            </Text>
+          )}
 
-        <CollectionTooltip {...{ collection }} onTagPress={handleTagPress} />
-      </FileBase.Footer>
-    </FileBase.Container>
+          <CollectionTooltip {...{ collection }} onTagPress={handleTagPress} />
+        </FileBase.Footer>
+      </FileBase.Container>
+    </ContextMenu>
   );
 });
 

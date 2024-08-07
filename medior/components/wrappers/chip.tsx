@@ -1,7 +1,7 @@
 import { ReactNode } from "react";
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { Chip as MuiChip, ChipProps as MuiChipProps } from "@mui/material";
-import { Icon, IconName } from "medior/components";
+import { Icon, IconName, IconProps } from "medior/components";
 import { CSS, makeClasses, Padding } from "medior/utils";
 
 export interface ChipProps extends Omit<MuiChipProps, "color" | "icon"> {
@@ -11,6 +11,7 @@ export interface ChipProps extends Omit<MuiChipProps, "color" | "icon"> {
   height?: CSS["height"];
   icon?: IconName;
   iconColor?: string;
+  iconProps?: Partial<IconProps>;
   label: ReactNode;
   padding?: Padding;
 }
@@ -22,6 +23,7 @@ export const Chip = ({
   height,
   icon,
   iconColor,
+  iconProps,
   label,
   padding,
   ...props
@@ -34,7 +36,13 @@ export const Chip = ({
       {...{ label }}
       icon={
         icon ? (
-          <Icon name={icon} color={iconColor} size="inherit" margins={{ left: "0.5rem" }} />
+          <Icon
+            name={icon}
+            color={iconColor}
+            size="inherit"
+            margins={{ left: "0.5rem" }}
+            {...iconProps}
+          />
         ) : undefined
       }
       className={cx(css.chip, className)}

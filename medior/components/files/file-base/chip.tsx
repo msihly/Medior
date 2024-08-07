@@ -1,7 +1,7 @@
 import { Chip as ChipBase, ChipProps as ChipBaseProps } from "medior/components";
 import { colors, makeClasses } from "medior/utils";
 
-interface ChipProps extends ChipBaseProps {
+export interface ChipProps extends ChipBaseProps {
   opacity?: number;
   position: "top-left" | "top-right" | "bottom-left" | "bottom-right";
 }

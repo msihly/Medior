@@ -3,7 +3,7 @@ import { FileCollectionFile as FileColFile, observer, useStores } from "medior/s
 import { useSortable } from "@alissavrk/dnd-kit-sortable";
 import { CSS as CSSUtils } from "@alissavrk/dnd-kit-utilities";
 import { FileBase, View } from "medior/components";
-import { colors, dayjs, openCarouselWindow } from "medior/utils";
+import { dayjs, openCarouselWindow } from "medior/utils";
 
 export interface FileCollectionFileProps {
   disabled?: boolean;
@@ -69,42 +69,39 @@ export const FileCollectionFile = observer(
         {...listeners}
         style={{ ...style, transform: CSSUtils.Transform.toString(transform), transition }}
       >
-        <FileBase.Container
-          {...{ disabled, height, width }}
-          onClick={handleClick}
-          onDoubleClick={handleDoubleClick}
-          selected={stores.collection.getIsSelected(file.id)}
-        >
-          <FileBase.Image
-            thumbPaths={file.thumbPaths}
-            title={file.originalName}
-            disabled={disabled}
-            fit="contain"
-            height={250}
+        <FileBase.ContextMenu {...{ disabled, file }}>
+          <FileBase.Container
+            {...{ disabled, height, width }}
+            onClick={handleClick}
+            onDoubleClick={handleDoubleClick}
+            selected={stores.collection.getIsSelected(file.id)}
           >
-            <FileBase.Chip position="top-left" label={fileColFile.index} opacity={0.8} />
+            <FileBase.Image
+              thumbPaths={file.thumbPaths}
+              title={file.originalName}
+              disabled={disabled}
+              fit="contain"
+              height={250}
+            >
+              <FileBase.Chip position="top-left" label={fileColFile.index} opacity={0.8} />
 
-            <FileBase.Chip
-              position="top-right"
-              icon="Star"
-              iconColor={colors.amber["600"]}
-              label={file.rating}
-            />
+              <FileBase.RatingChip position="top-right" rating={file.rating} />
 
-            {file.duration && (
-              <FileBase.Chip
-                position="bottom-right"
-                label={dayjs.duration(file.duration, "s").format("HH:mm:ss")}
-              />
-            )}
-          </FileBase.Image>
+              {file.duration && (
+                <FileBase.Chip
+                  position="bottom-right"
+                  label={dayjs.duration(file.duration, "s").format("HH:mm:ss")}
+                />
+              )}
+            </FileBase.Image>
 
-          <FileBase.Footer>
-            <FileBase.Tags tagIds={file.tagIds} />
+            <FileBase.Footer>
+              <FileBase.Tags tagIds={file.tagIds} />
 
-            <FileBase.Tooltip {...{ disabled, file }} onTagPress={handleTagPress} />
-          </FileBase.Footer>
-        </FileBase.Container>
+              <FileBase.Tooltip {...{ disabled, file }} onTagPress={handleTagPress} />
+            </FileBase.Footer>
+          </FileBase.Container>
+        </FileBase.ContextMenu>
       </View>
     );
   }

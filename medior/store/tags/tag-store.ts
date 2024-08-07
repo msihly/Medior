@@ -155,6 +155,13 @@ export class TagStore extends Model({
   });
 
   @modelFlow
+  refreshTag = asyncAction(async ({ id }: { id: string }) => {
+    const res = await trpc.refreshTag.mutate({ tagId: id });
+    if (!res.success) throw new Error(res.error);
+    toast.success("Tag refreshed");
+  });
+
+  @modelFlow
   upsertTags = asyncAction(async (tagsToUpsert: TagToUpsert[]) => {
     const tagQueue = new PromiseQueue();
     const errors: string[] = [];
@@ -246,10 +253,13 @@ export class TagStore extends Model({
   }
 
   listRegExMapsByType(type: db.RegExMapType) {
-    return this.tags.reduce((acc, cur) => {
-      if (cur.regExMap?.types.includes(type)) acc.push({ ...cur.regExMap, tagId: cur.id });
-      return acc;
-    }, [] as Array<db.RegExMap & { tagId: string }>);
+    return this.tags.reduce(
+      (acc, cur) => {
+        if (cur.regExMap?.types.includes(type)) acc.push({ ...cur.regExMap, tagId: cur.id });
+        return acc;
+      },
+      [] as Array<db.RegExMap & { tagId: string }>
+    );
   }
 
   tagsToRegEx(tags: { aliases?: string[]; label: string }[]) {

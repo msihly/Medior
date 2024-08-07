@@ -9,6 +9,7 @@ export class CollectionEditor extends Model({
   files: prop<FileCollectionFile[]>(() => []).withSetter(),
   hasUnsavedChanges: prop<boolean>(false).withSetter(),
   id: prop<string>(null).withSetter(),
+  isLoading: prop<boolean>(false).withSetter(),
   isOpen: prop<boolean>(false),
   search: prop<CollectionEditorSearch>(() => new CollectionEditorSearch({})),
   selectedIds: prop<string[]>(() => []).withSetter(),

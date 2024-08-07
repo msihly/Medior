@@ -9,13 +9,7 @@ import {
   modelFlow,
   prop,
 } from "mobx-keystone";
-import {
-  asyncAction,
-  File,
-  RootStore,
-  SelectedImageTypes,
-  SelectedVideoTypes,
-} from "medior/store";
+import { asyncAction, File, RootStore, SelectedImageTypes, SelectedVideoTypes } from "medior/store";
 import * as db from "medior/database";
 import { CollectionEditor, CollectionManager, FileCollection, FileCollectionFile } from ".";
 import { getConfig, makePerfLog, makeQueue, PromiseQueue, trpc } from "medior/utils";
@@ -27,6 +21,7 @@ export class FileCollectionStore extends Model({
   collectionFitMode: prop<"cover" | "contain">("contain").withSetter(),
   collections: prop<FileCollection[]>(() => []).withSetter(),
   editor: prop<CollectionEditor>(() => new CollectionEditor({})),
+  isConfirmDeleteOpen: prop<boolean>(false).withSetter(),
   manager: prop<CollectionManager>(() => new CollectionManager({})),
   selectedCollectionId: prop<string>(null).withSetter(),
 }) {
@@ -67,7 +62,8 @@ export class FileCollectionStore extends Model({
 
   @modelAction
   getShiftSelectedIds(clickedId: string): { idsToDeselect: string[]; idsToSelect: string[] } {
-    if (this.editor.selectedIds.length === 0) return { idsToDeselect: [], idsToSelect: [clickedId] };
+    if (this.editor.selectedIds.length === 0)
+      return { idsToDeselect: [], idsToSelect: [clickedId] };
     if (this.editor.selectedIds.length === 1 && this.editor.selectedIds[0] === clickedId)
       return { idsToDeselect: [clickedId], idsToSelect: [] };
 
@@ -158,6 +154,17 @@ export class FileCollectionStore extends Model({
   }
 
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */
+  @modelFlow
+  confirmDelete = asyncAction(async () => {
+    const res = await this.deleteCollection(this.editor.id);
+    if (!res.success) throw new Error("Failed to delete collection");
+    else {
+      this.editor.setId(null);
+      this.setIsEditorOpen(false);
+      toast.success("Collection deleted");
+    }
+  });
+
   @modelFlow
   createCollection = asyncAction(
     async ({ fileIdIndexes, title, withSub = true }: db.CreateCollectionInput) => {
@@ -297,7 +304,10 @@ export class FileCollectionStore extends Model({
     if (!collectionIdsRes.success) throw new Error(collectionIdsRes.error);
 
     makeQueue({
-      action: (id) => this.regenCollMeta([id]),
+      action: async (id) => {
+        const res = await trpc.regenCollAttrs.mutate({ collIds: [id] });
+        if (!res.success) throw new Error(res.error);
+      },
       items: collectionIdsRes.data,
       logSuffix: "collections",
       onComplete: this.listFilteredCollections,
@@ -307,9 +317,11 @@ export class FileCollectionStore extends Model({
 
   @modelFlow
   regenCollMeta = asyncAction(async (collIds: string[]) => {
+    this.editor.setIsLoading(true);
     const res = await trpc.regenCollAttrs.mutate({ collIds });
+    this.editor.setIsLoading(false);
     if (!res.success) throw new Error(res.error);
-    return res.data;
+    toast.success("Metadata refreshed!");
   });
 
   @modelFlow

@@ -2,6 +2,7 @@ export * from "./card";
 export * from "./card-grid";
 export * from "./chip";
 export * from "./conditional";
+export * from "./context-menu";
 export * from "./divider";
 export * from "./loading-overlay";
 export * from "./side-scroller";

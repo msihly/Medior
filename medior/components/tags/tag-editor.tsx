@@ -114,10 +114,8 @@ export const TagEditor = observer(
 
     const handleRefresh = async () => {
       setIsLoading(true);
-      const res = await stores.tag.manager.refreshTag(id);
-      if (!res.success) return toast.error("Failed to refresh tag relations");
+      await stores.tag.refreshTag({ id });
       setIsLoading(false);
-      toast.success("Tag refreshed");
     };
 
     const handleSubEditorClick = (tagId: string) => {

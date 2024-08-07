@@ -47,22 +47,20 @@ export const FileCollectionEditor = observer(() => {
   const [draggedFileId, setDraggedFileId] = useState<string>(null);
   const [isAddingFiles, setIsAddingFiles] = useState(false);
   const [isConfirmRemoveFilesOpen, setIsConfirmRemoveFilesOpen] = useState(false);
-  const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
   const [isConfirmDiscardOpen, setIsConfirmDiscardOpen] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
   const [title, setTitle] = useState<string>(stores.collection.activeCollection?.title);
 
   useEffect(() => {
     if (!stores.collection.editor.id) return;
 
     (async () => {
-      setIsLoading(true);
+      stores.collection.editor.setIsLoading(true);
 
       await stores.collection.loadActiveCollection();
       if (stores.collection.editor.withSelectedFiles)
         stores.collection.addFilesToActiveCollection(stores.collection.manager.files);
 
-      setIsLoading(false);
+      stores.collection.editor.setIsLoading(false);
     })();
 
     return () => {
@@ -127,20 +125,7 @@ export const FileCollectionEditor = observer(() => {
     stores.file.search.reloadIfQueued();
   };
 
-  const handleConfirmDelete = async () => {
-    const res = await stores.collection.deleteCollection(stores.collection.editor.id);
-
-    if (!res.success) toast.error("Failed to delete collection");
-    else {
-      stores.collection.editor.setId(null);
-      stores.collection.setIsEditorOpen(false);
-      toast.success("Collection deleted");
-    }
-
-    return res.success;
-  };
-
-  const handleDelete = () => setIsConfirmDeleteOpen(true);
+  const handleDelete = () => stores.collection.setIsConfirmDeleteOpen(true);
 
   const handleDeselectAll = () => {
     stores.collection.toggleFilesSelected(
@@ -168,13 +153,7 @@ export const FileCollectionEditor = observer(() => {
 
   const handlePageChange = (page: number) => stores.collection.loadSearchResults({ page });
 
-  const handleRefreshMeta = async () => {
-    setIsLoading(true);
-    const res = await stores.collection.regenCollMeta([stores.collection.editor.id]);
-    setIsLoading(false);
-
-    res.success ? toast.success("Metadata refreshed!") : toast.error(res.error);
-  };
+  const handleRefreshMeta = () => stores.collection.regenCollMeta([stores.collection.editor.id]);
 
   const handleRemoveFiles = () => setIsConfirmRemoveFilesOpen(true);
 
@@ -182,7 +161,7 @@ export const FileCollectionEditor = observer(() => {
     try {
       if (!title) return toast.error("Title is required!");
 
-      setIsLoading(true);
+      stores.collection.editor.setIsLoading(true);
 
       const res = await stores.collection.updateCollection({
         fileIdIndexes: stores.collection.sortedEditorFiles.map((f, i) => ({
@@ -199,7 +178,7 @@ export const FileCollectionEditor = observer(() => {
     } catch (err) {
       console.error(err);
     } finally {
-      setIsLoading(false);
+      stores.collection.editor.setIsLoading(false);
     }
   };
 
@@ -222,7 +201,7 @@ export const FileCollectionEditor = observer(() => {
 
   return (
     <Modal.Container onClose={confirmClose} maxWidth="100%" width="90%" height="90%">
-      <LoadingOverlay isLoading={isLoading} />
+      <LoadingOverlay isLoading={stores.collection.editor.isLoading} />
 
       <Modal.Header
         leftNode={
@@ -230,7 +209,7 @@ export const FileCollectionEditor = observer(() => {
             text={isAddingFiles ? "Hide Search" : "Add Files"}
             icon={isAddingFiles ? "VisibilityOff" : "Add"}
             onClick={toggleAddingFiles}
-            disabled={isLoading}
+            disabled={stores.collection.editor.isLoading}
             color={colors.blueGrey["700"]}
           />
         }
@@ -370,7 +349,7 @@ export const FileCollectionEditor = observer(() => {
           text={stores.collection.editor.hasUnsavedChanges ? "Cancel" : "Close"}
           icon="Close"
           onClick={confirmClose}
-          disabled={isLoading}
+          disabled={stores.collection.editor.isLoading}
           color={
             stores.collection.editor.hasUnsavedChanges ? colors.red["800"] : colors.blueGrey["700"]
           }
@@ -380,7 +359,9 @@ export const FileCollectionEditor = observer(() => {
           text="Save"
           icon="Save"
           onClick={handleSave}
-          disabled={!stores.collection.editor.hasUnsavedChanges || isLoading}
+          disabled={
+            !stores.collection.editor.hasUnsavedChanges || stores.collection.editor.isLoading
+          }
         />
       </Modal.Footer>
 
@@ -390,15 +371,6 @@ export const FileCollectionEditor = observer(() => {
           subText="Are you sure you want to remove the selected files from the collection?"
           setVisible={setIsConfirmRemoveFilesOpen}
           onConfirm={confirmRemoveFiles}
-        />
-      )}
-
-      {isConfirmDeleteOpen && (
-        <ConfirmModal
-          headerText="Delete Collection"
-          subText={stores.collection.activeCollection?.title}
-          setVisible={setIsConfirmDeleteOpen}
-          onConfirm={handleConfirmDelete}
         />
       )}
 

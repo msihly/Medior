@@ -1,6 +1,6 @@
-import { FileBase, Text } from "medior/components";
+import { ContextMenu, FileBase, Text } from "medior/components";
 import { TagManagerTag, observer, useStores } from "medior/store";
-import { CONSTANTS, colors, makeClasses } from "medior/utils";
+import { CONSTANTS, colors, makeClasses, openSearchWindow } from "medior/utils";
 
 export interface TagCardProps {
   tag: TagManagerTag;
@@ -37,36 +37,49 @@ export const TagCard = observer(({ tag }: TagCardProps) => {
     }
   };
 
-  const handleDoubleClick = () => {
+  const handleEdit = () => {
     stores.tag.setActiveTagId(tag.id);
     stores.tag.setIsTagEditorOpen(true);
   };
 
-  return (
-    <FileBase.Container
-      onClick={handleClick}
-      onDoubleClick={handleDoubleClick}
-      selected={stores.tag.manager.selectedIds.includes(tag.id)}
-    >
-      <FileBase.Image
-        thumbPaths={tag.thumbPaths}
-        title={tag.label}
-        height={CONSTANTS.THUMB.WIDTH}
-        fit="contain"
-      >
-        <FileBase.Chip
-          position="top-left"
-          label={formatter.format(tag.count)}
-          bgColor={colors.blue["700"]}
-        />
-      </FileBase.Image>
+  const handleRefresh = () => stores.tag.refreshTag({ id: tag.id });
 
-      <FileBase.Footer>
-        <Text tooltip={tag.label} tooltipProps={{ flexShrink: 1 }} className={css.title}>
-          {tag.label}
-        </Text>
-      </FileBase.Footer>
-    </FileBase.Container>
+  const handleSearch = () => openSearchWindow({ tagIds: [tag.id] });
+
+  return (
+    <ContextMenu
+      id={tag.id}
+      menuItems={[
+        { label: "Search", icon: "Search", onClick: handleSearch },
+        { label: "Edit", icon: "Edit", onClick: handleEdit },
+        { label: "Refresh", icon: "Refresh", onClick: handleRefresh },
+      ]}
+    >
+      <FileBase.Container
+        onClick={handleClick}
+        onDoubleClick={handleEdit}
+        selected={stores.tag.manager.selectedIds.includes(tag.id)}
+      >
+        <FileBase.Image
+          thumbPaths={tag.thumbPaths}
+          title={tag.label}
+          height={CONSTANTS.THUMB.WIDTH}
+          fit="contain"
+        >
+          <FileBase.Chip
+            position="top-left"
+            label={formatter.format(tag.count)}
+            bgColor={colors.blue["700"]}
+          />
+        </FileBase.Image>
+
+        <FileBase.Footer>
+          <Text tooltip={tag.label} tooltipProps={{ flexShrink: 1 }} className={css.title}>
+            {tag.label}
+          </Text>
+        </FileBase.Footer>
+      </FileBase.Container>
+    </ContextMenu>
   );
 });
 

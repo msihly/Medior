@@ -1,5 +1,9 @@
 import { observer, useStores } from "medior/store";
-import { FileCollectionEditor, FileCollectionManager } from "medior/components";
+import {
+  DeleteCollectionModal,
+  FileCollectionEditor,
+  FileCollectionManager,
+} from "medior/components";
 
 export const CollectionModals = observer(() => {
   const stores = useStores();
@@ -9,6 +13,8 @@ export const CollectionModals = observer(() => {
       {stores.collection.manager.isOpen && <FileCollectionManager />}
 
       {stores.collection.editor.isOpen && <FileCollectionEditor />}
+
+      {stores.collection.isConfirmDeleteOpen && <DeleteCollectionModal />}
     </>
   );
 });

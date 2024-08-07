@@ -1,12 +1,5 @@
 import { SortMenuProps } from "medior/components";
-import {
-  getRootStore,
-  model,
-  Model,
-  modelAction,
-  modelFlow,
-  prop,
-} from "mobx-keystone";
+import { getRootStore, model, Model, modelAction, modelFlow, prop } from "mobx-keystone";
 import { toast } from "react-toastify";
 import { asyncAction, RootStore } from "medior/store";
 import { getConfig, LogicalOp, makePerfLog, makeQueue, PromiseQueue, trpc } from "medior/utils";
@@ -181,18 +174,15 @@ export class TagManagerStore extends Model({
   refreshSelectedTags = asyncAction(async () => {
     const stores = getRootStore<RootStore>(this);
     makeQueue({
-      action: (id) => this.refreshTag(id),
+      action: async (tagId) => {
+        const res = await trpc.refreshTag.mutate({ tagId });
+        if (!res.success) throw new Error(res.error);
+      },
       items: this.selectedIds,
       logSuffix: "tags",
       onComplete: () => Promise.all([stores.tag.loadTags(), this.loadFilteredTags()]),
       queue: this.tagRefreshQueue,
     });
-  });
-
-  @modelFlow
-  refreshTag = asyncAction(async (tagId: string) => {
-    const res = await trpc.refreshTag.mutate({ tagId });
-    if (!res.success) throw new Error(res.error);
   });
 
   /* ----------------------------- DYNAMIC GETTERS ---------------------------- */
