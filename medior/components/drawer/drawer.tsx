@@ -55,12 +55,12 @@ export const Drawer = observer(({ hasImports = false, hasSettings = false }: Dra
   }, [stores.file.search.selectedImageTypes]);
 
   const [isAllVideoTypesSelected, isAnyVideoTypesSelected] = useMemo(() => {
-    const allTypes = Object.values(stores.file.search.selectedImageTypes);
+    const allTypes = Object.values(stores.file.search.selectedVideoTypes);
     const selectedTypes = allTypes.filter((t) => t === true);
     const isAllSelected = allTypes.length === selectedTypes.length;
     const isAnySelected = selectedTypes.length > 0 && selectedTypes.length !== allTypes.length;
     return [isAllSelected, isAnySelected];
-  }, [stores.file.search.selectedImageTypes]);
+  }, [stores.file.search.selectedVideoTypes]);
 
   const handleClose = () => stores.home.setIsDrawerOpen(false);
 
@@ -75,7 +75,8 @@ export const Drawer = observer(({ hasImports = false, hasSettings = false }: Dra
 
   const handleDateModifiedEndChange = (val: string) => stores.file.search.setDateModifiedEnd(val);
 
-  const handleDateModifiedStartChange = (val: string) => stores.file.search.setDateModifiedStart(val);
+  const handleDateModifiedStartChange = (val: string) =>
+    stores.file.search.setDateModifiedStart(val);
 
   const handleImport = () => stores.import.setIsImportManagerOpen(true);
 
@@ -100,9 +101,11 @@ export const Drawer = observer(({ hasImports = false, hasSettings = false }: Dra
 
   const setSearchValue = (val: TagOption[]) => stores.file.search.setSearchValue(val);
 
-  const toggleArchiveOpen = () => stores.file.search.setIsArchiveOpen(!stores.file.search.isArchiveOpen);
+  const toggleArchiveOpen = () =>
+    stores.file.search.setIsArchiveOpen(!stores.file.search.isArchiveOpen);
 
-  const toggleHasDiffParams = () => stores.file.search.setHasDiffParams(!stores.file.search.hasDiffParams);
+  const toggleHasDiffParams = () =>
+    stores.file.search.setHasDiffParams(!stores.file.search.hasDiffParams);
 
   const toggleImageTypes = () =>
     stores.file.search.setSelectedImageTypes(

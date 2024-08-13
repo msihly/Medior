@@ -26,7 +26,7 @@ export const Search = observer(
           </View>
         </View>
 
-        <LoadingOverlay isLoading={stores.home.isLoading} />
+        <LoadingOverlay isLoading={stores.file.search.isLoading} />
       </>
     );
   }

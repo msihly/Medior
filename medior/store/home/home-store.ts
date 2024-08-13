@@ -8,6 +8,5 @@ export class HomeStore extends Model({
   isDraggingIn: prop<boolean>(false).withSetter(),
   isDraggingOut: prop<boolean>(false).withSetter(),
   isDrawerOpen: prop<boolean>(true).withSetter(),
-  isLoading: prop<boolean>(false).withSetter(),
   settings: prop<SettingsStore>(() => new SettingsStore({})),
 }) {}
