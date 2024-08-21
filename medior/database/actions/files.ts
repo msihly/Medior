@@ -1,11 +1,10 @@
 import { app } from "electron";
 import path from "path";
 import fs from "fs/promises";
-import disk from "diskusage";
+import checkDiskSpace from "check-disk-space";
 import { AnyBulkWriteOperation } from "mongodb";
-import { FilterQuery, PipelineStage } from "mongoose";
+import { PipelineStage } from "mongoose";
 import * as db from "medior/database";
-import * as _gen from "medior/database/_generated";
 import { leanModelToJson, makeAction, objectId, objectIds } from "medior/database/utils";
 import { dayjs, LogicalOp, logicOpsToMongo, makePerfLog, sharp, socket } from "medior/utils";
 import { SelectedImageTypes, SelectedVideoTypes } from "medior/store";
@@ -18,7 +17,9 @@ const FACE_MODELS_PATH = app.isPackaged
 /* -------------------------------------------------------------------------- */
 /*                              HELPER FUNCTIONS                              */
 /* -------------------------------------------------------------------------- */
-export const createFileFilterPipeline = (args: {
+type CreateFileFilterPipelineInput = Parameters<typeof createFileFilterPipeline>[0];
+
+const createFileFilterPipeline = (args: {
   dateCreatedEnd?: string;
   dateCreatedStart?: string;
   dateModifiedEnd?: string;
@@ -149,7 +150,7 @@ export const regenFileTagAncestors = makeAction(
       })
         .select({ _id: 1, tagIds: 1, tagIdsWithAncestors: 1 })
         .lean()
-    ).map(leanModelToJson<db.File>);
+    ).map(leanModelToJson<db.FileSchema>);
 
     if (debug) perfLog(`Loaded files (${files.length})`);
 
@@ -182,7 +183,7 @@ export const deleteFiles = makeAction(async (args: { fileIds: string[] }) => {
     await db.FileCollectionModel.find({
       fileIdIndexes: { $elemMatch: { fileId: { $in: args.fileIds } } },
     }).lean()
-  ).map((c) => leanModelToJson<db.FileCollection>(c));
+  ).map((c) => leanModelToJson<db.FileCollectionSchema>(c));
 
   await Promise.all(
     collections.map((collection) => {
@@ -199,7 +200,7 @@ export const deleteFiles = makeAction(async (args: { fileIds: string[] }) => {
     await db.FileModel.find({ _id: { $in: args.fileIds } })
       .select({ _id: 1, hash: 1, tagIds: 1 })
       .lean()
-  ).map((f) => leanModelToJson<db.File>(f));
+  ).map((f) => leanModelToJson<db.FileSchema>(f));
 
   const fileHashes = files.map((f) => f.hash);
   const tagIds = [...new Set(files.flatMap((f) => f.tagIds))];
@@ -223,7 +224,7 @@ export const deleteFiles = makeAction(async (args: { fileIds: string[] }) => {
     ...tagIds.map((tagId) => db.regenTagThumbPaths({ tagId })),
   ]);
 
-  socket.emit("filesDeleted", { fileHashes, fileIds: args.fileIds });
+  socket.emit("onFilesDeleted", { fileHashes, fileIds: args.fileIds });
 });
 
 export const detectFaces = makeAction(async ({ imagePath }: { imagePath: string }) => {
@@ -277,8 +278,8 @@ export const editFileTags = makeAction(
       throw new Error("Missing updated tagIds in editFileTags");
 
     const dateModified = dayjs().toISOString();
-    const fileBulkWriteOps: AnyBulkWriteOperation<db.File>[] = [];
-    const fileImportBatchBulkWriteOps: AnyBulkWriteOperation<db.FileImportBatch>[] = [];
+    const fileBulkWriteOps: AnyBulkWriteOperation<db.FileSchema>[] = [];
+    const fileImportBatchBulkWriteOps: AnyBulkWriteOperation<db.FileImportBatchSchema>[] = [];
 
     if (addedTagIds.length > 0) {
       fileBulkWriteOps.push({
@@ -330,20 +331,20 @@ export const editFileTags = makeAction(
       ...changedTagIds.map((tagId) => db.regenTagThumbPaths({ tagId })),
     ]);
 
-    if (withSub) socket.emit("fileTagsUpdated", { addedTagIds, batchId, fileIds, removedTagIds });
+    if (withSub) socket.emit("onFileTagsUpdated", { addedTagIds, batchId, fileIds, removedTagIds });
   }
 );
 
 export const getDeletedFile = makeAction(async ({ hash }: { hash: string }) =>
-  leanModelToJson<db.DeletedFile>(await db.DeletedFileModel.findOne({ hash }).lean())
+  leanModelToJson<db.DeletedFileSchema>(await db.DeletedFileModel.findOne({ hash }).lean())
 );
 
 export const getDiskStats = makeAction(async ({ diskPath }: { diskPath: string }) => {
-  return await disk.check(diskPath);
+  return await checkDiskSpace(diskPath);
 });
 
 export const getFileByHash = makeAction(async ({ hash }: { hash: string }) =>
-  leanModelToJson<db.File>(await db.FileModel.findOne({ hash }).lean())
+  leanModelToJson<db.FileSchema>(await db.FileModel.findOne({ hash }).lean())
 );
 
 export const getShiftSelectedFiles = makeAction(
@@ -354,7 +355,7 @@ export const getShiftSelectedFiles = makeAction(
     selectedIds,
     sortKey,
     ...filterParams
-  }: _gen.CreateFileFilterPipelineInput & {
+  }: CreateFileFilterPipelineInput & {
     clickedId: string;
     clickedIndex: number;
     selectedIds: string[];
@@ -508,7 +509,7 @@ export const importFile = makeAction(
 );
 
 export const listDeletedFiles = makeAction(async () =>
-  (await db.DeletedFileModel.find().lean()).map((f) => leanModelToJson<db.DeletedFile>(f))
+  (await db.DeletedFileModel.find().lean()).map((f) => leanModelToJson<db.DeletedFileSchema>(f))
 );
 
 export const listFaceModels = makeAction(async ({ ids }: { ids?: string[] } = {}) => {
@@ -520,7 +521,7 @@ export const listFaceModels = makeAction(async ({ ids }: { ids?: string[] } = {}
       .select({ _id: 1, faceModels: 1 })
       .lean()
   ).flatMap((file) => {
-    return leanModelToJson<db.File>(file).faceModels.map((faceModel) => ({
+    return leanModelToJson<db.FileSchema>(file).faceModels.map((faceModel) => ({
       box: faceModel.box,
       descriptors: faceModel.descriptors,
       fileId: file._id.toString(),
@@ -529,50 +530,9 @@ export const listFaceModels = makeAction(async ({ ids }: { ids?: string[] } = {}
   });
 });
 
-type ListFilesResult = db.File & { _id: string; hasFaceModels: boolean };
-
-export const listFiles = makeAction(
-  async ({
-    filter,
-    ids,
-    withFaceModels = false,
-    withHasFaceModels = false,
-  }: {
-    withFaceModels?: boolean;
-    withHasFaceModels?: boolean;
-  } & (
-    | { filter?: FilterQuery<db.File>; ids?: never }
-    | { filter?: never; ids?: string[] }
-  ) = {}) => {
-    const res: ListFilesResult[] = await db.FileModel.aggregate([
-      { $match: filter ? filter : ids ? { _id: { $in: objectIds(ids) } } : {} },
-      ...(withHasFaceModels
-        ? [
-            {
-              $addFields: {
-                hasFaceModels: {
-                  $cond: {
-                    if: { $gt: [{ $size: { $ifNull: ["$faceModels", []] } }, 0] },
-                    then: true,
-                    else: false,
-                  },
-                },
-              },
-            },
-            { $project: { faceModels: 0 } },
-          ]
-        : !withFaceModels
-          ? [{ $project: { faceModels: 0 } }]
-          : []),
-    ]);
-
-    return res.map((r) => ({ ...r, id: r._id.toString() }));
-  }
-);
-
 export const listFilesByTagIds = makeAction(async ({ tagIds }: { tagIds: string[] }) => {
   return (await db.FileModel.find({ tagIds: { $in: tagIds } }).lean()).map((f) =>
-    leanModelToJson<db.File>(f)
+    leanModelToJson<db.FileSchema>(f)
   );
 });
 
@@ -581,7 +541,7 @@ export const listFileIdsForCarousel = makeAction(
     page,
     pageSize,
     ...filterParams
-  }: _gen.CreateFileFilterPipelineInput & {
+  }: CreateFileFilterPipelineInput & {
     page: number;
     pageSize: number;
   }) => {
@@ -610,7 +570,7 @@ export const listFilteredFiles = makeAction(
     page,
     pageSize,
     ...filterParams
-  }: _gen.CreateFileFilterPipelineInput & {
+  }: CreateFileFilterPipelineInput & {
     page: number;
     pageSize: number;
   }) => {
@@ -629,7 +589,7 @@ export const listFilteredFiles = makeAction(
     if (!files || !(totalDocuments > -1)) throw new Error("Failed to load filtered file IDs");
 
     return {
-      files: files.map((f) => leanModelToJson<db.File>(f)),
+      files: files.map((f) => leanModelToJson<db.FileSchema>(f)),
       pageCount: Math.ceil(totalDocuments / pageSize),
     };
   }
@@ -694,7 +654,7 @@ export const relinkFiles = makeAction(
       await db.FileImportBatchModel.find({
         imports: { $elemMatch: { fileId: { $in: objectIds(fileIds) } } },
       }).lean()
-    ).map(leanModelToJson<db.FileImportBatch>);
+    ).map(leanModelToJson<db.FileImportBatchSchema>);
 
     const importsRes = await db.FileImportBatchModel.bulkWrite(
       importBatches.map((importBatch) => ({
@@ -730,7 +690,7 @@ export const setFileFaceModels = makeAction(
   }) => {
     const updates = { faceModels: args.faceModels, dateModified: dayjs().toISOString() };
     await db.FileModel.findOneAndUpdate({ _id: args.id }, { $set: updates });
-    socket.emit("filesUpdated", { fileIds: [args.id], updates });
+    socket.emit("onFilesUpdated", { fileIds: [args.id], updates });
   }
 );
 
@@ -739,20 +699,20 @@ export const setFileIsArchived = makeAction(
     const updates = { isArchived: args.isArchived };
     await db.FileModel.updateMany({ _id: { $in: args.fileIds } }, updates);
 
-    if (args.isArchived) socket.emit("filesArchived", { fileIds: args.fileIds });
-    socket.emit("filesUpdated", { fileIds: args.fileIds, updates });
+    if (args.isArchived) socket.emit("onFilesArchived", { fileIds: args.fileIds });
+    socket.emit("onFilesUpdated", { fileIds: args.fileIds, updates });
   }
 );
 
 export const setFileRating = makeAction(async (args: { fileIds: string[]; rating: number }) => {
   const updates = { rating: args.rating, dateModified: dayjs().toISOString() };
   await db.FileModel.updateMany({ _id: { $in: args.fileIds } }, updates);
-  socket.emit("filesUpdated", { fileIds: args.fileIds, updates });
+  socket.emit("onFilesUpdated", { fileIds: args.fileIds, updates });
 
   await db.regenCollRating(args.fileIds);
 });
 
 export const updateFile = makeAction(
-  async ({ id, ...updates }: Partial<db.File> & { id: string }) =>
+  async ({ id, ...updates }: Partial<db.FileSchema> & { id: string }) =>
     await db.FileModel.updateOne({ _id: id }, updates)
 );

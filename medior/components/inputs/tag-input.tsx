@@ -120,8 +120,8 @@ export const TagInput = observer(
       const opts = useDeepMemo(options ?? [...stores.tag.tagOptions]);
 
       const removeDeletedTag = useCallback(
-        ({ tagId }: { tagId: string }) => {
-          const newValue = value.filter((t) => t.id !== tagId);
+        ({ id }: { id: string }) => {
+          const newValue = value.filter((t) => t.id !== id);
           if (newValue.length !== value.length) onChange?.(newValue);
         },
         [onChange, value]
@@ -141,12 +141,12 @@ export const TagInput = observer(
 
       useEffect(() => {
         if (!socket?.connected) return;
-        socket.on("tagDeleted", removeDeletedTag);
-        socket.on("tagMerged", replaceMergedTag);
+        socket.on("onTagDeleted", removeDeletedTag);
+        socket.on("onTagMerged", replaceMergedTag);
 
         return () => {
-          socket.off("tagDeleted", removeDeletedTag);
-          socket.off("tagMerged", replaceMergedTag);
+          socket.off("onTagDeleted", removeDeletedTag);
+          socket.off("onTagMerged", replaceMergedTag);
         };
       }, [replaceMergedTag, socket?.connected]);
 

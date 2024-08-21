@@ -1,11 +1,11 @@
 import { ipcRenderer } from "electron";
-import { File } from "medior/database";
+import * as db from "medior/database";
 
 export const openCarouselWindow = ({
   file,
   selectedFileIds,
 }: {
-  file: File;
+  file: db.FileSchema;
   selectedFileIds: string[];
 }) =>
   ipcRenderer.send("createCarouselWindow", {

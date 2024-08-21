@@ -1,6 +1,7 @@
 import { Socket, io } from "socket.io-client";
 import { createTRPCProxyClient, httpBatchLink } from "@trpc/client";
-import { SocketEvents, TRPCRouter } from "../server.js";
+import { SocketEvents } from "../socket.js";
+import { ServerRouter } from "../trpc.js";
 import { getConfig } from "./config.js";
 
 export let socket: Socket<SocketEvents, SocketEvents>;
@@ -24,11 +25,11 @@ export const setupSocketIO = () => {
   return socket;
 };
 
-export let trpc: ReturnType<typeof createTRPCProxyClient<TRPCRouter>>;
+export let trpc: ReturnType<typeof createTRPCProxyClient<ServerRouter>>;
 
 export const setupTRPC = () => {
   // @ts-expect-error
-  trpc = createTRPCProxyClient<TRPCRouter>({
+  trpc = createTRPCProxyClient<ServerRouter>({
     links: [httpBatchLink({ url: `http://localhost:${getConfig().ports.server}` })],
   });
 };

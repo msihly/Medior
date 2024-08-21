@@ -1,33 +1,10 @@
-import { RegExMapType } from "medior/database";
 import { computed } from "mobx";
-import { applySnapshot, getSnapshot, model, Model, modelAction, prop } from "mobx-keystone";
+import { ExtendedModel, model } from "mobx-keystone";
 import { RootStore } from "medior/store";
-
-export interface RegExMap {
-  regEx: string;
-  testString?: string;
-  types: RegExMapType[];
-}
+import { _Tag } from "medior/store/_generated";
 
 @model("medior/Tag")
-export class Tag extends Model({
-  aliases: prop<string[]>(() => []),
-  ancestorIds: prop<string[]>(() => []),
-  childIds: prop<string[]>(() => []),
-  count: prop<number>(),
-  dateCreated: prop<string>(),
-  dateModified: prop<string>(),
-  descendantIds: prop<string[]>(() => []),
-  id: prop<string>(),
-  label: prop<string>(),
-  parentIds: prop<string[]>(() => []),
-  regExMap: prop<RegExMap>(null),
-}) {
-  @modelAction
-  update(tag: Partial<Tag>) {
-    applySnapshot(this, { ...getSnapshot(this), ...tag });
-  }
-
+export class Tag extends ExtendedModel(_Tag, {}) {
   @computed
   get tagOption() {
     return tagToOption(this);

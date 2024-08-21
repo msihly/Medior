@@ -1,6 +1,6 @@
 import path from "path";
 import { useState } from "react";
-import { ImportBatch as ImportBatchType, observer, useStores } from "medior/store";
+import { FileImportBatch, observer, useStores } from "medior/store";
 import { LinearProgress } from "@mui/material";
 import { Icon, IconButton, Text, View } from "medior/components";
 import { BatchTooltip, ImportCardRow, IMPORT_STATUSES } from ".";
@@ -9,7 +9,7 @@ import { toast } from "react-toastify";
 import Color from "color";
 
 interface ImportBatchProps {
-  batch: ImportBatchType;
+  batch: FileImportBatch;
 }
 
 export const ImportBatch = observer(({ batch }: ImportBatchProps) => {

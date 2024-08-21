@@ -223,7 +223,7 @@ export const FileCollectionManager = observer(() => {
 
             <CardGrid
               ref={collectionsRef}
-              cards={stores.collection.collections.map((c) => (
+              cards={stores.collection.fileCollections.map((c) => (
                 <FileCollection key={c.id} id={c.id} />
               ))}
               position="unset"

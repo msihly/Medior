@@ -23,7 +23,7 @@ export const FileContainer = observer(() => {
   }, [stores.file.search.page, stores.file.search.pageCount]);
 
   useEffect(() => {
-    socket.on("filesUpdated", ({ updates }) => {
+    socket.on("onFilesUpdated", ({ updates }) => {
       const updatedKeys = Object.keys(updates);
       const archivedOrTagsEdited = updatedKeys.some((k) => ["isArchived", "tagIds"].includes(k));
       const sortValueEdited = updatedKeys.includes(stores.file.search.sortValue.key);

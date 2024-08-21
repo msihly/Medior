@@ -16,11 +16,11 @@ export const SelectedFilesInfo = observer(() => {
   const handleOpen = async () => {
     try {
       const res = await stores.file.loadFiles({
-        fileIds: stores.file.selectedIds,
+        filter: { fileIds: stores.file.selectedIds },
         withOverwrite: false,
       });
       if (!res?.success) throw new Error(res.error);
-      const selectedFiles = res.data;
+      const selectedFiles = res.data.items;
 
       const videoExtRegExp = new RegExp(`${getConfig().file.videoTypes.join("|")}`, "i");
 

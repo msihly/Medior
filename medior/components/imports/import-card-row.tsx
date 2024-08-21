@@ -1,5 +1,5 @@
 import { useCallback } from "react";
-import { ImportBatch as ImportBatchType, observer } from "medior/store";
+import { FileImportBatch, observer } from "medior/store";
 import AutoSizer from "react-virtualized-auto-sizer";
 import { FixedSizeList, ListChildComponentProps } from "react-window";
 import { Icon, Text, View } from "medior/components";
@@ -7,7 +7,7 @@ import { IMPORT_CARD_SIZE, IMPORT_STATUSES, ImportCard, ImportStatus } from ".";
 import { colors, makeClasses, useDeepMemo } from "medior/utils";
 
 export const ImportCardRow = observer(
-  ({ batch, status }: { batch: ImportBatchType; status: ImportStatus }) => {
+  ({ batch, status }: { batch: FileImportBatch; status: ImportStatus }) => {
     const { css } = useClasses(null);
 
     const meta = IMPORT_STATUSES[status];

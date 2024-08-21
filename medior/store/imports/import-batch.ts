@@ -1,22 +1,11 @@
 import { computed } from "mobx";
-import { applySnapshot, getSnapshot, model, Model, modelAction, prop } from "mobx-keystone";
+import { ExtendedModel, model, modelAction } from "mobx-keystone";
+import { _FileImportBatch } from "medior/store/_generated";
 import { FileImport } from ".";
 import { dayjs, DayJsInput } from "medior/utils";
 
-@model("medior/ImportBatch")
-export class ImportBatch extends Model({
-  collectionId: prop<string>(null).withSetter(),
-  collectionTitle: prop<string>(null).withSetter(),
-  completedAt: prop<string>(null),
-  createdAt: prop<string>(),
-  deleteOnImport: prop<boolean>(),
-  id: prop<string>(),
-  ignorePrevDeleted: prop<boolean>(),
-  imports: prop<FileImport[]>(() => []),
-  rootFolderPath: prop<string>(),
-  startedAt: prop<string>(null),
-  tagIds: prop<string[]>(),
-}) {
+@model("medior/FileImportBatch")
+export class FileImportBatch extends ExtendedModel(_FileImportBatch, {}) {
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
   @modelAction
   setCompletedAt(completedAt: DayJsInput) {
@@ -26,11 +15,6 @@ export class ImportBatch extends Model({
   @modelAction
   setStartedAt(startedAt: DayJsInput) {
     this.startedAt = dayjs(startedAt).toISOString();
-  }
-
-  @modelAction
-  update(batch: Partial<ImportBatch>) {
-    applySnapshot(this, { ...getSnapshot(this), ...batch });
   }
 
   @modelAction
@@ -60,11 +44,11 @@ export class ImportBatch extends Model({
     return this.imports.some((imp) => imp.status === "PENDING")
       ? "PENDING"
       : this.imports.some((imp) => imp.status === "ERROR")
-      ? "ERROR"
-      : this.imports.some((imp) => imp.status === "DUPLICATE")
-      ? "DUPLICATE"
-      : !this.completedAt?.length
-      ? "PENDING"
-      : "COMPLETE";
+        ? "ERROR"
+        : this.imports.some((imp) => imp.status === "DUPLICATE")
+          ? "DUPLICATE"
+          : !this.completedAt?.length
+            ? "PENDING"
+            : "COMPLETE";
   }
 }

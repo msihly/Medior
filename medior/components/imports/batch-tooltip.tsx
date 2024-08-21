@@ -1,9 +1,9 @@
-import { ImportBatch, observer } from "medior/store";
+import { FileImportBatch, observer } from "medior/store";
 import { Tag, Text, Tooltip, View } from "medior/components";
 import { colors, dayjs, makeClasses } from "medior/utils";
 
 interface BatchTooltipProps {
-  batch: ImportBatch;
+  batch: FileImportBatch;
   children: JSX.Element | JSX.Element[];
 }
 
@@ -18,7 +18,7 @@ export const BatchTooltip = observer(({ batch, children }: BatchTooltipProps) =>
           <View row spacing="1rem" justify="space-between">
             <View column>
               <Text className={css.label}>{"Created"}</Text>
-              <Text className={css.value}>{dayjs(batch.createdAt).fromNow()}</Text>
+              <Text className={css.value}>{dayjs(batch.dateCreated).fromNow()}</Text>
             </View>
 
             <View column>

@@ -20,10 +20,10 @@ export const FileTagEditor = observer(({ batchId, fileIds }: FileTagEditorProps)
 
   useDeepEffect(() => {
     const loadCurrentTags = async () => {
-      const res = await stores.file.loadFiles({ fileIds, withOverwrite: false });
+      const res = await stores.file.loadFiles({ filter: { fileIds, withOverwrite: false } });
       if (!res?.success) throw new Error(res.error);
 
-      const tagIds = [...new Set(res.data.flatMap((f) => f.tagIds))];
+      const tagIds = [...new Set(res.data.items.flatMap((f) => f.tagIds))];
       setCurrentTagOptions(stores.tag.listByIds(tagIds).map((t) => tagToOption(t)));
     };
 

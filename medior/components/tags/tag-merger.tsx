@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { RegExMap, TagOption, observer, useStores } from "medior/store";
+import { RegExMapSchema } from "medior/database";
+import { TagOption, observer, useStores } from "medior/store";
 import { Divider } from "@mui/material";
 import {
   Button,
@@ -28,7 +29,7 @@ export const TagMerger = observer(() => {
   const [isSaving, setIsSaving] = useState(false);
   const [label, setLabel] = useState<string>("");
   const [parentTags, setParentTags] = useState<TagOption[]>([]);
-  const [regExMap, setRegExMap] = useState<RegExMap>({ regEx: "", testString: "", types: [] });
+  const [regExMap, setRegExMap] = useState<RegExMapSchema>({ regEx: "", testString: "", types: [] });
   const [selectedTagValue, setSelectedTagValue] = useState<TagOption[]>([]);
   const [tagIdToKeep, setTagIdToKeep] = useState<string>("");
   const [tagIdToMerge, setTagIdToMerge] = useState<string>("");

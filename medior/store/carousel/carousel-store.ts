@@ -37,7 +37,7 @@ export class CarouselStore extends Model({
 
     this.setSelectedFileIds(newSelectedIds);
 
-    stores.file.loadFiles({ fileIds: newSelectedIds });
+    stores.file.loadFiles({ filter: { id: newSelectedIds } });
   }
 
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */

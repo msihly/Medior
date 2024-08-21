@@ -10,14 +10,20 @@ import {
   modelFlow,
   prop,
 } from "mobx-keystone";
+import * as db from "medior/database";
 import { computed } from "mobx";
 import { asyncAction, RootStore } from "medior/store";
-import * as db from "medior/database";
-import { FileImport, ImportBatch } from ".";
 import { copyFileForImport } from "./import-queue";
-import { extendFileName, PromiseQueue, removeEmptyFolders, trpc, uniqueArrayMerge } from "medior/utils";
+import { FileImport, FileImportBatch } from ".";
+import {
+  extendFileName,
+  PromiseQueue,
+  removeEmptyFolders,
+  trpc,
+  uniqueArrayMerge,
+} from "medior/utils";
 
-export type ImportBatchInput = Omit<ModelCreationData<ImportBatch>, "imports"> & {
+export type ImportBatchInput = Omit<ModelCreationData<FileImportBatch>, "imports"> & {
   imports?: ModelCreationData<FileImport>[];
 };
 
@@ -28,7 +34,7 @@ export class ImportStore extends Model({
   editorRootFolderIndex: prop<number>(0).withSetter(),
   editorRootFolderPath: prop<string>("").withSetter(),
   editorImports: prop<FileImport[]>(() => []).withSetter(),
-  importBatches: prop<ImportBatch[]>(() => []),
+  importBatches: prop<FileImportBatch[]>(() => []),
   importStats: prop<db.ImportStats>(() => ({
     completedBytes: 0,
     elapsedTime: 0,
@@ -44,7 +50,7 @@ export class ImportStore extends Model({
   @modelAction
   _createImportBatch({
     collectionTitle,
-    createdAt,
+    dateCreated,
     deleteOnImport,
     id,
     ignorePrevDeleted,
@@ -53,7 +59,7 @@ export class ImportStore extends Model({
     tagIds = [],
   }: {
     collectionTitle?: string;
-    createdAt: string;
+    dateCreated: string;
     deleteOnImport: boolean;
     id: string;
     ignorePrevDeleted: boolean;
@@ -62,10 +68,10 @@ export class ImportStore extends Model({
     tagIds?: string[];
   }) {
     this.importBatches.push(
-      new ImportBatch({
+      new FileImportBatch({
         collectionTitle,
         completedAt: null,
-        createdAt,
+        dateCreated,
         deleteOnImport,
         id,
         ignorePrevDeleted,
@@ -121,7 +127,7 @@ export class ImportStore extends Model({
   }
 
   @modelAction
-  overwriteBatches(batches: ImportBatch[]) {
+  overwriteBatches(batches: FileImportBatch[]) {
     this.importBatches = batches;
   }
 
@@ -273,10 +279,10 @@ export class ImportStore extends Model({
     const status = !copyRes?.success
       ? "ERROR"
       : copyRes?.isPrevDeleted
-      ? "DELETED"
-      : copyRes?.isDuplicate
-      ? "DUPLICATE"
-      : "COMPLETE";
+        ? "DELETED"
+        : copyRes?.isDuplicate
+          ? "DUPLICATE"
+          : "COMPLETE";
     const thumbPaths = copyRes.file?.thumbPaths ?? [];
 
     const updateRes = await trpc.updateFileImportByPath.mutate({
@@ -337,7 +343,7 @@ export class ImportStore extends Model({
     if (res.success) {
       const batches = res.data.map(
         (batch) =>
-          new ImportBatch({
+          new FileImportBatch({
             ...batch,
             imports: batch.imports.map((imp) => new FileImport(imp)),
           })
@@ -350,10 +356,6 @@ export class ImportStore extends Model({
   });
 
   /* ----------------------------- DYNAMIC GETTERS ---------------------------- */
-  getByCreatedAt(createdAt: string) {
-    return this.importBatches.find((batch) => batch.createdAt === createdAt);
-  }
-
   getById(id: string) {
     return this.importBatches.find((batch) => batch.id === id);
   }
@@ -365,7 +367,7 @@ export class ImportStore extends Model({
   /* --------------------------------- GETTERS -------------------------------- */
   @computed
   get batches() {
-    return [...this.importBatches].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+    return [...this.importBatches].sort((a, b) => a.dateCreated.localeCompare(b.dateCreated));
   }
 
   @computed

@@ -3,7 +3,7 @@ import { observer, useStores } from "medior/store";
 import { Icon, IconButton, IconName, Text, View } from "medior/components";
 import { Input, InputProps } from "./input";
 import { colors, formatBytes, round, trpc } from "medior/utils";
-import { DiskUsage } from "diskusage";
+import { DiskSpace } from "check-disk-space";
 
 interface Status {
   color: string;
@@ -42,11 +42,11 @@ export interface StorageInputProps extends Omit<InputProps, "setValue" | "value"
 export const StorageInput = observer(({ index, selectLocation, ...props }: StorageInputProps) => {
   const stores = useStores();
 
-  const [diskStats, setDiskStats] = useState<DiskUsage>(undefined);
+  const [diskStats, setDiskStats] = useState<DiskSpace>(undefined);
   const [isOffline, setIsOffline] = useState(false);
 
   const threshold = stores.home.settings.db.fileStorage.threshold;
-  const percentFilled = (diskStats?.total - diskStats?.available) / diskStats?.total;
+  const percentFilled = (diskStats?.size - diskStats?.free) / diskStats?.size;
   const isAtThreshold = percentFilled >= threshold;
   const isNearThreshold = percentFilled >= threshold - 0.1;
   const status = isOffline
@@ -114,7 +114,7 @@ export const StorageInput = observer(({ index, selectLocation, ...props }: Stora
             <Text color={status.color} fontWeight={500}>{`${round(percentFilled * 100)}%`}</Text>
 
             <Text>
-              {`-- ${formatBytes(diskStats.available)} / ${formatBytes(diskStats.total)}`}
+              {`-- ${formatBytes(diskStats.free)} / ${formatBytes(diskStats.size)}`}
             </Text>
           </>
         )}

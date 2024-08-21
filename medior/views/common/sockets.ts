@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { SocketEmitEvent, SocketEmitEvents } from "medior/server";
+import { SocketEmitEvent, SocketEmitEvents } from "medior/socket";
 import { useStores } from "medior/store";
 import { setupSocketIO, socket, throttle } from "medior/utils";
 
@@ -35,7 +35,7 @@ export const useSockets = ({ view }: UseSocketsProps) => {
   const setupSockets = () => {
     setupSocketIO();
 
-    makeSocket("filesDeleted", ({ fileHashes, fileIds }) => {
+    makeSocket("onFilesDeleted", ({ fileHashes, fileIds }) => {
       if (view === "carousel") stores.carousel.removeFiles(fileIds);
       else {
         if (view === "home") stores.import.addDeletedFileHashes(fileHashes);
@@ -44,7 +44,7 @@ export const useSockets = ({ view }: UseSocketsProps) => {
       }
     });
 
-    makeSocket("filesUpdated", ({ fileIds, updates }) => {
+    makeSocket("onFilesUpdated", ({ fileIds, updates }) => {
       stores.file.updateFiles(fileIds, updates);
 
       if (view !== "carousel") {
@@ -56,7 +56,7 @@ export const useSockets = ({ view }: UseSocketsProps) => {
       }
     });
 
-    makeSocket("fileTagsUpdated", ({ addedTagIds, batchId, fileIds, removedTagIds }) => {
+    makeSocket("onFileTagsUpdated", ({ addedTagIds, batchId, fileIds, removedTagIds }) => {
       stores.file.updateFileTags({ addedTagIds, fileIds, removedTagIds });
 
       if (view !== "carousel") queueFileReload();
@@ -68,67 +68,66 @@ export const useSockets = ({ view }: UseSocketsProps) => {
         });
     });
 
-    makeSocket("reloadFiles", () => {
-      if (view === "carousel") stores.file.loadFiles({ fileIds: stores.carousel.selectedFileIds });
+    makeSocket("onReloadFiles", () => {
+      if (view === "carousel")
+        stores.file.loadFiles({ filter: { id: stores.carousel.selectedFileIds } });
       else queueFileReload();
     });
 
-    makeSocket("reloadTags", () => stores.tag.loadTags());
+    makeSocket("onReloadTags", () => stores.tag.loadTags());
 
-    makeSocket("tagCreated", ({ tag }) => {
+    makeSocket("onTagCreated", (tag) => {
       stores.tag._addTag(tag);
       if (view !== "carousel" && stores.tag.manager.isOpen) stores.tag.manager.loadFilteredTags();
     });
 
-    makeSocket("tagDeleted", ({ tagId }) => {
-      stores.tag._deleteTag(tagId);
-      if (view === "home") stores.import.editBatchTags({ removedIds: [tagId] });
+    makeSocket("onTagDeleted", ({ id }) => {
+      stores.tag._deleteTag(id);
+      if (view === "home") stores.import.editBatchTags({ removedIds: [id] });
       if (view !== "carousel") {
         queueFileReload();
         if (stores.tag.manager.isOpen) stores.tag.manager.loadFilteredTags();
       }
     });
 
-    makeSocket("tagMerged", ({ oldTagId }) => {
+    makeSocket("onTagMerged", ({ oldTagId }) => {
       if (view === "home") stores.import.editBatchTags({ removedIds: [oldTagId] });
       if (view !== "carousel" && stores.tag.manager.isOpen) stores.tag.manager.loadFilteredTags();
     });
 
-    makeSocket("tagsUpdated", ({ tags, withFileReload }) => {
+    makeSocket("onTagsUpdated", ({ tags, withFileReload }) => {
       tags.forEach((t) => stores.tag.getById(t.tagId)?.update(t.updates));
       if (withFileReload && view !== "carousel") throttle(queueFileReload, 2000)();
     });
 
     if (view === "carousel") {
-      makeSocket("filesArchived", ({ fileIds }) => stores.carousel.removeFiles(fileIds));
+      makeSocket("onFilesArchived", ({ fileIds }) => stores.carousel.removeFiles(fileIds));
     } else {
-      makeSocket("collectionCreated", ({ collection }) =>
+      makeSocket("onFileCollectionCreated", (collection) =>
         stores.collection._addCollection(collection)
       );
 
-      makeSocket("collectionDeleted", ({ collectionId }) =>
-        stores.collection._deleteCollection(collectionId)
+      makeSocket("onFileCollectionDeleted", ({ id }) => stores.collection._deleteCollection(id));
+
+      makeSocket("onFileCollectionUpdated", ({ id, updates }) =>
+        stores.collection.getById(id)?.update(updates)
       );
 
-      makeSocket("collectionUpdated", ({ collectionId, updates }) =>
-        stores.collection.getById(collectionId)?.update(updates)
-      );
-
-      makeSocket("importBatchCompleted", () => {
+      makeSocket("onImportBatchCompleted", () => {
         throttle(queueFileReload, 5000)();
       });
 
-      makeSocket("importStatsUpdated", ({ importStats }) =>
+      makeSocket("onImportStatsUpdated", ({ importStats }) =>
         stores.import.setImportStats(importStats)
       );
 
-      makeSocket("reloadFileCollections", () => {
+      makeSocket("onReloadFileCollections", () => {
         if (stores.collection.manager.isOpen) stores.collection.listFilteredCollections();
       });
     }
 
     if (view === "home") {
-      makeSocket("reloadImportBatches", () => stores.import.loadImportBatches());
+      makeSocket("onReloadImportBatches", () => stores.import.loadImportBatches());
     }
   };
 

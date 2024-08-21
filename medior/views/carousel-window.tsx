@@ -2,9 +2,21 @@ import { ipcRenderer } from "electron";
 import { WheelEvent, useEffect, useRef } from "react";
 import { observer, useStores } from "medior/store";
 import { PanzoomObject } from "@panzoom/panzoom";
-import { Carousel, CarouselThumbNavigator, CarouselTopBar, View, ZoomContext } from "medior/components";
+import {
+  Carousel,
+  CarouselThumbNavigator,
+  CarouselTopBar,
+  View,
+  ZoomContext,
+} from "medior/components";
 import { Views, useHotkeys, useSockets } from "./common";
-import { debounce, makeClasses, makePerfLog, zoomScaleStepIn, zoomScaleStepOut } from "medior/utils";
+import {
+  debounce,
+  makeClasses,
+  makePerfLog,
+  zoomScaleStepIn,
+  zoomScaleStepOut,
+} from "medior/utils";
 
 export const CarouselWindow = observer(() => {
   const { css } = useClasses(null);
@@ -33,7 +45,10 @@ export const CarouselWindow = observer(() => {
   const handleMouseMove = () => {
     if (mouseMoveTimeout.current) clearTimeout(mouseMoveTimeout.current);
     stores.carousel.setIsMouseMoving(true);
-    mouseMoveTimeout.current = window.setTimeout(() => stores.carousel.setIsMouseMoving(false), 1000);
+    mouseMoveTimeout.current = window.setTimeout(
+      () => stores.carousel.setIsMouseMoving(false),
+      1000
+    );
   };
 
   useEffect(() => {
@@ -50,13 +65,13 @@ export const CarouselWindow = observer(() => {
         try {
           const { perfLog, perfLogTotal } = makePerfLog("[Carousel]");
 
-          await stores.file.loadFiles({ fileIds: [fileId] });
+          await stores.file.loadFiles({ filter: { fileIds: [fileId] } });
           stores.carousel.setActiveFileId(fileId);
 
           perfLog("Active file loaded");
 
           await Promise.all([
-            stores.file.loadFiles({ fileIds: selectedFileIds }),
+            stores.file.loadFiles({ filter: { fileIds: selectedFileIds } }),
             stores.tag.loadTags(),
           ]);
           stores.carousel.setSelectedFileIds(selectedFileIds);

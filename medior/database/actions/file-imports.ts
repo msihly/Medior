@@ -18,7 +18,7 @@ export const completeImportBatch = makeAction(
       ...args.tagIds.map((tagId) => db.regenTagThumbPaths({ tagId })),
     ]);
 
-    socket.emit("importBatchCompleted");
+    socket.emit("onImportBatchCompleted");
     return completedAt;
   }
 );
@@ -38,7 +38,7 @@ export const createImportBatches = makeAction(
       batches.map((batch) => ({
         ...batch,
         completedAt: null,
-        createdAt: dayjs().toISOString(),
+        dateCreated: dayjs().toISOString(),
         startedAt: null,
         tagIds: batch.tagIds ? [...new Set(batch.tagIds)].flat() : [],
       }))
@@ -56,7 +56,7 @@ export const deleteImportBatches = makeAction(
 
 export const emitImportStatsUpdated = makeAction(
   async ({ importStats }: { importStats: db.ImportStats }) => {
-    socket.emit("importStatsUpdated", { importStats });
+    socket.emit("onImportStatsUpdated", { importStats });
   }
 );
 

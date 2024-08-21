@@ -1,0 +1,13 @@
+{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "moduleResolution": "Bundler",
+    "paths": {
+      "*": ["*", "*/index.js"],
+      "medior/*": ["../medior/*"]
+    },
+    "types": ["node"]
+  },
+  "extends": "../tsconfig.base.json",
+  "include": [".", "./globals.d.ts", "../medior"]
+}

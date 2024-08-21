@@ -1,38 +1,19 @@
 import { computed } from "mobx";
 import {
   applySnapshot,
+  ExtendedModel,
   getSnapshot,
-  Model,
   model,
   modelAction,
   ModelCreationData,
   prop,
 } from "mobx-keystone";
+import { _File } from "medior/store/_generated";
 import { dayjs, getConfig, PLAYABLE_VIDEO_TYPES } from "medior/utils";
 
 @model("medior/File")
-export class File extends Model({
-  dateCreated: prop<string>(),
-  dateModified: prop<string>(),
-  diffusionParams: prop<string>(null),
-  duration: prop<number>(null),
-  ext: prop<string>(),
-  frameRate: prop<number>(null),
+export class File extends ExtendedModel(_File, {
   hasFaceModels: prop<boolean>(false),
-  hash: prop<string>(),
-  height: prop<number>(),
-  id: prop<string>(),
-  isArchived: prop<boolean>(),
-  originalHash: prop<string>(null),
-  originalName: prop<string>(null),
-  originalPath: prop<string>(),
-  path: prop<string>(),
-  rating: prop<number>(),
-  size: prop<number>(),
-  tagIds: prop<string[]>(null),
-  tagIdsWithAncestors: prop<string[]>(null),
-  thumbPaths: prop<string[]>(null),
-  width: prop<number>(),
 }) {
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
   @modelAction

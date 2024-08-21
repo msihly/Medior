@@ -93,6 +93,7 @@ export class TagStore extends Model({
         label,
         parentIds,
         regExMap: regEx,
+        thumbPaths: [],
       };
 
       if (withSub) this._addTag(tag);
@@ -252,13 +253,13 @@ export class TagStore extends Model({
     return this.tags.filter((t) => t.parentIds.includes(id));
   }
 
-  listRegExMapsByType(type: db.RegExMapType) {
+  listRegExMapsByType(type: db.RegExMapSchema["types"][number]) {
     return this.tags.reduce(
       (acc, cur) => {
         if (cur.regExMap?.types.includes(type)) acc.push({ ...cur.regExMap, tagId: cur.id });
         return acc;
       },
-      [] as Array<db.RegExMap & { tagId: string }>
+      [] as Array<db.RegExMapSchema & { tagId: string }>
     );
   }
 

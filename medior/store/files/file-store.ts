@@ -1,9 +1,17 @@
 import { promises as fs } from "fs";
 import path from "path";
 import md5File from "md5-file";
-import { Model, model, modelAction, ModelCreationData, modelFlow, prop } from "mobx-keystone";
+import {
+  ExtendedModel,
+  model,
+  modelAction,
+  ModelCreationData,
+  modelFlow,
+  prop,
+} from "mobx-keystone";
 import * as db from "medior/database";
 import { asyncAction, FaceModel } from "medior/store";
+import { _FileStore } from "medior/store/_generated";
 import { File, FileSearch } from ".";
 import {
   CONSTANTS,
@@ -19,9 +27,8 @@ import {
 import { toast } from "react-toastify";
 
 @model("medior/FileStore")
-export class FileStore extends Model({
+export class FileStore extends ExtendedModel(_FileStore, {
   activeFileId: prop<string | null>(null).withSetter(),
-  files: prop<File[]>(() => []),
   idsForConfirmDelete: prop<string[]>(() => []),
   isConfirmDeleteOpen: prop<boolean>(false).withSetter(),
   isInfoModalOpen: prop<boolean>(false).withSetter(),
@@ -99,9 +106,9 @@ export class FileStore extends Model({
     const fileIds = [...this.idsForConfirmDelete];
     if (!fileIds?.length) throw new Error("No files to delete");
 
-    const res = await trpc.listFiles.mutate({ ids: fileIds });
+    const res = await trpc.listFiles.mutate({ args: { filter: { ids: fileIds } } });
     if (!res.success) throw new Error(res.error);
-    const files = res.data;
+    const files = res.data.items;
 
     const [deleted, archived] = splitArray(files, (f) => f.isArchived);
     const [deletedIds, archivedIds] = [deleted, archived].map((arr) => arr.map((f) => f.id));
@@ -151,17 +158,7 @@ export class FileStore extends Model({
   );
 
   @modelFlow
-  loadFiles = asyncAction(
-    async ({ fileIds, withOverwrite = true }: { fileIds: string[]; withOverwrite?: boolean }) => {
-      if (!fileIds?.length) return [];
-      const filesRes = await trpc.listFiles.mutate({ ids: fileIds, withHasFaceModels: true });
-      if (filesRes.success && withOverwrite) this.overwrite(filesRes.data);
-      return filesRes.data;
-    }
-  );
-
-  @modelFlow
-  refreshFile = asyncAction(async ({ curFile, id }: { curFile?: db.File; id: string }) => {
+  refreshFile = asyncAction(async ({ curFile, id }: { curFile?: db.FileSchema; id: string }) => {
     if (!curFile && !id) throw new Error("No file or id provided");
     const file = !curFile ? this.getById(id) : new File(curFile);
 
@@ -213,12 +210,15 @@ export class FileStore extends Model({
 
   @modelFlow
   refreshSelectedFiles = asyncAction(async () => {
-    const filesRes = await this.loadFiles({ fileIds: this.selectedIds, withOverwrite: false });
+    const filesRes = await this.loadFiles({
+      filter: { fileIds: this.selectedIds },
+      withOverwrite: false,
+    });
     if (!filesRes?.success) throw new Error("Failed to load files");
 
     makeQueue({
       action: (item) => this.refreshFile({ curFile: item, id: item.id }),
-      items: filesRes.data,
+      items: filesRes.data.items,
       logSuffix: "files",
       onComplete: () => this.search.loadFilteredFiles(),
       queue: this.infoRefreshQueue,

@@ -1,12 +1,13 @@
 import * as db from "medior/database";
-import * as _gen from "medior/database/_generated";
 import { leanModelToJson, makeAction, objectIds } from "medior/database/utils";
 import { dayjs, socket } from "medior/utils";
 
 /* -------------------------------------------------------------------------- */
 /*                              HELPER FUNCTIONS                              */
 /* -------------------------------------------------------------------------- */
-export const createCollectionFilterPipeline = (args: {
+type CreateCollectionFilterPipelineInput = Parameters<typeof createCollectionFilterPipeline>[0];
+
+const createCollectionFilterPipeline = (args: {
   excludedDescTagIds: string[];
   excludedTagIds: string[];
   isSortDesc: boolean;
@@ -49,7 +50,7 @@ export const createCollectionFilterPipeline = (args: {
   };
 };
 
-const makeCollAttrs = async (files: db.File[]) => {
+const makeCollAttrs = async (files: db.FileSchema[]) => {
   const ratedFiles = files.filter((f) => f.rating > 0);
   const tagIds = [...new Set(files.flatMap((f) => f.tagIds))];
   return {
@@ -73,12 +74,14 @@ export const createCollection = makeAction(
     title: string;
     withSub?: boolean;
   }) => {
-    const filesRes = await db.listFiles({ ids: args.fileIdIndexes.map((f) => f.fileId) });
+    const filesRes = await db.listFiles({
+      args: { filter: { ids: args.fileIdIndexes.map((f) => f.fileId) } },
+    });
     if (!filesRes.success) throw new Error(filesRes.error);
 
     const dateCreated = dayjs().toISOString();
     const collection = {
-      ...(await makeCollAttrs(filesRes.data)),
+      ...(await makeCollAttrs(filesRes.data.items)),
       dateCreated,
       dateModified: dateCreated,
       fileIdIndexes: args.fileIdIndexes,
@@ -86,14 +89,14 @@ export const createCollection = makeAction(
     };
 
     const res = await db.FileCollectionModel.create(collection);
-    if (args.withSub) socket.emit("collectionCreated", { collection: res });
+    if (args.withSub) socket.emit("onFileCollectionCreated", res);
     return { ...collection, id: res._id.toString() };
   }
 );
 
 export const deleteCollection = makeAction(async (args: { id: string }) => {
   const res = await db.FileCollectionModel.deleteOne({ _id: args.id });
-  if (res.deletedCount) socket.emit("collectionDeleted", { collectionId: args.id });
+  if (res.deletedCount) socket.emit("onFileCollectionDeleted", args);
   return res;
 });
 
@@ -121,7 +124,7 @@ export const listFilteredCollections = makeAction(
     page,
     pageSize,
     ...filterParams
-  }: _gen.CreateCollectionFilterPipelineInput & {
+  }: CreateCollectionFilterPipelineInput & {
     page: number;
     pageSize: number;
   }) => {
@@ -141,7 +144,7 @@ export const listFilteredCollections = makeAction(
       throw new Error("Failed to load filtered collection IDs");
 
     return {
-      collections: collections.map((c) => leanModelToJson<db.FileCollection>(c)),
+      collections: collections.map((c) => leanModelToJson<db.FileCollectionSchema>(c)),
       pageCount: Math.ceil(totalDocuments / pageSize),
     };
   }
@@ -159,17 +162,19 @@ export const regenCollAttrs = makeAction(
       })
         .select({ _id: 1, fileIdIndexes: 1 })
         .lean()
-    ).map((r) => leanModelToJson<db.FileCollection>(r));
+    ).map((r) => leanModelToJson<db.FileCollectionSchema>(r));
 
     await Promise.all(
       collections.map(async (collection) => {
-        const filesRes = await db.listFiles({ ids: collection.fileIdIndexes.map((f) => f.fileId) });
+        const filesRes = await db.listFiles({
+          args: { filter: { ids: collection.fileIdIndexes.map((f) => f.fileId) } },
+        });
         if (!filesRes.success) throw new Error(filesRes.error);
 
-        const updates = await makeCollAttrs(filesRes.data);
+        const updates = await makeCollAttrs(filesRes.data.items);
         await db.FileCollectionModel.updateOne({ _id: collection.id }, { $set: updates });
 
-        socket.emit("collectionUpdated", { collectionId: collection.id, updates });
+        socket.emit("onFileCollectionUpdated", { id: collection.id, updates });
       })
     );
   }
@@ -182,17 +187,20 @@ export const regenCollRating = makeAction(async (fileIds: string[]) => {
     })
       .select({ _id: 1, fileIdIndexes: 1 })
       .lean()
-  ).map((r) => leanModelToJson<db.FileCollection>(r));
+  ).map((r) => leanModelToJson<db.FileCollectionSchema>(r));
 
   await Promise.all(
     collections.map(async (collection) => {
-      const filesRes = await db.listFiles({ ids: collection.fileIdIndexes.map((f) => f.fileId) });
+      const filesRes = await db.listFiles({
+        args: { filter: { ids: collection.fileIdIndexes.map((f) => f.fileId) } },
+      });
       if (!filesRes.success) throw new Error(filesRes.error);
 
-      const rating = filesRes.data.reduce((acc, f) => acc + f.rating, 0) / filesRes.data.length;
+      const rating =
+        filesRes.data.items.reduce((acc, f) => acc + f.rating, 0) / filesRes.data.items.length;
       await db.FileCollectionModel.updateOne({ _id: collection.id }, { $set: { rating } });
 
-      socket.emit("collectionUpdated", { collectionId: collection.id, updates: { rating } });
+      socket.emit("onFileCollectionUpdated", { id: collection.id, updates: { rating } });
     })
   );
 });
@@ -208,7 +216,7 @@ export const regenCollTagAncestors = makeAction(
       })
         .select({ _id: 1, tagIds: 1, tagIdsWithAncestors: 1 })
         .lean()
-    ).map(leanModelToJson<db.FileCollection>);
+    ).map(leanModelToJson<db.FileCollectionSchema>);
 
     const ancestorsMap = await db.makeAncestorIdsMap(collections.flatMap((c) => c.tagIds));
 
@@ -228,13 +236,15 @@ export const regenCollTagAncestors = makeAction(
 );
 
 export const updateCollection = makeAction(
-  async (updates: Omit<Partial<db.FileCollection>, "tagIds"> & { id: string }) => {
+  async (updates: Omit<Partial<db.FileCollectionSchema>, "tagIds"> & { id: string }) => {
     updates.dateModified = dayjs().toISOString();
 
     if (updates.fileIdIndexes) {
-      const filesRes = await db.listFiles({ ids: updates.fileIdIndexes.map((f) => f.fileId) });
+      const filesRes = await db.listFiles({
+        args: { filter: { ids: updates.fileIdIndexes.map((f) => f.fileId) } },
+      });
       if (!filesRes.success) throw new Error(filesRes.error);
-      updates = { ...updates, ...(await makeCollAttrs(filesRes.data)) };
+      updates = { ...updates, ...(await makeCollAttrs(filesRes.data.items)) };
     }
 
     return await db.FileCollectionModel.updateOne({ _id: updates.id }, updates);

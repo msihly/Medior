@@ -126,7 +126,7 @@ export const getAvailableFileStorage = (bytesNeeded: number) =>
     for (const location of config.db.fileStorage.locations) {
       const res = await trpc.getDiskStats.mutate({ diskPath: location });
       if (!res.success) throw new Error(res.error);
-      if (res.data.available > bytesNeeded) return location;
+      if (res.data.free > bytesNeeded) return location;
     }
     throw new Error("No available file storage location found.");
   });

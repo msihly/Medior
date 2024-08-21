@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
-import { RegExMap, TagOption, observer, useStores } from "medior/store";
+import { RegExMapSchema } from "medior/database";
+import { TagOption, observer, useStores } from "medior/store";
 import { Divider } from "@mui/material";
 import {
   Button,
@@ -51,7 +52,7 @@ export const TagEditor = observer(
     );
     const [regExValue, setRegExValue] = useState<string>(tag?.regExMap?.regEx ?? "");
     const [regExTestString, setRegExTestString] = useState<string>(tag?.regExMap?.testString ?? "");
-    const [regExTypes, setRegExTypes] = useState<RegExMap["types"]>(
+    const [regExTypes, setRegExTypes] = useState<RegExMapSchema["types"]>(
       tag?.regExMap?.types ?? ["diffusionParams", "fileName", "folderName"]
     );
 

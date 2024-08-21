@@ -1,6 +1,6 @@
 import path from "path";
 import { useState } from "react";
-import { RegExMapType } from "medior/database";
+import { RegExMapSchema } from "medior/database";
 import { ModelCreationData } from "mobx-keystone";
 import { FileImport, Tag, observer, useStores } from "medior/store";
 import { Divider } from "@mui/material";
@@ -279,7 +279,7 @@ export const ImportEditor = observer(() => {
     return { diffMetaTagsToEdit, editorImports, fileTagsToUpsert: tagsToUpsert };
   };
 
-  const getRegExMaps = (type: RegExMapType): RegExMaps =>
+  const getRegExMaps = (type: RegExMapSchema["types"][number]): RegExMaps =>
     stores.tag
       .listRegExMapsByType(type)
       .map((map) => ({ regEx: new RegExp(map.regEx, "im"), tagId: map.tagId }));

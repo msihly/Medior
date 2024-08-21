@@ -1,13 +1,88 @@
+/* -------------------------------------------------------------------------- */
+/*                    THIS IS A GENERATED FILE. DO NOT EDIT.                  */
+/* -------------------------------------------------------------------------- */
+
 import * as db from "medior/database";
+import { FilterQuery, SortOrder } from "mongoose";
 
-/* ----------------------------- collections.ts ----------------------------- */
-export type CreateCollectionFilterPipelineInput = Parameters<
-  typeof db.createCollectionFilterPipeline
->[0];
-export type CreateCollectionFilterPipelineOutput = ReturnType<
-  typeof db.createCollectionFilterPipeline
->;
+/* -------------------------------------------------------------------------- */
+/*                                MODEL ACTIONS                               */
+/* -------------------------------------------------------------------------- */
+/* ------------------------------------ DeletedFile ----------------------------------- */
+export type CreateDeletedFileInput = Omit<db.DeletedFileSchema, "id">;
+export type DeleteDeletedFileInput = { id: string };
+export type _ListDeletedFilesInput = {
+  filter?: FilterQuery<db.DeletedFileSchema>;
+  page?: number;
+  pageSize?: number;
+  sort?: Record<string, SortOrder>;
+  withOverwrite?: boolean;
+};
+export type UpdateDeletedFileInput = { id: string; updates: Partial<db.DeletedFileSchema> };
 
+/* ------------------------------------ FileCollection ----------------------------------- */
+export type CreateFileCollectionInput = Omit<db.FileCollectionSchema, "id">;
+export type DeleteFileCollectionInput = { id: string };
+export type ListFileCollectionsInput = {
+  filter?: FilterQuery<db.FileCollectionSchema>;
+  page?: number;
+  pageSize?: number;
+  sort?: Record<string, SortOrder>;
+  withOverwrite?: boolean;
+};
+export type UpdateFileCollectionInput = { id: string; updates: Partial<db.FileCollectionSchema> };
+
+/* ------------------------------------ FileImportBatch ----------------------------------- */
+export type CreateFileImportBatchInput = Omit<db.FileImportBatchSchema, "id">;
+export type DeleteFileImportBatchInput = { id: string };
+export type ListFileImportBatchsInput = {
+  filter?: FilterQuery<db.FileImportBatchSchema>;
+  page?: number;
+  pageSize?: number;
+  sort?: Record<string, SortOrder>;
+  withOverwrite?: boolean;
+};
+export type UpdateFileImportBatchInput = { id: string; updates: Partial<db.FileImportBatchSchema> };
+
+/* ------------------------------------ File ----------------------------------- */
+export type CreateFileInput = Omit<db.FileSchema, "id">;
+export type DeleteFileInput = { id: string };
+export type ListFilesInput = {
+  filter?: FilterQuery<db.FileSchema>;
+  page?: number;
+  pageSize?: number;
+  sort?: Record<string, SortOrder>;
+  withOverwrite?: boolean;
+};
+export type _UpdateFileInput = { id: string; updates: Partial<db.FileSchema> };
+
+/* ------------------------------------ RegExMap ----------------------------------- */
+export type CreateRegExMapInput = Omit<db.RegExMapSchema, "id">;
+export type DeleteRegExMapInput = { id: string };
+export type ListRegExMapsInput = {
+  filter?: FilterQuery<db.RegExMapSchema>;
+  page?: number;
+  pageSize?: number;
+  sort?: Record<string, SortOrder>;
+  withOverwrite?: boolean;
+};
+export type UpdateRegExMapInput = { id: string; updates: Partial<db.RegExMapSchema> };
+
+/* ------------------------------------ Tag ----------------------------------- */
+export type _CreateTagInput = Omit<db.TagSchema, "id">;
+export type _DeleteTagInput = { id: string };
+export type _ListTagsInput = {
+  filter?: FilterQuery<db.TagSchema>;
+  page?: number;
+  pageSize?: number;
+  sort?: Record<string, SortOrder>;
+  withOverwrite?: boolean;
+};
+export type UpdateTagInput = { id: string; updates: Partial<db.TagSchema> };
+
+/* -------------------------------------------------------------------------- */
+/*                               CUSTOM ACTIONS                               */
+/* -------------------------------------------------------------------------- */
 export type CreateCollectionInput = Parameters<typeof db.createCollection>[0];
 export type CreateCollectionOutput = ReturnType<typeof db.createCollection>;
 
@@ -38,7 +113,6 @@ export type RegenCollTagAncestorsOutput = ReturnType<typeof db.regenCollTagAnces
 export type UpdateCollectionInput = Parameters<typeof db.updateCollection>[0];
 export type UpdateCollectionOutput = ReturnType<typeof db.updateCollection>;
 
-/* ----------------------------- file-imports.ts ----------------------------- */
 export type CompleteImportBatchInput = Parameters<typeof db.completeImportBatch>[0];
 export type CompleteImportBatchOutput = ReturnType<typeof db.completeImportBatch>;
 
@@ -59,10 +133,6 @@ export type StartImportBatchOutput = ReturnType<typeof db.startImportBatch>;
 
 export type UpdateFileImportByPathInput = Parameters<typeof db.updateFileImportByPath>[0];
 export type UpdateFileImportByPathOutput = ReturnType<typeof db.updateFileImportByPath>;
-
-/* ----------------------------- files.ts ----------------------------- */
-export type CreateFileFilterPipelineInput = Parameters<typeof db.createFileFilterPipeline>[0];
-export type CreateFileFilterPipelineOutput = ReturnType<typeof db.createFileFilterPipeline>;
 
 export type ListFileIdsByTagIdsInput = Parameters<typeof db.listFileIdsByTagIds>[0];
 export type ListFileIdsByTagIdsOutput = ReturnType<typeof db.listFileIdsByTagIds>;
@@ -100,9 +170,6 @@ export type ListDeletedFilesOutput = ReturnType<typeof db.listDeletedFiles>;
 export type ListFaceModelsInput = Parameters<typeof db.listFaceModels>[0];
 export type ListFaceModelsOutput = ReturnType<typeof db.listFaceModels>;
 
-export type ListFilesInput = Parameters<typeof db.listFiles>[0];
-export type ListFilesOutput = ReturnType<typeof db.listFiles>;
-
 export type ListFilesByTagIdsInput = Parameters<typeof db.listFilesByTagIds>[0];
 export type ListFilesByTagIdsOutput = ReturnType<typeof db.listFilesByTagIds>;
 
@@ -133,10 +200,6 @@ export type SetFileRatingOutput = ReturnType<typeof db.setFileRating>;
 export type UpdateFileInput = Parameters<typeof db.updateFile>[0];
 export type UpdateFileOutput = ReturnType<typeof db.updateFile>;
 
-/* ----------------------------- tags.ts ----------------------------- */
-export type CreateTagFilterPipelineInput = Parameters<typeof db.createTagFilterPipeline>[0];
-export type CreateTagFilterPipelineOutput = ReturnType<typeof db.createTagFilterPipeline>;
-
 export type DeriveAncestorTagIdsInput = Parameters<typeof db.deriveAncestorTagIds>[0];
 export type DeriveAncestorTagIdsOutput = ReturnType<typeof db.deriveAncestorTagIds>;
 
@@ -145,9 +208,6 @@ export type DeriveDescendantTagIdsOutput = ReturnType<typeof db.deriveDescendant
 
 export type MakeAncestorIdsMapInput = Parameters<typeof db.makeAncestorIdsMap>[0];
 export type MakeAncestorIdsMapOutput = ReturnType<typeof db.makeAncestorIdsMap>;
-
-export type MakeUniqueAncestorUpdatesInput = Parameters<typeof db.makeUniqueAncestorUpdates>[0];
-export type MakeUniqueAncestorUpdatesOutput = ReturnType<typeof db.makeUniqueAncestorUpdates>;
 
 export type RegenTagsInput = Parameters<typeof db.regenTags>[0];
 export type RegenTagsOutput = ReturnType<typeof db.regenTags>;

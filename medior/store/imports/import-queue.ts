@@ -1,7 +1,7 @@
 import fs from "fs/promises";
 import path from "path";
 import md5File from "md5-file";
-import { File } from "medior/database";
+import { FileSchema } from "medior/database";
 import { FileImport, RootStore } from "medior/store";
 import {
   CONSTANTS,
@@ -29,7 +29,7 @@ interface CopyFileForImportProps {
 
 interface CopyFileForImportResult {
   error?: string;
-  file?: File;
+  file?: FileSchema;
   isDuplicate?: boolean;
   isPrevDeleted?: boolean;
   success: boolean;

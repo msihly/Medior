@@ -1,25 +1,25 @@
+import { toast } from "react-toastify";
 import { computed } from "mobx";
 import {
   clone,
+  ExtendedModel,
   getRootStore,
   model,
-  Model,
   modelAction,
   ModelCreationData,
   modelFlow,
   prop,
 } from "mobx-keystone";
 import { asyncAction, File, RootStore, SelectedImageTypes, SelectedVideoTypes } from "medior/store";
+import { _FileCollectionStore } from "medior/store/_generated";
 import * as db from "medior/database";
 import { CollectionEditor, CollectionManager, FileCollection, FileCollectionFile } from ".";
 import { getConfig, makePerfLog, makeQueue, PromiseQueue, trpc } from "medior/utils";
-import { toast } from "react-toastify";
 import { arrayMove } from "@alissavrk/dnd-kit-sortable";
 
 @model("medior/FileCollectionStore")
-export class FileCollectionStore extends Model({
+export class FileCollectionStore extends ExtendedModel(_FileCollectionStore, {
   collectionFitMode: prop<"cover" | "contain">("contain").withSetter(),
-  collections: prop<FileCollection[]>(() => []).withSetter(),
   editor: prop<CollectionEditor>(() => new CollectionEditor({})),
   isConfirmDeleteOpen: prop<boolean>(false).withSetter(),
   manager: prop<CollectionManager>(() => new CollectionManager({})),
@@ -30,12 +30,12 @@ export class FileCollectionStore extends Model({
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
   @modelAction
   _addCollection(collection: ModelCreationData<FileCollection>) {
-    if (!this.getById(collection.id)) this.collections.push(new FileCollection(collection));
+    if (!this.getById(collection.id)) this.fileCollections.push(new FileCollection(collection));
   }
 
   @modelAction
   _deleteCollection(id: string) {
-    this.collections = this.collections.filter((c) => c.id !== id);
+    this.fileCollections = this.fileCollections.filter((c) => c.id !== id);
   }
 
   @modelAction
@@ -116,7 +116,7 @@ export class FileCollectionStore extends Model({
 
   @modelAction
   overwrite(collections: ModelCreationData<FileCollection>[]) {
-    this.collections = collections.map((f) => new FileCollection(f));
+    this.fileCollections = collections.map((f) => new FileCollection(f));
   }
 
   @modelAction
@@ -202,12 +202,12 @@ export class FileCollectionStore extends Model({
     }));
 
     const fileIds = fileIdIndexes.map(({ fileId }) => fileId);
-    const res = await trpc.listFiles.mutate({ ids: fileIds });
+    const res = await trpc.listFiles.mutate({ args: { filter: { ids: fileIds } } });
 
     if (!res.success) toast.error(res.error);
     else
       this.editor.setFiles(
-        res.data
+        res.data.items
           .map(
             (f) =>
               new FileCollectionFile({
@@ -293,9 +293,9 @@ export class FileCollectionStore extends Model({
 
   @modelFlow
   loadManagerFiles = asyncAction(async () => {
-    const res = await trpc.listFiles.mutate({ ids: this.manager.fileIds });
+    const res = await trpc.listFiles.mutate({ args: { filter: { ids: this.manager.fileIds } } });
     if (!res.success) throw new Error(res.error);
-    this.manager.setFiles(res.data.map((f) => new File(f)));
+    this.manager.setFiles(res.data.items.map((f) => new File(f)));
   });
 
   @modelFlow
@@ -335,7 +335,7 @@ export class FileCollectionStore extends Model({
 
   /* --------------------------------- DYNAMIC GETTERS -------------------------------- */
   getById(id: string) {
-    return this.collections.find((c) => c.id === id);
+    return this.fileCollections.find((c) => c.id === id);
   }
 
   getFileById(id: string) {
@@ -347,13 +347,13 @@ export class FileCollectionStore extends Model({
   }
 
   listByFileId(id: string) {
-    return this.collections.filter((c) => c.fileIdIndexes.find((f) => f.fileId === id));
+    return this.fileCollections.filter((c) => c.fileIdIndexes.find((f) => f.fileId === id));
   }
 
   /* --------------------------------- GETTERS -------------------------------- */
   @computed
   get activeCollection() {
-    return this.collections.find((c) => c.id === this.editor.id);
+    return this.fileCollections.find((c) => c.id === this.editor.id);
   }
 
   @computed

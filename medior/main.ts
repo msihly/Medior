@@ -1,7 +1,7 @@
 import { app, BrowserWindow, ipcMain, screen } from "electron";
 import path from "path";
-import { readFile } from "fs/promises";
 import { dayjs, loadConfig, logToFile, setLogsPath, setupTRPC } from "./utils";
+import { startServers } from "./server.js";
 
 const isPackaged = app.isPackaged;
 const isBundled = isPackaged || !!process.env.BUILD_DEV;
@@ -28,12 +28,9 @@ let mainWindow = null;
 
 const createMainWindow = async () => {
   logToFile("debug", "Loading servers...");
+  await startServers();
 
-  const serverUrl = path.resolve(folderPath, `${isPackaged ? "extraResources\\" : ""}server.js`);
-
-  /** Using eval is the only method that works with packaged executable for indeterminable reason. */
-  eval(await readFile(serverUrl, { encoding: "utf8" }));
-
+  logToFile("debug", "Creating main window...");
   mainWindow = new BrowserWindow({
     autoHideMenuBar: true,
     backgroundColor: "#111",

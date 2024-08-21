@@ -2,10 +2,10 @@ import fs from "fs/promises";
 import killPort from "kill-port";
 import { MongoMemoryReplSet } from "mongodb-memory-server";
 import Mongoose from "mongoose";
-import { initTRPC } from "@trpc/server";
 import { createHTTPServer } from "@trpc/server/adapters/standalone";
 import { Server } from "socket.io";
-import * as db from "./database";
+import { SocketEmitEvent, socketEvents, SocketEvents } from "./socket";
+import { serverRouter } from "./trpc";
 import { CONSTANTS, getConfig, logToFile, setupSocketIO, sleep } from "./utils";
 
 /* -------------------------------------------------------------------------- */
@@ -90,71 +90,6 @@ const createDbServer = async () => {
 /* -------------------------------------------------------------------------- */
 /*                                 tRPC                                       */
 /* -------------------------------------------------------------------------- */
-/* ----------------------------- API / ROUTER ------------------------------ */
-const t = initTRPC.create();
-const tRouter = t.router;
-
-/** All resources defined as mutation to deal with max length URLs in GET requests.
- * @see https://github.com/trpc/trpc/discussions/1936
- */
-const endpoint = <Input, Output>(fn: (input: Input) => Output) =>
-  t.procedure.input((input: Input) => input).mutation(({ input }) => fn(input));
-
-const trpcRouter = tRouter({
-  completeImportBatch: endpoint(db.completeImportBatch),
-  createCollection: endpoint(db.createCollection),
-  createImportBatches: endpoint(db.createImportBatches),
-  createTag: endpoint(db.createTag),
-  deleteCollection: endpoint(db.deleteCollection),
-  deleteEmptyCollections: endpoint(db.deleteEmptyCollections),
-  deleteFiles: endpoint(db.deleteFiles),
-  deleteImportBatches: endpoint(db.deleteImportBatches),
-  deleteTag: endpoint(db.deleteTag),
-  detectFaces: endpoint(db.detectFaces),
-  editFileTags: endpoint(db.editFileTags),
-  editMultiTagRelations: endpoint(db.editMultiTagRelations),
-  editTag: endpoint(db.editTag),
-  emitImportStatsUpdated: endpoint(db.emitImportStatsUpdated),
-  getDeletedFile: endpoint(db.getDeletedFile),
-  getDiskStats: endpoint(db.getDiskStats),
-  getFileByHash: endpoint(db.getFileByHash),
-  getShiftSelectedFiles: endpoint(db.getShiftSelectedFiles),
-  getShiftSelectedTags: endpoint(db.getShiftSelectedTags),
-  importFile: endpoint(db.importFile),
-  listAllCollectionIds: endpoint(db.listAllCollectionIds),
-  listDeletedFiles: endpoint(db.listDeletedFiles),
-  listFaceModels: endpoint(db.listFaceModels),
-  listFileIdsForCarousel: endpoint(db.listFileIdsForCarousel),
-  listFilePaths: endpoint(db.listFilePaths),
-  listFiles: endpoint(db.listFiles),
-  listFilesByTagIds: endpoint(db.listFilesByTagIds),
-  listFilteredCollections: endpoint(db.listFilteredCollections),
-  listFilteredFiles: endpoint(db.listFilteredFiles),
-  listFilteredTags: endpoint(db.listFilteredTags),
-  listImportBatches: endpoint(db.listImportBatches),
-  listTags: endpoint(db.listTags),
-  loadFaceApiNets: endpoint(db.loadFaceApiNets),
-  mergeTags: endpoint(db.mergeTags),
-  recalculateTagCounts: endpoint(db.recalculateTagCounts),
-  refreshTag: endpoint(db.refreshTag),
-  refreshTagRelations: endpoint(db.refreshTagRelations),
-  regenCollAttrs: endpoint(db.regenCollAttrs),
-  regenTags: endpoint(db.regenTags),
-  regenTagThumbPaths: endpoint(db.regenTagThumbPaths),
-  relinkFiles: endpoint(db.relinkFiles),
-  reloadServers: endpoint((args) => startServers(args)),
-  setFileFaceModels: endpoint(db.setFileFaceModels),
-  setFileIsArchived: endpoint(db.setFileIsArchived),
-  setFileRating: endpoint(db.setFileRating),
-  setTagCount: endpoint(db.setTagCount),
-  startImportBatch: endpoint(db.startImportBatch),
-  updateFile: endpoint(db.updateFile),
-  updateCollection: endpoint(db.updateCollection),
-  updateFileImportByPath: endpoint(db.updateFileImportByPath),
-  upsertTag: endpoint(db.upsertTag),
-});
-export type TRPCRouter = typeof trpcRouter;
-
 /* --------------------------------- SERVER --------------------------------- */
 let server: ReturnType<typeof createHTTPServer>;
 
@@ -169,7 +104,7 @@ const createTRPCServer = async () => {
       await sleep(1000);
     }
 
-    server = createHTTPServer({ router: trpcRouter });
+    server = createHTTPServer({ router: serverRouter });
     server.listen(
       serverPort,
       // @ts-expect-error
@@ -183,42 +118,6 @@ const createTRPCServer = async () => {
 /* -------------------------------------------------------------------------- */
 /*                                  SOCKET.IO                                 */
 /* -------------------------------------------------------------------------- */
-/* ------------------------------ EVENTS ----------------------------- */
-export interface SocketEmitEvents {
-  collectionCreated: (args: { collection: db.FileCollection }) => void;
-  collectionDeleted: (args: { collectionId: string }) => void;
-  collectionUpdated: (args: { collectionId: string; updates: Partial<db.FileCollection> }) => void;
-  filesArchived: (args: { fileIds: string[] }) => void;
-  filesDeleted: (args: { fileHashes: string[]; fileIds: string[] }) => void;
-  filesUpdated: (args: { fileIds: string[]; updates: Partial<db.File> }) => void;
-  fileTagsUpdated: (args: {
-    addedTagIds: string[];
-    batchId?: string;
-    fileIds?: string[];
-    removedTagIds: string[];
-  }) => void;
-  importBatchCompleted: () => void;
-  importStatsUpdated: (args: { importStats: db.ImportStats }) => void;
-  reloadFileCollections: () => void;
-  reloadFiles: () => void;
-  reloadImportBatches: () => void;
-  reloadRegExMaps: () => void;
-  reloadTags: () => void;
-  tagCreated: (args: { tag: db.Tag }) => void;
-  tagDeleted: (args: { tagId: string }) => void;
-  tagMerged: (args: { oldTagId: string; newTagId: string }) => void;
-  tagsUpdated: (args: {
-    tags: Array<{ tagId: string; updates: Partial<db.Tag> }>;
-    withFileReload: boolean;
-  }) => void;
-}
-
-export type SocketEmitEvent = keyof SocketEmitEvents;
-
-export interface SocketEvents extends SocketEmitEvents {
-  connected: () => void;
-}
-
 /* --------------------------------- SERVER --------------------------------- */
 let io: Server;
 
@@ -238,27 +137,6 @@ const createSocketIOServer = async () => {
       logToFile("debug", `Socket server listening on port ${socketPort}.`);
       socket.emit("connected");
 
-      const socketEvents: SocketEmitEvent[] = [
-        "collectionCreated",
-        "collectionDeleted",
-        "collectionUpdated",
-        "filesArchived",
-        "filesDeleted",
-        "filesUpdated",
-        "fileTagsUpdated",
-        "importBatchCompleted",
-        "importStatsUpdated",
-        "reloadFileCollections",
-        "reloadFiles",
-        "reloadImportBatches",
-        "reloadRegExMaps",
-        "reloadTags",
-        "tagCreated",
-        "tagDeleted",
-        "tagMerged",
-        "tagsUpdated",
-      ];
-
       socketEvents.forEach((event) =>
         socket.on(event, (...args: any[]) => {
           socket.broadcast.emit(event, ...args);
@@ -275,7 +153,7 @@ const createSocketIOServer = async () => {
 /* -------------------------------------------------------------------------- */
 /*                                START SERVERS                               */
 /* -------------------------------------------------------------------------- */
-const startServers = async (
+export const startServers = async (
   args: {
     emitReloadEvents?: boolean;
     withDatabase?: boolean;
@@ -304,5 +182,3 @@ const startServers = async (
 
   logToFile("debug", "Servers created.");
 };
-
-startServers();
