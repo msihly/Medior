@@ -5,7 +5,15 @@ import ReactPlayer from "react-player/file";
 import { OnProgressProps } from "react-player/base";
 import Panzoom, { PanzoomObject, PanzoomOptions } from "@panzoom/panzoom";
 import { Slider } from "@mui/material";
-import { Button, FileBase, IconButton, Text, THUMB_WIDTH, View } from "medior/components";
+import {
+  Button,
+  FileBase,
+  IconButton,
+  LoadingOverlay,
+  Text,
+  THUMB_WIDTH,
+  View,
+} from "medior/components";
 import { colors, CONSTANTS, dayjs, makeClasses, round } from "medior/utils";
 
 export const ZoomContext = createContext<MutableRefObject<PanzoomObject>>(null);
@@ -99,7 +107,7 @@ export const Carousel = observer(() => {
     <>
       <View ref={zoomRef} className={css.viewContainer}>
         {!activeFile ? (
-          <Text align="center">{"Loading..."}</Text>
+          <LoadingOverlay isLoading />
         ) : (
           <FileBase.ContextMenu
             file={activeFile}
@@ -202,11 +210,11 @@ export const Carousel = observer(() => {
           </View>
 
           <View className={css.videoTimeContainer}>
-            <Text color={colors.grey["200"]} className={css.videoTime}>
+            <Text color={colors.custom.white} className={css.videoTime}>
               {dayjs.duration(Math.round(curTime * 1000)).format("HH:mm:ss")}
             </Text>
 
-            <Text color={colors.grey["400"]} className={css.videoTime}>
+            <Text color={colors.custom.grey} className={css.videoTime}>
               {dayjs.duration(Math.round(activeFile?.duration * 1000)).format("HH:mm:ss")}
             </Text>
           </View>

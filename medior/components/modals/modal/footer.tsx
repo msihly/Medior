@@ -1,23 +1,22 @@
-import { ReactNode } from "react";
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { DialogActions } from "@mui/material";
-import { makeClasses } from "medior/utils";
+import { UniformList, UniformListProps } from "medior/components";
 
-interface FooterProps {
-  children: ReactNode | ReactNode[];
-}
+interface FooterProps extends UniformListProps {}
 
-export const Footer = ({ children }: FooterProps) => {
-  const { css } = useClasses(null);
-
-  return <DialogActions className={css.actions}>{children}</DialogActions>;
+export const Footer = ({ children, uniformWidth = "10rem", ...props }: FooterProps) => {
+  return (
+    <DialogActions>
+      <UniformList
+        row
+        justify="center"
+        spacing="0.5rem"
+        width="100%"
+        {...{ uniformWidth }}
+        {...props}
+      >
+        {children}
+      </UniformList>
+    </DialogActions>
+  );
 };
-
-const useClasses = makeClasses({
-  actions: {
-    display: "flex",
-    flexDirection: "row",
-    justifyContent: "center",
-    "& > *:not(:last-child)": { marginRight: "0.5rem" },
-  },
-});

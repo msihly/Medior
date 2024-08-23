@@ -65,7 +65,7 @@ export const ImportBatch = observer(({ batch }: ImportBatchProps) => {
               <View row className={css.progressContainer}>
                 <Text className={css.progressText}>
                   {`${batch.imported.length} / `}
-                  <Text color={colors.grey["500"]}>{batch.imports.length}</Text>
+                  <Text color={colors.custom.grey}>{batch.imports.length}</Text>
                 </Text>
 
                 <LinearProgress
@@ -85,9 +85,9 @@ export const ImportBatch = observer(({ batch }: ImportBatchProps) => {
               onClick={handleCollections}
               disabled={!batch.collectionId}
               iconProps={{
-                color: !batch.collectionId
-                  ? Color(colors.grey["300"]).fade(0.5).string()
-                  : colors.grey["300"],
+                color: Color(colors.custom.lightGrey)
+                  .fade(!batch.collectionId ? 0.5 : 0)
+                  .string(),
                 size: "0.9em",
               }}
             />
@@ -97,10 +97,9 @@ export const ImportBatch = observer(({ batch }: ImportBatchProps) => {
               onClick={handleTag}
               disabled={batch.status === "PENDING"}
               iconProps={{
-                color:
-                  batch.status === "PENDING"
-                    ? Color(colors.grey["300"]).fade(0.5).string()
-                    : colors.grey["300"],
+                color: Color(colors.custom.lightGrey)
+                  .fade(batch.status === "PENDING" ? 0.5 : 0)
+                  .string(),
                 size: "0.9em",
               }}
             />
@@ -112,7 +111,7 @@ export const ImportBatch = observer(({ batch }: ImportBatchProps) => {
             <IconButton
               name="Delete"
               onClick={handleDelete}
-              iconProps={{ color: colors.red["700"], size: "0.9em" }}
+              iconProps={{ color: colors.custom.red, size: "0.9em" }}
             />
           </View>
         </View>
@@ -144,7 +143,7 @@ const ImportStats = observer(() => {
         <View row align="center" spacing="0.5rem">
           <Text width="5.5rem">{formatBytes(stores.import.importStats.completedBytes)}</Text>
           <Text>{"/"}</Text>
-          <Text color={colors.grey["500"]} width="5.5rem">
+          <Text color={colors.custom.grey} width="5.5rem">
             {formatBytes(stores.import.importStats.totalBytes)}
           </Text>
         </View>
@@ -160,7 +159,7 @@ const ImportStats = observer(() => {
         <View width="3rem" />
       </View>
 
-      <Text fontSize="0.8em" color={colors.grey["500"]}>
+      <Text fontSize="0.8em" color={colors.custom.grey}>
         {`${formatBytes(stores.import.importStats.rateInBytes)}/s`}
       </Text>
     </View>
@@ -174,7 +173,7 @@ interface ClassesProps {
 
 const useClasses = makeClasses((_, props: ClassesProps) => ({
   folderPath: {
-    color: colors.grey["300"],
+    color: colors.custom.lightGrey,
     fontSize: "0.9em",
     textOverflow: "ellipsis",
     overflow: "hidden",
@@ -182,7 +181,7 @@ const useClasses = makeClasses((_, props: ClassesProps) => ({
   },
   header: {
     borderRadius: props?.expanded ? "0.4rem 0.4rem 0 0" : "0.4rem",
-    backgroundColor: colors.grey["900"],
+    backgroundColor: colors.background,
   },
   headerBottom: {
     display: "flex",
@@ -209,7 +208,7 @@ const useClasses = makeClasses((_, props: ClassesProps) => ({
     justifyContent: "space-between",
     borderTopLeftRadius: "0.4rem",
     padding: "0.3em 0.5em",
-    backgroundColor: colors.darkGrey,
+    backgroundColor: colors.custom.black,
   },
   index: {
     justifyContent: "center",
@@ -220,7 +219,7 @@ const useClasses = makeClasses((_, props: ClassesProps) => ({
     borderRadius: "0 0 0.5rem 0.5rem",
     padding: "0.5rem",
     width: "-webkit-fill-available",
-    backgroundColor: colors.grey["900"],
+    backgroundColor: colors.background,
   },
   progressBar: {
     flex: 1,

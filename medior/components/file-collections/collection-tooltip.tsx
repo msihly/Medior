@@ -65,7 +65,7 @@ export const CollectionTooltip = observer(({ collection, onTagPress }: Collectio
       <View>
         <Icon
           name="InfoOutlined"
-          color={colors.grey["600"]}
+          color={colors.custom.grey}
           size="1em"
           margins={{ left: "0.3rem" }}
         />

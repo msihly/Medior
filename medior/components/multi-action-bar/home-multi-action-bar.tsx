@@ -62,7 +62,7 @@ export const HomeMultiActionBar = observer(() => {
             <MultiActionButton
               name="Delete"
               tooltip="Delete"
-              iconProps={{ color: colors.button.red }}
+              iconProps={{ color: colors.custom.red }}
               onClick={handleDelete}
               disabled={hasNoSelection}
             />
@@ -147,7 +147,7 @@ const useClasses = makeClasses({
     justifyContent: "space-between",
     height: CONSTANTS.TOP_BAR_HEIGHT,
     padding: "0.3rem 0.5rem",
-    background: colors.grey["900"],
+    background: colors.background,
   },
   divisions: {
     display: "inline-flex",

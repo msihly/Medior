@@ -101,7 +101,7 @@ export const RegExMapRow = observer(
             tooltip="File Name"
             onClick={toggleTypeFile}
             disabled={disabled}
-            color={types.includes("fileName") ? colors.button.blue : colors.button.grey}
+            color={types.includes("fileName") ? colors.custom.blue : colors.custom.grey}
           />
 
           <Button
@@ -110,7 +110,7 @@ export const RegExMapRow = observer(
             tooltip="Folder Name"
             onClick={toggleTypeFolder}
             disabled={disabled}
-            color={types.includes("folderName") ? colors.button.blue : colors.button.grey}
+            color={types.includes("folderName") ? colors.custom.blue : colors.custom.grey}
           />
 
           <Button
@@ -119,7 +119,7 @@ export const RegExMapRow = observer(
             tooltip="Diffusion Parameters"
             onClick={toggleTypeDiffusion}
             disabled={disabled}
-            color={types.includes("diffusionParams") ? colors.button.blue : colors.button.grey}
+            color={types.includes("diffusionParams") ? colors.custom.blue : colors.custom.grey}
           />
         </View>
       </View>
@@ -136,7 +136,7 @@ const useClasses = makeClasses({
     alignItems: "flex-start",
     borderRadius: "0.5rem",
     padding: "1.2rem 1rem 0.4rem",
-    backgroundColor: colors.grey["800"],
+    backgroundColor: colors.foreground,
     overflow: "auto",
   },
 });

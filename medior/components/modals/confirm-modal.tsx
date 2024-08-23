@@ -17,10 +17,10 @@ export interface ConfirmModalProps {
 }
 
 export const ConfirmModal = ({
-  cancelColor = colors.button.grey,
+  cancelColor = colors.custom.grey,
   cancelIcon = "Close",
   cancelText = "Cancel",
-  confirmColor = colors.button.red,
+  confirmColor = colors.custom.red,
   confirmIcon = "Delete",
   confirmText = "Delete",
   headerText = "Confirm Delete",
@@ -57,15 +57,15 @@ export const ConfirmModal = ({
       maxWidth="25rem"
     >
       <Modal.Header className={css.modalHeader}>
-        <Text color={colors.grey["400"]} fontSize="1.1em" fontWeight={500}>
+        <Text fontSize="1.1em" fontWeight={500}>
           {headerText}
         </Text>
       </Modal.Header>
 
       <Modal.Content className={css.modalContent}>
-        <Icon name="Delete" color={colors.error} size="5rem" />
+        <Icon name="Delete" color={colors.custom.red} size="5rem" />
 
-        <Text color={colors.grey["300"]} fontSize="1.3em" textAlign="center">
+        <Text fontSize="1.3em" textAlign="center">
           {subText}
         </Text>
       </Modal.Content>

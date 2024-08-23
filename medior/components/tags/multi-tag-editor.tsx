@@ -118,7 +118,7 @@ export const MultiTagEditor = observer(() => {
       </Modal.Content>
 
       <Modal.Footer>
-        <Button text="Close" icon="Close" onClick={handleClose} color={colors.button.grey} />
+        <Button text="Close" icon="Close" onClick={handleClose} color={colors.custom.grey} />
 
         <Button text="Submit" icon="Check" onClick={handleSubmit} />
       </Modal.Footer>

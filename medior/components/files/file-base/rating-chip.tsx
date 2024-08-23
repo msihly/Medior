@@ -5,7 +5,7 @@ import { CSS, colors, getConfig, makeClasses } from "medior/utils";
 export const getRatingMeta = (rating: number) => {
   const icon: IconName = rating > 0 ? "Star" : "StarOutline";
   const iconColor =
-    rating >= 7 ? colors.amber["600"] : rating >= 4 ? colors.grey["300"] : colors.brown["600"];
+    rating >= 7 ? colors.custom.orange : rating >= 4 ? colors.custom.lightGrey : colors.custom.brown;
   const textShadow = /^[235689]/.test(String(rating))
     ? `0px 0px ${/^[369]/.test(String(rating)) ? "7px" : "2px"} ${iconColor}`
     : undefined;

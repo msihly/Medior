@@ -21,7 +21,7 @@ export interface TagProps extends Omit<ChipProps, "color" | "label" | "onClick">
 export const Tag = observer(
   ({
     className,
-    color = colors.blue["700"],
+    color = colors.custom.blue,
     hasEditor = false,
     id,
     menu,
@@ -74,7 +74,7 @@ export const Tag = observer(
               {menu && (
                 <Button
                   circle
-                  color={colors.grey["700"]}
+                  color={colors.custom.grey}
                   icon="MoreVert"
                   padding={{ all: "0.25em" }}
                   onClick={handleOpen}

@@ -127,6 +127,7 @@ export const TagManager = observer(() => {
             icon="Search"
             onClick={handleSearch}
             disabled={stores.tag.manager.isLoading}
+            color={colors.custom.blue}
             width="-webkit-fill-available"
           />
 
@@ -135,7 +136,7 @@ export const TagManager = observer(() => {
             icon="Refresh"
             onClick={handleResetSearch}
             disabled={stores.tag.manager.isLoading}
-            color={colors.button.grey}
+            colorOnHover={colors.custom.red}
             width="-webkit-fill-available"
           />
 
@@ -143,7 +144,6 @@ export const TagManager = observer(() => {
             rows={CONSTANTS.SORT_MENU_OPTS.TAG_SEARCH}
             value={stores.tag.manager.sortValue}
             setValue={setTagManagerSort}
-            color={colors.button.darkGrey}
             width="100%"
           />
 
@@ -284,9 +284,9 @@ export const TagManager = observer(() => {
       </Modal.Content>
 
       <Modal.Footer>
-        <Button text="Close" icon="Close" onClick={handleClose} color={colors.button.grey} />
+        <Button text="Close" icon="Close" onClick={handleClose} colorOnHover={colors.custom.red} />
 
-        <Button text="Create" icon="Add" onClick={handleCreate} />
+        <Button text="Create" icon="Add" onClick={handleCreate} colorOnHover={colors.custom.blue} />
       </Modal.Footer>
     </Modal.Container>
   );
@@ -308,14 +308,14 @@ const useClasses = makeClasses({
     borderTopRightRadius: "inherit",
     borderTopLeftRadius: "inherit",
     padding: "0.2rem 0.5rem",
-    backgroundColor: colors.grey["900"],
+    backgroundColor: colors.custom.black,
   },
   searchColumn: {
     borderRadius: 4,
     marginRight: "0.5rem",
     padding: "0.5rem",
     width: "15rem",
-    backgroundColor: colors.grey["800"],
+    backgroundColor: colors.foreground,
     overflow: "hidden",
   },
   tags: {
@@ -325,6 +325,6 @@ const useClasses = makeClasses({
     borderRadius: "0.4rem",
     height: "100%",
     width: "100%",
-    backgroundColor: colors.grey["800"],
+    backgroundColor: colors.foreground,
   },
 });

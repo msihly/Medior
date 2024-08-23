@@ -3,7 +3,7 @@ import { dialog } from "@electron/remote";
 import { useState } from "react";
 import { filePathsToImports, observer, useStores } from "medior/store";
 import { CircularProgress } from "@mui/material";
-import { Button, Card, Divider, Modal, Text, View } from "medior/components";
+import { Button, Card, Divider, Modal, Text, UniformList, View } from "medior/components";
 import { StorageInput } from "./storage-input";
 import {
   colors,
@@ -215,83 +215,71 @@ export const StorageInputs = observer(() => {
           />
         ))}
 
-        <View row justify="center" spacing="0.5rem">
-          {isModalOpen && (
-            <Modal.Container height="90%" width="90%">
-              <Modal.Header>
-                <Text>{"File Storage / Database Sync"}</Text>
-              </Modal.Header>
+        <UniformList row justify="center" spacing="0.5rem">
+          <Button text="Add Location" icon="Add" onClick={handleAddLocation} width="100%" />
 
-              <Modal.Content>
-                <Card column height="100%" spacing="1rem">
-                  <View row spacing="0.5rem">
-                    {isLoading && <CircularProgress size="1em" />}
+          <Button text="Scan" icon="Refresh" onClick={handleScan} width="100%" />
+        </UniformList>
 
-                    {fileIdsLeftInDbOnly.length > 0 && (
+        {isModalOpen && (
+          <Modal.Container height="90%" width="90%">
+            <Modal.Header>
+              <Text>{"File Storage / Database Sync"}</Text>
+            </Modal.Header>
+
+            <Modal.Content>
+              <Card column height="100%" spacing="1rem">
+                <View row spacing="0.5rem">
+                  {isLoading && <CircularProgress size="1em" />}
+
+                  {fileIdsLeftInDbOnly.length > 0 && (
+                    <Button
+                      text="Delete Files in Database Only"
+                      icon="Delete"
+                      color={colors.custom.red}
+                      onClick={handleDeleteFilesInDbOnly}
+                      disabled={isLoading}
+                    />
+                  )}
+
+                  {filesLeftInStorageOnly.length > 0 && (
+                    <>
                       <Button
-                        text="Delete Files in Database Only"
+                        text="Delete Files in Storages Only"
                         icon="Delete"
-                        color={colors.button.red}
-                        onClick={handleDeleteFilesInDbOnly}
+                        color={colors.custom.red}
+                        onClick={handleDeleteFilesInStorageOnly}
                         disabled={isLoading}
                       />
-                    )}
 
-                    {filesLeftInStorageOnly.length > 0 && (
-                      <>
-                        <Button
-                          text="Delete Files in Storages Only"
-                          icon="Delete"
-                          color={colors.button.red}
-                          onClick={handleDeleteFilesInStorageOnly}
-                          disabled={isLoading}
-                        />
+                      <Button
+                        text="Re-Import Files in Storages Only"
+                        icon="Refresh"
+                        onClick={handleReImportFilesInStorageOnly}
+                        disabled={isLoading}
+                      />
+                    </>
+                  )}
+                </View>
 
-                        <Button
-                          text="Re-Import Files in Storages Only"
-                          icon="Refresh"
-                          onClick={handleReImportFilesInStorageOnly}
-                          disabled={isLoading}
-                        />
-                      </>
-                    )}
-                  </View>
+                <Divider />
 
-                  <Divider />
+                <Text overflow="auto" whiteSpace="pre">
+                  {modalOutput}
+                </Text>
+              </Card>
+            </Modal.Content>
 
-                  <Text overflow="auto" whiteSpace="pre">
-                    {modalOutput}
-                  </Text>
-                </Card>
-              </Modal.Content>
-
-              <Modal.Footer>
-                <Button
-                  text="Close"
-                  onClick={() => setIsModalOpen(false)}
-                  disabled={isLoading}
-                  color={colors.button.darkGrey}
-                />
-              </Modal.Footer>
-            </Modal.Container>
-          )}
-
-          <Button
-            text="Add Location"
-            icon="Add"
-            onClick={handleAddLocation}
-            color={colors.button.darkGrey}
-            width="100%"
-          />
-
-          <Button
-            text="Scan"
-            icon="Refresh"
-            onClick={handleScan}
-            color={colors.button.darkGrey}
-            width="100%"
-          />
-        </View>
+            <Modal.Footer>
+              <Button
+                text="Close"
+                onClick={() => setIsModalOpen(false)}
+                disabled={isLoading}
+                color={colors.custom.darkGrey}
+              />
+            </Modal.Footer>
+          </Modal.Container>
+        )}
       </View>
     </View>
   );

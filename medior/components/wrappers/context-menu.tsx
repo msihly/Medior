@@ -105,7 +105,7 @@ const SubItem = ({
 
 const useClasses = makeClasses({
   contextMenu: {
-    background: colors.grey["900"],
+    background: colors.background,
   },
   contextMenuInner: {
     padding: 0,

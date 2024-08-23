@@ -30,7 +30,7 @@ export const ImportFolderList = observer(
         {collectionTitle?.length > 0 && (
           <>
             <View className={css.collectionTitle}>
-              <Text fontWeight={500} align="center" color={colors.blue["300"]}>
+              <Text fontWeight={500} align="center" color={colors.custom.lightBlue}>
                 {collectionTitle}
               </Text>
               <Text fontSize="0.7em">{"Collection"}</Text>
@@ -67,7 +67,7 @@ export const ImportFolderList = observer(
               <ImportListItem
                 key={index}
                 fileImport={imports[index]}
-                color={index % 2 === 0 ? colors.blueGrey["200"] : colors.grey["200"]}
+                color={index % 2 === 0 ? colors.mui.blueGrey["200"] : colors.custom.lightGrey}
                 style={style}
               />
             )}
@@ -101,11 +101,11 @@ const useClasses = makeClasses({
     borderRadius: 4,
     marginBottom: "0.5rem",
     width: "inherit",
-    backgroundColor: colors.grey["900"],
+    backgroundColor: colors.background,
     overflowX: "auto",
   },
   folderPath: {
-    color: colors.grey["200"],
+    color: colors.custom.lightGrey,
     fontSize: "0.9em",
     textOverflow: "ellipsis",
     overflow: "hidden",
@@ -118,7 +118,7 @@ const useClasses = makeClasses({
     alignItems: "center",
     borderRadius: 4,
     padding: "0.5rem",
-    backgroundColor: colors.darkGrey,
+    backgroundColor: colors.custom.black,
   },
   list: {
     display: "flex",

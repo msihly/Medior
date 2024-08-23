@@ -210,11 +210,11 @@ export const FileCollectionEditor = observer(() => {
             icon={isAddingFiles ? "VisibilityOff" : "Add"}
             onClick={toggleAddingFiles}
             disabled={stores.collection.editor.isLoading}
-            color={colors.blueGrey["700"]}
+            color={colors.custom.darkGrey}
           />
         }
         rightNode={
-          <MenuButton color={colors.button.grey}>
+          <MenuButton color={colors.custom.grey}>
             <ListItem text="Delete" icon="Delete" onClick={handleDelete} />
             <ListItem text="Refresh Metadata" icon="Refresh" onClick={handleRefreshMeta} />
           </MenuButton>
@@ -241,7 +241,6 @@ export const FileCollectionEditor = observer(() => {
                 rows={CONSTANTS.SORT_MENU_OPTS.FILE_SEARCH}
                 value={stores.collection.editor.search.sort}
                 setValue={handleSearchSortChange}
-                color={colors.button.darkGrey}
                 width="100%"
               />
 
@@ -276,7 +275,7 @@ export const FileCollectionEditor = observer(() => {
                 <MultiActionButton
                   name="Delete"
                   tooltip="Remove Files From Collection"
-                  iconProps={{ color: colors.button.red }}
+                  iconProps={{ color: colors.custom.red }}
                   onClick={handleRemoveFiles}
                   disabled={hasNoSelection}
                 />
@@ -350,9 +349,7 @@ export const FileCollectionEditor = observer(() => {
           icon="Close"
           onClick={confirmClose}
           disabled={stores.collection.editor.isLoading}
-          color={
-            stores.collection.editor.hasUnsavedChanges ? colors.red["800"] : colors.blueGrey["700"]
-          }
+          colorOnHover={stores.collection.editor.hasUnsavedChanges ? colors.custom.red : undefined}
         />
 
         <Button
@@ -401,7 +398,7 @@ const useClasses = makeClasses({
     borderRadius: "0.3rem",
     minHeight: "30rem",
     width: "100%",
-    backgroundColor: colors.grey["800"],
+    backgroundColor: colors.foreground,
     overflow: "hidden",
   },
   leftColumn: {
@@ -409,7 +406,7 @@ const useClasses = makeClasses({
     marginRight: "0.5rem",
     padding: "0.5rem",
     width: "15rem",
-    backgroundColor: colors.grey["800"],
+    backgroundColor: colors.foreground,
     overflow: "hidden",
   },
   searchResults: {

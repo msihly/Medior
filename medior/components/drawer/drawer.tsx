@@ -144,20 +144,27 @@ export const Drawer = observer(({ hasImports = false, hasSettings = false }: Dra
       <Divider className={css.divider} />
 
       <View column spacing="0.5rem" margins={{ left: "0.5rem", right: "0.5rem" }}>
-        <Button text="Search" icon="Search" onClick={handleSearch} width="-webkit-fill-available" />
+        <Button
+          text="Search"
+          icon="Search"
+          onClick={handleSearch}
+          color={colors.custom.blue}
+          width="-webkit-fill-available"
+        />
 
         <Button
           text="Reset"
           icon="Refresh"
           onClick={handleResetSearch}
+          colorOnHover={colors.custom.red}
           width="-webkit-fill-available"
-          color={colors.button.grey}
         />
 
         <SortMenu
           rows={CONSTANTS.SORT_MENU_OPTS.FILE_SEARCH}
           value={stores.file.search.sortValue}
           setValue={handleSortChange}
+          color={colors.foreground}
           width="100%"
         />
 
@@ -284,7 +291,7 @@ const useClasses = makeClasses({
     marginTop: CONSTANTS.TOP_BAR_HEIGHT,
     paddingBottom: "5rem",
     width: CONSTANTS.DRAWER_WIDTH,
-    background: colors.grey["900"],
+    background: colors.background,
     zIndex: 20,
     "&::-webkit-scrollbar": {
       display: "none",

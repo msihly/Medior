@@ -4,7 +4,6 @@ import { colors, CSS, makeClasses } from "medior/utils";
 
 export interface SortMenuProps extends Omit<ButtonProps, "onChange" | "value"> {
   color?: string;
-  labelWidth?: CSS["width"];
   rows: {
     attribute: string;
     label: string;
@@ -17,15 +16,14 @@ export interface SortMenuProps extends Omit<ButtonProps, "onChange" | "value"> {
 }
 
 export const SortMenu = ({
-  color = colors.grey["800"],
-  labelWidth = "5rem",
+  color = colors.custom.black,
   rows,
   setValue,
   value,
   width = "fit-content",
   ...buttonProps
 }: SortMenuProps) => {
-  const { css, cx } = useClasses({ labelWidth, width });
+  const { css, cx } = useClasses({ width });
 
   const activeRow = rows.find(({ attribute }) => attribute === value?.key);
 
@@ -64,26 +62,25 @@ export const SortMenu = ({
 };
 
 interface ClassesProps {
-  labelWidth: CSS["width"];
   width: CSS["width"];
 }
 
-const useClasses = makeClasses((_, { labelWidth, width }: ClassesProps) => ({
+const useClasses = makeClasses((_, { width }: ClassesProps) => ({
   button: {
     width,
   },
   label: {
-    width: labelWidth,
     fontSize: "0.9em",
     lineHeight: 1,
     overflow: "hidden",
     textOverflow: "ellipsis",
     textAlign: "left",
+    whiteSpace: "nowrap",
   },
   topText: {
-    color: colors.text.grey,
+    color: colors.custom.lightGrey,
     fontSize: "0.7em",
-    fontWeight: 500,
+    fontWeight: 600,
     lineHeight: 1,
   },
 }));

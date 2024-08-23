@@ -16,8 +16,8 @@ export interface TooltipProps extends Omit<MuiTooltipProps, "children" | "color"
 
 export const Tooltip = ({
   arrow = true,
-  arrowColor = colors.blue["900"],
-  bgColor = colors.grey["900"],
+  arrowColor = colors.custom.blue,
+  bgColor = colors.background,
   children,
   color,
   flexShrink = 0,

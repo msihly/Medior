@@ -103,7 +103,7 @@ export const FileCollectionManager = observer(() => {
 
       <Modal.Header
         rightNode={
-          <MenuButton color={colors.button.grey}>
+          <MenuButton color={colors.custom.grey}>
             <ListItem text="Refresh Metadata" icon="Refresh" onClick={handleRefreshMeta} />
             <ListItem text="Delete Empty" icon="Delete" onClick={handleDeleteEmpty} />
           </MenuButton>
@@ -173,7 +173,6 @@ export const FileCollectionManager = observer(() => {
                 rows={CONSTANTS.SORT_MENU_OPTS.COLLECTION_SEARCH}
                 value={sortValue}
                 setValue={handleSortChange}
-                color={colors.button.darkGrey}
                 width="100%"
               />
 
@@ -240,7 +239,7 @@ export const FileCollectionManager = observer(() => {
       </Modal.Content>
 
       <Modal.Footer>
-        <Button text="Close" icon="Close" onClick={handleClose} color={colors.button.grey} />
+        <Button text="Close" icon="Close" onClick={handleClose} color={colors.custom.grey} />
 
         <Button text="New Collection" icon="Add" onClick={handleNewCollection} />
 
@@ -266,7 +265,7 @@ const useClasses = makeClasses({
     minHeight: "15rem",
     height: "100%",
     width: "100%",
-    backgroundColor: colors.grey["800"],
+    backgroundColor: colors.foreground,
     overflow: "auto",
   },
   leftColumn: {

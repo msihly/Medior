@@ -43,8 +43,8 @@ const useClasses = makeClasses({
     bottom: 0,
     right: 0,
     left: 0,
-    border: `15px dashed ${colors.blue["600"]}`,
-    backgroundColor: Color(colors.blue["800"]).fade(0.5).string(),
+    border: `15px dashed ${colors.custom.blue}`,
+    backgroundColor: Color(colors.custom.blue).fade(0.5).string(),
     opacity: 0.3,
     zIndex: 5000, // necessary for MUI z-index values
   },

@@ -29,7 +29,7 @@ export const ImportCardRow = observer(
           <Text color={meta.color} fontWeight={500}>
             {meta.label}
           </Text>
-          <Text color={colors.grey["700"]}>{` - ${imports.length}`}</Text>
+          <Text color={colors.custom.grey}>{` - ${imports.length}`}</Text>
         </View>
 
         <View className={css.importCardRow}>

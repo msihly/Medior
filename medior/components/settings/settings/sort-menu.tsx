@@ -1,8 +1,11 @@
 import { observer, useStores } from "medior/store";
-import { SortMenu as SortMenuBase, SortMenuProps as SortMenuBaseProps, View } from "medior/components";
+import {
+  SortMenu as SortMenuBase,
+  SortMenuProps as SortMenuBaseProps,
+  View,
+} from "medior/components";
 import { Label } from "./label";
 import { colors, ConfigKey } from "medior/utils";
-import Color from "color";
 
 export interface SortMenuProps extends Omit<SortMenuBaseProps, "setValue" | "value"> {
   configKey: ConfigKey;
@@ -21,12 +24,7 @@ export const SortMenu = observer(({ configKey, label, ...props }: SortMenuProps)
     <View column>
       <Label {...{ label }} />
 
-      <SortMenuBase
-        {...{ setValue, value }}
-        labelWidth="6rem"
-        color={Color(colors.grey["800"]).darken(0.25).string()}
-        {...props}
-      />
+      <SortMenuBase {...{ setValue, value }} width="9rem" color={colors.background} {...props} />
     </View>
   );
 });

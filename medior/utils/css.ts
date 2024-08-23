@@ -1,7 +1,6 @@
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { colors as muiColors } from "@mui/material";
 import { Theme, useTheme } from "@mui/material/styles";
-import Color from "color";
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { createMakeAndWithStyles, CSSObject, Cx } from "tss-react";
 
@@ -36,24 +35,26 @@ export const makeClasses = <T extends ClassName<T>, P = Record<string, any>>(
   };
 };
 
+const customColors = {
+  black: "#131313",
+  blue: "#2866c5",
+  blueGrey: "#546e7a",
+  brown: "#6d4c41",
+  darkGrey: "#2b2b2b",
+  green: "#2e7d32",
+  grey: "#4b4b4b",
+  lightBlue: "#578cdd",
+  lightGrey: "#bdbdbd",
+  orange: "#f57c00",
+  purple: "#683980",
+  red: "#982525",
+  white: "#f5f5f5",
+};
+
 export const colors = {
-  ...muiColors,
-  button: {
-    blue: muiColors.blue["800"],
-    grey: muiColors.grey["700"],
-    darkGrey: "rgb(40 40 40)",
-    purple: muiColors.purple["700"],
-    red: muiColors.red["900"],
-  },
-  darkGrey: Color(muiColors.grey["900"]).darken(0.4).string(),
-  error: muiColors.red["900"],
-  primary: muiColors.blue["800"],
-  success: muiColors.green["800"],
-  text: {
-    black: muiColors.grey["900"],
-    blue: muiColors.blue["800"],
-    grey: muiColors.grey["500"],
-    red: muiColors.red["900"],
-    white: muiColors.grey["100"],
-  },
+  mui: muiColors,
+  custom: customColors,
+  background: "#1E1E1E",
+  foreground: "#2C2C2C",
+  foregroundCard: "#343434",
 };

@@ -25,7 +25,7 @@ export const InfoModal = observer(() => {
     <Modal.Container width="100%" maxWidth="50rem" onClose={handleClose}>
       <Modal.Header
         leftNode={
-          <Text fontSize="0.7em" color={colors.grey["600"]}>
+          <Text fontSize="0.7em" color={colors.custom.grey}>
             {`ID: ${stores.file.activeFileId}`}
           </Text>
         }
@@ -128,7 +128,7 @@ export const InfoModal = observer(() => {
       </Modal.Content>
 
       <Modal.Footer>
-        <Button text="Close" icon="Close" onClick={handleClose} color={colors.red["800"]} />
+        <Button text="Close" icon="Close" onClick={handleClose} colorOnHover={colors.custom.red} />
 
         <Button text="Refresh" icon="Refresh" onClick={handleRefresh} />
       </Modal.Footer>
@@ -145,7 +145,7 @@ const useClasses = makeClasses({
   diffContainer: {
     borderRadius: "0.25rem",
     padding: "0.4rem 0.6rem",
-    backgroundColor: colors.grey["800"],
+    backgroundColor: colors.foreground,
   },
   link: {
     alignSelf: "flex-start",

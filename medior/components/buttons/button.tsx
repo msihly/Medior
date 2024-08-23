@@ -6,7 +6,15 @@ import {
   ButtonProps as MuiButtonProps,
   CircularProgress,
 } from "@mui/material";
-import { Icon, IconName, IconProps, Text, TooltipProps, TooltipWrapper, View } from "medior/components";
+import {
+  Icon,
+  IconName,
+  IconProps,
+  Text,
+  TooltipProps,
+  TooltipWrapper,
+  View,
+} from "medior/components";
 import { colors, CSS, makeClasses, Margins, Padding } from "medior/utils";
 import Color from "color";
 
@@ -16,6 +24,7 @@ export interface ButtonProps
     "color" | "endIcon" | "fullWidth" | "startIcon" | "type" | "variant"
   > {
   color?: string;
+  colorOnHover?: string;
   circle?: boolean;
   endNode?: ReactNode;
   fontSize?: CSS["fontSize"];
@@ -45,7 +54,8 @@ export const Button = ({
   children,
   circle = false,
   className,
-  color = colors.button.blue,
+  color = colors.custom.grey,
+  colorOnHover,
   endNode,
   fontSize = "1.15em",
   fontWeight = 400,
@@ -75,6 +85,7 @@ export const Button = ({
 }: ButtonProps) => {
   const { css, cx } = useClasses({
     color,
+    colorOnHover,
     isCircle: circle,
     isLink: type === "link",
     justify,
@@ -142,6 +153,7 @@ export const Button = ({
 
 interface ClassesProps {
   color: string;
+  colorOnHover: string;
   isCircle: boolean;
   isLink: boolean;
   justify: CSS["justifyContent"];
@@ -159,6 +171,7 @@ const useClasses = makeClasses(
     _,
     {
       color,
+      colorOnHover,
       isCircle,
       isLink,
       justify,
@@ -194,12 +207,13 @@ const useClasses = makeClasses(
       boxShadow: isLink ? "none" : undefined,
       color: outlined
         ? color
-        : textColor ?? (isLink ? colors.blue["300"] : outlined ? color : colors.grey["200"]),
+        : (textColor ?? (isLink ? colors.custom.blue : outlined ? color : colors.custom.white)),
       textTransform,
       "&:hover": {
-        backgroundColor: isLink
+        background: isLink
           ? "transparent"
-          : Color(outlined ? outlineFill : color)
+          : colorOnHover ||
+            Color(outlined ? outlineFill : color)
               .lighten(0.1)
               .string(),
         boxShadow: isLink ? "none" : undefined,

@@ -33,7 +33,7 @@ const TagLevel = observer(({ tag }: TagHierarchyProps) => {
       <View onClick={tag.id ? handleClick : null} row align="center" className={css.tagLevel}>
         <Icon
           name={tag.id ? "Edit" : "AddCircle"}
-          color={tag.id ? colors.blue["700"] : colors.green["700"]}
+          color={tag.id ? colors.custom.blue : colors.custom.green}
           margins={{ right: "0.5rem" }}
         />
 
@@ -57,7 +57,7 @@ const useClasses = makeClasses((_, { hasId }) => ({
     borderRadius: 4,
     marginRight: "0.5rem",
     padding: "0.5rem 1rem 0.5rem 0.5rem",
-    backgroundColor: colors.grey["900"],
+    backgroundColor: colors.background,
     overflowY: "auto",
   },
   tagLevel: {

@@ -7,7 +7,7 @@ export interface ChipProps extends ChipBaseProps {
 }
 
 export const Chip = ({
-  bgColor = colors.grey["900"],
+  bgColor = colors.background,
   opacity = 0.6,
   position,
   ...props

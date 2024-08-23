@@ -730,11 +730,11 @@ export const ImportEditor = observer(() => {
 
       <Modal.Footer>
         <Button
-          text="Close"
-          icon="Close"
+          text="Cancel"
+          icon="Delete"
           onClick={handleCancel}
           disabled={isDisabled}
-          color={colors.button.red}
+          colorOnHover={colors.custom.red}
         />
 
         <Button
@@ -742,7 +742,7 @@ export const ImportEditor = observer(() => {
           icon="Check"
           onClick={handleConfirm}
           disabled={isDisabled}
-          color={colors.button.blue}
+          color={colors.custom.blue}
         />
       </Modal.Footer>
 
@@ -771,7 +771,7 @@ const useClasses = makeClasses({
     borderRadius: 4,
     width: "100%",
     padding: "0.5rem",
-    backgroundColor: colors.grey["800"],
+    backgroundColor: colors.foreground,
   },
   leftColumn: {
     flexShrink: 0,

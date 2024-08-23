@@ -15,7 +15,7 @@ export interface ImportListItemProps {
 }
 
 export const ImportListItem = observer(
-  ({ color = colors.grey["200"], fileImport, style = {} }: ImportListItemProps) => {
+  ({ color = colors.custom.lightGrey, fileImport, style = {} }: ImportListItemProps) => {
     const { css } = useClasses(null);
 
     const parsedParams = useMemo(() => {
@@ -107,7 +107,7 @@ export const ImportListItem = observer(
 
                 <Divider sx={{ margin: "0.5rem 0" }} />
 
-                <Text color={colors.text.blue} fontWeight={600} fontSize="1.3em" textAlign="center">
+                <Text color={colors.custom.blue} fontWeight={600} fontSize="1.3em" textAlign="center">
                   {"Raw Params"}
                 </Text>
                 <Text>{fileImport.diffusionParams}</Text>
@@ -143,7 +143,7 @@ const TooltipChip = ({ children, icon, label }: TooltipChipProps) => {
       }
       tooltipProps={{ maxWidth: "40rem", minWidth: "15rem", placement: "left" }}
     >
-      <Chip {...{ icon, label }} bgColor={colors.blue["800"]} className={css.chip} />
+      <Chip {...{ icon, label }} bgColor={colors.custom.blue} className={css.chip} />
     </TooltipWrapper>
   );
 };
@@ -180,7 +180,7 @@ const useClasses = makeClasses({
   },
   tooltipTitle: {
     marginBottom: "0.2rem",
-    color: colors.text.blue,
+    color: colors.custom.blue,
     fontSize: "1.3em",
     fontWeight: 600,
     textAlign: "center",

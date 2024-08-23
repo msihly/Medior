@@ -9,27 +9,27 @@ interface Status {
 
 export const IMPORT_STATUSES: Record<string, Status> = {
   COMPLETE: {
-    color: colors.green["700"],
+    color: colors.custom.green,
     icon: "CheckCircle",
     label: "Completed",
   },
   DELETED: {
-    color: colors.red["800"],
+    color: colors.custom.red,
     icon: "Delete",
     label: "Previously Deleted",
   },
   DUPLICATE: {
-    color: colors.amber["700"],
+    color: colors.custom.orange,
     icon: "ControlPointDuplicate",
     label: "Duplicate",
   },
   ERROR: {
-    color: colors.red["800"],
+    color: colors.custom.red,
     icon: "Error",
     label: "Error",
   },
   PENDING: {
-    color: colors.blueGrey["600"],
+    color: colors.custom.blueGrey,
     icon: "Pending",
     label: "Pending",
   },

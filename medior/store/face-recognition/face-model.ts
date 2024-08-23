@@ -15,10 +15,10 @@ export class FaceModel extends Model({
   @computed
   get boxColor() {
     return this.selectedTag === null
-      ? colors.red["600"]
+      ? colors.custom.red
       : this.selectedTag?.id !== this.tagId
-      ? colors.blue["600"]
-      : colors.green["600"];
+      ? colors.custom.blue
+      : colors.custom.green;
   }
 
   @computed

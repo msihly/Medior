@@ -230,7 +230,7 @@ export const TagMerger = observer(() => {
           icon="Close"
           onClick={handleClose}
           disabled={isSaving}
-          color={colors.button.grey}
+          color={colors.custom.grey}
         />
 
         <Button text="Confirm" icon="Check" onClick={handleConfirm} {...{ disabled }} />

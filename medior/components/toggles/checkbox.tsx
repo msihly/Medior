@@ -1,3 +1,4 @@
+import { ReactNode } from "react";
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { Checkbox as MuiCheckbox, FormControlLabel } from "@mui/material";
 import { colors, CSS, makeClasses, Padding } from "medior/utils";
@@ -11,7 +12,7 @@ export interface CheckboxProps {
   flex?: CSS["flex"];
   fullWidth?: boolean;
   indeterminate?: boolean;
-  label?: string;
+  label?: ReactNode;
   padding?: Padding;
   setChecked: (checked: boolean) => void;
 }
@@ -20,7 +21,7 @@ export const Checkbox = ({
   center = false,
   checked = false,
   className,
-  color = colors.blue["600"],
+  color = colors.custom.blue,
   disabled = false,
   flex = 1,
   fullWidth = true,

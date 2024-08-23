@@ -52,7 +52,7 @@ export const ImportManager = observer(() => {
               <ImportBatch key={batch.id} {...{ batch }} />
             ))
           ) : (
-            <CenteredText text="No Completed Imports" color={colors.grey["300"]} />
+            <CenteredText text="No Completed Imports" color={colors.custom.lightGrey} />
           )}
         </View>
 
@@ -64,13 +64,13 @@ export const ImportManager = observer(() => {
               <ImportBatch key={batch.id} {...{ batch }} />
             ))
           ) : (
-            <CenteredText text="No Pending Imports" color={colors.grey["300"]} />
+            <CenteredText text="No Pending Imports" color={colors.custom.lightGrey} />
           )}
         </View>
       </Modal.Content>
 
       <Modal.Footer>
-        <Button text="Close" icon="Close" onClick={handleClose} color={colors.button.grey} />
+        <Button text="Close" icon="Close" onClick={handleClose} color={colors.custom.grey} />
       </Modal.Footer>
     </Modal.Container>
   );
@@ -120,21 +120,21 @@ const DeleteToggleButton = observer(({ type }: DeleteToggleButtonProps) => {
         <IconButton
           name="DeleteOutline"
           onClick={() => setIsConfirmDeleteAllOpen(true)}
-          iconProps={{ color: colors.grey["500"], size: "0.9em" }}
+          iconProps={{ color: colors.custom.grey, size: "0.9em" }}
         />
       ) : (
         <>
           <IconButton
             name="CloseOutlined"
             onClick={() => setIsConfirmDeleteAllOpen(false)}
-            iconProps={{ color: colors.grey["500"], size: "0.9em" }}
+            iconProps={{ color: colors.custom.grey, size: "0.9em" }}
             margins={{ right: "0.1rem" }}
           />
 
           <IconButton
             name="Delete"
             onClick={deleteAll}
-            iconProps={{ color: colors.red["700"], size: "0.9em" }}
+            iconProps={{ color: colors.custom.red, size: "0.9em" }}
           />
         </>
       )}
@@ -150,7 +150,7 @@ const useClasses = makeClasses({
     padding: "0.7rem",
     height: "100%",
     width: "100%",
-    backgroundColor: colors.grey["800"],
+    backgroundColor: colors.foreground,
     overflowX: "hidden",
     overflowY: "auto",
   },

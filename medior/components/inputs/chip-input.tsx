@@ -97,6 +97,6 @@ export const ChipInput = ({
 
 const useClasses = makeClasses((_, { opaque }) => ({
   input: {
-    backgroundColor: opaque ? colors.grey["800"] : "transparent",
+    backgroundColor: opaque ? colors.foreground : "transparent",
   },
 }));

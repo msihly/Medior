@@ -86,7 +86,6 @@ export const Input = forwardRef(
               )
             ) : undefined
           }
-          FormHelperTextProps={{ component: "div" }}
           inputProps={{ ...inputProps, maxLength, value: value ?? "" }}
           size="small"
           className={cx(css.input, className)}
@@ -109,49 +108,48 @@ interface ClassesProps {
   width: CSS["width"];
 }
 
-const useClasses = makeClasses(
-  (
-    _,
-    { color, flex, hasHelper, hasHelperText, hasOnClick, margins, textAlign, width }: ClassesProps
-  ) => ({
-    container: {
-      flex,
-      width,
+const useClasses = makeClasses((_, props?: ClassesProps) => ({
+  container: {
+    flex: props?.flex,
+    width: props?.width,
+  },
+  input: {
+    flex: props?.flex,
+    margin: props?.margins?.all,
+    marginTop: props?.margins?.top,
+    marginBottom:
+      props?.margins?.bottom ?? (props?.hasHelper && !props?.hasHelperText ? "1.3em" : 0),
+    marginRight: props?.margins?.right,
+    marginLeft: props?.margins?.left,
+    width: props?.width,
+    "& input": {
+      borderRadius: "inherit",
+      textAlign: props?.textAlign,
+      cursor: props?.hasOnClick ? "pointer" : undefined,
     },
-    input: {
-      margin: margins.all,
-      marginTop: margins.top,
-      marginBottom: margins.bottom ?? (hasHelper && !hasHelperText ? "1.3em" : 0),
-      marginRight: margins.right,
-      marginLeft: margins.left,
-      width,
-      "& input": {
-        textAlign,
-        cursor: hasOnClick ? "pointer" : undefined,
+    "& .MuiTypography-root": {
+      textAlign: props?.textAlign,
+    },
+    "& .MuiOutlinedInput-root": {
+      background: "rgb(0 0 0 / 0.2)",
+      "& fieldset": {
+        transition: "all 200ms ease-in-out",
+        borderColor: props?.color,
+        borderStyle: "dotted",
       },
-      "& .MuiTypography-root": {
-        textAlign,
+      "&:hover fieldset": {
+        borderColor: props?.color ? Color(props?.color).lighten(0.3).toString() : undefined,
       },
-      "& .MuiOutlinedInput-root": {
-        backgroundColor: "rgb(0 0 0 / 0.2)",
-        "& fieldset": {
-          transition: "all 200ms ease-in-out",
-          borderColor: color,
-        },
-        "&:hover fieldset": {
-          borderColor: color ? Color(color).lighten(0.3).toString() : undefined,
-        },
-        "&.Mui-focused fieldset": {
-          borderColor: color,
-        },
-      },
-      "& .MuiFormHelperText-root": {
-        margin: "0.3em 0 0 0",
-        color: color,
-        fontSize: "0.75em",
-        lineHeight: 1,
-        textAlign: "center",
+      "&.Mui-focused fieldset": {
+        borderColor: props?.color,
       },
     },
-  })
-);
+    "& .MuiFormHelperText-root": {
+      margin: "0.3em 0 0 0",
+      color: props?.color,
+      fontSize: "0.75em",
+      lineHeight: 1,
+      textAlign: "center",
+    },
+  },
+}));

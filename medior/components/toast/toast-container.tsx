@@ -22,23 +22,23 @@ export const ToastContainer = (props: ToastContainerProps) => {
 
 const ICON_TYPES: { [key in TypeOptions]: { color: string; icon: IconName } } = {
   default: {
-    color: colors.blue["800"],
+    color: colors.custom.blue,
     icon: "CircleNotifications",
   },
   error: {
-    color: colors.red["800"],
+    color: colors.custom.red,
     icon: "Error",
   },
   info: {
-    color: colors.blue["800"],
+    color: colors.custom.blue,
     icon: "Info",
   },
   success: {
-    color: colors.green["800"],
+    color: colors.custom.green,
     icon: "CheckCircle",
   },
   warning: {
-    color: colors.orange["800"],
+    color: colors.custom.orange,
     icon: "NewReleases",
   },
 };
@@ -46,8 +46,8 @@ const ICON_TYPES: { [key in TypeOptions]: { color: string; icon: IconName } } = 
 const useClasses = makeClasses({
   toast: {
     "& .Toastify__toast": {
-      backgroundColor: colors.grey["900"],
-      color: colors.grey["200"],
+      backgroundColor: colors.background,
+      color: colors.custom.lightGrey,
       "&-body": {
         display: "flex",
         alignItems: "center",
@@ -82,10 +82,10 @@ const useClasses = makeClasses({
       "& .Toastify__close-button": {
         margin: 0,
         lineHeight: 1,
-        color: colors.grey["400"],
+        color: colors.custom.grey,
         "&:hover": {
           backgroundColor: "transparent",
-          color: colors.red["700"],
+          color: colors.custom.red,
         },
       },
     },

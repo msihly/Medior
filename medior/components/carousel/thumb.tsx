@@ -30,7 +30,7 @@ export const CarouselThumb = observer(({ id, isDragging = false, style }: Carous
       <FileBase.Chip
         label={file?.rating}
         icon="Star"
-        iconColor={colors.amber["600"]}
+        iconColor={colors.custom.orange}
         position="top-left"
       />
 

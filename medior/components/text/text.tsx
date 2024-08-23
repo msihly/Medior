@@ -50,9 +50,10 @@ const useClasses = makeClasses((_, { color, preset }: ClassesProps) => ({
     color,
     ...(preset === "label-glow"
       ? {
+          color: colors.custom.white,
           fontSize: "0.8em",
           textAlign: "center",
-          textShadow: `0 0 10px ${colors.blue["600"]}`,
+          textShadow: `0 0 10px ${colors.custom.blue}`,
           overflow: "visible",
         }
       : {}),

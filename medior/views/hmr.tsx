@@ -1,7 +1,6 @@
 import { observer } from "medior/store";
 import { View } from "medior/components";
 import { colors, makeClasses } from "medior/utils";
-import Color from "color";
 
 export const HMR = observer(() => {
   const { css } = useClasses(null);
@@ -21,7 +20,7 @@ const useClasses = makeClasses({
     margin: "1rem",
     padding: "1rem",
     height: "100%",
-    backgroundColor: Color(colors.grey["800"]).fade(0.8).string(),
+    backgroundColor: colors.foreground,
     overflow: "auto",
   },
   root: {

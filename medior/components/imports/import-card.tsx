@@ -35,7 +35,7 @@ export const ImportCard = observer(({ fileImport, style }: ImportCardProps) => {
           </Text>
 
           <Text>
-            <Text color={colors.text.blue} fontWeight={600} marginRight="0.3em">
+            <Text color={colors.custom.blue} fontWeight={600} marginRight="0.3em">
               {"Path:"}
             </Text>
             {fileImport.path}
@@ -43,7 +43,7 @@ export const ImportCard = observer(({ fileImport, style }: ImportCardProps) => {
 
           {fileImport.errorMsg && (
             <Text marginTop="0.5em">
-              <Text color={colors.text.red} fontWeight={600} marginRight="0.3em">
+              <Text color={colors.custom.red} fontWeight={600} marginRight="0.3em">
                 {"Error:"}
               </Text>
               {fileImport.errorMsg}

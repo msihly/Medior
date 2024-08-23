@@ -24,7 +24,9 @@ export const RootFolderButton = observer(({ folderPart, index }: RootFolderButto
         text={folderPart}
         onClick={handleClick}
         fontWeight={500}
-        textColor={isSelected ? colors.blue["400"] : Color(colors.blue["200"]).fade(0.3).string()}
+        textColor={Color(colors.custom.lightBlue)
+          .fade(!isSelected ? 0.3 : 0)
+          .string()}
       />
     </Fragment>
   );

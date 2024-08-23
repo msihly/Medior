@@ -34,7 +34,7 @@ const useClasses = makeClasses({
       bottom: 0,
       right: 0,
       left: 0,
-      background: `linear-gradient(to right, transparent 60%, ${colors.grey["900"]})`,
+      background: `linear-gradient(to right, transparent 60%, ${colors.background})`,
     },
   },
 });

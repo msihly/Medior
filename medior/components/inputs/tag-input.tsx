@@ -23,27 +23,27 @@ const SEARCH_MENU_META: {
   [key in SearchTagType]: { color: string; icon: IconName; text: string };
 } = {
   exclude: {
-    color: colors.red["700"],
+    color: colors.custom.red,
     icon: "RemoveCircleOutline",
     text: "Exclude",
   },
   excludeDesc: {
-    color: colors.red["700"],
+    color: colors.custom.red,
     icon: "RemoveCircle",
     text: "Exclude (Descendants)",
   },
   includeAnd: {
-    color: colors.green["700"],
+    color: colors.custom.green,
     icon: "AddCircle",
     text: "Include (Required)",
   },
   includeOr: {
-    color: colors.green["700"],
+    color: colors.custom.green,
     icon: "AddCircleOutline",
     text: "Include (Optional)",
   },
   includeDesc: {
-    color: colors.green["700"],
+    color: colors.custom.green,
     icon: "ControlPointDuplicate",
     text: "Include (Descendants)",
   },
@@ -284,8 +284,8 @@ export const TagInput = observer(
                     <ListItem
                       text="Remove"
                       icon="Delete"
-                      color={colors.red["700"]}
-                      iconProps={{ color: colors.red["700"] }}
+                      color={colors.custom.red}
+                      iconProps={{ color: colors.custom.red }}
                       onClick={handleDelete}
                     />
 
@@ -351,7 +351,7 @@ const useClasses = makeClasses((_, { center, margins, opaque, width }) => ({
     overflowY: "auto",
   },
   input: {
-    backgroundColor: opaque ? colors.grey["800"] : "transparent",
+    // backgroundColor: opaque ? colors.foreground : "transparent",
     margin: margins?.all,
     marginTop: margins?.top,
     marginBottom: margins?.bottom,

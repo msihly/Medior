@@ -69,7 +69,7 @@ export const TagCard = observer(({ tag }: TagCardProps) => {
           <FileBase.Chip
             position="top-left"
             label={formatter.format(tag.count)}
-            bgColor={colors.blue["700"]}
+            bgColor={colors.custom.blue}
           />
         </FileBase.Image>
 

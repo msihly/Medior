@@ -31,7 +31,7 @@ export const Detail = ({
     <View column={!row} row={row} spacing={row ? "0.5rem" : null} {...props}>
       {typeof label === "string" ? (
         <Text
-          color={colors.text.blue}
+          color={colors.custom.blue}
           fontWeight={row ? 500 : undefined}
           fontSize={row ? "1em" : "0.8em"}
           {...labelProps}

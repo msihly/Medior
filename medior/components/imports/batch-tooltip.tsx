@@ -55,7 +55,7 @@ export const BatchTooltip = observer(({ batch, children }: BatchTooltipProps) =>
 
 const useClasses = makeClasses({
   label: {
-    color: colors.blue["700"],
+    color: colors.custom.blue,
     fontWeight: 500,
     fontSize: "1.1em",
     textAlign: "center",
@@ -70,7 +70,7 @@ const useClasses = makeClasses({
     margin: "0.3rem 0 0.2rem",
   },
   value: {
-    color: colors.grey["200"],
+    color: colors.custom.lightGrey,
     fontSize: "1.1em",
     textAlign: "center",
   },

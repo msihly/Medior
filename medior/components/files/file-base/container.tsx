@@ -26,7 +26,7 @@ export const Container = ({
   onClick,
   onDoubleClick,
   selected,
-  selectedColor = colors.blue["900"],
+  selectedColor = colors.custom.blue,
   width,
   ...viewProps
 }: ContainerProps) => {
@@ -80,7 +80,7 @@ const useClasses = makeClasses(
       flexDirection: "column",
       flex: 1,
       height: "100%",
-      backgroundColor: colors.grey["900"],
+      backgroundColor: colors.background,
       userSelect: "none",
     },
   })

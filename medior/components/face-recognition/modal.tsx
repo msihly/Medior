@@ -6,7 +6,6 @@ import { Button, Modal, TagInput, Text, View } from "medior/components";
 import { FaceBox } from ".";
 import { colors, makeClasses, useElementResize } from "medior/utils";
 import { toast } from "react-toastify";
-import Color from "color";
 
 type FaceModelWithImage = { dataUrl: string; faceModel: FaceModel };
 
@@ -224,7 +223,7 @@ export const FaceRecognitionModal = observer(() => {
           icon="Close"
           onClick={handleClose}
           disabled={stores.faceRecog.isDisabled}
-          color={colors.red["900"]}
+          color={colors.custom.red}
         />
 
         <Button
@@ -232,7 +231,7 @@ export const FaceRecognitionModal = observer(() => {
           icon="Search"
           onClick={handleDetect}
           disabled={stores.faceRecog.isDisabled}
-          color={hasDetectedFaces ? colors.blueGrey["700"] : undefined}
+          color={hasDetectedFaces ? colors.custom.purple : undefined}
         />
 
         {hasDetectedFaces && (
@@ -256,7 +255,7 @@ const useClasses = makeClasses({
     borderRadius: "0.3rem",
     marginBottom: "0.4rem",
     padding: "0.4rem",
-    backgroundColor: colors.grey["900"],
+    backgroundColor: colors.background,
     "& > img": {
       borderRadius: "0.3rem",
       objectFit: "contain",
@@ -289,9 +288,7 @@ const useClasses = makeClasses({
     borderRadius: "0.3rem",
     width: "100%",
     height: "100%",
-    background: `linear-gradient(to top left, ${colors.grey["900"]}, ${Color(colors.grey["900"])
-      .lighten(0.15)
-      .string()})`,
+    background: colors.background,
     overflow: "hidden",
   },
   rootContainer: {

@@ -38,7 +38,7 @@ const useClasses = makeClasses((_, { labelWidth }) => ({
     flexShrink: 0,
     marginRight: "1rem",
     width: labelWidth,
-    color: colors.blue["600"],
+    color: colors.custom.blue,
     fontWeight: "bold",
     whiteSpace: "nowrap",
   },

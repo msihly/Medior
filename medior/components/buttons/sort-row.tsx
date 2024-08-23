@@ -40,7 +40,7 @@ interface SortButtonProps {
 
 const SortButton = ({ attribute, isDesc = false, setValue, value }: SortButtonProps) => {
   const isActive = attribute === value?.key && isDesc === value?.isDesc;
-  const color = isActive ? colors.blue["500"] : colors.grey["500"];
+  const color = isActive ? colors.custom.blue : colors.custom.lightGrey;
 
   const updateSort = () => setValue({ key: attribute, isDesc });
 

@@ -92,7 +92,7 @@ export const CarouselTopBar = observer(() => {
         <View className={css.ratingContainer}>
           <Icon
             name="Star"
-            color={colors.amber["600"]}
+            color={colors.custom.orange}
             size="inherit"
             margins={{ right: "0.1em" }}
           />
@@ -140,7 +140,7 @@ const useClasses = makeClasses((_, { isMouseMoving, isPinned }: ClassesProps) =>
     minWidth: 0,
   },
   rating: {
-    color: colors.grey["100"],
+    color: colors.custom.lightGrey,
     lineHeight: 1,
   },
   ratingContainer: {

@@ -13,22 +13,22 @@ interface Status {
 
 const STATUSES: Record<string, Status> = {
   AT_THRESHOLD: {
-    color: colors.red["800"],
+    color: colors.custom.red,
     icon: "Error",
     label: "Threshold Reached",
   },
   NEAR_THRESHOLD: {
-    color: colors.amber["700"],
+    color: colors.custom.orange,
     icon: "Warning",
     label: "Near Threshold",
   },
   ONLINE: {
-    color: colors.green["700"],
+    color: colors.custom.green,
     icon: "CheckCircle",
     label: "Online",
   },
   OFFLINE: {
-    color: colors.red["800"],
+    color: colors.custom.red,
     icon: "Error",
     label: "Offline",
   },
@@ -52,10 +52,10 @@ export const StorageInput = observer(({ index, selectLocation, ...props }: Stora
   const status = isOffline
     ? STATUSES.OFFLINE
     : isAtThreshold
-    ? STATUSES.AT_THRESHOLD
-    : isNearThreshold
-    ? STATUSES.NEAR_THRESHOLD
-    : STATUSES.ONLINE;
+      ? STATUSES.AT_THRESHOLD
+      : isNearThreshold
+        ? STATUSES.NEAR_THRESHOLD
+        : STATUSES.ONLINE;
   const value = stores.home.settings.db.fileStorage.locations[index];
 
   useEffect(() => {
@@ -66,9 +66,8 @@ export const StorageInput = observer(({ index, selectLocation, ...props }: Stora
           if (!res.success) throw new Error(res.error);
           setDiskStats(res.data);
         } catch (err) {
-          const msg: string = err.message;
-          if (msg.startsWith("ENOENT")) setIsOffline(true);
-          else console.error(err);
+          setIsOffline(true);
+          console.error(err);
         }
       }
     })();
@@ -108,19 +107,17 @@ export const StorageInput = observer(({ index, selectLocation, ...props }: Stora
             {status.label}
           </Text>
         ) : !diskStats ? (
-          <Text color={colors.text.grey}>{"Loading..."}</Text>
+          <Text color={colors.custom.grey}>{"Loading..."}</Text>
         ) : (
           <>
             <Text color={status.color} fontWeight={500}>{`${round(percentFilled * 100)}%`}</Text>
 
-            <Text>
-              {`-- ${formatBytes(diskStats.free)} / ${formatBytes(diskStats.size)}`}
-            </Text>
+            <Text>{`-- ${formatBytes(diskStats.free)} / ${formatBytes(diskStats.size)}`}</Text>
           </>
         )}
       </View>
 
-      <IconButton name="Delete" onClick={handleDelete} iconProps={{ color: colors.button.red }} />
+      <IconButton name="Delete" onClick={handleDelete} iconProps={{ color: colors.custom.red }} />
     </View>
   );
 });

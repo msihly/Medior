@@ -25,7 +25,7 @@ const useClasses = makeClasses({
   container: {
     display: "flex",
     flexDirection: "column",
-    backgroundColor: colors.grey["800"],
+    backgroundColor: colors.foreground,
     borderRadius: "0.5rem",
     padding: "0.5rem",
   },

@@ -8,7 +8,7 @@ export interface CenteredTextProps extends TextProps {
 }
 
 export const CenteredText = ({
-  color = colors.grey["600"],
+  color = colors.custom.grey,
   text,
   viewProps = {},
   ...props

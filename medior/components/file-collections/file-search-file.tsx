@@ -25,14 +25,14 @@ export const FileSearchFile = observer(
         >
           <FileBase.Chip
             position="top-left"
-            label={<Button icon="Add" onClick={handleAdd} color={colors.green["800"]} circle />}
+            label={<Button icon="Add" onClick={handleAdd} color={colors.custom.green} circle />}
             padding={{ all: "0 1px" }}
           />
 
           <FileBase.Chip
             position="top-right"
             icon="Star"
-            iconColor={colors.amber["600"]}
+            iconColor={colors.custom.orange}
             label={file.rating}
           />
 

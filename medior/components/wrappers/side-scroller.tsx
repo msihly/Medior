@@ -106,9 +106,9 @@ const useClasses = makeClasses((_, { isLeftButtonVisible, isRightButtonVisible }
     margin: "0 0.2rem",
     width: "1rem",
     height: "1rem",
-    backgroundColor: colors.blue["800"],
+    backgroundColor: colors.custom.blue,
     "&:hover": {
-      backgroundColor: colors.blue["700"],
+      backgroundColor: colors.custom.blue,
     },
     "& svg": {
       width: "0.6em",

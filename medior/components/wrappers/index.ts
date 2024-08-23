@@ -6,4 +6,5 @@ export * from "./context-menu";
 export * from "./divider";
 export * from "./loading-overlay";
 export * from "./side-scroller";
+export * from "./uniform-list";
 export * from "./view";

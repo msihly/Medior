@@ -1,11 +1,18 @@
 import { dialog } from "@electron/remote";
 import { useEffect, useState } from "react";
 import { observer, useStores } from "medior/store";
-import { Button, ConfirmModal, Divider, LoadingOverlay, Modal, Text, View } from "medior/components";
+import {
+  Button,
+  ConfirmModal,
+  Divider,
+  LoadingOverlay,
+  Modal,
+  Text,
+  View,
+} from "medior/components";
 import { Settings } from ".";
 import { colors, CONSTANTS, loadConfig, makeClasses, saveConfig, trpc } from "medior/utils";
 import { toast } from "react-toastify";
-import Color from "color";
 
 export const SettingsModal = observer(() => {
   const { css } = useClasses(null);
@@ -144,13 +151,13 @@ export const SettingsModal = observer(() => {
               />
 
               <Settings.SortMenu
-                label="Editor - Default Search Sort"
+                label="Editor - Default Sort"
                 configKey="collection.editorSearchSort"
                 rows={CONSTANTS.SORT_MENU_OPTS.FILE_SEARCH}
               />
 
               <Settings.SortMenu
-                label="Manager - Default Search Sort"
+                label="Manager - Default Sort"
                 configKey="collection.managerSearchSort"
                 rows={CONSTANTS.SORT_MENU_OPTS.COLLECTION_SEARCH}
               />
@@ -169,7 +176,7 @@ export const SettingsModal = observer(() => {
               />
 
               <Settings.SortMenu
-                label="Default Search Sort"
+                label="Default Sort"
                 configKey="file.searchSort"
                 rows={CONSTANTS.SORT_MENU_OPTS.FILE_SEARCH}
               />
@@ -332,7 +339,7 @@ export const SettingsModal = observer(() => {
 
           <Settings.Section title="Tags">
             <Settings.SortMenu
-              label="Default Tag Manager Sort"
+              label="Manager - Default Sort"
               configKey="tags.managerSearchSort"
               rows={CONSTANTS.SORT_MENU_OPTS.TAG_SEARCH}
             />
@@ -341,20 +348,26 @@ export const SettingsModal = observer(() => {
       </Modal.Content>
 
       <Modal.Footer>
-        {isConfirmDiscardOpen && (
-          <ConfirmModal
-            headerText="Discard Changes"
-            subText="Are you sure you want to discard your changes?"
-            confirmText="Discard"
-            setVisible={setIsConfirmDiscardOpen}
-            onConfirm={handleClose}
-          />
-        )}
+        <Button text="Cancel" icon="Close" onClick={handleCancel} />
 
-        <Button text="Cancel" icon="Close" onClick={handleCancel} color={colors.button.grey} />
-
-        <Button text="Save" icon="Save" onClick={handleSaveConfig} />
+        <Button
+          text="Save"
+          icon="Save"
+          onClick={handleSaveConfig}
+          disabled={!stores.home.settings.hasUnsavedChanges}
+          color={stores.home.settings.hasUnsavedChanges ? colors.custom.blue : undefined}
+        />
       </Modal.Footer>
+
+      {isConfirmDiscardOpen && (
+        <ConfirmModal
+          headerText="Discard Changes"
+          subText="Are you sure you want to discard your changes?"
+          confirmText="Discard"
+          setVisible={setIsConfirmDiscardOpen}
+          onConfirm={handleClose}
+        />
+      )}
     </Modal.Container>
   );
 });
@@ -365,7 +378,7 @@ const useClasses = makeClasses({
     flexFlow: "row wrap",
     borderRadius: "0.5rem",
     padding: "0.3rem",
-    backgroundColor: Color(colors.grey["800"]).darken(0.15).string(),
+    backgroundColor: colors.foregroundCard,
   },
   modalContent: {
     overflowX: "auto",

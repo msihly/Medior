@@ -176,7 +176,7 @@ export const TagEditor = observer(
 
                 <IconButton
                   name="Refresh"
-                  iconProps={{ color: colors.button.grey }}
+                  iconProps={{ color: colors.custom.grey }}
                   onClick={handleRefresh}
                   disabled={isLoading}
                 />
@@ -185,7 +185,7 @@ export const TagEditor = observer(
 
                 <IconButton
                   name="Delete"
-                  iconProps={{ color: colors.button.red }}
+                  iconProps={{ color: colors.custom.red }}
                   onClick={handleDelete}
                   disabled={isLoading}
                 />
@@ -290,7 +290,6 @@ export const TagEditor = observer(
             icon="Close"
             onClick={handleClose}
             disabled={isLoading}
-            color={colors.button.grey}
           />
 
           {!isCreate && (
@@ -299,7 +298,7 @@ export const TagEditor = observer(
               icon="Merge"
               onClick={handleMerge}
               disabled={isLoading}
-              color={colors.blueGrey["700"]}
+              colorOnHover={colors.custom.purple}
             />
           )}
 
@@ -321,7 +320,7 @@ export const TagEditor = observer(
 
 const useClasses = makeClasses({
   headerText: {
-    color: colors.grey["600"],
+    color: colors.custom.grey,
     fontSize: "0.7em",
     whiteSpace: "nowrap",
     textOverflow: "ellipsis",

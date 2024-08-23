@@ -136,10 +136,10 @@ const useClasses = makeClasses({
     padding: 0,
   },
   tableHeader: {
-    backgroundColor: colors.blue["800"],
+    backgroundColor: colors.custom.blue,
   },
   tableHeaderCell: {
-    color: colors.grey["50"],
+    color: colors.custom.white,
     fontWeight: 400,
     fontSize: "1em",
     whiteSpace: "nowrap",
@@ -153,8 +153,8 @@ const useClasses = makeClasses({
     textOverflow: "ellipsis",
   },
   tableRowAlt: {
-    "&:nth-of-type(even) > td": { backgroundColor: colors.grey["700"] },
-    "&:nth-of-type(odd) > td": { backgroundColor: colors.grey["800"] },
+    "&:nth-of-type(even) > td": { backgroundColor: colors.custom.grey },
+    "&:nth-of-type(odd) > td": { backgroundColor: colors.foreground },
   },
   wrapped: {
     display: "-webkit-inline-box",

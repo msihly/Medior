@@ -56,12 +56,12 @@ export const Tooltip = observer(({ disabled, file, onTagPress }: TooltipProps) =
       }
     >
       {file.diffusionParams?.length > 0 && (
-        <Icon name="Notes" size="1em" color={colors.blue["500"]} />
+        <Icon name="Notes" size="1em" color={colors.custom.blue} />
       )}
 
       <Icon
         name="InfoOutlined"
-        color={colors.grey["600"]}
+        color={colors.custom.grey}
         size="1em"
         margins={{ left: "0.3rem" }}
       />
@@ -74,7 +74,7 @@ const useClasses = makeClasses({
     borderRadius: "0.25rem",
     padding: "0.4rem 0.6rem",
     maxHeight: "10rem",
-    backgroundColor: colors.grey["800"],
+    backgroundColor: colors.foreground,
     overflowY: "auto",
   },
   root: {
