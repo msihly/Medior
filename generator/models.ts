@@ -96,7 +96,7 @@ const MODEL_FILE_COLLECTION: ModelDef = {
 const MODEL_FILE_IMPORT_BATCH: ModelDef = {
   name: "FileImportBatch",
   defaultSort: { isDesc: true, key: "dateCreated" },
-  indexes: [{ fields: { dateCreated: 1 }, options: { unique: true } }],
+  indexes: [{ fields: { dateCreated: 1, _id: 1 }, options: { unique: true } }],
   properties: [
     ...COMMON_MODEL_PROPS,
     { name: "collectionId", schemaType: "String", type: "string" },
@@ -320,7 +320,7 @@ export const makeModelDef = (modelDef: ModelDef) => {
         acc[0].push(
           `export interface ${cur.typeName} { ${cur.schemaType.map((p) => `${p.name}: ${p.type};`).join("\n")} }`
         );
-        acc[1].push(`${cur.name}: { ${cur.schemaType.map((p) => `${p.name}: ${p.schemaType}`)} },`);
+        acc[1].push(`${cur.name}: [{ ${cur.schemaType.map((p) => `${p.name}: ${p.schemaType}`)} }],`);
       }
 
       return acc;

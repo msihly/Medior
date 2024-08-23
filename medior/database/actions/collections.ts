@@ -1,5 +1,6 @@
 import { FilterQuery } from "mongoose";
-import * as db from "medior/database";
+import * as actions from "medior/database/actions";
+import * as models from "medior/_generated/models";
 import { leanModelToJson, makeAction, objectIds } from "medior/database/utils";
 import { dayjs, setObj, socket } from "medior/utils";
 
@@ -26,7 +27,7 @@ const createCollectionFilterPipeline = (args: {
   const hasRequiredDescTags = args.requiredDescTagIds?.length > 0;
   const hasRequiredTags = args.requiredTagIds.length > 0;
 
-  const $match: FilterQuery<db.FileCollectionSchema> = {};
+  const $match: FilterQuery<models.FileCollectionSchema> = {};
 
   if (args.title) setObj($match, ["title", "$regex"], new RegExp(args.title, "i"));
   if (hasExcludedTags) setObj($match, ["tagIds", "$nin"], objectIds(args.excludedTagIds));
@@ -43,7 +44,7 @@ const createCollectionFilterPipeline = (args: {
   };
 };
 
-const makeCollAttrs = async (files: db.FileSchema[]) => {
+const makeCollAttrs = async (files: models.FileSchema[]) => {
   const ratedFiles = files.filter((f) => f.rating > 0);
   const tagIds = [...new Set(files.flatMap((f) => f.tagIds))];
   return {
@@ -53,7 +54,7 @@ const makeCollAttrs = async (files: db.FileSchema[]) => {
         ? ratedFiles.reduce((acc, f) => acc + f.rating, 0) / ratedFiles.length
         : 0,
     tagIds,
-    tagIdsWithAncestors: await db.deriveAncestorTagIds(tagIds),
+    tagIdsWithAncestors: await actions.deriveAncestorTagIds(tagIds),
     thumbPaths: files.slice(0, 10).map((f) => f.thumbPaths[0]),
   };
 };
@@ -67,7 +68,7 @@ export const createCollection = makeAction(
     title: string;
     withSub?: boolean;
   }) => {
-    const filesRes = await db.listFiles({
+    const filesRes = await actions.listFiles({
       args: { filter: { id: args.fileIdIndexes.map((f) => f.fileId) } },
     });
     if (!filesRes.success) throw new Error(filesRes.error);
@@ -81,32 +82,32 @@ export const createCollection = makeAction(
       title: args.title,
     };
 
-    const res = await db.FileCollectionModel.create(collection);
+    const res = await models.FileCollectionModel.create(collection);
     if (args.withSub) socket.emit("onFileCollectionCreated", res);
     return { ...collection, id: res._id.toString() };
   }
 );
 
 export const deleteCollection = makeAction(async (args: { id: string }) => {
-  const res = await db.FileCollectionModel.deleteOne({ _id: args.id });
+  const res = await models.FileCollectionModel.deleteOne({ _id: args.id });
   if (res.deletedCount) socket.emit("onFileCollectionDeleted", args);
   return res;
 });
 
 export const deleteEmptyCollections = makeAction(async () => {
-  const res = await db.FileCollectionModel.deleteMany({ fileCount: 0 });
+  const res = await models.FileCollectionModel.deleteMany({ fileCount: 0 });
   return res.deletedCount;
 });
 
 export const listAllCollectionIds = makeAction(async () => {
-  return (await db.FileCollectionModel.find().select({ _id: 1 }).lean()).map((c) =>
+  return (await models.FileCollectionModel.find().select({ _id: 1 }).lean()).map((c) =>
     c._id.toString()
   );
 });
 
 export const listCollectionIdsByTagIds = makeAction(async (args: { tagIds: string[] }) => {
   return (
-    await db.FileCollectionModel.find({ tagIds: { $in: objectIds(args.tagIds) } })
+    await models.FileCollectionModel.find({ tagIds: { $in: objectIds(args.tagIds) } })
       .select({ _id: 1 })
       .lean()
   ).map((f) => f._id.toString());
@@ -124,20 +125,20 @@ export const listFilteredCollections = makeAction(
     const filterPipeline = createCollectionFilterPipeline(filterParams);
 
     const [collections, totalDocuments] = await Promise.all([
-      db.FileCollectionModel.find(filterPipeline.$match)
+      models.FileCollectionModel.find(filterPipeline.$match)
         .sort(filterPipeline.$sort)
         .skip(Math.max(0, page - 1) * pageSize)
         .limit(pageSize)
         .allowDiskUse(true)
         .lean(),
-      db.FileCollectionModel.countDocuments(filterPipeline.$match),
+      models.FileCollectionModel.countDocuments(filterPipeline.$match),
     ]);
 
     if (!collections || !(totalDocuments > -1))
       throw new Error("Failed to load filtered collection IDs");
 
     return {
-      collections: collections.map((c) => leanModelToJson<db.FileCollectionSchema>(c)),
+      collections: collections.map((c) => leanModelToJson<models.FileCollectionSchema>(c)),
       pageCount: Math.ceil(totalDocuments / pageSize),
     };
   }
@@ -146,7 +147,7 @@ export const listFilteredCollections = makeAction(
 export const regenCollAttrs = makeAction(
   async (args: { collIds?: string[]; fileIds?: string[] } = {}) => {
     const collections = (
-      await db.FileCollectionModel.find({
+      await models.FileCollectionModel.find({
         ...(args.collIds?.length
           ? { _id: { $in: objectIds(args.collIds) } }
           : args.fileIds?.length
@@ -155,17 +156,17 @@ export const regenCollAttrs = makeAction(
       })
         .select({ _id: 1, fileIdIndexes: 1 })
         .lean()
-    ).map((r) => leanModelToJson<db.FileCollectionSchema>(r));
+    ).map((r) => leanModelToJson<models.FileCollectionSchema>(r));
 
     await Promise.all(
       collections.map(async (collection) => {
-        const filesRes = await db.listFiles({
+        const filesRes = await actions.listFiles({
           args: { filter: { id: collection.fileIdIndexes.map((f) => f.fileId) } },
         });
         if (!filesRes.success) throw new Error(filesRes.error);
 
         const updates = await makeCollAttrs(filesRes.data.items);
-        await db.FileCollectionModel.updateOne({ _id: collection.id }, { $set: updates });
+        await models.FileCollectionModel.updateOne({ _id: collection.id }, { $set: updates });
 
         socket.emit("onFileCollectionUpdated", { id: collection.id, updates });
       })
@@ -175,23 +176,23 @@ export const regenCollAttrs = makeAction(
 
 export const regenCollRating = makeAction(async (fileIds: string[]) => {
   const collections = (
-    await db.FileCollectionModel.find({
+    await models.FileCollectionModel.find({
       fileIdIndexes: { $elemMatch: { fileId: { $in: fileIds } } },
     })
       .select({ _id: 1, fileIdIndexes: 1 })
       .lean()
-  ).map((r) => leanModelToJson<db.FileCollectionSchema>(r));
+  ).map((r) => leanModelToJson<models.FileCollectionSchema>(r));
 
   await Promise.all(
     collections.map(async (collection) => {
-      const filesRes = await db.listFiles({
+      const filesRes = await actions.listFiles({
         args: { filter: { id: collection.fileIdIndexes.map((f) => f.fileId) } },
       });
       if (!filesRes.success) throw new Error(filesRes.error);
 
       const rating =
         filesRes.data.items.reduce((acc, f) => acc + f.rating, 0) / filesRes.data.items.length;
-      await db.FileCollectionModel.updateOne({ _id: collection.id }, { $set: { rating } });
+      await models.FileCollectionModel.updateOne({ _id: collection.id }, { $set: { rating } });
 
       socket.emit("onFileCollectionUpdated", { id: collection.id, updates: { rating } });
     })
@@ -203,43 +204,43 @@ export const regenCollTagAncestors = makeAction(
     args: { collectionIds: string[]; tagIds?: never } | { collectionIds?: never; tagIds: string[] }
   ) => {
     const collections = (
-      await db.FileCollectionModel.find({
+      await models.FileCollectionModel.find({
         ...(args.collectionIds ? { _id: { $in: objectIds(args.collectionIds) } } : {}),
         ...(args.tagIds ? { tagIdsWithAncestors: { $in: objectIds(args.tagIds) } } : {}),
       })
         .select({ _id: 1, tagIds: 1, tagIdsWithAncestors: 1 })
         .lean()
-    ).map(leanModelToJson<db.FileCollectionSchema>);
+    ).map(leanModelToJson<models.FileCollectionSchema>);
 
-    const ancestorsMap = await db.makeAncestorIdsMap(collections.flatMap((c) => c.tagIds));
+    const ancestorsMap = await actions.makeAncestorIdsMap(collections.flatMap((c) => c.tagIds));
 
     await Promise.all(
       collections.map(async (c) => {
-        const { hasUpdates, tagIdsWithAncestors } = db.makeUniqueAncestorUpdates({
+        const { hasUpdates, tagIdsWithAncestors } = actions.makeUniqueAncestorUpdates({
           ancestorsMap,
           oldTagIdsWithAncestors: c.tagIdsWithAncestors,
           tagIds: c.tagIds,
         });
 
         if (!hasUpdates) return;
-        await db.FileCollectionModel.updateOne({ _id: c.id }, { $set: { tagIdsWithAncestors } });
+        await models.FileCollectionModel.updateOne({ _id: c.id }, { $set: { tagIdsWithAncestors } });
       })
     );
   }
 );
 
 export const updateCollection = makeAction(
-  async (updates: Omit<Partial<db.FileCollectionSchema>, "tagIds"> & { id: string }) => {
+  async (updates: Omit<Partial<models.FileCollectionSchema>, "tagIds"> & { id: string }) => {
     updates.dateModified = dayjs().toISOString();
 
     if (updates.fileIdIndexes) {
-      const filesRes = await db.listFiles({
+      const filesRes = await actions.listFiles({
         args: { filter: { id: updates.fileIdIndexes.map((f) => f.fileId) } },
       });
       if (!filesRes.success) throw new Error(filesRes.error);
       updates = { ...updates, ...(await makeCollAttrs(filesRes.data.items)) };
     }
 
-    return await db.FileCollectionModel.updateOne({ _id: updates.id }, updates);
+    return await models.FileCollectionModel.updateOne({ _id: updates.id }, updates);
   }
 );

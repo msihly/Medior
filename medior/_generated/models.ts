@@ -98,25 +98,27 @@ const FileImportBatchSchema = new Schema<FileImportBatchSchema>({
   completedAt: String,
   deleteOnImport: Boolean,
   ignorePrevDeleted: Boolean,
-  imports: {
-    dateCreated: String,
-    diffusionParams: String,
-    errorMsg: String,
-    extension: String,
-    fileId: { type: Schema.Types.ObjectId, ref: "File" },
-    name: String,
-    path: String,
-    size: Number,
-    status: { type: String, enum: ["COMPLETE", "DELETED", "DUPLICATE", "ERROR", "PENDING"] },
-    tagIds: [{ type: Schema.Types.ObjectId, ref: "Tag" }],
-    thumbPaths: [String],
-  },
+  imports: [
+    {
+      dateCreated: String,
+      diffusionParams: String,
+      errorMsg: String,
+      extension: String,
+      fileId: { type: Schema.Types.ObjectId, ref: "File" },
+      name: String,
+      path: String,
+      size: Number,
+      status: { type: String, enum: ["COMPLETE", "DELETED", "DUPLICATE", "ERROR", "PENDING"] },
+      tagIds: [{ type: Schema.Types.ObjectId, ref: "Tag" }],
+      thumbPaths: [String],
+    },
+  ],
   rootFolderPath: String,
   startedAt: String,
   tagIds: [String],
 });
 
-FileImportBatchSchema.index({ dateCreated: 1 }, { unique: true });
+FileImportBatchSchema.index({ dateCreated: 1, _id: 1 }, { unique: true });
 
 export const FileImportBatchModel = model<FileImportBatchSchema>(
   "FileImportBatch",
@@ -162,12 +164,14 @@ const FileSchema = new Schema<FileSchema>({
   diffusionParams: String,
   duration: Number,
   ext: String,
-  faceModels: {
-    box: { height: Number, width: Number, x: Number, y: Number },
-    descriptors: [Object],
-    fileId: Schema.Types.ObjectId,
-    tagId: Schema.Types.ObjectId,
-  },
+  faceModels: [
+    {
+      box: { height: Number, width: Number, x: Number, y: Number },
+      descriptors: [Object],
+      fileId: Schema.Types.ObjectId,
+      tagId: Schema.Types.ObjectId,
+    },
+  ],
   frameRate: Number,
   hash: String,
   height: Number,

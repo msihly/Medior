@@ -1,21 +1,23 @@
-import { ImportStatus } from "medior/components";
-import * as db from "medior/database";
+import * as actions from "medior/database/actions";
+import * as models from "medior/_generated/models";
+import * as Types from "medior/database/types";
 import { makeAction } from "medior/database/utils";
-import { FileImport, ImportBatchInput } from "medior/store";
-import { dayjs, socket } from "medior/utils";
 import { ModelCreationData } from "mobx-keystone";
+import { FileImport, ImportBatchInput } from "medior/store";
+import { ImportStatus } from "medior/components";
+import { dayjs, socket } from "medior/utils";
 
 export const completeImportBatch = makeAction(
   async (args: { collectionId?: string; fileIds: string[]; id: string; tagIds: string[] }) => {
     const completedAt = dayjs().toISOString();
     await Promise.all([
-      db.FileImportBatchModel.updateOne(
+      models.FileImportBatchModel.updateOne(
         { _id: args.id },
         { collectionId: args.collectionId, completedAt }
       ),
-      args.tagIds.length && db.regenFileTagAncestors({ fileIds: args.fileIds }),
-      args.tagIds.length && db.recalculateTagCounts({ tagIds: args.tagIds }),
-      ...args.tagIds.map((tagId) => db.regenTagThumbPaths({ tagId })),
+      args.tagIds.length && actions.regenFileTagAncestors({ fileIds: args.fileIds }),
+      args.tagIds.length && actions.recalculateTagCounts({ tagIds: args.tagIds }),
+      ...args.tagIds.map((tagId) => actions.regenTagThumbPaths({ tagId })),
     ]);
 
     socket.emit("onImportBatchCompleted");
@@ -34,7 +36,7 @@ export const createImportBatches = makeAction(
       tagIds?: string[];
     }[]
   ) => {
-    const res = await db.FileImportBatchModel.insertMany(
+    const res = await models.FileImportBatchModel.insertMany(
       batches.map((batch) => ({
         ...batch,
         completedAt: null,
@@ -51,17 +53,17 @@ export const createImportBatches = makeAction(
 
 export const deleteImportBatches = makeAction(
   async (args: { ids: string[] }) =>
-    await db.FileImportBatchModel.deleteMany({ _id: { $in: args.ids } })
+    await models.FileImportBatchModel.deleteMany({ _id: { $in: args.ids } })
 );
 
 export const emitImportStatsUpdated = makeAction(
-  async ({ importStats }: { importStats: db.ImportStats }) => {
+  async ({ importStats }: { importStats: Types.ImportStats }) => {
     socket.emit("onImportStatsUpdated", { importStats });
   }
 );
 
 export const listImportBatches = makeAction(async () =>
-  (await db.FileImportBatchModel.find().lean()).map(
+  (await models.FileImportBatchModel.find().lean()).map(
     (b) =>
       ({
         ...b,
@@ -75,7 +77,7 @@ export const listImportBatches = makeAction(async () =>
 
 export const startImportBatch = makeAction(async (args: { id: string }) => {
   const startedAt = dayjs().toISOString();
-  await db.FileImportBatchModel.updateOne({ _id: args.id }, { startedAt });
+  await models.FileImportBatchModel.updateOne({ _id: args.id }, { startedAt });
   return startedAt;
 });
 
@@ -88,7 +90,7 @@ export const updateFileImportByPath = makeAction(
     status?: ImportStatus;
     thumbPaths?: string[];
   }) => {
-    const res = await db.FileImportBatchModel.updateOne(
+    const res = await models.FileImportBatchModel.updateOne(
       { _id: args.batchId },
       {
         $set: {
