@@ -110,10 +110,10 @@ export const makeStoreDef = async (modelDef: ModelDef) => {
         this.setIsLoading(true);
         const res = await trpc.${map.list.fnName}.mutate({
           args: {
-            ...args,
-            page: this.page,
-            pageSize: this.pageSize,
-            sort: { [this.sortValue.key]: this.sortValue.isDesc ? "desc" : "asc" },
+            filter: JSON.parse(JSON.stringify(args.filter)),
+            page: args.page ?? this.page,
+            pageSize: args.pageSize ?? this.pageSize,
+            sort: args.sort ?? { [this.sortValue.key]: this.sortValue.isDesc ? "desc" : "asc" },
           },
         });
         this.setIsLoading(false);

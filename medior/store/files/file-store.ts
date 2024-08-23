@@ -106,7 +106,7 @@ export class FileStore extends ExtendedModel(_FileStore, {
     const fileIds = [...this.idsForConfirmDelete];
     if (!fileIds?.length) throw new Error("No files to delete");
 
-    const res = await trpc.listFiles.mutate({ args: { filter: { ids: fileIds } } });
+    const res = await trpc.listFiles.mutate({ args: { filter: { id: fileIds } } });
     if (!res.success) throw new Error(res.error);
     const files = res.data.items;
 
@@ -211,7 +211,7 @@ export class FileStore extends ExtendedModel(_FileStore, {
   @modelFlow
   refreshSelectedFiles = asyncAction(async () => {
     const filesRes = await this.loadFiles({
-      filter: { fileIds: this.selectedIds },
+      filter: { id: this.selectedIds },
       withOverwrite: false,
     });
     if (!filesRes?.success) throw new Error("Failed to load files");

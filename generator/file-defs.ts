@@ -1,10 +1,9 @@
 import { capitalize } from "medior/utils";
 import {
+  FILE_DEF_ACTIONS,
+  FILE_DEF_ENDPOINTS,
   getActions,
-  makeActionsDef,
   makeCustomActionTypes,
-  makeEndpointDefFromCustomAction,
-  makeEndpointDefFromModelName,
   makeModelActionTypes,
 } from "./actions";
 import { MODEL_DEFS, makeModelDef, makeSortDef } from "./models";
@@ -12,45 +11,8 @@ import { makeSocketDefs } from "./sockets";
 import { makeStoreDef } from "./stores";
 
 export const fileDefs: FileDef[] = [
-  {
-    name: "actions",
-    makeFile: async () => {
-      let output = `import * as db from ".";
-        import { leanModelToJson, makeAction } from "medior/database/utils";
-        import { dayjs, socket } from "medior/utils";\n`;
-
-      for (const def of MODEL_DEFS) {
-        output += `${await makeActionsDef(def)}\n\n`;
-      }
-
-      return output;
-    },
-  },
-  {
-    name: "endpoints",
-    makeFile: async () => {
-      const actions = await getActions();
-
-      return `import { initTRPC } from "@trpc/server";
-        import * as db from "medior/database";
-        import * as actions from "./actions";
-
-        export const trpc = initTRPC.create();
-
-        /** All resources defined as mutation to deal with max length URLs in GET requests.
-         *  @see https://github.com/trpc/trpc/discussions/1936
-         */
-        export const serverEndpoint = <Input, Output>(fn: (input: Input) => Promise<Output>) =>
-          trpc.procedure.input((input: Input) => input).mutation(({ input }) => fn(input));
-
-        export const serverRouter = trpc.router({
-          /** Model actions */
-          ${MODEL_DEFS.map((d) => makeEndpointDefFromModelName(d.name, actions.model)).join(",")},
-          /** Custom actions */
-          ${actions.custom.map(makeEndpointDefFromCustomAction).join(",")}
-        });`;
-    },
-  },
+  FILE_DEF_ACTIONS,
+  FILE_DEF_ENDPOINTS,
   {
     name: "models",
     makeFile: async () => {
@@ -89,7 +51,27 @@ export const fileDefs: FileDef[] = [
       const actions = await getActions();
 
       return `import * as db from "medior/database";
-        import { FilterQuery, SortOrder } from "mongoose";
+        import { QuerySelector, SortOrder } from "mongoose";
+
+        export type _FilterQuery<Schema> = {
+          [SchemaKey in keyof Schema]?:
+            | Schema[SchemaKey]
+            | Array<Schema[SchemaKey]>
+            | QuerySelector<Schema[SchemaKey]>;
+        } & {
+          _id?: string | Array<string> | QuerySelector<string>;
+          $and?: Array<_FilterQuery<Schema>>;
+          $nor?: Array<_FilterQuery<Schema>>;
+          $or?: Array<_FilterQuery<Schema>>;
+          $text?: {
+            $search: string;
+            $language?: string;
+            $caseSensitive?: boolean;
+            $diacriticSensitive?: boolean;
+          };
+          $where?: string | Function;
+          $comment?: string;
+        };
 
         /* -------------------------------------------------------------------------- */
         /*                                MODEL ACTIONS                               */

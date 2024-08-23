@@ -20,7 +20,7 @@ export const CollectionTooltip = observer(({ collection, onTagPress }: Collectio
   const handleOpen = async () => {
     try {
       const res = await stores.file.loadFiles({
-        filter: { fileIds: collection.fileIdIndexes.map(({ fileId }) => fileId) },
+        filter: { id: collection.fileIdIndexes.map(({ fileId }) => fileId) },
         withOverwrite: false,
       });
       if (!res?.success) throw new Error(res.error);

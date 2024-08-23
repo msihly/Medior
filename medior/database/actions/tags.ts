@@ -11,6 +11,7 @@ import {
   logToFile,
   logicOpsToMongo,
   makePerfLog,
+  setObj,
   socket,
   splitArray,
 } from "medior/utils";
@@ -48,54 +49,28 @@ const createTagFilterPipeline = (args: {
   const hasRequiredDescTags = args.requiredDescTagIds?.length > 0;
   const hasRequiredTags = args.requiredTagIds.length > 0;
 
+  const $match: FilterQuery<db.TagSchema> = {};
+
+  if (args.dateCreatedEnd) setObj($match, ["dateCreated", "$lte"], args.dateCreatedEnd);
+  if (args.dateCreatedStart) setObj($match, ["dateCreated", "$gte"], args.dateCreatedStart);
+  if (args.dateModifiedEnd) setObj($match, ["dateModified", "$lte"], args.dateModifiedEnd);
+  if (args.dateModifiedStart) setObj($match, ["dateModified", "$gte"], args.dateModifiedStart);
+  if (hasCount)
+    setObj($match, ["$expr", logicOpsToMongo(args.countOp)], ["$count", args.countValue]);
+  if (args.label) setObj($match, "label", new RegExp(args.label, "i"));
+  if (args.alias) setObj($match, "aliases", new RegExp(args.alias, "i"));
+  if (args.regExMode !== "any")
+    setObj($match, ["regExMap.regEx", "$exists"], args.regExMode === "hasRegEx");
+  if (hasExcludedTags) setObj($match, ["_id", "$nin"], objectIds(args.excludedTagIds));
+  if (hasOptionalTags) setObj($match, ["_id", "$in"], objectIds(args.optionalTagIds));
+  if (hasRequiredTags) setObj($match, ["_id", "$all"], objectIds(args.requiredTagIds));
+  if (hasExcludedDescTags)
+    setObj($match, ["ancestorIds", "$nin"], objectIds(args.excludedDescTagIds));
+  if (hasRequiredDescTags)
+    setObj($match, ["ancestorIds", "$all"], objectIds(args.requiredDescTagIds));
+
   return {
-    $match: {
-      ...(args.dateCreatedEnd || args.dateCreatedStart
-        ? {
-            dateCreated: {
-              ...(args.dateCreatedEnd ? { $lte: args.dateCreatedEnd } : {}),
-              ...(args.dateCreatedStart ? { $gte: args.dateCreatedStart } : {}),
-            },
-          }
-        : {}),
-      ...(args.dateModifiedEnd || args.dateModifiedStart
-        ? {
-            dateModified: {
-              ...(args.dateModifiedEnd ? { $lte: args.dateModifiedEnd } : {}),
-              ...(args.dateModifiedStart ? { $gte: args.dateModifiedStart } : {}),
-            },
-          }
-        : {}),
-      ...(hasCount
-        ? {
-            $expr: {
-              ...(hasCount ? { [logicOpsToMongo(args.countOp)]: ["$count", args.countValue] } : {}),
-            },
-          }
-        : {}),
-      ...(args.label ? { label: new RegExp(args.label, "i") } : {}),
-      ...(args.alias ? { aliases: { $elemMatch: { $regex: new RegExp(args.alias, "i") } } } : {}),
-      ...(args.regExMode !== "any"
-        ? { "regExMap.regEx": { $exists: args.regExMode === "hasRegEx" } }
-        : {}),
-      ...(hasExcludedTags || hasOptionalTags || hasRequiredTags
-        ? {
-            _id: {
-              ...(hasExcludedTags ? { $nin: objectIds(args.excludedTagIds) } : {}),
-              ...(hasOptionalTags ? { $in: objectIds(args.optionalTagIds) } : {}),
-              ...(hasRequiredTags ? { $all: objectIds(args.requiredTagIds) } : {}),
-            },
-          }
-        : {}),
-      ...(hasExcludedDescTags || hasRequiredDescTags
-        ? {
-            ancestorIds: {
-              ...(hasExcludedDescTags ? { $nin: objectIds(args.excludedDescTagIds) } : {}),
-              ...(hasRequiredDescTags ? { $all: objectIds(args.requiredDescTagIds) } : {}),
-            },
-          }
-        : {}),
-    },
+    $match,
     $sort: { [args.sortKey]: sortDir, _id: sortDir } as { [key: string]: 1 | -1 },
   };
 };
@@ -103,14 +78,7 @@ const createTagFilterPipeline = (args: {
 /*
 const createTagThumbPathPipeline = (tagIds: string[]): PipelineStage[] => [
   { $match: { _id: { $in: objectIds(tagIds) } } },
-  {
-    $lookup: {
-      from: "files",
-      localField: "_id",
-      foreignField: "tagIds",
-      as: "files",
-    },
-  },
+  { $lookup: { from: "files", localField: "_id", foreignField: "tagIds", as: "files" } },
   {
     $project: {
       _id: 1,
@@ -122,14 +90,7 @@ const createTagThumbPathPipeline = (tagIds: string[]): PipelineStage[] => [
                 $filter: {
                   input: "$files",
                   as: "file",
-                  cond: {
-                    $eq: [
-                      "$$file.dateCreated",
-                      {
-                        $min: "$files.dateCreated",
-                      },
-                    ],
-                  },
+                  cond: { $eq: ["$$file.dateCreated", { $min: "$files.dateCreated" }] },
                 },
               },
               as: "file",

@@ -19,7 +19,7 @@ export const SettingsModal = observer(() => {
   }, []);
 
   const handleCancel = () => {
-    if (stores.home.settings.setHasUnsavedChanges) setIsConfirmDiscardOpen(true);
+    if (stores.home.settings.hasUnsavedChanges) setIsConfirmDiscardOpen(true);
     else handleClose();
   };
 

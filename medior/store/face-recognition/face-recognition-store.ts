@@ -42,7 +42,7 @@ export class FaceRecognitionStore extends Model({
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */
   @modelFlow
   addFilesToAutoDetectQueue = asyncAction(async (fileIds: string[]) => {
-    const filesRes = await trpc.listFiles.mutate({ args: { filter: { ids: fileIds } } });
+    const filesRes = await trpc.listFiles.mutate({ args: { filter: { id: fileIds } } });
     if (!filesRes?.success) throw new Error("Failed to load files");
 
     const imageExtRegExp = new RegExp(`${getConfig().file.imageTypes.join("|")}`, "i");

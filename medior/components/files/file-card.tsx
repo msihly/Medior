@@ -78,7 +78,7 @@ export const FileCard = observer(({ disabled, file, height, id, width }: FileCar
 
   const loadSelectedFiles = async () => {
     const res = await stores.file.loadFiles({
-      filter: { fileIds: stores.file.selectedIds },
+      filter: { id: stores.file.selectedIds },
       withOverwrite: false,
     });
     if (!res?.success) throw new Error(res.error);

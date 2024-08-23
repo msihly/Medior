@@ -3,10 +3,18 @@ import path from "path";
 import fs from "fs/promises";
 import checkDiskSpace from "check-disk-space";
 import { AnyBulkWriteOperation } from "mongodb";
-import { PipelineStage } from "mongoose";
+import { FilterQuery, PipelineStage } from "mongoose";
 import * as db from "medior/database";
 import { leanModelToJson, makeAction, objectId, objectIds } from "medior/database/utils";
-import { dayjs, LogicalOp, logicOpsToMongo, makePerfLog, sharp, socket } from "medior/utils";
+import {
+  dayjs,
+  LogicalOp,
+  logicOpsToMongo,
+  makePerfLog,
+  setObj,
+  sharp,
+  socket,
+} from "medior/utils";
 import { SelectedImageTypes, SelectedVideoTypes } from "medior/store";
 
 const FACE_MIN_CONFIDENCE = 0.4;
@@ -56,69 +64,39 @@ const createFileFilterPipeline = (args: {
   const hasRequiredDescTags = args.requiredDescTagIds?.length > 0;
   const hasRequiredTags = args.requiredTagIds.length > 0;
 
+  const $match: FilterQuery<db.FileSchema> = {
+    isArchived: args.isArchived,
+    ext: { $in: enabledExts },
+  };
+
+  if (args.dateCreatedEnd) setObj($match, ["dateCreated", "$lte"], args.dateCreatedEnd);
+  if (args.dateCreatedStart) setObj($match, ["dateCreated", "$gte"], args.dateCreatedStart);
+  if (args.dateModifiedEnd) setObj($match, ["dateModified", "$lte"], args.dateModifiedEnd);
+  if (args.dateModifiedStart) setObj($match, ["dateModified", "$gte"], args.dateModifiedStart);
+  if (args.excludedFileIds?.length)
+    setObj($match, ["_id", "$nin"], objectIds(args.excludedFileIds));
+  if (hasExcludedTags) setObj($match, ["tagIds", "$nin"], objectIds(args.excludedTagIds));
+  if (hasOptionalTags) setObj($match, ["tagIds", "$in"], objectIds(args.optionalTagIds));
+  if (hasRequiredTags) setObj($match, ["tagIds", "$all"], objectIds(args.requiredTagIds));
+  if (hasExcludedDescTags)
+    setObj($match, ["tagIdsWithAncestors", "$nin"], objectIds(args.excludedDescTagIds));
+  if (hasRequiredDescTags)
+    setObj($match, ["tagIdsWithAncestors", "$all"], objectIds(args.requiredDescTagIds));
+  if (args.hasDiffParams)
+    setObj(
+      $match,
+      ["$expr", "$and"],
+      [{ $eq: [{ $type: "$diffusionParams" }, "string"] }, { $ne: ["$diffusionParams", ""] }]
+    );
+  if (hasNumOfTags)
+    setObj(
+      $match,
+      ["$expr", logicOpsToMongo(args.numOfTagsOp)],
+      [{ $size: "$tagIds" }, args.numOfTagsValue]
+    );
+
   return {
-    $match: {
-      isArchived: args.isArchived,
-      ext: { $in: enabledExts },
-      ...(args.dateCreatedEnd || args.dateCreatedStart
-        ? {
-            dateCreated: {
-              ...(args.dateCreatedEnd ? { $lte: args.dateCreatedEnd } : {}),
-              ...(args.dateCreatedStart ? { $gte: args.dateCreatedStart } : {}),
-            },
-          }
-        : {}),
-      ...(args.dateModifiedEnd || args.dateModifiedStart
-        ? {
-            dateModified: {
-              ...(args.dateModifiedEnd ? { $lte: args.dateModifiedEnd } : {}),
-              ...(args.dateModifiedStart ? { $gte: args.dateModifiedStart } : {}),
-            },
-          }
-        : {}),
-      ...(args.excludedFileIds?.length > 0
-        ? { _id: { $nin: objectIds(args.excludedFileIds) } }
-        : {}),
-      ...(args.hasDiffParams || hasNumOfTags
-        ? {
-            $expr: {
-              ...(args.hasDiffParams
-                ? {
-                    $and: [
-                      { $eq: [{ $type: "$diffusionParams" }, "string"] },
-                      { $ne: ["$diffusionParams", ""] },
-                    ],
-                  }
-                : {}),
-              ...(hasNumOfTags
-                ? {
-                    [logicOpsToMongo(args.numOfTagsOp)]: [
-                      { $size: "$tagIds" },
-                      args.numOfTagsValue,
-                    ],
-                  }
-                : {}),
-            },
-          }
-        : {}),
-      ...(hasExcludedTags || hasOptionalTags || hasRequiredTags
-        ? {
-            tagIds: {
-              ...(hasExcludedTags ? { $nin: objectIds(args.excludedTagIds) } : {}),
-              ...(hasOptionalTags ? { $in: objectIds(args.optionalTagIds) } : {}),
-              ...(hasRequiredTags ? { $all: objectIds(args.requiredTagIds) } : {}),
-            },
-          }
-        : {}),
-      ...(hasExcludedDescTags || hasRequiredDescTags
-        ? {
-            tagIdsWithAncestors: {
-              ...(hasExcludedDescTags ? { $nin: objectIds(args.excludedDescTagIds) } : {}),
-              ...(hasRequiredDescTags ? { $all: objectIds(args.requiredDescTagIds) } : {}),
-            },
-          }
-        : {}),
-    },
+    $match,
     $sort: { [args.sortKey]: sortDir, _id: sortDir } as { [key: string]: 1 | -1 },
   };
 };
@@ -340,6 +318,8 @@ export const getDeletedFile = makeAction(async ({ hash }: { hash: string }) =>
 );
 
 export const getDiskStats = makeAction(async ({ diskPath }: { diskPath: string }) => {
+  if (!diskPath || !(await fs.stat(diskPath).catch(() => null)))
+    throw new Error("Invalid disk path");
   return await checkDiskSpace(diskPath);
 });
 

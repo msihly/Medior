@@ -33,13 +33,10 @@
     "check-disk-space": "^3.4.0",
     "color": "^4.2.3",
     "dayjs": "^1.11.0",
+    "es-toolkit": "^1.16.0",
     "fluent-ffmpeg": "2.1.2",
     "jsonfile": "^6.1.0",
     "kill-port": "^2.0.1",
-    "lodash.clonedeep": "^4.5.0",
-    "lodash.debounce": "^4.0.8",
-    "lodash.isequal": "^4.5.0",
-    "lodash.throttle": "^4.1.1",
     "md5-file": "^5.0.0",
     "mobx": "^6.12.3",
     "mobx-keystone": "^1.10.1",
@@ -67,17 +64,12 @@
     "@types/color": "^3.0.3",
     "@types/fluent-ffmpeg": "^2.1.20",
     "@types/kill-port": "^2.0.1",
-    "@types/lodash.clonedeep": "^4.5.9",
-    "@types/lodash.debounce": "^4.0.9",
-    "@types/lodash.isequal": "^4.5.8",
-    "@types/lodash.throttle": "^4.1.9",
     "@types/node": "^17.0.45",
     "@types/react": "^17.0.43",
     "@types/react-dom": "^17.0.14",
     "@types/react-router-dom": "^5.3.3",
     "@types/react-virtualized-auto-sizer": "^1.0.1",
     "@types/react-window": "^1.8.5",
-    "@types/sharp": "^0.32.0",
     "@typescript-eslint/eslint-plugin": "^6.12.0",
     "@vitejs/plugin-react": "^4.0.3",
     "concurrently": "^7.2.2",
@@ -98,8 +90,8 @@
     "vite-tsconfig-paths": "4.2.0"
   },
   "scripts": {
-    "build": "vite build",
-    "build-dev": "SET BUILD_DEV=true&& vite build --mode development --config ./vite.config.watch.ts",
+    "build": "pnpm run pre-build && vite build",
+    "build-dev": "SET BUILD_DEV=true&& pnpm run pre-build && vite build --mode development --config ./vite.config.watch.ts",
     "check": "pnpm run ts-check && pnpm run lint",
     "copy-files": "pnpx copyfiles -f medior/config.json extraResources && pnpx copyfiles -f medior/face-models/**/* extraResources/face-models && pnpx copyfiles extraResources/**/* build",
     "dist": "rimraf build dist extraResources && pnpm run build && pnpm run electron-build",
@@ -109,7 +101,7 @@
     "kill-ports": "kill-port 3333 3334 3335",
     "lint": "eslint medior/**/*{.ts,.tsx}",
     "postinstall": "electron-builder install-app-deps && patch-package",
-    "prebuild": "pnpm run generate && pnpm run ts-compile && pnpm run copy-files",
+    "pre-build": "pnpm run generate && pnpm run ts-compile && pnpm run copy-files",
     "ts-compile": "tsc --p ./tsconfig.build.json && tsc-alias -p ./tsconfig.build.json",
     "ts-check": "tsc --noEmit"
   },
@@ -172,38 +164,6 @@
         "error",
         {
           "paths": [
-            {
-              "name": "lodash.clonedeep",
-              "importNames": [
-                "default"
-              ],
-              "message": "Import 'deepClone' from 'utils' instead.",
-              "allowTypeImports": true
-            },
-            {
-              "name": "lodash.debounce",
-              "importNames": [
-                "default"
-              ],
-              "message": "Import 'debounce' from 'utils' instead.",
-              "allowTypeImports": true
-            },
-            {
-              "name": "lodash.isequal",
-              "importNames": [
-                "default"
-              ],
-              "message": "Import 'isDeepEqual' from 'utils' instead.",
-              "allowTypeImports": true
-            },
-            {
-              "name": "lodash.throttle",
-              "importNames": [
-                "default"
-              ],
-              "message": "Import 'throttle' from 'utils' instead.",
-              "allowTypeImports": true
-            },
             {
               "name": "sharp",
               "importNames": [

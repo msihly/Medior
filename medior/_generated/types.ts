@@ -3,7 +3,27 @@
 /* -------------------------------------------------------------------------- */
 
 import * as db from "medior/database";
-import { FilterQuery, SortOrder } from "mongoose";
+import { QuerySelector, SortOrder } from "mongoose";
+
+export type _FilterQuery<Schema> = {
+  [SchemaKey in keyof Schema]?:
+    | Schema[SchemaKey]
+    | Array<Schema[SchemaKey]>
+    | QuerySelector<Schema[SchemaKey]>;
+} & {
+  _id?: string | Array<string> | QuerySelector<string>;
+  $and?: Array<_FilterQuery<Schema>>;
+  $nor?: Array<_FilterQuery<Schema>>;
+  $or?: Array<_FilterQuery<Schema>>;
+  $text?: {
+    $search: string;
+    $language?: string;
+    $caseSensitive?: boolean;
+    $diacriticSensitive?: boolean;
+  };
+  $where?: string | Function;
+  $comment?: string;
+};
 
 /* -------------------------------------------------------------------------- */
 /*                                MODEL ACTIONS                               */
@@ -12,7 +32,7 @@ import { FilterQuery, SortOrder } from "mongoose";
 export type CreateDeletedFileInput = Omit<db.DeletedFileSchema, "id">;
 export type DeleteDeletedFileInput = { id: string };
 export type _ListDeletedFilesInput = {
-  filter?: FilterQuery<db.DeletedFileSchema>;
+  filter?: _FilterQuery<db.DeletedFileSchema>;
   page?: number;
   pageSize?: number;
   sort?: Record<string, SortOrder>;
@@ -24,7 +44,7 @@ export type UpdateDeletedFileInput = { id: string; updates: Partial<db.DeletedFi
 export type CreateFileCollectionInput = Omit<db.FileCollectionSchema, "id">;
 export type DeleteFileCollectionInput = { id: string };
 export type ListFileCollectionsInput = {
-  filter?: FilterQuery<db.FileCollectionSchema>;
+  filter?: _FilterQuery<db.FileCollectionSchema>;
   page?: number;
   pageSize?: number;
   sort?: Record<string, SortOrder>;
@@ -36,7 +56,7 @@ export type UpdateFileCollectionInput = { id: string; updates: Partial<db.FileCo
 export type CreateFileImportBatchInput = Omit<db.FileImportBatchSchema, "id">;
 export type DeleteFileImportBatchInput = { id: string };
 export type ListFileImportBatchsInput = {
-  filter?: FilterQuery<db.FileImportBatchSchema>;
+  filter?: _FilterQuery<db.FileImportBatchSchema>;
   page?: number;
   pageSize?: number;
   sort?: Record<string, SortOrder>;
@@ -48,7 +68,7 @@ export type UpdateFileImportBatchInput = { id: string; updates: Partial<db.FileI
 export type CreateFileInput = Omit<db.FileSchema, "id">;
 export type DeleteFileInput = { id: string };
 export type ListFilesInput = {
-  filter?: FilterQuery<db.FileSchema>;
+  filter?: _FilterQuery<db.FileSchema>;
   page?: number;
   pageSize?: number;
   sort?: Record<string, SortOrder>;
@@ -60,7 +80,7 @@ export type _UpdateFileInput = { id: string; updates: Partial<db.FileSchema> };
 export type CreateRegExMapInput = Omit<db.RegExMapSchema, "id">;
 export type DeleteRegExMapInput = { id: string };
 export type ListRegExMapsInput = {
-  filter?: FilterQuery<db.RegExMapSchema>;
+  filter?: _FilterQuery<db.RegExMapSchema>;
   page?: number;
   pageSize?: number;
   sort?: Record<string, SortOrder>;
@@ -72,7 +92,7 @@ export type UpdateRegExMapInput = { id: string; updates: Partial<db.RegExMapSche
 export type _CreateTagInput = Omit<db.TagSchema, "id">;
 export type _DeleteTagInput = { id: string };
 export type _ListTagsInput = {
-  filter?: FilterQuery<db.TagSchema>;
+  filter?: _FilterQuery<db.TagSchema>;
   page?: number;
   pageSize?: number;
   sort?: Record<string, SortOrder>;

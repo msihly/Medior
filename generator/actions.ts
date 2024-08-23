@@ -41,44 +41,55 @@ export const makeActionsDef = async (modelDef: ModelDef) => {
   };
 
   return `/* ------------------------------------ ${modelDef.name} ----------------------------------- */
-    export const ${map.create.fnName} = makeAction(async ({ args, socketOpts }: { args: db.${map.create.typeName}; socketOpts?: db.SocketEventOptions }) => {
+    export const ${map.create.fnName} = makeAction(async ({ args, socketOpts }: { args: types.${map.create.typeName}; socketOpts?: SocketEventOptions }) => {
       const model = { ...args${defaultProps.length ? `, ${defaultProps.join(", ")}` : ""} };
 
-      const res = await db.${modelDef.name}Model.create(model);
+      const res = await models.${modelDef.name}Model.create(model);
       const id = res._id.toString();
 
       socket.emit("on${modelDef.name}Created", { ...model, id }, socketOpts);
       return { ...model, id };
     });
 
-    export const ${map.delete.fnName} = makeAction(async ({ args, socketOpts }: { args: db.${map.delete.typeName}; socketOpts?: db.SocketEventOptions }) => {
-      await db.${modelDef.name}Model.findByIdAndDelete(args.id);
+    export const ${map.delete.fnName} = makeAction(async ({ args, socketOpts }: { args: types.${map.delete.typeName}; socketOpts?: SocketEventOptions }) => {
+      await models.${modelDef.name}Model.findByIdAndDelete(args.id);
       socket.emit("on${modelDef.name}Deleted", args, socketOpts);
     });
 
-    export const ${map.list.fnName} = makeAction(async ({ args: { filter, page, pageSize, sort } }: { args?: db.${map.list.typeName}; socketOpts?: db.SocketEventOptions }  = {}) => {
+    export const ${map.list.fnName} = makeAction(async ({ args }: { args?: types.${map.list.typeName}; socketOpts?: SocketEventOptions }  = {}) => {
+      const filter = { ...args.filter };
+      if (args.filter?.id) {
+        filter._id = Array.isArray(args.filter.id)
+          ? { $in: args.filter.id }
+          : typeof args.filter.id === "string"
+            ? { $in: [args.filter.id] }
+            : args.filter.id;
+
+        delete filter.id;
+      }
+
       const [items, totalCount] = await Promise.all([
-        db.${modelDef.name}Model.find(filter)
-          .sort(sort ?? ${JSON.stringify({ [modelDef.defaultSort.key]: modelDef.defaultSort.isDesc ? "desc" : "asc" })})
-          .skip(Math.max(0, page - 1) * pageSize)
-          .limit(pageSize)
+        models.${modelDef.name}Model.find(filter)
+          .sort(args.sort ?? { ${modelDef.defaultSort.key}: "${modelDef.defaultSort.isDesc ? "desc" : "asc"}" })
+          .skip(Math.max(0, args.page - 1) * args.pageSize)
+          .limit(args.pageSize)
           .allowDiskUse(true)
           .lean(),
-        db.${modelDef.name}Model.countDocuments(filter),
+        models.${modelDef.name}Model.countDocuments(filter),
       ]);
 
       if (!items || !(totalCount > -1))
         throw new Error("Failed to load filtered ${modelDef.name}s");
 
       return {
-        items: items.map(item => leanModelToJson<db.${schemaName}>(item)),
-        pageCount: Math.ceil(totalCount / pageSize),
+        items: items.map(item => leanModelToJson<models.${schemaName}>(item)),
+        pageCount: Math.ceil(totalCount / args.pageSize),
       };
     });
 
-    export const ${map.update.fnName} = makeAction(async ({ args, socketOpts }: { args: db.${map.update.typeName}; socketOpts?: db.SocketEventOptions }) => {
-      const res = leanModelToJson<db.${schemaName}>(
-        await db.${modelDef.name}Model.findByIdAndUpdate(args.id, args.updates, { new: true }).lean()
+    export const ${map.update.fnName} = makeAction(async ({ args, socketOpts }: { args: types.${map.update.typeName}; socketOpts?: SocketEventOptions }) => {
+      const res = leanModelToJson<models.${schemaName}>(
+        await models.${modelDef.name}Model.findByIdAndUpdate(args.id, args.updates, { new: true }).lean()
       );
 
       socket.emit("on${modelDef.name}Updated", args, socketOpts);
@@ -107,7 +118,7 @@ export const makeEndpointDefFromModelName = (
     const actionName = `${action}${capitalize(modelName)}${action === "list" ? "s" : ""}`;
     const prefix = `${uniqueModelActionNames.includes(actionName) ? "" : "_"}`;
     const prefixedName = `${prefix}${actionName}`;
-    return `${prefixedName}: serverEndpoint(actions.${prefixedName})`;
+    return `${prefixedName}: serverEndpoint(db.${prefixedName})`;
   });
 };
 
@@ -124,7 +135,7 @@ export const makeModelActionTypes = (modelName: string, uniqueTypeNames: string[
   append(
     `List${modelName}sInput`,
     `{
-      filter?: FilterQuery<db.${schemaName}>;
+      filter?: _FilterQuery<db.${schemaName}>;
       page?: number;
       pageSize?: number;
       sort?: Record<string, SortOrder>;
@@ -134,4 +145,49 @@ export const makeModelActionTypes = (modelName: string, uniqueTypeNames: string[
   append(`Update${modelName}Input`, `{ id: string; updates: Partial<db.${schemaName}>; }`);
 
   return output;
+};
+
+/* -------------------------------------------------------------------------- */
+/*                                  FILE DEFS                                 */
+/* -------------------------------------------------------------------------- */
+export const FILE_DEF_ACTIONS: FileDef = {
+  name: "actions",
+  makeFile: async () => {
+    let output = `import * as models from "medior/_generated/models";
+      import * as types from "medior/database/types";
+      import { SocketEventOptions } from "medior/_generated/socket";
+      import { leanModelToJson, makeAction } from "medior/database/utils";
+      import { dayjs, socket } from "medior/utils";\n`;
+
+    for (const def of MODEL_DEFS) {
+      output += `\n${await makeActionsDef(def)}\n`;
+    }
+
+    return output;
+  },
+};
+
+export const FILE_DEF_ENDPOINTS: FileDef = {
+  name: "endpoints",
+  makeFile: async () => {
+    const actions = await getActions();
+
+    return `import { initTRPC } from "@trpc/server";
+      import * as db from "medior/database/actions";
+
+      export const trpc = initTRPC.create();
+
+      /** All resources defined as mutation to deal with max length URLs in GET requests.
+       *  @see https://github.com/trpc/trpc/discussions/1936
+       */
+      export const serverEndpoint = <Input, Output>(fn: (input: Input) => Promise<Output>) =>
+        trpc.procedure.input((input: Input) => input).mutation(({ input }) => fn(input));
+
+      export const serverRouter = trpc.router({
+        /** Model actions */
+        ${MODEL_DEFS.map((d) => makeEndpointDefFromModelName(d.name, actions.model)).join(",")},
+        /** Custom actions */
+        ${actions.custom.map(makeEndpointDefFromCustomAction).join(",")}
+      });`;
+  },
 };

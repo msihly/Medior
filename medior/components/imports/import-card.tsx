@@ -20,7 +20,7 @@ export const ImportCard = observer(({ fileImport, style }: ImportCardProps) => {
   const handleClick = async () =>
     hasFileId
       ? openCarouselWindow({
-          file: (await trpc.listFiles.mutate({ args: { filter: { ids: [fileImport.fileId] } } }))
+          file: (await trpc.listFiles.mutate({ args: { filter: { id: [fileImport.fileId] } } }))
             .data.items[0],
           selectedFileIds: [fileImport.fileId],
         })

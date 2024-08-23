@@ -16,7 +16,7 @@ export const SelectedFilesInfo = observer(() => {
   const handleOpen = async () => {
     try {
       const res = await stores.file.loadFiles({
-        filter: { fileIds: stores.file.selectedIds },
+        filter: { id: stores.file.selectedIds },
         withOverwrite: false,
       });
       if (!res?.success) throw new Error(res.error);

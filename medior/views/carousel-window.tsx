@@ -65,18 +65,20 @@ export const CarouselWindow = observer(() => {
         try {
           const { perfLog, perfLogTotal } = makePerfLog("[Carousel]");
 
-          await stores.file.loadFiles({ filter: { fileIds: [fileId] } });
+          perfLog("Loading active file...");
+
+          await stores.file.loadFiles({ filter: { id: fileId } });
           stores.carousel.setActiveFileId(fileId);
 
-          perfLog("Active file loaded");
+          perfLog("Active file loaded. Loading carousel files and tags...");
 
           await Promise.all([
-            stores.file.loadFiles({ filter: { fileIds: selectedFileIds } }),
+            stores.file.loadFiles({ filter: { id: selectedFileIds } }),
             stores.tag.loadTags(),
           ]);
           stores.carousel.setSelectedFileIds(selectedFileIds);
 
-          perfLogTotal("Data loaded into MobX");
+          perfLogTotal("Data loaded into MobX.");
 
           rootRef.current?.focus();
         } catch (err) {

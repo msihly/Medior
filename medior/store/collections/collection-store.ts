@@ -202,7 +202,7 @@ export class FileCollectionStore extends ExtendedModel(_FileCollectionStore, {
     }));
 
     const fileIds = fileIdIndexes.map(({ fileId }) => fileId);
-    const res = await trpc.listFiles.mutate({ args: { filter: { ids: fileIds } } });
+    const res = await trpc.listFiles.mutate({ args: { filter: { id: fileIds } } });
 
     if (!res.success) toast.error(res.error);
     else
@@ -293,7 +293,7 @@ export class FileCollectionStore extends ExtendedModel(_FileCollectionStore, {
 
   @modelFlow
   loadManagerFiles = asyncAction(async () => {
-    const res = await trpc.listFiles.mutate({ args: { filter: { ids: this.manager.fileIds } } });
+    const res = await trpc.listFiles.mutate({ args: { filter: { id: this.manager.fileIds } } });
     if (!res.success) throw new Error(res.error);
     this.manager.setFiles(res.data.items.map((f) => new File(f)));
   });

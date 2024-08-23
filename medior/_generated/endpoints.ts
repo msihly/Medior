@@ -3,8 +3,7 @@
 /* -------------------------------------------------------------------------- */
 
 import { initTRPC } from "@trpc/server";
-import * as db from "medior/database";
-import * as actions from "./actions";
+import * as db from "medior/database/actions";
 
 export const trpc = initTRPC.create();
 
@@ -16,30 +15,30 @@ export const serverEndpoint = <Input, Output>(fn: (input: Input) => Promise<Outp
 
 export const serverRouter = trpc.router({
   /** Model actions */
-  createDeletedFile: serverEndpoint(actions.createDeletedFile),
-  deleteDeletedFile: serverEndpoint(actions.deleteDeletedFile),
-  _listDeletedFiles: serverEndpoint(actions._listDeletedFiles),
-  updateDeletedFile: serverEndpoint(actions.updateDeletedFile),
-  createFileCollection: serverEndpoint(actions.createFileCollection),
-  deleteFileCollection: serverEndpoint(actions.deleteFileCollection),
-  listFileCollections: serverEndpoint(actions.listFileCollections),
-  updateFileCollection: serverEndpoint(actions.updateFileCollection),
-  createFileImportBatch: serverEndpoint(actions.createFileImportBatch),
-  deleteFileImportBatch: serverEndpoint(actions.deleteFileImportBatch),
-  listFileImportBatchs: serverEndpoint(actions.listFileImportBatchs),
-  updateFileImportBatch: serverEndpoint(actions.updateFileImportBatch),
-  createFile: serverEndpoint(actions.createFile),
-  deleteFile: serverEndpoint(actions.deleteFile),
-  listFiles: serverEndpoint(actions.listFiles),
-  _updateFile: serverEndpoint(actions._updateFile),
-  createRegExMap: serverEndpoint(actions.createRegExMap),
-  deleteRegExMap: serverEndpoint(actions.deleteRegExMap),
-  listRegExMaps: serverEndpoint(actions.listRegExMaps),
-  updateRegExMap: serverEndpoint(actions.updateRegExMap),
-  _createTag: serverEndpoint(actions._createTag),
-  _deleteTag: serverEndpoint(actions._deleteTag),
-  _listTags: serverEndpoint(actions._listTags),
-  updateTag: serverEndpoint(actions.updateTag),
+  createDeletedFile: serverEndpoint(db.createDeletedFile),
+  deleteDeletedFile: serverEndpoint(db.deleteDeletedFile),
+  _listDeletedFiles: serverEndpoint(db._listDeletedFiles),
+  updateDeletedFile: serverEndpoint(db.updateDeletedFile),
+  createFileCollection: serverEndpoint(db.createFileCollection),
+  deleteFileCollection: serverEndpoint(db.deleteFileCollection),
+  listFileCollections: serverEndpoint(db.listFileCollections),
+  updateFileCollection: serverEndpoint(db.updateFileCollection),
+  createFileImportBatch: serverEndpoint(db.createFileImportBatch),
+  deleteFileImportBatch: serverEndpoint(db.deleteFileImportBatch),
+  listFileImportBatchs: serverEndpoint(db.listFileImportBatchs),
+  updateFileImportBatch: serverEndpoint(db.updateFileImportBatch),
+  createFile: serverEndpoint(db.createFile),
+  deleteFile: serverEndpoint(db.deleteFile),
+  listFiles: serverEndpoint(db.listFiles),
+  _updateFile: serverEndpoint(db._updateFile),
+  createRegExMap: serverEndpoint(db.createRegExMap),
+  deleteRegExMap: serverEndpoint(db.deleteRegExMap),
+  listRegExMaps: serverEndpoint(db.listRegExMaps),
+  updateRegExMap: serverEndpoint(db.updateRegExMap),
+  _createTag: serverEndpoint(db._createTag),
+  _deleteTag: serverEndpoint(db._deleteTag),
+  _listTags: serverEndpoint(db._listTags),
+  updateTag: serverEndpoint(db.updateTag),
   /** Custom actions */
   createCollection: serverEndpoint(db.createCollection),
   deleteCollection: serverEndpoint(db.deleteCollection),

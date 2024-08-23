@@ -1,6 +1,7 @@
+import { FilterQuery } from "mongoose";
 import * as db from "medior/database";
 import { leanModelToJson, makeAction, objectIds } from "medior/database/utils";
-import { dayjs, socket } from "medior/utils";
+import { dayjs, setObj, socket } from "medior/utils";
 
 /* -------------------------------------------------------------------------- */
 /*                              HELPER FUNCTIONS                              */
@@ -25,27 +26,19 @@ const createCollectionFilterPipeline = (args: {
   const hasRequiredDescTags = args.requiredDescTagIds?.length > 0;
   const hasRequiredTags = args.requiredTagIds.length > 0;
 
+  const $match: FilterQuery<db.FileCollectionSchema> = {};
+
+  if (args.title) setObj($match, ["title", "$regex"], new RegExp(args.title, "i"));
+  if (hasExcludedTags) setObj($match, ["tagIds", "$nin"], objectIds(args.excludedTagIds));
+  if (hasOptionalTags) setObj($match, ["tagIds", "$in"], objectIds(args.optionalTagIds));
+  if (hasRequiredTags) setObj($match, ["tagIds", "$all"], objectIds(args.requiredTagIds));
+  if (hasExcludedDescTags)
+    setObj($match, ["tagIdsWithAncestors", "$nin"], objectIds(args.excludedDescTagIds));
+  if (hasRequiredDescTags)
+    setObj($match, ["tagIdsWithAncestors", "$all"], objectIds(args.requiredDescTagIds));
+
   return {
-    $match: {
-      ...(args.title ? { title: { $regex: new RegExp(args.title, "i") } } : {}),
-      ...(hasExcludedTags || hasOptionalTags || hasRequiredTags
-        ? {
-            tagIds: {
-              ...(hasExcludedTags ? { $nin: objectIds(args.excludedTagIds) } : {}),
-              ...(hasOptionalTags ? { $in: objectIds(args.optionalTagIds) } : {}),
-              ...(hasRequiredTags ? { $all: objectIds(args.requiredTagIds) } : {}),
-            },
-          }
-        : {}),
-      ...(hasExcludedDescTags || hasRequiredDescTags
-        ? {
-            tagIdsWithAncestors: {
-              ...(hasExcludedDescTags ? { $nin: objectIds(args.excludedDescTagIds) } : {}),
-              ...(hasRequiredDescTags ? { $all: objectIds(args.requiredDescTagIds) } : {}),
-            },
-          }
-        : {}),
-    },
+    $match,
     $sort: { [args.sortKey]: sortDir, _id: sortDir } as { [key: string]: 1 | -1 },
   };
 };
@@ -75,7 +68,7 @@ export const createCollection = makeAction(
     withSub?: boolean;
   }) => {
     const filesRes = await db.listFiles({
-      args: { filter: { ids: args.fileIdIndexes.map((f) => f.fileId) } },
+      args: { filter: { id: args.fileIdIndexes.map((f) => f.fileId) } },
     });
     if (!filesRes.success) throw new Error(filesRes.error);
 
@@ -167,7 +160,7 @@ export const regenCollAttrs = makeAction(
     await Promise.all(
       collections.map(async (collection) => {
         const filesRes = await db.listFiles({
-          args: { filter: { ids: collection.fileIdIndexes.map((f) => f.fileId) } },
+          args: { filter: { id: collection.fileIdIndexes.map((f) => f.fileId) } },
         });
         if (!filesRes.success) throw new Error(filesRes.error);
 
@@ -192,7 +185,7 @@ export const regenCollRating = makeAction(async (fileIds: string[]) => {
   await Promise.all(
     collections.map(async (collection) => {
       const filesRes = await db.listFiles({
-        args: { filter: { ids: collection.fileIdIndexes.map((f) => f.fileId) } },
+        args: { filter: { id: collection.fileIdIndexes.map((f) => f.fileId) } },
       });
       if (!filesRes.success) throw new Error(filesRes.error);
 
@@ -241,7 +234,7 @@ export const updateCollection = makeAction(
 
     if (updates.fileIdIndexes) {
       const filesRes = await db.listFiles({
-        args: { filter: { ids: updates.fileIdIndexes.map((f) => f.fileId) } },
+        args: { filter: { id: updates.fileIdIndexes.map((f) => f.fileId) } },
       });
       if (!filesRes.success) throw new Error(filesRes.error);
       updates = { ...updates, ...(await makeCollAttrs(filesRes.data.items)) };

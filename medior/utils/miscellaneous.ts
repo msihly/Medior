@@ -1,12 +1,11 @@
 import path from "path";
-// eslint-disable-next-line @typescript-eslint/no-restricted-imports
-import _cloneDeep from "lodash.clonedeep";
-// eslint-disable-next-line @typescript-eslint/no-restricted-imports
-import _debounce from "lodash.debounce";
-// eslint-disable-next-line @typescript-eslint/no-restricted-imports
-import _isEqual from "lodash.isequal";
-// eslint-disable-next-line @typescript-eslint/no-restricted-imports
-import _throttle from "lodash.throttle";
+import {
+  cloneDeep as _cloneDeep,
+  debounce as _debounce,
+  isEqual as _isEqual,
+  throttle as _throttle,
+} from "es-toolkit";
+import { set as _set } from "es-toolkit/compat";
 import { toast } from "react-toastify";
 import { logToFile } from "./logging";
 
@@ -14,8 +13,8 @@ type IsPlainObject<T> = T extends object
   ? T extends any[]
     ? false
     : T extends Function
-    ? false
-    : true
+      ? false
+      : true
   : false;
 
 export type NestedKeys<T> = {
@@ -131,6 +130,8 @@ export const rateLimitPromiseAll = async <T>(
 
   return ret;
 };
+
+export const setObj = _set;
 
 export const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 

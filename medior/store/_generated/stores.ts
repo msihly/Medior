@@ -82,10 +82,10 @@ export class _DeletedFileStore extends Model({
       this.setIsLoading(true);
       const res = await trpc._listDeletedFiles.mutate({
         args: {
-          ...args,
-          page: this.page,
-          pageSize: this.pageSize,
-          sort: { [this.sortValue.key]: this.sortValue.isDesc ? "desc" : "asc" },
+          filter: JSON.parse(JSON.stringify(args.filter)),
+          page: args.page ?? this.page,
+          pageSize: args.pageSize ?? this.pageSize,
+          sort: args.sort ?? { [this.sortValue.key]: this.sortValue.isDesc ? "desc" : "asc" },
         },
       });
       this.setIsLoading(false);
@@ -185,10 +185,10 @@ export class _FileCollectionStore extends Model({
       this.setIsLoading(true);
       const res = await trpc.listFileCollections.mutate({
         args: {
-          ...args,
-          page: this.page,
-          pageSize: this.pageSize,
-          sort: { [this.sortValue.key]: this.sortValue.isDesc ? "desc" : "asc" },
+          filter: JSON.parse(JSON.stringify(args.filter)),
+          page: args.page ?? this.page,
+          pageSize: args.pageSize ?? this.pageSize,
+          sort: args.sort ?? { [this.sortValue.key]: this.sortValue.isDesc ? "desc" : "asc" },
         },
       });
       this.setIsLoading(false);
@@ -309,10 +309,10 @@ export class _FileImportBatchStore extends Model({
       this.setIsLoading(true);
       const res = await trpc.listFileImportBatchs.mutate({
         args: {
-          ...args,
-          page: this.page,
-          pageSize: this.pageSize,
-          sort: { [this.sortValue.key]: this.sortValue.isDesc ? "desc" : "asc" },
+          filter: JSON.parse(JSON.stringify(args.filter)),
+          page: args.page ?? this.page,
+          pageSize: args.pageSize ?? this.pageSize,
+          sort: args.sort ?? { [this.sortValue.key]: this.sortValue.isDesc ? "desc" : "asc" },
         },
       });
       this.setIsLoading(false);
@@ -421,10 +421,10 @@ export class _FileStore extends Model({
     this.setIsLoading(true);
     const res = await trpc.listFiles.mutate({
       args: {
-        ...args,
-        page: this.page,
-        pageSize: this.pageSize,
-        sort: { [this.sortValue.key]: this.sortValue.isDesc ? "desc" : "asc" },
+        filter: JSON.parse(JSON.stringify(args.filter)),
+        page: args.page ?? this.page,
+        pageSize: args.pageSize ?? this.pageSize,
+        sort: args.sort ?? { [this.sortValue.key]: this.sortValue.isDesc ? "desc" : "asc" },
       },
     });
     this.setIsLoading(false);
@@ -517,10 +517,10 @@ export class _RegExMapStore extends Model({
       this.setIsLoading(true);
       const res = await trpc.listRegExMaps.mutate({
         args: {
-          ...args,
-          page: this.page,
-          pageSize: this.pageSize,
-          sort: { [this.sortValue.key]: this.sortValue.isDesc ? "desc" : "asc" },
+          filter: JSON.parse(JSON.stringify(args.filter)),
+          page: args.page ?? this.page,
+          pageSize: args.pageSize ?? this.pageSize,
+          sort: args.sort ?? { [this.sortValue.key]: this.sortValue.isDesc ? "desc" : "asc" },
         },
       });
       this.setIsLoading(false);
@@ -621,10 +621,10 @@ export class _TagStore extends Model({
     this.setIsLoading(true);
     const res = await trpc._listTags.mutate({
       args: {
-        ...args,
-        page: this.page,
-        pageSize: this.pageSize,
-        sort: { [this.sortValue.key]: this.sortValue.isDesc ? "desc" : "asc" },
+        filter: JSON.parse(JSON.stringify(args.filter)),
+        page: args.page ?? this.page,
+        pageSize: args.pageSize ?? this.pageSize,
+        sort: args.sort ?? { [this.sortValue.key]: this.sortValue.isDesc ? "desc" : "asc" },
       },
     });
     this.setIsLoading(false);
