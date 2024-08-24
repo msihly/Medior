@@ -2,6 +2,9 @@ import { capitalize, parseExportsFromIndex } from "medior/utils";
 import { MODEL_DEFS } from "./models";
 import { ROOT_PATH } from "./utils";
 
+/* -------------------------------------------------------------------------- */
+/*                             GENERATOR FUNCTIONS                            */
+/* -------------------------------------------------------------------------- */
 export const getActions = async () => {
   const customActions = await parseExportsFromIndex(`${ROOT_PATH}/database/actions/index.ts`);
 
@@ -19,7 +22,7 @@ export const getActions = async () => {
   };
 };
 
-export const makeActionsDef = async (modelDef: ModelDef) => {
+const makeActionsDef = async (modelDef: ModelDef) => {
   const actions = await getActions();
 
   const defaultProps = modelDef.properties
@@ -98,7 +101,7 @@ export const makeActionsDef = async (modelDef: ModelDef) => {
     `;
 };
 
-export const makeCustomActionTypes = (customActions: string[]) =>
+const makeCustomActionTypes = (customActions: string[]) =>
   customActions
     .map(
       (action) =>
@@ -107,10 +110,10 @@ export const makeCustomActionTypes = (customActions: string[]) =>
     )
     .join("\n\n");
 
-export const makeEndpointDefFromCustomAction = (name: string) =>
+const makeEndpointDefFromCustomAction = (name: string) =>
   `${name}: serverEndpoint(db.${name})`;
 
-export const makeEndpointDefFromModelName = (
+const makeEndpointDefFromModelName = (
   modelName: string,
   uniqueModelActionNames: string[]
 ) => {
@@ -122,7 +125,7 @@ export const makeEndpointDefFromModelName = (
   });
 };
 
-export const makeModelActionTypes = (modelName: string, uniqueTypeNames: string[]) => {
+const makeModelActionTypes = (modelName: string, uniqueTypeNames: string[]) => {
   const schemaName = `${modelName}Schema`;
   let output = `/* ------------------------------------ ${modelName} ----------------------------------- */`;
 
@@ -189,5 +192,50 @@ export const FILE_DEF_ENDPOINTS: FileDef = {
         /** Custom actions */
         ${actions.custom.map(makeEndpointDefFromCustomAction).join(",")}
       });`;
+  },
+};
+
+export const FILE_DEF_TYPES: FileDef = {
+  name: "types",
+  makeFile: async () => {
+    const actions = await getActions();
+
+    return `import * as db from "medior/database";
+      import { QuerySelector, SortOrder } from "mongoose";
+
+      export type _FilterQuery<Schema> = {
+        [SchemaKey in keyof Schema]?:
+          | Schema[SchemaKey]
+          | Array<Schema[SchemaKey]>
+          | QuerySelector<Schema[SchemaKey]>;
+      } & {
+        _id?: string | Array<string> | QuerySelector<string>;
+        $and?: Array<_FilterQuery<Schema>>;
+        $nor?: Array<_FilterQuery<Schema>>;
+        $or?: Array<_FilterQuery<Schema>>;
+        $text?: {
+          $search: string;
+          $language?: string;
+          $caseSensitive?: boolean;
+          $diacriticSensitive?: boolean;
+        };
+        $where?: string | Function;
+        $comment?: string;
+      };
+
+      /* -------------------------------------------------------------------------- */
+      /*                                MODEL ACTIONS                               */
+      /* -------------------------------------------------------------------------- */
+      ${MODEL_DEFS.map((def) =>
+        makeModelActionTypes(
+          def.name,
+          actions.model.map((a) => `${capitalize(a)}Input`)
+        )
+      ).join("\n\n")}
+
+      /* -------------------------------------------------------------------------- */
+      /*                               CUSTOM ACTIONS                               */
+      /* -------------------------------------------------------------------------- */
+      ${makeCustomActionTypes(actions.custom)}\n`;
   },
 };

@@ -1,4 +1,4 @@
-export * from "../_generated/sort-options";
+export * from "./_generated/sort-options";
 export * from "./collections";
 export * from "./face-recognition";
 export * from "./files";

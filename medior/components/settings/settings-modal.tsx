@@ -1,6 +1,6 @@
 import { dialog } from "@electron/remote";
 import { useEffect, useState } from "react";
-import { observer, useStores } from "medior/store";
+import { observer, SORT_OPTIONS, useStores } from "medior/store";
 import {
   Button,
   ConfirmModal,
@@ -153,13 +153,13 @@ export const SettingsModal = observer(() => {
               <Settings.SortMenu
                 label="Editor - Default Sort"
                 configKey="collection.editorSearchSort"
-                rows={CONSTANTS.SORT_MENU_OPTS.FILE_SEARCH}
+                rows={SORT_OPTIONS.File}
               />
 
               <Settings.SortMenu
                 label="Manager - Default Sort"
                 configKey="collection.managerSearchSort"
-                rows={CONSTANTS.SORT_MENU_OPTS.COLLECTION_SEARCH}
+                rows={SORT_OPTIONS.FileCollection}
               />
             </View>
           </Settings.Section>
@@ -178,7 +178,7 @@ export const SettingsModal = observer(() => {
               <Settings.SortMenu
                 label="Default Sort"
                 configKey="file.searchSort"
-                rows={CONSTANTS.SORT_MENU_OPTS.FILE_SEARCH}
+                rows={SORT_OPTIONS.File}
               />
 
               <View column>
@@ -341,7 +341,7 @@ export const SettingsModal = observer(() => {
             <Settings.SortMenu
               label="Manager - Default Sort"
               configKey="tags.managerSearchSort"
-              rows={CONSTANTS.SORT_MENU_OPTS.TAG_SEARCH}
+              rows={SORT_OPTIONS.Tag}
             />
           </Settings.Section>
         </View>

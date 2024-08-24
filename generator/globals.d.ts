@@ -1,5 +1,5 @@
 import { IndexDefinition, IndexOptions } from "mongoose";
-import { IconName } from "medior/components/media/icon";
+import { IconName, IconProps } from "medior/components/media/icon";
 
 declare global {
   interface FileDef {
@@ -14,7 +14,7 @@ declare global {
     required?: boolean;
     schemaToStoreName?: string;
     schemaType: string | ModelDefProperty[];
-    sort?: { icon: IconName; label: string };
+    sort?: { icon: IconName; iconProps?: Partial<IconProps>; label: string };
     storeType?: string;
     type: string;
     typeName?: string;

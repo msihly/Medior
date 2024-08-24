@@ -13,7 +13,7 @@ import {
   prop,
 } from "mobx-keystone";
 import * as db from "medior/database";
-import { SortValue } from "medior/_generated";
+import { SortValue } from "medior/store/_generated/sort-options";
 import { FileCollection, FileImportBatch, File, Tag, FileImport } from "medior/store";
 import { asyncAction } from "medior/store/utils";
 import { dayjs, trpc } from "medior/utils";

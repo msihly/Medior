@@ -6,5 +6,4 @@ export * from "./actions";
 export * from "./endpoints";
 export * from "./models";
 export * from "./socket";
-export * from "./sort-options";
 export * from "./types";

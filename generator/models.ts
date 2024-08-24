@@ -1,3 +1,6 @@
+/* -------------------------------------------------------------------------- */
+/*                                 MODEL DEFS                                 */
+/* -------------------------------------------------------------------------- */
 const COMMON_MODEL_PROPS: ModelDef["properties"] = [
   {
     defaultValue: "dayjs().toISOString()",
@@ -40,6 +43,7 @@ const MODEL_FILE_COLLECTION: ModelDef = {
       name: "dateModified",
       required: true,
       schemaType: "String",
+      sort: { icon: "DateRange", label: "Date Modified" },
       type: "string",
     },
     {
@@ -47,6 +51,7 @@ const MODEL_FILE_COLLECTION: ModelDef = {
       name: "fileCount",
       required: true,
       schemaType: "Number",
+      sort: { icon: "Numbers", label: "File Count" },
       type: "number",
     },
     {
@@ -60,6 +65,7 @@ const MODEL_FILE_COLLECTION: ModelDef = {
       name: "rating",
       required: true,
       schemaType: "Number",
+      sort: { icon: "Star", label: "Rating" },
       type: "number",
     },
     {
@@ -87,6 +93,7 @@ const MODEL_FILE_COLLECTION: ModelDef = {
       name: "title",
       required: true,
       schemaType: "String",
+      sort: { icon: "Title", label: "Title" },
       type: "string",
     },
   ],
@@ -170,9 +177,20 @@ const MODEL_FILE: ModelDef = {
   ],
   properties: [
     ...COMMON_MODEL_PROPS,
-    { name: "dateModified", required: true, schemaType: "String", type: "string" },
+    {
+      name: "dateModified",
+      required: true,
+      schemaType: "String",
+      sort: { icon: "DateRange", label: "Date Modified" },
+      type: "string",
+    },
     { name: "diffusionParams", schemaType: "String", type: "string" },
-    { name: "duration", schemaType: "Number", type: "number" },
+    {
+      name: "duration",
+      schemaType: "Number",
+      sort: { icon: "HourglassBottom", label: "Duration" },
+      type: "number",
+    },
     { name: "ext", required: true, schemaType: "String", type: "string" },
     {
       excludeFromStore: true,
@@ -193,14 +211,32 @@ const MODEL_FILE: ModelDef = {
     },
     { name: "frameRate", required: true, schemaType: "Number", type: "number" },
     { name: "hash", required: true, schemaType: "String", type: "string" },
-    { name: "height", required: true, schemaType: "Number", type: "number" },
+    {
+      name: "height",
+      required: true,
+      schemaType: "Number",
+      sort: { icon: "Height", label: "Height" },
+      type: "number",
+    },
     { name: "isArchived", required: true, schemaType: "Boolean", type: "boolean" },
     { name: "originalHash", schemaType: "String", type: "string" },
     { name: "originalName", schemaType: "String", type: "string" },
     { name: "originalPath", required: true, schemaType: "String", type: "string" },
     { name: "path", required: true, schemaType: "String", type: "string" },
-    { name: "rating", required: true, schemaType: "Number", type: "number" },
-    { name: "size", required: true, schemaType: "Number", type: "number" },
+    {
+      name: "rating",
+      required: true,
+      schemaType: "Number",
+      sort: { icon: "Star", label: "Rating" },
+      type: "number",
+    },
+    {
+      name: "size",
+      required: true,
+      schemaType: "Number",
+      sort: { icon: "FormatSize", label: "Size" },
+      type: "number",
+    },
     {
       defaultValue: "[]",
       name: "tagIds",
@@ -222,7 +258,13 @@ const MODEL_FILE: ModelDef = {
       schemaType: "[String]",
       type: "string[]",
     },
-    { name: "width", required: true, schemaType: "Number", type: "number" },
+    {
+      name: "width",
+      required: true,
+      schemaType: "Number",
+      sort: { icon: "Height", label: "Width", iconProps: { rotation: 90 } },
+      type: "number",
+    },
   ],
   withStore: true,
 };
@@ -270,8 +312,20 @@ const MODEL_TAG: ModelDef = {
       schemaType: `[{ type: Schema.Types.ObjectId, ref: "Tag" }]`,
       type: "string[]",
     },
-    { name: "count", required: true, schemaType: "Number", type: "number" },
-    { name: "dateModified", required: true, schemaType: "String", type: "string" },
+    {
+      name: "count",
+      required: true,
+      schemaType: "Number",
+      sort: { icon: "Numbers", label: "Count" },
+      type: "number",
+    },
+    {
+      name: "dateModified",
+      required: true,
+      schemaType: "String",
+      sort: { icon: "DateRange", label: "Date Modified" },
+      type: "string",
+    },
     {
       defaultValue: "[]",
       name: "descendantIds",
@@ -279,7 +333,13 @@ const MODEL_TAG: ModelDef = {
       schemaType: `[{ type: Schema.Types.ObjectId, ref: "Tag" }]`,
       type: "string[]",
     },
-    { name: "label", required: true, schemaType: "String", type: "string" },
+    {
+      name: "label",
+      required: true,
+      schemaType: "String",
+      sort: { icon: "Label", label: "Label" },
+      type: "string",
+    },
     {
       defaultValue: "[]",
       name: "parentIds",
@@ -309,7 +369,10 @@ export const MODEL_DEFS = [
   MODEL_TAG,
 ];
 
-export const makeModelDef = (modelDef: ModelDef) => {
+/* -------------------------------------------------------------------------- */
+/*                             GENERATOR FUNCTIONS                            */
+/* -------------------------------------------------------------------------- */
+const makeModelDef = (modelDef: ModelDef) => {
   const schemaName = `${modelDef.name}Schema`;
 
   const [interfaces, schemaProps] = modelDef.properties.reduce(
@@ -320,7 +383,9 @@ export const makeModelDef = (modelDef: ModelDef) => {
         acc[0].push(
           `export interface ${cur.typeName} { ${cur.schemaType.map((p) => `${p.name}: ${p.type};`).join("\n")} }`
         );
-        acc[1].push(`${cur.name}: [{ ${cur.schemaType.map((p) => `${p.name}: ${p.schemaType}`)} }],`);
+        acc[1].push(
+          `${cur.name}: [{ ${cur.schemaType.map((p) => `${p.name}: ${p.schemaType}`)} }],`
+        );
       }
 
       return acc;
@@ -355,14 +420,13 @@ export const makeModelDef = (modelDef: ModelDef) => {
     export const ${modelDef.name}Model = model<${schemaName}>("${modelDef.name}", ${schemaName});`;
 };
 
-export const makeSortDef = (modelDef: ModelDef) => {
-  return `"${modelDef.name}": [${modelDef.properties
-    .filter((prop) => prop.sort)
-    .map(
-      (prop) =>
-        `{ attribute: "${prop.name}",
-           icon: "${prop.sort.icon}",
-           label: "${prop.sort.label}" }`
-    )
-    .join(", ")}]`;
+/* -------------------------------------------------------------------------- */
+/*                                  FILE DEFS                                 */
+/* -------------------------------------------------------------------------- */
+export const FILE_DEF_MODELS: FileDef = {
+  name: "models",
+  makeFile: async () => {
+    return `import { model, Schema } from "mongoose";\n
+      ${MODEL_DEFS.map(makeModelDef).join("\n\n")}`;
+  },
 };

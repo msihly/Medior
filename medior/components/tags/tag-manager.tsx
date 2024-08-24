@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { TagOption, observer, useStores } from "medior/store";
+import { SORT_OPTIONS, TagOption, observer, useStores } from "medior/store";
 import { FixedSizeGrid } from "react-window";
 import {
   Button,
@@ -22,7 +22,6 @@ import {
   View,
 } from "medior/components";
 import {
-  CONSTANTS,
   LOGICAL_OPS,
   LogicalOp,
   colors,
@@ -141,7 +140,7 @@ export const TagManager = observer(() => {
           />
 
           <SortMenu
-            rows={CONSTANTS.SORT_MENU_OPTS.TAG_SEARCH}
+            rows={SORT_OPTIONS.Tag}
             value={stores.tag.manager.sortValue}
             setValue={setTagManagerSort}
             width="100%"

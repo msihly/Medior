@@ -1,7 +1,11 @@
 import { getActions } from "./actions";
+import { MODEL_DEFS } from "./models";
 import { camelCase, capitalize } from "medior/utils/formatting";
 
-export const makeStoreDef = async (modelDef: ModelDef) => {
+/* -------------------------------------------------------------------------- */
+/*                             GENERATOR FUNCTIONS                            */
+/* -------------------------------------------------------------------------- */
+const makeStoreDef = async (modelDef: ModelDef) => {
   const upperName = modelDef.name;
   const lowerName = camelCase(upperName);
   const itemPrefix = modelDef.withStore ? "" : "_";
@@ -139,4 +143,64 @@ export const makeStoreDef = async (modelDef: ModelDef) => {
         return this.${lowerName}s.find((d) => d.id === id);
       }
     }`;
+};
+
+const makeSortDef = (modelDef: ModelDef) => {
+  return `"${modelDef.name}": [${modelDef.properties
+    .filter((prop) => prop.sort)
+    .map(
+      (prop) =>
+        `{ attribute: "${prop.name}",
+           icon: "${prop.sort.icon}",${prop.sort.iconProps ? ` iconProps: ${JSON.stringify(prop.sort.iconProps)},` : ""}
+           label: "${prop.sort.label}" }`
+    )
+    .join(", ")}]`;
+};
+
+/* -------------------------------------------------------------------------- */
+/*                                  FILE DEFS                                 */
+/* -------------------------------------------------------------------------- */
+export const FILE_DEF_SORT_OPTIONS: FileDef = {
+  name: "sort-options",
+  makeFile: async () => {
+    return `import { IconName, IconProps } from "medior/components/media/icon";\n
+      export interface SortOption {
+        attribute: string;
+        icon: IconName;
+        iconProps?: Partial<IconProps>;
+        label: string;
+      }\n
+      export interface SortValue {
+        isDesc: boolean;
+        key: string;
+      }\n
+      export const SORT_OPTIONS: Record<${MODEL_DEFS.map((m) => `"${m.name}"`).join(" | ")}, SortOption[]> = {
+        ${MODEL_DEFS.map(makeSortDef)}
+      };`;
+  },
+};
+
+export const FILE_DEF_STORES: FileDef = {
+  name: "stores",
+  makeFile: async () => {
+    const storeImports = [
+      ...MODEL_DEFS.filter((m) => m.withStore).map((m) => m.name),
+      ...MODEL_DEFS.flatMap((d) => d.properties)
+        .filter((p) => p.withStore)
+        .map((p) => p.schemaToStoreName),
+    ].join(", ");
+
+    let output = `import { applySnapshot, getSnapshot, Model, model, modelAction, ModelCreationData, modelFlow, prop } from "mobx-keystone";
+    import * as db from "medior/database";
+    import { SortValue } from "medior/store/_generated/sort-options";
+    import { ${storeImports} } from "medior/store";
+    import { asyncAction } from "medior/store/utils";
+    import { dayjs, trpc } from "medior/utils";\n`;
+
+    for (const def of MODEL_DEFS) {
+      output += `${await makeStoreDef(def)}\n\n`;
+    }
+
+    return output;
+  },
 };

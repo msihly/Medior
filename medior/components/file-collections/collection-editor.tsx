@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { observer, useStores } from "medior/store";
+import { observer, SORT_OPTIONS, useStores } from "medior/store";
 import {
   DndContext,
   DragEndEvent,
@@ -32,7 +32,7 @@ import {
   View,
 } from "medior/components";
 import { EditorFiles } from ".";
-import { CONSTANTS, colors, makeClasses, useDeepEffect } from "medior/utils";
+import { colors, makeClasses, useDeepEffect } from "medior/utils";
 import { toast } from "react-toastify";
 
 export const FileCollectionEditor = observer(() => {
@@ -238,7 +238,7 @@ export const FileCollectionEditor = observer(() => {
               />
 
               <SortMenu
-                rows={CONSTANTS.SORT_MENU_OPTS.FILE_SEARCH}
+                rows={SORT_OPTIONS.File}
                 value={stores.collection.editor.search.sort}
                 setValue={handleSearchSortChange}
                 width="100%"

@@ -1,6 +1,9 @@
 import { MODEL_DEFS } from "./models";
 
-export const makeSocketDefs = () => {
+/* -------------------------------------------------------------------------- */
+/*                             GENERATOR FUNCTIONS                            */
+/* -------------------------------------------------------------------------- */
+const makeSocketDefs = () => {
   let socketEmitEvents = "";
   let socketEvents: string[] = [];
 
@@ -28,4 +31,15 @@ export const makeSocketDefs = () => {
     export type SocketEmitEvent = keyof SocketEmitEvents;
 
     export const socketEvents: SocketEmitEvent[] = ["${socketEvents.join('", "')}"];`;
+};
+
+/* -------------------------------------------------------------------------- */
+/*                                  FILE DEFS                                 */
+/* -------------------------------------------------------------------------- */
+export const FILE_DEF_SOCKETS: FileDef = {
+  name: "socket",
+  makeFile: async () => {
+    return `import { ${MODEL_DEFS.map((def) => `${def.name}Schema`).join(", ")} } from "medior/database";\n
+      ${makeSocketDefs()}`;
+  },
 };

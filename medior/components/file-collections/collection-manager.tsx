@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { TagOption, observer, useStores } from "medior/store";
+import { SORT_OPTIONS, TagOption, observer, useStores } from "medior/store";
 import {
   Button,
   CardGrid,
@@ -17,7 +17,7 @@ import {
   View,
 } from "medior/components";
 import { FileCollection } from ".";
-import { CONSTANTS, colors, debounce, makeClasses, useDeepEffect, useDeepMemo } from "medior/utils";
+import { colors, debounce, makeClasses, useDeepEffect, useDeepMemo } from "medior/utils";
 import { toast } from "react-toastify";
 
 export const FileCollectionManager = observer(() => {
@@ -170,7 +170,7 @@ export const FileCollectionManager = observer(() => {
 
             <View column spacing="0.5rem" className={css.container}>
               <SortMenu
-                rows={CONSTANTS.SORT_MENU_OPTS.COLLECTION_SEARCH}
+                rows={SORT_OPTIONS.FileCollection}
                 value={sortValue}
                 setValue={handleSortChange}
                 width="100%"
