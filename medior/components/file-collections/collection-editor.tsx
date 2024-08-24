@@ -402,6 +402,7 @@ const useClasses = makeClasses({
     overflow: "hidden",
   },
   leftColumn: {
+    position: "relative",
     borderRadius: 4,
     marginRight: "0.5rem",
     padding: "0.5rem",

@@ -4,7 +4,6 @@ import {
   PaginationProps as PaginationBaseProps,
 } from "@mui/material";
 import { colors, makeClasses } from "medior/utils";
-import Color from "color";
 
 export interface PaginationProps extends Omit<PaginationBaseProps, "onChange"> {
   onChange: (page: number) => void;
@@ -40,9 +39,7 @@ const useClasses = makeClasses({
     margin: "0 auto",
     padding: "0.3rem",
     width: "fit-content",
-    background: `linear-gradient(to top, ${colors.background}, ${Color(colors.background)
-      .darken(0.1)
-      .string()})`,
+    background: colors.foreground,
     "& > ul": { justifyContent: "center" },
   },
 });

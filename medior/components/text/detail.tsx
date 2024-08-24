@@ -30,12 +30,7 @@ export const Detail = ({
   return (
     <View column={!row} row={row} spacing={row ? "0.5rem" : null} {...props}>
       {typeof label === "string" ? (
-        <Text
-          color={colors.custom.blue}
-          fontWeight={row ? 500 : undefined}
-          fontSize={row ? "1em" : "0.8em"}
-          {...labelProps}
-        >
+        <Text color={colors.custom.blue} fontWeight={500} whiteSpace="nowrap" {...labelProps}>
           {label}
         </Text>
       ) : (
@@ -44,8 +39,8 @@ export const Detail = ({
       {typeof value === "string" ? (
         <Text
           tooltip={tooltip ?? (withTooltip ? value : undefined)}
-          {...valueProps}
           className={cx(css.value, valueProps?.className)}
+          {...valueProps}
         >
           {value}
         </Text>

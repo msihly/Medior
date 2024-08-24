@@ -1,4 +1,4 @@
-import { View } from "medior/components";
+import { View, ViewProps } from "medior/components";
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { Icon as MuiIcon, IconProps as MuiIconProps } from "@mui/material";
 import { IconName as MuiIconName } from "@mui/icons-material";
@@ -12,9 +12,19 @@ export interface IconProps extends Omit<MuiIconProps, "color" | "fontSize"> {
   rotation?: number;
   margins?: Margins;
   size?: number | string;
+  viewProps?: Partial<ViewProps>;
 }
 
-export const Icon = ({ className, color, margins = {}, name, rotation, size }: IconProps) => {
+export const Icon = ({
+  className,
+  color,
+  margins = {},
+  name,
+  rotation,
+  size,
+  viewProps = {},
+  ...props
+}: IconProps) => {
   const { css, cx } = useClasses({
     margin: margins.all,
     marginTop: margins.top,
@@ -32,8 +42,10 @@ export const Icon = ({ className, color, margins = {}, name, rotation, size }: I
       .toLowerCase();
 
   return (
-    <View column className={cx(css.root, className)}>
-      <MuiIcon style={{ color, fontSize: size }}>{nameToSnakeCase}</MuiIcon>
+    <View column className={cx(css.root, className)} {...viewProps}>
+      <MuiIcon {...props} style={{ color, fontSize: size }}>
+        {nameToSnakeCase}
+      </MuiIcon>
     </View>
   );
 };

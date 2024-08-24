@@ -207,7 +207,7 @@ const useClasses = makeClasses(
       boxShadow: isLink ? "none" : undefined,
       color: outlined
         ? color
-        : (textColor ?? (isLink ? colors.custom.blue : outlined ? color : colors.custom.white)),
+        : (textColor ?? (isLink ? colors.custom.lightBlue : outlined ? color : colors.custom.white)),
       textTransform,
       "&:hover": {
         background: isLink

@@ -14,6 +14,7 @@ export interface ChipProps extends Omit<MuiChipProps, "color" | "icon"> {
   iconProps?: Partial<IconProps>;
   label: ReactNode;
   padding?: Padding;
+  width?: CSS["width"];
 }
 
 export const Chip = ({
@@ -26,9 +27,10 @@ export const Chip = ({
   iconProps,
   label,
   padding,
+  width,
   ...props
 }: ChipProps) => {
-  const { css, cx } = useClasses({ bgColor, color, height, padding });
+  const { css, cx } = useClasses({ bgColor, color, height, padding, width });
 
   return (
     <MuiChip
@@ -50,12 +52,13 @@ export const Chip = ({
   );
 };
 
-const useClasses = makeClasses((_, { bgColor, color, height, padding }) => ({
+const useClasses = makeClasses((_, { bgColor, color, height, padding, width }) => ({
   chip: {
     height,
     backgroundColor: bgColor,
     color,
     transition: "all 200ms ease-in-out",
+    width,
     "& > .MuiChip-label": {
       padding: padding?.all,
       paddingTop: padding?.top,

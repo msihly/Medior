@@ -46,8 +46,8 @@ const ICON_TYPES: { [key in TypeOptions]: { color: string; icon: IconName } } = 
 const useClasses = makeClasses({
   toast: {
     "& .Toastify__toast": {
-      backgroundColor: colors.background,
-      color: colors.custom.lightGrey,
+      backgroundColor: colors.foreground,
+      color: colors.custom.white,
       "&-body": {
         display: "flex",
         alignItems: "center",

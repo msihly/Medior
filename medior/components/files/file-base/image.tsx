@@ -6,8 +6,8 @@ import {
   useRef,
   useState,
 } from "react";
-import { View } from "medior/components";
-import { CSS, makeClasses } from "medior/utils";
+import { Icon, View } from "medior/components";
+import { colors, CSS, makeClasses } from "medior/utils";
 
 interface ImageProps
   extends Omit<
@@ -42,6 +42,7 @@ export const Image = ({
 }: ImageProps) => {
   const thumbInterval = useRef(null);
 
+  const [hasError, setHasError] = useState(false);
   const [imagePos, setImagePos] = useState<CSS["objectPosition"]>(null);
   const [thumbIndex, setThumbIndex] = useState(0);
 
@@ -51,6 +52,7 @@ export const Image = ({
 
   const createThumbInterval = () => {
     thumbInterval.current = setInterval(() => {
+      setHasError(false);
       setThumbIndex((thumbIndex) => (thumbIndex + 1 === thumbPaths?.length ? 0 : thumbIndex + 1));
     }, 300);
   };
@@ -60,6 +62,10 @@ export const Image = ({
     createThumbInterval();
     return () => clearInterval(thumbInterval.current);
   }, []);
+
+  const handleError = (event: React.SyntheticEvent<HTMLImageElement, Event>) => {
+    setHasError(true);
+  };
 
   const handleMouseEnter = () => {
     clearInterval(thumbInterval.current);
@@ -71,6 +77,7 @@ export const Image = ({
     thumbInterval.current = null;
     setThumbIndex(0);
     setImagePos(null);
+    setHasError(false);
   };
 
   const handleMouseMove = (event: React.MouseEvent) => {
@@ -90,11 +97,21 @@ export const Image = ({
       onMouseLeave={hasListeners ? handleMouseLeave : undefined}
       className={cx(css.imageContainer, className)}
     >
-      {thumbPaths?.length > 0 ? (
+      {hasError ? (
+        <View className={css.image}>
+          <Icon
+            name="ImageNotSupported"
+            size="4rem"
+            color={colors.custom.grey}
+            viewProps={{ align: "center", height: "100%" }}
+          />
+        </View>
+      ) : thumbPaths?.length > 0 ? (
         <img
           {...{ draggable, loading, onDragEnd, onDragStart }}
           src={thumbPaths[thumbIndex]}
           alt={title}
+          onError={handleError}
           onMouseMove={fit === "cover" ? handleMouseMove : undefined}
           onMouseLeave={fit === "cover" ? handleMouseLeave : undefined}
           className={css.image}

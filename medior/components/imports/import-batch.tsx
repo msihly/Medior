@@ -20,7 +20,7 @@ export const ImportBatch = observer(({ batch }: ImportBatchProps) => {
 
   const [expanded, setExpanded] = useState(false);
 
-  const { css } = useClasses({ expanded, hasTags: batch.tagIds?.length > 0 });
+  const { css } = useClasses({ expanded, hasTags: batch.tagIds?.length > 0, status: batch.status });
 
   const handleCollections = () => {
     if (!stores.collection.getById(batch.collectionId)) return toast.error("Collection not found");
@@ -169,6 +169,7 @@ const ImportStats = observer(() => {
 interface ClassesProps {
   expanded: boolean;
   hasTags: boolean;
+  status: FileImportBatch["status"];
 }
 
 const useClasses = makeClasses((_, props: ClassesProps) => ({
@@ -224,6 +225,10 @@ const useClasses = makeClasses((_, props: ClassesProps) => ({
   progressBar: {
     flex: 1,
     margin: "0 0.5rem",
+    backgroundColor: colors.custom.lightBlue,
+    "& .MuiLinearProgress-bar": {
+      backgroundColor: props.status !== "PENDING" ? colors.custom.green : colors.custom.blue,
+    },
   },
   progressContainer: {
     flex: 1,
