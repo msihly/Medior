@@ -14,7 +14,7 @@ export const Tags = observer(({ tagIds }: TagsProps) => {
   const tags = stores.tag.listByIds(tagIds.slice(0, 3));
 
   return (
-    <View row className={css.tags}>
+    <View row spacing="0.2rem" className={css.tags}>
       {tags.map((tag, i) => (
         <TagChip key={i} tag={tag} size="small" />
       ))}

@@ -82,7 +82,7 @@ const useClasses = makeClasses((_, { color, size }) => ({
     background: `linear-gradient(to bottom right, ${color}, ${Color(color).darken(0.3).string()})`,
   },
   label: {
-    padding: "0 0.3rem",
+    padding: "0 0.4rem 0 0.3rem",
     overflow: "hidden",
     textOverflow: "ellipsis",
   },

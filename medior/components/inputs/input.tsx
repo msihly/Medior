@@ -84,12 +84,17 @@ export const Input = forwardRef(
     const handleChange = (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
       setValue?.(event.target.value);
 
+    const handleKeyDown = (event: React.KeyboardEvent) => {
+      event.stopPropagation()
+    }
+
     return (
       <HeaderWrapper header={header} headerProps={headerProps} flex={flex} width={width}>
         <TextField
           {...props}
           {...{ onClick, ref, value, variant }}
           onChange={handleChange}
+          onKeyDown={handleKeyDown}
           helperText={
             helperText ? (
               typeof helperText === "string" ? (

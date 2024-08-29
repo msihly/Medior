@@ -30,12 +30,10 @@ export const Card = ({
   return (
     <HeaderWrapper {...{ header, headerProps, width }} {...viewProps}>
       <View
+        {...{ bgColor, padding, row, width }}
         column={column && !row}
-        row={row}
         position="relative"
         borderRadiuses={{ ...borderRadiuses, ...(!!header ? { top: 0 } : {}) }}
-        padding={padding}
-        bgColor={bgColor}
         {...viewProps}
       >
         {children}
