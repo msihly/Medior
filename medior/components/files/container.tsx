@@ -3,11 +3,9 @@ import { observer, useStores } from "medior/store";
 import { useHotkeys } from "medior/views";
 import { CardGrid, Pagination } from "medior/components";
 import { FileCard } from ".";
-import { makeClasses, socket } from "medior/utils";
+import { colors, socket } from "medior/utils";
 
 export const FileContainer = observer(() => {
-  const { css } = useClasses(null);
-
   const stores = useStores();
 
   const filesRef = useRef<HTMLDivElement>(null);
@@ -31,7 +29,7 @@ export const FileContainer = observer(() => {
     });
   }, []);
 
-  const handlePageChange = (page: number) => stores.file.search.loadFilteredFiles({ page });
+  const handlePageChange = (page: number) => stores.file.search.loadFiltered({ page });
 
   return (
     <CardGrid
@@ -40,7 +38,7 @@ export const FileContainer = observer(() => {
         <FileCard key={i} file={f} />
       ))}
       cardsProps={{ onKeyDown: handleKeyPress, tabIndex: 1 }}
-      className={css.cardGrid}
+      bgColor={colors.custom.black}
     >
       <Pagination
         count={stores.file.search.pageCount}
@@ -49,10 +47,4 @@ export const FileContainer = observer(() => {
       />
     </CardGrid>
   );
-});
-
-const useClasses = makeClasses({
-  cardGrid: {
-    backgroundColor: "rgba(0, 0, 0, 0.35)",
-  },
 });

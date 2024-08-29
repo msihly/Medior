@@ -33,7 +33,7 @@ export const useHotkeys = ({ rootRef, view }: UseHotkeysProps) => {
     const newId = isLeft ? prevId : nextId;
 
     if (!stores.file.files.find((f) => f.id === newId))
-      stores.file.search.loadFilteredFiles({
+      stores.file.search.loadFiltered({
         page: stores.file.search.page + 1 * (isLeft ? -1 : 1),
       });
 

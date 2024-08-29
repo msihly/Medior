@@ -220,7 +220,7 @@ export class FileStore extends ExtendedModel(_FileStore, {
       action: (item) => this.refreshFile({ curFile: item, id: item.id }),
       items: filesRes.data.items,
       logSuffix: "files",
-      onComplete: () => this.search.loadFilteredFiles(),
+      onComplete: () => this.search.loadFiltered(),
       queue: this.infoRefreshQueue,
     });
   });

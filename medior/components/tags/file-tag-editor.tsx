@@ -1,6 +1,15 @@
 import { useState } from "react";
 import { TagOption, tagToOption, observer, useStores } from "medior/store";
-import { Button, ConfirmModal, Modal, TagInput, Text, View } from "medior/components";
+import {
+  Button,
+  ConfirmModal,
+  HeaderWrapper,
+  Modal,
+  TagInput,
+  TagList,
+  Text,
+  UniformList,
+} from "medior/components";
 import { colors, useDeepEffect } from "medior/utils";
 import { toast } from "react-toastify";
 
@@ -46,19 +55,7 @@ export const FileTagEditor = observer(({ batchId, fileIds }: FileTagEditorProps)
     stores.file.search.reloadIfQueued();
   };
 
-  const handleTagAdded = (tags: TagOption[]) => {
-    setAddedTags(tags);
-    setRemovedTags((prev) => prev.filter((r) => !tags.find((t) => t.id === r.id)));
-    setHasUnsavedChanges(true);
-  };
-
-  const handleTagRemoved = (tags: TagOption[]) => {
-    setRemovedTags(tags);
-    setAddedTags((prev) => prev.filter((a) => !tags.find((t) => t.id === a.id)));
-    setHasUnsavedChanges(true);
-  };
-
-  const handleSubmit = async () => {
+  const handleConfirm = async () => {
     if (addedTags.length === 0 && removedTags.length === 0)
       return toast.error("You must enter at least one tag");
 
@@ -75,48 +72,55 @@ export const FileTagEditor = observer(({ batchId, fileIds }: FileTagEditorProps)
     handleCloseForced();
   };
 
+  const handleTagAdded = (tags: TagOption[]) => {
+    setAddedTags(tags);
+    setRemovedTags((prev) => prev.filter((r) => !tags.find((t) => t.id === r.id)));
+    setHasUnsavedChanges(true);
+  };
+
+  const handleTagRemoved = (tags: TagOption[]) => {
+    setRemovedTags(tags);
+    setAddedTags((prev) => prev.filter((a) => !tags.find((t) => t.id === a.id)));
+    setHasUnsavedChanges(true);
+  };
+
   return (
-    <Modal.Container onClose={handleClose} width="25rem" draggable>
+    <Modal.Container onClose={handleClose} maxWidth="50rem" width="100%" draggable>
       <Modal.Header>
         <Text>{"Update File Tags"}</Text>
       </Modal.Header>
 
       <Modal.Content>
-        <View column spacing="0.5rem">
+        <UniformList row uniformWidth="20rem" height="15rem" spacing="0.5rem">
           <TagInput
-            label="Current Tags"
-            value={currentTagOptions}
-            detachLabel
-            disabled
-            disableWithoutFade
-            opaque
-          />
-
-          <TagInput
-            label="Added Tags"
+            header="Tags to Add"
             value={addedTags}
             onChange={handleTagAdded}
-            detachLabel
-            autoFocus
             hasCreate
             hasDelete
+            hasEditor
+            autoFocus
           />
 
+          <HeaderWrapper header="Current Tags">
+            <TagList tags={currentTagOptions} search={null} hasEditor />
+          </HeaderWrapper>
+
           <TagInput
-            label="Removed Tags"
+            header="Tags to Remove"
             value={removedTags}
             onChange={handleTagRemoved}
             options={currentTagOptions}
-            detachLabel
             hasDelete
+            hasEditor
           />
-        </View>
+        </UniformList>
       </Modal.Content>
 
       <Modal.Footer>
-        <Button text="Close" icon="Close" onClick={handleClose} color={colors.custom.grey} />
+        <Button text="Cancel" icon="Close" onClick={handleClose} colorOnHover={colors.custom.red} />
 
-        <Button text="Submit" icon="Check" onClick={handleSubmit} />
+        <Button text="Confirm" icon="Check" onClick={handleConfirm} color={colors.custom.blue} />
       </Modal.Footer>
 
       {isConfirmDiscardOpen && (

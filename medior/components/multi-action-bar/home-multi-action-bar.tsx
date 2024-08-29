@@ -24,8 +24,8 @@ export const HomeMultiActionBar = observer(() => {
   };
 
   const handleEditCollections = () => {
-    stores.collection.manager.setFileIds([...stores.file.selectedIds]);
-    stores.collection.setIsManagerOpen(true);
+    stores.collection.manager.setSelectedFileIds([...stores.file.selectedIds]);
+    stores.collection.manager.setIsOpen(true);
   };
 
   const handleEditTags = () => {

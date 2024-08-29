@@ -1,4 +1,4 @@
-import { Icon, Tag, Text, Tooltip, View } from "medior/components";
+import { Icon, TagChip, Text, Tooltip, View } from "medior/components";
 import { useState } from "react";
 import { toast } from "react-toastify";
 import { FileCollection, observer, useStores } from "medior/store";
@@ -49,7 +49,7 @@ export const CollectionTooltip = observer(({ collection, onTagPress }: Collectio
           {tags?.length > 0 && (
             <View className={css.tags}>
               {tags.map((tag) => (
-                <Tag
+                <TagChip
                   key={tag.id}
                   tag={tag}
                   onClick={() => onTagPress(tag.id)}

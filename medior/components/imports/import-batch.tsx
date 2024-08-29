@@ -22,15 +22,15 @@ export const ImportBatch = observer(({ batch }: ImportBatchProps) => {
 
   const { css } = useClasses({ expanded, hasTags: batch.tagIds?.length > 0, status: batch.status });
 
-  const handleCollections = () => {
-    if (!stores.collection.getById(batch.collectionId)) return toast.error("Collection not found");
-    stores.collection.editor.setId(batch.collectionId);
-    stores.collection.setIsEditorOpen(true);
+  const handleCollections = async () => {
+    const res = await stores.collection.editor.loadCollection({ id: batch.collectionId });
+    if (!res.success) toast.error(`Error loading collection: ${res.error}`);
+    else stores.collection.editor.setIsOpen(true);
   };
 
   const handleDelete = async () => {
     const res = await stores.import.deleteImportBatches({ ids: [batch.id] });
-    if (!res.success) toast.error(`Error deleting import batch: ${res?.error}`);
+    if (!res.success) toast.error(`Error deleting import batch: ${res.error}`);
     else toast.success("Import batch deleted");
   };
 
@@ -65,7 +65,7 @@ export const ImportBatch = observer(({ batch }: ImportBatchProps) => {
               <View row className={css.progressContainer}>
                 <Text className={css.progressText}>
                   {`${batch.imported.length} / `}
-                  <Text color={colors.custom.grey}>{batch.imports.length}</Text>
+                  <Text color={colors.custom.lightGrey}>{batch.imports.length}</Text>
                 </Text>
 
                 <LinearProgress
@@ -143,7 +143,7 @@ const ImportStats = observer(() => {
         <View row align="center" spacing="0.5rem">
           <Text width="5.5rem">{formatBytes(stores.import.importStats.completedBytes)}</Text>
           <Text>{"/"}</Text>
-          <Text color={colors.custom.grey} width="5.5rem">
+          <Text color={colors.custom.lightGrey} width="5.5rem">
             {formatBytes(stores.import.importStats.totalBytes)}
           </Text>
         </View>
@@ -225,9 +225,9 @@ const useClasses = makeClasses((_, props: ClassesProps) => ({
   progressBar: {
     flex: 1,
     margin: "0 0.5rem",
-    backgroundColor: colors.custom.lightBlue,
+    backgroundColor: Color(colors.custom.blue).fade(0.5).string(),
     "& .MuiLinearProgress-bar": {
-      backgroundColor: props.status !== "PENDING" ? colors.custom.green : colors.custom.blue,
+      backgroundColor: props?.status !== "PENDING" ? colors.custom.green : colors.custom.blue,
     },
   },
   progressContainer: {

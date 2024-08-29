@@ -1,7 +1,7 @@
 import path from "path";
 import { shell } from "@electron/remote";
 import { observer, useStores } from "medior/store";
-import { Button, Detail, DetailRow, Modal, SideScroller, Tag, Text, View } from "medior/components";
+import { Button, Detail, DetailRow, Modal, SideScroller, TagChip, Text, View } from "medior/components";
 import { colors, dayjs, formatBytes, makeClasses } from "medior/utils";
 import { toast } from "react-toastify";
 
@@ -108,7 +108,7 @@ export const InfoModal = observer(() => {
             value={
               <SideScroller innerClassName={css.tags}>
                 {file.tagIds.map((tagId) => (
-                  <Tag key={tagId} id={tagId} hasEditor size="small" />
+                  <TagChip key={tagId} id={tagId} hasEditor size="small" />
                 ))}
               </SideScroller>
             }

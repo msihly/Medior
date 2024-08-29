@@ -30,7 +30,7 @@ export const useSockets = ({ view }: UseSocketsProps) => {
   const queueFileReload = () =>
     stores._getIsBlockingModalOpen()
       ? stores.file.search.setHasQueuedReload(true)
-      : stores.file.search.loadFilteredFiles();
+      : stores.file.search.loadFiltered();
 
   const setupSockets = () => {
     connectSocket();
@@ -39,7 +39,7 @@ export const useSockets = ({ view }: UseSocketsProps) => {
       if (view === "carousel") stores.carousel.removeFiles(fileIds);
       else {
         if (view === "home") stores.import.addDeletedFileHashes(fileHashes);
-        if (stores.collection.manager.isOpen) stores.collection.listFilteredCollections();
+        if (stores.collection.manager.isOpen) stores.collection.manager.search.loadFiltered();
         queueFileReload();
       }
     });
@@ -78,7 +78,8 @@ export const useSockets = ({ view }: UseSocketsProps) => {
 
     makeSocket("onTagCreated", (tag) => {
       stores.tag._addTag(tag);
-      if (view !== "carousel" && stores.tag.manager.isOpen) stores.tag.manager.loadFilteredTags();
+      if (view !== "carousel" && stores.tag.manager.isOpen)
+        stores.tag.manager.search.loadFiltered();
     });
 
     makeSocket("onTagDeleted", ({ id }) => {
@@ -86,13 +87,14 @@ export const useSockets = ({ view }: UseSocketsProps) => {
       if (view === "home") stores.import.editBatchTags({ removedIds: [id] });
       if (view !== "carousel") {
         queueFileReload();
-        if (stores.tag.manager.isOpen) stores.tag.manager.loadFilteredTags();
+        if (stores.tag.manager.isOpen) stores.tag.manager.search.loadFiltered();
       }
     });
 
     makeSocket("onTagMerged", ({ oldTagId }) => {
       if (view === "home") stores.import.editBatchTags({ removedIds: [oldTagId] });
-      if (view !== "carousel" && stores.tag.manager.isOpen) stores.tag.manager.loadFilteredTags();
+      if (view !== "carousel" && stores.tag.manager.isOpen)
+        stores.tag.manager.search.loadFiltered();
     });
 
     makeSocket("onTagsUpdated", ({ tags, withFileReload }) => {
@@ -103,15 +105,12 @@ export const useSockets = ({ view }: UseSocketsProps) => {
     if (view === "carousel") {
       makeSocket("onFilesArchived", ({ fileIds }) => stores.carousel.removeFiles(fileIds));
     } else {
-      makeSocket("onFileCollectionCreated", (collection) =>
-        stores.collection._addCollection(collection)
-      );
-
-      makeSocket("onFileCollectionDeleted", ({ id }) => stores.collection._deleteCollection(id));
-
-      makeSocket("onFileCollectionUpdated", ({ id, updates }) =>
-        stores.collection.getById(id)?.update(updates)
-      );
+      makeSocket("onFileCollectionUpdated", ({ id, updates }) => {
+        if (stores.collection.manager.isOpen)
+          stores.collection.manager.getById(id)?.update(updates);
+        if (stores.collection.editor.collection?.id === id)
+          stores.collection.editor.collection.update(updates);
+      });
 
       makeSocket("onImportBatchCompleted", () => {
         throttle(queueFileReload, 5000)();
@@ -122,7 +121,7 @@ export const useSockets = ({ view }: UseSocketsProps) => {
       );
 
       makeSocket("onReloadFileCollections", () => {
-        if (stores.collection.manager.isOpen) stores.collection.listFilteredCollections();
+        if (stores.collection.manager.isOpen) stores.collection.manager.search.loadFiltered();
       });
     }
 

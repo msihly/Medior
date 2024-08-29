@@ -13,5 +13,5 @@ export const Input = observer(({ configKey, ...props }: InputProps) => {
 
   const setValue = (val: string) => stores.home.settings.update({ [configKey]: val });
 
-  return <InputBase {...{ setValue, value }} detachLabel {...props} />;
+  return <InputBase {...{ setValue, value }} {...props} />;
 });

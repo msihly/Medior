@@ -1,30 +1,30 @@
 import { observer, useStores } from "medior/store";
 import {
+  HeaderWrapper,
+  HeaderWrapperProps,
   SortMenu as SortMenuBase,
   SortMenuProps as SortMenuBaseProps,
-  View,
 } from "medior/components";
-import { Label } from "./label";
 import { colors, ConfigKey } from "medior/utils";
 
 export interface SortMenuProps extends Omit<SortMenuBaseProps, "setValue" | "value"> {
   configKey: ConfigKey;
-  label: string;
+  header: HeaderWrapperProps["header"];
 }
 
-export const SortMenu = observer(({ configKey, label, ...props }: SortMenuProps) => {
-  const stores = useStores();
+export const SortMenu = observer(
+  ({ configKey, header, width = "10rem", ...props }: SortMenuProps) => {
+    const stores = useStores();
 
-  const value = stores.home.settings.getConfigByKey<SortMenuBaseProps["value"]>(configKey);
+    const value = stores.home.settings.getConfigByKey<SortMenuBaseProps["value"]>(configKey);
 
-  const setValue = (value: SortMenuBaseProps["value"]) =>
-    stores.home.settings.update({ [configKey]: value });
+    const setValue = (value: SortMenuBaseProps["value"]) =>
+      stores.home.settings.update({ [configKey]: value });
 
-  return (
-    <View column>
-      <Label {...{ label }} />
-
-      <SortMenuBase {...{ setValue, value }} width="9rem" color={colors.background} {...props} />
-    </View>
-  );
-});
+    return (
+      <HeaderWrapper header={header} width={width}>
+        <SortMenuBase {...{ setValue, value }} width={width} color={colors.background} {...props} />
+      </HeaderWrapper>
+    );
+  }
+);

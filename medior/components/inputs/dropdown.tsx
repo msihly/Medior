@@ -7,14 +7,12 @@ export type DropdownOption = {
 };
 
 export interface DropdownProps extends InputProps {
-  fullWidth?: boolean;
-  label?: string;
   options: DropdownOption[];
 }
 
-export const Dropdown = ({ fullWidth = false, label, options, value, ...props }: DropdownProps) => {
+export const Dropdown = ({ options, value, ...props }: DropdownProps) => {
   return (
-    <Input {...props} {...{ fullWidth, label, value }} select>
+    <Input {...props} value={value} select>
       {options.map((o, i) => (
         <MenuItem key={i} value={o.value ?? o.label}>
           <Text>{o.label}</Text>

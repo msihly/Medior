@@ -1,5 +1,5 @@
 import { FileImportBatch, observer } from "medior/store";
-import { Tag, Text, Tooltip, View } from "medior/components";
+import { TagChip, Text, Tooltip, View } from "medior/components";
 import { colors, dayjs, makeClasses } from "medior/utils";
 
 interface BatchTooltipProps {
@@ -39,7 +39,7 @@ export const BatchTooltip = observer(({ batch, children }: BatchTooltipProps) =>
           {batch.tagIds?.length > 0 && (
             <View className={css.tags}>
               {batch.tagIds.map((id) => (
-                <Tag key={id} id={String(id)} size="small" className={css.tag} />
+                <TagChip key={id} id={String(id)} size="small" className={css.tag} />
               ))}
             </View>
           )}

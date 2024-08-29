@@ -192,7 +192,6 @@ export const FaceRecognitionModal = observer(() => {
                     inputProps={{ color: face.boxColor, margins: { top: "0.4rem" } }}
                     hasCreate
                     center
-                    fullWidth
                   />
                 </View>
               ))}

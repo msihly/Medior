@@ -1,7 +1,7 @@
 import { getCurrentWindow, screen } from "@electron/remote";
 import { useContext, useEffect, useRef, useState } from "react";
 import { observer, useStores } from "medior/store";
-import { ZoomContext, Icon, IconButton, SideScroller, Tag, Text, View } from "medior/components";
+import { ZoomContext, Icon, IconButton, SideScroller, TagChip, Text, View } from "medior/components";
 import { colors, makeClasses, round, zoomScaleStepIn, zoomScaleStepOut } from "medior/utils";
 
 export const CarouselTopBar = observer(() => {
@@ -104,7 +104,7 @@ export const CarouselTopBar = observer(() => {
       <View className={css.center}>
         <SideScroller innerClassName={css.tags}>
           {file?.tagIds?.map((tagId) => (
-            <Tag key={tagId} id={tagId} hasEditor />
+            <TagChip key={tagId} id={tagId} hasEditor />
           ))}
         </SideScroller>
       </View>

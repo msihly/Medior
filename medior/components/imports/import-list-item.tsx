@@ -2,20 +2,20 @@ import { ReactNode, useMemo } from "react";
 import { ModelCreationData } from "mobx-keystone";
 import { FileImport, observer } from "medior/store";
 import { Divider } from "@mui/material";
-import { Chip, Detail, DetailRow, IconName, Tag, Text, TooltipWrapper, View } from "medior/components";
+import { Chip, Detail, DetailRow, IconName, TagChip, Text, TooltipWrapper, View } from "medior/components";
 import { TagHierarchy } from ".";
 import { colors, formatBytes, makeClasses, parseDiffParams } from "medior/utils";
 
 export const IMPORT_LIST_ITEM_HEIGHT = 30;
 
 export interface ImportListItemProps {
-  color?: string;
+  bgColor?: string;
   fileImport: ModelCreationData<FileImport>;
   style?: React.CSSProperties;
 }
 
 export const ImportListItem = observer(
-  ({ color = colors.custom.lightGrey, fileImport, style = {} }: ImportListItemProps) => {
+  ({ bgColor, fileImport, style = {} }: ImportListItemProps) => {
     const { css } = useClasses(null);
 
     const parsedParams = useMemo(() => {
@@ -24,11 +24,10 @@ export const ImportListItem = observer(
     }, [fileImport.diffusionParams]);
 
     return (
-      <View key={fileImport.path} className={css.root} {...{ style }}>
+      <View key={fileImport.path} bgColor={bgColor} className={css.root} {...{ style }}>
         <Text
           tooltip={fileImport.path}
           tooltipProps={{ enterDelay: 1000, flexShrink: "inherit" }}
-          color={color}
           className={css.name}
         >
           {fileImport.name}
@@ -39,7 +38,7 @@ export const ImportListItem = observer(
             <TooltipChip icon="Label" label="Tags">
               <View className={css.tagRow}>
                 {fileImport.tagIds.map((id) => (
-                  <Tag key={id} id={id} className={css.tag} hasEditor />
+                  <TagChip key={id} id={id} className={css.tag} hasEditor />
                 ))}
               </View>
 

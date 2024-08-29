@@ -1,3 +1,5 @@
+import * as Types from "medior/database/types";
+import { computed } from "mobx";
 import { getRootStore, Model, model, modelAction, modelFlow, prop } from "mobx-keystone";
 import { asyncAction, RootStore, TagOption } from "medior/store";
 import { SortMenuProps } from "medior/components";
@@ -16,11 +18,16 @@ export class FileSearch extends Model({
   hasQueuedReload: prop<boolean>(false).withSetter(),
   isArchiveOpen: prop<boolean>(false).withSetter(),
   isLoading: prop<boolean>(false).withSetter(),
+  maxHeight: prop<number>(null).withSetter(),
+  maxWidth: prop<number>(null).withSetter(),
+  minHeight: prop<number>(null).withSetter(),
+  minWidth: prop<number>(null).withSetter(),
   numOfTagsOp: prop<LogicalOp | "">("").withSetter(),
   numOfTagsValue: prop<number>(0).withSetter(),
   page: prop<number>(1).withSetter(),
   pageCount: prop<number>(1).withSetter(),
-  searchValue: prop<TagOption[]>(() => []).withSetter(),
+  ratingOp: prop<LogicalOp | "">("").withSetter(),
+  ratingValue: prop<number>(0).withSetter(),
   selectedImageTypes: prop<SelectedImageTypes>(
     () =>
       Object.fromEntries(
@@ -34,6 +41,7 @@ export class FileSearch extends Model({
       ) as SelectedVideoTypes
   ),
   sortValue: prop<SortMenuProps["value"]>(() => getConfig().file.searchSort).withSetter(),
+  tags: prop<TagOption[]>(() => []).withSetter(),
 }) {
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
   @modelAction
@@ -41,7 +49,7 @@ export class FileSearch extends Model({
     const stores = getRootStore<RootStore>(this);
     if (this.hasQueuedReload && !stores._getIsBlockingModalOpen()) {
       this.setHasQueuedReload(false);
-      this.loadFilteredFiles();
+      this.loadFiltered();
     }
   }
 
@@ -54,9 +62,16 @@ export class FileSearch extends Model({
     this.dateModifiedEnd = "";
     this.dateModifiedStart = "";
     this.hasDiffParams = false;
+    this.isArchiveOpen = false;
+    this.maxHeight = null;
+    this.maxWidth = null;
+    this.minHeight = null;
+    this.minWidth = null;
     this.numOfTagsOp = "";
     this.numOfTagsValue = 0;
-    this.searchValue = [];
+    this.page = 1;
+    this.ratingOp = "";
+    this.ratingValue = 0;
     this.selectedImageTypes = Object.fromEntries(
       config.file.imageTypes.map((ext) => [ext, true])
     ) as SelectedImageTypes;
@@ -64,6 +79,7 @@ export class FileSearch extends Model({
       config.file.videoTypes.map((ext) => [ext, true])
     ) as SelectedVideoTypes;
     this.sortValue = config.file.searchSort;
+    this.tags = [];
   }
 
   @modelAction
@@ -88,7 +104,6 @@ export class FileSearch extends Model({
 
       const res = await trpc.getShiftSelectedFiles.mutate({
         ...this.getFilterProps(),
-        ...stores.tag.tagSearchOptsToIds(this.searchValue),
         clickedId: id,
         clickedIndex,
         selectedIds,
@@ -100,11 +115,8 @@ export class FileSearch extends Model({
 
   @modelFlow
   listIdsForCarousel = asyncAction(async () => {
-    const stores = getRootStore<RootStore>(this);
-
     const res = await trpc.listFileIdsForCarousel.mutate({
       ...this.getFilterProps(),
-      ...stores.tag.tagSearchOptsToIds(this.searchValue),
       page: this.page,
       pageSize: getConfig().file.searchFileCount,
     });
@@ -114,42 +126,77 @@ export class FileSearch extends Model({
   });
 
   @modelFlow
-  loadFilteredFiles = asyncAction(async ({ page }: { page?: number } = {}) => {
-    const debug = false;
-    const { perfLog, perfLogTotal } = makePerfLog("[LFF]");
+  loadFiltered = asyncAction(
+    async (
+      args: {
+        filterProps?: Partial<Types.ListFilteredFilesInput>;
+        noOverwrite?: boolean;
+        page?: number;
+        pageSize?: number;
+      } = {}
+    ) => {
+      const debug = false;
+      const { perfLog, perfLogTotal } = makePerfLog("[LFF]");
 
-    const stores = getRootStore<RootStore>(this);
-    if (!stores) throw new Error("RootStore not found");
+      const stores = getRootStore<RootStore>(this);
 
-    this.setIsLoading(true);
+      this.setIsLoading(true);
 
-    const filteredRes = await trpc.listFilteredFiles.mutate({
-      ...this.getFilterProps(),
-      ...stores.tag.tagSearchOptsToIds(this.searchValue),
-      page: page ?? this.page,
-      pageSize: getConfig().file.searchFileCount,
-    });
-    if (!filteredRes.success) throw new Error(filteredRes.error);
+      const filteredRes = await trpc.listFilteredFiles.mutate({
+        ...this.getFilterProps(),
+        ...args.filterProps,
+        page: args.page ?? this.page,
+        pageSize: args.pageSize ?? getConfig().file.searchFileCount,
+      });
+      if (!filteredRes.success) throw new Error(filteredRes.error);
 
-    const { files, pageCount } = filteredRes.data;
-    if (debug) perfLog(`Loaded ${files.length} filtered files`);
+      const { files, pageCount } = filteredRes.data;
+      if (debug) perfLog(`Loaded ${files.length} filtered files`);
 
-    stores.file.overwrite(files.map((f) => ({ ...f, hasFaceModels: f.faceModels?.length > 0 })));
-    if (debug) perfLog("FileStore.files overwrite and re-render");
+      if (!args.noOverwrite) {
+        stores.file.overwrite([...files]);
+        if (debug) perfLog("Overwrite and re-render");
+      }
 
-    this.setPageCount(pageCount);
-    if (page) this.setPage(page);
-    if (debug) perfLog(`Set page to ${page ?? this.page} and pageCount to ${pageCount}`);
+      this.setPageCount(pageCount);
+      if (args.page) this.setPage(args.page);
+      if (debug) perfLog(`Set page to ${args.page ?? this.page} and pageCount to ${pageCount}`);
 
-    if (debug) perfLogTotal(`Loaded ${files.length} files`);
-    this.setIsLoading(false);
+      if (debug) perfLogTotal(`Loaded ${files.length} files`);
+      this.setIsLoading(false);
 
-    return files;
-  });
+      return files;
+    }
+  );
+
+  /* --------------------------------- GETTERS -------------------------------- */
+  @computed
+  get numOfFilters() {
+    return (
+      (this.dateCreatedEnd ? 1 : 0) +
+      (this.dateCreatedStart ? 1 : 0) +
+      (this.dateModifiedEnd ? 1 : 0) +
+      (this.dateModifiedStart ? 1 : 0) +
+      (this.hasDiffParams ? 1 : 0) +
+      (this.isArchiveOpen ? 1 : 0) +
+      (this.maxHeight !== null ? 1 : 0) +
+      (this.maxWidth !== null ? 1 : 0) +
+      (this.minHeight !== null ? 1 : 0) +
+      (this.minWidth !== null ? 1 : 0) +
+      (this.numOfTagsOp ? 1 : 0) +
+      (this.ratingOp ? 1 : 0) +
+      (this.tags.length ? 1 : 0) +
+      (Object.values(this.selectedImageTypes).some((v) => !v) ? 1 : 0) +
+      (Object.values(this.selectedVideoTypes).some((v) => !v) ? 1 : 0)
+    );
+  }
 
   /* --------------------------------- DYNAMIC GETTERS -------------------------------- */
   getFilterProps() {
+    const stores = getRootStore<RootStore>(this);
+
     return {
+      ...stores.tag.tagSearchOptsToIds(this.tags),
       dateCreatedEnd: this.dateCreatedEnd,
       dateCreatedStart: this.dateCreatedStart,
       dateModifiedEnd: this.dateModifiedEnd,
@@ -157,9 +204,14 @@ export class FileSearch extends Model({
       hasDiffParams: this.hasDiffParams,
       isArchived: this.isArchiveOpen,
       isSortDesc: this.sortValue.isDesc,
+      maxHeight: this.maxHeight,
+      maxWidth: this.maxWidth,
+      minHeight: this.minHeight,
+      minWidth: this.minWidth,
       numOfTagsOp: this.numOfTagsOp,
       numOfTagsValue: this.numOfTagsValue,
-      searchValue: this.searchValue,
+      ratingOp: this.ratingOp,
+      ratingValue: this.ratingValue,
       selectedImageTypes: this.selectedImageTypes,
       selectedVideoTypes: this.selectedVideoTypes,
       sortKey: this.sortValue.key,

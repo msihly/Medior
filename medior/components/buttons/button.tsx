@@ -15,7 +15,7 @@ import {
   TooltipWrapper,
   View,
 } from "medior/components";
-import { colors, CSS, makeClasses, Margins, Padding } from "medior/utils";
+import { colors, CSS, makeClasses, makeMargins, Margins, Padding } from "medior/utils";
 import Color from "color";
 
 export interface ButtonProps
@@ -23,6 +23,7 @@ export interface ButtonProps
     MuiButtonProps,
     "color" | "endIcon" | "fullWidth" | "startIcon" | "type" | "variant"
   > {
+  boxShadow?: CSS["boxShadow"];
   color?: string;
   colorOnHover?: string;
   circle?: boolean;
@@ -51,6 +52,7 @@ export interface ButtonProps
 }
 
 export const Button = ({
+  boxShadow,
   children,
   circle = false,
   className,
@@ -84,6 +86,7 @@ export const Button = ({
   ...props
 }: ButtonProps) => {
   const { css, cx } = useClasses({
+    boxShadow,
     color,
     colorOnHover,
     isCircle: circle,
@@ -152,6 +155,7 @@ export const Button = ({
 };
 
 interface ClassesProps {
+  boxShadow: CSS["boxShadow"];
   color: string;
   colorOnHover: string;
   isCircle: boolean;
@@ -170,6 +174,7 @@ const useClasses = makeClasses(
   (
     _,
     {
+      boxShadow,
       color,
       colorOnHover,
       isCircle,
@@ -191,11 +196,7 @@ const useClasses = makeClasses(
       alignItems: "center",
       border: `1px solid ${outlined ? color : "transparent"}`,
       borderRadius: isCircle ? "50%" : undefined,
-      margin: margins?.all,
-      marginTop: margins?.top,
-      marginBottom: margins?.bottom,
-      marginRight: margins?.right,
-      marginLeft: margins?.left,
+      ...makeMargins(margins),
       padding: padding?.all,
       paddingTop: padding?.top ?? (isLink ? 0 : undefined),
       paddingBottom: padding?.bottom ?? (isLink ? 0 : undefined),
@@ -204,10 +205,15 @@ const useClasses = makeClasses(
       minWidth: "fit-content",
       width,
       backgroundColor: isLink ? "transparent" : outlined ? outlineFill : color,
-      boxShadow: isLink ? "none" : undefined,
+      boxShadow:
+        boxShadow ??
+        (isLink
+          ? "none"
+          : "0px 3px 1px -2px rgba(0,0,0,0.2), 0px 2px 2px 0px rgba(0,0,0,0.14), 0px 1px 5px 0px rgba(0,0,0,0.12)"),
       color: outlined
         ? color
-        : (textColor ?? (isLink ? colors.custom.lightBlue : outlined ? color : colors.custom.white)),
+        : (textColor ??
+          (isLink ? colors.custom.lightBlue : outlined ? color : colors.custom.white)),
       textTransform,
       "&:hover": {
         background: isLink

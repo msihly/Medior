@@ -13,13 +13,5 @@ export const NumInput = observer(({ configKey, ...props }: NumInputProps) => {
 
   const setValue = (val: number) => stores.home.settings.update({ [configKey]: val });
 
-  return (
-    <NumInputBase
-      {...{ setValue, value }}
-      width="8rem"
-      textAlign="center"
-      detachLabel
-      {...props}
-    />
-  );
+  return <NumInputBase {...{ setValue, value }} width="8rem" textAlign="center" {...props} />;
 });

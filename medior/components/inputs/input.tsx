@@ -1,18 +1,36 @@
 import { ChangeEvent, forwardRef, MutableRefObject, ReactNode } from "react";
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { TextField, TextFieldProps } from "@mui/material";
-import { ConditionalWrap, Text, TextProps, View } from "medior/components";
-import { CSS, makeClasses, Margins } from "medior/utils";
+import { HeaderWrapper, HeaderWrapperProps, Text } from "medior/components";
+import {
+  BorderRadiuses,
+  Borders,
+  CSS,
+  deepMerge,
+  makeBorderRadiuses,
+  makeBorders,
+  makeClasses,
+  makeMargins,
+  Margins,
+} from "medior/utils";
 import Color from "color";
 
-export interface InputProps extends Omit<TextFieldProps, "color" | "onChange" | "helperText"> {
+const DEFAULT_HEADER_PROPS: HeaderWrapperProps["headerProps"] = {
+  fontSize: "0.8em",
+  padding: { all: "0.15rem 0.3rem" },
+};
+
+export interface InputProps
+  extends Omit<TextFieldProps, "color" | "fullWidth" | "onChange" | "helperText" | "label"> {
+  borders?: Borders;
+  borderRadiuses?: BorderRadiuses;
   className?: string;
   color?: string;
-  detachLabel?: boolean;
   flex?: CSS["flex"];
   hasHelper?: boolean;
+  header?: HeaderWrapperProps["header"];
+  headerProps?: HeaderWrapperProps["headerProps"];
   helperText?: ReactNode;
-  labelProps?: Partial<TextProps>;
   margins?: Margins;
   maxLength?: number;
   setValue?: (value: string) => void;
@@ -24,16 +42,17 @@ export interface InputProps extends Omit<TextFieldProps, "color" | "onChange" | 
 export const Input = forwardRef(
   (
     {
+      borders,
+      borderRadiuses,
       children,
       className,
       color,
-      detachLabel = false,
       flex,
       hasHelper = false,
+      header,
+      headerProps = {},
       helperText,
       inputProps,
-      label,
-      labelProps = {},
       margins = {},
       maxLength,
       onClick,
@@ -46,9 +65,14 @@ export const Input = forwardRef(
     }: InputProps,
     ref?: MutableRefObject<HTMLDivElement>
   ) => {
+    headerProps = deepMerge(DEFAULT_HEADER_PROPS, headerProps);
+
     const { css, cx } = useClasses({
+      borders,
+      borderRadiuses,
       color,
       flex,
+      hasHeader: !!header,
       hasHelper,
       hasHelperText: !!helperText,
       hasOnClick: !!onClick,
@@ -61,21 +85,10 @@ export const Input = forwardRef(
       setValue?.(event.target.value);
 
     return (
-      <ConditionalWrap
-        condition={detachLabel}
-        wrap={(c) => (
-          <View column className={css.container}>
-            <Text preset="label-glow" {...labelProps}>
-              {label}
-            </Text>
-            {c}
-          </View>
-        )}
-      >
+      <HeaderWrapper header={header} headerProps={headerProps} flex={flex} width={width}>
         <TextField
           {...props}
           {...{ onClick, ref, value, variant }}
-          label={detachLabel ? undefined : label}
           onChange={handleChange}
           helperText={
             helperText ? (
@@ -86,20 +99,25 @@ export const Input = forwardRef(
               )
             ) : undefined
           }
+          // @ts-expect-error
+          FormHelperTextProps={{ component: "div" }}
           inputProps={{ ...inputProps, maxLength, value: value ?? "" }}
           size="small"
           className={cx(css.input, className)}
         >
           {children}
         </TextField>
-      </ConditionalWrap>
+      </HeaderWrapper>
     );
   }
 );
 
 interface ClassesProps {
+  borders: Borders;
+  borderRadiuses: BorderRadiuses;
   color: string;
   flex: CSS["flex"];
+  hasHeader: boolean;
   hasHelper: boolean;
   hasHelperText: boolean;
   hasOnClick: boolean;
@@ -109,18 +127,12 @@ interface ClassesProps {
 }
 
 const useClasses = makeClasses((_, props?: ClassesProps) => ({
-  container: {
-    flex: props?.flex,
-    width: props?.width,
-  },
   input: {
     flex: props?.flex,
-    margin: props?.margins?.all,
-    marginTop: props?.margins?.top,
-    marginBottom:
-      props?.margins?.bottom ?? (props?.hasHelper && !props?.hasHelperText ? "1.3em" : 0),
-    marginRight: props?.margins?.right,
-    marginLeft: props?.margins?.left,
+    ...makeMargins({
+      ...props?.margins,
+      bottom: props?.margins?.bottom ?? (props?.hasHelper && !props?.hasHelperText ? "1.3em" : 0),
+    }),
     width: props?.width,
     "& input": {
       borderRadius: "inherit",
@@ -136,6 +148,8 @@ const useClasses = makeClasses((_, props?: ClassesProps) => ({
         transition: "all 200ms ease-in-out",
         borderColor: props?.color,
         borderStyle: "dotted",
+        ...makeBorders(props?.borders),
+        ...makeBorderRadiuses(props),
       },
       "&:hover fieldset": {
         borderColor: props?.color ? Color(props?.color).lighten(0.3).toString() : undefined,
@@ -143,6 +157,9 @@ const useClasses = makeClasses((_, props?: ClassesProps) => ({
       "&.Mui-focused fieldset": {
         borderColor: props?.color,
       },
+    },
+    "& .MuiSelect-select": {
+      fontSize: "0.9em",
     },
     "& .MuiFormHelperText-root": {
       margin: "0.3em 0 0 0",

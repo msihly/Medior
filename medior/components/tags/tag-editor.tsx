@@ -4,6 +4,7 @@ import { TagOption, observer, useStores } from "medior/store";
 import { Divider } from "@mui/material";
 import {
   Button,
+  Card,
   Checkbox,
   ChipOption,
   ConfirmModal,
@@ -15,7 +16,7 @@ import {
   View,
 } from "medior/components";
 import { TagInputs } from ".";
-import { colors, makeClasses, useDeepEffect, useDeepMemo } from "medior/utils";
+import { colors, useDeepEffect, useDeepMemo } from "medior/utils";
 import { toast } from "react-toastify";
 
 export interface TagEditorProps {
@@ -26,8 +27,6 @@ export interface TagEditorProps {
 
 export const TagEditor = observer(
   ({ hasSubEditor = false, id, isSubEditor = false }: TagEditorProps) => {
-    const { css } = useClasses(null);
-
     const labelRef = useRef<HTMLDivElement>(null);
 
     const stores = useStores();
@@ -162,15 +161,11 @@ export const TagEditor = observer(
         <LoadingOverlay {...{ isLoading }} />
 
         <Modal.Header
-          leftNode={!isCreate && <Text className={css.headerText}>{`ID: ${id}`}</Text>}
+          leftNode={!isCreate && <Text preset="sub-text">{`ID: ${id}`}</Text>}
           rightNode={
             !isCreate && (
-              <View align="center" className={css.spacedRow}>
-                <Text
-                  tooltip={tag?.count}
-                  tooltipProps={{ flexShrink: 1 }}
-                  className={css.headerText}
-                >
+              <View row align="center" spacing="0.5rem">
+                <Text tooltip={tag?.count} tooltipProps={{ flexShrink: 1 }} preset="sub-text">
                   {`Count: ${tag?.count}`}
                 </Text>
 
@@ -197,46 +192,47 @@ export const TagEditor = observer(
         </Modal.Header>
 
         <Modal.Content>
-          <View align="flex-start" className={css.spacedRow}>
-            <TagInputs.Label
-              ref={labelRef}
-              value={label}
-              setValue={setLabel}
-              disabled={isLoading}
-              isDuplicate={isDuplicateTag}
-            />
+          <View column spacing="0.5rem">
+            <Card row flex={1} spacing="0.5rem">
+              <TagInputs.Label
+                ref={labelRef}
+                value={label}
+                setValue={setLabel}
+                disabled={isLoading}
+                isDuplicate={isDuplicateTag}
+                width="100%"
+              />
 
-            <TagInputs.Aliases value={aliases} setValue={setAliases} disabled={isLoading} />
-          </View>
+              <TagInputs.Aliases value={aliases} setValue={setAliases} disabled={isLoading} />
+            </Card>
 
-          <TagInputs.Relations
-            label="Parent Tags"
-            options={tagOptions}
-            excludedIds={[id, ...childTags.map((t) => t.id)]}
-            value={parentTags}
-            setValue={setParentTags}
-            ancestryType="ancestors"
-            ancestryTagIds={tag?.ancestorIds}
-            disabled={isLoading}
-            hasEditor={false}
-            onTagClick={hasSubEditor ? handleSubEditorClick : null}
-          />
+            <Card row height="12rem" spacing="0.5rem">
+              <TagInputs.Relations
+                header="Parent Tags"
+                options={tagOptions}
+                excludedIds={[id, ...childTags.map((t) => t.id)]}
+                value={parentTags}
+                setValue={setParentTags}
+                ancestryType="ancestors"
+                ancestryTagIds={tag?.ancestorIds}
+                disabled={isLoading}
+                hasEditor={false}
+                onTagClick={hasSubEditor ? handleSubEditorClick : null}
+              />
 
-          <TagInputs.Relations
-            label="Child Tags"
-            options={tagOptions}
-            excludedIds={[id, ...parentTags.map((t) => t.id)]}
-            value={childTags}
-            setValue={setChildTags}
-            ancestryType="descendants"
-            ancestryTagIds={tag?.descendantIds}
-            disabled={isLoading}
-            hasEditor={false}
-            onTagClick={hasSubEditor ? handleSubEditorClick : null}
-          />
-
-          <View column justify="center">
-            <Text preset="label-glow">{"RegEx Mapping"}</Text>
+              <TagInputs.Relations
+                header="Child Tags"
+                options={tagOptions}
+                excludedIds={[id, ...parentTags.map((t) => t.id)]}
+                value={childTags}
+                setValue={setChildTags}
+                ancestryType="descendants"
+                ancestryTagIds={tag?.descendantIds}
+                disabled={isLoading}
+                hasEditor={false}
+                onTagClick={hasSubEditor ? handleSubEditorClick : null}
+              />
+            </Card>
 
             <RegExMapRow
               aliases={aliases.map((a) => a.value)}
@@ -249,13 +245,9 @@ export const TagEditor = observer(
               testString={regExTestString}
               types={regExTypes}
             />
-          </View>
 
-          {isCreate && (
-            <View column justify="center">
-              <Text preset="label-glow">{"Create Options"}</Text>
-
-              <View row>
+            {isCreate && (
+              <Card header="Create Options" row spacing="0.5rem">
                 <Checkbox
                   label="Continue"
                   checked={hasContinue}
@@ -279,9 +271,9 @@ export const TagEditor = observer(
                   disabled={!hasContinue || isLoading}
                   center
                 />
-              </View>
-            </View>
-          )}
+              </Card>
+            )}
+          </View>
         </Modal.Content>
 
         <Modal.Footer>
@@ -290,6 +282,7 @@ export const TagEditor = observer(
             icon="Close"
             onClick={handleClose}
             disabled={isLoading}
+            colorOnHover={colors.custom.red}
           />
 
           {!isCreate && (
@@ -302,7 +295,13 @@ export const TagEditor = observer(
             />
           )}
 
-          <Button text="Confirm" icon="Check" onClick={saveTag} disabled={isLoading} />
+          <Button
+            text="Confirm"
+            icon="Check"
+            onClick={saveTag}
+            disabled={isLoading}
+            color={colors.custom.blue}
+          />
         </Modal.Footer>
 
         {isConfirmDeleteOpen && (
@@ -317,19 +316,3 @@ export const TagEditor = observer(
     );
   }
 );
-
-const useClasses = makeClasses({
-  headerText: {
-    color: colors.custom.grey,
-    fontSize: "0.7em",
-    whiteSpace: "nowrap",
-    textOverflow: "ellipsis",
-  },
-  spacedRow: {
-    display: "flex",
-    flexDirection: "row",
-    "& > *:not(:last-child)": {
-      marginRight: "0.5rem",
-    },
-  },
-});

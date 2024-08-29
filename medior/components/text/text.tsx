@@ -7,7 +7,7 @@ import { colors, makeClasses } from "medior/utils";
 export interface TextProps extends Omit<TypographyProps, "color" | "component" | "title"> {
   color?: string;
   component?: ElementType;
-  preset?: "label-glow";
+  preset?: "label-glow" | "sub-text";
   tooltip?: TooltipProps["title"];
   tooltipProps?: Partial<TooltipProps>;
 }
@@ -41,14 +41,14 @@ export const Text = ({
 };
 
 interface ClassesProps {
-  color?: string;
-  preset?: TextProps["preset"];
+  color: string;
+  preset: TextProps["preset"];
 }
 
-const useClasses = makeClasses((_, { color, preset }: ClassesProps) => ({
+const useClasses = makeClasses((_, props: ClassesProps) => ({
   root: {
-    color,
-    ...(preset === "label-glow"
+    color: props.color,
+    ...(props.preset === "label-glow"
       ? {
           color: colors.custom.white,
           fontSize: "0.8em",
@@ -56,6 +56,13 @@ const useClasses = makeClasses((_, { color, preset }: ClassesProps) => ({
           textShadow: `0 0 10px ${colors.custom.blue}`,
           overflow: "visible",
         }
-      : {}),
+      : props.preset === "sub-text"
+        ? {
+            color: colors.custom.grey,
+            fontSize: "0.7em",
+            whiteSpace: "nowrap",
+            textOverflow: "ellipsis",
+          }
+        : {}),
   },
 }));

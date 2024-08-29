@@ -1,30 +1,30 @@
-import { useEffect, useState } from "react";
+import { ReactNode, useEffect, useState } from "react";
 import { DatePicker, DatePickerProps } from "@mui/x-date-pickers/DatePicker";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
-import { ConditionalWrap, Text, TextProps, View } from "medior/components";
+import { HeaderWrapper, Input, InputProps, ViewProps } from "medior/components";
 import { CSS, dayjs, makeClasses } from "medior/utils";
 
-export interface DateInputProps extends Omit<DatePickerProps<dayjs.Dayjs>, "onChange" | "value"> {
-  detachLabel?: boolean;
-  flex?: CSS["flex"];
-  labelProps?: TextProps;
+export interface DateInputProps
+  extends Omit<DatePickerProps<dayjs.Dayjs>, "label" | "onChange" | "value"> {
+  header?: ReactNode;
+  headerProps?: Partial<ViewProps>;
+  inputProps?: Partial<InputProps>;
   setValue?: (val: string) => void;
   value: string;
   width?: CSS["width"];
 }
 
 export const DateInput = ({
-  detachLabel = false,
-  flex,
-  label,
-  labelProps = {},
+  header,
+  headerProps = {},
+  inputProps = {},
   setValue,
   value,
   width,
-  ...props
+  ...datePickerProps
 }: DateInputProps) => {
-  const { css } = useClasses({ flex, width });
+  const { css } = useClasses({ width });
 
   const [dateValue, setDateValue] = useState<dayjs.Dayjs>(value?.length ? dayjs(value) : null);
 
@@ -34,45 +34,41 @@ export const DateInput = ({
 
   const handleChange = (val: dayjs.Dayjs) => setValue?.(val?.format("YYYY-MM-DD"));
 
-  const wrap = (c: JSX.Element) => (
-    <View column className={css.container}>
-      <Text preset="label-glow" {...labelProps}>
-        {label}
-      </Text>
-      {c}
-    </View>
-  );
-
   return (
-    <ConditionalWrap condition={detachLabel} wrap={wrap}>
+    <HeaderWrapper header={header} headerProps={headerProps}>
       <LocalizationProvider dateAdapter={AdapterDayjs}>
         <DatePicker
-          {...props}
+          {...datePickerProps}
           value={dateValue}
           onChange={handleChange}
+          slots={{
+            textField: (props) => (
+              <Input {...props} {...inputProps} value={props?.value as string} />
+            ),
+          }}
           slotProps={{ actionBar: { actions: ["cancel", "clear", "today"] } }}
           className={css.datePicker}
         />
       </LocalizationProvider>
-    </ConditionalWrap>
+    </HeaderWrapper>
   );
 };
 
 interface ClassesProps {
-  flex?: CSS["flex"];
   width?: CSS["width"];
 }
 
-const useClasses = makeClasses((_, { flex, width }: ClassesProps) => ({
-  container: {
-    flex,
-    width,
-  },
+const useClasses = makeClasses((_, { width }: ClassesProps) => ({
   datePicker: {
     width,
-    backgroundColor: "rgb(0 0 0 / 0.2)",
     "& .MuiInputBase-input": {
       padding: "0.5rem 0 0.5rem 0.5rem",
+    },
+    "& .MuiIconButton-root": {
+      padding: "0.2rem",
+    },
+    "& input": {
+      fontSize: "0.9em",
     },
   },
 }));

@@ -1,4 +1,5 @@
 export * from "./collection-editor";
+export * from "./collection-filter-menu";
 export * from "./collection-manager";
 export * from "./collection-tooltip";
 export * from "./delete-collection-modal";

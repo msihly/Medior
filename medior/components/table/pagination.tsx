@@ -30,7 +30,7 @@ export const Pagination = ({ className, onChange, ...props }: PaginationProps) =
 const useClasses = makeClasses({
   pagination: {
     position: "absolute",
-    bottom: "0.5rem",
+    bottom: "0.2rem",
     left: 0,
     right: 0,
     borderRight: `3px solid ${colors.custom.blue}`,
@@ -39,7 +39,7 @@ const useClasses = makeClasses({
     margin: "0 auto",
     padding: "0.3rem",
     width: "fit-content",
-    background: colors.foreground,
+    background: colors.custom.black,
     "& > ul": { justifyContent: "center" },
   },
 });

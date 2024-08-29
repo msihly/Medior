@@ -1,15 +1,7 @@
 import { dialog } from "@electron/remote";
 import { useEffect, useState } from "react";
 import { observer, SORT_OPTIONS, useStores } from "medior/store";
-import {
-  Button,
-  ConfirmModal,
-  Divider,
-  LoadingOverlay,
-  Modal,
-  Text,
-  View,
-} from "medior/components";
+import { Button, Card, ConfirmModal, LoadingOverlay, Modal, Text, View } from "medior/components";
 import { Settings } from ".";
 import { colors, CONSTANTS, loadConfig, makeClasses, saveConfig, trpc } from "medior/utils";
 import { toast } from "react-toastify";
@@ -112,19 +104,19 @@ export const SettingsModal = observer(() => {
       <Modal.Content className={css.modalContent}>
         <View column spacing="1rem">
           <Settings.Section title="Database / Servers">
-            <View className={css.settingsRow}>
+            <View row spacing="0.5rem">
               <Settings.Input
-                label="Database Path"
+                header="Database Path"
                 configKey="db.path"
                 onClick={handleMongoDbPathClick}
                 flex={1}
               />
 
-              <Settings.NumInput label="Database Port" configKey="ports.db" />
+              <Settings.NumInput header="Database Port" configKey="ports.db" />
 
-              <Settings.NumInput label="Server Port" configKey="ports.server" />
+              <Settings.NumInput header="Server Port" configKey="ports.server" />
 
-              <Settings.NumInput label="Socket Port" configKey="ports.socket" />
+              <Settings.NumInput header="Socket Port" configKey="ports.socket" />
             </View>
 
             <View column>
@@ -132,104 +124,111 @@ export const SettingsModal = observer(() => {
             </View>
           </Settings.Section>
 
-          <Divider />
-
           <Settings.Section title="Collections">
-            <View className={css.settingsRow}>
+            <View row justify="space-evenly" spacing="0.5rem">
               <Settings.NumInput
-                label="Editor Page Size"
+                header="Editor Page Size"
                 configKey="collection.editorPageSize"
                 minValue={1}
                 maxValue={200}
+                width="9rem"
               />
 
               <Settings.NumInput
-                label="Search Results Count"
+                header="Search Results Count"
                 configKey="collection.searchFileCount"
                 minValue={25}
                 maxValue={250}
+                width="9rem"
               />
 
               <Settings.SortMenu
-                label="Editor - Default Sort"
+                header="Editor - Default Sort"
                 configKey="collection.editorSearchSort"
                 rows={SORT_OPTIONS.File}
               />
 
               <Settings.SortMenu
-                label="Manager - Default Sort"
+                header="Manager - Default Sort"
                 configKey="collection.managerSearchSort"
                 rows={SORT_OPTIONS.FileCollection}
               />
             </View>
           </Settings.Section>
 
-          <Divider />
-
           <Settings.Section title="Files">
-            <View className={css.settingsRow}>
+            <View row justify="space-evenly" spacing="0.5rem">
               <Settings.NumInput
-                label="Search Results Count"
+                header="Search Results Count"
                 configKey="file.searchFileCount"
                 minValue={25}
                 maxValue={250}
+                width="9rem"
               />
 
               <Settings.SortMenu
-                label="Default Sort"
+                header="Default Sort"
                 configKey="file.searchSort"
                 rows={SORT_OPTIONS.File}
               />
 
-              <View column>
-                <Settings.Label label="File Thumbnail Fit" />
-                <View row>
-                  <Settings.Checkbox
-                    label="Contain"
-                    configKey="file.fileCardFit"
-                    checked={stores.home.settings.file.fileCardFit === "contain"}
-                    setChecked={handleFileCardFitContain}
-                  />
+              <Card
+                header="File Thumbnail Fit"
+                row
+                bgColor={colors.foregroundCard}
+                padding={{ all: "0.1rem" }}
+              >
+                <Settings.Checkbox
+                  label="Contain"
+                  configKey="file.fileCardFit"
+                  checked={stores.home.settings.file.fileCardFit === "contain"}
+                  setChecked={handleFileCardFitContain}
+                />
 
-                  <Settings.Checkbox
-                    label="Cover"
-                    configKey="file.fileCardFit"
-                    checked={stores.home.settings.file.fileCardFit === "cover"}
-                    setChecked={handleFileCardFitCover}
-                  />
-                </View>
-              </View>
+                <Settings.Checkbox
+                  label="Cover"
+                  configKey="file.fileCardFit"
+                  checked={stores.home.settings.file.fileCardFit === "cover"}
+                  setChecked={handleFileCardFitCover}
+                />
+              </Card>
 
-              <View column>
-                <Settings.Label label="Rating Icon" />
+              <Card
+                header="Rating Icon"
+                row
+                bgColor={colors.foregroundCard}
+                padding={{ all: "0.1rem" }}
+              >
                 <Settings.Checkbox label="Hide Unrated" configKey="file.hideUnratedIcon" />
-              </View>
+              </Card>
             </View>
 
-            <View column>
-              <Settings.Label label="Handled / Displayed Image Types" />
-              <View className={css.extContainer}>
-                {CONSTANTS.IMAGE_TYPES.map((ext) => (
-                  <Settings.ExtCheckbox key={ext} ext={ext} configKey="file.imageTypes" />
-                ))}
-              </View>
-            </View>
+            <Card
+              header="Handled / Displayed Image Types"
+              row
+              wrap="wrap"
+              bgColor={colors.foregroundCard}
+            >
+              {CONSTANTS.IMAGE_TYPES.map((ext) => (
+                <Settings.ExtCheckbox key={ext} ext={ext} configKey="file.imageTypes" />
+              ))}
+            </Card>
 
-            <View column>
-              <Settings.Label label="Handled / Displayed Video Types" />
-              <View className={css.extContainer}>
-                {CONSTANTS.VIDEO_TYPES.map((ext) => (
-                  <Settings.ExtCheckbox key={ext} ext={ext} configKey="file.videoTypes" />
-                ))}
-              </View>
-            </View>
+            <Card
+              header="Handled / Displayed Video Types"
+              row
+              wrap="wrap"
+              bgColor={colors.foregroundCard}
+            >
+              {CONSTANTS.VIDEO_TYPES.map((ext) => (
+                <Settings.ExtCheckbox key={ext} ext={ext} configKey="file.videoTypes" />
+              ))}
+            </Card>
           </Settings.Section>
 
-          <Divider />
-
           <Settings.Section title="Imports">
-            <View className={css.settingsRow}>
-              <View column>
+            <View row spacing="0.5rem">
+              <View column spacing="0.3rem">
                 <Settings.Checkbox label="Delete On Import" configKey="imports.deleteOnImport" />
 
                 <Settings.Checkbox
@@ -248,14 +247,14 @@ export const SettingsModal = observer(() => {
                 />
 
                 <Settings.Input
-                  label="Folder Tags Delimiter"
+                  header="Folder Tags Delimiter"
                   configKey="imports.folderDelimiter"
-                  width="8rem"
+                  width="10rem"
                   textAlign="center"
                 />
               </View>
 
-              <View column>
+              <View column spacing="0.3rem">
                 <Settings.Checkbox
                   label="Folder to Tags"
                   configKey="imports.folderToTagsMode"
@@ -263,7 +262,7 @@ export const SettingsModal = observer(() => {
                   setChecked={handleFoldersToTags}
                 />
 
-                <View column margins={{ left: "1rem" }}>
+                <View column margins={{ left: "1rem" }} spacing="0.3rem">
                   <Settings.Checkbox
                     label="Hierarchical"
                     configKey="imports.folderToTagsMode"
@@ -284,7 +283,7 @@ export const SettingsModal = observer(() => {
                 </View>
               </View>
 
-              <View column>
+              <View column spacing="0.3rem">
                 <Settings.Checkbox
                   label="Folder to Collection"
                   configKey="imports.folderToCollMode"
@@ -292,7 +291,7 @@ export const SettingsModal = observer(() => {
                   setChecked={handleFolderToCollection}
                 />
 
-                <View column margins={{ left: "1rem" }}>
+                <View column margins={{ left: "1rem" }} spacing="0.3rem">
                   <Settings.Checkbox
                     label="With Tags"
                     configKey="imports.folderToCollMode"
@@ -303,10 +302,10 @@ export const SettingsModal = observer(() => {
 
                 <Settings.Checkbox label="Diffusion Params" configKey="imports.withDiffParams" />
 
-                <View column margins={{ left: "1rem" }}>
+                <View column margins={{ left: "1rem" }} spacing="0.3rem">
                   <Settings.Checkbox label="With Tags" configKey="imports.withDiffTags" />
 
-                  <View column margins={{ left: "1rem" }}>
+                  <View column margins={{ left: "1rem" }} spacing="0.3rem">
                     <Settings.Checkbox label="Model" configKey="imports.withDiffModel" />
 
                     <Settings.Checkbox label="With RegEx" configKey="imports.withDiffRegEx" />
@@ -314,35 +313,35 @@ export const SettingsModal = observer(() => {
                 </View>
               </View>
 
-              <View column spacing="0.4rem">
-                <Settings.Input label="Diffusion Tag Label" configKey="imports.labelDiff" />
+              <View column flex={1} spacing="0.3rem">
+                <Settings.Input header="Diffusion Tag Label" configKey="imports.labelDiff" />
 
                 <Settings.Input
-                  label="Diffusion Model Tag Label"
+                  header="Diffusion Model Tag Label"
                   configKey="imports.labelDiffModel"
                 />
 
                 <Settings.Input
-                  label="Diffusion (Original) Tag Label"
+                  header="Diffusion (Original) Tag Label"
                   configKey="imports.labelDiffOriginal"
                 />
 
                 <Settings.Input
-                  label="Diffusion (Upscaled) Tag Label"
+                  header="Diffusion (Upscaled) Tag Label"
                   configKey="imports.labelDiffUpscaled"
                 />
               </View>
             </View>
           </Settings.Section>
 
-          <Divider />
-
           <Settings.Section title="Tags">
-            <Settings.SortMenu
-              label="Manager - Default Sort"
-              configKey="tags.managerSearchSort"
-              rows={SORT_OPTIONS.Tag}
-            />
+            <View row justify="space-evenly">
+              <Settings.SortMenu
+                header="Manager - Default Sort"
+                configKey="tags.managerSearchSort"
+                rows={SORT_OPTIONS.Tag}
+              />
+            </View>
           </Settings.Section>
         </View>
       </Modal.Content>
@@ -373,25 +372,11 @@ export const SettingsModal = observer(() => {
 });
 
 const useClasses = makeClasses({
-  extContainer: {
-    display: "flex",
-    flexFlow: "row wrap",
-    borderRadius: "0.5rem",
-    padding: "0.3rem",
-    backgroundColor: colors.foregroundCard,
-  },
   modalContent: {
     overflowX: "auto",
   },
   modalHeader: {
     margin: 0,
     padding: "0.5rem 0",
-  },
-  settingsRow: {
-    display: "flex",
-    flexFlow: "row wrap",
-    "& > *:not(:last-child)": {
-      margin: "0 0.5rem 0.5rem 0",
-    },
   },
 });

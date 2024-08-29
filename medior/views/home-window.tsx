@@ -20,7 +20,7 @@ export const HomeWindow = observer(() => {
       try {
         const { perfLog, perfLogTotal } = makePerfLog("[Home]");
 
-        await stores.file.search.loadFilteredFiles({ page: 1 });
+        await stores.file.search.loadFiltered({ page: 1 });
         perfLog("Filtered files loaded");
         setIsLoading(false);
 

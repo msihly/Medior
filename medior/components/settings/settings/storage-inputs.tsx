@@ -201,11 +201,7 @@ export const StorageInputs = observer(() => {
   };
 
   return (
-    <View column>
-      <View row justify="center">
-        <Text preset="label-glow">{"File Storage Locations"}</Text>
-      </View>
-
+    <Card header="File Storage Locations" bgColor={colors.foregroundCard}>
       <View column spacing="0.5rem">
         {stores.home.settings.db.fileStorage.locations.map((_, index) => (
           <StorageInput
@@ -216,9 +212,19 @@ export const StorageInputs = observer(() => {
         ))}
 
         <UniformList row justify="center" spacing="0.5rem">
-          <Button text="Add Location" icon="Add" onClick={handleAddLocation} width="100%" />
+          <Button
+            text="Add Location"
+            icon="Add"
+            onClick={handleAddLocation}
+            colorOnHover={colors.custom.blue}
+          />
 
-          <Button text="Scan" icon="Refresh" onClick={handleScan} width="100%" />
+          <Button
+            text="Scan"
+            icon="Refresh"
+            onClick={handleScan}
+            colorOnHover={colors.custom.purple}
+          />
         </UniformList>
 
         {isModalOpen && (
@@ -281,6 +287,6 @@ export const StorageInputs = observer(() => {
           </Modal.Container>
         )}
       </View>
-    </View>
+    </Card>
   );
 });

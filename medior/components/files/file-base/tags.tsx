@@ -1,4 +1,4 @@
-import { Tag, View } from "medior/components";
+import { TagChip, View } from "medior/components";
 import { observer, useStores } from "medior/store";
 import { colors, makeClasses } from "medior/utils";
 
@@ -16,7 +16,7 @@ export const Tags = observer(({ tagIds }: TagsProps) => {
   return (
     <View row className={css.tags}>
       {tags.map((tag, i) => (
-        <Tag key={i} tag={tag} size="small" />
+        <TagChip key={i} tag={tag} size="small" />
       ))}
     </View>
   );

@@ -1,13 +1,12 @@
-import { ChipInput, ChipInputProps, InputWrapper, InputWrapperProps } from "medior/components";
+import { ChipInput, ChipInputProps, HeaderWrapper } from "medior/components";
 
-interface AliasesProps extends ChipInputProps {
-  wrapperProps?: Partial<InputWrapperProps>;
-}
+interface AliasesProps extends ChipInputProps {}
 
-export const Aliases = ({ setValue, value, wrapperProps = {}, ...inputProps }: AliasesProps) => {
+export const Aliases = ({ hasHelper = true, setValue, value, ...inputProps }: AliasesProps) => {
+  // TODO: Replace ChipInput with a generic form of TagInputRow
   return (
-    <InputWrapper label="Aliases" {...wrapperProps}>
-      <ChipInput {...inputProps} {...{ setValue, value }} hasHelper />
-    </InputWrapper>
+    <HeaderWrapper header="Aliases" width="100%">
+      <ChipInput {...inputProps} {...{ hasHelper, setValue, value }} />
+    </HeaderWrapper>
   );
 };

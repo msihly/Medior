@@ -1,101 +1,31 @@
-import { useMemo } from "react";
-import { observer, useStores } from "medior/store";
-import {
-  Icon,
-  InputWrapper,
-  InputWrapperProps,
-  Tag,
-  TagInput,
-  TagInputProps,
-  Text,
-  TooltipWrapper,
-  View,
-} from "medior/components";
-import { colors, makeClasses } from "medior/utils";
+import { observer } from "medior/store";
+import { TagInput, TagInputProps } from "medior/components";
 
 interface RelationsProps extends Omit<TagInputProps, "label" | "onChange" | "ref"> {
   ancestryTagIds?: string[];
   ancestryType?: "ancestors" | "descendants";
-  label: string;
   setValue: TagInputProps["onChange"];
-  wrapperProps?: Partial<InputWrapperProps>;
 }
 
 export const Relations = observer(
   ({
     ancestryTagIds,
     ancestryType,
-    label,
     options,
     setValue,
     value,
-    wrapperProps = {},
     ...tagInputProps
   }: RelationsProps) => {
-    const { css } = useClasses(null);
-
-    const stores = useStores();
-
-    const ancestryLabel = ancestryType === "ancestors" ? "Ancestors" : "Descendants";
-
-    const ancestryTags = useMemo(() => {
-      if (!ancestryType || !ancestryTagIds) return [];
-
-      return stores.tag.listByIds(ancestryTagIds).sort((a, b) => b.count - a.count);
-    }, [ancestryTagIds, ancestryType]);
-
+    // TOOD: Show ancestry / descendants below input with a toggle button in header
     return (
-      <InputWrapper
-        {...{ label }}
-        {...wrapperProps}
-        labelSuffix={
-          ancestryType &&
-          ancestryTagIds && (
-            <TooltipWrapper
-              tooltip={
-                <View column align="center">
-                  <Text>{`Current Tag ${ancestryLabel}`}</Text>
-                  <View className={css.tagRow}>
-                    {ancestryTags.map((tag) => (
-                      <Tag key={tag?.id} tag={tag} hasEditor className={css.tag} />
-                    ))}
-                  </View>
-                </View>
-              }
-            >
-              <Icon
-                name="InfoOutlined"
-                color={colors.custom.grey}
-                size="1em"
-                margins={{ left: "0.3rem" }}
-              />
-            </TooltipWrapper>
-          )
-        }
-      >
-        <TagInput
-          {...{ options, value }}
-          onChange={setValue}
-          hasCreate
-          hasDelete
-          hasHelper
-          limitTags={20}
-          {...tagInputProps}
-        />
-      </InputWrapper>
+      <TagInput
+        {...{ options, value }}
+        onChange={setValue}
+        hasCreate
+        hasDelete
+        width="100%"
+        {...tagInputProps}
+      />
     );
   }
 );
-
-const useClasses = makeClasses({
-  tag: {
-    margin: "0 0.3rem 0.3rem 0",
-  },
-  tagRow: {
-    display: "flex",
-    flexFlow: "row wrap",
-    justifyContent: "center",
-    maxHeight: "10rem",
-    overflow: "auto",
-  },
-});

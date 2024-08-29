@@ -60,25 +60,26 @@ export const RegExMapRow = observer(
     };
 
     return (
-      <View row spacing="0.5rem" className={css.regExRow}>
+      <View row align="center" spacing="0.5rem" className={css.regExRow}>
         <View row spacing="0.5rem">
           <Button
             icon="AccountTree"
             iconSize="1.8em"
             onClick={generateRegEx}
             disabled={disabled}
+            colorOnHover={colors.custom.blue}
             tooltip="Generate RegEx from Label and Aliases"
           />
         </View>
 
         <Input
           {...inputProps}
-          label="RegExp"
+          header="RegExp"
           value={regEx}
           setValue={setRegEx}
           error={!isRegExValid}
           helperText={!isRegExValid ? "Invalid RegExp" : null}
-          fullWidth
+          width="100%"
           InputProps={{
             endAdornment: <InputAdornment position="end">{"/"}</InputAdornment>,
             startAdornment: <InputAdornment position="start">{"/"}</InputAdornment>,
@@ -87,7 +88,7 @@ export const RegExMapRow = observer(
 
         <Input
           {...inputProps}
-          label="Test String"
+          header="Test String"
           value={testString}
           setValue={setTestString}
           error={!isTestStringValid}

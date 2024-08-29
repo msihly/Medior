@@ -1,7 +1,7 @@
 import { ReactNode } from "react";
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { DialogTitle } from "@mui/material";
-import { ConditionalWrap, View } from "medior/components";
+import { ConditionalWrap, UniformList, View } from "medior/components";
 import { CSS, makeClasses } from "medior/utils";
 
 interface HeaderProps {
@@ -26,7 +26,7 @@ export const Header = ({
       <ConditionalWrap
         condition={leftNode !== undefined || rightNode !== undefined}
         wrap={(wrappedChildren) => (
-          <View className={css.nodeContainer}>
+          <UniformList row flex={1} align="center">
             {leftNode ? (
               <View row align="center" justify="flex-start">
                 {leftNode}
@@ -44,7 +44,7 @@ export const Header = ({
             ) : (
               <View />
             )}
-          </View>
+          </UniformList>
         )}
       >
         {children}
@@ -54,14 +54,6 @@ export const Header = ({
 };
 
 const useClasses = makeClasses((_, { justify }) => ({
-  nodeContainer: {
-    display: "flex",
-    flexDirection: "row",
-    flex: 1,
-    "& > *": {
-      width: "calc(100% / 3)",
-    },
-  },
   root: {
     display: "flex",
     flexDirection: "row",

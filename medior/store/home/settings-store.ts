@@ -39,7 +39,6 @@ export class SettingsStore extends Model({
     const locations = [...this.db.fileStorage.locations];
     const prevAtIndex = locations[index];
     const prevAtNewIndex = locations[newIndex];
-    console.log({ prevAtIndex, prevAtNewIndex });
     locations[index] = prevAtNewIndex;
     locations[newIndex] = prevAtIndex;
     this.db.fileStorage.locations = locations;

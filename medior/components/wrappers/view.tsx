@@ -1,8 +1,11 @@
 import { forwardRef, HTMLAttributes, MutableRefObject, ReactNode } from "react";
-import { CSS, makeClasses, Margins, Padding } from "medior/utils";
+import { BorderRadiuses, Borders, CSS, makeBorderRadiuses, makeBorders, makeClasses, makeMargins, makePadding, Margins, Padding } from "medior/utils";
 
 export interface ViewProps extends HTMLAttributes<HTMLDivElement> {
   align?: CSS["alignItems"];
+  bgColor?: CSS["backgroundColor"];
+  borders?: Borders;
+  borderRadiuses?: BorderRadiuses;
   children?: ReactNode | ReactNode[];
   className?: string;
   column?: boolean;
@@ -12,15 +15,20 @@ export interface ViewProps extends HTMLAttributes<HTMLDivElement> {
   margins?: Margins;
   overflow?: CSS["overflow"];
   padding?: Padding;
+  position?: CSS["position"];
   row?: boolean;
   spacing?: CSS["marginRight"];
   width?: CSS["width"];
+  wrap?: CSS["flexWrap"];
 }
 
 export const View = forwardRef(
   (
     {
       align,
+      bgColor,
+      borders,
+      borderRadiuses,
       children,
       className,
       column = false,
@@ -30,15 +38,20 @@ export const View = forwardRef(
       margins,
       overflow,
       padding,
+      position,
       row = false,
       spacing,
       width,
+      wrap,
       ...props
     }: ViewProps,
     ref?: MutableRefObject<HTMLDivElement>
   ) => {
     const { css, cx } = useClasses({
       align,
+      bgColor,
+      borders,
+      borderRadiuses,
       column,
       flex,
       height,
@@ -46,9 +59,11 @@ export const View = forwardRef(
       margins,
       overflow,
       padding,
+      position,
       row,
       spacing,
       width,
+      wrap,
     });
 
     return (
@@ -61,6 +76,9 @@ export const View = forwardRef(
 
 interface ClassesProps {
   align: CSS["alignItems"];
+  bgColor: CSS["backgroundColor"];
+  borders: Borders;
+  borderRadiuses: BorderRadiuses;
   column: boolean;
   flex: CSS["flex"];
   height: CSS["height"];
@@ -68,31 +86,30 @@ interface ClassesProps {
   margins: Margins;
   overflow: CSS["overflow"];
   padding: Padding;
+  position: CSS["position"];
   row: boolean;
   spacing: CSS["marginRight"];
   width: CSS["width"];
+  wrap: CSS["flexWrap"];
 }
 
 const useClasses = makeClasses((_, props: ClassesProps) => ({
   root: {
+    position: props?.position,
     display: props?.column || props?.row ? "flex" : undefined,
     flexDirection: props?.column ? "column" : props?.row ? "row" : undefined,
     flex: props?.flex,
+    flexWrap: props?.wrap,
     alignItems: props?.align,
     justifyContent: props?.justify,
-    margin: props?.margins?.all,
-    marginTop: props?.margins?.top,
-    marginBottom: props?.margins?.bottom,
-    marginRight: props?.margins?.right,
-    marginLeft: props?.margins?.left,
-    padding: props?.padding?.all,
-    paddingTop: props?.padding?.top,
-    paddingBottom: props?.padding?.bottom,
-    paddingRight: props?.padding?.right,
-    paddingLeft: props?.padding?.left,
-    overflow: props?.overflow,
+    ...makeBorders(props?.borders),
+    ...makeBorderRadiuses(props),
+    ...makeMargins(props?.margins),
+    ...makePadding(props?.padding),
     height: props?.height,
     width: props?.width,
+    backgroundColor: props?.bgColor,
+    overflow: props?.overflow,
     ...(props?.spacing
       ? {
           "& > *:not(:last-child)": {

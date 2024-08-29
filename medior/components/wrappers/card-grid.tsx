@@ -6,6 +6,7 @@ export interface CardGridProps extends ViewProps {
   cards: ReactNode[];
   cardsProps?: ViewProps;
   children?: ReactNode;
+  maxCards?: number;
   noResultsText?: string;
   position?: CSS["position"];
 }
@@ -17,18 +18,20 @@ export const CardGrid = forwardRef(
       cardsProps,
       children,
       className,
+      maxCards = 6,
       noResultsText = "No results found",
+      padding = { bottom: "7rem" },
       position = "relative",
       ...props
     }: CardGridProps,
     ref: MutableRefObject<HTMLDivElement>
   ) => {
-    const { css, cx } = useClasses({ hasCards: cards.length > 0, position });
+    const { css, cx } = useClasses({ hasCards: cards.length > 0, maxCards, position });
 
     return (
       <View {...props} ref={ref} className={cx(css.root, className)}>
         {cards.length ? (
-          <View {...cardsProps} className={cx(css.cards, cardsProps?.className)}>
+          <View {...cardsProps} padding={padding} className={cx(css.cards, cardsProps?.className)}>
             {cards}
           </View>
         ) : (
@@ -45,28 +48,36 @@ export const CardGrid = forwardRef(
 
 interface ClassesProps {
   hasCards: boolean;
+  maxCards: number;
   position: CSS["position"];
 }
 
-const useClasses = makeClasses((theme, { hasCards, position }: ClassesProps) => ({
+const useClasses = makeClasses((theme, props: ClassesProps) => ({
   cards: {
     display: "flex",
     flexFlow: "row wrap",
     flex: 1,
-    paddingBottom: "7rem",
     overflowY: "auto",
-    ...(!hasCards ? { height: "-webkit-fill-available" } : {}),
+    ...(!props.hasCards ? { height: "-webkit-fill-available" } : {}),
     "& > *": {
       overflow: "hidden",
-      flexBasis: "calc(100% / 6)",
-      [theme.breakpoints.down("xl")]: { flexBasis: "calc(100% / 5)" },
-      [theme.breakpoints.down("lg")]: { flexBasis: "calc(100% / 4)" },
-      [theme.breakpoints.down("md")]: { flexBasis: "calc(100% / 3)" },
-      [theme.breakpoints.down("sm")]: { flexBasis: "calc(100% / 2)" },
+      flexBasis: `calc(100% / ${props.maxCards})`,
+      [theme.breakpoints.down("xl")]: {
+        flexBasis: `calc(100% / ${Math.max(0, props.maxCards - 1)})`,
+      },
+      [theme.breakpoints.down("lg")]: {
+        flexBasis: `calc(100% / ${Math.max(0, props.maxCards - 2)})`,
+      },
+      [theme.breakpoints.down("md")]: {
+        flexBasis: `calc(100% / ${Math.max(0, props.maxCards - 3)})`,
+      },
+      [theme.breakpoints.down("sm")]: {
+        flexBasis: `calc(100% / ${Math.max(0, props.maxCards - 4)})`,
+      },
     },
   },
   root: {
-    position: position,
+    position: props.position,
     display: "flex",
     flexDirection: "column",
     flex: 1,

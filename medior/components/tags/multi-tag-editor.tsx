@@ -1,6 +1,14 @@
 import { useState } from "react";
 import { TagOption, observer, useStores } from "medior/store";
-import { Button, ConfirmModal, LoadingOverlay, Modal, TagInput, Text, View } from "medior/components";
+import {
+  Button,
+  ConfirmModal,
+  LoadingOverlay,
+  Modal,
+  TagInput,
+  Text,
+  View,
+} from "medior/components";
 import { colors } from "medior/utils";
 import { toast } from "react-toastify";
 
@@ -22,13 +30,7 @@ export const MultiTagEditor = observer(() => {
     stores.tag.manager.setIsMultiTagEditorOpen(false);
   };
 
-  const handleDiscard = () => {
-    setHasUnsavedChanges(false);
-    setIsConfirmDiscardOpen(false);
-    stores.tag.manager.setIsMultiTagEditorOpen(false);
-  };
-
-  const handleSubmit = async () => {
+  const handleConfirm = async () => {
     setIsLoading(true);
     const res = await stores.tag.manager.editMultiTagRelations({
       childIdsToAdd: childTagsToAdd.map((t) => t.id),
@@ -47,9 +49,15 @@ export const MultiTagEditor = observer(() => {
 
       setHasUnsavedChanges(false);
       stores.tag.manager.setIsMultiTagEditorOpen(false);
-      stores.tag.manager.loadFilteredTags();
+      stores.tag.manager.search.loadFiltered();
       stores.tag.loadTags();
     }
+  };
+
+  const handleDiscard = () => {
+    setHasUnsavedChanges(false);
+    setIsConfirmDiscardOpen(false);
+    stores.tag.manager.setIsMultiTagEditorOpen(false);
   };
 
   return (
@@ -63,51 +71,44 @@ export const MultiTagEditor = observer(() => {
 
         <View column spacing="0.5rem">
           <TagInput
-            label="Selected Tags"
+            header="Selected Tags"
             value={stores.tag.tagOptions.filter((t) =>
               stores.tag.manager.selectedIds.includes(t.id)
             )}
-            detachLabel
             disabled
-            disableWithoutFade
-            opaque
           />
 
           <TagInput
-            label="Parent Tags to Add"
+            header="Parent Tags to Add"
             value={parentTagsToAdd}
             onChange={setParentTagsToAdd}
             options={tagOpts}
-            detachLabel
             hasCreate
             hasDelete
           />
 
           <TagInput
-            label="Parent Tags to Remove"
+            header="Parent Tags to Remove"
             value={parentTagsToRemove}
             onChange={setParentTagsToRemove}
             options={tagOpts}
-            detachLabel
             hasDelete
           />
 
           <TagInput
-            label="Child Tags to Add"
+            header="Child Tags to Add"
             value={childTagsToAdd}
             onChange={setChildTagsToAdd}
             options={tagOpts}
-            detachLabel
             hasCreate
             hasDelete
           />
 
           <TagInput
-            label="Child Tags to Remove"
+            header="Child Tags to Remove"
             value={childTagsToRemove}
             onChange={setChildTagsToRemove}
             options={tagOpts}
-            detachLabel
             hasDelete
           />
 
@@ -120,7 +121,7 @@ export const MultiTagEditor = observer(() => {
       <Modal.Footer>
         <Button text="Close" icon="Close" onClick={handleClose} color={colors.custom.grey} />
 
-        <Button text="Submit" icon="Check" onClick={handleSubmit} />
+        <Button text="Confirm" icon="Check" onClick={handleConfirm} />
       </Modal.Footer>
 
       {isConfirmDiscardOpen && (

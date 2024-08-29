@@ -13,7 +13,7 @@ export const FileSearchFile = observer(
   ({ disabled, file, height = "14rem" }: FileSearchFileProps) => {
     const stores = useStores();
 
-    const handleAdd = () => stores.collection.addFilesToActiveCollection([file]);
+    const handleAdd = () => stores.collection.editor.addFilesToCollection([file]);
 
     return (
       <FileBase.Container {...{ disabled, height }} flex="none">

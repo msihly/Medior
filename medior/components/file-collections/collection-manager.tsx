@@ -1,68 +1,61 @@
 import { useEffect, useRef } from "react";
-import { SORT_OPTIONS, TagOption, observer, useStores } from "medior/store";
+import { observer, useStores } from "medior/store";
 import {
   Button,
+  Card,
   CardGrid,
   CenteredText,
   FileCard,
-  Input,
   ListItem,
   LoadingOverlay,
   MenuButton,
   Modal,
   Pagination,
-  SortMenu,
-  TagInput,
   Text,
   View,
 } from "medior/components";
-import { FileCollection } from ".";
-import { colors, debounce, makeClasses, useDeepEffect, useDeepMemo } from "medior/utils";
+import { CollectionFilterMenu, FileCollection } from ".";
+import { colors, useDeepEffect } from "medior/utils";
 import { toast } from "react-toastify";
 
-export const FileCollectionManager = observer(() => {
-  const { css } = useClasses(null);
+const FILE_CARD_HEIGHT = "14rem";
 
+export const FileCollectionManager = observer(() => {
   const stores = useStores();
 
   const collectionsRef = useRef<HTMLDivElement>(null);
 
-  const hasAnySelected = stores.collection.manager.fileIds.length > 0;
-  const hasOneSelected = stores.collection.manager.fileIds.length === 1;
-  const currentCollections = hasOneSelected
-    ? stores.collection.listByFileId(stores.collection.manager.fileIds[0])
-    : [];
-
-  const sortValue = useDeepMemo(stores.collection.manager.searchSort);
-  const tagSearchValue = useDeepMemo(stores.collection.manager.tagSearchValue);
-
+  const selectedFileIds = stores.collection.manager.selectedFileIds;
+  const hasAnySelected = selectedFileIds.length > 0;
+  const hasOneSelected = selectedFileIds.length === 1;
   useEffect(() => {
-    stores.collection.loadManagerFiles();
-  }, [stores.collection.manager.fileIds]);
+    if (hasOneSelected) stores.collection.manager.loadCurrentCollections();
+    else stores.collection.manager.setCurrentCollections([]);
+    stores.collection.manager.loadFiles();
+    stores.collection.manager.search.loadFiltered({ page: 1 });
+  }, [hasOneSelected, selectedFileIds]);
 
+  const page = stores.collection.manager.search.page;
+  const pageCount = stores.collection.manager.search.pageCount;
   useEffect(() => {
-    if (stores.collection.manager.searchPage > stores.collection.manager.searchPageCount)
-      handlePageChange(stores.collection.manager.searchPageCount);
-  }, [stores.collection.manager.searchPage, stores.collection.manager.searchPageCount]);
-
-  const searchDeps = [stores.collection.manager.titleSearchValue, sortValue, tagSearchValue];
+    if (page > pageCount) handlePageChange(pageCount);
+  }, [page, pageCount]);
 
   useDeepEffect(() => {
     collectionsRef.current?.scrollTo({ top: 0, behavior: "smooth" });
-  }, [stores.collection.manager.searchPage, ...searchDeps]);
+  }, [page, stores.collection.manager.searchResults]);
 
-  useDeepEffect(() => {
-    debounce(() => stores.collection.listFilteredCollections({ page: 1 }), 800)();
-  }, [...searchDeps]);
-
-  const handleAddToCollection = () => {
-    stores.collection.editor.setWithSelectedFiles(true);
-    stores.collection.editor.setId(stores.collection.selectedCollectionId);
-    stores.collection.setIsEditorOpen(true);
+  const handleAddToCollection = async () => {
+    stores.collection.manager.setIsLoading(true);
+    await stores.collection.editor.loadCollection({
+      id: stores.collection.manager.selectedCollectionId,
+    });
+    stores.collection.manager.setIsLoading(false);
+    stores.collection.editor.setIsOpen(true);
   };
 
   const handleClose = () => {
-    stores.collection.setIsManagerOpen(false);
+    stores.collection.manager.setIsOpen(false);
     stores.file.search.reloadIfQueued();
   };
 
@@ -72,7 +65,7 @@ export const FileCollectionManager = observer(() => {
 
   const handleNewCollection = async () => {
     const res = await stores.collection.createCollection({
-      fileIdIndexes: stores.collection.manager.fileIds.map((id, index) => ({
+      fileIdIndexes: stores.collection.manager.selectedFileIds.map((id, index) => ({
         fileId: id,
         index,
       })),
@@ -81,21 +74,13 @@ export const FileCollectionManager = observer(() => {
 
     if (!res.success) toast.error(res.error);
     else {
-      stores.collection.editor.setId(res.data.id);
-      stores.collection.setIsEditorOpen(true);
+      await stores.collection.editor.loadCollection({ id: res.data.id });
+      stores.collection.editor.setIsOpen(true);
     }
   };
 
-  const handlePageChange = (page: number) => stores.collection.listFilteredCollections({ page });
-
-  const handleSortChange = (val: { isDesc: boolean; key: string }) =>
-    stores.collection.manager.setSearchSort(val);
-
-  const setTagSearchValue = (value: TagOption[]) =>
-    stores.collection.manager.setTagSearchValue(value);
-
-  const setTitleSearchValue = (value: string) =>
-    !stores.collection.manager.isLoading && stores.collection.manager.setTitleSearchValue(value);
+  const handlePageChange = (page: number) =>
+    stores.collection.manager.search.loadFiltered({ page });
 
   return (
     <Modal.Container height="100%" width="100%" onClose={handleClose}>
@@ -112,174 +97,96 @@ export const FileCollectionManager = observer(() => {
         <Text>{"Manage Collections"}</Text>
       </Modal.Header>
 
-      <Modal.Content className={css.modalContent}>
-        {!hasAnySelected ? null : hasOneSelected ? (
-          <View row spacing="0.5rem">
-            <View className={css.leftColumn}>
-              <Text preset="label-glow">{"Selected File"}</Text>
+      <Modal.Content>
+        <View column flex={1} spacing="0.5rem" overflow="hidden">
+          {!hasAnySelected ? null : (
+            <View row spacing="0.5rem">
+              <Card
+                header={`Selected File${hasOneSelected ? "" : "s"}`}
+                height={`calc(${FILE_CARD_HEIGHT} + 3.5rem)`}
+                width="14rem"
+                overflow="auto"
+              >
+                <CardGrid
+                  cards={stores.collection.manager.selectedFiles.map((f) => (
+                    <FileCard key={f.id} file={f} height={FILE_CARD_HEIGHT} disabled />
+                  ))}
+                  maxCards={hasOneSelected ? 1 : 6}
+                  padding={{ bottom: 0 }}
+                />
+              </Card>
 
-              <View className={css.container}>
-                {stores.collection.manager.files.length > 0 ? (
-                  <FileCard
-                    file={stores.collection.manager.files[0]}
-                    height="13rem"
-                    width="12rem"
-                    disabled
-                  />
-                ) : (
-                  <CenteredText text="Loading selected file..." />
-                )}
-              </View>
-            </View>
-
-            <View className={css.rightColumn}>
-              <View row justify="center">
-                <Text preset="label-glow">{"Current Collections"}</Text>
-              </View>
-
-              <View className={css.container}>
-                {currentCollections.length > 0 ? (
-                  currentCollections.map((c) => (
-                    <FileCollection key={c.id} id={c.id} width="12rem" height="14rem" />
-                  ))
-                ) : (
-                  <CenteredText text="No collections found" />
-                )}
-              </View>
-            </View>
-          </View>
-        ) : (
-          <View column>
-            <Text preset="label-glow">{"Selected Files"}</Text>
-
-            <View className={css.container}>
-              {stores.collection.manager.files.length > 0 ? (
-                stores.collection.manager.files.map((f) => (
-                  <FileCard key={f.id} file={f} width="12rem" height="14rem" disabled />
-                ))
-              ) : (
-                <CenteredText text="Loading selected files..." />
+              {hasOneSelected && (
+                <Card
+                  header="Current Collections"
+                  flex={1}
+                  height={`calc(${FILE_CARD_HEIGHT} + 3.5rem)`}
+                  overflow="auto"
+                >
+                  {stores.collection.manager.currentCollections.length ? (
+                    <CardGrid
+                      cards={stores.collection.manager.currentCollections.map((c) => (
+                        <FileCollection key={c.id} id={c.id} height={FILE_CARD_HEIGHT} />
+                      ))}
+                      maxCards={5}
+                      padding={{ bottom: 0 }}
+                    />
+                  ) : (
+                    <CenteredText text="No collections found" />
+                  )}
+                </Card>
               )}
             </View>
-          </View>
-        )}
+          )}
 
-        <View row flex={1} margins={{ top: "0.5rem" }} spacing="0.5rem" overflow="hidden">
-          <View className={css.leftColumn}>
-            <Text preset="label-glow">{"Search"}</Text>
+          <Card
+            flex={1}
+            overflow="auto"
+            header={
+              <View row flex={1} justify="space-between" padding={{ all: "0.3rem" }}>
+                <CollectionFilterMenu store={stores.collection.manager.search} />
 
-            <View column spacing="0.5rem" className={css.container}>
-              <SortMenu
-                rows={SORT_OPTIONS.FileCollection}
-                value={sortValue}
-                setValue={handleSortChange}
-                width="100%"
-              />
-
-              <Input
-                label="Titles"
-                value={stores.collection.manager.titleSearchValue}
-                setValue={setTitleSearchValue}
-                detachLabel
-                fullWidth
-              />
-
-              <TagInput
-                label="Tags"
-                value={tagSearchValue}
-                onChange={setTagSearchValue}
-                detachLabel
-                fullWidth
-                hasSearchMenu
-              />
-
-              {/* <View column>
-                <Text preset="label-glow">{"# of Files"}</Text>
-                <View row justify="space-between" spacing="0.3rem">
-                  <Dropdown
-                    value={stores.collection.manager.}
-                    setValue={handleNumOfTagsOpChange}
-                    options={NUM_OF_TAGS_OPS}
-                    width="5rem"
-                  />
-
-                  <NumInput
-                    value={stores.collection}
-                    setValue={handleNumOfTagsValueChange}
-                    maxValue={50}
-                    disabled={stores.home.numOfTagsOp === ""}
-                    width="5rem"
-                    textAlign="center"
-                    hasHelper={false}
-                  />
+                <View>
+                  {/* TODO: Multi-actions; delete, refresh, select / deselect */}
                 </View>
-              </View> */}
-            </View>
-          </View>
-
-          <View className={css.rightColumn}>
-            <Text preset="label-glow">{"All Collections"}</Text>
+              </View>
+            }
+          >
+            <LoadingOverlay isLoading={stores.collection.manager.search.isLoading} />
 
             <CardGrid
               ref={collectionsRef}
-              cards={stores.collection.fileCollections.map((c) => (
-                <FileCollection key={c.id} id={c.id} />
+              flex={1}
+              cards={stores.collection.manager.searchResults.map((c) => (
+                <FileCollection key={c.id} id={c.id} height={FILE_CARD_HEIGHT} />
               ))}
-              position="unset"
-              className={css.container}
             >
-              <Pagination
-                count={stores.collection.manager.searchPageCount}
-                page={stores.collection.manager.searchPage}
-                onChange={handlePageChange}
-              />
+              <Pagination count={pageCount} page={page} onChange={handlePageChange} />
             </CardGrid>
-          </View>
+          </Card>
         </View>
       </Modal.Content>
 
       <Modal.Footer>
-        <Button text="Close" icon="Close" onClick={handleClose} color={colors.custom.grey} />
+        <Button text="Close" icon="Close" onClick={handleClose} colorOnHover={colors.custom.red} />
 
-        <Button text="New Collection" icon="Add" onClick={handleNewCollection} />
+        <Button
+          text="New Collection"
+          icon="Add"
+          onClick={handleNewCollection}
+          colorOnHover={colors.custom.blue}
+        />
 
         {!hasAnySelected ? null : (
           <Button
             text="Add to Collection"
             icon="Add"
             onClick={handleAddToCollection}
-            disabled={!stores.collection.selectedCollectionId}
+            disabled={!stores.collection.manager.selectedCollectionId}
+            colorOnHover={colors.custom.purple}
           />
         )}
       </Modal.Footer>
     </Modal.Container>
   );
-});
-
-const useClasses = makeClasses({
-  container: {
-    display: "flex",
-    flexFlow: "row wrap",
-    borderRadius: "0.3rem",
-    padding: "0.5rem 0.5rem 3.5rem",
-    minHeight: "15rem",
-    height: "100%",
-    width: "100%",
-    backgroundColor: colors.foreground,
-    overflow: "auto",
-  },
-  leftColumn: {
-    display: "flex",
-    flexDirection: "column",
-    width: "13rem",
-  },
-  modalContent: {
-    overflow: "hidden",
-  },
-  rightColumn: {
-    position: "relative",
-    display: "flex",
-    flexDirection: "column",
-    width: "calc(100% - 13rem)",
-  },
 });

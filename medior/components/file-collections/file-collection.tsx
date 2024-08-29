@@ -14,27 +14,28 @@ export const FileCollection = observer(({ height, id, width }: FileCollectionPro
 
   const stores = useStores();
 
-  const collection = stores.collection.getById(id);
-  const hasSelectedFiles = stores.collection.manager.fileIds.length > 0;
+  const collection = stores.collection.manager.getById(id);
+  if (!collection) return null;
 
-  const handleDelete = () => {
-    stores.collection.editor.setId(id);
+  const hasSelectedFiles = stores.collection.manager.selectedFileIds.length > 0;
+
+  const handleDelete = async () => {
+    await stores.collection.editor.loadCollection({ id });
     stores.collection.setIsConfirmDeleteOpen(true);
   };
 
   const handleRefreshMeta = () => stores.collection.regenCollMeta([id]);
 
-  const handleSelect = () => stores.collection.setSelectedCollectionId(id);
+  const handleSelect = () => stores.collection.manager.setSelectedCollectionId(id);
 
   const handleTagPress = (tagId: string) => {
     stores.tag.setActiveTagId(tagId);
     stores.tag.setIsTagEditorOpen(true);
   };
 
-  const openCollection = () => {
-    stores.collection.editor.setFiles([]);
-    stores.collection.editor.setId(id);
-    stores.collection.setIsEditorOpen(true);
+  const openCollection = async () => {
+    await stores.collection.editor.loadCollection({ id });
+    stores.collection.editor.setIsOpen(true);
   };
 
   return (
@@ -49,7 +50,7 @@ export const FileCollection = observer(({ height, id, width }: FileCollectionPro
         {...{ height, width }}
         onClick={hasSelectedFiles ? handleSelect : null}
         onDoubleClick={openCollection}
-        selected={hasSelectedFiles && id === stores.collection.selectedCollectionId}
+        selected={hasSelectedFiles && id === stores.collection.manager.selectedCollectionId}
       >
         <FileBase.Image
           thumbPaths={collection.thumbPaths}

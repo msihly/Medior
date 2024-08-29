@@ -1,40 +1,45 @@
-import { View, ViewProps } from ".";
-import { CSS, makeClasses } from "medior/utils";
+import { ReactNode } from "react";
+import { HeaderWrapper, View, ViewProps } from "medior/components";
+import { BorderRadiuses, colors, CSS, deepMerge, Padding } from "medior/utils";
 
-export interface CardProps extends Omit<ViewProps, "padding"> {
+const DEFAULT_BORDER_RADIUSES: BorderRadiuses = { all: "0.5rem" };
+
+const DEFAULT_PADDING: Padding = { all: "0.5rem" };
+
+export interface CardProps extends ViewProps {
   bgColor?: CSS["backgroundColor"];
-  borderRadius?: CSS["borderRadius"];
-  padding?: CSS["padding"];
+  header?: ReactNode;
+  headerProps?: Partial<ViewProps>;
 }
 
 export const Card = ({
-  bgColor = "rgb(0 0 0 / 0.3)",
-  borderRadius = "0.5rem",
+  bgColor = colors.foreground,
+  borderRadiuses = {},
   children,
-  className,
-  padding = "1rem",
-  ...props
+  column = true,
+  header,
+  headerProps = {},
+  padding = {},
+  row = false,
+  width,
+  ...viewProps
 }: CardProps) => {
-  const { css, cx } = useClasses({ bgColor, borderRadius, padding });
+  borderRadiuses = deepMerge(DEFAULT_BORDER_RADIUSES, borderRadiuses);
+  padding = deepMerge(DEFAULT_PADDING, padding);
 
   return (
-    <View className={cx(css.root, className)} {...props}>
-      {children}
-    </View>
+    <HeaderWrapper {...{ header, headerProps, width }} {...viewProps}>
+      <View
+        column={column && !row}
+        row={row}
+        position="relative"
+        borderRadiuses={{ ...borderRadiuses, ...(!!header ? { top: 0 } : {}) }}
+        padding={padding}
+        bgColor={bgColor}
+        {...viewProps}
+      >
+        {children}
+      </View>
+    </HeaderWrapper>
   );
 };
-
-interface ClassesProps {
-  bgColor: CSS["backgroundColor"];
-  borderRadius: CSS["borderRadius"];
-  padding: CSS["padding"];
-}
-
-const useClasses = makeClasses((_, { bgColor, borderRadius, padding }: ClassesProps) => ({
-  root: {
-    position: "relative",
-    backgroundColor: bgColor,
-    borderRadius,
-    padding,
-  },
-}));

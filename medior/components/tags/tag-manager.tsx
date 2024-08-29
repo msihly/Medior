@@ -1,44 +1,24 @@
 import { useEffect, useRef } from "react";
-import { SORT_OPTIONS, TagOption, observer, useStores } from "medior/store";
+import { observer, useStores } from "medior/store";
 import { FixedSizeGrid } from "react-window";
 import {
   Button,
+  Card,
   CardGrid,
-  Checkbox,
   Chip,
-  DateRange,
-  Dropdown,
-  Input,
   LoadingOverlay,
   Modal,
   MultiActionButton,
-  NumInput,
   Pagination,
-  SortMenu,
-  SortMenuProps,
   TagCard,
-  TagInput,
+  TagFilterMenu,
   Text,
   View,
 } from "medior/components";
-import {
-  LOGICAL_OPS,
-  LogicalOp,
-  colors,
-  makeClasses,
-  openSearchWindow,
-  useDeepEffect,
-} from "medior/utils";
+import { colors, openSearchWindow, useDeepEffect } from "medior/utils";
 import { toast } from "react-toastify";
 
-const COUNT_OPS = [
-  { label: "Any", value: "" },
-  ...LOGICAL_OPS.map((op) => ({ label: op, value: op })),
-];
-
 export const TagManager = observer(() => {
-  const { css } = useClasses(null);
-
   const stores = useStores();
 
   const hasNoSelection = stores.tag.manager.selectedIds.length === 0;
@@ -46,11 +26,11 @@ export const TagManager = observer(() => {
   const resultsRef = useRef<FixedSizeGrid>(null);
   useDeepEffect(() => {
     if (resultsRef.current) resultsRef.current.scrollTo({ scrollTop: 0 });
-  }, [stores.tag.manager.tags]);
+  }, [stores.tag.manager.searchResults]);
 
   useEffect(() => {
-    stores.tag.manager.resetSearch();
-    stores.tag.manager.loadFilteredTags({ page: 1 });
+    stores.tag.manager.search.reset();
+    stores.tag.manager.search.loadFiltered({ page: 1 });
   }, []);
 
   const handleClose = () => {
@@ -58,46 +38,24 @@ export const TagManager = observer(() => {
     stores.file.search.reloadIfQueued();
   };
 
-  const handleCountChange = (val: LogicalOp | "") => stores.tag.manager.setCountOp(val);
-
-  const handleCountValueChange = (val: number) => stores.tag.manager.setCountValue(val);
-
   const handleCreate = () => {
     stores.tag.setActiveTagId(null);
     stores.tag.setIsTagEditorOpen(true);
   };
 
-  const handleDateCreatedEndChange = (val: string) => stores.tag.manager.setDateCreatedEnd(val);
-
-  const handleDateCreatedStartChange = (val: string) => stores.tag.manager.setDateCreatedStart(val);
-
-  const handleDateModifiedEndChange = (val: string) => stores.tag.manager.setDateModifiedEnd(val);
-
-  const handleDateModifiedStartChange = (val: string) =>
-    stores.tag.manager.setDateModifiedStart(val);
-
   const handleEditRelations = () => stores.tag.manager.setIsMultiTagEditorOpen(true);
 
-  const handlePageChange = (page: number) => stores.tag.manager.loadFilteredTags({ page });
+  const handlePageChange = (page: number) => stores.tag.manager.search.loadFiltered({ page });
 
   const handleRefreshTags = () => stores.tag.manager.refreshSelectedTags();
-
-  const handleResetSearch = () => {
-    stores.tag.manager.resetSearch();
-    handleSearch();
-  };
-
-  const handleSearch = () => stores.tag.manager.loadFilteredTags({ page: 1 });
-
-  const handleSearchChange = (val: TagOption[]) => stores.tag.manager.setSearchValue(val);
 
   const handleSearchWindow = () => openSearchWindow({ tagIds: stores.tag.manager.selectedIds });
 
   const handleSelectAll = () => {
     stores.tag.manager.toggleTagsSelected(
-      stores.tag.manager.tags.map(({ id }) => ({ id, isSelected: true }))
+      stores.tag.manager.searchResults.map(({ id }) => ({ id, isSelected: true }))
     );
-    toast.info(`Added ${stores.tag.manager.tags.length} tags to selection`);
+    toast.info(`Added ${stores.tag.manager.searchResults.length} tags to selection`);
   };
 
   const handleSelectNone = () => {
@@ -107,179 +65,79 @@ export const TagManager = observer(() => {
     toast.info("Deselected all tags");
   };
 
-  const setAliasesValue = (val: string) => stores.tag.manager.setAliasesValue(val);
-
-  const setLabelValue = (val: string) => stores.tag.manager.setLabelValue(val);
-
-  const setTagManagerSort = (val: SortMenuProps["value"]) => stores.tag.manager.setSortValue(val);
-
   return (
     <Modal.Container onClose={handleClose} height="100%" width="100%">
       <Modal.Header>
         <Text>{"Manage Tags"}</Text>
       </Modal.Header>
 
-      <Modal.Content className={css.modalContent}>
-        <View column spacing="0.5rem" className={css.searchColumn}>
-          <Button
-            text="Search"
-            icon="Search"
-            onClick={handleSearch}
-            disabled={stores.tag.manager.isLoading}
-            color={colors.custom.blue}
-            width="-webkit-fill-available"
-          />
+      <Modal.Content>
+        <Card
+          column
+          flex={1}
+          overflow="auto"
+          header={
+            <View row flex={1} justify="space-between">
+              <View row align="center" spacing="0.5rem">
+                <TagFilterMenu store={stores.tag.manager.search} color={colors.foreground} />
 
-          <Button
-            text="Reset"
-            icon="Refresh"
-            onClick={handleResetSearch}
-            disabled={stores.tag.manager.isLoading}
-            colorOnHover={colors.custom.red}
-            width="-webkit-fill-available"
-          />
+                {!hasNoSelection && (
+                  <Chip label={`${stores.tag.manager.selectedIds.length} Selected`} />
+                )}
+              </View>
 
-          <SortMenu
-            rows={SORT_OPTIONS.Tag}
-            value={stores.tag.manager.sortValue}
-            setValue={setTagManagerSort}
-            width="100%"
-          />
+              <View row spacing="0.5rem">
+                <MultiActionButton
+                  name="Search"
+                  tooltip="Open Search Window with Selected Tags"
+                  onClick={handleSearchWindow}
+                  disabled={hasNoSelection}
+                />
 
-          <Input
-            label="Label"
-            value={stores.tag.manager.labelValue}
-            setValue={setLabelValue}
-            detachLabel
-          />
+                <MultiActionButton
+                  name="Label"
+                  tooltip="Edit Tag Relations"
+                  onClick={handleEditRelations}
+                  disabled={hasNoSelection}
+                />
 
-          <Input
-            label="Aliases"
-            value={stores.tag.manager.aliasesValue}
-            setValue={setAliasesValue}
-            detachLabel
-          />
+                <MultiActionButton
+                  name="Refresh"
+                  tooltip="Refresh Selected Tags"
+                  onClick={handleRefreshTags}
+                  disabled={hasNoSelection}
+                />
 
-          <TagInput
-            label="Tags"
-            value={stores.tag.manager.searchValue}
-            onChange={handleSearchChange}
-            detachLabel
-            hasSearchMenu
-            width="100%"
-          />
+                <MultiActionButton
+                  name="Deselect"
+                  tooltip="Deselect All Tags"
+                  onClick={handleSelectNone}
+                  disabled={hasNoSelection}
+                />
 
-          <View column>
-            <Text preset="label-glow">{"Tag File Count"}</Text>
-
-            <View row justify="space-between" spacing="0.3rem">
-              <Dropdown
-                value={stores.tag.manager.countOp}
-                setValue={handleCountChange}
-                options={COUNT_OPS}
-                width="8rem"
-              />
-
-              <NumInput
-                value={stores.tag.manager.countValue}
-                setValue={handleCountValueChange}
-                disabled={stores.tag.manager.countOp === ""}
-                textAlign="center"
-                hasHelper={false}
-              />
+                <MultiActionButton
+                  name="SelectAll"
+                  tooltip="Select All Tags in View"
+                  onClick={handleSelectAll}
+                />
+              </View>
             </View>
-          </View>
-
-          <Checkbox
-            label="Has RegEx"
-            checked={stores.tag.manager.regExMode === "hasRegEx"}
-            indeterminate={stores.tag.manager.regExMode === "hasNoRegEx"}
-            setChecked={stores.tag.manager.toggleRegExMode}
-            flex={0}
-          />
-
-          <View column spacing="0.4rem">
-            <DateRange
-              startDate={stores.tag.manager.dateCreatedStart}
-              setStartDate={handleDateCreatedStartChange}
-              startLabel="Date Created - Start"
-              endDate={stores.tag.manager.dateCreatedEnd}
-              setEndDate={handleDateCreatedEndChange}
-              endLabel="Date Created - End"
-              column
-            />
-
-            <DateRange
-              startDate={stores.tag.manager.dateModifiedStart}
-              setStartDate={handleDateModifiedStartChange}
-              startLabel="Date Modified - Start"
-              endDate={stores.tag.manager.dateModifiedEnd}
-              setEndDate={handleDateModifiedEndChange}
-              endLabel="Date Modified - End"
-              column
-            />
-          </View>
-        </View>
-
-        <View className={css.tags}>
+          }
+        >
           <LoadingOverlay isLoading={stores.tag.manager.isLoading} />
 
-          <View className={css.multiActionBar}>
-            <View row spacing="0.5rem">
-              {!hasNoSelection && (
-                <Chip label={`${stores.tag.manager.selectedIds.length} Selected`} />
-              )}
-            </View>
-
-            <View row spacing="0.5rem">
-              <MultiActionButton
-                name="Deselect"
-                tooltip="Deselect All Tags"
-                onClick={handleSelectNone}
-                disabled={hasNoSelection}
-              />
-
-              <MultiActionButton
-                name="SelectAll"
-                tooltip="Select All Tags in View"
-                onClick={handleSelectAll}
-              />
-
-              <MultiActionButton
-                name="Refresh"
-                tooltip="Refresh Selected Tags"
-                onClick={handleRefreshTags}
-                disabled={hasNoSelection}
-              />
-
-              <MultiActionButton
-                name="Label"
-                tooltip="Edit Tag Relations"
-                onClick={handleEditRelations}
-                disabled={hasNoSelection}
-              />
-
-              <MultiActionButton
-                name="Search"
-                tooltip="Open Search Window with Selected Tags"
-                onClick={handleSearchWindow}
-                disabled={hasNoSelection}
-              />
-            </View>
-          </View>
-
           <CardGrid
-            cards={stores.tag.manager.tags.map((t) => (
+            cards={stores.tag.manager.searchResults.map((t) => (
               <TagCard key={t.id} tag={t} />
             ))}
           >
             <Pagination
-              count={stores.tag.manager.pageCount}
-              page={stores.tag.manager.page}
+              count={stores.tag.manager.search.pageCount}
+              page={stores.tag.manager.search.page}
               onChange={handlePageChange}
             />
           </CardGrid>
-        </View>
+        </Card>
       </Modal.Content>
 
       <Modal.Footer>
@@ -289,41 +147,4 @@ export const TagManager = observer(() => {
       </Modal.Footer>
     </Modal.Container>
   );
-});
-
-const useClasses = makeClasses({
-  modalContent: {
-    display: "flex",
-    flexDirection: "row",
-    height: "100%",
-    width: "100%",
-    overflow: "hidden",
-  },
-  multiActionBar: {
-    display: "flex",
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    borderTopRightRadius: "inherit",
-    borderTopLeftRadius: "inherit",
-    padding: "0.2rem 0.5rem",
-    backgroundColor: colors.custom.black,
-  },
-  searchColumn: {
-    borderRadius: 4,
-    marginRight: "0.5rem",
-    padding: "0.5rem",
-    width: "15rem",
-    backgroundColor: colors.foreground,
-    overflow: "hidden",
-  },
-  tags: {
-    position: "relative",
-    display: "flex",
-    flexDirection: "column",
-    borderRadius: "0.4rem",
-    height: "100%",
-    width: "100%",
-    backgroundColor: colors.foreground,
-  },
 });

@@ -3,14 +3,13 @@ import { observer, useStores } from "medior/store";
 import { FixedSizeGrid } from "react-window";
 import AutoSizer from "react-virtualized-auto-sizer";
 import { FileCollectionFile } from "medior/components";
-import { useDeepMemo } from "medior/utils";
 
 const CARD_HEIGHT = 300;
 const CARD_MAX_WIDTH = 300;
 
 export const EditorFiles = observer(() => {
   const stores = useStores();
-  const sortedFiles = useDeepMemo(stores.collection.sortedEditorFiles);
+  const sortedFileIdIndexes = stores.collection.editor.sortedFileIndexes;
 
   const [width, setWidth] = useState(0);
   const handleResize = ({ width }) => setWidth(width);
@@ -18,29 +17,29 @@ export const EditorFiles = observer(() => {
   const [columnCount, columnWidth, rowCount] = useMemo(() => {
     const columnCount = Math.floor(width / CARD_MAX_WIDTH);
     const columnWidth = width / columnCount - 3;
-    const rowCount = Math.ceil(sortedFiles.length / columnCount);
+    const rowCount = Math.ceil(sortedFileIdIndexes.length / columnCount);
     return [columnCount, columnWidth, rowCount];
-  }, [sortedFiles.length, width]);
+  }, [sortedFileIdIndexes.length, width]);
 
   const renderFile = useCallback(
     ({ columnIndex, rowIndex, style }) => {
       const index = rowIndex * columnCount + columnIndex;
-      if (index >= sortedFiles.length) return null;
-      const newIndex = sortedFiles[index]?.index;
+      if (index >= sortedFileIdIndexes.length) return null;
+      const newIndex = sortedFileIdIndexes[index]?.index;
 
-      const file = sortedFiles.find((f) => f.index === newIndex);
-      if (!file) return null;
+      const fileIdIndex = sortedFileIdIndexes.find((f) => f.index === newIndex);
+      if (!fileIdIndex) return null;
 
       return (
         <FileCollectionFile
           {...{ style }}
           key={`${columnIndex}-${rowIndex}`}
-          fileColFile={file}
+          id={fileIdIndex.id}
           width={columnWidth}
         />
       );
     },
-    [columnCount, columnWidth, rowCount, sortedFiles]
+    [columnCount, columnWidth, rowCount, sortedFileIdIndexes]
   );
 
   return (

@@ -6,6 +6,60 @@ import { createMakeAndWithStyles, CSSObject, Cx } from "tss-react";
 
 export type CSS = CSSObject;
 
+export type Borders = {
+  all?: CSS["border"];
+  top?: CSS["borderTop"];
+  bottom?: CSS["borderBottom"];
+  right?: CSS["borderRight"];
+  left?: CSS["borderLeft"];
+};
+
+export const makeBorders = (props: Borders) => ({
+  border: props?.all,
+  borderTop: props?.top,
+  borderBottom: props?.bottom,
+  borderRight: props?.right,
+  borderLeft: props?.left,
+});
+
+export type BorderRadiuses = {
+  all?: CSS["borderRadius"];
+  bottomLeft?: CSS["borderBottomLeftRadius"];
+  bottomRight?: CSS["borderBottomRightRadius"];
+  topLeft?: CSS["borderTopLeftRadius"];
+  topRight?: CSS["borderTopRightRadius"];
+  /** Covers two corners */
+  bottom?: CSS["borderTopRightRadius"];
+  left?: CSS["borderTopRightRadius"];
+  right?: CSS["borderTopRightRadius"];
+  top?: CSS["borderTopRightRadius"];
+};
+
+export const makeBorderRadiuses = (props: {
+  borderRadiuses: BorderRadiuses;
+  hasHeader?: boolean;
+}) => ({
+  borderRadius: props?.borderRadiuses?.all,
+  borderTopLeftRadius:
+    props?.borderRadiuses?.topLeft ??
+    props?.borderRadiuses?.top ??
+    props?.borderRadiuses?.left ??
+    (props?.hasHeader ? 0 : undefined),
+  borderTopRightRadius:
+    props?.borderRadiuses?.topRight ??
+    props?.borderRadiuses?.top ??
+    props?.borderRadiuses?.right ??
+    (props?.hasHeader ? 0 : undefined),
+  borderBottomLeftRadius:
+    props?.borderRadiuses?.bottomLeft ??
+    props?.borderRadiuses?.bottom ??
+    props?.borderRadiuses?.left,
+  borderBottomRightRadius:
+    props?.borderRadiuses?.bottomRight ??
+    props?.borderRadiuses?.bottom ??
+    props?.borderRadiuses?.right,
+});
+
 export type Margins = {
   all?: CSS["margin"];
   top?: CSS["marginTop"];
@@ -14,6 +68,14 @@ export type Margins = {
   left?: CSS["marginLeft"];
 };
 
+export const makeMargins = (props: Margins) => ({
+  margin: props?.all,
+  marginTop: props?.top,
+  marginBottom: props?.bottom,
+  marginRight: props?.right,
+  marginLeft: props?.left,
+});
+
 export type Padding = {
   all?: CSS["padding"];
   top?: CSS["paddingTop"];
@@ -21,6 +83,14 @@ export type Padding = {
   right?: CSS["paddingRight"];
   left?: CSS["paddingLeft"];
 };
+
+export const makePadding = (props: Padding) => ({
+  padding: props?.all,
+  paddingTop: props?.top,
+  paddingBottom: props?.bottom,
+  paddingRight: props?.right,
+  paddingLeft: props?.left,
+});
 
 type ClassName<T> = { [P in keyof T]: CSS };
 

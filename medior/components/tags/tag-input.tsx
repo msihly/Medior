@@ -8,67 +8,43 @@ import {
   useEffect,
   useState,
 } from "react";
-import { SearchTagType, TagOption, observer, useStores } from "medior/store";
+import { TagOption, observer, useStores } from "medior/store";
 import {
   Autocomplete,
   AutocompleteChangeReason,
-  AutocompleteRenderGetTagProps,
   AutocompleteRenderInputParams,
 } from "@mui/material";
-import { Button, Chip, IconName, Input, InputProps, ListItem, Tag, View } from "medior/components";
+import {
+  Button,
+  HeaderWrapperProps,
+  Input,
+  InputProps,
+  TagInputRow,
+  TagList,
+  View,
+} from "medior/components";
 import { colors, CSS, makeClasses, Margins, socket, useDeepMemo } from "medior/utils";
 import { toast } from "react-toastify";
 
-const SEARCH_MENU_META: {
-  [key in SearchTagType]: { color: string; icon: IconName; text: string };
-} = {
-  exclude: {
-    color: colors.custom.red,
-    icon: "RemoveCircleOutline",
-    text: "Exclude",
-  },
-  excludeDesc: {
-    color: colors.custom.red,
-    icon: "RemoveCircle",
-    text: "Exclude (Descendants)",
-  },
-  includeAnd: {
-    color: colors.custom.green,
-    icon: "AddCircle",
-    text: "Include (Required)",
-  },
-  includeOr: {
-    color: colors.custom.green,
-    icon: "AddCircleOutline",
-    text: "Include (Optional)",
-  },
-  includeDesc: {
-    color: colors.custom.green,
-    icon: "ControlPointDuplicate",
-    text: "Include (Descendants)",
-  },
-};
-
 export type TagInputProps = Omit<
   ComponentProps<typeof Autocomplete>,
-  "renderInput" | "onChange" | "onSelect" | "options"
+  "fullWidth" | "label" | "renderInput" | "onChange" | "onSelect" | "options"
 > & {
   autoFocus?: boolean;
   center?: boolean;
-  detachLabel?: boolean;
-  disableWithoutFade?: boolean;
   excludedIds?: string[];
   hasCreate?: boolean;
   hasDelete?: boolean;
   hasEditor?: boolean;
   hasHelper?: boolean;
+  hasList?: boolean;
   hasSearchMenu?: boolean;
+  header?: HeaderWrapperProps["header"];
+  headerProps?: HeaderWrapperProps["headerProps"];
   inputProps?: InputProps;
-  label?: string;
   margins?: Margins;
   maxTags?: number;
   onTagClick?: (tagId: string) => void;
-  opaque?: boolean;
   options?: TagOption[];
   onChange?: (val: TagOption[]) => void;
   onSelect?: (val: TagOption) => void;
@@ -83,23 +59,22 @@ export const TagInput = observer(
         autoFocus = false,
         center,
         className,
-        detachLabel,
         disabled,
-        disableWithoutFade = false,
         excludedIds = [],
         hasCreate = false,
         hasDelete = false,
         hasEditor = true,
         hasHelper = false,
+        hasList = true,
         hasSearchMenu,
+        header,
+        headerProps = {},
         inputProps,
-        label,
         margins,
         maxTags,
         onChange,
         onSelect,
         onTagClick,
-        opaque = false,
         options,
         value = [],
         width,
@@ -108,11 +83,10 @@ export const TagInput = observer(
       inputRef?: MutableRefObject<HTMLDivElement>
     ) => {
       const stores = useStores();
-      const { css, cx } = useClasses({ center, margins, opaque, width });
+      const { css, cx } = useClasses({ center, margins, width });
 
-      const isMaxTags = maxTags > 0 && value.length >= maxTags;
+      const isMaxTags = maxTags > -1 && value.length >= maxTags;
       disabled = disabled || isMaxTags;
-      disableWithoutFade = disableWithoutFade || isMaxTags;
 
       const [inputValue, setInputValue] = useState((inputProps?.value ?? "") as string);
       const [isOpen, setIsOpen] = useState(false);
@@ -209,12 +183,13 @@ export const TagInput = observer(
       const renderInput = (params: AutocompleteRenderInputParams) => (
         <Input
           {...params}
-          {...{ autoFocus, detachLabel, hasHelper, label, width }}
+          {...{ autoFocus, hasHelper, header, headerProps, width }}
           {...inputProps}
           ref={inputRef}
           value={inputValue}
           setValue={handleInputChange}
-          disabled={!disableWithoutFade && disabled}
+          disabled={disabled}
+          borderRadiuses={hasList ? { bottom: 0 } : undefined}
           className={cx(css.input, className)}
         />
       );
@@ -233,125 +208,71 @@ export const TagInput = observer(
         return (
           <View {...props} onClick={handleClick} className={cx(props.className, css.tagOption)}>
             {option.id === "optionsEndNode" ? (
-              <Button text={`Create Tag '${inputValue}'`} icon="Add" onClick={handleCreateTag} />
+              <Button
+                text={inputValue}
+                icon="Add"
+                onClick={handleCreateTag}
+                color={colors.custom.purple}
+                width="100%"
+              />
             ) : (
-              <>
-                <Tag key={option.id} id={option.id} className={css.tag} />
-
-                {option.aliases?.length > 0 && (
-                  <View className={css.aliases}>
-                    {option.aliases.map((a) => (
-                      <Chip key={a} label={a} size="small" className={css.alias} />
-                    ))}
-                  </View>
-                )}
-              </>
+              <TagInputRow tag={option} search={null} />
             )}
           </View>
         );
       };
 
-      const renderTags = (val: TagOption[], getTagProps: AutocompleteRenderGetTagProps) =>
-        val.map((option: TagOption, index: number) => {
-          const handleClick = () => onTagClick?.(option.id);
-
-          const handleDelete = () => onChange?.(value.filter((t) => t.id !== option.id));
-
-          const handleMenuClick = (searchType: SearchTagType) =>
-            onChange?.(value.map((t) => (t.id === option.id ? { ...t, searchType } : t)));
-
-          return !option ? null : (
-            <Tag
-              {...getTagProps({ index })}
-              key={option.id}
-              id={option.id}
-              hasEditor={hasEditor}
-              onClick={hasEditor || onTagClick ? handleClick : null}
-              onDelete={hasDelete ? handleDelete : null}
-              menuButtonProps={
-                !hasSearchMenu
-                  ? undefined
-                  : {
-                      icon: SEARCH_MENU_META[option.searchType]?.icon,
-                      iconProps: { color: SEARCH_MENU_META[option.searchType]?.color },
-                      padding: { all: 0 },
-                      color: "transparent",
-                    }
-              }
-              menu={
-                hasSearchMenu ? (
-                  <View>
-                    <ListItem
-                      text="Remove"
-                      icon="Delete"
-                      color={colors.custom.red}
-                      iconProps={{ color: colors.custom.red }}
-                      onClick={handleDelete}
-                    />
-
-                    {Object.entries(SEARCH_MENU_META).map(([type, { color, icon, text }]) => (
-                      <ListItem
-                        key={text}
-                        {...{ icon, text }}
-                        iconProps={{ color }}
-                        onClick={() => handleMenuClick(type as SearchTagType)}
-                      />
-                    ))}
-                  </View>
-                ) : null
-              }
-            />
-          );
-        });
+      const renderTags = () => null;
 
       return (
-        <Autocomplete
-          {...{
-            filterOptions,
-            getOptionLabel,
-            isOptionEqualToValue,
-            renderInput,
-            renderOption,
-            renderTags,
-            value,
-          }}
-          classes={{ root: css.root }}
-          clearOnBlur={false}
-          disableClearable
-          disabled={!disableWithoutFade && disabled}
-          forcePopupIcon={false}
-          ListboxProps={{ className: css.listbox }}
-          multiple
-          onChange={handleChange}
-          onClose={handleClose}
-          onOpen={handleOpen}
-          open={isOpen}
-          options={opts}
-          size="small"
-          {...props}
-        />
+        <View column height="100%" className={css.root}>
+          <Autocomplete
+            {...{
+              filterOptions,
+              getOptionLabel,
+              isOptionEqualToValue,
+              renderInput,
+              renderOption,
+              renderTags,
+              value,
+            }}
+            clearOnBlur={false}
+            disableClearable
+            disabled={disabled}
+            forcePopupIcon={false}
+            multiple
+            ListboxProps={{ className: css.listbox }}
+            onChange={handleChange}
+            onClose={handleClose}
+            onOpen={handleOpen}
+            open={isOpen}
+            options={opts}
+            size="small"
+            {...props}
+          />
+
+          {hasList && (
+            <TagList
+              tags={value}
+              search={{ onChange, value }}
+              viewProps={{ borderRadiuses: { top: 0 } }}
+              {...{ hasDelete, hasEditor, hasSearchMenu }}
+            />
+          )}
+        </View>
       );
     }
   )
 );
 
-const useClasses = makeClasses((_, { center, margins, opaque, width }) => ({
-  alias: {
-    margin: "0.3rem 0 0 0.3rem",
-    fontSize: "0.7em",
-    opacity: 0.7,
-  },
-  aliases: {
-    display: "flex",
-    flexFlow: "row wrap",
-    alignSelf: "flex-start",
-  },
+const useClasses = makeClasses((_, { center, margins, width }) => ({
   listbox: {
+    backgroundColor: colors.background,
+    boxShadow: "0 0 0.5rem 0.1rem rgba(0, 0, 0, 0.3)",
     overflowX: "hidden",
     overflowY: "auto",
   },
   input: {
-    // backgroundColor: opaque ? colors.foreground : "transparent",
     margin: margins?.all,
     marginTop: margins?.top,
     marginBottom: margins?.bottom,
@@ -368,20 +289,12 @@ const useClasses = makeClasses((_, { center, margins, opaque, width }) => ({
     display: "flex",
     alignItems: "center",
     width,
-    "& > div": {
-      width: "100%",
-    },
-  },
-  tag: {
-    alignSelf: "flex-start",
-    marginLeft: 0,
+    "& > div": { width: "100%" },
   },
   tagOption: {
-    display: "flex",
-    flexDirection: "column",
-    marginBottom: "0.3rem",
+    width: "100%",
     "&.MuiAutocomplete-option": {
-      padding: "0.2rem 0.5rem",
+      padding: 0,
     },
   },
 }));

@@ -6,6 +6,7 @@ import { Divider } from "@mui/material";
 import { Chip, Text, View } from "medior/components";
 import { IMPORT_LIST_ITEM_HEIGHT, ImportListItem, TagHierarchy, TagToUpsert } from ".";
 import { colors, makeClasses } from "medior/utils";
+import Color from "color";
 
 export interface ImportFolderListProps {
   collectionTitle?: string;
@@ -67,7 +68,7 @@ export const ImportFolderList = observer(
               <ImportListItem
                 key={index}
                 fileImport={imports[index]}
-                color={index % 2 === 0 ? colors.mui.blueGrey["200"] : colors.custom.lightGrey}
+                bgColor={index % 2 === 1 ? Color(colors.foreground).fade(0.35).string() : undefined}
                 style={style}
               />
             )}
@@ -123,7 +124,7 @@ const useClasses = makeClasses({
   list: {
     display: "flex",
     flexDirection: "column",
-    padding: "0.2rem 0",
+    padding: "0 0 0.2rem 0",
     maxHeight: "20rem",
     overflowY: "auto",
   },

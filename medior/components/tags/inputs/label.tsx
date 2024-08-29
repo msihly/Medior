@@ -1,14 +1,5 @@
 import { MutableRefObject, forwardRef } from "react";
-import {
-  Button,
-  InputProps,
-  InputWrapper,
-  InputWrapperProps,
-  TagInput,
-  TagInputProps,
-  Text,
-  View,
-} from "medior/components";
+import { Button, InputProps, TagInput, TagInputProps, Text, View } from "medior/components";
 import { observer, useStores } from "medior/store";
 
 interface LabelProps extends Omit<TagInputProps, "ref" | "value"> {
@@ -16,18 +7,18 @@ interface LabelProps extends Omit<TagInputProps, "ref" | "value"> {
   isDuplicate?: boolean;
   setValue: InputProps["setValue"];
   value: string;
-  wrapperProps?: Partial<InputWrapperProps>;
 }
 
 export const Label = observer(
   forwardRef(
     (
       {
+        hasHelper = true,
         inputProps = {},
         isDuplicate,
         setValue,
         value,
-        wrapperProps = {},
+        width = "100%",
         ...tagInputProps
       }: LabelProps,
       ref?: MutableRefObject<HTMLDivElement>
@@ -40,33 +31,34 @@ export const Label = observer(
       };
 
       return (
-        <InputWrapper label="Label" {...wrapperProps}>
-          <TagInput
-            value={undefined}
-            onSelect={(option) => handleEditExisting(option.label)}
-            inputProps={{
-              error: isDuplicate,
-              hasHelper: true,
-              helperText: isDuplicate && (
-                <View row align="center" justify="center">
-                  <Text>{"Tag already exists"}</Text>
-                  <Button
-                    type="link"
-                    text="(Click to edit)"
-                    onClick={() => handleEditExisting(value)}
-                    fontSize="0.85em"
-                  />
-                </View>
-              ),
-              ref,
-              setValue,
-              textAlign: "center",
-              value,
-              ...inputProps,
-            }}
-            {...tagInputProps}
-          />
-        </InputWrapper>
+        <TagInput
+          header="Label"
+          value={undefined}
+          onSelect={(option) => handleEditExisting(option.label)}
+          hasList={false}
+          width={width}
+          {...tagInputProps}
+          inputProps={{
+            error: isDuplicate,
+            hasHelper,
+            helperText: isDuplicate && (
+              <View row align="center" justify="center">
+                <Text>{"Tag already exists"}</Text>
+                <Button
+                  type="link"
+                  text="(Click to edit)"
+                  onClick={() => handleEditExisting(value)}
+                  fontSize="0.85em"
+                />
+              </View>
+            ),
+            ref,
+            setValue,
+            textAlign: "center",
+            value,
+            ...inputProps,
+          }}
+        />
       );
     }
   )

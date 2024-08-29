@@ -1,5 +1,5 @@
 import path from "path";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { RegExMapSchema } from "medior/database";
 import { ModelCreationData } from "mobx-keystone";
 import { FileImport, Tag, observer, useStores } from "medior/store";
@@ -64,6 +64,25 @@ export const ImportEditor = observer(() => {
 
   const isDisabled = isLoading || isSaving;
 
+  const [hasChangesSinceLastScan, setHasChangesSinceLastScan] = useState(false);
+
+  const isInitMount = useRef(true);
+  useEffect(() => {
+    if (isInitMount.current) isInitMount.current = false;
+    else setHasChangesSinceLastScan(true);
+  }, [
+    stores.tag.tags,
+    folderToCollectionMode,
+    folderToTagsMode,
+    withDelimiters,
+    withDiffusionModel,
+    withDiffusionParams,
+    withDiffusionRegExMaps,
+    withDiffusionTags,
+    withFileNameToTags,
+    withFolderNameRegEx,
+  ]);
+
   const confirmDiscard = () => {
     stores.import.setIsImportEditorOpen(false);
     stores.file.search.reloadIfQueued();
@@ -91,7 +110,11 @@ export const ImportEditor = observer(() => {
 
   const toggleWithFolderNameRegEx = () => setWithFolderNameRegEx((prev) => !prev);
 
-  const checkboxProps: Partial<CheckboxProps> = { disabled: isDisabled, flex: "initial" };
+  const checkboxProps: Partial<CheckboxProps> = {
+    disabled: isDisabled,
+    flex: "initial",
+    padding: { all: "0.5rem" },
+  };
 
   /* -------------------------------------------------------------------------- */
   /*                                INGEST LOGIC                                */
@@ -470,7 +493,7 @@ export const ImportEditor = observer(() => {
     return { diffMetaTagsToEdit, modelTag, originalTag, upscaledTag };
   };
 
-  useDeepEffect(() => {
+  const scan = async () => {
     if (isSaving) return;
     setIsLoading(true);
 
@@ -531,22 +554,13 @@ export const ImportEditor = observer(() => {
       );
 
       setIsLoading(false);
+      setHasChangesSinceLastScan(false);
     }, 50);
-  }, [
-    folderToCollectionMode,
-    folderToTagsMode,
-    stores.import.editorFilePaths,
-    stores.import.editorRootFolderIndex,
-    isSaving,
-    withDelimiters,
-    withDiffusionModel,
-    withDiffusionParams,
-    withDiffusionRegExMaps,
-    withDiffusionTags,
-    withFileNameToTags,
-    withFolderNameRegEx,
-    stores.tag.tags,
-  ]);
+  };
+
+  useDeepEffect(() => {
+    scan();
+  }, [isSaving, stores.import.editorFilePaths, stores.import.editorRootFolderIndex]);
 
   return (
     <Modal.Container width="100%" height="100%">
@@ -559,6 +573,14 @@ export const ImportEditor = observer(() => {
       <Modal.Content className={css.vertScroll}>
         <View className={css.body}>
           <View className={cx(css.container, css.leftColumn)}>
+            <Button
+              text="Scan"
+              icon="Cached"
+              onClick={scan}
+              disabled={isDisabled}
+              color={hasChangesSinceLastScan ? colors.custom.purple : colors.custom.blue}
+            />
+
             <Checkbox
               label="Delete on Import"
               checked={deleteOnImport}
@@ -741,7 +763,7 @@ export const ImportEditor = observer(() => {
           text="Confirm"
           icon="Check"
           onClick={handleConfirm}
-          disabled={isDisabled}
+          disabled={isDisabled || hasChangesSinceLastScan}
           color={colors.custom.blue}
         />
       </Modal.Footer>

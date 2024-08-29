@@ -1,5 +1,5 @@
 import { File, observer } from "medior/store";
-import { Detail, DetailRow, Icon, Tag, Text, Tooltip as TooltipBase, View } from "medior/components";
+import { Detail, DetailRow, Icon, TagChip, Text, Tooltip as TooltipBase, View } from "medior/components";
 import { colors, dayjs, formatBytes, makeClasses } from "medior/utils";
 
 interface TooltipProps {
@@ -19,7 +19,7 @@ export const Tooltip = observer(({ disabled, file, onTagPress }: TooltipProps) =
           {file.tagIds?.length > 0 && (
             <View className={css.tags}>
               {file.tagIds.map((tagId) => (
-                <Tag
+                <TagChip
                   key={tagId}
                   id={tagId}
                   onClick={!disabled ? () => onTagPress?.(tagId) : undefined}

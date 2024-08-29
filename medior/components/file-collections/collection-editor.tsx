@@ -13,9 +13,12 @@ import {
 import { SortableContext, SortingStrategy, arrayMove } from "@alissavrk/dnd-kit-sortable";
 import {
   Button,
+  Card,
+  CardGrid,
   CenteredText,
   ConfirmModal,
   FileCollectionFile,
+  FileFilterMenu,
   FileSearchFile,
   Input,
   ListItem,
@@ -26,13 +29,12 @@ import {
   Pagination,
   SortMenu,
   SortMenuProps,
-  Tag,
-  TagInput,
+  TagChip,
   Text,
   View,
 } from "medior/components";
 import { EditorFiles } from ".";
-import { colors, makeClasses, useDeepEffect } from "medior/utils";
+import { colors, makeClasses } from "medior/utils";
 import { toast } from "react-toastify";
 
 export const FileCollectionEditor = observer(() => {
@@ -48,36 +50,14 @@ export const FileCollectionEditor = observer(() => {
   const [isAddingFiles, setIsAddingFiles] = useState(false);
   const [isConfirmRemoveFilesOpen, setIsConfirmRemoveFilesOpen] = useState(false);
   const [isConfirmDiscardOpen, setIsConfirmDiscardOpen] = useState(false);
-  const [title, setTitle] = useState<string>(stores.collection.activeCollection?.title);
+  const [title, setTitle] = useState<string>(stores.collection.editor.collection?.title);
 
   useEffect(() => {
-    if (!stores.collection.editor.id) return;
-
-    (async () => {
-      stores.collection.editor.setIsLoading(true);
-
-      await stores.collection.loadActiveCollection();
-      if (stores.collection.editor.withSelectedFiles)
-        stores.collection.addFilesToActiveCollection(stores.collection.manager.files);
-
-      stores.collection.editor.setIsLoading(false);
-    })();
-
     return () => {
-      stores.collection.editor.setId(null);
-      stores.collection.editor.setFiles([]);
-      stores.collection.editor.setWithSelectedFiles(false);
-      stores.collection.clearSearch();
+      stores.collection.editor.loadCollection({ id: null });
+      stores.collection.editor.search.reset();
     };
-  }, [stores.collection.editor.id]);
-
-  useDeepEffect(() => {
-    (async () => {
-      if (!stores.collection.editor.search.value.length)
-        return stores.collection.editor.search.setResults([]);
-      await stores.collection.loadSearchResults();
-    })();
-  }, [stores.collection.editor.search.value, stores.collection.editor.search.sort]);
+  }, [stores.collection.editor.collection?.id]);
 
   const confirmClose = () => {
     if (stores.collection.editor.hasUnsavedChanges) setIsConfirmDiscardOpen(true);
@@ -85,15 +65,7 @@ export const FileCollectionEditor = observer(() => {
   };
 
   const confirmRemoveFiles = async () => {
-    const res = await stores.collection.updateCollection({
-      fileIdIndexes: stores.collection.sortedEditorFiles
-        .filter((f) => stores.collection.editor.selectedIds.includes(f.file.id))
-        .map((f, i) => ({ fileId: f.file.id, index: i })),
-      id: stores.collection.editor.id,
-    });
-
-    if (!res.success) toast.error(res.error);
-    else toast.success("Files removed from collection");
+    const res = await stores.collection.editor.removeFiles();
     return res.success;
   };
 
@@ -121,14 +93,14 @@ export const FileCollectionEditor = observer(() => {
   };
 
   const handleClose = () => {
-    stores.collection.setIsEditorOpen(false);
+    stores.collection.editor.setIsOpen(false);
     stores.file.search.reloadIfQueued();
   };
 
   const handleDelete = () => stores.collection.setIsConfirmDeleteOpen(true);
 
   const handleDeselectAll = () => {
-    stores.collection.toggleFilesSelected(
+    stores.collection.editor.toggleFilesSelected(
       stores.collection.editor.selectedIds.map((id) => ({ id, isSelected: false }))
     );
     toast.info("Deselected all files");
@@ -137,7 +109,7 @@ export const FileCollectionEditor = observer(() => {
   const handleDragCancel = () => setDraggedFileId(null);
 
   const handleDragEnd = (event: DragEndEvent) => {
-    stores.collection.moveFileIndex(draggedFileId, event.over.id as string);
+    stores.collection.editor.moveFileIndex(draggedFileId, event.over.id as string);
     setDraggedFileId(null);
   };
 
@@ -151,45 +123,33 @@ export const FileCollectionEditor = observer(() => {
 
   const handleFileInfoRefresh = () => stores.file.refreshSelectedFiles();
 
-  const handlePageChange = (page: number) => stores.collection.loadSearchResults({ page });
+  const handlePageChange = (page: number) => stores.collection.editor.loadSearchResults({ page });
 
-  const handleRefreshMeta = () => stores.collection.regenCollMeta([stores.collection.editor.id]);
+  const handleRefreshMeta = () =>
+    stores.collection.regenCollMeta([stores.collection.editor.collection.id]);
 
   const handleRemoveFiles = () => setIsConfirmRemoveFilesOpen(true);
 
-  const handleSave = async () => {
-    try {
-      if (!title) return toast.error("Title is required!");
-
-      stores.collection.editor.setIsLoading(true);
-
-      const res = await stores.collection.updateCollection({
-        fileIdIndexes: stores.collection.sortedEditorFiles.map((f, i) => ({
-          fileId: f.file.id,
-          index: i,
-        })),
-        id: stores.collection.editor.id,
-        title,
-      });
-      if (!res.success) return toast.error(res.error);
-
-      toast.success("Collection saved!");
-      stores.collection.editor.setHasUnsavedChanges(false);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      stores.collection.editor.setIsLoading(false);
-    }
+  const handleResetSearch = () => {
+    stores.collection.editor.search.reset();
+    handleSearch();
   };
 
+  const handleSave = async () => {
+    if (!title) return toast.error("Title is required!");
+    await stores.collection.editor.saveCollection();
+  };
+
+  const handleSearch = () => stores.collection.editor.search.loadFiltered({ page: 1 });
+
   const handleSearchSortChange = (val: SortMenuProps["value"]) =>
-    stores.collection.editor.search.setSort(val);
+    stores.collection.editor.search.setSortValue(val);
 
   const handleSelectAll = () => {
-    stores.collection.toggleFilesSelected(
-      stores.collection.sortedEditorFiles.map(({ id }) => ({ id, isSelected: true }))
+    stores.collection.editor.toggleFilesSelected(
+      stores.collection.editor.sortedFiles.map(({ id }) => ({ id, isSelected: true }))
     );
-    toast.info(`Added ${stores.file.files.length} files to selection`);
+    toast.info(`Added all ${stores.collection.editor.selectedIds.length} files to selection`);
   };
 
   const handleTitleChange = (val: string) => {
@@ -210,7 +170,7 @@ export const FileCollectionEditor = observer(() => {
             icon={isAddingFiles ? "VisibilityOff" : "Add"}
             onClick={toggleAddingFiles}
             disabled={stores.collection.editor.isLoading}
-            color={colors.custom.darkGrey}
+            colorOnHover={colors.custom.purple}
           />
         }
         rightNode={
@@ -221,124 +181,158 @@ export const FileCollectionEditor = observer(() => {
         }
       >
         <Text align="center">
-          {`${stores.collection.editor.id === null ? "Create" : "Edit"} Collection`}
+          {`${stores.collection.editor.collection === null ? "Create" : "Edit"} Collection`}
         </Text>
       </Modal.Header>
 
       <Modal.Content>
-        <View className={css.body}>
+        <View row flex={1} spacing="0.5rem">
           {isAddingFiles && (
-            <View column spacing="0.5rem" className={css.leftColumn}>
-              <TagInput
-                label="File Search"
-                value={[...stores.collection.editor.search.value]}
-                onChange={(val) => stores.collection.editor.search.setValue(val)}
-                detachLabel
-                hasSearchMenu
+            <Card column height="100%" spacing="0.5rem" width="15rem">
+              <Button
+                text="Search"
+                icon="Search"
+                onClick={handleSearch}
+                color={colors.custom.blue}
               />
+
+              <Button
+                text="Reset"
+                icon="Refresh"
+                onClick={handleResetSearch}
+                colorOnHover={colors.custom.red}
+              />
+
+              <FileFilterMenu store={stores.collection.editor.search} color={colors.custom.black} />
 
               <SortMenu
                 rows={SORT_OPTIONS.File}
-                value={stores.collection.editor.search.sort}
+                value={stores.collection.editor.search.sortValue}
                 setValue={handleSearchSortChange}
                 width="100%"
               />
 
-              <View column className={css.searchResults}>
-                {stores.collection.editor.search.results.map((f) => (
-                  <FileSearchFile key={f.id} file={f} height="14rem" />
+              <CardGrid
+                cards={stores.collection.editor.searchResults.map((f) => (
+                  <FileSearchFile key={f.id} file={f} />
                 ))}
-              </View>
-
-              <Pagination
-                count={stores.collection.editor.search.pageCount}
-                page={stores.collection.editor.search.page}
-                onChange={handlePageChange}
-                size="small"
-              />
-            </View>
+                maxCards={1}
+              >
+                <Pagination
+                  count={stores.collection.editor.search.pageCount}
+                  page={stores.collection.editor.search.page}
+                  onChange={handlePageChange}
+                />
+              </CardGrid>
+            </Card>
           )}
 
-          <View column flex={1}>
-            <View row>
-              <View row justify="center" align="center" flex={1}>
-                <Input
-                  label="Title"
-                  value={title}
-                  setValue={handleTitleChange}
-                  textAlign="center"
-                  className={css.titleInput}
-                />
-              </View>
+          <View column flex={1} spacing="0.5rem">
+            <View row spacing="0.5rem">
+              <Card column flex={1} spacing="0.5rem">
+                <View row align="center" spacing="0.5rem">
+                  <View column align="flex-start">
+                    <Text
+                      fontSize="1.2em"
+                      fontWeight={500}
+                      width="3rem"
+                      color={colors.custom.lightGrey}
+                    >
+                      {"Title"}
+                    </Text>
+                  </View>
 
-              <View row align="center">
-                <MultiActionButton
-                  name="Delete"
-                  tooltip="Remove Files From Collection"
-                  iconProps={{ color: colors.custom.red }}
-                  onClick={handleRemoveFiles}
-                  disabled={hasNoSelection}
-                />
+                  <Input value={title} setValue={handleTitleChange} width="100%" />
+                </View>
 
-                <MultiActionButton
-                  name="Refresh"
-                  tooltip="Refresh File Info"
-                  onClick={handleFileInfoRefresh}
-                  disabled={hasNoSelection}
-                />
+                <View row align="center" spacing="0.5rem">
+                  <View column align="flex-start">
+                    <Text
+                      fontSize="1.2em"
+                      fontWeight={500}
+                      width="3rem"
+                      color={colors.custom.lightGrey}
+                    >
+                      {"Tags"}
+                    </Text>
+                  </View>
 
-                <MultiActionButton
-                  name="Label"
-                  tooltip="Edit Tags"
-                  onClick={handleEditTags}
-                  disabled={hasNoSelection}
-                />
+                  <View className={css.tags}>
+                    {stores.collection.editor.sortedTags.map((tag) => (
+                      <TagChip key={tag.id} tag={tag} hasEditor className={css.tag} />
+                    ))}
+                  </View>
+                </View>
+              </Card>
 
-                <MultiActionButton
-                  name="Deselect"
-                  tooltip="Deselect All Files"
-                  onClick={handleDeselectAll}
-                  disabled={hasNoSelection}
-                />
+              <Card column height="100%">
+                <View row>
+                  <MultiActionButton
+                    name="Label"
+                    tooltip="Edit Tags"
+                    onClick={handleEditTags}
+                    disabled={hasNoSelection}
+                  />
 
-                <MultiActionButton
-                  name="SelectAll"
-                  tooltip="Select All Files in View"
-                  onClick={handleSelectAll}
-                />
-              </View>
+                  <MultiActionButton
+                    name="Refresh"
+                    tooltip="Refresh File Info"
+                    onClick={handleFileInfoRefresh}
+                    disabled={hasNoSelection}
+                  />
+
+                  <MultiActionButton
+                    name="Delete"
+                    tooltip="Remove Files From Collection"
+                    iconProps={{ color: colors.custom.red }}
+                    onClick={handleRemoveFiles}
+                    disabled={hasNoSelection}
+                  />
+                </View>
+
+                <View row justify="flex-end">
+                  <MultiActionButton
+                    name="Deselect"
+                    tooltip="Deselect All Files"
+                    onClick={handleDeselectAll}
+                    disabled={hasNoSelection}
+                  />
+
+                  <MultiActionButton
+                    name="SelectAll"
+                    tooltip="Select All Files in View"
+                    onClick={handleSelectAll}
+                  />
+                </View>
+              </Card>
             </View>
 
-            <View className={css.tags}>
-              {stores.collection.sortedActiveTags.map((tag) => (
-                <Tag key={tag.id} tag={tag} hasEditor className={css.tag} />
-              ))}
-            </View>
-
-            {stores.collection.editor.files.length > 0 ? (
-              <View className={css.collection}>
-                <DndContext
-                  sensors={sensors}
-                  collisionDetection={closestCenter}
-                  onDragCancel={handleDragCancel}
-                  onDragEnd={handleDragEnd}
-                  onDragStart={handleDragStart}
-                >
-                  <SortableContext
-                    items={stores.collection.sortedEditorFiles}
-                    strategy={gridSortingStrategy}
+            <Card column flex={1}>
+              {!stores.collection.editor.files.length ? (
+                <CenteredText text="No files found" />
+              ) : (
+                <View className={css.collection}>
+                  <DndContext
+                    sensors={sensors}
+                    collisionDetection={closestCenter}
+                    onDragCancel={handleDragCancel}
+                    onDragEnd={handleDragEnd}
+                    onDragStart={handleDragStart}
                   >
-                    <EditorFiles />
-                  </SortableContext>
+                    <SortableContext
+                      items={stores.collection.editor.sortedFiles}
+                      strategy={gridSortingStrategy}
+                    >
+                      <EditorFiles />
+                    </SortableContext>
 
-                  <DragOverlay adjustScale>
-                    {draggedFileId ? <FileCollectionFile fileId={draggedFileId} disabled /> : null}
-                  </DragOverlay>
-                </DndContext>
-              </View>
-            ) : (
-              <CenteredText text="No files found" />
-            )}
+                    <DragOverlay adjustScale>
+                      {draggedFileId ? <FileCollectionFile id={draggedFileId} disabled /> : null}
+                    </DragOverlay>
+                  </DndContext>
+                </View>
+              )}
+            </Card>
           </View>
         </View>
       </Modal.Content>
@@ -359,6 +353,7 @@ export const FileCollectionEditor = observer(() => {
           disabled={
             !stores.collection.editor.hasUnsavedChanges || stores.collection.editor.isLoading
           }
+          color={colors.custom.blue}
         />
       </Modal.Footer>
 
@@ -385,38 +380,15 @@ export const FileCollectionEditor = observer(() => {
 });
 
 const useClasses = makeClasses({
-  body: {
-    display: "flex",
-    flexDirection: "row",
-    height: "100%",
-    width: "100%",
-  },
   collection: {
     display: "flex",
-    flex: 1,
     flexFlow: "row wrap",
-    borderRadius: "0.3rem",
-    minHeight: "30rem",
-    width: "100%",
-    backgroundColor: colors.foreground,
-    overflow: "hidden",
-  },
-  leftColumn: {
-    position: "relative",
-    borderRadius: 4,
-    marginRight: "0.5rem",
-    padding: "0.5rem",
-    width: "15rem",
-    backgroundColor: colors.foreground,
-    overflow: "hidden",
-  },
-  searchResults: {
     flex: 1,
-    overflowY: "auto",
-    overflowX: "hidden",
+    width: "100%",
+    overflow: "hidden",
   },
   tag: {
-    marginBottom: "0.2rem",
+    margin: "0.1rem 0",
   },
   tags: {
     display: "flex",
@@ -425,8 +397,5 @@ const useClasses = makeClasses({
     margin: "0.5rem 0",
     maxHeight: "5rem",
     overflowY: "auto",
-  },
-  titleInput: {
-    width: "100%",
   },
 });

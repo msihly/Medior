@@ -36,8 +36,8 @@ export const ContextMenu = observer(
     const copyFolderPath = () => copyToClipboard(path.dirname(file.path), "Copied folder path");
 
     const handleCollections = () => {
-      stores.collection.manager.setFileIds([file.id]);
-      stores.collection.setIsManagerOpen(true);
+      stores.collection.manager.setSelectedFileIds([file.id]);
+      stores.collection.manager.setIsOpen(true);
     };
 
     const handleDelete = () =>
