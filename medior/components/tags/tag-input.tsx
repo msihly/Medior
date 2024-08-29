@@ -16,6 +16,7 @@ import {
 } from "@mui/material";
 import {
   Button,
+  HeaderWrapper,
   HeaderWrapperProps,
   Input,
   InputProps,
@@ -48,6 +49,7 @@ export type TagInputProps = Omit<
   options?: TagOption[];
   onChange?: (val: TagOption[]) => void;
   onSelect?: (val: TagOption) => void;
+  single?: boolean;
   value: TagOption[];
   width?: CSS["width"];
 };
@@ -76,6 +78,7 @@ export const TagInput = observer(
         onSelect,
         onTagClick,
         options,
+        single,
         value = [],
         width,
         ...props
@@ -189,7 +192,7 @@ export const TagInput = observer(
           value={inputValue}
           setValue={handleInputChange}
           disabled={disabled}
-          borderRadiuses={hasList ? { bottom: 0 } : undefined}
+          borderRadiuses={!single && hasList ? { bottom: 0 } : undefined}
           className={cx(css.input, className)}
         />
       );
@@ -226,38 +229,52 @@ export const TagInput = observer(
 
       return (
         <View column height="100%" className={css.root}>
-          <Autocomplete
-            {...{
-              filterOptions,
-              getOptionLabel,
-              isOptionEqualToValue,
-              renderInput,
-              renderOption,
-              renderTags,
-              value,
-            }}
-            clearOnBlur={false}
-            disableClearable
-            disabled={disabled}
-            forcePopupIcon={false}
-            multiple
-            ListboxProps={{ className: css.listbox }}
-            onChange={handleChange}
-            onClose={handleClose}
-            onOpen={handleOpen}
-            open={isOpen}
-            options={opts}
-            size="small"
-            {...props}
-          />
+          {single && value.length > 0 ? (
+            <HeaderWrapper {...{ header, headerProps }}>
+              <TagList
+                tags={value}
+                search={{ onChange, value }}
+                hasDelete
+                rowHeight={43}
+                viewProps={{ borderRadiuses: { top: 0 } }}
+              />
+            </HeaderWrapper>
+          ) : (
+            <>
+              <Autocomplete
+                {...{
+                  filterOptions,
+                  getOptionLabel,
+                  isOptionEqualToValue,
+                  renderInput,
+                  renderOption,
+                  renderTags,
+                  value,
+                }}
+                clearOnBlur={false}
+                disableClearable
+                disabled={disabled}
+                forcePopupIcon={false}
+                multiple
+                ListboxProps={{ className: css.listbox }}
+                onChange={handleChange}
+                onClose={handleClose}
+                onOpen={handleOpen}
+                open={isOpen}
+                options={opts}
+                size="small"
+                {...props}
+              />
 
-          {hasList && (
-            <TagList
-              tags={value}
-              search={{ onChange, value }}
-              viewProps={{ borderRadiuses: { top: 0 } }}
-              {...{ hasDelete, hasEditor, hasSearchMenu }}
-            />
+              {!single && hasList && (
+                <TagList
+                  tags={value}
+                  search={{ onChange, value }}
+                  viewProps={{ borderRadiuses: { top: 0 } }}
+                  {...{ hasDelete, hasEditor, hasSearchMenu }}
+                />
+              )}
+            </>
           )}
         </View>
       );

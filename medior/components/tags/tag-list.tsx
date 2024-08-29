@@ -17,11 +17,12 @@ const DEFAULT_BORDER_RADIUSES: BorderRadiuses = {
 };
 
 export interface TagListProps extends Omit<TagInputRowProps, "tag"> {
+  rowHeight?: number;
   tags: TagOption[];
   viewProps?: Partial<ViewProps>;
 }
 
-export const TagList = ({ tags, viewProps = {}, ...props }: TagListProps) => {
+export const TagList = ({ rowHeight, tags, viewProps = {}, ...props }: TagListProps) => {
   const { css } = useClasses(null);
 
   const renderTagInputRow = useCallback(
@@ -48,7 +49,7 @@ export const TagList = ({ tags, viewProps = {}, ...props }: TagListProps) => {
                 height={height}
                 width="100%"
                 layout="vertical"
-                itemSize={TAG_INPUT_ROW_HEIGHT}
+                itemSize={rowHeight ?? TAG_INPUT_ROW_HEIGHT}
                 itemCount={tags.length}
               >
                 {renderTagInputRow}

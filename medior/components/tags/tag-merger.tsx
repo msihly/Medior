@@ -173,26 +173,14 @@ export const TagMerger = observer(() => {
               </View>
 
               <View column flex={1}>
-                {selectedTagValue.length > 0 ? (
-                  <HeaderWrapper header=" Tag to Merge">
-                    <TagList
-                      tags={selectedTagValue}
-                      search={{ onChange: handleSelectedTagChange, value: selectedTagValue }}
-                      hasDelete
-                      viewProps={{ borderRadiuses: { top: 0 } }}
-                    />
-                  </HeaderWrapper>
-                ) : (
-                  <TagInput
-                    header="Select Tag to Merge"
-                    options={tagOptions}
-                    excludedIds={[stores.tag.activeTagId]}
-                    value={selectedTagValue}
-                    onChange={handleSelectedTagChange}
-                    hasList={false}
-                    maxTags={1}
-                  />
-                )}
+                <TagInput
+                  header="Tag to Merge"
+                  options={tagOptions}
+                  excludedIds={[stores.tag.activeTagId]}
+                  value={selectedTagValue}
+                  onChange={handleSelectedTagChange}
+                  single
+                />
 
                 <Checkbox
                   label="Keep This Label"
@@ -209,19 +197,9 @@ export const TagMerger = observer(() => {
             {disabled && <View className={css.disabledOverlay} />}
 
             <Card row flex={1} spacing="0.5rem">
-              <TagInputs.Label
-                value={label}
-                setValue={setLabel}
-                disabled
-                hasHelper={false}
-              />
+              <TagInputs.Label value={label} setValue={setLabel} disabled hasHelper={false} />
 
-              <TagInputs.Aliases
-                value={aliases}
-                setValue={setAliases}
-                disabled
-                hasHelper={false}
-              />
+              <TagInputs.Aliases value={aliases} setValue={setAliases} disabled hasHelper={false} />
             </Card>
 
             <Card row height="12rem" spacing="0.5rem">
