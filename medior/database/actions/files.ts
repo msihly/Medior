@@ -39,9 +39,15 @@ const createFileFilterPipeline = (args: {
   hasDiffParams: boolean;
   isArchived: boolean;
   isSortDesc: boolean;
+  maxHeight?: number;
+  maxWidth?: number;
+  minHeight?: number;
+  minWidth?: number;
   numOfTagsOp: LogicalOp | "";
   numOfTagsValue?: number;
   optionalTagIds: string[];
+  ratingOp: LogicalOp | "";
+  ratingValue?: number;
   requiredDescTagIds: string[];
   requiredTagIds: string[];
   selectedImageTypes: SelectedImageTypes;
@@ -62,6 +68,7 @@ const createFileFilterPipeline = (args: {
   const hasExcludedDescTags = args.excludedDescTagIds?.length > 0;
   const hasNumOfTags = args.numOfTagsOp !== "" && args.numOfTagsValue !== undefined;
   const hasOptionalTags = args.optionalTagIds?.length > 0;
+  const hasRating = args.ratingOp !== "" && args.ratingValue !== undefined;
   const hasRequiredDescTags = args.requiredDescTagIds?.length > 0;
   const hasRequiredTags = args.requiredTagIds.length > 0;
 
@@ -95,6 +102,7 @@ const createFileFilterPipeline = (args: {
       ["$expr", logicOpsToMongo(args.numOfTagsOp)],
       [{ $size: "$tagIds" }, args.numOfTagsValue]
     );
+  if (hasRating) setObj($match, ["rating", logicOpsToMongo(args.ratingOp)], args.ratingValue);
 
   return {
     $match,
@@ -490,7 +498,9 @@ export const importFile = makeAction(
 );
 
 export const listDeletedFiles = makeAction(async () =>
-  (await models.DeletedFileModel.find().lean()).map((f) => leanModelToJson<models.DeletedFileSchema>(f))
+  (await models.DeletedFileModel.find().lean()).map((f) =>
+    leanModelToJson<models.DeletedFileSchema>(f)
+  )
 );
 
 export const listFaceModels = makeAction(async ({ ids }: { ids?: string[] } = {}) => {

@@ -1,7 +1,7 @@
 import { useEffect } from "react";
-import { SocketEmitEvent, SocketEmitEvents } from "medior/socket";
+import { SocketEmitEvent, SocketEmitEvents } from "medior/_generated/socket";
 import { useStores } from "medior/store";
-import { setupSocketIO, socket, throttle } from "medior/utils";
+import { connectSocket, socket, throttle } from "medior/utils";
 
 export interface UseSocketsProps {
   view: "carousel" | "home" | "search";
@@ -33,7 +33,7 @@ export const useSockets = ({ view }: UseSocketsProps) => {
       : stores.file.search.loadFilteredFiles();
 
   const setupSockets = () => {
-    setupSocketIO();
+    connectSocket();
 
     makeSocket("onFilesDeleted", ({ fileHashes, fileIds }) => {
       if (view === "carousel") stores.carousel.removeFiles(fileIds);

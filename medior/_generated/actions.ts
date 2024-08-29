@@ -323,7 +323,7 @@ export const listFiles = makeAction(
 
     const [items, totalCount] = await Promise.all([
       models.FileModel.find(filter)
-        .sort(args.sort ?? { hash: "desc" })
+        .sort(args.sort ?? { dateCreated: "desc" })
         .skip(Math.max(0, args.page - 1) * args.pageSize)
         .limit(args.pageSize)
         .allowDiskUse(true)

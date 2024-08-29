@@ -2,6 +2,7 @@ import mongoose, { FilterQuery, PipelineStage, UpdateQuery } from "mongoose";
 import { AnyBulkWriteOperation } from "mongodb";
 import * as actions from "medior/database/actions";
 import * as models from "medior/_generated/models";
+import { SocketEmitEvent } from "medior/_generated/socket";
 import * as Types from "medior/database/types";
 import { leanModelToJson, makeAction, objectId, objectIds } from "medior/database/utils";
 import {
@@ -16,7 +17,6 @@ import {
   socket,
   splitArray,
 } from "medior/utils";
-import { SocketEmitEvent } from "medior/socket";
 
 /* -------------------------------------------------------------------------- */
 /*                              HELPER FUNCTIONS                              */
@@ -56,8 +56,7 @@ const createTagFilterPipeline = (args: {
   if (args.dateCreatedStart) setObj($match, ["dateCreated", "$gte"], args.dateCreatedStart);
   if (args.dateModifiedEnd) setObj($match, ["dateModified", "$lte"], args.dateModifiedEnd);
   if (args.dateModifiedStart) setObj($match, ["dateModified", "$gte"], args.dateModifiedStart);
-  if (hasCount)
-    setObj($match, ["$expr", logicOpsToMongo(args.countOp)], ["$count", args.countValue]);
+  if (hasCount) setObj($match, ["count", logicOpsToMongo(args.countOp)], args.countValue);
   if (args.label) setObj($match, "label", new RegExp(args.label, "i"));
   if (args.alias) setObj($match, "aliases", new RegExp(args.alias, "i"));
   if (args.regExMode !== "any")
@@ -443,7 +442,10 @@ export const regenTags = makeAction(
       tagIds.map((tagId) => regenTagThumbPaths({ tagId })),
     ]);
 
-    await Promise.all([actions.regenCollTagAncestors({ tagIds }), actions.regenFileTagAncestors({ tagIds })]);
+    await Promise.all([
+      actions.regenCollTagAncestors({ tagIds }),
+      actions.regenFileTagAncestors({ tagIds }),
+    ]);
   }
 );
 
@@ -947,7 +949,10 @@ export const mergeTags = makeAction(
       const _tagIdToMerge = objectId(args.tagIdToMerge);
       const dateModified = dayjs().toISOString();
 
-      type Collections = models.FileSchema | models.FileImportBatchSchema | models.FileCollectionSchema;
+      type Collections =
+        | models.FileSchema
+        | models.FileImportBatchSchema
+        | models.FileCollectionSchema;
 
       const updateManyAddToSet: UpdateQuery<Collections> = { $addToSet: { tagIds: _tagIdToKeep } };
       const updateManyFilter: FilterQuery<Collections> = { tagIds: _tagIdToMerge };

@@ -157,7 +157,7 @@ const MODEL_FILE_IMPORT_BATCH: ModelDef = {
 
 const MODEL_FILE: ModelDef = {
   name: "File",
-  defaultSort: { isDesc: true, key: "hash" },
+  defaultSort: { isDesc: true, key: "dateCreated" },
   indexes: [
     { fields: { dateCreated: 1, _id: 1 }, options: { unique: true } },
     { fields: { dateModified: 1, _id: 1 }, options: { unique: true } },

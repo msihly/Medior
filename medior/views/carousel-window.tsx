@@ -73,7 +73,7 @@ export const CarouselWindow = observer(() => {
           perfLog("Active file loaded. Loading carousel files and tags...");
 
           await Promise.all([
-            stores.file.loadFiles({ filter: { id: selectedFileIds } }),
+            stores.file.loadFiles({ filter: { id: [fileId, ...selectedFileIds] } }),
             stores.tag.loadTags(),
           ]);
           stores.carousel.setSelectedFileIds(selectedFileIds);

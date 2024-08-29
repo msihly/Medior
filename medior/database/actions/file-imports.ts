@@ -20,7 +20,7 @@ export const completeImportBatch = makeAction(
       ...args.tagIds.map((tagId) => actions.regenTagThumbPaths({ tagId })),
     ]);
 
-    socket.emit("onImportBatchCompleted");
+    socket.emit("onImportBatchCompleted", { id: args.id });
     return completedAt;
   }
 );

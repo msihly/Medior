@@ -379,7 +379,7 @@ export class _FileStore extends Model({
   page: prop<number>(1).withSetter(),
   pageCount: prop<number>(1).withSetter(),
   pageSize: prop<number>(undefined).withSetter(),
-  sortValue: prop<SortValue>(() => ({ isDesc: true, key: "hash" })).withSetter(),
+  sortValue: prop<SortValue>(() => ({ isDesc: true, key: "dateCreated" })).withSetter(),
 }) {
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
   @modelAction

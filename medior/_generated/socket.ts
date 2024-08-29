@@ -2,6 +2,7 @@
 /*                    THIS IS A GENERATED FILE. DO NOT EDIT.                  */
 /* -------------------------------------------------------------------------- */
 
+import * as Types from "medior/database/types";
 import {
   DeletedFileSchema,
   FileCollectionSchema,
@@ -9,7 +10,7 @@ import {
   FileSchema,
   RegExMapSchema,
   TagSchema,
-} from "medior/database";
+} from "medior/_generated/models";
 
 /* ------------------------------------ Socket Definitions ----------------------------------- */
 export type SocketEventOptions = { contentId: string; tabId: number };
@@ -51,9 +52,41 @@ export interface SocketEmitEvents {
     args: { id: string; updates: Partial<TagSchema> },
     options?: SocketEventOptions,
   ) => void;
+  onFilesArchived: (args: { fileIds: string[] }, options?: SocketEventOptions) => void;
+  onFilesDeleted: (
+    args: { fileHashes: string[]; fileIds: string[] },
+    options?: SocketEventOptions,
+  ) => void;
+  onFilesUpdated: (
+    args: { fileIds: string[]; updates: Partial<FileSchema> },
+    options?: SocketEventOptions,
+  ) => void;
+  onFileTagsUpdated: (
+    args: { addedTagIds: string[]; batchId?: string; fileIds?: string[]; removedTagIds: string[] },
+    options?: SocketEventOptions,
+  ) => void;
+  onImportBatchCompleted: (args: { id: string }, options?: SocketEventOptions) => void;
+  onImportStatsUpdated: (
+    args: { importStats: Types.ImportStats },
+    options?: SocketEventOptions,
+  ) => void;
+  onReloadFileCollections: (options?: SocketEventOptions) => void;
+  onReloadFiles: (options?: SocketEventOptions) => void;
+  onReloadImportBatches: (options?: SocketEventOptions) => void;
+  onReloadRegExMaps: (options?: SocketEventOptions) => void;
+  onReloadTags: (options?: SocketEventOptions) => void;
+  onTagMerged: (args: { oldTagId: string; newTagId: string }, options?: SocketEventOptions) => void;
+  onTagsUpdated: (
+    args: { tags: Array<{ tagId: string; updates: Partial<TagSchema> }>; withFileReload: boolean },
+    options?: SocketEventOptions,
+  ) => void;
 }
 
 export type SocketEmitEvent = keyof SocketEmitEvents;
+
+export interface SocketEvents extends SocketEmitEvents {
+  connected: () => void;
+}
 
 export const socketEvents: SocketEmitEvent[] = [
   "onDeletedFileCreated",
@@ -74,4 +107,17 @@ export const socketEvents: SocketEmitEvent[] = [
   "onTagCreated",
   "onTagDeleted",
   "onTagUpdated",
+  "onFilesArchived",
+  "onFilesDeleted",
+  "onFilesUpdated",
+  "onFileTagsUpdated",
+  "onImportBatchCompleted",
+  "onImportStatsUpdated",
+  "onReloadFileCollections",
+  "onReloadFiles",
+  "onReloadImportBatches",
+  "onReloadRegExMaps",
+  "onReloadTags",
+  "onTagMerged",
+  "onTagsUpdated",
 ];

@@ -2,7 +2,7 @@ import { FilterQuery } from "mongoose";
 import * as actions from "medior/database/actions";
 import * as models from "medior/_generated/models";
 import { leanModelToJson, makeAction, objectIds } from "medior/database/utils";
-import { dayjs, setObj, socket } from "medior/utils";
+import { dayjs, LogicalOp, logicOpsToMongo, setObj, socket } from "medior/utils";
 
 /* -------------------------------------------------------------------------- */
 /*                              HELPER FUNCTIONS                              */
@@ -10,10 +10,18 @@ import { dayjs, setObj, socket } from "medior/utils";
 type CreateCollectionFilterPipelineInput = Parameters<typeof createCollectionFilterPipeline>[0];
 
 const createCollectionFilterPipeline = (args: {
+  dateCreatedEnd?: string;
+  dateCreatedStart?: string;
+  dateModifiedEnd?: string;
+  dateModifiedStart?: string;
+  fileCountOp: LogicalOp | "";
+  fileCountValue?: number;
   excludedDescTagIds: string[];
   excludedTagIds: string[];
   isSortDesc: boolean;
   optionalTagIds: string[];
+  ratingOp: LogicalOp | "";
+  ratingValue?: number;
   requiredDescTagIds: string[];
   requiredTagIds: string[];
   sortKey: string;
@@ -21,15 +29,23 @@ const createCollectionFilterPipeline = (args: {
 }) => {
   const sortDir = args.isSortDesc ? -1 : 1;
 
+  const hasFileCount = args.fileCountOp !== "" && args.fileCountValue !== undefined;
   const hasExcludedTags = args.excludedTagIds?.length > 0;
   const hasExcludedDescTags = args.excludedDescTagIds?.length > 0;
   const hasOptionalTags = args.optionalTagIds?.length > 0;
+  const hasRating = args.ratingOp !== "" && args.ratingValue !== undefined;
   const hasRequiredDescTags = args.requiredDescTagIds?.length > 0;
   const hasRequiredTags = args.requiredTagIds.length > 0;
 
   const $match: FilterQuery<models.FileCollectionSchema> = {};
 
+  if (args.dateCreatedEnd) setObj($match, ["dateCreated", "$lte"], args.dateCreatedEnd);
+  if (args.dateCreatedStart) setObj($match, ["dateCreated", "$gte"], args.dateCreatedStart);
+  if (args.dateModifiedEnd) setObj($match, ["dateModified", "$lte"], args.dateModifiedEnd);
+  if (args.dateModifiedStart) setObj($match, ["dateModified", "$gte"], args.dateModifiedStart);
   if (args.title) setObj($match, ["title", "$regex"], new RegExp(args.title, "i"));
+  if (hasFileCount)
+    setObj($match, ["fileCount", logicOpsToMongo(args.fileCountOp)], args.fileCountValue);
   if (hasExcludedTags) setObj($match, ["tagIds", "$nin"], objectIds(args.excludedTagIds));
   if (hasOptionalTags) setObj($match, ["tagIds", "$in"], objectIds(args.optionalTagIds));
   if (hasRequiredTags) setObj($match, ["tagIds", "$all"], objectIds(args.requiredTagIds));
@@ -37,6 +53,7 @@ const createCollectionFilterPipeline = (args: {
     setObj($match, ["tagIdsWithAncestors", "$nin"], objectIds(args.excludedDescTagIds));
   if (hasRequiredDescTags)
     setObj($match, ["tagIdsWithAncestors", "$all"], objectIds(args.requiredDescTagIds));
+  if (hasRating) setObj($match, ["rating", logicOpsToMongo(args.ratingOp)], args.ratingValue);
 
   return {
     $match,
@@ -223,7 +240,10 @@ export const regenCollTagAncestors = makeAction(
         });
 
         if (!hasUpdates) return;
-        await models.FileCollectionModel.updateOne({ _id: c.id }, { $set: { tagIdsWithAncestors } });
+        await models.FileCollectionModel.updateOne(
+          { _id: c.id },
+          { $set: { tagIdsWithAncestors } }
+        );
       })
     );
   }

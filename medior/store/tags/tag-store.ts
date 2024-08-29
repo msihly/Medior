@@ -60,6 +60,7 @@ export class TagStore extends Model({
       label,
       parentIds = [],
       regExMap,
+      withRegen = false,
       withRegEx = false,
       withSub = true,
     }: db.CreateTagInput & { withRegEx?: boolean }) => {
@@ -78,6 +79,7 @@ export class TagStore extends Model({
         label,
         parentIds,
         regExMap: regEx,
+        withRegen,
         withSub,
       });
       if (!res.success) throw new Error(res.error);

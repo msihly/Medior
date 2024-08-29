@@ -4,9 +4,9 @@ import { MongoMemoryReplSet } from "mongodb-memory-server";
 import Mongoose from "mongoose";
 import { createHTTPServer } from "@trpc/server/adapters/standalone";
 import { Server } from "socket.io";
-import { SocketEmitEvent, socketEvents, SocketEvents } from "./socket";
+import { SocketEmitEvent, socketEvents, SocketEvents } from "medior/_generated/socket";
 import { serverRouter } from "./trpc";
-import { CONSTANTS, getConfig, logToFile, setupSocketIO, sleep } from "./utils";
+import { CONSTANTS, getConfig, logToFile, connectSocket, sleep } from "./utils";
 
 /* -------------------------------------------------------------------------- */
 /*                                  DATABASE                                  */
@@ -144,7 +144,7 @@ const createSocketIOServer = async () => {
       );
     });
 
-    setupSocketIO();
+    connectSocket();
   } catch (err) {
     logToFile("error", "Error creating socket server:", err);
   }
