@@ -202,7 +202,7 @@ export const StorageInputs = observer(() => {
 
   return (
     <Card header="File Storage Locations" bgColor={colors.foregroundCard}>
-      <View column spacing="0.5rem">
+      <View column spacing="0.5rem" padding={{ all: "0.5rem" }}>
         {stores.home.settings.db.fileStorage.locations.map((_, index) => (
           <StorageInput
             {...{ index, selectLocation }}

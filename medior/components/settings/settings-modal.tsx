@@ -125,7 +125,7 @@ export const SettingsModal = observer(() => {
           </Settings.Section>
 
           <Settings.Section title="Collections">
-            <View row justify="space-evenly" spacing="0.5rem">
+            <View row spacing="0.5rem" overflow="auto">
               <Settings.NumInput
                 header="Editor Page Size"
                 configKey="collection.editorPageSize"
@@ -157,7 +157,7 @@ export const SettingsModal = observer(() => {
           </Settings.Section>
 
           <Settings.Section title="Files">
-            <View row justify="space-evenly" spacing="0.5rem">
+            <View row spacing="0.5rem" overflow="auto">
               <Settings.NumInput
                 header="Search Results Count"
                 configKey="file.searchFileCount"
@@ -227,7 +227,7 @@ export const SettingsModal = observer(() => {
           </Settings.Section>
 
           <Settings.Section title="Imports">
-            <View row spacing="0.5rem">
+            <View row spacing="0.5rem" overflow="auto">
               <View column spacing="0.3rem">
                 <Settings.Checkbox label="Delete On Import" configKey="imports.deleteOnImport" />
 
@@ -313,7 +313,7 @@ export const SettingsModal = observer(() => {
                 </View>
               </View>
 
-              <View column flex={1} spacing="0.3rem">
+              <View column flex="1 0 auto" spacing="0.3rem">
                 <Settings.Input header="Diffusion Tag Label" configKey="imports.labelDiff" />
 
                 <Settings.Input
@@ -335,7 +335,7 @@ export const SettingsModal = observer(() => {
           </Settings.Section>
 
           <Settings.Section title="Tags">
-            <View row justify="space-evenly">
+            <View row>
               <Settings.SortMenu
                 header="Manager - Default Sort"
                 configKey="tags.managerSearchSort"
