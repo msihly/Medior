@@ -1,8 +1,17 @@
 import { useEffect, useRef, useState } from "react";
 import { ModelCreationData } from "mobx-keystone";
 import { FaceModel, observer, useStores } from "medior/store";
-import { CircularProgress } from "@mui/material";
-import { Button, Modal, TagInput, Text, View } from "medior/components";
+import {
+  Button,
+  Card,
+  CenteredText,
+  FileBase,
+  LoadingOverlay,
+  Modal,
+  TagInput,
+  Text,
+  View,
+} from "medior/components";
 import { FaceBox } from ".";
 import { colors, makeClasses, useElementResize } from "medior/utils";
 import { toast } from "react-toastify";
@@ -97,6 +106,7 @@ export const FaceRecognitionModal = observer(() => {
   const handleDetect = async () => {
     try {
       if (stores.faceRecog.isDisabled) return;
+      stores.faceRecog.setIsDetecting(true);
 
       const res = await stores.faceRecog.findMatches(file.path);
       const detectedFaces = res.data.map(
@@ -109,10 +119,11 @@ export const FaceRecognitionModal = observer(() => {
           })
       );
 
+      stores.faceRecog.setIsDetecting(false);
       if (detectedFaces.length === 0) return toast.warn("No new faces detected");
-
       stores.faceRecog.addDetectedFaces(detectedFaces);
     } catch (err) {
+      stores.faceRecog.setIsDetecting(false);
       toast.error(err.message);
     }
   };
@@ -167,38 +178,48 @@ export const FaceRecognitionModal = observer(() => {
 
   return (
     <Modal.Container width="100%" height="100%">
+      <LoadingOverlay isLoading={stores.faceRecog.isDisabled} />
+
       <Modal.Header>
         <Text>{"Face Recognition"}</Text>
       </Modal.Header>
 
       <Modal.Content>
         {stores.faceRecog.isInitializing ? (
-          <View justify="center" align="center" className={css.rootContainer}>
-            <Text fontSize="1.2em" marginRight="1rem">
-              {"Initializing..."}
-            </Text>
-            <CircularProgress size="1.5em" />
-          </View>
+          <CenteredText text="Initializing..." />
         ) : (
-          <View className={css.rootContainer}>
-            <View className={css.facesColumn}>
-              {detectedFacesWithImages?.map?.(({ dataUrl, faceModel: face }, i) => (
-                <View key={i} className={css.faceCard}>
-                  <img src={dataUrl} draggable={false} />
+          <View row flex={1} spacing="0.5rem" className={css.rootContainer}>
+            <Card column height="100%" width="16rem" overflow="auto" spacing="0.5rem">
+              {!detectedFacesWithImages?.length ? (
+                <CenteredText text="No faces detected" />
+              ) : (
+                detectedFacesWithImages.map(({ dataUrl, faceModel: face }, i) => (
+                  <FileBase.Container key={i} height="16rem" disabled>
+                    <FileBase.Image thumbPaths={[dataUrl]} height="100%" fit="contain" disabled />
 
-                  <TagInput
-                    value={face.selectedTag ? [face.selectedTag] : []}
-                    onChange={(val) => face.setSelectedTag(val[0])}
-                    inputProps={{ color: face.boxColor, margins: { top: "0.4rem" } }}
-                    hasCreate
-                    center
-                  />
-                </View>
-              ))}
-            </View>
+                    <View flex={0}>
+                      <TagInput
+                        value={face.selectedTag ? [face.selectedTag] : []}
+                        onChange={(val) => face.setSelectedTag(val[0])}
+                        inputProps={{ color: face.boxColor }}
+                        single
+                      />
+                    </View>
+                  </FileBase.Container>
+                ))
+              )}
+            </Card>
 
-            <View className={css.outerContainer}>
-              <View className={css.imageContainer}>
+            <Card
+              column
+              flex={1}
+              align="center"
+              justify="center"
+              width="100%"
+              overflow="hidden"
+              padding={{ all: 0 }}
+            >
+              <View column align="center" justify="center" height="100%" width="fit-content">
                 <img
                   ref={imageRef}
                   src={file?.path}
@@ -211,7 +232,7 @@ export const FaceRecognitionModal = observer(() => {
                   <FaceBox key={i} {...{ face, heightScale, offsetLeft, offsetTop, widthScale }} />
                 ))}
               </View>
-            </View>
+            </Card>
           </View>
         )}
       </Modal.Content>
@@ -222,7 +243,7 @@ export const FaceRecognitionModal = observer(() => {
           icon="Close"
           onClick={handleClose}
           disabled={stores.faceRecog.isDisabled}
-          color={colors.custom.red}
+          colorOnHover={colors.custom.red}
         />
 
         <Button
@@ -230,70 +251,29 @@ export const FaceRecognitionModal = observer(() => {
           icon="Search"
           onClick={handleDetect}
           disabled={stores.faceRecog.isDisabled}
-          color={hasDetectedFaces ? colors.custom.purple : undefined}
+          colorOnHover={hasDetectedFaces ? colors.custom.purple : colors.custom.blue}
         />
 
-        {hasDetectedFaces && (
-          <Button
-            text="Save"
-            icon="Save"
-            onClick={handleSave}
-            disabled={stores.faceRecog.isDisabled}
-          />
-        )}
+        <Button
+          text="Save"
+          icon="Save"
+          onClick={handleSave}
+          disabled={!hasDetectedFaces || stores.faceRecog.isDisabled}
+          color={colors.custom.green}
+        />
       </Modal.Footer>
     </Modal.Container>
   );
 });
 
 const useClasses = makeClasses({
-  faceCard: {
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    borderRadius: "0.3rem",
-    marginBottom: "0.4rem",
-    padding: "0.4rem",
-    backgroundColor: colors.background,
-    "& > img": {
-      borderRadius: "0.3rem",
-      objectFit: "contain",
-      width: "100%",
-      maxWidth: "9rem",
-      maxHeight: "16rem",
-    },
-  },
-  facesColumn: {
-    display: "flex",
-    flexDirection: "column",
-    marginRight: "0.4rem",
-    width: "15rem",
-    overflowY: "auto",
-  },
   image: {
     maxHeight: "100%",
     height: "fit-content",
     width: "100%",
     objectFit: "contain",
   },
-  imageContainer: {
-    display: "flex",
-    alignItems: "center",
-  },
-  outerContainer: {
-    display: "flex",
-    flex: 1,
-    justifyContent: "center",
-    borderRadius: "0.3rem",
-    width: "100%",
-    height: "100%",
-    background: colors.background,
-    overflow: "hidden",
-  },
   rootContainer: {
-    display: "flex",
-    flex: 1,
-    flexDirection: "row",
     maxHeight: "-webkit-fill-available",
   },
 });
