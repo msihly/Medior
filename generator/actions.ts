@@ -110,13 +110,9 @@ const makeCustomActionTypes = (customActions: string[]) =>
     )
     .join("\n\n");
 
-const makeEndpointDefFromCustomAction = (name: string) =>
-  `${name}: serverEndpoint(db.${name})`;
+const makeEndpointDefFromCustomAction = (name: string) => `${name}: serverEndpoint(db.${name})`;
 
-const makeEndpointDefFromModelName = (
-  modelName: string,
-  uniqueModelActionNames: string[]
-) => {
+const makeEndpointDefFromModelName = (modelName: string, uniqueModelActionNames: string[]) => {
   return ["create", "delete", "list", "update"].map((action) => {
     const actionName = `${action}${capitalize(modelName)}${action === "list" ? "s" : ""}`;
     const prefix = `${uniqueModelActionNames.includes(actionName) ? "" : "_"}`;

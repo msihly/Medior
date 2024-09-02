@@ -172,7 +172,7 @@ interface ClassesProps {
   status: FileImportBatch["status"];
 }
 
-const useClasses = makeClasses((_, props: ClassesProps) => ({
+const useClasses = makeClasses((props: ClassesProps) => ({
   folderPath: {
     color: colors.custom.lightGrey,
     fontSize: "0.9em",

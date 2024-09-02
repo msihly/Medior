@@ -1,5 +1,16 @@
 import { forwardRef, HTMLAttributes, MutableRefObject, ReactNode } from "react";
-import { BorderRadiuses, Borders, CSS, makeBorderRadiuses, makeBorders, makeClasses, makeMargins, makePadding, Margins, Padding } from "medior/utils";
+import {
+  BorderRadiuses,
+  Borders,
+  CSS,
+  makeBorderRadiuses,
+  makeBorders,
+  makeClasses,
+  makeMargins,
+  makePadding,
+  Margins,
+  Padding,
+} from "medior/utils";
 
 export interface ViewProps extends HTMLAttributes<HTMLDivElement> {
   align?: CSS["alignItems"];
@@ -93,7 +104,7 @@ interface ClassesProps {
   wrap: CSS["flexWrap"];
 }
 
-const useClasses = makeClasses((_, props: ClassesProps) => ({
+const useClasses = makeClasses((props: ClassesProps) => ({
   root: {
     position: props?.position,
     display: props?.column || props?.row ? "flex" : undefined,

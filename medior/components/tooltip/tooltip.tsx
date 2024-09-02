@@ -50,7 +50,7 @@ export const Tooltip = ({
 };
 
 const useClasses = makeClasses(
-  (_, { arrowColor, bgColor, color, flexShrink, fontSize, maxWidth, minWidth }) => ({
+  ({ arrowColor, bgColor, color, flexShrink, fontSize, maxWidth, minWidth }) => ({
     arrow: {
       paddingBottom: "4px",
       color: arrowColor,

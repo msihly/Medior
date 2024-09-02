@@ -71,7 +71,7 @@ export const ListItem = ({
   );
 };
 
-const useClasses = makeClasses((_, { color }) => ({
+const useClasses = makeClasses(({ color }) => ({
   icon: {
     minWidth: 0,
   },

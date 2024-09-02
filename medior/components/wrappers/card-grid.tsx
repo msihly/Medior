@@ -52,7 +52,7 @@ interface ClassesProps {
   position: CSS["position"];
 }
 
-const useClasses = makeClasses((theme, props: ClassesProps) => ({
+const useClasses = makeClasses((props: ClassesProps, theme) => ({
   cards: {
     display: "flex",
     flexFlow: "row wrap",

@@ -17,7 +17,7 @@ export const Chip = ({
   return <ChipBase {...props} {...{ bgColor }} className={css.chip} />;
 };
 
-const useClasses = makeClasses((_, { opacity, position }) => ({
+const useClasses = makeClasses(({ opacity, position }) => ({
   chip: {
     position: "absolute",
     top: position.includes("top") ? "0.5rem" : undefined,

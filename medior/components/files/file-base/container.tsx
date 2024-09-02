@@ -56,7 +56,7 @@ interface ClassesProps {
 }
 
 const useClasses = makeClasses(
-  (_, { disabled, display, height, selected, selectedColor, width }: ClassesProps) => ({
+  ({ disabled, display, height, selected, selectedColor, width }: ClassesProps) => ({
     container: {
       position: "relative",
       display,

@@ -36,7 +36,7 @@ interface ClassesProps {
   isDrawerOpen: boolean;
 }
 
-const useClasses = makeClasses((_, { isDrawerOpen }: ClassesProps) => ({
+const useClasses = makeClasses(({ isDrawerOpen }: ClassesProps) => ({
   main: {
     display: "flex",
     flexFlow: "column",

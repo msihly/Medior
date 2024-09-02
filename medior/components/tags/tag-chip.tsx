@@ -62,7 +62,7 @@ export const TagChip = observer(
 
 const formatter = Intl.NumberFormat("en", { notation: "compact" });
 
-const useClasses = makeClasses((_, { color, size }) => ({
+const useClasses = makeClasses(({ color, size }) => ({
   chip: {
     padding: "0.3em 0",
     height: size === "medium" ? HEIGHT_MEDIUM : HEIGHT_SMALL,

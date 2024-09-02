@@ -282,7 +282,7 @@ export const TagInput = observer(
   )
 );
 
-const useClasses = makeClasses((_, { center, margins, width }) => ({
+const useClasses = makeClasses(({ center, margins, width }) => ({
   listbox: {
     backgroundColor: colors.background,
     boxShadow: "0 0 0.5rem 0.1rem rgba(0, 0, 0, 0.3)",

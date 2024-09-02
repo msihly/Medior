@@ -23,7 +23,7 @@ export const FaceBox = observer(
 );
 
 const useClasses = makeClasses(
-  (_, { face, heightScale, offsetLeft, offsetTop, widthScale }: FaceBoxProps) => ({
+  ({ face, heightScale, offsetLeft, offsetTop, widthScale }: FaceBoxProps) => ({
     container: {
       position: "absolute",
       top: face.box.y * heightScale + offsetTop,

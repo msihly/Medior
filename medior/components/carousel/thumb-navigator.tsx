@@ -85,7 +85,7 @@ interface ClassesProps {
   isVisible: boolean;
 }
 
-const useClasses = makeClasses((_, { isMouseMoving, isVisible }: ClassesProps) => ({
+const useClasses = makeClasses(({ isMouseMoving, isVisible }: ClassesProps) => ({
   hideButton: {
     marginBottom: "0.3rem",
     backgroundColor: "rgba(0, 0, 0, 0.3)",

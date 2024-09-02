@@ -131,7 +131,7 @@ interface ClassesProps {
   width: CSS["width"];
 }
 
-const useClasses = makeClasses((_, props?: ClassesProps) => ({
+const useClasses = makeClasses((props?: ClassesProps) => ({
   input: {
     flex: props?.flex,
     ...makeMargins({

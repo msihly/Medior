@@ -53,7 +53,7 @@ export const Header = ({
   );
 };
 
-const useClasses = makeClasses((_, { justify }) => ({
+const useClasses = makeClasses(({ justify }) => ({
   root: {
     display: "flex",
     flexDirection: "row",

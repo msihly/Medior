@@ -1,7 +1,7 @@
-import { View, ViewProps } from "medior/components";
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { Icon as MuiIcon, IconProps as MuiIconProps } from "@mui/material";
 import { IconName as MuiIconName } from "@mui/icons-material";
+import { View, ViewProps } from "medior/components";
 import { makeClasses, Margins } from "medior/utils";
 
 export type IconName = MuiIconName;
@@ -12,13 +12,13 @@ export interface IconProps extends Omit<MuiIconProps, "color" | "fontSize"> {
   rotation?: number;
   margins?: Margins;
   size?: number | string;
-  viewProps?: Partial<ViewProps>;
+  viewProps?: Partial<Omit<ViewProps, "margins">>;
 }
 
 export const Icon = ({
   className,
   color,
-  margins = {},
+  margins,
   name,
   rotation,
   size,
@@ -26,11 +26,6 @@ export const Icon = ({
   ...props
 }: IconProps) => {
   const { css, cx } = useClasses({
-    margin: margins.all,
-    marginTop: margins.top,
-    marginBottom: margins.bottom,
-    marginRight: margins.right,
-    marginLeft: margins.left,
     rotation,
   });
 
@@ -42,7 +37,7 @@ export const Icon = ({
       .toLowerCase();
 
   return (
-    <View column className={cx(css.root, className)} {...viewProps}>
+    <View column className={cx(css.root, className)} margins={margins} {...viewProps}>
       <MuiIcon {...props} style={{ color, fontSize: size }}>
         {nameToSnakeCase}
       </MuiIcon>
@@ -50,17 +45,10 @@ export const Icon = ({
   );
 };
 
-const useClasses = makeClasses(
-  (_, { margin, marginTop, marginBottom, marginRight, marginLeft, rotation }) => ({
-    root: {
-      justifyContent: "center",
-      transform: rotation !== undefined ? `rotate(${rotation}deg)` : undefined,
-      transition: "all 200ms ease-in-out",
-      margin,
-      marginTop,
-      marginBottom,
-      marginRight,
-      marginLeft,
-    },
-  })
-);
+const useClasses = makeClasses(({ rotation }) => ({
+  root: {
+    justifyContent: "center",
+    transform: rotation !== undefined ? `rotate(${rotation}deg)` : undefined,
+    transition: "all 200ms ease-in-out",
+  },
+}));

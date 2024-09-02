@@ -60,7 +60,7 @@ interface ClassesProps {
 }
 
 const useClasses = makeClasses(
-  (_, { center, color, disabled, flex, fullWidth, padding }: ClassesProps) => ({
+  ({ center, color, disabled, flex, fullWidth, padding }: ClassesProps) => ({
     checkbox: {
       ...makePadding(padding),
       color: `${color} !important`,

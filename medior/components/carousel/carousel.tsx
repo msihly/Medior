@@ -229,7 +229,7 @@ interface ClassesProps {
   isVolumeVisible: boolean;
 }
 
-const useClasses = makeClasses((_, { isMouseMoving, isVolumeVisible }: ClassesProps) => ({
+const useClasses = makeClasses(({ isMouseMoving, isVolumeVisible }: ClassesProps) => ({
   contextMenu: {
     display: "contents",
   },

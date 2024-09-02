@@ -132,7 +132,7 @@ interface ClassesProps {
   rounded: ImageProps["rounded"];
 }
 
-const useClasses = makeClasses((theme, { fit, height, imagePos, rounded }: ClassesProps) => ({
+const useClasses = makeClasses(({ fit, height, imagePos, rounded }: ClassesProps, theme) => ({
   image: {
     ...(["all", "top"].includes(rounded) && {
       borderTopLeftRadius: "inherit",

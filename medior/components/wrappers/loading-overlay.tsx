@@ -25,7 +25,7 @@ interface ClassesProps {
   isLoading: boolean;
 }
 
-const useClasses = makeClasses((_, { isLoading }: ClassesProps) => ({
+const useClasses = makeClasses(({ isLoading }: ClassesProps) => ({
   loadingOverlay: {
     position: "absolute",
     top: 0,

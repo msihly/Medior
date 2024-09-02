@@ -131,7 +131,7 @@ interface ClassesProps {
   isPinned: boolean;
 }
 
-const useClasses = makeClasses((_, { isMouseMoving, isPinned }: ClassesProps) => ({
+const useClasses = makeClasses(({ isMouseMoving, isPinned }: ClassesProps) => ({
   center: {
     display: "flex",
     flex: 3,

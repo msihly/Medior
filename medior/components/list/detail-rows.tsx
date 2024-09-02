@@ -33,7 +33,7 @@ export const DetailRows = ({ labelWidth = "8rem", rows }: DetailRowsProps) => {
   );
 };
 
-const useClasses = makeClasses((_, { labelWidth }) => ({
+const useClasses = makeClasses(({ labelWidth }) => ({
   label: {
     flexShrink: 0,
     marginRight: "1rem",

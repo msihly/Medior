@@ -171,24 +171,21 @@ interface ClassesProps {
 }
 
 const useClasses = makeClasses(
-  (
-    _,
-    {
-      boxShadow,
-      color,
-      colorOnHover,
-      isCircle,
-      isLink,
-      justify,
-      margins,
-      outlined,
-      outlineFill,
-      padding,
-      textColor,
-      textTransform,
-      width,
-    }: ClassesProps
-  ) => ({
+  ({
+    boxShadow,
+    color,
+    colorOnHover,
+    isCircle,
+    isLink,
+    justify,
+    margins,
+    outlined,
+    outlineFill,
+    padding,
+    textColor,
+    textTransform,
+    width,
+  }: ClassesProps) => ({
     root: {
       display: "flex",
       flexDirection: "row",

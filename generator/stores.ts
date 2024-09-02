@@ -5,6 +5,18 @@ import { camelCase, capitalize } from "medior/utils/formatting";
 /* -------------------------------------------------------------------------- */
 /*                             GENERATOR FUNCTIONS                            */
 /* -------------------------------------------------------------------------- */
+const makeSortDef = (modelDef: ModelDef) => {
+  return `"${modelDef.name}": [${modelDef.properties
+    .filter((prop) => prop.sort)
+    .map(
+      (prop) =>
+        `{ attribute: "${prop.name}",
+           icon: "${prop.sort.icon}",${prop.sort.iconProps ? ` iconProps: ${JSON.stringify(prop.sort.iconProps)},` : ""}
+           label: "${prop.sort.label}" }`
+    )
+    .join(", ")}]`;
+};
+
 const makeStoreDef = async (modelDef: ModelDef) => {
   const upperName = modelDef.name;
   const lowerName = camelCase(upperName);
@@ -143,18 +155,6 @@ const makeStoreDef = async (modelDef: ModelDef) => {
         return this.${lowerName}s.find((d) => d.id === id);
       }
     }`;
-};
-
-const makeSortDef = (modelDef: ModelDef) => {
-  return `"${modelDef.name}": [${modelDef.properties
-    .filter((prop) => prop.sort)
-    .map(
-      (prop) =>
-        `{ attribute: "${prop.name}",
-           icon: "${prop.sort.icon}",${prop.sort.iconProps ? ` iconProps: ${JSON.stringify(prop.sort.iconProps)},` : ""}
-           label: "${prop.sort.label}" }`
-    )
-    .join(", ")}]`;
 };
 
 /* -------------------------------------------------------------------------- */

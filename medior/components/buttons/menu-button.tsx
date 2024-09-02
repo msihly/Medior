@@ -58,13 +58,7 @@ export const MenuButton = ({
 };
 
 const useClasses = makeClasses(
-  (
-    _,
-    args: {
-      bgColor: CSS["backgroundColor"];
-      menuWidth: CSS["width"];
-    }
-  ) => ({
+  (args: { bgColor: CSS["backgroundColor"]; menuWidth: CSS["width"] }) => ({
     menu: {
       "& .MuiPaper-root": {
         background: args?.bgColor,

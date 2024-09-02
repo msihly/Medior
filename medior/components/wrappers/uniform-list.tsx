@@ -21,7 +21,7 @@ interface ClassesProps {
   uniformWidth: CSS["maxWidth"];
 }
 
-const useClasses = makeClasses((_, props: ClassesProps) => ({
+const useClasses = makeClasses((props: ClassesProps) => ({
   uniform: {
     "& > *": {
       flexBasis: "100%",

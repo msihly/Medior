@@ -42,7 +42,7 @@ export const IconButton = ({
   );
 };
 
-const useClasses = makeClasses((_, { disabled, margins }) => ({
+const useClasses = makeClasses(({ disabled, margins }) => ({
   root: {
     margin: margins?.all,
     marginTop: margins?.top,

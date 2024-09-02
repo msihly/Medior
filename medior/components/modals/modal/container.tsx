@@ -60,7 +60,7 @@ const DraggablePaper = (props: PaperProps) => {
   );
 };
 
-const useClasses = makeClasses((_, { height, maxHeight, maxWidth, width }) => ({
+const useClasses = makeClasses(({ height, maxHeight, maxWidth, width }) => ({
   draggable: {
     cursor: "grab",
     "& .MuiDialogContent-root": {

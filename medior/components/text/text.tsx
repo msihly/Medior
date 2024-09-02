@@ -45,7 +45,7 @@ interface ClassesProps {
   preset: TextProps["preset"];
 }
 
-const useClasses = makeClasses((_, props: ClassesProps) => ({
+const useClasses = makeClasses((props: ClassesProps) => ({
   root: {
     color: props.color,
     ...(props.preset === "label-glow"

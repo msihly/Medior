@@ -28,7 +28,7 @@ interface ClassesProps {
   padding: Padding;
 }
 
-const useClasses = makeClasses((_, { padding }: ClassesProps) => ({
+const useClasses = makeClasses(({ padding }: ClassesProps) => ({
   content: {
     display: "flex",
     flexDirection: "column",

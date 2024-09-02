@@ -51,7 +51,7 @@ const TagLevel = observer(({ tag }: TagHierarchyProps) => {
   );
 });
 
-const useClasses = makeClasses((_, { hasId }) => ({
+const useClasses = makeClasses(({ hasId }) => ({
   container: {
     flexShrink: 0,
     borderRadius: 4,

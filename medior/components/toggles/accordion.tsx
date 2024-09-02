@@ -55,7 +55,7 @@ export const Accordion = ({
   );
 };
 
-const useClasses = makeClasses((_, { dense, expanded, fullWidth }) => ({
+const useClasses = makeClasses(({ dense, expanded, fullWidth }) => ({
   accordion: {
     margin: 0,
     padding: 0,

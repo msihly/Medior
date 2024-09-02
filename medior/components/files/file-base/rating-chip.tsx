@@ -28,7 +28,7 @@ export const RatingChip = ({ rating, ...props }: RatingChipProps) => {
   ) : null;
 };
 
-const useClasses = makeClasses((_, props: { textShadow: CSS["textShadow"] }) => ({
+const useClasses = makeClasses((props: { textShadow: CSS["textShadow"] }) => ({
   star: {
     textShadow: props.textShadow,
   },

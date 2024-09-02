@@ -100,7 +100,7 @@ interface ClassesProps {
   width: CSS["width"];
 }
 
-const useClasses = makeClasses((_, { width }: ClassesProps) => ({
+const useClasses = makeClasses(({ width }: ClassesProps) => ({
   button: {
     width,
   },

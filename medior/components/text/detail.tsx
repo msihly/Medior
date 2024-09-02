@@ -56,7 +56,7 @@ interface ClassesProps {
   overflowY: CSS["overflowY"];
 }
 
-const useClasses = makeClasses((_, { overflowX, overflowY }: ClassesProps) => ({
+const useClasses = makeClasses(({ overflowX, overflowY }: ClassesProps) => ({
   value: {
     overflowX,
     overflowY,

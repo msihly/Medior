@@ -96,12 +96,15 @@ type ClassName<T> = { [P in keyof T]: CSS };
 
 const { makeStyles } = createMakeAndWithStyles({ useTheme });
 
-export const makeClasses = <T extends ClassName<T>, P = Record<string, any>>(
-  fnOrObj: ClassName<T> | ((theme: Theme, props: P) => ClassName<T>)
+export const makeClasses = <Class extends ClassName<Class>, Props = Record<string, any>>(
+  fnOrObj: ClassName<Class> | ((props: Props, theme: Theme) => ClassName<Class>)
 ) => {
-  return (params: P) => {
-    const { classes: css, cx } = makeStyles<P>()(fnOrObj)(params);
-    return { css, cx } as { css: Record<keyof T, string>; cx: Cx };
+  return (params: Props) => {
+    const { classes: css, cx } = makeStyles<Props>()((props, theme) =>
+      typeof fnOrObj === "function" ? fnOrObj(theme, props) : fnOrObj
+    )(params);
+
+    return { css, cx } as { css: Record<keyof Class, string>; cx: Cx };
   };
 };
 

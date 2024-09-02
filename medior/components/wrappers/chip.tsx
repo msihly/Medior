@@ -52,7 +52,7 @@ export const Chip = ({
   );
 };
 
-const useClasses = makeClasses((_, { bgColor, color, height, padding, width }) => ({
+const useClasses = makeClasses(({ bgColor, color, height, padding, width }) => ({
   chip: {
     height,
     backgroundColor: bgColor,
