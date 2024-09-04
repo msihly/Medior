@@ -1,8 +1,8 @@
-import * as fss from "fs";
-import { promises as fs } from "fs";
+// import * as fss from "fs";
+import { promises as fs, constants as fsc } from "fs";
 import path from "path";
 import prettier from "prettier";
-import { handleErrors, throttle, trpc } from "medior/utils";
+import { handleErrors } from "medior/utils";
 
 export const checkFileExists = async (path: string) => !!(await fs.stat(path).catch(() => false));
 
@@ -10,6 +10,10 @@ export const copyFile = async (dirPath: string, originalPath: string, newPath: s
   if (await checkFileExists(newPath)) return false;
   await fs.mkdir(dirPath, { recursive: true });
 
+  await fs.copyFile(originalPath, newPath, fsc.COPYFILE_EXCL);
+  return true;
+
+  /*
   return new Promise(async (resolve, reject) => {
     try {
       const stats = await fs.stat(originalPath);
@@ -55,6 +59,7 @@ export const copyFile = async (dirPath: string, originalPath: string, newPath: s
       reject(err);
     }
   });
+  */
 };
 
 export const deleteFile = (path: string, copiedPath?: string) =>

@@ -4,7 +4,7 @@ import { FileImportBatch, observer, useStores } from "medior/store";
 import { LinearProgress } from "@mui/material";
 import { Icon, IconButton, Text, View } from "medior/components";
 import { BatchTooltip, ImportCardRow, IMPORT_STATUSES } from ".";
-import { colors, formatBytes, makeClasses } from "medior/utils";
+import { colors, makeClasses } from "medior/utils";
 import { toast } from "react-toastify";
 import Color from "color";
 
@@ -119,7 +119,7 @@ export const ImportBatch = observer(({ batch }: ImportBatchProps) => {
 
       {expanded && batch.imports?.length > 0 && (
         <View column spacing="0.3rem" className={css.importCards}>
-          {batch.status === "PENDING" && <ImportStats />}
+          {/* {batch.status === "PENDING" && <ImportStats />} */}
 
           <ImportCardRow {...{ batch, status: "PENDING" }} />
           <ImportCardRow {...{ batch, status: "COMPLETE" }} />
@@ -132,6 +132,7 @@ export const ImportBatch = observer(({ batch }: ImportBatchProps) => {
   );
 });
 
+/*
 const ImportStats = observer(() => {
   const { css } = useClasses(null);
 
@@ -165,6 +166,7 @@ const ImportStats = observer(() => {
     </View>
   );
 });
+*/
 
 interface ClassesProps {
   expanded: boolean;

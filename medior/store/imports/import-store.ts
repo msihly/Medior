@@ -17,6 +17,7 @@ import { copyFileForImport } from "./import-queue";
 import { FileImport, FileImportBatch } from ".";
 import {
   extendFileName,
+  makePerfLog,
   PromiseQueue,
   removeEmptyFolders,
   trpc,
@@ -48,16 +49,7 @@ export class ImportStore extends Model({
 
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
   @modelAction
-  _createImportBatch({
-    collectionTitle,
-    dateCreated,
-    deleteOnImport,
-    id,
-    ignorePrevDeleted,
-    imports,
-    rootFolderPath,
-    tagIds = [],
-  }: {
+  _createImportBatch(args: {
     collectionTitle?: string;
     dateCreated: string;
     deleteOnImport: boolean;
@@ -69,16 +61,11 @@ export class ImportStore extends Model({
   }) {
     this.importBatches.push(
       new FileImportBatch({
-        collectionTitle,
+        ...args,
         completedAt: null,
-        dateCreated,
-        deleteOnImport,
-        id,
-        ignorePrevDeleted,
-        imports: imports.map((imp) => clone(imp)),
-        rootFolderPath,
+        imports: args.imports.map((imp) => clone(imp)),
         startedAt: null,
-        tagIds,
+        tagIds: args.tagIds ?? [],
       })
     );
   }
@@ -136,28 +123,29 @@ export class ImportStore extends Model({
     const DEBUG = false;
 
     this.queue.add(async () => {
-      const batch = this.getById(batchId);
+      const { perfLog, perfLogTotal } = makePerfLog("[IMP]");
 
+      const batch = this.getById(batchId);
       if (DEBUG)
-        console.debug(
-          "Starting importBatch:",
-          JSON.stringify({ batch: { ...batch, id: batchId } }, null, 2)
+        perfLog(
+          `Starting importBatch: ${JSON.stringify({ batch: { ...batch, id: batchId } }, null, 2)}`
         );
 
       const res = await trpc.startImportBatch.mutate({ id: batchId });
       if (!res.success) throw new Error(res.error);
       this.getById(batchId)?.update({ startedAt: res.data });
+      if (DEBUG) perfLog("Started importBatch");
 
       batch.imports.forEach((file) => {
         this.queue.add(async () => {
-          if (DEBUG) console.debug("Importing file:", JSON.stringify({ ...file }, null, 2));
+          if (DEBUG) perfLog(`Importing file: ${JSON.stringify({ ...file }, null, 2)}`);
           const res = await this.importFile({ batchId, filePath: file.path });
           if (!res.success) throw new Error(res.error);
         });
       });
 
       this.queue.add(async () => {
-        if (DEBUG) console.debug("Completing importBatch:", batchId);
+        if (DEBUG) perfLog(`Completing importBatch: ${batchId}`);
         const batch = this.getById(batchId);
 
         const addedTagIds = [...batch.tagIds].flat();
@@ -173,6 +161,7 @@ export class ImportStore extends Model({
               withSub: false,
             });
             if (!res.success) throw new Error(res.error);
+            if (DEBUG) perfLog("Added tags to duplicate files");
           } catch (err) {
             console.error("Error adding tags to duplicate files:", err);
           }
@@ -181,6 +170,7 @@ export class ImportStore extends Model({
         if (batch.deleteOnImport) {
           try {
             await removeEmptyFolders(batch.rootFolderPath);
+            if (DEBUG) perfLog(`Removed empty folders: ${batch.rootFolderPath}`);
           } catch (err) {
             console.error("Error removing empty folders:", err);
           }
@@ -188,9 +178,18 @@ export class ImportStore extends Model({
 
         const res = await this.completeImportBatch({ batchId });
         if (!res.success) throw new Error(res.error);
-        if (DEBUG) console.debug("Completed importBatch:", batchId);
+        if (DEBUG) {
+          perfLog(`Completed importBatch: ${batchId}`);
+          perfLogTotal("Completed importBatch");
+        }
       });
     });
+  }
+
+  @modelAction
+  queueNextImportBatch() {
+    const nextBatch = this.incompleteBatches.find((batch) => batch.status === "PENDING");
+    if (nextBatch) this.queueImportBatch(nextBatch.id);
   }
 
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */
@@ -221,6 +220,7 @@ export class ImportStore extends Model({
     )?.data;
 
     batch.update({ collectionId, completedAt });
+    this.queueNextImportBatch();
   });
 
   @modelFlow
@@ -245,8 +245,7 @@ export class ImportStore extends Model({
     const deleteRes = await trpc.deleteImportBatches.mutate({ ids });
     if (!deleteRes?.success) return false;
     this._deleteBatches(ids);
-
-    this.batches.forEach((batch) => batch.status === "PENDING" && this.queueImportBatch(batch.id));
+    this.queueNextImportBatch();
   });
 
   @modelFlow
@@ -285,18 +284,18 @@ export class ImportStore extends Model({
           : "COMPLETE";
     const thumbPaths = copyRes.file?.thumbPaths ?? [];
 
-    const updateRes = await trpc.updateFileImportByPath.mutate({
-      batchId,
-      errorMsg,
-      fileId,
-      filePath,
-      status,
-      thumbPaths,
-    });
-    if (!updateRes?.success) throw new Error(updateRes?.error);
-
     try {
       batch.updateImport(filePath, { errorMsg, fileId, status, thumbPaths });
+
+      const updateRes = await trpc.updateFileImportByPath.mutate({
+        batchId,
+        errorMsg,
+        fileId,
+        filePath,
+        status,
+        thumbPaths,
+      });
+      if (!updateRes?.success) throw new Error(updateRes?.error);
     } catch (err) {
       console.error("Error updating import:", err);
     }
@@ -350,8 +349,7 @@ export class ImportStore extends Model({
       );
 
       this.overwriteBatches(batches);
-
-      batches.forEach((batch) => batch.status === "PENDING" && this.queueImportBatch(batch.id));
+      this.queueNextImportBatch();
     }
   });
 

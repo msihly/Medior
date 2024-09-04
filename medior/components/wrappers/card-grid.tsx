@@ -56,7 +56,7 @@ const useClasses = makeClasses((props: ClassesProps, theme) => ({
   cards: {
     display: "flex",
     flexFlow: "row wrap",
-    flex: 1,
+    flex: "initial",
     overflowY: "auto",
     ...(!props.hasCards ? { height: "-webkit-fill-available" } : {}),
     "& > *": {
