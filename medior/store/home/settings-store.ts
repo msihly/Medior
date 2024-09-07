@@ -89,6 +89,7 @@ export class SettingsStore extends Model({
     };
 
     applySnapshot(this, snapshot);
+    this.setHasUnsavedChanges(true);
   }
 
   /* ----------------------------- DYNAMIC GETTERS ---------------------------- */

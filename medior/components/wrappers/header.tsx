@@ -45,6 +45,7 @@ export const HeaderWrapper = ({
     >
       <View
         column={!viewProps?.row}
+        flex={1}
         position={position}
         borderRadiuses={!!header ? { top: 0 } : undefined}
         {...viewProps}

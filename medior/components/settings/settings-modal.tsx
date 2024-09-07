@@ -31,6 +31,7 @@ export const SettingsModal = observer(() => {
     stores.home.settings.setIsLoading(true);
     const config = await loadConfig();
     stores.home.settings.update(config);
+    stores.home.settings.setHasUnsavedChanges(false);
     stores.home.settings.setIsLoading(false);
   };
 
