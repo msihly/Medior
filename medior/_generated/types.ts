@@ -250,12 +250,6 @@ export type EditTagOutput = ReturnType<typeof db.editTag>;
 export type EditMultiTagRelationsInput = Parameters<typeof db.editMultiTagRelations>[0];
 export type EditMultiTagRelationsOutput = ReturnType<typeof db.editMultiTagRelations>;
 
-export type GetShiftSelectedTagsInput = Parameters<typeof db.getShiftSelectedTags>[0];
-export type GetShiftSelectedTagsOutput = ReturnType<typeof db.getShiftSelectedTags>;
-
-export type ListFilteredTagsInput = Parameters<typeof db.listFilteredTags>[0];
-export type ListFilteredTagsOutput = ReturnType<typeof db.listFilteredTags>;
-
 export type ListTagsInput = Parameters<typeof db.listTags>[0];
 export type ListTagsOutput = ReturnType<typeof db.listTags>;
 

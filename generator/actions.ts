@@ -1,6 +1,7 @@
 import { capitalize, parseExportsFromIndex } from "medior/utils";
 import { MODEL_DEFS } from "./models";
-import { ROOT_PATH } from "./utils";
+import { MODEL_SEARCH_STORES } from "./stores";
+import { makeSectionComment, ROOT_PATH } from "./utils";
 
 /* -------------------------------------------------------------------------- */
 /*                             GENERATOR FUNCTIONS                            */
@@ -146,18 +147,121 @@ const makeModelActionTypes = (modelName: string, uniqueTypeNames: string[]) => {
   return output;
 };
 
+const makeSearchActionsDef = (def: ModelSearchStore) => {
+  const filterFnName = `create${def.name}FilterPipeline`;
+  const filterFnNameType = `${capitalize(filterFnName)}Input`;
+  const modelName = `models.${def.name}`;
+
+  const props = def.props.sort((a, b) => a.name.localeCompare(b.name));
+  const defaultProps = props.filter(
+    (prop) => !prop.customActionProps?.length && prop.objPath?.length && prop.objValue !== undefined
+  );
+  const customProps = props
+    .filter((prop) => prop.customActionProps?.length)
+    .flatMap((prop) => prop.customActionProps);
+
+  const interfaceProps = [
+    ...props.filter((prop) => !prop.notFilterProp && !prop.customActionProps?.length),
+    ...customProps,
+  ].sort((a, b) => a.name.localeCompare(b.name));
+
+  const makeDefaultCondition = (prop: ModelSearchProp) =>
+    `!isDeepEqual(args.${prop.name}, ${prop.defaultValue.replace("() => ", "")})`;
+
+  const makeSetObj = (args: { objPath?: string[]; objValue?: string }) =>
+    `setObj($match, [${args.objPath.map((p) => (p.charAt(0) === "~" ? p.substring(1) : `"${p}"`)).join(", ")}], ${args.objValue});`;
+
+  return `export type ${filterFnNameType} = {
+      ${interfaceProps.map((prop) => `${prop.name}?: ${prop.type};`).join("\n")}
+    }
+
+    export const ${filterFnName} = (args: ${filterFnNameType}) => {
+      const $match: FilterQuery<${modelName}Schema> = {};
+
+      ${defaultProps
+        .map((prop) => `if (${makeDefaultCondition(prop)}) ${makeSetObj(prop)}`)
+        .join("\n")}
+
+      ${customProps.map((prop) => `if (${prop.condition}) ${makeSetObj(prop)}`).join("\n")}
+
+      const sortDir = args.sortValue.isDesc ? -1 : 1;
+
+      return {
+        $match,
+        $sort: { [args.sortValue.key]: sortDir, _id: sortDir } as { [key: string]: 1 | -1 },
+      };
+    };
+
+    export const getShiftSelected${def.name}s = makeAction(
+      async ({
+        clickedId,
+        clickedIndex,
+        selectedIds,
+        ...filterParams
+      }: ${filterFnNameType} & {
+        clickedId: string;
+        clickedIndex: number;
+        selectedIds: string[];
+      }) => {
+        const filterPipeline = ${filterFnName}(filterParams);
+        return getShiftSelectedItems({
+          clickedId,
+          clickedIndex,
+          filterPipeline,
+          model: ${modelName}Model,
+          selectedIds,
+        });
+      }
+    );
+
+    export const listFiltered${def.name}s = makeAction(
+      async ({
+        page,
+        pageSize,
+        ...filterParams
+      }: ${filterFnNameType} & { page: number; pageSize: number; }) => {
+        const filterPipeline = ${filterFnName}(filterParams);
+
+        const [items, count] = await Promise.all([
+          ${modelName}Model.find(filterPipeline.$match)
+            .sort(filterPipeline.$sort)
+            .skip(Math.max(0, page - 1) * pageSize)
+            .limit(pageSize)
+            .allowDiskUse(true)
+            .lean(),
+          ${modelName}Model.countDocuments(filterPipeline.$match),
+        ]);
+        if (!items || !(count > -1)) throw new Error("Failed to load filtered ${def.name}s");
+
+        return {
+          count,
+          items: items.map((i) => leanModelToJson<${modelName}Schema>(i)),
+          pageCount: Math.ceil(count / pageSize)
+        };
+      }
+    );`;
+};
+
 /* -------------------------------------------------------------------------- */
 /*                                  FILE DEFS                                 */
 /* -------------------------------------------------------------------------- */
 export const FILE_DEF_ACTIONS: FileDef = {
   name: "actions",
   makeFile: async () => {
-    let output = `import * as models from "medior/_generated/models";
-      import * as types from "medior/database/types";
+    let output = `import { FilterQuery } from "mongoose";
+      import * as models from "medior/_generated/models";
       import { SocketEventOptions } from "medior/_generated/socket";
-      import { leanModelToJson, makeAction } from "medior/database/utils";
-      import { dayjs, socket } from "medior/utils";\n`;
+      import * as types from "medior/database/types";
+      import { getShiftSelectedItems, leanModelToJson, makeAction, objectIds } from "medior/database/utils";
+      import { SortMenuProps } from "medior/components";
+      import { dayjs, isDeepEqual, LogicalOp, logicOpsToMongo, setObj, socket } from "medior/utils";\n`;
 
+    output += `\n${makeSectionComment("SEARCH ACTIONS")}`;
+    for (const def of MODEL_SEARCH_STORES) {
+      output += `\n${makeSearchActionsDef(def)}\n`;
+    }
+
+    output += `\n${makeSectionComment("MODEL ACTIONS")}`;
     for (const def of MODEL_DEFS) {
       output += `\n${await makeActionsDef(def)}\n`;
     }
@@ -184,9 +288,19 @@ export const FILE_DEF_ENDPOINTS: FileDef = {
 
       export const serverRouter = trpc.router({
         /** Model actions */
-        ${MODEL_DEFS.map((d) => makeEndpointDefFromModelName(d.name, actions.model)).join(",")},
+        ${MODEL_DEFS.flatMap((d) => makeEndpointDefFromModelName(d.name, actions.model))
+          .sort()
+          .join(",")},
+        /** Search store actions */
+        ${MODEL_SEARCH_STORES.flatMap((d) =>
+          [`getShiftSelected${d.name}s`, `listFiltered${d.name}s`].map((name) =>
+            makeEndpointDefFromCustomAction(name)
+          )
+        )
+          .sort()
+          .join(",")},
         /** Custom actions */
-        ${actions.custom.map(makeEndpointDefFromCustomAction).join(",")}
+        ${actions.custom.map(makeEndpointDefFromCustomAction).sort().join(",")}
       });`;
   },
 };

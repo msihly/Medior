@@ -1,83 +1,193 @@
 import { getActions } from "./actions";
+import { makeSectionComment } from "./utils";
 import { MODEL_DEFS } from "./models";
 import { camelCase, capitalize } from "medior/utils/formatting";
 
 /* -------------------------------------------------------------------------- */
-/*                             GENERATOR FUNCTIONS                            */
+/*                                 MODEL DEFS                                 */
 /* -------------------------------------------------------------------------- */
-const makeSortDef = (modelDef: ModelDef) => {
-  return `"${modelDef.name}": [${modelDef.properties
-    .filter((prop) => prop.sort)
-    .map(
-      (prop) =>
-        `{ attribute: "${prop.name}",
-           icon: "${prop.sort.icon}",${prop.sort.iconProps ? ` iconProps: ${JSON.stringify(prop.sort.iconProps)},` : ""}
-           label: "${prop.sort.label}" }`
-    )
-    .join(", ")}]`;
+const makeCommonProps = (args: {
+  defaultPageSize: string;
+  defaultSort: string;
+  name: string;
+}) => {
+  const props: ModelSearchProp[] = [
+    {
+      defaultValue: "false",
+      name: "isLoading",
+      notFilterProp: true,
+      type: "boolean",
+    },
+    {
+      defaultValue: "1",
+      name: "page",
+      notFilterProp: true,
+      type: "number",
+    },
+    {
+      defaultValue: "1",
+      name: "pageCount",
+      notFilterProp: true,
+      type: "number",
+    },
+    {
+      defaultValue: args.defaultPageSize,
+      name: "pageSize",
+      notFilterProp: true,
+      type: "number",
+    },
+    {
+      defaultValue: "() => []",
+      name: "results",
+      notFilterProp: true,
+      type: `db.${args.name}Schema[]`,
+    },
+    {
+      defaultValue: args.defaultSort,
+      name: "sortValue",
+      type: "SortMenuProps['value']",
+    },
+  ];
+
+  return props;
 };
 
-const makeStoreDef = async (modelDef: ModelDef) => {
+const makeDateRangeProps = (name: string) => {
+  const props: ModelSearchProp[] = [
+    {
+      defaultValue: '""',
+      name: `${name}End`,
+      objPath: [name, "$lte"],
+      objValue: `args.${name}End`,
+      type: "string",
+    },
+    {
+      defaultValue: '""',
+      name: `${name}Start`,
+      objPath: [name, "$gte"],
+      objValue: `args.${name}Start`,
+      type: "string",
+    },
+  ];
+
+  return props;
+};
+
+const makeTagOptsProp = (): ModelSearchProp => ({
+  customActionProps: [
+    {
+      condition: "args.excludedDescTagIds?.length",
+      objPath: ["ancestorIds", "$nin"],
+      objValue: "objectIds(args.excludedDescTagIds)",
+      name: "excludedDescTagIds",
+      type: "string[]",
+    },
+    {
+      condition: "args.excludedTagIds?.length",
+      objPath: ["_id", "$nin"],
+      objValue: "objectIds(args.excludedTagIds)",
+      name: "excludedTagIds",
+      type: "string[]",
+    },
+    {
+      condition: "args.optionalTagIds?.length",
+      objPath: ["_id", "$in"],
+      objValue: "objectIds(args.optionalTagIds)",
+      name: "optionalTagIds",
+      type: "string[]",
+    },
+    {
+      condition: "args.requiredDescTagIds?.length",
+      objPath: ["ancestorIds", "$all"],
+      objValue: "objectIds(args.requiredDescTagIds)",
+      name: "requiredDescTagIds",
+      type: "string[]",
+    },
+    {
+      condition: "args.requiredTagIds?.length",
+      objPath: ["_id", "$all"],
+      objValue: "objectIds(args.requiredTagIds)",
+      name: "requiredTagIds",
+      type: "string[]",
+    },
+  ],
+  defaultValue: "() => []",
+  filterTransform: "...getRootStore<RootStore>(this).tag.tagSearchOptsToIds(this.tags)",
+  name: "tags",
+  type: "TagOption[]",
+});
+
+export const MODEL_SEARCH_STORES: ModelSearchStore[] = [
+  {
+    name: "Tag",
+    props: [
+      ...makeCommonProps({
+        defaultPageSize: "() => getConfig().tags.searchTagCount",
+        defaultSort: "() => getConfig().tags.managerSearchSort",
+        name: "Tag",
+      }),
+      ...makeDateRangeProps("dateCreated"),
+      ...makeDateRangeProps("dateModified"),
+      makeTagOptsProp(),
+      {
+        defaultValue: '""',
+        name: "alias",
+        objPath: ["aliases"],
+        objValue: 'new RegExp(args.alias, "i")',
+        type: "string",
+      },
+      {
+        defaultValue: "() => ({ logOp: '', value: 0 })",
+        name: "count",
+        objPath: ["count", "~logicOpsToMongo(args.count.logOp)"],
+        objValue: "args.count.value",
+        type: "{ logOp: LogicalOp | '', value: number }",
+      },
+      {
+        defaultValue: '""',
+        name: "label",
+        objPath: ["label"],
+        objValue: 'new RegExp(args.label, "i")',
+        type: "string",
+      },
+      {
+        defaultValue: '"any"',
+        name: "regExMode",
+        objPath: ["regExMap.regEx", "$exists"],
+        objValue: 'args.regExMode === "hasRegEx"',
+        type: '"any" | "hasRegEx" | "hasNoRegEx"',
+      },
+    ],
+  },
+];
+
+/* -------------------------------------------------------------------------- */
+/*                             GENERATOR FUNCTIONS                            */
+/* -------------------------------------------------------------------------- */
+const createSchemaItem = (storeName: string, props: ModelDefProperty[]) => {
+  return `@model("medior/_${storeName}")
+    export class _${storeName} extends Model({
+      ${props
+        .map(
+          (prop) => `${prop.name}: prop<${prop.storeType || prop.type}>(${getDefaultValue(prop)}),`
+        )
+        .join("\n")}
+    }) {
+      @modelAction
+      update(updates: Partial<ModelCreationData<this>>) {
+        applySnapshot(this, { ...getSnapshot(this), ...updates });
+      }
+    }`;
+};
+
+const createSchemaStore = async (modelDef: ModelDef) => {
   const upperName = modelDef.name;
   const lowerName = camelCase(upperName);
   const itemPrefix = modelDef.withStore ? "" : "_";
   const itemModelName = `${itemPrefix}${upperName}`;
+  const schemaStoreMap = await makeSchemaStoreMap(upperName);
 
-  const includedProps = modelDef.properties.filter((prop) => !prop.excludeFromStore);
-  const schemaToStoreProps = modelDef.properties.filter((prop) => prop.schemaToStoreName);
-
-  const actions = await getActions();
-
-  const createSchemaStore = (storeName: string, props: ModelDefProperty[]) => {
-    return `@model("medior/_${storeName}")
-      export class _${storeName} extends Model({
-        ${props
-          .map(
-            (prop) =>
-              `${prop.name}: prop<${prop.storeType || prop.type}>(${getDefaultValue(prop)}),`
-          )
-          .join("\n")}
-      }) {
-        @modelAction
-        update(updates: Partial<ModelCreationData<this>>) {
-          applySnapshot(this, { ...getSnapshot(this), ...updates });
-        }
-      }`;
-  };
-
-  const getDefaultValue = (prop: ModelDefProperty) => {
-    if (prop.defaultValue) {
-      return /^([{\[]|dayjs\(\))/.test(prop.defaultValue)
-        ? `() => ${prop.defaultValue}`
-        : prop.defaultValue;
-    } else return prop.required ? "" : "null";
-  };
-
-  const makeFnAndTypeNames = (rawName: string) => {
-    const prefix = `${actions.model.includes(rawName) ? "" : "_"}`;
-    return { fnName: `${prefix}${rawName}`, typeName: `${prefix}${capitalize(rawName)}Input` };
-  };
-
-  const map = {
-    create: makeFnAndTypeNames(`create${modelDef.name}`),
-    delete: makeFnAndTypeNames(`delete${modelDef.name}`),
-    list: makeFnAndTypeNames(`list${modelDef.name}s`),
-    update: makeFnAndTypeNames(`update${modelDef.name}`),
-  };
-
-  const makeSectionComment = (sectionName: string) =>
-    `/* ${"-".repeat(75)} */\n/* ${" ".repeat(30)}${sectionName}\n/* ${"-".repeat(75)} */`;
-
-  return `${makeSectionComment(upperName)}
-    ${createSchemaStore(upperName, includedProps)}
-
-    ${schemaToStoreProps
-      .map((prop) =>
-        createSchemaStore(prop.schemaToStoreName, prop.schemaType as ModelDefProperty[])
-      )
-      .join("\n")}
-
-    @model("medior/_${upperName}Store")
+  return `@model("medior/_${upperName}Store")
     export class _${upperName}Store extends Model({
       ${lowerName}s: prop<${itemModelName}[]>(() => []),
       isLoading: prop<boolean>(true).withSetter(),
@@ -104,27 +214,27 @@ const makeStoreDef = async (modelDef: ModelDef) => {
 
       /* ------------------------------ ASYNC ACTIONS ----------------------------- */
       @modelFlow
-      create${upperName} = asyncAction(async (args: db.${map.create.typeName}) => {
+      create${upperName} = asyncAction(async (args: db.${schemaStoreMap.create.typeName}) => {
         this.setIsLoading(true);
-        const res = await trpc.${map.create.fnName}.mutate({ args });
+        const res = await trpc.${schemaStoreMap.create.fnName}.mutate({ args });
         this.setIsLoading(false);
         if (res.error) throw new Error(res.error);
         return res.data;
       });
 
       @modelFlow
-      delete${upperName} = asyncAction(async (args: db.${map.delete.typeName}) => {
+      delete${upperName} = asyncAction(async (args: db.${schemaStoreMap.delete.typeName}) => {
         this.setIsLoading(true);
-        const res = await trpc.${map.delete.fnName}.mutate({ args });
+        const res = await trpc.${schemaStoreMap.delete.fnName}.mutate({ args });
         this.setIsLoading(false);
         if (res.error) throw new Error(res.error);
         return res.data;
       });
 
       @modelFlow
-      load${upperName}s = asyncAction(async ({ withOverwrite = true, ...args }: db.${map.list.typeName} = {}) => {
+      load${upperName}s = asyncAction(async ({ withOverwrite = true, ...args }: db.${schemaStoreMap.list.typeName} = {}) => {
         this.setIsLoading(true);
-        const res = await trpc.${map.list.fnName}.mutate({
+        const res = await trpc.${schemaStoreMap.list.fnName}.mutate({
           args: {
             filter: JSON.parse(JSON.stringify(args.filter)),
             page: args.page ?? this.page,
@@ -142,9 +252,9 @@ const makeStoreDef = async (modelDef: ModelDef) => {
       });
 
       @modelFlow
-      update${upperName} = asyncAction(async (args: db.${map.update.typeName}) => {
+      update${upperName} = asyncAction(async (args: db.${schemaStoreMap.update.typeName}) => {
         this.setIsLoading(true);
-        const res = await trpc.${map.update.fnName}.mutate({ args });
+        const res = await trpc.${schemaStoreMap.update.fnName}.mutate({ args });
         this.setIsLoading(false);
         if (res.error) throw new Error(res.error);
         return res.data;
@@ -155,6 +265,147 @@ const makeStoreDef = async (modelDef: ModelDef) => {
         return this.${lowerName}s.find((d) => d.id === id);
       }
     }`;
+};
+
+const createSearchStore = (def: ModelSearchStore) => {
+  const props = [...def.props].sort((a, b) => a.name.localeCompare(b.name));
+
+  return `@model("medior/_${def.name}Search")
+    export class _${def.name}Search extends Model({
+      ${props
+        .map((prop) => `${prop.name}: prop<${prop.type}>(${prop.defaultValue}).withSetter()`)
+        .join(",\n")}
+    }) {
+      /* ---------------------------- STANDARD ACTIONS ---------------------------- */
+      @modelAction
+      reset() {
+        ${props.map((prop) => `this.${prop.name} = ${prop.defaultValue.replace("() => ", "")};`).join("\n")}
+      }
+
+      /* ------------------------------ ASYNC ACTIONS ----------------------------- */
+      @modelFlow
+      getShiftSelected = asyncAction(
+        async ({ id, selectedIds }: { id: string; selectedIds: string[] }) => {
+          const clickedIndex =
+            (this.page - 1) * this.pageSize + this.results.findIndex((r) => r.id === id);
+
+          const res = await trpc.getShiftSelected${def.name}s.mutate({
+            ...this.getFilterProps(),
+            clickedId: id,
+            clickedIndex,
+            selectedIds,
+          });
+          if (!res.success) throw new Error(res.error);
+          return res.data;
+        }
+      );
+
+      @modelFlow
+      loadFiltered = asyncAction(async ({ page }: { page?: number } = {}) => {
+        const debug = false;
+        const { perfLog, perfLogTotal } = makePerfLog("[${def.name}Search]");
+        this.setIsLoading(true);
+
+        const res = await trpc.listFiltered${def.name}s.mutate({
+          ...this.getFilterProps(),
+          page: page ?? this.page,
+          pageSize: this.pageSize,
+        });
+        if (!res.success) throw new Error(res.error);
+
+        const { items, pageCount } = res.data;
+        if (debug) perfLog(\`Loaded \${items.length} items\`);
+
+        this.setResults(items);
+        if (debug) perfLog("Overwrite and re-render");
+
+        this.setPageCount(pageCount);
+        if (page) this.setPage(page);
+        if (debug) perfLog(\`Set page to \${page ?? this.page} and pageCount to \${pageCount}\`);
+
+        if (debug) perfLogTotal(\`Loaded \${items.length} items\`);
+        this.setIsLoading(false);
+        return items;
+      });
+
+      /* --------------------------------- GETTERS -------------------------------- */
+      @computed
+      get numOfFilters() {
+        return (
+          ${props
+            .filter((prop) => !(prop.notFilterProp || prop.notTrackedFilter))
+            .map(
+              (prop) =>
+                `(!isDeepEqual(this.${prop.name}, ${prop.defaultValue.replace("() => ", "")}) ? 1 : 0)`
+            )
+            .join(" +\n")}
+        );
+      }
+
+      /* --------------------------------- DYNAMIC GETTERS -------------------------------- */
+      getFilterProps() {
+        return {
+          ${props
+            .filter((prop) => !prop.notFilterProp)
+            .map((prop) => prop.filterTransform ?? `${prop.name}: this.${prop.name}`)
+            .join(",\n")}
+        };
+      }
+    }`;
+};
+
+const getDefaultValue = (prop: ModelDefProperty) => {
+  if (prop.defaultValue) {
+    return /^([{\[]|dayjs\(\))/.test(prop.defaultValue)
+      ? `() => ${prop.defaultValue}`
+      : prop.defaultValue;
+  } else return prop.required ? "" : "null";
+};
+
+const makeFnAndTypeNames = (modelActions: string[], rawName: string) => {
+  const prefix = `${modelActions.includes(rawName) ? "" : "_"}`;
+  return { fnName: `${prefix}${rawName}`, typeName: `${prefix}${capitalize(rawName)}Input` };
+};
+
+const makeSchemaStoreMap = async (upperName: string) => {
+  const actions = await getActions();
+
+  return {
+    create: makeFnAndTypeNames(actions.model, `create${upperName}`),
+    delete: makeFnAndTypeNames(actions.model, `delete${upperName}`),
+    list: makeFnAndTypeNames(actions.model, `list${upperName}s`),
+    update: makeFnAndTypeNames(actions.model, `update${upperName}`),
+  };
+};
+
+const makeSortDef = (modelDef: ModelDef) => {
+  return `"${modelDef.name}": [${modelDef.properties
+    .filter((prop) => prop.sort)
+    .map(
+      (prop) =>
+        `{ attribute: "${prop.name}",
+           icon: "${prop.sort.icon}",${prop.sort.iconProps ? ` iconProps: ${JSON.stringify(prop.sort.iconProps)},` : ""}
+           label: "${prop.sort.label}" }`
+    )
+    .join(", ")}]`;
+};
+
+const makeStoreDef = async (modelDef: ModelDef) => {
+  const upperName = modelDef.name;
+
+  const includedProps = modelDef.properties.filter((prop) => !prop.excludeFromStore);
+  const schemaToStoreProps = modelDef.properties.filter((prop) => prop.schemaToStoreName);
+
+  return `${makeSectionComment(upperName)}
+    ${createSchemaItem(upperName, includedProps)}
+
+    ${schemaToStoreProps
+      .map((prop) =>
+        createSchemaItem(prop.schemaToStoreName, prop.schemaType as ModelDefProperty[])
+      )
+      .join("\n")}
+
+    ${await createSchemaStore(modelDef)}`;
 };
 
 /* -------------------------------------------------------------------------- */
@@ -190,15 +441,23 @@ export const FILE_DEF_STORES: FileDef = {
         .map((p) => p.schemaToStoreName),
     ].join(", ");
 
-    let output = `import { applySnapshot, getSnapshot, Model, model, modelAction, ModelCreationData, modelFlow, prop } from "mobx-keystone";
+    let output = `import { computed } from "mobx";
+    import { applySnapshot, getRootStore, getSnapshot, Model, model, modelAction, ModelCreationData, modelFlow, prop } from "mobx-keystone";
     import * as db from "medior/database";
     import { SortValue } from "medior/store/_generated/sort-options";
-    import { ${storeImports} } from "medior/store";
+    import { ${storeImports}, RootStore, TagOption } from "medior/store";
     import { asyncAction } from "medior/store/utils";
-    import { dayjs, trpc } from "medior/utils";\n`;
+    import { SortMenuProps } from "medior/components";
+    import { dayjs, isDeepEqual, getConfig, LogicalOp, makePerfLog, trpc } from "medior/utils";\n\n`;
 
-    for (const def of MODEL_DEFS) {
-      output += `${await makeStoreDef(def)}\n\n`;
+    output += makeSectionComment("SEARCH STORES");
+    for (const def of MODEL_SEARCH_STORES) {
+      output += `\n${createSearchStore(def)}\n`;
+    }
+
+    output += `\n${makeSectionComment("SCHEMA STORES")}`;
+    for await (const def of MODEL_DEFS) {
+      output += `\n${await makeStoreDef(def)}\n`;
     }
 
     return output;

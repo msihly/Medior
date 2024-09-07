@@ -13,7 +13,7 @@ export const TagCard = observer(({ tag }: TagCardProps) => {
 
   const handleClick = async (event: React.MouseEvent) => {
     if (event.shiftKey) {
-      const res = await stores.tag.manager.search.getShiftSelectedTags({
+      const res = await stores.tag.manager.search.getShiftSelected({
         id: tag.id,
         selectedIds: stores.tag.manager.selectedIds,
       });

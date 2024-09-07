@@ -26,7 +26,7 @@ export const TagManager = observer(() => {
   const resultsRef = useRef<FixedSizeGrid>(null);
   useDeepEffect(() => {
     if (resultsRef.current) resultsRef.current.scrollTo({ scrollTop: 0 });
-  }, [stores.tag.manager.searchResults]);
+  }, [stores.tag.manager.search.results]);
 
   useEffect(() => {
     stores.tag.manager.search.reset();
@@ -53,9 +53,9 @@ export const TagManager = observer(() => {
 
   const handleSelectAll = () => {
     stores.tag.manager.toggleTagsSelected(
-      stores.tag.manager.searchResults.map(({ id }) => ({ id, isSelected: true }))
+      stores.tag.manager.search.results.map(({ id }) => ({ id, isSelected: true }))
     );
-    toast.info(`Added ${stores.tag.manager.searchResults.length} tags to selection`);
+    toast.info(`Added ${stores.tag.manager.search.results.length} tags to selection`);
   };
 
   const handleSelectNone = () => {
@@ -127,7 +127,7 @@ export const TagManager = observer(() => {
           <LoadingOverlay isLoading={stores.tag.manager.isLoading} />
 
           <CardGrid
-            cards={stores.tag.manager.searchResults.map((t) => (
+            cards={stores.tag.manager.search.results.map((t) => (
               <TagCard key={t.id} tag={t} />
             ))}
           >

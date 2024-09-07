@@ -22,7 +22,6 @@ export class TagManagerStore extends Model({
   isOpen: prop<boolean>(false).withSetter(),
   selectedIds: prop<string[]>(() => []).withSetter(),
   search: prop<TagSearch>(() => new TagSearch({})).withSetter(),
-  searchResults: prop<TagManagerTag[]>(() => []).withSetter(),
 }) {
   tagRefreshQueue = new PromiseQueue();
 
@@ -92,7 +91,7 @@ export class TagManagerStore extends Model({
 
   /* ----------------------------- DYNAMIC GETTERS ---------------------------- */
   getById(id: string) {
-    return this.searchResults.find((t) => t.id === id);
+    return this.search.results.find((t) => t.id === id);
   }
 
   getIsSelected(id: string) {

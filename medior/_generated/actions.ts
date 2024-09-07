@@ -2,12 +2,125 @@
 /*                    THIS IS A GENERATED FILE. DO NOT EDIT.                  */
 /* -------------------------------------------------------------------------- */
 
+import { FilterQuery } from "mongoose";
 import * as models from "medior/_generated/models";
-import * as types from "medior/database/types";
 import { SocketEventOptions } from "medior/_generated/socket";
-import { leanModelToJson, makeAction } from "medior/database/utils";
-import { dayjs, socket } from "medior/utils";
+import * as types from "medior/database/types";
+import {
+  getShiftSelectedItems,
+  leanModelToJson,
+  makeAction,
+  objectIds,
+} from "medior/database/utils";
+import { SortMenuProps } from "medior/components";
+import { dayjs, isDeepEqual, LogicalOp, logicOpsToMongo, setObj, socket } from "medior/utils";
 
+/* --------------------------------------------------------------------------- */
+/*                               SEARCH ACTIONS
+/* --------------------------------------------------------------------------- */
+export type CreateTagFilterPipelineInput = {
+  alias?: string;
+  count?: { logOp: LogicalOp | ""; value: number };
+  dateCreatedEnd?: string;
+  dateCreatedStart?: string;
+  dateModifiedEnd?: string;
+  dateModifiedStart?: string;
+  excludedDescTagIds?: string[];
+  excludedTagIds?: string[];
+  label?: string;
+  optionalTagIds?: string[];
+  regExMode?: "any" | "hasRegEx" | "hasNoRegEx";
+  requiredDescTagIds?: string[];
+  requiredTagIds?: string[];
+  sortValue?: SortMenuProps["value"];
+};
+
+export const createTagFilterPipeline = (args: CreateTagFilterPipelineInput) => {
+  const $match: FilterQuery<models.TagSchema> = {};
+
+  if (!isDeepEqual(args.alias, "")) setObj($match, ["aliases"], new RegExp(args.alias, "i"));
+  if (!isDeepEqual(args.count, { logOp: "", value: 0 }))
+    setObj($match, ["count", logicOpsToMongo(args.count.logOp)], args.count.value);
+  if (!isDeepEqual(args.dateCreatedEnd, ""))
+    setObj($match, ["dateCreated", "$lte"], args.dateCreatedEnd);
+  if (!isDeepEqual(args.dateCreatedStart, ""))
+    setObj($match, ["dateCreated", "$gte"], args.dateCreatedStart);
+  if (!isDeepEqual(args.dateModifiedEnd, ""))
+    setObj($match, ["dateModified", "$lte"], args.dateModifiedEnd);
+  if (!isDeepEqual(args.dateModifiedStart, ""))
+    setObj($match, ["dateModified", "$gte"], args.dateModifiedStart);
+  if (!isDeepEqual(args.label, "")) setObj($match, ["label"], new RegExp(args.label, "i"));
+  if (!isDeepEqual(args.regExMode, "any"))
+    setObj($match, ["regExMap.regEx", "$exists"], args.regExMode === "hasRegEx");
+
+  if (args.excludedDescTagIds?.length)
+    setObj($match, ["ancestorIds", "$nin"], objectIds(args.excludedDescTagIds));
+  if (args.excludedTagIds?.length) setObj($match, ["_id", "$nin"], objectIds(args.excludedTagIds));
+  if (args.optionalTagIds?.length) setObj($match, ["_id", "$in"], objectIds(args.optionalTagIds));
+  if (args.requiredDescTagIds?.length)
+    setObj($match, ["ancestorIds", "$all"], objectIds(args.requiredDescTagIds));
+  if (args.requiredTagIds?.length) setObj($match, ["_id", "$all"], objectIds(args.requiredTagIds));
+
+  const sortDir = args.sortValue.isDesc ? -1 : 1;
+
+  return {
+    $match,
+    $sort: { [args.sortValue.key]: sortDir, _id: sortDir } as { [key: string]: 1 | -1 },
+  };
+};
+
+export const getShiftSelectedTags = makeAction(
+  async ({
+    clickedId,
+    clickedIndex,
+    selectedIds,
+    ...filterParams
+  }: CreateTagFilterPipelineInput & {
+    clickedId: string;
+    clickedIndex: number;
+    selectedIds: string[];
+  }) => {
+    const filterPipeline = createTagFilterPipeline(filterParams);
+    return getShiftSelectedItems({
+      clickedId,
+      clickedIndex,
+      filterPipeline,
+      model: models.TagModel,
+      selectedIds,
+    });
+  },
+);
+
+export const listFilteredTags = makeAction(
+  async ({
+    page,
+    pageSize,
+    ...filterParams
+  }: CreateTagFilterPipelineInput & { page: number; pageSize: number }) => {
+    const filterPipeline = createTagFilterPipeline(filterParams);
+
+    const [items, count] = await Promise.all([
+      models.TagModel.find(filterPipeline.$match)
+        .sort(filterPipeline.$sort)
+        .skip(Math.max(0, page - 1) * pageSize)
+        .limit(pageSize)
+        .allowDiskUse(true)
+        .lean(),
+      models.TagModel.countDocuments(filterPipeline.$match),
+    ]);
+    if (!items || !(count > -1)) throw new Error("Failed to load filtered Tags");
+
+    return {
+      count,
+      items: items.map((i) => leanModelToJson<models.TagSchema>(i)),
+      pageCount: Math.ceil(count / pageSize),
+    };
+  },
+);
+
+/* --------------------------------------------------------------------------- */
+/*                               MODEL ACTIONS
+/* --------------------------------------------------------------------------- */
 /* ------------------------------------ DeletedFile ----------------------------------- */
 export const createDeletedFile = makeAction(
   async ({

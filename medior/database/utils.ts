@@ -1,5 +1,146 @@
-import { LeanDocument, Types } from "mongoose";
+import mongoose, { LeanDocument, PipelineStage, Types } from "mongoose";
 import { handleErrors } from "medior/utils";
+
+export const getShiftSelectedItems = async <ModelType>({
+  clickedId,
+  clickedIndex,
+  filterPipeline,
+  model,
+  selectedIds,
+}: {
+  clickedId: string;
+  clickedIndex: number;
+  filterPipeline: { $match: mongoose.FilterQuery<ModelType>; $sort: { [key: string]: 1 | -1 } };
+  model: mongoose.Model<ModelType>;
+  selectedIds: string[];
+}) => {
+  if (selectedIds.length === 0) return { idsToDeselect: [], idsToSelect: [clickedId] };
+  if (selectedIds.length === 1 && selectedIds[0] === clickedId)
+    return { idsToDeselect: [clickedId], idsToSelect: [] };
+
+  const createMainPipeline = (args: {
+    endIndex: number;
+    filterPipeline: mongoose.FilterQuery<ModelType>;
+    isFirstAfterClicked: boolean;
+    limit: number;
+    selectedIds: string[];
+    skip: number;
+    startIndex: number;
+  }): PipelineStage[] => [
+    { $match: args.filterPipeline.$match },
+    { $sort: args.filterPipeline.$sort },
+    ...(args.limit > -1 ? [{ $limit: args.limit }] : []),
+    ...(args.skip > -1 ? [{ $skip: args.skip }] : []),
+    { $project: { _id: 1 } },
+    { $group: { _id: null, filteredIds: { $push: "$_id" } } },
+    {
+      $addFields: {
+        selectedIdsNotInFiltered: {
+          $filter: {
+            input: objectIds(args.selectedIds),
+            as: "id",
+            cond: { $not: { $in: ["$$id", "$filteredIds"] } },
+          },
+        },
+        selectedIdsInFiltered: {
+          $filter: {
+            input: objectIds(args.selectedIds),
+            as: "id",
+            cond: { $in: ["$$id", "$filteredIds"] },
+          },
+        },
+      },
+    },
+    {
+      $addFields: {
+        newSelectedIds:
+          args.startIndex === args.endIndex
+            ? []
+            : args.isFirstAfterClicked
+              ? { $slice: ["$filteredIds", 0, args.limit] }
+              : { $slice: ["$filteredIds", 0, args.limit - args.skip] },
+      },
+    },
+    {
+      $addFields: {
+        idsToDeselect: {
+          $concatArrays: [
+            "$selectedIdsNotInFiltered",
+            {
+              $filter: {
+                input: "$selectedIdsInFiltered",
+                as: "id",
+                cond: { $not: { $in: ["$$id", "$newSelectedIds"] } },
+              },
+            },
+          ],
+        },
+        idsToSelect: {
+          $filter: {
+            input: "$newSelectedIds",
+            as: "id",
+            cond: { $not: { $in: ["$$id", objectIds(args.selectedIds)] } },
+          },
+        },
+      },
+    },
+    { $project: { _id: 0, idsToDeselect: 1, idsToSelect: 1 } },
+  ];
+
+  const getSelectedIndex = async (type: "first" | "last") => {
+    const sortKey = Object.keys(filterPipeline.$sort)[0];
+    const sortOp = filterPipeline.$sort[sortKey] === -1 ? "$gt" : "$lt";
+
+    const selectedItems = await model
+      .find({ ...filterPipeline.$match, _id: { $in: objectIds(selectedIds) } })
+      .sort(filterPipeline.$sort);
+
+    if (!selectedItems || selectedItems.length === 0)
+      throw new Error(`Failed to load selected tags`);
+
+    const selectedItem =
+      type === "first" ? selectedItems[0] : selectedItems[selectedItems.length - 1];
+
+    // @ts-expect-error
+    const selectedItemIndex = await model.countDocuments({
+      ...filterPipeline.$match,
+      $or: [
+        { [sortKey]: selectedItem[sortKey], _id: { [sortOp]: selectedItem._id } },
+        { [sortKey]: { [sortOp]: selectedItem[sortKey] } },
+      ],
+    });
+    if (!(selectedItemIndex > -1)) throw new Error(`Failed to load ${type} selected index`);
+
+    return selectedItemIndex;
+  };
+
+  const firstSelectedIndex = await getSelectedIndex("first");
+  if (!(firstSelectedIndex > -1)) return { idsToDeselect: [], idsToSelect: [clickedId] };
+  if (firstSelectedIndex === clickedIndex) return { idsToDeselect: [clickedId], idsToSelect: [] };
+
+  const isFirstAfterClicked = firstSelectedIndex > clickedIndex;
+  const lastSelectedIndex = isFirstAfterClicked ? await getSelectedIndex("last") : null;
+  const endIndex = isFirstAfterClicked ? lastSelectedIndex : clickedIndex;
+  const startIndex = isFirstAfterClicked ? clickedIndex : firstSelectedIndex;
+
+  const mainPipeline = createMainPipeline({
+    endIndex,
+    filterPipeline,
+    isFirstAfterClicked,
+    limit: endIndex + 1,
+    selectedIds,
+    skip: startIndex,
+    startIndex,
+  });
+
+  const mainRes: {
+    idsToDeselect: string[];
+    idsToSelect: string[];
+  } = (await model.aggregate(mainPipeline).allowDiskUse(true)).flatMap((f) => f)?.[0];
+  if (!mainRes) throw new Error("Failed to load shift selected item IDs");
+
+  return mainRes;
+};
 
 export const leanModelToJson = <T>(
   doc: LeanDocument<T & { _id: Types.ObjectId; __v?: number }>

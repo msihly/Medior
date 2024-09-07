@@ -2,8 +2,10 @@
 /*                    THIS IS A GENERATED FILE. DO NOT EDIT.                  */
 /* -------------------------------------------------------------------------- */
 
+import { computed } from "mobx";
 import {
   applySnapshot,
+  getRootStore,
   getSnapshot,
   Model,
   model,
@@ -14,9 +16,146 @@ import {
 } from "mobx-keystone";
 import * as db from "medior/database";
 import { SortValue } from "medior/store/_generated/sort-options";
-import { FileCollection, FileImportBatch, File, Tag, FileImport } from "medior/store";
+import {
+  FileCollection,
+  FileImportBatch,
+  File,
+  Tag,
+  FileImport,
+  RootStore,
+  TagOption,
+} from "medior/store";
 import { asyncAction } from "medior/store/utils";
-import { dayjs, trpc } from "medior/utils";
+import { SortMenuProps } from "medior/components";
+import { dayjs, isDeepEqual, getConfig, LogicalOp, makePerfLog, trpc } from "medior/utils";
+
+/* --------------------------------------------------------------------------- */
+/*                               SEARCH STORES
+/* --------------------------------------------------------------------------- */
+@model("medior/_TagSearch")
+export class _TagSearch extends Model({
+  alias: prop<string>("").withSetter(),
+  count: prop<{ logOp: LogicalOp | ""; value: number }>(() => ({
+    logOp: "",
+    value: 0,
+  })).withSetter(),
+  dateCreatedEnd: prop<string>("").withSetter(),
+  dateCreatedStart: prop<string>("").withSetter(),
+  dateModifiedEnd: prop<string>("").withSetter(),
+  dateModifiedStart: prop<string>("").withSetter(),
+  isLoading: prop<boolean>(false).withSetter(),
+  label: prop<string>("").withSetter(),
+  page: prop<number>(1).withSetter(),
+  pageCount: prop<number>(1).withSetter(),
+  pageSize: prop<number>(() => getConfig().tags.searchTagCount).withSetter(),
+  regExMode: prop<"any" | "hasRegEx" | "hasNoRegEx">("any").withSetter(),
+  results: prop<db.TagSchema[]>(() => []).withSetter(),
+  sortValue: prop<SortMenuProps["value"]>(() => getConfig().tags.managerSearchSort).withSetter(),
+  tags: prop<TagOption[]>(() => []).withSetter(),
+}) {
+  /* ---------------------------- STANDARD ACTIONS ---------------------------- */
+  @modelAction
+  reset() {
+    this.alias = "";
+    this.count = { logOp: "", value: 0 };
+    this.dateCreatedEnd = "";
+    this.dateCreatedStart = "";
+    this.dateModifiedEnd = "";
+    this.dateModifiedStart = "";
+    this.isLoading = false;
+    this.label = "";
+    this.page = 1;
+    this.pageCount = 1;
+    this.pageSize = getConfig().tags.searchTagCount;
+    this.regExMode = "any";
+    this.results = [];
+    this.sortValue = getConfig().tags.managerSearchSort;
+    this.tags = [];
+  }
+
+  /* ------------------------------ ASYNC ACTIONS ----------------------------- */
+  @modelFlow
+  getShiftSelected = asyncAction(
+    async ({ id, selectedIds }: { id: string; selectedIds: string[] }) => {
+      const clickedIndex =
+        (this.page - 1) * this.pageSize + this.results.findIndex((r) => r.id === id);
+
+      const res = await trpc.getShiftSelectedTags.mutate({
+        ...this.getFilterProps(),
+        clickedId: id,
+        clickedIndex,
+        selectedIds,
+      });
+      if (!res.success) throw new Error(res.error);
+      return res.data;
+    },
+  );
+
+  @modelFlow
+  loadFiltered = asyncAction(async ({ page }: { page?: number } = {}) => {
+    const debug = false;
+    const { perfLog, perfLogTotal } = makePerfLog("[TagSearch]");
+    this.setIsLoading(true);
+
+    const res = await trpc.listFilteredTags.mutate({
+      ...this.getFilterProps(),
+      page: page ?? this.page,
+      pageSize: this.pageSize,
+    });
+    if (!res.success) throw new Error(res.error);
+
+    const { items, pageCount } = res.data;
+    if (debug) perfLog(`Loaded ${items.length} items`);
+
+    this.setResults(items);
+    if (debug) perfLog("Overwrite and re-render");
+
+    this.setPageCount(pageCount);
+    if (page) this.setPage(page);
+    if (debug) perfLog(`Set page to ${page ?? this.page} and pageCount to ${pageCount}`);
+
+    if (debug) perfLogTotal(`Loaded ${items.length} items`);
+    this.setIsLoading(false);
+    return items;
+  });
+
+  /* --------------------------------- GETTERS -------------------------------- */
+  @computed
+  get numOfFilters() {
+    return (
+      (!isDeepEqual(this.alias, "") ? 1 : 0) +
+      (!isDeepEqual(this.count, { logOp: "", value: 0 }) ? 1 : 0) +
+      (!isDeepEqual(this.dateCreatedEnd, "") ? 1 : 0) +
+      (!isDeepEqual(this.dateCreatedStart, "") ? 1 : 0) +
+      (!isDeepEqual(this.dateModifiedEnd, "") ? 1 : 0) +
+      (!isDeepEqual(this.dateModifiedStart, "") ? 1 : 0) +
+      (!isDeepEqual(this.label, "") ? 1 : 0) +
+      (!isDeepEqual(this.regExMode, "any") ? 1 : 0) +
+      (!isDeepEqual(this.sortValue, getConfig().tags.managerSearchSort) ? 1 : 0) +
+      (!isDeepEqual(this.tags, []) ? 1 : 0)
+    );
+  }
+
+  /* --------------------------------- DYNAMIC GETTERS -------------------------------- */
+  getFilterProps() {
+    return {
+      alias: this.alias,
+      count: this.count,
+      dateCreatedEnd: this.dateCreatedEnd,
+      dateCreatedStart: this.dateCreatedStart,
+      dateModifiedEnd: this.dateModifiedEnd,
+      dateModifiedStart: this.dateModifiedStart,
+      label: this.label,
+      regExMode: this.regExMode,
+      sortValue: this.sortValue,
+      ...getRootStore<RootStore>(this).tag.tagSearchOptsToIds(this.tags),
+    };
+  }
+}
+
+/* --------------------------------------------------------------------------- */
+/*                               SCHEMA STORES
+/* --------------------------------------------------------------------------- */
 /* --------------------------------------------------------------------------- */
 /*                               DeletedFile
 /* --------------------------------------------------------------------------- */

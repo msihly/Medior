@@ -80,9 +80,9 @@ export const TagFilterMenu = observer(
           <Card column flex={1} spacing="0.5rem">
             <LogOpsInput
               header="Tag File Count"
-              logOpValue={store.countOp}
+              logOpValue={store.count.logOp}
               setLogOpValue={setCountOp}
-              numValue={store.countValue}
+              numValue={store.count.value}
               setNumValue={setCountValue}
             />
 

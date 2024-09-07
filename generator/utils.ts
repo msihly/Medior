@@ -32,3 +32,6 @@ export const makeIndexDef = (fileDefs: FileDef[]) => {
   const imports = fileDefs.map((fileDef) => `export * from "./${fileDef.name}";`).join("\n");
   fileDefs.push({ name: "index", makeFile: async () => imports });
 };
+
+export const makeSectionComment = (sectionName: string) =>
+  `/* ${"-".repeat(75)} */\n/* ${" ".repeat(30)}${sectionName}\n/* ${"-".repeat(75)} */`;

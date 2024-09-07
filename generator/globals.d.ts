@@ -29,6 +29,29 @@ declare global {
     properties: Array<ModelDefProperty>;
     withStore?: boolean;
   }
+
+  interface ModelSearchProp {
+    customActionProps?: {
+      condition: string;
+      name: string;
+      objPath: string[];
+      objValue: string;
+      type: string;
+    }[];
+    defaultValue: string;
+    filterTransform?: string;
+    name: string;
+    notFilterProp?: boolean;
+    notTrackedFilter?: boolean;
+    objPath?: string[];
+    objValue?: string;
+    type: string;
+  }
+
+  interface ModelSearchStore {
+    name: string;
+    props: ModelSearchProp[];
+  }
 }
 
 export {};
