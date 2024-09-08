@@ -34,6 +34,8 @@ export const TagFilterMenu = observer(
 
     const setLabel = (val: string) => store.setLabel(val);
 
+    const setRegExMode = () => store.toggleRegExMode();
+
     const setTags = (val: TagOption[]) => store.setTags(val);
 
     return (
@@ -90,7 +92,7 @@ export const TagFilterMenu = observer(
               label="Has RegEx"
               checked={store.regExMode === "hasRegEx"}
               indeterminate={store.regExMode === "hasNoRegEx"}
-              setChecked={store.toggleRegExMode}
+              setChecked={setRegExMode}
             />
           </Card>
         </View>

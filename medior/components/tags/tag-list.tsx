@@ -1,3 +1,5 @@
+import AutoSizer from "react-virtualized-auto-sizer";
+import { FixedSizeList } from "react-window";
 import {
   CenteredText,
   TAG_INPUT_ROW_HEIGHT,
@@ -8,9 +10,6 @@ import {
 } from "medior/components";
 import { TagOption } from "medior/store";
 import { BorderRadiuses, colors, deepMerge, makeClasses } from "medior/utils";
-import { useCallback } from "react";
-import AutoSizer from "react-virtualized-auto-sizer";
-import { FixedSizeList, ListChildComponentProps } from "react-window";
 
 const DEFAULT_BORDER_RADIUSES: BorderRadiuses = {
   all: "0.3rem",
@@ -24,13 +23,6 @@ export interface TagListProps extends Omit<TagInputRowProps, "tag"> {
 
 export const TagList = ({ rowHeight, tags, viewProps = {}, ...props }: TagListProps) => {
   const { css } = useClasses(null);
-
-  const renderTagInputRow = useCallback(
-    ({ index, style }: ListChildComponentProps) => (
-      <TagInputRow key={index} tag={tags[index]} style={style} {...props} />
-    ),
-    [tags.length]
-  );
 
   return (
     <View
@@ -52,7 +44,9 @@ export const TagList = ({ rowHeight, tags, viewProps = {}, ...props }: TagListPr
                 itemSize={rowHeight ?? TAG_INPUT_ROW_HEIGHT}
                 itemCount={tags.length}
               >
-                {renderTagInputRow}
+                {({ index, style }) => (
+                  <TagInputRow key={index} tag={tags[index]} style={style} {...props} />
+                )}
               </FixedSizeList>
             )}
           </AutoSizer>
