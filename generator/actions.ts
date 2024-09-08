@@ -163,6 +163,7 @@ const makeSearchActionsDef = (def: ModelSearchStore) => {
   const interfaceProps = [
     ...props.filter((prop) => !prop.notFilterProp && !prop.customActionProps?.length),
     ...customProps,
+    { name: "ids", type: "string[]" },
   ].sort((a, b) => a.name.localeCompare(b.name));
 
   const makeDefaultCondition = (prop: ModelSearchProp) =>
@@ -177,6 +178,8 @@ const makeSearchActionsDef = (def: ModelSearchStore) => {
 
     export const ${filterFnName} = (args: ${filterFnNameType}) => {
       const $match: FilterQuery<${modelName}Schema> = {};
+
+      if (args.ids) setObj($match, ["_id", "$in"], objectIds(args.ids));
 
       ${defaultProps
         .map((prop) => `if (${makeDefaultCondition(prop)}) ${makeSetObj(prop)}`)

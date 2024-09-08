@@ -34,7 +34,7 @@ export const FileContainer = observer(() => {
   return (
     <CardGrid
       ref={filesRef}
-      cards={stores.file.files.map((f, i) => (
+      cards={stores.file.search.results.map((f, i) => (
         <FileCard key={i} file={f} />
       ))}
       cardsProps={{ onKeyDown: handleKeyPress, tabIndex: 1 }}

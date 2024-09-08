@@ -10,7 +10,7 @@ import {
   Text,
   UniformList,
 } from "medior/components";
-import { colors, useDeepEffect } from "medior/utils";
+import { colors, trpc, useDeepEffect } from "medior/utils";
 import { toast } from "react-toastify";
 
 interface FileTagEditorProps {
@@ -29,7 +29,7 @@ export const FileTagEditor = observer(({ batchId, fileIds }: FileTagEditorProps)
 
   useDeepEffect(() => {
     const loadCurrentTags = async () => {
-      const res = await stores.file.loadFiles({ filter: { id: fileIds }, withOverwrite: false });
+      const res = await trpc.listFiles.mutate({ args: { filter: { id: fileIds } } });
       if (!res?.success) throw new Error(res.error);
 
       const tagIds = [...new Set(res.data.items.flatMap((f) => f.tagIds))];

@@ -10,7 +10,6 @@ export class CollectionManager extends Model({
   isLoading: prop<boolean>(false).withSetter(),
   isOpen: prop<boolean>(false),
   search: prop<FileCollectionSearch>(() => new FileCollectionSearch({})).withSetter(),
-  searchResults: prop<FileCollection[]>(() => []).withSetter(),
   selectedCollectionId: prop<string>(null).withSetter(),
   selectedFileIds: prop<string[]>(() => []).withSetter(),
   selectedFiles: prop<File[]>(() => []).withSetter(),
@@ -46,12 +45,12 @@ export class CollectionManager extends Model({
 
   /* ----------------------------- DYNAMIC GETTERS ---------------------------- */
   getById(id: string) {
-    return this.searchResults.find((c) => c.id === id);
+    return this.search.results.find((c) => c.id === id);
   }
 
   /* --------------------------------- GETTERS -------------------------------- */
   @computed
   get selectedCollection() {
-    return this.searchResults.find((c) => c.id === this.selectedCollectionId);
+    return this.search.results.find((c) => c.id === this.selectedCollectionId);
   }
 }

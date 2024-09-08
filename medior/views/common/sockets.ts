@@ -70,7 +70,7 @@ export const useSockets = ({ view }: UseSocketsProps) => {
 
     makeSocket("onReloadFiles", () => {
       if (view === "carousel")
-        stores.file.loadFiles({ filter: { id: stores.carousel.selectedFileIds } });
+        stores.file.search.loadFiltered({ ids: stores.carousel.selectedFileIds });
       else queueFileReload();
     });
 

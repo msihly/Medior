@@ -13,7 +13,9 @@ export const useHotkeys = ({ rootRef, view }: UseHotkeysProps) => {
   const stores = useStores();
 
   const navCarouselByArrowKey = (isLeft: boolean) => {
-    if (stores.carousel.activeFileIndex === (isLeft ? 0 : stores.carousel.selectedFileIds.length - 1))
+    if (
+      stores.carousel.activeFileIndex === (isLeft ? 0 : stores.carousel.selectedFileIds.length - 1)
+    )
       return;
 
     const newFileId =
@@ -25,14 +27,16 @@ export const useHotkeys = ({ rootRef, view }: UseHotkeysProps) => {
   };
 
   const selectFileByArrowKey = (isLeft: boolean, selectedId: string) => {
-    const indexOfSelected = stores.file.files.findIndex((f) => f.id === selectedId);
-    const nextIndex = indexOfSelected === stores.file.files.length - 1 ? 0 : indexOfSelected + 1;
-    const nextId = stores.file.files[nextIndex].id;
-    const prevIndex = indexOfSelected === 0 ? stores.file.files.length - 1 : indexOfSelected - 1;
-    const prevId = stores.file.files[prevIndex].id;
+    const indexOfSelected = stores.file.search.results.findIndex((f) => f.id === selectedId);
+    const nextIndex =
+      indexOfSelected === stores.file.search.results.length - 1 ? 0 : indexOfSelected + 1;
+    const nextId = stores.file.search.results[nextIndex].id;
+    const prevIndex =
+      indexOfSelected === 0 ? stores.file.search.results.length - 1 : indexOfSelected - 1;
+    const prevId = stores.file.search.results[prevIndex].id;
     const newId = isLeft ? prevId : nextId;
 
-    if (!stores.file.files.find((f) => f.id === newId))
+    if (!stores.file.search.results.find((f) => f.id === newId))
       stores.file.search.loadFiltered({
         page: stores.file.search.page + 1 * (isLeft ? -1 : 1),
       });
@@ -52,7 +56,8 @@ export const useHotkeys = ({ rootRef, view }: UseHotkeysProps) => {
     )
       return;
 
-    const fileIds = view === "carousel" ? [stores.carousel.activeFileId] : [...stores.file.selectedIds];
+    const fileIds =
+      view === "carousel" ? [stores.carousel.activeFileId] : [...stores.file.selectedIds];
     if (!fileIds.length) return;
 
     const isOneFileSelected = fileIds.length === 1;
@@ -61,8 +66,10 @@ export const useHotkeys = ({ rootRef, view }: UseHotkeysProps) => {
     event.preventDefault();
 
     if (view !== "carousel" && event.ctrlKey && key === "a") {
-      stores.file.toggleFilesSelected(stores.file.files.map(({ id }) => ({ id, isSelected: true })));
-      toast.info(`Added ${stores.file.files.length} files to selection`);
+      stores.file.toggleFilesSelected(
+        stores.file.search.results.map(({ id }) => ({ id, isSelected: true }))
+      );
+      toast.info(`Added ${stores.file.search.results.length} files to selection`);
     } else if (isOneFileSelected) {
       if (key === "i") {
         stores.file.setActiveFileId(fileIds[0]);

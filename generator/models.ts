@@ -352,7 +352,7 @@ const MODEL_TAG: ModelDef = {
       name: "regExMap",
       required: true,
       schemaType: "RegExMapSchema",
-      storeType: "db.RegExMapSchema",
+      storeType: "models.RegExMapSchema",
       type: "RegExMapSchema",
     },
     { name: "thumbPaths", required: true, schemaType: "[String]", type: "string[]" },

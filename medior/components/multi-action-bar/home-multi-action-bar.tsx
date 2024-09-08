@@ -37,8 +37,8 @@ export const HomeMultiActionBar = observer(() => {
   const handleFileInfoRefresh = () => stores.file.refreshSelectedFiles();
 
   const handleSelectAll = () => {
-    stores.file.toggleFilesSelected(stores.file.files.map(({ id }) => ({ id, isSelected: true })));
-    toast.info(`Added ${stores.file.files.length} files to selection`);
+    stores.file.toggleFilesSelected(stores.file.search.results.map(({ id }) => ({ id, isSelected: true })));
+    toast.info(`Added ${stores.file.search.results.length} files to selection`);
   };
 
   const handleUnarchive = () => stores.file.unarchiveFiles({ fileIds: stores.file.selectedIds });

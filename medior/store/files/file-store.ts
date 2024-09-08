@@ -40,7 +40,7 @@ export class FileStore extends ExtendedModel(_FileStore, {
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
   @modelAction
   addFileAfterIndex(file: ModelCreationData<File>, index: number) {
-    this.files.splice(index + 1, 0, new File(file));
+    this.search.results.splice(index + 1, 0, new File(file));
   }
 
   @modelAction
@@ -48,11 +48,6 @@ export class FileStore extends ExtendedModel(_FileStore, {
     this.idsForConfirmDelete = [...ids];
     if (this.listByIds(ids).some((f) => f.isArchived)) this.isConfirmDeleteOpen = true;
     else this.deleteFiles();
-  }
-
-  @modelAction
-  overwrite(files: ModelCreationData<File>[]) {
-    this.files = files.map((f) => new File(f));
   }
 
   @modelAction
@@ -210,10 +205,7 @@ export class FileStore extends ExtendedModel(_FileStore, {
 
   @modelFlow
   refreshSelectedFiles = asyncAction(async () => {
-    const filesRes = await this.loadFiles({
-      filter: { id: this.selectedIds },
-      withOverwrite: false,
-    });
+    const filesRes = await trpc.listFiles.mutate({ args: { filter: { id: this.selectedIds } } });
     if (!filesRes?.success) throw new Error("Failed to load files");
 
     makeQueue({
@@ -253,18 +245,18 @@ export class FileStore extends ExtendedModel(_FileStore, {
   }
 
   getById(id: string) {
-    return this.files.find((f) => f.id === id);
+    return this.search.results.find((f) => f.id === id);
   }
 
   listByHash(hash: string) {
-    return this.files.filter((f) => f.hash === hash);
+    return this.search.results.filter((f) => f.hash === hash);
   }
 
   listByIds(ids: string[]) {
-    return this.files.filter((f) => ids.includes(f.id));
+    return this.search.results.filter((f) => ids.includes(f.id));
   }
 
   listByTagId(tagId: string) {
-    return this.files.filter((f) => f.tagIds.includes(tagId));
+    return this.search.results.filter((f) => f.tagIds.includes(tagId));
   }
 }

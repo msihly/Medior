@@ -27,6 +27,7 @@ export type CreateFileFilterPipelineInput = {
   excludedFileIds?: string[];
   excludedTagIds?: string[];
   hasDiffParams?: boolean;
+  ids?: string[];
   isArchived?: boolean;
   maxHeight?: number;
   maxWidth?: number;
@@ -44,6 +45,8 @@ export type CreateFileFilterPipelineInput = {
 
 export const createFileFilterPipeline = (args: CreateFileFilterPipelineInput) => {
   const $match: FilterQuery<models.FileSchema> = {};
+
+  if (args.ids) setObj($match, ["_id", "$in"], objectIds(args.ids));
 
   if (!isDeepEqual(args.dateCreatedEnd, ""))
     setObj($match, ["dateCreated", "$lte"], args.dateCreatedEnd);
@@ -77,7 +80,7 @@ export const createFileFilterPipeline = (args: CreateFileFilterPipelineInput) =>
       ["ext", "$nin"],
       Object.entries({ ...args.selectedImageTypes, ...args.selectedVideoTypes })
         .filter(([, val]) => !val)
-        .map(([ext]) => ext),
+        .map(([ext]) => `.${ext}`),
     );
   if (args.excludedDescTagIds?.length)
     setObj($match, ["tagIdsWithAncestors", "$nin"], objectIds(args.excludedDescTagIds));
@@ -155,6 +158,7 @@ export type CreateFileCollectionFilterPipelineInput = {
   excludedDescTagIds?: string[];
   excludedTagIds?: string[];
   fileCount?: { logOp: LogicalOp | ""; value: number };
+  ids?: string[];
   optionalTagIds?: string[];
   rating?: { logOp: LogicalOp | ""; value: number };
   requiredDescTagIds?: string[];
@@ -167,6 +171,8 @@ export const createFileCollectionFilterPipeline = (
   args: CreateFileCollectionFilterPipelineInput,
 ) => {
   const $match: FilterQuery<models.FileCollectionSchema> = {};
+
+  if (args.ids) setObj($match, ["_id", "$in"], objectIds(args.ids));
 
   if (!isDeepEqual(args.dateCreatedEnd, ""))
     setObj($match, ["dateCreated", "$lte"], args.dateCreatedEnd);
@@ -260,6 +266,7 @@ export type CreateTagFilterPipelineInput = {
   dateModifiedStart?: string;
   excludedDescTagIds?: string[];
   excludedTagIds?: string[];
+  ids?: string[];
   label?: string;
   optionalTagIds?: string[];
   regExMode?: "any" | "hasRegEx" | "hasNoRegEx";
@@ -270,6 +277,8 @@ export type CreateTagFilterPipelineInput = {
 
 export const createTagFilterPipeline = (args: CreateTagFilterPipelineInput) => {
   const $match: FilterQuery<models.TagSchema> = {};
+
+  if (args.ids) setObj($match, ["_id", "$in"], objectIds(args.ids));
 
   if (!isDeepEqual(args.alias, ""))
     setObj($match, ["aliases", "$elemMatch", "$regex"], new RegExp(args.alias, "i"));

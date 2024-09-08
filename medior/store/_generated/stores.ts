@@ -14,14 +14,18 @@ import {
   modelFlow,
   prop,
 } from "mobx-keystone";
-import * as db from "medior/database";
+import * as models from "medior/_generated/models";
 import * as Types from "medior/database/types";
-import { SortValue } from "medior/store/_generated/sort-options";
 import {
+  // @ts-ignore
   FileCollection,
+  // @ts-ignore
   FileImportBatch,
+  // @ts-ignore
   File,
+  // @ts-ignore
   Tag,
+  // @ts-ignore
   FileImport,
   RootStore,
   TagOption,
@@ -52,7 +56,7 @@ export class _FileSearch extends Model({
   pageCount: prop<number>(1).withSetter(),
   pageSize: prop<number>(() => getConfig().file.searchFileCount).withSetter(),
   rating: prop<{ logOp: LogicalOp | ""; value: number }>(() => ({ logOp: "", value: 0 })),
-  results: prop<db.FileSchema[]>(() => []).withSetter(),
+  results: prop<File[]>(() => []).withSetter(),
   selectedImageTypes: prop<Types.SelectedImageTypes>(
     () =>
       Object.fromEntries(
@@ -148,13 +152,14 @@ export class _FileSearch extends Model({
   );
 
   @modelFlow
-  loadFiltered = asyncAction(async ({ page }: { page?: number } = {}) => {
+  loadFiltered = asyncAction(async ({ ids, page }: { ids?: string[]; page?: number } = {}) => {
     const debug = false;
     const { perfLog, perfLogTotal } = makePerfLog("[FileSearch]");
     this.setIsLoading(true);
 
     const res = await trpc.listFilteredFiles.mutate({
       ...this.getFilterProps(),
+      ids,
       page: page ?? this.page,
       pageSize: this.pageSize,
     });
@@ -163,7 +168,7 @@ export class _FileSearch extends Model({
     const { items, pageCount } = res.data;
     if (debug) perfLog(`Loaded ${items.length} items`);
 
-    this.setResults(items);
+    this.setResults(items.map((item) => new File(item)));
     if (debug) perfLog("Overwrite and re-render");
 
     this.setPageCount(pageCount);
@@ -249,7 +254,7 @@ export class _FileCollectionSearch extends Model({
   pageCount: prop<number>(1).withSetter(),
   pageSize: prop<number>(() => getConfig().collection.searchFileCount).withSetter(),
   rating: prop<{ logOp: LogicalOp | ""; value: number }>(() => ({ logOp: "", value: 0 })),
-  results: prop<db.FileCollectionSchema[]>(() => []).withSetter(),
+  results: prop<FileCollection[]>(() => []).withSetter(),
   sortValue: prop<SortMenuProps["value"]>(
     () => getConfig().collection.managerSearchSort,
   ).withSetter(),
@@ -314,13 +319,14 @@ export class _FileCollectionSearch extends Model({
   );
 
   @modelFlow
-  loadFiltered = asyncAction(async ({ page }: { page?: number } = {}) => {
+  loadFiltered = asyncAction(async ({ ids, page }: { ids?: string[]; page?: number } = {}) => {
     const debug = false;
     const { perfLog, perfLogTotal } = makePerfLog("[FileCollectionSearch]");
     this.setIsLoading(true);
 
     const res = await trpc.listFilteredFileCollections.mutate({
       ...this.getFilterProps(),
+      ids,
       page: page ?? this.page,
       pageSize: this.pageSize,
     });
@@ -329,7 +335,7 @@ export class _FileCollectionSearch extends Model({
     const { items, pageCount } = res.data;
     if (debug) perfLog(`Loaded ${items.length} items`);
 
-    this.setResults(items);
+    this.setResults(items.map((item) => new FileCollection(item)));
     if (debug) perfLog("Overwrite and re-render");
 
     this.setPageCount(pageCount);
@@ -387,7 +393,7 @@ export class _TagSearch extends Model({
   pageCount: prop<number>(1).withSetter(),
   pageSize: prop<number>(() => getConfig().tags.searchTagCount).withSetter(),
   regExMode: prop<"any" | "hasRegEx" | "hasNoRegEx">("any").withSetter(),
-  results: prop<db.TagSchema[]>(() => []).withSetter(),
+  results: prop<Tag[]>(() => []).withSetter(),
   sortValue: prop<SortMenuProps["value"]>(() => getConfig().tags.managerSearchSort).withSetter(),
   tags: prop<TagOption[]>(() => []).withSetter(),
 }) {
@@ -440,13 +446,14 @@ export class _TagSearch extends Model({
   );
 
   @modelFlow
-  loadFiltered = asyncAction(async ({ page }: { page?: number } = {}) => {
+  loadFiltered = asyncAction(async ({ ids, page }: { ids?: string[]; page?: number } = {}) => {
     const debug = false;
     const { perfLog, perfLogTotal } = makePerfLog("[TagSearch]");
     this.setIsLoading(true);
 
     const res = await trpc.listFilteredTags.mutate({
       ...this.getFilterProps(),
+      ids,
       page: page ?? this.page,
       pageSize: this.pageSize,
     });
@@ -455,7 +462,7 @@ export class _TagSearch extends Model({
     const { items, pageCount } = res.data;
     if (debug) perfLog(`Loaded ${items.length} items`);
 
-    this.setResults(items);
+    this.setResults(items.map((item) => new Tag(item)));
     if (debug) perfLog("Overwrite and re-render");
 
     this.setPageCount(pageCount);
@@ -519,34 +526,13 @@ export class _DeletedFile extends Model({
   }
 }
 
-@model("medior/_DeletedFileStore")
+@model("aio/_DeletedFileStore")
 export class _DeletedFileStore extends Model({
-  deletedFiles: prop<_DeletedFile[]>(() => []),
-  isLoading: prop<boolean>(true).withSetter(),
-  page: prop<number>(1).withSetter(),
-  pageCount: prop<number>(1).withSetter(),
-  pageSize: prop<number>(undefined).withSetter(),
-  sortValue: prop<SortValue>(() => ({ isDesc: true, key: "hash" })).withSetter(),
+  isLoading: prop<boolean>(false).withSetter(),
 }) {
-  /* ---------------------------- STANDARD ACTIONS ---------------------------- */
-  @modelAction
-  _addDeletedFile(deletedFile: ModelCreationData<_DeletedFile>) {
-    this.deletedFiles.push(new _DeletedFile(deletedFile));
-  }
-
-  @modelAction
-  _deleteDeletedFile(id: string) {
-    this.deletedFiles = this.deletedFiles.filter((d) => d.id !== id);
-  }
-
-  @modelAction
-  overwriteDeletedFiles(deletedFiles: ModelCreationData<_DeletedFile>[]) {
-    this.deletedFiles = deletedFiles.map((d) => new _DeletedFile(d));
-  }
-
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */
   @modelFlow
-  createDeletedFile = asyncAction(async (args: db.CreateDeletedFileInput) => {
+  createDeletedFile = asyncAction(async (args: Types.CreateDeletedFileInput) => {
     this.setIsLoading(true);
     const res = await trpc.createDeletedFile.mutate({ args });
     this.setIsLoading(false);
@@ -555,7 +541,7 @@ export class _DeletedFileStore extends Model({
   });
 
   @modelFlow
-  deleteDeletedFile = asyncAction(async (args: db.DeleteDeletedFileInput) => {
+  deleteDeletedFile = asyncAction(async (args: Types.DeleteDeletedFileInput) => {
     this.setIsLoading(true);
     const res = await trpc.deleteDeletedFile.mutate({ args });
     this.setIsLoading(false);
@@ -564,40 +550,13 @@ export class _DeletedFileStore extends Model({
   });
 
   @modelFlow
-  loadDeletedFiles = asyncAction(
-    async ({ withOverwrite = true, ...args }: db._ListDeletedFilesInput = {}) => {
-      this.setIsLoading(true);
-      const res = await trpc._listDeletedFiles.mutate({
-        args: {
-          filter: JSON.parse(JSON.stringify(args.filter)),
-          page: args.page ?? this.page,
-          pageSize: args.pageSize ?? this.pageSize,
-          sort: args.sort ?? { [this.sortValue.key]: this.sortValue.isDesc ? "desc" : "asc" },
-        },
-      });
-      this.setIsLoading(false);
-      if (res.error) throw new Error(res.error);
-      if (withOverwrite) {
-        this.overwriteDeletedFiles(res.data.items as ModelCreationData<_DeletedFile>[]);
-        this.setPageCount(res.data.pageCount);
-      }
-      return res.data;
-    },
-  );
-
-  @modelFlow
-  updateDeletedFile = asyncAction(async (args: db.UpdateDeletedFileInput) => {
+  updateDeletedFile = asyncAction(async (args: Types.UpdateDeletedFileInput) => {
     this.setIsLoading(true);
     const res = await trpc.updateDeletedFile.mutate({ args });
     this.setIsLoading(false);
     if (res.error) throw new Error(res.error);
     return res.data;
   });
-
-  /* ----------------------------- DYNAMIC GETTERS ---------------------------- */
-  getDeletedFile(id: string) {
-    return this.deletedFiles.find((d) => d.id === id);
-  }
 }
 
 /* --------------------------------------------------------------------------- */
@@ -622,34 +581,13 @@ export class _FileCollection extends Model({
   }
 }
 
-@model("medior/_FileCollectionStore")
+@model("aio/_FileCollectionStore")
 export class _FileCollectionStore extends Model({
-  fileCollections: prop<FileCollection[]>(() => []),
-  isLoading: prop<boolean>(true).withSetter(),
-  page: prop<number>(1).withSetter(),
-  pageCount: prop<number>(1).withSetter(),
-  pageSize: prop<number>(50).withSetter(),
-  sortValue: prop<SortValue>(() => ({ isDesc: true, key: "dateCreated" })).withSetter(),
+  isLoading: prop<boolean>(false).withSetter(),
 }) {
-  /* ---------------------------- STANDARD ACTIONS ---------------------------- */
-  @modelAction
-  _addFileCollection(fileCollection: ModelCreationData<FileCollection>) {
-    this.fileCollections.push(new FileCollection(fileCollection));
-  }
-
-  @modelAction
-  _deleteFileCollection(id: string) {
-    this.fileCollections = this.fileCollections.filter((d) => d.id !== id);
-  }
-
-  @modelAction
-  overwriteFileCollections(fileCollections: ModelCreationData<FileCollection>[]) {
-    this.fileCollections = fileCollections.map((d) => new FileCollection(d));
-  }
-
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */
   @modelFlow
-  createFileCollection = asyncAction(async (args: db.CreateFileCollectionInput) => {
+  createFileCollection = asyncAction(async (args: Types.CreateFileCollectionInput) => {
     this.setIsLoading(true);
     const res = await trpc.createFileCollection.mutate({ args });
     this.setIsLoading(false);
@@ -658,7 +596,7 @@ export class _FileCollectionStore extends Model({
   });
 
   @modelFlow
-  deleteFileCollection = asyncAction(async (args: db.DeleteFileCollectionInput) => {
+  deleteFileCollection = asyncAction(async (args: Types.DeleteFileCollectionInput) => {
     this.setIsLoading(true);
     const res = await trpc.deleteFileCollection.mutate({ args });
     this.setIsLoading(false);
@@ -667,40 +605,13 @@ export class _FileCollectionStore extends Model({
   });
 
   @modelFlow
-  loadFileCollections = asyncAction(
-    async ({ withOverwrite = true, ...args }: db.ListFileCollectionsInput = {}) => {
-      this.setIsLoading(true);
-      const res = await trpc.listFileCollections.mutate({
-        args: {
-          filter: JSON.parse(JSON.stringify(args.filter)),
-          page: args.page ?? this.page,
-          pageSize: args.pageSize ?? this.pageSize,
-          sort: args.sort ?? { [this.sortValue.key]: this.sortValue.isDesc ? "desc" : "asc" },
-        },
-      });
-      this.setIsLoading(false);
-      if (res.error) throw new Error(res.error);
-      if (withOverwrite) {
-        this.overwriteFileCollections(res.data.items as ModelCreationData<FileCollection>[]);
-        this.setPageCount(res.data.pageCount);
-      }
-      return res.data;
-    },
-  );
-
-  @modelFlow
-  updateFileCollection = asyncAction(async (args: db.UpdateFileCollectionInput) => {
+  updateFileCollection = asyncAction(async (args: Types.UpdateFileCollectionInput) => {
     this.setIsLoading(true);
     const res = await trpc.updateFileCollection.mutate({ args });
     this.setIsLoading(false);
     if (res.error) throw new Error(res.error);
     return res.data;
   });
-
-  /* ----------------------------- DYNAMIC GETTERS ---------------------------- */
-  getFileCollection(id: string) {
-    return this.fileCollections.find((d) => d.id === id);
-  }
 }
 
 /* --------------------------------------------------------------------------- */
@@ -746,34 +657,13 @@ export class _FileImport extends Model({
   }
 }
 
-@model("medior/_FileImportBatchStore")
+@model("aio/_FileImportBatchStore")
 export class _FileImportBatchStore extends Model({
-  fileImportBatchs: prop<FileImportBatch[]>(() => []),
-  isLoading: prop<boolean>(true).withSetter(),
-  page: prop<number>(1).withSetter(),
-  pageCount: prop<number>(1).withSetter(),
-  pageSize: prop<number>(undefined).withSetter(),
-  sortValue: prop<SortValue>(() => ({ isDesc: true, key: "dateCreated" })).withSetter(),
+  isLoading: prop<boolean>(false).withSetter(),
 }) {
-  /* ---------------------------- STANDARD ACTIONS ---------------------------- */
-  @modelAction
-  _addFileImportBatch(fileImportBatch: ModelCreationData<FileImportBatch>) {
-    this.fileImportBatchs.push(new FileImportBatch(fileImportBatch));
-  }
-
-  @modelAction
-  _deleteFileImportBatch(id: string) {
-    this.fileImportBatchs = this.fileImportBatchs.filter((d) => d.id !== id);
-  }
-
-  @modelAction
-  overwriteFileImportBatchs(fileImportBatchs: ModelCreationData<FileImportBatch>[]) {
-    this.fileImportBatchs = fileImportBatchs.map((d) => new FileImportBatch(d));
-  }
-
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */
   @modelFlow
-  createFileImportBatch = asyncAction(async (args: db.CreateFileImportBatchInput) => {
+  createFileImportBatch = asyncAction(async (args: Types.CreateFileImportBatchInput) => {
     this.setIsLoading(true);
     const res = await trpc.createFileImportBatch.mutate({ args });
     this.setIsLoading(false);
@@ -782,7 +672,7 @@ export class _FileImportBatchStore extends Model({
   });
 
   @modelFlow
-  deleteFileImportBatch = asyncAction(async (args: db.DeleteFileImportBatchInput) => {
+  deleteFileImportBatch = asyncAction(async (args: Types.DeleteFileImportBatchInput) => {
     this.setIsLoading(true);
     const res = await trpc.deleteFileImportBatch.mutate({ args });
     this.setIsLoading(false);
@@ -791,40 +681,13 @@ export class _FileImportBatchStore extends Model({
   });
 
   @modelFlow
-  loadFileImportBatchs = asyncAction(
-    async ({ withOverwrite = true, ...args }: db.ListFileImportBatchsInput = {}) => {
-      this.setIsLoading(true);
-      const res = await trpc.listFileImportBatchs.mutate({
-        args: {
-          filter: JSON.parse(JSON.stringify(args.filter)),
-          page: args.page ?? this.page,
-          pageSize: args.pageSize ?? this.pageSize,
-          sort: args.sort ?? { [this.sortValue.key]: this.sortValue.isDesc ? "desc" : "asc" },
-        },
-      });
-      this.setIsLoading(false);
-      if (res.error) throw new Error(res.error);
-      if (withOverwrite) {
-        this.overwriteFileImportBatchs(res.data.items as ModelCreationData<FileImportBatch>[]);
-        this.setPageCount(res.data.pageCount);
-      }
-      return res.data;
-    },
-  );
-
-  @modelFlow
-  updateFileImportBatch = asyncAction(async (args: db.UpdateFileImportBatchInput) => {
+  updateFileImportBatch = asyncAction(async (args: Types.UpdateFileImportBatchInput) => {
     this.setIsLoading(true);
     const res = await trpc.updateFileImportBatch.mutate({ args });
     this.setIsLoading(false);
     if (res.error) throw new Error(res.error);
     return res.data;
   });
-
-  /* ----------------------------- DYNAMIC GETTERS ---------------------------- */
-  getFileImportBatch(id: string) {
-    return this.fileImportBatchs.find((d) => d.id === id);
-  }
 }
 
 /* --------------------------------------------------------------------------- */
@@ -859,34 +722,13 @@ export class _File extends Model({
   }
 }
 
-@model("medior/_FileStore")
+@model("aio/_FileStore")
 export class _FileStore extends Model({
-  files: prop<File[]>(() => []),
-  isLoading: prop<boolean>(true).withSetter(),
-  page: prop<number>(1).withSetter(),
-  pageCount: prop<number>(1).withSetter(),
-  pageSize: prop<number>(undefined).withSetter(),
-  sortValue: prop<SortValue>(() => ({ isDesc: true, key: "dateCreated" })).withSetter(),
+  isLoading: prop<boolean>(false).withSetter(),
 }) {
-  /* ---------------------------- STANDARD ACTIONS ---------------------------- */
-  @modelAction
-  _addFile(file: ModelCreationData<File>) {
-    this.files.push(new File(file));
-  }
-
-  @modelAction
-  _deleteFile(id: string) {
-    this.files = this.files.filter((d) => d.id !== id);
-  }
-
-  @modelAction
-  overwriteFiles(files: ModelCreationData<File>[]) {
-    this.files = files.map((d) => new File(d));
-  }
-
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */
   @modelFlow
-  createFile = asyncAction(async (args: db.CreateFileInput) => {
+  createFile = asyncAction(async (args: Types.CreateFileInput) => {
     this.setIsLoading(true);
     const res = await trpc.createFile.mutate({ args });
     this.setIsLoading(false);
@@ -895,7 +737,7 @@ export class _FileStore extends Model({
   });
 
   @modelFlow
-  deleteFile = asyncAction(async (args: db.DeleteFileInput) => {
+  deleteFile = asyncAction(async (args: Types.DeleteFileInput) => {
     this.setIsLoading(true);
     const res = await trpc.deleteFile.mutate({ args });
     this.setIsLoading(false);
@@ -904,38 +746,13 @@ export class _FileStore extends Model({
   });
 
   @modelFlow
-  loadFiles = asyncAction(async ({ withOverwrite = true, ...args }: db.ListFilesInput = {}) => {
-    this.setIsLoading(true);
-    const res = await trpc.listFiles.mutate({
-      args: {
-        filter: JSON.parse(JSON.stringify(args.filter)),
-        page: args.page ?? this.page,
-        pageSize: args.pageSize ?? this.pageSize,
-        sort: args.sort ?? { [this.sortValue.key]: this.sortValue.isDesc ? "desc" : "asc" },
-      },
-    });
-    this.setIsLoading(false);
-    if (res.error) throw new Error(res.error);
-    if (withOverwrite) {
-      this.overwriteFiles(res.data.items as ModelCreationData<File>[]);
-      this.setPageCount(res.data.pageCount);
-    }
-    return res.data;
-  });
-
-  @modelFlow
-  updateFile = asyncAction(async (args: db._UpdateFileInput) => {
+  updateFile = asyncAction(async (args: Types._UpdateFileInput) => {
     this.setIsLoading(true);
     const res = await trpc._updateFile.mutate({ args });
     this.setIsLoading(false);
     if (res.error) throw new Error(res.error);
     return res.data;
   });
-
-  /* ----------------------------- DYNAMIC GETTERS ---------------------------- */
-  getFile(id: string) {
-    return this.files.find((d) => d.id === id);
-  }
 }
 
 /* --------------------------------------------------------------------------- */
@@ -954,34 +771,13 @@ export class _RegExMap extends Model({
   }
 }
 
-@model("medior/_RegExMapStore")
+@model("aio/_RegExMapStore")
 export class _RegExMapStore extends Model({
-  regExMaps: prop<_RegExMap[]>(() => []),
-  isLoading: prop<boolean>(true).withSetter(),
-  page: prop<number>(1).withSetter(),
-  pageCount: prop<number>(1).withSetter(),
-  pageSize: prop<number>(undefined).withSetter(),
-  sortValue: prop<SortValue>(() => ({ isDesc: false, key: "regEx" })).withSetter(),
+  isLoading: prop<boolean>(false).withSetter(),
 }) {
-  /* ---------------------------- STANDARD ACTIONS ---------------------------- */
-  @modelAction
-  _addRegExMap(regExMap: ModelCreationData<_RegExMap>) {
-    this.regExMaps.push(new _RegExMap(regExMap));
-  }
-
-  @modelAction
-  _deleteRegExMap(id: string) {
-    this.regExMaps = this.regExMaps.filter((d) => d.id !== id);
-  }
-
-  @modelAction
-  overwriteRegExMaps(regExMaps: ModelCreationData<_RegExMap>[]) {
-    this.regExMaps = regExMaps.map((d) => new _RegExMap(d));
-  }
-
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */
   @modelFlow
-  createRegExMap = asyncAction(async (args: db.CreateRegExMapInput) => {
+  createRegExMap = asyncAction(async (args: Types.CreateRegExMapInput) => {
     this.setIsLoading(true);
     const res = await trpc.createRegExMap.mutate({ args });
     this.setIsLoading(false);
@@ -990,7 +786,7 @@ export class _RegExMapStore extends Model({
   });
 
   @modelFlow
-  deleteRegExMap = asyncAction(async (args: db.DeleteRegExMapInput) => {
+  deleteRegExMap = asyncAction(async (args: Types.DeleteRegExMapInput) => {
     this.setIsLoading(true);
     const res = await trpc.deleteRegExMap.mutate({ args });
     this.setIsLoading(false);
@@ -999,40 +795,13 @@ export class _RegExMapStore extends Model({
   });
 
   @modelFlow
-  loadRegExMaps = asyncAction(
-    async ({ withOverwrite = true, ...args }: db.ListRegExMapsInput = {}) => {
-      this.setIsLoading(true);
-      const res = await trpc.listRegExMaps.mutate({
-        args: {
-          filter: JSON.parse(JSON.stringify(args.filter)),
-          page: args.page ?? this.page,
-          pageSize: args.pageSize ?? this.pageSize,
-          sort: args.sort ?? { [this.sortValue.key]: this.sortValue.isDesc ? "desc" : "asc" },
-        },
-      });
-      this.setIsLoading(false);
-      if (res.error) throw new Error(res.error);
-      if (withOverwrite) {
-        this.overwriteRegExMaps(res.data.items as ModelCreationData<_RegExMap>[]);
-        this.setPageCount(res.data.pageCount);
-      }
-      return res.data;
-    },
-  );
-
-  @modelFlow
-  updateRegExMap = asyncAction(async (args: db.UpdateRegExMapInput) => {
+  updateRegExMap = asyncAction(async (args: Types.UpdateRegExMapInput) => {
     this.setIsLoading(true);
     const res = await trpc.updateRegExMap.mutate({ args });
     this.setIsLoading(false);
     if (res.error) throw new Error(res.error);
     return res.data;
   });
-
-  /* ----------------------------- DYNAMIC GETTERS ---------------------------- */
-  getRegExMap(id: string) {
-    return this.regExMaps.find((d) => d.id === id);
-  }
 }
 
 /* --------------------------------------------------------------------------- */
@@ -1050,7 +819,7 @@ export class _Tag extends Model({
   descendantIds: prop<string[]>(() => []),
   label: prop<string>(),
   parentIds: prop<string[]>(() => []),
-  regExMap: prop<db.RegExMapSchema>(null),
+  regExMap: prop<models.RegExMapSchema>(null),
   thumbPaths: prop<string[]>(),
 }) {
   @modelAction
@@ -1059,34 +828,13 @@ export class _Tag extends Model({
   }
 }
 
-@model("medior/_TagStore")
+@model("aio/_TagStore")
 export class _TagStore extends Model({
-  tags: prop<Tag[]>(() => []),
-  isLoading: prop<boolean>(true).withSetter(),
-  page: prop<number>(1).withSetter(),
-  pageCount: prop<number>(1).withSetter(),
-  pageSize: prop<number>(undefined).withSetter(),
-  sortValue: prop<SortValue>(() => ({ isDesc: false, key: "label" })).withSetter(),
+  isLoading: prop<boolean>(false).withSetter(),
 }) {
-  /* ---------------------------- STANDARD ACTIONS ---------------------------- */
-  @modelAction
-  _addTag(tag: ModelCreationData<Tag>) {
-    this.tags.push(new Tag(tag));
-  }
-
-  @modelAction
-  _deleteTag(id: string) {
-    this.tags = this.tags.filter((d) => d.id !== id);
-  }
-
-  @modelAction
-  overwriteTags(tags: ModelCreationData<Tag>[]) {
-    this.tags = tags.map((d) => new Tag(d));
-  }
-
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */
   @modelFlow
-  createTag = asyncAction(async (args: db._CreateTagInput) => {
+  createTag = asyncAction(async (args: Types._CreateTagInput) => {
     this.setIsLoading(true);
     const res = await trpc._createTag.mutate({ args });
     this.setIsLoading(false);
@@ -1095,7 +843,7 @@ export class _TagStore extends Model({
   });
 
   @modelFlow
-  deleteTag = asyncAction(async (args: db._DeleteTagInput) => {
+  deleteTag = asyncAction(async (args: Types._DeleteTagInput) => {
     this.setIsLoading(true);
     const res = await trpc._deleteTag.mutate({ args });
     this.setIsLoading(false);
@@ -1104,36 +852,11 @@ export class _TagStore extends Model({
   });
 
   @modelFlow
-  loadTags = asyncAction(async ({ withOverwrite = true, ...args }: db._ListTagsInput = {}) => {
-    this.setIsLoading(true);
-    const res = await trpc._listTags.mutate({
-      args: {
-        filter: JSON.parse(JSON.stringify(args.filter)),
-        page: args.page ?? this.page,
-        pageSize: args.pageSize ?? this.pageSize,
-        sort: args.sort ?? { [this.sortValue.key]: this.sortValue.isDesc ? "desc" : "asc" },
-      },
-    });
-    this.setIsLoading(false);
-    if (res.error) throw new Error(res.error);
-    if (withOverwrite) {
-      this.overwriteTags(res.data.items as ModelCreationData<Tag>[]);
-      this.setPageCount(res.data.pageCount);
-    }
-    return res.data;
-  });
-
-  @modelFlow
-  updateTag = asyncAction(async (args: db.UpdateTagInput) => {
+  updateTag = asyncAction(async (args: Types.UpdateTagInput) => {
     this.setIsLoading(true);
     const res = await trpc.updateTag.mutate({ args });
     this.setIsLoading(false);
     if (res.error) throw new Error(res.error);
     return res.data;
   });
-
-  /* ----------------------------- DYNAMIC GETTERS ---------------------------- */
-  getTag(id: string) {
-    return this.tags.find((d) => d.id === id);
-  }
 }

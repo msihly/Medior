@@ -1,10 +1,11 @@
 import path from "path";
 import { shell } from "@electron/remote";
 import { ReactNode } from "react";
-import { File, observer, useStores } from "medior/store";
+import { observer, useStores } from "medior/store";
 import { ContextMenu as ContextMenuBase, ViewProps } from "medior/components";
 import { copyToClipboard } from "medior/utils";
 import { toast } from "react-toastify";
+import { FileSchema } from "medior/database";
 
 const DEFAULT_OPTIONS = {
   collections: true,
@@ -21,7 +22,7 @@ type Options = Partial<typeof DEFAULT_OPTIONS>;
 export interface ContextMenuProps extends ViewProps {
   children?: ReactNode | ReactNode[];
   disabled?: boolean;
-  file: File;
+  file: FileSchema;
   options?: Options;
 }
 

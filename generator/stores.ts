@@ -1,7 +1,7 @@
 import { getActions } from "./actions";
 import { makeSectionComment } from "./utils";
 import { MODEL_DEFS } from "./models";
-import { camelCase, capitalize } from "medior/utils/formatting";
+import { capitalize } from "medior/utils/formatting";
 
 /* -------------------------------------------------------------------------- */
 /*                                 MODEL DEFS                                 */
@@ -36,7 +36,7 @@ const makeCommonProps = (args: { defaultPageSize: string; defaultSort: string; n
       defaultValue: "() => []",
       name: "results",
       notFilterProp: true,
-      type: `db.${args.name}Schema[]`,
+      type: `${args.name}[]`,
     },
     {
       defaultValue: args.defaultSort,
@@ -196,7 +196,7 @@ export const MODEL_SEARCH_STORES: ModelSearchStore[] = [
             condition: "true",
             objPath: ["ext", "$nin"],
             objValue:
-              "Object.entries({ ...args.selectedImageTypes, ...args.selectedVideoTypes }).filter(([, val]) => !val).map(([ext]) => ext)",
+              "Object.entries({ ...args.selectedImageTypes, ...args.selectedVideoTypes }).filter(([, val]) => !val).map(([ext]) => `.${ext}`)",
             name: "selectedImageTypes",
             type: "Types.SelectedImageTypes",
           },
@@ -302,39 +302,15 @@ const createSchemaItem = (storeName: string, props: ModelDefProperty[]) => {
 
 const createSchemaStore = async (modelDef: ModelDef) => {
   const upperName = modelDef.name;
-  const lowerName = camelCase(upperName);
-  const itemPrefix = modelDef.withStore ? "" : "_";
-  const itemModelName = `${itemPrefix}${upperName}`;
   const schemaStoreMap = await makeSchemaStoreMap(upperName);
 
-  return `@model("medior/_${upperName}Store")
+  return `@model("aio/_${upperName}Store")
     export class _${upperName}Store extends Model({
-      ${lowerName}s: prop<${itemModelName}[]>(() => []),
-      isLoading: prop<boolean>(true).withSetter(),
-      page: prop<number>(1).withSetter(),
-      pageCount: prop<number>(1).withSetter(),
-      pageSize: prop<number>(${modelDef.defaultPageSize}).withSetter(),
-      sortValue: prop<SortValue>(() => (${JSON.stringify(modelDef.defaultSort)})).withSetter(),
+      isLoading: prop<boolean>(false).withSetter(),
     }) {
-      /* ---------------------------- STANDARD ACTIONS ---------------------------- */
-      @modelAction
-      _add${upperName}(${lowerName}: ModelCreationData<${itemModelName}>) {
-        this.${lowerName}s.push(new ${itemModelName}(${lowerName}));
-      }
-
-      @modelAction
-      _delete${upperName}(id: string) {
-        this.${lowerName}s = this.${lowerName}s.filter((d) => d.id !== id);
-      }
-
-      @modelAction
-      overwrite${upperName}s(${lowerName}s: ModelCreationData<${itemModelName}>[]) {
-        this.${lowerName}s = ${lowerName}s.map((d) => new ${itemModelName}(d));
-      }
-
       /* ------------------------------ ASYNC ACTIONS ----------------------------- */
       @modelFlow
-      create${upperName} = asyncAction(async (args: db.${schemaStoreMap.create.typeName}) => {
+      create${upperName} = asyncAction(async (args: Types.${schemaStoreMap.create.typeName}) => {
         this.setIsLoading(true);
         const res = await trpc.${schemaStoreMap.create.fnName}.mutate({ args });
         this.setIsLoading(false);
@@ -343,7 +319,7 @@ const createSchemaStore = async (modelDef: ModelDef) => {
       });
 
       @modelFlow
-      delete${upperName} = asyncAction(async (args: db.${schemaStoreMap.delete.typeName}) => {
+      delete${upperName} = asyncAction(async (args: Types.${schemaStoreMap.delete.typeName}) => {
         this.setIsLoading(true);
         const res = await trpc.${schemaStoreMap.delete.fnName}.mutate({ args });
         this.setIsLoading(false);
@@ -352,38 +328,13 @@ const createSchemaStore = async (modelDef: ModelDef) => {
       });
 
       @modelFlow
-      load${upperName}s = asyncAction(async ({ withOverwrite = true, ...args }: db.${schemaStoreMap.list.typeName} = {}) => {
-        this.setIsLoading(true);
-        const res = await trpc.${schemaStoreMap.list.fnName}.mutate({
-          args: {
-            filter: JSON.parse(JSON.stringify(args.filter)),
-            page: args.page ?? this.page,
-            pageSize: args.pageSize ?? this.pageSize,
-            sort: args.sort ?? { [this.sortValue.key]: this.sortValue.isDesc ? "desc" : "asc" },
-          },
-        });
-        this.setIsLoading(false);
-        if (res.error) throw new Error(res.error);
-        if (withOverwrite) {
-          this.overwrite${upperName}s(res.data.items as ModelCreationData<${itemModelName}>[]);
-          this.setPageCount(res.data.pageCount);
-        }
-        return res.data;
-      });
-
-      @modelFlow
-      update${upperName} = asyncAction(async (args: db.${schemaStoreMap.update.typeName}) => {
+      update${upperName} = asyncAction(async (args: Types.${schemaStoreMap.update.typeName}) => {
         this.setIsLoading(true);
         const res = await trpc.${schemaStoreMap.update.fnName}.mutate({ args });
         this.setIsLoading(false);
         if (res.error) throw new Error(res.error);
         return res.data;
       });
-
-      /* ----------------------------- DYNAMIC GETTERS ---------------------------- */
-      get${upperName}(id: string) {
-        return this.${lowerName}s.find((d) => d.id === id);
-      }
     }`;
 };
 
@@ -429,13 +380,14 @@ const createSearchStore = (def: ModelSearchStore) => {
       );
 
       @modelFlow
-      loadFiltered = asyncAction(async ({ page }: { page?: number } = {}) => {
+      loadFiltered = asyncAction(async ({ ids, page }: { ids?: string[]; page?: number } = {}) => {
         const debug = false;
         const { perfLog, perfLogTotal } = makePerfLog("[${def.name}Search]");
         this.setIsLoading(true);
 
         const res = await trpc.listFiltered${def.name}s.mutate({
           ...this.getFilterProps(),
+          ids,
           page: page ?? this.page,
           pageSize: this.pageSize,
         });
@@ -444,7 +396,7 @@ const createSearchStore = (def: ModelSearchStore) => {
         const { items, pageCount } = res.data;
         if (debug) perfLog(\`Loaded \${items.length} items\`);
 
-        this.setResults(items);
+        this.setResults(items.map((item) => new ${def.name}(item)));
         if (debug) perfLog("Overwrite and re-render");
 
         this.setPageCount(pageCount);
@@ -567,13 +519,14 @@ export const FILE_DEF_STORES: FileDef = {
       ...MODEL_DEFS.flatMap((d) => d.properties)
         .filter((p) => p.withStore)
         .map((p) => p.schemaToStoreName),
-    ].join(", ");
+    ]
+      .map((s) => `// @ts-ignore\n${s}`)
+      .join(",\n");
 
     let output = `import { computed } from "mobx";
     import { applySnapshot, getRootStore, getSnapshot, Model, model, modelAction, ModelCreationData, modelFlow, prop } from "mobx-keystone";
-    import * as db from "medior/database";
+    import * as models from "medior/_generated/models";
     import * as Types from "medior/database/types";
-    import { SortValue } from "medior/store/_generated/sort-options";
     import { ${storeImports}, RootStore, TagOption } from "medior/store";
     import { asyncAction } from "medior/store/utils";
     import { SortMenuProps } from "medior/components";

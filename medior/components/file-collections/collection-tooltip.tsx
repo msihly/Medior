@@ -2,7 +2,7 @@ import { Icon, TagChip, Text, Tooltip, View } from "medior/components";
 import { useState } from "react";
 import { toast } from "react-toastify";
 import { FileCollection, observer, useStores } from "medior/store";
-import { colors, dayjs, makeClasses } from "medior/utils";
+import { colors, dayjs, makeClasses, trpc } from "medior/utils";
 
 export interface CollectionTooltipProps {
   collection: FileCollection;
@@ -19,9 +19,8 @@ export const CollectionTooltip = observer(({ collection, onTagPress }: Collectio
 
   const handleOpen = async () => {
     try {
-      const res = await stores.file.loadFiles({
-        filter: { id: collection.fileIdIndexes.map(({ fileId }) => fileId) },
-        withOverwrite: false,
+      const res = await trpc.listFiles.mutate({
+        args: { filter: { id: collection.fileIdIndexes.map(({ fileId }) => fileId) } },
       });
       if (!res?.success) throw new Error(res.error);
 

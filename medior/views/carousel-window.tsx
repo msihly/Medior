@@ -1,6 +1,6 @@
 import { ipcRenderer } from "electron";
 import { WheelEvent, useEffect, useRef } from "react";
-import { observer, useStores } from "medior/store";
+import { File, observer, useStores } from "medior/store";
 import { PanzoomObject } from "@panzoom/panzoom";
 import {
   Carousel,
@@ -14,6 +14,7 @@ import {
   debounce,
   makeClasses,
   makePerfLog,
+  trpc,
   zoomScaleStepIn,
   zoomScaleStepOut,
 } from "medior/utils";
@@ -67,13 +68,15 @@ export const CarouselWindow = observer(() => {
 
           perfLog("Loading active file...");
 
-          await stores.file.loadFiles({ filter: { id: fileId } });
+          const res = await trpc.listFiles.mutate({ args: { filter: { id: fileId } } });
+          if (!res?.success) throw new Error(res.error);
+          stores.file.search.setResults(res.data.items.map((f) => new File(f)));
           stores.carousel.setActiveFileId(fileId);
 
           perfLog("Active file loaded. Loading carousel files and tags...");
 
           await Promise.all([
-            stores.file.loadFiles({ filter: { id: [fileId, ...selectedFileIds] } }),
+            stores.file.search.loadFiltered({ ids: [fileId, ...selectedFileIds] }),
             stores.tag.loadTags(),
           ]);
           stores.carousel.setSelectedFileIds(selectedFileIds);

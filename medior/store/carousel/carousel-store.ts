@@ -23,8 +23,6 @@ export class CarouselStore extends Model({
   @modelAction
   removeFiles(fileIds: string[]) {
     const stores = getRootStore<RootStore>(this);
-    if (!stores) throw new Error("Root store not found");
-
     const newSelectedIds = this.selectedFileIds.filter((id) => !fileIds.includes(id));
     if (!newSelectedIds.length) return remote.getCurrentWindow().close();
 
@@ -37,7 +35,7 @@ export class CarouselStore extends Model({
 
     this.setSelectedFileIds(newSelectedIds);
 
-    stores.file.loadFiles({ filter: { id: newSelectedIds } });
+    stores.file.search.loadFiltered({ ids: newSelectedIds });
   }
 
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */

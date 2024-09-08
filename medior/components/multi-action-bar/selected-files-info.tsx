@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { observer, useStores } from "medior/store";
 import { Chip, Text, Tooltip, View } from "medior/components";
-import { formatBytes, getConfig, makeClasses } from "medior/utils";
+import { formatBytes, getConfig, makeClasses, trpc } from "medior/utils";
 import { toast } from "react-toastify";
 
 export const SelectedFilesInfo = observer(() => {
@@ -15,9 +15,8 @@ export const SelectedFilesInfo = observer(() => {
 
   const handleOpen = async () => {
     try {
-      const res = await stores.file.loadFiles({
-        filter: { id: stores.file.selectedIds },
-        withOverwrite: false,
+      const res = await trpc.listFiles.mutate({
+        args: { filter: { id: stores.file.selectedIds } },
       });
       if (!res?.success) throw new Error(res.error);
       const selectedFiles = res.data.items;

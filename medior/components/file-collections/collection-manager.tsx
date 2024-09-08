@@ -43,7 +43,7 @@ export const FileCollectionManager = observer(() => {
 
   useDeepEffect(() => {
     collectionsRef.current?.scrollTo({ top: 0, behavior: "smooth" });
-  }, [page, stores.collection.manager.searchResults]);
+  }, [page, stores.collection.manager.search.results]);
 
   const handleAddToCollection = async () => {
     stores.collection.manager.setIsLoading(true);
@@ -146,9 +146,7 @@ export const FileCollectionManager = observer(() => {
               <View row flex={1} justify="space-between" padding={{ all: "0.3rem" }}>
                 <CollectionFilterMenu store={stores.collection.manager.search} />
 
-                <View>
-                  {/* TODO: Multi-actions; delete, refresh, select / deselect */}
-                </View>
+                <View>{/* TODO: Multi-actions; delete, refresh, select / deselect */}</View>
               </View>
             }
           >
@@ -157,7 +155,7 @@ export const FileCollectionManager = observer(() => {
             <CardGrid
               ref={collectionsRef}
               flex={1}
-              cards={stores.collection.manager.searchResults.map((c) => (
+              cards={stores.collection.manager.search.results.map((c) => (
                 <FileCollection key={c.id} id={c.id} height={FILE_CARD_HEIGHT} />
               ))}
             >

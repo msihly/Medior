@@ -2,7 +2,7 @@ import { getCurrentWebContents } from "@electron/remote";
 import { File, observer, useStores } from "medior/store";
 import { Icon, Text, View } from "medior/components";
 import { FileBase } from ".";
-import { colors, CSS, dayjs, openCarouselWindow } from "medior/utils";
+import { colors, CSS, dayjs, openCarouselWindow, trpc } from "medior/utils";
 
 interface FileCardProps {
   disabled?: boolean;
@@ -77,10 +77,7 @@ export const FileCard = observer(({ disabled, file, height, id, width }: FileCar
   };
 
   const loadSelectedFiles = async () => {
-    const res = await stores.file.loadFiles({
-      filter: { id: stores.file.selectedIds },
-      withOverwrite: false,
-    });
+    const res = await trpc.listFiles.mutate({ args: { filter: { id: stores.file.selectedIds } } });
     if (!res?.success) throw new Error(res.error);
     return res.data.items;
   };
@@ -117,6 +114,7 @@ export const FileCard = observer(({ disabled, file, height, id, width }: FileCar
                     margins={{ right: "0.3em" }}
                   />
                 )}
+
                 <Text>{file.ext}</Text>
               </View>
             }
