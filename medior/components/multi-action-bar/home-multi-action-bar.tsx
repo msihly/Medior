@@ -58,7 +58,7 @@ export const HomeMultiActionBar = observer(() => {
         </View>
 
         <View className={css.divisions}>
-          {stores.file.search.isArchiveOpen && (
+          {stores.file.search.isArchived && (
             <MultiActionButton
               name="Delete"
               tooltip="Delete"
@@ -69,9 +69,9 @@ export const HomeMultiActionBar = observer(() => {
           )}
 
           <MultiActionButton
-            name={stores.file.search.isArchiveOpen ? "Unarchive" : "Archive"}
-            tooltip={stores.file.search.isArchiveOpen ? "Unarchive" : "Archive"}
-            onClick={stores.file.search.isArchiveOpen ? handleUnarchive : handleDelete}
+            name={stores.file.search.isArchived ? "Unarchive" : "Archive"}
+            tooltip={stores.file.search.isArchived ? "Unarchive" : "Archive"}
+            onClick={stores.file.search.isArchived ? handleUnarchive : handleDelete}
             disabled={hasNoSelection}
           />
 

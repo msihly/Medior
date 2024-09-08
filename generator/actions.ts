@@ -45,7 +45,7 @@ const makeActionsDef = async (modelDef: ModelDef) => {
   };
 
   return `/* ------------------------------------ ${modelDef.name} ----------------------------------- */
-    export const ${map.create.fnName} = makeAction(async ({ args, socketOpts }: { args: types.${map.create.typeName}; socketOpts?: SocketEventOptions }) => {
+    export const ${map.create.fnName} = makeAction(async ({ args, socketOpts }: { args: Types.${map.create.typeName}; socketOpts?: SocketEventOptions }) => {
       const model = { ...args${defaultProps.length ? `, ${defaultProps.join(", ")}` : ""} };
 
       const res = await models.${modelDef.name}Model.create(model);
@@ -55,12 +55,12 @@ const makeActionsDef = async (modelDef: ModelDef) => {
       return { ...model, id };
     });
 
-    export const ${map.delete.fnName} = makeAction(async ({ args, socketOpts }: { args: types.${map.delete.typeName}; socketOpts?: SocketEventOptions }) => {
+    export const ${map.delete.fnName} = makeAction(async ({ args, socketOpts }: { args: Types.${map.delete.typeName}; socketOpts?: SocketEventOptions }) => {
       await models.${modelDef.name}Model.findByIdAndDelete(args.id);
       socket.emit("on${modelDef.name}Deleted", args, socketOpts);
     });
 
-    export const ${map.list.fnName} = makeAction(async ({ args }: { args?: types.${map.list.typeName}; socketOpts?: SocketEventOptions }  = {}) => {
+    export const ${map.list.fnName} = makeAction(async ({ args }: { args?: Types.${map.list.typeName}; socketOpts?: SocketEventOptions }  = {}) => {
       const filter = { ...args.filter };
       if (args.filter?.id) {
         filter._id = Array.isArray(args.filter.id)
@@ -91,7 +91,7 @@ const makeActionsDef = async (modelDef: ModelDef) => {
       };
     });
 
-    export const ${map.update.fnName} = makeAction(async ({ args, socketOpts }: { args: types.${map.update.typeName}; socketOpts?: SocketEventOptions }) => {
+    export const ${map.update.fnName} = makeAction(async ({ args, socketOpts }: { args: Types.${map.update.typeName}; socketOpts?: SocketEventOptions }) => {
       const res = leanModelToJson<models.${schemaName}>(
         await models.${modelDef.name}Model.findByIdAndUpdate(args.id, args.updates, { new: true }).lean()
       );
@@ -250,8 +250,8 @@ export const FILE_DEF_ACTIONS: FileDef = {
   makeFile: async () => {
     let output = `import { FilterQuery } from "mongoose";
       import * as models from "medior/_generated/models";
+      import * as Types from "medior/database/types";
       import { SocketEventOptions } from "medior/_generated/socket";
-      import * as types from "medior/database/types";
       import { getShiftSelectedItems, leanModelToJson, makeAction, objectIds } from "medior/database/utils";
       import { SortMenuProps } from "medior/components";
       import { dayjs, isDeepEqual, LogicalOp, logicOpsToMongo, setObj, socket } from "medior/utils";\n`;

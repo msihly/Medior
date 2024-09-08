@@ -123,7 +123,7 @@ export const FileCollectionEditor = observer(() => {
 
   const handleFileInfoRefresh = () => stores.file.refreshSelectedFiles();
 
-  const handlePageChange = (page: number) => stores.collection.editor.loadSearchResults({ page });
+  const handlePageChange = (page: number) => stores.collection.editor.search.loadFiltered({ page });
 
   const handleRefreshMeta = () =>
     stores.collection.regenCollMeta([stores.collection.editor.collection.id]);
@@ -213,7 +213,7 @@ export const FileCollectionEditor = observer(() => {
               />
 
               <CardGrid
-                cards={stores.collection.editor.searchResults.map((f) => (
+                cards={stores.collection.editor.search.results.map((f) => (
                   <FileSearchFile key={f.id} file={f} />
                 ))}
                 maxCards={1}

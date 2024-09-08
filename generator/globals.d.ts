@@ -45,6 +45,7 @@ declare global {
     notTrackedFilter?: boolean;
     objPath?: string[];
     objValue?: string;
+    setter?: string;
     type: string;
   }
 

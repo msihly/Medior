@@ -58,7 +58,7 @@ export class FileCollectionSearch extends Model({
   loadFiltered = asyncAction(
     async (
       args: {
-        filterProps?: Partial<Types.ListFilteredFilesInput>;
+        filterProps?: Partial<Types.ListFilteredCollectionsInput>;
         noOverwrite?: boolean;
         page?: number;
         pageSize?: number;

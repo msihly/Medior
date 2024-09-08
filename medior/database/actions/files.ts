@@ -3,20 +3,11 @@ import path from "path";
 import fs from "fs/promises";
 import checkDiskSpace from "check-disk-space";
 import { AnyBulkWriteOperation } from "mongodb";
-import { FilterQuery, PipelineStage } from "mongoose";
 import * as actions from "medior/database/actions";
 import * as models from "medior/_generated/models";
+import { createFileFilterPipeline, CreateFileFilterPipelineInput } from "medior/database/actions";
 import { leanModelToJson, makeAction, objectId, objectIds } from "medior/database/utils";
-import { SelectedImageTypes, SelectedVideoTypes } from "medior/store";
-import {
-  dayjs,
-  LogicalOp,
-  logicOpsToMongo,
-  makePerfLog,
-  setObj,
-  sharp,
-  socket,
-} from "medior/utils";
+import { dayjs, makePerfLog, sharp, socket } from "medior/utils";
 
 const FACE_MIN_CONFIDENCE = 0.4;
 const FACE_MODELS_PATH = app.isPackaged
@@ -26,90 +17,6 @@ const FACE_MODELS_PATH = app.isPackaged
 /* -------------------------------------------------------------------------- */
 /*                              HELPER FUNCTIONS                              */
 /* -------------------------------------------------------------------------- */
-type CreateFileFilterPipelineInput = Parameters<typeof createFileFilterPipeline>[0];
-
-const createFileFilterPipeline = (args: {
-  dateCreatedEnd?: string;
-  dateCreatedStart?: string;
-  dateModifiedEnd?: string;
-  dateModifiedStart?: string;
-  excludedDescTagIds: string[];
-  excludedFileIds?: string[];
-  excludedTagIds: string[];
-  hasDiffParams: boolean;
-  isArchived: boolean;
-  isSortDesc: boolean;
-  maxHeight?: number;
-  maxWidth?: number;
-  minHeight?: number;
-  minWidth?: number;
-  numOfTagsOp: LogicalOp | "";
-  numOfTagsValue?: number;
-  optionalTagIds: string[];
-  ratingOp: LogicalOp | "";
-  ratingValue?: number;
-  requiredDescTagIds: string[];
-  requiredTagIds: string[];
-  selectedImageTypes: SelectedImageTypes;
-  selectedVideoTypes: SelectedVideoTypes;
-  sortKey: string;
-}) => {
-  const enabledExts = Object.entries({
-    ...args.selectedImageTypes,
-    ...args.selectedVideoTypes,
-  }).reduce((acc, [key, isEnabled]) => {
-    if (isEnabled) acc.push(`.${key}`);
-    return acc;
-  }, [] as string[]);
-
-  const sortDir = args.isSortDesc ? -1 : 1;
-
-  const hasExcludedTags = args.excludedTagIds?.length > 0;
-  const hasExcludedDescTags = args.excludedDescTagIds?.length > 0;
-  const hasNumOfTags = args.numOfTagsOp !== "" && args.numOfTagsValue !== undefined;
-  const hasOptionalTags = args.optionalTagIds?.length > 0;
-  const hasRating = args.ratingOp !== "" && args.ratingValue !== undefined;
-  const hasRequiredDescTags = args.requiredDescTagIds?.length > 0;
-  const hasRequiredTags = args.requiredTagIds.length > 0;
-
-  const $match: FilterQuery<models.FileSchema> = {
-    isArchived: args.isArchived,
-    ext: { $in: enabledExts },
-  };
-
-  if (args.dateCreatedEnd) setObj($match, ["dateCreated", "$lte"], args.dateCreatedEnd);
-  if (args.dateCreatedStart) setObj($match, ["dateCreated", "$gte"], args.dateCreatedStart);
-  if (args.dateModifiedEnd) setObj($match, ["dateModified", "$lte"], args.dateModifiedEnd);
-  if (args.dateModifiedStart) setObj($match, ["dateModified", "$gte"], args.dateModifiedStart);
-  if (args.excludedFileIds?.length)
-    setObj($match, ["_id", "$nin"], objectIds(args.excludedFileIds));
-  if (hasExcludedTags) setObj($match, ["tagIds", "$nin"], objectIds(args.excludedTagIds));
-  if (hasOptionalTags) setObj($match, ["tagIds", "$in"], objectIds(args.optionalTagIds));
-  if (hasRequiredTags) setObj($match, ["tagIds", "$all"], objectIds(args.requiredTagIds));
-  if (hasExcludedDescTags)
-    setObj($match, ["tagIdsWithAncestors", "$nin"], objectIds(args.excludedDescTagIds));
-  if (hasRequiredDescTags)
-    setObj($match, ["tagIdsWithAncestors", "$all"], objectIds(args.requiredDescTagIds));
-  if (args.hasDiffParams)
-    setObj(
-      $match,
-      ["$expr", "$and"],
-      [{ $eq: [{ $type: "$diffusionParams" }, "string"] }, { $ne: ["$diffusionParams", ""] }]
-    );
-  if (hasNumOfTags)
-    setObj(
-      $match,
-      ["$expr", logicOpsToMongo(args.numOfTagsOp)],
-      [{ $size: "$tagIds" }, args.numOfTagsValue]
-    );
-  if (hasRating) setObj($match, ["rating", logicOpsToMongo(args.ratingOp)], args.ratingValue);
-
-  return {
-    $match,
-    $sort: { [args.sortKey]: sortDir, _id: sortDir } as { [key: string]: 1 | -1 },
-  };
-};
-
 export const listFileIdsByTagIds = makeAction(async (args: { tagIds: string[] }) => {
   return (
     await models.FileModel.find({ tagIds: { $in: objectIds(args.tagIds) } })
@@ -336,135 +243,6 @@ export const getFileByHash = makeAction(async ({ hash }: { hash: string }) =>
   leanModelToJson<models.FileSchema>(await models.FileModel.findOne({ hash }).lean())
 );
 
-export const getShiftSelectedFiles = makeAction(
-  async ({
-    clickedId,
-    clickedIndex,
-    isSortDesc,
-    selectedIds,
-    sortKey,
-    ...filterParams
-  }: CreateFileFilterPipelineInput & {
-    clickedId: string;
-    clickedIndex: number;
-    selectedIds: string[];
-  }) => {
-    if (selectedIds.length === 0) return { idsToDeselect: [], idsToSelect: [clickedId] };
-    if (selectedIds.length === 1 && selectedIds[0] === clickedId)
-      return { idsToDeselect: [clickedId], idsToSelect: [] };
-
-    const filterPipeline = createFileFilterPipeline({ ...filterParams, isSortDesc, sortKey });
-
-    const getSelectedIndex = async (type: "first" | "last") => {
-      const sortOp = isSortDesc ? "$gt" : "$lt";
-
-      const selectedFiles = await models.FileModel.find({
-        ...filterPipeline.$match,
-        _id: { $in: objectIds(selectedIds) },
-      }).sort(filterPipeline.$sort);
-
-      if (!selectedFiles || selectedFiles.length === 0)
-        throw new Error(`Failed to load selected files`);
-
-      const selectedFile =
-        type === "first" ? selectedFiles[0] : selectedFiles[selectedFiles.length - 1];
-
-      const selectedFileIndex = await models.FileModel.countDocuments({
-        ...filterPipeline.$match,
-        $or: [
-          { [sortKey]: selectedFile[sortKey], _id: { [sortOp]: selectedFile._id } },
-          { [sortKey]: { [sortOp]: selectedFile[sortKey] } },
-        ],
-      });
-      if (!(selectedFileIndex > -1)) throw new Error(`Failed to load ${type} selected index`);
-
-      return selectedFileIndex;
-    };
-
-    const firstSelectedIndex = await getSelectedIndex("first");
-    if (!(firstSelectedIndex > -1)) return { idsToDeselect: [], idsToSelect: [clickedId] };
-    if (firstSelectedIndex === clickedIndex) return { idsToDeselect: [clickedId], idsToSelect: [] };
-
-    const isFirstAfterClicked = firstSelectedIndex > clickedIndex;
-    const lastSelectedIndex = isFirstAfterClicked ? await getSelectedIndex("last") : null;
-
-    const endIndex = isFirstAfterClicked ? lastSelectedIndex : clickedIndex;
-    const startIndex = isFirstAfterClicked ? clickedIndex : firstSelectedIndex;
-
-    const limit = endIndex + 1;
-    const skip = startIndex;
-
-    const mainPipeline: PipelineStage[] = [
-      { $match: filterPipeline.$match },
-      { $sort: filterPipeline.$sort },
-      ...(limit > -1 ? [{ $limit: limit }] : []),
-      ...(skip > -1 ? [{ $skip: skip }] : []),
-      { $project: { _id: 1 } },
-      { $group: { _id: null, filteredIds: { $push: "$_id" } } },
-      {
-        $addFields: {
-          selectedIdsNotInFiltered: {
-            $filter: {
-              input: objectIds(selectedIds),
-              as: "id",
-              cond: { $not: { $in: ["$$id", "$filteredIds"] } },
-            },
-          },
-          selectedIdsInFiltered: {
-            $filter: {
-              input: objectIds(selectedIds),
-              as: "id",
-              cond: { $in: ["$$id", "$filteredIds"] },
-            },
-          },
-        },
-      },
-      {
-        $addFields: {
-          newSelectedIds:
-            startIndex === endIndex
-              ? []
-              : isFirstAfterClicked
-                ? { $slice: ["$filteredIds", 0, limit] }
-                : { $slice: ["$filteredIds", 0, limit - skip] },
-        },
-      },
-      {
-        $addFields: {
-          idsToDeselect: {
-            $concatArrays: [
-              "$selectedIdsNotInFiltered",
-              {
-                $filter: {
-                  input: "$selectedIdsInFiltered",
-                  as: "id",
-                  cond: { $not: { $in: ["$$id", "$newSelectedIds"] } },
-                },
-              },
-            ],
-          },
-          idsToSelect: {
-            $filter: {
-              input: "$newSelectedIds",
-              as: "id",
-              cond: { $not: { $in: ["$$id", objectIds(selectedIds)] } },
-            },
-          },
-        },
-      },
-      { $project: { _id: 0, idsToDeselect: 1, idsToSelect: 1 } },
-    ];
-
-    const mainRes: {
-      idsToDeselect: string[];
-      idsToSelect: string[];
-    } = (await models.FileModel.aggregate(mainPipeline).allowDiskUse(true)).flatMap((f) => f)?.[0];
-    if (!mainRes) throw new Error("Failed to load shift selected file IDs");
-
-    return mainRes;
-  }
-);
-
 export const importFile = makeAction(
   async (args: {
     dateCreated: string;
@@ -555,36 +333,6 @@ export const listFilePaths = makeAction(async () => {
     path: f.path,
   }));
 });
-
-export const listFilteredFiles = makeAction(
-  async ({
-    page,
-    pageSize,
-    ...filterParams
-  }: CreateFileFilterPipelineInput & {
-    page: number;
-    pageSize: number;
-  }) => {
-    const filterPipeline = createFileFilterPipeline(filterParams);
-
-    const [files, totalDocuments] = await Promise.all([
-      models.FileModel.find(filterPipeline.$match)
-        .sort(filterPipeline.$sort)
-        .skip(Math.max(0, page - 1) * pageSize)
-        .limit(pageSize)
-        .allowDiskUse(true)
-        .lean(),
-      models.FileModel.countDocuments(filterPipeline.$match),
-    ]);
-
-    if (!files || !(totalDocuments > -1)) throw new Error("Failed to load filtered file IDs");
-
-    return {
-      files: files.map((f) => leanModelToJson<models.FileSchema>(f)),
-      pageCount: Math.ceil(totalDocuments / pageSize),
-    };
-  }
-);
 
 export const loadFaceApiNets = makeAction(async () => {
   const faceapi = await import("@vladmandic/face-api/dist/face-api.node-gpu.js");

@@ -1,11 +1,12 @@
 import { CSSProperties } from "react";
+import { FileSchema } from "medior/database";
 import { File, observer, useStores } from "medior/store";
 import { Button, FileBase } from "medior/components";
 import { colors, dayjs } from "medior/utils";
 
 export interface FileSearchFileProps {
   disabled?: boolean;
-  file?: File;
+  file?: FileSchema;
   height?: CSSProperties["height"];
 }
 
@@ -13,7 +14,7 @@ export const FileSearchFile = observer(
   ({ disabled, file, height = "14rem" }: FileSearchFileProps) => {
     const stores = useStores();
 
-    const handleAdd = () => stores.collection.editor.addFilesToCollection([file]);
+    const handleAdd = () => stores.collection.editor.addFilesToCollection([new File(file)]);
 
     return (
       <FileBase.Container {...{ disabled, height }} flex="none">

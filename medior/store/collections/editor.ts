@@ -2,7 +2,7 @@ import { computed } from "mobx";
 import { getRootStore, Model, model, modelAction, modelFlow, prop } from "mobx-keystone";
 import { asyncAction, File, FileSearch, RootStore } from "medior/store";
 import { FileCollection } from ".";
-import { getConfig, trpc } from "medior/utils";
+import { trpc } from "medior/utils";
 import { toast } from "react-toastify";
 import { arrayMove } from "@alissavrk/dnd-kit-sortable";
 
@@ -15,7 +15,6 @@ export class CollectionEditor extends Model({
   isLoading: prop<boolean>(false).withSetter(),
   isOpen: prop<boolean>(false),
   search: prop<FileSearch>(() => new FileSearch({})),
-  searchResults: prop<File[]>(() => []).withSetter(),
   selectedIds: prop<string[]>(() => []).withSetter(),
 }) {
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
@@ -23,9 +22,10 @@ export class CollectionEditor extends Model({
   addFilesToCollection(files: File[]) {
     const startIndex = this.files.length;
     this.files.push(...files);
+    this.search.excludedFileIds.push(...files.map((f) => f.id));
     this.fileIndexes.push(...files.map((file, idx) => ({ id: file.id, index: startIndex + idx })));
     this.setHasUnsavedChanges(true);
-    this.loadSearchResults();
+    this.search.loadFiltered();
   }
 
   @modelAction
@@ -149,21 +149,7 @@ export class CollectionEditor extends Model({
 
     this.setFiles(filesRes.data.items.map((f) => new File(f)));
     this.setFileIndexes(filesRes.data.items.map((f, i) => ({ id: f.id, index: i })));
-  });
-
-  @modelFlow
-  loadSearchResults = asyncAction(async ({ page }: { page?: number } = {}) => {
-    const filteredRes = await this.search.loadFiltered({
-      filterProps: { excludedFileIds: this.files.map((f) => f.id) },
-      noOverwrite: true,
-      page,
-      pageSize: getConfig().collection.searchFileCount,
-    });
-    if (!filteredRes.success) throw new Error(filteredRes.error);
-    const files = filteredRes.data;
-
-    this.setSearchResults(files.map((f) => new File(f)));
-    return files;
+    this.search.setExcludedFileIds(filesRes.data.items.map((f) => f.id));
   });
 
   @modelFlow

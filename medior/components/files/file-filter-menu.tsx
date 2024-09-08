@@ -47,7 +47,7 @@ export const FileFilterMenu = observer(
 
     const setTags = (val: TagOption[]) => store.setTags(val);
 
-    const toggleArchiveOpen = () => store.setIsArchiveOpen(!store.isArchiveOpen);
+    const toggleArchiveOpen = () => store.setIsArchived(!store.isArchived);
 
     const toggleHasDiffParams = () => store.setHasDiffParams(!store.hasDiffParams);
 
@@ -70,8 +70,8 @@ export const FileFilterMenu = observer(
           <Card width="8rem" spacing="0.5rem">
             <LogOpsInput
               header="# of Tags"
-              logOpValue={store.numOfTagsOp}
-              numValue={store.numOfTagsValue}
+              logOpValue={store.numOfTags.logOp}
+              numValue={store.numOfTags.value}
               setLogOpValue={setNumOfTagsOp}
               setNumValue={setNumOfTagsValue}
               numInputProps={{ maxValue: 50, minValue: 0 }}
@@ -79,8 +79,8 @@ export const FileFilterMenu = observer(
 
             <LogOpsInput
               header="Rating"
-              logOpValue={store.ratingOp}
-              numValue={store.ratingValue}
+              logOpValue={store.rating.logOp}
+              numValue={store.rating.value}
               setLogOpValue={setRatingOp}
               setNumValue={setRatingValue}
               numInputProps={{ maxValue: 9, minValue: 0 }}
@@ -89,7 +89,7 @@ export const FileFilterMenu = observer(
             <View column>
               <Checkbox
                 label="Archived"
-                checked={store.isArchiveOpen}
+                checked={store.isArchived}
                 setChecked={toggleArchiveOpen}
                 flex="none"
               />

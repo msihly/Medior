@@ -6,11 +6,7 @@ import { camelCase, capitalize } from "medior/utils/formatting";
 /* -------------------------------------------------------------------------- */
 /*                                 MODEL DEFS                                 */
 /* -------------------------------------------------------------------------- */
-const makeCommonProps = (args: {
-  defaultPageSize: string;
-  defaultSort: string;
-  name: string;
-}) => {
+const makeCommonProps = (args: { defaultPageSize: string; defaultSort: string; name: string }) => {
   const props: ModelSearchProp[] = [
     {
       defaultValue: "false",
@@ -73,6 +69,19 @@ const makeDateRangeProps = (name: string) => {
   return props;
 };
 
+const makeLogOpProp = (name: string) => ({
+  defaultValue: "() => ({ logOp: '', value: 0 })",
+  name: name,
+  objPath: [name, `~logicOpsToMongo(args.${name}.logOp)`],
+  objValue: `args.${name}.value`,
+  setter: `${makeSetterProp(`${name}Op`, ["val: LogicalOp | ''"], `this.${name}.logOp = val;`)}\n
+    ${makeSetterProp(`${name}Value`, ["val: number"], `this.${name}.value = val;`)}`,
+  type: "{ logOp: LogicalOp | '', value: number }",
+});
+
+const makeSetterProp = (name: string, args: string[], body: string) =>
+  `@modelAction\nset${capitalize(name)}(${args.join(", ")}) {\n${body}\n}`;
+
 const makeTagOptsProp = (): ModelSearchProp => ({
   customActionProps: [
     {
@@ -119,6 +128,101 @@ const makeTagOptsProp = (): ModelSearchProp => ({
 
 export const MODEL_SEARCH_STORES: ModelSearchStore[] = [
   {
+    name: "File",
+    props: [
+      ...makeCommonProps({
+        defaultPageSize: "() => getConfig().file.searchFileCount",
+        defaultSort: "() => getConfig().file.searchSort",
+        name: "File",
+      }),
+      ...makeDateRangeProps("dateCreated"),
+      ...makeDateRangeProps("dateModified"),
+      makeTagOptsProp(),
+      {
+        defaultValue: "() => []",
+        name: "excludedFileIds",
+        objPath: ["_id", "$nin"],
+        objValue: "objectIds(args.excludedFileIds)",
+        type: "string[]",
+      },
+      {
+        defaultValue: "false",
+        name: "hasDiffParams",
+        objPath: ["$expr", "$and"],
+        objValue:
+          "[{ $eq: [{ $type: '$diffusionParams' }, 'string'] }, { $ne: ['$diffusionParams', ''] }]",
+        type: "boolean",
+      },
+      {
+        defaultValue: "false",
+        name: "isArchived",
+        objPath: ["isArchived"],
+        objValue: "args.isArchived",
+        type: "boolean",
+      },
+      {
+        defaultValue: "null",
+        name: "maxHeight",
+        objPath: ["height", "$lte"],
+        objValue: "args.maxHeight",
+        type: "number",
+      },
+      {
+        defaultValue: "null",
+        name: "maxWidth",
+        objPath: ["width", "$lte"],
+        objValue: "args.maxWidth",
+        type: "number",
+      },
+      {
+        defaultValue: "null",
+        name: "minHeight",
+        objPath: ["height", "$gte"],
+        objValue: "args.minHeight",
+        type: "number",
+      },
+      {
+        defaultValue: "null",
+        name: "minWidth",
+        objPath: ["width", "$gte"],
+        objValue: "args.minWidth",
+        type: "number",
+      },
+      makeLogOpProp("numOfTags"),
+      makeLogOpProp("rating"),
+      {
+        customActionProps: [
+          {
+            condition: "true",
+            objPath: ["ext", "$nin"],
+            objValue:
+              "Object.entries({ ...args.selectedImageTypes, ...args.selectedVideoTypes }).filter(([, val]) => !val).map(([ext]) => ext)",
+            name: "selectedImageTypes",
+            type: "Types.SelectedImageTypes",
+          },
+        ],
+        defaultValue: `() => Object.fromEntries(getConfig().file.imageTypes.map((ext) => [ext, true])) as Types.SelectedImageTypes`,
+        name: "selectedImageTypes",
+        setter: makeSetterProp(
+          "selectedImageTypes",
+          ["types: Partial<Types.SelectedImageTypes>"],
+          "this.selectedImageTypes = { ...this.selectedImageTypes, ...types };"
+        ),
+        type: "Types.SelectedImageTypes",
+      },
+      {
+        defaultValue: `() => Object.fromEntries(getConfig().file.videoTypes.map((ext) => [ext, true])) as Types.SelectedVideoTypes`,
+        name: "selectedVideoTypes",
+        setter: makeSetterProp(
+          "selectedVideoTypes",
+          ["types: Partial<Types.SelectedVideoTypes>"],
+          "this.selectedVideoTypes = { ...this.selectedVideoTypes, ...types };"
+        ),
+        type: "Types.SelectedVideoTypes",
+      },
+    ],
+  },
+  {
     name: "Tag",
     props: [
       ...makeCommonProps({
@@ -128,6 +232,7 @@ export const MODEL_SEARCH_STORES: ModelSearchStore[] = [
       }),
       ...makeDateRangeProps("dateCreated"),
       ...makeDateRangeProps("dateModified"),
+      makeLogOpProp("count"),
       makeTagOptsProp(),
       {
         defaultValue: '""',
@@ -135,13 +240,6 @@ export const MODEL_SEARCH_STORES: ModelSearchStore[] = [
         objPath: ["aliases"],
         objValue: 'new RegExp(args.alias, "i")',
         type: "string",
-      },
-      {
-        defaultValue: "() => ({ logOp: '', value: 0 })",
-        name: "count",
-        objPath: ["count", "~logicOpsToMongo(args.count.logOp)"],
-        objValue: "args.count.value",
-        type: "{ logOp: LogicalOp | '', value: number }",
       },
       {
         defaultValue: '""',
@@ -273,7 +371,10 @@ const createSearchStore = (def: ModelSearchStore) => {
   return `@model("medior/_${def.name}Search")
     export class _${def.name}Search extends Model({
       ${props
-        .map((prop) => `${prop.name}: prop<${prop.type}>(${prop.defaultValue}).withSetter()`)
+        .map(
+          (prop) =>
+            `${prop.name}: prop<${prop.type}>(${prop.defaultValue})${!prop.setter ? ".withSetter()" : ""}`
+        )
         .join(",\n")}
     }) {
       /* ---------------------------- STANDARD ACTIONS ---------------------------- */
@@ -281,6 +382,11 @@ const createSearchStore = (def: ModelSearchStore) => {
       reset() {
         ${props.map((prop) => `this.${prop.name} = ${prop.defaultValue.replace("() => ", "")};`).join("\n")}
       }
+
+      ${props
+        .filter((prop) => prop.setter)
+        .map((prop) => prop.setter)
+        .join("\n\n")}
 
       /* ------------------------------ ASYNC ACTIONS ----------------------------- */
       @modelFlow
@@ -444,12 +550,14 @@ export const FILE_DEF_STORES: FileDef = {
     let output = `import { computed } from "mobx";
     import { applySnapshot, getRootStore, getSnapshot, Model, model, modelAction, ModelCreationData, modelFlow, prop } from "mobx-keystone";
     import * as db from "medior/database";
+    import * as Types from "medior/database/types";
     import { SortValue } from "medior/store/_generated/sort-options";
     import { ${storeImports}, RootStore, TagOption } from "medior/store";
     import { asyncAction } from "medior/store/utils";
     import { SortMenuProps } from "medior/components";
-    import { dayjs, isDeepEqual, getConfig, LogicalOp, makePerfLog, trpc } from "medior/utils";\n\n`;
+    import { dayjs, getConfig, isDeepEqual, LogicalOp, makePerfLog, trpc } from "medior/utils";\n\n`;
 
+    output += `;\n`;
     output += makeSectionComment("SEARCH STORES");
     for (const def of MODEL_SEARCH_STORES) {
       output += `\n${createSearchStore(def)}\n`;

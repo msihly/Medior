@@ -15,6 +15,7 @@ import {
   prop,
 } from "mobx-keystone";
 import * as db from "medior/database";
+import * as Types from "medior/database/types";
 import { SortValue } from "medior/store/_generated/sort-options";
 import {
   FileCollection,
@@ -27,18 +28,219 @@ import {
 } from "medior/store";
 import { asyncAction } from "medior/store/utils";
 import { SortMenuProps } from "medior/components";
-import { dayjs, isDeepEqual, getConfig, LogicalOp, makePerfLog, trpc } from "medior/utils";
+import { dayjs, getConfig, isDeepEqual, LogicalOp, makePerfLog, trpc } from "medior/utils";
 
 /* --------------------------------------------------------------------------- */
 /*                               SEARCH STORES
 /* --------------------------------------------------------------------------- */
+@model("medior/_FileSearch")
+export class _FileSearch extends Model({
+  dateCreatedEnd: prop<string>("").withSetter(),
+  dateCreatedStart: prop<string>("").withSetter(),
+  dateModifiedEnd: prop<string>("").withSetter(),
+  dateModifiedStart: prop<string>("").withSetter(),
+  excludedFileIds: prop<string[]>(() => []).withSetter(),
+  hasDiffParams: prop<boolean>(false).withSetter(),
+  isArchived: prop<boolean>(false).withSetter(),
+  isLoading: prop<boolean>(false).withSetter(),
+  maxHeight: prop<number>(null).withSetter(),
+  maxWidth: prop<number>(null).withSetter(),
+  minHeight: prop<number>(null).withSetter(),
+  minWidth: prop<number>(null).withSetter(),
+  numOfTags: prop<{ logOp: LogicalOp | ""; value: number }>(() => ({ logOp: "", value: 0 })),
+  page: prop<number>(1).withSetter(),
+  pageCount: prop<number>(1).withSetter(),
+  pageSize: prop<number>(() => getConfig().file.searchFileCount).withSetter(),
+  rating: prop<{ logOp: LogicalOp | ""; value: number }>(() => ({ logOp: "", value: 0 })),
+  results: prop<db.FileSchema[]>(() => []).withSetter(),
+  selectedImageTypes: prop<Types.SelectedImageTypes>(
+    () =>
+      Object.fromEntries(
+        getConfig().file.imageTypes.map((ext) => [ext, true]),
+      ) as Types.SelectedImageTypes,
+  ),
+  selectedVideoTypes: prop<Types.SelectedVideoTypes>(
+    () =>
+      Object.fromEntries(
+        getConfig().file.videoTypes.map((ext) => [ext, true]),
+      ) as Types.SelectedVideoTypes,
+  ),
+  sortValue: prop<SortMenuProps["value"]>(() => getConfig().file.searchSort).withSetter(),
+  tags: prop<TagOption[]>(() => []).withSetter(),
+}) {
+  /* ---------------------------- STANDARD ACTIONS ---------------------------- */
+  @modelAction
+  reset() {
+    this.dateCreatedEnd = "";
+    this.dateCreatedStart = "";
+    this.dateModifiedEnd = "";
+    this.dateModifiedStart = "";
+    this.excludedFileIds = [];
+    this.hasDiffParams = false;
+    this.isArchived = false;
+    this.isLoading = false;
+    this.maxHeight = null;
+    this.maxWidth = null;
+    this.minHeight = null;
+    this.minWidth = null;
+    this.numOfTags = { logOp: "", value: 0 };
+    this.page = 1;
+    this.pageCount = 1;
+    this.pageSize = getConfig().file.searchFileCount;
+    this.rating = { logOp: "", value: 0 };
+    this.results = [];
+    this.selectedImageTypes = Object.fromEntries(
+      getConfig().file.imageTypes.map((ext) => [ext, true]),
+    ) as Types.SelectedImageTypes;
+    this.selectedVideoTypes = Object.fromEntries(
+      getConfig().file.videoTypes.map((ext) => [ext, true]),
+    ) as Types.SelectedVideoTypes;
+    this.sortValue = getConfig().file.searchSort;
+    this.tags = [];
+  }
+
+  @modelAction
+  setNumOfTagsOp(val: LogicalOp | "") {
+    this.numOfTags.logOp = val;
+  }
+
+  @modelAction
+  setNumOfTagsValue(val: number) {
+    this.numOfTags.value = val;
+  }
+
+  @modelAction
+  setRatingOp(val: LogicalOp | "") {
+    this.rating.logOp = val;
+  }
+
+  @modelAction
+  setRatingValue(val: number) {
+    this.rating.value = val;
+  }
+
+  @modelAction
+  setSelectedImageTypes(types: Partial<Types.SelectedImageTypes>) {
+    this.selectedImageTypes = { ...this.selectedImageTypes, ...types };
+  }
+
+  @modelAction
+  setSelectedVideoTypes(types: Partial<Types.SelectedVideoTypes>) {
+    this.selectedVideoTypes = { ...this.selectedVideoTypes, ...types };
+  }
+
+  /* ------------------------------ ASYNC ACTIONS ----------------------------- */
+  @modelFlow
+  getShiftSelected = asyncAction(
+    async ({ id, selectedIds }: { id: string; selectedIds: string[] }) => {
+      const clickedIndex =
+        (this.page - 1) * this.pageSize + this.results.findIndex((r) => r.id === id);
+
+      const res = await trpc.getShiftSelectedFiles.mutate({
+        ...this.getFilterProps(),
+        clickedId: id,
+        clickedIndex,
+        selectedIds,
+      });
+      if (!res.success) throw new Error(res.error);
+      return res.data;
+    },
+  );
+
+  @modelFlow
+  loadFiltered = asyncAction(async ({ page }: { page?: number } = {}) => {
+    const debug = false;
+    const { perfLog, perfLogTotal } = makePerfLog("[FileSearch]");
+    this.setIsLoading(true);
+
+    const res = await trpc.listFilteredFiles.mutate({
+      ...this.getFilterProps(),
+      page: page ?? this.page,
+      pageSize: this.pageSize,
+    });
+    if (!res.success) throw new Error(res.error);
+
+    const { items, pageCount } = res.data;
+    if (debug) perfLog(`Loaded ${items.length} items`);
+
+    this.setResults(items);
+    if (debug) perfLog("Overwrite and re-render");
+
+    this.setPageCount(pageCount);
+    if (page) this.setPage(page);
+    if (debug) perfLog(`Set page to ${page ?? this.page} and pageCount to ${pageCount}`);
+
+    if (debug) perfLogTotal(`Loaded ${items.length} items`);
+    this.setIsLoading(false);
+    return items;
+  });
+
+  /* --------------------------------- GETTERS -------------------------------- */
+  @computed
+  get numOfFilters() {
+    return (
+      (!isDeepEqual(this.dateCreatedEnd, "") ? 1 : 0) +
+      (!isDeepEqual(this.dateCreatedStart, "") ? 1 : 0) +
+      (!isDeepEqual(this.dateModifiedEnd, "") ? 1 : 0) +
+      (!isDeepEqual(this.dateModifiedStart, "") ? 1 : 0) +
+      (!isDeepEqual(this.excludedFileIds, []) ? 1 : 0) +
+      (!isDeepEqual(this.hasDiffParams, false) ? 1 : 0) +
+      (!isDeepEqual(this.isArchived, false) ? 1 : 0) +
+      (!isDeepEqual(this.maxHeight, null) ? 1 : 0) +
+      (!isDeepEqual(this.maxWidth, null) ? 1 : 0) +
+      (!isDeepEqual(this.minHeight, null) ? 1 : 0) +
+      (!isDeepEqual(this.minWidth, null) ? 1 : 0) +
+      (!isDeepEqual(this.numOfTags, { logOp: "", value: 0 }) ? 1 : 0) +
+      (!isDeepEqual(this.rating, { logOp: "", value: 0 }) ? 1 : 0) +
+      (!isDeepEqual(
+        this.selectedImageTypes,
+        Object.fromEntries(
+          getConfig().file.imageTypes.map((ext) => [ext, true]),
+        ) as Types.SelectedImageTypes,
+      )
+        ? 1
+        : 0) +
+      (!isDeepEqual(
+        this.selectedVideoTypes,
+        Object.fromEntries(
+          getConfig().file.videoTypes.map((ext) => [ext, true]),
+        ) as Types.SelectedVideoTypes,
+      )
+        ? 1
+        : 0) +
+      (!isDeepEqual(this.sortValue, getConfig().file.searchSort) ? 1 : 0) +
+      (!isDeepEqual(this.tags, []) ? 1 : 0)
+    );
+  }
+
+  /* --------------------------------- DYNAMIC GETTERS -------------------------------- */
+  getFilterProps() {
+    return {
+      dateCreatedEnd: this.dateCreatedEnd,
+      dateCreatedStart: this.dateCreatedStart,
+      dateModifiedEnd: this.dateModifiedEnd,
+      dateModifiedStart: this.dateModifiedStart,
+      excludedFileIds: this.excludedFileIds,
+      hasDiffParams: this.hasDiffParams,
+      isArchived: this.isArchived,
+      maxHeight: this.maxHeight,
+      maxWidth: this.maxWidth,
+      minHeight: this.minHeight,
+      minWidth: this.minWidth,
+      numOfTags: this.numOfTags,
+      rating: this.rating,
+      selectedImageTypes: this.selectedImageTypes,
+      selectedVideoTypes: this.selectedVideoTypes,
+      sortValue: this.sortValue,
+      ...getRootStore<RootStore>(this).tag.tagSearchOptsToIds(this.tags),
+    };
+  }
+}
+
 @model("medior/_TagSearch")
 export class _TagSearch extends Model({
   alias: prop<string>("").withSetter(),
-  count: prop<{ logOp: LogicalOp | ""; value: number }>(() => ({
-    logOp: "",
-    value: 0,
-  })).withSetter(),
+  count: prop<{ logOp: LogicalOp | ""; value: number }>(() => ({ logOp: "", value: 0 })),
   dateCreatedEnd: prop<string>("").withSetter(),
   dateCreatedStart: prop<string>("").withSetter(),
   dateModifiedEnd: prop<string>("").withSetter(),
@@ -71,6 +273,16 @@ export class _TagSearch extends Model({
     this.results = [];
     this.sortValue = getConfig().tags.managerSearchSort;
     this.tags = [];
+  }
+
+  @modelAction
+  setCountOp(val: LogicalOp | "") {
+    this.count.logOp = val;
+  }
+
+  @modelAction
+  setCountValue(val: number) {
+    this.count.value = val;
   }
 
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */

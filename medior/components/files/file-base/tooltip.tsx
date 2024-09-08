@@ -1,10 +1,11 @@
-import { File, observer } from "medior/store";
+import { FileSchema } from "medior/database";
+import { observer } from "medior/store";
 import { Detail, DetailRow, Icon, TagChip, Text, Tooltip as TooltipBase, View } from "medior/components";
 import { colors, dayjs, formatBytes, makeClasses } from "medior/utils";
 
 interface TooltipProps {
   disabled?: boolean;
-  file: File;
+  file: FileSchema;
   onTagPress?: (id: string) => any;
 }
 

@@ -178,9 +178,6 @@ export type GetDiskStatsOutput = ReturnType<typeof db.getDiskStats>;
 export type GetFileByHashInput = Parameters<typeof db.getFileByHash>[0];
 export type GetFileByHashOutput = ReturnType<typeof db.getFileByHash>;
 
-export type GetShiftSelectedFilesInput = Parameters<typeof db.getShiftSelectedFiles>[0];
-export type GetShiftSelectedFilesOutput = ReturnType<typeof db.getShiftSelectedFiles>;
-
 export type ImportFileInput = Parameters<typeof db.importFile>[0];
 export type ImportFileOutput = ReturnType<typeof db.importFile>;
 
@@ -198,9 +195,6 @@ export type ListFileIdsForCarouselOutput = ReturnType<typeof db.listFileIdsForCa
 
 export type ListFilePathsInput = Parameters<typeof db.listFilePaths>[0];
 export type ListFilePathsOutput = ReturnType<typeof db.listFilePaths>;
-
-export type ListFilteredFilesInput = Parameters<typeof db.listFilteredFiles>[0];
-export type ListFilteredFilesOutput = ReturnType<typeof db.listFilteredFiles>;
 
 export type LoadFaceApiNetsInput = Parameters<typeof db.loadFaceApiNets>[0];
 export type LoadFaceApiNetsOutput = ReturnType<typeof db.loadFaceApiNets>;

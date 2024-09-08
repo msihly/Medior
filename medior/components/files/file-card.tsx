@@ -21,7 +21,7 @@ export const FileCard = observer(({ disabled, file, height, id, width }: FileCar
   const handleClick = async (event: React.MouseEvent) => {
     if (disabled) return;
     if (event.shiftKey) {
-      const res = await stores.file.search.getShiftSelectedFiles({
+      const res = await stores.file.search.getShiftSelected({
         id: file.id,
         selectedIds: stores.file.selectedIds,
       });
