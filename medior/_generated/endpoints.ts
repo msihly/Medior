@@ -40,8 +40,10 @@ export const serverRouter = trpc.router({
   updateRegExMap: serverEndpoint(db.updateRegExMap),
   updateTag: serverEndpoint(db.updateTag),
   /** Search store actions */
+  getShiftSelectedFileCollections: serverEndpoint(db.getShiftSelectedFileCollections),
   getShiftSelectedFiles: serverEndpoint(db.getShiftSelectedFiles),
   getShiftSelectedTags: serverEndpoint(db.getShiftSelectedTags),
+  listFilteredFileCollections: serverEndpoint(db.listFilteredFileCollections),
   listFilteredFiles: serverEndpoint(db.listFilteredFiles),
   listFilteredTags: serverEndpoint(db.listFilteredTags),
   /** Custom actions */
@@ -73,7 +75,6 @@ export const serverRouter = trpc.router({
   listFileIdsForCarousel: serverEndpoint(db.listFileIdsForCarousel),
   listFilePaths: serverEndpoint(db.listFilePaths),
   listFilesByTagIds: serverEndpoint(db.listFilesByTagIds),
-  listFilteredCollections: serverEndpoint(db.listFilteredCollections),
   listImportBatches: serverEndpoint(db.listImportBatches),
   listTags: serverEndpoint(db.listTags),
   loadFaceApiNets: serverEndpoint(db.loadFaceApiNets),

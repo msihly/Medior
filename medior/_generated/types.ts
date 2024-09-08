@@ -118,9 +118,6 @@ export type ListAllCollectionIdsOutput = ReturnType<typeof db.listAllCollectionI
 export type ListCollectionIdsByTagIdsInput = Parameters<typeof db.listCollectionIdsByTagIds>[0];
 export type ListCollectionIdsByTagIdsOutput = ReturnType<typeof db.listCollectionIdsByTagIds>;
 
-export type ListFilteredCollectionsInput = Parameters<typeof db.listFilteredCollections>[0];
-export type ListFilteredCollectionsOutput = ReturnType<typeof db.listFilteredCollections>;
-
 export type RegenCollAttrsInput = Parameters<typeof db.regenCollAttrs>[0];
 export type RegenCollAttrsOutput = ReturnType<typeof db.regenCollAttrs>;
 

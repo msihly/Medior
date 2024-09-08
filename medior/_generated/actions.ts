@@ -80,12 +80,15 @@ export const createFileFilterPipeline = (args: CreateFileFilterPipelineInput) =>
         .map(([ext]) => ext),
     );
   if (args.excludedDescTagIds?.length)
-    setObj($match, ["ancestorIds", "$nin"], objectIds(args.excludedDescTagIds));
-  if (args.excludedTagIds?.length) setObj($match, ["_id", "$nin"], objectIds(args.excludedTagIds));
-  if (args.optionalTagIds?.length) setObj($match, ["_id", "$in"], objectIds(args.optionalTagIds));
+    setObj($match, ["tagIdsWithAncestors", "$nin"], objectIds(args.excludedDescTagIds));
+  if (args.excludedTagIds?.length)
+    setObj($match, ["tagIds", "$nin"], objectIds(args.excludedTagIds));
+  if (args.optionalTagIds?.length)
+    setObj($match, ["tagIds", "$in"], objectIds(args.optionalTagIds));
   if (args.requiredDescTagIds?.length)
-    setObj($match, ["ancestorIds", "$all"], objectIds(args.requiredDescTagIds));
-  if (args.requiredTagIds?.length) setObj($match, ["_id", "$all"], objectIds(args.requiredTagIds));
+    setObj($match, ["tagIdsWithAncestors", "$all"], objectIds(args.requiredDescTagIds));
+  if (args.requiredTagIds?.length)
+    setObj($match, ["tagIds", "$all"], objectIds(args.requiredTagIds));
 
   const sortDir = args.sortValue.isDesc ? -1 : 1;
 
@@ -144,6 +147,110 @@ export const listFilteredFiles = makeAction(
   },
 );
 
+export type CreateFileCollectionFilterPipelineInput = {
+  dateCreatedEnd?: string;
+  dateCreatedStart?: string;
+  dateModifiedEnd?: string;
+  dateModifiedStart?: string;
+  excludedDescTagIds?: string[];
+  excludedTagIds?: string[];
+  fileCount?: { logOp: LogicalOp | ""; value: number };
+  optionalTagIds?: string[];
+  rating?: { logOp: LogicalOp | ""; value: number };
+  requiredDescTagIds?: string[];
+  requiredTagIds?: string[];
+  sortValue?: SortMenuProps["value"];
+  title?: string;
+};
+
+export const createFileCollectionFilterPipeline = (
+  args: CreateFileCollectionFilterPipelineInput,
+) => {
+  const $match: FilterQuery<models.FileCollectionSchema> = {};
+
+  if (!isDeepEqual(args.dateCreatedEnd, ""))
+    setObj($match, ["dateCreated", "$lte"], args.dateCreatedEnd);
+  if (!isDeepEqual(args.dateCreatedStart, ""))
+    setObj($match, ["dateCreated", "$gte"], args.dateCreatedStart);
+  if (!isDeepEqual(args.dateModifiedEnd, ""))
+    setObj($match, ["dateModified", "$lte"], args.dateModifiedEnd);
+  if (!isDeepEqual(args.dateModifiedStart, ""))
+    setObj($match, ["dateModified", "$gte"], args.dateModifiedStart);
+  if (!isDeepEqual(args.fileCount, { logOp: "", value: 0 }))
+    setObj($match, ["fileCount", logicOpsToMongo(args.fileCount.logOp)], args.fileCount.value);
+  if (!isDeepEqual(args.rating, { logOp: "", value: 0 }))
+    setObj($match, ["rating", logicOpsToMongo(args.rating.logOp)], args.rating.value);
+  if (!isDeepEqual(args.title, ""))
+    setObj($match, ["title", "$regex"], new RegExp(args.title, "i"));
+
+  if (args.excludedDescTagIds?.length)
+    setObj($match, ["tagIdsWithAncestors", "$nin"], objectIds(args.excludedDescTagIds));
+  if (args.excludedTagIds?.length)
+    setObj($match, ["tagIds", "$nin"], objectIds(args.excludedTagIds));
+  if (args.optionalTagIds?.length)
+    setObj($match, ["tagIds", "$in"], objectIds(args.optionalTagIds));
+  if (args.requiredDescTagIds?.length)
+    setObj($match, ["tagIdsWithAncestors", "$all"], objectIds(args.requiredDescTagIds));
+  if (args.requiredTagIds?.length)
+    setObj($match, ["tagIds", "$all"], objectIds(args.requiredTagIds));
+
+  const sortDir = args.sortValue.isDesc ? -1 : 1;
+
+  return {
+    $match,
+    $sort: { [args.sortValue.key]: sortDir, _id: sortDir } as { [key: string]: 1 | -1 },
+  };
+};
+
+export const getShiftSelectedFileCollections = makeAction(
+  async ({
+    clickedId,
+    clickedIndex,
+    selectedIds,
+    ...filterParams
+  }: CreateFileCollectionFilterPipelineInput & {
+    clickedId: string;
+    clickedIndex: number;
+    selectedIds: string[];
+  }) => {
+    const filterPipeline = createFileCollectionFilterPipeline(filterParams);
+    return getShiftSelectedItems({
+      clickedId,
+      clickedIndex,
+      filterPipeline,
+      model: models.FileCollectionModel,
+      selectedIds,
+    });
+  },
+);
+
+export const listFilteredFileCollections = makeAction(
+  async ({
+    page,
+    pageSize,
+    ...filterParams
+  }: CreateFileCollectionFilterPipelineInput & { page: number; pageSize: number }) => {
+    const filterPipeline = createFileCollectionFilterPipeline(filterParams);
+
+    const [items, count] = await Promise.all([
+      models.FileCollectionModel.find(filterPipeline.$match)
+        .sort(filterPipeline.$sort)
+        .skip(Math.max(0, page - 1) * pageSize)
+        .limit(pageSize)
+        .allowDiskUse(true)
+        .lean(),
+      models.FileCollectionModel.countDocuments(filterPipeline.$match),
+    ]);
+    if (!items || !(count > -1)) throw new Error("Failed to load filtered FileCollections");
+
+    return {
+      count,
+      items: items.map((i) => leanModelToJson<models.FileCollectionSchema>(i)),
+      pageCount: Math.ceil(count / pageSize),
+    };
+  },
+);
+
 export type CreateTagFilterPipelineInput = {
   alias?: string;
   count?: { logOp: LogicalOp | ""; value: number };
@@ -164,7 +271,8 @@ export type CreateTagFilterPipelineInput = {
 export const createTagFilterPipeline = (args: CreateTagFilterPipelineInput) => {
   const $match: FilterQuery<models.TagSchema> = {};
 
-  if (!isDeepEqual(args.alias, "")) setObj($match, ["aliases"], new RegExp(args.alias, "i"));
+  if (!isDeepEqual(args.alias, ""))
+    setObj($match, ["aliases", "$elemMatch", "$regex"], new RegExp(args.alias, "i"));
   if (!isDeepEqual(args.count, { logOp: "", value: 0 }))
     setObj($match, ["count", logicOpsToMongo(args.count.logOp)], args.count.value);
   if (!isDeepEqual(args.dateCreatedEnd, ""))
@@ -175,16 +283,17 @@ export const createTagFilterPipeline = (args: CreateTagFilterPipelineInput) => {
     setObj($match, ["dateModified", "$lte"], args.dateModifiedEnd);
   if (!isDeepEqual(args.dateModifiedStart, ""))
     setObj($match, ["dateModified", "$gte"], args.dateModifiedStart);
-  if (!isDeepEqual(args.label, "")) setObj($match, ["label"], new RegExp(args.label, "i"));
+  if (!isDeepEqual(args.label, ""))
+    setObj($match, ["label", "$regex"], new RegExp(args.label, "i"));
   if (!isDeepEqual(args.regExMode, "any"))
     setObj($match, ["regExMap.regEx", "$exists"], args.regExMode === "hasRegEx");
 
   if (args.excludedDescTagIds?.length)
-    setObj($match, ["ancestorIds", "$nin"], objectIds(args.excludedDescTagIds));
+    setObj($match, ["ancestors", "$nin"], objectIds(args.excludedDescTagIds));
   if (args.excludedTagIds?.length) setObj($match, ["_id", "$nin"], objectIds(args.excludedTagIds));
   if (args.optionalTagIds?.length) setObj($match, ["_id", "$in"], objectIds(args.optionalTagIds));
   if (args.requiredDescTagIds?.length)
-    setObj($match, ["ancestorIds", "$all"], objectIds(args.requiredDescTagIds));
+    setObj($match, ["ancestors", "$all"], objectIds(args.requiredDescTagIds));
   if (args.requiredTagIds?.length) setObj($match, ["_id", "$all"], objectIds(args.requiredTagIds));
 
   const sortDir = args.sortValue.isDesc ? -1 : 1;

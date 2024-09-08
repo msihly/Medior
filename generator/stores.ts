@@ -82,39 +82,39 @@ const makeLogOpProp = (name: string) => ({
 const makeSetterProp = (name: string, args: string[], body: string) =>
   `@modelAction\nset${capitalize(name)}(${args.join(", ")}) {\n${body}\n}`;
 
-const makeTagOptsProp = (): ModelSearchProp => ({
+const makeTagOptsProp = (idName: string, ancestorsName: string): ModelSearchProp => ({
   customActionProps: [
     {
       condition: "args.excludedDescTagIds?.length",
-      objPath: ["ancestorIds", "$nin"],
+      objPath: [ancestorsName, "$nin"],
       objValue: "objectIds(args.excludedDescTagIds)",
       name: "excludedDescTagIds",
       type: "string[]",
     },
     {
       condition: "args.excludedTagIds?.length",
-      objPath: ["_id", "$nin"],
+      objPath: [idName, "$nin"],
       objValue: "objectIds(args.excludedTagIds)",
       name: "excludedTagIds",
       type: "string[]",
     },
     {
       condition: "args.optionalTagIds?.length",
-      objPath: ["_id", "$in"],
+      objPath: [idName, "$in"],
       objValue: "objectIds(args.optionalTagIds)",
       name: "optionalTagIds",
       type: "string[]",
     },
     {
       condition: "args.requiredDescTagIds?.length",
-      objPath: ["ancestorIds", "$all"],
+      objPath: [ancestorsName, "$all"],
       objValue: "objectIds(args.requiredDescTagIds)",
       name: "requiredDescTagIds",
       type: "string[]",
     },
     {
       condition: "args.requiredTagIds?.length",
-      objPath: ["_id", "$all"],
+      objPath: [idName, "$all"],
       objValue: "objectIds(args.requiredTagIds)",
       name: "requiredTagIds",
       type: "string[]",
@@ -137,7 +137,7 @@ export const MODEL_SEARCH_STORES: ModelSearchStore[] = [
       }),
       ...makeDateRangeProps("dateCreated"),
       ...makeDateRangeProps("dateModified"),
-      makeTagOptsProp(),
+      makeTagOptsProp("tagIds", "tagIdsWithAncestors"),
       {
         defaultValue: "() => []",
         name: "excludedFileIds",
@@ -223,6 +223,28 @@ export const MODEL_SEARCH_STORES: ModelSearchStore[] = [
     ],
   },
   {
+    name: "FileCollection",
+    props: [
+      ...makeCommonProps({
+        defaultPageSize: "() => getConfig().collection.searchFileCount",
+        defaultSort: "() => getConfig().collection.managerSearchSort",
+        name: "FileCollection",
+      }),
+      ...makeDateRangeProps("dateCreated"),
+      ...makeDateRangeProps("dateModified"),
+      makeTagOptsProp("tagIds", "tagIdsWithAncestors"),
+      makeLogOpProp("fileCount"),
+      makeLogOpProp("rating"),
+      {
+        defaultValue: '""',
+        name: "title",
+        objPath: ["title", "$regex"],
+        objValue: 'new RegExp(args.title, "i")',
+        type: "string",
+      },
+    ],
+  },
+  {
     name: "Tag",
     props: [
       ...makeCommonProps({
@@ -233,18 +255,18 @@ export const MODEL_SEARCH_STORES: ModelSearchStore[] = [
       ...makeDateRangeProps("dateCreated"),
       ...makeDateRangeProps("dateModified"),
       makeLogOpProp("count"),
-      makeTagOptsProp(),
+      makeTagOptsProp("_id", "ancestors"),
       {
         defaultValue: '""',
         name: "alias",
-        objPath: ["aliases"],
+        objPath: ["aliases", "$elemMatch", "$regex"],
         objValue: 'new RegExp(args.alias, "i")',
         type: "string",
       },
       {
         defaultValue: '""',
         name: "label",
-        objPath: ["label"],
+        objPath: ["label", "$regex"],
         objValue: 'new RegExp(args.label, "i")',
         type: "string",
       },

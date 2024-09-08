@@ -58,8 +58,8 @@ export const CollectionFilterMenu = observer(
           <Card spacing="0.5rem">
             <LogOpsInput
               header="File Count"
-              logOpValue={store.fileCountOp}
-              numValue={store.fileCountValue}
+              logOpValue={store.fileCount.logOp}
+              numValue={store.fileCount.value}
               setLogOpValue={setFileCountOp}
               setNumValue={setFileCountValue}
               numInputProps={{ minValue: 0, width: "4rem" }}
@@ -67,8 +67,8 @@ export const CollectionFilterMenu = observer(
 
             <LogOpsInput
               header="Rating"
-              logOpValue={store.ratingOp}
-              numValue={store.ratingValue}
+              logOpValue={store.rating.logOp}
+              numValue={store.rating.value}
               setLogOpValue={setRatingOp}
               setNumValue={setRatingValue}
               numInputProps={{ maxValue: 9, minValue: 0, width: "4rem" }}

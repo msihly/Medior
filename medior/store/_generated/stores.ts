@@ -237,6 +237,142 @@ export class _FileSearch extends Model({
   }
 }
 
+@model("medior/_FileCollectionSearch")
+export class _FileCollectionSearch extends Model({
+  dateCreatedEnd: prop<string>("").withSetter(),
+  dateCreatedStart: prop<string>("").withSetter(),
+  dateModifiedEnd: prop<string>("").withSetter(),
+  dateModifiedStart: prop<string>("").withSetter(),
+  fileCount: prop<{ logOp: LogicalOp | ""; value: number }>(() => ({ logOp: "", value: 0 })),
+  isLoading: prop<boolean>(false).withSetter(),
+  page: prop<number>(1).withSetter(),
+  pageCount: prop<number>(1).withSetter(),
+  pageSize: prop<number>(() => getConfig().collection.searchFileCount).withSetter(),
+  rating: prop<{ logOp: LogicalOp | ""; value: number }>(() => ({ logOp: "", value: 0 })),
+  results: prop<db.FileCollectionSchema[]>(() => []).withSetter(),
+  sortValue: prop<SortMenuProps["value"]>(
+    () => getConfig().collection.managerSearchSort,
+  ).withSetter(),
+  tags: prop<TagOption[]>(() => []).withSetter(),
+  title: prop<string>("").withSetter(),
+}) {
+  /* ---------------------------- STANDARD ACTIONS ---------------------------- */
+  @modelAction
+  reset() {
+    this.dateCreatedEnd = "";
+    this.dateCreatedStart = "";
+    this.dateModifiedEnd = "";
+    this.dateModifiedStart = "";
+    this.fileCount = { logOp: "", value: 0 };
+    this.isLoading = false;
+    this.page = 1;
+    this.pageCount = 1;
+    this.pageSize = getConfig().collection.searchFileCount;
+    this.rating = { logOp: "", value: 0 };
+    this.results = [];
+    this.sortValue = getConfig().collection.managerSearchSort;
+    this.tags = [];
+    this.title = "";
+  }
+
+  @modelAction
+  setFileCountOp(val: LogicalOp | "") {
+    this.fileCount.logOp = val;
+  }
+
+  @modelAction
+  setFileCountValue(val: number) {
+    this.fileCount.value = val;
+  }
+
+  @modelAction
+  setRatingOp(val: LogicalOp | "") {
+    this.rating.logOp = val;
+  }
+
+  @modelAction
+  setRatingValue(val: number) {
+    this.rating.value = val;
+  }
+
+  /* ------------------------------ ASYNC ACTIONS ----------------------------- */
+  @modelFlow
+  getShiftSelected = asyncAction(
+    async ({ id, selectedIds }: { id: string; selectedIds: string[] }) => {
+      const clickedIndex =
+        (this.page - 1) * this.pageSize + this.results.findIndex((r) => r.id === id);
+
+      const res = await trpc.getShiftSelectedFileCollections.mutate({
+        ...this.getFilterProps(),
+        clickedId: id,
+        clickedIndex,
+        selectedIds,
+      });
+      if (!res.success) throw new Error(res.error);
+      return res.data;
+    },
+  );
+
+  @modelFlow
+  loadFiltered = asyncAction(async ({ page }: { page?: number } = {}) => {
+    const debug = false;
+    const { perfLog, perfLogTotal } = makePerfLog("[FileCollectionSearch]");
+    this.setIsLoading(true);
+
+    const res = await trpc.listFilteredFileCollections.mutate({
+      ...this.getFilterProps(),
+      page: page ?? this.page,
+      pageSize: this.pageSize,
+    });
+    if (!res.success) throw new Error(res.error);
+
+    const { items, pageCount } = res.data;
+    if (debug) perfLog(`Loaded ${items.length} items`);
+
+    this.setResults(items);
+    if (debug) perfLog("Overwrite and re-render");
+
+    this.setPageCount(pageCount);
+    if (page) this.setPage(page);
+    if (debug) perfLog(`Set page to ${page ?? this.page} and pageCount to ${pageCount}`);
+
+    if (debug) perfLogTotal(`Loaded ${items.length} items`);
+    this.setIsLoading(false);
+    return items;
+  });
+
+  /* --------------------------------- GETTERS -------------------------------- */
+  @computed
+  get numOfFilters() {
+    return (
+      (!isDeepEqual(this.dateCreatedEnd, "") ? 1 : 0) +
+      (!isDeepEqual(this.dateCreatedStart, "") ? 1 : 0) +
+      (!isDeepEqual(this.dateModifiedEnd, "") ? 1 : 0) +
+      (!isDeepEqual(this.dateModifiedStart, "") ? 1 : 0) +
+      (!isDeepEqual(this.fileCount, { logOp: "", value: 0 }) ? 1 : 0) +
+      (!isDeepEqual(this.rating, { logOp: "", value: 0 }) ? 1 : 0) +
+      (!isDeepEqual(this.sortValue, getConfig().collection.managerSearchSort) ? 1 : 0) +
+      (!isDeepEqual(this.tags, []) ? 1 : 0) +
+      (!isDeepEqual(this.title, "") ? 1 : 0)
+    );
+  }
+
+  /* --------------------------------- DYNAMIC GETTERS -------------------------------- */
+  getFilterProps() {
+    return {
+      dateCreatedEnd: this.dateCreatedEnd,
+      dateCreatedStart: this.dateCreatedStart,
+      dateModifiedEnd: this.dateModifiedEnd,
+      dateModifiedStart: this.dateModifiedStart,
+      fileCount: this.fileCount,
+      rating: this.rating,
+      sortValue: this.sortValue,
+      ...getRootStore<RootStore>(this).tag.tagSearchOptsToIds(this.tags),
+      title: this.title,
+    };
+  }
+}
+
 @model("medior/_TagSearch")
 export class _TagSearch extends Model({
   alias: prop<string>("").withSetter(),

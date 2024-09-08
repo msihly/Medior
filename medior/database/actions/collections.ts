@@ -1,66 +1,11 @@
-import { FilterQuery } from "mongoose";
 import * as actions from "medior/database/actions";
 import * as models from "medior/_generated/models";
 import { leanModelToJson, makeAction, objectIds } from "medior/database/utils";
-import { dayjs, LogicalOp, logicOpsToMongo, setObj, socket } from "medior/utils";
+import { dayjs, socket } from "medior/utils";
 
 /* -------------------------------------------------------------------------- */
 /*                              HELPER FUNCTIONS                              */
 /* -------------------------------------------------------------------------- */
-type CreateCollectionFilterPipelineInput = Parameters<typeof createCollectionFilterPipeline>[0];
-
-const createCollectionFilterPipeline = (args: {
-  dateCreatedEnd?: string;
-  dateCreatedStart?: string;
-  dateModifiedEnd?: string;
-  dateModifiedStart?: string;
-  fileCountOp: LogicalOp | "";
-  fileCountValue?: number;
-  excludedDescTagIds: string[];
-  excludedTagIds: string[];
-  isSortDesc: boolean;
-  optionalTagIds: string[];
-  ratingOp: LogicalOp | "";
-  ratingValue?: number;
-  requiredDescTagIds: string[];
-  requiredTagIds: string[];
-  sortKey: string;
-  title: string;
-}) => {
-  const sortDir = args.isSortDesc ? -1 : 1;
-
-  const hasFileCount = args.fileCountOp !== "" && args.fileCountValue !== undefined;
-  const hasExcludedTags = args.excludedTagIds?.length > 0;
-  const hasExcludedDescTags = args.excludedDescTagIds?.length > 0;
-  const hasOptionalTags = args.optionalTagIds?.length > 0;
-  const hasRating = args.ratingOp !== "" && args.ratingValue !== undefined;
-  const hasRequiredDescTags = args.requiredDescTagIds?.length > 0;
-  const hasRequiredTags = args.requiredTagIds.length > 0;
-
-  const $match: FilterQuery<models.FileCollectionSchema> = {};
-
-  if (args.dateCreatedEnd) setObj($match, ["dateCreated", "$lte"], args.dateCreatedEnd);
-  if (args.dateCreatedStart) setObj($match, ["dateCreated", "$gte"], args.dateCreatedStart);
-  if (args.dateModifiedEnd) setObj($match, ["dateModified", "$lte"], args.dateModifiedEnd);
-  if (args.dateModifiedStart) setObj($match, ["dateModified", "$gte"], args.dateModifiedStart);
-  if (args.title) setObj($match, ["title", "$regex"], new RegExp(args.title, "i"));
-  if (hasFileCount)
-    setObj($match, ["fileCount", logicOpsToMongo(args.fileCountOp)], args.fileCountValue);
-  if (hasExcludedTags) setObj($match, ["tagIds", "$nin"], objectIds(args.excludedTagIds));
-  if (hasOptionalTags) setObj($match, ["tagIds", "$in"], objectIds(args.optionalTagIds));
-  if (hasRequiredTags) setObj($match, ["tagIds", "$all"], objectIds(args.requiredTagIds));
-  if (hasExcludedDescTags)
-    setObj($match, ["tagIdsWithAncestors", "$nin"], objectIds(args.excludedDescTagIds));
-  if (hasRequiredDescTags)
-    setObj($match, ["tagIdsWithAncestors", "$all"], objectIds(args.requiredDescTagIds));
-  if (hasRating) setObj($match, ["rating", logicOpsToMongo(args.ratingOp)], args.ratingValue);
-
-  return {
-    $match,
-    $sort: { [args.sortKey]: sortDir, _id: sortDir } as { [key: string]: 1 | -1 },
-  };
-};
-
 const makeCollAttrs = async (files: models.FileSchema[]) => {
   const ratedFiles = files.filter((f) => f.rating > 0);
   const tagIds = [...new Set(files.flatMap((f) => f.tagIds))];
@@ -129,37 +74,6 @@ export const listCollectionIdsByTagIds = makeAction(async (args: { tagIds: strin
       .lean()
   ).map((f) => f._id.toString());
 });
-
-export const listFilteredCollections = makeAction(
-  async ({
-    page,
-    pageSize,
-    ...filterParams
-  }: CreateCollectionFilterPipelineInput & {
-    page: number;
-    pageSize: number;
-  }) => {
-    const filterPipeline = createCollectionFilterPipeline(filterParams);
-
-    const [collections, totalDocuments] = await Promise.all([
-      models.FileCollectionModel.find(filterPipeline.$match)
-        .sort(filterPipeline.$sort)
-        .skip(Math.max(0, page - 1) * pageSize)
-        .limit(pageSize)
-        .allowDiskUse(true)
-        .lean(),
-      models.FileCollectionModel.countDocuments(filterPipeline.$match),
-    ]);
-
-    if (!collections || !(totalDocuments > -1))
-      throw new Error("Failed to load filtered collection IDs");
-
-    return {
-      collections: collections.map((c) => leanModelToJson<models.FileCollectionSchema>(c)),
-      pageCount: Math.ceil(totalDocuments / pageSize),
-    };
-  }
-);
 
 export const regenCollAttrs = makeAction(
   async (args: { collIds?: string[]; fileIds?: string[] } = {}) => {
