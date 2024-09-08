@@ -55,14 +55,15 @@ export const CollectionFilterMenu = observer(
             />
           </Card>
 
-          <Card spacing="0.5rem">
+          <Card column spacing="0.5rem">
             <LogOpsInput
               header="File Count"
               logOpValue={store.fileCount.logOp}
               numValue={store.fileCount.value}
               setLogOpValue={setFileCountOp}
               setNumValue={setFileCountValue}
-              numInputProps={{ minValue: 0, width: "4rem" }}
+              numInputProps={{ minValue: 0 }}
+              width="9rem"
             />
 
             <LogOpsInput
@@ -71,7 +72,8 @@ export const CollectionFilterMenu = observer(
               numValue={store.rating.value}
               setLogOpValue={setRatingOp}
               setNumValue={setRatingValue}
-              numInputProps={{ maxValue: 9, minValue: 0, width: "4rem" }}
+              numInputProps={{ maxValue: 9, minValue: 0 }}
+              width="9rem"
             />
           </Card>
         </View>

@@ -5,6 +5,7 @@ import {
   HeaderWrapperProps,
   NumInput,
   NumInputProps,
+  ViewProps,
 } from "medior/components";
 import { LOGICAL_OPS, LogicalOp } from "medior/utils";
 
@@ -13,7 +14,7 @@ const LOG_OPS_OPTS = [
   ...LOGICAL_OPS.map((op) => ({ label: op, value: op })),
 ];
 
-export interface LogOpsInputProps {
+export interface LogOpsInputProps extends ViewProps {
   dropdownProps?: Partial<DropdownProps>;
   header?: HeaderWrapperProps["header"];
   headerProps?: HeaderWrapperProps["headerProps"];
@@ -33,9 +34,10 @@ export const LogOpsInput = ({
   numValue,
   setLogOpValue,
   setNumValue,
+  ...props
 }: LogOpsInputProps) => {
   return (
-    <HeaderWrapper row header={header} headerProps={headerProps}>
+    <HeaderWrapper row header={header} headerProps={headerProps} {...props}>
       <Dropdown
         value={logOpValue}
         setValue={setLogOpValue}
