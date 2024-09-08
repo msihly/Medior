@@ -80,31 +80,32 @@ export const dirToFilePaths = async (
   blacklistRegex?: RegExp
 ): Promise<string[]> => {
   const paths = await fs.readdir(dirPath, { withFileTypes: true });
-  return (
-    await Promise.all(
-      paths.flatMap(async (dirent) => {
-        const filePath = path.join(dirPath, dirent.name);
-        if (blacklistRegex?.test(filePath)) return [];
-        if (dirent.isDirectory())
-          return recursive ? await dirToFilePaths(filePath, recursive, blacklistRegex) : [];
-        return [filePath];
-      })
-    )
-  ).flat();
+
+  const filePaths = await Promise.all(
+    paths.map(async (dirent) => {
+      const filePath = path.join(dirPath, dirent.name);
+      if (blacklistRegex?.test(filePath)) return [];
+      if (dirent.isDirectory())
+        return !recursive ? [] : await dirToFilePaths(filePath, recursive, blacklistRegex);
+      return [filePath];
+    })
+  );
+
+  return filePaths.flat();
 };
 
 export const dirToFolderPaths = async (dirPath: string): Promise<string[]> => {
   const paths = await fs.readdir(dirPath, { withFileTypes: true });
-  return (
-    await Promise.all(
-      paths.map(async (dirent) => {
-        const filePath = path.join(dirPath, dirent.name);
-        return dirent.isDirectory() ? [filePath, ...(await dirToFolderPaths(filePath))] : null;
-      })
-    )
-  )
-    .flat()
-    .filter((filePath) => filePath !== null);
+
+  const folderPaths = await Promise.all(
+    paths.map(async (dirent) => {
+      if (!dirent.isDirectory()) return [];
+      const filePath = path.join(dirPath, dirent.name);
+      return [filePath, ...(await dirToFolderPaths(filePath))];
+    })
+  );
+
+  return folderPaths.flat();
 };
 
 export const extendFileName = (fileName: string, ext: string) =>

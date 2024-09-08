@@ -1,13 +1,15 @@
 import { ModelCreationData } from "mobx-keystone";
 import { FileImport } from "medior/store";
 
-export type FlatFolderHierarchy = {
+export type FlatFolder = {
   collectionTitle?: string;
   folderName: string;
   folderNameParts: string[];
   imports: ModelCreationData<FileImport>[];
   tags: TagToUpsert[];
-}[];
+};
+
+export type FlatFolderHierarchy = Map<string, FlatFolder>;
 
 export type FolderToCollMode = "none" | "withoutTag" | "withTag";
 

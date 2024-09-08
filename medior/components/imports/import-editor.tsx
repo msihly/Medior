@@ -2,12 +2,13 @@ import path from "path";
 import { useEffect, useRef, useState } from "react";
 import { RegExMapSchema } from "medior/database";
 import { ModelCreationData } from "mobx-keystone";
-import { FileImport, Tag, observer, useStores } from "medior/store";
+import { FileImport, RootStore, Tag, observer, useStores } from "medior/store";
 import { Divider } from "@mui/material";
 import {
   Button,
   Checkbox,
   CheckboxProps,
+  Chip,
   ConfirmModal,
   LoadingOverlay,
   Modal,
@@ -15,18 +16,93 @@ import {
   View,
 } from "medior/components";
 import {
+  FlatFolder,
   FlatFolderHierarchy,
   FolderToCollMode,
   FolderToTagsMode,
-  ImportFolderList,
   RootFolderButton,
   TagHierarchy,
   TagToUpsert,
 } from ".";
-import { colors, getConfig, makeClasses, parseDiffParams, useDeepEffect } from "medior/utils";
+import { colors, commas, getConfig, makeClasses, makePerfLog, parseDiffParams } from "medior/utils";
 import { toast } from "react-toastify";
+import { ImportFoldersList } from "./import-folders-list";
 
-type RegExMaps = { regEx: RegExp; tagId: string }[];
+type RegExMap = { regEx: RegExp; tagId: string };
+
+const DEBUG = false;
+
+const getRegExMaps = (stores: RootStore, type: RegExMapSchema["types"][number]) =>
+  stores.tag.listRegExMapsByType(type).map((map) => ({
+    regEx: new RegExp(map.regEx, "im"),
+    tagId: map.tagId,
+  }));
+
+class EditorImportsCache {
+  private parentTagsCache = new Map<string, string[]>();
+  private regExMapsCache = new Map<string, RegExMap[]>();
+  private tagIdCache = new Map<string, Tag>();
+  private tagLabelCache = new Map<string, Tag>();
+  public diffRegExMaps: RegExMap[];
+  public fileRegExMaps: RegExMap[];
+  public folderRegExMaps: RegExMap[];
+  public tagsToCreateMap = new Map<string, TagToUpsert>();
+  public tagsToEditMap = new Map<string, TagToUpsert>();
+
+  constructor(private stores: RootStore) {
+    this.stores = stores;
+    this.diffRegExMaps = getRegExMaps(stores, "diffusionParams");
+    this.fileRegExMaps = getRegExMaps(stores, "fileName");
+    this.folderRegExMaps = getRegExMaps(stores, "folderName");
+  }
+
+  getParentTags(id: string) {
+    if (!this.parentTagsCache.has(id)) {
+      const tag = this.getTagById(id);
+      const parentTags = tag ? this.stores.tag.getParentTags(tag, true).map((t) => t.label) : [];
+      this.parentTagsCache.set(id, parentTags);
+    }
+    return this.parentTagsCache.get(id);
+  }
+
+  getTagByLabel(label: string) {
+    if (!this.tagLabelCache.has(label))
+      this.tagLabelCache.set(label, this.stores.tag.getByLabel(label));
+    return this.tagLabelCache.get(label);
+  }
+
+  getTagById(id: string) {
+    if (!this.tagIdCache.has(id)) this.tagIdCache.set(id, this.stores.tag.getById(id));
+    return this.tagIdCache.get(id);
+  }
+
+  getTagIdsByDiffRegEx(label: string) {
+    if (!this.regExMapsCache.has(label))
+      this.regExMapsCache.set(
+        label,
+        this.diffRegExMaps.filter((map) => map.regEx.test(label))
+      );
+    return this.regExMapsCache.get(label)?.map((map) => map.tagId);
+  }
+
+  getTagIdsByFileRegEx(label: string) {
+    if (!this.regExMapsCache.has(label))
+      this.regExMapsCache.set(
+        label,
+        this.fileRegExMaps.filter((map) => map.regEx.test(label))
+      );
+    return this.regExMapsCache.get(label)?.map((map) => map.tagId);
+  }
+
+  getTagIdsByFolderRegEx(label: string) {
+    if (!this.regExMapsCache.has(label))
+      this.regExMapsCache.set(
+        label,
+        this.folderRegExMaps.filter((map) => map.regEx.test(label))
+      );
+    return this.regExMapsCache.get(label)?.map((map) => map.tagId);
+  }
+}
 
 export const ImportEditor = observer(() => {
   const config = getConfig();
@@ -36,7 +112,7 @@ export const ImportEditor = observer(() => {
   const stores = useStores();
 
   const [deleteOnImport, setDeleteOnImport] = useState(config.imports.deleteOnImport);
-  const [flatFolderHierarchy, setFlatFolderHierarchy] = useState<FlatFolderHierarchy>([]);
+  const [flatFolderHierarchy, setFlatFolderHierarchy] = useState<FlatFolderHierarchy>(new Map());
   const [flatTagsToUpsert, setFlatTagsToUpsert] = useState<TagToUpsert[]>([]);
   const [folderToCollectionMode, setFolderToCollectionMode] = useState<FolderToCollMode>(
     config.imports.folderToCollMode
@@ -46,8 +122,6 @@ export const ImportEditor = observer(() => {
   );
   const [ignorePrevDeleted, setIgnorePrevDeleted] = useState(config.imports.ignorePrevDeleted);
   const [isConfirmDiscardOpen, setIsConfirmDiscardOpen] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
   const [tagHierarchy, setTagHierarchy] = useState<TagToUpsert[]>([]);
   const [withDelimiters, setWithDelimiters] = useState(config.imports.withDelimiters);
   const [withDiffusionModel, setWithDiffusionModel] = useState(config.imports.withDiffModel);
@@ -62,8 +136,6 @@ export const ImportEditor = observer(() => {
   );
   const [withNewTagsToRegEx, setWithNewTagsToRegEx] = useState(config.imports.withNewTagsToRegEx);
 
-  const isDisabled = isLoading || isSaving;
-
   const [hasChangesSinceLastScan, setHasChangesSinceLastScan] = useState(false);
 
   const isInitMount = useRef(true);
@@ -71,6 +143,7 @@ export const ImportEditor = observer(() => {
     if (isInitMount.current) isInitMount.current = false;
     else setHasChangesSinceLastScan(true);
   }, [
+    stores.import.editorRootFolderIndex,
     stores.tag.tags,
     folderToCollectionMode,
     folderToTagsMode,
@@ -82,6 +155,11 @@ export const ImportEditor = observer(() => {
     withFileNameToTags,
     withFolderNameRegEx,
   ]);
+
+  useEffect(() => {
+    if (!stores.import.editor.isInitDone) return;
+    scan();
+  }, [stores.import.editor.isInitDone]);
 
   const confirmDiscard = () => {
     stores.import.setIsImportEditorOpen(false);
@@ -111,7 +189,7 @@ export const ImportEditor = observer(() => {
   const toggleWithFolderNameRegEx = () => setWithFolderNameRegEx((prev) => !prev);
 
   const checkboxProps: Partial<CheckboxProps> = {
-    disabled: isDisabled,
+    disabled: stores.import.editor.isDisabled,
     flex: "initial",
     padding: { all: "0.5rem" },
   };
@@ -120,20 +198,16 @@ export const ImportEditor = observer(() => {
   /*                                INGEST LOGIC                                */
   /* -------------------------------------------------------------------------- */
   const createFolder = ({
+    cache,
     fileImport,
     folderName,
-    folderNameRegExMaps,
-    tagsToCreate,
-    tagsToEdit,
   }: {
+    cache: EditorImportsCache;
     fileImport: ModelCreationData<FileImport>;
     folderName: string;
-    folderNameRegExMaps: RegExMaps;
-    tagsToCreate: TagToUpsert[];
-    tagsToEdit: TagToUpsert[];
   }) => {
-    const _tagsToCreate = [];
-    const _tagsToEdit = [];
+    // const { perfLog } = makePerfLog("[ImportEditor.createFolder]");
+
     const folderTags: TagToUpsert[] = [];
 
     const folderNameParts = folderName.split(path.sep).slice(stores.import.editorRootFolderIndex);
@@ -146,94 +220,103 @@ export const ImportEditor = observer(() => {
     const tagParentLabel = folderNameParts.slice(0, -1).pop();
 
     if (folderToTagsMode !== "none") {
-      /** Parse cascading tags from folder hierarchy */
       if (folderToTagsMode === "cascading") {
         const labels = withDelimiters ? folderNameParts.flatMap(delimit) : folderNameParts;
         labels.forEach((label) => {
-          const tag = stores.tag.getByLabel(label);
-          if (!tag && !tagsToCreate.find((t) => t.label === label)) {
-            _tagsToCreate.push({ label, withRegEx: withNewTagsToRegEx });
+          const tag = cache.getTagByLabel(label);
+          if (!tag && !cache.tagsToCreateMap.has(label)) {
+            cache.tagsToCreateMap.set(label, { label, withRegEx: withNewTagsToRegEx });
             folderTags.push({ label });
           } else folderTags.push({ id: tag?.id, label });
         });
+
+        // if (DEBUG) perfLog("Parsed cascading tags");
       }
 
-      /** Parse hierarchical tags from folder hierarchy */
       if (folderToTagsMode === "hierarchical" && tagLabel) {
         delimit(tagLabel).forEach((label) => {
-          const id = stores.tag.getByLabel(label)?.id;
+          const id = cache.getTagByLabel(label)?.id;
           const parentLabels = tagParentLabel ? delimit(tagParentLabel) : [];
           folderTags.push({ id, label, parentLabels });
         });
 
         folderNameParts.forEach((label, idx) => {
           delimit(label).forEach((label) => {
-            const tag = stores.tag.getByLabel(label);
+            const tag = cache.getTagByLabel(label);
             const parentLabel = folderNameParts[idx - 1];
             const parentLabels = parentLabel ? delimit(parentLabel) : [];
 
-            if (!tag && !tagsToCreate.find((t) => t.label === label))
-              _tagsToCreate.push({ label, parentLabels, withRegEx: withNewTagsToRegEx });
-            else if (tag && !tagsToEdit.find((t) => t.id === tag.id))
-              _tagsToEdit.push({ id: tag.id, label, parentLabels });
+            if (!tag && !cache.tagsToCreateMap.has(label))
+              cache.tagsToCreateMap.set(label, {
+                label,
+                parentLabels,
+                withRegEx: withNewTagsToRegEx,
+              });
+            else if (tag && !cache.tagsToEditMap.has(tag.id))
+              cache.tagsToEditMap.set(tag.id, { id: tag.id, label, parentLabels });
           });
         });
+
+        // if (DEBUG) perfLog("Parsed hierarchical tags");
       }
 
-      /** Parse folder name regex mappings; replace duplicate tags to upsert */
       if (withFolderNameRegEx) {
-        folderTags.push(
-          ...parseTagsFromRegEx(folderNameRegExMaps, folderName).reduce((acc, id) => {
-            const label = stores.tag.getById(id)?.label;
-            if (!label) {
-              console.error(`Tag with id ${id} not found in stores.tag`);
-              return acc;
-            }
+        const existingLabels = new Set(folderTags.map((tag) => tag.label));
 
-            const hasFolderTag = [...acc, ...folderTags].find((t) => t.label === label);
-            if (!hasFolderTag) acc.push({ id, label });
+        folderTags.push(
+          ...folderNameParts.reduce((acc, folderNamePart) => {
+            const tagIds = cache.getTagIdsByFolderRegEx(folderNamePart);
+            if (!tagIds?.length) return acc;
+
+            tagIds.forEach((id) => {
+              const label = cache.getTagById(id)?.label;
+              if (!label) return acc;
+              if (!existingLabels.has(label)) {
+                acc.push({ id, label });
+                existingLabels.add(label);
+              }
+            });
 
             return acc;
           }, [] as TagToUpsert[])
         );
+
+        // if (DEBUG) perfLog("Parsed tags from folder name RegEx maps");
       }
     }
 
-    /** Filter out ancestors of other tags in the folder or duplicates from regex maps */
-    const tags = folderTags.reduce((acc, tag) => {
-      const hasDescendants = folderTags.some((otherTag) => {
-        const parentLabels = [
-          ...new Set([
-            otherTag.parentLabels ?? [],
-            otherTag.id
-              ? stores.tag.getParentTags(stores.tag.getById(otherTag.id), true).map((t) => t.label)
-              : [],
-          ]),
-        ].flat();
+    const tags = (() => {
+      const descendantMap = new Map<string, Set<string>>();
+      const processedTags = new Map<string, TagToUpsert>();
 
-        return parentLabels.includes(tag.label);
+      folderTags.forEach((tag) => {
+        const parentLabels = new Set([
+          ...(tag.parentLabels ?? []),
+          ...(tag.id ? cache.getParentTags(tag.id) : []),
+        ]);
+
+        parentLabels.forEach((parentLabel) => {
+          if (!descendantMap.has(parentLabel)) descendantMap.set(parentLabel, new Set());
+          descendantMap.get(parentLabel)!.add(tag.label);
+        });
+
+        if (!descendantMap.has(tag.label)) {
+          const tagToPush = withFolderNameRegEx ? replaceTagsFromRegEx(cache, tag) : tag;
+          if (!processedTags.has(tagToPush.label)) processedTags.set(tagToPush.label, tagToPush);
+        }
       });
 
-      if (hasDescendants) return acc;
+      return Array.from(processedTags.values());
+    })();
 
-      const tagToPush = withFolderNameRegEx ? replaceTagsFromRegEx(tag, folderNameRegExMaps) : tag;
-      if (acc.find((t) => t.label === tagToPush.label)) return acc;
-      else acc.push(tagToPush);
-
-      return acc;
-    }, [] as TagToUpsert[]);
+    // if (DEBUG) perfLog("Filtered out duplicate / ancestor tags");
 
     return {
-      _tagsToCreate,
-      _tagsToEdit,
-      /** The folder to be added to the hierarchy */
-      folder: {
-        collectionTitle,
-        folderName,
-        folderNameParts,
-        imports: [fileImport],
-        tags,
-      },
+      collectionTitle,
+      folderName,
+      folderNameParts,
+      imports: [fileImport],
+      tags,
     };
   };
 
@@ -245,70 +328,80 @@ export const ImportEditor = observer(() => {
   const delimit = (str: string) =>
     withDelimiters ? str.split(config.imports.folderDelimiter).map((l) => l.trim()) : [str];
 
-  const fileToTagsAndDiffParams = async () => {
-    const fileNameRegExMaps = getRegExMaps("fileName");
+  const fileToTagsAndDiffParams = async (cache: EditorImportsCache) => {
+    const { perfLog } = makePerfLog("[ImportEditor.fileToTagsAndDiffParams]");
 
     if (!withDiffusionParams)
       stores.import.clearValues({ diffusionParams: true, tagIds: true, tagsToUpsert: true });
-    else await stores.import.loadDiffusionParams();
+    else {
+      await stores.import.loadDiffusionParams();
+      if (DEBUG) perfLog("Loaded diffusion params");
+    }
 
     /** Create meta tags for diffusion params if not found. */
     const { diffMetaTagsToEdit, originalTag, upscaledTag } = await upsertDiffMetaTags();
+    if (DEBUG) perfLog("Upserted diffusion meta tags");
 
     const tagsToUpsert: TagToUpsert[] = [];
+
     /** Directly update file imports with their own tags derived from RegEx maps and diffusion params. */
     const editorImports = stores.import.editorImports.map((imp) => {
       const fileTagIds: string[] = [];
       const fileTagsToUpsert: TagToUpsert[] = [];
 
-      if (withFileNameToTags) fileTagIds.push(...parseTagsFromRegEx(fileNameRegExMaps, imp.name));
+      if (withFileNameToTags) {
+        const tagIds = cache.getTagIdsByFileRegEx(imp.name);
+        if (tagIds?.length) fileTagIds.push(...tagIds);
+        // if (DEBUG) perfLog(`Parsed tag ids from file name via regEx`);
+      }
 
       if (imp.diffusionParams?.length) {
         const { diffFileTagIds, diffFileTagsToUpsert } = parseDiffTags({
+          cache,
           diffusionParams: imp.diffusionParams,
           originalTagId: originalTag.id,
           upscaledTagId: upscaledTag.id,
         });
+        // if (DEBUG) perfLog(`Parsed diffusion params for ${imp.name}`);
 
         fileTagIds.push(...diffFileTagIds);
         fileTagsToUpsert.push(...diffFileTagsToUpsert);
       }
 
-      const tagIds = [...new Set(fileTagIds)].reduce((acc, curId) => {
-        if (acc.find((id) => id === curId)) return acc;
+      const tagIdsSet = new Set<string>();
+      for (const id of fileTagIds) {
+        if (tagIdsSet.has(id)) continue;
+
+        const tag = cache.getTagById(id);
+        if (!tag) continue;
 
         const hasDescendants = fileTagIds.some((otherId) => {
-          const otherTag = stores.tag.getById(otherId);
-          const parentIds = [
-            ...new Set([
-              otherTag?.parentIds ?? [],
-              otherTag ? stores.tag.getParentTags(otherTag, true).map((t) => t.id) : [],
-            ]),
-          ].flat();
-
-          return parentIds.includes(curId);
+          const otherTag = cache.getTagById(otherId);
+          const parentIds = new Set(
+            [otherTag?.parentIds ?? [], otherTag ? cache.getParentTags(otherTag.id) : []].flat()
+          );
+          return parentIds.has(id);
         });
 
-        if (!hasDescendants) acc.push(curId);
-        return acc;
-      }, [] as string[]);
+        if (!hasDescendants) tagIdsSet.add(id);
+      }
+
+      const tagIds = [...tagIdsSet];
+      // if (DEBUG) perfLog(`Parsed tagIds for ${imp.name}`);
 
       tagsToUpsert.push(...fileTagsToUpsert);
       const updates = { tagIds, tagsToUpsert: fileTagsToUpsert };
-      imp.update(updates);
+      imp.setTags(tagIds, fileTagsToUpsert);
+      // if (DEBUG) perfLog(`Updated file import with tags for ${imp.name}`);
       return { ...imp.$, ...updates };
     });
 
+    if (DEBUG) perfLog("Updated editor imports with tags");
     return { diffMetaTagsToEdit, editorImports, fileTagsToUpsert: tagsToUpsert };
   };
 
-  const getRegExMaps = (type: RegExMapSchema["types"][number]): RegExMaps =>
-    stores.tag
-      .listRegExMapsByType(type)
-      .map((map) => ({ regEx: new RegExp(map.regEx, "im"), tagId: map.tagId }));
-
   const handleConfirm = async () => {
-    setIsSaving(true);
+    stores.import.editor.setIsSaving(true);
 
     if (flatTagsToUpsert.length > 0) {
       const res = await stores.tag.upsertTags(flatTagsToUpsert);
@@ -317,11 +410,11 @@ export const ImportEditor = observer(() => {
       if (!res.success) {
         console.error(res.error);
         toast.error("Failed to create tags");
-        return setIsSaving(false);
+        return stores.import.editor.setIsSaving(false);
       }
     }
 
-    const batches = flatFolderHierarchy.map((folder) => ({
+    const batches = [...flatFolderHierarchy.values()].map((folder) => ({
       collectionTitle: folder.collectionTitle,
       deleteOnImport,
       ignorePrevDeleted,
@@ -346,90 +439,89 @@ export const ImportEditor = observer(() => {
     const res = await stores.import.createImportBatches(batches);
     if (!res.success) throw new Error(res.error);
 
-    setIsSaving(false);
-
-    toast.success(
-      `Queued ${flatFolderHierarchy.reduce((acc, cur) => acc + cur.imports.length, 0)} imports`
-    );
-
+    stores.import.editor.setIsSaving(false);
+    toast.success(`Queued ${flatFolderHierarchy.size} import batches`);
     stores.import.setIsImportEditorOpen(false);
     stores.import.setIsImportManagerOpen(true);
   };
 
   const parseDiffTags = ({
+    cache,
     diffusionParams,
     originalTagId,
     upscaledTagId,
   }: {
+    cache: EditorImportsCache;
     diffusionParams: string;
     originalTagId: string;
     upscaledTagId: string;
   }) => {
+    // const { perfLogTotal } = makePerfLog("[ImportEditor.parseDiffTags]");
+
     const diffFileTagIds: string[] = [];
     const diffFileTagsToUpsert: TagToUpsert[] = [];
 
     const parsedParams = parseDiffParams(diffusionParams);
+    // if (DEBUG) perfLog(`Parsed diffusion params`);
 
     if (withDiffusionRegExMaps) {
-      stores.tag.listRegExMapsByType("diffusionParams").forEach((map) => {
-        const regEx = new RegExp(map.regEx, "im");
-        if (regEx.test(parsedParams.prompt)) diffFileTagIds.push(map.tagId);
-      });
+      diffFileTagIds.push(...cache.getTagIdsByDiffRegEx(parsedParams.prompt));
+      // if (DEBUG) perfLog(`Parsed tag ids from diffusion params via regEx`);
     }
 
     if (withDiffusionModel) {
       const modelTagLabel = `Diff Model: ${parsedParams.model}`;
-      const modelTag = stores.tag.getByLabel(modelTagLabel);
-
+      const modelTag = cache.getTagByLabel(modelTagLabel);
       if (modelTag) diffFileTagIds.push(modelTag.id);
-      else {
-        const tagToUpsert: TagToUpsert = {
+      else
+        diffFileTagsToUpsert.push({
           aliases: [`Model Hash: ${parsedParams.modelHash}`],
           label: modelTagLabel,
           parentLabels: [config.imports.labelDiffModel],
           withRegEx: true,
-        };
-
-        diffFileTagsToUpsert.push(tagToUpsert);
-      }
+        });
+      // if (DEBUG) perfLog(`Parsed model tag from diffusion params`);
     }
 
     const upscaledTypeTagId = parsedParams.isUpscaled ? upscaledTagId : originalTagId;
     if (!diffFileTagIds.includes(upscaledTypeTagId)) diffFileTagIds.push(upscaledTypeTagId);
 
+    // perfLogTotal("Parsed diffusion tags");
     return { diffFileTagIds, diffFileTagsToUpsert };
   };
 
-  const parseTagsFromRegEx = (regExMaps: RegExMaps, name: string) =>
-    regExMaps.reduce((acc, cur) => {
-      if (cur.regEx.test(name)) acc.push(cur.tagId);
-      return acc;
-    }, [] as string[]);
+  const replaceTagsFromRegEx = (cache: EditorImportsCache, tag: TagToUpsert) => {
+    const copy = { ...tag };
 
-  const replaceTagsFromRegEx = (tag: TagToUpsert, regExMaps: RegExMaps) => {
-    const _tag = { ...tag };
-
-    const labelMatch = regExMaps.find((map) => map.regEx.test(_tag.label));
-    if (labelMatch) {
-      const label = stores.tag.getById(labelMatch.tagId)?.label;
-      if (label && !_tag.parentLabels?.includes(label)) {
-        _tag.id = labelMatch.tagId;
-        _tag.label = label;
-      }
-    }
-
-    if (_tag.parentLabels) {
-      _tag.parentLabels.forEach((parentLabel, idx) => {
-        const parentLabelMatch = regExMaps.find((map) => map.regEx.test(parentLabel));
-        if (parentLabelMatch) {
-          const parentLabel = stores.tag.getById(parentLabelMatch.tagId)?.label;
-          if (parentLabel && parentLabel !== _tag.label && !_tag.parentLabels.includes(parentLabel))
-            _tag.parentLabels[idx] = parentLabel;
+    const tagIds = cache.getTagIdsByFolderRegEx(copy.label);
+    if (tagIds?.length) {
+      tagIds.forEach((tagId) => {
+        const label = cache.getTagById(tagId)?.label;
+        if (label && !copy.parentLabels?.includes(label)) {
+          copy.id = tagId;
+          copy.label = label;
         }
       });
     }
 
-    return _tag;
+    if (copy.parentLabels) {
+      copy.parentLabels.forEach((parentLabel, idx) => {
+        const parentTagIds = cache.getTagIdsByFolderRegEx(parentLabel);
+        if (parentTagIds?.length) {
+          parentTagIds.forEach((tagId) => {
+            const parentLabel = cache.getTagById(tagId)?.label;
+            if (
+              parentLabel &&
+              parentLabel !== copy.label &&
+              !copy.parentLabels.includes(parentLabel)
+            )
+              copy.parentLabels[idx] = parentLabel;
+          });
+        }
+      });
+    }
+
+    return copy;
   };
 
   const upsertDiffMetaTags = async () => {
@@ -494,79 +586,95 @@ export const ImportEditor = observer(() => {
   };
 
   const scan = async () => {
-    if (isSaving) return;
-    setIsLoading(true);
+    if (stores.import.editor.isSaving) return;
+    stores.import.editor.setIsLoading(true);
 
     setTimeout(async () => {
-      const folderNameRegExMaps = getRegExMaps("folderName");
-      const tagsToCreate: TagToUpsert[] = [];
-      const tagsToEdit: TagToUpsert[] = [];
+      const { perfLog, perfLogTotal } = makePerfLog("[ImportEditor.scan]");
+      if (DEBUG)
+        console.log(
+          "/* ------------------------------- New Scan ------------------------------ */"
+        );
+      const cache = new EditorImportsCache(stores);
 
       /* ---------------------------------- Files --------------------------------- */
       const { diffMetaTagsToEdit, editorImports, fileTagsToUpsert } =
-        await fileToTagsAndDiffParams();
-      tagsToEdit.push(...diffMetaTagsToEdit);
+        await fileToTagsAndDiffParams(cache);
+      diffMetaTagsToEdit.forEach((tag) => cache.tagsToEditMap.set(tag.id, tag));
+      if (DEBUG) perfLog("Parsed file tags and diffusion params");
 
       /* --------------------------------- Folders -------------------------------- */
-      const flatFolderHierarchy = editorImports
-        .reduce((hierarchy, imp) => {
-          const folderName = path.dirname(imp.path);
-          const folder = hierarchy.find((f) => f.folderName === folderName);
+      const folderMap = new Map<string, FlatFolder>();
 
-          if (folder) folder.imports.push(imp);
-          else {
-            const { folder, _tagsToCreate, _tagsToEdit } = createFolder({
-              fileImport: imp,
-              folderName,
-              folderNameRegExMaps,
-              tagsToCreate,
-              tagsToEdit,
-            });
+      editorImports.forEach((imp) => {
+        const folderName = path.dirname(imp.path);
+        const folderInMap = folderMap.get(folderName);
 
-            hierarchy.push(folder);
-            tagsToCreate.push(..._tagsToCreate);
-            tagsToEdit.push(..._tagsToEdit);
-          }
+        if (folderInMap) folderInMap.imports.push(imp);
+        else {
+          const folder = createFolder({ cache, fileImport: imp, folderName });
+          folderMap.set(folderName, folder);
+          // if (DEBUG) perfLog(`Created folder #${folderMap.size}`);
+        }
 
-          if (imp.tagsToUpsert) tagsToCreate.push(...imp.tagsToUpsert);
+        if (imp.tagsToUpsert)
+          imp.tagsToUpsert.forEach((tag) => cache.tagsToCreateMap.set(tag.label, tag));
+        // if (DEBUG) perfLog(`Parsed import #${idx + 1} / ${editorImports.length}`);
+      });
+      if (DEBUG) perfLog("Parsed flat folder hierarchy");
 
-          return hierarchy;
-        }, [] as FlatFolderHierarchy)
-        .sort((a, b) => a.folderNameParts.length - b.folderNameParts.length);
+      const sortedFolderMap = new Map(
+        [...folderMap.entries()].sort(
+          (a, b) => a[1].folderNameParts.length - b[1].folderNameParts.length
+        )
+      );
+      if (DEBUG) perfLog("Sorted flat folder hierarchy");
 
-      setFlatFolderHierarchy(flatFolderHierarchy);
+      setFlatFolderHierarchy(sortedFolderMap);
+      if (DEBUG) perfLog("Set flat folder hierarchy");
 
       /* ----------------------------------- Tags ---------------------------------- */
-      const tagsToUpsert = [...fileTagsToUpsert, ...tagsToCreate, ...tagsToEdit].reduce(
-        (acc, cur) => {
-          const tag = withFolderNameRegEx ? replaceTagsFromRegEx(cur, folderNameRegExMaps) : cur;
-          if (!acc.find((t) => t.label === tag.label)) acc.push(tag);
-          return acc;
-        },
-        [] as TagToUpsert[]
-      );
+      const tagsToUpsertMap = new Map<string, TagToUpsert>();
+
+      [
+        ...fileTagsToUpsert,
+        ...cache.tagsToCreateMap.values(),
+        ...cache.tagsToEditMap.values(),
+      ].forEach((cur) => {
+        const tag = withFolderNameRegEx ? replaceTagsFromRegEx(cache, cur) : cur;
+        if (!tagsToUpsertMap.has(tag.label)) tagsToUpsertMap.set(tag.label, tag);
+      });
+      if (DEBUG) perfLog("Parsed flat tags to upsert");
+
+      const tagsToUpsert = [...tagsToUpsertMap.values()];
       setFlatTagsToUpsert(tagsToUpsert);
+      if (DEBUG) perfLog("Set flat tags to upsert");
 
       setTagHierarchy(
         tagsToUpsert
           .filter((t) => !t.parentLabels?.length)
           .map((t) => ({ ...t, children: createTagHierarchy(tagsToUpsert, t.label) }))
       );
+      if (DEBUG) perfLog("Created tag hierarchy");
 
-      setIsLoading(false);
+      stores.import.editor.setIsLoading(false);
       setHasChangesSinceLastScan(false);
+      perfLogTotal("Scan completed");
     }, 50);
   };
 
-  useDeepEffect(() => {
-    scan();
-  }, [isSaving, stores.import.editorFilePaths, stores.import.editorRootFolderIndex]);
-
   return (
     <Modal.Container width="100%" height="100%">
-      <LoadingOverlay isLoading={isDisabled} />
+      <LoadingOverlay isLoading={stores.import.editor.isDisabled} />
 
-      <Modal.Header leftNode={<Button text="Tag Manager" icon="More" onClick={handleTagManager} />}>
+      <Modal.Header
+        leftNode={<Button text="Tag Manager" icon="More" onClick={handleTagManager} />}
+        rightNode={
+          <Chip
+            label={`${commas(stores.import.editorImports.length)} Files / ${commas(flatFolderHierarchy.size)} Folders`}
+          />
+        }
+      >
         <Text>{"Import Editor"}</Text>
       </Modal.Header>
 
@@ -577,7 +685,7 @@ export const ImportEditor = observer(() => {
               text="Scan"
               icon="Cached"
               onClick={scan}
-              disabled={isDisabled}
+              disabled={stores.import.editor.isDisabled}
               color={hasChangesSinceLastScan ? colors.custom.purple : colors.custom.blue}
             />
 
@@ -736,16 +844,7 @@ export const ImportEditor = observer(() => {
               </View>
             )}
 
-            <View flex={1} className={cx(css.container, css.vertScroll)}>
-              {flatFolderHierarchy.map((f, i) => (
-                <ImportFolderList
-                  key={i}
-                  collectionTitle={f.collectionTitle}
-                  imports={f.imports}
-                  tags={f.tags}
-                />
-              ))}
-            </View>
+            <ImportFoldersList flatFolderHierarchy={flatFolderHierarchy} />
           </View>
         </View>
       </Modal.Content>
@@ -755,7 +854,7 @@ export const ImportEditor = observer(() => {
           text="Cancel"
           icon="Delete"
           onClick={handleCancel}
-          disabled={isDisabled}
+          disabled={stores.import.editor.isDisabled}
           colorOnHover={colors.custom.red}
         />
 
@@ -763,7 +862,7 @@ export const ImportEditor = observer(() => {
           text="Confirm"
           icon="Check"
           onClick={handleConfirm}
-          disabled={isDisabled || hasChangesSinceLastScan}
+          disabled={stores.import.editor.isDisabled || hasChangesSinceLastScan}
           color={colors.custom.blue}
         />
       </Modal.Footer>

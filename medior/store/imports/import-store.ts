@@ -14,7 +14,7 @@ import * as db from "medior/database";
 import { computed } from "mobx";
 import { asyncAction, RootStore } from "medior/store";
 import { copyFileForImport } from "./import-queue";
-import { FileImport, FileImportBatch } from ".";
+import { FileImport, FileImportBatch, ImportEditor } from ".";
 import {
   extendFileName,
   makePerfLog,
@@ -31,6 +31,7 @@ export type ImportBatchInput = Omit<ModelCreationData<FileImportBatch>, "imports
 @model("medior/ImportStore")
 export class ImportStore extends Model({
   deletedFileHashes: prop<string[]>(() => []).withSetter(),
+  editor: prop<ImportEditor>(() => new ImportEditor({})),
   editorFilePaths: prop<string[]>(() => []).withSetter(),
   editorRootFolderIndex: prop<number>(0).withSetter(),
   editorRootFolderPath: prop<string>("").withSetter(),
@@ -82,13 +83,11 @@ export class ImportStore extends Model({
 
   @modelAction
   clearValues({ diffusionParams = false, tagIds = false, tagsToUpsert = false } = {}) {
-    this.editorImports.forEach((imp) =>
-      imp.update({
-        ...(diffusionParams ? { diffusionParams: null } : {}),
-        ...(tagIds ? { tagIds: [] } : {}),
-        ...(tagsToUpsert ? { tagsToUpsert: [] } : {}),
-      })
-    );
+    this.editorImports.forEach((imp) => {
+      if (diffusionParams && imp.diffusionParams?.length) imp.diffusionParams = null;
+      if (tagIds && imp.tagIds?.length) imp.tagIds = null;
+      if (tagsToUpsert && imp.tagsToUpsert?.length) imp.tagsToUpsert = null;
+    });
   }
 
   @modelAction
@@ -309,29 +308,21 @@ export class ImportStore extends Model({
 
   @modelFlow
   loadDiffusionParams = asyncAction(async () => {
-    const paramFilePaths = this.editorImports.reduce((acc, cur) => {
-      if (cur.extension !== ".jpg") return acc;
+    const editorFilePathMap = new Map(this.editorFilePaths.map((p) => [path.resolve(p), p]));
 
-      const paramFileName = path.resolve(extendFileName(cur.path, "txt"));
-      if (this.editorFilePaths.find((p) => path.resolve(p) === paramFileName))
-        acc.push(paramFileName);
+    for (const imp of this.editorImports) {
+      if (imp.extension !== ".jpg") continue;
 
-      return acc;
-    }, [] as string[]);
+      const paramFileName = path.resolve(extendFileName(imp.path, "txt"));
+      if (!editorFilePathMap.has(paramFileName)) continue;
 
-    const paramFiles = await Promise.all(
-      paramFilePaths.map(async (p) => ({
-        params: await fs.readFile(p, { encoding: "utf8" }),
-        path: p,
-      }))
-    );
-
-    this.editorImports.forEach((imp) => {
-      const paramFile = paramFiles.find(
-        (p) => p.path === path.resolve(extendFileName(imp.path, "txt"))
-      );
-      if (paramFile) imp.update({ diffusionParams: paramFile.params });
-    });
+      try {
+        const params = await fs.readFile(paramFileName, { encoding: "utf8" });
+        imp.setDiffusionParams(params);
+      } catch (err) {
+        console.error("Error reading diffusion params:", err);
+      }
+    }
   });
 
   @modelFlow

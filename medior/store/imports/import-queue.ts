@@ -14,6 +14,7 @@ import {
   getAvailableFileStorage,
   getConfig,
   getVideoInfo,
+  makePerfLog,
   sharp,
   trpc,
 } from "medior/utils";
@@ -160,8 +161,11 @@ export const copyFileForImport = async ({
   }
 };
 
-export const dirToFileImports = async (dirPath: string) =>
-  await filePathsToImports(await dirToFilePaths(dirPath));
+export const dirToFileImports = async (dirPath: string) => {
+  const filePaths = await dirToFilePaths(dirPath);
+  const imports = await filePathsToImports(filePaths);
+  return { filePaths, imports };
+};
 
 export const filePathsToImports = async (filePaths: string[]) => {
   const config = getConfig();
@@ -199,6 +203,10 @@ export const handleIngest = async ({
   stores: RootStore;
 }) => {
   try {
+    const { perfLog, perfLogTotal } = makePerfLog("[Ingest]");
+    stores.import.editor.setIsInitDone(false);
+    stores.import.setIsImportEditorOpen(true);
+
     const [filePaths, folderPaths] = [...fileList]
       .sort((a, b) => {
         const lengthDiff = a.path.split(path.sep).length - b.path.split(path.sep).length;
@@ -210,29 +218,26 @@ export const handleIngest = async ({
         [],
       ] as string[][]);
 
-    const initialRootIndex =
-      (filePaths[0] ? path.dirname(filePaths[0]) : folderPaths[0]).split(path.sep).length - 1;
-
-    stores.import.setEditorRootFolderPath(
-      filePaths[0] ? path.dirname(filePaths[0]) : folderPaths[0]
-    );
+    const rootFolderPath = filePaths[0] ? path.dirname(filePaths[0]) : folderPaths[0];
+    const initialRootIndex = rootFolderPath.split(path.sep).length - 1;
+    stores.import.setEditorRootFolderPath(rootFolderPath);
     stores.import.setEditorRootFolderIndex(initialRootIndex);
+    perfLog("Set root folder path and index");
 
-    stores.import.setEditorFilePaths([
-      ...(await Promise.all(folderPaths.map((f) => dirToFilePaths(f)))).flat(),
-      ...filePaths,
+    const [folders, importsFromFilePaths] = await Promise.all([
+      await Promise.all(folderPaths.map((f) => dirToFileImports(f))),
+      filePathsToImports(filePaths),
     ]);
+    const editorFilePaths = [...filePaths, ...folders.flatMap((f) => f.filePaths)];
+    const editorImports = [...importsFromFilePaths, ...folders.flatMap((f) => f.imports)];
+    perfLog("Created editor file paths and imports");
 
-    stores.import.setEditorImports(
-      (
-        await Promise.all([
-          ...folderPaths.map((f) => dirToFileImports(f)),
-          ...filePaths.map((f) => filePathsToImports([f])),
-        ])
-      ).flat()
-    );
+    stores.import.setEditorFilePaths(editorFilePaths);
+    stores.import.setEditorImports(editorImports);
+    perfLog("Set editor file paths and imports");
 
-    stores.import.setIsImportEditorOpen(true);
+    perfLogTotal("Init done");
+    setTimeout(() => stores.import.editor.setIsInitDone(true), 0);
   } catch (err) {
     toast.error("Error queuing imports");
     console.error(err);

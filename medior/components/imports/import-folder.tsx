@@ -1,83 +1,83 @@
 import path from "path";
-import { ModelCreationData } from "mobx-keystone";
-import { FileImport, observer } from "medior/store";
+import { observer } from "medior/store";
 import { FixedSizeList } from "react-window";
-import { Divider } from "@mui/material";
-import { Chip, Text, View } from "medior/components";
-import { IMPORT_LIST_ITEM_HEIGHT, ImportListItem, TagHierarchy, TagToUpsert } from ".";
+import { Card, Chip, Text, View } from "medior/components";
+import { FlatFolder, IMPORT_LIST_ITEM_HEIGHT, ImportListItem, TagHierarchy } from ".";
 import { colors, makeClasses } from "medior/utils";
 import Color from "color";
 
+const COLL_HEIGHT = 64;
+const HEADER_HEIGHT = 43;
+const MAX_VISIBLE_FILES = 12;
+const TAGS_HEIGHT = 46;
+
+export const getImportFolderListHeight = (count: number) => {
+  return 3 + Math.min(count * IMPORT_LIST_ITEM_HEIGHT, MAX_VISIBLE_FILES * IMPORT_LIST_ITEM_HEIGHT);
+};
+
+export const getImportFolderHeight = (folder: FlatFolder) => {
+  return (
+    getImportFolderListHeight(folder?.imports?.length) +
+    HEADER_HEIGHT +
+    (folder?.collectionTitle?.length ? COLL_HEIGHT : 0) +
+    (folder?.tags?.length ? TAGS_HEIGHT : 0)
+  );
+};
+
 export interface ImportFolderListProps {
-  collectionTitle?: string;
-  imports: ModelCreationData<FileImport>[];
-  tags?: TagToUpsert[];
+  folder: FlatFolder;
 }
 
-export const ImportFolderList = observer(
-  ({ collectionTitle, imports, tags }: ImportFolderListProps) => {
-    const { css } = useClasses(null);
+export const ImportFolderList = observer(({ folder }: ImportFolderListProps) => {
+  const height = getImportFolderHeight(folder);
+  const { css } = useClasses(null);
 
-    return (
-      <View className={css.container}>
-        <View className={css.header}>
-          <Text className={css.folderPath}>
-            {imports[0]?.path && path.dirname(imports[0].path)}
-          </Text>
+  return (
+    <Card column flex="none" padding={{ all: 0 }} height={height} bgColor={colors.background}>
+      <View className={css.header}>
+        <Text className={css.folderPath}>
+          {folder.imports[0]?.path && path.dirname(folder.imports[0].path)}
+        </Text>
 
-          <Chip label={`${imports.length} files`} className={css.chip} />
-        </View>
-
-        {collectionTitle?.length > 0 && (
-          <>
-            <View className={css.collectionTitle}>
-              <Text fontWeight={500} align="center" color={colors.custom.lightBlue}>
-                {collectionTitle}
-              </Text>
-              <Text fontSize="0.7em">{"Collection"}</Text>
-            </View>
-
-            <Divider />
-          </>
-        )}
-
-        {tags?.length > 0 && (
-          <>
-            <View className={css.tags}>
-              {tags.map((tag) => (
-                <TagHierarchy key={tag.label} tag={tag} className={css.tag} />
-              ))}
-            </View>
-
-            <Divider />
-          </>
-        )}
-
-        <View className={css.list}>
-          <FixedSizeList
-            layout="vertical"
-            width="100%"
-            height={Math.min(
-              imports.length * IMPORT_LIST_ITEM_HEIGHT,
-              7.5 * IMPORT_LIST_ITEM_HEIGHT
-            )}
-            itemSize={IMPORT_LIST_ITEM_HEIGHT}
-            itemCount={imports.length}
-          >
-            {({ index, style }) => (
-              <ImportListItem
-                key={index}
-                fileImport={imports[index]}
-                bgColor={index % 2 === 1 ? Color(colors.foreground).fade(0.35).string() : undefined}
-                style={style}
-              />
-            )}
-          </FixedSizeList>
-        </View>
+        <Chip label={`${folder.imports.length} files`} className={css.chip} />
       </View>
-    );
-  }
-);
+
+      {folder?.collectionTitle?.length > 0 && (
+        <View column className={css.collection}>
+          <Text className={css.collectionTitle}>{folder.collectionTitle}</Text>
+          <Text fontSize="0.7em">{"Collection"}</Text>
+        </View>
+      )}
+
+      {folder.tags.length > 0 && (
+        <View row className={css.tags}>
+          {folder.tags.map((tag) => (
+            <TagHierarchy key={tag.label} tag={tag} className={css.tag} />
+          ))}
+        </View>
+      )}
+
+      <View column className={css.list}>
+        <FixedSizeList
+          layout="vertical"
+          width="100%"
+          height={getImportFolderListHeight(folder.imports.length)}
+          itemSize={IMPORT_LIST_ITEM_HEIGHT}
+          itemCount={folder.imports.length}
+        >
+          {({ index, style }) => (
+            <ImportListItem
+              key={index}
+              fileImport={folder.imports[index]}
+              bgColor={index % 2 === 1 ? Color(colors.foreground).fade(0.35).string() : undefined}
+              style={style}
+            />
+          )}
+        </FixedSizeList>
+      </View>
+    </Card>
+  );
+});
 
 const useClasses = makeClasses({
   chip: {
@@ -88,22 +88,17 @@ const useClasses = makeClasses({
     minWidth: "4em",
     marginLeft: "0.5rem",
   },
-  collectionTitle: {
-    display: "flex",
-    flexDirection: "column",
+  collection: {
     alignItems: "center",
     justifyContent: "center",
-    padding: "0.2rem 0.5rem",
+    borderBottom: `1px solid ${colors.custom.grey}`,
+    height: COLL_HEIGHT,
   },
-  container: {
-    display: "flex",
-    flexDirection: "column",
-    flex: "none",
-    borderRadius: 4,
-    marginBottom: "0.5rem",
-    width: "inherit",
-    backgroundColor: colors.background,
-    overflowX: "auto",
+  collectionTitle: {
+    color: colors.custom.lightBlue,
+    fontWeight: 500,
+    textAlign: "center",
+    whiteSpace: "nowrap",
   },
   folderPath: {
     color: colors.custom.lightGrey,
@@ -119,23 +114,21 @@ const useClasses = makeClasses({
     alignItems: "center",
     borderRadius: 4,
     padding: "0.5rem",
+    height: HEADER_HEIGHT,
     backgroundColor: colors.custom.black,
   },
   list: {
-    display: "flex",
-    flexDirection: "column",
     padding: "0 0 0.2rem 0",
-    maxHeight: "20rem",
     overflowY: "auto",
   },
   tag: {
     padding: "0.2rem 0.4rem 0.2rem 0.2rem",
   },
   tags: {
-    display: "flex",
-    flexDirection: "row",
     alignItems: "center",
-    padding: "0.2rem 0.3rem",
+    padding: "0 0.3rem",
+    borderBottom: `1px solid ${colors.custom.grey}`,
+    height: TAGS_HEIGHT,
     overflowX: "auto",
   },
 });
