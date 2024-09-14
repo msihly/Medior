@@ -234,8 +234,6 @@ export const getDeletedFile = makeAction(async ({ hash }: { hash: string }) =>
 );
 
 export const getDiskStats = makeAction(async ({ diskPath }: { diskPath: string }) => {
-  if (!diskPath || !(await fs.stat(diskPath).catch(() => null)))
-    throw new Error("Invalid disk path");
   return await checkDiskSpace(diskPath);
 });
 

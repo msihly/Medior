@@ -3,8 +3,6 @@ import { ReactNode } from "react";
 import { DialogContent } from "@mui/material";
 import { Padding, makeClasses } from "medior/utils";
 
-const DEFAULT_PADDING: Padding = { all: "0.5rem 1rem" };
-
 interface ContentProps {
   children: ReactNode | ReactNode[];
   className?: string;
@@ -13,7 +11,7 @@ interface ContentProps {
 }
 
 export const Content = ({ children, className, dividers = true, padding }: ContentProps) => {
-  padding = { ...DEFAULT_PADDING, ...padding };
+  padding = { all: `${dividers ? "0.5rem" : "0.2rem"} 1rem`, ...padding };
 
   const { cx, css } = useClasses({ padding });
 
@@ -30,6 +28,7 @@ interface ClassesProps {
 
 const useClasses = makeClasses(({ padding }: ClassesProps) => ({
   content: {
+    position: "relative",
     display: "flex",
     flexDirection: "column",
     flex: 1,

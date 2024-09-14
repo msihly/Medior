@@ -169,7 +169,7 @@ export const ImportEditor = observer(() => {
   const handleCancel = () => setIsConfirmDiscardOpen(true);
 
   const handleFolderToCollection = (checked: boolean) =>
-    setFolderToCollectionMode(checked ? "withoutTag" : "none");
+    setFolderToCollectionMode(checked ? "withTag" : "none");
 
   const handleFoldersToTags = (checked: boolean) =>
     setFolderToTagsMode(checked ? "hierarchical" : "none");
@@ -206,7 +206,7 @@ export const ImportEditor = observer(() => {
     fileImport: ModelCreationData<FileImport>;
     folderName: string;
   }) => {
-    // const { perfLog } = makePerfLog("[ImportEditor.createFolder]");
+    const { perfLog } = makePerfLog("[ImportEditor.createFolder]");
 
     const folderTags: TagToUpsert[] = [];
 
@@ -223,6 +223,7 @@ export const ImportEditor = observer(() => {
       if (folderToTagsMode === "cascading") {
         const labels = withDelimiters ? folderNameParts.flatMap(delimit) : folderNameParts;
         labels.forEach((label) => {
+          if (label === collectionTitle) return;
           const tag = cache.getTagByLabel(label);
           if (!tag && !cache.tagsToCreateMap.has(label)) {
             cache.tagsToCreateMap.set(label, { label, withRegEx: withNewTagsToRegEx });
@@ -230,11 +231,12 @@ export const ImportEditor = observer(() => {
           } else folderTags.push({ id: tag?.id, label });
         });
 
-        // if (DEBUG) perfLog("Parsed cascading tags");
+        if (DEBUG) perfLog("Parsed cascading tags");
       }
 
       if (folderToTagsMode === "hierarchical" && tagLabel) {
         delimit(tagLabel).forEach((label) => {
+          if (label === collectionTitle) return;
           const id = cache.getTagByLabel(label)?.id;
           const parentLabels = tagParentLabel ? delimit(tagParentLabel) : [];
           folderTags.push({ id, label, parentLabels });
@@ -242,6 +244,7 @@ export const ImportEditor = observer(() => {
 
         folderNameParts.forEach((label, idx) => {
           delimit(label).forEach((label) => {
+            if (label === collectionTitle) return;
             const tag = cache.getTagByLabel(label);
             const parentLabel = folderNameParts[idx - 1];
             const parentLabels = parentLabel ? delimit(parentLabel) : [];
@@ -257,7 +260,7 @@ export const ImportEditor = observer(() => {
           });
         });
 
-        // if (DEBUG) perfLog("Parsed hierarchical tags");
+        if (DEBUG) perfLog("Parsed hierarchical tags");
       }
 
       if (withFolderNameRegEx) {
@@ -281,7 +284,18 @@ export const ImportEditor = observer(() => {
           }, [] as TagToUpsert[])
         );
 
-        // if (DEBUG) perfLog("Parsed tags from folder name RegEx maps");
+        if (DEBUG) perfLog("Parsed tags from folder name RegEx maps");
+      }
+
+      /** Parse tags from collectionTitle via folder regex maps */
+      if (collectionTitle) {
+        const collectionTitleTags = cache.getTagIdsByFolderRegEx(collectionTitle);
+        if (collectionTitleTags?.length) {
+          collectionTitleTags.forEach((tagId) => {
+            const tag = cache.getTagById(tagId);
+            if (tag && !folderTags.some((t) => t.label === tag.label)) folderTags.push(tag);
+          });
+        }
       }
     }
 
@@ -309,7 +323,7 @@ export const ImportEditor = observer(() => {
       return Array.from(processedTags.values());
     })();
 
-    // if (DEBUG) perfLog("Filtered out duplicate / ancestor tags");
+    if (DEBUG) perfLog("Filtered out duplicate / ancestor tags");
 
     return {
       collectionTitle,
@@ -352,7 +366,7 @@ export const ImportEditor = observer(() => {
       if (withFileNameToTags) {
         const tagIds = cache.getTagIdsByFileRegEx(imp.name);
         if (tagIds?.length) fileTagIds.push(...tagIds);
-        // if (DEBUG) perfLog(`Parsed tag ids from file name via regEx`);
+        if (DEBUG) perfLog(`Parsed tag ids from file name via regEx`);
       }
 
       if (imp.diffusionParams?.length) {
@@ -362,7 +376,7 @@ export const ImportEditor = observer(() => {
           originalTagId: originalTag.id,
           upscaledTagId: upscaledTag.id,
         });
-        // if (DEBUG) perfLog(`Parsed diffusion params for ${imp.name}`);
+        if (DEBUG) perfLog(`Parsed diffusion params for ${imp.name}`);
 
         fileTagIds.push(...diffFileTagIds);
         fileTagsToUpsert.push(...diffFileTagsToUpsert);
@@ -387,12 +401,12 @@ export const ImportEditor = observer(() => {
       }
 
       const tagIds = [...tagIdsSet];
-      // if (DEBUG) perfLog(`Parsed tagIds for ${imp.name}`);
+      if (DEBUG) perfLog(`Parsed tagIds for ${imp.name}`);
 
       tagsToUpsert.push(...fileTagsToUpsert);
       const updates = { tagIds, tagsToUpsert: fileTagsToUpsert };
       imp.setTags(tagIds, fileTagsToUpsert);
-      // if (DEBUG) perfLog(`Updated file import with tags for ${imp.name}`);
+      if (DEBUG) perfLog(`Updated file import with tags for ${imp.name}`);
       return { ...imp.$, ...updates };
     });
 
@@ -456,17 +470,17 @@ export const ImportEditor = observer(() => {
     originalTagId: string;
     upscaledTagId: string;
   }) => {
-    // const { perfLogTotal } = makePerfLog("[ImportEditor.parseDiffTags]");
+    const { perfLog, perfLogTotal } = makePerfLog("[ImportEditor.parseDiffTags]");
 
     const diffFileTagIds: string[] = [];
     const diffFileTagsToUpsert: TagToUpsert[] = [];
 
     const parsedParams = parseDiffParams(diffusionParams);
-    // if (DEBUG) perfLog(`Parsed diffusion params`);
+    if (DEBUG) perfLog(`Parsed diffusion params`);
 
     if (withDiffusionRegExMaps) {
       diffFileTagIds.push(...cache.getTagIdsByDiffRegEx(parsedParams.prompt));
-      // if (DEBUG) perfLog(`Parsed tag ids from diffusion params via regEx`);
+      if (DEBUG) perfLog(`Parsed tag ids from diffusion params via regEx`);
     }
 
     if (withDiffusionModel) {
@@ -480,13 +494,13 @@ export const ImportEditor = observer(() => {
           parentLabels: [config.imports.labelDiffModel],
           withRegEx: true,
         });
-      // if (DEBUG) perfLog(`Parsed model tag from diffusion params`);
+      if (DEBUG) perfLog(`Parsed model tag from diffusion params`);
     }
 
     const upscaledTypeTagId = parsedParams.isUpscaled ? upscaledTagId : originalTagId;
     if (!diffFileTagIds.includes(upscaledTypeTagId)) diffFileTagIds.push(upscaledTypeTagId);
 
-    // perfLogTotal("Parsed diffusion tags");
+    perfLogTotal("Parsed diffusion tags");
     return { diffFileTagIds, diffFileTagsToUpsert };
   };
 
@@ -606,7 +620,7 @@ export const ImportEditor = observer(() => {
       /* --------------------------------- Folders -------------------------------- */
       const folderMap = new Map<string, FlatFolder>();
 
-      editorImports.forEach((imp) => {
+      editorImports.forEach((imp, idx) => {
         const folderName = path.dirname(imp.path);
         const folderInMap = folderMap.get(folderName);
 
@@ -614,12 +628,12 @@ export const ImportEditor = observer(() => {
         else {
           const folder = createFolder({ cache, fileImport: imp, folderName });
           folderMap.set(folderName, folder);
-          // if (DEBUG) perfLog(`Created folder #${folderMap.size}`);
+          if (DEBUG) perfLog(`Created folder #${folderMap.size}`);
         }
 
         if (imp.tagsToUpsert)
           imp.tagsToUpsert.forEach((tag) => cache.tagsToCreateMap.set(tag.label, tag));
-        // if (DEBUG) perfLog(`Parsed import #${idx + 1} / ${editorImports.length}`);
+        if (DEBUG) perfLog(`Parsed import #${idx + 1} / ${editorImports.length}`);
       });
       if (DEBUG) perfLog("Parsed flat folder hierarchy");
 

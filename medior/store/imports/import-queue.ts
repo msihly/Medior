@@ -43,6 +43,9 @@ export const copyFileForImport = async ({
   ignorePrevDeleted,
   tagIds,
 }: CopyFileForImportProps): Promise<CopyFileForImportResult> => {
+  const DEBUG = false;
+  const { perfLog } = makePerfLog("[CopyFileForImport]");
+
   const config = getConfig();
   let hash: string;
 
@@ -50,11 +53,19 @@ export const copyFileForImport = async ({
     const { dateCreated, extension, name, path: originalPath, size } = fileImport;
     const ext = extension.toLowerCase();
 
-    hash = await md5File(originalPath);
-
-    const fileStorageRes = await getAvailableFileStorage(size);
-    if (!fileStorageRes.success) throw new Error(fileStorageRes.error);
-    const targetDir = fileStorageRes.data;
+    const [targetDir] = await Promise.all([
+      (async () => {
+        const fileStorageRes = await getAvailableFileStorage(size);
+        if (!fileStorageRes.success) throw new Error(fileStorageRes.error);
+        const targetDir = fileStorageRes.data;
+        if (DEBUG) perfLog("Got target dir");
+        return targetDir;
+      })(),
+      (async () => {
+        hash = await md5File(originalPath);
+        if (DEBUG) perfLog("Hashed file");
+      })(),
+    ]);
 
     const dirPath = `${targetDir}\\${hash.substring(0, 2)}\\${hash.substring(2, 4)}`;
     const extFromPath = originalPath.split(".").pop().toLowerCase();
@@ -68,9 +79,13 @@ export const copyFileForImport = async ({
     let file = fileRes.data;
     const isDuplicate = !!file;
     const isPrevDeleted = !!deletedFileRes.data;
+    if (DEBUG) perfLog("Checked if file is duplicate or previously deleted");
 
     const fileExistsAtPath = await checkFileExists(newPath);
+    if (DEBUG) perfLog(`File exists at path: ${fileExistsAtPath}`);
+
     if (!fileExistsAtPath) await copyFile(dirPath, originalPath, newPath);
+    if (DEBUG) perfLog("Copied file");
 
     if (isDuplicate) {
       if (tagIds?.length > 0) {
@@ -80,6 +95,7 @@ export const copyFileForImport = async ({
           withSub: false,
         });
         if (!res.success) throw new Error(res.error);
+        if (DEBUG) perfLog("Added tags to duplicate file");
       }
 
       if (fileImport.diffusionParams?.length > 0) {
@@ -88,6 +104,7 @@ export const copyFileForImport = async ({
           diffusionParams: fileImport.diffusionParams,
         });
         if (!res.success) throw new Error(res.error);
+        if (DEBUG) perfLog("Updated diffusion params of duplicate file");
       }
     } else if (!(isPrevDeleted && ignorePrevDeleted)) {
       const isAnimated = [...config.file.videoTypes, "gif"].includes(extFromPath);
@@ -98,6 +115,7 @@ export const copyFileForImport = async ({
       const frameRate = isAnimated ? videoInfo?.frameRate : null;
       const width = isAnimated ? videoInfo?.width : imageInfo?.width;
       const height = isAnimated ? videoInfo?.height : imageInfo?.height;
+      if (DEBUG) perfLog("Got file info");
 
       const thumbPaths =
         duration > 0
@@ -112,6 +130,7 @@ export const copyFileForImport = async ({
         await (duration > 0
           ? generateFramesThumbnail(originalPath, dirPath, hash, duration)
           : sharp(originalPath).resize(null, CONSTANTS.THUMB.WIDTH).toFile(thumbPaths[0]));
+        if (DEBUG) perfLog("Generated thumbnail(s)");
       }
 
       const res = await trpc.importFile.mutate({
@@ -130,22 +149,26 @@ export const copyFileForImport = async ({
         thumbPaths,
         width,
       });
-
       if (!res.success) throw new Error(res.error);
       file = res.data;
+      if (DEBUG) perfLog("Imported file");
     }
 
     if (deleteOnImport && !(isPrevDeleted && ignorePrevDeleted)) {
       await deleteFile(originalPath, newPath);
-      if (fileImport.diffusionParams?.length > 0)
+      if (DEBUG) perfLog("Deleted original file");
+
+      if (fileImport.diffusionParams?.length > 0) {
         await deleteFile(extendFileName(originalPath, "txt"));
+        if (DEBUG) perfLog("Deleted diffusion params file");
+      }
     }
 
     return { success: true, file, isDuplicate, isPrevDeleted };
   } catch (err) {
     console.error("Error importing", fileImport.toString({ withData: true }), ":", err.stack);
 
-    if (err.code === "EEXIST") {
+    if (err.code === "EEXIST" || err.message.includes("duplicate key")) {
       const fileRes = await trpc.getFileByHash.mutate({ hash });
       if (!fileRes.data) {
         console.debug("File exists, but not in db. Inserting into db only...");

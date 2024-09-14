@@ -2,7 +2,7 @@
 import { promises as fs, constants as fsc } from "fs";
 import path from "path";
 import prettier from "prettier";
-import { handleErrors } from "medior/utils";
+import { handleErrors, makePerfLog } from "medior/utils";
 
 export const checkFileExists = async (path: string) => !!(await fs.stat(path).catch(() => false));
 
@@ -65,7 +65,7 @@ export const copyFile = async (dirPath: string, originalPath: string, newPath: s
 export const deleteFile = (path: string, copiedPath?: string) =>
   handleErrors(async () => {
     if (!(await checkFileExists(path)))
-      throw new Error(`Failed to delete ${path}. File does not exist.`);
+      return console.debug(`Failed to delete ${path}. File does not exist.`);
     if (copiedPath && !(await checkFileExists(copiedPath)))
       throw new Error(
         `Failed to delete ${path}. File does not exist at copied path ${copiedPath}.`
@@ -157,29 +157,40 @@ export const parseExportsFromIndex: (indexFilePath: string) => Promise<string[]>
 
 export const removeEmptyFolders = async (
   dirPath: string = ".",
-  options: { excludedPaths?: string[]; removeEmptyParent?: boolean } = {}
+  options: { excludedPaths?: string[] } = {}
 ) => {
-  if (
-    !(await fs.stat(dirPath)).isDirectory() ||
-    options.excludedPaths?.includes(path.basename(dirPath))
-  )
-    return;
+  const DEBUG = false;
+  const { perfLog, perfLogTotal } = makePerfLog("removeEmptyFolders");
 
-  const subOptions = { ...options, removeEmptyParent: false };
+  const dirPathsParts = (await dirToFolderPaths(dirPath))
+    .filter((p) => !options.excludedPaths?.includes(p))
+    .map((p) => p.split(path.sep));
+  if (DEBUG) perfLog("Got folder paths");
 
-  let files = await fs.readdir(dirPath);
-  if (files.length) {
-    await Promise.all(files.map((f) => removeEmptyFolders(path.join(dirPath, f), subOptions)));
-    files = await fs.readdir(dirPath);
-  }
+  const dirPathsDeepToShallow = [...dirPathsParts]
+    .sort((a, b) => b.length - a.length)
+    .map((p) => p.join(path.sep));
+  if (DEBUG) perfLog("Sorted folder paths");
 
-  if (!files.length) {
-    try {
-      await fs.rmdir(dirPath);
-    } catch (err) {
-      console.error(`Failed to remove ${dirPath}`, err);
+  const emptyFolders = new Set<string>();
+  await Promise.all(
+    dirPathsDeepToShallow.map(async (dir) => {
+      if ((await dirToFilePaths(dir)).length === 0) emptyFolders.add(dir);
+    })
+  );
+  if (DEBUG) perfLog("Found empty folders");
+
+  const rootDirsToEmpty = new Set<string>();
+  for (const dir of dirPathsDeepToShallow) {
+    if (emptyFolders.has(dir)) {
+      const parts = dir.split(path.sep);
+      parts.pop();
+      const ancestors = parts.map((_, i) => parts.slice(0, i + 1).join(path.sep));
+      if (!ancestors.some((a) => emptyFolders.has(a))) rootDirsToEmpty.add(dir);
     }
   }
+  if (DEBUG) perfLog("Found root folders to empty");
 
-  if (options.removeEmptyParent) await removeEmptyFolders(path.dirname(dirPath), subOptions);
+  await Promise.all([...rootDirsToEmpty].map((dir) => fs.rmdir(dir, { recursive: true })));
+  if (DEBUG) perfLogTotal("Done");
 };

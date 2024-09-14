@@ -135,62 +135,61 @@ export class ImportStore extends Model({
 
       const batch = this.getById(batchId);
       if (DEBUG)
-        perfLog(
-          `Starting importBatch: ${JSON.stringify({ batch: { ...batch, id: batchId } }, null, 2)}`
+        console.log(
+          `Starting importBatch: ${batch.id} (${batch.imports.length} files, ${batch.tagIds.length} tags)`
         );
 
       const res = await trpc.startImportBatch.mutate({ id: batchId });
       if (!res.success) throw new Error(res.error);
-      this.getById(batchId)?.update({ startedAt: res.data });
       if (DEBUG) perfLog("Started importBatch");
 
+      this.getById(batchId)?.update({ startedAt: res.data });
+      if (DEBUG) perfLog("Updated batch.startedAt in store");
+
       batch.imports.forEach((file) => {
-        this.queue.add(async () => {
-          if (DEBUG) perfLog(`Importing file: ${JSON.stringify({ ...file }, null, 2)}`);
-          const res = await this.importFile({ batchId, filePath: file.path });
-          if (!res.success) throw new Error(res.error);
-        });
-      });
-
-      this.queue.add(async () => {
-        if (DEBUG) perfLog(`Completing importBatch: ${batchId}`);
-        const batch = this.getById(batchId);
-
-        const addedTagIds = [...batch.tagIds].flat();
-        const duplicateFileIds = batch.imports
-          .filter((file) => file.status === "DUPLICATE")
-          .map((file) => file.fileId);
-
-        if (addedTagIds.length && duplicateFileIds.length) {
-          try {
-            const res = await trpc.editFileTags.mutate({
-              fileIds: duplicateFileIds,
-              addedTagIds,
-              withSub: false,
-            });
+        try {
+          this.queue.add(async () => {
+            const res = await this.importFile({ batchId, filePath: file.path });
             if (!res.success) throw new Error(res.error);
-            if (DEBUG) perfLog("Added tags to duplicate files");
-          } catch (err) {
-            console.error("Error adding tags to duplicate files:", err);
-          }
-        }
-
-        if (batch.deleteOnImport) {
-          try {
-            await removeEmptyFolders(batch.rootFolderPath);
-            if (DEBUG) perfLog(`Removed empty folders: ${batch.rootFolderPath}`);
-          } catch (err) {
-            console.error("Error removing empty folders:", err);
-          }
-        }
-
-        const res = await this.completeImportBatch({ batchId });
-        if (!res.success) throw new Error(res.error);
-        if (DEBUG) {
-          perfLog(`Completed importBatch: ${batchId}`);
-          perfLogTotal("Completed importBatch");
+            if (DEBUG) perfLog(`Imported file: ${file.path}`);
+          });
+        } catch (err) {
+          console.error("Error importing file:", err);
         }
       });
+
+      try {
+        this.queue.add(async () => {
+          const batch = this.getById(batchId);
+          const addedTagIds = [...batch.tagIds].flat();
+          const duplicateFileIds = batch.imports
+            .filter((file) => file.status === "DUPLICATE")
+            .map((file) => file.fileId);
+
+          if (addedTagIds.length && duplicateFileIds.length) {
+            try {
+              const res = await trpc.editFileTags.mutate({
+                fileIds: duplicateFileIds,
+                addedTagIds,
+                withSub: false,
+              });
+              if (!res.success) throw new Error(res.error);
+              if (DEBUG) perfLog("Added tags to duplicate files");
+            } catch (err) {
+              console.error("Error adding tags to duplicate files:", err);
+            }
+          }
+
+          const res = await this.completeImportBatch({ batchId });
+          if (!res.success) throw new Error(res.error);
+          if (DEBUG) {
+            perfLog(`Completed importBatch: ${batchId}`);
+            perfLogTotal("Completed import queue cycle");
+          }
+        });
+      } catch (err) {
+        console.error("Error completing import batch:", err);
+      }
     });
   }
 
@@ -229,6 +228,20 @@ export class ImportStore extends Model({
 
     batch.update({ collectionId, completedAt });
     this.queueNextImportBatch();
+
+    setTimeout(async () => {
+      if (
+        batch.deleteOnImport &&
+        !this.incompleteBatches.some((b) => b.rootFolderPath === batch.rootFolderPath)
+      ) {
+        try {
+          await removeEmptyFolders(batch.rootFolderPath);
+          console.debug(`Removed empty folders: ${batch.rootFolderPath}`);
+        } catch (err) {
+          console.error("Error removing empty folders:", err);
+        }
+      }
+    }, 1000);
   });
 
   @modelFlow
@@ -258,6 +271,9 @@ export class ImportStore extends Model({
 
   @modelFlow
   importFile = asyncAction(async ({ batchId, filePath }: { batchId: string; filePath: string }) => {
+    const DEBUG = false;
+    const { perfLog, perfLogTotal } = makePerfLog("[ImportStore.importFile]");
+
     const batch = this.getById(batchId);
     const fileImport = batch?.getByPath(filePath);
 
@@ -272,6 +288,7 @@ export class ImportStore extends Model({
     if (fileImport.status !== "PENDING")
       return console.warn(`File already imported (Status: ${fileImport.status}):`, fileImport.path);
 
+    if (DEBUG) perfLog(`Importing file: ${fileImport.path}`);
     const tagIds = [...new Set([...batch.tagIds, ...fileImport.tagIds].flat())];
 
     const copyRes = await copyFileForImport({
@@ -280,6 +297,7 @@ export class ImportStore extends Model({
       ignorePrevDeleted: batch.ignorePrevDeleted,
       tagIds,
     });
+    if (DEBUG) perfLog("File imported");
 
     const errorMsg = copyRes.error ?? null;
     const fileId = copyRes.file?.id ?? null;
@@ -294,6 +312,7 @@ export class ImportStore extends Model({
 
     try {
       batch.updateImport(filePath, { errorMsg, fileId, status, thumbPaths });
+      if (DEBUG) perfLog("Updated import in store");
 
       const updateRes = await trpc.updateFileImportByPath.mutate({
         batchId,
@@ -304,9 +323,12 @@ export class ImportStore extends Model({
         thumbPaths,
       });
       if (!updateRes?.success) throw new Error(updateRes?.error);
+      if (DEBUG) perfLog("Updated import in db");
     } catch (err) {
       console.error("Error updating import:", err);
     }
+
+    if (DEBUG) perfLogTotal("File import completed");
   });
 
   @modelFlow

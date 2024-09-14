@@ -1,4 +1,4 @@
-import { ReactNode, useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { observer, useStores } from "medior/store";
 import {
   Button,
@@ -6,27 +6,42 @@ import {
   IconButton,
   ImportBatch,
   Modal,
-  Text,
+  Pagination,
+  UniformList,
   View,
 } from "medior/components";
 import { colors, makeClasses } from "medior/utils";
 import { toast } from "react-toastify";
+
+const PAGE_SIZE = 20;
 
 export const ImportManager = observer(() => {
   const { css } = useClasses(null);
 
   const stores = useStores();
 
-  const completedRef = useRef<HTMLDivElement>(null);
+  const [activeType, setActiveType] = useState<"completed" | "pending">("pending");
+  const batches =
+    activeType === "completed" ? stores.import.completedBatches : stores.import.incompleteBatches;
 
-  useEffect(() => {
-    if (completedRef.current && stores.import.completedBatches?.length)
-      completedRef.current.scrollTo({ behavior: "smooth", top: completedRef.current.scrollHeight });
-  }, [stores.import.completedBatches?.length]);
+  const [page, setPage] = useState(1);
+  const pageCount = Math.max(1, Math.ceil(batches?.length / PAGE_SIZE));
+
+  const handleChange = (newPage: number) => setPage(newPage);
 
   const handleClose = () => {
     stores.import.setIsImportManagerOpen(false);
     stores.file.search.reloadIfQueued();
+  };
+
+  const handleCompletedClick = () => {
+    setPage(1);
+    setActiveType("completed");
+  };
+
+  const handlePendingClick = () => {
+    setPage(1);
+    setActiveType("pending");
   };
 
   const handleTagManager = () => stores.tag.manager.setIsOpen(true);
@@ -36,36 +51,45 @@ export const ImportManager = observer(() => {
       visible={stores.import.isImportManagerOpen}
       onClose={handleClose}
       maxWidth="60rem"
+      maxHeight="40rem"
       width="100%"
       height="100%"
     >
-      <Modal.Header leftNode={<Button text="Tag Manager" icon="More" onClick={handleTagManager} />}>
-        <Text>{"Import Manager"}</Text>
-      </Modal.Header>
+      <View row justify="space-between" align="center" padding={{ all: "0.5rem 0.8rem 0.3rem" }}>
+        <IconButton
+          name="Label"
+          iconProps={{ color: colors.custom.grey }}
+          onClick={handleTagManager}
+        />
 
-      <Modal.Content className={css.modalContent}>
-        <ContainerHeader type="completed" />
+        <UniformList row uniformWidth="9rem" width="100%" justify="center" spacing="1rem">
+          <Button
+            text={`Pending - ${stores.import.incompleteBatches?.length}`}
+            onClick={handlePendingClick}
+            color={activeType === "pending" ? colors.custom.purple : colors.foreground}
+          />
 
-        <View ref={completedRef} className={css.batchesContainer} margins={{ bottom: "1rem" }}>
-          {stores.import.completedBatches?.length > 0 ? (
-            [...stores.import.completedBatches].map((batch) => (
-              <ImportBatch key={batch.id} {...{ batch }} />
-            ))
-          ) : (
-            <CenteredText text="No Completed Imports" color={colors.custom.lightGrey} />
-          )}
-        </View>
+          <Button
+            text={`Completed - ${stores.import.completedBatches?.length}`}
+            onClick={handleCompletedClick}
+            color={activeType === "completed" ? colors.custom.green : colors.foreground}
+          />
+        </UniformList>
 
-        <ContainerHeader type="pending" />
+        <DeleteToggleButton type="completed" />
+      </View>
 
+      <Modal.Content dividers={false}>
         <View className={css.batchesContainer}>
-          {stores.import.incompleteBatches?.length > 0 ? (
-            [...stores.import.incompleteBatches].map((batch) => (
-              <ImportBatch key={batch.id} {...{ batch }} />
-            ))
+          {batches?.length ? (
+            batches
+              .slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+              .map((batch) => <ImportBatch key={batch.id} {...{ batch }} />)
           ) : (
-            <CenteredText text="No Pending Imports" color={colors.custom.lightGrey} />
+            <CenteredText text={`No ${activeType} Imports`} color={colors.custom.lightGrey} />
           )}
+
+          <Pagination count={pageCount} page={page} onChange={handleChange} />
         </View>
       </Modal.Content>
 
@@ -75,23 +99,6 @@ export const ImportManager = observer(() => {
     </Modal.Container>
   );
 });
-
-interface ContainerHeaderProps {
-  children?: ReactNode;
-  type: "completed" | "pending";
-}
-
-const ContainerHeader = ({ children, type }: ContainerHeaderProps) => {
-  const { css } = useClasses(null);
-
-  return (
-    <View className={css.containerHeader}>
-      {children ?? <View />}
-      <Text className={css.containerTitle}>{type === "completed" ? "Completed" : "Pending"}</Text>
-      <DeleteToggleButton {...{ type }} />
-    </View>
-  );
-};
 
 interface DeleteToggleButtonProps {
   type: "completed" | "pending";
@@ -115,7 +122,7 @@ const DeleteToggleButton = observer(({ type }: DeleteToggleButtonProps) => {
   };
 
   return (
-    <View row justify="flex-end" padding={{ right: "1rem" }}>
+    <View row justify="flex-end">
       {!isConfirmDeleteAllOpen ? (
         <IconButton
           name="DeleteOutline"
@@ -148,31 +155,10 @@ const useClasses = makeClasses({
     flexDirection: "column",
     borderRadius: "0.5rem",
     padding: "0.7rem",
+    paddingBottom: "5rem",
     height: "100%",
     width: "100%",
     backgroundColor: colors.foreground,
-    overflowX: "hidden",
-    overflowY: "auto",
-  },
-  containerHeader: {
-    display: "flex",
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: "0.5rem",
-    "& > *": {
-      width: "calc(100% / 3)",
-    },
-  },
-  containerTitle: {
-    fontSize: "1.1em",
-    fontWeight: 500,
-    textAlign: "center",
-    overflow: "visible",
-  },
-  modalContent: {
-    flexDirection: "column",
-    padding: "1rem",
     overflowX: "hidden",
     overflowY: "auto",
   },
