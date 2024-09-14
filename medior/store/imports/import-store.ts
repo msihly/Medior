@@ -19,6 +19,7 @@ import {
   extendFileName,
   makePerfLog,
   PromiseQueue,
+  PromiseQueueOptions,
   removeEmptyFolders,
   trpc,
   uniqueArrayMerge,
@@ -27,6 +28,8 @@ import {
 export type ImportBatchInput = Omit<ModelCreationData<FileImportBatch>, "imports"> & {
   imports?: ModelCreationData<FileImport>[];
 };
+
+const QUEUE_OPTS: PromiseQueueOptions = { concurrency: 10 };
 
 @model("medior/ImportStore")
 export class ImportStore extends Model({
@@ -46,7 +49,7 @@ export class ImportStore extends Model({
   isImportEditorOpen: prop<boolean>(false).withSetter(),
   isImportManagerOpen: prop<boolean>(false).withSetter(),
 }) {
-  queue: PromiseQueue = new PromiseQueue();
+  queue = new PromiseQueue(QUEUE_OPTS);
 
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
   @modelAction
@@ -79,6 +82,12 @@ export class ImportStore extends Model({
   @modelAction
   addDeletedFileHashes(hashes: string[]) {
     this.deletedFileHashes = [...new Set(...this.deletedFileHashes, ...hashes)];
+  }
+
+  @modelAction
+  clearQueue() {
+    this.queue.cancel();
+    this.queue = new PromiseQueue(QUEUE_OPTS);
   }
 
   @modelAction
@@ -224,7 +233,7 @@ export class ImportStore extends Model({
 
   @modelFlow
   createImportBatches = asyncAction(async (batches: db.CreateImportBatchesInput) => {
-    this.queue.clear();
+    this.clearQueue();
 
     const batchRes = await trpc.createImportBatches.mutate(
       batches.map((b) => ({
@@ -239,7 +248,7 @@ export class ImportStore extends Model({
 
   @modelFlow
   deleteImportBatches = asyncAction(async ({ ids }: db.DeleteImportBatchesInput) => {
-    this.queue.clear();
+    this.clearQueue();
 
     const deleteRes = await trpc.deleteImportBatches.mutate({ ids });
     if (!deleteRes?.success) return false;
@@ -327,7 +336,7 @@ export class ImportStore extends Model({
 
   @modelFlow
   loadImportBatches = asyncAction(async () => {
-    this.queue.clear();
+    this.clearQueue();
 
     const res = await trpc.listImportBatches.mutate();
     if (res.success) {

@@ -65,10 +65,10 @@ export const SettingsModal = observer(() => {
 
       await saveConfig(stores.home.settings.getConfig());
 
-      stores.faceRecog.autoDetectQueue.clear();
-      stores.file.infoRefreshQueue.clear();
-      stores.import.queue.clear();
-      stores.tag.manager.tagRefreshQueue.clear();
+      stores.faceRecog.clearQueue();
+      stores.file.clearRefreshQueue();
+      stores.import.clearQueue();
+      stores.tag.manager.clearRefreshQueue();
 
       if (hasDbDiff || hasServerDiff || hasSocketDiff)
         await trpc.reloadServers.mutate({

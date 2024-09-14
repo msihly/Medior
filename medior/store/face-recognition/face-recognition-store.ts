@@ -39,6 +39,12 @@ export class FaceRecognitionStore extends Model({
     );
   }
 
+  @modelAction
+  clearQueue() {
+    this.autoDetectQueue.cancel();
+    this.autoDetectQueue = new PromiseQueue();
+  }
+
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */
   @modelFlow
   addFilesToAutoDetectQueue = asyncAction(async (fileIds: string[]) => {

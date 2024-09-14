@@ -23,9 +23,15 @@ export class TagManagerStore extends Model({
   selectedIds: prop<string[]>(() => []).withSetter(),
   search: prop<TagSearch>(() => new TagSearch({})).withSetter(),
 }) {
-  tagRefreshQueue = new PromiseQueue();
+  refreshQueue = new PromiseQueue();
 
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
+  @modelAction
+  clearRefreshQueue() {
+    this.refreshQueue.cancel();
+    this.refreshQueue = new PromiseQueue();
+  }
+
   @modelAction
   toggleTagsSelected(selected: { id: string; isSelected?: boolean }[], withToast = false) {
     if (!selected?.length) return;
@@ -85,7 +91,7 @@ export class TagManagerStore extends Model({
       items: this.selectedIds,
       logSuffix: "tags",
       onComplete: () => Promise.all([stores.tag.loadTags(), this.search.loadFiltered()]),
-      queue: this.tagRefreshQueue,
+      queue: this.refreshQueue,
     });
   });
 

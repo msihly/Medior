@@ -35,12 +35,18 @@ export class FileStore extends ExtendedModel(_FileStore, {
   search: prop<FileSearch>(() => new FileSearch({})),
   selectedIds: prop<string[]>(() => []),
 }) {
-  infoRefreshQueue = new PromiseQueue();
+  refreshQueue = new PromiseQueue();
 
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
   @modelAction
   addFileAfterIndex(file: ModelCreationData<File>, index: number) {
     this.search.results.splice(index + 1, 0, new File(file));
+  }
+
+  @modelAction
+  clearRefreshQueue() {
+    this.refreshQueue.cancel();
+    this.refreshQueue = new PromiseQueue();
   }
 
   @modelAction
@@ -213,7 +219,7 @@ export class FileStore extends ExtendedModel(_FileStore, {
       items: filesRes.data.items,
       logSuffix: "files",
       onComplete: () => this.search.loadFiltered(),
-      queue: this.infoRefreshQueue,
+      queue: this.refreshQueue,
     });
   });
 

@@ -33,6 +33,7 @@ export class PromiseQueue {
             .then(resolve)
             .catch(reject)
             .finally(async () => {
+              if (this.cancelled) return reject({ cancelled: true });
               this.runningCount--;
               if (opts.delayRange) await sleep(rng(...opts.delayRange));
               this.next();
@@ -47,12 +48,6 @@ export class PromiseQueue {
 
   cancel() {
     this.cancelled = true;
-  }
-
-  clear() {
-    this.queue = [];
-    this.runningCount = 0;
-    this.cancelled = false;
   }
 
   next() {
