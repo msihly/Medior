@@ -37,6 +37,7 @@ const useClasses = makeClasses({
     borderLeft: `3px solid ${colors.custom.blue}`,
     borderRadius: "0.5rem",
     margin: "0 auto",
+    marginBottom: "0.3rem",
     padding: "0.3rem",
     width: "fit-content",
     background: colors.custom.black,

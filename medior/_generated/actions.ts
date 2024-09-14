@@ -64,16 +64,20 @@ export const createFileFilterPipeline = (args: CreateFileFilterPipelineInput) =>
       ["$expr", "$and"],
       [{ $eq: [{ $type: "$diffusionParams" }, "string"] }, { $ne: ["$diffusionParams", ""] }],
     );
-  if (!isDeepEqual(args.isArchived, false)) setObj($match, ["isArchived"], args.isArchived);
   if (!isDeepEqual(args.maxHeight, null)) setObj($match, ["height", "$lte"], args.maxHeight);
   if (!isDeepEqual(args.maxWidth, null)) setObj($match, ["width", "$lte"], args.maxWidth);
   if (!isDeepEqual(args.minHeight, null)) setObj($match, ["height", "$gte"], args.minHeight);
   if (!isDeepEqual(args.minWidth, null)) setObj($match, ["width", "$gte"], args.minWidth);
   if (!isDeepEqual(args.numOfTags, { logOp: "", value: 0 }))
-    setObj($match, ["numOfTags", logicOpsToMongo(args.numOfTags.logOp)], args.numOfTags.value);
+    setObj(
+      $match,
+      ["$expr", logicOpsToMongo(args.numOfTags.logOp)],
+      [{ $size: "$tagIds" }, args.numOfTags.value],
+    );
   if (!isDeepEqual(args.rating, { logOp: "", value: 0 }))
     setObj($match, ["rating", logicOpsToMongo(args.rating.logOp)], args.rating.value);
 
+  if (true) setObj($match, ["isArchived"], args.isArchived);
   if (true)
     setObj(
       $match,
@@ -130,12 +134,13 @@ export const listFilteredFiles = makeAction(
     ...filterParams
   }: CreateFileFilterPipelineInput & { page: number; pageSize: number }) => {
     const filterPipeline = createFileFilterPipeline(filterParams);
+    const hasIds = filterParams.ids?.length > 0;
 
     const [items, count] = await Promise.all([
       models.FileModel.find(filterPipeline.$match)
         .sort(filterPipeline.$sort)
-        .skip(Math.max(0, page - 1) * pageSize)
-        .limit(pageSize)
+        .skip(hasIds ? 0 : Math.max(0, page - 1) * pageSize)
+        .limit(hasIds ? 0 : pageSize)
         .allowDiskUse(true)
         .lean(),
       models.FileModel.countDocuments(filterPipeline.$match),
@@ -237,12 +242,13 @@ export const listFilteredFileCollections = makeAction(
     ...filterParams
   }: CreateFileCollectionFilterPipelineInput & { page: number; pageSize: number }) => {
     const filterPipeline = createFileCollectionFilterPipeline(filterParams);
+    const hasIds = filterParams.ids?.length > 0;
 
     const [items, count] = await Promise.all([
       models.FileCollectionModel.find(filterPipeline.$match)
         .sort(filterPipeline.$sort)
-        .skip(Math.max(0, page - 1) * pageSize)
-        .limit(pageSize)
+        .skip(hasIds ? 0 : Math.max(0, page - 1) * pageSize)
+        .limit(hasIds ? 0 : pageSize)
         .allowDiskUse(true)
         .lean(),
       models.FileCollectionModel.countDocuments(filterPipeline.$match),
@@ -342,12 +348,13 @@ export const listFilteredTags = makeAction(
     ...filterParams
   }: CreateTagFilterPipelineInput & { page: number; pageSize: number }) => {
     const filterPipeline = createTagFilterPipeline(filterParams);
+    const hasIds = filterParams.ids?.length > 0;
 
     const [items, count] = await Promise.all([
       models.TagModel.find(filterPipeline.$match)
         .sort(filterPipeline.$sort)
-        .skip(Math.max(0, page - 1) * pageSize)
-        .limit(pageSize)
+        .skip(hasIds ? 0 : Math.max(0, page - 1) * pageSize)
+        .limit(hasIds ? 0 : pageSize)
         .allowDiskUse(true)
         .lean(),
       models.TagModel.countDocuments(filterPipeline.$match),

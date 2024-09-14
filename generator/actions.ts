@@ -224,12 +224,13 @@ const makeSearchActionsDef = (def: ModelSearchStore) => {
         ...filterParams
       }: ${filterFnNameType} & { page: number; pageSize: number; }) => {
         const filterPipeline = ${filterFnName}(filterParams);
+        const hasIds = filterParams.ids?.length > 0;
 
         const [items, count] = await Promise.all([
           ${modelName}Model.find(filterPipeline.$match)
             .sort(filterPipeline.$sort)
-            .skip(Math.max(0, page - 1) * pageSize)
-            .limit(pageSize)
+            .skip(hasIds ? 0 : Math.max(0, page - 1) * pageSize)
+            .limit(hasIds ? 0 : pageSize)
             .allowDiskUse(true)
             .lean(),
           ${modelName}Model.countDocuments(filterPipeline.$match),

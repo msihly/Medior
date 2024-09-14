@@ -214,7 +214,7 @@ export const Carousel = observer(() => {
               {dayjs.duration(Math.round(curTime * 1000)).format("HH:mm:ss")}
             </Text>
 
-            <Text color={colors.custom.grey} className={css.videoTime}>
+            <Text color={colors.custom.lightGrey} className={css.videoTime}>
               {dayjs.duration(Math.round(activeFile?.duration * 1000)).format("HH:mm:ss")}
             </Text>
           </View>

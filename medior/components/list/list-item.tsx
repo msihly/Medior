@@ -8,7 +8,8 @@ import {
   ListItemText,
 } from "@mui/material";
 import { Icon, IconName, IconProps, TooltipWrapper } from "medior/components";
-import { Margins, makeClasses } from "medior/utils";
+import { Margins, colors, makeClasses } from "medior/utils";
+import Color from "color";
 
 export interface ListItemProps extends Omit<MuiListItemProps, "children"> {
   children?: ReactNode;
@@ -46,6 +47,9 @@ export const ListItem = ({
     <TooltipWrapper
       tooltip={children}
       tooltipProps={{
+        arrow: false,
+        arrowColor: "transparent",
+        bgColor: Color(colors.custom.black).fade(0.03).string(),
         classes: { tooltip: css.tooltip },
         placement: "right-start",
         PopperProps: { className: css.tooltipPopper },

@@ -1,4 +1,13 @@
-import { ExtendedModel, getRootStore, model, modelAction, modelFlow, prop } from "mobx-keystone";
+import { reaction } from "mobx";
+import {
+  ExtendedModel,
+  getRootStore,
+  model,
+  modelAction,
+  ModelCreationData,
+  modelFlow,
+  prop,
+} from "mobx-keystone";
 import { asyncAction, RootStore } from "medior/store";
 import { _FileSearch } from "medior/store/_generated";
 import { getConfig, trpc } from "medior/utils";
@@ -7,6 +16,15 @@ import { getConfig, trpc } from "medior/utils";
 export class FileSearch extends ExtendedModel(_FileSearch, {
   hasQueuedReload: prop<boolean>(false).withSetter(),
 }) {
+  constructor(props: ModelCreationData<FileSearch>) {
+    super(props);
+
+    reaction(
+      () => this.getFilterProps(),
+      () => this.setHasChanges(true)
+    );
+  }
+
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
   @modelAction
   reloadIfQueued() {

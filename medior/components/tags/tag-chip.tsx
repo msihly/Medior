@@ -64,6 +64,7 @@ const formatter = Intl.NumberFormat("en", { notation: "compact" });
 
 const useClasses = makeClasses(({ color, size }) => ({
   chip: {
+    borderRadius: "0.6rem",
     padding: "0.3em 0",
     height: size === "medium" ? HEIGHT_MEDIUM : HEIGHT_SMALL,
     "& .MuiChip-label": {
@@ -75,7 +76,7 @@ const useClasses = makeClasses(({ color, size }) => ({
     display: "flex",
     justifyContent: "center",
     alignItems: "center",
-    borderRadius: "50% 0 0 50%",
+    borderRadius: "0.6rem 0 0 0.6rem",
     width: size === "medium" ? HEIGHT_MEDIUM : HEIGHT_SMALL,
     height: size === "medium" ? HEIGHT_MEDIUM : HEIGHT_SMALL,
     fontSize: "0.7em",
@@ -83,6 +84,7 @@ const useClasses = makeClasses(({ color, size }) => ({
   },
   label: {
     padding: "0 0.4rem 0 0.3rem",
+    lineHeight: 1,
     overflow: "hidden",
     textOverflow: "ellipsis",
   },

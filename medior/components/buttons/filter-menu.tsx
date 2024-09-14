@@ -35,7 +35,7 @@ export const FilterMenu = observer(
     const renderButton = (onOpen: (event: React.MouseEvent<HTMLButtonElement>) => void) => (
       <Button
         onClick={onOpen}
-        color={color}
+        color={store.hasChanges ? colors.custom.purple : color}
         justify="space-between"
         padding={{ left: "0.5em", right: "0.5em" }}
         className={cx(css.button, buttonProps?.className)}
@@ -68,8 +68,7 @@ export const FilterMenu = observer(
               icon="Search"
               onClick={handleSearch}
               disabled={store.isLoading}
-              color={colors.foregroundCard}
-              colorOnHover={colors.custom.blue}
+              color={store.hasChanges ? colors.custom.purple : colors.custom.blue}
             />
 
             <Button

@@ -45,7 +45,7 @@ export const ImportFolderList = observer(({ folder }: ImportFolderListProps) => 
       {folder?.collectionTitle?.length > 0 && (
         <View column className={css.collection}>
           <Text className={css.collectionTitle}>{folder.collectionTitle}</Text>
-          <Text fontSize="0.7em">{"Collection"}</Text>
+          <Text fontSize="0.7em" textAlign="center">{"Collection"}</Text>
         </View>
       )}
 
@@ -89,15 +89,17 @@ const useClasses = makeClasses({
     marginLeft: "0.5rem",
   },
   collection: {
-    alignItems: "center",
     justifyContent: "center",
     borderBottom: `1px solid ${colors.custom.grey}`,
     height: COLL_HEIGHT,
+    overflow: "hidden",
   },
   collectionTitle: {
     color: colors.custom.lightBlue,
     fontWeight: 500,
     textAlign: "center",
+    textOverflow: "ellipsis",
+    overflow: "hidden",
     whiteSpace: "nowrap",
   },
   folderPath: {

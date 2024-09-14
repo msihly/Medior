@@ -12,8 +12,9 @@ export const ToastContainer = (props: ToastContainerProps) => {
     <ToastContainerBase
       position="bottom-left"
       icon={({ type }) => <Icon name={ICON_TYPES[type].icon} color={ICON_TYPES[type].color} />}
-      limit={5}
-      autoClose={3000}
+      limit={3}
+      pauseOnFocusLoss={false}
+      autoClose={2000}
       className={css.toast}
       {...props}
     />

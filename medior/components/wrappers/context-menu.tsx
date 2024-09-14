@@ -1,9 +1,12 @@
 import { ReactNode, useState } from "react";
 import { Menu } from "@mui/material";
-import { IconName, ListItem, View, ViewProps } from "medior/components";
+import { Divider, IconName, ListItem, View, ViewProps } from "medior/components";
 import { colors, makeClasses } from "medior/utils";
+import Color from "color";
 
 interface MenuItem {
+  color?: string;
+  divider?: "bottom" | "top";
   icon: IconName;
   label: string;
 }
@@ -53,9 +56,11 @@ export const ContextMenu = ({ children, disabled, id, menuItems, ...props }: Con
         PopoverClasses={{ paper: css.contextMenu }}
         MenuListProps={{ className: css.contextMenuInner }}
       >
-        {menuItems.map((item) => (
-          <Item key={item.label} item={item} onClose={handleClose} />
-        ))}
+        {menuItems.map((item) => [
+          item.divider === "top" ? <Divider /> : null,
+          <Item item={item} onClose={handleClose} />,
+          item.divider === "bottom" ? <Divider /> : null,
+        ])}
       </Menu>
     </View>
   );
@@ -68,6 +73,10 @@ const Item = ({
   item: ContextMenuProps["menuItems"][number];
   onClose: () => void;
 }) => {
+  const { css } = useClasses(null);
+
+  const color = item.color || colors.custom.lightGrey;
+
   const handleClick = item.onClick
     ? () => {
         item.onClick();
@@ -76,8 +85,17 @@ const Item = ({
     : undefined;
 
   return (
-    <ListItem key={item.label} text={item.label} icon={item.icon} onClick={handleClick}>
-      {item?.subItems?.length > 0 ? (
+    <ListItem
+      key={item.label}
+      text={item.label}
+      icon={item.icon}
+      iconProps={{ color }}
+      color={color}
+      iconEnd={item.subItems?.length ? "ChevronRight" : null}
+      onClick={handleClick}
+      className={css.item}
+    >
+      {item.subItems?.length ? (
         <View column>
           {item.subItems.map((subItem) => (
             <SubItem key={subItem.label} {...{ subItem, onClose }} />
@@ -105,9 +123,12 @@ const SubItem = ({
 
 const useClasses = makeClasses({
   contextMenu: {
-    background: colors.background,
+    background: Color(colors.custom.black).fade(0.03).string(),
   },
   contextMenuInner: {
     padding: 0,
+  },
+  item: {
+    padding: "0.35rem 1rem 0.35rem 0.7rem",
   },
 });

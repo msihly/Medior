@@ -3,7 +3,7 @@ import { shell } from "@electron/remote";
 import { ReactNode } from "react";
 import { observer, useStores } from "medior/store";
 import { ContextMenu as ContextMenuBase, ViewProps } from "medior/components";
-import { copyToClipboard } from "medior/utils";
+import { colors, copyToClipboard } from "medior/utils";
 import { toast } from "react-toastify";
 import { FileSchema } from "medior/database";
 
@@ -72,54 +72,51 @@ export const ContextMenu = observer(
         id={file.id}
         menuItems={[
           {
-            label: "Open Natively",
+            color: colors.custom.lightBlue,
             icon: "DesktopWindows",
+            label: "Open Natively",
             onClick: openNatively,
           },
           {
-            label: "Open in Explorer",
+            divider: "bottom",
             icon: "Search",
+            label: "Open in Explorer",
             onClick: openInExplorer,
           },
           {
-            label: "Copy",
-            icon: "ContentCopy",
-            subItems: [
-              {
-                label: "File Path",
-                icon: "Image",
-                onClick: copyFilePath,
-              },
-              {
-                label: "Folder Path",
-                icon: "Folder",
-                onClick: copyFolderPath,
-              },
-            ],
-          },
-          {
-            label: "Info",
             icon: "Info",
+            label: "Info",
             onClick: openInfo,
           },
           {
-            label: "Refresh",
             icon: "Refresh",
+            label: "Refresh",
             onClick: handleRefresh,
           },
           {
-            label: "Face Recognition",
-            icon: "Face",
-            onClick: handleFaceRecognition,
+            divider: "bottom",
+            icon: "ContentCopy",
+            label: "Copy",
+            subItems: [
+              { icon: "Image", label: "File Path", onClick: copyFilePath },
+              { icon: "Folder", label: "Folder Path", onClick: copyFolderPath },
+            ],
           },
           {
-            label: "Collections",
             icon: "Collections",
+            label: "Collections",
             onClick: handleCollections,
           },
           {
-            label: file.isArchived ? "Delete" : "Archive",
+            icon: "Face",
+            label: "Face Recognition",
+            onClick: handleFaceRecognition,
+          },
+          {
+            color: file.isArchived ? colors.custom.red : colors.custom.orange,
+            divider: "top",
             icon: file.isArchived ? "Delete" : "Archive",
+            label: file.isArchived ? "Delete" : "Archive",
             onClick: handleDelete,
           },
         ]}

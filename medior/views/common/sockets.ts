@@ -113,7 +113,7 @@ export const useSockets = ({ view }: UseSocketsProps) => {
       });
 
       makeSocket("onImportBatchCompleted", () => {
-        throttle(queueFileReload, 5000)();
+        stores.file.search.setHasChanges(true);
       });
 
       makeSocket("onImportStatsUpdated", ({ importStats }) =>

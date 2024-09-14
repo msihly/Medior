@@ -2,12 +2,19 @@ import { getActions } from "./actions";
 import { makeSectionComment } from "./utils";
 import { MODEL_DEFS } from "./models";
 import { capitalize } from "medior/utils/formatting";
+import { deepMerge } from "medior/utils";
 
 /* -------------------------------------------------------------------------- */
 /*                                 MODEL DEFS                                 */
 /* -------------------------------------------------------------------------- */
 const makeCommonProps = (args: { defaultPageSize: string; defaultSort: string; name: string }) => {
   const props: ModelSearchProp[] = [
+    {
+      defaultValue: "false",
+      name: "hasChanges",
+      notFilterProp: true,
+      type: "boolean",
+    },
     {
       defaultValue: "false",
       name: "isLoading",
@@ -36,7 +43,7 @@ const makeCommonProps = (args: { defaultPageSize: string; defaultSort: string; n
       defaultValue: "() => []",
       name: "results",
       notFilterProp: true,
-      type: `${args.name}[]`,
+      type: `Stores.${args.name}[]`,
     },
     {
       defaultValue: args.defaultSort,
@@ -121,9 +128,9 @@ const makeTagOptsProp = (idName: string, ancestorsName: string): ModelSearchProp
     },
   ],
   defaultValue: "() => []",
-  filterTransform: "...getRootStore<RootStore>(this).tag.tagSearchOptsToIds(this.tags)",
+  filterTransform: "...getRootStore<Stores.RootStore>(this)?.tag?.tagSearchOptsToIds(this.tags)",
   name: "tags",
-  type: "TagOption[]",
+  type: "Stores.TagOption[]",
 });
 
 export const MODEL_SEARCH_STORES: ModelSearchStore[] = [
@@ -137,6 +144,11 @@ export const MODEL_SEARCH_STORES: ModelSearchStore[] = [
       }),
       ...makeDateRangeProps("dateCreated"),
       ...makeDateRangeProps("dateModified"),
+      deepMerge(makeLogOpProp("numOfTags"), {
+        objPath: ["$expr", "~logicOpsToMongo(args.numOfTags.logOp)"],
+        objValue: "[{ $size: '$tagIds' }, args.numOfTags.value]",
+      }),
+      makeLogOpProp("rating"),
       makeTagOptsProp("tagIds", "tagIdsWithAncestors"),
       {
         defaultValue: "() => []",
@@ -154,6 +166,15 @@ export const MODEL_SEARCH_STORES: ModelSearchStore[] = [
         type: "boolean",
       },
       {
+        customActionProps: [
+          {
+            condition: "true",
+            objPath: ["isArchived"],
+            objValue: "args.isArchived",
+            name: "isArchived",
+            type: "boolean",
+          },
+        ],
         defaultValue: "false",
         name: "isArchived",
         objPath: ["isArchived"],
@@ -188,8 +209,6 @@ export const MODEL_SEARCH_STORES: ModelSearchStore[] = [
         objValue: "args.minWidth",
         type: "number",
       },
-      makeLogOpProp("numOfTags"),
-      makeLogOpProp("rating"),
       {
         customActionProps: [
           {
@@ -396,7 +415,7 @@ const createSearchStore = (def: ModelSearchStore) => {
         const { items, pageCount } = res.data;
         if (debug) perfLog(\`Loaded \${items.length} items\`);
 
-        this.setResults(items.map((item) => new ${def.name}(item)));
+        this.setResults(items.map((item) => new Stores.${def.name}(item)));
         if (debug) perfLog("Overwrite and re-render");
 
         this.setPageCount(pageCount);
@@ -405,6 +424,7 @@ const createSearchStore = (def: ModelSearchStore) => {
 
         if (debug) perfLogTotal(\`Loaded \${items.length} items\`);
         this.setIsLoading(false);
+        this.setHasChanges(false);
         return items;
       });
 
@@ -514,20 +534,11 @@ export const FILE_DEF_SORT_OPTIONS: FileDef = {
 export const FILE_DEF_STORES: FileDef = {
   name: "stores",
   makeFile: async () => {
-    const storeImports = [
-      ...MODEL_DEFS.filter((m) => m.withStore).map((m) => m.name),
-      ...MODEL_DEFS.flatMap((d) => d.properties)
-        .filter((p) => p.withStore)
-        .map((p) => p.schemaToStoreName),
-    ]
-      .map((s) => `// @ts-ignore\n${s}`)
-      .join(",\n");
-
     let output = `import { computed } from "mobx";
     import { applySnapshot, getRootStore, getSnapshot, Model, model, modelAction, ModelCreationData, modelFlow, prop } from "mobx-keystone";
     import * as models from "medior/_generated/models";
     import * as Types from "medior/database/types";
-    import { ${storeImports}, RootStore, TagOption } from "medior/store";
+    import * as Stores from "medior/store";
     import { asyncAction } from "medior/store/utils";
     import { SortMenuProps } from "medior/components";
     import { dayjs, getConfig, isDeepEqual, LogicalOp, makePerfLog, trpc } from "medior/utils";\n\n`;

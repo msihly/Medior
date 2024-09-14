@@ -143,7 +143,7 @@ const MODEL_FILE_IMPORT_BATCH: ModelDef = {
         },
         { name: "thumbPaths", schemaType: "[String]", type: "string[]" },
       ],
-      storeType: "FileImport[]",
+      storeType: "Stores.FileImport[]",
       type: "FileImport[]",
       typeName: "FileImport",
       withStore: true,

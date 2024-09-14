@@ -16,20 +16,7 @@ import {
 } from "mobx-keystone";
 import * as models from "medior/_generated/models";
 import * as Types from "medior/database/types";
-import {
-  // @ts-ignore
-  FileCollection,
-  // @ts-ignore
-  FileImportBatch,
-  // @ts-ignore
-  File,
-  // @ts-ignore
-  Tag,
-  // @ts-ignore
-  FileImport,
-  RootStore,
-  TagOption,
-} from "medior/store";
+import * as Stores from "medior/store";
 import { asyncAction } from "medior/store/utils";
 import { SortMenuProps } from "medior/components";
 import { dayjs, getConfig, isDeepEqual, LogicalOp, makePerfLog, trpc } from "medior/utils";
@@ -44,6 +31,7 @@ export class _FileSearch extends Model({
   dateModifiedEnd: prop<string>("").withSetter(),
   dateModifiedStart: prop<string>("").withSetter(),
   excludedFileIds: prop<string[]>(() => []).withSetter(),
+  hasChanges: prop<boolean>(false).withSetter(),
   hasDiffParams: prop<boolean>(false).withSetter(),
   isArchived: prop<boolean>(false).withSetter(),
   isLoading: prop<boolean>(false).withSetter(),
@@ -56,7 +44,7 @@ export class _FileSearch extends Model({
   pageCount: prop<number>(1).withSetter(),
   pageSize: prop<number>(() => getConfig().file.searchFileCount).withSetter(),
   rating: prop<{ logOp: LogicalOp | ""; value: number }>(() => ({ logOp: "", value: 0 })),
-  results: prop<File[]>(() => []).withSetter(),
+  results: prop<Stores.File[]>(() => []).withSetter(),
   selectedImageTypes: prop<Types.SelectedImageTypes>(
     () =>
       Object.fromEntries(
@@ -70,7 +58,7 @@ export class _FileSearch extends Model({
       ) as Types.SelectedVideoTypes,
   ),
   sortValue: prop<SortMenuProps["value"]>(() => getConfig().file.searchSort).withSetter(),
-  tags: prop<TagOption[]>(() => []).withSetter(),
+  tags: prop<Stores.TagOption[]>(() => []).withSetter(),
 }) {
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
   @modelAction
@@ -80,6 +68,7 @@ export class _FileSearch extends Model({
     this.dateModifiedEnd = "";
     this.dateModifiedStart = "";
     this.excludedFileIds = [];
+    this.hasChanges = false;
     this.hasDiffParams = false;
     this.isArchived = false;
     this.isLoading = false;
@@ -168,7 +157,7 @@ export class _FileSearch extends Model({
     const { items, pageCount } = res.data;
     if (debug) perfLog(`Loaded ${items.length} items`);
 
-    this.setResults(items.map((item) => new File(item)));
+    this.setResults(items.map((item) => new Stores.File(item)));
     if (debug) perfLog("Overwrite and re-render");
 
     this.setPageCount(pageCount);
@@ -177,6 +166,7 @@ export class _FileSearch extends Model({
 
     if (debug) perfLogTotal(`Loaded ${items.length} items`);
     this.setIsLoading(false);
+    this.setHasChanges(false);
     return items;
   });
 
@@ -237,7 +227,7 @@ export class _FileSearch extends Model({
       selectedImageTypes: this.selectedImageTypes,
       selectedVideoTypes: this.selectedVideoTypes,
       sortValue: this.sortValue,
-      ...getRootStore<RootStore>(this).tag.tagSearchOptsToIds(this.tags),
+      ...getRootStore<Stores.RootStore>(this)?.tag?.tagSearchOptsToIds(this.tags),
     };
   }
 }
@@ -249,16 +239,17 @@ export class _FileCollectionSearch extends Model({
   dateModifiedEnd: prop<string>("").withSetter(),
   dateModifiedStart: prop<string>("").withSetter(),
   fileCount: prop<{ logOp: LogicalOp | ""; value: number }>(() => ({ logOp: "", value: 0 })),
+  hasChanges: prop<boolean>(false).withSetter(),
   isLoading: prop<boolean>(false).withSetter(),
   page: prop<number>(1).withSetter(),
   pageCount: prop<number>(1).withSetter(),
   pageSize: prop<number>(() => getConfig().collection.searchFileCount).withSetter(),
   rating: prop<{ logOp: LogicalOp | ""; value: number }>(() => ({ logOp: "", value: 0 })),
-  results: prop<FileCollection[]>(() => []).withSetter(),
+  results: prop<Stores.FileCollection[]>(() => []).withSetter(),
   sortValue: prop<SortMenuProps["value"]>(
     () => getConfig().collection.managerSearchSort,
   ).withSetter(),
-  tags: prop<TagOption[]>(() => []).withSetter(),
+  tags: prop<Stores.TagOption[]>(() => []).withSetter(),
   title: prop<string>("").withSetter(),
 }) {
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
@@ -269,6 +260,7 @@ export class _FileCollectionSearch extends Model({
     this.dateModifiedEnd = "";
     this.dateModifiedStart = "";
     this.fileCount = { logOp: "", value: 0 };
+    this.hasChanges = false;
     this.isLoading = false;
     this.page = 1;
     this.pageCount = 1;
@@ -335,7 +327,7 @@ export class _FileCollectionSearch extends Model({
     const { items, pageCount } = res.data;
     if (debug) perfLog(`Loaded ${items.length} items`);
 
-    this.setResults(items.map((item) => new FileCollection(item)));
+    this.setResults(items.map((item) => new Stores.FileCollection(item)));
     if (debug) perfLog("Overwrite and re-render");
 
     this.setPageCount(pageCount);
@@ -344,6 +336,7 @@ export class _FileCollectionSearch extends Model({
 
     if (debug) perfLogTotal(`Loaded ${items.length} items`);
     this.setIsLoading(false);
+    this.setHasChanges(false);
     return items;
   });
 
@@ -373,7 +366,7 @@ export class _FileCollectionSearch extends Model({
       fileCount: this.fileCount,
       rating: this.rating,
       sortValue: this.sortValue,
-      ...getRootStore<RootStore>(this).tag.tagSearchOptsToIds(this.tags),
+      ...getRootStore<Stores.RootStore>(this)?.tag?.tagSearchOptsToIds(this.tags),
       title: this.title,
     };
   }
@@ -387,15 +380,16 @@ export class _TagSearch extends Model({
   dateCreatedStart: prop<string>("").withSetter(),
   dateModifiedEnd: prop<string>("").withSetter(),
   dateModifiedStart: prop<string>("").withSetter(),
+  hasChanges: prop<boolean>(false).withSetter(),
   isLoading: prop<boolean>(false).withSetter(),
   label: prop<string>("").withSetter(),
   page: prop<number>(1).withSetter(),
   pageCount: prop<number>(1).withSetter(),
   pageSize: prop<number>(() => getConfig().tags.searchTagCount).withSetter(),
   regExMode: prop<"any" | "hasRegEx" | "hasNoRegEx">("any").withSetter(),
-  results: prop<Tag[]>(() => []).withSetter(),
+  results: prop<Stores.Tag[]>(() => []).withSetter(),
   sortValue: prop<SortMenuProps["value"]>(() => getConfig().tags.managerSearchSort).withSetter(),
-  tags: prop<TagOption[]>(() => []).withSetter(),
+  tags: prop<Stores.TagOption[]>(() => []).withSetter(),
 }) {
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
   @modelAction
@@ -406,6 +400,7 @@ export class _TagSearch extends Model({
     this.dateCreatedStart = "";
     this.dateModifiedEnd = "";
     this.dateModifiedStart = "";
+    this.hasChanges = false;
     this.isLoading = false;
     this.label = "";
     this.page = 1;
@@ -462,7 +457,7 @@ export class _TagSearch extends Model({
     const { items, pageCount } = res.data;
     if (debug) perfLog(`Loaded ${items.length} items`);
 
-    this.setResults(items.map((item) => new Tag(item)));
+    this.setResults(items.map((item) => new Stores.Tag(item)));
     if (debug) perfLog("Overwrite and re-render");
 
     this.setPageCount(pageCount);
@@ -471,6 +466,7 @@ export class _TagSearch extends Model({
 
     if (debug) perfLogTotal(`Loaded ${items.length} items`);
     this.setIsLoading(false);
+    this.setHasChanges(false);
     return items;
   });
 
@@ -503,7 +499,7 @@ export class _TagSearch extends Model({
       label: this.label,
       regExMode: this.regExMode,
       sortValue: this.sortValue,
-      ...getRootStore<RootStore>(this).tag.tagSearchOptsToIds(this.tags),
+      ...getRootStore<Stores.RootStore>(this)?.tag?.tagSearchOptsToIds(this.tags),
     };
   }
 }
@@ -626,7 +622,7 @@ export class _FileImportBatch extends Model({
   completedAt: prop<string>(),
   deleteOnImport: prop<boolean>(),
   ignorePrevDeleted: prop<boolean>(),
-  imports: prop<FileImport[]>(() => []),
+  imports: prop<Stores.FileImport[]>(() => []),
   rootFolderPath: prop<string>(),
   startedAt: prop<string>(null),
   tagIds: prop<string[]>(),
