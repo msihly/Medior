@@ -40,7 +40,8 @@ export const useSockets = ({ view }: UseSocketsProps) => {
       else {
         if (view === "home") stores.import.addDeletedFileHashes(fileHashes);
         if (stores.collection.manager.isOpen) stores.collection.manager.search.loadFiltered();
-        queueFileReload();
+        stores.file.search.removeFiles(fileIds);
+        stores.file.search.setHasChanges(true);
       }
     });
 

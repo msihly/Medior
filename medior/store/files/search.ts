@@ -35,6 +35,11 @@ export class FileSearch extends ExtendedModel(_FileSearch, {
     }
   }
 
+  @modelAction
+  removeFiles(fileIds: string[]) {
+    this.results = this.results.filter((file) => !fileIds.includes(file.id));
+  }
+
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */
   @modelFlow
   listIdsForCarousel = asyncAction(async () => {

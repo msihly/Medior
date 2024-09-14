@@ -79,6 +79,7 @@ const useClasses = makeClasses(({ color, size }) => ({
     borderRadius: "0.6rem 0 0 0.6rem",
     width: size === "medium" ? HEIGHT_MEDIUM : HEIGHT_SMALL,
     height: size === "medium" ? HEIGHT_MEDIUM : HEIGHT_SMALL,
+    paddingLeft: "0.1em",
     fontSize: "0.7em",
     background: `linear-gradient(to bottom right, ${color}, ${Color(color).darken(0.3).string()})`,
   },

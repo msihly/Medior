@@ -5,7 +5,11 @@ import { CSS, colors, getConfig, makeClasses } from "medior/utils";
 export const getRatingMeta = (rating: number) => {
   const icon: IconName = rating > 0 ? "Star" : "StarOutline";
   const iconColor =
-    rating >= 7 ? colors.custom.orange : rating >= 4 ? colors.custom.lightGrey : colors.custom.brown;
+    rating >= 7
+      ? colors.custom.orange
+      : rating >= 4
+        ? colors.custom.lightGrey
+        : colors.custom.brown;
   const textShadow = /^[235689]/.test(String(rating))
     ? `0px 0px ${/^[369]/.test(String(rating)) ? "7px" : "2px"} ${iconColor}`
     : undefined;
@@ -24,7 +28,13 @@ export const RatingChip = ({ rating, ...props }: RatingChipProps) => {
   const { css } = useClasses({ textShadow });
 
   return rating > 0 || !config.file.hideUnratedIcon ? (
-    <Chip {...{ icon, iconColor }} label={rating} iconProps={{ className: css.star }} {...props} />
+    <Chip
+      {...{ icon, iconColor }}
+      label={rating}
+      iconProps={{ className: css.star }}
+      opacity={1}
+      {...props}
+    />
   ) : null;
 };
 

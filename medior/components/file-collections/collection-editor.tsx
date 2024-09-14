@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { ReactNode, useEffect, useState } from "react";
 import { observer, SORT_OPTIONS, useStores } from "medior/store";
 import {
   DndContext,
@@ -230,42 +230,20 @@ export const FileCollectionEditor = observer(() => {
           <View column flex={1} spacing="0.5rem">
             <View row spacing="0.5rem">
               <Card column flex={1} spacing="0.5rem">
-                <View row align="center" spacing="0.5rem">
-                  <View column align="flex-start">
-                    <Text
-                      fontSize="1.2em"
-                      fontWeight={500}
-                      width="3rem"
-                      color={colors.custom.lightGrey}
-                    >
-                      {"Title"}
-                    </Text>
-                  </View>
-
+                <HeaderRow label="Title">
                   <Input value={title} setValue={handleTitleChange} width="100%" />
-                </View>
+                </HeaderRow>
 
-                <View row align="center" spacing="0.5rem">
-                  <View column align="flex-start">
-                    <Text
-                      fontSize="1.2em"
-                      fontWeight={500}
-                      width="3rem"
-                      color={colors.custom.lightGrey}
-                    >
-                      {"Tags"}
-                    </Text>
-                  </View>
-
-                  <View className={css.tags}>
+                <HeaderRow label="Tags">
+                  <View spacing="0.5rem" className={css.tags}>
                     {stores.collection.editor.sortedTags.map((tag) => (
                       <TagChip key={tag.id} tag={tag} hasEditor className={css.tag} />
                     ))}
                   </View>
-                </View>
+                </HeaderRow>
               </Card>
 
-              <Card column height="100%">
+              <Card column flex="none" height="100%">
                 <View row>
                   <MultiActionButton
                     name="Label"
@@ -379,6 +357,20 @@ export const FileCollectionEditor = observer(() => {
   );
 });
 
+const HeaderRow = (props: { children: ReactNode | ReactNode[]; label: string }) => {
+  return (
+    <View row align="center" spacing="0.5rem">
+      <View column align="flex-start">
+        <Text fontSize="1.2em" fontWeight={500} width="3rem" color={colors.custom.lightGrey}>
+          {props.label}
+        </Text>
+      </View>
+
+      {props.children}
+    </View>
+  );
+};
+
 const useClasses = makeClasses({
   collection: {
     display: "flex",
@@ -393,7 +385,6 @@ const useClasses = makeClasses({
   tags: {
     display: "flex",
     flexFlow: "row wrap",
-    justifyContent: "center",
     margin: "0.5rem 0",
     maxHeight: "5rem",
     overflowY: "auto",
