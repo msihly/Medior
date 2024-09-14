@@ -1,16 +1,23 @@
 import { FileSchema } from "medior/database";
-import { observer } from "medior/store";
-import { Detail, DetailRow, Icon, TagChip, Text, Tooltip as TooltipBase, View } from "medior/components";
+import { observer, useStores } from "medior/store";
+import { Detail, DetailRow, TagChip, Text, Tooltip as TooltipBase, View } from "medior/components";
 import { colors, dayjs, formatBytes, makeClasses } from "medior/utils";
 
 interface TooltipProps {
+  children: JSX.Element;
   disabled?: boolean;
   file: FileSchema;
-  onTagPress?: (id: string) => any;
 }
 
-export const Tooltip = observer(({ disabled, file, onTagPress }: TooltipProps) => {
+export const Tooltip = observer(({ children, disabled, file }: TooltipProps) => {
   const { css } = useClasses(null);
+
+  const stores = useStores();
+
+  const onTagPress = (tagId: string) => {
+    stores.tag.setActiveTagId(tagId);
+    stores.tag.setIsTagEditorOpen(true);
+  };
 
   return (
     <TooltipBase
@@ -23,7 +30,7 @@ export const Tooltip = observer(({ disabled, file, onTagPress }: TooltipProps) =
                 <TagChip
                   key={tagId}
                   id={tagId}
-                  onClick={!disabled ? () => onTagPress?.(tagId) : undefined}
+                  onClick={!disabled ? () => onTagPress(tagId) : undefined}
                   size="small"
                 />
               ))}
@@ -56,16 +63,9 @@ export const Tooltip = observer(({ disabled, file, onTagPress }: TooltipProps) =
         </View>
       }
     >
-      {file.diffusionParams?.length > 0 && (
-        <Icon name="Notes" size="1em" color={colors.custom.blue} />
-      )}
-
-      <Icon
-        name="InfoOutlined"
-        color={colors.custom.grey}
-        size="1em"
-        margins={{ left: "0.3rem" }}
-      />
+      <View column width="100%">
+        {children}
+      </View>
     </TooltipBase>
   );
 });

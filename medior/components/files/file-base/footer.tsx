@@ -14,14 +14,18 @@ export const Footer = ({ children }: FooterProps) => {
 
 const useClasses = makeClasses({
   footer: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
     display: "flex",
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
+    alignItems: "flex-end",
     borderBottomLeftRadius: "inherit",
     borderBottomRightRadius: "inherit",
-    padding: "0.1rem 0.3rem",
-    height: 35,
-    backgroundColor: "inherit",
+    padding: 0,
+    height: "3rem",
+    background: "linear-gradient(to bottom, transparent, black)",
   },
 });

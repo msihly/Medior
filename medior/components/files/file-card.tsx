@@ -71,11 +71,6 @@ export const FileCard = observer(({ disabled, file, height, id, width }: FileCar
     }
   };
 
-  const handleTagPress = (tagId: string) => {
-    stores.tag.setActiveTagId(tagId);
-    stores.tag.setIsTagEditorOpen(true);
-  };
-
   const loadSelectedFiles = async () => {
     const res = await trpc.listFiles.mutate({ args: { filter: { id: stores.file.selectedIds } } });
     if (!res?.success) throw new Error(res.error);
@@ -84,64 +79,70 @@ export const FileCard = observer(({ disabled, file, height, id, width }: FileCar
 
   return (
     <FileBase.ContextMenu key="context-menu" {...{ disabled, file }}>
-      <FileBase.Container
-        {...{ disabled, height, width }}
-        onClick={handleClick}
-        onDoubleClick={handleDoubleClick}
-        selected={stores.file.getIsSelected(file.id)}
-      >
-        <FileBase.Image
-          thumbPaths={file.thumbPaths}
-          title={file.originalName}
-          height={height}
-          onDragStart={handleDragStart}
-          onDragEnd={handleDragEnd}
-          fit={stores.home.fileCardFit}
-          disabled={disabled}
-          draggable
+      <FileBase.Tooltip {...{ file }}>
+        <FileBase.Container
+          {...{ disabled, height, width }}
+          onClick={handleClick}
+          onDoubleClick={handleDoubleClick}
+          selected={stores.file.getIsSelected(file.id)}
         >
-          <FileBase.RatingChip position="top-left" rating={file.rating} />
+          <FileBase.Image
+            thumbPaths={file.thumbPaths}
+            title={file.originalName}
+            height={height}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+            fit={stores.home.fileCardFit}
+            disabled={disabled}
+            rounded="all"
+            draggable
+          >
+            <FileBase.RatingChip position="top-left" rating={file.rating} />
 
-          <FileBase.Chip
-            position="top-right"
-            label={
-              <View row>
-                {!file.isAnimated && (
-                  <Icon
-                    name="Face"
-                    size="1.2em"
-                    color={file.hasFaceModels ? colors.custom.blue : colors.custom.grey}
-                    margins={{ right: "0.3em" }}
-                  />
-                )}
+            <FileBase.Chip
+              position="top-right"
+              label={
+                <View row>
+                  {!file.isAnimated && (
+                    <Icon
+                      name="Face"
+                      size="1.2em"
+                      color={file.hasFaceModels ? colors.custom.blue : colors.custom.grey}
+                      margins={{ right: "0.3em" }}
+                    />
+                  )}
 
-                <Text>{file.ext}</Text>
-              </View>
-            }
-          />
+                  {file.diffusionParams?.length > 0 && (
+                    <Icon name="Notes" size="1em" color={colors.custom.blue} />
+                  )}
 
-          {/* {collections.length > 0 && (
+                  <Text>{file.ext}</Text>
+                </View>
+              }
+            />
+
+            {/* {collections.length > 0 && (
             <FileBase.Chip position="bottom-left" icon="Collections" label={collections.length} />
           )} */}
 
-          {file.duration && (
-            <FileBase.Chip
-              position="bottom-right"
-              label={dayjs.duration(file.duration, "s").format("HH:mm:ss")}
-            />
-          )}
-        </FileBase.Image>
+            {file.duration && (
+              <FileBase.Chip
+                position="bottom-right"
+                label={dayjs.duration(file.duration, "s").format("HH:mm:ss")}
+                hasFooter
+              />
+            )}
+          </FileBase.Image>
 
-        <FileBase.Footer>
-          {file.tagIds?.length > 0 ? (
-            <FileBase.Tags {...{ disabled }} tagIds={file.tagIds} />
-          ) : (
-            <View />
-          )}
-
-          <FileBase.Tooltip {...{ file }} onTagPress={handleTagPress} />
-        </FileBase.Footer>
-      </FileBase.Container>
+          <FileBase.Footer>
+            {file.tagIds?.length > 0 ? (
+              <FileBase.Tags {...{ disabled }} tagIds={file.tagIds} />
+            ) : (
+              <View />
+            )}
+          </FileBase.Footer>
+        </FileBase.Container>
+      </FileBase.Tooltip>
     </FileBase.ContextMenu>
   );
 });

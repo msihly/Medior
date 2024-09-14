@@ -56,14 +56,18 @@ interface ClassesProps {
 }
 
 const useClasses = makeClasses(
-  ({ disabled, display, height, selected, selectedColor, width }: ClassesProps) => ({
+  ({ disabled, display, height, selected, selectedColor, width }: ClassesProps, theme) => ({
     container: {
       position: "relative",
       display,
       border: "1px solid transparent",
       borderRadius: 4,
       padding: "0.25rem",
-      height: height ?? "fit-content",
+      height: "20rem",
+      [theme.breakpoints.down("xl")]: height ? undefined : { height: "18rem" },
+      [theme.breakpoints.down("lg")]: height ? undefined : { height: "16rem" },
+      [theme.breakpoints.down("md")]: height ? undefined : { height: "14rem" },
+      [theme.breakpoints.down("sm")]: height ? undefined : { height: "12rem" },
       ...(width ? { width } : {}),
       background:
         !disabled && selected
@@ -76,6 +80,7 @@ const useClasses = makeClasses(
       userSelect: "none",
     },
     paper: {
+      position: "relative",
       display: "flex",
       flexDirection: "column",
       flex: 1,

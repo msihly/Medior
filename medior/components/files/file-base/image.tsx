@@ -36,7 +36,7 @@ export const Image = ({
   loading = "lazy",
   onDragEnd,
   onDragStart,
-  rounded = "top",
+  rounded = "all",
   thumbPaths,
   title,
 }: ImageProps) => {
@@ -142,15 +142,7 @@ const useClasses = makeClasses(({ fit, height, imagePos, rounded }: ClassesProps
       borderBottomLeftRadius: "inherit",
       borderBottomRightRadius: "inherit",
     }),
-    ...(height
-      ? { height: height ?? "fit-content" }
-      : {
-          height: "16rem",
-          [theme.breakpoints.down("xl")]: height ? undefined : { height: "16rem" },
-          [theme.breakpoints.down("lg")]: height ? undefined : { height: "14rem" },
-          [theme.breakpoints.down("md")]: height ? undefined : { height: "12rem" },
-          [theme.breakpoints.down("sm")]: height ? undefined : { height: "12rem" },
-        }),
+    height: height ?? "inherit",
     width: "100%",
     userSelect: "none",
     transition: "all 100ms ease",
@@ -161,6 +153,7 @@ const useClasses = makeClasses(({ fit, height, imagePos, rounded }: ClassesProps
     position: "relative",
     display: "flex",
     flexDirection: "column",
+    borderRadius: "inherit",
     height: "100%",
     ...(["all", "top"].includes(rounded) && {
       borderTopLeftRadius: "inherit",

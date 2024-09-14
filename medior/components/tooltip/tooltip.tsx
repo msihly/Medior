@@ -1,6 +1,6 @@
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { Tooltip as MuiTooltip, TooltipProps as MuiTooltipProps } from "@mui/material";
-import { View } from "medior/components";
+import { View, ViewProps } from "medior/components";
 import { colors, CSS, makeClasses } from "medior/utils";
 
 export interface TooltipProps extends Omit<MuiTooltipProps, "children" | "color"> {
@@ -12,6 +12,7 @@ export interface TooltipProps extends Omit<MuiTooltipProps, "children" | "color"
   fontSize?: CSS["fontSize"];
   maxWidth?: CSS["maxWidth"];
   minWidth?: CSS["minWidth"];
+  viewProps?: Partial<ViewProps>;
 }
 
 export const Tooltip = ({
@@ -26,6 +27,7 @@ export const Tooltip = ({
   maxWidth = "25rem",
   placement = "bottom-start",
   title,
+  viewProps = {},
   ...props
 }: TooltipProps) => {
   const { css } = useClasses({
@@ -44,7 +46,9 @@ export const Tooltip = ({
       {...{ arrow, placement, title }}
       classes={{ arrow: css.arrow, tooltip: css.tooltip }}
     >
-      <View className={css.container}>{children}</View>
+      <View {...viewProps} className={css.container}>
+        {children}
+      </View>
     </MuiTooltip>
   );
 };

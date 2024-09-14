@@ -1,6 +1,6 @@
 import { TagChip, View } from "medior/components";
 import { observer, useStores } from "medior/store";
-import { colors, makeClasses } from "medior/utils";
+import { makeClasses } from "medior/utils";
 
 interface TagsProps {
   tagIds: string[];
@@ -25,8 +25,10 @@ export const Tags = observer(({ tagIds }: TagsProps) => {
 const useClasses = makeClasses({
   tags: {
     position: "relative",
-    overflow: "hidden",
+    borderRadius: "inherit",
+    padding: "1rem 0 0.3rem 0.3rem",
     width: "100%",
+    overflow: "hidden",
     "&::after": {
       content: '""',
       position: "absolute",
@@ -34,7 +36,7 @@ const useClasses = makeClasses({
       bottom: 0,
       right: 0,
       left: 0,
-      background: `linear-gradient(to right, transparent 60%, ${colors.background})`,
+      background: "linear-gradient(155deg, transparent 75%, black)",
     },
   },
 });

@@ -2,30 +2,34 @@ import { Chip as ChipBase, ChipProps as ChipBaseProps } from "medior/components"
 import { colors, makeClasses } from "medior/utils";
 
 export interface ChipProps extends ChipBaseProps {
+  hasFooter?: boolean;
   opacity?: number;
   position: "top-left" | "top-right" | "bottom-left" | "bottom-right";
 }
 
 export const Chip = ({
   bgColor = colors.background,
+  hasFooter,
   opacity = 0.6,
   position,
   ...props
 }: ChipProps) => {
-  const { css } = useClasses({ opacity, position });
+  const { css } = useClasses({ hasFooter, opacity, position });
 
   return <ChipBase {...props} {...{ bgColor }} className={css.chip} />;
 };
 
-const useClasses = makeClasses(({ opacity, position }) => ({
-  chip: {
-    position: "absolute",
-    top: position.includes("top") ? "0.5rem" : undefined,
-    right: position.includes("right") ? "0.5rem" : undefined,
-    bottom: position.includes("bottom") ? "0.5rem" : undefined,
-    left: position.includes("left") ? "0.5rem" : undefined,
-    cursor: "pointer",
-    opacity: opacity,
-    "&:hover": { opacity: Math.min(1, opacity + 0.3) },
-  },
-}));
+const useClasses = makeClasses(
+  (props: { hasFooter: boolean; opacity: number; position: ChipProps["position"] }) => ({
+    chip: {
+      position: "absolute",
+      top: props.position.includes("top") ? "0.3rem" : undefined,
+      right: props.position.includes("right") ? "0.3rem" : undefined,
+      bottom: props.position.includes("bottom") ? (props.hasFooter ? "2rem" : "0.3rem") : undefined,
+      left: props.position.includes("left") ? "0.3rem" : undefined,
+      cursor: "pointer",
+      opacity: props.opacity,
+      "&:hover": { opacity: Math.min(1, props.opacity + 0.3) },
+    },
+  })
+);

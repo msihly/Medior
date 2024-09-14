@@ -1,15 +1,15 @@
-import { Icon, TagChip, Text, Tooltip, View } from "medior/components";
+import { TagChip, Text, Tooltip, View } from "medior/components";
 import { useState } from "react";
 import { toast } from "react-toastify";
 import { FileCollection, observer, useStores } from "medior/store";
-import { colors, dayjs, makeClasses, trpc } from "medior/utils";
+import { dayjs, makeClasses, trpc } from "medior/utils";
 
 export interface CollectionTooltipProps {
+  children: JSX.Element;
   collection: FileCollection;
-  onTagPress: (id: string) => any;
 }
 
-export const CollectionTooltip = observer(({ collection, onTagPress }: CollectionTooltipProps) => {
+export const CollectionTooltip = observer(({ children, collection }: CollectionTooltipProps) => {
   const { css } = useClasses(null);
 
   const stores = useStores();
@@ -30,6 +30,11 @@ export const CollectionTooltip = observer(({ collection, onTagPress }: Collectio
       console.error(err);
       toast.error("Error loading collection info");
     }
+  };
+
+  const onTagPress = (tagId: string) => {
+    stores.tag.setActiveTagId(tagId);
+    stores.tag.setIsTagEditorOpen(true);
   };
 
   return (
@@ -61,13 +66,8 @@ export const CollectionTooltip = observer(({ collection, onTagPress }: Collectio
         </View>
       }
     >
-      <View>
-        <Icon
-          name="InfoOutlined"
-          color={colors.custom.grey}
-          size="1em"
-          margins={{ left: "0.3rem" }}
-        />
+      <View column width="100%">
+        {children}
       </View>
     </Tooltip>
   );

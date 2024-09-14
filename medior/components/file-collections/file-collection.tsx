@@ -1,7 +1,6 @@
 import { observer, useStores } from "medior/store";
-import { ContextMenu, FileBase, Text } from "medior/components";
-import { CollectionTooltip } from ".";
-import { CSS, makeClasses, round } from "medior/utils";
+import { CollectionTooltip, ContextMenu, FileBase } from "medior/components";
+import { CSS, round } from "medior/utils";
 
 export interface FileCollectionProps {
   height?: CSS["height"];
@@ -10,8 +9,6 @@ export interface FileCollectionProps {
 }
 
 export const FileCollection = observer(({ height, id, width }: FileCollectionProps) => {
-  const { css } = useClasses(null);
-
   const stores = useStores();
 
   const collection = stores.collection.manager.getById(id);
@@ -28,11 +25,6 @@ export const FileCollection = observer(({ height, id, width }: FileCollectionPro
 
   const handleSelect = () => stores.collection.manager.setSelectedCollectionId(id);
 
-  const handleTagPress = (tagId: string) => {
-    stores.tag.setActiveTagId(tagId);
-    stores.tag.setIsTagEditorOpen(true);
-  };
-
   const openCollection = async () => {
     await stores.collection.editor.loadCollection({ id });
     stores.collection.editor.setIsOpen(true);
@@ -46,48 +38,32 @@ export const FileCollection = observer(({ height, id, width }: FileCollectionPro
         { label: "Delete", icon: "Delete", onClick: handleDelete },
       ]}
     >
-      <FileBase.Container
-        {...{ height, width }}
-        onClick={hasSelectedFiles ? handleSelect : null}
-        onDoubleClick={openCollection}
-        selected={hasSelectedFiles && id === stores.collection.manager.selectedCollectionId}
-      >
-        <FileBase.Image
-          thumbPaths={collection.thumbPaths}
-          title={collection.title}
-          height={height}
-          fit={stores.collection.collectionFitMode}
+      <CollectionTooltip {...{ collection }}>
+        <FileBase.Container
+          {...{ height, width }}
+          onClick={hasSelectedFiles ? handleSelect : null}
+          onDoubleClick={openCollection}
+          selected={hasSelectedFiles && id === stores.collection.manager.selectedCollectionId}
         >
-          <FileBase.RatingChip position="top-left" rating={round(collection.rating, 1)} />
+          <FileBase.Image
+            thumbPaths={collection.thumbPaths}
+            title={collection.title}
+            fit={stores.collection.collectionFitMode}
+          >
+            <FileBase.RatingChip position="top-left" rating={round(collection.rating, 1)} />
 
-          <FileBase.Chip
-            position="top-right"
-            icon="Collections"
-            label={collection.fileIdIndexes.length}
-          />
-        </FileBase.Image>
+            <FileBase.Chip
+              position="top-right"
+              icon="Collections"
+              label={collection.fileIdIndexes.length}
+            />
+          </FileBase.Image>
 
-        <FileBase.Footer>
-          {collection.title.length > 0 && (
-            <Text tooltip={collection.title} tooltipProps={{ flexShrink: 1 }} className={css.title}>
-              {collection.title}
-            </Text>
-          )}
-
-          <CollectionTooltip {...{ collection }} onTagPress={handleTagPress} />
-        </FileBase.Footer>
-      </FileBase.Container>
+          <FileBase.Footer>
+            <FileBase.FooterText text={collection.title} />
+          </FileBase.Footer>
+        </FileBase.Container>
+      </CollectionTooltip>
     </ContextMenu>
   );
-});
-
-const useClasses = makeClasses({
-  title: {
-    width: "100%",
-    fontSize: "0.9em",
-    textAlign: "center",
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  },
 });

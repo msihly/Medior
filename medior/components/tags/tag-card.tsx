@@ -1,14 +1,12 @@
-import { ContextMenu, FileBase, Text } from "medior/components";
+import { ContextMenu, FileBase } from "medior/components";
 import { TagManagerTag, observer, useStores } from "medior/store";
-import { CONSTANTS, colors, makeClasses, openSearchWindow } from "medior/utils";
+import { colors, openSearchWindow } from "medior/utils";
 
 export interface TagCardProps {
   tag: TagManagerTag;
 }
 
 export const TagCard = observer(({ tag }: TagCardProps) => {
-  const { css } = useClasses(null);
-
   const stores = useStores();
 
   const handleClick = async (event: React.MouseEvent) => {
@@ -60,12 +58,7 @@ export const TagCard = observer(({ tag }: TagCardProps) => {
         onDoubleClick={handleEdit}
         selected={stores.tag.manager.selectedIds.includes(tag.id)}
       >
-        <FileBase.Image
-          thumbPaths={tag.thumbPaths}
-          title={tag.label}
-          height={CONSTANTS.THUMB.WIDTH}
-          fit="contain"
-        >
+        <FileBase.Image thumbPaths={tag.thumbPaths} title={tag.label} fit="contain">
           <FileBase.Chip
             position="top-left"
             label={formatter.format(tag.count)}
@@ -74,9 +67,7 @@ export const TagCard = observer(({ tag }: TagCardProps) => {
         </FileBase.Image>
 
         <FileBase.Footer>
-          <Text tooltip={tag.label} tooltipProps={{ flexShrink: 1 }} className={css.title}>
-            {tag.label}
-          </Text>
+          <FileBase.FooterText text={tag.label} />
         </FileBase.Footer>
       </FileBase.Container>
     </ContextMenu>
@@ -84,14 +75,3 @@ export const TagCard = observer(({ tag }: TagCardProps) => {
 });
 
 const formatter = Intl.NumberFormat("en", { notation: "compact" });
-
-const useClasses = makeClasses({
-  title: {
-    width: "100%",
-    fontSize: "0.9em",
-    textAlign: "center",
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  },
-});

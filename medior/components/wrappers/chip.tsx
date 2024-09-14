@@ -42,7 +42,7 @@ export const Chip = ({
             name={icon}
             color={iconColor}
             size="inherit"
-            margins={{ left: "0.5rem" }}
+            margins={{ left: "0.5rem !important" }}
             {...iconProps}
           />
         ) : undefined

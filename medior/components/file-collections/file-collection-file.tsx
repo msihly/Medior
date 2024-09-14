@@ -54,11 +54,6 @@ export const FileCollectionFile = observer(
         ),
       });
 
-    const handleTagPress = (tagId: string) => {
-      stores.tag.setActiveTagId(tagId);
-      stores.tag.setIsTagEditorOpen(true);
-    };
-
     return (
       <View
         ref={setNodeRef}
@@ -67,37 +62,37 @@ export const FileCollectionFile = observer(
         style={{ ...style, transform: CSSUtils.Transform.toString(transform), transition }}
       >
         <FileBase.ContextMenu {...{ disabled, file }}>
-          <FileBase.Container
-            {...{ disabled, height, width }}
-            onClick={handleClick}
-            onDoubleClick={handleDoubleClick}
-            selected={stores.collection.editor.getIsSelected(id)}
-          >
-            <FileBase.Image
-              thumbPaths={file.thumbPaths}
-              title={file.originalName}
-              disabled={disabled}
-              fit="contain"
-              height={250}
+          <FileBase.Tooltip {...{ disabled, file }}>
+            <FileBase.Container
+              {...{ disabled, height, width }}
+              onClick={handleClick}
+              onDoubleClick={handleDoubleClick}
+              selected={stores.collection.editor.getIsSelected(id)}
             >
-              <FileBase.Chip position="top-left" label={fileIndex} opacity={0.8} />
+              <FileBase.Image
+                thumbPaths={file.thumbPaths}
+                title={file.originalName}
+                disabled={disabled}
+                fit="contain"
+                height={250}
+              >
+                <FileBase.Chip position="top-left" label={fileIndex} opacity={0.8} />
 
-              <FileBase.RatingChip position="top-right" rating={file.rating} />
+                <FileBase.RatingChip position="top-right" rating={file.rating} />
 
-              {file.duration && (
-                <FileBase.Chip
-                  position="bottom-right"
-                  label={dayjs.duration(file.duration, "s").format("HH:mm:ss")}
-                />
-              )}
-            </FileBase.Image>
+                {file.duration && (
+                  <FileBase.Chip
+                    position="bottom-right"
+                    label={dayjs.duration(file.duration, "s").format("HH:mm:ss")}
+                  />
+                )}
+              </FileBase.Image>
 
-            <FileBase.Footer>
-              <FileBase.Tags tagIds={file.tagIds} />
-
-              <FileBase.Tooltip {...{ disabled, file }} onTagPress={handleTagPress} />
-            </FileBase.Footer>
-          </FileBase.Container>
+              <FileBase.Footer>
+                <FileBase.Tags tagIds={file.tagIds} />
+              </FileBase.Footer>
+            </FileBase.Container>
+          </FileBase.Tooltip>
         </FileBase.ContextMenu>
       </View>
     );
