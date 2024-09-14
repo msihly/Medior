@@ -2,7 +2,7 @@ import { computed } from "mobx";
 import { getRootStore, Model, model, modelAction, modelFlow, prop } from "mobx-keystone";
 import { asyncAction, File, FileSearch, RootStore } from "medior/store";
 import { FileCollection } from ".";
-import { trpc } from "medior/utils";
+import { getConfig, trpc } from "medior/utils";
 import { toast } from "react-toastify";
 import { arrayMove } from "@alissavrk/dnd-kit-sortable";
 
@@ -14,7 +14,9 @@ export class CollectionEditor extends Model({
   hasUnsavedChanges: prop<boolean>(false).withSetter(),
   isLoading: prop<boolean>(false).withSetter(),
   isOpen: prop<boolean>(false),
-  search: prop<FileSearch>(() => new FileSearch({})),
+  search: prop<FileSearch>(
+    () => new FileSearch({ pageSize: getConfig().collection.editor.fileSearch.pageSize })
+  ),
   selectedIds: prop<string[]>(() => []).withSetter(),
 }) {
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */

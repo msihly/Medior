@@ -46,7 +46,7 @@ export class FileSearch extends ExtendedModel(_FileSearch, {
     const res = await trpc.listFileIdsForCarousel.mutate({
       ...this.getFilterProps(),
       page: this.page,
-      pageSize: getConfig().file.searchFileCount,
+      pageSize: getConfig().file.search.pageSize,
     });
     if (!res.success) throw new Error(res.error);
     if (!res.data?.length) throw new Error("No files found");

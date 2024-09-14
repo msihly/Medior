@@ -128,30 +128,30 @@ export const SettingsModal = observer(() => {
           <Settings.Section title="Collections">
             <View row spacing="0.5rem" overflow="auto">
               <Settings.NumInput
-                header="Editor Page Size"
-                configKey="collection.editorPageSize"
+                header="Editor - File Search Page Size"
+                configKey="collection.editor.fileSearch.pageSize"
                 minValue={1}
                 maxValue={200}
-                width="9rem"
+                width="14rem"
+              />
+
+              <Settings.SortMenu
+                header="Editor - Default Sort"
+                configKey="collection.editor.sort"
+                rows={SORT_OPTIONS.File}
               />
 
               <Settings.NumInput
-                header="Search Results Count"
-                configKey="collection.searchFileCount"
+                header="Manager - Page Size"
+                configKey="collection.manager.pageSize"
                 minValue={25}
                 maxValue={250}
                 width="9rem"
               />
 
               <Settings.SortMenu
-                header="Editor - Default Sort"
-                configKey="collection.editorSearchSort"
-                rows={SORT_OPTIONS.File}
-              />
-
-              <Settings.SortMenu
                 header="Manager - Default Sort"
-                configKey="collection.managerSearchSort"
+                configKey="collection.manager.sort"
                 rows={SORT_OPTIONS.FileCollection}
               />
             </View>
@@ -161,7 +161,7 @@ export const SettingsModal = observer(() => {
             <View row spacing="0.5rem" overflow="auto">
               <Settings.NumInput
                 header="Search Results Count"
-                configKey="file.searchFileCount"
+                configKey="file.search.pageSize"
                 minValue={25}
                 maxValue={250}
                 width="9rem"
@@ -169,7 +169,7 @@ export const SettingsModal = observer(() => {
 
               <Settings.SortMenu
                 header="Default Sort"
-                configKey="file.searchSort"
+                configKey="file.search.sort"
                 rows={SORT_OPTIONS.File}
               />
 
@@ -339,7 +339,7 @@ export const SettingsModal = observer(() => {
             <View row>
               <Settings.SortMenu
                 header="Manager - Default Sort"
-                configKey="tags.managerSearchSort"
+                configKey="tags.manager.sort"
                 rows={SORT_OPTIONS.Tag}
               />
             </View>

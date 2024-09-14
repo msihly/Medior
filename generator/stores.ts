@@ -138,8 +138,8 @@ export const MODEL_SEARCH_STORES: ModelSearchStore[] = [
     name: "File",
     props: [
       ...makeCommonProps({
-        defaultPageSize: "() => getConfig().file.searchFileCount",
-        defaultSort: "() => getConfig().file.searchSort",
+        defaultPageSize: "() => getConfig().file.search.pageSize",
+        defaultSort: "() => getConfig().file.search.sort",
         name: "File",
       }),
       ...makeDateRangeProps("dateCreated"),
@@ -245,8 +245,8 @@ export const MODEL_SEARCH_STORES: ModelSearchStore[] = [
     name: "FileCollection",
     props: [
       ...makeCommonProps({
-        defaultPageSize: "() => getConfig().collection.searchFileCount",
-        defaultSort: "() => getConfig().collection.managerSearchSort",
+        defaultPageSize: "() => getConfig().collection.manager.pageSize",
+        defaultSort: "() => getConfig().collection.manager.sort",
         name: "FileCollection",
       }),
       ...makeDateRangeProps("dateCreated"),
@@ -267,8 +267,8 @@ export const MODEL_SEARCH_STORES: ModelSearchStore[] = [
     name: "Tag",
     props: [
       ...makeCommonProps({
-        defaultPageSize: "() => getConfig().tags.searchTagCount",
-        defaultSort: "() => getConfig().tags.managerSearchSort",
+        defaultPageSize: "() => getConfig().tags.manager.pageSize",
+        defaultSort: "() => getConfig().tags.manager.sort",
         name: "Tag",
       }),
       ...makeDateRangeProps("dateCreated"),

@@ -15,10 +15,14 @@ import {
 
 export interface Config {
   collection: {
-    editorPageSize: number;
-    editorSearchSort: SortMenuProps["value"];
-    managerSearchSort: SortMenuProps["value"];
-    searchFileCount: number;
+    editor: {
+      fileSearch: { pageSize: number };
+      sort: SortMenuProps["value"];
+    };
+    manager: {
+      pageSize: number;
+      sort: SortMenuProps["value"];
+    };
   };
   db: {
     fileStorage: {
@@ -31,8 +35,10 @@ export interface Config {
     fileCardFit: "contain" | "cover";
     hideUnratedIcon: boolean;
     imageTypes: ImageType[];
-    searchFileCount: number;
-    searchSort: SortMenuProps["value"];
+    search: {
+      pageSize: number;
+      sort: SortMenuProps["value"];
+    }
     videoTypes: VideoType[];
   };
   imports: {
@@ -60,8 +66,10 @@ export interface Config {
     socket: number;
   };
   tags: {
-    managerSearchSort: SortMenuProps["value"];
-    searchTagCount: number;
+    manager: {
+      pageSize: number;
+      sort: SortMenuProps["value"];
+    };
   };
 }
 
@@ -69,10 +77,14 @@ export type ConfigKey = NestedKeys<Config>;
 
 export const DEFAULT_CONFIG: Config = {
   collection: {
-    editorPageSize: 50,
-    editorSearchSort: { isDesc: true, key: "dateCreated" },
-    managerSearchSort: { isDesc: true, key: "dateModified" },
-    searchFileCount: 20,
+    editor: {
+      fileSearch: { pageSize: 20 },
+      sort: { isDesc: true, key: "dateCreated" },
+    },
+    manager: {
+      pageSize: 100,
+      sort: { isDesc: true, key: "dateCreated" },
+    },
   },
   db: {
     fileStorage: {
@@ -85,8 +97,10 @@ export const DEFAULT_CONFIG: Config = {
     fileCardFit: "contain",
     imageTypes: ["gif", "heic", "jfif", "jif", "jiff", "jpeg", "jpg", "png", "webp"],
     hideUnratedIcon: false,
-    searchFileCount: 100,
-    searchSort: { isDesc: true, key: "dateCreated" },
+    search: {
+      pageSize: 200,
+      sort: { isDesc: true, key: "dateCreated" },
+    },
     videoTypes: ["3gp", "avi", "f4v", "flv", "m4v", "mkv", "mov", "mp4", "ts", "webm", "wmv"],
   },
   imports: {
@@ -114,8 +128,10 @@ export const DEFAULT_CONFIG: Config = {
     socket: 3335,
   },
   tags: {
-    managerSearchSort: { isDesc: true, key: "dateCreated" },
-    searchTagCount: 200,
+    manager: {
+      pageSize: 200,
+      sort: { isDesc: true, key: "dateCreated" },
+    },
   },
 };
 
@@ -151,14 +167,14 @@ export const loadConfig = async (configPath?: string) => {
     const loadedConfig = JSON.parse(await fs.readFile(filePath, "utf-8")) as Config;
 
     config = deepMerge(DEFAULT_CONFIG, loadedConfig);
-    config.collection.editorPageSize = +config.collection.editorPageSize;
-    config.collection.searchFileCount = +config.collection.searchFileCount;
+    config.collection.editor.fileSearch.pageSize = +config.collection.editor.fileSearch.pageSize;
+    config.collection.manager.pageSize = +config.collection.manager.pageSize;
     config.db.fileStorage.threshold = +config.db.fileStorage.threshold;
-    config.file.searchFileCount = +config.file.searchFileCount;
+    config.file.search.pageSize = +config.file.search.pageSize;
     config.ports.db = +config.ports.db;
     config.ports.server = +config.ports.server;
     config.ports.socket = +config.ports.socket;
-    config.tags.searchTagCount = +config.tags.searchTagCount;
+    config.tags.manager.pageSize = +config.tags.manager.pageSize;
 
     return config;
   } catch (err) {

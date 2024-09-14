@@ -42,7 +42,7 @@ export class _FileSearch extends Model({
   numOfTags: prop<{ logOp: LogicalOp | ""; value: number }>(() => ({ logOp: "", value: 0 })),
   page: prop<number>(1).withSetter(),
   pageCount: prop<number>(1).withSetter(),
-  pageSize: prop<number>(() => getConfig().file.searchFileCount).withSetter(),
+  pageSize: prop<number>(() => getConfig().file.search.pageSize).withSetter(),
   rating: prop<{ logOp: LogicalOp | ""; value: number }>(() => ({ logOp: "", value: 0 })),
   results: prop<Stores.File[]>(() => []).withSetter(),
   selectedImageTypes: prop<Types.SelectedImageTypes>(
@@ -57,7 +57,7 @@ export class _FileSearch extends Model({
         getConfig().file.videoTypes.map((ext) => [ext, true]),
       ) as Types.SelectedVideoTypes,
   ),
-  sortValue: prop<SortMenuProps["value"]>(() => getConfig().file.searchSort).withSetter(),
+  sortValue: prop<SortMenuProps["value"]>(() => getConfig().file.search.sort).withSetter(),
   tags: prop<Stores.TagOption[]>(() => []).withSetter(),
 }) {
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
@@ -79,7 +79,7 @@ export class _FileSearch extends Model({
     this.numOfTags = { logOp: "", value: 0 };
     this.page = 1;
     this.pageCount = 1;
-    this.pageSize = getConfig().file.searchFileCount;
+    this.pageSize = getConfig().file.search.pageSize;
     this.rating = { logOp: "", value: 0 };
     this.results = [];
     this.selectedImageTypes = Object.fromEntries(
@@ -88,7 +88,7 @@ export class _FileSearch extends Model({
     this.selectedVideoTypes = Object.fromEntries(
       getConfig().file.videoTypes.map((ext) => [ext, true]),
     ) as Types.SelectedVideoTypes;
-    this.sortValue = getConfig().file.searchSort;
+    this.sortValue = getConfig().file.search.sort;
     this.tags = [];
   }
 
@@ -203,7 +203,7 @@ export class _FileSearch extends Model({
       )
         ? 1
         : 0) +
-      (!isDeepEqual(this.sortValue, getConfig().file.searchSort) ? 1 : 0) +
+      (!isDeepEqual(this.sortValue, getConfig().file.search.sort) ? 1 : 0) +
       (!isDeepEqual(this.tags, []) ? 1 : 0)
     );
   }
@@ -243,12 +243,10 @@ export class _FileCollectionSearch extends Model({
   isLoading: prop<boolean>(false).withSetter(),
   page: prop<number>(1).withSetter(),
   pageCount: prop<number>(1).withSetter(),
-  pageSize: prop<number>(() => getConfig().collection.searchFileCount).withSetter(),
+  pageSize: prop<number>(() => getConfig().collection.manager.pageSize).withSetter(),
   rating: prop<{ logOp: LogicalOp | ""; value: number }>(() => ({ logOp: "", value: 0 })),
   results: prop<Stores.FileCollection[]>(() => []).withSetter(),
-  sortValue: prop<SortMenuProps["value"]>(
-    () => getConfig().collection.managerSearchSort,
-  ).withSetter(),
+  sortValue: prop<SortMenuProps["value"]>(() => getConfig().collection.manager.sort).withSetter(),
   tags: prop<Stores.TagOption[]>(() => []).withSetter(),
   title: prop<string>("").withSetter(),
 }) {
@@ -264,10 +262,10 @@ export class _FileCollectionSearch extends Model({
     this.isLoading = false;
     this.page = 1;
     this.pageCount = 1;
-    this.pageSize = getConfig().collection.searchFileCount;
+    this.pageSize = getConfig().collection.manager.pageSize;
     this.rating = { logOp: "", value: 0 };
     this.results = [];
-    this.sortValue = getConfig().collection.managerSearchSort;
+    this.sortValue = getConfig().collection.manager.sort;
     this.tags = [];
     this.title = "";
   }
@@ -350,7 +348,7 @@ export class _FileCollectionSearch extends Model({
       (!isDeepEqual(this.dateModifiedStart, "") ? 1 : 0) +
       (!isDeepEqual(this.fileCount, { logOp: "", value: 0 }) ? 1 : 0) +
       (!isDeepEqual(this.rating, { logOp: "", value: 0 }) ? 1 : 0) +
-      (!isDeepEqual(this.sortValue, getConfig().collection.managerSearchSort) ? 1 : 0) +
+      (!isDeepEqual(this.sortValue, getConfig().collection.manager.sort) ? 1 : 0) +
       (!isDeepEqual(this.tags, []) ? 1 : 0) +
       (!isDeepEqual(this.title, "") ? 1 : 0)
     );
@@ -385,10 +383,10 @@ export class _TagSearch extends Model({
   label: prop<string>("").withSetter(),
   page: prop<number>(1).withSetter(),
   pageCount: prop<number>(1).withSetter(),
-  pageSize: prop<number>(() => getConfig().tags.searchTagCount).withSetter(),
+  pageSize: prop<number>(() => getConfig().tags.manager.pageSize).withSetter(),
   regExMode: prop<"any" | "hasRegEx" | "hasNoRegEx">("any").withSetter(),
   results: prop<Stores.Tag[]>(() => []).withSetter(),
-  sortValue: prop<SortMenuProps["value"]>(() => getConfig().tags.managerSearchSort).withSetter(),
+  sortValue: prop<SortMenuProps["value"]>(() => getConfig().tags.manager.sort).withSetter(),
   tags: prop<Stores.TagOption[]>(() => []).withSetter(),
 }) {
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
@@ -405,10 +403,10 @@ export class _TagSearch extends Model({
     this.label = "";
     this.page = 1;
     this.pageCount = 1;
-    this.pageSize = getConfig().tags.searchTagCount;
+    this.pageSize = getConfig().tags.manager.pageSize;
     this.regExMode = "any";
     this.results = [];
-    this.sortValue = getConfig().tags.managerSearchSort;
+    this.sortValue = getConfig().tags.manager.sort;
     this.tags = [];
   }
 
@@ -482,7 +480,7 @@ export class _TagSearch extends Model({
       (!isDeepEqual(this.dateModifiedStart, "") ? 1 : 0) +
       (!isDeepEqual(this.label, "") ? 1 : 0) +
       (!isDeepEqual(this.regExMode, "any") ? 1 : 0) +
-      (!isDeepEqual(this.sortValue, getConfig().tags.managerSearchSort) ? 1 : 0) +
+      (!isDeepEqual(this.sortValue, getConfig().tags.manager.sort) ? 1 : 0) +
       (!isDeepEqual(this.tags, []) ? 1 : 0)
     );
   }
