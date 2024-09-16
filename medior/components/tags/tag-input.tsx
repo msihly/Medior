@@ -177,9 +177,11 @@ export const TagInput = observer(
         if (disabled) return;
         setInputValue(val);
         inputProps?.setValue?.(val);
+        if (val.length === 0) setIsOpen(false);
+        else if (!isOpen) setIsOpen(true);
       };
 
-      const handleOpen = () => !disabled && setIsOpen(true);
+      const handleOpen = () => !disabled && !!inputValue && setIsOpen(true);
 
       const isOptionEqualToValue = (option: TagOption, val: TagOption) => option.id === val.id;
 
@@ -268,10 +270,11 @@ export const TagInput = observer(
 
               {!single && hasList && (
                 <TagList
+                  {...{ hasDelete, hasEditor, hasSearchMenu }}
                   tags={value}
+                  onClick={onTagClick}
                   search={{ onChange, value }}
                   viewProps={{ borderRadiuses: { top: 0 } }}
-                  {...{ hasDelete, hasEditor, hasSearchMenu }}
                 />
               )}
             </>

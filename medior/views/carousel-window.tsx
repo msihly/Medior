@@ -26,6 +26,10 @@ export const CarouselWindow = observer(() => {
 
   const panZoomRef = useRef<PanzoomObject>(null);
   const rootRef = useRef<HTMLDivElement>(null);
+  const setRootRef = (ref: HTMLDivElement) => {
+    rootRef.current = ref;
+    ref?.focus();
+  };
 
   const { handleKeyPress, navCarouselByArrowKey } = useHotkeys({ rootRef, view: "carousel" });
 
@@ -82,8 +86,6 @@ export const CarouselWindow = observer(() => {
           stores.carousel.setSelectedFileIds(selectedFileIds);
 
           perfLogTotal("Data loaded into MobX.");
-
-          rootRef.current?.focus();
         } catch (err) {
           console.error(err);
         }
@@ -94,7 +96,7 @@ export const CarouselWindow = observer(() => {
   return (
     <ZoomContext.Provider value={panZoomRef}>
       <View
-        ref={rootRef}
+        ref={setRootRef}
         onKeyDown={handleKeyPress}
         onMouseMove={handleMouseMove}
         onWheel={handleScroll}

@@ -29,9 +29,13 @@ export const CardGrid = forwardRef(
     const { css, cx } = useClasses({ hasCards: cards.length > 0, maxCards, position });
 
     return (
-      <View {...props} ref={ref} className={cx(css.root, className)}>
+      <View {...props} className={cx(css.root, className)}>
         {cards.length ? (
-          <View {...cardsProps} padding={padding} className={cx(css.cards, cardsProps?.className)}>
+          <View
+            {...cardsProps}
+            {...{ padding, ref }}
+            className={cx(css.cards, cardsProps?.className)}
+          >
             {cards}
           </View>
         ) : (

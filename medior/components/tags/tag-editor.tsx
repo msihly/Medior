@@ -16,7 +16,7 @@ import {
   View,
 } from "medior/components";
 import { TagInputs } from ".";
-import { colors, useDeepEffect, useDeepMemo } from "medior/utils";
+import { colors, openSearchWindow, useDeepEffect, useDeepMemo } from "medior/utils";
 import { toast } from "react-toastify";
 
 export interface TagEditorProps {
@@ -92,7 +92,7 @@ export const TagEditor = observer(
 
     const handleConfirmDelete = async () => {
       setIsLoading(true);
-      const res = await stores.tag.deleteTag({ id: tag.id });
+      const res = await stores.tag.deleteTag({ id });
 
       if (!res.success) toast.error("Failed to delete tag");
       else {
@@ -156,12 +156,27 @@ export const TagEditor = observer(
       } else toast.error(res.error);
     };
 
+    const handleSearch = () => openSearchWindow({ tagIds: [id] });
+
     return (
       <Modal.Container onClose={handleClose} width="50rem">
         <LoadingOverlay {...{ isLoading }} />
 
         <Modal.Header
-          leftNode={!isCreate && <Text preset="sub-text">{`ID: ${id}`}</Text>}
+          leftNode={
+            !isCreate && (
+              <View row align="center" spacing="0.5rem">
+                <IconButton
+                  name="Search"
+                  iconProps={{ color: colors.custom.grey }}
+                  onClick={handleSearch}
+                  disabled={isLoading}
+                />
+
+                <Text preset="sub-text">{`ID: ${id}`}</Text>
+              </View>
+            )
+          }
           rightNode={
             !isCreate && (
               <View row align="center" spacing="0.5rem">
@@ -307,7 +322,7 @@ export const TagEditor = observer(
         {isConfirmDeleteOpen && (
           <ConfirmModal
             headerText="Delete Tag"
-            subText={tag.label}
+            subText={tag?.label}
             onConfirm={handleConfirmDelete}
             setVisible={setIsConfirmDeleteOpen}
           />
