@@ -137,7 +137,9 @@ export const listFilteredFiles = makeAction(
     const hasIds = filterParams.ids?.length > 0;
 
     const [items, count] = await Promise.all([
-      models.FileModel.find(filterPipeline.$match)
+      models.FileModel.find(
+        hasIds ? { _id: { $in: objectIds(filterParams.ids) } } : filterPipeline.$match,
+      )
         .sort(filterPipeline.$sort)
         .skip(hasIds ? 0 : Math.max(0, page - 1) * pageSize)
         .limit(hasIds ? 0 : pageSize)
@@ -245,7 +247,9 @@ export const listFilteredFileCollections = makeAction(
     const hasIds = filterParams.ids?.length > 0;
 
     const [items, count] = await Promise.all([
-      models.FileCollectionModel.find(filterPipeline.$match)
+      models.FileCollectionModel.find(
+        hasIds ? { _id: { $in: objectIds(filterParams.ids) } } : filterPipeline.$match,
+      )
         .sort(filterPipeline.$sort)
         .skip(hasIds ? 0 : Math.max(0, page - 1) * pageSize)
         .limit(hasIds ? 0 : pageSize)
@@ -351,7 +355,9 @@ export const listFilteredTags = makeAction(
     const hasIds = filterParams.ids?.length > 0;
 
     const [items, count] = await Promise.all([
-      models.TagModel.find(filterPipeline.$match)
+      models.TagModel.find(
+        hasIds ? { _id: { $in: objectIds(filterParams.ids) } } : filterPipeline.$match,
+      )
         .sort(filterPipeline.$sort)
         .skip(hasIds ? 0 : Math.max(0, page - 1) * pageSize)
         .limit(hasIds ? 0 : pageSize)

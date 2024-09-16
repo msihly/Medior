@@ -5,9 +5,9 @@ import { colors, deepMerge } from "medior/utils";
 const DEFAULT_HEADER_PROPS: HeaderWrapperProps["headerProps"] = {
   bgColor: colors.custom.black,
   borderRadiuses: { all: "0.5rem 0.5rem 0 0" },
-  fontSize: "0.9em",
+  fontSize: "0.8em",
   justify: "center",
-  padding: { all: "0.2em 0.4em" },
+  padding: { all: "0.15rem 0.3rem" },
 };
 
 export interface HeaderWrapperProps extends ViewProps {

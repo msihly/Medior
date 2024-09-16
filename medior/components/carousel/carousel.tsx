@@ -240,7 +240,7 @@ interface ClassesProps {
 
 const useClasses = makeClasses((props: ClassesProps) => ({
   contextMenu: {
-    display: "contents",
+    display: "flex",
     height: "100%",
   },
   image: {

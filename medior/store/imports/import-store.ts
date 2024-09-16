@@ -206,7 +206,7 @@ export class ImportStore extends Model({
     const batch = this.getById(batchId);
 
     let collectionId: string = null;
-    if (batch.collectionTitle) {
+    if (batch.collectionTitle && batch.completed.length) {
       const res = await stores.collection.createCollection({
         fileIdIndexes: batch.completed.map((f, i) => ({ fileId: f.fileId, index: i })),
         title: batch.collectionTitle,

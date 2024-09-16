@@ -10,7 +10,7 @@ import {
 } from "mobx-keystone";
 import { asyncAction, RootStore } from "medior/store";
 import { _FileSearch } from "medior/store/_generated";
-import { getConfig, trpc } from "medior/utils";
+import { trpc } from "medior/utils";
 
 @model("medior/FileSearch")
 export class FileSearch extends ExtendedModel(_FileSearch, {
@@ -46,7 +46,7 @@ export class FileSearch extends ExtendedModel(_FileSearch, {
     const res = await trpc.listFileIdsForCarousel.mutate({
       ...this.getFilterProps(),
       page: this.page,
-      pageSize: getConfig().file.search.pageSize,
+      pageSize: this.pageSize,
     });
     if (!res.success) throw new Error(res.error);
     if (!res.data?.length) throw new Error("No files found");

@@ -227,7 +227,7 @@ const makeSearchActionsDef = (def: ModelSearchStore) => {
         const hasIds = filterParams.ids?.length > 0;
 
         const [items, count] = await Promise.all([
-          ${modelName}Model.find(filterPipeline.$match)
+          ${modelName}Model.find(hasIds ? { _id: { $in: objectIds(filterParams.ids) } } : filterPipeline.$match)
             .sort(filterPipeline.$sort)
             .skip(hasIds ? 0 : Math.max(0, page - 1) * pageSize)
             .limit(hasIds ? 0 : pageSize)
