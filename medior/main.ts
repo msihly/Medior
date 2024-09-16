@@ -1,6 +1,6 @@
 import { app, BrowserWindow, ipcMain, screen } from "electron";
 import path from "path";
-import { dayjs, loadConfig, logToFile, setLogsPath, setupTRPC } from "./utils";
+import { dayjs, getConfig, loadConfig, logToFile, setLogsPath, setupTRPC } from "./utils";
 import { startServers } from "./server.js";
 
 const isPackaged = app.isPackaged;
@@ -45,7 +45,10 @@ const createMainWindow = async () => {
   remoteMain.enable(mainWindow.webContents);
 
   mainWindow.show();
-  if (!isPackaged) mainWindow.webContents.openDevTools({ mode: "left" });
+  if (!isPackaged) {
+    const mode = getConfig().dev.devTools.home;
+    if (mode) mainWindow.webContents.openDevTools({ mode });
+  }
 
   logToFile("debug", "Loading main window...");
   await mainWindow.loadURL(baseUrl);
@@ -89,7 +92,10 @@ const createSearchWindow = async ({ tagIds }) => {
     remoteMain.enable(searchWindow.webContents);
 
     searchWindow.show();
-    if (!isPackaged) searchWindow.webContents.openDevTools({ mode: "left" });
+    if (!isPackaged) {
+      const mode = getConfig().dev.devTools.search;
+      if (mode) searchWindow.webContents.openDevTools({ mode });
+    }
 
     logToFile("debug", "Creating search window...");
     await searchWindow.loadURL(`${baseUrl}${isBundled ? "#" : "/"}search`);
@@ -146,7 +152,10 @@ const createCarouselWindow = async ({ fileId, height, selectedFileIds, width }) 
 
     carouselWindow.show();
 
-    if (!isPackaged) carouselWindow.webContents.openDevTools({ mode: "left" });
+    if (!isPackaged) {
+      const mode = getConfig().dev.devTools.carousel;
+      if (mode) carouselWindow.webContents.openDevTools({ mode });
+    }
 
     logToFile("debug", "Loading carousel window...");
     await carouselWindow.loadURL(`${baseUrl}${isBundled ? "#" : "/"}carousel`);

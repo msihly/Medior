@@ -4,6 +4,7 @@ import { Config, ConfigKey, convertNestedKeys, deepMerge, DEFAULT_CONFIG } from 
 @model("medior/SettingsStore")
 export class SettingsStore extends Model({
   collection: prop<Config["collection"]>(() => DEFAULT_CONFIG.collection),
+  dev: prop<Config["dev"]>(() => DEFAULT_CONFIG.dev),
   db: prop<Config["db"]>(() => DEFAULT_CONFIG.db),
   file: prop<Config["file"]>(() => DEFAULT_CONFIG.file),
   hasUnsavedChanges: prop<boolean>(false).withSetter(),
@@ -69,6 +70,7 @@ export class SettingsStore extends Model({
   update(
     updates: Partial<{
       collection: Partial<Config["collection"]>;
+      dev: Partial<Config["dev"]>;
       file: Partial<Config["file"]>;
       imports: Partial<Config["imports"]>;
       db: Partial<Config["db"]>;
@@ -86,6 +88,7 @@ export class SettingsStore extends Model({
   getConfig() {
     return {
       collection: getSnapshot(this.collection),
+      dev: getSnapshot(this.dev),
       file: getSnapshot(this.file),
       imports: getSnapshot(this.imports),
       db: getSnapshot(this.db),

@@ -31,6 +31,13 @@ export interface Config {
     };
     path: string;
   };
+  dev: {
+    devTools: {
+      carousel: null | Electron.OpenDevToolsOptions["mode"];
+      home: null | Electron.OpenDevToolsOptions["mode"];
+      search: null | Electron.OpenDevToolsOptions["mode"];
+    };
+  };
   file: {
     fileCardFit: "contain" | "cover";
     hideUnratedIcon: boolean;
@@ -92,6 +99,13 @@ export const DEFAULT_CONFIG: Config = {
       threshold: 0.9,
     },
     path: path.resolve("MongoDB"),
+  },
+  dev: {
+    devTools: {
+      carousel: null,
+      home: "left",
+      search: null,
+    },
   },
   file: {
     fileCardFit: "contain",
