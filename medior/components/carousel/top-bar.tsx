@@ -1,18 +1,30 @@
 import { getCurrentWindow, screen } from "@electron/remote";
 import { useContext, useEffect, useRef, useState } from "react";
 import { observer, useStores } from "medior/store";
-import { ZoomContext, Icon, IconButton, SideScroller, TagChip, Text, View } from "medior/components";
+import {
+  getRatingMeta,
+  Icon,
+  IconButton,
+  TagChip,
+  Text,
+  View,
+  ZoomContext,
+} from "medior/components";
 import { colors, makeClasses, round, zoomScaleStepIn, zoomScaleStepOut } from "medior/utils";
 
 export const CarouselTopBar = observer(() => {
   const stores = useStores();
 
   const file = stores.file.getById(stores.carousel.activeFileId);
+  const ratingMeta = getRatingMeta(file?.rating);
 
   const [isAspectRatioLocked, setIsAspectRatioLocked] = useState(true);
-  const [isPinned, setIsPinned] = useState(false);
 
-  const { css } = useClasses({ isMouseMoving: stores.carousel.isMouseMoving, isPinned });
+  const { css } = useClasses({
+    isMouseMoving: stores.carousel.isMouseMoving,
+    isPinned: stores.carousel.isTopBarPinned,
+    ratingTextShadow: ratingMeta?.textShadow,
+  });
 
   const panZoomRef = useContext(ZoomContext);
 
@@ -60,25 +72,25 @@ export const CarouselTopBar = observer(() => {
     else getCurrentWindow().setAspectRatio(0);
   };
 
-  const toggleIsPinned = () => setIsPinned(!isPinned);
+  const toggleIsPinned = () => stores.carousel.toggleTopBarPin();
 
   const zoomIn = () => panZoomRef.current.zoom(zoomScaleStepIn(panZoomRef.current.getScale()));
 
   const zoomOut = () => panZoomRef.current.zoom(zoomScaleStepOut(panZoomRef.current.getScale()));
 
   const zoomReset = () => {
-    panZoomRef.current.zoom(1);
     panZoomRef.current.reset();
+    panZoomRef.current.resetStyle();
   };
 
   return (
-    <View className={css.root}>
+    <View row spacing="0.5rem" className={css.root}>
       <View row flex={1}>
         <IconButton
           name="PushPin"
-          iconProps={{ rotation: isPinned ? 45 : 0 }}
+          iconProps={{ rotation: stores.carousel.isTopBarPinned ? 45 : 0 }}
           onClick={toggleIsPinned}
-          tooltip={`${isPinned ? "Unpin" : "Pin"} Top Bar`}
+          tooltip={`${stores.carousel.isTopBarPinned ? "Unpin" : "Pin"} Top Bar`}
         />
 
         <IconButton
@@ -89,24 +101,19 @@ export const CarouselTopBar = observer(() => {
 
         <IconButton name="Label" onClick={handleEditTags} tooltip="Edit Tags" />
 
-        <View className={css.ratingContainer}>
-          <Icon
-            name="Star"
-            color={colors.custom.orange}
-            size="inherit"
-            margins={{ right: "0.1em" }}
-          />
+        <View row align="center" spacing="0.3rem">
+          <Icon name={ratingMeta?.icon} color={ratingMeta?.iconColor} size="inherit" />
 
-          <Text className={css.rating}>{file?.rating}</Text>
+          <Text fontSize="1.2em" className={css.rating}>
+            {file?.rating}
+          </Text>
         </View>
       </View>
 
-      <View className={css.center}>
-        <SideScroller innerClassName={css.tags}>
-          {file?.tagIds?.map((tagId) => (
-            <TagChip key={tagId} id={tagId} hasEditor />
-          ))}
-        </SideScroller>
+      <View row flex={3} overflow="hidden">
+        <View row spacing="0.5rem" margins={{ all: "0 auto" }}>
+          {file?.tagIds?.map((tagId) => <TagChip key={tagId} id={tagId} hasEditor />)}
+        </View>
       </View>
 
       <View row flex={1} justify="flex-end">
@@ -129,29 +136,17 @@ export const CarouselTopBar = observer(() => {
 interface ClassesProps {
   isMouseMoving: boolean;
   isPinned: boolean;
+  ratingTextShadow: string;
 }
 
-const useClasses = makeClasses(({ isMouseMoving, isPinned }: ClassesProps) => ({
-  center: {
-    display: "flex",
-    flex: 3,
-    justifyContent: "center",
-    padding: "0 0.3rem",
-    minWidth: 0,
-  },
+const useClasses = makeClasses((props: ClassesProps) => ({
   rating: {
     color: colors.custom.lightGrey,
     lineHeight: 1,
-  },
-  ratingContainer: {
-    display: "flex",
-    flexFlow: "row nowrap",
-    justifyContent: "center",
-    alignItems: "center",
-    fontSize: "1.2em",
+    textShadow: props.ratingTextShadow,
   },
   root: {
-    position: "absolute",
+    position: props.isPinned ? undefined : "absolute",
     top: 0,
     left: 0,
     right: 0,
@@ -160,13 +155,11 @@ const useClasses = makeClasses(({ isMouseMoving, isPinned }: ClassesProps) => ({
     alignItems: "center",
     justifyContent: "space-between",
     padding: "0.2rem 0.5rem",
+    height: "2.5rem",
     backgroundColor: "black",
-    opacity: isPinned ? 1 : isMouseMoving ? 0.3 : 0,
+    opacity: props.isPinned ? 1 : props.isMouseMoving ? 0.3 : 0,
     zIndex: 10,
     transition: "all 200ms ease-in-out",
     "&:hover": { opacity: 1 },
-  },
-  tags: {
-    justifyContent: "center",
   },
 }));

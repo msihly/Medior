@@ -12,6 +12,7 @@ import {
   Modal,
   Pagination,
   Text,
+  UniformList,
   View,
 } from "medior/components";
 import { CollectionFilterMenu, FileCollection } from ".";
@@ -86,18 +87,7 @@ export const FileCollectionManager = observer(() => {
     <Modal.Container height="100%" width="100%" onClose={handleClose}>
       <LoadingOverlay isLoading={stores.collection.manager.isLoading} />
 
-      <Modal.Header
-        rightNode={
-          <MenuButton color={colors.custom.grey}>
-            <ListItem text="Refresh Metadata" icon="Refresh" onClick={handleRefreshMeta} />
-            <ListItem text="Delete Empty" icon="Delete" onClick={handleDeleteEmpty} />
-          </MenuButton>
-        }
-      >
-        <Text>{"Manage Collections"}</Text>
-      </Modal.Header>
-
-      <Modal.Content>
+      <Modal.Content dividers={false} padding={{ top: "1rem" }}>
         <View column flex={1} spacing="0.5rem" overflow="hidden">
           {!hasAnySelected ? null : (
             <View row spacing="0.5rem">
@@ -105,6 +95,7 @@ export const FileCollectionManager = observer(() => {
                 header={`Selected File${hasOneSelected ? "" : "s"}`}
                 height={`calc(${FILE_CARD_HEIGHT} + 3.5rem)`}
                 width="14rem"
+                padding={{ all: 0 }}
                 overflow="auto"
               >
                 <CardGrid
@@ -112,7 +103,6 @@ export const FileCollectionManager = observer(() => {
                     <FileCard key={f.id} file={f} height={FILE_CARD_HEIGHT} disabled />
                   ))}
                   maxCards={hasOneSelected ? 1 : 6}
-                  padding={{ bottom: 0 }}
                 />
               </Card>
 
@@ -142,12 +132,26 @@ export const FileCollectionManager = observer(() => {
           <Card
             flex={1}
             overflow="auto"
+            padding={{ all: 0 }}
             header={
-              <View row flex={1} justify="space-between" padding={{ all: "0.3rem" }}>
-                <CollectionFilterMenu store={stores.collection.manager.search} />
+              <UniformList row flex={1} justify="space-between" padding={{ all: "0.3rem" }}>
+                <View row>
+                  <CollectionFilterMenu store={stores.collection.manager.search} />
+                </View>
 
-                <View>{/* TODO: Multi-actions; delete, refresh, select / deselect */}</View>
-              </View>
+                <View row justify="center" align="center">
+                  <Text preset="title">{"Collections Manager"}</Text>
+                </View>
+
+                <View row justify="flex-end">
+                  {/* TODO: Multi-actions; delete, refresh, select / deselect */}
+
+                  <MenuButton color={colors.custom.grey}>
+                    <ListItem text="Refresh Metadata" icon="Refresh" onClick={handleRefreshMeta} />
+                    <ListItem text="Delete Empty" icon="Delete" onClick={handleDeleteEmpty} />
+                  </MenuButton>
+                </View>
+              </UniformList>
             }
           >
             <LoadingOverlay isLoading={stores.collection.manager.search.isLoading} />

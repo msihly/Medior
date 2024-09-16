@@ -42,10 +42,12 @@ export const Carousel = observer(() => {
             minScale: CONSTANTS.ZOOM.MIN_SCALE,
             panOnlyWhenZoomed: true,
             startScale: 1,
+            startX: 0,
+            startY: 0,
             step: CONSTANTS.ZOOM.STEP,
           } as PanzoomOptions)
         : null;
-  }, [activeFile?.isVideo, stores.carousel.activeFileId]);
+  }, [activeFile?.isVideo, stores.carousel.activeFileId, stores.carousel.isTopBarPinned]);
 
   const [curTime, setCurTime] = useState(0);
   const [lastPlayingState, setLastPlayingState] = useState(false);
@@ -53,7 +55,12 @@ export const Carousel = observer(() => {
   const [lastVolume, setLastVolume] = useState(0.5);
   const [volume, setVolume] = useState(0);
 
-  const { css } = useClasses({ isMouseMoving: stores.carousel.isMouseMoving, isVolumeVisible });
+  const { css } = useClasses({
+    isMouseMoving: stores.carousel.isMouseMoving,
+    isTopBarPinned: stores.carousel.isTopBarPinned,
+    isVideo: activeFile?.isVideo,
+    isVolumeVisible,
+  });
 
   const handleFrameChange = (frame: number) => {
     stores.carousel.setCurFrame(frame);
@@ -104,8 +111,8 @@ export const Carousel = observer(() => {
   const togglePlaying = () => stores.carousel.setIsPlaying(!stores.carousel.isPlaying);
 
   return (
-    <>
-      <View ref={zoomRef} className={css.viewContainer}>
+    <View column height="100%" justify="center">
+      <View ref={zoomRef} column height="100%" justify="center">
         {!activeFile ? (
           <LoadingOverlay isLoading />
         ) : (
@@ -116,7 +123,7 @@ export const Carousel = observer(() => {
           >
             {activeFile.isVideo ? (
               activeFile.isPlayableVideo ? (
-                <View onClick={togglePlaying} className={css.videoContainer}>
+                <View column flex={1} height="inherit" onClick={togglePlaying}>
                   <ReactPlayer
                     ref={videoRef}
                     url={activeFile.path}
@@ -131,7 +138,7 @@ export const Carousel = observer(() => {
                   />
                 </View>
               ) : (
-                <View column flex={1} justify="center">
+                <View column flex={1} justify="center" height="inherit">
                   <FileBase.Image
                     thumbPaths={activeFile.thumbPaths}
                     title={activeFile.originalName}
@@ -168,7 +175,7 @@ export const Carousel = observer(() => {
             onClick={togglePlaying}
           />
 
-          <View className={css.videoProgressBar}>
+          <View column flex={1} padding={{ all: "0 0.7rem" }}>
             <Slider
               value={stores.carousel.curFrame}
               onChange={handleFrameSeek}
@@ -209,7 +216,7 @@ export const Carousel = observer(() => {
             </View>
           </View>
 
-          <View className={css.videoTimeContainer}>
+          <View column padding={{ right: "0.5rem" }}>
             <Text color={colors.custom.white} className={css.videoTime}>
               {dayjs.duration(Math.round(curTime * 1000)).format("HH:mm:ss")}
             </Text>
@@ -220,18 +227,21 @@ export const Carousel = observer(() => {
           </View>
         </View>
       )}
-    </>
+    </View>
   );
 });
 
 interface ClassesProps {
   isMouseMoving: boolean;
+  isTopBarPinned: boolean;
+  isVideo: boolean;
   isVolumeVisible: boolean;
 }
 
-const useClasses = makeClasses(({ isMouseMoving, isVolumeVisible }: ClassesProps) => ({
+const useClasses = makeClasses((props: ClassesProps) => ({
   contextMenu: {
     display: "contents",
+    height: "100%",
   },
   image: {
     borderRadius: "inherit",
@@ -255,34 +265,15 @@ const useClasses = makeClasses(({ isMouseMoving, isVolumeVisible }: ClassesProps
     backgroundColor: "rgb(0, 0, 0, 0.5)",
     cursor: "default",
     zIndex: 5,
-    opacity: isMouseMoving ? 0.3 : 0,
+    opacity: props.isMouseMoving ? 0.3 : 0,
     "&:hover": { opacity: 1 },
-  },
-  videoContainer: {
-    display: "flex",
-    flex: 1,
-  },
-  videoProgressBar: {
-    display: "flex",
-    flex: 1,
-    padding: "0 0.7rem",
-  },
-  videoTimeContainer: {
-    display: "flex",
-    flexDirection: "column",
-    paddingRight: "0.5rem",
   },
   videoTime: {
     fontSize: "0.8em",
     lineHeight: 1,
   },
-  viewContainer: {
-    display: "flex",
-    flex: 1,
-    minHeight: 0,
-  },
   volumeSlider: {
-    display: isVolumeVisible ? "block" : "none",
+    display: props.isVolumeVisible ? "block" : "none",
     position: "absolute",
     bottom: "2.5rem",
     padding: "0.8rem 0.3rem 0.4rem",

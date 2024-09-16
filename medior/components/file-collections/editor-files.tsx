@@ -5,7 +5,7 @@ import AutoSizer from "react-virtualized-auto-sizer";
 import { FileCollectionFile } from "medior/components";
 
 const CARD_HEIGHT = 300;
-const CARD_MAX_WIDTH = 300;
+const CARD_MAX_WIDTH = 240;
 
 export const EditorFiles = observer(() => {
   const stores = useStores();
@@ -36,6 +36,7 @@ export const EditorFiles = observer(() => {
           key={`${columnIndex}-${rowIndex}`}
           id={fileIdIndex.id}
           width={columnWidth}
+          height={CARD_HEIGHT}
         />
       );
     },

@@ -1,5 +1,5 @@
 import { ReactNode, useEffect, useState } from "react";
-import { observer, SORT_OPTIONS, useStores } from "medior/store";
+import { observer, useStores } from "medior/store";
 import {
   DndContext,
   DragEndEvent,
@@ -27,8 +27,6 @@ import {
   Modal,
   MultiActionButton,
   Pagination,
-  SortMenu,
-  SortMenuProps,
   TagChip,
   Text,
   View,
@@ -130,20 +128,10 @@ export const FileCollectionEditor = observer(() => {
 
   const handleRemoveFiles = () => setIsConfirmRemoveFilesOpen(true);
 
-  const handleResetSearch = () => {
-    stores.collection.editor.search.reset();
-    handleSearch();
-  };
-
   const handleSave = async () => {
     if (!title) return toast.error("Title is required!");
     await stores.collection.editor.saveCollection();
   };
-
-  const handleSearch = () => stores.collection.editor.search.loadFiltered({ page: 1 });
-
-  const handleSearchSortChange = (val: SortMenuProps["value"]) =>
-    stores.collection.editor.search.setSortValue(val);
 
   const handleSelectAll = () => {
     stores.collection.editor.toggleFilesSelected(
@@ -185,32 +173,23 @@ export const FileCollectionEditor = observer(() => {
         </Text>
       </Modal.Header>
 
-      <Modal.Content>
-        <View row flex={1} spacing="0.5rem">
+      <Modal.Content dividers={false}>
+        <View row flex={1} height="100%" spacing="0.5rem">
           {isAddingFiles && (
-            <Card column height="100%" spacing="0.5rem" width="15rem">
-              <Button
-                text="Search"
-                icon="Search"
-                onClick={handleSearch}
-                color={colors.custom.blue}
-              />
-
-              <Button
-                text="Reset"
-                icon="Refresh"
-                onClick={handleResetSearch}
-                colorOnHover={colors.custom.red}
-              />
-
-              <FileFilterMenu store={stores.collection.editor.search} color={colors.custom.black} />
-
-              <SortMenu
-                rows={SORT_OPTIONS.File}
-                value={stores.collection.editor.search.sortValue}
-                setValue={handleSearchSortChange}
-                width="100%"
-              />
+            <Card
+              column
+              flex="none"
+              height="100%"
+              width="16rem"
+              spacing="0.5rem"
+              padding={{ all: 0 }}
+            >
+              <View column spacing="0.5rem" padding={{ all: "0.5rem" }}>
+                <FileFilterMenu
+                  store={stores.collection.editor.search}
+                  color={colors.custom.black}
+                />
+              </View>
 
               <CardGrid
                 cards={stores.collection.editor.search.results.map((f) => (
