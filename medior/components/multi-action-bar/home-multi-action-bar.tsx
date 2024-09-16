@@ -1,6 +1,6 @@
 import { observer, useStores } from "medior/store";
 import { AppBar } from "@mui/material";
-import { View } from "medior/components";
+import { FileFilterMenu, View } from "medior/components";
 import { MultiActionButton, SelectedFilesInfo } from ".";
 import { colors, CONSTANTS, makeClasses } from "medior/utils";
 import { toast } from "react-toastify";
@@ -37,13 +37,13 @@ export const HomeMultiActionBar = observer(() => {
   const handleFileInfoRefresh = () => stores.file.refreshSelectedFiles();
 
   const handleSelectAll = () => {
-    stores.file.toggleFilesSelected(stores.file.search.results.map(({ id }) => ({ id, isSelected: true })));
+    stores.file.toggleFilesSelected(
+      stores.file.search.results.map(({ id }) => ({ id, isSelected: true }))
+    );
     toast.info(`Added ${stores.file.search.results.length} files to selection`);
   };
 
   const handleUnarchive = () => stores.file.unarchiveFiles({ fileIds: stores.file.selectedIds });
-
-  const toggleDrawerOpen = () => stores.home.setIsDrawerOpen(!stores.home.isDrawerOpen);
 
   const toggleFileCardFit = () =>
     stores.home.setFileCardFit(stores.home.fileCardFit === "cover" ? "contain" : "cover");
@@ -52,7 +52,9 @@ export const HomeMultiActionBar = observer(() => {
     <AppBar position="static" className={css.appBar}>
       <View className={css.container}>
         <View className={css.divisions}>
-          <MultiActionButton name="Menu" onClick={toggleDrawerOpen} />
+          <View row width="10rem">
+            <FileFilterMenu store={stores.file.search} />
+          </View>
 
           {stores.file.selectedIds.length > 0 && <SelectedFilesInfo />}
         </View>

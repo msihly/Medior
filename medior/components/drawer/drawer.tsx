@@ -1,6 +1,6 @@
 import { observer, useStores } from "medior/store";
-import { Divider, Drawer as MuiDrawer, List } from "@mui/material";
-import { FileFilterMenu, ListItem, View } from "medior/components";
+import { Drawer as MuiDrawer } from "@mui/material";
+import { IconButton, TooltipProps, View } from "medior/components";
 import { colors, CONSTANTS, makeClasses, openSearchWindow } from "medior/utils";
 
 export interface DrawerProps {
@@ -28,55 +28,75 @@ export const Drawer = observer(({ hasImports = false, hasSettings = false }: Dra
 
   const handleSettings = () => stores.home.settings.setIsOpen(true);
 
+  const tooltipProps: Partial<TooltipProps> = {
+    placement: "right",
+  };
+
   return (
     <MuiDrawer
       PaperProps={{ className: css.drawer }}
       ModalProps={{ keepMounted: true }}
-      open={stores.home.isDrawerOpen}
+      open
       onClose={handleClose}
       variant="persistent"
     >
-      <List disablePadding className={css.list}>
-        {hasSettings && <ListItem text="Settings" icon="Settings" onClick={handleSettings} />}
+      <View column spacing="0.5rem">
+        {hasSettings && (
+          <IconButton
+            name="Settings"
+            tooltip="Open Settings"
+            onClick={handleSettings}
+            {...{ tooltipProps }}
+          />
+        )}
 
-        {hasImports && <ListItem text="Imports" icon="GetApp" onClick={handleImport} />}
+        {hasImports && (
+          <IconButton
+            name="GetApp"
+            tooltip="Open Import Manager"
+            onClick={handleImport}
+            {...{ tooltipProps }}
+          />
+        )}
 
-        <ListItem text="Tags" icon="More" onClick={handleManageTags} />
+        <IconButton
+          name="More"
+          tooltip="Open Tag Manager"
+          onClick={handleManageTags}
+          {...{ tooltipProps }}
+        />
 
-        <ListItem text="Collections" icon="Collections" onClick={handleCollections} />
+        <IconButton
+          {...{ tooltipProps }}
+          name="Collections"
+          tooltip="Open Collection Manager"
+          onClick={handleCollections}
+        />
 
-        <ListItem text="Search Window" icon="Search" onClick={handleSearchWindow} />
-      </List>
-
-      <Divider className={css.divider} />
-
-      <View column width="100%" padding={{ all: "0.2rem 0.4rem" }}>
-        <FileFilterMenu store={stores.file.search} />
+        <IconButton
+          name="Search"
+          tooltip="Open New Search Window"
+          onClick={handleSearchWindow}
+          {...{ tooltipProps }}
+        />
       </View>
     </MuiDrawer>
   );
 });
 
 const useClasses = makeClasses({
-  divider: {
-    margin: "0.5rem 0",
-    width: "100%",
-  },
   drawer: {
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
     borderRight: "1px solid #111",
     marginTop: CONSTANTS.TOP_BAR_HEIGHT,
-    paddingBottom: "5rem",
+    padding: "0.2rem 0.3rem",
     width: CONSTANTS.DRAWER_WIDTH,
     background: colors.background,
     zIndex: 20,
     "&::-webkit-scrollbar": {
       display: "none",
     },
-  },
-  list: {
-    width: "100%",
   },
 });

@@ -10,9 +10,9 @@ interface SearchProps {
 
 export const Search = observer(
   ({ hasImports = false, hasSettings = false, isLoading }: SearchProps) => {
-    const stores = useStores();
+    const { css } = useClasses(null);
 
-    const { css } = useClasses({ isDrawerOpen: stores.home.isDrawerOpen });
+    const stores = useStores();
 
     return (
       <>
@@ -32,18 +32,14 @@ export const Search = observer(
   }
 );
 
-interface ClassesProps {
-  isDrawerOpen: boolean;
-}
-
-const useClasses = makeClasses(({ isDrawerOpen }: ClassesProps) => ({
+const useClasses = makeClasses({
   main: {
     display: "flex",
     flexFlow: "column",
-    marginLeft: isDrawerOpen ? CONSTANTS.DRAWER_WIDTH : 0,
-    width: isDrawerOpen ? `calc(100% - ${CONSTANTS.DRAWER_WIDTH}px)` : "inherit",
+    marginLeft: CONSTANTS.DRAWER_WIDTH,
+    width: `calc(100% - ${CONSTANTS.DRAWER_WIDTH}px)`,
     height: `calc(100vh - ${CONSTANTS.TOP_BAR_HEIGHT})`,
     overflow: "auto",
     transition: "all 225ms ease-in-out",
   },
-}));
+});
