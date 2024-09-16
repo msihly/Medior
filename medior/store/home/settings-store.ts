@@ -1,5 +1,5 @@
 import { applySnapshot, getSnapshot, Model, model, modelAction, prop } from "mobx-keystone";
-import { Config, ConfigKey, convertNestedKeys, DEFAULT_CONFIG } from "medior/utils";
+import { Config, ConfigKey, convertNestedKeys, deepMerge, DEFAULT_CONFIG } from "medior/utils";
 
 @model("medior/SettingsStore")
 export class SettingsStore extends Model({
@@ -77,17 +77,7 @@ export class SettingsStore extends Model({
     }>
   ) {
     const nestedUpdates = convertNestedKeys(updates);
-
-    const snapshot = {
-      ...getSnapshot(this),
-      collection: { ...getSnapshot(this.collection), ...nestedUpdates.collection },
-      file: { ...getSnapshot(this.file), ...nestedUpdates.file },
-      imports: { ...getSnapshot(this.imports), ...nestedUpdates.imports },
-      db: { ...getSnapshot(this.db), ...nestedUpdates.db },
-      ports: { ...getSnapshot(this.ports), ...nestedUpdates.ports },
-      tags: { ...getSnapshot(this.tags), ...nestedUpdates.tags },
-    };
-
+    const snapshot = deepMerge(getSnapshot(this), nestedUpdates);
     applySnapshot(this, snapshot);
     this.setHasUnsavedChanges(true);
   }

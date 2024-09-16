@@ -21,6 +21,8 @@ export const Tooltip = observer(({ children, disabled, file }: TooltipProps) => 
 
   return (
     <TooltipBase
+      enterDelay={700}
+      enterNextDelay={300}
       minWidth="15rem"
       title={
         <View className={css.root}>

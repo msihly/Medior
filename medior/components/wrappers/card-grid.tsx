@@ -20,7 +20,7 @@ export const CardGrid = forwardRef(
       className,
       maxCards = 6,
       noResultsText = "No results found",
-      padding = { bottom: "7rem" },
+      padding = { all: "0.3rem 0.3rem 7rem" },
       position = "relative",
       ...props
     }: CardGridProps,

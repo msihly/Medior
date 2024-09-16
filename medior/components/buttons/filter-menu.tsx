@@ -47,15 +47,13 @@ export const FilterMenu = observer(
           <Text>{"Filter Results"}</Text>
         </View>
 
-        {store.numOfFilters > 0 && (
-          <Chip
-            label={store.numOfFilters}
-            bgColor={colors.custom.blue}
-            height="1.2rem"
-            width="2rem"
-            size="small"
-          />
-        )}
+        <Chip
+          label={store.numOfFilters}
+          bgColor={store.numOfFilters > 0 ? colors.custom.blue : colors.foregroundCard}
+          height="1.2rem"
+          width="2rem"
+          size="small"
+        />
       </Button>
     );
 

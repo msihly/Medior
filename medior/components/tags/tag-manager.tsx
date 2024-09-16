@@ -13,6 +13,7 @@ import {
   TagCard,
   TagFilterMenu,
   Text,
+  UniformList,
   View,
 } from "medior/components";
 import { colors, openSearchWindow, useDeepEffect } from "medior/utils";
@@ -66,18 +67,15 @@ export const TagManager = observer(() => {
   };
 
   return (
-    <Modal.Container onClose={handleClose} height="100%" width="100%">
-      <Modal.Header>
-        <Text>{"Manage Tags"}</Text>
-      </Modal.Header>
-
-      <Modal.Content>
+    <Modal.Container onClose={handleClose} height="100%" width="100%" >
+      <Modal.Content dividers={false} padding={{ top: "1rem" }}>
         <Card
           column
           flex={1}
           overflow="auto"
+          padding={{ all: 0 }}
           header={
-            <View row flex={1} justify="space-between">
+            <UniformList row flex={1} justify="space-between">
               <View row align="center" spacing="0.5rem">
                 <TagFilterMenu store={stores.tag.manager.search} color={colors.foreground} />
 
@@ -86,7 +84,11 @@ export const TagManager = observer(() => {
                 )}
               </View>
 
-              <View row spacing="0.5rem">
+              <View row justify="center" align="center">
+                <Text preset="title">{"Tag Manager"}</Text>
+              </View>
+
+              <View row justify="flex-end" spacing="0.5rem">
                 <MultiActionButton
                   name="Search"
                   tooltip="Open Search Window with Selected Tags"
@@ -121,7 +123,7 @@ export const TagManager = observer(() => {
                   onClick={handleSelectAll}
                 />
               </View>
-            </View>
+            </UniformList>
           }
         >
           <LoadingOverlay isLoading={stores.tag.manager.isLoading} />

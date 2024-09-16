@@ -63,7 +63,7 @@ const useClasses = makeClasses(
       border: "1px solid transparent",
       borderRadius: 4,
       padding: "0.25rem",
-      height: "20rem",
+      height: height ?? "20rem",
       [theme.breakpoints.down("xl")]: height ? undefined : { height: "18rem" },
       [theme.breakpoints.down("lg")]: height ? undefined : { height: "16rem" },
       [theme.breakpoints.down("md")]: height ? undefined : { height: "14rem" },

@@ -53,7 +53,7 @@ export const FileFilterMenu = observer(
 
     return (
       <FilterMenu store={store} color={color} sortOptions={SORT_OPTIONS.File} width="100%">
-        <View row height="14rem" spacing="0.5rem">
+        <View row height="15rem" spacing="0.5rem">
           <Card flex={1}>
             <TagInput
               header="Tags"
@@ -67,7 +67,7 @@ export const FileFilterMenu = observer(
             />
           </Card>
 
-          <Card width="8rem" spacing="0.5rem">
+          <Card height="100%" width="8rem" spacing="0.5rem">
             <LogOpsInput
               header="# of Tags"
               logOpValue={store.numOfTags.logOp}

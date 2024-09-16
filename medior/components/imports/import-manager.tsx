@@ -2,6 +2,7 @@ import { useState } from "react";
 import { observer, useStores } from "medior/store";
 import {
   Button,
+  Card,
   CenteredText,
   IconButton,
   ImportBatch,
@@ -10,19 +11,19 @@ import {
   UniformList,
   View,
 } from "medior/components";
-import { colors, makeClasses } from "medior/utils";
+import { colors } from "medior/utils";
 import { toast } from "react-toastify";
 
 const PAGE_SIZE = 20;
 
 export const ImportManager = observer(() => {
-  const { css } = useClasses(null);
-
   const stores = useStores();
 
   const [activeType, setActiveType] = useState<"completed" | "pending">("pending");
   const batches =
-    activeType === "completed" ? stores.import.completedBatches : stores.import.incompleteBatches;
+    activeType === "completed"
+      ? stores.import.completedBatches
+      : [...stores.import.incompleteBatches].reverse();
 
   const [page, setPage] = useState(1);
   const pageCount = Math.max(1, Math.ceil(batches?.length / PAGE_SIZE));
@@ -80,17 +81,19 @@ export const ImportManager = observer(() => {
       </View>
 
       <Modal.Content dividers={false}>
-        <View className={css.batchesContainer}>
-          {batches?.length ? (
-            batches
-              .slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
-              .map((batch) => <ImportBatch key={batch.id} {...{ batch }} />)
-          ) : (
-            <CenteredText text={`No ${activeType} Imports`} color={colors.custom.lightGrey} />
-          )}
+        <Card height="100%" width="100%">
+          <View column padding={{ bottom: "5rem" }} overflow="hidden auto">
+            {batches?.length ? (
+              batches
+                .slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+                .map((batch) => <ImportBatch key={batch.id} {...{ batch }} />)
+            ) : (
+              <CenteredText text={`No ${activeType} Imports`} color={colors.custom.lightGrey} />
+            )}
+          </View>
 
           <Pagination count={pageCount} page={page} onChange={handleChange} />
-        </View>
+        </Card>
       </Modal.Content>
 
       <Modal.Footer>
@@ -147,19 +150,4 @@ const DeleteToggleButton = observer(({ type }: DeleteToggleButtonProps) => {
       )}
     </View>
   );
-});
-
-const useClasses = makeClasses({
-  batchesContainer: {
-    display: "flex",
-    flexDirection: "column",
-    borderRadius: "0.5rem",
-    padding: "0.7rem",
-    paddingBottom: "5rem",
-    height: "100%",
-    width: "100%",
-    backgroundColor: colors.foreground,
-    overflowX: "hidden",
-    overflowY: "auto",
-  },
 });

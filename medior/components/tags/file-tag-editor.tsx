@@ -87,10 +87,10 @@ export const FileTagEditor = observer(({ batchId, fileIds }: FileTagEditorProps)
   return (
     <Modal.Container onClose={handleClose} maxWidth="50rem" width="100%" draggable>
       <Modal.Header>
-        <Text>{"Update File Tags"}</Text>
+        <Text preset="title">{"Update File Tags"}</Text>
       </Modal.Header>
 
-      <Modal.Content>
+      <Modal.Content dividers={false}>
         <UniformList row uniformWidth="20rem" height="15rem" spacing="0.5rem">
           <TagInput
             header="Tags to Add"

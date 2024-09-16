@@ -38,7 +38,7 @@ export interface Config {
     search: {
       pageSize: number;
       sort: SortMenuProps["value"];
-    }
+    };
     videoTypes: VideoType[];
   };
   imports: {
@@ -98,7 +98,7 @@ export const DEFAULT_CONFIG: Config = {
     imageTypes: ["gif", "heic", "jfif", "jif", "jiff", "jpeg", "jpg", "png", "webp"],
     hideUnratedIcon: false,
     search: {
-      pageSize: 200,
+      pageSize: 100,
       sort: { isDesc: true, key: "dateCreated" },
     },
     videoTypes: ["3gp", "avi", "f4v", "flv", "m4v", "mkv", "mov", "mp4", "ts", "webm", "wmv"],

@@ -106,6 +106,10 @@ export const useSockets = ({ view }: UseSocketsProps) => {
     if (view === "carousel") {
       makeSocket("onFilesArchived", ({ fileIds }) => stores.carousel.removeFiles(fileIds));
     } else {
+      makeSocket("onFileCollectionDeleted", () => {
+        stores.collection.manager.search.reloadIfQueued();
+      });
+
       makeSocket("onFileCollectionUpdated", ({ id, updates }) => {
         if (stores.collection.manager.isOpen)
           stores.collection.manager.getById(id)?.update(updates);

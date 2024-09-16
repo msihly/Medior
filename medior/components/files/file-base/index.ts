@@ -8,4 +8,16 @@ import { RatingChip } from "./rating-chip";
 import { Tags } from "./tags";
 import { Tooltip } from "./tooltip";
 
-export const FileBase = { Chip, Container, ContextMenu, Footer, FooterText, Image, RatingChip, Tags, Tooltip };
+export { getRatingMeta } from "./rating-chip";
+
+export const FileBase = {
+  Chip,
+  Container,
+  ContextMenu,
+  Footer,
+  FooterText,
+  Image,
+  RatingChip,
+  Tags,
+  Tooltip,
+};

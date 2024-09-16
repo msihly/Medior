@@ -162,7 +162,7 @@ export const removeEmptyFolders = async (
   const DEBUG = false;
   const { perfLog, perfLogTotal } = makePerfLog("removeEmptyFolders");
 
-  const dirPathsParts = (await dirToFolderPaths(dirPath))
+  const dirPathsParts = [...new Set([dirPath, ...(await dirToFolderPaths(dirPath))])]
     .filter((p) => !options.excludedPaths?.includes(p))
     .map((p) => p.split(path.sep));
   if (DEBUG) perfLog("Got folder paths");

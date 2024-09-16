@@ -17,8 +17,8 @@ export interface TooltipProps extends Omit<MuiTooltipProps, "children" | "color"
 
 export const Tooltip = ({
   arrow = true,
-  arrowColor = colors.custom.blue,
-  bgColor = colors.background,
+  arrowColor = colors.foreground,
+  bgColor = colors.foreground,
   children,
   color,
   flexShrink = 0,
@@ -56,7 +56,6 @@ export const Tooltip = ({
 const useClasses = makeClasses(
   ({ arrowColor, bgColor, color, flexShrink, fontSize, maxWidth, minWidth }) => ({
     arrow: {
-      paddingBottom: "4px",
       color: arrowColor,
     },
     container: {
@@ -67,14 +66,14 @@ const useClasses = makeClasses(
       userSelect: "auto",
     },
     tooltip: {
-      borderTop: `4px solid ${arrowColor}`,
+      padding: "0.5rem",
       maxWidth,
       minWidth,
       backgroundColor: bgColor,
       color,
       fontSize,
       whiteSpace: "pre-wrap",
-      boxShadow: "rgb(0 0 0 / 80%) 1px 2px 4px 0px",
+      boxShadow: "rgb(0 0 0 / 97%) 0px 0px 8px 0px",
     },
   })
 );

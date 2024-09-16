@@ -83,6 +83,6 @@ export const CONSTANTS: Constants = {
   ZOOM: {
     MAX_SCALE: 5,
     MIN_SCALE: 1,
-    STEP: 0.1,
+    STEP: 0.025,
   },
 };
