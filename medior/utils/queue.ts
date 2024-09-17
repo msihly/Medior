@@ -1,6 +1,32 @@
 import { toast } from "react-toastify";
 import { rng, sleep } from "medior/utils";
 
+export class PromiseChain {
+  cancelled = false;
+  queue = Promise.resolve();
+
+  add<T>(fn: (...args: any) => Promise<T>): Promise<T> {
+    try {
+      return new Promise((resolve, reject) => {
+        this.queue = this.queue
+          .then(() => {
+            if (!this.cancelled) return fn();
+            else throw { cancelled: true };
+          })
+          .then(resolve)
+          .catch((error) => !error?.cancelled && reject(error));
+      });
+    } catch (error) {
+      return Promise.reject(error);
+    }
+  }
+
+  cancel() {
+    this.cancelled = true;
+    this.queue = Promise.reject({ cancelled: true });
+  }
+}
+
 export interface PromiseQueueOptions {
   concurrency?: number;
   delayRange?: [number, number];
@@ -10,7 +36,7 @@ export class PromiseQueue {
   cancelled = false;
   concurrency: PromiseQueueOptions["concurrency"];
   delayRange: PromiseQueueOptions["delayRange"];
-  queue: (() => void)[] = [];
+  queue: (() => Promise<void>)[] = [];
   runningCount = 0;
 
   constructor({ concurrency, delayRange }: PromiseQueueOptions = {}) {
@@ -25,11 +51,11 @@ export class PromiseQueue {
     };
 
     return new Promise((resolve, reject) => {
-      const attempt = () => {
+      const attempt = async () => {
         if (this.cancelled) reject({ cancelled: true });
         else if (this.runningCount < opts.concurrency) {
           this.runningCount++;
-          fn()
+          await fn()
             .then(resolve)
             .catch(reject)
             .finally(async () => {

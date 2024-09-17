@@ -22,8 +22,8 @@ export const ImportManager = observer(() => {
   const [activeType, setActiveType] = useState<"completed" | "pending">("pending");
   const batches =
     activeType === "completed"
-      ? stores.import.completedBatches
-      : [...stores.import.incompleteBatches].reverse();
+      ? [...stores.import.completedBatches].reverse()
+      : stores.import.incompleteBatches;
 
   const [page, setPage] = useState(1);
   const pageCount = Math.max(1, Math.ceil(batches?.length / PAGE_SIZE));

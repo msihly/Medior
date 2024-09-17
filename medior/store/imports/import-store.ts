@@ -19,7 +19,6 @@ import {
   extendFileName,
   makePerfLog,
   PromiseQueue,
-  PromiseQueueOptions,
   removeEmptyFolders,
   trpc,
   uniqueArrayMerge,
@@ -28,8 +27,6 @@ import {
 export type ImportBatchInput = Omit<ModelCreationData<FileImportBatch>, "imports"> & {
   imports?: ModelCreationData<FileImport>[];
 };
-
-const QUEUE_OPTS: PromiseQueueOptions = { concurrency: 10 };
 
 @model("medior/ImportStore")
 export class ImportStore extends Model({
@@ -49,7 +46,7 @@ export class ImportStore extends Model({
   isImportEditorOpen: prop<boolean>(false).withSetter(),
   isImportManagerOpen: prop<boolean>(false).withSetter(),
 }) {
-  queue = new PromiseQueue(QUEUE_OPTS);
+  queue = new PromiseQueue();
 
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
   @modelAction
@@ -87,7 +84,7 @@ export class ImportStore extends Model({
   @modelAction
   clearQueue() {
     this.queue.cancel();
-    this.queue = new PromiseQueue(QUEUE_OPTS);
+    this.queue = new PromiseQueue();
   }
 
   @modelAction
@@ -146,20 +143,8 @@ export class ImportStore extends Model({
       this.getById(batchId)?.update({ startedAt: res.data });
       if (DEBUG) perfLog("Updated batch.startedAt in store");
 
-      batch.imports.forEach((file) => {
+      const completeBatch = async () => {
         try {
-          this.queue.add(async () => {
-            const res = await this.importFile({ batchId, filePath: file.path });
-            if (!res.success) throw new Error(res.error);
-            if (DEBUG) perfLog(`Imported file: ${file.path}`);
-          });
-        } catch (err) {
-          console.error("Error importing file:", err);
-        }
-      });
-
-      try {
-        this.queue.add(async () => {
           const batch = this.getById(batchId);
           const addedTagIds = [...batch.tagIds].flat();
           const duplicateFileIds = batch.imports
@@ -186,9 +171,23 @@ export class ImportStore extends Model({
             perfLog(`Completed importBatch: ${batchId}`);
             perfLogTotal("Completed import queue cycle");
           }
+        } catch (err) {
+          console.error("Error completing import batch:", err);
+        }
+      };
+
+      const queue = new PromiseQueue({ concurrency: 5 });
+      for (const file of batch.imports) {
+        queue.add(async () => {
+          try {
+            const res = await this.importFile({ batchId, filePath: file.path });
+            if (!res.success) throw new Error(res.error);
+            if (DEBUG) perfLog(`Imported file: ${file.path}`);
+            if (!batch.imports.some((f) => f.status === "PENDING")) completeBatch();
+          } catch (err) {
+            console.error("Error importing file:", err);
+          }
         });
-      } catch (err) {
-        console.error("Error completing import batch:", err);
       }
     });
   }
