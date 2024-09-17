@@ -18,7 +18,7 @@ export const Search = observer(
       <>
         <HomeMultiActionBar />
 
-        <View row>
+        <View row height="inherit" overflow="inherit">
           <Drawer {...{ hasImports, hasSettings }} />
 
           <View column className={css.main}>
