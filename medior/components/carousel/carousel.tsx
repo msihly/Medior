@@ -103,60 +103,62 @@ export const Carousel = observer(() => {
   const togglePlaying = () => stores.carousel.setIsPlaying(!stores.carousel.isPlaying);
 
   return (
-    <View column height="100%" justify="center">
-      <View ref={zoomRef} column height="100%" justify="center">
+    <View column flex={1} overflow="hidden">
+      <View flex={1}>
         {!activeFile ? (
           <LoadingOverlay isLoading />
         ) : (
-          <FileBase.ContextMenu
-            file={activeFile}
-            options={{ collections: false, faceRecognition: false }}
-            className={css.contextMenu}
-          >
-            {activeFile.isVideo ? (
-              activeFile.isPlayableVideo ? (
-                <View column flex={1} height="inherit" onClick={togglePlaying}>
-                  <ReactPlayer
-                    ref={videoRef}
-                    url={activeFile.path}
-                    playing={stores.carousel.isPlaying}
-                    onProgress={handleVideoProgress}
-                    progressInterval={100}
-                    width="100%"
-                    height="100%"
-                    loop
-                    muted={volume === 0}
-                    volume={volume}
-                  />
-                </View>
-              ) : (
-                <View column flex={1} justify="center" height="inherit">
-                  <FileBase.Image
-                    thumbPaths={activeFile.thumbPaths}
-                    title={activeFile.originalName}
-                    height={CONSTANTS.CAROUSEL.THUMB_NAV.WIDTH * 2}
-                    fit="contain"
-                    autoAnimate
-                    draggable={false}
-                    className={css.videoThumbs}
-                  />
-
-                  <View row justify="center" align="center" spacing="0.2em">
-                    <Text>{`'${activeFile.ext}' not supported.`}</Text>
-                    <Button type="link" text="Open Natively." onClick={handleOpenNatively} />
+          <View ref={zoomRef} column height="100%" justify="center">
+            <FileBase.ContextMenu
+              file={activeFile}
+              options={{ collections: false, faceRecognition: false }}
+              className={css.contextMenu}
+            >
+              {activeFile.isVideo ? (
+                activeFile.isPlayableVideo ? (
+                  <View column flex={1} height="inherit" onClick={togglePlaying}>
+                    <ReactPlayer
+                      ref={videoRef}
+                      url={activeFile.path}
+                      playing={stores.carousel.isPlaying}
+                      onProgress={handleVideoProgress}
+                      progressInterval={100}
+                      width="100%"
+                      height="100%"
+                      loop
+                      muted={volume === 0}
+                      volume={volume}
+                    />
                   </View>
-                </View>
-              )
-            ) : (
-              <img
-                src={activeFile.path}
-                alt={activeFile.originalName}
-                draggable={false}
-                loading="lazy"
-                className={css.image}
-              />
-            )}
-          </FileBase.ContextMenu>
+                ) : (
+                  <View column flex={1} justify="center" height="inherit">
+                    <FileBase.Image
+                      thumbPaths={activeFile.thumbPaths}
+                      title={activeFile.originalName}
+                      height={CONSTANTS.CAROUSEL.THUMB_NAV.WIDTH * 2}
+                      fit="contain"
+                      autoAnimate
+                      draggable={false}
+                      className={css.videoThumbs}
+                    />
+
+                    <View row justify="center" align="center" spacing="0.2em">
+                      <Text>{`'${activeFile.ext}' not supported.`}</Text>
+                      <Button type="link" text="Open Natively." onClick={handleOpenNatively} />
+                    </View>
+                  </View>
+                )
+              ) : (
+                <img
+                  src={activeFile.path}
+                  alt={activeFile.originalName}
+                  draggable={false}
+                  loading="lazy"
+                  className={css.image}
+                />
+              )}
+            </FileBase.ContextMenu>
+          </View>
         )}
       </View>
 
@@ -255,7 +257,7 @@ const useClasses = makeClasses((props: ClassesProps) => ({
     flexFlow: "row nowrap",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: props.isPinned ? CONSTANTS.CAROUSEL.VIDEO.CONTROLS_HEIGHT - 6 : 0,
+    // marginBottom: props.isPinned ? CONSTANTS.CAROUSEL.VIDEO.CONTROLS_HEIGHT - 6 : 0,
     padding: "0.15rem 0.5rem",
     width: "100%",
     height: CONSTANTS.CAROUSEL.VIDEO.CONTROLS_HEIGHT,
