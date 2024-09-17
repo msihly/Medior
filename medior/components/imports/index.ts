@@ -1,6 +1,7 @@
 export * from "./batch-tooltip";
 export * from "./import-editor";
 export * from "./import-folder";
+export * from "./import-folders-list";
 export * from "./import-list-item";
 export * from "./import-manager";
 export * from "./regex-map-row";

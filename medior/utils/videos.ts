@@ -81,7 +81,7 @@ export const generateFramesThumbnail = async (
 ) => {
   try {
     duration ??= (await getVideoInfo(inputPath))?.duration;
-    const skipDuration = duration * CONSTANTS.THUMB.FRAME_SKIP_PERCENT;
+    const skipDuration = duration * CONSTANTS.FILE.THUMB.FRAME_SKIP_PERCENT;
     const frameInterval = (duration - skipDuration) / numOfFrames;
     const frameIndices = range(numOfFrames);
 
@@ -98,7 +98,7 @@ export const generateFramesThumbnail = async (
               .input(inputPath)
               .inputOptions([`-ss ${timestamp}`])
               .outputOptions([
-                `-vf scale=${CONSTANTS.THUMB.WIDTH}:-1:force_original_aspect_ratio=increase,crop=min(iw\\,${CONSTANTS.THUMB.WIDTH}):ih`,
+                `-vf scale=${CONSTANTS.FILE.THUMB.WIDTH}:-1:force_original_aspect_ratio=increase,crop=min(iw\\,${CONSTANTS.FILE.THUMB.WIDTH}):ih`,
                 `-vframes 1`,
               ])
               .output(filePaths[idx])

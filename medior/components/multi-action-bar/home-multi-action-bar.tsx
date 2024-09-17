@@ -147,7 +147,7 @@ const useClasses = makeClasses({
     flexGrow: 1,
     flexShrink: 0,
     justifyContent: "space-between",
-    height: CONSTANTS.TOP_BAR_HEIGHT,
+    height: CONSTANTS.HOME.TOP_BAR.HEIGHT,
     padding: "0.3rem 0.5rem",
     background: colors.background,
   },

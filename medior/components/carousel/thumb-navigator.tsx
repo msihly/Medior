@@ -2,9 +2,9 @@ import { useEffect, useRef, useState } from "react";
 import { observer, useStores } from "medior/store";
 import { FixedSizeList, ListOnScrollProps } from "react-window";
 import AutoSizer from "react-virtualized-auto-sizer";
-import { CarouselThumb, THUMB_WIDTH } from ".";
+import { CarouselThumb } from ".";
 import { IconButton, View } from "medior/components";
-import { makeClasses, useDragScroll } from "medior/utils";
+import { CONSTANTS, makeClasses, useDragScroll } from "medior/utils";
 import Color from "color";
 
 export const CarouselThumbNavigator = observer(() => {
@@ -33,14 +33,16 @@ export const CarouselThumbNavigator = observer(() => {
   useEffect(() => {
     if (listRef.current !== null && stores.carousel.activeFileIndex > -1) {
       const newScrollLeft =
-        stores.carousel.activeFileIndex * THUMB_WIDTH + THUMB_WIDTH / 2 - width / 2;
+        stores.carousel.activeFileIndex * CONSTANTS.CAROUSEL.THUMB_NAV.WIDTH +
+        CONSTANTS.CAROUSEL.THUMB_NAV.WIDTH / 2 -
+        width / 2;
       listRef.current.scrollTo(newScrollLeft);
     }
   }, [stores.carousel.activeFileIndex, width]);
 
   return (
     <View className={css.root}>
-      <View className={css.hideButtonContainer}>
+      <View row justify="center">
         <IconButton
           name="ArrowUpward"
           onClick={toggleVisibility}
@@ -58,8 +60,8 @@ export const CarouselThumbNavigator = observer(() => {
               onScroll={handleScroll}
               layout="horizontal"
               width={width}
-              height={THUMB_WIDTH}
-              itemSize={THUMB_WIDTH}
+              height={CONSTANTS.CAROUSEL.THUMB_NAV.WIDTH}
+              itemSize={CONSTANTS.CAROUSEL.THUMB_NAV.WIDTH}
               itemCount={stores.carousel.selectedFileIds.length}
               overscanCount={7}
               className={css.thumbnails}
@@ -85,42 +87,37 @@ interface ClassesProps {
   isVisible: boolean;
 }
 
-const useClasses = makeClasses(({ isMouseMoving, isVisible }: ClassesProps) => ({
+const useClasses = makeClasses((props: ClassesProps) => ({
   hideButton: {
-    marginBottom: "0.3rem",
+    marginBottom: 10 + (props.isVisible ? 0 : CONSTANTS.CAROUSEL.VIDEO.CONTROLS_HEIGHT),
     backgroundColor: "rgba(0, 0, 0, 0.3)",
-    opacity: isMouseMoving || isVisible ? 0.4 : 0,
+    opacity: props.isMouseMoving || props.isVisible ? 0.4 : 0,
+    pointerEvents: "auto",
     transition: "all 200ms ease-in-out",
     "&:hover": {
       backgroundColor: "rgba(0, 0, 0, 0.6)",
       opacity: 1,
     },
   },
-  hideButtonContainer: {
-    display: "flex",
-    justifyContent: "center",
-  },
   root: {
     position: "absolute",
-    bottom: isVisible ? 0 : -THUMB_WIDTH,
+    bottom: props.isVisible ? 0 : -CONSTANTS.CAROUSEL.THUMB_NAV.WIDTH,
     right: 0,
     left: 0,
     zIndex: 5,
+    pointerEvents: props.isVisible ? "auto" : "none",
     transition: "all 200ms ease-in-out",
   },
   scrollContainer: {
     backgroundColor: Color("black").fade(0.3).string(),
     overflowX: "scroll",
     whiteSpace: "nowrap",
-    "&::-webkit-scrollbar": {
-      height: 0,
-    },
+    zIndex: 15,
+    "&::-webkit-scrollbar": { height: 0 },
   },
   thumbnails: {
     justifyContent: "center",
     userSelect: "none",
-    "&::-webkit-scrollbar": {
-      height: 0,
-    },
+    "&::-webkit-scrollbar": { height: 0 },
   },
 }));

@@ -90,9 +90,9 @@ const useClasses = makeClasses({
     flexDirection: "column",
     alignItems: "center",
     borderRight: "1px solid #111",
-    marginTop: CONSTANTS.TOP_BAR_HEIGHT,
+    marginTop: CONSTANTS.HOME.TOP_BAR.HEIGHT,
     padding: "0.2rem 0.3rem",
-    width: CONSTANTS.DRAWER_WIDTH,
+    width: CONSTANTS.HOME.DRAWER.WIDTH,
     background: colors.background,
     zIndex: 20,
     "&::-webkit-scrollbar": {

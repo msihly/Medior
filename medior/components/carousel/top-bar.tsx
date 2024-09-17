@@ -22,7 +22,7 @@ export const CarouselTopBar = observer(() => {
 
   const { css } = useClasses({
     isMouseMoving: stores.carousel.isMouseMoving,
-    isPinned: stores.carousel.isTopBarPinned,
+    isPinned: stores.carousel.isPinned,
     ratingTextShadow: ratingMeta?.textShadow,
   });
 
@@ -88,9 +88,9 @@ export const CarouselTopBar = observer(() => {
       <View row flex={1}>
         <IconButton
           name="PushPin"
-          iconProps={{ rotation: stores.carousel.isTopBarPinned ? 45 : 0 }}
+          iconProps={{ rotation: stores.carousel.isPinned ? 45 : 0 }}
           onClick={toggleIsPinned}
-          tooltip={`${stores.carousel.isTopBarPinned ? "Unpin" : "Pin"} Top Bar`}
+          tooltip={stores.carousel.isPinned ? "Unpin" : "Pin"}
         />
 
         <IconButton

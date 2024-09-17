@@ -1,22 +1,5 @@
 import { ConnectOptions } from "mongoose";
 
-export interface Constants {
-  DRAWER_WIDTH: number;
-  IMAGE_TYPES: readonly ImageType[];
-  MONGOOSE_OPTS: Partial<ConnectOptions>;
-  THUMB: {
-    FRAME_SKIP_PERCENT: number;
-    WIDTH: number;
-  };
-  TOP_BAR_HEIGHT: string;
-  VIDEO_TYPES: readonly VideoType[];
-  ZOOM: {
-    MAX_SCALE: number;
-    MIN_SCALE: number;
-    STEP: number;
-  };
-}
-
 const IMAGE_TYPES = [
   "apng",
   "avif",
@@ -70,19 +53,52 @@ export type VideoType = (typeof VIDEO_TYPES)[number];
 
 export const PLAYABLE_VIDEO_TYPES = ["m4v", "mov", "mp4", "webm"];
 
+export interface Constants {
+  CAROUSEL: {
+    THUMB_NAV: { WIDTH: number };
+    VIDEO: { CONTROLS_HEIGHT: number };
+    ZOOM: {
+      MAX_SCALE: number;
+      MIN_SCALE: number;
+      STEP: number;
+    };
+  };
+  FILE: {
+    THUMB: {
+      FRAME_SKIP_PERCENT: number;
+      WIDTH: number;
+    };
+  };
+  HOME: {
+    DRAWER: { WIDTH: number };
+    TOP_BAR: { HEIGHT: number };
+  };
+  IMAGE_TYPES: readonly ImageType[];
+  MONGOOSE_OPTS: Partial<ConnectOptions>;
+  VIDEO_TYPES: readonly VideoType[];
+}
+
 export const CONSTANTS: Constants = {
-  DRAWER_WIDTH: 55,
+  CAROUSEL: {
+    THUMB_NAV: { WIDTH: 135 },
+    VIDEO: { CONTROLS_HEIGHT: 55 },
+    ZOOM: {
+      MAX_SCALE: 5,
+      MIN_SCALE: 1,
+      STEP: 0.025,
+    },
+  },
+  FILE: {
+    THUMB: {
+      FRAME_SKIP_PERCENT: 0.03,
+      WIDTH: 200,
+    },
+  },
+  HOME: {
+    DRAWER: { WIDTH: 55 },
+    TOP_BAR: { HEIGHT: 55 },
+  },
   IMAGE_TYPES,
   MONGOOSE_OPTS: { family: 4 },
-  THUMB: {
-    FRAME_SKIP_PERCENT: 0.03,
-    WIDTH: 200,
-  },
-  TOP_BAR_HEIGHT: "3rem",
   VIDEO_TYPES,
-  ZOOM: {
-    MAX_SCALE: 5,
-    MIN_SCALE: 1,
-    STEP: 0.025,
-  },
 };

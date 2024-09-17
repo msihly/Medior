@@ -129,7 +129,7 @@ export const copyFileForImport = async ({
       if (!dbOnly && !fileExistsAtPath) {
         await (duration > 0
           ? generateFramesThumbnail(originalPath, dirPath, hash, duration)
-          : sharp(originalPath).resize(null, CONSTANTS.THUMB.WIDTH).toFile(thumbPaths[0]));
+          : sharp(originalPath).resize(null, CONSTANTS.FILE.THUMB.WIDTH).toFile(thumbPaths[0]));
         if (DEBUG) perfLog("Generated thumbnail(s)");
       }
 

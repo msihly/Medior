@@ -1,8 +1,6 @@
 import { observer, useStores } from "medior/store";
 import { FileBase } from "medior/components";
-import { colors, dayjs } from "medior/utils";
-
-export const THUMB_WIDTH = 135; // px
+import { colors, CONSTANTS, dayjs } from "medior/utils";
 
 interface CarouselThumbProps {
   id: string;
@@ -23,8 +21,8 @@ export const CarouselThumb = observer(({ id, isDragging = false, style }: Carous
     <FileBase.Container
       onClick={handleSelect}
       selected={stores.carousel.activeFileId === id}
-      height={THUMB_WIDTH}
-      width={THUMB_WIDTH}
+      height={CONSTANTS.CAROUSEL.THUMB_NAV.WIDTH}
+      width={CONSTANTS.CAROUSEL.THUMB_NAV.WIDTH}
       style={style}
     >
       <FileBase.Chip

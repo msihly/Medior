@@ -16,7 +16,7 @@ export const sharp = (input: string | Buffer, opts?: SharpOptions): Sharp => {
 };
 
 export const zoomScaleStepIn = (curZoomScale: number) =>
-  Math.min(curZoomScale + CONSTANTS.ZOOM.STEP * 5, CONSTANTS.ZOOM.MAX_SCALE);
+  Math.min(curZoomScale + CONSTANTS.CAROUSEL.ZOOM.STEP * 5, CONSTANTS.CAROUSEL.ZOOM.MAX_SCALE);
 
 export const zoomScaleStepOut = (curZoomScale: number) =>
-  Math.max(curZoomScale - CONSTANTS.ZOOM.STEP * 5, CONSTANTS.ZOOM.MIN_SCALE);
+  Math.max(curZoomScale - CONSTANTS.CAROUSEL.ZOOM.STEP * 5, CONSTANTS.CAROUSEL.ZOOM.MIN_SCALE);

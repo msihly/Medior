@@ -5,15 +5,7 @@ import ReactPlayer from "react-player/file";
 import { OnProgressProps } from "react-player/base";
 import Panzoom, { PanzoomObject, PanzoomOptions } from "@panzoom/panzoom";
 import { Slider } from "@mui/material";
-import {
-  Button,
-  FileBase,
-  IconButton,
-  LoadingOverlay,
-  Text,
-  THUMB_WIDTH,
-  View,
-} from "medior/components";
+import { Button, FileBase, IconButton, LoadingOverlay, Text, View } from "medior/components";
 import { colors, CONSTANTS, dayjs, makeClasses, round } from "medior/utils";
 
 export const ZoomContext = createContext<MutableRefObject<PanzoomObject>>(null);
@@ -38,16 +30,16 @@ export const Carousel = observer(() => {
             cursor: "grab",
             disablePan: activeFile?.isVideo,
             disableZoom: activeFile?.isVideo,
-            maxScale: CONSTANTS.ZOOM.MAX_SCALE,
-            minScale: CONSTANTS.ZOOM.MIN_SCALE,
+            maxScale: CONSTANTS.CAROUSEL.ZOOM.MAX_SCALE,
+            minScale: CONSTANTS.CAROUSEL.ZOOM.MIN_SCALE,
             panOnlyWhenZoomed: true,
             startScale: 1,
             startX: 0,
             startY: 0,
-            step: CONSTANTS.ZOOM.STEP,
+            step: CONSTANTS.CAROUSEL.ZOOM.STEP,
           } as PanzoomOptions)
         : null;
-  }, [activeFile?.isVideo, stores.carousel.activeFileId, stores.carousel.isTopBarPinned]);
+  }, [activeFile?.isVideo, stores.carousel.activeFileId, stores.carousel.isPinned]);
 
   const [curTime, setCurTime] = useState(0);
   const [lastPlayingState, setLastPlayingState] = useState(false);
@@ -57,7 +49,7 @@ export const Carousel = observer(() => {
 
   const { css } = useClasses({
     isMouseMoving: stores.carousel.isMouseMoving,
-    isTopBarPinned: stores.carousel.isTopBarPinned,
+    isPinned: stores.carousel.isPinned,
     isVideo: activeFile?.isVideo,
     isVolumeVisible,
   });
@@ -142,7 +134,7 @@ export const Carousel = observer(() => {
                   <FileBase.Image
                     thumbPaths={activeFile.thumbPaths}
                     title={activeFile.originalName}
-                    height={THUMB_WIDTH * 2}
+                    height={CONSTANTS.CAROUSEL.THUMB_NAV.WIDTH * 2}
                     fit="contain"
                     autoAnimate
                     draggable={false}
@@ -184,6 +176,7 @@ export const Carousel = observer(() => {
               max={activeFile?.totalFrames}
               step={1}
               valueLabelDisplay="auto"
+              className={css.slider}
             />
           </View>
 
@@ -212,6 +205,7 @@ export const Carousel = observer(() => {
                 step={0.01}
                 orientation="vertical"
                 valueLabelDisplay="off"
+                className={css.slider}
               />
             </View>
           </View>
@@ -233,7 +227,7 @@ export const Carousel = observer(() => {
 
 interface ClassesProps {
   isMouseMoving: boolean;
-  isTopBarPinned: boolean;
+  isPinned: boolean;
   isVideo: boolean;
   isVolumeVisible: boolean;
 }
@@ -249,23 +243,26 @@ const useClasses = makeClasses((props: ClassesProps) => ({
     objectFit: "scale-down",
     userSelect: "none",
   },
+  slider: {
+    color: colors.custom.lightBlue,
+  },
   videoControlBar: {
-    position: "absolute",
-    bottom: "3rem",
+    position: props.isPinned ? undefined : "absolute",
+    bottom: 0,
     left: 0,
     right: 0,
     display: "flex",
     flexFlow: "row nowrap",
     justifyContent: "space-between",
     alignItems: "center",
-    borderRadius: "2rem",
-    margin: "0 auto",
-    padding: "0.2rem 0.5rem",
-    width: "80%",
+    marginBottom: props.isPinned ? CONSTANTS.CAROUSEL.VIDEO.CONTROLS_HEIGHT - 6 : 0,
+    padding: "0.15rem 0.5rem",
+    width: "100%",
+    height: CONSTANTS.CAROUSEL.VIDEO.CONTROLS_HEIGHT,
     backgroundColor: "rgb(0, 0, 0, 0.5)",
     cursor: "default",
     zIndex: 5,
-    opacity: props.isMouseMoving ? 0.3 : 0,
+    opacity: props.isPinned ? 1 : props.isMouseMoving ? 0.3 : 0,
     "&:hover": { opacity: 1 },
   },
   videoTime: {
@@ -275,11 +272,11 @@ const useClasses = makeClasses((props: ClassesProps) => ({
   volumeSlider: {
     display: props.isVolumeVisible ? "block" : "none",
     position: "absolute",
-    bottom: "2.5rem",
+    bottom: CONSTANTS.CAROUSEL.VIDEO.CONTROLS_HEIGHT,
     padding: "0.8rem 0.3rem 0.4rem",
     height: "8rem",
     backgroundColor: "rgb(0, 0, 0, 0.5)",
-    borderRadius: "1rem 1rem 0 0",
+    borderRadius: "0.5rem 0.5rem 0 0",
   },
   videoThumbs: {
     borderRadius: "0.4rem",

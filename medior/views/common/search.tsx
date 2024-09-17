@@ -36,9 +36,9 @@ const useClasses = makeClasses({
   main: {
     display: "flex",
     flexFlow: "column",
-    marginLeft: CONSTANTS.DRAWER_WIDTH,
-    width: `calc(100% - ${CONSTANTS.DRAWER_WIDTH}px)`,
-    height: `calc(100vh - ${CONSTANTS.TOP_BAR_HEIGHT})`,
+    marginLeft: CONSTANTS.HOME.DRAWER.WIDTH,
+    width: `calc(100% - ${CONSTANTS.HOME.DRAWER.WIDTH}px)`,
+    height: `calc(100vh - ${CONSTANTS.HOME.TOP_BAR.HEIGHT})`,
     overflow: "auto",
     transition: "all 225ms ease-in-out",
   },

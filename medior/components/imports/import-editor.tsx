@@ -20,13 +20,13 @@ import {
   FlatFolderHierarchy,
   FolderToCollMode,
   FolderToTagsMode,
+  ImportFoldersList,
   RootFolderButton,
   TagHierarchy,
   TagToUpsert,
 } from ".";
 import { colors, commas, getConfig, makeClasses, makePerfLog, parseDiffParams } from "medior/utils";
 import { toast } from "react-toastify";
-import { ImportFoldersList } from "./import-folders-list";
 
 type RegExMap = { regEx: RegExp; tagId: string };
 

@@ -11,8 +11,8 @@ export class CarouselStore extends Model({
   activeFileId: prop<string>("").withSetter(),
   curFrame: prop<number>(1).withSetter(),
   isMouseMoving: prop<boolean>(false).withSetter(),
+  isPinned: prop<boolean>(false).withSetter(),
   isPlaying: prop<boolean>(true).withSetter(),
-  isTopBarPinned: prop<boolean>(false).withSetter(),
   selectedFileIds: prop<string[]>(() => []).withSetter(),
 }) {
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
@@ -41,7 +41,7 @@ export class CarouselStore extends Model({
 
   @modelAction
   toggleTopBarPin() {
-    this.setIsTopBarPinned(!this.isTopBarPinned);
+    this.setIsPinned(!this.isPinned);
   }
 
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */
