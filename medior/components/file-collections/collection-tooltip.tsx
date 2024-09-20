@@ -40,6 +40,8 @@ export const CollectionTooltip = observer(({ children, collection }: CollectionT
   return (
     <Tooltip
       onOpen={handleOpen}
+      enterDelay={700}
+      enterNextDelay={300}
       minWidth="20rem"
       title={
         <View column>

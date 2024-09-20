@@ -106,8 +106,8 @@ export type UpdateTagInput = { id: string; updates: Partial<db.TagSchema> };
 export type CreateCollectionInput = Parameters<typeof db.createCollection>[0];
 export type CreateCollectionOutput = ReturnType<typeof db.createCollection>;
 
-export type DeleteCollectionInput = Parameters<typeof db.deleteCollection>[0];
-export type DeleteCollectionOutput = ReturnType<typeof db.deleteCollection>;
+export type DeleteCollectionsInput = Parameters<typeof db.deleteCollections>[0];
+export type DeleteCollectionsOutput = ReturnType<typeof db.deleteCollections>;
 
 export type DeleteEmptyCollectionsInput = Parameters<typeof db.deleteEmptyCollections>[0];
 export type DeleteEmptyCollectionsOutput = ReturnType<typeof db.deleteEmptyCollections>;
@@ -117,6 +117,9 @@ export type ListAllCollectionIdsOutput = ReturnType<typeof db.listAllCollectionI
 
 export type ListCollectionIdsByTagIdsInput = Parameters<typeof db.listCollectionIdsByTagIds>[0];
 export type ListCollectionIdsByTagIdsOutput = ReturnType<typeof db.listCollectionIdsByTagIds>;
+
+export type DeduplicateCollectionsInput = Parameters<typeof db.deduplicateCollections>[0];
+export type DeduplicateCollectionsOutput = ReturnType<typeof db.deduplicateCollections>;
 
 export type RegenCollAttrsInput = Parameters<typeof db.regenCollAttrs>[0];
 export type RegenCollAttrsOutput = ReturnType<typeof db.regenCollAttrs>;

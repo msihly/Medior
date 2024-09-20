@@ -9,7 +9,7 @@ const CARD_MAX_WIDTH = 240;
 
 export const EditorFiles = observer(() => {
   const stores = useStores();
-  const sortedFileIdIndexes = stores.collection.editor.sortedFileIndexes;
+  const fileIdIndexes = stores.collection.editor.fileIndexes;
 
   const [width, setWidth] = useState(0);
   const handleResize = ({ width }) => setWidth(width);
@@ -17,17 +17,17 @@ export const EditorFiles = observer(() => {
   const [columnCount, columnWidth, rowCount] = useMemo(() => {
     const columnCount = Math.floor(width / CARD_MAX_WIDTH);
     const columnWidth = width / columnCount - 3;
-    const rowCount = Math.ceil(sortedFileIdIndexes.length / columnCount);
+    const rowCount = Math.ceil(fileIdIndexes.length / columnCount);
     return [columnCount, columnWidth, rowCount];
-  }, [sortedFileIdIndexes.length, width]);
+  }, [fileIdIndexes.length, width]);
 
   const renderFile = useCallback(
     ({ columnIndex, rowIndex, style }) => {
       const index = rowIndex * columnCount + columnIndex;
-      if (index >= sortedFileIdIndexes.length) return null;
-      const newIndex = sortedFileIdIndexes[index]?.index;
+      if (index >= fileIdIndexes.length) return null;
+      const newIndex = fileIdIndexes[index]?.index;
 
-      const fileIdIndex = sortedFileIdIndexes.find((f) => f.index === newIndex);
+      const fileIdIndex = fileIdIndexes.find((f) => f.index === newIndex);
       if (!fileIdIndex) return null;
 
       return (
@@ -40,7 +40,7 @@ export const EditorFiles = observer(() => {
         />
       );
     },
-    [columnCount, columnWidth, rowCount, sortedFileIdIndexes]
+    [columnCount, columnWidth, rowCount, fileIdIndexes]
   );
 
   return (

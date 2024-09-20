@@ -3,6 +3,7 @@ import path from "path";
 import md5File from "md5-file";
 import {
   ExtendedModel,
+  getRootStore,
   model,
   modelAction,
   ModelCreationData,
@@ -10,7 +11,7 @@ import {
   prop,
 } from "mobx-keystone";
 import * as db from "medior/database";
-import { asyncAction, FaceModel } from "medior/store";
+import { asyncAction, FaceModel, RootStore } from "medior/store";
 import { _FileStore } from "medior/store/_generated";
 import { File, FileSearch } from ".";
 import {
@@ -210,15 +211,20 @@ export class FileStore extends ExtendedModel(_FileStore, {
   });
 
   @modelFlow
-  refreshSelectedFiles = asyncAction(async () => {
-    const filesRes = await trpc.listFiles.mutate({ args: { filter: { id: this.selectedIds } } });
+  refreshFiles = asyncAction(async (args: { ids: string[] }) => {
+    const stores = getRootStore<RootStore>(this);
+
+    const filesRes = await trpc.listFiles.mutate({ args: { filter: { id: args.ids } } });
     if (!filesRes?.success) throw new Error("Failed to load files");
 
     makeQueue({
       action: (item) => this.refreshFile({ curFile: item, id: item.id }),
       items: filesRes.data.items,
       logSuffix: "files",
-      onComplete: () => this.search.loadFiltered(),
+      onComplete: () =>
+        stores.collection.editor.isOpen
+          ? stores.collection.editor.loadCollectionFiles()
+          : this.search.loadFiltered(),
       queue: this.refreshQueue,
     });
   });

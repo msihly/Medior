@@ -34,7 +34,7 @@ export const HomeMultiActionBar = observer(() => {
     stores.tag.setIsFileTagEditorOpen(true);
   };
 
-  const handleFileInfoRefresh = () => stores.file.refreshSelectedFiles();
+  const handleFileInfoRefresh = () => stores.file.refreshFiles({ ids: stores.file.selectedIds });
 
   const handleSelectAll = () => {
     stores.file.toggleFilesSelected(

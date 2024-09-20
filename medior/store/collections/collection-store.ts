@@ -27,9 +27,17 @@ export class FileCollectionStore extends Model({
   );
 
   @modelFlow
-  deleteCollection = asyncAction(async (id: string) => {
-    const res = await trpc.deleteCollection.mutate({ id });
+  deleteCollections = asyncAction(async (ids: string[]) => {
+    const res = await trpc.deleteCollections.mutate({ ids });
     if (!res.success) throw new Error(res.error);
+  });
+
+  @modelFlow
+  deleteDuplicates = asyncAction(async () => {
+    const res = await trpc.deduplicateCollections.mutate();
+    if (!res.success) throw new Error(res.error);
+    toast.success(`Deleted ${res.data} duplicate collections`);
+    await this.manager.search.loadFiltered();
   });
 
   @modelFlow

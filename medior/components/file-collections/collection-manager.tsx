@@ -1,15 +1,17 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { observer, useStores } from "medior/store";
 import {
   Button,
   Card,
   CardGrid,
   CenteredText,
+  ConfirmModal,
   FileCard,
   ListItem,
   LoadingOverlay,
   MenuButton,
   Modal,
+  MultiActionButton,
   Pagination,
   Text,
   UniformList,
@@ -24,17 +26,20 @@ const FILE_CARD_HEIGHT = "14rem";
 export const FileCollectionManager = observer(() => {
   const stores = useStores();
 
+  const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
+
   const collectionsRef = useRef<HTMLDivElement>(null);
 
+  const hasSelectedCollectionIds = stores.collection.manager.selectedCollectionIds.length > 0;
   const selectedFileIds = stores.collection.manager.selectedFileIds;
-  const hasAnySelected = selectedFileIds.length > 0;
-  const hasOneSelected = selectedFileIds.length === 1;
+  const hasAnyFilesSelected = selectedFileIds.length > 0;
+  const hasOneFileSelected = selectedFileIds.length === 1;
   useEffect(() => {
-    if (hasOneSelected) stores.collection.manager.loadCurrentCollections();
+    if (hasOneFileSelected) stores.collection.manager.loadCurrentCollections();
     else stores.collection.manager.setCurrentCollections([]);
     stores.collection.manager.loadFiles();
     stores.collection.manager.search.loadFiltered({ page: 1 });
-  }, [hasOneSelected, selectedFileIds]);
+  }, [hasOneFileSelected, selectedFileIds]);
 
   const page = stores.collection.manager.search.page;
   const pageCount = stores.collection.manager.search.pageCount;
@@ -49,7 +54,7 @@ export const FileCollectionManager = observer(() => {
   const handleAddToCollection = async () => {
     stores.collection.manager.setIsLoading(true);
     await stores.collection.editor.loadCollection({
-      id: stores.collection.manager.selectedCollectionId,
+      id: stores.collection.manager.selectedCollectionIds[0],
     });
     stores.collection.manager.setIsLoading(false);
     stores.collection.editor.setIsOpen(true);
@@ -60,7 +65,26 @@ export const FileCollectionManager = observer(() => {
     stores.file.search.reloadIfQueued();
   };
 
+  const handleConfirmDelete = async () => {
+    const res = await stores.collection.deleteCollections(
+      stores.collection.manager.selectedCollectionIds
+    );
+
+    if (!res.success) {
+      toast.error(res.error);
+      return false;
+    } else {
+      setIsConfirmDeleteOpen(false);
+      stores.collection.manager.search.loadFiltered({ page });
+      return true;
+    }
+  };
+
+  const handleDelete = () => setIsConfirmDeleteOpen(true);
+
   const handleDeleteEmpty = () => stores.collection.deleteEmptyCollections();
+
+  const handleDeleteDuplicates = () => stores.collection.deleteDuplicates();
 
   const handleRefreshMeta = () => stores.collection.regenAllCollMeta();
 
@@ -89,10 +113,10 @@ export const FileCollectionManager = observer(() => {
 
       <Modal.Content dividers={false} padding={{ top: "1rem" }}>
         <View column flex={1} spacing="0.5rem" overflow="hidden">
-          {!hasAnySelected ? null : (
+          {!hasAnyFilesSelected ? null : (
             <View row spacing="0.5rem">
               <Card
-                header={`Selected File${hasOneSelected ? "" : "s"}`}
+                header={`Selected File${hasOneFileSelected ? "" : "s"}`}
                 height={`calc(${FILE_CARD_HEIGHT} + 3.5rem)`}
                 width="14rem"
                 padding={{ all: 0 }}
@@ -102,11 +126,11 @@ export const FileCollectionManager = observer(() => {
                   cards={stores.collection.manager.selectedFiles.map((f) => (
                     <FileCard key={f.id} file={f} height={FILE_CARD_HEIGHT} disabled />
                   ))}
-                  maxCards={hasOneSelected ? 1 : 6}
+                  maxCards={hasOneFileSelected ? 1 : 6}
                 />
               </Card>
 
-              {hasOneSelected && (
+              {hasOneFileSelected && (
                 <Card
                   header="Current Collections"
                   flex={1}
@@ -144,11 +168,34 @@ export const FileCollectionManager = observer(() => {
                 </View>
 
                 <View row justify="flex-end">
-                  {/* TODO: Multi-actions; delete, refresh, select / deselect */}
+                  <View row>
+                    <MultiActionButton
+                      name="Delete"
+                      tooltip="Delete"
+                      iconProps={{ color: colors.custom.red }}
+                      onClick={handleDelete}
+                      disabled={!hasSelectedCollectionIds}
+                    />
+                  </View>
 
                   <MenuButton color={colors.custom.grey}>
                     <ListItem text="Refresh Metadata" icon="Refresh" onClick={handleRefreshMeta} />
-                    <ListItem text="Delete Empty" icon="Delete" onClick={handleDeleteEmpty} />
+
+                    <ListItem
+                      text="Delete Empty"
+                      icon="Delete"
+                      color={colors.custom.red}
+                      iconProps={{ color: colors.custom.red }}
+                      onClick={handleDeleteEmpty}
+                    />
+
+                    <ListItem
+                      text="Delete Duplicates"
+                      icon="Delete"
+                      color={colors.custom.red}
+                      iconProps={{ color: colors.custom.red }}
+                      onClick={handleDeleteDuplicates}
+                    />
                   </MenuButton>
                 </View>
               </UniformList>
@@ -179,16 +226,25 @@ export const FileCollectionManager = observer(() => {
           colorOnHover={colors.custom.blue}
         />
 
-        {!hasAnySelected ? null : (
+        {!hasAnyFilesSelected ? null : (
           <Button
             text="Add to Collection"
             icon="Add"
             onClick={handleAddToCollection}
-            disabled={!stores.collection.manager.selectedCollectionId}
+            disabled={stores.collection.manager.selectedCollectionIds.length !== 1}
             colorOnHover={colors.custom.purple}
           />
         )}
       </Modal.Footer>
+
+      {isConfirmDeleteOpen && (
+        <ConfirmModal
+          headerText="Delete Collections"
+          subText={`Are you sure you want to delete the ${stores.collection.manager.selectedCollectionIds.length} selected collections?`}
+          onConfirm={handleConfirmDelete}
+          setVisible={setIsConfirmDeleteOpen}
+        />
+      )}
     </Modal.Container>
   );
 });

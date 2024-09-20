@@ -85,7 +85,7 @@ export const deleteFiles = makeAction(async (args: { fileIds: string[] }) => {
         (fileIdIndex) => !args.fileIds.includes(String(fileIdIndex.fileId))
       );
 
-      if (!fileIdIndexes.length) return actions.deleteCollection({ id: collection.id });
+      if (!fileIdIndexes.length) return actions.deleteCollections({ ids: [collection.id] });
       return actions.updateCollection({ fileIdIndexes, id: collection.id });
     })
   );

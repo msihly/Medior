@@ -40,6 +40,7 @@ export const useSockets = ({ view }: UseSocketsProps) => {
       else {
         if (view === "home") stores.import.addDeletedFileHashes(fileHashes);
         if (stores.collection.manager.isOpen) stores.collection.manager.search.loadFiltered();
+        if (stores.collection.editor.isOpen) stores.collection.editor.removeFiles(fileIds);
         stores.file.search.removeFiles(fileIds);
         stores.file.search.setHasChanges(true);
       }
@@ -54,6 +55,8 @@ export const useSockets = ({ view }: UseSocketsProps) => {
           updatedKeys.some((k) => ["isArchived", "tagIds"].includes(k)) ||
           updatedKeys.includes(stores.file.search.sortValue.key);
         if (shouldReload) queueFileReload();
+
+        if (stores.collection.editor.isOpen) stores.collection.editor.updateFiles(fileIds, updates);
       }
     });
 
@@ -106,13 +109,12 @@ export const useSockets = ({ view }: UseSocketsProps) => {
     if (view === "carousel") {
       makeSocket("onFilesArchived", ({ fileIds }) => stores.carousel.removeFiles(fileIds));
     } else {
-      makeSocket("onFileCollectionDeleted", () => {
-        stores.collection.manager.search.reloadIfQueued();
+      makeSocket("onFileCollectionsDeleted", () => {
+        if (stores.collection.manager.isOpen) stores.collection.manager.search.loadFiltered();
       });
 
       makeSocket("onFileCollectionUpdated", ({ id, updates }) => {
-        if (stores.collection.manager.isOpen)
-          stores.collection.manager.getById(id)?.update(updates);
+        if (stores.collection.manager.isOpen) stores.collection.manager.search.loadFiltered();
         if (stores.collection.editor.collection?.id === id)
           stores.collection.editor.collection.update(updates);
       });

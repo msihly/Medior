@@ -1,6 +1,7 @@
 import { computed } from "mobx";
-import { getRootStore, Model, model, modelAction, modelFlow, prop } from "mobx-keystone";
+import { getRootStore, Model, model, modelAction, ModelCreationData, modelFlow, prop } from "mobx-keystone";
 import { asyncAction, File, FileSearch, RootStore } from "medior/store";
+import { SortMenuProps } from "medior/components";
 import { FileCollection } from ".";
 import { getConfig, trpc } from "medior/utils";
 import { toast } from "react-toastify";
@@ -18,6 +19,7 @@ export class CollectionEditor extends Model({
     () => new FileSearch({ pageSize: getConfig().collection.editor.fileSearch.pageSize })
   ),
   selectedIds: prop<string[]>(() => []).withSetter(),
+  sortValue: prop<SortMenuProps["value"]>(() => ({ isDesc: false, key: "custom" })),
 }) {
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
   @modelAction
@@ -78,7 +80,31 @@ export class CollectionEditor extends Model({
   @modelAction
   setIsOpen(isOpen: boolean) {
     this.selectedIds = [];
+    this.sortValue = { isDesc: false, key: "custom" };
     this.isOpen = isOpen;
+  }
+
+  @modelAction
+  setSortValue(sortValue: SortMenuProps["value"]) {
+    this.sortValue = sortValue;
+    this.hasUnsavedChanges = true;
+
+    if (sortValue.key === "custom")
+      this.fileIndexes = this.collection.fileIdIndexes
+        .map((f, i) => ({
+          id: f.fileId,
+          index: f.index,
+        }))
+        .sort((a, b) => a.index - b.index);
+    else {
+      const sortKey = sortValue.key as keyof File;
+      this.fileIndexes = this.files
+        .slice()
+        .sort((a, b) =>
+          sortValue.isDesc ? (a[sortKey] < b[sortKey] ? 1 : -1) : a[sortKey] > b[sortKey] ? 1 : -1
+        )
+        .map((f, i) => ({ id: f.id, index: i }));
+    }
   }
 
   @modelAction
@@ -103,11 +129,16 @@ export class CollectionEditor extends Model({
       );
   }
 
+  @modelAction
+  updateFiles(fileIds: string[], updates: Partial<ModelCreationData<File>>) {
+    fileIds.forEach((id) => this.getFileById(id)?.update?.(updates));
+  }
+
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */
   @modelFlow
   confirmDelete = asyncAction(async () => {
     const stores = getRootStore<RootStore>(this);
-    const res = await stores.collection.deleteCollection(this.collection.id);
+    const res = await stores.collection.deleteCollections([this.collection.id]);
     if (!res.success) throw new Error("Failed to delete collection");
     else {
       this.setCollection(null);
@@ -149,9 +180,16 @@ export class CollectionEditor extends Model({
     });
     if (!filesRes.success) throw new Error(filesRes.error);
 
-    this.setFiles(filesRes.data.items.map((f) => new File(f)));
-    this.setFileIndexes(filesRes.data.items.map((f, i) => ({ id: f.id, index: i })));
-    this.search.setExcludedFileIds(filesRes.data.items.map((f) => f.id));
+    const files = filesRes.data.items;
+    this.setFiles(files.map((f) => new File(f)));
+
+    const fileMap = new Map(files.map((f) => [f.id, f]));
+    this.search.setExcludedFileIds([...fileMap.keys()]);
+    this.setFileIndexes(
+      this.collection.fileIdIndexes
+        .map((f, i) => ({ id: f.fileId, index: i }))
+        .sort((a, b) => a.index - b.index)
+    );
   });
 
   @modelFlow
@@ -173,7 +211,7 @@ export class CollectionEditor extends Model({
     this.setIsLoading(true);
     const res = await trpc.updateCollection.mutate({
       id: this.collection.id,
-      fileIdIndexes: this.sortedFiles.map((f, i) => ({ fileId: f.id, index: i })),
+      fileIdIndexes: this.fileIndexes.map((f, i) => ({ fileId: f.id, index: i })),
       title: this.collection.title,
     });
     if (!res.success) {
@@ -192,12 +230,16 @@ export class CollectionEditor extends Model({
     return this.files.find((f) => f.id === id);
   }
 
+  getIndexById(id: string) {
+    return this.fileIndexes.find((f) => f.id === id)?.index;
+  }
+
   getIsSelected(id: string) {
     return !!this.selectedIds.find((s) => s === id);
   }
 
-  getSortedIndex(id: string) {
-    return this.sortedFileIndexes.find((f) => f.id === id)?.index;
+  getOriginalIndex(id: string) {
+    return this.collection.fileIdIndexes.find((f) => f.fileId === id)?.index;
   }
 
   /* --------------------------------- GETTERS -------------------------------- */
@@ -213,13 +255,8 @@ export class CollectionEditor extends Model({
   }
 
   @computed
-  get sortedFileIndexes() {
-    return [...this.fileIndexes].sort((a, b) => a.index - b.index);
-  }
-
-  @computed
   get sortedFiles() {
     const fileMap = new Map(this.files.map((file) => [file.id, file]));
-    return this.sortedFileIndexes.map((f) => fileMap.get(f.id));
+    return this.fileIndexes.map((f) => fileMap.get(f.id));
   }
 }

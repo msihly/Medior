@@ -7,6 +7,7 @@ const CUSTOM_EVENTS: {
   args?: string;
   name: string;
 }[] = [
+  { name: "onFileCollectionsDeleted", args: "{ ids: string[] }" },
   { name: "onFilesArchived", args: "{ fileIds: string[] }" },
   { name: "onFilesDeleted", args: "{ fileHashes: string[]; fileIds: string[] }" },
   { name: "onFilesUpdated", args: "{ fileIds: string[]; updates: Partial<FileSchema> }" },

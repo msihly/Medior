@@ -14,7 +14,29 @@ export const FileCollection = observer(({ height, id, width }: FileCollectionPro
   const collection = stores.collection.manager.getById(id);
   if (!collection) return null;
 
-  const hasSelectedFiles = stores.collection.manager.selectedFileIds.length > 0;
+  const handleClick = async (event: React.MouseEvent) => {
+    if (event.shiftKey) {
+      const res = await stores.collection.manager.search.getShiftSelected({
+        id,
+        selectedIds: stores.collection.manager.selectedCollectionIds,
+      });
+      if (!res?.success) throw new Error(res.error);
+
+      stores.collection.manager.toggleSelected([
+        ...res.data.idsToDeselect.map((i) => ({ id: i, isSelected: false })),
+        ...res.data.idsToSelect.map((i) => ({ id: i, isSelected: true })),
+      ]);
+    } else if (event.ctrlKey) {
+      stores.collection.manager.toggleSelected([
+        { id, isSelected: !stores.collection.manager.getIsSelected(id) },
+      ]);
+    } else {
+      stores.collection.manager.toggleSelected([
+        ...stores.collection.manager.selectedCollectionIds.map((id) => ({ id, isSelected: false })),
+        { id, isSelected: true },
+      ]);
+    }
+  };
 
   const handleDelete = async () => {
     await stores.collection.editor.loadCollection({ id });
@@ -22,8 +44,6 @@ export const FileCollection = observer(({ height, id, width }: FileCollectionPro
   };
 
   const handleRefreshMeta = () => stores.collection.regenCollMeta([id]);
-
-  const handleSelect = () => stores.collection.manager.setSelectedCollectionId(id);
 
   const openCollection = async () => {
     await stores.collection.editor.loadCollection({ id });
@@ -41,9 +61,9 @@ export const FileCollection = observer(({ height, id, width }: FileCollectionPro
       <CollectionTooltip {...{ collection }}>
         <FileBase.Container
           {...{ height, width }}
-          onClick={hasSelectedFiles ? handleSelect : null}
+          onClick={handleClick}
           onDoubleClick={openCollection}
-          selected={hasSelectedFiles && id === stores.collection.manager.selectedCollectionId}
+          selected={stores.collection.manager.getIsSelected(id)}
         >
           <FileBase.Image
             thumbPaths={collection.thumbPaths}

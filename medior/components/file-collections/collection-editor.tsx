@@ -1,5 +1,5 @@
 import { ReactNode, useEffect, useState } from "react";
-import { observer, useStores } from "medior/store";
+import { observer, SORT_OPTIONS, useStores } from "medior/store";
 import {
   DndContext,
   DragEndEvent,
@@ -27,6 +27,8 @@ import {
   Modal,
   MultiActionButton,
   Pagination,
+  SortMenu,
+  SortMenuProps,
   TagChip,
   Text,
   View,
@@ -46,8 +48,8 @@ export const FileCollectionEditor = observer(() => {
 
   const [draggedFileId, setDraggedFileId] = useState<string>(null);
   const [isAddingFiles, setIsAddingFiles] = useState(false);
-  const [isConfirmRemoveFilesOpen, setIsConfirmRemoveFilesOpen] = useState(false);
   const [isConfirmDiscardOpen, setIsConfirmDiscardOpen] = useState(false);
+  const [isConfirmRemoveFilesOpen, setIsConfirmRemoveFilesOpen] = useState(false);
   const [title, setTitle] = useState<string>(stores.collection.editor.collection?.title);
 
   useEffect(() => {
@@ -90,6 +92,9 @@ export const FileCollectionEditor = observer(() => {
         };
   };
 
+  const handleArchiveFiles = () =>
+    stores.file.confirmDeleteFiles(stores.collection.editor.selectedIds);
+
   const handleClose = () => {
     stores.collection.editor.setIsOpen(false);
     stores.file.search.reloadIfQueued();
@@ -119,7 +124,8 @@ export const FileCollectionEditor = observer(() => {
     stores.tag.setIsFileTagEditorOpen(true);
   };
 
-  const handleFileInfoRefresh = () => stores.file.refreshSelectedFiles();
+  const handleFileInfoRefresh = () =>
+    stores.file.refreshFiles({ ids: stores.collection.editor.selectedIds });
 
   const handlePageChange = (page: number) => stores.collection.editor.search.loadFiltered({ page });
 
@@ -144,6 +150,9 @@ export const FileCollectionEditor = observer(() => {
     stores.collection.editor.setHasUnsavedChanges(true);
     setTitle(val);
   };
+
+  const setSortValue = (value: SortMenuProps["value"]) =>
+    stores.collection.editor.setSortValue(value);
 
   const toggleAddingFiles = () => setIsAddingFiles((prev) => !prev);
 
@@ -206,9 +215,9 @@ export const FileCollectionEditor = observer(() => {
             </Card>
           )}
 
-          <View column flex={1} spacing="0.5rem">
+          <View column flex={1} spacing="0.5rem" overflow="hidden">
             <View row spacing="0.5rem">
-              <Card column flex={1} spacing="0.5rem">
+              <Card column flex={1} spacing="0.5rem" overflow="hidden">
                 <HeaderRow label="Title">
                   <Input value={title} setValue={handleTitleChange} width="100%" />
                 </HeaderRow>
@@ -225,6 +234,22 @@ export const FileCollectionEditor = observer(() => {
               <Card column flex="none" height="100%">
                 <View row>
                   <MultiActionButton
+                    name="Delete"
+                    tooltip="Remove Files From Collection"
+                    iconProps={{ color: colors.custom.red }}
+                    onClick={handleRemoveFiles}
+                    disabled={hasNoSelection}
+                  />
+
+                  <MultiActionButton
+                    name="Archive"
+                    tooltip="Archive Files"
+                    iconProps={{ color: colors.custom.orange }}
+                    onClick={handleArchiveFiles}
+                    disabled={hasNoSelection}
+                  />
+
+                  <MultiActionButton
                     name="Label"
                     tooltip="Edit Tags"
                     onClick={handleEditTags}
@@ -239,16 +264,6 @@ export const FileCollectionEditor = observer(() => {
                   />
 
                   <MultiActionButton
-                    name="Delete"
-                    tooltip="Remove Files From Collection"
-                    iconProps={{ color: colors.custom.red }}
-                    onClick={handleRemoveFiles}
-                    disabled={hasNoSelection}
-                  />
-                </View>
-
-                <View row justify="flex-end">
-                  <MultiActionButton
                     name="Deselect"
                     tooltip="Deselect All Files"
                     onClick={handleDeselectAll}
@@ -261,6 +276,17 @@ export const FileCollectionEditor = observer(() => {
                     onClick={handleSelectAll}
                   />
                 </View>
+
+                <SortMenu
+                  value={stores.collection.editor.sortValue}
+                  setValue={setSortValue}
+                  rows={[
+                    { attribute: "custom", icon: "Settings", label: "Custom" },
+                    { attribute: "originalName", icon: "Abc", label: "Original Name" },
+                    ...SORT_OPTIONS.File,
+                  ]}
+                  width="100%"
+                />
               </Card>
             </View>
 
@@ -310,7 +336,7 @@ export const FileCollectionEditor = observer(() => {
           disabled={
             !stores.collection.editor.hasUnsavedChanges || stores.collection.editor.isLoading
           }
-          color={colors.custom.blue}
+          color={colors.custom.purple}
         />
       </Modal.Footer>
 
@@ -338,7 +364,7 @@ export const FileCollectionEditor = observer(() => {
 
 const HeaderRow = (props: { children: ReactNode | ReactNode[]; label: string }) => {
   return (
-    <View row align="center" spacing="0.5rem">
+    <View row align="center" spacing="0.5rem" overflow="hidden">
       <View column align="flex-start">
         <Text fontSize="1.2em" fontWeight={500} width="3rem" color={colors.custom.lightGrey}>
           {props.label}
@@ -363,9 +389,7 @@ const useClasses = makeClasses({
   },
   tags: {
     display: "flex",
-    flexFlow: "row wrap",
-    margin: "0.5rem 0",
-    maxHeight: "5rem",
-    overflowY: "auto",
+    flexFlow: "row nowrap",
+    overflowX: "auto",
   },
 });

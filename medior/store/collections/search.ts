@@ -19,7 +19,7 @@ export class FileCollectionSearch extends ExtendedModel(_FileCollectionSearch, {
   @modelAction
   reloadIfQueued() {
     const stores = getRootStore<RootStore>(this);
-    if (this.hasQueuedReload && !stores._getIsBlockingModalOpen()) {
+    if (this.hasQueuedReload && !stores.collection.editor.isOpen) {
       this.setHasQueuedReload(false);
       this.loadFiltered();
     }

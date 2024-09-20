@@ -52,6 +52,7 @@ export interface SocketEmitEvents {
     args: { id: string; updates: Partial<TagSchema> },
     options?: SocketEventOptions,
   ) => void;
+  onFileCollectionsDeleted: (args: { ids: string[] }, options?: SocketEventOptions) => void;
   onFilesArchived: (args: { fileIds: string[] }, options?: SocketEventOptions) => void;
   onFilesDeleted: (
     args: { fileHashes: string[]; fileIds: string[] },
@@ -107,6 +108,7 @@ export const socketEvents: SocketEmitEvent[] = [
   "onTagCreated",
   "onTagDeleted",
   "onTagUpdated",
+  "onFileCollectionsDeleted",
   "onFilesArchived",
   "onFilesDeleted",
   "onFilesUpdated",

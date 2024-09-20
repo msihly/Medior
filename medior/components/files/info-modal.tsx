@@ -1,7 +1,16 @@
 import path from "path";
 import { shell } from "@electron/remote";
 import { observer, useStores } from "medior/store";
-import { Button, Detail, DetailRow, Modal, SideScroller, TagChip, Text, View } from "medior/components";
+import {
+  Button,
+  Detail,
+  DetailRow,
+  Modal,
+  SideScroller,
+  TagChip,
+  Text,
+  View,
+} from "medior/components";
 import { colors, dayjs, formatBytes, makeClasses } from "medior/utils";
 import { toast } from "react-toastify";
 
@@ -9,7 +18,9 @@ export const InfoModal = observer(() => {
   const { css } = useClasses(null);
 
   const stores = useStores();
-  const file = stores.file.getById(stores.file.activeFileId);
+  const file = stores.collection.editor.isOpen
+    ? stores.collection.editor.getFileById(stores.file.activeFileId)
+    : stores.file.getById(stores.file.activeFileId);
 
   const handleClose = () => stores.file.setIsInfoModalOpen(false);
 

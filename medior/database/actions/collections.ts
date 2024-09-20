@@ -6,18 +6,23 @@ import { dayjs, socket } from "medior/utils";
 /* -------------------------------------------------------------------------- */
 /*                              HELPER FUNCTIONS                              */
 /* -------------------------------------------------------------------------- */
-const makeCollAttrs = async (files: models.FileSchema[]) => {
-  const ratedFiles = files.filter((f) => f.rating > 0);
-  const tagIds = [...new Set(files.flatMap((f) => f.tagIds))];
+const makeCollAttrs = async (
+  files: models.FileSchema[],
+  fileIdIndexes: { fileId: string; index: number }[]
+) => {
+  const indexMap = new Map(fileIdIndexes.map((f) => [f.fileId, f.index]));
+  const sortedFiles = [...files].sort((a, b) => indexMap.get(a.id) - indexMap.get(b.id));
+  const ratedFiles = sortedFiles.filter((f) => f.rating > 0);
+  const tagIds = [...new Set([...sortedFiles.map((f) => f.tagIds)].flat())];
   return {
-    fileCount: files.length,
+    fileCount: sortedFiles.length,
     rating:
       ratedFiles.length > 0
         ? ratedFiles.reduce((acc, f) => acc + f.rating, 0) / ratedFiles.length
         : 0,
     tagIds,
     tagIdsWithAncestors: await actions.deriveAncestorTagIds(tagIds),
-    thumbPaths: files.slice(0, 10).map((f) => f.thumbPaths[0]),
+    thumbPaths: sortedFiles.slice(0, 10).map((f) => f.thumbPaths[0]),
   };
 };
 
@@ -37,7 +42,7 @@ export const createCollection = makeAction(
 
     const dateCreated = dayjs().toISOString();
     const collection = {
-      ...(await makeCollAttrs(filesRes.data.items)),
+      ...(await makeCollAttrs(filesRes.data.items, args.fileIdIndexes)),
       dateCreated,
       dateModified: dateCreated,
       fileIdIndexes: args.fileIdIndexes,
@@ -50,9 +55,9 @@ export const createCollection = makeAction(
   }
 );
 
-export const deleteCollection = makeAction(async (args: { id: string }) => {
-  const res = await models.FileCollectionModel.deleteOne({ _id: args.id });
-  if (res.deletedCount) socket.emit("onFileCollectionDeleted", args);
+export const deleteCollections = makeAction(async (args: { ids: string[] }) => {
+  const res = await models.FileCollectionModel.deleteMany({ _id: { $in: objectIds(args.ids) } });
+  if (res.deletedCount) socket.emit("onFileCollectionsDeleted", args);
   return res;
 });
 
@@ -73,6 +78,23 @@ export const listCollectionIdsByTagIds = makeAction(async (args: { tagIds: strin
       .select({ _id: 1 })
       .lean()
   ).map((f) => f._id.toString());
+});
+
+export const deduplicateCollections = makeAction(async () => {
+  const collections: { ids: string[]; title: string }[] =
+    await models.FileCollectionModel.aggregate([
+      { $group: { _id: { title: "$title", fileCount: "$fileCount" }, ids: { $push: "$_id" } } },
+      { $match: { "ids.1": { $exists: true } } },
+      { $project: { title: "$_id.title", ids: { $slice: ["$ids", 1, { $size: "$ids" }] } } },
+    ]);
+
+  const collectionIdsToDelete = collections.flatMap((c) => c.ids);
+  const res = await models.FileCollectionModel.deleteMany({
+    _id: { $in: collectionIdsToDelete },
+  });
+
+  if (res.deletedCount) socket.emit("onFileCollectionsDeleted", { ids: collectionIdsToDelete });
+  return res.deletedCount;
 });
 
 export const regenCollAttrs = makeAction(
@@ -96,9 +118,8 @@ export const regenCollAttrs = makeAction(
         });
         if (!filesRes.success) throw new Error(filesRes.error);
 
-        const updates = await makeCollAttrs(filesRes.data.items);
-        await models.FileCollectionModel.updateOne({ _id: collection.id }, { $set: updates });
-
+        const updates = await makeCollAttrs(filesRes.data.items, collection.fileIdIndexes);
+        await models.FileCollectionModel.updateOne({ _id: collection.id }, updates);
         socket.emit("onFileCollectionUpdated", { id: collection.id, updates });
       })
     );
@@ -123,7 +144,7 @@ export const regenCollRating = makeAction(async (fileIds: string[]) => {
 
       const rating =
         filesRes.data.items.reduce((acc, f) => acc + f.rating, 0) / filesRes.data.items.length;
-      await models.FileCollectionModel.updateOne({ _id: collection.id }, { $set: { rating } });
+      await models.FileCollectionModel.updateOne({ _id: collection.id }, { rating });
 
       socket.emit("onFileCollectionUpdated", { id: collection.id, updates: { rating } });
     })
@@ -172,9 +193,14 @@ export const updateCollection = makeAction(
         args: { filter: { id: updates.fileIdIndexes.map((f) => f.fileId) } },
       });
       if (!filesRes.success) throw new Error(filesRes.error);
-      updates = { ...updates, ...(await makeCollAttrs(filesRes.data.items)) };
+      updates = {
+        ...updates,
+        ...(await makeCollAttrs(filesRes.data.items, updates.fileIdIndexes)),
+      };
     }
 
-    return await models.FileCollectionModel.updateOne({ _id: updates.id }, updates);
+    const res = await models.FileCollectionModel.updateOne({ _id: updates.id }, updates);
+    socket.emit("onFileCollectionUpdated", { id: updates.id, updates });
+    return res;
   }
 );

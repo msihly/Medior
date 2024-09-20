@@ -3,7 +3,7 @@ import { observer, useStores } from "medior/store";
 import { useSortable } from "@alissavrk/dnd-kit-sortable";
 import { CSS as CSSUtils } from "@alissavrk/dnd-kit-utilities";
 import { FileBase, View } from "medior/components";
-import { dayjs, openCarouselWindow } from "medior/utils";
+import { colors, dayjs, openCarouselWindow } from "medior/utils";
 
 export interface FileCollectionFileProps {
   disabled?: boolean;
@@ -20,7 +20,7 @@ export const FileCollectionFile = observer(
     const file = stores.collection.editor.getFileById(id);
     if (!file) return null;
 
-    const fileIndex = stores.collection.editor.getSortedIndex(id);
+    const fileIndex = stores.collection.editor.getIndexById(id);
 
     const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id });
 
@@ -49,9 +49,7 @@ export const FileCollectionFile = observer(
     const handleDoubleClick = () =>
       openCarouselWindow({
         file,
-        selectedFileIds: stores.collection.editor.collection.fileIdIndexes.map(
-          ({ fileId }) => fileId
-        ),
+        selectedFileIds: stores.collection.editor.fileIndexes.map(({ id }) => id),
       });
 
     return (
@@ -59,7 +57,7 @@ export const FileCollectionFile = observer(
         ref={setNodeRef}
         {...attributes}
         {...listeners}
-        style={{ ...style, transform: CSSUtils.Transform.toString(transform), transition }}
+        style={{ ...style, transform: CSSUtils.Transform.toString(transform), transition, opacity: file.isArchived ? 0.5 : 1 }}
       >
         <FileBase.ContextMenu {...{ disabled, file }}>
           <FileBase.Tooltip {...{ disabled, file }}>
@@ -76,13 +74,23 @@ export const FileCollectionFile = observer(
                 fit="contain"
                 height={height}
               >
-                <FileBase.Chip position="top-left" label={fileIndex} opacity={0.8} />
+                <FileBase.Chip
+                  position="top-left"
+                  label={fileIndex + 1}
+                  bgColor={
+                    fileIndex !== stores.collection.editor.getOriginalIndex(id)
+                      ? colors.custom.purple
+                      : colors.custom.black
+                  }
+                  opacity={0.8}
+                />
 
                 <FileBase.RatingChip position="top-right" rating={file.rating} />
 
                 {file.duration && (
                   <FileBase.Chip
                     position="bottom-right"
+                    hasFooter
                     label={dayjs.duration(file.duration, "s").format("HH:mm:ss")}
                   />
                 )}
