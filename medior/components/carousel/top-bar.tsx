@@ -72,7 +72,7 @@ export const CarouselTopBar = observer(() => {
     else getCurrentWindow().setAspectRatio(0);
   };
 
-  const toggleIsPinned = () => stores.carousel.toggleTopBarPin();
+  const toggleIsPinned = () => stores.carousel.toggleIsPinned();
 
   const zoomIn = () => panZoomRef.current.zoom(zoomScaleStepIn(panZoomRef.current.getScale()));
 

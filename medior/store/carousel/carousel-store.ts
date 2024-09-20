@@ -40,7 +40,7 @@ export class CarouselStore extends Model({
   }
 
   @modelAction
-  toggleTopBarPin() {
+  toggleIsPinned() {
     this.setIsPinned(!this.isPinned);
   }
 

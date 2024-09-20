@@ -20,8 +20,6 @@ export const Carousel = observer(() => {
   const zoomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (activeFile?.isVideo) stores.carousel.setIsPlaying(true);
-
     panZoomRef.current =
       zoomRef.current !== null
         ? Panzoom(zoomRef.current, {
@@ -39,7 +37,11 @@ export const Carousel = observer(() => {
             step: CONSTANTS.CAROUSEL.ZOOM.STEP,
           } as PanzoomOptions)
         : null;
-  }, [activeFile?.isVideo, stores.carousel.activeFileId, stores.carousel.isPinned]);
+  }, [stores.carousel.activeFileId, stores.carousel.isPinned]);
+
+  useEffect(() => {
+    if (activeFile?.isVideo) stores.carousel.setIsPlaying(true);
+  }, [activeFile?.isVideo]);
 
   const [curTime, setCurTime] = useState(0);
   const [lastPlayingState, setLastPlayingState] = useState(false);
@@ -163,13 +165,13 @@ export const Carousel = observer(() => {
       </View>
 
       {activeFile?.isPlayableVideo && (
-        <View className={css.videoControlBar}>
+        <View row spacing="0.5rem" className={css.videoControlBar}>
           <IconButton
             name={stores.carousel.isPlaying ? "Pause" : "PlayArrow"}
             onClick={togglePlaying}
           />
 
-          <View column flex={1} padding={{ all: "0 0.7rem" }}>
+          <View column flex={1}>
             <Slider
               value={stores.carousel.curFrame}
               onChange={handleFrameSeek}
@@ -182,7 +184,7 @@ export const Carousel = observer(() => {
             />
           </View>
 
-          <View onMouseLeave={handleVolumeLeave}>
+          <View column justify="center" height="100%" onMouseLeave={handleVolumeLeave}>
             <View onMouseEnter={handleVolumeEnter}>
               <IconButton
                 name={
@@ -212,7 +214,7 @@ export const Carousel = observer(() => {
             </View>
           </View>
 
-          <View column padding={{ right: "0.5rem" }}>
+          <View column>
             <Text color={colors.custom.white} className={css.videoTime}>
               {dayjs.duration(Math.round(curTime * 1000)).format("HH:mm:ss")}
             </Text>
@@ -253,12 +255,9 @@ const useClasses = makeClasses((props: ClassesProps) => ({
     bottom: 0,
     left: 0,
     right: 0,
-    display: "flex",
-    flexFlow: "row nowrap",
     justifyContent: "space-between",
     alignItems: "center",
-    // marginBottom: props.isPinned ? CONSTANTS.CAROUSEL.VIDEO.CONTROLS_HEIGHT - 6 : 0,
-    padding: "0.15rem 0.5rem",
+    padding: "0 1rem",
     width: "100%",
     height: CONSTANTS.CAROUSEL.VIDEO.CONTROLS_HEIGHT,
     backgroundColor: "rgb(0, 0, 0, 0.5)",
