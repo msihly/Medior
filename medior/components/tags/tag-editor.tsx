@@ -9,7 +9,6 @@ import {
   ChipOption,
   ConfirmModal,
   IconButton,
-  LoadingOverlay,
   Modal,
   RegExMapRow,
   Text,
@@ -159,9 +158,7 @@ export const TagEditor = observer(
     const handleSearch = () => openSearchWindow({ tagIds: [id] });
 
     return (
-      <Modal.Container onClose={handleClose} width="50rem">
-        <LoadingOverlay {...{ isLoading }} />
-
+      <Modal.Container {...{ isLoading }} onClose={handleClose} width="50rem">
         <Modal.Header
           leftNode={
             !isCreate && (
@@ -203,92 +200,90 @@ export const TagEditor = observer(
             )
           }
         >
-          <Text alignSelf="center">{isCreate ? "Create Tag" : "Edit Tag"}</Text>
+          <Text preset="title">{isCreate ? "Create Tag" : "Edit Tag"}</Text>
         </Modal.Header>
 
-        <Modal.Content>
-          <View column spacing="0.5rem">
-            <Card row flex={1} spacing="0.5rem">
-              <TagInputs.Label
-                ref={labelRef}
-                value={label}
-                setValue={setLabel}
-                disabled={isLoading}
-                isDuplicate={isDuplicateTag}
-                width="100%"
-              />
-
-              <TagInputs.Aliases value={aliases} setValue={setAliases} disabled={isLoading} />
-            </Card>
-
-            <Card row height="12rem" spacing="0.5rem">
-              <TagInputs.Relations
-                header="Parent Tags"
-                options={tagOptions}
-                excludedIds={[id, ...childTags.map((t) => t.id)]}
-                value={parentTags}
-                setValue={setParentTags}
-                ancestryType="ancestors"
-                ancestryTagIds={tag?.ancestorIds}
-                disabled={isLoading}
-                hasEditor={false}
-                onTagClick={hasSubEditor ? handleSubEditorClick : null}
-              />
-
-              <TagInputs.Relations
-                header="Child Tags"
-                options={tagOptions}
-                excludedIds={[id, ...parentTags.map((t) => t.id)]}
-                value={childTags}
-                setValue={setChildTags}
-                ancestryType="descendants"
-                ancestryTagIds={tag?.descendantIds}
-                disabled={isLoading}
-                hasEditor={false}
-                onTagClick={hasSubEditor ? handleSubEditorClick : null}
-              />
-            </Card>
-
-            <RegExMapRow
-              aliases={aliases.map((a) => a.value)}
+        <Modal.Content spacing="0.5rem">
+          <Card row flex={1} spacing="0.5rem">
+            <TagInputs.Label
+              ref={labelRef}
+              value={label}
+              setValue={setLabel}
               disabled={isLoading}
-              label={label}
-              regEx={regExValue}
-              setRegEx={setRegExValue}
-              setTestString={setRegExTestString}
-              setTypes={setRegExTypes}
-              testString={regExTestString}
-              types={regExTypes}
+              isDuplicate={isDuplicateTag}
+              width="100%"
             />
 
-            {isCreate && (
-              <Card header="Create Options" row spacing="0.5rem">
-                <Checkbox
-                  label="Continue"
-                  checked={hasContinue}
-                  setChecked={setHasContinue}
-                  disabled={isLoading}
-                  center
-                />
+            <TagInputs.Aliases value={aliases} setValue={setAliases} disabled={isLoading} />
+          </Card>
 
-                <Checkbox
-                  label="Parent"
-                  checked={hasKeepParentTags}
-                  setChecked={setHasKeepParentTags}
-                  disabled={!hasContinue || isLoading}
-                  center
-                />
+          <Card row height="12rem" spacing="0.5rem">
+            <TagInputs.Relations
+              header="Parent Tags"
+              options={tagOptions}
+              excludedIds={[id, ...childTags.map((t) => t.id)]}
+              value={parentTags}
+              setValue={setParentTags}
+              ancestryType="ancestors"
+              ancestryTagIds={tag?.ancestorIds}
+              disabled={isLoading}
+              hasEditor={false}
+              onTagClick={hasSubEditor ? handleSubEditorClick : null}
+            />
 
-                <Checkbox
-                  label="Child"
-                  checked={hasKeepChildTags}
-                  setChecked={setHasKeepChildTags}
-                  disabled={!hasContinue || isLoading}
-                  center
-                />
-              </Card>
-            )}
-          </View>
+            <TagInputs.Relations
+              header="Child Tags"
+              options={tagOptions}
+              excludedIds={[id, ...parentTags.map((t) => t.id)]}
+              value={childTags}
+              setValue={setChildTags}
+              ancestryType="descendants"
+              ancestryTagIds={tag?.descendantIds}
+              disabled={isLoading}
+              hasEditor={false}
+              onTagClick={hasSubEditor ? handleSubEditorClick : null}
+            />
+          </Card>
+
+          <RegExMapRow
+            aliases={aliases.map((a) => a.value)}
+            disabled={isLoading}
+            label={label}
+            regEx={regExValue}
+            setRegEx={setRegExValue}
+            setTestString={setRegExTestString}
+            setTypes={setRegExTypes}
+            testString={regExTestString}
+            types={regExTypes}
+          />
+
+          {isCreate && (
+            <Card header="Create Options" row spacing="0.5rem">
+              <Checkbox
+                label="Continue"
+                checked={hasContinue}
+                setChecked={setHasContinue}
+                disabled={isLoading}
+                center
+              />
+
+              <Checkbox
+                label="Parent"
+                checked={hasKeepParentTags}
+                setChecked={setHasKeepParentTags}
+                disabled={!hasContinue || isLoading}
+                center
+              />
+
+              <Checkbox
+                label="Child"
+                checked={hasKeepChildTags}
+                setChecked={setHasKeepChildTags}
+                disabled={!hasContinue || isLoading}
+                center
+              />
+            </Card>
+          )}
         </Modal.Content>
 
         <Modal.Footer>

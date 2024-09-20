@@ -1,14 +1,12 @@
 import { dialog } from "@electron/remote";
 import { useEffect, useState } from "react";
 import { observer, SORT_OPTIONS, useStores } from "medior/store";
-import { Button, Card, ConfirmModal, LoadingOverlay, Modal, Text, View } from "medior/components";
+import { Button, Card, ConfirmModal, Modal, Text, View } from "medior/components";
 import { Settings } from ".";
-import { colors, CONSTANTS, loadConfig, makeClasses, saveConfig, trpc } from "medior/utils";
+import { colors, CONSTANTS, loadConfig, saveConfig, trpc } from "medior/utils";
 import { toast } from "react-toastify";
 
 export const SettingsModal = observer(() => {
-  const { css } = useClasses(null);
-
   const stores = useStores();
 
   const [isConfirmDiscardOpen, setIsConfirmDiscardOpen] = useState(false);
@@ -95,256 +93,255 @@ export const SettingsModal = observer(() => {
     stores.home.settings.setFolderToTagsMode("hierarchical");
 
   return (
-    <Modal.Container onClose={handleCancel} height="100%" width="100%" maxWidth="55rem">
-      <LoadingOverlay isLoading={stores.home.settings.isLoading} />
-
-      <Modal.Header className={css.modalHeader}>
-        <Text>{"Settings"}</Text>
+    <Modal.Container
+      isLoading={stores.home.settings.isLoading}
+      onClose={handleCancel}
+      height="100%"
+      width="100%"
+      maxWidth="55rem"
+    >
+      <Modal.Header>
+        <Text preset="title">{"Settings"}</Text>
       </Modal.Header>
 
-      <Modal.Content className={css.modalContent}>
-        <View column spacing="1rem">
-          <Settings.Section title="Database / Servers">
-            <View row spacing="0.5rem">
+      <Modal.Content overflow="hidden auto" spacing="1rem">
+        <Settings.Section title="Database / Servers">
+          <View row spacing="0.5rem">
+            <Settings.Input
+              header="Database Path"
+              configKey="db.path"
+              onClick={handleMongoDbPathClick}
+              flex={1}
+            />
+
+            <Settings.NumInput header="Database Port" configKey="ports.db" />
+
+            <Settings.NumInput header="Server Port" configKey="ports.server" />
+
+            <Settings.NumInput header="Socket Port" configKey="ports.socket" />
+          </View>
+
+          <View column>
+            <Settings.StorageInputs />
+          </View>
+        </Settings.Section>
+
+        <Settings.Section title="Collections">
+          <View row spacing="0.5rem" overflow="auto">
+            <Settings.NumInput
+              header="Editor - File Search Page Size"
+              configKey="collection.editor.fileSearch.pageSize"
+              minValue={1}
+              maxValue={200}
+              width="14rem"
+            />
+
+            <Settings.SortMenu
+              header="Editor - Default Sort"
+              configKey="collection.editor.sort"
+              rows={SORT_OPTIONS.File}
+            />
+
+            <Settings.NumInput
+              header="Manager - Page Size"
+              configKey="collection.manager.pageSize"
+              minValue={25}
+              maxValue={250}
+              width="9rem"
+            />
+
+            <Settings.SortMenu
+              header="Manager - Default Sort"
+              configKey="collection.manager.sort"
+              rows={SORT_OPTIONS.FileCollection}
+            />
+          </View>
+        </Settings.Section>
+
+        <Settings.Section title="Files">
+          <View row spacing="0.5rem" overflow="auto">
+            <Settings.NumInput
+              header="Search Results Count"
+              configKey="file.search.pageSize"
+              minValue={25}
+              maxValue={250}
+              width="9rem"
+            />
+
+            <Settings.SortMenu
+              header="Default Sort"
+              configKey="file.search.sort"
+              rows={SORT_OPTIONS.File}
+            />
+
+            <Card
+              header="File Thumbnail Fit"
+              row
+              bgColor={colors.foregroundCard}
+              padding={{ all: "0.1rem" }}
+            >
+              <Settings.Checkbox
+                label="Contain"
+                configKey="file.fileCardFit"
+                checked={stores.home.settings.file.fileCardFit === "contain"}
+                setChecked={handleFileCardFitContain}
+              />
+
+              <Settings.Checkbox
+                label="Cover"
+                configKey="file.fileCardFit"
+                checked={stores.home.settings.file.fileCardFit === "cover"}
+                setChecked={handleFileCardFitCover}
+              />
+            </Card>
+
+            <Card
+              header="Rating Icon"
+              row
+              bgColor={colors.foregroundCard}
+              padding={{ all: "0.1rem" }}
+            >
+              <Settings.Checkbox label="Hide Unrated" configKey="file.hideUnratedIcon" />
+            </Card>
+          </View>
+
+          <Card
+            header="Handled / Displayed Image Types"
+            row
+            wrap="wrap"
+            bgColor={colors.foregroundCard}
+          >
+            {CONSTANTS.IMAGE_TYPES.map((ext) => (
+              <Settings.ExtCheckbox key={ext} ext={ext} configKey="file.imageTypes" />
+            ))}
+          </Card>
+
+          <Card
+            header="Handled / Displayed Video Types"
+            row
+            wrap="wrap"
+            bgColor={colors.foregroundCard}
+          >
+            {CONSTANTS.VIDEO_TYPES.map((ext) => (
+              <Settings.ExtCheckbox key={ext} ext={ext} configKey="file.videoTypes" />
+            ))}
+          </Card>
+        </Settings.Section>
+
+        <Settings.Section title="Imports">
+          <View row spacing="0.5rem" overflow="auto">
+            <View column spacing="0.3rem">
+              <Settings.Checkbox label="Delete On Import" configKey="imports.deleteOnImport" />
+
+              <Settings.Checkbox
+                label="Ignore Prev. Deleted"
+                configKey="imports.ignorePrevDeleted"
+              />
+
+              <Settings.Checkbox label="New Tags to RegEx" configKey="imports.withNewTagsToRegEx" />
+
+              <Settings.Checkbox
+                label="File to Tags (RegEx)"
+                configKey="imports.withFileNameToTags"
+              />
+
               <Settings.Input
-                header="Database Path"
-                configKey="db.path"
-                onClick={handleMongoDbPathClick}
-                flex={1}
-              />
-
-              <Settings.NumInput header="Database Port" configKey="ports.db" />
-
-              <Settings.NumInput header="Server Port" configKey="ports.server" />
-
-              <Settings.NumInput header="Socket Port" configKey="ports.socket" />
-            </View>
-
-            <View column>
-              <Settings.StorageInputs />
-            </View>
-          </Settings.Section>
-
-          <Settings.Section title="Collections">
-            <View row spacing="0.5rem" overflow="auto">
-              <Settings.NumInput
-                header="Editor - File Search Page Size"
-                configKey="collection.editor.fileSearch.pageSize"
-                minValue={1}
-                maxValue={200}
-                width="14rem"
-              />
-
-              <Settings.SortMenu
-                header="Editor - Default Sort"
-                configKey="collection.editor.sort"
-                rows={SORT_OPTIONS.File}
-              />
-
-              <Settings.NumInput
-                header="Manager - Page Size"
-                configKey="collection.manager.pageSize"
-                minValue={25}
-                maxValue={250}
-                width="9rem"
-              />
-
-              <Settings.SortMenu
-                header="Manager - Default Sort"
-                configKey="collection.manager.sort"
-                rows={SORT_OPTIONS.FileCollection}
+                header="Folder Tags Delimiter"
+                configKey="imports.folderDelimiter"
+                width="10rem"
+                textAlign="center"
               />
             </View>
-          </Settings.Section>
 
-          <Settings.Section title="Files">
-            <View row spacing="0.5rem" overflow="auto">
-              <Settings.NumInput
-                header="Search Results Count"
-                configKey="file.search.pageSize"
-                minValue={25}
-                maxValue={250}
-                width="9rem"
+            <View column spacing="0.3rem">
+              <Settings.Checkbox
+                label="Folder to Tags"
+                configKey="imports.folderToTagsMode"
+                checked={stores.home.settings.imports.folderToTagsMode !== "none"}
+                setChecked={handleFoldersToTags}
               />
 
-              <Settings.SortMenu
-                header="Default Sort"
-                configKey="file.search.sort"
-                rows={SORT_OPTIONS.File}
-              />
-
-              <Card
-                header="File Thumbnail Fit"
-                row
-                bgColor={colors.foregroundCard}
-                padding={{ all: "0.1rem" }}
-              >
+              <View column margins={{ left: "1rem" }} spacing="0.3rem">
                 <Settings.Checkbox
-                  label="Contain"
-                  configKey="file.fileCardFit"
-                  checked={stores.home.settings.file.fileCardFit === "contain"}
-                  setChecked={handleFileCardFitContain}
-                />
-
-                <Settings.Checkbox
-                  label="Cover"
-                  configKey="file.fileCardFit"
-                  checked={stores.home.settings.file.fileCardFit === "cover"}
-                  setChecked={handleFileCardFitCover}
-                />
-              </Card>
-
-              <Card
-                header="Rating Icon"
-                row
-                bgColor={colors.foregroundCard}
-                padding={{ all: "0.1rem" }}
-              >
-                <Settings.Checkbox label="Hide Unrated" configKey="file.hideUnratedIcon" />
-              </Card>
-            </View>
-
-            <Card
-              header="Handled / Displayed Image Types"
-              row
-              wrap="wrap"
-              bgColor={colors.foregroundCard}
-            >
-              {CONSTANTS.IMAGE_TYPES.map((ext) => (
-                <Settings.ExtCheckbox key={ext} ext={ext} configKey="file.imageTypes" />
-              ))}
-            </Card>
-
-            <Card
-              header="Handled / Displayed Video Types"
-              row
-              wrap="wrap"
-              bgColor={colors.foregroundCard}
-            >
-              {CONSTANTS.VIDEO_TYPES.map((ext) => (
-                <Settings.ExtCheckbox key={ext} ext={ext} configKey="file.videoTypes" />
-              ))}
-            </Card>
-          </Settings.Section>
-
-          <Settings.Section title="Imports">
-            <View row spacing="0.5rem" overflow="auto">
-              <View column spacing="0.3rem">
-                <Settings.Checkbox label="Delete On Import" configKey="imports.deleteOnImport" />
-
-                <Settings.Checkbox
-                  label="Ignore Prev. Deleted"
-                  configKey="imports.ignorePrevDeleted"
-                />
-
-                <Settings.Checkbox
-                  label="New Tags to RegEx"
-                  configKey="imports.withNewTagsToRegEx"
-                />
-
-                <Settings.Checkbox
-                  label="File to Tags (RegEx)"
-                  configKey="imports.withFileNameToTags"
-                />
-
-                <Settings.Input
-                  header="Folder Tags Delimiter"
-                  configKey="imports.folderDelimiter"
-                  width="10rem"
-                  textAlign="center"
-                />
-              </View>
-
-              <View column spacing="0.3rem">
-                <Settings.Checkbox
-                  label="Folder to Tags"
+                  label="Hierarchical"
                   configKey="imports.folderToTagsMode"
-                  checked={stores.home.settings.imports.folderToTagsMode !== "none"}
-                  setChecked={handleFoldersToTags}
+                  checked={stores.home.settings.imports.folderToTagsMode.includes("hierarchical")}
+                  setChecked={toggleFoldersToTagsHierarchical}
                 />
 
-                <View column margins={{ left: "1rem" }} spacing="0.3rem">
-                  <Settings.Checkbox
-                    label="Hierarchical"
-                    configKey="imports.folderToTagsMode"
-                    checked={stores.home.settings.imports.folderToTagsMode.includes("hierarchical")}
-                    setChecked={toggleFoldersToTagsHierarchical}
-                  />
-
-                  <Settings.Checkbox
-                    label="Cascading"
-                    configKey="imports.folderToTagsMode"
-                    checked={stores.home.settings.imports.folderToTagsMode === "cascading"}
-                    setChecked={toggleFoldersToTagsCascading}
-                  />
-
-                  <Settings.Checkbox label="Delimited" configKey="imports.withDelimiters" />
-
-                  <Settings.Checkbox label="With RegEx" configKey="imports.withFolderNameRegEx" />
-                </View>
-              </View>
-
-              <View column spacing="0.3rem">
                 <Settings.Checkbox
-                  label="Folder to Collection"
-                  configKey="imports.folderToCollMode"
-                  checked={stores.home.settings.imports.folderToCollMode !== "none"}
-                  setChecked={handleFolderToCollection}
+                  label="Cascading"
+                  configKey="imports.folderToTagsMode"
+                  checked={stores.home.settings.imports.folderToTagsMode === "cascading"}
+                  setChecked={toggleFoldersToTagsCascading}
                 />
 
-                <View column margins={{ left: "1rem" }} spacing="0.3rem">
-                  <Settings.Checkbox
-                    label="With Tags"
-                    configKey="imports.folderToCollMode"
-                    checked={stores.home.settings.imports.folderToCollMode === "withTag"}
-                    setChecked={toggleFolderToCollWithTag}
-                  />
-                </View>
+                <Settings.Checkbox label="Delimited" configKey="imports.withDelimiters" />
 
-                <Settings.Checkbox label="Diffusion Params" configKey="imports.withDiffParams" />
-
-                <View column margins={{ left: "1rem" }} spacing="0.3rem">
-                  <Settings.Checkbox label="With Tags" configKey="imports.withDiffTags" />
-
-                  <View column margins={{ left: "1rem" }} spacing="0.3rem">
-                    <Settings.Checkbox label="Model" configKey="imports.withDiffModel" />
-
-                    <Settings.Checkbox label="With RegEx" configKey="imports.withDiffRegEx" />
-                  </View>
-                </View>
-              </View>
-
-              <View column flex="1 0 auto" spacing="0.3rem">
-                <Settings.Input header="Diffusion Tag Label" configKey="imports.labelDiff" />
-
-                <Settings.Input
-                  header="Diffusion Model Tag Label"
-                  configKey="imports.labelDiffModel"
-                />
-
-                <Settings.Input
-                  header="Diffusion (Original) Tag Label"
-                  configKey="imports.labelDiffOriginal"
-                />
-
-                <Settings.Input
-                  header="Diffusion (Upscaled) Tag Label"
-                  configKey="imports.labelDiffUpscaled"
-                />
+                <Settings.Checkbox label="With RegEx" configKey="imports.withFolderNameRegEx" />
               </View>
             </View>
-          </Settings.Section>
 
-          <Settings.Section title="Tags">
-            <View row>
-              <Settings.SortMenu
-                header="Manager - Default Sort"
-                configKey="tags.manager.sort"
-                rows={SORT_OPTIONS.Tag}
+            <View column spacing="0.3rem">
+              <Settings.Checkbox
+                label="Folder to Collection"
+                configKey="imports.folderToCollMode"
+                checked={stores.home.settings.imports.folderToCollMode !== "none"}
+                setChecked={handleFolderToCollection}
+              />
+
+              <View column margins={{ left: "1rem" }} spacing="0.3rem">
+                <Settings.Checkbox
+                  label="With Tags"
+                  configKey="imports.folderToCollMode"
+                  checked={stores.home.settings.imports.folderToCollMode === "withTag"}
+                  setChecked={toggleFolderToCollWithTag}
+                />
+              </View>
+
+              <Settings.Checkbox label="Diffusion Params" configKey="imports.withDiffParams" />
+
+              <View column margins={{ left: "1rem" }} spacing="0.3rem">
+                <Settings.Checkbox label="With Tags" configKey="imports.withDiffTags" />
+
+                <View column margins={{ left: "1rem" }} spacing="0.3rem">
+                  <Settings.Checkbox label="Model" configKey="imports.withDiffModel" />
+
+                  <Settings.Checkbox label="With RegEx" configKey="imports.withDiffRegEx" />
+                </View>
+              </View>
+            </View>
+
+            <View column flex="1 0 auto" spacing="0.3rem">
+              <Settings.Input header="Diffusion Tag Label" configKey="imports.labelDiff" />
+
+              <Settings.Input
+                header="Diffusion Model Tag Label"
+                configKey="imports.labelDiffModel"
+              />
+
+              <Settings.Input
+                header="Diffusion (Original) Tag Label"
+                configKey="imports.labelDiffOriginal"
+              />
+
+              <Settings.Input
+                header="Diffusion (Upscaled) Tag Label"
+                configKey="imports.labelDiffUpscaled"
               />
             </View>
-          </Settings.Section>
-        </View>
+          </View>
+        </Settings.Section>
+
+        <Settings.Section title="Tags">
+          <View row>
+            <Settings.SortMenu
+              header="Manager - Default Sort"
+              configKey="tags.manager.sort"
+              rows={SORT_OPTIONS.Tag}
+            />
+          </View>
+        </Settings.Section>
       </Modal.Content>
 
       <Modal.Footer>
@@ -370,14 +367,4 @@ export const SettingsModal = observer(() => {
       )}
     </Modal.Container>
   );
-});
-
-const useClasses = makeClasses({
-  modalContent: {
-    overflowX: "auto",
-  },
-  modalHeader: {
-    margin: 0,
-    padding: "0.5rem 0",
-  },
 });

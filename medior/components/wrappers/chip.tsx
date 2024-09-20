@@ -2,7 +2,7 @@ import { ReactNode } from "react";
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { Chip as MuiChip, ChipProps as MuiChipProps } from "@mui/material";
 import { Icon, IconName, IconProps } from "medior/components";
-import { CSS, makeClasses, Padding } from "medior/utils";
+import { CSS, makeClasses, makePadding, Padding } from "medior/utils";
 
 export interface ChipProps extends Omit<MuiChipProps, "color" | "icon"> {
   bgColor?: CSS["backgroundColor"];
@@ -68,11 +68,7 @@ const useClasses = makeClasses((props: ClassesProps) => ({
     transition: "all 200ms ease-in-out",
     width: props.width,
     "& > .MuiChip-label": {
-      padding: props.padding?.all,
-      paddingTop: props.padding?.top,
-      paddingBottom: props.padding?.bottom,
-      paddingLeft: props.padding?.left,
-      paddingRight: props.padding?.right,
+      ...makePadding(props.padding),
     },
   },
 }));

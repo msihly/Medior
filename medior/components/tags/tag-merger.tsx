@@ -147,90 +147,88 @@ export const TagMerger = observer(() => {
   return (
     <Modal.Container onClose={handleClose} width="50rem" draggable>
       <Modal.Header>
-        <Text>{"Merge Tags"}</Text>
+        <Text preset="title">{"Merge Tags"}</Text>
       </Modal.Header>
 
-      <Modal.Content>
-        <View column spacing="0.5rem">
-          <Card column>
-            <UniformList row spacing="0.5rem">
-              <View column flex={1}>
-                <HeaderWrapper header="Base Tag">
-                  <TagList
-                    tags={[baseTag]}
-                    search={null}
-                    viewProps={{ borderRadiuses: { top: 0 } }}
-                  />
-                </HeaderWrapper>
-
-                <Checkbox
-                  label="Keep This Label"
-                  checked={tagLabelToKeep === "base"}
-                  setChecked={() => setTagLabelToKeep("base")}
-                  disabled={disabled}
-                  center
+      <Modal.Content spacing="0.5rem">
+        <Card column>
+          <UniformList row spacing="0.5rem">
+            <View column flex={1}>
+              <HeaderWrapper header="Base Tag">
+                <TagList
+                  tags={[baseTag]}
+                  search={null}
+                  viewProps={{ borderRadiuses: { top: 0 } }}
                 />
-              </View>
+              </HeaderWrapper>
 
-              <View column flex={1}>
-                <TagInput
-                  header="Tag to Merge"
-                  options={tagOptions}
-                  excludedIds={[stores.tag.activeTagId]}
-                  value={selectedTagValue}
-                  onChange={handleSelectedTagChange}
-                  single
-                />
+              <Checkbox
+                label="Keep This Label"
+                checked={tagLabelToKeep === "base"}
+                setChecked={() => setTagLabelToKeep("base")}
+                disabled={disabled}
+                center
+              />
+            </View>
 
-                <Checkbox
-                  label="Keep This Label"
-                  checked={tagLabelToKeep === "merge"}
-                  setChecked={() => setTagLabelToKeep("merge")}
-                  disabled={disabled}
-                  center
-                />
-              </View>
-            </UniformList>
+            <View column flex={1}>
+              <TagInput
+                header="Tag to Merge"
+                options={tagOptions}
+                excludedIds={[stores.tag.activeTagId]}
+                value={selectedTagValue}
+                onChange={handleSelectedTagChange}
+                single
+              />
+
+              <Checkbox
+                label="Keep This Label"
+                checked={tagLabelToKeep === "merge"}
+                setChecked={() => setTagLabelToKeep("merge")}
+                disabled={disabled}
+                center
+              />
+            </View>
+          </UniformList>
+        </Card>
+
+        <View column position="relative" spacing="0.5rem">
+          {disabled && <View className={css.disabledOverlay} />}
+
+          <Card row flex={1} spacing="0.5rem">
+            <TagInputs.Label value={label} setValue={setLabel} disabled hasHelper={false} />
+
+            <TagInputs.Aliases value={aliases} setValue={setAliases} disabled hasHelper={false} />
           </Card>
 
-          <View column position="relative" spacing="0.5rem">
-            {disabled && <View className={css.disabledOverlay} />}
+          <Card row height="12rem" spacing="0.5rem">
+            <TagInputs.Relations
+              header="Parent Tags"
+              options={tagOptions}
+              excludedIds={[stores.tag.activeTagId, ...childTags.map((t) => t.id)]}
+              value={parentTags}
+              setValue={setParentTags}
+              disabled
+              hasDelete={false}
+            />
 
-            <Card row flex={1} spacing="0.5rem">
-              <TagInputs.Label value={label} setValue={setLabel} disabled hasHelper={false} />
-
-              <TagInputs.Aliases value={aliases} setValue={setAliases} disabled hasHelper={false} />
-            </Card>
-
-            <Card row height="12rem" spacing="0.5rem">
-              <TagInputs.Relations
-                header="Parent Tags"
-                options={tagOptions}
-                excludedIds={[stores.tag.activeTagId, ...childTags.map((t) => t.id)]}
-                value={parentTags}
-                setValue={setParentTags}
-                disabled
-                hasDelete={false}
-              />
-
-              <TagInputs.Relations
-                header="Child Tags"
-                options={tagOptions}
-                excludedIds={[stores.tag.activeTagId, ...parentTags.map((t) => t.id)]}
-                value={childTags}
-                setValue={setChildTags}
-                disabled
-                hasDelete={false}
-              />
-            </Card>
-          </View>
-
-          {!disabled && (
-            <Text align="center" fontStyle="italic" fontSize="0.8em">
-              {"Edit after merging"}
-            </Text>
-          )}
+            <TagInputs.Relations
+              header="Child Tags"
+              options={tagOptions}
+              excludedIds={[stores.tag.activeTagId, ...parentTags.map((t) => t.id)]}
+              value={childTags}
+              setValue={setChildTags}
+              disabled
+              hasDelete={false}
+            />
+          </Card>
         </View>
+
+        {!disabled && (
+          <Text align="center" fontStyle="italic" fontSize="0.8em">
+            {"Edit after merging"}
+          </Text>
+        )}
       </Modal.Content>
 
       <Modal.Footer>

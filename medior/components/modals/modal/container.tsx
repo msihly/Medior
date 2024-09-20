@@ -3,11 +3,13 @@ import Draggable from "react-draggable";
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { Dialog, DialogProps, Paper, PaperProps } from "@mui/material";
 import { colors, CSS, makeClasses } from "medior/utils";
+import { LoadingOverlay } from "medior/components";
 
 export interface ContainerProps
   extends Omit<DialogProps, "maxWidth" | "open" | "onClose" | "title"> {
   closeOnBackdrop?: boolean;
   height?: CSS["height"];
+  isLoading?: boolean;
   maxHeight?: CSS["maxHeight"];
   maxWidth?: CSS["maxWidth"];
   onClose?: () => void;
@@ -21,6 +23,7 @@ export const Container = ({
   closeOnBackdrop = true,
   draggable = false,
   height,
+  isLoading,
   maxHeight,
   maxWidth = "none",
   onClose,
@@ -43,6 +46,8 @@ export const Container = ({
       onClose={handleClose}
       className={cx(css.modal, className)}
     >
+      <LoadingOverlay {...{ isLoading }} />
+
       {children}
     </Dialog>
   );

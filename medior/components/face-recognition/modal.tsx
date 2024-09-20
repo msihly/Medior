@@ -6,7 +6,6 @@ import {
   Card,
   CenteredText,
   FileBase,
-  LoadingOverlay,
   Modal,
   TagInput,
   Text,
@@ -177,11 +176,9 @@ export const FaceRecognitionModal = observer(() => {
   const offsetTop = imageRef.current?.offsetTop || 0;
 
   return (
-    <Modal.Container width="100%" height="100%">
-      <LoadingOverlay isLoading={stores.faceRecog.isDisabled} />
-
+    <Modal.Container isLoading={stores.faceRecog.isDisabled} width="100%" height="100%">
       <Modal.Header>
-        <Text>{"Face Recognition"}</Text>
+        <Text preset="title">{"Face Recognition"}</Text>
       </Modal.Header>
 
       <Modal.Content>

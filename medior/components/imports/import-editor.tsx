@@ -6,11 +6,11 @@ import { FileImport, RootStore, Tag, observer, useStores } from "medior/store";
 import { Divider } from "@mui/material";
 import {
   Button,
+  Card,
   Checkbox,
   CheckboxProps,
   Chip,
   ConfirmModal,
-  LoadingOverlay,
   Modal,
   NumInput,
   Text,
@@ -108,7 +108,7 @@ class EditorImportsCache {
 export const ImportEditor = observer(() => {
   const config = getConfig();
 
-  const { css, cx } = useClasses(null);
+  const { css } = useClasses(null);
 
   const stores = useStores();
 
@@ -214,8 +214,12 @@ export const ImportEditor = observer(() => {
 
     const folderTags: TagToUpsert[] = [];
 
-    const depth = withFlattenTo ? stores.import.editorRootFolderIndex + stores.import.editorFlattenTo : undefined;
-    const folderNameParts = folderName.split(path.sep).slice(stores.import.editorRootFolderIndex, depth);
+    const depth = withFlattenTo
+      ? stores.import.editorRootFolderIndex + stores.import.editorFlattenTo
+      : undefined;
+    const folderNameParts = folderName
+      .split(path.sep)
+      .slice(stores.import.editorRootFolderIndex, depth);
     const collectionTitle =
       folderToCollectionMode !== "none"
         ? (folderToCollectionMode === "withTag" ? folderNameParts.slice() : folderNameParts).pop()
@@ -683,9 +687,7 @@ export const ImportEditor = observer(() => {
   };
 
   return (
-    <Modal.Container width="100%" height="100%">
-      <LoadingOverlay isLoading={stores.import.editor.isDisabled} />
-
+    <Modal.Container isLoading={stores.import.editor.isDisabled} width="100%" height="100%">
       <Modal.Header
         leftNode={<Button text="Tag Manager" icon="More" onClick={handleTagManager} />}
         rightNode={
@@ -694,196 +696,194 @@ export const ImportEditor = observer(() => {
           />
         }
       >
-        <Text>{"Import Editor"}</Text>
+        <Text preset="title">{"Import Editor"}</Text>
       </Modal.Header>
 
-      <Modal.Content className={css.vertScroll}>
-        <View className={css.body}>
-          <View className={cx(css.container, css.leftColumn)}>
-            <Button
-              text="Scan"
-              icon="Cached"
-              onClick={scan}
-              disabled={stores.import.editor.isDisabled}
-              color={hasChangesSinceLastScan ? colors.custom.purple : colors.custom.blue}
+      <Modal.Content row column={false} flex={1} height="100%">
+        <Card width="15rem" overflow="hidden auto">
+          <Button
+            text="Scan"
+            icon="Cached"
+            onClick={scan}
+            disabled={stores.import.editor.isDisabled}
+            color={hasChangesSinceLastScan ? colors.custom.purple : colors.custom.blue}
+          />
+
+          <Checkbox
+            {...checkboxProps}
+            label="Delete on Import"
+            checked={deleteOnImport}
+            setChecked={setDeleteOnImport}
+          />
+
+          <Checkbox
+            {...checkboxProps}
+            label="Ignore Prev. Deleted"
+            checked={ignorePrevDeleted}
+            setChecked={setIgnorePrevDeleted}
+          />
+
+          <Divider />
+
+          <Checkbox
+            {...checkboxProps}
+            label="New Tags to RegEx"
+            checked={withNewTagsToRegEx}
+            setChecked={setWithNewTagsToRegEx}
+          />
+
+          <Divider />
+
+          <Checkbox
+            {...checkboxProps}
+            label="File to Tags (RegEx)"
+            checked={withFileNameToTags}
+            setChecked={setWithFileNameToTags}
+          />
+
+          <Divider />
+
+          <Checkbox
+            {...checkboxProps}
+            label="Folder to Tags"
+            checked={folderToTagsMode !== "none"}
+            setChecked={handleFoldersToTags}
+          />
+
+          <View column margins={{ left: "1rem" }}>
+            <Checkbox
+              {...checkboxProps}
+              label="Hierarchical"
+              checked={folderToTagsMode.includes("hierarchical")}
+              setChecked={toggleFoldersToTagsHierarchical}
+              disabled={checkboxProps.disabled || folderToTagsMode === "none"}
             />
 
             <Checkbox
               {...checkboxProps}
-              label="Delete on Import"
-              checked={deleteOnImport}
-              setChecked={setDeleteOnImport}
+              label="Cascading"
+              checked={folderToTagsMode === "cascading"}
+              setChecked={toggleFoldersToTagsCascading}
+              disabled={checkboxProps.disabled || folderToTagsMode === "none"}
             />
 
             <Checkbox
               {...checkboxProps}
-              label="Ignore Prev. Deleted"
-              checked={ignorePrevDeleted}
-              setChecked={setIgnorePrevDeleted}
+              label="Delimited"
+              checked={withDelimiters}
+              setChecked={setWithDelimiters}
+              disabled={checkboxProps.disabled || folderToTagsMode === "none"}
             />
-
-            <Divider />
 
             <Checkbox
               {...checkboxProps}
-              label="New Tags to RegEx"
-              checked={withNewTagsToRegEx}
-              setChecked={setWithNewTagsToRegEx}
+              label="With RegEx"
+              checked={withFolderNameRegEx}
+              setChecked={toggleWithFolderNameRegEx}
+              disabled={checkboxProps.disabled || folderToTagsMode === "none"}
             />
+          </View>
 
-            <Divider />
+          <Divider />
 
+          <Checkbox
+            {...checkboxProps}
+            label="Folder to Collection"
+            checked={folderToCollectionMode !== "none"}
+            setChecked={handleFolderToCollection}
+          />
+
+          <View column margins={{ left: "1rem" }}>
             <Checkbox
               {...checkboxProps}
-              label="File to Tags (RegEx)"
-              checked={withFileNameToTags}
-              setChecked={setWithFileNameToTags}
+              label="With Tag"
+              checked={folderToCollectionMode === "withTag"}
+              setChecked={toggleFolderToCollWithTag}
             />
 
-            <Divider />
+            <View row align="center" spacing="0.5rem">
+              <Checkbox
+                {...checkboxProps}
+                label="Flatten to"
+                checked={withFlattenTo}
+                setChecked={setWithFlattenTo}
+                disabled={checkboxProps.disabled || folderToCollectionMode === "none"}
+              />
 
+              <NumInput
+                placeholder="Depth"
+                value={stores.import.editorFlattenTo}
+                setValue={setFlattenTo}
+                disabled={folderToCollectionMode === "none" || !withFlattenTo}
+                hasHelper={false}
+                textAlign="center"
+                dense
+              />
+            </View>
+          </View>
+
+          <Divider />
+
+          <Checkbox
+            {...checkboxProps}
+            label="Diffusion Params"
+            checked={withDiffusionParams}
+            setChecked={setWithDiffusionParams}
+          />
+
+          <View column margins={{ left: "1rem" }}>
             <Checkbox
               {...checkboxProps}
-              label="Folder to Tags"
-              checked={folderToTagsMode !== "none"}
-              setChecked={handleFoldersToTags}
+              label="With Tags"
+              checked={withDiffusionTags}
+              setChecked={setWithDiffusionTags}
+              disabled={checkboxProps.disabled || !withDiffusionParams}
             />
 
             <View column margins={{ left: "1rem" }}>
               <Checkbox
                 {...checkboxProps}
-                label="Hierarchical"
-                checked={folderToTagsMode.includes("hierarchical")}
-                setChecked={toggleFoldersToTagsHierarchical}
-                disabled={checkboxProps.disabled || folderToTagsMode === "none"}
-              />
-
-              <Checkbox
-                {...checkboxProps}
-                label="Cascading"
-                checked={folderToTagsMode === "cascading"}
-                setChecked={toggleFoldersToTagsCascading}
-                disabled={checkboxProps.disabled || folderToTagsMode === "none"}
-              />
-
-              <Checkbox
-                {...checkboxProps}
-                label="Delimited"
-                checked={withDelimiters}
-                setChecked={setWithDelimiters}
-                disabled={checkboxProps.disabled || folderToTagsMode === "none"}
+                label="Model"
+                checked={withDiffusionModel}
+                setChecked={setWithDiffusionModel}
+                disabled={checkboxProps.disabled || !withDiffusionParams || !withDiffusionTags}
               />
 
               <Checkbox
                 {...checkboxProps}
                 label="With RegEx"
-                checked={withFolderNameRegEx}
-                setChecked={toggleWithFolderNameRegEx}
-                disabled={checkboxProps.disabled || folderToTagsMode === "none"}
+                checked={withDiffusionRegExMaps}
+                setChecked={setWithDiffusionRegExMaps}
+                disabled={checkboxProps.disabled || !withDiffusionParams || !withDiffusionTags}
               />
-            </View>
-
-            <Divider />
-
-            <Checkbox
-              {...checkboxProps}
-              label="Folder to Collection"
-              checked={folderToCollectionMode !== "none"}
-              setChecked={handleFolderToCollection}
-            />
-
-            <View column margins={{ left: "1rem" }}>
-              <Checkbox
-                {...checkboxProps}
-                label="With Tag"
-                checked={folderToCollectionMode === "withTag"}
-                setChecked={toggleFolderToCollWithTag}
-              />
-
-              <View row align="center" spacing="0.5rem">
-                <Checkbox
-                  {...checkboxProps}
-                  label="Flatten to"
-                  checked={withFlattenTo}
-                  setChecked={setWithFlattenTo}
-                  disabled={checkboxProps.disabled || folderToCollectionMode === "none"}
-                />
-
-                <NumInput
-                  placeholder="Depth"
-                  value={stores.import.editorFlattenTo}
-                  setValue={setFlattenTo}
-                  disabled={folderToCollectionMode === "none" || !withFlattenTo}
-                  hasHelper={false}
-                  textAlign="center"
-                  dense
-                />
-              </View>
-            </View>
-
-            <Divider />
-
-            <Checkbox
-              {...checkboxProps}
-              label="Diffusion Params"
-              checked={withDiffusionParams}
-              setChecked={setWithDiffusionParams}
-            />
-
-            <View column margins={{ left: "1rem" }}>
-              <Checkbox
-                {...checkboxProps}
-                label="With Tags"
-                checked={withDiffusionTags}
-                setChecked={setWithDiffusionTags}
-                disabled={checkboxProps.disabled || !withDiffusionParams}
-              />
-
-              <View column margins={{ left: "1rem" }}>
-                <Checkbox
-                  {...checkboxProps}
-                  label="Model"
-                  checked={withDiffusionModel}
-                  setChecked={setWithDiffusionModel}
-                  disabled={checkboxProps.disabled || !withDiffusionParams || !withDiffusionTags}
-                />
-
-                <Checkbox
-                  {...checkboxProps}
-                  label="With RegEx"
-                  checked={withDiffusionRegExMaps}
-                  setChecked={setWithDiffusionRegExMaps}
-                  disabled={checkboxProps.disabled || !withDiffusionParams || !withDiffusionTags}
-                />
-              </View>
             </View>
           </View>
+        </Card>
 
-          <View className={css.rightColumn}>
-            {(folderToTagsMode !== "none" ||
-              folderToCollectionMode === "withTag" ||
-              (withDiffusionParams && withDiffusionTags)) && (
-              <View flex={0} className={css.container}>
-                <View className={css.rootTagSelector}>
-                  <Text fontWeight={500} fontSize="0.9em" marginRight="0.5rem">
-                    {"Select Root Tag"}
-                  </Text>
+        <View column width="100%" spacing="0.5rem" overflow="hidden">
+          {(folderToTagsMode !== "none" ||
+            folderToCollectionMode === "withTag" ||
+            (withDiffusionParams && withDiffusionTags)) && (
+            <Card flex={0} width="100%">
+              <View className={css.rootTagSelector}>
+                <Text fontWeight={500} fontSize="0.9em" marginRight="0.5rem">
+                  {"Select Root Tag"}
+                </Text>
 
-                  {[...stores.import.editorRootFolderPath.split(path.sep), "*"].map((p, i) => (
-                    <RootFolderButton key={i} index={i} folderPart={p} />
-                  ))}
-                </View>
-
-                <View className={css.tags}>
-                  {tagHierarchy.map((t) => (
-                    <TagHierarchy key={t.label} tag={t} />
-                  ))}
-                </View>
+                {[...stores.import.editorRootFolderPath.split(path.sep), "*"].map((p, i) => (
+                  <RootFolderButton key={i} index={i} folderPart={p} />
+                ))}
               </View>
-            )}
 
-            <ImportFoldersList flatFolderHierarchy={flatFolderHierarchy} />
-          </View>
+              <View className={css.tags}>
+                {tagHierarchy.map((t) => (
+                  <TagHierarchy key={t.label} tag={t} />
+                ))}
+              </View>
+            </Card>
+          )}
+
+          <ImportFoldersList flatFolderHierarchy={flatFolderHierarchy} />
         </View>
       </Modal.Content>
 
@@ -918,33 +918,6 @@ export const ImportEditor = observer(() => {
 });
 
 const useClasses = makeClasses({
-  body: {
-    display: "flex",
-    flexDirection: "row",
-    flex: 1,
-    height: "-webkit-fill-available",
-  },
-  container: {
-    display: "flex",
-    flexDirection: "column",
-    borderRadius: 4,
-    width: "100%",
-    padding: "0.5rem",
-    backgroundColor: colors.foreground,
-  },
-  leftColumn: {
-    flexShrink: 0,
-    width: "15rem",
-    marginRight: "0.5rem",
-    overflowY: "auto",
-  },
-  rightColumn: {
-    display: "flex",
-    flexDirection: "column",
-    flex: 1,
-    overflow: "hidden",
-    "& > *:not(:last-child)": { marginBottom: "0.5rem" },
-  },
   rootTagSelector: {
     display: "flex",
     flexFlow: "row wrap",
@@ -956,8 +929,5 @@ const useClasses = makeClasses({
     flexDirection: "row",
     maxHeight: "35vh",
     overflowX: "auto",
-  },
-  vertScroll: {
-    overflowY: "auto",
   },
 });

@@ -1,14 +1,6 @@
 import { useState } from "react";
 import { TagOption, observer, useStores } from "medior/store";
-import {
-  Button,
-  ConfirmModal,
-  LoadingOverlay,
-  Modal,
-  TagInput,
-  Text,
-  View,
-} from "medior/components";
+import { Button, ConfirmModal, Modal, TagInput, Text } from "medior/components";
 import { colors } from "medior/utils";
 import { toast } from "react-toastify";
 
@@ -61,61 +53,55 @@ export const MultiTagEditor = observer(() => {
   };
 
   return (
-    <Modal.Container onClose={handleClose} width="25rem" draggable>
+    <Modal.Container {...{ isLoading }} onClose={handleClose} width="25rem" draggable>
       <Modal.Header>
-        <Text>{"Multi Tags Editor"}</Text>
+        <Text preset="title">{"Multi Tags Editor"}</Text>
       </Modal.Header>
 
-      <Modal.Content>
-        <LoadingOverlay {...{ isLoading }} />
+      <Modal.Content spacing="0.5rem">
+        <TagInput
+          header="Selected Tags"
+          value={stores.tag.tagOptions.filter((t) => stores.tag.manager.selectedIds.includes(t.id))}
+          disabled
+        />
 
-        <View column spacing="0.5rem">
-          <TagInput
-            header="Selected Tags"
-            value={stores.tag.tagOptions.filter((t) =>
-              stores.tag.manager.selectedIds.includes(t.id)
-            )}
-            disabled
-          />
+        <TagInput
+          header="Parent Tags to Add"
+          value={parentTagsToAdd}
+          onChange={setParentTagsToAdd}
+          options={tagOpts}
+          hasCreate
+          hasDelete
+        />
 
-          <TagInput
-            header="Parent Tags to Add"
-            value={parentTagsToAdd}
-            onChange={setParentTagsToAdd}
-            options={tagOpts}
-            hasCreate
-            hasDelete
-          />
+        <TagInput
+          header="Parent Tags to Remove"
+          value={parentTagsToRemove}
+          onChange={setParentTagsToRemove}
+          options={tagOpts}
+          hasDelete
+        />
 
-          <TagInput
-            header="Parent Tags to Remove"
-            value={parentTagsToRemove}
-            onChange={setParentTagsToRemove}
-            options={tagOpts}
-            hasDelete
-          />
+        <TagInput
+          header="Child Tags to Add"
+          value={childTagsToAdd}
+          onChange={setChildTagsToAdd}
+          options={tagOpts}
+          hasCreate
+          hasDelete
+        />
 
-          <TagInput
-            header="Child Tags to Add"
-            value={childTagsToAdd}
-            onChange={setChildTagsToAdd}
-            options={tagOpts}
-            hasCreate
-            hasDelete
-          />
+        <TagInput
+          header="Child Tags to Remove"
+          value={childTagsToRemove}
+          onChange={setChildTagsToRemove}
+          options={tagOpts}
+          hasDelete
+        />
 
-          <TagInput
-            header="Child Tags to Remove"
-            value={childTagsToRemove}
-            onChange={setChildTagsToRemove}
-            options={tagOpts}
-            hasDelete
-          />
-
-          <Text fontSize="0.9em" fontStyle="italic" textAlign="center">
-            {"Changes that result in a broken hierarchy will be ignored."}
-          </Text>
-        </View>
+        <Text fontSize="0.9em" fontStyle="italic" textAlign="center">
+          {"Changes that result in a broken hierarchy will be ignored."}
+        </Text>
       </Modal.Content>
 
       <Modal.Footer>

@@ -3,6 +3,7 @@ import { Text, TextProps, View, ViewProps } from "medior/components";
 import { CSS, colors, makeClasses } from "medior/utils";
 
 export interface DetailProps extends ViewProps {
+  emptyValueText?: string;
   label: ReactNode;
   labelProps?: Partial<TextProps>;
   overflowX?: CSS["overflowX"];
@@ -14,6 +15,7 @@ export interface DetailProps extends ViewProps {
 }
 
 export const Detail = ({
+  emptyValueText = "--",
   label,
   labelProps,
   overflowX = "auto",
@@ -42,7 +44,7 @@ export const Detail = ({
           className={cx(css.value, valueProps?.className)}
           {...valueProps}
         >
-          {value}
+          {value || emptyValueText}
         </Text>
       ) : (
         value

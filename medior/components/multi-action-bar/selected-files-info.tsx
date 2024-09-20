@@ -1,17 +1,17 @@
 import { useState } from "react";
 import { observer, useStores } from "medior/store";
-import { Chip, Text, Tooltip, View } from "medior/components";
-import { formatBytes, getConfig, makeClasses, trpc } from "medior/utils";
+import { Chip, Detail, Tooltip, UniformList, View } from "medior/components";
+import { formatBytes, getConfig, trpc } from "medior/utils";
 import { toast } from "react-toastify";
 
 export const SelectedFilesInfo = observer(() => {
-  const { css } = useClasses(null);
-
   const stores = useStores();
 
   const [totalImages, setTotalImages] = useState(0);
+  const [totalImagesSize, setTotalImagesSize] = useState(0);
   const [totalSize, setTotalSize] = useState(0);
   const [totalVideos, setTotalVideos] = useState(0);
+  const [totalVideosSize, setTotalVideosSize] = useState(0);
 
   const handleOpen = async () => {
     try {
@@ -23,24 +23,29 @@ export const SelectedFilesInfo = observer(() => {
 
       const videoExtRegExp = new RegExp(`${getConfig().file.videoTypes.join("|")}`, "i");
 
-      const [images, videos, size] = selectedFiles.reduce(
+      const [images, videos, imagesSize, videosSize] = selectedFiles.reduce(
         (acc, cur) => {
-          acc[videoExtRegExp.test(cur.ext) ? 1 : 0]++;
-          acc[2] += cur.size;
+          const isVideo = videoExtRegExp.test(cur.ext);
+          acc[isVideo ? 1 : 0]++;
+          acc[isVideo ? 3 : 2] += cur.size;
           return acc;
         },
-        [0, 0, 0]
+        [0, 0, 0, 0]
       );
 
       setTotalImages(images);
+      setTotalImagesSize(imagesSize);
+      setTotalSize(imagesSize + videosSize);
       setTotalVideos(videos);
-      setTotalSize(size);
+      setTotalVideosSize(videosSize);
     } catch (err) {
       console.error(err);
       toast.error("Error loading selected files' info");
       setTotalImages(0);
-      setTotalVideos(0);
+      setTotalImagesSize(0);
       setTotalSize(0);
+      setTotalVideos(0);
+      setTotalVideosSize(0);
     }
   };
 
@@ -50,41 +55,23 @@ export const SelectedFilesInfo = observer(() => {
       minWidth="11rem"
       title={
         <View column>
-          <View className={css.valueRow}>
-            <Text className={css.label}>{"Total Size:"}</Text>
-            <Text className={css.value}>{formatBytes(totalSize)}</Text>
-          </View>
+          <UniformList row spacing="1rem">
+            <View column>
+              <Detail label="Images" value={totalImages} />
+              <Detail label="Images Size" value={formatBytes(totalImagesSize)} />
+            </View>
 
-          <View className={css.valueRow}>
-            <Text className={css.label}>{"Images:"}</Text>
-            <Text className={css.value}>{totalImages}</Text>
-          </View>
+            <View column>
+              <Detail label="Videos" value={totalVideos} />
+              <Detail label="Videos Size" value={formatBytes(totalVideosSize)} />
+            </View>
+          </UniformList>
 
-          <View className={css.valueRow}>
-            <Text className={css.label}>{"Videos:"}</Text>
-            <Text className={css.value}>{totalVideos}</Text>
-          </View>
+          <Detail label="Total Size" value={formatBytes(totalSize)} />
         </View>
       }
     >
       <Chip label={`${stores.file.selectedIds.length} Selected`} />
     </Tooltip>
   );
-});
-
-const useClasses = makeClasses({
-  label: {
-    marginRight: "0.5em",
-    fontSize: 16,
-    fontWeight: 500,
-  },
-  value: {
-    fontSize: 16,
-  },
-  valueRow: {
-    display: "flex",
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
 });

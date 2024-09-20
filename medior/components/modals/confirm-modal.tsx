@@ -1,6 +1,6 @@
 import { Dispatch, SetStateAction } from "react";
 import { Button, Icon, IconName, Modal, Text } from "medior/components";
-import { colors, makeClasses } from "medior/utils";
+import { colors } from "medior/utils";
 
 export interface ConfirmModalProps {
   cancelColor?: string;
@@ -29,8 +29,6 @@ export const ConfirmModal = ({
   setVisible,
   subText,
 }: ConfirmModalProps) => {
-  const { css } = useClasses(null);
-
   const handleClose = () => setVisible(false);
 
   const handleCancel = () => {
@@ -56,13 +54,11 @@ export const ConfirmModal = ({
       maxHeight="20rem"
       maxWidth="25rem"
     >
-      <Modal.Header className={css.modalHeader}>
-        <Text fontSize="1.1em" fontWeight={500}>
-          {headerText}
-        </Text>
+      <Modal.Header>
+        <Text preset="title">{headerText}</Text>
       </Modal.Header>
 
-      <Modal.Content className={css.modalContent}>
+      <Modal.Content align="center" justify="center">
         <Icon name="Delete" color={colors.custom.red} size="5rem" />
 
         <Text fontSize="1.3em" textAlign="center">
@@ -83,14 +79,3 @@ export const ConfirmModal = ({
     </Modal.Container>
   );
 };
-
-const useClasses = makeClasses({
-  modalContent: {
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  modalHeader: {
-    margin: 0,
-    padding: "0.5rem 0",
-  },
-});

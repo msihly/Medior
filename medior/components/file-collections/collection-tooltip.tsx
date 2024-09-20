@@ -1,21 +1,16 @@
-import { TagChip, Text, Tooltip, View } from "medior/components";
 import { useState } from "react";
+import { FileCollection } from "medior/store";
+import { Detail, TagRow, Text, Tooltip, View } from "medior/components";
+import { dayjs, trpc } from "medior/utils";
 import { toast } from "react-toastify";
-import { FileCollection, observer, useStores } from "medior/store";
-import { dayjs, makeClasses, trpc } from "medior/utils";
 
 export interface CollectionTooltipProps {
   children: JSX.Element;
   collection: FileCollection;
 }
 
-export const CollectionTooltip = observer(({ children, collection }: CollectionTooltipProps) => {
-  const { css } = useClasses(null);
-
-  const stores = useStores();
-
+export const CollectionTooltip = ({ children, collection }: CollectionTooltipProps) => {
   const [tagIds, setTagIds] = useState<string[]>([]);
-  const tags = stores.tag.listByIds(tagIds);
 
   const handleOpen = async () => {
     try {
@@ -32,39 +27,29 @@ export const CollectionTooltip = observer(({ children, collection }: CollectionT
     }
   };
 
-  const onTagPress = (tagId: string) => {
-    stores.tag.setActiveTagId(tagId);
-    stores.tag.setIsTagEditorOpen(true);
-  };
-
   return (
     <Tooltip
       onOpen={handleOpen}
       enterDelay={700}
       enterNextDelay={300}
-      minWidth="20rem"
+      minWidth="25rem"
       title={
-        <View column>
-          <Text className={css.title}>{collection.title}</Text>
+        <View column padding={{ all: "0.5rem" }}>
+          <Text preset="title">{collection.title}</Text>
 
-          <View row className={css.header}>
-            <Text>{`Created ${dayjs(collection.dateCreated).fromNow()}`}</Text>
-            <Text textAlign="right">{`Modified ${dayjs(collection.dateModified).fromNow()}`}</Text>
+          <View row justify="space-between" spacing="1rem">
+            <Detail
+              label="Created"
+              value={dayjs(collection.dateCreated).format("YYYY-MM-DD HH:mm A")}
+            />
+
+            <Detail
+              label="Modified"
+              value={dayjs(collection.dateModified).format("YYYY-MM-DD HH:mm A")}
+            />
           </View>
 
-          {tags?.length > 0 && (
-            <View className={css.tags}>
-              {tags.map((tag) => (
-                <TagChip
-                  key={tag.id}
-                  tag={tag}
-                  onClick={() => onTagPress(tag.id)}
-                  size="small"
-                  style={{ margin: "0 0.5em 0.5em 0" }}
-                />
-              ))}
-            </View>
-          )}
+          <TagRow tagIds={tagIds} />
         </View>
       }
     >
@@ -73,26 +58,4 @@ export const CollectionTooltip = observer(({ children, collection }: CollectionT
       </View>
     </Tooltip>
   );
-});
-
-const useClasses = makeClasses({
-  header: {
-    justifyContent: "space-between",
-    padding: "0.3rem",
-    fontSize: "1.1em",
-    "& > *:not(:last-child)": {
-      marginRight: "1rem",
-    },
-  },
-  tags: {
-    display: "flex",
-    flexFlow: "row wrap",
-    justifyContent: "center",
-    margin: "0.3rem 0 0.2rem 0",
-  },
-  title: {
-    fontSize: "1.2em",
-    fontWeight: "bold",
-    textAlign: "center",
-  },
-});
+};

@@ -56,7 +56,7 @@ interface ClassesProps {
   disabled: boolean;
   flex: CSS["flex"];
   fullWidth: boolean;
-  padding?: Padding;
+  padding: Padding;
 }
 
 const useClasses = makeClasses(

@@ -22,14 +22,13 @@ import {
   FileSearchFile,
   Input,
   ListItem,
-  LoadingOverlay,
   MenuButton,
   Modal,
   MultiActionButton,
   Pagination,
   SortMenu,
   SortMenuProps,
-  TagChip,
+  TagRow,
   Text,
   View,
 } from "medior/components";
@@ -45,6 +44,7 @@ export const FileCollectionEditor = observer(() => {
   const stores = useStores();
 
   const hasNoSelection = stores.collection.editor.selectedIds.length === 0;
+  const isCreate = stores.collection.editor.collection === null;
 
   const [draggedFileId, setDraggedFileId] = useState<string>(null);
   const [isAddingFiles, setIsAddingFiles] = useState(false);
@@ -157,9 +157,12 @@ export const FileCollectionEditor = observer(() => {
   const toggleAddingFiles = () => setIsAddingFiles((prev) => !prev);
 
   return (
-    <Modal.Container onClose={confirmClose} maxWidth="100%" width="90%" height="90%">
-      <LoadingOverlay isLoading={stores.collection.editor.isLoading} />
-
+    <Modal.Container
+      isLoading={stores.collection.editor.isLoading}
+      onClose={confirmClose}
+      height="100%"
+      width="100%"
+    >
       <Modal.Header
         leftNode={
           <Button
@@ -171,152 +174,143 @@ export const FileCollectionEditor = observer(() => {
           />
         }
         rightNode={
-          <MenuButton color={colors.custom.grey}>
-            <ListItem text="Delete" icon="Delete" onClick={handleDelete} />
-            <ListItem text="Refresh Metadata" icon="Refresh" onClick={handleRefreshMeta} />
-          </MenuButton>
+          isCreate ? null : (
+            <MenuButton color={colors.custom.grey}>
+              <ListItem text="Delete" icon="Delete" onClick={handleDelete} />
+              <ListItem text="Refresh Metadata" icon="Refresh" onClick={handleRefreshMeta} />
+            </MenuButton>
+          )
         }
       >
-        <Text align="center">
-          {`${stores.collection.editor.collection === null ? "Create" : "Edit"} Collection`}
-        </Text>
+        <Text preset="title">{`${isCreate ? "Create" : "Edit"} Collection`}</Text>
       </Modal.Header>
 
-      <Modal.Content dividers={false}>
-        <View row flex={1} height="100%" spacing="0.5rem">
-          {isAddingFiles && (
-            <Card
-              column
-              flex="none"
-              height="100%"
-              width="16rem"
-              spacing="0.5rem"
-              padding={{ all: 0 }}
+      <Modal.Content dividers={false} row flex={1} height="100%" spacing="0.5rem">
+        {isAddingFiles && (
+          <Card
+            column
+            flex="none"
+            height="100%"
+            width="16rem"
+            spacing="0.5rem"
+            padding={{ all: 0 }}
+          >
+            <View column spacing="0.5rem" padding={{ all: "0.5rem" }}>
+              <FileFilterMenu store={stores.collection.editor.search} color={colors.custom.black} />
+            </View>
+
+            <CardGrid
+              cards={stores.collection.editor.search.results.map((f) => (
+                <FileSearchFile key={f.id} file={f} />
+              ))}
+              maxCards={1}
             >
-              <View column spacing="0.5rem" padding={{ all: "0.5rem" }}>
-                <FileFilterMenu
-                  store={stores.collection.editor.search}
-                  color={colors.custom.black}
+              <Pagination
+                count={stores.collection.editor.search.pageCount}
+                page={stores.collection.editor.search.page}
+                onChange={handlePageChange}
+              />
+            </CardGrid>
+          </Card>
+        )}
+
+        <View column flex={1} spacing="0.5rem" overflow="hidden">
+          <View row spacing="0.5rem">
+            <Card column flex={1} spacing="0.5rem" overflow="hidden">
+              <HeaderRow label="Title">
+                <Input value={title} setValue={handleTitleChange} width="100%" />
+              </HeaderRow>
+
+              <HeaderRow label="Tags">
+                <TagRow tags={stores.collection.editor.sortedTags} />
+              </HeaderRow>
+            </Card>
+
+            <Card column flex="none" height="100%">
+              <View row>
+                <MultiActionButton
+                  name="Delete"
+                  tooltip="Remove Files From Collection"
+                  iconProps={{ color: colors.custom.red }}
+                  onClick={handleRemoveFiles}
+                  disabled={hasNoSelection}
+                />
+
+                <MultiActionButton
+                  name="Archive"
+                  tooltip="Archive Files"
+                  iconProps={{ color: colors.custom.orange }}
+                  onClick={handleArchiveFiles}
+                  disabled={hasNoSelection}
+                />
+
+                <MultiActionButton
+                  name="Label"
+                  tooltip="Edit Tags"
+                  onClick={handleEditTags}
+                  disabled={hasNoSelection}
+                />
+
+                <MultiActionButton
+                  name="Refresh"
+                  tooltip="Refresh File Info"
+                  onClick={handleFileInfoRefresh}
+                  disabled={hasNoSelection}
+                />
+
+                <MultiActionButton
+                  name="Deselect"
+                  tooltip="Deselect All Files"
+                  onClick={handleDeselectAll}
+                  disabled={hasNoSelection}
+                />
+
+                <MultiActionButton
+                  name="SelectAll"
+                  tooltip="Select All Files in View"
+                  onClick={handleSelectAll}
                 />
               </View>
 
-              <CardGrid
-                cards={stores.collection.editor.search.results.map((f) => (
-                  <FileSearchFile key={f.id} file={f} />
-                ))}
-                maxCards={1}
-              >
-                <Pagination
-                  count={stores.collection.editor.search.pageCount}
-                  page={stores.collection.editor.search.page}
-                  onChange={handlePageChange}
-                />
-              </CardGrid>
-            </Card>
-          )}
-
-          <View column flex={1} spacing="0.5rem" overflow="hidden">
-            <View row spacing="0.5rem">
-              <Card column flex={1} spacing="0.5rem" overflow="hidden">
-                <HeaderRow label="Title">
-                  <Input value={title} setValue={handleTitleChange} width="100%" />
-                </HeaderRow>
-
-                <HeaderRow label="Tags">
-                  <View spacing="0.5rem" className={css.tags}>
-                    {stores.collection.editor.sortedTags.map((tag) => (
-                      <TagChip key={tag.id} tag={tag} hasEditor className={css.tag} />
-                    ))}
-                  </View>
-                </HeaderRow>
-              </Card>
-
-              <Card column flex="none" height="100%">
-                <View row>
-                  <MultiActionButton
-                    name="Delete"
-                    tooltip="Remove Files From Collection"
-                    iconProps={{ color: colors.custom.red }}
-                    onClick={handleRemoveFiles}
-                    disabled={hasNoSelection}
-                  />
-
-                  <MultiActionButton
-                    name="Archive"
-                    tooltip="Archive Files"
-                    iconProps={{ color: colors.custom.orange }}
-                    onClick={handleArchiveFiles}
-                    disabled={hasNoSelection}
-                  />
-
-                  <MultiActionButton
-                    name="Label"
-                    tooltip="Edit Tags"
-                    onClick={handleEditTags}
-                    disabled={hasNoSelection}
-                  />
-
-                  <MultiActionButton
-                    name="Refresh"
-                    tooltip="Refresh File Info"
-                    onClick={handleFileInfoRefresh}
-                    disabled={hasNoSelection}
-                  />
-
-                  <MultiActionButton
-                    name="Deselect"
-                    tooltip="Deselect All Files"
-                    onClick={handleDeselectAll}
-                    disabled={hasNoSelection}
-                  />
-
-                  <MultiActionButton
-                    name="SelectAll"
-                    tooltip="Select All Files in View"
-                    onClick={handleSelectAll}
-                  />
-                </View>
-
-                <SortMenu
-                  value={stores.collection.editor.sortValue}
-                  setValue={setSortValue}
-                  rows={[
-                    { attribute: "custom", icon: "Settings", label: "Custom" },
-                    { attribute: "originalName", icon: "Abc", label: "Original Name" },
-                    ...SORT_OPTIONS.File,
-                  ]}
-                  width="100%"
-                />
-              </Card>
-            </View>
-
-            <Card column flex={1}>
-              {!stores.collection.editor.files.length ? (
-                <CenteredText text="No files found" />
-              ) : (
-                <View className={css.collection}>
-                  <DndContext
-                    sensors={sensors}
-                    collisionDetection={closestCenter}
-                    onDragCancel={handleDragCancel}
-                    onDragEnd={handleDragEnd}
-                    onDragStart={handleDragStart}
-                  >
-                    <SortableContext
-                      items={stores.collection.editor.sortedFiles}
-                      strategy={gridSortingStrategy}
-                    >
-                      <EditorFiles />
-                    </SortableContext>
-
-                    <DragOverlay adjustScale>
-                      {draggedFileId ? <FileCollectionFile id={draggedFileId} disabled /> : null}
-                    </DragOverlay>
-                  </DndContext>
-                </View>
-              )}
+              <SortMenu
+                value={stores.collection.editor.sortValue}
+                setValue={setSortValue}
+                rows={[
+                  { attribute: "custom", icon: "Settings", label: "Custom" },
+                  { attribute: "originalName", icon: "Abc", label: "Original Name" },
+                  ...SORT_OPTIONS.File,
+                ]}
+                width="100%"
+              />
             </Card>
           </View>
+
+          <Card column flex={1}>
+            {!stores.collection.editor.files.length ? (
+              <CenteredText text="No files found" />
+            ) : (
+              <View className={css.collection}>
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragCancel={handleDragCancel}
+                  onDragEnd={handleDragEnd}
+                  onDragStart={handleDragStart}
+                >
+                  <SortableContext
+                    items={stores.collection.editor.sortedFiles}
+                    strategy={gridSortingStrategy}
+                  >
+                    <EditorFiles />
+                  </SortableContext>
+
+                  <DragOverlay adjustScale>
+                    {draggedFileId ? <FileCollectionFile id={draggedFileId} disabled /> : null}
+                  </DragOverlay>
+                </DndContext>
+              </View>
+            )}
+          </Card>
         </View>
       </Modal.Content>
 
@@ -383,13 +377,5 @@ const useClasses = makeClasses({
     flex: 1,
     width: "100%",
     overflow: "hidden",
-  },
-  tag: {
-    margin: "0.1rem 0",
-  },
-  tags: {
-    display: "flex",
-    flexFlow: "row nowrap",
-    overflowX: "auto",
   },
 });

@@ -10,3 +10,4 @@ export * from "./tag-input";
 export * from "./tag-list";
 export * from "./tag-manager";
 export * from "./tag-merger";
+export * from "./tag-row";

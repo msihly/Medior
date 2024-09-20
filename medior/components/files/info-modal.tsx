@@ -1,16 +1,7 @@
 import path from "path";
 import { shell } from "@electron/remote";
 import { observer, useStores } from "medior/store";
-import {
-  Button,
-  Detail,
-  DetailRow,
-  Modal,
-  SideScroller,
-  TagChip,
-  Text,
-  View,
-} from "medior/components";
+import { Button, Card, Detail, Modal, TagRow, Text, UniformList } from "medior/components";
 import { colors, dayjs, formatBytes, makeClasses } from "medior/utils";
 import { toast } from "react-toastify";
 
@@ -34,18 +25,12 @@ export const InfoModal = observer(() => {
 
   return (
     <Modal.Container width="100%" maxWidth="50rem" onClose={handleClose}>
-      <Modal.Header
-        leftNode={
-          <Text fontSize="0.7em" color={colors.custom.grey}>
-            {`ID: ${stores.file.activeFileId}`}
-          </Text>
-        }
-      >
-        <Text>{"File Info"}</Text>
+      <Modal.Header leftNode={<Text preset="sub-text">{`ID: ${stores.file.activeFileId}`}</Text>}>
+        <Text preset="title">{"File Info"}</Text>
       </Modal.Header>
 
-      <Modal.Content dividers className={css.content}>
-        <DetailRow>
+      <Modal.Content spacing="0.5rem">
+        <UniformList>
           <Detail label="Extension" value={file?.ext || "N/A"} />
 
           <Detail label="Size" value={formatBytes(file?.size)} tooltip={file?.size} />
@@ -55,10 +40,10 @@ export const InfoModal = observer(() => {
             value={`${file?.width} x ${file?.height}`}
             valueProps={{
               tooltip: (
-                <DetailRow>
+                <UniformList>
                   <Detail label="Width" value={file?.width} />
                   <Detail label="Height" value={file?.height} />
-                </DetailRow>
+                </UniformList>
               ),
             }}
           />
@@ -69,7 +54,7 @@ export const InfoModal = observer(() => {
           />
 
           <Detail label="Frame Rate" value={file?.frameRate || "N/A"} />
-        </DetailRow>
+        </UniformList>
 
         <Detail label="Original File Name" value={file?.originalName || "N/A"} withTooltip />
 
@@ -95,13 +80,13 @@ export const InfoModal = observer(() => {
           }
         />
 
-        <DetailRow>
+        <UniformList>
           <Detail label="Hash" value={file?.hash || "N/A"} />
 
           <Detail label="Original Hash" value={file?.originalHash || "N/A"} />
-        </DetailRow>
+        </UniformList>
 
-        <DetailRow>
+        <UniformList>
           <Detail
             label="Date Created"
             value={dayjs(file?.dateCreated).format("MMMM D, YYYY - hh:mm:ss a") || "N/A"}
@@ -111,28 +96,19 @@ export const InfoModal = observer(() => {
             label="Date Modified"
             value={dayjs(file?.dateModified).format("MMMM D, YYYY - hh:mm:ss a") || "N/A"}
           />
-        </DetailRow>
+        </UniformList>
 
         {file?.tagIds?.length > 0 && (
-          <Detail
-            label="Tags"
-            value={
-              <SideScroller innerClassName={css.tags}>
-                {file.tagIds.map((tagId) => (
-                  <TagChip key={tagId} id={tagId} hasEditor size="small" />
-                ))}
-              </SideScroller>
-            }
-          />
+          <Detail label="Tags" value={<TagRow tagIds={file.tagIds} />} />
         )}
 
         {file?.diffusionParams?.length > 0 && (
           <Detail
             label="Diffusion Params"
             value={
-              <View className={css.diffContainer}>
+              <Card>
                 <Text>{file.diffusionParams}</Text>
-              </View>
+              </Card>
             }
           />
         )}
@@ -148,16 +124,6 @@ export const InfoModal = observer(() => {
 });
 
 const useClasses = makeClasses({
-  content: {
-    "& > *:not(:last-child)": {
-      marginBottom: "0.4rem",
-    },
-  },
-  diffContainer: {
-    borderRadius: "0.25rem",
-    padding: "0.4rem 0.6rem",
-    backgroundColor: colors.foreground,
-  },
   link: {
     alignSelf: "flex-start",
     fontSize: "1em",
@@ -165,11 +131,5 @@ const useClasses = makeClasses({
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
-  },
-  tags: {
-    borderBottomLeftRadius: "inherit",
-    borderBottomRightRadius: "inherit",
-    padding: "0.2em 0.3em",
-    height: "1.8rem",
   },
 });

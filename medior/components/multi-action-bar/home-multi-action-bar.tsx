@@ -51,7 +51,7 @@ export const HomeMultiActionBar = observer(() => {
   return (
     <AppBar position="static" className={css.appBar}>
       <View className={css.container}>
-        <View className={css.divisions}>
+        <View row align="center" spacing="0.5rem">
           <View row width="10rem">
             <FileFilterMenu store={stores.file.search} />
           </View>
@@ -59,7 +59,7 @@ export const HomeMultiActionBar = observer(() => {
           {stores.file.selectedIds.length > 0 && <SelectedFilesInfo />}
         </View>
 
-        <View className={css.divisions}>
+        <View row align="center" spacing="0.5rem">
           {stores.file.search.isArchived && (
             <MultiActionButton
               name="Delete"
@@ -150,12 +150,5 @@ const useClasses = makeClasses({
     height: CONSTANTS.HOME.TOP_BAR.HEIGHT,
     padding: "0.3rem 0.5rem",
     background: colors.background,
-  },
-  divisions: {
-    display: "inline-flex",
-    alignItems: "center",
-    "& > *:not(:last-child)": {
-      marginRight: "0.5rem",
-    },
   },
 });

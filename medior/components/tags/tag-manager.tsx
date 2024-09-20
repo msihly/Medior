@@ -6,7 +6,6 @@ import {
   Card,
   CardGrid,
   Chip,
-  LoadingOverlay,
   Modal,
   MultiActionButton,
   Pagination,
@@ -67,7 +66,12 @@ export const TagManager = observer(() => {
   };
 
   return (
-    <Modal.Container onClose={handleClose} height="100%" width="100%" >
+    <Modal.Container
+      isLoading={stores.tag.manager.isLoading}
+      onClose={handleClose}
+      height="100%"
+      width="100%"
+    >
       <Modal.Content dividers={false} padding={{ top: "1rem" }}>
         <Card
           column
@@ -126,8 +130,6 @@ export const TagManager = observer(() => {
             </UniformList>
           }
         >
-          <LoadingOverlay isLoading={stores.tag.manager.isLoading} />
-
           <CardGrid
             cards={stores.tag.manager.search.results.map((t) => (
               <TagCard key={t.id} tag={t} />

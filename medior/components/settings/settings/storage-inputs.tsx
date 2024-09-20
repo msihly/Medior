@@ -230,7 +230,7 @@ export const StorageInputs = observer(() => {
         {isModalOpen && (
           <Modal.Container height="90%" width="90%">
             <Modal.Header>
-              <Text>{"File Storage / Database Sync"}</Text>
+              <Text preset="title">{"File Storage / Database Sync"}</Text>
             </Modal.Header>
 
             <Modal.Content>

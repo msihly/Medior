@@ -5,7 +5,7 @@ import {
   getRatingMeta,
   Icon,
   IconButton,
-  TagChip,
+  TagRow,
   Text,
   View,
   ZoomContext,
@@ -111,8 +111,8 @@ export const CarouselTopBar = observer(() => {
       </View>
 
       <View row flex={3} overflow="hidden">
-        <View row spacing="0.5rem" margins={{ all: "0 auto" }}>
-          {file?.tagIds?.map((tagId) => <TagChip key={tagId} id={tagId} hasEditor />)}
+        <View margins={{ all: "0 auto" }}>
+          <TagRow tagIds={file?.tagIds} />
         </View>
       </View>
 
