@@ -26,6 +26,7 @@ export interface InputProps
   borderRadiuses?: BorderRadiuses;
   className?: string;
   color?: string;
+  dense?: boolean;
   flex?: CSS["flex"];
   hasHelper?: boolean;
   header?: HeaderWrapperProps["header"];
@@ -47,6 +48,7 @@ export const Input = forwardRef(
       children,
       className,
       color,
+      dense = false,
       flex,
       hasHelper = false,
       header,
@@ -71,6 +73,7 @@ export const Input = forwardRef(
       borders,
       borderRadiuses,
       color,
+      dense,
       flex,
       hasHeader: !!header,
       hasHelper,
@@ -84,9 +87,7 @@ export const Input = forwardRef(
     const handleChange = (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
       setValue?.(event.target.value);
 
-    const handleKeyDown = (event: React.KeyboardEvent) => {
-      event.stopPropagation()
-    }
+    const handleKeyDown = (event: React.KeyboardEvent) => event.stopPropagation();
 
     return (
       <HeaderWrapper header={header} headerProps={headerProps} flex={flex} width={width}>
@@ -121,6 +122,7 @@ interface ClassesProps {
   borders: Borders;
   borderRadiuses: BorderRadiuses;
   color: string;
+  dense: boolean;
   flex: CSS["flex"];
   hasHeader: boolean;
   hasHelper: boolean;
@@ -141,6 +143,7 @@ const useClasses = makeClasses((props?: ClassesProps) => ({
     width: props?.width,
     "& input": {
       borderRadius: "inherit",
+      padding: props?.dense ? "0.2em 0.5em" : undefined,
       textAlign: props?.textAlign,
       cursor: props?.hasOnClick ? "pointer" : undefined,
     },

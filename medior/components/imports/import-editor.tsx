@@ -12,6 +12,7 @@ import {
   ConfirmModal,
   LoadingOverlay,
   Modal,
+  NumInput,
   Text,
   View,
 } from "medior/components";
@@ -130,6 +131,7 @@ export const ImportEditor = observer(() => {
     config.imports.withDiffRegEx
   );
   const [withDiffusionTags, setWithDiffusionTags] = useState(config.imports.withDiffTags);
+  const [withFlattenTo, setWithFlattenTo] = useState(false);
   const [withFileNameToTags, setWithFileNameToTags] = useState(config.imports.withFileNameToTags);
   const [withFolderNameRegEx, setWithFolderNameRegEx] = useState(
     config.imports.withFolderNameRegEx
@@ -179,6 +181,8 @@ export const ImportEditor = observer(() => {
     setTimeout(() => stores.tag.manager.setIsOpen(true), 0);
   };
 
+  const setFlattenTo = (value: number) => stores.import.setEditorFlattenTo(value);
+
   const toggleFolderToCollWithTag = () =>
     setFolderToCollectionMode((prev) => (prev === "withTag" ? "withoutTag" : "withTag"));
 
@@ -210,7 +214,8 @@ export const ImportEditor = observer(() => {
 
     const folderTags: TagToUpsert[] = [];
 
-    const folderNameParts = folderName.split(path.sep).slice(stores.import.editorRootFolderIndex);
+    const depth = withFlattenTo ? stores.import.editorRootFolderIndex + stores.import.editorFlattenTo : undefined;
+    const folderNameParts = folderName.split(path.sep).slice(stores.import.editorRootFolderIndex, depth);
     const collectionTitle =
       folderToCollectionMode !== "none"
         ? (folderToCollectionMode === "withTag" ? folderNameParts.slice() : folderNameParts).pop()
@@ -704,132 +709,151 @@ export const ImportEditor = observer(() => {
             />
 
             <Checkbox
+              {...checkboxProps}
               label="Delete on Import"
               checked={deleteOnImport}
               setChecked={setDeleteOnImport}
-              {...checkboxProps}
             />
 
             <Checkbox
+              {...checkboxProps}
               label="Ignore Prev. Deleted"
               checked={ignorePrevDeleted}
               setChecked={setIgnorePrevDeleted}
-              {...checkboxProps}
             />
 
             <Divider />
 
             <Checkbox
+              {...checkboxProps}
               label="New Tags to RegEx"
               checked={withNewTagsToRegEx}
               setChecked={setWithNewTagsToRegEx}
-              {...checkboxProps}
             />
 
             <Divider />
 
             <Checkbox
+              {...checkboxProps}
               label="File to Tags (RegEx)"
               checked={withFileNameToTags}
               setChecked={setWithFileNameToTags}
-              {...checkboxProps}
             />
 
             <Divider />
 
             <Checkbox
+              {...checkboxProps}
               label="Folder to Tags"
               checked={folderToTagsMode !== "none"}
               setChecked={handleFoldersToTags}
-              {...checkboxProps}
             />
 
             <View column margins={{ left: "1rem" }}>
               <Checkbox
+                {...checkboxProps}
                 label="Hierarchical"
                 checked={folderToTagsMode.includes("hierarchical")}
                 setChecked={toggleFoldersToTagsHierarchical}
-                disabled={folderToTagsMode === "none"}
-                {...checkboxProps}
+                disabled={checkboxProps.disabled || folderToTagsMode === "none"}
               />
 
               <Checkbox
+                {...checkboxProps}
                 label="Cascading"
                 checked={folderToTagsMode === "cascading"}
                 setChecked={toggleFoldersToTagsCascading}
-                disabled={folderToTagsMode === "none"}
-                {...checkboxProps}
+                disabled={checkboxProps.disabled || folderToTagsMode === "none"}
               />
 
               <Checkbox
+                {...checkboxProps}
                 label="Delimited"
                 checked={withDelimiters}
                 setChecked={setWithDelimiters}
-                disabled={folderToTagsMode === "none"}
-                {...checkboxProps}
+                disabled={checkboxProps.disabled || folderToTagsMode === "none"}
               />
 
               <Checkbox
+                {...checkboxProps}
                 label="With RegEx"
                 checked={withFolderNameRegEx}
                 setChecked={toggleWithFolderNameRegEx}
-                disabled={folderToTagsMode === "none"}
-                {...checkboxProps}
+                disabled={checkboxProps.disabled || folderToTagsMode === "none"}
               />
             </View>
 
             <Divider />
 
             <Checkbox
+              {...checkboxProps}
               label="Folder to Collection"
               checked={folderToCollectionMode !== "none"}
               setChecked={handleFolderToCollection}
-              {...checkboxProps}
             />
 
             <View column margins={{ left: "1rem" }}>
               <Checkbox
+                {...checkboxProps}
                 label="With Tag"
                 checked={folderToCollectionMode === "withTag"}
                 setChecked={toggleFolderToCollWithTag}
-                disabled={folderToCollectionMode === "none"}
-                {...checkboxProps}
               />
+
+              <View row align="center" spacing="0.5rem">
+                <Checkbox
+                  {...checkboxProps}
+                  label="Flatten to"
+                  checked={withFlattenTo}
+                  setChecked={setWithFlattenTo}
+                  disabled={checkboxProps.disabled || folderToCollectionMode === "none"}
+                />
+
+                <NumInput
+                  placeholder="Depth"
+                  value={stores.import.editorFlattenTo}
+                  setValue={setFlattenTo}
+                  disabled={folderToCollectionMode === "none" || !withFlattenTo}
+                  hasHelper={false}
+                  textAlign="center"
+                  dense
+                />
+              </View>
             </View>
 
             <Divider />
 
             <Checkbox
+              {...checkboxProps}
               label="Diffusion Params"
               checked={withDiffusionParams}
               setChecked={setWithDiffusionParams}
-              {...checkboxProps}
             />
 
             <View column margins={{ left: "1rem" }}>
               <Checkbox
+                {...checkboxProps}
                 label="With Tags"
                 checked={withDiffusionTags}
                 setChecked={setWithDiffusionTags}
-                disabled={!withDiffusionParams}
-                {...checkboxProps}
+                disabled={checkboxProps.disabled || !withDiffusionParams}
               />
 
               <View column margins={{ left: "1rem" }}>
                 <Checkbox
+                  {...checkboxProps}
                   label="Model"
                   checked={withDiffusionModel}
                   setChecked={setWithDiffusionModel}
-                  disabled={!withDiffusionParams || !withDiffusionTags}
-                  {...checkboxProps}
+                  disabled={checkboxProps.disabled || !withDiffusionParams || !withDiffusionTags}
                 />
 
                 <Checkbox
+                  {...checkboxProps}
                   label="With RegEx"
                   checked={withDiffusionRegExMaps}
                   setChecked={setWithDiffusionRegExMaps}
-                  disabled={!withDiffusionParams || !withDiffusionTags}
-                  {...checkboxProps}
+                  disabled={checkboxProps.disabled || !withDiffusionParams || !withDiffusionTags}
                 />
               </View>
             </View>

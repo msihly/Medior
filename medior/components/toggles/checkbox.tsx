@@ -19,11 +19,11 @@ export interface CheckboxProps {
 }
 
 export const Checkbox = ({
-  center = false,
-  checked = false,
+  center,
+  checked,
   className,
   color = colors.custom.blue,
-  disabled = false,
+  disabled,
   flex = 1,
   fullWidth = true,
   indeterminate,
@@ -33,7 +33,7 @@ export const Checkbox = ({
 }: CheckboxProps) => {
   const { css, cx } = useClasses({ center, color, disabled, flex, fullWidth, padding });
 
-  const toggleChecked = () => setChecked(!checked);
+  const toggleChecked = () => !disabled && setChecked(!checked);
 
   return (
     <FormControlLabel

@@ -51,8 +51,8 @@ export const ImportManager = observer(() => {
     <Modal.Container
       visible={stores.import.isImportManagerOpen}
       onClose={handleClose}
-      maxWidth="60rem"
-      maxHeight="40rem"
+      maxWidth="65rem"
+      maxHeight="50rem"
       width="100%"
       height="100%"
     >
@@ -77,7 +77,7 @@ export const ImportManager = observer(() => {
           />
         </UniformList>
 
-        <DeleteToggleButton type="completed" />
+        <DeleteToggleButton type={activeType} />
       </View>
 
       <Modal.Content dividers={false}>

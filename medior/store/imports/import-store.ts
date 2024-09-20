@@ -33,9 +33,11 @@ export class ImportStore extends Model({
   deletedFileHashes: prop<string[]>(() => []).withSetter(),
   editor: prop<ImportEditor>(() => new ImportEditor({})),
   editorFilePaths: prop<string[]>(() => []).withSetter(),
+  editorFlattenTo: prop<number>(null).withSetter(),
+  editorImports: prop<FileImport[]>(() => []).withSetter(),
   editorRootFolderIndex: prop<number>(0).withSetter(),
   editorRootFolderPath: prop<string>("").withSetter(),
-  editorImports: prop<FileImport[]>(() => []).withSetter(),
+  editorWithFlattenTo: prop<boolean>(false).withSetter(),
   importBatches: prop<FileImportBatch[]>(() => []),
   importStats: prop<db.ImportStats>(() => ({
     completedBytes: 0,
@@ -143,7 +145,11 @@ export class ImportStore extends Model({
       this.getById(batchId)?.update({ startedAt: res.data });
       if (DEBUG) perfLog("Updated batch.startedAt in store");
 
+      let done = false;
       const completeBatch = async () => {
+        if (done) return;
+        done = true;
+
         try {
           const batch = this.getById(batchId);
           const addedTagIds = [...batch.tagIds].flat();

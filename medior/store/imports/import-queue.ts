@@ -166,8 +166,6 @@ export const copyFileForImport = async ({
 
     return { success: true, file, isDuplicate, isPrevDeleted };
   } catch (err) {
-    console.error("Error importing", fileImport.toString({ withData: true }), ":", err.stack);
-
     if (err.code === "EEXIST" || err.message.includes("duplicate key")) {
       const fileRes = await trpc.getFileByHash.mutate({ hash });
       if (!fileRes.data) {
@@ -180,7 +178,10 @@ export const copyFileForImport = async ({
           tagIds,
         });
       } else return { success: true, file: fileRes.data, isDuplicate: true };
-    } else return { success: false, error: err?.stack };
+    } else {
+      console.error("Error importing", fileImport.toString({ withData: true }), ":", err.stack);
+      return { success: false, error: err?.stack };
+    }
   }
 };
 
