@@ -62,11 +62,16 @@ export const TagChip = observer(
 
 const formatter = Intl.NumberFormat("en", { notation: "compact" });
 
-const useClasses = makeClasses(({ color, size }) => ({
+interface ClassesProps {
+  color: string;
+  size: ChipProps["size"];
+}
+
+const useClasses = makeClasses((props: ClassesProps) => ({
   chip: {
     borderRadius: "0.6rem",
     padding: "0.3em 0",
-    height: size === "medium" ? HEIGHT_MEDIUM : HEIGHT_SMALL,
+    height: props.size === "medium" ? HEIGHT_MEDIUM : HEIGHT_SMALL,
     "& .MuiChip-label": {
       padding: "0",
       width: "100%",
@@ -77,11 +82,11 @@ const useClasses = makeClasses(({ color, size }) => ({
     justifyContent: "center",
     alignItems: "center",
     borderRadius: "0.6rem 0 0 0.6rem",
-    width: size === "medium" ? HEIGHT_MEDIUM : HEIGHT_SMALL,
-    height: size === "medium" ? HEIGHT_MEDIUM : HEIGHT_SMALL,
+    width: props.size === "medium" ? HEIGHT_MEDIUM : HEIGHT_SMALL,
+    height: props.size === "medium" ? HEIGHT_MEDIUM : HEIGHT_SMALL,
     paddingLeft: "0.1em",
     fontSize: "0.7em",
-    background: `linear-gradient(to bottom right, ${color}, ${Color(color).darken(0.3).string()})`,
+    background: `linear-gradient(to bottom right, ${props.color}, ${Color(props.color).darken(0.3).string()})`,
   },
   label: {
     padding: "0 0.4rem 0 0.3rem",

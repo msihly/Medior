@@ -24,7 +24,7 @@ import {
   TagList,
   View,
 } from "medior/components";
-import { colors, CSS, makeClasses, Margins, socket, useDeepMemo } from "medior/utils";
+import { colors, CSS, makeClasses, makeMargins, Margins, socket, useDeepMemo } from "medior/utils";
 import { toast } from "react-toastify";
 
 export type TagInputProps = Omit<
@@ -285,7 +285,13 @@ export const TagInput = observer(
   )
 );
 
-const useClasses = makeClasses(({ center, margins, width }) => ({
+interface ClassesProps {
+  center: boolean;
+  margins: Margins;
+  width: CSS["width"];
+}
+
+const useClasses = makeClasses((props: ClassesProps) => ({
   listbox: {
     backgroundColor: colors.background,
     boxShadow: "0 0 0.5rem 0.1rem rgba(0, 0, 0, 0.3)",
@@ -293,13 +299,9 @@ const useClasses = makeClasses(({ center, margins, width }) => ({
     overflowY: "auto",
   },
   input: {
-    margin: margins?.all,
-    marginTop: margins?.top,
-    marginBottom: margins?.bottom,
-    marginRight: margins?.right,
-    marginLeft: margins?.left,
+    ...makeMargins(props.margins),
     "& .MuiAutocomplete-inputRoot": {
-      justifyContent: center ? "center" : undefined,
+      justifyContent: props.center ? "center" : undefined,
     },
     "& .MuiAutocomplete-input": {
       minWidth: "0 !important",
@@ -308,7 +310,7 @@ const useClasses = makeClasses(({ center, margins, width }) => ({
   root: {
     display: "flex",
     alignItems: "center",
-    width,
+    width: props.width,
     "& > div": { width: "100%" },
   },
   tagOption: {

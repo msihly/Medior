@@ -49,7 +49,7 @@ export const Container = ({
 };
 
 const DraggablePaper = (props: PaperProps) => {
-  const { css, cx } = useClasses({});
+  const { css, cx } = useDraggableClasses(null);
 
   const ref = useRef(null);
 
@@ -60,21 +60,31 @@ const DraggablePaper = (props: PaperProps) => {
   );
 };
 
-const useClasses = makeClasses(({ height, maxHeight, maxWidth, width }) => ({
+interface ClassesProps {
+  height: CSS["height"];
+  maxHeight: CSS["maxHeight"];
+  maxWidth: CSS["maxWidth"];
+  width: CSS["width"];
+}
+
+const useClasses = makeClasses((props: ClassesProps) => ({
+  modal: {
+    "& .MuiDialog-paper": {
+      position: "relative",
+      maxHeight: props.maxHeight,
+      maxWidth: props.maxWidth,
+      height: props.height,
+      width: props.width,
+      background: colors.background,
+    },
+  },
+}));
+
+const useDraggableClasses = makeClasses({
   draggable: {
     cursor: "grab",
     "& .MuiDialogContent-root": {
       cursor: "initial",
     },
   },
-  modal: {
-    "& .MuiDialog-paper": {
-      position: "relative",
-      maxHeight,
-      maxWidth,
-      height,
-      width,
-      background: colors.background,
-    },
-  },
-}));
+});

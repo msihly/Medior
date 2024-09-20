@@ -106,25 +106,25 @@ interface ClassesProps {
 
 const useClasses = makeClasses((props: ClassesProps) => ({
   root: {
-    position: props?.position,
-    display: props?.column || props?.row ? "flex" : undefined,
-    flexDirection: props?.column ? "column" : props?.row ? "row" : undefined,
-    flex: props?.flex,
-    flexWrap: props?.wrap,
-    alignItems: props?.align,
-    justifyContent: props?.justify,
-    ...makeBorders(props?.borders),
+    position: props.position,
+    display: props.column || props.row ? "flex" : undefined,
+    flexDirection: props.column ? "column" : props.row ? "row" : undefined,
+    flex: props.flex,
+    flexWrap: props.wrap,
+    alignItems: props.align,
+    justifyContent: props.justify,
+    ...makeBorders(props.borders),
     ...makeBorderRadiuses(props),
-    ...makeMargins(props?.margins),
-    ...makePadding(props?.padding),
-    height: props?.height,
-    width: props?.width,
-    backgroundColor: props?.bgColor,
-    overflow: props?.overflow,
-    ...(props?.spacing
+    ...makeMargins(props.margins),
+    ...makePadding(props.padding),
+    height: props.height,
+    width: props.width,
+    backgroundColor: props.bgColor,
+    overflow: props.overflow,
+    ...(props.spacing
       ? {
           "& > *:not(:last-child)": {
-            [props?.column ? "marginBottom" : "marginRight"]: props?.spacing,
+            [props.column ? "marginBottom" : "marginRight"]: props.spacing,
           },
         }
       : {}),

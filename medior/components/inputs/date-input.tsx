@@ -55,12 +55,12 @@ export const DateInput = ({
 };
 
 interface ClassesProps {
-  width?: CSS["width"];
+  width: CSS["width"];
 }
 
-const useClasses = makeClasses(({ width }: ClassesProps) => ({
+const useClasses = makeClasses((props: ClassesProps) => ({
   datePicker: {
-    width,
+    width: props.width,
     "& .MuiInputBase-input": {
       padding: "0.5rem 0 0.5rem 0.5rem",
     },

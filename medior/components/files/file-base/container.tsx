@@ -47,46 +47,44 @@ export const Container = ({
 };
 
 interface ClassesProps {
-  disabled?: boolean;
+  disabled: boolean;
   display: CSS["display"];
-  height?: CSS["height"];
-  selected?: boolean;
+  height: CSS["height"];
+  selected: boolean;
   selectedColor: string;
-  width?: CSS["width"];
+  width: CSS["width"];
 }
 
-const useClasses = makeClasses(
-  ({ disabled, display, height, selected, selectedColor, width }: ClassesProps, theme) => ({
-    container: {
-      position: "relative",
-      display,
-      border: "1px solid transparent",
-      borderRadius: 4,
-      padding: "0.25rem",
-      height: height ?? "20rem",
-      [theme.breakpoints.down("xl")]: height ? undefined : { height: "18rem" },
-      [theme.breakpoints.down("lg")]: height ? undefined : { height: "16rem" },
-      [theme.breakpoints.down("md")]: height ? undefined : { height: "14rem" },
-      [theme.breakpoints.down("sm")]: height ? undefined : { height: "12rem" },
-      ...(width ? { width } : {}),
-      background:
-        !disabled && selected
-          ? `linear-gradient(to bottom right, ${selectedColor}, ${Color(selectedColor)
-              .fade(0.5)
-              .string()} 60%)`
-          : "transparent",
-      overflow: "hidden",
-      cursor: "pointer",
-      userSelect: "none",
-    },
-    paper: {
-      position: "relative",
-      display: "flex",
-      flexDirection: "column",
-      flex: 1,
-      height: "100%",
-      backgroundColor: colors.background,
-      userSelect: "none",
-    },
-  })
-);
+const useClasses = makeClasses((props: ClassesProps, theme) => ({
+  container: {
+    position: "relative",
+    display: props.display,
+    border: "1px solid transparent",
+    borderRadius: 4,
+    padding: "0.25rem",
+    height: props.height ?? "20rem",
+    [theme.breakpoints.down("xl")]: props.height ? undefined : { height: "18rem" },
+    [theme.breakpoints.down("lg")]: props.height ? undefined : { height: "16rem" },
+    [theme.breakpoints.down("md")]: props.height ? undefined : { height: "14rem" },
+    [theme.breakpoints.down("sm")]: props.height ? undefined : { height: "12rem" },
+    ...(props.width ? { width: props.width } : {}),
+    background:
+      !props.disabled && props.selected
+        ? `linear-gradient(to bottom right, ${props.selectedColor}, ${Color(props.selectedColor)
+            .fade(0.5)
+            .string()} 60%)`
+        : "transparent",
+    overflow: "hidden",
+    cursor: "pointer",
+    userSelect: "none",
+  },
+  paper: {
+    position: "relative",
+    display: "flex",
+    flexDirection: "column",
+    flex: 1,
+    height: "100%",
+    backgroundColor: colors.background,
+    userSelect: "none",
+  },
+}));

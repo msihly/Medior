@@ -9,7 +9,7 @@ export interface TagHierarchyProps {
 }
 
 export const TagHierarchy = ({ className, tag }: TagHierarchyProps) => {
-  const { css, cx } = useClasses({});
+  const { css, cx } = useClasses({ hasId: !!tag.id });
 
   return (
     <View column className={cx(css.container, className)}>
@@ -51,7 +51,11 @@ const TagLevel = observer(({ tag }: TagHierarchyProps) => {
   );
 });
 
-const useClasses = makeClasses(({ hasId }) => ({
+interface ClassesProps {
+  hasId: boolean;
+}
+
+const useClasses = makeClasses((props: ClassesProps) => ({
   container: {
     flexShrink: 0,
     borderRadius: 4,
@@ -61,6 +65,6 @@ const useClasses = makeClasses(({ hasId }) => ({
     overflowY: "auto",
   },
   tagLevel: {
-    cursor: hasId ? "pointer" : "default",
+    cursor: props.hasId ? "pointer" : "default",
   },
 }));

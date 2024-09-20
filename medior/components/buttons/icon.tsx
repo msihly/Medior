@@ -2,7 +2,7 @@ import { ReactNode } from "react";
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { IconButton as MuiIconButton, IconButtonProps as MuiIconButtonProps } from "@mui/material";
 import { Icon, IconName, IconProps, TooltipWrapper, TooltipWrapperProps } from "medior/components";
-import { makeClasses, Margins } from "medior/utils";
+import { makeClasses, makeMargins, Margins } from "medior/utils";
 
 export interface IconButtonProps extends Omit<MuiIconButtonProps, "color"> {
   children?: ReactNode | ReactNode[];
@@ -42,14 +42,15 @@ export const IconButton = ({
   );
 };
 
-const useClasses = makeClasses(({ disabled, margins }) => ({
+interface ClassesProps {
+  disabled: boolean;
+  margins: Margins;
+}
+
+const useClasses = makeClasses((props: ClassesProps) => ({
   root: {
-    margin: margins?.all,
-    marginTop: margins?.top,
-    marginBottom: margins?.bottom,
-    marginRight: margins?.right,
-    marginLeft: margins?.left,
-    opacity: disabled ? 0.5 : 1,
+    ...makeMargins(props.margins),
+    opacity: props.disabled ? 0.5 : 1,
     transition: "all 100ms ease-in-out",
   },
 }));

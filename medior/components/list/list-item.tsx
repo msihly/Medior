@@ -75,7 +75,11 @@ export const ListItem = ({
   );
 };
 
-const useClasses = makeClasses(({ color }) => ({
+interface ClassesProps {
+  color: string;
+}
+
+const useClasses = makeClasses((props: ClassesProps) => ({
   icon: {
     minWidth: 0,
   },
@@ -83,7 +87,7 @@ const useClasses = makeClasses(({ color }) => ({
     padding: "0.5rem 1rem",
   },
   text: {
-    color,
+    color: props.color,
   },
   tooltip: {
     margin: 0,

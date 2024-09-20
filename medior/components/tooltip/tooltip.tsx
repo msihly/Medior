@@ -53,27 +53,35 @@ export const Tooltip = ({
   );
 };
 
-const useClasses = makeClasses(
-  ({ arrowColor, bgColor, color, flexShrink, fontSize, maxWidth, minWidth }) => ({
-    arrow: {
-      color: arrowColor,
-    },
-    container: {
-      display: "flex",
-      flexShrink,
-      overflow: "hidden",
-      textOverflow: "ellipsis",
-      userSelect: "auto",
-    },
-    tooltip: {
-      padding: "0.5rem",
-      maxWidth,
-      minWidth,
-      backgroundColor: bgColor,
-      color,
-      fontSize,
-      whiteSpace: "pre-wrap",
-      boxShadow: "rgb(0 0 0 / 97%) 0px 0px 8px 0px",
-    },
-  })
-);
+interface ClassesProps {
+  arrowColor: CSS["color"];
+  bgColor: CSS["backgroundColor"];
+  color: CSS["color"];
+  flexShrink: CSS["flexShrink"];
+  fontSize: CSS["fontSize"];
+  maxWidth: CSS["maxWidth"];
+  minWidth: CSS["minWidth"];
+}
+
+const useClasses = makeClasses((props: ClassesProps) => ({
+  arrow: {
+    color: props.arrowColor,
+  },
+  container: {
+    display: "flex",
+    flexShrink: props.flexShrink,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    userSelect: "auto",
+  },
+  tooltip: {
+    padding: "0.5rem",
+    maxWidth: props.maxWidth,
+    minWidth: props.minWidth,
+    backgroundColor: props.bgColor,
+    color: props.color,
+    fontSize: props.fontSize,
+    whiteSpace: "pre-wrap",
+    boxShadow: "rgb(0 0 0 / 97%) 0px 0px 8px 0px",
+  },
+}));

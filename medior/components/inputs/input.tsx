@@ -133,37 +133,37 @@ interface ClassesProps {
   width: CSS["width"];
 }
 
-const useClasses = makeClasses((props?: ClassesProps) => ({
+const useClasses = makeClasses((props: ClassesProps) => ({
   input: {
-    flex: props?.flex,
+    flex: props.flex,
     ...makeMargins({
-      ...props?.margins,
-      bottom: props?.margins?.bottom ?? (props?.hasHelper && !props?.hasHelperText ? "1.3em" : 0),
+      ...props.margins,
+      bottom: props.margins?.bottom ?? (props.hasHelper && !props.hasHelperText ? "1.3em" : 0),
     }),
-    width: props?.width,
+    width: props.width,
     "& input": {
       borderRadius: "inherit",
-      padding: props?.dense ? "0.2em 0.5em" : undefined,
-      textAlign: props?.textAlign,
-      cursor: props?.hasOnClick ? "pointer" : undefined,
+      padding: props.dense ? "0.2em 0.5em" : undefined,
+      textAlign: props.textAlign,
+      cursor: props.hasOnClick ? "pointer" : undefined,
     },
     "& .MuiTypography-root": {
-      textAlign: props?.textAlign,
+      textAlign: props.textAlign,
     },
     "& .MuiOutlinedInput-root": {
       background: "rgb(0 0 0 / 0.2)",
       "& fieldset": {
         transition: "all 200ms ease-in-out",
-        borderColor: props?.color,
+        borderColor: props.color,
         borderStyle: "dotted",
-        ...makeBorders(props?.borders),
+        ...makeBorders(props.borders),
         ...makeBorderRadiuses(props),
       },
       "&:hover fieldset": {
-        borderColor: props?.color ? Color(props?.color).lighten(0.3).toString() : undefined,
+        borderColor: props.color ? Color(props.color).lighten(0.3).toString() : undefined,
       },
       "&.Mui-focused fieldset": {
-        borderColor: props?.color,
+        borderColor: props.color,
       },
     },
     "& .MuiSelect-select": {
@@ -171,7 +171,7 @@ const useClasses = makeClasses((props?: ClassesProps) => ({
     },
     "& .MuiFormHelperText-root": {
       margin: "0.3em 0 0 0",
-      color: props?.color,
+      color: props.color,
       fontSize: "0.75em",
       lineHeight: 1,
       textAlign: "center",

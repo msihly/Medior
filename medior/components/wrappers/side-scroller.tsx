@@ -77,7 +77,12 @@ export const SideScroller = ({ children, className, innerClassName }: SideScroll
   );
 };
 
-const useClasses = makeClasses(({ isLeftButtonVisible, isRightButtonVisible }) => ({
+interface ClassesProps {
+  isLeftButtonVisible: boolean;
+  isRightButtonVisible: boolean;
+}
+
+const useClasses = makeClasses((props: ClassesProps) => ({
   items: {
     display: "flex",
     flexFlow: "row nowrap",
@@ -115,10 +120,10 @@ const useClasses = makeClasses(({ isLeftButtonVisible, isRightButtonVisible }) =
       height: "0.6em",
     },
     "&.left": {
-      display: isLeftButtonVisible ? "flex" : "none",
+      display: props.isLeftButtonVisible ? "flex" : "none",
     },
     "&.right": {
-      display: isRightButtonVisible ? "flex" : "none",
+      display: props.isRightButtonVisible ? "flex" : "none",
     },
   },
 }));

@@ -22,18 +22,24 @@ export const FaceBox = observer(
   }
 );
 
-const useClasses = makeClasses(
-  ({ face, heightScale, offsetLeft, offsetTop, widthScale }: FaceBoxProps) => ({
-    container: {
-      position: "absolute",
-      top: face.box.y * heightScale + offsetTop,
-      left: face.box.x * widthScale + offsetLeft,
-    },
-    faceBox: {
-      borderRadius: "0.2rem",
-      border: `2px solid ${face.boxColor}`,
-      width: face.box.width * widthScale,
-      height: face.box.height * heightScale,
-    },
-  })
-);
+interface ClassesProps {
+  face: FaceModel;
+  heightScale: number;
+  offsetLeft: number;
+  offsetTop: number;
+  widthScale: number;
+}
+
+const useClasses = makeClasses((props: ClassesProps) => ({
+  container: {
+    position: "absolute",
+    top: props.face.box.y * props.heightScale + props.offsetTop,
+    left: props.face.box.x * props.widthScale + props.offsetLeft,
+  },
+  faceBox: {
+    borderRadius: "0.2rem",
+    border: `2px solid ${props.face.boxColor}`,
+    width: props.face.box.width * props.widthScale,
+    height: props.face.box.height * props.heightScale,
+  },
+}));

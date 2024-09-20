@@ -26,17 +26,17 @@ interface ClassesProps {
   padding: Padding;
 }
 
-const useClasses = makeClasses(({ padding }: ClassesProps) => ({
+const useClasses = makeClasses((props: ClassesProps) => ({
   content: {
     position: "relative",
     display: "flex",
     flexDirection: "column",
     flex: 1,
-    padding: padding?.all,
-    paddingTop: padding?.top,
-    paddingBottom: padding?.bottom,
-    paddingRight: padding?.right,
-    paddingLeft: padding?.left,
+    padding: props.padding?.all,
+    paddingTop: props.padding?.top,
+    paddingBottom: props.padding?.bottom,
+    paddingRight: props.padding?.right,
+    paddingLeft: props.padding?.left,
     overflow: "inherit",
   },
 }));

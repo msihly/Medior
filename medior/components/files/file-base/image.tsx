@@ -132,22 +132,22 @@ interface ClassesProps {
   rounded: ImageProps["rounded"];
 }
 
-const useClasses = makeClasses(({ fit, height, imagePos, rounded }: ClassesProps, theme) => ({
+const useClasses = makeClasses((props: ClassesProps) => ({
   image: {
-    ...(["all", "top"].includes(rounded) && {
+    ...(["all", "top"].includes(props.rounded) && {
       borderTopLeftRadius: "inherit",
       borderTopRightRadius: "inherit",
     }),
-    ...(["all", "bottom"].includes(rounded) && {
+    ...(["all", "bottom"].includes(props.rounded) && {
       borderBottomLeftRadius: "inherit",
       borderBottomRightRadius: "inherit",
     }),
-    height: height ?? "inherit",
+    height: props.height ?? "inherit",
     width: "100%",
     userSelect: "none",
     transition: "all 100ms ease",
-    objectFit: fit,
-    objectPosition: imagePos,
+    objectFit: props.fit,
+    objectPosition: props.imagePos,
   },
   imageContainer: {
     position: "relative",
@@ -155,11 +155,11 @@ const useClasses = makeClasses(({ fit, height, imagePos, rounded }: ClassesProps
     flexDirection: "column",
     borderRadius: "inherit",
     height: "100%",
-    ...(["all", "top"].includes(rounded) && {
+    ...(["all", "top"].includes(props.rounded) && {
       borderTopLeftRadius: "inherit",
       borderTopRightRadius: "inherit",
     }),
-    ...(["all", "bottom"].includes(rounded) && {
+    ...(["all", "bottom"].includes(props.rounded) && {
       borderBottomLeftRadius: "inherit",
       borderBottomRightRadius: "inherit",
     }),

@@ -55,11 +55,17 @@ export const Accordion = ({
   );
 };
 
-const useClasses = makeClasses(({ dense, expanded, fullWidth }) => ({
+interface ClassesProps {
+  dense: boolean;
+  expanded: boolean;
+  fullWidth: boolean;
+}
+
+const useClasses = makeClasses((props: ClassesProps) => ({
   accordion: {
     margin: 0,
     padding: 0,
-    width: fullWidth ? "100%" : "auto",
+    width: props.fullWidth ? "100%" : "auto",
     background: "transparent",
     boxShadow: "none",
     "& button": {
@@ -71,9 +77,9 @@ const useClasses = makeClasses(({ dense, expanded, fullWidth }) => ({
   },
   button: {
     justifyContent: "space-between",
-    borderBottomRightRadius: expanded ? 0 : undefined,
-    borderBottomLeftRadius: expanded ? 0 : undefined,
-    padding: dense ? "0.2rem 0.6rem" : "0.5rem 1rem",
+    borderBottomRightRadius: props.expanded ? 0 : undefined,
+    borderBottomLeftRadius: props.expanded ? 0 : undefined,
+    padding: props.dense ? "0.2rem 0.6rem" : "0.5rem 1rem",
     fontSize: "1em",
     textTransform: "capitalize",
   },

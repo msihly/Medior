@@ -45,10 +45,14 @@ export const Icon = ({
   );
 };
 
-const useClasses = makeClasses(({ rotation }) => ({
+interface ClassesProps {
+  rotation: number;
+}
+
+const useClasses = makeClasses((props: ClassesProps) => ({
   root: {
     justifyContent: "center",
-    transform: rotation !== undefined ? `rotate(${rotation}deg)` : undefined,
+    transform: props.rotation !== undefined ? `rotate(${props.rotation}deg)` : undefined,
     transition: "all 200ms ease-in-out",
   },
 }));

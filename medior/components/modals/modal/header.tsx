@@ -53,11 +53,15 @@ export const Header = ({
   );
 };
 
-const useClasses = makeClasses(({ justify }) => ({
+interface ClassesProps {
+  justify: CSS["justifyContent"];
+}
+
+const useClasses = makeClasses((props: ClassesProps) => ({
   root: {
     display: "flex",
     flexDirection: "row",
-    justifyContent: justify,
+    justifyContent: props.justify,
     alignItems: "center",
     padding: "0.5rem 1rem",
     textAlign: "center",

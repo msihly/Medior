@@ -170,65 +170,57 @@ interface ClassesProps {
   width: CSS["width"];
 }
 
-const useClasses = makeClasses(
-  ({
-    boxShadow,
-    color,
-    colorOnHover,
-    isCircle,
-    isLink,
-    justify,
-    margins,
-    outlined,
-    outlineFill,
-    padding,
-    textColor,
-    textTransform,
-    width,
-  }: ClassesProps) => ({
-    root: {
-      display: "flex",
-      flexDirection: "row",
-      justifyContent: justify,
-      alignItems: "center",
-      border: `1px solid ${outlined ? color : "transparent"}`,
-      borderRadius: isCircle ? "50%" : undefined,
-      ...makeMargins(margins),
-      padding: padding?.all,
-      paddingTop: padding?.top ?? (isLink ? 0 : undefined),
-      paddingBottom: padding?.bottom ?? (isLink ? 0 : undefined),
-      paddingRight: padding?.right ?? (isLink ? 0 : undefined),
-      paddingLeft: padding?.left ?? (isLink ? 0 : undefined),
-      minWidth: "fit-content",
-      width,
-      backgroundColor: isLink ? "transparent" : outlined ? outlineFill : color,
-      boxShadow:
-        boxShadow ??
-        (isLink
-          ? "none"
-          : "0px 3px 1px -2px rgba(0,0,0,0.2), 0px 2px 2px 0px rgba(0,0,0,0.14), 0px 1px 5px 0px rgba(0,0,0,0.12)"),
-      color: outlined
-        ? color
-        : (textColor ??
-          (isLink ? colors.custom.lightBlue : outlined ? color : colors.custom.white)),
-      textTransform,
-      "&:hover": {
-        background: isLink
-          ? "transparent"
-          : colorOnHover ||
-            Color(outlined ? outlineFill : color)
-              .lighten(0.1)
-              .string(),
-        boxShadow: isLink ? "none" : undefined,
-        textDecoration: isLink ? "underline" : undefined,
-      },
+const useClasses = makeClasses((props: ClassesProps) => ({
+  root: {
+    display: "flex",
+    flexDirection: "row",
+    justifyContent: props.justify,
+    alignItems: "center",
+    border: `1px solid ${props.outlined ? props.color : "transparent"}`,
+    borderRadius: props.isCircle ? "50%" : undefined,
+    ...makeMargins(props.margins),
+    padding: props.padding?.all,
+    paddingTop: props.padding?.top ?? (props.isLink ? 0 : undefined),
+    paddingBottom: props.padding?.bottom ?? (props.isLink ? 0 : undefined),
+    paddingRight: props.padding?.right ?? (props.isLink ? 0 : undefined),
+    paddingLeft: props.padding?.left ?? (props.isLink ? 0 : undefined),
+    minWidth: "fit-content",
+    width: props.width,
+    backgroundColor: props.isLink
+      ? "transparent"
+      : props.outlined
+      ? props.outlineFill
+      : props.color,
+    boxShadow:
+      props.boxShadow ??
+      (props.isLink
+        ? "none"
+        : "0px 3px 1px -2px rgba(0,0,0,0.2), 0px 2px 2px 0px rgba(0,0,0,0.14), 0px 1px 5px 0px rgba(0,0,0,0.12)"),
+    color: props.outlined
+      ? props.color
+      : props.textColor ??
+        (props.isLink
+          ? colors.custom.lightBlue
+          : props.outlined
+          ? props.color
+          : colors.custom.white),
+    textTransform: props.textTransform,
+    "&:hover": {
+      background: props.isLink
+        ? "transparent"
+        : props.colorOnHover ||
+          Color(props.outlined ? props.outlineFill : props.color)
+            .lighten(0.1)
+            .string(),
+      boxShadow: props.isLink ? "none" : undefined,
+      textDecoration: props.isLink ? "underline" : undefined,
     },
-    text: {
-      lineHeight: 1,
-      overflow: "hidden",
-      textOverflow: "ellipsis",
-      transition: "all 100ms ease-in-out",
-      textTransform,
-    },
-  })
-);
+  },
+  text: {
+    lineHeight: 1,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    transition: "all 100ms ease-in-out",
+    textTransform: props.textTransform,
+  },
+}));

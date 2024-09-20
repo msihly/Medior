@@ -60,20 +60,20 @@ interface ClassesProps {
 }
 
 const useClasses = makeClasses(
-  ({ center, color, disabled, flex, fullWidth, padding }: ClassesProps) => ({
+  (props: ClassesProps) => ({
     checkbox: {
-      ...makePadding(padding),
-      color: `${color} !important`,
-      opacity: disabled ? 0.5 : 1,
+      ...makePadding(props.padding),
+      color: `${props.color} !important`,
+      opacity: props.disabled ? 0.5 : 1,
     },
     label: {
       display: "flex",
-      flex,
-      justifyContent: center ? "center" : undefined,
+      flex: props.flex,
+      justifyContent: props.center ? "center" : undefined,
       borderRadius: "0.5rem",
       marginLeft: 0,
       marginRight: 0,
-      width: fullWidth ? "100%" : "auto",
+      width: props.fullWidth ? "100%" : "auto",
       whiteSpace: "nowrap",
       transition: "all 200ms ease-in-out",
       userSelect: "none",

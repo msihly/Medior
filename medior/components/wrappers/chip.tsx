@@ -52,19 +52,27 @@ export const Chip = ({
   );
 };
 
-const useClasses = makeClasses(({ bgColor, color, height, padding, width }) => ({
+interface ClassesProps {
+  bgColor: CSS["backgroundColor"];
+  color: CSS["color"];
+  height: CSS["height"];
+  padding: Padding;
+  width: CSS["width"];
+}
+
+const useClasses = makeClasses((props: ClassesProps) => ({
   chip: {
-    height,
-    backgroundColor: bgColor,
-    color,
+    height: props.height,
+    backgroundColor: props.bgColor,
+    color: props.color,
     transition: "all 200ms ease-in-out",
-    width,
+    width: props.width,
     "& > .MuiChip-label": {
-      padding: padding?.all,
-      paddingTop: padding?.top,
-      paddingBottom: padding?.bottom,
-      paddingLeft: padding?.left,
-      paddingRight: padding?.right,
+      padding: props.padding?.all,
+      paddingTop: props.padding?.top,
+      paddingBottom: props.padding?.bottom,
+      paddingLeft: props.padding?.left,
+      paddingRight: props.padding?.right,
     },
   },
 }));

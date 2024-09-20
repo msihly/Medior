@@ -33,11 +33,15 @@ export const DetailRows = ({ labelWidth = "8rem", rows }: DetailRowsProps) => {
   );
 };
 
-const useClasses = makeClasses(({ labelWidth }) => ({
+interface ClassesProps {
+  labelWidth: CSS["maxWidth"];
+}
+
+const useClasses = makeClasses((props: ClassesProps) => ({
   label: {
     flexShrink: 0,
     marginRight: "1rem",
-    width: labelWidth,
+    width: props.labelWidth,
     color: colors.custom.blue,
     fontWeight: "bold",
     whiteSpace: "nowrap",

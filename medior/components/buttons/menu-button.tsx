@@ -57,14 +57,17 @@ export const MenuButton = ({
   );
 };
 
-const useClasses = makeClasses(
-  (args: { bgColor: CSS["backgroundColor"]; menuWidth: CSS["width"] }) => ({
-    menu: {
-      "& .MuiPaper-root": {
-        background: args?.bgColor,
-        minWidth: "10rem",
-        width: args?.menuWidth,
-      },
+interface ClassesProps {
+  bgColor: CSS["backgroundColor"];
+  menuWidth: CSS["width"];
+}
+
+const useClasses = makeClasses((props: ClassesProps) => ({
+  menu: {
+    "& .MuiPaper-root": {
+      background: props.bgColor,
+      minWidth: "10rem",
+      width: props.menuWidth,
     },
-  })
-);
+  },
+}));

@@ -65,9 +65,9 @@ interface ClassesProps {
   width: CSS["width"];
 }
 
-const useClasses = makeClasses(({ width }: ClassesProps) => ({
+const useClasses = makeClasses((props: ClassesProps) => ({
   button: {
-    width,
+    width: props.width,
   },
   label: {
     fontSize: "0.9em",

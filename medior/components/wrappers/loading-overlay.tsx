@@ -25,7 +25,7 @@ interface ClassesProps {
   isLoading: boolean;
 }
 
-const useClasses = makeClasses(({ isLoading }: ClassesProps) => ({
+const useClasses = makeClasses((props: ClassesProps) => ({
   loadingOverlay: {
     position: "absolute",
     top: 0,
@@ -37,8 +37,8 @@ const useClasses = makeClasses(({ isLoading }: ClassesProps) => ({
     height: "100%",
     backgroundColor: "rgba(0, 0, 0, 0.5)",
     zIndex: 100,
-    opacity: isLoading ? 1 : 0,
+    opacity: props.isLoading ? 1 : 0,
     transition: "all 225ms ease-in-out",
-    pointerEvents: isLoading ? "auto" : "none",
+    pointerEvents: props.isLoading ? "auto" : "none",
   },
 }));

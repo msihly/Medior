@@ -143,7 +143,11 @@ export const TagInputRow = observer(
 
 const formatter = Intl.NumberFormat("en", { notation: "compact" });
 
-const useClasses = makeClasses((props: { hasClick: boolean }) => ({
+interface ClassesProps {
+  hasClick: boolean;
+}
+
+const useClasses = makeClasses((props: ClassesProps) => ({
   count: {
     display: "flex",
     flexShrink: 0,

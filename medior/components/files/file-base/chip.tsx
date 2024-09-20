@@ -19,17 +19,21 @@ export const Chip = ({
   return <ChipBase {...props} {...{ bgColor }} className={css.chip} />;
 };
 
-const useClasses = makeClasses(
-  (props: { hasFooter: boolean; opacity: number; position: ChipProps["position"] }) => ({
-    chip: {
-      position: "absolute",
-      top: props.position.includes("top") ? "0.3rem" : undefined,
-      right: props.position.includes("right") ? "0.3rem" : undefined,
-      bottom: props.position.includes("bottom") ? (props.hasFooter ? "2rem" : "0.3rem") : undefined,
-      left: props.position.includes("left") ? "0.3rem" : undefined,
-      cursor: "pointer",
-      opacity: props.opacity,
-      "&:hover": { opacity: Math.min(1, props.opacity + 0.3) },
-    },
-  })
-);
+interface ClassesProps {
+  hasFooter: boolean;
+  opacity: number;
+  position: ChipProps["position"];
+}
+
+const useClasses = makeClasses((props: ClassesProps) => ({
+  chip: {
+    position: "absolute",
+    top: props.position.includes("top") ? "0.3rem" : undefined,
+    right: props.position.includes("right") ? "0.3rem" : undefined,
+    bottom: props.position.includes("bottom") ? (props.hasFooter ? "2rem" : "0.3rem") : undefined,
+    left: props.position.includes("left") ? "0.3rem" : undefined,
+    cursor: "pointer",
+    opacity: props.opacity,
+    "&:hover": { opacity: Math.min(1, props.opacity + 0.3) },
+  },
+}));
