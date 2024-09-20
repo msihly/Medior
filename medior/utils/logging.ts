@@ -3,6 +3,9 @@ import path from "path";
 import { ipcRenderer } from "electron";
 import { dayjs } from "./date-and-time";
 import { round } from "./math";
+import { PromiseQueue } from "./queue";
+
+const logQueue = new PromiseQueue();
 
 let logsPath: string;
 
@@ -16,7 +19,7 @@ export const logToFile = async (type: "debug" | "error" | "warn", ...args: any[]
       "YYYY-MM-DD HH:mm:ss"
     )}] [${type.toUpperCase()}] ${args.join(" ")}\n`;
 
-    await fs.appendFile(logsPath, logContent, { encoding: "utf8" });
+    logQueue.add(() => fs.appendFile(logsPath, logContent, { encoding: "utf8" }));
   } catch (err) {
     console.error("Failed to log to file:", err);
   }
