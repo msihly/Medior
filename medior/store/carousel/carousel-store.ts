@@ -10,10 +10,12 @@ import { dayjs, extractVideoFrame, trpc } from "medior/utils";
 export class CarouselStore extends Model({
   activeFileId: prop<string>("").withSetter(),
   curFrame: prop<number>(1).withSetter(),
+  curTime: prop<number>(0).withSetter(),
   isMouseMoving: prop<boolean>(false).withSetter(),
   isPinned: prop<boolean>(false).withSetter(),
   isPlaying: prop<boolean>(true).withSetter(),
   selectedFileIds: prop<string[]>(() => []).withSetter(),
+  volume: prop<number>(0).withSetter(),
 }) {
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
   @modelAction

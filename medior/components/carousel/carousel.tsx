@@ -1,12 +1,11 @@
 import { shell } from "@electron/remote";
-import { createContext, MutableRefObject, useContext, useEffect, useRef, useState } from "react";
+import { createContext, MutableRefObject, useContext, useEffect, useRef } from "react";
 import { observer, useStores } from "medior/store";
 import ReactPlayer from "react-player/file";
 import { OnProgressProps } from "react-player/base";
 import Panzoom, { PanzoomObject, PanzoomOptions } from "@panzoom/panzoom";
-import { Slider } from "@mui/material";
-import { Button, FileBase, IconButton, LoadingOverlay, Text, View } from "medior/components";
-import { colors, CONSTANTS, dayjs, makeClasses, round } from "medior/utils";
+import { Button, FileBase, LoadingOverlay, Text, VideoControls, View } from "medior/components";
+import { CONSTANTS, makeClasses, round } from "medior/utils";
 
 export const ZoomContext = createContext<MutableRefObject<PanzoomObject>>(null);
 
@@ -43,63 +42,13 @@ export const Carousel = observer(() => {
     if (activeFile?.isVideo) stores.carousel.setIsPlaying(true);
   }, [activeFile?.isVideo]);
 
-  const [curTime, setCurTime] = useState(0);
-  const [lastPlayingState, setLastPlayingState] = useState(false);
-  const [isVolumeVisible, setIsVolumeVisible] = useState(false);
-  const [lastVolume, setLastVolume] = useState(0.5);
-  const [volume, setVolume] = useState(0);
-
-  const { css } = useClasses({
-    isMouseMoving: stores.carousel.isMouseMoving,
-    isPinned: stores.carousel.isPinned,
-    isVideo: activeFile?.isVideo,
-    isVolumeVisible,
-  });
-
-  const handleFrameChange = (frame: number) => {
-    stores.carousel.setCurFrame(frame);
-    const time = round(frame / activeFile?.frameRate || 1, 3);
-    setCurTime(time);
-    videoRef.current?.seekTo(time, "seconds");
-  };
-
-  const handleFrameSeek = (event: any) => {
-    if (stores.carousel.isPlaying) {
-      setLastPlayingState(true);
-      stores.carousel.setIsPlaying(false);
-    }
-    handleFrameChange(event.target.value);
-  };
-
-  const handleFrameSeekCommit = () => {
-    if (lastPlayingState) {
-      stores.carousel.setIsPlaying(true);
-      setLastPlayingState(false);
-    }
-  };
+  const { css } = useClasses(null);
 
   const handleOpenNatively = () => shell.openPath(activeFile.path);
 
   const handleVideoProgress = ({ playedSeconds }: OnProgressProps) => {
     stores.carousel.setCurFrame(round(playedSeconds * activeFile?.frameRate, 0));
-    setCurTime(playedSeconds);
-  };
-
-  const handleVolumeChange = (_, vol: number) => {
-    setVolume(vol);
-    setLastVolume(vol);
-  };
-
-  const handleVolumeEnter = () => setIsVolumeVisible(true);
-
-  const handleVolumeLeave = () => setIsVolumeVisible(false);
-
-  const toggleMute = () => {
-    if (volume === 0) setVolume(lastVolume);
-    else {
-      setLastVolume(lastVolume);
-      setVolume(0);
-    }
+    stores.carousel.setCurTime(playedSeconds);
   };
 
   const togglePlaying = () => stores.carousel.setIsPlaying(!stores.carousel.isPlaying);
@@ -128,8 +77,8 @@ export const Carousel = observer(() => {
                       width="100%"
                       height="100%"
                       loop
-                      muted={volume === 0}
-                      volume={volume}
+                      muted={stores.carousel.volume === 0}
+                      volume={stores.carousel.volume}
                     />
                   </View>
                 ) : (
@@ -164,79 +113,12 @@ export const Carousel = observer(() => {
         )}
       </View>
 
-      {activeFile?.isPlayableVideo && (
-        <View row spacing="0.5rem" className={css.videoControlBar}>
-          <IconButton
-            name={stores.carousel.isPlaying ? "Pause" : "PlayArrow"}
-            onClick={togglePlaying}
-          />
-
-          <View column flex={1}>
-            <Slider
-              value={stores.carousel.curFrame}
-              onChange={handleFrameSeek}
-              onChangeCommitted={handleFrameSeekCommit}
-              min={1}
-              max={activeFile?.totalFrames}
-              step={1}
-              valueLabelDisplay="auto"
-              className={css.slider}
-            />
-          </View>
-
-          <View column justify="center" height="100%" onMouseLeave={handleVolumeLeave}>
-            <View onMouseEnter={handleVolumeEnter}>
-              <IconButton
-                name={
-                  volume > 0.65
-                    ? "VolumeUp"
-                    : volume > 0.3
-                      ? "VolumeDown"
-                      : volume > 0
-                        ? "VolumeMute"
-                        : "VolumeOff"
-                }
-                onClick={toggleMute}
-              />
-            </View>
-
-            <View className={css.volumeSlider}>
-              <Slider
-                value={volume}
-                onChange={handleVolumeChange}
-                min={0}
-                max={1}
-                step={0.01}
-                orientation="vertical"
-                valueLabelDisplay="off"
-                className={css.slider}
-              />
-            </View>
-          </View>
-
-          <View column>
-            <Text color={colors.custom.white} className={css.videoTime}>
-              {dayjs.duration(Math.round(curTime * 1000)).format("HH:mm:ss")}
-            </Text>
-
-            <Text color={colors.custom.lightGrey} className={css.videoTime}>
-              {dayjs.duration(Math.round(activeFile?.duration * 1000)).format("HH:mm:ss")}
-            </Text>
-          </View>
-        </View>
-      )}
+      {activeFile?.isPlayableVideo && <VideoControls />}
     </View>
   );
 });
 
-interface ClassesProps {
-  isMouseMoving: boolean;
-  isPinned: boolean;
-  isVideo: boolean;
-  isVolumeVisible: boolean;
-}
-
-const useClasses = makeClasses((props: ClassesProps) => ({
+const useClasses = makeClasses({
   contextMenu: {
     display: "flex",
     height: "100%",
@@ -247,42 +129,10 @@ const useClasses = makeClasses((props: ClassesProps) => ({
     objectFit: "scale-down",
     userSelect: "none",
   },
-  slider: {
-    color: colors.custom.lightBlue,
-  },
-  videoControlBar: {
-    position: props.isPinned ? undefined : "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: "0 1rem",
-    width: "100%",
-    height: CONSTANTS.CAROUSEL.VIDEO.CONTROLS_HEIGHT,
-    backgroundColor: "rgb(0, 0, 0, 0.5)",
-    cursor: "default",
-    zIndex: 5,
-    opacity: props.isPinned ? 1 : props.isMouseMoving ? 0.3 : 0,
-    "&:hover": { opacity: 1 },
-  },
-  videoTime: {
-    fontSize: "0.8em",
-    lineHeight: 1,
-  },
-  volumeSlider: {
-    display: props.isVolumeVisible ? "block" : "none",
-    position: "absolute",
-    bottom: CONSTANTS.CAROUSEL.VIDEO.CONTROLS_HEIGHT,
-    padding: "0.8rem 0.3rem 0.4rem",
-    height: "8rem",
-    backgroundColor: "rgb(0, 0, 0, 0.5)",
-    borderRadius: "0.5rem 0.5rem 0 0",
-  },
   videoThumbs: {
     borderRadius: "0.4rem",
     margin: "0 auto 0.5rem",
     height: "auto",
     width: "fit-content",
   },
-}));
+});
