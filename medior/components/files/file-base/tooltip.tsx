@@ -2,6 +2,7 @@ import { FileSchema } from "medior/database";
 import { observer } from "medior/store";
 import {
   Card,
+  DateDetail,
   Detail,
   TagRow,
   Text,
@@ -9,7 +10,7 @@ import {
   UniformList,
   View,
 } from "medior/components";
-import { dayjs, formatBytes } from "medior/utils";
+import { formatBytes } from "medior/utils";
 
 interface TooltipProps {
   children: JSX.Element;
@@ -25,25 +26,20 @@ export const Tooltip = observer(({ children, disabled, file }: TooltipProps) => 
       minWidth="15rem"
       title={
         <View column padding={{ all: "0.3rem" }} spacing="0.5rem">
+          <UniformList row spacing="1rem">
+            <UniformList column>
+              <Detail label="Size" value={formatBytes(file.size)} />
+              <Detail label="Dimensions" value={`${file.width} x ${file.height}`} />
+            </UniformList>
+
+            <UniformList column>
+              <DateDetail label="Date Created" value={file.dateCreated} />
+              <DateDetail label="Date Modified" value={file.dateModified} />
+            </UniformList>
+          </UniformList>
+
+          <Text preset="detail-label">{"Tags"}</Text>
           <TagRow tagIds={file.tagIds} disabled={disabled} />
-
-          <UniformList>
-            <Detail label="Size" value={formatBytes(file.size)} />
-
-            <Detail label="Dimensions" value={`${file.width} x ${file.height}`} />
-          </UniformList>
-
-          <UniformList>
-            <Detail
-              label="Date Created"
-              value={dayjs(file.dateCreated).format("YYYY-MM-DD HH:mm A")}
-            />
-
-            <Detail
-              label="Date Modified"
-              value={dayjs(file.dateModified).format("YYYY-MM-DD HH:mm A")}
-            />
-          </UniformList>
 
           {file.diffusionParams?.length > 0 && (
             <Detail

@@ -3,7 +3,7 @@ import ReactPlayer from "react-player";
 import { observer, useStores } from "medior/store";
 import { Slider } from "@mui/material";
 import { IconButton, Text, View } from "medior/components";
-import { colors, CONSTANTS, dayjs, makeClasses, round } from "medior/utils";
+import { colors, CONSTANTS, duration, makeClasses, round } from "medior/utils";
 
 export const VideoControls = observer(() => {
   const stores = useStores();
@@ -115,11 +115,11 @@ export const VideoControls = observer(() => {
 
       <View column>
         <Text color={colors.custom.white} className={css.videoTime}>
-          {dayjs.duration(Math.round(stores.carousel.curTime * 1000)).format("HH:mm:ss")}
+          {duration(stores.carousel.curTime)}
         </Text>
 
         <Text color={colors.custom.lightGrey} className={css.videoTime}>
-          {dayjs.duration(Math.round(activeFile?.duration * 1000)).format("HH:mm:ss")}
+          {duration(activeFile?.duration)}
         </Text>
       </View>
     </View>

@@ -1,6 +1,6 @@
 import { observer, useStores } from "medior/store";
 import { FileBase } from "medior/components";
-import { colors, CONSTANTS, dayjs } from "medior/utils";
+import { colors, CONSTANTS, duration } from "medior/utils";
 
 interface CarouselThumbProps {
   id: string;
@@ -36,12 +36,7 @@ export const CarouselThumb = observer(({ id, isDragging = false, style }: Carous
 
       <FileBase.Chip label={file?.ext} position="top-right" />
 
-      {file?.duration && (
-        <FileBase.Chip
-          label={dayjs.duration(file.duration, "s").format("HH:mm:ss")}
-          position="bottom-right"
-        />
-      )}
+      {file?.duration && <FileBase.Chip label={duration(file.duration)} position="bottom-right" />}
     </FileBase.Container>
   );
 });

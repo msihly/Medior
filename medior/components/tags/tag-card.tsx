@@ -1,6 +1,6 @@
 import { ContextMenu, FileBase } from "medior/components";
 import { TagManagerTag, observer, useStores } from "medior/store";
-import { colors, openSearchWindow } from "medior/utils";
+import { abbrevNum, colors, openSearchWindow } from "medior/utils";
 
 export interface TagCardProps {
   tag: TagManagerTag;
@@ -61,7 +61,7 @@ export const TagCard = observer(({ tag }: TagCardProps) => {
         <FileBase.Image thumbPaths={tag.thumbPaths} title={tag.label} fit="contain">
           <FileBase.Chip
             position="top-left"
-            label={formatter.format(tag.count)}
+            label={abbrevNum(tag.count)}
             bgColor={colors.custom.blue}
           />
         </FileBase.Image>
@@ -73,5 +73,3 @@ export const TagCard = observer(({ tag }: TagCardProps) => {
     </ContextMenu>
   );
 });
-
-const formatter = Intl.NumberFormat("en", { notation: "compact" });

@@ -1,6 +1,6 @@
 import { Tag as TagType, observer, useStores } from "medior/store";
 import { Chip, ChipProps, Text, View } from "medior/components";
-import { colors, makeClasses } from "medior/utils";
+import { abbrevNum, colors, makeClasses } from "medior/utils";
 import Color from "color";
 
 const HEIGHT_MEDIUM = 32;
@@ -47,7 +47,7 @@ export const TagChip = observer(
         label={
           <View row align="center">
             <View className={css.count}>
-              {tag?.count !== undefined ? formatter.format(tag.count) : "-"}
+              {tag?.count !== undefined ? abbrevNum(tag.count) : "-"}
             </View>
 
             <Text tooltip={tag?.label} tooltipProps={{ flexShrink: 1 }} className={css.label}>
@@ -59,8 +59,6 @@ export const TagChip = observer(
     );
   }
 );
-
-const formatter = Intl.NumberFormat("en", { notation: "compact" });
 
 interface ClassesProps {
   color: string;

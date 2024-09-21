@@ -1,6 +1,5 @@
 import { FileImportBatch, observer } from "medior/store";
-import { Detail, TagRow, Tooltip, View } from "medior/components";
-import { dayjs } from "medior/utils";
+import { DateDetail, TagRow, Tooltip, View } from "medior/components";
 
 interface BatchTooltipProps {
   batch: FileImportBatch;
@@ -14,19 +13,11 @@ export const BatchTooltip = observer(({ batch, children }: BatchTooltipProps) =>
       title={
         <View column>
           <View row spacing="1rem" justify="space-between">
-            <Detail label="Created" value={dayjs(batch.dateCreated).format("YYYY-MM-DD HH:mm A")} />
+            <DateDetail label="Created" value={batch.dateCreated} />
 
-            <Detail
-              label="Started"
-              value={batch.startedAt ? dayjs(batch.startedAt).format("YYYY-MM-DD HH:mm A") : "N/A"}
-            />
+            <DateDetail label="Started" value={batch.startedAt} />
 
-            <Detail
-              label="Completed"
-              value={
-                batch.completedAt ? dayjs(batch.completedAt).format("YYYY-MM-DD HH:mm A") : "N/A"
-              }
-            />
+            <DateDetail label="Completed" value={batch.completedAt} />
           </View>
 
           <TagRow tagIds={batch.tagIds} />

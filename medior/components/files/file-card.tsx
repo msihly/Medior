@@ -2,7 +2,7 @@ import { getCurrentWebContents } from "@electron/remote";
 import { File, observer, useStores } from "medior/store";
 import { Icon, Text, View } from "medior/components";
 import { FileBase } from ".";
-import { colors, CSS, dayjs, openCarouselWindow, trpc } from "medior/utils";
+import { colors, CSS, duration, openCarouselWindow, trpc } from "medior/utils";
 
 interface FileCardProps {
   disabled?: boolean;
@@ -122,15 +122,11 @@ export const FileCard = observer(({ disabled, file, height, id, width }: FileCar
             />
 
             {/* {collections.length > 0 && (
-            <FileBase.Chip position="bottom-left" icon="Collections" label={collections.length} />
-          )} */}
+              <FileBase.Chip position="bottom-left" icon="Collections" label={collections.length} />
+            )} */}
 
             {file.duration && (
-              <FileBase.Chip
-                position="bottom-right"
-                label={dayjs.duration(file.duration, "s").format("HH:mm:ss")}
-                hasFooter
-              />
+              <FileBase.Chip label={duration(file.duration)} position="bottom-right" hasFooter />
             )}
           </FileBase.Image>
 

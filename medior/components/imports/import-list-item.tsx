@@ -61,14 +61,14 @@ export const ImportListItem = observer(
                 <Detail label="Positive Prompt" value={parsedParams?.prompt} />
                 <Detail label="Negative Prompt" value={parsedParams?.negPrompt} />
 
-                <UniformList>
+                <UniformList row>
                   <Detail label="Model" value={parsedParams?.model} flex="300%" />
                   <Detail label="Model Hash" value={parsedParams?.modelHash} />
                   <Detail label="VAE" value={parsedParams?.vae} />
                   <Detail label="VAE Hash" value={parsedParams?.vaeHash} />
                 </UniformList>
 
-                <UniformList>
+                <UniformList row>
                   <Detail label="Width" value={parsedParams?.width} />
                   <Detail label="Height" value={parsedParams?.height} />
                   <Detail label="Seed" value={parsedParams?.seed} />
@@ -76,14 +76,14 @@ export const ImportListItem = observer(
                   <Detail label="Subseed Strength" value={parsedParams?.subseedStrength} />
                 </UniformList>
 
-                <UniformList>
+                <UniformList row>
                   <Detail label="Steps" value={parsedParams?.steps} />
                   <Detail label="Sampler" value={parsedParams?.sampler} flex="200%" />
                   <Detail label="CFG Scale" value={parsedParams?.cfgScale} />
                   <Detail label="Clip Skip" value={parsedParams?.clipSkip} />
                 </UniformList>
 
-                <UniformList>
+                <UniformList row>
                   <Detail label="Upscaled?" value={parsedParams?.isUpscaled ? "Yes" : "No"} />
                   <Detail label="Face Restoration" value={parsedParams?.faceRestoration} />
                   <Detail
@@ -92,7 +92,7 @@ export const ImportListItem = observer(
                   />
                 </UniformList>
 
-                <UniformList>
+                <UniformList row>
                   <Detail label="Hires Scale" value={parsedParams?.hiresScale} />
                   <Detail label="Hires Upscaler" value={parsedParams?.hiresUpscaler} flex="150%" />
                   <Detail

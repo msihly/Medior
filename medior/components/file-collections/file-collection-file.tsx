@@ -3,7 +3,7 @@ import { observer, useStores } from "medior/store";
 import { useSortable } from "@alissavrk/dnd-kit-sortable";
 import { CSS as CSSUtils } from "@alissavrk/dnd-kit-utilities";
 import { FileBase, View } from "medior/components";
-import { colors, dayjs, openCarouselWindow } from "medior/utils";
+import { colors, duration, openCarouselWindow } from "medior/utils";
 
 export interface FileCollectionFileProps {
   disabled?: boolean;
@@ -57,7 +57,12 @@ export const FileCollectionFile = observer(
         ref={setNodeRef}
         {...attributes}
         {...listeners}
-        style={{ ...style, transform: CSSUtils.Transform.toString(transform), transition, opacity: file.isArchived ? 0.5 : 1 }}
+        style={{
+          ...style,
+          transform: CSSUtils.Transform.toString(transform),
+          transition,
+          opacity: file.isArchived ? 0.5 : 1,
+        }}
       >
         <FileBase.ContextMenu {...{ disabled, file }}>
           <FileBase.Tooltip {...{ disabled, file }}>
@@ -89,9 +94,9 @@ export const FileCollectionFile = observer(
 
                 {file.duration && (
                   <FileBase.Chip
+                    label={duration(file.duration)}
                     position="bottom-right"
                     hasFooter
-                    label={dayjs.duration(file.duration, "s").format("HH:mm:ss")}
                   />
                 )}
               </FileBase.Image>

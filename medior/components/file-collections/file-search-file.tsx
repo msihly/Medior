@@ -2,7 +2,7 @@ import { CSSProperties } from "react";
 import { FileSchema } from "medior/database";
 import { File, observer, useStores } from "medior/store";
 import { Button, FileBase } from "medior/components";
-import { colors, dayjs } from "medior/utils";
+import { colors, duration } from "medior/utils";
 
 export interface FileSearchFileProps {
   disabled?: boolean;
@@ -39,10 +39,7 @@ export const FileSearchFile = observer(
             />
 
             {file.duration && (
-              <FileBase.Chip
-                position="bottom-right"
-                label={dayjs.duration(file.duration, "s").format("HH:mm:ss")}
-              />
+              <FileBase.Chip label={duration(file.duration)} position="bottom-right" />
             )}
           </FileBase.Image>
 

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { FileCollection } from "medior/store";
-import { Detail, TagRow, Text, Tooltip, View } from "medior/components";
-import { dayjs, trpc } from "medior/utils";
+import { DateDetail, TagRow, Text, Tooltip, View } from "medior/components";
+import { trpc } from "medior/utils";
 import { toast } from "react-toastify";
 
 export interface CollectionTooltipProps {
@@ -38,15 +38,8 @@ export const CollectionTooltip = ({ children, collection }: CollectionTooltipPro
           <Text preset="title">{collection.title}</Text>
 
           <View row justify="space-between" spacing="1rem">
-            <Detail
-              label="Created"
-              value={dayjs(collection.dateCreated).format("YYYY-MM-DD HH:mm A")}
-            />
-
-            <Detail
-              label="Modified"
-              value={dayjs(collection.dateModified).format("YYYY-MM-DD HH:mm A")}
-            />
+            <DateDetail label="Date Created" value={collection.dateCreated} />
+            <DateDetail label="Date Modified" value={collection.dateModified} />
           </View>
 
           <TagRow tagIds={tagIds} />

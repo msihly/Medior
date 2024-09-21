@@ -1,8 +1,17 @@
 import path from "path";
 import { shell } from "@electron/remote";
 import { observer, useStores } from "medior/store";
-import { Button, Card, Detail, Modal, TagRow, Text, UniformList } from "medior/components";
-import { colors, dayjs, formatBytes, makeClasses } from "medior/utils";
+import {
+  Button,
+  Card,
+  DateDetail,
+  Detail,
+  Modal,
+  TagRow,
+  Text,
+  UniformList,
+} from "medior/components";
+import { colors, duration, formatBytes, makeClasses } from "medior/utils";
 import { toast } from "react-toastify";
 
 export const InfoModal = observer(() => {
@@ -30,7 +39,7 @@ export const InfoModal = observer(() => {
       </Modal.Header>
 
       <Modal.Content spacing="0.5rem">
-        <UniformList>
+        <UniformList row>
           <Detail label="Extension" value={file?.ext || "N/A"} />
 
           <Detail label="Size" value={formatBytes(file?.size)} tooltip={file?.size} />
@@ -40,7 +49,7 @@ export const InfoModal = observer(() => {
             value={`${file?.width} x ${file?.height}`}
             valueProps={{
               tooltip: (
-                <UniformList>
+                <UniformList row>
                   <Detail label="Width" value={file?.width} />
                   <Detail label="Height" value={file?.height} />
                 </UniformList>
@@ -48,10 +57,7 @@ export const InfoModal = observer(() => {
             }}
           />
 
-          <Detail
-            label="Duration"
-            value={file?.duration ? dayjs.duration(file.duration, "s").format("HH:mm:ss") : "N/A"}
-          />
+          <Detail label="Duration" value={duration(file?.duration)} />
 
           <Detail label="Frame Rate" value={file?.frameRate || "N/A"} />
         </UniformList>
@@ -80,22 +86,14 @@ export const InfoModal = observer(() => {
           }
         />
 
-        <UniformList>
+        <UniformList row>
           <Detail label="Hash" value={file?.hash || "N/A"} />
-
           <Detail label="Original Hash" value={file?.originalHash || "N/A"} />
         </UniformList>
 
-        <UniformList>
-          <Detail
-            label="Date Created"
-            value={dayjs(file?.dateCreated).format("MMMM D, YYYY - hh:mm:ss a") || "N/A"}
-          />
-
-          <Detail
-            label="Date Modified"
-            value={dayjs(file?.dateModified).format("MMMM D, YYYY - hh:mm:ss a") || "N/A"}
-          />
+        <UniformList row>
+          <DateDetail label="Date Created" value={file?.dateCreated} />
+          <DateDetail label="Date Modified" value={file?.dateModified} />
         </UniformList>
 
         {file?.tagIds?.length > 0 && (
@@ -117,7 +115,12 @@ export const InfoModal = observer(() => {
       <Modal.Footer>
         <Button text="Close" icon="Close" onClick={handleClose} colorOnHover={colors.custom.red} />
 
-        <Button text="Refresh" icon="Refresh" onClick={handleRefresh} />
+        <Button
+          text="Refresh"
+          icon="Refresh"
+          onClick={handleRefresh}
+          colorOnHover={colors.custom.blue}
+        />
       </Modal.Footer>
     </Modal.Container>
   );

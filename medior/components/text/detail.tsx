@@ -1,6 +1,6 @@
 import { ReactNode } from "react";
 import { Text, TextProps, View, ViewProps } from "medior/components";
-import { CSS, colors, makeClasses } from "medior/utils";
+import { CSS, makeClasses } from "medior/utils";
 
 export interface DetailProps extends ViewProps {
   emptyValueText?: string;
@@ -17,7 +17,7 @@ export interface DetailProps extends ViewProps {
 export const Detail = ({
   emptyValueText = "--",
   label,
-  labelProps,
+  labelProps = {},
   overflowX = "auto",
   overflowY = "hidden",
   row = false,
@@ -32,7 +32,7 @@ export const Detail = ({
   return (
     <View column={!row} row={row} spacing={row ? "0.5rem" : null} {...props}>
       {typeof label === "string" ? (
-        <Text color={colors.custom.blue} fontWeight={500} whiteSpace="nowrap" {...labelProps}>
+        <Text preset="detail-label" {...labelProps}>
           {label}
         </Text>
       ) : (

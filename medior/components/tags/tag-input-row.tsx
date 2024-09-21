@@ -1,6 +1,6 @@
 import { observer, SearchTagType, TagOption, useStores } from "medior/store";
 import { Button, IconName, ListItem, Text, View } from "medior/components";
-import { colors, makeClasses } from "medior/utils";
+import { abbrevNum, colors, makeClasses } from "medior/utils";
 import { useState } from "react";
 import { Menu } from "@mui/material";
 
@@ -88,7 +88,7 @@ export const TagInputRow = observer(
         <View row className={css.root} style={style}>
           <View onClick={hasClick ? handleClick : null} className={css.count}>
             <Text fontSize="0.5em">
-              {tag.count !== undefined ? formatter.format(tag.count) : "-"}
+              {tag.count !== undefined ? abbrevNum(tag.count) : "-"}
             </Text>
           </View>
 
@@ -140,8 +140,6 @@ export const TagInputRow = observer(
     );
   }
 );
-
-const formatter = Intl.NumberFormat("en", { notation: "compact" });
 
 interface ClassesProps {
   hasClick: boolean;
