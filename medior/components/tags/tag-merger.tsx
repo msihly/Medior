@@ -5,7 +5,6 @@ import {
   Button,
   Card,
   Checkbox,
-  ChipOption,
   ConfirmModal,
   HeaderWrapper,
   Modal,
@@ -25,7 +24,7 @@ export const TagMerger = observer(() => {
 
   const stores = useStores();
 
-  const [aliases, setAliases] = useState<ChipOption[]>([]);
+  const [aliases, setAliases] = useState<string[]>([]);
   const [childTags, setChildTags] = useState<TagOption[]>([]);
   const [isConfirmDiscardOpen, setIsConfirmDiscardOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -68,12 +67,7 @@ export const TagMerger = observer(() => {
       setTagLabelToKeep(tagToKeep.id === stores.tag.activeTagId ? "base" : "merge");
 
     const aliasToSet = tagLabelToKeep === "merge" ? baseTag.label : tag.label;
-    setAliases(
-      [...new Set([aliasToSet, ...tagToKeep.aliases, ...tagToMerge.aliases])].map((a) => ({
-        label: a,
-        value: a,
-      }))
-    );
+    setAliases([...new Set([aliasToSet, ...tagToKeep.aliases, ...tagToMerge.aliases])]);
 
     const labelToSet = tagLabelToKeep === "base" ? baseTag.label : tag.label;
     setLabel(labelToSet);
@@ -97,7 +91,7 @@ export const TagMerger = observer(() => {
     try {
       setIsSaving(true);
       const res = await stores.tag.mergeTags({
-        aliases: aliases.map((a) => a.value),
+        aliases,
         childIds: childTags.map((t) => t.id),
         label,
         parentIds: parentTags.map((t) => t.id),
@@ -155,11 +149,7 @@ export const TagMerger = observer(() => {
           <UniformList row spacing="0.5rem">
             <View column flex={1}>
               <HeaderWrapper header="Base Tag">
-                <TagList
-                  tags={[baseTag]}
-                  search={null}
-                  viewProps={{ borderRadiuses: { top: 0 } }}
-                />
+                <TagList search={{ onChange: null, value: [baseTag] }} hasDelete={false} hasInput />
               </HeaderWrapper>
 
               <Checkbox
@@ -198,7 +188,7 @@ export const TagMerger = observer(() => {
           <Card row flex={1} spacing="0.5rem">
             <TagInputs.Label value={label} setValue={setLabel} disabled hasHelper={false} />
 
-            <TagInputs.Aliases value={aliases} setValue={setAliases} disabled hasHelper={false} />
+            <TagInputs.Aliases value={aliases} onChange={setAliases} disabled hasHelper={false} />
           </Card>
 
           <Card row height="12rem" spacing="0.5rem">

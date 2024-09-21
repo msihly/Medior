@@ -6,9 +6,9 @@ import {
   Button,
   Card,
   Checkbox,
-  ChipOption,
   ConfirmModal,
   IconButton,
+  IdButton,
   Modal,
   RegExMapRow,
   Text,
@@ -33,9 +33,7 @@ export const TagEditor = observer(
     const isCreate = !id;
     const tag = isCreate ? null : stores.tag.getById(id);
 
-    const [aliases, setAliases] = useState<ChipOption[]>(
-      tag?.aliases ? tag.aliases.map((a) => ({ label: a, value: a })) : []
-    );
+    const [aliases, setAliases] = useState<string[]>(tag?.aliases ?? []);
     const [childTags, setChildTags] = useState<TagOption[]>(
       tag ? stores.tag.getChildTags(tag).map((t) => t.tagOption) : []
     );
@@ -64,7 +62,7 @@ export const TagEditor = observer(
     useDeepEffect(() => {
       if (id && stores.tag.getById(id)) {
         setLabel(tag.label);
-        setAliases(tag.aliases.map((a) => ({ label: a, value: a })) ?? []);
+        setAliases(tag.aliases ?? []);
         setChildTags(stores.tag.getChildTags(tag).map((t) => t.tagOption) ?? []);
         setParentTags(stores.tag.getParentTags(tag).map((t) => t.tagOption) ?? []);
         setRegExValue(tag.regExMap?.regEx ?? "");
@@ -117,6 +115,8 @@ export const TagEditor = observer(
       setIsLoading(false);
     };
 
+    const handleSearch = () => openSearchWindow({ tagIds: [id] });
+
     const handleSubEditorClick = (tagId: string) => {
       stores.tag.setSubEditorTagId(tagId);
       stores.tag.setIsTagSubEditorOpen(true);
@@ -128,7 +128,6 @@ export const TagEditor = observer(
 
       const childIds = childTags.map((t) => t.id);
       const parentIds = parentTags.map((t) => t.id);
-      const aliasStrings = aliases.map((a) => a.value);
       const regExMap =
         regExValue.length > 0 && regExTypes.length
           ? { regEx: regExValue, testString: regExTestString, types: regExTypes }
@@ -136,15 +135,8 @@ export const TagEditor = observer(
 
       setIsLoading(true);
       const res = await (isCreate
-        ? stores.tag.createTag({ aliases: aliasStrings, childIds, label, parentIds, regExMap })
-        : stores.tag.editTag({
-            aliases: aliasStrings,
-            childIds,
-            id: id,
-            label,
-            parentIds,
-            regExMap,
-          }));
+        ? stores.tag.createTag({ aliases, childIds, label, parentIds, regExMap })
+        : stores.tag.editTag({ aliases, childIds, id, label, parentIds, regExMap }));
       setIsLoading(false);
 
       if (res.success) {
@@ -155,22 +147,20 @@ export const TagEditor = observer(
       } else toast.error(res.error);
     };
 
-    const handleSearch = () => openSearchWindow({ tagIds: [id] });
-
     return (
-      <Modal.Container {...{ isLoading }} onClose={handleClose} width="50rem">
+      <Modal.Container {...{ isLoading }} onClose={handleClose} width="45rem">
         <Modal.Header
           leftNode={
             !isCreate && (
               <View row align="center" spacing="0.5rem">
+                <IdButton value={id} />
+
                 <IconButton
                   name="Search"
                   iconProps={{ color: colors.custom.grey }}
                   onClick={handleSearch}
                   disabled={isLoading}
                 />
-
-                <Text preset="sub-text">{`ID: ${id}`}</Text>
               </View>
             )
           }
@@ -204,7 +194,7 @@ export const TagEditor = observer(
         </Modal.Header>
 
         <Modal.Content spacing="0.5rem">
-          <Card row flex={1} spacing="0.5rem">
+          <Card height="100%" padding={{ top: "1rem" }}>
             <TagInputs.Label
               ref={labelRef}
               value={label}
@@ -213,11 +203,11 @@ export const TagEditor = observer(
               isDuplicate={isDuplicateTag}
               width="100%"
             />
-
-            <TagInputs.Aliases value={aliases} setValue={setAliases} disabled={isLoading} />
           </Card>
 
-          <Card row height="12rem" spacing="0.5rem">
+          <Card row height="13rem" spacing="0.5rem" padding={{ all: "1rem 0.5rem" }}>
+            <TagInputs.Aliases value={aliases} onChange={setAliases} disabled={isLoading} />
+
             <TagInputs.Relations
               header="Parent Tags"
               options={tagOptions}
@@ -245,17 +235,19 @@ export const TagEditor = observer(
             />
           </Card>
 
-          <RegExMapRow
-            aliases={aliases.map((a) => a.value)}
-            disabled={isLoading}
-            label={label}
-            regEx={regExValue}
-            setRegEx={setRegExValue}
-            setTestString={setRegExTestString}
-            setTypes={setRegExTypes}
-            testString={regExTestString}
-            types={regExTypes}
-          />
+          <Card padding={{ top: "1rem" }}>
+            <RegExMapRow
+              aliases={aliases}
+              disabled={isLoading}
+              label={label}
+              regEx={regExValue}
+              setRegEx={setRegExValue}
+              setTestString={setRegExTestString}
+              setTypes={setRegExTypes}
+              testString={regExTestString}
+              types={regExTypes}
+            />
+          </Card>
 
           {isCreate && (
             <Card header="Create Options" row spacing="0.5rem">
@@ -297,7 +289,7 @@ export const TagEditor = observer(
 
           {!isCreate && (
             <Button
-              text="Merge Tags"
+              text="Merge"
               icon="Merge"
               onClick={handleMerge}
               disabled={isLoading}

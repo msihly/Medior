@@ -103,7 +103,11 @@ export const FileTagEditor = observer(({ batchId, fileIds }: FileTagEditorProps)
           />
 
           <HeaderWrapper header="Current Tags">
-            <TagList tags={currentTagOptions} search={null} hasEditor />
+            <TagList
+              search={{ onChange: null, value: currentTagOptions }}
+              hasDelete={false}
+              hasEditor
+            />
           </HeaderWrapper>
 
           <TagInput

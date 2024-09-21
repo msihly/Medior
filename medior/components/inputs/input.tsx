@@ -58,6 +58,7 @@ export const Input = forwardRef(
       margins = {},
       maxLength,
       onClick,
+      onKeyDown,
       setValue,
       textAlign,
       value,
@@ -75,7 +76,7 @@ export const Input = forwardRef(
       color,
       dense,
       flex,
-      hasHeader: !!header,
+      hasHeader: header !== undefined,
       hasHelper,
       hasHelperText: !!helperText,
       hasOnClick: !!onClick,
@@ -87,10 +88,13 @@ export const Input = forwardRef(
     const handleChange = (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
       setValue?.(event.target.value);
 
-    const handleKeyDown = (event: React.KeyboardEvent) => event.stopPropagation();
+    const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+      event.stopPropagation();
+      onKeyDown?.(event);
+    };
 
     return (
-      <HeaderWrapper header={header} headerProps={headerProps} flex={flex} width={width}>
+      <HeaderWrapper {...{ flex, header, headerProps, width }}>
         <TextField
           {...props}
           {...{ onClick, ref, value, variant }}

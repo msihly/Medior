@@ -64,7 +64,7 @@ export const TagInput = observer(
         disabled,
         excludedIds = [],
         hasCreate = false,
-        hasDelete = false,
+        hasDelete = true,
         hasEditor = true,
         hasHelper = false,
         hasList = true,
@@ -199,6 +199,14 @@ export const TagInput = observer(
         />
       );
 
+      const renderList = () => (
+        <TagList
+          {...{ hasDelete, hasEditor, hasSearchMenu, value }}
+          search={{ onChange, value }}
+          hasInput
+        />
+      );
+
       const renderOption = (
         props: HTMLAttributes<HTMLLIElement> & HTMLAttributes<HTMLDivElement>,
         option: TagOption
@@ -232,15 +240,7 @@ export const TagInput = observer(
       return (
         <View column height="100%" className={css.root}>
           {single && value.length > 0 ? (
-            <HeaderWrapper {...{ header, headerProps }}>
-              <TagList
-                tags={value}
-                search={{ onChange, value }}
-                hasDelete
-                rowHeight={43}
-                viewProps={{ borderRadiuses: { top: 0 } }}
-              />
-            </HeaderWrapper>
+            <HeaderWrapper {...{ header, headerProps }}>{renderList()}</HeaderWrapper>
           ) : (
             <>
               <Autocomplete
@@ -268,15 +268,7 @@ export const TagInput = observer(
                 {...props}
               />
 
-              {!single && hasList && (
-                <TagList
-                  {...{ hasDelete, hasEditor, hasSearchMenu }}
-                  tags={value}
-                  onClick={onTagClick}
-                  search={{ onChange, value }}
-                  viewProps={{ borderRadiuses: { top: 0 } }}
-                />
-              )}
+              {!single && hasList && renderList()}
             </>
           )}
         </View>

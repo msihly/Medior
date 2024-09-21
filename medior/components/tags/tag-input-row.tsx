@@ -1,8 +1,16 @@
-import { observer, SearchTagType, TagOption, useStores } from "medior/store";
-import { Button, IconName, ListItem, Text, View } from "medior/components";
-import { abbrevNum, colors, makeClasses } from "medior/utils";
 import { useState } from "react";
+import { observer, SearchTagType, TagOption, useStores } from "medior/store";
 import { Menu } from "@mui/material";
+import {
+  Button,
+  IconName,
+  ListItem,
+  MultiInputRow,
+  MultiInputRowProps,
+  Text,
+  View,
+} from "medior/components";
+import { abbrevNum, colors, makeClasses } from "medior/utils";
 
 const TAG_SEARCH_META: {
   [key in SearchTagType]: { color: string; icon: IconName; text: string };
@@ -34,18 +42,9 @@ const TAG_SEARCH_META: {
   },
 };
 
-export const TAG_INPUT_ROW_HEIGHT = 30;
-
-export interface TagInputRowProps {
-  hasDelete?: boolean;
+export interface TagInputRowProps extends Omit<MultiInputRowProps<TagOption>, "value"> {
   hasEditor?: boolean;
   hasSearchMenu?: boolean;
-  onClick?: (id: string) => void;
-  search: {
-    onChange: (val: TagOption[]) => void;
-    value: TagOption[];
-  };
-  style?: React.CSSProperties;
   tag: TagOption;
 }
 
@@ -64,7 +63,7 @@ export const TagInputRow = observer(
     const [anchorEl, setAnchorEl] = useState(null);
 
     const handleClick = () => {
-      onClick?.(tag?.id);
+      onClick?.(tag);
       if (hasEditor) {
         stores.tag.setActiveTagId(tag?.id);
         stores.tag.setIsTagEditorOpen(true);
@@ -72,8 +71,6 @@ export const TagInputRow = observer(
     };
 
     const handleClose = () => setAnchorEl(null);
-
-    const handleDelete = () => search.onChange(search.value.filter((t) => t.id !== tag.id));
 
     const handleMenuClick = (searchType: SearchTagType) =>
       search.onChange(search.value.map((t) => (t.id === tag.id ? { ...t, searchType } : t)));
@@ -85,42 +82,31 @@ export const TagInputRow = observer(
 
     return (
       <>
-        <View row className={css.root} style={style}>
-          <View onClick={hasClick ? handleClick : null} className={css.count}>
-            <Text fontSize="0.5em">
-              {tag.count !== undefined ? abbrevNum(tag.count) : "-"}
-            </Text>
-          </View>
-
-          <View onClick={hasClick ? handleClick : null} row flex={1} overflow="hidden">
-            <Text tooltip={tag.label} tooltipProps={{ flexShrink: 1 }} className={css.label}>
-              {tag.label}
-            </Text>
-          </View>
-
-          {hasSearchMenu && (
-            <Button
-              onClick={handleOpen}
-              icon={searchMeta?.icon}
-              iconProps={{ color: searchMeta?.color }}
-              color="transparent"
-              colorOnHover={colors.foregroundCard}
-              padding={{ all: "0.3em" }}
-              boxShadow="none"
-            />
-          )}
-
-          {hasDelete && (
-            <Button
-              onClick={handleDelete}
-              icon="Close"
-              color="transparent"
-              colorOnHover={colors.custom.red}
-              padding={{ all: "0.3em" }}
-              boxShadow="none"
-            />
-          )}
-        </View>
+        <MultiInputRow
+          search={search}
+          value={tag}
+          valueExtractor={(tag) => tag.label}
+          hasDelete={hasDelete}
+          style={style}
+          leftNode={
+            <View onClick={hasClick ? handleClick : null} className={css.count}>
+              <Text fontSize="0.5em">{tag?.count !== undefined ? abbrevNum(tag.count) : "-"}</Text>
+            </View>
+          }
+          rightNode={
+            hasSearchMenu && (
+              <Button
+                onClick={handleOpen}
+                icon={searchMeta?.icon}
+                iconProps={{ color: searchMeta?.color }}
+                color="transparent"
+                colorOnHover={colors.foregroundCard}
+                padding={{ all: "0.3em" }}
+                boxShadow="none"
+              />
+            )
+          }
+        />
 
         <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={handleClose} keepMounted>
           <View>
@@ -141,11 +127,7 @@ export const TagInputRow = observer(
   }
 );
 
-interface ClassesProps {
-  hasClick: boolean;
-}
-
-const useClasses = makeClasses((props: ClassesProps) => ({
+const useClasses = makeClasses({
   count: {
     display: "flex",
     flexShrink: 0,
@@ -153,22 +135,7 @@ const useClasses = makeClasses((props: ClassesProps) => ({
     alignItems: "center",
     padding: "0.2em",
     height: "100%",
-    width: TAG_INPUT_ROW_HEIGHT,
+    width: "1.75rem",
     backgroundColor: colors.custom.blue,
   },
-  label: {
-    padding: "0 0.3rem",
-    fontSize: "0.8em",
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  },
-  root: {
-    alignItems: "center",
-    borderBottom: `1px solid ${colors.custom.black}`,
-    height: TAG_INPUT_ROW_HEIGHT,
-    width: "100%",
-    backgroundColor: colors.foreground,
-    cursor: props.hasClick ? "pointer" : undefined,
-  },
-}));
+});

@@ -60,18 +60,7 @@ export const RegExMapRow = observer(
     };
 
     return (
-      <View row align="center" spacing="0.5rem" className={css.regExRow}>
-        <View row spacing="0.5rem">
-          <Button
-            icon="AccountTree"
-            iconSize="1.8em"
-            onClick={generateRegEx}
-            disabled={disabled}
-            colorOnHover={colors.custom.blue}
-            tooltip="Generate RegEx from Label and Aliases"
-          />
-        </View>
-
+      <View column>
         <Input
           {...inputProps}
           header="RegExp"
@@ -86,23 +75,23 @@ export const RegExMapRow = observer(
           }}
         />
 
-        <Input
-          {...inputProps}
-          header="Test String"
-          value={testString}
-          setValue={setTestString}
-          error={!isTestStringValid}
-          helperText={!isTestStringValid ? "Does not match RegExp" : null}
-        />
+        <View row align="center" spacing="0.5rem">
+          <Button
+            icon="AccountTree"
+            iconSize="1.8em"
+            onClick={generateRegEx}
+            disabled={disabled}
+            color={colors.custom.purple}
+            tooltip="Generate RegEx from Label and Aliases"
+          />
 
-        <View row spacing="0.5rem">
           <Button
             icon="InsertDriveFile"
             iconSize="1.8em"
             tooltip="File Name"
             onClick={toggleTypeFile}
             disabled={disabled}
-            color={types.includes("fileName") ? colors.custom.blue : colors.custom.grey}
+            color={types.includes("fileName") ? colors.custom.green : colors.custom.grey}
           />
 
           <Button
@@ -111,7 +100,7 @@ export const RegExMapRow = observer(
             tooltip="Folder Name"
             onClick={toggleTypeFolder}
             disabled={disabled}
-            color={types.includes("folderName") ? colors.custom.blue : colors.custom.grey}
+            color={types.includes("folderName") ? colors.custom.green : colors.custom.grey}
           />
 
           <Button
@@ -120,7 +109,17 @@ export const RegExMapRow = observer(
             tooltip="Diffusion Parameters"
             onClick={toggleTypeDiffusion}
             disabled={disabled}
-            color={types.includes("diffusionParams") ? colors.custom.blue : colors.custom.grey}
+            color={types.includes("diffusionParams") ? colors.custom.green : colors.custom.grey}
+          />
+
+          <Input
+            {...inputProps}
+            header="Test String"
+            value={testString}
+            setValue={setTestString}
+            error={!isTestStringValid}
+            helperText={!isTestStringValid ? "Does not match RegExp" : null}
+            width="100%"
           />
         </View>
       </View>
@@ -131,13 +130,5 @@ export const RegExMapRow = observer(
 const useClasses = makeClasses({
   input: {
     minWidth: "12rem",
-  },
-  regExRow: {
-    flex: 1,
-    alignItems: "flex-start",
-    borderRadius: "0.5rem",
-    padding: "1.2rem 1rem 0.4rem",
-    backgroundColor: colors.foreground,
-    overflow: "auto",
   },
 });

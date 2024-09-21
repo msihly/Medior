@@ -39,7 +39,7 @@ export const callOptFunc = (fn, ...args) => (typeof fn === "function" ? fn(...ar
 
 export const copyToClipboard = (value: string, message: string) => {
   navigator.clipboard.writeText(value).then(
-    () => toast.success(message),
+    () => toast.info(message),
     () => toast.error("Failed to copy to clipboard")
   );
 };

@@ -6,6 +6,7 @@ import {
   Card,
   DateDetail,
   Detail,
+  IdButton,
   Modal,
   TagRow,
   Text,
@@ -34,7 +35,7 @@ export const InfoModal = observer(() => {
 
   return (
     <Modal.Container width="100%" maxWidth="50rem" onClose={handleClose}>
-      <Modal.Header leftNode={<Text preset="sub-text">{`ID: ${stores.file.activeFileId}`}</Text>}>
+      <Modal.Header leftNode={<IdButton value={stores.file.activeFileId} />}>
         <Text preset="title">{"File Info"}</Text>
       </Modal.Header>
 

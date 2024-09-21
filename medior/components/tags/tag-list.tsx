@@ -1,67 +1,31 @@
-import AutoSizer from "react-virtualized-auto-sizer";
-import { FixedSizeList } from "react-window";
-import {
-  CenteredText,
-  TAG_INPUT_ROW_HEIGHT,
-  TagInputRow,
-  TagInputRowProps,
-  View,
-  ViewProps,
-} from "medior/components";
+import { MultiInputList, MultiInputListProps, TagInputRow, ViewProps } from "medior/components";
 import { TagOption } from "medior/store";
-import { BorderRadiuses, colors, deepMerge, makeClasses } from "medior/utils";
 
-const DEFAULT_BORDER_RADIUSES: BorderRadiuses = {
-  all: "0.3rem",
-};
-
-export interface TagListProps extends Omit<TagInputRowProps, "tag"> {
-  rowHeight?: number;
-  tags: TagOption[];
+export interface TagListProps extends MultiInputListProps<TagOption> {
+  hasDelete?: boolean;
+  hasEditor?: boolean;
+  hasSearchMenu?: boolean;
+  hasInput?: boolean;
   viewProps?: Partial<ViewProps>;
 }
 
-export const TagList = ({ rowHeight, tags, viewProps = {}, ...props }: TagListProps) => {
-  const { css } = useClasses(null);
-
+export const TagList = ({
+  hasDelete,
+  hasEditor,
+  hasInput,
+  hasSearchMenu,
+  search,
+}: TagListProps) => {
   return (
-    <View
-      {...viewProps}
-      column
-      className={css.listContainer}
-      borderRadiuses={deepMerge(DEFAULT_BORDER_RADIUSES, viewProps?.borderRadiuses ?? {})}
-    >
-      {!tags.length ? (
-        <CenteredText text="No tags" color={colors.custom.grey} />
-      ) : (
-        <View flex={1}>
-          <AutoSizer disableWidth>
-            {({ height }) => (
-              <FixedSizeList
-                height={height}
-                width="100%"
-                layout="vertical"
-                itemSize={rowHeight ?? TAG_INPUT_ROW_HEIGHT}
-                itemCount={tags.length}
-              >
-                {({ index, style }) => (
-                  <TagInputRow key={index} tag={tags[index]} style={style} {...props} />
-                )}
-              </FixedSizeList>
-            )}
-          </AutoSizer>
-        </View>
+    <MultiInputList
+      {...{ hasInput, search }}
+      renderRow={(index, style) => (
+        <TagInputRow
+          {...{ hasDelete, hasEditor, hasSearchMenu, search, style }}
+          key={index}
+          tag={search.value[index]}
+        />
       )}
-    </View>
+    />
   );
 };
-
-const useClasses = makeClasses({
-  listContainer: {
-    border: `1px dotted ${colors.custom.grey}`,
-    minHeight: "2.5rem",
-    height: "100%",
-    backgroundColor: "rgb(0 0 0 / 0.2)",
-    overflowY: "auto",
-  },
-});
