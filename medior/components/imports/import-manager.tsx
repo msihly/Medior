@@ -82,7 +82,7 @@ export const ImportManager = observer(() => {
 
       <Modal.Content dividers={false}>
         <Card height="100%" width="100%">
-          <View column padding={{ bottom: "5rem" }} overflow="hidden auto">
+          <View column height="100%" padding={{ bottom: "5rem" }} overflow="hidden auto">
             {batches?.length ? (
               batches
                 .slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
