@@ -114,32 +114,31 @@ export const TagMerger = observer(() => {
     }
   };
 
-  const handleSelectedTagChange = (val: TagOption[]) => setSelectedTagValue(val);
-
   const mergeRelatedTags = (tagIds: string[], tagIdsToExclude: string[]) => {
-    const filteredTagIds = [...new Set(tagIds)];
-    return filteredTagIds.reduce((acc, curId) => {
-      if (tagIdsToExclude.includes(curId) || acc.find((t) => t.id === curId)) return acc;
+    const tagIdsSet = new Set(tagIds);
+    const tagIdsToExcludeSet = new Set(tagIdsToExclude);
+    const tagMap = new Map(stores.tag.listByIds(tagIds).map((tag) => [tag.id, tag]));
+    const result = new Set<TagOption>();
 
-      const hasDescendants = filteredTagIds.some((otherId) => {
-        const otherTag = stores.tag.getById(otherId);
-        const parentIds = [
-          ...new Set([
-            otherTag?.parentIds ?? [],
-            otherTag ? stores.tag.getParentTags(otherTag, true).map((t) => t.id) : [],
-          ]),
-        ].flat();
+    tagIdsSet.forEach((curId) => {
+      const tagOption = tagMap.get(curId)?.tagOption;
+      if (tagIdsToExcludeSet.has(curId) || result.has(tagOption)) return;
 
-        return parentIds.includes(curId);
+      const hasDescendants = Array.from(tagIdsSet).some((otherId) => {
+        const otherTag = tagMap.get(otherId);
+        if (!otherTag) return false;
+        const parentIds = new Set(otherTag.ancestorIds ?? []);
+        return parentIds.has(curId);
       });
 
-      if (!hasDescendants) acc.push(stores.tag.getById(curId).tagOption);
-      return acc;
-    }, [] as TagOption[]);
+      if (!hasDescendants && tagOption) result.add(tagOption);
+    });
+
+    return Array.from(result);
   };
 
   return (
-    <Modal.Container onClose={handleClose} width="50rem" draggable>
+    <Modal.Container isLoading={isSaving} onClose={handleClose} width="50rem" draggable>
       <Modal.Header>
         <Text preset="title">{"Merge Tags"}</Text>
       </Modal.Header>
@@ -167,7 +166,7 @@ export const TagMerger = observer(() => {
                 options={tagOptions}
                 excludedIds={[stores.tag.activeTagId]}
                 value={selectedTagValue}
-                onChange={handleSelectedTagChange}
+                onChange={setSelectedTagValue}
                 single
               />
 
@@ -182,16 +181,16 @@ export const TagMerger = observer(() => {
           </UniformList>
         </Card>
 
-        <View column position="relative" spacing="0.5rem">
+        <Card column position="relative" spacing="0.5rem">
           {disabled && <View className={css.disabledOverlay} />}
 
-          <Card row flex={1} spacing="0.5rem">
+          <View row flex={1} spacing="0.5rem">
             <TagInputs.Label value={label} setValue={setLabel} disabled hasHelper={false} />
+          </View>
 
+          <View row height="12rem" spacing="0.5rem">
             <TagInputs.Aliases value={aliases} onChange={setAliases} disabled hasHelper={false} />
-          </Card>
 
-          <Card row height="12rem" spacing="0.5rem">
             <TagInputs.Relations
               header="Parent Tags"
               options={tagOptions}
@@ -211,14 +210,12 @@ export const TagMerger = observer(() => {
               disabled
               hasDelete={false}
             />
-          </Card>
-        </View>
+          </View>
 
-        {!disabled && (
           <Text align="center" fontStyle="italic" fontSize="0.8em">
             {"Edit after merging"}
           </Text>
-        )}
+        </Card>
       </Modal.Content>
 
       <Modal.Footer>
@@ -230,7 +227,13 @@ export const TagMerger = observer(() => {
           color={colors.custom.grey}
         />
 
-        <Button text="Confirm" icon="Check" onClick={handleConfirm} {...{ disabled }} />
+        <Button
+          text="Confirm"
+          icon="Check"
+          onClick={handleConfirm}
+          color={colors.custom.purple}
+          {...{ disabled }}
+        />
       </Modal.Footer>
 
       {isConfirmDiscardOpen && (

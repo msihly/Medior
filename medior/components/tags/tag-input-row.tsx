@@ -83,11 +83,10 @@ export const TagInputRow = observer(
     return (
       <>
         <MultiInputRow
-          search={search}
+          {...{ hasDelete, search, style }}
           value={tag}
           valueExtractor={(tag) => tag.label}
-          hasDelete={hasDelete}
-          style={style}
+          onClick={hasClick ? handleClick : null}
           leftNode={
             <View onClick={hasClick ? handleClick : null} className={css.count}>
               <Text fontSize="0.5em">{tag?.count !== undefined ? abbrevNum(tag.count) : "-"}</Text>

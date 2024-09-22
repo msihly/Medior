@@ -4,7 +4,6 @@ import {
   HTMLAttributes,
   MouseEvent,
   MutableRefObject,
-  useCallback,
   useEffect,
   useState,
 } from "react";
@@ -24,7 +23,7 @@ import {
   TagList,
   View,
 } from "medior/components";
-import { colors, CSS, makeClasses, makeMargins, Margins, socket, useDeepMemo } from "medior/utils";
+import { colors, CSS, makeClasses, makeMargins, Margins, useDeepMemo } from "medior/utils";
 import { toast } from "react-toastify";
 
 export type TagInputProps = Omit<
@@ -95,37 +94,6 @@ export const TagInput = observer(
       const [isOpen, setIsOpen] = useState(false);
 
       const opts = useDeepMemo(options ?? [...stores.tag.tagOptions]);
-
-      const removeDeletedTag = useCallback(
-        ({ id }: { id: string }) => {
-          const newValue = value.filter((t) => t.id !== id);
-          if (newValue.length !== value.length) onChange?.(newValue);
-        },
-        [onChange, value]
-      );
-
-      const replaceMergedTag = useCallback(
-        ({ oldTagId, newTagId }: { oldTagId: string; newTagId: string }) => {
-          const oldTag = value.find((t) => t.id === oldTagId);
-          if (!oldTag) return;
-
-          const newTagOption = stores.tag.getById(newTagId)?.tagOption;
-          const newValue = value.map((t) => (t.id === oldTagId ? newTagOption : t));
-          onChange?.(newValue);
-        },
-        [onChange, value]
-      );
-
-      useEffect(() => {
-        if (!socket?.connected) return;
-        socket.on("onTagDeleted", removeDeletedTag);
-        socket.on("onTagMerged", replaceMergedTag);
-
-        return () => {
-          socket.off("onTagDeleted", removeDeletedTag);
-          socket.off("onTagMerged", replaceMergedTag);
-        };
-      }, [replaceMergedTag, socket?.connected]);
 
       useEffect(() => {
         setInputValue(inputProps?.value as string);

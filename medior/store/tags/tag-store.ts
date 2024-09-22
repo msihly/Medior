@@ -232,17 +232,15 @@ export class TagStore extends Model({
     return this.tags.find((t) => t.label.toLowerCase() === label.toLowerCase());
   }
 
-  getChildTags(tag: Tag, recursive = false): Tag[] {
-    const childTags = this.listByIds(tag.childIds);
-    return (
-      recursive ? childTags.flatMap((t) => [t, ...this.getChildTags(t, true)]) : childTags
+  getChildTags(tag: Tag, withDescendants = false): Tag[] {
+    return this.listByIds(
+      (withDescendants ? tag.descendantIds : tag.childIds).filter((id) => id !== tag.id)
     ).sort((a, b) => b.count - a.count);
   }
 
-  getParentTags(tag: Tag, recursive = false): Tag[] {
-    const parentTags = this.listByIds(tag.parentIds);
-    return (
-      recursive ? parentTags.flatMap((t) => [t, ...this.getParentTags(t, true)]) : parentTags
+  getParentTags(tag: Tag, withAncestors = false): Tag[] {
+    return this.listByIds(
+      (withAncestors ? tag.ancestorIds : tag.parentIds).filter((id) => id !== tag.id)
     ).sort((a, b) => b.count - a.count);
   }
 
