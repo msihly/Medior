@@ -37,6 +37,7 @@ export const CollectionFilterMenu = observer(
         color={color}
         sortOptions={SORT_OPTIONS.FileCollection}
         width="10rem"
+        viewProps={{ width: "25rem" }}
       >
         <Card>
           <Input header="Title" value={store.title} setValue={setTitle} />
@@ -52,6 +53,7 @@ export const CollectionFilterMenu = observer(
               hasDelete
               hasEditor
               hasSearchMenu
+              width="12rem"
             />
           </Card>
 
@@ -78,7 +80,7 @@ export const CollectionFilterMenu = observer(
           </Card>
         </View>
 
-        <Card width="20rem" spacing="0.5rem">
+        <Card width="100%" spacing="0.5rem">
           <DateRange
             header="Date Created"
             startDate={store.dateCreatedStart}

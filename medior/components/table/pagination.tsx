@@ -19,7 +19,7 @@ export const Pagination = ({ className, onChange, ...props }: PaginationProps) =
       onChange={handleChange}
       showFirstButton
       showLastButton
-      siblingCount={2}
+      siblingCount={4}
       boundaryCount={2}
       className={cx(css.pagination, className)}
       {...props}

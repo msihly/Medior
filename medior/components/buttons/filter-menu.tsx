@@ -1,4 +1,4 @@
-import { Button, Chip, Icon, Text, UniformList, View } from "medior/components";
+import { Button, Chip, Icon, Text, UniformList, View, ViewProps } from "medior/components";
 import { ButtonProps, MenuButton, MenuButtonProps, SortMenu, SortMenuProps } from ".";
 import { colors, CSS, makeClasses } from "medior/utils";
 import { FileCollectionSearch, FileSearch, observer, TagSearch } from "medior/store";
@@ -8,6 +8,7 @@ export interface FilterMenuProps extends Omit<ButtonProps, "onChange" | "value">
   menuProps?: Partial<MenuButtonProps>;
   sortOptions: SortMenuProps["rows"];
   store: FileCollectionSearch | FileSearch | TagSearch;
+  viewProps?: ViewProps;
   width?: CSS["width"];
 }
 
@@ -18,6 +19,7 @@ export const FilterMenu = observer(
     menuProps = {},
     sortOptions,
     store,
+    viewProps = {},
     width = "fit-content",
     ...buttonProps
   }: FilterMenuProps) => {
@@ -59,7 +61,7 @@ export const FilterMenu = observer(
 
     return (
       <MenuButton button={renderButton} {...menuProps}>
-        <View column padding={{ all: "0.5rem" }} spacing="0.5rem" overflow="auto">
+        <View column padding={{ all: "0.5rem" }} spacing="0.5rem" overflow="auto" {...viewProps}>
           <UniformList row spacing="0.5rem">
             <Button
               text="Search"

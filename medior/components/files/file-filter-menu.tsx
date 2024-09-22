@@ -59,7 +59,7 @@ export const FileFilterMenu = observer(
               header="Tags"
               value={tags}
               onChange={setTags}
-              width="10rem"
+              width="12rem"
               hasCreate
               hasDelete
               hasEditor
