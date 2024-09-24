@@ -7,6 +7,7 @@ import {
   CONSTANTS,
   checkFileExists,
   copyFile,
+  dayjs,
   deleteFile,
   dirToFilePaths,
   extendFileName,
@@ -205,13 +206,15 @@ export const filePathsToImports = async (filePaths: string[]) => {
         const extension = path.extname(filePath);
         if (!EXT_REG_EXP.test(extension)) return null;
 
-        const { birthtime, size } = await fs.stat(filePath);
+        const stats = await fs.stat(filePath);
         return new FileImport({
-          dateCreated: birthtime.toISOString(),
+          dateCreated: dayjs(
+            Math.min(stats.birthtime.valueOf(), stats.ctime.valueOf(), stats.mtime.valueOf())
+          ).toISOString(),
           extension,
           name: path.parse(filePath).name,
           path: filePath,
-          size,
+          size: stats.size,
           status: "PENDING",
         });
       })
