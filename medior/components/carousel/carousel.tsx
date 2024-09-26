@@ -113,7 +113,7 @@ export const Carousel = observer(() => {
         )}
       </View>
 
-      {activeFile?.isPlayableVideo && <VideoControls />}
+      {activeFile?.isPlayableVideo && <VideoControls ref={videoRef} />}
     </View>
   );
 });
