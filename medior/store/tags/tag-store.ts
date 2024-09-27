@@ -12,7 +12,7 @@ import { computed } from "mobx";
 import { TagToUpsert } from "medior/components";
 import { asyncAction, RootStore } from "medior/store";
 import { Tag, TagManagerStore, TagOption } from ".";
-import { PromiseQueue, regexEscape, trpc } from "medior/utils";
+import { PromiseChain, regexEscape, trpc } from "medior/utils";
 import { toast } from "react-toastify";
 
 @model("medior/TagStore")
@@ -166,7 +166,7 @@ export class TagStore extends Model({
 
   @modelFlow
   upsertTags = asyncAction(async (tagsToUpsert: TagToUpsert[]) => {
-    const tagQueue = new PromiseQueue();
+    const tagQueue = new PromiseChain();
     const errors: string[] = [];
     const tagIds: string[] = [];
     const tagsToInsert: ModelCreationData<Tag>[] = [];
