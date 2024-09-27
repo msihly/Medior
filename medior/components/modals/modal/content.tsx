@@ -20,6 +20,7 @@ export const Content = ({
   overflow = "inherit auto",
   padding,
   position = "relative",
+  spacing = "0.5rem",
   ...viewProps
 }: ContentProps) => {
   const { css } = useClasses(null);
@@ -28,7 +29,15 @@ export const Content = ({
 
   return (
     <DialogContent {...{ dividers }} className={css.content}>
-      <View {...{ className, overflow, padding, position }} column flex={1} {...viewProps}>
+      <View
+        column
+        flex={1}
+        spacing="0.5rem"
+        width="100%"
+        height="100%"
+        {...{ className, overflow, padding, position }}
+        {...viewProps}
+      >
         {children}
       </View>
     </DialogContent>
@@ -40,4 +49,4 @@ const useClasses = makeClasses({
     display: "flex",
     padding: 0,
   },
-})
+});

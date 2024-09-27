@@ -20,6 +20,7 @@ export interface ViewProps extends HTMLAttributes<HTMLDivElement> {
   children?: ReactNode | ReactNode[];
   className?: string;
   column?: boolean;
+  display?: CSS["display"];
   flex?: CSS["flex"];
   height?: CSS["height"];
   justify?: CSS["justifyContent"];
@@ -42,7 +43,8 @@ export const View = forwardRef(
       borderRadiuses,
       children,
       className,
-      column = false,
+      column,
+      display,
       flex,
       height,
       justify,
@@ -50,7 +52,7 @@ export const View = forwardRef(
       overflow,
       padding,
       position,
-      row = false,
+      row,
       spacing,
       width,
       wrap,
@@ -58,12 +60,15 @@ export const View = forwardRef(
     }: ViewProps,
     ref?: MutableRefObject<HTMLDivElement>
   ) => {
+    if (row) column = false;
+
     const { css, cx } = useClasses({
       align,
       bgColor,
       borders,
       borderRadiuses,
       column,
+      display,
       flex,
       height,
       justify,
@@ -78,7 +83,7 @@ export const View = forwardRef(
     });
 
     return (
-      <div {...props} ref={ref} className={cx(className, css.root)}>
+      <div {...props} ref={ref} className={cx(className, css.view)}>
         {children}
       </div>
     );
@@ -91,6 +96,7 @@ interface ClassesProps {
   borders: Borders;
   borderRadiuses: BorderRadiuses;
   column: boolean;
+  display: CSS["display"];
   flex: CSS["flex"];
   height: CSS["height"];
   justify: CSS["justifyContent"];
@@ -105,16 +111,16 @@ interface ClassesProps {
 }
 
 const useClasses = makeClasses((props: ClassesProps) => ({
-  root: {
+  view: {
     position: props.position,
-    display: props.column || props.row ? "flex" : undefined,
+    display: props.display ?? (props.column || props.row ? "flex" : undefined),
     flexDirection: props.column ? "column" : props.row ? "row" : undefined,
     flex: props.flex,
     flexWrap: props.wrap,
     alignItems: props.align,
     justifyContent: props.justify,
     ...makeBorders(props.borders),
-    ...makeBorderRadiuses(props),
+    ...makeBorderRadiuses(props.borderRadiuses),
     ...makeMargins(props.margins),
     ...makePadding(props.padding),
     height: props.height,

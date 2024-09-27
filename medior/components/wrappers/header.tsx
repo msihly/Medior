@@ -4,10 +4,11 @@ import { colors, deepMerge } from "medior/utils";
 
 const DEFAULT_HEADER_PROPS: HeaderWrapperProps["headerProps"] = {
   bgColor: colors.custom.black,
-  borderRadiuses: { all: "0.5rem 0.5rem 0 0" },
+  borderRadiuses: { top: "0.5rem" },
   fontSize: "0.8em",
   justify: "center",
   padding: { all: "0.15rem 0.3rem" },
+  row: true,
 };
 
 export interface HeaderWrapperProps extends ViewProps {
@@ -17,38 +18,39 @@ export interface HeaderWrapperProps extends ViewProps {
 
 export const HeaderWrapper = ({
   children,
+  display,
   header,
+  height = "auto",
   headerProps = {},
   position = "relative",
+  spacing,
   ...viewProps
 }: HeaderWrapperProps) => {
   headerProps = deepMerge(DEFAULT_HEADER_PROPS, headerProps);
 
-  return (
-    <ConditionalWrap
-      condition={!!header}
-      wrap={(c) => (
-        <View column {...viewProps}>
-          <View row {...headerProps}>
-            {typeof header === "string" ? (
-              <Text flex={1} fontSize={headerProps.fontSize} textAlign="center">
-                {header}
-              </Text>
-            ) : (
-              header
-            )}
-          </View>
+  const wrap = (c: ReactNode) => (
+    <View {...viewProps} column overflow="hidden" aria-label="header-wrapper">
+      <View {...headerProps} aria-label="header">
+        {typeof header === "string" ? (
+          <Text flex={1} fontSize={headerProps.fontSize} textAlign="center">
+            {header}
+          </Text>
+        ) : (
+          header
+        )}
+      </View>
 
-          {c}
-        </View>
-      )}
-    >
+      {c}
+    </View>
+  );
+
+  return (
+    <ConditionalWrap condition={!!header} wrap={wrap}>
       <View
-        column={!viewProps?.row}
-        flex={1}
-        position={position}
-        borderRadiuses={!!header ? { top: 0 } : undefined}
         {...viewProps}
+        {...{ display, height, position, spacing }}
+        overflow="hidden"
+        aria-label="header-wrapper-content"
       >
         {children}
       </View>

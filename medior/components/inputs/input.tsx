@@ -63,7 +63,7 @@ export const Input = forwardRef(
       textAlign,
       value,
       variant = "outlined",
-      width,
+      width = "100%",
       ...props
     }: InputProps,
     ref?: MutableRefObject<HTMLDivElement>
@@ -161,7 +161,7 @@ const useClasses = makeClasses((props: ClassesProps) => ({
         borderColor: props.color,
         borderStyle: "dotted",
         ...makeBorders(props.borders),
-        ...makeBorderRadiuses(props),
+        ...makeBorderRadiuses(props.borderRadiuses),
       },
       "&:hover fieldset": {
         borderColor: props.color ? Color(props.color).lighten(0.3).toString() : undefined,

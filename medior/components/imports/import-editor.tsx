@@ -699,8 +699,8 @@ export const ImportEditor = observer(() => {
         <Text preset="title">{"Import Editor"}</Text>
       </Modal.Header>
 
-      <Modal.Content row column={false} flex={1} height="100%">
-        <Card width="15rem" overflow="hidden auto">
+      <Modal.Content row column={false} flex={1} height="100%" width="100%">
+        <Card width="17rem" overflow="hidden auto">
           <Button
             text="Scan"
             icon="Cached"
@@ -864,7 +864,7 @@ export const ImportEditor = observer(() => {
           {(folderToTagsMode !== "none" ||
             folderToCollectionMode === "withTag" ||
             (withDiffusionParams && withDiffusionTags)) && (
-            <Card flex={0} width="100%">
+            <Card width="100%">
               <View className={css.rootTagSelector}>
                 <Text fontWeight={500} fontSize="0.9em" marginRight="0.5rem">
                   {"Select Root Tag"}

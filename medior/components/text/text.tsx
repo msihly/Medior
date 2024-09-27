@@ -4,9 +4,14 @@ import { Typography, TypographyProps } from "@mui/material";
 import { TooltipProps, TooltipWrapper } from "medior/components";
 import { colors, CSS, makeClasses } from "medior/utils";
 
-export type TextPreset = "detail-label" | "label-glow" | "sub-text" | "title";
+export type TextPreset = "default" | "detail-label" | "label-glow" | "sub-text" | "title";
 
 const PRESETS: Record<TextPreset, CSS> = {
+  "default": {
+    fontSize: "1em",
+    fontWeight: 400,
+    overflow: "hidden",
+  },
   "detail-label": {
     color: colors.custom.lightBlue,
     fontWeight: 500,
@@ -36,9 +41,16 @@ const PRESETS: Record<TextPreset, CSS> = {
   },
 };
 
-export interface TextProps extends Omit<TypographyProps, "color" | "component" | "title"> {
+export interface TextProps
+  extends Omit<
+    TypographyProps,
+    "color" | "component" | "fontSize" | "fontWeight" | "overflow" | "title"
+  > {
   color?: string;
   component?: ElementType;
+  fontSize?: CSS["fontSize"];
+  fontWeight?: CSS["fontWeight"];
+  overflow?: CSS["overflow"];
   preset?: TextPreset;
   tooltip?: TooltipProps["title"];
   tooltipProps?: Partial<TooltipProps>;
@@ -49,23 +61,19 @@ export const Text = ({
   className,
   color,
   component = "span",
-  fontSize = "1em",
-  fontWeight = 400,
-  overflow = "hidden",
-  preset,
+  fontSize,
+  fontWeight,
+  overflow,
+  preset = "default",
   tooltip,
   tooltipProps,
   ...props
 }: TextProps) => {
-  const { css, cx } = useClasses({ color, preset });
+  const { css, cx } = useClasses({ color, fontSize, fontWeight, overflow, preset });
 
   return (
     <TooltipWrapper {...{ tooltip, tooltipProps }}>
-      <Typography
-        {...{ component, fontSize, fontWeight, overflow }}
-        {...props}
-        className={cx(css.root, className)}
-      >
+      <Typography {...{ component }} {...props} className={cx(css.root, className)}>
         {children}
       </Typography>
     </TooltipWrapper>
@@ -74,12 +82,21 @@ export const Text = ({
 
 interface ClassesProps {
   color: string;
+  fontSize: CSS["fontSize"];
+  fontWeight: CSS["fontWeight"];
+  overflow: CSS["overflow"];
   preset: TextProps["preset"];
 }
 
-const useClasses = makeClasses((props: ClassesProps) => ({
-  root: {
-    color: props.color,
-    ...PRESETS[props.preset],
-  },
-}));
+const useClasses = makeClasses((props: ClassesProps) => {
+  const preset = PRESETS[props.preset];
+  return {
+    root: {
+      ...preset,
+      color: props.color ?? preset?.color,
+      fontSize: props.fontSize ?? preset?.fontSize,
+      fontWeight: props.fontWeight ?? preset?.fontWeight,
+      overflow: props.overflow ?? preset?.overflow,
+    },
+  };
+});

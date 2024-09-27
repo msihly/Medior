@@ -1,6 +1,6 @@
 import { ReactNode } from "react";
 import { HeaderWrapper, View, ViewProps } from "medior/components";
-import { colors } from "medior/utils";
+import { colors, deepMerge } from "medior/utils";
 
 export interface CardProps extends ViewProps {
   header?: ReactNode;
@@ -12,24 +12,29 @@ export const Card = ({
   borderRadiuses = {},
   children,
   column = true,
+  display = "flex",
   header,
-  headerProps = {},
+  height,
+  headerProps,
+  overflow,
   padding = {},
   row = false,
+  spacing,
   width,
   ...viewProps
 }: CardProps) => {
-  borderRadiuses = { all: "0.5rem", ...borderRadiuses };
-  padding = { all: "0.5rem", ...padding };
+  borderRadiuses = deepMerge({ bottom: "0.5rem", top: !!header ? 0 : "0.5rem" }, borderRadiuses);
+  padding = deepMerge({ all: "0.5rem" }, padding);
 
   return (
-    <HeaderWrapper {...{ header, headerProps, width }} {...viewProps}>
+    <HeaderWrapper {...viewProps} {...{ display, header, headerProps, height, width }}>
       <View
-        {...{ bgColor, padding, row }}
-        column={column && !row}
-        position="relative"
-        borderRadiuses={{ ...borderRadiuses, ...(!!header ? { top: 0 } : {}) }}
         {...viewProps}
+        {...{ bgColor, borderRadiuses, height, overflow, padding, row, spacing, width }}
+        column={column && !row}
+        flex={1}
+        position="relative"
+        aria-label="card"
       >
         {children}
       </View>

@@ -35,29 +35,13 @@ export type BorderRadiuses = {
   top?: CSS["borderTopRightRadius"];
 };
 
-export const makeBorderRadiuses = (props: {
-  borderRadiuses: BorderRadiuses;
-  hasHeader?: boolean;
-}) => ({
-  borderRadius: props?.borderRadiuses?.all,
-  borderTopLeftRadius:
-    props?.borderRadiuses?.topLeft ??
-    props?.borderRadiuses?.top ??
-    props?.borderRadiuses?.left ??
-    (props?.hasHeader ? 0 : undefined),
-  borderTopRightRadius:
-    props?.borderRadiuses?.topRight ??
-    props?.borderRadiuses?.top ??
-    props?.borderRadiuses?.right ??
-    (props?.hasHeader ? 0 : undefined),
+export const makeBorderRadiuses = (radiuses: BorderRadiuses) => ({
+  borderTopLeftRadius: radiuses?.topLeft ?? radiuses?.top ?? radiuses?.left ?? radiuses?.all,
+  borderTopRightRadius: radiuses?.topRight ?? radiuses?.top ?? radiuses?.right ?? radiuses?.all,
   borderBottomLeftRadius:
-    props?.borderRadiuses?.bottomLeft ??
-    props?.borderRadiuses?.bottom ??
-    props?.borderRadiuses?.left,
+    radiuses?.bottomLeft ?? radiuses?.bottom ?? radiuses?.left ?? radiuses?.all,
   borderBottomRightRadius:
-    props?.borderRadiuses?.bottomRight ??
-    props?.borderRadiuses?.bottom ??
-    props?.borderRadiuses?.right,
+    radiuses?.bottomRight ?? radiuses?.bottom ?? radiuses?.right ?? radiuses?.all,
 });
 
 export type Margins = {
