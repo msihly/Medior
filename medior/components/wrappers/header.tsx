@@ -23,13 +23,14 @@ export const HeaderWrapper = ({
   height = "auto",
   headerProps = {},
   position = "relative",
+  row,
   spacing,
   ...viewProps
 }: HeaderWrapperProps) => {
   headerProps = deepMerge(DEFAULT_HEADER_PROPS, headerProps);
 
   const wrap = (c: ReactNode) => (
-    <View {...viewProps} column overflow="hidden" aria-label="header-wrapper">
+    <View {...viewProps} column overflow="inherit" aria-label="header-wrapper">
       <View {...headerProps} aria-label="header">
         {typeof header === "string" ? (
           <Text flex={1} fontSize={headerProps.fontSize} textAlign="center">
@@ -48,7 +49,7 @@ export const HeaderWrapper = ({
     <ConditionalWrap condition={!!header} wrap={wrap}>
       <View
         {...viewProps}
-        {...{ display, height, position, spacing }}
+        {...{ display, height, position, row, spacing }}
         overflow="hidden"
         aria-label="header-wrapper-content"
       >

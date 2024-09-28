@@ -42,7 +42,7 @@ export const LogOpsInput = ({
         value={logOpValue}
         setValue={setLogOpValue}
         options={LOG_OPS_OPTS}
-        width="3.6em"
+        minWidth="3.6em"
         borderRadiuses={{ top: 0, right: 0 }}
         {...dropdownProps}
       />

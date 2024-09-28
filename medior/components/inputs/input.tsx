@@ -34,6 +34,7 @@ export interface InputProps
   helperText?: ReactNode;
   margins?: Margins;
   maxLength?: number;
+  minWidth?: CSS["minWidth"];
   setValue?: (value: string) => void;
   textAlign?: CSS["textAlign"];
   value?: string;
@@ -57,6 +58,7 @@ export const Input = forwardRef(
       inputProps,
       margins = {},
       maxLength,
+      minWidth,
       onClick,
       onKeyDown,
       setValue,
@@ -81,6 +83,7 @@ export const Input = forwardRef(
       hasHelperText: !!helperText,
       hasOnClick: !!onClick,
       margins,
+      minWidth,
       textAlign,
       width,
     });
@@ -133,6 +136,7 @@ interface ClassesProps {
   hasHelperText: boolean;
   hasOnClick: boolean;
   margins: Margins;
+  minWidth: CSS["minWidth"];
   textAlign: CSS["textAlign"];
   width: CSS["width"];
 }
@@ -144,7 +148,8 @@ const useClasses = makeClasses((props: ClassesProps) => ({
       ...props.margins,
       bottom: props.margins?.bottom ?? (props.hasHelper && !props.hasHelperText ? "1.3em" : 0),
     }),
-    width: props.width,
+    minWidth: props.minWidth,
+    width: "100%",
     "& input": {
       borderRadius: "inherit",
       padding: props.dense ? "0.2em 0.5em" : undefined,
@@ -161,7 +166,9 @@ const useClasses = makeClasses((props: ClassesProps) => ({
         borderColor: props.color,
         borderStyle: "dotted",
         ...makeBorders(props.borders),
-        ...makeBorderRadiuses(props.borderRadiuses),
+        ...makeBorderRadiuses(
+          deepMerge(props.hasHeader ? { top: 0 } : {}, props.borderRadiuses ?? {})
+        ),
       },
       "&:hover fieldset": {
         borderColor: props.color ? Color(props.color).lighten(0.3).toString() : undefined,
