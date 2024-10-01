@@ -211,6 +211,7 @@ interface VideoInfo {
   frameRate: number;
   height: number;
   size: number;
+  videoCodec: string;
   width: number;
 }
 
@@ -222,7 +223,7 @@ export const getVideoInfo = async (path: string) => {
       const videoStream = info.streams.find((s) => s.codec_type === "video");
       if (!videoStream) return reject(new Error("No video stream found."));
 
-      const { height, r_frame_rate, width } = videoStream;
+      const { height, r_frame_rate, width, codec_name } = videoStream;
       const { duration, size } = info.format;
 
       return resolve({
@@ -230,6 +231,7 @@ export const getVideoInfo = async (path: string) => {
         frameRate: fractionStringToNumber(r_frame_rate),
         height,
         size,
+        videoCodec: codec_name,
         width,
       });
     });

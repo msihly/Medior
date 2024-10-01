@@ -159,6 +159,7 @@ export class FileStore extends ExtendedModel(_FileStore, {
       height: file.isAnimated ? videoInfo?.height : imageInfo?.height,
       originalHash: file.originalHash ?? hash,
       size,
+      videoCodec: videoInfo?.videoCodec,
       width: file.isAnimated ? videoInfo?.width : imageInfo?.width,
     };
 

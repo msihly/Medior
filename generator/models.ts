@@ -259,6 +259,11 @@ const MODEL_FILE: ModelDef = {
       type: "string[]",
     },
     {
+      name: "videoCodec",
+      schemaType: "String",
+      type: "string",
+    },
+    {
       name: "width",
       required: true,
       schemaType: "Number",

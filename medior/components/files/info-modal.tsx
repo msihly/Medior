@@ -41,7 +41,9 @@ export const InfoModal = observer(() => {
 
       <Modal.Content spacing="0.5rem">
         <UniformList row>
-          <Detail label="Extension" value={file?.ext || "N/A"} />
+          <Detail label="Extension" value={file?.ext} />
+
+          <Detail label="Video Codec" value={file?.videoCodec} />
 
           <Detail label="Size" value={formatBytes(file?.size)} tooltip={file?.size} />
 
@@ -60,14 +62,14 @@ export const InfoModal = observer(() => {
 
           <Detail label="Duration" value={duration(file?.duration)} />
 
-          <Detail label="Frame Rate" value={file?.frameRate || "N/A"} />
+          <Detail label="Frame Rate" value={file?.frameRate} />
         </UniformList>
 
-        <Detail label="Original File Name" value={file?.originalName || "N/A"} withTooltip />
+        <Detail label="Original File Name" value={file?.originalName} withTooltip />
 
         <Detail
           label="Original Folder"
-          value={file?.originalPath ? path.dirname(file.originalPath) : "N/A"}
+          value={file?.originalPath ? path.dirname(file.originalPath) : null}
           withTooltip
         />
 
@@ -81,15 +83,13 @@ export const InfoModal = observer(() => {
                 onClick={handleCurrentPath}
                 className={css.link}
               />
-            ) : (
-              "N/A"
-            )
+            ) : null
           }
         />
 
         <UniformList row>
-          <Detail label="Hash" value={file?.hash || "N/A"} />
-          <Detail label="Original Hash" value={file?.originalHash || "N/A"} />
+          <Detail label="Hash" value={file?.hash} />
+          <Detail label="Original Hash" value={file?.originalHash} />
         </UniformList>
 
         <UniformList row>

@@ -903,6 +903,7 @@ export class _File extends Model({
   tagIds: prop<string[]>(() => []),
   tagIdsWithAncestors: prop<string[]>(() => []),
   thumbPaths: prop<string[]>(() => []),
+  videoCodec: prop<string>(null),
   width: prop<number>(),
 }) {
   @modelAction

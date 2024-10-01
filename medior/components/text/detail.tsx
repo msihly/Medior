@@ -38,7 +38,8 @@ export const Detail = ({
       ) : (
         label
       )}
-      {typeof value === "string" ? (
+
+      {!value || typeof value === "string" ? (
         <Text
           tooltip={tooltip ?? (withTooltip ? value : undefined)}
           className={cx(css.value, valueProps?.className)}

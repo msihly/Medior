@@ -45,7 +45,7 @@ export const VideoControls = observer(
       stores.carousel.setCurFrame(frame);
       stores.carousel.setCurTime(time);
 
-      if (!activeFile?.isPlayableVideo) transcode({ frame, time });
+      if (!activeFile?.isWebPlayable) transcode({ frame, time });
       else videoRef.current?.seekTo(time, "seconds");
     };
 

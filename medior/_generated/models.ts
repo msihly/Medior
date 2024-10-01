@@ -154,6 +154,7 @@ export interface FileSchema {
   tagIds: string[];
   tagIdsWithAncestors: string[];
   thumbPaths: string[];
+  videoCodec?: string;
   width: number;
 }
 
@@ -185,6 +186,7 @@ const FileSchema = new Schema<FileSchema>({
   tagIds: [{ type: Schema.Types.ObjectId, ref: "Tag" }],
   tagIdsWithAncestors: [{ type: Schema.Types.ObjectId, ref: "Tag" }],
   thumbPaths: [String],
+  videoCodec: String,
   width: Number,
 });
 

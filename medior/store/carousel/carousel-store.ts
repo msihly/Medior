@@ -91,7 +91,7 @@ export class CarouselStore extends Model({
   transcodeVideo = asyncAction(async (args: { seekTime?: number; onFirstFrames?: () => void }) => {
     const stores = getRootStore<RootStore>(this);
     const activeFile = stores.file.getById(this.activeFileId);
-    if (activeFile?.isVideo && !activeFile?.isPlayableVideo) {
+    if (activeFile?.isVideo && !activeFile?.isWebPlayable) {
       this.setIsWaitingForFrames(true);
       const url = await videoTranscoder.transcode(activeFile.path, args?.seekTime, () => {
         this.setIsWaitingForFrames(false);
