@@ -5,18 +5,6 @@ settings:
   excludeLinksFromLockfile: false
 
 dependencies:
-  '@alissavrk/dnd-kit-accessibility':
-    specifier: ^4.0.0
-    version: 4.0.0(react@17.0.2)
-  '@alissavrk/dnd-kit-core':
-    specifier: ^7.0.0
-    version: 7.0.0(react-dom@17.0.2)(react@17.0.2)
-  '@alissavrk/dnd-kit-sortable':
-    specifier: ^8.0.0
-    version: 8.0.0(@alissavrk/dnd-kit-core@7.0.0)(react@17.0.2)
-  '@alissavrk/dnd-kit-utilities':
-    specifier: ^4.0.0
-    version: 4.0.0(react@17.0.2)
   '@electron/remote':
     specifier: ^2.0.8
     version: 2.1.2(electron@25.9.8)
@@ -247,50 +235,6 @@ packages:
   /7zip-bin@5.2.0:
     resolution: {integrity: sha512-ukTPVhqG4jNzMro2qA9HSCSSVJN3aN7tlb+hfqYCt3ER0yWroeA2VR38MNrOHLQ/cVj+DaIMad0kFCtWWowh/A==}
     dev: true
-
-  /@alissavrk/dnd-kit-accessibility@4.0.0(react@17.0.2):
-    resolution: {integrity: sha512-UIl8T3h9YGcib2hIfXtCimWEihPHorhB8PR9GzUSD5od9zhEjiTb7t1vqW+fqtK7q3X/bJ4CbqEz3KMkA1DUPw==}
-    peerDependencies:
-      react: '>=16.8.0'
-    dependencies:
-      react: 17.0.2
-      tslib: 2.6.3
-    dev: false
-
-  /@alissavrk/dnd-kit-core@7.0.0(react-dom@17.0.2)(react@17.0.2):
-    resolution: {integrity: sha512-/vv5DYFzErHqexnheecw7D+VOZv9cUsl+w5rY1UESz7+Z1O41zxtpXVjck3zsqxhSGwdDB2+GaEG4QPBWsGQvw==}
-    peerDependencies:
-      react: '>=16.8.0'
-      react-dom: '>=16.8.0'
-    dependencies:
-      '@alissavrk/dnd-kit-accessibility': 4.0.0(react@17.0.2)
-      '@alissavrk/dnd-kit-utilities': 4.0.0(react@17.0.2)
-      react: 17.0.2
-      react-dom: 17.0.2(react@17.0.2)
-      tslib: 2.6.3
-      use-sync-external-store: 1.2.2(react@17.0.2)
-    dev: false
-
-  /@alissavrk/dnd-kit-sortable@8.0.0(@alissavrk/dnd-kit-core@7.0.0)(react@17.0.2):
-    resolution: {integrity: sha512-xYXS82+/tNv18d57LBFMujO7k8JM798ZzwqZkVtiIdDKi5fdhlERSfpsPQkIJ35G+YXL+HufAI6b/9C74lUAZA==}
-    peerDependencies:
-      '@alissavrk/dnd-kit-core': ^7.0.0
-      react: '>=16.8.0'
-    dependencies:
-      '@alissavrk/dnd-kit-core': 7.0.0(react-dom@17.0.2)(react@17.0.2)
-      '@alissavrk/dnd-kit-utilities': 4.0.0(react@17.0.2)
-      react: 17.0.2
-      tslib: 2.6.3
-    dev: false
-
-  /@alissavrk/dnd-kit-utilities@4.0.0(react@17.0.2):
-    resolution: {integrity: sha512-KZhHoxYfpQvcnYAHv6obVpesWxddmH1Uk6uI5fbZSYVcKvHeQZP7lOoHPZpsa9TkpQ17Mg88rb1crWmgnEsawA==}
-    peerDependencies:
-      react: '>=16.8.0'
-    dependencies:
-      react: 17.0.2
-      tslib: 2.6.3
-    dev: false
 
   /@ampproject/remapping@2.3.0:
     resolution: {integrity: sha512-30iZtAPgz+LTIYoeivqYo853f02jBYSd5uGnGpkFV0M3xOt9aN73erkgYAmZU43x4VfqcnLxW9Kpg3R5LC4YYw==}
@@ -2929,7 +2873,7 @@ packages:
     resolution: {integrity: sha512-E6OCaRmAe4WDmWNsL/9RMqdkkzDCY1etutkflWk4c+AcjDU07Pcz1fQwTX0TQz+Pxqn9i4L1TU3UFpjnrcDgxA==}
     requiresBuild: true
     dependencies:
-      '@types/node': 17.0.45
+      '@types/node': 18.19.44
       xmlbuilder: 15.1.1
     dev: true
     optional: true

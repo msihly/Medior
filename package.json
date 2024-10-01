@@ -8,10 +8,6 @@
   "main": "extraResources/main.js",
   "icon": "public/favicon.ico",
   "dependencies": {
-    "@alissavrk/dnd-kit-accessibility": "^4.0.0",
-    "@alissavrk/dnd-kit-core": "^7.0.0",
-    "@alissavrk/dnd-kit-sortable": "^8.0.0",
-    "@alissavrk/dnd-kit-utilities": "^4.0.0",
     "@electron/remote": "^2.0.8",
     "@emotion/cache": "^11.7.1",
     "@emotion/react": "^11.8.2",
