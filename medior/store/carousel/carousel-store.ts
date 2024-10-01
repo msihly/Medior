@@ -4,7 +4,7 @@ import { computed } from "mobx";
 import { Model, getRootStore, model, modelAction, modelFlow, prop } from "mobx-keystone";
 import { toast } from "react-toastify";
 import { FileImport, RootStore, asyncAction, copyFileForImport } from "medior/store";
-import { dayjs, extractVideoFrame, trpc } from "medior/utils";
+import { dayjs, extractVideoFrame, trpc, videoTranscoder } from "medior/utils";
 
 @model("medior/CarouselStore")
 export class CarouselStore extends Model({
@@ -14,6 +14,9 @@ export class CarouselStore extends Model({
   isMouseMoving: prop<boolean>(false).withSetter(),
   isPinned: prop<boolean>(false).withSetter(),
   isPlaying: prop<boolean>(true).withSetter(),
+  isWaitingForFrames: prop<boolean>(false).withSetter(),
+  mediaSourceUrl: prop<string | null>(null).withSetter(),
+  seekOffset: prop<number>(0).withSetter(),
   selectedFileIds: prop<string[]>(() => []).withSetter(),
   volume: prop<number>(0).withSetter(),
 }) {
@@ -51,7 +54,7 @@ export class CarouselStore extends Model({
   @modelFlow
   extractFrame = asyncAction(async () => {
     const stores = getRootStore<RootStore>(this);
-    const activeFile = stores.file.getById(this.activeFileId);
+    const activeFile = this.getActiveFile();
     if (!activeFile) throw new Error("Active file not found");
 
     this.setIsPlaying(false);
@@ -84,6 +87,20 @@ export class CarouselStore extends Model({
     toast.success("Frame extracted");
   });
 
+  @modelFlow
+  transcodeVideo = asyncAction(async (args: { seekTime?: number; onFirstFrames?: () => void }) => {
+    const stores = getRootStore<RootStore>(this);
+    const activeFile = stores.file.getById(this.activeFileId);
+    if (activeFile?.isVideo && !activeFile?.isPlayableVideo) {
+      this.setIsWaitingForFrames(true);
+      const url = await videoTranscoder.transcode(activeFile.path, args?.seekTime, () => {
+        this.setIsWaitingForFrames(false);
+        args?.onFirstFrames?.();
+      });
+      if (url) this.setMediaSourceUrl(url);
+    } else this.setMediaSourceUrl(null);
+  });
+
   /* --------------------------------- GETTERS -------------------------------- */
   @computed
   get activeFileIndex() {
@@ -91,5 +108,12 @@ export class CarouselStore extends Model({
   }
 
   /* ----------------------------- DYNAMIC GETTERS ---------------------------- */
-  getFileIndex = (fileId: string) => this.selectedFileIds.indexOf(fileId);
+  getActiveFile() {
+    const stores = getRootStore<RootStore>(this);
+    return stores.file.getById(this.activeFileId);
+  }
+
+  getFileIndex(fileId: string) {
+    return this.selectedFileIds.indexOf(fileId);
+  }
 }

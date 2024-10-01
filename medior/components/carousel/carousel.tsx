@@ -1,19 +1,20 @@
-import { shell } from "@electron/remote";
 import { createContext, MutableRefObject, useContext, useEffect, useRef } from "react";
 import { observer, useStores } from "medior/store";
 import ReactPlayer from "react-player/file";
 import { OnProgressProps } from "react-player/base";
 import Panzoom, { PanzoomObject, PanzoomOptions } from "@panzoom/panzoom";
-import { Button, FileBase, LoadingOverlay, Text, VideoControls, View } from "medior/components";
+import { FileBase, LoadingOverlay, VideoControls, View } from "medior/components";
 import { CONSTANTS, makeClasses, round } from "medior/utils";
 
 export const ZoomContext = createContext<MutableRefObject<PanzoomObject>>(null);
 
 export const Carousel = observer(() => {
+  const { css } = useClasses(null);
+
   const panZoomRef = useContext(ZoomContext);
 
   const stores = useStores();
-  const activeFile = stores.file.getById(stores.carousel.activeFileId);
+  const activeFile = stores.carousel.getActiveFile();
 
   const videoRef = useRef<ReactPlayer>(null);
   const zoomRef = useRef<HTMLDivElement>(null);
@@ -42,13 +43,26 @@ export const Carousel = observer(() => {
     if (activeFile?.isVideo) stores.carousel.setIsPlaying(true);
   }, [activeFile?.isVideo]);
 
-  const { css } = useClasses(null);
+  useEffect(() => {
+    stores.carousel.setSeekOffset(0);
+    stores.carousel.transcodeVideo();
+  }, [activeFile?.path]);
 
-  const handleOpenNatively = () => shell.openPath(activeFile.path);
+  const frameToSec = (frame: number) => round(frame / activeFile?.frameRate || 1, 3);
 
-  const handleVideoProgress = ({ playedSeconds }: OnProgressProps) => {
-    stores.carousel.setCurFrame(round(playedSeconds * activeFile?.frameRate, 0));
-    stores.carousel.setCurTime(playedSeconds);
+  const handleVideoEnd = () => {
+    stores.carousel.setCurFrame(1);
+    stores.carousel.setCurTime(0);
+    if (stores.carousel.seekOffset > 0) {
+      stores.carousel.setSeekOffset(0);
+      stores.carousel.transcodeVideo();
+    }
+  };
+
+  const handleVideoProgress = (args: OnProgressProps) => {
+    const frame = round(stores.carousel.seekOffset + args.playedSeconds * activeFile?.frameRate, 0);
+    stores.carousel.setCurFrame(frame);
+    stores.carousel.setCurTime(frameToSec(frame));
   };
 
   const togglePlaying = () => stores.carousel.setIsPlaying(!stores.carousel.isPlaying);
@@ -66,39 +80,25 @@ export const Carousel = observer(() => {
               className={css.contextMenu}
             >
               {activeFile.isVideo ? (
-                activeFile.isPlayableVideo ? (
-                  <View column flex={1} height="inherit" onClick={togglePlaying}>
-                    <ReactPlayer
-                      ref={videoRef}
-                      url={activeFile.path}
-                      playing={stores.carousel.isPlaying}
-                      onProgress={handleVideoProgress}
-                      progressInterval={100}
-                      width="100%"
-                      height="100%"
-                      loop
-                      muted={stores.carousel.volume === 0}
-                      volume={stores.carousel.volume}
-                    />
-                  </View>
-                ) : (
-                  <View column flex={1} justify="center" height="inherit">
-                    <FileBase.Image
-                      thumbPaths={activeFile.thumbPaths}
-                      title={activeFile.originalName}
-                      height={CONSTANTS.CAROUSEL.THUMB_NAV.WIDTH * 2}
-                      fit="contain"
-                      autoAnimate
-                      draggable={false}
-                      className={css.videoThumbs}
-                    />
+                <View column flex={1} height="inherit" onClick={togglePlaying}>
+                  <LoadingOverlay
+                    isLoading={stores.carousel.isWaitingForFrames}
+                    sub="Transcoding..."
+                  />
 
-                    <View row justify="center" align="center" spacing="0.2em">
-                      <Text>{`'${activeFile.ext}' not supported.`}</Text>
-                      <Button type="link" text="Open Natively." onClick={handleOpenNatively} />
-                    </View>
-                  </View>
-                )
+                  <ReactPlayer
+                    ref={videoRef}
+                    url={stores.carousel.mediaSourceUrl ?? activeFile.path}
+                    playing={stores.carousel.isPlaying}
+                    onEnded={handleVideoEnd}
+                    onProgress={handleVideoProgress}
+                    progressInterval={100}
+                    width="100%"
+                    height="100%"
+                    muted={stores.carousel.volume === 0}
+                    volume={stores.carousel.volume}
+                  />
+                </View>
               ) : (
                 <img
                   src={activeFile.path}
@@ -113,7 +113,7 @@ export const Carousel = observer(() => {
         )}
       </View>
 
-      {activeFile?.isPlayableVideo && <VideoControls ref={videoRef} />}
+      {activeFile?.isVideo && <VideoControls ref={videoRef} />}
     </View>
   );
 });
@@ -128,11 +128,5 @@ const useClasses = makeClasses({
     width: "100%",
     objectFit: "scale-down",
     userSelect: "none",
-  },
-  videoThumbs: {
-    borderRadius: "0.4rem",
-    margin: "0 auto 0.5rem",
-    height: "auto",
-    width: "fit-content",
   },
 });

@@ -1,14 +1,171 @@
 import fs from "fs/promises";
 import path from "path";
+import { PassThrough } from "stream";
 import ffmpeg from "fluent-ffmpeg";
 import {
   CONSTANTS,
   checkFileExists,
   fractionStringToNumber,
   getAvailableFileStorage,
+  makePerfLog,
   range,
   round,
+  sleep,
 } from ".";
+
+class VideoTranscoder {
+  private DEBUG = false;
+
+  private static instance: VideoTranscoder;
+  private isTranscoding = false;
+  private prevInst: { revoke: () => void } | null = null;
+
+  private constructor() {}
+
+  public static getInstance(): VideoTranscoder {
+    if (!VideoTranscoder.instance) VideoTranscoder.instance = new VideoTranscoder();
+    return VideoTranscoder.instance;
+  }
+
+  public async transcode(inputPath: string, seekTime: number = 0, onFirstFrames?: () => void) {
+    if (this.prevInst) {
+      this.prevInst.revoke();
+      await sleep(500);
+    }
+
+    if (this.isTranscoding) return;
+    this.isTranscoding = true;
+
+    const mediaSource = new MediaSource();
+    const stream = new PassThrough();
+
+    const command = this.init(inputPath, seekTime, stream);
+
+    const handleSourceOpen = this.handleSourceOpen.bind(this, mediaSource, stream, onFirstFrames);
+    mediaSource.addEventListener("sourceopen", handleSourceOpen);
+    const mediaSourceUrl = URL.createObjectURL(mediaSource);
+
+    this.prevInst = {
+      revoke: () => this.revoke(mediaSource, mediaSourceUrl, command, stream, handleSourceOpen),
+    };
+
+    return mediaSourceUrl;
+  }
+
+  private init(inputPath: string, seekTime: number, stream: PassThrough) {
+    const { perfLog, perfLogTotal } = makePerfLog("[Transcode]");
+    return ffmpeg()
+      .input(inputPath)
+      .inputOptions([`-ss ${seekTime}`])
+      .videoCodec("libvpx")
+      .audioCodec("libvorbis")
+      .outputOptions(["-preset fast", "-crf 22"])
+      .format("webm")
+      .on("start", (commandLine) => {
+        if (this.DEBUG) perfLog(`Spawned ffmpeg with command: ${commandLine}`);
+      })
+      .on("stderr", (stderrLine) => {
+        if (this.DEBUG) perfLog(stderrLine);
+      })
+      .on("error", (err, stdout, stderr) => {
+        if (err.message !== "Output stream closed") {
+          console.error(`Error transcoding video: ${err.message}`);
+          console.error(`ffmpeg stdout: ${stdout}`);
+          console.error(`ffmpeg stderr: ${stderr}`);
+        }
+        stream.destroy(err);
+        this.isTranscoding = false;
+      })
+      .on("end", () => {
+        if (this.DEBUG) perfLogTotal("Transcoding finished.");
+        stream.end();
+        this.isTranscoding = false;
+      })
+      .pipe(stream, { end: true });
+  }
+
+  private handleSourceOpen(
+    mediaSource: MediaSource,
+    stream: PassThrough,
+    onFirstFrames?: () => void
+  ) {
+    const sourceBuffer = mediaSource.addSourceBuffer('video/webm; codecs="vp8, vorbis"');
+    let queue: Uint8Array[] = [];
+    let isAppending = false;
+    let firstFrameReceived = false;
+
+    const appendNextChunk = () => {
+      if (queue.length > 0 && !isAppending && !sourceBuffer.updating) {
+        isAppending = true;
+        const chunk = queue.shift();
+        try {
+          if (sourceBuffer) sourceBuffer.appendBuffer(chunk);
+        } catch (err) {
+          if (!err.message?.includes("removed from the parent media"))
+            console.error("Error appending buffer:", err);
+        }
+      }
+    };
+
+    const handleUpdateEnd = () => {
+      isAppending = false;
+      appendNextChunk();
+    };
+
+    sourceBuffer.addEventListener("updateend", handleUpdateEnd);
+
+    stream.on("data", (chunk) => {
+      queue.push(chunk);
+      appendNextChunk();
+      if (!firstFrameReceived) {
+        firstFrameReceived = true;
+        if (onFirstFrames) onFirstFrames();
+      }
+    });
+
+    stream.on("end", () => {
+      if (queue.length === 0 && !sourceBuffer.updating) return mediaSource.endOfStream();
+      const checkEnd = setInterval(() => {
+        if (queue.length === 0 && !sourceBuffer.updating) {
+          mediaSource.endOfStream();
+          clearInterval(checkEnd);
+        }
+      }, 100);
+    });
+
+    stream.on("error", (err) => {
+      console.error("Stream error:", err);
+      mediaSource.endOfStream("decode");
+    });
+
+    const cleanup = () => {
+      sourceBuffer.removeEventListener("updateend", handleUpdateEnd);
+      stream.removeAllListeners();
+      if (mediaSource.readyState === "open") mediaSource.removeSourceBuffer(sourceBuffer);
+    };
+
+    mediaSource.addEventListener("sourceclose", cleanup);
+    mediaSource.addEventListener("sourceended", cleanup);
+  }
+
+  private revoke(
+    mediaSource: MediaSource,
+    mediaSourceUrl: string,
+    command: any,
+    stream: PassThrough,
+    handleSourceOpen: EventListener
+  ) {
+    mediaSource.removeEventListener("sourceopen", handleSourceOpen);
+    mediaSource.removeEventListener("sourceclose", handleSourceOpen);
+    mediaSource.removeEventListener("sourceended", handleSourceOpen);
+    URL.revokeObjectURL(mediaSourceUrl);
+    command.ffmpegProc?.kill("SIGKILL");
+    stream.destroy();
+    this.isTranscoding = false;
+  }
+}
+
+export const videoTranscoder = VideoTranscoder.getInstance();
 
 export const extractVideoFrame = async (inputPath: string, frameIndex: number): Promise<string> => {
   try {

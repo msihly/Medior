@@ -3,12 +3,12 @@ import { observer, useStores } from "medior/store";
 import FilePlayer from "react-player/file";
 import { Slider } from "@mui/material";
 import { IconButton, Text, View } from "medior/components";
-import { colors, CONSTANTS, duration, makeClasses, round } from "medior/utils";
+import { colors, commas, CONSTANTS, duration, makeClasses, round, throttle } from "medior/utils";
 
 export const VideoControls = observer(
   forwardRef((_, videoRef: MutableRefObject<FilePlayer>) => {
     const stores = useStores();
-    const activeFile = stores.file.getById(stores.carousel.activeFileId);
+    const activeFile = stores.carousel.getActiveFile();
 
     const [lastPlayingState, setLastPlayingState] = useState(false);
     const [isVolumeVisible, setIsVolumeVisible] = useState(false);
@@ -21,19 +21,32 @@ export const VideoControls = observer(
       isVolumeVisible,
     });
 
-    const handleFrameChange = (frame: number) => {
-      stores.carousel.setCurFrame(frame);
-      const time = round(frame / activeFile?.frameRate || 1, 3);
-      stores.carousel.setCurTime(time);
-      videoRef.current?.seekTo(time, "seconds");
-    };
+    const frameToSec = (frame: number) => round(frame / activeFile?.frameRate || 1, 3);
+
+    const transcode = throttle(async (args: { frame: number; time: number }) => {
+      stores.carousel.setSeekOffset(args.frame);
+      return await stores.carousel.transcodeVideo({
+        seekTime: args.time,
+        onFirstFrames: () => {
+          stores.carousel.setCurFrame(args.frame);
+          stores.carousel.setCurTime(args.time);
+        },
+      });
+    }, 200);
 
     const handleFrameSeek = (event: any) => {
       if (stores.carousel.isPlaying) {
         setLastPlayingState(true);
         stores.carousel.setIsPlaying(false);
       }
-      handleFrameChange(event.target.value);
+
+      const frame = event.target.value;
+      const time = frameToSec(frame);
+      stores.carousel.setCurFrame(frame);
+      stores.carousel.setCurTime(time);
+
+      if (!activeFile?.isPlayableVideo) transcode({ frame, time });
+      else videoRef.current?.seekTo(time, "seconds");
     };
 
     const handleFrameSeekCommit = () => {
@@ -78,6 +91,12 @@ export const VideoControls = observer(
             max={activeFile?.totalFrames}
             step={1}
             valueLabelDisplay="auto"
+            valueLabelFormat={(v) => (
+              <View column align="center" justify="center" width="7rem">
+                <Text>{`F: ${commas(v)} (${round((v / activeFile.totalFrames) * 100, 0)}%)`}</Text>
+                <Text>{`${duration(frameToSec(v))}`}</Text>
+              </View>
+            )}
             className={css.slider}
           />
         </View>
