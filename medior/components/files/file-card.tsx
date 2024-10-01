@@ -3,6 +3,7 @@ import { File, observer, useStores } from "medior/store";
 import { Icon, Text, View } from "medior/components";
 import { FileBase } from ".";
 import { colors, CSS, duration, openCarouselWindow, trpc } from "medior/utils";
+import { toast } from "react-toastify";
 
 interface FileCardProps {
   disabled?: boolean;
@@ -20,29 +21,12 @@ export const FileCard = observer(({ disabled, file, height, id, width }: FileCar
 
   const handleClick = async (event: React.MouseEvent) => {
     if (disabled) return;
-    if (event.shiftKey) {
-      const res = await stores.file.search.getShiftSelected({
-        id: file.id,
-        selectedIds: stores.file.selectedIds,
-      });
-      if (!res?.success) throw new Error(res.error);
-
-      stores.file.toggleFilesSelected([
-        ...res.data.idsToDeselect.map((i) => ({ id: i, isSelected: false })),
-        ...res.data.idsToSelect.map((i) => ({ id: i, isSelected: true })),
-      ]);
-    } else if (event.ctrlKey) {
-      /** Toggle the selected state of the file that was clicked. */
-      stores.file.toggleFilesSelected([
-        { id: file.id, isSelected: !stores.file.getIsSelected(file.id) },
-      ]);
-    } else {
-      /** Deselect all the files and select the file that was clicked. */
-      stores.file.toggleFilesSelected([
-        ...stores.file.selectedIds.map((id) => ({ id, isSelected: false })),
-        { id: file.id, isSelected: true },
-      ]);
-    }
+    const res = await stores.file.search.handleSelect({
+      hasCtrl: event.ctrlKey,
+      hasShift: event.shiftKey,
+      id: file.id,
+    });
+    if (!res?.success) toast.error(res.error);
   };
 
   const handleDoubleClick = async () => {
@@ -59,7 +43,7 @@ export const FileCard = observer(({ disabled, file, height, id, width }: FileCar
     event.preventDefault();
     stores.home.setIsDraggingOut(true);
 
-    const hasSelected = stores.file.selectedIds.includes(file.id);
+    const hasSelected = stores.file.search.selectedIds.includes(file.id);
     const files = hasSelected ? await loadSelectedFiles() : null;
     const filePaths = hasSelected ? files.map((file) => file.path) : [file.path];
     const icon = hasSelected ? files[0].thumbPaths[0] : file.thumbPaths[0];
@@ -72,7 +56,9 @@ export const FileCard = observer(({ disabled, file, height, id, width }: FileCar
   };
 
   const loadSelectedFiles = async () => {
-    const res = await trpc.listFiles.mutate({ args: { filter: { id: stores.file.selectedIds } } });
+    const res = await trpc.listFiles.mutate({
+      args: { filter: { id: stores.file.search.selectedIds } },
+    });
     if (!res?.success) throw new Error(res.error);
     return res.data.items;
   };
@@ -84,7 +70,7 @@ export const FileCard = observer(({ disabled, file, height, id, width }: FileCar
           {...{ disabled, height, width }}
           onClick={handleClick}
           onDoubleClick={handleDoubleClick}
-          selected={stores.file.getIsSelected(file.id)}
+          selected={stores.file.search.getIsSelected(file.id)}
         >
           <FileBase.Image
             thumbPaths={file.thumbPaths}

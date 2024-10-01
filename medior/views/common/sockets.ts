@@ -73,9 +73,10 @@ export const useSockets = ({ view }: UseSocketsProps) => {
     });
 
     makeSocket("onReloadFiles", () => {
-      if (view === "carousel")
-        stores.file.search.loadFiltered({ ids: stores.carousel.selectedFileIds });
-      else queueFileReload();
+      if (view === "carousel") {
+        stores.file.search.setIds(stores.carousel.selectedFileIds);
+        stores.file.search.loadFiltered();
+      } else queueFileReload();
     });
 
     makeSocket("onReloadTags", () => stores.tag.loadTags());

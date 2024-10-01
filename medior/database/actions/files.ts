@@ -7,6 +7,7 @@ import * as actions from "medior/database/actions";
 import * as models from "medior/_generated/models";
 import { createFileFilterPipeline, CreateFileFilterPipelineInput } from "medior/database/actions";
 import { leanModelToJson, makeAction, objectId, objectIds } from "medior/database/utils";
+import { SortValue } from "medior/store";
 import { dayjs, makePerfLog, sharp, socket } from "medior/utils";
 
 const FACE_MIN_CONFIDENCE = 0.4;
@@ -331,6 +332,17 @@ export const listFilePaths = makeAction(async () => {
     path: f.path,
   }));
 });
+
+export const listSortedFileIds = makeAction(
+  async (args: { ids: string[]; sortValue: SortValue }) => {
+    const files = await models.FileModel.find({ _id: { $in: objectIds(args.ids) } })
+      .sort({ [args.sortValue.key]: args.sortValue.isDesc ? -1 : 1 })
+      .select({ _id: 1 })
+      .lean();
+
+    return files.map((f) => leanModelToJson<models.FileSchema>(f).id);
+  }
+);
 
 export const loadFaceApiNets = makeAction(async () => {
   const faceapi = await import("@vladmandic/face-api/dist/face-api.node-gpu.js");

@@ -97,7 +97,7 @@
     "dist": "rimraf build dist extraResources && pnpm run build && pnpm run electron-build",
     "electron-build": "electron-builder build --dir --win --publish never",
     "generate": "pnpx tsx generator/generator.ts",
-    "hmr": "SET HMR=true&& SET BROWSER=none&& pnpm run ts-compile && concurrently --kill-others \"vite --config ./vite.config.hmr.ts\" \"electron .\"",
+    "hmr": "SET HMR=true&& SET BROWSER=none&& pnpm run pre-build && concurrently --kill-others \"vite --config ./vite.config.hmr.ts\" \"electron .\"",
     "kill-ports": "kill-port 3333 3334 3335",
     "lint": "eslint medior/**/*{.ts,.tsx}",
     "postinstall": "electron-builder install-app-deps && patch-package",

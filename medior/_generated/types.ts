@@ -196,6 +196,9 @@ export type ListFileIdsForCarouselOutput = ReturnType<typeof db.listFileIdsForCa
 export type ListFilePathsInput = Parameters<typeof db.listFilePaths>[0];
 export type ListFilePathsOutput = ReturnType<typeof db.listFilePaths>;
 
+export type ListSortedFileIdsInput = Parameters<typeof db.listSortedFileIds>[0];
+export type ListSortedFileIdsOutput = ReturnType<typeof db.listSortedFileIds>;
+
 export type LoadFaceApiNetsInput = Parameters<typeof db.loadFaceApiNets>[0];
 export type LoadFaceApiNetsOutput = ReturnType<typeof db.loadFaceApiNets>;
 

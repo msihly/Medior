@@ -26,6 +26,7 @@ export const MultiInputList = forwardRef(
       <View
         {...viewProps}
         column
+        height="100%"
         borderRadiuses={{ all: "0.3rem", top: hasInput ? 0 : undefined }}
         className={css.listContainer}
       >
@@ -74,7 +75,6 @@ const useClasses = makeClasses((props: ClassesProps) => ({
     border: `1px dotted ${colors.custom.grey}`,
     borderTop: props.hasInput ? "none" : undefined,
     minHeight: "2.5rem",
-    height: "100%",
     backgroundColor: "rgb(0 0 0 / 0.2)",
     overflowY: "auto",
   },

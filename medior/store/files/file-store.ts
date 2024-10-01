@@ -34,7 +34,6 @@ export class FileStore extends ExtendedModel(_FileStore, {
   isConfirmDeleteOpen: prop<boolean>(false).withSetter(),
   isInfoModalOpen: prop<boolean>(false).withSetter(),
   search: prop<FileSearch>(() => new FileSearch({})),
-  selectedIds: prop<string[]>(() => []),
 }) {
   refreshQueue = new PromiseQueue();
 
@@ -55,28 +54,6 @@ export class FileStore extends ExtendedModel(_FileStore, {
     this.idsForConfirmDelete = [...ids];
     if (this.listByIds(ids).some((f) => f.isArchived)) this.isConfirmDeleteOpen = true;
     else this.deleteFiles();
-  }
-
-  @modelAction
-  toggleFilesSelected(selected: { id: string; isSelected?: boolean }[], withToast = false) {
-    if (!selected?.length) return;
-
-    const [added, removed] = selected.reduce(
-      (acc, cur) => (acc[cur.isSelected ? 0 : 1].push(cur.id), acc),
-      [[], []]
-    );
-
-    const removedSet = new Set(removed);
-    this.selectedIds = [...new Set(this.selectedIds.concat(added))].filter(
-      (id) => !removedSet.has(id)
-    );
-
-    if (withToast)
-      toast.info(
-        `${added.length ? `${added.length} files selected.` : ""}${
-          added.length && removed.length ? "\n" : ""
-        }${removed.length ? `${removed.length} files deselected.` : ""}`
-      );
   }
 
   @modelAction
@@ -141,7 +118,7 @@ export class FileStore extends ExtendedModel(_FileStore, {
       toast.success(`${deletedIds.length} files deleted`);
     }
 
-    this.toggleFilesSelected(fileIds.map((id) => ({ id, isSelected: false })));
+    this.search.toggleSelected(fileIds.map((id) => ({ id, isSelected: false })));
   });
 
   @modelFlow
@@ -223,7 +200,7 @@ export class FileStore extends ExtendedModel(_FileStore, {
       logSuffix: "files",
       onComplete: () =>
         stores.collection.editor.isOpen
-          ? stores.collection.editor.loadCollectionFiles()
+          ? stores.collection.editor.loadCollection()
           : this.search.loadFiltered(),
       queue: this.refreshQueue,
     });
@@ -245,17 +222,13 @@ export class FileStore extends ExtendedModel(_FileStore, {
     if (!fileIds?.length) return false;
 
     await trpc.setFileIsArchived.mutate({ fileIds, isArchived: false });
-    this.toggleFilesSelected(fileIds.map((id) => ({ id, isSelected: false })));
+    this.search.toggleSelected(fileIds.map((id) => ({ id, isSelected: false })));
 
     toast.success(`${fileIds.length} files unarchived`);
     return true;
   });
 
   /* --------------------------------- DYNAMIC GETTERS -------------------------------- */
-  getIsSelected(id: string) {
-    return !!this.selectedIds.find((s) => s === id);
-  }
-
   getById(id: string) {
     return this.search.results.find((f) => f.id === id);
   }

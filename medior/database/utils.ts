@@ -5,12 +5,14 @@ export const getShiftSelectedItems = async <ModelType>({
   clickedId,
   clickedIndex,
   filterPipeline,
+  ids,
   model,
   selectedIds,
 }: {
   clickedId: string;
   clickedIndex: number;
   filterPipeline: { $match: mongoose.FilterQuery<ModelType>; $sort: { [key: string]: 1 | -1 } };
+  ids?: string[];
   model: mongoose.Model<ModelType>;
   selectedIds: string[];
 }) => {
@@ -27,8 +29,13 @@ export const getShiftSelectedItems = async <ModelType>({
     skip: number;
     startIndex: number;
   }): PipelineStage[] => [
-    { $match: args.filterPipeline.$match },
-    { $sort: args.filterPipeline.$sort },
+    ...(ids.length > 0
+      ? [
+          { $match: { _id: { $in: objectIds(ids) } } },
+          { $addFields: { __order: { $indexOfArray: [objectIds(ids), "$_id"] } } },
+          { $sort: { __order: 1 } },
+        ]
+      : [{ $match: args.filterPipeline.$match }, { $sort: args.filterPipeline.$sort }]),
     ...(args.limit > -1 ? [{ $limit: args.limit }] : []),
     ...(args.skip > -1 ? [{ $skip: args.skip }] : []),
     { $project: { _id: 1 } },
@@ -88,12 +95,30 @@ export const getShiftSelectedItems = async <ModelType>({
   ];
 
   const getSelectedIndex = async (type: "first" | "last") => {
-    const sortKey = Object.keys(filterPipeline.$sort)[0];
-    const sortOp = filterPipeline.$sort[sortKey] === -1 ? "$gt" : "$lt";
+    let selectedItems: any[];
+    let sortKey;
+    let sortOp;
 
-    const selectedItems = await model
-      .find({ ...filterPipeline.$match, _id: { $in: objectIds(selectedIds) } })
-      .sort(filterPipeline.$sort);
+    const hasIds = ids?.length > 0;
+
+    if (hasIds) {
+      selectedItems = await model
+        .aggregate([
+          { $match: { _id: { $in: objectIds(selectedIds) } } },
+          { $addFields: { __order: { $indexOfArray: [objectIds(ids), "$_id"] } } },
+          { $sort: { __order: 1 } },
+        ])
+        .allowDiskUse(true)
+        .exec();
+    } else {
+      sortKey = Object.keys(filterPipeline.$sort)[0];
+      sortOp = filterPipeline.$sort[sortKey] === -1 ? "$gt" : "$lt";
+
+      selectedItems = await model
+        .find({ _id: { $in: objectIds(selectedIds) } })
+        .sort(filterPipeline.$sort)
+        .lean();
+    }
 
     if (!selectedItems || selectedItems.length === 0)
       throw new Error(`Failed to load selected tags`);
@@ -101,7 +126,8 @@ export const getShiftSelectedItems = async <ModelType>({
     const selectedItem =
       type === "first" ? selectedItems[0] : selectedItems[selectedItems.length - 1];
 
-    // @ts-expect-error
+    if (hasIds) return ids.indexOf(selectedItem._id.toString());
+
     const selectedItemIndex = await model.countDocuments({
       ...filterPipeline.$match,
       $or: [
@@ -110,7 +136,6 @@ export const getShiftSelectedItems = async <ModelType>({
       ],
     });
     if (!(selectedItemIndex > -1)) throw new Error(`Failed to load ${type} selected index`);
-
     return selectedItemIndex;
   };
 

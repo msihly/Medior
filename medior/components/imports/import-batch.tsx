@@ -23,7 +23,7 @@ export const ImportBatch = observer(({ batch }: ImportBatchProps) => {
   const { css } = useClasses({ expanded, hasTags: batch.tagIds?.length > 0, status: batch.status });
 
   const handleCollections = async () => {
-    const res = await stores.collection.editor.loadCollection({ id: batch.collectionId });
+    const res = await stores.collection.editor.loadCollection(batch.collectionId);
     if (!res.success) toast.error(`Error loading collection: ${res.error}`);
     else stores.collection.editor.setIsOpen(true);
   };

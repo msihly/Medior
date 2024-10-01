@@ -13,15 +13,21 @@ import {
   trpc,
 } from ".";
 
+type DevToolsMode = null | Electron.OpenDevToolsOptions["mode"];
+
+type Search = {
+  pageSize: number;
+  sort: SortMenuProps["value"];
+};
+
 export interface Config {
   collection: {
     editor: {
-      fileSearch: { pageSize: number };
-      sort: SortMenuProps["value"];
+      fileSearch: Search;
+      search: Search;
     };
     manager: {
-      pageSize: number;
-      sort: SortMenuProps["value"];
+      search: Search;
     };
   };
   db: {
@@ -33,19 +39,16 @@ export interface Config {
   };
   dev: {
     devTools: {
-      carousel: null | Electron.OpenDevToolsOptions["mode"];
-      home: null | Electron.OpenDevToolsOptions["mode"];
-      search: null | Electron.OpenDevToolsOptions["mode"];
+      carousel: DevToolsMode;
+      home: DevToolsMode;
+      search: DevToolsMode;
     };
   };
   file: {
     fileCardFit: "contain" | "cover";
     hideUnratedIcon: boolean;
     imageTypes: ImageType[];
-    search: {
-      pageSize: number;
-      sort: SortMenuProps["value"];
-    };
+    search: Search;
     videoTypes: VideoType[];
   };
   imports: {
@@ -74,8 +77,7 @@ export interface Config {
   };
   tags: {
     manager: {
-      pageSize: number;
-      sort: SortMenuProps["value"];
+      search: Search;
     };
   };
 }
@@ -85,12 +87,20 @@ export type ConfigKey = NestedKeys<Config>;
 export const DEFAULT_CONFIG: Config = {
   collection: {
     editor: {
-      fileSearch: { pageSize: 20 },
-      sort: { isDesc: true, key: "dateCreated" },
+      fileSearch: {
+        pageSize: 20,
+        sort: { isDesc: true, key: "dateCreated" },
+      },
+      search: {
+        pageSize: 100,
+        sort: { isDesc: false, key: "custom" },
+      },
     },
     manager: {
-      pageSize: 100,
-      sort: { isDesc: true, key: "dateCreated" },
+      search: {
+        pageSize: 100,
+        sort: { isDesc: true, key: "dateCreated" },
+      },
     },
   },
   db: {
@@ -143,8 +153,10 @@ export const DEFAULT_CONFIG: Config = {
   },
   tags: {
     manager: {
-      pageSize: 200,
-      sort: { isDesc: true, key: "dateCreated" },
+      search: {
+        pageSize: 200,
+        sort: { isDesc: true, key: "dateCreated" },
+      },
     },
   },
 };
@@ -182,13 +194,14 @@ export const loadConfig = async (configPath?: string) => {
 
     config = deepMerge(DEFAULT_CONFIG, loadedConfig);
     config.collection.editor.fileSearch.pageSize = +config.collection.editor.fileSearch.pageSize;
-    config.collection.manager.pageSize = +config.collection.manager.pageSize;
+    config.collection.editor.search.pageSize = +config.collection.editor.search.pageSize;
+    config.collection.manager.search.pageSize = +config.collection.manager.search.pageSize;
     config.db.fileStorage.threshold = +config.db.fileStorage.threshold;
     config.file.search.pageSize = +config.file.search.pageSize;
     config.ports.db = +config.ports.db;
     config.ports.server = +config.ports.server;
     config.ports.socket = +config.ports.socket;
-    config.tags.manager.pageSize = +config.tags.manager.pageSize;
+    config.tags.manager.search.pageSize = +config.tags.manager.search.pageSize;
 
     return config;
   } catch (err) {

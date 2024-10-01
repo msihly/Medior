@@ -20,6 +20,7 @@ import * as Stores from "medior/store";
 import { asyncAction } from "medior/store/utils";
 import { SortMenuProps } from "medior/components";
 import { dayjs, getConfig, isDeepEqual, LogicalOp, makePerfLog, trpc } from "medior/utils";
+import { toast } from "react-toastify";
 
 /* --------------------------------------------------------------------------- */
 /*                               SEARCH STORES
@@ -31,8 +32,10 @@ export class _FileSearch extends Model({
   dateModifiedEnd: prop<string>("").withSetter(),
   dateModifiedStart: prop<string>("").withSetter(),
   excludedFileIds: prop<string[]>(() => []).withSetter(),
+  forcePages: prop<boolean>(false).withSetter(),
   hasChanges: prop<boolean>(false).withSetter(),
   hasDiffParams: prop<boolean>(false).withSetter(),
+  ids: prop<string[]>(() => []).withSetter(),
   isArchived: prop<boolean>(false).withSetter(),
   isLoading: prop<boolean>(false).withSetter(),
   maxHeight: prop<number>(null).withSetter(),
@@ -45,6 +48,7 @@ export class _FileSearch extends Model({
   pageSize: prop<number>(() => getConfig().file.search.pageSize).withSetter(),
   rating: prop<{ logOp: LogicalOp | ""; value: number }>(() => ({ logOp: "", value: 0 })),
   results: prop<Stores.File[]>(() => []).withSetter(),
+  selectedIds: prop<string[]>(() => []).withSetter(),
   selectedImageTypes: prop<Types.SelectedImageTypes>(
     () =>
       Object.fromEntries(
@@ -68,8 +72,10 @@ export class _FileSearch extends Model({
     this.dateModifiedEnd = "";
     this.dateModifiedStart = "";
     this.excludedFileIds = [];
+    this.forcePages = false;
     this.hasChanges = false;
     this.hasDiffParams = false;
+    this.ids = [];
     this.isArchived = false;
     this.isLoading = false;
     this.maxHeight = null;
@@ -82,6 +88,7 @@ export class _FileSearch extends Model({
     this.pageSize = getConfig().file.search.pageSize;
     this.rating = { logOp: "", value: 0 };
     this.results = [];
+    this.selectedIds = [];
     this.selectedImageTypes = Object.fromEntries(
       getConfig().file.imageTypes.map((ext) => [ext, true]),
     ) as Types.SelectedImageTypes;
@@ -90,6 +97,33 @@ export class _FileSearch extends Model({
     ) as Types.SelectedVideoTypes;
     this.sortValue = getConfig().file.search.sort;
     this.tags = [];
+  }
+
+  @modelAction
+  toggleSelected(selected: { id: string; isSelected?: boolean }[], withToast = false) {
+    if (!selected?.length) return;
+
+    const [added, removed] = selected.reduce(
+      (acc, cur) => (acc[cur.isSelected ? 0 : 1].push(cur.id), acc),
+      [[], []],
+    );
+
+    const removedSet = new Set(removed);
+    this.selectedIds = [...new Set(this.selectedIds.concat(added))].filter(
+      (id) => !removedSet.has(id),
+    );
+
+    if (withToast) {
+      const addedCount = added.length;
+      const removedCount = removed.length;
+      if (addedCount && removedCount) {
+        toast.success(`Selected ${addedCount} items and deselected ${removedCount} items`);
+      } else if (addedCount) {
+        toast.success(`Selected ${addedCount} items`);
+      } else if (removedCount) {
+        toast.success(`Deselected ${removedCount} items`);
+      }
+    }
   }
 
   @modelAction
@@ -141,14 +175,35 @@ export class _FileSearch extends Model({
   );
 
   @modelFlow
-  loadFiltered = asyncAction(async ({ ids, page }: { ids?: string[]; page?: number } = {}) => {
+  handleSelect = asyncAction(
+    async ({ hasCtrl, hasShift, id }: { hasCtrl: boolean; hasShift: boolean; id: string }) => {
+      if (hasShift) {
+        const res = await this.getShiftSelected({ id, selectedIds: this.selectedIds });
+        if (!res?.success) throw new Error(res.error);
+        this.toggleSelected([
+          ...res.data.idsToDeselect.map((i) => ({ id: i, isSelected: false })),
+          ...res.data.idsToSelect.map((i) => ({ id: i, isSelected: true })),
+        ]);
+      } else if (hasCtrl) {
+        this.toggleSelected([{ id, isSelected: !this.getIsSelected(id) }]);
+      } else {
+        this.toggleSelected([
+          ...this.selectedIds.map((id) => ({ id, isSelected: false })),
+          { id, isSelected: true },
+        ]);
+      }
+    },
+  );
+
+  @modelFlow
+  loadFiltered = asyncAction(async ({ page }: { page?: number } = {}) => {
     const debug = false;
     const { perfLog, perfLogTotal } = makePerfLog("[FileSearch]");
     this.setIsLoading(true);
 
     const res = await trpc.listFilteredFiles.mutate({
       ...this.getFilterProps(),
-      ids,
+      forcePages: this.forcePages,
       page: page ?? this.page,
       pageSize: this.pageSize,
     });
@@ -180,6 +235,7 @@ export class _FileSearch extends Model({
       (!isDeepEqual(this.dateModifiedStart, "") ? 1 : 0) +
       (!isDeepEqual(this.excludedFileIds, []) ? 1 : 0) +
       (!isDeepEqual(this.hasDiffParams, false) ? 1 : 0) +
+      (!isDeepEqual(this.ids, []) ? 1 : 0) +
       (!isDeepEqual(this.isArchived, false) ? 1 : 0) +
       (!isDeepEqual(this.maxHeight, null) ? 1 : 0) +
       (!isDeepEqual(this.maxWidth, null) ? 1 : 0) +
@@ -217,6 +273,7 @@ export class _FileSearch extends Model({
       dateModifiedStart: this.dateModifiedStart,
       excludedFileIds: this.excludedFileIds,
       hasDiffParams: this.hasDiffParams,
+      ids: this.ids,
       isArchived: this.isArchived,
       maxHeight: this.maxHeight,
       maxWidth: this.maxWidth,
@@ -230,6 +287,14 @@ export class _FileSearch extends Model({
       ...getRootStore<Stores.RootStore>(this)?.tag?.tagSearchOptsToIds(this.tags),
     };
   }
+
+  getIsSelected(id: string) {
+    return !!this.selectedIds.find((s) => s === id);
+  }
+
+  getResult(id: string) {
+    return this.results.find((r) => r.id === id);
+  }
 }
 
 @model("medior/_FileCollectionSearch")
@@ -239,14 +304,19 @@ export class _FileCollectionSearch extends Model({
   dateModifiedEnd: prop<string>("").withSetter(),
   dateModifiedStart: prop<string>("").withSetter(),
   fileCount: prop<{ logOp: LogicalOp | ""; value: number }>(() => ({ logOp: "", value: 0 })),
+  forcePages: prop<boolean>(false).withSetter(),
   hasChanges: prop<boolean>(false).withSetter(),
+  ids: prop<string[]>(() => []).withSetter(),
   isLoading: prop<boolean>(false).withSetter(),
   page: prop<number>(1).withSetter(),
   pageCount: prop<number>(1).withSetter(),
-  pageSize: prop<number>(() => getConfig().collection.manager.pageSize).withSetter(),
+  pageSize: prop<number>(() => getConfig().collection.manager.search.pageSize).withSetter(),
   rating: prop<{ logOp: LogicalOp | ""; value: number }>(() => ({ logOp: "", value: 0 })),
   results: prop<Stores.FileCollection[]>(() => []).withSetter(),
-  sortValue: prop<SortMenuProps["value"]>(() => getConfig().collection.manager.sort).withSetter(),
+  selectedIds: prop<string[]>(() => []).withSetter(),
+  sortValue: prop<SortMenuProps["value"]>(
+    () => getConfig().collection.manager.search.sort,
+  ).withSetter(),
   tags: prop<Stores.TagOption[]>(() => []).withSetter(),
   title: prop<string>("").withSetter(),
 }) {
@@ -258,16 +328,46 @@ export class _FileCollectionSearch extends Model({
     this.dateModifiedEnd = "";
     this.dateModifiedStart = "";
     this.fileCount = { logOp: "", value: 0 };
+    this.forcePages = false;
     this.hasChanges = false;
+    this.ids = [];
     this.isLoading = false;
     this.page = 1;
     this.pageCount = 1;
-    this.pageSize = getConfig().collection.manager.pageSize;
+    this.pageSize = getConfig().collection.manager.search.pageSize;
     this.rating = { logOp: "", value: 0 };
     this.results = [];
-    this.sortValue = getConfig().collection.manager.sort;
+    this.selectedIds = [];
+    this.sortValue = getConfig().collection.manager.search.sort;
     this.tags = [];
     this.title = "";
+  }
+
+  @modelAction
+  toggleSelected(selected: { id: string; isSelected?: boolean }[], withToast = false) {
+    if (!selected?.length) return;
+
+    const [added, removed] = selected.reduce(
+      (acc, cur) => (acc[cur.isSelected ? 0 : 1].push(cur.id), acc),
+      [[], []],
+    );
+
+    const removedSet = new Set(removed);
+    this.selectedIds = [...new Set(this.selectedIds.concat(added))].filter(
+      (id) => !removedSet.has(id),
+    );
+
+    if (withToast) {
+      const addedCount = added.length;
+      const removedCount = removed.length;
+      if (addedCount && removedCount) {
+        toast.success(`Selected ${addedCount} items and deselected ${removedCount} items`);
+      } else if (addedCount) {
+        toast.success(`Selected ${addedCount} items`);
+      } else if (removedCount) {
+        toast.success(`Deselected ${removedCount} items`);
+      }
+    }
   }
 
   @modelAction
@@ -309,14 +409,35 @@ export class _FileCollectionSearch extends Model({
   );
 
   @modelFlow
-  loadFiltered = asyncAction(async ({ ids, page }: { ids?: string[]; page?: number } = {}) => {
+  handleSelect = asyncAction(
+    async ({ hasCtrl, hasShift, id }: { hasCtrl: boolean; hasShift: boolean; id: string }) => {
+      if (hasShift) {
+        const res = await this.getShiftSelected({ id, selectedIds: this.selectedIds });
+        if (!res?.success) throw new Error(res.error);
+        this.toggleSelected([
+          ...res.data.idsToDeselect.map((i) => ({ id: i, isSelected: false })),
+          ...res.data.idsToSelect.map((i) => ({ id: i, isSelected: true })),
+        ]);
+      } else if (hasCtrl) {
+        this.toggleSelected([{ id, isSelected: !this.getIsSelected(id) }]);
+      } else {
+        this.toggleSelected([
+          ...this.selectedIds.map((id) => ({ id, isSelected: false })),
+          { id, isSelected: true },
+        ]);
+      }
+    },
+  );
+
+  @modelFlow
+  loadFiltered = asyncAction(async ({ page }: { page?: number } = {}) => {
     const debug = false;
     const { perfLog, perfLogTotal } = makePerfLog("[FileCollectionSearch]");
     this.setIsLoading(true);
 
     const res = await trpc.listFilteredFileCollections.mutate({
       ...this.getFilterProps(),
-      ids,
+      forcePages: this.forcePages,
       page: page ?? this.page,
       pageSize: this.pageSize,
     });
@@ -347,8 +468,9 @@ export class _FileCollectionSearch extends Model({
       (!isDeepEqual(this.dateModifiedEnd, "") ? 1 : 0) +
       (!isDeepEqual(this.dateModifiedStart, "") ? 1 : 0) +
       (!isDeepEqual(this.fileCount, { logOp: "", value: 0 }) ? 1 : 0) +
+      (!isDeepEqual(this.ids, []) ? 1 : 0) +
       (!isDeepEqual(this.rating, { logOp: "", value: 0 }) ? 1 : 0) +
-      (!isDeepEqual(this.sortValue, getConfig().collection.manager.sort) ? 1 : 0) +
+      (!isDeepEqual(this.sortValue, getConfig().collection.manager.search.sort) ? 1 : 0) +
       (!isDeepEqual(this.tags, []) ? 1 : 0) +
       (!isDeepEqual(this.title, "") ? 1 : 0)
     );
@@ -362,11 +484,20 @@ export class _FileCollectionSearch extends Model({
       dateModifiedEnd: this.dateModifiedEnd,
       dateModifiedStart: this.dateModifiedStart,
       fileCount: this.fileCount,
+      ids: this.ids,
       rating: this.rating,
       sortValue: this.sortValue,
       ...getRootStore<Stores.RootStore>(this)?.tag?.tagSearchOptsToIds(this.tags),
       title: this.title,
     };
+  }
+
+  getIsSelected(id: string) {
+    return !!this.selectedIds.find((s) => s === id);
+  }
+
+  getResult(id: string) {
+    return this.results.find((r) => r.id === id);
   }
 }
 
@@ -378,15 +509,18 @@ export class _TagSearch extends Model({
   dateCreatedStart: prop<string>("").withSetter(),
   dateModifiedEnd: prop<string>("").withSetter(),
   dateModifiedStart: prop<string>("").withSetter(),
+  forcePages: prop<boolean>(false).withSetter(),
   hasChanges: prop<boolean>(false).withSetter(),
+  ids: prop<string[]>(() => []).withSetter(),
   isLoading: prop<boolean>(false).withSetter(),
   label: prop<string>("").withSetter(),
   page: prop<number>(1).withSetter(),
   pageCount: prop<number>(1).withSetter(),
-  pageSize: prop<number>(() => getConfig().tags.manager.pageSize).withSetter(),
+  pageSize: prop<number>(() => getConfig().tags.manager.search.pageSize).withSetter(),
   regExMode: prop<"any" | "hasRegEx" | "hasNoRegEx">("any").withSetter(),
   results: prop<Stores.Tag[]>(() => []).withSetter(),
-  sortValue: prop<SortMenuProps["value"]>(() => getConfig().tags.manager.sort).withSetter(),
+  selectedIds: prop<string[]>(() => []).withSetter(),
+  sortValue: prop<SortMenuProps["value"]>(() => getConfig().tags.manager.search.sort).withSetter(),
   tags: prop<Stores.TagOption[]>(() => []).withSetter(),
 }) {
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
@@ -398,16 +532,46 @@ export class _TagSearch extends Model({
     this.dateCreatedStart = "";
     this.dateModifiedEnd = "";
     this.dateModifiedStart = "";
+    this.forcePages = false;
     this.hasChanges = false;
+    this.ids = [];
     this.isLoading = false;
     this.label = "";
     this.page = 1;
     this.pageCount = 1;
-    this.pageSize = getConfig().tags.manager.pageSize;
+    this.pageSize = getConfig().tags.manager.search.pageSize;
     this.regExMode = "any";
     this.results = [];
-    this.sortValue = getConfig().tags.manager.sort;
+    this.selectedIds = [];
+    this.sortValue = getConfig().tags.manager.search.sort;
     this.tags = [];
+  }
+
+  @modelAction
+  toggleSelected(selected: { id: string; isSelected?: boolean }[], withToast = false) {
+    if (!selected?.length) return;
+
+    const [added, removed] = selected.reduce(
+      (acc, cur) => (acc[cur.isSelected ? 0 : 1].push(cur.id), acc),
+      [[], []],
+    );
+
+    const removedSet = new Set(removed);
+    this.selectedIds = [...new Set(this.selectedIds.concat(added))].filter(
+      (id) => !removedSet.has(id),
+    );
+
+    if (withToast) {
+      const addedCount = added.length;
+      const removedCount = removed.length;
+      if (addedCount && removedCount) {
+        toast.success(`Selected ${addedCount} items and deselected ${removedCount} items`);
+      } else if (addedCount) {
+        toast.success(`Selected ${addedCount} items`);
+      } else if (removedCount) {
+        toast.success(`Deselected ${removedCount} items`);
+      }
+    }
   }
 
   @modelAction
@@ -439,14 +603,35 @@ export class _TagSearch extends Model({
   );
 
   @modelFlow
-  loadFiltered = asyncAction(async ({ ids, page }: { ids?: string[]; page?: number } = {}) => {
+  handleSelect = asyncAction(
+    async ({ hasCtrl, hasShift, id }: { hasCtrl: boolean; hasShift: boolean; id: string }) => {
+      if (hasShift) {
+        const res = await this.getShiftSelected({ id, selectedIds: this.selectedIds });
+        if (!res?.success) throw new Error(res.error);
+        this.toggleSelected([
+          ...res.data.idsToDeselect.map((i) => ({ id: i, isSelected: false })),
+          ...res.data.idsToSelect.map((i) => ({ id: i, isSelected: true })),
+        ]);
+      } else if (hasCtrl) {
+        this.toggleSelected([{ id, isSelected: !this.getIsSelected(id) }]);
+      } else {
+        this.toggleSelected([
+          ...this.selectedIds.map((id) => ({ id, isSelected: false })),
+          { id, isSelected: true },
+        ]);
+      }
+    },
+  );
+
+  @modelFlow
+  loadFiltered = asyncAction(async ({ page }: { page?: number } = {}) => {
     const debug = false;
     const { perfLog, perfLogTotal } = makePerfLog("[TagSearch]");
     this.setIsLoading(true);
 
     const res = await trpc.listFilteredTags.mutate({
       ...this.getFilterProps(),
-      ids,
+      forcePages: this.forcePages,
       page: page ?? this.page,
       pageSize: this.pageSize,
     });
@@ -478,9 +663,10 @@ export class _TagSearch extends Model({
       (!isDeepEqual(this.dateCreatedStart, "") ? 1 : 0) +
       (!isDeepEqual(this.dateModifiedEnd, "") ? 1 : 0) +
       (!isDeepEqual(this.dateModifiedStart, "") ? 1 : 0) +
+      (!isDeepEqual(this.ids, []) ? 1 : 0) +
       (!isDeepEqual(this.label, "") ? 1 : 0) +
       (!isDeepEqual(this.regExMode, "any") ? 1 : 0) +
-      (!isDeepEqual(this.sortValue, getConfig().tags.manager.sort) ? 1 : 0) +
+      (!isDeepEqual(this.sortValue, getConfig().tags.manager.search.sort) ? 1 : 0) +
       (!isDeepEqual(this.tags, []) ? 1 : 0)
     );
   }
@@ -494,11 +680,20 @@ export class _TagSearch extends Model({
       dateCreatedStart: this.dateCreatedStart,
       dateModifiedEnd: this.dateModifiedEnd,
       dateModifiedStart: this.dateModifiedStart,
+      ids: this.ids,
       label: this.label,
       regExMode: this.regExMode,
       sortValue: this.sortValue,
       ...getRootStore<Stores.RootStore>(this)?.tag?.tagSearchOptsToIds(this.tags),
     };
+  }
+
+  getIsSelected(id: string) {
+    return !!this.selectedIds.find((s) => s === id);
+  }
+
+  getResult(id: string) {
+    return this.results.find((r) => r.id === id);
   }
 }
 

@@ -30,7 +30,7 @@ export const FileCollectionManager = observer(() => {
 
   const collectionsRef = useRef<HTMLDivElement>(null);
 
-  const hasSelectedCollectionIds = stores.collection.manager.selectedCollectionIds.length > 0;
+  const hasSelectedCollectionIds = stores.collection.manager.search.selectedIds.length > 0;
   const selectedFileIds = stores.collection.manager.selectedFileIds;
   const hasAnyFilesSelected = selectedFileIds.length > 0;
   const hasOneFileSelected = selectedFileIds.length === 1;
@@ -51,14 +51,13 @@ export const FileCollectionManager = observer(() => {
     collectionsRef.current?.scrollTo({ top: 0, behavior: "smooth" });
   }, [page, stores.collection.manager.search.results]);
 
-  const handleAddToCollection = async () => {
-    stores.collection.manager.setIsLoading(true);
-    await stores.collection.editor.loadCollection({
-      id: stores.collection.manager.selectedCollectionIds[0],
-    });
-    stores.collection.manager.setIsLoading(false);
-    stores.collection.editor.setIsOpen(true);
-  };
+  // TODO: Adjust this to open the editor, add files to the end of the collection, and navigate to the last page
+  // const handleAddToCollection = async () => {
+  //   stores.collection.manager.setIsLoading(true);
+  //   await stores.collection.editor.loadCollection(stores.collection.manager.search.selectedIds[0]);
+  //   stores.collection.manager.setIsLoading(false);
+  //   stores.collection.editor.setIsOpen(true);
+  // };
 
   const handleClose = () => {
     stores.collection.manager.setIsOpen(false);
@@ -67,7 +66,7 @@ export const FileCollectionManager = observer(() => {
 
   const handleConfirmDelete = async () => {
     const res = await stores.collection.deleteCollections(
-      stores.collection.manager.selectedCollectionIds
+      stores.collection.manager.search.selectedIds
     );
 
     if (!res.success) {
@@ -99,7 +98,7 @@ export const FileCollectionManager = observer(() => {
 
     if (!res.success) toast.error(res.error);
     else {
-      await stores.collection.editor.loadCollection({ id: res.data.id });
+      await stores.collection.editor.loadCollection(res.data.id);
       stores.collection.editor.setIsOpen(true);
     }
   };
@@ -227,21 +226,21 @@ export const FileCollectionManager = observer(() => {
           colorOnHover={colors.custom.blue}
         />
 
-        {!hasAnyFilesSelected ? null : (
+        {/* {!hasAnyFilesSelected ? null : (
           <Button
             text="Add to Collection"
             icon="Add"
             onClick={handleAddToCollection}
-            disabled={stores.collection.manager.selectedCollectionIds.length !== 1}
+            disabled={stores.collection.manager.search.selectedIds.length !== 1}
             colorOnHover={colors.custom.purple}
           />
-        )}
+        )} */}
       </Modal.Footer>
 
       {isConfirmDeleteOpen && (
         <ConfirmModal
           headerText="Delete Collections"
-          subText={`Are you sure you want to delete the ${stores.collection.manager.selectedCollectionIds.length} selected collections?`}
+          subText={`Are you sure you want to delete the ${stores.collection.manager.search.selectedIds.length} selected collections?`}
           onConfirm={handleConfirmDelete}
           setVisible={setIsConfirmDeleteOpen}
         />

@@ -1,7 +1,6 @@
 import { getRootStore, model, Model, modelAction, modelFlow, prop } from "mobx-keystone";
 import { asyncAction, RootStore, TagSearch } from "medior/store";
 import { makeQueue, PromiseQueue, trpc } from "medior/utils";
-import { toast } from "react-toastify";
 
 export type TagManagerMode = "create" | "edit" | "search";
 
@@ -20,7 +19,6 @@ export class TagManagerStore extends Model({
   isLoading: prop<boolean>(false).withSetter(),
   isMultiTagEditorOpen: prop<boolean>(false).withSetter(),
   isOpen: prop<boolean>(false).withSetter(),
-  selectedIds: prop<string[]>(() => []).withSetter(),
   search: prop<TagSearch>(() => new TagSearch({})).withSetter(),
 }) {
   refreshQueue = new PromiseQueue();
@@ -30,28 +28,6 @@ export class TagManagerStore extends Model({
   clearRefreshQueue() {
     this.refreshQueue.cancel();
     this.refreshQueue = new PromiseQueue();
-  }
-
-  @modelAction
-  toggleTagsSelected(selected: { id: string; isSelected?: boolean }[], withToast = false) {
-    if (!selected?.length) return;
-
-    const [added, removed] = selected.reduce(
-      (acc, cur) => (acc[cur.isSelected ? 0 : 1].push(cur.id), acc),
-      [[], []]
-    );
-
-    const removedSet = new Set(removed);
-    this.selectedIds = [...new Set(this.selectedIds.concat(added))].filter(
-      (id) => !removedSet.has(id)
-    );
-
-    if (withToast)
-      toast.info(
-        `${added.length ? `${added.length} tags selected.` : ""}${
-          added.length && removed.length ? "\n" : ""
-        }${removed.length ? `${removed.length} tags deselected.` : ""}`
-      );
   }
 
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */
@@ -73,7 +49,7 @@ export class TagManagerStore extends Model({
         childIdsToRemove,
         parentIdsToAdd,
         parentIdsToRemove,
-        tagIds: this.selectedIds,
+        tagIds: this.search.selectedIds,
       });
       if (!res.success) throw new Error(res.error);
       return res.data;
@@ -88,7 +64,7 @@ export class TagManagerStore extends Model({
         const res = await trpc.refreshTag.mutate({ tagId });
         if (!res.success) throw new Error(res.error);
       },
-      items: this.selectedIds,
+      items: this.search.selectedIds,
       logSuffix: "tags",
       onComplete: () => Promise.all([stores.tag.loadTags(), this.search.loadFiltered()]),
       queue: this.refreshQueue,
@@ -101,6 +77,6 @@ export class TagManagerStore extends Model({
   }
 
   getIsSelected(id: string) {
-    return !!this.selectedIds.find((s) => s === id);
+    return !!this.search.selectedIds.find((s) => s === id);
   }
 }

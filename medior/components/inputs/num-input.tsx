@@ -11,7 +11,7 @@ export interface NumInputProps extends Omit<InputProps, "setValue" | "value"> {
 
 export const NumInput = forwardRef(
   (
-    { maxValue, minValue, setValue, value, ...props }: NumInputProps,
+    { hasHelper = true, maxValue, minValue, setValue, value, ...props }: NumInputProps,
     ref?: MutableRefObject<HTMLDivElement>
   ) => {
     const [error, setError] = useState<string | null>(null);
@@ -22,10 +22,14 @@ export const NumInput = forwardRef(
         setError(null);
       } else if (isNaN(+val)) toast.error("Must be a number");
       else {
-        if (maxValue && +val > maxValue) setError(`Max: ${maxValue}`);
-        else if (minValue && +val < minValue) setError(`Min: ${minValue}`);
-        else setError(null);
-        setValue?.(+val);
+        if (maxValue && +val > maxValue)
+          hasHelper ? setError(`Max: ${maxValue}`) : toast.error(`Max: ${maxValue}`);
+        else if (minValue && +val < minValue)
+          hasHelper ? setError(`Min: ${minValue}`) : toast.error(`Min: ${minValue}`);
+        else {
+          setError(null);
+          setValue?.(+val);
+        }
       }
     };
 
@@ -34,9 +38,9 @@ export const NumInput = forwardRef(
         {...{ ref }}
         value={value !== null && !isNaN(+value) ? String(value) : ""}
         setValue={handleChange}
-        error={!!error}
-        helperText={error}
-        hasHelper
+        error={hasHelper && !!error}
+        helperText={hasHelper ? error : null}
+        hasHelper={hasHelper}
         {...props}
       />
     );

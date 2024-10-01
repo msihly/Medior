@@ -16,7 +16,7 @@ export const SelectedFilesInfo = observer(() => {
   const handleOpen = async () => {
     try {
       const res = await trpc.listFiles.mutate({
-        args: { filter: { id: stores.file.selectedIds } },
+        args: { filter: { id: stores.file.search.selectedIds } },
       });
       if (!res?.success) throw new Error(res.error);
       const selectedFiles = res.data.items;
@@ -71,7 +71,7 @@ export const SelectedFilesInfo = observer(() => {
         </View>
       }
     >
-      <Chip label={`${stores.file.selectedIds.length} Selected`} />
+      <Chip label={`${stores.file.search.selectedIds.length} Selected`} />
     </Tooltip>
   );
 });

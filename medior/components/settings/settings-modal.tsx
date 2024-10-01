@@ -138,13 +138,13 @@ export const SettingsModal = observer(() => {
 
             <Settings.SortMenu
               header="Editor - Default Sort"
-              configKey="collection.editor.sort"
+              configKey="collection.editor.search.sort"
               rows={SORT_OPTIONS.File}
             />
 
             <Settings.NumInput
               header="Manager - Page Size"
-              configKey="collection.manager.pageSize"
+              configKey="collection.manager.search.pageSize"
               minValue={25}
               maxValue={250}
               width="9rem"
@@ -152,7 +152,7 @@ export const SettingsModal = observer(() => {
 
             <Settings.SortMenu
               header="Manager - Default Sort"
-              configKey="collection.manager.sort"
+              configKey="collection.manager.search.sort"
               rows={SORT_OPTIONS.FileCollection}
             />
           </View>
@@ -337,7 +337,7 @@ export const SettingsModal = observer(() => {
           <View row>
             <Settings.SortMenu
               header="Manager - Default Sort"
-              configKey="tags.manager.sort"
+              configKey="tags.manager.search.sort"
               rows={SORT_OPTIONS.Tag}
             />
           </View>

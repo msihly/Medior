@@ -43,7 +43,7 @@ export const ContextMenu = observer(
 
     const handleDelete = () =>
       stores.file.confirmDeleteFiles(
-        stores.file.getIsSelected(file.id) ? stores.file.selectedIds : [file.id]
+        stores.file.search.getIsSelected(file.id) ? stores.file.search.selectedIds : [file.id]
       );
 
     const handleFaceRecognition = () => {

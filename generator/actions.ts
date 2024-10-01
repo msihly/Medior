@@ -163,7 +163,6 @@ const makeSearchActionsDef = (def: ModelSearchStore) => {
   const interfaceProps = [
     ...props.filter((prop) => !prop.notFilterProp && !prop.customActionProps?.length),
     ...customProps,
-    { name: "ids", type: "string[]" },
   ].sort((a, b) => a.name.localeCompare(b.name));
 
   const makeDefaultCondition = (prop: ModelSearchProp) =>
@@ -178,8 +177,6 @@ const makeSearchActionsDef = (def: ModelSearchStore) => {
 
     export const ${filterFnName} = (args: ${filterFnNameType}) => {
       const $match: FilterQuery<${modelName}Schema> = {};
-
-      if (args.ids) setObj($match, ["_id", "$in"], objectIds(args.ids));
 
       ${defaultProps
         .map((prop) => `if (${makeDefaultCondition(prop)}) ${makeSetObj(prop)}`)
@@ -211,6 +208,7 @@ const makeSearchActionsDef = (def: ModelSearchStore) => {
           clickedId,
           clickedIndex,
           filterPipeline,
+          ids: filterParams.ids,
           model: ${modelName}Model,
           selectedIds,
         });
@@ -219,20 +217,27 @@ const makeSearchActionsDef = (def: ModelSearchStore) => {
 
     export const listFiltered${def.name}s = makeAction(
       async ({
+        forcePages,
         page,
         pageSize,
         ...filterParams
-      }: ${filterFnNameType} & { page: number; pageSize: number; }) => {
+      }: ${filterFnNameType} & { forcePages?: boolean; page: number; pageSize: number; }) => {
         const filterPipeline = ${filterFnName}(filterParams);
-        const hasIds = filterParams.ids?.length > 0;
+        const hasIds = forcePages || filterParams.ids?.length > 0;
 
         const [items, count] = await Promise.all([
-          ${modelName}Model.find(hasIds ? { _id: { $in: objectIds(filterParams.ids) } } : filterPipeline.$match)
-            .sort(filterPipeline.$sort)
-            .skip(hasIds ? 0 : Math.max(0, page - 1) * pageSize)
-            .limit(hasIds ? 0 : pageSize)
-            .allowDiskUse(true)
-            .lean(),
+          hasIds
+            ? ${modelName}Model.aggregate([
+                { $match: { _id: { $in: objectIds(filterParams.ids) } } },
+                { $addFields: { __order: { $indexOfArray: [objectIds(filterParams.ids), "$_id"] } } },
+                { $sort: { __order: 1 } },
+              ]).allowDiskUse(true).exec()
+            : ${modelName}Model.find(filterPipeline.$match)
+                .sort(filterPipeline.$sort)
+                .skip(Math.max(0, page - 1) * pageSize)
+                .limit(pageSize)
+                .allowDiskUse(true)
+                .lean(),
           ${modelName}Model.countDocuments(filterPipeline.$match),
         ]);
         if (!items || !(count > -1)) throw new Error("Failed to load filtered ${def.name}s");

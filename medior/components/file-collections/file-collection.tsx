@@ -1,6 +1,7 @@
 import { observer, useStores } from "medior/store";
 import { CollectionTooltip, ContextMenu, FileBase } from "medior/components";
 import { CSS, round } from "medior/utils";
+import { toast } from "react-toastify";
 
 export interface FileCollectionProps {
   height?: CSS["height"];
@@ -11,43 +12,28 @@ export interface FileCollectionProps {
 export const FileCollection = observer(({ height, id, width }: FileCollectionProps) => {
   const stores = useStores();
 
-  const collection = stores.collection.manager.getById(id);
+  const collection = stores.collection.manager.search.getResult(id);
   if (!collection) return null;
 
   const handleClick = async (event: React.MouseEvent) => {
-    if (event.shiftKey) {
-      const res = await stores.collection.manager.search.getShiftSelected({
-        id,
-        selectedIds: stores.collection.manager.selectedCollectionIds,
-      });
-      if (!res?.success) throw new Error(res.error);
-
-      stores.collection.manager.toggleSelected([
-        ...res.data.idsToDeselect.map((i) => ({ id: i, isSelected: false })),
-        ...res.data.idsToSelect.map((i) => ({ id: i, isSelected: true })),
-      ]);
-    } else if (event.ctrlKey) {
-      stores.collection.manager.toggleSelected([
-        { id, isSelected: !stores.collection.manager.getIsSelected(id) },
-      ]);
-    } else {
-      stores.collection.manager.toggleSelected([
-        ...stores.collection.manager.selectedCollectionIds.map((id) => ({ id, isSelected: false })),
-        { id, isSelected: true },
-      ]);
-    }
+    const res = await stores.collection.manager.search.handleSelect({
+      hasCtrl: event.ctrlKey,
+      hasShift: event.shiftKey,
+      id,
+    });
+    if (!res?.success) toast.error(res.error);
   };
 
   const handleDelete = async () => {
-    await stores.collection.editor.loadCollection({ id });
+    await stores.collection.editor.loadCollection(id);
     stores.collection.setIsConfirmDeleteOpen(true);
   };
 
   const handleRefreshMeta = () => stores.collection.regenCollMeta([id]);
 
   const openCollection = async () => {
-    await stores.collection.editor.loadCollection({ id });
     stores.collection.editor.setIsOpen(true);
+    await stores.collection.editor.loadCollection(id);
   };
 
   return (
@@ -63,7 +49,7 @@ export const FileCollection = observer(({ height, id, width }: FileCollectionPro
           {...{ height, width }}
           onClick={handleClick}
           onDoubleClick={openCollection}
-          selected={stores.collection.manager.getIsSelected(id)}
+          selected={stores.collection.manager.search.getIsSelected(id)}
         >
           <FileBase.Image
             thumbPaths={collection.thumbPaths}

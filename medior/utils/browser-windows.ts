@@ -11,7 +11,7 @@ export const openCarouselWindow = ({
   ipcRenderer.send("createCarouselWindow", {
     fileId: file.id,
     height: file.height,
-    selectedFileIds,
+    selectedFileIds: [...selectedFileIds],
     width: file.width,
   });
 

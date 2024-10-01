@@ -38,7 +38,8 @@ export class CarouselStore extends Model({
 
     this.setSelectedFileIds(newSelectedIds);
 
-    stores.file.search.loadFiltered({ ids: newSelectedIds });
+    stores.file.search.setIds(newSelectedIds);
+    stores.file.search.loadFiltered();
   }
 
   @modelAction

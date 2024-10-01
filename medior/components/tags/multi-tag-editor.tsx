@@ -61,7 +61,7 @@ export const MultiTagEditor = observer(() => {
       <Modal.Content spacing="0.5rem">
         <TagInput
           header="Selected Tags"
-          value={stores.tag.tagOptions.filter((t) => stores.tag.manager.selectedIds.includes(t.id))}
+          value={stores.tag.tagOptions.filter((t) => stores.tag.manager.search.getIsSelected(t.id))}
           disabled
         />
 

@@ -17,6 +17,8 @@ export const ToastContainer = (props: ToastContainerProps) => {
       limit={3}
       pauseOnFocusLoss={false}
       position="bottom-left"
+      newestOnTop
+      style={{ bottom: "3rem" }}
       {...props}
     />
   );

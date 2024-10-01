@@ -46,8 +46,6 @@ export type CreateFileFilterPipelineInput = {
 export const createFileFilterPipeline = (args: CreateFileFilterPipelineInput) => {
   const $match: FilterQuery<models.FileSchema> = {};
 
-  if (args.ids) setObj($match, ["_id", "$in"], objectIds(args.ids));
-
   if (!isDeepEqual(args.dateCreatedEnd, ""))
     setObj($match, ["dateCreated", "$lte"], args.dateCreatedEnd);
   if (!isDeepEqual(args.dateCreatedStart, ""))
@@ -64,6 +62,7 @@ export const createFileFilterPipeline = (args: CreateFileFilterPipelineInput) =>
       ["$expr", "$and"],
       [{ $eq: [{ $type: "$diffusionParams" }, "string"] }, { $ne: ["$diffusionParams", ""] }],
     );
+  if (!isDeepEqual(args.ids, [])) setObj($match, ["_id", "$in"], objectIds(args.ids));
   if (!isDeepEqual(args.maxHeight, null)) setObj($match, ["height", "$lte"], args.maxHeight);
   if (!isDeepEqual(args.maxWidth, null)) setObj($match, ["width", "$lte"], args.maxWidth);
   if (!isDeepEqual(args.minHeight, null)) setObj($match, ["height", "$gte"], args.minHeight);
@@ -121,6 +120,7 @@ export const getShiftSelectedFiles = makeAction(
       clickedId,
       clickedIndex,
       filterPipeline,
+      ids: filterParams.ids,
       model: models.FileModel,
       selectedIds,
     });
@@ -129,22 +129,29 @@ export const getShiftSelectedFiles = makeAction(
 
 export const listFilteredFiles = makeAction(
   async ({
+    forcePages,
     page,
     pageSize,
     ...filterParams
-  }: CreateFileFilterPipelineInput & { page: number; pageSize: number }) => {
+  }: CreateFileFilterPipelineInput & { forcePages?: boolean; page: number; pageSize: number }) => {
     const filterPipeline = createFileFilterPipeline(filterParams);
-    const hasIds = filterParams.ids?.length > 0;
+    const hasIds = forcePages || filterParams.ids?.length > 0;
 
     const [items, count] = await Promise.all([
-      models.FileModel.find(
-        hasIds ? { _id: { $in: objectIds(filterParams.ids) } } : filterPipeline.$match,
-      )
-        .sort(filterPipeline.$sort)
-        .skip(hasIds ? 0 : Math.max(0, page - 1) * pageSize)
-        .limit(hasIds ? 0 : pageSize)
-        .allowDiskUse(true)
-        .lean(),
+      hasIds
+        ? models.FileModel.aggregate([
+            { $match: { _id: { $in: objectIds(filterParams.ids) } } },
+            { $addFields: { __order: { $indexOfArray: [objectIds(filterParams.ids), "$_id"] } } },
+            { $sort: { __order: 1 } },
+          ])
+            .allowDiskUse(true)
+            .exec()
+        : models.FileModel.find(filterPipeline.$match)
+            .sort(filterPipeline.$sort)
+            .skip(Math.max(0, page - 1) * pageSize)
+            .limit(pageSize)
+            .allowDiskUse(true)
+            .lean(),
       models.FileModel.countDocuments(filterPipeline.$match),
     ]);
     if (!items || !(count > -1)) throw new Error("Failed to load filtered Files");
@@ -179,8 +186,6 @@ export const createFileCollectionFilterPipeline = (
 ) => {
   const $match: FilterQuery<models.FileCollectionSchema> = {};
 
-  if (args.ids) setObj($match, ["_id", "$in"], objectIds(args.ids));
-
   if (!isDeepEqual(args.dateCreatedEnd, ""))
     setObj($match, ["dateCreated", "$lte"], args.dateCreatedEnd);
   if (!isDeepEqual(args.dateCreatedStart, ""))
@@ -191,6 +196,7 @@ export const createFileCollectionFilterPipeline = (
     setObj($match, ["dateModified", "$gte"], args.dateModifiedStart);
   if (!isDeepEqual(args.fileCount, { logOp: "", value: 0 }))
     setObj($match, ["fileCount", logicOpsToMongo(args.fileCount.logOp)], args.fileCount.value);
+  if (!isDeepEqual(args.ids, [])) setObj($match, ["_id", "$in"], objectIds(args.ids));
   if (!isDeepEqual(args.rating, { logOp: "", value: 0 }))
     setObj($match, ["rating", logicOpsToMongo(args.rating.logOp)], args.rating.value);
   if (!isDeepEqual(args.title, ""))
@@ -231,6 +237,7 @@ export const getShiftSelectedFileCollections = makeAction(
       clickedId,
       clickedIndex,
       filterPipeline,
+      ids: filterParams.ids,
       model: models.FileCollectionModel,
       selectedIds,
     });
@@ -239,22 +246,33 @@ export const getShiftSelectedFileCollections = makeAction(
 
 export const listFilteredFileCollections = makeAction(
   async ({
+    forcePages,
     page,
     pageSize,
     ...filterParams
-  }: CreateFileCollectionFilterPipelineInput & { page: number; pageSize: number }) => {
+  }: CreateFileCollectionFilterPipelineInput & {
+    forcePages?: boolean;
+    page: number;
+    pageSize: number;
+  }) => {
     const filterPipeline = createFileCollectionFilterPipeline(filterParams);
-    const hasIds = filterParams.ids?.length > 0;
+    const hasIds = forcePages || filterParams.ids?.length > 0;
 
     const [items, count] = await Promise.all([
-      models.FileCollectionModel.find(
-        hasIds ? { _id: { $in: objectIds(filterParams.ids) } } : filterPipeline.$match,
-      )
-        .sort(filterPipeline.$sort)
-        .skip(hasIds ? 0 : Math.max(0, page - 1) * pageSize)
-        .limit(hasIds ? 0 : pageSize)
-        .allowDiskUse(true)
-        .lean(),
+      hasIds
+        ? models.FileCollectionModel.aggregate([
+            { $match: { _id: { $in: objectIds(filterParams.ids) } } },
+            { $addFields: { __order: { $indexOfArray: [objectIds(filterParams.ids), "$_id"] } } },
+            { $sort: { __order: 1 } },
+          ])
+            .allowDiskUse(true)
+            .exec()
+        : models.FileCollectionModel.find(filterPipeline.$match)
+            .sort(filterPipeline.$sort)
+            .skip(Math.max(0, page - 1) * pageSize)
+            .limit(pageSize)
+            .allowDiskUse(true)
+            .lean(),
       models.FileCollectionModel.countDocuments(filterPipeline.$match),
     ]);
     if (!items || !(count > -1)) throw new Error("Failed to load filtered FileCollections");
@@ -288,8 +306,6 @@ export type CreateTagFilterPipelineInput = {
 export const createTagFilterPipeline = (args: CreateTagFilterPipelineInput) => {
   const $match: FilterQuery<models.TagSchema> = {};
 
-  if (args.ids) setObj($match, ["_id", "$in"], objectIds(args.ids));
-
   if (!isDeepEqual(args.alias, ""))
     setObj($match, ["aliases", "$elemMatch", "$regex"], new RegExp(args.alias, "i"));
   if (!isDeepEqual(args.count, { logOp: "", value: 0 }))
@@ -302,6 +318,7 @@ export const createTagFilterPipeline = (args: CreateTagFilterPipelineInput) => {
     setObj($match, ["dateModified", "$lte"], args.dateModifiedEnd);
   if (!isDeepEqual(args.dateModifiedStart, ""))
     setObj($match, ["dateModified", "$gte"], args.dateModifiedStart);
+  if (!isDeepEqual(args.ids, [])) setObj($match, ["_id", "$in"], objectIds(args.ids));
   if (!isDeepEqual(args.label, ""))
     setObj($match, ["label", "$regex"], new RegExp(args.label, "i"));
   if (!isDeepEqual(args.regExMode, "any"))
@@ -339,6 +356,7 @@ export const getShiftSelectedTags = makeAction(
       clickedId,
       clickedIndex,
       filterPipeline,
+      ids: filterParams.ids,
       model: models.TagModel,
       selectedIds,
     });
@@ -347,22 +365,29 @@ export const getShiftSelectedTags = makeAction(
 
 export const listFilteredTags = makeAction(
   async ({
+    forcePages,
     page,
     pageSize,
     ...filterParams
-  }: CreateTagFilterPipelineInput & { page: number; pageSize: number }) => {
+  }: CreateTagFilterPipelineInput & { forcePages?: boolean; page: number; pageSize: number }) => {
     const filterPipeline = createTagFilterPipeline(filterParams);
-    const hasIds = filterParams.ids?.length > 0;
+    const hasIds = forcePages || filterParams.ids?.length > 0;
 
     const [items, count] = await Promise.all([
-      models.TagModel.find(
-        hasIds ? { _id: { $in: objectIds(filterParams.ids) } } : filterPipeline.$match,
-      )
-        .sort(filterPipeline.$sort)
-        .skip(hasIds ? 0 : Math.max(0, page - 1) * pageSize)
-        .limit(hasIds ? 0 : pageSize)
-        .allowDiskUse(true)
-        .lean(),
+      hasIds
+        ? models.TagModel.aggregate([
+            { $match: { _id: { $in: objectIds(filterParams.ids) } } },
+            { $addFields: { __order: { $indexOfArray: [objectIds(filterParams.ids), "$_id"] } } },
+            { $sort: { __order: 1 } },
+          ])
+            .allowDiskUse(true)
+            .exec()
+        : models.TagModel.find(filterPipeline.$match)
+            .sort(filterPipeline.$sort)
+            .skip(Math.max(0, page - 1) * pageSize)
+            .limit(pageSize)
+            .allowDiskUse(true)
+            .lean(),
       models.TagModel.countDocuments(filterPipeline.$match),
     ]);
     if (!items || !(count > -1)) throw new Error("Failed to load filtered Tags");

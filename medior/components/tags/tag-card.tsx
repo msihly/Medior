@@ -1,6 +1,7 @@
 import { ContextMenu, FileBase } from "medior/components";
 import { TagManagerTag, observer, useStores } from "medior/store";
 import { abbrevNum, colors, openSearchWindow } from "medior/utils";
+import { toast } from "react-toastify";
 
 export interface TagCardProps {
   tag: TagManagerTag;
@@ -10,29 +11,12 @@ export const TagCard = observer(({ tag }: TagCardProps) => {
   const stores = useStores();
 
   const handleClick = async (event: React.MouseEvent) => {
-    if (event.shiftKey) {
-      const res = await stores.tag.manager.search.getShiftSelected({
-        id: tag.id,
-        selectedIds: stores.tag.manager.selectedIds,
-      });
-      if (!res?.success) throw new Error(res.error);
-
-      stores.tag.manager.toggleTagsSelected([
-        ...res.data.idsToDeselect.map((i) => ({ id: i, isSelected: false })),
-        ...res.data.idsToSelect.map((i) => ({ id: i, isSelected: true })),
-      ]);
-    } else if (event.ctrlKey) {
-      /** Toggle the selected state of the tag that was clicked. */
-      stores.tag.manager.toggleTagsSelected([
-        { id: tag.id, isSelected: !stores.tag.manager.getIsSelected(tag.id) },
-      ]);
-    } else {
-      /** Deselect all the tags and select the tag that was clicked. */
-      stores.tag.manager.toggleTagsSelected([
-        ...stores.tag.manager.selectedIds.map((id) => ({ id, isSelected: false })),
-        { id: tag.id, isSelected: true },
-      ]);
-    }
+    const res = await stores.tag.manager.search.handleSelect({
+      hasCtrl: event.ctrlKey,
+      hasShift: event.shiftKey,
+      id: tag.id,
+    });
+    if (!res?.success) toast.error(res.error);
   };
 
   const handleEdit = () => {
@@ -56,7 +40,7 @@ export const TagCard = observer(({ tag }: TagCardProps) => {
       <FileBase.Container
         onClick={handleClick}
         onDoubleClick={handleEdit}
-        selected={stores.tag.manager.selectedIds.includes(tag.id)}
+        selected={stores.tag.manager.search.getIsSelected(tag.id)}
       >
         <FileBase.Image thumbPaths={tag.thumbPaths} title={tag.label} fit="contain">
           <FileBase.Chip

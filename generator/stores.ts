@@ -11,9 +11,22 @@ const makeCommonProps = (args: { defaultPageSize: string; defaultSort: string; n
   const props: ModelSearchProp[] = [
     {
       defaultValue: "false",
+      name: "forcePages",
+      notFilterProp: true,
+      type: "boolean",
+    },
+    {
+      defaultValue: "false",
       name: "hasChanges",
       notFilterProp: true,
       type: "boolean",
+    },
+    {
+      defaultValue: "() => []",
+      name: "ids",
+      objPath: ["_id", "$in"],
+      objValue: "objectIds(args.ids)",
+      type: "string[]",
     },
     {
       defaultValue: "false",
@@ -44,6 +57,12 @@ const makeCommonProps = (args: { defaultPageSize: string; defaultSort: string; n
       name: "results",
       notFilterProp: true,
       type: `Stores.${args.name}[]`,
+    },
+    {
+      defaultValue: "() => []",
+      name: "selectedIds",
+      notFilterProp: true,
+      type: "string[]",
     },
     {
       defaultValue: args.defaultSort,
@@ -245,8 +264,8 @@ export const MODEL_SEARCH_STORES: ModelSearchStore[] = [
     name: "FileCollection",
     props: [
       ...makeCommonProps({
-        defaultPageSize: "() => getConfig().collection.manager.pageSize",
-        defaultSort: "() => getConfig().collection.manager.sort",
+        defaultPageSize: "() => getConfig().collection.manager.search.pageSize",
+        defaultSort: "() => getConfig().collection.manager.search.sort",
         name: "FileCollection",
       }),
       ...makeDateRangeProps("dateCreated"),
@@ -267,8 +286,8 @@ export const MODEL_SEARCH_STORES: ModelSearchStore[] = [
     name: "Tag",
     props: [
       ...makeCommonProps({
-        defaultPageSize: "() => getConfig().tags.manager.pageSize",
-        defaultSort: "() => getConfig().tags.manager.sort",
+        defaultPageSize: "() => getConfig().tags.manager.search.pageSize",
+        defaultSort: "() => getConfig().tags.manager.search.sort",
         name: "Tag",
       }),
       ...makeDateRangeProps("dateCreated"),
@@ -375,6 +394,33 @@ const createSearchStore = (def: ModelSearchStore) => {
         ${props.map((prop) => `this.${prop.name} = ${prop.defaultValue.replace("() => ", "")};`).join("\n")}
       }
 
+      @modelAction
+      toggleSelected(selected: { id: string; isSelected?: boolean }[], withToast = false) {
+        if (!selected?.length) return;
+
+        const [added, removed] = selected.reduce(
+          (acc, cur) => (acc[cur.isSelected ? 0 : 1].push(cur.id), acc),
+          [[], []]
+        );
+
+        const removedSet = new Set(removed);
+        this.selectedIds = [...new Set(this.selectedIds.concat(added))].filter(
+          (id) => !removedSet.has(id)
+        );
+
+        if (withToast) {
+          const addedCount = added.length;
+          const removedCount = removed.length;
+          if (addedCount && removedCount) {
+            toast.success(\`Selected \${addedCount} items and deselected \${removedCount} items\`);
+          } else if (addedCount) {
+            toast.success(\`Selected \${addedCount} items\`);
+          } else if (removedCount) {
+            toast.success(\`Deselected \${removedCount} items\`);
+          }
+        }
+      }
+
       ${props
         .filter((prop) => prop.setter)
         .map((prop) => prop.setter)
@@ -399,14 +445,33 @@ const createSearchStore = (def: ModelSearchStore) => {
       );
 
       @modelFlow
-      loadFiltered = asyncAction(async ({ ids, page }: { ids?: string[]; page?: number } = {}) => {
+      handleSelect = asyncAction(async ({ hasCtrl, hasShift, id }: { hasCtrl: boolean; hasShift: boolean; id: string }) => {
+        if (hasShift) {
+          const res = await this.getShiftSelected({ id, selectedIds: this.selectedIds });
+          if (!res?.success) throw new Error(res.error);
+          this.toggleSelected([
+            ...res.data.idsToDeselect.map((i) => ({ id: i, isSelected: false })),
+            ...res.data.idsToSelect.map((i) => ({ id: i, isSelected: true })),
+          ]);
+        } else if (hasCtrl) {
+          this.toggleSelected([{ id, isSelected: !this.getIsSelected(id) }]);
+        } else {
+          this.toggleSelected([
+            ...this.selectedIds.map((id) => ({ id, isSelected: false })),
+            { id, isSelected: true },
+          ]);
+        }
+      });
+
+      @modelFlow
+      loadFiltered = asyncAction(async ({ page }: { page?: number } = {}) => {
         const debug = false;
         const { perfLog, perfLogTotal } = makePerfLog("[${def.name}Search]");
         this.setIsLoading(true);
 
         const res = await trpc.listFiltered${def.name}s.mutate({
           ...this.getFilterProps(),
-          ids,
+          forcePages: this.forcePages,
           page: page ?? this.page,
           pageSize: this.pageSize,
         });
@@ -450,6 +515,14 @@ const createSearchStore = (def: ModelSearchStore) => {
             .map((prop) => prop.filterTransform ?? `${prop.name}: this.${prop.name}`)
             .join(",\n")}
         };
+      }
+
+      getIsSelected(id: string) {
+        return !!this.selectedIds.find((s) => s === id);
+      }
+
+      getResult(id: string) {
+        return this.results.find((r) => r.id === id);
       }
     }`;
 };
@@ -541,7 +614,8 @@ export const FILE_DEF_STORES: FileDef = {
     import * as Stores from "medior/store";
     import { asyncAction } from "medior/store/utils";
     import { SortMenuProps } from "medior/components";
-    import { dayjs, getConfig, isDeepEqual, LogicalOp, makePerfLog, trpc } from "medior/utils";\n\n`;
+    import { dayjs, getConfig, isDeepEqual, LogicalOp, makePerfLog, trpc } from "medior/utils";
+    import { toast } from "react-toastify";\n\n`;
 
     output += `;\n`;
     output += makeSectionComment("SEARCH STORES");

@@ -1,9 +1,7 @@
-import { computed } from "mobx";
 import { getRootStore, Model, model, modelAction, modelFlow, prop } from "mobx-keystone";
 import { asyncAction, File, RootStore } from "medior/store";
 import { FileCollection, FileCollectionSearch } from ".";
 import { trpc } from "medior/utils";
-import { toast } from "react-toastify";
 
 @model("medior/CollectionManager")
 export class CollectionManager extends Model({
@@ -12,7 +10,6 @@ export class CollectionManager extends Model({
   isLoading: prop<boolean>(false).withSetter(),
   isOpen: prop<boolean>(false),
   search: prop<FileCollectionSearch>(() => new FileCollectionSearch({})).withSetter(),
-  selectedCollectionIds: prop<string[]>(() => []).withSetter(),
   selectedFileIds: prop<string[]>(() => []).withSetter(),
   selectedFiles: prop<File[]>(() => []).withSetter(),
 }) {
@@ -22,28 +19,6 @@ export class CollectionManager extends Model({
     const stores = getRootStore<RootStore>(this);
     this.isOpen = isOpen;
     if (isOpen) stores.collection.editor.isOpen = false;
-  }
-
-  @modelAction
-  toggleSelected(selected: { id: string; isSelected?: boolean }[], withToast = false) {
-    if (!selected?.length) return;
-
-    const [added, removed] = selected.reduce(
-      (acc, cur) => (acc[cur.isSelected ? 0 : 1].push(cur.id), acc),
-      [[], []]
-    );
-
-    const removedSet = new Set(removed);
-    this.selectedCollectionIds = [...new Set(this.selectedCollectionIds.concat(added))].filter(
-      (id) => !removedSet.has(id)
-    );
-
-    if (withToast)
-      toast.info(
-        `${added.length ? `${added.length} files selected.` : ""}${
-          added.length && removed.length ? "\n" : ""
-        }${removed.length ? `${removed.length} files deselected.` : ""}`
-      );
   }
 
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */
@@ -66,19 +41,4 @@ export class CollectionManager extends Model({
     if (!res.success) throw new Error(res.error);
     this.setSelectedFiles(res.data.items.map((f) => new File(f)));
   });
-
-  /* ----------------------------- DYNAMIC GETTERS ---------------------------- */
-  getById(id: string) {
-    return this.search.results.find((c) => c.id === id);
-  }
-
-  getIsSelected(id: string) {
-    return !!this.selectedCollectionIds.find((s) => s === id);
-  }
-
-  /* --------------------------------- GETTERS -------------------------------- */
-  @computed
-  get selectedCollections() {
-    return this.search.results.find((c) => this.selectedCollectionIds.includes(c.id));
-  }
 }

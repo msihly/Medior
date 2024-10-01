@@ -1,132 +1,56 @@
 import { computed } from "mobx";
-import { getRootStore, Model, model, modelAction, ModelCreationData, modelFlow, prop } from "mobx-keystone";
+import {
+  getRootStore,
+  Model,
+  model,
+  modelAction,
+  ModelCreationData,
+  modelFlow,
+  prop,
+} from "mobx-keystone";
 import { asyncAction, File, FileSearch, RootStore } from "medior/store";
 import { SortMenuProps } from "medior/components";
 import { FileCollection } from ".";
 import { getConfig, trpc } from "medior/utils";
 import { toast } from "react-toastify";
-import { arrayMove } from "@alissavrk/dnd-kit-sortable";
 
 @model("medior/CollectionEditor")
 export class CollectionEditor extends Model({
-  collection: prop<FileCollection>(null).withSetter(),
-  fileIndexes: prop<{ id: string; index: number }[]>(() => []).withSetter(),
-  files: prop<File[]>(() => []).withSetter(),
+  collection: prop<FileCollection | null>(null).withSetter(),
+  fileIndexes: prop<{ fileId: string; index: number }[]>(() => []).withSetter(),
+  fileSearch: prop<FileSearch>(
+    () => new FileSearch({ pageSize: getConfig().collection.editor.fileSearch.pageSize })
+  ),
   hasUnsavedChanges: prop<boolean>(false).withSetter(),
   isLoading: prop<boolean>(false).withSetter(),
   isOpen: prop<boolean>(false),
   search: prop<FileSearch>(
-    () => new FileSearch({ pageSize: getConfig().collection.editor.fileSearch.pageSize })
+    () =>
+      new FileSearch({
+        pageSize: getConfig().collection.editor.search.pageSize,
+        sortValue: getConfig().collection.editor.search.sort,
+      })
   ),
-  selectedIds: prop<string[]>(() => []).withSetter(),
-  sortValue: prop<SortMenuProps["value"]>(() => ({ isDesc: false, key: "custom" })),
 }) {
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
   @modelAction
   addFilesToCollection(files: File[]) {
-    const startIndex = this.files.length;
-    this.files.push(...files);
-    this.search.excludedFileIds.push(...files.map((f) => f.id));
-    this.fileIndexes.push(...files.map((file, idx) => ({ id: file.id, index: startIndex + idx })));
-    this.setHasUnsavedChanges(true);
-    this.search.loadFiltered();
-  }
-
-  @modelAction
-  getShiftSelectedIds(clickedId: string): { idsToDeselect: string[]; idsToSelect: string[] } {
-    if (this.selectedIds.length === 0) return { idsToDeselect: [], idsToSelect: [clickedId] };
-    if (this.selectedIds.length === 1 && this.selectedIds[0] === clickedId)
-      return { idsToDeselect: [clickedId], idsToSelect: [] };
-
-    const clickedIndex = this.files.findIndex((f) => f.id === clickedId);
-    const editorFileIds = this.files.map((f) => f.id);
-
-    const firstSelectedIndex = editorFileIds.indexOf(this.selectedIds[0]);
-    const lastSelectedIndex = editorFileIds.indexOf(this.selectedIds[this.selectedIds.length - 1]);
-
-    if (clickedIndex > firstSelectedIndex && clickedIndex < lastSelectedIndex) {
-      const distanceToStart = clickedIndex - firstSelectedIndex;
-      const distanceToEnd = lastSelectedIndex - clickedIndex;
-
-      return {
-        idsToDeselect:
-          distanceToStart < distanceToEnd
-            ? editorFileIds.slice(firstSelectedIndex, clickedIndex)
-            : editorFileIds.slice(clickedIndex + 1, lastSelectedIndex + 1),
-        idsToSelect: [],
-      };
-    } else {
-      const startIndex = Math.min(firstSelectedIndex, clickedIndex);
-      const endIndex = Math.max(lastSelectedIndex, clickedIndex);
-      return { idsToDeselect: [], idsToSelect: editorFileIds.slice(startIndex, endIndex + 1) };
-    }
-  }
-
-  @modelAction
-  moveFileIndex(fromFileId: string, toFileId: string) {
-    const [from, to] = [fromFileId, toFileId].map((id) =>
-      this.fileIndexes.find((f) => f.id === id)
+    // TODO: Adjust this to add files to the end of the collection and navigate to the last page
+    const startIndex = this.search.results.length;
+    // this.search.results.push(...files);
+    this.fileSearch.excludedFileIds.push(...files.map((f) => f.id));
+    this.fileIndexes.push(
+      ...files.map((file, idx) => ({ fileId: file.id, index: startIndex + idx }))
     );
-    if (!from || !to) return console.error(`Missing file for ${fromFileId} or ${toFileId}`);
-    if (from.index === to.index) return console.debug("Indexes are the same, no move needed");
-
-    this.setFileIndexes(
-      arrayMove(this.fileIndexes, from.index, to.index).map((f, i) => ({ id: f.id, index: i }))
-    );
-
+    this.search.ids.push(...files.map((f) => f.id));
     this.setHasUnsavedChanges(true);
+    this.fileSearch.loadFiltered();
   }
 
   @modelAction
   setIsOpen(isOpen: boolean) {
-    this.selectedIds = [];
-    this.sortValue = { isDesc: false, key: "custom" };
+    this.search.selectedIds = [];
     this.isOpen = isOpen;
-  }
-
-  @modelAction
-  setSortValue(sortValue: SortMenuProps["value"]) {
-    this.sortValue = sortValue;
-    this.hasUnsavedChanges = true;
-
-    if (sortValue.key === "custom")
-      this.fileIndexes = this.collection.fileIdIndexes
-        .map((f, i) => ({
-          id: f.fileId,
-          index: f.index,
-        }))
-        .sort((a, b) => a.index - b.index);
-    else {
-      const sortKey = sortValue.key as keyof File;
-      this.fileIndexes = this.files
-        .slice()
-        .sort((a, b) =>
-          sortValue.isDesc ? (a[sortKey] < b[sortKey] ? 1 : -1) : a[sortKey] > b[sortKey] ? 1 : -1
-        )
-        .map((f, i) => ({ id: f.id, index: i }));
-    }
-  }
-
-  @modelAction
-  toggleFilesSelected(selected: { id: string; isSelected?: boolean }[], withToast = false) {
-    if (!selected?.length) return;
-
-    const [added, removed] = selected.reduce(
-      (acc, cur) => (acc[cur.isSelected ? 0 : 1].push(cur.id), acc),
-      [[], []]
-    );
-
-    const removedSet = new Set(removed);
-    this.selectedIds = [...new Set(this.selectedIds.concat(added))].filter(
-      (id) => !removedSet.has(id)
-    );
-
-    if (withToast)
-      toast.info(
-        `${added.length ? `${added.length} files selected.` : ""}${
-          added.length && removed.length ? "\n" : ""
-        }${removed.length ? `${removed.length} files deselected.` : ""}`
-      );
   }
 
   @modelAction
@@ -148,56 +72,99 @@ export class CollectionEditor extends Model({
   });
 
   @modelFlow
-  loadCollection = asyncAction(
-    async ({ id, selectedFileIds }: { id: string; selectedFileIds?: string[] }) => {
-      if (id === null) {
-        this.setCollection(null);
-        this.setFiles([]);
-        this.setFileIndexes([]);
-        this.setHasUnsavedChanges(false);
-        return;
-      }
-
-      this.setIsLoading(true);
-      const res = await trpc.listFileCollections.mutate({ args: { filter: { id } } });
-      if (!res.success) throw new Error(res.error);
-
-      this.setCollection(new FileCollection(res.data.items[0]));
-      await this.loadCollectionFiles(selectedFileIds);
-      this.setIsLoading(false);
+  loadCollection = asyncAction(async (id: string) => {
+    if (id === null) {
+      this.setCollection(null);
+      this.setFileIndexes([]);
       this.setHasUnsavedChanges(false);
+      this.search.reset();
+      return;
+    } else this.setIsLoading(true);
+
+    const collRes = await trpc.listFileCollections.mutate({ args: { filter: { id } } });
+    if (!collRes.success) throw new Error(collRes.error);
+
+    const collection = collRes.data.items[0];
+    this.setCollection(new FileCollection(collection));
+    const fileIndexes = collection.fileIdIndexes.sort((a, b) => a.index - b.index);
+    this.setFileIndexes(fileIndexes);
+
+    const fileIds = [...new Set(fileIndexes.map((f) => f.fileId))];
+    this.search.setIds(fileIds);
+    this.search.setForcePages(true);
+    const fileRes = await this.search.loadFiltered();
+    if (!fileRes.success) throw new Error(fileRes.error);
+
+    this.fileSearch.setExcludedFileIds(fileIds);
+
+    this.setIsLoading(false);
+    this.setHasUnsavedChanges(false);
+  });
+
+  @modelFlow
+  moveFileIndexes = asyncAction(
+    async ({ down, maxDelta = 1 }: { down: boolean; maxDelta?: number }) => {
+      this.setIsLoading(true);
+
+      const moveArrayElements = <T>(arr: T[], from: number, to: number) => {
+        if (to >= arr.length) to = arr.length - 1;
+        if (to < 0) to = 0;
+
+        const [element] = arr.splice(from, 1);
+        arr.splice(to, 0, element);
+      };
+
+      const moveIndexes = (
+        fileIndexes: { fileId: string; index: number }[],
+        selectedIds: string[],
+        isDown: boolean
+      ) => {
+        const newFileIndexes = fileIndexes.map((f) => ({ fileId: f.fileId, index: f.index }));
+
+        const sortedSelected = [...selectedIds].sort(
+          (a, b) =>
+            (isDown ? -1 : 1) *
+            (newFileIndexes.findIndex((f) => f.fileId === a) -
+              newFileIndexes.findIndex((f) => f.fileId === b))
+        );
+
+        sortedSelected.forEach((id) => {
+          const fromIndex = newFileIndexes.findIndex((f) => f.fileId === id);
+          if (fromIndex === -1) return;
+
+          const toIndex = Math.max(
+            0,
+            Math.min(fromIndex + (isDown ? maxDelta : -maxDelta), newFileIndexes.length)
+          );
+
+          if (toIndex >= 0 && toIndex < newFileIndexes.length) {
+            moveArrayElements(newFileIndexes, fromIndex, toIndex);
+          }
+        });
+
+        return newFileIndexes.map((f, i) => ({ ...f, index: i }));
+      };
+
+      const newFileIndexes = moveIndexes(this.fileIndexes, this.search.selectedIds, down);
+      const newFileIds = newFileIndexes.map((f) => f.fileId);
+
+      this.setFileIndexes(newFileIndexes);
+      this.search.setIds(newFileIds);
+
+      const pageRes = await this.search.loadFiltered();
+      if (!pageRes.success) throw new Error(pageRes.error);
+
+      this.setHasUnsavedChanges(true);
+      this.setIsLoading(false);
     }
   );
 
   @modelFlow
-  loadCollectionFiles = asyncAction(async (selectedFileIds: string[] = []) => {
-    const filesRes = await trpc.listFiles.mutate({
-      args: {
-        filter: {
-          id: [...this.collection.fileIdIndexes.map(({ fileId }) => fileId), ...selectedFileIds],
-        },
-      },
-    });
-    if (!filesRes.success) throw new Error(filesRes.error);
-
-    const files = filesRes.data.items;
-    this.setFiles(files.map((f) => new File(f)));
-
-    const fileMap = new Map(files.map((f) => [f.id, f]));
-    this.search.setExcludedFileIds([...fileMap.keys()]);
-    this.setFileIndexes(
-      this.collection.fileIdIndexes
-        .map((f, i) => ({ id: f.fileId, index: i }))
-        .sort((a, b) => a.index - b.index)
-    );
-  });
-
-  @modelFlow
-  removeFiles = asyncAction(async () => {
+  removeFiles = asyncAction(async (ids: string[]) => {
     this.setIsLoading(true);
     const res = await trpc.updateCollection.mutate({
-      fileIdIndexes: this.sortedFiles
-        .filter((f) => this.selectedIds.includes(f.id))
+      fileIdIndexes: this.search.results
+        .filter((f) => ids.includes(f.id))
         .map((f, i) => ({ fileId: f.id, index: i })),
       id: this.collection.id,
     });
@@ -211,7 +178,7 @@ export class CollectionEditor extends Model({
     this.setIsLoading(true);
     const res = await trpc.updateCollection.mutate({
       id: this.collection.id,
-      fileIdIndexes: this.fileIndexes.map((f, i) => ({ fileId: f.id, index: i })),
+      fileIdIndexes: this.fileIndexes.map((f, i) => ({ ...f, index: i })),
       title: this.collection.title,
     });
     if (!res.success) {
@@ -220,43 +187,60 @@ export class CollectionEditor extends Model({
     }
 
     this.setHasUnsavedChanges(false);
-    await this.loadCollection({ id: this.collection.id });
+    await this.loadCollection(this.collection.id);
     this.setIsLoading(false);
     toast.success("Collection saved");
   });
 
+  @modelFlow
+  setSortValue = asyncAction(async (sortValue: SortMenuProps["value"]) => {
+    this.search.setSortValue(sortValue);
+
+    // TODO: set fileIndexes on file reorder or insert / delete
+    this.setIsLoading(true);
+
+    if (sortValue.key === "custom") {
+      const fileIdIndexes = this.collection.fileIdIndexes
+        .sort((a, b) => (sortValue.isDesc ? b.index - a.index : a.index - b.index))
+        .map((f, i) => ({ fileId: f.fileId, index: i }));
+      this.setFileIndexes(fileIdIndexes);
+      this.search.setIds(fileIdIndexes.map((f) => f.fileId));
+    } else {
+      const indexesRes = await trpc.listSortedFileIds.mutate({ ids: this.search.ids, sortValue });
+      if (!indexesRes.success) throw new Error(indexesRes.error);
+      this.setFileIndexes(indexesRes.data.map((fileId, index) => ({ fileId, index })));
+      this.search.setIds(indexesRes.data);
+    }
+
+    const pageRes = await this.search.loadFiltered();
+    if (!pageRes.success) throw new Error(pageRes.error);
+
+    this.setIsLoading(false);
+    this.setHasUnsavedChanges(true);
+  });
+
   /* --------------------------------- DYNAMIC GETTERS -------------------------------- */
   getFileById(id: string) {
-    return this.files.find((f) => f.id === id);
+    return this.search.results.find((f) => f.id === id);
   }
 
   getIndexById(id: string) {
-    return this.fileIndexes.find((f) => f.id === id)?.index;
-  }
-
-  getIsSelected(id: string) {
-    return !!this.selectedIds.find((s) => s === id);
+    return this.fileIndexes.find((f) => f.fileId === id)?.index;
   }
 
   getOriginalIndex(id: string) {
-    return this.collection.fileIdIndexes.find((f) => f.fileId === id)?.index;
+    return this.collection?.fileIdIndexes.find((f) => f.fileId === id)?.index;
   }
 
   /* --------------------------------- GETTERS -------------------------------- */
   @computed
   get allTagIds() {
-    return [...new Set(this.files.flatMap((f) => f.tagIds ?? []))];
+    return [...new Set(this.search.results.flatMap((f) => f.tagIds ?? []))];
   }
 
   @computed
   get sortedTags() {
     const stores = getRootStore<RootStore>(this);
     return stores.tag.listByIds(this.allTagIds).sort((a, b) => b.count - a.count);
-  }
-
-  @computed
-  get sortedFiles() {
-    const fileMap = new Map(this.files.map((file) => [file.id, file]));
-    return this.fileIndexes.map((f) => fileMap.get(f.id));
   }
 }

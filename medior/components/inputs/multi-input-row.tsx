@@ -46,7 +46,11 @@ export const MultiInputRow = <T,>(props: MultiInputRowProps<T>) => {
         overflow="hidden"
         padding={{ all: "0 0.3rem" }}
       >
-        <Text tooltip={value} tooltipProps={{ flexShrink: 1 }} className={css.label}>
+        <Text
+          tooltip={value}
+          tooltipProps={{ enterDelay: 700, enterNextDelay: 300, flexShrink: 1 }}
+          className={css.label}
+        >
           {value}
         </Text>
       </View>

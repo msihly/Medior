@@ -1,30 +1,18 @@
 import { ReactNode, useEffect, useState } from "react";
 import { observer, SORT_OPTIONS, useStores } from "medior/store";
 import {
-  DndContext,
-  DragEndEvent,
-  DragOverlay,
-  DragStartEvent,
-  MouseSensor,
-  closestCenter,
-  useSensor,
-  useSensors,
-} from "@alissavrk/dnd-kit-core";
-import { SortableContext, SortingStrategy, arrayMove } from "@alissavrk/dnd-kit-sortable";
-import {
   Button,
   Card,
   CardGrid,
-  CenteredText,
   ConfirmModal,
   FileCollectionFile,
-  FileFilterMenu,
-  FileSearchFile,
+  FileSearchColumn,
   Input,
   ListItem,
   MenuButton,
   Modal,
   MultiActionButton,
+  NumInput,
   Pagination,
   SortMenu,
   SortMenuProps,
@@ -32,32 +20,27 @@ import {
   Text,
   View,
 } from "medior/components";
-import { EditorFiles } from ".";
-import { colors, makeClasses } from "medior/utils";
+import { colors } from "medior/utils";
 import { toast } from "react-toastify";
 
 export const FileCollectionEditor = observer(() => {
-  const { css } = useClasses(null);
-
-  const sensors = useSensors(useSensor(MouseSensor, { activationConstraint: { distance: 4 } }));
-
   const stores = useStores();
 
-  const hasNoSelection = stores.collection.editor.selectedIds.length === 0;
+  const hasNoSelection = stores.collection.editor.search.selectedIds.length === 0;
   const isCreate = stores.collection.editor.collection === null;
 
-  const [draggedFileId, setDraggedFileId] = useState<string>(null);
   const [isAddingFiles, setIsAddingFiles] = useState(false);
   const [isConfirmDiscardOpen, setIsConfirmDiscardOpen] = useState(false);
   const [isConfirmRemoveFilesOpen, setIsConfirmRemoveFilesOpen] = useState(false);
+  const [maxDelta, setMaxDelta] = useState<number>(null);
   const [title, setTitle] = useState<string>(stores.collection.editor.collection?.title);
 
   useEffect(() => {
     return () => {
-      stores.collection.editor.loadCollection({ id: null });
       stores.collection.editor.search.reset();
+      stores.collection.editor.fileSearch.reset();
     };
-  }, [stores.collection.editor.collection?.id]);
+  }, []);
 
   const confirmClose = () => {
     if (stores.collection.editor.hasUnsavedChanges) setIsConfirmDiscardOpen(true);
@@ -65,35 +48,14 @@ export const FileCollectionEditor = observer(() => {
   };
 
   const confirmRemoveFiles = async () => {
-    const res = await stores.collection.editor.removeFiles();
+    const res = await stores.collection.editor.removeFiles(
+      stores.collection.editor.search.selectedIds
+    );
     return res.success;
   };
 
-  const gridSortingStrategy: SortingStrategy = ({
-    activeIndex,
-    activeNodeRect: fallbackActiveRect,
-    index,
-    overIndex,
-    rects,
-  }) => {
-    const activeNodeRect = rects[activeIndex] ?? fallbackActiveRect;
-    if (!activeNodeRect) return null;
-
-    const oldRect = rects[index];
-    const newRects = arrayMove(rects, overIndex, activeIndex);
-    const newRect = newRects[index];
-    return !newRect || !oldRect
-      ? null
-      : {
-          scaleX: oldRect.width / newRect.width,
-          scaleY: oldRect.height / newRect.height,
-          x: newRect.left - oldRect.left,
-          y: newRect.top - oldRect.top,
-        };
-  };
-
   const handleArchiveFiles = () =>
-    stores.file.confirmDeleteFiles(stores.collection.editor.selectedIds);
+    stores.file.confirmDeleteFiles(stores.collection.editor.search.selectedIds);
 
   const handleClose = () => {
     stores.collection.editor.setIsOpen(false);
@@ -103,31 +65,31 @@ export const FileCollectionEditor = observer(() => {
   const handleDelete = () => stores.collection.setIsConfirmDeleteOpen(true);
 
   const handleDeselectAll = () => {
-    stores.collection.editor.toggleFilesSelected(
-      stores.collection.editor.selectedIds.map((id) => ({ id, isSelected: false }))
+    stores.collection.editor.search.toggleSelected(
+      stores.collection.editor.search.selectedIds.map((id) => ({ id, isSelected: false }))
     );
     toast.info("Deselected all files");
   };
 
-  const handleDragCancel = () => setDraggedFileId(null);
-
-  const handleDragEnd = (event: DragEndEvent) => {
-    stores.collection.editor.moveFileIndex(draggedFileId, event.over.id as string);
-    setDraggedFileId(null);
-  };
-
-  const handleDragStart = (event: DragStartEvent) => setDraggedFileId(event.active.id as string);
-
   const handleEditTags = () => {
     stores.tag.setFileTagEditorBatchId(null);
-    stores.tag.setFileTagEditorFileIds([...stores.collection.editor.selectedIds]);
+    stores.tag.setFileTagEditorFileIds([...stores.collection.editor.search.selectedIds]);
     stores.tag.setIsFileTagEditorOpen(true);
   };
 
   const handleFileInfoRefresh = () =>
-    stores.file.refreshFiles({ ids: stores.collection.editor.selectedIds });
+    stores.file.refreshFiles({ ids: stores.collection.editor.search.selectedIds });
 
-  const handlePageChange = (page: number) => stores.collection.editor.search.loadFiltered({ page });
+  const handleMoveFilesDown = () =>
+    stores.collection.editor.moveFileIndexes({ down: true, maxDelta });
+
+  const handleMoveFilesUp = () =>
+    stores.collection.editor.moveFileIndexes({ down: false, maxDelta });
+
+  const handlePageChange = (page: number) => {
+    stores.collection.editor.search.setPage(page);
+    stores.collection.editor.search.loadFiltered();
+  };
 
   const handleRefreshMeta = () =>
     stores.collection.regenCollMeta([stores.collection.editor.collection.id]);
@@ -140,10 +102,12 @@ export const FileCollectionEditor = observer(() => {
   };
 
   const handleSelectAll = () => {
-    stores.collection.editor.toggleFilesSelected(
-      stores.collection.editor.sortedFiles.map(({ id }) => ({ id, isSelected: true }))
+    stores.collection.editor.search.toggleSelected(
+      stores.collection.editor.search.results.map(({ id }) => ({ id, isSelected: true }))
     );
-    toast.info(`Added all ${stores.collection.editor.selectedIds.length} files to selection`);
+    toast.info(
+      `Added all ${stores.collection.editor.search.selectedIds.length} files to selection`
+    );
   };
 
   const handleTitleChange = (val: string) => {
@@ -158,7 +122,7 @@ export const FileCollectionEditor = observer(() => {
 
   return (
     <Modal.Container
-      isLoading={stores.collection.editor.isLoading}
+      isLoading={stores.collection.editor.isLoading || stores.collection.editor.search.isLoading}
       onClose={confirmClose}
       height="100%"
       width="100%"
@@ -170,6 +134,7 @@ export const FileCollectionEditor = observer(() => {
             icon={isAddingFiles ? "VisibilityOff" : "Add"}
             onClick={toggleAddingFiles}
             disabled={stores.collection.editor.isLoading}
+            color={colors.foregroundCard}
             colorOnHover={colors.custom.purple}
           />
         }
@@ -186,33 +151,7 @@ export const FileCollectionEditor = observer(() => {
       </Modal.Header>
 
       <Modal.Content dividers={false} row flex={1} height="100%" spacing="0.5rem">
-        {isAddingFiles && (
-          <Card
-            column
-            flex="none"
-            height="100%"
-            width="16rem"
-            spacing="0.5rem"
-            padding={{ all: 0 }}
-          >
-            <View column spacing="0.5rem" padding={{ all: "0.5rem" }}>
-              <FileFilterMenu store={stores.collection.editor.search} color={colors.custom.black} />
-            </View>
-
-            <CardGrid
-              cards={stores.collection.editor.search.results.map((f) => (
-                <FileSearchFile key={f.id} file={f} />
-              ))}
-              maxCards={1}
-            >
-              <Pagination
-                count={stores.collection.editor.search.pageCount}
-                page={stores.collection.editor.search.page}
-                onChange={handlePageChange}
-              />
-            </CardGrid>
-          </Card>
-        )}
+        {isAddingFiles && <FileSearchColumn />}
 
         <View column flex={1} spacing="0.5rem" overflow="hidden">
           <View row spacing="0.5rem">
@@ -224,6 +163,34 @@ export const FileCollectionEditor = observer(() => {
               <HeaderRow label="Tags">
                 <TagRow tags={stores.collection.editor.sortedTags} />
               </HeaderRow>
+            </Card>
+
+            <Card column flex="none" height="100%">
+              <View row>
+                <MultiActionButton
+                  name="ArrowUpward"
+                  tooltip="Move Files Up"
+                  onClick={handleMoveFilesUp}
+                  disabled={hasNoSelection}
+                />
+
+                <MultiActionButton
+                  name="ArrowDownward"
+                  tooltip="Move Files Down"
+                  onClick={handleMoveFilesDown}
+                  disabled={hasNoSelection}
+                />
+              </View>
+
+              <NumInput
+                placeholder="Delta"
+                value={maxDelta}
+                setValue={setMaxDelta}
+                minValue={1}
+                hasHelper={false}
+                width="5rem"
+                textAlign="center"
+              />
             </Card>
 
             <Card column flex="none" height="100%">
@@ -273,7 +240,7 @@ export const FileCollectionEditor = observer(() => {
               </View>
 
               <SortMenu
-                value={stores.collection.editor.sortValue}
+                value={stores.collection.editor.search.sortValue}
                 setValue={setSortValue}
                 rows={[
                   { attribute: "custom", icon: "Settings", label: "Custom" },
@@ -286,30 +253,17 @@ export const FileCollectionEditor = observer(() => {
           </View>
 
           <Card column flex={1}>
-            {!stores.collection.editor.files.length ? (
-              <CenteredText text="No files found" />
-            ) : (
-              <View className={css.collection}>
-                <DndContext
-                  sensors={sensors}
-                  collisionDetection={closestCenter}
-                  onDragCancel={handleDragCancel}
-                  onDragEnd={handleDragEnd}
-                  onDragStart={handleDragStart}
-                >
-                  <SortableContext
-                    items={stores.collection.editor.sortedFiles}
-                    strategy={gridSortingStrategy}
-                  >
-                    <EditorFiles />
-                  </SortableContext>
+            <CardGrid
+              cards={stores.collection.editor.search.results.map((f) => (
+                <FileCollectionFile key={f.id} file={f} />
+              ))}
+            />
 
-                  <DragOverlay adjustScale>
-                    {draggedFileId ? <FileCollectionFile id={draggedFileId} disabled /> : null}
-                  </DragOverlay>
-                </DndContext>
-              </View>
-            )}
+            <Pagination
+              count={stores.collection.editor.search.pageCount}
+              page={stores.collection.editor.search.page}
+              onChange={handlePageChange}
+            />
           </Card>
         </View>
       </Modal.Content>
@@ -369,13 +323,3 @@ const HeaderRow = (props: { children: ReactNode | ReactNode[]; label: string }) 
     </View>
   );
 };
-
-const useClasses = makeClasses({
-  collection: {
-    display: "flex",
-    flexFlow: "row wrap",
-    flex: 1,
-    width: "100%",
-    overflow: "hidden",
-  },
-});

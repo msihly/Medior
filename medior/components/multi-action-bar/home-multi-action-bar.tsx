@@ -9,41 +9,41 @@ export const HomeMultiActionBar = observer(() => {
   const stores = useStores();
   const { css } = useClasses(null);
 
-  const hasNoSelection = stores.file.selectedIds.length === 0;
+  const hasNoSelection = stores.file.search.selectedIds.length === 0;
 
   const handleAutoDetect = () =>
-    stores.faceRecog.addFilesToAutoDetectQueue(stores.file.selectedIds);
+    stores.faceRecog.addFilesToAutoDetectQueue(stores.file.search.selectedIds);
 
-  const handleDelete = () => stores.file.confirmDeleteFiles(stores.file.selectedIds);
+  const handleDelete = () => stores.file.confirmDeleteFiles(stores.file.search.selectedIds);
 
   const handleDeselectAll = () => {
-    stores.file.toggleFilesSelected(
-      stores.file.selectedIds.map((id) => ({ id, isSelected: false }))
+    stores.file.search.toggleSelected(
+      stores.file.search.selectedIds.map((id) => ({ id, isSelected: false }))
     );
     toast.info("Deselected all files");
   };
 
   const handleEditCollections = () => {
-    stores.collection.manager.setSelectedFileIds([...stores.file.selectedIds]);
+    stores.collection.manager.setSelectedFileIds([...stores.file.search.selectedIds]);
     stores.collection.manager.setIsOpen(true);
   };
 
   const handleEditTags = () => {
     stores.tag.setFileTagEditorBatchId(null);
-    stores.tag.setFileTagEditorFileIds([...stores.file.selectedIds]);
+    stores.tag.setFileTagEditorFileIds([...stores.file.search.selectedIds]);
     stores.tag.setIsFileTagEditorOpen(true);
   };
 
-  const handleFileInfoRefresh = () => stores.file.refreshFiles({ ids: stores.file.selectedIds });
+  const handleFileInfoRefresh = () => stores.file.refreshFiles({ ids: stores.file.search.selectedIds });
 
   const handleSelectAll = () => {
-    stores.file.toggleFilesSelected(
+    stores.file.search.toggleSelected(
       stores.file.search.results.map(({ id }) => ({ id, isSelected: true }))
     );
     toast.info(`Added ${stores.file.search.results.length} files to selection`);
   };
 
-  const handleUnarchive = () => stores.file.unarchiveFiles({ fileIds: stores.file.selectedIds });
+  const handleUnarchive = () => stores.file.unarchiveFiles({ fileIds: stores.file.search.selectedIds });
 
   const toggleFileCardFit = () =>
     stores.home.setFileCardFit(stores.home.fileCardFit === "cover" ? "contain" : "cover");
@@ -56,7 +56,7 @@ export const HomeMultiActionBar = observer(() => {
             <FileFilterMenu store={stores.file.search} />
           </View>
 
-          {stores.file.selectedIds.length > 0 && <SelectedFilesInfo />}
+          {stores.file.search.selectedIds.length > 0 && <SelectedFilesInfo />}
         </View>
 
         <View row align="center" spacing="0.5rem">

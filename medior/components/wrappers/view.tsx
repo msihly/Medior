@@ -25,6 +25,7 @@ export interface ViewProps extends HTMLAttributes<HTMLDivElement> {
   height?: CSS["height"];
   justify?: CSS["justifyContent"];
   margins?: Margins;
+  opacity?: CSS["opacity"];
   overflow?: CSS["overflow"];
   padding?: Padding;
   position?: CSS["position"];
@@ -49,6 +50,7 @@ export const View = forwardRef(
       height,
       justify,
       margins,
+      opacity,
       overflow,
       padding,
       position,
@@ -73,6 +75,7 @@ export const View = forwardRef(
       height,
       justify,
       margins,
+      opacity,
       overflow,
       padding,
       position,
@@ -101,6 +104,7 @@ interface ClassesProps {
   height: CSS["height"];
   justify: CSS["justifyContent"];
   margins: Margins;
+  opacity: CSS["opacity"];
   overflow: CSS["overflow"];
   padding: Padding;
   position: CSS["position"];
@@ -126,6 +130,7 @@ const useClasses = makeClasses((props: ClassesProps) => ({
     height: props.height,
     width: props.width,
     backgroundColor: props.bgColor,
+    opacity: props.opacity,
     overflow: props.overflow,
     ...(props.spacing
       ? {

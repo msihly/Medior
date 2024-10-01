@@ -21,7 +21,7 @@ import { toast } from "react-toastify";
 export const TagManager = observer(() => {
   const stores = useStores();
 
-  const hasNoSelection = stores.tag.manager.selectedIds.length === 0;
+  const hasNoSelection = stores.tag.manager.search.selectedIds.length === 0;
 
   const resultsRef = useRef<FixedSizeGrid>(null);
   useDeepEffect(() => {
@@ -49,18 +49,18 @@ export const TagManager = observer(() => {
 
   const handleRefreshTags = () => stores.tag.manager.refreshSelectedTags();
 
-  const handleSearchWindow = () => openSearchWindow({ tagIds: stores.tag.manager.selectedIds });
+  const handleSearchWindow = () => openSearchWindow({ tagIds: stores.tag.manager.search.selectedIds });
 
   const handleSelectAll = () => {
-    stores.tag.manager.toggleTagsSelected(
+    stores.tag.manager.search.toggleSelected(
       stores.tag.manager.search.results.map(({ id }) => ({ id, isSelected: true }))
     );
     toast.info(`Added ${stores.tag.manager.search.results.length} tags to selection`);
   };
 
   const handleSelectNone = () => {
-    stores.tag.manager.toggleTagsSelected(
-      stores.tag.manager.selectedIds.map((id) => ({ id, isSelected: false }))
+    stores.tag.manager.search.toggleSelected(
+      stores.tag.manager.search.selectedIds.map((id) => ({ id, isSelected: false }))
     );
     toast.info("Deselected all tags");
   };
@@ -84,7 +84,7 @@ export const TagManager = observer(() => {
                 <TagFilterMenu store={stores.tag.manager.search} color={colors.foreground} />
 
                 {!hasNoSelection && (
-                  <Chip label={`${stores.tag.manager.selectedIds.length} Selected`} />
+                  <Chip label={`${stores.tag.manager.search.selectedIds.length} Selected`} />
                 )}
               </View>
 

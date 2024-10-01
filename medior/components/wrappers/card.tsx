@@ -27,7 +27,10 @@ export const Card = ({
   padding = deepMerge({ all: "0.5rem" }, padding);
 
   return (
-    <HeaderWrapper {...viewProps} {...{ display, header, headerProps, height, width }}>
+    <HeaderWrapper
+      {...viewProps}
+      {...{ borderRadiuses, display, header, headerProps, height, width }}
+    >
       <View
         {...viewProps}
         {...{ bgColor, borderRadiuses, height, overflow, padding, row, spacing, width }}

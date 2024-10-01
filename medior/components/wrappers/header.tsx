@@ -30,7 +30,7 @@ export const HeaderWrapper = ({
   headerProps = deepMerge(DEFAULT_HEADER_PROPS, headerProps);
 
   const wrap = (c: ReactNode) => (
-    <View {...viewProps} column overflow="inherit" aria-label="header-wrapper">
+    <View {...viewProps} column height={height} overflow="inherit" aria-label="header-wrapper">
       <View {...headerProps} aria-label="header">
         {typeof header === "string" ? (
           <Text flex={1} fontSize={headerProps.fontSize} textAlign="center">

@@ -102,11 +102,12 @@ export const FileTagEditor = observer(({ batchId, fileIds }: FileTagEditorProps)
             autoFocus
           />
 
-          <HeaderWrapper header="Current Tags">
+          <HeaderWrapper header="Current Tags" height="100%">
             <TagList
               search={{ onChange: null, value: currentTagOptions }}
               hasDelete={false}
               hasEditor
+              hasInput
             />
           </HeaderWrapper>
 

@@ -41,7 +41,7 @@ export const useHotkeys = ({ rootRef, view }: UseHotkeysProps) => {
         page: stores.file.search.page + 1 * (isLeft ? -1 : 1),
       });
 
-    stores.file.toggleFilesSelected([
+    stores.file.search.toggleSelected([
       { id: selectedId, isSelected: false },
       { id: newId, isSelected: true },
     ]);
@@ -57,7 +57,7 @@ export const useHotkeys = ({ rootRef, view }: UseHotkeysProps) => {
       return;
 
     const fileIds =
-      view === "carousel" ? [stores.carousel.activeFileId] : [...stores.file.selectedIds];
+      view === "carousel" ? [stores.carousel.activeFileId] : [...stores.file.search.selectedIds];
     if (!fileIds.length) return;
 
     const isOneFileSelected = fileIds.length === 1;
@@ -66,7 +66,7 @@ export const useHotkeys = ({ rootRef, view }: UseHotkeysProps) => {
     event.preventDefault();
 
     if (view !== "carousel" && event.ctrlKey && key === "a") {
-      stores.file.toggleFilesSelected(
+      stores.file.search.toggleSelected(
         stores.file.search.results.map(({ id }) => ({ id, isSelected: true }))
       );
       toast.info(`Added ${stores.file.search.results.length} files to selection`);
