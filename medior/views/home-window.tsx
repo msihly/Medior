@@ -14,7 +14,7 @@ export const HomeWindow = observer(() => {
   useSockets({ view: "home" });
 
   useEffect(() => {
-    document.title = "Medior // Home";
+    document.title = "Medior —— Home";
 
     const loadDatabase = async () => {
       try {

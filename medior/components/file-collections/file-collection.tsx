@@ -1,6 +1,6 @@
 import { observer, useStores } from "medior/store";
 import { CollectionTooltip, ContextMenu, FileBase } from "medior/components";
-import { CSS, round } from "medior/utils";
+import { colors, CSS, round } from "medior/utils";
 import { toast } from "react-toastify";
 
 export interface FileCollectionProps {
@@ -41,7 +41,7 @@ export const FileCollection = observer(({ height, id, width }: FileCollectionPro
       id={id}
       menuItems={[
         { label: "Refresh Metadata", icon: "Refresh", onClick: handleRefreshMeta },
-        { label: "Delete", icon: "Delete", onClick: handleDelete },
+        { label: "Delete", icon: "Delete", color: colors.custom.red, onClick: handleDelete },
       ]}
     >
       <CollectionTooltip {...{ collection }}>

@@ -102,7 +102,7 @@ const customColors = {
   grey: "#4b4b4b",
   lightBlue: "#578cdd",
   lightGrey: "#bdbdbd",
-  orange: "#f57c00",
+  orange: "#b66c1f",
   purple: "#683980",
   red: "#982525",
   white: "#f5f5f5",

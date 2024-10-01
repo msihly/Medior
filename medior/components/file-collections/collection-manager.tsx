@@ -119,7 +119,7 @@ export const FileCollectionManager = observer(() => {
             <Card
               header={`Selected File${hasOneFileSelected ? "" : "s"}`}
               height={`calc(${FILE_CARD_HEIGHT} + 3.5rem)`}
-              width="14rem"
+              width={hasOneFileSelected ? "14rem" : "100%"}
               padding={{ all: 0 }}
               overflow="auto"
             >

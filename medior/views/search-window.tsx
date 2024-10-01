@@ -15,7 +15,7 @@ export const SearchWindow = observer(() => {
   useSockets({ view: "search" });
 
   useEffect(() => {
-    document.title = "Medior // Search";
+    document.title = "Medior —— Search";
 
     ipcRenderer.on("init", async (_, { tagIds }: { tagIds: string[] }) => {
       try {

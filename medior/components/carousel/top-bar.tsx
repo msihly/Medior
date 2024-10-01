@@ -117,7 +117,7 @@ export const CarouselTopBar = observer(() => {
       </View>
 
       <View row flex={1} justify="flex-end">
-        {file?.isPlayableVideo ? (
+        {file?.isVideo ? (
           <IconButton name="Camera" onClick={handleExtractFrame} tooltip="Extract Frame" />
         ) : (
           <>

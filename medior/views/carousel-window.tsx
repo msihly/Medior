@@ -61,7 +61,7 @@ export const CarouselWindow = observer(() => {
   }, []);
 
   useEffect(() => {
-    document.title = "Medior // Carousel";
+    document.title = "Medior —— Carousel";
 
     ipcRenderer.on(
       "init",

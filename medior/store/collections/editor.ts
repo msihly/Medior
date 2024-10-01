@@ -31,6 +31,7 @@ export class CollectionEditor extends Model({
         sortValue: getConfig().collection.editor.search.sort,
       })
   ),
+  title: prop<string>("").withSetter(),
 }) {
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
   @modelAction
@@ -88,14 +89,18 @@ export class CollectionEditor extends Model({
     this.setCollection(new FileCollection(collection));
     const fileIndexes = collection.fileIdIndexes.sort((a, b) => a.index - b.index);
     this.setFileIndexes(fileIndexes);
+    this.setTitle(collection.title);
 
     const fileIds = [...new Set(fileIndexes.map((f) => f.fileId))];
+    this.fileSearch.setExcludedFileIds(fileIds);
     this.search.setIds(fileIds);
     this.search.setForcePages(true);
+
+    if (!fileIds?.length) this.search.setResults([]);
+    else {
     const fileRes = await this.search.loadFiltered();
     if (!fileRes.success) throw new Error(fileRes.error);
-
-    this.fileSearch.setExcludedFileIds(fileIds);
+    }
 
     this.setIsLoading(false);
     this.setHasUnsavedChanges(false);
@@ -179,7 +184,7 @@ export class CollectionEditor extends Model({
     const res = await trpc.updateCollection.mutate({
       id: this.collection.id,
       fileIdIndexes: this.fileIndexes.map((f, i) => ({ ...f, index: i })),
-      title: this.collection.title,
+      title: this.title,
     });
     if (!res.success) {
       this.setIsLoading(false);

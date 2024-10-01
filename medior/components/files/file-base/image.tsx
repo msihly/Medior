@@ -51,6 +51,7 @@ export const Image = ({
   const hasListeners = !disabled && !autoAnimate && thumbPaths?.length > 1;
 
   const createThumbInterval = () => {
+    if (hasError) return;
     thumbInterval.current = setInterval(() => {
       setHasError(false);
       setThumbIndex((thumbIndex) => (thumbIndex + 1 === thumbPaths?.length ? 0 : thumbIndex + 1));
@@ -63,8 +64,9 @@ export const Image = ({
     return () => clearInterval(thumbInterval.current);
   }, []);
 
-  const handleError = (event: React.SyntheticEvent<HTMLImageElement, Event>) => {
+  const handleError = () => {
     setHasError(true);
+    clearInterval(thumbInterval.current);
   };
 
   const handleMouseEnter = () => {

@@ -38,6 +38,7 @@ export const FileCollectionFile = observer(
             onClick={handleClick}
             onDoubleClick={handleDoubleClick}
             selected={stores.collection.editor.search.getIsSelected(file.id)}
+            opacity={file.isArchived ? 0.5 : 1}
           >
             <FileBase.Image
               thumbPaths={file.thumbPaths}

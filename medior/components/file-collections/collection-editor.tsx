@@ -33,7 +33,6 @@ export const FileCollectionEditor = observer(() => {
   const [isConfirmDiscardOpen, setIsConfirmDiscardOpen] = useState(false);
   const [isConfirmRemoveFilesOpen, setIsConfirmRemoveFilesOpen] = useState(false);
   const [maxDelta, setMaxDelta] = useState<number>(null);
-  const [title, setTitle] = useState<string>(stores.collection.editor.collection?.title);
 
   useEffect(() => {
     return () => {
@@ -97,7 +96,7 @@ export const FileCollectionEditor = observer(() => {
   const handleRemoveFiles = () => setIsConfirmRemoveFilesOpen(true);
 
   const handleSave = async () => {
-    if (!title) return toast.error("Title is required!");
+    if (!stores.collection.editor.title) return toast.error("Title is required!");
     await stores.collection.editor.saveCollection();
   };
 
@@ -112,7 +111,7 @@ export const FileCollectionEditor = observer(() => {
 
   const handleTitleChange = (val: string) => {
     stores.collection.editor.setHasUnsavedChanges(true);
-    setTitle(val);
+    stores.collection.editor.setTitle(val);
   };
 
   const setSortValue = (value: SortMenuProps["value"]) =>
@@ -157,7 +156,11 @@ export const FileCollectionEditor = observer(() => {
           <View row spacing="0.5rem">
             <Card column flex={1} spacing="0.5rem" overflow="hidden">
               <HeaderRow label="Title">
-                <Input value={title} setValue={handleTitleChange} width="100%" />
+                <Input
+                  value={stores.collection.editor.title}
+                  setValue={handleTitleChange}
+                  width="100%"
+                />
               </HeaderRow>
 
               <HeaderRow label="Tags">

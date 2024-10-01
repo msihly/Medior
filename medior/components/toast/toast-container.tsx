@@ -13,7 +13,7 @@ export const ToastContainer = (props: ToastContainerProps) => {
       autoClose={2000}
       className={css.toast}
       hideProgressBar
-      icon={({ type }) => <Icon name={STATUSES[type].icon} color={colors.custom.lightGrey} />}
+      icon={({ type }) => <Icon name={STATUSES[type].icon} color={colors.custom.white} />}
       limit={3}
       pauseOnFocusLoss={false}
       position="bottom-left"
