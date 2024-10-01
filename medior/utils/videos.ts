@@ -56,11 +56,18 @@ class VideoTranscoder {
     const { perfLog, perfLogTotal } = makePerfLog("[Transcode]");
     return ffmpeg()
       .input(inputPath)
-      .inputOptions([`-ss ${seekTime}`])
-      .videoCodec("libvpx")
-      .audioCodec("libvorbis")
-      .outputOptions(["-preset fast", "-crf 22"])
-      .format("webm")
+      .seekInput(seekTime)
+      .videoCodec("libvpx") // libvpx required for webm
+      .audioCodec("libvorbis") // libvorbis required for webm
+      .outputOptions([
+        "-preset medium",
+        "-crf 18",
+        "-b:v 8M", // bitrate
+        "-qmin 10", // quantizer min
+        "-qmax 42", // quantizer max
+        "-pix_fmt yuv420p",
+      ])
+      .format("webm") // webm required for seekable muxer stream
       .on("start", (commandLine) => {
         if (this.DEBUG) perfLog(`Spawned ffmpeg with command: ${commandLine}`);
       })
