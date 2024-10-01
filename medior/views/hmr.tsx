@@ -1,28 +1,35 @@
+import { useEffect, useState } from "react";
 import { observer } from "medior/store";
-import { View } from "medior/components";
-import { colors, makeClasses } from "medior/utils";
+import { Card, View } from "medior/components";
+import { makeClasses } from "medior/utils";
+import { Views } from "./common";
 
 export const HMR = observer(() => {
   const { css } = useClasses(null);
 
-  return (
-    <View column className={css.root}>
-      <View className={css.container}></View>
-    </View>
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      setIsLoading(false);
+    })();
+  }, []);
+
+  return isLoading ? null : (
+    <Views.ImportDnD>
+      <View column className={css.root}>
+        <Card height="100%" width="100%"></Card>
+
+        <Views.CollectionModals />
+        <Views.FileModals />
+        <Views.ImportModals />
+        <Views.TagModals view="home" />
+      </View>
+    </Views.ImportDnD>
   );
 });
 
 const useClasses = makeClasses({
-  container: {
-    display: "flex",
-    flexDirection: "column",
-    borderRadius: "0.5rem",
-    margin: "1rem",
-    padding: "1rem",
-    height: "100%",
-    backgroundColor: colors.foreground,
-    overflow: "auto",
-  },
   root: {
     height: "100vh",
     width: "100vw",
