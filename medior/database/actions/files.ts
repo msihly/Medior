@@ -80,12 +80,13 @@ export const deleteFiles = makeAction(async (args: { fileIds: string[] }) => {
     }).lean()
   ).map((c) => leanModelToJson<models.FileCollectionSchema>(c));
 
+  const fileIdSet = new Set(args.fileIds);
+
   await Promise.all(
     collections.map((collection) => {
       const fileIdIndexes = collection.fileIdIndexes.filter(
-        (fileIdIndex) => !args.fileIds.includes(String(fileIdIndex.fileId))
+        (fileIdIndex) => !fileIdSet.has(String(fileIdIndex.fileId))
       );
-
       if (!fileIdIndexes.length) return actions.deleteCollections({ ids: [collection.id] });
       return actions.updateCollection({ fileIdIndexes, id: collection.id });
     })

@@ -189,17 +189,26 @@ export const updateCollection = makeAction(
     updates.dateModified = dayjs().toISOString();
 
     if (updates.fileIdIndexes) {
-      const filesRes = await actions.listFiles({
-        args: { filter: { id: updates.fileIdIndexes.map((f) => f.fileId) } },
-      });
+      const fileIds = updates.fileIdIndexes.map((f) => f.fileId);
+      const filesRes = await actions.listFiles({ args: { filter: { id: fileIds } } });
       if (!filesRes.success) throw new Error(filesRes.error);
+      const files = filesRes.data.items;
+      const fileMap = new Map(files.map((file) => [String(file.id), file]));
+
+      const newFileIndexes = updates.fileIdIndexes
+        .filter((f) => fileMap.has(String(f.fileId)))
+        .map((f, i) => ({ fileId: f.fileId, index: i }));
+
       updates = {
         ...updates,
-        ...(await makeCollAttrs(filesRes.data.items, updates.fileIdIndexes)),
+        fileIdIndexes: newFileIndexes,
+        ...(await makeCollAttrs(files, newFileIndexes)),
       };
     }
 
-    const res = await models.FileCollectionModel.updateOne({ _id: updates.id }, updates);
+    const res = await models.FileCollectionModel.updateOne({ _id: updates.id }, updates, {
+      new: true,
+    });
     socket.emit("onFileCollectionUpdated", { id: updates.id, updates });
     return res;
   }

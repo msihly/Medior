@@ -30,7 +30,7 @@ import { toast } from "react-toastify";
 @model("medior/FileStore")
 export class FileStore extends ExtendedModel(_FileStore, {
   activeFileId: prop<string | null>(null).withSetter(),
-  idsForConfirmDelete: prop<string[]>(() => []),
+  idsForConfirmDelete: prop<string[]>(() => []).withSetter(),
   isConfirmDeleteOpen: prop<boolean>(false).withSetter(),
   isInfoModalOpen: prop<boolean>(false).withSetter(),
   search: prop<FileSearch>(() => new FileSearch({})),
@@ -47,13 +47,6 @@ export class FileStore extends ExtendedModel(_FileStore, {
   clearRefreshQueue() {
     this.refreshQueue.cancel();
     this.refreshQueue = new PromiseQueue();
-  }
-
-  @modelAction
-  confirmDeleteFiles(ids: string[]) {
-    this.idsForConfirmDelete = [...ids];
-    if (this.listByIds(ids).some((f) => f.isArchived)) this.isConfirmDeleteOpen = true;
-    else this.deleteFiles();
   }
 
   @modelAction
@@ -81,6 +74,15 @@ export class FileStore extends ExtendedModel(_FileStore, {
 
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */
   @modelFlow
+  confirmDeleteFiles = asyncAction(async (ids: string[]) => {
+    this.setIdsForConfirmDelete([...ids]);
+    const res = await trpc.listFiles.mutate({ args: { filter: { id: ids } } });
+    if (!res.success) throw new Error(res.error);
+    if (res.data.items.some((f) => f.isArchived)) this.setIsConfirmDeleteOpen(true);
+    else this.deleteFiles();
+  });
+
+  @modelFlow
   deleteFiles = asyncAction(async () => {
     const fileIds = [...this.idsForConfirmDelete];
     if (!fileIds?.length) throw new Error("No files to delete");
@@ -95,11 +97,8 @@ export class FileStore extends ExtendedModel(_FileStore, {
     if (!deletedIds.length && !archivedIds.length) throw new Error("No files to delete or archive");
 
     if (archivedIds?.length > 0) {
-      const res = await trpc.setFileIsArchived.mutate({
-        fileIds: archivedIds,
-        isArchived: true,
-      });
-      if (res.success) toast.success(`${archivedIds.length} files archived`);
+      const res = await trpc.setFileIsArchived.mutate({ fileIds: archivedIds, isArchived: true });
+      if (res.success) toast.warn(`${archivedIds.length} files archived`);
       else throw new Error(`Error archiving files: ${res.error}`);
     }
 
@@ -115,7 +114,7 @@ export class FileStore extends ExtendedModel(_FileStore, {
         )
       );
 
-      toast.success(`${deletedIds.length} files deleted`);
+      toast.warn(`${deletedIds.length} files deleted`);
     }
 
     this.search.toggleSelected(fileIds.map((id) => ({ id, isSelected: false })));
@@ -200,7 +199,7 @@ export class FileStore extends ExtendedModel(_FileStore, {
       logSuffix: "files",
       onComplete: () =>
         stores.collection.editor.isOpen
-          ? stores.collection.editor.loadCollection()
+          ? stores.collection.editor.loadCollection(stores.collection.editor.collection.id)
           : this.search.loadFiltered(),
       queue: this.refreshQueue,
     });

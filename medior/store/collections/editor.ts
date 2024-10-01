@@ -98,8 +98,8 @@ export class CollectionEditor extends Model({
 
     if (!fileIds?.length) this.search.setResults([]);
     else {
-    const fileRes = await this.search.loadFiltered();
-    if (!fileRes.success) throw new Error(fileRes.error);
+      const fileRes = await this.search.loadFiltered();
+      if (!fileRes.success) throw new Error(fileRes.error);
     }
 
     this.setIsLoading(false);
@@ -168,9 +168,9 @@ export class CollectionEditor extends Model({
   removeFiles = asyncAction(async (ids: string[]) => {
     this.setIsLoading(true);
     const res = await trpc.updateCollection.mutate({
-      fileIdIndexes: this.search.results
-        .filter((f) => ids.includes(f.id))
-        .map((f, i) => ({ fileId: f.id, index: i })),
+      fileIdIndexes: this.fileIndexes
+        .filter((f) => !ids.includes(f.fileId))
+        .map((f, i) => ({ fileId: f.fileId, index: i })),
       id: this.collection.id,
     });
     this.setIsLoading(false);

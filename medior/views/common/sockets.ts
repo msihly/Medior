@@ -40,7 +40,7 @@ export const useSockets = ({ view }: UseSocketsProps) => {
       else {
         if (view === "home") stores.import.addDeletedFileHashes(fileHashes);
         if (stores.collection.manager.isOpen) stores.collection.manager.search.loadFiltered();
-        if (stores.collection.editor.isOpen) stores.collection.editor.removeFiles(fileIds);
+        if (stores.collection.editor.isOpen) stores.collection.editor.search.loadFiltered();
         stores.file.search.removeFiles(fileIds);
         stores.file.search.setHasChanges(true);
       }
@@ -114,10 +114,9 @@ export const useSockets = ({ view }: UseSocketsProps) => {
         if (stores.collection.manager.isOpen) stores.collection.manager.search.loadFiltered();
       });
 
-      makeSocket("onFileCollectionUpdated", ({ id, updates }) => {
+      makeSocket("onFileCollectionUpdated", ({ id }) => {
         if (stores.collection.manager.isOpen) stores.collection.manager.search.loadFiltered();
-        if (stores.collection.editor.collection?.id === id)
-          stores.collection.editor.collection.update(updates);
+        if (stores.collection.editor.isOpen) stores.collection.editor.loadCollection(id);
       });
 
       makeSocket("onImportBatchCompleted", () => {
