@@ -16,6 +16,7 @@ import { asyncAction, RootStore } from "medior/store";
 import { copyFileForImport } from "./import-queue";
 import { FileImport, FileImportBatch, ImportEditor } from ".";
 import {
+  CONSTANTS,
   extendFileName,
   makePerfLog,
   PromiseQueue,
@@ -182,8 +183,13 @@ export class ImportStore extends Model({
         }
       };
 
-      const queue = new PromiseQueue({ concurrency: 5 });
+      const imageQueue = new PromiseQueue({ concurrency: 4 });
+      const videoQueue = new PromiseQueue({ concurrency: 1 });
+
+      const videoRegEx = new RegExp(`${CONSTANTS.VIDEO_TYPES.join("|")}`, "i");
+
       for (const file of batch.imports) {
+        const queue = videoRegEx.test(file.extension) ? videoQueue : imageQueue;
         queue.add(async () => {
           try {
             const res = await this.importFile({ batchId, filePath: file.path });
