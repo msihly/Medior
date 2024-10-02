@@ -32,11 +32,11 @@ export const Card = ({
       {...{ borderRadiuses, display, header, headerProps, height, width }}
     >
       <View
-        {...viewProps}
-        {...{ bgColor, borderRadiuses, height, overflow, padding, row, spacing, width }}
+        position="relative"
         column={column && !row}
         flex={1}
-        position="relative"
+        {...{ bgColor, borderRadiuses, height, overflow, padding, row, spacing, width }}
+        {...viewProps}
         aria-label="card"
       >
         {children}

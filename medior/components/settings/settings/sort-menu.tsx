@@ -22,8 +22,8 @@ export const SortMenu = observer(
       stores.home.settings.update({ [configKey]: value });
 
     return (
-      <HeaderWrapper header={header} width={width}>
-        <SortMenuBase {...{ setValue, value }} width={width} color={colors.background} {...props} />
+      <HeaderWrapper {...{ header, width }} height="100%">
+        <SortMenuBase {...{ setValue, width, value }} color={colors.background} hasHeader {...props} />
       </HeaderWrapper>
     );
   }

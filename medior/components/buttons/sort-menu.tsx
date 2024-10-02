@@ -1,9 +1,10 @@
 import { Button, Icon, IconName, IconProps, Text, View } from "medior/components";
 import { ButtonProps, MenuButton, SortRow } from ".";
-import { colors, CSS, makeClasses } from "medior/utils";
+import { colors, CSS, makeBorderRadiuses, makeClasses } from "medior/utils";
 
 export interface SortMenuProps extends Omit<ButtonProps, "onChange" | "value"> {
   color?: string;
+  hasHeader?: boolean;
   rows: {
     attribute: string;
     label: string;
@@ -17,13 +18,14 @@ export interface SortMenuProps extends Omit<ButtonProps, "onChange" | "value"> {
 
 export const SortMenu = ({
   color = colors.custom.black,
+  hasHeader,
   rows,
   setValue,
   value,
   width = "fit-content",
   ...buttonProps
 }: SortMenuProps) => {
-  const { css, cx } = useClasses({ width });
+  const { css, cx } = useClasses({ hasHeader, width });
 
   const activeRow = rows.find(({ attribute }) => attribute === value?.key);
 
@@ -62,12 +64,16 @@ export const SortMenu = ({
 };
 
 interface ClassesProps {
+  hasHeader: boolean;
   width: CSS["width"];
 }
 
 const useClasses = makeClasses((props: ClassesProps) => ({
   button: {
+    ...makeBorderRadiuses({ all: "0.3rem", ...(props.hasHeader ? { top: 0 } : {}) }),
+    height: "inherit",
     width: props.width,
+    boxShadow: "none",
   },
   label: {
     fontSize: "0.9em",

@@ -209,6 +209,7 @@ export const SettingsModal = observer(() => {
             header="Handled / Displayed Image Types"
             row
             wrap="wrap"
+            flex="inherit"
             bgColor={colors.foregroundCard}
           >
             {CONSTANTS.IMAGE_TYPES.map((ext) => (
@@ -220,6 +221,7 @@ export const SettingsModal = observer(() => {
             header="Handled / Displayed Video Types"
             row
             wrap="wrap"
+            flex="inherit"
             bgColor={colors.foregroundCard}
           >
             {CONSTANTS.VIDEO_TYPES.map((ext) => (
