@@ -60,7 +60,7 @@ const makeActionsDef = async (modelDef: ModelDef) => {
       socket.emit("on${modelDef.name}Deleted", args, socketOpts);
     });
 
-    export const ${map.list.fnName} = makeAction(async ({ args }: { args?: Types.${map.list.typeName}; socketOpts?: SocketEventOptions }  = {}) => {
+    export const ${map.list.fnName} = makeAction(async ({ args }: { args: Types.${map.list.typeName}; socketOpts?: SocketEventOptions }) => {
       const filter = { ...args.filter };
       if (args.filter?.id) {
         filter._id = Array.isArray(args.filter.id)

@@ -687,11 +687,6 @@ export const editMultiTagRelations = makeAction(
   }
 );
 
-export const listTags = makeAction(
-  async ({ filter }: { filter?: FilterQuery<models.TagSchema> } = {}) =>
-    (await models.TagModel.find(filter).lean()).map((r) => leanModelToJson<models.TagSchema>(r))
-);
-
 export const mergeTags = makeAction(
   async (
     args: Omit<Required<Types.CreateTagInput>, "withRegen" | "withSub"> & {

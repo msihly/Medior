@@ -140,9 +140,9 @@ export class TagStore extends Model({
 
   @modelFlow
   loadTags = asyncAction(async () => {
-    const res = await trpc.listTags.mutate();
+    const res = await trpc.listTags.mutate({ args: { filter: {} } });
     if (!res.success) throw new Error(res.error);
-    this.overwrite(res.data);
+    this.overwrite(res.data.items);
   });
 
   @modelFlow

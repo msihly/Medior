@@ -436,9 +436,7 @@ export const deleteDeletedFile = makeAction(
 );
 
 export const _listDeletedFiles = makeAction(
-  async ({
-    args,
-  }: { args?: Types._ListDeletedFilesInput; socketOpts?: SocketEventOptions } = {}) => {
+  async ({ args }: { args: Types._ListDeletedFilesInput; socketOpts?: SocketEventOptions }) => {
     const filter = { ...args.filter };
     if (args.filter?.id) {
       filter._id = Array.isArray(args.filter.id)
@@ -528,9 +526,7 @@ export const deleteFileCollection = makeAction(
 );
 
 export const listFileCollections = makeAction(
-  async ({
-    args,
-  }: { args?: Types.ListFileCollectionsInput; socketOpts?: SocketEventOptions } = {}) => {
+  async ({ args }: { args: Types.ListFileCollectionsInput; socketOpts?: SocketEventOptions }) => {
     const filter = { ...args.filter };
     if (args.filter?.id) {
       filter._id = Array.isArray(args.filter.id)
@@ -613,9 +609,7 @@ export const deleteFileImportBatch = makeAction(
 );
 
 export const listFileImportBatchs = makeAction(
-  async ({
-    args,
-  }: { args?: Types.ListFileImportBatchsInput; socketOpts?: SocketEventOptions } = {}) => {
+  async ({ args }: { args: Types.ListFileImportBatchsInput; socketOpts?: SocketEventOptions }) => {
     const filter = { ...args.filter };
     if (args.filter?.id) {
       filter._id = Array.isArray(args.filter.id)
@@ -704,7 +698,7 @@ export const deleteFile = makeAction(
 );
 
 export const listFiles = makeAction(
-  async ({ args }: { args?: Types.ListFilesInput; socketOpts?: SocketEventOptions } = {}) => {
+  async ({ args }: { args: Types.ListFilesInput; socketOpts?: SocketEventOptions }) => {
     const filter = { ...args.filter };
     if (args.filter?.id) {
       filter._id = Array.isArray(args.filter.id)
@@ -785,7 +779,7 @@ export const deleteRegExMap = makeAction(
 );
 
 export const listRegExMaps = makeAction(
-  async ({ args }: { args?: Types.ListRegExMapsInput; socketOpts?: SocketEventOptions } = {}) => {
+  async ({ args }: { args: Types.ListRegExMapsInput; socketOpts?: SocketEventOptions }) => {
     const filter = { ...args.filter };
     if (args.filter?.id) {
       filter._id = Array.isArray(args.filter.id)
@@ -874,8 +868,8 @@ export const _deleteTag = makeAction(
   },
 );
 
-export const _listTags = makeAction(
-  async ({ args }: { args?: Types._ListTagsInput; socketOpts?: SocketEventOptions } = {}) => {
+export const listTags = makeAction(
+  async ({ args }: { args: Types.ListTagsInput; socketOpts?: SocketEventOptions }) => {
     const filter = { ...args.filter };
     if (args.filter?.id) {
       filter._id = Array.isArray(args.filter.id)

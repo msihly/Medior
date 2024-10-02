@@ -1,4 +1,3 @@
-import { computed } from "mobx";
 import {
   getRootStore,
   Model,
@@ -8,7 +7,7 @@ import {
   modelFlow,
   prop,
 } from "mobx-keystone";
-import { asyncAction, File, FileSearch, RootStore } from "medior/store";
+import { asyncAction, File, FileSearch, RootStore, Tag } from "medior/store";
 import { SortMenuProps } from "medior/components";
 import { FileCollection } from ".";
 import { getConfig, trpc } from "medior/utils";
@@ -31,6 +30,7 @@ export class CollectionEditor extends Model({
         sortValue: getConfig().collection.editor.search.sort,
       })
   ),
+  tags: prop<Tag[]>(() => []).withSetter(),
   title: prop<string>("").withSetter(),
 }) {
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
@@ -87,9 +87,15 @@ export class CollectionEditor extends Model({
 
     const collection = collRes.data.items[0];
     this.setCollection(new FileCollection(collection));
+    this.setTitle(collection.title);
+
     const fileIndexes = collection.fileIdIndexes.sort((a, b) => a.index - b.index);
     this.setFileIndexes(fileIndexes);
-    this.setTitle(collection.title);
+
+    const tagsRes = await trpc.listTags.mutate({ args: { filter: { id: collection.tagIds } } });
+    if (!tagsRes.success) throw new Error(tagsRes.error);
+    const tags = tagsRes.data.items.sort((a, b) => a.count - b.count).map((t) => new Tag(t));
+    this.setTags(tags);
 
     const fileIds = [...new Set(fileIndexes.map((f) => f.fileId))];
     this.fileSearch.setExcludedFileIds(fileIds);
@@ -201,9 +207,7 @@ export class CollectionEditor extends Model({
   setSortValue = asyncAction(async (sortValue: SortMenuProps["value"]) => {
     this.search.setSortValue(sortValue);
 
-    // TODO: set fileIndexes on file reorder or insert / delete
     this.setIsLoading(true);
-
     if (sortValue.key === "custom") {
       const fileIdIndexes = this.collection.fileIdIndexes
         .sort((a, b) => (sortValue.isDesc ? b.index - a.index : a.index - b.index))
@@ -235,17 +239,5 @@ export class CollectionEditor extends Model({
 
   getOriginalIndex(id: string) {
     return this.collection?.fileIdIndexes.find((f) => f.fileId === id)?.index;
-  }
-
-  /* --------------------------------- GETTERS -------------------------------- */
-  @computed
-  get allTagIds() {
-    return [...new Set(this.search.results.flatMap((f) => f.tagIds ?? []))];
-  }
-
-  @computed
-  get sortedTags() {
-    const stores = getRootStore<RootStore>(this);
-    return stores.tag.listByIds(this.allTagIds).sort((a, b) => b.count - a.count);
   }
 }
