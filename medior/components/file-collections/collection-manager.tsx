@@ -51,13 +51,27 @@ export const FileCollectionManager = observer(() => {
     collectionsRef.current?.scrollTo({ top: 0, behavior: "smooth" });
   }, [page, stores.collection.manager.search.results]);
 
-  // TODO: Adjust this to open the editor, add files to the end of the collection, and navigate to the last page
-  // const handleAddToCollection = async () => {
-  //   stores.collection.manager.setIsLoading(true);
-  //   await stores.collection.editor.loadCollection(stores.collection.manager.search.selectedIds[0]);
-  //   stores.collection.manager.setIsLoading(false);
-  //   stores.collection.editor.setIsOpen(true);
-  // };
+  const handleAddToCollection = async () => {
+    const collId = stores.collection.manager.search.selectedIds[0];
+    const fileIds = new Set(stores.collection.manager.selectedFileIds);
+
+    stores.collection.manager.setIsLoading(true);
+    const res = await stores.collection.editor.addFilesToCollection({
+      collId,
+      fileIds: [...fileIds],
+    });
+    stores.collection.manager.setIsLoading(false);
+    if (!res.success) return toast.error(res.error);
+
+    stores.collection.editor.setIsOpen(true);
+    await stores.collection.editor.loadCollection(collId);
+
+    stores.collection.editor.search.setSelectedIds(
+      stores.collection.editor.collection.fileIdIndexes
+        .filter((f) => fileIds.has(f.fileId))
+        .map((f) => f.fileId)
+    );
+  };
 
   const handleClose = () => {
     stores.collection.manager.setIsOpen(false);
@@ -117,7 +131,7 @@ export const FileCollectionManager = observer(() => {
         {!hasAnyFilesSelected ? null : (
           <View row spacing="0.5rem">
             <Card
-              header={`Selected File${hasOneFileSelected ? "" : "s"}`}
+              header={<Text preset="title">{`Selected File${hasOneFileSelected ? "" : "s"}`}</Text>}
               height={`calc(${FILE_CARD_HEIGHT} + 3.5rem)`}
               width={hasOneFileSelected ? "14rem" : "100%"}
               padding={{ all: 0 }}
@@ -226,7 +240,7 @@ export const FileCollectionManager = observer(() => {
           colorOnHover={colors.custom.blue}
         />
 
-        {/* {!hasAnyFilesSelected ? null : (
+        {!hasAnyFilesSelected ? null : (
           <Button
             text="Add to Collection"
             icon="Add"
@@ -234,7 +248,7 @@ export const FileCollectionManager = observer(() => {
             disabled={stores.collection.manager.search.selectedIds.length !== 1}
             colorOnHover={colors.custom.purple}
           />
-        )} */}
+        )}
       </Modal.Footer>
 
       {isConfirmDeleteOpen && (

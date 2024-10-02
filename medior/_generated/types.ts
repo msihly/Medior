@@ -103,6 +103,9 @@ export type UpdateTagInput = { id: string; updates: Partial<db.TagSchema> };
 /* -------------------------------------------------------------------------- */
 /*                               CUSTOM ACTIONS                               */
 /* -------------------------------------------------------------------------- */
+export type AddFilesToCollectionInput = Parameters<typeof db.addFilesToCollection>[0];
+export type AddFilesToCollectionOutput = ReturnType<typeof db.addFilesToCollection>;
+
 export type CreateCollectionInput = Parameters<typeof db.createCollection>[0];
 export type CreateCollectionOutput = ReturnType<typeof db.createCollection>;
 

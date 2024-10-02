@@ -29,6 +29,24 @@ const makeCollAttrs = async (
 /* -------------------------------------------------------------------------- */
 /*                                API ENDPOINTS                               */
 /* -------------------------------------------------------------------------- */
+export const addFilesToCollection = makeAction(
+  async (args: { collId: string; fileIds: string[] }) => {
+    const collRes = await models.FileCollectionModel.findById(args.collId).lean();
+    if (!collRes) throw new Error("Collection not found");
+
+    const existingFileIds = collRes.fileIdIndexes.map((f) => f.fileId);
+    const fileIdsToAdd = args.fileIds.filter((id) => !existingFileIds.includes(id));
+
+    const newFileIdIndexes = [...new Set([...fileIdsToAdd, ...existingFileIds])].map(
+      (fileId, index) => ({ fileId, index })
+    );
+
+    const updateRes = await updateCollection({ id: args.collId, fileIdIndexes: newFileIdIndexes });
+    if (!updateRes.success) throw new Error(updateRes.error);
+    return updateRes.data;
+  }
+);
+
 export const createCollection = makeAction(
   async (args: {
     fileIdIndexes: { fileId: string; index: number }[];
@@ -55,6 +73,23 @@ export const createCollection = makeAction(
   }
 );
 
+export const deduplicateCollections = makeAction(async () => {
+  const collections: { ids: string[]; title: string }[] =
+    await models.FileCollectionModel.aggregate([
+      { $group: { _id: { title: "$title", fileCount: "$fileCount" }, ids: { $push: "$_id" } } },
+      { $match: { "ids.1": { $exists: true } } },
+      { $project: { title: "$_id.title", ids: { $slice: ["$ids", 1, { $size: "$ids" }] } } },
+    ]);
+
+  const collectionIdsToDelete = collections.flatMap((c) => c.ids);
+  const res = await models.FileCollectionModel.deleteMany({
+    _id: { $in: collectionIdsToDelete },
+  });
+
+  if (res.deletedCount) socket.emit("onFileCollectionsDeleted", { ids: collectionIdsToDelete });
+  return res.deletedCount;
+});
+
 export const deleteCollections = makeAction(async (args: { ids: string[] }) => {
   const res = await models.FileCollectionModel.deleteMany({ _id: { $in: objectIds(args.ids) } });
   if (res.deletedCount) socket.emit("onFileCollectionsDeleted", args);
@@ -78,23 +113,6 @@ export const listCollectionIdsByTagIds = makeAction(async (args: { tagIds: strin
       .select({ _id: 1 })
       .lean()
   ).map((f) => f._id.toString());
-});
-
-export const deduplicateCollections = makeAction(async () => {
-  const collections: { ids: string[]; title: string }[] =
-    await models.FileCollectionModel.aggregate([
-      { $group: { _id: { title: "$title", fileCount: "$fileCount" }, ids: { $push: "$_id" } } },
-      { $match: { "ids.1": { $exists: true } } },
-      { $project: { title: "$_id.title", ids: { $slice: ["$ids", 1, { $size: "$ids" }] } } },
-    ]);
-
-  const collectionIdsToDelete = collections.flatMap((c) => c.ids);
-  const res = await models.FileCollectionModel.deleteMany({
-    _id: { $in: collectionIdsToDelete },
-  });
-
-  if (res.deletedCount) socket.emit("onFileCollectionsDeleted", { ids: collectionIdsToDelete });
-  return res.deletedCount;
 });
 
 export const regenCollAttrs = makeAction(

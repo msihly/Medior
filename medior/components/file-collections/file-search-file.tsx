@@ -1,6 +1,6 @@
 import { CSSProperties } from "react";
 import { FileSchema } from "medior/database";
-import { File, observer, useStores } from "medior/store";
+import { observer, useStores } from "medior/store";
 import { Button, FileBase } from "medior/components";
 import { colors, duration } from "medior/utils";
 
@@ -14,7 +14,11 @@ export const FileSearchFile = observer(
   ({ disabled, file, height = "14rem" }: FileSearchFileProps) => {
     const stores = useStores();
 
-    const handleAdd = () => stores.collection.editor.addFilesToCollection([new File(file)]);
+    const handleAdd = () =>
+      stores.collection.editor.addFilesToCollection({
+        collId: stores.collection.editor.collection.id,
+        fileIds: [file.id],
+      });
 
     return (
       <FileBase.Tooltip {...{ disabled, file }}>

@@ -35,20 +35,6 @@ export class CollectionEditor extends Model({
 }) {
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
   @modelAction
-  addFilesToCollection(files: File[]) {
-    // TODO: Adjust this to add files to the end of the collection and navigate to the last page
-    const startIndex = this.search.results.length;
-    // this.search.results.push(...files);
-    this.fileSearch.excludedFileIds.push(...files.map((f) => f.id));
-    this.fileIndexes.push(
-      ...files.map((file, idx) => ({ fileId: file.id, index: startIndex + idx }))
-    );
-    this.search.ids.push(...files.map((f) => f.id));
-    this.setHasUnsavedChanges(true);
-    this.fileSearch.loadFiltered();
-  }
-
-  @modelAction
   setIsOpen(isOpen: boolean) {
     this.search.selectedIds = [];
     this.isOpen = isOpen;
@@ -60,6 +46,18 @@ export class CollectionEditor extends Model({
   }
 
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */
+  @modelFlow
+  addFilesToCollection = asyncAction(async (args: { collId: string; fileIds: string[] }) => {
+    if (!this.isOpen) this.setIsOpen(true);
+    this.setIsLoading(true);
+    const res = await trpc.addFilesToCollection.mutate(args);
+    if (!res.success) throw new Error(res.error);
+    await this.loadCollection(args.collId);
+    await this.fileSearch.loadFiltered();
+    this.setIsLoading(false);
+    toast.success("Collection updated");
+  });
+
   @modelFlow
   confirmDelete = asyncAction(async () => {
     const stores = getRootStore<RootStore>(this);
