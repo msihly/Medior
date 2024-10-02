@@ -194,7 +194,7 @@ export class FileStore extends ExtendedModel(_FileStore, {
     const filesRes = await trpc.listFiles.mutate({ args: { filter: { id: args.ids } } });
     if (!filesRes?.success) throw new Error("Failed to load files");
 
-    makeQueue({
+    await makeQueue({
       action: (item) => this.refreshFile({ curFile: item, id: item.id }),
       items: filesRes.data.items,
       logSuffix: "files",

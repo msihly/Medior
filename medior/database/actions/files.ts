@@ -8,7 +8,15 @@ import * as models from "medior/_generated/models";
 import { createFileFilterPipeline, CreateFileFilterPipelineInput } from "medior/database/actions";
 import { leanModelToJson, makeAction, objectId, objectIds } from "medior/database/utils";
 import { SortValue } from "medior/store";
-import { dayjs, makePerfLog, sharp, socket } from "medior/utils";
+import {
+  CONSTANTS,
+  dayjs,
+  dirToFilePaths,
+  getConfig,
+  makePerfLog,
+  sharp,
+  socket,
+} from "medior/utils";
 
 const FACE_MIN_CONFIDENCE = 0.4;
 const FACE_MODELS_PATH = app.isPackaged
@@ -332,6 +340,47 @@ export const listFilePaths = makeAction(async () => {
     id: f._id.toString(),
     path: f.path,
   }));
+});
+
+export const listFilesWithBrokenThumbs = makeAction(async () => {
+  const { perfLog, perfLogTotal } = makePerfLog("[Thumbs]", true);
+
+  const files = await models.FileModel.find({})
+    .allowDiskUse(true)
+    .select({ _id: 1, thumbPaths: 1 })
+    .lean();
+
+  perfLog(`Loaded files (${files.length})`);
+
+  const brokenIds: string[] = [];
+
+  // TODO: Find a feasible way of scanning massive storage locations
+  const filePathSet = new Set(
+    (
+      await Promise.all(getConfig().db.fileStorage.locations.map((loc) => dirToFilePaths(loc)))
+    ).flat()
+  );
+
+  perfLog(`Loaded filePathSet (${filePathSet.size})`);
+
+  for (const file of files) {
+    if (file.thumbPaths.some((t) => !filePathSet.has(t))) brokenIds.push(file._id.toString());
+  }
+
+  perfLogTotal("Done");
+  return brokenIds;
+});
+
+export const listFilesWithBrokenVideoCodec = makeAction(async () => {
+  const files = await models.FileModel.find({
+    ext: { $in: CONSTANTS.VIDEO_TYPES.map((t) => `.${t}`) },
+    $or: [{ videoCodec: { $exists: false } }, { videoCodec: "" }],
+  })
+    .allowDiskUse(true)
+    .select({ _id: 1, path: 1 })
+    .lean();
+
+  return files.map((f) => ({ id: f._id.toString(), path: f.path }));
 });
 
 export const listSortedFileIds = makeAction(

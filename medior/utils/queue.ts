@@ -38,6 +38,8 @@ export class PromiseQueue {
   delayRange: PromiseQueueOptions["delayRange"];
   queue: (() => Promise<void>)[] = [];
   runningCount = 0;
+  private promise: Promise<void> | null = null;
+  private resolver: (() => void) | null = null;
 
   constructor({ concurrency, delayRange }: PromiseQueueOptions = {}) {
     this.concurrency = concurrency ?? 1;
@@ -49,6 +51,8 @@ export class PromiseQueue {
       concurrency: options?.concurrency ?? this.concurrency,
       delayRange: options?.delayRange ?? this.delayRange,
     };
+
+    if (!this.promise) this.promise = new Promise((res) => (this.resolver = res));
 
     return new Promise((resolve, reject) => {
       const attempt = async () => {
@@ -80,7 +84,15 @@ export class PromiseQueue {
     if (this.queue.length > 0 && this.runningCount < this.concurrency) {
       const nextTask = this.queue.shift();
       if (nextTask) nextTask();
+    } else if (this.queue.length === 0 && this.runningCount === 0 && this.resolver) {
+      this.resolver();
+      this.promise = null;
+      this.resolver = null;
     }
+  }
+
+  async resolve() {
+    if (this.promise) await this.promise;
   }
 }
 
@@ -96,30 +108,35 @@ export const makeQueue = <T>({
   items: T[];
   logPrefix?: string;
   logSuffix: string;
-  onComplete: () => Promise<any>;
+  onComplete?: () => Promise<any>;
   queue: PromiseQueue;
-}) => {
-  let completedCount = 0;
-  const totalCount = items.length;
+}): Promise<void> => {
+  return new Promise<void>((resolve) => {
+    let completedCount = 0;
+    const totalCount = items.length;
 
-  const toastId = toast.info(() => `${logPrefix} ${completedCount} ${logSuffix}...`, {
-    autoClose: false,
+    const toastId = toast.info(() => `${logPrefix} ${completedCount} ${logSuffix}...`, {
+      autoClose: false,
+    });
+
+    items.map((item) =>
+      queue.add(async () => {
+        await action(item);
+
+        completedCount++;
+        const isComplete = completedCount === totalCount;
+        if (isComplete) {
+          resolve();
+          await onComplete?.();
+        }
+
+        toast.update(toastId, {
+          autoClose: isComplete ? 5000 : false,
+          render: `${logPrefix} ${completedCount} / ${totalCount} ${logSuffix}${
+            isComplete ? "." : "..."
+          }`,
+        });
+      })
+    );
   });
-
-  items.map((item) =>
-    queue.add(async () => {
-      await action(item);
-
-      completedCount++;
-      const isComplete = completedCount === totalCount;
-      if (isComplete) await onComplete();
-
-      toast.update(toastId, {
-        autoClose: isComplete ? 5000 : false,
-        render: `${logPrefix} ${completedCount} / ${totalCount} ${logSuffix}${
-          isComplete ? "." : "..."
-        }`,
-      });
-    })
-  );
 };

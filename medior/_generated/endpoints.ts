@@ -77,6 +77,8 @@ export const serverRouter = trpc.router({
   listFileIdsForCarousel: serverEndpoint(db.listFileIdsForCarousel),
   listFilePaths: serverEndpoint(db.listFilePaths),
   listFilesByTagIds: serverEndpoint(db.listFilesByTagIds),
+  listFilesWithBrokenThumbs: serverEndpoint(db.listFilesWithBrokenThumbs),
+  listFilesWithBrokenVideoCodec: serverEndpoint(db.listFilesWithBrokenVideoCodec),
   listImportBatches: serverEndpoint(db.listImportBatches),
   listSortedFileIds: serverEndpoint(db.listSortedFileIds),
   loadFaceApiNets: serverEndpoint(db.loadFaceApiNets),

@@ -2,7 +2,7 @@ import { dialog } from "@electron/remote";
 import { useEffect, useState } from "react";
 import { observer, SORT_OPTIONS, useStores } from "medior/store";
 import { Button, Card, ConfirmModal, Modal, Text, View } from "medior/components";
-import { Settings } from ".";
+import { RepairModal, Settings } from ".";
 import { colors, CONSTANTS, loadConfig, saveConfig, trpc } from "medior/utils";
 import { toast } from "react-toastify";
 
@@ -10,6 +10,7 @@ export const SettingsModal = observer(() => {
   const stores = useStores();
 
   const [isConfirmDiscardOpen, setIsConfirmDiscardOpen] = useState(false);
+  const [isRepairModalOpen, setIsRepairModalOpen] = useState(false);
 
   useEffect(() => {
     handleLoadConfig();
@@ -49,6 +50,8 @@ export const SettingsModal = observer(() => {
     if (res.canceled) return;
     stores.home.settings.setDbPath(res.filePaths[0]);
   };
+
+  const handleRepair = () => setIsRepairModalOpen(true);
 
   const handleSaveConfig = async () => {
     try {
@@ -104,8 +107,19 @@ export const SettingsModal = observer(() => {
         <Text preset="title">{"Settings"}</Text>
       </Modal.Header>
 
-      <Modal.Content overflow="hidden auto" spacing="1rem">
-        <Settings.Section title="Database / Servers">
+      <Modal.Content spacing="2rem" padding={{ bottom: "3rem" }}>
+        <Settings.Section
+          title="Database / Servers"
+          rightNode={
+            <Button
+              text="Repair Database"
+              icon="Build"
+              onClick={handleRepair}
+              color={colors.custom.black}
+              padding={{ all: "0.5rem 0.8rem" }}
+            />
+          }
+        >
           <View row spacing="0.5rem">
             <Settings.Input
               header="Database Path"
@@ -119,6 +133,8 @@ export const SettingsModal = observer(() => {
             <Settings.NumInput header="Server Port" configKey="ports.server" />
 
             <Settings.NumInput header="Socket Port" configKey="ports.socket" />
+
+            {isRepairModalOpen && <RepairModal />}
           </View>
 
           <View column>

@@ -199,6 +199,16 @@ export type ListFileIdsForCarouselOutput = ReturnType<typeof db.listFileIdsForCa
 export type ListFilePathsInput = Parameters<typeof db.listFilePaths>[0];
 export type ListFilePathsOutput = ReturnType<typeof db.listFilePaths>;
 
+export type ListFilesWithBrokenThumbsInput = Parameters<typeof db.listFilesWithBrokenThumbs>[0];
+export type ListFilesWithBrokenThumbsOutput = ReturnType<typeof db.listFilesWithBrokenThumbs>;
+
+export type ListFilesWithBrokenVideoCodecInput = Parameters<
+  typeof db.listFilesWithBrokenVideoCodec
+>[0];
+export type ListFilesWithBrokenVideoCodecOutput = ReturnType<
+  typeof db.listFilesWithBrokenVideoCodec
+>;
+
 export type ListSortedFileIdsInput = Parameters<typeof db.listSortedFileIds>[0];
 export type ListSortedFileIdsOutput = ReturnType<typeof db.listSortedFileIds>;
 
