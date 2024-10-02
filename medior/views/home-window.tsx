@@ -27,7 +27,7 @@ export const HomeWindow = observer(() => {
         await stores.tag.loadTags();
         perfLog("Tags loaded");
 
-        await stores.import.loadImportBatches();
+        await stores.import.manager.loadImportBatches();
         perfLog("Import batches loaded");
 
         perfLogTotal("Data loaded into MobX");

@@ -145,7 +145,7 @@ export const ImportEditor = observer(() => {
     if (isInitMount.current) isInitMount.current = false;
     else setHasChangesSinceLastScan(true);
   }, [
-    stores.import.editorRootFolderIndex,
+    stores.import.editor.rootFolderIndex,
     stores.tag.tags,
     folderToCollectionMode,
     folderToTagsMode,
@@ -164,7 +164,7 @@ export const ImportEditor = observer(() => {
   }, [stores.import.editor.isInitDone]);
 
   const confirmDiscard = () => {
-    stores.import.setIsImportEditorOpen(false);
+    stores.import.editor.setIsOpen(false);
     stores.file.search.reloadIfQueued();
   };
 
@@ -181,7 +181,7 @@ export const ImportEditor = observer(() => {
     setTimeout(() => stores.tag.manager.setIsOpen(true), 0);
   };
 
-  const setFlattenTo = (value: number) => stores.import.setEditorFlattenTo(value);
+  const setFlattenTo = (value: number) => stores.import.editor.setFlattenTo(value);
 
   const toggleFolderToCollWithTag = () =>
     setFolderToCollectionMode((prev) => (prev === "withTag" ? "withoutTag" : "withTag"));
@@ -215,11 +215,11 @@ export const ImportEditor = observer(() => {
     const folderTags: TagToUpsert[] = [];
 
     const depth = withFlattenTo
-      ? stores.import.editorRootFolderIndex + stores.import.editorFlattenTo
+      ? stores.import.editor.rootFolderIndex + stores.import.editor.flattenTo
       : undefined;
     const folderNameParts = folderName
       .split(path.sep)
-      .slice(stores.import.editorRootFolderIndex, depth);
+      .slice(stores.import.editor.rootFolderIndex, depth);
     const collectionTitle =
       folderToCollectionMode !== "none"
         ? (folderToCollectionMode === "withTag" ? folderNameParts.slice() : folderNameParts).pop()
@@ -355,9 +355,9 @@ export const ImportEditor = observer(() => {
     const { perfLog } = makePerfLog("[ImportEditor.fileToTagsAndDiffParams]");
 
     if (!withDiffusionParams)
-      stores.import.clearValues({ diffusionParams: true, tagIds: true, tagsToUpsert: true });
+      stores.import.editor.clearValues({ diffusionParams: true, tagIds: true, tagsToUpsert: true });
     else {
-      await stores.import.loadDiffusionParams();
+      await stores.import.editor.loadDiffusionParams();
       if (DEBUG) perfLog("Loaded diffusion params");
     }
 
@@ -368,7 +368,7 @@ export const ImportEditor = observer(() => {
     const tagsToUpsert: TagToUpsert[] = [];
 
     /** Directly update file imports with their own tags derived from RegEx maps and diffusion params. */
-    const editorImports = stores.import.editorImports.map((imp) => {
+    const editorImports = stores.import.editor.imports.map((imp) => {
       const fileTagIds: string[] = [];
       const fileTagsToUpsert: TagToUpsert[] = [];
 
@@ -454,18 +454,18 @@ export const ImportEditor = observer(() => {
       })),
       rootFolderPath: folder.folderName
         .split(path.sep)
-        .slice(0, stores.import.editorRootFolderIndex + 1)
+        .slice(0, stores.import.editor.rootFolderIndex + 1)
         .join(path.sep),
       tagIds: folder.tags.map((t) => stores.tag.getByLabel(t.label)?.id).filter(Boolean),
     }));
 
-    const res = await stores.import.createImportBatches(batches);
+    const res = await stores.import.manager.createImportBatches(batches);
     if (!res.success) throw new Error(res.error);
 
     stores.import.editor.setIsSaving(false);
     toast.success(`Queued ${flatFolderHierarchy.size} import batches`);
-    stores.import.setIsImportEditorOpen(false);
-    stores.import.setIsImportManagerOpen(true);
+    stores.import.editor.setIsOpen(false);
+    stores.import.manager.setIsOpen(true);
   };
 
   const parseDiffTags = ({
@@ -553,7 +553,7 @@ export const ImportEditor = observer(() => {
     let originalTag: Tag;
     let upscaledTag: Tag;
 
-    if (!withDiffusionTags) stores.import.clearValues({ tagIds: true, tagsToUpsert: true });
+    if (!withDiffusionTags) stores.import.editor.clearValues({ tagIds: true, tagsToUpsert: true });
     else {
       let diffTag = stores.tag.getByLabel(config.imports.labelDiff);
       if (!diffTag) {
@@ -577,7 +577,7 @@ export const ImportEditor = observer(() => {
       originalTag = stores.tag.getByLabel(config.imports.labelDiffOriginal);
       upscaledTag = stores.tag.getByLabel(config.imports.labelDiffUpscaled);
 
-      const importsWithParams = stores.import.editorImports.filter(
+      const importsWithParams = stores.import.editor.imports.filter(
         (imp) => imp.diffusionParams?.length
       );
 
@@ -692,7 +692,7 @@ export const ImportEditor = observer(() => {
         leftNode={<Button text="Tag Manager" icon="More" onClick={handleTagManager} />}
         rightNode={
           <Chip
-            label={`${commas(stores.import.editorImports.length)} Files / ${commas(flatFolderHierarchy.size)} Folders`}
+            label={`${commas(stores.import.editor.imports.length)} Files / ${commas(flatFolderHierarchy.size)} Folders`}
           />
         }
       >
@@ -812,7 +812,7 @@ export const ImportEditor = observer(() => {
 
               <NumInput
                 placeholder="Depth"
-                value={stores.import.editorFlattenTo}
+                value={stores.import.editor.flattenTo}
                 setValue={setFlattenTo}
                 disabled={folderToCollectionMode === "none" || !withFlattenTo}
                 hasHelper={false}
@@ -870,7 +870,7 @@ export const ImportEditor = observer(() => {
                   {"Select Root Tag"}
                 </Text>
 
-                {[...stores.import.editorRootFolderPath.split(path.sep), "*"].map((p, i) => (
+                {[...stores.import.editor.rootFolderPath.split(path.sep), "*"].map((p, i) => (
                   <RootFolderButton key={i} index={i} folderPart={p} />
                 ))}
               </View>

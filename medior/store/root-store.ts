@@ -26,8 +26,8 @@ export class RootStore extends Model({
       this.collection?.editor?.isOpen ||
       this.collection?.manager?.isOpen ||
       this.faceRecog?.isModalOpen ||
-      this.import?.isImportEditorOpen ||
-      this.import?.isImportManagerOpen ||
+      this.import?.editor?.isOpen ||
+      this.import?.manager?.isOpen ||
       this.tag?.isFileTagEditorOpen ||
       this.tag?.isTagEditorOpen ||
       this.tag?.isTagMergerOpen ||

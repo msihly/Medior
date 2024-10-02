@@ -65,7 +65,7 @@ export const useSockets = ({ view }: UseSocketsProps) => {
 
       if (view !== "carousel") queueFileReload();
       if (view === "home" && batchId?.length > 0)
-        stores.import.editBatchTags({
+        stores.import.manager.editBatchTags({
           addedIds: addedTagIds,
           batchIds: [batchId],
           removedIds: removedTagIds,
@@ -89,7 +89,7 @@ export const useSockets = ({ view }: UseSocketsProps) => {
 
     makeSocket("onTagDeleted", ({ id }) => {
       stores.tag._deleteTag(id);
-      if (view === "home") stores.import.editBatchTags({ removedIds: [id] });
+      if (view === "home") stores.import.manager.editBatchTags({ removedIds: [id] });
       if (view !== "carousel") {
         queueFileReload();
         if (stores.tag.manager.isOpen) stores.tag.manager.search.loadFiltered();
@@ -97,7 +97,7 @@ export const useSockets = ({ view }: UseSocketsProps) => {
     });
 
     makeSocket("onTagMerged", ({ oldTagId }) => {
-      if (view === "home") stores.import.editBatchTags({ removedIds: [oldTagId] });
+      if (view === "home") stores.import.manager.editBatchTags({ removedIds: [oldTagId] });
       if (view !== "carousel" && stores.tag.manager.isOpen)
         stores.tag.manager.search.loadFiltered();
     });
@@ -124,7 +124,7 @@ export const useSockets = ({ view }: UseSocketsProps) => {
       });
 
       makeSocket("onImportStatsUpdated", ({ importStats }) =>
-        stores.import.setImportStats(importStats)
+        stores.import.manager.setImportStats(importStats)
       );
 
       makeSocket("onReloadFileCollections", () => {
@@ -133,7 +133,7 @@ export const useSockets = ({ view }: UseSocketsProps) => {
     }
 
     if (view === "home") {
-      makeSocket("onReloadImportBatches", () => stores.import.loadImportBatches());
+      makeSocket("onReloadImportBatches", () => stores.import.manager.loadImportBatches());
     }
   };
 

@@ -15,7 +15,7 @@ interface ImportBatchProps {
 export const ImportBatch = observer(({ batch }: ImportBatchProps) => {
   const stores = useStores();
 
-  const index = stores.import.batches.findIndex((b) => b.id === batch.id);
+  const index = stores.import.manager.batches.findIndex((b) => b.id === batch.id);
   const status = IMPORT_STATUSES[batch.status];
 
   const [expanded, setExpanded] = useState(false);
@@ -29,7 +29,7 @@ export const ImportBatch = observer(({ batch }: ImportBatchProps) => {
   };
 
   const handleDelete = async () => {
-    const res = await stores.import.deleteImportBatches({ ids: [batch.id] });
+    const res = await stores.import.manager.deleteImportBatches({ ids: [batch.id] });
     if (!res.success) toast.error(`Error deleting import batch: ${res.error}`);
     else toast.success("Import batch deleted");
   };

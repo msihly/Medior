@@ -22,8 +22,8 @@ export const ImportManager = observer(() => {
   const [activeType, setActiveType] = useState<"completed" | "pending">("pending");
   const batches =
     activeType === "completed"
-      ? [...stores.import.completedBatches].reverse()
-      : stores.import.incompleteBatches;
+      ? [...stores.import.manager.completedBatches].reverse()
+      : stores.import.manager.incompleteBatches;
 
   const [page, setPage] = useState(1);
   const pageCount = Math.max(1, Math.ceil(batches?.length / PAGE_SIZE));
@@ -31,7 +31,7 @@ export const ImportManager = observer(() => {
   const handleChange = (newPage: number) => setPage(newPage);
 
   const handleClose = () => {
-    stores.import.setIsImportManagerOpen(false);
+    stores.import.manager.setIsOpen(false);
     stores.file.search.reloadIfQueued();
   };
 
@@ -49,7 +49,7 @@ export const ImportManager = observer(() => {
 
   return (
     <Modal.Container
-      visible={stores.import.isImportManagerOpen}
+      visible={stores.import.manager.isOpen}
       onClose={handleClose}
       maxWidth="65rem"
       maxHeight="50rem"
@@ -65,13 +65,13 @@ export const ImportManager = observer(() => {
 
         <UniformList row uniformWidth="9rem" width="100%" justify="center" spacing="1rem">
           <Button
-            text={`Pending - ${stores.import.incompleteBatches?.length}`}
+            text={`Pending - ${stores.import.manager.incompleteBatches?.length}`}
             onClick={handlePendingClick}
             color={activeType === "pending" ? colors.custom.purple : colors.foreground}
           />
 
           <Button
-            text={`Completed - ${stores.import.completedBatches?.length}`}
+            text={`Completed - ${stores.import.manager.completedBatches?.length}`}
             onClick={handleCompletedClick}
             color={activeType === "completed" ? colors.custom.green : colors.foreground}
           />
@@ -113,10 +113,10 @@ const DeleteToggleButton = observer(({ type }: DeleteToggleButtonProps) => {
   const [isConfirmDeleteAllOpen, setIsConfirmDeleteAllOpen] = useState(false);
 
   const deleteAll = async () => {
-    await stores.import.deleteImportBatches({
+    await stores.import.manager.deleteImportBatches({
       ids: (type === "completed"
-        ? stores.import.completedBatches
-        : stores.import.incompleteBatches
+        ? stores.import.manager.completedBatches
+        : stores.import.manager.incompleteBatches
       ).map((batch) => batch.id),
     });
 

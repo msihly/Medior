@@ -232,7 +232,7 @@ export const handleIngest = async ({
   try {
     const { perfLog, perfLogTotal } = makePerfLog("[Ingest]");
     stores.import.editor.setIsInitDone(false);
-    stores.import.setIsImportEditorOpen(true);
+    stores.import.editor.setIsOpen(true);
 
     const [filePaths, folderPaths] = [...fileList]
       .sort((a, b) => {
@@ -247,8 +247,8 @@ export const handleIngest = async ({
 
     const rootFolderPath = filePaths[0] ? path.dirname(filePaths[0]) : folderPaths[0];
     const initialRootIndex = rootFolderPath.split(path.sep).length - 1;
-    stores.import.setEditorRootFolderPath(rootFolderPath);
-    stores.import.setEditorRootFolderIndex(initialRootIndex);
+    stores.import.editor.setRootFolderPath(rootFolderPath);
+    stores.import.editor.setRootFolderIndex(initialRootIndex);
     perfLog("Set root folder path and index");
 
     const [folders, importsFromFilePaths] = await Promise.all([
@@ -259,8 +259,8 @@ export const handleIngest = async ({
     const editorImports = [...importsFromFilePaths, ...folders.flatMap((f) => f.imports)];
     perfLog("Created editor file paths and imports");
 
-    stores.import.setEditorFilePaths(editorFilePaths);
-    stores.import.setEditorImports(editorImports);
+    stores.import.editor.setFilePaths(editorFilePaths);
+    stores.import.editor.setImports(editorImports);
     perfLog("Set editor file paths and imports");
 
     perfLogTotal("Init done");

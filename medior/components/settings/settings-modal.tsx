@@ -68,7 +68,7 @@ export const SettingsModal = observer(() => {
 
       stores.faceRecog.clearQueue();
       stores.file.clearRefreshQueue();
-      stores.import.clearQueue();
+      stores.import.manager.clearQueue();
       stores.tag.manager.clearRefreshQueue();
 
       if (hasDbDiff || hasServerDiff || hasSocketDiff)

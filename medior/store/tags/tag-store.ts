@@ -151,7 +151,7 @@ export class TagStore extends Model({
      *  Queue is reloaded via socket upon mergeTags resolution.
      */
     const stores = getRootStore<RootStore>(this);
-    stores.import.clearQueue();
+    stores.import.manager.clearQueue();
 
     const res = await trpc.mergeTags.mutate(args);
     if (!res.success) throw new Error(res.error);

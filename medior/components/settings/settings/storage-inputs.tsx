@@ -123,12 +123,12 @@ export const StorageInputs = observer(() => {
   const handleReImportFilesInStorageOnly = () =>
     _asyncTry(async () => {
       _log(`Re-importing ${filesLeftInStorageOnly.length} files in storage only...`);
-      const res = await stores.import.createImportBatches([
+      const res = await stores.import.manager.createImportBatches([
         {
           deleteOnImport: false,
           ignorePrevDeleted: false,
           imports: await filePathsToImports(filesLeftInStorageOnly),
-          rootFolderPath: stores.import.editorRootFolder,
+          rootFolderPath: stores.import.editor.rootFolder,
         },
       ]);
       if (!res.success) throw new Error(res.error);

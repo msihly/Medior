@@ -8,7 +8,7 @@ export const ImportModals = observer(() => {
     <>
       <ImportManager />
 
-      {stores.import.isImportEditorOpen && <ImportEditor />}
+      {stores.import.editor.isOpen && <ImportEditor />}
     </>
   );
 });

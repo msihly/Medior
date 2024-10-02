@@ -20,7 +20,7 @@ export const Drawer = observer(({ hasImports = false, hasSettings = false }: Dra
     stores.collection.manager.setIsOpen(true);
   };
 
-  const handleImport = () => stores.import.setIsImportManagerOpen(true);
+  const handleImport = () => stores.import.manager.setIsOpen(true);
 
   const handleManageTags = () => stores.tag.manager.setIsOpen(true);
 
