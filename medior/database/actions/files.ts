@@ -266,6 +266,7 @@ export const importFile = makeAction(
     size: number;
     tagIds: string[];
     thumbPaths: string[];
+    videoCodec: string;
     width: number;
   }) => {
     const file = {

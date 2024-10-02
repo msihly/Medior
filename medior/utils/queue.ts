@@ -121,7 +121,12 @@ export const makeQueue = <T>({
 
     items.map((item) =>
       queue.add(async () => {
-        await action(item);
+        try {
+          await action(item);
+        } catch (err) {
+          console.error(err);
+          toast.error(err.message);
+        }
 
         completedCount++;
         const isComplete = completedCount === totalCount;

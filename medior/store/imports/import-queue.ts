@@ -116,6 +116,7 @@ export const copyFileForImport = async ({
       const frameRate = isAnimated ? videoInfo?.frameRate : null;
       const width = isAnimated ? videoInfo?.width : imageInfo?.width;
       const height = isAnimated ? videoInfo?.height : imageInfo?.height;
+      const videoCodec = isAnimated ? videoInfo?.videoCodec : null;
       if (DEBUG) perfLog("Got file info");
 
       const thumbPaths =
@@ -148,6 +149,7 @@ export const copyFileForImport = async ({
         size,
         tagIds,
         thumbPaths,
+        videoCodec,
         width,
       });
       if (!res.success) throw new Error(res.error);
