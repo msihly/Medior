@@ -164,7 +164,7 @@ export const FileCollectionEditor = observer(() => {
               </HeaderRow>
 
               <HeaderRow label="Tags">
-                <TagRow tags={stores.collection.editor.sortedTags} />
+                <TagRow tags={stores.collection.editor.tags} />
               </HeaderRow>
             </Card>
 

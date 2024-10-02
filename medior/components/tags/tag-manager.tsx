@@ -76,7 +76,7 @@ export const TagManager = observer(() => {
         <Card
           column
           flex={1}
-          overflow="auto"
+          overflow="hidden"
           padding={{ all: 0 }}
           header={
             <UniformList row flex={1} justify="space-between">

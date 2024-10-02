@@ -67,16 +67,16 @@ const useClasses = makeClasses((props: ClassesProps, theme) => ({
       overflow: "hidden",
       flexBasis: `calc(100% / ${props.maxCards})`,
       [theme.breakpoints.down("xl")]: {
-        flexBasis: `calc(100% / ${Math.max(0, props.maxCards - 1)})`,
+        flexBasis: `calc(100% / ${Math.max(1, props.maxCards - 1)})`,
       },
       [theme.breakpoints.down("lg")]: {
-        flexBasis: `calc(100% / ${Math.max(0, props.maxCards - 2)})`,
+        flexBasis: `calc(100% / ${Math.max(1, props.maxCards - 2)})`,
       },
       [theme.breakpoints.down("md")]: {
-        flexBasis: `calc(100% / ${Math.max(0, props.maxCards - 3)})`,
+        flexBasis: `calc(100% / ${Math.max(1, props.maxCards - 3)})`,
       },
       [theme.breakpoints.down("sm")]: {
-        flexBasis: `calc(100% / ${Math.max(0, props.maxCards - 4)})`,
+        flexBasis: `calc(100% / ${Math.max(1, props.maxCards - 4)})`,
       },
     },
   },

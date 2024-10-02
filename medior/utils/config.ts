@@ -106,7 +106,7 @@ export const DEFAULT_CONFIG: Config = {
   db: {
     fileStorage: {
       locations: [path.resolve("FileStorage")],
-      threshold: 0.9,
+      threshold: 0.99,
     },
     path: path.resolve("MongoDB"),
   },

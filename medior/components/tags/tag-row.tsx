@@ -6,7 +6,7 @@ export type TagRowProps = {
 } & ({ tagIds: string[]; tags?: never } | { tagIds?: never; tags: Tag[] });
 
 export const TagRow = observer((props: TagRowProps) => {
-  return !props.tagIds?.length ? null : (
+  return !props.tagIds?.length && !props.tags?.length ? null : (
     <View row spacing="0.5rem" overflow="auto hidden">
       {props.tagIds?.length > 0
         ? props.tagIds.map((tagId) => (
