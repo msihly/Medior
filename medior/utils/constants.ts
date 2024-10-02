@@ -52,6 +52,7 @@ const VIDEO_TYPES = [
 export type VideoType = (typeof VIDEO_TYPES)[number];
 
 export const WEB_VIDEO_CODECS = ["h264", "vp8", "vp9", "theora", "av1"];
+export const WEB_VIDEO_EXTS = ["mp4", "webm", "ogv"];
 
 export interface Constants {
   CAROUSEL: {

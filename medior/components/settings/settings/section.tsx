@@ -1,38 +1,31 @@
 import { ReactNode } from "react";
-import { Text, View } from "medior/components";
-import { colors, makeClasses } from "medior/utils";
+import { Card, Text, UniformList, View } from "medior/components";
 
 export interface SectionProps {
   children: ReactNode | ReactNode[];
+  leftNode?: ReactNode;
+  rightNode?: ReactNode;
   title: string;
 }
 
-export const Section = ({ children, title }: SectionProps) => {
-  const { css } = useClasses(null);
-
+export const Section = ({ children, leftNode, rightNode, title }: SectionProps) => {
   return (
-    <View spacing="1rem" className={css.container}>
-      <Text className={css.title}>{title}</Text>
+    <Card spacing="1rem" overflow="initial">
+      <UniformList row align="center" justify="space-between">
+        <View row justify="flex-start">
+          {leftNode}
+        </View>
 
-      <View column spacing="0.4rem">
+        <Text preset="title">{title}</Text>
+
+        <View row justify="flex-end">
+          {rightNode}
+        </View>
+      </UniformList>
+
+      <View column spacing="0.5rem">
         {children}
       </View>
-    </View>
+    </Card>
   );
 };
-
-const useClasses = makeClasses({
-  container: {
-    display: "flex",
-    flexDirection: "column",
-    backgroundColor: colors.foreground,
-    borderRadius: "0.5rem",
-    padding: "0.5rem",
-  },
-  title: {
-    fontSize: "1.3em",
-    fontWeight: 500,
-    textAlign: "center",
-    overflow: "visible",
-  },
-});

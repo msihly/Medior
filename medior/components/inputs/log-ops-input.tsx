@@ -37,12 +37,12 @@ export const LogOpsInput = ({
   ...props
 }: LogOpsInputProps) => {
   return (
-    <HeaderWrapper row header={header} headerProps={headerProps} {...props}>
+    <HeaderWrapper row overflow="hidden" {...{ header, headerProps }} {...props}>
       <Dropdown
         value={logOpValue}
         setValue={setLogOpValue}
         options={LOG_OPS_OPTS}
-        minWidth="3.6em"
+        minWidth="3.7em"
         borderRadiuses={{ top: 0, right: 0 }}
         {...dropdownProps}
       />

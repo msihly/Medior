@@ -12,13 +12,13 @@ export class CarouselStore extends Model({
   curFrame: prop<number>(1).withSetter(),
   curTime: prop<number>(0).withSetter(),
   isMouseMoving: prop<boolean>(false).withSetter(),
-  isPinned: prop<boolean>(false).withSetter(),
+  isPinned: prop<boolean>(true).withSetter(),
   isPlaying: prop<boolean>(true).withSetter(),
   isWaitingForFrames: prop<boolean>(false).withSetter(),
   mediaSourceUrl: prop<string | null>(null).withSetter(),
   seekOffset: prop<number>(0).withSetter(),
   selectedFileIds: prop<string[]>(() => []).withSetter(),
-  volume: prop<number>(0).withSetter(),
+  volume: prop<number>(0.3).withSetter(),
 }) {
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
   @modelAction

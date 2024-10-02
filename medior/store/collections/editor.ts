@@ -92,7 +92,7 @@ export class CollectionEditor extends Model({
 
     const tagsRes = await trpc.listTags.mutate({ args: { filter: { id: collection.tagIds } } });
     if (!tagsRes.success) throw new Error(tagsRes.error);
-    const tags = tagsRes.data.items.sort((a, b) => a.count - b.count).map((t) => new Tag(t));
+    const tags = tagsRes.data.items.sort((a, b) => b.count - a.count).map((t) => new Tag(t));
     this.setTags(tags);
 
     const fileIds = [...new Set(fileIndexes.map((f) => f.fileId))];

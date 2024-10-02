@@ -33,7 +33,14 @@ export const ImportFolderList = observer(({ folder }: ImportFolderListProps) => 
   const { css } = useClasses(null);
 
   return (
-    <Card column flex="none" padding={{ all: 0 }} height={height} bgColor={colors.background}>
+    <Card
+      column
+      flex="none"
+      padding={{ all: 0 }}
+      height={height}
+      width="100%"
+      bgColor={colors.background}
+    >
       <View className={css.header}>
         <Text className={css.folderPath}>
           {folder.imports[0]?.path && path.dirname(folder.imports[0].path)}
@@ -45,7 +52,9 @@ export const ImportFolderList = observer(({ folder }: ImportFolderListProps) => 
       {folder?.collectionTitle?.length > 0 && (
         <View column className={css.collection}>
           <Text className={css.collectionTitle}>{folder.collectionTitle}</Text>
-          <Text fontSize="0.7em" textAlign="center">{"Collection"}</Text>
+          <Text fontSize="0.7em" textAlign="center">
+            {"Collection"}
+          </Text>
         </View>
       )}
 

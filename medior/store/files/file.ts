@@ -9,7 +9,7 @@ import {
   prop,
 } from "mobx-keystone";
 import { _File } from "medior/store/_generated";
-import { dayjs, getConfig, WEB_VIDEO_CODECS } from "medior/utils";
+import { dayjs, getConfig, WEB_VIDEO_CODECS, WEB_VIDEO_EXTS } from "medior/utils";
 
 @model("medior/File")
 export class File extends ExtendedModel(_File, {
@@ -46,8 +46,9 @@ export class File extends ExtendedModel(_File, {
 
   @computed
   get isWebPlayable() {
-    const regExp = new RegExp(`${WEB_VIDEO_CODECS.join("|")}`, "i");
-    return regExp.test(this.ext);
+    const codecRegEx = new RegExp(WEB_VIDEO_CODECS.join("|"), "i");
+    const extRegEx = new RegExp(WEB_VIDEO_EXTS.join("|"), "i");
+    return codecRegEx.test(this.videoCodec) && extRegEx.test(this.ext);
   }
 
   @computed

@@ -57,7 +57,12 @@ export const Carousel = observer(() => {
     stores.carousel.setCurTime(0);
     if (stores.carousel.seekOffset > 0) {
       stores.carousel.setSeekOffset(0);
-      stores.carousel.transcodeVideo();
+      stores.carousel.transcodeVideo({
+        onFirstFrames: () => {
+          videoRef.current?.seekTo(0);
+          stores.carousel.setIsPlaying(true);
+        },
+      });
     }
   };
 

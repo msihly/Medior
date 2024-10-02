@@ -49,7 +49,8 @@ export const TagManager = observer(() => {
 
   const handleRefreshTags = () => stores.tag.manager.refreshSelectedTags();
 
-  const handleSearchWindow = () => openSearchWindow({ tagIds: stores.tag.manager.search.selectedIds });
+  const handleSearchWindow = () =>
+    openSearchWindow({ tagIds: stores.tag.manager.search.selectedIds });
 
   const handleSelectAll = () => {
     stores.tag.manager.search.toggleSelected(
@@ -72,12 +73,12 @@ export const TagManager = observer(() => {
       height="100%"
       width="100%"
     >
-      <Modal.Content dividers={false} padding={{ top: "1rem" }}>
+      <Modal.Content dividers={false} padding={{ top: "1rem" }} overflow="hidden">
         <Card
           column
           flex={1}
-          overflow="hidden"
           padding={{ all: 0 }}
+          overflow="hidden"
           header={
             <UniformList row flex={1} justify="space-between">
               <View row align="center" spacing="0.5rem">

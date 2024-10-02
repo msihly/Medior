@@ -17,7 +17,7 @@ export const Content = ({
   children,
   className,
   dividers = true,
-  overflow = "inherit auto",
+  overflow = "auto",
   padding,
   position = "relative",
   spacing = "0.5rem",
