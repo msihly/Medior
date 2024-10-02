@@ -16,10 +16,17 @@ export interface SortValue {
   key: string;
 }
 
-export const SORT_OPTIONS: Record<
-  "DeletedFile" | "FileCollection" | "FileImportBatch" | "File" | "RegExMap" | "Tag",
-  SortOption[]
-> = {
+type ModelSortName =
+  | "DeletedFile"
+  | "FileCollection"
+  | "FileImportBatch"
+  | "File"
+  | "RegExMap"
+  | "Tag";
+
+type CustomSortName = "FileCollectionFile";
+
+const MODEL_SORT_OPTIONS: Record<ModelSortName, SortOption[]> = {
   DeletedFile: [{ attribute: "dateCreated", icon: "DateRange", label: "Date Created" }],
   FileCollection: [
     { attribute: "dateCreated", icon: "DateRange", label: "Date Created" },
@@ -46,3 +53,13 @@ export const SORT_OPTIONS: Record<
     { attribute: "label", icon: "Label", label: "Label" },
   ],
 };
+
+const CUSTOM_SORT_OPTIONS: Record<CustomSortName, SortOption[]> = {
+  FileCollectionFile: [
+    { attribute: "custom", icon: "Settings", label: "Custom" },
+    { attribute: "originalName", icon: "Abc", label: "Original Name" },
+    ...MODEL_SORT_OPTIONS.File,
+  ],
+};
+
+export const SORT_OPTIONS = { ...MODEL_SORT_OPTIONS, ...CUSTOM_SORT_OPTIONS };

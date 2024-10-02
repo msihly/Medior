@@ -245,11 +245,7 @@ export const FileCollectionEditor = observer(() => {
               <SortMenu
                 value={stores.collection.editor.search.sortValue}
                 setValue={setSortValue}
-                rows={[
-                  { attribute: "custom", icon: "Settings", label: "Custom" },
-                  { attribute: "originalName", icon: "Abc", label: "Original Name" },
-                  ...SORT_OPTIONS.File,
-                ]}
+                rows={SORT_OPTIONS.FileCollectionFile}
                 width="100%"
               />
             </Card>

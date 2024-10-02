@@ -152,6 +152,14 @@ const makeTagOptsProp = (idName: string, ancestorsName: string): ModelSearchProp
   type: "Stores.TagOption[]",
 });
 
+export const CUSTOM_SORT_OPTIONS: Record<string, string[]> = {
+  FileCollectionFile: [
+    `{ attribute: "custom", icon: "Settings", label: "Custom" }`,
+    `{ attribute: "originalName", icon: "Abc", label: "Original Name" }`,
+    `...MODEL_SORT_OPTIONS.File`,
+  ],
+};
+
 export const MODEL_SEARCH_STORES: ModelSearchStore[] = [
   {
     name: "File",
@@ -587,20 +595,36 @@ const makeStoreDef = async (modelDef: ModelDef) => {
 export const FILE_DEF_SORT_OPTIONS: FileDef = {
   name: "sort-options",
   makeFile: async () => {
+    const makeSortType = (names: string[]) => names.map((name) => `"${name}"`).join(" | ");
+
     return `import { IconName, IconProps } from "medior/components/media/icon";\n
       export interface SortOption {
         attribute: string;
         icon: IconName;
         iconProps?: Partial<IconProps>;
         label: string;
-      }\n
+      }
+
       export interface SortValue {
         isDesc: boolean;
         key: string;
-      }\n
-      export const SORT_OPTIONS: Record<${MODEL_DEFS.map((m) => `"${m.name}"`).join(" | ")}, SortOption[]> = {
-        ${MODEL_DEFS.map(makeSortDef)}
-      };`;
+      }
+
+      type ModelSortName = ${makeSortType(MODEL_DEFS.map((d) => d.name))};
+
+      type CustomSortName = ${makeSortType(Object.keys(CUSTOM_SORT_OPTIONS))};
+
+      const MODEL_SORT_OPTIONS: Record<ModelSortName, SortOption[]> = {
+        ${MODEL_DEFS.map(makeSortDef).join(",\n")}
+      };
+
+      const CUSTOM_SORT_OPTIONS: Record<CustomSortName, SortOption[]> = {
+        ${Object.entries(CUSTOM_SORT_OPTIONS)
+          .map(([key, value]) => `${key}: [${value.join(", ")}]`)
+          .join(",\n")}
+      };
+
+      export const SORT_OPTIONS = { ...MODEL_SORT_OPTIONS, ...CUSTOM_SORT_OPTIONS };`;
   },
 };
 

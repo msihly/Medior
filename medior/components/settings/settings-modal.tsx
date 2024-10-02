@@ -139,7 +139,7 @@ export const SettingsModal = observer(() => {
             <Settings.SortMenu
               header="Editor - Default Sort"
               configKey="collection.editor.search.sort"
-              rows={SORT_OPTIONS.File}
+              rows={SORT_OPTIONS.FileCollectionFile}
             />
 
             <Settings.NumInput
