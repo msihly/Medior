@@ -1,16 +1,22 @@
 import { KeyboardEvent, MutableRefObject } from "react";
 import { useStores } from "medior/store";
+import FilePlayer from "react-player/file";
+import { Toaster } from "medior/components";
+import { frameToSec, round, throttle } from "medior/utils";
 import { toast } from "react-toastify";
 
 const RATING_KEYS = ["1", "2", "3", "4", "5", "6", "7", "8", "9"];
 
 export interface UseHotkeysProps {
   rootRef?: MutableRefObject<HTMLElement>;
+  videoRef?: MutableRefObject<FilePlayer>;
   view: "carousel" | "home" | "search";
 }
 
-export const useHotkeys = ({ rootRef, view }: UseHotkeysProps) => {
+export const useHotkeys = ({ rootRef, videoRef, view }: UseHotkeysProps) => {
   const stores = useStores();
+
+  const toaster = new Toaster();
 
   const navCarouselByArrowKey = (isLeft: boolean) => {
     if (
@@ -66,10 +72,13 @@ export const useHotkeys = ({ rootRef, view }: UseHotkeysProps) => {
 
     const isOneFileSelected = fileIds.length === 1;
     const key = event.key;
+    const hasAlt = event.altKey;
+    const hasCtrl = event.ctrlKey;
+    const hasShift = event.shiftKey;
 
     event.preventDefault();
 
-    if (view !== "carousel" && event.ctrlKey && key === "a") {
+    if (view !== "carousel" && hasCtrl && key === "a") {
       stores.file.search.toggleSelected(
         stores.file.search.results.map(({ id }) => ({ id, isSelected: true }))
       );
@@ -82,8 +91,26 @@ export const useHotkeys = ({ rootRef, view }: UseHotkeysProps) => {
 
       if (["ArrowLeft", "ArrowRight"].includes(key)) {
         const isLeft = key === "ArrowLeft";
-        if (view === "carousel") navCarouselByArrowKey(isLeft);
-        else selectFileByArrowKey(isLeft, fileIds[0]);
+        if (view === "carousel") {
+          if (hasAlt || hasCtrl || hasShift) {
+            if (hasAlt) stores.carousel.setIsPlaying(false);
+            const dir = isLeft ? -1 : 1;
+            const frames = hasAlt ? 1 : hasShift ? 3 : 30;
+            const file = stores.carousel.getActiveFile();
+            const frameRate = hasAlt ? 1 : file.frameRate;
+            const totalFrames = round(file.totalFrames, 0);
+            const newFrame = Math.max(
+              0,
+              Math.min(totalFrames, round(stores.carousel.curFrame + dir * frames * frameRate, 0))
+            );
+
+            if (file.isWebPlayable) videoRef.current?.seekTo(newFrame / totalFrames, "fraction");
+            else await transcode(newFrame, file.frameRate);
+
+            const frameDiff = round(Math.abs(newFrame - stores.carousel.curFrame), 0);
+            toaster.toast(`Frame: ${newFrame} (${isLeft ? "-" : "+"}${frameDiff})`);
+          } else navCarouselByArrowKey(isLeft);
+        } else selectFileByArrowKey(isLeft, fileIds[0]);
       }
 
       if (RATING_KEYS.includes(key)) await stores.file.setFileRating({ fileIds, rating: +key });
@@ -92,7 +119,10 @@ export const useHotkeys = ({ rootRef, view }: UseHotkeysProps) => {
     if (key === "f") {
       if (isOneFileSelected) {
         const file = stores.file.getById(fileIds[0]);
-        if (file.isAnimated) return toast.error("Cannot detect faces in animated files");
+        if (file.isAnimated) {
+          toast.error("Cannot detect faces in animated files");
+          return;
+        }
 
         stores.faceRecog.setActiveFileId(file.id);
         stores.faceRecog.setIsModalOpen(true);
@@ -107,6 +137,14 @@ export const useHotkeys = ({ rootRef, view }: UseHotkeysProps) => {
 
     if (key === "Delete") stores.file.confirmDeleteFiles(fileIds);
   };
+
+  const transcode = throttle(async (frame: number, frameRate: number) => {
+    stores.carousel.setSeekOffset(frame);
+    return await stores.carousel.transcodeVideo({
+      seekTime: frameToSec(frame, frameRate),
+      onFirstFrames: () => stores.carousel.setCurFrame(frame, frameRate),
+    });
+  }, 400);
 
   return {
     handleKeyPress,

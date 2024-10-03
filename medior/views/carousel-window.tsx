@@ -1,14 +1,9 @@
 import { ipcRenderer } from "electron";
-import { WheelEvent, useEffect, useRef } from "react";
+import { MutableRefObject, WheelEvent, createContext, useEffect, useRef } from "react";
 import { observer, useStores } from "medior/store";
 import { PanzoomObject } from "@panzoom/panzoom";
-import {
-  Carousel,
-  CarouselThumbNavigator,
-  CarouselTopBar,
-  View,
-  ZoomContext,
-} from "medior/components";
+import FilePlayer from "react-player/file";
+import { Carousel, CarouselThumbNavigator, CarouselTopBar, View } from "medior/components";
 import { Views, useHotkeys, useSockets } from "./common";
 import {
   debounce,
@@ -18,19 +13,28 @@ import {
   zoomScaleStepOut,
 } from "medior/utils";
 
+export const VideoContext = createContext<MutableRefObject<FilePlayer>>(null);
+
+export const ZoomContext = createContext<MutableRefObject<PanzoomObject>>(null);
+
 export const CarouselWindow = observer(() => {
   const { css } = useClasses(null);
 
   const stores = useStores();
 
   const panZoomRef = useRef<PanzoomObject>(null);
+  const videoRef = useRef<FilePlayer>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const setRootRef = (ref: HTMLDivElement) => {
     rootRef.current = ref;
     ref?.focus();
   };
 
-  const { handleKeyPress, navCarouselByArrowKey } = useHotkeys({ rootRef, view: "carousel" });
+  const { handleKeyPress, navCarouselByArrowKey } = useHotkeys({
+    rootRef,
+    videoRef,
+    view: "carousel",
+  });
 
   const handleScroll = (event: WheelEvent) => {
     if (event.ctrlKey) {
@@ -89,24 +93,26 @@ export const CarouselWindow = observer(() => {
 
   return (
     <ZoomContext.Provider value={panZoomRef}>
-      <View
-        ref={setRootRef}
-        onKeyDown={handleKeyPress}
-        onMouseMove={handleMouseMove}
-        onWheel={handleScroll}
-        tabIndex={-1}
-        className={css.root}
-      >
-        <CarouselTopBar />
+      <VideoContext.Provider value={videoRef}>
+        <View
+          ref={setRootRef}
+          onKeyDown={handleKeyPress}
+          onMouseMove={handleMouseMove}
+          onWheel={handleScroll}
+          tabIndex={-1}
+          className={css.root}
+        >
+          <CarouselTopBar />
 
-        <Carousel />
+          <Carousel ref={videoRef} />
 
-        <CarouselThumbNavigator />
+          <CarouselThumbNavigator />
 
-        <Views.FileModals />
+          <Views.FileModals />
 
-        <Views.TagModals view="carousel" />
-      </View>
+          <Views.TagModals view="carousel" />
+        </View>
+      </VideoContext.Provider>
     </ZoomContext.Provider>
   );
 });

@@ -2,20 +2,24 @@ import remote from "@electron/remote";
 import fs from "fs/promises";
 import { computed } from "mobx";
 import { Model, getRootStore, model, modelAction, modelFlow, prop } from "mobx-keystone";
-import { toast } from "react-toastify";
 import { FileImport, RootStore, asyncAction, copyFileForImport } from "medior/store";
-import { dayjs, extractVideoFrame, trpc, videoTranscoder } from "medior/utils";
+import { Mark } from "@mui/base";
+import { dayjs, extractVideoFrame, frameToSec, trpc, videoTranscoder } from "medior/utils";
+import { toast } from "react-toastify";
 
 @model("medior/CarouselStore")
 export class CarouselStore extends Model({
   activeFileId: prop<string>("").withSetter(),
-  curFrame: prop<number>(1).withSetter(),
-  curTime: prop<number>(0).withSetter(),
+  curFrame: prop<number>(1),
+  curTime: prop<number>(0),
   isMouseMoving: prop<boolean>(false).withSetter(),
   isPinned: prop<boolean>(true).withSetter(),
   isPlaying: prop<boolean>(true).withSetter(),
   isWaitingForFrames: prop<boolean>(false).withSetter(),
+  markIn: prop<number>(null).withSetter(),
+  markOut: prop<number>(null).withSetter(),
   mediaSourceUrl: prop<string | null>(null).withSetter(),
+  playbackRate: prop<number>(1).withSetter(),
   seekOffset: prop<number>(0).withSetter(),
   selectedFileIds: prop<string[]>(() => []).withSetter(),
   volume: prop<number>(0.3).withSetter(),
@@ -43,6 +47,12 @@ export class CarouselStore extends Model({
 
     stores.file.search.setIds(newSelectedIds);
     stores.file.search.loadFiltered();
+  }
+
+  @modelAction
+  setCurFrame(frame: number, frameRate: number) {
+    this.curFrame = frame;
+    this.curTime = frameToSec(frame, frameRate);
   }
 
   @modelAction
@@ -105,6 +115,14 @@ export class CarouselStore extends Model({
   @computed
   get activeFileIndex() {
     return this.getFileIndex(this.activeFileId);
+  }
+
+  @computed
+  get videoMarks() {
+    const marks: Mark[] = [];
+    if (this.markIn) marks.push({ value: this.markIn, label: "A" });
+    if (this.markOut) marks.push({ value: this.markOut, label: "B" });
+    return marks;
   }
 
   /* ----------------------------- DYNAMIC GETTERS ---------------------------- */

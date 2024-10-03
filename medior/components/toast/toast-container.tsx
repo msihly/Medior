@@ -1,10 +1,25 @@
+import { ReactNode } from "react";
 import { Icon, IconName } from "medior/components";
+import { colors, makeClasses } from "medior/utils";
 import {
+  toast,
   ToastContainer as ToastContainerBase,
   ToastContainerProps,
   TypeOptions,
 } from "react-toastify";
-import { colors, makeClasses } from "medior/utils";
+
+export class Toaster {
+  private toastTimeoutRef = null;
+  private toastRef = null;
+
+  public toast(text: ReactNode, options?: { autoClose?: number; type?: TypeOptions }) {
+    const autoClose = options?.autoClose || 1000;
+    clearTimeout(this.toastTimeoutRef);
+    this.toastTimeoutRef = setTimeout(() => (this.toastRef = null), autoClose);
+    if (this.toastRef) toast.update(this.toastRef, { autoClose, render: text });
+    else this.toastRef = toast(() => text, { autoClose, type: options?.type || "info" });
+  }
+}
 
 export const ToastContainer = (props: ToastContainerProps) => {
   const { css } = useClasses(null);

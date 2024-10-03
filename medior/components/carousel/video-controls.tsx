@@ -1,163 +1,306 @@
-import { useState, forwardRef, MutableRefObject } from "react";
+import { useState, useContext } from "react";
 import { observer, useStores } from "medior/store";
-import FilePlayer from "react-player/file";
 import { Slider } from "@mui/material";
-import { IconButton, Text, View } from "medior/components";
-import { colors, commas, CONSTANTS, duration, makeClasses, round, throttle } from "medior/utils";
+import { VideoContext } from "medior/views";
+import { Button, IconButton, Text, Toaster, View } from "medior/components";
+import {
+  colors,
+  commas,
+  CONSTANTS,
+  duration,
+  frameToSec,
+  makeClasses,
+  round,
+  throttle,
+} from "medior/utils";
+import { toast } from "react-toastify";
 
-export const VideoControls = observer(
-  forwardRef((_, videoRef: MutableRefObject<FilePlayer>) => {
-    const stores = useStores();
-    const activeFile = stores.carousel.getActiveFile();
+export const VideoControls = observer(() => {
+  const stores = useStores();
+  const activeFile = stores.carousel.getActiveFile();
 
-    const [lastPlayingState, setLastPlayingState] = useState(false);
-    const [isVolumeVisible, setIsVolumeVisible] = useState(false);
-    const [lastVolume, setLastVolume] = useState(0.5);
+  const videoContext = useContext(VideoContext);
 
-    const { css } = useClasses({
-      isMouseMoving: stores.carousel.isMouseMoving,
-      isPinned: stores.carousel.isPinned,
-      isVideo: activeFile?.isVideo,
-      isVolumeVisible,
+  const [lastPlayingState, setLastPlayingState] = useState(false);
+  const [lastVolume, setLastVolume] = useState(0.5);
+
+  const { css } = useClasses(null);
+
+  const toaster = new Toaster();
+
+  const goToFrame = (frame: number) => {
+    stores.carousel.setIsPlaying(false);
+    setCurFrame(frame);
+    seekVideoPlayer(frame);
+    toaster.toast(`Frame: ${commas(frame)}`);
+  };
+
+  const goToNextFrame = () =>
+    goToFrame(Math.min(stores.carousel.curFrame + 1, activeFile?.totalFrames));
+
+  const goToPrevFrame = () => goToFrame(Math.max(stores.carousel.curFrame - 1, 1));
+
+  const handleFrameSeek = (event: any) => {
+    if (stores.carousel.isPlaying) {
+      setLastPlayingState(true);
+      stores.carousel.setIsPlaying(false);
+    }
+
+    const frame = event.target.value;
+    setCurFrame(frame);
+
+    if (!activeFile?.isWebPlayable) transcode(frame);
+    else seekVideoPlayer(frame);
+  };
+
+  const handleFrameSeekCommit = () => {
+    if (lastPlayingState) {
+      stores.carousel.setIsPlaying(true);
+      setLastPlayingState(false);
+    }
+  };
+
+  const getNewMark = (frame: number) =>
+    stores.carousel.videoMarks.map((m) => m.value).includes(frame) ? null : frame;
+
+  const handleMarkInChange = () => {
+    const newMarkIn = getNewMark(stores.carousel.curFrame);
+    if (![newMarkIn, stores.carousel.markOut].includes(null) && newMarkIn > stores.carousel.markOut)
+      return toast.error("Mark In (A) must be before Mark Out (B)");
+
+    stores.carousel.setMarkIn(newMarkIn);
+    toaster.toast(newMarkIn === null ? "Mark In (A) Cleared" : `Mark In (A): ${commas(newMarkIn)}`);
+  };
+
+  const handleMarkOutChange = () => {
+    const newMarkOut = getNewMark(stores.carousel.curFrame);
+    if (![stores.carousel.markIn, newMarkOut].includes(null) && newMarkOut < stores.carousel.markIn)
+      return toast.error("Mark Out (B) must be after Mark In (A)");
+
+    stores.carousel.setMarkOut(newMarkOut);
+    toaster.toast(
+      newMarkOut === null ? "Mark Out (B) Cleared" : `Mark Out (B): ${commas(newMarkOut)}`
+    );
+  };
+
+  const handlePlaybackRateChange = (_, rate: number) => stores.carousel.setPlaybackRate(rate);
+
+  const handleVolumeChange = (_, vol: number) => {
+    stores.carousel.setVolume(vol);
+    setLastVolume(vol);
+  };
+
+  const resetPlaybackRate = () => stores.carousel.setPlaybackRate(1);
+
+  const seekVideoPlayer = (frame: number) =>
+    videoContext?.current?.seekTo(frame / activeFile.totalFrames, "fraction");
+
+  const setCurFrame = (frame: number) => stores.carousel.setCurFrame(frame, activeFile.frameRate);
+
+  const toggleMute = () => {
+    if (stores.carousel.volume === 0) stores.carousel.setVolume(lastVolume);
+    else {
+      setLastVolume(lastVolume);
+      stores.carousel.setVolume(0);
+    }
+  };
+
+  const togglePlaying = () => stores.carousel.setIsPlaying(!stores.carousel.isPlaying);
+
+  const transcode = throttle(async (frame: number) => {
+    stores.carousel.setSeekOffset(frame);
+    return await stores.carousel.transcodeVideo({
+      seekTime: frameToSec(frame, activeFile.frameRate),
+      onFirstFrames: () => setCurFrame(frame),
     });
+  }, 200);
 
-    const frameToSec = (frame: number) => round(frame / activeFile?.frameRate || 1, 3);
+  return (
+    <View
+      row
+      spacing="0.5rem"
+      position={stores.carousel.isPinned ? undefined : "absolute"}
+      opacity={stores.carousel.isPinned ? 1 : stores.carousel.isMouseMoving ? 0.3 : 0}
+      className={css.videoControlBar}
+    >
+      <IconButton
+        name={stores.carousel.isPlaying ? "Pause" : "PlayArrow"}
+        onClick={togglePlaying}
+      />
 
-    const transcode = throttle(async (args: { frame: number; time: number }) => {
-      stores.carousel.setSeekOffset(args.frame);
-      return await stores.carousel.transcodeVideo({
-        seekTime: args.time,
-        onFirstFrames: () => {
-          stores.carousel.setCurFrame(args.frame);
-          stores.carousel.setCurTime(args.time);
-        },
-      });
-    }, 200);
+      <View row>
+        <IconButton name="SkipPrevious" onClick={goToPrevFrame} />
+        <IconButton name="SkipNext" onClick={goToNextFrame} />
+      </View>
 
-    const handleFrameSeek = (event: any) => {
-      if (stores.carousel.isPlaying) {
-        setLastPlayingState(true);
-        stores.carousel.setIsPlaying(false);
-      }
-
-      const frame = event.target.value;
-      const time = frameToSec(frame);
-      stores.carousel.setCurFrame(frame);
-      stores.carousel.setCurTime(time);
-
-      if (!activeFile?.isWebPlayable) transcode({ frame, time });
-      else videoRef.current?.seekTo(time, "seconds");
-    };
-
-    const handleFrameSeekCommit = () => {
-      if (lastPlayingState) {
-        stores.carousel.setIsPlaying(true);
-        setLastPlayingState(false);
-      }
-    };
-
-    const handleVolumeChange = (_, vol: number) => {
-      stores.carousel.setVolume(vol);
-      setLastVolume(vol);
-    };
-
-    const handleVolumeEnter = () => setIsVolumeVisible(true);
-
-    const handleVolumeLeave = () => setIsVolumeVisible(false);
-
-    const toggleMute = () => {
-      if (stores.carousel.volume === 0) stores.carousel.setVolume(lastVolume);
-      else {
-        setLastVolume(lastVolume);
-        stores.carousel.setVolume(0);
-      }
-    };
-
-    const togglePlaying = () => stores.carousel.setIsPlaying(!stores.carousel.isPlaying);
-
-    return (
-      <View row spacing="0.5rem" className={css.videoControlBar}>
-        <IconButton
-          name={stores.carousel.isPlaying ? "Pause" : "PlayArrow"}
-          onClick={togglePlaying}
+      <View row>
+        <Button
+          text="A"
+          onClick={handleMarkInChange}
+          fontWeight={600}
+          fontSize="0.9em"
+          color="transparent"
+          textColor={
+            stores.carousel.markIn !== null
+              ? stores.carousel.markOut !== null
+                ? colors.custom.green
+                : colors.custom.orange
+              : colors.custom.lightGrey
+          }
         />
 
-        <View column flex={1}>
-          <Slider
-            value={stores.carousel.curFrame}
-            onChange={handleFrameSeek}
-            onChangeCommitted={handleFrameSeekCommit}
-            min={1}
-            max={activeFile?.totalFrames}
-            step={1}
-            valueLabelDisplay="auto"
-            valueLabelFormat={(v) => (
-              <View column align="center" justify="center" width="7rem">
-                <Text>{`F: ${commas(v)} (${round((v / activeFile.totalFrames) * 100, 0)}%)`}</Text>
-                <Text>{`${duration(frameToSec(v))}`}</Text>
-              </View>
-            )}
-            className={css.slider}
-          />
-        </View>
-
-        <View column justify="center" height="100%" onMouseLeave={handleVolumeLeave}>
-          <View onMouseEnter={handleVolumeEnter}>
-            <IconButton
-              name={
-                stores.carousel.volume > 0.65
-                  ? "VolumeUp"
-                  : stores.carousel.volume > 0.3
-                    ? "VolumeDown"
-                    : stores.carousel.volume > 0
-                      ? "VolumeMute"
-                      : "VolumeOff"
-              }
-              onClick={toggleMute}
-            />
-          </View>
-
-          <View className={css.volumeSlider}>
-            <Slider
-              value={stores.carousel.volume}
-              onChange={handleVolumeChange}
-              min={0}
-              max={1}
-              step={0.01}
-              orientation="vertical"
-              valueLabelDisplay="off"
-              className={css.slider}
-            />
-          </View>
-        </View>
-
-        <View column>
-          <Text color={colors.custom.white} className={css.videoTime}>
-            {duration(stores.carousel.curTime)}
-          </Text>
-
-          <Text color={colors.custom.lightGrey} className={css.videoTime}>
-            {duration(activeFile?.duration)}
-          </Text>
-        </View>
+        <Button
+          text="B"
+          onClick={handleMarkOutChange}
+          fontWeight={600}
+          fontSize="0.9em"
+          color="transparent"
+          textColor={
+            stores.carousel.markOut !== null
+              ? stores.carousel.markIn !== null
+                ? colors.custom.green
+                : colors.custom.orange
+              : colors.custom.lightGrey
+          }
+        />
       </View>
-    );
-  })
-);
 
-interface ClassesProps {
-  isMouseMoving: boolean;
-  isPinned: boolean;
-  isVideo: boolean;
-  isVolumeVisible: boolean;
-}
+      <View column flex={1}>
+        <Slider
+          value={stores.carousel.curFrame}
+          onChange={handleFrameSeek}
+          onChangeCommitted={handleFrameSeekCommit}
+          min={1}
+          max={activeFile?.totalFrames}
+          step={1}
+          marks={stores.carousel.videoMarks}
+          valueLabelDisplay="auto"
+          valueLabelFormat={(v) => (
+            <View column align="center" justify="center" width="7rem">
+              <Text>{`F: ${commas(v)} (${round((v / activeFile.totalFrames) * 100, 0)}%)`}</Text>
+              <Text>{`${duration(frameToSec(v, activeFile.frameRate))}`}</Text>
+            </View>
+          )}
+          className={css.slider}
+        />
+      </View>
 
-const useClasses = makeClasses((props: ClassesProps) => ({
+      <View row align="center">
+        <CustomSlider
+          value={stores.carousel.volume}
+          onChange={handleVolumeChange}
+          min={0}
+          max={1}
+          step={0.01}
+        >
+          <IconButton
+            name={
+              stores.carousel.volume > 0.65
+                ? "VolumeUp"
+                : stores.carousel.volume > 0.3
+                  ? "VolumeDown"
+                  : stores.carousel.volume > 0
+                    ? "VolumeMute"
+                    : "VolumeOff"
+            }
+            onClick={toggleMute}
+          />
+        </CustomSlider>
+
+        <CustomSlider
+          value={stores.carousel.playbackRate}
+          onChange={handlePlaybackRateChange}
+          min={0.01}
+          max={3}
+          step={0.01}
+        >
+          <Button
+            text={`${stores.carousel.playbackRate.toFixed(2)}x`}
+            onClick={resetPlaybackRate}
+            color="transparent"
+            fontSize="0.9em"
+          />
+        </CustomSlider>
+      </View>
+
+      <View column>
+        <Text color={colors.custom.white} className={css.videoTime}>
+          {duration(stores.carousel.curTime)}
+        </Text>
+
+        <Text color={colors.custom.lightGrey} className={css.videoTime}>
+          {duration(activeFile?.duration)}
+        </Text>
+      </View>
+    </View>
+  );
+});
+
+const CustomSlider = (props: {
+  children: JSX.Element;
+  max: number;
+  min: number;
+  onChange: (event: any, value: number) => void;
+  step: number;
+  value: number;
+}) => {
+  const { css } = useClasses(null);
+
+  const [isDragging, setIsDragging] = useState(false);
+  const [isVisible, setIsVisible] = useState(false);
+
+  const handleMouseDown = () => setIsDragging(true);
+  const handleMouseUp = () => setIsDragging(false);
+
+  const handleMouseEnter = () => setIsVisible(true);
+  const handleMouseLeave = () => !isDragging && setIsVisible(false);
+
+  return (
+    <View column justify="center" height="100%" onMouseLeave={handleMouseLeave}>
+      <View onMouseEnter={handleMouseEnter}>{props.children}</View>
+
+      <View display={isVisible ? "block" : "none"} className={css.sliderContainer}>
+        <Slider
+          value={props?.value}
+          onChange={props?.onChange}
+          onMouseDown={handleMouseDown}
+          onMouseUp={handleMouseUp}
+          min={props?.min}
+          max={props?.max}
+          step={props?.step}
+          orientation="vertical"
+          valueLabelDisplay="off"
+          className={css.slider}
+        />
+      </View>
+    </View>
+  );
+};
+
+const useClasses = makeClasses({
   slider: {
+    marginBottom: "0 !important",
     color: colors.custom.lightBlue,
+    "& .MuiSlider-markLabel": {
+      top: -10,
+      fontSize: "0.65em",
+      fontWeight: 600,
+    },
+    "& .MuiSlider-thumb": {
+      borderRadius: "0.5rem",
+      height: 18,
+      width: 4,
+    },
+  },
+  sliderContainer: {
+    position: "absolute",
+    bottom: CONSTANTS.CAROUSEL.VIDEO.CONTROLS_HEIGHT,
+    padding: "0.8rem 0.3rem 0.4rem",
+    height: "8rem",
+    backgroundColor: "rgb(0, 0, 0, 0.5)",
+    borderRadius: "0.5rem 0.5rem 0 0",
   },
   videoControlBar: {
-    position: props.isPinned ? undefined : "absolute",
     bottom: 0,
     left: 0,
     right: 0,
@@ -169,20 +312,10 @@ const useClasses = makeClasses((props: ClassesProps) => ({
     backgroundColor: "rgb(0, 0, 0, 0.5)",
     cursor: "default",
     zIndex: 5,
-    opacity: props.isPinned ? 1 : props.isMouseMoving ? 0.3 : 0,
     "&:hover": { opacity: 1 },
   },
   videoTime: {
     fontSize: "0.8em",
     lineHeight: 1,
   },
-  volumeSlider: {
-    display: props.isVolumeVisible ? "block" : "none",
-    position: "absolute",
-    bottom: CONSTANTS.CAROUSEL.VIDEO.CONTROLS_HEIGHT,
-    padding: "0.8rem 0.3rem 0.4rem",
-    height: "8rem",
-    backgroundColor: "rgb(0, 0, 0, 0.5)",
-    borderRadius: "0.5rem 0.5rem 0 0",
-  },
-}));
+});

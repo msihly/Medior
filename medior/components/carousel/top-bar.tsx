@@ -1,6 +1,7 @@
 import { getCurrentWindow, screen } from "@electron/remote";
 import { useContext, useEffect, useRef, useState } from "react";
 import { observer, useStores } from "medior/store";
+import { ZoomContext } from "medior/views";
 import {
   getRatingMeta,
   Icon,
@@ -8,7 +9,6 @@ import {
   TagRow,
   Text,
   View,
-  ZoomContext,
 } from "medior/components";
 import { colors, makeClasses, round, zoomScaleStepIn, zoomScaleStepOut } from "medior/utils";
 
