@@ -57,7 +57,11 @@ export const useHotkeys = ({ rootRef, view }: UseHotkeysProps) => {
       return;
 
     const fileIds =
-      view === "carousel" ? [stores.carousel.activeFileId] : [...stores.file.search.selectedIds];
+      view === "carousel"
+        ? [stores.carousel.activeFileId]
+        : stores.collection.editor.isOpen
+          ? [...stores.collection.editor.search.selectedIds]
+          : [...stores.file.search.selectedIds];
     if (!fileIds.length) return;
 
     const isOneFileSelected = fileIds.length === 1;

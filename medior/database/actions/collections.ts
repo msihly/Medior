@@ -144,31 +144,6 @@ export const regenCollAttrs = makeAction(
   }
 );
 
-export const regenCollRating = makeAction(async (fileIds: string[]) => {
-  const collections = (
-    await models.FileCollectionModel.find({
-      fileIdIndexes: { $elemMatch: { fileId: { $in: fileIds } } },
-    })
-      .select({ _id: 1, fileIdIndexes: 1 })
-      .lean()
-  ).map((r) => leanModelToJson<models.FileCollectionSchema>(r));
-
-  await Promise.all(
-    collections.map(async (collection) => {
-      const filesRes = await actions.listFiles({
-        args: { filter: { id: collection.fileIdIndexes.map((f) => f.fileId) } },
-      });
-      if (!filesRes.success) throw new Error(filesRes.error);
-
-      const rating =
-        filesRes.data.items.reduce((acc, f) => acc + f.rating, 0) / filesRes.data.items.length;
-      await models.FileCollectionModel.updateOne({ _id: collection.id }, { rating });
-
-      socket.emit("onFileCollectionUpdated", { id: collection.id, updates: { rating } });
-    })
-  );
-});
-
 export const regenCollTagAncestors = makeAction(
   async (
     args: { collectionIds: string[]; tagIds?: never } | { collectionIds?: never; tagIds: string[] }

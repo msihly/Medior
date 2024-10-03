@@ -1,11 +1,10 @@
 import path from "path";
 import { shell } from "@electron/remote";
 import { ReactNode } from "react";
+import { FileSchema } from "medior/database";
 import { observer, useStores } from "medior/store";
 import { ContextMenu as ContextMenuBase, ViewProps } from "medior/components";
 import { colors, copyToClipboard } from "medior/utils";
-import { toast } from "react-toastify";
-import { FileSchema } from "medior/database";
 
 const DEFAULT_OPTIONS = {
   collections: true,
@@ -51,11 +50,7 @@ export const ContextMenu = observer(
       stores.faceRecog.setIsModalOpen(true);
     };
 
-    const handleRefresh = async () => {
-      const res = await stores.file.refreshFile({ id: file.id });
-      if (!res.success) toast.error("Failed to refresh info");
-      else toast.success("File info refreshed");
-    };
+    const handleRefresh = () => stores.file.refreshFiles({ ids: [file.id] });
 
     const openInfo = () => {
       stores.file.setActiveFileId(file.id);

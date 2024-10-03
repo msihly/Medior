@@ -18,6 +18,7 @@ import {
   CONSTANTS,
   dayjs,
   generateFramesThumbnail,
+  getConfig,
   getVideoInfo,
   makeQueue,
   PromiseQueue,
@@ -136,71 +137,68 @@ export class FileStore extends ExtendedModel(_FileStore, {
   );
 
   @modelFlow
-  refreshFile = asyncAction(async ({ curFile, id }: { curFile?: db.FileSchema; id: string }) => {
-    if (!curFile && !id) throw new Error("No file or id provided");
-    const file = !curFile ? this.getById(id) : new File(curFile);
-
-    const curThumbPaths = [...file.thumbPaths];
-
-    const [hash, { mtime, size }, imageInfo, videoInfo] = await Promise.all([
-      md5File(file.path),
-      fs.stat(file.path),
-      !file.isAnimated ? sharp(file.path).metadata() : null,
-      file.isAnimated ? getVideoInfo(file.path) : null,
-    ]);
-
-    const updates: Partial<File> = {
-      dateModified: dayjs(mtime).isAfter(file.dateModified)
-        ? mtime.toISOString()
-        : file.dateModified,
-      duration: file.isAnimated ? videoInfo?.duration : file.duration,
-      frameRate: file.isAnimated ? videoInfo?.frameRate : file.frameRate,
-      hash,
-      height: file.isAnimated ? videoInfo?.height : imageInfo?.height,
-      originalHash: file.originalHash ?? hash,
-      size,
-      videoCodec: videoInfo?.videoCodec,
-      width: file.isAnimated ? videoInfo?.width : imageInfo?.width,
-    };
-
-    const dirPath = path.dirname(file.path);
-
-    const thumbPaths = file.isAnimated
-      ? Array(9)
-          .fill("")
-          .map((_, i) => path.join(dirPath, `${hash}-thumb-${String(i + 1).padStart(2, "0")}.jpg`))
-      : [path.join(dirPath, `${hash}-thumb.jpg`)];
-
-    await (file.isAnimated
-      ? generateFramesThumbnail(file.path, dirPath, hash, videoInfo?.duration)
-      : sharp(file.path, { failOn: "none" })
-          .resize(null, CONSTANTS.FILE.THUMB.WIDTH)
-          .toFile(thumbPaths[0]));
-
-    updates["thumbPaths"] = thumbPaths;
-
-    await trpc.updateFile.mutate({ id, ...updates });
-    file.update?.(updates);
-
-    await Promise.all(curThumbPaths.map((t) => !t.endsWith(".jpg") && fs.unlink(t)));
-
-    return updates;
-  });
-
-  @modelFlow
   refreshFiles = asyncAction(async (args: { ids: string[] }) => {
     const stores = getRootStore<RootStore>(this);
 
     const filesRes = await trpc.listFiles.mutate({ args: { filter: { id: args.ids } } });
     if (!filesRes?.success) throw new Error("Failed to load files");
+    const files = filesRes.data.items;
 
     await makeQueue({
-      action: (item) => this.refreshFile({ curFile: item, id: item.id }),
-      items: filesRes.data.items,
+      action: async (file) => {
+        const curThumbPaths = [...file.thumbPaths];
+
+        const isAnimated = new RegExp(`gif|${getConfig().file.videoTypes.join("|")}`, "i").test(
+          file.ext
+        );
+
+        const [hash, { mtime, size }, imageInfo, videoInfo] = await Promise.all([
+          md5File(file.path),
+          fs.stat(file.path),
+          !isAnimated ? sharp(file.path).metadata() : null,
+          isAnimated ? getVideoInfo(file.path) : null,
+        ]);
+
+        const updates: Partial<File> = {
+          dateModified: dayjs(mtime).isAfter(file.dateModified)
+            ? mtime.toISOString()
+            : file.dateModified,
+          duration: isAnimated ? videoInfo?.duration : file.duration,
+          frameRate: isAnimated ? videoInfo?.frameRate : file.frameRate,
+          hash,
+          height: isAnimated ? videoInfo?.height : imageInfo?.height,
+          originalHash: file.originalHash ?? hash,
+          size,
+          videoCodec: videoInfo?.videoCodec,
+          width: isAnimated ? videoInfo?.width : imageInfo?.width,
+        };
+
+        const dirPath = path.dirname(file.path);
+
+        const thumbPaths = isAnimated
+          ? Array(9)
+              .fill("")
+              .map((_, i) =>
+                path.join(dirPath, `${hash}-thumb-${String(i + 1).padStart(2, "0")}.jpg`)
+              )
+          : [path.join(dirPath, `${hash}-thumb.jpg`)];
+
+        await (isAnimated
+          ? generateFramesThumbnail(file.path, dirPath, hash, videoInfo?.duration)
+          : sharp(file.path, { failOn: "none" })
+              .resize(null, CONSTANTS.FILE.THUMB.WIDTH)
+              .toFile(thumbPaths[0]));
+
+        updates["thumbPaths"] = thumbPaths;
+
+        await trpc.updateFile.mutate({ id: file.id, ...updates });
+        await Promise.all(curThumbPaths.map((t) => !t.endsWith(".jpg") && fs.unlink(t)));
+      },
+      items: files,
       logSuffix: "files",
       onComplete: () =>
         stores.collection.editor.isOpen
-          ? stores.collection.editor.loadCollection(stores.collection.editor.collection.id)
+          ? stores.collection.editor.search.loadFiltered()
           : this.search.loadFiltered(),
       queue: this.refreshQueue,
     });

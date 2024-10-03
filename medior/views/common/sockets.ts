@@ -114,9 +114,15 @@ export const useSockets = ({ view }: UseSocketsProps) => {
         if (stores.collection.manager.isOpen) stores.collection.manager.search.loadFiltered();
       });
 
-      makeSocket("onFileCollectionUpdated", ({ id }) => {
-        if (stores.collection.manager.isOpen) stores.collection.manager.search.loadFiltered();
-        if (stores.collection.editor.isOpen) stores.collection.editor.loadCollection(id);
+      makeSocket("onFileCollectionUpdated", ({ id, updates }) => {
+        if (stores.collection.manager.isOpen) {
+          stores.collection.manager.search.setHasChanges(true);
+          const collection = stores.collection.manager.search.getResult(id);
+          if (collection) collection.update(updates);
+        }
+
+        if (stores.collection.editor.isOpen && id === stores.collection.editor.collection.id)
+          stores.collection.editor.loadCollection(id);
       });
 
       makeSocket("onImportBatchCompleted", () => {

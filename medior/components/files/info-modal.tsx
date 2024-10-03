@@ -13,7 +13,6 @@ import {
   UniformList,
 } from "medior/components";
 import { colors, duration, formatBytes, makeClasses } from "medior/utils";
-import { toast } from "react-toastify";
 
 export const InfoModal = observer(() => {
   const { css } = useClasses(null);
@@ -28,9 +27,7 @@ export const InfoModal = observer(() => {
   const handleCurrentPath = () => shell.showItemInFolder(file.path);
 
   const handleRefresh = async () => {
-    const res = await stores.file.refreshFile({ id: stores.file.activeFileId });
-    if (!res.success) toast.error("Failed to refresh info");
-    else toast.success("File info refreshed");
+    await stores.file.refreshFiles({ ids: [file.id] });
   };
 
   return (

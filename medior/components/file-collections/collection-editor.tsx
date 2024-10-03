@@ -1,5 +1,6 @@
 import { ReactNode, useEffect, useState } from "react";
 import { observer, SORT_OPTIONS, useStores } from "medior/store";
+import { useHotkeys } from "medior/views";
 import {
   Button,
   Card,
@@ -9,6 +10,7 @@ import {
   FileSearchColumn,
   Input,
   ListItem,
+  LoadingOverlay,
   MenuButton,
   Modal,
   MultiActionButton,
@@ -25,6 +27,8 @@ import { toast } from "react-toastify";
 
 export const FileCollectionEditor = observer(() => {
   const stores = useStores();
+
+  const { handleKeyPress } = useHotkeys({ view: "home" });
 
   const hasNoSelection = stores.collection.editor.search.selectedIds.length === 0;
   const isCreate = stores.collection.editor.collection === null;
@@ -252,11 +256,14 @@ export const FileCollectionEditor = observer(() => {
             </Card>
           </View>
 
-          <Card column flex={1}>
+          <Card column flex={1} overflow="auto">
+            <LoadingOverlay isLoading={stores.collection.editor.search.isLoading} />
+
             <CardGrid
               cards={stores.collection.editor.search.results.map((f) => (
                 <FileCollectionFile key={f.id} file={f} />
               ))}
+              cardsProps={{ onKeyDown: handleKeyPress, tabIndex: 1 }}
             />
 
             <Pagination

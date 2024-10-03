@@ -127,9 +127,6 @@ export type ListCollectionIdsByTagIdsOutput = ReturnType<typeof db.listCollectio
 export type RegenCollAttrsInput = Parameters<typeof db.regenCollAttrs>[0];
 export type RegenCollAttrsOutput = ReturnType<typeof db.regenCollAttrs>;
 
-export type RegenCollRatingInput = Parameters<typeof db.regenCollRating>[0];
-export type RegenCollRatingOutput = ReturnType<typeof db.regenCollRating>;
-
 export type RegenCollTagAncestorsInput = Parameters<typeof db.regenCollTagAncestors>[0];
 export type RegenCollTagAncestorsOutput = ReturnType<typeof db.regenCollTagAncestors>;
 

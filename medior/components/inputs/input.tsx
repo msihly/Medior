@@ -99,7 +99,7 @@ export const Input = forwardRef(
     return (
       <HeaderWrapper
         {...{ flex, header, headerProps, width }}
-        overflow="hidden"
+        overflow="initial"
         aria-label="input-wrapper"
       >
         <TextField

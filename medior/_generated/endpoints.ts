@@ -88,7 +88,6 @@ export const serverRouter = trpc.router({
   refreshTag: serverEndpoint(db.refreshTag),
   refreshTagRelations: serverEndpoint(db.refreshTagRelations),
   regenCollAttrs: serverEndpoint(db.regenCollAttrs),
-  regenCollRating: serverEndpoint(db.regenCollRating),
   regenCollTagAncestors: serverEndpoint(db.regenCollTagAncestors),
   regenFileTagAncestors: serverEndpoint(db.regenFileTagAncestors),
   regenTagAncestors: serverEndpoint(db.regenTagAncestors),

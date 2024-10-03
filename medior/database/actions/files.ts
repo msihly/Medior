@@ -509,7 +509,7 @@ export const setFileRating = makeAction(async (args: { fileIds: string[]; rating
   await models.FileModel.updateMany({ _id: { $in: args.fileIds } }, updates);
   socket.emit("onFilesUpdated", { fileIds: args.fileIds, updates });
 
-  await actions.regenCollRating(args.fileIds);
+  await actions.regenCollAttrs({ fileIds: args.fileIds });
 });
 
 export const updateFile = makeAction(
