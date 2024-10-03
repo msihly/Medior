@@ -97,7 +97,11 @@ export const Input = forwardRef(
     };
 
     return (
-      <HeaderWrapper {...{ flex, header, headerProps, width }}>
+      <HeaderWrapper
+        {...{ flex, header, headerProps, width }}
+        overflow="hidden"
+        aria-label="input-wrapper"
+      >
         <TextField
           {...props}
           {...{ onClick, ref, value, variant }}
@@ -117,6 +121,7 @@ export const Input = forwardRef(
           inputProps={{ ...inputProps, maxLength, value: value ?? "" }}
           size="small"
           className={cx(css.input, className)}
+          aria-label="input"
         >
           {children}
         </TextField>

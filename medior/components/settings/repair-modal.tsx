@@ -108,6 +108,7 @@ export const RepairModal = observer(() => {
             </View>
 
             <View column>
+              {/* TODO: Implement */}
               <Checkbox
                 label="File Tags"
                 checked={isFileTagsChecked}
@@ -115,6 +116,7 @@ export const RepairModal = observer(() => {
                 disabled={isRepairing}
               />
 
+              {/* TODO: Implement */}
               <Checkbox
                 label="Collection Tags"
                 checked={isCollTagsChecked}
@@ -124,6 +126,7 @@ export const RepairModal = observer(() => {
             </View>
 
             <View column>
+              {/* TODO: Implement */}
               <Checkbox
                 label="Tag Counts"
                 checked={isTagCountsChecked}
@@ -131,6 +134,7 @@ export const RepairModal = observer(() => {
                 disabled={isRepairing}
               />
 
+              {/* TODO: Implement */}
               <Checkbox
                 label="Tag Relations"
                 checked={isTagRelationsChecked}

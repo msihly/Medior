@@ -81,10 +81,11 @@ export const TagMerger = observer(() => {
     setParentTags(mergeRelatedTags(parentIds, tagIdsToExclude));
   }, [selectedTagValue, tagLabelToKeep]);
 
-  const handleClose = () => {
+  const handleClose = async () => {
     setIsConfirmDiscardOpen(false);
     stores.tag.setIsTagMergerOpen(false);
     stores.file.search.reloadIfQueued();
+    return true;
   };
 
   const handleConfirm = async () => {

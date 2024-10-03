@@ -177,7 +177,7 @@ const useClasses = makeClasses((props: ClassesProps) => ({
     justifyContent: props.justify,
     alignItems: "center",
     border: `1px solid ${props.outlined ? props.color : "transparent"}`,
-    borderRadius: props.isCircle ? "50%" : undefined,
+    borderRadius: props.isCircle ? "50%" : "0.3rem",
     ...makeMargins(props.margins),
     padding: props.padding?.all,
     paddingTop: props.padding?.top ?? (props.isLink ? 0 : undefined),
@@ -189,21 +189,17 @@ const useClasses = makeClasses((props: ClassesProps) => ({
     backgroundColor: props.isLink
       ? "transparent"
       : props.outlined
-      ? props.outlineFill
-      : props.color,
-    boxShadow:
-      props.boxShadow ??
-      (props.isLink
-        ? "none"
-        : "0px 3px 1px -2px rgba(0,0,0,0.2), 0px 2px 2px 0px rgba(0,0,0,0.14), 0px 1px 5px 0px rgba(0,0,0,0.12)"),
+        ? props.outlineFill
+        : props.color,
+    boxShadow: props.boxShadow ?? "none",
     color: props.outlined
       ? props.color
-      : props.textColor ??
+      : (props.textColor ??
         (props.isLink
           ? colors.custom.lightBlue
           : props.outlined
-          ? props.color
-          : colors.custom.white),
+            ? props.color
+            : colors.custom.white)),
     textTransform: props.textTransform,
     "&:hover": {
       background: props.isLink

@@ -56,9 +56,10 @@ export const FileCollectionEditor = observer(() => {
   const handleArchiveFiles = () =>
     stores.file.confirmDeleteFiles(stores.collection.editor.search.selectedIds);
 
-  const handleClose = () => {
+  const handleClose = async () => {
     stores.collection.editor.setIsOpen(false);
     stores.file.search.reloadIfQueued();
+    return true;
   };
 
   const handleDelete = () => stores.collection.setIsConfirmDeleteOpen(true);

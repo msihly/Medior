@@ -49,10 +49,11 @@ export const FileTagEditor = observer(({ batchId, fileIds }: FileTagEditorProps)
     stores.file.search.reloadIfQueued();
   };
 
-  const handleCloseForced = () => {
+  const handleCloseForced = async () => {
     setHasUnsavedChanges(false);
     stores.tag.setIsFileTagEditorOpen(false);
     stores.file.search.reloadIfQueued();
+    return true;
   };
 
   const handleConfirm = async () => {

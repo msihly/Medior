@@ -46,10 +46,11 @@ export const MultiTagEditor = observer(() => {
     }
   };
 
-  const handleDiscard = () => {
+  const handleDiscard = async () => {
     setHasUnsavedChanges(false);
     setIsConfirmDiscardOpen(false);
     stores.tag.manager.setIsMultiTagEditorOpen(false);
+    return true;
   };
 
   return (

@@ -163,9 +163,10 @@ export const ImportEditor = observer(() => {
     scan();
   }, [stores.import.editor.isInitDone]);
 
-  const confirmDiscard = () => {
+  const confirmDiscard = async () => {
     stores.import.editor.setIsOpen(false);
     stores.file.search.reloadIfQueued();
+    return true;
   };
 
   const handleCancel = () => setIsConfirmDiscardOpen(true);

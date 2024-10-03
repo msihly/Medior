@@ -1,4 +1,4 @@
-import { Dispatch, SetStateAction } from "react";
+import { Dispatch, SetStateAction, useState } from "react";
 import { Button, Icon, IconName, Modal, Text } from "medior/components";
 import { colors } from "medior/utils";
 
@@ -11,7 +11,7 @@ export interface ConfirmModalProps {
   confirmText?: string;
   headerText?: string;
   onCancel?: () => void;
-  onConfirm: () => Promise<boolean> | void;
+  onConfirm: () => Promise<boolean>;
   setVisible: Dispatch<SetStateAction<boolean>>;
   subText: string;
 }
@@ -29,6 +29,8 @@ export const ConfirmModal = ({
   setVisible,
   subText,
 }: ConfirmModalProps) => {
+  const [isLoading, setIsLoading] = useState(false);
+
   const handleClose = () => setVisible(false);
 
   const handleCancel = () => {
@@ -37,17 +39,15 @@ export const ConfirmModal = ({
   };
 
   const handleConfirm = async () => {
-    if (onConfirm instanceof Promise) {
-      const success = await onConfirm();
-      if (success) handleClose();
-    } else {
-      onConfirm();
-      handleClose();
-    }
+    setIsLoading(true);
+    const success = await onConfirm();
+    setIsLoading(false);
+    if (success) handleClose();
   };
 
   return (
     <Modal.Container
+      isLoading={isLoading}
       onClose={handleCancel}
       height="100%"
       width="100%"
@@ -67,13 +67,20 @@ export const ConfirmModal = ({
       </Modal.Content>
 
       <Modal.Footer>
-        <Button text={cancelText} icon={cancelIcon} color={cancelColor} onClick={handleCancel} />
+        <Button
+          text={cancelText}
+          icon={cancelIcon}
+          color={cancelColor}
+          onClick={handleCancel}
+          disabled={isLoading}
+        />
 
         <Button
           text={confirmText}
           icon={confirmIcon}
           color={confirmColor}
           onClick={handleConfirm}
+          disabled={isLoading}
         />
       </Modal.Footer>
     </Modal.Container>

@@ -21,9 +21,10 @@ export const SettingsModal = observer(() => {
     else handleClose();
   };
 
-  const handleClose = () => {
+  const handleClose = async () => {
     stores.home.settings.setIsOpen(false);
     stores.home.settings.setHasUnsavedChanges(false);
+    return true
   };
 
   const handleLoadConfig = async () => {
