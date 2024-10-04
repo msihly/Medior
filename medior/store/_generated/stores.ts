@@ -816,6 +816,7 @@ export class _FileImportBatch extends Model({
   deleteOnImport: prop<boolean>(),
   ignorePrevDeleted: prop<boolean>(),
   imports: prop<Stores.FileImport[]>(() => []),
+  remux: prop<boolean>(null),
   rootFolderPath: prop<string>(),
   startedAt: prop<string>(null),
   tagIds: prop<string[]>(),

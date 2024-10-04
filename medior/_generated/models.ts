@@ -85,6 +85,7 @@ export interface FileImportBatchSchema {
   deleteOnImport: boolean;
   ignorePrevDeleted: boolean;
   imports: FileImport[];
+  remux?: boolean;
   rootFolderPath: string;
   startedAt?: string;
   tagIds: string[];
@@ -113,6 +114,7 @@ const FileImportBatchSchema = new Schema<FileImportBatchSchema>({
       thumbPaths: [String],
     },
   ],
+  remux: Boolean,
   rootFolderPath: String,
   startedAt: String,
   tagIds: [String],

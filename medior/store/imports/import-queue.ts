@@ -16,6 +16,7 @@ import {
   getConfig,
   getVideoInfo,
   makePerfLog,
+  remuxToMp4,
   sharp,
   trpc,
 } from "medior/utils";
@@ -26,6 +27,7 @@ interface CopyFileForImportProps {
   deleteOnImport: boolean;
   fileImport: FileImport;
   ignorePrevDeleted: boolean;
+  remux: boolean;
   tagIds: string[];
 }
 
@@ -42,6 +44,7 @@ export const copyFileForImport = async ({
   deleteOnImport,
   fileImport,
   ignorePrevDeleted,
+  remux,
   tagIds,
 }: CopyFileForImportProps): Promise<CopyFileForImportResult> => {
   const DEBUG = false;
@@ -49,28 +52,47 @@ export const copyFileForImport = async ({
 
   const config = getConfig();
   let hash: string;
+  let originalHash: string;
 
   try {
     const { dateCreated, extension, name, path: originalPath, size } = fileImport;
-    const ext = extension.toLowerCase();
+    let ext = extension.toLowerCase();
 
     const [targetDir] = await Promise.all([
       (async () => {
         const fileStorageRes = await getAvailableFileStorage(size);
         if (!fileStorageRes.success) throw new Error(fileStorageRes.error);
         const targetDir = fileStorageRes.data;
-        if (DEBUG) perfLog("Got target dir");
+        if (DEBUG) perfLog(`Got target dir: ${targetDir}`);
         return targetDir;
       })(),
       (async () => {
         hash = await md5File(originalPath);
-        if (DEBUG) perfLog("Hashed file");
+        originalHash = hash;
+        if (DEBUG) perfLog(`Hashed file: ${hash}`);
       })(),
     ]);
 
-    const dirPath = `${targetDir}\\${hash.substring(0, 2)}\\${hash.substring(2, 4)}`;
-    const extFromPath = originalPath.split(".").pop().toLowerCase();
-    const newPath = `${dirPath}\\${hash}.${extFromPath}`;
+    const makeDirPath = (_hash: string) =>
+      `${targetDir}\\${_hash.substring(0, 2)}\\${_hash.substring(2, 4)}`;
+
+    let dirPath = makeDirPath(hash);
+    let extFromPath = originalPath.split(".").pop().toLowerCase();
+    let newPath = `${dirPath}\\${hash}.${extFromPath}`;
+
+    const withRemux = remux && extFromPath === "ts";
+
+    if (withRemux) {
+      newPath = await remuxToMp4(originalPath, dirPath);
+      if (DEBUG) perfLog("Remuxed to MP4");
+
+      hash = await md5File(newPath);
+      if (DEBUG) perfLog(`Hashed remuxed file: ${hash}`);
+
+      dirPath = makeDirPath(hash);
+      extFromPath = newPath.split(".").pop().toLowerCase();
+      ext = `.${extFromPath}`;
+    }
 
     const [deletedFileRes, fileRes] = await Promise.all([
       trpc.getDeletedFile.mutate({ hash }),
@@ -80,7 +102,7 @@ export const copyFileForImport = async ({
     let file = fileRes.data;
     const isDuplicate = !!file;
     const isPrevDeleted = !!deletedFileRes.data;
-    if (DEBUG) perfLog("Checked if file is duplicate or previously deleted");
+    if (DEBUG) perfLog(`isDuplicate: ${isDuplicate}, isPrevDeleted: ${isPrevDeleted}`);
 
     const fileExistsAtPath = await checkFileExists(newPath);
     if (DEBUG) perfLog(`File exists at path: ${fileExistsAtPath}`);
@@ -110,28 +132,28 @@ export const copyFileForImport = async ({
     } else if (!(isPrevDeleted && ignorePrevDeleted)) {
       const isAnimated = [...config.file.videoTypes, "gif"].includes(extFromPath);
 
+      const videoPath = withRemux ? newPath : originalPath;
       const imageInfo = !isAnimated ? await sharp(originalPath).metadata() : null;
-      const videoInfo = isAnimated ? await getVideoInfo(originalPath) : null;
+      const videoInfo = isAnimated ? await getVideoInfo(videoPath) : null;
       const duration = isAnimated ? videoInfo?.duration : null;
       const frameRate = isAnimated ? videoInfo?.frameRate : null;
       const width = isAnimated ? videoInfo?.width : imageInfo?.width;
       const height = isAnimated ? videoInfo?.height : imageInfo?.height;
       const videoCodec = isAnimated ? videoInfo?.videoCodec : null;
-      if (DEBUG) perfLog("Got file info");
+      if (DEBUG)
+        perfLog(
+          `Got file info: originalPath: ${originalPath}; newPath: ${newPath}; videoPath = ${videoPath};`
+        );
 
-      const thumbPaths =
-        duration > 0
-          ? Array(9)
-              .fill("")
-              .map((_, i) =>
-                path.join(dirPath, `${hash}-thumb-${String(i + 1).padStart(2, "0")}.jpg`)
-              )
-          : [path.join(dirPath, `${hash}-thumb.jpg`)];
+      const hasFrames = duration > 0;
+      let thumbPaths = Array(hasFrames ? 9 : 1)
+        .fill("")
+        .map((_, i) => path.join(dirPath, `${hash}-thumb-${String(i + 1).padStart(2, "0")}.jpg`));
 
-      if (!dbOnly && !fileExistsAtPath) {
-        await (duration > 0
-          ? generateFramesThumbnail(originalPath, dirPath, hash, duration)
-          : sharp(originalPath).resize(null, CONSTANTS.FILE.THUMB.WIDTH).toFile(thumbPaths[0]));
+      if (!dbOnly && fileExistsAtPath) {
+        if (hasFrames)
+          thumbPaths = await generateFramesThumbnail(videoPath, dirPath, hash, duration);
+        else sharp(originalPath).resize(null, CONSTANTS.FILE.THUMB.WIDTH).toFile(thumbPaths[0]);
         if (DEBUG) perfLog("Generated thumbnail(s)");
       }
 
@@ -143,6 +165,7 @@ export const copyFileForImport = async ({
         frameRate,
         hash,
         height,
+        originalHash,
         originalName: name,
         originalPath,
         path: newPath,
@@ -178,6 +201,7 @@ export const copyFileForImport = async ({
           deleteOnImport,
           ignorePrevDeleted,
           fileImport,
+          remux,
           tagIds,
         });
       } else return { success: true, file: fileRes.data, isDuplicate: true };

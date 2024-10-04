@@ -128,6 +128,7 @@ export const StorageInputs = observer(() => {
           deleteOnImport: false,
           ignorePrevDeleted: false,
           imports: await filePathsToImports(filesLeftInStorageOnly),
+          remux: false,
           rootFolderPath: stores.import.editor.rootFolder,
         },
       ]);

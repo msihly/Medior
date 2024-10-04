@@ -137,6 +137,7 @@ export const ImportEditor = observer(() => {
     config.imports.withFolderNameRegEx
   );
   const [withNewTagsToRegEx, setWithNewTagsToRegEx] = useState(config.imports.withNewTagsToRegEx);
+  const [withRemux, setWithRemux] = useState(false);
 
   const [hasChangesSinceLastScan, setHasChangesSinceLastScan] = useState(false);
 
@@ -190,8 +191,6 @@ export const ImportEditor = observer(() => {
   const toggleFoldersToTagsCascading = () => setFolderToTagsMode("cascading");
 
   const toggleFoldersToTagsHierarchical = () => setFolderToTagsMode("hierarchical");
-
-  const toggleWithFolderNameRegEx = () => setWithFolderNameRegEx((prev) => !prev);
 
   const checkboxProps: Partial<CheckboxProps> = {
     disabled: stores.import.editor.isDisabled,
@@ -438,29 +437,30 @@ export const ImportEditor = observer(() => {
       }
     }
 
-    const batches = [...flatFolderHierarchy.values()].map((folder) => ({
-      collectionTitle: folder.collectionTitle,
-      deleteOnImport,
-      ignorePrevDeleted,
-      imports: folder.imports.map((imp) => ({
-        ...imp,
-        tagIds: [
-          ...new Set(
-            [
-              ...imp.tagIds,
-              ...imp.tagsToUpsert.map((t) => stores.tag.getByLabel(t.label)?.id),
-            ].filter(Boolean)
-          ),
-        ],
-      })),
-      rootFolderPath: folder.folderName
-        .split(path.sep)
-        .slice(0, stores.import.editor.rootFolderIndex + 1)
-        .join(path.sep),
-      tagIds: folder.tags.map((t) => stores.tag.getByLabel(t.label)?.id).filter(Boolean),
-    }));
-
-    const res = await stores.import.manager.createImportBatches(batches);
+    const res = await stores.import.manager.createImportBatches(
+      [...flatFolderHierarchy.values()].map((folder) => ({
+        collectionTitle: folder.collectionTitle,
+        deleteOnImport,
+        ignorePrevDeleted,
+        imports: folder.imports.map((imp) => ({
+          ...imp,
+          tagIds: [
+            ...new Set(
+              [
+                ...imp.tagIds,
+                ...imp.tagsToUpsert.map((t) => stores.tag.getByLabel(t.label)?.id),
+              ].filter(Boolean)
+            ),
+          ],
+        })),
+        rootFolderPath: folder.folderName
+          .split(path.sep)
+          .slice(0, stores.import.editor.rootFolderIndex + 1)
+          .join(path.sep),
+        tagIds: folder.tags.map((t) => stores.tag.getByLabel(t.label)?.id).filter(Boolean),
+        remux: withRemux,
+      }))
+    );
     if (!res.success) throw new Error(res.error);
 
     stores.import.editor.setIsSaving(false);
@@ -780,7 +780,7 @@ export const ImportEditor = observer(() => {
               {...checkboxProps}
               label="With RegEx"
               checked={withFolderNameRegEx}
-              setChecked={toggleWithFolderNameRegEx}
+              setChecked={setWithFolderNameRegEx}
               disabled={checkboxProps.disabled || folderToTagsMode === "none"}
             />
           </View>
@@ -859,6 +859,15 @@ export const ImportEditor = observer(() => {
               />
             </View>
           </View>
+
+          <Divider />
+
+          <Checkbox
+            {...checkboxProps}
+            label="Remux to MP4"
+            checked={withRemux}
+            setChecked={setWithRemux}
+          />
         </Card>
 
         <View column width="100%" spacing="0.5rem" overflow="hidden">

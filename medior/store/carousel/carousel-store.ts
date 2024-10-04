@@ -84,6 +84,7 @@ export class CarouselStore extends Model({
         status: "PENDING",
       }),
       ignorePrevDeleted: false,
+      remux: false,
       tagIds: activeFile.tagIds,
     });
     if (!copyRes.success) throw new Error(copyRes.error);

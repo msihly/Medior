@@ -1,5 +1,6 @@
 import fs from "fs/promises";
 import path from "path";
+import md5File from "md5-file";
 import { PassThrough } from "stream";
 import ffmpeg from "fluent-ffmpeg";
 import {
@@ -245,8 +246,14 @@ export const generateFramesThumbnail = async (
   duration: number = null,
   numOfFrames = 9
 ) => {
+  const DEBUG = false;
+
   try {
+    if (DEBUG) console.debug(`Generating thumbnails for: ${inputPath}`);
+
     duration ??= (await getVideoInfo(inputPath))?.duration;
+    if (DEBUG) console.debug(`Video duration: ${duration}`);
+
     const skipDuration = duration * CONSTANTS.FILE.THUMB.FRAME_SKIP_PERCENT;
     const frameInterval = (duration - skipDuration) / numOfFrames;
     const frameIndices = range(numOfFrames);
@@ -256,11 +263,17 @@ export const generateFramesThumbnail = async (
     );
     const timestamps = frameIndices.map((idx) => idx * frameInterval + skipDuration);
 
+    if (DEBUG)
+      console.debug(
+        `Timestamps for frames: ${timestamps}\nFile paths for thumbnails: ${filePaths}`
+      );
+
     await Promise.all(
       timestamps.map(
         (timestamp, idx) =>
-          new Promise(async (resolve, reject) => {
-            return ffmpeg()
+          new Promise<void>((resolve, reject) => {
+            if (DEBUG) console.debug(`Generating thumbnail for timestamp: ${timestamp}`);
+            ffmpeg()
               .input(inputPath)
               .inputOptions([`-ss ${timestamp}`])
               .outputOptions([
@@ -268,8 +281,14 @@ export const generateFramesThumbnail = async (
                 `-vframes 1`,
               ])
               .output(filePaths[idx])
-              .on("end", resolve)
-              .on("error", reject)
+              .on("end", () => {
+                if (DEBUG) console.debug(`Thumbnail generated: ${filePaths[idx]}`);
+                resolve();
+              })
+              .on("error", (err) => {
+                console.error(`Error generating thumbnail for timestamp ${timestamp}:`, err);
+                reject(err);
+              })
               .run();
           })
       )
@@ -280,6 +299,29 @@ export const generateFramesThumbnail = async (
     console.error("ERR::generateFramesThumbnail()", err);
     return [];
   }
+};
+
+export const remuxToMp4 = async (inputPath: string, outputDir: string) => {
+  const tempPath = path.join(outputDir, "temp.mp4");
+
+  await new Promise((resolve, reject) => {
+    ffmpeg()
+      .input(inputPath)
+      .outputOptions(["-c copy"])
+      .output(tempPath)
+      .on("end", resolve)
+      .on("error", reject)
+      .run();
+  });
+
+  const newHash = await md5File(tempPath);
+  const finalPath = path.join(outputDir, `${newHash}.mp4`);
+
+  await fs.rename(tempPath, finalPath);
+  const res = await checkFileExists(finalPath);
+  if (!res) throw new Error("Failed to remux to mp4.");
+
+  return finalPath;
 };
 
 /*

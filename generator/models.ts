@@ -148,6 +148,7 @@ const MODEL_FILE_IMPORT_BATCH: ModelDef = {
       typeName: "FileImport",
       withStore: true,
     },
+    { name: "remux", schemaType: "Boolean", type: "boolean" },
     { name: "rootFolderPath", required: true, schemaType: "String", type: "string" },
     { name: "startedAt", schemaType: "String", type: "string" },
     { name: "tagIds", required: true, schemaType: "[String]", type: "string[]" },

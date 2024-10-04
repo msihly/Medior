@@ -262,6 +262,7 @@ export class ImportManager extends Model({
       deleteOnImport: batch.deleteOnImport,
       fileImport,
       ignorePrevDeleted: batch.ignorePrevDeleted,
+      remux: batch.remux,
       tagIds,
     });
     if (DEBUG) perfLog("File imported");
@@ -278,7 +279,20 @@ export class ImportManager extends Model({
     const thumbPaths = copyRes.file?.thumbPaths ?? [];
 
     try {
-      batch.updateImport(filePath, { errorMsg, fileId, status, thumbPaths });
+      batch.updateImport(
+        {
+          originalPath: fileImport.path,
+          newPath: copyRes.file?.path,
+        },
+        {
+          errorMsg,
+          extension: copyRes.file?.ext,
+          fileId,
+          path: copyRes.file?.path,
+          status,
+          thumbPaths,
+        }
+      );
       if (DEBUG) perfLog("Updated import in store");
 
       const updateRes = await trpc.updateFileImportByPath.mutate({

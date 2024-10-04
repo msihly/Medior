@@ -260,6 +260,7 @@ export const importFile = makeAction(
     frameRate: number;
     hash: string;
     height: number;
+    originalHash?: string;
     originalName: string;
     originalPath: string;
     path: string;
@@ -273,7 +274,7 @@ export const importFile = makeAction(
       ...args,
       dateModified: dayjs().toISOString(),
       isArchived: false,
-      originalHash: args.hash,
+      originalHash: args.originalHash ?? args.hash,
       path: args.path,
       rating: 0,
       tagIdsWithAncestors: await actions.deriveAncestorTagIds(args.tagIds),

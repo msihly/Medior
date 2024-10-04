@@ -32,6 +32,7 @@ export const createImportBatches = makeAction(
       deleteOnImport: boolean;
       ignorePrevDeleted: boolean;
       imports: ModelCreationData<FileImport>[];
+      remux: boolean;
       rootFolderPath: string;
       tagIds?: string[];
     }[]

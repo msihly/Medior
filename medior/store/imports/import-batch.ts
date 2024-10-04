@@ -18,9 +18,11 @@ export class FileImportBatch extends ExtendedModel(_FileImportBatch, {}) {
   }
 
   @modelAction
-  updateImport(filePath: string, updates: Partial<FileImport>) {
-    const index = this.imports.findIndex((imp) => imp.path === filePath);
-    this.imports[index].update(updates);
+  updateImport(paths: { originalPath?: string; newPath?: string }, updates: Partial<FileImport>) {
+    const index = this.imports.findIndex((imp) =>
+      [paths.newPath, paths.originalPath].includes(imp.path)
+    );
+    this.imports[index]?.update(updates);
   }
 
   /* ----------------------------- DYNAMIC GETTERS ---------------------------- */
