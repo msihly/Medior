@@ -22,7 +22,6 @@ export const VideoControls = observer(() => {
   const videoContext = useContext(VideoContext);
 
   const [lastPlayingState, setLastPlayingState] = useState(false);
-  const [lastVolume, setLastVolume] = useState(0.5);
 
   const { css } = useClasses(null);
 
@@ -87,7 +86,7 @@ export const VideoControls = observer(() => {
 
   const handleVolumeChange = (_, vol: number) => {
     stores.carousel.setVolume(vol);
-    setLastVolume(vol);
+    stores.carousel.setLastVolume(vol);
   };
 
   const resetPlaybackRate = () => stores.carousel.setPlaybackRate(1);
@@ -97,15 +96,9 @@ export const VideoControls = observer(() => {
 
   const setCurFrame = (frame: number) => stores.carousel.setCurFrame(frame, activeFile.frameRate);
 
-  const toggleMute = () => {
-    if (stores.carousel.volume === 0) stores.carousel.setVolume(lastVolume);
-    else {
-      setLastVolume(lastVolume);
-      stores.carousel.setVolume(0);
-    }
-  };
+  const toggleMute = () => stores.carousel.toggleMute();
 
-  const togglePlaying = () => stores.carousel.setIsPlaying(!stores.carousel.isPlaying);
+  const togglePlaying = () => stores.carousel.toggleIsPlaying();
 
   const transcode = throttle(async (frame: number) => {
     stores.carousel.setSeekOffset(frame);
@@ -244,7 +237,7 @@ const CustomSlider = (props: {
   step: number;
   value: number;
 }) => {
-  const { css } = useClasses(null);
+  const { css } = useClasses({ isVertical: true });
 
   const [isDragging, setIsDragging] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
@@ -256,7 +249,13 @@ const CustomSlider = (props: {
   const handleMouseLeave = () => !isDragging && setIsVisible(false);
 
   return (
-    <View column justify="center" height="100%" onMouseLeave={handleMouseLeave}>
+    <View
+      column
+      justify="center"
+      height="100%"
+      onMouseLeave={handleMouseLeave}
+      padding={{ top: "1rem", bottom: "1rem" }}
+    >
       <View onMouseEnter={handleMouseEnter}>{props.children}</View>
 
       <View display={isVisible ? "block" : "none"} className={css.sliderContainer}>
@@ -277,7 +276,7 @@ const CustomSlider = (props: {
   );
 };
 
-const useClasses = makeClasses({
+const useClasses = makeClasses((props?: { isVertical: boolean }) => ({
   slider: {
     marginBottom: "0 !important",
     color: colors.custom.lightBlue,
@@ -288,14 +287,14 @@ const useClasses = makeClasses({
     },
     "& .MuiSlider-thumb": {
       borderRadius: "0.5rem",
-      height: 18,
-      width: 4,
+      height: props?.isVertical ? 4 : 18,
+      width: props?.isVertical ? 18 : 4,
     },
   },
   sliderContainer: {
     position: "absolute",
     bottom: CONSTANTS.CAROUSEL.VIDEO.CONTROLS_HEIGHT,
-    padding: "0.8rem 0.3rem 0.4rem",
+    padding: "0.8rem 0.3rem 0",
     height: "8rem",
     backgroundColor: "rgb(0, 0, 0, 0.5)",
     borderRadius: "0.5rem 0.5rem 0 0",
@@ -318,4 +317,4 @@ const useClasses = makeClasses({
     fontSize: "0.8em",
     lineHeight: 1,
   },
-});
+}));

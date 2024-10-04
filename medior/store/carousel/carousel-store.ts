@@ -16,6 +16,7 @@ export class CarouselStore extends Model({
   isPinned: prop<boolean>(true).withSetter(),
   isPlaying: prop<boolean>(true).withSetter(),
   isWaitingForFrames: prop<boolean>(false).withSetter(),
+  lastVolume: prop<number>(0.3).withSetter(),
   markIn: prop<number>(null).withSetter(),
   markOut: prop<number>(null).withSetter(),
   mediaSourceUrl: prop<string | null>(null).withSetter(),
@@ -58,6 +59,20 @@ export class CarouselStore extends Model({
   @modelAction
   toggleIsPinned() {
     this.setIsPinned(!this.isPinned);
+  }
+
+  @modelAction
+  toggleIsPlaying() {
+    this.setIsPlaying(!this.isPlaying);
+  }
+
+  @modelAction
+  toggleMute() {
+    if (this.volume === 0) this.setVolume(this.lastVolume);
+    else {
+      this.setLastVolume(this.volume);
+      this.setVolume(0);
+    }
   }
 
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */

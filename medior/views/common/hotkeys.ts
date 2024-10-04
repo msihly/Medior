@@ -114,6 +114,18 @@ export const useHotkeys = ({ rootRef, videoRef, view }: UseHotkeysProps) => {
       }
 
       if (RATING_KEYS.includes(key)) await stores.file.setFileRating({ fileIds, rating: +key });
+
+      if (view === "carousel") {
+        if (key === " ") stores.carousel.toggleIsPlaying();
+        else if (["ArrowUp", "ArrowDown"].includes(key)) {
+          const vol =
+            key === "ArrowUp"
+              ? Math.min(1, stores.carousel.volume + 0.05)
+              : Math.max(0, stores.carousel.volume - 0.05);
+          stores.carousel.setVolume(vol);
+          stores.carousel.setLastVolume(vol);
+        }
+      }
     }
 
     if (key === "f") {
