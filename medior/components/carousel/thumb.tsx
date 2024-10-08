@@ -32,7 +32,7 @@ export const CarouselThumb = observer(({ id, isDragging = false, style }: Carous
         position="top-left"
       />
 
-      <FileBase.Image thumbPaths={file?.thumbPaths} title={file?.originalName} />
+      <FileBase.Image {...{ file }} thumbPaths={file?.thumbPaths} title={file?.originalName} />
 
       <FileBase.Chip label={file?.ext} position="top-right" />
 

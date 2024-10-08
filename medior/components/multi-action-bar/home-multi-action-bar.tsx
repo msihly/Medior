@@ -1,6 +1,6 @@
 import { observer, useStores } from "medior/store";
 import { AppBar } from "@mui/material";
-import { FileFilterMenu, View } from "medior/components";
+import { Chip, FileFilterMenu, View } from "medior/components";
 import { MultiActionButton, SelectedFilesInfo } from ".";
 import { colors, CONSTANTS, makeClasses } from "medior/utils";
 import { toast } from "react-toastify";
@@ -34,7 +34,8 @@ export const HomeMultiActionBar = observer(() => {
     stores.tag.setIsFileTagEditorOpen(true);
   };
 
-  const handleFileInfoRefresh = () => stores.file.refreshFiles({ ids: stores.file.search.selectedIds });
+  const handleFileInfoRefresh = () =>
+    stores.file.refreshFiles({ ids: stores.file.search.selectedIds });
 
   const handleSelectAll = () => {
     stores.file.search.toggleSelected(
@@ -43,7 +44,8 @@ export const HomeMultiActionBar = observer(() => {
     toast.info(`Added ${stores.file.search.results.length} files to selection`);
   };
 
-  const handleUnarchive = () => stores.file.unarchiveFiles({ fileIds: stores.file.search.selectedIds });
+  const handleUnarchive = () =>
+    stores.file.unarchiveFiles({ fileIds: stores.file.search.selectedIds });
 
   const toggleFileCardFit = () =>
     stores.home.setFileCardFit(stores.home.fileCardFit === "cover" ? "contain" : "cover");
@@ -55,6 +57,8 @@ export const HomeMultiActionBar = observer(() => {
           <View row width="10rem">
             <FileFilterMenu store={stores.file.search} />
           </View>
+
+          {stores.file.search.isArchiveOpen && <Chip label="Archived" bgColor={colors.custom.red} />}
 
           {stores.file.search.selectedIds.length > 0 && <SelectedFilesInfo />}
         </View>

@@ -1,6 +1,4 @@
 import { promises as fs } from "fs";
-import path from "path";
-import md5File from "md5-file";
 import {
   ExtendedModel,
   getRootStore,
@@ -11,21 +9,10 @@ import {
   prop,
 } from "mobx-keystone";
 import * as db from "medior/database";
-import { asyncAction, FaceModel, RootStore } from "medior/store";
+import { asyncAction, FaceModel, FileImporter, RootStore } from "medior/store";
 import { _FileStore } from "medior/store/_generated";
 import { File, FileSearch } from ".";
-import {
-  CONSTANTS,
-  dayjs,
-  generateFramesThumbnail,
-  getConfig,
-  getVideoInfo,
-  makeQueue,
-  PromiseQueue,
-  sharp,
-  splitArray,
-  trpc,
-} from "medior/utils";
+import { makeQueue, PromiseQueue, splitArray, trpc } from "medior/utils";
 import { toast } from "react-toastify";
 
 @model("medior/FileStore")
@@ -148,50 +135,21 @@ export class FileStore extends ExtendedModel(_FileStore, {
       action: async (file) => {
         const curThumbPaths = [...file.thumbPaths];
 
-        const isAnimated = new RegExp(`gif|${getConfig().file.videoTypes.join("|")}`, "i").test(
-          file.ext
-        );
+        const importer = new FileImporter({
+          deleteOnImport: false,
+          ext: file.ext,
+          ignorePrevDeleted: false,
+          originalName: file.originalName,
+          originalPath: file.path,
+          size: file.size,
+          tagIds: file.tagIds,
+          withRemux: false,
+        });
 
-        const [hash, { mtime, size }, imageInfo, videoInfo] = await Promise.all([
-          md5File(file.path),
-          fs.stat(file.path),
-          !isAnimated ? sharp(file.path).metadata() : null,
-          isAnimated ? getVideoInfo(file.path) : null,
-        ]);
+        const res = await importer.import();
+        if (!res.success) throw new Error(res.error);
 
-        const updates: Partial<File> = {
-          dateModified: dayjs(mtime).isAfter(file.dateModified)
-            ? mtime.toISOString()
-            : file.dateModified,
-          duration: isAnimated ? videoInfo?.duration : file.duration,
-          frameRate: isAnimated ? videoInfo?.frameRate : file.frameRate,
-          hash,
-          height: isAnimated ? videoInfo?.height : imageInfo?.height,
-          originalHash: file.originalHash ?? hash,
-          size,
-          videoCodec: videoInfo?.videoCodec,
-          width: isAnimated ? videoInfo?.width : imageInfo?.width,
-        };
-
-        const dirPath = path.dirname(file.path);
-
-        const thumbPaths = isAnimated
-          ? Array(9)
-              .fill("")
-              .map((_, i) =>
-                path.join(dirPath, `${hash}-thumb-${String(i + 1).padStart(2, "0")}.jpg`)
-              )
-          : [path.join(dirPath, `${hash}-thumb.jpg`)];
-
-        await (isAnimated
-          ? generateFramesThumbnail(file.path, dirPath, hash, videoInfo?.duration)
-          : sharp(file.path, { failOn: "none" })
-              .resize(null, CONSTANTS.FILE.THUMB.WIDTH)
-              .toFile(thumbPaths[0]));
-
-        updates["thumbPaths"] = thumbPaths;
-
-        await trpc.updateFile.mutate({ id: file.id, ...updates });
+        await trpc.updateFile.mutate({ id: file.id, ...res.file });
         await Promise.all(curThumbPaths.map((t) => !t.endsWith(".jpg") && fs.unlink(t)));
       },
       items: files,

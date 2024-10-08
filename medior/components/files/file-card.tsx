@@ -73,6 +73,7 @@ export const FileCard = observer(({ disabled, file, height, id, width }: FileCar
           selected={stores.file.search.getIsSelected(file.id)}
         >
           <FileBase.Image
+            file={file}
             thumbPaths={file.thumbPaths}
             title={file.originalName}
             height={height}

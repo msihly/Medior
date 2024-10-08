@@ -67,7 +67,7 @@ export interface Constants {
   FILE: {
     THUMB: {
       FRAME_SKIP_PERCENT: number;
-      WIDTH: number;
+      MAX_DIM: number;
     };
   };
   HOME: {
@@ -92,7 +92,7 @@ export const CONSTANTS: Constants = {
   FILE: {
     THUMB: {
       FRAME_SKIP_PERCENT: 0.03,
-      WIDTH: 200,
+      MAX_DIM: 300,
     },
   },
   HOME: {

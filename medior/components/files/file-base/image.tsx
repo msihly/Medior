@@ -7,7 +7,8 @@ import {
   useState,
 } from "react";
 import { Icon, View } from "medior/components";
-import { colors, CSS, makeClasses } from "medior/utils";
+import { colors, CSS, debounce, getScaledThumbSize, makeClasses } from "medior/utils";
+import { File } from "medior/store";
 
 interface ImageProps
   extends Omit<
@@ -18,6 +19,7 @@ interface ImageProps
   children?: ReactNode | ReactNode[];
   disabled?: boolean;
   draggable?: boolean;
+  file?: File;
   fit?: "contain" | "cover";
   height?: CSS["height"];
   rounded?: "all" | "bottom" | "top";
@@ -31,6 +33,7 @@ export const Image = ({
   className,
   disabled,
   draggable = false,
+  file,
   fit = "cover",
   height,
   loading = "lazy",
@@ -46,27 +49,36 @@ export const Image = ({
   const [imagePos, setImagePos] = useState<CSS["objectPosition"]>(null);
   const [thumbIndex, setThumbIndex] = useState(0);
 
-  const { css, cx } = useClasses({ fit, height, imagePos, rounded });
+  const isAnimated = !disabled && !autoAnimate && file?.isAnimated;
+  const scaled = getScaledThumbSize(file.width, file.height);
+  const videoPos = `${(thumbIndex % 3) * -scaled.width}px ${(Math.floor(thumbIndex / 3) % 3) * -scaled.height}px`;
 
-  const hasListeners = !disabled && !autoAnimate && thumbPaths?.length > 1;
-
-  const createThumbInterval = () => {
-    if (hasError) return;
-    thumbInterval.current = setInterval(() => {
-      setHasError(false);
-      setThumbIndex((thumbIndex) => (thumbIndex + 1 === thumbPaths?.length ? 0 : thumbIndex + 1));
-    }, 300);
-  };
+  const { css, cx } = useClasses({
+    fit,
+    height,
+    imagePos: isAnimated ? videoPos : imagePos,
+    isAnimated,
+    rounded,
+  });
 
   useEffect(() => {
-    if (!autoAnimate) return;
-    createThumbInterval();
+    if (autoAnimate) createThumbInterval();
     return () => clearInterval(thumbInterval.current);
   }, []);
 
   const handleError = () => {
     setHasError(true);
     clearInterval(thumbInterval.current);
+  };
+
+  const createThumbInterval = () => {
+    if (file?.width > 0 && file?.height > 0)
+      thumbInterval.current = setInterval(() => {
+        setThumbIndex((prev) => {
+          const newIndex = prev + 1 >= 9 ? 0 : prev + 1;
+          return newIndex;
+        });
+      }, 300);
   };
 
   const handleMouseEnter = () => {
@@ -82,21 +94,24 @@ export const Image = ({
     setHasError(false);
   };
 
+  const debouncedMouseMove = debounce((height, width, offsetX, offsetY) => {
+    if (!isAnimated)
+      setImagePos(
+        `${(Math.max(0, offsetX) / width) * 100}% ${(Math.max(0, offsetY) / height) * 100}%`
+      );
+  }, 100);
+
   const handleMouseMove = (event: React.MouseEvent) => {
     const { height, left, top, width } = event.currentTarget.getBoundingClientRect();
     const offsetX = event.pageX - left;
     const offsetY = event.pageY - top;
-    const pos = `${(Math.max(0, offsetX) / width) * 100}% ${
-      (Math.max(0, offsetY) / height) * 100
-    }%`;
-
-    setImagePos(pos);
+    debouncedMouseMove(height, width, offsetX, offsetY);
   };
 
   return (
     <View
-      onMouseEnter={hasListeners ? handleMouseEnter : undefined}
-      onMouseLeave={hasListeners ? handleMouseLeave : undefined}
+      onMouseEnter={isAnimated ? handleMouseEnter : undefined}
+      onMouseLeave={isAnimated ? handleMouseLeave : undefined}
       className={cx(css.imageContainer, className)}
     >
       {hasError ? (
@@ -111,7 +126,7 @@ export const Image = ({
       ) : thumbPaths?.length > 0 ? (
         <img
           {...{ draggable, loading, onDragEnd, onDragStart }}
-          src={thumbPaths[thumbIndex]}
+          src={thumbPaths[0]}
           alt={title}
           onError={handleError}
           onMouseMove={fit === "cover" ? handleMouseMove : undefined}
@@ -131,6 +146,7 @@ interface ClassesProps {
   fit: ImageProps["fit"];
   height: ImageProps["height"];
   imagePos: CSS["objectPosition"];
+  isAnimated: boolean;
   rounded: ImageProps["rounded"];
 }
 
@@ -144,17 +160,18 @@ const useClasses = makeClasses((props: ClassesProps) => ({
       borderBottomLeftRadius: "inherit",
       borderBottomRightRadius: "inherit",
     }),
-    height: props.height ?? "inherit",
+    height: props.height ?? (props.fit === "cover" && !props.isAnimated ? "inherit" : undefined),
     width: "100%",
+    objectFit: "none",
+    objectPosition: props.fit === "cover" || props.isAnimated ? props.imagePos : undefined,
+    transition: `all 100ms ease, object-position ${props.fit === "cover" && !props.isAnimated ? 100 : 0}ms ease-in-out`,
     userSelect: "none",
-    transition: "all 100ms ease",
-    objectFit: props.fit,
-    objectPosition: props.imagePos,
   },
   imageContainer: {
     position: "relative",
     display: "flex",
     flexDirection: "column",
+    justifyContent: "center",
     borderRadius: "inherit",
     height: "100%",
     ...(["all", "top"].includes(props.rounded) && {

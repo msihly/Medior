@@ -2,7 +2,17 @@
 import { promises as fs, constants as fsc } from "fs";
 import path from "path";
 import prettier from "prettier";
-import { handleErrors, makePerfLog } from "medior/utils";
+import { FileSchema, ImportFileInput } from "medior/database";
+import {
+  CONSTANTS,
+  dayjs,
+  getConfig,
+  getVideoInfo,
+  handleErrors,
+  makePerfLog,
+  sharp,
+  vidToThumbGrid,
+} from "medior/utils";
 
 export const checkFileExists = async (path: string) => !!(await fs.stat(path).catch(() => false));
 
@@ -113,6 +123,64 @@ export const extendFileName = (fileName: string, ext: string) =>
 
 export const formatFile = (str: string): Promise<string> =>
   prettier.format(str, { parser: "typescript", printWidth: 100, tabWidth: 2, useTabs: false });
+
+export const genFileInfo = async (args: {
+  file?: FileSchema;
+  filePath: string;
+  hash: string;
+  skipThumbs?: boolean;
+}) => {
+  const DEBUG = true;
+  const { perfLog, perfLogTotal } = makePerfLog("[genFileInfo]");
+
+  const ext = args.filePath.split(".").pop().toLowerCase();
+  const isAnimated = new RegExp(`gif|${getConfig().file.videoTypes.join("|")}`, "i").test(ext);
+
+  const stats = await fs.stat(args?.filePath);
+  const imageInfo = !isAnimated ? await sharp(args.filePath).metadata() : null;
+  const videoInfo = isAnimated ? await getVideoInfo(args.filePath) : null;
+  const dateModified =
+    !args.file || dayjs(stats.mtime).isAfter(args.file?.dateModified)
+      ? stats.mtime.toISOString()
+      : args.file?.dateModified;
+  const duration = isAnimated ? videoInfo?.duration : null;
+  const frameRate = isAnimated ? videoInfo?.frameRate : null;
+  const width = isAnimated ? videoInfo?.width : imageInfo?.width;
+  const height = isAnimated ? videoInfo?.height : imageInfo?.height;
+  const videoCodec = isAnimated ? videoInfo?.videoCodec : null;
+  if (DEBUG) perfLog(`Got file info.`);
+
+  const hasFrames = duration > 0;
+  const dirPath = path.dirname(args.filePath);
+  let thumbPaths = Array(hasFrames ? 9 : 1)
+    .fill("")
+    .map((_, i) => path.join(dirPath, `${args.hash}-thumb-${String(i + 1).padStart(2, "0")}.jpg`));
+
+  if (!args.skipThumbs) {
+    if (hasFrames) thumbPaths = [await vidToThumbGrid(args.filePath, dirPath, args.hash)];
+    else
+      sharp(args.filePath, { failOn: "none" })
+        .resize(null, CONSTANTS.FILE.THUMB.MAX_DIM)
+        .toFile(thumbPaths[0]);
+    if (DEBUG) perfLog(`Generated thumbnails.`);
+  }
+
+  const fileInfo: Partial<ImportFileInput> = {
+    dateModified,
+    duration,
+    ext: `.${ext}`,
+    frameRate,
+    hash: args?.hash,
+    height,
+    size: stats.size,
+    thumbPaths,
+    videoCodec,
+    width,
+  };
+
+  if (DEBUG) perfLogTotal(`Generated file info: ${JSON.stringify(fileInfo)}.`);
+  return fileInfo as ImportFileInput;
+};
 
 export const parseExports = async (filePath: string): Promise<string[]> => {
   const fileContent = await fs.readFile(filePath, { encoding: "utf-8" });

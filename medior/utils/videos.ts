@@ -9,7 +9,6 @@ import {
   fractionStringToNumber,
   getAvailableFileStorage,
   makePerfLog,
-  range,
   round,
   sleep,
 } from ".";
@@ -207,6 +206,12 @@ export const extractVideoFrame = async (inputPath: string, frameIndex: number): 
   }
 };
 
+export const getScaledThumbSize = (width: number, height: number) => {
+  const maxDim = CONSTANTS.FILE.THUMB.MAX_DIM;
+  const scaleFactor = Math.min(maxDim / width, maxDim / height);
+  return { width: Math.floor(width * scaleFactor), height: Math.floor(height * scaleFactor) };
+};
+
 interface VideoInfo {
   duration: number;
   frameRate: number;
@@ -239,6 +244,89 @@ export const getVideoInfo = async (path: string) => {
   })) as VideoInfo;
 };
 
+export const vidToThumbGrid = async (inputPath: string, outputPath: string, fileHash: string) => {
+  const DEBUG = true;
+  const { perfLog, perfLogTotal } = makePerfLog("[vidToThumbGrid]");
+
+  try {
+    if (DEBUG) perfLog(`Generating thumbnail grid for: ${inputPath}`);
+
+    const { duration, height, width } = await getVideoInfo(inputPath);
+    if (DEBUG) perfLog(`Video duration: ${duration}`);
+
+    const gridPath = path.join(outputPath, `${fileHash}-thumb.jpg`);
+    const numOfFrames = 9;
+    const scaled = getScaledThumbSize(width, height);
+    const skipDuration = duration * CONSTANTS.FILE.THUMB.FRAME_SKIP_PERCENT;
+    const frameInterval = (duration - skipDuration) / numOfFrames;
+    const timestamps = Array.from(
+      { length: numOfFrames },
+      (_, idx) => idx * frameInterval + skipDuration
+    );
+    if (DEBUG) perfLog(`Timestamps for frames: ${timestamps}`);
+
+    // prettier-ignore
+    const positions = [
+      `0_0`, `${scaled.width}_0`, `${2 * scaled.width}_0`,
+      `0_${scaled.height}`, `${scaled.width}_${scaled.height}`, `${2 * scaled.width}_${scaled.height}`,
+      `0_${2 * scaled.height}`, `${scaled.width}_${2 * scaled.height}`, `${2 * scaled.width}_${2 * scaled.height}`
+    ];
+
+    const filterComplex =
+      timestamps
+        .map(
+          (timestamp, idx) => `[0:v]select='eq(n\\,${Math.floor(timestamp * 25)})'[frame${idx}];`
+        )
+        .join("") +
+      timestamps
+        .map((_, idx) => `[frame${idx}]scale=${scaled.width}:${scaled.height}[scaled${idx}];`)
+        .join("") +
+      timestamps.map((_, idx) => `[scaled${idx}]`).join("") +
+      `xstack=inputs=${numOfFrames}:layout=${positions.join("|")}`;
+
+    await new Promise<void>((resolve, reject) => {
+      ffmpeg(inputPath)
+        .outputOptions(["-filter_complex", filterComplex, "-frames:v", "1"])
+        .output(gridPath)
+        .on("end", () => resolve())
+        .on("error", (err) => {
+          console.error(`Error generating thumbnail grid:`, err);
+          reject(err);
+        })
+        .run();
+    });
+
+    if (DEBUG) perfLogTotal(`Thumbnail grid generated: ${gridPath}`);
+    return gridPath;
+  } catch (err) {
+    console.error(`Error:`, err);
+  }
+};
+
+export const remuxToMp4 = async (inputPath: string, outputDir: string) => {
+  const tempPath = path.join(outputDir, "temp.mp4");
+
+  await new Promise((resolve, reject) => {
+    ffmpeg()
+      .input(inputPath)
+      .outputOptions(["-c copy"])
+      .output(tempPath)
+      .on("end", resolve)
+      .on("error", reject)
+      .run();
+  });
+
+  const newHash = await md5File(tempPath);
+  const finalPath = path.join(outputDir, `${newHash}.mp4`);
+
+  await fs.rename(tempPath, finalPath);
+  const res = await checkFileExists(finalPath);
+  if (!res) throw new Error("Failed to remux to mp4.");
+
+  return finalPath;
+};
+
+/*
 export const generateFramesThumbnail = async (
   inputPath: string,
   outputPath: string,
@@ -277,7 +365,7 @@ export const generateFramesThumbnail = async (
               .input(inputPath)
               .inputOptions([`-ss ${timestamp}`])
               .outputOptions([
-                `-vf scale=${CONSTANTS.FILE.THUMB.WIDTH}:-1:force_original_aspect_ratio=increase,crop=min(iw\\,${CONSTANTS.FILE.THUMB.WIDTH}):ih`,
+                `-vf scale=${CONSTANTS.FILE.THUMB.MAX_DIM}:-1:force_original_aspect_ratio=increase,crop=min(iw\\,${CONSTANTS.FILE.THUMB.MAX_DIM}):ih`,
                 `-vframes 1`,
               ])
               .output(filePaths[idx])
@@ -301,30 +389,6 @@ export const generateFramesThumbnail = async (
   }
 };
 
-export const remuxToMp4 = async (inputPath: string, outputDir: string) => {
-  const tempPath = path.join(outputDir, "temp.mp4");
-
-  await new Promise((resolve, reject) => {
-    ffmpeg()
-      .input(inputPath)
-      .outputOptions(["-c copy"])
-      .output(tempPath)
-      .on("end", resolve)
-      .on("error", reject)
-      .run();
-  });
-
-  const newHash = await md5File(tempPath);
-  const finalPath = path.join(outputDir, `${newHash}.mp4`);
-
-  await fs.rename(tempPath, finalPath);
-  const res = await checkFileExists(finalPath);
-  if (!res) throw new Error("Failed to remux to mp4.");
-
-  return finalPath;
-};
-
-/*
 export const generateVideoThumbnail = async (
   inputPath: string,
   outputPath: string,

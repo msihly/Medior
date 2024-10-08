@@ -254,6 +254,7 @@ export const getFileByHash = makeAction(async ({ hash }: { hash: string }) =>
 export const importFile = makeAction(
   async (args: {
     dateCreated: string;
+    dateModified?: string;
     diffusionParams: string;
     duration: number;
     ext: string;
@@ -272,10 +273,9 @@ export const importFile = makeAction(
   }) => {
     const file = {
       ...args,
-      dateModified: dayjs().toISOString(),
+      dateModified: args.dateModified ?? dayjs().toISOString(),
       isArchived: false,
       originalHash: args.originalHash ?? args.hash,
-      path: args.path,
       rating: 0,
       tagIdsWithAncestors: await actions.deriveAncestorTagIds(args.tagIds),
     };

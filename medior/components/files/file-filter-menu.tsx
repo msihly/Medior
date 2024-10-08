@@ -91,6 +91,7 @@ export const FileFilterMenu = observer(
                 label="Archived"
                 checked={store.isArchived}
                 setChecked={toggleArchiveOpen}
+                color={colors.custom.red}
                 flex="none"
               />
 

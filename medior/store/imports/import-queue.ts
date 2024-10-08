@@ -4,213 +4,224 @@ import md5File from "md5-file";
 import { FileSchema } from "medior/database";
 import { FileImport, RootStore } from "medior/store";
 import {
-  CONSTANTS,
   checkFileExists,
   copyFile,
   dayjs,
   deleteFile,
   dirToFilePaths,
   extendFileName,
-  generateFramesThumbnail,
+  genFileInfo,
   getAvailableFileStorage,
   getConfig,
-  getVideoInfo,
   makePerfLog,
   remuxToMp4,
-  sharp,
   trpc,
 } from "medior/utils";
 import { toast } from "react-toastify";
 
-interface CopyFileForImportProps {
-  dbOnly?: boolean;
-  deleteOnImport: boolean;
-  fileImport: FileImport;
-  ignorePrevDeleted: boolean;
-  remux: boolean;
-  tagIds: string[];
-}
+export class FileImporter {
+  private DEBUG = false;
+  private perfLog: (msg: string) => void;
+  private perfLogTotal: (msg: string) => void;
 
-interface CopyFileForImportResult {
-  error?: string;
-  file?: FileSchema;
-  isDuplicate?: boolean;
-  isPrevDeleted?: boolean;
-  success: boolean;
-}
+  private dateCreated: string;
+  private deleteOnImport: boolean;
+  private diffParams: string;
+  private ext: string;
+  private file: FileSchema;
+  private hash: string;
+  private ignorePrevDeleted: boolean;
+  private isDuplicate: boolean;
+  private isPrevDeleted: boolean;
+  private originalHash: string;
+  private originalName: string;
+  private originalPath: string;
+  private remuxExts = ["ts"];
+  private size: number;
+  private tagIds: string[];
+  private targetDir: string;
+  private withRemux: boolean;
 
-export const copyFileForImport = async ({
-  dbOnly = false,
-  deleteOnImport,
-  fileImport,
-  ignorePrevDeleted,
-  remux,
-  tagIds,
-}: CopyFileForImportProps): Promise<CopyFileForImportResult> => {
-  const DEBUG = false;
-  const { perfLog } = makePerfLog("[CopyFileForImport]");
+  constructor(args: {
+    dateCreated?: string;
+    deleteOnImport: boolean;
+    ext: string;
+    ignorePrevDeleted: boolean;
+    originalName: string;
+    originalPath: string;
+    size: number;
+    tagIds: string[];
+    withRemux: boolean;
+  }) {
+    (this.dateCreated = args.dateCreated ?? dayjs().toISOString()),
+      (this.deleteOnImport = args.deleteOnImport);
+    this.ext = args.ext;
+    this.ignorePrevDeleted = args.ignorePrevDeleted;
+    this.originalName = args.originalName;
+    this.originalPath = args.originalPath;
+    this.size = args.size;
+    this.tagIds = args.tagIds;
+    this.withRemux = args.withRemux;
 
-  const config = getConfig();
-  let hash: string;
-  let originalHash: string;
+    const perf = makePerfLog("[FileImporter]");
+    this.perfLog = (msg) => this.DEBUG && perf.perfLog(msg);
+    this.perfLogTotal = (msg) => this.DEBUG && perf.perfLogTotal(msg);
+  }
 
-  try {
-    const { dateCreated, extension, name, path: originalPath, size } = fileImport;
-    let ext = extension.toLowerCase();
-
-    const [targetDir] = await Promise.all([
-      (async () => {
-        const fileStorageRes = await getAvailableFileStorage(size);
-        if (!fileStorageRes.success) throw new Error(fileStorageRes.error);
-        const targetDir = fileStorageRes.data;
-        if (DEBUG) perfLog(`Got target dir: ${targetDir}`);
-        return targetDir;
-      })(),
-      (async () => {
-        hash = await md5File(originalPath);
-        originalHash = hash;
-        if (DEBUG) perfLog(`Hashed file: ${hash}`);
-      })(),
-    ]);
-
-    const makeDirPath = (_hash: string) =>
-      `${targetDir}\\${_hash.substring(0, 2)}\\${_hash.substring(2, 4)}`;
-
-    let dirPath = makeDirPath(hash);
-    let extFromPath = originalPath.split(".").pop().toLowerCase();
-    let newPath = `${dirPath}\\${hash}.${extFromPath}`;
-
-    const withRemux = remux && extFromPath === "ts";
-
-    if (withRemux) {
-      newPath = await remuxToMp4(originalPath, dirPath);
-      if (DEBUG) perfLog("Remuxed to MP4");
-
-      hash = await md5File(newPath);
-      if (DEBUG) perfLog(`Hashed remuxed file: ${hash}`);
-
-      dirPath = makeDirPath(hash);
-      extFromPath = newPath.split(".").pop().toLowerCase();
-      ext = `.${extFromPath}`;
-    }
-
+  private checkHash = async () => {
     const [deletedFileRes, fileRes] = await Promise.all([
-      trpc.getDeletedFile.mutate({ hash }),
-      trpc.getFileByHash.mutate({ hash }),
+      trpc.getDeletedFile.mutate({ hash: this.hash }),
+      trpc.getFileByHash.mutate({ hash: this.hash }),
     ]);
     if (!fileRes.success) throw new Error(fileRes.error);
-    let file = fileRes.data;
-    const isDuplicate = !!file;
-    const isPrevDeleted = !!deletedFileRes.data;
-    if (DEBUG) perfLog(`isDuplicate: ${isDuplicate}, isPrevDeleted: ${isPrevDeleted}`);
+    this.file = fileRes.data;
+    this.isDuplicate = !!this.file;
+    this.isPrevDeleted = !!deletedFileRes.data;
+    this.perfLog(
+      JSON.stringify({ isDuplicate: this.isDuplicate, isPrevDeleted: this.isPrevDeleted })
+    );
+  };
 
-    const fileExistsAtPath = await checkFileExists(newPath);
-    if (DEBUG) perfLog(`File exists at path: ${fileExistsAtPath}`);
+  private copyFile = async () => {
+    const fileExistsAtPath = await checkFileExists(this.getFilePath());
+    this.perfLog(`File exists at path?: ${fileExistsAtPath}`);
+    if (!fileExistsAtPath) {
+      await copyFile(this.getDirPath(), this.originalPath, this.getFilePath());
+    this.perfLog("Copied file");
+    } else {
+      await this.genFileInfo(this.file);
+      this.perfLog("Regenerated file info")
+    }
+  };
 
-    if (!fileExistsAtPath) await copyFile(dirPath, originalPath, newPath);
-    if (DEBUG) perfLog("Copied file");
+  private createFileSchema = async (file?: FileSchema) => {
+    const res = await trpc.importFile.mutate({
+      ...(await this.genFileInfo(file)),
+      dateCreated: this.dateCreated,
+      diffusionParams: this.diffParams,
+      originalHash: this.originalHash,
+      originalName: this.originalName,
+      originalPath: this.originalPath,
+      path: this.getFilePath(),
+      size: this.size,
+      tagIds: this.tagIds,
+    });
+    if (!res.success) throw new Error(res.error);
+    this.perfLog("Imported file");
+    return res.data;
+  };
 
-    if (isDuplicate) {
-      if (tagIds?.length > 0) {
-        const res = await trpc.editFileTags.mutate({
-          addedTagIds: tagIds,
-          fileIds: [file.id],
-          withSub: false,
-        });
-        if (!res.success) throw new Error(res.error);
-        if (DEBUG) perfLog("Added tags to duplicate file");
-      }
+  private deleteOriginal = async () => {
+    if (!this.deleteOnImport || this.getIsIgnored()) return;
 
-      if (fileImport.diffusionParams?.length > 0) {
-        const res = await trpc.updateFile.mutate({
-          id: file.id,
-          diffusionParams: fileImport.diffusionParams,
-        });
-        if (!res.success) throw new Error(res.error);
-        if (DEBUG) perfLog("Updated diffusion params of duplicate file");
-      }
-    } else if (!(isPrevDeleted && ignorePrevDeleted)) {
-      const isAnimated = [...config.file.videoTypes, "gif"].includes(extFromPath);
+    await deleteFile(this.originalPath, this.getFilePath());
+    this.perfLog("Deleted original file");
 
-      const videoPath = withRemux ? newPath : originalPath;
-      const imageInfo = !isAnimated ? await sharp(originalPath).metadata() : null;
-      const videoInfo = isAnimated ? await getVideoInfo(videoPath) : null;
-      const duration = isAnimated ? videoInfo?.duration : null;
-      const frameRate = isAnimated ? videoInfo?.frameRate : null;
-      const width = isAnimated ? videoInfo?.width : imageInfo?.width;
-      const height = isAnimated ? videoInfo?.height : imageInfo?.height;
-      const videoCodec = isAnimated ? videoInfo?.videoCodec : null;
-      if (DEBUG)
-        perfLog(
-          `Got file info: originalPath: ${originalPath}; newPath: ${newPath}; videoPath = ${videoPath};`
-        );
+    if (this.diffParams?.length > 0) {
+      await deleteFile(extendFileName(this.originalPath, "txt"));
+      this.perfLog("Deleted diffusion params file");
+    }
+  };
 
-      const hasFrames = duration > 0;
-      let thumbPaths = Array(hasFrames ? 9 : 1)
-        .fill("")
-        .map((_, i) => path.join(dirPath, `${hash}-thumb-${String(i + 1).padStart(2, "0")}.jpg`));
+  private getIsIgnored = () => {
+    return this.isPrevDeleted && this.ignorePrevDeleted;
+  };
 
-      if (!dbOnly && fileExistsAtPath) {
-        if (hasFrames)
-          thumbPaths = await generateFramesThumbnail(videoPath, dirPath, hash, duration);
-        else sharp(originalPath).resize(null, CONSTANTS.FILE.THUMB.WIDTH).toFile(thumbPaths[0]);
-        if (DEBUG) perfLog("Generated thumbnail(s)");
-      }
+  private genFileInfo = (file?: FileSchema) => {
+    return genFileInfo({ file, filePath: this.getFilePath(), hash: this.hash });
+  };
 
-      const res = await trpc.importFile.mutate({
-        dateCreated,
-        duration,
-        diffusionParams: fileImport.diffusionParams,
-        ext,
-        frameRate,
-        hash,
-        height,
-        originalHash,
-        originalName: name,
-        originalPath,
-        path: newPath,
-        size,
-        tagIds,
-        thumbPaths,
-        videoCodec,
-        width,
+  private getDirPath = () =>
+    `${this.targetDir}\\${this.hash.substring(0, 2)}\\${this.hash.substring(2, 4)}`;
+
+  private getFilePath = () => `${this.getDirPath()}\\${this.hash}.${this.ext}`;
+
+  private hashFile = async (filePath: string) => {
+    this.hash = await md5File(filePath);
+    this.perfLog(`Hashed file: ${this.hash}`);
+  };
+
+  private remux = async () => {
+      const newPath = await remuxToMp4(this.originalPath, this.getDirPath());
+      this.perfLog("Remuxed to MP4");
+      await this.hashFile(newPath);
+      this.perfLog(`Hashed remuxed file: ${this.hash}`);
+  };
+
+  private setTargetDir = async () => {
+    const res = await getAvailableFileStorage(this.size);
+    if (!res.success) throw new Error(res.error);
+    this.targetDir = res.data;
+    this.perfLog(`Set target dir: ${this.targetDir}`);
+  };
+
+  private updateDupeFile = async () => {
+    const id = this.file.id;
+
+    if (this.tagIds?.length > 0) {
+      const res = await trpc.editFileTags.mutate({
+        addedTagIds: this.tagIds,
+        fileIds: [id],
+        withSub: false,
       });
       if (!res.success) throw new Error(res.error);
-      file = res.data;
-      if (DEBUG) perfLog("Imported file");
+      this.perfLog("Added tags to duplicate file");
     }
 
-    if (deleteOnImport && !(isPrevDeleted && ignorePrevDeleted)) {
-      await deleteFile(originalPath, newPath);
-      if (DEBUG) perfLog("Deleted original file");
+    if (this.diffParams?.length > 0) {
+      const res = await trpc.updateFile.mutate({ id, diffusionParams: this.diffParams });
+      if (!res.success) throw new Error(res.error);
+      this.perfLog("Updated diffusion params of duplicate file");
+    }
+  };
 
-      if (fileImport.diffusionParams?.length > 0) {
-        await deleteFile(extendFileName(originalPath, "txt"));
-        if (DEBUG) perfLog("Deleted diffusion params file");
+  /* ----------------------------------------------------------------------- */
+  public import = async (): Promise<{
+    error?: string;
+    file?: FileSchema;
+    status: FileImport["status"];
+    success: boolean;
+  }> => {
+    await this.setTargetDir();
+    await this.hashFile(this.originalPath);
+    this.originalHash = this.hash;
+    if (this.withRemux && this.remuxExts.includes(this.ext)) await this.remux();
+    await this.checkHash();
+
+    try {
+      await this.copyFile();
+    } catch (err) {
+      if (err.code === "EEXIST") {
+        await this.checkHash();
+        if (this.isDuplicate) await this.updateDupeFile();
+        this.perfLogTotal("Duplicate file imported.");
+        return;
       }
     }
 
-    return { success: true, file, isDuplicate, isPrevDeleted };
-  } catch (err) {
-    if (err.code === "EEXIST" || err.message.includes("duplicate key")) {
-      const fileRes = await trpc.getFileByHash.mutate({ hash });
-      if (!fileRes.data) {
-        console.debug("File exists, but not in db. Inserting into db only...");
-        return await copyFileForImport({
-          dbOnly: true,
-          deleteOnImport,
-          ignorePrevDeleted,
-          fileImport,
-          remux,
-          tagIds,
-        });
-      } else return { success: true, file: fileRes.data, isDuplicate: true };
-    } else {
-      console.error("Error importing", fileImport.toString({ withData: true }), ":", err.stack);
-      return { success: false, error: err?.stack };
+    let file: FileSchema;
+    try {
+      if (this.isDuplicate) {
+        await this.updateDupeFile();
+        return { success: true, status: "DUPLICATE" };
+      } else if (this.getIsIgnored()) return { success: true, status: "DELETED" };
+
+      file = await this.createFileSchema();
+      await this.deleteOriginal();
+      this.perfLogTotal("New file imported.");
+      return { success: true, file, status: "COMPLETE" };
+    } catch (err) {
+      if (err.message.includes("duplicate key")) {
+        this.perfLogTotal("File imported with duplicate hash error.");
+        return { success: true, status: "DUPLICATE" };
+      } else {
+        this.perfLogTotal("Failed to import file.");
+        console.error(`Error importing ${this.originalPath}:`, err.stack);
+        return { success: false, error: err.message, status: "ERROR" };
+      }
     }
-  }
-};
+  };
+}
 
 export const dirToFileImports = async (dirPath: string) => {
   const filePaths = await dirToFilePaths(dirPath);

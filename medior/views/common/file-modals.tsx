@@ -17,7 +17,7 @@ export const FileModals = observer(() => {
       {stores.file.isConfirmDeleteOpen && (
         <ConfirmModal
           headerText="Delete Files"
-          subText="Are you sure you want to delete these files?"
+          subText={`Are you sure you want to delete these ${stores.file.idsForConfirmDelete.length} files?`}
           setVisible={setDeleteFilesModalVisible}
           onConfirm={handleDeleteFilesConfirm}
         />

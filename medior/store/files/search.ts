@@ -15,6 +15,7 @@ import { trpc } from "medior/utils";
 @model("medior/FileSearch")
 export class FileSearch extends ExtendedModel(_FileSearch, {
   hasQueuedReload: prop<boolean>(false).withSetter(),
+  isArchiveOpen: prop<boolean>(false).withSetter(),
 }) {
   constructor(props: ModelCreationData<FileSearch>) {
     super(props);
@@ -22,6 +23,11 @@ export class FileSearch extends ExtendedModel(_FileSearch, {
     reaction(
       () => this.getFilterProps(),
       () => this.setHasChanges(true)
+    );
+
+    reaction(
+      () => this.hasChanges,
+      () => !this.hasChanges && this.setIsArchiveOpen(this.isArchived)
     );
   }
 

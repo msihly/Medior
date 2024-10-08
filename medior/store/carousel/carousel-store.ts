@@ -1,10 +1,10 @@
 import remote from "@electron/remote";
-import fs from "fs/promises";
+import fs from "fs/promises"
 import { computed } from "mobx";
 import { Model, getRootStore, model, modelAction, modelFlow, prop } from "mobx-keystone";
-import { FileImport, RootStore, asyncAction, copyFileForImport } from "medior/store";
+import { asyncAction, FileImporter, RootStore } from "medior/store";
 import { Mark } from "@mui/base";
-import { dayjs, extractVideoFrame, frameToSec, trpc, videoTranscoder } from "medior/utils";
+import { extractVideoFrame, frameToSec, trpc, videoTranscoder } from "medior/utils";
 import { toast } from "react-toastify";
 
 @model("medior/CarouselStore")
@@ -86,29 +86,26 @@ export class CarouselStore extends Model({
     const filePath = await extractVideoFrame(activeFile.path, this.curFrame);
     if (!filePath) throw new Error("Error extracting frame");
 
-    const { size } = await fs.stat(filePath);
+    const { size } = await fs.stat(filePath)
 
-    const copyRes = await copyFileForImport({
+    const importer = new FileImporter({
       deleteOnImport: false,
-      fileImport: new FileImport({
-        dateCreated: dayjs().toISOString(),
-        extension: ".jpg",
-        name: activeFile.originalName,
-        path: filePath,
-        size,
-        status: "PENDING",
-      }),
+      ext: ".jpg",
       ignorePrevDeleted: false,
-      remux: false,
+      originalName: activeFile.originalName,
+      originalPath: filePath,
+      size,
       tagIds: activeFile.tagIds,
+      withRemux: false,
     });
-    if (!copyRes.success) throw new Error(copyRes.error);
+    const res = await importer.import();
+    if (!res.success) throw new Error(res.error);
 
     await trpc.recalculateTagCounts.mutate({ tagIds: activeFile.tagIds });
 
-    stores.file.addFileAfterIndex(copyRes.file, this.activeFileIndex);
-    this.addFileAfterIndex(copyRes.file.id, this.activeFileIndex);
-    this.setActiveFileId(copyRes.file.id);
+    stores.file.addFileAfterIndex(res.file, this.activeFileIndex);
+    this.addFileAfterIndex(res.file.id, this.activeFileIndex);
+    this.setActiveFileId(res.file.id);
 
     toast.success("Frame extracted");
   });

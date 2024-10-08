@@ -2,7 +2,7 @@ import { CreateImportBatchesInput, DeleteImportBatchesInput, ImportStats } from 
 import { computed } from "mobx";
 import { clone, getRootStore, model, Model, modelAction, modelFlow, prop } from "mobx-keystone";
 import { asyncAction, RootStore } from "medior/store";
-import { copyFileForImport, FileImport, FileImportBatch } from ".";
+import { FileImport, FileImporter, FileImportBatch } from ".";
 import {
   CONSTANTS,
   makePerfLog,
@@ -11,6 +11,7 @@ import {
   trpc,
   uniqueArrayMerge,
 } from "medior/utils";
+import { toast } from "react-toastify";
 
 @model("medior/ImportManager")
 export class ImportManager extends Model({
@@ -153,7 +154,11 @@ export class ImportManager extends Model({
             if (DEBUG) perfLog(`Imported file: ${file.path}`);
             if (!batch.imports.some((f) => f.status === "PENDING")) completeBatch();
           } catch (err) {
-            console.error("Error importing file:", err);
+            const storageMsg = "No available file storage location found";
+            if (err.message.includes(storageMsg)) {
+              toast.error(storageMsg);
+              this.clearQueue();
+            } else console.error("Error importing file:", err);
           }
         });
       }
@@ -258,32 +263,28 @@ export class ImportManager extends Model({
     if (DEBUG) perfLog(`Importing file: ${fileImport.path}`);
     const tagIds = [...new Set([...batch.tagIds, ...fileImport.tagIds].flat())];
 
-    const copyRes = await copyFileForImport({
+    const importer = new FileImporter({
+      dateCreated: fileImport.dateCreated,
       deleteOnImport: batch.deleteOnImport,
-      fileImport,
+      ext: fileImport.extension,
       ignorePrevDeleted: batch.ignorePrevDeleted,
-      remux: batch.remux,
+      originalName: fileImport.name,
+      originalPath: fileImport.path,
+      size: fileImport.size,
       tagIds,
+      withRemux: batch.remux,
     });
+    const copyRes = await importer.import();
     if (DEBUG) perfLog("File imported");
 
     const errorMsg = copyRes.error ?? null;
     const fileId = copyRes.file?.id ?? null;
-    const status = !copyRes?.success
-      ? "ERROR"
-      : copyRes?.isPrevDeleted
-        ? "DELETED"
-        : copyRes?.isDuplicate
-          ? "DUPLICATE"
-          : "COMPLETE";
+    const status = copyRes.status;
     const thumbPaths = copyRes.file?.thumbPaths ?? [];
 
     try {
       batch.updateImport(
-        {
-          originalPath: fileImport.path,
-          newPath: copyRes.file?.path,
-        },
+        { originalPath: fileImport.path, newPath: copyRes.file?.path },
         {
           errorMsg,
           extension: copyRes.file?.ext,
