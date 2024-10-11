@@ -26,9 +26,9 @@ export const InfoModal = observer(() => {
 
   const handleCurrentPath = () => shell.showItemInFolder(file.path);
 
-  const handleRefresh = async () => {
-    await stores.file.refreshFiles({ ids: [file.id] });
-  };
+  const handleRefresh = async () => await stores.file.refreshFiles({ ids: [file.id] });
+
+  const handleThumbPath = () => shell.showItemInFolder(file.thumb.path);
 
   return (
     <Modal.Container width="100%" maxWidth="50rem" onClose={handleClose}>
@@ -78,6 +78,20 @@ export const InfoModal = observer(() => {
                 type="link"
                 text={file.path}
                 onClick={handleCurrentPath}
+                className={css.link}
+              />
+            ) : null
+          }
+        />
+
+        <Detail
+          label="Thumb Path"
+          value={
+            file?.thumb?.path ? (
+              <Button
+                type="link"
+                text={file.thumb.path}
+                onClick={handleThumbPath}
                 className={css.link}
               />
             ) : null

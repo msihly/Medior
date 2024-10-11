@@ -13,6 +13,7 @@ import {
   genFileInfo,
   getAvailableFileStorage,
   getConfig,
+  handleErrors,
   makePerfLog,
   remuxToMp4,
   trpc,
@@ -87,16 +88,19 @@ export class FileImporter {
     this.perfLog(`File exists at path?: ${fileExistsAtPath}`);
     if (!fileExistsAtPath) {
       await copyFile(this.getDirPath(), this.originalPath, this.getFilePath());
-    this.perfLog("Copied file");
+      this.perfLog("Copied file");
     } else {
-      await this.genFileInfo(this.file);
-      this.perfLog("Regenerated file info")
+      this.file = {
+        ...this.file,
+        ...(await genFileInfo({ file: this.file, filePath: this.getFilePath(), hash: this.hash })),
+      };
+      this.perfLog("Regenerated file info");
     }
   };
 
   private createFileSchema = async (file?: FileSchema) => {
     const res = await trpc.importFile.mutate({
-      ...(await this.genFileInfo(file)),
+      ...(await genFileInfo({ file, filePath: this.getFilePath(), hash: this.hash })),
       dateCreated: this.dateCreated,
       diffusionParams: this.diffParams,
       originalHash: this.originalHash,
@@ -127,14 +131,10 @@ export class FileImporter {
     return this.isPrevDeleted && this.ignorePrevDeleted;
   };
 
-  private genFileInfo = (file?: FileSchema) => {
-    return genFileInfo({ file, filePath: this.getFilePath(), hash: this.hash });
-  };
-
   private getDirPath = () =>
     `${this.targetDir}\\${this.hash.substring(0, 2)}\\${this.hash.substring(2, 4)}`;
 
-  private getFilePath = () => `${this.getDirPath()}\\${this.hash}.${this.ext}`;
+  private getFilePath = () => `${this.getDirPath()}\\${this.hash}${this.ext}`;
 
   private hashFile = async (filePath: string) => {
     this.hash = await md5File(filePath);
@@ -142,10 +142,10 @@ export class FileImporter {
   };
 
   private remux = async () => {
-      const newPath = await remuxToMp4(this.originalPath, this.getDirPath());
-      this.perfLog("Remuxed to MP4");
-      await this.hashFile(newPath);
-      this.perfLog(`Hashed remuxed file: ${this.hash}`);
+    const newPath = await remuxToMp4(this.originalPath, this.getDirPath());
+    this.perfLog("Remuxed to MP4");
+    await this.hashFile(newPath);
+    this.perfLog(`Hashed remuxed file: ${this.hash}`);
   };
 
   private setTargetDir = async () => {
@@ -168,11 +168,9 @@ export class FileImporter {
       this.perfLog("Added tags to duplicate file");
     }
 
-    if (this.diffParams?.length > 0) {
-      const res = await trpc.updateFile.mutate({ id, diffusionParams: this.diffParams });
-      if (!res.success) throw new Error(res.error);
-      this.perfLog("Updated diffusion params of duplicate file");
-    }
+    const res = await trpc.updateFile.mutate({ id, ...this.file });
+    if (!res.success) throw new Error(res.error);
+    this.perfLog("Updated diffusion params of duplicate file");
   };
 
   /* ----------------------------------------------------------------------- */
@@ -221,6 +219,22 @@ export class FileImporter {
       }
     }
   };
+
+  public refresh = (file: FileSchema) =>
+    handleErrors(async () => {
+      this.file = file;
+      await this.setTargetDir();
+      await this.hashFile(this.file.path);
+      this.file = {
+        ...this.file,
+        ...(await genFileInfo({ file, filePath: file.path, hash: file.hash })),
+      };
+
+      const res = await trpc.updateFile.mutate(this.file);
+      if (!res.success) throw new Error(res.error);
+      this.perfLog("Refreshed file");
+      return res.data;
+    });
 }
 
 export const dirToFileImports = async (dirPath: string) => {

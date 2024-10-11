@@ -1,15 +1,24 @@
+import { shell } from "@electron/remote";
 import { useRef, useState } from "react";
 import { observer, useStores } from "medior/store";
 import { CircularProgress } from "@mui/material";
 import { Button, Card, Checkbox, Modal, Text, UniformList, View } from "medior/components";
-import { colors, dayjs, getVideoInfo, makeQueue, PromiseQueue, trpc } from "medior/utils";
+import {
+  colors,
+  dayjs,
+  getLogsPath,
+  getVideoInfo,
+  makeQueue,
+  PromiseQueue,
+  trpc,
+} from "medior/utils";
 
 export const RepairModal = observer(() => {
   const stores = useStores();
 
   const [isCollTagsChecked, setIsCollTagsChecked] = useState(false);
   const [isFileTagsChecked, setIsFileTagsChecked] = useState(false);
-  const [isFileThumbsChecked, setIsFileThumbsChecked] = useState(false);
+  const [isBrokenThumbsChecked, setIsBrokenThumbsChecked] = useState(false);
   const [isRepairing, setIsRepairing] = useState(false);
   const [isTagCountsChecked, setIsTagCountsChecked] = useState(false);
   const [isTagRelationsChecked, setIsTagRelationsChecked] = useState(false);
@@ -26,22 +35,22 @@ export const RepairModal = observer(() => {
     outputRef.current?.scrollTo({ top: outputRef.current.scrollHeight });
   };
 
-  const handleCancel = async () => {};
+  const handleCancel = async () => stores.home.settings.setIsRepairOpen(false);
+
+  const handleLogs = () => shell.openPath(getLogsPath());
 
   const handleStart = async () => {
     try {
       setIsRepairing(true);
 
-      if (isFileThumbsChecked) {
-        log("Checking files with broken thumbnails...");
-        const thumbsRes = await trpc.listFilesWithBrokenThumbs.mutate();
-        if (!thumbsRes.success) throw new Error(thumbsRes.error);
-        const fileIds = thumbsRes.data;
-        log(`Found ${fileIds.length} files with broken thumbnails.`);
-
-        const refreshRes = await stores.file.refreshFiles({ ids: fileIds });
-        if (!refreshRes.success) throw new Error(refreshRes.error);
-        log(`Refreshed files.`);
+      if (isBrokenThumbsChecked) {
+        log("Repairing broken thumbnails. See details in logs...");
+        const res = await trpc.repairThumbs.mutate();
+        if (!res.success) throw new Error(res.error);
+        log(
+          `Repaired thumbnails for ${res.data.fileCount} files, ${res.data.collectionCount} collections, and ${res.data.tagCount} tags.`,
+          colors.custom.green
+        );
       }
 
       if (isVideoCodecsChecked) {
@@ -93,10 +102,10 @@ export const RepairModal = observer(() => {
           <UniformList row>
             <View column>
               <Checkbox
-                label="Broken File Thumbnails"
-                checked={isFileThumbsChecked}
-                setChecked={setIsFileThumbsChecked}
-                disabled={true || isRepairing} // Disabled due to intensity of scanning massive storge locations
+                label="Broken Thumbnails"
+                checked={isBrokenThumbsChecked}
+                setChecked={setIsBrokenThumbsChecked}
+                disabled={isRepairing}
               />
 
               <Checkbox
@@ -113,7 +122,7 @@ export const RepairModal = observer(() => {
                 label="File Tags"
                 checked={isFileTagsChecked}
                 setChecked={setIsFileTagsChecked}
-                disabled={isRepairing}
+                disabled={true || isRepairing}
               />
 
               {/* TODO: Implement */}
@@ -121,7 +130,7 @@ export const RepairModal = observer(() => {
                 label="Collection Tags"
                 checked={isCollTagsChecked}
                 setChecked={setIsCollTagsChecked}
-                disabled={isRepairing}
+                disabled={true || isRepairing}
               />
             </View>
 
@@ -131,7 +140,7 @@ export const RepairModal = observer(() => {
                 label="Tag Counts"
                 checked={isTagCountsChecked}
                 setChecked={setIsTagCountsChecked}
-                disabled={isRepairing}
+                disabled={true || isRepairing}
               />
 
               {/* TODO: Implement */}
@@ -139,14 +148,22 @@ export const RepairModal = observer(() => {
                 label="Tag Relations"
                 checked={isTagRelationsChecked}
                 setChecked={setIsTagRelationsChecked}
-                disabled={isRepairing}
+                disabled={true || isRepairing}
               />
             </View>
           </UniformList>
         </Card>
 
         <Card height="100%" overflow="hidden" spacing="1rem">
-          <Text preset="title">{"Output"}</Text>
+          <UniformList row align="center" justify="space-between">
+            <View />
+
+            <Text preset="title">{"Output"}</Text>
+
+            <View row justify="flex-end">
+              <Button text="Logs" icon="List" onClick={handleLogs} color={colors.custom.black} />
+            </View>
+          </UniformList>
 
           <Card ref={outputRef} height="100%" bgColor={colors.foregroundCard} overflow="auto">
             {outputLog.map((log, i) => (

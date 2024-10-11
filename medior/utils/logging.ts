@@ -9,10 +9,10 @@ const logQueue = new PromiseQueue();
 
 let logsPath: string;
 
+export const getLogsPath = () => logsPath;
+
 export const logToFile = async (type: "debug" | "error" | "warn", ...args: any[]) => {
   try {
-    console[type](...args);
-
     if (!logsPath) await setLogsPath(await ipcRenderer.invoke("getLogsPath"));
 
     const logContent = `[${dayjs().format(

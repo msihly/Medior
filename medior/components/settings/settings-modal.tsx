@@ -10,7 +10,6 @@ export const SettingsModal = observer(() => {
   const stores = useStores();
 
   const [isConfirmDiscardOpen, setIsConfirmDiscardOpen] = useState(false);
-  const [isRepairModalOpen, setIsRepairModalOpen] = useState(false);
 
   useEffect(() => {
     handleLoadConfig();
@@ -24,7 +23,7 @@ export const SettingsModal = observer(() => {
   const handleClose = async () => {
     stores.home.settings.setIsOpen(false);
     stores.home.settings.setHasUnsavedChanges(false);
-    return true
+    return true;
   };
 
   const handleLoadConfig = async () => {
@@ -52,7 +51,7 @@ export const SettingsModal = observer(() => {
     stores.home.settings.setDbPath(res.filePaths[0]);
   };
 
-  const handleRepair = () => setIsRepairModalOpen(true);
+  const handleRepair = () => stores.home.settings.setIsRepairOpen(true);
 
   const handleSaveConfig = async () => {
     try {
@@ -135,7 +134,7 @@ export const SettingsModal = observer(() => {
 
             <Settings.NumInput header="Socket Port" configKey="ports.socket" />
 
-            {isRepairModalOpen && <RepairModal />}
+            {stores.home.settings.isRepairOpen && <RepairModal />}
           </View>
 
           <View column>

@@ -257,8 +257,7 @@ export class ImportManager extends Model({
       throw new Error("Invalid batch or fileImport");
     }
 
-    if (fileImport.status !== "PENDING")
-      return console.warn(`File already imported (Status: ${fileImport.status}):`, fileImport.path);
+    if (fileImport.status !== "PENDING") return;
 
     if (DEBUG) perfLog(`Importing file: ${fileImport.path}`);
     const tagIds = [...new Set([...batch.tagIds, ...fileImport.tagIds].flat())];
@@ -280,7 +279,7 @@ export class ImportManager extends Model({
     const errorMsg = copyRes.error ?? null;
     const fileId = copyRes.file?.id ?? null;
     const status = copyRes.status;
-    const thumbPaths = copyRes.file?.thumbPaths ?? [];
+    const thumb = copyRes.file?.thumb ?? null;
 
     try {
       batch.updateImport(
@@ -291,7 +290,7 @@ export class ImportManager extends Model({
           fileId,
           path: copyRes.file?.path,
           status,
-          thumbPaths,
+          thumb,
         }
       );
       if (DEBUG) perfLog("Updated import in store");
@@ -302,7 +301,7 @@ export class ImportManager extends Model({
         fileId,
         filePath,
         status,
-        thumbPaths,
+        thumb,
       });
       if (!updateRes?.success) throw new Error(updateRes?.error);
       if (DEBUG) perfLog("Updated import in db");

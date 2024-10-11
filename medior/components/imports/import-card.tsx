@@ -2,7 +2,7 @@ import { shell } from "@electron/remote";
 import { FileImport, observer } from "medior/store";
 import { FileBase, Icon, Text, TooltipWrapper, View, ViewProps } from "medior/components";
 import { IMPORT_STATUSES } from ".";
-import { colors, makeClasses, openCarouselWindow, trpc } from "medior/utils";
+import { colors, getConfig, makeClasses, openCarouselWindow, trpc } from "medior/utils";
 
 export const IMPORT_CARD_SIZE = 100;
 
@@ -13,6 +13,10 @@ export interface ImportCardProps {
 
 export const ImportCard = observer(({ fileImport, style }: ImportCardProps) => {
   const { css } = useClasses(null);
+
+  const animated = new RegExp(`gif|${getConfig().file.videoTypes.join("|")}`, "i").test(
+    fileImport.extension
+  );
 
   const hasFileId = fileImport.fileId?.length > 0;
   const status = IMPORT_STATUSES[fileImport.status];
@@ -58,9 +62,10 @@ export const ImportCard = observer(({ fileImport, style }: ImportCardProps) => {
         height={IMPORT_CARD_SIZE}
         width={IMPORT_CARD_SIZE}
       >
-        {fileImport?.thumbPaths?.length > 0 ? (
+        {fileImport?.thumb ? (
           <FileBase.Image
-            thumbPaths={fileImport.thumbPaths}
+            animated={animated}
+            thumb={fileImport.thumb}
             title={fileImport.path}
             rounded="all"
             height="100%"

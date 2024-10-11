@@ -52,7 +52,7 @@ export const FileCollection = observer(({ height, id, width }: FileCollectionPro
           selected={stores.collection.manager.search.getIsSelected(id)}
         >
           <FileBase.Image
-            thumbPaths={collection.thumbPaths}
+            thumbs={collection.thumbs}
             title={collection.title}
             fit={stores.collection.collectionFitMode}
           >

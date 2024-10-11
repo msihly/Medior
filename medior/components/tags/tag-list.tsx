@@ -19,7 +19,7 @@ export const TagList = observer(
     const ref = useRef<FixedSizeList>();
 
     useEffect(() => {
-      if (!socket?.connected || !search?.onChange) return;
+      if (!socket?.isConnected || !search?.onChange) return;
 
       const onTagDeleted = (args: { id: string }) => {
         search.onChange(search.value.filter((tag) => tag.id !== args.id));
@@ -47,7 +47,7 @@ export const TagList = observer(
         socket.off("onTagDeleted", onTagDeleted);
         socket.off("onTagMerged", onTagMerged);
       };
-    }, [socket?.connected, search?.value]);
+    }, [socket?.isConnected, search?.value]);
 
     return (
       <MultiInputList

@@ -97,7 +97,7 @@ export class FileStore extends ExtendedModel(_FileStore, {
       await Promise.all(
         deleted.flatMap((file) =>
           this.listByHash(file.hash).length === 1
-            ? [fs.unlink(file.path), ...file.thumbPaths.map((thumbPath) => fs.unlink(thumbPath))]
+            ? [fs.unlink(file.path), fs.unlink(file.thumb.path)]
             : []
         )
       );
@@ -133,7 +133,7 @@ export class FileStore extends ExtendedModel(_FileStore, {
 
     await makeQueue({
       action: async (file) => {
-        const curThumbPaths = [...file.thumbPaths];
+        const curThumbPath = file.thumb?.path;
 
         const importer = new FileImporter({
           deleteOnImport: false,
@@ -146,11 +146,12 @@ export class FileStore extends ExtendedModel(_FileStore, {
           withRemux: false,
         });
 
-        const res = await importer.import();
+        const res = await importer.refresh(file);
         if (!res.success) throw new Error(res.error);
+        console.log(res);
 
-        await trpc.updateFile.mutate({ id: file.id, ...res.file });
-        await Promise.all(curThumbPaths.map((t) => !t.endsWith(".jpg") && fs.unlink(t)));
+        await trpc.updateFile.mutate({ id: file.id, ...res.data });
+        if (curThumbPath && !curThumbPath.endsWith(".jpg")) await fs.unlink(curThumbPath);
       },
       items: files,
       logSuffix: "files",

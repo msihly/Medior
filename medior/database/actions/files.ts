@@ -11,9 +11,12 @@ import { SortValue } from "medior/store";
 import {
   CONSTANTS,
   dayjs,
-  dirToFilePaths,
-  getConfig,
+  deleteFile,
+  genFileInfo,
+  logToFile,
+  // getConfig,
   makePerfLog,
+  PromiseQueue,
   sharp,
   socket,
 } from "medior/utils";
@@ -267,7 +270,7 @@ export const importFile = makeAction(
     path: string;
     size: number;
     tagIds: string[];
-    thumbPaths: string[];
+    thumb: models.FileImportBatchSchema["imports"][number]["thumb"];
     videoCodec: string;
     width: number;
   }) => {
@@ -344,33 +347,222 @@ export const listFilePaths = makeAction(async () => {
   }));
 });
 
-export const listFilesWithBrokenThumbs = makeAction(async () => {
-  const { perfLog, perfLogTotal } = makePerfLog("[Thumbs]", true);
+export const repairThumbs = makeAction(async () => {
+  const { perfLog, perfLogTotal } = makePerfLog("[repairThumbs]", true);
+  const errorLog = async (...args: any[]) => logToFile("error", ["repairThumbs", ...args]);
 
-  const files = await models.FileModel.find({})
-    .allowDiskUse(true)
-    .select({ _id: 1, thumbPaths: 1 })
-    .lean();
+  /* ---------------------------------- FILES --------------------------------- */
+  const chunkSize = 1000;
+  const thumbMap = new Map<string, models.FileSchema["thumb"]>();
 
-  perfLog(`Loaded files (${files.length})`);
-
-  const brokenIds: string[] = [];
-
-  // TODO: Find a feasible way of scanning massive storage locations
-  const filePathSet = new Set(
+  const getFilesWithThumbPaths = async () =>
     (
-      await Promise.all(getConfig().db.fileStorage.locations.map((loc) => dirToFilePaths(loc)))
-    ).flat()
-  );
+      await models.FileModel.find({ thumbPaths: { $exists: true } }, null, { strict: false })
+        .limit(chunkSize)
+        .allowDiskUse(true)
+        .lean()
+    ).map((f) =>
+      leanModelToJson<models.FileSchema & { thumbPaths: string[] }>({
+        ...f,
+        // @ts-expect-error
+        thumbPaths: f.thumbPaths,
+      })
+    );
 
-  perfLog(`Loaded filePathSet (${filePathSet.size})`);
+  const getTotalFilesWithThumbPaths = async () => {
+    const res: { total: number } = (
+      await models.FileModel.aggregate([
+        { $match: { thumbPaths: { $exists: true } } },
+        { $count: "total" },
+      ]).allowDiskUse(true)
+    ).flatMap((r) => r)[0];
+    return res.total;
+  };
 
-  for (const file of files) {
-    if (file.thumbPaths.some((t) => !filePathSet.has(t))) brokenIds.push(file._id.toString());
+  const regenThumbs = async (file: models.FileSchema) => {
+    const info = await genFileInfo({ file, filePath: file.path, hash: file.hash });
+    thumbMap.set(file.id, info.thumb);
+    const res = await updateFile({ id: file.id, thumb: info.thumb });
+    if (!res.success) throw new Error(`Failed to update file: ${res.error}`);
+  };
+
+  const totalCount = await getTotalFilesWithThumbPaths();
+  perfLog(`Total files to process: ${totalCount}`);
+
+  let hasThumbPaths = false;
+  let hasMorePages = true;
+  let iteration = 0;
+  while (hasMorePages) {
+    iteration++;
+    const filesWithThumbPaths = await getFilesWithThumbPaths();
+    perfLog(
+      `Iteration ${iteration}: Found ${filesWithThumbPaths.length} files with old 'thumbPaths'`
+    );
+
+    if (!filesWithThumbPaths.length) hasMorePages = false;
+    else {
+      hasThumbPaths = true;
+
+      const filesWithThumbPathsMap = new Map<string, models.FileSchema & { thumbPaths: string[] }>(
+        filesWithThumbPaths.map((f) => [f.id, f])
+      );
+      const files = [...filesWithThumbPathsMap.values()];
+      filesWithThumbPaths.forEach((f) => thumbMap.set(f.id, null));
+
+      const processedFileIds: string[] = [];
+      let idsToRegenThumb: string[] = [];
+      let idsToUnset: string[] = [];
+      let deletedThumbCount = 0;
+      let skippedThumbCount = 0;
+
+      for (const file of files) {
+        if (file.thumbPaths.length === 1) {
+          // TODO: Update image's file.thumb without regenerating
+        } else {
+          for (const t of file.thumbPaths) {
+            const res = await deleteFile(t);
+            if (!res.success) throw new Error(res.error);
+            if (res.data) deletedThumbCount++;
+            else skippedThumbCount++;
+          }
+        }
+
+        processedFileIds.push(file.id);
+        idsToUnset.push(file.id);
+        if (!file.thumb?.path) idsToRegenThumb.push(file.id);
+
+        if (processedFileIds.length % chunkSize === 0) {
+          try {
+            perfLog(
+              `Processed files: ${processedFileIds.length + chunkSize * (iteration - 1)} / ${totalCount}. Deleted thumbs: ${deletedThumbCount}. Skipped thumbs: ${skippedThumbCount}. File IDs to Regen Thumb: ${idsToRegenThumb.length}. File IDs to Unset: ${idsToUnset.length}.`
+            );
+
+            for (const fileId of idsToRegenThumb) {
+              try {
+                await regenThumbs(filesWithThumbPathsMap.get(fileId));
+              } catch (err) {
+                errorLog(`Failed to regen thumb for file ${fileId}`);
+              }
+            }
+            perfLog(`Regenerated 'thumb' for ${idsToRegenThumb.length} files`);
+
+            const res = await models.FileModel.updateMany(
+              { _id: idsToUnset },
+              { $unset: { thumbPaths: "" } },
+              { strict: false }
+            );
+            if (res.modifiedCount !== idsToUnset.length)
+              errorLog(`Failed to unset 'thumbPaths': ${JSON.stringify(res, null, 2)}`);
+            perfLog(`Removed 'thumbPaths' from ${res.modifiedCount} files`);
+          } catch (err) {
+            perfLog(`Failed to delete 'thumbPaths' and regenerate 'thumb': ${err.message}`);
+          } finally {
+            idsToRegenThumb = [];
+            idsToUnset = [];
+          }
+        }
+      }
+
+      perfLog(`Deleted ${deletedThumbCount} old thumb paths`);
+    }
   }
 
-  perfLogTotal("Done");
-  return brokenIds;
+  const filesWithoutThumb = (
+    await models.FileModel.find({ thumb: { $exists: false } })
+      .allowDiskUse(true)
+      .lean()
+  ).map(leanModelToJson<models.FileSchema>);
+  perfLog(`Found ${filesWithoutThumb.length} files without 'thumb'`);
+
+  if (filesWithoutThumb?.length) {
+    // filesWithoutThumb.forEach((f) => thumbGenQueue.add(async () => await regenThumbs(f)));
+    // await thumbGenQueue.resolve();
+
+    for (const file of filesWithoutThumb) {
+      // const animated = animatedRegEx.test(file.ext);
+      // const queue = animated ? thumbGenVideoQueue : thumbGenPhotoQueue;
+      // queue.add(async () => await regenThumbs(file));
+      await regenThumbs(file);
+    }
+
+    // await thumbGenPhotoQueue.resolve();
+    // await thumbGenVideoQueue.resolve();
+    perfLog("Generated 'thumb' for files without 'thumb'");
+  }
+
+  if (!hasThumbPaths && !filesWithoutThumb?.length) {
+    perfLogTotal("No files with 'thumbPaths' found");
+    return { collectionCount: 0, fileCount: 0, importCount: 0, tagCount: 0 };
+  }
+
+  /* ----------------------------- IMPORT BATCHES ----------------------------- */
+  /*
+  const importBatches = (
+    await models.FileImportBatchModel.find({ "imports.$.fileId": [...thumbMap.keys()] }).lean()
+  ).map((i) => leanModelToJson<models.FileImportBatchSchema>(i));
+  perfLog(`Found ${importBatches.length} import batches with affected files`);
+
+  if (importBatches.length > 0) {
+    const res = await models.FileImportBatchModel.bulkWrite(
+      importBatches.map((importBatch) => ({
+        updateOne: {
+          filter: { _id: objectId(importBatch.id) },
+          update: {
+            $unset: { thumbPaths: "" },
+            $set: {
+              imports: importBatch.imports.map((fileImport) => {
+                if (!thumbPathsMap.has(fileImport.fileId)) return fileImport;
+                return { ...fileImport, thumbPath: thumbPathMap.get(fileImport.fileId) };
+              }),
+            },
+          },
+        },
+      }))
+    );
+    perfLog("Replaced 'thumbPaths' with 'thumb' on affected imports");
+    if (res.modifiedCount !== importBatches.length)
+      throw new Error(`Failed to bulk write imports: ${JSON.stringify(res)}`);
+  }
+  */
+
+  /* ------------------------------- COLLECTIONS ------------------------------ */
+  const collections = (
+    await models.FileCollectionModel.find({ thumbPaths: { $exists: true } })
+      .allowDiskUse(true)
+      .lean()
+  ).map(leanModelToJson<models.FileCollectionSchema>);
+  perfLog(`Found ${collections.length} collections with old 'thumbPaths'`);
+
+  if (collections.length > 0) {
+    const res = await actions.regenCollAttrs({ collIds: collections.map((c) => c.id) });
+    perfLog("Regenerated attributes for affected collections");
+    if (!res.success) throw new Error(`Failed to update collections: ${res.error}`);
+  }
+
+  /* ---------------------------------- TAGS ---------------------------------- */
+  const tags = (
+    await models.TagModel.find({ thumbPaths: { $exists: true } })
+      .allowDiskUse(true)
+      .lean()
+  ).map(leanModelToJson<models.TagSchema>);
+  perfLog(`Found ${tags.length} tags with old 'thumbPaths'`);
+
+  if (tags.length > 0) {
+    const tagQueue = new PromiseQueue({ concurrency: 10 });
+    tags.forEach((tag) =>
+      tagQueue.add(async () => await actions.regenTagThumbPaths({ tagId: tag.id }))
+    );
+    await tagQueue.resolve();
+    perfLog("Regenerated 'thumb' for affected tags");
+  }
+
+  perfLogTotal("Repaired all thumbs");
+  return {
+    collectionCount: collections.length,
+    fileCount: thumbMap.size,
+    // importCount: importBatches.length,
+    tagCount: tags.length,
+  };
 });
 
 export const listFilesWithBrokenVideoCodec = makeAction(async () => {
@@ -409,37 +601,32 @@ export const relinkFiles = makeAction(
     const oldFiles = (
       await models.FileModel.find({
         _id: { $in: objectIds(args.filesToRelink.map((f) => f.id)) },
-      })
-        .select({ _id: 1, path: 1, thumbPaths: 1 })
-        .lean()
-    ).map(leanModelToJson<{ id: string; path: string; thumbPaths: string[] }>);
+      }).lean()
+    ).map(leanModelToJson<models.FileSchema>);
 
     const filesToRelinkMap = new Map(args.filesToRelink.map((f) => [f.id, f.path]));
-    const oldThumbsMap = new Map(oldFiles.map((f) => [f.id, f.thumbPaths]));
-    const newFilesMap = new Map<string, { path: string; thumbPaths: string[] }>();
+    const oldThumbsMap = new Map(oldFiles.map((f) => [f.id, f.thumb.path]));
+    const newFilesMap = new Map<string, { path: string; thumb: models.FileSchema["thumb"] }>();
 
     oldFiles.forEach((f) => {
-      const oldThumbs = oldThumbsMap.get(f.id);
+      const oldThumbPath = oldThumbsMap.get(f.id);
       const newPath = filesToRelinkMap.get(f.id);
-      const newThumbPaths =
-        oldThumbs.length > 0
-          ? oldThumbs.map((thumbPath) =>
-              path.resolve(
-                path.dirname(newPath),
-                path.basename(thumbPath, path.extname(thumbPath)),
-                ".jpg"
-              )
-            )
-          : [];
+      const newThumb = {
+        path: path.resolve(
+          path.dirname(newPath),
+          path.basename(oldThumbPath, path.extname(oldThumbPath)),
+          ".jpg"
+        ),
+      };
 
-      newFilesMap.set(f.id, { path: newPath, thumbPaths: newThumbPaths });
+      newFilesMap.set(f.id, { path: newPath, thumb: newThumb });
     });
 
     const fileRes = await models.FileModel.bulkWrite(
-      [...newFilesMap].map(([id, { path, thumbPaths }]) => ({
+      [...newFilesMap].map(([id, { path, thumb }]) => ({
         updateOne: {
           filter: { _id: objectId(id) },
-          update: { $set: { path, thumbPaths } },
+          update: { $set: { path, thumb: { path: thumb.path } } },
         },
       }))
     );

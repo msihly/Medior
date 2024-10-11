@@ -11,6 +11,7 @@ export class SettingsStore extends Model({
   imports: prop<Config["imports"]>(() => DEFAULT_CONFIG.imports),
   isLoading: prop<boolean>(false).withSetter(),
   isOpen: prop<boolean>(false).withSetter(),
+  isRepairOpen: prop<boolean>(false).withSetter(),
   ports: prop<Config["ports"]>(() => DEFAULT_CONFIG.ports),
   tags: prop<Config["tags"]>(() => DEFAULT_CONFIG.tags),
 }) {
@@ -18,21 +19,25 @@ export class SettingsStore extends Model({
   @modelAction
   addFileStorageLocation(location: string) {
     this.db.fileStorage.locations.push(location);
+    this.setHasUnsavedChanges(true);
   }
 
   @modelAction
   removeFileStorageLocation(index: number) {
     this.db.fileStorage.locations.splice(index, 1);
+    this.setHasUnsavedChanges(true);
   }
 
   @modelAction
   setDbPath(value: Config["db"]["path"]) {
     this.db.path = value;
+    this.setHasUnsavedChanges(true);
   }
 
   @modelAction
   setFileCardFit(value: Config["file"]["fileCardFit"]) {
     this.file.fileCardFit = value;
+    this.setHasUnsavedChanges(true);
   }
 
   @modelAction
@@ -43,27 +48,32 @@ export class SettingsStore extends Model({
     locations[index] = prevAtNewIndex;
     locations[newIndex] = prevAtIndex;
     this.db.fileStorage.locations = locations;
+    this.setHasUnsavedChanges(true);
   }
 
   @modelAction
   setFileStorageLocation(index: number, location: string) {
     this.db.fileStorage.locations[index] = location;
+    this.setHasUnsavedChanges(true);
   }
 
   @modelAction
   setFolderToCollMode(value: Config["imports"]["folderToCollMode"]) {
     this.imports.folderToCollMode = value;
+    this.setHasUnsavedChanges(true);
   }
 
   @modelAction
   setFolderToTagsMode(value: Config["imports"]["folderToTagsMode"]) {
     this.imports.folderToTagsMode = value;
+    this.setHasUnsavedChanges(true);
   }
 
   @modelAction
   toggleFolderToCollMode() {
     this.imports.folderToCollMode =
       this.imports.folderToCollMode === "withTag" ? "withoutTag" : "withTag";
+    this.setHasUnsavedChanges(true);
   }
 
   @modelAction

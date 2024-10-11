@@ -89,7 +89,7 @@ export const updateFileImportByPath = makeAction(
     fileId: string;
     filePath?: string;
     status?: ImportStatus;
-    thumbPaths?: string[];
+    thumb?: models.FileImportBatchSchema["imports"][number]["thumb"];
   }) => {
     const res = await models.FileImportBatchModel.updateOne(
       { _id: args.batchId },
@@ -98,7 +98,7 @@ export const updateFileImportByPath = makeAction(
           "imports.$[fileImport].errorMsg": args.errorMsg,
           "imports.$[fileImport].fileId": args.fileId,
           "imports.$[fileImport].status": args.status,
-          "imports.$[fileImport].thumbPaths": args.thumbPaths,
+          "imports.$[fileImport].thumb": args.thumb,
         },
       },
       { arrayFilters: [{ "fileImport.path": args.filePath }] }

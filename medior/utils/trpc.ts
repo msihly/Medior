@@ -1,29 +1,93 @@
-import { Socket, io } from "socket.io-client";
+import { io, Socket } from "socket.io-client";
 import { createTRPCProxyClient, httpBatchLink } from "@trpc/client";
-import { SocketEvents } from "../_generated/socket.js";
+import { SocketEmitEvent, SocketEvents } from "../_generated/socket.js";
 import { ServerRouter } from "../trpc.js";
 import { getConfig } from "./config.js";
+import { logToFile } from "./logging.js";
 
-export let socket: Socket<SocketEvents, SocketEvents>;
+class SocketClass {
+  private socket: Socket;
+  private port: number;
 
-export const getSocket = () => socket;
+  public constructor() {}
 
-export const connectSocket = () => {
-  if (socket) return socket;
+  public connect() {
+    if (this.socket) return this.socket;
 
-  const port = getConfig().ports.socket;
-  socket = io(`ws://localhost:${port}`);
+    try {
+      this.port = getConfig().ports.socket;
+      this.socket = io(`ws://localhost:${this.port}`);
 
-  socket.on("connected", () =>
-    console.debug(`Socket.io connected on port ${port}. ID: ${socket.id}`)
-  );
+      this.socket.on("connected", () =>
+        logToFile("debug", `Socket.io connected on port ${this.port}. ID: ${this.socket.id}`)
+      );
 
-  socket.on("connect_error", (error) => console.error(`Socket.io error on port ${port}:`, error));
+      this.socket.on("connect_error", (error) =>
+        logToFile("error", `Socket.io error on port ${this.port}:`, error)
+      );
 
-  socket.on("disconnect", () => console.debug(`Socket.io disconnected on port ${port}.`));
+      this.socket.on("disconnect", () =>
+        logToFile("debug", `Socket.io disconnected on port ${this.port}.`)
+      );
+    } catch (err) {
+      logToFile("error", "Failed to connect to socket.io", err);
+    }
 
-  return socket;
-};
+    return this.socket;
+  }
+
+  public disconnect() {
+    if (this.socket) {
+      this.socket.disconnect();
+      this.socket = null;
+      logToFile("debug", "Socket.io disconnected.");
+    }
+  }
+
+  public emit<Event extends SocketEmitEvent>(
+    event: Event,
+    ...args: Parameters<SocketEvents[Event]>
+  ) {
+    try {
+      if (!this.socket) this.connect();
+      this.socket.emit(event, ...args);
+    } catch (err) {
+      logToFile("error", err);
+    }
+  }
+
+  public isConnected(): boolean {
+    return !!this.socket;
+  }
+
+  public off<Event extends keyof SocketEvents>(
+    event: Event,
+    listener: (...args: any[]) => void
+  ): void {
+    try {
+      if (!this.socket) this.connect();
+      // @ts-expect-error
+      this.socket.off(event, listener);
+    } catch (err) {
+      logToFile("error", err);
+    }
+  }
+
+  public on<Event extends keyof SocketEvents>(
+    event: Event,
+    listener: (...args: Parameters<SocketEvents[Event]>) => void
+  ): void {
+    try {
+      if (!this.socket) this.connect();
+      // @ts-expect-error
+      this.socket.on(event, listener);
+    } catch (err) {
+      logToFile("error", err);
+    }
+  }
+}
+
+export const socket = new SocketClass();
 
 export let trpc: ReturnType<typeof createTRPCProxyClient<ServerRouter>>;
 

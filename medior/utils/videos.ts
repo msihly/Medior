@@ -10,6 +10,7 @@ import {
   getAvailableFileStorage,
   makePerfLog,
   round,
+  sharp,
   sleep,
 } from ".";
 
@@ -245,13 +246,13 @@ export const getVideoInfo = async (path: string) => {
 };
 
 export const vidToThumbGrid = async (inputPath: string, outputPath: string, fileHash: string) => {
-  const DEBUG = true;
+  const DEBUG = false;
   const { perfLog, perfLogTotal } = makePerfLog("[vidToThumbGrid]");
 
   try {
     if (DEBUG) perfLog(`Generating thumbnail grid for: ${inputPath}`);
 
-    const { duration, height, width } = await getVideoInfo(inputPath);
+    const { duration, frameRate, height, width } = await getVideoInfo(inputPath);
     if (DEBUG) perfLog(`Video duration: ${duration}`);
 
     const gridPath = path.join(outputPath, `${fileHash}-thumb.jpg`);
@@ -263,38 +264,67 @@ export const vidToThumbGrid = async (inputPath: string, outputPath: string, file
       { length: numOfFrames },
       (_, idx) => idx * frameInterval + skipDuration
     );
-    if (DEBUG) perfLog(`Timestamps for frames: ${timestamps}`);
+    const frames = timestamps.map((t) => Math.floor(t * frameRate));
+    const tempPaths = frames.map((_, i) => path.join(outputPath, `${fileHash}-thumb-${i}.jpg`));
+    if (DEBUG) perfLog(`Frames: ${frames.join(", ")}`);
 
-    // prettier-ignore
-    const positions = [
-      `0_0`, `${scaled.width}_0`, `${2 * scaled.width}_0`,
-      `0_${scaled.height}`, `${scaled.width}_${scaled.height}`, `${2 * scaled.width}_${scaled.height}`,
-      `0_${2 * scaled.height}`, `${scaled.width}_${2 * scaled.height}`, `${2 * scaled.width}_${2 * scaled.height}`
-    ];
+    await Promise.all(
+      timestamps.map(
+        (timestamp, idx) =>
+          new Promise<void>((resolve, reject) => {
+            ffmpeg()
+              .input(inputPath)
+              .inputOptions([`-ss ${timestamp}`])
+              .outputOptions(["-vf", `scale=${scaled.width}:${scaled.height}`, `-frames:v`, "1"])
+              .output(tempPaths[idx])
+              .on("end", () => {
+                if (DEBUG) perfLog(`Thumbnail generated: ${tempPaths[idx]}`);
+                resolve();
+              })
+              .on("error", (err) => {
+                if (DEBUG) perfLog(`Error generating thumbnail for timestamp ${timestamp}: ${err}`);
+                reject(err);
+              })
+              .run();
+          })
+      )
+    );
 
-    const filterComplex =
-      timestamps
-        .map(
-          (timestamp, idx) => `[0:v]select='eq(n\\,${Math.floor(timestamp * 25)})'[frame${idx}];`
+    try {
+      const channels = 4;
+      const colCount = 3;
+      const rowCount = 3;
+      const gridWidth = scaled.width * colCount;
+      const gridHeight = scaled.height * rowCount;
+      const compositeArray = tempPaths.map((input, idx) => {
+        const row = Math.floor(idx / rowCount);
+        const col = idx % colCount;
+        return { input, left: col * scaled.width, top: row * scaled.height };
+      });
+
+      const blankCanvas = Buffer.from(new Array(gridWidth * gridHeight * channels).fill(0));
+
+      const result = await sharp(blankCanvas, {
+        raw: { channels, height: gridHeight, width: gridWidth },
+      })
+        .composite(compositeArray)
+        .jpeg()
+        .toFile(gridPath);
+
+      if (DEBUG) perfLog(`Grid created successfully: ${result}`);
+    } catch (error) {
+      throw new Error("Error creating image grid:", error);
+    } finally {
+      const res = await Promise.all(
+        tempPaths.map((p) =>
+          fs
+            .unlink(p)
+            .then(() => true)
+            .catch(() => false)
         )
-        .join("") +
-      timestamps
-        .map((_, idx) => `[frame${idx}]scale=${scaled.width}:${scaled.height}[scaled${idx}];`)
-        .join("") +
-      timestamps.map((_, idx) => `[scaled${idx}]`).join("") +
-      `xstack=inputs=${numOfFrames}:layout=${positions.join("|")}`;
-
-    await new Promise<void>((resolve, reject) => {
-      ffmpeg(inputPath)
-        .outputOptions(["-filter_complex", filterComplex, "-frames:v", "1"])
-        .output(gridPath)
-        .on("end", () => resolve())
-        .on("error", (err) => {
-          console.error(`Error generating thumbnail grid:`, err);
-          reject(err);
-        })
-        .run();
-    });
+      );
+      if (res.some((v) => !v)) console.error("Possible corrupted file:", inputPath);
+    }
 
     if (DEBUG) perfLogTotal(`Thumbnail grid generated: ${gridPath}`);
     return gridPath;

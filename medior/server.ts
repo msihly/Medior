@@ -6,7 +6,7 @@ import { createHTTPServer } from "@trpc/server/adapters/standalone";
 import { Server } from "socket.io";
 import { SocketEmitEvent, socketEvents, SocketEvents } from "medior/_generated/socket";
 import { serverRouter } from "./trpc";
-import { CONSTANTS, getConfig, logToFile, connectSocket, sleep } from "./utils";
+import { CONSTANTS, getConfig, logToFile, sleep, socket } from "./utils";
 
 /* -------------------------------------------------------------------------- */
 /*                                  DATABASE                                  */
@@ -72,6 +72,8 @@ const createDbServer = async () => {
       logToFile("debug", "Connecting to database:", databaseUri);
       await Mongoose.connect(databaseUri, CONSTANTS.MONGOOSE_OPTS);
       logToFile("debug", "Connected to database.");
+
+      Mongoose.connection.on("error", (err) => logToFile("error", "MongoDB Error:", err));
     } catch (err) {
       throw new Error(`Error connecting to database: ${err}`);
     }
@@ -144,7 +146,7 @@ const createSocketIOServer = async () => {
       );
     });
 
-    connectSocket();
+    socket.connect();
   } catch (err) {
     logToFile("error", "Error creating socket server:", err);
   }

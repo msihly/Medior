@@ -2,7 +2,7 @@ import { CSSProperties } from "react";
 import { FileSchema } from "medior/database";
 import { observer, useStores } from "medior/store";
 import { Button, FileBase } from "medior/components";
-import { colors, duration } from "medior/utils";
+import { colors, duration, getConfig } from "medior/utils";
 
 export interface FileSearchFileProps {
   disabled?: boolean;
@@ -14,6 +14,8 @@ export const FileSearchFile = observer(
   ({ disabled, file, height = "14rem" }: FileSearchFileProps) => {
     const stores = useStores();
 
+    const animated = (new RegExp(`gif|${getConfig().file.videoTypes.join("|")}`, "i")).test(file.ext)
+
     const handleAdd = () =>
       stores.collection.editor.addFilesToCollection({
         collId: stores.collection.editor.collection.id,
@@ -24,8 +26,8 @@ export const FileSearchFile = observer(
       <FileBase.Tooltip {...{ disabled, file }}>
         <FileBase.Container {...{ disabled, height }} flex="none">
           <FileBase.Image
-            {...{ disabled, height }}
-            thumbPaths={file.thumbPaths}
+            {...{ animated, disabled, height }}
+            thumb={file.thumb}
             title={file.originalName}
             fit="contain"
           >

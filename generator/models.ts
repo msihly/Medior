@@ -83,11 +83,11 @@ const MODEL_FILE_COLLECTION: ModelDef = {
       type: "string[]",
     },
     {
-      defaultValue: "[]",
-      name: "thumbPaths",
+      defaultValue: "null",
+      name: "thumbs",
       required: true,
-      schemaType: "[String]",
-      type: "string[]",
+      schemaType: "[{ frameHeight: Number, frameWidth: Number, path: String }]",
+      type: "Array<{ frameHeight?: number; frameWidth?: number; path: string }>",
     },
     {
       name: "title",
@@ -141,7 +141,11 @@ const MODEL_FILE_IMPORT_BATCH: ModelDef = {
           schemaType: "[{ type: Schema.Types.ObjectId, ref: 'Tag' }]",
           type: "string[]",
         },
-        { name: "thumbPaths", schemaType: "[String]", type: "string[]" },
+        {
+          name: "thumb",
+          schemaType: "{ frameHeight: Number, frameWidth: Number, path: String }",
+          type: "{ frameHeight?: number; frameWidth?: number; path: string }",
+        },
       ],
       storeType: "Stores.FileImport[]",
       type: "FileImport[]",
@@ -253,11 +257,10 @@ const MODEL_FILE: ModelDef = {
       type: "string[]",
     },
     {
-      defaultValue: "[]",
-      name: "thumbPaths",
+      name: "thumb",
       required: true,
-      schemaType: "[String]",
-      type: "string[]",
+      schemaType: "{ frameHeight: Number, frameWidth: Number, path: String }",
+      type: "{ frameHeight?: number; frameWidth?: number; path: string }",
     },
     {
       name: "videoCodec",
@@ -361,7 +364,13 @@ const MODEL_TAG: ModelDef = {
       storeType: "models.RegExMapSchema",
       type: "RegExMapSchema",
     },
-    { name: "thumbPaths", required: true, schemaType: "[String]", type: "string[]" },
+    {
+      defaultValue: null,
+      name: "thumb",
+      required: true,
+      schemaType: "{ frameHeight: Number, frameWidth: Number, path: String }",
+      type: "{ frameHeight?: number; frameWidth?: number; path: string }",
+    },
   ],
   withStore: true,
 };

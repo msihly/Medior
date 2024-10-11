@@ -192,7 +192,12 @@ export const FaceRecognitionModal = observer(() => {
               ) : (
                 detectedFacesWithImages.map(({ dataUrl, faceModel: face }, i) => (
                   <FileBase.Container key={i} height="16rem" disabled>
-                    <FileBase.Image thumbPaths={[dataUrl]} height="100%" fit="contain" disabled />
+                    <FileBase.Image
+                      thumb={{ path: dataUrl }}
+                      height="100%"
+                      fit="contain"
+                      disabled
+                    />
 
                     <View flex={0}>
                       <TagInput

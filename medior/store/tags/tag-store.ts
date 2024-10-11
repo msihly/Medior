@@ -95,7 +95,7 @@ export class TagStore extends Model({
         label,
         parentIds,
         regExMap: regEx,
-        thumbPaths: [],
+        thumb: null,
       };
 
       if (withSub) this._addTag(tag);

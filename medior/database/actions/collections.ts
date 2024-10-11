@@ -14,7 +14,14 @@ const makeCollAttrs = async (
   const sortedFiles = [...files].sort((a, b) => indexMap.get(a.id) - indexMap.get(b.id));
   const ratedFiles = sortedFiles.filter((f) => f.rating > 0);
   const tagIds = [...new Set([...sortedFiles.map((f) => f.tagIds)].flat())];
-  return {
+
+  const collAttrs: {
+    fileCount: number;
+    rating: number;
+    tagIds: string[];
+    tagIdsWithAncestors: string[];
+    thumbs: models.FileCollectionSchema["thumbs"];
+  } = {
     fileCount: sortedFiles.length,
     rating:
       ratedFiles.length > 0
@@ -22,8 +29,10 @@ const makeCollAttrs = async (
         : 0,
     tagIds,
     tagIdsWithAncestors: await actions.deriveAncestorTagIds(tagIds),
-    thumbPaths: sortedFiles.slice(0, 10).map((f) => f.thumbPaths[0]),
+    thumbs: sortedFiles.slice(0, 10).map((f) => f.thumb),
   };
+
+  return collAttrs;
 };
 
 /* -------------------------------------------------------------------------- */
@@ -137,7 +146,10 @@ export const regenCollAttrs = makeAction(
         if (!filesRes.success) throw new Error(filesRes.error);
 
         const updates = await makeCollAttrs(filesRes.data.items, collection.fileIdIndexes);
-        await models.FileCollectionModel.updateOne({ _id: collection.id }, updates);
+        await models.FileCollectionModel.updateOne(
+          { _id: collection.id },
+          { ...updates, $unset: { thumbPaths: true } }
+        );
         socket.emit("onFileCollectionUpdated", { id: collection.id, updates });
       })
     );

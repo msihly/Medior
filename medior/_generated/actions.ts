@@ -501,7 +501,7 @@ export const createFileCollection = makeAction(
       rating: 0,
       tagIds: [],
       tagIdsWithAncestors: [],
-      thumbPaths: [],
+      thumbs: null,
     };
 
     const res = await models.FileCollectionModel.create(model);
@@ -673,7 +673,6 @@ export const createFile = makeAction(
       dateCreated: dayjs().toISOString(),
       tagIds: [],
       tagIdsWithAncestors: [],
-      thumbPaths: [],
     };
 
     const res = await models.FileModel.create(model);

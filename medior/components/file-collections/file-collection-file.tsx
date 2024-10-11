@@ -41,11 +41,11 @@ export const FileCollectionFile = observer(
             opacity={file.isArchived ? 0.5 : 1}
           >
             <FileBase.Image
-              thumbPaths={file.thumbPaths}
+              {...{ disabled, height }}
+              animated={file.isAnimated}
+              thumb={file.thumb}
               title={file.originalName}
-              disabled={disabled}
               fit="contain"
-              height={height}
             >
               <FileBase.Chip
                 position="top-left"

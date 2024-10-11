@@ -761,7 +761,7 @@ export class _FileCollection extends Model({
   rating: prop<number>(0),
   tagIds: prop<string[]>(() => []),
   tagIdsWithAncestors: prop<string[]>(() => []),
-  thumbPaths: prop<string[]>(() => []),
+  thumbs: prop<Array<{ frameHeight?: number; frameWidth?: number; path: string }>>(null),
   title: prop<string>(),
 }) {
   @modelAction
@@ -839,7 +839,7 @@ export class _FileImport extends Model({
   size: prop<number>(),
   status: prop<string | "COMPLETE" | "DELETED" | "DUPLICATE" | "ERROR" | "PENDING">(),
   tagIds: prop<string[]>(null),
-  thumbPaths: prop<string[]>(null),
+  thumb: prop<{ frameHeight?: number; frameWidth?: number; path: string }>(null),
 }) {
   @modelAction
   update(updates: Partial<ModelCreationData<this>>) {
@@ -903,7 +903,7 @@ export class _File extends Model({
   size: prop<number>(),
   tagIds: prop<string[]>(() => []),
   tagIdsWithAncestors: prop<string[]>(() => []),
-  thumbPaths: prop<string[]>(() => []),
+  thumb: prop<{ frameHeight?: number; frameWidth?: number; path: string }>(),
   videoCodec: prop<string>(null),
   width: prop<number>(),
 }) {
@@ -1011,7 +1011,7 @@ export class _Tag extends Model({
   label: prop<string>(),
   parentIds: prop<string[]>(() => []),
   regExMap: prop<models.RegExMapSchema>(null),
-  thumbPaths: prop<string[]>(),
+  thumb: prop<{ frameHeight?: number; frameWidth?: number; path: string }>(),
 }) {
   @modelAction
   update(updates: Partial<ModelCreationData<this>>) {

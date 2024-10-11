@@ -31,7 +31,7 @@ export interface FileCollectionSchema {
   rating: number;
   tagIds: string[];
   tagIdsWithAncestors: string[];
-  thumbPaths: string[];
+  thumbs: Array<{ frameHeight?: number; frameWidth?: number; path: string }>;
   title: string;
 }
 
@@ -44,7 +44,7 @@ const FileCollectionSchema = new Schema<FileCollectionSchema>({
   rating: Number,
   tagIds: [{ type: Schema.Types.ObjectId, ref: "Tag" }],
   tagIdsWithAncestors: [{ type: Schema.Types.ObjectId, ref: "Tag" }],
-  thumbPaths: [String],
+  thumbs: [{ frameHeight: Number, frameWidth: Number, path: String }],
   title: String,
 });
 
@@ -73,7 +73,7 @@ export interface FileImport {
   size: number;
   status: string | "COMPLETE" | "DELETED" | "DUPLICATE" | "ERROR" | "PENDING";
   tagIds: string[];
-  thumbPaths: string[];
+  thumb: { frameHeight?: number; frameWidth?: number; path: string };
 }
 
 export interface FileImportBatchSchema {
@@ -111,7 +111,7 @@ const FileImportBatchSchema = new Schema<FileImportBatchSchema>({
       size: Number,
       status: { type: String, enum: ["COMPLETE", "DELETED", "DUPLICATE", "ERROR", "PENDING"] },
       tagIds: [{ type: Schema.Types.ObjectId, ref: "Tag" }],
-      thumbPaths: [String],
+      thumb: { frameHeight: Number, frameWidth: Number, path: String },
     },
   ],
   remux: Boolean,
@@ -155,7 +155,7 @@ export interface FileSchema {
   size: number;
   tagIds: string[];
   tagIdsWithAncestors: string[];
-  thumbPaths: string[];
+  thumb: { frameHeight?: number; frameWidth?: number; path: string };
   videoCodec?: string;
   width: number;
 }
@@ -187,7 +187,7 @@ const FileSchema = new Schema<FileSchema>({
   size: Number,
   tagIds: [{ type: Schema.Types.ObjectId, ref: "Tag" }],
   tagIdsWithAncestors: [{ type: Schema.Types.ObjectId, ref: "Tag" }],
-  thumbPaths: [String],
+  thumb: { frameHeight: Number, frameWidth: Number, path: String },
   videoCodec: String,
   width: Number,
 });
@@ -237,7 +237,7 @@ export interface TagSchema {
   label: string;
   parentIds: string[];
   regExMap: RegExMapSchema;
-  thumbPaths: string[];
+  thumb: { frameHeight?: number; frameWidth?: number; path: string };
 }
 
 const TagSchema = new Schema<TagSchema>({
@@ -252,7 +252,7 @@ const TagSchema = new Schema<TagSchema>({
   label: String,
   parentIds: [{ type: Schema.Types.ObjectId, ref: "Tag" }],
   regExMap: RegExMapSchema,
-  thumbPaths: [String],
+  thumb: { frameHeight: Number, frameWidth: Number, path: String },
 });
 
 TagSchema.index({ label: 1 }, { unique: true });

@@ -46,7 +46,7 @@ export const FileCard = observer(({ disabled, file, height, id, width }: FileCar
     const hasSelected = stores.file.search.selectedIds.includes(file.id);
     const files = hasSelected ? await loadSelectedFiles() : null;
     const filePaths = hasSelected ? files.map((file) => file.path) : [file.path];
-    const icon = hasSelected ? files[0].thumbPaths[0] : file.thumbPaths[0];
+    const icon = hasSelected ? files[0].thumb.path : file.thumb.path;
 
     try {
       getCurrentWebContents().startDrag({ file: file.path, files: filePaths, icon });
@@ -73,8 +73,8 @@ export const FileCard = observer(({ disabled, file, height, id, width }: FileCar
           selected={stores.file.search.getIsSelected(file.id)}
         >
           <FileBase.Image
-            file={file}
-            thumbPaths={file.thumbPaths}
+            animated={file.isAnimated}
+            thumb={file.thumb}
             title={file.originalName}
             height={height}
             onDragStart={handleDragStart}

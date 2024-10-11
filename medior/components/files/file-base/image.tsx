@@ -6,52 +6,66 @@ import {
   useRef,
   useState,
 } from "react";
+import { FileCollectionSchema, FileSchema } from "medior/database";
 import { Icon, View } from "medior/components";
-import { colors, CSS, debounce, getScaledThumbSize, makeClasses } from "medior/utils";
-import { File } from "medior/store";
+import { colors, CSS, getScaledThumbSize, makeClasses } from "medior/utils";
 
-interface ImageProps
-  extends Omit<
-    DetailedHTMLProps<ImgHTMLAttributes<HTMLImageElement>, HTMLImageElement>,
-    "alt" | "height" | "medior" | "title" | "width"
-  > {
+type ImageProps = Omit<
+  DetailedHTMLProps<ImgHTMLAttributes<HTMLImageElement>, HTMLImageElement>,
+  "alt" | "height" | "medior" | "title" | "width"
+> & {
+  animated?: boolean;
   autoAnimate?: boolean;
   children?: ReactNode | ReactNode[];
   disabled?: boolean;
   draggable?: boolean;
-  file?: File;
   fit?: "contain" | "cover";
   height?: CSS["height"];
   rounded?: "all" | "bottom" | "top";
   title?: string;
-  thumbPaths: string[];
-}
+} & (
+    | { thumb: FileSchema["thumb"]; thumbs?: never }
+    | { thumb?: never; thumbs: FileCollectionSchema["thumbs"] }
+  );
 
 export const Image = ({
-  autoAnimate = false,
+  animated,
+  autoAnimate,
   children,
   className,
   disabled,
-  draggable = false,
-  file,
+  draggable,
   fit = "cover",
   height,
   loading = "lazy",
   onDragEnd,
   onDragStart,
   rounded = "all",
-  thumbPaths,
+  thumb,
+  thumbs,
   title,
 }: ImageProps) => {
   const thumbInterval = useRef(null);
+  const videoPosInterval = useRef(null);
+  const clearIntervals = () => {
+    clearInterval(thumbInterval.current);
+    clearInterval(videoPosInterval.current);
+  };
 
   const [hasError, setHasError] = useState(false);
-  const [imagePos, setImagePos] = useState<CSS["objectPosition"]>(null);
+  const [imagePos, setImagePos] = useState<CSS["objectPosition"]>("center");
   const [thumbIndex, setThumbIndex] = useState(0);
+  const [videoPosIndex, setVideoPosIndex] = useState(0);
 
-  const isAnimated = !disabled && !autoAnimate && file?.isAnimated;
-  const scaled = getScaledThumbSize(file.width, file.height);
-  const videoPos = `${(thumbIndex % 3) * -scaled.width}px ${(Math.floor(thumbIndex / 3) % 3) * -scaled.height}px`;
+  const isAnimated = !disabled && (animated || thumbs?.length > 0);
+  const curThumb = thumbs?.[thumbIndex] ?? thumb;
+  const scaled =
+    curThumb?.frameHeight > 0 && curThumb?.frameWidth > 0
+      ? getScaledThumbSize(curThumb.frameWidth, curThumb.frameHeight)
+      : null;
+  const videoPos = scaled
+    ? `${(videoPosIndex % 3) * -scaled.width}px ${(Math.floor(videoPosIndex / 3) % 3) * -scaled.height}px`
+    : null;
 
   const { css, cx } = useClasses({
     fit,
@@ -63,49 +77,53 @@ export const Image = ({
 
   useEffect(() => {
     if (autoAnimate) createThumbInterval();
-    return () => clearInterval(thumbInterval.current);
+    return () => clearIntervals();
   }, []);
 
   const handleError = () => {
     setHasError(true);
-    clearInterval(thumbInterval.current);
+    clearIntervals();
   };
 
   const createThumbInterval = () => {
-    if (file?.width > 0 && file?.height > 0)
+    const maxThumbPaths = 9;
+    const posInterval = 300;
+
+    if (isAnimated) {
+      videoPosInterval.current = setInterval(
+        () => setVideoPosIndex((prev) => (prev + 1 >= maxThumbPaths ? 0 : prev + 1)),
+        posInterval
+      );
+    }
+
+    if (thumbs?.length > 1) {
       thumbInterval.current = setInterval(() => {
-        setThumbIndex((prev) => {
-          const newIndex = prev + 1 >= 9 ? 0 : prev + 1;
-          return newIndex;
-        });
-      }, 300);
+        setThumbIndex((prev) => (prev + 1 >= maxThumbPaths ? 0 : prev + 1));
+      }, posInterval * maxThumbPaths);
+    }
   };
 
   const handleMouseEnter = () => {
-    clearInterval(thumbInterval.current);
+    clearIntervals();
     createThumbInterval();
   };
 
   const handleMouseLeave = () => {
-    clearInterval(thumbInterval.current);
+    clearIntervals();
     thumbInterval.current = null;
     setThumbIndex(0);
-    setImagePos(null);
+    setImagePos("center");
     setHasError(false);
   };
-
-  const debouncedMouseMove = debounce((height, width, offsetX, offsetY) => {
-    if (!isAnimated)
-      setImagePos(
-        `${(Math.max(0, offsetX) / width) * 100}% ${(Math.max(0, offsetY) / height) * 100}%`
-      );
-  }, 100);
 
   const handleMouseMove = (event: React.MouseEvent) => {
     const { height, left, top, width } = event.currentTarget.getBoundingClientRect();
     const offsetX = event.pageX - left;
     const offsetY = event.pageY - top;
-    debouncedMouseMove(height, width, offsetX, offsetY);
+    if (!isAnimated)
+      setImagePos(
+        `${(Math.max(0, offsetX) / width) * 100}% ${(Math.max(0, offsetY) / height) * 100}%`
+      );
   };
 
   return (
@@ -123,10 +141,10 @@ export const Image = ({
             viewProps={{ align: "center", height: "100%" }}
           />
         </View>
-      ) : thumbPaths?.length > 0 ? (
+      ) : curThumb ? (
         <img
           {...{ draggable, loading, onDragEnd, onDragStart }}
-          src={thumbPaths[0]}
+          src={curThumb.path}
           alt={title}
           onError={handleError}
           onMouseMove={fit === "cover" ? handleMouseMove : undefined}
@@ -162,10 +180,11 @@ const useClasses = makeClasses((props: ClassesProps) => ({
     }),
     height: props.height ?? (props.fit === "cover" && !props.isAnimated ? "inherit" : undefined),
     width: "100%",
-    objectFit: "none",
+    objectFit: props.isAnimated ? "none" : props.fit === "cover" ? "cover" : undefined,
     objectPosition: props.fit === "cover" || props.isAnimated ? props.imagePos : undefined,
     transition: `all 100ms ease, object-position ${props.fit === "cover" && !props.isAnimated ? 100 : 0}ms ease-in-out`,
     userSelect: "none",
+    overflow: "hidden",
   },
   imageContainer: {
     position: "relative",

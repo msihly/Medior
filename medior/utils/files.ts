@@ -74,14 +74,14 @@ export const copyFile = async (dirPath: string, originalPath: string, newPath: s
 
 export const deleteFile = (path: string, copiedPath?: string) =>
   handleErrors(async () => {
-    if (!(await checkFileExists(path)))
-      return console.debug(`Failed to delete ${path}. File does not exist.`);
+    if (!(await checkFileExists(path))) return false;
     if (copiedPath && !(await checkFileExists(copiedPath)))
       throw new Error(
         `Failed to delete ${path}. File does not exist at copied path ${copiedPath}.`
       );
 
     await fs.unlink(path);
+    return true;
   });
 
 export const dirToFilePaths = async (
@@ -130,7 +130,7 @@ export const genFileInfo = async (args: {
   hash: string;
   skipThumbs?: boolean;
 }) => {
-  const DEBUG = true;
+  const DEBUG = false;
   const { perfLog, perfLogTotal } = makePerfLog("[genFileInfo]");
 
   const ext = args.filePath.split(".").pop().toLowerCase();
@@ -152,16 +152,14 @@ export const genFileInfo = async (args: {
 
   const hasFrames = duration > 0;
   const dirPath = path.dirname(args.filePath);
-  let thumbPaths = Array(hasFrames ? 9 : 1)
-    .fill("")
-    .map((_, i) => path.join(dirPath, `${args.hash}-thumb-${String(i + 1).padStart(2, "0")}.jpg`));
+  let thumbPath = path.join(dirPath, `${args.hash}-thumb.jpg`);
 
   if (!args.skipThumbs) {
-    if (hasFrames) thumbPaths = [await vidToThumbGrid(args.filePath, dirPath, args.hash)];
+    if (hasFrames) thumbPath = await vidToThumbGrid(args.filePath, dirPath, args.hash);
     else
       sharp(args.filePath, { failOn: "none" })
         .resize(null, CONSTANTS.FILE.THUMB.MAX_DIM)
-        .toFile(thumbPaths[0]);
+        .toFile(thumbPath);
     if (DEBUG) perfLog(`Generated thumbnails.`);
   }
 
@@ -173,7 +171,11 @@ export const genFileInfo = async (args: {
     hash: args?.hash,
     height,
     size: stats.size,
-    thumbPaths,
+    thumb: {
+      frameHeight: isAnimated ? height : null,
+      frameWidth: isAnimated ? width : null,
+      path: thumbPath,
+    },
     videoCodec,
     width,
   };

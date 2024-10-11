@@ -66,13 +66,14 @@ export const deriveDescendantTagIds = async (
   return [...new Set(results.flatMap((result) => result.tagIdsWithDescendants))];
 };
 
-const deriveTagThumbPaths = async (tagId: string) =>
-  (
-    await models.FileModel.findOne({ tagIdsWithAncestors: tagId })
-      .sort({ dateCreated: 1 })
-      .select({ thumbPaths: 1 })
-      .lean()
-  )?.thumbPaths ?? [];
+const deriveTagThumb = async (tagId: string): Promise<models.TagSchema["thumb"]> => {
+  const { thumb } = await models.FileModel.findOne({ tagIdsWithAncestors: tagId })
+    .sort({ dateCreated: 1 })
+    .select({ thumb: 1 })
+    .lean();
+
+  return thumb;
+};
 
 const emitTagUpdates = (
   tagId: string,
@@ -380,8 +381,13 @@ export const regenTagAncestors = makeAction(
 );
 
 export const regenTagThumbPaths = makeAction(async ({ tagId }: { tagId: string }) => {
-  const thumbPaths = await deriveTagThumbPaths(tagId);
-  return models.TagModel.updateOne({ _id: tagId }, { $set: { thumbPaths } });
+  return models.TagModel.updateOne(
+    { _id: tagId },
+    {
+      $unset: { thumbPaths: true },
+      $set: { thumb: await deriveTagThumb(tagId) },
+    }
+  );
 });
 
 /* -------------------------------------------------------------------------- */
@@ -417,7 +423,7 @@ export const createTag = makeAction(
       label,
       parentIds,
       regExMap,
-      thumbPaths: [],
+      thumb: null,
     };
 
     const res = await models.TagModel.create(tag);
