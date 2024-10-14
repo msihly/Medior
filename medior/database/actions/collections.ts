@@ -1,7 +1,8 @@
+import { FilterQuery } from "mongoose";
 import * as actions from "medior/database/actions";
 import * as models from "medior/_generated/models";
 import { leanModelToJson, makeAction, objectIds } from "medior/database/utils";
-import { dayjs, socket } from "medior/utils";
+import { dayjs, makePerfLog, PromiseQueue, socket } from "medior/utils";
 
 /* -------------------------------------------------------------------------- */
 /*                              HELPER FUNCTIONS                              */
@@ -125,34 +126,55 @@ export const listCollectionIdsByTagIds = makeAction(async (args: { tagIds: strin
 });
 
 export const regenCollAttrs = makeAction(
-  async (args: { collIds?: string[]; fileIds?: string[] } = {}) => {
+  async (
+    args: {
+      collFilter?: FilterQuery<models.FileCollectionSchema>;
+      collIds?: string[];
+      fileIds?: string[];
+    } = {}
+  ) => {
+    const { perfLog, perfLogTotal } = makePerfLog("[regenCollAttrs]");
+
     const collections = (
-      await models.FileCollectionModel.find({
-        ...(args.collIds?.length
-          ? { _id: { $in: objectIds(args.collIds) } }
-          : args.fileIds?.length
-            ? { fileIdIndexes: { $elemMatch: { fileId: { $in: args.fileIds } } } }
-            : {}),
-      })
+      await models.FileCollectionModel.find(
+        {
+          ...(args.collFilter ??
+            (args.collIds?.length
+              ? { _id: { $in: objectIds(args.collIds) } }
+              : args.fileIds?.length
+                ? { fileIdIndexes: { $elemMatch: { fileId: { $in: args.fileIds } } } }
+                : {})),
+        },
+        null,
+        { strict: false }
+      )
         .select({ _id: 1, fileIdIndexes: 1 })
+        .allowDiskUse(true)
         .lean()
     ).map((r) => leanModelToJson<models.FileCollectionSchema>(r));
 
-    await Promise.all(
-      collections.map(async (collection) => {
-        const filesRes = await actions.listFiles({
-          args: { filter: { id: collection.fileIdIndexes.map((f) => f.fileId) } },
-        });
-        if (!filesRes.success) throw new Error(filesRes.error);
+    perfLog(`Found ${collections.length} to regen.`);
 
-        const updates = await makeCollAttrs(filesRes.data.items, collection.fileIdIndexes);
-        await models.FileCollectionModel.updateOne(
-          { _id: collection.id },
-          { ...updates, $unset: { thumbPaths: true } }
-        );
-        socket.emit("onFileCollectionUpdated", { id: collection.id, updates });
-      })
-    );
+    const queue = new PromiseQueue({ concurrency: 10 });
+
+    collections.forEach((c) => {
+      queue.add(async () => {
+        try {
+          const fileIds = c.fileIdIndexes.map((f) => f.fileId);
+          const filesRes = await actions.listFiles({ args: { filter: { id: fileIds } } });
+          if (!filesRes.success) throw new Error(filesRes.error);
+
+          const updates = await makeCollAttrs(filesRes.data.items, c.fileIdIndexes);
+          await models.FileCollectionModel.updateOne({ _id: c.id }, { ...updates });
+          socket.emit("onFileCollectionUpdated", { id: c.id, updates });
+        } catch (err) {
+          perfLog(`[ERROR] ${err.message}`);
+        }
+      });
+    });
+
+    await queue.resolve();
+    perfLogTotal("Regenerated collections.");
   }
 );
 

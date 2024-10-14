@@ -67,12 +67,12 @@ export const deriveDescendantTagIds = async (
 };
 
 const deriveTagThumb = async (tagId: string): Promise<models.TagSchema["thumb"]> => {
-  const { thumb } = await models.FileModel.findOne({ tagIdsWithAncestors: tagId })
+  const file = await models.FileModel.findOne({ tagIdsWithAncestors: tagId })
     .sort({ dateCreated: 1 })
     .select({ thumb: 1 })
     .lean();
 
-  return thumb;
+  return file?.thumb;
 };
 
 const emitTagUpdates = (

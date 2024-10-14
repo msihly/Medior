@@ -374,6 +374,43 @@ class ThumbRepairer {
 
   private errorLog = async (...args: any[]) => logToFile("error", [this.logTag, ...args]);
 
+  private checkFilesWithoutThumb = async () => {
+    let processedCount = 0;
+    let regeneratedThumbs = 0;
+    let skippedThumbs = 0;
+    let totalRegeneratedThumbs = 0;
+    let totalSkippedThumbs = 0;
+
+    const filesWithoutThumb = await this.getFilesWithoutThumb();
+    this.hasFilesWithoutThumb = filesWithoutThumb.length > 0;
+
+    for (const file of filesWithoutThumb) {
+      const expectedThumbPath = path.resolve(
+        path.dirname(file.path),
+        `${path.basename(file.path, file.ext)}-thumb${file.ext}`
+      );
+      const skipThumbs = await checkFileExists(expectedThumbPath);
+
+      await this.regenThumbs(file, skipThumbs).catch((err) =>
+        this.errorLog(`Failed to regen thumb for file ${file.id}: ${err.message}`)
+      );
+
+      skipThumbs ? skippedThumbs++ : regeneratedThumbs++;
+      skipThumbs ? totalSkippedThumbs++ : totalRegeneratedThumbs++;
+      processedCount++;
+
+      if (processedCount % 100 === 0 || processedCount === filesWithoutThumb.length) {
+        this.perfLog(
+          `${totalRegeneratedThumbs + totalSkippedThumbs} / ${filesWithoutThumb.length}. Generated thumb for ${regeneratedThumbs} files. Updated ${skippedThumbs} files in database only.`
+        );
+        regeneratedThumbs = 0;
+        skippedThumbs = 0;
+      }
+    }
+
+    this.perfLog(`Repaired ${processedCount} files without thumb.`);
+  };
+
   private getFilesWithThumbPaths = async () =>
     (
       await models.FileModel.find({ thumbPaths: { $exists: true } }, null, { strict: false })
@@ -492,18 +529,32 @@ class ThumbRepairer {
     path.resolve(path.dirname(file.path), `${path.basename(file.path, file.ext)}-thumb${file.ext}`);
 
   private processCollections = async () => {
-    const collections = (
-      await models.FileCollectionModel.find({ thumbPaths: { $exists: true } })
+    const filter = { thumbPaths: { $exists: true } };
+    const collectionIds = (
+      await models.FileCollectionModel.find(filter, null, { strict: false })
+        .select({ _id: 1 })
         .allowDiskUse(true)
         .lean()
-    ).map(leanModelToJson<models.FileCollectionSchema>);
-    this.perfLog(`Found ${collections.length} collections with old 'thumbPaths'`);
+    ).map((c) => c._id.toString());
 
-    if (collections.length > 0) {
-      const res = await actions.regenCollAttrs({ collIds: collections.map((c) => c.id) });
-      this.perfLog("Regenerated attributes for affected collections");
-      if (!res.success) throw new Error(`Failed to update collections: ${res.error}`);
-      this.collectionCount = collections.length;
+    this.collectionCount = collectionIds.length;
+    this.perfLog(`Found ${this.collectionCount} collections with old thumbPaths.`);
+
+    if (this.collectionCount > 0) {
+      const regenRes = await actions.regenCollAttrs({ collFilter: filter });
+      if (!regenRes.success) throw new Error(`Failed to update collections: ${regenRes.error}`);
+      this.perfLog("Regenerated collection attributes.");
+
+      const unsetRes = await models.FileCollectionModel.updateMany(
+        filter,
+        { $unset: { thumbPaths: "" } },
+        { strict: false }
+      );
+      if (!unsetRes.matchedCount || unsetRes.modifiedCount !== unsetRes.matchedCount)
+        throw new Error(
+          `Failed to unset thumbPaths from collections: ${JSON.stringify(unsetRes, null, 2)}`
+        );
+      this.perfLog("Unset thumbPaths from collections.");
     }
   };
 
@@ -539,20 +590,31 @@ class ThumbRepairer {
   */
 
   private processTags = async () => {
+    const filter = { thumbPaths: { $exists: true } };
     const tags = (
-      await models.TagModel.find({ thumbPaths: { $exists: true } })
-        .allowDiskUse(true)
-        .lean()
+      await models.TagModel.find(filter, null, { strict: false }).allowDiskUse(true).lean()
     ).map(leanModelToJson<models.TagSchema>);
-    this.perfLog(`Found ${tags.length} tags with old 'thumbPaths'`);
+    this.tagCount = tags.length;
+    this.perfLog(`Found ${this.tagCount} tags with old thumbPaths.`);
 
-    if (tags.length > 0) {
+    if (this.tagCount > 0) {
       const tagQueue = new PromiseQueue({ concurrency: 10 });
       tags.forEach((tag) =>
         tagQueue.add(async () => await actions.regenTagThumbPaths({ tagId: tag.id }))
       );
       await tagQueue.resolve();
-      this.perfLog("Regenerated 'thumb' for affected tags");
+      this.perfLog("Regenerated thumb for affected tags.");
+
+      const unsetRes = await models.TagModel.updateMany(
+        filter,
+        { $unset: { thumbPaths: "" } },
+        { strict: false }
+      );
+      if (!unsetRes.matchedCount || unsetRes.modifiedCount !== unsetRes.matchedCount)
+        throw new Error(
+          `Failed to unset thumbPaths from tags: ${JSON.stringify(unsetRes, null, 2)}`
+        );
+      this.perfLog("Unset thumbPaths from tags.");
     }
   };
 
@@ -561,40 +623,6 @@ class ThumbRepairer {
     this.thumbMap.set(file.id, info.thumb);
     const res = await updateFile({ id: file.id, thumb: info.thumb });
     if (!res.success) throw new Error(`Failed to update file: ${res.error}`);
-  };
-
-  private checkFilesWithoutThumb = async () => {
-    let processedCount = 0;
-    let regeneratedThumbs = 0;
-    let skippedThumbs = 0;
-    let totalRegeneratedThumbs = 0;
-    let totalSkippedThumbs = 0;
-
-    const filesWithoutThumb = await this.getFilesWithoutThumb();
-    this.hasFilesWithoutThumb = filesWithoutThumb.length > 0;
-
-    for (const file of filesWithoutThumb) {
-      const expectedThumbPath = path.resolve(
-        path.dirname(file.path),
-        `${path.basename(file.path, file.ext)}-thumb${file.ext}`
-      );
-      const skipThumbs = await checkFileExists(expectedThumbPath);
-      await this.regenThumbs(file, skipThumbs);
-
-      skipThumbs ? skippedThumbs++ : regeneratedThumbs++;
-      skipThumbs ? totalSkippedThumbs++ : totalRegeneratedThumbs++;
-      processedCount++;
-
-      if (processedCount % 100 === 0 || processedCount === filesWithoutThumb.length) {
-        this.perfLog(
-          `${totalRegeneratedThumbs + totalSkippedThumbs} / ${filesWithoutThumb.length}. Generated thumb for ${regeneratedThumbs} files. Updated ${skippedThumbs} files in database only.`
-        );
-        regeneratedThumbs = 0;
-        skippedThumbs = 0;
-      }
-    }
-
-    this.perfLog(`Repaired ${processedCount} files without thumb.`);
   };
 
   /* ----------------------------------------------------------------------- */
