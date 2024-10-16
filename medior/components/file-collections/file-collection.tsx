@@ -66,7 +66,7 @@ export const FileCollection = observer(({ height, id, width }: FileCollectionPro
           </FileBase.Image>
 
           <FileBase.Footer>
-            <FileBase.FooterText text={collection.title} />
+            <FileBase.FooterText text={collection.title} noTooltip />
           </FileBase.Footer>
         </FileBase.Container>
       </CollectionTooltip>

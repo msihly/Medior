@@ -2,6 +2,7 @@ import { Text } from "medior/components";
 import { makeClasses } from "medior/utils";
 
 interface FooterTextProps {
+  noTooltip?: boolean;
   text: string;
 }
 
@@ -10,7 +11,11 @@ export const FooterText = (props: FooterTextProps) => {
 
   return (
     props.text?.length > 0 && (
-      <Text tooltip={props.text} tooltipProps={{ viewProps: { flex: 1 } }} className={css.title}>
+      <Text
+        tooltip={props.noTooltip ? undefined : props.text}
+        tooltipProps={{ viewProps: { flex: 1 } }}
+        className={css.title}
+      >
         {props.text}
       </Text>
     )

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { FileCollection } from "medior/store";
-import { DateDetail, TagRow, Text, Tooltip, View } from "medior/components";
-import { trpc } from "medior/utils";
+import { TagRow, Text, Tooltip, View } from "medior/components";
+import { colors, trpc } from "medior/utils";
 import { toast } from "react-toastify";
 
 export interface CollectionTooltipProps {
@@ -35,14 +35,18 @@ export const CollectionTooltip = ({ children, collection }: CollectionTooltipPro
       minWidth="25rem"
       title={
         <View column padding={{ all: "0.5rem" }}>
-          <Text preset="title">{collection.title}</Text>
+          <Text
+            color={colors.custom.lightBlue}
+            fontSize="1.1em"
+            fontWeight={600}
+            textAlign="center"
+          >
+            {collection.title}
+          </Text>
 
-          <View row justify="space-between" spacing="1rem">
-            <DateDetail label="Date Created" value={collection.dateCreated} />
-            <DateDetail label="Date Modified" value={collection.dateModified} />
+          <View row justify="center">
+            <TagRow tagIds={tagIds} />
           </View>
-
-          <TagRow tagIds={tagIds} />
         </View>
       }
     >
