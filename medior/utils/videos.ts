@@ -207,10 +207,17 @@ export const extractVideoFrame = async (inputPath: string, frameIndex: number): 
   }
 };
 
-export const getScaledThumbSize = (width: number, height: number) => {
-  const maxDim = CONSTANTS.FILE.THUMB.MAX_DIM;
+export const getScaledThumbSize = (
+  width: number,
+  height: number,
+  maxDim = CONSTANTS.FILE.THUMB.MAX_DIM
+) => {
   const scaleFactor = Math.min(maxDim / width, maxDim / height);
-  return { width: Math.floor(width * scaleFactor), height: Math.floor(height * scaleFactor) };
+  return {
+    scaleFactor,
+    height: Math.floor(height * scaleFactor),
+    width: Math.floor(width * scaleFactor),
+  };
 };
 
 interface VideoInfo {
