@@ -237,6 +237,13 @@ export const MODEL_SEARCH_STORES: ModelSearchStore[] = [
         type: "number",
       },
       {
+        defaultValue: '""',
+        name: "originalPath",
+        objPath: ["originalPath", "$regex"],
+        objValue: 'new RegExp(args.originalPath, "i")',
+        type: "string",
+      },
+      {
         customActionProps: [
           {
             condition: "true",

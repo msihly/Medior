@@ -5,6 +5,7 @@ import {
   Checkbox,
   DateRange,
   FilterMenu,
+  Input,
   LogOpsInput,
   NumRange,
   TagInput,
@@ -40,6 +41,8 @@ export const FileFilterMenu = observer(
     const setNumOfTagsOp = (val: LogicalOp | "") => store.setNumOfTagsOp(val);
 
     const setNumOfTagsValue = (val: number) => store.setNumOfTagsValue(val);
+
+    const setOriginalPath = (val: string) => store.setOriginalPath(val);
 
     const setRatingOp = (val: LogicalOp | "") => store.setRatingOp(val);
 
@@ -152,6 +155,10 @@ export const FileFilterMenu = observer(
             />
           </Card>
         </View>
+
+        <Card flex={1} spacing="0.5rem">
+          <Input header="Original File Path" value={store.originalPath} setValue={setOriginalPath} />
+        </Card>
       </FilterMenu>
     );
   }

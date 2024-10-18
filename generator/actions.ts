@@ -231,6 +231,7 @@ const makeSearchActionsDef = (def: ModelSearchStore) => {
                 { $match: { _id: { $in: objectIds(filterParams.ids) } } },
                 { $addFields: { __order: { $indexOfArray: [objectIds(filterParams.ids), "$_id"] } } },
                 { $sort: { __order: 1 } },
+                ...(hasIds ? [{ $skip: Math.max(0, page - 1) * pageSize }, { $limit: pageSize }] : [])
               ]).allowDiskUse(true).exec()
             : ${modelName}Model.find(filterPipeline.$match)
                 .sort(filterPipeline.$sort)

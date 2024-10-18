@@ -35,6 +35,7 @@ export type CreateFileFilterPipelineInput = {
   minWidth?: number;
   numOfTags?: { logOp: LogicalOp | ""; value: number };
   optionalTagIds?: string[];
+  originalPath?: string;
   rating?: { logOp: LogicalOp | ""; value: number };
   requiredDescTagIds?: string[];
   requiredTagIds?: string[];
@@ -73,6 +74,8 @@ export const createFileFilterPipeline = (args: CreateFileFilterPipelineInput) =>
       ["$expr", logicOpsToMongo(args.numOfTags.logOp)],
       [{ $size: "$tagIds" }, args.numOfTags.value],
     );
+  if (!isDeepEqual(args.originalPath, ""))
+    setObj($match, ["originalPath", "$regex"], new RegExp(args.originalPath, "i"));
   if (!isDeepEqual(args.rating, { logOp: "", value: 0 }))
     setObj($match, ["rating", logicOpsToMongo(args.rating.logOp)], args.rating.value);
 
@@ -143,6 +146,7 @@ export const listFilteredFiles = makeAction(
             { $match: { _id: { $in: objectIds(filterParams.ids) } } },
             { $addFields: { __order: { $indexOfArray: [objectIds(filterParams.ids), "$_id"] } } },
             { $sort: { __order: 1 } },
+            ...(hasIds ? [{ $skip: Math.max(0, page - 1) * pageSize }, { $limit: pageSize }] : []),
           ])
             .allowDiskUse(true)
             .exec()
@@ -264,6 +268,7 @@ export const listFilteredFileCollections = makeAction(
             { $match: { _id: { $in: objectIds(filterParams.ids) } } },
             { $addFields: { __order: { $indexOfArray: [objectIds(filterParams.ids), "$_id"] } } },
             { $sort: { __order: 1 } },
+            ...(hasIds ? [{ $skip: Math.max(0, page - 1) * pageSize }, { $limit: pageSize }] : []),
           ])
             .allowDiskUse(true)
             .exec()
@@ -379,6 +384,7 @@ export const listFilteredTags = makeAction(
             { $match: { _id: { $in: objectIds(filterParams.ids) } } },
             { $addFields: { __order: { $indexOfArray: [objectIds(filterParams.ids), "$_id"] } } },
             { $sort: { __order: 1 } },
+            ...(hasIds ? [{ $skip: Math.max(0, page - 1) * pageSize }, { $limit: pageSize }] : []),
           ])
             .allowDiskUse(true)
             .exec()

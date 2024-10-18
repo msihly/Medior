@@ -43,6 +43,7 @@ export class _FileSearch extends Model({
   minHeight: prop<number>(null).withSetter(),
   minWidth: prop<number>(null).withSetter(),
   numOfTags: prop<{ logOp: LogicalOp | ""; value: number }>(() => ({ logOp: "", value: 0 })),
+  originalPath: prop<string>("").withSetter(),
   page: prop<number>(1).withSetter(),
   pageCount: prop<number>(1).withSetter(),
   pageSize: prop<number>(() => getConfig().file.search.pageSize).withSetter(),
@@ -83,6 +84,7 @@ export class _FileSearch extends Model({
     this.minHeight = null;
     this.minWidth = null;
     this.numOfTags = { logOp: "", value: 0 };
+    this.originalPath = "";
     this.page = 1;
     this.pageCount = 1;
     this.pageSize = getConfig().file.search.pageSize;
@@ -242,6 +244,7 @@ export class _FileSearch extends Model({
       (!isDeepEqual(this.minHeight, null) ? 1 : 0) +
       (!isDeepEqual(this.minWidth, null) ? 1 : 0) +
       (!isDeepEqual(this.numOfTags, { logOp: "", value: 0 }) ? 1 : 0) +
+      (!isDeepEqual(this.originalPath, "") ? 1 : 0) +
       (!isDeepEqual(this.rating, { logOp: "", value: 0 }) ? 1 : 0) +
       (!isDeepEqual(
         this.selectedImageTypes,
@@ -280,6 +283,7 @@ export class _FileSearch extends Model({
       minHeight: this.minHeight,
       minWidth: this.minWidth,
       numOfTags: this.numOfTags,
+      originalPath: this.originalPath,
       rating: this.rating,
       selectedImageTypes: this.selectedImageTypes,
       selectedVideoTypes: this.selectedVideoTypes,
