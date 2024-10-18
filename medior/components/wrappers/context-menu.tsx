@@ -56,11 +56,13 @@ export const ContextMenu = ({ children, disabled, id, menuItems, ...props }: Con
         PopoverClasses={{ paper: css.contextMenu }}
         MenuListProps={{ className: css.contextMenuInner }}
       >
-        {menuItems.map((item) => [
-          item.divider === "top" ? <Divider /> : null,
-          <Item item={item} onClose={handleClose} />,
-          item.divider === "bottom" ? <Divider /> : null,
-        ])}
+        {menuItems
+          .filter(Boolean)
+          .map((item) => [
+            item.divider === "top" ? <Divider /> : null,
+            <Item item={item} onClose={handleClose} />,
+            item.divider === "bottom" ? <Divider /> : null,
+          ])}
       </Menu>
     </View>
   );

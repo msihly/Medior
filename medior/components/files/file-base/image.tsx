@@ -89,8 +89,6 @@ export const Image = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const containerDims = useElementResize(containerRef);
 
-  // console.log({ thumbs: thumbs?.map((t) => ({ ...t })), thumbIndex, curThumb: { ...curThumb } });
-
   const getThumbScale = () => {
     if (!scaled || !containerDims) return;
     const isVertical = scaled.height > scaled.width;
@@ -237,7 +235,7 @@ const useClasses = makeClasses((props: ClassesProps) => ({
     height: props.height ?? (props.fit === "cover" && !props.isAnimated ? "inherit" : undefined),
     width: props.width ?? "100%",
     objectFit: props.isAnimated ? "none" : props.fit === "cover" ? "cover" : "contain",
-    transition: `all 100ms ease, object-position ${props.fit === "cover" && !props.isAnimated ? 100 : 0}ms ease-in-out`,
+    transition: `all 100ms ease, object-position ${props.fit === "cover" && !props.isAnimated ? 100 : 0}ms ease-in-out, transform 0ms ease`,
     userSelect: "none",
     overflow: "hidden",
   },

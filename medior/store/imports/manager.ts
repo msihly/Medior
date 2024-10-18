@@ -92,7 +92,7 @@ export class ImportManager extends Model({
 
       const batch = this.getById(batchId);
       if (DEBUG)
-        console.log(
+        perfLog(
           `Starting importBatch: ${batch.id} (${batch.imports.length} files, ${batch.tagIds.length} tags)`
         );
 
@@ -152,13 +152,14 @@ export class ImportManager extends Model({
             const res = await this.importFile({ batchId, filePath: file.path });
             if (!res.success) throw new Error(res.error);
             if (DEBUG) perfLog(`Imported file: ${file.path}`);
-            if (!batch.imports.some((f) => f.status === "PENDING")) completeBatch();
           } catch (err) {
             const storageMsg = "No available file storage location found";
             if (err.message.includes(storageMsg)) {
               toast.error(storageMsg);
               this.clearQueue();
             } else console.error("Error importing file:", err);
+          } finally {
+            if (!batch.imports.some((f) => f.status === "PENDING")) completeBatch();
           }
         });
       }
@@ -260,6 +261,7 @@ export class ImportManager extends Model({
     if (fileImport.status !== "PENDING") return;
 
     if (DEBUG) perfLog(`Importing file: ${fileImport.path}`);
+    const originalPath = fileImport.path;
     const tagIds = [...new Set([...batch.tagIds, ...fileImport.tagIds].flat())];
 
     const importer = new FileImporter({
@@ -268,7 +270,7 @@ export class ImportManager extends Model({
       ext: fileImport.extension,
       ignorePrevDeleted: batch.ignorePrevDeleted,
       originalName: fileImport.name,
-      originalPath: fileImport.path,
+      originalPath,
       size: fileImport.size,
       tagIds,
       withRemux: batch.remux,
@@ -283,15 +285,8 @@ export class ImportManager extends Model({
 
     try {
       batch.updateImport(
-        { originalPath: fileImport.path, newPath: copyRes.file?.path },
-        {
-          errorMsg,
-          extension: copyRes.file?.ext,
-          fileId,
-          path: copyRes.file?.path,
-          status,
-          thumb,
-        }
+        { originalPath, newPath: copyRes.file?.path },
+        { errorMsg, fileId, status, thumb }
       );
       if (DEBUG) perfLog("Updated import in store");
 
@@ -299,7 +294,7 @@ export class ImportManager extends Model({
         batchId,
         errorMsg,
         fileId,
-        filePath,
+        filePath: originalPath,
         status,
         thumb,
       });

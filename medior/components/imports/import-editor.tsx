@@ -616,9 +616,7 @@ export const ImportEditor = observer(() => {
     setTimeout(async () => {
       const { perfLog, perfLogTotal } = makePerfLog("[ImportEditor.scan]");
       if (DEBUG)
-        console.log(
-          "/* ------------------------------- New Scan ------------------------------ */"
-        );
+        perfLog("/* ------------------------------- New Scan ------------------------------ */");
       const cache = new EditorImportsCache(stores);
 
       /* ---------------------------------- Files --------------------------------- */

@@ -155,12 +155,14 @@ export const genFileInfo = async (args: {
   let thumbPath = path.join(dirPath, `${args.hash}-thumb.jpg`);
 
   if (!args.skipThumbs) {
-    if (hasFrames) thumbPath = await vidToThumbGrid(args.filePath, dirPath, args.hash);
-    else
+    if (hasFrames) {
+      thumbPath = await vidToThumbGrid(args.filePath, dirPath, args.hash);
+      if (!thumbPath) throw new Error("Failed to generate thumbnail.");
+    } else
       sharp(args.filePath, { failOn: "none" })
         .resize(null, CONSTANTS.FILE.THUMB.MAX_DIM)
         .toFile(thumbPath);
-    if (DEBUG) perfLog(`Generated thumbnails.`);
+    if (DEBUG) perfLog(`Generated thumbnail.`);
   }
 
   const fileInfo: Partial<ImportFileInput> = {

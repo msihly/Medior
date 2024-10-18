@@ -10,7 +10,6 @@ import {
   FileSearchColumn,
   Input,
   ListItem,
-  LoadingOverlay,
   MenuButton,
   Modal,
   MultiActionButton,
@@ -257,8 +256,6 @@ export const FileCollectionEditor = observer(() => {
           </View>
 
           <Card column flex={1} overflow="auto">
-            <LoadingOverlay isLoading={stores.collection.editor.search.isLoading} />
-
             <CardGrid
               cards={stores.collection.editor.search.results.map((f) => (
                 <FileCollectionFile key={f.id} file={f} />

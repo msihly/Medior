@@ -37,7 +37,6 @@ export class FileImporter {
   private originalHash: string;
   private originalName: string;
   private originalPath: string;
-  private remuxExts = ["ts"];
   private size: number;
   private tagIds: string[];
   private targetDir: string;
@@ -85,16 +84,10 @@ export class FileImporter {
 
   private copyFile = async () => {
     const fileExistsAtPath = await checkFileExists(this.getFilePath());
-    this.perfLog(`File exists at path?: ${fileExistsAtPath}`);
+    this.perfLog(`File exists at path: ${fileExistsAtPath}`);
     if (!fileExistsAtPath) {
       await copyFile(this.getDirPath(), this.originalPath, this.getFilePath());
       this.perfLog("Copied file");
-    } else {
-      this.file = {
-        ...this.file,
-        ...(await genFileInfo({ file: this.file, filePath: this.getFilePath(), hash: this.hash })),
-      };
-      this.perfLog("Regenerated file info");
     }
   };
 
@@ -137,15 +130,15 @@ export class FileImporter {
   private getFilePath = () => `${this.getDirPath()}\\${this.hash}${this.ext}`;
 
   private hashFile = async (filePath: string) => {
-    this.hash = await md5File(filePath);
+    this.hash = await md5File(path.toNamespacedPath(filePath));
     this.perfLog(`Hashed file: ${this.hash}`);
   };
 
   private remux = async () => {
-    const newPath = await remuxToMp4(this.originalPath, this.getDirPath());
-    this.perfLog("Remuxed to MP4");
-    await this.hashFile(newPath);
-    this.perfLog(`Hashed remuxed file: ${this.hash}`);
+    const remuxed = await remuxToMp4(this.originalPath, this.targetDir);
+    this.perfLog(`Remuxed to MP4: ${remuxed.path}`);
+    this.ext = ".mp4";
+    this.hash = remuxed.hash;
   };
 
   private setTargetDir = async () => {
@@ -170,7 +163,7 @@ export class FileImporter {
 
     const res = await trpc.updateFile.mutate({ id, ...this.file });
     if (!res.success) throw new Error(res.error);
-    this.perfLog("Updated diffusion params of duplicate file");
+    this.perfLog("Updated duplicate file");
   };
 
   /* ----------------------------------------------------------------------- */
@@ -180,11 +173,25 @@ export class FileImporter {
     status: FileImport["status"];
     success: boolean;
   }> => {
-    await this.setTargetDir();
-    await this.hashFile(this.originalPath);
-    this.originalHash = this.hash;
-    if (this.withRemux && this.remuxExts.includes(this.ext)) await this.remux();
-    await this.checkHash();
+    try {
+      await this.setTargetDir();
+      await this.hashFile(this.originalPath);
+      this.originalHash = this.hash;
+    } catch (err) {
+      this.perfLogTotal("Failed to import file.");
+      console.error(`Error hashing ${this.originalPath}:`, err.stack);
+      return { success: false, error: err.message, status: "ERROR" };
+    }
+
+    try {
+      if (this.withRemux && getConfig().file.remuxTypes.toMp4.includes(this.ext.replace(".", "")))
+        await this.remux();
+      await this.checkHash();
+    } catch (err) {
+      this.perfLogTotal("Failed to import file.");
+      console.error(`Error remuxing / checking hash ${this.originalPath}:`, err.stack);
+      return { success: false, error: err.message, status: "ERROR" };
+    }
 
     try {
       await this.copyFile();
@@ -192,26 +199,30 @@ export class FileImporter {
       if (err.code === "EEXIST") {
         await this.checkHash();
         if (this.isDuplicate) await this.updateDupeFile();
+        if (this.deleteOnImport) await this.deleteOriginal();
         this.perfLogTotal("Duplicate file imported.");
-        return;
+        return { success: true, file: this.file, status: "DUPLICATE" };
       }
     }
 
-    let file: FileSchema;
     try {
       if (this.isDuplicate) {
         await this.updateDupeFile();
-        return { success: true, status: "DUPLICATE" };
-      } else if (this.getIsIgnored()) return { success: true, status: "DELETED" };
+        if (this.deleteOnImport) await this.deleteOriginal();
+        return { success: true, file: this.file, status: "DUPLICATE" };
+      } else if (this.getIsIgnored()) {
+        if (this.deleteOnImport) await this.deleteOriginal();
+        return { success: true, status: "DELETED" };
+      }
 
-      file = await this.createFileSchema();
+      this.file = await this.createFileSchema();
       await this.deleteOriginal();
       this.perfLogTotal("New file imported.");
-      return { success: true, file, status: "COMPLETE" };
+      return { success: true, file: this.file, status: "COMPLETE" };
     } catch (err) {
       if (err.message.includes("duplicate key")) {
         this.perfLogTotal("File imported with duplicate hash error.");
-        return { success: true, status: "DUPLICATE" };
+        return { success: true, file: this.file, status: "DUPLICATE" };
       } else {
         this.perfLogTotal("Failed to import file.");
         console.error(`Error importing ${this.originalPath}:`, err.stack);
@@ -223,11 +234,16 @@ export class FileImporter {
   public refresh = (file: FileSchema) =>
     handleErrors(async () => {
       this.file = file;
+      this.hash = file.hash;
+      this.originalPath = file.path;
       await this.setTargetDir();
-      await this.hashFile(this.file.path);
+
+      if (this.withRemux && getConfig().file.remuxTypes.toMp4.includes(this.ext.replace(".", "")))
+        await this.remux();
+
       this.file = {
         ...this.file,
-        ...(await genFileInfo({ file, filePath: file.path, hash: file.hash })),
+        ...(await genFileInfo({ file, filePath: this.getFilePath(), hash: this.hash })),
       };
 
       const res = await trpc.updateFile.mutate(this.file);

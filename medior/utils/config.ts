@@ -48,6 +48,9 @@ export interface Config {
     fileCardFit: "contain" | "cover";
     hideUnratedIcon: boolean;
     imageTypes: ImageType[];
+    remuxTypes: {
+      toMp4: Array<Omit<VideoType, "mp4">>;
+    };
     search: Search;
     videoTypes: VideoType[];
   };
@@ -121,6 +124,9 @@ export const DEFAULT_CONFIG: Config = {
     fileCardFit: "contain",
     imageTypes: ["gif", "heic", "jfif", "jif", "jiff", "jpeg", "jpg", "png", "webp"],
     hideUnratedIcon: false,
+    remuxTypes: {
+      toMp4: ["ts"],
+    },
     search: {
       pageSize: 100,
       sort: { isDesc: true, key: "dateCreated" },

@@ -4,7 +4,7 @@ import { ReactNode } from "react";
 import { FileSchema } from "medior/database";
 import { observer, useStores } from "medior/store";
 import { ContextMenu as ContextMenuBase, ViewProps } from "medior/components";
-import { colors, copyToClipboard } from "medior/utils";
+import { colors, copyToClipboard, getConfig } from "medior/utils";
 
 const DEFAULT_OPTIONS = {
   collections: true,
@@ -29,6 +29,8 @@ export const ContextMenu = observer(
   ({ children, disabled, file, options = {}, ...props }: ContextMenuProps) => {
     options = { ...DEFAULT_OPTIONS, ...options };
 
+    const config = getConfig();
+
     const stores = useStores();
 
     const copyFilePath = () => copyToClipboard(file.path, "Copied file path");
@@ -51,6 +53,8 @@ export const ContextMenu = observer(
     };
 
     const handleRefresh = () => stores.file.refreshFiles({ ids: [file.id] });
+
+    const handleRemux = () => stores.file.refreshFiles({ ids: [file.id], withRemux: true });
 
     const openInfo = () => {
       stores.file.setActiveFileId(file.id);
@@ -97,6 +101,15 @@ export const ContextMenu = observer(
               { icon: "Folder", label: "Folder Path", onClick: copyFolderPath },
             ],
           },
+          config.file.remuxTypes.toMp4.includes(file.ext.replace(".", ""))
+            ? {
+                color: colors.custom.lightBlue,
+                divider: "bottom",
+                icon: "SwitchVideo",
+                label: "Remux",
+                onClick: handleRemux,
+              }
+            : null,
           {
             icon: "Collections",
             label: "Collections",

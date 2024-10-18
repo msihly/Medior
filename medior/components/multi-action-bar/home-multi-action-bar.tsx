@@ -37,6 +37,9 @@ export const HomeMultiActionBar = observer(() => {
   const handleFileInfoRefresh = () =>
     stores.file.refreshFiles({ ids: stores.file.search.selectedIds });
 
+  const handleRemux = () =>
+    stores.file.refreshFiles({ ids: stores.file.search.selectedIds, remuxOnly: true });
+
   const handleSelectAll = () => {
     stores.file.search.toggleSelected(
       stores.file.search.results.map(({ id }) => ({ id, isSelected: true }))
@@ -58,7 +61,9 @@ export const HomeMultiActionBar = observer(() => {
             <FileFilterMenu store={stores.file.search} />
           </View>
 
-          {stores.file.search.isArchiveOpen && <Chip label="Archived" bgColor={colors.custom.red} />}
+          {stores.file.search.isArchiveOpen && (
+            <Chip label="Archived" bgColor={colors.custom.red} />
+          )}
 
           {stores.file.search.selectedIds.length > 0 && <SelectedFilesInfo />}
         </View>
@@ -78,6 +83,13 @@ export const HomeMultiActionBar = observer(() => {
             name={stores.file.search.isArchived ? "Unarchive" : "Archive"}
             tooltip={stores.file.search.isArchived ? "Unarchive" : "Archive"}
             onClick={stores.file.search.isArchived ? handleUnarchive : handleDelete}
+            disabled={hasNoSelection}
+          />
+
+          <MultiActionButton
+            name="SwitchVideo"
+            tooltip="Remux Videos"
+            onClick={handleRemux}
             disabled={hasNoSelection}
           />
 

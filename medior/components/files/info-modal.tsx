@@ -12,21 +12,25 @@ import {
   Text,
   UniformList,
 } from "medior/components";
-import { colors, duration, formatBytes, makeClasses } from "medior/utils";
+import { colors, duration, formatBytes, getConfig, makeClasses } from "medior/utils";
 
 export const InfoModal = observer(() => {
   const { css } = useClasses(null);
 
   const stores = useStores();
+
   const file = stores.collection.editor.isOpen
     ? stores.collection.editor.getFileById(stores.file.activeFileId)
     : stores.file.getById(stores.file.activeFileId);
+  const isRemuxable = getConfig().file.remuxTypes.toMp4.includes(file.ext.replace(".", ""));
 
   const handleClose = () => stores.file.setIsInfoModalOpen(false);
 
   const handleCurrentPath = () => shell.showItemInFolder(file.path);
 
-  const handleRefresh = async () => await stores.file.refreshFiles({ ids: [file.id] });
+  const handleRefresh = () => stores.file.refreshFiles({ ids: [file.id] });
+
+  const handleRemux = () => stores.file.refreshFiles({ ids: [file.id], withRemux: true });
 
   const handleThumbPath = () => shell.showItemInFolder(file.thumb.path);
 
@@ -126,6 +130,15 @@ export const InfoModal = observer(() => {
 
       <Modal.Footer>
         <Button text="Close" icon="Close" onClick={handleClose} colorOnHover={colors.custom.red} />
+
+        {isRemuxable && (
+          <Button
+            text="Remux"
+            icon="SwitchVideo"
+            onClick={handleRemux}
+            colorOnHover={colors.custom.purple}
+          />
+        )}
 
         <Button
           text="Refresh"

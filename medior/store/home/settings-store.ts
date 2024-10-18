@@ -104,7 +104,7 @@ export class SettingsStore extends Model({
       db: getSnapshot(this.db),
       ports: getSnapshot(this.ports),
       tags: getSnapshot(this.tags),
-    };
+    } as Config;
   }
 
   getConfigByKey<T>(key: ConfigKey): T {
