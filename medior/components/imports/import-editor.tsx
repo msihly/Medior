@@ -146,16 +146,18 @@ export const ImportEditor = observer(() => {
     if (isInitMount.current) isInitMount.current = false;
     else setHasChangesSinceLastScan(true);
   }, [
-    stores.import.editor.rootFolderIndex,
-    stores.tag.tags,
     folderToCollectionMode,
     folderToTagsMode,
+    stores.import.editor.flattenTo,
+    stores.import.editor.rootFolderIndex,
+    stores.tag.tags,
     withDelimiters,
     withDiffusionModel,
     withDiffusionParams,
     withDiffusionRegExMaps,
     withDiffusionTags,
     withFileNameToTags,
+    withFlattenTo,
     withFolderNameRegEx,
   ]);
 
@@ -297,7 +299,7 @@ export const ImportEditor = observer(() => {
       }
 
       /** Parse tags from collectionTitle via folder regex maps */
-      if (collectionTitle) {
+      if (collectionTitle && folderToCollectionMode === "withTag") {
         const collectionTitleTags = cache.getTagIdsByFolderRegEx(collectionTitle);
         if (collectionTitleTags?.length) {
           collectionTitleTags.forEach((tagId) => {
