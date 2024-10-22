@@ -308,7 +308,7 @@ export const MODEL_SEARCH_STORES: ModelSearchStore[] = [
       ...makeDateRangeProps("dateCreated"),
       ...makeDateRangeProps("dateModified"),
       makeLogOpProp("count"),
-      makeTagOptsProp("_id", "ancestors"),
+      makeTagOptsProp("_id", "ancestorIds"),
       {
         defaultValue: '""',
         name: "alias",

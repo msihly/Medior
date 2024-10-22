@@ -330,11 +330,11 @@ export const createTagFilterPipeline = (args: CreateTagFilterPipelineInput) => {
     setObj($match, ["regExMap.regEx", "$exists"], args.regExMode === "hasRegEx");
 
   if (args.excludedDescTagIds?.length)
-    setObj($match, ["ancestors", "$nin"], objectIds(args.excludedDescTagIds));
+    setObj($match, ["ancestorIds", "$nin"], objectIds(args.excludedDescTagIds));
   if (args.excludedTagIds?.length) setObj($match, ["_id", "$nin"], objectIds(args.excludedTagIds));
   if (args.optionalTagIds?.length) setObj($match, ["_id", "$in"], objectIds(args.optionalTagIds));
   if (args.requiredDescTagIds?.length)
-    setObj($match, ["ancestors", "$all"], objectIds(args.requiredDescTagIds));
+    setObj($match, ["ancestorIds", "$all"], objectIds(args.requiredDescTagIds));
   if (args.requiredTagIds?.length) setObj($match, ["_id", "$all"], objectIds(args.requiredTagIds));
 
   const sortDir = args.sortValue.isDesc ? -1 : 1;
