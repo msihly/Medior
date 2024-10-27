@@ -766,13 +766,8 @@ export const mergeTags = makeAction(
             ],
           },
         },
-        {
-          updateOne: {
-            filter: { _id: _tagIdToKeep },
-            update: { $set: tagToKeepUpdates },
-          },
-        },
         { deleteOne: { filter: { _id: _tagIdToMerge } } },
+        { updateOne: { filter: { _id: _tagIdToKeep }, update: { $set: tagToKeepUpdates } } },
       ]);
 
       await regenTagAncestors({ tagIds: [args.tagIdToKeep, ...tagIdsToUpdate] });

@@ -9,7 +9,7 @@ import {
   prop,
 } from "mobx-keystone";
 import { _File } from "medior/store/_generated";
-import { dayjs, getConfig, WEB_VIDEO_CODECS, WEB_VIDEO_EXTS } from "medior/utils";
+import { dayjs, getIsVideo, WEB_VIDEO_CODECS, WEB_VIDEO_EXTS } from "medior/utils";
 
 @model("medior/File")
 export class File extends ExtendedModel(_File, {
@@ -40,21 +40,20 @@ export class File extends ExtendedModel(_File, {
   /* ----------------------------- GETTERS ----------------------------- */
   @computed
   get isAnimated() {
-    const regExp = new RegExp(`gif|${getConfig().file.videoTypes.join("|")}`, "i");
-    return regExp.test(this.ext);
+    return this.isVideo || this.ext === "gif";
   }
 
   @computed
   get isWebPlayable() {
-    const codecRegEx = new RegExp(WEB_VIDEO_CODECS.join("|"), "i");
-    const extRegEx = new RegExp(WEB_VIDEO_EXTS.join("|"), "i");
-    return codecRegEx.test(this.videoCodec) && extRegEx.test(this.ext);
+    return (
+      WEB_VIDEO_CODECS.includes(this.videoCodec.toLowerCase()) &&
+      WEB_VIDEO_EXTS.includes(this.ext.toLowerCase())
+    );
   }
 
   @computed
   get isVideo() {
-    const regExp = new RegExp(`${getConfig().file.videoTypes.join("|")}`, "i");
-    return regExp.test(this.ext);
+    return getIsVideo(this.ext);
   }
 
   @computed

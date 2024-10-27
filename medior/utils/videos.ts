@@ -8,6 +8,7 @@ import {
   checkFileExists,
   fractionStringToNumber,
   getAvailableFileStorage,
+  logToFile,
   makePerfLog,
   round,
   sharp,
@@ -54,7 +55,7 @@ class VideoTranscoder {
   }
 
   private init(inputPath: string, seekTime: number, stream: PassThrough) {
-    const { perfLog, perfLogTotal } = makePerfLog("[Transcode]");
+    const { perfLog, perfLogTotal } = makePerfLog("[Transcode]", true);
     return ffmpeg()
       .input(inputPath)
       .seekInput(seekTime)
@@ -231,30 +232,38 @@ interface VideoInfo {
 
 export const getVideoInfo = async (path: string) => {
   return (await new Promise(async (resolve, reject) => {
-    return ffmpeg.ffprobe(path, (err, info) => {
-      if (err) return reject(err);
+    try {
+      return ffmpeg.ffprobe(path, (err, info) => {
+        if (err) return reject(err);
 
-      const videoStream = info.streams.find((s) => s.codec_type === "video");
-      if (!videoStream) return reject(new Error("No video stream found."));
+        const videoStream = info.streams.find((s) => s.codec_type === "video");
+        if (!videoStream) return reject(new Error("No video stream found."));
 
-      const { height, r_frame_rate, width, codec_name } = videoStream;
-      const { duration, size } = info.format;
+        const { height, r_frame_rate, width, codec_name } = videoStream;
+        const { duration, size } = info.format;
 
-      return resolve({
-        duration: typeof duration === "number" ? duration : null,
-        frameRate: fractionStringToNumber(r_frame_rate),
-        height,
-        size,
-        videoCodec: codec_name,
-        width,
+        return resolve({
+          duration: typeof duration === "number" ? duration : null,
+          frameRate: fractionStringToNumber(r_frame_rate),
+          height,
+          size,
+          videoCodec: codec_name,
+          width,
+        });
       });
-    });
+    } catch (err) {
+      logToFile("error", JSON.stringify(err, null, 2));
+      reject(err.message);
+    }
   })) as VideoInfo;
 };
 
 export const vidToThumbGrid = async (inputPath: string, outputPath: string, fileHash: string) => {
   const DEBUG = false;
-  const { perfLog, perfLogTotal } = makePerfLog("[vidToThumbGrid]");
+  const { perfLog, perfLogTotal } = makePerfLog("[vidToThumbGrid]", true);
+
+  let isCorrupted: boolean;
+  const gridPath = path.resolve(outputPath, `${fileHash}-thumb.jpg`);
 
   try {
     if (DEBUG) perfLog(`Generating thumbnail grid for: ${inputPath}`);
@@ -262,7 +271,6 @@ export const vidToThumbGrid = async (inputPath: string, outputPath: string, file
     const { duration, frameRate, height, width } = await getVideoInfo(inputPath);
     if (DEBUG) perfLog(`Video duration: ${duration}`);
 
-    const gridPath = path.resolve(outputPath, `${fileHash}-thumb.jpg`);
     const numOfFrames = 9;
     const scaled = getScaledThumbSize(width, height);
     const skipDuration = duration * CONSTANTS.FILE.THUMB.FRAME_SKIP_PERCENT;
@@ -278,20 +286,27 @@ export const vidToThumbGrid = async (inputPath: string, outputPath: string, file
     await Promise.all(
       timestamps.map(
         (timestamp, idx) =>
-          new Promise<void>((resolve, reject) => {
+          new Promise<void>((resolve) => {
             const outputPath = tempPaths[idx];
 
-            ffmpeg()
-              .input(inputPath)
-              .inputOptions([`-ss ${timestamp}`])
-              .outputOptions(["-vf", `scale=${scaled.width}:${scaled.height}`, `-frames:v`, "1"])
-              .output(outputPath)
-              .on("end", () => resolve())
-              .on("error", (err) => {
-                console.error(`Error generating thumbnail for timestamp ${timestamp}: ${err}`);
-                reject();
-              })
-              .run();
+            try {
+              ffmpeg()
+                .input(inputPath)
+                .inputOptions([`-ss ${timestamp}`])
+                .outputOptions(["-vf", `scale=${scaled.width}:${scaled.height}`, `-frames:v`, "1"])
+                .output(outputPath)
+                .on("end", () => resolve())
+                .on("error", (err) => {
+                  console.error(`Error generating thumbnail for timestamp ${timestamp}: ${err}`);
+                  isCorrupted = true;
+                  resolve();
+                })
+                .run();
+            } catch (err) {
+              console.error(`Error generating thumbnail for timestamp ${timestamp}: ${err}`);
+              isCorrupted = true;
+              resolve();
+            }
           })
       )
     );
@@ -300,9 +315,8 @@ export const vidToThumbGrid = async (inputPath: string, outputPath: string, file
     const compositeInputs = await Promise.all(
       tempPaths.map(async (tempPath) => {
         if (!(await checkFileExists(tempPath))) {
-          console.error(
-            `Possible corrupted file. Failed to generate thumb temp frame: ${tempPath}`
-          );
+          console.error(`Corrupted file. Failed to generate thumb temp frame: ${tempPath}`);
+          isCorrupted = true;
           return null;
         } else {
           validTempPaths.push(tempPath);
@@ -337,6 +351,7 @@ export const vidToThumbGrid = async (inputPath: string, outputPath: string, file
 
       if (DEBUG) perfLog(`Grid created successfully: ${result}`);
     } catch (error) {
+      isCorrupted = true;
       throw new Error(`Error creating thumb grid: ${error.message}`);
     } finally {
       const res = await Promise.all(
@@ -348,17 +363,25 @@ export const vidToThumbGrid = async (inputPath: string, outputPath: string, file
         )
       );
       if (DEBUG) perfLog(`Unlink res: ${res.join(", ")}`);
-      if (res.some((v) => !v)) console.error(`Possible corrupted file: ${inputPath}`);
+      if (res.some((v) => !v)) {
+        isCorrupted = true;
+        console.error(`Corrupted file: ${inputPath}`);
+      }
     }
 
     if (DEBUG) perfLogTotal(`Thumbnail grid generated: ${gridPath}`);
-    return gridPath;
   } catch (err) {
+    isCorrupted = true;
     console.error(err);
+  } finally {
+    return { isCorrupted, path: gridPath };
   }
 };
 
 export const remuxToMp4 = async (inputPath: string, outputDir: string) => {
+  const DEBUG = false;
+  const { perfLog } = makePerfLog("[remuxToMp4]", true);
+
   const tempPath = path.resolve(outputDir, "temp.mp4");
 
   await new Promise((resolve, reject) => {
@@ -370,6 +393,7 @@ export const remuxToMp4 = async (inputPath: string, outputDir: string) => {
       .on("error", reject)
       .run();
   });
+  if (DEBUG) perfLog(`Remuxed file created at temp path: ${tempPath}.`);
 
   const newHash = await md5File(tempPath);
   const newPath = path.resolve(
@@ -378,96 +402,12 @@ export const remuxToMp4 = async (inputPath: string, outputDir: string) => {
     newHash.substring(2, 4),
     `${newHash}.mp4`
   );
+  if (DEBUG) perfLog(`Moved temp file from ${tempPath} to ${newPath}.`);
 
   await fs.rename(tempPath, newPath);
   const res = await checkFileExists(newPath);
+  if (DEBUG) perfLog(`Moved temp file to ${newPath}: ${res}`);
   if (!res) throw new Error("Failed to remux to mp4.");
 
   return { hash: newHash, path: newPath };
 };
-
-/*
-export const generateFramesThumbnail = async (
-  inputPath: string,
-  outputPath: string,
-  fileHash: string,
-  duration: number = null,
-  numOfFrames = 9
-) => {
-  const DEBUG = false;
-
-  try {
-    if (DEBUG) console.debug(`Generating thumbnails for: ${inputPath}`);
-
-    duration ??= (await getVideoInfo(inputPath))?.duration;
-    if (DEBUG) console.debug(`Video duration: ${duration}`);
-
-    const skipDuration = duration * CONSTANTS.FILE.THUMB.FRAME_SKIP_PERCENT;
-    const frameInterval = (duration - skipDuration) / numOfFrames;
-    const frameIndices = range(numOfFrames);
-
-    const filePaths = frameIndices.map((idx) =>
-      path.join(outputPath, `${fileHash}-thumb-${String(idx + 1).padStart(2, "0")}.jpg`)
-    );
-    const timestamps = frameIndices.map((idx) => idx * frameInterval + skipDuration);
-
-    if (DEBUG)
-      console.debug(
-        `Timestamps for frames: ${timestamps}\nFile paths for thumbnails: ${filePaths}`
-      );
-
-    await Promise.all(
-      timestamps.map(
-        (timestamp, idx) =>
-          new Promise<void>((resolve, reject) => {
-            if (DEBUG) console.debug(`Generating thumbnail for timestamp: ${timestamp}`);
-            ffmpeg()
-              .input(inputPath)
-              .inputOptions([`-ss ${timestamp}`])
-              .outputOptions([
-                `-vf scale=${CONSTANTS.FILE.THUMB.MAX_DIM}:-1:force_original_aspect_ratio=increase,crop=min(iw\\,${CONSTANTS.FILE.THUMB.MAX_DIM}):ih`,
-                `-vframes 1`,
-              ])
-              .output(filePaths[idx])
-              .on("end", () => {
-                if (DEBUG) console.debug(`Thumbnail generated: ${filePaths[idx]}`);
-                resolve();
-              })
-              .on("error", (err) => {
-                console.error(`Error generating thumbnail for timestamp ${timestamp}:`, err);
-                reject(err);
-              })
-              .run();
-          })
-      )
-    );
-
-    return filePaths;
-  } catch (err) {
-    console.error("ERR::generateFramesThumbnail()", err);
-    return [];
-  }
-};
-
-export const generateVideoThumbnail = async (
-  inputPath: string,
-  outputPath: string,
-  thumbDuration = 3
-) => {
-  const { duration } = await getVideoInfo(inputPath);
-  const safeThumbDur = duration - thumbDuration;
-  const startTime = safeThumbDur <= 0 ? 0 : getRandomInt(0.1 * safeThumbDur, 0.9 * safeThumbDur);
-
-  return await new Promise((resolve, reject) => {
-    return ffmpeg()
-      .input(inputPath)
-      .inputOptions([`-ss ${startTime}`])
-      .outputOptions([`-t ${thumbDuration}`])
-      .noAudio()
-      .output(path.join(outputPath, "test.mp4"))
-      .on("end", resolve)
-      .on("error", reject)
-      .run();
-  });
-};
-*/

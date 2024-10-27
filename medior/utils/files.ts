@@ -6,7 +6,7 @@ import { FileSchema, ImportFileInput } from "medior/database";
 import {
   CONSTANTS,
   dayjs,
-  getConfig,
+  getIsAnimated,
   getVideoInfo,
   handleErrors,
   makePerfLog,
@@ -134,8 +134,9 @@ export const genFileInfo = async (args: {
   const { perfLog, perfLogTotal } = makePerfLog("[genFileInfo]");
 
   const ext = args.filePath.split(".").pop().toLowerCase();
-  const isAnimated = new RegExp(`gif|${getConfig().file.videoTypes.join("|")}`, "i").test(ext);
+  const isAnimated = getIsAnimated(ext);
 
+  let isCorrupted: boolean;
   const stats = await fs.stat(args?.filePath);
   const imageInfo = !isAnimated ? await sharp(args.filePath).metadata() : null;
   const videoInfo = isAnimated ? await getVideoInfo(args.filePath) : null;
@@ -156,8 +157,9 @@ export const genFileInfo = async (args: {
 
   if (!args.skipThumbs) {
     if (hasFrames) {
-      thumbPath = await vidToThumbGrid(args.filePath, dirPath, args.hash);
-      if (!thumbPath) throw new Error("Failed to generate thumbnail.");
+      const thumbGridRes = await vidToThumbGrid(args.filePath, dirPath, args.hash);
+      isCorrupted = thumbGridRes.isCorrupted;
+      thumbPath = thumbGridRes.path;
     } else
       sharp(args.filePath, { failOn: "none" })
         .resize(null, CONSTANTS.FILE.THUMB.MAX_DIM)
@@ -168,10 +170,11 @@ export const genFileInfo = async (args: {
   const fileInfo: Partial<ImportFileInput> = {
     dateModified,
     duration,
-    ext: `.${ext}`,
+    ext,
     frameRate,
     hash: args?.hash,
     height,
+    isCorrupted,
     size: stats.size,
     thumb: {
       frameHeight: isAnimated ? height : null,

@@ -196,9 +196,6 @@ export type ListFileIdsForCarouselOutput = ReturnType<typeof db.listFileIdsForCa
 export type ListFilePathsInput = Parameters<typeof db.listFilePaths>[0];
 export type ListFilePathsOutput = ReturnType<typeof db.listFilePaths>;
 
-export type RepairThumbsInput = Parameters<typeof db.repairThumbs>[0];
-export type RepairThumbsOutput = ReturnType<typeof db.repairThumbs>;
-
 export type ListFilesWithBrokenVideoCodecInput = Parameters<
   typeof db.listFilesWithBrokenVideoCodec
 >[0];
@@ -215,6 +212,9 @@ export type LoadFaceApiNetsOutput = ReturnType<typeof db.loadFaceApiNets>;
 export type RelinkFilesInput = Parameters<typeof db.relinkFiles>[0];
 export type RelinkFilesOutput = ReturnType<typeof db.relinkFiles>;
 
+export type RepairFilesWithBrokenExtInput = Parameters<typeof db.repairFilesWithBrokenExt>[0];
+export type RepairFilesWithBrokenExtOutput = ReturnType<typeof db.repairFilesWithBrokenExt>;
+
 export type SetFileFaceModelsInput = Parameters<typeof db.setFileFaceModels>[0];
 export type SetFileFaceModelsOutput = ReturnType<typeof db.setFileFaceModels>;
 
@@ -226,6 +226,9 @@ export type SetFileRatingOutput = ReturnType<typeof db.setFileRating>;
 
 export type UpdateFileInput = Parameters<typeof db.updateFile>[0];
 export type UpdateFileOutput = ReturnType<typeof db.updateFile>;
+
+export type RepairThumbsInput = Parameters<typeof db.repairThumbs>[0];
+export type RepairThumbsOutput = ReturnType<typeof db.repairThumbs>;
 
 export type DeriveAncestorTagIdsInput = Parameters<typeof db.deriveAncestorTagIds>[0];
 export type DeriveAncestorTagIdsOutput = ReturnType<typeof db.deriveAncestorTagIds>;

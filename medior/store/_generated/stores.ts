@@ -37,6 +37,7 @@ export class _FileSearch extends Model({
   hasDiffParams: prop<boolean>(false).withSetter(),
   ids: prop<string[]>(() => []).withSetter(),
   isArchived: prop<boolean>(false).withSetter(),
+  isCorrupted: prop<boolean>(null).withSetter(),
   isLoading: prop<boolean>(false).withSetter(),
   maxHeight: prop<number>(null).withSetter(),
   maxWidth: prop<number>(null).withSetter(),
@@ -78,6 +79,7 @@ export class _FileSearch extends Model({
     this.hasDiffParams = false;
     this.ids = [];
     this.isArchived = false;
+    this.isCorrupted = null;
     this.isLoading = false;
     this.maxHeight = null;
     this.maxWidth = null;
@@ -239,6 +241,7 @@ export class _FileSearch extends Model({
       (!isDeepEqual(this.hasDiffParams, false) ? 1 : 0) +
       (!isDeepEqual(this.ids, []) ? 1 : 0) +
       (!isDeepEqual(this.isArchived, false) ? 1 : 0) +
+      (!isDeepEqual(this.isCorrupted, null) ? 1 : 0) +
       (!isDeepEqual(this.maxHeight, null) ? 1 : 0) +
       (!isDeepEqual(this.maxWidth, null) ? 1 : 0) +
       (!isDeepEqual(this.minHeight, null) ? 1 : 0) +
@@ -278,6 +281,7 @@ export class _FileSearch extends Model({
       hasDiffParams: this.hasDiffParams,
       ids: this.ids,
       isArchived: this.isArchived,
+      isCorrupted: this.isCorrupted,
       maxHeight: this.maxHeight,
       maxWidth: this.maxWidth,
       minHeight: this.minHeight,
@@ -899,6 +903,7 @@ export class _File extends Model({
   hash: prop<string>(),
   height: prop<number>(),
   isArchived: prop<boolean>(),
+  isCorrupted: prop<boolean>(null),
   originalHash: prop<string>(null),
   originalName: prop<string>(null),
   originalPath: prop<string>(),

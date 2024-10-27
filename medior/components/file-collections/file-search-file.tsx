@@ -2,7 +2,7 @@ import { CSSProperties } from "react";
 import { FileSchema } from "medior/database";
 import { observer, useStores } from "medior/store";
 import { Button, FileBase } from "medior/components";
-import { colors, duration, getConfig } from "medior/utils";
+import { colors, duration, getIsAnimated } from "medior/utils";
 
 export interface FileSearchFileProps {
   disabled?: boolean;
@@ -14,7 +14,7 @@ export const FileSearchFile = observer(
   ({ disabled, file, height = "14rem" }: FileSearchFileProps) => {
     const stores = useStores();
 
-    const animated = (new RegExp(`gif|${getConfig().file.videoTypes.join("|")}`, "i")).test(file.ext)
+    const animated = getIsAnimated(file.ext);
 
     const handleAdd = () =>
       stores.collection.editor.addFilesToCollection({

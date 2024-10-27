@@ -109,6 +109,7 @@ export const FaceRecognitionModal = observer(() => {
 
       const res = await stores.faceRecog.findMatches(file.path);
       const detectedFaces = res.data.map(
+        // @ts-expect-error
         ({ detection: { _box: box }, descriptor, tagId }) =>
           new FaceModel({
             box: { height: box._height, width: box._width, x: box._x, y: box._y },
@@ -191,13 +192,8 @@ export const FaceRecognitionModal = observer(() => {
                 <CenteredText text="No faces detected" />
               ) : (
                 detectedFacesWithImages.map(({ dataUrl, faceModel: face }, i) => (
-                  <FileBase.Container key={i} height="16rem" disabled>
-                    <FileBase.Image
-                      thumb={{ path: dataUrl }}
-                      height="100%"
-                      fit="contain"
-                      disabled
-                    />
+                  <FileBase.Container key={i} height="16rem" overflow="initial" disabled>
+                    <FileBase.Image thumb={{ path: dataUrl }} height="100%" fit="contain" />
 
                     <View flex={0}>
                       <TagInput
@@ -217,6 +213,7 @@ export const FaceRecognitionModal = observer(() => {
               flex={1}
               align="center"
               justify="center"
+              height="100%"
               width="100%"
               overflow="hidden"
               padding={{ all: 0 }}

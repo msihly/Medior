@@ -13,6 +13,7 @@ import {
   genFileInfo,
   getAvailableFileStorage,
   getConfig,
+  getIsRemuxable,
   handleErrors,
   makePerfLog,
   remuxToMp4,
@@ -127,7 +128,7 @@ export class FileImporter {
   private getDirPath = () =>
     `${this.targetDir}\\${this.hash.substring(0, 2)}\\${this.hash.substring(2, 4)}`;
 
-  private getFilePath = () => `${this.getDirPath()}\\${this.hash}${this.ext}`;
+  private getFilePath = () => `${this.getDirPath()}\\${this.hash}.${this.ext}`;
 
   private hashFile = async (filePath: string) => {
     this.hash = await md5File(path.toNamespacedPath(filePath));
@@ -136,8 +137,9 @@ export class FileImporter {
 
   private remux = async () => {
     const remuxed = await remuxToMp4(this.originalPath, this.targetDir);
+    if (this.deleteOnImport) await deleteFile(this.originalPath);
     this.perfLog(`Remuxed to MP4: ${remuxed.path}`);
-    this.ext = ".mp4";
+    this.ext = "mp4";
     this.hash = remuxed.hash;
   };
 
@@ -184,8 +186,7 @@ export class FileImporter {
     }
 
     try {
-      if (this.withRemux && getConfig().file.remuxTypes.toMp4.includes(this.ext.replace(".", "")))
-        await this.remux();
+      if (this.withRemux && getIsRemuxable(this.ext)) await this.remux();
       await this.checkHash();
     } catch (err) {
       this.perfLogTotal("Failed to import file.");
@@ -238,18 +239,32 @@ export class FileImporter {
       this.originalPath = file.path;
       await this.setTargetDir();
 
-      if (this.withRemux && getConfig().file.remuxTypes.toMp4.includes(this.ext.replace(".", "")))
+      if (this.withRemux && getIsRemuxable(this.ext)) {
+        this.deleteOnImport = true;
         await this.remux();
+        await this.checkHash();
+
+        if (this.isDuplicate) {
+          const res = await trpc.updateFile.mutate({
+            ...this.file,
+            hash: file.hash,
+            isArchived: true,
+          });
+          if (!res.success) throw new Error(res.error);
+          return { success: true, status: "DUPLICATE" };
+        }
+      }
 
       this.file = {
         ...this.file,
         ...(await genFileInfo({ file, filePath: this.getFilePath(), hash: this.hash })),
+        path: this.getFilePath(),
       };
 
       const res = await trpc.updateFile.mutate(this.file);
       if (!res.success) throw new Error(res.error);
       this.perfLog("Refreshed file");
-      return res.data;
+      return { succes: true, status: "COMPLETE" };
     });
 }
 
@@ -261,17 +276,13 @@ export const dirToFileImports = async (dirPath: string) => {
 
 export const filePathsToImports = async (filePaths: string[]) => {
   const config = getConfig();
-
-  const EXT_REG_EXP = new RegExp(
-    `\.(${config.file.imageTypes.join("|")}|${config.file.videoTypes.join("|")})$`,
-    "i"
-  );
+  const validExts = new Set([...config.file.imageTypes, ...config.file.videoTypes]);
 
   return (
     await Promise.all(
       filePaths.map(async (filePath) => {
-        const extension = path.extname(filePath);
-        if (!EXT_REG_EXP.test(extension)) return null;
+        const extension = path.extname(filePath).slice(1).toLowerCase();
+        if (!validExts.has(extension)) return null;
 
         const stats = await fs.stat(filePath);
         return new FileImport({

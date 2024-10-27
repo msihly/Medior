@@ -135,19 +135,20 @@ export const FileCollectionManager = observer(() => {
               height={`calc(${FILE_CARD_HEIGHT} + 3.5rem)`}
               width={hasOneFileSelected ? "14rem" : "100%"}
               padding={{ all: 0 }}
-              overflow="auto"
+              overflow="hidden"
             >
               <CardGrid
                 cards={stores.collection.manager.selectedFiles.map((f) => (
                   <FileCard key={f.id} file={f} height={FILE_CARD_HEIGHT} disabled />
                 ))}
                 maxCards={hasOneFileSelected ? 1 : 6}
+                padding={{ bottom: 0 }}
               />
             </Card>
 
             {hasOneFileSelected && (
               <Card
-                header="Current Collections"
+                header={<Text preset="title">{"Current Collections"}</Text>}
                 flex={1}
                 height={`calc(${FILE_CARD_HEIGHT} + 3.5rem)`}
                 overflow="auto"

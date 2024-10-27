@@ -29,6 +29,7 @@ export type CreateFileFilterPipelineInput = {
   hasDiffParams?: boolean;
   ids?: string[];
   isArchived?: boolean;
+  isCorrupted?: boolean;
   maxHeight?: number;
   maxWidth?: number;
   minHeight?: number;
@@ -64,6 +65,7 @@ export const createFileFilterPipeline = (args: CreateFileFilterPipelineInput) =>
       [{ $eq: [{ $type: "$diffusionParams" }, "string"] }, { $ne: ["$diffusionParams", ""] }],
     );
   if (!isDeepEqual(args.ids, [])) setObj($match, ["_id", "$in"], objectIds(args.ids));
+  if (!isDeepEqual(args.isCorrupted, null)) setObj($match, ["isCorrupted"], args.isCorrupted);
   if (!isDeepEqual(args.maxHeight, null)) setObj($match, ["height", "$lte"], args.maxHeight);
   if (!isDeepEqual(args.maxWidth, null)) setObj($match, ["width", "$lte"], args.maxWidth);
   if (!isDeepEqual(args.minHeight, null)) setObj($match, ["height", "$gte"], args.minHeight);
@@ -86,7 +88,7 @@ export const createFileFilterPipeline = (args: CreateFileFilterPipelineInput) =>
       ["ext", "$nin"],
       Object.entries({ ...args.selectedImageTypes, ...args.selectedVideoTypes })
         .filter(([, val]) => !val)
-        .map(([ext]) => `.${ext}`),
+        .map(([ext]) => ext),
     );
   if (args.excludedDescTagIds?.length)
     setObj($match, ["tagIdsWithAncestors", "$nin"], objectIds(args.excludedDescTagIds));

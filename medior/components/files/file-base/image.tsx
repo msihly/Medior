@@ -35,10 +35,8 @@ type ImageProps = Omit<
   DetailedHTMLProps<ImgHTMLAttributes<HTMLImageElement>, HTMLImageElement>,
   "alt" | "height" | "medior" | "title" | "width"
 > & {
-  animated?: boolean;
   autoAnimate?: boolean;
   children?: ReactNode | ReactNode[];
-  disabled?: boolean;
   draggable?: boolean;
   fit?: "contain" | "cover";
   height?: CSS["height"];
@@ -50,11 +48,9 @@ type ImageProps = Omit<
   );
 
 export const Image = ({
-  animated,
   autoAnimate,
   children,
   className,
-  disabled,
   draggable,
   fit = "cover",
   height,
@@ -79,12 +75,11 @@ export const Image = ({
   const [videoPosIndex, setVideoPosIndex] = useState(1);
 
   const curThumb = thumbs?.[thumbIndex] ?? thumb;
-  const hasFrameDims = curThumb?.frameHeight > 0 && curThumb?.frameWidth > 0;
-  const isAnimated = !disabled && (animated || hasFrameDims);
-  const scaled = hasFrameDims
+  const isAnimated = curThumb?.frameHeight > 0 && curThumb?.frameWidth > 0;
+  const scaled = isAnimated
     ? getScaledThumbSize(curThumb.frameWidth, curThumb.frameHeight)
     : null;
-  const videoPos = hasFrameDims ? VIDEO_POSITIONS[videoPosIndex] : null;
+  const videoPos = isAnimated ? VIDEO_POSITIONS[videoPosIndex] : null;
 
   const containerRef = useRef<HTMLDivElement>(null);
   const containerDims = useElementResize(containerRef);

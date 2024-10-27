@@ -11,7 +11,7 @@ import {
 } from "mobx-keystone";
 import { asyncAction, File, RootStore } from "medior/store";
 import { FaceModel } from ".";
-import { getConfig, makeQueue, objectToFloat32Array, PromiseQueue, trpc } from "medior/utils";
+import { getIsImage, makeQueue, objectToFloat32Array, PromiseQueue, trpc } from "medior/utils";
 
 const DISTANCE_THRESHOLD = 0.45;
 
@@ -51,8 +51,7 @@ export class FaceRecognitionStore extends Model({
     const filesRes = await trpc.listFiles.mutate({ args: { filter: { id: fileIds } } });
     if (!filesRes?.success) throw new Error("Failed to load files");
 
-    const imageExtRegExp = new RegExp(`${getConfig().file.imageTypes.join("|")}`, "i");
-    const images = filesRes.data.items.filter((f) => imageExtRegExp.test(f.ext));
+    const images = filesRes.data.items.filter((f) => getIsImage(f.ext));
     if (!images.length) throw new Error("No images found");
 
     if (this.isInitializing) {
@@ -69,6 +68,7 @@ export class FaceRecognitionStore extends Model({
 
         this.addDetectedFaces(
           matchesRes.data.map(
+            // @ts-expect-error
             ({ detection: { _box: box }, descriptor, tagId }) =>
               new FaceModel({
                 box: { height: box._height, width: box._width, x: box._x, y: box._y },
@@ -118,7 +118,7 @@ export class FaceRecognitionStore extends Model({
     if (!storedDescriptors.length)
       return facesRes.data.map((f) => ({
         descriptor: objectToFloat32Array(f.descriptor),
-        detection: null,
+        detection: f.detection,
         distance: null,
         tagId: null,
       }));

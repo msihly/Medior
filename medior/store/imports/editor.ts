@@ -35,7 +35,7 @@ export class ImportEditor extends Model({
     const editorFilePathMap = new Map(this.filePaths.map((p) => [path.resolve(p), p]));
 
     for (const imp of this.imports) {
-      if (imp.extension !== ".jpg") continue;
+      if (imp.extension !== "jpg") continue;
 
       const paramFileName = path.resolve(extendFileName(imp.path, "txt"));
       if (!editorFilePathMap.has(paramFileName)) continue;

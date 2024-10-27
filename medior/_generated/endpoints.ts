@@ -93,6 +93,7 @@ export const serverRouter = trpc.router({
   regenTagThumbPaths: serverEndpoint(db.regenTagThumbPaths),
   regenTags: serverEndpoint(db.regenTags),
   relinkFiles: serverEndpoint(db.relinkFiles),
+  repairFilesWithBrokenExt: serverEndpoint(db.repairFilesWithBrokenExt),
   repairThumbs: serverEndpoint(db.repairThumbs),
   setFileFaceModels: serverEndpoint(db.setFileFaceModels),
   setFileIsArchived: serverEndpoint(db.setFileIsArchived),

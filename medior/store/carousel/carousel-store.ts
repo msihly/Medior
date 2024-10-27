@@ -90,7 +90,7 @@ export class CarouselStore extends Model({
 
     const importer = new FileImporter({
       deleteOnImport: false,
-      ext: ".jpg",
+      ext: "jpg",
       ignorePrevDeleted: false,
       originalName: activeFile.originalName,
       originalPath: filePath,

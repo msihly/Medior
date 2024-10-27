@@ -3,6 +3,7 @@ import path from "path";
 import fs from "fs/promises";
 import checkDiskSpace from "check-disk-space";
 import { AnyBulkWriteOperation } from "mongodb";
+import mongoose from "mongoose";
 import * as actions from "medior/database/actions";
 import * as models from "medior/_generated/models";
 import { createFileFilterPipeline, CreateFileFilterPipelineInput } from "medior/database/actions";
@@ -266,6 +267,7 @@ export const importFile = makeAction(
     frameRate: number;
     hash: string;
     height: number;
+    isCorrupted?: boolean;
     originalHash?: string;
     originalName: string;
     originalPath: string;
@@ -349,6 +351,197 @@ export const listFilePaths = makeAction(async () => {
   }));
 });
 
+export const listFilesWithBrokenVideoCodec = makeAction(async () => {
+  const files = await models.FileModel.find({
+    ext: { $in: CONSTANTS.VIDEO_TYPES },
+    $or: [{ videoCodec: { $exists: false } }, { videoCodec: "" }],
+  })
+    .allowDiskUse(true)
+    .select({ _id: 1, isCorrupted: 1, path: 1 })
+    .lean();
+
+  return files.map((f) => ({ id: f._id.toString(), isCorrupted: f.isCorrupted, path: f.path }));
+});
+
+export const listSortedFileIds = makeAction(
+  async (args: { ids: string[]; sortValue: SortValue }) => {
+    const files = await models.FileModel.find({ _id: { $in: objectIds(args.ids) } })
+      .sort({ [args.sortValue.key]: args.sortValue.isDesc ? -1 : 1 })
+      .select({ _id: 1 })
+      .lean();
+
+    return files.map((f) => leanModelToJson<models.FileSchema>(f).id);
+  }
+);
+
+export const loadFaceApiNets = makeAction(async () => {
+  const faceapi = await import("@vladmandic/face-api/dist/face-api.node-gpu.js");
+  await faceapi.nets.ssdMobilenetv1.loadFromDisk(FACE_MODELS_PATH);
+  await faceapi.nets.faceLandmark68Net.loadFromDisk(FACE_MODELS_PATH);
+  await faceapi.nets.faceExpressionNet.loadFromDisk(FACE_MODELS_PATH);
+  await faceapi.nets.faceRecognitionNet.loadFromDisk(FACE_MODELS_PATH);
+});
+
+export const relinkFiles = makeAction(
+  async (args: { filesToRelink: { id: string; path: string }[] }) => {
+    const oldFiles = (
+      await models.FileModel.find({
+        _id: { $in: objectIds(args.filesToRelink.map((f) => f.id)) },
+      }).lean()
+    ).map(leanModelToJson<models.FileSchema>);
+
+    const filesToRelinkMap = new Map(args.filesToRelink.map((f) => [f.id, f.path]));
+    const oldThumbsMap = new Map(oldFiles.map((f) => [f.id, f.thumb.path]));
+    const newFilesMap = new Map<string, { path: string; thumb: models.FileSchema["thumb"] }>();
+
+    oldFiles.forEach((f) => {
+      const oldThumbPath = oldThumbsMap.get(f.id);
+      const newPath = filesToRelinkMap.get(f.id);
+      const newThumb = {
+        path: path.resolve(
+          path.dirname(newPath),
+          path.basename(oldThumbPath, path.extname(oldThumbPath)),
+          ".jpg"
+        ),
+      };
+
+      newFilesMap.set(f.id, { path: newPath, thumb: newThumb });
+    });
+
+    const fileRes = await models.FileModel.bulkWrite(
+      [...newFilesMap].map(([id, { path, thumb }]) => ({
+        updateOne: {
+          filter: { _id: objectId(id) },
+          update: { $set: { path, thumb: { path: thumb.path } } },
+        },
+      }))
+    );
+
+    if (fileRes.modifiedCount !== fileRes.matchedCount)
+      throw new Error(`Failed to bulk write relinked file: ${JSON.stringify(fileRes, null, 2)}`);
+
+    const fileIds = [...newFilesMap.keys()];
+    const collRes = await actions.regenCollAttrs({ fileIds });
+    if (!collRes.success) throw new Error(`Failed to update collections: ${collRes.error}`);
+
+    const importBatches = (
+      await models.FileImportBatchModel.find({
+        imports: { $elemMatch: { fileId: { $in: objectIds(fileIds) } } },
+      }).lean()
+    ).map(leanModelToJson<models.FileImportBatchSchema>);
+
+    const importsRes = await models.FileImportBatchModel.bulkWrite(
+      importBatches.map((importBatch) => ({
+        updateOne: {
+          filter: { _id: objectId(importBatch.id) },
+          update: {
+            $set: {
+              imports: importBatch.imports.map((fileImport) => {
+                if (!fileIds.includes(fileImport.fileId)) return fileImport;
+                return { ...fileImport, ...newFilesMap.get(fileImport.fileId) };
+              }),
+            },
+          },
+        },
+      }))
+    );
+
+    if (importsRes.modifiedCount !== importBatches.length)
+      throw new Error("Failed to bulk write relinked file imports");
+  }
+);
+
+export const repairFilesWithBrokenExt = makeAction(async () => {
+  const { perfLog } = makePerfLog("[repairFiles]", true);
+
+  const filesWithDotPrefix = await models.FileModel.find({
+    ext: { $regex: /^\./ },
+  })
+    .allowDiskUse(true)
+    .select({ _id: 1, path: 1 })
+    .lean();
+
+  perfLog(`Found ${filesWithDotPrefix.length} files with legacy extension format`);
+
+  const filesWithIncorrectExt: { _id: mongoose.Types.ObjectId; path: string }[] =
+    await models.FileModel.aggregate([
+      { $addFields: { pathExt: { $regexFind: { input: "$path", regex: /\.(\w+)$/ } } } },
+      {
+        $match: {
+          $expr: { $ne: [{ $toLower: { $arrayElemAt: ["$pathExt.captures", 0] } }, "$ext"] },
+        },
+      },
+      { $project: { _id: 1, path: 1 } },
+    ]).allowDiskUse(true);
+
+  perfLog(`Found ${filesWithIncorrectExt.length} files with incorrect extensions`);
+
+  const filesToUpdate = new Map(filesWithDotPrefix.map((f) => [f._id.toString(), f.path]));
+  filesWithIncorrectExt.forEach((f) => {
+    if (!filesToUpdate.has(f._id.toString())) filesToUpdate.set(f._id.toString(), f.path);
+  });
+
+  perfLog(`Found ${filesToUpdate.size} files to update`);
+
+  const bulkWriteRes = await models.FileModel.bulkWrite(
+    [...filesToUpdate].map((f) => ({
+      updateOne: {
+        filter: { _id: objectId(f[0]) },
+        update: { $set: { ext: path.extname(f[1]).slice(1).toLowerCase() } },
+      },
+    }))
+  );
+  perfLog(`Updated extensions of ${bulkWriteRes.modifiedCount} files`);
+  if (bulkWriteRes.modifiedCount !== filesToUpdate.size)
+    throw new Error(`Bulk write failed: ${JSON.stringify(bulkWriteRes, null, 2)}`);
+
+  return {
+    filesWithDotPrefixCount: filesWithDotPrefix.length,
+    filesWithIncorrectExtCount: filesWithIncorrectExt.length,
+  };
+});
+
+export const setFileFaceModels = makeAction(
+  async (args: {
+    faceModels: {
+      box: { height: number; width: number; x: number; y: number };
+      /** JSON representation of Float32Array[] */
+      descriptors: string;
+      fileId: string;
+      tagId: string;
+    }[];
+    id: string;
+  }) => {
+    const updates = { faceModels: args.faceModels, dateModified: dayjs().toISOString() };
+    await models.FileModel.findOneAndUpdate({ _id: args.id }, { $set: updates });
+    socket.emit("onFilesUpdated", { fileIds: [args.id], updates });
+  }
+);
+
+export const setFileIsArchived = makeAction(
+  async (args: { fileIds: string[]; isArchived: boolean }) => {
+    const updates = { isArchived: args.isArchived };
+    await models.FileModel.updateMany({ _id: { $in: args.fileIds } }, updates);
+
+    if (args.isArchived) socket.emit("onFilesArchived", { fileIds: args.fileIds });
+    socket.emit("onFilesUpdated", { fileIds: args.fileIds, updates });
+  }
+);
+
+export const setFileRating = makeAction(async (args: { fileIds: string[]; rating: number }) => {
+  const updates = { rating: args.rating, dateModified: dayjs().toISOString() };
+  await models.FileModel.updateMany({ _id: { $in: args.fileIds } }, updates);
+  socket.emit("onFilesUpdated", { fileIds: args.fileIds, updates });
+
+  await actions.regenCollAttrs({ fileIds: args.fileIds });
+});
+
+export const updateFile = makeAction(
+  async ({ id, ...updates }: Partial<models.FileSchema> & { id: string }) =>
+    await models.FileModel.updateOne({ _id: id }, updates)
+);
+
+/* ----------------------------------------------------------------------- */
 class ThumbRepairer {
   private logTag = "[repairThumbs]";
   private perfLog: (str: string) => void;
@@ -660,143 +853,3 @@ export const repairThumbs = makeAction(async () => {
   const repairer = new ThumbRepairer();
   return await repairer.processAllFiles();
 });
-
-export const listFilesWithBrokenVideoCodec = makeAction(async () => {
-  const files = await models.FileModel.find({
-    ext: { $in: CONSTANTS.VIDEO_TYPES.map((t) => `.${t}`) },
-    $or: [{ videoCodec: { $exists: false } }, { videoCodec: "" }],
-  })
-    .allowDiskUse(true)
-    .select({ _id: 1, path: 1 })
-    .lean();
-
-  return files.map((f) => ({ id: f._id.toString(), path: f.path }));
-});
-
-export const listSortedFileIds = makeAction(
-  async (args: { ids: string[]; sortValue: SortValue }) => {
-    const files = await models.FileModel.find({ _id: { $in: objectIds(args.ids) } })
-      .sort({ [args.sortValue.key]: args.sortValue.isDesc ? -1 : 1 })
-      .select({ _id: 1 })
-      .lean();
-
-    return files.map((f) => leanModelToJson<models.FileSchema>(f).id);
-  }
-);
-
-export const loadFaceApiNets = makeAction(async () => {
-  const faceapi = await import("@vladmandic/face-api/dist/face-api.node-gpu.js");
-  await faceapi.nets.ssdMobilenetv1.loadFromDisk(FACE_MODELS_PATH);
-  await faceapi.nets.faceLandmark68Net.loadFromDisk(FACE_MODELS_PATH);
-  await faceapi.nets.faceExpressionNet.loadFromDisk(FACE_MODELS_PATH);
-  await faceapi.nets.faceRecognitionNet.loadFromDisk(FACE_MODELS_PATH);
-});
-
-export const relinkFiles = makeAction(
-  async (args: { filesToRelink: { id: string; path: string }[] }) => {
-    const oldFiles = (
-      await models.FileModel.find({
-        _id: { $in: objectIds(args.filesToRelink.map((f) => f.id)) },
-      }).lean()
-    ).map(leanModelToJson<models.FileSchema>);
-
-    const filesToRelinkMap = new Map(args.filesToRelink.map((f) => [f.id, f.path]));
-    const oldThumbsMap = new Map(oldFiles.map((f) => [f.id, f.thumb.path]));
-    const newFilesMap = new Map<string, { path: string; thumb: models.FileSchema["thumb"] }>();
-
-    oldFiles.forEach((f) => {
-      const oldThumbPath = oldThumbsMap.get(f.id);
-      const newPath = filesToRelinkMap.get(f.id);
-      const newThumb = {
-        path: path.resolve(
-          path.dirname(newPath),
-          path.basename(oldThumbPath, path.extname(oldThumbPath)),
-          ".jpg"
-        ),
-      };
-
-      newFilesMap.set(f.id, { path: newPath, thumb: newThumb });
-    });
-
-    const fileRes = await models.FileModel.bulkWrite(
-      [...newFilesMap].map(([id, { path, thumb }]) => ({
-        updateOne: {
-          filter: { _id: objectId(id) },
-          update: { $set: { path, thumb: { path: thumb.path } } },
-        },
-      }))
-    );
-
-    if (fileRes.modifiedCount !== fileRes.matchedCount)
-      throw new Error(`Failed to bulk write relinked file: ${JSON.stringify(fileRes, null, 2)}`);
-
-    const fileIds = [...newFilesMap.keys()];
-    const collRes = await actions.regenCollAttrs({ fileIds });
-    if (!collRes.success) throw new Error(`Failed to update collections: ${collRes.error}`);
-
-    const importBatches = (
-      await models.FileImportBatchModel.find({
-        imports: { $elemMatch: { fileId: { $in: objectIds(fileIds) } } },
-      }).lean()
-    ).map(leanModelToJson<models.FileImportBatchSchema>);
-
-    const importsRes = await models.FileImportBatchModel.bulkWrite(
-      importBatches.map((importBatch) => ({
-        updateOne: {
-          filter: { _id: objectId(importBatch.id) },
-          update: {
-            $set: {
-              imports: importBatch.imports.map((fileImport) => {
-                if (!fileIds.includes(fileImport.fileId)) return fileImport;
-                return { ...fileImport, ...newFilesMap.get(fileImport.fileId) };
-              }),
-            },
-          },
-        },
-      }))
-    );
-
-    if (importsRes.modifiedCount !== importBatches.length)
-      throw new Error("Failed to bulk write relinked file imports");
-  }
-);
-
-export const setFileFaceModels = makeAction(
-  async (args: {
-    faceModels: {
-      box: { height: number; width: number; x: number; y: number };
-      /** JSON representation of Float32Array[] */
-      descriptors: string;
-      fileId: string;
-      tagId: string;
-    }[];
-    id: string;
-  }) => {
-    const updates = { faceModels: args.faceModels, dateModified: dayjs().toISOString() };
-    await models.FileModel.findOneAndUpdate({ _id: args.id }, { $set: updates });
-    socket.emit("onFilesUpdated", { fileIds: [args.id], updates });
-  }
-);
-
-export const setFileIsArchived = makeAction(
-  async (args: { fileIds: string[]; isArchived: boolean }) => {
-    const updates = { isArchived: args.isArchived };
-    await models.FileModel.updateMany({ _id: { $in: args.fileIds } }, updates);
-
-    if (args.isArchived) socket.emit("onFilesArchived", { fileIds: args.fileIds });
-    socket.emit("onFilesUpdated", { fileIds: args.fileIds, updates });
-  }
-);
-
-export const setFileRating = makeAction(async (args: { fileIds: string[]; rating: number }) => {
-  const updates = { rating: args.rating, dateModified: dayjs().toISOString() };
-  await models.FileModel.updateMany({ _id: { $in: args.fileIds } }, updates);
-  socket.emit("onFilesUpdated", { fileIds: args.fileIds, updates });
-
-  await actions.regenCollAttrs({ fileIds: args.fileIds });
-});
-
-export const updateFile = makeAction(
-  async ({ id, ...updates }: Partial<models.FileSchema> & { id: string }) =>
-    await models.FileModel.updateOne({ _id: id }, updates)
-);

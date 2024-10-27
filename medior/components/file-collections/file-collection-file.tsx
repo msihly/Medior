@@ -42,7 +42,6 @@ export const FileCollectionFile = observer(
           >
             <FileBase.Image
               {...{ disabled, height }}
-              animated={file.isAnimated}
               thumb={file.thumb}
               title={file.originalName}
               fit="contain"

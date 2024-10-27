@@ -103,44 +103,61 @@ export const makeQueue = <T>({
   logSuffix,
   onComplete,
   queue,
+  withTabTitle,
 }: {
-  action: (item: T) => Promise<any>;
+  action: (item: T, escapeFn: () => Promise<void>) => Promise<any>;
   items: T[];
   logPrefix?: string;
   logSuffix: string;
-  onComplete?: () => Promise<any>;
+  onComplete?: (hasError?: boolean) => Promise<any>;
   queue: PromiseQueue;
+  withTabTitle?: boolean;
 }): Promise<void> => {
   return new Promise<void>((resolve) => {
-    let completedCount = 0;
     const totalCount = items.length;
+    let completedCount = 0;
+    let hasError = false;
+    let isComplete = false;
 
-    const toastId = toast.info(() => `${logPrefix} ${completedCount} ${logSuffix}...`, {
-      autoClose: false,
-    });
+    const getToastText = () =>
+      `${logPrefix} ${completedCount} / ${totalCount} ${logSuffix}${isComplete ? "." : "..."}`;
+
+    const onEscape = async () => {
+      resolve();
+      await onComplete?.(hasError);
+      if (withTabTitle) updateTabTitle();
+      toast.update(toastId, { autoClose: isComplete ? 5000 : false, render: getToastText() });
+    };
+
+    const setHasError = (error: boolean) => (hasError = error);
+
+    const updateTabTitle = () =>
+      (document.title =
+        completedCount === totalCount
+          ? hasError
+            ? "ERROR"
+            : "Done!"
+          : `[${completedCount}/${totalCount}] Downloading`);
+
+    if (withTabTitle) updateTabTitle();
+
+    const toastId = toast.info(getToastText, { autoClose: false });
 
     items.map((item) =>
       queue.add(async () => {
         try {
-          await action(item);
+          await action(item, onEscape);
         } catch (err) {
           console.error(err);
           toast.error(err.message);
+          setHasError(true);
+        } finally {
+          completedCount++;
+          isComplete = completedCount === totalCount;
+          toast.update(toastId, { autoClose: isComplete ? 5000 : false, render: getToastText() });
+          if (withTabTitle) updateTabTitle();
+          if (isComplete) await onEscape();
         }
-
-        completedCount++;
-        const isComplete = completedCount === totalCount;
-        if (isComplete) {
-          resolve();
-          await onComplete?.();
-        }
-
-        toast.update(toastId, {
-          autoClose: isComplete ? 5000 : false,
-          render: `${logPrefix} ${completedCount} / ${totalCount} ${logSuffix}${
-            isComplete ? "." : "..."
-          }`,
-        });
       })
     );
   });

@@ -22,7 +22,7 @@ export const RepairModal = observer(() => {
   const [isRepairing, setIsRepairing] = useState(false);
   const [isTagCountsChecked, setIsTagCountsChecked] = useState(false);
   const [isTagRelationsChecked, setIsTagRelationsChecked] = useState(false);
-  const [isVideoCodecsChecked, setIsVideoCodecsChecked] = useState(false);
+  const [isExtAndCodecsChecked, setIsExtAndCodecsChecked] = useState(false);
   const [outputLog, setOutputLog] = useState<{ color?: string; text: string }[]>([]);
 
   const outputRef = useRef<HTMLDivElement>(null);
@@ -53,25 +53,50 @@ export const RepairModal = observer(() => {
         );
       }
 
-      if (isVideoCodecsChecked) {
-        log("Checking files with broken video codecs...");
+      if (isExtAndCodecsChecked) {
+        log("Repairing incorrect file extensions...");
+        const extRes = await trpc.repairFilesWithBrokenExt.mutate();
+        if (!extRes.success) throw new Error(extRes.error);
+        log(
+          `Found and repaired ${extRes.data.filesWithDotPrefixCount} files with legacy extension formats and ${extRes.data.filesWithIncorrectExtCount} files with incorrect extensions.`,
+          colors.custom.lightBlue
+        );
+
+        log("Checking files with incorrect video codecs...");
         const codecsRes = await trpc.listFilesWithBrokenVideoCodec.mutate();
         if (!codecsRes.success) throw new Error(codecsRes.error);
-        const fileIds = codecsRes.data;
-        log(`Found ${fileIds.length} files with broken video codecs.`, colors.custom.lightBlue);
+        const codecFiles = codecsRes.data;
+        const validCodecFiles = codecFiles.filter((f) => !f.isCorrupted);
+        log(
+          `Found ${codecFiles.length} (${codecFiles.length - validCodecFiles.length} corrupted) files with incorrect video codecs.`,
+          colors.custom.lightBlue
+        );
+
+        if (!validCodecFiles.length)
+          return log(
+            "No uncorrupted files with incorrect video codecs found.",
+            colors.custom.green
+          );
 
         await makeQueue({
-          action: async (item) => {
-            const info = await getVideoInfo(item.path);
-            const res = await trpc.updateFile.mutate({ id: item.id, videoCodec: info.videoCodec });
+          action: async (file) => {
+            let isCorrupted: boolean;
+            let videoCodec: string;
+            try {
+              videoCodec = (await getVideoInfo(file.path)).videoCodec;
+            } catch (err) {
+              isCorrupted = true;
+            }
+
+            const res = await trpc.updateFile.mutate({ id: file.id, isCorrupted, videoCodec });
             if (!res.success) throw new Error(res.error);
           },
-          items: fileIds,
+          items: validCodecFiles,
           logPrefix: "Updated",
           logSuffix: "files",
           queue: new PromiseQueue({ concurrency: 10 }),
         });
-        log(`Updated video codecs.`, colors.custom.green);
+        log(`Repaired ${validCodecFiles.length} incorrect video codecs.`, colors.custom.green);
       }
 
       log("Done.", colors.custom.green);
@@ -109,9 +134,9 @@ export const RepairModal = observer(() => {
               />
 
               <Checkbox
-                label="Missing Video Codecs"
-                checked={isVideoCodecsChecked}
-                setChecked={setIsVideoCodecsChecked}
+                label="Extensions / Codecs"
+                checked={isExtAndCodecsChecked}
+                setChecked={setIsExtAndCodecsChecked}
                 disabled={isRepairing}
               />
             </View>

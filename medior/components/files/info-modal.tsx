@@ -12,7 +12,7 @@ import {
   Text,
   UniformList,
 } from "medior/components";
-import { colors, duration, formatBytes, getConfig, makeClasses } from "medior/utils";
+import { colors, duration, formatBytes, getIsRemuxable, makeClasses } from "medior/utils";
 
 export const InfoModal = observer(() => {
   const { css } = useClasses(null);
@@ -22,7 +22,7 @@ export const InfoModal = observer(() => {
   const file = stores.collection.editor.isOpen
     ? stores.collection.editor.getFileById(stores.file.activeFileId)
     : stores.file.getById(stores.file.activeFileId);
-  const isRemuxable = getConfig().file.remuxTypes.toMp4.includes(file.ext.replace(".", ""));
+  const isRemuxable = getIsRemuxable(file.ext);
 
   const handleClose = () => stores.file.setIsInfoModalOpen(false);
 

@@ -4,7 +4,7 @@ import { clone, getRootStore, model, Model, modelAction, modelFlow, prop } from 
 import { asyncAction, RootStore } from "medior/store";
 import { FileImport, FileImporter, FileImportBatch } from ".";
 import {
-  CONSTANTS,
+  getIsVideo,
   makePerfLog,
   PromiseQueue,
   removeEmptyFolders,
@@ -143,10 +143,8 @@ export class ImportManager extends Model({
       const imageQueue = new PromiseQueue({ concurrency: 4 });
       const videoQueue = new PromiseQueue({ concurrency: 1 });
 
-      const videoRegEx = new RegExp(`${CONSTANTS.VIDEO_TYPES.join("|")}`, "i");
-
       for (const file of batch.imports) {
-        const queue = videoRegEx.test(file.extension) ? videoQueue : imageQueue;
+        const queue = getIsVideo(file.extension) ? videoQueue : imageQueue;
         queue.add(async () => {
           try {
             const res = await this.importFile({ batchId, filePath: file.path });

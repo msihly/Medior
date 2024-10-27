@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { observer, useStores } from "medior/store";
 import { Chip, Detail, Tooltip, UniformList, View } from "medior/components";
-import { formatBytes, getConfig, trpc } from "medior/utils";
+import { formatBytes, getIsVideo, trpc } from "medior/utils";
 import { toast } from "react-toastify";
 
 export const SelectedFilesInfo = observer(() => {
@@ -21,11 +21,9 @@ export const SelectedFilesInfo = observer(() => {
       if (!res?.success) throw new Error(res.error);
       const selectedFiles = res.data.items;
 
-      const videoExtRegExp = new RegExp(`${getConfig().file.videoTypes.join("|")}`, "i");
-
       const [images, videos, imagesSize, videosSize] = selectedFiles.reduce(
         (acc, cur) => {
-          const isVideo = videoExtRegExp.test(cur.ext);
+          const isVideo = getIsVideo(cur.ext);
           acc[isVideo ? 1 : 0]++;
           acc[isVideo ? 3 : 2] += cur.size;
           return acc;

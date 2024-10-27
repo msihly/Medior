@@ -54,16 +54,17 @@ export class FileCollectionStore extends Model({
     const collectionIdsRes = await trpc.listAllCollectionIds.mutate();
     if (!collectionIdsRes.success) throw new Error(collectionIdsRes.error);
 
-    makeQueue({
+    await makeQueue({
       action: async (id) => {
         const res = await trpc.regenCollAttrs.mutate({ collIds: [id] });
         if (!res.success) throw new Error(res.error);
       },
       items: collectionIdsRes.data,
       logSuffix: "collections",
-      onComplete: this.manager.search.loadFiltered,
       queue: this.metaRefreshQueue,
     });
+
+    await this.manager.search.loadFiltered();
   });
 
   @modelFlow

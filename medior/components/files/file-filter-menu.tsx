@@ -54,9 +54,11 @@ export const FileFilterMenu = observer(
 
     const toggleHasDiffParams = () => store.setHasDiffParams(!store.hasDiffParams);
 
+    const toggleIsCorrupted = () => store.setIsCorrupted(!store.isCorrupted);
+
     return (
       <FilterMenu store={store} color={color} sortOptions={SORT_OPTIONS.File} width="100%">
-        <View row height="15rem" spacing="0.5rem">
+        <View row height="16.5rem" spacing="0.5rem">
           <Card flex={1}>
             <TagInput
               header="Tags"
@@ -99,11 +101,26 @@ export const FileFilterMenu = observer(
               />
 
               <Checkbox
+                label="Corrupted"
+                checked={store.isCorrupted}
+                setChecked={toggleIsCorrupted}
+                color={colors.custom.orange}
+                flex="none"
+              />
+
+              <Checkbox
                 label="Diffusion"
                 checked={store.hasDiffParams}
                 setChecked={toggleHasDiffParams}
                 flex="none"
               />
+
+              {/* <Checkbox
+                label="Faces"
+                checked={store.hasFaces}
+                setChecked={toggleHasFaces}
+                flex="none"
+              /> */}
             </View>
           </Card>
 
@@ -157,7 +174,11 @@ export const FileFilterMenu = observer(
         </View>
 
         <Card flex={1} spacing="0.5rem">
-          <Input header="Original File Path" value={store.originalPath} setValue={setOriginalPath} />
+          <Input
+            header="Original File Path"
+            value={store.originalPath}
+            setValue={setOriginalPath}
+          />
         </Card>
       </FilterMenu>
     );
@@ -194,7 +215,9 @@ const ExtColumn = observer(({ store, type }: ExtColumnProps) => {
   const config = getConfig();
 
   const configTypes: ExtCheckboxProps["ext"][] =
-    type === "Image" ? config.file.imageTypes : config.file.videoTypes;
+    type === "Image"
+      ? (config.file.imageTypes as ImageType[])
+      : (config.file.videoTypes as VideoType[]);
   const storeTypes = type === "Image" ? store.selectedImageTypes : store.selectedVideoTypes;
 
   const [isAllSelected, isAnySelected] = useMemo(() => {

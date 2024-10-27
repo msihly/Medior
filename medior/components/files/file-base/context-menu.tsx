@@ -4,7 +4,7 @@ import { ReactNode } from "react";
 import { FileSchema } from "medior/database";
 import { observer, useStores } from "medior/store";
 import { ContextMenu as ContextMenuBase, ViewProps } from "medior/components";
-import { colors, copyToClipboard, getConfig } from "medior/utils";
+import { colors, copyToClipboard, getIsRemuxable } from "medior/utils";
 
 const DEFAULT_OPTIONS = {
   collections: true,
@@ -29,9 +29,9 @@ export const ContextMenu = observer(
   ({ children, disabled, file, options = {}, ...props }: ContextMenuProps) => {
     options = { ...DEFAULT_OPTIONS, ...options };
 
-    const config = getConfig();
-
     const stores = useStores();
+
+    const isRemuxable = getIsRemuxable(file.ext);
 
     const copyFilePath = () => copyToClipboard(file.path, "Copied file path");
 
@@ -101,7 +101,7 @@ export const ContextMenu = observer(
               { icon: "Folder", label: "Folder Path", onClick: copyFolderPath },
             ],
           },
-          config.file.remuxTypes.toMp4.includes(file.ext.replace(".", ""))
+          isRemuxable
             ? {
                 color: colors.custom.lightBlue,
                 divider: "bottom",

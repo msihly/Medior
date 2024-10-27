@@ -133,7 +133,7 @@ export class FileStore extends ExtendedModel(_FileStore, {
           filter: {
             id: args.ids,
             ...(args.remuxOnly
-              ? { ext: { $in: getConfig().file.remuxTypes.toMp4.map((ext) => `.${ext}`) } }
+              ? { ext: { $in: getConfig().file.remuxTypes.toMp4.map(String) } }
               : {}),
           },
         },

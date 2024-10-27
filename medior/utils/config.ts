@@ -47,12 +47,12 @@ export interface Config {
   file: {
     fileCardFit: "contain" | "cover";
     hideUnratedIcon: boolean;
-    imageTypes: ImageType[];
+    imageTypes: Array<ImageType | string>;
     remuxTypes: {
-      toMp4: Array<Omit<VideoType, "mp4">>;
+      toMp4: Array<Omit<VideoType, "mp4"> | string>;
     };
     search: Search;
-    videoTypes: VideoType[];
+    videoTypes: Array<VideoType | string>;
   };
   imports: {
     deleteOnImport: boolean;
@@ -183,6 +183,16 @@ export const getConfig = (debugLoc?: string) => {
   if (!config) throw new Error(`Config not loaded. ${debugLoc}`);
   return config;
 };
+
+export const getIsAnimated = (ext: string) =>
+  ["gif", ...getConfig().file.videoTypes].includes(ext.toLowerCase());
+
+export const getIsImage = (ext: string) => getConfig().file.imageTypes.includes(ext.toLowerCase());
+
+export const getIsRemuxable = (ext: string) =>
+  getConfig().file.remuxTypes.toMp4.includes(ext.toLowerCase());
+
+export const getIsVideo = (ext: string) => getConfig().file.videoTypes.includes(ext.toLowerCase());
 
 export const loadConfig = async (configPath?: string) => {
   try {

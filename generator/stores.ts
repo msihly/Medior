@@ -210,6 +210,13 @@ export const MODEL_SEARCH_STORES: ModelSearchStore[] = [
       },
       {
         defaultValue: "null",
+        name: "isCorrupted",
+        objPath: ["isCorrupted"],
+        objValue: "args.isCorrupted",
+        type: "boolean",
+      },
+      {
+        defaultValue: "null",
         name: "maxHeight",
         objPath: ["height", "$lte"],
         objValue: "args.maxHeight",
@@ -249,7 +256,7 @@ export const MODEL_SEARCH_STORES: ModelSearchStore[] = [
             condition: "true",
             objPath: ["ext", "$nin"],
             objValue:
-              "Object.entries({ ...args.selectedImageTypes, ...args.selectedVideoTypes }).filter(([, val]) => !val).map(([ext]) => `.${ext}`)",
+              "Object.entries({ ...args.selectedImageTypes, ...args.selectedVideoTypes }).filter(([, val]) => !val).map(([ext]) => ext)",
             name: "selectedImageTypes",
             type: "Types.SelectedImageTypes",
           },

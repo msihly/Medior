@@ -119,7 +119,7 @@ export const ImportListItem = observer(
 
           <Chip label={formatBytes(fileImport.size)} className={css.chip} />
 
-          <Chip label={fileImport.extension.substring(1)} className={css.chip} />
+          <Chip label={fileImport.extension} className={css.chip} />
         </View>
       </View>
     );

@@ -73,14 +73,12 @@ export const FileCard = observer(({ disabled, file, height, id, width }: FileCar
           selected={stores.file.search.getIsSelected(file.id)}
         >
           <FileBase.Image
-            animated={file.isAnimated}
             thumb={file.thumb}
             title={file.originalName}
             height={height}
             onDragStart={handleDragStart}
             onDragEnd={handleDragEnd}
             fit={stores.home.fileCardFit}
-            disabled={disabled}
             rounded="all"
             draggable
           >
