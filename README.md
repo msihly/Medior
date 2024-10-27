@@ -1,13 +1,15 @@
-<div align="center">
+<div id="toc" align="center">
   <img src="./_readme/_Logo.png" alt="Logo" width="250"/>
-  <p style="font-size: 40px">Medior</p>
+  <summary>
+    <h1>Medior</h1>
+  </summary>
   <i>The tag-based local media management system</i>
 </div>
 
 <hr />
 
 <div align="center">
-  <p style="font-size: 30px">Features</p>
+  <h3>Features</h3>
 </div>
 
 * Portable offline database with support for distributed file storages
@@ -34,7 +36,7 @@
 <hr />
 
 <div align="center">
-  <p style="font-size: 30px">Screenshots</p>
+  <h3>Screenshots</h3>
 </div>
 
 ![File Search with File Tooltip](./_readme/File%20Search%20-%20File%20Tooltip.png)
