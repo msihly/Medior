@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="_readme/Logo.png" alt="Logo" width="250" />
+  <img src="./_readme/Logo.png" alt="Logo" width="250" />
   <h1 style="border: none; font-size: 40;">Medior</h1>
   <h4><i>The tag-based local media management system</i></h4>
 </div>
