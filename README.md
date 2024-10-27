@@ -1,99 +1,66 @@
 <div align="center">
   <img src="_readme/Logo.png" alt="Logo" width="250" />
-  <h1>Medior</h1>
+  <h1 style="border: none; font-size: 40;">Medior</h1>
+  <h4><i>The tag-based local media management system</i></h4>
 </div>
 
-<div align="center">
-  <p>
-  An offline desktop app for managing mass media in a portable database.
-  </p>
+<hr />
 
-  <p>Features a hierarchical tagging system with comprehensive search and sorting, automated tag creation / parsing from multiple sources, batch editing and organization, collections / albums, AI facial recognition, Stable Diffusion integration, and built-in media viewers.
-  </p>
-</div>
+<div>
+  <h2 style="border: none; text-align: center">Features</h2>
 
-<div align="center">
-  <h2>Screenshots</h2>
-</div>
-
-<div align="center">
-  <p>Import and export files and folders via drag-and-drop.</p>
-
-  <div style="display: flex; flex-flow: row nowrap; justify-content: center;">
-    <img src="./_readme/Drag-and-Drop.gif" alt="Drag-and-Drop Animation" width="400" height="325" />
+  <div style="display: flex; justify-content: center;">
+    <ul style="width: 600px;">
+      <li>Portable offline database with support for distributed file storages</li>
+      <li>Hierarchical (parent / child) tagging system with aliases and regular expressions</li>
+      <li>Drag-and-drop to import entire file structures</li>
+      <ul>
+        <li>Tag parsing and generation from folders, file names, and AI diffusion parameters</li>
+        <li>Thumbnail generation with hoverable animations</li>
+        <li>Deduplication and blacklist of previously deleted files</li>
+        <li>File collections from folders</li>
+        <li>Optional remuxing to mp4 for seamless playback</li>
+      </ul>
+      <li>Bulk editing and organization of files, tags, collections, and import batches</li>
+      <li>Comprehensive search and sort filters backed by a database designed and optimized for large scale personal file systems</li>
+      <li>File collections / ordered albums (one file—many tags—many collections)</li>
+      <li>Media carousel with seamless custom image viewer and video player</li>
+      <ul>
+        <li>Hotkeys for quickly rating, deleting, or tagging file sequences</li>
+        <li>Transcoding for non-web formats</li>
+        <li>Frame-by-frame and time seeking hotkeys</li>
+        <li>Frame extraction</li>
+        <li>A/B looping</li>
+        <li>Zoom, pan, and aspect ratio lock</li>
+      </ul>
+      <li>AI image diffusion info-text parsing and filtering</li>
+      <li>AI facial recognition</li>
+    </ul>
   </div>
 </div>
 
-<br />
+<div>
+  <h2 style="border: none; text-align: center">Screenshots</h2>
 
-<div align="center">
-  <p>Parse folder paths, file names, and matching text files on import to automatically create hierarchical tags, collections, and diffusion params.</p>
-
-  <div style="display: flex; flex-flow: row nowrap; justify-content: center;">
-    <img src="./_readme/Imports-Hierarchical.png" alt="Hierarchical Imports Screenshot" width="400" height="325" style="margin-right: 1rem;" />
-    <img src="./_readme/Imports-Hierarchical.gif" alt="Hierarchical Imports Animation" width="400" height="325" />
-  </div>
-</div>
-
-<br />
-
-<div align="center">
-  <p>Edit tag aliases, hierarchical relationships, and RegEx mappings for import parsing, or merge tags together.</p>
-
-  <div style="display: flex; flex-flow: row nowrap; justify-content: center;">
-    <img src="./_readme/Tag-Editor.png" alt="Tag Editor Screenshot" width="400" height="325" style="margin-right: 1rem;" />
-    <img src="./_readme/Merge-Tags.png" alt="Tag Merging Screenshot" width="400" height="325" />
-  </div>
-</div>
-
-<br />
-
-<div align="center">
-  <p>Quickly edit file tags or ratings via hotkeys in home, search, and carousel windows.</p>
-
-  <div style="display: flex; flex-flow: row nowrap; justify-content: center;">
-    <img src="./_readme/File-Tags-Editor.png" alt="File Tags Editor Screenshot" width="400" height="325" />
-  </div>
-</div>
-
-<br />
-
-<div align="center">
-  <p>Create file collections with searchable titles and tags and manual ordering of files.</p>
-  <div style="display: flex; flex-flow: row nowrap; justify-content: center;">
-    <img src="./_readme/Collection-Manager.png" alt="Collection Manager Screenshot" width="400" height="325" style="margin-right: 1rem;" />
-    <img src="./_readme/Collection-Editor.png" alt="Collection Editor Screenshot" width="400" height="325" />
-  </div>
-</div>
-
-<br />
-
-<div align="center">
-  <p>Carousel window with custom media viewer support for all supported file types.</p>
-
-  <div style="display: flex; flex-flow: row nowrap; justify-content: center;">
-    <img src="./_readme/Carousel-Thumb-Nav.png" alt="Carousel Thumb Navigator Screenshot" width="400" height="325" style="margin-right: 1rem;" />
-    <img src="./_readme/Carousel-Video.gif" alt="Carousel Video Animation" width="400" height="325" />
-  </div>
-</div>
-
-<br />
-
-<div align="center">
-  <p>Import Stable Diffusion generation parameters from text files and parse prompts and models into tags.</p>
-
-  <div style="display: flex; flex-flow: row nowrap; justify-content: center;">
-    <img src="./_readme/Diffusion-Params.png" alt="Diffusion Params Screenshot" width="400" height="325" style="margin-right: 1rem;" />
-    <img src="./_readme/File-Tooltip-with-Diffusion-Params.png" alt="File Tooltip with Diffusion Params Screenshot" width="400" height="325" />
-  </div>
-</div>
-
-<br />
-
-<div align="center">
-  <p>Build your own database of faces starting from only one image per person to automatically tag images via AI facial recognition.</p>
-
-  <div style="display: flex; flex-flow: row nowrap; justify-content: center;">
-    <img src="./_readme/Face-Recognition.png" alt="Face Recognition Screenshot" width="400" height="325" />
+  <div align="center">
+    <img src="./_readme/File Search - File Tooltip.png" height="450" width="570" alt="File Search with File Tooltip" />
+    <img src="./_readme/Carousel - Thumb Nav.png" height="450" width="570" alt="Carousel with Thumbnail Navigation" />
+    <img src="./_readme/File Search - Filter Menu.png" height="450" width="570" alt="File Search with Filter Menu" />
+    <img src="./_readme/Import Editor - Collections.png" height="450" width="570" alt="Import Editor for Collections" />
+    <img src="./_readme/Collection Editor.png" height="450" width="570" alt="Collection Editor" />
+    <img src="./_readme/Carousel - Video.png" height="450" width="570" alt="Carousel with Video" />
+    <img src="./_readme/Collection Manager - Filter Menu.png" height="450" width="570" alt="Collection Manager with Filter Menu" />
+    <img src="./_readme/Collection Manager.png" height="450" width="570" alt="Collection Manager" />
+    <img src="./_readme/Face Recognition.png" height="450" width="570" alt="Face Recognition Feature" />
+    <img src="./_readme/Import Editor - Diff Params.png" height="450" width="570" alt="Import Editor with Diff Parameters" />
+    <img src="./_readme/File Context Menu.png" height="450" width="570" alt="File Context Menu" />
+    <img src="./_readme/File Tag Editor.png" height="450" width="570" alt="File Tag Editor" />
+    <img src="./_readme/Settings.png" height="450" width="570" alt="Settings Panel" />
+    <img src="./_readme/Import Manager.png" height="450" width="570" alt="Import Manager" />
+    <img src="./_readme/Tag Editor - With RegEx.png" height="450" width="570" alt="Tag Editor with Regular Expressions" />
+    <img src="./_readme/Tag Merger.png" height="450" width="570" alt="Tag Merger Feature" />
+    <img src="./_readme/Tag Manager.png" height="450" width="570" alt="Tag Manager" />
+    <img src="./_readme/Tag Editor - Multi-List.png" height="450" width="570" alt="Tag Editor with Multiple Lists" />
+    <img src="./_readme/Tag Manager - Filter Menu.png" height="450" width="570" alt="Tag Manager with Filter Menu" />
   </div>
 </div>
