@@ -1,8 +1,12 @@
 <div id="toc" align="center">
   <img src="./_readme/_Logo.png" alt="Logo" width="250"/>
-  <summary>
-    <h1>Medior</h1>
-  </summary>
+
+  <ul align="center" style="list-style: none;">
+    <summary>
+      <h1>Medior</h1>
+    </summary>
+  </ul>
+
   <i>The tag-based local media management system</i>
 </div>
 
