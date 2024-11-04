@@ -1,10 +1,8 @@
-/* -------------------------------------------------------------------------- */
-/*                    THIS IS A GENERATED FILE. DO NOT EDIT.                  */
-/* -------------------------------------------------------------------------- */
-
+/* --------------------------------------------------------------------------- */
+/*                               THIS IS A GENERATED FILE. DO NOT EDIT.
+/* --------------------------------------------------------------------------- */
 import { initTRPC } from "@trpc/server";
 import * as db from "medior/database/actions";
-
 export const trpc = initTRPC.create();
 
 /** All resources defined as mutation to deal with max length URLs in GET requests.
@@ -17,35 +15,31 @@ export const serverRouter = trpc.router({
   /** Model actions */
   _createTag: serverEndpoint(db._createTag),
   _deleteTag: serverEndpoint(db._deleteTag),
-  _listDeletedFiles: serverEndpoint(db._listDeletedFiles),
   _updateFile: serverEndpoint(db._updateFile),
   createDeletedFile: serverEndpoint(db.createDeletedFile),
   createFile: serverEndpoint(db.createFile),
   createFileCollection: serverEndpoint(db.createFileCollection),
   createFileImportBatch: serverEndpoint(db.createFileImportBatch),
-  createRegExMap: serverEndpoint(db.createRegExMap),
   deleteDeletedFile: serverEndpoint(db.deleteDeletedFile),
   deleteFile: serverEndpoint(db.deleteFile),
   deleteFileCollection: serverEndpoint(db.deleteFileCollection),
   deleteFileImportBatch: serverEndpoint(db.deleteFileImportBatch),
-  deleteRegExMap: serverEndpoint(db.deleteRegExMap),
-  listFileCollections: serverEndpoint(db.listFileCollections),
-  listFileImportBatchs: serverEndpoint(db.listFileImportBatchs),
-  listFiles: serverEndpoint(db.listFiles),
-  listRegExMaps: serverEndpoint(db.listRegExMaps),
-  listTags: serverEndpoint(db.listTags),
+  listDeletedFile: serverEndpoint(db.listDeletedFile),
+  listFile: serverEndpoint(db.listFile),
+  listFileCollection: serverEndpoint(db.listFileCollection),
+  listFileImportBatch: serverEndpoint(db.listFileImportBatch),
+  listTag: serverEndpoint(db.listTag),
   updateDeletedFile: serverEndpoint(db.updateDeletedFile),
   updateFileCollection: serverEndpoint(db.updateFileCollection),
   updateFileImportBatch: serverEndpoint(db.updateFileImportBatch),
-  updateRegExMap: serverEndpoint(db.updateRegExMap),
   updateTag: serverEndpoint(db.updateTag),
   /** Search store actions */
-  getShiftSelectedFileCollections: serverEndpoint(db.getShiftSelectedFileCollections),
-  getShiftSelectedFiles: serverEndpoint(db.getShiftSelectedFiles),
-  getShiftSelectedTags: serverEndpoint(db.getShiftSelectedTags),
-  listFilteredFileCollections: serverEndpoint(db.listFilteredFileCollections),
-  listFilteredFiles: serverEndpoint(db.listFilteredFiles),
-  listFilteredTags: serverEndpoint(db.listFilteredTags),
+  getShiftSelectedFile: serverEndpoint(db.getShiftSelectedFile),
+  getShiftSelectedFileCollection: serverEndpoint(db.getShiftSelectedFileCollection),
+  getShiftSelectedTag: serverEndpoint(db.getShiftSelectedTag),
+  listFilteredFile: serverEndpoint(db.listFilteredFile),
+  listFilteredFileCollection: serverEndpoint(db.listFilteredFileCollection),
+  listFilteredTag: serverEndpoint(db.listFilteredTag),
   /** Custom actions */
   addFilesToCollection: serverEndpoint(db.addFilesToCollection),
   completeImportBatch: serverEndpoint(db.completeImportBatch),

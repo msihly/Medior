@@ -87,9 +87,9 @@ export const useSockets = ({ view }: UseSocketsProps) => {
         stores.tag.manager.search.loadFiltered();
     });
 
-    makeSocket("onTagDeleted", ({ id }) => {
-      stores.tag._deleteTag(id);
-      if (view === "home") stores.import.manager.editBatchTags({ removedIds: [id] });
+    makeSocket("onTagDeleted", ({ ids }) => {
+      ids.forEach((id) => stores.tag._deleteTag(id));
+      if (view === "home") stores.import.manager.editBatchTags({ removedIds: ids });
       if (view !== "carousel") {
         queueFileReload();
         if (stores.tag.manager.isOpen) stores.tag.manager.search.loadFiltered();

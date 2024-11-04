@@ -2,7 +2,7 @@ import { useState, useContext } from "react";
 import { observer, useStores } from "medior/store";
 import { Slider } from "@mui/material";
 import { VideoContext } from "medior/views";
-import { Button, IconButton, Text, Toaster, View } from "medior/components";
+import { Button, IconButton, Text, View } from "medior/components";
 import {
   colors,
   commas,
@@ -12,6 +12,7 @@ import {
   makeClasses,
   round,
   throttle,
+  Toaster,
 } from "medior/utils";
 import { toast } from "react-toastify";
 

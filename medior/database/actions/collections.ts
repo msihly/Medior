@@ -63,7 +63,7 @@ export const createCollection = makeAction(
     title: string;
     withSub?: boolean;
   }) => {
-    const filesRes = await actions.listFiles({
+    const filesRes = await actions.listFile({
       args: { filter: { id: args.fileIdIndexes.map((f) => f.fileId) } },
     });
     if (!filesRes.success) throw new Error(filesRes.error);
@@ -161,7 +161,7 @@ export const regenCollAttrs = makeAction(
       queue.add(async () => {
         try {
           const fileIds = c.fileIdIndexes.map((f) => f.fileId);
-          const filesRes = await actions.listFiles({ args: { filter: { id: fileIds } } });
+          const filesRes = await actions.listFile({ args: { filter: { id: fileIds } } });
           if (!filesRes.success) throw new Error(filesRes.error);
 
           const updates = await makeCollAttrs(filesRes.data.items, c.fileIdIndexes);
@@ -217,7 +217,7 @@ export const updateCollection = makeAction(
 
     if (updates.fileIdIndexes) {
       const fileIds = updates.fileIdIndexes.map((f) => f.fileId);
-      const filesRes = await actions.listFiles({ args: { filter: { id: fileIds } } });
+      const filesRes = await actions.listFile({ args: { filter: { id: fileIds } } });
       if (!filesRes.success) throw new Error(filesRes.error);
       const files = filesRes.data.items;
       const fileMap = new Map(files.map((file) => [String(file.id), file]));

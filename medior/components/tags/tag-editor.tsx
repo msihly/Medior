@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { RegExMapSchema } from "medior/database";
+import { TagSchema } from "medior/database";
 import { TagOption, observer, useStores } from "medior/store";
 import { Divider } from "@mui/material";
 import {
@@ -48,7 +48,7 @@ export const TagEditor = observer(
     );
     const [regExValue, setRegExValue] = useState<string>(tag?.regExMap?.regEx ?? "");
     const [regExTestString, setRegExTestString] = useState<string>(tag?.regExMap?.testString ?? "");
-    const [regExTypes, setRegExTypes] = useState<RegExMapSchema["types"]>(
+    const [regExTypes, setRegExTypes] = useState<TagSchema["regExMap"]["types"]>(
       tag?.regExMap?.types ?? ["diffusionParams", "fileName", "folderName"]
     );
 

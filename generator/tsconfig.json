@@ -3,11 +3,10 @@
     "baseUrl": ".",
     "moduleResolution": "Bundler",
     "paths": {
-      "*": ["*", "*/index.js"],
-      "medior/*": ["../medior/*"]
+      "generator/*": ["./*"]
     },
     "types": ["node"]
   },
   "extends": "../tsconfig.base.json",
-  "include": [".", "./globals.d.ts", "../medior"]
+  "include": [".", "./globals.d.ts"]
 }

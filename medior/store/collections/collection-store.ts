@@ -60,6 +60,7 @@ export class FileCollectionStore extends Model({
         if (!res.success) throw new Error(res.error);
       },
       items: collectionIdsRes.data,
+      logPrefix: "Refreshed",
       logSuffix: "collections",
       queue: this.metaRefreshQueue,
     });

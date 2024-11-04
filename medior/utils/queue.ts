@@ -1,5 +1,5 @@
 import { toast } from "react-toastify";
-import { rng, sleep } from "medior/utils";
+import { rng, sleep, Toaster } from "medior/utils";
 
 export class PromiseChain {
   cancelled = false;
@@ -107,7 +107,7 @@ export const makeQueue = <T>({
 }: {
   action: (item: T, escapeFn: () => Promise<void>) => Promise<any>;
   items: T[];
-  logPrefix?: string;
+  logPrefix: string;
   logSuffix: string;
   onComplete?: (hasError?: boolean) => Promise<any>;
   queue: PromiseQueue;
@@ -122,28 +122,41 @@ export const makeQueue = <T>({
     const getToastText = () =>
       `${logPrefix} ${completedCount} / ${totalCount} ${logSuffix}${isComplete ? "." : "..."}`;
 
+    const toaster = new Toaster();
+    toaster.toast(getToastText(), { autoClose: false, type: "info" });
+
     const onEscape = async () => {
+      updateCompleted();
       resolve();
       await onComplete?.(hasError);
-      if (withTabTitle) updateTabTitle();
-      toast.update(toastId, { autoClose: isComplete ? 5000 : false, render: getToastText() });
     };
 
     const setHasError = (error: boolean) => (hasError = error);
 
+    const updateCompleted = () => {
+      if (completedCount < totalCount) completedCount++;
+      isComplete = completedCount >= totalCount;
+      updateToast();
+      if (withTabTitle) updateTabTitle();
+    };
+
     const updateTabTitle = () =>
       (document.title =
-        completedCount === totalCount
+        completedCount >= totalCount
           ? hasError
             ? "ERROR"
             : "Done!"
           : `[${completedCount}/${totalCount}] Downloading`);
 
+    const updateToast = () =>
+      toaster.toast(getToastText(), {
+        autoClose: isComplete ? 3000 : false,
+        type: isComplete ? "success" : undefined,
+      });
+
     if (withTabTitle) updateTabTitle();
 
-    const toastId = toast.info(getToastText, { autoClose: false });
-
-    items.map((item) =>
+    for (const item of items) {
       queue.add(async () => {
         try {
           await action(item, onEscape);
@@ -152,13 +165,10 @@ export const makeQueue = <T>({
           toast.error(err.message);
           setHasError(true);
         } finally {
-          completedCount++;
-          isComplete = completedCount === totalCount;
-          toast.update(toastId, { autoClose: isComplete ? 5000 : false, render: getToastText() });
-          if (withTabTitle) updateTabTitle();
+          updateCompleted();
           if (isComplete) await onEscape();
         }
-      })
-    );
+      });
+    }
   });
 };

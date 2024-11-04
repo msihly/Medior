@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { RegExMapSchema } from "medior/database";
+import { TagSchema } from "medior/database";
 import { Tag, observer, useStores } from "medior/store";
 import { InputAdornment } from "@mui/material";
 import { Button, Input, InputProps, View } from "medior/components";
@@ -12,9 +12,9 @@ export interface RegExMapRowProps {
   regEx: string;
   setRegEx: (regEx: string) => void;
   setTestString: (testString: string) => void;
-  setTypes: (types: RegExMapSchema["types"]) => void;
+  setTypes: (types: TagSchema["regExMap"]["types"]) => void;
   testString: string;
-  types: RegExMapSchema["types"];
+  types: TagSchema["regExMap"]["types"];
 }
 
 export const RegExMapRow = observer(
@@ -43,7 +43,7 @@ export const RegExMapRow = observer(
 
     const generateRegEx = () => setRegEx(stores.tag.tagsToRegEx([{ aliases, label }]));
 
-    const toggleType = (type: RegExMapSchema["types"][number]) =>
+    const toggleType = (type: TagSchema["regExMap"]["types"][number]) =>
       setTypes(types.includes(type) ? types.filter((t) => t !== type) : [...types, type]);
 
     const toggleTypeDiffusion = () => toggleType("diffusionParams");

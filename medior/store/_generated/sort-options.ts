@@ -1,28 +1,18 @@
-/* -------------------------------------------------------------------------- */
-/*                    THIS IS A GENERATED FILE. DO NOT EDIT.                  */
-/* -------------------------------------------------------------------------- */
-
+/* --------------------------------------------------------------------------- */
+/*                               THIS IS A GENERATED FILE. DO NOT EDIT.
+/* --------------------------------------------------------------------------- */
 import { IconName, IconProps } from "medior/components/media/icon";
 
-export interface SortOption {
+export type SortOption = {
   attribute: string;
   icon: IconName;
   iconProps?: Partial<IconProps>;
   label: string;
-}
+};
 
-export interface SortValue {
-  isDesc: boolean;
-  key: string;
-}
+export type SortValue = { isDesc: boolean; key: string };
 
-type ModelSortName =
-  | "DeletedFile"
-  | "FileCollection"
-  | "FileImportBatch"
-  | "File"
-  | "RegExMap"
-  | "Tag";
+type ModelSortName = "DeletedFile" | "FileCollection" | "FileImportBatch" | "File" | "Tag";
 
 type CustomSortName = "FileCollectionFile";
 
@@ -45,7 +35,6 @@ const MODEL_SORT_OPTIONS: Record<ModelSortName, SortOption[]> = {
     { attribute: "size", icon: "FormatSize", label: "Size" },
     { attribute: "width", icon: "Height", iconProps: { rotation: 90 }, label: "Width" },
   ],
-  RegExMap: [],
   Tag: [
     { attribute: "dateCreated", icon: "DateRange", label: "Date Created" },
     { attribute: "count", icon: "Numbers", label: "Count" },

@@ -1,7 +1,6 @@
-/* -------------------------------------------------------------------------- */
-/*                    THIS IS A GENERATED FILE. DO NOT EDIT.                  */
-/* -------------------------------------------------------------------------- */
-
+/* --------------------------------------------------------------------------- */
+/*                               THIS IS A GENERATED FILE. DO NOT EDIT.
+/* --------------------------------------------------------------------------- */
 import * as db from "medior/database";
 import { QuerySelector, SortOrder } from "mongoose";
 
@@ -25,13 +24,13 @@ export type _FilterQuery<Schema> = {
   $comment?: string;
 };
 
-/* -------------------------------------------------------------------------- */
-/*                                MODEL ACTIONS                               */
-/* -------------------------------------------------------------------------- */
+/* --------------------------------------------------------------------------- */
+/*                               MODEL ACTIONS
+/* --------------------------------------------------------------------------- */
 /* ------------------------------------ DeletedFile ----------------------------------- */
 export type CreateDeletedFileInput = Omit<db.DeletedFileSchema, "id">;
-export type DeleteDeletedFileInput = { id: string };
-export type _ListDeletedFilesInput = {
+export type DeleteDeletedFileInput = { ids: string[] };
+export type ListDeletedFileInput = {
   filter?: _FilterQuery<db.DeletedFileSchema>;
   page?: number;
   pageSize?: number;
@@ -42,8 +41,8 @@ export type UpdateDeletedFileInput = { id: string; updates: Partial<db.DeletedFi
 
 /* ------------------------------------ FileCollection ----------------------------------- */
 export type CreateFileCollectionInput = Omit<db.FileCollectionSchema, "id">;
-export type DeleteFileCollectionInput = { id: string };
-export type ListFileCollectionsInput = {
+export type DeleteFileCollectionInput = { ids: string[] };
+export type ListFileCollectionInput = {
   filter?: _FilterQuery<db.FileCollectionSchema>;
   page?: number;
   pageSize?: number;
@@ -54,8 +53,8 @@ export type UpdateFileCollectionInput = { id: string; updates: Partial<db.FileCo
 
 /* ------------------------------------ FileImportBatch ----------------------------------- */
 export type CreateFileImportBatchInput = Omit<db.FileImportBatchSchema, "id">;
-export type DeleteFileImportBatchInput = { id: string };
-export type ListFileImportBatchsInput = {
+export type DeleteFileImportBatchInput = { ids: string[] };
+export type ListFileImportBatchInput = {
   filter?: _FilterQuery<db.FileImportBatchSchema>;
   page?: number;
   pageSize?: number;
@@ -66,8 +65,8 @@ export type UpdateFileImportBatchInput = { id: string; updates: Partial<db.FileI
 
 /* ------------------------------------ File ----------------------------------- */
 export type CreateFileInput = Omit<db.FileSchema, "id">;
-export type DeleteFileInput = { id: string };
-export type ListFilesInput = {
+export type DeleteFileInput = { ids: string[] };
+export type ListFileInput = {
   filter?: _FilterQuery<db.FileSchema>;
   page?: number;
   pageSize?: number;
@@ -76,22 +75,10 @@ export type ListFilesInput = {
 };
 export type _UpdateFileInput = { id: string; updates: Partial<db.FileSchema> };
 
-/* ------------------------------------ RegExMap ----------------------------------- */
-export type CreateRegExMapInput = Omit<db.RegExMapSchema, "id">;
-export type DeleteRegExMapInput = { id: string };
-export type ListRegExMapsInput = {
-  filter?: _FilterQuery<db.RegExMapSchema>;
-  page?: number;
-  pageSize?: number;
-  sort?: Record<string, SortOrder>;
-  withOverwrite?: boolean;
-};
-export type UpdateRegExMapInput = { id: string; updates: Partial<db.RegExMapSchema> };
-
 /* ------------------------------------ Tag ----------------------------------- */
 export type _CreateTagInput = Omit<db.TagSchema, "id">;
-export type _DeleteTagInput = { id: string };
-export type ListTagsInput = {
+export type _DeleteTagInput = { ids: string[] };
+export type ListTagInput = {
   filter?: _FilterQuery<db.TagSchema>;
   page?: number;
   pageSize?: number;
@@ -100,9 +87,9 @@ export type ListTagsInput = {
 };
 export type UpdateTagInput = { id: string; updates: Partial<db.TagSchema> };
 
-/* -------------------------------------------------------------------------- */
-/*                               CUSTOM ACTIONS                               */
-/* -------------------------------------------------------------------------- */
+/* --------------------------------------------------------------------------- */
+/*                               CUSTOM ACTIONS
+/* --------------------------------------------------------------------------- */
 export type AddFilesToCollectionInput = Parameters<typeof db.addFilesToCollection>[0];
 export type AddFilesToCollectionOutput = ReturnType<typeof db.addFilesToCollection>;
 

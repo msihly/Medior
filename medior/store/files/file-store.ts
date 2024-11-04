@@ -64,7 +64,7 @@ export class FileStore extends ExtendedModel(_FileStore, {
   @modelFlow
   confirmDeleteFiles = asyncAction(async (ids: string[]) => {
     this.setIdsForConfirmDelete([...ids]);
-    const res = await trpc.listFiles.mutate({ args: { filter: { id: ids } } });
+    const res = await trpc.listFile.mutate({ args: { filter: { id: ids } } });
     if (!res.success) throw new Error(res.error);
     if (res.data.items.some((f) => f.isArchived)) this.setIsConfirmDeleteOpen(true);
     else this.deleteFiles();
@@ -75,7 +75,7 @@ export class FileStore extends ExtendedModel(_FileStore, {
     const fileIds = [...this.idsForConfirmDelete];
     if (!fileIds?.length) throw new Error("No files to delete");
 
-    const res = await trpc.listFiles.mutate({ args: { filter: { id: fileIds } } });
+    const res = await trpc.listFile.mutate({ args: { filter: { id: fileIds } } });
     if (!res.success) throw new Error(res.error);
     const files = res.data.items;
 
@@ -128,7 +128,7 @@ export class FileStore extends ExtendedModel(_FileStore, {
     async (args: { ids: string[]; remuxOnly?: boolean; withRemux?: boolean }) => {
       const stores = getRootStore<RootStore>(this);
 
-      const filesRes = await trpc.listFiles.mutate({
+      const filesRes = await trpc.listFile.mutate({
         args: {
           filter: {
             id: args.ids,

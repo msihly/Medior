@@ -80,7 +80,7 @@ export class CollectionEditor extends Model({
       return;
     } else this.setIsLoading(true);
 
-    const collRes = await trpc.listFileCollections.mutate({ args: { filter: { id } } });
+    const collRes = await trpc.listFileCollection.mutate({ args: { filter: { id } } });
     if (!collRes.success) throw new Error(collRes.error);
 
     const collection = collRes.data.items[0];
@@ -90,7 +90,7 @@ export class CollectionEditor extends Model({
     const fileIndexes = collection.fileIdIndexes.sort((a, b) => a.index - b.index);
     this.setFileIndexes(fileIndexes);
 
-    const tagsRes = await trpc.listTags.mutate({ args: { filter: { id: collection.tagIds } } });
+    const tagsRes = await trpc.listTag.mutate({ args: { filter: { id: collection.tagIds } } });
     if (!tagsRes.success) throw new Error(tagsRes.error);
     const tags = tagsRes.data.items.sort((a, b) => b.count - a.count).map((t) => new Tag(t));
     this.setTags(tags);

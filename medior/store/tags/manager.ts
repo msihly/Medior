@@ -66,6 +66,7 @@ export class TagManagerStore extends Model({
         if (!res.success) throw new Error(res.error);
       },
       items: this.search.selectedIds,
+      logPrefix: "Refreshed",
       logSuffix: "tags",
       onComplete: () => Promise.all([stores.tag.loadTags(), this.search.loadFiltered()]),
       queue: this.refreshQueue,

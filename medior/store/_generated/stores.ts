@@ -1,7 +1,6 @@
-/* -------------------------------------------------------------------------- */
-/*                    THIS IS A GENERATED FILE. DO NOT EDIT.                  */
-/* -------------------------------------------------------------------------- */
-
+/* --------------------------------------------------------------------------- */
+/*                               THIS IS A GENERATED FILE. DO NOT EDIT.
+/* --------------------------------------------------------------------------- */
 import { computed } from "mobx";
 import {
   applySnapshot,
@@ -14,7 +13,6 @@ import {
   modelFlow,
   prop,
 } from "mobx-keystone";
-import * as models from "medior/_generated/models";
 import * as Types from "medior/database/types";
 import * as Stores from "medior/store";
 import { asyncAction } from "medior/store/utils";
@@ -25,285 +23,6 @@ import { toast } from "react-toastify";
 /* --------------------------------------------------------------------------- */
 /*                               SEARCH STORES
 /* --------------------------------------------------------------------------- */
-@model("medior/_FileSearch")
-export class _FileSearch extends Model({
-  dateCreatedEnd: prop<string>("").withSetter(),
-  dateCreatedStart: prop<string>("").withSetter(),
-  dateModifiedEnd: prop<string>("").withSetter(),
-  dateModifiedStart: prop<string>("").withSetter(),
-  excludedFileIds: prop<string[]>(() => []).withSetter(),
-  forcePages: prop<boolean>(false).withSetter(),
-  hasChanges: prop<boolean>(false).withSetter(),
-  hasDiffParams: prop<boolean>(false).withSetter(),
-  ids: prop<string[]>(() => []).withSetter(),
-  isArchived: prop<boolean>(false).withSetter(),
-  isCorrupted: prop<boolean>(null).withSetter(),
-  isLoading: prop<boolean>(false).withSetter(),
-  maxHeight: prop<number>(null).withSetter(),
-  maxWidth: prop<number>(null).withSetter(),
-  minHeight: prop<number>(null).withSetter(),
-  minWidth: prop<number>(null).withSetter(),
-  numOfTags: prop<{ logOp: LogicalOp | ""; value: number }>(() => ({ logOp: "", value: 0 })),
-  originalPath: prop<string>("").withSetter(),
-  page: prop<number>(1).withSetter(),
-  pageCount: prop<number>(1).withSetter(),
-  pageSize: prop<number>(() => getConfig().file.search.pageSize).withSetter(),
-  rating: prop<{ logOp: LogicalOp | ""; value: number }>(() => ({ logOp: "", value: 0 })),
-  results: prop<Stores.File[]>(() => []).withSetter(),
-  selectedIds: prop<string[]>(() => []).withSetter(),
-  selectedImageTypes: prop<Types.SelectedImageTypes>(
-    () =>
-      Object.fromEntries(
-        getConfig().file.imageTypes.map((ext) => [ext, true]),
-      ) as Types.SelectedImageTypes,
-  ),
-  selectedVideoTypes: prop<Types.SelectedVideoTypes>(
-    () =>
-      Object.fromEntries(
-        getConfig().file.videoTypes.map((ext) => [ext, true]),
-      ) as Types.SelectedVideoTypes,
-  ),
-  sortValue: prop<SortMenuProps["value"]>(() => getConfig().file.search.sort).withSetter(),
-  tags: prop<Stores.TagOption[]>(() => []).withSetter(),
-}) {
-  /* ---------------------------- STANDARD ACTIONS ---------------------------- */
-  @modelAction
-  reset() {
-    this.dateCreatedEnd = "";
-    this.dateCreatedStart = "";
-    this.dateModifiedEnd = "";
-    this.dateModifiedStart = "";
-    this.excludedFileIds = [];
-    this.forcePages = false;
-    this.hasChanges = false;
-    this.hasDiffParams = false;
-    this.ids = [];
-    this.isArchived = false;
-    this.isCorrupted = null;
-    this.isLoading = false;
-    this.maxHeight = null;
-    this.maxWidth = null;
-    this.minHeight = null;
-    this.minWidth = null;
-    this.numOfTags = { logOp: "", value: 0 };
-    this.originalPath = "";
-    this.page = 1;
-    this.pageCount = 1;
-    this.pageSize = getConfig().file.search.pageSize;
-    this.rating = { logOp: "", value: 0 };
-    this.results = [];
-    this.selectedIds = [];
-    this.selectedImageTypes = Object.fromEntries(
-      getConfig().file.imageTypes.map((ext) => [ext, true]),
-    ) as Types.SelectedImageTypes;
-    this.selectedVideoTypes = Object.fromEntries(
-      getConfig().file.videoTypes.map((ext) => [ext, true]),
-    ) as Types.SelectedVideoTypes;
-    this.sortValue = getConfig().file.search.sort;
-    this.tags = [];
-  }
-
-  @modelAction
-  toggleSelected(selected: { id: string; isSelected?: boolean }[], withToast = false) {
-    if (!selected?.length) return;
-
-    const [added, removed] = selected.reduce(
-      (acc, cur) => (acc[cur.isSelected ? 0 : 1].push(cur.id), acc),
-      [[], []],
-    );
-
-    const removedSet = new Set(removed);
-    this.selectedIds = [...new Set(this.selectedIds.concat(added))].filter(
-      (id) => !removedSet.has(id),
-    );
-
-    if (withToast) {
-      const addedCount = added.length;
-      const removedCount = removed.length;
-      if (addedCount && removedCount) {
-        toast.success(`Selected ${addedCount} items and deselected ${removedCount} items`);
-      } else if (addedCount) {
-        toast.success(`Selected ${addedCount} items`);
-      } else if (removedCount) {
-        toast.success(`Deselected ${removedCount} items`);
-      }
-    }
-  }
-
-  @modelAction
-  setNumOfTagsOp(val: LogicalOp | "") {
-    this.numOfTags.logOp = val;
-  }
-
-  @modelAction
-  setNumOfTagsValue(val: number) {
-    this.numOfTags.value = val;
-  }
-
-  @modelAction
-  setRatingOp(val: LogicalOp | "") {
-    this.rating.logOp = val;
-  }
-
-  @modelAction
-  setRatingValue(val: number) {
-    this.rating.value = val;
-  }
-
-  @modelAction
-  setSelectedImageTypes(types: Partial<Types.SelectedImageTypes>) {
-    this.selectedImageTypes = { ...this.selectedImageTypes, ...types };
-  }
-
-  @modelAction
-  setSelectedVideoTypes(types: Partial<Types.SelectedVideoTypes>) {
-    this.selectedVideoTypes = { ...this.selectedVideoTypes, ...types };
-  }
-
-  /* ------------------------------ ASYNC ACTIONS ----------------------------- */
-  @modelFlow
-  getShiftSelected = asyncAction(
-    async ({ id, selectedIds }: { id: string; selectedIds: string[] }) => {
-      const clickedIndex =
-        (this.page - 1) * this.pageSize + this.results.findIndex((r) => r.id === id);
-
-      const res = await trpc.getShiftSelectedFiles.mutate({
-        ...this.getFilterProps(),
-        clickedId: id,
-        clickedIndex,
-        selectedIds,
-      });
-      if (!res.success) throw new Error(res.error);
-      return res.data;
-    },
-  );
-
-  @modelFlow
-  handleSelect = asyncAction(
-    async ({ hasCtrl, hasShift, id }: { hasCtrl: boolean; hasShift: boolean; id: string }) => {
-      if (hasShift) {
-        const res = await this.getShiftSelected({ id, selectedIds: this.selectedIds });
-        if (!res?.success) throw new Error(res.error);
-        this.toggleSelected([
-          ...res.data.idsToDeselect.map((i) => ({ id: i, isSelected: false })),
-          ...res.data.idsToSelect.map((i) => ({ id: i, isSelected: true })),
-        ]);
-      } else if (hasCtrl) {
-        this.toggleSelected([{ id, isSelected: !this.getIsSelected(id) }]);
-      } else {
-        this.toggleSelected([
-          ...this.selectedIds.map((id) => ({ id, isSelected: false })),
-          { id, isSelected: true },
-        ]);
-      }
-    },
-  );
-
-  @modelFlow
-  loadFiltered = asyncAction(async ({ page }: { page?: number } = {}) => {
-    const debug = false;
-    const { perfLog, perfLogTotal } = makePerfLog("[FileSearch]");
-    this.setIsLoading(true);
-
-    const res = await trpc.listFilteredFiles.mutate({
-      ...this.getFilterProps(),
-      forcePages: this.forcePages,
-      page: page ?? this.page,
-      pageSize: this.pageSize,
-    });
-    if (!res.success) throw new Error(res.error);
-
-    const { items, pageCount } = res.data;
-    if (debug) perfLog(`Loaded ${items.length} items`);
-
-    this.setResults(items.map((item) => new Stores.File(item)));
-    if (debug) perfLog("Overwrite and re-render");
-
-    this.setPageCount(pageCount);
-    if (page) this.setPage(page);
-    if (debug) perfLog(`Set page to ${page ?? this.page} and pageCount to ${pageCount}`);
-
-    if (debug) perfLogTotal(`Loaded ${items.length} items`);
-    this.setIsLoading(false);
-    this.setHasChanges(false);
-    return items;
-  });
-
-  /* --------------------------------- GETTERS -------------------------------- */
-  @computed
-  get numOfFilters() {
-    return (
-      (!isDeepEqual(this.dateCreatedEnd, "") ? 1 : 0) +
-      (!isDeepEqual(this.dateCreatedStart, "") ? 1 : 0) +
-      (!isDeepEqual(this.dateModifiedEnd, "") ? 1 : 0) +
-      (!isDeepEqual(this.dateModifiedStart, "") ? 1 : 0) +
-      (!isDeepEqual(this.excludedFileIds, []) ? 1 : 0) +
-      (!isDeepEqual(this.hasDiffParams, false) ? 1 : 0) +
-      (!isDeepEqual(this.ids, []) ? 1 : 0) +
-      (!isDeepEqual(this.isArchived, false) ? 1 : 0) +
-      (!isDeepEqual(this.isCorrupted, null) ? 1 : 0) +
-      (!isDeepEqual(this.maxHeight, null) ? 1 : 0) +
-      (!isDeepEqual(this.maxWidth, null) ? 1 : 0) +
-      (!isDeepEqual(this.minHeight, null) ? 1 : 0) +
-      (!isDeepEqual(this.minWidth, null) ? 1 : 0) +
-      (!isDeepEqual(this.numOfTags, { logOp: "", value: 0 }) ? 1 : 0) +
-      (!isDeepEqual(this.originalPath, "") ? 1 : 0) +
-      (!isDeepEqual(this.rating, { logOp: "", value: 0 }) ? 1 : 0) +
-      (!isDeepEqual(
-        this.selectedImageTypes,
-        Object.fromEntries(
-          getConfig().file.imageTypes.map((ext) => [ext, true]),
-        ) as Types.SelectedImageTypes,
-      )
-        ? 1
-        : 0) +
-      (!isDeepEqual(
-        this.selectedVideoTypes,
-        Object.fromEntries(
-          getConfig().file.videoTypes.map((ext) => [ext, true]),
-        ) as Types.SelectedVideoTypes,
-      )
-        ? 1
-        : 0) +
-      (!isDeepEqual(this.sortValue, getConfig().file.search.sort) ? 1 : 0) +
-      (!isDeepEqual(this.tags, []) ? 1 : 0)
-    );
-  }
-
-  /* --------------------------------- DYNAMIC GETTERS -------------------------------- */
-  getFilterProps() {
-    return {
-      dateCreatedEnd: this.dateCreatedEnd,
-      dateCreatedStart: this.dateCreatedStart,
-      dateModifiedEnd: this.dateModifiedEnd,
-      dateModifiedStart: this.dateModifiedStart,
-      excludedFileIds: this.excludedFileIds,
-      hasDiffParams: this.hasDiffParams,
-      ids: this.ids,
-      isArchived: this.isArchived,
-      isCorrupted: this.isCorrupted,
-      maxHeight: this.maxHeight,
-      maxWidth: this.maxWidth,
-      minHeight: this.minHeight,
-      minWidth: this.minWidth,
-      numOfTags: this.numOfTags,
-      originalPath: this.originalPath,
-      rating: this.rating,
-      selectedImageTypes: this.selectedImageTypes,
-      selectedVideoTypes: this.selectedVideoTypes,
-      sortValue: this.sortValue,
-      ...getRootStore<Stores.RootStore>(this)?.tag?.tagSearchOptsToIds(this.tags),
-    };
-  }
-
-  getIsSelected(id: string) {
-    return !!this.selectedIds.find((s) => s === id);
-  }
-
-  getResult(id: string) {
-    return this.results.find((r) => r.id === id);
-  }
-}
 
 @model("medior/_FileCollectionSearch")
 export class _FileCollectionSearch extends Model({
@@ -328,7 +47,17 @@ export class _FileCollectionSearch extends Model({
   tags: prop<Stores.TagOption[]>(() => []).withSetter(),
   title: prop<string>("").withSetter(),
 }) {
-  /* ---------------------------- STANDARD ACTIONS ---------------------------- */
+  /* STANDARD ACTIONS */
+  @modelAction
+  _addResult(result: ModelCreationData<Stores.FileCollection>) {
+    this.results.push(new Stores.FileCollection(result));
+  }
+
+  @modelAction
+  _deleteResults(ids: string[]) {
+    this.results = this.results.filter((d) => !ids.includes(d.id));
+  }
+
   @modelAction
   reset() {
     this.dateCreatedEnd = "";
@@ -368,13 +97,10 @@ export class _FileCollectionSearch extends Model({
     if (withToast) {
       const addedCount = added.length;
       const removedCount = removed.length;
-      if (addedCount && removedCount) {
+      if (addedCount && removedCount)
         toast.success(`Selected ${addedCount} items and deselected ${removedCount} items`);
-      } else if (addedCount) {
-        toast.success(`Selected ${addedCount} items`);
-      } else if (removedCount) {
-        toast.success(`Deselected ${removedCount} items`);
-      }
+      else if (addedCount) toast.success(`Selected ${addedCount} items`);
+      else if (removedCount) toast.success(`Deselected ${removedCount} items`);
     }
   }
 
@@ -398,14 +124,14 @@ export class _FileCollectionSearch extends Model({
     this.rating.value = val;
   }
 
-  /* ------------------------------ ASYNC ACTIONS ----------------------------- */
+  /* ASYNC ACTIONS */
   @modelFlow
   getShiftSelected = asyncAction(
     async ({ id, selectedIds }: { id: string; selectedIds: string[] }) => {
       const clickedIndex =
         (this.page - 1) * this.pageSize + this.results.findIndex((r) => r.id === id);
 
-      const res = await trpc.getShiftSelectedFileCollections.mutate({
+      const res = await trpc.getShiftSelectedFileCollection.mutate({
         ...this.getFilterProps(),
         clickedId: id,
         clickedIndex,
@@ -443,7 +169,7 @@ export class _FileCollectionSearch extends Model({
     const { perfLog, perfLogTotal } = makePerfLog("[FileCollectionSearch]");
     this.setIsLoading(true);
 
-    const res = await trpc.listFilteredFileCollections.mutate({
+    const res = await trpc.listFilteredFileCollection.mutate({
       ...this.getFilterProps(),
       forcePages: this.forcePages,
       page: page ?? this.page,
@@ -467,7 +193,7 @@ export class _FileCollectionSearch extends Model({
     return items;
   });
 
-  /* --------------------------------- GETTERS -------------------------------- */
+  /* GETTERS */
   @computed
   get numOfFilters() {
     return (
@@ -484,7 +210,7 @@ export class _FileCollectionSearch extends Model({
     );
   }
 
-  /* --------------------------------- DYNAMIC GETTERS -------------------------------- */
+  /* DYNAMIC GETTERS */
   getFilterProps() {
     return {
       dateCreatedEnd: this.dateCreatedEnd,
@@ -508,7 +234,292 @@ export class _FileCollectionSearch extends Model({
     return this.results.find((r) => r.id === id);
   }
 }
+@model("medior/_FileSearch")
+export class _FileSearch extends Model({
+  dateCreatedEnd: prop<string>("").withSetter(),
+  dateCreatedStart: prop<string>("").withSetter(),
+  dateModifiedEnd: prop<string>("").withSetter(),
+  dateModifiedStart: prop<string>("").withSetter(),
+  excludedFileIds: prop<string[]>(() => []).withSetter(),
+  forcePages: prop<boolean>(false).withSetter(),
+  hasChanges: prop<boolean>(false).withSetter(),
+  hasDiffParams: prop<boolean>(false).withSetter(),
+  ids: prop<string[]>(() => []).withSetter(),
+  isArchived: prop<boolean>(false).withSetter(),
+  isCorrupted: prop<boolean>(null).withSetter(),
+  isLoading: prop<boolean>(false).withSetter(),
+  maxHeight: prop<number>(null).withSetter(),
+  maxWidth: prop<number>(null).withSetter(),
+  minHeight: prop<number>(null).withSetter(),
+  minWidth: prop<number>(null).withSetter(),
+  numOfTags: prop<{ logOp: LogicalOp | ""; value: number }>(() => ({ logOp: "", value: 0 })),
+  originalPath: prop<string>(null).withSetter(),
+  page: prop<number>(1).withSetter(),
+  pageCount: prop<number>(1).withSetter(),
+  pageSize: prop<number>(() => getConfig().file.search.pageSize).withSetter(),
+  rating: prop<{ logOp: LogicalOp | ""; value: number }>(() => ({ logOp: "", value: 0 })),
+  results: prop<Stores.File[]>(() => []).withSetter(),
+  selectedIds: prop<string[]>(() => []).withSetter(),
+  selectedImageTypes: prop<Types.SelectedImageTypes>(
+    () =>
+      Object.fromEntries(
+        getConfig().file.imageTypes.map((ext) => [ext, true]),
+      ) as Types.SelectedImageTypes,
+  ),
+  selectedVideoTypes: prop<Types.SelectedVideoTypes>(
+    () =>
+      Object.fromEntries(
+        getConfig().file.videoTypes.map((ext) => [ext, true]),
+      ) as Types.SelectedVideoTypes,
+  ),
+  sortValue: prop<SortMenuProps["value"]>(() => getConfig().file.search.sort).withSetter(),
+  tags: prop<Stores.TagOption[]>(() => []).withSetter(),
+}) {
+  /* STANDARD ACTIONS */
+  @modelAction
+  _addResult(result: ModelCreationData<Stores.File>) {
+    this.results.push(new Stores.File(result));
+  }
 
+  @modelAction
+  _deleteResults(ids: string[]) {
+    this.results = this.results.filter((d) => !ids.includes(d.id));
+  }
+
+  @modelAction
+  reset() {
+    this.dateCreatedEnd = "";
+    this.dateCreatedStart = "";
+    this.dateModifiedEnd = "";
+    this.dateModifiedStart = "";
+    this.excludedFileIds = [];
+    this.forcePages = false;
+    this.hasChanges = false;
+    this.hasDiffParams = false;
+    this.ids = [];
+    this.isArchived = false;
+    this.isCorrupted = null;
+    this.isLoading = false;
+    this.maxHeight = null;
+    this.maxWidth = null;
+    this.minHeight = null;
+    this.minWidth = null;
+    this.numOfTags = { logOp: "", value: 0 };
+    this.originalPath = null;
+    this.page = 1;
+    this.pageCount = 1;
+    this.pageSize = getConfig().file.search.pageSize;
+    this.rating = { logOp: "", value: 0 };
+    this.results = [];
+    this.selectedIds = [];
+    this.selectedImageTypes = Object.fromEntries(
+      getConfig().file.imageTypes.map((ext) => [ext, true]),
+    ) as Types.SelectedImageTypes;
+    this.selectedVideoTypes = Object.fromEntries(
+      getConfig().file.videoTypes.map((ext) => [ext, true]),
+    ) as Types.SelectedVideoTypes;
+    this.sortValue = getConfig().file.search.sort;
+    this.tags = [];
+  }
+
+  @modelAction
+  toggleSelected(selected: { id: string; isSelected?: boolean }[], withToast = false) {
+    if (!selected?.length) return;
+
+    const [added, removed] = selected.reduce(
+      (acc, cur) => (acc[cur.isSelected ? 0 : 1].push(cur.id), acc),
+      [[], []],
+    );
+
+    const removedSet = new Set(removed);
+    this.selectedIds = [...new Set(this.selectedIds.concat(added))].filter(
+      (id) => !removedSet.has(id),
+    );
+
+    if (withToast) {
+      const addedCount = added.length;
+      const removedCount = removed.length;
+      if (addedCount && removedCount)
+        toast.success(`Selected ${addedCount} items and deselected ${removedCount} items`);
+      else if (addedCount) toast.success(`Selected ${addedCount} items`);
+      else if (removedCount) toast.success(`Deselected ${removedCount} items`);
+    }
+  }
+
+  @modelAction
+  setNumOfTagsOp(val: LogicalOp | "") {
+    this.numOfTags.logOp = val;
+  }
+
+  @modelAction
+  setNumOfTagsValue(val: number) {
+    this.numOfTags.value = val;
+  }
+
+  @modelAction
+  setRatingOp(val: LogicalOp | "") {
+    this.rating.logOp = val;
+  }
+
+  @modelAction
+  setRatingValue(val: number) {
+    this.rating.value = val;
+  }
+
+  @modelAction
+  setSelectedImageTypes(types: Partial<Types.SelectedImageTypes>) {
+    this.selectedImageTypes = { ...this.selectedImageTypes, ...types };
+  }
+
+  @modelAction
+  setSelectedVideoTypes(types: Partial<Types.SelectedVideoTypes>) {
+    this.selectedVideoTypes = { ...this.selectedVideoTypes, ...types };
+  }
+
+  /* ASYNC ACTIONS */
+  @modelFlow
+  getShiftSelected = asyncAction(
+    async ({ id, selectedIds }: { id: string; selectedIds: string[] }) => {
+      const clickedIndex =
+        (this.page - 1) * this.pageSize + this.results.findIndex((r) => r.id === id);
+
+      const res = await trpc.getShiftSelectedFile.mutate({
+        ...this.getFilterProps(),
+        clickedId: id,
+        clickedIndex,
+        selectedIds,
+      });
+      if (!res.success) throw new Error(res.error);
+      return res.data;
+    },
+  );
+
+  @modelFlow
+  handleSelect = asyncAction(
+    async ({ hasCtrl, hasShift, id }: { hasCtrl: boolean; hasShift: boolean; id: string }) => {
+      if (hasShift) {
+        const res = await this.getShiftSelected({ id, selectedIds: this.selectedIds });
+        if (!res?.success) throw new Error(res.error);
+        this.toggleSelected([
+          ...res.data.idsToDeselect.map((i) => ({ id: i, isSelected: false })),
+          ...res.data.idsToSelect.map((i) => ({ id: i, isSelected: true })),
+        ]);
+      } else if (hasCtrl) {
+        this.toggleSelected([{ id, isSelected: !this.getIsSelected(id) }]);
+      } else {
+        this.toggleSelected([
+          ...this.selectedIds.map((id) => ({ id, isSelected: false })),
+          { id, isSelected: true },
+        ]);
+      }
+    },
+  );
+
+  @modelFlow
+  loadFiltered = asyncAction(async ({ page }: { page?: number } = {}) => {
+    const debug = false;
+    const { perfLog, perfLogTotal } = makePerfLog("[FileSearch]");
+    this.setIsLoading(true);
+
+    const res = await trpc.listFilteredFile.mutate({
+      ...this.getFilterProps(),
+      forcePages: this.forcePages,
+      page: page ?? this.page,
+      pageSize: this.pageSize,
+    });
+    if (!res.success) throw new Error(res.error);
+
+    const { items, pageCount } = res.data;
+    if (debug) perfLog(`Loaded ${items.length} items`);
+
+    this.setResults(items.map((item) => new Stores.File(item)));
+    if (debug) perfLog("Overwrite and re-render");
+
+    this.setPageCount(pageCount);
+    if (page) this.setPage(page);
+    if (debug) perfLog(`Set page to ${page ?? this.page} and pageCount to ${pageCount}`);
+
+    if (debug) perfLogTotal(`Loaded ${items.length} items`);
+    this.setIsLoading(false);
+    this.setHasChanges(false);
+    return items;
+  });
+
+  /* GETTERS */
+  @computed
+  get numOfFilters() {
+    return (
+      (!isDeepEqual(this.dateCreatedEnd, "") ? 1 : 0) +
+      (!isDeepEqual(this.dateCreatedStart, "") ? 1 : 0) +
+      (!isDeepEqual(this.dateModifiedEnd, "") ? 1 : 0) +
+      (!isDeepEqual(this.dateModifiedStart, "") ? 1 : 0) +
+      (!isDeepEqual(this.excludedFileIds, []) ? 1 : 0) +
+      (!isDeepEqual(this.hasDiffParams, false) ? 1 : 0) +
+      (!isDeepEqual(this.ids, []) ? 1 : 0) +
+      (!isDeepEqual(this.isArchived, false) ? 1 : 0) +
+      (!isDeepEqual(this.isCorrupted, null) ? 1 : 0) +
+      (!isDeepEqual(this.maxHeight, null) ? 1 : 0) +
+      (!isDeepEqual(this.maxWidth, null) ? 1 : 0) +
+      (!isDeepEqual(this.minHeight, null) ? 1 : 0) +
+      (!isDeepEqual(this.minWidth, null) ? 1 : 0) +
+      (!isDeepEqual(this.numOfTags, { logOp: "", value: 0 }) ? 1 : 0) +
+      (!isDeepEqual(this.originalPath, null) ? 1 : 0) +
+      (!isDeepEqual(this.rating, { logOp: "", value: 0 }) ? 1 : 0) +
+      (!isDeepEqual(
+        this.selectedImageTypes,
+        Object.fromEntries(
+          getConfig().file.imageTypes.map((ext) => [ext, true]),
+        ) as Types.SelectedImageTypes,
+      )
+        ? 1
+        : 0) +
+      (!isDeepEqual(
+        this.selectedVideoTypes,
+        Object.fromEntries(
+          getConfig().file.videoTypes.map((ext) => [ext, true]),
+        ) as Types.SelectedVideoTypes,
+      )
+        ? 1
+        : 0) +
+      (!isDeepEqual(this.sortValue, getConfig().file.search.sort) ? 1 : 0) +
+      (!isDeepEqual(this.tags, []) ? 1 : 0)
+    );
+  }
+
+  /* DYNAMIC GETTERS */
+  getFilterProps() {
+    return {
+      dateCreatedEnd: this.dateCreatedEnd,
+      dateCreatedStart: this.dateCreatedStart,
+      dateModifiedEnd: this.dateModifiedEnd,
+      dateModifiedStart: this.dateModifiedStart,
+      excludedFileIds: this.excludedFileIds,
+      hasDiffParams: this.hasDiffParams,
+      ids: this.ids,
+      isArchived: this.isArchived,
+      isCorrupted: this.isCorrupted,
+      maxHeight: this.maxHeight,
+      maxWidth: this.maxWidth,
+      minHeight: this.minHeight,
+      minWidth: this.minWidth,
+      numOfTags: this.numOfTags,
+      originalPath: this.originalPath,
+      rating: this.rating,
+      selectedImageTypes: this.selectedImageTypes,
+      selectedVideoTypes: this.selectedVideoTypes,
+      sortValue: this.sortValue,
+      ...getRootStore<Stores.RootStore>(this)?.tag?.tagSearchOptsToIds(this.tags),
+    };
+  }
+
+  getIsSelected(id: string) {
+    return !!this.selectedIds.find((s) => s === id);
+  }
+
+  getResult(id: string) {
+    return this.results.find((r) => r.id === id);
+  }
+}
 @model("medior/_TagSearch")
 export class _TagSearch extends Model({
   alias: prop<string>("").withSetter(),
@@ -530,8 +541,19 @@ export class _TagSearch extends Model({
   selectedIds: prop<string[]>(() => []).withSetter(),
   sortValue: prop<SortMenuProps["value"]>(() => getConfig().tags.manager.search.sort).withSetter(),
   tags: prop<Stores.TagOption[]>(() => []).withSetter(),
+  title: prop<string>("").withSetter(),
 }) {
-  /* ---------------------------- STANDARD ACTIONS ---------------------------- */
+  /* STANDARD ACTIONS */
+  @modelAction
+  _addResult(result: ModelCreationData<Stores.Tag>) {
+    this.results.push(new Stores.Tag(result));
+  }
+
+  @modelAction
+  _deleteResults(ids: string[]) {
+    this.results = this.results.filter((d) => !ids.includes(d.id));
+  }
+
   @modelAction
   reset() {
     this.alias = "";
@@ -553,6 +575,7 @@ export class _TagSearch extends Model({
     this.selectedIds = [];
     this.sortValue = getConfig().tags.manager.search.sort;
     this.tags = [];
+    this.title = "";
   }
 
   @modelAction
@@ -572,13 +595,10 @@ export class _TagSearch extends Model({
     if (withToast) {
       const addedCount = added.length;
       const removedCount = removed.length;
-      if (addedCount && removedCount) {
+      if (addedCount && removedCount)
         toast.success(`Selected ${addedCount} items and deselected ${removedCount} items`);
-      } else if (addedCount) {
-        toast.success(`Selected ${addedCount} items`);
-      } else if (removedCount) {
-        toast.success(`Deselected ${removedCount} items`);
-      }
+      else if (addedCount) toast.success(`Selected ${addedCount} items`);
+      else if (removedCount) toast.success(`Deselected ${removedCount} items`);
     }
   }
 
@@ -592,14 +612,14 @@ export class _TagSearch extends Model({
     this.count.value = val;
   }
 
-  /* ------------------------------ ASYNC ACTIONS ----------------------------- */
+  /* ASYNC ACTIONS */
   @modelFlow
   getShiftSelected = asyncAction(
     async ({ id, selectedIds }: { id: string; selectedIds: string[] }) => {
       const clickedIndex =
         (this.page - 1) * this.pageSize + this.results.findIndex((r) => r.id === id);
 
-      const res = await trpc.getShiftSelectedTags.mutate({
+      const res = await trpc.getShiftSelectedTag.mutate({
         ...this.getFilterProps(),
         clickedId: id,
         clickedIndex,
@@ -637,7 +657,7 @@ export class _TagSearch extends Model({
     const { perfLog, perfLogTotal } = makePerfLog("[TagSearch]");
     this.setIsLoading(true);
 
-    const res = await trpc.listFilteredTags.mutate({
+    const res = await trpc.listFilteredTag.mutate({
       ...this.getFilterProps(),
       forcePages: this.forcePages,
       page: page ?? this.page,
@@ -661,7 +681,7 @@ export class _TagSearch extends Model({
     return items;
   });
 
-  /* --------------------------------- GETTERS -------------------------------- */
+  /* GETTERS */
   @computed
   get numOfFilters() {
     return (
@@ -675,11 +695,12 @@ export class _TagSearch extends Model({
       (!isDeepEqual(this.label, "") ? 1 : 0) +
       (!isDeepEqual(this.regExMode, "any") ? 1 : 0) +
       (!isDeepEqual(this.sortValue, getConfig().tags.manager.search.sort) ? 1 : 0) +
-      (!isDeepEqual(this.tags, []) ? 1 : 0)
+      (!isDeepEqual(this.tags, []) ? 1 : 0) +
+      (!isDeepEqual(this.title, "") ? 1 : 0)
     );
   }
 
-  /* --------------------------------- DYNAMIC GETTERS -------------------------------- */
+  /* DYNAMIC GETTERS */
   getFilterProps() {
     return {
       alias: this.alias,
@@ -693,6 +714,7 @@ export class _TagSearch extends Model({
       regExMode: this.regExMode,
       sortValue: this.sortValue,
       ...getRootStore<Stores.RootStore>(this)?.tag?.tagSearchOptsToIds(this.tags),
+      title: this.title,
     };
   }
 
@@ -708,13 +730,15 @@ export class _TagSearch extends Model({
 /* --------------------------------------------------------------------------- */
 /*                               SCHEMA STORES
 /* --------------------------------------------------------------------------- */
+
 /* --------------------------------------------------------------------------- */
 /*                               DeletedFile
 /* --------------------------------------------------------------------------- */
+
 @model("medior/_DeletedFile")
 export class _DeletedFile extends Model({
-  dateCreated: prop<string>(() => dayjs().toISOString()),
   id: prop<string>(),
+  dateCreated: prop<string>(() => dayjs().toISOString()),
   hash: prop<string>(),
 }) {
   @modelAction
@@ -723,10 +747,8 @@ export class _DeletedFile extends Model({
   }
 }
 
-@model("aio/_DeletedFileStore")
-export class _DeletedFileStore extends Model({
-  isLoading: prop<boolean>(false).withSetter(),
-}) {
+@model("medior/_DeletedFileStore")
+export class _DeletedFileStore extends Model({ isLoading: prop<boolean>(false).withSetter() }) {
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */
   @modelFlow
   createDeletedFile = asyncAction(async (args: Types.CreateDeletedFileInput) => {
@@ -755,17 +777,17 @@ export class _DeletedFileStore extends Model({
     return res.data;
   });
 }
-
 /* --------------------------------------------------------------------------- */
 /*                               FileCollection
 /* --------------------------------------------------------------------------- */
+
 @model("medior/_FileCollection")
 export class _FileCollection extends Model({
-  dateCreated: prop<string>(() => dayjs().toISOString()),
   id: prop<string>(),
+  dateCreated: prop<string>(() => dayjs().toISOString()),
   dateModified: prop<string>(null),
   fileCount: prop<number>(0),
-  fileIdIndexes: prop<{ fileId: string; index: number }[]>(),
+  fileIdIndexes: prop<Array<{ fileId: string; index: number }>>(),
   rating: prop<number>(0),
   tagIds: prop<string[]>(() => []),
   tagIdsWithAncestors: prop<string[]>(() => []),
@@ -778,10 +800,8 @@ export class _FileCollection extends Model({
   }
 }
 
-@model("aio/_FileCollectionStore")
-export class _FileCollectionStore extends Model({
-  isLoading: prop<boolean>(false).withSetter(),
-}) {
+@model("medior/_FileCollectionStore")
+export class _FileCollectionStore extends Model({ isLoading: prop<boolean>(false).withSetter() }) {
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */
   @modelFlow
   createFileCollection = asyncAction(async (args: Types.CreateFileCollectionInput) => {
@@ -810,14 +830,14 @@ export class _FileCollectionStore extends Model({
     return res.data;
   });
 }
-
 /* --------------------------------------------------------------------------- */
 /*                               FileImportBatch
 /* --------------------------------------------------------------------------- */
+
 @model("medior/_FileImportBatch")
 export class _FileImportBatch extends Model({
-  dateCreated: prop<string>(() => dayjs().toISOString()),
   id: prop<string>(),
+  dateCreated: prop<string>(() => dayjs().toISOString()),
   collectionId: prop<string>(null),
   collectionTitle: prop<string>(null),
   completedAt: prop<string>(),
@@ -845,7 +865,7 @@ export class _FileImport extends Model({
   name: prop<string>(),
   path: prop<string>(),
   size: prop<number>(),
-  status: prop<string | "COMPLETE" | "DELETED" | "DUPLICATE" | "ERROR" | "PENDING">(),
+  status: prop<string | "COMPLETE" | "DELETED" | "DUPLICATE" | "ERROR" | "PENDING">(null),
   tagIds: prop<string[]>(null),
   thumb: prop<{ frameHeight?: number; frameWidth?: number; path: string }>(null),
 }) {
@@ -855,10 +875,8 @@ export class _FileImport extends Model({
   }
 }
 
-@model("aio/_FileImportBatchStore")
-export class _FileImportBatchStore extends Model({
-  isLoading: prop<boolean>(false).withSetter(),
-}) {
+@model("medior/_FileImportBatchStore")
+export class _FileImportBatchStore extends Model({ isLoading: prop<boolean>(false).withSetter() }) {
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */
   @modelFlow
   createFileImportBatch = asyncAction(async (args: Types.CreateFileImportBatchInput) => {
@@ -887,22 +905,22 @@ export class _FileImportBatchStore extends Model({
     return res.data;
   });
 }
-
 /* --------------------------------------------------------------------------- */
 /*                               File
 /* --------------------------------------------------------------------------- */
+
 @model("medior/_File")
 export class _File extends Model({
-  dateCreated: prop<string>(() => dayjs().toISOString()),
   id: prop<string>(),
+  dateCreated: prop<string>(() => dayjs().toISOString()),
   dateModified: prop<string>(),
   diffusionParams: prop<string>(null),
   duration: prop<number>(null),
   ext: prop<string>(),
-  frameRate: prop<number>(),
+  frameRate: prop<number>(null),
   hash: prop<string>(),
   height: prop<number>(),
-  isArchived: prop<boolean>(),
+  isArchived: prop<boolean>(null),
   isCorrupted: prop<boolean>(null),
   originalHash: prop<string>(null),
   originalName: prop<string>(null),
@@ -910,8 +928,8 @@ export class _File extends Model({
   path: prop<string>(),
   rating: prop<number>(),
   size: prop<number>(),
-  tagIds: prop<string[]>(() => []),
-  tagIdsWithAncestors: prop<string[]>(() => []),
+  tagIds: prop<string[]>(),
+  tagIdsWithAncestors: prop<string[]>(),
   thumb: prop<{ frameHeight?: number; frameWidth?: number; path: string }>(),
   videoCodec: prop<string>(null),
   width: prop<number>(),
@@ -922,10 +940,8 @@ export class _File extends Model({
   }
 }
 
-@model("aio/_FileStore")
-export class _FileStore extends Model({
-  isLoading: prop<boolean>(false).withSetter(),
-}) {
+@model("medior/_FileStore")
+export class _FileStore extends Model({ isLoading: prop<boolean>(false).withSetter() }) {
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */
   @modelFlow
   createFile = asyncAction(async (args: Types.CreateFileInput) => {
@@ -954,63 +970,14 @@ export class _FileStore extends Model({
     return res.data;
   });
 }
-
-/* --------------------------------------------------------------------------- */
-/*                               RegExMap
-/* --------------------------------------------------------------------------- */
-@model("medior/_RegExMap")
-export class _RegExMap extends Model({
-  id: prop<string>(null),
-  regEx: prop<string>(),
-  testString: prop<string>(null),
-  types: prop<Array<"diffusionParams" | "fileName" | "folderName">>(),
-}) {
-  @modelAction
-  update(updates: Partial<ModelCreationData<this>>) {
-    applySnapshot(this, { ...getSnapshot(this), ...updates });
-  }
-}
-
-@model("aio/_RegExMapStore")
-export class _RegExMapStore extends Model({
-  isLoading: prop<boolean>(false).withSetter(),
-}) {
-  /* ------------------------------ ASYNC ACTIONS ----------------------------- */
-  @modelFlow
-  createRegExMap = asyncAction(async (args: Types.CreateRegExMapInput) => {
-    this.setIsLoading(true);
-    const res = await trpc.createRegExMap.mutate({ args });
-    this.setIsLoading(false);
-    if (res.error) throw new Error(res.error);
-    return res.data;
-  });
-
-  @modelFlow
-  deleteRegExMap = asyncAction(async (args: Types.DeleteRegExMapInput) => {
-    this.setIsLoading(true);
-    const res = await trpc.deleteRegExMap.mutate({ args });
-    this.setIsLoading(false);
-    if (res.error) throw new Error(res.error);
-    return res.data;
-  });
-
-  @modelFlow
-  updateRegExMap = asyncAction(async (args: Types.UpdateRegExMapInput) => {
-    this.setIsLoading(true);
-    const res = await trpc.updateRegExMap.mutate({ args });
-    this.setIsLoading(false);
-    if (res.error) throw new Error(res.error);
-    return res.data;
-  });
-}
-
 /* --------------------------------------------------------------------------- */
 /*                               Tag
 /* --------------------------------------------------------------------------- */
+
 @model("medior/_Tag")
 export class _Tag extends Model({
-  dateCreated: prop<string>(() => dayjs().toISOString()),
   id: prop<string>(),
+  dateCreated: prop<string>(() => dayjs().toISOString()),
   aliases: prop<string[]>(() => []),
   ancestorIds: prop<string[]>(() => []),
   childIds: prop<string[]>(() => []),
@@ -1019,8 +986,12 @@ export class _Tag extends Model({
   descendantIds: prop<string[]>(() => []),
   label: prop<string>(),
   parentIds: prop<string[]>(() => []),
-  regExMap: prop<models.RegExMapSchema>(null),
-  thumb: prop<{ frameHeight?: number; frameWidth?: number; path: string }>(),
+  regExMap: prop<{
+    regEx: string;
+    testString?: string;
+    types: Array<"diffusionParams" | "fileName" | "folderName">;
+  }>(null),
+  thumb: prop<{ frameHeight?: number; frameWidth?: number; path: string }>(null),
 }) {
   @modelAction
   update(updates: Partial<ModelCreationData<this>>) {
@@ -1028,10 +999,8 @@ export class _Tag extends Model({
   }
 }
 
-@model("aio/_TagStore")
-export class _TagStore extends Model({
-  isLoading: prop<boolean>(false).withSetter(),
-}) {
+@model("medior/_TagStore")
+export class _TagStore extends Model({ isLoading: prop<boolean>(false).withSetter() }) {
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */
   @modelFlow
   createTag = asyncAction(async (args: Types._CreateTagInput) => {

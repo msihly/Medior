@@ -14,7 +14,7 @@ export const CollectionTooltip = ({ children, collection }: CollectionTooltipPro
 
   const handleOpen = async () => {
     try {
-      const res = await trpc.listFiles.mutate({
+      const res = await trpc.listFile.mutate({
         args: { filter: { id: collection.fileIdIndexes.map(({ fileId }) => fileId) } },
       });
       if (!res?.success) throw new Error(res.error);

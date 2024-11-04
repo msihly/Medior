@@ -21,8 +21,8 @@ export const TagList = observer(
     useEffect(() => {
       if (!socket?.isConnected || !search?.onChange) return;
 
-      const onTagDeleted = (args: { id: string }) => {
-        search.onChange(search.value.filter((tag) => tag.id !== args.id));
+      const onTagDeleted = (args: { ids: string[] }) => {
+        search.onChange(search.value.filter((tag) => !args.ids.includes(tag.id)));
         rerender();
       };
 

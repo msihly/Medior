@@ -1,55 +1,49 @@
-/* -------------------------------------------------------------------------- */
-/*                    THIS IS A GENERATED FILE. DO NOT EDIT.                  */
-/* -------------------------------------------------------------------------- */
-
+/* --------------------------------------------------------------------------- */
+/*                               THIS IS A GENERATED FILE. DO NOT EDIT.
+/* --------------------------------------------------------------------------- */
 import * as Types from "medior/database/types";
-import {
-  DeletedFileSchema,
-  FileCollectionSchema,
-  FileImportBatchSchema,
-  FileSchema,
-  RegExMapSchema,
-  TagSchema,
-} from "medior/_generated/models";
+import * as models from "medior/_generated/models";
+/* --------------------------------------------------------------------------- */
+/*                               Socket Definitions
+/* --------------------------------------------------------------------------- */
 
-/* ------------------------------------ Socket Definitions ----------------------------------- */
 export type SocketEventOptions = { contentId: string; tabId: number };
 
 export interface SocketEmitEvents {
-  onDeletedFileCreated: (args: DeletedFileSchema, options?: SocketEventOptions) => void;
-  onDeletedFileDeleted: (args: { id: string }, options?: SocketEventOptions) => void;
+  onDeletedFileCreated: (args: models.DeletedFileSchema, options?: SocketEventOptions) => void;
+  onDeletedFileDeleted: (args: { ids: string[] }, options?: SocketEventOptions) => void;
   onDeletedFileUpdated: (
-    args: { id: string; updates: Partial<DeletedFileSchema> },
+    args: { id: string; updates: Partial<models.DeletedFileSchema> },
     options?: SocketEventOptions,
   ) => void;
-  onFileCollectionCreated: (args: FileCollectionSchema, options?: SocketEventOptions) => void;
-  onFileCollectionDeleted: (args: { id: string }, options?: SocketEventOptions) => void;
+  onFileCollectionCreated: (
+    args: models.FileCollectionSchema,
+    options?: SocketEventOptions,
+  ) => void;
+  onFileCollectionDeleted: (args: { ids: string[] }, options?: SocketEventOptions) => void;
   onFileCollectionUpdated: (
-    args: { id: string; updates: Partial<FileCollectionSchema> },
+    args: { id: string; updates: Partial<models.FileCollectionSchema> },
     options?: SocketEventOptions,
   ) => void;
-  onFileImportBatchCreated: (args: FileImportBatchSchema, options?: SocketEventOptions) => void;
-  onFileImportBatchDeleted: (args: { id: string }, options?: SocketEventOptions) => void;
+  onFileImportBatchCreated: (
+    args: models.FileImportBatchSchema,
+    options?: SocketEventOptions,
+  ) => void;
+  onFileImportBatchDeleted: (args: { ids: string[] }, options?: SocketEventOptions) => void;
   onFileImportBatchUpdated: (
-    args: { id: string; updates: Partial<FileImportBatchSchema> },
+    args: { id: string; updates: Partial<models.FileImportBatchSchema> },
     options?: SocketEventOptions,
   ) => void;
-  onFileCreated: (args: FileSchema, options?: SocketEventOptions) => void;
-  onFileDeleted: (args: { id: string }, options?: SocketEventOptions) => void;
+  onFileCreated: (args: models.FileSchema, options?: SocketEventOptions) => void;
+  onFileDeleted: (args: { ids: string[] }, options?: SocketEventOptions) => void;
   onFileUpdated: (
-    args: { id: string; updates: Partial<FileSchema> },
+    args: { id: string; updates: Partial<models.FileSchema> },
     options?: SocketEventOptions,
   ) => void;
-  onRegExMapCreated: (args: RegExMapSchema, options?: SocketEventOptions) => void;
-  onRegExMapDeleted: (args: { id: string }, options?: SocketEventOptions) => void;
-  onRegExMapUpdated: (
-    args: { id: string; updates: Partial<RegExMapSchema> },
-    options?: SocketEventOptions,
-  ) => void;
-  onTagCreated: (args: TagSchema, options?: SocketEventOptions) => void;
-  onTagDeleted: (args: { id: string }, options?: SocketEventOptions) => void;
+  onTagCreated: (args: models.TagSchema, options?: SocketEventOptions) => void;
+  onTagDeleted: (args: { ids: string[] }, options?: SocketEventOptions) => void;
   onTagUpdated: (
-    args: { id: string; updates: Partial<TagSchema> },
+    args: { id: string; updates: Partial<models.TagSchema> },
     options?: SocketEventOptions,
   ) => void;
   onFileCollectionsDeleted: (args: { ids: string[] }, options?: SocketEventOptions) => void;
@@ -59,7 +53,7 @@ export interface SocketEmitEvents {
     options?: SocketEventOptions,
   ) => void;
   onFilesUpdated: (
-    args: { fileIds: string[]; updates: Partial<FileSchema> },
+    args: { fileIds: string[]; updates: Partial<models.FileSchema> },
     options?: SocketEventOptions,
   ) => void;
   onFileTagsUpdated: (
@@ -78,7 +72,10 @@ export interface SocketEmitEvents {
   onReloadTags: (options?: SocketEventOptions) => void;
   onTagMerged: (args: { oldTagId: string; newTagId: string }, options?: SocketEventOptions) => void;
   onTagsUpdated: (
-    args: { tags: Array<{ tagId: string; updates: Partial<TagSchema> }>; withFileReload: boolean },
+    args: {
+      tags: Array<{ tagId: string; updates: Partial<models.TagSchema> }>;
+      withFileReload: boolean;
+    },
     options?: SocketEventOptions,
   ) => void;
 }
@@ -102,9 +99,6 @@ export const socketEvents: SocketEmitEvent[] = [
   "onFileCreated",
   "onFileDeleted",
   "onFileUpdated",
-  "onRegExMapCreated",
-  "onRegExMapDeleted",
-  "onRegExMapUpdated",
   "onTagCreated",
   "onTagDeleted",
   "onTagUpdated",

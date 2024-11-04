@@ -140,7 +140,7 @@ export class TagStore extends Model({
 
   @modelFlow
   loadTags = asyncAction(async () => {
-    const res = await trpc.listTags.mutate({ args: { filter: {} } });
+    const res = await trpc.listTag.mutate({ args: { filter: {} } });
     if (!res.success) throw new Error(res.error);
     this.overwrite(res.data.items);
   });
@@ -253,13 +253,13 @@ export class TagStore extends Model({
     return this.tags.filter((t) => t.parentIds.includes(id));
   }
 
-  listRegExMapsByType(type: db.RegExMapSchema["types"][number]) {
+  listRegExMapsByType(type: db.TagSchema["regExMap"]["types"][number]) {
     return this.tags.reduce(
       (acc, cur) => {
         if (cur.regExMap?.types.includes(type)) acc.push({ ...cur.regExMap, tagId: cur.id });
         return acc;
       },
-      [] as Array<db.RegExMapSchema & { tagId: string }>
+      [] as Array<db.TagSchema["regExMap"] & { tagId: string }>
     );
   }
 

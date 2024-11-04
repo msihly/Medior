@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { RegExMapSchema } from "medior/database";
+import { TagSchema } from "medior/database";
 import { TagOption, observer, useStores } from "medior/store";
 import {
   Button,
@@ -30,7 +30,7 @@ export const TagMerger = observer(() => {
   const [isSaving, setIsSaving] = useState(false);
   const [label, setLabel] = useState<string>("");
   const [parentTags, setParentTags] = useState<TagOption[]>([]);
-  const [regExMap, setRegExMap] = useState<RegExMapSchema>({
+  const [regExMap, setRegExMap] = useState<TagSchema["regExMap"]>({
     regEx: "",
     testString: "",
     types: [],

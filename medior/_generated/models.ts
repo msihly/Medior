@@ -1,33 +1,39 @@
-/* -------------------------------------------------------------------------- */
-/*                    THIS IS A GENERATED FILE. DO NOT EDIT.                  */
-/* -------------------------------------------------------------------------- */
-
+/* --------------------------------------------------------------------------- */
+/*                               THIS IS A GENERATED FILE. DO NOT EDIT.
+/* --------------------------------------------------------------------------- */
 import { model, Schema } from "mongoose";
 
-/* ------------------------------------ DeletedFile ----------------------------------- */
+/* --------------------------------------------------------------------------- */
+/*                               DeletedFile
+/* --------------------------------------------------------------------------- */
+
 export interface DeletedFileSchema {
-  dateCreated: string;
   id: string;
+  dateCreated: string;
   hash: string;
 }
 
 const DeletedFileSchema = new Schema<DeletedFileSchema>({
-  dateCreated: String,
   id: String,
+  dateCreated: String,
   hash: String,
 });
 
+DeletedFileSchema.index({ dateCreated: 1, _id: 1 }, { unique: true });
 DeletedFileSchema.index({ hash: 1 }, { unique: true });
 
 export const DeletedFileModel = model<DeletedFileSchema>("DeletedFile", DeletedFileSchema);
 
-/* ------------------------------------ FileCollection ----------------------------------- */
+/* --------------------------------------------------------------------------- */
+/*                               FileCollection
+/* --------------------------------------------------------------------------- */
+
 export interface FileCollectionSchema {
-  dateCreated: string;
   id: string;
+  dateCreated: string;
   dateModified: string;
   fileCount: number;
-  fileIdIndexes: { fileId: string; index: number }[];
+  fileIdIndexes: Array<{ fileId: string; index: number }>;
   rating: number;
   tagIds: string[];
   tagIdsWithAncestors: string[];
@@ -36,8 +42,8 @@ export interface FileCollectionSchema {
 }
 
 const FileCollectionSchema = new Schema<FileCollectionSchema>({
-  dateCreated: String,
   id: String,
+  dateCreated: String,
   dateModified: String,
   fileCount: Number,
   fileIdIndexes: [{ fileId: Schema.Types.ObjectId, index: Number }],
@@ -61,7 +67,10 @@ export const FileCollectionModel = model<FileCollectionSchema>(
   FileCollectionSchema,
 );
 
-/* ------------------------------------ FileImportBatch ----------------------------------- */
+/* --------------------------------------------------------------------------- */
+/*                               FileImportBatch
+/* --------------------------------------------------------------------------- */
+
 export interface FileImport {
   dateCreated: string;
   diffusionParams: string;
@@ -77,14 +86,14 @@ export interface FileImport {
 }
 
 export interface FileImportBatchSchema {
-  dateCreated: string;
   id: string;
+  dateCreated: string;
   collectionId?: string;
   collectionTitle?: string;
   completedAt: string;
   deleteOnImport: boolean;
   ignorePrevDeleted: boolean;
-  imports: FileImport[];
+  imports?: FileImport[];
   remux?: boolean;
   rootFolderPath: string;
   startedAt?: string;
@@ -92,8 +101,8 @@ export interface FileImportBatchSchema {
 }
 
 const FileImportBatchSchema = new Schema<FileImportBatchSchema>({
-  dateCreated: String,
   id: String,
+  dateCreated: String,
   collectionId: String,
   collectionTitle: String,
   completedAt: String,
@@ -117,7 +126,7 @@ const FileImportBatchSchema = new Schema<FileImportBatchSchema>({
   remux: Boolean,
   rootFolderPath: String,
   startedAt: String,
-  tagIds: [String],
+  tagIds: [{ type: Schema.Types.ObjectId, ref: "Tag" }],
 });
 
 FileImportBatchSchema.index({ dateCreated: 1, _id: 1 }, { unique: true });
@@ -127,7 +136,10 @@ export const FileImportBatchModel = model<FileImportBatchSchema>(
   FileImportBatchSchema,
 );
 
-/* ------------------------------------ File ----------------------------------- */
+/* --------------------------------------------------------------------------- */
+/*                               File
+/* --------------------------------------------------------------------------- */
+
 export interface FaceModel {
   box: { height: number; width: number; x: number; y: number };
   descriptors: string;
@@ -136,17 +148,17 @@ export interface FaceModel {
 }
 
 export interface FileSchema {
-  dateCreated: string;
   id: string;
+  dateCreated: string;
   dateModified: string;
   diffusionParams?: string;
   duration?: number;
   ext: string;
   faceModels?: FaceModel[];
-  frameRate: number;
+  frameRate?: number;
   hash: string;
   height: number;
-  isArchived: boolean;
+  isArchived?: boolean;
   isCorrupted?: boolean;
   originalHash?: string;
   originalName?: string;
@@ -162,8 +174,8 @@ export interface FileSchema {
 }
 
 const FileSchema = new Schema<FileSchema>({
-  dateCreated: String,
   id: String,
+  dateCreated: String,
   dateModified: String,
   diffusionParams: String,
   duration: Number,
@@ -172,8 +184,8 @@ const FileSchema = new Schema<FileSchema>({
     {
       box: { height: Number, width: Number, x: Number, y: Number },
       descriptors: [Object],
-      fileId: Schema.Types.ObjectId,
-      tagId: Schema.Types.ObjectId,
+      fileId: { type: Schema.Types.ObjectId, ref: "File" },
+      tagId: { type: Schema.Types.ObjectId, ref: "Tag" },
     },
   ],
   frameRate: Number,
@@ -197,40 +209,30 @@ const FileSchema = new Schema<FileSchema>({
 FileSchema.index({ dateCreated: 1, _id: 1 }, { unique: true });
 FileSchema.index({ dateModified: 1, _id: 1 }, { unique: true });
 FileSchema.index({ duration: 1, _id: 1 }, { unique: true });
+FileSchema.index({ ext: 1, _id: 1 }, { unique: true });
 FileSchema.index({ hash: 1 }, { unique: true });
 FileSchema.index({ height: 1, _id: 1 }, { unique: true });
 FileSchema.index({ isArchived: 1, ext: 1, tagIds: 1, _id: 1 }, { unique: true });
 FileSchema.index({ isArchived: 1, ext: 1, tagIdsWithAncestors: 1, _id: 1 }, { unique: true });
 FileSchema.index({ isCorrupted: 1, _id: 1 }, { unique: true });
-FileSchema.index({ rating: 1, _id: 1 }, { unique: true });
-FileSchema.index({ size: 1, _id: 1 }, { unique: true });
+FileSchema.index({ originalHash: 1 }, { unique: true });
+FileSchema.index({ originalPath: 1, _id: 1 }, { unique: true });
+FileSchema.index({ path: 1, _id: 1 }, { unique: true });
+FileSchema.index({ rating: 1 }, { unique: true });
+FileSchema.index({ size: 1 }, { unique: true });
 FileSchema.index({ tagIds: 1, _id: 1 }, { unique: true });
 FileSchema.index({ tagIdsWithAncestors: 1, _id: 1 }, { unique: true });
 FileSchema.index({ width: 1, _id: 1 }, { unique: true });
 
 export const FileModel = model<FileSchema>("File", FileSchema);
 
-/* ------------------------------------ RegExMap ----------------------------------- */
-export interface RegExMapSchema {
-  id?: string;
-  regEx: string;
-  testString?: string;
-  types: Array<"diffusionParams" | "fileName" | "folderName">;
-}
+/* --------------------------------------------------------------------------- */
+/*                               Tag
+/* --------------------------------------------------------------------------- */
 
-const RegExMapSchema = new Schema<RegExMapSchema>({
-  id: String,
-  regEx: String,
-  testString: String,
-  types: [String],
-});
-
-export const RegExMapModel = model<RegExMapSchema>("RegExMap", RegExMapSchema);
-
-/* ------------------------------------ Tag ----------------------------------- */
 export interface TagSchema {
-  dateCreated: string;
   id: string;
+  dateCreated: string;
   aliases: string[];
   ancestorIds: string[];
   childIds: string[];
@@ -239,13 +241,17 @@ export interface TagSchema {
   descendantIds: string[];
   label: string;
   parentIds: string[];
-  regExMap: RegExMapSchema;
+  regExMap?: {
+    regEx: string;
+    testString?: string;
+    types: Array<"diffusionParams" | "fileName" | "folderName">;
+  };
   thumb: { frameHeight?: number; frameWidth?: number; path: string };
 }
 
 const TagSchema = new Schema<TagSchema>({
-  dateCreated: String,
   id: String,
+  dateCreated: String,
   aliases: [String],
   ancestorIds: [{ type: Schema.Types.ObjectId, ref: "Tag" }],
   childIds: [{ type: Schema.Types.ObjectId, ref: "Tag" }],
@@ -254,10 +260,11 @@ const TagSchema = new Schema<TagSchema>({
   descendantIds: [{ type: Schema.Types.ObjectId, ref: "Tag" }],
   label: String,
   parentIds: [{ type: Schema.Types.ObjectId, ref: "Tag" }],
-  regExMap: RegExMapSchema,
+  regExMap: { regEx: String, testString: String, types: [String] },
   thumb: { frameHeight: Number, frameWidth: Number, path: String },
 });
 
+TagSchema.index({ dateCreated: 1, _id: 1 }, { unique: true });
 TagSchema.index({ label: 1 }, { unique: true });
 
 export const TagModel = model<TagSchema>("Tag", TagSchema);

@@ -407,7 +407,7 @@ export const createTag = makeAction(
     childIds?: string[];
     label: string;
     parentIds?: string[];
-    regExMap?: models.RegExMapSchema;
+    regExMap?: models.TagSchema["regExMap"];
     withRegen?: boolean;
     withSub?: boolean;
   }) => {
@@ -468,7 +468,7 @@ export const deleteTag = makeAction(async ({ id }: { id: string }) => {
   const countRes = await recalculateTagCounts({ tagIds: parentIds, withSub: true });
   if (!countRes.success) throw new Error(countRes.error);
 
-  socket.emit("onTagDeleted", { id });
+  socket.emit("onTagDeleted", { ids: [id] });
 });
 
 export const editTag = makeAction(

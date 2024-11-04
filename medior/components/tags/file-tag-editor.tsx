@@ -29,7 +29,7 @@ export const FileTagEditor = observer(({ batchId, fileIds }: FileTagEditorProps)
 
   useDeepEffect(() => {
     const loadCurrentTags = async () => {
-      const res = await trpc.listFiles.mutate({ args: { filter: { id: fileIds } } });
+      const res = await trpc.listFile.mutate({ args: { filter: { id: fileIds } } });
       if (!res?.success) throw new Error(res.error);
 
       const tagIds = [...new Set(res.data.items.flatMap((f) => f.tagIds))];

@@ -1,7 +1,6 @@
 // import * as fss from "fs";
 import { promises as fs, constants as fsc } from "fs";
 import path from "path";
-import prettier from "prettier";
 import { FileSchema, ImportFileInput } from "medior/database";
 import {
   CONSTANTS,
@@ -121,9 +120,6 @@ export const dirToFolderPaths = async (dirPath: string): Promise<string[]> => {
 export const extendFileName = (fileName: string, ext: string) =>
   `${path.relative(".", fileName).replace(/\.\w+$/, "")}.${ext}`;
 
-export const formatFile = (str: string): Promise<string> =>
-  prettier.format(str, { parser: "typescript", printWidth: 100, tabWidth: 2, useTabs: false });
-
 export const genFileInfo = async (args: {
   file?: FileSchema;
   filePath: string;
@@ -187,47 +183,6 @@ export const genFileInfo = async (args: {
 
   if (DEBUG) perfLogTotal(`Generated file info: ${JSON.stringify(fileInfo)}.`);
   return fileInfo as ImportFileInput;
-};
-
-export const parseExports = async (filePath: string): Promise<string[]> => {
-  const fileContent = await fs.readFile(filePath, { encoding: "utf-8" });
-  const fnRegEx = /export\s+(class|const|function|let)\s+\w+/;
-  const ignoreComment = "// @generator-ignore-export";
-
-  const lines = fileContent.split("\n");
-  const exportedFunctions: string[] = [];
-
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i].trim();
-    const match = line.match(fnRegEx);
-    if (match) {
-      const prevLine = lines[i - 1]?.trim();
-      if (prevLine !== ignoreComment) {
-        exportedFunctions.push(match[0].replace(/export\s+(class|const|function|let)\s+/, ""));
-      }
-    }
-  }
-
-  if (exportedFunctions.length === 0)
-    throw new Error(`No exported functions found in '${filePath}'`);
-  return exportedFunctions;
-};
-
-export const parseExportsFromIndex: (indexFilePath: string) => Promise<string[]> = async (
-  indexFilePath
-) => {
-  const indexContent = await fs.readFile(indexFilePath, { encoding: "utf-8" });
-
-  const exportRegEx = /export\s+\*\s+from\s+"\.\/([\w-]+)";/g;
-  const fileNames = [...indexContent.matchAll(exportRegEx)].map((match) => match[1]);
-
-  const exportsMap = await Promise.all(
-    fileNames.map((fileName) =>
-      parseExports(path.join(path.dirname(indexFilePath), `${fileName}.ts`))
-    )
-  );
-
-  return exportsMap.flat();
 };
 
 export const removeEmptyFolders = async (

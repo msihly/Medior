@@ -15,7 +15,7 @@ export const SelectedFilesInfo = observer(() => {
 
   const handleOpen = async () => {
     try {
-      const res = await trpc.listFiles.mutate({
+      const res = await trpc.listFile.mutate({
         args: { filter: { id: stores.file.search.selectedIds } },
       });
       if (!res?.success) throw new Error(res.error);

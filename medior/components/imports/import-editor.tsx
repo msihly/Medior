@@ -1,6 +1,6 @@
 import path from "path";
 import { useEffect, useRef, useState } from "react";
-import { RegExMapSchema } from "medior/database";
+import { TagSchema } from "medior/database";
 import { ModelCreationData } from "mobx-keystone";
 import { FileImport, RootStore, Tag, observer, useStores } from "medior/store";
 import { Divider } from "@mui/material";
@@ -33,7 +33,7 @@ type RegExMap = { regEx: RegExp; tagId: string };
 
 const DEBUG = false;
 
-const getRegExMaps = (stores: RootStore, type: RegExMapSchema["types"][number]) =>
+const getRegExMaps = (stores: RootStore, type: TagSchema["regExMap"]["types"][number]) =>
   stores.tag.listRegExMapsByType(type).map((map) => ({
     regEx: new RegExp(map.regEx, "im"),
     tagId: map.tagId,

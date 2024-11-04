@@ -1,8 +1,7 @@
 import { KeyboardEvent, MutableRefObject } from "react";
 import { useStores } from "medior/store";
 import FilePlayer from "react-player/file";
-import { Toaster } from "medior/components";
-import { frameToSec, round, throttle } from "medior/utils";
+import { frameToSec, round, throttle, Toaster } from "medior/utils";
 import { toast } from "react-toastify";
 
 const RATING_KEYS = ["1", "2", "3", "4", "5", "6", "7", "8", "9"];
