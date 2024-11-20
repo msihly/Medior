@@ -45,7 +45,7 @@ export const Carousel = observer(
 
     useEffect(() => {
       if (stores.carousel.selectedFileIds.length)
-        document.title = `Medior — Carousel — (${stores.carousel.activeFileIndex} / ${stores.carousel.selectedFileIds.length})`;
+        document.title = `Medior — Carousel — (${stores.carousel.activeFileIndex + 1} / ${stores.carousel.selectedFileIds.length})`;
       stores.carousel.setSeekOffset(0);
       stores.carousel.transcodeVideo();
     }, [activeFile?.path]);

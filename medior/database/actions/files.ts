@@ -6,7 +6,6 @@ import { AnyBulkWriteOperation } from "mongodb";
 import mongoose from "mongoose";
 import * as actions from "medior/database/actions";
 import * as models from "medior/_generated/models";
-import { createFileFilterPipeline, CreateFileFilterPipelineInput } from "medior/database/actions";
 import { leanModelToJson, makeAction, objectId, objectIds } from "medior/database/utils";
 import { SortValue } from "medior/store";
 import {
@@ -17,7 +16,6 @@ import {
   deleteFile,
   genFileInfo,
   logToFile,
-  // getConfig,
   makePerfLog,
   PromiseQueue,
   sharp,
@@ -150,7 +148,7 @@ export const detectFaces = makeAction(async ({ imagePath }: { imagePath: string 
     throw new Error(`Failed to convert image to buffer: ${err.message}`);
   }
 
-  const tensor = tf.node.decodeImage(buffer);
+  const tensor = tf.node.decodeImage(buffer as Uint8Array);
 
   try {
     const options = new faceapi.SsdMobilenetv1Options({ minConfidence: FACE_MIN_CONFIDENCE });
@@ -327,16 +325,16 @@ export const listFileIdsForCarousel = makeAction(
     page,
     pageSize,
     ...filterParams
-  }: CreateFileFilterPipelineInput & {
+  }: actions.CreateFileFilterPipelineInput & {
     page: number;
     pageSize: number;
   }) => {
-    const filterPipeline = createFileFilterPipeline(filterParams);
+    const filterPipeline = actions.createFileFilterPipeline(filterParams);
 
     const files = await models.FileModel.find(filterPipeline.$match)
       .sort(filterPipeline.$sort)
-      .skip(Math.max(0, Math.max(0, page - 1) * pageSize - 500))
-      .limit(1001)
+      .skip(Math.max(0, Math.max(0, page - 1) * pageSize - 250))
+      .limit(501)
       .allowDiskUse(true)
       .select({ _id: 1 });
 

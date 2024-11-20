@@ -4,13 +4,14 @@ import {
   Card,
   DateDetail,
   Detail,
+  Icon,
   TagRow,
   Text,
   Tooltip as TooltipBase,
   UniformList,
   View,
 } from "medior/components";
-import { formatBytes } from "medior/utils";
+import { colors, formatBytes } from "medior/utils";
 
 interface TooltipProps {
   children: JSX.Element;
@@ -26,6 +27,16 @@ export const Tooltip = observer(({ children, disabled, file }: TooltipProps) => 
       minWidth="15rem"
       title={
         <View column padding={{ all: "0.3rem" }} spacing="0.5rem">
+          {file.isCorrupted && (
+            <View row justify="center" spacing="0.5rem">
+              <Icon name="WarningRounded" color={colors.custom.orange} />
+
+              <Text preset="title" color={colors.custom.orange}>
+                {"Corrupted"}
+              </Text>
+            </View>
+          )}
+
           <UniformList row spacing="1rem">
             <UniformList column>
               <Detail label="Size" value={formatBytes(file.size)} />

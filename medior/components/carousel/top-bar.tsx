@@ -2,14 +2,7 @@ import { getCurrentWindow, screen } from "@electron/remote";
 import { useContext, useEffect, useRef, useState } from "react";
 import { observer, useStores } from "medior/store";
 import { ZoomContext } from "medior/views";
-import {
-  getRatingMeta,
-  Icon,
-  IconButton,
-  TagRow,
-  Text,
-  View,
-} from "medior/components";
+import { getRatingMeta, Icon, IconButton, TagRow, Text, View } from "medior/components";
 import { colors, makeClasses, round, zoomScaleStepIn, zoomScaleStepOut } from "medior/utils";
 
 export const CarouselTopBar = observer(() => {
@@ -102,6 +95,10 @@ export const CarouselTopBar = observer(() => {
         <IconButton name="Label" onClick={handleEditTags} tooltip="Edit Tags" />
 
         <View row align="center" spacing="0.3rem">
+          {file?.isCorrupted && (
+            <Icon name="WarningRounded" size="1em" color={colors.custom.orange} />
+          )}
+
           <Icon name={ratingMeta?.icon} color={ratingMeta?.iconColor} size="inherit" />
 
           <Text fontSize="1.2em" className={css.rating}>

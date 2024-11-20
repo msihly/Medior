@@ -6,11 +6,13 @@ import {
   Card,
   DateDetail,
   Detail,
+  Icon,
   IdButton,
   Modal,
   TagRow,
   Text,
   UniformList,
+  View,
 } from "medior/components";
 import { colors, duration, formatBytes, getIsRemuxable, makeClasses } from "medior/utils";
 
@@ -36,7 +38,20 @@ export const InfoModal = observer(() => {
 
   return (
     <Modal.Container width="100%" maxWidth="50rem" onClose={handleClose}>
-      <Modal.Header leftNode={<IdButton value={stores.file.activeFileId} />}>
+      <Modal.Header
+        leftNode={<IdButton value={stores.file.activeFileId} />}
+        rightNode={
+          file.isCorrupted && (
+            <View row justify="center" spacing="0.5rem">
+              <Icon name="WarningRounded" color={colors.custom.orange} />
+
+              <Text preset="title" color={colors.custom.orange}>
+                {"Corrupted"}
+              </Text>
+            </View>
+          )
+        }
+      >
         <Text preset="title">{"File Info"}</Text>
       </Modal.Header>
 

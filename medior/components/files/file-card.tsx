@@ -87,14 +87,17 @@ export const FileCard = observer(({ disabled, file, height, id, width }: FileCar
             <FileBase.Chip
               position="top-right"
               label={
-                <View row>
+                <View row spacing="0.3em">
                   {!file.isAnimated && (
                     <Icon
                       name="Face"
                       size="1.2em"
                       color={file.hasFaceModels ? colors.custom.blue : colors.custom.grey}
-                      margins={{ right: "0.3em" }}
                     />
+                  )}
+
+                  {file.isCorrupted && (
+                    <Icon name="WarningRounded" size="1em" color={colors.custom.orange} />
                   )}
 
                   {file.diffusionParams?.length > 0 && (
