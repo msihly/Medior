@@ -19,25 +19,26 @@ export const getActions = async () => {
   };
 };
 
-export const makeActionsDef = async (modelDef: ModelDef) => {
-  const actions = await getActions();
+const makeFnAndTypeNames = (rawName: string, actions: { custom: string[]; model: string[] }) => {
+  const prefix = [...actions.custom].includes(rawName) ? "_" : "";
+  return { fnName: `${prefix}${rawName}`, typeName: `${prefix}${capitalize(rawName)}Input` };
+};
 
+export const makeActionsDef = async (
+  modelDef: ModelDef,
+  actions: { custom: string[]; model: string[] }
+) => {
   const defaultProps = modelDef.properties
     .filter((prop) => prop.defaultValue)
     .map((prop) => `${prop.name}: ${prop.defaultValue}`);
 
   const schemaName = `${modelDef.name}Schema`;
 
-  const makeFnAndTypeNames = (rawName: string) => {
-    const prefix = `${actions.model.includes(rawName) ? "" : "_"}`;
-    return { fnName: `${prefix}${rawName}`, typeName: `${prefix}${capitalize(rawName)}Input` };
-  };
-
   const makeFnPrefix = (fnName: string, typeName: string, withDefault = false) =>
     `export const ${fnName} = makeAction(async ({ args, socketOpts }: { args${withDefault ? "?" : ""}: Types.${typeName}; socketOpts?: SocketEventOptions }${withDefault ? " = {}" : ""}) => {`;
 
   const makeCreateFn = () => {
-    const { fnName, typeName } = makeFnAndTypeNames(`create${modelDef.name}`);
+    const { fnName, typeName } = makeFnAndTypeNames(`create${modelDef.name}`, actions);
     return `${makeFnPrefix(fnName, typeName)}
         const model = { ...args${defaultProps.length ? `, ${defaultProps.join(", ")}` : ""} };
 
@@ -50,7 +51,7 @@ export const makeActionsDef = async (modelDef: ModelDef) => {
   };
 
   const makeDeleteFn = () => {
-    const { fnName, typeName } = makeFnAndTypeNames(`delete${modelDef.name}`);
+    const { fnName, typeName } = makeFnAndTypeNames(`delete${modelDef.name}`, actions);
     return `${makeFnPrefix(fnName, typeName)}
         await models.${modelDef.name}Model.deleteMany({ _id: { $in: args.ids } });
         socket.emit("on${modelDef.name}Deleted", args, socketOpts);
@@ -58,7 +59,7 @@ export const makeActionsDef = async (modelDef: ModelDef) => {
   };
 
   const makeListFn = () => {
-    const { fnName, typeName } = makeFnAndTypeNames(`list${modelDef.name}`);
+    const { fnName, typeName } = makeFnAndTypeNames(`list${modelDef.name}`, actions);
     return `${makeFnPrefix(fnName, typeName, true)}
         const filter = { ...args.filter };
         if (args.filter?.id) {
@@ -91,7 +92,7 @@ export const makeActionsDef = async (modelDef: ModelDef) => {
   };
 
   const makeUpdateFn = () => {
-    const { fnName, typeName } = makeFnAndTypeNames(`update${modelDef.name}`);
+    const { fnName, typeName } = makeFnAndTypeNames(`update${modelDef.name}`, actions);
     return `${makeFnPrefix(fnName, typeName)}
         const res = leanModelToJson<models.${schemaName}>(
           await models.${modelDef.name}Model.findByIdAndUpdate(args.id, args.updates, { new: true }).lean()
@@ -108,11 +109,14 @@ export const makeActionsDef = async (modelDef: ModelDef) => {
     ${makeUpdateFn()}`;
 };
 
-export const makeSearchActionsDef = (def: ModelSearchStore) => {
+export const makeSearchActionsDef = async (
+  def: ModelSearchStore,
+  actions: { custom: string[]; model: string[] }
+) => {
   const modelName = `models.${def.name}Model`;
   const schemaName = `models.${def.name}Schema`;
-  const filterFnName = `create${def.name}FilterPipeline`;
-  const filterFnNameType = `${capitalize(filterFnName)}Input`;
+
+  const filterFn = makeFnAndTypeNames(`create${def.name}FilterPipeline`, actions);
 
   const props = def.props.sort((a, b) => a.name.localeCompare(b.name));
   const defaultProps = props.filter(
@@ -133,11 +137,10 @@ export const makeSearchActionsDef = (def: ModelSearchStore) => {
   const makeSetObj = (args: { objPath?: string[]; objValue?: string }) =>
     `setObj($match, [${args.objPath.map((p) => (p.charAt(0) === "~" ? p.substring(1) : `"${p}"`)).join(", ")}], ${args.objValue});`;
 
-  const makeFilterFnType = () =>
-    `export type ${filterFnNameType} = { ${interfaceProps.map((prop) => `${prop.name}?: ${prop.type};`).join("\n")} }`;
+  const makeFilterFn = () => {
+    return `export type ${filterFn.typeName} = { ${interfaceProps.map((prop) => `${prop.name}?: ${prop.type};`).join("\n")} }
 
-  const makeFilterFn = () =>
-    `export const ${filterFnName} = (args: ${filterFnNameType}) => {
+    export const ${filterFn.fnName} = (args: ${filterFn.typeName}) => {
       const $match: FilterQuery<${schemaName}> = {};
 
       ${defaultProps
@@ -153,20 +156,24 @@ export const makeSearchActionsDef = (def: ModelSearchStore) => {
         $sort: { [args.sortValue.key]: sortDir, _id: sortDir } as { [key: string]: 1 | -1 },
       };
     };`;
+  };
 
-  const makeGetShiftSelected = () =>
-    `export const getShiftSelected${def.name} = makeAction(
+  const makeGetShiftSelected = () => {
+    const { fnName, typeName } = makeFnAndTypeNames(`getShiftSelected${def.name}`, actions);
+    return `export type ${typeName} = ${filterFn.typeName} & {
+      clickedId: string;
+      clickedIndex: number;
+      selectedIds: string[];
+    }
+
+    export const ${fnName} = makeAction(
       async ({
         clickedId,
         clickedIndex,
         selectedIds,
         ...filterParams
-      }: ${filterFnNameType} & {
-        clickedId: string;
-        clickedIndex: number;
-        selectedIds: string[];
-      }) => {
-        const filterPipeline = ${filterFnName}(filterParams);
+      }: ${typeName}) => {
+        const filterPipeline = ${filterFn.fnName}(filterParams);
         return getShiftSelectedItems({
           clickedId,
           clickedIndex,
@@ -177,16 +184,15 @@ export const makeSearchActionsDef = (def: ModelSearchStore) => {
         });
       }
     );`;
+  };
 
-  const makeListFiltered = () =>
-    `export const listFiltered${def.name} = makeAction(
-      async ({
-        forcePages,
-        page,
-        pageSize,
-        ...filterParams
-      }: ${filterFnNameType} & { forcePages?: boolean; page: number; pageSize: number; }) => {
-        const filterPipeline = ${filterFnName}(filterParams);
+  const makeListFiltered = () => {
+    const { fnName, typeName } = makeFnAndTypeNames(`listFiltered${def.name}`, actions);
+    return `export type ${typeName} = ${filterFn.typeName} & { forcePages?: boolean; page: number; pageSize: number; }
+
+    export const ${fnName} = makeAction(
+      async ({ forcePages, page, pageSize, ...filterParams }: ${typeName}) => {
+        const filterPipeline = ${filterFn.fnName}(filterParams);
         const hasIds = forcePages || filterParams.ids?.length > 0;
 
         const [items, count] = await Promise.all([
@@ -195,7 +201,7 @@ export const makeSearchActionsDef = (def: ModelSearchStore) => {
                 { $match: { _id: { $in: objectIds(filterParams.ids) } } },
                 { $addFields: { __order: { $indexOfArray: [objectIds(filterParams.ids), "$_id"] } } },
                 { $sort: { __order: 1 } },
-                ...(hasIds ? [{ $skip: Math.max(0, page - 1) * pageSize }, { $limit: pageSize }] : [])
+                ...(forcePages ? [{ $skip: Math.max(0, page - 1) * pageSize }, { $limit: pageSize }] : [])
               ]).allowDiskUse(true).exec()
             : ${modelName}.find(filterPipeline.$match)
                 .sort(filterPipeline.$sort)
@@ -214,45 +220,54 @@ export const makeSearchActionsDef = (def: ModelSearchStore) => {
         };
       }
     );`;
+  };
 
-  return `${makeFilterFnType()}\n${makeFilterFn()}\n
-    ${makeGetShiftSelected()}
-    ${makeListFiltered()}`;
+  return `${makeFilterFn()}\n
+    ${makeGetShiftSelected()}\n
+    ${makeListFiltered()}\n`;
 };
 
 /* -------------------------------------------------------------------------- */
 /*                                  ENDPOINTS                                 */
 /* -------------------------------------------------------------------------- */
-export const makeEndpointDefFromCustomAction = (name: string) =>
-  `${name}: serverEndpoint(db.${name})`;
+export const makeCustomEndpoint = (name: string) => `${name}: serverEndpoint(db.${name})`;
 
-export const makeEndpointDefFromModelName = (
+export const makeModelEndpoint = (
   modelName: string,
-  uniqueModelActionNames: string[]
+  actions: { custom: string[]; model: string[] }
 ) => {
   return MODEL_ACTIONS.map((action) => {
-    const actionName = `${action}${capitalize(modelName)}`;
-    const prefix = uniqueModelActionNames.includes(actionName) ? "" : "_";
-    const prefixedName = `${prefix}${actionName}`;
-    return `${prefixedName}: serverEndpoint(db.${prefixedName})`;
+    const { fnName } = makeFnAndTypeNames(`${action}${capitalize(modelName)}`, actions);
+    return `${fnName}: serverEndpoint(db.${fnName})`;
   });
+};
+
+export const makeSearchEndpoint = (
+  name: string,
+  actions: { custom: string[]; model: string[] }
+) => {
+  const { fnName } = makeFnAndTypeNames(name, actions);
+  return `${fnName}: serverEndpoint(db.${fnName})`;
 };
 
 export const makeServerRouter = async () => {
   const actions = await getActions();
 
   const makeCustomEndpoints = () =>
-    actions.custom.map(makeEndpointDefFromCustomAction).sort().join(",");
+    actions.custom
+      .map((name) => makeCustomEndpoint(name))
+      .sort()
+      .join(",");
 
   const makeModelEndpoints = () =>
-    MODEL_DEFS.flatMap((d) => makeEndpointDefFromModelName(d.name, actions.model))
+    MODEL_DEFS.flatMap((d) => makeModelEndpoint(d.name, actions))
       .sort()
       .join(",");
 
   const makeSearchStoreEndpoints = () =>
     MODEL_SEARCH_STORE_DEFS.flatMap((d) =>
       [`getShiftSelected${d.name}`, `listFiltered${d.name}`].map((name) =>
-        makeEndpointDefFromCustomAction(name)
+        makeSearchEndpoint(name, actions)
       )
     )
       .sort()

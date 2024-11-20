@@ -14,6 +14,8 @@ import { capitalize, makeSectionComment } from "generator/utils";
 export const FILE_DEF_ACTIONS: FileDef = {
   name: "actions",
   makeFile: async () => {
+    const actions = await getActions();
+
     const makeImports = () =>
       `import { FilterQuery } from "mongoose";
       import { SocketEventOptions } from "medior/_generated/socket";
@@ -24,19 +26,23 @@ export const FILE_DEF_ACTIONS: FileDef = {
       import { dayjs, isDeepEqual, LogicalOp, logicOpsToMongo, setObj, socket } from "medior/utils";`;
 
     const makeModelActions = async () => {
-      const actions: string[] = [];
-      for (const def of MODEL_DEFS) actions.push(await makeActionsDef(def));
-      return actions.join("\n");
+      const defs: string[] = [];
+      for (const def of MODEL_DEFS) defs.push(await makeActionsDef(def, actions));
+      return defs.join("\n");
     };
 
-    const makeSearchActions = () =>
-      MODEL_SEARCH_STORE_DEFS.map((def) => makeSearchActionsDef(def)).join("\n");
+    const makeSearchActions = async () => {
+      const defs: string[] = [];
+      for (const def of MODEL_SEARCH_STORE_DEFS)
+        defs.push(await makeSearchActionsDef(def, actions));
+      return defs.join("\n");
+    };
 
     return `${makeImports()}\n
       ${makeSectionComment("SEARCH ACTIONS")}\n
-      ${makeSearchActions()}\n
+      ${await makeSearchActions()}\n
       ${makeSectionComment("MODEL ACTIONS")}\n
-      ${await makeModelActions()}`;
+      ${await makeModelActions()}\n`;
   },
 };
 

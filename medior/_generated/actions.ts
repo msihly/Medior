@@ -34,6 +34,7 @@ export type CreateFileCollectionFilterPipelineInput = {
   sortValue?: SortMenuProps["value"];
   title?: string;
 };
+
 export const createFileCollectionFilterPipeline = (
   args: CreateFileCollectionFilterPipelineInput,
 ) => {
@@ -74,17 +75,19 @@ export const createFileCollectionFilterPipeline = (
   };
 };
 
+export type GetShiftSelectedFileCollectionInput = CreateFileCollectionFilterPipelineInput & {
+  clickedId: string;
+  clickedIndex: number;
+  selectedIds: string[];
+};
+
 export const getShiftSelectedFileCollection = makeAction(
   async ({
     clickedId,
     clickedIndex,
     selectedIds,
     ...filterParams
-  }: CreateFileCollectionFilterPipelineInput & {
-    clickedId: string;
-    clickedIndex: number;
-    selectedIds: string[];
-  }) => {
+  }: GetShiftSelectedFileCollectionInput) => {
     const filterPipeline = createFileCollectionFilterPipeline(filterParams);
     return getShiftSelectedItems({
       clickedId,
@@ -96,17 +99,15 @@ export const getShiftSelectedFileCollection = makeAction(
     });
   },
 );
+
+export type ListFilteredFileCollectionInput = CreateFileCollectionFilterPipelineInput & {
+  forcePages?: boolean;
+  page: number;
+  pageSize: number;
+};
+
 export const listFilteredFileCollection = makeAction(
-  async ({
-    forcePages,
-    page,
-    pageSize,
-    ...filterParams
-  }: CreateFileCollectionFilterPipelineInput & {
-    forcePages?: boolean;
-    page: number;
-    pageSize: number;
-  }) => {
+  async ({ forcePages, page, pageSize, ...filterParams }: ListFilteredFileCollectionInput) => {
     const filterPipeline = createFileCollectionFilterPipeline(filterParams);
     const hasIds = forcePages || filterParams.ids?.length > 0;
 
@@ -116,7 +117,9 @@ export const listFilteredFileCollection = makeAction(
             { $match: { _id: { $in: objectIds(filterParams.ids) } } },
             { $addFields: { __order: { $indexOfArray: [objectIds(filterParams.ids), "$_id"] } } },
             { $sort: { __order: 1 } },
-            ...(hasIds ? [{ $skip: Math.max(0, page - 1) * pageSize }, { $limit: pageSize }] : []),
+            ...(forcePages
+              ? [{ $skip: Math.max(0, page - 1) * pageSize }, { $limit: pageSize }]
+              : []),
           ])
             .allowDiskUse(true)
             .exec()
@@ -137,6 +140,7 @@ export const listFilteredFileCollection = makeAction(
     };
   },
 );
+
 export type CreateFileFilterPipelineInput = {
   dateCreatedEnd?: string;
   dateCreatedStart?: string;
@@ -163,6 +167,7 @@ export type CreateFileFilterPipelineInput = {
   selectedVideoTypes?: Types.SelectedVideoTypes;
   sortValue?: SortMenuProps["value"];
 };
+
 export const createFileFilterPipeline = (args: CreateFileFilterPipelineInput) => {
   const $match: FilterQuery<models.FileSchema> = {};
 
@@ -227,17 +232,14 @@ export const createFileFilterPipeline = (args: CreateFileFilterPipelineInput) =>
   };
 };
 
+export type GetShiftSelectedFileInput = CreateFileFilterPipelineInput & {
+  clickedId: string;
+  clickedIndex: number;
+  selectedIds: string[];
+};
+
 export const getShiftSelectedFile = makeAction(
-  async ({
-    clickedId,
-    clickedIndex,
-    selectedIds,
-    ...filterParams
-  }: CreateFileFilterPipelineInput & {
-    clickedId: string;
-    clickedIndex: number;
-    selectedIds: string[];
-  }) => {
+  async ({ clickedId, clickedIndex, selectedIds, ...filterParams }: GetShiftSelectedFileInput) => {
     const filterPipeline = createFileFilterPipeline(filterParams);
     return getShiftSelectedItems({
       clickedId,
@@ -249,13 +251,15 @@ export const getShiftSelectedFile = makeAction(
     });
   },
 );
-export const listFilteredFile = makeAction(
-  async ({
-    forcePages,
-    page,
-    pageSize,
-    ...filterParams
-  }: CreateFileFilterPipelineInput & { forcePages?: boolean; page: number; pageSize: number }) => {
+
+export type _ListFilteredFileInput = CreateFileFilterPipelineInput & {
+  forcePages?: boolean;
+  page: number;
+  pageSize: number;
+};
+
+export const _listFilteredFile = makeAction(
+  async ({ forcePages, page, pageSize, ...filterParams }: _ListFilteredFileInput) => {
     const filterPipeline = createFileFilterPipeline(filterParams);
     const hasIds = forcePages || filterParams.ids?.length > 0;
 
@@ -265,7 +269,9 @@ export const listFilteredFile = makeAction(
             { $match: { _id: { $in: objectIds(filterParams.ids) } } },
             { $addFields: { __order: { $indexOfArray: [objectIds(filterParams.ids), "$_id"] } } },
             { $sort: { __order: 1 } },
-            ...(hasIds ? [{ $skip: Math.max(0, page - 1) * pageSize }, { $limit: pageSize }] : []),
+            ...(forcePages
+              ? [{ $skip: Math.max(0, page - 1) * pageSize }, { $limit: pageSize }]
+              : []),
           ])
             .allowDiskUse(true)
             .exec()
@@ -286,6 +292,7 @@ export const listFilteredFile = makeAction(
     };
   },
 );
+
 export type CreateTagFilterPipelineInput = {
   alias?: string;
   count?: { logOp: LogicalOp | ""; value: number };
@@ -304,6 +311,7 @@ export type CreateTagFilterPipelineInput = {
   sortValue?: SortMenuProps["value"];
   title?: string;
 };
+
 export const createTagFilterPipeline = (args: CreateTagFilterPipelineInput) => {
   const $match: FilterQuery<models.TagSchema> = {};
 
@@ -343,17 +351,14 @@ export const createTagFilterPipeline = (args: CreateTagFilterPipelineInput) => {
   };
 };
 
+export type GetShiftSelectedTagInput = CreateTagFilterPipelineInput & {
+  clickedId: string;
+  clickedIndex: number;
+  selectedIds: string[];
+};
+
 export const getShiftSelectedTag = makeAction(
-  async ({
-    clickedId,
-    clickedIndex,
-    selectedIds,
-    ...filterParams
-  }: CreateTagFilterPipelineInput & {
-    clickedId: string;
-    clickedIndex: number;
-    selectedIds: string[];
-  }) => {
+  async ({ clickedId, clickedIndex, selectedIds, ...filterParams }: GetShiftSelectedTagInput) => {
     const filterPipeline = createTagFilterPipeline(filterParams);
     return getShiftSelectedItems({
       clickedId,
@@ -365,13 +370,15 @@ export const getShiftSelectedTag = makeAction(
     });
   },
 );
+
+export type ListFilteredTagInput = CreateTagFilterPipelineInput & {
+  forcePages?: boolean;
+  page: number;
+  pageSize: number;
+};
+
 export const listFilteredTag = makeAction(
-  async ({
-    forcePages,
-    page,
-    pageSize,
-    ...filterParams
-  }: CreateTagFilterPipelineInput & { forcePages?: boolean; page: number; pageSize: number }) => {
+  async ({ forcePages, page, pageSize, ...filterParams }: ListFilteredTagInput) => {
     const filterPipeline = createTagFilterPipeline(filterParams);
     const hasIds = forcePages || filterParams.ids?.length > 0;
 
@@ -381,7 +388,9 @@ export const listFilteredTag = makeAction(
             { $match: { _id: { $in: objectIds(filterParams.ids) } } },
             { $addFields: { __order: { $indexOfArray: [objectIds(filterParams.ids), "$_id"] } } },
             { $sort: { __order: 1 } },
-            ...(hasIds ? [{ $skip: Math.max(0, page - 1) * pageSize }, { $limit: pageSize }] : []),
+            ...(forcePages
+              ? [{ $skip: Math.max(0, page - 1) * pageSize }, { $limit: pageSize }]
+              : []),
           ])
             .allowDiskUse(true)
             .exec()

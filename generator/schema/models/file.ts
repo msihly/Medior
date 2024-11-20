@@ -45,7 +45,7 @@ model.addProp("isArchived", "boolean");
 model.addIndex({ isCorrupted: 1, _id: 1 });
 model.addProp("isCorrupted", "boolean");
 
-model.addIndex({ originalHash: 1 });
+model.addIndex({ originalHash: 1, _id: 1 });
 model.addProp("originalHash", "string");
 
 model.addProp("originalName", "string");
@@ -56,10 +56,10 @@ model.addProp("originalPath", "string", { required: true });
 model.addIndex({ path: 1, _id: 1 });
 model.addProp("path", "string", { required: true });
 
-model.addIndex({ rating: 1 });
+model.addIndex({ rating: 1, _id: 1 });
 model.addProp("rating", "number", { required: true, sort: { icon: "Star", label: "Rating" } });
 
-model.addIndex({ size: 1 });
+model.addIndex({ size: 1, _id: 1 });
 model.addProp("size", "number", { required: true, sort: { icon: "FormatSize", label: "Size" } });
 
 model.addIndex({ tagIds: 1, _id: 1 });
