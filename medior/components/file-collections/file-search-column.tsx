@@ -30,6 +30,7 @@ export const FileSearchColumn = observer(() => {
         <Pagination
           count={stores.collection.editor.fileSearch.pageCount}
           page={stores.collection.editor.fileSearch.page}
+          isLoading={stores.collection.editor.search.isPageCountLoading}
           onChange={handlePageChange}
         />
       </CardGrid>

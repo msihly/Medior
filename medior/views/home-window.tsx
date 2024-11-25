@@ -1,48 +1,33 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { observer, useStores } from "medior/store";
 import { SettingsModal, View } from "medior/components";
 import { Views, useSockets } from "./common";
-import { makeClasses, makePerfLog } from "medior/utils";
+import { makeClasses } from "medior/utils";
 
 export const HomeWindow = observer(() => {
   const stores = useStores();
 
   const { css } = useClasses({ isDrawerOpen: stores.home.isDrawerOpen });
 
-  const [isLoading, setIsLoading] = useState(true);
-
   useSockets({ view: "home" });
 
   useEffect(() => {
-    document.title = "Medior —— Home";
-
-    const loadDatabase = async () => {
+    (async () => {
       try {
-        const { perfLog, perfLogTotal } = makePerfLog("[Home]");
-
+        document.title = "Medior —— Home";
         await stores.file.search.loadFiltered({ page: 1 });
-        perfLog("Filtered files loaded");
-        setIsLoading(false);
-
-        await stores.tag.loadTags();
-        perfLog("Tags loaded");
-
-        await stores.import.manager.loadImportBatches();
-        perfLog("Import batches loaded");
-
-        perfLogTotal("Data loaded into MobX");
+        stores.tag.loadTags();
+        stores.import.manager.loadImportBatches();
       } catch (err) {
         console.error(err);
       }
-    };
-
-    loadDatabase();
+    })();
   }, []);
 
   return (
     <Views.ImportDnD>
       <View column className={css.root}>
-        <Views.Search {...{ isLoading }} hasImports hasSettings />
+        <Views.Search hasImports hasSettings />
 
         <Views.CollectionModals />
 

@@ -5,32 +5,29 @@ import { CONSTANTS, makeClasses } from "medior/utils";
 interface SearchProps {
   hasImports?: boolean;
   hasSettings?: boolean;
-  isLoading: boolean;
 }
 
-export const Search = observer(
-  ({ hasImports = false, hasSettings = false, isLoading }: SearchProps) => {
-    const { css } = useClasses(null);
+export const Search = observer(({ hasImports = false, hasSettings = false }: SearchProps) => {
+  const { css } = useClasses(null);
 
-    const stores = useStores();
+  const stores = useStores();
 
-    return (
-      <>
-        <HomeMultiActionBar />
+  return (
+    <>
+      <HomeMultiActionBar />
 
-        <View row height="inherit" overflow="inherit">
-          <Drawer {...{ hasImports, hasSettings }} />
+      <View row height="inherit" overflow="inherit">
+        <Drawer {...{ hasImports, hasSettings }} />
 
-          <View column className={css.main}>
-            {isLoading ? null : <FileContainer />}
-          </View>
+        <View column className={css.main}>
+          <FileContainer />
         </View>
+      </View>
 
-        <LoadingOverlay isLoading={stores.file.search.isLoading} />
-      </>
-    );
-  }
-);
+      <LoadingOverlay isLoading={stores.file.search.isLoading} />
+    </>
+  );
+});
 
 const useClasses = makeClasses({
   main: {

@@ -139,6 +139,7 @@ export const TagManager = observer(() => {
             <Pagination
               count={stores.tag.manager.search.pageCount}
               page={stores.tag.manager.search.page}
+              isLoading={stores.tag.manager.search.isPageCountLoading}
               onChange={handlePageChange}
             />
           </CardGrid>

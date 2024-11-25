@@ -187,16 +187,28 @@ export const makeSearchActionsDef = async (
   };
 
   const makeListFiltered = () => {
-    const { fnName, typeName } = makeFnAndTypeNames(`listFiltered${def.name}`, actions);
-    return `export type ${typeName} = ${filterFn.typeName} & { forcePages?: boolean; page: number; pageSize: number; }
+    const countFn = makeFnAndTypeNames(`getFiltered${def.name}Count`, actions);
+    const listFn = makeFnAndTypeNames(`listFiltered${def.name}`, actions);
+    return `export type ${countFn.typeName} = ${filterFn.typeName} & { pageSize: number; }
 
-    export const ${fnName} = makeAction(
-      async ({ forcePages, page, pageSize, ...filterParams }: ${typeName}) => {
+    export const ${countFn.fnName} = makeAction(
+      async ({ pageSize, ...filterParams }: ${countFn.typeName}) => {
+        const filterPipeline = ${filterFn.fnName}(filterParams);
+        const count = await ${modelName}.countDocuments(filterPipeline.$match).allowDiskUse(true);
+        if (!(count > -1)) throw new Error("Failed to load filtered ${def.name}");
+        return { count, pageCount: Math.ceil(count / pageSize)  }
+      }
+    );
+
+    export type ${listFn.typeName} = ${filterFn.typeName} & { forcePages?: boolean; page: number; pageSize: number; select?: Record<string, 1 | -1> }
+
+    export const ${listFn.fnName} = makeAction(
+      async ({ forcePages, page, pageSize, select, ...filterParams }: ${listFn.typeName}) => {
         const filterPipeline = ${filterFn.fnName}(filterParams);
         const hasIds = forcePages || filterParams.ids?.length > 0;
 
-        const [items, count] = await Promise.all([
-          hasIds
+        const items =
+          await (hasIds
             ? ${modelName}.aggregate([
                 { $match: { _id: { $in: objectIds(filterParams.ids) } } },
                 { $addFields: { __order: { $indexOfArray: [objectIds(filterParams.ids), "$_id"] } } },
@@ -205,19 +217,14 @@ export const makeSearchActionsDef = async (
               ]).allowDiskUse(true).exec()
             : ${modelName}.find(filterPipeline.$match)
                 .sort(filterPipeline.$sort)
+                .select(select)
                 .skip(Math.max(0, page - 1) * pageSize)
                 .limit(pageSize)
                 .allowDiskUse(true)
-                .lean(),
-          ${modelName}.countDocuments(filterPipeline.$match),
-        ]);
-        if (!items || !(count > -1)) throw new Error("Failed to load filtered ${def.name}");
+                .lean());
 
-        return {
-          count,
-          items: items.map((i) => leanModelToJson<${schemaName}>(i)),
-          pageCount: Math.ceil(count / pageSize)
-        };
+        if (!items) throw new Error("Failed to load filtered ${def.name}");
+        return items.map((i) => leanModelToJson<${schemaName}>(i));
       }
     );`;
   };
@@ -266,8 +273,8 @@ export const makeServerRouter = async () => {
 
   const makeSearchStoreEndpoints = () =>
     MODEL_SEARCH_STORE_DEFS.flatMap((d) =>
-      [`getShiftSelected${d.name}`, `listFiltered${d.name}`].map((name) =>
-        makeSearchEndpoint(name, actions)
+      [`getShiftSelected${d.name}`, `getFiltered${d.name}Count`, `listFiltered${d.name}`].map(
+        (name) => makeSearchEndpoint(name, actions)
       )
     )
       .sort()

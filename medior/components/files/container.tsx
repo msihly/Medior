@@ -18,7 +18,7 @@ export const FileContainer = observer(() => {
     if (stores.file.search.page > stores.file.search.pageCount)
       handlePageChange(stores.file.search.pageCount);
     scrollToTop();
-  }, [stores.file.search.page, stores.file.search.pageCount]);
+  }, [stores.file.search.page]);
 
   useEffect(() => {
     socket.on("onFilesUpdated", ({ updates }) => {
@@ -43,6 +43,7 @@ export const FileContainer = observer(() => {
       <Pagination
         count={stores.file.search.pageCount}
         page={stores.file.search.page}
+        isLoading={stores.file.search.isPageCountLoading}
         onChange={handlePageChange}
       />
     </CardGrid>

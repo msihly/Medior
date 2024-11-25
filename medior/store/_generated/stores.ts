@@ -35,6 +35,7 @@ export class _FileCollectionSearch extends Model({
   hasChanges: prop<boolean>(false).withSetter(),
   ids: prop<string[]>(() => []).withSetter(),
   isLoading: prop<boolean>(false).withSetter(),
+  isPageCountLoading: prop<boolean>(false).withSetter(),
   page: prop<number>(1).withSetter(),
   pageCount: prop<number>(1).withSetter(),
   pageSize: prop<number>(() => getConfig().collection.manager.search.pageSize).withSetter(),
@@ -69,6 +70,7 @@ export class _FileCollectionSearch extends Model({
     this.hasChanges = false;
     this.ids = [];
     this.isLoading = false;
+    this.isPageCountLoading = false;
     this.page = 1;
     this.pageCount = 1;
     this.pageSize = getConfig().collection.manager.search.pageSize;
@@ -166,30 +168,38 @@ export class _FileCollectionSearch extends Model({
   @modelFlow
   loadFiltered = asyncAction(async ({ page }: { page?: number } = {}) => {
     const debug = false;
-    const { perfLog, perfLogTotal } = makePerfLog("[FileCollectionSearch]");
+    const { perfLog } = makePerfLog("[FileCollectionSearch]");
     this.setIsLoading(true);
+    this.setIsPageCountLoading(true);
 
-    const res = await trpc.listFilteredFileCollection.mutate({
+    const itemsRes = await trpc.listFilteredFileCollection.mutate({
       ...this.getFilterProps(),
       forcePages: this.forcePages,
       page: page ?? this.page,
       pageSize: this.pageSize,
     });
-    if (!res.success) throw new Error(res.error);
-
-    const { items, pageCount } = res.data;
+    if (!itemsRes.success) throw new Error(itemsRes.error);
+    const items = itemsRes.data;
     if (debug) perfLog(`Loaded ${items.length} items`);
 
     this.setResults(items.map((item) => new Stores.FileCollection(item)));
     if (debug) perfLog("Overwrite and re-render");
 
-    this.setPageCount(pageCount);
     if (page) this.setPage(page);
-    if (debug) perfLog(`Set page to ${page ?? this.page} and pageCount to ${pageCount}`);
-
-    if (debug) perfLogTotal(`Loaded ${items.length} items`);
+    if (debug && page) perfLog(`Set page to ${page ?? this.page}`);
     this.setIsLoading(false);
     this.setHasChanges(false);
+
+    const countRes = await trpc.getFilteredFileCollectionCount.mutate({
+      ...this.getFilterProps(),
+      pageSize: this.pageSize,
+    });
+    if (!countRes.success) throw new Error(countRes.error);
+    const pageCount = countRes.data.pageCount;
+    this.setPageCount(pageCount);
+    this.setIsPageCountLoading(false);
+    if (debug) perfLog(`Set pageCount to ${pageCount}`);
+
     return items;
   });
 
@@ -248,6 +258,7 @@ export class _FileSearch extends Model({
   isArchived: prop<boolean>(false).withSetter(),
   isCorrupted: prop<boolean>(null).withSetter(),
   isLoading: prop<boolean>(false).withSetter(),
+  isPageCountLoading: prop<boolean>(false).withSetter(),
   maxHeight: prop<number>(null).withSetter(),
   maxWidth: prop<number>(null).withSetter(),
   minHeight: prop<number>(null).withSetter(),
@@ -300,6 +311,7 @@ export class _FileSearch extends Model({
     this.isArchived = false;
     this.isCorrupted = null;
     this.isLoading = false;
+    this.isPageCountLoading = false;
     this.maxHeight = null;
     this.maxWidth = null;
     this.minHeight = null;
@@ -418,30 +430,38 @@ export class _FileSearch extends Model({
   @modelFlow
   loadFiltered = asyncAction(async ({ page }: { page?: number } = {}) => {
     const debug = false;
-    const { perfLog, perfLogTotal } = makePerfLog("[FileSearch]");
+    const { perfLog } = makePerfLog("[FileSearch]");
     this.setIsLoading(true);
+    this.setIsPageCountLoading(true);
 
-    const res = await trpc.listFilteredFile.mutate({
+    const itemsRes = await trpc.listFilteredFile.mutate({
       ...this.getFilterProps(),
       forcePages: this.forcePages,
       page: page ?? this.page,
       pageSize: this.pageSize,
     });
-    if (!res.success) throw new Error(res.error);
-
-    const { items, pageCount } = res.data;
+    if (!itemsRes.success) throw new Error(itemsRes.error);
+    const items = itemsRes.data;
     if (debug) perfLog(`Loaded ${items.length} items`);
 
     this.setResults(items.map((item) => new Stores.File(item)));
     if (debug) perfLog("Overwrite and re-render");
 
-    this.setPageCount(pageCount);
     if (page) this.setPage(page);
-    if (debug) perfLog(`Set page to ${page ?? this.page} and pageCount to ${pageCount}`);
-
-    if (debug) perfLogTotal(`Loaded ${items.length} items`);
+    if (debug && page) perfLog(`Set page to ${page ?? this.page}`);
     this.setIsLoading(false);
     this.setHasChanges(false);
+
+    const countRes = await trpc.getFilteredFileCount.mutate({
+      ...this.getFilterProps(),
+      pageSize: this.pageSize,
+    });
+    if (!countRes.success) throw new Error(countRes.error);
+    const pageCount = countRes.data.pageCount;
+    this.setPageCount(pageCount);
+    this.setIsPageCountLoading(false);
+    if (debug) perfLog(`Set pageCount to ${pageCount}`);
+
     return items;
   });
 
@@ -532,6 +552,7 @@ export class _TagSearch extends Model({
   hasChanges: prop<boolean>(false).withSetter(),
   ids: prop<string[]>(() => []).withSetter(),
   isLoading: prop<boolean>(false).withSetter(),
+  isPageCountLoading: prop<boolean>(false).withSetter(),
   label: prop<string>("").withSetter(),
   page: prop<number>(1).withSetter(),
   pageCount: prop<number>(1).withSetter(),
@@ -566,6 +587,7 @@ export class _TagSearch extends Model({
     this.hasChanges = false;
     this.ids = [];
     this.isLoading = false;
+    this.isPageCountLoading = false;
     this.label = "";
     this.page = 1;
     this.pageCount = 1;
@@ -654,30 +676,38 @@ export class _TagSearch extends Model({
   @modelFlow
   loadFiltered = asyncAction(async ({ page }: { page?: number } = {}) => {
     const debug = false;
-    const { perfLog, perfLogTotal } = makePerfLog("[TagSearch]");
+    const { perfLog } = makePerfLog("[TagSearch]");
     this.setIsLoading(true);
+    this.setIsPageCountLoading(true);
 
-    const res = await trpc.listFilteredTag.mutate({
+    const itemsRes = await trpc.listFilteredTag.mutate({
       ...this.getFilterProps(),
       forcePages: this.forcePages,
       page: page ?? this.page,
       pageSize: this.pageSize,
     });
-    if (!res.success) throw new Error(res.error);
-
-    const { items, pageCount } = res.data;
+    if (!itemsRes.success) throw new Error(itemsRes.error);
+    const items = itemsRes.data;
     if (debug) perfLog(`Loaded ${items.length} items`);
 
     this.setResults(items.map((item) => new Stores.Tag(item)));
     if (debug) perfLog("Overwrite and re-render");
 
-    this.setPageCount(pageCount);
     if (page) this.setPage(page);
-    if (debug) perfLog(`Set page to ${page ?? this.page} and pageCount to ${pageCount}`);
-
-    if (debug) perfLogTotal(`Loaded ${items.length} items`);
+    if (debug && page) perfLog(`Set page to ${page ?? this.page}`);
     this.setIsLoading(false);
     this.setHasChanges(false);
+
+    const countRes = await trpc.getFilteredTagCount.mutate({
+      ...this.getFilterProps(),
+      pageSize: this.pageSize,
+    });
+    if (!countRes.success) throw new Error(countRes.error);
+    const pageCount = countRes.data.pageCount;
+    this.setPageCount(pageCount);
+    this.setIsPageCountLoading(false);
+    if (debug) perfLog(`Set pageCount to ${pageCount}`);
+
     return items;
   });
 

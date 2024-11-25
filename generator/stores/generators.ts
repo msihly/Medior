@@ -17,6 +17,7 @@ export class ModelStore {
       objValue: "objectIds(args.ids)",
     });
     this.addProp("isLoading", "boolean", "false", { notFilterProp: true });
+    this.addProp("isPageCountLoading", "boolean", "false", { notFilterProp: true });
     this.addProp("page", "number", "1", { notFilterProp: true });
     this.addProp("pageCount", "number", "1", { notFilterProp: true });
     this.addProp("pageSize", "number", options.defaultPageSize, { notFilterProp: true });
@@ -253,30 +254,35 @@ export const createSearchStore = (def: ModelSearchStore) => {
     `@modelFlow
     loadFiltered = asyncAction(async ({ page }: { page?: number } = {}) => {
       const debug = false;
-      const { perfLog, perfLogTotal } = makePerfLog("[${def.name}Search]");
+      const { perfLog } = makePerfLog("[${def.name}Search]");
       this.setIsLoading(true);
+      this.setIsPageCountLoading(true);
 
-      const res = await trpc.listFiltered${def.name}.mutate({
+      const itemsRes = await trpc.listFiltered${def.name}.mutate({
         ...this.getFilterProps(),
         forcePages: this.forcePages,
         page: page ?? this.page,
         pageSize: this.pageSize,
       });
-      if (!res.success) throw new Error(res.error);
-
-      const { items, pageCount } = res.data;
+      if (!itemsRes.success) throw new Error(itemsRes.error);
+      const items = itemsRes.data;
       if (debug) perfLog(\`Loaded \${items.length} items\`);
 
       this.setResults(items.map((item) => new Stores.${def.name}(item)));
       if (debug) perfLog("Overwrite and re-render");
 
-      this.setPageCount(pageCount);
       if (page) this.setPage(page);
-      if (debug) perfLog(\`Set page to \${page ?? this.page} and pageCount to \${pageCount}\`);
-
-      if (debug) perfLogTotal(\`Loaded \${items.length} items\`);
+      if (debug && page) perfLog(\`Set page to \${page ?? this.page}\`)
       this.setIsLoading(false);
       this.setHasChanges(false);
+
+      const countRes = await trpc.getFiltered${def.name}Count.mutate({ ...this.getFilterProps(), pageSize: this.pageSize });
+      if (!countRes.success) throw new Error(countRes.error);
+      const pageCount = countRes.data.pageCount;
+      this.setPageCount(pageCount);
+      this.setIsPageCountLoading(false);
+      if (debug) perfLog(\`Set pageCount to \${pageCount}\`);
+
       return items;
     });`;
 

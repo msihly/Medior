@@ -34,6 +34,9 @@ export const serverRouter = trpc.router({
   updateFileImportBatch: serverEndpoint(db.updateFileImportBatch),
   updateTag: serverEndpoint(db.updateTag),
   /** Search store actions */
+  getFilteredFileCollectionCount: serverEndpoint(db.getFilteredFileCollectionCount),
+  getFilteredFileCount: serverEndpoint(db.getFilteredFileCount),
+  getFilteredTagCount: serverEndpoint(db.getFilteredTagCount),
   getShiftSelectedFile: serverEndpoint(db.getShiftSelectedFile),
   getShiftSelectedFileCollection: serverEndpoint(db.getShiftSelectedFileCollection),
   getShiftSelectedTag: serverEndpoint(db.getShiftSelectedTag),

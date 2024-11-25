@@ -266,6 +266,7 @@ export const FileCollectionEditor = observer(() => {
             <Pagination
               count={stores.collection.editor.search.pageCount}
               page={stores.collection.editor.search.page}
+              isLoading={stores.collection.editor.search.isPageCountLoading}
               onChange={handlePageChange}
             />
           </Card>

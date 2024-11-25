@@ -226,7 +226,12 @@ export const FileCollectionManager = observer(() => {
               <FileCollection key={c.id} id={c.id} height={FILE_CARD_HEIGHT} />
             ))}
           >
-            <Pagination count={pageCount} page={page} onChange={handlePageChange} />
+            <Pagination
+              count={pageCount}
+              page={page}
+              onChange={handlePageChange}
+              isLoading={stores.collection.manager.search.isPageCountLoading}
+            />
           </CardGrid>
         </Card>
       </Modal.Content>
