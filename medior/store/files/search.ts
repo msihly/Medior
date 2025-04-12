@@ -8,9 +8,9 @@ import {
   modelFlow,
   prop,
 } from "mobx-keystone";
-import { asyncAction, RootStore } from "medior/store";
 import { _FileSearch } from "medior/store/_generated";
-import { trpc } from "medior/utils";
+import { asyncAction, RootStore } from "medior/store";
+import { trpc } from "medior/utils/server";
 
 @model("medior/FileSearch")
 export class FileSearch extends ExtendedModel(_FileSearch, {

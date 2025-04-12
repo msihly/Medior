@@ -1,7 +1,6 @@
 import { ReactNode, useMemo } from "react";
-import { ModelCreationData } from "mobx-keystone";
-import { FileImport, observer } from "medior/store";
 import { Divider } from "@mui/material";
+import { ModelCreationData } from "mobx-keystone";
 import {
   Chip,
   Detail,
@@ -12,8 +11,10 @@ import {
   UniformList,
   View,
 } from "medior/components";
+import { FileImport, observer } from "medior/store";
+import { colors, makeClasses, } from "medior/utils/client";
+import { formatBytes, parseDiffParams } from "medior/utils/common";
 import { TagHierarchy } from ".";
-import { colors, formatBytes, makeClasses, parseDiffParams } from "medior/utils";
 
 export const IMPORT_LIST_ITEM_HEIGHT = 30;
 

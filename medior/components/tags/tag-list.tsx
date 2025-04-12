@@ -1,8 +1,8 @@
-import { useRef, useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { FixedSizeList } from "react-window";
 import { MultiInputList, MultiInputListProps, TagInputRow, ViewProps } from "medior/components";
 import { observer, TagOption, useStores } from "medior/store";
-import { socket } from "medior/utils";
+import { socket } from "medior/utils/server";
 
 export interface TagListProps extends MultiInputListProps<TagOption> {
   hasDelete?: boolean;

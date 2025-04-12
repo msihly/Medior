@@ -1,5 +1,6 @@
 import { applySnapshot, getSnapshot, Model, model, modelAction, prop } from "mobx-keystone";
-import { Config, ConfigKey, convertNestedKeys, deepMerge, DEFAULT_CONFIG } from "medior/utils";
+import { Config, ConfigKey, DEFAULT_CONFIG } from "medior/utils/client";
+import { convertNestedKeys, deepMerge } from "medior/utils/common";
 
 @model("medior/SettingsStore")
 export class SettingsStore extends Model({

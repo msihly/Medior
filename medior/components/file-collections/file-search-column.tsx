@@ -1,4 +1,3 @@
-import { observer, useStores } from "medior/store";
 import {
   Card,
   CardGrid,
@@ -7,7 +6,8 @@ import {
   Pagination,
   View,
 } from "medior/components";
-import { colors } from "medior/utils";
+import { observer, useStores } from "medior/store";
+import { colors } from "medior/utils/client";
 
 export const FileSearchColumn = observer(() => {
   const stores = useStores();

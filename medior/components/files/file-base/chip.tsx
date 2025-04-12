@@ -1,5 +1,5 @@
 import { Chip as ChipBase, ChipProps as ChipBaseProps } from "medior/components";
-import { colors, makeClasses } from "medior/utils";
+import { colors, makeClasses } from "medior/utils/client";
 
 export interface ChipProps extends ChipBaseProps {
   hasFooter?: boolean;

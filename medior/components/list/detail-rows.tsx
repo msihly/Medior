@@ -1,6 +1,6 @@
 import { ReactNode } from "react";
 import { Text, View } from "medior/components";
-import { colors, CSS, makeClasses } from "medior/utils";
+import { colors, CSS, makeClasses } from "medior/utils/client";
 
 type Row = {
   label: string | ReactNode;

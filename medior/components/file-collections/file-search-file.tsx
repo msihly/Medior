@@ -1,8 +1,9 @@
 import { CSSProperties } from "react";
-import { FileSchema } from "medior/database";
-import { observer, useStores } from "medior/store";
+import { FileSchema } from "medior/_generated";
 import { Button, FileBase } from "medior/components";
-import { colors, duration, getIsAnimated } from "medior/utils";
+import { observer, useStores } from "medior/store";
+import { colors, getIsAnimated } from "medior/utils/client";
+import { duration } from "medior/utils/common";
 
 export interface FileSearchFileProps {
   disabled?: boolean;

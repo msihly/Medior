@@ -1,7 +1,6 @@
 import { useEffect, useRef } from "react";
 import AutoSizer from "react-virtualized-auto-sizer";
 import { VariableSizeList } from "react-window";
-import { observer, useStores } from "medior/store";
 import {
   Card,
   FlatFolderHierarchy,
@@ -9,6 +8,7 @@ import {
   ImportFolderList,
   View,
 } from "medior/components";
+import { observer, useStores } from "medior/store";
 
 export interface ImportFoldersListProps {
   flatFolderHierarchy: FlatFolderHierarchy;

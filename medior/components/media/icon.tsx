@@ -1,8 +1,9 @@
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
-import { Icon as MuiIcon, IconProps as MuiIconProps } from "@mui/material";
 import { IconName as MuiIconName } from "@mui/icons-material";
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
+import { Icon as MuiIcon, IconProps as MuiIconProps } from "@mui/material";
 import { View, ViewProps } from "medior/components";
-import { makeClasses, Margins } from "medior/utils";
+import { makeClasses, Margins } from "medior/utils/client";
 
 export type IconName = MuiIconName;
 

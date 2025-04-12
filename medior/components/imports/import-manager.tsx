@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { observer, useStores } from "medior/store";
 import {
   Button,
   Card,
@@ -11,8 +10,8 @@ import {
   UniformList,
   View,
 } from "medior/components";
-import { colors } from "medior/utils";
-import { toast } from "react-toastify";
+import { observer, useStores } from "medior/store";
+import { colors, toast } from "medior/utils/client";
 
 const PAGE_SIZE = 20;
 

@@ -1,7 +1,7 @@
 import { reaction } from "mobx";
 import { ExtendedModel, getRootStore, model, modelAction, ModelCreationData, prop } from "mobx-keystone";
-import { RootStore } from "medior/store";
 import { _FileCollectionSearch } from "medior/store/_generated";
+import { RootStore } from "medior/store";
 
 @model("medior/FileCollectionSearch")
 export class FileCollectionSearch extends ExtendedModel(_FileCollectionSearch, {

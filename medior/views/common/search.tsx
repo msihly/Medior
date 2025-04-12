@@ -1,6 +1,7 @@
 import { observer, useStores } from "medior/store";
 import { Drawer, FileContainer, HomeMultiActionBar, LoadingOverlay, View } from "medior/components";
-import { CONSTANTS, makeClasses } from "medior/utils";
+import { makeClasses } from "medior/utils/client";
+import { CONSTANTS } from "medior/utils/common";
 
 interface SearchProps {
   hasImports?: boolean;

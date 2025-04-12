@@ -1,0 +1,12 @@
+{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "generator/*": ["./*"],
+      "medior/*": ["../*"]
+    },
+    "types": ["node"]
+  },
+  "extends": "../../tsconfig.base.json",
+  "include": [".", "./globals.d.ts"]
+}

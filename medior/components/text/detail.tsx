@@ -1,6 +1,6 @@
 import { ReactNode } from "react";
 import { Text, TextProps, View, ViewProps } from "medior/components";
-import { CSS, makeClasses } from "medior/utils";
+import { CSS, makeClasses } from "medior/utils/client";
 
 export interface DetailProps extends ViewProps {
   emptyValueText?: string;

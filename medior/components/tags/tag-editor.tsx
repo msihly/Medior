@@ -1,7 +1,6 @@
 import { useRef, useState } from "react";
-import { TagSchema } from "medior/database";
-import { TagOption, observer, useStores } from "medior/store";
 import { Divider } from "@mui/material";
+import { TagSchema } from "medior/server/database";
 import {
   Button,
   Card,
@@ -14,9 +13,9 @@ import {
   Text,
   View,
 } from "medior/components";
+import { observer, TagOption, useStores } from "medior/store";
+import { colors, openSearchWindow, toast, useDeepEffect, useDeepMemo } from "medior/utils/client";
 import { TagInputs } from ".";
-import { colors, openSearchWindow, useDeepEffect, useDeepMemo } from "medior/utils";
-import { toast } from "react-toastify";
 
 export interface TagEditorProps {
   hasSubEditor?: boolean;
@@ -117,8 +116,8 @@ export const TagEditor = observer(
 
     const handleSearch = () => openSearchWindow({ tagIds: [id] });
 
-    const handleSubEditorClick = (tagId: string) => {
-      stores.tag.setSubEditorTagId(tagId);
+    const handleSubEditorClick = (tagOpt: TagOption) => {
+      stores.tag.setSubEditorTagId(tagOpt.id);
       stores.tag.setIsTagSubEditorOpen(true);
     };
 

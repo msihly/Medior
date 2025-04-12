@@ -1,19 +1,20 @@
-import * as db from "medior/database";
+import { computed } from "mobx";
 import {
   getRootStore,
-  model,
   Model,
+  model,
   modelAction,
   ModelCreationData,
   modelFlow,
   prop,
 } from "mobx-keystone";
-import { computed } from "mobx";
+import * as db from "medior/server/database";
 import { TagToUpsert } from "medior/components";
 import { asyncAction, RootStore } from "medior/store";
+import { toast } from "medior/utils/client";
+import { PromiseChain, regexEscape } from "medior/utils/common";
+import { trpc } from "medior/utils/server";
 import { Tag, TagManagerStore, TagOption } from ".";
-import { PromiseChain, regexEscape, trpc } from "medior/utils";
-import { toast } from "react-toastify";
 
 @model("medior/TagStore")
 export class TagStore extends Model({
@@ -247,10 +248,6 @@ export class TagStore extends Model({
   listByIds(ids: string[]) {
     const idsSet = new Set(ids.map(String));
     return this.tags.filter((t) => idsSet.has(t.id));
-  }
-
-  listByParentId(id: string) {
-    return this.tags.filter((t) => t.parentIds.includes(id));
   }
 
   listRegExMapsByType(type: db.TagSchema["regExMap"]["types"][number]) {

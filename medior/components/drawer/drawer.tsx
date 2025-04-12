@@ -1,7 +1,8 @@
-import { observer, useStores } from "medior/store";
 import { Drawer as MuiDrawer } from "@mui/material";
 import { IconButton, TooltipProps, View } from "medior/components";
-import { colors, CONSTANTS, makeClasses, openSearchWindow } from "medior/utils";
+import { observer, useStores } from "medior/store";
+import { colors, makeClasses, openSearchWindow } from "medior/utils/client";
+import { CONSTANTS } from "medior/utils/common";
 
 export interface DrawerProps {
   hasImports?: boolean;

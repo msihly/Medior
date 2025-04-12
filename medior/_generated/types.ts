@@ -1,7 +1,7 @@
 /* --------------------------------------------------------------------------- */
 /*                               THIS IS A GENERATED FILE. DO NOT EDIT.
 /* --------------------------------------------------------------------------- */
-import * as db from "medior/database";
+import * as db from "medior/server/database";
 import { QuerySelector, SortOrder } from "mongoose";
 
 export type _FilterQuery<Schema> = {

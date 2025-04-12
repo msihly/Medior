@@ -1,8 +1,8 @@
 import { useEffect } from "react";
 import { observer, useStores } from "medior/store";
 import { SettingsModal, View } from "medior/components";
-import { Views, useSockets } from "./common";
-import { makeClasses } from "medior/utils";
+import { makeClasses } from "medior/utils/client";
+import { useSockets, Views } from "./common";
 
 export const HomeWindow = observer(() => {
   const stores = useStores();

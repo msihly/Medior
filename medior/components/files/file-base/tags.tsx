@@ -1,6 +1,6 @@
 import { TagChip, View } from "medior/components";
 import { observer, useStores } from "medior/store";
-import { makeClasses } from "medior/utils";
+import { makeClasses } from "medior/utils/client";
 
 interface TagsProps {
   tagIds: string[];

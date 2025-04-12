@@ -2,7 +2,7 @@
 /*                               THIS IS A GENERATED FILE. DO NOT EDIT.
 /* --------------------------------------------------------------------------- */
 import { initTRPC } from "@trpc/server";
-import * as db from "medior/database/actions";
+import * as db from "medior/server/database/actions";
 export const trpc = initTRPC.create();
 
 /** All resources defined as mutation to deal with max length URLs in GET requests.

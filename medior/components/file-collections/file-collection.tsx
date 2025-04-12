@@ -1,7 +1,7 @@
-import { observer, useStores } from "medior/store";
 import { CollectionTooltip, ContextMenu, FileBase } from "medior/components";
-import { colors, CSS, round } from "medior/utils";
-import { toast } from "react-toastify";
+import { observer, useStores } from "medior/store";
+import { colors, CSS, toast } from "medior/utils/client";
+import { round } from "medior/utils/common";
 
 export interface FileCollectionProps {
   height?: CSS["height"];

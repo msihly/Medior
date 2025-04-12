@@ -1,17 +1,13 @@
 import { ipcRenderer } from "electron";
-import { MutableRefObject, WheelEvent, createContext, useEffect, useRef } from "react";
-import { observer, useStores } from "medior/store";
-import { PanzoomObject } from "@panzoom/panzoom";
+import { createContext, MutableRefObject, useEffect, useRef, WheelEvent } from "react";
 import FilePlayer from "react-player/file";
+import { PanzoomObject } from "@panzoom/panzoom";
 import { Carousel, CarouselThumbNavigator, CarouselTopBar, View } from "medior/components";
-import { Views, useHotkeys, useSockets } from "./common";
-import {
-  debounce,
-  makeClasses,
-  makePerfLog,
-  zoomScaleStepIn,
-  zoomScaleStepOut,
-} from "medior/utils";
+import { observer, useStores } from "medior/store";
+import { makeClasses, zoomScaleStepIn, zoomScaleStepOut } from "medior/utils/client";
+import { debounce } from "medior/utils/common";
+import { makePerfLog } from "medior/utils/server";
+import { useHotkeys, useSockets, Views } from "medior/views/common";
 
 export const VideoContext = createContext<MutableRefObject<FilePlayer>>(null);
 

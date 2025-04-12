@@ -1,9 +1,9 @@
+import { forwardRef, MutableRefObject } from "react";
 import AutoSizer from "react-virtualized-auto-sizer";
 import { FixedSizeList } from "react-window";
 import { CenteredText, View, ViewProps } from "medior/components";
+import { colors, makeClasses } from "medior/utils/client";
 import { MULTI_INPUT_ROW_HEIGHT, MultiInputRow } from "./multi-input-row";
-import { colors, makeClasses } from "medior/utils";
-import { forwardRef, MutableRefObject } from "react";
 
 export interface MultiInputListProps<T = string> {
   hasInput?: boolean;

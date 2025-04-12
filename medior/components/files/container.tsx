@@ -1,9 +1,10 @@
 import { useEffect, useRef } from "react";
-import { observer, useStores } from "medior/store";
-import { useHotkeys } from "medior/views";
 import { CardGrid, Pagination } from "medior/components";
+import { observer, useStores } from "medior/store";
+import { colors } from "medior/utils/client";
+import { socket } from "medior/utils/server";
+import { useHotkeys } from "medior/views";
 import { FileCard } from ".";
-import { colors, socket } from "medior/utils";
 
 export const FileContainer = observer(() => {
   const stores = useStores();

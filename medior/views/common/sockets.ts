@@ -1,7 +1,8 @@
 import { useEffect } from "react";
 import { SocketEmitEvent, SocketEmitEvents } from "medior/_generated/socket";
 import { useStores } from "medior/store";
-import { socket, throttle } from "medior/utils";
+import { throttle } from "medior/utils/common";
+import { socket } from "medior/utils/server";
 
 export interface UseSocketsProps {
   view: "carousel" | "home" | "search";

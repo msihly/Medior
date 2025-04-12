@@ -14,7 +14,6 @@ export * from "./settings";
 export * from "./table";
 export * from "./tags";
 export * from "./text";
-export * from "./toast";
 export * from "./toggles";
 export * from "./tooltip";
 export * from "./wrappers";

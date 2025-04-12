@@ -1,7 +1,7 @@
-import { File, observer, useStores } from "medior/store";
 import { FileBase } from "medior/components";
-import { colors, CSS, duration, openCarouselWindow } from "medior/utils";
-import { toast } from "react-toastify";
+import { File, observer, useStores } from "medior/store";
+import { colors, CSS, openCarouselWindow, toast } from "medior/utils/client";
+import { duration } from "medior/utils/common";
 
 export interface FileCollectionFileProps {
   disabled?: boolean;

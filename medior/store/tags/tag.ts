@@ -1,7 +1,7 @@
 import { computed } from "mobx";
 import { ExtendedModel, model } from "mobx-keystone";
-import { RootStore } from "medior/store";
 import { _Tag } from "medior/store/_generated";
+import { RootStore } from "medior/store";
 
 @model("medior/Tag")
 export class Tag extends ExtendedModel(_Tag, {}) {

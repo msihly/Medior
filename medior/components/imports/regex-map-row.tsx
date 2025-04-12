@@ -1,9 +1,9 @@
 import { useMemo } from "react";
-import { TagSchema } from "medior/database";
-import { Tag, observer, useStores } from "medior/store";
 import { InputAdornment } from "@mui/material";
+import { TagSchema } from "medior/server/database";
 import { Button, Input, InputProps, View } from "medior/components";
-import { colors, makeClasses } from "medior/utils";
+import { observer, Tag, useStores } from "medior/store";
+import { colors, makeClasses } from "medior/utils/client";
 
 export interface RegExMapRowProps {
   aliases: Tag["aliases"];

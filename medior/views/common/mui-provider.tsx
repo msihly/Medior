@@ -1,7 +1,7 @@
 import { StrictMode, useRef } from "react";
-import { createTheme, ThemeProvider } from "@mui/material";
-import { CacheProvider } from "@emotion/react";
 import createCache from "@emotion/cache";
+import { CacheProvider } from "@emotion/react";
+import { createTheme, ThemeProvider } from "@mui/material";
 
 export const MuiProvider = ({ children }: { children: React.ReactNode }) => {
   const themeRef = useRef(createTheme({ palette: { mode: "dark" } }));

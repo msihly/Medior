@@ -1,5 +1,4 @@
-import { FileSchema } from "medior/database";
-import { observer } from "medior/store";
+import { FileSchema } from "medior/server/database";
 import {
   Card,
   DateDetail,
@@ -11,7 +10,9 @@ import {
   UniformList,
   View,
 } from "medior/components";
-import { colors, formatBytes } from "medior/utils";
+import { observer } from "medior/store";
+import { colors } from "medior/utils/client";
+import { formatBytes } from "medior/utils/common";
 
 interface TooltipProps {
   children: JSX.Element;

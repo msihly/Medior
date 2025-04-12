@@ -1,5 +1,5 @@
 import { Text, TextProps, View, ViewProps } from "medior/components";
-import { colors } from "medior/utils";
+import { colors } from "medior/utils/client";
 
 export interface CenteredTextProps extends TextProps {
   color?: string;

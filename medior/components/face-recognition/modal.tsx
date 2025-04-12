@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import { ModelCreationData } from "mobx-keystone";
-import { FaceModel, observer, useStores } from "medior/store";
 import {
   Button,
   Card,
@@ -11,9 +10,9 @@ import {
   Text,
   View,
 } from "medior/components";
+import { FaceModel, observer, useStores } from "medior/store";
+import { colors, makeClasses, toast, useElementResize } from "medior/utils/client";
 import { FaceBox } from ".";
-import { colors, makeClasses, useElementResize } from "medior/utils";
-import { toast } from "react-toastify";
 
 type FaceModelWithImage = { dataUrl: string; faceModel: FaceModel };
 

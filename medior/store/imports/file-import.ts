@@ -1,7 +1,7 @@
 import { ExtendedModel, model, modelAction, prop } from "mobx-keystone";
 import { _FileImport } from "medior/store/_generated";
 import { TagToUpsert } from "medior/components";
-import { isDeepEqual } from "medior/utils";
+import { isDeepEqual } from "medior/utils/common";
 
 @model("medior/FileImport")
 export class FileImport extends ExtendedModel(_FileImport, {

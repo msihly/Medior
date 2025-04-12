@@ -1,6 +1,6 @@
 import { Model, model, prop } from "mobx-keystone";
 import { SettingsStore } from "medior/store";
-import { getConfig } from "medior/utils";
+import { getConfig } from "medior/utils/client";
 
 @model("medior/HomeStore")
 export class HomeStore extends Model({

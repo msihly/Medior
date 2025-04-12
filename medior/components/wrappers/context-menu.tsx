@@ -1,8 +1,8 @@
 import { ReactNode, useState } from "react";
 import { Menu } from "@mui/material";
-import { Divider, IconName, ListItem, View, ViewProps } from "medior/components";
-import { colors, makeClasses } from "medior/utils";
 import Color from "color";
+import { Divider, IconName, ListItem, View, ViewProps } from "medior/components";
+import { colors, makeClasses } from "medior/utils/client";
 
 interface MenuItem {
   color?: string;

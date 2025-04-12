@@ -2,8 +2,8 @@ import { useRef } from "react";
 import Draggable from "react-draggable";
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { Dialog, DialogProps, Paper, PaperProps } from "@mui/material";
-import { colors, CSS, makeClasses } from "medior/utils";
 import { LoadingOverlay } from "medior/components";
+import { colors, CSS, makeClasses } from "medior/utils/client";
 
 export interface ContainerProps
   extends Omit<DialogProps, "maxWidth" | "open" | "onClose" | "title"> {

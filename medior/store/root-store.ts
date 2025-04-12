@@ -1,7 +1,7 @@
 import { createContext, useContext } from "react";
+import { Model, model, prop, registerRootStore } from "mobx-keystone";
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { observer as observerBase } from "mobx-react-lite";
-import { model, Model, prop, registerRootStore } from "mobx-keystone";
 import { CarouselStore } from "./carousel";
 import { FileCollectionStore } from "./collections";
 import { FaceRecognitionStore } from "./face-recognition";

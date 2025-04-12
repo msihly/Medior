@@ -1,12 +1,30 @@
 {
-  "name": "medior",
-  "version": "2.7.1",
+  "name": "Medior",
+  "description": "The Organizer",
+  "author": "msihly",
+  "version": "2.7.2",
   "private": true,
-  "author": "Mohamed Sihly",
-  "description": "Medior",
   "homepage": "./",
-  "main": "extraResources/main.js",
+  "main": "extraResources/medior/server/main.js",
   "icon": "public/favicon.ico",
+  "scripts": {
+    ".exe": "start \"\" dist/win-unpacked/Medior.exe",
+    "build-dev": "SET BUILD_DEV=true&& pnpm run pre-build && vite build --mode development --config ./vite.config.watch.ts",
+    "build": "pnpm run pre-build && vite build",
+    "check": "pnpm run ts-check && pnpm run lint",
+    "copy-files": "pnpx copyfiles -f medior/face-models/**/* extraResources/face-models && pnpx copyfiles extraResources/**/* build",
+    "dist": "rimraf build dist extraResources && pnpm run build && pnpm run electron-build && pnpx copyfiles config.json dist/win-unpacked",
+    "electron-build": "electron-builder build --dir --win --publish never",
+    "gen": "pnpx tsx medior/generator/generator.ts",
+    "hmr": "SET HMR=true&& SET BROWSER=none&& pnpm run pre-build && concurrently --kill-others \"vite --config ./vite.config.hmr.ts\" \"electron .\"",
+    "kill-ports": "kill-port 3333 3334 3335",
+    "lint": "eslint medior/{components,generator,server,store,utils}/**/*{.ts,.tsx}",
+    "lint-fix": "pnpm run lint --fix",
+    "postinstall": "electron-builder install-app-deps && patch-package",
+    "pre-build": "pnpm run gen && pnpm run ts-compile-server && pnpm run copy-files",
+    "ts-check": "tsc --noEmit",
+    "ts-compile-server": "tspc --p medior/server/tsconfig.build.json"
+  },
   "dependencies": {
     "@electron/remote": "^2.0.8",
     "@emotion/cache": "^11.7.1",
@@ -39,7 +57,6 @@
     "mobx-react-lite": "^4.0.7",
     "mongodb-memory-server": "^8.9.3",
     "mongoose": "^6.2.8",
-    "prettier": "^3.3.3",
     "react": "^17.0.2",
     "react-dom": "^17.0.2",
     "react-draggable": "^4.4.5",
@@ -68,45 +85,35 @@
     "@types/react-window": "^1.8.5",
     "@typescript-eslint/eslint-plugin": "^6.12.0",
     "@vitejs/plugin-react": "^4.0.3",
+    "chalk": "^5.3.0",
     "concurrently": "^7.2.2",
+    "dependency-cruiser": "^16.10.0",
     "electron": "^25.9.8",
     "electron-builder": "^24.9.1",
     "electron-devtools-installer": "^3.2.0",
     "eslint": "8.54.0",
+    "eslint-plugin-import": "^2.31.0",
+    "eslint-plugin-prettier": "^5.2.6",
+    "eslint-plugin-simple-import-sort": "^12.1.1",
     "eslint-plugin-tss-unused-classes": "^1.0.2",
-    "fast-glob": "^3.3.2",
-    "mock-aws-s3": "^4.0.2",
-    "nock": "^13.3.3",
     "patch-package": "^6.4.7",
-    "remotedev": "^0.2.9",
-    "tsc-alias": "^1.8.6",
-    "typescript": "^4.6.3",
+    "prettier": "^3.3.1",
+    "rimraf": "^5.0.7",
+    "ts-patch": "^3.3.0",
+    "ts-plugin-sort-import-suggestions": "github:saschavhd/ts-plugin-sort-import-suggestions",
+    "tsconfig-paths": "^4.2.0",
+    "typescript": "5.3.x",
+    "typescript-transform-paths": "^3.5.3",
     "vite": "4.5.1",
     "vite-plugin-svgr": "^3.2.0",
     "vite-tsconfig-paths": "4.2.0"
-  },
-  "scripts": {
-    "build": "pnpm run pre-build && vite build",
-    "build-dev": "SET BUILD_DEV=true&& pnpm run pre-build && vite build --mode development --config ./vite.config.watch.ts",
-    "check": "pnpm run ts-check && pnpm run lint",
-    "copy-files": "pnpx copyfiles -f medior/config.json extraResources && pnpx copyfiles -f medior/face-models/**/* extraResources/face-models && pnpx copyfiles extraResources/**/* build",
-    "dist": "rimraf build dist extraResources && pnpm run build && pnpm run electron-build",
-    "electron-build": "electron-builder build --dir --win --publish never",
-    "generate": "pnpx tsx generator/generator.ts",
-    "hmr": "SET HMR=true&& SET BROWSER=none&& pnpm run pre-build && concurrently --kill-others \"vite --config ./vite.config.hmr.ts\" \"electron .\"",
-    "kill-ports": "kill-port 3333 3334 3335",
-    "lint": "eslint medior/**/*{.ts,.tsx}",
-    "postinstall": "electron-builder install-app-deps && patch-package",
-    "pre-build": "pnpm run generate && pnpm run ts-compile && pnpm run copy-files",
-    "ts-compile": "tsc --p ./tsconfig.build.json && tsc-alias -p ./tsconfig.build.json",
-    "ts-check": "tsc --noEmit"
   },
   "build": {
     "appId": "com.msihly.medior",
     "executableName": "Medior",
     "extends": null,
     "extraMetadata": {
-      "main": "build/extraResources/main.js"
+      "main": "build/extraResources/medior/server/main.js"
     },
     "extraResources": [
       {
@@ -126,151 +133,6 @@
       "artifactName": "Medior.exe",
       "icon": "build/app-icon.ico",
       "target": "portable"
-    }
-  },
-  "browserslist": {
-    "production": [
-      "last 3 chrome version"
-    ],
-    "development": [
-      "last 3 chrome version"
-    ]
-  },
-  "eslintConfig": {
-    "root": true,
-    "parser": "@typescript-eslint/parser",
-    "parserOptions": {
-      "project": [
-        "./tsconfig.json"
-      ]
-    },
-    "plugins": [
-      "@typescript-eslint",
-      "tss-unused-classes"
-    ],
-    "ignorePatterns": [
-      "build",
-      "node_modules",
-      "medior/face-models",
-      "vite.config.*"
-    ],
-    "rules": {
-      "tss-unused-classes/unused-classes": "warn",
-      "@typescript-eslint/no-restricted-imports": [
-        "error",
-        {
-          "paths": [
-            {
-              "name": "sharp",
-              "importNames": [
-                "default"
-              ],
-              "message": "Import from from 'utils' instead.",
-              "allowTypeImports": true
-            },
-            {
-              "name": "mobx-react-lite",
-              "importNames": [
-                "observer"
-              ],
-              "message": "Import from from 'store' instead.",
-              "allowTypeImports": true
-            },
-            {
-              "name": "@mui/material",
-              "importNames": [
-                "TextField",
-                "TextFieldProps"
-              ],
-              "message": "Import 'Input' from 'components' instead.",
-              "allowTypeImports": true
-            },
-            {
-              "name": "@mui/material",
-              "importNames": [
-                "Dialog",
-                "DialogActions",
-                "DialogContent",
-                "DialogTitle"
-              ],
-              "message": "Import 'Modal' from 'components' instead.",
-              "allowTypeImports": true
-            },
-            {
-              "name": "@mui/material",
-              "importNames": [
-                "Pagination"
-              ],
-              "message": "Import 'Pagination' from 'components' instead.",
-              "allowTypeImports": true
-            },
-            {
-              "name": "@mui/material",
-              "importNames": [
-                "Typography",
-                "TypographyProps"
-              ],
-              "message": "Import 'Text' from 'components' instead.",
-              "allowTypeImports": true
-            },
-            {
-              "name": "@mui/material",
-              "importNames": [
-                "Accordion",
-                "AccordionProps",
-                "Button",
-                "ButtonProps",
-                "Checkbox",
-                "CheckboxProps",
-                "Chip",
-                "Icon",
-                "IconProps",
-                "IconButton",
-                "IconButtonProps",
-                "ListItem",
-                "ListItemProps",
-                "Modal",
-                "Tooltip",
-                "TooltipProps"
-              ],
-              "message": "Import from 'components' instead.",
-              "allowTypeImports": true
-            },
-            {
-              "name": "@mui/material",
-              "importNames": [
-                "colors"
-              ],
-              "message": "Import from 'utils' instead.",
-              "allowTypeImports": true
-            },
-            {
-              "name": "@mui/material",
-              "importNames": [
-                "CSSObject"
-              ],
-              "message": "Import 'CSS' from 'utils' instead.",
-              "allowTypeImports": false
-            },
-            {
-              "name": "tss-react",
-              "importNames": [
-                "CSSObject"
-              ],
-              "message": "Import 'CSS' from 'utils' instead.",
-              "allowTypeImports": false
-            },
-            {
-              "name": "dayjs",
-              "importNames": [
-                "default"
-              ],
-              "message": "Import from 'utils' instead.",
-              "allowTypeImports": true
-            }
-          ]
-        }
-      ]
     }
   }
 }

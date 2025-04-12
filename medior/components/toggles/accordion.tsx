@@ -1,8 +1,8 @@
 import { ReactNode, useState } from "react";
-import { Button, Icon, View } from "medior/components";
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { Accordion as MuiAccordion, AccordionProps as MuiAccordionProps } from "@mui/material";
-import { makeClasses } from "medior/utils";
+import { Button, Icon, View } from "medior/components";
+import { makeClasses } from "medior/utils/client";
 
 export interface AccordionProps extends MuiAccordionProps {
   children: ReactNode | ReactNode[];

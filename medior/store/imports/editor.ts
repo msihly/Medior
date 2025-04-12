@@ -1,10 +1,10 @@
 import fs from "fs/promises";
 import path from "path";
 import { computed } from "mobx";
-import { model, Model, modelAction, modelFlow, prop } from "mobx-keystone";
+import { Model, model, modelAction, modelFlow, prop } from "mobx-keystone";
 import { asyncAction } from "medior/store";
+import { extendFileName } from "medior/utils/client";
 import { FileImport } from ".";
-import { extendFileName } from "medior/utils";
 
 @model("medior/ImportEditor")
 export class ImportEditor extends Model({

@@ -1,20 +1,10 @@
-import { useState, useContext } from "react";
-import { observer, useStores } from "medior/store";
+import { useContext, useState } from "react";
 import { Slider } from "@mui/material";
-import { VideoContext } from "medior/views";
 import { Button, IconButton, Text, View } from "medior/components";
-import {
-  colors,
-  commas,
-  CONSTANTS,
-  duration,
-  frameToSec,
-  makeClasses,
-  round,
-  throttle,
-  Toaster,
-} from "medior/utils";
-import { toast } from "react-toastify";
+import { observer, useStores } from "medior/store";
+import { colors, makeClasses, toast, Toaster } from "medior/utils/client";
+import { commas, CONSTANTS, duration, frameToSec, round, throttle } from "medior/utils/common";
+import { VideoContext } from "medior/views";
 
 export const VideoControls = observer(() => {
   const stores = useStores();

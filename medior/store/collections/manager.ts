@@ -1,7 +1,7 @@
 import { getRootStore, Model, model, modelAction, modelFlow, prop } from "mobx-keystone";
 import { asyncAction, File, RootStore } from "medior/store";
+import { trpc } from "medior/utils/server";
 import { FileCollection, FileCollectionSearch } from ".";
-import { trpc } from "medior/utils";
 
 @model("medior/CollectionManager")
 export class CollectionManager extends Model({

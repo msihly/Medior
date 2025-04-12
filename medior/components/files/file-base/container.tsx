@@ -1,8 +1,8 @@
 import { MouseEvent, ReactNode } from "react";
 import { Paper } from "@mui/material";
-import { View, ViewProps } from "medior/components";
-import { colors, CSS, makeClasses } from "medior/utils";
 import Color from "color";
+import { View, ViewProps } from "medior/components";
+import { colors, CSS, makeClasses } from "medior/utils/client";
 
 interface ContainerProps extends ViewProps {
   children: ReactNode | ReactNode[];

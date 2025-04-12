@@ -1,7 +1,7 @@
+import Color from "color";
 import { handleIngest, observer, useStores } from "medior/store";
 import { View } from "medior/components";
-import { colors, makeClasses } from "medior/utils";
-import Color from "color";
+import { colors, makeClasses } from "medior/utils/client";
 
 export const ImportDnD = observer(({ children }) => {
   const { css } = useClasses(null);

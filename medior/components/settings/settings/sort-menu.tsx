@@ -1,11 +1,11 @@
-import { observer, useStores } from "medior/store";
 import {
-  HeaderWrapper,
-  HeaderWrapperProps,
-  SortMenu as SortMenuBase,
-  SortMenuProps as SortMenuBaseProps,
+    HeaderWrapper,
+    HeaderWrapperProps,
+    SortMenu as SortMenuBase,
+    SortMenuProps as SortMenuBaseProps,
 } from "medior/components";
-import { colors, ConfigKey } from "medior/utils";
+import { observer, useStores } from "medior/store";
+import { colors, ConfigKey } from "medior/utils/client";
 
 export interface SortMenuProps extends Omit<SortMenuBaseProps, "setValue" | "value"> {
   configKey: ConfigKey;

@@ -1,5 +1,4 @@
 import { useEffect, useRef } from "react";
-import { observer, useStores } from "medior/store";
 import { FixedSizeGrid } from "react-window";
 import {
   Button,
@@ -15,8 +14,8 @@ import {
   UniformList,
   View,
 } from "medior/components";
-import { colors, openSearchWindow, useDeepEffect } from "medior/utils";
-import { toast } from "react-toastify";
+import { observer, useStores } from "medior/store";
+import { colors, openSearchWindow, toast, useDeepEffect } from "medior/utils/client";
 
 export const TagManager = observer(() => {
   const stores = useStores();

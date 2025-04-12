@@ -1,4 +1,4 @@
-import { dayjs } from "medior/utils";
+import { dayjs } from "medior/utils/common";
 import { Detail, DetailProps } from ".";
 
 export interface DateDetailProps extends DetailProps {

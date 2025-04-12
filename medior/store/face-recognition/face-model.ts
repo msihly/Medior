@@ -1,7 +1,8 @@
 import { computed } from "mobx";
 import { Model, model, prop } from "mobx-keystone";
 import { TagOption } from "medior/store";
-import { colors, objectToFloat32Array } from "medior/utils";
+import { colors, } from "medior/utils/client";
+import { objectToFloat32Array } from "medior/utils/common";
 
 @model("medior/FaceModel")
 export class FaceModel extends Model({

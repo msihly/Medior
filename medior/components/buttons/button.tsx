@@ -6,6 +6,7 @@ import {
   ButtonProps as MuiButtonProps,
   CircularProgress,
 } from "@mui/material";
+import Color from "color";
 import {
   Icon,
   IconName,
@@ -15,8 +16,7 @@ import {
   TooltipWrapper,
   View,
 } from "medior/components";
-import { colors, CSS, makeClasses, makeMargins, Margins, Padding } from "medior/utils";
-import Color from "color";
+import { colors, CSS, makeClasses, makeMargins, Margins, Padding } from "medior/utils/client";
 
 export interface ButtonProps
   extends Omit<
@@ -77,7 +77,6 @@ export const Button = ({
   startNode,
   text,
   textColor,
-  textClassName,
   textTransform = "none",
   tooltip,
   tooltipProps,

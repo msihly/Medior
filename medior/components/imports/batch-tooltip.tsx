@@ -1,5 +1,5 @@
-import { FileImportBatch, observer } from "medior/store";
 import { DateDetail, TagRow, Tooltip, View } from "medior/components";
+import { FileImportBatch, observer } from "medior/store";
 
 interface BatchTooltipProps {
   batch: FileImportBatch;

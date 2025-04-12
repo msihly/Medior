@@ -1,6 +1,7 @@
 import { forwardRef, MutableRefObject, ReactNode } from "react";
 import { HeaderWrapper, View, ViewProps } from "medior/components";
-import { colors, deepMerge } from "medior/utils";
+import { colors } from "medior/utils/client";
+import { deepMerge } from "medior/utils/common";
 
 export interface CardProps extends ViewProps {
   header?: ReactNode;

@@ -1,7 +1,7 @@
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { Tooltip as MuiTooltip, TooltipProps as MuiTooltipProps } from "@mui/material";
 import { View, ViewProps } from "medior/components";
-import { colors, CSS, makeClasses } from "medior/utils";
+import { colors, CSS, makeClasses } from "medior/utils/client";
 
 export interface TooltipProps extends Omit<MuiTooltipProps, "children" | "color"> {
   arrowColor?: CSS["color"];

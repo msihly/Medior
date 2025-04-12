@@ -1,6 +1,4 @@
 import { ReactNode, useEffect, useState } from "react";
-import { observer, SORT_OPTIONS, useStores } from "medior/store";
-import { useHotkeys } from "medior/views";
 import {
   Button,
   Card,
@@ -21,8 +19,9 @@ import {
   Text,
   View,
 } from "medior/components";
-import { colors } from "medior/utils";
-import { toast } from "react-toastify";
+import { observer, SORT_OPTIONS, useStores } from "medior/store";
+import { colors, toast } from "medior/utils/client";
+import { useHotkeys } from "medior/views";
 
 export const FileCollectionEditor = observer(() => {
   const stores = useStores();

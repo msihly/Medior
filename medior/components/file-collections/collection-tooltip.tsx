@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { FileCollection } from "medior/store";
 import { TagRow, Text, Tooltip, View } from "medior/components";
-import { colors, trpc } from "medior/utils";
-import { toast } from "react-toastify";
+import { FileCollection } from "medior/store";
+import { colors, toast } from "medior/utils/client";
+import { trpc } from "medior/utils/server";
 
 export interface CollectionTooltipProps {
   children: JSX.Element;

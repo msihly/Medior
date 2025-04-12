@@ -1,8 +1,8 @@
 import { Fragment } from "react";
-import { observer, useStores } from "medior/store";
-import { Button, Text } from "medior/components";
-import { colors } from "medior/utils";
 import Color from "color";
+import { Button, Text } from "medior/components";
+import { observer, useStores } from "medior/store";
+import { colors } from "medior/utils/client";
 
 export interface RootFolderButtonProps {
   folderPart: string;

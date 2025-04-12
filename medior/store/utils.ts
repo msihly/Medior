@@ -1,5 +1,5 @@
 import { _async, _await } from "mobx-keystone";
-import { handleErrors } from "medior/utils";
+import { handleErrors } from "medior/utils/common";
 
 export const asyncAction = <ThisArg, Output, Input = never>(
   fn: (input: Input) => Promise<Output>

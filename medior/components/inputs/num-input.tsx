@@ -1,6 +1,6 @@
 import { forwardRef, MutableRefObject, useState } from "react";
 import { Input, InputProps } from "medior/components";
-import { toast } from "react-toastify";
+import { toast } from "medior/utils/client";
 
 export interface NumInputProps extends Omit<InputProps, "setValue" | "value"> {
   maxValue?: number;

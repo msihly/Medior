@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { TagSchema } from "medior/database";
-import { TagOption, observer, useStores } from "medior/store";
+import Color from "color";
+import { TagSchema } from "medior/server/database";
 import {
   Button,
   Card,
@@ -15,9 +15,8 @@ import {
   UniformList,
   View,
 } from "medior/components";
-import { colors, makeClasses, useDeepEffect, useDeepMemo } from "medior/utils";
-import { toast } from "react-toastify";
-import Color from "color";
+import { observer, TagOption, useStores } from "medior/store";
+import { colors, makeClasses, toast, useDeepEffect, useDeepMemo } from "medior/utils/client";
 
 export const TagMerger = observer(() => {
   const { css } = useClasses(null);

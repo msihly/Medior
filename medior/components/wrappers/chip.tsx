@@ -2,7 +2,7 @@ import { ReactNode } from "react";
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { Chip as MuiChip, ChipProps as MuiChipProps } from "@mui/material";
 import { Icon, IconName, IconProps } from "medior/components";
-import { CSS, makeClasses, makePadding, Padding } from "medior/utils";
+import { CSS, makeClasses, makePadding, Padding } from "medior/utils/client";
 
 export interface ChipProps extends Omit<MuiChipProps, "color" | "icon"> {
   bgColor?: CSS["backgroundColor"];

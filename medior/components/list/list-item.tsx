@@ -1,15 +1,15 @@
 import { ReactNode } from "react";
 import {
-  // eslint-disable-next-line @typescript-eslint/no-restricted-imports
-  ListItem as MuiListItem,
-  // eslint-disable-next-line @typescript-eslint/no-restricted-imports
-  ListItemProps as MuiListItemProps,
-  ListItemIcon,
-  ListItemText,
+    // eslint-disable-next-line @typescript-eslint/no-restricted-imports
+    ListItem as MuiListItem,
+    ListItemIcon,
+    // eslint-disable-next-line @typescript-eslint/no-restricted-imports
+    ListItemProps as MuiListItemProps,
+    ListItemText,
 } from "@mui/material";
-import { Icon, IconName, IconProps, TooltipWrapper } from "medior/components";
-import { Margins, colors, makeClasses } from "medior/utils";
 import Color from "color";
+import { Icon, IconName, IconProps, TooltipWrapper } from "medior/components";
+import { colors, makeClasses, Margins } from "medior/utils/client";
 
 export interface ListItemProps extends Omit<MuiListItemProps, "children"> {
   children?: ReactNode;

@@ -1,19 +1,19 @@
 import { ChangeEvent, forwardRef, MutableRefObject, ReactNode } from "react";
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { TextField, TextFieldProps } from "@mui/material";
+import Color from "color";
 import { HeaderWrapper, HeaderWrapperProps, Text } from "medior/components";
 import {
   BorderRadiuses,
   Borders,
   CSS,
-  deepMerge,
   makeBorderRadiuses,
   makeBorders,
   makeClasses,
   makeMargins,
   Margins,
-} from "medior/utils";
-import Color from "color";
+} from "medior/utils/client";
+import { deepMerge } from "medior/utils/common";
 
 const DEFAULT_HEADER_PROPS: HeaderWrapperProps["headerProps"] = {
   fontSize: "0.8em",

@@ -9,7 +9,8 @@ import {
   prop,
 } from "mobx-keystone";
 import { _File } from "medior/store/_generated";
-import { dayjs, getIsVideo, WEB_VIDEO_CODECS, WEB_VIDEO_EXTS } from "medior/utils";
+import { getIsVideo } from "medior/utils/client";
+import { dayjs, WEB_VIDEO_CODECS, WEB_VIDEO_EXTS } from "medior/utils/common";
 
 @model("medior/File")
 export class File extends ExtendedModel(_File, {

@@ -1,5 +1,5 @@
-import { observer, useStores } from "medior/store";
 import { ConfirmModal } from "medior/components";
+import { observer, useStores } from "medior/store";
 
 export const DeleteCollectionModal = observer(() => {
   const stores = useStores();

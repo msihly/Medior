@@ -1,7 +1,7 @@
 /* --------------------------------------------------------------------------- */
 /*                               THIS IS A GENERATED FILE. DO NOT EDIT.
 /* --------------------------------------------------------------------------- */
-import * as Types from "medior/database/types";
+import * as Types from "medior/server/database/types";
 import * as models from "medior/_generated/models";
 /* --------------------------------------------------------------------------- */
 /*                               Socket Definitions

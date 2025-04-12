@@ -1,17 +1,11 @@
 import { shell } from "@electron/remote";
 import { useRef, useState } from "react";
-import { observer, useStores } from "medior/store";
 import { CircularProgress } from "@mui/material";
 import { Button, Card, Checkbox, Modal, Text, UniformList, View } from "medior/components";
-import {
-  colors,
-  dayjs,
-  getLogsPath,
-  getVideoInfo,
-  makeQueue,
-  PromiseQueue,
-  trpc,
-} from "medior/utils";
+import { observer, useStores } from "medior/store";
+import { colors, makeQueue } from "medior/utils/client";
+import { dayjs, PromiseQueue } from "medior/utils/common";
+import { getLogsPath, getVideoInfo, trpc } from "medior/utils/server";
 
 export const RepairModal = observer(() => {
   const stores = useStores();

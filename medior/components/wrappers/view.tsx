@@ -1,16 +1,16 @@
 import { forwardRef, HTMLAttributes, MutableRefObject, ReactNode } from "react";
 import {
-  BorderRadiuses,
-  Borders,
-  CSS,
-  makeBorderRadiuses,
-  makeBorders,
-  makeClasses,
-  makeMargins,
-  makePadding,
-  Margins,
-  Padding,
-} from "medior/utils";
+    BorderRadiuses,
+    Borders,
+    CSS,
+    makeBorderRadiuses,
+    makeBorders,
+    makeClasses,
+    makeMargins,
+    makePadding,
+    Margins,
+    Padding,
+} from "medior/utils/client";
 
 export interface ViewProps extends HTMLAttributes<HTMLDivElement> {
   align?: CSS["alignItems"];

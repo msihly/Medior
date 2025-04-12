@@ -1,9 +1,10 @@
 import { getCurrentWebContents } from "@electron/remote";
-import { File, observer, useStores } from "medior/store";
 import { Icon, Text, View } from "medior/components";
+import { File, observer, useStores } from "medior/store";
+import { colors, CSS, openCarouselWindow, toast } from "medior/utils/client";
+import { duration } from "medior/utils/common";
+import { trpc } from "medior/utils/server";
 import { FileBase } from ".";
-import { colors, CSS, duration, openCarouselWindow, trpc } from "medior/utils";
-import { toast } from "react-toastify";
 
 interface FileCardProps {
   disabled?: boolean;

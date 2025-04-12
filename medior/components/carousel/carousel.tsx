@@ -1,12 +1,13 @@
 import { forwardRef, MutableRefObject, useContext, useEffect, useRef } from "react";
-import { observer, useStores } from "medior/store";
-import ReactPlayer from "react-player/file";
 import { OnProgressProps } from "react-player/base";
+import ReactPlayer from "react-player/file";
 import FilePlayer from "react-player/file";
 import Panzoom, { PanzoomOptions } from "@panzoom/panzoom";
-import { VideoContext, ZoomContext } from "medior/views";
 import { FileBase, LoadingOverlay, VideoControls, View } from "medior/components";
-import { CONSTANTS, makeClasses, round } from "medior/utils";
+import { observer, useStores } from "medior/store";
+import { makeClasses } from "medior/utils/client";
+import { CONSTANTS, round } from "medior/utils/common";
+import { VideoContext, ZoomContext } from "medior/views";
 
 export const Carousel = observer(
   forwardRef((_, videoRef: MutableRefObject<FilePlayer>) => {
@@ -83,11 +84,7 @@ export const Carousel = observer(
               <LoadingOverlay isLoading />
             ) : (
               <View ref={zoomRef} column height="100%" justify="center">
-                <FileBase.ContextMenu
-                  file={activeFile}
-                  options={{ collections: false, faceRecognition: false }}
-                  className={css.contextMenu}
-                >
+                <FileBase.ContextMenu file={activeFile} className={css.contextMenu}>
                   {activeFile.isVideo ? (
                     <View column flex={1} height="inherit" onClick={togglePlaying}>
                       <LoadingOverlay

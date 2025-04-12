@@ -1,6 +1,6 @@
-import { FaceModel, observer } from "medior/store";
 import { View } from "medior/components";
-import { makeClasses } from "medior/utils";
+import { FaceModel, observer } from "medior/store";
+import { makeClasses } from "medior/utils/client";
 
 export interface FaceBoxProps {
   face: FaceModel;

@@ -1,6 +1,6 @@
 import { Button, Icon, IconName, IconProps, Text, View } from "medior/components";
-import { ButtonProps, MenuButton, SortRow } from ".";
-import { colors, CSS, makeBorderRadiuses, makeClasses } from "medior/utils";
+import { ButtonProps, MenuButton, SortRow } from "medior/components/buttons";
+import { colors, CSS, makeBorderRadiuses, makeClasses } from "medior/utils/client";
 
 export interface SortMenuProps extends Omit<ButtonProps, "onChange" | "value"> {
   color?: string;

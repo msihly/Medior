@@ -1,11 +1,12 @@
 import remote from "@electron/remote";
-import fs from "fs/promises"
-import { computed } from "mobx";
-import { Model, getRootStore, model, modelAction, modelFlow, prop } from "mobx-keystone";
-import { asyncAction, FileImporter, RootStore } from "medior/store";
+import fs from "fs/promises";
 import { Mark } from "@mui/base";
-import { extractVideoFrame, frameToSec, trpc, videoTranscoder } from "medior/utils";
-import { toast } from "react-toastify";
+import { computed } from "mobx";
+import { getRootStore, Model, model, modelAction, modelFlow, prop } from "mobx-keystone";
+import { asyncAction, FileImporter, RootStore } from "medior/store";
+import { toast } from "medior/utils/client";
+import { frameToSec } from "medior/utils/common";
+import { extractVideoFrame, trpc, videoTranscoder } from "medior/utils/server";
 
 @model("medior/CarouselStore")
 export class CarouselStore extends Model({
@@ -86,7 +87,7 @@ export class CarouselStore extends Model({
     const filePath = await extractVideoFrame(activeFile.path, this.curFrame);
     if (!filePath) throw new Error("Error extracting frame");
 
-    const { size } = await fs.stat(filePath)
+    const { size } = await fs.stat(filePath);
 
     const importer = new FileImporter({
       deleteOnImport: false,

@@ -1,5 +1,5 @@
 import { Button, ButtonProps } from "medior/components";
-import { colors, copyToClipboard } from "medior/utils";
+import { colors, copyToClipboard } from "medior/utils/client";
 
 export interface IdButtonProps extends ButtonProps {
   value: string;

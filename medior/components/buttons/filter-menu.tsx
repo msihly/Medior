@@ -1,7 +1,6 @@
-import { Button, Chip, Icon, Text, UniformList, View, ViewProps } from "medior/components";
-import { ButtonProps, MenuButton, MenuButtonProps, SortMenu, SortMenuProps } from ".";
-import { colors, CSS, makeClasses } from "medior/utils";
+import { Button, ButtonProps, Chip, Icon, MenuButton, MenuButtonProps, SortMenu, SortMenuProps, Text, UniformList, View, ViewProps } from "medior/components";
 import { FileCollectionSearch, FileSearch, observer, TagSearch } from "medior/store";
+import { colors, CSS, makeClasses } from "medior/utils/client";
 
 export interface FilterMenuProps extends Omit<ButtonProps, "onChange" | "value"> {
   color?: string;

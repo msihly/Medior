@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { IconButton, View } from "medior/components";
-import { colors, debounce, makeClasses, useElementResize } from "medior/utils";
+import { colors, makeClasses, useElementResize } from "medior/utils/client";
+import { debounce } from "medior/utils/common";
 
 interface SideScrollerProps {
   children: JSX.Element[];

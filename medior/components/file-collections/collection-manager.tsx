@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-import { observer, useStores } from "medior/store";
 import {
   Button,
   Card,
@@ -17,9 +16,9 @@ import {
   UniformList,
   View,
 } from "medior/components";
+import { observer, useStores } from "medior/store";
+import { colors, toast, useDeepEffect } from "medior/utils/client";
 import { CollectionFilterMenu, FileCollection } from ".";
-import { colors, useDeepEffect } from "medior/utils";
-import { toast } from "react-toastify";
 
 const FILE_CARD_HEIGHT = "14rem";
 

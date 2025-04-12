@@ -1,6 +1,5 @@
-import path from "path";
 import { shell } from "@electron/remote";
-import { observer, useStores } from "medior/store";
+import path from "path";
 import {
   Button,
   Card,
@@ -14,7 +13,9 @@ import {
   UniformList,
   View,
 } from "medior/components";
-import { colors, duration, formatBytes, getIsRemuxable, makeClasses } from "medior/utils";
+import { observer, useStores } from "medior/store";
+import { colors, getIsRemuxable, makeClasses } from "medior/utils/client";
+import { duration, formatBytes } from "medior/utils/common";
 
 export const InfoModal = observer(() => {
   const { css } = useClasses(null);

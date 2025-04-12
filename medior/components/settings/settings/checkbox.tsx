@@ -1,6 +1,6 @@
-import { observer, useStores } from "medior/store";
 import { Checkbox as CheckboxBase, CheckboxProps as CheckboxBaseProps } from "medior/components";
-import { ConfigKey } from "medior/utils";
+import { observer, useStores } from "medior/store";
+import { ConfigKey } from "medior/utils/client";
 
 export interface CheckboxProps extends Omit<CheckboxBaseProps, "checked" | "setChecked"> {
   checked?: boolean;

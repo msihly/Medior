@@ -2,8 +2,8 @@ import { ipcRenderer } from "electron";
 import { useEffect } from "react";
 import { observer, useStores } from "medior/store";
 import { View } from "medior/components";
-import { Views, useSockets } from "./common";
-import { makeClasses } from "medior/utils";
+import { makeClasses } from "medior/utils/client";
+import { useSockets, Views } from "./common";
 
 export const SearchWindow = observer(() => {
   const stores = useStores();

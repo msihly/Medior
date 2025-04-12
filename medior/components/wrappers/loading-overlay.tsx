@@ -1,7 +1,7 @@
-import { Text, View } from "medior/components";
-import { CircularProgress } from "@mui/material";
-import { makeClasses } from "medior/utils";
 import { ReactNode } from "react";
+import { CircularProgress } from "@mui/material";
+import { Text, View } from "medior/components";
+import { makeClasses } from "medior/utils/client";
 
 export interface LoadingOverlayProps {
   children?: ReactNode | ReactNode[];

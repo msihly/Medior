@@ -1,5 +1,5 @@
 import { Button, Text, View } from "medior/components";
-import { colors, makeClasses } from "medior/utils";
+import { colors, makeClasses } from "medior/utils/client";
 
 export const MULTI_INPUT_ROW_HEIGHT = 35;
 

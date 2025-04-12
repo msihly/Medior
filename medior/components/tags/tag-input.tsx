@@ -7,7 +7,6 @@ import {
   useEffect,
   useState,
 } from "react";
-import { TagOption, observer, useStores } from "medior/store";
 import {
   Autocomplete,
   AutocompleteChangeReason,
@@ -23,8 +22,8 @@ import {
   TagList,
   View,
 } from "medior/components";
-import { colors, CSS, makeClasses, makeMargins, Margins, useDeepMemo } from "medior/utils";
-import { toast } from "react-toastify";
+import { observer, TagOption, useStores } from "medior/store";
+import { colors, CSS, makeClasses, makeMargins, Margins, toast, useDeepMemo } from "medior/utils/client";
 
 export type TagInputProps = Omit<
   ComponentProps<typeof Autocomplete>,
@@ -44,7 +43,7 @@ export type TagInputProps = Omit<
   inputProps?: InputProps;
   margins?: Margins;
   maxTags?: number;
-  onTagClick?: (tagId: string) => void;
+  onTagClick?: (tagOpt: TagOption) => void;
   options?: TagOption[];
   onChange?: (val: TagOption[]) => void;
   onSelect?: (val: TagOption) => void;
@@ -197,7 +196,7 @@ export const TagInput = observer(
                 width="100%"
               />
             ) : (
-              <TagInputRow tag={option} search={null} />
+              <TagInputRow tag={option} search={null} onClick={onTagClick} />
             )}
           </View>
         );

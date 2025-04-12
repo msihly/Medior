@@ -2,7 +2,7 @@ import { ElementType } from "react";
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { Typography, TypographyProps } from "@mui/material";
 import { TooltipProps, TooltipWrapper } from "medior/components";
-import { colors, CSS, makeClasses } from "medior/utils";
+import { colors, CSS, makeClasses } from "medior/utils/client";
 
 export type TextPreset = "default" | "detail-label" | "label-glow" | "sub-text" | "title";
 

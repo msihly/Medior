@@ -1,6 +1,7 @@
-import { observer, useStores } from "medior/store";
 import { FileBase } from "medior/components";
-import { colors, CONSTANTS, duration } from "medior/utils";
+import { observer, useStores } from "medior/store";
+import { colors } from "medior/utils/client";
+import { CONSTANTS, duration } from "medior/utils/common";
 
 interface CarouselThumbProps {
   id: string;

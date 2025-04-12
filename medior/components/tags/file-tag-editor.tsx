@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { TagOption, tagToOption, observer, useStores } from "medior/store";
 import {
   Button,
   ConfirmModal,
@@ -10,8 +9,9 @@ import {
   Text,
   UniformList,
 } from "medior/components";
-import { colors, trpc, useDeepEffect } from "medior/utils";
-import { toast } from "react-toastify";
+import { observer, TagOption, tagToOption, useStores } from "medior/store";
+import { colors, toast, useDeepEffect } from "medior/utils/client";
+import { trpc } from "medior/utils/server";
 
 interface FileTagEditorProps {
   batchId?: string;

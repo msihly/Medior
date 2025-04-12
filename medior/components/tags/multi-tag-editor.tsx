@@ -1,8 +1,7 @@
 import { useState } from "react";
-import { TagOption, observer, useStores } from "medior/store";
 import { Button, ConfirmModal, Modal, TagInput, Text } from "medior/components";
-import { colors } from "medior/utils";
-import { toast } from "react-toastify";
+import { observer, TagOption, useStores } from "medior/store";
+import { colors, toast } from "medior/utils/client";
 
 export const MultiTagEditor = observer(() => {
   const stores = useStores();

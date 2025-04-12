@@ -1,5 +1,5 @@
-import { observer } from "medior/store";
 import { TagInput, TagInputProps } from "medior/components";
+import { observer } from "medior/store";
 
 interface RelationsProps extends Omit<TagInputProps, "label" | "onChange" | "ref"> {
   ancestryTagIds?: string[];
@@ -9,7 +9,9 @@ interface RelationsProps extends Omit<TagInputProps, "label" | "onChange" | "ref
 
 export const Relations = observer(
   ({
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     ancestryTagIds,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     ancestryType,
     options,
     setValue,

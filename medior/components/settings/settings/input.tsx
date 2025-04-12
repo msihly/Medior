@@ -1,6 +1,6 @@
-import { observer, useStores } from "medior/store";
 import { Input as InputBase, InputProps as InputBaseProps } from "medior/components";
-import { ConfigKey } from "medior/utils";
+import { observer, useStores } from "medior/store";
+import { ConfigKey } from "medior/utils/client";
 
 export interface InputProps extends InputBaseProps {
   configKey: ConfigKey;

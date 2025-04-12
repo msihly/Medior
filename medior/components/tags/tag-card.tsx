@@ -1,7 +1,7 @@
 import { ContextMenu, FileBase } from "medior/components";
-import { TagManagerTag, observer, useStores } from "medior/store";
-import { abbrevNum, colors, openSearchWindow } from "medior/utils";
-import { toast } from "react-toastify";
+import { observer, TagManagerTag, useStores } from "medior/store";
+import { colors, openSearchWindow, toast } from "medior/utils/client";
+import { abbrevNum } from "medior/utils/common";
 
 export interface TagCardProps {
   tag: TagManagerTag;

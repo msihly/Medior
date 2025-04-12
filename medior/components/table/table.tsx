@@ -1,15 +1,15 @@
 import React, { ReactNode, useMemo, useState } from "react";
 import {
-  Paper,
-  Table as MuiTable,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TablePagination,
-  TableRow,
+    Paper,
+    Table as MuiTable,
+    TableBody,
+    TableCell,
+    TableContainer,
+    TableHead,
+    TablePagination,
+    TableRow,
 } from "@mui/material";
-import { colors, makeClasses } from "medior/utils";
+import { colors, makeClasses } from "medior/utils/client";
 
 const MUI_TABLE_ROW_HEIGHT = 33;
 

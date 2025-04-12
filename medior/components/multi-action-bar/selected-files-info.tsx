@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { observer, useStores } from "medior/store";
 import { Chip, Detail, Tooltip, UniformList, View } from "medior/components";
-import { formatBytes, getIsVideo, trpc } from "medior/utils";
-import { toast } from "react-toastify";
+import { observer, useStores } from "medior/store";
+import { getIsVideo, toast } from "medior/utils/client";
+import { formatBytes } from "medior/utils/common";
+import { trpc } from "medior/utils/server";
 
 export const SelectedFilesInfo = observer(() => {
   const stores = useStores();

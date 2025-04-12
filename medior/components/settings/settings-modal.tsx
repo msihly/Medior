@@ -1,10 +1,11 @@
 import { dialog } from "@electron/remote";
 import { useEffect, useState } from "react";
-import { observer, SORT_OPTIONS, useStores } from "medior/store";
 import { Button, Card, ConfirmModal, Modal, Text, View } from "medior/components";
+import { observer, SORT_OPTIONS, useStores } from "medior/store";
+import { colors, loadConfig, saveConfig, toast } from "medior/utils/client";
+import { CONSTANTS } from "medior/utils/common";
+import { trpc } from "medior/utils/server";
 import { RepairModal, Settings } from ".";
-import { colors, CONSTANTS, loadConfig, saveConfig, trpc } from "medior/utils";
-import { toast } from "react-toastify";
 
 export const SettingsModal = observer(() => {
   const stores = useStores();

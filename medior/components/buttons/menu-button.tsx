@@ -1,8 +1,8 @@
 import { MouseEvent, ReactNode, useState } from "react";
 import { Menu } from "@mui/material";
 import { IconName } from "medior/components";
-import { IconButton, IconButtonProps } from ".";
-import { colors, CSS, makeClasses } from "medior/utils";
+import { IconButton, IconButtonProps } from "medior/components/buttons";
+import { colors, CSS, makeClasses } from "medior/utils/client";
 
 export interface MenuButtonProps extends IconButtonProps {
   bgColor?: CSS["backgroundColor"];

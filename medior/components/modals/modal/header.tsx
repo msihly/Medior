@@ -2,7 +2,7 @@ import { ReactNode } from "react";
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { DialogTitle } from "@mui/material";
 import { ConditionalWrap, UniformList, View } from "medior/components";
-import { CSS, makeClasses } from "medior/utils";
+import { CSS, makeClasses } from "medior/utils/client";
 
 interface HeaderProps {
   children: JSX.Element | JSX.Element[];

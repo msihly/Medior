@@ -1,5 +1,5 @@
 import { HeaderWrapper, HeaderWrapperProps, Text, View } from "medior/components";
-import { colors } from "medior/utils";
+import { colors } from "medior/utils/client";
 
 export type RangeWrapperProps = {
   endInput: JSX.Element;

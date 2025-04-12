@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
-import { observer, useStores } from "medior/store";
-import { Icon, IconButton, IconName, Text, View } from "medior/components";
-import { Input, InputProps } from "./input";
-import { colors, formatBytes, round, trpc } from "medior/utils";
 import { DiskSpace } from "check-disk-space";
+import { Icon, IconButton, IconName, Text, View } from "medior/components";
+import { observer, useStores } from "medior/store";
+import { colors } from "medior/utils/client";
+import { formatBytes, round } from "medior/utils/common";
+import { trpc } from "medior/utils/server";
+import { Input, InputProps } from "./input";
 
 interface Status {
   color: string;

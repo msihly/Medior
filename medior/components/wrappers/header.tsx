@@ -1,6 +1,7 @@
 import { ReactNode } from "react";
 import { ConditionalWrap, Text, View, ViewProps } from "medior/components";
-import { colors, deepMerge } from "medior/utils";
+import { colors } from "medior/utils/client";
+import { deepMerge } from "medior/utils/common";
 
 const DEFAULT_HEADER_PROPS: HeaderWrapperProps["headerProps"] = {
   bgColor: colors.custom.black,

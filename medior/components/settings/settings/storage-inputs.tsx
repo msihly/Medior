@@ -1,19 +1,13 @@
-import { basename } from "path";
 import { dialog } from "@electron/remote";
+import { basename } from "path";
 import { useState } from "react";
-import { filePathsToImports, observer, useStores } from "medior/store";
 import { CircularProgress } from "@mui/material";
 import { Button, Card, Divider, Modal, Text, UniformList, View } from "medior/components";
+import { filePathsToImports, observer, useStores } from "medior/store";
+import { colors, deleteFile, dirToFilePaths, getConfig } from "medior/utils/client";
+import { dayjs } from "medior/utils/common";
+import { makePerfLog, trpc } from "medior/utils/server";
 import { StorageInput } from "./storage-input";
-import {
-  colors,
-  dayjs,
-  deleteFile,
-  dirToFilePaths,
-  getConfig,
-  makePerfLog,
-  trpc,
-} from "medior/utils";
 
 export const StorageInputs = observer(() => {
   const stores = useStores();

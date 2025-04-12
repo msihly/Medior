@@ -1,7 +1,9 @@
-import { getRootStore, model, Model, modelAction, modelFlow, prop } from "mobx-keystone";
+import { getRootStore, Model, model, modelAction, modelFlow, prop } from "mobx-keystone";
+import { TagSchema } from "medior/server/database";
 import { asyncAction, RootStore, TagSearch } from "medior/store";
-import { TagSchema } from "medior/database";
-import { makeQueue, PromiseQueue, trpc } from "medior/utils";
+import { makeQueue } from "medior/utils/client";
+import { PromiseQueue } from "medior/utils/common";
+import { trpc } from "medior/utils/server";
 
 export type TagManagerMode = "create" | "edit" | "search";
 
@@ -12,7 +14,7 @@ export type TagManagerTag = {
   dateModified: string;
   id: string;
   label: string;
-  thumb: TagSchema["thumb"]
+  thumb: TagSchema["thumb"];
 };
 
 @model("medior/TagManagerStore")

@@ -7,7 +7,7 @@ import {
   NumInputProps,
   ViewProps,
 } from "medior/components";
-import { LOGICAL_OPS, LogicalOp } from "medior/utils";
+import { LOGICAL_OPS, LogicalOp } from "medior/utils/common";
 
 const LOG_OPS_OPTS = [
   { label: "Any", value: "" },

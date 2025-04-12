@@ -1,5 +1,5 @@
 import { IconName } from "medior/components";
-import { colors } from "medior/utils";
+import { colors } from "medior/utils/client";
 
 interface Status {
   color: string;

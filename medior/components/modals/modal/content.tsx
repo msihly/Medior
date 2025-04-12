@@ -2,7 +2,7 @@ import { ReactNode } from "react";
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { DialogContent } from "@mui/material";
 import { View, ViewProps } from "medior/components";
-import { CSS, makeClasses, Padding } from "medior/utils";
+import { CSS, makeClasses, Padding } from "medior/utils/client";
 
 interface ContentProps extends ViewProps {
   children: ReactNode | ReactNode[];
@@ -20,7 +20,6 @@ export const Content = ({
   overflow = "auto",
   padding,
   position = "relative",
-  spacing = "0.5rem",
   ...viewProps
 }: ContentProps) => {
   const { css } = useClasses(null);

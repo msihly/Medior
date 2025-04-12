@@ -1,10 +1,10 @@
 import {
-  // eslint-disable-next-line @typescript-eslint/no-restricted-imports
-  Pagination as PaginationBase,
-  PaginationProps as PaginationBaseProps,
+    // eslint-disable-next-line @typescript-eslint/no-restricted-imports
+    Pagination as PaginationBase,
+    PaginationProps as PaginationBaseProps,
 } from "@mui/material";
 import { LoadingOverlay, View } from "medior/components";
-import { colors, makeClasses } from "medior/utils";
+import { colors, makeClasses } from "medior/utils/client";
 
 export interface PaginationProps extends Omit<PaginationBaseProps, "onChange"> {
   isLoading?: boolean;

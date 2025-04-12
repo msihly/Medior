@@ -1,6 +1,6 @@
 import { ReactNode } from "react";
 import { View } from "medior/components";
-import { makeClasses } from "medior/utils";
+import { makeClasses } from "medior/utils/client";
 
 interface FooterProps {
   children?: ReactNode | ReactNode[];

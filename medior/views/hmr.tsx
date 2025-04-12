@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
-import { observer } from "medior/store";
 import { Card, View } from "medior/components";
-import { makeClasses } from "medior/utils";
+import { observer } from "medior/store";
+import { makeClasses } from "medior/utils/client";
 import { Views } from "./common";
 
 export const HMR = observer(() => {
@@ -31,6 +31,7 @@ export const HMR = observer(() => {
 
 const useClasses = makeClasses({
   root: {
+    padding: "0.5rem",
     height: "100vh",
     width: "100vw",
     overflow: "hidden",

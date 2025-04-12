@@ -1,8 +1,8 @@
 import { ReactNode } from "react";
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { Checkbox as MuiCheckbox, FormControlLabel } from "@mui/material";
-import { colors, CSS, makeClasses, makePadding, Padding } from "medior/utils";
 import Color from "color";
+import { colors, CSS, makeClasses, makePadding, Padding } from "medior/utils/client";
 
 export interface CheckboxProps {
   center?: boolean;

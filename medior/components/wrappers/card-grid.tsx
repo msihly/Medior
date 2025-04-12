@@ -1,6 +1,6 @@
 import { forwardRef, MutableRefObject, ReactNode } from "react";
 import { CenteredText, View, ViewProps } from "medior/components";
-import { CSS, makeClasses } from "medior/utils";
+import { CSS, makeClasses } from "medior/utils/client";
 
 export interface CardGridProps extends ViewProps {
   cards: ReactNode[];

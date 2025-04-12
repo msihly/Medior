@@ -1,6 +1,6 @@
 import { ReactNode } from "react";
 import { View, ViewProps } from "medior/components";
-import { CSS, makeClasses } from "medior/utils";
+import { CSS, makeClasses } from "medior/utils/client";
 
 export interface UniformListProps extends ViewProps {
   children: ReactNode | ReactNode[];

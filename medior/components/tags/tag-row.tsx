@@ -1,5 +1,5 @@
-import { observer, Tag } from "medior/store";
 import { TagChip, View } from "medior/components";
+import { observer, Tag } from "medior/store";
 
 export type TagRowProps = {
   disabled?: boolean;

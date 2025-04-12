@@ -6,16 +6,11 @@ import {
   useRef,
   useState,
 } from "react";
-import { FileCollectionSchema, FileSchema } from "medior/database";
+import { FileCollectionSchema, FileSchema } from "medior/_generated";
 import { Icon, View } from "medior/components";
-import {
-  colors,
-  CSS,
-  getScaledThumbSize,
-  makeClasses,
-  sleep,
-  useElementResize,
-} from "medior/utils";
+import { colors, CSS, makeClasses, useElementResize } from "medior/utils/client";
+import { sleep } from "medior/utils/common";
+import { getScaledThumbSize } from "medior/utils/server";
 
 const POS_INTERVAL = 300;
 
@@ -76,9 +71,7 @@ export const Image = ({
 
   const curThumb = thumbs?.[thumbIndex] ?? thumb;
   const isAnimated = curThumb?.frameHeight > 0 && curThumb?.frameWidth > 0;
-  const scaled = isAnimated
-    ? getScaledThumbSize(curThumb.frameWidth, curThumb.frameHeight)
-    : null;
+  const scaled = isAnimated ? getScaledThumbSize(curThumb.frameWidth, curThumb.frameHeight) : null;
   const videoPos = isAnimated ? VIDEO_POSITIONS[videoPosIndex] : null;
 
   const containerRef = useRef<HTMLDivElement>(null);

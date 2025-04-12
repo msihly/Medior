@@ -1,34 +1,19 @@
-import path from "path";
 import { shell } from "@electron/remote";
+import path from "path";
 import { ReactNode } from "react";
-import { FileSchema } from "medior/database";
-import { observer, useStores } from "medior/store";
+import { FileSchema } from "medior/_generated";
 import { ContextMenu as ContextMenuBase, ViewProps } from "medior/components";
-import { colors, copyToClipboard, getIsRemuxable } from "medior/utils";
-
-const DEFAULT_OPTIONS = {
-  collections: true,
-  copy: true,
-  delete: true,
-  faceRecognition: true,
-  info: true,
-  openInExplorer: true,
-  openNatively: true,
-};
-
-type Options = Partial<typeof DEFAULT_OPTIONS>;
+import { observer, useStores } from "medior/store";
+import { colors, copyToClipboard, getIsRemuxable } from "medior/utils/client";
 
 export interface ContextMenuProps extends ViewProps {
   children?: ReactNode | ReactNode[];
   disabled?: boolean;
   file: FileSchema;
-  options?: Options;
 }
 
 export const ContextMenu = observer(
-  ({ children, disabled, file, options = {}, ...props }: ContextMenuProps) => {
-    options = { ...DEFAULT_OPTIONS, ...options };
-
+  ({ children, file, ...props }: ContextMenuProps) => {
     const stores = useStores();
 
     const isRemuxable = getIsRemuxable(file.ext);

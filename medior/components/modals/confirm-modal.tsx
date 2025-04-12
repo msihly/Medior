@@ -1,6 +1,6 @@
 import { Dispatch, SetStateAction, useState } from "react";
 import { Button, Icon, IconName, Modal, Text } from "medior/components";
-import { colors } from "medior/utils";
+import { colors } from "medior/utils/client";
 
 export interface ConfirmModalProps {
   cancelColor?: string;

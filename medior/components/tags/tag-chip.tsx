@@ -1,7 +1,8 @@
-import { Tag as TagType, observer, useStores } from "medior/store";
-import { Chip, ChipProps, Text, View } from "medior/components";
-import { abbrevNum, colors, makeClasses } from "medior/utils";
 import Color from "color";
+import { Chip, ChipProps, Text, View } from "medior/components";
+import { observer, Tag as TagType, useStores } from "medior/store";
+import { colors, makeClasses } from "medior/utils/client";
+import { abbrevNum, } from "medior/utils/common";
 
 const HEIGHT_MEDIUM = 32;
 const HEIGHT_SMALL = 26;

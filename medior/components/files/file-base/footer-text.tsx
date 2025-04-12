@@ -1,5 +1,5 @@
 import { Text } from "medior/components";
-import { makeClasses } from "medior/utils";
+import { makeClasses } from "medior/utils/client";
 
 interface FooterTextProps {
   noTooltip?: boolean;
