@@ -1,15 +1,16 @@
 import {
   Card,
   CardGrid,
+  Comp,
   FileFilterMenu,
   FileSearchFile,
   Pagination,
   View,
 } from "medior/components";
-import { observer, useStores } from "medior/store";
+import { useStores } from "medior/store";
 import { colors } from "medior/utils/client";
 
-export const FileSearchColumn = observer(() => {
+export const FileSearchColumn = Comp(() => {
   const stores = useStores();
 
   const handlePageChange = (page: number) =>

@@ -3,6 +3,7 @@ import {
   Button,
   Card,
   CenteredText,
+  Comp,
   IconButton,
   ImportBatch,
   Modal,
@@ -10,12 +11,12 @@ import {
   UniformList,
   View,
 } from "medior/components";
-import { observer, useStores } from "medior/store";
+import { useStores } from "medior/store";
 import { colors, toast } from "medior/utils/client";
 
 const PAGE_SIZE = 20;
 
-export const ImportManager = observer(() => {
+export const ImportManager = Comp(() => {
   const stores = useStores();
 
   const [activeType, setActiveType] = useState<"completed" | "pending">("pending");
@@ -106,7 +107,7 @@ interface DeleteToggleButtonProps {
   type: "completed" | "pending";
 }
 
-const DeleteToggleButton = observer(({ type }: DeleteToggleButtonProps) => {
+const DeleteToggleButton = Comp(({ type }: DeleteToggleButtonProps) => {
   const stores = useStores();
 
   const [isConfirmDeleteAllOpen, setIsConfirmDeleteAllOpen] = useState(false);

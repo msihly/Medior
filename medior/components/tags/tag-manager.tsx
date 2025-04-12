@@ -5,6 +5,7 @@ import {
   Card,
   CardGrid,
   Chip,
+  Comp,
   Modal,
   MultiActionButton,
   Pagination,
@@ -14,10 +15,10 @@ import {
   UniformList,
   View,
 } from "medior/components";
-import { observer, useStores } from "medior/store";
+import { useStores } from "medior/store";
 import { colors, openSearchWindow, toast, useDeepEffect } from "medior/utils/client";
 
-export const TagManager = observer(() => {
+export const TagManager = Comp(() => {
   const stores = useStores();
 
   const hasNoSelection = stores.tag.manager.search.selectedIds.length === 0;

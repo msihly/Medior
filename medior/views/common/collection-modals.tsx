@@ -1,11 +1,12 @@
-import { observer, useStores } from "medior/store";
 import {
+  Comp,
   DeleteCollectionModal,
   FileCollectionEditor,
   FileCollectionManager,
 } from "medior/components";
+import { useStores } from "medior/store";
 
-export const CollectionModals = observer(() => {
+export const CollectionModals = Comp(() => {
   const stores = useStores();
 
   return (

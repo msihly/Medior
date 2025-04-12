@@ -1,11 +1,11 @@
-import { observer, useStores } from "medior/store";
-import { FileTagEditor, MultiTagEditor, TagEditor, TagManager, TagMerger } from "medior/components";
+import { Comp, FileTagEditor, MultiTagEditor, TagEditor, TagManager, TagMerger } from "medior/components";
+import { useStores } from "medior/store";
 
 interface TagModalsProps {
   view: "carousel" | "home" | "search";
 }
 
-export const TagModals = observer(({ view }: TagModalsProps) => {
+export const TagModals = Comp(({ view }: TagModalsProps) => {
   const stores = useStores();
 
   return (

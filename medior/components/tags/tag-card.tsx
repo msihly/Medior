@@ -1,5 +1,5 @@
-import { ContextMenu, FileBase } from "medior/components";
-import { observer, TagManagerTag, useStores } from "medior/store";
+import { Comp, ContextMenu, FileBase } from "medior/components";
+import { TagManagerTag, useStores } from "medior/store";
 import { colors, openSearchWindow, toast } from "medior/utils/client";
 import { abbrevNum } from "medior/utils/common";
 
@@ -7,7 +7,7 @@ export interface TagCardProps {
   tag: TagManagerTag;
 }
 
-export const TagCard = observer(({ tag }: TagCardProps) => {
+export const TagCard = Comp(({ tag }: TagCardProps) => {
   const stores = useStores();
 
   const handleClick = async (event: React.MouseEvent) => {

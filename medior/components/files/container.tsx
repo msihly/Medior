@@ -1,12 +1,12 @@
 import { useEffect, useRef } from "react";
-import { CardGrid, Pagination } from "medior/components";
-import { observer, useStores } from "medior/store";
+import { CardGrid, Comp, Pagination } from "medior/components";
+import { useStores } from "medior/store";
 import { colors } from "medior/utils/client";
 import { socket } from "medior/utils/server";
 import { useHotkeys } from "medior/views";
 import { FileCard } from ".";
 
-export const FileContainer = observer(() => {
+export const FileContainer = Comp(() => {
   const stores = useStores();
 
   const filesRef = useRef<HTMLDivElement>(null);

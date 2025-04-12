@@ -3,6 +3,7 @@ import {
   Button,
   Card,
   CardGrid,
+  Comp,
   ConfirmModal,
   FileCollectionFile,
   FileSearchColumn,
@@ -19,11 +20,11 @@ import {
   Text,
   View,
 } from "medior/components";
-import { observer, SORT_OPTIONS, useStores } from "medior/store";
+import { SORT_OPTIONS, useStores } from "medior/store";
 import { colors, toast } from "medior/utils/client";
 import { useHotkeys } from "medior/views";
 
-export const FileCollectionEditor = observer(() => {
+export const FileCollectionEditor = Comp(() => {
   const stores = useStores();
 
   const { handleKeyPress } = useHotkeys({ view: "home" });

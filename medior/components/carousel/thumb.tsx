@@ -1,5 +1,5 @@
-import { FileBase } from "medior/components";
-import { observer, useStores } from "medior/store";
+import { Comp, FileBase } from "medior/components";
+import { useStores } from "medior/store";
 import { colors } from "medior/utils/client";
 import { CONSTANTS, duration } from "medior/utils/common";
 
@@ -9,7 +9,7 @@ interface CarouselThumbProps {
   style: React.CSSProperties;
 }
 
-export const CarouselThumb = observer(({ id, isDragging = false, style }: CarouselThumbProps) => {
+export const CarouselThumb = Comp(({ id, isDragging = false, style }: CarouselThumbProps) => {
   const stores = useStores();
   const file = stores.file.getById(id);
 

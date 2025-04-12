@@ -9,13 +9,14 @@ import {
   Checkbox,
   CheckboxProps,
   Chip,
+  Comp,
   ConfirmModal,
   Modal,
   NumInput,
   Text,
   View,
 } from "medior/components";
-import { FileImport, observer, RootStore, Tag, useStores } from "medior/store";
+import { FileImport, RootStore, Tag, useStores } from "medior/store";
 import { colors, getConfig, makeClasses, toast } from "medior/utils/client";
 import { commas, parseDiffParams } from "medior/utils/common";
 import { makePerfLog } from "medior/utils/server";
@@ -106,7 +107,7 @@ class EditorImportsCache {
   }
 }
 
-export const ImportEditor = observer(() => {
+export const ImportEditor = Comp(() => {
   const config = getConfig();
 
   const { css } = useClasses(null);

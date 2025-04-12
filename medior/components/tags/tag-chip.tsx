@@ -1,6 +1,6 @@
 import Color from "color";
-import { Chip, ChipProps, Text, View } from "medior/components";
-import { observer, Tag as TagType, useStores } from "medior/store";
+import { Chip, ChipProps, Comp, Text, View } from "medior/components";
+import { Tag as TagType, useStores } from "medior/store";
 import { colors, makeClasses } from "medior/utils/client";
 import { abbrevNum, } from "medior/utils/common";
 
@@ -15,7 +15,7 @@ export interface TagChipProps extends Omit<ChipProps, "color" | "label" | "onCha
   tag?: TagType;
 }
 
-export const TagChip = observer(
+export const TagChip = Comp(
   ({
     className,
     color = colors.custom.blue,

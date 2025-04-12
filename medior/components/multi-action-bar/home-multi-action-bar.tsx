@@ -1,11 +1,11 @@
 import { AppBar } from "@mui/material";
-import { Chip, FileFilterMenu, View } from "medior/components";
-import { observer, useStores } from "medior/store";
+import { Chip, Comp, FileFilterMenu, View } from "medior/components";
+import { useStores } from "medior/store";
 import { colors, makeClasses, toast } from "medior/utils/client";
 import { CONSTANTS } from "medior/utils/common";
 import { MultiActionButton, SelectedFilesInfo } from ".";
 
-export const HomeMultiActionBar = observer(() => {
+export const HomeMultiActionBar = Comp(() => {
   const stores = useStores();
   const { css } = useClasses(null);
 

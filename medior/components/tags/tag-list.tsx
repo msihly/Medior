@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { FixedSizeList } from "react-window";
-import { MultiInputList, MultiInputListProps, TagInputRow, ViewProps } from "medior/components";
-import { observer, TagOption, useStores } from "medior/store";
+import { Comp, MultiInputList, MultiInputListProps, TagInputRow, ViewProps } from "medior/components";
+import { TagOption, useStores } from "medior/store";
 import { socket } from "medior/utils/server";
 
 export interface TagListProps extends MultiInputListProps<TagOption> {
@@ -12,7 +12,7 @@ export interface TagListProps extends MultiInputListProps<TagOption> {
   viewProps?: Partial<ViewProps>;
 }
 
-export const TagList = observer(
+export const TagList = Comp(
   ({ hasDelete, hasEditor, hasInput, hasSearchMenu, search }: TagListProps) => {
     const stores = useStores();
 

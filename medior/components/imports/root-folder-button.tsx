@@ -1,7 +1,7 @@
 import { Fragment } from "react";
 import Color from "color";
-import { Button, Text } from "medior/components";
-import { observer, useStores } from "medior/store";
+import { Button, Comp, Text } from "medior/components";
+import { useStores } from "medior/store";
 import { colors } from "medior/utils/client";
 
 export interface RootFolderButtonProps {
@@ -9,7 +9,7 @@ export interface RootFolderButtonProps {
   index: number;
 }
 
-export const RootFolderButton = observer(({ folderPart, index }: RootFolderButtonProps) => {
+export const RootFolderButton = Comp(({ folderPart, index }: RootFolderButtonProps) => {
   const stores = useStores();
 
   const isSelected = stores.import.editor.rootFolderIndex === index;

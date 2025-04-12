@@ -5,6 +5,7 @@ import {
   Button,
   Card,
   Checkbox,
+  Comp,
   ConfirmModal,
   IconButton,
   IdButton,
@@ -13,7 +14,7 @@ import {
   Text,
   View,
 } from "medior/components";
-import { observer, TagOption, useStores } from "medior/store";
+import { TagOption, useStores } from "medior/store";
 import { colors, openSearchWindow, toast, useDeepEffect, useDeepMemo } from "medior/utils/client";
 import { TagInputs } from ".";
 
@@ -23,7 +24,7 @@ export interface TagEditorProps {
   isSubEditor?: boolean;
 }
 
-export const TagEditor = observer(
+export const TagEditor = Comp(
   ({ hasSubEditor = false, id, isSubEditor = false }: TagEditorProps) => {
     const labelRef = useRef<HTMLDivElement>(null);
 

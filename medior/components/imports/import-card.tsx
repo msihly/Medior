@@ -1,6 +1,6 @@
 import { shell } from "@electron/remote";
-import { FileBase, Icon, Text, TooltipWrapper, View, ViewProps } from "medior/components";
-import { FileImport, observer } from "medior/store";
+import { Comp, FileBase, Icon, Text, TooltipWrapper, View, ViewProps } from "medior/components";
+import { FileImport } from "medior/store";
 import { colors, makeClasses, openCarouselWindow } from "medior/utils/client";
 import { trpc } from "medior/utils/server";
 import { IMPORT_STATUSES } from ".";
@@ -12,7 +12,7 @@ export interface ImportCardProps {
   style?: ViewProps["style"];
 }
 
-export const ImportCard = observer(({ fileImport, style }: ImportCardProps) => {
+export const ImportCard = Comp(({ fileImport, style }: ImportCardProps) => {
   const { css } = useClasses(null);
 
   const hasFileId = fileImport.fileId?.length > 0;

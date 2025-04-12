@@ -1,8 +1,8 @@
 import { useMemo } from "react";
 import { InputAdornment } from "@mui/material";
 import { TagSchema } from "medior/server/database";
-import { Button, Input, InputProps, View } from "medior/components";
-import { observer, Tag, useStores } from "medior/store";
+import { Button, Comp, Input, InputProps, View } from "medior/components";
+import { Tag, useStores } from "medior/store";
 import { colors, makeClasses } from "medior/utils/client";
 
 export interface RegExMapRowProps {
@@ -17,7 +17,7 @@ export interface RegExMapRowProps {
   types: TagSchema["regExMap"]["types"];
 }
 
-export const RegExMapRow = observer(
+export const RegExMapRow = Comp(
   ({
     aliases,
     disabled = false,

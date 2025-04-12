@@ -1,7 +1,7 @@
-import { ConfirmModal } from "medior/components";
-import { observer, useStores } from "medior/store";
+import { Comp, ConfirmModal } from "medior/components";
+import { useStores } from "medior/store";
 
-export const DeleteCollectionModal = observer(() => {
+export const DeleteCollectionModal = Comp(() => {
   const stores = useStores();
 
   const handleConfirmDelete = async () => (await stores.collection.editor.confirmDelete())?.success;

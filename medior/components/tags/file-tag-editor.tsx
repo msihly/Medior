@@ -1,6 +1,7 @@
 import { useState } from "react";
 import {
   Button,
+  Comp,
   ConfirmModal,
   HeaderWrapper,
   Modal,
@@ -9,7 +10,7 @@ import {
   Text,
   UniformList,
 } from "medior/components";
-import { observer, TagOption, tagToOption, useStores } from "medior/store";
+import { TagOption, tagToOption, useStores } from "medior/store";
 import { colors, toast, useDeepEffect } from "medior/utils/client";
 import { trpc } from "medior/utils/server";
 
@@ -18,7 +19,7 @@ interface FileTagEditorProps {
   fileIds: string[];
 }
 
-export const FileTagEditor = observer(({ batchId, fileIds }: FileTagEditorProps) => {
+export const FileTagEditor = Comp(({ batchId, fileIds }: FileTagEditorProps) => {
   const stores = useStores();
 
   const [addedTags, setAddedTags] = useState<TagOption[]>([]);

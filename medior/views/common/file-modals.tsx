@@ -1,7 +1,7 @@
-import { observer, useStores } from "medior/store";
-import { ConfirmModal, FaceRecognitionModal, InfoModal } from "medior/components";
+import { Comp, ConfirmModal, FaceRecognitionModal, InfoModal } from "medior/components";
+import { useStores } from "medior/store";
 
-export const FileModals = observer(() => {
+export const FileModals = Comp(() => {
   const stores = useStores();
 
   const handleDeleteFilesConfirm = async () => (await stores.file.deleteFiles()).success;

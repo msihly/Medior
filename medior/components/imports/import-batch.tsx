@@ -2,8 +2,8 @@ import path from "path";
 import { useState } from "react";
 import { LinearProgress } from "@mui/material";
 import Color from "color";
-import { Icon, IconButton, Text, View } from "medior/components";
-import { FileImportBatch, observer, useStores } from "medior/store";
+import { Comp, Icon, IconButton, Text, View } from "medior/components";
+import { FileImportBatch, useStores } from "medior/store";
 import { colors, makeClasses, toast } from "medior/utils/client";
 import { BatchTooltip, IMPORT_STATUSES, ImportCardRow } from ".";
 
@@ -11,7 +11,7 @@ interface ImportBatchProps {
   batch: FileImportBatch;
 }
 
-export const ImportBatch = observer(({ batch }: ImportBatchProps) => {
+export const ImportBatch = Comp(({ batch }: ImportBatchProps) => {
   const stores = useStores();
 
   const index = stores.import.manager.batches.findIndex((b) => b.id === batch.id);
@@ -132,7 +132,7 @@ export const ImportBatch = observer(({ batch }: ImportBatchProps) => {
 });
 
 /*
-const ImportStats = observer(() => {
+const ImportStats = Comp(() => {
   const { css } = useClasses(null);
 
   const stores = useStores();

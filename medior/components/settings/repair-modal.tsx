@@ -1,13 +1,13 @@
 import { shell } from "@electron/remote";
 import { useRef, useState } from "react";
 import { CircularProgress } from "@mui/material";
-import { Button, Card, Checkbox, Modal, Text, UniformList, View } from "medior/components";
-import { observer, useStores } from "medior/store";
+import { Button, Card, Checkbox, Comp, Modal, Text, UniformList, View } from "medior/components";
+import { useStores } from "medior/store";
 import { colors, makeQueue } from "medior/utils/client";
 import { dayjs, PromiseQueue } from "medior/utils/common";
 import { getLogsPath, getVideoInfo, trpc } from "medior/utils/server";
 
-export const RepairModal = observer(() => {
+export const RepairModal = Comp(() => {
   const stores = useStores();
 
   const [isCollTagsChecked, setIsCollTagsChecked] = useState(false);

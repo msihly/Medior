@@ -4,19 +4,20 @@ import {
   Button,
   Card,
   CenteredText,
+  Comp,
   FileBase,
   Modal,
   TagInput,
   Text,
   View,
 } from "medior/components";
-import { FaceModel, observer, useStores } from "medior/store";
+import { FaceModel, useStores } from "medior/store";
 import { colors, makeClasses, toast, useElementResize } from "medior/utils/client";
 import { FaceBox } from ".";
 
 type FaceModelWithImage = { dataUrl: string; faceModel: FaceModel };
 
-export const FaceRecognitionModal = observer(() => {
+export const FaceRecognitionModal = Comp(() => {
   const { css } = useClasses(null);
 
   const stores = useStores();

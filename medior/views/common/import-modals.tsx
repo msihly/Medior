@@ -1,7 +1,7 @@
-import { observer, useStores } from "medior/store";
-import { ImportEditor, ImportManager } from "medior/components";
+import { Comp, ImportEditor, ImportManager } from "medior/components";
+import { useStores } from "medior/store";
 
-export const ImportModals = observer(() => {
+export const ImportModals = Comp(() => {
   const stores = useStores();
 
   return (

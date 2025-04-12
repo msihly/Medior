@@ -1,10 +1,9 @@
 import { useEffect, useState } from "react";
-import { Card, View } from "medior/components";
-import { observer } from "medior/store";
+import { Card, Comp, View } from "medior/components";
 import { makeClasses } from "medior/utils/client";
 import { Views } from "./common";
 
-export const HMR = observer(() => {
+export const HMR = Comp(() => {
   const { css } = useClasses(null);
 
   const [isLoading, setIsLoading] = useState(true);

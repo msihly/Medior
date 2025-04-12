@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Menu } from "@mui/material";
 import {
   Button,
+  Comp,
   IconName,
   ListItem,
   MultiInputRow,
@@ -9,7 +10,7 @@ import {
   Text,
   View,
 } from "medior/components";
-import { observer, SearchTagType, TagOption, useStores } from "medior/store";
+import { SearchTagType, TagOption, useStores } from "medior/store";
 import { colors, makeClasses } from "medior/utils/client";
 import { abbrevNum, } from "medior/utils/common";
 
@@ -49,7 +50,7 @@ export interface TagInputRowProps extends Omit<MultiInputRowProps<TagOption>, "v
   tag: TagOption;
 }
 
-export const TagInputRow = observer(
+export const TagInputRow = Comp(
   ({ hasDelete, hasEditor, hasSearchMenu, onClick, search, style, tag }: TagInputRowProps) => {
     const stores = useStores();
 

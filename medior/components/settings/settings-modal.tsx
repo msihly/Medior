@@ -1,13 +1,13 @@
 import { dialog } from "@electron/remote";
 import { useEffect, useState } from "react";
-import { Button, Card, ConfirmModal, Modal, Text, View } from "medior/components";
-import { observer, SORT_OPTIONS, useStores } from "medior/store";
+import { Button, Card, Comp, ConfirmModal, Modal, Text, View } from "medior/components";
+import { SORT_OPTIONS, useStores } from "medior/store";
 import { colors, loadConfig, saveConfig, toast } from "medior/utils/client";
 import { CONSTANTS } from "medior/utils/common";
 import { trpc } from "medior/utils/server";
 import { RepairModal, Settings } from ".";
 
-export const SettingsModal = observer(() => {
+export const SettingsModal = Comp(() => {
   const stores = useStores();
 
   const [isConfirmDiscardOpen, setIsConfirmDiscardOpen] = useState(false);

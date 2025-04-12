@@ -1,6 +1,6 @@
 import { Drawer as MuiDrawer } from "@mui/material";
-import { IconButton, TooltipProps, View } from "medior/components";
-import { observer, useStores } from "medior/store";
+import { Comp, IconButton, TooltipProps, View } from "medior/components";
+import { useStores } from "medior/store";
 import { colors, makeClasses, openSearchWindow } from "medior/utils/client";
 import { CONSTANTS } from "medior/utils/common";
 
@@ -9,7 +9,7 @@ export interface DrawerProps {
   hasSettings?: boolean;
 }
 
-export const Drawer = observer(({ hasImports = false, hasSettings = false }: DrawerProps) => {
+export const Drawer = Comp(({ hasImports = false, hasSettings = false }: DrawerProps) => {
   const { css } = useClasses(null);
 
   const stores = useStores();

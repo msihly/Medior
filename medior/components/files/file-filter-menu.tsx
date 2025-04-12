@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import {
   Card,
   Checkbox,
+  Comp,
   DateRange,
   FilterMenu,
   Input,
@@ -10,7 +11,7 @@ import {
   TagInput,
   View,
 } from "medior/components";
-import { FileSearch, observer, SORT_OPTIONS, TagOption } from "medior/store";
+import { FileSearch, SORT_OPTIONS, TagOption } from "medior/store";
 import { colors, getConfig, useDeepMemo } from "medior/utils/client";
 import { ImageType, LogicalOp, VideoType } from "medior/utils/common";
 
@@ -19,7 +20,7 @@ export interface FileFilterMenuProps {
   store: FileSearch;
 }
 
-export const FileFilterMenu = observer(
+export const FileFilterMenu = Comp(
   ({ color = colors.foreground, store }: FileFilterMenuProps) => {
     const tags = useDeepMemo(store.tags);
 
@@ -193,7 +194,7 @@ interface ExtCheckboxProps {
   type: "Image" | "Video";
 }
 
-const ExtCheckbox = observer(({ ext, label = null, store, type }: ExtCheckboxProps) => {
+const ExtCheckbox = Comp(({ ext, label = null, store, type }: ExtCheckboxProps) => {
   return (
     <Checkbox
       label={label || ext}
@@ -212,7 +213,7 @@ interface ExtColumnProps {
   type: "Image" | "Video";
 }
 
-const ExtColumn = observer(({ store, type }: ExtColumnProps) => {
+const ExtColumn = Comp(({ store, type }: ExtColumnProps) => {
   const config = getConfig();
 
   const configTypes: ExtCheckboxProps["ext"][] =

@@ -1,5 +1,5 @@
-import { View } from "medior/components";
-import { FaceModel, observer } from "medior/store";
+import { Comp, View } from "medior/components";
+import { FaceModel } from "medior/store";
 import { makeClasses } from "medior/utils/client";
 
 export interface FaceBoxProps {
@@ -10,7 +10,7 @@ export interface FaceBoxProps {
   widthScale: number;
 }
 
-export const FaceBox = observer(
+export const FaceBox = Comp(
   ({ face, heightScale, offsetLeft, offsetTop, widthScale }: FaceBoxProps) => {
     const { css } = useClasses({ face, heightScale, offsetLeft, offsetTop, widthScale });
 

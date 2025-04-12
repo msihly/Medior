@@ -1,6 +1,7 @@
 import { FileSchema } from "medior/server/database";
 import {
   Card,
+  Comp,
   DateDetail,
   Detail,
   Icon,
@@ -10,7 +11,6 @@ import {
   UniformList,
   View,
 } from "medior/components";
-import { observer } from "medior/store";
 import { colors } from "medior/utils/client";
 import { formatBytes } from "medior/utils/common";
 
@@ -20,7 +20,7 @@ interface TooltipProps {
   file: FileSchema;
 }
 
-export const Tooltip = observer(({ children, disabled, file }: TooltipProps) => {
+export const Tooltip = Comp(({ children, disabled, file }: TooltipProps) => {
   return (
     <TooltipBase
       enterDelay={700}

@@ -1,7 +1,7 @@
 import { CSSProperties } from "react";
 import { FileSchema } from "medior/_generated";
-import { Button, FileBase } from "medior/components";
-import { observer, useStores } from "medior/store";
+import { Button, Comp, FileBase } from "medior/components";
+import { useStores } from "medior/store";
 import { colors, getIsAnimated } from "medior/utils/client";
 import { duration } from "medior/utils/common";
 
@@ -11,7 +11,7 @@ export interface FileSearchFileProps {
   height?: CSSProperties["height"];
 }
 
-export const FileSearchFile = observer(
+export const FileSearchFile = Comp(
   ({ disabled, file, height = "14rem" }: FileSearchFileProps) => {
     const stores = useStores();
 

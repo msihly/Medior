@@ -3,18 +3,19 @@ import AutoSizer from "react-virtualized-auto-sizer";
 import { VariableSizeList } from "react-window";
 import {
   Card,
+  Comp,
   FlatFolderHierarchy,
   getImportFolderHeight,
   ImportFolderList,
   View,
 } from "medior/components";
-import { observer, useStores } from "medior/store";
+import { useStores } from "medior/store";
 
 export interface ImportFoldersListProps {
   flatFolderHierarchy: FlatFolderHierarchy;
 }
 
-export const ImportFoldersList = observer(({ flatFolderHierarchy }: ImportFoldersListProps) => {
+export const ImportFoldersList = Comp(({ flatFolderHierarchy }: ImportFoldersListProps) => {
   const stores = useStores();
 
   const listRef = useRef<VariableSizeList>();

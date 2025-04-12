@@ -3,13 +3,13 @@ import { OnProgressProps } from "react-player/base";
 import ReactPlayer from "react-player/file";
 import FilePlayer from "react-player/file";
 import Panzoom, { PanzoomOptions } from "@panzoom/panzoom";
-import { FileBase, LoadingOverlay, VideoControls, View } from "medior/components";
-import { observer, useStores } from "medior/store";
+import { Comp, FileBase, LoadingOverlay, VideoControls, View } from "medior/components";
+import { useStores } from "medior/store";
 import { makeClasses } from "medior/utils/client";
 import { CONSTANTS, round } from "medior/utils/common";
 import { VideoContext, ZoomContext } from "medior/views";
 
-export const Carousel = observer(
+export const Carousel = Comp(
   forwardRef((_, videoRef: MutableRefObject<FilePlayer>) => {
     const { css } = useClasses(null);
 

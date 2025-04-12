@@ -2,12 +2,12 @@ import { useEffect, useRef, useState } from "react";
 import AutoSizer from "react-virtualized-auto-sizer";
 import { FixedSizeList, ListOnScrollProps } from "react-window";
 import Color from "color";
-import { CarouselThumb, IconButton, View } from "medior/components";
-import { observer, useStores } from "medior/store";
+import { CarouselThumb, Comp, IconButton, View } from "medior/components";
+import { useStores } from "medior/store";
 import { makeClasses, useDragScroll } from "medior/utils/client";
 import { CONSTANTS } from "medior/utils/common";
 
-export const CarouselThumbNavigator = observer(() => {
+export const CarouselThumbNavigator = Comp(() => {
   const stores = useStores();
 
   const listRef = useRef<FixedSizeList>(null);

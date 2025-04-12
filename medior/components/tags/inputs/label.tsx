@@ -1,6 +1,6 @@
-import { forwardRef,MutableRefObject } from "react";
-import { Button, InputProps, TagInput, TagInputProps, Text, View } from "medior/components";
-import { observer, useStores } from "medior/store";
+import { forwardRef, MutableRefObject } from "react";
+import { Button, Comp, InputProps, TagInput, TagInputProps, Text, View } from "medior/components";
+import { useStores } from "medior/store";
 
 interface LabelProps extends Omit<TagInputProps, "ref" | "value"> {
   inputProps?: Partial<InputProps>;
@@ -9,7 +9,7 @@ interface LabelProps extends Omit<TagInputProps, "ref" | "value"> {
   value: string;
 }
 
-export const Label = observer(
+export const Label = Comp(
   forwardRef(
     (
       {

@@ -3,6 +3,7 @@ import { Divider } from "@mui/material";
 import { ModelCreationData } from "mobx-keystone";
 import {
   Chip,
+  Comp,
   Detail,
   IconName,
   TagRow,
@@ -11,7 +12,7 @@ import {
   UniformList,
   View,
 } from "medior/components";
-import { FileImport, observer } from "medior/store";
+import { FileImport } from "medior/store";
 import { colors, makeClasses, } from "medior/utils/client";
 import { formatBytes, parseDiffParams } from "medior/utils/common";
 import { TagHierarchy } from ".";
@@ -24,7 +25,7 @@ export interface ImportListItemProps {
   style?: React.CSSProperties;
 }
 
-export const ImportListItem = observer(
+export const ImportListItem = Comp(
   ({ bgColor, fileImport, style = {} }: ImportListItemProps) => {
     const { css } = useClasses(null);
 

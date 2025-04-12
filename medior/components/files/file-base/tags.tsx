@@ -1,12 +1,12 @@
-import { TagChip, View } from "medior/components";
-import { observer, useStores } from "medior/store";
+import { Comp, TagChip, View } from "medior/components";
+import { useStores } from "medior/store";
 import { makeClasses } from "medior/utils/client";
 
 interface TagsProps {
   tagIds: string[];
 }
 
-export const Tags = observer(({ tagIds }: TagsProps) => {
+export const Tags = Comp(({ tagIds }: TagsProps) => {
   const { css } = useClasses(null);
 
   const stores = useStores();

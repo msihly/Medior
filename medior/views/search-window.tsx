@@ -1,11 +1,11 @@
 import { ipcRenderer } from "electron";
 import { useEffect } from "react";
-import { observer, useStores } from "medior/store";
-import { View } from "medior/components";
+import { Comp, View } from "medior/components";
+import { useStores } from "medior/store";
 import { makeClasses } from "medior/utils/client";
 import { useSockets, Views } from "./common";
 
-export const SearchWindow = observer(() => {
+export const SearchWindow = Comp(() => {
   const stores = useStores();
 
   const { css } = useClasses({ isDrawerOpen: stores.home.isDrawerOpen });

@@ -1,5 +1,5 @@
-import { Icon, Text, View } from "medior/components";
-import { observer, useStores } from "medior/store";
+import { Comp, Icon, Text, View } from "medior/components";
+import { useStores } from "medior/store";
 import { colors, makeClasses } from "medior/utils/client";
 import { TagToUpsert } from ".";
 
@@ -18,7 +18,7 @@ export const TagHierarchy = ({ className, tag }: TagHierarchyProps) => {
   );
 };
 
-const TagLevel = observer(({ tag }: TagHierarchyProps) => {
+const TagLevel = Comp(({ tag }: TagHierarchyProps) => {
   const { css } = useClasses({ hasId: !!tag.id });
 
   const stores = useStores();

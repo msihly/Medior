@@ -1,5 +1,5 @@
-import { Checkbox as CheckboxBase, CheckboxProps as CheckboxBaseProps } from "medior/components";
-import { observer, useStores } from "medior/store";
+import { Checkbox as CheckboxBase, CheckboxProps as CheckboxBaseProps, Comp } from "medior/components";
+import { useStores } from "medior/store";
 import { ConfigKey } from "medior/utils/client";
 
 export interface CheckboxProps extends Omit<CheckboxBaseProps, "checked" | "setChecked"> {
@@ -9,7 +9,7 @@ export interface CheckboxProps extends Omit<CheckboxBaseProps, "checked" | "setC
   setChecked?: (checked: boolean) => void;
 }
 
-export const Checkbox = observer(({ checked, configKey, onChange, ...props }: CheckboxProps) => {
+export const Checkbox = Comp(({ checked, configKey, onChange, ...props }: CheckboxProps) => {
   const stores = useStores();
 
   checked = checked ?? stores.home.settings.getConfigByKey<boolean>(configKey);

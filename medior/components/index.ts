@@ -1,3 +1,6 @@
+import { Comp } from "./comp";
+export { Comp };
+
 export * from "./buttons";
 export * from "./carousel";
 export * from "./drawer";

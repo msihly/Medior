@@ -1,5 +1,5 @@
-import { FileBase } from "medior/components";
-import { File, observer, useStores } from "medior/store";
+import { Comp, FileBase } from "medior/components";
+import { File, useStores } from "medior/store";
 import { colors, CSS, openCarouselWindow, toast } from "medior/utils/client";
 import { duration } from "medior/utils/common";
 
@@ -10,7 +10,7 @@ export interface FileCollectionFileProps {
   width?: CSS["width"];
 }
 
-export const FileCollectionFile = observer(
+export const FileCollectionFile = Comp(
   ({ disabled, file, height, width }: FileCollectionFileProps) => {
     const stores = useStores();
 

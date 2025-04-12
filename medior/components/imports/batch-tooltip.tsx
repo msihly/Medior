@@ -1,12 +1,12 @@
-import { DateDetail, TagRow, Tooltip, View } from "medior/components";
-import { FileImportBatch, observer } from "medior/store";
+import { Comp, DateDetail, TagRow, Tooltip, View } from "medior/components";
+import { FileImportBatch } from "medior/store";
 
 interface BatchTooltipProps {
   batch: FileImportBatch;
   children: JSX.Element | JSX.Element[];
 }
 
-export const BatchTooltip = observer(({ batch, children }: BatchTooltipProps) => {
+export const BatchTooltip = Comp(({ batch, children }: BatchTooltipProps) => {
   return (
     <Tooltip
       minWidth="25rem"

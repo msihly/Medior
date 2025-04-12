@@ -1,12 +1,12 @@
 import { useContext, useState } from "react";
 import { Slider } from "@mui/material";
-import { Button, IconButton, Text, View } from "medior/components";
-import { observer, useStores } from "medior/store";
+import { Button, Comp, IconButton, Text, View } from "medior/components";
+import { useStores } from "medior/store";
 import { colors, makeClasses, toast, Toaster } from "medior/utils/client";
 import { commas, CONSTANTS, duration, frameToSec, round, throttle } from "medior/utils/common";
 import { VideoContext } from "medior/views";
 
-export const VideoControls = observer(() => {
+export const VideoControls = Comp(() => {
   const stores = useStores();
   const activeFile = stores.carousel.getActiveFile();
 

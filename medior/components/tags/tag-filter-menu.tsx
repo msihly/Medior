@@ -1,6 +1,7 @@
 import {
   Card,
   Checkbox,
+  Comp,
   DateRange,
   FilterMenu,
   Input,
@@ -8,7 +9,7 @@ import {
   TagInput,
   View,
 } from "medior/components";
-import { observer, SORT_OPTIONS, TagOption, TagSearch } from "medior/store";
+import { SORT_OPTIONS, TagOption, TagSearch } from "medior/store";
 import { colors } from "medior/utils/client";
 import { LogicalOp } from "medior/utils/common";
 
@@ -17,7 +18,7 @@ export interface TagFilterMenuProps {
   store: TagSearch;
 }
 
-export const TagFilterMenu = observer(
+export const TagFilterMenu = Comp(
   ({ color = colors.foreground, store }: TagFilterMenuProps) => {
     const setAlias = (val: string) => store.setAlias(val);
 

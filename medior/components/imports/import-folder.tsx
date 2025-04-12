@@ -1,8 +1,7 @@
 import path from "path";
 import { FixedSizeList } from "react-window";
 import Color from "color";
-import { Card, Chip, Text, View } from "medior/components";
-import { observer } from "medior/store";
+import { Card, Chip, Comp, Text, View } from "medior/components";
 import { colors, makeClasses } from "medior/utils/client";
 import { FlatFolder, IMPORT_LIST_ITEM_HEIGHT, ImportListItem, TagHierarchy } from ".";
 
@@ -28,7 +27,7 @@ export interface ImportFolderListProps {
   folder: FlatFolder;
 }
 
-export const ImportFolderList = observer(({ folder }: ImportFolderListProps) => {
+export const ImportFolderList = Comp(({ folder }: ImportFolderListProps) => {
   const height = getImportFolderHeight(folder);
   const { css } = useClasses(null);
 

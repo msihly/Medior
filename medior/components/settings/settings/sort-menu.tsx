@@ -1,10 +1,11 @@
 import {
-    HeaderWrapper,
-    HeaderWrapperProps,
-    SortMenu as SortMenuBase,
-    SortMenuProps as SortMenuBaseProps,
+  Comp,
+  HeaderWrapper,
+  HeaderWrapperProps,
+  SortMenu as SortMenuBase,
+  SortMenuProps as SortMenuBaseProps,
 } from "medior/components";
-import { observer, useStores } from "medior/store";
+import { useStores } from "medior/store";
 import { colors, ConfigKey } from "medior/utils/client";
 
 export interface SortMenuProps extends Omit<SortMenuBaseProps, "setValue" | "value"> {
@@ -12,7 +13,7 @@ export interface SortMenuProps extends Omit<SortMenuBaseProps, "setValue" | "val
   header: HeaderWrapperProps["header"];
 }
 
-export const SortMenu = observer(
+export const SortMenu = Comp(
   ({ configKey, header, width = "10rem", ...props }: SortMenuProps) => {
     const stores = useStores();
 

@@ -1,5 +1,5 @@
-import { observer, useStores } from "medior/store";
-import { Drawer, FileContainer, HomeMultiActionBar, LoadingOverlay, View } from "medior/components";
+import { Comp, Drawer, FileContainer, HomeMultiActionBar, LoadingOverlay, View } from "medior/components";
+import { useStores } from "medior/store";
 import { makeClasses } from "medior/utils/client";
 import { CONSTANTS } from "medior/utils/common";
 
@@ -8,7 +8,7 @@ interface SearchProps {
   hasSettings?: boolean;
 }
 
-export const Search = observer(({ hasImports = false, hasSettings = false }: SearchProps) => {
+export const Search = Comp(({ hasImports = false, hasSettings = false }: SearchProps) => {
   const { css } = useClasses(null);
 
   const stores = useStores();

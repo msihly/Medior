@@ -5,6 +5,7 @@ import {
   Button,
   Card,
   Checkbox,
+  Comp,
   ConfirmModal,
   HeaderWrapper,
   Modal,
@@ -15,10 +16,10 @@ import {
   UniformList,
   View,
 } from "medior/components";
-import { observer, TagOption, useStores } from "medior/store";
+import { TagOption, useStores } from "medior/store";
 import { colors, makeClasses, toast, useDeepEffect, useDeepMemo } from "medior/utils/client";
 
-export const TagMerger = observer(() => {
+export const TagMerger = Comp(() => {
   const { css } = useClasses(null);
 
   const stores = useStores();

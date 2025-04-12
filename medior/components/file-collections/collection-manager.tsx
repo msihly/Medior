@@ -4,6 +4,7 @@ import {
   Card,
   CardGrid,
   CenteredText,
+  Comp,
   ConfirmModal,
   FileCard,
   ListItem,
@@ -16,13 +17,13 @@ import {
   UniformList,
   View,
 } from "medior/components";
-import { observer, useStores } from "medior/store";
+import { useStores } from "medior/store";
 import { colors, toast, useDeepEffect } from "medior/utils/client";
 import { CollectionFilterMenu, FileCollection } from ".";
 
 const FILE_CARD_HEIGHT = "14rem";
 
-export const FileCollectionManager = observer(() => {
+export const FileCollectionManager = Comp(() => {
   const stores = useStores();
 
   const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);

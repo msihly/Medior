@@ -1,5 +1,19 @@
-import { Button, ButtonProps, Chip, Icon, MenuButton, MenuButtonProps, SortMenu, SortMenuProps, Text, UniformList, View, ViewProps } from "medior/components";
-import { FileCollectionSearch, FileSearch, observer, TagSearch } from "medior/store";
+import {
+  Button,
+  ButtonProps,
+  Chip,
+  Comp,
+  Icon,
+  MenuButton,
+  MenuButtonProps,
+  SortMenu,
+  SortMenuProps,
+  Text,
+  UniformList,
+  View,
+  ViewProps,
+} from "medior/components";
+import { FileCollectionSearch, FileSearch, TagSearch } from "medior/store";
 import { colors, CSS, makeClasses } from "medior/utils/client";
 
 export interface FilterMenuProps extends Omit<ButtonProps, "onChange" | "value"> {
@@ -11,7 +25,7 @@ export interface FilterMenuProps extends Omit<ButtonProps, "onChange" | "value">
   width?: CSS["width"];
 }
 
-export const FilterMenu = observer(
+export const FilterMenu = Comp(
   ({
     children,
     color = colors.custom.black,

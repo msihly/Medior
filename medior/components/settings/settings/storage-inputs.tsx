@@ -2,14 +2,14 @@ import { dialog } from "@electron/remote";
 import { basename } from "path";
 import { useState } from "react";
 import { CircularProgress } from "@mui/material";
-import { Button, Card, Divider, Modal, Text, UniformList, View } from "medior/components";
-import { filePathsToImports, observer, useStores } from "medior/store";
+import { Button, Card, Comp, Divider, Modal, Text, UniformList, View } from "medior/components";
+import { filePathsToImports, useStores } from "medior/store";
 import { colors, deleteFile, dirToFilePaths, getConfig } from "medior/utils/client";
 import { dayjs } from "medior/utils/common";
 import { makePerfLog, trpc } from "medior/utils/server";
 import { StorageInput } from "./storage-input";
 
-export const StorageInputs = observer(() => {
+export const StorageInputs = Comp(() => {
   const stores = useStores();
 
   const [fileIdsLeftInDbOnly, setFileIdsLeftInDbOnly] = useState<string[]>([]);

@@ -3,6 +3,7 @@ import path from "path";
 import {
   Button,
   Card,
+  Comp,
   DateDetail,
   Detail,
   Icon,
@@ -13,11 +14,11 @@ import {
   UniformList,
   View,
 } from "medior/components";
-import { observer, useStores } from "medior/store";
+import { useStores } from "medior/store";
 import { colors, getIsRemuxable, makeClasses } from "medior/utils/client";
 import { duration, formatBytes } from "medior/utils/common";
 
-export const InfoModal = observer(() => {
+export const InfoModal = Comp(() => {
   const { css } = useClasses(null);
 
   const stores = useStores();

@@ -1,5 +1,5 @@
-import { Checkbox, CheckboxProps } from "medior/components";
-import { observer, useStores } from "medior/store";
+import { Checkbox, CheckboxProps, Comp } from "medior/components";
+import { useStores } from "medior/store";
 import { ConfigKey } from "medior/utils/client";
 
 export interface ExtCheckboxProps extends Omit<CheckboxProps, "checked" | "label" | "setChecked"> {
@@ -7,7 +7,7 @@ export interface ExtCheckboxProps extends Omit<CheckboxProps, "checked" | "label
   ext: string;
 }
 
-export const ExtCheckbox = observer(({ configKey, ext, ...props }: ExtCheckboxProps) => {
+export const ExtCheckbox = Comp(({ configKey, ext, ...props }: ExtCheckboxProps) => {
   const stores = useStores();
 
   const extTypes = stores.home.settings.getConfigByKey<string[]>(configKey) ?? [];

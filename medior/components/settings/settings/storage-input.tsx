@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { DiskSpace } from "check-disk-space";
-import { Icon, IconButton, IconName, Text, View } from "medior/components";
-import { observer, useStores } from "medior/store";
+import { Comp, Icon, IconButton, IconName, Text, View } from "medior/components";
+import { useStores } from "medior/store";
 import { colors } from "medior/utils/client";
 import { formatBytes, round } from "medior/utils/common";
 import { trpc } from "medior/utils/server";
@@ -41,7 +41,7 @@ export interface StorageInputProps extends Omit<InputProps, "setValue" | "value"
   selectLocation: () => Promise<string | undefined>;
 }
 
-export const StorageInput = observer(({ index, selectLocation, ...props }: StorageInputProps) => {
+export const StorageInput = Comp(({ index, selectLocation, ...props }: StorageInputProps) => {
   const stores = useStores();
 
   const [diskStats, setDiskStats] = useState<DiskSpace>(undefined);

@@ -1,6 +1,6 @@
 import { getCurrentWebContents } from "@electron/remote";
-import { Icon, Text, View } from "medior/components";
-import { File, observer, useStores } from "medior/store";
+import { Comp, Icon, Text, View } from "medior/components";
+import { File, useStores } from "medior/store";
 import { colors, CSS, openCarouselWindow, toast } from "medior/utils/client";
 import { duration } from "medior/utils/common";
 import { trpc } from "medior/utils/server";
@@ -14,7 +14,7 @@ interface FileCardProps {
   width?: CSS["width"];
 }
 
-export const FileCard = observer(({ disabled, file, height, id, width }: FileCardProps) => {
+export const FileCard = Comp(({ disabled, file, height, id, width }: FileCardProps) => {
   const stores = useStores();
 
   if (!file) file = stores.file.getById(id);

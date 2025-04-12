@@ -1,5 +1,5 @@
-import { Card, DateRange, FilterMenu, Input, LogOpsInput, TagInput, View } from "medior/components";
-import { FileCollectionSearch, observer, SORT_OPTIONS, TagOption } from "medior/store";
+import { Card, Comp, DateRange, FilterMenu, Input, LogOpsInput, TagInput, View } from "medior/components";
+import { FileCollectionSearch, SORT_OPTIONS, TagOption } from "medior/store";
 import { colors, useDeepMemo } from "medior/utils/client";
 import { LogicalOp } from "medior/utils/common";
 
@@ -8,7 +8,7 @@ export interface CollectionFilterMenuProps {
   store: FileCollectionSearch;
 }
 
-export const CollectionFilterMenu = observer(
+export const CollectionFilterMenu = Comp(
   ({ color = colors.foreground, store }: CollectionFilterMenuProps) => {
     const tags = useDeepMemo(store.tags);
 

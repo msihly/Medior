@@ -1,5 +1,5 @@
-import { CollectionTooltip, ContextMenu, FileBase } from "medior/components";
-import { observer, useStores } from "medior/store";
+import { CollectionTooltip, Comp, ContextMenu, FileBase } from "medior/components";
+import { useStores } from "medior/store";
 import { colors, CSS, toast } from "medior/utils/client";
 import { round } from "medior/utils/common";
 
@@ -9,7 +9,7 @@ export interface FileCollectionProps {
   width?: CSS["width"];
 }
 
-export const FileCollection = observer(({ height, id, width }: FileCollectionProps) => {
+export const FileCollection = Comp(({ height, id, width }: FileCollectionProps) => {
   const stores = useStores();
 
   const collection = stores.collection.manager.search.getResult(id);

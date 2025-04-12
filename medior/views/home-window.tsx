@@ -1,10 +1,10 @@
 import { useEffect } from "react";
-import { observer, useStores } from "medior/store";
-import { SettingsModal, View } from "medior/components";
+import { Comp, SettingsModal, View } from "medior/components";
+import { useStores } from "medior/store";
 import { makeClasses } from "medior/utils/client";
 import { useSockets, Views } from "./common";
 
-export const HomeWindow = observer(() => {
+export const HomeWindow = Comp(() => {
   const stores = useStores();
 
   const { css } = useClasses({ isDrawerOpen: stores.home.isDrawerOpen });

@@ -2,8 +2,8 @@ import { shell } from "@electron/remote";
 import path from "path";
 import { ReactNode } from "react";
 import { FileSchema } from "medior/_generated";
-import { ContextMenu as ContextMenuBase, ViewProps } from "medior/components";
-import { observer, useStores } from "medior/store";
+import { Comp, ContextMenu as ContextMenuBase, ViewProps } from "medior/components";
+import { useStores } from "medior/store";
 import { colors, copyToClipboard, getIsRemuxable } from "medior/utils/client";
 
 export interface ContextMenuProps extends ViewProps {
@@ -12,7 +12,7 @@ export interface ContextMenuProps extends ViewProps {
   file: FileSchema;
 }
 
-export const ContextMenu = observer(
+export const ContextMenu = Comp(
   ({ children, file, ...props }: ContextMenuProps) => {
     const stores = useStores();
 

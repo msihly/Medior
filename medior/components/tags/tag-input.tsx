@@ -14,6 +14,7 @@ import {
 } from "@mui/material";
 import {
   Button,
+  Comp,
   HeaderWrapper,
   HeaderWrapperProps,
   Input,
@@ -22,7 +23,7 @@ import {
   TagList,
   View,
 } from "medior/components";
-import { observer, TagOption, useStores } from "medior/store";
+import { TagOption, useStores } from "medior/store";
 import { colors, CSS, makeClasses, makeMargins, Margins, toast, useDeepMemo } from "medior/utils/client";
 
 export type TagInputProps = Omit<
@@ -52,7 +53,7 @@ export type TagInputProps = Omit<
   width?: CSS["width"];
 };
 
-export const TagInput = observer(
+export const TagInput = Comp(
   forwardRef(
     (
       {

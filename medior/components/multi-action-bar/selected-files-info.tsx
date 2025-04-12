@@ -1,11 +1,11 @@
 import { useState } from "react";
-import { Chip, Detail, Tooltip, UniformList, View } from "medior/components";
-import { observer, useStores } from "medior/store";
+import { Chip, Comp, Detail, Tooltip, UniformList, View } from "medior/components";
+import { useStores } from "medior/store";
 import { getIsVideo, toast } from "medior/utils/client";
 import { formatBytes } from "medior/utils/common";
 import { trpc } from "medior/utils/server";
 
-export const SelectedFilesInfo = observer(() => {
+export const SelectedFilesInfo = Comp(() => {
   const stores = useStores();
 
   const [totalImages, setTotalImages] = useState(0);
