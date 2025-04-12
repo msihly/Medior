@@ -2,7 +2,7 @@ import { KeyboardEvent, MutableRefObject } from "react";
 import FilePlayer from "react-player/file";
 import { useStores } from "medior/store";
 import { toast, Toaster } from "medior/utils/client";
-import { frameToSec, round, throttle, } from "medior/utils/common";
+import { frameToSec, round, throttle } from "medior/utils/common";
 
 const RATING_KEYS = ["1", "2", "3", "4", "5", "6", "7", "8", "9"];
 
@@ -79,7 +79,7 @@ export const useHotkeys = ({ rootRef, videoRef, view }: UseHotkeysProps) => {
 
     if (view !== "carousel" && hasCtrl && key === "a") {
       stores.file.search.toggleSelected(
-        stores.file.search.results.map(({ id }) => ({ id, isSelected: true }))
+        stores.file.search.results.map(({ id }) => ({ id, isSelected: true })),
       );
       toast.info(`Added ${stores.file.search.results.length} files to selection`);
     } else if (isOneFileSelected) {
@@ -100,7 +100,7 @@ export const useHotkeys = ({ rootRef, videoRef, view }: UseHotkeysProps) => {
             const totalFrames = round(file.totalFrames, 0);
             const newFrame = Math.max(
               0,
-              Math.min(totalFrames, round(stores.carousel.curFrame + dir * frames * frameRate, 0))
+              Math.min(totalFrames, round(stores.carousel.curFrame + dir * frames * frameRate, 0)),
             );
 
             if (file.isWebPlayable) videoRef.current?.seekTo(newFrame / totalFrames, "fraction");

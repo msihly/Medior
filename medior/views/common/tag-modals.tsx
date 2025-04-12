@@ -1,4 +1,11 @@
-import { Comp, FileTagEditor, MultiTagEditor, TagEditor, TagManager, TagMerger } from "medior/components";
+import {
+  Comp,
+  FileTagEditor,
+  MultiTagEditor,
+  TagEditor,
+  TagManager,
+  TagMerger,
+} from "medior/components";
 import { useStores } from "medior/store";
 
 interface TagModalsProps {

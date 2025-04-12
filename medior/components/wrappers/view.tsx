@@ -1,15 +1,15 @@
 import { forwardRef, HTMLAttributes, MutableRefObject, ReactNode } from "react";
 import {
-    BorderRadiuses,
-    Borders,
-    CSS,
-    makeBorderRadiuses,
-    makeBorders,
-    makeClasses,
-    makeMargins,
-    makePadding,
-    Margins,
-    Padding,
+  BorderRadiuses,
+  Borders,
+  CSS,
+  makeBorderRadiuses,
+  makeBorders,
+  makeClasses,
+  makeMargins,
+  makePadding,
+  Margins,
+  Padding,
 } from "medior/utils/client";
 
 export interface ViewProps extends HTMLAttributes<HTMLDivElement> {
@@ -60,7 +60,7 @@ export const View = forwardRef(
       wrap,
       ...props
     }: ViewProps,
-    ref?: MutableRefObject<HTMLDivElement>
+    ref?: MutableRefObject<HTMLDivElement>,
   ) => {
     if (row) column = false;
 
@@ -90,7 +90,7 @@ export const View = forwardRef(
         {children}
       </div>
     );
-  }
+  },
 );
 
 interface ClassesProps {

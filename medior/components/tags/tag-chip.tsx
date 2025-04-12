@@ -2,7 +2,7 @@ import Color from "color";
 import { Chip, ChipProps, Comp, Text, View } from "medior/components";
 import { Tag as TagType, useStores } from "medior/store";
 import { colors, makeClasses } from "medior/utils/client";
-import { abbrevNum, } from "medior/utils/common";
+import { abbrevNum } from "medior/utils/common";
 
 const HEIGHT_MEDIUM = 32;
 const HEIGHT_SMALL = 26;
@@ -58,7 +58,7 @@ export const TagChip = Comp(
         }
       />
     );
-  }
+  },
 );
 
 interface ClassesProps {

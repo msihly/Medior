@@ -8,10 +8,12 @@ const MODEL_ACTIONS = ["create", "delete", "list", "update"];
 /*                                   ACTIONS                                  */
 /* -------------------------------------------------------------------------- */
 export const getActions = async () => {
-  const customActions = await parseExportsFromIndex(`${ROOT_PATH}/server/database/actions/index.ts`);
+  const customActions = await parseExportsFromIndex(
+    `${ROOT_PATH}/server/database/actions/index.ts`,
+  );
   const customActionsSet = new Set(customActions.map((a) => a.toUpperCase()));
   const modelActions = MODEL_DEFS.flatMap((def) =>
-    MODEL_ACTIONS.map((action) => `${action}${def.name}`)
+    MODEL_ACTIONS.map((action) => `${action}${def.name}`),
   );
   return {
     custom: customActions,
@@ -26,7 +28,7 @@ const makeFnAndTypeNames = (rawName: string, actions: { custom: string[]; model:
 
 export const makeActionsDef = async (
   modelDef: ModelDef,
-  actions: { custom: string[]; model: string[] }
+  actions: { custom: string[]; model: string[] },
 ) => {
   const defaultProps = modelDef.properties
     .filter((prop) => prop.defaultValue)
@@ -111,7 +113,7 @@ export const makeActionsDef = async (
 
 export const makeSearchActionsDef = async (
   def: ModelSearchStore,
-  actions: { custom: string[]; model: string[] }
+  actions: { custom: string[]; model: string[] },
 ) => {
   const modelName = `models.${def.name}Model`;
   const schemaName = `models.${def.name}Schema`;
@@ -120,7 +122,8 @@ export const makeSearchActionsDef = async (
 
   const props = def.props.sort((a, b) => a.name.localeCompare(b.name));
   const defaultProps = props.filter(
-    (prop) => !prop.customActionProps?.length && prop.objPath?.length && prop.objValue !== undefined
+    (prop) =>
+      !prop.customActionProps?.length && prop.objPath?.length && prop.objValue !== undefined,
   );
   const customProps = props
     .filter((prop) => prop.customActionProps?.length)
@@ -241,7 +244,7 @@ export const makeCustomEndpoint = (name: string) => `${name}: serverEndpoint(db.
 
 export const makeModelEndpoint = (
   modelName: string,
-  actions: { custom: string[]; model: string[] }
+  actions: { custom: string[]; model: string[] },
 ) => {
   return MODEL_ACTIONS.map((action) => {
     const { fnName } = makeFnAndTypeNames(`${action}${capitalize(modelName)}`, actions);
@@ -251,7 +254,7 @@ export const makeModelEndpoint = (
 
 export const makeSearchEndpoint = (
   name: string,
-  actions: { custom: string[]; model: string[] }
+  actions: { custom: string[]; model: string[] },
 ) => {
   const { fnName } = makeFnAndTypeNames(name, actions);
   return `${fnName}: serverEndpoint(db.${fnName})`;
@@ -274,8 +277,8 @@ export const makeServerRouter = async () => {
   const makeSearchStoreEndpoints = () =>
     MODEL_SEARCH_STORE_DEFS.flatMap((d) =>
       [`getShiftSelected${d.name}`, `getFiltered${d.name}Count`, `listFiltered${d.name}`].map(
-        (name) => makeSearchEndpoint(name, actions)
-      )
+        (name) => makeSearchEndpoint(name, actions),
+      ),
     )
       .sort()
       .join(",");
@@ -305,7 +308,7 @@ export const makeCustomActionTypes = (customActions: string[]) =>
     .map(
       (action) =>
         `export type ${capitalize(action)}Input = Parameters<typeof db.${action}>[0];
-       export type ${capitalize(action)}Output = ReturnType<typeof db.${action}>;`
+       export type ${capitalize(action)}Output = ReturnType<typeof db.${action}>;`,
     )
     .join("\n\n");
 
@@ -348,7 +351,7 @@ export const makeModelActionTypes = (modelName: string, uniqueTypeNames: string[
       pageSize?: number;
       sort?: Record<string, SortOrder>;
       withOverwrite?: boolean;
-    }`
+    }`,
   );
   append(`Update${modelName}Input`, `{ id: string; updates: Partial<db.${schemaName}>; }`);
 

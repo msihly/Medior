@@ -58,7 +58,7 @@ export const StorageInputs = Comp(() => {
       locations.map(async (location) => ({
         location,
         filePaths: new Set(await dirToFilePaths(location, true, /-thumb(-\d+)?\.\w+$/)),
-      }))
+      })),
     );
 
     const pathsInStorage = new Set(fileStorages.flatMap(({ filePaths }) => [...filePaths]));
@@ -146,10 +146,10 @@ export const StorageInputs = Comp(() => {
 
       const { pathsInDbOnly, pathsInStorageOnly } = await getDesyncedFiles(
         pathsInDb,
-        pathsInStorage
+        pathsInStorage,
       );
       perfLog(
-        `Found ${pathsInDbOnly.size} files in database only and ${pathsInStorageOnly.size} files in storage only.`
+        `Found ${pathsInDbOnly.size} files in database only and ${pathsInStorageOnly.size} files in storage only.`,
       );
 
       const { filesToRelinkMap } = await getFilesToRelink(pathsInDb, pathsInStorage);
@@ -174,7 +174,7 @@ export const StorageInputs = Comp(() => {
 
   const relinkFiles = async (
     pathToIdMap: Map<string, string>,
-    filesToRelinkMap: Map<string, string>
+    filesToRelinkMap: Map<string, string>,
   ) => {
     _log(`Relinking ${filesToRelinkMap.size} files and associated collections and imports...`);
 

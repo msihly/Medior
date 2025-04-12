@@ -21,8 +21,8 @@ export const ImportCard = Comp(({ fileImport, style }: ImportCardProps) => {
   const handleClick = async () =>
     hasFileId
       ? openCarouselWindow({
-          file: (await trpc.listFile.mutate({ args: { filter: { id: [fileImport.fileId] } } }))
-            .data.items[0],
+          file: (await trpc.listFile.mutate({ args: { filter: { id: [fileImport.fileId] } } })).data
+            .items[0],
           selectedFileIds: [fileImport.fileId],
         })
       : shell.showItemInFolder(fileImport.path);

@@ -43,7 +43,7 @@ export const TagMerger = Comp(() => {
   const hasSelectedTag = selectedTagValue.length > 0;
   const disabled = isSaving || !hasSelectedTag;
   const baseTag = stores.tag.getById(
-    stores.tag.isTagSubEditorOpen ? stores.tag.subEditorTagId : stores.tag.activeTagId
+    stores.tag.isTagSubEditorOpen ? stores.tag.subEditorTagId : stores.tag.activeTagId,
   );
   const tagOptions = useDeepMemo(stores.tag.tagOptions);
 

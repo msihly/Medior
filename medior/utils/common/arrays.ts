@@ -9,7 +9,7 @@ export const bisectArrayChanges = <T>(oldArr: T[], newArr: T[]) => {
         acc[newArr.includes(cur) ? "added" : "removed"].push(cur);
         return acc;
       },
-      { added: [], removed: [] } as { added: T[]; removed: T[] }
+      { added: [], removed: [] } as { added: T[]; removed: T[] },
     );
 };
 
@@ -98,7 +98,7 @@ export const uniqueArrayFilter = <T>(...arrays: T[][]): T[] => {
     (
       (set) => (value) =>
         set.has(value) || !set.add(value)
-    )(new Set())
+    )(new Set()),
   );
 
   return all.filter((e) => !nonUnique.includes(e));

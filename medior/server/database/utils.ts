@@ -168,7 +168,7 @@ export const getShiftSelectedItems = async <ModelType>({
 };
 
 export const leanModelToJson = <T>(
-  doc: LeanDocument<T & { _id: Types.ObjectId; __v?: number }>
+  doc: LeanDocument<T & { _id: Types.ObjectId; __v?: number }>,
 ) => {
   try {
     if (!doc) return null;

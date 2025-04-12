@@ -20,7 +20,7 @@ export const createTree = (paths: string[]): TreeNode[] =>
 export const dirToFilePaths = async (
   dirPath: string,
   recursive: boolean = true,
-  blacklistRegex?: RegExp
+  blacklistRegex?: RegExp,
 ): Promise<string[]> => {
   const paths = await fs.readdir(dirPath, { withFileTypes: true });
 
@@ -31,7 +31,7 @@ export const dirToFilePaths = async (
       if (dirent.isDirectory())
         return !recursive ? [] : await dirToFilePaths(filePath, recursive, blacklistRegex);
       return [filePath];
-    })
+    }),
   );
 
   return filePaths.flat();
@@ -45,7 +45,7 @@ export const dirToFolderPaths = async (dirPath: string): Promise<string[]> => {
       if (!dirent.isDirectory()) return [];
       const filePath = path.join(dirPath, dirent.name);
       return [filePath, ...(await dirToFolderPaths(filePath))];
-    })
+    }),
   );
 
   return folderPaths.flat();

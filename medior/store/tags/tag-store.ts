@@ -103,7 +103,7 @@ export class TagStore extends Model({
       toast.success(`Tag '${label}' created`);
 
       return tag;
-    }
+    },
   );
 
   @modelFlow
@@ -136,7 +136,7 @@ export class TagStore extends Model({
       if (!editRes.success) throw new Error(editRes.error);
 
       toast.success(`Tag '${origLabel}' edited`);
-    }
+    },
   );
 
   @modelFlow
@@ -211,7 +211,7 @@ export class TagStore extends Model({
         } catch (err) {
           errors.push(`Tag: ${JSON.stringify(t, null, 2)}\nError: ${err.message}`);
         }
-      })
+      }),
     );
 
     await tagQueue.queue;
@@ -235,13 +235,13 @@ export class TagStore extends Model({
 
   getChildTags(tag: Tag, withDescendants = false): Tag[] {
     return this.listByIds(
-      (withDescendants ? tag.descendantIds : tag.childIds).filter((id) => id !== tag.id)
+      (withDescendants ? tag.descendantIds : tag.childIds).filter((id) => id !== tag.id),
     ).sort((a, b) => b.count - a.count);
   }
 
   getParentTags(tag: Tag, withAncestors = false): Tag[] {
     return this.listByIds(
-      (withAncestors ? tag.ancestorIds : tag.parentIds).filter((id) => id !== tag.id)
+      (withAncestors ? tag.ancestorIds : tag.parentIds).filter((id) => id !== tag.id),
     ).sort((a, b) => b.count - a.count);
   }
 
@@ -256,7 +256,7 @@ export class TagStore extends Model({
         if (cur.regExMap?.types.includes(type)) acc.push({ ...cur.regExMap, tagId: cur.id });
         return acc;
       },
-      [] as Array<db.TagSchema["regExMap"] & { tagId: string }>
+      [] as Array<db.TagSchema["regExMap"] & { tagId: string }>,
     );
   }
 
@@ -305,7 +305,7 @@ export class TagStore extends Model({
         requiredTagIds: string[];
         requiredDescTagIds: string[];
         requiredDescTagIdArrays: string[][];
-      }
+      },
     );
   }
 

@@ -36,8 +36,8 @@ export class FaceRecognitionStore extends Model({
       this.detectedFaces,
       ...detectedFaces.filter(
         ({ box }) =>
-          !this.detectedFaces.some(({ box: b }) => JSON.stringify(b) === JSON.stringify(box))
-      )
+          !this.detectedFaces.some(({ box: b }) => JSON.stringify(b) === JSON.stringify(box)),
+      ),
     );
   }
 
@@ -77,8 +77,8 @@ export class FaceRecognitionStore extends Model({
                 descriptors: JSON.stringify([descriptor]),
                 fileId: item.id,
                 tagId,
-              })
-          )
+              }),
+          ),
         );
 
         const registerRes = await this.registerDetectedFaces(new File(item));
@@ -152,13 +152,13 @@ export class FaceRecognitionStore extends Model({
     async (
       { fileIds, withOverwrite = true }: { fileIds?: string[]; withOverwrite?: boolean } = {
         withOverwrite: true,
-      }
+      },
     ) => {
       const res = await trpc.listFaceModels.mutate({ ids: fileIds });
       if (!res.success) throw new Error(res.error);
       if (withOverwrite) this.setFaceModels(res.data.map((f) => new FaceModel(f)));
       return res.data;
-    }
+    },
   );
 
   @modelFlow

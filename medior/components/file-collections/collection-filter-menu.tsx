@@ -1,4 +1,13 @@
-import { Card, Comp, DateRange, FilterMenu, Input, LogOpsInput, TagInput, View } from "medior/components";
+import {
+  Card,
+  Comp,
+  DateRange,
+  FilterMenu,
+  Input,
+  LogOpsInput,
+  TagInput,
+  View,
+} from "medior/components";
 import { FileCollectionSearch, SORT_OPTIONS, TagOption } from "medior/store";
 import { colors, useDeepMemo } from "medior/utils/client";
 import { LogicalOp } from "medior/utils/common";
@@ -100,5 +109,5 @@ export const CollectionFilterMenu = Comp(
         </Card>
       </FilterMenu>
     );
-  }
+  },
 );

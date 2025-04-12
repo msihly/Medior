@@ -64,7 +64,7 @@ const createMainWindow = async () => {
     fileLog("Main window loaded.");
 
     mainWindow.on("close", () =>
-      [...carouselWindows, ...searchWindows].forEach((win) => win.close())
+      [...carouselWindows, ...searchWindows].forEach((win) => win.close()),
     );
   } catch (err) {
     fileLog(JSON.stringify(err, null, 2), { type: "error" });

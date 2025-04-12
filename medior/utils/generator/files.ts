@@ -18,7 +18,7 @@ export const createFiles = async (folder: string, fileDefs: FileDef[]) => {
       const filePath = path.resolve(folder, `${fileDef.name}.ts`);
 
       const file = await formatFile(
-        `${makeSectionComment("THIS IS A GENERATED FILE. DO NOT EDIT.")}\n${await fileDef.makeFile()}`
+        `${makeSectionComment("THIS IS A GENERATED FILE. DO NOT EDIT.")}\n${await fileDef.makeFile()}`,
       );
       await fs.writeFile(filePath, file);
       console.log(chalk.green(`Created ${filePath}`));
@@ -64,7 +64,7 @@ export const parseExports = async (filePath: string): Promise<string[]> => {
 };
 
 export const parseExportsFromIndex: (indexFilePath: string) => Promise<string[]> = async (
-  indexFilePath
+  indexFilePath,
 ) => {
   const indexContent = await fs.readFile(indexFilePath, { encoding: "utf-8" });
 
@@ -73,8 +73,8 @@ export const parseExportsFromIndex: (indexFilePath: string) => Promise<string[]>
 
   const exportsMap = await Promise.all(
     fileNames.map((fileName) =>
-      parseExports(path.join(path.dirname(indexFilePath), `${fileName}.ts`))
-    )
+      parseExports(path.join(path.dirname(indexFilePath), `${fileName}.ts`)),
+    ),
   );
 
   return exportsMap.flat();

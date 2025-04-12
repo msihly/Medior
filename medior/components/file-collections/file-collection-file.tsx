@@ -67,5 +67,5 @@ export const FileCollectionFile = Comp(
         </FileBase.Tooltip>
       </FileBase.ContextMenu>
     );
-  }
+  },
 );

@@ -58,9 +58,12 @@ const createDbServer = async () => {
         retries++;
         if (retries === maxRetries) throw new Error(`Error creating Mongo server: ${err.message}`);
         else {
-          fileLog(`Error creating Mongo server: ${err.message}. Attempt ${retries} of ${maxRetries}.`, {
-            type: "error",
-          });
+          fileLog(
+            `Error creating Mongo server: ${err.message}. Attempt ${retries} of ${maxRetries}.`,
+            {
+              type: "error",
+            },
+          );
           await sleep(100);
         }
       }
@@ -74,7 +77,9 @@ const createDbServer = async () => {
       await Mongoose.connect(databaseUri, CONSTANTS.MONGOOSE_OPTS);
       fileLog("Connected to database.");
 
-      Mongoose.connection.on("error", (err) => fileLog(`MongoDB Error: ${err.message}`, { type: "error" }));
+      Mongoose.connection.on("error", (err) =>
+        fileLog(`MongoDB Error: ${err.message}`, { type: "error" }),
+      );
     } catch (err) {
       throw new Error(`Error connecting to database: ${err.message}`);
     }
@@ -111,10 +116,10 @@ const createTRPCServer = async () => {
     server.listen(
       port,
       // @ts-expect-error
-      () => fileLog(`tRPC server listening on port ${port}.`)
+      () => fileLog(`tRPC server listening on port ${port}.`),
     );
   } catch (err) {
-    fileLog(`Error creating tRPC server: ${err.message}`, { type: "error" })
+    fileLog(`Error creating tRPC server: ${err.message}`, { type: "error" });
   }
 };
 
@@ -141,7 +146,7 @@ const createSocketIOServer = async () => {
       socketEvents.forEach((event) =>
         socket.on(event, (...args: any[]) => {
           socket.broadcast.emit(event, ...args);
-        })
+        }),
       );
     });
 
@@ -165,7 +170,7 @@ export const startServers = async (
     withDatabase: true,
     withServer: true,
     withSocket: true,
-  }
+  },
 ) => {
   if (args.withDatabase) await createDbServer();
   if (args.withServer) await createTRPCServer();

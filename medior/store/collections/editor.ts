@@ -18,7 +18,7 @@ export class CollectionEditor extends Model({
   collection: prop<FileCollection | null>(null).withSetter(),
   fileIndexes: prop<{ fileId: string; index: number }[]>(() => []).withSetter(),
   fileSearch: prop<FileSearch>(
-    () => new FileSearch({ pageSize: getConfig().collection.editor.fileSearch.pageSize })
+    () => new FileSearch({ pageSize: getConfig().collection.editor.fileSearch.pageSize }),
   ),
   hasUnsavedChanges: prop<boolean>(false).withSetter(),
   isLoading: prop<boolean>(false).withSetter(),
@@ -28,7 +28,7 @@ export class CollectionEditor extends Model({
       new FileSearch({
         pageSize: getConfig().collection.editor.search.pageSize,
         sortValue: getConfig().collection.editor.search.sort,
-      })
+      }),
   ),
   tags: prop<Tag[]>(() => []).withSetter(),
   title: prop<string>("").withSetter(),
@@ -126,7 +126,7 @@ export class CollectionEditor extends Model({
       const moveIndexes = (
         fileIndexes: { fileId: string; index: number }[],
         selectedIds: string[],
-        isDown: boolean
+        isDown: boolean,
       ) => {
         const newFileIndexes = fileIndexes.map((f) => ({ fileId: f.fileId, index: f.index }));
 
@@ -134,7 +134,7 @@ export class CollectionEditor extends Model({
           (a, b) =>
             (isDown ? -1 : 1) *
             (newFileIndexes.findIndex((f) => f.fileId === a) -
-              newFileIndexes.findIndex((f) => f.fileId === b))
+              newFileIndexes.findIndex((f) => f.fileId === b)),
         );
 
         sortedSelected.forEach((id) => {
@@ -143,7 +143,7 @@ export class CollectionEditor extends Model({
 
           const toIndex = Math.max(
             0,
-            Math.min(fromIndex + (isDown ? maxDelta : -maxDelta), newFileIndexes.length)
+            Math.min(fromIndex + (isDown ? maxDelta : -maxDelta), newFileIndexes.length),
           );
 
           if (toIndex >= 0 && toIndex < newFileIndexes.length) {
@@ -165,7 +165,7 @@ export class CollectionEditor extends Model({
 
       this.setHasUnsavedChanges(true);
       this.setIsLoading(false);
-    }
+    },
   );
 
   @modelFlow

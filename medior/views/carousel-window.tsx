@@ -51,7 +51,7 @@ export const CarouselWindow = Comp(() => {
     stores.carousel.setIsMouseMoving(true);
     mouseMoveTimeout.current = window.setTimeout(
       () => stores.carousel.setIsMouseMoving(false),
-      1000
+      1000,
     );
   };
 
@@ -83,7 +83,7 @@ export const CarouselWindow = Comp(() => {
         } catch (err) {
           console.error(err);
         }
-      }
+      },
     );
   }, []);
 

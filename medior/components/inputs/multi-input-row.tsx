@@ -32,7 +32,7 @@ export const MultiInputRow = <T,>(props: MultiInputRowProps<T>) => {
 
   const handleDelete = () =>
     props.search.onChange(
-      props.search.value.filter((v) => (props.valueExtractor?.(v) ?? v) !== value)
+      props.search.value.filter((v) => (props.valueExtractor?.(v) ?? v) !== value),
     );
 
   return (

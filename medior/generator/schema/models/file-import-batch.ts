@@ -30,7 +30,7 @@ model.addProp("imports", "FileImport[]", {
       {
         schemaType:
           "{ type: String, enum: ['COMPLETE', 'DELETED', 'DUPLICATE', 'ERROR', 'PENDING'] }",
-      }
+      },
     ),
     model.makeProp("tagIds", "Tag.id[]"),
     model.makeProp("thumb", "{ frameHeight?: number; frameWidth?: number; path: string }", {

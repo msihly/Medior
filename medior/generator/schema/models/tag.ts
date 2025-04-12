@@ -28,7 +28,7 @@ model.addProp(
   {
     defaultValue: "null",
     schemaType: "{ regEx: String, testString: String, types: [String] }",
-  }
+  },
 );
 
 model.addProp("thumb", "{ frameHeight?: number; frameWidth?: number; path: string }", {

@@ -1,6 +1,12 @@
 import { useEffect, useRef } from "react";
 import { FixedSizeList } from "react-window";
-import { Comp, MultiInputList, MultiInputListProps, TagInputRow, ViewProps } from "medior/components";
+import {
+  Comp,
+  MultiInputList,
+  MultiInputListProps,
+  TagInputRow,
+  ViewProps,
+} from "medior/components";
 import { TagOption, useStores } from "medior/store";
 import { socket } from "medior/utils/server";
 
@@ -30,7 +36,9 @@ export const TagList = Comp(
         const newValue = stores.tag
           .listByIds([
             ...new Set(
-              search.value.map((t) => t.id).map((id) => (id === args.oldTagId ? args.newTagId : id))
+              search.value
+                .map((t) => t.id)
+                .map((id) => (id === args.oldTagId ? args.newTagId : id)),
             ),
           ])
           .map((tag) => tag.tagOption);
@@ -62,5 +70,5 @@ export const TagList = Comp(
         )}
       />
     );
-  }
+  },
 );

@@ -12,7 +12,7 @@ export interface NumInputProps extends Omit<InputProps, "setValue" | "value"> {
 export const NumInput = forwardRef(
   (
     { hasHelper, maxValue, minValue, setValue, value, ...props }: NumInputProps,
-    ref?: MutableRefObject<HTMLDivElement>
+    ref?: MutableRefObject<HTMLDivElement>,
   ) => {
     const [error, setError] = useState<string | null>(null);
 
@@ -44,5 +44,5 @@ export const NumInput = forwardRef(
         {...props}
       />
     );
-  }
+  },
 );

@@ -33,7 +33,6 @@ export const logicOpsToMongo = (op: LogicalOp | "") => {
   }
 };
 
-
 export const round = (num: number, decimals = 2) => {
   const n = Math.pow(10, decimals);
   return Math.round((num + Number.EPSILON) * n) / n;

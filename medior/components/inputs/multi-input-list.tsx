@@ -18,7 +18,7 @@ export interface MultiInputListProps<T = string> {
 export const MultiInputList = forwardRef(
   <T,>(
     { hasInput, renderRow, search, viewProps = {}, ...props }: MultiInputListProps<T>,
-    ref: MutableRefObject<FixedSizeList>
+    ref: MutableRefObject<FixedSizeList>,
   ) => {
     const { css } = useClasses({ hasInput });
 
@@ -63,7 +63,7 @@ export const MultiInputList = forwardRef(
         )}
       </View>
     );
-  }
+  },
 );
 
 interface ClassesProps {

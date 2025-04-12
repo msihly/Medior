@@ -1,7 +1,6 @@
 export * from "medior/_generated/types";
 import { ImageType, VideoType } from "medior/utils/common";
 
-
 export type ImportStats = {
   completedBytes: number;
   elapsedTime: number;

@@ -87,9 +87,9 @@ model.addProp(
     setter: model.makeSetterProp(
       "selectedImageTypes",
       ["types: Partial<Types.SelectedImageTypes>"],
-      "this.selectedImageTypes = { ...this.selectedImageTypes, ...types };"
+      "this.selectedImageTypes = { ...this.selectedImageTypes, ...types };",
     ),
-  }
+  },
 );
 
 model.addProp(
@@ -100,9 +100,9 @@ model.addProp(
     setter: model.makeSetterProp(
       "selectedVideoTypes",
       ["types: Partial<Types.SelectedVideoTypes>"],
-      "this.selectedVideoTypes = { ...this.selectedVideoTypes, ...types };"
+      "this.selectedVideoTypes = { ...this.selectedVideoTypes, ...types };",
     ),
-  }
+  },
 );
 
 export const MODEL_SEARCH_STORE_FILE = model.getModel();

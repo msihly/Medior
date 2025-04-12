@@ -88,7 +88,7 @@ class VideoTranscoder {
   private handleSourceOpen(
     mediaSource: MediaSource,
     stream: PassThrough,
-    onFirstFrames?: () => void
+    onFirstFrames?: () => void,
   ) {
     const sourceBuffer = mediaSource.addSourceBuffer('video/webm; codecs="vp8, vorbis"');
     let queue: Uint8Array[] = [];
@@ -154,7 +154,7 @@ class VideoTranscoder {
     mediaSourceUrl: string,
     command: any,
     stream: PassThrough,
-    handleSourceOpen: EventListener
+    handleSourceOpen: EventListener,
   ) {
     mediaSource.removeEventListener("sourceopen", handleSourceOpen);
     mediaSource.removeEventListener("sourceclose", handleSourceOpen);
@@ -203,7 +203,7 @@ export const extractVideoFrame = async (inputPath: string, frameIndex: number): 
 export const getScaledThumbSize = (
   width: number,
   height: number,
-  maxDim = CONSTANTS.FILE.THUMB.MAX_DIM
+  maxDim = CONSTANTS.FILE.THUMB.MAX_DIM,
 ) => {
   const scaleFactor = Math.min(maxDim / width, maxDim / height);
   return {
@@ -269,7 +269,7 @@ export const vidToThumbGrid = async (inputPath: string, outputPath: string, file
     const frameInterval = (duration - skipDuration) / numOfFrames;
     const timestamps = Array.from(
       { length: numOfFrames },
-      (_, idx) => idx * frameInterval + skipDuration
+      (_, idx) => idx * frameInterval + skipDuration,
     );
     const frames = timestamps.map((t) => Math.floor(t * frameRate));
     const tempPaths = frames.map((_, i) => path.resolve(outputPath, `${fileHash}-thumb-${i}.jpg`));
@@ -299,8 +299,8 @@ export const vidToThumbGrid = async (inputPath: string, outputPath: string, file
               isCorrupted = true;
               resolve();
             }
-          })
-      )
+          }),
+      ),
     );
 
     const validTempPaths: string[] = [];
@@ -314,7 +314,7 @@ export const vidToThumbGrid = async (inputPath: string, outputPath: string, file
           validTempPaths.push(tempPath);
           return tempPath;
         }
-      })
+      }),
     );
 
     try {
@@ -351,8 +351,8 @@ export const vidToThumbGrid = async (inputPath: string, outputPath: string, file
           fs
             .unlink(p)
             .then(() => true)
-            .catch(() => false)
-        )
+            .catch(() => false),
+        ),
       );
       if (DEBUG) perfLog(`Unlink res: ${res.join(", ")}`);
       if (res.some((v) => !v)) {
@@ -392,7 +392,7 @@ export const remuxToMp4 = async (inputPath: string, outputDir: string) => {
     outputDir,
     newHash.substring(0, 2),
     newHash.substring(2, 4),
-    `${newHash}.mp4`
+    `${newHash}.mp4`,
   );
   if (DEBUG) perfLog(`Moved temp file from ${tempPath} to ${newPath}.`);
 

@@ -69,7 +69,7 @@ export const deleteFile = (path: string, copiedPath?: string) =>
     if (!(await checkFileExists(path))) return false;
     if (copiedPath && !(await checkFileExists(copiedPath)))
       throw new Error(
-        `Failed to delete ${path}. File does not exist at copied path ${copiedPath}.`
+        `Failed to delete ${path}. File does not exist at copied path ${copiedPath}.`,
       );
 
     await fs.unlink(path);
@@ -79,7 +79,7 @@ export const deleteFile = (path: string, copiedPath?: string) =>
 export const dirToFilePaths = async (
   dirPath: string,
   recursive: boolean = true,
-  blacklistRegex?: RegExp
+  blacklistRegex?: RegExp,
 ): Promise<string[]> => {
   const paths = await fs.readdir(dirPath, { withFileTypes: true });
 
@@ -90,7 +90,7 @@ export const dirToFilePaths = async (
       if (dirent.isDirectory())
         return !recursive ? [] : await dirToFilePaths(filePath, recursive, blacklistRegex);
       return [filePath];
-    })
+    }),
   );
 
   return filePaths.flat();
@@ -104,7 +104,7 @@ export const dirToFolderPaths = async (dirPath: string): Promise<string[]> => {
       if (!dirent.isDirectory()) return [];
       const filePath = path.join(dirPath, dirent.name);
       return [filePath, ...(await dirToFolderPaths(filePath))];
-    })
+    }),
   );
 
   return folderPaths.flat();
@@ -180,7 +180,7 @@ export const genFileInfo = async (args: {
 
 export const removeEmptyFolders = async (
   dirPath: string = ".",
-  options: { excludedPaths?: string[] } = {}
+  options: { excludedPaths?: string[] } = {},
 ) => {
   const DEBUG = false;
   const { perfLog, perfLogTotal } = makePerfLog("removeEmptyFolders");
@@ -199,7 +199,7 @@ export const removeEmptyFolders = async (
   await Promise.all(
     dirPathsDeepToShallow.map(async (dir) => {
       if ((await dirToFilePaths(dir)).length === 0) emptyFolders.add(dir);
-    })
+    }),
   );
   if (DEBUG) perfLog("Found empty folders");
 

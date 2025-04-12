@@ -1,7 +1,7 @@
 import { computed } from "mobx";
 import { Model, model, prop } from "mobx-keystone";
 import { TagOption } from "medior/store";
-import { colors, } from "medior/utils/client";
+import { colors } from "medior/utils/client";
 import { objectToFloat32Array } from "medior/utils/common";
 
 @model("medior/FaceModel")
@@ -18,8 +18,8 @@ export class FaceModel extends Model({
     return this.selectedTag === null
       ? colors.custom.red
       : this.selectedTag?.id !== this.tagId
-      ? colors.custom.blue
-      : colors.custom.green;
+        ? colors.custom.blue
+        : colors.custom.green;
   }
 
   @computed

@@ -83,7 +83,7 @@ class EditorImportsCache {
     if (!this.regExMapsCache.has(label))
       this.regExMapsCache.set(
         label,
-        this.diffRegExMaps.filter((map) => map.regEx.test(label))
+        this.diffRegExMaps.filter((map) => map.regEx.test(label)),
       );
     return this.regExMapsCache.get(label)?.map((map) => map.tagId);
   }
@@ -92,7 +92,7 @@ class EditorImportsCache {
     if (!this.regExMapsCache.has(label))
       this.regExMapsCache.set(
         label,
-        this.fileRegExMaps.filter((map) => map.regEx.test(label))
+        this.fileRegExMaps.filter((map) => map.regEx.test(label)),
       );
     return this.regExMapsCache.get(label)?.map((map) => map.tagId);
   }
@@ -101,7 +101,7 @@ class EditorImportsCache {
     if (!this.regExMapsCache.has(label))
       this.regExMapsCache.set(
         label,
-        this.folderRegExMaps.filter((map) => map.regEx.test(label))
+        this.folderRegExMaps.filter((map) => map.regEx.test(label)),
       );
     return this.regExMapsCache.get(label)?.map((map) => map.tagId);
   }
@@ -118,10 +118,10 @@ export const ImportEditor = Comp(() => {
   const [flatFolderHierarchy, setFlatFolderHierarchy] = useState<FlatFolderHierarchy>(new Map());
   const [flatTagsToUpsert, setFlatTagsToUpsert] = useState<TagToUpsert[]>([]);
   const [folderToCollectionMode, setFolderToCollectionMode] = useState<FolderToCollMode>(
-    config.imports.folderToCollMode
+    config.imports.folderToCollMode,
   );
   const [folderToTagsMode, setFolderToTagsMode] = useState<FolderToTagsMode>(
-    config.imports.folderToTagsMode
+    config.imports.folderToTagsMode,
   );
   const [ignorePrevDeleted, setIgnorePrevDeleted] = useState(config.imports.ignorePrevDeleted);
   const [isConfirmDiscardOpen, setIsConfirmDiscardOpen] = useState(false);
@@ -130,13 +130,13 @@ export const ImportEditor = Comp(() => {
   const [withDiffusionModel, setWithDiffusionModel] = useState(config.imports.withDiffModel);
   const [withDiffusionParams, setWithDiffusionParams] = useState(config.imports.withDiffParams);
   const [withDiffusionRegExMaps, setWithDiffusionRegExMaps] = useState(
-    config.imports.withDiffRegEx
+    config.imports.withDiffRegEx,
   );
   const [withDiffusionTags, setWithDiffusionTags] = useState(config.imports.withDiffTags);
   const [withFlattenTo, setWithFlattenTo] = useState(false);
   const [withFileNameToTags, setWithFileNameToTags] = useState(config.imports.withFileNameToTags);
   const [withFolderNameRegEx, setWithFolderNameRegEx] = useState(
-    config.imports.withFolderNameRegEx
+    config.imports.withFolderNameRegEx,
   );
   const [withNewTagsToRegEx, setWithNewTagsToRegEx] = useState(config.imports.withNewTagsToRegEx);
   const [withRemux, setWithRemux] = useState(false);
@@ -294,7 +294,7 @@ export const ImportEditor = Comp(() => {
             });
 
             return acc;
-          }, [] as TagToUpsert[])
+          }, [] as TagToUpsert[]),
         );
 
         if (DEBUG) perfLog("Parsed tags from folder name RegEx maps");
@@ -405,7 +405,7 @@ export const ImportEditor = Comp(() => {
         const hasDescendants = fileTagIds.some((otherId) => {
           const otherTag = cache.getTagById(otherId);
           const parentIds = new Set(
-            [otherTag?.parentIds ?? [], otherTag ? cache.getParentTags(otherTag.id) : []].flat()
+            [otherTag?.parentIds ?? [], otherTag ? cache.getParentTags(otherTag.id) : []].flat(),
           );
           return parentIds.has(id);
         });
@@ -453,7 +453,7 @@ export const ImportEditor = Comp(() => {
               [
                 ...imp.tagIds,
                 ...imp.tagsToUpsert.map((t) => stores.tag.getByLabel(t.label)?.id),
-              ].filter(Boolean)
+              ].filter(Boolean),
             ),
           ],
         })),
@@ -463,7 +463,7 @@ export const ImportEditor = Comp(() => {
           .join(path.sep),
         tagIds: folder.tags.map((t) => stores.tag.getByLabel(t.label)?.id).filter(Boolean),
         remux: withRemux,
-      }))
+      })),
     );
     if (!res.success) throw new Error(res.error);
 
@@ -575,7 +575,7 @@ export const ImportEditor = Comp(() => {
         ].map(async (label) => {
           const tag = stores.tag.getByLabel(label);
           if (!tag) await stores.tag.createTag({ label, parentIds: [diffTag.id] });
-        })
+        }),
       );
 
       modelTag = stores.tag.getByLabel(config.imports.labelDiffModel);
@@ -583,7 +583,7 @@ export const ImportEditor = Comp(() => {
       upscaledTag = stores.tag.getByLabel(config.imports.labelDiffUpscaled);
 
       const importsWithParams = stores.import.editor.imports.filter(
-        (imp) => imp.diffusionParams?.length
+        (imp) => imp.diffusionParams?.length,
       );
 
       if (importsWithParams.length > 0) {
@@ -605,7 +605,7 @@ export const ImportEditor = Comp(() => {
               label: config.imports.labelDiffUpscaled,
               parentLabels: [config.imports.labelDiff],
             },
-          ]
+          ],
         );
       }
     }
@@ -651,8 +651,8 @@ export const ImportEditor = Comp(() => {
 
       const sortedFolderMap = new Map(
         [...folderMap.entries()].sort(
-          (a, b) => a[1].folderNameParts.length - b[1].folderNameParts.length
-        )
+          (a, b) => a[1].folderNameParts.length - b[1].folderNameParts.length,
+        ),
       );
       if (DEBUG) perfLog("Sorted flat folder hierarchy");
 
@@ -679,7 +679,7 @@ export const ImportEditor = Comp(() => {
       setTagHierarchy(
         tagsToUpsert
           .filter((t) => !t.parentLabels?.length)
-          .map((t) => ({ ...t, children: createTagHierarchy(tagsToUpsert, t.label) }))
+          .map((t) => ({ ...t, children: createTagHierarchy(tagsToUpsert, t.label) })),
       );
       if (DEBUG) perfLog("Created tag hierarchy");
 

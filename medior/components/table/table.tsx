@@ -1,13 +1,13 @@
 import React, { ReactNode, useMemo, useState } from "react";
 import {
-    Paper,
-    Table as MuiTable,
-    TableBody,
-    TableCell,
-    TableContainer,
-    TableHead,
-    TablePagination,
-    TableRow,
+  Paper,
+  Table as MuiTable,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TablePagination,
+  TableRow,
 } from "@mui/material";
 import { colors, makeClasses } from "medior/utils/client";
 
@@ -45,7 +45,7 @@ export const Table = <T extends object>({
   const [rowsPerPage, setRowsPerPage] = useState(rowCountOptions[0]);
 
   const handleRowsPerPageChange = (
-    event: React.ChangeEvent<HTMLTextAreaElement | HTMLInputElement>
+    event: React.ChangeEvent<HTMLTextAreaElement | HTMLInputElement>,
   ) => {
     setRowsPerPage(parseInt(event.target.value, 10));
     setPage(0);
@@ -53,7 +53,7 @@ export const Table = <T extends object>({
 
   const displayedRows = useMemo(
     () => rows.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage),
-    [page, rowsPerPage, rows]
+    [page, rowsPerPage, rows],
   );
 
   const emptyRows = rowsPerPage - displayedRows.length;

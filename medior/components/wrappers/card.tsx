@@ -26,7 +26,7 @@ export const Card = forwardRef(
       width,
       ...viewProps
     }: CardProps,
-    ref: MutableRefObject<HTMLDivElement>
+    ref: MutableRefObject<HTMLDivElement>,
   ) => {
     borderRadiuses = deepMerge({ bottom: "0.5rem", top: !!header ? 0 : "0.5rem" }, borderRadiuses);
     padding = deepMerge({ all: "0.5rem" }, padding);
@@ -48,5 +48,5 @@ export const Card = forwardRef(
         </View>
       </HeaderWrapper>
     );
-  }
+  },
 );

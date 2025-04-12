@@ -14,7 +14,7 @@ export const completeImportBatch = makeAction(
     await Promise.all([
       models.FileImportBatchModel.updateOne(
         { _id: args.id },
-        { collectionId: args.collectionId, completedAt }
+        { collectionId: args.collectionId, completedAt },
       ),
       args.tagIds.length && actions.regenFileTagAncestors({ fileIds: args.fileIds }),
       args.tagIds.length && actions.recalculateTagCounts({ tagIds: args.tagIds }),
@@ -23,7 +23,7 @@ export const completeImportBatch = makeAction(
 
     socket.emit("onImportBatchCompleted", { id: args.id });
     return completedAt;
-  }
+  },
 );
 
 export const createImportBatches = makeAction(
@@ -36,7 +36,7 @@ export const createImportBatches = makeAction(
       remux: boolean;
       rootFolderPath: string;
       tagIds?: string[];
-    }[]
+    }[],
   ) => {
     const res = await models.FileImportBatchModel.insertMany(
       batches.map((batch) => ({
@@ -45,23 +45,23 @@ export const createImportBatches = makeAction(
         dateCreated: dayjs().toISOString(),
         startedAt: null,
         tagIds: batch.tagIds ? [...new Set(batch.tagIds)].flat() : [],
-      }))
+      })),
     );
 
     if (res.length !== batches.length) throw new Error("Failed to create import batches");
     return res;
-  }
+  },
 );
 
 export const deleteImportBatches = makeAction(
   async (args: { ids: string[] }) =>
-    await models.FileImportBatchModel.deleteMany({ _id: { $in: args.ids } })
+    await models.FileImportBatchModel.deleteMany({ _id: { $in: args.ids } }),
 );
 
 export const emitImportStatsUpdated = makeAction(
   async ({ importStats }: { importStats: Types.ImportStats }) => {
     socket.emit("onImportStatsUpdated", { importStats });
-  }
+  },
 );
 
 export const listImportBatches = makeAction(async () =>
@@ -73,8 +73,8 @@ export const listImportBatches = makeAction(async () =>
         imports: b.imports.map((i) => ({ ...i, _id: undefined })),
         _id: undefined,
         __v: undefined,
-      }) as ImportBatchInput
-  )
+      }) as ImportBatchInput,
+  ),
 );
 
 export const startImportBatch = makeAction(async (args: { id: string }) => {
@@ -102,10 +102,10 @@ export const updateFileImportByPath = makeAction(
           "imports.$[fileImport].thumb": args.thumb,
         },
       },
-      { arrayFilters: [{ "fileImport.path": args.filePath }] }
+      { arrayFilters: [{ "fileImport.path": args.filePath }] },
     );
 
     if (res?.matchedCount !== res?.modifiedCount)
       throw new Error("Failed to update file import by path");
-  }
+  },
 );

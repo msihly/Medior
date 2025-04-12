@@ -30,7 +30,7 @@ export const MultiInput = forwardRef(
       single,
       value = [],
     }: MultiInputProps,
-    inputRef?: MutableRefObject<HTMLDivElement>
+    inputRef?: MutableRefObject<HTMLDivElement>,
   ) => {
     const isMax = max > -1 && value.length >= max;
     const disabled = inputProps?.disabled || isMax;
@@ -70,5 +70,5 @@ export const MultiInput = forwardRef(
         )}
       </View>
     );
-  }
+  },
 );

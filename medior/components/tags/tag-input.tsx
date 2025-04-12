@@ -24,7 +24,15 @@ import {
   View,
 } from "medior/components";
 import { TagOption, useStores } from "medior/store";
-import { colors, CSS, makeClasses, makeMargins, Margins, toast, useDeepMemo } from "medior/utils/client";
+import {
+  colors,
+  CSS,
+  makeClasses,
+  makeMargins,
+  Margins,
+  toast,
+  useDeepMemo,
+} from "medior/utils/client";
 
 export type TagInputProps = Omit<
   ComponentProps<typeof Autocomplete>,
@@ -82,7 +90,7 @@ export const TagInput = Comp(
         width,
         ...props
       }: TagInputProps,
-      inputRef?: MutableRefObject<HTMLDivElement>
+      inputRef?: MutableRefObject<HTMLDivElement>,
     ) => {
       const stores = useStores();
       const { css, cx } = useClasses({ center, margins, width });
@@ -107,8 +115,8 @@ export const TagInput = Comp(
               o.label?.length > 0 &&
               excludedIds.every((id) => id !== o.id) &&
               [o.label.toLowerCase(), ...(o.aliases?.map((a) => a.toLowerCase()) ?? [])].some(
-                (label) => searchTerms.every((t) => label.includes(t))
-              )
+                (label) => searchTerms.every((t) => label.includes(t)),
+              ),
           )
           .slice(0, 100);
 
@@ -177,7 +185,7 @@ export const TagInput = Comp(
 
       const renderOption = (
         props: HTMLAttributes<HTMLLIElement> & HTMLAttributes<HTMLDivElement>,
-        option: TagOption
+        option: TagOption,
       ) => {
         const handleClick = (event: MouseEvent<HTMLDivElement>) => {
           if (option.id === "optionsEndNode") return;
@@ -241,8 +249,8 @@ export const TagInput = Comp(
           )}
         </View>
       );
-    }
-  )
+    },
+  ),
 );
 
 interface ClassesProps {

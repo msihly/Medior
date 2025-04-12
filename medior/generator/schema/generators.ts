@@ -10,7 +10,7 @@ export class ModelDb {
 
   constructor(
     name: string,
-    options?: Partial<Omit<ModelDef, "indexes" | "name" | "properties">> & { noCommon?: boolean }
+    options?: Partial<Omit<ModelDef, "indexes" | "name" | "properties">> & { noCommon?: boolean },
   ) {
     this.name = name;
     this.defaultPageSize = options?.defaultPageSize;
@@ -31,7 +31,7 @@ export class ModelDb {
 
   public addIndex(
     fields: ModelDef["indexes"][number]["fields"],
-    options: ModelDef["indexes"][number]["options"] = { unique: true }
+    options: ModelDef["indexes"][number]["options"] = { unique: true },
   ) {
     this.indexes.push({ fields, options });
   }
@@ -56,7 +56,7 @@ export class ModelDb {
     type: string,
     props: Omit<ModelDefProperty, "name" | "schemaType" | "type"> & {
       schemaType?: ModelDefProperty["schemaType"];
-    } = {}
+    } = {},
   ) => {
     return {
       ...props,
@@ -90,15 +90,15 @@ const makeInterfacesAndSchemaProps = (modelDef: ModelDef, schemaName: string) =>
         acc.schemaProps.push(`${cur.name}: ${cur.schemaType},`);
       else {
         acc.interfaces.push(
-          `export interface ${cur.typeName} { ${cur.schemaType.map((p) => `${p.name}: ${p.type};`).join("\n")} }`
+          `export interface ${cur.typeName} { ${cur.schemaType.map((p) => `${p.name}: ${p.type};`).join("\n")} }`,
         );
         acc.schemaProps.push(
-          `${cur.name}: [{ ${cur.schemaType.map((p) => `${p.name}: ${p.schemaType}`)} }],`
+          `${cur.name}: [{ ${cur.schemaType.map((p) => `${p.name}: ${p.schemaType}`)} }],`,
         );
       }
       return acc;
     },
-    { interfaces: [], schemaProps: [] } as { interfaces: string[]; schemaProps: string[] }
+    { interfaces: [], schemaProps: [] } as { interfaces: string[]; schemaProps: string[] },
   );
 
   interfaces.push(`export interface ${schemaName} {
@@ -123,7 +123,7 @@ const makeSchemaIndexes = (modelDef: ModelDef, schemaName: string) =>
       : modelDef.indexes
           .map(
             (index) =>
-              `${schemaName}.index(${JSON.stringify(index.fields)}, ${JSON.stringify(index.options)});`
+              `${schemaName}.index(${JSON.stringify(index.fields)}, ${JSON.stringify(index.options)});`,
           )
           .join("\n")
   }`;

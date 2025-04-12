@@ -69,7 +69,7 @@ export const VideoControls = Comp(() => {
 
     stores.carousel.setMarkOut(newMarkOut);
     toaster.toast(
-      newMarkOut === null ? "Mark Out (B) Cleared" : `Mark Out (B): ${commas(newMarkOut)}`
+      newMarkOut === null ? "Mark Out (B) Cleared" : `Mark Out (B): ${commas(newMarkOut)}`,
     );
   };
 

@@ -74,7 +74,7 @@ export const parseDiffParam = <IsNum extends boolean>(
   isNumber: IsNum,
   optional = false,
   endDelimiter = ",",
-  startDelimeter = ": "
+  startDelimeter = ": ",
 ): IsNum extends true ? number : string => {
   try {
     const hasParam = diffParams.includes(`${paramName}: `);
@@ -85,7 +85,7 @@ export const parseDiffParam = <IsNum extends boolean>(
     }
 
     const rawParamUnterminated = diffParams.substring(
-      diffParams.indexOf(`${paramName}${startDelimeter}`)
+      diffParams.indexOf(`${paramName}${startDelimeter}`),
     );
     const startIndex = rawParamUnterminated.indexOf(startDelimeter) + startDelimeter.length;
     let endIndex = rawParamUnterminated.indexOf(endDelimiter, startIndex);
@@ -151,7 +151,7 @@ export const parseDiffParams = (diffParams: string): DiffParams => {
       restParams,
       "ADetailer mask_only_top_k_largest",
       true,
-      true
+      true,
     ),
     model: parseDiffParam(restParams, "ADetailer model", false, true),
   };

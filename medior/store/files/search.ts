@@ -22,12 +22,12 @@ export class FileSearch extends ExtendedModel(_FileSearch, {
 
     reaction(
       () => this.getFilterProps(),
-      () => this.setHasChanges(true)
+      () => this.setHasChanges(true),
     );
 
     reaction(
       () => this.hasChanges,
-      () => !this.hasChanges && this.setIsArchiveOpen(this.isArchived)
+      () => !this.hasChanges && this.setIsArchiveOpen(this.isArchived),
     );
   }
 

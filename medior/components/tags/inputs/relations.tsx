@@ -28,5 +28,5 @@ export const Relations = Comp(
         {...tagInputProps}
       />
     );
-  }
+  },
 );

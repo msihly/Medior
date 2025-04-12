@@ -24,7 +24,7 @@ export const CardGrid = forwardRef(
       position = "relative",
       ...props
     }: CardGridProps,
-    ref: MutableRefObject<HTMLDivElement>
+    ref: MutableRefObject<HTMLDivElement>,
   ) => {
     const { css, cx } = useClasses({ hasCards: cards.length > 0, maxCards, position });
 
@@ -47,7 +47,7 @@ export const CardGrid = forwardRef(
         {children}
       </View>
     );
-  }
+  },
 );
 
 interface ClassesProps {

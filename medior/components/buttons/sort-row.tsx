@@ -1,4 +1,12 @@
-import { Icon, IconButton, IconName, IconProps, SortMenuProps, Text, View } from "medior/components";
+import {
+  Icon,
+  IconButton,
+  IconName,
+  IconProps,
+  SortMenuProps,
+  Text,
+  View,
+} from "medior/components";
 import { colors, makeClasses } from "medior/utils/client";
 
 export interface SortRowProps {

@@ -7,7 +7,7 @@ import { colors, CSS, makeClasses } from "medior/utils/client";
 export type TextPreset = "default" | "detail-label" | "label-glow" | "sub-text" | "title";
 
 const PRESETS: Record<TextPreset, CSS> = {
-  "default": {
+  default: {
     fontSize: "1em",
     fontWeight: 400,
     overflow: "hidden",

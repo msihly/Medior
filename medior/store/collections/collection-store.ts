@@ -23,7 +23,7 @@ export class FileCollectionStore extends Model({
       if (!res.success) throw new Error(res.error);
       toast.success(`Collection "${title}" created!`);
       return res.data;
-    }
+    },
   );
 
   @modelFlow

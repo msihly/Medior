@@ -43,7 +43,7 @@ export const RepairModal = Comp(() => {
         if (!res.success) throw new Error(res.error);
         log(
           `Repaired thumbnails for ${res.data.fileCount} files, ${res.data.collectionCount} collections, and ${res.data.tagCount} tags.`,
-          colors.custom.green
+          colors.custom.green,
         );
       }
 
@@ -53,7 +53,7 @@ export const RepairModal = Comp(() => {
         if (!extRes.success) throw new Error(extRes.error);
         log(
           `Found and repaired ${extRes.data.filesWithDotPrefixCount} files with legacy extension formats and ${extRes.data.filesWithIncorrectExtCount} files with incorrect extensions.`,
-          colors.custom.lightBlue
+          colors.custom.lightBlue,
         );
 
         log("Checking files with incorrect video codecs...");
@@ -63,13 +63,13 @@ export const RepairModal = Comp(() => {
         const validCodecFiles = codecFiles.filter((f) => !f.isCorrupted);
         log(
           `Found ${codecFiles.length} (${codecFiles.length - validCodecFiles.length} corrupted) files with incorrect video codecs.`,
-          colors.custom.lightBlue
+          colors.custom.lightBlue,
         );
 
         if (!validCodecFiles.length)
           return log(
             "No uncorrupted files with incorrect video codecs found.",
-            colors.custom.green
+            colors.custom.green,
           );
 
         await makeQueue({

@@ -10,7 +10,7 @@ import { makePerfLog, socket } from "medior/utils/server";
 /* -------------------------------------------------------------------------- */
 const makeCollAttrs = async (
   files: models.FileSchema[],
-  fileIdIndexes: { fileId: string; index: number }[]
+  fileIdIndexes: { fileId: string; index: number }[],
 ) => {
   const indexMap = new Map(fileIdIndexes.map((f) => [f.fileId, f.index]));
   const sortedFiles = [...files].sort((a, b) => indexMap.get(a.id) - indexMap.get(b.id));
@@ -49,13 +49,13 @@ export const addFilesToCollection = makeAction(
     const fileIdsToAdd = args.fileIds.filter((id) => !existingFileIds.includes(id));
 
     const newFileIdIndexes = [...new Set([...fileIdsToAdd, ...existingFileIds])].map(
-      (fileId, index) => ({ fileId, index })
+      (fileId, index) => ({ fileId, index }),
     );
 
     const updateRes = await updateCollection({ id: args.collId, fileIdIndexes: newFileIdIndexes });
     if (!updateRes.success) throw new Error(updateRes.error);
     return updateRes.data;
-  }
+  },
 );
 
 export const createCollection = makeAction(
@@ -81,7 +81,7 @@ export const createCollection = makeAction(
     const res = await models.FileCollectionModel.create(collection);
     if (args.withSub) socket.emit("onFileCollectionCreated", res);
     return { ...collection, id: res._id.toString() };
-  }
+  },
 );
 
 export const deduplicateCollections = makeAction(async () => {
@@ -114,7 +114,7 @@ export const deleteEmptyCollections = makeAction(async () => {
 
 export const listAllCollectionIds = makeAction(async () => {
   return (await models.FileCollectionModel.find().select({ _id: 1 }).lean()).map((c) =>
-    c._id.toString()
+    c._id.toString(),
   );
 });
 
@@ -132,7 +132,7 @@ export const regenCollAttrs = makeAction(
       collFilter?: FilterQuery<models.FileCollectionSchema>;
       collIds?: string[];
       fileIds?: string[];
-    } = {}
+    } = {},
   ) => {
     const { perfLog, perfLogTotal } = makePerfLog("[regenCollAttrs]");
 
@@ -147,7 +147,7 @@ export const regenCollAttrs = makeAction(
                 : {})),
         },
         null,
-        { strict: false }
+        { strict: false },
       )
         .select({ _id: 1, fileIdIndexes: 1 })
         .allowDiskUse(true)
@@ -176,12 +176,12 @@ export const regenCollAttrs = makeAction(
 
     await queue.resolve();
     perfLogTotal("Regenerated collections.");
-  }
+  },
 );
 
 export const regenCollTagAncestors = makeAction(
   async (
-    args: { collectionIds: string[]; tagIds?: never } | { collectionIds?: never; tagIds: string[] }
+    args: { collectionIds: string[]; tagIds?: never } | { collectionIds?: never; tagIds: string[] },
   ) => {
     const collections = (
       await models.FileCollectionModel.find({
@@ -205,11 +205,11 @@ export const regenCollTagAncestors = makeAction(
         if (!hasUpdates) return;
         await models.FileCollectionModel.updateOne(
           { _id: c.id },
-          { $set: { tagIdsWithAncestors } }
+          { $set: { tagIdsWithAncestors } },
         );
-      })
+      }),
     );
-  }
+  },
 );
 
 export const updateCollection = makeAction(
@@ -239,5 +239,5 @@ export const updateCollection = makeAction(
     });
     socket.emit("onFileCollectionUpdated", { id: updates.id, updates });
     return res;
-  }
+  },
 );

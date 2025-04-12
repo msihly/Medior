@@ -1,5 +1,12 @@
 import { reaction } from "mobx";
-import { ExtendedModel, getRootStore, model, modelAction, ModelCreationData, prop } from "mobx-keystone";
+import {
+  ExtendedModel,
+  getRootStore,
+  model,
+  modelAction,
+  ModelCreationData,
+  prop,
+} from "mobx-keystone";
 import { _FileCollectionSearch } from "medior/store/_generated";
 import { RootStore } from "medior/store";
 
@@ -12,7 +19,7 @@ export class FileCollectionSearch extends ExtendedModel(_FileCollectionSearch, {
 
     reaction(
       () => this.getFilterProps(),
-      () => this.setHasChanges(true)
+      () => this.setHasChanges(true),
     );
   }
 

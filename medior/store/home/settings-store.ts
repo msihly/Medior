@@ -87,7 +87,7 @@ export class SettingsStore extends Model({
       db: Partial<Config["db"]>;
       ports: Partial<Config["ports"]>;
       tags: Partial<Config["tags"]>;
-    }>
+    }>,
   ) {
     const nestedUpdates = convertNestedKeys(updates);
     const snapshot = deepMerge(getSnapshot(this), nestedUpdates);

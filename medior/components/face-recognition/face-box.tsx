@@ -19,7 +19,7 @@ export const FaceBox = Comp(
         <View className={css.faceBox} />
       </View>
     );
-  }
+  },
 );
 
 interface ClassesProps {

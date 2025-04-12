@@ -29,7 +29,7 @@ export const SelectedFilesInfo = Comp(() => {
           acc[isVideo ? 3 : 2] += cur.size;
           return acc;
         },
-        [0, 0, 0, 0]
+        [0, 0, 0, 0],
       );
 
       setTotalImages(images);

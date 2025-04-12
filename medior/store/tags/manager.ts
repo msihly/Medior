@@ -56,7 +56,7 @@ export class TagManagerStore extends Model({
       });
       if (!res.success) throw new Error(res.error);
       return res.data;
-    }
+    },
   );
 
   @modelFlow

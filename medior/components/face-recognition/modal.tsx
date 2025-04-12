@@ -39,7 +39,7 @@ export const FaceRecognitionModal = Comp(() => {
 
   const addImagesToDetectedFaces = (
     filePath: string,
-    faceModels: FaceModel[]
+    faceModels: FaceModel[],
   ): Promise<FaceModelWithImage[]> => {
     return new Promise((resolve, reject) => {
       const image = new Image();
@@ -63,7 +63,7 @@ export const FaceRecognitionModal = Comp(() => {
             0,
             0,
             canvas.width,
-            canvas.height
+            canvas.height,
           );
 
           return { dataUrl: canvas.toDataURL(), faceModel };
@@ -116,7 +116,7 @@ export const FaceRecognitionModal = Comp(() => {
             descriptors: JSON.stringify([descriptor]),
             fileId: file.id,
             selectedTag: tagId ? stores.tag.getById(tagId)?.tagOption : null,
-          })
+          }),
       );
 
       stores.faceRecog.setIsDetecting(false);

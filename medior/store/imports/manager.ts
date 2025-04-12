@@ -44,7 +44,7 @@ export class ImportManager extends Model({
         imports: args.imports.map((imp) => clone(imp)),
         startedAt: null,
         tagIds: args.tagIds ?? [],
-      })
+      }),
     );
   }
 
@@ -75,7 +75,7 @@ export class ImportManager extends Model({
       if (!batchIds.length || batchIds.includes(batch.id))
         batch.update({
           tagIds: uniqueArrayMerge([...batch.tagIds].flat(), addedIds).filter(
-            (id) => !removedIds.includes(id)
+            (id) => !removedIds.includes(id),
           ),
         });
     });
@@ -91,7 +91,7 @@ export class ImportManager extends Model({
       const batch = this.getById(batchId);
       if (DEBUG)
         perfLog(
-          `Starting importBatch: ${batch.id} (${batch.imports.length} files, ${batch.tagIds.length} tags)`
+          `Starting importBatch: ${batch.id} (${batch.imports.length} files, ${batch.tagIds.length} tags)`,
         );
 
       const res = await trpc.startImportBatch.mutate({ id: batchId });
@@ -221,7 +221,7 @@ export class ImportManager extends Model({
       batches.map((b) => ({
         ...b,
         tagIds: b.tagIds ? [...new Set(b.tagIds)].flat() : [],
-      }))
+      })),
     );
     if (!batchRes.success) throw new Error(batchRes?.error);
 
@@ -282,7 +282,7 @@ export class ImportManager extends Model({
     try {
       batch.updateImport(
         { originalPath, newPath: copyRes.file?.path },
-        { errorMsg, fileId, status, thumb }
+        { errorMsg, fileId, status, thumb },
       );
       if (DEBUG) perfLog("Updated import in store");
 
@@ -314,7 +314,7 @@ export class ImportManager extends Model({
           new FileImportBatch({
             ...batch,
             imports: batch.imports.map((imp) => new FileImport(imp)),
-          })
+          }),
       );
 
       this.setImportBatches(batches);

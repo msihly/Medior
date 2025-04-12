@@ -124,7 +124,7 @@ export const RegExMapRow = Comp(
         </View>
       </View>
     );
-  }
+  },
 );
 
 const useClasses = makeClasses({

@@ -1,4 +1,8 @@
-import { Comp, NumInput as NumInputBase, NumInputProps as NumInputBaseProps } from "medior/components";
+import {
+  Comp,
+  NumInput as NumInputBase,
+  NumInputProps as NumInputBaseProps,
+} from "medior/components";
 import { useStores } from "medior/store";
 import { ConfigKey } from "medior/utils/client";
 

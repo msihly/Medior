@@ -105,7 +105,7 @@ export const FilterMenu = Comp(
         </View>
       </MenuButton>
     );
-  }
+  },
 );
 
 interface ClassesProps {

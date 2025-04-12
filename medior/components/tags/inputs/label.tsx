@@ -21,7 +21,7 @@ export const Label = Comp(
         width = "100%",
         ...tagInputProps
       }: LabelProps,
-      ref?: MutableRefObject<HTMLDivElement>
+      ref?: MutableRefObject<HTMLDivElement>,
     ) => {
       const stores = useStores();
 
@@ -60,6 +60,6 @@ export const Label = Comp(
           }}
         />
       );
-    }
-  )
+    },
+  ),
 );

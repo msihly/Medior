@@ -15,12 +15,12 @@ export const useSockets = ({ view }: UseSocketsProps) => {
 
   const debugLog = (
     eventName: SocketEmitEvent,
-    eventArgs: Parameters<SocketEmitEvents[SocketEmitEvent]>[0]
+    eventArgs: Parameters<SocketEmitEvents[SocketEmitEvent]>[0],
   ) => debug && console.debug(`[Socket] ${eventName}`, eventArgs);
 
   const makeSocket = <T extends SocketEmitEvent>(
     eventName: T,
-    callback: (args: Parameters<SocketEmitEvents[T]>[0]) => void
+    callback: (args: Parameters<SocketEmitEvents[T]>[0]) => void,
   ) =>
     // @ts-expect-error
     socket.on(eventName, (eventArgs) => {
@@ -131,7 +131,7 @@ export const useSockets = ({ view }: UseSocketsProps) => {
       });
 
       makeSocket("onImportStatsUpdated", ({ importStats }) =>
-        stores.import.manager.setImportStats(importStats)
+        stores.import.manager.setImportStats(importStats),
       );
 
       makeSocket("onReloadFileCollections", () => {

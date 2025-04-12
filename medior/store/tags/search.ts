@@ -9,7 +9,7 @@ export class TagSearch extends ExtendedModel(_TagSearch, {}) {
 
     reaction(
       () => this.getFilterProps(),
-      () => this.setHasChanges(true)
+      () => this.setHasChanges(true),
     );
   }
 

@@ -43,7 +43,7 @@ export class FileStore extends ExtendedModel(_FileStore, {
     fileIds: string[],
     updates: Partial<
       Omit<ModelCreationData<File>, "faceModels"> & { faceModels?: ModelCreationData<FaceModel>[] }
-    >
+    >,
   ) {
     fileIds.forEach((id) => this.getById(id)?.update?.(updates));
   }
@@ -99,8 +99,8 @@ export class FileStore extends ExtendedModel(_FileStore, {
         deleted.flatMap((file) =>
           this.listByHash(file.hash).length === 1
             ? [fs.unlink(file.path), fs.unlink(file.thumb.path)]
-            : []
-        )
+            : [],
+        ),
       );
 
       toast.warn(`${deletedIds.length} files deleted`);
@@ -121,7 +121,7 @@ export class FileStore extends ExtendedModel(_FileStore, {
 
       if (!res.success) throw new Error(res.error);
       toast.success(`${fileIds.length} files updated`);
-    }
+    },
   );
 
   @modelFlow
@@ -172,7 +172,7 @@ export class FileStore extends ExtendedModel(_FileStore, {
             : this.search.loadFiltered(),
         queue: this.refreshQueue,
       });
-    }
+    },
   );
 
   @modelFlow

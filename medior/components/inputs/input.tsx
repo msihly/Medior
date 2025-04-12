@@ -68,7 +68,7 @@ export const Input = forwardRef(
       width = "100%",
       ...props
     }: InputProps,
-    ref?: MutableRefObject<HTMLDivElement>
+    ref?: MutableRefObject<HTMLDivElement>,
   ) => {
     headerProps = deepMerge(DEFAULT_HEADER_PROPS, headerProps);
 
@@ -127,7 +127,7 @@ export const Input = forwardRef(
         </TextField>
       </HeaderWrapper>
     );
-  }
+  },
 );
 
 interface ClassesProps {
@@ -172,7 +172,7 @@ const useClasses = makeClasses((props: ClassesProps) => ({
         borderStyle: "dotted",
         ...makeBorders(props.borders),
         ...makeBorderRadiuses(
-          deepMerge(props.hasHeader ? { top: 0 } : {}, props.borderRadiuses ?? {})
+          deepMerge(props.hasHeader ? { top: 0 } : {}, props.borderRadiuses ?? {}),
         ),
       },
       "&:hover fieldset": {

@@ -35,7 +35,7 @@ export const TagEditor = Comp(
 
     const [aliases, setAliases] = useState<string[]>(tag?.aliases ?? []);
     const [childTags, setChildTags] = useState<TagOption[]>(
-      tag ? stores.tag.getChildTags(tag).map((t) => t.tagOption) : []
+      tag ? stores.tag.getChildTags(tag).map((t) => t.tagOption) : [],
     );
     const [hasContinue, setHasContinue] = useState(false);
     const [hasKeepChildTags, setHasKeepChildTags] = useState(false);
@@ -44,12 +44,12 @@ export const TagEditor = Comp(
     const [isLoading, setIsLoading] = useState(false);
     const [label, setLabel] = useState<string>(tag?.label ?? "");
     const [parentTags, setParentTags] = useState<TagOption[]>(
-      tag ? stores.tag.getParentTags(tag).map((t) => t.tagOption) : []
+      tag ? stores.tag.getParentTags(tag).map((t) => t.tagOption) : [],
     );
     const [regExValue, setRegExValue] = useState<string>(tag?.regExMap?.regEx ?? "");
     const [regExTestString, setRegExTestString] = useState<string>(tag?.regExMap?.testString ?? "");
     const [regExTypes, setRegExTypes] = useState<TagSchema["regExMap"]["types"]>(
-      tag?.regExMap?.types ?? ["diffusionParams", "fileName", "folderName"]
+      tag?.regExMap?.types ?? ["diffusionParams", "fileName", "folderName"],
     );
 
     const isDuplicateTag =
@@ -316,5 +316,5 @@ export const TagEditor = Comp(
         )}
       </Modal.Container>
     );
-  }
+  },
 );

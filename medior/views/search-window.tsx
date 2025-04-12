@@ -20,7 +20,7 @@ export const SearchWindow = Comp(() => {
         await stores.file.search.loadFiltered({ page: 1 });
         await stores.tag.loadTags();
         stores.file.search.setTags(
-          tagIds.map((id) => stores.tag.tagOptions.find((tag) => tag.id === id))
+          tagIds.map((id) => stores.tag.tagOptions.find((tag) => tag.id === id)),
         );
       } catch (err) {
         console.error(err);

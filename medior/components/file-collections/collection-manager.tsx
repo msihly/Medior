@@ -69,7 +69,7 @@ export const FileCollectionManager = Comp(() => {
     stores.collection.editor.search.setSelectedIds(
       stores.collection.editor.collection.fileIdIndexes
         .filter((f) => fileIds.has(f.fileId))
-        .map((f) => f.fileId)
+        .map((f) => f.fileId),
     );
   };
 
@@ -80,7 +80,7 @@ export const FileCollectionManager = Comp(() => {
 
   const handleConfirmDelete = async () => {
     const res = await stores.collection.deleteCollections(
-      stores.collection.manager.search.selectedIds
+      stores.collection.manager.search.selectedIds,
     );
 
     if (!res.success) {

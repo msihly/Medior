@@ -54,14 +54,14 @@ export const TagManager = Comp(() => {
 
   const handleSelectAll = () => {
     stores.tag.manager.search.toggleSelected(
-      stores.tag.manager.search.results.map(({ id }) => ({ id, isSelected: true }))
+      stores.tag.manager.search.results.map(({ id }) => ({ id, isSelected: true })),
     );
     toast.info(`Added ${stores.tag.manager.search.results.length} tags to selection`);
   };
 
   const handleSelectNone = () => {
     stores.tag.manager.search.toggleSelected(
-      stores.tag.manager.search.selectedIds.map((id) => ({ id, isSelected: false }))
+      stores.tag.manager.search.selectedIds.map((id) => ({ id, isSelected: false })),
     );
     toast.info("Deselected all tags");
   };

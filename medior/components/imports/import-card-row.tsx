@@ -19,7 +19,7 @@ export const ImportCardRow = Comp(
       ({ index, style }: ListChildComponentProps) => (
         <ImportCard {...{ style }} key={index} fileImport={imports[index]} />
       ),
-      [imports.length]
+      [imports.length],
     );
 
     return !imports?.length ? null : (
@@ -49,7 +49,7 @@ export const ImportCardRow = Comp(
         </View>
       </View>
     );
-  }
+  },
 );
 
 const useClasses = makeClasses({

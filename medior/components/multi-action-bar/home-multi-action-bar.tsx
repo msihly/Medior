@@ -18,7 +18,7 @@ export const HomeMultiActionBar = Comp(() => {
 
   const handleDeselectAll = () => {
     stores.file.search.toggleSelected(
-      stores.file.search.selectedIds.map((id) => ({ id, isSelected: false }))
+      stores.file.search.selectedIds.map((id) => ({ id, isSelected: false })),
     );
     toast.info("Deselected all files");
   };
@@ -42,7 +42,7 @@ export const HomeMultiActionBar = Comp(() => {
 
   const handleSelectAll = () => {
     stores.file.search.toggleSelected(
-      stores.file.search.results.map(({ id }) => ({ id, isSelected: true }))
+      stores.file.search.results.map(({ id }) => ({ id, isSelected: true })),
     );
     toast.info(`Added ${stores.file.search.results.length} files to selection`);
   };

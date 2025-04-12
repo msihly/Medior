@@ -67,7 +67,7 @@ export const Carousel = Comp(
     const handleVideoProgress = (args: OnProgressProps) => {
       const frame = round(
         stores.carousel.seekOffset + args.playedSeconds * activeFile?.frameRate,
-        0
+        0,
       );
       if (stores.carousel.videoMarks.length === 2 && frame >= stores.carousel.markOut) {
         videoRef.current.seekTo(stores.carousel.markIn / activeFile.totalFrames, "fraction");
@@ -124,7 +124,7 @@ export const Carousel = Comp(
         </View>
       </VideoContext.Provider>
     );
-  })
+  }),
 );
 
 const useClasses = makeClasses({

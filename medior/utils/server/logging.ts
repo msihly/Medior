@@ -21,14 +21,14 @@ const stringify = (args: any | any[]) => {
 
 export const fileLog = async (
   args: any | any[],
-  options?: { type: "debug" | "error" | "warn" }
+  options?: { type: "debug" | "error" | "warn" },
 ) => {
   try {
     if (!logsPath) await setLogsPath(await ipcRenderer.invoke("getLogsPath"));
     await fs.mkdir(path.dirname(logsPath), { recursive: true });
 
     const timestamp = dayjs().format("YYYY-MM-DD HH:mm:ss");
-    const logType = (options?.type ?? "debug").toUpperCase()
+    const logType = (options?.type ?? "debug").toUpperCase();
     const logContent = `[${timestamp}] [${logType}] ${stringify(args)}\n`;
 
     logQueue.add(() => fs.appendFile(logsPath, logContent, { encoding: "utf8" }));

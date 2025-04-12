@@ -59,30 +59,28 @@ interface ClassesProps {
   padding: Padding;
 }
 
-const useClasses = makeClasses(
-  (props: ClassesProps) => ({
-    checkbox: {
-      ...makePadding(props.padding),
-      color: `${props.color} !important`,
-      opacity: props.disabled ? 0.5 : 1,
+const useClasses = makeClasses((props: ClassesProps) => ({
+  checkbox: {
+    ...makePadding(props.padding),
+    color: `${props.color} !important`,
+    opacity: props.disabled ? 0.5 : 1,
+  },
+  label: {
+    display: "flex",
+    flex: props.flex,
+    justifyContent: props.center ? "center" : undefined,
+    borderRadius: "0.5rem",
+    marginLeft: 0,
+    marginRight: 0,
+    width: props.fullWidth ? "100%" : "auto",
+    whiteSpace: "nowrap",
+    transition: "all 200ms ease-in-out",
+    userSelect: "none",
+    "&:hover": {
+      backgroundColor: Color(colors.custom.blue).fade(0.8).string(),
     },
-    label: {
-      display: "flex",
-      flex: props.flex,
-      justifyContent: props.center ? "center" : undefined,
-      borderRadius: "0.5rem",
-      marginLeft: 0,
-      marginRight: 0,
-      width: props.fullWidth ? "100%" : "auto",
-      whiteSpace: "nowrap",
-      transition: "all 200ms ease-in-out",
-      userSelect: "none",
-      "&:hover": {
-        backgroundColor: Color(colors.custom.blue).fade(0.8).string(),
-      },
-      "& .MuiFormControlLabel-label": {
-        paddingRight: "0.4em",
-      },
+    "& .MuiFormControlLabel-label": {
+      paddingRight: "0.4em",
     },
-  })
-);
+  },
+}));

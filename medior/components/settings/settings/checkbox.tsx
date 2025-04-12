@@ -1,4 +1,8 @@
-import { Checkbox as CheckboxBase, CheckboxProps as CheckboxBaseProps, Comp } from "medior/components";
+import {
+  Checkbox as CheckboxBase,
+  CheckboxProps as CheckboxBaseProps,
+  Comp,
+} from "medior/components";
 import { useStores } from "medior/store";
 import { ConfigKey } from "medior/utils/client";
 

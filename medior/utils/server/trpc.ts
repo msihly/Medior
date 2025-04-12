@@ -19,18 +19,16 @@ class SocketClass {
       this.socket = io(`ws://localhost:${this.port}`);
 
       this.socket.on("connected", () =>
-        fileLog(`Socket.io connected on port ${this.port}. ID: ${this.socket.id}`)
+        fileLog(`Socket.io connected on port ${this.port}. ID: ${this.socket.id}`),
       );
 
       this.socket.on("connect_error", (error) =>
-        fileLog(`Socket.io error on port ${this.port}: ${error.message}`, { type: "error" })
+        fileLog(`Socket.io error on port ${this.port}: ${error.message}`, { type: "error" }),
       );
 
-      this.socket.on("disconnect", () =>
-        fileLog(`Socket.io disconnected on port ${this.port}.`)
-      );
+      this.socket.on("disconnect", () => fileLog(`Socket.io disconnected on port ${this.port}.`));
     } catch (err) {
-      fileLog(`Failed to connect to socket.io: ${err.message}`, { type: "error" })
+      fileLog(`Failed to connect to socket.io: ${err.message}`, { type: "error" });
     }
 
     return this.socket;
@@ -52,7 +50,7 @@ class SocketClass {
       if (!this.socket) this.connect();
       this.socket.emit(event, ...args);
     } catch (err) {
-      fileLog(err, { type: "error" })
+      fileLog(err, { type: "error" });
     }
   }
 
@@ -62,27 +60,27 @@ class SocketClass {
 
   public off<Event extends keyof SocketEvents>(
     event: Event,
-    listener: (...args: any[]) => void
+    listener: (...args: any[]) => void,
   ): void {
     try {
       if (!this.socket) this.connect();
       // @ts-expect-error
       this.socket.off(event, listener);
     } catch (err) {
-      fileLog(err, { type: "error" })
+      fileLog(err, { type: "error" });
     }
   }
 
   public on<Event extends keyof SocketEvents>(
     event: Event,
-    listener: (...args: Parameters<SocketEvents[Event]>) => void
+    listener: (...args: Parameters<SocketEvents[Event]>) => void,
   ): void {
     try {
       if (!this.socket) this.connect();
       // @ts-expect-error
       this.socket.on(event, listener);
     } catch (err) {
-      fileLog(err, { type: "error" })
+      fileLog(err, { type: "error" });
     }
   }
 }

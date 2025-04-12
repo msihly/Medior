@@ -110,7 +110,7 @@ export const Image = ({
     if (isAnimated) {
       videoPosInterval.current = setInterval(
         () => setVideoPosIndex((prev) => (prev + 1 > 9 ? 1 : prev + 1)),
-        POS_INTERVAL
+        POS_INTERVAL,
       );
     }
 
@@ -159,7 +159,7 @@ export const Image = ({
     const offsetY = event.pageY - top;
     if (!isAnimated)
       setImagePos(
-        `${(Math.max(0, offsetX) / width) * 100}% ${(Math.max(0, offsetY) / height) * 100}%`
+        `${(Math.max(0, offsetX) / width) * 100}% ${(Math.max(0, offsetY) / height) * 100}%`,
       );
   };
 

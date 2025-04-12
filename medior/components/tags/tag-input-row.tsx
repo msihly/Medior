@@ -12,7 +12,7 @@ import {
 } from "medior/components";
 import { SearchTagType, TagOption, useStores } from "medior/store";
 import { colors, makeClasses } from "medior/utils/client";
-import { abbrevNum, } from "medior/utils/common";
+import { abbrevNum } from "medior/utils/common";
 
 const TAG_SEARCH_META: {
   [key in SearchTagType]: { color: string; icon: IconName; text: string };
@@ -125,7 +125,7 @@ export const TagInputRow = Comp(
         </Menu>
       </>
     );
-  }
+  },
 );
 
 const useClasses = makeClasses({

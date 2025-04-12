@@ -11,7 +11,8 @@
     ".exe": "start \"\" dist/win-unpacked/Medior.exe",
     "build-dev": "SET BUILD_DEV=true&& pnpm run pre-build && vite build --mode development --config ./vite.config.watch.ts",
     "build": "pnpm run pre-build && vite build",
-    "check": "pnpm run ts-check && pnpm run lint",
+    "check": "pnpm run ts-check && pnpm run lint && pnpm run prettier",
+    "check-fix": "pnpm run lint-fix && pnpm run prettier-fix",
     "copy-files": "pnpx copyfiles -f medior/face-models/**/* extraResources/face-models && pnpx copyfiles extraResources/**/* build",
     "dist": "rimraf build dist extraResources && pnpm run build && pnpm run electron-build && pnpx copyfiles config.json dist/win-unpacked",
     "electron-build": "electron-builder build --dir --win --publish never",
@@ -22,6 +23,8 @@
     "lint-fix": "pnpm run lint --fix",
     "postinstall": "electron-builder install-app-deps && patch-package",
     "pre-build": "pnpm run gen && pnpm run ts-compile-server && pnpm run copy-files",
+    "prettier": "prettier --check medior --config ./.prettierrc --ignore-path ./.prettierignore",
+    "prettier-fix": "pnpm run prettier --write",
     "ts-check": "tsc --noEmit",
     "ts-compile-server": "tspc --p medior/server/tsconfig.build.json"
   },

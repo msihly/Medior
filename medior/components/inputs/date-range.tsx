@@ -8,7 +8,7 @@ export interface DateRangeProps {
   setEndDate: (val: string) => void;
   setStartDate: (val: string) => void;
   startDate: string;
-};
+}
 
 export const DateRange = ({
   dateInputProps = {},

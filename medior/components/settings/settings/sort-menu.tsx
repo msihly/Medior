@@ -13,19 +13,22 @@ export interface SortMenuProps extends Omit<SortMenuBaseProps, "setValue" | "val
   header: HeaderWrapperProps["header"];
 }
 
-export const SortMenu = Comp(
-  ({ configKey, header, width = "10rem", ...props }: SortMenuProps) => {
-    const stores = useStores();
+export const SortMenu = Comp(({ configKey, header, width = "10rem", ...props }: SortMenuProps) => {
+  const stores = useStores();
 
-    const value = stores.home.settings.getConfigByKey<SortMenuBaseProps["value"]>(configKey);
+  const value = stores.home.settings.getConfigByKey<SortMenuBaseProps["value"]>(configKey);
 
-    const setValue = (value: SortMenuBaseProps["value"]) =>
-      stores.home.settings.update({ [configKey]: value });
+  const setValue = (value: SortMenuBaseProps["value"]) =>
+    stores.home.settings.update({ [configKey]: value });
 
-    return (
-      <HeaderWrapper {...{ header, width }} height="100%">
-        <SortMenuBase {...{ setValue, width, value }} color={colors.background} hasHeader {...props} />
-      </HeaderWrapper>
-    );
-  }
-);
+  return (
+    <HeaderWrapper {...{ header, width }} height="100%">
+      <SortMenuBase
+        {...{ setValue, width, value }}
+        color={colors.background}
+        hasHeader
+        {...props}
+      />
+    </HeaderWrapper>
+  );
+});

@@ -77,7 +77,7 @@ export class FileImporter {
     this.isDuplicate = !!this.file;
     this.isPrevDeleted = !!deletedFileRes.data;
     this.perfLog(
-      JSON.stringify({ isDuplicate: this.isDuplicate, isPrevDeleted: this.isPrevDeleted })
+      JSON.stringify({ isDuplicate: this.isDuplicate, isPrevDeleted: this.isPrevDeleted }),
     );
   };
 
@@ -285,7 +285,7 @@ export const filePathsToImports = async (filePaths: string[]) => {
         const stats = await fs.stat(filePath);
         return new FileImport({
           dateCreated: dayjs(
-            Math.min(stats.birthtime.valueOf(), stats.ctime.valueOf(), stats.mtime.valueOf())
+            Math.min(stats.birthtime.valueOf(), stats.ctime.valueOf(), stats.mtime.valueOf()),
           ).toISOString(),
           extension,
           name: path.parse(filePath).name,
@@ -293,7 +293,7 @@ export const filePathsToImports = async (filePaths: string[]) => {
           size: stats.size,
           status: "PENDING",
         });
-      })
+      }),
     )
   ).filter((filePath) => filePath !== null);
 };

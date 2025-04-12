@@ -51,7 +51,7 @@ export const FileCollectionEditor = Comp(() => {
 
   const confirmRemoveFiles = async () => {
     const res = await stores.collection.editor.removeFiles(
-      stores.collection.editor.search.selectedIds
+      stores.collection.editor.search.selectedIds,
     );
     return res.success;
   };
@@ -69,7 +69,7 @@ export const FileCollectionEditor = Comp(() => {
 
   const handleDeselectAll = () => {
     stores.collection.editor.search.toggleSelected(
-      stores.collection.editor.search.selectedIds.map((id) => ({ id, isSelected: false }))
+      stores.collection.editor.search.selectedIds.map((id) => ({ id, isSelected: false })),
     );
     toast.info("Deselected all files");
   };
@@ -106,10 +106,10 @@ export const FileCollectionEditor = Comp(() => {
 
   const handleSelectAll = () => {
     stores.collection.editor.search.toggleSelected(
-      stores.collection.editor.search.results.map(({ id }) => ({ id, isSelected: true }))
+      stores.collection.editor.search.results.map(({ id }) => ({ id, isSelected: true })),
     );
     toast.info(
-      `Added all ${stores.collection.editor.search.selectedIds.length} files to selection`
+      `Added all ${stores.collection.editor.search.selectedIds.length} files to selection`,
     );
   };
 

@@ -50,7 +50,7 @@ export type DeepPartial<T> = { [P in keyof T]?: DeepPartial<T[P]> };
 export const deepMerge = _toMerged;
 
 export const handleErrors = async <T>(
-  fn: () => Promise<T>
+  fn: () => Promise<T>,
 ): Promise<{ data?: T; error?: string; success: boolean }> => {
   try {
     return { success: true, data: await fn() };

@@ -78,8 +78,8 @@ export const FILE_DEF_TYPES: FileDef = {
       MODEL_DEFS.map((def) =>
         makeModelActionTypes(
           def.name,
-          actions.model.map((a) => `${capitalize(a)}Input`)
-        )
+          actions.model.map((a) => `${capitalize(a)}Input`),
+        ),
       ).join("\n\n");
 
     return `${makeImports()}\n

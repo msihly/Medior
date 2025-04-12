@@ -7,7 +7,7 @@ export class ModelStore {
 
   constructor(
     name: ModelSearchStore["name"],
-    options: { defaultPageSize: string; defaultSort: string }
+    options: { defaultPageSize: string; defaultSort: string },
   ) {
     this.name = name;
     this.addProp("forcePages", "boolean", "false", { notFilterProp: true });
@@ -43,7 +43,7 @@ export class ModelStore {
 
   public addLogOpProp(
     name: string,
-    options: { objPath?: ModelSearchProp["objPath"]; objValue?: ModelSearchProp["objValue"] } = {}
+    options: { objPath?: ModelSearchProp["objPath"]; objValue?: ModelSearchProp["objValue"] } = {},
   ) {
     this.addProp(
       name,
@@ -55,7 +55,7 @@ export class ModelStore {
         setter: `${this.makeSetterProp(`${name}Op`, ["val: LogicalOp | ''"], `this.${name}.logOp = val;`)}\n
             ${this.makeSetterProp(`${name}Value`, ["val: number"], `this.${name}.value = val;`)}`,
         ...options,
-      }
+      },
     );
   }
 
@@ -100,7 +100,7 @@ export class ModelStore {
   public makeCustomActionProp(
     name: string,
     type: string,
-    args: Omit<ModelSearchProp["customActionProps"][number], "name" | "type">
+    args: Omit<ModelSearchProp["customActionProps"][number], "name" | "type">,
   ) {
     return { ...args, name, type };
   }
@@ -109,7 +109,7 @@ export class ModelStore {
     name: string,
     type: string,
     defaultValue: string,
-    props: Omit<ModelSearchProp, "defaultValue" | "name" | "type"> = {}
+    props: Omit<ModelSearchProp, "defaultValue" | "name" | "type"> = {},
   ) {
     return { ...props, defaultValue, name, type };
   }
@@ -170,7 +170,7 @@ export const createSearchStore = (def: ModelSearchStore) => {
     props
       .map(
         (prop) =>
-          `${prop.name}: prop<${prop.type}>(${prop.defaultValue})${!prop.setter ? ".withSetter()" : ""}`
+          `${prop.name}: prop<${prop.type}>(${prop.defaultValue})${!prop.setter ? ".withSetter()" : ""}`,
       )
       .join(",\n");
 
@@ -308,7 +308,7 @@ export const createSearchStore = (def: ModelSearchStore) => {
           .filter((prop) => !(prop.notFilterProp || prop.notTrackedFilter))
           .map(
             (prop) =>
-              `(!isDeepEqual(this.${prop.name}, ${prop.defaultValue.replace("() => ", "")}) ? 1 : 0)`
+              `(!isDeepEqual(this.${prop.name}, ${prop.defaultValue.replace("() => ", "")}) ? 1 : 0)`,
           )
           .join(" +\n")}
       );
@@ -369,7 +369,7 @@ export const makeSortDef = (modelDef: ModelDef) => {
       (prop) =>
         `{ attribute: "${prop.name}",
            icon: "${prop.sort.icon}",${prop.sort.iconProps ? ` iconProps: ${JSON.stringify(prop.sort.iconProps)},` : ""}
-           label: "${prop.sort.label}" }`
+           label: "${prop.sort.label}" }`,
     )
     .join(", ")}]`;
 };
@@ -382,7 +382,7 @@ export const makeStoreDef = async (modelDef: ModelDef) => {
   const makeSchemaStores = () =>
     schemaToStoreProps
       .map((prop) =>
-        createSchemaItem(prop.schemaToStoreName, prop.schemaType as ModelDefProperty[])
+        createSchemaItem(prop.schemaToStoreName, prop.schemaType as ModelDefProperty[]),
       )
       .join("\n");
 

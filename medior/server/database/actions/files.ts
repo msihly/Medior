@@ -8,13 +8,7 @@ import mongoose from "mongoose";
 import * as actions from "medior/server/database/actions";
 import { leanModelToJson, makeAction, objectId, objectIds } from "medior/server/database/utils";
 import { SortValue } from "medior/store";
-import {
-  checkFileExists,
-  copyFile,
-  deleteFile,
-  genFileInfo,
-  sharp,
-} from "medior/utils/client";
+import { checkFileExists, copyFile, deleteFile, genFileInfo, sharp } from "medior/utils/client";
 import { CONSTANTS, dayjs, PromiseQueue } from "medior/utils/common";
 import { fileLog, makePerfLog, socket } from "medior/utils/server";
 
@@ -71,11 +65,11 @@ export const regenFileTagAncestors = makeAction(
 
         if (!hasUpdates) return;
         await models.FileModel.updateOne({ _id: f.id }, { $set: { tagIdsWithAncestors } });
-      })
+      }),
     );
 
     if (debug) perfLogTotal("Updated file tag ancestors");
-  }
+  },
 );
 
 /* -------------------------------------------------------------------------- */
@@ -93,11 +87,11 @@ export const deleteFiles = makeAction(async (args: { fileIds: string[] }) => {
   await Promise.all(
     collections.map((collection) => {
       const fileIdIndexes = collection.fileIdIndexes.filter(
-        (fileIdIndex) => !fileIdSet.has(String(fileIdIndex.fileId))
+        (fileIdIndex) => !fileIdSet.has(String(fileIdIndex.fileId)),
       );
       if (!fileIdIndexes.length) return actions.deleteCollections({ ids: [collection.id] });
       return actions.updateCollection({ fileIdIndexes, id: collection.id });
-    })
+    }),
   );
 
   const files = (
@@ -236,11 +230,11 @@ export const editFileTags = makeAction(
     ]);
 
     if (withSub) socket.emit("onFileTagsUpdated", { addedTagIds, batchId, fileIds, removedTagIds });
-  }
+  },
 );
 
 export const getDeletedFile = makeAction(async ({ hash }: { hash: string }) =>
-  leanModelToJson<models.DeletedFileSchema>(await models.DeletedFileModel.findOne({ hash }).lean())
+  leanModelToJson<models.DeletedFileSchema>(await models.DeletedFileModel.findOne({ hash }).lean()),
 );
 
 export const getDiskStats = makeAction(async ({ diskPath }: { diskPath: string }) => {
@@ -248,7 +242,7 @@ export const getDiskStats = makeAction(async ({ diskPath }: { diskPath: string }
 });
 
 export const getFileByHash = makeAction(async ({ hash }: { hash: string }) =>
-  leanModelToJson<models.FileSchema>(await models.FileModel.findOne({ hash }).lean())
+  leanModelToJson<models.FileSchema>(await models.FileModel.findOne({ hash }).lean()),
 );
 
 export const importFile = makeAction(
@@ -283,13 +277,13 @@ export const importFile = makeAction(
 
     const res = await models.FileModel.create(file);
     return { ...file, id: res._id.toString() };
-  }
+  },
 );
 
 export const listDeletedFiles = makeAction(async () =>
   (await models.DeletedFileModel.find().lean()).map((f) =>
-    leanModelToJson<models.DeletedFileSchema>(f)
-  )
+    leanModelToJson<models.DeletedFileSchema>(f),
+  ),
 );
 
 export const listFaceModels = makeAction(async ({ ids }: { ids?: string[] } = {}) => {
@@ -312,7 +306,7 @@ export const listFaceModels = makeAction(async ({ ids }: { ids?: string[] } = {}
 
 export const listFilesByTagIds = makeAction(async ({ tagIds }: { tagIds: string[] }) => {
   return (await models.FileModel.find({ tagIds: { $in: tagIds } }).lean()).map((f) =>
-    leanModelToJson<models.FileSchema>(f)
+    leanModelToJson<models.FileSchema>(f),
   );
 });
 
@@ -335,7 +329,7 @@ export const listFileIdsForCarousel = makeAction(
       .select({ _id: 1 });
 
     return files.map((f) => f._id.toString());
-  }
+  },
 );
 
 export const listFilePaths = makeAction(async () => {
@@ -365,7 +359,7 @@ export const listSortedFileIds = makeAction(
       .lean();
 
     return files.map((f) => leanModelToJson<models.FileSchema>(f).id);
-  }
+  },
 );
 
 export const loadFaceApiNets = makeAction(async () => {
@@ -395,7 +389,7 @@ export const relinkFiles = makeAction(
         path: path.resolve(
           path.dirname(newPath),
           path.basename(oldThumbPath, path.extname(oldThumbPath)),
-          ".jpg"
+          ".jpg",
         ),
       };
 
@@ -408,7 +402,7 @@ export const relinkFiles = makeAction(
           filter: { _id: objectId(id) },
           update: { $set: { path, thumb: { path: thumb.path } } },
         },
-      }))
+      })),
     );
 
     if (fileRes.modifiedCount !== fileRes.matchedCount)
@@ -437,12 +431,12 @@ export const relinkFiles = makeAction(
             },
           },
         },
-      }))
+      })),
     );
 
     if (importsRes.modifiedCount !== importBatches.length)
       throw new Error("Failed to bulk write relinked file imports");
-  }
+  },
 );
 
 export const repairFilesWithBrokenExt = makeAction(async () => {
@@ -483,7 +477,7 @@ export const repairFilesWithBrokenExt = makeAction(async () => {
         filter: { _id: objectId(f[0]) },
         update: { $set: { ext: path.extname(f[1]).slice(1).toLowerCase() } },
       },
-    }))
+    })),
   );
   perfLog(`Updated extensions of ${bulkWriteRes.modifiedCount} files`);
   if (bulkWriteRes.modifiedCount !== filesToUpdate.size)
@@ -509,7 +503,7 @@ export const setFileFaceModels = makeAction(
     const updates = { faceModels: args.faceModels, dateModified: dayjs().toISOString() };
     await models.FileModel.findOneAndUpdate({ _id: args.id }, { $set: updates });
     socket.emit("onFilesUpdated", { fileIds: [args.id], updates });
-  }
+  },
 );
 
 export const setFileIsArchived = makeAction(
@@ -519,7 +513,7 @@ export const setFileIsArchived = makeAction(
 
     if (args.isArchived) socket.emit("onFilesArchived", { fileIds: args.fileIds });
     socket.emit("onFilesUpdated", { fileIds: args.fileIds, updates });
-  }
+  },
 );
 
 export const setFileRating = makeAction(async (args: { fileIds: string[]; rating: number }) => {
@@ -533,7 +527,7 @@ export const setFileRating = makeAction(async (args: { fileIds: string[]; rating
 // TODO: Replace with generated
 export const updateFile = makeAction(
   async ({ id, ...updates }: Partial<models.FileSchema> & { id: string }) =>
-    await models.FileModel.updateOne({ _id: id }, updates)
+    await models.FileModel.updateOne({ _id: id }, updates),
 );
 
 /* ----------------------------------------------------------------------- */
@@ -575,12 +569,12 @@ class ThumbRepairer {
     for (const file of filesWithoutThumb) {
       const expectedThumbPath = path.resolve(
         path.dirname(file.path),
-        `${path.basename(file.path, file.ext)}-thumb${file.ext}`
+        `${path.basename(file.path, file.ext)}-thumb${file.ext}`,
       );
       const skipThumbs = await checkFileExists(expectedThumbPath);
 
       await this.regenThumbs(file, skipThumbs).catch((err) =>
-        this.errorLog(`Failed to regen thumb for file ${file.id}: ${err.message}`)
+        this.errorLog(`Failed to regen thumb for file ${file.id}: ${err.message}`),
       );
 
       skipThumbs ? skippedThumbs++ : regeneratedThumbs++;
@@ -589,7 +583,7 @@ class ThumbRepairer {
 
       if (processedCount % 100 === 0 || processedCount === filesWithoutThumb.length) {
         this.perfLog(
-          `${totalRegeneratedThumbs + totalSkippedThumbs} / ${filesWithoutThumb.length}. Generated thumb for ${regeneratedThumbs} files. Updated ${skippedThumbs} files in database only.`
+          `${totalRegeneratedThumbs + totalSkippedThumbs} / ${filesWithoutThumb.length}. Generated thumb for ${regeneratedThumbs} files. Updated ${skippedThumbs} files in database only.`,
         );
         regeneratedThumbs = 0;
         skippedThumbs = 0;
@@ -610,7 +604,7 @@ class ThumbRepairer {
         ...f,
         // @ts-expect-error
         thumbPaths: f.thumbPaths,
-      })
+      }),
     );
 
   private getFilesWithoutThumb = async () => {
@@ -649,12 +643,12 @@ class ThumbRepairer {
       this.hasFilesWithOldThumbPaths = true;
 
     const filesWithThumbPathsMap = new Map<string, models.FileSchema & { thumbPaths: string[] }>(
-      filesWithThumbPaths.map((f) => [f.id, f])
+      filesWithThumbPaths.map((f) => [f.id, f]),
     );
     filesWithThumbPaths.forEach((f) => this.thumbMap.set(f.id, null));
 
     this.perfLog(
-      `Files iteration ${this.fileChunkIteration}. Files to process: ${filesWithThumbPaths.length}.`
+      `Files iteration ${this.fileChunkIteration}. Files to process: ${filesWithThumbPaths.length}.`,
     );
 
     for (const file of filesWithThumbPaths) {
@@ -687,7 +681,7 @@ class ThumbRepairer {
       ) {
         for (const fileId of idsToRegenThumb)
           await this.regenThumbs(filesWithThumbPathsMap.get(fileId)).catch(() =>
-            this.errorLog(`Failed to regen thumb for file ${fileId}`)
+            this.errorLog(`Failed to regen thumb for file ${fileId}`),
           );
         this.perfLog(`Regenerated 'thumb' for ${idsToRegenThumb.length} files`);
         idsToRegenThumb = [];
@@ -696,7 +690,7 @@ class ThumbRepairer {
           const res = await models.FileModel.updateMany(
             { _id: idsToUnset },
             { $unset: { thumbPaths: "" } },
-            { strict: false }
+            { strict: false },
           );
           if (res.modifiedCount !== idsToUnset.length)
             throw new Error(JSON.stringify(res, null, 2));
@@ -709,7 +703,7 @@ class ThumbRepairer {
     }
 
     this.perfLog(
-      `Iteration complete. Deleted ${deletedThumbCount} thumbnail files. Moved and renamed ${movedImageThumbCount} image thumb paths. Found ${skippedThumbCount} thumbnail paths without files.`
+      `Iteration complete. Deleted ${deletedThumbCount} thumbnail files. Moved and renamed ${movedImageThumbCount} image thumb paths. Found ${skippedThumbCount} thumbnail paths without files.`,
     );
   };
 
@@ -736,11 +730,11 @@ class ThumbRepairer {
       const unsetRes = await models.FileCollectionModel.updateMany(
         filter,
         { $unset: { thumbPaths: "" } },
-        { strict: false }
+        { strict: false },
       );
       if (!unsetRes.matchedCount || unsetRes.modifiedCount !== unsetRes.matchedCount)
         throw new Error(
-          `Failed to unset thumbPaths from collections: ${JSON.stringify(unsetRes, null, 2)}`
+          `Failed to unset thumbPaths from collections: ${JSON.stringify(unsetRes, null, 2)}`,
         );
       this.perfLog("Unset thumbPaths from collections.");
     }
@@ -788,7 +782,7 @@ class ThumbRepairer {
     if (this.tagCount > 0) {
       const tagQueue = new PromiseQueue({ concurrency: 10 });
       tags.forEach((tag) =>
-        tagQueue.add(async () => await actions.regenTagThumbPaths({ tagId: tag.id }))
+        tagQueue.add(async () => await actions.regenTagThumbPaths({ tagId: tag.id })),
       );
       await tagQueue.resolve();
       this.perfLog("Regenerated thumb for affected tags.");
@@ -796,11 +790,11 @@ class ThumbRepairer {
       const unsetRes = await models.TagModel.updateMany(
         filter,
         { $unset: { thumbPaths: "" } },
-        { strict: false }
+        { strict: false },
       );
       if (!unsetRes.matchedCount || unsetRes.modifiedCount !== unsetRes.matchedCount)
         throw new Error(
-          `Failed to unset thumbPaths from tags: ${JSON.stringify(unsetRes, null, 2)}`
+          `Failed to unset thumbPaths from tags: ${JSON.stringify(unsetRes, null, 2)}`,
         );
       this.perfLog("Unset thumbPaths from tags.");
     }
