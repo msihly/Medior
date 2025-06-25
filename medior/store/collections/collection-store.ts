@@ -21,7 +21,6 @@ export class FileCollectionStore extends Model({
     async ({ fileIdIndexes, title, withSub = true }: Types.CreateCollectionInput) => {
       const res = await trpc.createCollection.mutate({ fileIdIndexes, title, withSub });
       if (!res.success) throw new Error(res.error);
-      toast.success(`Collection "${title}" created!`);
       return res.data;
     },
   );

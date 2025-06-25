@@ -36,12 +36,18 @@ export const useSockets = ({ view }: UseSocketsProps) => {
   const setupSockets = () => {
     socket.connect();
 
+    makeSocket("onFilesArchived", ({ fileIds }) =>
+      view === "carousel"
+        ? stores.carousel.removeFiles(fileIds)
+        : stores.file.search.removeFiles(fileIds),
+    );
+
     makeSocket("onFilesDeleted", ({ fileHashes, fileIds }) => {
       if (view === "carousel") stores.carousel.removeFiles(fileIds);
       else {
         if (view === "home") stores.import.addDeletedFileHashes(fileHashes);
-        if (stores.collection.manager.isOpen) stores.collection.manager.search.loadFiltered();
-        if (stores.collection.editor.isOpen) stores.collection.editor.search.loadFiltered();
+        if (stores.collection.manager.isOpen) stores.collection.manager.search.setHasChanges(true);
+        if (stores.collection.editor.isOpen) stores.collection.editor.search.setHasChanges(true);
         stores.file.search.removeFiles(fileIds);
         stores.file.search.setHasChanges(true);
       }
@@ -55,7 +61,7 @@ export const useSockets = ({ view }: UseSocketsProps) => {
         const shouldReload =
           updatedKeys.some((k) => ["isArchived", "tagIds"].includes(k)) ||
           updatedKeys.includes(stores.file.search.sortValue.key);
-        if (shouldReload) queueFileReload();
+        if (shouldReload) stores.file.search.setHasChanges(true);
 
         if (stores.collection.editor.isOpen) stores.collection.editor.updateFiles(fileIds, updates);
       }
@@ -64,7 +70,7 @@ export const useSockets = ({ view }: UseSocketsProps) => {
     makeSocket("onFileTagsUpdated", ({ addedTagIds, batchId, fileIds, removedTagIds }) => {
       stores.file.updateFileTags({ addedTagIds, fileIds, removedTagIds });
 
-      if (view !== "carousel") queueFileReload();
+      if (view !== "carousel") stores.file.search.setHasChanges(true);
       if (view === "home" && batchId?.length > 0)
         stores.import.manager.editBatchTags({
           addedIds: addedTagIds,
@@ -108,9 +114,7 @@ export const useSockets = ({ view }: UseSocketsProps) => {
       if (withFileReload && view !== "carousel") throttle(queueFileReload, 2000)();
     });
 
-    if (view === "carousel") {
-      makeSocket("onFilesArchived", ({ fileIds }) => stores.carousel.removeFiles(fileIds));
-    } else {
+    if (view !== "carousel") {
       makeSocket("onFileCollectionsDeleted", () => {
         if (stores.collection.manager.isOpen) stores.collection.manager.search.loadFiltered();
       });

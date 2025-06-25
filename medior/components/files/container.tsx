@@ -2,7 +2,6 @@ import { useEffect, useRef } from "react";
 import { CardGrid, Comp, Pagination } from "medior/components";
 import { useStores } from "medior/store";
 import { colors } from "medior/utils/client";
-import { socket } from "medior/utils/server";
 import { useHotkeys } from "medior/views";
 import { FileCard } from ".";
 
@@ -20,15 +19,6 @@ export const FileContainer = Comp(() => {
       handlePageChange(stores.file.search.pageCount);
     scrollToTop();
   }, [stores.file.search.page]);
-
-  useEffect(() => {
-    socket.on("onFilesUpdated", ({ updates }) => {
-      const updatedKeys = Object.keys(updates);
-      const archivedOrTagsEdited = updatedKeys.some((k) => ["isArchived", "tagIds"].includes(k));
-      const sortValueEdited = updatedKeys.includes(stores.file.search.sortValue.key);
-      if (archivedOrTagsEdited || sortValueEdited) scrollToTop();
-    });
-  }, []);
 
   const handlePageChange = (page: number) => stores.file.search.loadFiltered({ page });
 

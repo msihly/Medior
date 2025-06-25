@@ -100,8 +100,6 @@ export class TagStore extends Model({
       };
 
       if (withSub) this._addTag(tag);
-      toast.success(`Tag '${label}' created`);
-
       return tag;
     },
   );

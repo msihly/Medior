@@ -14,6 +14,8 @@ export const Drawer = Comp(({ hasImports = false, hasSettings = false }: DrawerP
 
   const stores = useStores();
 
+  const hasPendingImports = stores.import.manager.incompleteBatches.length > 0;
+
   const handleClose = () => stores.home.setIsDrawerOpen(false);
 
   const handleCollections = () => {
@@ -55,6 +57,7 @@ export const Drawer = Comp(({ hasImports = false, hasSettings = false }: DrawerP
           <IconButton
             name="GetApp"
             tooltip="Open Import Manager"
+            iconProps={{ color: hasPendingImports ? colors.custom.purple : undefined }}
             onClick={handleImport}
             {...{ tooltipProps }}
           />
