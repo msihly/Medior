@@ -51,6 +51,7 @@
     "color": "^4.2.3",
     "dayjs": "^1.11.0",
     "es-toolkit": "^1.16.0",
+    "fdir": "^6.4.6",
     "fluent-ffmpeg": "2.1.2",
     "jsonfile": "^6.1.0",
     "kill-port": "^2.0.1",

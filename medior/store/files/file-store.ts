@@ -94,19 +94,12 @@ export class FileStore extends ExtendedModel(_FileStore, {
     if (deletedIds?.length > 0) {
       const deleteRes = await trpc.deleteFiles.mutate({ fileIds: deletedIds });
       if (!deleteRes.success) throw new Error(deleteRes.error);
-
-      await Promise.all(
-        deleted.flatMap((file) =>
-          this.listByHash(file.hash).length === 1
-            ? [fs.unlink(file.path), fs.unlink(file.thumb.path)]
-            : [],
-        ),
-      );
-
       toast.warn(`${deletedIds.length} files deleted`);
+      this.search.removeFiles(deletedIds);
     }
 
     this.search.toggleSelected(fileIds.map((id) => ({ id, isSelected: false })));
+    this.setIsConfirmDeleteOpen(false);
   });
 
   @modelFlow
@@ -200,10 +193,6 @@ export class FileStore extends ExtendedModel(_FileStore, {
   /* --------------------------------- DYNAMIC GETTERS -------------------------------- */
   getById(id: string) {
     return this.search.results.find((f) => f.id === id);
-  }
-
-  listByHash(hash: string) {
-    return this.search.results.filter((f) => f.hash === hash);
   }
 
   listByIds(ids: string[]) {

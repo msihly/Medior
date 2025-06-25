@@ -7,7 +7,6 @@ import {
   checkFileExists,
   copyFile,
   deleteFile,
-  dirToFilePaths,
   extendFileName,
   genFileInfo,
   getAvailableFileStorage,
@@ -16,7 +15,7 @@ import {
   toast,
 } from "medior/utils/client";
 import { dayjs, handleErrors } from "medior/utils/common";
-import { makePerfLog, trpc } from "medior/utils/server";
+import { dirToFilePaths, makePerfLog, trpc } from "medior/utils/server";
 import { remuxToMp4 } from "medior/utils/server";
 
 export class FileImporter {
@@ -262,7 +261,7 @@ export class FileImporter {
       const res = await trpc.updateFile.mutate(this.file);
       if (!res.success) throw new Error(res.error);
       this.perfLog("Refreshed file");
-      return { succes: true, status: "COMPLETE" };
+      return { success: true, status: "COMPLETE" };
     });
 }
 
@@ -325,19 +324,20 @@ export const handleIngest = async ({
     const initialRootIndex = rootFolderPath.split(path.sep).length - 1;
     stores.import.editor.setRootFolderPath(rootFolderPath);
     stores.import.editor.setRootFolderIndex(initialRootIndex);
-    perfLog("Set root folder path and index");
+    stores.import.editor.setFilePaths([]);
+    stores.import.editor.setImports([]);
+    perfLog("Init");
 
-    const [folders, importsFromFilePaths] = await Promise.all([
-      await Promise.all(folderPaths.map((f) => dirToFileImports(f))),
-      filePathsToImports(filePaths),
-    ]);
+    const folders = await Promise.all(folderPaths.map(dirToFileImports));
+    const importsFromFilePaths = await filePathsToImports(filePaths);
+
     const editorFilePaths = [...filePaths, ...folders.flatMap((f) => f.filePaths)];
     const editorImports = [...importsFromFilePaths, ...folders.flatMap((f) => f.imports)];
     perfLog("Created editor file paths and imports");
 
     stores.import.editor.setFilePaths(editorFilePaths);
     stores.import.editor.setImports(editorImports);
-    perfLog("Set editor file paths and imports");
+    perfLog("Re-render");
 
     perfLogTotal("Init done");
     setTimeout(() => stores.import.editor.setIsInitDone(true), 0);

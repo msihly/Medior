@@ -94,11 +94,9 @@ export const deleteFiles = makeAction(async (args: { fileIds: string[] }) => {
     }),
   );
 
-  const files = (
-    await models.FileModel.find({ _id: { $in: args.fileIds } })
-      .select({ _id: 1, hash: 1, tagIds: 1 })
-      .lean()
-  ).map((f) => leanModelToJson<models.FileSchema>(f));
+  const files = (await models.FileModel.find({ _id: { $in: args.fileIds } }).lean()).map((f) =>
+    leanModelToJson<models.FileSchema>(f),
+  );
 
   const fileHashes = files.map((f) => f.hash);
   const tagIds = [...new Set(files.flatMap((f) => f.tagIds))];
@@ -110,6 +108,11 @@ export const deleteFiles = makeAction(async (args: { fileIds: string[] }) => {
       upsert: true,
     },
   }));
+
+  for (const file of files) {
+    await deleteFile(file.path);
+    await deleteFile(file.thumb?.path);
+  }
 
   await Promise.all([
     models.FileModel.deleteMany({ _id: { $in: args.fileIds } }),
@@ -379,16 +382,14 @@ export const relinkFiles = makeAction(
     ).map(leanModelToJson<models.FileSchema>);
 
     const filesToRelinkMap = new Map(args.filesToRelink.map((f) => [f.id, f.path]));
-    const oldThumbsMap = new Map(oldFiles.map((f) => [f.id, f.thumb.path]));
     const newFilesMap = new Map<string, { path: string; thumb: models.FileSchema["thumb"] }>();
 
     oldFiles.forEach((f) => {
-      const oldThumbPath = oldThumbsMap.get(f.id);
       const newPath = filesToRelinkMap.get(f.id);
       const newThumb = {
         path: path.resolve(
           path.dirname(newPath),
-          path.basename(oldThumbPath, path.extname(oldThumbPath)),
+          `${path.basename(newPath, path.extname(newPath))}-thumb`,
           ".jpg",
         ),
       };

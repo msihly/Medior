@@ -1,7 +1,7 @@
 // import * as fss from "fs";
 import { constants as fsc, promises as fs } from "fs";
 import path from "path";
-import { FileSchema, ImportFileInput } from "medior/server/database";
+import type { FileSchema, ImportFileInput } from "medior/server/database";
 import { getIsAnimated, sharp } from "medior/utils/client";
 import { CONSTANTS, dayjs, handleErrors } from "medior/utils/common";
 import { getVideoInfo, makePerfLog, vidToThumbGrid } from "medior/utils/server";
@@ -76,40 +76,6 @@ export const deleteFile = (path: string, copiedPath?: string) =>
     return true;
   });
 
-export const dirToFilePaths = async (
-  dirPath: string,
-  recursive: boolean = true,
-  blacklistRegex?: RegExp,
-): Promise<string[]> => {
-  const paths = await fs.readdir(dirPath, { withFileTypes: true });
-
-  const filePaths = await Promise.all(
-    paths.map(async (dirent) => {
-      const filePath = path.join(dirPath, dirent.name);
-      if (blacklistRegex?.test(filePath)) return [];
-      if (dirent.isDirectory())
-        return !recursive ? [] : await dirToFilePaths(filePath, recursive, blacklistRegex);
-      return [filePath];
-    }),
-  );
-
-  return filePaths.flat();
-};
-
-export const dirToFolderPaths = async (dirPath: string): Promise<string[]> => {
-  const paths = await fs.readdir(dirPath, { withFileTypes: true });
-
-  const folderPaths = await Promise.all(
-    paths.map(async (dirent) => {
-      if (!dirent.isDirectory()) return [];
-      const filePath = path.join(dirPath, dirent.name);
-      return [filePath, ...(await dirToFolderPaths(filePath))];
-    }),
-  );
-
-  return folderPaths.flat();
-};
-
 export const extendFileName = (fileName: string, ext: string) =>
   `${path.relative(".", fileName).replace(/\.\w+$/, "")}.${ext}`;
 
@@ -176,44 +142,4 @@ export const genFileInfo = async (args: {
 
   if (DEBUG) perfLogTotal(`Generated file info: ${JSON.stringify(fileInfo)}.`);
   return fileInfo as ImportFileInput;
-};
-
-export const removeEmptyFolders = async (
-  dirPath: string = ".",
-  options: { excludedPaths?: string[] } = {},
-) => {
-  const DEBUG = false;
-  const { perfLog, perfLogTotal } = makePerfLog("removeEmptyFolders");
-
-  const dirPathsParts = [...new Set([dirPath, ...(await dirToFolderPaths(dirPath))])]
-    .filter((p) => !options.excludedPaths?.includes(p))
-    .map((p) => p.split(path.sep));
-  if (DEBUG) perfLog("Got folder paths");
-
-  const dirPathsDeepToShallow = [...dirPathsParts]
-    .sort((a, b) => b.length - a.length)
-    .map((p) => p.join(path.sep));
-  if (DEBUG) perfLog("Sorted folder paths");
-
-  const emptyFolders = new Set<string>();
-  await Promise.all(
-    dirPathsDeepToShallow.map(async (dir) => {
-      if ((await dirToFilePaths(dir)).length === 0) emptyFolders.add(dir);
-    }),
-  );
-  if (DEBUG) perfLog("Found empty folders");
-
-  const rootDirsToEmpty = new Set<string>();
-  for (const dir of dirPathsDeepToShallow) {
-    if (emptyFolders.has(dir)) {
-      const parts = dir.split(path.sep);
-      parts.pop();
-      const ancestors = parts.map((_, i) => parts.slice(0, i + 1).join(path.sep));
-      if (!ancestors.some((a) => emptyFolders.has(a))) rootDirsToEmpty.add(dir);
-    }
-  }
-  if (DEBUG) perfLog("Found root folders to empty");
-
-  await Promise.all([...rootDirsToEmpty].map((dir) => fs.rmdir(dir, { recursive: true })));
-  if (DEBUG) perfLogTotal("Done");
 };

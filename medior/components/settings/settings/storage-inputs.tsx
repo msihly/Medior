@@ -4,9 +4,9 @@ import { useState } from "react";
 import { CircularProgress } from "@mui/material";
 import { Button, Card, Comp, Divider, Modal, Text, UniformList, View } from "medior/components";
 import { filePathsToImports, useStores } from "medior/store";
-import { colors, deleteFile, dirToFilePaths, getConfig } from "medior/utils/client";
-import { dayjs } from "medior/utils/common";
-import { makePerfLog, trpc } from "medior/utils/server";
+import { colors, deleteFile, getConfig } from "medior/utils/client";
+import { commas, dayjs } from "medior/utils/common";
+import { dirToFilePaths, trpc } from "medior/utils/server";
 import { StorageInput } from "./storage-input";
 
 export const StorageInputs = Comp(() => {
@@ -31,7 +31,7 @@ export const StorageInputs = Comp(() => {
   };
 
   const _log = (msg: string) =>
-    setModalOutput((prev) => `[${dayjs().format("hh:mm:ss.SSS")}] ${msg}\n${prev}`);
+    setModalOutput((prev) => `${prev}\n[${dayjs().format("hh:mm:ss.SSS")}] ${msg}`.trim());
 
   const getDesyncedFiles = async (pathsInDb: Set<string>, pathsInStorage: Set<string>) => {
     const pathsInDbOnly = new Set<string>();
@@ -40,30 +40,30 @@ export const StorageInputs = Comp(() => {
     for (const pathInDb of pathsInDb) {
       if (!pathsInStorage.has(pathInDb)) pathsInDbOnly.add(pathInDb);
     }
-    _log(`Found ${pathsInDbOnly.size} files in database only.`);
+    _log(`Found ${commas(pathsInDbOnly.size)} files in database only.`);
 
     for (const pathInStorage of pathsInStorage) {
       if (!pathsInDb.has(pathInStorage)) pathsInStorageOnly.add(pathInStorage);
     }
-    _log(`Found ${pathsInStorageOnly.size} files in storage only.`);
+    _log(`Found ${commas(pathsInStorageOnly.size)} files in storage only.`);
 
     return { pathsInDbOnly, pathsInStorageOnly };
   };
 
   const getFilesInStorage = async () => {
     const locations = getConfig().db.fileStorage.locations;
-    _log(`Scanning ${locations.length} file storage locations...`);
 
-    const fileStorages = await Promise.all(
-      locations.map(async (location) => ({
-        location,
-        filePaths: new Set(await dirToFilePaths(location, true, /-thumb(-\d+)?\.\w+$/)),
-      })),
-    );
+    const map = new Map<string, string[]>();
+    for (const dirPath of locations) {
+      _log(`Scanning file storage: ${dirPath}`);
+      const files = await dirToFilePaths(dirPath, /-thumb(-\d+)?\.\w+$/);
+      _log(`Found ${commas(files.length)} in storage.`);
+      map.set(dirPath, files);
+    }
 
-    const pathsInStorage = new Set(fileStorages.flatMap(({ filePaths }) => [...filePaths]));
-    _log(`Found ${pathsInStorage.size} files in storage.`);
-    return { pathsInStorage };
+    const filesInStorage = new Set([...map.values()].flat());
+    _log(`Found ${commas(filesInStorage.size)} files in storage.`);
+    return filesInStorage;
   };
 
   const getFilesInDatabase = async () => {
@@ -72,7 +72,7 @@ export const StorageInputs = Comp(() => {
     if (!filePathsRes.success) throw new Error(filePathsRes.error);
     const pathToIdMap = new Map(filePathsRes.data.map((file) => [file.path, file.id]));
     const pathsInDb = new Set(pathToIdMap.keys());
-    _log(`Loaded ${pathsInDb.size} files in database.`);
+    _log(`Loaded ${commas(pathsInDb.size)} files in database.`);
     return { pathsInDb, pathToIdMap };
   };
 
@@ -89,6 +89,7 @@ export const StorageInputs = Comp(() => {
         filesToRelinkMap.set(pathInDb, pathInStorage);
     }
 
+    _log(`Found ${commas(filesToRelinkMap.size)} files to relink.`);
     return { filesToRelinkMap };
   };
 
@@ -99,24 +100,28 @@ export const StorageInputs = Comp(() => {
 
   const handleDeleteFilesInDbOnly = () =>
     _asyncTry(async () => {
-      _log(`Deleting ${fileIdsLeftInDbOnly.length} files in database only...`);
+      _log(`Deleting ${commas(fileIdsLeftInDbOnly.length)} files in database only...`);
       const res = await trpc.deleteFiles.mutate({ fileIds: fileIdsLeftInDbOnly });
       if (!res.success) throw new Error(res.error);
-      _log(`Deleted ${fileIdsLeftInDbOnly.length} files.`);
+      _log(`Deleted ${commas(fileIdsLeftInDbOnly.length)} files.`);
       setFileIdsLeftInDbOnly([]);
     });
 
   const handleDeleteFilesInStorageOnly = () =>
     _asyncTry(async () => {
-      _log(`Deleting ${filesLeftInStorageOnly.length} files in storage only...`);
-      await Promise.all(filesLeftInStorageOnly.map((path) => deleteFile(path)));
-      _log(`Deleted ${filesLeftInStorageOnly.length} files.`);
+      _log(`Deleting ${commas(filesLeftInStorageOnly.length)} files in storage only...`);
+      for (const file of filesLeftInStorageOnly) {
+        const res = await deleteFile(file);
+        if (!res.success) _log(`[Warning] Failed to delete: ${file}`);
+        if (res.data === false) _log(`[Warning] Skipping deletion, file does not exist: ${file}`);
+      }
+      _log(`Deleted ${commas(filesLeftInStorageOnly.length)} files.`);
       setFilesLeftInStorageOnly([]);
     });
 
   const handleReImportFilesInStorageOnly = () =>
     _asyncTry(async () => {
-      _log(`Re-importing ${filesLeftInStorageOnly.length} files in storage only...`);
+      _log(`Re-importing ${commas(filesLeftInStorageOnly.length)} files in storage only...`);
       const res = await stores.import.manager.createImportBatches([
         {
           deleteOnImport: false,
@@ -136,47 +141,38 @@ export const StorageInputs = Comp(() => {
       setModalOutput("");
       setIsModalOpen(true);
 
-      const { perfLog, perfLogTotal } = makePerfLog("[SCAN]");
-
-      const { pathsInStorage } = await getFilesInStorage();
-      perfLog(`Found ${pathsInStorage.size} files in storage.`);
+      const pathsInStorage = await getFilesInStorage();
 
       const { pathsInDb, pathToIdMap } = await getFilesInDatabase();
-      perfLog(`Loaded ${pathsInDb.size} files from database.`);
 
       const { pathsInDbOnly, pathsInStorageOnly } = await getDesyncedFiles(
         pathsInDb,
         pathsInStorage,
       );
-      perfLog(
-        `Found ${pathsInDbOnly.size} files in database only and ${pathsInStorageOnly.size} files in storage only.`,
-      );
 
       const { filesToRelinkMap } = await getFilesToRelink(pathsInDb, pathsInStorage);
-      perfLog(`Found ${filesToRelinkMap.size} files to relink.`);
 
       await relinkFiles(pathToIdMap, filesToRelinkMap);
-      perfLog("Relinked files.");
 
       const fileIdsInDbOnly = [...pathsInDbOnly]
         .map((path) => pathToIdMap.get(path))
         .filter(Boolean);
+
       setFileIdsLeftInDbOnly(fileIdsInDbOnly);
-      _log(`${fileIdsInDbOnly.length} files remaining in database only.`);
+      _log(`${commas(fileIdsInDbOnly.length)} files remaining in database only.`);
 
       const filesInStorageOnly = [...pathsInStorageOnly];
       setFilesLeftInStorageOnly(filesInStorageOnly);
-      _log(`${filesInStorageOnly.length} files remaining in storage only.`);
+      _log(`${commas(filesInStorageOnly.length)} files remaining in storage only.`);
 
       _log("Scan complete.");
-      perfLogTotal("Scan complete.");
     });
 
   const relinkFiles = async (
     pathToIdMap: Map<string, string>,
     filesToRelinkMap: Map<string, string>,
   ) => {
-    _log(`Relinking ${filesToRelinkMap.size} files and associated collections and imports...`);
+    _log(`Relinking ${commas(filesToRelinkMap.size)} files and associated collections and imports...`);
 
     const filesToRelink = [...filesToRelinkMap.entries()].map(([oldPath, newPath]) => {
       const id = pathToIdMap.get(oldPath);

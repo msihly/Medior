@@ -6,9 +6,9 @@ import {
   ImportStats,
 } from "medior/server/database";
 import { asyncAction, RootStore } from "medior/store";
-import { getIsVideo, removeEmptyFolders, toast } from "medior/utils/client";
+import { getIsVideo, toast } from "medior/utils/client";
 import { PromiseQueue, uniqueArrayMerge } from "medior/utils/common";
-import { makePerfLog, trpc } from "medior/utils/server";
+import { makePerfLog, removeEmptyFolders, trpc } from "medior/utils/server";
 import { FileImport, FileImportBatch, FileImporter } from ".";
 
 @model("medior/ImportManager")
