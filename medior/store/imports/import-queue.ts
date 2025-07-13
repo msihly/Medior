@@ -107,8 +107,6 @@ export class FileImporter {
   };
 
   private deleteOriginal = async () => {
-    if (!this.deleteOnImport || this.getIsIgnored()) return;
-
     await deleteFile(this.originalPath, this.getFilePath());
     this.perfLog("Deleted original file");
 
@@ -214,7 +212,6 @@ export class FileImporter {
       }
 
       this.file = await this.createFileSchema();
-      await this.deleteOriginal();
       this.perfLogTotal("New file imported.");
       return { success: true, file: this.file, status: "COMPLETE" };
     } catch (err) {
