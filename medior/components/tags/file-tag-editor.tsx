@@ -9,6 +9,7 @@ import {
   TagList,
   Text,
   UniformList,
+  View,
 } from "medior/components";
 import { TagOption, tagToOption, useStores } from "medior/store";
 import { colors, toast, useDeepEffect } from "medior/utils/client";
@@ -43,6 +44,22 @@ export const FileTagEditor = Comp(({ batchId, fileIds }: FileTagEditorProps) => 
       setCurrentTagOptions([]);
     };
   }, [fileIds, stores.tag.tags]);
+
+  const handleAdd = (tag: TagOption) => {
+    setAddedTags((prev) => (prev.find((t) => t.id === tag.id) ? prev : prev.concat(tag)));
+    setRemovedTags((prev) =>
+      prev.find((t) => t.id === tag.id) ? prev.filter((t) => t.id !== tag.id) : prev,
+    );
+    setHasUnsavedChanges(true);
+  };
+
+  const handleRemove = (tag: TagOption) => {
+    setAddedTags((prev) =>
+      prev.find((t) => t.id === tag.id) ? prev.filter((t) => t.id !== tag.id) : prev,
+    );
+    setRemovedTags((prev) => (prev.find((t) => t.id === tag.id) ? prev : prev.concat(tag)));
+    setHasUnsavedChanges(true);
+  };
 
   const handleClose = () => {
     if (hasUnsavedChanges) return setIsConfirmDiscardOpen(true);
@@ -110,6 +127,27 @@ export const FileTagEditor = Comp(({ batchId, fileIds }: FileTagEditorProps) => 
               hasDelete={false}
               hasEditor
               hasInput
+              rightNode={(tag) => (
+                <View row>
+                  <Button
+                    onClick={() => handleAdd(tag)}
+                    icon="Add"
+                    color="transparent"
+                    colorOnHover={colors.custom.blue}
+                    padding={{ all: "0.3em" }}
+                    boxShadow="none"
+                  />
+
+                  <Button
+                    onClick={() => handleRemove(tag)}
+                    icon="Close"
+                    color="transparent"
+                    colorOnHover={colors.custom.red}
+                    padding={{ all: "0.3em" }}
+                    boxShadow="none"
+                  />
+                </View>
+              )}
             />
           </HeaderWrapper>
 

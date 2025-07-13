@@ -5,6 +5,7 @@ import {
   MultiInputList,
   MultiInputListProps,
   TagInputRow,
+  TagInputRowProps,
   ViewProps,
 } from "medior/components";
 import { TagOption, useStores } from "medior/store";
@@ -15,11 +16,12 @@ export interface TagListProps extends MultiInputListProps<TagOption> {
   hasEditor?: boolean;
   hasSearchMenu?: boolean;
   hasInput?: boolean;
+  rightNode?: TagInputRowProps["rightNode"];
   viewProps?: Partial<ViewProps>;
 }
 
 export const TagList = Comp(
-  ({ hasDelete, hasEditor, hasInput, hasSearchMenu, search }: TagListProps) => {
+  ({ hasDelete, hasEditor, hasInput, hasSearchMenu, rightNode, search }: TagListProps) => {
     const stores = useStores();
 
     const ref = useRef<FixedSizeList>();
@@ -63,7 +65,7 @@ export const TagList = Comp(
         ref={ref}
         renderRow={(index, style) => (
           <TagInputRow
-            {...{ hasDelete, hasEditor, hasSearchMenu, search, style }}
+            {...{ hasDelete, hasEditor, hasSearchMenu, rightNode, search, style }}
             key={index}
             tag={search.value[index]}
           />

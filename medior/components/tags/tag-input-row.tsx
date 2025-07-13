@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { ReactNode, useState } from "react";
 import { Menu } from "@mui/material";
 import {
   Button,
@@ -47,11 +47,21 @@ const TAG_SEARCH_META: {
 export interface TagInputRowProps extends Omit<MultiInputRowProps<TagOption>, "value"> {
   hasEditor?: boolean;
   hasSearchMenu?: boolean;
+  rightNode?: (tag: TagOption) => ReactNode;
   tag: TagOption;
 }
 
 export const TagInputRow = Comp(
-  ({ hasDelete, hasEditor, hasSearchMenu, onClick, search, style, tag }: TagInputRowProps) => {
+  ({
+    hasDelete,
+    hasEditor,
+    hasSearchMenu,
+    onClick,
+    rightNode,
+    search,
+    style,
+    tag,
+  }: TagInputRowProps) => {
     const stores = useStores();
 
     const searchType = hasSearchMenu
@@ -95,7 +105,8 @@ export const TagInputRow = Comp(
             </View>
           }
           rightNode={
-            hasSearchMenu && (
+            rightNode?.(tag) ??
+            (hasSearchMenu && (
               <Button
                 onClick={handleOpen}
                 icon={searchMeta?.icon}
@@ -105,7 +116,7 @@ export const TagInputRow = Comp(
                 padding={{ all: "0.3em" }}
                 boxShadow="none"
               />
-            )
+            ))
           }
         />
 
