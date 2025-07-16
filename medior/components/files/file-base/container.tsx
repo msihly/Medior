@@ -59,7 +59,7 @@ const useClasses = makeClasses((props: ClassesProps, theme) => ({
   container: {
     position: "relative",
     display: props.display,
-    border: "1px solid transparent",
+    border: `2px solid ${colors.custom.black}`,
     borderRadius: 4,
     padding: "0.25rem",
     height: props.height ?? "20rem",
@@ -70,9 +70,9 @@ const useClasses = makeClasses((props: ClassesProps, theme) => ({
     ...(props.width ? { width: props.width } : {}),
     background:
       !props.disabled && props.selected
-        ? `linear-gradient(to bottom right, ${props.selectedColor}, ${Color(props.selectedColor)
-            .fade(0.5)
-            .string()} 60%)`
+        ? `linear-gradient(to bottom right, ${Color(props.selectedColor)
+            .lighten(0.4)
+            .string()}, ${props.selectedColor} 60%)`
         : "transparent",
     overflow: "hidden",
     cursor: "pointer",

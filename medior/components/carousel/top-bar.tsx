@@ -12,7 +12,7 @@ export const CarouselTopBar = Comp(() => {
   const file = stores.file.getById(stores.carousel.activeFileId);
   const ratingMeta = getRatingMeta(file?.rating);
 
-  const [isAspectRatioLocked, setIsAspectRatioLocked] = useState(true);
+  const [isAspectRatioLocked, setIsAspectRatioLocked] = useState(false);
 
   const { css } = useClasses({
     isMouseMoving: stores.carousel.isMouseMoving,

@@ -83,10 +83,13 @@ export class FileImporter {
   private copyFile = async () => {
     const fileExistsAtPath = await checkFileExists(this.getFilePath());
     this.perfLog(`File exists at path: ${fileExistsAtPath}`);
+
     if (!fileExistsAtPath) {
       await copyFile(this.getDirPath(), this.originalPath, this.getFilePath());
       this.perfLog("Copied file");
     }
+
+    if (this.deleteOnImport) await this.deleteOriginal();
   };
 
   private createFileSchema = async (file?: FileSchema) => {
