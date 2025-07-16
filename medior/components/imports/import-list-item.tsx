@@ -1,5 +1,6 @@
-import { ReactNode, useMemo } from "react";
+import { ReactNode, useMemo, useState } from "react";
 import { Divider } from "@mui/material";
+import { TagSchema } from "medior/_generated";
 import { ModelCreationData } from "mobx-keystone";
 import {
   Chip,
@@ -8,13 +9,15 @@ import {
   IconName,
   TagRow,
   Text,
+  TooltipProps,
   TooltipWrapper,
   UniformList,
   View,
 } from "medior/components";
 import { FileImport } from "medior/store";
-import { colors, makeClasses } from "medior/utils/client";
+import { colors, makeClasses, toast } from "medior/utils/client";
 import { formatBytes, parseDiffParams } from "medior/utils/common";
+import { trpc } from "medior/utils/server";
 import { TagHierarchy } from ".";
 
 export const IMPORT_LIST_ITEM_HEIGHT = 30;
@@ -28,10 +31,22 @@ export interface ImportListItemProps {
 export const ImportListItem = Comp(({ bgColor, fileImport, style = {} }: ImportListItemProps) => {
   const { css } = useClasses(null);
 
+  const [tags, setTags] = useState<TagSchema[]>([]);
+
   const parsedParams = useMemo(() => {
     if (!fileImport.diffusionParams) return null;
     return parseDiffParams(fileImport.diffusionParams);
   }, [fileImport.diffusionParams]);
+
+  const handleOpen = async () => {
+    try {
+      const res = await trpc.listTag.mutate({ args: { filter: { id: fileImport.tagIds } } });
+      setTags(res.data.items);
+    } catch (err) {
+      console.error(err);
+      toast.error("Error loading tags");
+    }
+  };
 
   return (
     <View key={fileImport.path} bgColor={bgColor} className={css.root} {...{ style }}>
@@ -45,8 +60,14 @@ export const ImportListItem = Comp(({ bgColor, fileImport, style = {} }: ImportL
 
       <View row>
         {(fileImport.tagIds?.length > 0 || fileImport.tagsToUpsert?.length > 0) && (
-          <TooltipChip icon="Label" label="Tags">
-            <TagRow tagIds={fileImport.tagIds} />
+          <TooltipChip
+            icon="Label"
+            label="Tags"
+            onOpen={handleOpen}
+            enterDelay={700}
+            enterNextDelay={300}
+          >
+            <TagRow tags={tags} />
 
             <View className={css.tagRow}>
               {fileImport.tagsToUpsert.map((tag) => (
@@ -121,13 +142,13 @@ export const ImportListItem = Comp(({ bgColor, fileImport, style = {} }: ImportL
   );
 });
 
-interface TooltipChipProps {
+interface TooltipChipProps extends Partial<Omit<TooltipProps, "children">> {
   children: ReactNode | ReactNode[];
   icon: IconName;
   label: string;
 }
 
-const TooltipChip = ({ children, icon, label }: TooltipChipProps) => {
+const TooltipChip = ({ children, icon, label, ...tooltipProps }: TooltipChipProps) => {
   const { css } = useClasses({});
 
   return (
@@ -138,7 +159,7 @@ const TooltipChip = ({ children, icon, label }: TooltipChipProps) => {
           {children}
         </View>
       }
-      tooltipProps={{ maxWidth: "40rem", minWidth: "15rem", placement: "left" }}
+      tooltipProps={{ maxWidth: "40rem", minWidth: "15rem", placement: "left", ...tooltipProps }}
     >
       <Chip {...{ icon, label }} bgColor={colors.custom.blue} className={css.chip} />
     </TooltipWrapper>

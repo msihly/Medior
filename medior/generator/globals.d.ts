@@ -52,6 +52,7 @@ declare global {
   interface ModelSearchStore {
     name: string;
     props: ModelSearchProp[];
+    withTags?: boolean;
   }
 }
 

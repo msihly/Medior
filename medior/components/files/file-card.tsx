@@ -120,8 +120,8 @@ export const FileCard = Comp(({ disabled, file, height, id, width }: FileCardPro
           </FileBase.Image>
 
           <FileBase.Footer>
-            {file.tagIds?.length > 0 ? (
-              <FileBase.Tags {...{ disabled }} tagIds={file.tagIds} />
+            {file.tags?.length > 0 ? (
+              <FileBase.Tags {...{ disabled }} tags={file.tags} />
             ) : (
               <View />
             )}

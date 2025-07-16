@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { TagSchema } from "medior/_generated";
 import { TagRow, Text, Tooltip, View } from "medior/components";
 import { FileCollection } from "medior/store";
 import { colors, toast } from "medior/utils/client";
@@ -10,20 +11,15 @@ export interface CollectionTooltipProps {
 }
 
 export const CollectionTooltip = ({ children, collection }: CollectionTooltipProps) => {
-  const [tagIds, setTagIds] = useState<string[]>([]);
+  const [tags, setTags] = useState<TagSchema[]>([]);
 
   const handleOpen = async () => {
     try {
-      const res = await trpc.listFile.mutate({
-        args: { filter: { id: collection.fileIdIndexes.map(({ fileId }) => fileId) } },
-      });
-      if (!res?.success) throw new Error(res.error);
-
-      const tagIds = [...new Set(res.data.items.flatMap((file) => file.tagIds))];
-      setTagIds(tagIds);
+      const res = await trpc.listTag.mutate({ args: { filter: { id: collection.tagIds } } });
+      setTags(res.data.items);
     } catch (err) {
       console.error(err);
-      toast.error("Error loading collection info");
+      toast.error("Error loading tags");
     }
   };
 
@@ -45,7 +41,7 @@ export const CollectionTooltip = ({ children, collection }: CollectionTooltipPro
           </Text>
 
           <View row justify="center">
-            <TagRow tagIds={tagIds} />
+            <TagRow tags={tags} />
           </View>
         </View>
       }

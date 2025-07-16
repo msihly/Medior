@@ -1,21 +1,19 @@
+import { TagSchema } from "medior/_generated";
 import { Comp, TagChip, View } from "medior/components";
-import { useStores } from "medior/store";
 import { makeClasses } from "medior/utils/client";
 
 interface TagsProps {
-  tagIds: string[];
+  tags: TagSchema[];
 }
 
-export const Tags = Comp(({ tagIds }: TagsProps) => {
+export const Tags = Comp(({ tags }: TagsProps) => {
   const { css } = useClasses(null);
 
-  const stores = useStores();
-
-  const tags = stores.tag.listByIds(tagIds.slice(0, 3));
+  const displayed = tags.slice(0, 3);
 
   return (
     <View row spacing="0.2rem" className={css.tags}>
-      {tags.map((tag, i) => (
+      {displayed.map((tag, i) => (
         <TagChip key={i} tag={tag} size="small" />
       ))}
     </View>

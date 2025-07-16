@@ -58,4 +58,18 @@ export class FileSearch extends ExtendedModel(_FileSearch, {
     if (!res.data?.length) throw new Error("No files found");
     return res.data;
   });
+
+  @modelFlow
+  reloadFiles = asyncAction(async (fileIds: string[]) => {
+    for (const file of this.results) {
+      if (fileIds.includes(file.id)) await file.reload();
+    }
+  });
+
+  @modelFlow
+  reloadTags = asyncAction(async (fileIds: string[]) => {
+    for (const file of this.results) {
+      if (fileIds.includes(file.id)) await file.reloadTags();
+    }
+  });
 }

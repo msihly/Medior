@@ -110,7 +110,7 @@ export const CarouselTopBar = Comp(() => {
 
       <View row flex={3} overflow="hidden">
         <View margins={{ all: "0 auto" }}>
-          <TagRow tagIds={file?.tagIds} />
+          <TagRow tags={file?.tags} />
         </View>
       </View>
 

@@ -1,6 +1,7 @@
 import Color from "color";
+import { TagSchema } from "medior/_generated";
 import { Chip, ChipProps, Comp, Text, View } from "medior/components";
-import { Tag as TagType, useStores } from "medior/store";
+import { useStores } from "medior/store";
 import { colors, makeClasses } from "medior/utils/client";
 import { abbrevNum } from "medior/utils/common";
 
@@ -10,9 +11,8 @@ const HEIGHT_SMALL = 26;
 export interface TagChipProps extends Omit<ChipProps, "color" | "label" | "onChange" | "onClick"> {
   color?: string;
   hasEditor?: boolean;
-  id?: string;
   onClick?: (id: string) => void;
-  tag?: TagType;
+  tag: TagSchema;
 }
 
 export const TagChip = Comp(
@@ -20,21 +20,21 @@ export const TagChip = Comp(
     className,
     color = colors.custom.blue,
     hasEditor = false,
-    id,
     onClick,
     size = "small",
     tag,
     ...props
   }: TagChipProps) => {
+    if (!tag) return null;
+
     const { css, cx } = useClasses({ color, size });
 
     const stores = useStores();
-    if (!tag) tag = stores.tag.getById(id);
 
     const handleClick = () => {
-      onClick?.(tag?.id);
+      onClick?.(tag.id);
       if (hasEditor) {
-        stores.tag.setActiveTagId(tag?.id);
+        stores.tag.setActiveTagId(tag.id);
         stores.tag.setIsTagEditorOpen(true);
       }
     };
@@ -48,11 +48,11 @@ export const TagChip = Comp(
         label={
           <View row align="center">
             <View className={css.count}>
-              {tag?.count !== undefined ? abbrevNum(tag.count) : "-"}
+              {tag.count !== undefined ? abbrevNum(tag.count) : "-"}
             </View>
 
-            <Text tooltip={tag?.label} tooltipProps={{ flexShrink: 1 }} className={css.label}>
-              {tag?.label}
+            <Text tooltip={tag.label} tooltipProps={{ flexShrink: 1 }} className={css.label}>
+              {tag.label}
             </Text>
           </View>
         }

@@ -69,6 +69,7 @@ export const useSockets = ({ view }: UseSocketsProps) => {
 
     makeSocket("onFileTagsUpdated", ({ addedTagIds, batchId, fileIds, removedTagIds }) => {
       stores.file.updateFileTags({ addedTagIds, fileIds, removedTagIds });
+      stores.file.search.reloadTags(fileIds);
 
       if (view !== "carousel") stores.file.search.setHasChanges(true);
       if (view === "home" && batchId?.length > 0)

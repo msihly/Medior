@@ -1,13 +1,12 @@
 import { CSSProperties } from "react";
-import { FileSchema } from "medior/_generated";
 import { Button, Comp, FileBase } from "medior/components";
-import { useStores } from "medior/store";
+import { File, useStores } from "medior/store";
 import { colors, getIsAnimated } from "medior/utils/client";
 import { duration } from "medior/utils/common";
 
 export interface FileSearchFileProps {
   disabled?: boolean;
-  file?: FileSchema;
+  file?: File;
   height?: CSSProperties["height"];
 }
 
@@ -50,7 +49,7 @@ export const FileSearchFile = Comp(({ disabled, file, height = "14rem" }: FileSe
         </FileBase.Image>
 
         <FileBase.Footer>
-          <FileBase.Tags tagIds={file.tagIds} />
+          <FileBase.Tags tags={file.tags} />
         </FileBase.Footer>
       </FileBase.Container>
     </FileBase.Tooltip>

@@ -1,3 +1,4 @@
+import { TagSchema } from "medior/_generated";
 import { computed } from "mobx";
 import {
   applySnapshot,
@@ -6,15 +7,19 @@ import {
   model,
   modelAction,
   ModelCreationData,
+  modelFlow,
   prop,
 } from "mobx-keystone";
 import { _File } from "medior/store/_generated";
+import { asyncAction } from "medior/store";
 import { getIsVideo } from "medior/utils/client";
 import { dayjs, WEB_VIDEO_CODECS, WEB_VIDEO_EXTS } from "medior/utils/common";
+import { trpc } from "medior/utils/server";
 
 @model("medior/File")
 export class File extends ExtendedModel(_File, {
   hasFaceModels: prop<boolean>(false),
+  tags: prop<TagSchema[]>(() => []).withSetter(),
 }) {
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
   @modelAction
@@ -37,6 +42,21 @@ export class File extends ExtendedModel(_File, {
       .concat(addedTagIds?.filter?.((tagId) => !this.tagIds.includes(tagId)) ?? []);
     this.dateModified = dateModified;
   }
+
+  /* ------------------------------ ASYNC ACTIONS ----------------------------- */
+  @modelFlow
+  reload = asyncAction(async () => {
+    const res = await trpc.listFile.mutate({ args: { filter: { id: this.id } } });
+    if (!res.success) throw new Error(res.error);
+    this.update(res.data.items[0]);
+  });
+
+  @modelFlow
+  reloadTags = asyncAction(async () => {
+    const res = await trpc.listTag.mutate({ args: { filter: { id: this.tagIds }}})
+    if (!res.success) throw new Error(res.error);
+    this.setTags(res.data.items);
+  });
 
   /* ----------------------------- GETTERS ----------------------------- */
   @computed

@@ -180,8 +180,16 @@ export class _FileCollectionSearch extends Model({
       pageSize: this.pageSize,
     });
     if (!itemsRes.success) throw new Error(itemsRes.error);
-    const items = itemsRes.data;
+
+    let items = itemsRes.data;
     if (debug) perfLog(`Loaded ${items.length} items`);
+
+    const tagIds = [...new Set(items.flatMap((item) => item.tagIds))];
+    const tags = (await trpc.listTag.mutate({ args: { filter: { id: tagIds } } })).data.items;
+    items = items.map((item) => ({
+      ...item,
+      tags: tags.filter((t) => item.tagIds.includes(t.id)),
+    }));
 
     this.setResults(items.map((item) => new Stores.FileCollection(item)));
     if (debug) perfLog("Overwrite and re-render");
@@ -442,8 +450,16 @@ export class _FileSearch extends Model({
       pageSize: this.pageSize,
     });
     if (!itemsRes.success) throw new Error(itemsRes.error);
-    const items = itemsRes.data;
+
+    let items = itemsRes.data;
     if (debug) perfLog(`Loaded ${items.length} items`);
+
+    const tagIds = [...new Set(items.flatMap((item) => item.tagIds))];
+    const tags = (await trpc.listTag.mutate({ args: { filter: { id: tagIds } } })).data.items;
+    items = items.map((item) => ({
+      ...item,
+      tags: tags.filter((t) => item.tagIds.includes(t.id)),
+    }));
 
     this.setResults(items.map((item) => new Stores.File(item)));
     if (debug) perfLog("Overwrite and re-render");
@@ -688,7 +704,8 @@ export class _TagSearch extends Model({
       pageSize: this.pageSize,
     });
     if (!itemsRes.success) throw new Error(itemsRes.error);
-    const items = itemsRes.data;
+
+    let items = itemsRes.data;
     if (debug) perfLog(`Loaded ${items.length} items`);
 
     this.setResults(items.map((item) => new Stores.Tag(item)));

@@ -129,9 +129,7 @@ export const InfoModal = Comp(() => {
           <DateDetail label="Date Modified" value={file?.dateModified} />
         </UniformList>
 
-        {file?.tagIds?.length > 0 && (
-          <Detail label="Tags" value={<TagRow tagIds={file.tagIds} />} />
-        )}
+        {file?.tags?.length > 0 && <Detail label="Tags" value={<TagRow tags={file.tags} />} />}
 
         {file?.diffusionParams?.length > 0 && (
           <Detail

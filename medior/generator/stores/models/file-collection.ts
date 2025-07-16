@@ -3,6 +3,7 @@ import { ModelStore } from "medior/generator/stores/generators";
 const model = new ModelStore("FileCollection", {
   defaultPageSize: "() => getConfig().collection.manager.search.pageSize",
   defaultSort: "() => getConfig().collection.manager.search.sort",
+  withTags: true,
 });
 
 model.addDateRangeProp("dateCreated");

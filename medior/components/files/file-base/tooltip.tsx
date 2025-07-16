@@ -1,4 +1,3 @@
-import { FileSchema } from "medior/server/database";
 import {
   Card,
   Comp,
@@ -11,13 +10,14 @@ import {
   UniformList,
   View,
 } from "medior/components";
+import { File } from "medior/store";
 import { colors } from "medior/utils/client";
 import { formatBytes } from "medior/utils/common";
 
 interface TooltipProps {
   children: JSX.Element;
   disabled?: boolean;
-  file: FileSchema;
+  file: File;
 }
 
 export const Tooltip = Comp(({ children, disabled, file }: TooltipProps) => {
@@ -51,7 +51,7 @@ export const Tooltip = Comp(({ children, disabled, file }: TooltipProps) => {
           </UniformList>
 
           <Text preset="detail-label">{"Tags"}</Text>
-          <TagRow tagIds={file.tagIds} disabled={disabled} />
+          <TagRow tags={file.tags} disabled={disabled} />
 
           {file.diffusionParams?.length > 0 && (
             <Detail

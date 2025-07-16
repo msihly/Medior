@@ -4,12 +4,14 @@ import { capitalize, makeSectionComment } from "medior/generator/utils";
 export class ModelStore {
   private name: ModelSearchStore["name"];
   private props: ModelSearchStore["props"] = [];
+  private withTags: boolean = false;
 
   constructor(
     name: ModelSearchStore["name"],
-    options: { defaultPageSize: string; defaultSort: string },
+    options: { defaultPageSize: string; defaultSort: string; withTags?: boolean },
   ) {
     this.name = name;
+    this.withTags = options.withTags;
     this.addProp("forcePages", "boolean", "false", { notFilterProp: true });
     this.addProp("hasChanges", "boolean", "false", { notFilterProp: true });
     this.addProp("ids", "string[]", "() => []", {
@@ -94,7 +96,7 @@ export class ModelStore {
   }
 
   public getModel() {
-    return { name: this.name, props: this.props };
+    return { name: this.name, props: this.props, withTags: this.withTags };
   }
 
   public makeCustomActionProp(
@@ -252,7 +254,7 @@ export const createSearchStore = (def: ModelSearchStore) => {
 
   const makeLoadFilteredAction = () =>
     `@modelFlow
-    loadFiltered = asyncAction(async ({ page }: { page?: number } = {}) => {
+    loadFiltered = asyncAction(async ({ page }: { page?: number; } = {}) => {
       const debug = false;
       const { perfLog } = makePerfLog("[${def.name}Search]");
       this.setIsLoading(true);
@@ -265,8 +267,17 @@ export const createSearchStore = (def: ModelSearchStore) => {
         pageSize: this.pageSize,
       });
       if (!itemsRes.success) throw new Error(itemsRes.error);
-      const items = itemsRes.data;
+
+      let items = itemsRes.data;
       if (debug) perfLog(\`Loaded \${items.length} items\`);
+
+      ${
+        def.withTags
+          ? `const tagIds = [...new Set(items.flatMap((item) => item.tagIds))];
+            const tags = (await trpc.listTag.mutate({ args: { filter: { id: tagIds } } })).data.items;
+            items = items.map((item) => ({ ...item, tags: tags.filter((t) => item.tagIds.includes(t.id)) }));`
+          : ""
+      }
 
       this.setResults(items.map((item) => new Stores.${def.name}(item)));
       if (debug) perfLog("Overwrite and re-render");

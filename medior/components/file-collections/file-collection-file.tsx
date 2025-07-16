@@ -61,7 +61,7 @@ export const FileCollectionFile = Comp(
             </FileBase.Image>
 
             <FileBase.Footer>
-              <FileBase.Tags tagIds={file.tagIds} />
+              <FileBase.Tags tags={file.tags} />
             </FileBase.Footer>
           </FileBase.Container>
         </FileBase.Tooltip>
