@@ -29,9 +29,9 @@ export const HomeMultiActionBar = Comp(() => {
   };
 
   const handleEditTags = () => {
-    stores.tag.setFileTagEditorBatchId(null);
-    stores.tag.setFileTagEditorFileIds([...stores.file.search.selectedIds]);
-    stores.tag.setIsFileTagEditorOpen(true);
+    stores.file.tagsEditor.setBatchId(null);
+    stores.file.tagsEditor.setFileIds([...stores.file.search.selectedIds]);
+    stores.file.tagsEditor.setIsOpen(true);
   };
 
   const handleFileInfoRefresh = () =>

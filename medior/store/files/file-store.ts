@@ -14,7 +14,7 @@ import { asyncAction, FaceModel, FileImporter, RootStore } from "medior/store";
 import { getConfig, makeQueue, toast } from "medior/utils/client";
 import { PromiseQueue, splitArray } from "medior/utils/common";
 import { trpc } from "medior/utils/server";
-import { File, FileSearch } from ".";
+import { File, FileSearch, FileTagsEditorStore } from ".";
 
 @model("medior/FileStore")
 export class FileStore extends ExtendedModel(_FileStore, {
@@ -23,6 +23,7 @@ export class FileStore extends ExtendedModel(_FileStore, {
   isConfirmDeleteOpen: prop<boolean>(false).withSetter(),
   isInfoModalOpen: prop<boolean>(false).withSetter(),
   search: prop<FileSearch>(() => new FileSearch({})),
+  tagsEditor: prop<FileTagsEditorStore>(() => new FileTagsEditorStore({})),
 }) {
   refreshQueue = new PromiseQueue();
 

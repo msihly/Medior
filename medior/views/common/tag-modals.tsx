@@ -17,21 +17,21 @@ export const TagModals = Comp(({ view }: TagModalsProps) => {
 
   return (
     <>
-      {stores.tag.isFileTagEditorOpen && (
+      {stores.file.tagsEditor.isOpen && (
         <FileTagEditor
           fileIds={
-            view === "carousel" ? [stores.carousel.activeFileId] : stores.tag.fileTagEditorFileIds
+            view === "carousel" ? [stores.carousel.activeFileId] : stores.file.tagsEditor.fileIds
           }
         />
       )}
 
       {stores.tag.manager.isMultiTagEditorOpen && <MultiTagEditor />}
 
-      {stores.tag.isTagEditorOpen && <TagEditor id={stores.tag.activeTagId} hasSubEditor />}
+      {stores.tag.editor.isOpen && <TagEditor id={stores.tag.editor.tagId} hasSubEditor />}
 
-      {stores.tag.isTagSubEditorOpen && <TagEditor id={stores.tag.subEditorTagId} isSubEditor />}
+      {stores.tag.subEditor.isOpen && <TagEditor id={stores.tag.subEditor.tagId} isSubEditor />}
 
-      {stores.tag.isTagMergerOpen && <TagMerger />}
+      {stores.tag.merger.isOpen && <TagMerger />}
 
       {stores.tag.manager.isOpen && <TagManager />}
     </>

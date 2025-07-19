@@ -172,7 +172,9 @@ export const StorageInputs = Comp(() => {
     pathToIdMap: Map<string, string>,
     filesToRelinkMap: Map<string, string>,
   ) => {
-    _log(`Relinking ${commas(filesToRelinkMap.size)} files and associated collections and imports...`);
+    _log(
+      `Relinking ${commas(filesToRelinkMap.size)} files and associated collections and imports...`,
+    );
 
     const filesToRelink = [...filesToRelinkMap.entries()].map(([oldPath, newPath]) => {
       const id = pathToIdMap.get(oldPath);

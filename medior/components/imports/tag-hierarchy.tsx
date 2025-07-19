@@ -24,8 +24,8 @@ const TagLevel = Comp(({ tag }: TagHierarchyProps) => {
   const stores = useStores();
 
   const handleClick = () => {
-    stores.tag.setActiveTagId(tag?.id);
-    stores.tag.setIsTagEditorOpen(true);
+    stores.tag.editor.setTagId(tag?.id);
+    stores.tag.editor.setIsOpen(true);
   };
 
   return (

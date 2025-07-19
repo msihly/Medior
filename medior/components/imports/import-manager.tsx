@@ -48,7 +48,12 @@ export const ImportManager = Comp(() => {
   const handleTagManager = () => stores.tag.manager.setIsOpen(true);
 
   return (
-    <Modal.Container visible={stores.import.manager.isOpen} onClose={handleClose} width="100%" height="100%">
+    <Modal.Container
+      visible={stores.import.manager.isOpen}
+      onClose={handleClose}
+      width="100%"
+      height="100%"
+    >
       <View row justify="space-between" align="center" padding={{ all: "0.5rem 0.8rem 0.3rem" }}>
         <IconButton
           name="Label"

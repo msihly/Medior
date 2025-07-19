@@ -54,10 +54,10 @@ export const useHotkeys = ({ rootRef, videoRef, view }: UseHotkeysProps) => {
 
   const handleKeyPress = async (event: KeyboardEvent) => {
     if (
-      stores.tag.isFileTagEditorOpen ||
-      stores.tag.isTagEditorOpen ||
-      stores.tag.isTagSubEditorOpen ||
-      stores.tag.isTagMergerOpen
+      stores.file.tagsEditor.isOpen ||
+      stores.tag.editor.isOpen ||
+      stores.tag.subEditor.isOpen ||
+      stores.tag.merger.isOpen
     )
       return;
 
@@ -141,9 +141,9 @@ export const useHotkeys = ({ rootRef, videoRef, view }: UseHotkeysProps) => {
     }
 
     if (key === "t") {
-      stores.tag.setFileTagEditorBatchId(null);
-      stores.tag.setFileTagEditorFileIds(fileIds);
-      stores.tag.setIsFileTagEditorOpen(true);
+      stores.file.tagsEditor.setBatchId(null);
+      stores.file.tagsEditor.setFileIds(fileIds);
+      stores.file.tagsEditor.setIsOpen(true);
     }
 
     if (key === "Delete") stores.file.confirmDeleteFiles(fileIds);

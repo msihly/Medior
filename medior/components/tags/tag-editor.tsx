@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Divider } from "@mui/material";
 import { TagSchema } from "medior/server/database";
 import {
@@ -80,9 +80,9 @@ export const TagEditor = Comp(
     };
 
     const handleClose = () => {
-      if (isSubEditor) stores.tag.setIsTagSubEditorOpen(false);
+      if (isSubEditor) stores.tag.editor.setIsSubOpen(false);
       else {
-        stores.tag.setIsTagEditorOpen(false);
+        stores.tag.editor.setIsOpen(false);
         stores.file.search.reloadIfQueued();
       }
     };
@@ -95,7 +95,7 @@ export const TagEditor = Comp(
       else {
         toast.success("Tag deleted");
         setIsConfirmDeleteOpen(false);
-        stores.tag.setIsTagEditorOpen(false);
+        stores.tag.editor.setIsOpen(false);
       }
 
       setIsLoading(false);
@@ -105,7 +105,7 @@ export const TagEditor = Comp(
     const handleDelete = () => setIsConfirmDeleteOpen(true);
 
     const handleMerge = () => {
-      stores.tag.setIsTagMergerOpen(true);
+      stores.tag.merger.setIsOpen(true);
       handleClose();
     };
 
@@ -118,8 +118,8 @@ export const TagEditor = Comp(
     const handleSearch = () => openSearchWindow({ tagIds: [id] });
 
     const handleSubEditorClick = (tagOpt: TagOption) => {
-      stores.tag.setSubEditorTagId(tagOpt.id);
-      stores.tag.setIsTagSubEditorOpen(true);
+      stores.tag.editor.setSubTagId(tagOpt.id);
+      stores.tag.editor.setIsSubOpen(true);
     };
 
     const saveTag = async () => {

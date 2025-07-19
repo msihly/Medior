@@ -55,7 +55,7 @@ export const CarouselTopBar = Comp(() => {
     }
   }, [file]);
 
-  const handleEditTags = () => stores.tag.setIsFileTagEditorOpen(true);
+  const handleEditTags = () => stores.file.tagsEditor.setIsOpen(true);
 
   const handleExtractFrame = () => stores.carousel.extractFrame();
 

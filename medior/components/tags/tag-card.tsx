@@ -20,8 +20,8 @@ export const TagCard = Comp(({ tag }: TagCardProps) => {
   };
 
   const handleEdit = () => {
-    stores.tag.setActiveTagId(tag.id);
-    stores.tag.setIsTagEditorOpen(true);
+    stores.tag.editor.setTagId(tag.id);
+    stores.tag.editor.setIsOpen(true);
   };
 
   const handleRefresh = () => stores.tag.refreshTag({ id: tag.id });

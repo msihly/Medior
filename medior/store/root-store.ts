@@ -28,9 +28,9 @@ export class RootStore extends Model({
       this.faceRecog?.isModalOpen ||
       this.import?.editor?.isOpen ||
       this.import?.manager?.isOpen ||
-      this.tag?.isFileTagEditorOpen ||
-      this.tag?.isTagEditorOpen ||
-      this.tag?.isTagMergerOpen ||
+      this.file?.tagsEditor?.isOpen ||
+      this.tag?.editor?.isOpen ||
+      this.tag?.merger?.isOpen ||
       this.tag?.manager?.isOpen
     );
   }

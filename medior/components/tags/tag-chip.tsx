@@ -34,8 +34,8 @@ export const TagChip = Comp(
     const handleClick = () => {
       onClick?.(tag.id);
       if (hasEditor) {
-        stores.tag.setActiveTagId(tag.id);
-        stores.tag.setIsTagEditorOpen(true);
+        stores.tag.editor.setTagId(tag.id);
+        stores.tag.editor.setIsOpen(true);
       }
     };
 

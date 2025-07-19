@@ -14,19 +14,14 @@ import { asyncAction, RootStore } from "medior/store";
 import { toast } from "medior/utils/client";
 import { PromiseChain, regexEscape } from "medior/utils/common";
 import { trpc } from "medior/utils/server";
-import { Tag, TagManagerStore, TagOption } from ".";
+import { Tag, TagEditorStore, TagManagerStore, TagMergerStore, TagOption } from ".";
 
 @model("medior/TagStore")
 export class TagStore extends Model({
-  activeTagId: prop<string>(null).withSetter(),
-  fileTagEditorBatchId: prop<string | null>(null).withSetter(),
-  fileTagEditorFileIds: prop<string[]>(() => []).withSetter(),
-  isFileTagEditorOpen: prop<boolean>(false).withSetter(),
-  isTagEditorOpen: prop<boolean>(false).withSetter(),
-  isTagMergerOpen: prop<boolean>(false).withSetter(),
-  isTagSubEditorOpen: prop<boolean>(false).withSetter(),
+  editor: prop<TagEditorStore>(() => new TagEditorStore({})),
   manager: prop<TagManagerStore>(() => new TagManagerStore({})),
-  subEditorTagId: prop<string>(null).withSetter(),
+  merger: prop<TagMergerStore>(() => new TagMergerStore({})),
+  subEditor: prop<TagEditorStore>(() => new TagEditorStore({})),
   tags: prop<Tag[]>(() => []),
 }) {
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */

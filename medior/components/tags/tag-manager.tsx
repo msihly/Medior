@@ -39,8 +39,8 @@ export const TagManager = Comp(() => {
   };
 
   const handleCreate = () => {
-    stores.tag.setActiveTagId(null);
-    stores.tag.setIsTagEditorOpen(true);
+    stores.tag.editor.setTagId(null);
+    stores.tag.editor.setIsOpen(true);
   };
 
   const handleEditRelations = () => stores.tag.manager.setIsMultiTagEditorOpen(true);

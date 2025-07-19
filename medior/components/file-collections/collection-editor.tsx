@@ -75,9 +75,9 @@ export const FileCollectionEditor = Comp(() => {
   };
 
   const handleEditTags = () => {
-    stores.tag.setFileTagEditorBatchId(null);
-    stores.tag.setFileTagEditorFileIds([...stores.collection.editor.search.selectedIds]);
-    stores.tag.setIsFileTagEditorOpen(true);
+    stores.file.tagsEditor.setBatchId(null);
+    stores.file.tagsEditor.setFileIds([...stores.collection.editor.search.selectedIds]);
+    stores.file.tagsEditor.setIsOpen(true);
   };
 
   const handleFileInfoRefresh = () =>

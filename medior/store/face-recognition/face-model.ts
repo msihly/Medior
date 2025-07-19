@@ -10,8 +10,8 @@ export class FaceModel extends Model({
   /** JSON representation of Float32Array[] */
   descriptors: prop<string>().withSetter(),
   fileId: prop<string>().withSetter(),
-  tagId: prop<string | null>(null).withSetter(),
   selectedTag: prop<TagOption | null>(null).withSetter(),
+  tagId: prop<string | null>(null).withSetter(),
 }) {
   @computed
   get boxColor() {

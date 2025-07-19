@@ -63,13 +63,13 @@ export const FileTagEditor = Comp(({ batchId, fileIds }: FileTagEditorProps) => 
 
   const handleClose = () => {
     if (hasUnsavedChanges) return setIsConfirmDiscardOpen(true);
-    stores.tag.setIsFileTagEditorOpen(false);
+    stores.file.tagsEditor.setIsOpen(false);
     stores.file.search.reloadIfQueued();
   };
 
   const handleCloseForced = async () => {
     setHasUnsavedChanges(false);
-    stores.tag.setIsFileTagEditorOpen(false);
+    stores.file.tagsEditor.setIsOpen(false);
     stores.file.search.reloadIfQueued();
     return true;
   };
