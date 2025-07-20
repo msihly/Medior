@@ -59,8 +59,8 @@ const useClasses = makeClasses((props: ClassesProps, theme) => ({
   container: {
     position: "relative",
     display: props.display,
-    border: `2px solid ${colors.custom.black}`,
     borderRadius: 4,
+    margin: "2px",
     padding: "0.25rem",
     height: props.height ?? "20rem",
     [theme.breakpoints.down("xl")]: props.height ? undefined : { height: "18rem" },

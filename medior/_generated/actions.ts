@@ -803,7 +803,6 @@ export const _createTag = makeAction(
       childIds: [],
       descendantIds: [],
       parentIds: [],
-      regExMap: null,
       thumb: null,
     };
 

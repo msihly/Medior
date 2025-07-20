@@ -10,12 +10,9 @@ import { getLogsPath, getVideoInfo, trpc } from "medior/utils/server";
 export const RepairModal = Comp(() => {
   const stores = useStores();
 
-  const [isCollTagsChecked, setIsCollTagsChecked] = useState(false);
-  const [isFileTagsChecked, setIsFileTagsChecked] = useState(false);
-  const [isBrokenThumbsChecked, setIsBrokenThumbsChecked] = useState(false);
+  const [isThumbsChecked, setIsThumbsChecked] = useState(false);
   const [isRepairing, setIsRepairing] = useState(false);
-  const [isTagCountsChecked, setIsTagCountsChecked] = useState(false);
-  const [isTagRelationsChecked, setIsTagRelationsChecked] = useState(false);
+  const [isTagsChecked, setIsTagsChecked] = useState(false);
   const [isExtAndCodecsChecked, setIsExtAndCodecsChecked] = useState(false);
   const [outputLog, setOutputLog] = useState<{ color?: string; text: string }[]>([]);
 
@@ -37,7 +34,13 @@ export const RepairModal = Comp(() => {
     try {
       setIsRepairing(true);
 
-      if (isBrokenThumbsChecked) {
+      if (isTagsChecked) {
+        log("Repairing tags...");
+        const res = await trpc.repairTags.mutate();
+        if (!res.success) throw new Error(res.error);
+      }
+
+      if (isThumbsChecked) {
         log("Repairing broken thumbnails. See details in logs...");
         const res = await trpc.repairThumbs.mutate();
         if (!res.success) throw new Error(res.error);
@@ -119,11 +122,11 @@ export const RepairModal = Comp(() => {
           <Text preset="title">{"Select Issues to Repair"}</Text>
 
           <UniformList row>
-            <View column>
+            <View row>
               <Checkbox
-                label="Broken Thumbnails"
-                checked={isBrokenThumbsChecked}
-                setChecked={setIsBrokenThumbsChecked}
+                label="Thumbnails"
+                checked={isThumbsChecked}
+                setChecked={setIsThumbsChecked}
                 disabled={isRepairing}
               />
 
@@ -133,41 +136,12 @@ export const RepairModal = Comp(() => {
                 setChecked={setIsExtAndCodecsChecked}
                 disabled={isRepairing}
               />
-            </View>
 
-            <View column>
-              {/* TODO: Implement */}
               <Checkbox
-                label="File Tags"
-                checked={isFileTagsChecked}
-                setChecked={setIsFileTagsChecked}
-                disabled={true || isRepairing}
-              />
-
-              {/* TODO: Implement */}
-              <Checkbox
-                label="Collection Tags"
-                checked={isCollTagsChecked}
-                setChecked={setIsCollTagsChecked}
-                disabled={true || isRepairing}
-              />
-            </View>
-
-            <View column>
-              {/* TODO: Implement */}
-              <Checkbox
-                label="Tag Counts"
-                checked={isTagCountsChecked}
-                setChecked={setIsTagCountsChecked}
-                disabled={true || isRepairing}
-              />
-
-              {/* TODO: Implement */}
-              <Checkbox
-                label="Tag Relations"
-                checked={isTagRelationsChecked}
-                setChecked={setIsTagRelationsChecked}
-                disabled={true || isRepairing}
+                label="Tags"
+                checked={isTagsChecked}
+                setChecked={setIsTagsChecked}
+                disabled={isRepairing}
               />
             </View>
           </UniformList>

@@ -2,7 +2,6 @@ import path from "path";
 import { useEffect, useRef, useState } from "react";
 import { Divider } from "@mui/material";
 import { ModelCreationData } from "mobx-keystone";
-import { TagSchema } from "medior/server/database";
 import {
   Button,
   Card,
@@ -35,35 +34,30 @@ type RegExMap = { regEx: RegExp; tagId: string };
 
 const DEBUG = false;
 
-const getRegExMaps = (stores: RootStore, type: TagSchema["regExMap"]["types"][number]) =>
-  stores.tag.listRegExMapsByType(type).map((map) => ({
-    regEx: new RegExp(map.regEx, "im"),
-    tagId: map.tagId,
-  }));
-
 class EditorImportsCache {
   private parentTagsCache = new Map<string, string[]>();
   private regExMapsCache = new Map<string, RegExMap[]>();
   private tagIdCache = new Map<string, Tag>();
   private tagLabelCache = new Map<string, Tag>();
-  public diffRegExMaps: RegExMap[];
-  public fileRegExMaps: RegExMap[];
-  public folderRegExMaps: RegExMap[];
+  private regExMaps: { regEx: RegExp; tagId: string }[] = [];
   public tagsToCreateMap = new Map<string, TagToUpsert>();
   public tagsToEditMap = new Map<string, TagToUpsert>();
 
   constructor(private stores: RootStore) {
     this.stores = stores;
-    this.diffRegExMaps = getRegExMaps(stores, "diffusionParams");
-    this.fileRegExMaps = getRegExMaps(stores, "fileName");
-    this.folderRegExMaps = getRegExMaps(stores, "folderName");
+    this.regExMaps = stores.tag.tags.map((tag) => ({
+      regEx: new RegExp(tag.regEx, "im"),
+      tagId: tag.id,
+    }));
   }
 
   getParentTags(id: string) {
     if (!this.parentTagsCache.has(id)) {
       const tag = this.getTagById(id);
-      const parentTags = tag ? this.stores.tag.getParentTags(tag, true).map((t) => t.label) : [];
-      this.parentTagsCache.set(id, parentTags);
+      const ancestorLabels = tag
+        ? this.stores.tag.getParentTags(tag, true).map((t) => t.label)
+        : [];
+      this.parentTagsCache.set(id, ancestorLabels);
     }
     return this.parentTagsCache.get(id);
   }
@@ -78,30 +72,11 @@ class EditorImportsCache {
     if (!this.tagIdCache.has(id)) this.tagIdCache.set(id, this.stores.tag.getById(id));
     return this.tagIdCache.get(id);
   }
-
-  getTagIdsByDiffRegEx(label: string) {
+  getTagIdsByRegEx(label: string) {
     if (!this.regExMapsCache.has(label))
       this.regExMapsCache.set(
         label,
-        this.diffRegExMaps.filter((map) => map.regEx.test(label)),
-      );
-    return this.regExMapsCache.get(label)?.map((map) => map.tagId);
-  }
-
-  getTagIdsByFileRegEx(label: string) {
-    if (!this.regExMapsCache.has(label))
-      this.regExMapsCache.set(
-        label,
-        this.fileRegExMaps.filter((map) => map.regEx.test(label)),
-      );
-    return this.regExMapsCache.get(label)?.map((map) => map.tagId);
-  }
-
-  getTagIdsByFolderRegEx(label: string) {
-    if (!this.regExMapsCache.has(label))
-      this.regExMapsCache.set(
-        label,
-        this.folderRegExMaps.filter((map) => map.regEx.test(label)),
+        this.regExMaps.filter((map) => map.regEx.test(label)),
       );
     return this.regExMapsCache.get(label)?.map((map) => map.tagId);
   }
@@ -280,8 +255,8 @@ export const ImportEditor = Comp(() => {
         const existingLabels = new Set(folderTags.map((tag) => tag.label));
 
         folderTags.push(
-          ...folderNameParts.reduce((acc, folderNamePart) => {
-            const tagIds = cache.getTagIdsByFolderRegEx(folderNamePart);
+          ...folderNameParts.reduce<TagToUpsert[]>((acc, folderNamePart) => {
+            const tagIds = cache.getTagIdsByRegEx(folderNamePart);
             if (!tagIds?.length) return acc;
 
             tagIds.forEach((id) => {
@@ -294,7 +269,7 @@ export const ImportEditor = Comp(() => {
             });
 
             return acc;
-          }, [] as TagToUpsert[]),
+          }, []),
         );
 
         if (DEBUG) perfLog("Parsed tags from folder name RegEx maps");
@@ -302,7 +277,7 @@ export const ImportEditor = Comp(() => {
 
       /** Parse tags from collectionTitle via folder regex maps */
       if (collectionTitle && folderToCollectionMode === "withTag") {
-        const collectionTitleTags = cache.getTagIdsByFolderRegEx(collectionTitle);
+        const collectionTitleTags = cache.getTagIdsByRegEx(collectionTitle);
         if (collectionTitleTags?.length) {
           collectionTitleTags.forEach((tagId) => {
             const tag = cache.getTagById(tagId);
@@ -377,7 +352,7 @@ export const ImportEditor = Comp(() => {
       const fileTagsToUpsert: TagToUpsert[] = [];
 
       if (withFileNameToTags) {
-        const tagIds = cache.getTagIdsByFileRegEx(imp.name);
+        const tagIds = cache.getTagIdsByRegEx(imp.name);
         if (tagIds?.length) fileTagIds.push(...tagIds);
         if (DEBUG) perfLog(`Parsed tag ids from file name via regEx`);
       }
@@ -493,7 +468,7 @@ export const ImportEditor = Comp(() => {
     if (DEBUG) perfLog(`Parsed diffusion params`);
 
     if (withDiffusionRegExMaps) {
-      diffFileTagIds.push(...cache.getTagIdsByDiffRegEx(parsedParams.prompt));
+      diffFileTagIds.push(...cache.getTagIdsByRegEx(parsedParams.prompt));
       if (DEBUG) perfLog(`Parsed tag ids from diffusion params via regEx`);
     }
 
@@ -521,7 +496,7 @@ export const ImportEditor = Comp(() => {
   const replaceTagsFromRegEx = (cache: EditorImportsCache, tag: TagToUpsert) => {
     const copy = { ...tag };
 
-    const tagIds = cache.getTagIdsByFolderRegEx(copy.label);
+    const tagIds = cache.getTagIdsByRegEx(copy.label);
     if (tagIds?.length) {
       tagIds.forEach((tagId) => {
         const label = cache.getTagById(tagId)?.label;
@@ -534,7 +509,7 @@ export const ImportEditor = Comp(() => {
 
     if (copy.parentLabels) {
       copy.parentLabels.forEach((parentLabel, idx) => {
-        const parentTagIds = cache.getTagIdsByFolderRegEx(parentLabel);
+        const parentTagIds = cache.getTagIdsByRegEx(parentLabel);
         if (parentTagIds?.length) {
           parentTagIds.forEach((tagId) => {
             const parentLabel = cache.getTagById(tagId)?.label;

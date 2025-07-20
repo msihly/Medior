@@ -392,7 +392,7 @@ export const createTag = makeAction(
     childIds = [],
     label,
     parentIds = [],
-    regExMap,
+    regEx,
     withRegen = true,
     withSub = true,
   }: {
@@ -400,7 +400,7 @@ export const createTag = makeAction(
     childIds?: string[];
     label: string;
     parentIds?: string[];
-    regExMap?: models.TagSchema["regExMap"];
+    regEx?: string;
     withRegen?: boolean;
     withSub?: boolean;
   }) => {
@@ -415,7 +415,7 @@ export const createTag = makeAction(
       descendantIds: [],
       label,
       parentIds,
-      regExMap,
+      regEx,
       thumb: null,
     };
 
@@ -471,7 +471,7 @@ export const editTag = makeAction(
     id,
     label,
     parentIds,
-    regExMap,
+    regEx,
     withSub = true,
   }: Partial<Types.CreateTagInput> & { id: string }) => {
     const dateModified = dayjs().toISOString();
@@ -515,7 +515,7 @@ export const editTag = makeAction(
             aliases,
             dateModified,
             label,
-            regExMap,
+            regEx,
             ...(childIds !== undefined ? { childIds: objectIds(childIds) } : {}),
             ...(parentIds !== undefined ? { parentIds: objectIds(parentIds) } : {}),
           },
@@ -684,6 +684,24 @@ export const editMultiTagRelations = makeAction(
     return { bulkWriteRes, changedChildIds, changedParentIds, dateModified, errors };
   },
 );
+
+export const getTagWithRelations = makeAction(async ({ id }: { id: string }) => {
+  const tag = leanModelToJson(await models.TagModel.findById(id).lean());
+
+  const [childTags, parentTags] = await Promise.all(
+    [tag.childIds, tag.parentIds].map(async (tagIds) =>
+      tagIds?.length > 0
+        ? (
+            await models.TagModel.find({ _id: { $in: objectIds(tagIds) } })
+              .allowDiskUse(true)
+              .lean()
+          ).map((t) => leanModelToJson<models.TagSchema>(t))
+        : [],
+    ),
+  );
+
+  return { childTags, parentTags, tag };
+});
 
 export const mergeTags = makeAction(
   async (
@@ -894,6 +912,31 @@ export const refreshTag = makeAction(async ({ tagId }: { tagId: string }) => {
   ]);
 
   if (debug) perfLogTotal(`Refreshed tag ${tagId}`);
+});
+
+export const repairTags = makeAction(async () => {
+  const { perfLog } = makePerfLog("[repairTags]", true);
+
+  const tagsWithBrokenRegEx = (
+    await models.TagModel.find({ regExMap: { $exists: true } })
+      .allowDiskUse(true)
+      .lean()
+  ).map((t) => leanModelToJson<models.TagSchema>(t));
+
+  perfLog(`Found ${tagsWithBrokenRegEx.length} tags with broken regEx`);
+
+  const bulkWriteRes = await models.TagModel.bulkWrite(
+    [...tagsWithBrokenRegEx].map((f) => ({
+      updateOne: {
+        filter: { _id: objectId(f.id) },
+        // @ts-expect-error
+        update: [{ $set: { regEx: f.regExMap?.regEx ?? null } }, { $unset: "regExMap" }],
+      },
+    })),
+  );
+  perfLog(`Repaired regEx of ${bulkWriteRes.modifiedCount} tags`);
+  if (bulkWriteRes.modifiedCount !== tagsWithBrokenRegEx.length)
+    throw new Error(`Bulk write failed: ${JSON.stringify(bulkWriteRes, null, 2)}`);
 });
 
 export const setTagCount = makeAction(async ({ count, id }: { count: number; id: string }) => {

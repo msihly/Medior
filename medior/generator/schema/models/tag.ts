@@ -22,14 +22,7 @@ model.addProp("label", "string", { required: true, sort: { icon: "Label", label:
 
 model.addProp("parentIds", "Tag.id[]", { defaultValue: "[]", required: true });
 
-model.addProp(
-  "regExMap",
-  "{ regEx: string; testString?: string; types: Array<'diffusionParams' | 'fileName' | 'folderName'> }",
-  {
-    defaultValue: "null",
-    schemaType: "{ regEx: String, testString: String, types: [String] }",
-  },
-);
+model.addProp("regEx", "string");
 
 model.addProp("thumb", "{ frameHeight?: number; frameWidth?: number; path: string }", {
   defaultValue: "null",

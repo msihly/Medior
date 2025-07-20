@@ -38,10 +38,7 @@ export const TagManager = Comp(() => {
     stores.file.search.reloadIfQueued();
   };
 
-  const handleCreate = () => {
-    stores.tag.editor.setTagId(null);
-    stores.tag.editor.setIsOpen(true);
-  };
+  const handleCreate = () => stores.tag.editor.setIsOpen(true);
 
   const handleEditRelations = () => stores.tag.manager.setIsMultiTagEditorOpen(true);
 

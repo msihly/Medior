@@ -77,8 +77,8 @@ export const TagInputRow = Comp(
     const handleClick = () => {
       onClick?.(tag);
       if (hasEditor) {
-        stores.tag.editor.setTagId(tag?.id);
         stores.tag.editor.setIsOpen(true);
+        stores.tag.editor.loadTag(tag.id);
       }
     };
 

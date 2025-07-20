@@ -1,7 +1,6 @@
 import { computed } from "mobx";
 import { ExtendedModel, model } from "mobx-keystone";
 import { _Tag } from "medior/store/_generated";
-import { RootStore } from "medior/store";
 
 @model("medior/Tag")
 export class Tag extends ExtendedModel(_Tag, {}) {
@@ -21,20 +20,6 @@ export type TagOption = {
   label: string;
   searchType?: SearchTagType;
 };
-
-export const getTagDescendants = (stores: RootStore, tag: Tag, depth = -1): string[] =>
-  tag.childIds.length === 0 || depth === 0
-    ? []
-    : [
-        ...tag.childIds,
-        ...stores.tag
-          .getChildTags(tag)
-          .flatMap((t) => getTagDescendants(stores, t, depth === -1 ? -1 : depth - 1)),
-      ];
-
-export const tagsToDescendants = (stores: RootStore, tags: Tag[], depth = -1): string[] => [
-  ...new Set(tags.flatMap((t) => getTagDescendants(stores, t, depth))),
-];
 
 export const tagToOption = (tag: Tag): TagOption => ({
   aliases: [...tag.aliases],

@@ -1034,11 +1034,7 @@ export class _Tag extends Model({
   descendantIds: prop<string[]>(() => []),
   label: prop<string>(),
   parentIds: prop<string[]>(() => []),
-  regExMap: prop<{
-    regEx: string;
-    testString?: string;
-    types: Array<"diffusionParams" | "fileName" | "folderName">;
-  }>(null),
+  regEx: prop<string>(null),
   thumb: prop<{ frameHeight?: number; frameWidth?: number; path: string }>(null),
 }) {
   @modelAction

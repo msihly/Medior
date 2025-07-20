@@ -27,9 +27,9 @@ export const TagModals = Comp(({ view }: TagModalsProps) => {
 
       {stores.tag.manager.isMultiTagEditorOpen && <MultiTagEditor />}
 
-      {stores.tag.editor.isOpen && <TagEditor id={stores.tag.editor.tagId} hasSubEditor />}
+      {stores.tag.editor.isOpen && <TagEditor />}
 
-      {stores.tag.subEditor.isOpen && <TagEditor id={stores.tag.subEditor.tagId} isSubEditor />}
+      {stores.tag.subEditor.isOpen && <TagEditor isSubEditor />}
 
       {stores.tag.merger.isOpen && <TagMerger />}
 

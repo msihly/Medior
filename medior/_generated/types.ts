@@ -247,6 +247,9 @@ export type EditTagOutput = ReturnType<typeof db.editTag>;
 export type EditMultiTagRelationsInput = Parameters<typeof db.editMultiTagRelations>[0];
 export type EditMultiTagRelationsOutput = ReturnType<typeof db.editMultiTagRelations>;
 
+export type GetTagWithRelationsInput = Parameters<typeof db.getTagWithRelations>[0];
+export type GetTagWithRelationsOutput = ReturnType<typeof db.getTagWithRelations>;
+
 export type MergeTagsInput = Parameters<typeof db.mergeTags>[0];
 export type MergeTagsOutput = ReturnType<typeof db.mergeTags>;
 
@@ -258,6 +261,9 @@ export type RefreshTagRelationsOutput = ReturnType<typeof db.refreshTagRelations
 
 export type RefreshTagInput = Parameters<typeof db.refreshTag>[0];
 export type RefreshTagOutput = ReturnType<typeof db.refreshTag>;
+
+export type RepairTagsInput = Parameters<typeof db.repairTags>[0];
+export type RepairTagsOutput = ReturnType<typeof db.repairTags>;
 
 export type SetTagCountInput = Parameters<typeof db.setTagCount>[0];
 export type SetTagCountOutput = ReturnType<typeof db.setTagCount>;

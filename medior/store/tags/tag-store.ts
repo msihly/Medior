@@ -55,31 +55,23 @@ export class TagStore extends Model({
       childIds = [],
       label,
       parentIds = [],
-      regExMap,
+      regEx,
       withRegen = false,
       withRegEx = false,
       withSub = true,
     }: db.CreateTagInput & { withRegEx?: boolean }) => {
-      const regEx =
-        regExMap || withRegEx
-          ? {
-              regEx: regExMap?.regEx || this.tagsToRegEx([{ aliases, label }]),
-              testString: regExMap?.testString || "",
-              types: regExMap?.types || ["diffusionParams", "fileName", "folderName"],
-            }
-          : null;
+      regEx = regEx || withRegEx ? this.tagsToRegEx([{ aliases, label }]) : null;
 
       const res = await trpc.createTag.mutate({
         aliases,
         childIds,
         label,
         parentIds,
-        regExMap: regEx,
+        regEx,
         withRegen,
         withSub,
       });
       if (!res.success) throw new Error(res.error);
-      const id = res.data.id;
 
       const tag: ModelCreationData<Tag> = {
         aliases,
@@ -87,14 +79,13 @@ export class TagStore extends Model({
         count: 0,
         dateCreated: res.data.dateCreated,
         dateModified: res.data.dateModified,
-        id,
+        id: res.data.id,
         label,
         parentIds,
-        regExMap: regEx,
+        regEx,
         thumb: null,
       };
 
-      if (withSub) this._addTag(tag);
       return tag;
     },
   );
@@ -106,15 +97,7 @@ export class TagStore extends Model({
 
   @modelFlow
   editTag = asyncAction(
-    async ({
-      aliases,
-      childIds,
-      id,
-      label,
-      parentIds,
-      regExMap,
-      withSub = true,
-    }: db.EditTagInput) => {
+    async ({ aliases, childIds, id, label, parentIds, regEx, withSub = true }: db.EditTagInput) => {
       const origLabel = this.getById(id).label;
 
       const editRes = await trpc.editTag.mutate({
@@ -123,7 +106,7 @@ export class TagStore extends Model({
         id,
         label,
         parentIds,
-        regExMap,
+        regEx,
         withSub,
       });
       if (!editRes.success) throw new Error(editRes.error);
@@ -226,12 +209,6 @@ export class TagStore extends Model({
     return this.tags.find((t) => t.label.toLowerCase() === label.toLowerCase());
   }
 
-  getChildTags(tag: Tag, withDescendants = false): Tag[] {
-    return this.listByIds(
-      (withDescendants ? tag.descendantIds : tag.childIds).filter((id) => id !== tag.id),
-    ).sort((a, b) => b.count - a.count);
-  }
-
   getParentTags(tag: Tag, withAncestors = false): Tag[] {
     return this.listByIds(
       (withAncestors ? tag.ancestorIds : tag.parentIds).filter((id) => id !== tag.id),
@@ -241,16 +218,6 @@ export class TagStore extends Model({
   listByIds(ids: string[]) {
     const idsSet = new Set(ids.map(String));
     return this.tags.filter((t) => idsSet.has(t.id));
-  }
-
-  listRegExMapsByType(type: db.TagSchema["regExMap"]["types"][number]) {
-    return this.tags.reduce(
-      (acc, cur) => {
-        if (cur.regExMap?.types.includes(type)) acc.push({ ...cur.regExMap, tagId: cur.id });
-        return acc;
-      },
-      [] as Array<db.TagSchema["regExMap"] & { tagId: string }>,
-    );
   }
 
   tagsToRegEx(tags: { aliases?: string[]; label: string }[]) {
@@ -267,7 +234,7 @@ export class TagStore extends Model({
         if (!tag) return acc;
 
         if (cur.searchType.includes("Desc")) {
-          const childTagIds = withDescArrays ? this.getChildTags(tag, true).map((t) => t.id) : [];
+          const childTagIds = withDescArrays ? tag.descendantIds : [];
           const tagIds = [cur.id, ...childTagIds];
           if (cur.searchType === "excludeDesc") {
             acc["excludedDescTagIds"].push(cur.id);

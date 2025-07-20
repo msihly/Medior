@@ -241,11 +241,7 @@ export interface TagSchema {
   descendantIds: string[];
   label: string;
   parentIds: string[];
-  regExMap?: {
-    regEx: string;
-    testString?: string;
-    types: Array<"diffusionParams" | "fileName" | "folderName">;
-  };
+  regEx?: string;
   thumb: { frameHeight?: number; frameWidth?: number; path: string };
 }
 
@@ -260,7 +256,7 @@ const TagSchema = new Schema<TagSchema>({
   descendantIds: [{ type: Schema.Types.ObjectId, ref: "Tag" }],
   label: String,
   parentIds: [{ type: Schema.Types.ObjectId, ref: "Tag" }],
-  regExMap: { regEx: String, testString: String, types: [String] },
+  regEx: String,
   thumb: { frameHeight: Number, frameWidth: Number, path: String },
 });
 

@@ -27,7 +27,7 @@ export const Label = Comp(
 
       const handleEditExisting = (val: string) => {
         const tag = stores.tag.getByLabel(val);
-        stores.tag.editor.setTagId(tag.id);
+        stores.tag.editor.loadTag(tag.id);
       };
 
       return (

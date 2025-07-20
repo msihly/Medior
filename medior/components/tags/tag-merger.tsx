@@ -1,6 +1,5 @@
 import { useState } from "react";
 import Color from "color";
-import { TagSchema } from "medior/server/database";
 import {
   Button,
   Card,
@@ -30,11 +29,7 @@ export const TagMerger = Comp(() => {
   const [isSaving, setIsSaving] = useState(false);
   const [label, setLabel] = useState<string>("");
   const [parentTags, setParentTags] = useState<TagOption[]>([]);
-  const [regExMap, setRegExMap] = useState<TagSchema["regExMap"]>({
-    regEx: "",
-    testString: "",
-    types: [],
-  });
+  const [regEx, setRegEx] = useState<string>("");
   const [selectedTagValue, setSelectedTagValue] = useState<TagOption[]>([]);
   const [tagIdToKeep, setTagIdToKeep] = useState<string>("");
   const [tagIdToMerge, setTagIdToMerge] = useState<string>("");
@@ -42,9 +37,7 @@ export const TagMerger = Comp(() => {
 
   const hasSelectedTag = selectedTagValue.length > 0;
   const disabled = isSaving || !hasSelectedTag;
-  const baseTag = stores.tag.getById(
-    stores.tag.subEditor.isOpen ? stores.tag.subEditor.tagId : stores.tag.editor.tagId,
-  );
+  const baseTag = stores.tag.subEditor.isOpen ? stores.tag.subEditor.tag : stores.tag.editor.tag;
   const tagOptions = useDeepMemo(stores.tag.tagOptions);
 
   useDeepEffect(() => {
@@ -53,7 +46,7 @@ export const TagMerger = Comp(() => {
       setChildTags([]);
       setLabel("");
       setParentTags([]);
-      setRegExMap({ regEx: "", testString: "", types: [] });
+      setRegEx("");
       setTagLabelToKeep(null);
       return;
     }
@@ -68,11 +61,8 @@ export const TagMerger = Comp(() => {
 
     const aliasToSet = tagLabelToKeep === "merge" ? baseTag.label : tag.label;
     setAliases([...new Set([aliasToSet, ...tagToKeep.aliases, ...tagToMerge.aliases])]);
-
-    const labelToSet = tagLabelToKeep === "base" ? baseTag.label : tag.label;
-    setLabel(labelToSet);
-
-    setRegExMap({ ...tagToMerge.regExMap, ...tagToKeep.regExMap });
+    setLabel(tagLabelToKeep === "base" ? baseTag.label : tag.label);
+    setRegEx(tagToKeep.regEx);
 
     const childIds = [...tagToKeep.childIds, ...tagToMerge.childIds];
     const parentIds = [...tagToKeep.parentIds, ...tagToMerge.parentIds];
@@ -96,7 +86,7 @@ export const TagMerger = Comp(() => {
         childIds: childTags.map((t) => t.id),
         label,
         parentIds: parentTags.map((t) => t.id),
-        regExMap,
+        regEx,
         tagIdToKeep,
         tagIdToMerge,
       });
