@@ -56,6 +56,9 @@ dependencies:
   '@vladmandic/face-api':
     specifier: ^1.7.12
     version: 1.7.13
+  auto-bind:
+    specifier: ^5.0.1
+    version: 5.0.1
   aws-sdk:
     specifier: ^2.1450.0
     version: 2.1677.0
@@ -3522,6 +3525,11 @@ packages:
     resolution: {integrity: sha512-+q/t7Ekv1EDY2l6Gda6LLiX14rU9TV20Wa3ofeQmwPFZbOMo9DXrLbOjFaaclkXKWidIaopwAObQDqwWtGUjqg==}
     engines: {node: '>= 4.0.0'}
     dev: true
+
+  /auto-bind@5.0.1:
+    resolution: {integrity: sha512-ooviqdwwgfIfNmDwo94wlshcdzfO64XV0Cg6oDsDYBJfITDz1EngD2z7DkbvCWn+XIMsIqW27sEVF6qcpJrRcg==}
+    engines: {node: ^12.20.0 || ^14.13.1 || >=16.0.0}
+    dev: false
 
   /available-typed-arrays@1.0.7:
     resolution: {integrity: sha512-wvUjBtSGN7+7SjNpq/9M2Tg350UZD3q62IFZLbRAR1bSMlCo1ZaeW+BJ+D090e4hIIZLBcTDWe4Mh4jvUDajzQ==}

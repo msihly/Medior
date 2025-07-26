@@ -1,3 +1,4 @@
+import autoBind from "auto-bind";
 import { getRootStore, Model, model, modelAction, modelFlow, prop } from "mobx-keystone";
 import { TagSchema } from "medior/server/database";
 import { asyncAction, RootStore, TagSearch } from "medior/store";
@@ -25,6 +26,10 @@ export class TagManagerStore extends Model({
   search: prop<TagSearch>(() => new TagSearch({})).withSetter(),
 }) {
   refreshQueue = new PromiseQueue();
+
+  onInit() {
+    autoBind(this);
+  }
 
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
   @modelAction

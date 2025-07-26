@@ -46,6 +46,7 @@
     "@trpc/client": "^10.30.0",
     "@trpc/server": "^10.30.0",
     "@vladmandic/face-api": "^1.7.12",
+    "auto-bind": "^5.0.1",
     "aws-sdk": "^2.1450.0",
     "check-disk-space": "^3.4.0",
     "color": "^4.2.3",

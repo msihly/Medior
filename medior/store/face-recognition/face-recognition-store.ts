@@ -1,4 +1,5 @@
 import type { LabeledFaceDescriptors } from "@vladmandic/face-api";
+import autoBind from "auto-bind";
 import { computed } from "mobx";
 import {
   arrayActions,
@@ -28,6 +29,10 @@ export class FaceRecognitionStore extends Model({
   isSaving: prop<boolean>(false).withSetter(),
 }) {
   autoDetectQueue = new PromiseQueue();
+
+  onInit() {
+    autoBind(this);
+  }
 
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
   @modelAction

@@ -1,3 +1,4 @@
+import autoBind from "auto-bind";
 import { applySnapshot, getSnapshot, Model, model, modelAction, prop } from "mobx-keystone";
 import { Config, ConfigKey, DEFAULT_CONFIG } from "medior/utils/client";
 import { convertNestedKeys, deepMerge } from "medior/utils/common";
@@ -16,6 +17,10 @@ export class SettingsStore extends Model({
   ports: prop<Config["ports"]>(() => DEFAULT_CONFIG.ports),
   tags: prop<Config["tags"]>(() => DEFAULT_CONFIG.tags),
 }) {
+  onInit() {
+    autoBind(this);
+  }
+
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
   @modelAction
   addFileStorageLocation(location: string) {

@@ -9,9 +9,8 @@ import {
   TagInput,
   View,
 } from "medior/components";
-import { SORT_OPTIONS, TagOption, TagSearch } from "medior/store";
+import { SORT_OPTIONS, TagSearch } from "medior/store";
 import { colors } from "medior/utils/client";
-import { LogicalOp } from "medior/utils/common";
 
 export interface TagFilterMenuProps {
   color?: string;
@@ -19,26 +18,6 @@ export interface TagFilterMenuProps {
 }
 
 export const TagFilterMenu = Comp(({ color = colors.foreground, store }: TagFilterMenuProps) => {
-  const setAlias = (val: string) => store.setAlias(val);
-
-  const setCountOp = (val: LogicalOp | "") => store.setCountOp(val);
-
-  const setCountValue = (val: number) => store.setCountValue(val);
-
-  const setDateCreatedEnd = (val: string) => store.setDateCreatedEnd(val);
-
-  const setDateCreatedStart = (val: string) => store.setDateCreatedStart(val);
-
-  const setDateModifiedEnd = (val: string) => store.setDateModifiedEnd(val);
-
-  const setDateModifiedStart = (val: string) => store.setDateModifiedStart(val);
-
-  const setLabel = (val: string) => store.setLabel(val);
-
-  const setRegExMode = () => store.toggleRegExMode();
-
-  const setTags = (val: TagOption[]) => store.setTags(val);
-
   return (
     <FilterMenu store={store} color={color} sortOptions={SORT_OPTIONS.Tag} width="10rem">
       <Card row spacing="0.5rem">
@@ -46,7 +25,7 @@ export const TagFilterMenu = Comp(({ color = colors.foreground, store }: TagFilt
           <TagInput
             header="Tags"
             value={store.tags}
-            onChange={setTags}
+            onChange={store.setTags}
             hasCreate
             hasDelete
             hasEditor
@@ -55,9 +34,9 @@ export const TagFilterMenu = Comp(({ color = colors.foreground, store }: TagFilt
         </View>
 
         <View column width="100%" spacing="0.5rem">
-          <Input header="Label" value={store.label} setValue={setLabel} />
+          <Input header="Label" value={store.label} setValue={store.setLabel} />
 
-          <Input header="Alias" value={store.alias} setValue={setAlias} />
+          <Input header="Alias" value={store.alias} setValue={store.setAlias} />
         </View>
       </Card>
 
@@ -66,17 +45,17 @@ export const TagFilterMenu = Comp(({ color = colors.foreground, store }: TagFilt
           <DateRange
             header="Date Created"
             startDate={store.dateCreatedStart}
-            setStartDate={setDateCreatedStart}
+            setStartDate={store.setDateCreatedStart}
             endDate={store.dateCreatedEnd}
-            setEndDate={setDateCreatedEnd}
+            setEndDate={store.setDateCreatedEnd}
           />
 
           <DateRange
             header="Date Modified"
             startDate={store.dateModifiedStart}
-            setStartDate={setDateModifiedStart}
+            setStartDate={store.setDateModifiedStart}
             endDate={store.dateModifiedEnd}
-            setEndDate={setDateModifiedEnd}
+            setEndDate={store.setDateModifiedEnd}
           />
         </Card>
 
@@ -84,16 +63,16 @@ export const TagFilterMenu = Comp(({ color = colors.foreground, store }: TagFilt
           <LogOpsInput
             header="Tag File Count"
             logOpValue={store.count.logOp}
-            setLogOpValue={setCountOp}
+            setLogOpValue={store.setCountOp}
             numValue={store.count.value}
-            setNumValue={setCountValue}
+            setNumValue={store.setCountValue}
           />
 
           <Checkbox
             label="Has RegEx"
             checked={store.regExMode === "hasRegEx"}
             indeterminate={store.regExMode === "hasNoRegEx"}
-            setChecked={setRegExMode}
+            setChecked={store.toggleRegExMode}
           />
         </Card>
       </View>

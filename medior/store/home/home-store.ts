@@ -1,3 +1,4 @@
+import autoBind from "auto-bind";
 import { Model, model, prop } from "mobx-keystone";
 import { SettingsStore } from "medior/store";
 import { getConfig } from "medior/utils/client";
@@ -9,4 +10,8 @@ export class HomeStore extends Model({
   isDraggingOut: prop<boolean>(false).withSetter(),
   isDrawerOpen: prop<boolean>(true).withSetter(),
   settings: prop<SettingsStore>(() => new SettingsStore({})),
-}) {}
+}) {
+  onInit() {
+    autoBind(this);
+  }
+}

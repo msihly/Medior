@@ -11,9 +11,9 @@ import {
   TagInput,
   View,
 } from "medior/components";
-import { FileSearch, SORT_OPTIONS, TagOption } from "medior/store";
-import { colors, getConfig, useDeepMemo } from "medior/utils/client";
-import { ImageType, LogicalOp, VideoType } from "medior/utils/common";
+import { FileSearch, SORT_OPTIONS } from "medior/store";
+import { colors, getConfig } from "medior/utils/client";
+import { ImageType, VideoType } from "medior/utils/common";
 
 export interface FileFilterMenuProps {
   color?: string;
@@ -21,36 +21,6 @@ export interface FileFilterMenuProps {
 }
 
 export const FileFilterMenu = Comp(({ color = colors.foreground, store }: FileFilterMenuProps) => {
-  const tags = useDeepMemo(store.tags);
-
-  const setDateCreatedEnd = (val: string) => store.setDateCreatedEnd(val);
-
-  const setDateCreatedStart = (val: string) => store.setDateCreatedStart(val);
-
-  const setDateModifiedEnd = (val: string) => store.setDateModifiedEnd(val);
-
-  const setDateModifiedStart = (val: string) => store.setDateModifiedStart(val);
-
-  const setMaxHeight = (val: number) => store.setMaxHeight(val);
-
-  const setMaxWidth = (val: number) => store.setMaxWidth(val);
-
-  const setMinHeight = (val: number) => store.setMinHeight(val);
-
-  const setMinWidth = (val: number) => store.setMinWidth(val);
-
-  const setNumOfTagsOp = (val: LogicalOp | "") => store.setNumOfTagsOp(val);
-
-  const setNumOfTagsValue = (val: number) => store.setNumOfTagsValue(val);
-
-  const setOriginalPath = (val: string) => store.setOriginalPath(val);
-
-  const setRatingOp = (val: LogicalOp | "") => store.setRatingOp(val);
-
-  const setRatingValue = (val: number) => store.setRatingValue(val);
-
-  const setTags = (val: TagOption[]) => store.setTags(val);
-
   const toggleArchiveOpen = () => store.setIsArchived(!store.isArchived);
 
   const toggleHasDiffParams = () => store.setHasDiffParams(!store.hasDiffParams);
@@ -63,8 +33,8 @@ export const FileFilterMenu = Comp(({ color = colors.foreground, store }: FileFi
         <Card flex={1}>
           <TagInput
             header="Tags"
-            value={tags}
-            onChange={setTags}
+            value={store.tags}
+            onChange={store.setTags}
             width="12rem"
             hasCreate
             hasDelete
@@ -78,8 +48,8 @@ export const FileFilterMenu = Comp(({ color = colors.foreground, store }: FileFi
             header="# of Tags"
             logOpValue={store.numOfTags.logOp}
             numValue={store.numOfTags.value}
-            setLogOpValue={setNumOfTagsOp}
-            setNumValue={setNumOfTagsValue}
+            setLogOpValue={store.setNumOfTagsOp}
+            setNumValue={store.setNumOfTagsValue}
             numInputProps={{ maxValue: 50, minValue: 0 }}
           />
 
@@ -87,8 +57,8 @@ export const FileFilterMenu = Comp(({ color = colors.foreground, store }: FileFi
             header="Rating"
             logOpValue={store.rating.logOp}
             numValue={store.rating.value}
-            setLogOpValue={setRatingOp}
-            setNumValue={setRatingValue}
+            setLogOpValue={store.setRatingOp}
+            setNumValue={store.setRatingValue}
             numInputProps={{ maxValue: 9, minValue: 0 }}
           />
 
@@ -141,17 +111,17 @@ export const FileFilterMenu = Comp(({ color = colors.foreground, store }: FileFi
           <DateRange
             header="Date Created"
             startDate={store.dateCreatedStart}
-            setStartDate={setDateCreatedStart}
+            setStartDate={store.setDateCreatedStart}
             endDate={store.dateCreatedEnd}
-            setEndDate={setDateCreatedEnd}
+            setEndDate={store.setDateCreatedEnd}
           />
 
           <DateRange
             header="Date Modified"
             startDate={store.dateModifiedStart}
-            setStartDate={setDateModifiedStart}
+            setStartDate={store.setDateModifiedStart}
             endDate={store.dateModifiedEnd}
-            setEndDate={setDateModifiedEnd}
+            setEndDate={store.setDateModifiedEnd}
           />
         </Card>
 
@@ -160,22 +130,26 @@ export const FileFilterMenu = Comp(({ color = colors.foreground, store }: FileFi
             header="Height"
             min={store.minHeight}
             max={store.maxHeight}
-            setMin={setMinHeight}
-            setMax={setMaxHeight}
+            setMin={store.setMinHeight}
+            setMax={store.setMaxHeight}
           />
 
           <NumRange
             header="Width"
             min={store.minWidth}
             max={store.maxWidth}
-            setMin={setMinWidth}
-            setMax={setMaxWidth}
+            setMin={store.setMinWidth}
+            setMax={store.setMaxWidth}
           />
         </Card>
       </View>
 
       <Card flex={1} spacing="0.5rem">
-        <Input header="Original File Path" value={store.originalPath} setValue={setOriginalPath} />
+        <Input
+          header="Original File Path"
+          value={store.originalPath}
+          setValue={store.setOriginalPath}
+        />
       </Card>
     </FilterMenu>
   );

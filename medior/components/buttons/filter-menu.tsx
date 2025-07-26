@@ -45,8 +45,6 @@ export const FilterMenu = Comp(
 
     const handleSearch = () => store.loadFiltered({ page: 1 });
 
-    const setSortValue = (val: SortMenuProps["value"]) => store.setSortValue(val);
-
     const renderButton = (onOpen: (event: React.MouseEvent<HTMLButtonElement>) => void) => (
       <Button
         onClick={onOpen}
@@ -96,7 +94,7 @@ export const FilterMenu = Comp(
             <SortMenu
               rows={sortOptions}
               value={store.sortValue}
-              setValue={setSortValue}
+              setValue={store.setSortValue}
               color={colors.foregroundCard}
             />
           </UniformList>

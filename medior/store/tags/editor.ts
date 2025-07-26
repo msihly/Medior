@@ -1,3 +1,4 @@
+import autoBind from "auto-bind";
 import { Model, model, modelAction, modelFlow, prop } from "mobx-keystone";
 import { Tag } from "medior/store/tags/tag";
 import { asyncAction } from "medior/store/utils";
@@ -15,6 +16,10 @@ export class TagEditorStore extends Model({
   regExTestString: prop<string>("").withSetter(),
   tag: prop<Tag>(null).withSetter(),
 }) {
+  onInit() {
+    autoBind(this);
+  }
+
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
   @modelAction
   reset() {

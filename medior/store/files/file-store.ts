@@ -1,4 +1,5 @@
 import { promises as fs } from "fs";
+import autoBind from "auto-bind";
 import {
   ExtendedModel,
   getRootStore,
@@ -26,6 +27,10 @@ export class FileStore extends ExtendedModel(_FileStore, {
   tagsEditor: prop<FileTagsEditorStore>(() => new FileTagsEditorStore({})),
 }) {
   refreshQueue = new PromiseQueue();
+
+  onInit() {
+    autoBind(this);
+  }
 
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
   @modelAction

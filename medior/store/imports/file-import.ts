@@ -1,3 +1,4 @@
+import autoBind from "auto-bind";
 import { ExtendedModel, model, modelAction, prop } from "mobx-keystone";
 import { _FileImport } from "medior/store/_generated";
 import { TagToUpsert } from "medior/components";
@@ -7,6 +8,10 @@ import { isDeepEqual } from "medior/utils/common";
 export class FileImport extends ExtendedModel(_FileImport, {
   tagsToUpsert: prop<TagToUpsert[]>(() => []),
 }) {
+  onInit() {
+    autoBind(this);
+  }
+
   @modelAction
   setDiffusionParams(diffusionParams: string) {
     if (diffusionParams !== this.diffusionParams) this.diffusionParams = diffusionParams;

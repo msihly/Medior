@@ -1,3 +1,4 @@
+import autoBind from "auto-bind";
 import { computed } from "mobx";
 import {
   getRootStore,
@@ -24,6 +25,10 @@ export class TagStore extends Model({
   subEditor: prop<TagEditorStore>(() => new TagEditorStore({})),
   tags: prop<Tag[]>(() => []),
 }) {
+  onInit() {
+    autoBind(this);
+  }
+
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
   @modelAction
   _addTag(tag: ModelCreationData<Tag>) {

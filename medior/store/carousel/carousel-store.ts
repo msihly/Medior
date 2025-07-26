@@ -1,6 +1,7 @@
 import remote from "@electron/remote";
 import fs from "fs/promises";
 import { Mark } from "@mui/base";
+import autoBind from "auto-bind";
 import { computed } from "mobx";
 import { getRootStore, Model, model, modelAction, modelFlow, prop } from "mobx-keystone";
 import { asyncAction, FileImporter, RootStore } from "medior/store";
@@ -26,6 +27,10 @@ export class CarouselStore extends Model({
   selectedFileIds: prop<string[]>(() => []).withSetter(),
   volume: prop<number>(0.3).withSetter(),
 }) {
+  onInit() {
+    autoBind(this);
+  }
+
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
   @modelAction
   addFileAfterIndex(fileId: string, index: number) {

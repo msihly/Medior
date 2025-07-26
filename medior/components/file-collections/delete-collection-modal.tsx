@@ -6,13 +6,11 @@ export const DeleteCollectionModal = Comp(() => {
 
   const handleConfirmDelete = async () => (await stores.collection.editor.confirmDelete())?.success;
 
-  const setVisible = (val: boolean) => stores.collection.setIsConfirmDeleteOpen(val);
-
   return (
     <ConfirmModal
       headerText="Delete Collection"
       subText={stores.collection.editor.collection?.title}
-      setVisible={setVisible}
+      setVisible={stores.collection.setIsConfirmDeleteOpen}
       onConfirm={handleConfirmDelete}
     />
   );

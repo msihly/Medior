@@ -1,3 +1,4 @@
+import autoBind from "auto-bind";
 import { Model, model, modelAction, ModelCreationData, modelFlow, prop } from "mobx-keystone";
 import { asyncAction } from "medior/store";
 import { trpc } from "medior/utils/server";
@@ -13,6 +14,10 @@ export class ImportStore extends Model({
   editor: prop<ImportEditor>(() => new ImportEditor({})),
   manager: prop<ImportManager>(() => new ImportManager({})),
 }) {
+  onInit() {
+    autoBind(this);
+  }
+
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
   @modelAction
   addDeletedFileHashes(hashes: string[]) {

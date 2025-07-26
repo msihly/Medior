@@ -1,3 +1,4 @@
+import autoBind from "auto-bind";
 import { computed } from "mobx";
 import { Model, model, prop } from "mobx-keystone";
 import { TagOption } from "medior/store";
@@ -13,6 +14,10 @@ export class FaceModel extends Model({
   selectedTag: prop<TagOption | null>(null).withSetter(),
   tagId: prop<string | null>(null).withSetter(),
 }) {
+  onInit() {
+    autoBind(this);
+  }
+
   @computed
   get boxColor() {
     return this.selectedTag === null

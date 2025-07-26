@@ -1,3 +1,4 @@
+import autoBind from "auto-bind";
 import {
   getRootStore,
   Model,
@@ -33,6 +34,10 @@ export class CollectionEditor extends Model({
   tags: prop<Tag[]>(() => []).withSetter(),
   title: prop<string>("").withSetter(),
 }) {
+  onInit() {
+    autoBind(this)
+  }
+
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
   @modelAction
   setIsOpen(isOpen: boolean) {

@@ -1,11 +1,10 @@
+import autoBind from "auto-bind";
 import { reaction } from "mobx";
 import {
   ExtendedModel,
   getRootStore,
   model,
-  modelAction,
-  ModelCreationData,
-  prop,
+  modelAction, prop
 } from "mobx-keystone";
 import { _FileCollectionSearch } from "medior/store/_generated";
 import { RootStore } from "medior/store";
@@ -14,9 +13,8 @@ import { RootStore } from "medior/store";
 export class FileCollectionSearch extends ExtendedModel(_FileCollectionSearch, {
   hasQueuedReload: prop<boolean>(false).withSetter(),
 }) {
-  constructor(props: ModelCreationData<FileCollectionSearch>) {
-    super(props);
-
+  onInit() {
+    autoBind(this);
     reaction(
       () => this.getFilterProps(),
       () => this.setHasChanges(true),

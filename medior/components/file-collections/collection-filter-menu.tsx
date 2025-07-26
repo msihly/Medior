@@ -8,9 +8,8 @@ import {
   TagInput,
   View,
 } from "medior/components";
-import { FileCollectionSearch, SORT_OPTIONS, TagOption } from "medior/store";
-import { colors, useDeepMemo } from "medior/utils/client";
-import { LogicalOp } from "medior/utils/common";
+import { FileCollectionSearch, SORT_OPTIONS } from "medior/store";
+import { colors } from "medior/utils/client";
 
 export interface CollectionFilterMenuProps {
   color?: string;
@@ -19,28 +18,6 @@ export interface CollectionFilterMenuProps {
 
 export const CollectionFilterMenu = Comp(
   ({ color = colors.foreground, store }: CollectionFilterMenuProps) => {
-    const tags = useDeepMemo(store.tags);
-
-    const setDateCreatedEnd = (val: string) => store.setDateCreatedEnd(val);
-
-    const setDateCreatedStart = (val: string) => store.setDateCreatedStart(val);
-
-    const setDateModifiedEnd = (val: string) => store.setDateModifiedEnd(val);
-
-    const setDateModifiedStart = (val: string) => store.setDateModifiedStart(val);
-
-    const setFileCountOp = (val: LogicalOp) => store.setFileCountOp(val);
-
-    const setFileCountValue = (val: number) => store.setFileCountValue(val);
-
-    const setRatingOp = (val: LogicalOp) => store.setRatingOp(val);
-
-    const setRatingValue = (val: number) => store.setRatingValue(val);
-
-    const setTags = (val: TagOption[]) => store.setTags(val);
-
-    const setTitle = (val: string) => store.setTitle(val);
-
     return (
       <FilterMenu
         store={store}
@@ -50,15 +27,15 @@ export const CollectionFilterMenu = Comp(
         viewProps={{ width: "25rem" }}
       >
         <Card>
-          <Input header="Title" value={store.title} setValue={setTitle} />
+          <Input header="Title" value={store.title} setValue={store.setTitle} />
         </Card>
 
         <View row justify="space-between" spacing="0.5rem">
           <Card flex={1}>
             <TagInput
               header="Tags"
-              value={tags}
-              onChange={setTags}
+              value={store.tags}
+              onChange={store.setTags}
               hasCreate
               hasDelete
               hasEditor
@@ -72,8 +49,8 @@ export const CollectionFilterMenu = Comp(
               header="File Count"
               logOpValue={store.fileCount.logOp}
               numValue={store.fileCount.value}
-              setLogOpValue={setFileCountOp}
-              setNumValue={setFileCountValue}
+              setLogOpValue={store.setFileCountOp}
+              setNumValue={store.setFileCountValue}
               numInputProps={{ minValue: 0 }}
               width="9rem"
             />
@@ -82,8 +59,8 @@ export const CollectionFilterMenu = Comp(
               header="Rating"
               logOpValue={store.rating.logOp}
               numValue={store.rating.value}
-              setLogOpValue={setRatingOp}
-              setNumValue={setRatingValue}
+              setLogOpValue={store.setRatingOp}
+              setNumValue={store.setRatingValue}
               numInputProps={{ maxValue: 9, minValue: 0 }}
               width="9rem"
             />
@@ -94,17 +71,17 @@ export const CollectionFilterMenu = Comp(
           <DateRange
             header="Date Created"
             startDate={store.dateCreatedStart}
-            setStartDate={setDateCreatedStart}
+            setStartDate={store.setDateCreatedStart}
             endDate={store.dateCreatedEnd}
-            setEndDate={setDateCreatedEnd}
+            setEndDate={store.setDateCreatedEnd}
           />
 
           <DateRange
             header="Date Modified"
             startDate={store.dateModifiedStart}
-            setStartDate={setDateModifiedStart}
+            setStartDate={store.setDateModifiedStart}
             endDate={store.dateModifiedEnd}
-            setEndDate={setDateModifiedEnd}
+            setEndDate={store.setDateModifiedEnd}
           />
         </Card>
       </FilterMenu>

@@ -1,3 +1,4 @@
+import autoBind from "auto-bind";
 import { computed } from "mobx";
 import { clone, getRootStore, Model, model, modelAction, modelFlow, prop } from "mobx-keystone";
 import {
@@ -24,6 +25,10 @@ export class ImportManager extends Model({
   isOpen: prop<boolean>(false).withSetter(),
 }) {
   queue = new PromiseQueue();
+
+  onInit() {
+    autoBind(this);
+  }
 
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
   @modelAction

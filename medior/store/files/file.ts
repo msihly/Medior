@@ -1,3 +1,4 @@
+import autoBind from "auto-bind";
 import { TagSchema } from "medior/_generated";
 import { computed } from "mobx";
 import {
@@ -21,6 +22,10 @@ export class File extends ExtendedModel(_File, {
   hasFaceModels: prop<boolean>(false),
   tags: prop<TagSchema[]>(() => []).withSetter(),
 }) {
+  onInit() {
+    autoBind(this);
+  }
+
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
   @modelAction
   update(file: Partial<ModelCreationData<File>>) {

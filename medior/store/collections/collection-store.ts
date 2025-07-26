@@ -1,3 +1,4 @@
+import autoBind from "auto-bind";
 import { Model, model, modelFlow, prop } from "mobx-keystone";
 import * as Types from "medior/server/database/types";
 import { asyncAction } from "medior/store";
@@ -14,6 +15,10 @@ export class FileCollectionStore extends Model({
   manager: prop<CollectionManager>(() => new CollectionManager({})),
 }) {
   metaRefreshQueue = new PromiseQueue();
+
+  onInit() {
+    autoBind(this)
+  }
 
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */
   @modelFlow

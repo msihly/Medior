@@ -1,3 +1,4 @@
+import autoBind from "auto-bind";
 import { getRootStore, Model, model, modelAction, modelFlow, prop } from "mobx-keystone";
 import { asyncAction, File, RootStore } from "medior/store";
 import { trpc } from "medior/utils/server";
@@ -13,6 +14,10 @@ export class CollectionManager extends Model({
   selectedFileIds: prop<string[]>(() => []).withSetter(),
   selectedFiles: prop<File[]>(() => []).withSetter(),
 }) {
+  onInit() {
+    autoBind(this);
+  }
+
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
   @modelAction
   setIsOpen(isOpen: boolean) {

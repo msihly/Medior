@@ -1,3 +1,4 @@
+import autoBind from "auto-bind";
 import { computed } from "mobx";
 import { ExtendedModel, model, modelAction } from "mobx-keystone";
 import { _FileImportBatch } from "medior/store/_generated";
@@ -6,6 +7,10 @@ import { FileImport } from ".";
 
 @model("medior/FileImportBatch")
 export class FileImportBatch extends ExtendedModel(_FileImportBatch, {}) {
+  onInit() {
+    autoBind(this);
+  }
+
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
   @modelAction
   setCompletedAt(completedAt: DayJsInput) {

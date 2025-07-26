@@ -1,5 +1,6 @@
 import fs from "fs/promises";
 import path from "path";
+import autoBind from "auto-bind";
 import { computed } from "mobx";
 import { Model, model, modelAction, modelFlow, prop } from "mobx-keystone";
 import { asyncAction } from "medior/store";
@@ -19,6 +20,10 @@ export class ImportEditor extends Model({
   rootFolderPath: prop<string>("").withSetter(),
   withFlattenTo: prop<boolean>(false).withSetter(),
 }) {
+  onInit() {
+    autoBind(this);
+  }
+
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
   @modelAction
   clearValues({ diffusionParams = false, tagIds = false, tagsToUpsert = false } = {}) {
