@@ -61,7 +61,8 @@ export const FILE_DEF_STORES: FileDef = {
   name: "stores",
   makeFile: async () => {
     const makeImports = () =>
-      `import { computed } from "mobx";
+      `import autoBind from "auto-bind";
+      import { computed } from "mobx";
       import {
         applySnapshot,
         getRootStore,

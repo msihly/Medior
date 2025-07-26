@@ -1,6 +1,7 @@
 /* --------------------------------------------------------------------------- */
 /*                               THIS IS A GENERATED FILE. DO NOT EDIT.
 /* --------------------------------------------------------------------------- */
+import autoBind from "auto-bind";
 import { computed } from "mobx";
 import {
   applySnapshot,
@@ -49,6 +50,10 @@ export class _FileCollectionSearch extends Model({
   tags: prop<Stores.TagOption[]>(() => []).withSetter(),
   title: prop<string>("").withSetter(),
 }) {
+  onInit() {
+    autoBind(this);
+  }
+
   /* STANDARD ACTIONS */
   @modelAction
   _addResult(result: ModelCreationData<Stores.FileCollection>) {
@@ -295,6 +300,10 @@ export class _FileSearch extends Model({
   sortValue: prop<SortMenuProps["value"]>(() => getConfig().file.search.sort).withSetter(),
   tags: prop<Stores.TagOption[]>(() => []).withSetter(),
 }) {
+  onInit() {
+    autoBind(this);
+  }
+
   /* STANDARD ACTIONS */
   @modelAction
   _addResult(result: ModelCreationData<Stores.File>) {
@@ -581,6 +590,10 @@ export class _TagSearch extends Model({
   tags: prop<Stores.TagOption[]>(() => []).withSetter(),
   title: prop<string>("").withSetter(),
 }) {
+  onInit() {
+    autoBind(this);
+  }
+
   /* STANDARD ACTIONS */
   @modelAction
   _addResult(result: ModelCreationData<Stores.Tag>) {

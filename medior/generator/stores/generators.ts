@@ -330,6 +330,10 @@ export const createSearchStore = (def: ModelSearchStore) => {
 
   return `@model("medior/${storeName}")
     export class ${storeName} extends Model({ ${makeProps()} }) {
+      onInit() {
+        autoBind(this);
+      }
+
       /* STANDARD ACTIONS */
       ${makeAddResultAction()}\n
       ${makeDeleteResultsAction()}\n

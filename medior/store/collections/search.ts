@@ -1,11 +1,6 @@
 import autoBind from "auto-bind";
 import { reaction } from "mobx";
-import {
-  ExtendedModel,
-  getRootStore,
-  model,
-  modelAction, prop
-} from "mobx-keystone";
+import { ExtendedModel, getRootStore, model, modelAction, prop } from "mobx-keystone";
 import { _FileCollectionSearch } from "medior/store/_generated";
 import { RootStore } from "medior/store";
 

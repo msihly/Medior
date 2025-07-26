@@ -35,7 +35,7 @@ export class CollectionEditor extends Model({
   title: prop<string>("").withSetter(),
 }) {
   onInit() {
-    autoBind(this)
+    autoBind(this);
   }
 
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */

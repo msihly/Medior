@@ -17,7 +17,7 @@ export class FileCollectionStore extends Model({
   metaRefreshQueue = new PromiseQueue();
 
   onInit() {
-    autoBind(this)
+    autoBind(this);
   }
 
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */
