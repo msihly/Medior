@@ -250,6 +250,9 @@ export type EditMultiTagRelationsOutput = ReturnType<typeof db.editMultiTagRelat
 export type GetTagWithRelationsInput = Parameters<typeof db.getTagWithRelations>[0];
 export type GetTagWithRelationsOutput = ReturnType<typeof db.getTagWithRelations>;
 
+export type ListByLabelsInput = Parameters<typeof db.listByLabels>[0];
+export type ListByLabelsOutput = ReturnType<typeof db.listByLabels>;
+
 export type MergeTagsInput = Parameters<typeof db.mergeTags>[0];
 export type MergeTagsOutput = ReturnType<typeof db.mergeTags>;
 

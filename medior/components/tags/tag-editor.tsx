@@ -32,11 +32,6 @@ export const TagEditor = Comp(({ isSubEditor = false }: TagEditorProps) => {
   const [hasKeepParentTags, setHasKeepParentTags] = useState(false);
   const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
 
-  const isDuplicateTag =
-    store.label?.length > 0 &&
-    (!store.tag || store.label.toLowerCase() !== store.tag?.label?.toLowerCase()) &&
-    !!stores.tag.getByLabel(store.label);
-
   const clearInputs = () => {
     store.setLabel("");
     store.setAliases([]);
@@ -89,7 +84,7 @@ export const TagEditor = Comp(({ isSubEditor = false }: TagEditorProps) => {
   };
 
   const saveTag = async () => {
-    if (isDuplicateTag) return toast.error("Tag label must be unique");
+    if (store.isDuplicate) return toast.error("Tag label must be unique");
     if (!store.label.trim().length) return toast.error("Tag label cannot be blank");
 
     const aliases = store.aliases;
@@ -157,7 +152,7 @@ export const TagEditor = Comp(({ isSubEditor = false }: TagEditorProps) => {
             ref={labelRef}
             value={store.label}
             setValue={store.setLabel}
-            isDuplicate={isDuplicateTag}
+            isDuplicate={store.isDuplicate}
             width="100%"
           />
         </Card>

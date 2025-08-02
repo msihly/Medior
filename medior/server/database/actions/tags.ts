@@ -703,6 +703,13 @@ export const getTagWithRelations = makeAction(async ({ id }: { id: string }) => 
   return { childTags, parentTags, tag };
 });
 
+export const listByLabels = makeAction(async ({ labels }: { labels: string[] }) => {
+  const tags = (await models.TagModel.find({ label: { $in: labels } }).lean()).map((t) =>
+    leanModelToJson<models.TagSchema>(t),
+  );
+  return new Map(tags.map((t) => [t.id, t]));
+});
+
 export const mergeTags = makeAction(
   async (
     args: Omit<Required<Types.CreateTagInput>, "withRegen" | "withSub"> & {

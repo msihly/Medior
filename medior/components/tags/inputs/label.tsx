@@ -1,6 +1,7 @@
 import { forwardRef, MutableRefObject } from "react";
 import { Button, Comp, InputProps, TagInput, TagInputProps, Text, View } from "medior/components";
 import { useStores } from "medior/store";
+import { toast } from "medior/utils/client";
 
 interface LabelProps extends Omit<TagInputProps, "ref" | "value"> {
   inputProps?: Partial<InputProps>;
@@ -25,9 +26,10 @@ export const Label = Comp(
     ) => {
       const stores = useStores();
 
-      const handleEditExisting = (val: string) => {
-        const tag = stores.tag.getByLabel(val);
-        stores.tag.editor.loadTag(tag.id);
+      const handleEditExisting = async (val: string) => {
+        const tag = (await stores.tag.editor.getByLabel(val)).data;
+        if (tag?.id) stores.tag.editor.loadTag(tag.id);
+        else toast.error("Failed to load existing tag");
       };
 
       return (
