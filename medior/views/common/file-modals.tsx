@@ -1,4 +1,4 @@
-import { Comp, ConfirmModal, FaceRecognitionModal, InfoModal } from "medior/components";
+import { Comp, ConfirmModal, FaceRecognitionModal, InfoModal, ReencoderModal } from "medior/components";
 import { useStores } from "medior/store";
 
 export const FileModals = Comp(() => {
@@ -13,6 +13,8 @@ export const FileModals = Comp(() => {
       {stores.faceRecog.isModalOpen && <FaceRecognitionModal />}
 
       {stores.file.isInfoModalOpen && <InfoModal />}
+
+      {stores.file.reencoder.isOpen && <ReencoderModal />}
 
       {stores.file.isConfirmDeleteOpen && (
         <ConfirmModal

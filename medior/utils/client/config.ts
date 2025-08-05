@@ -40,6 +40,11 @@ export interface Config {
     fileCardFit: "contain" | "cover";
     hideUnratedIcon: boolean;
     imageTypes: Array<ImageType | string>;
+    reencode: {
+      codec: string;
+      maxBitrate: number;
+      override: string[];
+    };
     remuxTypes: {
       toMp4: Array<Omit<VideoType, "mp4"> | string>;
     };
@@ -116,6 +121,11 @@ export const DEFAULT_CONFIG: Config = {
     fileCardFit: "contain",
     imageTypes: ["gif", "heic", "jfif", "jif", "jiff", "jpeg", "jpg", "png", "webp"],
     hideUnratedIcon: false,
+    reencode: {
+      codec: "hevc_nvenc",
+      maxBitrate: 5000,
+      override: [],
+    },
     remuxTypes: {
       toMp4: ["ts"],
     },

@@ -3,7 +3,7 @@ import path from "path";
 import ffmpeg from "fluent-ffmpeg";
 import md5File from "md5-file";
 import { PassThrough } from "stream";
-import { getAvailableFileStorage, sharp } from "medior/utils/client";
+import { getAvailableFileStorage, getConfig, sharp } from "medior/utils/client";
 import { CONSTANTS, fractionStringToNumber, round, sleep } from "medior/utils/common";
 import { checkFileExists, fileLog, makePerfLog } from "medior/utils/server";
 
@@ -250,6 +250,143 @@ export const getVideoInfo = async (path: string) => {
   })) as VideoInfo;
 };
 
+export type EncodeProgress = {
+  frames: number;
+  fps: number;
+  kbps: number;
+  percent: number;
+  size: number;
+  time: string;
+};
+
+export const reencodeToHevc = async (
+  inputPath: string,
+  outputDir: string,
+  options?: {
+    signal?: AbortSignal;
+    onProgress?: (progress: EncodeProgress) => void;
+  },
+): Promise<{ hash: string; path: string }> => {
+  const DEBUG = false;
+  const { perfLog } = makePerfLog("[reencodeToHevc]", true);
+
+  const config = getConfig();
+  const tempPath = path.resolve(outputDir, "reencoded.mp4");
+
+  const command = ffmpeg()
+    .input(inputPath)
+    .videoCodec(config.file.reencode.codec)
+    .outputOptions(
+      config.file.reencode.override?.length
+        ? config.file.reencode.override
+        : [
+            "-rc",
+            "vbr_hq",
+            "-cq",
+            "18",
+            "-b:v",
+            "0k",
+            "-maxrate",
+            `${config.file.reencode.maxBitrate}k`,
+            "-bufsize",
+            `${config.file.reencode.maxBitrate * 2}k`,
+            "-2pass",
+            "0",
+          ],
+    )
+    .output(tempPath);
+
+  const ffmpegPromise = new Promise<void>((resolve, reject) => {
+    command
+      .on("progress", (progress) => {
+        if (options?.onProgress) {
+          options.onProgress({
+            fps: progress.currentFps ?? 0,
+            frames: progress.frames ?? 0,
+            kbps: progress.currentKbps ?? 0,
+            percent: progress.percent ?? 0,
+            size: progress.targetSize ? progress.targetSize * 1000 : 0,
+            time: progress.timemark ?? "",
+          });
+        }
+      })
+      .on("end", () => resolve())
+      .on("error", reject)
+      .run();
+  });
+
+  if (!options?.signal) await ffmpegPromise;
+  else {
+    const abortHandler = () => command.kill("SIGKILL");
+
+    if (options.signal.aborted) {
+      abortHandler();
+      throw new Error("Encoding was cancelled before start.");
+    }
+
+    options.signal.addEventListener("abort", abortHandler);
+
+    try {
+      await ffmpegPromise;
+    } finally {
+      options.signal.removeEventListener("abort", abortHandler);
+    }
+  }
+
+  if (DEBUG) perfLog(`Reencoded file created at temp path: ${tempPath}.`);
+
+  const newHash = await md5File(tempPath);
+  const newPath = path.resolve(
+    outputDir,
+    newHash.substring(0, 2),
+    newHash.substring(2, 4),
+    `${newHash}.mp4`,
+  );
+  if (DEBUG) perfLog(`Moving temp file from ${tempPath} to ${newPath}.`);
+
+  await fs.mkdir(path.dirname(newPath), { recursive: true });
+  await fs.rename(tempPath, newPath);
+  const res = await checkFileExists(newPath);
+  if (DEBUG) perfLog(`Moved temp file to ${newPath}: ${res}`);
+  if (!res) throw new Error("Failed to reencode to HEVC.");
+
+  return { hash: newHash, path: newPath };
+};
+
+export const remuxToMp4 = async (inputPath: string, outputDir: string) => {
+  const DEBUG = false;
+  const { perfLog } = makePerfLog("[remuxToMp4]", true);
+
+  const tempPath = path.resolve(outputDir, "temp.mp4");
+
+  await new Promise((resolve, reject) => {
+    ffmpeg()
+      .input(inputPath)
+      .outputOptions(["-c copy"])
+      .output(tempPath)
+      .on("end", resolve)
+      .on("error", reject)
+      .run();
+  });
+  if (DEBUG) perfLog(`Remuxed file created at temp path: ${tempPath}.`);
+
+  const newHash = await md5File(tempPath);
+  const newPath = path.resolve(
+    outputDir,
+    newHash.substring(0, 2),
+    newHash.substring(2, 4),
+    `${newHash}.mp4`,
+  );
+  if (DEBUG) perfLog(`Moved temp file from ${tempPath} to ${newPath}.`);
+
+  await fs.rename(tempPath, newPath);
+  const res = await checkFileExists(newPath);
+  if (DEBUG) perfLog(`Moved temp file to ${newPath}: ${res}`);
+  if (!res) throw new Error("Failed to remux to mp4.");
+
+  return { hash: newHash, path: newPath };
+};
+
 export const vidToThumbGrid = async (inputPath: string, outputPath: string, fileHash: string) => {
   const DEBUG = false;
   const { perfLog, perfLogTotal } = makePerfLog("[vidToThumbGrid]", true);
@@ -368,38 +505,4 @@ export const vidToThumbGrid = async (inputPath: string, outputPath: string, file
   } finally {
     return { isCorrupted, path: gridPath };
   }
-};
-
-export const remuxToMp4 = async (inputPath: string, outputDir: string) => {
-  const DEBUG = false;
-  const { perfLog } = makePerfLog("[remuxToMp4]", true);
-
-  const tempPath = path.resolve(outputDir, "temp.mp4");
-
-  await new Promise((resolve, reject) => {
-    ffmpeg()
-      .input(inputPath)
-      .outputOptions(["-c copy"])
-      .output(tempPath)
-      .on("end", resolve)
-      .on("error", reject)
-      .run();
-  });
-  if (DEBUG) perfLog(`Remuxed file created at temp path: ${tempPath}.`);
-
-  const newHash = await md5File(tempPath);
-  const newPath = path.resolve(
-    outputDir,
-    newHash.substring(0, 2),
-    newHash.substring(2, 4),
-    `${newHash}.mp4`,
-  );
-  if (DEBUG) perfLog(`Moved temp file from ${tempPath} to ${newPath}.`);
-
-  await fs.rename(tempPath, newPath);
-  const res = await checkFileExists(newPath);
-  if (DEBUG) perfLog(`Moved temp file to ${newPath}: ${res}`);
-  if (!res) throw new Error("Failed to remux to mp4.");
-
-  return { hash: newHash, path: newPath };
 };

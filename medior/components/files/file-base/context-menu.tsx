@@ -15,6 +15,7 @@ export interface ContextMenuProps extends ViewProps {
 export const ContextMenu = Comp(({ children, file, ...props }: ContextMenuProps) => {
   const stores = useStores();
 
+  const isReencodable = file.videoCodec?.length > 0;
   const isRemuxable = getIsRemuxable(file.ext);
 
   const copyFilePath = () => copyToClipboard(file.path, "Copied file path");
@@ -39,6 +40,10 @@ export const ContextMenu = Comp(({ children, file, ...props }: ContextMenuProps)
   const handleRefresh = () => stores.file.refreshFiles({ ids: [file.id] });
 
   const handleRemux = () => stores.file.refreshFiles({ ids: [file.id], withRemux: true });
+
+  const handleReencode = () => stores.file.openReencoder(file.id);
+
+  const handleUnarchive = () => stores.file.unarchiveFiles({ fileIds: [file.id] });
 
   const openInfo = () => {
     stores.file.setActiveFileId(file.id);
@@ -94,6 +99,15 @@ export const ContextMenu = Comp(({ children, file, ...props }: ContextMenuProps)
               onClick: handleRemux,
             }
           : null,
+        isReencodable
+          ? {
+              color: colors.custom.lightBlue,
+              divider: "bottom",
+              icon: "SwitchVideo",
+              label: "Re-encode",
+              onClick: handleReencode,
+            }
+          : null,
         {
           icon: "Collections",
           label: "Collections",
@@ -104,6 +118,14 @@ export const ContextMenu = Comp(({ children, file, ...props }: ContextMenuProps)
           label: "Face Recognition",
           onClick: handleFaceRecognition,
         },
+        stores.file.search.isArchived
+          ? {
+              color: colors.custom.green,
+              icon: "Unarchive",
+              label: "Unarchive",
+              onClick: handleUnarchive,
+            }
+          : null,
         {
           color: file.isArchived ? colors.custom.red : colors.custom.orange,
           divider: "top",

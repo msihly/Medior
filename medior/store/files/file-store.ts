@@ -15,7 +15,7 @@ import { asyncAction, FaceModel, FileImporter, RootStore } from "medior/store";
 import { getConfig, makeQueue, toast } from "medior/utils/client";
 import { PromiseQueue, splitArray } from "medior/utils/common";
 import { trpc } from "medior/utils/server";
-import { File, FileSearch, FileTagsEditorStore } from ".";
+import { File, FileSearch, FileTagsEditorStore, ReencoderStore } from ".";
 
 @model("medior/FileStore")
 export class FileStore extends ExtendedModel(_FileStore, {
@@ -23,6 +23,7 @@ export class FileStore extends ExtendedModel(_FileStore, {
   idsForConfirmDelete: prop<string[]>(() => []).withSetter(),
   isConfirmDeleteOpen: prop<boolean>(false).withSetter(),
   isInfoModalOpen: prop<boolean>(false).withSetter(),
+  reencoder: prop<ReencoderStore>(() => new ReencoderStore({})),
   search: prop<FileSearch>(() => new FileSearch({})),
   tagsEditor: prop<FileTagsEditorStore>(() => new FileTagsEditorStore({})),
 }) {
@@ -42,6 +43,12 @@ export class FileStore extends ExtendedModel(_FileStore, {
   clearRefreshQueue() {
     this.refreshQueue.cancel();
     this.refreshQueue = new PromiseQueue();
+  }
+
+  @modelAction
+  openReencoder(fileId: string) {
+    this.reencoder.setFileId(fileId);
+    this.reencoder.setIsOpen(true);
   }
 
   @modelAction
@@ -191,6 +198,7 @@ export class FileStore extends ExtendedModel(_FileStore, {
 
     await trpc.setFileIsArchived.mutate({ fileIds, isArchived: false });
     this.search.toggleSelected(fileIds.map((id) => ({ id, isSelected: false })));
+    this.search.removeFiles(fileIds);
 
     toast.success(`${fileIds.length} files unarchived`);
     return true;
