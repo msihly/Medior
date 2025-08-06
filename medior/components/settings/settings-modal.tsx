@@ -223,26 +223,38 @@ export const SettingsModal = Comp(() => {
           </View>
 
           <Card
-            header="Handled / Displayed Image Types"
+            header="Handled Image Types"
             row
             wrap="wrap"
             flex="inherit"
             bgColor={colors.foregroundCard}
           >
-            {CONSTANTS.IMAGE_TYPES.map((ext) => (
-              <Settings.ExtCheckbox key={ext} ext={ext} configKey="file.imageTypes" />
+            {CONSTANTS.IMAGE_EXTS.map((ext) => (
+              <Settings.ExtCheckbox key={ext} ext={ext} configKey="file.imageExts" />
             ))}
           </Card>
 
           <Card
-            header="Handled / Displayed Video Types"
+            header="Handled Video Types"
             row
             wrap="wrap"
             flex="inherit"
             bgColor={colors.foregroundCard}
           >
-            {CONSTANTS.VIDEO_TYPES.map((ext) => (
-              <Settings.ExtCheckbox key={ext} ext={ext} configKey="file.videoTypes" />
+            {CONSTANTS.VIDEO_EXTS.map((ext) => (
+              <Settings.ExtCheckbox key={ext} ext={ext} configKey="file.videoExts" />
+            ))}
+          </Card>
+
+          <Card
+            header="Handled Video Codecs"
+            row
+            wrap="wrap"
+            flex="inherit"
+            bgColor={colors.foregroundCard}
+          >
+            {CONSTANTS.VIDEO_CODECS.map((ext) => (
+              <Settings.ExtCheckbox key={ext} ext={ext} configKey="file.videoCodecs" />
             ))}
           </Card>
         </Settings.Section>

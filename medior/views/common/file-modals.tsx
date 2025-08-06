@@ -1,4 +1,10 @@
-import { Comp, ConfirmModal, FaceRecognitionModal, InfoModal, ReencoderModal } from "medior/components";
+import {
+  Comp,
+  ConfirmModal,
+  FaceRecognitionModal,
+  InfoModal,
+  ReencoderModal,
+} from "medior/components";
 import { useStores } from "medior/store";
 
 export const FileModals = Comp(() => {

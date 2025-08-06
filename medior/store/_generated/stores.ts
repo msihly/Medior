@@ -285,17 +285,23 @@ export class _FileSearch extends Model({
   rating: prop<{ logOp: LogicalOp | ""; value: number }>(() => ({ logOp: "", value: 0 })),
   results: prop<Stores.File[]>(() => []).withSetter(),
   selectedIds: prop<string[]>(() => []).withSetter(),
-  selectedImageTypes: prop<Types.SelectedImageTypes>(
+  selectedImageExts: prop<Types.SelectedImageExts>(
     () =>
       Object.fromEntries(
-        getConfig().file.imageTypes.map((ext) => [ext, true]),
-      ) as Types.SelectedImageTypes,
+        getConfig().file.imageExts.map((ext) => [ext, true]),
+      ) as Types.SelectedImageExts,
   ),
-  selectedVideoTypes: prop<Types.SelectedVideoTypes>(
+  selectedVideoCodecs: prop<Types.SelectedVideoCodecs>(
     () =>
       Object.fromEntries(
-        getConfig().file.videoTypes.map((ext) => [ext, true]),
-      ) as Types.SelectedVideoTypes,
+        getConfig().file.videoCodecs.map((codec) => [codec, true]),
+      ) as Types.SelectedVideoCodecs,
+  ),
+  selectedVideoExts: prop<Types.SelectedVideoExts>(
+    () =>
+      Object.fromEntries(
+        getConfig().file.videoExts.map((ext) => [ext, true]),
+      ) as Types.SelectedVideoExts,
   ),
   sortValue: prop<SortMenuProps["value"]>(() => getConfig().file.search.sort).withSetter(),
   tags: prop<Stores.TagOption[]>(() => []).withSetter(),
@@ -342,12 +348,15 @@ export class _FileSearch extends Model({
     this.rating = { logOp: "", value: 0 };
     this.results = [];
     this.selectedIds = [];
-    this.selectedImageTypes = Object.fromEntries(
-      getConfig().file.imageTypes.map((ext) => [ext, true]),
-    ) as Types.SelectedImageTypes;
-    this.selectedVideoTypes = Object.fromEntries(
-      getConfig().file.videoTypes.map((ext) => [ext, true]),
-    ) as Types.SelectedVideoTypes;
+    this.selectedImageExts = Object.fromEntries(
+      getConfig().file.imageExts.map((ext) => [ext, true]),
+    ) as Types.SelectedImageExts;
+    this.selectedVideoCodecs = Object.fromEntries(
+      getConfig().file.videoCodecs.map((codec) => [codec, true]),
+    ) as Types.SelectedVideoCodecs;
+    this.selectedVideoExts = Object.fromEntries(
+      getConfig().file.videoExts.map((ext) => [ext, true]),
+    ) as Types.SelectedVideoExts;
     this.sortValue = getConfig().file.search.sort;
     this.tags = [];
   }
@@ -397,13 +406,18 @@ export class _FileSearch extends Model({
   }
 
   @modelAction
-  setSelectedImageTypes(types: Partial<Types.SelectedImageTypes>) {
-    this.selectedImageTypes = { ...this.selectedImageTypes, ...types };
+  setSelectedImageExts(types: Partial<Types.SelectedImageExts>) {
+    this.selectedImageExts = { ...this.selectedImageExts, ...types };
   }
 
   @modelAction
-  setSelectedVideoTypes(types: Partial<Types.SelectedVideoTypes>) {
-    this.selectedVideoTypes = { ...this.selectedVideoTypes, ...types };
+  setSelectedVideoCodecs(types: Partial<Types.SelectedVideoCodecs>) {
+    this.selectedVideoCodecs = { ...this.selectedVideoCodecs, ...types };
+  }
+
+  @modelAction
+  setSelectedVideoExts(types: Partial<Types.SelectedVideoExts>) {
+    this.selectedVideoExts = { ...this.selectedVideoExts, ...types };
   }
 
   /* ASYNC ACTIONS */
@@ -512,18 +526,26 @@ export class _FileSearch extends Model({
       (!isDeepEqual(this.originalPath, null) ? 1 : 0) +
       (!isDeepEqual(this.rating, { logOp: "", value: 0 }) ? 1 : 0) +
       (!isDeepEqual(
-        this.selectedImageTypes,
+        this.selectedImageExts,
         Object.fromEntries(
-          getConfig().file.imageTypes.map((ext) => [ext, true]),
-        ) as Types.SelectedImageTypes,
+          getConfig().file.imageExts.map((ext) => [ext, true]),
+        ) as Types.SelectedImageExts,
       )
         ? 1
         : 0) +
       (!isDeepEqual(
-        this.selectedVideoTypes,
+        this.selectedVideoCodecs,
         Object.fromEntries(
-          getConfig().file.videoTypes.map((ext) => [ext, true]),
-        ) as Types.SelectedVideoTypes,
+          getConfig().file.videoCodecs.map((codec) => [codec, true]),
+        ) as Types.SelectedVideoCodecs,
+      )
+        ? 1
+        : 0) +
+      (!isDeepEqual(
+        this.selectedVideoExts,
+        Object.fromEntries(
+          getConfig().file.videoExts.map((ext) => [ext, true]),
+        ) as Types.SelectedVideoExts,
       )
         ? 1
         : 0) +
@@ -551,8 +573,9 @@ export class _FileSearch extends Model({
       numOfTags: this.numOfTags,
       originalPath: this.originalPath,
       rating: this.rating,
-      selectedImageTypes: this.selectedImageTypes,
-      selectedVideoTypes: this.selectedVideoTypes,
+      selectedImageExts: this.selectedImageExts,
+      selectedVideoCodecs: this.selectedVideoCodecs,
+      selectedVideoExts: this.selectedVideoExts,
       sortValue: this.sortValue,
       ...getRootStore<Stores.RootStore>(this)?.tag?.tagSearchOptsToIds(this.tags),
     };
@@ -985,6 +1008,7 @@ export class _File extends Model({
   isCorrupted: prop<boolean>(null),
   originalHash: prop<string>(null),
   originalName: prop<string>(null),
+  originalVideoCodec: prop<string>(null),
   originalPath: prop<string>(),
   path: prop<string>(),
   rating: prop<number>(),

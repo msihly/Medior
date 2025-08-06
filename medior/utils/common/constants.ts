@@ -1,55 +1,127 @@
 import { ConnectOptions } from "mongoose";
 
-const IMAGE_TYPES = [
+export const IMAGE_EXTS_COMMON = ["gif", "heic", "jpeg", "jpg", "png", "webp"] as const;
+
+export const IMAGE_EXTS_UNCOMMON = [
   "apng",
   "avif",
   "bmp",
-  "gif",
-  "heic",
   "jfif",
   "jif",
   "jiff",
-  "jpeg",
-  "jpg",
-  "png",
   "svg",
   "tiff",
-  "webp",
 ] as const;
-export type ImageType = (typeof IMAGE_TYPES)[number];
 
-const VIDEO_TYPES = [
+export const IMAGE_EXTS = [...IMAGE_EXTS_COMMON, ...IMAGE_EXTS_UNCOMMON];
+export type ImageExt = (typeof IMAGE_EXTS)[number];
+
+export const VIDEO_CODECS_COMMON = [
+  "av1",
+  "h264",
+  "hevc",
+  "mpeg4",
+  "prores",
+  "vp8",
+  "vp9",
+  "wmv1",
+] as const;
+
+export const VIDEO_CODECS_UNCOMMON = [
+  "amv",
+  "asv1",
+  "asv2",
+  "auravision",
+  "binkvideo",
+  "camstudio",
+  "cinepak",
+  "dirac",
+  "dnxhd",
+  "dnxhr",
+  "dvvideo",
+  "ffv1",
+  "flv1",
+  "h263",
+  "h263p",
+  "huffyuv",
+  "indeo3",
+  "indeo5",
+  "jpeg2000",
+  "jpegls",
+  "lagarith",
+  "mjpeg",
+  "mjpegb",
+  "mpeg1video",
+  "mpeg2video",
+  "msmpeg4v1",
+  "msmpeg4v2",
+  "msmpeg4v3",
+  "rawvideo",
+  "rv10",
+  "rv20",
+  "rv30",
+  "rv40",
+  "smacker",
+  "snow",
+  "sp5x",
+  "svq1",
+  "svq3",
+  "theora",
+  "tscc",
+  "utvideo",
+  "uyvy422",
+  "v210",
+  "vixl",
+  "vp6",
+  "vp6f",
+  "wmv2",
+  "wmv3",
+  "yuyv422",
+  "zlib",
+  "zmbv",
+] as const;
+
+export const VIDEO_CODECS = [...VIDEO_CODECS_COMMON, ...VIDEO_CODECS_UNCOMMON] as const;
+export type VideoCodec = (typeof VIDEO_CODECS)[number];
+
+export const VIDEO_EXTS_COMMON = [
   "3gp",
+  "avi",
+  "f4v",
+  "flv",
+  "m4v",
+  "mkv",
+  "mov",
+  "mp4",
+  "ts",
+  "webm",
+  "wmv",
+] as const;
+
+export const VIDEO_EXTS_UNCOMMON = [
   "3gp2",
   "3gpp",
   "amv",
   "asf",
   "avi",
   "divx",
-  "f4v",
-  "flv",
   "m2t",
   "m2ts",
   "m2v",
   "m4b",
   "m4p",
-  "m4v",
-  "mkv",
-  "mov",
-  "mp4",
   "mpeg",
   "mpg",
   "mts",
   "ogv",
   "qt",
-  "ts",
   "vob",
-  "webm",
   "wm",
   "wmp",
-  "wmv",
 ] as const;
-export type VideoType = (typeof VIDEO_TYPES)[number];
+
+export const VIDEO_EXTS = [...VIDEO_EXTS_COMMON, ...VIDEO_EXTS_UNCOMMON];
+export type VideoExt = (typeof VIDEO_EXTS)[number];
 
 export const WEB_VIDEO_CODECS = ["h264", "vp8", "vp9", "theora", "av1"];
 export const WEB_VIDEO_EXTS = ["mp4", "webm", "ogv"];
@@ -82,14 +154,15 @@ export interface Constants {
     DRAWER: { WIDTH: number };
     TOP_BAR: { HEIGHT: number };
   };
-  IMAGE_TYPES: readonly ImageType[];
+  IMAGE_EXTS: readonly ImageExt[];
   MONGOOSE_OPTS: Partial<ConnectOptions>;
   PORTS: {
     DB: number;
     SERVER: number;
     SOCKET: number;
   };
-  VIDEO_TYPES: readonly VideoType[];
+  VIDEO_CODECS: readonly VideoCodec[];
+  VIDEO_EXTS: readonly VideoExt[];
 }
 
 export const CONSTANTS: Constants = {
@@ -120,12 +193,13 @@ export const CONSTANTS: Constants = {
     DRAWER: { WIDTH: 55 },
     TOP_BAR: { HEIGHT: 55 },
   },
-  IMAGE_TYPES,
+  IMAGE_EXTS,
   MONGOOSE_OPTS: { family: 4 },
   PORTS: {
     DB: 27770,
     SERVER: 3567,
     SOCKET: 3568,
   },
-  VIDEO_TYPES,
+  VIDEO_CODECS,
+  VIDEO_EXTS,
 };

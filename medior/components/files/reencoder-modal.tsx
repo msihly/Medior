@@ -99,10 +99,7 @@ export const ReencoderModal = Comp(() => {
 
               <Detail label="Original" value={formatBytes(store.file.size)} />
 
-              <Detail
-                label="Ratio"
-                value={`${round(store.file.size / store.progress.size)}x`}
-              />
+              <Detail label="Ratio" value={`${round(store.file.size / store.progress.size)}x`} />
             </UniformList>
           </View>
         )}

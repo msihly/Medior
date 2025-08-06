@@ -1,5 +1,5 @@
 export * from "medior/_generated/types";
-import { ImageType, VideoType } from "medior/utils/common";
+import { ImageExt, VideoCodec, VideoExt } from "medior/utils/common";
 
 export type ImportStats = {
   completedBytes: number;
@@ -8,6 +8,8 @@ export type ImportStats = {
   totalBytes: number;
 };
 
-export type SelectedImageTypes = { [ext in ImageType]: boolean };
+export type SelectedImageExts = { [ext in ImageExt]: boolean };
 
-export type SelectedVideoTypes = { [ext in VideoType]: boolean };
+export type SelectedVideoCodecs = { [codec in VideoCodec]: boolean };
+
+export type SelectedVideoExts = { [ext in VideoExt]: boolean };

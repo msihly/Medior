@@ -162,6 +162,7 @@ export interface FileSchema {
   isCorrupted?: boolean;
   originalHash?: string;
   originalName?: string;
+  originalVideoCodec?: string;
   originalPath: string;
   path: string;
   rating: number;
@@ -195,6 +196,7 @@ const FileSchema = new Schema<FileSchema>({
   isCorrupted: Boolean,
   originalHash: String,
   originalName: String,
+  originalVideoCodec: String,
   originalPath: String,
   path: String,
   rating: Number,

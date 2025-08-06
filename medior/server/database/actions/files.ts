@@ -344,7 +344,7 @@ export const listFilePaths = makeAction(async () => {
 
 export const listFilesWithBrokenVideoCodec = makeAction(async () => {
   const files = await models.FileModel.find({
-    ext: { $in: CONSTANTS.VIDEO_TYPES },
+    ext: { $in: CONSTANTS.VIDEO_EXTS },
     $or: [{ videoCodec: { $exists: false } }, { videoCodec: "" }],
   })
     .allowDiskUse(true)

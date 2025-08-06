@@ -73,35 +73,57 @@ model.addProp("originalPath", "string", "null", {
 });
 
 model.addProp(
-  "selectedImageTypes",
-  "Types.SelectedImageTypes",
-  "() => Object.fromEntries(getConfig().file.imageTypes.map((ext) => [ext, true])) as Types.SelectedImageTypes",
+  "selectedImageExts",
+  "Types.SelectedImageExts",
+  "() => Object.fromEntries(getConfig().file.imageExts.map((ext) => [ext, true])) as Types.SelectedImageExts",
   {
     customActionProps: [
-      model.makeCustomActionProp("selectedImageTypes", "Types.SelectedImageTypes", {
+      // This handles both image and video exts because setObj does not support the `$or: [{}]` syntax
+      model.makeCustomActionProp("selectedImageExts", "Types.SelectedImageExts", {
         condition: "true",
         objPath: ["ext", "$nin"],
         objValue:
-          "Object.entries({ ...args.selectedImageTypes, ...args.selectedVideoTypes }).filter(([, val]) => !val).map(([ext]) => ext)",
+          "Object.entries({ ...args.selectedImageExts, ...args.selectedVideoExts }).filter(([, val]) => !val).map(([ext]) => ext)",
       }),
     ],
     setter: model.makeSetterProp(
-      "selectedImageTypes",
-      ["types: Partial<Types.SelectedImageTypes>"],
-      "this.selectedImageTypes = { ...this.selectedImageTypes, ...types };",
+      "selectedImageExts",
+      ["types: Partial<Types.SelectedImageExts>"],
+      "this.selectedImageExts = { ...this.selectedImageExts, ...types };",
     ),
   },
 );
 
 model.addProp(
-  "selectedVideoTypes",
-  "Types.SelectedVideoTypes",
-  "() => Object.fromEntries(getConfig().file.videoTypes.map((ext) => [ext, true])) as Types.SelectedVideoTypes",
+  "selectedVideoCodecs",
+  "Types.SelectedVideoCodecs",
+  "() => Object.fromEntries(getConfig().file.videoCodecs.map((codec) => [codec, true])) as Types.SelectedVideoCodecs",
+  {
+    customActionProps: [
+      model.makeCustomActionProp("selectedVideoCodecs", "Types.SelectedVideoCodecs", {
+        condition: "true",
+        objPath: ["videoCodec", "$nin"],
+        objValue:
+          "Object.entries(args.selectedVideoCodecs).filter(([, val]) => !val).map(([ext]) => ext)",
+      }),
+    ],
+    setter: model.makeSetterProp(
+      "selectedVideoCodecs",
+      ["types: Partial<Types.SelectedVideoCodecs>"],
+      "this.selectedVideoCodecs = { ...this.selectedVideoCodecs, ...types };",
+    ),
+  },
+);
+
+model.addProp(
+  "selectedVideoExts",
+  "Types.SelectedVideoExts",
+  "() => Object.fromEntries(getConfig().file.videoExts.map((ext) => [ext, true])) as Types.SelectedVideoExts",
   {
     setter: model.makeSetterProp(
-      "selectedVideoTypes",
-      ["types: Partial<Types.SelectedVideoTypes>"],
-      "this.selectedVideoTypes = { ...this.selectedVideoTypes, ...types };",
+      "selectedVideoExts",
+      ["types: Partial<Types.SelectedVideoExts>"],
+      "this.selectedVideoExts = { ...this.selectedVideoExts, ...types };",
     ),
   },
 );

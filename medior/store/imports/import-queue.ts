@@ -273,7 +273,7 @@ export const dirToFileImports = async (dirPath: string) => {
 
 export const filePathsToImports = async (filePaths: string[]) => {
   const config = getConfig();
-  const validExts = new Set([...config.file.imageTypes, ...config.file.videoTypes]);
+  const validExts = new Set([...config.file.imageExts, ...config.file.videoExts]);
 
   return (
     await Promise.all(

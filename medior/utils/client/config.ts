@@ -2,7 +2,17 @@ import { ipcRenderer } from "electron";
 import fs from "fs/promises";
 import path from "path";
 import { FolderToCollMode, FolderToTagsMode, SortMenuProps } from "medior/components";
-import { deepMerge, handleErrors, ImageType, NestedKeys, VideoType } from "medior/utils/common";
+import {
+  deepMerge,
+  handleErrors,
+  IMAGE_EXTS_COMMON,
+  ImageExt,
+  NestedKeys,
+  VIDEO_CODECS_COMMON,
+  VIDEO_EXTS_COMMON,
+  VideoCodec,
+  VideoExt,
+} from "medior/utils/common";
 import { checkFileExists, fileLog, trpc } from "medior/utils/server";
 
 type DevToolsMode = null | Electron.OpenDevToolsOptions["mode"];
@@ -39,17 +49,18 @@ export interface Config {
   file: {
     fileCardFit: "contain" | "cover";
     hideUnratedIcon: boolean;
-    imageTypes: Array<ImageType | string>;
+    imageExts: Array<ImageExt | string>;
     reencode: {
       codec: string;
       maxBitrate: number;
       override: string[];
     };
     remuxTypes: {
-      toMp4: Array<Omit<VideoType, "mp4"> | string>;
+      toMp4: Array<Omit<VideoExt, "mp4"> | string>;
     };
     search: Search;
-    videoTypes: Array<VideoType | string>;
+    videoCodecs: Array<VideoCodec | string>;
+    videoExts: Array<VideoExt | string>;
   };
   imports: {
     deleteOnImport: boolean;
@@ -119,7 +130,7 @@ export const DEFAULT_CONFIG: Config = {
   },
   file: {
     fileCardFit: "contain",
-    imageTypes: ["gif", "heic", "jfif", "jif", "jiff", "jpeg", "jpg", "png", "webp"],
+    imageExts: [...IMAGE_EXTS_COMMON],
     hideUnratedIcon: false,
     reencode: {
       codec: "hevc_nvenc",
@@ -133,7 +144,8 @@ export const DEFAULT_CONFIG: Config = {
       pageSize: 100,
       sort: { isDesc: true, key: "dateCreated" },
     },
-    videoTypes: ["3gp", "avi", "f4v", "flv", "m4v", "mkv", "mov", "mp4", "ts", "webm", "wmv"],
+    videoCodecs: [...VIDEO_CODECS_COMMON],
+    videoExts: [...VIDEO_EXTS_COMMON],
   },
   imports: {
     deleteOnImport: true,
@@ -187,14 +199,14 @@ export const getConfig = (debugLoc?: string) => {
 };
 
 export const getIsAnimated = (ext: string) =>
-  ["gif", ...getConfig().file.videoTypes].includes(ext.toLowerCase());
+  ["gif", ...getConfig().file.videoExts].includes(ext.toLowerCase());
 
-export const getIsImage = (ext: string) => getConfig().file.imageTypes.includes(ext.toLowerCase());
+export const getIsImage = (ext: string) => getConfig().file.imageExts.includes(ext.toLowerCase());
 
 export const getIsRemuxable = (ext: string) =>
   getConfig().file.remuxTypes.toMp4.includes(ext.toLowerCase());
 
-export const getIsVideo = (ext: string) => getConfig().file.videoTypes.includes(ext.toLowerCase());
+export const getIsVideo = (ext: string) => getConfig().file.videoExts.includes(ext.toLowerCase());
 
 export const loadConfig = async (configPath?: string) => {
   try {

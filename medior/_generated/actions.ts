@@ -180,8 +180,9 @@ export type CreateFileFilterPipelineInput = {
   rating?: { logOp: LogicalOp | ""; value: number };
   requiredDescTagIds?: string[];
   requiredTagIds?: string[];
-  selectedImageTypes?: Types.SelectedImageTypes;
-  selectedVideoTypes?: Types.SelectedVideoTypes;
+  selectedImageExts?: Types.SelectedImageExts;
+  selectedVideoCodecs?: Types.SelectedVideoCodecs;
+  selectedVideoExts?: Types.SelectedVideoExts;
   sortValue?: SortMenuProps["value"];
 };
 
@@ -226,7 +227,15 @@ export const createFileFilterPipeline = (args: CreateFileFilterPipelineInput) =>
     setObj(
       $match,
       ["ext", "$nin"],
-      Object.entries({ ...args.selectedImageTypes, ...args.selectedVideoTypes })
+      Object.entries({ ...args.selectedImageExts, ...args.selectedVideoExts })
+        .filter(([, val]) => !val)
+        .map(([ext]) => ext),
+    );
+  if (true)
+    setObj(
+      $match,
+      ["videoCodec", "$nin"],
+      Object.entries(args.selectedVideoCodecs)
         .filter(([, val]) => !val)
         .map(([ext]) => ext),
     );

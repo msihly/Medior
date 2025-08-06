@@ -13,7 +13,7 @@ import {
 } from "medior/components";
 import { FileSearch, SORT_OPTIONS } from "medior/store";
 import { colors, getConfig } from "medior/utils/client";
-import { ImageType, VideoType } from "medior/utils/common";
+import { ImageExt, VideoCodec, VideoExt } from "medior/utils/common";
 
 export interface FileFilterMenuProps {
   color?: string;
@@ -97,11 +97,15 @@ export const FileFilterMenu = Comp(({ color = colors.foreground, store }: FileFi
 
         <View row spacing="0.5rem">
           <Card overflow="auto">
-            <ExtColumn {...{ store }} type="Image" />
+            <ExtColumn {...{ store }} type="ImageExt" />
           </Card>
 
           <Card overflow="auto">
-            <ExtColumn {...{ store }} type="Video" />
+            <ExtColumn {...{ store }} type="VideoExt" />
+          </Card>
+
+          <Card overflow="auto">
+            <ExtColumn {...{ store }} type="VideoCodec" />
           </Card>
         </View>
       </View>
@@ -156,39 +160,52 @@ export const FileFilterMenu = Comp(({ color = colors.foreground, store }: FileFi
 });
 
 interface ExtCheckboxProps {
-  ext: ImageType | VideoType;
+  ext: ImageExt | VideoCodec | VideoExt;
   label?: string;
   store: FileSearch;
-  type: "Image" | "Video";
+  type: "ImageExt" | "VideoCodec" | "VideoExt";
 }
 
 const ExtCheckbox = Comp(({ ext, label = null, store, type }: ExtCheckboxProps) => {
   return (
     <Checkbox
       label={label || ext}
-      checked={type === "Image" ? store.selectedImageTypes[ext] : store.selectedVideoTypes[ext]}
+      checked={
+        type === "ImageExt"
+          ? store.selectedImageExts[ext]
+          : type === "VideoExt"
+            ? store.selectedVideoExts[ext]
+            : store.selectedVideoCodecs[ext]
+      }
       setChecked={(checked) =>
-        type === "Image"
-          ? store.setSelectedImageTypes({ [ext]: checked })
-          : store.setSelectedVideoTypes({ [ext]: checked })
+        type === "ImageExt"
+          ? store.setSelectedImageExts({ [ext]: checked })
+          : type === "VideoExt"
+            ? store.setSelectedVideoExts({ [ext]: checked })
+            : store.setSelectedVideoCodecs({ [ext]: checked })
       }
     />
   );
 });
 
-interface ExtColumnProps {
-  store: FileSearch;
-  type: "Image" | "Video";
-}
+interface ExtColumnProps extends Pick<ExtCheckboxProps, "store" | "type"> {}
 
 const ExtColumn = Comp(({ store, type }: ExtColumnProps) => {
   const config = getConfig();
 
   const configTypes: ExtCheckboxProps["ext"][] =
-    type === "Image"
-      ? (config.file.imageTypes as ImageType[])
-      : (config.file.videoTypes as VideoType[]);
-  const storeTypes = type === "Image" ? store.selectedImageTypes : store.selectedVideoTypes;
+    type === "ImageExt"
+      ? (config.file.imageExts as ImageExt[])
+      : type === "VideoExt"
+        ? (config.file.videoExts as VideoExt[])
+        : (config.file.videoCodecs as VideoCodec[]);
+
+  const storeTypes =
+    type === "ImageExt"
+      ? store.selectedImageExts
+      : type === "VideoExt"
+        ? store.selectedVideoExts
+        : store.selectedVideoCodecs;
 
   const [isAllSelected, isAnySelected] = useMemo(() => {
     const allTypes = Object.values(storeTypes);
@@ -200,14 +217,15 @@ const ExtColumn = Comp(({ store, type }: ExtColumnProps) => {
 
   const toggleTypes = () => {
     const newTypes = Object.fromEntries(configTypes.map((t) => [t, isAllSelected ? false : true]));
-    if (type === "Image") store.setSelectedImageTypes(newTypes);
-    else store.setSelectedVideoTypes(newTypes);
+    if (type === "ImageExt") store.setSelectedImageExts(newTypes);
+    else if (type === "VideoExt") store.setSelectedVideoExts(newTypes);
+    else store.setSelectedVideoCodecs(newTypes);
   };
 
   return (
     <>
       <Checkbox
-        label={`${type}s`}
+        label={type === "ImageExt" ? "Images" : type === "VideoExt" ? "Videos" : "Codecs"}
         checked={isAllSelected}
         indeterminate={!isAllSelected && isAnySelected}
         setChecked={toggleTypes}
