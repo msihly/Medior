@@ -53,6 +53,8 @@ export interface Config {
     reencode: {
       codec: string;
       maxBitrate: number;
+      maxHeight: number;
+      maxWidth: number;
       override: string[];
     };
     remuxTypes: {
@@ -135,6 +137,8 @@ export const DEFAULT_CONFIG: Config = {
     reencode: {
       codec: "hevc_nvenc",
       maxBitrate: 5000,
+      maxHeight: 1080,
+      maxWidth: 1920,
       override: [],
     },
     remuxTypes: {

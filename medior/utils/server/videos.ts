@@ -259,7 +259,7 @@ export type EncodeProgress = {
   time: string;
 };
 
-export const reencodeToHevc = async (
+export const reencode = async (
   inputPath: string,
   outputDir: string,
   options?: {
@@ -268,17 +268,23 @@ export const reencodeToHevc = async (
   },
 ): Promise<{ hash: string; path: string }> => {
   const DEBUG = false;
-  const { perfLog } = makePerfLog("[reencodeToHevc]", true);
+  const { perfLog } = makePerfLog("[reencode]", true);
 
   const config = getConfig();
   const tempPath = path.resolve(outputDir, "reencoded.mp4");
 
+  const { codec, maxBitrate, maxHeight, maxWidth, override } = config.file.reencode;
+
   const command = ffmpeg()
     .input(inputPath)
-    .videoCodec(config.file.reencode.codec)
+    .videoCodec(codec)
+    .addOption([
+      "-vf",
+      `scale='if(gt(iw,${maxWidth}),${maxWidth},iw)':'if(gt(ih,${maxHeight}),${maxHeight},ih)':force_original_aspect_ratio=decrease`,
+    ])
     .outputOptions(
-      config.file.reencode.override?.length
-        ? config.file.reencode.override
+      override?.length
+        ? override
         : [
             "-rc",
             "vbr_hq",
@@ -287,9 +293,9 @@ export const reencodeToHevc = async (
             "-b:v",
             "0k",
             "-maxrate",
-            `${config.file.reencode.maxBitrate}k`,
+            `${maxBitrate}k`,
             "-bufsize",
-            `${config.file.reencode.maxBitrate * 2}k`,
+            `${maxBitrate * 2}k`,
             "-2pass",
             "0",
           ],

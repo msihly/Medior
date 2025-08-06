@@ -5,7 +5,7 @@ import { File } from "medior/store/files/file";
 import { RootStore } from "medior/store/root-store";
 import { asyncAction } from "medior/store/utils";
 import { deleteFile, getAvailableFileStorage } from "medior/utils/client";
-import { EncodeProgress, reencodeToHevc, trpc } from "medior/utils/server";
+import { EncodeProgress, reencode, trpc } from "medior/utils/server";
 
 @model("medior/ReencoderStore")
 export class ReencoderStore extends Model({
@@ -90,7 +90,7 @@ export class ReencoderStore extends Model({
 
       this.aborter = new AbortController();
 
-      const res = await reencodeToHevc(this.file.path, targetDir, {
+      const res = await reencode(this.file.path, targetDir, {
         signal: this.aborter.signal,
         onProgress: (progress) => {
           this.setProgress(progress);
