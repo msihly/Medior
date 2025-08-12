@@ -150,6 +150,7 @@ export interface FaceModel {
 export interface FileSchema {
   id: string;
   dateCreated: string;
+  bitrate?: number;
   dateModified: string;
   diffusionParams?: string;
   duration?: number;
@@ -160,10 +161,12 @@ export interface FileSchema {
   height: number;
   isArchived?: boolean;
   isCorrupted?: boolean;
+  originalBitrate?: number;
   originalHash?: string;
   originalName?: string;
-  originalVideoCodec?: string;
   originalPath: string;
+  originalSize: number;
+  originalVideoCodec?: string;
   path: string;
   rating: number;
   size: number;
@@ -177,6 +180,7 @@ export interface FileSchema {
 const FileSchema = new Schema<FileSchema>({
   id: String,
   dateCreated: String,
+  bitrate: Number,
   dateModified: String,
   diffusionParams: String,
   duration: Number,
@@ -194,10 +198,12 @@ const FileSchema = new Schema<FileSchema>({
   height: Number,
   isArchived: Boolean,
   isCorrupted: Boolean,
+  originalBitrate: Number,
   originalHash: String,
   originalName: String,
-  originalVideoCodec: String,
   originalPath: String,
+  originalSize: Number,
+  originalVideoCodec: String,
   path: String,
   rating: Number,
   size: Number,
@@ -209,6 +215,7 @@ const FileSchema = new Schema<FileSchema>({
 });
 
 FileSchema.index({ dateCreated: 1, _id: 1 }, { unique: true });
+FileSchema.index({ bitrate: 1, _id: 1 }, { unique: true });
 FileSchema.index({ dateModified: 1, _id: 1 }, { unique: true });
 FileSchema.index({ duration: 1, _id: 1 }, { unique: true });
 FileSchema.index({ ext: 1, _id: 1 }, { unique: true });

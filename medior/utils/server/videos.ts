@@ -213,7 +213,8 @@ export const getScaledThumbSize = (
   };
 };
 
-interface VideoInfo {
+export interface VideoInfo {
+  bitrate: number;
   duration: number;
   frameRate: number;
   height: number;
@@ -231,10 +232,11 @@ export const getVideoInfo = async (path: string) => {
         const videoStream = info.streams.find((s) => s.codec_type === "video");
         if (!videoStream) return reject(new Error("No video stream found."));
 
-        const { height, r_frame_rate, width, codec_name } = videoStream;
+        const { bit_rate, height, r_frame_rate, width, codec_name } = videoStream;
         const { duration, size } = info.format;
 
         return resolve({
+          bitrate: parseInt(bit_rate, 10) || null,
           duration: typeof duration === "number" ? duration : null,
           frameRate: fractionStringToNumber(r_frame_rate),
           height,

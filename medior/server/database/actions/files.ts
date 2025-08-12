@@ -9,7 +9,7 @@ import * as actions from "medior/server/database/actions";
 import { leanModelToJson, makeAction, objectId, objectIds } from "medior/server/database/utils";
 import { SortValue } from "medior/store";
 import { checkFileExists, copyFile, deleteFile, genFileInfo, sharp } from "medior/utils/client";
-import { CONSTANTS, dayjs, PromiseQueue } from "medior/utils/common";
+import { capitalize, CONSTANTS, dayjs, PromiseQueue } from "medior/utils/common";
 import { fileLog, makePerfLog, socket } from "medior/utils/server";
 
 const FACE_MIN_CONFIDENCE = 0.4;
@@ -248,40 +248,21 @@ export const getFileByHash = makeAction(async ({ hash }: { hash: string }) =>
   leanModelToJson<models.FileSchema>(await models.FileModel.findOne({ hash }).lean()),
 );
 
-export const importFile = makeAction(
-  async (args: {
-    dateCreated: string;
-    dateModified?: string;
-    diffusionParams: string;
-    duration: number;
-    ext: string;
-    frameRate: number;
-    hash: string;
-    height: number;
-    isCorrupted?: boolean;
-    originalHash?: string;
-    originalName: string;
-    originalPath: string;
-    path: string;
-    size: number;
-    tagIds: string[];
-    thumb: models.FileImportBatchSchema["imports"][number]["thumb"];
-    videoCodec: string;
-    width: number;
-  }) => {
-    const file = {
-      ...args,
-      dateModified: args.dateModified ?? dayjs().toISOString(),
-      isArchived: false,
-      originalHash: args.originalHash ?? args.hash,
-      rating: 0,
-      tagIdsWithAncestors: await actions.deriveAncestorTagIds(args.tagIds),
-    };
+export const importFile = makeAction(async (args: Omit<models.FileSchema, "id">) => {
+  const file: Omit<models.FileSchema, "id"> = {
+    ...args,
+    dateModified: args.dateModified ?? dayjs().toISOString(),
+    isArchived: false,
+    originalBitrate: args.originalBitrate ?? args.bitrate,
+    originalHash: args.originalHash ?? args.hash,
+    originalSize: args.originalSize ?? args.size,
+    rating: 0,
+    tagIdsWithAncestors: await actions.deriveAncestorTagIds(args.tagIds),
+  };
 
-    const res = await models.FileModel.create(file);
-    return { ...file, id: res._id.toString() };
-  },
-);
+  const res = await models.FileModel.create(file);
+  return { ...file, id: res._id.toString() };
+});
 
 export const listDeletedFiles = makeAction(async () =>
   (await models.DeletedFileModel.find().lean()).map((f) =>
@@ -342,18 +323,6 @@ export const listFilePaths = makeAction(async () => {
   }));
 });
 
-export const listFilesWithBrokenVideoCodec = makeAction(async () => {
-  const files = await models.FileModel.find({
-    ext: { $in: CONSTANTS.VIDEO_EXTS },
-    $or: [{ videoCodec: { $exists: false } }, { videoCodec: "" }],
-  })
-    .allowDiskUse(true)
-    .select({ _id: 1, isCorrupted: 1, path: 1 })
-    .lean();
-
-  return files.map((f) => ({ id: f._id.toString(), isCorrupted: f.isCorrupted, path: f.path }));
-});
-
 export const listSortedFileIds = makeAction(
   async (args: { ids: string[]; sortValue: SortValue }) => {
     const files = await models.FileModel.find({ _id: { $in: objectIds(args.ids) } })
@@ -364,6 +333,23 @@ export const listSortedFileIds = makeAction(
     return files.map((f) => leanModelToJson<models.FileSchema>(f).id);
   },
 );
+
+export const listVideosWithMissingInfo = makeAction(async () => {
+  const files = await models.FileModel.find({
+    ext: { $in: CONSTANTS.VIDEO_EXTS },
+    $or: [
+      { bitrate: { $exists: false } },
+      { bitrate: "" },
+      { videoCodec: { $exists: false } },
+      { videoCodec: "" },
+    ],
+  })
+    .allowDiskUse(true)
+    .select({ _id: 1, isCorrupted: 1, path: 1 })
+    .lean();
+
+  return files.map((f) => ({ id: f._id.toString(), isCorrupted: f.isCorrupted, path: f.path }));
+});
 
 export const loadFaceApiNets = makeAction(async () => {
   const faceapi = await import("@vladmandic/face-api/dist/face-api.node-gpu.js");
@@ -488,6 +474,39 @@ export const repairFilesWithBrokenExt = makeAction(async () => {
     filesWithDotPrefixCount: filesWithDotPrefix.length,
     filesWithIncorrectExtCount: filesWithIncorrectExt.length,
   };
+});
+
+export const repairFilesWithMissingInfo = makeAction(async () => {
+  const updateMissingOriginal = async (name: string) => {
+    const originalName = `original${capitalize(name)}`;
+    const files = await models.FileModel.find({
+      ext: { $in: CONSTANTS.VIDEO_EXTS },
+      $or: [
+        {
+          $and: [
+            { [name]: { $exists: true } },
+            { $or: [{ [originalName]: { $exists: false } }, { [originalName]: "" }] },
+          ],
+        },
+      ],
+    })
+      .allowDiskUse(true)
+      .select({ _id: 1, [name]: 1 })
+      .lean();
+
+    await models.FileModel.bulkWrite(
+      files.map((file) => ({
+        updateOne: {
+          filter: { _id: file._id },
+          update: { $set: { [originalName]: file[name] } },
+        },
+      })),
+    );
+  };
+
+  await updateMissingOriginal("bitrate");
+  await updateMissingOriginal("size");
+  await updateMissingOriginal("videoCodec");
 });
 
 export const setFileFaceModels = makeAction(

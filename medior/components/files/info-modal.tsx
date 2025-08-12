@@ -16,7 +16,7 @@ import {
 } from "medior/components";
 import { useStores } from "medior/store";
 import { colors, getIsRemuxable, makeClasses } from "medior/utils/client";
-import { duration, formatBytes } from "medior/utils/common";
+import { duration, formatBytes, round } from "medior/utils/common";
 
 export const InfoModal = Comp(() => {
   const { css } = useClasses(null);
@@ -59,28 +59,38 @@ export const InfoModal = Comp(() => {
 
       <Modal.Content spacing="0.5rem">
         <UniformList row>
-          <Detail label="Extension" value={file?.ext} />
+          <View column>
+            <Detail label="Extension" value={file?.ext} />
 
-          <Detail label="Video Codec" value={file?.videoCodec} />
+            <Detail label="Video Codec" value={file?.videoCodec} />
+          </View>
 
-          <Detail label="Size" value={formatBytes(file?.size)} tooltip={file?.size} />
+          <View column>
+            <Detail label="Size" value={formatBytes(file?.size)} tooltip={file?.size} />
 
-          <Detail
-            label="Dimensions"
-            value={`${file?.width} x ${file?.height}`}
-            valueProps={{
-              tooltip: (
-                <UniformList row>
-                  <Detail label="Width" value={file?.width} />
-                  <Detail label="Height" value={file?.height} />
-                </UniformList>
-              ),
-            }}
-          />
+            <Detail
+              label="Dimensions"
+              value={`${file?.width} x ${file?.height}`}
+              valueProps={{
+                tooltip: (
+                  <UniformList row>
+                    <Detail label="Width" value={file?.width} />
+                    <Detail label="Height" value={file?.height} />
+                  </UniformList>
+                ),
+              }}
+            />
+          </View>
 
-          <Detail label="Duration" value={duration(file?.duration)} />
+          <View column>
+            <Detail label="Duration" value={duration(file?.duration)} />
 
-          <Detail label="Frame Rate" value={file?.frameRate} />
+            <Detail label="FPS" value={file?.frameRate ? round(file.frameRate) : null} />
+          </View>
+
+          <View column>
+            <Detail label="Bitrate" value={file?.bitrate ? `${formatBytes(file.bitrate)}/s` : null} />
+          </View>
         </UniformList>
 
         <Detail label="Original File Name" value={file?.originalName} withTooltip />
@@ -92,7 +102,7 @@ export const InfoModal = Comp(() => {
         />
 
         <Detail
-          label="Current Path"
+          label="File Path"
           value={
             file?.path ? (
               <Button

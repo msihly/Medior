@@ -27,6 +27,7 @@ const MODEL_SORT_OPTIONS: Record<ModelSortName, SortOption[]> = {
   ],
   FileImportBatch: [{ attribute: "dateCreated", icon: "DateRange", label: "Date Created" }],
   File: [
+    { attribute: "bitrate", icon: "DataThresholding", label: "Bitrate" },
     { attribute: "dateCreated", icon: "DateRange", label: "Date Created" },
     { attribute: "dateModified", icon: "DateRange", label: "Date Modified" },
     { attribute: "duration", icon: "HourglassBottom", label: "Duration" },
@@ -36,8 +37,8 @@ const MODEL_SORT_OPTIONS: Record<ModelSortName, SortOption[]> = {
     { attribute: "width", icon: "Height", iconProps: { rotation: 90 }, label: "Width" },
   ],
   Tag: [
-    { attribute: "dateCreated", icon: "DateRange", label: "Date Created" },
     { attribute: "count", icon: "Numbers", label: "Count" },
+    { attribute: "dateCreated", icon: "DateRange", label: "Date Created" },
     { attribute: "dateModified", icon: "DateRange", label: "Date Modified" },
     { attribute: "label", icon: "Label", label: "Label" },
   ],

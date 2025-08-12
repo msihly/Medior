@@ -7,8 +7,11 @@ const model = new ModelStore("File", {
 });
 
 model.addDateRangeProp("dateCreated");
-
 model.addDateRangeProp("dateModified");
+
+model.addNumRangeProp("bitrate");
+model.addNumRangeProp("height");
+model.addNumRangeProp("width");
 
 model.addLogOpProp("numOfTags", {
   objPath: ["$expr", "~logicOpsToMongo(args.numOfTags.logOp)"],
@@ -45,26 +48,6 @@ model.addProp("isArchived", "boolean", "false", {
 model.addProp("isCorrupted", "boolean", "null", {
   objPath: ["isCorrupted"],
   objValue: "args.isCorrupted",
-});
-
-model.addProp("maxHeight", "number", "null", {
-  objPath: ["height", "$lte"],
-  objValue: "args.maxHeight",
-});
-
-model.addProp("maxWidth", "number", "null", {
-  objPath: ["width", "$lte"],
-  objValue: "args.maxWidth",
-});
-
-model.addProp("minHeight", "number", "null", {
-  objPath: ["height", "$gte"],
-  objValue: "args.minHeight",
-});
-
-model.addProp("minWidth", "number", "null", {
-  objPath: ["width", "$gte"],
-  objValue: "args.minWidth",
 });
 
 model.addProp("originalPath", "string", "null", {

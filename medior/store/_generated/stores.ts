@@ -273,8 +273,10 @@ export class _FileSearch extends Model({
   isCorrupted: prop<boolean>(null).withSetter(),
   isLoading: prop<boolean>(false).withSetter(),
   isPageCountLoading: prop<boolean>(false).withSetter(),
+  maxBitrate: prop<number>(null).withSetter(),
   maxHeight: prop<number>(null).withSetter(),
   maxWidth: prop<number>(null).withSetter(),
+  minBitrate: prop<number>(null).withSetter(),
   minHeight: prop<number>(null).withSetter(),
   minWidth: prop<number>(null).withSetter(),
   numOfTags: prop<{ logOp: LogicalOp | ""; value: number }>(() => ({ logOp: "", value: 0 })),
@@ -336,8 +338,10 @@ export class _FileSearch extends Model({
     this.isCorrupted = null;
     this.isLoading = false;
     this.isPageCountLoading = false;
+    this.maxBitrate = null;
     this.maxHeight = null;
     this.maxWidth = null;
+    this.minBitrate = null;
     this.minHeight = null;
     this.minWidth = null;
     this.numOfTags = { logOp: "", value: 0 };
@@ -518,8 +522,10 @@ export class _FileSearch extends Model({
       (!isDeepEqual(this.ids, []) ? 1 : 0) +
       (!isDeepEqual(this.isArchived, false) ? 1 : 0) +
       (!isDeepEqual(this.isCorrupted, null) ? 1 : 0) +
+      (!isDeepEqual(this.maxBitrate, null) ? 1 : 0) +
       (!isDeepEqual(this.maxHeight, null) ? 1 : 0) +
       (!isDeepEqual(this.maxWidth, null) ? 1 : 0) +
+      (!isDeepEqual(this.minBitrate, null) ? 1 : 0) +
       (!isDeepEqual(this.minHeight, null) ? 1 : 0) +
       (!isDeepEqual(this.minWidth, null) ? 1 : 0) +
       (!isDeepEqual(this.numOfTags, { logOp: "", value: 0 }) ? 1 : 0) +
@@ -566,8 +572,10 @@ export class _FileSearch extends Model({
       ids: this.ids,
       isArchived: this.isArchived,
       isCorrupted: this.isCorrupted,
+      maxBitrate: this.maxBitrate,
       maxHeight: this.maxHeight,
       maxWidth: this.maxWidth,
+      minBitrate: this.minBitrate,
       minHeight: this.minHeight,
       minWidth: this.minWidth,
       numOfTags: this.numOfTags,
@@ -997,6 +1005,7 @@ export class _FileImportBatchStore extends Model({ isLoading: prop<boolean>(fals
 export class _File extends Model({
   id: prop<string>(),
   dateCreated: prop<string>(() => dayjs().toISOString()),
+  bitrate: prop<number>(null),
   dateModified: prop<string>(),
   diffusionParams: prop<string>(null),
   duration: prop<number>(null),
@@ -1006,10 +1015,12 @@ export class _File extends Model({
   height: prop<number>(),
   isArchived: prop<boolean>(null),
   isCorrupted: prop<boolean>(null),
+  originalBitrate: prop<number>(null),
   originalHash: prop<string>(null),
   originalName: prop<string>(null),
-  originalVideoCodec: prop<string>(null),
   originalPath: prop<string>(),
+  originalSize: prop<number>(),
+  originalVideoCodec: prop<string>(null),
   path: prop<string>(),
   rating: prop<number>(),
   size: prop<number>(),

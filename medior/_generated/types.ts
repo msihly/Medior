@@ -183,15 +183,11 @@ export type ListFileIdsForCarouselOutput = ReturnType<typeof db.listFileIdsForCa
 export type ListFilePathsInput = Parameters<typeof db.listFilePaths>[0];
 export type ListFilePathsOutput = ReturnType<typeof db.listFilePaths>;
 
-export type ListFilesWithBrokenVideoCodecInput = Parameters<
-  typeof db.listFilesWithBrokenVideoCodec
->[0];
-export type ListFilesWithBrokenVideoCodecOutput = ReturnType<
-  typeof db.listFilesWithBrokenVideoCodec
->;
-
 export type ListSortedFileIdsInput = Parameters<typeof db.listSortedFileIds>[0];
 export type ListSortedFileIdsOutput = ReturnType<typeof db.listSortedFileIds>;
+
+export type ListVideosWithMissingInfoInput = Parameters<typeof db.listVideosWithMissingInfo>[0];
+export type ListVideosWithMissingInfoOutput = ReturnType<typeof db.listVideosWithMissingInfo>;
 
 export type LoadFaceApiNetsInput = Parameters<typeof db.loadFaceApiNets>[0];
 export type LoadFaceApiNetsOutput = ReturnType<typeof db.loadFaceApiNets>;
@@ -201,6 +197,9 @@ export type RelinkFilesOutput = ReturnType<typeof db.relinkFiles>;
 
 export type RepairFilesWithBrokenExtInput = Parameters<typeof db.repairFilesWithBrokenExt>[0];
 export type RepairFilesWithBrokenExtOutput = ReturnType<typeof db.repairFilesWithBrokenExt>;
+
+export type RepairFilesWithMissingInfoInput = Parameters<typeof db.repairFilesWithMissingInfo>[0];
+export type RepairFilesWithMissingInfoOutput = ReturnType<typeof db.repairFilesWithMissingInfo>;
 
 export type SetFileFaceModelsInput = Parameters<typeof db.setFileFaceModels>[0];
 export type SetFileFaceModelsOutput = ReturnType<typeof db.setFileFaceModels>;

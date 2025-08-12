@@ -170,8 +170,10 @@ export type CreateFileFilterPipelineInput = {
   ids?: string[];
   isArchived?: boolean;
   isCorrupted?: boolean;
+  maxBitrate?: number;
   maxHeight?: number;
   maxWidth?: number;
+  minBitrate?: number;
   minHeight?: number;
   minWidth?: number;
   numOfTags?: { logOp: LogicalOp | ""; value: number };
@@ -207,8 +209,10 @@ export const createFileFilterPipeline = (args: CreateFileFilterPipelineInput) =>
     );
   if (!isDeepEqual(args.ids, [])) setObj($match, ["_id", "$in"], objectIds(args.ids));
   if (!isDeepEqual(args.isCorrupted, null)) setObj($match, ["isCorrupted"], args.isCorrupted);
+  if (!isDeepEqual(args.maxBitrate, null)) setObj($match, ["bitrate", "$lte"], args.maxBitrate);
   if (!isDeepEqual(args.maxHeight, null)) setObj($match, ["height", "$lte"], args.maxHeight);
   if (!isDeepEqual(args.maxWidth, null)) setObj($match, ["width", "$lte"], args.maxWidth);
+  if (!isDeepEqual(args.minBitrate, null)) setObj($match, ["bitrate", "$gte"], args.minBitrate);
   if (!isDeepEqual(args.minHeight, null)) setObj($match, ["height", "$gte"], args.minHeight);
   if (!isDeepEqual(args.minWidth, null)) setObj($match, ["width", "$gte"], args.minWidth);
   if (!isDeepEqual(args.numOfTags, { logOp: "", value: 0 }))

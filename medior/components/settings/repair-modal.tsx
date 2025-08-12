@@ -60,40 +60,37 @@ export const RepairModal = Comp(() => {
         );
 
         log("Checking files with incorrect video codecs...");
-        const codecsRes = await trpc.listFilesWithBrokenVideoCodec.mutate();
-        if (!codecsRes.success) throw new Error(codecsRes.error);
-        const codecFiles = codecsRes.data;
-        const validCodecFiles = codecFiles.filter((f) => !f.isCorrupted);
+        const res = await trpc.listVideosWithMissingInfo.mutate();
+        if (!res.success) throw new Error(res.error);
+        const validVideos = res.data.filter((f) => !f.isCorrupted);
         log(
-          `Found ${codecFiles.length} (${codecFiles.length - validCodecFiles.length} corrupted) files with incorrect video codecs.`,
+          `Found ${res.data.length} (${res.data.length - validVideos.length} corrupted) files with invalid video info.`,
           colors.custom.lightBlue,
         );
 
-        if (!validCodecFiles.length)
-          return log(
-            "No uncorrupted files with incorrect video codecs found.",
-            colors.custom.green,
-          );
+        if (!validVideos.length)
+          return log("No uncorrupted files with invalid video info.", colors.custom.green);
 
         await makeQueue({
           action: async (file) => {
-            let isCorrupted: boolean;
-            let videoCodec: string;
             try {
-              videoCodec = (await getVideoInfo(file.path)).videoCodec;
+              const info = await getVideoInfo(file.path);
+              const res = await trpc.updateFile.mutate({ ...info, id: file.id });
+              if (!res.success) throw new Error(res.error);
             } catch (err) {
-              isCorrupted = true;
+              const res = await trpc.updateFile.mutate({ id: file.id, isCorrupted: true });
+              if (!res.success) throw new Error(res.error);
             }
-
-            const res = await trpc.updateFile.mutate({ id: file.id, isCorrupted, videoCodec });
-            if (!res.success) throw new Error(res.error);
           },
-          items: validCodecFiles,
+          items: validVideos,
           logPrefix: "Updated",
           logSuffix: "files",
           queue: new PromiseQueue({ concurrency: 10 }),
         });
-        log(`Repaired ${validCodecFiles.length} incorrect video codecs.`, colors.custom.green);
+        log(`Repaired ${validVideos.length} files with invalid video info.`, colors.custom.green);
+
+        log("Checking and repairing files with missing info...");
+        await trpc.repairFilesWithMissingInfo.mutate();
       }
 
       log("Done.", colors.custom.green);

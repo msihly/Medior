@@ -43,6 +43,18 @@ export class ModelStore {
     });
   }
 
+  public addNumRangeProp(name: string) {
+    const capName = capitalize(name);
+    this.addProp(`max${capName}`, "number", "null", {
+      objPath: [name, "$lte"],
+      objValue: `args.max${capName}`,
+    });
+    this.addProp(`min${capName}`, "number", "null", {
+      objPath: [name, "$gte"],
+      objValue: `args.min${capName}`,
+    });
+  }
+
   public addLogOpProp(
     name: string,
     options: { objPath?: ModelSearchProp["objPath"]; objValue?: ModelSearchProp["objValue"] } = {},
@@ -380,6 +392,7 @@ const makeSchemaStoreMap = async (upperName: string) => {
 export const makeSortDef = (modelDef: ModelDef) => {
   return `"${modelDef.name}": [${modelDef.properties
     .filter((prop) => prop.sort)
+    .sort((a, b) => a.sort.label.localeCompare(b.sort.label))
     .map(
       (prop) =>
         `{ attribute: "${prop.name}",

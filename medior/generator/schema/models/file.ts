@@ -2,6 +2,9 @@ import { ModelDb } from "medior/generator/schema/generators";
 
 const model = new ModelDb("File", { withStore: true });
 
+model.addIndex({ bitrate: 1, _id: 1 });
+model.addProp("bitrate", "number", { sort: { icon: "DataThresholding", label: "Bitrate" } });
+
 model.addIndex({ dateModified: 1, _id: 1 });
 model.addProp("dateModified", "string", {
   required: true,
@@ -45,6 +48,8 @@ model.addProp("isArchived", "boolean");
 model.addIndex({ isCorrupted: 1, _id: 1 });
 model.addProp("isCorrupted", "boolean");
 
+model.addProp("originalBitrate", "number");
+
 model.addIndex({ originalHash: 1, _id: 1 });
 model.addProp("originalHash", "string");
 
@@ -52,6 +57,10 @@ model.addProp("originalName", "string");
 
 model.addIndex({ originalPath: 1, _id: 1 });
 model.addProp("originalPath", "string", { required: true });
+
+model.addProp("originalSize", "number", { required: true });
+
+model.addProp("originalVideoCodec", "string");
 
 model.addIndex({ path: 1, _id: 1 });
 model.addProp("path", "string", { required: true });
