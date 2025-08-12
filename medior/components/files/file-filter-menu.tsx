@@ -127,6 +127,12 @@ export const FileFilterMenu = Comp(({ color = colors.foreground, store }: FileFi
             endDate={store.dateModifiedEnd}
             setEndDate={store.setDateModifiedEnd}
           />
+
+          <Input
+            header="Original File Path"
+            value={store.originalPath}
+            setValue={store.setOriginalPath}
+          />
         </Card>
 
         <Card flex={1} width="12rem" spacing="0.5rem">
@@ -145,16 +151,45 @@ export const FileFilterMenu = Comp(({ color = colors.foreground, store }: FileFi
             setMin={store.setMinWidth}
             setMax={store.setMaxWidth}
           />
+
+          <NumRange
+            header="Size"
+            min={store.minSize}
+            max={store.maxSize}
+            setMin={store.setMinSize}
+            setMax={store.setMaxSize}
+          />
+        </Card>
+
+        <Card flex={1} width="12rem" spacing="0.5rem">
+          <LogOpsInput
+            header="Bitrate"
+            logOpValue={store.bitrate.logOp}
+            numValue={store.bitrate.value}
+            setLogOpValue={store.setRatingOp}
+            setNumValue={store.setRatingValue}
+            numInputProps={{ minValue: 0 }}
+          />
+
+          <LogOpsInput
+            header="Duration"
+            logOpValue={store.rating.logOp}
+            numValue={store.rating.value}
+            setLogOpValue={store.setRatingOp}
+            setNumValue={store.setRatingValue}
+            numInputProps={{ minValue: 0 }}
+          />
+
+          <LogOpsInput
+            header="FPS"
+            logOpValue={store.frameRate.logOp}
+            numValue={store.frameRate.value}
+            setLogOpValue={store.setFrameRateOp}
+            setNumValue={store.setFrameRateValue}
+            numInputProps={{ minValue: 0 }}
+          />
         </Card>
       </View>
-
-      <Card flex={1} spacing="0.5rem">
-        <Input
-          header="Original File Path"
-          value={store.originalPath}
-          setValue={store.setOriginalPath}
-        />
-      </Card>
     </FilterMenu>
   );
 });

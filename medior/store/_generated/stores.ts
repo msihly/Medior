@@ -260,12 +260,14 @@ export class _FileCollectionSearch extends Model({
 }
 @model("medior/_FileSearch")
 export class _FileSearch extends Model({
+  bitrate: prop<{ logOp: LogicalOp | ""; value: number }>(() => ({ logOp: "", value: 0 })),
   dateCreatedEnd: prop<string>("").withSetter(),
   dateCreatedStart: prop<string>("").withSetter(),
   dateModifiedEnd: prop<string>("").withSetter(),
   dateModifiedStart: prop<string>("").withSetter(),
   excludedFileIds: prop<string[]>(() => []).withSetter(),
   forcePages: prop<boolean>(false).withSetter(),
+  frameRate: prop<{ logOp: LogicalOp | ""; value: number }>(() => ({ logOp: "", value: 0 })),
   hasChanges: prop<boolean>(false).withSetter(),
   hasDiffParams: prop<boolean>(false).withSetter(),
   ids: prop<string[]>(() => []).withSetter(),
@@ -273,11 +275,11 @@ export class _FileSearch extends Model({
   isCorrupted: prop<boolean>(null).withSetter(),
   isLoading: prop<boolean>(false).withSetter(),
   isPageCountLoading: prop<boolean>(false).withSetter(),
-  maxBitrate: prop<number>(null).withSetter(),
   maxHeight: prop<number>(null).withSetter(),
+  maxSize: prop<number>(null).withSetter(),
   maxWidth: prop<number>(null).withSetter(),
-  minBitrate: prop<number>(null).withSetter(),
   minHeight: prop<number>(null).withSetter(),
+  minSize: prop<number>(null).withSetter(),
   minWidth: prop<number>(null).withSetter(),
   numOfTags: prop<{ logOp: LogicalOp | ""; value: number }>(() => ({ logOp: "", value: 0 })),
   originalPath: prop<string>(null).withSetter(),
@@ -325,12 +327,14 @@ export class _FileSearch extends Model({
 
   @modelAction
   reset() {
+    this.bitrate = { logOp: "", value: 0 };
     this.dateCreatedEnd = "";
     this.dateCreatedStart = "";
     this.dateModifiedEnd = "";
     this.dateModifiedStart = "";
     this.excludedFileIds = [];
     this.forcePages = false;
+    this.frameRate = { logOp: "", value: 0 };
     this.hasChanges = false;
     this.hasDiffParams = false;
     this.ids = [];
@@ -338,11 +342,11 @@ export class _FileSearch extends Model({
     this.isCorrupted = null;
     this.isLoading = false;
     this.isPageCountLoading = false;
-    this.maxBitrate = null;
     this.maxHeight = null;
+    this.maxSize = null;
     this.maxWidth = null;
-    this.minBitrate = null;
     this.minHeight = null;
+    this.minSize = null;
     this.minWidth = null;
     this.numOfTags = { logOp: "", value: 0 };
     this.originalPath = null;
@@ -387,6 +391,26 @@ export class _FileSearch extends Model({
       else if (addedCount) toast.success(`Selected ${addedCount} items`);
       else if (removedCount) toast.success(`Deselected ${removedCount} items`);
     }
+  }
+
+  @modelAction
+  setBitrateOp(val: LogicalOp | "") {
+    this.bitrate.logOp = val;
+  }
+
+  @modelAction
+  setBitrateValue(val: number) {
+    this.bitrate.value = val;
+  }
+
+  @modelAction
+  setFrameRateOp(val: LogicalOp | "") {
+    this.frameRate.logOp = val;
+  }
+
+  @modelAction
+  setFrameRateValue(val: number) {
+    this.frameRate.value = val;
   }
 
   @modelAction
@@ -513,20 +537,22 @@ export class _FileSearch extends Model({
   @computed
   get numOfFilters() {
     return (
+      (!isDeepEqual(this.bitrate, { logOp: "", value: 0 }) ? 1 : 0) +
       (!isDeepEqual(this.dateCreatedEnd, "") ? 1 : 0) +
       (!isDeepEqual(this.dateCreatedStart, "") ? 1 : 0) +
       (!isDeepEqual(this.dateModifiedEnd, "") ? 1 : 0) +
       (!isDeepEqual(this.dateModifiedStart, "") ? 1 : 0) +
       (!isDeepEqual(this.excludedFileIds, []) ? 1 : 0) +
+      (!isDeepEqual(this.frameRate, { logOp: "", value: 0 }) ? 1 : 0) +
       (!isDeepEqual(this.hasDiffParams, false) ? 1 : 0) +
       (!isDeepEqual(this.ids, []) ? 1 : 0) +
       (!isDeepEqual(this.isArchived, false) ? 1 : 0) +
       (!isDeepEqual(this.isCorrupted, null) ? 1 : 0) +
-      (!isDeepEqual(this.maxBitrate, null) ? 1 : 0) +
       (!isDeepEqual(this.maxHeight, null) ? 1 : 0) +
+      (!isDeepEqual(this.maxSize, null) ? 1 : 0) +
       (!isDeepEqual(this.maxWidth, null) ? 1 : 0) +
-      (!isDeepEqual(this.minBitrate, null) ? 1 : 0) +
       (!isDeepEqual(this.minHeight, null) ? 1 : 0) +
+      (!isDeepEqual(this.minSize, null) ? 1 : 0) +
       (!isDeepEqual(this.minWidth, null) ? 1 : 0) +
       (!isDeepEqual(this.numOfTags, { logOp: "", value: 0 }) ? 1 : 0) +
       (!isDeepEqual(this.originalPath, null) ? 1 : 0) +
@@ -563,20 +589,22 @@ export class _FileSearch extends Model({
   /* DYNAMIC GETTERS */
   getFilterProps() {
     return {
+      bitrate: this.bitrate,
       dateCreatedEnd: this.dateCreatedEnd,
       dateCreatedStart: this.dateCreatedStart,
       dateModifiedEnd: this.dateModifiedEnd,
       dateModifiedStart: this.dateModifiedStart,
       excludedFileIds: this.excludedFileIds,
+      frameRate: this.frameRate,
       hasDiffParams: this.hasDiffParams,
       ids: this.ids,
       isArchived: this.isArchived,
       isCorrupted: this.isCorrupted,
-      maxBitrate: this.maxBitrate,
       maxHeight: this.maxHeight,
+      maxSize: this.maxSize,
       maxWidth: this.maxWidth,
-      minBitrate: this.minBitrate,
       minHeight: this.minHeight,
+      minSize: this.minSize,
       minWidth: this.minWidth,
       numOfTags: this.numOfTags,
       originalPath: this.originalPath,

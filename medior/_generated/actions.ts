@@ -159,6 +159,7 @@ export const listFilteredFileCollection = makeAction(
 );
 
 export type CreateFileFilterPipelineInput = {
+  bitrate?: { logOp: LogicalOp | ""; value: number };
   dateCreatedEnd?: string;
   dateCreatedStart?: string;
   dateModifiedEnd?: string;
@@ -166,15 +167,16 @@ export type CreateFileFilterPipelineInput = {
   excludedDescTagIds?: string[];
   excludedFileIds?: string[];
   excludedTagIds?: string[];
+  frameRate?: { logOp: LogicalOp | ""; value: number };
   hasDiffParams?: boolean;
   ids?: string[];
   isArchived?: boolean;
   isCorrupted?: boolean;
-  maxBitrate?: number;
   maxHeight?: number;
+  maxSize?: number;
   maxWidth?: number;
-  minBitrate?: number;
   minHeight?: number;
+  minSize?: number;
   minWidth?: number;
   numOfTags?: { logOp: LogicalOp | ""; value: number };
   optionalTagIds?: string[];
@@ -191,6 +193,8 @@ export type CreateFileFilterPipelineInput = {
 export const createFileFilterPipeline = (args: CreateFileFilterPipelineInput) => {
   const $match: FilterQuery<models.FileSchema> = {};
 
+  if (!isDeepEqual(args.bitrate, { logOp: "", value: 0 }))
+    setObj($match, ["bitrate", logicOpsToMongo(args.bitrate.logOp)], args.bitrate.value);
   if (!isDeepEqual(args.dateCreatedEnd, ""))
     setObj($match, ["dateCreated", "$lte"], args.dateCreatedEnd);
   if (!isDeepEqual(args.dateCreatedStart, ""))
@@ -201,6 +205,8 @@ export const createFileFilterPipeline = (args: CreateFileFilterPipelineInput) =>
     setObj($match, ["dateModified", "$gte"], args.dateModifiedStart);
   if (!isDeepEqual(args.excludedFileIds, []))
     setObj($match, ["_id", "$nin"], objectIds(args.excludedFileIds));
+  if (!isDeepEqual(args.frameRate, { logOp: "", value: 0 }))
+    setObj($match, ["frameRate", logicOpsToMongo(args.frameRate.logOp)], args.frameRate.value);
   if (!isDeepEqual(args.hasDiffParams, false))
     setObj(
       $match,
@@ -209,11 +215,11 @@ export const createFileFilterPipeline = (args: CreateFileFilterPipelineInput) =>
     );
   if (!isDeepEqual(args.ids, [])) setObj($match, ["_id", "$in"], objectIds(args.ids));
   if (!isDeepEqual(args.isCorrupted, null)) setObj($match, ["isCorrupted"], args.isCorrupted);
-  if (!isDeepEqual(args.maxBitrate, null)) setObj($match, ["bitrate", "$lte"], args.maxBitrate);
   if (!isDeepEqual(args.maxHeight, null)) setObj($match, ["height", "$lte"], args.maxHeight);
+  if (!isDeepEqual(args.maxSize, null)) setObj($match, ["size", "$lte"], args.maxSize);
   if (!isDeepEqual(args.maxWidth, null)) setObj($match, ["width", "$lte"], args.maxWidth);
-  if (!isDeepEqual(args.minBitrate, null)) setObj($match, ["bitrate", "$gte"], args.minBitrate);
   if (!isDeepEqual(args.minHeight, null)) setObj($match, ["height", "$gte"], args.minHeight);
+  if (!isDeepEqual(args.minSize, null)) setObj($match, ["size", "$gte"], args.minSize);
   if (!isDeepEqual(args.minWidth, null)) setObj($match, ["width", "$gte"], args.minWidth);
   if (!isDeepEqual(args.numOfTags, { logOp: "", value: 0 }))
     setObj(

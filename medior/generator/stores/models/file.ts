@@ -9,9 +9,11 @@ const model = new ModelStore("File", {
 model.addDateRangeProp("dateCreated");
 model.addDateRangeProp("dateModified");
 
-model.addNumRangeProp("bitrate");
 model.addNumRangeProp("height");
+model.addNumRangeProp("size");
 model.addNumRangeProp("width");
+
+model.addLogOpProp("bitrate");
 
 model.addLogOpProp("numOfTags", {
   objPath: ["$expr", "~logicOpsToMongo(args.numOfTags.logOp)"],

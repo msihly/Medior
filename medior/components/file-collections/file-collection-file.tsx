@@ -1,6 +1,7 @@
 import { Comp, FileBase } from "medior/components";
+import { useFileDrag } from "medior/components/files/hooks";
 import { File, useStores } from "medior/store";
-import { colors, CSS, openCarouselWindow, toast, useFileDrag } from "medior/utils/client";
+import { colors, CSS, openCarouselWindow, toast } from "medior/utils/client";
 import { duration } from "medior/utils/common";
 
 export interface FileCollectionFileProps {
