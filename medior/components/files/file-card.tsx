@@ -1,9 +1,7 @@
-import { getCurrentWebContents } from "@electron/remote";
 import { Comp, Icon, Text, View } from "medior/components";
 import { File, useStores } from "medior/store";
-import { colors, CSS, openCarouselWindow, toast } from "medior/utils/client";
+import { colors, CSS, openCarouselWindow, toast, useFileDrag } from "medior/utils/client";
 import { duration } from "medior/utils/common";
-import { trpc } from "medior/utils/server";
 import { FileBase } from ".";
 
 interface FileCardProps {
@@ -18,7 +16,7 @@ export const FileCard = Comp(({ disabled, file, height, id, width }: FileCardPro
   const stores = useStores();
 
   if (!file) file = stores.file.getById(id);
-  // const collections = stores.collection.listByFileId(id);
+  const fileDragProps = useFileDrag(file, stores.file.search.selectedIds);
 
   const handleClick = async (event: React.MouseEvent) => {
     if (disabled) return;
@@ -38,32 +36,6 @@ export const FileCard = Comp(({ disabled, file, height, id, width }: FileCardPro
     }
   };
 
-  const handleDragEnd = () => stores.home.setIsDraggingOut(false);
-
-  const handleDragStart = async (event: React.DragEvent) => {
-    event.preventDefault();
-    stores.home.setIsDraggingOut(true);
-
-    const hasSelected = stores.file.search.selectedIds.includes(file.id);
-    const files = hasSelected ? await loadSelectedFiles() : null;
-    const filePaths = hasSelected ? files.map((file) => file.path) : [file.path];
-    const icon = hasSelected ? files[0].thumb.path : file.thumb.path;
-
-    try {
-      getCurrentWebContents().startDrag({ file: file.path, files: filePaths, icon });
-    } catch (error) {
-      console.error(error);
-    }
-  };
-
-  const loadSelectedFiles = async () => {
-    const res = await trpc.listFile.mutate({
-      args: { filter: { id: stores.file.search.selectedIds } },
-    });
-    if (!res?.success) throw new Error(res.error);
-    return res.data.items;
-  };
-
   return (
     <FileBase.ContextMenu key="context-menu" {...{ disabled, file }}>
       <FileBase.Tooltip {...{ file }}>
@@ -74,13 +46,11 @@ export const FileCard = Comp(({ disabled, file, height, id, width }: FileCardPro
           selected={stores.file.search.getIsSelected(file.id)}
         >
           <FileBase.Image
+            {...fileDragProps}
             thumb={file.thumb}
             title={file.originalName}
-            height={height}
-            onDragStart={handleDragStart}
-            onDragEnd={handleDragEnd}
             fit={stores.home.fileCardFit}
-            rounded="all"
+            height={height}
             draggable
           >
             <FileBase.RatingChip position="top-left" rating={file.rating} />
@@ -109,10 +79,6 @@ export const FileCard = Comp(({ disabled, file, height, id, width }: FileCardPro
                 </View>
               }
             />
-
-            {/* {collections.length > 0 && (
-              <FileBase.Chip position="bottom-left" icon="Collections" label={collections.length} />
-            )} */}
 
             {file.duration && (
               <FileBase.Chip label={duration(file.duration)} position="bottom-right" hasFooter />

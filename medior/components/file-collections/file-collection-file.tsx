@@ -1,6 +1,6 @@
 import { Comp, FileBase } from "medior/components";
 import { File, useStores } from "medior/store";
-import { colors, CSS, openCarouselWindow, toast } from "medior/utils/client";
+import { colors, CSS, openCarouselWindow, toast, useFileDrag } from "medior/utils/client";
 import { duration } from "medior/utils/common";
 
 export interface FileCollectionFileProps {
@@ -13,6 +13,8 @@ export interface FileCollectionFileProps {
 export const FileCollectionFile = Comp(
   ({ disabled, file, height, width }: FileCollectionFileProps) => {
     const stores = useStores();
+
+    const fileDragProps = useFileDrag(file, stores.collection.editor.search.selectedIds);
 
     const fileIndex = stores.collection.editor.getIndexById(file.id);
     const hasChangedIndex = fileIndex !== stores.collection.editor.getOriginalIndex(file.id);
@@ -32,7 +34,7 @@ export const FileCollectionFile = Comp(
 
     return (
       <FileBase.ContextMenu {...{ disabled, file }}>
-        <FileBase.Tooltip {...{ disabled, file }}>
+        <FileBase.Tooltip {...{ file }}>
           <FileBase.Container
             {...{ disabled, height, width }}
             onClick={handleClick}
@@ -41,10 +43,11 @@ export const FileCollectionFile = Comp(
             opacity={file.isArchived ? 0.5 : 1}
           >
             <FileBase.Image
+              {...fileDragProps}
               {...{ disabled, height }}
               thumb={file.thumb}
               title={file.originalName}
-              fit="contain"
+              draggable
             >
               <FileBase.Chip
                 position="top-left"

@@ -47,7 +47,7 @@ export const Image = ({
   children,
   className,
   draggable,
-  fit = "cover",
+  fit = "contain",
   height,
   loading = "lazy",
   onDragEnd,
