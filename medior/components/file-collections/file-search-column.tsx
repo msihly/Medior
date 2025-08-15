@@ -2,7 +2,7 @@ import {
   Card,
   CardGrid,
   Comp,
-  FileFilterMenu,
+  FileFilter,
   FileSearchFile,
   Pagination,
   View,
@@ -19,7 +19,7 @@ export const FileSearchColumn = Comp(() => {
   return (
     <Card column flex="none" height="100%" width="16rem" spacing="0.5rem" padding={{ all: 0 }}>
       <View column spacing="0.5rem" padding={{ all: "0.5rem" }}>
-        <FileFilterMenu store={stores.collection.editor.fileSearch} color={colors.custom.black} />
+        <FileFilter.Menu store={stores.collection.editor.fileSearch} color={colors.custom.black} />
       </View>
 
       <CardGrid

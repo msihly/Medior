@@ -1,5 +1,5 @@
 import { AppBar } from "@mui/material";
-import { Chip, Comp, FileFilterMenu, View } from "medior/components";
+import { Chip, Comp, FileFilter, View } from "medior/components";
 import { useStores } from "medior/store";
 import { colors, makeClasses, toast } from "medior/utils/client";
 import { CONSTANTS } from "medior/utils/common";
@@ -58,7 +58,7 @@ export const HomeMultiActionBar = Comp(() => {
       <View className={css.container}>
         <View row align="center" spacing="0.5rem">
           <View row width="10rem">
-            <FileFilterMenu store={stores.file.search} />
+            <FileFilter.Menu store={stores.file.search} />
           </View>
 
           {stores.file.search.isArchiveOpen && (

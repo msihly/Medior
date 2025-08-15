@@ -164,6 +164,7 @@ export type CreateFileFilterPipelineInput = {
   dateCreatedStart?: string;
   dateModifiedEnd?: string;
   dateModifiedStart?: string;
+  duration?: { logOp: LogicalOp | ""; value: number };
   excludedDescTagIds?: string[];
   excludedFileIds?: string[];
   excludedTagIds?: string[];
@@ -203,6 +204,8 @@ export const createFileFilterPipeline = (args: CreateFileFilterPipelineInput) =>
     setObj($match, ["dateModified", "$lte"], args.dateModifiedEnd);
   if (!isDeepEqual(args.dateModifiedStart, ""))
     setObj($match, ["dateModified", "$gte"], args.dateModifiedStart);
+  if (!isDeepEqual(args.duration, { logOp: "", value: 0 }))
+    setObj($match, ["duration", logicOpsToMongo(args.duration.logOp)], args.duration.value);
   if (!isDeepEqual(args.excludedFileIds, []))
     setObj($match, ["_id", "$nin"], objectIds(args.excludedFileIds));
   if (!isDeepEqual(args.frameRate, { logOp: "", value: 0 }))

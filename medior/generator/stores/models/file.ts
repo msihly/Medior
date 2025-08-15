@@ -14,6 +14,8 @@ model.addNumRangeProp("size");
 model.addNumRangeProp("width");
 
 model.addLogOpProp("bitrate");
+model.addLogOpProp("duration");
+model.addLogOpProp("frameRate");
 
 model.addLogOpProp("numOfTags", {
   objPath: ["$expr", "~logicOpsToMongo(args.numOfTags.logOp)"],

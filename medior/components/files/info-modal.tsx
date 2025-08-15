@@ -89,7 +89,10 @@ export const InfoModal = Comp(() => {
           </View>
 
           <View column>
-            <Detail label="Bitrate" value={file?.bitrate ? `${formatBytes(file.bitrate)}/s` : null} />
+            <Detail
+              label="Bitrate"
+              value={file?.bitrate ? `${formatBytes(file.bitrate)}/s` : null}
+            />
           </View>
         </UniformList>
 

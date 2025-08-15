@@ -265,6 +265,7 @@ export class _FileSearch extends Model({
   dateCreatedStart: prop<string>("").withSetter(),
   dateModifiedEnd: prop<string>("").withSetter(),
   dateModifiedStart: prop<string>("").withSetter(),
+  duration: prop<{ logOp: LogicalOp | ""; value: number }>(() => ({ logOp: "", value: 0 })),
   excludedFileIds: prop<string[]>(() => []).withSetter(),
   forcePages: prop<boolean>(false).withSetter(),
   frameRate: prop<{ logOp: LogicalOp | ""; value: number }>(() => ({ logOp: "", value: 0 })),
@@ -332,6 +333,7 @@ export class _FileSearch extends Model({
     this.dateCreatedStart = "";
     this.dateModifiedEnd = "";
     this.dateModifiedStart = "";
+    this.duration = { logOp: "", value: 0 };
     this.excludedFileIds = [];
     this.forcePages = false;
     this.frameRate = { logOp: "", value: 0 };
@@ -401,6 +403,16 @@ export class _FileSearch extends Model({
   @modelAction
   setBitrateValue(val: number) {
     this.bitrate.value = val;
+  }
+
+  @modelAction
+  setDurationOp(val: LogicalOp | "") {
+    this.duration.logOp = val;
+  }
+
+  @modelAction
+  setDurationValue(val: number) {
+    this.duration.value = val;
   }
 
   @modelAction
@@ -542,6 +554,7 @@ export class _FileSearch extends Model({
       (!isDeepEqual(this.dateCreatedStart, "") ? 1 : 0) +
       (!isDeepEqual(this.dateModifiedEnd, "") ? 1 : 0) +
       (!isDeepEqual(this.dateModifiedStart, "") ? 1 : 0) +
+      (!isDeepEqual(this.duration, { logOp: "", value: 0 }) ? 1 : 0) +
       (!isDeepEqual(this.excludedFileIds, []) ? 1 : 0) +
       (!isDeepEqual(this.frameRate, { logOp: "", value: 0 }) ? 1 : 0) +
       (!isDeepEqual(this.hasDiffParams, false) ? 1 : 0) +
@@ -594,6 +607,7 @@ export class _FileSearch extends Model({
       dateCreatedStart: this.dateCreatedStart,
       dateModifiedEnd: this.dateModifiedEnd,
       dateModifiedStart: this.dateModifiedStart,
+      duration: this.duration,
       excludedFileIds: this.excludedFileIds,
       frameRate: this.frameRate,
       hasDiffParams: this.hasDiffParams,
