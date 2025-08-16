@@ -11,6 +11,8 @@ import {
   Autocomplete,
   AutocompleteChangeReason,
   AutocompleteRenderInputParams,
+  CircularProgress,
+  InputAdornment,
 } from "@mui/material";
 import {
   Button,
@@ -23,20 +25,13 @@ import {
   TagList,
   View,
 } from "medior/components";
-import { TagOption, useStores } from "medior/store";
-import {
-  colors,
-  CSS,
-  makeClasses,
-  makeMargins,
-  Margins,
-  toast,
-  useDeepMemo,
-} from "medior/utils/client";
+import { TagOption, tagToOption, useStores } from "medior/store";
+import { colors, CSS, makeClasses, makeMargins, Margins, toast } from "medior/utils/client";
+import { trpc } from "medior/utils/server";
 
 export type TagInputProps = Omit<
   ComponentProps<typeof Autocomplete>,
-  "fullWidth" | "label" | "renderInput" | "onChange" | "onSelect" | "options"
+  "defaultValue" | "fullWidth" | "label" | "renderInput" | "onChange" | "onSelect" | "options"
 > & {
   autoFocus?: boolean;
   center?: boolean;
@@ -49,13 +44,13 @@ export type TagInputProps = Omit<
   hasSearchMenu?: boolean;
   header?: HeaderWrapperProps["header"];
   headerProps?: HeaderWrapperProps["headerProps"];
+  includedIds?: string[];
   inputProps?: InputProps;
   margins?: Margins;
   maxTags?: number;
-  onTagClick?: (tagOpt: TagOption) => void;
-  options?: TagOption[];
   onChange?: (val: TagOption[]) => void;
   onSelect?: (val: TagOption) => void;
+  onTagClick?: (tagOpt: TagOption) => void;
   single?: boolean;
   value: TagOption[];
   width?: CSS["width"];
@@ -78,13 +73,13 @@ export const TagInput = Comp(
         hasSearchMenu,
         header,
         headerProps = {},
+        includedIds = [],
         inputProps,
         margins,
         maxTags,
         onChange,
         onSelect,
         onTagClick,
-        options,
         single,
         value = [],
         width,
@@ -99,36 +94,20 @@ export const TagInput = Comp(
       disabled = disabled || isMaxTags;
 
       const [inputValue, setInputValue] = useState((inputProps?.value ?? "") as string);
+      const [isLoading, setIsLoading] = useState(false);
       const [isOpen, setIsOpen] = useState(false);
-
-      const opts = useDeepMemo(options ?? [...stores.tag.tagOptions]);
+      const [options, setOptions] = useState<TagOption[]>([]);
 
       useEffect(() => {
         setInputValue(inputProps?.value as string);
       }, [inputProps?.value]);
 
-      const filterOptions = (options: TagOption[], { inputValue }: { inputValue: string }) => {
-        const searchTerms = inputValue.trim().toLowerCase().split(" ");
-        const filtered = options
-          .filter(
-            (o) =>
-              o.label?.length > 0 &&
-              excludedIds.every((id) => id !== o.id) &&
-              [o.label.toLowerCase(), ...(o.aliases?.map((a) => a.toLowerCase()) ?? [])].some(
-                (label) => searchTerms.every((t) => label.includes(t)),
-              ),
-          )
-          .slice(0, 100);
-
-        return hasCreate &&
-          inputValue.length > 0 &&
-          !filtered.find((o) => o.label.toLowerCase() === inputValue.toLowerCase())
-          ? [...filtered, { id: "optionsEndNode", count: 0 }]
-          : filtered;
-      };
-
-      const getOptionLabel = (option: TagOption) =>
-        option?.label ?? stores.tag.getById(option.id)?.label ?? "";
+      const filterOptions = (val: unknown[]) => val;
+      const getOptionLabel = (option: TagOption) => option.label;
+      const handleClose = () => setIsOpen(false);
+      const handleOpen = () => !disabled && !!inputValue && setIsOpen(true);
+      const isOptionEqualToValue = (option: TagOption, val: TagOption) => option.id === val.id;
+      const renderTags = () => null;
 
       const handleChange = (_, val: TagOption[], reason?: AutocompleteChangeReason) => {
         if (disabled) return;
@@ -138,8 +117,6 @@ export const TagInput = Comp(
         }
         onChange?.(val);
       };
-
-      const handleClose = () => setIsOpen(false);
 
       const handleCreateTag = async () => {
         const res = await stores.tag.createTag({ label: inputValue });
@@ -153,13 +130,9 @@ export const TagInput = Comp(
         if (disabled) return;
         setInputValue(val);
         inputProps?.setValue?.(val);
-        if (val.length === 0) setIsOpen(false);
-        else if (!isOpen) setIsOpen(true);
+        if (val.length > 0 && !isOpen) setIsOpen(true);
+        searchTags(val);
       };
-
-      const handleOpen = () => !disabled && !!inputValue && setIsOpen(true);
-
-      const isOptionEqualToValue = (option: TagOption, val: TagOption) => option.id === val.id;
 
       const renderInput = (params: AutocompleteRenderInputParams) => (
         <Input
@@ -172,6 +145,14 @@ export const TagInput = Comp(
           disabled={disabled}
           borderRadiuses={!single && hasList ? { bottom: 0 } : undefined}
           className={cx(css.input, className)}
+          InputProps={{
+            ...params.InputProps,
+            endAdornment: (
+              <InputAdornment position="end">
+                {isLoading ? <CircularProgress color="inherit" size={20} /> : null}
+              </InputAdornment>
+            ),
+          }}
         />
       );
 
@@ -211,7 +192,32 @@ export const TagInput = Comp(
         );
       };
 
-      const renderTags = () => null;
+      const searchTags = async (val: string) => {
+        if (val.length === 0) {
+          setOptions([]);
+          handleClose();
+          return;
+        }
+
+        try {
+          setIsLoading(true);
+
+          const searchStr = val.toLowerCase();
+          const res = await trpc.searchTags.mutate({ excludedIds, includedIds, searchStr });
+          if (!res.success) throw new Error(res.error);
+          const opts = res.data.map(tagToOption);
+
+          if (hasCreate && val.length > 0 && !opts.find((o) => o.label.toLowerCase() === searchStr))
+            opts.push({ id: "optionsEndNode", count: 0, label: "" });
+
+          setOptions(opts);
+          handleOpen();
+        } catch (err) {
+          console.error(err), toast.error(err.message);
+        } finally {
+          setIsLoading(false);
+        }
+      };
 
       return (
         <View column height="100%" className={css.root}>
@@ -220,10 +226,13 @@ export const TagInput = Comp(
           ) : (
             <>
               <Autocomplete
+                {...props}
                 {...{
+                  disabled,
                   filterOptions,
                   getOptionLabel,
                   isOptionEqualToValue,
+                  options,
                   renderInput,
                   renderOption,
                   renderTags,
@@ -231,17 +240,14 @@ export const TagInput = Comp(
                 }}
                 clearOnBlur={false}
                 disableClearable
-                disabled={disabled}
                 forcePopupIcon={false}
-                multiple
                 ListboxProps={{ className: css.listbox }}
+                multiple
                 onChange={handleChange}
                 onClose={handleClose}
                 onOpen={handleOpen}
                 open={isOpen}
-                options={opts}
                 size="small"
-                {...props}
               />
 
               {!single && hasList && renderList()}

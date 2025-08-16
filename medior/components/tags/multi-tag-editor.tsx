@@ -6,8 +6,6 @@ import { colors, toast } from "medior/utils/client";
 export const MultiTagEditor = Comp(() => {
   const stores = useStores();
 
-  const tagOpts = stores.tag.tagOptions;
-
   const [childTagsToAdd, setChildTagsToAdd] = useState<TagOption[]>([]);
   const [childTagsToRemove, setChildTagsToRemove] = useState<TagOption[]>([]);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
@@ -69,7 +67,6 @@ export const MultiTagEditor = Comp(() => {
           header="Parent Tags to Add"
           value={parentTagsToAdd}
           onChange={setParentTagsToAdd}
-          options={tagOpts}
           hasCreate
           hasDelete
         />
@@ -78,7 +75,6 @@ export const MultiTagEditor = Comp(() => {
           header="Parent Tags to Remove"
           value={parentTagsToRemove}
           onChange={setParentTagsToRemove}
-          options={tagOpts}
           hasDelete
         />
 
@@ -86,7 +82,6 @@ export const MultiTagEditor = Comp(() => {
           header="Child Tags to Add"
           value={childTagsToAdd}
           onChange={setChildTagsToAdd}
-          options={tagOpts}
           hasCreate
           hasDelete
         />
@@ -95,7 +90,6 @@ export const MultiTagEditor = Comp(() => {
           header="Child Tags to Remove"
           value={childTagsToRemove}
           onChange={setChildTagsToRemove}
-          options={tagOpts}
           hasDelete
         />
 

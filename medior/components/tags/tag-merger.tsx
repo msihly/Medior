@@ -16,7 +16,7 @@ import {
   View,
 } from "medior/components";
 import { TagOption, useStores } from "medior/store";
-import { colors, makeClasses, toast, useDeepEffect, useDeepMemo } from "medior/utils/client";
+import { colors, makeClasses, toast, useDeepEffect } from "medior/utils/client";
 
 export const TagMerger = Comp(() => {
   const { css } = useClasses(null);
@@ -38,7 +38,6 @@ export const TagMerger = Comp(() => {
   const hasSelectedTag = selectedTagValue.length > 0;
   const disabled = isSaving || !hasSelectedTag;
   const baseTag = stores.tag.subEditor.isOpen ? stores.tag.subEditor.tag : stores.tag.editor.tag;
-  const tagOptions = useDeepMemo(stores.tag.tagOptions);
 
   useDeepEffect(() => {
     if (!selectedTagValue.length) {
@@ -154,7 +153,6 @@ export const TagMerger = Comp(() => {
             <View column flex={1}>
               <TagInput
                 header="Tag to Merge"
-                options={tagOptions}
                 excludedIds={[stores.tag.merger.tagId]}
                 value={selectedTagValue}
                 onChange={setSelectedTagValue}
@@ -184,7 +182,6 @@ export const TagMerger = Comp(() => {
 
             <TagInputs.Relations
               header="Parent Tags"
-              options={tagOptions}
               excludedIds={[stores.tag.merger.tagId, ...childTags.map((t) => t.id)]}
               value={parentTags}
               setValue={setParentTags}
@@ -194,7 +191,6 @@ export const TagMerger = Comp(() => {
 
             <TagInputs.Relations
               header="Child Tags"
-              options={tagOptions}
               excludedIds={[stores.tag.merger.tagId, ...parentTags.map((t) => t.id)]}
               value={childTags}
               setValue={setChildTags}

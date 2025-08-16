@@ -96,6 +96,7 @@ export const serverRouter = trpc.router({
   repairFilesWithMissingInfo: serverEndpoint(db.repairFilesWithMissingInfo),
   repairTags: serverEndpoint(db.repairTags),
   repairThumbs: serverEndpoint(db.repairThumbs),
+  searchTags: serverEndpoint(db.searchTags),
   setFileFaceModels: serverEndpoint(db.setFileFaceModels),
   setFileIsArchived: serverEndpoint(db.setFileIsArchived),
   setFileRating: serverEndpoint(db.setFileRating),

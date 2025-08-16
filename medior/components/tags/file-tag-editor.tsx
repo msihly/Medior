@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Button,
   Comp,
@@ -11,8 +11,8 @@ import {
   UniformList,
   View,
 } from "medior/components";
-import { TagOption, tagToOption, useStores } from "medior/store";
-import { colors, toast, useDeepEffect } from "medior/utils/client";
+import { TagOption, useStores } from "medior/store";
+import { colors, toast } from "medior/utils/client";
 import { trpc } from "medior/utils/server";
 
 interface FileTagEditorProps {
@@ -24,26 +24,22 @@ export const FileTagEditor = Comp(({ batchId, fileIds }: FileTagEditorProps) => 
   const stores = useStores();
 
   const [addedTags, setAddedTags] = useState<TagOption[]>([]);
-  const [currentTagOptions, setCurrentTagOptions] = useState<TagOption[]>([]);
+  const [currentTags, setCurrentTags] = useState<TagOption[]>([]);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [isConfirmDiscardOpen, setIsConfirmDiscardOpen] = useState(false);
   const [removedTags, setRemovedTags] = useState<TagOption[]>([]);
 
-  useDeepEffect(() => {
-    const loadCurrentTags = async () => {
-      const res = await trpc.listFile.mutate({ args: { filter: { id: fileIds } } });
-      if (!res?.success) throw new Error(res.error);
+  useEffect(() => {
+    (async () => {
+      const fileRes = await trpc.listFile.mutate({ args: { filter: { id: fileIds } } });
+      if (!fileRes?.success) throw new Error(fileRes.error);
+      const tagIds = [...new Set(fileRes.data.items.flatMap((f) => f.tagIds))];
 
-      const tagIds = [...new Set(res.data.items.flatMap((f) => f.tagIds))];
-      setCurrentTagOptions(stores.tag.listByIds(tagIds).map((t) => tagToOption(t)));
-    };
-
-    loadCurrentTags();
-
-    return () => {
-      setCurrentTagOptions([]);
-    };
-  }, [fileIds, stores.tag.tags]);
+      const tagRes = await trpc.listTag.mutate({ args: { filter: { id: tagIds } } });
+      if (!tagRes?.success) throw new Error(tagRes.error);
+      setCurrentTags(tagRes.data.items);
+    })();
+  }, []);
 
   const handleAdd = (tag: TagOption) => {
     setAddedTags((prev) => (prev.find((t) => t.id === tag.id) ? prev : prev.concat(tag)));
@@ -123,7 +119,7 @@ export const FileTagEditor = Comp(({ batchId, fileIds }: FileTagEditorProps) => 
 
           <HeaderWrapper header="Current Tags" height="100%">
             <TagList
-              search={{ onChange: null, value: currentTagOptions }}
+              search={{ onChange: null, value: currentTags }}
               hasDelete={false}
               hasEditor
               hasInput
@@ -155,7 +151,7 @@ export const FileTagEditor = Comp(({ batchId, fileIds }: FileTagEditorProps) => 
             header="Tags to Remove"
             value={removedTags}
             onChange={handleTagRemoved}
-            options={currentTagOptions}
+            includedIds={currentTags.map((t) => t.id)}
             hasDelete
             hasEditor
           />

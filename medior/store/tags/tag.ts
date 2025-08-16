@@ -15,7 +15,6 @@ export type SearchTagType = "exclude" | "excludeDesc" | "includeAnd" | "includeD
 export type TagOption = {
   aliases?: string[];
   count: number;
-  distance?: number;
   id: string;
   label: string;
   searchType?: SearchTagType;

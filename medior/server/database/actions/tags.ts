@@ -823,6 +823,49 @@ export const mergeTags = makeAction(
   },
 );
 
+export const searchTags = makeAction(
+  async ({
+    excludedIds = [],
+    includedIds = [],
+    searchStr,
+  }: {
+    excludedIds: string[];
+    includedIds: string[];
+    searchStr: string;
+  }) => {
+    const searchTerms = searchStr.trim().toLowerCase().split(" ");
+
+    const tags = (
+      await models.TagModel.find({
+        label: { $exists: true, $ne: "" },
+        ...(excludedIds.length || includedIds.length
+          ? {
+              _id: {
+                ...(excludedIds.length ? { $nin: excludedIds } : {}),
+                ...(includedIds.length ? { $in: includedIds } : {}),
+              },
+            }
+          : {}),
+        ...(searchTerms.length
+          ? {
+              $and: searchTerms.map((term) => ({
+                $or: [
+                  { label: { $regex: term, $options: "i" } },
+                  { aliases: { $elemMatch: { $regex: term, $options: "i" } } },
+                ],
+              })),
+            }
+          : {}),
+      })
+        .lean()
+        .sort({ count: "desc" })
+        .limit(30)
+    ).map((t) => leanModelToJson<models.TagSchema>(t));
+
+    return tags;
+  },
+);
+
 export const recalculateTagCounts = makeAction(
   async ({ tagIds, withSub = true }: { tagIds: string[]; withSub?: boolean }) => {
     const updatedTags: { tagId: string; updates: Partial<models.TagSchema> }[] = [];

@@ -255,6 +255,9 @@ export type ListByLabelsOutput = ReturnType<typeof db.listByLabels>;
 export type MergeTagsInput = Parameters<typeof db.mergeTags>[0];
 export type MergeTagsOutput = ReturnType<typeof db.mergeTags>;
 
+export type SearchTagsInput = Parameters<typeof db.searchTags>[0];
+export type SearchTagsOutput = ReturnType<typeof db.searchTags>;
+
 export type RecalculateTagCountsInput = Parameters<typeof db.recalculateTagCounts>[0];
 export type RecalculateTagCountsOutput = ReturnType<typeof db.recalculateTagCounts>;
 

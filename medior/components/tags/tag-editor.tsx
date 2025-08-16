@@ -162,7 +162,6 @@ export const TagEditor = Comp(({ isSubEditor = false }: TagEditorProps) => {
 
           <TagInputs.Relations
             header="Parent Tags"
-            options={stores.tag.tagOptions}
             excludedIds={[store.tag?.id, ...store.childTags.map((t) => t.id)]}
             value={store.parentTags}
             setValue={store.setParentTags}
@@ -174,7 +173,6 @@ export const TagEditor = Comp(({ isSubEditor = false }: TagEditorProps) => {
 
           <TagInputs.Relations
             header="Child Tags"
-            options={stores.tag.tagOptions}
             excludedIds={[store.tag?.id, ...store.parentTags.map((t) => t.id)]}
             value={store.childTags}
             setValue={store.setChildTags}

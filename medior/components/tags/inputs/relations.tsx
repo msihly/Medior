@@ -12,7 +12,6 @@ export const Relations = Comp(
     ancestryTagIds,
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     ancestryType,
-    options,
     setValue,
     value,
     ...tagInputProps
@@ -20,7 +19,7 @@ export const Relations = Comp(
     // TOOD: Show ancestry / descendants below input with a toggle button in header
     return (
       <TagInput
-        {...{ options, value }}
+        {...{ value }}
         onChange={setValue}
         hasCreate
         hasDelete
