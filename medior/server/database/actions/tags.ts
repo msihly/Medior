@@ -858,7 +858,7 @@ export const searchTags = makeAction(
           : {}),
       })
         .lean()
-        .sort({ count: "desc" })
+        .sort({ lastSearchedAt: "desc", count: "desc" })
         .limit(30)
     ).map((t) => leanModelToJson<models.TagSchema>(t));
 

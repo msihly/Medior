@@ -249,6 +249,7 @@ export interface TagSchema {
   dateModified: string;
   descendantIds: string[];
   label: string;
+  lastSearchedAt?: string;
   parentIds: string[];
   regEx?: string;
   thumb: { frameHeight?: number; frameWidth?: number; path: string };
@@ -264,6 +265,7 @@ const TagSchema = new Schema<TagSchema>({
   dateModified: String,
   descendantIds: [{ type: Schema.Types.ObjectId, ref: "Tag" }],
   label: String,
+  lastSearchedAt: String,
   parentIds: [{ type: Schema.Types.ObjectId, ref: "Tag" }],
   regEx: String,
   thumb: { frameHeight: Number, frameWidth: Number, path: String },

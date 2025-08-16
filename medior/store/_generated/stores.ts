@@ -1123,6 +1123,7 @@ export class _Tag extends Model({
   dateModified: prop<string>(),
   descendantIds: prop<string[]>(() => []),
   label: prop<string>(),
+  lastSearchedAt: prop<string>(null),
   parentIds: prop<string[]>(() => []),
   regEx: prop<string>(null),
   thumb: prop<{ frameHeight?: number; frameWidth?: number; path: string }>(null),

@@ -20,6 +20,8 @@ model.addProp("descendantIds", "Tag.id[]", { defaultValue: "[]", required: true 
 model.addIndex({ label: 1 });
 model.addProp("label", "string", { required: true, sort: { icon: "Label", label: "Label" } });
 
+model.addProp("lastSearchedAt", "string");
+
 model.addProp("parentIds", "Tag.id[]", { defaultValue: "[]", required: true });
 
 model.addProp("regEx", "string");

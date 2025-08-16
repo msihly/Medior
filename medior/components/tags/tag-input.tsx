@@ -27,6 +27,7 @@ import {
 } from "medior/components";
 import { TagOption, tagToOption, useStores } from "medior/store";
 import { colors, CSS, makeClasses, makeMargins, Margins, toast } from "medior/utils/client";
+import { bisectArrayChanges, dayjs } from "medior/utils/common";
 import { trpc } from "medior/utils/server";
 
 export type TagInputProps = Omit<
@@ -114,6 +115,11 @@ export const TagInput = Comp(
         if (reason === "selectOption") {
           if (val.some((t) => t.id === "optionsEndNode")) return handleCreateTag();
           setInputValue("");
+          const { added } = bisectArrayChanges(value, val);
+          if (added?.length)
+            trpc.updateTag.mutate({
+              args: { id: added[0].id, updates: { lastSearchedAt: dayjs().toISOString() } },
+            });
         }
         onChange?.(val);
       };
