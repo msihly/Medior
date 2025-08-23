@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { TagSchema } from "medior/_generated";
 import { ModelCreationData } from "mobx-keystone";
 import {
   Button,
@@ -11,8 +12,9 @@ import {
   Text,
   View,
 } from "medior/components";
-import { FaceModel, useStores } from "medior/store";
+import { FaceModel, tagToOption, useStores } from "medior/store";
 import { colors, makeClasses, toast, useElementResize } from "medior/utils/client";
+import { trpc } from "medior/utils/server";
 import { FaceBox } from ".";
 
 type FaceModelWithImage = { dataUrl: string; faceModel: FaceModel };
@@ -80,14 +82,18 @@ export const FaceRecognitionModal = Comp(() => {
     });
   };
 
-  const fileToDetectedFaces = (fileFaceModels: ModelCreationData<FaceModel>[]) => {
+  const fileToDetectedFaces = async (fileFaceModels: ModelCreationData<FaceModel>[]) => {
     try {
+      const tagIds = fileFaceModels.map((t) => t.tagId);
+      const tags = (await trpc.listTag.mutate({ args: { filter: { id: tagIds } } })).data.items;
+      const tagMap = new Map<string, TagSchema>(tags.map((t) => [t.id, t]));
+
       const faceModels = fileFaceModels.map((face) => ({
         box: { ...face.box },
         descriptors: face.descriptors,
         fileId: face.fileId,
         tagId: face.tagId,
-        selectedTag: stores.tag.getById(face.tagId)?.tagOption,
+        selectedTag: tagToOption(tagMap.get(face.tagId)),
       }));
 
       return faceModels.map((face) => new FaceModel(face));
@@ -108,6 +114,11 @@ export const FaceRecognitionModal = Comp(() => {
       stores.faceRecog.setIsDetecting(true);
 
       const res = await stores.faceRecog.findMatches(file.path);
+
+      const tagIds = res.data.map((f) => f.tagId);
+      const tags = (await trpc.listTag.mutate({ args: { filter: { id: tagIds } } })).data.items;
+      const tagMap = new Map<string, TagSchema>(tags.map((t) => [t.id, t]));
+
       const detectedFaces = res.data.map(
         // @ts-expect-error
         ({ detection: { _box: box }, descriptor, tagId }) =>
@@ -115,7 +126,7 @@ export const FaceRecognitionModal = Comp(() => {
             box: { height: box._height, width: box._width, x: box._x, y: box._y },
             descriptors: JSON.stringify([descriptor]),
             fileId: file.id,
-            selectedTag: tagId ? stores.tag.getById(tagId)?.tagOption : null,
+            selectedTag: tagMap.has(tagId) ? tagToOption(tagMap.get(tagId)) : null,
           }),
       );
 
@@ -144,7 +155,7 @@ export const FaceRecognitionModal = Comp(() => {
         withOverwrite: false,
       });
       if (!res.success) throw new Error(res.error);
-      stores.faceRecog.setDetectedFaces(fileToDetectedFaces(res.data));
+      stores.faceRecog.setDetectedFaces(await fileToDetectedFaces(res.data));
     } catch (err) {
       console.error(err);
       toast.error("Failed to load file's face models");

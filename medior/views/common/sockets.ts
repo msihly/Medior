@@ -110,8 +110,7 @@ export const useSockets = ({ view }: UseSocketsProps) => {
         stores.tag.manager.search.loadFiltered();
     });
 
-    makeSocket("onTagsUpdated", ({ tags, withFileReload }) => {
-      tags.forEach((t) => stores.tag.getById(t.tagId)?.update(t.updates));
+    makeSocket("onTagsUpdated", ({ withFileReload }) => {
       if (withFileReload && view !== "carousel") throttle(queueFileReload, 2000)();
     });
 

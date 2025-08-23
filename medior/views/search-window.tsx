@@ -3,6 +3,7 @@ import { useEffect } from "react";
 import { Comp, View } from "medior/components";
 import { useStores } from "medior/store";
 import { makeClasses } from "medior/utils/client";
+import { trpc } from "medior/utils/server";
 import { useSockets, Views } from "./common";
 
 export const SearchWindow = Comp(() => {
@@ -17,11 +18,11 @@ export const SearchWindow = Comp(() => {
 
     ipcRenderer.on("init", async (_, { tagIds }: { tagIds: string[] }) => {
       try {
+        const tags = (await trpc.listTag.mutate({ args: { filter: { id: tagIds } } })).data.items;
+        stores.file.search.setTags(tags);
+
         await stores.file.search.loadFiltered({ page: 1 });
         await stores.tag.loadTags();
-        stores.file.search.setTags(
-          tagIds.map((id) => stores.tag.tagOptions.find((tag) => tag.id === id)),
-        );
       } catch (err) {
         console.error(err);
       }

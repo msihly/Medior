@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button, Comp, ConfirmModal, Modal, TagInput, Text } from "medior/components";
-import { TagOption, useStores } from "medior/store";
+import { TagOption, tagToOption, useStores } from "medior/store";
 import { colors, toast } from "medior/utils/client";
+import { trpc } from "medior/utils/server";
 
 export const MultiTagEditor = Comp(() => {
   const stores = useStores();
@@ -13,6 +14,16 @@ export const MultiTagEditor = Comp(() => {
   const [isLoading, setIsLoading] = useState(false);
   const [parentTagsToAdd, setParentTagsToAdd] = useState<TagOption[]>([]);
   const [parentTagsToRemove, setParentTagsToRemove] = useState<TagOption[]>([]);
+
+  const selectedTags = useRef<TagOption[]>([]);
+  useEffect(() => {
+    (async () => {
+      const res = await trpc.listTag.mutate({
+        args: { filter: { id: stores.tag.manager.search.selectedIds } },
+      });
+      selectedTags.current = res.data.items.map(tagToOption);
+    })();
+  }, []);
 
   const handleClose = () => {
     if (hasUnsavedChanges) return setIsConfirmDiscardOpen(true);
@@ -57,11 +68,7 @@ export const MultiTagEditor = Comp(() => {
       </Modal.Header>
 
       <Modal.Content spacing="0.5rem">
-        <TagInput
-          header="Selected Tags"
-          value={stores.tag.tagOptions.filter((t) => stores.tag.manager.search.getIsSelected(t.id))}
-          disabled
-        />
+        <TagInput header="Selected Tags" value={selectedTags.current} disabled />
 
         <TagInput
           header="Parent Tags to Add"

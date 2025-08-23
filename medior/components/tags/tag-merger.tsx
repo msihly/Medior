@@ -15,8 +15,9 @@ import {
   UniformList,
   View,
 } from "medior/components";
-import { TagOption, useStores } from "medior/store";
+import { TagOption, tagToOption, useStores } from "medior/store";
 import { colors, makeClasses, toast, useDeepEffect } from "medior/utils/client";
+import { trpc } from "medior/utils/server";
 
 export const TagMerger = Comp(() => {
   const { css } = useClasses(null);
@@ -39,7 +40,7 @@ export const TagMerger = Comp(() => {
   const disabled = isSaving || !hasSelectedTag;
   const baseTag = stores.tag.subEditor.isOpen ? stores.tag.subEditor.tag : stores.tag.editor.tag;
 
-  useDeepEffect(() => {
+  const updateInputs = async () => {
     if (!selectedTagValue.length) {
       setAliases([]);
       setChildTags([]);
@@ -50,7 +51,9 @@ export const TagMerger = Comp(() => {
       return;
     }
 
-    const tag = stores.tag.getById(selectedTagValue[0].id);
+    const tag = (await trpc.listTag.mutate({ args: { filter: { id: selectedTagValue[0].id } } }))
+      .data.items[0];
+
     const tagToKeep = tag.count > baseTag.count ? tag : baseTag;
     const tagToMerge = !(tag.count > baseTag.count) ? tag : baseTag;
     setTagIdToKeep(tagToKeep.id);
@@ -66,9 +69,13 @@ export const TagMerger = Comp(() => {
     const childIds = [...tagToKeep.childIds, ...tagToMerge.childIds];
     const parentIds = [...tagToKeep.parentIds, ...tagToMerge.parentIds];
     const tagIdsToExclude = [tagToKeep.id, tagToMerge.id];
-    setChildTags(mergeRelatedTags(childIds, tagIdsToExclude));
-    setParentTags(mergeRelatedTags(parentIds, tagIdsToExclude));
-  }, [selectedTagValue, tagLabelToKeep]);
+    setChildTags(await mergeRelatedTags(childIds, tagIdsToExclude));
+    setParentTags(await mergeRelatedTags(parentIds, tagIdsToExclude));
+  };
+
+  useDeepEffect(() => {
+    updateInputs();
+  }, [selectedTagValue, tagLabelToKeep, updateInputs]);
 
   const handleClose = async () => {
     setIsConfirmDiscardOpen(false);
@@ -104,14 +111,15 @@ export const TagMerger = Comp(() => {
     }
   };
 
-  const mergeRelatedTags = (tagIds: string[], tagIdsToExclude: string[]) => {
+  const mergeRelatedTags = async (tagIds: string[], tagIdsToExclude: string[]) => {
+    const result = new Set<TagOption>();
     const tagIdsSet = new Set(tagIds);
     const tagIdsToExcludeSet = new Set(tagIdsToExclude);
-    const tagMap = new Map(stores.tag.listByIds(tagIds).map((tag) => [tag.id, tag]));
-    const result = new Set<TagOption>();
+    const tags = (await trpc.listTag.mutate({ args: { filter: { id: tagIds } } })).data.items;
+    const tagMap = new Map(tags.map((tag) => [tag.id, tag]));
 
     tagIdsSet.forEach((curId) => {
-      const tagOption = tagMap.get(curId)?.tagOption;
+      const tagOption = tagMap.has(curId) ? tagToOption(tagMap.get(curId)) : null;
       if (tagIdsToExcludeSet.has(curId) || result.has(tagOption)) return;
 
       const hasDescendants = Array.from(tagIdsSet).some((otherId) => {

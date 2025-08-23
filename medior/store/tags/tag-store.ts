@@ -1,5 +1,4 @@
 import autoBind from "auto-bind";
-import { computed } from "mobx";
 import {
   getRootStore,
   Model,
@@ -103,8 +102,6 @@ export class TagStore extends Model({
   @modelFlow
   editTag = asyncAction(
     async ({ aliases, childIds, id, label, parentIds, regEx, withSub = true }: db.EditTagInput) => {
-      const origLabel = this.getById(id).label;
-
       const editRes = await trpc.editTag.mutate({
         aliases,
         childIds,
@@ -115,8 +112,7 @@ export class TagStore extends Model({
         withSub,
       });
       if (!editRes.success) throw new Error(editRes.error);
-
-      toast.success(`Tag '${origLabel}' edited`);
+      toast.success(`Tag edited`);
     },
   );
 
@@ -235,11 +231,8 @@ export class TagStore extends Model({
   tagSearchOptsToIds(options: TagOption[], withDescArrays = false) {
     return options.reduce(
       (acc, cur) => {
-        const tag = this.getById(cur.id);
-        if (!tag) return acc;
-
         if (cur.searchType.includes("Desc")) {
-          const childTagIds = withDescArrays ? tag.descendantIds : [];
+          const childTagIds = withDescArrays ? cur.descendantIds : [];
           const tagIds = [cur.id, ...childTagIds];
           if (cur.searchType === "excludeDesc") {
             acc["excludedDescTagIds"].push(cur.id);
@@ -272,11 +265,5 @@ export class TagStore extends Model({
         requiredDescTagIdArrays: string[][];
       },
     );
-  }
-
-  /* --------------------------------- GETTERS -------------------------------- */
-  @computed
-  get tagOptions() {
-    return this.tags.map((t) => t.tagOption).sort((a, b) => b.count - a.count);
   }
 }
