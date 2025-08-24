@@ -105,13 +105,13 @@ export const DEFAULT_CONFIG: Config = {
         sort: { isDesc: true, key: "dateCreated" },
       },
       search: {
-        pageSize: 100,
+        pageSize: 50,
         sort: { isDesc: false, key: "custom" },
       },
     },
     manager: {
       search: {
-        pageSize: 100,
+        pageSize: 30,
         sort: { isDesc: true, key: "dateCreated" },
       },
     },
@@ -178,7 +178,7 @@ export const DEFAULT_CONFIG: Config = {
   tags: {
     manager: {
       search: {
-        pageSize: 200,
+        pageSize: 50,
         sort: { isDesc: true, key: "dateCreated" },
       },
     },

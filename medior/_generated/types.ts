@@ -108,6 +108,9 @@ export type DeleteEmptyCollectionsOutput = ReturnType<typeof db.deleteEmptyColle
 export type ListAllCollectionIdsInput = Parameters<typeof db.listAllCollectionIds>[0];
 export type ListAllCollectionIdsOutput = ReturnType<typeof db.listAllCollectionIds>;
 
+export type ListCollectionsByFileIdsInput = Parameters<typeof db.listCollectionsByFileIds>[0];
+export type ListCollectionsByFileIdsOutput = ReturnType<typeof db.listCollectionsByFileIds>;
+
 export type ListCollectionIdsByTagIdsInput = Parameters<typeof db.listCollectionIdsByTagIds>[0];
 export type ListCollectionIdsByTagIdsOutput = ReturnType<typeof db.listCollectionIdsByTagIds>;
 

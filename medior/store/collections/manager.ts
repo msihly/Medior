@@ -30,12 +30,10 @@ export class CollectionManager extends Model({
   @modelFlow
   loadCurrentCollections = asyncAction(async () => {
     this.setIsLoading(true);
-    const res = await trpc.listFileCollection.mutate({
-      args: { filter: { id: this.selectedFileIds[0] } },
-    });
+    const res = await trpc.listCollectionsByFileIds.mutate({ fileIds: this.selectedFileIds });
     this.setIsLoading(false);
     if (!res.success) throw new Error(res.error);
-    this.setCurrentCollections(res.data.items.map((c) => new FileCollection(c)));
+    this.setCurrentCollections(res.data.map((c) => new FileCollection(c)));
   });
 
   @modelFlow

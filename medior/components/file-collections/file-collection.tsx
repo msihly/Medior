@@ -1,44 +1,41 @@
 import { CollectionTooltip, Comp, ContextMenu, FileBase } from "medior/components";
-import { useStores } from "medior/store";
+import { FileCollection as FileCollType, useStores } from "medior/store";
 import { colors, CSS, toast } from "medior/utils/client";
 import { round } from "medior/utils/common";
 
 export interface FileCollectionProps {
+  collection: FileCollType;
   height?: CSS["height"];
-  id: string;
   width?: CSS["width"];
 }
 
-export const FileCollection = Comp(({ height, id, width }: FileCollectionProps) => {
+export const FileCollection = Comp(({ collection, height, width }: FileCollectionProps) => {
   const stores = useStores();
-
-  const collection = stores.collection.manager.search.getResult(id);
-  if (!collection) return null;
 
   const handleClick = async (event: React.MouseEvent) => {
     const res = await stores.collection.manager.search.handleSelect({
       hasCtrl: event.ctrlKey,
       hasShift: event.shiftKey,
-      id,
+      id: collection.id,
     });
     if (!res?.success) toast.error(res.error);
   };
 
   const handleDelete = async () => {
-    await stores.collection.editor.loadCollection(id);
+    await stores.collection.editor.loadCollection(collection.id);
     stores.collection.setIsConfirmDeleteOpen(true);
   };
 
-  const handleRefreshMeta = () => stores.collection.regenCollMeta([id]);
+  const handleRefreshMeta = () => stores.collection.regenCollMeta([collection.id]);
 
   const openCollection = async () => {
     stores.collection.editor.setIsOpen(true);
-    await stores.collection.editor.loadCollection(id);
+    await stores.collection.editor.loadCollection(collection.id);
   };
 
   return (
     <ContextMenu
-      id={id}
+      id={collection.id}
       menuItems={[
         { label: "Refresh Metadata", icon: "Refresh", onClick: handleRefreshMeta },
         { label: "Delete", icon: "Delete", color: colors.custom.red, onClick: handleDelete },
@@ -49,7 +46,7 @@ export const FileCollection = Comp(({ height, id, width }: FileCollectionProps) 
           {...{ height, width }}
           onClick={handleClick}
           onDoubleClick={openCollection}
-          selected={stores.collection.manager.search.getIsSelected(id)}
+          selected={stores.collection.manager.search.getIsSelected(collection.id)}
         >
           <FileBase.Image
             thumbs={collection.thumbs}

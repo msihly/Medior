@@ -105,7 +105,7 @@ export const ContextMenu = Comp(({ children, file, ...props }: ContextMenuProps)
               color: colors.custom.lightBlue,
               divider: "bottom",
               icon: "RotateRight",
-              iconProps: { rotation: 270, size: "1.1em" },
+              iconProps: { rotation: 270 },
               label: "Remux",
               onClick: handleRemux,
             }
@@ -115,7 +115,6 @@ export const ContextMenu = Comp(({ children, file, ...props }: ContextMenuProps)
               color: colors.custom.lightBlue,
               divider: "bottom",
               icon: "AutoMode",
-              iconProps: { size: "0.8em" },
               label: "Re-encode",
               onClick: handleReencode,
             }

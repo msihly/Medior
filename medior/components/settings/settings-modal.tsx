@@ -146,11 +146,11 @@ export const SettingsModal = Comp(() => {
         <Settings.Section title="Collections">
           <View row spacing="0.5rem" overflow="auto">
             <Settings.NumInput
-              header="Editor - File Search Page Size"
+              header="Editor - File Page Size"
               configKey="collection.editor.fileSearch.pageSize"
               minValue={1}
               maxValue={200}
-              width="14rem"
+              width="10rem"
             />
 
             <Settings.SortMenu
@@ -178,11 +178,11 @@ export const SettingsModal = Comp(() => {
         <Settings.Section title="Files">
           <View row spacing="0.5rem" overflow="auto">
             <Settings.NumInput
-              header="Search Results Count"
+              header="Page Size"
               configKey="file.search.pageSize"
               minValue={25}
               maxValue={250}
-              width="9rem"
+              width="10rem"
             />
 
             <Settings.SortMenu
@@ -365,7 +365,15 @@ export const SettingsModal = Comp(() => {
         </Settings.Section>
 
         <Settings.Section title="Tags">
-          <View row>
+          <View row spacing="0.5rem">
+            <Settings.NumInput
+              header="Manager - Page Size"
+              configKey="tags.manager.search.pageSize"
+              minValue={1}
+              maxValue={200}
+              width="10rem"
+            />
+
             <Settings.SortMenu
               header="Manager - Default Sort"
               configKey="tags.manager.search.sort"

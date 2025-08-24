@@ -21,46 +21,47 @@ import { useStores } from "medior/store";
 import { colors, toast, useDeepEffect } from "medior/utils/client";
 import { CollectionFilterMenu, FileCollection } from ".";
 
-const FILE_CARD_HEIGHT = "14rem";
+const FILE_CARD_HEIGHT = 250;
 
 export const FileCollectionManager = Comp(() => {
   const stores = useStores();
+  const store = stores.collection.manager;
 
   const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
 
   const collectionsRef = useRef<HTMLDivElement>(null);
 
-  const hasSelectedCollectionIds = stores.collection.manager.search.selectedIds.length > 0;
-  const selectedFileIds = stores.collection.manager.selectedFileIds;
+  const hasSelectedCollectionIds = store.search.selectedIds.length > 0;
+  const selectedFileIds = store.selectedFileIds;
   const hasAnyFilesSelected = selectedFileIds.length > 0;
   const hasOneFileSelected = selectedFileIds.length === 1;
   useEffect(() => {
-    if (hasOneFileSelected) stores.collection.manager.loadCurrentCollections();
-    else stores.collection.manager.setCurrentCollections([]);
-    stores.collection.manager.loadFiles();
-    stores.collection.manager.search.loadFiltered({ page: 1 });
+    if (hasOneFileSelected) store.loadCurrentCollections();
+    else store.setCurrentCollections([]);
+    store.loadFiles();
+    store.search.loadFiltered({ page: 1 });
   }, [hasOneFileSelected, selectedFileIds]);
 
-  const page = stores.collection.manager.search.page;
-  const pageCount = stores.collection.manager.search.pageCount;
+  const page = store.search.page;
+  const pageCount = store.search.pageCount;
   useEffect(() => {
     if (page > pageCount) handlePageChange(pageCount);
   }, [page, pageCount]);
 
   useDeepEffect(() => {
     collectionsRef.current?.scrollTo({ top: 0, behavior: "smooth" });
-  }, [page, stores.collection.manager.search.results]);
+  }, [page, store.search.results]);
 
   const handleAddToCollection = async () => {
-    const collId = stores.collection.manager.search.selectedIds[0];
-    const fileIds = new Set(stores.collection.manager.selectedFileIds);
+    const collId = store.search.selectedIds[0];
+    const fileIds = new Set(store.selectedFileIds);
 
-    stores.collection.manager.setIsLoading(true);
+    store.setIsLoading(true);
     const res = await stores.collection.editor.addFilesToCollection({
       collId,
       fileIds: [...fileIds],
     });
-    stores.collection.manager.setIsLoading(false);
+    store.setIsLoading(false);
     if (!res.success) return toast.error(res.error);
 
     stores.collection.editor.setIsOpen(true);
@@ -74,21 +75,19 @@ export const FileCollectionManager = Comp(() => {
   };
 
   const handleClose = () => {
-    stores.collection.manager.setIsOpen(false);
+    store.setIsOpen(false);
     stores.file.search.reloadIfQueued();
   };
 
   const handleConfirmDelete = async () => {
-    const res = await stores.collection.deleteCollections(
-      stores.collection.manager.search.selectedIds,
-    );
+    const res = await stores.collection.deleteCollections(store.search.selectedIds);
 
     if (!res.success) {
       toast.error(res.error);
       return false;
     } else {
       setIsConfirmDeleteOpen(false);
-      stores.collection.manager.search.loadFiltered({ page });
+      store.search.loadFiltered({ page });
       return true;
     }
   };
@@ -103,7 +102,7 @@ export const FileCollectionManager = Comp(() => {
 
   const handleNewCollection = async () => {
     const res = await stores.collection.createCollection({
-      fileIdIndexes: stores.collection.manager.selectedFileIds.map((id, index) => ({
+      fileIdIndexes: store.selectedFileIds.map((id, index) => ({
         fileId: id,
         index,
       })),
@@ -117,48 +116,51 @@ export const FileCollectionManager = Comp(() => {
     }
   };
 
-  const handlePageChange = (page: number) =>
-    stores.collection.manager.search.loadFiltered({ page });
+  const handlePageChange = (page: number) => store.search.loadFiltered({ page });
 
   return (
-    <Modal.Container
-      isLoading={stores.collection.manager.isLoading}
-      onClose={handleClose}
-      height="100%"
-      width="100%"
-    >
+    <Modal.Container isLoading={store.isLoading} onClose={handleClose} height="100%" width="100%">
       <Modal.Content dividers={false} spacing="0.5rem" overflow="hidden" padding={{ top: "1rem" }}>
         {!hasAnyFilesSelected ? null : (
           <View row spacing="0.5rem">
             <Card
-              header={<Text preset="title">{`Selected File${hasOneFileSelected ? "" : "s"}`}</Text>}
-              height={`calc(${FILE_CARD_HEIGHT} + 3.5rem)`}
-              width={hasOneFileSelected ? "14rem" : "100%"}
-              padding={{ all: 0 }}
+              header={
+                <Text preset="title" padding="0.3rem 0">
+                  {`Selected File${hasOneFileSelected ? "" : "s"}`}
+                </Text>
+              }
+              width={hasOneFileSelected ? FILE_CARD_HEIGHT : "100%"}
+              padding={{ all: 4 }}
               overflow="hidden"
             >
               <CardGrid
-                cards={stores.collection.manager.selectedFiles.map((f) => (
+                cards={store.selectedFiles.map((f) => (
                   <FileCard key={f.id} file={f} height={FILE_CARD_HEIGHT} disabled />
                 ))}
                 maxCards={hasOneFileSelected ? 1 : 6}
+                height={FILE_CARD_HEIGHT + 50}
                 padding={{ bottom: 0 }}
               />
             </Card>
 
             {hasOneFileSelected && (
               <Card
-                header={<Text preset="title">{"Current Collections"}</Text>}
+                header={
+                  <Text preset="title" padding="0.3rem 0">
+                    {"Current Collections"}
+                  </Text>
+                }
                 flex={1}
-                height={`calc(${FILE_CARD_HEIGHT} + 3.5rem)`}
+                padding={{ all: 4 }}
                 overflow="auto"
               >
-                {stores.collection.manager.currentCollections.length ? (
+                {store.currentCollections.length ? (
                   <CardGrid
-                    cards={stores.collection.manager.currentCollections.map((c) => (
-                      <FileCollection key={c.id} id={c.id} height={FILE_CARD_HEIGHT} />
+                    cards={store.currentCollections.map((c) => (
+                      <FileCollection key={c.id} collection={c} height={FILE_CARD_HEIGHT} />
                     ))}
                     maxCards={5}
+                    height={FILE_CARD_HEIGHT + 50}
                     padding={{ bottom: 0 }}
                   />
                 ) : (
@@ -176,7 +178,7 @@ export const FileCollectionManager = Comp(() => {
           header={
             <UniformList row flex={1} justify="space-between" padding={{ all: "0.3rem" }}>
               <View row>
-                <CollectionFilterMenu store={stores.collection.manager.search} />
+                <CollectionFilterMenu store={store.search} />
               </View>
 
               <View row justify="center" align="center">
@@ -217,20 +219,20 @@ export const FileCollectionManager = Comp(() => {
             </UniformList>
           }
         >
-          <LoadingOverlay isLoading={stores.collection.manager.search.isLoading} />
+          <LoadingOverlay isLoading={store.search.isLoading} />
 
           <CardGrid
             ref={collectionsRef}
             flex={1}
-            cards={stores.collection.manager.search.results.map((c) => (
-              <FileCollection key={c.id} id={c.id} height={FILE_CARD_HEIGHT} />
+            cards={store.search.results.map((c) => (
+              <FileCollection key={c.id} collection={c} height={FILE_CARD_HEIGHT} />
             ))}
           >
             <Pagination
               count={pageCount}
               page={page}
               onChange={handlePageChange}
-              isLoading={stores.collection.manager.search.isPageCountLoading}
+              isLoading={store.search.isPageCountLoading}
             />
           </CardGrid>
         </Card>
@@ -251,7 +253,7 @@ export const FileCollectionManager = Comp(() => {
             text="Add to Collection"
             icon="Add"
             onClick={handleAddToCollection}
-            disabled={stores.collection.manager.search.selectedIds.length !== 1}
+            disabled={store.search.selectedIds.length !== 1}
             colorOnHover={colors.custom.purple}
           />
         )}
@@ -260,7 +262,7 @@ export const FileCollectionManager = Comp(() => {
       {isConfirmDeleteOpen && (
         <ConfirmModal
           headerText="Delete Collections"
-          subText={`Are you sure you want to delete the ${stores.collection.manager.search.selectedIds.length} selected collections?`}
+          subText={`Are you sure you want to delete the ${store.search.selectedIds.length} selected collections?`}
           onConfirm={handleConfirmDelete}
           setVisible={setIsConfirmDeleteOpen}
         />

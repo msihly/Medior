@@ -118,6 +118,14 @@ export const listAllCollectionIds = makeAction(async () => {
   );
 });
 
+export const listCollectionsByFileIds = makeAction(async (args: { fileIds: string[] }) => {
+  return (
+    await models.FileCollectionModel.find({
+      fileIdIndexes: { $elemMatch: { fileId: { $in: args.fileIds } } },
+    }).lean()
+  ).map((f) => leanModelToJson<models.FileCollectionSchema>(f));
+});
+
 export const listCollectionIdsByTagIds = makeAction(async (args: { tagIds: string[] }) => {
   return (
     await models.FileCollectionModel.find({ tagIds: { $in: objectIds(args.tagIds) } })

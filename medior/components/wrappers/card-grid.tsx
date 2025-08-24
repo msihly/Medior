@@ -1,5 +1,5 @@
 import { forwardRef, MutableRefObject, ReactNode } from "react";
-import { CenteredText, View, ViewProps } from "medior/components";
+import { CenteredText, Comp, View, ViewProps } from "medior/components";
 import { CSS, makeClasses } from "medior/utils/client";
 
 export interface CardGridProps extends ViewProps {
@@ -11,43 +11,45 @@ export interface CardGridProps extends ViewProps {
   position?: CSS["position"];
 }
 
-export const CardGrid = forwardRef(
-  (
-    {
-      cards,
-      cardsProps,
-      children,
-      className,
-      maxCards = 6,
-      noResultsText = "No results found",
-      padding = { all: "0.3rem 0.3rem 7rem" },
-      position = "relative",
-      ...props
-    }: CardGridProps,
-    ref: MutableRefObject<HTMLDivElement>,
-  ) => {
-    const { css, cx } = useClasses({ hasCards: cards.length > 0, maxCards, position });
+export const CardGrid = Comp(
+  forwardRef(
+    (
+      {
+        cards,
+        cardsProps,
+        children,
+        className,
+        maxCards = 6,
+        noResultsText = "No results found",
+        padding = { all: "0.3rem 0.3rem 7rem" },
+        position = "relative",
+        ...props
+      }: CardGridProps,
+      ref: MutableRefObject<HTMLDivElement>,
+    ) => {
+      const { css, cx } = useClasses({ hasCards: cards.length > 0, maxCards, position });
 
-    return (
-      <View {...props} className={cx(css.root, className)}>
-        {cards.length ? (
-          <View
-            {...cardsProps}
-            {...{ padding, ref }}
-            className={cx(css.cards, cardsProps?.className)}
-          >
-            {cards}
-          </View>
-        ) : (
-          <View column flex={1}>
-            <CenteredText text={noResultsText} />
-          </View>
-        )}
+      return (
+        <View {...props} className={cx(css.root, className)}>
+          {cards.length ? (
+            <View
+              {...cardsProps}
+              {...{ padding, ref }}
+              className={cx(css.cards, cardsProps?.className)}
+            >
+              {cards}
+            </View>
+          ) : (
+            <View column flex={1}>
+              <CenteredText text={noResultsText} />
+            </View>
+          )}
 
-        {children}
-      </View>
-    );
-  },
+          {children}
+        </View>
+      );
+    },
+  ),
 );
 
 interface ClassesProps {

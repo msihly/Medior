@@ -70,6 +70,7 @@ export const serverRouter = trpc.router({
   listAllCollectionIds: serverEndpoint(db.listAllCollectionIds),
   listByLabels: serverEndpoint(db.listByLabels),
   listCollectionIdsByTagIds: serverEndpoint(db.listCollectionIdsByTagIds),
+  listCollectionsByFileIds: serverEndpoint(db.listCollectionsByFileIds),
   listDeletedFiles: serverEndpoint(db.listDeletedFiles),
   listFaceModels: serverEndpoint(db.listFaceModels),
   listFileIdsByTagIds: serverEndpoint(db.listFileIdsByTagIds),

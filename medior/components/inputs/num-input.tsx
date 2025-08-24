@@ -22,14 +22,12 @@ export const NumInput = forwardRef(
         setError(null);
       } else if (isNaN(+val)) toast.error("Must be a number");
       else {
+        setValue?.(+val);
         if (maxValue && +val > maxValue)
           hasHelper ? setError(`Max: ${maxValue}`) : toast.error(`Max: ${maxValue}`);
         else if (minValue && +val < minValue)
           hasHelper ? setError(`Min: ${minValue}`) : toast.error(`Min: ${minValue}`);
-        else {
-          setError(null);
-          setValue?.(+val);
-        }
+        else setError(null);
       }
     };
 
