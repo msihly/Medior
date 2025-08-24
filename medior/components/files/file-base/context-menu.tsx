@@ -39,9 +39,9 @@ export const ContextMenu = Comp(({ children, file, ...props }: ContextMenuProps)
 
   const handleRefresh = () => stores.file.refreshFiles({ ids: [file.id] });
 
-  const handleRemux = () => stores.file.refreshFiles({ ids: [file.id], withRemux: true });
+  const handleReencode = () => stores.file.openVideoTransformer([file.id], "reencode");
 
-  const handleReencode = () => stores.file.openReencoder(file.id);
+  const handleRemux = () => stores.file.openVideoTransformer([file.id], "remux");
 
   const handleUnarchive = () => stores.file.unarchiveFiles({ fileIds: [file.id] });
 
@@ -90,24 +90,6 @@ export const ContextMenu = Comp(({ children, file, ...props }: ContextMenuProps)
             { icon: "Folder", label: "Folder Path", onClick: copyFolderPath },
           ],
         },
-        isRemuxable
-          ? {
-              color: colors.custom.lightBlue,
-              divider: "bottom",
-              icon: "SwitchVideo",
-              label: "Remux",
-              onClick: handleRemux,
-            }
-          : null,
-        isReencodable
-          ? {
-              color: colors.custom.lightBlue,
-              divider: "bottom",
-              icon: "SwitchVideo",
-              label: "Re-encode",
-              onClick: handleReencode,
-            }
-          : null,
         {
           icon: "Collections",
           label: "Collections",
@@ -118,6 +100,26 @@ export const ContextMenu = Comp(({ children, file, ...props }: ContextMenuProps)
           label: "Face Recognition",
           onClick: handleFaceRecognition,
         },
+        isRemuxable
+          ? {
+              color: colors.custom.lightBlue,
+              divider: "bottom",
+              icon: "RotateRight",
+              iconProps: { rotation: 270, size: "1.1em" },
+              label: "Remux",
+              onClick: handleRemux,
+            }
+          : null,
+        isReencodable
+          ? {
+              color: colors.custom.lightBlue,
+              divider: "bottom",
+              icon: "AutoMode",
+              iconProps: { size: "0.8em" },
+              label: "Re-encode",
+              onClick: handleReencode,
+            }
+          : null,
         stores.file.search.isArchived
           ? {
               color: colors.custom.green,

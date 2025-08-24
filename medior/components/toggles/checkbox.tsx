@@ -2,7 +2,15 @@ import { ReactNode } from "react";
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { Checkbox as MuiCheckbox, FormControlLabel } from "@mui/material";
 import Color from "color";
-import { colors, CSS, makeClasses, makePadding, Padding } from "medior/utils/client";
+import {
+  colors,
+  CSS,
+  makeClasses,
+  makeMargins,
+  makePadding,
+  Margins,
+  Padding,
+} from "medior/utils/client";
 
 export interface CheckboxProps {
   center?: boolean;
@@ -14,6 +22,7 @@ export interface CheckboxProps {
   fullWidth?: boolean;
   indeterminate?: boolean;
   label?: ReactNode;
+  margins?: Margins;
   padding?: Padding;
   setChecked: (checked: boolean) => void;
 }
@@ -28,10 +37,11 @@ export const Checkbox = ({
   fullWidth = true,
   indeterminate,
   label,
+  margins = { left: 0, right: 0 },
   padding = { all: "0.3rem" },
   setChecked,
 }: CheckboxProps) => {
-  const { css, cx } = useClasses({ center, color, disabled, flex, fullWidth, padding });
+  const { css, cx } = useClasses({ center, color, disabled, flex, fullWidth, margins, padding });
 
   const toggleChecked = () => !disabled && setChecked(!checked);
 
@@ -56,6 +66,7 @@ interface ClassesProps {
   disabled: boolean;
   flex: CSS["flex"];
   fullWidth: boolean;
+  margins: Margins;
   padding: Padding;
 }
 
@@ -70,8 +81,7 @@ const useClasses = makeClasses((props: ClassesProps) => ({
     flex: props.flex,
     justifyContent: props.center ? "center" : undefined,
     borderRadius: "0.5rem",
-    marginLeft: 0,
-    marginRight: 0,
+    ...makeMargins(props.margins),
     width: props.fullWidth ? "100%" : "auto",
     whiteSpace: "nowrap",
     transition: "all 200ms ease-in-out",

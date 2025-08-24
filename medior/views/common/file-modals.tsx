@@ -3,7 +3,7 @@ import {
   ConfirmModal,
   FaceRecognitionModal,
   InfoModal,
-  ReencoderModal,
+  VideoTransformerModal,
 } from "medior/components";
 import { useStores } from "medior/store";
 
@@ -20,7 +20,7 @@ export const FileModals = Comp(() => {
 
       {stores.file.isInfoModalOpen && <InfoModal />}
 
-      {stores.file.reencoder.isOpen && <ReencoderModal />}
+      {stores.file.videoTransformer.isOpen && <VideoTransformerModal />}
 
       {stores.file.isConfirmDeleteOpen && (
         <ConfirmModal

@@ -1,13 +1,14 @@
 import { ReactNode, useState } from "react";
 import { Menu } from "@mui/material";
 import Color from "color";
-import { Divider, IconName, ListItem, View, ViewProps } from "medior/components";
+import { Divider, IconName, IconProps, ListItem, View, ViewProps } from "medior/components";
 import { colors, makeClasses } from "medior/utils/client";
 
 interface MenuItem {
   color?: string;
   divider?: "bottom" | "top";
   icon: IconName;
+  iconProps?: Partial<IconProps>;
   label: string;
 }
 
@@ -91,7 +92,7 @@ const Item = ({
       key={item.label}
       text={item.label}
       icon={item.icon}
-      iconProps={{ color }}
+      iconProps={{ color, ...(item.iconProps ?? {}) }}
       color={color}
       iconEnd={item.subItems?.length ? "ChevronRight" : null}
       onClick={handleClick}

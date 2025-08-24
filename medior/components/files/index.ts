@@ -3,4 +3,4 @@ export * from "./file-base";
 export * from "./file-card";
 export * from "./filter-menu";
 export * from "./info-modal";
-export * from "./reencoder-modal";
+export * from "./video-transformer-modal";

@@ -15,7 +15,7 @@ import { asyncAction, FaceModel, FileImporter, RootStore } from "medior/store";
 import { getConfig, makeQueue, toast } from "medior/utils/client";
 import { PromiseQueue, splitArray } from "medior/utils/common";
 import { trpc } from "medior/utils/server";
-import { File, FileSearch, FileTagsEditorStore, ReencoderStore } from ".";
+import { File, FileSearch, FileTagsEditorStore, VideoTransformerStore } from ".";
 
 @model("medior/FileStore")
 export class FileStore extends ExtendedModel(_FileStore, {
@@ -23,9 +23,9 @@ export class FileStore extends ExtendedModel(_FileStore, {
   idsForConfirmDelete: prop<string[]>(() => []).withSetter(),
   isConfirmDeleteOpen: prop<boolean>(false).withSetter(),
   isInfoModalOpen: prop<boolean>(false).withSetter(),
-  reencoder: prop<ReencoderStore>(() => new ReencoderStore({})),
   search: prop<FileSearch>(() => new FileSearch({})),
   tagsEditor: prop<FileTagsEditorStore>(() => new FileTagsEditorStore({})),
+  videoTransformer: prop<VideoTransformerStore>(() => new VideoTransformerStore({})),
 }) {
   refreshQueue = new PromiseQueue();
 
@@ -46,9 +46,10 @@ export class FileStore extends ExtendedModel(_FileStore, {
   }
 
   @modelAction
-  openReencoder(fileId: string) {
-    this.reencoder.setFileId(fileId);
-    this.reencoder.setIsOpen(true);
+  openVideoTransformer(fileIds: string[], fnType: "reencode" | "remux") {
+    this.videoTransformer.setFileIds(fileIds);
+    this.videoTransformer.setFnType(fnType);
+    this.videoTransformer.setIsOpen(true);
   }
 
   @modelAction

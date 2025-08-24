@@ -15,7 +15,7 @@ import {
   View,
 } from "medior/components";
 import { useStores } from "medior/store";
-import { colors, getIsRemuxable, makeClasses } from "medior/utils/client";
+import { colors, makeClasses } from "medior/utils/client";
 import { duration, formatBytes, round } from "medior/utils/common";
 
 export const InfoModal = Comp(() => {
@@ -26,15 +26,12 @@ export const InfoModal = Comp(() => {
   const file = stores.collection.editor.isOpen
     ? stores.collection.editor.getFileById(stores.file.activeFileId)
     : stores.file.getById(stores.file.activeFileId);
-  const isRemuxable = getIsRemuxable(file.ext);
 
   const handleClose = () => stores.file.setIsInfoModalOpen(false);
 
   const handleCurrentPath = () => shell.showItemInFolder(file.path);
 
   const handleRefresh = () => stores.file.refreshFiles({ ids: [file.id] });
-
-  const handleRemux = () => stores.file.refreshFiles({ ids: [file.id], withRemux: true });
 
   const handleThumbPath = () => shell.showItemInFolder(file.thumb.path);
 
@@ -158,15 +155,6 @@ export const InfoModal = Comp(() => {
 
       <Modal.Footer>
         <Button text="Close" icon="Close" onClick={handleClose} colorOnHover={colors.custom.red} />
-
-        {isRemuxable && (
-          <Button
-            text="Remux"
-            icon="SwitchVideo"
-            onClick={handleRemux}
-            colorOnHover={colors.custom.purple}
-          />
-        )}
 
         <Button
           text="Refresh"

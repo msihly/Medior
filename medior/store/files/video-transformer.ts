@@ -5,18 +5,21 @@ import { File } from "medior/store/files/file";
 import { RootStore } from "medior/store/root-store";
 import { asyncAction } from "medior/store/utils";
 import { deleteFile, getAvailableFileStorage } from "medior/utils/client";
-import { EncodeProgress, reencode, trpc } from "medior/utils/server";
+import { FfmpegProgress, getVideoInfo, reencode, remux, trpc } from "medior/utils/server";
 
-@model("medior/ReencoderStore")
-export class ReencoderStore extends Model({
+@model("medior/VideoTransformerStore")
+export class VideoTransformerStore extends Model({
+  curFileId: prop<string>(null).withSetter(),
   file: prop<File>(null).withSetter(),
-  fileId: prop<string>(null).withSetter(),
+  fileIds: prop<string[]>(() => []).withSetter(),
+  fnType: prop<"reencode" | "remux">(null).withSetter(),
+  isAuto: prop<boolean>(false).withSetter(),
   isLoading: prop<boolean>(false).withSetter(),
   isRunning: prop<boolean>(false).withSetter(),
   isOpen: prop<boolean>(false).withSetter(),
   newHash: prop<string>(null).withSetter(),
   newPath: prop<string>(null).withSetter(),
-  progress: prop<EncodeProgress>(null).withSetter(),
+  progress: prop<FfmpegProgress>(null).withSetter(),
 }) {
   aborter: AbortController = null;
 
@@ -38,8 +41,11 @@ export class ReencoderStore extends Model({
 
   @modelAction
   reset() {
+    this.curFileId = null;
     this.file = null;
-    this.fileId = null;
+    this.fileIds = [];
+    this.fnType = null;
+    this.isAuto = false;
     this.isLoading = false;
     this.isRunning = false;
     this.newHash = null;
@@ -51,7 +57,7 @@ export class ReencoderStore extends Model({
   @modelFlow
   loadFile = asyncAction(async () => {
     this.setIsLoading(true);
-    const res = await trpc.listFile.mutate({ args: { filter: { id: this.fileId } } });
+    const res = await trpc.listFile.mutate({ args: { filter: { id: this.curFileId } } });
     this.setFile(new File(res.data.items[0]));
     this.setIsLoading(false);
   });
@@ -60,24 +66,36 @@ export class ReencoderStore extends Model({
   replaceOriginal = asyncAction(async () => {
     this.setIsLoading(true);
 
-    const diskRes = await deleteFile(this.file.path, this.newPath);
-    if (!diskRes.success) throw new Error(diskRes.error);
+    const originalPath = this.file.path;
+    const videoInfo = await getVideoInfo(this.newPath);
 
     const dbRes = await trpc.updateFile.mutate({
-      ext: "mp4",
+      ext: videoInfo.ext,
       hash: this.newHash,
-      id: this.fileId,
+      id: this.curFileId,
       path: this.newPath,
-      videoCodec: "hevc",
+      videoCodec: videoInfo.videoCodec,
     });
     if (!dbRes.success) throw new Error(dbRes.error);
 
     const stores = getRootStore<RootStore>(this);
-    const refreshRes = await stores.file.refreshFiles({ ids: [this.fileId] });
+    const refreshRes = await stores.file.refreshFiles({ ids: [this.curFileId] });
     if (!refreshRes.success) throw new Error(refreshRes.error);
 
+    const diskRes = await deleteFile(originalPath, this.newPath);
+    if (!diskRes.success) throw new Error(diskRes.error);
+
     this.setIsLoading(false);
-    this.setIsOpen(false);
+
+    const nextFileId = this.fileIds[0];
+    if (!nextFileId) {
+      this.setIsOpen(false);
+    } else {
+      this.setCurFileId(nextFileId);
+      this.setFileIds(this.fileIds.slice(1));
+      await this.loadFile()
+      if (this.isAuto) this.run();
+    }
   });
 
   @modelFlow
@@ -90,11 +108,10 @@ export class ReencoderStore extends Model({
 
       this.aborter = new AbortController();
 
-      const res = await reencode(this.file.path, targetDir, {
+      const fn = this.fnType === "reencode" ? reencode : remux;
+      const res = await fn(this.file.path, targetDir, {
         signal: this.aborter.signal,
-        onProgress: (progress) => {
-          this.setProgress(progress);
-        },
+        onProgress: (progress) => this.setProgress(progress),
       });
 
       this.setNewHash(res.hash);
@@ -102,5 +119,7 @@ export class ReencoderStore extends Model({
     } finally {
       this.setIsRunning(false);
     }
+
+    if (this.isAuto) await this.replaceOriginal();
   });
 }

@@ -15,8 +15,7 @@ import {
   toast,
 } from "medior/utils/client";
 import { dayjs, handleErrors } from "medior/utils/common";
-import { dirToFilePaths, makePerfLog, trpc } from "medior/utils/server";
-import { remuxToMp4 } from "medior/utils/server";
+import { dirToFilePaths, makePerfLog, remux, trpc } from "medior/utils/server";
 
 export class FileImporter {
   private DEBUG = false;
@@ -134,7 +133,7 @@ export class FileImporter {
   };
 
   private remux = async () => {
-    const remuxed = await remuxToMp4(this.originalPath, this.targetDir);
+    const remuxed = await remux(this.originalPath, this.targetDir);
     if (this.deleteOnImport) await deleteFile(this.originalPath);
     this.perfLog(`Remuxed to MP4: ${remuxed.path}`);
     this.ext = "mp4";
