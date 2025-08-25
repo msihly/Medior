@@ -2,7 +2,7 @@
   "name": "Medior",
   "description": "The Organizer",
   "author": "msihly",
-  "version": "2.7.2",
+  "version": "2.8.0",
   "private": true,
   "homepage": "./",
   "main": "extraResources/medior/server/main.js",
