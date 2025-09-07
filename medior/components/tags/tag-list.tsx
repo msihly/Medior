@@ -16,12 +16,13 @@ export interface TagListProps extends MultiInputListProps<TagOption> {
   hasEditor?: boolean;
   hasSearchMenu?: boolean;
   hasInput?: boolean;
+  onTagClick?: (tagOpt: TagOption) => void;
   rightNode?: TagInputRowProps["rightNode"];
   viewProps?: Partial<ViewProps>;
 }
 
 export const TagList = Comp(
-  ({ hasDelete, hasEditor, hasInput, hasSearchMenu, rightNode, search }: TagListProps) => {
+  ({ hasDelete, hasEditor, hasInput, hasSearchMenu, onTagClick, rightNode, search }: TagListProps) => {
     const stores = useStores();
 
     const ref = useRef<FixedSizeList>();
@@ -68,6 +69,7 @@ export const TagList = Comp(
             {...{ hasDelete, hasEditor, hasSearchMenu, rightNode, search, style }}
             key={index}
             tag={search.value[index]}
+            onClick={onTagClick}
           />
         )}
       />

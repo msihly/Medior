@@ -164,7 +164,7 @@ export const TagInput = Comp(
 
       const renderList = () => (
         <TagList
-          {...{ hasDelete, hasEditor, hasSearchMenu, value }}
+          {...{ hasDelete, hasEditor, hasSearchMenu, onTagClick, value }}
           search={{ onChange, value }}
           hasInput
         />
@@ -192,7 +192,7 @@ export const TagInput = Comp(
                 width="100%"
               />
             ) : (
-              <TagInputRow tag={option} search={null} onClick={onTagClick} />
+              <TagInputRow tag={option} search={null} />
             )}
           </View>
         );
