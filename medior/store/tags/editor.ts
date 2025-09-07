@@ -49,7 +49,7 @@ export class TagEditorStore extends Model({
   getByLabel = asyncAction(async (label: string) => {
     const res = await trpc.listByLabels.mutate({ labels: [label] });
     if (!res.success) throw new Error(res.error);
-    return res.data.get(label);
+    return res.data?.get?.(label);
   });
 
   @modelFlow

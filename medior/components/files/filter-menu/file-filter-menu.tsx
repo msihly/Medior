@@ -24,11 +24,19 @@ export const FileFilterMenu = Comp(({ color = colors.foreground, store }: FileFi
 
   const toggleHasDiffParams = () => store.setHasDiffParams(!store.hasDiffParams);
 
-  const toggleIsCorrupted = () => store.setIsCorrupted(!store.isCorrupted);
+  const toggleIsCorrupted = () =>
+    store.setIsCorrupted(
+      store.isCorrupted === true ? false : store.isCorrupted === false ? null : true,
+    );
+
+  const toggleIsModified = () =>
+    store.setIsModified(
+      store.isModified === true ? false : store.isModified === false ? null : true,
+    );
 
   return (
     <FilterMenu store={store} color={color} sortOptions={SORT_OPTIONS.File} width="100%">
-      <View row height="16.5rem" spacing="0.5rem">
+      <View row height="18.5rem" spacing="0.5rem">
         <Card flex={1}>
           <TagInput
             header="Tags"
@@ -73,6 +81,7 @@ export const FileFilterMenu = Comp(({ color = colors.foreground, store }: FileFi
             <Checkbox
               label="Corrupted"
               checked={store.isCorrupted}
+              indeterminate={store.isCorrupted === false}
               setChecked={toggleIsCorrupted}
               color={colors.custom.orange}
               flex="none"
@@ -82,6 +91,15 @@ export const FileFilterMenu = Comp(({ color = colors.foreground, store }: FileFi
               label="Diffusion"
               checked={store.hasDiffParams}
               setChecked={toggleHasDiffParams}
+              flex="none"
+            />
+
+            <Checkbox
+              label="Modified"
+              checked={store.isModified}
+              indeterminate={store.isModified === false}
+              setChecked={toggleIsModified}
+              color={colors.custom.purple}
               flex="none"
             />
           </View>

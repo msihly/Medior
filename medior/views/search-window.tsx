@@ -1,7 +1,7 @@
 import { ipcRenderer } from "electron";
 import { useEffect } from "react";
 import { Comp, View } from "medior/components";
-import { useStores } from "medior/store";
+import { tagToOption, useStores } from "medior/store";
 import { makeClasses } from "medior/utils/client";
 import { trpc } from "medior/utils/server";
 import { useSockets, Views } from "./common";
@@ -19,7 +19,7 @@ export const SearchWindow = Comp(() => {
     ipcRenderer.on("init", async (_, { tagIds }: { tagIds: string[] }) => {
       try {
         const tags = (await trpc.listTag.mutate({ args: { filter: { id: tagIds } } })).data.items;
-        stores.file.search.setTags(tags);
+        stores.file.search.setTags(tags.map(tagToOption));
 
         await stores.file.search.loadFiltered({ page: 1 });
         await stores.tag.loadTags();

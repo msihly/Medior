@@ -59,12 +59,12 @@ export const RepairModal = Comp(() => {
           colors.custom.lightBlue,
         );
 
-        log("Checking files with incorrect video codecs...");
+        log("Checking files for incomplete video info...");
         const res = await trpc.listVideosWithMissingInfo.mutate();
         if (!res.success) throw new Error(res.error);
         const validVideos = res.data.filter((f) => !f.isCorrupted);
         log(
-          `Found ${res.data.length} (${res.data.length - validVideos.length} corrupted) files with invalid video info.`,
+          `Found ${res.data.length} (${res.data.length - validVideos.length} corrupted) files with incomplete video info.`,
           colors.custom.lightBlue,
         );
 

@@ -33,8 +33,10 @@ model.addProp("excludedFileIds", "string[]", "() => []", {
 
 model.addProp("hasDiffParams", "boolean", "false", {
   objPath: ["$expr", "$and"],
-  objValue:
-    "[{ $eq: [{ $type: '$diffusionParams' }, 'string'] }, { $ne: ['$diffusionParams', ''] }]",
+  objValue: `[
+      { $eq: [{ $type: '$diffusionParams' }, 'string'] },
+      { $ne: ['$diffusionParams', ''] }
+    ]`,
 });
 
 model.addProp("isArchived", "boolean", "false", {
@@ -50,8 +52,19 @@ model.addProp("isArchived", "boolean", "false", {
 });
 
 model.addProp("isCorrupted", "boolean", "null", {
-  objPath: ["isCorrupted"],
-  objValue: "args.isCorrupted",
+  objPath: ["$expr"],
+  objValue: `args.isCorrupted
+    ? { $eq: ["$isCorrupted", true] }
+    : { $eq: [ { $ifNull: ["$isCorrupted", false] }, false ] }`,
+});
+
+model.addProp("isModified", "boolean", "null", {
+  objPath: ["$expr", "$and"],
+  objValue: `[
+      { $eq: [{ $type: "$originalHash" }, "string"] },
+      { $ne: ["$originalHash", ""] },
+      { [args.isModified ? "$ne" : "$eq"]: ["$hash", "$originalHash"] }
+    ]`,
 });
 
 model.addProp("originalPath", "string", "null", {

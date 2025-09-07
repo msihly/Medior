@@ -70,11 +70,10 @@ export class VideoTransformerStore extends Model({
     const videoInfo = await getVideoInfo(this.newPath);
 
     const dbRes = await trpc.updateFile.mutate({
-      ext: videoInfo.ext,
+      ...videoInfo,
       hash: this.newHash,
       id: this.curFileId,
       path: this.newPath,
-      videoCodec: videoInfo.videoCodec,
     });
     if (!dbRes.success) throw new Error(dbRes.error);
 
@@ -93,7 +92,7 @@ export class VideoTransformerStore extends Model({
     } else {
       this.setCurFileId(nextFileId);
       this.setFileIds(this.fileIds.slice(1));
-      await this.loadFile()
+      await this.loadFile();
       if (this.isAuto) this.run();
     }
   });

@@ -4,7 +4,7 @@ import { View, ViewProps } from "medior/components";
 import { colors, CSS, makeClasses } from "medior/utils/client";
 
 export interface TooltipProps extends Omit<MuiTooltipProps, "children" | "color"> {
-  arrowColor?: CSS["color"];
+  borderColor?: CSS["color"];
   bgColor?: CSS["backgroundColor"];
   children: JSX.Element | JSX.Element[];
   color?: CSS["color"];
@@ -17,12 +17,12 @@ export interface TooltipProps extends Omit<MuiTooltipProps, "children" | "color"
 
 export const Tooltip = ({
   arrow = true,
-  arrowColor = colors.foreground,
-  bgColor = colors.foreground,
+  bgColor = colors.background,
+  borderColor = colors.custom.blue,
   children,
   color,
   flexShrink = 0,
-  fontSize = "0.85em",
+  fontSize = "0.95em",
   minWidth,
   maxWidth = "25rem",
   placement = "bottom-start",
@@ -31,7 +31,7 @@ export const Tooltip = ({
   ...props
 }: TooltipProps) => {
   const { css } = useClasses({
-    arrowColor,
+    borderColor,
     bgColor,
     color,
     flexShrink,
@@ -44,7 +44,7 @@ export const Tooltip = ({
     <MuiTooltip
       {...props}
       {...{ arrow, placement, title }}
-      classes={{ arrow: css.arrow, tooltip: css.tooltip }}
+      classes={{ arrow: css.arrow, popper: css.popper, tooltip: css.tooltip }}
     >
       <View {...viewProps} className={css.container}>
         {children}
@@ -54,8 +54,8 @@ export const Tooltip = ({
 };
 
 interface ClassesProps {
-  arrowColor: CSS["color"];
   bgColor: CSS["backgroundColor"];
+  borderColor: CSS["color"];
   color: CSS["color"];
   flexShrink: CSS["flexShrink"];
   fontSize: CSS["fontSize"];
@@ -65,7 +65,7 @@ interface ClassesProps {
 
 const useClasses = makeClasses((props: ClassesProps) => ({
   arrow: {
-    color: props.arrowColor,
+    color: props.borderColor,
   },
   container: {
     display: "flex",
@@ -75,13 +75,17 @@ const useClasses = makeClasses((props: ClassesProps) => ({
     userSelect: "auto",
   },
   tooltip: {
-    padding: "0.5rem",
+    border: `2px solid ${props.borderColor}`,
+    padding: "0.4rem 0.8rem",
     maxWidth: props.maxWidth,
     minWidth: props.minWidth,
     backgroundColor: props.bgColor,
     color: props.color,
     fontSize: props.fontSize,
     whiteSpace: "pre-wrap",
-    boxShadow: "rgb(0 0 0 / 97%) 0px 0px 8px 0px",
+    boxShadow: "rgb(0 0 0 / 97%) 0px 0px 2px 0px",
+  },
+  popper: {
+    zIndex: 1000000,
   },
 }));

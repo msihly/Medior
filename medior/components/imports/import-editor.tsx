@@ -72,6 +72,7 @@ class EditorImportsCache {
     if (!this.tagIdCache.has(id)) this.tagIdCache.set(id, this.stores.tag.getById(id));
     return this.tagIdCache.get(id);
   }
+
   getTagIdsByRegEx(label: string) {
     if (!this.regExMapsCache.has(label))
       this.regExMapsCache.set(

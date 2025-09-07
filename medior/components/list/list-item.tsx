@@ -48,7 +48,6 @@ export const ListItem = ({
       tooltip={children}
       tooltipProps={{
         arrow: false,
-        arrowColor: "transparent",
         bgColor: Color(colors.custom.black).fade(0.03).string(),
         classes: { tooltip: css.tooltip },
         placement: "right-start",

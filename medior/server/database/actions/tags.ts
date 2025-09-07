@@ -5,7 +5,7 @@ import mongoose, { FilterQuery, PipelineStage, UpdateQuery } from "mongoose";
 import * as actions from "medior/server/database/actions";
 import * as Types from "medior/server/database/types";
 import { leanModelToJson, makeAction, objectId, objectIds } from "medior/server/database/utils";
-import { bisectArrayChanges, dayjs, handleErrors, splitArray } from "medior/utils/common";
+import { bisectArrayChanges, dayjs, handleErrors, regexEscape, splitArray } from "medior/utils/common";
 import { fileLog, makePerfLog, socket } from "medior/utils/server";
 
 /* -------------------------------------------------------------------------- */
@@ -848,12 +848,15 @@ export const searchTags = makeAction(
           : {}),
         ...(searchTerms.length
           ? {
-              $and: searchTerms.map((term) => ({
-                $or: [
-                  { label: { $regex: term, $options: "i" } },
-                  { aliases: { $elemMatch: { $regex: term, $options: "i" } } },
-                ],
-              })),
+              $and: searchTerms.map((term) => {
+                const regEx = regexEscape(term);
+                return {
+                  $or: [
+                    { label: { $regex: regEx, $options: "i" } },
+                    { aliases: { $elemMatch: { $regex: regEx, $options: "i" } } },
+                  ],
+                };
+              }),
             }
           : {}),
       })
