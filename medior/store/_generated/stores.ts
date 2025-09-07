@@ -275,6 +275,7 @@ export class _FileSearch extends Model({
   isArchived: prop<boolean>(false).withSetter(),
   isCorrupted: prop<boolean>(null).withSetter(),
   isLoading: prop<boolean>(false).withSetter(),
+  isModified: prop<boolean>(null).withSetter(),
   isPageCountLoading: prop<boolean>(false).withSetter(),
   maxHeight: prop<number>(null).withSetter(),
   maxSize: prop<number>(null).withSetter(),
@@ -289,6 +290,12 @@ export class _FileSearch extends Model({
   pageSize: prop<number>(() => getConfig().file.search.pageSize).withSetter(),
   rating: prop<{ logOp: LogicalOp | ""; value: number }>(() => ({ logOp: "", value: 0 })),
   results: prop<Stores.File[]>(() => []).withSetter(),
+  selectedAudioCodecs: prop<Types.SelectedAudioCodecs>(
+    () =>
+      Object.fromEntries(
+        getConfig().file.audioCodecs.map((codec) => [codec, true]),
+      ) as Types.SelectedAudioCodecs,
+  ),
   selectedIds: prop<string[]>(() => []).withSetter(),
   selectedImageExts: prop<Types.SelectedImageExts>(
     () =>
@@ -343,6 +350,7 @@ export class _FileSearch extends Model({
     this.isArchived = false;
     this.isCorrupted = null;
     this.isLoading = false;
+    this.isModified = null;
     this.isPageCountLoading = false;
     this.maxHeight = null;
     this.maxSize = null;
@@ -357,6 +365,9 @@ export class _FileSearch extends Model({
     this.pageSize = getConfig().file.search.pageSize;
     this.rating = { logOp: "", value: 0 };
     this.results = [];
+    this.selectedAudioCodecs = Object.fromEntries(
+      getConfig().file.audioCodecs.map((codec) => [codec, true]),
+    ) as Types.SelectedAudioCodecs;
     this.selectedIds = [];
     this.selectedImageExts = Object.fromEntries(
       getConfig().file.imageExts.map((ext) => [ext, true]),
@@ -443,6 +454,11 @@ export class _FileSearch extends Model({
   @modelAction
   setRatingValue(val: number) {
     this.rating.value = val;
+  }
+
+  @modelAction
+  setSelectedAudioCodecs(types: Partial<Types.SelectedAudioCodecs>) {
+    this.selectedAudioCodecs = { ...this.selectedAudioCodecs, ...types };
   }
 
   @modelAction
@@ -561,6 +577,7 @@ export class _FileSearch extends Model({
       (!isDeepEqual(this.ids, []) ? 1 : 0) +
       (!isDeepEqual(this.isArchived, false) ? 1 : 0) +
       (!isDeepEqual(this.isCorrupted, null) ? 1 : 0) +
+      (!isDeepEqual(this.isModified, null) ? 1 : 0) +
       (!isDeepEqual(this.maxHeight, null) ? 1 : 0) +
       (!isDeepEqual(this.maxSize, null) ? 1 : 0) +
       (!isDeepEqual(this.maxWidth, null) ? 1 : 0) +
@@ -570,6 +587,14 @@ export class _FileSearch extends Model({
       (!isDeepEqual(this.numOfTags, { logOp: "", value: 0 }) ? 1 : 0) +
       (!isDeepEqual(this.originalPath, null) ? 1 : 0) +
       (!isDeepEqual(this.rating, { logOp: "", value: 0 }) ? 1 : 0) +
+      (!isDeepEqual(
+        this.selectedAudioCodecs,
+        Object.fromEntries(
+          getConfig().file.audioCodecs.map((codec) => [codec, true]),
+        ) as Types.SelectedAudioCodecs,
+      )
+        ? 1
+        : 0) +
       (!isDeepEqual(
         this.selectedImageExts,
         Object.fromEntries(
@@ -614,6 +639,7 @@ export class _FileSearch extends Model({
       ids: this.ids,
       isArchived: this.isArchived,
       isCorrupted: this.isCorrupted,
+      isModified: this.isModified,
       maxHeight: this.maxHeight,
       maxSize: this.maxSize,
       maxWidth: this.maxWidth,
@@ -623,6 +649,7 @@ export class _FileSearch extends Model({
       numOfTags: this.numOfTags,
       originalPath: this.originalPath,
       rating: this.rating,
+      selectedAudioCodecs: this.selectedAudioCodecs,
       selectedImageExts: this.selectedImageExts,
       selectedVideoCodecs: this.selectedVideoCodecs,
       selectedVideoExts: this.selectedVideoExts,
@@ -1047,6 +1074,8 @@ export class _FileImportBatchStore extends Model({ isLoading: prop<boolean>(fals
 export class _File extends Model({
   id: prop<string>(),
   dateCreated: prop<string>(() => dayjs().toISOString()),
+  audioBitrate: prop<number>(null),
+  audioCodec: prop<string>(null),
   bitrate: prop<number>(null),
   dateModified: prop<string>(),
   diffusionParams: prop<string>(null),
@@ -1057,6 +1086,8 @@ export class _File extends Model({
   height: prop<number>(),
   isArchived: prop<boolean>(null),
   isCorrupted: prop<boolean>(null),
+  originalAudioBitrate: prop<number>(null),
+  originalAudioCodec: prop<string>(null),
   originalBitrate: prop<number>(null),
   originalHash: prop<string>(null),
   originalName: prop<string>(null),

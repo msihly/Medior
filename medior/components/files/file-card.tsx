@@ -82,7 +82,16 @@ export const FileCard = Comp(({ disabled, file, height, id, width }: FileCardPro
             />
 
             {file.duration && (
-              <FileBase.Chip label={duration(file.duration)} position="bottom-right" hasFooter />
+              <FileBase.Chip
+                label={
+                  <View row spacing="0.3em">
+                    {file.audioCodec === "None" && <Icon name="VolumeOff" size="1em" />}
+                    <Text>{duration(file.duration)}</Text>
+                  </View>
+                }
+                position="bottom-right"
+                hasFooter
+              />
             )}
           </FileBase.Image>
 

@@ -173,6 +173,7 @@ export type CreateFileFilterPipelineInput = {
   ids?: string[];
   isArchived?: boolean;
   isCorrupted?: boolean;
+  isModified?: boolean;
   maxHeight?: number;
   maxSize?: number;
   maxWidth?: number;
@@ -185,6 +186,7 @@ export type CreateFileFilterPipelineInput = {
   rating?: { logOp: LogicalOp | ""; value: number };
   requiredDescTagIds?: string[];
   requiredTagIds?: string[];
+  selectedAudioCodecs?: Types.SelectedAudioCodecs;
   selectedImageExts?: Types.SelectedImageExts;
   selectedVideoCodecs?: Types.SelectedVideoCodecs;
   selectedVideoExts?: Types.SelectedVideoExts;
@@ -217,7 +219,24 @@ export const createFileFilterPipeline = (args: CreateFileFilterPipelineInput) =>
       [{ $eq: [{ $type: "$diffusionParams" }, "string"] }, { $ne: ["$diffusionParams", ""] }],
     );
   if (!isDeepEqual(args.ids, [])) setObj($match, ["_id", "$in"], objectIds(args.ids));
-  if (!isDeepEqual(args.isCorrupted, null)) setObj($match, ["isCorrupted"], args.isCorrupted);
+  if (!isDeepEqual(args.isCorrupted, null))
+    setObj(
+      $match,
+      ["$expr"],
+      args.isCorrupted
+        ? { $eq: ["$isCorrupted", true] }
+        : { $eq: [{ $ifNull: ["$isCorrupted", false] }, false] },
+    );
+  if (!isDeepEqual(args.isModified, null))
+    setObj(
+      $match,
+      ["$expr", "$and"],
+      [
+        { $eq: [{ $type: "$originalHash" }, "string"] },
+        { $ne: ["$originalHash", ""] },
+        { [args.isModified ? "$ne" : "$eq"]: ["$hash", "$originalHash"] },
+      ],
+    );
   if (!isDeepEqual(args.maxHeight, null)) setObj($match, ["height", "$lte"], args.maxHeight);
   if (!isDeepEqual(args.maxSize, null)) setObj($match, ["size", "$lte"], args.maxSize);
   if (!isDeepEqual(args.maxWidth, null)) setObj($match, ["width", "$lte"], args.maxWidth);
@@ -236,6 +255,14 @@ export const createFileFilterPipeline = (args: CreateFileFilterPipelineInput) =>
     setObj($match, ["rating", logicOpsToMongo(args.rating.logOp)], args.rating.value);
 
   if (true) setObj($match, ["isArchived"], args.isArchived);
+  if (true)
+    setObj(
+      $match,
+      ["audioCodec", "$nin"],
+      Object.entries(args.selectedAudioCodecs)
+        .filter(([, val]) => !val)
+        .map(([ext]) => ext),
+    );
   if (true)
     setObj(
       $match,

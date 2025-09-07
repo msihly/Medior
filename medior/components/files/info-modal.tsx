@@ -15,12 +15,10 @@ import {
   View,
 } from "medior/components";
 import { useStores } from "medior/store";
-import { colors, makeClasses } from "medior/utils/client";
+import { colors } from "medior/utils/client";
 import { duration, formatBytes, round } from "medior/utils/common";
 
 export const InfoModal = Comp(() => {
-  const { css } = useClasses(null);
-
   const stores = useStores();
 
   const file = stores.collection.editor.isOpen
@@ -29,11 +27,11 @@ export const InfoModal = Comp(() => {
 
   const handleClose = () => stores.file.setIsInfoModalOpen(false);
 
-  const handleCurrentPath = () => shell.showItemInFolder(file.path);
-
   const handleRefresh = () => stores.file.refreshFiles({ ids: [file.id] });
 
-  const handleThumbPath = () => shell.showItemInFolder(file.thumb.path);
+  const openFileLocation = () => shell.showItemInFolder(file.path);
+
+  const openThumbLocation = () => shell.showItemInFolder(file.thumb.path);
 
   return (
     <Modal.Container width="100%" maxWidth="50rem" onClose={handleClose}>
@@ -59,10 +57,6 @@ export const InfoModal = Comp(() => {
           <View column>
             <Detail label="Extension" value={file?.ext} />
 
-            <Detail label="Video Codec" value={file?.videoCodec} />
-          </View>
-
-          <View column>
             <Detail label="Size" value={formatBytes(file?.size)} tooltip={file?.size} />
 
             <Detail
@@ -86,14 +80,27 @@ export const InfoModal = Comp(() => {
           </View>
 
           <View column>
+            <Detail label="Video Codec" value={file?.videoCodec} />
+
+            <Detail label="Audio Codec" value={file?.audioCodec} />
+          </View>
+
+          <View column>
             <Detail
-              label="Bitrate"
+              label="Video Bitrate"
               value={file?.bitrate ? `${formatBytes(file.bitrate)}/s` : null}
+            />
+
+            <Detail
+              label="Audio Bitrate"
+              value={file?.audioBitrate ? `${formatBytes(file.audioBitrate)}/s` : null}
             />
           </View>
         </UniformList>
 
-        <Detail label="Original File Name" value={file?.originalName} withTooltip />
+        <View row spacing="0.5rem">
+          <Detail label="Original File Name" value={file?.originalName} withTooltip />
+        </View>
 
         <Detail
           label="Original Folder"
@@ -103,35 +110,23 @@ export const InfoModal = Comp(() => {
 
         <Detail
           label="File Path"
-          value={
-            file?.path ? (
-              <Button
-                type="link"
-                text={file.path}
-                onClick={handleCurrentPath}
-                className={css.link}
-              />
-            ) : null
-          }
-        />
-
-        <Detail
-          label="Thumb Path"
-          value={
-            file?.thumb?.path ? (
-              <Button
-                type="link"
-                text={file.thumb.path}
-                onClick={handleThumbPath}
-                className={css.link}
-              />
-            ) : null
+          value={file?.path}
+          tooltip={
+            <View column spacing="0.5rem">
+              {file?.path ? <Button text="Open File in Folder" onClick={openFileLocation} /> : null}
+              {file?.thumb?.path ? (
+                <Button text="Open Thumb in Folder" onClick={openThumbLocation} />
+              ) : null}
+            </View>
           }
         />
 
         <UniformList row>
-          <Detail label="Hash" value={file?.hash} />
-          <Detail label="Original Hash" value={file?.originalHash} />
+          <Detail
+            label="Hash"
+            value={file?.hash}
+            tooltip={<Detail label="Original Hash" value={file?.originalHash} />}
+          />
         </UniformList>
 
         <UniformList row>
@@ -165,15 +160,4 @@ export const InfoModal = Comp(() => {
       </Modal.Footer>
     </Modal.Container>
   );
-});
-
-const useClasses = makeClasses({
-  link: {
-    alignSelf: "flex-start",
-    fontSize: "1em",
-    lineHeight: "1.5em",
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  },
 });

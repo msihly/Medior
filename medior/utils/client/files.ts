@@ -95,6 +95,10 @@ export const genFileInfo = async (args: {
   const stats = await fs.stat(args?.filePath);
   const imageInfo = !isAnimated ? await sharp(args.filePath).metadata() : null;
   const videoInfo = isAnimated ? await getVideoInfo(args.filePath) : null;
+
+  const audioBitrate = isAnimated ? videoInfo.audioBitrate : null;
+  const audioCodec = isAnimated ? videoInfo.audioCodec : null;
+  const bitrate = isAnimated ? videoInfo.bitrate : null;
   const dateModified =
     !args.file || dayjs(stats.mtime).isAfter(args.file?.dateModified)
       ? stats.mtime.toISOString()
@@ -123,6 +127,9 @@ export const genFileInfo = async (args: {
   }
 
   const fileInfo: Partial<ImportFileInput> = {
+    audioBitrate,
+    audioCodec,
+    bitrate,
     dateModified,
     duration,
     ext,

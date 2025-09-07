@@ -1,5 +1,68 @@
 import { ConnectOptions } from "mongoose";
 
+export const AUDIO_CODECS_COMMON = [
+  "None",
+  "aac_he",
+  "aac_ld",
+  "aac",
+  "ac3",
+  "aiff",
+  "alac",
+  "avc",
+  "dts",
+  "flac",
+  "mp2",
+  "mp3",
+  "mp4als",
+  "opus",
+  "pcm_alaw",
+  "pcm_bluray",
+  "pcm_dvd",
+  "pcm_s16be",
+  "pcm_s16le",
+  "pcm_s24le",
+  "pcm_s32le",
+  "pcm_u8",
+  "pcm",
+  "tta",
+  "vorbis",
+  "wav",
+  "wmapro",
+  "wmav1",
+  "wmav2",
+] as const;
+
+export const AUDIO_CODECS_UNCOMMON = [
+  "aac_latm",
+  "alac",
+  "ape",
+  "aptx_hd",
+  "aptx",
+  "avs",
+  "binkaudio_dct",
+  "binkaudio_rdft",
+  "cavs",
+  "cook",
+  "hcom",
+  "iac",
+  "mace3",
+  "mace6",
+  "paf_audio",
+  "ra_144",
+  "ra_288",
+  "ralf",
+  "sipr",
+  "tak",
+  "westwood_snd1",
+  "wmalossless",
+  "wmavoice",
+  "xma1",
+  "xma2",
+] as const;
+
+export const AUDIO_CODECS = [...AUDIO_CODECS_COMMON, ...AUDIO_CODECS_UNCOMMON] as const;
+export type AudioCodec = (typeof AUDIO_CODECS)[number];
+
 export const IMAGE_EXTS_COMMON = ["gif", "heic", "jpeg", "jpg", "png", "webp"] as const;
 
 export const IMAGE_EXTS_UNCOMMON = [

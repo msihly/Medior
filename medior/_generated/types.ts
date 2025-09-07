@@ -153,6 +153,9 @@ export type RegenFileTagAncestorsOutput = ReturnType<typeof db.regenFileTagAnces
 export type DeleteFilesInput = Parameters<typeof db.deleteFiles>[0];
 export type DeleteFilesOutput = ReturnType<typeof db.deleteFiles>;
 
+export type DeleteFilesExternalInput = Parameters<typeof db.deleteFilesExternal>[0];
+export type DeleteFilesExternalOutput = ReturnType<typeof db.deleteFilesExternal>;
+
 export type DetectFacesInput = Parameters<typeof db.detectFaces>[0];
 export type DetectFacesOutput = ReturnType<typeof db.detectFaces>;
 

@@ -1,7 +1,8 @@
-import { app } from "electron";
+import { app, shell } from "electron";
 import fs from "fs/promises";
 import path from "path";
 import checkDiskSpace from "check-disk-space";
+import md5File from "md5-file";
 import * as models from "medior/_generated/models";
 import { AnyBulkWriteOperation } from "mongodb";
 import mongoose from "mongoose";
@@ -126,6 +127,23 @@ export const deleteFiles = makeAction(async (args: { fileIds: string[] }) => {
   ]);
 
   socket.emit("onFilesDeleted", { fileHashes, fileIds: args.fileIds });
+});
+
+export const deleteFilesExternal = makeAction(async (args: { filePaths: string[] }) => {
+  const fileHashes: string[] = [];
+  for (const filePath of args.filePaths) fileHashes.push(await md5File(filePath));
+
+  await models.DeletedFileModel.bulkWrite(
+    fileHashes.map((hash) => ({
+      updateOne: {
+        filter: { hash },
+        update: { $setOnInsert: { hash } },
+        upsert: true,
+      },
+    })),
+  );
+
+  for (const filePath of args.filePaths) await shell.trashItem(filePath);
 });
 
 export const detectFaces = makeAction(async ({ imagePath }: { imagePath: string }) => {
@@ -338,6 +356,10 @@ export const listVideosWithMissingInfo = makeAction(async () => {
   const files = await models.FileModel.find({
     ext: { $in: CONSTANTS.VIDEO_EXTS },
     $or: [
+      { audioBitrate: { $exists: false } },
+      { audioBitrate: "" },
+      { audioCodec: { $exists: false } },
+      { audioCodec: "" },
       { bitrate: { $exists: false } },
       { bitrate: "" },
       { videoCodec: { $exists: false } },

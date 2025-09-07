@@ -3,6 +3,8 @@ import fs from "fs/promises";
 import path from "path";
 import { FolderToCollMode, FolderToTagsMode, SortMenuProps } from "medior/components";
 import {
+  AUDIO_CODECS_COMMON,
+  AudioCodec,
   deepMerge,
   handleErrors,
   IMAGE_EXTS_COMMON,
@@ -47,6 +49,7 @@ export interface Config {
     };
   };
   file: {
+    audioCodecs: Array<AudioCodec | string>;
     fileCardFit: "contain" | "cover";
     hideUnratedIcon: boolean;
     imageExts: Array<ImageExt | string>;
@@ -131,6 +134,7 @@ export const DEFAULT_CONFIG: Config = {
     },
   },
   file: {
+    audioCodecs: [...AUDIO_CODECS_COMMON],
     fileCardFit: "contain",
     imageExts: [...IMAGE_EXTS_COMMON],
     hideUnratedIcon: false,

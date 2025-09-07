@@ -12,7 +12,8 @@ import {
 } from "medior/components";
 import { ExtColumn } from "medior/components/files/filter-menu/ext-column";
 import { FileSearch, SORT_OPTIONS } from "medior/store";
-import { colors } from "medior/utils/client";
+import { colors, getConfig } from "medior/utils/client";
+import { AudioCodec, ImageExt, VideoCodec, VideoExt } from "medior/utils/common";
 
 export interface FileFilterMenuProps {
   color?: string;
@@ -20,6 +21,8 @@ export interface FileFilterMenuProps {
 }
 
 export const FileFilterMenu = Comp(({ color = colors.foreground, store }: FileFilterMenuProps) => {
+  const config = getConfig();
+
   const toggleArchiveOpen = () => store.setIsArchived(!store.isArchived);
 
   const toggleHasDiffParams = () => store.setHasDiffParams(!store.hasDiffParams);
@@ -106,16 +109,40 @@ export const FileFilterMenu = Comp(({ color = colors.foreground, store }: FileFi
         </Card>
 
         <View row spacing="0.5rem">
-          <Card overflow="auto">
-            <ExtColumn {...{ store }} type="ImageExt" />
+          <Card width="9rem" overflow="auto">
+            <ExtColumn
+              label="Audio"
+              configTypes={config.file.audioCodecs as AudioCodec[]}
+              selected={store.selectedAudioCodecs}
+              setSelected={store.setSelectedAudioCodecs}
+            />
           </Card>
 
-          <Card overflow="auto">
-            <ExtColumn {...{ store }} type="VideoExt" />
+          <Card width="9rem" overflow="auto">
+            <ExtColumn
+              label="Images"
+              configTypes={config.file.imageExts as ImageExt[]}
+              selected={store.selectedImageExts}
+              setSelected={store.setSelectedImageExts}
+            />
           </Card>
 
-          <Card overflow="auto">
-            <ExtColumn {...{ store }} type="VideoCodec" />
+          <Card width="9rem" overflow="auto">
+            <ExtColumn
+              label="Videos"
+              configTypes={config.file.videoExts as VideoExt[]}
+              selected={store.selectedVideoExts}
+              setSelected={store.setSelectedVideoExts}
+            />
+          </Card>
+
+          <Card width="9rem" overflow="auto">
+            <ExtColumn
+              label="V-Codecs"
+              configTypes={config.file.videoCodecs as VideoCodec[]}
+              selected={store.selectedVideoCodecs}
+              setSelected={store.setSelectedVideoCodecs}
+            />
           </Card>
         </View>
       </View>

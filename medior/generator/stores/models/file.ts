@@ -73,6 +73,27 @@ model.addProp("originalPath", "string", "null", {
 });
 
 model.addProp(
+  "selectedAudioCodecs",
+  "Types.SelectedAudioCodecs",
+  "() => Object.fromEntries(getConfig().file.audioCodecs.map((codec) => [codec, true])) as Types.SelectedAudioCodecs",
+  {
+    customActionProps: [
+      model.makeCustomActionProp("selectedAudioCodecs", "Types.SelectedAudioCodecs", {
+        condition: "true",
+        objPath: ["audioCodec", "$nin"],
+        objValue:
+          "Object.entries(args.selectedAudioCodecs).filter(([, val]) => !val).map(([ext]) => ext)",
+      }),
+    ],
+    setter: model.makeSetterProp(
+      "selectedAudioCodecs",
+      ["types: Partial<Types.SelectedAudioCodecs>"],
+      "this.selectedAudioCodecs = { ...this.selectedAudioCodecs, ...types };",
+    ),
+  },
+);
+
+model.addProp(
   "selectedImageExts",
   "Types.SelectedImageExts",
   "() => Object.fromEntries(getConfig().file.imageExts.map((ext) => [ext, true])) as Types.SelectedImageExts",

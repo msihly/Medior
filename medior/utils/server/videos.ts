@@ -5,7 +5,7 @@ import md5File from "md5-file";
 import { PassThrough } from "stream";
 import { getAvailableFileStorage, getConfig, sharp } from "medior/utils/client";
 import { CONSTANTS, fractionStringToNumber, round, sleep } from "medior/utils/common";
-import { checkFileExists, fileLog, makePerfLog } from "medior/utils/server";
+import { checkFileExists, makePerfLog } from "medior/utils/server";
 
 export type FfmpegOptions = {
   onProgress?: (progress: FfmpegProgress) => void;
@@ -22,6 +22,8 @@ export type FfmpegProgress = {
 };
 
 export interface VideoInfo {
+  audioBitrate: number;
+  audioCodec: string;
   bitrate: number;
   duration: number;
   ext: string;
@@ -306,21 +308,25 @@ const execFfmpeg = async (
   return { hash: newHash, path: newPath };
 };
 
-export const getVideoInfo = async (path: string) => {
+export const getVideoInfo = async (path: string): Promise<VideoInfo> => {
   return (await new Promise(async (resolve, reject) => {
     try {
-      return ffmpeg.ffprobe(path, (err, info) => {
+      ffmpeg.ffprobe(path, (err, info) => {
         if (err) return reject(err);
 
         const videoStream = info.streams.find((s) => s.codec_type === "video");
         if (!videoStream) return reject(new Error("No video stream found."));
 
+        const audioStream = info.streams.find((s) => s.codec_type === "audio");
+
         const { bit_rate, codec_name, height, r_frame_rate, width } = videoStream;
         const { duration, size } = info.format;
 
         return resolve({
+          audioBitrate: audioStream ? parseInt(audioStream.bit_rate, 10) || null : null,
+          audioCodec: audioStream ? audioStream.codec_name : "None",
           bitrate: parseInt(bit_rate, 10) || null,
-          duration: typeof duration === "number" ? duration : null,
+          duration: typeof duration === "number" ? duration : parseFloat(duration) || null,
           ext: extname(path).replace(".", ""),
           frameRate: fractionStringToNumber(r_frame_rate),
           height,
@@ -329,8 +335,7 @@ export const getVideoInfo = async (path: string) => {
           width,
         });
       });
-    } catch (err) {
-      fileLog(err.message, { type: "error" });
+    } catch (err: any) {
       reject(err.message);
     }
   })) as VideoInfo;

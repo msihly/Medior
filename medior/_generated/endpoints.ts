@@ -53,6 +53,7 @@ export const serverRouter = trpc.router({
   deleteCollections: serverEndpoint(db.deleteCollections),
   deleteEmptyCollections: serverEndpoint(db.deleteEmptyCollections),
   deleteFiles: serverEndpoint(db.deleteFiles),
+  deleteFilesExternal: serverEndpoint(db.deleteFilesExternal),
   deleteImportBatches: serverEndpoint(db.deleteImportBatches),
   deleteTag: serverEndpoint(db.deleteTag),
   deriveAncestorTagIds: serverEndpoint(db.deriveAncestorTagIds),

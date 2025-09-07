@@ -150,6 +150,8 @@ export interface FaceModel {
 export interface FileSchema {
   id: string;
   dateCreated: string;
+  audioBitrate?: number;
+  audioCodec?: string;
   bitrate?: number;
   dateModified: string;
   diffusionParams?: string;
@@ -161,6 +163,8 @@ export interface FileSchema {
   height: number;
   isArchived?: boolean;
   isCorrupted?: boolean;
+  originalAudioBitrate?: number;
+  originalAudioCodec?: string;
   originalBitrate?: number;
   originalHash?: string;
   originalName?: string;
@@ -180,6 +184,8 @@ export interface FileSchema {
 const FileSchema = new Schema<FileSchema>({
   id: String,
   dateCreated: String,
+  audioBitrate: Number,
+  audioCodec: String,
   bitrate: Number,
   dateModified: String,
   diffusionParams: String,
@@ -198,6 +204,8 @@ const FileSchema = new Schema<FileSchema>({
   height: Number,
   isArchived: Boolean,
   isCorrupted: Boolean,
+  originalAudioBitrate: Number,
+  originalAudioCodec: String,
   originalBitrate: Number,
   originalHash: String,
   originalName: String,
@@ -215,6 +223,7 @@ const FileSchema = new Schema<FileSchema>({
 });
 
 FileSchema.index({ dateCreated: 1, _id: 1 }, { unique: true });
+FileSchema.index({ audioCodec: 1, _id: 1 }, { unique: true });
 FileSchema.index({ bitrate: 1, _id: 1 }, { unique: true });
 FileSchema.index({ dateModified: 1, _id: 1 }, { unique: true });
 FileSchema.index({ duration: 1, _id: 1 }, { unique: true });
@@ -231,6 +240,7 @@ FileSchema.index({ rating: 1, _id: 1 }, { unique: true });
 FileSchema.index({ size: 1, _id: 1 }, { unique: true });
 FileSchema.index({ tagIds: 1, _id: 1 }, { unique: true });
 FileSchema.index({ tagIdsWithAncestors: 1, _id: 1 }, { unique: true });
+FileSchema.index({ videoCodec: 1, _id: 1 }, { unique: true });
 FileSchema.index({ width: 1, _id: 1 }, { unique: true });
 
 export const FileModel = model<FileSchema>("File", FileSchema);

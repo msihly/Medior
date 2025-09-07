@@ -173,6 +173,7 @@ export const VideoControls = Comp(() => {
         <CustomSlider
           value={stores.carousel.volume}
           onChange={handleVolumeChange}
+          disabled={activeFile.audioCodec === "None"}
           min={0}
           max={1}
           step={0.01}
@@ -222,6 +223,7 @@ export const VideoControls = Comp(() => {
 
 const CustomSlider = (props: {
   children: JSX.Element;
+  disabled?: boolean;
   max: number;
   min: number;
   onChange: (event: any, value: number) => void;
@@ -255,6 +257,7 @@ const CustomSlider = (props: {
           onChange={props?.onChange}
           onMouseDown={handleMouseDown}
           onMouseUp={handleMouseUp}
+          disabled={props?.disabled}
           min={props?.min}
           max={props?.max}
           step={props?.step}
