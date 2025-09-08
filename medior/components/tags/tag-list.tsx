@@ -8,7 +8,7 @@ import {
   TagInputRowProps,
   ViewProps,
 } from "medior/components";
-import { TagOption, useStores } from "medior/store";
+import { TagOption, tagToOption, useStores } from "medior/store";
 import { socket } from "medior/utils/server";
 
 export interface TagListProps extends MultiInputListProps<TagOption> {
@@ -22,7 +22,15 @@ export interface TagListProps extends MultiInputListProps<TagOption> {
 }
 
 export const TagList = Comp(
-  ({ hasDelete, hasEditor, hasInput, hasSearchMenu, onTagClick, rightNode, search }: TagListProps) => {
+  ({
+    hasDelete,
+    hasEditor,
+    hasInput,
+    hasSearchMenu,
+    onTagClick,
+    rightNode,
+    search,
+  }: TagListProps) => {
     const stores = useStores();
 
     const ref = useRef<FixedSizeList>();
@@ -35,16 +43,11 @@ export const TagList = Comp(
         rerender();
       };
 
-      const onTagMerged = (args: { oldTagId: string; newTagId: string }) => {
-        const newValue = stores.tag
-          .listByIds([
-            ...new Set(
-              search.value
-                .map((t) => t.id)
-                .map((id) => (id === args.oldTagId ? args.newTagId : id)),
-            ),
-          ])
-          .map((tag) => tag.tagOption);
+      const onTagMerged = async (args: { oldTagId: string; newTagId: string }) => {
+        const ids = [
+          ...new Set(search.value.map((t) => (t.id === args.oldTagId ? args.newTagId : t.id))),
+        ];
+        const newValue = (await stores.tag.listByIds({ ids })).data.items.map(tagToOption);
         search.onChange(newValue);
         rerender();
       };

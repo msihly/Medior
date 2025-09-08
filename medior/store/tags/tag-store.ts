@@ -147,16 +147,17 @@ export class TagStore extends Model({
     const tagQueue = new PromiseChain();
     const errors: string[] = [];
     const tagIds: string[] = [];
-    const tagsToInsert: ModelCreationData<Tag>[] = [];
+    const tagsToInsert: Map<string, ModelCreationData<Tag>> = new Map();
 
     tagsToUpsert.forEach((t) =>
       tagQueue.add(async () => {
         try {
-          const parentTags = t.parentLabels
-            ? t.parentLabels
-                .map((l) => this.getByLabel(l) || tagsToInsert.find((tag) => tag.label === l))
-                .filter(Boolean)
-            : null;
+          const parentTagsMap = (await trpc.listByLabels.mutate({ labels: t.parentLabels })).data;
+          const parentTags: ModelCreationData<Tag>[] = [];
+          for (const label of t.parentLabels) {
+            if (parentTagsMap.has(label)) parentTags.push(parentTagsMap.get(label));
+            else if (tagsToInsert.has(label)) parentTags.push(tagsToInsert.get(label));
+          }
           const parentIds = parentTags?.map((t) => t.id) ?? [];
 
           if (t.id) {
@@ -183,7 +184,7 @@ export class TagStore extends Model({
             if (!res.success) throw new Error(res.error);
 
             tagIds.push(res.data.id);
-            tagsToInsert.push(res.data);
+            tagsToInsert.set(res.data.label, res.data);
           }
         } catch (err) {
           errors.push(`Tag: ${JSON.stringify(t, null, 2)}\nError: ${err.message}`);
@@ -192,7 +193,7 @@ export class TagStore extends Model({
     );
 
     await tagQueue.queue;
-    if (tagsToInsert.length) tagsToInsert.forEach((t) => this._addTag(t));
+    if (tagsToInsert.size) tagsToInsert.forEach((t) => this._addTag(t));
     if (errors.length) throw new Error(errors.join("\n"));
 
     const regenRes = await trpc.regenTags.mutate({ tagIds, withSub: true });
@@ -208,17 +209,6 @@ export class TagStore extends Model({
 
   getByLabel(label: string) {
     return this.tags.find((t) => t.label.toLowerCase() === label.toLowerCase());
-  }
-
-  getParentTags(tag: Tag, withAncestors = false): Tag[] {
-    return this.listByIds(
-      (withAncestors ? tag.ancestorIds : tag.parentIds).filter((id) => id !== tag.id),
-    ).sort((a, b) => b.count - a.count);
-  }
-
-  listByIds(ids: string[]) {
-    const idsSet = new Set(ids.map(String));
-    return this.tags.filter((t) => idsSet.has(t.id));
   }
 
   tagsToRegEx(tags: { aliases?: string[]; label: string }[]) {

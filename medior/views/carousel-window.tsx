@@ -74,9 +74,9 @@ export const CarouselWindow = Comp(() => {
           await stores.file.search.loadFiltered();
           stores.carousel.setActiveFileId(fileId);
 
-          perfLog("Active file loaded. Loading carousel files and tags...");
+          perfLog("Active file loaded. Loading carousel files...");
           stores.file.search.setIds([fileId, ...selectedFileIds]);
-          await Promise.all([stores.file.search.loadFiltered(), stores.tag.loadTags()]);
+          await stores.file.search.loadFiltered();
           stores.carousel.setSelectedFileIds(selectedFileIds);
 
           perfLogTotal("Data loaded into MobX.");
