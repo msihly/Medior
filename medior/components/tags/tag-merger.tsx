@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Color from "color";
 import {
   Button,
@@ -16,7 +16,7 @@ import {
   View,
 } from "medior/components";
 import { TagOption, tagToOption, useStores } from "medior/store";
-import { colors, makeClasses, toast, useDeepEffect } from "medior/utils/client";
+import { colors, makeClasses, toast } from "medior/utils/client";
 import { trpc } from "medior/utils/server";
 
 export const TagMerger = Comp(() => {
@@ -73,9 +73,9 @@ export const TagMerger = Comp(() => {
     setParentTags(await mergeRelatedTags(parentIds, tagIdsToExclude));
   };
 
-  useDeepEffect(() => {
+  useEffect(() => {
     updateInputs();
-  }, [selectedTagValue, tagLabelToKeep, updateInputs]);
+  }, [hasSelectedTag, tagLabelToKeep]);
 
   const handleClose = async () => {
     setIsConfirmDiscardOpen(false);
@@ -246,6 +246,10 @@ export const TagMerger = Comp(() => {
 const useClasses = makeClasses({
   disabledOverlay: {
     position: "absolute",
+    top: 0,
+    bottom: 0,
+    left: 0,
+    right: 0,
     borderRadius: "inherit",
     width: "100%",
     height: "100%",

@@ -15,7 +15,7 @@ import {
   View,
 } from "medior/components";
 import { useStores } from "medior/store";
-import { colors, deleteFile, toast } from "medior/utils/client";
+import { colors, toast } from "medior/utils/client";
 import { dayjs, formatBytes, round } from "medior/utils/common";
 
 export const VideoTransformerModal = Comp(() => {
@@ -34,8 +34,8 @@ export const VideoTransformerModal = Comp(() => {
   const handleClose = async () => {
     if (store.isRunning) store.aborter.abort("Cancelled");
     else if (store.newPath) {
-      toast.error("Deleting transformed video...");
-      await deleteFile(store.newPath);
+      toast.error("Trashing transformed video...");
+      await shell.trashItem(store.newPath);
     }
     store.setIsOpen(false);
   };
