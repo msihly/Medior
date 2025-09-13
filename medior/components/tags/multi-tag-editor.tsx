@@ -50,7 +50,6 @@ export const MultiTagEditor = Comp(() => {
       setHasUnsavedChanges(false);
       stores.tag.manager.setIsMultiTagEditorOpen(false);
       stores.tag.manager.search.loadFiltered();
-      stores.tag.loadTags();
     }
   };
 

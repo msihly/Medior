@@ -1,6 +1,7 @@
 import autoBind from "auto-bind";
 import { reaction } from "mobx";
-import { Model, model, modelAction, modelFlow, prop } from "mobx-keystone";
+import { getRootStore, Model, model, modelAction, modelFlow, prop } from "mobx-keystone";
+import { RootStore } from "medior/store";
 import { Tag } from "medior/store/tags/tag";
 import { asyncAction } from "medior/store/utils";
 import { trpc } from "medior/utils/server";
@@ -24,9 +25,10 @@ export class TagEditorStore extends Model({
     reaction(
       () => this.label,
       async () => {
+        const stores = getRootStore<RootStore>(this);
         if (!this.label?.length || !this.tag?.label?.length) this.setIsDuplicate(false);
         if (this.label.toLowerCase() === this.tag.label.toLowerCase()) this.setIsDuplicate(false);
-        if ((await this.getByLabel(this.label)).data) this.setIsDuplicate(true);
+        if ((await stores.tag.getByLabel(this.label)).data) this.setIsDuplicate(true);
       },
     );
   }
@@ -45,20 +47,6 @@ export class TagEditorStore extends Model({
   }
 
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */
-  @modelFlow
-  getByLabel = asyncAction(async (label: string) => {
-    const res = await trpc.listByLabels.mutate({ labels: [label] });
-    if (!res.success) throw new Error(res.error);
-    return res.data?.get?.(label);
-  });
-
-  @modelFlow
-  listByLabels = asyncAction(async (labels: string[]) => {
-    const res = await trpc.listByLabels.mutate({ labels });
-    if (!res.success) throw new Error(res.error);
-    return res.data;
-  });
-
   @modelFlow
   loadTag = asyncAction(async (id: string) => {
     this.setIsLoading(true);

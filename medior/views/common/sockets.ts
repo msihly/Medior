@@ -87,16 +87,12 @@ export const useSockets = ({ view }: UseSocketsProps) => {
       } else queueFileReload();
     });
 
-    makeSocket("onReloadTags", () => stores.tag.loadTags());
-
-    makeSocket("onTagCreated", (tag) => {
-      stores.tag._addTag(tag);
+    makeSocket("onTagCreated", () => {
       if (view !== "carousel" && stores.tag.manager.isOpen)
         stores.tag.manager.search.loadFiltered();
     });
 
     makeSocket("onTagDeleted", ({ ids }) => {
-      ids.forEach((id) => stores.tag._deleteTag(id));
       if (view === "home") stores.import.manager.editBatchTags({ removedIds: ids });
       if (view !== "carousel") {
         queueFileReload();

@@ -255,8 +255,14 @@ export type EditMultiTagRelationsOutput = ReturnType<typeof db.editMultiTagRelat
 export type GetTagWithRelationsInput = Parameters<typeof db.getTagWithRelations>[0];
 export type GetTagWithRelationsOutput = ReturnType<typeof db.getTagWithRelations>;
 
-export type ListByLabelsInput = Parameters<typeof db.listByLabels>[0];
-export type ListByLabelsOutput = ReturnType<typeof db.listByLabels>;
+export type ListRegExMapsInput = Parameters<typeof db.listRegExMaps>[0];
+export type ListRegExMapsOutput = ReturnType<typeof db.listRegExMaps>;
+
+export type ListTagAncestorLabelsInput = Parameters<typeof db.listTagAncestorLabels>[0];
+export type ListTagAncestorLabelsOutput = ReturnType<typeof db.listTagAncestorLabels>;
+
+export type ListTagsByLabelsInput = Parameters<typeof db.listTagsByLabels>[0];
+export type ListTagsByLabelsOutput = ReturnType<typeof db.listTagsByLabels>;
 
 export type MergeTagsInput = Parameters<typeof db.mergeTags>[0];
 export type MergeTagsOutput = ReturnType<typeof db.mergeTags>;

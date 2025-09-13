@@ -1,13 +1,5 @@
 import autoBind from "auto-bind";
-import {
-  getRootStore,
-  Model,
-  model,
-  modelAction,
-  ModelCreationData,
-  modelFlow,
-  prop,
-} from "mobx-keystone";
+import { getRootStore, Model, model, ModelCreationData, modelFlow, prop } from "mobx-keystone";
 import * as db from "medior/server/database";
 import { TagToUpsert } from "medior/components";
 import { asyncAction, RootStore } from "medior/store";
@@ -22,33 +14,9 @@ export class TagStore extends Model({
   manager: prop<TagManagerStore>(() => new TagManagerStore({})),
   merger: prop<TagMergerStore>(() => new TagMergerStore({})),
   subEditor: prop<TagEditorStore>(() => new TagEditorStore({})),
-  tags: prop<Tag[]>(() => []),
 }) {
   onInit() {
     autoBind(this);
-  }
-
-  /* ---------------------------- STANDARD ACTIONS ---------------------------- */
-  @modelAction
-  _addTag(tag: ModelCreationData<Tag>) {
-    if (!this.getById(tag.id)) this.tags.push(new Tag(tag));
-  }
-
-  @modelAction
-  _deleteTag(id: string) {
-    this.tags = this.tags.reduce((acc, cur) => {
-      if (cur.id !== id) {
-        if (cur.parentIds.includes(id)) cur.parentIds.splice(cur.parentIds.indexOf(id));
-        if (cur.childIds.includes(id)) cur.childIds.splice(cur.childIds.indexOf(id));
-        acc.push(cur);
-      }
-      return acc;
-    }, [] as Tag[]);
-  }
-
-  @modelAction
-  overwrite(tags: ModelCreationData<Tag>[]) {
-    this.tags = tags.map((t) => new Tag(t));
   }
 
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */
@@ -76,21 +44,7 @@ export class TagStore extends Model({
         withSub,
       });
       if (!res.success) throw new Error(res.error);
-
-      const tag: ModelCreationData<Tag> = {
-        aliases,
-        childIds,
-        count: 0,
-        dateCreated: res.data.dateCreated,
-        dateModified: res.data.dateModified,
-        id: res.data.id,
-        label,
-        parentIds,
-        regEx,
-        thumb: null,
-      };
-
-      return tag;
+      return res.data;
     },
   );
 
@@ -117,10 +71,38 @@ export class TagStore extends Model({
   );
 
   @modelFlow
-  loadTags = asyncAction(async () => {
-    const res = await trpc.listTag.mutate({ args: { filter: {} } });
+  getByLabel = asyncAction(async (label: string) => {
+    const res = await trpc.listTagsByLabels.mutate({ labels: [label] });
     if (!res.success) throw new Error(res.error);
-    this.overwrite(res.data.items);
+    return res.data?.get?.(label);
+  });
+
+  @modelFlow
+  listByIds = asyncAction(async ({ ids }: { ids: string[] }) => {
+    const res = await trpc.listTag.mutate({ args: { filter: { id: ids } } });
+    if (!res.success) throw new Error(res.error);
+    return res.data;
+  });
+
+  @modelFlow
+  listByLabels = asyncAction(async (labels: string[]) => {
+    const res = await trpc.listTagsByLabels.mutate({ labels });
+    if (!res.success) throw new Error(res.error);
+    return res.data;
+  });
+
+  @modelFlow
+  listRegExMaps = asyncAction(async () => {
+    const res = await trpc.listRegExMaps.mutate();
+    if (!res.success) throw new Error(res.error);
+    return res.data.map((t) => ({ regEx: new RegExp(t.regEx, "im"), tagId: t.id }));
+  });
+
+  @modelFlow
+  listTagAncestorLabels = asyncAction(async ({ id }: { id: string }) => {
+    const res = await trpc.listTagAncestorLabels.mutate({ id });
+    if (!res.success) throw new Error(res.error);
+    return res.data;
   });
 
   @modelFlow
@@ -152,16 +134,19 @@ export class TagStore extends Model({
     tagsToUpsert.forEach((t) =>
       tagQueue.add(async () => {
         try {
-          const parentTagsMap = (await trpc.listByLabels.mutate({ labels: t.parentLabels })).data;
+          const parentTagsMap = (await trpc.listTagsByLabels.mutate({ labels: t.parentLabels }))
+            .data;
           const parentTags: ModelCreationData<Tag>[] = [];
-          for (const label of t.parentLabels) {
-            if (parentTagsMap.has(label)) parentTags.push(parentTagsMap.get(label));
-            else if (tagsToInsert.has(label)) parentTags.push(tagsToInsert.get(label));
+          if (t.parentLabels?.length) {
+            for (const label of t.parentLabels) {
+              if (parentTagsMap.has(label)) parentTags.push(parentTagsMap.get(label));
+              else if (tagsToInsert.has(label)) parentTags.push(tagsToInsert.get(label));
+            }
           }
           const parentIds = parentTags?.map((t) => t.id) ?? [];
 
           if (t.id) {
-            const tag = this.getById(t.id);
+            const tag = (await this.listByIds({ ids: [t.id] })).data?.items?.[0];
             if (!parentIds.length || tag.parentIds.some((id) => parentIds.includes(id))) return;
 
             const res = await this.editTag({
@@ -193,7 +178,6 @@ export class TagStore extends Model({
     );
 
     await tagQueue.queue;
-    if (tagsToInsert.size) tagsToInsert.forEach((t) => this._addTag(t));
     if (errors.length) throw new Error(errors.join("\n"));
 
     const regenRes = await trpc.regenTags.mutate({ tagIds, withSub: true });
@@ -203,14 +187,6 @@ export class TagStore extends Model({
   });
 
   /* ----------------------------- DYNAMIC GETTERS ---------------------------- */
-  getById(id: string) {
-    return this.tags.find((t) => t.id === id);
-  }
-
-  getByLabel(label: string) {
-    return this.tags.find((t) => t.label.toLowerCase() === label.toLowerCase());
-  }
-
   tagsToRegEx(tags: { aliases?: string[]; label: string }[]) {
     return `(${tags
       .flatMap((tag) => [tag.label, ...tag.aliases])

@@ -5,7 +5,13 @@ import mongoose, { FilterQuery, PipelineStage, UpdateQuery } from "mongoose";
 import * as actions from "medior/server/database/actions";
 import * as Types from "medior/server/database/types";
 import { leanModelToJson, makeAction, objectId, objectIds } from "medior/server/database/utils";
-import { bisectArrayChanges, dayjs, handleErrors, regexEscape, splitArray } from "medior/utils/common";
+import {
+  bisectArrayChanges,
+  dayjs,
+  handleErrors,
+  regexEscape,
+  splitArray,
+} from "medior/utils/common";
 import { fileLog, makePerfLog, socket } from "medior/utils/server";
 
 /* -------------------------------------------------------------------------- */
@@ -703,7 +709,26 @@ export const getTagWithRelations = makeAction(async ({ id }: { id: string }) => 
   return { childTags, parentTags, tag };
 });
 
-export const listByLabels = makeAction(async ({ labels }: { labels: string[] }) => {
+export const listRegExMaps = makeAction(async () => {
+  const tags = await models.TagModel.find({
+    $and: [{ regEx: { $exists: true } }, { regEx: { $ne: null } }, { regEx: { $ne: "" } }],
+  }).select({ _id: 1, regEx: 1 });
+
+  return tags.map((t) => ({ id: t._id.toString(), regEx: t.regEx }));
+});
+
+export const listTagAncestorLabels = makeAction(async ({ id }: { id: string }) => {
+  const tag = await models.TagModel.findById(id).select({ ancestorIds: 1 });
+  if (!tag) return [];
+
+  return (
+    await models.TagModel.find({ _id: { $in: tag.ancestorIds } })
+      .select({ label: 1, count: 1 })
+      .sort({ count: -1 })
+  ).map((a) => a.label);
+});
+
+export const listTagsByLabels = makeAction(async ({ labels }: { labels: string[] }) => {
   const tags = (await models.TagModel.find({ label: { $in: labels } }).lean()).map((t) =>
     leanModelToJson<models.TagSchema>(t),
   );

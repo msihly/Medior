@@ -27,7 +27,7 @@ export const Label = Comp(
       const stores = useStores();
 
       const handleEditExisting = async (val: string) => {
-        const tag = (await stores.tag.editor.getByLabel(val)).data;
+        const tag = (await stores.tag.getByLabel(val)).data;
         if (tag?.id) stores.tag.editor.loadTag(tag.id);
         else toast.error("Failed to load existing tag");
       };

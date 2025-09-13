@@ -22,7 +22,6 @@ export const SearchWindow = Comp(() => {
         stores.file.search.setTags(tags.map(tagToOption));
 
         await stores.file.search.loadFiltered({ page: 1 });
-        await stores.tag.loadTags();
       } catch (err) {
         console.error(err);
       }

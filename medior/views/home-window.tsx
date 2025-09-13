@@ -16,7 +16,6 @@ export const HomeWindow = Comp(() => {
       try {
         document.title = "Medior —— Home";
         await stores.file.search.loadFiltered({ page: 1 });
-        stores.tag.loadTags();
         stores.import.manager.loadImportBatches();
       } catch (err) {
         console.error(err);

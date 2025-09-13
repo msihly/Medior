@@ -1,7 +1,7 @@
 import autoBind from "auto-bind";
-import { getRootStore, Model, model, modelAction, modelFlow, prop } from "mobx-keystone";
+import { Model, model, modelAction, modelFlow, prop } from "mobx-keystone";
 import { TagSchema } from "medior/server/database";
-import { asyncAction, RootStore, TagSearch } from "medior/store";
+import { asyncAction, TagSearch } from "medior/store";
 import { makeQueue } from "medior/utils/client";
 import { PromiseQueue } from "medior/utils/common";
 import { trpc } from "medior/utils/server";
@@ -66,7 +66,6 @@ export class TagManagerStore extends Model({
 
   @modelFlow
   refreshSelectedTags = asyncAction(async () => {
-    const stores = getRootStore<RootStore>(this);
     makeQueue({
       action: async (tagId) => {
         const res = await trpc.refreshTag.mutate({ tagId });
@@ -75,7 +74,7 @@ export class TagManagerStore extends Model({
       items: this.search.selectedIds,
       logPrefix: "Refreshed",
       logSuffix: "tags",
-      onComplete: () => Promise.all([stores.tag.loadTags(), this.search.loadFiltered()]),
+      onComplete: () => this.search.loadFiltered(),
       queue: this.refreshQueue,
     });
   });
