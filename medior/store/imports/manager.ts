@@ -143,7 +143,7 @@ export class ImportManager extends Model({
         }
       };
 
-      const imageQueue = new PromiseQueue({ concurrency: 4 });
+      const imageQueue = new PromiseQueue({ concurrency: 1 });
       const videoQueue = new PromiseQueue({ concurrency: 1 });
 
       for (const file of batch.imports) {

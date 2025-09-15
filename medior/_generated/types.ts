@@ -123,6 +123,9 @@ export type RegenCollTagAncestorsOutput = ReturnType<typeof db.regenCollTagAnces
 export type UpdateCollectionInput = Parameters<typeof db.updateCollection>[0];
 export type UpdateCollectionOutput = ReturnType<typeof db.updateCollection>;
 
+export type CheckFileImportHashesInput = Parameters<typeof db.checkFileImportHashes>[0];
+export type CheckFileImportHashesOutput = ReturnType<typeof db.checkFileImportHashes>;
+
 export type CompleteImportBatchInput = Parameters<typeof db.completeImportBatch>[0];
 export type CompleteImportBatchOutput = ReturnType<typeof db.completeImportBatch>;
 

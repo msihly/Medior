@@ -8,6 +8,19 @@ import { FileImport, ImportBatchInput } from "medior/store";
 import { dayjs } from "medior/utils/common";
 import { socket } from "medior/utils/server";
 
+export const checkFileImportHashes = makeAction(async (args: { hash: string }) => {
+  const [deletedFileRes, fileRes] = await Promise.all([
+    actions.getDeletedFile({ hash: args.hash }),
+    actions.getFileByHash({ hash: args.hash }),
+  ]);
+  if (!fileRes.success) throw new Error(fileRes.error);
+  return {
+    file: fileRes.data,
+    isDuplicate: !!fileRes.data,
+    isPrevDeleted: !!deletedFileRes.data,
+  };
+});
+
 export const completeImportBatch = makeAction(
   async (args: { collectionId?: string; fileIds: string[]; id: string; tagIds: string[] }) => {
     const completedAt = dayjs().toISOString();

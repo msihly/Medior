@@ -722,17 +722,18 @@ export const listTagAncestorLabels = makeAction(async ({ id }: { id: string }) =
   if (!tag) return [];
 
   return (
-    await models.TagModel.find({ _id: { $in: tag.ancestorIds } })
+    await models.TagModel.find({
+      _id: { $in: objectIds(tag.ancestorIds.map((a) => a.toString()).filter((a) => a !== id)) },
+    })
       .select({ label: 1, count: 1 })
       .sort({ count: -1 })
   ).map((a) => a.label);
 });
 
 export const listTagsByLabels = makeAction(async ({ labels }: { labels: string[] }) => {
-  const tags = (await models.TagModel.find({ label: { $in: labels } }).lean()).map((t) =>
+  return (await models.TagModel.find({ label: { $in: labels } }).lean()).map((t) =>
     leanModelToJson<models.TagSchema>(t),
   );
-  return new Map(tags.map((t) => [t.id, t]));
 });
 
 export const mergeTags = makeAction(

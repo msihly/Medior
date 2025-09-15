@@ -66,17 +66,12 @@ export class FileImporter {
   }
 
   private checkHash = async () => {
-    const [deletedFileRes, fileRes] = await Promise.all([
-      trpc.getDeletedFile.mutate({ hash: this.hash }),
-      trpc.getFileByHash.mutate({ hash: this.hash }),
-    ]);
-    if (!fileRes.success) throw new Error(fileRes.error);
-    this.file = fileRes.data;
-    this.isDuplicate = !!this.file;
-    this.isPrevDeleted = !!deletedFileRes.data;
-    this.perfLog(
-      JSON.stringify({ isDuplicate: this.isDuplicate, isPrevDeleted: this.isPrevDeleted }),
-    );
+    const res = await trpc.checkFileImportHashes.mutate({ hash: this.hash });
+    if (!res.success) throw new Error(res.error);
+    this.file = res.data.file;
+    this.isDuplicate = res.data.isDuplicate;
+    this.isPrevDeleted = res.data.isPrevDeleted;
+    this.perfLog(`isDuplicate: ${this.isDuplicate}, isPrevDeleted: ${this.isPrevDeleted}`);
   };
 
   private copyFile = async () => {

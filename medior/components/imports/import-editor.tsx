@@ -60,14 +60,18 @@ class EditorImportsCache {
   }
 
   async getTagByLabel(label: string) {
-    if (!this.tagLabelCache.has(label))
-      this.tagLabelCache.set(label, (await this.stores.tag.getByLabel(label)).data);
+    if (!this.tagLabelCache.has(label)) {
+      const tag = (await this.stores.tag.getByLabel(label)).data;
+      this.tagLabelCache.set(label, tag);
+    }
     return this.tagLabelCache.get(label);
   }
 
   async getTagById(id: string) {
-    if (!this.tagIdCache.has(id))
-      this.tagIdCache.set(id, (await this.stores.tag.listByIds({ ids: [id] })).data.items?.[0]);
+    if (!this.tagIdCache.has(id)) {
+      const tag = (await this.stores.tag.listByIds({ ids: [id] })).data.items?.[0];
+      this.tagIdCache.set(id, tag);
+    }
     return this.tagIdCache.get(id);
   }
 
@@ -427,18 +431,22 @@ export const ImportEditor = Comp(() => {
       const tagsFromCache = await Promise.all(
         tags.map((t) => cache.current.getTagByLabel(t.label)),
       );
-      return [...new Set([...tagIds, ...tagsFromCache.map((t) => t.id)])].filter(Boolean);
+      return [...new Set([...tagIds, ...tagsFromCache.map((t) => t?.id)])].filter(Boolean);
     };
 
     const importBatches: CreateImportBatchesInput = [];
     for (const folder of flatFolderHierarchy.values()) {
       const imports: CreateImportBatchesInput[number]["imports"] = [];
       for (const imp of folder.imports) {
-        imports.push({
-          ...imp,
-          tagIds: await getIdsFromTags(imp.tagsToUpsert, imp.tagIds),
-        });
+        const tagIds = await getIdsFromTags(imp.tagsToUpsert, imp.tagIds);
+        if (tagIds.length !== (imp.tagsToUpsert?.length ?? 0) + (imp.tagIds?.length ?? 0))
+          throw new Error("Failed to get tagIds from file tags");
+        else imports.push({ ...imp, tagIds });
       }
+
+      const tagIds = await getIdsFromTags(folder.tags);
+      if (tagIds.length !== folder.tags?.length)
+        throw new Error("Failed to get tagIds from folder tags");
 
       importBatches.push({
         collectionTitle: folder.collectionTitle,

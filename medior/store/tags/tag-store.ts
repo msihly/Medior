@@ -74,7 +74,7 @@ export class TagStore extends Model({
   getByLabel = asyncAction(async (label: string) => {
     const res = await trpc.listTagsByLabels.mutate({ labels: [label] });
     if (!res.success) throw new Error(res.error);
-    return res.data?.get?.(label);
+    return res.data?.[0];
   });
 
   @modelFlow
@@ -134,8 +134,13 @@ export class TagStore extends Model({
     tagsToUpsert.forEach((t) =>
       tagQueue.add(async () => {
         try {
-          const parentTagsMap = (await trpc.listTagsByLabels.mutate({ labels: t.parentLabels }))
-            .data;
+          const parentTagsMap = new Map(
+            (await trpc.listTagsByLabels.mutate({ labels: t.parentLabels })).data.map((t) => [
+              t.label,
+              t,
+            ]),
+          );
+
           const parentTags: ModelCreationData<Tag>[] = [];
           if (t.parentLabels?.length) {
             for (const label of t.parentLabels) {
@@ -143,6 +148,7 @@ export class TagStore extends Model({
               else if (tagsToInsert.has(label)) parentTags.push(tagsToInsert.get(label));
             }
           }
+
           const parentIds = parentTags?.map((t) => t.id) ?? [];
 
           if (t.id) {
