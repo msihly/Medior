@@ -2,23 +2,30 @@ import fs from "fs/promises";
 import path from "path";
 import autoBind from "auto-bind";
 import { computed } from "mobx";
-import { Model, model, modelAction, modelFlow, prop } from "mobx-keystone";
+import { Model, model, modelAction, modelFlow, objectToMapTransform, prop } from "mobx-keystone";
+import { FlatFolder, TagToUpsert } from "medior/components";
 import { asyncAction } from "medior/store";
 import { extendFileName } from "medior/utils/client";
-import { FileImport } from ".";
+import { FileImport, ImportEditorOptions } from ".";
 
 @model("medior/ImportEditor")
 export class ImportEditor extends Model({
   filePaths: prop<string[]>(() => []).withSetter(),
-  flattenTo: prop<number>(null).withSetter(),
+  flatFolderHierarchy: prop<Record<string, FlatFolder>>(() => ({}))
+    .withTransform(objectToMapTransform<FlatFolder>())
+    .withSetter(),
+  flatTagsToUpsert: prop<TagToUpsert[]>(() => []).withSetter(),
+  hasChangesSinceLastScan: prop<boolean>(false).withSetter(),
   imports: prop<FileImport[]>(() => []).withSetter(),
+  isConfirmDiscardOpen: prop<boolean>(false).withSetter(),
   isInitDone: prop<boolean>(false).withSetter(),
   isLoading: prop<boolean>(true).withSetter(),
-  isSaving: prop<boolean>(false).withSetter(),
   isOpen: prop<boolean>(false).withSetter(),
+  isSaving: prop<boolean>(false).withSetter(),
+  options: prop<ImportEditorOptions>(() => new ImportEditorOptions({})),
   rootFolderIndex: prop<number>(0).withSetter(),
   rootFolderPath: prop<string>("").withSetter(),
-  withFlattenTo: prop<boolean>(false).withSetter(),
+  tagHierarchy: prop<TagToUpsert[]>(() => []).withSetter(),
 }) {
   onInit() {
     autoBind(this);
@@ -32,6 +39,22 @@ export class ImportEditor extends Model({
       if (tagIds && imp.tagIds?.length) imp.tagIds = null;
       if (tagsToUpsert && imp.tagsToUpsert?.length) imp.tagsToUpsert = null;
     });
+  }
+
+  @modelAction
+  reset() {
+    this.filePaths = [];
+    this.flatFolderHierarchy = new Map();
+    this.flatTagsToUpsert = [];
+    this.hasChangesSinceLastScan = false;
+    this.imports = [];
+    this.isConfirmDiscardOpen = false;
+    this.isLoading = false;
+    this.isSaving = false;
+    this.options = new ImportEditorOptions({});
+    this.rootFolderIndex = 0;
+    this.rootFolderPath = "";
+    this.tagHierarchy = [];
   }
 
   /* ---------------------------- ASYNC ACTIONS ---------------------------- */

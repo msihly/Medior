@@ -3,6 +3,7 @@ import { FixedSizeList } from "react-window";
 import Color from "color";
 import { Card, Chip, Comp, Text, View } from "medior/components";
 import { colors, makeClasses } from "medior/utils/client";
+import { formatBytes } from "medior/utils/common";
 import { FlatFolder, IMPORT_LIST_ITEM_HEIGHT, ImportListItem, TagHierarchy } from ".";
 
 const COLL_HEIGHT = 64;
@@ -28,8 +29,10 @@ export interface ImportFolderListProps {
 }
 
 export const ImportFolderList = Comp(({ folder }: ImportFolderListProps) => {
-  const height = getImportFolderHeight(folder);
   const { css } = useClasses(null);
+
+  const height = getImportFolderHeight(folder);
+  const totalBytes = folder.imports.reduce((acc, cur) => acc + cur.size, 0);
 
   return (
     <Card
@@ -45,7 +48,10 @@ export const ImportFolderList = Comp(({ folder }: ImportFolderListProps) => {
           {folder.imports[0]?.path && path.dirname(folder.imports[0].path)}
         </Text>
 
-        <Chip label={`${folder.imports.length} files`} className={css.chip} />
+        <View row spacing="0.3rem" margins={{ left: "0.5rem" }}>
+          <Chip label={formatBytes(totalBytes)} className={css.chip} />
+          <Chip label={`${folder.imports.length} files`} className={css.chip} />
+        </View>
       </View>
 
       {folder?.collectionTitle?.length > 0 && (
@@ -94,7 +100,6 @@ const useClasses = makeClasses({
     height: "auto",
     width: "auto",
     minWidth: "4em",
-    marginLeft: "0.5rem",
   },
   collection: {
     justifyContent: "center",

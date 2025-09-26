@@ -1,4 +1,5 @@
 export * from "./editor";
+export * from "./editor-options";
 export * from "./file-import";
 export * from "./import-batch";
 export * from "./import-queue";

@@ -7,6 +7,7 @@ export * from "./import-folder";
 export * from "./import-folders-list";
 export * from "./import-list-item";
 export * from "./import-manager";
+export * from "./import-options";
 export * from "./regex-map-row";
 export * from "./root-folder-button";
 export * from "./statuses";
