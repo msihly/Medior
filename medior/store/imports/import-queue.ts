@@ -328,7 +328,7 @@ class EditorImportsCache {
   async getTagByLabel(label: string) {
     if (!this.tagLabelCache.has(label)) {
       const tag = (await this.stores.tag.getByLabel(label)).data;
-      this.tagLabelCache.set(label, tag);
+      if (tag) this.tagLabelCache.set(label, tag);
     }
     return this.tagLabelCache.get(label);
   }
@@ -336,7 +336,7 @@ class EditorImportsCache {
   async getTagById(id: string) {
     if (!this.tagIdCache.has(id)) {
       const tag = (await this.stores.tag.listByIds({ ids: [id] })).data.items?.[0];
-      this.tagIdCache.set(id, tag);
+      if (tag) this.tagIdCache.set(id, tag);
     }
     return this.tagIdCache.get(id);
   }
@@ -386,7 +386,8 @@ export const handleIngest = async ({
     stores.import.editor.setImports([]);
     perfLog("Init");
 
-    const folders = await Promise.all(folderPaths.map(dirToFileImports));
+    const folders: { filePaths: string[]; imports: FileImport[] }[] = [];
+    for (const folderPath of folderPaths) folders.push(await dirToFileImports(folderPath));
     const importsFromFilePaths = await filePathsToImports(filePaths);
 
     const editorFilePaths = [...filePaths, ...folders.flatMap((f) => f.filePaths)];
@@ -675,6 +676,11 @@ export const useImporter = () => {
     return { diffMetaTagsToEdit, editorImports, fileTagsToUpsert: tagsToUpsert };
   };
 
+  const getIdsFromTags = async (tags: TagToUpsert[], tagIds: string[] = []) => {
+    const tagsFromCache = await Promise.all(tags.map((t) => cache.current.getTagByLabel(t.label)));
+    return [...new Set([...tagIds, ...tagsFromCache.map((t) => t?.id)])].filter(Boolean);
+  };
+
   const parseDiffTags = async ({
     diffusionParams,
     originalTagId,
@@ -794,37 +800,52 @@ export const useImporter = () => {
   /*                                   EXPORTS                                  */
   /* -------------------------------------------------------------------------- */
   const confirm = async () => {
+    const { perfLog, perfLogTotal } = makePerfLog("[ImportEditor.confirm]");
+    if (DEBUG)
+      perfLog("/* ------------------------------- Confirm ------------------------------ */");
+
     store.setIsSaving(true);
 
     if (store.flatTagsToUpsert.length > 0) {
+      if (DEBUG)
+        perfLog(
+          `Creating tags: ${JSON.stringify(
+            store.flatTagsToUpsert.filter((t) => !t.id),
+            null,
+            2,
+          )}`,
+        );
+
       const res = await stores.tag.upsertTags(store.flatTagsToUpsert);
       if (!res.success) {
         console.error(res.error);
         toast.error("Failed to create tags");
         return store.setIsSaving(false);
       }
-    }
 
-    const getIdsFromTags = async (tags: TagToUpsert[], tagIds: string[] = []) => {
-      const tagsFromCache = await Promise.all(
-        tags.map((t) => cache.current.getTagByLabel(t.label)),
-      );
-      return [...new Set([...tagIds, ...tagsFromCache.map((t) => t?.id)])].filter(Boolean);
-    };
+      if (DEBUG) perfLog("Created tags");
+    }
 
     const importBatches: CreateImportBatchesInput = [];
     for (const folder of store.flatFolderHierarchy.values()) {
       const imports: CreateImportBatchesInput[number]["imports"] = [];
       for (const imp of folder.imports) {
         const tagIds = await getIdsFromTags(imp.tagsToUpsert, imp.tagIds);
-        if (tagIds.length !== (imp.tagsToUpsert?.length ?? 0) + (imp.tagIds?.length ?? 0))
+        if (tagIds.length !== (imp.tagsToUpsert?.length ?? 0) + (imp.tagIds?.length ?? 0)) {
+          console.debug({
+            tagIds,
+            fileTagsToUpsert: JSON.stringify(imp.tagsToUpsert, null, 2),
+            fileTagIds: JSON.stringify(imp.tagIds, null, 2),
+          });
           throw new Error("Failed to get tagIds from file tags");
-        else imports.push({ ...imp, tagIds });
+        } else imports.push({ ...imp, tagIds });
       }
 
       const tagIds = await getIdsFromTags(folder.tags);
-      if (tagIds.length !== folder.tags?.length)
+      if (tagIds.length !== folder.tags?.length) {
+        console.debug({ tagIds, folderTags: JSON.stringify(folder.tags, null, 2) });
         throw new Error("Failed to get tagIds from folder tags");
+      }
 
       importBatches.push({
         collectionTitle: folder.collectionTitle,
@@ -844,6 +865,7 @@ export const useImporter = () => {
     if (!res.success) throw new Error(res.error);
 
     store.setIsSaving(false);
+    if (DEBUG) perfLogTotal("Import batches created");
     toast.success(`Queued ${store.flatFolderHierarchy.size} import batches`);
     store.setIsOpen(false);
     stores.import.manager.setIsOpen(true);
@@ -928,5 +950,5 @@ export const useImporter = () => {
     }, 50);
   };
 
-  return { confirm, scan }
+  return { confirm, scan };
 };
