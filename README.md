@@ -40,7 +40,7 @@
 <hr />
 
 <div align="center">
-  <h3>Screenshots</h3>
+  <h3>Screenshots (v.2.7.0)</h3>
 </div>
 
 ![File Search with File Tooltip](./_readme/File%20Search%20-%20File%20Tooltip.png)
@@ -80,3 +80,7 @@
 ![Tag Editor with Multiple Lists](./_readme/Tag%20Editor%20-%20Multi-List.png)
 
 ![Tag Manager with Filter Menu](./_readme/Tag%20Manager%20-%20Filter%20Menu.png)
+
+<div align="center">
+  <i>Contact medior.app@proton.me for inquiries and bug reports</i>
+</div>
