@@ -141,6 +141,9 @@ export type EmitImportStatsUpdatedOutput = ReturnType<typeof db.emitImportStatsU
 export type ListImportBatchesInput = Parameters<typeof db.listImportBatches>[0];
 export type ListImportBatchesOutput = ReturnType<typeof db.listImportBatches>;
 
+export type ReingestFolderInput = Parameters<typeof db.reingestFolder>[0];
+export type ReingestFolderOutput = ReturnType<typeof db.reingestFolder>;
+
 export type StartImportBatchInput = Parameters<typeof db.startImportBatch>[0];
 export type StartImportBatchOutput = ReturnType<typeof db.startImportBatch>;
 

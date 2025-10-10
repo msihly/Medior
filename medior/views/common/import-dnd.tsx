@@ -22,7 +22,7 @@ export const ImportDnD = Comp(({ children }) => {
 
   const handleFileDrop = (event: React.DragEvent) => {
     stores.home.setIsDraggingIn(false);
-    handleIngest({ fileList: event.dataTransfer.files, stores });
+    handleIngest({ fileList: event.dataTransfer.files, store: stores.import.ingester });
   };
 
   return (

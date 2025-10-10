@@ -1,29 +1,21 @@
 import { useEffect, useRef } from "react";
 import AutoSizer from "react-virtualized-auto-sizer";
 import { VariableSizeList } from "react-window";
-import {
-  Card,
-  Comp,
-  FlatFolderHierarchy,
-  getImportFolderHeight,
-  ImportFolderList,
-  View,
-} from "medior/components";
-import { useStores } from "medior/store";
+import { Card, Comp, View } from "medior/components";
+import { Ingester, Reingester } from "medior/store";
+import { getImportFolderHeight, ImportFolderList } from "./import-folder";
 
 export interface ImportFoldersListProps {
-  flatFolderHierarchy: FlatFolderHierarchy;
+  store: Ingester | Reingester;
 }
 
-export const ImportFoldersList = Comp(({ flatFolderHierarchy }: ImportFoldersListProps) => {
-  const stores = useStores();
-
+export const ImportFoldersList = Comp(({ store }: ImportFoldersListProps) => {
   const listRef = useRef<VariableSizeList>();
   useEffect(() => {
-    if (!stores.import.editor.isLoading) listRef.current?.resetAfterIndex(0);
-  }, [stores.import.editor.isLoading]);
+    if (!store.isLoading) listRef.current?.resetAfterIndex(0);
+  }, [store.isLoading]);
 
-  const getByIndex = (index: number) => [...flatFolderHierarchy.values()][index];
+  const getByIndex = (index: number) => [...store.flatFolderHierarchy.values()][index];
 
   const getItemSize = (index: number) => {
     const folder = getByIndex(index);
@@ -39,7 +31,7 @@ export const ImportFoldersList = Comp(({ flatFolderHierarchy }: ImportFoldersLis
             ref={listRef}
             height={height}
             width="100%"
-            itemCount={flatFolderHierarchy.size}
+            itemCount={store.flatFolderHierarchy.size}
             itemSize={getItemSize}
           >
             {({ index, style }) => (

@@ -18,7 +18,7 @@ import { FileImport } from "medior/store";
 import { colors, makeClasses, toast } from "medior/utils/client";
 import { formatBytes, parseDiffParams } from "medior/utils/common";
 import { trpc } from "medior/utils/server";
-import { TagHierarchy } from ".";
+import { TagHierarchy } from "./tag-hierarchy";
 
 export const IMPORT_LIST_ITEM_HEIGHT = 30;
 

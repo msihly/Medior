@@ -96,6 +96,7 @@ export const serverRouter = trpc.router({
   regenTagAncestors: serverEndpoint(db.regenTagAncestors),
   regenTagThumbPaths: serverEndpoint(db.regenTagThumbPaths),
   regenTags: serverEndpoint(db.regenTags),
+  reingestFolder: serverEndpoint(db.reingestFolder),
   relinkFiles: serverEndpoint(db.relinkFiles),
   repairFilesWithBrokenExt: serverEndpoint(db.repairFilesWithBrokenExt),
   repairFilesWithMissingInfo: serverEndpoint(db.repairFilesWithMissingInfo),

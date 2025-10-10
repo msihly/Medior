@@ -128,7 +128,7 @@ export const StorageInputs = Comp(() => {
           ignorePrevDeleted: false,
           imports: await filePathsToImports(filesLeftInStorageOnly),
           remux: false,
-          rootFolderPath: stores.import.editor.rootFolder,
+          rootFolderPath: stores.import.ingester.rootFolder,
         },
       ]);
       if (!res.success) throw new Error(res.error);

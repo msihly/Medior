@@ -186,8 +186,8 @@ export const VIDEO_EXTS_UNCOMMON = [
 export const VIDEO_EXTS = [...VIDEO_EXTS_COMMON, ...VIDEO_EXTS_UNCOMMON];
 export type VideoExt = (typeof VIDEO_EXTS)[number];
 
-export const WEB_VIDEO_CODECS = ["h264", "vp8", "vp9", "theora", "av1"];
-export const WEB_VIDEO_EXTS = ["mp4", "webm", "ogv"];
+export const WEB_VIDEO_CODECS = ["h264", "hevc", "vp8", "vp9", "theora", "av1"];
+export const WEB_VIDEO_EXTS = ["mp4", "webm", "ogv", "wav"];
 
 export interface Constants {
   CAROUSEL: {

@@ -2,7 +2,7 @@ import autoBind from "auto-bind";
 import { Model, model, modelAction, ModelCreationData, modelFlow, prop } from "mobx-keystone";
 import { asyncAction } from "medior/store";
 import { trpc } from "medior/utils/server";
-import { FileImport, FileImportBatch, ImportEditor, ImportManager } from ".";
+import { FileImport, FileImportBatch, ImportManager, Ingester, Reingester } from ".";
 
 export type ImportBatchInput = Omit<ModelCreationData<FileImportBatch>, "imports"> & {
   imports?: ModelCreationData<FileImport>[];
@@ -11,8 +11,9 @@ export type ImportBatchInput = Omit<ModelCreationData<FileImportBatch>, "imports
 @model("medior/ImportStore")
 export class ImportStore extends Model({
   deletedFileHashes: prop<string[]>(() => []).withSetter(),
-  editor: prop<ImportEditor>(() => new ImportEditor({})),
+  ingester: prop<Ingester>(() => new Ingester({})),
   manager: prop<ImportManager>(() => new ImportManager({})),
+  reingester: prop<Reingester>(() => new Reingester({})),
 }) {
   onInit() {
     autoBind(this);

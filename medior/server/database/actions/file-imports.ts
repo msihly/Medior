@@ -5,8 +5,8 @@ import * as Types from "medior/server/database/types";
 import { makeAction } from "medior/server/database/utils";
 import { ImportStatus } from "medior/components";
 import { FileImport, ImportBatchInput } from "medior/store";
-import { dayjs } from "medior/utils/common";
-import { socket } from "medior/utils/server";
+import { dayjs, jstr } from "medior/utils/common";
+import { objectId, socket } from "medior/utils/server";
 
 export const checkFileImportHashes = makeAction(async (args: { hash: string }) => {
   const [deletedFileRes, fileRes] = await Promise.all([
@@ -88,6 +88,46 @@ export const listImportBatches = makeAction(async () =>
         __v: undefined,
       }) as ImportBatchInput,
   ),
+);
+
+export const reingestFolder = makeAction(
+  async (args: {
+    collectionTitle?: string;
+    fileTagIds: { fileId: string; tagIds: string[] }[];
+  }) => {
+    if (!args.fileTagIds.length) throw new Error("No fileTagIds passed");
+    const dateModified = dayjs().toISOString();
+
+    const bulkRes = await models.FileModel.bulkWrite(
+      args.fileTagIds.map((f) => ({
+        updateMany: {
+          filter: { _id: objectId(f.fileId) },
+          update: { $addToSet: { tagIds: { $each: f.tagIds } }, dateModified },
+        },
+      })),
+    );
+    if (!bulkRes.matchedCount || bulkRes.matchedCount !== bulkRes.modifiedCount)
+      throw new Error(`Failed to update file tagIds: ${jstr({ args, bulkRes })}`);
+
+    const tagIds = [...new Set(args.fileTagIds.flatMap((f) => f.tagIds))];
+    if (tagIds.length) {
+      const fileIds = args.fileTagIds.flatMap((f) => f.fileId);
+      await actions.regenFileTagAncestors({ fileIds });
+      await actions.recalculateTagCounts({ tagIds });
+      await Promise.all(tagIds.map((tagId) => actions.regenTagThumbPaths({ tagId })));
+    }
+
+    if (args.collectionTitle) {
+      const collRes = await actions.createCollection({
+        fileIdIndexes: args.fileTagIds.map((f, i) => ({ fileId: f.fileId, index: i })),
+        title: args.collectionTitle,
+        withSub: false,
+      });
+      if (!collRes.success) throw new Error(collRes.error);
+    }
+
+    socket.emit("onReloadFiles");
+  },
 );
 
 export const startImportBatch = makeAction(async (args: { id: string }) => {

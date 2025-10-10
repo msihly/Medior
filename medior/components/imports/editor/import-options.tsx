@@ -1,18 +1,18 @@
 import { Divider } from "@mui/material";
 import { Button, Checkbox, CheckboxProps, Comp, NumInput, View } from "medior/components";
-import { useStores } from "medior/store";
+import { Ingester, Reingester } from "medior/store";
 import { colors } from "medior/utils/client";
 
 export interface ImportOptionsProps {
   scan: () => Promise<void>;
+  store: Ingester | Reingester;
 }
 
-export const ImportOptions = Comp(({ scan }: ImportOptionsProps) => {
-  const stores = useStores();
-  const options = stores.import.editor.options;
+export const ImportOptions = Comp(({ scan, store }: ImportOptionsProps) => {
+  const options = store.options;
 
   const checkboxProps: Partial<CheckboxProps> = {
-    disabled: stores.import.editor.isDisabled,
+    disabled: store.isDisabled,
     flex: "initial",
     padding: { all: "0.5rem" },
   };
@@ -23,10 +23,8 @@ export const ImportOptions = Comp(({ scan }: ImportOptionsProps) => {
         text="Scan"
         icon="Cached"
         onClick={scan}
-        disabled={stores.import.editor.isDisabled}
-        color={
-          stores.import.editor.hasChangesSinceLastScan ? colors.custom.purple : colors.custom.blue
-        }
+        disabled={store.isDisabled}
+        color={store.hasChangesSinceLastScan ? colors.custom.purple : colors.custom.blue}
       />
 
       <Checkbox

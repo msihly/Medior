@@ -1,7 +1,6 @@
-import { Comp, Icon, Text, View } from "medior/components";
+import { Comp, Icon, TagToUpsert, Text, View } from "medior/components";
 import { useStores } from "medior/store";
 import { colors, makeClasses } from "medior/utils/client";
-import { TagToUpsert } from ".";
 
 export interface TagHierarchyProps {
   className?: string;

@@ -8,8 +8,8 @@ import { asyncAction } from "medior/store";
 import { extendFileName } from "medior/utils/client";
 import { FileImport, ImportEditorOptions } from ".";
 
-@model("medior/ImportEditor")
-export class ImportEditor extends Model({
+@model("medior/Ingester")
+export class Ingester extends Model({
   filePaths: prop<string[]>(() => []).withSetter(),
   flatFolderHierarchy: prop<Record<string, FlatFolder>>(() => ({}))
     .withTransform(objectToMapTransform<FlatFolder>())

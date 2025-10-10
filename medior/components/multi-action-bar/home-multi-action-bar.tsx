@@ -1,6 +1,6 @@
 import { AppBar } from "@mui/material";
 import { Chip, Comp, FileFilter, View } from "medior/components";
-import { useStores } from "medior/store";
+import { handleReingest, useStores } from "medior/store";
 import { colors, makeClasses, toast } from "medior/utils/client";
 import { CONSTANTS } from "medior/utils/common";
 import { MultiActionButton, SelectedFilesInfo } from ".";
@@ -47,8 +47,8 @@ export const HomeMultiActionBar = Comp(() => {
 
   const handleUnarchive = () => stores.file.unarchiveFiles({ fileIds: selectedIds });
 
-  const toggleFileCardFit = () =>
-    stores.home.setFileCardFit(stores.home.fileCardFit === "cover" ? "contain" : "cover");
+  const reingest = async () =>
+    await handleReingest({ fileIds: selectedIds, store: stores.import.reingester });
 
   return (
     <AppBar position="static" className={css.appBar}>
@@ -107,6 +107,13 @@ export const HomeMultiActionBar = Comp(() => {
           />
 
           <MultiActionButton
+            name="GetApp"
+            tooltip="Reingest"
+            onClick={reingest}
+            disabled={hasNoSelection}
+          />
+
+          <MultiActionButton
             name="Face"
             tooltip="Auto Detect Faces"
             onClick={handleAutoDetect}
@@ -138,16 +145,6 @@ export const HomeMultiActionBar = Comp(() => {
             name="SelectAll"
             tooltip="Select All Files in View"
             onClick={handleSelectAll}
-          />
-
-          <MultiActionButton
-            name={stores.home.fileCardFit === "cover" ? "Fullscreen" : "FullscreenExit"}
-            tooltip={
-              stores.home.fileCardFit === "cover"
-                ? "Thumbnail Fit (Cover)"
-                : "Thumbnail Fit (Contain)"
-            }
-            onClick={toggleFileCardFit}
           />
         </View>
       </View>

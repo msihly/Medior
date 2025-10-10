@@ -1,4 +1,4 @@
-import { Comp, ImportEditor, ImportManager } from "medior/components";
+import { Comp, ImportManager, Ingester, Reingester } from "medior/components";
 import { useStores } from "medior/store";
 
 export const ImportModals = Comp(() => {
@@ -8,7 +8,9 @@ export const ImportModals = Comp(() => {
     <>
       <ImportManager />
 
-      {stores.import.editor.isOpen && <ImportEditor />}
+      {stores.import.ingester.isOpen && <Ingester />}
+
+      {stores.import.reingester.isOpen && <Reingester />}
     </>
   );
 });

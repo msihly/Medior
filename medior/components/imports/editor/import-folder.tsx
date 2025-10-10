@@ -1,10 +1,11 @@
 import path from "path";
 import { FixedSizeList } from "react-window";
 import Color from "color";
-import { Card, Chip, Comp, Text, View } from "medior/components";
+import { Card, Chip, Comp, FlatFolder, Text, View } from "medior/components";
 import { colors, makeClasses } from "medior/utils/client";
 import { formatBytes } from "medior/utils/common";
-import { FlatFolder, IMPORT_LIST_ITEM_HEIGHT, ImportListItem, TagHierarchy } from ".";
+import { IMPORT_LIST_ITEM_HEIGHT, ImportListItem } from "./import-list-item";
+import { TagHierarchy } from "./tag-hierarchy";
 
 const COLL_HEIGHT = 64;
 const HEADER_HEIGHT = 43;

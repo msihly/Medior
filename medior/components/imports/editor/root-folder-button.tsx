@@ -1,20 +1,19 @@
 import { Fragment } from "react";
 import Color from "color";
 import { Button, Comp, Text } from "medior/components";
-import { useStores } from "medior/store";
+import { Ingester, Reingester } from "medior/store";
 import { colors } from "medior/utils/client";
 
 export interface RootFolderButtonProps {
   folderPart: string;
   index: number;
+  store: Ingester | Reingester;
 }
 
-export const RootFolderButton = Comp(({ folderPart, index }: RootFolderButtonProps) => {
-  const stores = useStores();
+export const RootFolderButton = Comp(({ folderPart, index, store }: RootFolderButtonProps) => {
+  const isSelected = store.rootFolderIndex === index;
 
-  const isSelected = stores.import.editor.rootFolderIndex === index;
-
-  const handleClick = () => stores.import.editor.setRootFolderIndex(index);
+  const handleClick = () => store.setRootFolderIndex(index);
 
   return (
     <Fragment key={index}>

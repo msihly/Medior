@@ -27,7 +27,8 @@ export class TagEditorStore extends Model({
       async () => {
         const stores = getRootStore<RootStore>(this);
         if (!this.label?.length || !this.tag?.label?.length) this.setIsDuplicate(false);
-        else if (this.label.toLowerCase() === this.tag.label.toLowerCase()) this.setIsDuplicate(false);
+        else if (this.label.toLowerCase() === this.tag.label.toLowerCase())
+          this.setIsDuplicate(false);
         else if ((await stores.tag.getByLabel(this.label)).data) this.setIsDuplicate(true);
       },
     );

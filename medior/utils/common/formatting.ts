@@ -21,6 +21,8 @@ export const formatBytes = (bytes: number) => {
 
 export const frameToSec = (frame: number, frameRate: number) => round(frame / frameRate, 3);
 
+export const jstr = (val: any) => JSON.stringify(val, null, 2);
+
 export const leadZeros = (num: number, places: number) => String(num).padStart(places, "0");
 
 export const regexEscape = (string: string, replacementOnly = false) =>
