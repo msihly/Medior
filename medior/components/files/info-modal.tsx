@@ -1,5 +1,6 @@
 import { shell } from "@electron/remote";
 import path from "path";
+import { useEffect, useState } from "react";
 import {
   Button,
   Card,
@@ -14,31 +15,60 @@ import {
   UniformList,
   View,
 } from "medior/components";
-import { useStores } from "medior/store";
-import { colors } from "medior/utils/client";
+import { File, useStores } from "medior/store";
+import { colors, toast } from "medior/utils/client";
 import { duration, formatBytes, round } from "medior/utils/common";
+import { trpc } from "medior/utils/server";
 
 export const InfoModal = Comp(() => {
   const stores = useStores();
 
-  const file = stores.collection.editor.isOpen
-    ? stores.collection.editor.getFileById(stores.file.activeFileId)
-    : stores.file.getById(stores.file.activeFileId);
+  const [file, setFile] = useState<File>(null);
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    loadFile();
+  }, [stores.file.activeFileId]);
 
   const handleClose = () => stores.file.setIsInfoModalOpen(false);
 
-  const handleRefresh = () => stores.file.refreshFiles({ ids: [file.id] });
+  const handleRefresh = async () => {
+    await stores.file.refreshFiles({ ids: [file.id] });
+    await loadFile();
+  };
+
+  const loadFile = async () => {
+    try {
+      setIsLoading(true);
+
+      const fileRes = await trpc.listFile.mutate({
+        args: { filter: { id: stores.file.activeFileId } },
+      });
+      if (!fileRes.success) throw new Error(fileRes.error);
+      const fileSchema = fileRes.data.items[0];
+
+      const tagsRes = await trpc.listTag.mutate({ args: { filter: { id: fileSchema.tagIds } } });
+      if (!tagsRes.success) throw new Error(tagsRes.error);
+
+      setFile(new File({ ...fileSchema, tags: tagsRes.data.items }));
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to load file");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const openFileLocation = () => shell.showItemInFolder(file.path);
 
   const openThumbLocation = () => shell.showItemInFolder(file.thumb.path);
 
   return (
-    <Modal.Container width="100%" maxWidth="50rem" onClose={handleClose}>
+    <Modal.Container width="100%" maxWidth="50rem" onClose={handleClose} isLoading={isLoading}>
       <Modal.Header
         leftNode={<IdButton value={stores.file.activeFileId} />}
         rightNode={
-          file.isCorrupted && (
+          file?.isCorrupted && (
             <View row justify="center" spacing="0.5rem">
               <Icon name="WarningRounded" color={colors.custom.orange} />
 

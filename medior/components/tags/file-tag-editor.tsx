@@ -27,18 +27,11 @@ export const FileTagEditor = Comp(({ batchId, fileIds }: FileTagEditorProps) => 
   const [currentTags, setCurrentTags] = useState<TagOption[]>([]);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [isConfirmDiscardOpen, setIsConfirmDiscardOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [removedTags, setRemovedTags] = useState<TagOption[]>([]);
 
   useEffect(() => {
-    (async () => {
-      const fileRes = await trpc.listFile.mutate({ args: { filter: { id: fileIds } } });
-      if (!fileRes?.success) throw new Error(fileRes.error);
-      const tagIds = [...new Set(fileRes.data.items.flatMap((f) => f.tagIds))];
-
-      const tagRes = await trpc.listTag.mutate({ args: { filter: { id: tagIds } } });
-      if (!tagRes?.success) throw new Error(tagRes.error);
-      setCurrentTags(tagRes.data.items);
-    })();
+    loadTags();
   }, []);
 
   const handleAdd = (tag: TagOption) => {
@@ -71,20 +64,28 @@ export const FileTagEditor = Comp(({ batchId, fileIds }: FileTagEditorProps) => 
   };
 
   const handleConfirm = async () => {
-    if (addedTags.length === 0 && removedTags.length === 0)
-      return toast.error("You must enter at least one tag");
+    try {
+      setIsLoading(true);
+      if (addedTags.length === 0 && removedTags.length === 0)
+        throw new Error("You must enter at least one tag");
 
-    const addedTagIds = addedTags.map((t) => t.id);
-    const removedTagIds = removedTags.map((t) => t.id);
-    const res = await stores.file.editFileTags({
-      addedTagIds,
-      batchId,
-      fileIds,
-      removedTagIds,
-    });
-    if (!res?.success) return toast.error(res.error);
+      const addedTagIds = addedTags.map((t) => t.id);
+      const removedTagIds = removedTags.map((t) => t.id);
+      const res = await stores.file.editFileTags({
+        addedTagIds,
+        batchId,
+        fileIds,
+        removedTagIds,
+      });
+      if (!res?.success) throw new Error(res.error);
 
-    handleCloseForced();
+      handleCloseForced();
+    } catch (error) {
+      console.error(error);
+      toast.error(error.message);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleTagAdded = (tags: TagOption[]) => {
@@ -99,8 +100,33 @@ export const FileTagEditor = Comp(({ batchId, fileIds }: FileTagEditorProps) => 
     setHasUnsavedChanges(true);
   };
 
+  const loadTags = async () => {
+    try {
+      setIsLoading(true);
+
+      const fileRes = await trpc.listFile.mutate({ args: { filter: { id: fileIds } } });
+      if (!fileRes?.success) throw new Error(fileRes.error);
+      const tagIds = [...new Set(fileRes.data.items.flatMap((f) => f.tagIds))];
+
+      const tagRes = await trpc.listTag.mutate({ args: { filter: { id: tagIds } } });
+      if (!tagRes?.success) throw new Error(tagRes.error);
+      setCurrentTags(tagRes.data.items);
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to load tags");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
-    <Modal.Container onClose={handleClose} maxWidth="50rem" width="100%" draggable>
+    <Modal.Container
+      onClose={handleClose}
+      isLoading={isLoading}
+      maxWidth="50rem"
+      width="100%"
+      draggable
+    >
       <Modal.Header>
         <Text preset="title">{"Update File Tags"}</Text>
       </Modal.Header>

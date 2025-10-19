@@ -6,7 +6,7 @@ export interface IdButtonProps extends ButtonProps {
 }
 
 export const IdButton = ({ value, ...props }: IdButtonProps) => {
-  const onClick = () => copyToClipboard(value, `Copied '${value}'`);
+  const onClick = () => copyToClipboard(value, `Copied ID`);
 
   return <Button text="ID" onClick={onClick} color={colors.custom.black} {...props} />;
 };
