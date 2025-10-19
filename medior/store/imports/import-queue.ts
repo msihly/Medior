@@ -24,6 +24,9 @@ type RegExMap = { regEx: RegExp; tagId: string };
 
 const DEBUG = false;
 
+let targetDir: string;
+let targetDirBytesLeft: number;
+
 export class FileImporter {
   private perfLog: (msg: string) => void;
   private perfLogTotal: (msg: string) => void;
@@ -42,7 +45,6 @@ export class FileImporter {
   private originalPath: string;
   private size: number;
   private tagIds: string[];
-  private targetDir: string;
   private withRemux: boolean;
 
   constructor(args: {
@@ -124,7 +126,7 @@ export class FileImporter {
   };
 
   private getDirPath = () =>
-    `${this.targetDir}\\${this.hash.substring(0, 2)}\\${this.hash.substring(2, 4)}`;
+    `${targetDir}\\${this.hash.substring(0, 2)}\\${this.hash.substring(2, 4)}`;
 
   private getFilePath = () => `${this.getDirPath()}\\${this.hash}.${this.ext}`;
 
@@ -134,7 +136,7 @@ export class FileImporter {
   };
 
   private remux = async () => {
-    const remuxed = await remux(this.originalPath, this.targetDir);
+    const remuxed = await remux(this.originalPath, targetDir);
     if (this.deleteOnImport) await deleteFile(this.originalPath);
     this.perfLog(`Remuxed to MP4: ${remuxed.path}`);
     this.ext = "mp4";
@@ -142,10 +144,20 @@ export class FileImporter {
   };
 
   private setTargetDir = async () => {
+    this.perfLog(`Available bytes: ${targetDirBytesLeft}. File bytes: ${this.size}.`)
+
+    if (targetDirBytesLeft - 500000 > this.size) {
+      this.perfLog(
+        `Re-used target dir: ${targetDir}. Bytes left: ${targetDirBytesLeft}.`,
+      );
+      return;
+    }
+
     const res = await getAvailableFileStorage(this.size);
     if (!res.success) throw new Error(res.error);
-    this.targetDir = res.data;
-    this.perfLog(`Set target dir: ${this.targetDir}`);
+    targetDir = res.data.location;
+    targetDirBytesLeft = res.data.bytesLeft;
+    this.perfLog(`Set target dir: ${targetDir}. Bytes left: ${targetDirBytesLeft}.`);
   };
 
   private updateDupeFile = async () => {
@@ -194,6 +206,7 @@ export class FileImporter {
 
     try {
       await this.copyFile();
+      targetDirBytesLeft -= this.size;
     } catch (err) {
       if (err.code === "EEXIST") {
         await this.checkHash();
@@ -234,7 +247,6 @@ export class FileImporter {
       this.file = file;
       this.hash = file.hash;
       this.originalPath = file.path;
-      await this.setTargetDir();
 
       if (this.withRemux && getIsRemuxable(this.ext)) {
         this.deleteOnImport = true;
@@ -254,8 +266,7 @@ export class FileImporter {
 
       this.file = {
         ...this.file,
-        ...(await genFileInfo({ file, filePath: this.getFilePath(), hash: this.hash })),
-        path: this.getFilePath(),
+        ...(await genFileInfo({ file, filePath: file.path, hash: this.hash })),
       };
 
       const res = await trpc.updateFile.mutate(this.file);

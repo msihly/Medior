@@ -66,7 +66,7 @@ export class ModelStore {
       {
         objPath: [name, `~logicOpsToMongo(args.${name}.logOp)`],
         objValue: `args.${name}.value`,
-        setter: `${this.makeSetterProp(`${name}Op`, ["val: LogicalOp | ''"], `this.${name}.logOp = val;`)}\n
+        setter: `${this.makeSetterProp(`${name}Op`, ["val: LogicalOp | ''"], `this.${name}.logOp = val;\nif(val === '') this.${name}.value = 0;`)}\n
             ${this.makeSetterProp(`${name}Value`, ["val: number"], `this.${name}.value = val;`)}`,
         ...options,
       },

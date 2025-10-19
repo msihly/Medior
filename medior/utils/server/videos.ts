@@ -199,7 +199,7 @@ export const extractVideoFrame = async (inputPath: string, frameIndex: number): 
   try {
     const fileStorageRes = await getAvailableFileStorage(10000);
     if (!fileStorageRes.success) throw new Error(fileStorageRes.error);
-    const targetDir = fileStorageRes.data;
+    const targetDir = fileStorageRes.data.location;
 
     const outputPath = path.join(targetDir, "_tmp", "extracted-frame.jpg");
     await fs.mkdir(path.dirname(outputPath), { recursive: true });
@@ -319,7 +319,7 @@ export const getVideoInfo = async (path: string): Promise<VideoInfo> => {
 
         const audioStream = info.streams.find((s) => s.codec_type === "audio");
 
-        const { bit_rate, codec_name, height, r_frame_rate, width } = videoStream;
+        const { avg_frame_rate, bit_rate, codec_name, height, width } = videoStream;
         const { duration, size } = info.format;
 
         return resolve({
@@ -328,7 +328,7 @@ export const getVideoInfo = async (path: string): Promise<VideoInfo> => {
           bitrate: parseInt(bit_rate, 10) || null,
           duration: typeof duration === "number" ? duration : parseFloat(duration) || null,
           ext: extname(path).replace(".", ""),
-          frameRate: fractionStringToNumber(r_frame_rate),
+          frameRate: fractionStringToNumber(avg_frame_rate),
           height,
           size,
           videoCodec: codec_name,
@@ -343,15 +343,18 @@ export const getVideoInfo = async (path: string): Promise<VideoInfo> => {
 
 export const reencode = async (inputPath: string, outputDir: string, options?: FfmpegOptions) => {
   const config = getConfig();
-  const { codec, maxBitrate, maxHeight, maxWidth, override } = config.file.reencode;
+  const { codec, maxBitrate, maxFps, maxHeight, maxWidth, override } = config.file.reencode;
+
+  const filterArray = [
+    `scale='if(gt(iw,${maxWidth}),${maxWidth},iw)':'if(gt(ih,${maxHeight}),${maxHeight},ih)':force_original_aspect_ratio=decrease`,
+  ];
+
+  if (maxFps) filterArray.push(`fps=${maxFps}`);
 
   const command = ffmpeg()
     .input(inputPath)
     .videoCodec(codec)
-    .addOption([
-      "-vf",
-      `scale='if(gt(iw,${maxWidth}),${maxWidth},iw)':'if(gt(ih,${maxHeight}),${maxHeight},ih)':force_original_aspect_ratio=decrease`,
-    ])
+    .addOption(["-vf", filterArray.join(",")])
     .outputOptions(
       override?.length
         ? override

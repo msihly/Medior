@@ -4,7 +4,7 @@ import { getRootStore, Model, model, modelAction, modelFlow, prop } from "mobx-k
 import { File } from "medior/store/files/file";
 import { RootStore } from "medior/store/root-store";
 import { asyncAction } from "medior/store/utils";
-import { deleteFile, getAvailableFileStorage } from "medior/utils/client";
+import { deleteFile, getAvailableFileStorage, getConfig, toast } from "medior/utils/client";
 import { FfmpegProgress, getVideoInfo, reencode, remux, trpc } from "medior/utils/server";
 
 @model("medior/VideoTransformerStore")
@@ -78,6 +78,22 @@ export class VideoTransformerStore extends Model({
     if (!dbRes.success) throw new Error(dbRes.error);
 
     const stores = getRootStore<RootStore>(this);
+
+    const onComplete = getConfig().file.reencode.onComplete;
+    if (onComplete.addTagIds.length > 0 || onComplete.removeTagIds.length > 0) {
+      const tagsRes = await stores.file.editFileTags({
+        fileIds: [this.curFileId],
+        addedTagIds: onComplete.addTagIds,
+        removedTagIds: onComplete.removeTagIds,
+        withSub: false,
+        withToast: false,
+      });
+      if (!tagsRes.success) {
+        console.error("reencode.onComplete failed", tagsRes.error);
+        toast.warn("Failed to update tags");
+      }
+    }
+
     const refreshRes = await stores.file.refreshFiles({ ids: [this.curFileId] });
     if (!refreshRes.success) throw new Error(refreshRes.error);
 
@@ -103,7 +119,7 @@ export class VideoTransformerStore extends Model({
       this.setIsRunning(true);
       const storageRes = await getAvailableFileStorage(this.file.size);
       if (!storageRes.success) throw new Error(storageRes.error);
-      const targetDir = storageRes.data;
+      const targetDir = storageRes.data.location;
 
       this.aborter = new AbortController();
 
@@ -115,6 +131,9 @@ export class VideoTransformerStore extends Model({
 
       this.setNewHash(res.hash);
       this.setNewPath(res.path);
+    } catch (error) {
+      console.error(error);
+      toast.error(error.message);
     } finally {
       this.setIsRunning(false);
     }

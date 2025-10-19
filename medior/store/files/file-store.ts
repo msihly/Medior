@@ -118,16 +118,24 @@ export class FileStore extends ExtendedModel(_FileStore, {
 
   @modelFlow
   editFileTags = asyncAction(
-    async ({ addedTagIds = [], batchId, fileIds, removedTagIds = [] }: db.EditFileTagsInput) => {
+    async ({
+      addedTagIds = [],
+      batchId,
+      fileIds,
+      removedTagIds = [],
+      withSub = true,
+      withToast = true,
+    }: db.EditFileTagsInput & { withToast?: boolean }) => {
       const res = await trpc.editFileTags.mutate({
         addedTagIds,
         batchId,
         fileIds,
         removedTagIds,
+        withSub,
       });
 
       if (!res.success) throw new Error(res.error);
-      toast.success(`${fileIds.length} files updated`);
+      if (withToast) toast.success(`${fileIds.length} files updated`);
     },
   );
 

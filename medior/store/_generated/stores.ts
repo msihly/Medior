@@ -115,6 +115,7 @@ export class _FileCollectionSearch extends Model({
   @modelAction
   setFileCountOp(val: LogicalOp | "") {
     this.fileCount.logOp = val;
+    if (val === "") this.fileCount.value = 0;
   }
 
   @modelAction
@@ -125,6 +126,7 @@ export class _FileCollectionSearch extends Model({
   @modelAction
   setRatingOp(val: LogicalOp | "") {
     this.rating.logOp = val;
+    if (val === "") this.rating.value = 0;
   }
 
   @modelAction
@@ -409,6 +411,7 @@ export class _FileSearch extends Model({
   @modelAction
   setBitrateOp(val: LogicalOp | "") {
     this.bitrate.logOp = val;
+    if (val === "") this.bitrate.value = 0;
   }
 
   @modelAction
@@ -419,6 +422,7 @@ export class _FileSearch extends Model({
   @modelAction
   setDurationOp(val: LogicalOp | "") {
     this.duration.logOp = val;
+    if (val === "") this.duration.value = 0;
   }
 
   @modelAction
@@ -429,6 +433,7 @@ export class _FileSearch extends Model({
   @modelAction
   setFrameRateOp(val: LogicalOp | "") {
     this.frameRate.logOp = val;
+    if (val === "") this.frameRate.value = 0;
   }
 
   @modelAction
@@ -439,6 +444,7 @@ export class _FileSearch extends Model({
   @modelAction
   setNumOfTagsOp(val: LogicalOp | "") {
     this.numOfTags.logOp = val;
+    if (val === "") this.numOfTags.value = 0;
   }
 
   @modelAction
@@ -449,6 +455,7 @@ export class _FileSearch extends Model({
   @modelAction
   setRatingOp(val: LogicalOp | "") {
     this.rating.logOp = val;
+    if (val === "") this.rating.value = 0;
   }
 
   @modelAction
@@ -757,6 +764,7 @@ export class _TagSearch extends Model({
   @modelAction
   setCountOp(val: LogicalOp | "") {
     this.count.logOp = val;
+    if (val === "") this.count.value = 0;
   }
 
   @modelAction

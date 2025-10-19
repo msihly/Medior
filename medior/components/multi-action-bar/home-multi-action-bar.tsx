@@ -85,7 +85,7 @@ export const HomeMultiActionBar = Comp(() => {
 
           <MultiActionButton
             name="AutoMode"
-            iconProps={{ size: "0.8em" }}
+            iconProps={{ size: "0.85em" }}
             tooltip="Re-encode Videos"
             onClick={handleReencode}
             disabled={hasNoSelection}
@@ -93,7 +93,7 @@ export const HomeMultiActionBar = Comp(() => {
 
           <MultiActionButton
             name="RotateRight"
-            iconProps={{ rotation: 270, size: "1.1em" }}
+            iconProps={{ rotation: 240, size: "1.1em" }}
             tooltip="Remux Videos"
             onClick={handleRemux}
             disabled={hasNoSelection}
@@ -101,6 +101,7 @@ export const HomeMultiActionBar = Comp(() => {
 
           <MultiActionButton
             name="Refresh"
+            iconProps={{ rotation: 190, size: "1.1em" }}
             tooltip="Refresh File Info"
             onClick={handleFileInfoRefresh}
             disabled={hasNoSelection}

@@ -56,8 +56,13 @@ export interface Config {
     reencode: {
       codec: string;
       maxBitrate: number;
+      maxFps: number;
       maxHeight: number;
       maxWidth: number;
+      onComplete: {
+        addTagIds: string[];
+        removeTagIds: string[];
+      };
       override: string[];
     };
     remuxTypes: {
@@ -141,8 +146,13 @@ export const DEFAULT_CONFIG: Config = {
     reencode: {
       codec: "hevc_nvenc",
       maxBitrate: 5000,
+      maxFps: 60,
       maxHeight: 1080,
       maxWidth: 1920,
+      onComplete: {
+        addTagIds: [],
+        removeTagIds: [],
+      },
       override: [],
     },
     remuxTypes: {
@@ -196,7 +206,7 @@ export const getAvailableFileStorage = (bytesNeeded: number) =>
     for (const location of config.db.fileStorage.locations) {
       const res = await trpc.getDiskStats.mutate({ diskPath: location });
       if (!res.success) throw new Error(res.error);
-      if (res.data.free > bytesNeeded) return location;
+      if (res.data.free > bytesNeeded) return { bytesLeft: res.data.free, location };
     }
     throw new Error("No available file storage location found.");
   });
