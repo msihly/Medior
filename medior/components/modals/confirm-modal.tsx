@@ -1,33 +1,39 @@
-import { Dispatch, SetStateAction, useState } from "react";
+import { Dispatch, ReactNode, SetStateAction, useState } from "react";
 import { Button, Icon, IconName, Modal, Text } from "medior/components";
-import { colors } from "medior/utils/client";
+import { colors, CSS } from "medior/utils/client";
 
 export interface ConfirmModalProps {
   cancelColor?: string;
   cancelIcon?: IconName;
   cancelText?: string;
+  children?: ReactNode | ReactNode[];
   confirmColor?: string;
   confirmIcon?: IconName;
   confirmText?: string;
   headerText?: string;
+  height?: CSS["height"];
   onCancel?: () => void;
   onConfirm: () => Promise<boolean>;
   setVisible: Dispatch<SetStateAction<boolean>>;
-  subText: string;
+  subText?: string;
+  width?: CSS["width"];
 }
 
 export const ConfirmModal = ({
   cancelColor = colors.custom.grey,
   cancelIcon = "Close",
   cancelText = "Cancel",
+  children,
   confirmColor = colors.custom.red,
   confirmIcon = "Delete",
   confirmText = "Delete",
   headerText = "Confirm Delete",
+  height = "25rem",
   onCancel,
   onConfirm,
   setVisible,
   subText,
+  width = "25rem",
 }: ConfirmModalProps) => {
   const [isLoading, setIsLoading] = useState(false);
 
@@ -46,14 +52,7 @@ export const ConfirmModal = ({
   };
 
   return (
-    <Modal.Container
-      isLoading={isLoading}
-      onClose={handleCancel}
-      height="100%"
-      width="100%"
-      maxHeight="20rem"
-      maxWidth="25rem"
-    >
+    <Modal.Container isLoading={isLoading} onClose={handleCancel} height={height} width={width}>
       <Modal.Header>
         <Text preset="title">{headerText}</Text>
       </Modal.Header>
@@ -61,9 +60,13 @@ export const ConfirmModal = ({
       <Modal.Content align="center" justify="center">
         <Icon name="Delete" color={colors.custom.red} size="5rem" />
 
-        <Text fontSize="1.3em" textAlign="center">
-          {subText}
-        </Text>
+        {subText?.length > 0 ? (
+          <Text fontSize="1.3em" textAlign="center">
+            {subText}
+          </Text>
+        ) : null}
+
+        {children}
       </Modal.Content>
 
       <Modal.Footer>

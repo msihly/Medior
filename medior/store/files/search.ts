@@ -20,7 +20,13 @@ export class FileSearch extends ExtendedModel(_FileSearch, {
 
     reaction(
       () => this.hasChanges,
-      () => !this.hasChanges && this.setIsArchiveOpen(this.isArchived),
+      () => {
+        if (!this.hasChanges) {
+          this.setIsArchiveOpen(this.isArchived);
+          if (this.selectedIds?.length > 0)
+            this.toggleSelected(this.selectedIds.map((id) => ({ id, isSelected: false })));
+        }
+      },
     );
   }
 

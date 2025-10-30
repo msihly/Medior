@@ -144,12 +144,10 @@ export class FileImporter {
   };
 
   private setTargetDir = async () => {
-    this.perfLog(`Available bytes: ${targetDirBytesLeft}. File bytes: ${this.size}.`)
+    this.perfLog(`Available bytes: ${targetDirBytesLeft}. File bytes: ${this.size}.`);
 
     if (targetDirBytesLeft - 500000 > this.size) {
-      this.perfLog(
-        `Re-used target dir: ${targetDir}. Bytes left: ${targetDirBytesLeft}.`,
-      );
+      this.perfLog(`Re-used target dir: ${targetDir}. Bytes left: ${targetDirBytesLeft}.`);
       return;
     }
 
