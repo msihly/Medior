@@ -87,19 +87,21 @@ export const InfoModal = Comp(() => {
           <View column>
             <Detail label="Extension" value={file?.ext} />
 
-            <Detail label="Size" value={formatBytes(file?.size)} tooltip={file?.size} />
+            <Detail
+              label="Size"
+              value={formatBytes(file?.size)}
+              tooltip={<Detail label="Original Size" value={formatBytes(file?.originalSize)} />}
+            />
 
             <Detail
               label="Dimensions"
               value={`${file?.width} x ${file?.height}`}
-              valueProps={{
-                tooltip: (
-                  <UniformList row>
-                    <Detail label="Width" value={file?.width} />
-                    <Detail label="Height" value={file?.height} />
-                  </UniformList>
-                ),
-              }}
+              tooltip={
+                <UniformList row spacing="1rem">
+                  <Detail label="Width" value={file?.width} />
+                  <Detail label="Height" value={file?.height} />
+                </UniformList>
+              }
             />
           </View>
 
@@ -110,20 +112,44 @@ export const InfoModal = Comp(() => {
           </View>
 
           <View column>
-            <Detail label="Video Codec" value={file?.videoCodec} />
+            <Detail
+              label="Video Codec"
+              value={file?.videoCodec}
+              tooltip={<Detail label="Original Video Codec" value={file?.originalVideoCodec} />}
+            />
 
-            <Detail label="Audio Codec" value={file?.audioCodec} />
+            <Detail
+              label="Audio Codec"
+              value={file?.audioCodec}
+              tooltip={<Detail label="Original Audio Codec" value={file?.originalAudioCodec} />}
+            />
           </View>
 
           <View column>
             <Detail
               label="Video Bitrate"
               value={file?.bitrate ? `${formatBytes(file.bitrate)}/s` : null}
+              tooltip={
+                <Detail
+                  label="Original Video Bitrate"
+                  value={file?.originalBitrate ? `${formatBytes(file.originalBitrate)}/s` : null}
+                />
+              }
             />
 
             <Detail
               label="Audio Bitrate"
               value={file?.audioBitrate ? `${formatBytes(file.audioBitrate)}/s` : null}
+              tooltip={
+                <Detail
+                  label="Original Audio Bitrate"
+                  value={
+                    file?.originalAudioBitrate
+                      ? `${formatBytes(file.originalAudioBitrate)}/s`
+                      : null
+                  }
+                />
+              }
             />
           </View>
         </UniformList>

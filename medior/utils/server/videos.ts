@@ -345,34 +345,41 @@ export const reencode = async (inputPath: string, outputDir: string, options?: F
   const config = getConfig();
   const { codec, maxBitrate, maxFps, maxHeight, maxWidth, override } = config.file.reencode;
 
+  const videoInfo = await getVideoInfo(inputPath);
+  const inputFps = videoInfo.frameRate;
+  const inputBitrate = videoInfo.bitrate / 1000;
+  const targetBitrate = Math.min(inputBitrate || maxBitrate, maxBitrate);
+
   const filterArray = [
     `scale='if(gt(iw,${maxWidth}),${maxWidth},iw)':'if(gt(ih,${maxHeight}),${maxHeight},ih)':force_original_aspect_ratio=decrease`,
   ];
 
-  if (maxFps) filterArray.push(`fps=${maxFps}`);
+  if (maxFps && inputFps > maxFps) filterArray.push(`fps=${maxFps}`);
+
+  const outputOptions = override?.length
+    ? override
+    : [
+        "-rc",
+        "vbr_hq",
+        "-cq",
+        "18",
+        "-b:v",
+        `${targetBitrate}k`,
+        "-maxrate",
+        `${targetBitrate}k`,
+        "-bufsize",
+        `${targetBitrate * 2}k`,
+        "-2pass",
+        "0",
+      ];
 
   const command = ffmpeg()
     .input(inputPath)
     .videoCodec(codec)
     .addOption(["-vf", filterArray.join(",")])
-    .outputOptions(
-      override?.length
-        ? override
-        : [
-            "-rc",
-            "vbr_hq",
-            "-cq",
-            "18",
-            "-b:v",
-            "0k",
-            "-maxrate",
-            `${maxBitrate}k`,
-            "-bufsize",
-            `${maxBitrate * 2}k`,
-            "-2pass",
-            "0",
-          ],
-    );
+    .outputOptions(outputOptions);
+
+  console.debug({ inputFps, maxFps, inputBitrate, targetBitrate, filterArray, outputOptions });
 
   return execFfmpeg(command, outputDir, options);
 };

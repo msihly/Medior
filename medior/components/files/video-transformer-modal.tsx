@@ -15,12 +15,18 @@ import {
   View,
 } from "medior/components";
 import { useStores } from "medior/store";
-import { colors, toast } from "medior/utils/client";
+import { colors, getConfig, toast } from "medior/utils/client";
 import { dayjs, formatBytes, round } from "medior/utils/common";
 
 export const VideoTransformerModal = Comp(() => {
   const stores = useStores();
   const store = stores.file.videoTransformer;
+
+  const config = getConfig();
+  const maxBitrate = config.file.reencode.maxBitrate * 1000;
+  const maxFps = config.file.reencode.maxFps;
+  const outputFps = store.file?.frameRate > maxFps ? maxFps : store.file?.frameRate;
+  const outputBitrate = store.file?.bitrate > maxBitrate ? maxBitrate : store.file?.bitrate;
 
   useEffect(() => {
     (async () => {
@@ -42,16 +48,20 @@ export const VideoTransformerModal = Comp(() => {
 
   const handleReplace = () => store.replaceOriginal();
 
-  const openFile = () => shell.openPath(store.newPath);
+  const openFileOriginal = () => shell.openPath(store.file.path);
 
-  const openLocation = () => shell.showItemInFolder(store.newPath);
+  const openFileOutput = () => shell.openPath(store.newPath);
+
+  const openLocationOriginal = () => shell.showItemInFolder(store.file.path);
+
+  const openLocationOutput = () => shell.showItemInFolder(store.newPath);
 
   return (
     <Modal.Container
       height="100%"
       width="100%"
       maxHeight="30rem"
-      maxWidth="35rem"
+      maxWidth="45rem"
       onClose={handleClose}
     >
       <Modal.Header
@@ -99,18 +109,32 @@ export const VideoTransformerModal = Comp(() => {
 
               <View column spacing="0.5rem">
                 <UniformList column spacing="0.5rem">
-                  <Detail label="FPS" value={store.progress.fps} />
+                  <UniformList row spacing="0.5rem">
+                    <Detail label="Original FPS" value={round(store.file.frameRate)} />
 
-                  <Detail label="Kb/s" value={store.progress.kbps} />
+                    <Detail label="Output FPS" value={round(outputFps)} />
+                  </UniformList>
 
-                  <Detail label="Size" value={formatBytes(store.progress.size)} />
+                  <UniformList row spacing="0.5rem">
+                    <Detail label="Original Bitrate" value={formatBytes(store.file.bitrate)} />
 
-                  <Detail label="Original" value={formatBytes(store.file.size)} />
+                    <Detail label="Output Bitrate" value={formatBytes(outputBitrate)} />
+                  </UniformList>
 
-                  <Detail
-                    label="Ratio"
-                    value={`${round(store.file.size / store.progress.size)}x`}
-                  />
+                  <UniformList row spacing="0.5rem">
+                    <Detail label="Original Size" value={formatBytes(store.file.size)} />
+
+                    <Detail label="Output Size" value={formatBytes(store.progress.size)} />
+                  </UniformList>
+
+                  <UniformList row spacing="0.5rem">
+                    <Detail label="Speed" value={formatBytes(store.progress.kbps)} />
+
+                    <Detail
+                      label="Ratio"
+                      value={`${round(store.file.size / store.progress.size)}x`}
+                    />
+                  </UniformList>
                 </UniformList>
 
                 <Checkbox
@@ -127,25 +151,45 @@ export const VideoTransformerModal = Comp(() => {
       </Modal.Content>
 
       <Modal.Footer>
-        <Button
-          text="Cancel"
-          icon="Close"
-          onClick={handleClose}
-          disabled={store.isLoading}
-          colorOnHover={colors.custom.red}
-        />
+        <View column spacing="0.5rem">
+          <Button text="Play: Original" icon="PlayArrow" onClick={openFileOriginal} />
 
-        <Button text="Play" icon="PlayArrow" onClick={openFile} disabled={!store.newPath} />
+          <Button text="Find: Original" icon="Folder" onClick={openLocationOriginal} />
+        </View>
 
-        <Button text="Folder" icon="Folder" onClick={openLocation} disabled={!store.newPath} />
+        <View column spacing="0.5rem">
+          <Button
+            text="Play: Output"
+            icon="PlayArrow"
+            onClick={openFileOutput}
+            disabled={!store.newPath}
+          />
 
-        <Button
-          text="Replace"
-          icon="Refresh"
-          onClick={handleReplace}
-          disabled={store.isRunning || store.isLoading || !store.newPath}
-          color={colors.custom.green}
-        />
+          <Button
+            text="Find: Output"
+            icon="Folder"
+            onClick={openLocationOutput}
+            disabled={!store.newPath}
+          />
+        </View>
+
+        <View column spacing="0.5rem">
+          <Button
+            text="Replace"
+            icon="Refresh"
+            onClick={handleReplace}
+            disabled={store.isRunning || store.isLoading || !store.newPath}
+            color={colors.custom.green}
+          />
+
+          <Button
+            text="Cancel"
+            icon="Close"
+            onClick={handleClose}
+            disabled={store.isLoading}
+            colorOnHover={colors.custom.red}
+          />
+        </View>
       </Modal.Footer>
     </Modal.Container>
   );
