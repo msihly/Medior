@@ -420,6 +420,7 @@ export const createTag = makeAction(
       dateModified,
       descendantIds: [],
       label,
+      lastSearchedAt: dateModified,
       parentIds,
       regEx,
       thumb: null,

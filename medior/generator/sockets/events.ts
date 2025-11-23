@@ -7,10 +7,15 @@ export const CUSTOM_EVENTS: {
   { name: "onFilesDeleted", args: "{ fileHashes: string[]; fileIds: string[] }" },
   { name: "onFilesUpdated", args: "{ fileIds: string[]; updates: Partial<models.FileSchema> }" },
   {
+    name: "onFileImportUpdated",
+    args: "{ batchId: string; errorMsg?: string; fileId?: string; filePath: string; status?: Types.ImportStatus }",
+  },
+  {
     name: "onFileTagsUpdated",
     args: "{ addedTagIds: string[]; batchId?: string; fileIds?: string[]; removedTagIds: string[] }",
   },
   { name: "onImportBatchCompleted", args: "{ id: string }" },
+  { name: "onImportBatchLoaded", args: "{ id: string }" },
   { name: "onImportStatsUpdated", args: "{ importStats: Types.ImportStats }" },
   { name: "onReloadFileCollections" },
   { name: "onReloadFiles" },

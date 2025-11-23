@@ -1,5 +1,4 @@
-// import * as fss from "fs";
-import { constants as fsc, promises as fs } from "fs";
+import { promises as fs } from "fs";
 import path from "path";
 import type { FileSchema, ImportFileInput } from "medior/server/database";
 import { getIsAnimated, sharp } from "medior/utils/client";
@@ -7,62 +6,6 @@ import { CONSTANTS, dayjs, handleErrors } from "medior/utils/common";
 import { getVideoInfo, makePerfLog, vidToThumbGrid } from "medior/utils/server";
 
 export const checkFileExists = async (path: string) => !!(await fs.stat(path).catch(() => false));
-
-export const copyFile = async (dirPath: string, originalPath: string, newPath: string) => {
-  if (await checkFileExists(newPath)) return false;
-  await fs.mkdir(dirPath, { recursive: true });
-
-  await fs.copyFile(originalPath, newPath, fsc.COPYFILE_EXCL);
-  return true;
-
-  /*
-  return new Promise(async (resolve, reject) => {
-    try {
-      const stats = await fs.stat(originalPath);
-      const totalBytes = stats.size;
-
-      const readStream = fss.createReadStream(originalPath);
-      const writeStream = fss.createWriteStream(newPath, { flags: "wx" });
-
-      let completedBytes = 0;
-      const startTime = Date.now();
-
-      const makeImportStats = (bytes: number) => {
-        completedBytes += bytes;
-        const elapsedTime = (Date.now() - startTime) / 1000;
-        const rateInBytes = completedBytes / elapsedTime;
-        const importStats = { completedBytes, elapsedTime, rateInBytes, totalBytes };
-        trpc.emitImportStatsUpdated.mutate({ importStats });
-      };
-
-      const throttledMakeImportStats = throttle(makeImportStats, 1000);
-
-      readStream.on("data", (chunk) => {
-        throttledMakeImportStats(chunk.length);
-      });
-
-      readStream.on("end", () => {
-        resolve(true);
-      });
-
-      readStream.on("error", (err) => {
-        console.error("ReadStream error:", err);
-        reject(err);
-      });
-
-      writeStream.on("error", (err) => {
-        console.error("WriteStream error:", err);
-        reject(err);
-      });
-
-      readStream.pipe(writeStream);
-    } catch (err) {
-      console.error("Error in promise:", err);
-      reject(err);
-    }
-  });
-  */
-};
 
 export const deleteFile = (path: string, copiedPath?: string) =>
   handleErrors(async () => {

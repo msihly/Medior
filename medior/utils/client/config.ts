@@ -82,6 +82,9 @@ export interface Config {
     labelDiffModel: string;
     labelDiffOriginal: string;
     labelDiffUpscaled: string;
+    manager: {
+      search: Search;
+    };
     withDelimiters: boolean;
     withDiffModel: boolean;
     withDiffParams: boolean;
@@ -175,6 +178,12 @@ export const DEFAULT_CONFIG: Config = {
     labelDiffModel: "Diffusion Model",
     labelDiffOriginal: "Diff: Original",
     labelDiffUpscaled: "Diff: Upscaled",
+    manager: {
+      search: {
+        pageSize: 20,
+        sort: { isDesc: true, key: "dateCreated" },
+      },
+    },
     withDelimiters: true,
     withDiffModel: true,
     withDiffRegEx: true,

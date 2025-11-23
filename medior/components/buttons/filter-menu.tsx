@@ -13,14 +13,14 @@ import {
   View,
   ViewProps,
 } from "medior/components";
-import { FileCollectionSearch, FileSearch, TagSearch } from "medior/store";
+import { FileCollectionSearch, FileImportBatchSearch, FileSearch, TagSearch } from "medior/store";
 import { colors, CSS, makeClasses } from "medior/utils/client";
 
 export interface FilterMenuProps extends Omit<ButtonProps, "onChange" | "value"> {
   color?: string;
   menuProps?: Partial<MenuButtonProps>;
   sortOptions: SortMenuProps["rows"];
-  store: FileCollectionSearch | FileSearch | TagSearch;
+  store: FileCollectionSearch | FileImportBatchSearch | FileSearch | TagSearch;
   viewProps?: ViewProps;
   width?: CSS["width"];
 }

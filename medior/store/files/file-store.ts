@@ -1,4 +1,3 @@
-import { promises as fs } from "fs";
 import autoBind from "auto-bind";
 import {
   ExtendedModel,
@@ -159,8 +158,6 @@ export class FileStore extends ExtendedModel(_FileStore, {
 
       await makeQueue({
         action: async (file) => {
-          const curThumbPath = file.thumb?.path;
-
           const importer = new FileImporter({
             deleteOnImport: false,
             ext: file.ext,
@@ -174,9 +171,6 @@ export class FileStore extends ExtendedModel(_FileStore, {
 
           const res = await importer.refresh(file);
           if (!res.success) throw new Error(res.error);
-
-          await trpc.updateFile.mutate({ id: file.id, ...res.data });
-          if (curThumbPath && !curThumbPath.endsWith(".jpg")) await fs.unlink(curThumbPath);
         },
         items: files,
         logPrefix: args.remuxOnly || args.withRemux ? "Remuxed" : "Refreshed",

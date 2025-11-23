@@ -107,7 +107,7 @@ export const VideoTransformerModal = Comp(() => {
 
               <Divider orientation="vertical" />
 
-              <View column spacing="0.5rem">
+              <View column spacing="1rem">
                 <UniformList column spacing="0.5rem">
                   <UniformList row spacing="0.5rem">
                     <Detail label="Original FPS" value={round(store.file.frameRate)} />
@@ -128,7 +128,7 @@ export const VideoTransformerModal = Comp(() => {
                   </UniformList>
 
                   <UniformList row spacing="0.5rem">
-                    <Detail label="Speed" value={formatBytes(store.progress.kbps)} />
+                    <Detail label="Speed" value={`${formatBytes(store.progress.kbps * 1000)}/s`} />
 
                     <Detail
                       label="Ratio"

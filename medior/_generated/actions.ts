@@ -158,6 +158,159 @@ export const listFilteredFileCollection = makeAction(
   },
 );
 
+export type CreateFileImportBatchFilterPipelineInput = {
+  collectionTitle?: string;
+  completedAtEnd?: string;
+  completedAtStart?: string;
+  dateCreatedEnd?: string;
+  dateCreatedStart?: string;
+  excludedDescTagIds?: string[];
+  excludedTagIds?: string[];
+  fileCount?: { logOp: LogicalOp | ""; value: number };
+  ids?: string[];
+  isCompleted?: boolean;
+  optionalTagIds?: string[];
+  requiredDescTagIds?: string[];
+  requiredTagIds?: string[];
+  rootFolderPath?: string;
+  sortValue?: SortMenuProps["value"];
+  startedAtEnd?: string;
+  startedAtStart?: string;
+};
+
+export const createFileImportBatchFilterPipeline = (
+  args: CreateFileImportBatchFilterPipelineInput,
+) => {
+  const $match: FilterQuery<models.FileImportBatchSchema> = {};
+
+  if (!isDeepEqual(args.collectionTitle, ""))
+    setObj($match, ["collectionTitle", "$regex"], new RegExp(args.collectionTitle, "i"));
+  if (!isDeepEqual(args.completedAtEnd, ""))
+    setObj($match, ["completedAt", "$lte"], args.completedAtEnd);
+  if (!isDeepEqual(args.completedAtStart, ""))
+    setObj($match, ["completedAt", "$gte"], args.completedAtStart);
+  if (!isDeepEqual(args.dateCreatedEnd, ""))
+    setObj($match, ["dateCreated", "$lte"], args.dateCreatedEnd);
+  if (!isDeepEqual(args.dateCreatedStart, ""))
+    setObj($match, ["dateCreated", "$gte"], args.dateCreatedStart);
+  if (!isDeepEqual(args.fileCount, { logOp: "", value: 0 }))
+    setObj($match, ["fileCount", logicOpsToMongo(args.fileCount.logOp)], args.fileCount.value);
+  if (!isDeepEqual(args.ids, [])) setObj($match, ["_id", "$in"], objectIds(args.ids));
+  if (!isDeepEqual(args.isCompleted, true))
+    setObj(
+      $match,
+      ["$expr"],
+      args.isCompleted
+        ? { $eq: ["$isCompleted", true] }
+        : { $eq: [{ $ifNull: ["$isCompleted", false] }, false] },
+    );
+  if (!isDeepEqual(args.rootFolderPath, ""))
+    setObj($match, ["rootFolderPath", "$regex"], new RegExp(args.rootFolderPath, "i"));
+  if (!isDeepEqual(args.startedAtEnd, "")) setObj($match, ["startedAt", "$lte"], args.startedAtEnd);
+  if (!isDeepEqual(args.startedAtStart, ""))
+    setObj($match, ["startedAt", "$gte"], args.startedAtStart);
+
+  if (args.excludedDescTagIds?.length)
+    setObj($match, ["tagIdsWithAncestors", "$nin"], objectIds(args.excludedDescTagIds));
+  if (args.excludedTagIds?.length)
+    setObj($match, ["tagIds", "$nin"], objectIds(args.excludedTagIds));
+  if (args.optionalTagIds?.length)
+    setObj($match, ["tagIds", "$in"], objectIds(args.optionalTagIds));
+  if (args.requiredDescTagIds?.length)
+    setObj($match, ["tagIdsWithAncestors", "$all"], objectIds(args.requiredDescTagIds));
+  if (args.requiredTagIds?.length)
+    setObj($match, ["tagIds", "$all"], objectIds(args.requiredTagIds));
+
+  const sortDir = args.sortValue.isDesc ? -1 : 1;
+
+  return {
+    $match,
+    $sort: { [args.sortValue.key]: sortDir, _id: sortDir } as { [key: string]: 1 | -1 },
+  };
+};
+
+export type GetShiftSelectedFileImportBatchInput = CreateFileImportBatchFilterPipelineInput & {
+  clickedId: string;
+  clickedIndex: number;
+  selectedIds: string[];
+};
+
+export const getShiftSelectedFileImportBatch = makeAction(
+  async ({
+    clickedId,
+    clickedIndex,
+    selectedIds,
+    ...filterParams
+  }: GetShiftSelectedFileImportBatchInput) => {
+    const filterPipeline = createFileImportBatchFilterPipeline(filterParams);
+    return getShiftSelectedItems({
+      clickedId,
+      clickedIndex,
+      filterPipeline,
+      ids: filterParams.ids,
+      model: models.FileImportBatchModel,
+      selectedIds,
+    });
+  },
+);
+
+export type GetFilteredFileImportBatchCountInput = CreateFileImportBatchFilterPipelineInput & {
+  pageSize: number;
+};
+
+export const getFilteredFileImportBatchCount = makeAction(
+  async ({ pageSize, ...filterParams }: GetFilteredFileImportBatchCountInput) => {
+    const filterPipeline = createFileImportBatchFilterPipeline(filterParams);
+    const count = await models.FileImportBatchModel.countDocuments(
+      filterPipeline.$match,
+    ).allowDiskUse(true);
+    if (!(count > -1)) throw new Error("Failed to load filtered FileImportBatch");
+    return { count, pageCount: Math.ceil(count / pageSize) };
+  },
+);
+
+export type ListFilteredFileImportBatchInput = CreateFileImportBatchFilterPipelineInput & {
+  forcePages?: boolean;
+  page: number;
+  pageSize: number;
+  select?: Record<string, 1 | -1>;
+};
+
+export const listFilteredFileImportBatch = makeAction(
+  async ({
+    forcePages,
+    page,
+    pageSize,
+    select,
+    ...filterParams
+  }: ListFilteredFileImportBatchInput) => {
+    const filterPipeline = createFileImportBatchFilterPipeline(filterParams);
+    const hasIds = forcePages || filterParams.ids?.length > 0;
+
+    const items = await (hasIds
+      ? models.FileImportBatchModel.aggregate([
+          { $match: { _id: { $in: objectIds(filterParams.ids) } } },
+          { $addFields: { __order: { $indexOfArray: [objectIds(filterParams.ids), "$_id"] } } },
+          { $sort: { __order: 1 } },
+          ...(forcePages
+            ? [{ $skip: Math.max(0, page - 1) * pageSize }, { $limit: pageSize }]
+            : []),
+        ])
+          .allowDiskUse(true)
+          .exec()
+      : models.FileImportBatchModel.find(filterPipeline.$match)
+          .sort(filterPipeline.$sort)
+          .select(select)
+          .skip(Math.max(0, page - 1) * pageSize)
+          .limit(pageSize)
+          .allowDiskUse(true)
+          .lean());
+
+    if (!items) throw new Error("Failed to load filtered FileImportBatch");
+    return items.map((i) => leanModelToJson<models.FileImportBatchSchema>(i));
+  },
+);
+
 export type CreateFileFilterPipelineInput = {
   bitrate?: { logOp: LogicalOp | ""; value: number };
   dateCreatedEnd?: string;
@@ -678,7 +831,15 @@ export const createFileImportBatch = makeAction(
     args: Types.CreateFileImportBatchInput;
     socketOpts?: SocketEventOptions;
   }) => {
-    const model = { ...args, dateCreated: dayjs().toISOString(), imports: [] };
+    const model = {
+      ...args,
+      dateCreated: dayjs().toISOString(),
+      fileCount: 0,
+      imports: [],
+      isCompleted: false,
+      tagIds: [],
+      tagIdsWithAncestors: [],
+    };
 
     const res = await models.FileImportBatchModel.create(model);
     const id = res._id.toString();
@@ -820,12 +981,12 @@ export const listFile = makeAction(
   },
 );
 
-export const _updateFile = makeAction(
+export const updateFile = makeAction(
   async ({
     args,
     socketOpts,
   }: {
-    args: Types._UpdateFileInput;
+    args: Types.UpdateFileInput;
     socketOpts?: SocketEventOptions;
   }) => {
     const res = leanModelToJson<models.FileSchema>(

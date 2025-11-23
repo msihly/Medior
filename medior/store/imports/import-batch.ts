@@ -1,27 +1,19 @@
 import autoBind from "auto-bind";
 import { computed } from "mobx";
-import { ExtendedModel, model, modelAction } from "mobx-keystone";
+import { ExtendedModel, model, modelAction, prop } from "mobx-keystone";
 import { _FileImportBatch } from "medior/store/_generated";
-import { dayjs, DayJsInput } from "medior/utils/common";
+import type { TagToUpsert } from "medior/components";
 import { FileImport } from ".";
 
 @model("medior/FileImportBatch")
-export class FileImportBatch extends ExtendedModel(_FileImportBatch, {}) {
+export class FileImportBatch extends ExtendedModel(_FileImportBatch, {
+  tags: prop<TagToUpsert[]>(() => []).withSetter(),
+}) {
   onInit() {
     autoBind(this);
   }
 
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
-  @modelAction
-  setCompletedAt(completedAt: DayJsInput) {
-    this.completedAt = dayjs(completedAt).toISOString();
-  }
-
-  @modelAction
-  setStartedAt(startedAt: DayJsInput) {
-    this.startedAt = dayjs(startedAt).toISOString();
-  }
-
   @modelAction
   updateImport(paths: { originalPath?: string; newPath?: string }, updates: Partial<FileImport>) {
     const index = this.imports.findIndex((imp) =>
@@ -44,18 +36,5 @@ export class FileImportBatch extends ExtendedModel(_FileImportBatch, {}) {
   @computed
   get imported() {
     return this.imports.filter((imp) => imp.status !== "PENDING");
-  }
-
-  @computed
-  get status() {
-    return this.imports.some((imp) => imp.status === "PENDING")
-      ? "PENDING"
-      : this.imports.some((imp) => imp.status === "ERROR")
-        ? "ERROR"
-        : this.imports.some((imp) => imp.status === "DUPLICATE")
-          ? "DUPLICATE"
-          : !this.completedAt?.length
-            ? "PENDING"
-            : "COMPLETE";
   }
 }

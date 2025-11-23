@@ -69,7 +69,7 @@ export const SettingsModal = Comp(() => {
 
       stores.faceRecog.clearQueue();
       stores.file.clearRefreshQueue();
-      stores.import.manager.clearQueue();
+      stores.import.manager.pauseImporter();
       stores.tag.manager.clearRefreshQueue();
 
       if (hasDbDiff || hasServerDiff || hasSocketDiff)

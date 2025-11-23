@@ -75,10 +75,14 @@ export const RepairModal = Comp(() => {
           action: async (file) => {
             try {
               const info = await getVideoInfo(file.path);
-              const res = await trpc.updateFile.mutate({ ...info, id: file.id });
+              const res = await trpc.updateFile.mutate({
+                args: { id: file.id, updates: { ...info } },
+              });
               if (!res.success) throw new Error(res.error);
             } catch (err) {
-              const res = await trpc.updateFile.mutate({ id: file.id, isCorrupted: true });
+              const res = await trpc.updateFile.mutate({
+                args: { id: file.id, updates: { isCorrupted: true } },
+              });
               if (!res.success) throw new Error(res.error);
             }
           },

@@ -9,7 +9,7 @@ import mongoose from "mongoose";
 import * as actions from "medior/server/database/actions";
 import { leanModelToJson, makeAction, objectId, objectIds } from "medior/server/database/utils";
 import { SortValue } from "medior/store";
-import { checkFileExists, copyFile, deleteFile, genFileInfo, sharp } from "medior/utils/client";
+import { checkFileExists, deleteFile, genFileInfo, sharp } from "medior/utils/client";
 import { capitalize, CONSTANTS, dayjs, PromiseQueue } from "medior/utils/common";
 import { fileLog, makePerfLog, socket } from "medior/utils/server";
 
@@ -566,12 +566,6 @@ export const setFileRating = makeAction(async (args: { fileIds: string[]; rating
   await actions.regenCollAttrs({ fileIds: args.fileIds });
 });
 
-// TODO: Replace with generated
-export const updateFile = makeAction(
-  async ({ id, ...updates }: Partial<models.FileSchema> & { id: string }) =>
-    await models.FileModel.updateOne({ _id: id }, updates),
-);
-
 /* ----------------------------------------------------------------------- */
 class ThumbRepairer {
   private logTag = "[repairThumbs]";
@@ -697,10 +691,16 @@ class ThumbRepairer {
       if (file.thumbPaths.length === 1) {
         const originalPath = file.thumbPaths[0];
         const newThumbPath = this.makeFileThumbPath(file);
-        await copyFile(path.dirname(file.path), originalPath, newThumbPath);
-        await updateFile({
-          id: file.id,
-          thumb: { frameHeight: null, frameWidth: null, path: newThumbPath },
+        await actions.copyFile({
+          dirPath: path.dirname(file.path),
+          originalPath,
+          newPath: newThumbPath,
+        });
+        await actions.updateFile({
+          args: {
+            id: file.id,
+            updates: { thumb: { frameHeight: null, frameWidth: null, path: newThumbPath } },
+          },
         });
         await deleteFile(originalPath, newThumbPath);
         movedImageThumbCount++;
@@ -845,7 +845,7 @@ class ThumbRepairer {
   private regenThumbs = async (file: models.FileSchema, skipThumbs = false) => {
     const info = await genFileInfo({ file, filePath: file.path, hash: file.hash, skipThumbs });
     this.thumbMap.set(file.id, info.thumb);
-    const res = await updateFile({ id: file.id, thumb: info.thumb });
+    const res = await actions.updateFile({ args: { id: file.id, updates: { thumb: info.thumb } } });
     if (!res.success) throw new Error(`Failed to update file: ${res.error}`);
   };
 

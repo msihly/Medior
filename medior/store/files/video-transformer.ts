@@ -70,10 +70,14 @@ export class VideoTransformerStore extends Model({
     const videoInfo = await getVideoInfo(this.newPath);
 
     const dbRes = await trpc.updateFile.mutate({
-      ...videoInfo,
-      hash: this.newHash,
-      id: this.curFileId,
-      path: this.newPath,
+      args: {
+        id: this.curFileId,
+        updates: {
+          ...videoInfo,
+          hash: this.newHash,
+          path: this.newPath,
+        },
+      },
     });
     if (!dbRes.success) throw new Error(dbRes.error);
 

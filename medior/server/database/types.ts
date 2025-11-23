@@ -4,9 +4,12 @@ import { AudioCodec, ImageExt, VideoCodec, VideoExt } from "medior/utils/common"
 export type ImportStats = {
   completedBytes: number;
   elapsedTime: number;
+  filePath: string;
   rateInBytes: number;
   totalBytes: number;
 };
+
+export type ImportStatus = "COMPLETE" | "DELETED" | "DUPLICATE" | "ERROR" | "PENDING";
 
 export type SelectedAudioCodecs = { [codec in AudioCodec]: boolean };
 

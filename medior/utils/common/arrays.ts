@@ -89,8 +89,8 @@ export const sortArray = <T>(arr: T[], key: string, isDesc = true, isNumber = fa
 export const splitArray = <T>(arr: T[], filterFn: (element: T) => boolean): T[][] =>
   arr.reduce((acc, cur) => (acc[+!filterFn(cur)].push(cur), acc), [[], []]);
 
-export const sumArray = (arr: number[], fn?: (num: number) => number) =>
-  arr.reduce((acc, cur) => (acc += fn?.(cur) ?? cur), 0);
+export const sumArray = <T>(arr: T[], fn: (num: T) => number) =>
+  arr.reduce((acc, cur) => (acc += fn(cur)), 0);
 
 export const uniqueArrayFilter = <T>(...arrays: T[][]): T[] => {
   const all = [].concat(...arrays);

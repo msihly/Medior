@@ -25,7 +25,13 @@ const MODEL_SORT_OPTIONS: Record<ModelSortName, SortOption[]> = {
     { attribute: "rating", icon: "Star", label: "Rating" },
     { attribute: "title", icon: "Title", label: "Title" },
   ],
-  FileImportBatch: [{ attribute: "dateCreated", icon: "DateRange", label: "Date Created" }],
+  FileImportBatch: [
+    { attribute: "completedAt", icon: "HourglassBottom", label: "Completed At" },
+    { attribute: "dateCreated", icon: "DateRange", label: "Date Created" },
+    { attribute: "fileCount", icon: "Numbers", label: "File Count" },
+    { attribute: "size", icon: "FormatSize", label: "Size" },
+    { attribute: "startedAt", icon: "HourglassTop", label: "Started At" },
+  ],
   File: [
     { attribute: "bitrate", icon: "DataThresholding", label: "Bitrate" },
     { attribute: "dateCreated", icon: "DateRange", label: "Date Created" },

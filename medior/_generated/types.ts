@@ -73,7 +73,7 @@ export type ListFileInput = {
   sort?: Record<string, SortOrder>;
   withOverwrite?: boolean;
 };
-export type _UpdateFileInput = { id: string; updates: Partial<db.FileSchema> };
+export type UpdateFileInput = { id: string; updates: Partial<db.FileSchema> };
 
 /* ------------------------------------ Tag ----------------------------------- */
 export type _CreateTagInput = Omit<db.TagSchema, "id">;
@@ -129,6 +129,9 @@ export type CheckFileImportHashesOutput = ReturnType<typeof db.checkFileImportHa
 export type CompleteImportBatchInput = Parameters<typeof db.completeImportBatch>[0];
 export type CompleteImportBatchOutput = ReturnType<typeof db.completeImportBatch>;
 
+export type CopyFileInput = Parameters<typeof db.copyFile>[0];
+export type CopyFileOutput = ReturnType<typeof db.copyFile>;
+
 export type CreateImportBatchesInput = Parameters<typeof db.createImportBatches>[0];
 export type CreateImportBatchesOutput = ReturnType<typeof db.createImportBatches>;
 
@@ -138,11 +141,26 @@ export type DeleteImportBatchesOutput = ReturnType<typeof db.deleteImportBatches
 export type EmitImportStatsUpdatedInput = Parameters<typeof db.emitImportStatsUpdated>[0];
 export type EmitImportStatsUpdatedOutput = ReturnType<typeof db.emitImportStatsUpdated>;
 
-export type ListImportBatchesInput = Parameters<typeof db.listImportBatches>[0];
-export type ListImportBatchesOutput = ReturnType<typeof db.listImportBatches>;
+export type GetImportBatchInput = Parameters<typeof db.getImportBatch>[0];
+export type GetImportBatchOutput = ReturnType<typeof db.getImportBatch>;
+
+export type GetNextImportBatchInput = Parameters<typeof db.getNextImportBatch>[0];
+export type GetNextImportBatchOutput = ReturnType<typeof db.getNextImportBatch>;
+
+export type PauseImporterInput = Parameters<typeof db.pauseImporter>[0];
+export type PauseImporterOutput = ReturnType<typeof db.pauseImporter>;
+
+export type ResumeImporterInput = Parameters<typeof db.resumeImporter>[0];
+export type ResumeImporterOutput = ReturnType<typeof db.resumeImporter>;
+
+export type GetImporterStatusInput = Parameters<typeof db.getImporterStatus>[0];
+export type GetImporterStatusOutput = ReturnType<typeof db.getImporterStatus>;
 
 export type ReingestFolderInput = Parameters<typeof db.reingestFolder>[0];
 export type ReingestFolderOutput = ReturnType<typeof db.reingestFolder>;
+
+export type RunImportBatchInput = Parameters<typeof db.runImportBatch>[0];
+export type RunImportBatchOutput = ReturnType<typeof db.runImportBatch>;
 
 export type StartImportBatchInput = Parameters<typeof db.startImportBatch>[0];
 export type StartImportBatchOutput = ReturnType<typeof db.startImportBatch>;
@@ -221,9 +239,6 @@ export type SetFileIsArchivedOutput = ReturnType<typeof db.setFileIsArchived>;
 
 export type SetFileRatingInput = Parameters<typeof db.setFileRating>[0];
 export type SetFileRatingOutput = ReturnType<typeof db.setFileRating>;
-
-export type UpdateFileInput = Parameters<typeof db.updateFile>[0];
-export type UpdateFileOutput = ReturnType<typeof db.updateFile>;
 
 export type RepairThumbsInput = Parameters<typeof db.repairThumbs>[0];
 export type RepairThumbsOutput = ReturnType<typeof db.repairThumbs>;

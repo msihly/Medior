@@ -1,8 +1,8 @@
 import autoBind from "auto-bind";
-import { getRootStore, Model, model, ModelCreationData, modelFlow, prop } from "mobx-keystone";
+import { Model, model, ModelCreationData, modelFlow, prop } from "mobx-keystone";
 import * as db from "medior/server/database";
 import { TagToUpsert } from "medior/components";
-import { asyncAction, RootStore } from "medior/store";
+import { asyncAction } from "medior/store";
 import { toast } from "medior/utils/client";
 import { PromiseChain, regexEscape } from "medior/utils/common";
 import { trpc } from "medior/utils/server";
@@ -107,12 +107,6 @@ export class TagStore extends Model({
 
   @modelFlow
   mergeTags = asyncAction(async (args: db.MergeTagsInput) => {
-    /** Clear import queue first to prevent data corruption from race condition.
-     *  Queue is reloaded via socket upon mergeTags resolution.
-     */
-    const stores = getRootStore<RootStore>(this);
-    stores.import.manager.clearQueue();
-
     const res = await trpc.mergeTags.mutate(args);
     if (!res.success) throw new Error(res.error);
   });

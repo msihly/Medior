@@ -198,7 +198,9 @@ export class _FileCollectionSearch extends Model({
       tags: tags.filter((t) => item.tagIds.includes(t.id)),
     }));
 
-    this.setResults(items.map((item) => new Stores.FileCollection(item)));
+    const results = items;
+
+    this.setResults(results.map((result) => new Stores.FileCollection(result)));
     if (debug) perfLog("Overwrite and re-render");
 
     if (page) this.setPage(page);
@@ -216,7 +218,7 @@ export class _FileCollectionSearch extends Model({
     this.setIsPageCountLoading(false);
     if (debug) perfLog(`Set pageCount to ${pageCount}`);
 
-    return items;
+    return results;
   });
 
   /* GETTERS */
@@ -249,6 +251,246 @@ export class _FileCollectionSearch extends Model({
       sortValue: this.sortValue,
       ...getRootStore<Stores.RootStore>(this)?.tag?.tagSearchOptsToIds(this.tags),
       title: this.title,
+    };
+  }
+
+  getIsSelected(id: string) {
+    return !!this.selectedIds.find((s) => s === id);
+  }
+
+  getResult(id: string) {
+    return this.results.find((r) => r.id === id);
+  }
+}
+@model("medior/_FileImportBatchSearch")
+export class _FileImportBatchSearch extends Model({
+  collectionTitle: prop<string>("").withSetter(),
+  completedAtEnd: prop<string>("").withSetter(),
+  completedAtStart: prop<string>("").withSetter(),
+  dateCreatedEnd: prop<string>("").withSetter(),
+  dateCreatedStart: prop<string>("").withSetter(),
+  fileCount: prop<{ logOp: LogicalOp | ""; value: number }>(() => ({ logOp: "", value: 0 })),
+  forcePages: prop<boolean>(false).withSetter(),
+  hasChanges: prop<boolean>(false).withSetter(),
+  ids: prop<string[]>(() => []).withSetter(),
+  isCompleted: prop<boolean>(true).withSetter(),
+  isLoading: prop<boolean>(false).withSetter(),
+  isPageCountLoading: prop<boolean>(false).withSetter(),
+  page: prop<number>(1).withSetter(),
+  pageCount: prop<number>(1).withSetter(),
+  pageSize: prop<number>(() => getConfig().imports.manager.search.pageSize).withSetter(),
+  results: prop<Stores.FileImportBatch[]>(() => []).withSetter(),
+  rootFolderPath: prop<string>("").withSetter(),
+  selectedIds: prop<string[]>(() => []).withSetter(),
+  sortValue: prop<SortMenuProps["value"]>(
+    () => getConfig().imports.manager.search.sort,
+  ).withSetter(),
+  startedAtEnd: prop<string>("").withSetter(),
+  startedAtStart: prop<string>("").withSetter(),
+  tags: prop<Stores.TagOption[]>(() => []).withSetter(),
+}) {
+  onInit() {
+    autoBind(this);
+  }
+
+  /* STANDARD ACTIONS */
+  @modelAction
+  _addResult(result: ModelCreationData<Stores.FileImportBatch>) {
+    this.results.push(new Stores.FileImportBatch(result));
+  }
+
+  @modelAction
+  _deleteResults(ids: string[]) {
+    this.results = this.results.filter((d) => !ids.includes(d.id));
+  }
+
+  @modelAction
+  reset() {
+    this.collectionTitle = "";
+    this.completedAtEnd = "";
+    this.completedAtStart = "";
+    this.dateCreatedEnd = "";
+    this.dateCreatedStart = "";
+    this.fileCount = { logOp: "", value: 0 };
+    this.forcePages = false;
+    this.hasChanges = false;
+    this.ids = [];
+    this.isCompleted = true;
+    this.isLoading = false;
+    this.isPageCountLoading = false;
+    this.page = 1;
+    this.pageCount = 1;
+    this.pageSize = getConfig().imports.manager.search.pageSize;
+    this.results = [];
+    this.rootFolderPath = "";
+    this.selectedIds = [];
+    this.sortValue = getConfig().imports.manager.search.sort;
+    this.startedAtEnd = "";
+    this.startedAtStart = "";
+    this.tags = [];
+  }
+
+  @modelAction
+  toggleSelected(selected: { id: string; isSelected?: boolean }[], withToast = false) {
+    if (!selected?.length) return;
+
+    const [added, removed] = selected.reduce(
+      (acc, cur) => (acc[cur.isSelected ? 0 : 1].push(cur.id), acc),
+      [[], []],
+    );
+
+    const removedSet = new Set(removed);
+    this.selectedIds = [...new Set(this.selectedIds.concat(added))].filter(
+      (id) => !removedSet.has(id),
+    );
+
+    if (withToast) {
+      const addedCount = added.length;
+      const removedCount = removed.length;
+      if (addedCount && removedCount)
+        toast.success(`Selected ${addedCount} items and deselected ${removedCount} items`);
+      else if (addedCount) toast.success(`Selected ${addedCount} items`);
+      else if (removedCount) toast.success(`Deselected ${removedCount} items`);
+    }
+  }
+
+  @modelAction
+  setFileCountOp(val: LogicalOp | "") {
+    this.fileCount.logOp = val;
+    if (val === "") this.fileCount.value = 0;
+  }
+
+  @modelAction
+  setFileCountValue(val: number) {
+    this.fileCount.value = val;
+  }
+
+  /* ASYNC ACTIONS */
+  @modelFlow
+  getShiftSelected = asyncAction(
+    async ({ id, selectedIds }: { id: string; selectedIds: string[] }) => {
+      const clickedIndex =
+        (this.page - 1) * this.pageSize + this.results.findIndex((r) => r.id === id);
+
+      const res = await trpc.getShiftSelectedFileImportBatch.mutate({
+        ...this.getFilterProps(),
+        clickedId: id,
+        clickedIndex,
+        selectedIds,
+      });
+      if (!res.success) throw new Error(res.error);
+      return res.data;
+    },
+  );
+
+  @modelFlow
+  handleSelect = asyncAction(
+    async ({ hasCtrl, hasShift, id }: { hasCtrl: boolean; hasShift: boolean; id: string }) => {
+      if (hasShift) {
+        const res = await this.getShiftSelected({ id, selectedIds: this.selectedIds });
+        if (!res?.success) throw new Error(res.error);
+        this.toggleSelected([
+          ...res.data.idsToDeselect.map((i) => ({ id: i, isSelected: false })),
+          ...res.data.idsToSelect.map((i) => ({ id: i, isSelected: true })),
+        ]);
+      } else if (hasCtrl) {
+        this.toggleSelected([{ id, isSelected: !this.getIsSelected(id) }]);
+      } else {
+        this.toggleSelected([
+          ...this.selectedIds.map((id) => ({ id, isSelected: false })),
+          { id, isSelected: true },
+        ]);
+      }
+    },
+  );
+
+  @modelFlow
+  loadFiltered = asyncAction(async ({ page }: { page?: number } = {}) => {
+    const debug = false;
+    const { perfLog } = makePerfLog("[FileImportBatchSearch]");
+    this.setIsLoading(true);
+    this.setIsPageCountLoading(true);
+
+    const itemsRes = await trpc.listFilteredFileImportBatch.mutate({
+      ...this.getFilterProps(),
+      forcePages: this.forcePages,
+      page: page ?? this.page,
+      pageSize: this.pageSize,
+    });
+    if (!itemsRes.success) throw new Error(itemsRes.error);
+
+    let items = itemsRes.data;
+    if (debug) perfLog(`Loaded ${items.length} items`);
+
+    const tagIds = [...new Set(items.flatMap((item) => item.tagIds))];
+    const tags = (await trpc.listTag.mutate({ args: { filter: { id: tagIds } } })).data.items;
+    items = items.map((item) => ({
+      ...item,
+      tags: tags.filter((t) => item.tagIds.includes(t.id)),
+    }));
+
+    const results = items.map((batch) => ({
+      ...batch,
+      imports: batch.imports.map((imp) => new Stores.FileImport(imp)),
+    }));
+
+    this.setResults(results.map((result) => new Stores.FileImportBatch(result)));
+    if (debug) perfLog("Overwrite and re-render");
+
+    if (page) this.setPage(page);
+    if (debug && page) perfLog(`Set page to ${page ?? this.page}`);
+    this.setIsLoading(false);
+    this.setHasChanges(false);
+
+    const countRes = await trpc.getFilteredFileImportBatchCount.mutate({
+      ...this.getFilterProps(),
+      pageSize: this.pageSize,
+    });
+    if (!countRes.success) throw new Error(countRes.error);
+    const pageCount = countRes.data.pageCount;
+    this.setPageCount(pageCount);
+    this.setIsPageCountLoading(false);
+    if (debug) perfLog(`Set pageCount to ${pageCount}`);
+
+    return results;
+  });
+
+  /* GETTERS */
+  @computed
+  get numOfFilters() {
+    return (
+      (!isDeepEqual(this.collectionTitle, "") ? 1 : 0) +
+      (!isDeepEqual(this.completedAtEnd, "") ? 1 : 0) +
+      (!isDeepEqual(this.completedAtStart, "") ? 1 : 0) +
+      (!isDeepEqual(this.dateCreatedEnd, "") ? 1 : 0) +
+      (!isDeepEqual(this.dateCreatedStart, "") ? 1 : 0) +
+      (!isDeepEqual(this.fileCount, { logOp: "", value: 0 }) ? 1 : 0) +
+      (!isDeepEqual(this.ids, []) ? 1 : 0) +
+      (!isDeepEqual(this.isCompleted, true) ? 1 : 0) +
+      (!isDeepEqual(this.rootFolderPath, "") ? 1 : 0) +
+      (!isDeepEqual(this.sortValue, getConfig().imports.manager.search.sort) ? 1 : 0) +
+      (!isDeepEqual(this.startedAtEnd, "") ? 1 : 0) +
+      (!isDeepEqual(this.startedAtStart, "") ? 1 : 0) +
+      (!isDeepEqual(this.tags, []) ? 1 : 0)
+    );
+  }
+
+  /* DYNAMIC GETTERS */
+  getFilterProps() {
+    return {
+      collectionTitle: this.collectionTitle,
+      completedAtEnd: this.completedAtEnd,
+      completedAtStart: this.completedAtStart,
+      dateCreatedEnd: this.dateCreatedEnd,
+      dateCreatedStart: this.dateCreatedStart,
+      fileCount: this.fileCount,
+      ids: this.ids,
+      isCompleted: this.isCompleted,
+      rootFolderPath: this.rootFolderPath,
+      sortValue: this.sortValue,
+      startedAtEnd: this.startedAtEnd,
+      startedAtStart: this.startedAtStart,
+      ...getRootStore<Stores.RootStore>(this)?.tag?.tagSearchOptsToIds(this.tags),
     };
   }
 
@@ -547,7 +789,9 @@ export class _FileSearch extends Model({
       tags: tags.filter((t) => item.tagIds.includes(t.id)),
     }));
 
-    this.setResults(items.map((item) => new Stores.File(item)));
+    const results = items;
+
+    this.setResults(results.map((result) => new Stores.File(result)));
     if (debug) perfLog("Overwrite and re-render");
 
     if (page) this.setPage(page);
@@ -565,7 +809,7 @@ export class _FileSearch extends Model({
     this.setIsPageCountLoading(false);
     if (debug) perfLog(`Set pageCount to ${pageCount}`);
 
-    return items;
+    return results;
   });
 
   /* GETTERS */
@@ -829,7 +1073,9 @@ export class _TagSearch extends Model({
     let items = itemsRes.data;
     if (debug) perfLog(`Loaded ${items.length} items`);
 
-    this.setResults(items.map((item) => new Stores.Tag(item)));
+    const results = items;
+
+    this.setResults(results.map((result) => new Stores.Tag(result)));
     if (debug) perfLog("Overwrite and re-render");
 
     if (page) this.setPage(page);
@@ -847,7 +1093,7 @@ export class _TagSearch extends Model({
     this.setIsPageCountLoading(false);
     if (debug) perfLog(`Set pageCount to ${pageCount}`);
 
-    return items;
+    return results;
   });
 
   /* GETTERS */
@@ -1011,12 +1257,16 @@ export class _FileImportBatch extends Model({
   collectionTitle: prop<string>(null),
   completedAt: prop<string>(),
   deleteOnImport: prop<boolean>(),
+  fileCount: prop<number>(0),
   ignorePrevDeleted: prop<boolean>(),
   imports: prop<Stores.FileImport[]>(() => []),
+  isCompleted: prop<boolean>(false),
   remux: prop<boolean>(null),
   rootFolderPath: prop<string>(),
+  size: prop<number>(null),
   startedAt: prop<string>(null),
-  tagIds: prop<string[]>(),
+  tagIds: prop<string[]>(() => []),
+  tagIdsWithAncestors: prop<string[]>(() => []),
 }) {
   @modelAction
   update(updates: Partial<ModelCreationData<this>>) {
@@ -1031,6 +1281,7 @@ export class _FileImport extends Model({
   errorMsg: prop<string>(null),
   extension: prop<string>(),
   fileId: prop<string>(null),
+  hash: prop<string>(null),
   name: prop<string>(),
   path: prop<string>(),
   size: prop<number>(),
@@ -1139,9 +1390,9 @@ export class _FileStore extends Model({ isLoading: prop<boolean>(false).withSett
   });
 
   @modelFlow
-  updateFile = asyncAction(async (args: Types._UpdateFileInput) => {
+  updateFile = asyncAction(async (args: Types.UpdateFileInput) => {
     this.setIsLoading(true);
-    const res = await trpc._updateFile.mutate({ args });
+    const res = await trpc.updateFile.mutate({ args });
     this.setIsLoading(false);
     if (res.error) throw new Error(res.error);
     return res.data;

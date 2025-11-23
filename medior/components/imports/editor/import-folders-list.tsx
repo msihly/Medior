@@ -20,7 +20,7 @@ export const ImportFoldersList = Comp(({ store }: ImportFoldersListProps) => {
   const getItemSize = (index: number) => {
     const folder = getByIndex(index);
     if (!folder) return 0;
-    return 10 + getImportFolderHeight(folder);
+    return 10 + getImportFolderHeight({ folder, withListItems: true });
   };
 
   return (
@@ -36,7 +36,7 @@ export const ImportFoldersList = Comp(({ store }: ImportFoldersListProps) => {
           >
             {({ index, style }) => (
               <View style={style} padding={{ all: "0 0.5rem" }}>
-                <ImportFolderList folder={getByIndex(index)} />
+                <ImportFolderList folder={getByIndex(index)} noStatus />
               </View>
             )}
           </VariableSizeList>

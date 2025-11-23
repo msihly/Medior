@@ -1,12 +1,22 @@
+import { createReadStream, createWriteStream, promises as fs } from "fs";
 import * as models from "medior/_generated/models";
 import { ModelCreationData } from "mobx-keystone";
 import * as actions from "medior/server/database/actions";
 import * as Types from "medior/server/database/types";
 import { makeAction } from "medior/server/database/utils";
-import { ImportStatus } from "medior/components";
-import { FileImport, ImportBatchInput } from "medior/store";
-import { dayjs, jstr } from "medior/utils/common";
-import { objectId, socket } from "medior/utils/server";
+import type { FileImport } from "medior/store";
+import { FileImporter } from "medior/store/imports/importer";
+import { dayjs, jstr, sleep, sumArray, throttle } from "medior/utils/common";
+import {
+  checkFileExists,
+  leanModelToJson,
+  objectId,
+  removeEmptyFolders,
+  socket,
+} from "medior/utils/server";
+
+let isImporting = false;
+let isPaused = false;
 
 export const checkFileImportHashes = makeAction(async (args: { hash: string }) => {
   const [deletedFileRes, fileRes] = await Promise.all([
@@ -22,20 +32,130 @@ export const checkFileImportHashes = makeAction(async (args: { hash: string }) =
 });
 
 export const completeImportBatch = makeAction(
-  async (args: { collectionId?: string; fileIds: string[]; id: string; tagIds: string[] }) => {
+  async (args: { id: string; withNextBatch: boolean }) => {
     const completedAt = dayjs().toISOString();
+
+    const batch = (await getImportBatch({ id: args.id })).data;
+    if (batch.imports.some((f) => f.status === "PENDING")) return null;
+
+    const fileIds = batch.imports
+      .filter((imp) => ["COMPLETED", "DUPLICATE"].includes(imp.status))
+      .map((imp) => imp.fileId);
+
+    const tagIds = [
+      ...new Set([...batch.tagIds, ...batch.imports.flatMap((imp) => imp.tagIds)].flat()),
+    ];
+
+    let collectionId: string = null;
+    if (fileIds.length && batch.collectionTitle) {
+      const fileIdIndexes = fileIds.map((fileId, index) => ({ fileId, index }));
+      const res = await actions.createCollection({ fileIdIndexes, title: batch.collectionTitle });
+      if (!res.success) throw new Error(`Failed to create collection: ${res.error}`);
+      collectionId = res.data.id;
+    }
+
     await Promise.all([
       models.FileImportBatchModel.updateOne(
         { _id: args.id },
-        { collectionId: args.collectionId, completedAt },
+        { collectionId, completedAt, isCompleted: true },
       ),
-      args.tagIds.length && actions.regenFileTagAncestors({ fileIds: args.fileIds }),
-      args.tagIds.length && actions.recalculateTagCounts({ tagIds: args.tagIds }),
-      ...args.tagIds.map((tagId) => actions.regenTagThumbPaths({ tagId })),
+      tagIds.length && actions.regenFileTagAncestors({ fileIds }),
+      tagIds.length && actions.recalculateTagCounts({ tagIds }),
+      ...tagIds.map((tagId) => actions.regenTagThumbPaths({ tagId })),
     ]);
 
     socket.emit("onImportBatchCompleted", { id: args.id });
+
+    if (batch.deleteOnImport) {
+      try {
+        const res = await actions.listFileImportBatch({
+          args: { filter: { rootFolderPath: batch.rootFolderPath } },
+        });
+        if (!res.success) throw new Error(res.error);
+        if (res.data.items.length > 0) {
+          await removeEmptyFolders(batch.rootFolderPath);
+          console.debug(`Removed empty folders: ${batch.rootFolderPath}`);
+        }
+      } catch (err) {
+        console.error("Error removing empty folders:", err);
+      }
+    }
+
+    if (args.withNextBatch) {
+      const nextBatch = (await getNextImportBatch(null)).data;
+      if (nextBatch) runImportBatch({ id: nextBatch.id });
+      else isImporting = false;
+    } else isImporting = false;
+
+    socket.emit("onReloadImportBatches");
+
     return completedAt;
+  },
+);
+
+export const copyFile = makeAction(
+  async (args: { dirPath: string; originalPath: string; newPath: string }) => {
+    if (await checkFileExists(args.newPath)) return false;
+    await fs.mkdir(args.dirPath, { recursive: true });
+
+    return new Promise(async (resolve, reject) => {
+      try {
+        const stats = await fs.stat(args.originalPath);
+        const totalBytes = stats.size;
+
+        const readStream = createReadStream(args.originalPath);
+        const writeStream = createWriteStream(args.newPath, { flags: "wx" });
+
+        let completedBytes = 0;
+        const startTime = Date.now();
+        const getElapsedTime = () => (Date.now() - startTime) / 1000;
+
+        const emitStats = throttle(
+          (importStats: Types.ImportStats) => emitImportStatsUpdated({ importStats }),
+          200,
+        );
+
+        readStream.on("data", (chunk) => {
+          completedBytes += chunk.length;
+          const elapsedTime = getElapsedTime();
+          const rateInBytes = completedBytes / elapsedTime;
+          emitStats({
+            completedBytes,
+            elapsedTime,
+            filePath: args.originalPath,
+            rateInBytes,
+            totalBytes,
+          });
+        });
+
+        readStream.on("end", () => {
+          emitStats({
+            completedBytes: totalBytes,
+            elapsedTime: getElapsedTime(),
+            filePath: args.originalPath,
+            rateInBytes: 0,
+            totalBytes,
+          });
+
+          resolve(true);
+        });
+
+        readStream.on("error", (err) => {
+          console.error("ReadStream error:", err);
+          reject(err);
+        });
+
+        writeStream.on("error", (err) => {
+          console.error("WriteStream error:", err);
+          reject(err);
+        });
+
+        readStream.pipe(writeStream);
+      } catch (err) {
+        console.error("Error in promise:", err);
+        reject(err);
+      }
+    });
   },
 );
 
@@ -56,6 +176,9 @@ export const createImportBatches = makeAction(
         ...batch,
         completedAt: null,
         dateCreated: dayjs().toISOString(),
+        fileCount: batch.imports.length,
+        isCompleted: false,
+        size: sumArray(batch.imports, (imp) => imp.size),
         startedAt: null,
         tagIds: batch.tagIds ? [...new Set(batch.tagIds)].flat() : [],
       })),
@@ -77,18 +200,31 @@ export const emitImportStatsUpdated = makeAction(
   },
 );
 
-export const listImportBatches = makeAction(async () =>
-  (await models.FileImportBatchModel.find().lean()).map(
-    (b) =>
-      ({
-        ...b,
-        id: b._id.toString(),
-        imports: b.imports.map((i) => ({ ...i, _id: undefined })),
-        _id: undefined,
-        __v: undefined,
-      }) as ImportBatchInput,
-  ),
-);
+export const getImportBatch = makeAction(async (args: { id: string }) => {
+  return leanModelToJson<models.FileImportBatchSchema>(
+    await models.FileImportBatchModel.findById(args.id).lean(),
+  );
+});
+
+export const getNextImportBatch = makeAction(async () => {
+  return leanModelToJson<models.FileImportBatchSchema>(
+    await models.FileImportBatchModel.findOne({ isCompleted: false })
+      .sort({ startedAt: -1, dateCreated: 1 })
+      .lean(),
+  );
+});
+
+export const pauseImporter = makeAction(async () => {
+  isPaused = true;
+});
+
+export const resumeImporter = makeAction(async () => {
+  isPaused = false;
+});
+
+export const getImporterStatus = makeAction(async () => {
+  return { isPaused, isImporting };
+});
 
 export const reingestFolder = makeAction(
   async (args: {
@@ -130,6 +266,82 @@ export const reingestFolder = makeAction(
   },
 );
 
+export const runImportBatch = makeAction(async (args: { id: string }) => {
+  if (isImporting) return;
+
+  const batch = (await getImportBatch({ id: args.id })).data;
+  if (!batch) throw new Error(`Import batch not found: ${args.id}`);
+  if (!batch?.startedAt) await startImportBatch({ id: args.id });
+
+  isPaused = false;
+  isImporting = true;
+  socket.emit("onImportBatchLoaded", { id: args.id });
+
+  const pendingImports = batch.imports.filter((imp) => imp.status === "PENDING");
+
+  let withNextBatch = true;
+  for (const fileImport of pendingImports) {
+    try {
+      while (isPaused && isImporting) await sleep(100);
+
+      const importer = new FileImporter({
+        dateCreated: fileImport.dateCreated,
+        deleteOnImport: batch.deleteOnImport,
+        ext: fileImport.extension,
+        ignorePrevDeleted: batch.ignorePrevDeleted,
+        originalName: fileImport.name,
+        originalPath: fileImport.path,
+        size: fileImport.size,
+        tagIds: [...new Set([...batch.tagIds, ...fileImport.tagIds].flat())],
+        withRemux: batch.remux,
+      });
+
+      const copyRes = await importer.import();
+
+      const updateRes = await updateFileImportByPath({
+        batchId: batch.id,
+        errorMsg: copyRes.error ?? null,
+        fileId: copyRes.file?.id ?? null,
+        filePath: fileImport.path,
+        hash: copyRes.file?.hash ?? null,
+        status: copyRes.status,
+        thumb: copyRes.file?.thumb ?? null,
+      });
+      if (!updateRes?.success) throw new Error(updateRes?.error);
+    } catch (err) {
+      console.error("Error importing file:", err);
+      const storageMsg = "No available file storage location found";
+      if (err.message.includes(storageMsg)) {
+        withNextBatch = false;
+        break;
+      }
+    }
+  }
+
+  // batchAborter = new AbortController();
+
+  const updatedBatch = (await getImportBatch({ id: args.id })).data;
+  const addedTagIds = [...updatedBatch.tagIds].flat();
+  const duplicateFileIds = updatedBatch.imports
+    .filter((file) => file.status === "DUPLICATE")
+    .map((file) => file.fileId);
+
+  if (addedTagIds.length && duplicateFileIds.length) {
+    try {
+      const res = await actions.editFileTags({
+        fileIds: duplicateFileIds,
+        addedTagIds,
+        withSub: false,
+      });
+      if (!res.success) throw new Error(res.error);
+    } catch (err) {
+      console.error("Error adding tags to duplicate files:", err);
+    }
+  }
+
+  await completeImportBatch({ id: args.id, withNextBatch });
+});
+
 export const startImportBatch = makeAction(async (args: { id: string }) => {
   const startedAt = dayjs().toISOString();
   await models.FileImportBatchModel.updateOne({ _id: args.id }, { startedAt });
@@ -140,9 +352,10 @@ export const updateFileImportByPath = makeAction(
   async (args: {
     batchId: string;
     errorMsg?: string;
-    fileId: string;
-    filePath?: string;
-    status?: ImportStatus;
+    fileId?: string;
+    filePath: string;
+    hash?: string;
+    status?: Types.ImportStatus;
     thumb?: models.FileImportBatchSchema["imports"][number]["thumb"];
   }) => {
     const res = await models.FileImportBatchModel.updateOne(
@@ -151,6 +364,7 @@ export const updateFileImportByPath = makeAction(
         $set: {
           "imports.$[fileImport].errorMsg": args.errorMsg,
           "imports.$[fileImport].fileId": args.fileId,
+          "imports.$[fileImport].hash": args.hash,
           "imports.$[fileImport].status": args.status,
           "imports.$[fileImport].thumb": args.thumb,
         },
@@ -160,5 +374,7 @@ export const updateFileImportByPath = makeAction(
 
     if (res?.matchedCount !== res?.modifiedCount)
       throw new Error("Failed to update file import by path");
+
+    socket.emit("onFileImportUpdated", args);
   },
 );

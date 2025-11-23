@@ -77,6 +77,7 @@ export interface FileImport {
   errorMsg: string;
   extension: string;
   fileId: string;
+  hash: string;
   name: string;
   path: string;
   size: number;
@@ -92,12 +93,16 @@ export interface FileImportBatchSchema {
   collectionTitle?: string;
   completedAt: string;
   deleteOnImport: boolean;
+  fileCount: number;
   ignorePrevDeleted: boolean;
   imports?: FileImport[];
+  isCompleted: boolean;
   remux?: boolean;
   rootFolderPath: string;
+  size?: number;
   startedAt?: string;
   tagIds: string[];
+  tagIdsWithAncestors: string[];
 }
 
 const FileImportBatchSchema = new Schema<FileImportBatchSchema>({
@@ -107,6 +112,7 @@ const FileImportBatchSchema = new Schema<FileImportBatchSchema>({
   collectionTitle: String,
   completedAt: String,
   deleteOnImport: Boolean,
+  fileCount: Number,
   ignorePrevDeleted: Boolean,
   imports: [
     {
@@ -115,6 +121,7 @@ const FileImportBatchSchema = new Schema<FileImportBatchSchema>({
       errorMsg: String,
       extension: String,
       fileId: { type: Schema.Types.ObjectId, ref: "File" },
+      hash: String,
       name: String,
       path: String,
       size: Number,
@@ -123,13 +130,25 @@ const FileImportBatchSchema = new Schema<FileImportBatchSchema>({
       thumb: { frameHeight: Number, frameWidth: Number, path: String },
     },
   ],
+  isCompleted: Boolean,
   remux: Boolean,
   rootFolderPath: String,
+  size: Number,
   startedAt: String,
   tagIds: [{ type: Schema.Types.ObjectId, ref: "Tag" }],
+  tagIdsWithAncestors: [{ type: Schema.Types.ObjectId, ref: "Tag" }],
 });
 
 FileImportBatchSchema.index({ dateCreated: 1, _id: 1 }, { unique: true });
+FileImportBatchSchema.index({ collectionTitle: 1, _id: 1 }, { unique: true });
+FileImportBatchSchema.index({ completedAt: 1, _id: 1 }, { unique: true });
+FileImportBatchSchema.index({ fileCount: 1, _id: 1 }, { unique: true });
+FileImportBatchSchema.index({ isCompleted: 1, _id: 1 }, { unique: true });
+FileImportBatchSchema.index({ rootFolderPath: 1, _id: 1 }, { unique: true });
+FileImportBatchSchema.index({ size: 1, _id: 1 }, { unique: true });
+FileImportBatchSchema.index({ startedAt: 1, _id: 1 }, { unique: true });
+FileImportBatchSchema.index({ tagIds: 1, _id: 1 }, { unique: true });
+FileImportBatchSchema.index({ tagIdsWithAncestors: 1, _id: 1 }, { unique: true });
 
 export const FileImportBatchModel = model<FileImportBatchSchema>(
   "FileImportBatch",

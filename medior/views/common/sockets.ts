@@ -67,17 +67,11 @@ export const useSockets = ({ view }: UseSocketsProps) => {
       }
     });
 
-    makeSocket("onFileTagsUpdated", ({ addedTagIds, batchId, fileIds, removedTagIds }) => {
+    makeSocket("onFileTagsUpdated", ({ addedTagIds, fileIds, removedTagIds }) => {
       stores.file.updateFileTags({ addedTagIds, fileIds, removedTagIds });
       stores.file.search.reloadTags(fileIds);
 
       if (view !== "carousel") stores.file.search.setHasChanges(true);
-      if (view === "home" && batchId?.length > 0)
-        stores.import.manager.editBatchTags({
-          addedIds: addedTagIds,
-          batchIds: [batchId],
-          removedIds: removedTagIds,
-        });
     });
 
     makeSocket("onReloadFiles", () => {
@@ -92,16 +86,14 @@ export const useSockets = ({ view }: UseSocketsProps) => {
         stores.tag.manager.search.loadFiltered();
     });
 
-    makeSocket("onTagDeleted", ({ ids }) => {
-      if (view === "home") stores.import.manager.editBatchTags({ removedIds: ids });
+    makeSocket("onTagDeleted", () => {
       if (view !== "carousel") {
         queueFileReload();
         if (stores.tag.manager.isOpen) stores.tag.manager.search.loadFiltered();
       }
     });
 
-    makeSocket("onTagMerged", ({ oldTagId }) => {
-      if (view === "home") stores.import.manager.editBatchTags({ removedIds: [oldTagId] });
+    makeSocket("onTagMerged", () => {
       if (view !== "carousel" && stores.tag.manager.isOpen)
         stores.tag.manager.search.loadFiltered();
     });
@@ -128,11 +120,13 @@ export const useSockets = ({ view }: UseSocketsProps) => {
 
       makeSocket("onImportBatchCompleted", () => {
         stores.file.search.setHasChanges(true);
-      });
 
-      makeSocket("onImportStatsUpdated", ({ importStats }) =>
-        stores.import.manager.setImportStats(importStats),
-      );
+        if (view === "home") {
+          stores.import.manager.setActiveBatch(null);
+          stores.import.manager.setImportStats(null);
+          stores.import.manager.search.setHasChanges(true);
+        }
+      });
 
       makeSocket("onReloadFileCollections", () => {
         if (stores.collection.manager.isOpen) stores.collection.manager.search.loadFiltered();
@@ -140,7 +134,25 @@ export const useSockets = ({ view }: UseSocketsProps) => {
     }
 
     if (view === "home") {
-      makeSocket("onReloadImportBatches", () => stores.import.manager.loadImportBatches());
+      makeSocket("onFileImportUpdated", ({ errorMsg, fileId, filePath, status }) => {
+        if (stores.import.manager.isOpen)
+          stores.import.manager.activeBatch?.updateImport?.(
+            { originalPath: filePath },
+            { errorMsg, fileId, status },
+          );
+      });
+
+      makeSocket("onImportStatsUpdated", ({ importStats }) => {
+        if (stores.import.manager.isOpen) stores.import.manager.setImportStats(importStats);
+      });
+
+      makeSocket("onImportBatchLoaded", () => {
+        if (stores.import.manager.isOpen) stores.import.manager.loadActiveBatch();
+      });
+
+      makeSocket("onReloadImportBatches", () => {
+        if (stores.import.manager.isOpen) stores.import.manager.search.setHasQueuedReload(true);
+      });
     }
   };
 

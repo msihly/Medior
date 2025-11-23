@@ -5,12 +5,19 @@ export class ModelStore {
   private name: ModelSearchStore["name"];
   private props: ModelSearchStore["props"] = [];
   private withTags: boolean = false;
+  private transformResultsFn: string = null;
 
   constructor(
     name: ModelSearchStore["name"],
-    options: { defaultPageSize: string; defaultSort: string; withTags?: boolean },
+    options: {
+      defaultPageSize: string;
+      defaultSort: string;
+      transformResultsFn?: string;
+      withTags?: boolean;
+    },
   ) {
     this.name = name;
+    this.transformResultsFn = options.transformResultsFn;
     this.withTags = options.withTags;
     this.addProp("forcePages", "boolean", "false", { notFilterProp: true });
     this.addProp("hasChanges", "boolean", "false", { notFilterProp: true });
@@ -108,7 +115,12 @@ export class ModelStore {
   }
 
   public getModel() {
-    return { name: this.name, props: this.props, withTags: this.withTags };
+    return {
+      name: this.name,
+      props: this.props,
+      transformResultsFn: this.transformResultsFn,
+      withTags: this.withTags,
+    };
   }
 
   public makeCustomActionProp(
@@ -291,7 +303,9 @@ export const createSearchStore = (def: ModelSearchStore) => {
           : ""
       }
 
-      this.setResults(items.map((item) => new Stores.${def.name}(item)));
+      const results = ${!def.transformResultsFn ? "items" : `items.map(${def.transformResultsFn})`}
+
+      this.setResults(results.map((result) => new Stores.${def.name}(result)));
       if (debug) perfLog("Overwrite and re-render");
 
       if (page) this.setPage(page);
@@ -306,7 +320,7 @@ export const createSearchStore = (def: ModelSearchStore) => {
       this.setIsPageCountLoading(false);
       if (debug) perfLog(\`Set pageCount to \${pageCount}\`);
 
-      return items;
+      return results;
     });`;
 
   /* --------------------------------- GETTERS -------------------------------- */

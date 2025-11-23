@@ -1,3 +1,4 @@
+import type { ImportStatus } from "medior/server/database";
 import { IconName } from "medior/components";
 import { colors } from "medior/utils/client";
 
@@ -7,7 +8,7 @@ interface Status {
   label: string;
 }
 
-export const IMPORT_STATUSES: Record<string, Status> = {
+export const IMPORT_STATUSES: Record<ImportStatus, Status> = {
   COMPLETE: {
     color: colors.custom.green,
     icon: "CheckCircle",
@@ -34,5 +35,3 @@ export const IMPORT_STATUSES: Record<string, Status> = {
     label: "Pending",
   },
 };
-
-export type ImportStatus = keyof typeof IMPORT_STATUSES;

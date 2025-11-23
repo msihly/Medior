@@ -22,7 +22,7 @@ export const Header = Comp(({ type }: HeaderProps) => {
   const totalFiles =
     type === "Ingester"
       ? stores.import.ingester.imports.length
-      : sumArray(stores.import.reingester.folderFileIds.flatMap((f) => f.fileIds.length));
+      : sumArray(stores.import.reingester.folderFileIds, (f) => f.fileIds.length);
 
   const totalFilesLeft =
     type === "Ingester"

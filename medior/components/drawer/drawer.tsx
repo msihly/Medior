@@ -1,5 +1,5 @@
-import { Drawer as MuiDrawer } from "@mui/material";
-import { Comp, IconButton, TooltipProps, View } from "medior/components";
+import { Badge, CircularProgress, Drawer as MuiDrawer } from "@mui/material";
+import { Comp, Icon, IconButton, TooltipProps, View } from "medior/components";
 import { useStores } from "medior/store";
 import { colors, makeClasses, openSearchWindow } from "medior/utils/client";
 import { CONSTANTS } from "medior/utils/common";
@@ -13,8 +13,6 @@ export const Drawer = Comp(({ hasImports = false, hasSettings = false }: DrawerP
   const { css } = useClasses(null);
 
   const stores = useStores();
-
-  const hasPendingImports = stores.import.manager.incompleteBatches.length > 0;
 
   const handleClose = () => stores.home.setIsDrawerOpen(false);
 
@@ -54,13 +52,23 @@ export const Drawer = Comp(({ hasImports = false, hasSettings = false }: DrawerP
         )}
 
         {hasImports && (
-          <IconButton
-            name="GetApp"
-            tooltip="Open Import Manager"
-            iconProps={{ color: hasPendingImports ? colors.custom.purple : undefined }}
-            onClick={handleImport}
-            {...{ tooltipProps }}
-          />
+          <Badge
+            badgeContent={
+              stores.import.manager.isPaused ? (
+                <Icon name="Pause" color={colors.custom.orange} />
+              ) : stores.import.manager.isImporting ? (
+                <CircularProgress size={20} color="inherit" />
+              ) : null
+            }
+            overlap="circular"
+          >
+            <IconButton
+              name="GetApp"
+              tooltip="Open Import Manager"
+              onClick={handleImport}
+              {...{ tooltipProps }}
+            />
+          </Badge>
         )}
 
         <IconButton

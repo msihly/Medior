@@ -1,9 +1,11 @@
 import { MODEL_SEARCH_STORE_FILE } from "./file";
 import { MODEL_SEARCH_STORE_FILE_COLLECTION } from "./file-collection";
+import { MODEL_SEARCH_STORE_FILE_IMPORT_BATCH } from "./file-import-batch";
 import { MODEL_SEARCH_STORE_TAG } from "./tag";
 
 export const MODEL_SEARCH_STORE_DEFS = [
   MODEL_SEARCH_STORE_FILE_COLLECTION,
+  MODEL_SEARCH_STORE_FILE_IMPORT_BATCH,
   MODEL_SEARCH_STORE_FILE,
   MODEL_SEARCH_STORE_TAG,
 ];
