@@ -3,6 +3,7 @@ import { useState } from "react";
 import { FixedSizeList } from "react-window";
 import Color from "color";
 import { Card, Chip, Comp, FlatFolder, IconButton, Text, View } from "medior/components";
+import { useStores } from "medior/store";
 import { colors, makeClasses } from "medior/utils/client";
 import { formatBytes } from "medior/utils/common";
 import { IMPORT_LIST_ITEM_HEIGHT, ImportListItem } from "./import-list-item";
@@ -15,6 +16,7 @@ const TAGS_HEIGHT = 46;
 type Folder = Pick<FlatFolder, "collectionTitle" | "imports" | "tags">;
 
 export interface ImportFolderListProps {
+  batchId?: string;
   collapsible?: boolean;
   folder: Folder;
   maxVisibleFiles?: number;
@@ -24,12 +26,15 @@ export interface ImportFolderListProps {
 
 export const ImportFolderList = Comp(
   ({
+    batchId,
     collapsible = false,
     folder,
     maxVisibleFiles,
     noStatus = false,
     withListItems = true,
   }: ImportFolderListProps) => {
+    const stores = useStores();
+
     const [collapsed, setCollapsed] = useState(!withListItems);
 
     const { css } = useClasses({ collapsible, collapsed });
@@ -37,6 +42,8 @@ export const ImportFolderList = Comp(
     if (!folder) return null;
     const height = getImportFolderHeight({ folder, maxVisibleFiles, withListItems: !collapsed });
     const totalBytes = folder.imports.reduce((acc, cur) => acc + cur.size, 0);
+
+    const deleteBatch = () => stores.import.manager.deleteBatch({ id: batchId });
 
     const toggleCollapsed = () => setCollapsed(!collapsed);
 
@@ -49,7 +56,7 @@ export const ImportFolderList = Comp(
         width="100%"
         bgColor={colors.background}
       >
-        <View className={css.header}>
+        <View spacing="0.5rem" className={css.header}>
           <View row align="center" className={css.folderPath}>
             {collapsible ? (
               <IconButton
@@ -64,9 +71,18 @@ export const ImportFolderList = Comp(
             </Text>
           </View>
 
-          <View row spacing="0.3rem" margins={{ left: "0.5rem" }}>
+          <View row spacing="0.3rem" align="center">
             <Chip label={formatBytes(totalBytes)} className={css.chip} />
+
             <Chip label={`${folder.imports.length} files`} className={css.chip} />
+
+            {batchId ? (
+              <IconButton
+                name="Delete"
+                onClick={deleteBatch}
+                iconProps={{ color: colors.custom.red }}
+              />
+            ) : null}
           </View>
         </View>
 

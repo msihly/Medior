@@ -16,6 +16,7 @@ export const CUSTOM_EVENTS: {
   },
   { name: "onImportBatchCompleted", args: "{ id: string }" },
   { name: "onImportBatchLoaded", args: "{ id: string }" },
+  { name: "onImporterStatusUpdated" },
   { name: "onImportStatsUpdated", args: "{ importStats: Types.ImportStats }" },
   { name: "onReloadFileCollections" },
   { name: "onReloadFiles" },

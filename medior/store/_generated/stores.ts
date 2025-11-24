@@ -273,7 +273,7 @@ export class _FileImportBatchSearch extends Model({
   forcePages: prop<boolean>(false).withSetter(),
   hasChanges: prop<boolean>(false).withSetter(),
   ids: prop<string[]>(() => []).withSetter(),
-  isCompleted: prop<boolean>(true).withSetter(),
+  isCompleted: prop<boolean>(false).withSetter(),
   isLoading: prop<boolean>(false).withSetter(),
   isPageCountLoading: prop<boolean>(false).withSetter(),
   page: prop<number>(1).withSetter(),
@@ -315,7 +315,7 @@ export class _FileImportBatchSearch extends Model({
     this.forcePages = false;
     this.hasChanges = false;
     this.ids = [];
-    this.isCompleted = true;
+    this.isCompleted = false;
     this.isLoading = false;
     this.isPageCountLoading = false;
     this.page = 1;
@@ -466,7 +466,7 @@ export class _FileImportBatchSearch extends Model({
       (!isDeepEqual(this.dateCreatedStart, "") ? 1 : 0) +
       (!isDeepEqual(this.fileCount, { logOp: "", value: 0 }) ? 1 : 0) +
       (!isDeepEqual(this.ids, []) ? 1 : 0) +
-      (!isDeepEqual(this.isCompleted, true) ? 1 : 0) +
+      (!isDeepEqual(this.isCompleted, false) ? 1 : 0) +
       (!isDeepEqual(this.rootFolderPath, "") ? 1 : 0) +
       (!isDeepEqual(this.sortValue, getConfig().imports.manager.search.sort) ? 1 : 0) +
       (!isDeepEqual(this.startedAtEnd, "") ? 1 : 0) +

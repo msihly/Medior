@@ -72,6 +72,7 @@ export interface SocketEmitEvents {
   ) => void;
   onImportBatchCompleted: (args: { id: string }, options?: SocketEventOptions) => void;
   onImportBatchLoaded: (args: { id: string }, options?: SocketEventOptions) => void;
+  onImporterStatusUpdated: (options?: SocketEventOptions) => void;
   onImportStatsUpdated: (
     args: { importStats: Types.ImportStats },
     options?: SocketEventOptions,
@@ -121,6 +122,7 @@ export const socketEvents: SocketEmitEvent[] = [
   "onFileTagsUpdated",
   "onImportBatchCompleted",
   "onImportBatchLoaded",
+  "onImporterStatusUpdated",
   "onImportStatsUpdated",
   "onReloadFileCollections",
   "onReloadFiles",

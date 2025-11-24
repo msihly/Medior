@@ -196,20 +196,13 @@ export const createFileImportBatchFilterPipeline = (
   if (!isDeepEqual(args.fileCount, { logOp: "", value: 0 }))
     setObj($match, ["fileCount", logicOpsToMongo(args.fileCount.logOp)], args.fileCount.value);
   if (!isDeepEqual(args.ids, [])) setObj($match, ["_id", "$in"], objectIds(args.ids));
-  if (!isDeepEqual(args.isCompleted, true))
-    setObj(
-      $match,
-      ["$expr"],
-      args.isCompleted
-        ? { $eq: ["$isCompleted", true] }
-        : { $eq: [{ $ifNull: ["$isCompleted", false] }, false] },
-    );
   if (!isDeepEqual(args.rootFolderPath, ""))
     setObj($match, ["rootFolderPath", "$regex"], new RegExp(args.rootFolderPath, "i"));
   if (!isDeepEqual(args.startedAtEnd, "")) setObj($match, ["startedAt", "$lte"], args.startedAtEnd);
   if (!isDeepEqual(args.startedAtStart, ""))
     setObj($match, ["startedAt", "$gte"], args.startedAtStart);
 
+  if (true) setObj($match, ["isCompleted"], args.isCompleted);
   if (args.excludedDescTagIds?.length)
     setObj($match, ["tagIdsWithAncestors", "$nin"], objectIds(args.excludedDescTagIds));
   if (args.excludedTagIds?.length)

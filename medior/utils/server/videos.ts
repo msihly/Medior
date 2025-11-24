@@ -379,8 +379,6 @@ export const reencode = async (inputPath: string, outputDir: string, options?: F
     .addOption(["-vf", filterArray.join(",")])
     .outputOptions(outputOptions);
 
-  console.debug({ inputFps, maxFps, inputBitrate, targetBitrate, filterArray, outputOptions });
-
   return execFfmpeg(command, outputDir, options);
 };
 

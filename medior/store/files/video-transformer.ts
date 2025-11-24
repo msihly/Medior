@@ -5,6 +5,7 @@ import { File } from "medior/store/files/file";
 import { RootStore } from "medior/store/root-store";
 import { asyncAction } from "medior/store/utils";
 import { deleteFile, getAvailableFileStorage, getConfig, toast } from "medior/utils/client";
+import { round } from "medior/utils/common";
 import { FfmpegProgress, getVideoInfo, reencode, remux, trpc } from "medior/utils/server";
 
 @model("medior/VideoTransformerStore")
@@ -63,6 +64,19 @@ export class VideoTransformerStore extends Model({
   });
 
   @modelFlow
+  loadNextFile = asyncAction(async () => {
+    const nextFileId = this.fileIds[0];
+    if (!nextFileId) {
+      this.setIsOpen(false);
+    } else {
+      this.setCurFileId(nextFileId);
+      this.setFileIds(this.fileIds.slice(1));
+      await this.loadFile();
+      if (this.isAuto) this.run();
+    }
+  });
+
+  @modelFlow
   replaceOriginal = asyncAction(async () => {
     this.setIsLoading(true);
 
@@ -105,20 +119,24 @@ export class VideoTransformerStore extends Model({
     if (!diskRes.success) throw new Error(diskRes.error);
 
     this.setIsLoading(false);
-
-    const nextFileId = this.fileIds[0];
-    if (!nextFileId) {
-      this.setIsOpen(false);
-    } else {
-      this.setCurFileId(nextFileId);
-      this.setFileIds(this.fileIds.slice(1));
-      await this.loadFile();
-      if (this.isAuto) this.run();
-    }
+    await this.loadNextFile();
   });
 
   @modelFlow
   run = asyncAction(async () => {
+    const config = getConfig().file.reencode;
+    if (
+      this.fnType === "reencode" &&
+      this.file.videoCodec === config.codec.replace("_nvenc", "") &&
+      round(this.file.frameRate, 0) <= round(config.maxFps, 0) &&
+      round(this.file.bitrate, 0) <= round(config.maxBitrate, 0)
+    ) {
+      console.debug(`Skipped re-encode: ${this.file.id}`);
+      toast.warn("Skipped re-encode");
+      this.loadNextFile();
+      return;
+    }
+
     try {
       this.setIsRunning(true);
       const storageRes = await getAvailableFileStorage(this.file.size);
@@ -136,8 +154,13 @@ export class VideoTransformerStore extends Model({
       this.setNewHash(res.hash);
       this.setNewPath(res.path);
     } catch (error) {
-      console.error(error);
-      toast.error(error.message);
+      if (error.message.includes("SIGKILL")) {
+        console.debug(`Cancelled ${this.fnType}`);
+        toast.warn(`Cancelled ${this.fnType}`);
+      } else {
+        console.error(error);
+        toast.error(error.message);
+      }
     } finally {
       this.setIsRunning(false);
     }

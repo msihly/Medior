@@ -27,6 +27,7 @@ export const VideoTransformerModal = Comp(() => {
   const maxFps = config.file.reencode.maxFps;
   const outputFps = store.file?.frameRate > maxFps ? maxFps : store.file?.frameRate;
   const outputBitrate = store.file?.bitrate > maxBitrate ? maxBitrate : store.file?.bitrate;
+  const outputCodec = config.file.reencode.codec.replace("_nvenc", "");
 
   useEffect(() => {
     (async () => {
@@ -109,25 +110,31 @@ export const VideoTransformerModal = Comp(() => {
 
               <View column spacing="1rem">
                 <UniformList column spacing="0.5rem">
-                  <UniformList row spacing="0.5rem">
+                  <UniformList row spacing="1rem">
+                    <Detail label="Original Codec" value={store.file.videoCodec} />
+
+                    <Detail label="Output Codec" value={outputCodec} />
+                  </UniformList>
+
+                  <UniformList row spacing="1rem">
                     <Detail label="Original FPS" value={round(store.file.frameRate)} />
 
                     <Detail label="Output FPS" value={round(outputFps)} />
                   </UniformList>
 
-                  <UniformList row spacing="0.5rem">
+                  <UniformList row spacing="1rem">
                     <Detail label="Original Bitrate" value={formatBytes(store.file.bitrate)} />
 
                     <Detail label="Output Bitrate" value={formatBytes(outputBitrate)} />
                   </UniformList>
 
-                  <UniformList row spacing="0.5rem">
+                  <UniformList row spacing="1rem">
                     <Detail label="Original Size" value={formatBytes(store.file.size)} />
 
                     <Detail label="Output Size" value={formatBytes(store.progress.size)} />
                   </UniformList>
 
-                  <UniformList row spacing="0.5rem">
+                  <UniformList row spacing="1rem">
                     <Detail label="Speed" value={`${formatBytes(store.progress.kbps * 1000)}/s`} />
 
                     <Detail

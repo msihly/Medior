@@ -15,8 +15,30 @@ import {
   socket,
 } from "medior/utils/server";
 
-let isImporting = false;
-let isPaused = false;
+class ImporterStatus {
+  private isImporting = false;
+  private isPaused = false;
+
+  getIsImporting() {
+    return this.isImporting;
+  }
+
+  getIsPaused() {
+    return this.isPaused;
+  }
+
+  setIsImporting(isImporting: boolean) {
+    this.isImporting = isImporting;
+    socket.emit("onImporterStatusUpdated");
+  }
+
+  setIsPaused(isPaused: boolean) {
+    this.isPaused = isPaused;
+    socket.emit("onImporterStatusUpdated");
+  }
+}
+
+const importerStatus = new ImporterStatus();
 
 export const checkFileImportHashes = makeAction(async (args: { hash: string }) => {
   const [deletedFileRes, fileRes] = await Promise.all([
@@ -81,13 +103,11 @@ export const completeImportBatch = makeAction(
       }
     }
 
+    importerStatus.setIsImporting(false);
     if (args.withNextBatch) {
       const nextBatch = (await getNextImportBatch(null)).data;
       if (nextBatch) runImportBatch({ id: nextBatch.id });
-      else isImporting = false;
-    } else isImporting = false;
-
-    socket.emit("onReloadImportBatches");
+    }
 
     return completedAt;
   },
@@ -102,14 +122,10 @@ export const copyFile = makeAction(
       try {
         const stats = await fs.stat(args.originalPath);
         const totalBytes = stats.size;
+        let completedBytes = 0;
 
         const readStream = createReadStream(args.originalPath);
         const writeStream = createWriteStream(args.newPath, { flags: "wx" });
-
-        let completedBytes = 0;
-        const startTime = Date.now();
-        const getElapsedTime = () => (Date.now() - startTime) / 1000;
-
         const emitStats = throttle(
           (importStats: Types.ImportStats) => emitImportStatsUpdated({ importStats }),
           200,
@@ -117,24 +133,20 @@ export const copyFile = makeAction(
 
         readStream.on("data", (chunk) => {
           completedBytes += chunk.length;
-          const elapsedTime = getElapsedTime();
-          const rateInBytes = completedBytes / elapsedTime;
           emitStats({
             completedBytes,
-            elapsedTime,
             filePath: args.originalPath,
-            rateInBytes,
             totalBytes,
           });
         });
 
         readStream.on("end", () => {
-          emitStats({
-            completedBytes: totalBytes,
-            elapsedTime: getElapsedTime(),
-            filePath: args.originalPath,
-            rateInBytes: 0,
-            totalBytes,
+          emitImportStatsUpdated({
+            importStats: {
+              completedBytes: totalBytes,
+              filePath: args.originalPath,
+              totalBytes,
+            },
           });
 
           resolve(true);
@@ -215,15 +227,15 @@ export const getNextImportBatch = makeAction(async () => {
 });
 
 export const pauseImporter = makeAction(async () => {
-  isPaused = true;
+  importerStatus.setIsPaused(true);
 });
 
 export const resumeImporter = makeAction(async () => {
-  isPaused = false;
+  importerStatus.setIsPaused(false);
 });
 
 export const getImporterStatus = makeAction(async () => {
-  return { isPaused, isImporting };
+  return { isPaused: importerStatus.getIsPaused(), isImporting: importerStatus.getIsImporting() };
 });
 
 export const reingestFolder = makeAction(
@@ -267,14 +279,15 @@ export const reingestFolder = makeAction(
 );
 
 export const runImportBatch = makeAction(async (args: { id: string }) => {
-  if (isImporting) return;
+  if (importerStatus.getIsImporting()) return;
 
   const batch = (await getImportBatch({ id: args.id })).data;
   if (!batch) throw new Error(`Import batch not found: ${args.id}`);
+  if (batch.isCompleted) throw new Error(`Import batch is completed: ${args.id}`);
   if (!batch?.startedAt) await startImportBatch({ id: args.id });
 
-  isPaused = false;
-  isImporting = true;
+  importerStatus.setIsPaused(false);
+  importerStatus.setIsImporting(true);
   socket.emit("onImportBatchLoaded", { id: args.id });
 
   const pendingImports = batch.imports.filter((imp) => imp.status === "PENDING");
@@ -282,7 +295,7 @@ export const runImportBatch = makeAction(async (args: { id: string }) => {
   let withNextBatch = true;
   for (const fileImport of pendingImports) {
     try {
-      while (isPaused && isImporting) await sleep(100);
+      while (importerStatus.getIsPaused() && importerStatus.getIsImporting()) await sleep(100);
 
       const importer = new FileImporter({
         dateCreated: fileImport.dateCreated,
@@ -317,8 +330,6 @@ export const runImportBatch = makeAction(async (args: { id: string }) => {
       }
     }
   }
-
-  // batchAborter = new AbortController();
 
   const updatedBatch = (await getImportBatch({ id: args.id })).data;
   const addedTagIds = [...updatedBatch.tagIds].flat();

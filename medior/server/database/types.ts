@@ -3,9 +3,7 @@ import { AudioCodec, ImageExt, VideoCodec, VideoExt } from "medior/utils/common"
 
 export type ImportStats = {
   completedBytes: number;
-  elapsedTime: number;
   filePath: string;
-  rateInBytes: number;
   totalBytes: number;
 };
 

@@ -21,11 +21,16 @@ model.addProp("collectionTitle", "string", '""', {
   objValue: 'new RegExp(args.collectionTitle, "i")',
 });
 
-model.addProp("isCompleted", "boolean", "true", {
-  objPath: ["$expr"],
-  objValue: `args.isCompleted
-    ? { $eq: ["$isCompleted", true] }
-    : { $eq: [ { $ifNull: ["$isCompleted", false] }, false ] }`,
+model.addProp("isCompleted", "boolean", "false", {
+  customActionProps: [
+    model.makeCustomActionProp("isCompleted", "boolean", {
+      condition: "true",
+      objPath: ["isCompleted"],
+      objValue: "args.isCompleted",
+    }),
+  ],
+  objPath: ["isCompleted"],
+  objValue: "args.isCompleted",
 });
 
 model.addProp("rootFolderPath", "string", '""', {

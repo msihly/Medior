@@ -11,12 +11,11 @@ import {
   Pagination,
   ProgressBar,
   Text,
-  UniformList,
   View,
 } from "medior/components";
 import { useStores } from "medior/store";
 import { colors } from "medior/utils/client";
-import { dayjs, formatBytes } from "medior/utils/common";
+import { formatBytes } from "medior/utils/common";
 
 export const ImportManager = Comp(() => {
   const stores = useStores();
@@ -91,26 +90,6 @@ export const ImportManager = Comp(() => {
                   minWidth="5rem"
                 />
 
-                <UniformList row padding={{ left: "1rem" }}>
-                  <View row spacing="0.5rem">
-                    <Text fontWeight={500}>{"Speed"}</Text>
-                    <Text color={colors.custom.lightGrey}>
-                      {store.importStats?.rateInBytes > -1
-                        ? `${formatBytes(store.importStats.rateInBytes)}/s`
-                        : "--"}
-                    </Text>
-                  </View>
-
-                  <View row spacing="0.5rem">
-                    <Text fontWeight={500}>{"Elapsed"}</Text>
-                    <Text color={colors.custom.lightGrey}>
-                      {store.importStats?.elapsedTime > -1
-                        ? `${dayjs.duration(store.importStats.elapsedTime).seconds()}s`
-                        : "--"}
-                    </Text>
-                  </View>
-                </UniformList>
-
                 <Text
                   dir="rtl"
                   whiteSpace="nowrap"
@@ -121,7 +100,11 @@ export const ImportManager = Comp(() => {
                   {store.importStats?.filePath || "No active import"}
                 </Text>
 
-                <ImportEditor.ImportFolderList folder={store.activeBatch} maxVisibleFiles={15} />
+                <ImportEditor.ImportFolderList
+                  folder={store.activeBatch}
+                  batchId={store.activeBatch?.id}
+                  maxVisibleFiles={15}
+                />
               </View>
             </Card>
           </View>
@@ -150,6 +133,7 @@ export const ImportManager = Comp(() => {
                   <ImportEditor.ImportFolderList
                     key={batch.id}
                     folder={batch}
+                    batchId={batch.id}
                     withListItems={false}
                     collapsible
                   />

@@ -1,6 +1,6 @@
 import autoBind from "auto-bind";
 import { reaction } from "mobx";
-import { Model, model, modelFlow, prop } from "mobx-keystone";
+import { Model, model, modelAction, modelFlow, prop } from "mobx-keystone";
 import { CreateImportBatchesInput, ImportStats } from "medior/server/database";
 import { asyncAction } from "medior/store/utils";
 import { trpc } from "medior/utils/server";
@@ -8,9 +8,7 @@ import { FileImport, FileImportBatch, FileImportBatchSearch } from ".";
 
 const DEFAULT_IMPORT_STATS: ImportStats = {
   completedBytes: 0,
-  elapsedTime: 0,
   filePath: "",
-  rateInBytes: 0,
   totalBytes: 0,
 };
 
@@ -39,6 +37,11 @@ export class ImportManager extends Model({
   }
 
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
+  @modelAction
+  _deleteBatch(id: string) {
+    this.search._deleteResults([id]);
+  }
+
   reset() {
     this.setActiveBatch(null);
     this.setImportStats(DEFAULT_IMPORT_STATS);
@@ -57,6 +60,15 @@ export class ImportManager extends Model({
     );
     if (!batchRes.success) throw new Error(batchRes?.error);
 
+    this.runImporter();
+  });
+
+  @modelFlow
+  deleteBatch = asyncAction(async (args: { id: string }) => {
+    await this.pauseImporter();
+    const deleteRes = await trpc.deleteImportBatches.mutate({ ids: [args.id] });
+    if (!deleteRes.success) throw new Error(deleteRes.error);
+    this._deleteBatch(args.id);
     this.runImporter();
   });
 

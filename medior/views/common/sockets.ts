@@ -120,12 +120,15 @@ export const useSockets = ({ view }: UseSocketsProps) => {
 
       makeSocket("onImportBatchCompleted", () => {
         stores.file.search.setHasChanges(true);
-
         if (view === "home") {
           stores.import.manager.setActiveBatch(null);
           stores.import.manager.setImportStats(null);
           stores.import.manager.search.setHasChanges(true);
         }
+      });
+
+      makeSocket("onImporterStatusUpdated", () => {
+        stores.import.manager.getImporterStatus();
       });
 
       makeSocket("onReloadFileCollections", () => {
