@@ -63,6 +63,14 @@ export interface Config {
         addTagIds: string[];
         removeTagIds: string[];
       };
+      onError: {
+        addTagIds: string[];
+        removeTagIds: string[];
+      };
+      onSkip: {
+        addTagIds: string[];
+        removeTagIds: string[];
+      };
       override: string[];
     };
     remuxTypes: {
@@ -153,6 +161,14 @@ export const DEFAULT_CONFIG: Config = {
       maxHeight: 1080,
       maxWidth: 1920,
       onComplete: {
+        addTagIds: [],
+        removeTagIds: [],
+      },
+      onError: {
+        addTagIds: [],
+        removeTagIds: [],
+      },
+      onSkip: {
         addTagIds: [],
         removeTagIds: [],
       },

@@ -15,7 +15,7 @@ export class CarouselStore extends Model({
   curFrame: prop<number>(1),
   curTime: prop<number>(0),
   isMouseMoving: prop<boolean>(false).withSetter(),
-  isPinned: prop<boolean>(true).withSetter(),
+  isPinned: prop<boolean>(false).withSetter(),
   isPlaying: prop<boolean>(true).withSetter(),
   isWaitingForFrames: prop<boolean>(false).withSetter(),
   lastVolume: prop<number>(0.3).withSetter(),

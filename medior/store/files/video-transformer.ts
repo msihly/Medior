@@ -71,6 +71,7 @@ export class VideoTransformerStore extends Model({
     } else {
       this.setCurFileId(nextFileId);
       this.setFileIds(this.fileIds.slice(1));
+      this.setNewPath(null);
       await this.loadFile();
       if (this.isAuto) this.run();
     }
@@ -97,20 +98,7 @@ export class VideoTransformerStore extends Model({
 
     const stores = getRootStore<RootStore>(this);
 
-    const onComplete = getConfig().file.reencode.onComplete;
-    if (onComplete.addTagIds.length > 0 || onComplete.removeTagIds.length > 0) {
-      const tagsRes = await stores.file.editFileTags({
-        fileIds: [this.curFileId],
-        addedTagIds: onComplete.addTagIds,
-        removedTagIds: onComplete.removeTagIds,
-        withSub: false,
-        withToast: false,
-      });
-      if (!tagsRes.success) {
-        console.error("reencode.onComplete failed", tagsRes.error);
-        toast.warn("Failed to update tags");
-      }
-    }
+    await this.updateTags(getConfig().file.reencode.onComplete);
 
     const refreshRes = await stores.file.refreshFiles({ ids: [this.curFileId] });
     if (!refreshRes.success) throw new Error(refreshRes.error);
@@ -125,16 +113,21 @@ export class VideoTransformerStore extends Model({
   @modelFlow
   run = asyncAction(async () => {
     const config = getConfig().file.reencode;
+
+    const skip = async () => {
+      console.debug(`Skipped re-encode: ${this.file.id}`);
+      toast.warn("Skipped re-encode");
+      await this.updateTags(config.onSkip);
+      this.loadNextFile();
+    };
+
     if (
       this.fnType === "reencode" &&
       this.file.videoCodec === config.codec.replace("_nvenc", "") &&
       round(this.file.frameRate, 0) <= round(config.maxFps, 0) &&
       round(this.file.bitrate, 0) <= round(config.maxBitrate, 0)
     ) {
-      console.debug(`Skipped re-encode: ${this.file.id}`);
-      toast.warn("Skipped re-encode");
-      this.loadNextFile();
-      return;
+      return await skip();
     }
 
     try {
@@ -153,18 +146,45 @@ export class VideoTransformerStore extends Model({
 
       this.setNewHash(res.hash);
       this.setNewPath(res.path);
+      this.setIsRunning(false);
+
+      if (this.isAuto) {
+        const videoInfo = await getVideoInfo(this.newPath);
+        if (videoInfo.size >= 0.9 * this.file.size) await skip();
+        else await this.replaceOriginal();
+      }
     } catch (error) {
+      this.setIsRunning(false);
+
       if (error.message.includes("SIGKILL")) {
         console.debug(`Cancelled ${this.fnType}`);
         toast.warn(`Cancelled ${this.fnType}`);
       } else {
         console.error(error);
         toast.error(error.message);
+        await this.updateTags(config.onError);
+        if (this.isAuto) this.loadNextFile();
+        return;
       }
-    } finally {
-      this.setIsRunning(false);
     }
+  });
 
-    if (this.isAuto) await this.replaceOriginal();
+  @modelFlow
+  updateTags = asyncAction(async (args: { addTagIds: string[]; removeTagIds: string[] }) => {
+    const stores = getRootStore<RootStore>(this);
+
+    if (args.addTagIds.length > 0 || args.removeTagIds.length > 0) {
+      const tagsRes = await stores.file.editFileTags({
+        fileIds: [this.curFileId],
+        addedTagIds: args.addTagIds,
+        removedTagIds: args.removeTagIds,
+        withSub: false,
+        withToast: false,
+      });
+      if (!tagsRes.success) {
+        console.error("Video transformer updateTags failed", tagsRes.error);
+        toast.warn("Failed to update tags");
+      }
+    }
   });
 }

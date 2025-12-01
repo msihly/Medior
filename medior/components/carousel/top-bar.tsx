@@ -57,16 +57,12 @@ export const CarouselTopBar = Comp(() => {
 
   const handleEditTags = () => stores.file.tagsEditor.setIsOpen(true);
 
-  const handleExtractFrame = () => stores.carousel.extractFrame();
-
   const toggleAspectRatioLock = () => {
     const isLocked = !isAspectRatioLocked;
     setIsAspectRatioLocked(isLocked);
     if (isLocked) fitToAspectRatio();
     else getCurrentWindow().setAspectRatio(0);
   };
-
-  const toggleIsPinned = () => stores.carousel.toggleIsPinned();
 
   const zoomIn = () => panZoomRef.current.zoom(zoomScaleStepIn(panZoomRef.current.getScale()));
 
@@ -83,7 +79,7 @@ export const CarouselTopBar = Comp(() => {
         <IconButton
           name="PushPin"
           iconProps={{ rotation: stores.carousel.isPinned ? 45 : 0 }}
-          onClick={toggleIsPinned}
+          onClick={stores.carousel.toggleIsPinned}
           tooltip={stores.carousel.isPinned ? "Unpin" : "Pin"}
         />
 
@@ -116,7 +112,11 @@ export const CarouselTopBar = Comp(() => {
 
       <View row flex={1} justify="flex-end">
         {file?.isVideo ? (
-          <IconButton name="Camera" onClick={handleExtractFrame} tooltip="Extract Frame" />
+          <IconButton
+            name="Camera"
+            onClick={stores.carousel.extractFrame}
+            tooltip="Extract Frame"
+          />
         ) : (
           <>
             <IconButton name="Replay" onClick={zoomReset} tooltip="Reset Zoom" />
