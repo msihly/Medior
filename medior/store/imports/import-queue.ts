@@ -6,7 +6,7 @@ import { CreateImportBatchesInput, TagSchema } from "medior/server/database";
 import { FlatFolder, TagToUpsert } from "medior/components";
 import { FileImport, Ingester, Reingester, RootStore, Tag, useStores } from "medior/store";
 import { getConfig, toast } from "medior/utils/client";
-import { dayjs, jstr, parseDiffParams } from "medior/utils/common";
+import { dayjs, Fmt, parseDiffParams } from "medior/utils/common";
 import { dirToFilePaths, makePerfLog, trpc } from "medior/utils/server";
 
 type RegExMap = { regEx: RegExp; tagId: string };
@@ -404,8 +404,8 @@ export const useImportEditor = (store: Ingester | Reingester) => {
       if (tagIds.length !== (imp.tagsToUpsert?.length ?? 0) + (imp.tagIds?.length ?? 0)) {
         console.debug({
           tagIds,
-          fileTagsToUpsert: jstr(imp.tagsToUpsert),
-          fileTagIds: jstr(imp.tagIds),
+          fileTagsToUpsert: Fmt.jstr(imp.tagsToUpsert),
+          fileTagIds: Fmt.jstr(imp.tagIds),
         });
         throw new Error("Failed to get tagIds from file tags");
       } else imports.push({ ...imp, tagIds });
@@ -413,7 +413,7 @@ export const useImportEditor = (store: Ingester | Reingester) => {
 
     const tagIds = await getIdsFromTags(folder.tags);
     if (tagIds.length !== folder.tags?.length) {
-      console.debug({ tagIds, folderTags: jstr(folder.tags) });
+      console.debug({ tagIds, folderTags: Fmt.jstr(folder.tags) });
       throw new Error("Failed to get tagIds from folder tags");
     }
 
@@ -672,7 +672,7 @@ export const useImportEditor = (store: Ingester | Reingester) => {
 
   const upsertTags = async (perfLog: (logStr: string) => void) => {
     if (store.flatTagsToUpsert.length > 0) {
-      if (DEBUG) perfLog(`Creating tags: ${jstr(store.flatTagsToUpsert.filter((t) => !t.id))}`);
+      if (DEBUG) perfLog(`Creating tags: ${Fmt.jstr(store.flatTagsToUpsert.filter((t) => !t.id))}`);
 
       const res = await stores.tag.upsertTags(store.flatTagsToUpsert);
       if (!res.success) {

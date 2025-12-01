@@ -3,7 +3,7 @@ import { TagSchema } from "medior/_generated";
 import { Chip, ChipProps, Comp, Text, View } from "medior/components";
 import { useStores } from "medior/store";
 import { colors, makeClasses } from "medior/utils/client";
-import { abbrevNum } from "medior/utils/common";
+import { Fmt } from "medior/utils/common";
 
 const HEIGHT_MEDIUM = 32;
 const HEIGHT_SMALL = 26;
@@ -48,7 +48,7 @@ export const TagChip = Comp(
         label={
           <View row align="center">
             <View className={css.count}>
-              {tag.count !== undefined ? abbrevNum(tag.count) : "-"}
+              {tag.count !== undefined ? Fmt.abbrevNum(tag.count) : "-"}
             </View>
 
             <Text tooltip={tag.label} tooltipProps={{ flexShrink: 1 }} className={css.label}>

@@ -2,7 +2,7 @@ import { KeyboardEvent, MutableRefObject } from "react";
 import FilePlayer from "react-player/file";
 import { useStores } from "medior/store";
 import { toast, Toaster } from "medior/utils/client";
-import { frameToSec, round, throttle } from "medior/utils/common";
+import { Fmt, round, throttle } from "medior/utils/common";
 
 const RATING_KEYS = ["1", "2", "3", "4", "5", "6", "7", "8", "9"];
 
@@ -152,7 +152,7 @@ export const useHotkeys = ({ rootRef, videoRef, view }: UseHotkeysProps) => {
   const transcode = throttle(async (frame: number, frameRate: number) => {
     stores.carousel.setSeekOffset(frame);
     return await stores.carousel.transcodeVideo({
-      seekTime: frameToSec(frame, frameRate),
+      seekTime: Fmt.frameToSec(frame, frameRate),
       onFirstFrames: () => stores.carousel.setCurFrame(frame, frameRate),
     });
   }, 400);

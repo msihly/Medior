@@ -17,7 +17,7 @@ import {
 } from "medior/components";
 import { File, useStores } from "medior/store";
 import { colors, toast } from "medior/utils/client";
-import { duration, formatBytes, round } from "medior/utils/common";
+import { Fmt, round } from "medior/utils/common";
 import { trpc } from "medior/utils/server";
 
 export const InfoModal = Comp(() => {
@@ -89,8 +89,8 @@ export const InfoModal = Comp(() => {
 
             <Detail
               label="Size"
-              value={formatBytes(file?.size)}
-              tooltip={<Detail label="Original Size" value={formatBytes(file?.originalSize)} />}
+              value={Fmt.bytes(file?.size)}
+              tooltip={<Detail label="Original Size" value={Fmt.bytes(file?.originalSize)} />}
             />
 
             <Detail
@@ -106,7 +106,7 @@ export const InfoModal = Comp(() => {
           </View>
 
           <View column>
-            <Detail label="Duration" value={duration(file?.duration)} />
+            <Detail label="Duration" value={Fmt.duration(file?.duration)} />
 
             <Detail label="FPS" value={file?.frameRate ? round(file.frameRate) : null} />
           </View>
@@ -128,25 +128,23 @@ export const InfoModal = Comp(() => {
           <View column>
             <Detail
               label="Video Bitrate"
-              value={file?.bitrate ? `${formatBytes(file.bitrate)}/s` : null}
+              value={file?.bitrate ? `${Fmt.bytes(file.bitrate)}/s` : null}
               tooltip={
                 <Detail
                   label="Original Video Bitrate"
-                  value={file?.originalBitrate ? `${formatBytes(file.originalBitrate)}/s` : null}
+                  value={file?.originalBitrate ? `${Fmt.bytes(file.originalBitrate)}/s` : null}
                 />
               }
             />
 
             <Detail
               label="Audio Bitrate"
-              value={file?.audioBitrate ? `${formatBytes(file.audioBitrate)}/s` : null}
+              value={file?.audioBitrate ? `${Fmt.bytes(file.audioBitrate)}/s` : null}
               tooltip={
                 <Detail
                   label="Original Audio Bitrate"
                   value={
-                    file?.originalAudioBitrate
-                      ? `${formatBytes(file.originalAudioBitrate)}/s`
-                      : null
+                    file?.originalAudioBitrate ? `${Fmt.bytes(file.originalAudioBitrate)}/s` : null
                   }
                 />
               }

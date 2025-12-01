@@ -6,7 +6,7 @@ import { computed } from "mobx";
 import { getRootStore, Model, model, modelAction, modelFlow, prop } from "mobx-keystone";
 import { asyncAction, FileImporter, RootStore } from "medior/store";
 import { toast } from "medior/utils/client";
-import { frameToSec } from "medior/utils/common";
+import { Fmt } from "medior/utils/common";
 import { extractVideoFrame, trpc, videoTranscoder } from "medior/utils/server";
 
 @model("medior/CarouselStore")
@@ -59,7 +59,7 @@ export class CarouselStore extends Model({
   @modelAction
   setCurFrame(frame: number, frameRate: number) {
     this.curFrame = frame;
-    this.curTime = frameToSec(frame, frameRate);
+    this.curTime = Fmt.frameToSec(frame, frameRate);
   }
 
   @modelAction

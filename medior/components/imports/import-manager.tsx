@@ -15,7 +15,7 @@ import {
 } from "medior/components";
 import { useStores } from "medior/store";
 import { colors } from "medior/utils/client";
-import { formatBytes } from "medior/utils/common";
+import { Fmt } from "medior/utils/common";
 
 export const ImportManager = Comp(() => {
   const stores = useStores();
@@ -84,8 +84,8 @@ export const ImportManager = Comp(() => {
                 <ProgressBar
                   numerator={store.importStats?.completedBytes || null}
                   denominator={store.importStats?.totalBytes || null}
-                  numeratorFormatter={formatBytes}
-                  denominatorFormatter={formatBytes}
+                  numeratorFormatter={Fmt.bytes}
+                  denominatorFormatter={Fmt.bytes}
                   withText
                   minWidth="5rem"
                 />

@@ -5,7 +5,7 @@ import * as actions from "medior/server/database/actions";
 import * as Types from "medior/server/database/types";
 import type { FileImport } from "medior/store";
 import { FileImporter } from "medior/store/imports/importer";
-import { dayjs, jstr, sleep, sumArray, throttle } from "medior/utils/common";
+import { dayjs, Fmt, sleep, sumArray, throttle } from "medior/utils/common";
 import { makeAction } from "medior/utils/server";
 import {
   checkFileExists,
@@ -255,7 +255,7 @@ export const reingestFolder = makeAction(
       })),
     );
     if (!bulkRes.matchedCount || bulkRes.matchedCount !== bulkRes.modifiedCount)
-      throw new Error(`Failed to update file tagIds: ${jstr({ args, bulkRes })}`);
+      throw new Error(`Failed to update file tagIds: ${Fmt.jstr({ args, bulkRes })}`);
 
     const tagIds = [...new Set(args.fileTagIds.flatMap((f) => f.tagIds))];
     if (tagIds.length) {

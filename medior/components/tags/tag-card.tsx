@@ -1,7 +1,7 @@
 import { Comp, ContextMenu, FileBase } from "medior/components";
 import { TagManagerTag, useStores } from "medior/store";
 import { colors, openSearchWindow, toast } from "medior/utils/client";
-import { abbrevNum } from "medior/utils/common";
+import { Fmt } from "medior/utils/common";
 
 export interface TagCardProps {
   tag: TagManagerTag;
@@ -45,7 +45,7 @@ export const TagCard = Comp(({ tag }: TagCardProps) => {
         <FileBase.Image thumbs={[tag.thumb]} title={tag.label} fit="contain">
           <FileBase.Chip
             position="top-left"
-            label={abbrevNum(tag.count)}
+            label={Fmt.abbrevNum(tag.count)}
             bgColor={colors.custom.blue}
           />
         </FileBase.Image>

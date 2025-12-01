@@ -2,7 +2,7 @@ import { Comp, Icon, Text, View } from "medior/components";
 import { useFileDrag } from "medior/components/files/hooks";
 import { File, useStores } from "medior/store";
 import { colors, CSS, openCarouselWindow, toast } from "medior/utils/client";
-import { duration } from "medior/utils/common";
+import { Fmt } from "medior/utils/common";
 import { FileBase } from ".";
 
 interface FileCardProps {
@@ -86,7 +86,7 @@ export const FileCard = Comp(({ disabled, file, height, id, width }: FileCardPro
                 label={
                   <View row spacing="0.3em">
                     {file.audioCodec === "None" && <Icon name="VolumeOff" size="1em" />}
-                    <Text>{duration(file.duration)}</Text>
+                    <Text>{Fmt.duration(file.duration)}</Text>
                   </View>
                 }
                 position="bottom-right"

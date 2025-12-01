@@ -21,7 +21,7 @@ import {
 } from "medior/components";
 import { FileImport } from "medior/store";
 import { colors, makeClasses, toast } from "medior/utils/client";
-import { formatBytes, parseDiffParams } from "medior/utils/common";
+import { Fmt, parseDiffParams } from "medior/utils/common";
 import { trpc } from "medior/utils/server";
 import { TagHierarchy } from "./tag-hierarchy";
 
@@ -167,7 +167,7 @@ export const ImportListItem = Comp(
             </TooltipChip>
           )}
 
-          <Chip label={formatBytes(fileImport.size)} className={css.chip} />
+          <Chip label={Fmt.bytes(fileImport.size)} className={css.chip} />
 
           <Chip label={fileImport.extension} className={css.chip} />
         </View>

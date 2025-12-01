@@ -9,7 +9,7 @@ import mongoose from "mongoose";
 import * as actions from "medior/server/database/actions";
 import { SortValue } from "medior/store";
 import { checkFileExists, deleteFile, genFileInfo, sharp } from "medior/utils/client";
-import { capitalize, CONSTANTS, dayjs, PromiseQueue } from "medior/utils/common";
+import { CONSTANTS, dayjs, Fmt, PromiseQueue } from "medior/utils/common";
 import { leanModelToJson, makeAction, objectId, objectIds } from "medior/utils/server";
 import { fileLog, makePerfLog, socket } from "medior/utils/server";
 
@@ -500,7 +500,7 @@ export const repairFilesWithBrokenExt = makeAction(async () => {
 
 export const repairFilesWithMissingInfo = makeAction(async () => {
   const updateMissingOriginal = async (name: string) => {
-    const originalName = `original${capitalize(name)}`;
+    const originalName = `original${Fmt.capitalize(name)}`;
     const files = await models.FileModel.find({
       ext: { $in: CONSTANTS.VIDEO_EXTS },
       $or: [

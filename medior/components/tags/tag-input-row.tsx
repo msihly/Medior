@@ -12,7 +12,7 @@ import {
 } from "medior/components";
 import { SearchTagType, TagOption, useStores } from "medior/store";
 import { colors, makeClasses } from "medior/utils/client";
-import { abbrevNum } from "medior/utils/common";
+import { Fmt } from "medior/utils/common";
 
 const TAG_SEARCH_META: {
   [key in SearchTagType]: { color: string; icon: IconName; text: string };
@@ -101,7 +101,9 @@ export const TagInputRow = Comp(
           onClick={hasClick ? handleClick : null}
           leftNode={
             <View onClick={hasClick ? handleClick : null} className={css.count}>
-              <Text fontSize="0.5em">{tag?.count !== undefined ? abbrevNum(tag.count) : "-"}</Text>
+              <Text fontSize="0.5em">
+                {tag?.count !== undefined ? Fmt.abbrevNum(tag.count) : "-"}
+              </Text>
             </View>
           }
           rightNode={

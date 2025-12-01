@@ -1,6 +1,6 @@
 import { Button, Chip, Comp, Modal, Text, View } from "medior/components";
 import { useStores } from "medior/store";
-import { commas, formatBytes, sumArray } from "medior/utils/common";
+import { Fmt, sumArray } from "medior/utils/common";
 
 export interface HeaderProps {
   type: "Ingester" | "Reingester";
@@ -41,14 +41,14 @@ export const Header = Comp(({ type }: HeaderProps) => {
         <View row spacing="0.3rem">
           {type === "Ingester" ? (
             <>
-              <Chip label={formatBytes(totalBytes)} />
-              <Chip label={`${commas(totalFolders)} Folders`} />
-              <Chip label={`${commas(totalFiles)} Files`} />
+              <Chip label={Fmt.bytes(totalBytes)} />
+              <Chip label={`${Fmt.commas(totalFolders)} Folders`} />
+              <Chip label={`${Fmt.commas(totalFiles)} Files`} />
             </>
           ) : (
             <>
-              <Chip label={`${commas(totalFolders - 1)} Folders Left`} />
-              <Chip label={`${commas(totalFilesLeft)} Files Left`} />
+              <Chip label={`${Fmt.commas(totalFolders - 1)} Folders Left`} />
+              <Chip label={`${Fmt.commas(totalFilesLeft)} Files Left`} />
             </>
           )}
         </View>

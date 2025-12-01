@@ -2,7 +2,7 @@ import { CSSProperties } from "react";
 import { Button, Comp, FileBase } from "medior/components";
 import { File, useStores } from "medior/store";
 import { colors, getIsAnimated } from "medior/utils/client";
-import { duration } from "medior/utils/common";
+import { Fmt } from "medior/utils/common";
 
 export interface FileSearchFileProps {
   disabled?: boolean;
@@ -44,7 +44,7 @@ export const FileSearchFile = Comp(({ disabled, file, height = "14rem" }: FileSe
           />
 
           {file.duration && (
-            <FileBase.Chip label={duration(file.duration)} position="bottom-right" />
+            <FileBase.Chip label={Fmt.duration(file.duration)} position="bottom-right" />
           )}
         </FileBase.Image>
 

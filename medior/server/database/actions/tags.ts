@@ -4,13 +4,7 @@ import { AnyBulkWriteOperation } from "mongodb";
 import mongoose, { FilterQuery, PipelineStage, UpdateQuery } from "mongoose";
 import * as actions from "medior/server/database/actions";
 import * as Types from "medior/server/database/types";
-import {
-  bisectArrayChanges,
-  dayjs,
-  handleErrors,
-  regexEscape,
-  splitArray,
-} from "medior/utils/common";
+import { bisectArrayChanges, dayjs, Fmt, handleErrors, splitArray } from "medior/utils/common";
 import { leanModelToJson, makeAction, objectId, objectIds } from "medior/utils/server";
 import { fileLog, makePerfLog, socket } from "medior/utils/server";
 
@@ -876,7 +870,7 @@ export const searchTags = makeAction(
         ...(searchTerms.length
           ? {
               $and: searchTerms.map((term) => {
-                const regEx = regexEscape(term);
+                const regEx = Fmt.regexEscape(term);
                 return {
                   $or: [
                     { label: { $regex: regEx, $options: "i" } },

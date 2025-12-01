@@ -1,7 +1,7 @@
 import { Comp, FileBase } from "medior/components";
 import { useStores } from "medior/store";
 import { colors } from "medior/utils/client";
-import { CONSTANTS, duration } from "medior/utils/common";
+import { CONSTANTS, Fmt } from "medior/utils/common";
 
 interface CarouselThumbProps {
   id: string;
@@ -37,7 +37,9 @@ export const CarouselThumb = Comp(({ id, isDragging = false, style }: CarouselTh
 
       <FileBase.Chip label={file?.ext} position="top-right" />
 
-      {file?.duration && <FileBase.Chip label={duration(file.duration)} position="bottom-right" />}
+      {file?.duration && (
+        <FileBase.Chip label={Fmt.duration(file.duration)} position="bottom-right" />
+      )}
     </FileBase.Container>
   );
 });

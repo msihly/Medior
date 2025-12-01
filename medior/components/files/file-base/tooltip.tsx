@@ -12,7 +12,7 @@ import {
 } from "medior/components";
 import { File } from "medior/store";
 import { colors } from "medior/utils/client";
-import { formatBytes } from "medior/utils/common";
+import { Fmt } from "medior/utils/common";
 
 interface TooltipProps {
   children: JSX.Element;
@@ -40,7 +40,7 @@ export const Tooltip = Comp(({ children, disabled, file }: TooltipProps) => {
 
           <UniformList row spacing="1rem">
             <UniformList column>
-              <Detail label="Size" value={formatBytes(file.size)} />
+              <Detail label="Size" value={Fmt.bytes(file.size)} />
               <Detail label="Dimensions" value={`${file.width} x ${file.height}`} />
             </UniformList>
 

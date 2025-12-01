@@ -5,7 +5,7 @@ import Color from "color";
 import { Card, Chip, Comp, FlatFolder, IconButton, Text, View } from "medior/components";
 import { useStores } from "medior/store";
 import { colors, makeClasses } from "medior/utils/client";
-import { formatBytes } from "medior/utils/common";
+import { Fmt } from "medior/utils/common";
 import { IMPORT_LIST_ITEM_HEIGHT, ImportListItem } from "./import-list-item";
 import { TagHierarchy } from "./tag-hierarchy";
 
@@ -72,7 +72,7 @@ export const ImportFolderList = Comp(
           </View>
 
           <View row spacing="0.3rem" align="center">
-            <Chip label={formatBytes(totalBytes)} className={css.chip} />
+            <Chip label={Fmt.bytes(totalBytes)} className={css.chip} />
 
             <Chip label={`${folder.imports.length} files`} className={css.chip} />
 

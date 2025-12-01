@@ -3,7 +3,7 @@ import { Slider } from "@mui/material";
 import { Button, Comp, IconButton, Text, View } from "medior/components";
 import { useStores } from "medior/store";
 import { colors, makeClasses, toast, Toaster } from "medior/utils/client";
-import { commas, CONSTANTS, duration, frameToSec, round, throttle } from "medior/utils/common";
+import { CONSTANTS, Fmt, round, throttle } from "medior/utils/common";
 import { VideoContext } from "medior/views";
 
 export const VideoControls = Comp(() => {
@@ -22,7 +22,7 @@ export const VideoControls = Comp(() => {
     stores.carousel.setIsPlaying(false);
     setCurFrame(frame);
     seekVideoPlayer(frame);
-    toaster.toast(`Frame: ${commas(frame)}`);
+    toaster.toast(`Frame: ${Fmt.commas(frame)}`);
   };
 
   const goToNextFrame = () =>
@@ -59,7 +59,9 @@ export const VideoControls = Comp(() => {
       return toast.error("Mark In (A) must be before Mark Out (B)");
 
     stores.carousel.setMarkIn(newMarkIn);
-    toaster.toast(newMarkIn === null ? "Mark In (A) Cleared" : `Mark In (A): ${commas(newMarkIn)}`);
+    toaster.toast(
+      newMarkIn === null ? "Mark In (A) Cleared" : `Mark In (A): ${Fmt.commas(newMarkIn)}`,
+    );
   };
 
   const handleMarkOutChange = () => {
@@ -69,7 +71,7 @@ export const VideoControls = Comp(() => {
 
     stores.carousel.setMarkOut(newMarkOut);
     toaster.toast(
-      newMarkOut === null ? "Mark Out (B) Cleared" : `Mark Out (B): ${commas(newMarkOut)}`,
+      newMarkOut === null ? "Mark Out (B) Cleared" : `Mark Out (B): ${Fmt.commas(newMarkOut)}`,
     );
   };
 
@@ -94,7 +96,7 @@ export const VideoControls = Comp(() => {
   const transcode = throttle(async (frame: number) => {
     stores.carousel.setSeekOffset(frame);
     return await stores.carousel.transcodeVideo({
-      seekTime: frameToSec(frame, activeFile.frameRate),
+      seekTime: Fmt.frameToSec(frame, activeFile.frameRate),
       onFirstFrames: () => setCurFrame(frame),
     });
   }, 200);
@@ -161,8 +163,8 @@ export const VideoControls = Comp(() => {
           valueLabelDisplay="auto"
           valueLabelFormat={(v) => (
             <View column align="center" justify="center" width="7rem">
-              <Text>{`F: ${commas(v)} (${round((v / activeFile.totalFrames) * 100, 0)}%)`}</Text>
-              <Text>{`${duration(frameToSec(v, activeFile.frameRate))}`}</Text>
+              <Text>{`F: ${Fmt.commas(v)} (${round((v / activeFile.totalFrames) * 100, 0)}%)`}</Text>
+              <Text>{`${Fmt.duration(Fmt.frameToSec(v, activeFile.frameRate))}`}</Text>
             </View>
           )}
           className={css.slider}
@@ -210,11 +212,11 @@ export const VideoControls = Comp(() => {
 
       <View column>
         <Text color={colors.custom.white} className={css.videoTime}>
-          {duration(stores.carousel.curTime)}
+          {Fmt.duration(stores.carousel.curTime)}
         </Text>
 
         <Text color={colors.custom.lightGrey} className={css.videoTime}>
-          {duration(activeFile?.duration)}
+          {Fmt.duration(activeFile?.duration)}
         </Text>
       </View>
     </View>

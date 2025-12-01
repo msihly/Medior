@@ -2,7 +2,7 @@ import { Comp, FileBase } from "medior/components";
 import { useFileDrag } from "medior/components/files/hooks";
 import { File, useStores } from "medior/store";
 import { colors, CSS, openCarouselWindow, toast } from "medior/utils/client";
-import { duration } from "medior/utils/common";
+import { Fmt } from "medior/utils/common";
 
 export interface FileCollectionFileProps {
   disabled?: boolean;
@@ -60,7 +60,11 @@ export const FileCollectionFile = Comp(
               <FileBase.RatingChip position="top-right" rating={file.rating} />
 
               {file.duration && (
-                <FileBase.Chip label={duration(file.duration)} position="bottom-right" hasFooter />
+                <FileBase.Chip
+                  label={Fmt.duration(file.duration)}
+                  position="bottom-right"
+                  hasFooter
+                />
               )}
             </FileBase.Image>
 

@@ -4,7 +4,7 @@ import * as db from "medior/server/database";
 import { TagToUpsert } from "medior/components";
 import { asyncAction } from "medior/store";
 import { toast } from "medior/utils/client";
-import { PromiseChain, regexEscape } from "medior/utils/common";
+import { Fmt, PromiseChain } from "medior/utils/common";
 import { trpc } from "medior/utils/server";
 import { Tag, TagEditorStore, TagManagerStore, TagMergerStore, TagOption } from ".";
 
@@ -190,7 +190,7 @@ export class TagStore extends Model({
   tagsToRegEx(tags: { aliases?: string[]; label: string }[]) {
     return `(${tags
       .flatMap((tag) => [tag.label, ...tag.aliases])
-      .map((s) => `\\b${regexEscape(s).replaceAll(/[\s-_]+/g, "[\\s\\-_\\.]+")}\\b`)
+      .map((s) => `\\b${Fmt.regexEscape(s).replaceAll(/[\s-_]+/g, "[\\s\\-_\\.]+")}\\b`)
       .join(")|(")})`;
   }
 

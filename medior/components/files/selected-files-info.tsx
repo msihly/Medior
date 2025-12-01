@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Comp, Icon, IconName, LoadingOverlay, Text, UniformList, View } from "medior/components";
 import { useStores } from "medior/store";
 import { colors, getIsVideo, toast } from "medior/utils/client";
-import { commas, formatBytes } from "medior/utils/common";
+import { Fmt } from "medior/utils/common";
 import { trpc } from "medior/utils/server";
 
 export const useFileInfo = () => {
@@ -113,9 +113,9 @@ const FileTypeRow = Comp(
         </View>
 
         <View row flex={1} justify="space-between" spacing="1rem">
-          <Text>{commas(props.count)}</Text>
+          <Text>{Fmt.commas(props.count)}</Text>
           <Text>{"-"}</Text>
-          <Text>{formatBytes(props.size)}</Text>
+          <Text>{Fmt.bytes(props.size)}</Text>
         </View>
       </View>
     );

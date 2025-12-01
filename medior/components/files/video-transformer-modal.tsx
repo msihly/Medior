@@ -16,7 +16,7 @@ import {
 } from "medior/components";
 import { useStores } from "medior/store";
 import { colors, getConfig, toast } from "medior/utils/client";
-import { dayjs, formatBytes, round } from "medior/utils/common";
+import { dayjs, Fmt, round } from "medior/utils/common";
 
 export const VideoTransformerModal = Comp(() => {
   const stores = useStores();
@@ -123,19 +123,19 @@ export const VideoTransformerModal = Comp(() => {
                   </UniformList>
 
                   <UniformList row spacing="1rem">
-                    <Detail label="Original Bitrate" value={formatBytes(store.file.bitrate)} />
+                    <Detail label="Original Bitrate" value={Fmt.bytes(store.file.bitrate)} />
 
-                    <Detail label="Output Bitrate" value={formatBytes(outputBitrate)} />
+                    <Detail label="Output Bitrate" value={Fmt.bytes(outputBitrate)} />
                   </UniformList>
 
                   <UniformList row spacing="1rem">
-                    <Detail label="Original Size" value={formatBytes(store.file.size)} />
+                    <Detail label="Original Size" value={Fmt.bytes(store.file.size)} />
 
-                    <Detail label="Output Size" value={formatBytes(store.progress.size)} />
+                    <Detail label="Output Size" value={Fmt.bytes(store.progress.size)} />
                   </UniformList>
 
                   <UniformList row spacing="1rem">
-                    <Detail label="Speed" value={`${formatBytes(store.progress.kbps * 1000)}/s`} />
+                    <Detail label="Speed" value={`${Fmt.bytes(store.progress.kbps * 1000)}/s`} />
 
                     <Detail
                       label="Ratio"

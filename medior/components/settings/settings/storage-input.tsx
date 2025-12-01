@@ -3,7 +3,7 @@ import { DiskSpace } from "check-disk-space";
 import { Comp, Icon, IconButton, IconName, Text, View } from "medior/components";
 import { useStores } from "medior/store";
 import { colors } from "medior/utils/client";
-import { formatBytes, round } from "medior/utils/common";
+import { Fmt, round } from "medior/utils/common";
 import { trpc } from "medior/utils/server";
 import { Input, InputProps } from "./input";
 
@@ -114,7 +114,7 @@ export const StorageInput = Comp(({ index, selectLocation, ...props }: StorageIn
           <>
             <Text color={status.color} fontWeight={500}>{`${round(percentFilled * 100)}%`}</Text>
 
-            <Text>{`-- ${formatBytes(diskStats.free)} / ${formatBytes(diskStats.size)}`}</Text>
+            <Text>{`-- ${Fmt.bytes(diskStats.free)} / ${Fmt.bytes(diskStats.size)}`}</Text>
           </>
         )}
       </View>
