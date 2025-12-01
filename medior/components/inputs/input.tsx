@@ -1,8 +1,8 @@
-import { ChangeEvent, forwardRef, MutableRefObject, ReactNode } from "react";
+import { ChangeEvent, MutableRefObject, ReactNode } from "react";
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { TextField, TextFieldProps } from "@mui/material";
 import Color from "color";
-import { HeaderWrapper, HeaderWrapperProps, Text } from "medior/components";
+import { Comp, HeaderWrapper, HeaderWrapperProps, Text } from "medior/components";
 import {
   BorderRadiuses,
   Borders,
@@ -41,7 +41,7 @@ export interface InputProps
   width?: CSS["width"];
 }
 
-export const Input = forwardRef(
+export const Input = Comp(
   (
     {
       borders,

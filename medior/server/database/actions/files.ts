@@ -7,10 +7,10 @@ import * as models from "medior/_generated/models";
 import { AnyBulkWriteOperation } from "mongodb";
 import mongoose from "mongoose";
 import * as actions from "medior/server/database/actions";
-import { leanModelToJson, makeAction, objectId, objectIds } from "medior/server/database/utils";
 import { SortValue } from "medior/store";
 import { checkFileExists, deleteFile, genFileInfo, sharp } from "medior/utils/client";
 import { capitalize, CONSTANTS, dayjs, PromiseQueue } from "medior/utils/common";
+import { leanModelToJson, makeAction, objectId, objectIds } from "medior/utils/server";
 import { fileLog, makePerfLog, socket } from "medior/utils/server";
 
 const FACE_MIN_CONFIDENCE = 0.4;

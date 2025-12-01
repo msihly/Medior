@@ -1,4 +1,4 @@
-import { forwardRef, MutableRefObject, ReactNode } from "react";
+import { ReactNode } from "react";
 import { CenteredText, Comp, View, ViewProps } from "medior/components";
 import { CSS, makeClasses } from "medior/utils/client";
 
@@ -12,44 +12,42 @@ export interface CardGridProps extends ViewProps {
 }
 
 export const CardGrid = Comp(
-  forwardRef(
-    (
-      {
-        cards,
-        cardsProps,
-        children,
-        className,
-        maxCards = 6,
-        noResultsText = "No results found",
-        padding = { all: "0.3rem 0.3rem 7rem" },
-        position = "relative",
-        ...props
-      }: CardGridProps,
-      ref: MutableRefObject<HTMLDivElement>,
-    ) => {
-      const { css, cx } = useClasses({ hasCards: cards.length > 0, maxCards, position });
+  (
+    {
+      cards,
+      cardsProps,
+      children,
+      className,
+      maxCards = 6,
+      noResultsText = "No results found",
+      padding = { all: "0.3rem 0.3rem 7rem" },
+      position = "relative",
+      ...props
+    }: CardGridProps,
+    ref,
+  ) => {
+    const { css, cx } = useClasses({ hasCards: cards.length > 0, maxCards, position });
 
-      return (
-        <View {...props} className={cx(css.root, className)}>
-          {cards.length ? (
-            <View
-              {...cardsProps}
-              {...{ padding, ref }}
-              className={cx(css.cards, cardsProps?.className)}
-            >
-              {cards}
-            </View>
-          ) : (
-            <View column flex={1}>
-              <CenteredText text={noResultsText} />
-            </View>
-          )}
+    return (
+      <View {...props} className={cx(css.root, className)}>
+        {cards.length ? (
+          <View
+            {...cardsProps}
+            {...{ padding, ref }}
+            className={cx(css.cards, cardsProps?.className)}
+          >
+            {cards}
+          </View>
+        ) : (
+          <View column flex={1}>
+            <CenteredText text={noResultsText} />
+          </View>
+        )}
 
-          {children}
-        </View>
-      );
-    },
-  ),
+        {children}
+      </View>
+    );
+  },
 );
 
 interface ClassesProps {

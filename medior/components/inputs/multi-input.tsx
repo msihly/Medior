@@ -1,5 +1,12 @@
-import { forwardRef, MutableRefObject, useState } from "react";
-import { HeaderWrapper, HeaderWrapperProps, Input, InputProps, View } from "medior/components";
+import { useState } from "react";
+import {
+  Comp,
+  HeaderWrapper,
+  HeaderWrapperProps,
+  Input,
+  InputProps,
+  View,
+} from "medior/components";
 import { MultiInputList } from "./multi-input-list";
 
 export interface MultiInputProps<T = string> {
@@ -16,7 +23,7 @@ export interface MultiInputProps<T = string> {
   value: T[];
 }
 
-export const MultiInput = forwardRef(
+export const MultiInput = Comp(
   (
     {
       hasDelete = true,
@@ -30,7 +37,7 @@ export const MultiInput = forwardRef(
       single,
       value = [],
     }: MultiInputProps,
-    inputRef?: MutableRefObject<HTMLDivElement>,
+    inputRef,
   ) => {
     const isMax = max > -1 && value.length >= max;
     const disabled = inputProps?.disabled || isMax;

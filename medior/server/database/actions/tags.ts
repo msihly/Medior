@@ -4,7 +4,6 @@ import { AnyBulkWriteOperation } from "mongodb";
 import mongoose, { FilterQuery, PipelineStage, UpdateQuery } from "mongoose";
 import * as actions from "medior/server/database/actions";
 import * as Types from "medior/server/database/types";
-import { leanModelToJson, makeAction, objectId, objectIds } from "medior/server/database/utils";
 import {
   bisectArrayChanges,
   dayjs,
@@ -12,6 +11,7 @@ import {
   regexEscape,
   splitArray,
 } from "medior/utils/common";
+import { leanModelToJson, makeAction, objectId, objectIds } from "medior/utils/server";
 import { fileLog, makePerfLog, socket } from "medior/utils/server";
 
 /* -------------------------------------------------------------------------- */

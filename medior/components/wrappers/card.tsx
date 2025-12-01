@@ -1,5 +1,5 @@
-import { forwardRef, MutableRefObject, ReactNode } from "react";
-import { HeaderWrapper, View, ViewProps } from "medior/components";
+import { ReactNode } from "react";
+import { Comp, HeaderWrapper, View, ViewProps } from "medior/components";
 import { colors } from "medior/utils/client";
 import { deepMerge } from "medior/utils/common";
 
@@ -8,7 +8,7 @@ export interface CardProps extends ViewProps {
   headerProps?: Partial<ViewProps>;
 }
 
-export const Card = forwardRef(
+export const Card = Comp(
   (
     {
       bgColor = colors.foreground,
@@ -26,7 +26,7 @@ export const Card = forwardRef(
       width,
       ...viewProps
     }: CardProps,
-    ref: MutableRefObject<HTMLDivElement>,
+    ref,
   ) => {
     borderRadiuses = deepMerge({ bottom: "0.5rem", top: !!header ? 0 : "0.5rem" }, borderRadiuses);
     padding = deepMerge({ all: "0.5rem" }, padding);

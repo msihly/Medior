@@ -1,5 +1,5 @@
-import { forwardRef, MutableRefObject, useState } from "react";
-import { Input, InputProps } from "medior/components";
+import { useState } from "react";
+import { Comp, Input, InputProps } from "medior/components";
 import { toast } from "medior/utils/client";
 
 export interface NumInputProps extends Omit<InputProps, "setValue" | "value"> {
@@ -9,11 +9,8 @@ export interface NumInputProps extends Omit<InputProps, "setValue" | "value"> {
   value?: number;
 }
 
-export const NumInput = forwardRef(
-  (
-    { hasHelper, maxValue, minValue, setValue, value, ...props }: NumInputProps,
-    ref?: MutableRefObject<HTMLDivElement>,
-  ) => {
+export const NumInput = Comp(
+  ({ hasHelper, maxValue, minValue, setValue, value, ...props }: NumInputProps, ref) => {
     const [error, setError] = useState<string | null>(null);
 
     const handleChange = (val: string) => {
@@ -33,7 +30,7 @@ export const NumInput = forwardRef(
 
     return (
       <Input
-        {...{ ref }}
+        ref={ref}
         value={value !== null && !isNaN(+value) ? String(value) : ""}
         setValue={handleChange}
         error={hasHelper && !!error}

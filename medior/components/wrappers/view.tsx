@@ -1,4 +1,5 @@
-import { forwardRef, HTMLAttributes, MutableRefObject, ReactNode } from "react";
+import { HTMLAttributes, ReactNode } from "react";
+import { Comp } from "medior/components";
 import {
   BorderRadiuses,
   Borders,
@@ -35,7 +36,7 @@ export interface ViewProps extends HTMLAttributes<HTMLDivElement> {
   wrap?: CSS["flexWrap"];
 }
 
-export const View = forwardRef(
+export const View = Comp(
   (
     {
       align,
@@ -60,7 +61,7 @@ export const View = forwardRef(
       wrap,
       ...props
     }: ViewProps,
-    ref?: MutableRefObject<HTMLDivElement>,
+    ref,
   ) => {
     if (row) column = false;
 

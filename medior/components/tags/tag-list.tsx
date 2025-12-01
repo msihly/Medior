@@ -1,5 +1,4 @@
-import { useEffect, useRef } from "react";
-import { FixedSizeList } from "react-window";
+import { useEffect } from "react";
 import {
   Comp,
   MultiInputList,
@@ -22,18 +21,11 @@ export interface TagListProps extends MultiInputListProps<TagOption> {
 }
 
 export const TagList = Comp(
-  ({
-    hasDelete,
-    hasEditor,
-    hasInput,
-    hasSearchMenu,
-    onTagClick,
-    rightNode,
-    search,
-  }: TagListProps) => {
+  (
+    { hasDelete, hasEditor, hasInput, hasSearchMenu, onTagClick, rightNode, search }: TagListProps,
+    ref,
+  ) => {
     const stores = useStores();
-
-    const ref = useRef<FixedSizeList>();
 
     useEffect(() => {
       if (!socket?.isConnected || !search?.onChange) return;
@@ -65,8 +57,9 @@ export const TagList = Comp(
 
     return (
       <MultiInputList
-        {...{ hasInput, search }}
         ref={ref}
+        hasInput={hasInput}
+        search={search}
         renderRow={(index, style) => (
           <TagInputRow
             {...{ hasDelete, hasEditor, hasSearchMenu, rightNode, search, style }}
