@@ -245,12 +245,15 @@ export const createSearchStore = (def: ModelSearchStore) => {
       async ({ id, selectedIds }: { id: string; selectedIds: string[] }) => {
         const clickedIndex = (this.page - 1) * this.pageSize + this.results.findIndex((r) => r.id === id);
 
+        this.setIsLoading(true);
         const res = await trpc.getShiftSelected${def.name}.mutate({
           ...this.getFilterProps(),
           clickedId: id,
           clickedIndex,
           selectedIds,
         });
+        this.setIsLoading(false);
+
         if (!res.success) throw new Error(res.error);
         return res.data;
       }

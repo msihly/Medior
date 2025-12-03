@@ -141,12 +141,15 @@ export class _FileCollectionSearch extends Model({
       const clickedIndex =
         (this.page - 1) * this.pageSize + this.results.findIndex((r) => r.id === id);
 
+      this.setIsLoading(true);
       const res = await trpc.getShiftSelectedFileCollection.mutate({
         ...this.getFilterProps(),
         clickedId: id,
         clickedIndex,
         selectedIds,
       });
+      this.setIsLoading(false);
+
       if (!res.success) throw new Error(res.error);
       return res.data;
     },
@@ -372,12 +375,15 @@ export class _FileImportBatchSearch extends Model({
       const clickedIndex =
         (this.page - 1) * this.pageSize + this.results.findIndex((r) => r.id === id);
 
+      this.setIsLoading(true);
       const res = await trpc.getShiftSelectedFileImportBatch.mutate({
         ...this.getFilterProps(),
         clickedId: id,
         clickedIndex,
         selectedIds,
       });
+      this.setIsLoading(false);
+
       if (!res.success) throw new Error(res.error);
       return res.data;
     },
@@ -732,12 +738,15 @@ export class _FileSearch extends Model({
       const clickedIndex =
         (this.page - 1) * this.pageSize + this.results.findIndex((r) => r.id === id);
 
+      this.setIsLoading(true);
       const res = await trpc.getShiftSelectedFile.mutate({
         ...this.getFilterProps(),
         clickedId: id,
         clickedIndex,
         selectedIds,
       });
+      this.setIsLoading(false);
+
       if (!res.success) throw new Error(res.error);
       return res.data;
     },
@@ -1023,12 +1032,15 @@ export class _TagSearch extends Model({
       const clickedIndex =
         (this.page - 1) * this.pageSize + this.results.findIndex((r) => r.id === id);
 
+      this.setIsLoading(true);
       const res = await trpc.getShiftSelectedTag.mutate({
         ...this.getFilterProps(),
         clickedId: id,
         clickedIndex,
         selectedIds,
       });
+      this.setIsLoading(false);
+
       if (!res.success) throw new Error(res.error);
       return res.data;
     },
