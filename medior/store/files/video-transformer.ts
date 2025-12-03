@@ -79,35 +79,49 @@ export class VideoTransformerStore extends Model({
 
   @modelFlow
   replaceOriginal = asyncAction(async () => {
-    this.setIsLoading(true);
+    const config = getConfig().file.reencode;
 
-    const originalPath = this.file.path;
-    const videoInfo = await getVideoInfo(this.newPath);
+    try {
+      this.setIsLoading(true);
 
-    const dbRes = await trpc.updateFile.mutate({
-      args: {
-        id: this.curFileId,
-        updates: {
-          ...videoInfo,
-          hash: this.newHash,
-          path: this.newPath,
+      const originalPath = this.file.path;
+      const videoInfo = await getVideoInfo(this.newPath);
+
+      const dbRes = await trpc.updateFile.mutate({
+        args: {
+          id: this.curFileId,
+          updates: {
+            ...videoInfo,
+            hash: this.newHash,
+            path: this.newPath,
+          },
         },
-      },
-    });
-    if (!dbRes.success) throw new Error(dbRes.error);
+      });
+      if (!dbRes.success) throw new Error(dbRes.error);
 
-    const stores = getRootStore<RootStore>(this);
+      const stores = getRootStore<RootStore>(this);
 
-    await this.updateTags(getConfig().file.reencode.onComplete);
+      await this.updateTags(getConfig().file.reencode.onComplete);
 
-    const refreshRes = await stores.file.refreshFiles({ ids: [this.curFileId] });
-    if (!refreshRes.success) throw new Error(refreshRes.error);
+      const refreshRes = await stores.file.refreshFiles({ ids: [this.curFileId] });
+      if (!refreshRes.success) throw new Error(refreshRes.error);
 
-    const diskRes = await deleteFile(originalPath, this.newPath);
-    if (!diskRes.success) throw new Error(diskRes.error);
+      const diskRes = await deleteFile(originalPath, this.newPath);
+      if (!diskRes.success) throw new Error(diskRes.error);
 
-    this.setIsLoading(false);
-    await this.loadNextFile();
+      this.setIsLoading(false);
+      await this.loadNextFile();
+    } catch (error) {
+      this.setIsLoading(false);
+
+      if (error.message.includes("duplicate key error")) {
+        console.debug(`Video transform resulted in duplicate: ${this.newHash}`);
+        await this.updateTags(config.onDuplicate);
+        this.loadNextFile();
+      } else {
+        throw new Error(error);
+      }
+    }
   });
 
   @modelFlow
@@ -121,11 +135,29 @@ export class VideoTransformerStore extends Model({
       this.loadNextFile();
     };
 
+    const originalCodec = this.file.videoCodec;
+    const newCodec = config.codec.replace("_nvenc", "");
+    const originalFps = round(this.file.frameRate, 0);
+    const maxFps = round(config.maxFps, 0);
+    const originalBitrate = round(this.file.bitrate, 0);
+    const maxBitrate = round(config.maxBitrate * 1000, 0);
+
+    console.debug({
+      fnType: this.fnType,
+      file: this.file,
+      originalBitrate,
+      originalCodec,
+      originalFps,
+      maxBitrate,
+      maxFps,
+      newCodec,
+    });
+
     if (
       this.fnType === "reencode" &&
-      this.file.videoCodec === config.codec.replace("_nvenc", "") &&
-      round(this.file.frameRate, 0) <= round(config.maxFps, 0) &&
-      round(this.file.bitrate, 0) <= round(config.maxBitrate, 0)
+      originalCodec === newCodec &&
+      originalFps <= maxFps &&
+      originalBitrate <= maxBitrate
     ) {
       return await skip();
     }
@@ -151,7 +183,10 @@ export class VideoTransformerStore extends Model({
       if (this.isAuto) {
         const videoInfo = await getVideoInfo(this.newPath);
         if (videoInfo.size >= 0.9 * this.file.size) await skip();
-        else await this.replaceOriginal();
+        else {
+          const replaceRes = await this.replaceOriginal();
+          if (!replaceRes.success) throw new Error(replaceRes.error);
+        }
       }
     } catch (error) {
       this.setIsRunning(false);
@@ -164,7 +199,6 @@ export class VideoTransformerStore extends Model({
         toast.error(error.message);
         await this.updateTags(config.onError);
         if (this.isAuto) this.loadNextFile();
-        return;
       }
     }
   });

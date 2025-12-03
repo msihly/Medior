@@ -63,6 +63,10 @@ export interface Config {
         addTagIds: string[];
         removeTagIds: string[];
       };
+      onDuplicate: {
+        addTagIds: string[];
+        removeTagIds: string[];
+      };
       onError: {
         addTagIds: string[];
         removeTagIds: string[];
@@ -161,6 +165,10 @@ export const DEFAULT_CONFIG: Config = {
       maxHeight: 1080,
       maxWidth: 1920,
       onComplete: {
+        addTagIds: [],
+        removeTagIds: [],
+      },
+      onDuplicate: {
         addTagIds: [],
         removeTagIds: [],
       },
