@@ -128,13 +128,6 @@ export class VideoTransformerStore extends Model({
   run = asyncAction(async () => {
     const config = getConfig().file.reencode;
 
-    const skip = async () => {
-      console.debug(`Skipped re-encode: ${this.file.id}`);
-      toast.warn("Skipped re-encode");
-      await this.updateTags(config.onSkip);
-      this.loadNextFile();
-    };
-
     const originalCodec = this.file.videoCodec;
     const newCodec = config.codec.replace("_nvenc", "");
     const originalFps = round(this.file.frameRate, 0);
@@ -142,16 +135,22 @@ export class VideoTransformerStore extends Model({
     const originalBitrate = round(this.file.bitrate, 0);
     const maxBitrate = round(config.maxBitrate * 1000, 0);
 
-    console.debug({
-      fnType: this.fnType,
-      file: this.file,
-      originalBitrate,
-      originalCodec,
-      originalFps,
-      maxBitrate,
-      maxFps,
-      newCodec,
-    });
+    const skip = async (newSize?: number) => {
+      console.debug(`Skipped re-encode: ${this.file.id}`);
+      console.debug({
+        originalBitrate,
+        originalCodec,
+        originalFps,
+        maxBitrate,
+        maxFps,
+        newCodec,
+        newSize
+      });
+
+      toast.warn("Skipped re-encode");
+      await this.updateTags(config.onSkip);
+      this.loadNextFile();
+    };
 
     if (
       this.fnType === "reencode" &&
@@ -182,7 +181,7 @@ export class VideoTransformerStore extends Model({
 
       if (this.isAuto) {
         const videoInfo = await getVideoInfo(this.newPath);
-        if (videoInfo.size >= 0.9 * this.file.size) await skip();
+        if (videoInfo.size >= 0.9 * this.file.size) await skip(videoInfo.size);
         else {
           const replaceRes = await this.replaceOriginal();
           if (!replaceRes.success) throw new Error(replaceRes.error);

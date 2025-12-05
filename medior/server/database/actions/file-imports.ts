@@ -1,6 +1,7 @@
 import { createReadStream, createWriteStream, promises as fs } from "fs";
 import * as models from "medior/_generated/models";
 import { ModelCreationData } from "mobx-keystone";
+import { pipeline } from "stream/promises";
 import * as actions from "medior/server/database/actions";
 import * as Types from "medior/server/database/types";
 import type { FileImport } from "medior/store";
@@ -118,57 +119,39 @@ export const copyFile = makeAction(
     if (await checkFileExists(args.newPath)) return false;
     await fs.mkdir(args.dirPath, { recursive: true });
 
-    return new Promise(async (resolve, reject) => {
-      try {
-        const stats = await fs.stat(args.originalPath);
-        const totalBytes = stats.size;
-        let completedBytes = 0;
+    const stats = await fs.stat(args.originalPath);
+    const totalBytes = stats.size;
+    let completedBytes = 0;
 
-        const readStream = createReadStream(args.originalPath);
-        const writeStream = createWriteStream(args.newPath, { flags: "wx" });
-        const emitStats = throttle(
-          (importStats: Types.ImportStats) => emitImportStatsUpdated({ importStats }),
-          200,
-        );
+    const readStream = createReadStream(args.originalPath);
+    const writeStream = createWriteStream(args.newPath, { flags: "wx" });
 
-        readStream.on("data", (chunk) => {
-          completedBytes += chunk.length;
-          emitStats({
-            completedBytes,
-            filePath: args.originalPath,
-            totalBytes,
-          });
-        });
+    const emitStats = throttle(
+      (importStats: Types.ImportStats) => emitImportStatsUpdated({ importStats }),
+      200,
+    );
 
-        readStream.on("end", () => {
-          emitImportStatsUpdated({
-            importStats: {
-              completedBytes: totalBytes,
-              filePath: args.originalPath,
-              totalBytes,
-            },
-          });
-
-          resolve(true);
-        });
-
-        readStream.on("error", (err) => {
-          console.error("ReadStream error:", err);
-          reject(err);
-        });
-
-        writeStream.on("error", (err) => {
-          console.error("WriteStream error:", err);
-          reject(err);
-        });
-
-        readStream.pipe(writeStream);
-      } catch (err) {
-        console.error("Error in promise:", err);
-        reject(err);
-      }
+    readStream.on("data", (chunk) => {
+      completedBytes += chunk.length;
+      emitStats({
+        completedBytes,
+        filePath: args.originalPath,
+        totalBytes,
+      });
     });
-  },
+
+    await pipeline(readStream, writeStream);
+
+    emitImportStatsUpdated({
+      importStats: {
+        completedBytes: totalBytes,
+        filePath: args.originalPath,
+        totalBytes,
+      },
+    });
+
+    return true;
+  }
 );
 
 export const createImportBatches = makeAction(
