@@ -85,3 +85,34 @@ export const useForceUpdate = () => {
   const update = useCallback(() => setTick((tick) => tick + 1), []);
   return update;
 };
+
+export const useLazyLoad = (
+  containerRef: React.RefObject<HTMLElement>,
+  options?: {
+    rootMargin?: string;
+    threshold?: number | number[];
+  }
+) => {
+  const [isVisible, setIsVisible] = useState(false);
+  const observerRef = useRef<IntersectionObserver | null>(null);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+
+    observerRef.current = new IntersectionObserver(
+      (entries) => {
+        setIsVisible(entries[0].isIntersecting);
+      },
+      {
+        rootMargin: options?.rootMargin ?? "200px 0px",
+        threshold: options?.threshold ?? 0,
+      }
+    );
+
+    observerRef.current.observe(containerRef.current);
+
+    return () => observerRef.current?.disconnect();
+  }, [options?.rootMargin, options?.threshold]);
+
+  return isVisible;
+};

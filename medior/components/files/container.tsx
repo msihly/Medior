@@ -12,12 +12,12 @@ export const FileContainer = Comp(() => {
 
   const { handleKeyPress } = useHotkeys({ view: "home" });
 
-  const scrollToTop = () => filesRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+  const scrollToTop = () => filesRef.current?.scrollTo({ top: 0, behavior: "instant" });
 
   useEffect(() => {
+    scrollToTop();
     if (stores.file.search.page > stores.file.search.pageCount)
       handlePageChange(stores.file.search.pageCount);
-    scrollToTop();
   }, [stores.file.search.page]);
 
   const handlePageChange = (page: number) => stores.file.search.loadFiltered({ page });

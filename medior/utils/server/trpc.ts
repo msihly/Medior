@@ -46,11 +46,18 @@ class SocketClass {
     event: Event,
     ...args: Parameters<SocketEvents[Event]>
   ) {
+    if (!this.socket) this.connect();
+
     try {
-      if (!this.socket) this.connect();
-      this.socket.emit(event, ...args);
+      setImmediate(() => {
+        try {
+          this.socket.volatile?.emit?.(event, ...args) ?? this.socket.emit(event, ...args);
+        } catch (err) {
+          fileLog(`emit() inner error: ${err.message}`, { type: "error" });
+        }
+      });
     } catch (err) {
-      fileLog(err, { type: "error" });
+      fileLog(`emit() scheduleer error: ${err.message}`, { type: "error" });
     }
   }
 

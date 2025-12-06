@@ -8,7 +8,7 @@ import {
 } from "react";
 import { FileCollectionSchema, FileSchema } from "medior/_generated";
 import { Icon, View } from "medior/components";
-import { colors, CSS, makeClasses, useElementResize } from "medior/utils/client";
+import { colors, CSS, makeClasses, useElementResize, useLazyLoad } from "medior/utils/client";
 import { sleep } from "medior/utils/common";
 import { getScaledThumbSize } from "medior/utils/server";
 
@@ -76,6 +76,19 @@ export const Image = ({
 
   const containerRef = useRef<HTMLDivElement>(null);
   const containerDims = useElementResize(containerRef);
+  const isVisible = useLazyLoad(containerRef);
+
+  useEffect(() => {
+    if (!isVisible) clearIntervals();
+    else {
+      setHasError(false);
+      setThumbIndex(0);
+      setVideoPosIndex(1);
+      setImagePos("center");
+      clearIntervals();
+      if (autoAnimate) createThumbInterval();
+    }
+  }, [isVisible]);
 
   const getThumbScale = () => {
     if (!scaled || !containerDims) return;
@@ -102,7 +115,7 @@ export const Image = ({
   });
 
   useEffect(() => {
-    if (autoAnimate) createThumbInterval();
+    if (autoAnimate && isVisible) createThumbInterval();
     return () => clearIntervals();
   }, []);
 
@@ -179,7 +192,7 @@ export const Image = ({
             viewProps={{ align: "center", height: "100%" }}
           />
         </View>
-      ) : curThumb ? (
+      ) : curThumb && isVisible ? (
         <img
           {...{ draggable, loading, onDragEnd, onDragStart }}
           src={curThumb.path}
