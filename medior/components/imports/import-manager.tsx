@@ -82,8 +82,8 @@ export const ImportManager = Comp(() => {
                 />
 
                 <ProgressBar
-                  numerator={store.importStats?.completedBytes || null}
-                  denominator={store.importStats?.totalBytes || null}
+                  numerator={store.bytesCompleted || null}
+                  denominator={store.bytesTotal || null}
                   numeratorFormatter={Fmt.bytes}
                   denominatorFormatter={Fmt.bytes}
                   withText
@@ -97,7 +97,7 @@ export const ImportManager = Comp(() => {
                   textAlign="center"
                   color={colors.custom.lightGrey}
                 >
-                  {store.importStats?.filePath || "No active import"}
+                  {store.activeFilePath || "No active import"}
                 </Text>
 
                 <ImportEditor.ImportFolderList

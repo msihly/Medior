@@ -67,7 +67,6 @@ export const serverRouter = trpc.router({
   editFileTags: serverEndpoint(db.editFileTags),
   editMultiTagRelations: serverEndpoint(db.editMultiTagRelations),
   editTag: serverEndpoint(db.editTag),
-  emitImportStatsUpdated: serverEndpoint(db.emitImportStatsUpdated),
   getDeletedFile: serverEndpoint(db.getDeletedFile),
   getDiskStats: serverEndpoint(db.getDiskStats),
   getFileByHash: serverEndpoint(db.getFileByHash),

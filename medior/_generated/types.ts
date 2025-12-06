@@ -138,9 +138,6 @@ export type CreateImportBatchesOutput = ReturnType<typeof db.createImportBatches
 export type DeleteImportBatchesInput = Parameters<typeof db.deleteImportBatches>[0];
 export type DeleteImportBatchesOutput = ReturnType<typeof db.deleteImportBatches>;
 
-export type EmitImportStatsUpdatedInput = Parameters<typeof db.emitImportStatsUpdated>[0];
-export type EmitImportStatsUpdatedOutput = ReturnType<typeof db.emitImportStatsUpdated>;
-
 export type GetImportBatchInput = Parameters<typeof db.getImportBatch>[0];
 export type GetImportBatchOutput = ReturnType<typeof db.getImportBatch>;
 

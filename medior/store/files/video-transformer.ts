@@ -144,7 +144,7 @@ export class VideoTransformerStore extends Model({
         maxBitrate,
         maxFps,
         newCodec,
-        newSize
+        newSize,
       });
 
       toast.warn("Skipped re-encode");

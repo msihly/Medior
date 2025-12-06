@@ -1,12 +1,11 @@
-import { createReadStream, createWriteStream, promises as fs } from "fs";
+import { constants as fsc, promises as fs } from "fs";
 import * as models from "medior/_generated/models";
 import { ModelCreationData } from "mobx-keystone";
-import { pipeline } from "stream/promises";
 import * as actions from "medior/server/database/actions";
 import * as Types from "medior/server/database/types";
 import type { FileImport } from "medior/store";
 import { FileImporter } from "medior/store/imports/importer";
-import { dayjs, Fmt, sleep, sumArray, throttle } from "medior/utils/common";
+import { dayjs, Fmt, sleep, sumArray } from "medior/utils/common";
 import { makeAction } from "medior/utils/server";
 import {
   checkFileExists,
@@ -116,42 +115,14 @@ export const completeImportBatch = makeAction(
 
 export const copyFile = makeAction(
   async (args: { dirPath: string; originalPath: string; newPath: string }) => {
+    socket.emit("onFileImportStarted", { filePath: args.newPath });
+
     if (await checkFileExists(args.newPath)) return false;
     await fs.mkdir(args.dirPath, { recursive: true });
 
-    const stats = await fs.stat(args.originalPath);
-    const totalBytes = stats.size;
-    let completedBytes = 0;
-
-    const readStream = createReadStream(args.originalPath);
-    const writeStream = createWriteStream(args.newPath, { flags: "wx" });
-
-    const emitStats = throttle(
-      (importStats: Types.ImportStats) => emitImportStatsUpdated({ importStats }),
-      200,
-    );
-
-    readStream.on("data", (chunk) => {
-      completedBytes += chunk.length;
-      emitStats({
-        completedBytes,
-        filePath: args.originalPath,
-        totalBytes,
-      });
-    });
-
-    await pipeline(readStream, writeStream);
-
-    emitImportStatsUpdated({
-      importStats: {
-        completedBytes: totalBytes,
-        filePath: args.originalPath,
-        totalBytes,
-      },
-    });
-
+    await fs.copyFile(args.originalPath, args.newPath, fsc.COPYFILE_EXCL);
     return true;
-  }
+  },
 );
 
 export const createImportBatches = makeAction(
@@ -187,12 +158,6 @@ export const createImportBatches = makeAction(
 export const deleteImportBatches = makeAction(
   async (args: { ids: string[] }) =>
     await models.FileImportBatchModel.deleteMany({ _id: { $in: args.ids } }),
-);
-
-export const emitImportStatsUpdated = makeAction(
-  async ({ importStats }: { importStats: Types.ImportStats }) => {
-    socket.emit("onImportStatsUpdated", { importStats });
-  },
 );
 
 export const getImportBatch = makeAction(async (args: { id: string }) => {

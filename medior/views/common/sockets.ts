@@ -122,7 +122,7 @@ export const useSockets = ({ view }: UseSocketsProps) => {
         stores.file.search.setHasChanges(true);
         if (view === "home") {
           stores.import.manager.setActiveBatch(null);
-          stores.import.manager.setImportStats(null);
+          stores.import.manager.setActiveFilePath(null);
           stores.import.manager.search.setHasChanges(true);
         }
       });
@@ -145,8 +145,8 @@ export const useSockets = ({ view }: UseSocketsProps) => {
           );
       });
 
-      makeSocket("onImportStatsUpdated", ({ importStats }) => {
-        if (stores.import.manager.isOpen) stores.import.manager.setImportStats(importStats);
+      makeSocket("onFileImportStarted", ({ filePath }) => {
+        if (stores.import.manager.isOpen) stores.import.manager.setActiveFilePath(filePath);
       });
 
       makeSocket("onImportBatchLoaded", () => {

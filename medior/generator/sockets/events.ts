@@ -6,6 +6,7 @@ export const CUSTOM_EVENTS: {
   { name: "onFilesArchived", args: "{ fileIds: string[] }" },
   { name: "onFilesDeleted", args: "{ fileHashes: string[]; fileIds: string[] }" },
   { name: "onFilesUpdated", args: "{ fileIds: string[]; updates: Partial<models.FileSchema> }" },
+  { name: "onFileImportStarted", args: "{ filePath: string }" },
   {
     name: "onFileImportUpdated",
     args: "{ batchId: string; errorMsg?: string; fileId?: string; filePath: string; status?: Types.ImportStatus }",
@@ -17,7 +18,6 @@ export const CUSTOM_EVENTS: {
   { name: "onImportBatchCompleted", args: "{ id: string }" },
   { name: "onImportBatchLoaded", args: "{ id: string }" },
   { name: "onImporterStatusUpdated" },
-  { name: "onImportStatsUpdated", args: "{ importStats: Types.ImportStats }" },
   { name: "onReloadFileCollections" },
   { name: "onReloadFiles" },
   { name: "onReloadImportBatches" },

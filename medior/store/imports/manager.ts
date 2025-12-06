@@ -1,21 +1,16 @@
 import autoBind from "auto-bind";
-import { reaction } from "mobx";
+import { computed, reaction } from "mobx";
 import { Model, model, modelAction, modelFlow, prop } from "mobx-keystone";
-import { CreateImportBatchesInput, ImportStats } from "medior/server/database";
+import { CreateImportBatchesInput } from "medior/server/database";
 import { asyncAction } from "medior/store/utils";
+import { sumArray } from "medior/utils/common";
 import { trpc } from "medior/utils/server";
 import { FileImport, FileImportBatch, FileImportBatchSearch } from ".";
-
-const DEFAULT_IMPORT_STATS: ImportStats = {
-  completedBytes: 0,
-  filePath: "",
-  totalBytes: 0,
-};
 
 @model("medior/ImportManager")
 export class ImportManager extends Model({
   activeBatch: prop<FileImportBatch>(null).withSetter(),
-  importStats: prop<ImportStats>(() => DEFAULT_IMPORT_STATS).withSetter(),
+  activeFilePath: prop<string>(null).withSetter(),
   isImporting: prop<boolean>(false).withSetter(),
   isLoading: prop<boolean>(false).withSetter(),
   isOpen: prop<boolean>(false).withSetter(),
@@ -44,7 +39,7 @@ export class ImportManager extends Model({
 
   reset() {
     this.setActiveBatch(null);
-    this.setImportStats(DEFAULT_IMPORT_STATS);
+    this.setActiveFilePath(null);
     this.setIsLoading(false);
     this.search.reset();
   }
@@ -135,4 +130,20 @@ export class ImportManager extends Model({
     if (res.error) throw new Error(res.error);
     this.getImporterStatus();
   });
+
+  /* --------------------------------- GETTERS -------------------------------- */
+  @computed
+  get bytesCompleted() {
+    if (!this.activeBatch) return 0;
+    return sumArray(
+      this.activeBatch.imports.filter((imp) => imp.status !== "PENDING"),
+      (imp) => imp.size,
+    );
+  }
+
+  @computed
+  get bytesTotal() {
+    if (!this.activeBatch) return 0;
+    return sumArray(this.activeBatch.imports, (imp) => imp.size);
+  }
 }

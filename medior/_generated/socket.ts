@@ -56,6 +56,7 @@ export interface SocketEmitEvents {
     args: { fileIds: string[]; updates: Partial<models.FileSchema> },
     options?: SocketEventOptions,
   ) => void;
+  onFileImportStarted: (args: { filePath: string }, options?: SocketEventOptions) => void;
   onFileImportUpdated: (
     args: {
       batchId: string;
@@ -73,10 +74,6 @@ export interface SocketEmitEvents {
   onImportBatchCompleted: (args: { id: string }, options?: SocketEventOptions) => void;
   onImportBatchLoaded: (args: { id: string }, options?: SocketEventOptions) => void;
   onImporterStatusUpdated: (options?: SocketEventOptions) => void;
-  onImportStatsUpdated: (
-    args: { importStats: Types.ImportStats },
-    options?: SocketEventOptions,
-  ) => void;
   onReloadFileCollections: (options?: SocketEventOptions) => void;
   onReloadFiles: (options?: SocketEventOptions) => void;
   onReloadImportBatches: (options?: SocketEventOptions) => void;
@@ -118,12 +115,12 @@ export const socketEvents: SocketEmitEvent[] = [
   "onFilesArchived",
   "onFilesDeleted",
   "onFilesUpdated",
+  "onFileImportStarted",
   "onFileImportUpdated",
   "onFileTagsUpdated",
   "onImportBatchCompleted",
   "onImportBatchLoaded",
   "onImporterStatusUpdated",
-  "onImportStatsUpdated",
   "onReloadFileCollections",
   "onReloadFiles",
   "onReloadImportBatches",
