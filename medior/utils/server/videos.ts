@@ -412,33 +412,25 @@ export const vidToThumbGrid = async (inputPath: string, outputPath: string, file
     const tempPaths = frames.map((_, i) => path.resolve(outputPath, `${fileHash}-thumb-${i}.jpg`));
     if (DEBUG) perfLog(`Frames: ${JSON.stringify(timestamps.map((t, i) => [i, t, frames[i]]))}`);
 
-    await Promise.all(
-      timestamps.map(
-        (timestamp, idx) =>
-          new Promise<void>((resolve) => {
-            const outputPath = tempPaths[idx];
+    for (let idx = 0; idx < timestamps.length; idx++) {
+      const timestamp = timestamps[idx];
+      const temp = tempPaths[idx];
 
-            try {
-              ffmpeg()
-                .input(inputPath)
-                .inputOptions([`-ss ${timestamp}`])
-                .outputOptions(["-vf", `scale=${scaled.width}:${scaled.height}`, `-frames:v`, "1"])
-                .output(outputPath)
-                .on("end", () => resolve())
-                .on("error", (err) => {
-                  console.error(`Error generating thumbnail for timestamp ${timestamp}: ${err}`);
-                  isCorrupted = true;
-                  resolve();
-                })
-                .run();
-            } catch (err) {
-              console.error(`Error generating thumbnail for timestamp ${timestamp}: ${err}`);
-              isCorrupted = true;
-              resolve();
-            }
-          }),
-      ),
-    );
+      await new Promise<void>((resolve) => {
+        ffmpeg()
+          .input(inputPath)
+          .inputOptions([`-ss ${timestamp}`])
+          .outputOptions(["-vf", `scale=${scaled.width}:${scaled.height}`, "-frames:v", "1"])
+          .output(temp)
+          .on("end", () => resolve())
+          .on("error", (err) => {
+            console.error(`Error generating thumbnail for timestamp ${timestamp}: ${err}`);
+            isCorrupted = true;
+            resolve();
+          })
+          .run();
+      });
+    }
 
     const validTempPaths: string[] = [];
     const compositeInputs = await Promise.all(

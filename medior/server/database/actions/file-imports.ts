@@ -115,7 +115,7 @@ export const completeImportBatch = makeAction(
 
 export const copyFile = makeAction(
   async (args: { dirPath: string; originalPath: string; newPath: string }) => {
-    socket.emit("onFileImportStarted", { filePath: args.newPath });
+    socket.emit("onFileImportStarted", { filePath: args.originalPath });
 
     if (await checkFileExists(args.newPath)) return false;
     await fs.mkdir(args.dirPath, { recursive: true });

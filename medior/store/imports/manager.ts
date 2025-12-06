@@ -22,8 +22,10 @@ export class ImportManager extends Model({
     reaction(
       () => this.isOpen,
       () => {
-        if (!this.isOpen) this.reset();
-        else {
+        if (!this.isOpen) {
+          this.setIsLoading(true);
+          this.search.reset();
+        } else {
           this.search.loadFiltered({ page: 1 });
           this.runImporter();
         }

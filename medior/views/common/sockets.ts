@@ -146,7 +146,7 @@ export const useSockets = ({ view }: UseSocketsProps) => {
       });
 
       makeSocket("onFileImportStarted", ({ filePath }) => {
-        if (stores.import.manager.isOpen) stores.import.manager.setActiveFilePath(filePath);
+        stores.import.manager.setActiveFilePath(filePath);
       });
 
       makeSocket("onImportBatchLoaded", () => {
