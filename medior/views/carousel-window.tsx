@@ -33,7 +33,8 @@ export const CarouselWindow = Comp(() => {
   });
 
   const handleScroll = (event: WheelEvent) => {
-    if (event.ctrlKey) {
+    if (stores.file.isInfoModalOpen || stores._getIsBlockingModalOpen()) return;
+    else if (event.ctrlKey) {
       if (!panZoomRef.current) return console.error("Panzoom ref not set");
 
       const curScale = panZoomRef.current.getScale();

@@ -46,8 +46,7 @@ model.addProp("hash", "string", { required: true });
 model.addIndex({ height: 1, _id: 1 });
 model.addProp("height", "number", { required: true, sort: { icon: "Height", label: "Height" } });
 
-model.addIndex({ isArchived: 1, ext: 1, tagIds: 1, _id: 1 });
-model.addIndex({ isArchived: 1, ext: 1, tagIdsWithAncestors: 1, _id: 1 });
+model.addIndex({ isArchived: 1, _id: 1 });
 model.addProp("isArchived", "boolean");
 
 model.addIndex({ isCorrupted: 1, _id: 1 });
@@ -71,7 +70,6 @@ model.addProp("originalSize", "number", { required: true });
 
 model.addProp("originalVideoCodec", "string");
 
-model.addIndex({ path: 1, _id: 1 });
 model.addProp("path", "string", { required: true });
 
 model.addIndex({ rating: 1, _id: 1 });

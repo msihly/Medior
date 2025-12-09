@@ -1,10 +1,13 @@
 import { shell } from "@electron/remote";
+import fs from "fs/promises";
 import path from "path";
 import { ReactNode } from "react";
 import { FileSchema } from "medior/_generated";
 import { Comp, ContextMenu as ContextMenuBase, ViewProps } from "medior/components";
 import { useStores } from "medior/store";
-import { colors, copyToClipboard, getIsRemuxable } from "medior/utils/client";
+import { colors, copyToClipboard, getConfig, getIsRemuxable, toast } from "medior/utils/client";
+import { VIDEO_EXTS, VideoExt } from "medior/utils/common";
+import { trpc } from "medior/utils/server";
 
 export interface ContextMenuProps extends ViewProps {
   children?: ReactNode | ReactNode[];
@@ -52,7 +55,41 @@ export const ContextMenu = Comp(({ children, file, ...props }: ContextMenuProps)
 
   const openInExplorer = () => shell.showItemInFolder(file.path);
 
-  const openNatively = () => shell.openPath(file.path);
+  const openNatively = async () => {
+    try {
+      if (!VIDEO_EXTS.includes(file.ext as VideoExt)) shell.openPath(file.path);
+      else {
+        const fileIdsRes = await stores.file.search.listIdsForCarousel();
+        if (!fileIdsRes.success) throw new Error(fileIdsRes.error);
+        const fileIds = new Map(fileIdsRes.data.map((id, i) => [id, i]));
+
+        const filesRes = await trpc.listFile.mutate({
+          args: { filter: { id: [...fileIds.keys()] } },
+        });
+        if (!filesRes.success) throw new Error(filesRes.error);
+
+        let files = [...filesRes.data.items].sort((a, b) => fileIds.get(a.id) - fileIds.get(b.id));
+        const activeIndex = files.findIndex((f) => f.id === file.id);
+        files = files.slice(activeIndex);
+
+        let playlistContent = "#EXTM3U\r\n";
+        for (const f of files) {
+          playlistContent += `#EXTINF:0,${f.originalName}\r\n${f.path}\r\n`;
+        }
+
+        const dirPath = getConfig().db.fileStorage.locations[0];
+        const playlistPath = path.resolve(dirPath, "playlist.m3u8");
+        await fs.mkdir(path.dirname(playlistPath), { recursive: true });
+        await fs.writeFile(playlistPath, playlistContent, "utf8");
+
+        shell.openPath(playlistPath);
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to open playlist");
+      shell.openPath(file.path);
+    }
+  };
 
   return (
     <ContextMenuBase
