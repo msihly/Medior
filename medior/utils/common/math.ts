@@ -17,6 +17,21 @@ export const compareLogicOps = (operator: LogicalOp, a: number, b: number) => {
 export const compareLogic = (type: "AND" | "OR", ...items: any[]) =>
   type === "AND" ? items.every(Boolean) : type === "OR" ? items.some(Boolean) : null;
 
+export const durationToSeconds = (input: string) => {
+  let total = 0;
+  let match: RegExpExecArray;
+  const regex = /(\d+)([hms])/g;
+
+  while ((match = regex.exec(input)) !== null) {
+    const value = Number(match[1]);
+    if (match[2] === "h") total += value * 3600;
+    else if (match[2] === "m") total += value * 60;
+    else if (match[2] === "s") total += value;
+  }
+
+  return total;
+};
+
 // prettier-ignore
 export const fractionStringToNumber = (str: string) => str.split("/").map((s) => +s).reduce((a, b) => a / b);
 

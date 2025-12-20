@@ -21,8 +21,10 @@ export interface LogOpsInputProps extends ViewProps {
   logOpValue: "" | LogicalOp;
   numInputProps?: Partial<NumInputProps>;
   numValue: number;
+  numValueDisplay?: string;
   setLogOpValue: (val: LogicalOp) => void;
-  setNumValue: (val: number) => void;
+  setNumValue?: (val: number) => void;
+  setNumValueDisplay?: (val: string) => void;
 }
 
 export const LogOpsInput = ({
@@ -32,8 +34,10 @@ export const LogOpsInput = ({
   logOpValue,
   numInputProps,
   numValue,
+  numValueDisplay,
   setLogOpValue,
   setNumValue,
+  setNumValueDisplay,
   ...props
 }: LogOpsInputProps) => {
   return (
@@ -44,12 +48,15 @@ export const LogOpsInput = ({
         options={LOG_OPS_OPTS}
         minWidth="3.7em"
         borderRadiuses={{ top: 0, right: 0 }}
+        textAlign="center"
         {...dropdownProps}
       />
 
       <NumInput
         value={numValue}
+        valueDisplay={numValueDisplay}
         setValue={setNumValue}
+        setValueDisplay={setNumValueDisplay}
         disabled={logOpValue === ""}
         width="100%"
         textAlign="center"

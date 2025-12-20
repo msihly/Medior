@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   Card,
   Checkbox,
@@ -13,7 +14,7 @@ import {
 import { ExtColumn } from "medior/components/files/filter-menu/ext-column";
 import { FileSearch, SORT_OPTIONS } from "medior/store";
 import { colors, getConfig } from "medior/utils/client";
-import { AudioCodec, ImageExt, VideoCodec, VideoExt } from "medior/utils/common";
+import { AudioCodec, durationToSeconds, ImageExt, VideoCodec, VideoExt } from "medior/utils/common";
 
 export interface FileFilterMenuProps {
   color?: string;
@@ -22,6 +23,32 @@ export interface FileFilterMenuProps {
 
 export const FileFilterMenu = Comp(({ color = colors.foreground, store }: FileFilterMenuProps) => {
   const config = getConfig();
+
+  const [bitrate, _setBitrate] = useState<number>(null);
+  const [duration, _setDuration] = useState<string>("");
+  const [maxSize, _setMaxSize] = useState<number>(null);
+  const [minSize, _setMinSize] = useState<number>(null);
+
+  const setBitrate = (val: number) => {
+    store.setBitrateValue(val * 1000);
+    _setBitrate(val);
+  };
+
+  const setDuration = (val: string) => {
+    const parsedSeconds = val.length > 0 ? durationToSeconds(val) : null;
+    store.setDurationValue(parsedSeconds);
+    _setDuration(val);
+  };
+
+  const setMaxSize = (val: number) => {
+    store.setMaxSize(val * 1000);
+    _setMaxSize(val);
+  };
+
+  const setMinSize = (val: number) => {
+    store.setMinSize(val * 1000);
+    _setMinSize(val);
+  };
 
   const toggleArchiveOpen = () => store.setIsArchived(!store.isArchived);
 
@@ -179,6 +206,7 @@ export const FileFilterMenu = Comp(({ color = colors.foreground, store }: FileFi
             max={store.maxHeight}
             setMin={store.setMinHeight}
             setMax={store.setMaxHeight}
+            numInputProps={{ adornment: "px" }}
           />
 
           <NumRange
@@ -187,14 +215,16 @@ export const FileFilterMenu = Comp(({ color = colors.foreground, store }: FileFi
             max={store.maxWidth}
             setMin={store.setMinWidth}
             setMax={store.setMaxWidth}
+            numInputProps={{ adornment: "px" }}
           />
 
           <NumRange
             header="Size"
-            min={store.minSize}
-            max={store.maxSize}
-            setMin={store.setMinSize}
-            setMax={store.setMaxSize}
+            min={minSize}
+            max={maxSize}
+            setMin={setMinSize}
+            setMax={setMaxSize}
+            numInputProps={{ adornment: "kb" }}
           />
         </Card>
 
@@ -202,19 +232,20 @@ export const FileFilterMenu = Comp(({ color = colors.foreground, store }: FileFi
           <LogOpsInput
             header="Bitrate"
             logOpValue={store.bitrate.logOp}
-            numValue={store.bitrate.value}
+            numValue={bitrate}
             setLogOpValue={store.setBitrateOp}
-            setNumValue={store.setBitrateValue}
-            numInputProps={{ minValue: 0 }}
+            setNumValue={setBitrate}
+            numInputProps={{ minValue: 0, adornment: "kb/s" }}
           />
 
           <LogOpsInput
             header="Duration"
             logOpValue={store.duration.logOp}
-            numValue={store.duration.value}
             setLogOpValue={store.setDurationOp}
-            setNumValue={store.setDurationValue}
-            numInputProps={{ minValue: 0 }}
+            numValue={store.duration.value}
+            numValueDisplay={duration}
+            setNumValueDisplay={setDuration}
+            numInputProps={{ minValue: 0, adornment: "hms" }}
           />
 
           <LogOpsInput

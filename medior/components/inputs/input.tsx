@@ -1,11 +1,12 @@
 import { ChangeEvent, MutableRefObject, ReactNode } from "react";
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
-import { TextField, TextFieldProps } from "@mui/material";
+import { InputAdornment, TextField, TextFieldProps } from "@mui/material";
 import Color from "color";
 import { Comp, HeaderWrapper, HeaderWrapperProps, Text } from "medior/components";
 import {
   BorderRadiuses,
   Borders,
+  colors,
   CSS,
   makeBorderRadiuses,
   makeBorders,
@@ -22,6 +23,8 @@ const DEFAULT_HEADER_PROPS: HeaderWrapperProps["headerProps"] = {
 
 export interface InputProps
   extends Omit<TextFieldProps, "color" | "fullWidth" | "onChange" | "helperText" | "label"> {
+  adornment?: ReactNode;
+  adornmentPosition?: "end" | "start";
   borders?: Borders;
   borderRadiuses?: BorderRadiuses;
   className?: string;
@@ -44,6 +47,8 @@ export interface InputProps
 export const Input = Comp(
   (
     {
+      adornment,
+      adornmentPosition = "end",
       borders,
       borderRadiuses,
       children,
@@ -119,6 +124,22 @@ export const Input = Comp(
           // @ts-expect-error
           FormHelperTextProps={{ component: "div" }}
           inputProps={{ ...inputProps, maxLength, value: value ?? "" }}
+          InputProps={{
+            endAdornment:
+              adornmentPosition === "end" && adornment ? (
+                <InputAdornment position="end">
+                  {typeof adornment === "string" ? (
+                    <Text fontSize="0.9em" color={colors.custom.grey}>
+                      {adornment}
+                    </Text>
+                  ) : (
+                    adornment
+                  )}
+                </InputAdornment>
+              ) : null,
+            startAdornment: adornmentPosition === "start" ? adornment : null,
+            ...props.InputProps,
+          }}
           size="small"
           className={cx(css.input, className)}
           aria-label="input"
@@ -162,6 +183,8 @@ const useClasses = makeClasses((props: ClassesProps) => ({
       cursor: props.hasOnClick ? "pointer" : undefined,
     },
     "& .MuiTypography-root": {
+      display: "inline-grid",
+      width: "100%",
       textAlign: props.textAlign,
     },
     "& .MuiOutlinedInput-root": {

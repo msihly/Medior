@@ -70,7 +70,7 @@ export const ContextMenu = Comp(({ children, file, ...props }: ContextMenuProps)
 
         let files = [...filesRes.data.items].sort((a, b) => fileIds.get(a.id) - fileIds.get(b.id));
         const activeIndex = files.findIndex((f) => f.id === file.id);
-        files = files.slice(activeIndex);
+        files = files.slice(activeIndex, 100);
 
         let playlistContent = "#EXTM3U\r\n";
         for (const f of files) {
