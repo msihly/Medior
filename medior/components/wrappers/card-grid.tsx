@@ -6,6 +6,7 @@ export interface CardGridProps extends ViewProps {
   cards: ReactNode[];
   cardsProps?: ViewProps;
   children?: ReactNode;
+  flexFlow?: CSS["flexFlow"];
   maxCards?: number;
   noResultsText?: string;
   position?: CSS["position"];
@@ -18,6 +19,7 @@ export const CardGrid = Comp(
       cardsProps,
       children,
       className,
+      flexFlow = "row wrap",
       maxCards = 6,
       noResultsText = "No results found",
       padding = { all: "0.3rem 0.3rem 7rem" },
@@ -26,7 +28,7 @@ export const CardGrid = Comp(
     }: CardGridProps,
     ref,
   ) => {
-    const { css, cx } = useClasses({ hasCards: cards.length > 0, maxCards, position });
+    const { css, cx } = useClasses({ hasCards: cards.length > 0, flexFlow, maxCards, position });
 
     return (
       <View {...props} className={cx(css.root, className)}>
@@ -52,6 +54,7 @@ export const CardGrid = Comp(
 
 interface ClassesProps {
   hasCards: boolean;
+  flexFlow: CSS["flexFlow"];
   maxCards: number;
   position: CSS["position"];
 }
@@ -59,7 +62,7 @@ interface ClassesProps {
 const useClasses = makeClasses((props: ClassesProps, theme) => ({
   cards: {
     display: "flex",
-    flexFlow: "row wrap",
+    flexFlow: props.flexFlow,
     flex: "initial",
     overflowY: "auto",
     ...(!props.hasCards ? { height: "-webkit-fill-available" } : {}),

@@ -1,4 +1,4 @@
-import { Comp, Icon, Text, View } from "medior/components";
+import { Comp, Icon, LoadingOverlay, Text, View } from "medior/components";
 import { useFileDrag } from "medior/components/files/hooks";
 import { File, useStores } from "medior/store";
 import { colors, CSS, openCarouselWindow, toast } from "medior/utils/client";
@@ -18,6 +18,13 @@ export const FileCard = Comp(({ disabled, file, height, id, width }: FileCardPro
 
   if (!file) file = stores.file.getById(id);
   const fileDragProps = useFileDrag(file, stores.file.search.selectedIds);
+
+  if (!file)
+    return (
+      <FileBase.Container {...{ disabled, height, width }}>
+        <LoadingOverlay isLoading />
+      </FileBase.Container>
+    );
 
   const handleClick = async (event: React.MouseEvent) => {
     if (disabled) return;

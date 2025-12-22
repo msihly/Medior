@@ -42,7 +42,7 @@ export const TagCard = Comp(({ tag }: TagCardProps) => {
         onDoubleClick={handleEdit}
         selected={stores.tag.manager.search.getIsSelected(tag.id)}
       >
-        <FileBase.Image thumbs={[tag.thumb]} title={tag.label} fit="contain">
+        <FileBase.Image thumb={tag.thumb} title={tag.label} fit="contain">
           <FileBase.Chip
             position="top-left"
             label={Fmt.abbrevNum(tag.count)}

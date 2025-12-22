@@ -1218,7 +1218,6 @@ export class _FileCollection extends Model({
   rating: prop<number>(0),
   tagIds: prop<string[]>(() => []),
   tagIdsWithAncestors: prop<string[]>(() => []),
-  thumbs: prop<Array<{ frameHeight?: number; frameWidth?: number; path: string }>>(null),
   title: prop<string>(),
 }) {
   @modelAction

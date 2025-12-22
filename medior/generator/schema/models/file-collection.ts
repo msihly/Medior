@@ -40,12 +40,6 @@ model.addProp("tagIdsWithAncestors", "Tag.id[]", {
   required: true,
 });
 
-model.addProp("thumbs", "Array<{ frameHeight?: number; frameWidth?: number; path: string }>", {
-  defaultValue: "null",
-  required: true,
-  schemaType: "[{ frameHeight: Number, frameWidth: Number, path: String }]",
-});
-
 model.addIndex({ title: 1, _id: 1 });
 model.addProp("title", "string", {
   required: true,

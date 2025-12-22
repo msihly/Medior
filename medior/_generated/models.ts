@@ -37,7 +37,6 @@ export interface FileCollectionSchema {
   rating: number;
   tagIds: string[];
   tagIdsWithAncestors: string[];
-  thumbs: Array<{ frameHeight?: number; frameWidth?: number; path: string }>;
   title: string;
 }
 
@@ -50,7 +49,6 @@ const FileCollectionSchema = new Schema<FileCollectionSchema>({
   rating: Number,
   tagIds: [{ type: Schema.Types.ObjectId, ref: "Tag" }],
   tagIdsWithAncestors: [{ type: Schema.Types.ObjectId, ref: "Tag" }],
-  thumbs: [{ frameHeight: Number, frameWidth: Number, path: String }],
   title: String,
 });
 

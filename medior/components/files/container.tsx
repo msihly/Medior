@@ -7,34 +7,34 @@ import { FileCard } from ".";
 
 export const FileContainer = Comp(() => {
   const stores = useStores();
+  const store = stores.file.search;
 
   const filesRef = useRef<HTMLDivElement>(null);
 
   const { handleKeyPress } = useHotkeys({ view: "home" });
 
-  const scrollToTop = () => filesRef.current?.scrollTo({ top: 0, behavior: "instant" });
-
   useEffect(() => {
     scrollToTop();
-    if (stores.file.search.page > stores.file.search.pageCount)
-      handlePageChange(stores.file.search.pageCount);
-  }, [stores.file.search.page]);
+    if (store.page > store.pageCount) handlePageChange(store.pageCount);
+  }, [store.page, store.pageCount]);
 
-  const handlePageChange = (page: number) => stores.file.search.loadFiltered({ page });
+  const handlePageChange = (page: number) => store.loadFiltered({ page });
+
+  const scrollToTop = () => filesRef.current?.scrollTo({ top: 0, behavior: "instant" });
 
   return (
     <CardGrid
       ref={filesRef}
-      cards={stores.file.search.results.map((f, i) => (
+      cards={store.results.map((f, i) => (
         <FileCard key={i} file={f} />
       ))}
       cardsProps={{ onKeyDown: handleKeyPress, tabIndex: 1 }}
       bgColor={colors.custom.black}
     >
       <Pagination
-        count={stores.file.search.pageCount}
-        page={stores.file.search.page}
-        isLoading={stores.file.search.isPageCountLoading}
+        count={store.pageCount}
+        page={store.page}
+        isLoading={store.isPageCountLoading}
         onChange={handlePageChange}
       />
     </CardGrid>

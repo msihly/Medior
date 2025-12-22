@@ -1,19 +1,29 @@
-import { CollectionTooltip, Comp, ContextMenu, FileBase } from "medior/components";
+import { round } from "es-toolkit";
+import {
+  Card,
+  Chip,
+  Comp,
+  ContextMenu,
+  Divider,
+  FileBase,
+  FileCard,
+  TagRow,
+  Text,
+  View,
+} from "medior/components";
 import { FileCollection as FileCollType, useStores } from "medior/store";
-import { colors, CSS, toast } from "medior/utils/client";
-import { round } from "medior/utils/common";
+import { colors, toast } from "medior/utils/client";
 
 export interface FileCollectionProps {
   collection: FileCollType;
-  height?: CSS["height"];
-  width?: CSS["width"];
 }
 
-export const FileCollection = Comp(({ collection, height, width }: FileCollectionProps) => {
+export const FileCollection = Comp(({ collection }: FileCollectionProps) => {
   const stores = useStores();
+  const store = stores.collection.manager;
 
   const handleClick = async (event: React.MouseEvent) => {
-    const res = await stores.collection.manager.search.handleSelect({
+    const res = await store.search.handleSelect({
       hasCtrl: event.ctrlKey,
       hasShift: event.shiftKey,
       id: collection.id,
@@ -41,32 +51,60 @@ export const FileCollection = Comp(({ collection, height, width }: FileCollectio
         { label: "Delete", icon: "Delete", color: colors.custom.red, onClick: handleDelete },
       ]}
     >
-      <CollectionTooltip {...{ collection }}>
-        <FileBase.Container
-          {...{ height, width }}
-          onClick={handleClick}
-          onDoubleClick={openCollection}
-          selected={stores.collection.manager.search.getIsSelected(collection.id)}
+      <FileBase.Container
+        height="100%"
+        width="100%"
+        onClick={handleClick}
+        onDoubleClick={openCollection}
+        selected={store.search.getIsSelected(collection.id)}
+      >
+        <Card
+          row
+          height="100%"
+          bgColor={colors.foregroundCard}
+          padding={{ all: 0 }}
+          overflow="hidden"
+          header={
+            <View column width="100%">
+              <View
+                row
+                align="center"
+                justify="space-between"
+                width="100%"
+                padding={{ all: "0.2rem 0.3rem 0 0.4rem" }}
+              >
+                <Text>{collection.title}</Text>
+
+                <View row spacing="0.5rem">
+                  <Chip label={`${collection.fileCount} files`} height="1.5em" />
+
+                  <FileBase.RatingChip position="top-left" rating={round(collection.rating, 1)} />
+                </View>
+              </View>
+
+              {!collection.tags ? null : (
+                <>
+                  <Divider sx={{ height: "2px", margin: "0 0 0.3rem 0" }} />
+                  <TagRow
+                    tags={collection.tags.slice(0, 15)}
+                    padding={{ all: "0 0.3rem 0.3rem 0.2rem" }}
+                  />
+                </>
+              )}
+            </View>
+          }
         >
-          <FileBase.Image
-            thumbs={collection.thumbs}
-            title={collection.title}
-            fit={stores.collection.collectionFitMode}
-          >
-            <FileBase.RatingChip position="top-left" rating={round(collection.rating, 1)} />
-
-            <FileBase.Chip
-              position="top-right"
-              icon="Collections"
-              label={collection.fileIdIndexes.length}
+          {collection.previewIds.map((id, idx) => (
+            <FileCard
+              key={idx}
+              file={store.search.files.get(id)}
+              height={250}
+              width={230}
+              disabled
             />
-          </FileBase.Image>
-
-          <FileBase.Footer>
-            <FileBase.FooterText text={collection.title} noTooltip />
-          </FileBase.Footer>
-        </FileBase.Container>
-      </CollectionTooltip>
+          ))}
+        </Card>
+      </FileBase.Container>
     </ContextMenu>
   );
 });

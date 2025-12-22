@@ -21,7 +21,6 @@ const makeCollAttrs = async (
     rating: number;
     tagIds: string[];
     tagIdsWithAncestors: string[];
-    thumbs: models.FileCollectionSchema["thumbs"];
   } = {
     fileCount: sortedFiles.length,
     rating:
@@ -30,7 +29,6 @@ const makeCollAttrs = async (
         : 0,
     tagIds,
     tagIdsWithAncestors: await actions.deriveAncestorTagIds(tagIds),
-    thumbs: sortedFiles.slice(0, 10).map((f) => f.thumb),
   };
 
   return collAttrs;

@@ -83,6 +83,7 @@ const useClasses = makeClasses((props: ClassesProps, theme) => ({
     display: "flex",
     flexDirection: "column",
     flex: 1,
+    borderRadius: 10,
     height: "100%",
     backgroundColor: colors.background,
     userSelect: "none",

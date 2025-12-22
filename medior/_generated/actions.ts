@@ -739,7 +739,6 @@ export const createFileCollection = makeAction(
       rating: 0,
       tagIds: [],
       tagIdsWithAncestors: [],
-      thumbs: null,
     };
 
     const res = await models.FileCollectionModel.create(model);

@@ -4,6 +4,7 @@ import {
   Card,
   CardGrid,
   CenteredText,
+  Chip,
   Comp,
   ConfirmModal,
   FileCard,
@@ -18,7 +19,7 @@ import {
   View,
 } from "medior/components";
 import { useStores } from "medior/store";
-import { colors, toast, useDeepEffect } from "medior/utils/client";
+import { colors, toast } from "medior/utils/client";
 import { CollectionFilterMenu, FileCollection } from ".";
 
 const FILE_CARD_HEIGHT = 250;
@@ -29,12 +30,15 @@ export const FileCollectionManager = Comp(() => {
 
   const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
 
-  const collectionsRef = useRef<HTMLDivElement>(null);
+  const collsRef = useRef<HTMLDivElement>(null);
 
   const hasSelectedCollectionIds = store.search.selectedIds.length > 0;
   const selectedFileIds = store.selectedFileIds;
   const hasAnyFilesSelected = selectedFileIds.length > 0;
   const hasOneFileSelected = selectedFileIds.length === 1;
+  const page = store.search.page;
+  const pageCount = store.search.pageCount;
+
   useEffect(() => {
     if (hasOneFileSelected) store.loadCurrentCollections();
     else store.setCurrentCollections([]);
@@ -42,15 +46,10 @@ export const FileCollectionManager = Comp(() => {
     store.search.loadFiltered({ page: 1 });
   }, [hasOneFileSelected, selectedFileIds]);
 
-  const page = store.search.page;
-  const pageCount = store.search.pageCount;
   useEffect(() => {
+    scrollToTop();
     if (page > pageCount) handlePageChange(pageCount);
   }, [page, pageCount]);
-
-  useDeepEffect(() => {
-    collectionsRef.current?.scrollTo({ top: 0, behavior: "smooth" });
-  }, [page, store.search.results]);
 
   const handleAddToCollection = async () => {
     const collId = store.search.selectedIds[0];
@@ -118,9 +117,11 @@ export const FileCollectionManager = Comp(() => {
 
   const handlePageChange = (page: number) => store.search.loadFiltered({ page });
 
+  const scrollToTop = () => collsRef.current?.scrollTo({ top: 0, behavior: "instant" });
+
   return (
     <Modal.Container isLoading={store.isLoading} onClose={handleClose} height="100%" width="100%">
-      <Modal.Content dividers={false} spacing="0.5rem" overflow="hidden" padding={{ top: "1rem" }}>
+      <Modal.Content dividers={false} spacing="0.5rem" overflow="hidden" padding={{ all: 0 }}>
         {!hasAnyFilesSelected ? null : (
           <View row spacing="0.5rem">
             <Card
@@ -129,6 +130,7 @@ export const FileCollectionManager = Comp(() => {
                   {`Selected File${hasOneFileSelected ? "" : "s"}`}
                 </Text>
               }
+              headerProps={{ bgColor: colors.foreground }}
               width={hasOneFileSelected ? FILE_CARD_HEIGHT : "100%"}
               padding={{ all: 4 }}
               overflow="hidden"
@@ -175,10 +177,15 @@ export const FileCollectionManager = Comp(() => {
           flex={1}
           overflow="auto"
           padding={{ all: 0 }}
+          bgColor={colors.background}
           header={
             <UniformList row flex={1} justify="space-between" padding={{ all: "0.3rem" }}>
-              <View row>
+              <View row align="center" spacing="0.5rem">
                 <CollectionFilterMenu store={store.search} />
+
+                {store.search.selectedIds.length > 0 && (
+                  <Chip label={`${store.search.selectedIds.length} Selected`} />
+                )}
               </View>
 
               <View row justify="center" align="center">
@@ -219,22 +226,27 @@ export const FileCollectionManager = Comp(() => {
             </UniformList>
           }
         >
-          <LoadingOverlay isLoading={store.search.isLoading} />
-
-          <CardGrid
-            ref={collectionsRef}
-            flex={1}
-            cards={store.search.results.map((c) => (
-              <FileCollection key={c.id} collection={c} height={FILE_CARD_HEIGHT} />
-            ))}
+          <View
+            ref={collsRef}
+            position="relative"
+            column
+            spacing="0.5rem"
+            overflow="auto"
+            padding={{ bottom: "5rem" }}
           >
-            <Pagination
-              count={pageCount}
-              page={page}
-              onChange={handlePageChange}
-              isLoading={store.search.isPageCountLoading}
-            />
-          </CardGrid>
+            <LoadingOverlay isLoading={store.search.isLoading} />
+
+            {store.search.results.map((c) => (
+              <FileCollection key={c.id} collection={c} />
+            ))}
+          </View>
+
+          <Pagination
+            count={pageCount}
+            page={page}
+            onChange={handlePageChange}
+            isLoading={store.search.isPageCountLoading}
+          />
         </Card>
       </Modal.Content>
 
