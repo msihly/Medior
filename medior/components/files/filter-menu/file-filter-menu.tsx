@@ -41,12 +41,12 @@ export const FileFilterMenu = Comp(({ color = colors.foreground, store }: FileFi
   };
 
   const setMaxSize = (val: number) => {
-    store.setMaxSize(val * 1000);
+    store.setMaxSize(Number.isInteger(val) ? val * 1000 : null);
     _setMaxSize(val);
   };
 
   const setMinSize = (val: number) => {
-    store.setMinSize(val * 1000);
+    store.setMinSize(Number.isInteger(val) ? val * 1000 : null);
     _setMinSize(val);
   };
 

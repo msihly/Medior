@@ -6,6 +6,8 @@ model.addProp("aliases", "string[]", { defaultValue: "[]", required: true });
 
 model.addProp("ancestorIds", "Tag.id[]", { defaultValue: "[]", required: true });
 
+model.addProp("categoryId", "TagCategory.id");
+
 model.addProp("childIds", "Tag.id[]", { defaultValue: "[]", required: true });
 
 model.addProp("count", "number", { required: true, sort: { icon: "Numbers", label: "Count" } });

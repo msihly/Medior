@@ -9,6 +9,7 @@ import { trpc } from "medior/utils/server";
 @model("medior/TagEditorStore")
 export class TagEditorStore extends Model({
   aliases: prop<string[]>(() => []).withSetter(),
+  categoryId: prop<string | null>(null).withSetter(),
   childTags: prop<Tag[]>(() => []).withSetter(),
   isDuplicate: prop<boolean>(false).withSetter(),
   isLoading: prop<boolean>(false).withSetter(),
@@ -38,6 +39,7 @@ export class TagEditorStore extends Model({
   @modelAction
   reset() {
     this.aliases = [];
+    this.categoryId = null;
     this.childTags = [];
     this.isLoading = false;
     this.label = "";
@@ -61,6 +63,7 @@ export class TagEditorStore extends Model({
     this.setParentTags(res.data.parentTags.map((t) => new Tag(t)));
 
     this.setAliases(tag.aliases);
+    this.setCategoryId(tag.categoryId || null);
     this.setLabel(tag.label);
     this.setRegExTestString("");
     this.setRegExValue(tag.regEx);

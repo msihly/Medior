@@ -6,6 +6,7 @@ import {
   Checkbox,
   Comp,
   ConfirmModal,
+  Dropdown,
   IconButton,
   IdButton,
   Modal,
@@ -35,6 +36,7 @@ export const TagEditor = Comp(({ isSubEditor = false }: TagEditorProps) => {
   const clearInputs = () => {
     store.setLabel("");
     store.setAliases([]);
+    store.setCategoryId(null);
     if (!hasKeepParentTags) store.setParentTags([]);
     if (!hasKeepChildTags) store.setChildTags([]);
     labelRef.current?.focus();
@@ -89,14 +91,23 @@ export const TagEditor = Comp(({ isSubEditor = false }: TagEditorProps) => {
 
     const aliases = store.aliases;
     const label = store.label;
+    const categoryId = store.categoryId;
     const childIds = store.childTags.map((t) => t.id);
     const parentIds = store.parentTags.map((t) => t.id);
     const regEx = store.regExValue;
 
     store.setIsLoading(true);
     const res = await (!store.tag
-      ? stores.tag.createTag({ aliases, childIds, label, parentIds, regEx })
-      : stores.tag.editTag({ aliases, childIds, id: store.tag.id, label, parentIds, regEx }));
+      ? stores.tag.createTag({ aliases, categoryId, childIds, label, parentIds, regEx })
+      : stores.tag.editTag({
+          aliases,
+          categoryId,
+          childIds,
+          id: store.tag.id,
+          label,
+          parentIds,
+          regEx,
+        }));
     store.setIsLoading(false);
 
     if (res.success) hasContinue ? clearInputs() : handleClose();
@@ -147,13 +158,20 @@ export const TagEditor = Comp(({ isSubEditor = false }: TagEditorProps) => {
       </Modal.Header>
 
       <Modal.Content spacing="0.5rem">
-        <Card height="100%" padding={{ top: "1rem" }}>
+        <Card row spacing="1rem" height="100%" padding={{ top: "1rem" }}>
           <TagInputs.Label
             ref={labelRef}
             value={store.label}
             setValue={store.setLabel}
             isDuplicate={store.isDuplicate}
             width="100%"
+          />
+
+          <Dropdown
+            header="Category"
+            options={stores.tag.categoryOptions}
+            value={store.categoryId}
+            setValue={store.setCategoryId}
           />
         </Card>
 

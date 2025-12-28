@@ -3,6 +3,7 @@ import { MODEL_FILE } from "./file";
 import { MODEL_FILE_COLLECTION } from "./file-collection";
 import { MODEL_FILE_IMPORT_BATCH } from "./file-import-batch";
 import { MODEL_TAG } from "./tag";
+import { MODEL_TAG_CATEGORY } from "./tag-category";
 
 export const MODEL_DEFS = [
   MODEL_DELETED_FILE,
@@ -10,4 +11,5 @@ export const MODEL_DEFS = [
   MODEL_FILE_IMPORT_BATCH,
   MODEL_FILE,
   MODEL_TAG,
+  MODEL_TAG_CATEGORY,
 ];

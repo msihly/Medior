@@ -14,7 +14,7 @@ export const Dropdown = ({ options, value, ...props }: DropdownProps) => {
   return (
     <Input {...props} value={value} select>
       {options.map((o, i) => (
-        <MenuItem key={i} value={o.value ?? o.label}>
+        <MenuItem key={i} value={o.value}>
           <Text>{o.label}</Text>
         </MenuItem>
       ))}

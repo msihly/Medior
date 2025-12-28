@@ -46,6 +46,12 @@ export interface SocketEmitEvents {
     args: { id: string; updates: Partial<models.TagSchema> },
     options?: SocketEventOptions,
   ) => void;
+  onTagCategoryCreated: (args: models.TagCategorySchema, options?: SocketEventOptions) => void;
+  onTagCategoryDeleted: (args: { ids: string[] }, options?: SocketEventOptions) => void;
+  onTagCategoryUpdated: (
+    args: { id: string; updates: Partial<models.TagCategorySchema> },
+    options?: SocketEventOptions,
+  ) => void;
   onFileCollectionsDeleted: (args: { ids: string[] }, options?: SocketEventOptions) => void;
   onFilesArchived: (args: { fileIds: string[] }, options?: SocketEventOptions) => void;
   onFilesDeleted: (
@@ -111,6 +117,9 @@ export const socketEvents: SocketEmitEvent[] = [
   "onTagCreated",
   "onTagDeleted",
   "onTagUpdated",
+  "onTagCategoryCreated",
+  "onTagCategoryDeleted",
+  "onTagCategoryUpdated",
   "onFileCollectionsDeleted",
   "onFilesArchived",
   "onFilesDeleted",

@@ -118,7 +118,7 @@ const FileImportBatchSchema = new Schema<FileImportBatchSchema>({
       diffusionParams: String,
       errorMsg: String,
       extension: String,
-      fileId: { type: Schema.Types.ObjectId, ref: "File" },
+      fileId: Schema.Types.ObjectId,
       hash: String,
       name: String,
       path: String,
@@ -212,8 +212,8 @@ const FileSchema = new Schema<FileSchema>({
     {
       box: { height: Number, width: Number, x: Number, y: Number },
       descriptors: [Object],
-      fileId: { type: Schema.Types.ObjectId, ref: "File" },
-      tagId: { type: Schema.Types.ObjectId, ref: "Tag" },
+      fileId: Schema.Types.ObjectId,
+      tagId: Schema.Types.ObjectId,
     },
   ],
   frameRate: Number,
@@ -269,6 +269,7 @@ export interface TagSchema {
   dateCreated: string;
   aliases: string[];
   ancestorIds: string[];
+  categoryId?: string;
   childIds: string[];
   count: number;
   dateModified: string;
@@ -285,6 +286,7 @@ const TagSchema = new Schema<TagSchema>({
   dateCreated: String,
   aliases: [String],
   ancestorIds: [{ type: Schema.Types.ObjectId, ref: "Tag" }],
+  categoryId: Schema.Types.ObjectId,
   childIds: [{ type: Schema.Types.ObjectId, ref: "Tag" }],
   count: Number,
   dateModified: String,
@@ -300,3 +302,30 @@ TagSchema.index({ dateCreated: 1, _id: 1 }, { unique: true });
 TagSchema.index({ label: 1 }, { unique: true });
 
 export const TagModel = model<TagSchema>("Tag", TagSchema);
+
+/* --------------------------------------------------------------------------- */
+/*                               TagCategory
+/* --------------------------------------------------------------------------- */
+
+export interface TagCategorySchema {
+  id: string;
+  dateCreated: string;
+  color?: string;
+  icon?: string;
+  label: string;
+  sortRank?: number;
+}
+
+const TagCategorySchema = new Schema<TagCategorySchema>({
+  id: String,
+  dateCreated: String,
+  color: String,
+  icon: String,
+  label: String,
+  sortRank: Number,
+});
+
+TagCategorySchema.index({ dateCreated: 1, _id: 1 }, { unique: true });
+TagCategorySchema.index({ label: 1 }, { unique: true });
+
+export const TagCategoryModel = model<TagCategorySchema>("TagCategory", TagCategorySchema);

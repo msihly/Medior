@@ -1,9 +1,8 @@
 import Color from "color";
 import { TagSchema } from "medior/_generated";
-import { Chip, ChipProps, Comp, Text, View } from "medior/components";
+import { Chip, ChipProps, Comp, Icon, IconName, Text, View } from "medior/components";
 import { useStores } from "medior/store";
 import { colors, makeClasses } from "medior/utils/client";
-import { Fmt } from "medior/utils/common";
 
 const HEIGHT_MEDIUM = 32;
 const HEIGHT_SMALL = 26;
@@ -18,8 +17,9 @@ export interface TagChipProps extends Omit<ChipProps, "color" | "label" | "onCha
 export const TagChip = Comp(
   ({
     className,
-    color = colors.custom.blue,
+    color,
     hasEditor = false,
+    icon,
     onClick,
     size = "small",
     tag,
@@ -27,9 +27,13 @@ export const TagChip = Comp(
   }: TagChipProps) => {
     if (!tag) return null;
 
-    const { css, cx } = useClasses({ color, size });
-
     const stores = useStores();
+    const category = stores.tag.getCategory(tag.categoryId);
+
+    color = color || category?.color || colors.custom.grey;
+    icon = icon || (category?.icon as IconName);
+
+    const { css, cx } = useClasses({ color, size });
 
     const handleClick = () => {
       onClick?.(tag.id);
@@ -47,9 +51,7 @@ export const TagChip = Comp(
         className={cx(css.chip, className)}
         label={
           <View row align="center">
-            <View className={css.count}>
-              {tag.count !== undefined ? Fmt.abbrevNum(tag.count) : "-"}
-            </View>
+            {!icon ? null : <Icon name={icon} />}
 
             <Text tooltip={tag.label} tooltipProps={{ flexShrink: 1 }} className={css.label}>
               {tag.label}
@@ -68,27 +70,18 @@ interface ClassesProps {
 
 const useClasses = makeClasses((props: ClassesProps) => ({
   chip: {
-    borderRadius: "0.6rem",
+    border: `2px solid ${props.color}`,
+    borderRadius: 12,
     padding: "0.3em 0",
     height: props.size === "medium" ? HEIGHT_MEDIUM : HEIGHT_SMALL,
+    background: Color(props.color).lighten(0.2).fade(0.5).toString(),
     "& .MuiChip-label": {
       padding: "0",
       width: "100%",
     },
   },
-  count: {
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
-    borderRadius: "0.6rem 0 0 0.6rem",
-    width: props.size === "medium" ? HEIGHT_MEDIUM : HEIGHT_SMALL,
-    height: props.size === "medium" ? HEIGHT_MEDIUM : HEIGHT_SMALL,
-    paddingLeft: "0.1em",
-    fontSize: "0.7em",
-    background: `linear-gradient(to bottom right, ${props.color}, ${Color(props.color).darken(0.3).string()})`,
-  },
   label: {
-    padding: "0 0.4rem 0 0.3rem",
+    padding: "0 0.4rem",
     lineHeight: 1,
     overflow: "hidden",
     textOverflow: "ellipsis",

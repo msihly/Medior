@@ -19,7 +19,7 @@ export class ModelDb {
 
     this.addProp("id", "string", { required: true });
 
-    if (!options.noCommon) {
+    if (!options?.noCommon) {
       this.addIndex({ dateCreated: 1, _id: 1 });
       this.addProp("dateCreated", "string", {
         defaultValue: "dayjs().toISOString()",
@@ -72,7 +72,9 @@ export class ModelDb {
     if (type.includes("number")) schemaType = "Number";
     if (type.includes("string")) schemaType = "String";
     if (type.includes(".id"))
-      schemaType = `{ type: Schema.Types.ObjectId, ref: "${type.split(".")[0]}" }`;
+      schemaType = type.includes("[]")
+        ? `{ type: Schema.Types.ObjectId, ref: "${type.split(".")[0]}" }`
+        : "Schema.Types.ObjectId";
     if (type.startsWith("Array<") || type.endsWith("[]")) schemaType = `[${schemaType}]`;
     return schemaType;
   };

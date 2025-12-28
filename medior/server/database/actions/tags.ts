@@ -389,6 +389,7 @@ export const regenTagThumbPaths = makeAction(async ({ tagId }: { tagId: string }
 export const createTag = makeAction(
   async ({
     aliases = [],
+    categoryId,
     childIds = [],
     label,
     parentIds = [],
@@ -397,6 +398,7 @@ export const createTag = makeAction(
     withSub = true,
   }: {
     aliases?: string[];
+    categoryId?: string;
     childIds?: string[];
     label: string;
     parentIds?: string[];
@@ -408,6 +410,7 @@ export const createTag = makeAction(
     const tag: Omit<models.TagSchema, "id"> = {
       aliases,
       ancestorIds: [],
+      categoryId,
       childIds,
       count: 0,
       dateCreated: dateModified,
@@ -467,13 +470,11 @@ export const deleteTag = makeAction(async ({ id }: { id: string }) => {
 
 export const editTag = makeAction(
   async ({
-    aliases,
     childIds,
     id,
-    label,
     parentIds,
-    regEx,
     withSub = true,
+    ...updates
   }: Partial<Types.CreateTagInput> & { id: string }) => {
     const dateModified = dayjs().toISOString();
 
@@ -513,10 +514,8 @@ export const editTag = makeAction(
         updateOne: {
           filter: { _id: objectId(id) },
           update: {
-            aliases,
+            ...updates,
             dateModified,
-            label,
-            regEx,
             ...(childIds !== undefined ? { childIds: objectIds(childIds) } : {}),
             ...(parentIds !== undefined ? { parentIds: objectIds(parentIds) } : {}),
           },

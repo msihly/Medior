@@ -44,7 +44,7 @@ export const TagList = Comp(
         rerender();
       };
 
-      const rerender = () => ref.current?.forceUpdate();
+      const rerender = () => ref?.current?.forceUpdate();
 
       socket.on("onTagDeleted", onTagDeleted);
       socket.on("onTagMerged", onTagMerged);

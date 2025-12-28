@@ -1419,6 +1419,7 @@ export class _Tag extends Model({
   dateCreated: prop<string>(() => dayjs().toISOString()),
   aliases: prop<string[]>(() => []),
   ancestorIds: prop<string[]>(() => []),
+  categoryId: prop<string>(null),
   childIds: prop<string[]>(() => []),
   count: prop<number>(),
   dateModified: prop<string>(),
@@ -1460,6 +1461,55 @@ export class _TagStore extends Model({ isLoading: prop<boolean>(false).withSette
   updateTag = asyncAction(async (args: Types.UpdateTagInput) => {
     this.setIsLoading(true);
     const res = await trpc.updateTag.mutate({ args });
+    this.setIsLoading(false);
+    if (res.error) throw new Error(res.error);
+    return res.data;
+  });
+}
+/* --------------------------------------------------------------------------- */
+/*                               TagCategory
+/* --------------------------------------------------------------------------- */
+
+@model("medior/_TagCategory")
+export class _TagCategory extends Model({
+  id: prop<string>(),
+  dateCreated: prop<string>(() => dayjs().toISOString()),
+  color: prop<string>(null),
+  icon: prop<string>(null),
+  label: prop<string>(),
+  sortRank: prop<number>(null),
+}) {
+  @modelAction
+  update(updates: Partial<ModelCreationData<this>>) {
+    applySnapshot(this, { ...getSnapshot(this), ...updates });
+  }
+}
+
+@model("medior/_TagCategoryStore")
+export class _TagCategoryStore extends Model({ isLoading: prop<boolean>(false).withSetter() }) {
+  /* ------------------------------ ASYNC ACTIONS ----------------------------- */
+  @modelFlow
+  createTagCategory = asyncAction(async (args: Types.CreateTagCategoryInput) => {
+    this.setIsLoading(true);
+    const res = await trpc.createTagCategory.mutate({ args });
+    this.setIsLoading(false);
+    if (res.error) throw new Error(res.error);
+    return res.data;
+  });
+
+  @modelFlow
+  deleteTagCategory = asyncAction(async (args: Types.DeleteTagCategoryInput) => {
+    this.setIsLoading(true);
+    const res = await trpc.deleteTagCategory.mutate({ args });
+    this.setIsLoading(false);
+    if (res.error) throw new Error(res.error);
+    return res.data;
+  });
+
+  @modelFlow
+  updateTagCategory = asyncAction(async (args: Types.UpdateTagCategoryInput) => {
+    this.setIsLoading(true);
+    const res = await trpc.updateTagCategory.mutate({ args });
     this.setIsLoading(false);
     if (res.error) throw new Error(res.error);
     return res.data;

@@ -1,7 +1,15 @@
 import autoBind from "auto-bind";
-import { Model, model, ModelCreationData, modelFlow, prop } from "mobx-keystone";
+import { computed } from "mobx";
+import {
+  Model,
+  model,
+  ModelCreationData,
+  modelFlow,
+  objectToMapTransform,
+  prop,
+} from "mobx-keystone";
 import * as db from "medior/server/database";
-import { TagToUpsert } from "medior/components";
+import { DropdownOption, TagToUpsert } from "medior/components";
 import { asyncAction } from "medior/store";
 import { toast } from "medior/utils/client";
 import { Fmt, PromiseChain } from "medior/utils/common";
@@ -10,6 +18,9 @@ import { Tag, TagEditorStore, TagManagerStore, TagMergerStore, TagOption } from 
 
 @model("medior/TagStore")
 export class TagStore extends Model({
+  categories: prop<Record<string, db.TagCategorySchema>>(() => ({}))
+    .withTransform(objectToMapTransform<db.TagCategorySchema>())
+    .withSetter(),
   editor: prop<TagEditorStore>(() => new TagEditorStore({})),
   manager: prop<TagManagerStore>(() => new TagManagerStore({})),
   merger: prop<TagMergerStore>(() => new TagMergerStore({})),
@@ -23,22 +34,20 @@ export class TagStore extends Model({
   @modelFlow
   createTag = asyncAction(
     async ({
-      aliases = [],
-      childIds = [],
+      aliases,
       label,
-      parentIds = [],
       regEx,
       withRegen = false,
       withRegEx = false,
       withSub = true,
+      ...tag
     }: db.CreateTagInput & { withRegEx?: boolean }) => {
       regEx = regEx || withRegEx ? this.tagsToRegEx([{ aliases, label }]) : null;
 
       const res = await trpc.createTag.mutate({
+        ...tag,
         aliases,
-        childIds,
         label,
-        parentIds,
         regEx,
         withRegen,
         withSub,
@@ -54,21 +63,11 @@ export class TagStore extends Model({
   });
 
   @modelFlow
-  editTag = asyncAction(
-    async ({ aliases, childIds, id, label, parentIds, regEx, withSub = true }: db.EditTagInput) => {
-      const editRes = await trpc.editTag.mutate({
-        aliases,
-        childIds,
-        id,
-        label,
-        parentIds,
-        regEx,
-        withSub,
-      });
-      if (!editRes.success) throw new Error(editRes.error);
-      toast.success(`Tag edited`);
-    },
-  );
+  editTag = asyncAction(async ({ withSub = true, ...tag }: db.EditTagInput) => {
+    const editRes = await trpc.editTag.mutate({ ...tag, withSub });
+    if (!editRes.success) throw new Error(editRes.error);
+    toast.success(`Tag edited`);
+  });
 
   @modelFlow
   getByLabel = asyncAction(async (label: string) => {
@@ -103,6 +102,13 @@ export class TagStore extends Model({
     const res = await trpc.listTagAncestorLabels.mutate({ id });
     if (!res.success) throw new Error(res.error);
     return res.data;
+  });
+
+  @modelFlow
+  loadCategories = asyncAction(async () => {
+    const res = await trpc.listTagCategory.mutate({ args: { filter: {} } });
+    if (!res.success) throw new Error(res.error);
+    this.setCategories(new Map(res.data.items.map((c) => [c.id, c])));
   });
 
   @modelFlow
@@ -186,7 +192,20 @@ export class TagStore extends Model({
     return tagIds;
   });
 
+  /* --------------------------------- GETTERS -------------------------------- */
+  @computed
+  get categoryOptions(): DropdownOption[] {
+    return [
+      { label: "No category", value: null },
+      ...[...this.categories.entries()].map(([id, cat]) => ({ label: cat.label, value: id })),
+    ];
+  }
+
   /* ----------------------------- DYNAMIC GETTERS ---------------------------- */
+  getCategory(id: string) {
+    return this.categories.get(id);
+  }
+
   tagsToRegEx(tags: { aliases?: string[]; label: string }[]) {
     return `(${tags
       .flatMap((tag) => [tag.label, ...tag.aliases])

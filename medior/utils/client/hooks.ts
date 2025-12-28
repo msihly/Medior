@@ -91,7 +91,7 @@ export const useLazyLoad = (
   options?: {
     rootMargin?: string;
     threshold?: number | number[];
-  }
+  },
 ) => {
   const [isVisible, setIsVisible] = useState(false);
   const observerRef = useRef<IntersectionObserver | null>(null);
@@ -106,7 +106,7 @@ export const useLazyLoad = (
       {
         rootMargin: options?.rootMargin ?? "200px 0px",
         threshold: options?.threshold ?? 0,
-      }
+      },
     );
 
     observerRef.current.observe(containerRef.current);
