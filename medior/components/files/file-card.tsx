@@ -2,7 +2,7 @@ import { Comp, Icon, LoadingOverlay, Text, View } from "medior/components";
 import { useFileDrag } from "medior/components/files/hooks";
 import { File, useStores } from "medior/store";
 import { colors, CSS, openCarouselWindow, toast } from "medior/utils/client";
-import { Fmt } from "medior/utils/common";
+import { CONSTANTS, Fmt, VideoCodec } from "medior/utils/common";
 import { FileBase } from ".";
 
 interface FileCardProps {
@@ -83,7 +83,12 @@ export const FileCard = Comp(({ disabled, file, height, id, width }: FileCardPro
                     <Icon name="Notes" size="1em" color={colors.custom.blue} />
                   )}
 
-                  <Text>{file.ext}</Text>
+                  <View row align="center">
+                    <Text>{file.ext}</Text>
+                    {!CONSTANTS.VIDEO_CODECS.includes(file.videoCodec as VideoCodec) ? null : (
+                      <Text color={colors.custom.lightGrey}>{`/${file.videoCodec}`}</Text>
+                    )}
+                  </View>
                 </View>
               }
             />

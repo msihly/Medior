@@ -1,5 +1,6 @@
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { Tooltip as MuiTooltip, TooltipProps as MuiTooltipProps } from "@mui/material";
+import Color from "color";
 import { View, ViewProps } from "medior/components";
 import { colors, CSS, makeClasses } from "medior/utils/client";
 
@@ -12,6 +13,7 @@ export interface TooltipProps extends Omit<MuiTooltipProps, "children" | "color"
   fontSize?: CSS["fontSize"];
   maxWidth?: CSS["maxWidth"];
   minWidth?: CSS["minWidth"];
+  padding?: CSS["padding"];
   viewProps?: Partial<ViewProps>;
 }
 
@@ -25,6 +27,7 @@ export const Tooltip = ({
   fontSize = "0.95em",
   minWidth,
   maxWidth = "25rem",
+  padding = "0.4rem 0.8rem",
   placement = "bottom-start",
   title,
   viewProps = {},
@@ -38,6 +41,7 @@ export const Tooltip = ({
     fontSize,
     maxWidth,
     minWidth,
+    padding,
   });
 
   return (
@@ -53,15 +57,18 @@ export const Tooltip = ({
   );
 };
 
-interface ClassesProps {
-  bgColor: CSS["backgroundColor"];
-  borderColor: CSS["color"];
-  color: CSS["color"];
-  flexShrink: CSS["flexShrink"];
-  fontSize: CSS["fontSize"];
-  maxWidth: CSS["maxWidth"];
-  minWidth: CSS["minWidth"];
-}
+interface ClassesProps
+  extends Pick<
+    TooltipProps,
+    | "bgColor"
+    | "borderColor"
+    | "color"
+    | "flexShrink"
+    | "fontSize"
+    | "padding"
+    | "maxWidth"
+    | "minWidth"
+  > {}
 
 const useClasses = makeClasses((props: ClassesProps) => ({
   arrow: {
@@ -75,11 +82,11 @@ const useClasses = makeClasses((props: ClassesProps) => ({
     userSelect: "auto",
   },
   tooltip: {
-    border: `2px solid ${props.borderColor}`,
-    padding: "0.4rem 0.8rem",
+    border: `3px solid ${props.borderColor}`,
     maxWidth: props.maxWidth,
     minWidth: props.minWidth,
-    backgroundColor: props.bgColor,
+    padding: props.padding,
+    backgroundColor: Color(props.bgColor).fade(0.03).string(),
     color: props.color,
     fontSize: props.fontSize,
     whiteSpace: "pre-wrap",

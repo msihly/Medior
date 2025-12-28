@@ -7,7 +7,7 @@ export const SelectedFilesInfo = Comp(() => {
   const { loadFileInfo, renderFileInfo } = useFileInfo();
 
   return (
-    <Tooltip onOpen={loadFileInfo} minWidth="11rem" title={renderFileInfo()}>
+    <Tooltip onOpen={loadFileInfo} minWidth="11rem" title={renderFileInfo()} padding={0}>
       <Chip label={`${stores.file.search.selectedIds.length} Selected`} />
     </Tooltip>
   );

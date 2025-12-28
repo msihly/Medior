@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Comp, Icon, IconName, LoadingOverlay, Text, UniformList, View } from "medior/components";
+import { Comp, Icon, IconName, LoadingOverlay, Text, View } from "medior/components";
 import { useStores } from "medior/store";
 import { colors, getIsVideo, toast } from "medior/utils/client";
 import { Fmt } from "medior/utils/common";
@@ -60,41 +60,39 @@ export const useFileInfo = () => {
     <View position="relative" column>
       <LoadingOverlay isLoading={isLoading} />
 
-      <UniformList row spacing="1rem">
-        <View column>
-          {totalVideos > 0 ? (
-            <FileTypeRow
-              label="Videos"
-              icon="Videocam"
-              color={colors.custom.purple}
-              count={totalVideos}
-              size={totalVideosSize}
-            />
-          ) : null}
+      <View column padding={{ all: "0.4rem 0.8rem" }}>
+        {totalVideos > 0 ? (
+          <FileTypeRow
+            label="Videos"
+            icon="Videocam"
+            color={colors.custom.purple}
+            count={totalVideos}
+            size={totalVideosSize}
+          />
+        ) : null}
 
-          {totalImages > 0 ? (
-            <FileTypeRow
-              label="Images"
-              icon="Image"
-              color={colors.custom.blue}
-              count={totalImages}
-              size={totalImagesSize}
-            />
-          ) : null}
+        {totalImages > 0 ? (
+          <FileTypeRow
+            label="Images"
+            icon="Image"
+            color={colors.custom.blue}
+            count={totalImages}
+            size={totalImagesSize}
+          />
+        ) : null}
 
-          {totalFiles > 0 ? (
-            <FileTypeRow
-              label="Files"
-              icon="Folder"
-              color={colors.custom.red}
-              count={totalFiles}
-              size={totalFilesSize}
-            />
-          ) : (
-            <Text>{"No files selected"}</Text>
-          )}
-        </View>
-      </UniformList>
+        {totalFiles > 0 ? (
+          <FileTypeRow
+            label="Files"
+            icon="Folder"
+            color={colors.custom.red}
+            count={totalFiles}
+            size={totalFilesSize}
+          />
+        ) : (
+          <Text>{"No files selected"}</Text>
+        )}
+      </View>
     </View>
   );
 
