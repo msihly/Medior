@@ -5,7 +5,7 @@ import checkDiskSpace from "check-disk-space";
 import md5File from "md5-file";
 import * as models from "medior/_generated/models";
 import { AnyBulkWriteOperation } from "mongodb";
-import mongoose from "mongoose";
+import mongoose, { UpdateWithAggregationPipeline } from "mongoose";
 import * as actions from "medior/server/database/actions";
 import { SortValue } from "medior/store";
 import { checkFileExists, deleteFile, genFileInfo, sharp } from "medior/utils/client";
@@ -579,8 +579,6 @@ class ThumbRepairer {
   private hasMorePages = true;
   private thumbMap = new Map<string, models.FileSchema["thumb"]>();
 
-  private collectionCount = 0;
-  // private importCount = 0;
   private tagCount = 0;
   private totalCount = 0;
 
@@ -605,7 +603,7 @@ class ThumbRepairer {
     for (const file of filesWithoutThumb) {
       const expectedThumbPath = path.resolve(
         path.dirname(file.path),
-        `${path.basename(file.path, file.ext)}-thumb${file.ext}`,
+        `${path.basename(file.path, `.${file.ext}`)}-thumb.${file.ext}`,
       );
       const skipThumbs = await checkFileExists(expectedThumbPath);
 
@@ -752,67 +750,6 @@ class ThumbRepairer {
   private makeFileThumbPath = (file: models.FileSchema) =>
     path.resolve(path.dirname(file.path), `${path.basename(file.path, file.ext)}-thumb${file.ext}`);
 
-  private processCollections = async () => {
-    const filter = { thumbPaths: { $exists: true } };
-    const collectionIds = (
-      await models.FileCollectionModel.find(filter, null, { strict: false })
-        .select({ _id: 1 })
-        .allowDiskUse(true)
-        .lean()
-    ).map((c) => c._id.toString());
-
-    this.collectionCount = collectionIds.length;
-    this.perfLog(`Found ${this.collectionCount} collections with old thumbPaths.`);
-
-    if (this.collectionCount > 0) {
-      const regenRes = await actions.regenCollAttrs({ collFilter: filter });
-      if (!regenRes.success) throw new Error(`Failed to update collections: ${regenRes.error}`);
-      this.perfLog("Regenerated collection attributes.");
-
-      const unsetRes = await models.FileCollectionModel.updateMany(
-        filter,
-        { $unset: { thumbPaths: "" } },
-        { strict: false },
-      );
-      if (!unsetRes.matchedCount || unsetRes.modifiedCount !== unsetRes.matchedCount)
-        throw new Error(
-          `Failed to unset thumbPaths from collections: ${JSON.stringify(unsetRes, null, 2)}`,
-        );
-      this.perfLog("Unset thumbPaths from collections.");
-    }
-  };
-
-  /*
-  private processImports = async () => {
-    const importBatches = (
-      await models.FileImportBatchModel.find({ "imports.$.fileId": [...this.thumbMap.keys()] }).lean()
-    ).map((i) => leanModelToJson<models.FileImportBatchSchema>(i));
-    this.perfLog(`Found ${importBatches.length} import batches with affected files`);
-
-    if (importBatches.length > 0) {
-      const res = await models.FileImportBatchModel.bulkWrite(
-        importBatches.map((importBatch) => ({
-          updateOne: {
-            filter: { _id: objectId(importBatch.id) },
-            update: {
-              $unset: { thumbPaths: "" },
-              $set: {
-                imports: importBatch.imports.map((fileImport) => {
-                  if (!this.thumbPathsMap.has(fileImport.fileId)) return fileImport;
-                  return { ...fileImport, thumbPath: this.thumbPathsMap.get(fileImport.fileId) };
-                }),
-              },
-            },
-          },
-        }))
-      );
-      this.perfLog("Replaced 'thumbPaths' with 'thumb' on affected imports");
-      if (res.modifiedCount !== importBatches.length)
-        throw new Error(`Failed to bulk write imports: ${JSON.stringify(res)}`);
-    }
-  }
-  */
-
   private processTags = async () => {
     const filter = { thumbPaths: { $exists: true } };
     const tags = (
@@ -849,8 +786,34 @@ class ThumbRepairer {
     if (!res.success) throw new Error(`Failed to update file: ${res.error}`);
   };
 
+  private fixMalformedThumbPaths = async () => {
+    const pipeline: UpdateWithAggregationPipeline = [
+      {
+        $set: {
+          "thumb.path": {
+            $replaceOne: { input: "$thumb.path", find: "\\.jpg", replacement: ".jpg" },
+          },
+        },
+      },
+    ];
+
+    const fileRes = await models.FileModel.updateMany(
+      { "thumb.path": { $regex: "\\\\.jpg$" } },
+      pipeline,
+    );
+    this.perfLog(`Fixed ${fileRes.matchedCount} files with malformed thumb paths.`);
+
+    const tagRes = await models.TagModel.updateMany(
+      { "thumb.path": { $regex: "\\\\.jpg$" } },
+      pipeline,
+    );
+    this.perfLog(`Fixed ${tagRes.matchedCount} tags with malformed thumb paths.`);
+  };
+
   /* ----------------------------------------------------------------------- */
   public processAllFiles = async () => {
+    await this.fixMalformedThumbPaths();
+
     this.totalCount = await this.getTotalFilesWithThumbPaths();
     this.perfLog(`Found ${this.totalCount} files with old thumbPaths.`);
     while (this.hasMorePages) await this.iterateFiles();
@@ -859,22 +822,14 @@ class ThumbRepairer {
 
     if (!this.hasFilesWithOldThumbPaths && !this.hasFilesWithoutThumb) {
       this.perfLogTotal("No files to process found");
-      return {
-        collectionCount: this.collectionCount,
-        fileCount: this.thumbMap.size,
-        tagCount: this.tagCount,
-      };
+      return { fileCount: this.thumbMap.size, tagCount: this.tagCount };
     }
 
-    // await this.processImports()
-    await this.processCollections();
     await this.processTags();
 
     this.perfLogTotal("Repaired all thumbs");
     return {
-      collectionCount: this.collectionCount,
       fileCount: this.thumbMap.size,
-      // importCount: this.importCount,
       tagCount: this.tagCount,
     };
   };

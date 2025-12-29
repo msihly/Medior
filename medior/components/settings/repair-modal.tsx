@@ -45,7 +45,7 @@ export const RepairModal = Comp(() => {
         const res = await trpc.repairThumbs.mutate();
         if (!res.success) throw new Error(res.error);
         log(
-          `Repaired thumbnails for ${res.data.fileCount} files, ${res.data.collectionCount} collections, and ${res.data.tagCount} tags.`,
+          `Repaired thumbnails for ${res.data.fileCount} files and ${res.data.tagCount} tags.`,
           colors.custom.green,
         );
       }

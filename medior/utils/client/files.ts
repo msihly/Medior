@@ -55,7 +55,7 @@ export const genFileInfo = async (args: {
 
   const hasFrames = duration > 0;
   const dirPath = path.dirname(args.filePath);
-  let thumbPath = path.join(dirPath, `${args.hash}-thumb.jpg`);
+  let thumbPath = path.resolve(dirPath, `${args.hash}-thumb.jpg`);
 
   if (!args.skipThumbs) {
     if (hasFrames) {
