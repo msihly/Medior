@@ -31,6 +31,7 @@ type ImageProps = Omit<
   "alt" | "height" | "medior" | "title" | "width"
 > & {
   autoAnimate?: boolean;
+  blur?: number;
   children?: ReactNode | ReactNode[];
   draggable?: boolean;
   fit?: "contain" | "cover";
@@ -44,6 +45,7 @@ type ImageProps = Omit<
 
 export const Image = ({
   autoAnimate,
+  blur,
   children,
   className,
   draggable,
@@ -107,6 +109,7 @@ export const Image = ({
   };
 
   const { css, cx } = useClasses({
+    blur,
     fit,
     height: scaled?.height ?? height,
     isAnimated,
@@ -216,6 +219,7 @@ export const Image = ({
 };
 
 interface ClassesProps {
+  blur: number;
   fit: ImageProps["fit"];
   height: CSS["height"];
   isAnimated: boolean;
@@ -239,6 +243,7 @@ const useClasses = makeClasses((props: ClassesProps) => ({
     transition: `all 100ms ease, object-position ${props.fit === "cover" && !props.isAnimated ? 100 : 0}ms ease-in-out, transform 0ms ease`,
     userSelect: "none",
     overflow: "hidden",
+    ...(props.blur > 0 ? { filter: `blur(${props.blur}px)` } : {}),
   },
   imageContainer: {
     position: "relative",

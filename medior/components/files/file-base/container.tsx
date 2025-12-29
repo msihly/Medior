@@ -86,6 +86,7 @@ const useClasses = makeClasses((props: ClassesProps, theme) => ({
     borderRadius: 10,
     height: "100%",
     backgroundColor: colors.background,
+    overflow: "hidden",
     userSelect: "none",
   },
 }));

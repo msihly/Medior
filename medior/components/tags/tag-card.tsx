@@ -1,14 +1,22 @@
-import { Comp, ContextMenu, FileBase } from "medior/components";
-import { TagManagerTag, useStores } from "medior/store";
+import { useState } from "react";
+import Color from "color";
+import { TagSchema } from "medior/_generated";
+import { Comp, ContextMenu, FileBase, Icon, IconName, View } from "medior/components";
+import { useStores } from "medior/store";
 import { colors, openSearchWindow, toast } from "medior/utils/client";
 import { Fmt } from "medior/utils/common";
 
 export interface TagCardProps {
-  tag: TagManagerTag;
+  tag: TagSchema;
 }
 
 export const TagCard = Comp(({ tag }: TagCardProps) => {
   const stores = useStores();
+
+  const category = stores.tag.getCategory(tag.categoryId);
+  const color = category?.color || "black";
+
+  const [isHovering, setIsHovering] = useState(false);
 
   const handleClick = async (event: React.MouseEvent) => {
     const res = await stores.tag.manager.search.handleSelect({
@@ -23,6 +31,10 @@ export const TagCard = Comp(({ tag }: TagCardProps) => {
     stores.tag.editor.setIsOpen(true);
     stores.tag.editor.loadTag(tag.id);
   };
+
+  const handleMouseEnter = () => setIsHovering(true);
+
+  const handleMouseLeave = () => setIsHovering(false);
 
   const handleRefresh = () => stores.tag.refreshTag({ id: tag.id });
 
@@ -40,18 +52,37 @@ export const TagCard = Comp(({ tag }: TagCardProps) => {
       <FileBase.Container
         onClick={handleClick}
         onDoubleClick={handleEdit}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
         selected={stores.tag.manager.search.getIsSelected(tag.id)}
       >
-        <FileBase.Image thumb={tag.thumb} title={tag.label} fit="contain">
-          <FileBase.Chip
-            position="top-left"
-            label={Fmt.abbrevNum(tag.count)}
-            bgColor={colors.custom.blue}
-          />
-        </FileBase.Image>
+        <FileBase.Image
+          thumb={tag.thumb}
+          title={tag.label}
+          fit="contain"
+          blur={isHovering ? 1 : 5}
+        />
 
-        <FileBase.Footer>
-          <FileBase.FooterText text={tag.label} />
+        <FileBase.Footer
+          height="100%"
+          align="center"
+          background={`linear-gradient(to bottom, ${Color(color).fade(0.7).string()}, ${color})`}
+        >
+          <View column flex={1} align="center" justify="center">
+            {!category?.icon ? null : <Icon name={category.icon as IconName} size="2em" />}
+
+            <FileBase.FooterText
+              text={tag.label}
+              noTooltip
+              textProps={{ fontSize: "1.3em", whiteSpace: "balance" }}
+            />
+
+            <FileBase.FooterText
+              text={Fmt.commas(tag.count)}
+              noTooltip
+              textProps={{ color: colors.custom.lightGrey, fontSize: "0.8em" }}
+            />
+          </View>
         </FileBase.Footer>
       </FileBase.Container>
     </ContextMenu>

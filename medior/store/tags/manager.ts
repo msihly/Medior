@@ -1,23 +1,11 @@
 import autoBind from "auto-bind";
 import { Model, model, modelAction, modelFlow, prop } from "mobx-keystone";
-import { TagSchema } from "medior/server/database";
 import { asyncAction, TagSearch } from "medior/store";
 import { makeQueue } from "medior/utils/client";
 import { PromiseQueue } from "medior/utils/common";
 import { trpc } from "medior/utils/server";
 
 export type TagManagerMode = "create" | "edit" | "search";
-
-export type TagManagerTag = {
-  aliases?: string[];
-  count: number;
-  dateCreated: string;
-  dateModified: string;
-  id: string;
-  label: string;
-  thumb: TagSchema["thumb"];
-};
-
 @model("medior/TagManagerStore")
 export class TagManagerStore extends Model({
   isLoading: prop<boolean>(false).withSetter(),

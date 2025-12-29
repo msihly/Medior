@@ -1,18 +1,28 @@
 import { ReactNode } from "react";
 import { View } from "medior/components";
-import { makeClasses } from "medior/utils/client";
+import { CSS, makeClasses } from "medior/utils/client";
 
 interface FooterProps {
+  align?: CSS["alignItems"];
+  background?: CSS["background"];
   children?: ReactNode | ReactNode[];
+  height?: CSS["height"];
 }
 
-export const Footer = ({ children }: FooterProps) => {
-  const { css } = useClasses(null);
+export const Footer = ({
+  align = "flex-end",
+  background = "linear-gradient(to bottom, transparent, black)",
+  children,
+  height = "3rem",
+}: FooterProps) => {
+  const { css } = useClasses({ align, background, height });
 
   return <View className={css.footer}>{children}</View>;
 };
 
-const useClasses = makeClasses({
+interface ClassesProps extends Required<Pick<FooterProps, "align" | "background" | "height">> {}
+
+const useClasses = makeClasses((props: ClassesProps) => ({
   footer: {
     position: "absolute",
     bottom: 0,
@@ -21,11 +31,11 @@ const useClasses = makeClasses({
     display: "flex",
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "flex-end",
+    alignItems: props.align,
     borderBottomLeftRadius: "inherit",
     borderBottomRightRadius: "inherit",
     padding: 0,
-    height: "3rem",
-    background: "linear-gradient(to bottom, transparent, black)",
+    height: props.height,
+    background: props.background,
   },
-});
+}));
