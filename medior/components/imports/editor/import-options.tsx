@@ -144,6 +144,15 @@ export const ImportOptions = Comp(({ scan, store }: ImportOptionsProps) => {
 
       <Checkbox
         {...checkboxProps}
+        label="Sidecar"
+        checked={options.withSidecar}
+        setChecked={options.setWithSidecar}
+      />
+
+      <Divider />
+
+      <Checkbox
+        {...checkboxProps}
         label="Diffusion Params"
         checked={options.withDiffusionParams}
         setChecked={options.setWithDiffusionParams}

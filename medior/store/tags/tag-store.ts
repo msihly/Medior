@@ -197,7 +197,17 @@ export class TagStore extends Model({
   get categoryOptions(): DropdownOption[] {
     return [
       { label: "No category", value: null },
-      ...[...this.categories.entries()].map(([id, cat]) => ({ label: cat.label, value: id })),
+      ...[...this.categories.entries()]
+        .sort(([, a], [, b]) => {
+          if (b.sortRank && a.sortRank) return b.sortRank - a.sortRank;
+          if (b.sortRank && !a.sortRank) return 1;
+          if (!b.sortRank && a.sortRank) return -1;
+          if (b.color && a.color) return a.color.localeCompare(b.color);
+          if (b.color && !a.color) return 1;
+          if (!b.color && a.color) return -1;
+          return a.label.localeCompare(b.label);
+        })
+        .map(([id, cat]) => ({ label: cat.label, value: id })),
     ];
   }
 

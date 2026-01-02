@@ -2,7 +2,6 @@ import autoBind from "auto-bind";
 import { ExtendedModel, model, modelAction, prop } from "mobx-keystone";
 import { _FileImport } from "medior/store/_generated";
 import { TagToUpsert } from "medior/components";
-import { isDeepEqual } from "medior/utils/common";
 
 @model("medior/FileImport")
 export class FileImport extends ExtendedModel(_FileImport, {
@@ -13,13 +12,23 @@ export class FileImport extends ExtendedModel(_FileImport, {
   }
 
   @modelAction
-  setDiffusionParams(diffusionParams: string) {
-    if (diffusionParams !== this.diffusionParams) this.diffusionParams = diffusionParams;
+  addTagIds(tagIds: string[]) {
+    for (const tagId of tagIds) {
+      const existing = this.tagIds.find((id) => id === tagId);
+      if (!existing) this.tagIds.push(tagId);
+    }
   }
 
   @modelAction
-  setTags(tagIds: string[], tagsToUpsert: TagToUpsert[]) {
-    if (!isDeepEqual(tagIds, this.tagIds)) this.tagIds = tagIds;
-    if (!isDeepEqual(tagsToUpsert, this.tagsToUpsert)) this.tagsToUpsert = tagsToUpsert;
+  addTagsToUpsert(tagsToUpsert: TagToUpsert[]) {
+    for (const tag of tagsToUpsert) {
+      const existing = this.tagsToUpsert.find((t) => t.label === tag.label);
+      if (!existing) this.tagsToUpsert.push(tag);
+    }
+  }
+
+  @modelAction
+  setDiffusionParams(diffusionParams: string) {
+    if (diffusionParams !== this.diffusionParams) this.diffusionParams = diffusionParams;
   }
 }

@@ -1,6 +1,7 @@
 import fs from "fs/promises";
 import path from "path";
 import { useEffect, useRef } from "react";
+import { cloneDeep } from "es-toolkit";
 import { ModelCreationData } from "mobx-keystone";
 import { CreateImportBatchesInput, TagSchema } from "medior/server/database";
 import { FlatFolder, TagToUpsert } from "medior/components";
@@ -126,7 +127,7 @@ export const handleIngest = async ({
     const initialRootIndex = rootFolderPath.split(path.sep).length - 1;
     store.setRootFolderPath(rootFolderPath);
     store.setRootFolderIndex(initialRootIndex);
-    store.setFilePaths([]);
+    store.setFilePaths(new Map());
     store.setImports([]);
     perfLog("Init");
 
@@ -138,7 +139,7 @@ export const handleIngest = async ({
     const editorImports = [...importsFromFilePaths, ...folders.flatMap((f) => f.imports)];
     perfLog("Created editor file paths and imports");
 
-    store.setFilePaths(editorFilePaths);
+    store.setFilePaths(new Map(editorFilePaths.map((p) => [path.resolve(p), p])));
     store.setImports(editorImports);
     perfLog("Re-render");
 
@@ -207,6 +208,7 @@ export const useImportEditor = (store: Ingester | Reingester) => {
     store.options.withFileNameToTags,
     store.options.withFlattenTo,
     store.options.withFolderNameRegEx,
+    store.options.withSidecar,
     store.rootFolderIndex,
   ]);
 
@@ -473,11 +475,19 @@ export const useImportEditor = (store: Ingester | Reingester) => {
   const fileToTagsAndDiffParams = async () => {
     const { perfLog } = makePerfLog("[ImportEditor.fileToTagsAndDiffParams]");
 
-    if (!store.options.withDiffusionParams)
+    if (!store.options.withDiffusionParams && !store.options.withSidecar) {
       store.clearValues({ diffusionParams: true, tagIds: true, tagsToUpsert: true });
-    else {
-      await store.loadDiffusionParams();
-      if (DEBUG) perfLog("Loaded diffusion params");
+      if (DEBUG) perfLog("Cleared diffParams and tags");
+    } else {
+      if (store.options.withDiffusionParams) {
+        await store.loadDiffusionParams();
+        if (DEBUG) perfLog("Loaded diffusion params");
+      }
+
+      if (store.options.withSidecar) {
+        await store.loadSidecar();
+        if (DEBUG) perfLog("Loaded sidecar");
+      }
     }
 
     /** Create meta tags for diffusion params if not found. */
@@ -489,8 +499,8 @@ export const useImportEditor = (store: Ingester | Reingester) => {
     /** Directly update file imports with their own tags derived from RegEx maps and diffusion params. */
     const editorImports: ModelCreationData<FileImport>[] = await Promise.all(
       store.imports.map(async (imp) => {
-        const fileTagIds: string[] = [];
-        const fileTagsToUpsert: TagToUpsert[] = [];
+        const fileTagIds: string[] = imp.tagIds ? [...imp.tagIds] : [];
+        const fileTagsToUpsert: TagToUpsert[] = imp.tagsToUpsert ? cloneDeep(imp.tagsToUpsert) : [];
 
         if (store.options.withFileNameToTags) {
           const tagIds = cache.current.getTagIdsByRegEx(imp.name);
@@ -540,7 +550,8 @@ export const useImportEditor = (store: Ingester | Reingester) => {
 
         tagsToUpsert.push(...fileTagsToUpsert);
         const updates = { tagIds, tagsToUpsert: fileTagsToUpsert };
-        imp.setTags(tagIds, fileTagsToUpsert);
+        imp.addTagIds(tagIds);
+        imp.addTagsToUpsert(fileTagsToUpsert);
         if (DEBUG) perfLog(`Updated file import with tags for ${imp.name}`);
         return { ...imp.$, ...updates };
       }),
@@ -638,8 +649,7 @@ export const useImportEditor = (store: Ingester | Reingester) => {
     let originalTag: Tag;
     let upscaledTag: Tag;
 
-    if (!store.options.withDiffusionTags) store.clearValues({ tagIds: true, tagsToUpsert: true });
-    else {
+    if (store.options.withDiffusionTags) {
       const upsertTag = async (label: string, isChild = false): Promise<TagToUpsert> => {
         const existsRes = await stores.tag.getByLabel(label);
         if (!existsRes.success) throw new Error(existsRes.error);

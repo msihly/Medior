@@ -1,16 +1,22 @@
 import fs from "fs/promises";
 import path from "path";
 import autoBind from "auto-bind";
-import { computed } from "mobx";
+import { computed, reaction } from "mobx";
 import { Model, model, modelAction, modelFlow, objectToMapTransform, prop } from "mobx-keystone";
 import { FlatFolder, TagToUpsert } from "medior/components";
 import { asyncAction } from "medior/store";
 import { extendFileName } from "medior/utils/client";
 import { FileImport, ImportEditorOptions } from ".";
 
+export interface Sidecar {
+  tags?: TagToUpsert[];
+}
+
 @model("medior/Ingester")
 export class Ingester extends Model({
-  filePaths: prop<string[]>(() => []).withSetter(),
+  filePaths: prop<Record<string, string>>(() => ({}))
+    .withTransform(objectToMapTransform<string>())
+    .withSetter(),
   flatFolderHierarchy: prop<Record<string, FlatFolder>>(() => ({}))
     .withTransform(objectToMapTransform<FlatFolder>())
     .withSetter(),
@@ -29,6 +35,11 @@ export class Ingester extends Model({
 }) {
   onInit() {
     autoBind(this);
+
+    reaction(
+      () => this.isOpen,
+      () => !this.isOpen && this.reset(),
+    );
   }
 
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
@@ -43,7 +54,7 @@ export class Ingester extends Model({
 
   @modelAction
   reset() {
-    this.filePaths = [];
+    this.filePaths = new Map();
     this.flatFolderHierarchy = new Map();
     this.flatTagsToUpsert = [];
     this.hasChangesSinceLastScan = false;
@@ -60,19 +71,32 @@ export class Ingester extends Model({
   /* ---------------------------- ASYNC ACTIONS ---------------------------- */
   @modelFlow
   loadDiffusionParams = asyncAction(async () => {
-    const editorFilePathMap = new Map(this.filePaths.map((p) => [path.resolve(p), p]));
-
     for (const imp of this.imports) {
       if (imp.extension !== "jpg") continue;
 
       const paramFileName = path.resolve(extendFileName(imp.path, "txt"));
-      if (!editorFilePathMap.has(paramFileName)) continue;
+      if (!this.filePaths.has(paramFileName)) continue;
 
       try {
         const params = await fs.readFile(paramFileName, { encoding: "utf8" });
         imp.setDiffusionParams(params);
       } catch (err) {
         console.error("Error reading diffusion params:", err);
+      }
+    }
+  });
+
+  @modelFlow
+  loadSidecar = asyncAction(async () => {
+    for (const imp of this.imports) {
+      const paramFileName = path.resolve(extendFileName(imp.path, "json"));
+      if (!this.filePaths.has(paramFileName)) continue;
+
+      try {
+        const params: Sidecar = JSON.parse(await fs.readFile(paramFileName, { encoding: "utf8" }));
+        if (params.tags) imp.addTagsToUpsert(params.tags);
+      } catch (err) {
+        console.error("Error reading sidecar:", err);
       }
     }
   });

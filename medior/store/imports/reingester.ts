@@ -1,7 +1,7 @@
 import fs from "fs/promises";
 import path from "path";
 import autoBind from "auto-bind";
-import { computed } from "mobx";
+import { computed, reaction } from "mobx";
 import {
   arrayActions,
   Model,
@@ -15,11 +15,13 @@ import { FlatFolder, TagToUpsert } from "medior/components";
 import { asyncAction } from "medior/store";
 import { extendFileName, toast } from "medior/utils/client";
 import { trpc } from "medior/utils/server";
-import { FileImport, ImportEditorOptions } from ".";
+import { FileImport, ImportEditorOptions, Sidecar } from ".";
 
 @model("medior/Reingester")
 export class Reingester extends Model({
-  filePaths: prop<string[]>(() => []).withSetter(),
+  filePaths: prop<Record<string, string>>(() => ({}))
+    .withTransform(objectToMapTransform<string>())
+    .withSetter(),
   flatFolderHierarchy: prop<Record<string, FlatFolder>>(() => ({}))
     .withTransform(objectToMapTransform<FlatFolder>())
     .withSetter(),
@@ -40,6 +42,11 @@ export class Reingester extends Model({
 }) {
   onInit() {
     autoBind(this);
+
+    reaction(
+      () => this.isOpen,
+      () => !this.isOpen && this.reset(),
+    );
   }
 
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
@@ -61,7 +68,7 @@ export class Reingester extends Model({
 
   @modelAction
   reset() {
-    this.filePaths = [];
+    this.filePaths = new Map();
     this.flatFolderHierarchy = new Map();
     this.flatTagsToUpsert = [];
     this.folderFileIds = [];
@@ -80,13 +87,11 @@ export class Reingester extends Model({
   /* ---------------------------- ASYNC ACTIONS ---------------------------- */
   @modelFlow
   loadDiffusionParams = asyncAction(async () => {
-    const editorFilePathMap = new Map(this.filePaths.map((p) => [path.resolve(p), p]));
-
     for (const imp of this.imports) {
       if (imp.extension !== "jpg") continue;
 
       const paramFileName = path.resolve(extendFileName(imp.path, "txt"));
-      if (!editorFilePathMap.has(paramFileName)) continue;
+      if (!this.filePaths.has(paramFileName)) continue;
 
       try {
         const params = await fs.readFile(paramFileName, { encoding: "utf8" });
@@ -143,8 +148,23 @@ export class Reingester extends Model({
     }
 
     this.setImports(imports);
-    this.setFilePaths(filePaths);
+    this.setFilePaths(new Map(filePaths.map((p) => [path.resolve(p), p])));
     this.setIsInitDone(true);
+  });
+
+  @modelFlow
+  loadSidecar = asyncAction(async () => {
+    for (const imp of this.imports) {
+      const paramFileName = path.resolve(extendFileName(imp.path, "json"));
+      if (!this.filePaths.has(paramFileName)) continue;
+
+      try {
+        const params: Sidecar = JSON.parse(await fs.readFile(paramFileName, { encoding: "utf8" }));
+        if (params.tags) imp.addTagsToUpsert(params.tags);
+      } catch (err) {
+        console.error("Error reading sidecar:", err);
+      }
+    }
   });
 
   @modelFlow
