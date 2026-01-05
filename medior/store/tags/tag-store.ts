@@ -1,15 +1,7 @@
 import autoBind from "auto-bind";
-import { computed } from "mobx";
-import {
-  Model,
-  model,
-  ModelCreationData,
-  modelFlow,
-  objectToMapTransform,
-  prop,
-} from "mobx-keystone";
+import { Model, model, ModelCreationData, modelFlow, prop } from "mobx-keystone";
 import * as db from "medior/server/database";
-import { DropdownOption, TagToUpsert } from "medior/components";
+import { TagToUpsert } from "medior/components";
 import { asyncAction } from "medior/store";
 import { toast } from "medior/utils/client";
 import { Fmt, PromiseChain } from "medior/utils/common";
@@ -18,9 +10,6 @@ import { Tag, TagEditorStore, TagManagerStore, TagMergerStore, TagOption } from 
 
 @model("medior/TagStore")
 export class TagStore extends Model({
-  categories: prop<Record<string, db.TagCategorySchema>>(() => ({}))
-    .withTransform(objectToMapTransform<db.TagCategorySchema>())
-    .withSetter(),
   editor: prop<TagEditorStore>(() => new TagEditorStore({})),
   manager: prop<TagManagerStore>(() => new TagManagerStore({})),
   merger: prop<TagMergerStore>(() => new TagMergerStore({})),
@@ -105,13 +94,6 @@ export class TagStore extends Model({
   });
 
   @modelFlow
-  loadCategories = asyncAction(async () => {
-    const res = await trpc.listTagCategory.mutate({ args: { filter: {} } });
-    if (!res.success) throw new Error(res.error);
-    this.setCategories(new Map(res.data.items.map((c) => [c.id, c])));
-  });
-
-  @modelFlow
   mergeTags = asyncAction(async (args: db.MergeTagsInput) => {
     const res = await trpc.mergeTags.mutate(args);
     if (!res.success) throw new Error(res.error);
@@ -192,30 +174,7 @@ export class TagStore extends Model({
     return tagIds;
   });
 
-  /* --------------------------------- GETTERS -------------------------------- */
-  @computed
-  get categoryOptions(): DropdownOption[] {
-    return [
-      { label: "No category", value: null },
-      ...[...this.categories.entries()]
-        .sort(([, a], [, b]) => {
-          if (b.sortRank && a.sortRank) return b.sortRank - a.sortRank;
-          if (b.sortRank && !a.sortRank) return 1;
-          if (!b.sortRank && a.sortRank) return -1;
-          if (b.color && a.color) return a.color.localeCompare(b.color);
-          if (b.color && !a.color) return 1;
-          if (!b.color && a.color) return -1;
-          return a.label.localeCompare(b.label);
-        })
-        .map(([id, cat]) => ({ label: cat.label, value: id })),
-    ];
-  }
-
   /* ----------------------------- DYNAMIC GETTERS ---------------------------- */
-  getCategory(id: string) {
-    return this.categories.get(id);
-  }
-
   tagsToRegEx(tags: { aliases?: string[]; label: string }[]) {
     return `(${tags
       .flatMap((tag) => [tag.label, ...tag.aliases])

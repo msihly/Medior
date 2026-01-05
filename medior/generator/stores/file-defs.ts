@@ -62,6 +62,7 @@ export const FILE_DEF_STORES: FileDef = {
   makeFile: async () => {
     const makeImports = () =>
       `import autoBind from "auto-bind";
+      import { TagSchema } from "medior/_generated/server/models";
       import { computed } from "mobx";
       import {
         applySnapshot,
@@ -75,7 +76,7 @@ export const FILE_DEF_STORES: FileDef = {
         prop,
       } from "mobx-keystone";
       import * as Types from "medior/server/database/types";
-      import { SortMenuProps } from "medior/components";
+      import { IconName, SortMenuProps } from "medior/components";
       import * as Stores from "medior/store";
       import { asyncAction } from "medior/store/utils";
       import { getConfig, toast } from "medior/utils/client";

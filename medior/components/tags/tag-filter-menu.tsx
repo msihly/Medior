@@ -1,3 +1,4 @@
+import { SORT_OPTIONS } from "medior/store/_generated";
 import {
   Card,
   Checkbox,
@@ -9,7 +10,7 @@ import {
   TagInput,
   View,
 } from "medior/components";
-import { SORT_OPTIONS, TagSearch } from "medior/store";
+import { TagSearch } from "medior/store";
 import { colors } from "medior/utils/client";
 
 export interface TagFilterMenuProps {

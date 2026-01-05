@@ -56,7 +56,7 @@ export const StorageInputs = Comp(() => {
     const map = new Map<string, string[]>();
     for (const dirPath of locations) {
       _log(`Scanning file storage: ${dirPath}`);
-      const files = await dirToFilePaths(dirPath, /-thumb(-\d+)?\.\w+$/);
+      const files = await dirToFilePaths(dirPath, (f) => /-thumb(-\d+)?\.\w+$/.test(f));
       _log(`Found ${Fmt.commas(files.length)} in storage.`);
       map.set(dirPath, files);
     }

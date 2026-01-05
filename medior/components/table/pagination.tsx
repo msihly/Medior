@@ -43,6 +43,7 @@ const useClasses = makeClasses({
     padding: "0.2rem 0.5rem 0.2rem",
     width: "100%",
     backgroundColor: colors.background,
+    "& .MuiPagination-ul": { flexWrap: "nowrap" },
     "& > ul": { justifyContent: "center" },
     "& li button": { borderRadius: "0.2rem" },
   },

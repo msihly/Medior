@@ -1,6 +1,7 @@
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { colors as muiColors } from "@mui/material";
 import { Theme, useTheme } from "@mui/material/styles";
+import Color from "color";
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { createMakeAndWithStyles, CSSObject, Cx } from "tss-react";
 
@@ -106,12 +107,30 @@ const customColors = {
   purple: "#683980",
   red: "#982525",
   white: "#f5f5f5",
+  yellow: "#e3c648",
 };
 
+const tagCategories = [
+  customColors.red,
+  customColors.orange,
+  customColors.yellow,
+  customColors.green,
+  customColors.blue,
+  customColors.blueGrey,
+  customColors.purple,
+].map((c) => [
+  Color(c).lighten(0.4).hex(),
+  Color(c).lighten(0.2).hex(),
+  Color(c).hex(),
+  Color(c).darken(0.2).hex(),
+  Color(c).darken(0.4).hex(),
+]);
+
 export const colors = {
-  mui: muiColors,
-  custom: customColors,
   background: "#1E1E1E",
+  custom: customColors,
   foreground: "#2C2C2C",
   foregroundCard: "#343434",
+  mui: muiColors,
+  tagCategories,
 };

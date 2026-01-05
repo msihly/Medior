@@ -1,5 +1,5 @@
 import autoBind from "auto-bind";
-import { TagSchema } from "medior/_generated";
+import { TagSchema } from "medior/_generated/server";
 import { computed } from "mobx";
 import {
   applySnapshot,

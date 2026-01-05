@@ -32,7 +32,14 @@ export const FileSearchFile = Comp(({ disabled, file, height = "14rem" }: FileSe
         >
           <FileBase.Chip
             position="top-left"
-            label={<Button icon="Add" onClick={handleAdd} color={colors.custom.green} circle />}
+            label={
+              <Button
+                icon="Add"
+                onClick={handleAdd}
+                color={colors.custom.green}
+                borderRadiuses={{ all: "50%" }}
+              />
+            }
             padding={{ all: "0 1px" }}
           />
 

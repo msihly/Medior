@@ -1,3 +1,4 @@
+import { SORT_OPTIONS } from "medior/store/_generated";
 import {
   Card,
   Comp,
@@ -8,7 +9,7 @@ import {
   TagInput,
   View,
 } from "medior/components";
-import { FileCollectionSearch, SORT_OPTIONS } from "medior/store";
+import { FileCollectionSearch } from "medior/store";
 import { colors } from "medior/utils/client";
 
 export interface CollectionFilterMenuProps {

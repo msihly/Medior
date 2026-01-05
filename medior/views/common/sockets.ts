@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { SocketEmitEvent, SocketEmitEvents } from "medior/_generated/socket";
+import { SocketEmitEvent, SocketEmitEvents } from "medior/_generated/server/socket";
 import { useStores } from "medior/store";
 import { throttle } from "medior/utils/common";
 import { socket } from "medior/utils/server";

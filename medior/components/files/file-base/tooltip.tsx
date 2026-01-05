@@ -30,7 +30,7 @@ export const Tooltip = Comp(({ children, disabled, file }: TooltipProps) => {
         <View column padding={{ all: "0.3rem" }} spacing="0.5rem">
           {file.isCorrupted && (
             <View row justify="center" spacing="0.5rem">
-              <Icon name="WarningRounded" color={colors.custom.orange} />
+              <Icon name="Warning" color={colors.custom.orange} />
 
               <Text preset="title" color={colors.custom.orange}>
                 {"Corrupted"}

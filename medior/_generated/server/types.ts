@@ -87,18 +87,6 @@ export type ListTagInput = {
 };
 export type UpdateTagInput = { id: string; updates: Partial<db.TagSchema> };
 
-/* ------------------------------------ TagCategory ----------------------------------- */
-export type CreateTagCategoryInput = Omit<db.TagCategorySchema, "id">;
-export type DeleteTagCategoryInput = { ids: string[] };
-export type ListTagCategoryInput = {
-  filter?: _FilterQuery<db.TagCategorySchema>;
-  page?: number;
-  pageSize?: number;
-  sort?: Record<string, SortOrder>;
-  withOverwrite?: boolean;
-};
-export type UpdateTagCategoryInput = { id: string; updates: Partial<db.TagCategorySchema> };
-
 /* --------------------------------------------------------------------------- */
 /*                               CUSTOM ACTIONS
 /* --------------------------------------------------------------------------- */

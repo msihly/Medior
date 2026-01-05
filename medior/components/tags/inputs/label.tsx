@@ -54,7 +54,6 @@ export const Label = Comp(
           ),
           ref,
           setValue,
-          textAlign: "center",
           value,
           ...inputProps,
         }}

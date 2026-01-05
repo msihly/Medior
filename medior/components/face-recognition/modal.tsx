@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { TagSchema } from "medior/_generated";
+import { TagSchema } from "medior/_generated/server";
 import { ModelCreationData } from "mobx-keystone";
 import {
   Button,

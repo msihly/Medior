@@ -1,6 +1,6 @@
 import path from "path";
 import md5File from "md5-file";
-import * as models from "medior/_generated/models";
+import * as models from "medior/_generated/server/models";
 import type { ImportStatus } from "medior/server/database";
 import {
   deleteFile,

@@ -1,5 +1,5 @@
 import Color from "color";
-import { TagSchema } from "medior/_generated";
+import { TagSchema } from "medior/_generated/server";
 import { Chip, ChipProps, Comp, Icon, IconName, Text, View } from "medior/components";
 import { useStores } from "medior/store";
 import { colors, makeClasses } from "medior/utils/client";
@@ -28,10 +28,9 @@ export const TagChip = Comp(
     if (!tag) return null;
 
     const stores = useStores();
-    const category = stores.tag.getCategory(tag.categoryId);
 
-    color = color || category?.color || colors.custom.grey;
-    icon = icon || (category?.icon as IconName);
+    color = color || tag.category?.color || colors.custom.grey;
+    icon = icon || (tag.category?.icon as IconName);
 
     const { css, cx } = useClasses({ color, size });
 
@@ -51,7 +50,9 @@ export const TagChip = Comp(
         className={cx(css.chip, className)}
         label={
           <View row align="center">
-            {!icon ? null : <Icon name={icon} />}
+            {!icon ? null : (
+              <Icon name={icon} size="1em" margins={{ left: "0.3rem", right: "-0.2rem" }} />
+            )}
 
             <Text tooltip={tag.label} tooltipProps={{ flexShrink: 1 }} className={css.label}>
               {tag.label}

@@ -2,7 +2,7 @@
 /*                               THIS IS A GENERATED FILE. DO NOT EDIT.
 /* --------------------------------------------------------------------------- */
 import * as Types from "medior/server/database/types";
-import * as models from "medior/_generated/models";
+import * as models from "medior/_generated/server/models";
 /* --------------------------------------------------------------------------- */
 /*                               Socket Definitions
 /* --------------------------------------------------------------------------- */
@@ -44,12 +44,6 @@ export interface SocketEmitEvents {
   onTagDeleted: (args: { ids: string[] }, options?: SocketEventOptions) => void;
   onTagUpdated: (
     args: { id: string; updates: Partial<models.TagSchema> },
-    options?: SocketEventOptions,
-  ) => void;
-  onTagCategoryCreated: (args: models.TagCategorySchema, options?: SocketEventOptions) => void;
-  onTagCategoryDeleted: (args: { ids: string[] }, options?: SocketEventOptions) => void;
-  onTagCategoryUpdated: (
-    args: { id: string; updates: Partial<models.TagCategorySchema> },
     options?: SocketEventOptions,
   ) => void;
   onFileCollectionsDeleted: (args: { ids: string[] }, options?: SocketEventOptions) => void;
@@ -117,9 +111,6 @@ export const socketEvents: SocketEmitEvent[] = [
   "onTagCreated",
   "onTagDeleted",
   "onTagUpdated",
-  "onTagCategoryCreated",
-  "onTagCategoryDeleted",
-  "onTagCategoryUpdated",
   "onFileCollectionsDeleted",
   "onFilesArchived",
   "onFilesDeleted",

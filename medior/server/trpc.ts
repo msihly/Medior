@@ -1,4 +1,4 @@
-import * as _gen from "medior/_generated";
+import * as _gen from "medior/_generated/server";
 import { startServers } from "medior/server/server";
 
 export const serverRouter = _gen.trpc.mergeRouters(

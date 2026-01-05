@@ -1,9 +1,11 @@
 import { useState } from "react";
+import { SORT_OPTIONS } from "medior/store/_generated";
 import {
   Card,
   Checkbox,
   Comp,
   DateRange,
+  FileFilter,
   FilterMenu,
   Input,
   LogOpsInput,
@@ -11,8 +13,7 @@ import {
   TagInput,
   View,
 } from "medior/components";
-import { ExtColumn } from "medior/components/files/filter-menu/ext-column";
-import { FileSearch, SORT_OPTIONS } from "medior/store";
+import { FileSearch } from "medior/store";
 import { colors, getConfig } from "medior/utils/client";
 import { AudioCodec, durationToSeconds, ImageExt, VideoCodec, VideoExt } from "medior/utils/common";
 
@@ -137,7 +138,7 @@ export const FileFilterMenu = Comp(({ color = colors.foreground, store }: FileFi
 
         <View row spacing="0.5rem">
           <Card width="9rem" overflow="auto">
-            <ExtColumn
+            <FileFilter.ExtColumn
               label="Audio"
               configTypes={config.file.audioCodecs as AudioCodec[]}
               selected={store.selectedAudioCodecs}
@@ -146,7 +147,7 @@ export const FileFilterMenu = Comp(({ color = colors.foreground, store }: FileFi
           </Card>
 
           <Card width="9rem" overflow="auto">
-            <ExtColumn
+            <FileFilter.ExtColumn
               label="Images"
               configTypes={config.file.imageExts as ImageExt[]}
               selected={store.selectedImageExts}
@@ -155,7 +156,7 @@ export const FileFilterMenu = Comp(({ color = colors.foreground, store }: FileFi
           </Card>
 
           <Card width="9rem" overflow="auto">
-            <ExtColumn
+            <FileFilter.ExtColumn
               label="Videos"
               configTypes={config.file.videoExts as VideoExt[]}
               selected={store.selectedVideoExts}
@@ -164,7 +165,7 @@ export const FileFilterMenu = Comp(({ color = colors.foreground, store }: FileFi
           </Card>
 
           <Card width="9rem" overflow="auto">
-            <ExtColumn
+            <FileFilter.ExtColumn
               label="V-Codecs"
               configTypes={config.file.videoCodecs as VideoCodec[]}
               selected={store.selectedVideoCodecs}

@@ -1,4 +1,4 @@
-import type { SocketEventOptions } from "medior/_generated/socket";
+import type { SocketEventOptions } from "medior/_generated/server/socket";
 import mongoose, { LeanDocument, PipelineStage, Types } from "mongoose";
 import { handleErrors } from "medior/utils/common";
 

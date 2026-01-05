@@ -1,4 +1,4 @@
-export * from "medior/_generated/types";
+export * from "medior/_generated/server/types";
 import { AudioCodec, ImageExt, VideoCodec, VideoExt } from "medior/utils/common";
 
 export type ImportStats = {

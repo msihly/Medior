@@ -14,7 +14,7 @@ import {
   ViewProps,
 } from "medior/components";
 import { FileCollectionSearch, FileImportBatchSearch, FileSearch, TagSearch } from "medior/store";
-import { colors, CSS, makeClasses } from "medior/utils/client";
+import { colors, CSS } from "medior/utils/client";
 
 export interface FilterMenuProps extends Omit<ButtonProps, "onChange" | "value"> {
   color?: string;
@@ -36,8 +36,6 @@ export const FilterMenu = Comp(
     width = "fit-content",
     ...buttonProps
   }: FilterMenuProps) => {
-    const { css, cx } = useClasses({ width });
-
     const handleReset = () => {
       store.reset();
       handleSearch();
@@ -51,7 +49,7 @@ export const FilterMenu = Comp(
         color={store.hasChanges ? colors.custom.purple : color}
         justify="space-between"
         padding={{ left: "0.5em", right: "0.5em" }}
-        className={cx(css.button, buttonProps?.className)}
+        width={width}
         {...buttonProps}
       >
         <View row spacing="0.5rem" margins={{ right: "0.5rem" }}>
@@ -105,13 +103,3 @@ export const FilterMenu = Comp(
     );
   },
 );
-
-interface ClassesProps {
-  width: CSS["width"];
-}
-
-const useClasses = makeClasses((props: ClassesProps) => ({
-  button: {
-    width: props.width,
-  },
-}));

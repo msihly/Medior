@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { TagSchema } from "medior/_generated";
+import { TagSchema } from "medior/_generated/server";
 import { TagRow, Text, Tooltip, View } from "medior/components";
 import { FileCollection } from "medior/store";
 import { colors, toast } from "medior/utils/client";

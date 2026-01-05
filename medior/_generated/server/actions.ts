@@ -1,8 +1,8 @@
 /* --------------------------------------------------------------------------- */
 /*                               THIS IS A GENERATED FILE. DO NOT EDIT.
 /* --------------------------------------------------------------------------- */
-import * as models from "medior/_generated/models";
-import { SocketEventOptions } from "medior/_generated/socket";
+import * as models from "medior/_generated/server/models";
+import { SocketEventOptions } from "medior/_generated/server/socket";
 import { FilterQuery } from "mongoose";
 import * as Types from "medior/server/database/types";
 import { SortMenuProps } from "medior/components";
@@ -1002,6 +1002,7 @@ export const _createTag = makeAction(
       dateCreated: dayjs().toISOString(),
       aliases: [],
       ancestorIds: [],
+      category: null,
       childIds: [],
       descendantIds: [],
       parentIds: [],
@@ -1070,88 +1071,6 @@ export const updateTag = makeAction(
       await models.TagModel.findByIdAndUpdate(args.id, args.updates, { new: true }).lean(),
     );
     socket.emit("onTagUpdated", args, socketOpts);
-    return res;
-  },
-);
-/* ------------------------------------ TagCategory ----------------------------------- */
-export const createTagCategory = makeAction(
-  async ({
-    args,
-    socketOpts,
-  }: {
-    args: Types.CreateTagCategoryInput;
-    socketOpts?: SocketEventOptions;
-  }) => {
-    const model = { ...args, dateCreated: dayjs().toISOString() };
-
-    const res = await models.TagCategoryModel.create(model);
-    const id = res._id.toString();
-
-    socket.emit("onTagCategoryCreated", { ...model, id }, socketOpts);
-    return { ...model, id };
-  },
-);
-
-export const deleteTagCategory = makeAction(
-  async ({
-    args,
-    socketOpts,
-  }: {
-    args: Types.DeleteTagCategoryInput;
-    socketOpts?: SocketEventOptions;
-  }) => {
-    await models.TagCategoryModel.deleteMany({ _id: { $in: args.ids } });
-    socket.emit("onTagCategoryDeleted", args, socketOpts);
-  },
-);
-
-export const listTagCategory = makeAction(
-  async ({
-    args,
-    socketOpts,
-  }: { args?: Types.ListTagCategoryInput; socketOpts?: SocketEventOptions } = {}) => {
-    const filter = { ...args.filter };
-    if (args.filter?.id) {
-      filter._id = Array.isArray(args.filter.id)
-        ? { $in: args.filter.id }
-        : typeof args.filter.id === "string"
-          ? { $in: [args.filter.id] }
-          : args.filter.id;
-
-      delete filter.id;
-    }
-
-    const [items, totalCount] = await Promise.all([
-      models.TagCategoryModel.find(filter)
-        .sort(args.sort ?? { dateCreated: "desc" })
-        .skip(Math.max(0, args.page - 1) * args.pageSize)
-        .limit(args.pageSize)
-        .allowDiskUse(true)
-        .lean(),
-      models.TagCategoryModel.countDocuments(filter),
-    ]);
-
-    if (!items || !(totalCount > -1)) throw new Error("Failed to load filtered TagCategory");
-
-    return {
-      items: items.map((item) => leanModelToJson<models.TagCategorySchema>(item)),
-      pageCount: Math.ceil(totalCount / args.pageSize),
-    };
-  },
-);
-
-export const updateTagCategory = makeAction(
-  async ({
-    args,
-    socketOpts,
-  }: {
-    args: Types.UpdateTagCategoryInput;
-    socketOpts?: SocketEventOptions;
-  }) => {
-    const res = leanModelToJson<models.TagCategorySchema>(
-      await models.TagCategoryModel.findByIdAndUpdate(args.id, args.updates, { new: true }).lean(),
-    );
-    socket.emit("onTagCategoryUpdated", args, socketOpts);
     return res;
   },
 );

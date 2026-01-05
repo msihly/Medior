@@ -1,22 +1,24 @@
 import { useRef, useState } from "react";
 import { Divider } from "@mui/material";
+import { EditTagInput } from "medior/_generated/server";
 import {
   Button,
   Card,
   Checkbox,
+  ColorPicker,
   Comp,
   ConfirmModal,
-  Dropdown,
   IconButton,
+  IconPicker,
   IdButton,
   Modal,
-  RegExMapRow,
+  NumInput,
   Text,
   View,
 } from "medior/components";
 import { TagOption, useStores } from "medior/store";
 import { colors, openSearchWindow, toast } from "medior/utils/client";
-import { TagInputs } from ".";
+import { RegExMapCard, TagInputs } from ".";
 
 export interface TagEditorProps {
   isSubEditor?: boolean;
@@ -36,7 +38,12 @@ export const TagEditor = Comp(({ isSubEditor = false }: TagEditorProps) => {
   const clearInputs = () => {
     store.setLabel("");
     store.setAliases([]);
-    store.setCategoryId(null);
+    store.setRegExValue("");
+    store.setRegExTestString("");
+    store.setCategoryColor(null);
+    store.setCategoryIcon(null);
+    store.setCategoryInheritable(null);
+    store.setCategorySortRank(null);
     if (!hasKeepParentTags) store.setParentTags([]);
     if (!hasKeepChildTags) store.setChildTags([]);
     labelRef.current?.focus();
@@ -89,25 +96,23 @@ export const TagEditor = Comp(({ isSubEditor = false }: TagEditorProps) => {
     if (store.isDuplicate) return toast.error("Tag label must be unique");
     if (!store.label.trim().length) return toast.error("Tag label cannot be blank");
 
-    const aliases = store.aliases;
-    const label = store.label;
-    const categoryId = store.categoryId;
-    const childIds = store.childTags.map((t) => t.id);
-    const parentIds = store.parentTags.map((t) => t.id);
-    const regEx = store.regExValue;
+    const tag: EditTagInput = {
+      aliases: store.aliases,
+      category: {
+        color: store.categoryColor,
+        icon: store.categoryIcon,
+        inheritable: store.categoryInheritable,
+        sortRank: store.categorySortRank,
+      },
+      childIds: store.childTags.map((t) => t.id),
+      id: store.tag.id,
+      label: store.label,
+      parentIds: store.parentTags.map((t) => t.id),
+      regEx: store.regExValue,
+    };
 
     store.setIsLoading(true);
-    const res = await (!store.tag
-      ? stores.tag.createTag({ aliases, categoryId, childIds, label, parentIds, regEx })
-      : stores.tag.editTag({
-          aliases,
-          categoryId,
-          childIds,
-          id: store.tag.id,
-          label,
-          parentIds,
-          regEx,
-        }));
+    const res = await (!store.tag ? stores.tag.createTag(tag) : stores.tag.editTag(tag));
     store.setIsLoading(false);
 
     if (res.success) hasContinue ? clearInputs() : handleClose();
@@ -158,22 +163,47 @@ export const TagEditor = Comp(({ isSubEditor = false }: TagEditorProps) => {
       </Modal.Header>
 
       <Modal.Content spacing="0.5rem">
-        <Card row spacing="1rem" height="100%" padding={{ top: "1rem" }}>
-          <TagInputs.Label
-            ref={labelRef}
-            value={store.label}
-            setValue={store.setLabel}
-            isDuplicate={store.isDuplicate}
-            width="100%"
-          />
+        <View row spacing="0.5rem">
+          <Card row spacing="0.5rem">
+            <NumInput
+              header="Sort Rank"
+              value={store.categorySortRank}
+              setValue={store.setCategorySortRank}
+              width={90}
+              textAlign="center"
+            />
 
-          <Dropdown
-            header="Category"
-            options={stores.tag.categoryOptions}
-            value={store.categoryId}
-            setValue={store.setCategoryId}
-          />
-        </Card>
+            <View column spacing="0.5rem">
+              <View row spacing="0.5rem">
+                <ColorPicker
+                  swatches={colors.tagCategories}
+                  value={store.categoryColor}
+                  setValue={store.setCategoryColor}
+                  noIcon
+                />
+
+                <IconPicker value={store.categoryIcon} setValue={store.setCategoryIcon} />
+              </View>
+
+              <Checkbox
+                label="Inheritable"
+                checked={store.categoryInheritable}
+                setChecked={store.setCategoryInheritable}
+                flex="none"
+              />
+            </View>
+          </Card>
+
+          <Card row flex={1}>
+            <TagInputs.Label
+              ref={labelRef}
+              value={store.label}
+              setValue={store.setLabel}
+              isDuplicate={store.isDuplicate}
+              width="100%"
+            />
+          </Card>
+        </View>
 
         <Card row height="13rem" spacing="0.5rem" padding={{ all: "1rem 0.5rem" }}>
           <TagInputs.Aliases value={store.aliases} onChange={store.setAliases} />
@@ -201,9 +231,7 @@ export const TagEditor = Comp(({ isSubEditor = false }: TagEditorProps) => {
           />
         </Card>
 
-        <Card padding={{ top: "1rem" }}>
-          <RegExMapRow store={store} />
-        </Card>
+        <RegExMapCard store={store} />
 
         {!store.tag && (
           <Card header="Create Options" row spacing="0.5rem">

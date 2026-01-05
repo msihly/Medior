@@ -1,3 +1,3 @@
 export * from "./actions";
 export * from "./types";
-export * from "medior/_generated/models";
+export * from "medior/_generated/server/models";

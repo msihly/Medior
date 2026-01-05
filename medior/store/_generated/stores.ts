@@ -2,6 +2,7 @@
 /*                               THIS IS A GENERATED FILE. DO NOT EDIT.
 /* --------------------------------------------------------------------------- */
 import autoBind from "auto-bind";
+import { TagSchema } from "medior/_generated/server/models";
 import { computed } from "mobx";
 import {
   applySnapshot,
@@ -15,7 +16,7 @@ import {
   prop,
 } from "mobx-keystone";
 import * as Types from "medior/server/database/types";
-import { SortMenuProps } from "medior/components";
+import { IconName, SortMenuProps } from "medior/components";
 import * as Stores from "medior/store";
 import { asyncAction } from "medior/store/utils";
 import { getConfig, toast } from "medior/utils/client";
@@ -194,11 +195,35 @@ export class _FileCollectionSearch extends Model({
     let items = itemsRes.data;
     if (debug) perfLog(`Loaded ${items.length} items`);
 
-    const tagIds = [...new Set(items.flatMap((item) => item.tagIds))];
+    const tagIds = [...new Set(items.flatMap((item) => item.tagIdsWithAncestors))];
     const tags = (await trpc.listTag.mutate({ args: { filter: { id: tagIds } } })).data.items;
+
+    const tagCategoriesMap = new Map(
+      tags.filter((t) => t.category?.inheritable).map((t) => [t.id, t.category]),
+    );
+
+    const getNearestCategory = (tag: TagSchema) => {
+      let color: string = tag.category?.color;
+      let icon: IconName = tag.category?.icon;
+      let sortRank: number = tag.category?.sortRank;
+
+      for (const ancestorId of tag.ancestorIds.filter((id) => id !== tag.id)) {
+        if (tagCategoriesMap.has(ancestorId)) {
+          const category = tagCategoriesMap.get(ancestorId);
+          if (!color) color = category.color;
+          if (!icon) icon = category.icon;
+          if (!sortRank) sortRank = category.sortRank;
+        }
+      }
+
+      return { color, icon, sortRank };
+    };
+
     items = items.map((item) => ({
       ...item,
-      tags: tags.filter((t) => item.tagIds.includes(t.id)),
+      tags: tags
+        .filter((t) => item.tagIds.includes(t.id))
+        .map((t) => ({ ...t, category: getNearestCategory(t) })),
     }));
 
     const results = items;
@@ -428,11 +453,35 @@ export class _FileImportBatchSearch extends Model({
     let items = itemsRes.data;
     if (debug) perfLog(`Loaded ${items.length} items`);
 
-    const tagIds = [...new Set(items.flatMap((item) => item.tagIds))];
+    const tagIds = [...new Set(items.flatMap((item) => item.tagIdsWithAncestors))];
     const tags = (await trpc.listTag.mutate({ args: { filter: { id: tagIds } } })).data.items;
+
+    const tagCategoriesMap = new Map(
+      tags.filter((t) => t.category?.inheritable).map((t) => [t.id, t.category]),
+    );
+
+    const getNearestCategory = (tag: TagSchema) => {
+      let color: string = tag.category?.color;
+      let icon: IconName = tag.category?.icon;
+      let sortRank: number = tag.category?.sortRank;
+
+      for (const ancestorId of tag.ancestorIds.filter((id) => id !== tag.id)) {
+        if (tagCategoriesMap.has(ancestorId)) {
+          const category = tagCategoriesMap.get(ancestorId);
+          if (!color) color = category.color;
+          if (!icon) icon = category.icon;
+          if (!sortRank) sortRank = category.sortRank;
+        }
+      }
+
+      return { color, icon, sortRank };
+    };
+
     items = items.map((item) => ({
       ...item,
-      tags: tags.filter((t) => item.tagIds.includes(t.id)),
+      tags: tags
+        .filter((t) => item.tagIds.includes(t.id))
+        .map((t) => ({ ...t, category: getNearestCategory(t) })),
     }));
 
     const results = items.map((batch) => ({
@@ -791,11 +840,35 @@ export class _FileSearch extends Model({
     let items = itemsRes.data;
     if (debug) perfLog(`Loaded ${items.length} items`);
 
-    const tagIds = [...new Set(items.flatMap((item) => item.tagIds))];
+    const tagIds = [...new Set(items.flatMap((item) => item.tagIdsWithAncestors))];
     const tags = (await trpc.listTag.mutate({ args: { filter: { id: tagIds } } })).data.items;
+
+    const tagCategoriesMap = new Map(
+      tags.filter((t) => t.category?.inheritable).map((t) => [t.id, t.category]),
+    );
+
+    const getNearestCategory = (tag: TagSchema) => {
+      let color: string = tag.category?.color;
+      let icon: IconName = tag.category?.icon;
+      let sortRank: number = tag.category?.sortRank;
+
+      for (const ancestorId of tag.ancestorIds.filter((id) => id !== tag.id)) {
+        if (tagCategoriesMap.has(ancestorId)) {
+          const category = tagCategoriesMap.get(ancestorId);
+          if (!color) color = category.color;
+          if (!icon) icon = category.icon;
+          if (!sortRank) sortRank = category.sortRank;
+        }
+      }
+
+      return { color, icon, sortRank };
+    };
+
     items = items.map((item) => ({
       ...item,
-      tags: tags.filter((t) => item.tagIds.includes(t.id)),
+      tags: tags
+        .filter((t) => item.tagIds.includes(t.id))
+        .map((t) => ({ ...t, category: getNearestCategory(t) })),
     }));
 
     const results = items;
@@ -1419,7 +1492,12 @@ export class _Tag extends Model({
   dateCreated: prop<string>(() => dayjs().toISOString()),
   aliases: prop<string[]>(() => []),
   ancestorIds: prop<string[]>(() => []),
-  categoryId: prop<string>(null),
+  category: prop<{
+    color: string | null;
+    icon: IconName | null;
+    inheritable: boolean;
+    sortRank: number | null;
+  }>(null),
   childIds: prop<string[]>(() => []),
   count: prop<number>(),
   dateModified: prop<string>(),
@@ -1461,55 +1539,6 @@ export class _TagStore extends Model({ isLoading: prop<boolean>(false).withSette
   updateTag = asyncAction(async (args: Types.UpdateTagInput) => {
     this.setIsLoading(true);
     const res = await trpc.updateTag.mutate({ args });
-    this.setIsLoading(false);
-    if (res.error) throw new Error(res.error);
-    return res.data;
-  });
-}
-/* --------------------------------------------------------------------------- */
-/*                               TagCategory
-/* --------------------------------------------------------------------------- */
-
-@model("medior/_TagCategory")
-export class _TagCategory extends Model({
-  id: prop<string>(),
-  dateCreated: prop<string>(() => dayjs().toISOString()),
-  color: prop<string>(null),
-  icon: prop<string>(null),
-  label: prop<string>(),
-  sortRank: prop<number>(null),
-}) {
-  @modelAction
-  update(updates: Partial<ModelCreationData<this>>) {
-    applySnapshot(this, { ...getSnapshot(this), ...updates });
-  }
-}
-
-@model("medior/_TagCategoryStore")
-export class _TagCategoryStore extends Model({ isLoading: prop<boolean>(false).withSetter() }) {
-  /* ------------------------------ ASYNC ACTIONS ----------------------------- */
-  @modelFlow
-  createTagCategory = asyncAction(async (args: Types.CreateTagCategoryInput) => {
-    this.setIsLoading(true);
-    const res = await trpc.createTagCategory.mutate({ args });
-    this.setIsLoading(false);
-    if (res.error) throw new Error(res.error);
-    return res.data;
-  });
-
-  @modelFlow
-  deleteTagCategory = asyncAction(async (args: Types.DeleteTagCategoryInput) => {
-    this.setIsLoading(true);
-    const res = await trpc.deleteTagCategory.mutate({ args });
-    this.setIsLoading(false);
-    if (res.error) throw new Error(res.error);
-    return res.data;
-  });
-
-  @modelFlow
-  updateTagCategory = asyncAction(async (args: Types.UpdateTagCategoryInput) => {
-    this.setIsLoading(true);
-    const res = await trpc.updateTagCategory.mutate({ args });
     this.setIsLoading(false);
     if (res.error) throw new Error(res.error);
     return res.data;

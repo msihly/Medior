@@ -1,5 +1,5 @@
-import { TagSchema } from "medior/_generated";
-import { Comp, TagChip, View } from "medior/components";
+import { TagSchema } from "medior/_generated/server";
+import { Comp, sortTags, TagChip, View } from "medior/components";
 import { makeClasses } from "medior/utils/client";
 
 interface TagsProps {
@@ -9,13 +9,13 @@ interface TagsProps {
 export const Tags = Comp(({ tags }: TagsProps) => {
   const { css } = useClasses(null);
 
-  const displayed = tags.slice(0, 3);
-
   return (
     <View row spacing="0.2rem" className={css.tags}>
-      {displayed.map((tag, i) => (
-        <TagChip key={i} tag={tag} size="small" />
-      ))}
+      {sortTags(tags)
+        .slice(0, 3)
+        .map((tag, i) => (
+          <TagChip key={i} tag={tag} size="small" />
+        ))}
     </View>
   );
 });

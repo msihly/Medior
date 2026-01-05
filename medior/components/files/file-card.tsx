@@ -76,7 +76,7 @@ export const FileCard = Comp(({ disabled, file, height, id, width }: FileCardPro
                   )}
 
                   {file.isCorrupted && (
-                    <Icon name="WarningRounded" size="1em" color={colors.custom.orange} />
+                    <Icon name="Warning" size="1em" color={colors.custom.orange} />
                   )}
 
                   {file.diffusionParams?.length > 0 && (

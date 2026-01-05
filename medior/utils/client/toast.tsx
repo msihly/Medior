@@ -7,9 +7,9 @@ import {
   ToastContainerProps,
   TypeOptions,
 } from "react-toastify";
-import { IconName } from "@mui/icons-material";
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { Icon as MuiIcon } from "@mui/material";
+import { IconName } from "medior/_generated/client/icons";
 import { colors, makeClasses } from "medior/utils/client";
 
 export const toast = {

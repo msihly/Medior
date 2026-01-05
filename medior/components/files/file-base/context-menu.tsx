@@ -2,7 +2,7 @@ import { shell } from "@electron/remote";
 import fs from "fs/promises";
 import path from "path";
 import { ReactNode } from "react";
-import { FileSchema } from "medior/_generated";
+import { FileSchema } from "medior/_generated/server";
 import { Comp, ContextMenu as ContextMenuBase, ViewProps } from "medior/components";
 import { useStores } from "medior/store";
 import { colors, copyToClipboard, getConfig, getIsRemuxable, toast } from "medior/utils/client";

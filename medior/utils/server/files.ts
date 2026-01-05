@@ -20,14 +20,10 @@ export const createTree = (paths: string[]): TreeNode[] =>
 
 export const dirToFilePaths = async (
   dirPath: string,
-  blacklistRegEx?: RegExp,
+  filterFn?: (filePath: string) => boolean,
 ): Promise<string[]> => {
-  return await (blacklistRegEx
-    ? new fdir()
-        .withFullPaths()
-        .filter((p) => !blacklistRegEx.test(p))
-        .crawl(dirPath)
-        .withPromise()
+  return await (filterFn
+    ? new fdir().withFullPaths().filter(filterFn).crawl(dirPath).withPromise()
     : new fdir().withFullPaths().crawl(dirPath).withPromise());
 };
 

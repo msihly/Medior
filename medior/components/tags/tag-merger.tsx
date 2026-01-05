@@ -6,8 +6,6 @@ import {
   Checkbox,
   Comp,
   ConfirmModal,
-  Dropdown,
-  DropdownOption,
   HeaderWrapper,
   Modal,
   TagInput,
@@ -27,8 +25,6 @@ export const TagMerger = Comp(() => {
   const stores = useStores();
 
   const [aliases, setAliases] = useState<string[]>([]);
-  const [categoryIdToKeep, setCategoryIdToKeep] = useState<string | null>(null);
-  const [categoryOptions, setCategoryOptions] = useState<DropdownOption[]>([]);
   const [childTags, setChildTags] = useState<TagOption[]>([]);
   const [isConfirmDiscardOpen, setIsConfirmDiscardOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -47,8 +43,6 @@ export const TagMerger = Comp(() => {
   const updateInputs = async () => {
     if (!selectedTagValue.length) {
       setAliases([]);
-      setCategoryIdToKeep(null);
-      setCategoryOptions([]);
       setChildTags([]);
       setLabel("");
       setParentTags([]);
@@ -77,19 +71,6 @@ export const TagMerger = Comp(() => {
     const tagIdsToExclude = [tagToKeep.id, tagToMerge.id];
     setChildTags(await mergeRelatedTags(childIds, tagIdsToExclude));
     setParentTags(await mergeRelatedTags(parentIds, tagIdsToExclude));
-
-    const tagToKeepCategory = stores.tag.getCategory(tagToKeep.categoryId);
-    const tagToMergeCategory = stores.tag.getCategory(tagToMerge.categoryId);
-    setCategoryIdToKeep(tagToKeepCategory.id);
-    setCategoryOptions(
-      [
-        { label: "No category", value: null },
-        !tagToKeepCategory ? null : { label: tagToKeepCategory.label, value: tagToKeepCategory.id },
-        !tagToMergeCategory
-          ? null
-          : { label: tagToMergeCategory.label, value: tagToMergeCategory.id },
-      ].filter(Boolean),
-    );
   };
 
   useEffect(() => {
@@ -108,7 +89,6 @@ export const TagMerger = Comp(() => {
       setIsSaving(true);
       const res = await stores.tag.mergeTags({
         aliases,
-        categoryId: categoryIdToKeep,
         childIds: childTags.map((t) => t.id),
         label,
         parentIds: parentTags.map((t) => t.id),
@@ -203,13 +183,6 @@ export const TagMerger = Comp(() => {
 
           <View row flex={1} spacing="0.5rem">
             <TagInputs.Label value={label} setValue={setLabel} disabled hasHelper={false} />
-
-            <Dropdown
-              header="Category"
-              options={categoryOptions}
-              value={categoryIdToKeep}
-              setValue={setCategoryIdToKeep}
-            />
           </View>
 
           <View row height="12rem" spacing="0.5rem">

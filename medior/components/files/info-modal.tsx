@@ -70,7 +70,7 @@ export const InfoModal = Comp(() => {
         rightNode={
           file?.isCorrupted && (
             <View row justify="center" spacing="0.5rem">
-              <Icon name="WarningRounded" color={colors.custom.orange} />
+              <Icon name="Warning" color={colors.custom.orange} />
 
               <Text preset="title" color={colors.custom.orange}>
                 {"Corrupted"}

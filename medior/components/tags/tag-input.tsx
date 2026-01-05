@@ -205,7 +205,7 @@ export const TagInput = Comp(
         const opts = res.data.map(tagToOption);
 
         if (hasCreate && val.length > 0 && !opts.find((o) => o.label.toLowerCase() === searchStr))
-          opts.push({ id: "optionsEndNode", count: 0, label: "" });
+          opts.push({ id: "optionsEndNode", aliases: [], count: 0, descendantIds: [], label: "" });
 
         setOptions(opts);
         handleOpen();

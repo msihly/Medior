@@ -1,5 +1,5 @@
-import * as models from "medior/_generated/models";
-import { SocketEmitEvent } from "medior/_generated/socket";
+import * as models from "medior/_generated/server/models";
+import { SocketEmitEvent } from "medior/_generated/server/socket";
 import { AnyBulkWriteOperation } from "mongodb";
 import mongoose, { FilterQuery, PipelineStage, UpdateQuery } from "mongoose";
 import * as actions from "medior/server/database/actions";
@@ -389,20 +389,14 @@ export const regenTagThumbPaths = makeAction(async ({ tagId }: { tagId: string }
 export const createTag = makeAction(
   async ({
     aliases = [],
-    categoryId,
+    category = null,
     childIds = [],
     label,
     parentIds = [],
     regEx,
     withRegen = true,
     withSub = true,
-  }: {
-    aliases?: string[];
-    categoryId?: string;
-    childIds?: string[];
-    label: string;
-    parentIds?: string[];
-    regEx?: string;
+  }: Partial<Omit<models.TagSchema, "id">> & {
     withRegen?: boolean;
     withSub?: boolean;
   }) => {
@@ -410,7 +404,7 @@ export const createTag = makeAction(
     const tag: Omit<models.TagSchema, "id"> = {
       aliases,
       ancestorIds: [],
-      categoryId,
+      category,
       childIds,
       count: 0,
       dateCreated: dateModified,
@@ -732,7 +726,19 @@ export const listTagsByLabels = makeAction(async ({ labels }: { labels: string[]
 
 export const mergeTags = makeAction(
   async (
-    args: Omit<Required<Types.CreateTagInput>, "withRegen" | "withSub"> & {
+    args: Omit<
+      Required<Types.CreateTagInput>,
+      | "ancestorIds"
+      | "category"
+      | "count"
+      | "dateCreated"
+      | "dateModified"
+      | "descendantIds"
+      | "lastSearchedAt"
+      | "thumb"
+      | "withRegen"
+      | "withSub"
+    > & {
       tagIdToKeep: string;
       tagIdToMerge: string;
     },

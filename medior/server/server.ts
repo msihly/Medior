@@ -1,7 +1,7 @@
 import fs from "fs/promises";
 import { createHTTPServer } from "@trpc/server/adapters/standalone";
 import killPort from "kill-port";
-import { SocketEmitEvent, SocketEvents, socketEvents } from "medior/_generated/socket";
+import { SocketEmitEvent, SocketEvents, socketEvents } from "medior/_generated/server/socket";
 import { MongoMemoryReplSet } from "mongodb-memory-server";
 import Mongoose from "mongoose";
 import { Server } from "socket.io";

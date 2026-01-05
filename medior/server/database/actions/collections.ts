@@ -1,4 +1,4 @@
-import * as models from "medior/_generated/models";
+import * as models from "medior/_generated/server/models";
 import { FilterQuery } from "mongoose";
 import * as actions from "medior/server/database/actions";
 import { dayjs, PromiseQueue } from "medior/utils/common";

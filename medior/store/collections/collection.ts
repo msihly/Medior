@@ -1,5 +1,5 @@
 import autoBind from "auto-bind";
-import { TagSchema } from "medior/_generated";
+import { TagSchema } from "medior/_generated/server";
 import { ExtendedModel, model, modelFlow, prop } from "mobx-keystone";
 import { _FileCollection } from "medior/store/_generated";
 import { asyncAction } from "medior/store/utils";

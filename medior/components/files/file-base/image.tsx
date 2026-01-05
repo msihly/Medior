@@ -6,7 +6,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { FileSchema } from "medior/_generated";
+import { FileSchema } from "medior/_generated/server";
 import { Icon, View } from "medior/components";
 import { colors, CSS, makeClasses, useElementResize, useLazyLoad } from "medior/utils/client";
 import { sleep } from "medior/utils/common";

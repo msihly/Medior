@@ -3,16 +3,15 @@ import { Menu } from "@mui/material";
 import {
   Button,
   Comp,
+  Icon,
   IconName,
   ListItem,
   MultiInputRow,
   MultiInputRowProps,
-  Text,
   View,
 } from "medior/components";
 import { SearchTagType, TagOption, useStores } from "medior/store";
-import { colors, makeClasses } from "medior/utils/client";
-import { Fmt } from "medior/utils/common";
+import { colors } from "medior/utils/client";
 
 const TAG_SEARCH_META: {
   [key in SearchTagType]: { color: string; icon: IconName; text: string };
@@ -64,13 +63,11 @@ export const TagInputRow = Comp(
   }: TagInputRowProps) => {
     const stores = useStores();
 
+    const hasClick = hasEditor || !!onClick;
     const searchType = hasSearchMenu
       ? search.value.find((t) => t.id === tag?.id)?.searchType
       : null;
     const searchMeta = hasSearchMenu ? TAG_SEARCH_META[searchType] : null;
-
-    const hasClick = hasEditor || !!onClick;
-    const { css } = useClasses({ hasClick });
 
     const [anchorEl, setAnchorEl] = useState(null);
 
@@ -96,15 +93,19 @@ export const TagInputRow = Comp(
       <>
         <MultiInputRow
           {...{ hasDelete, search, style }}
+          bgColor={tag.category?.color}
           value={tag}
           valueExtractor={(tag) => tag.label}
           onClick={hasClick ? handleClick : null}
           leftNode={
-            <View onClick={hasClick ? handleClick : null} className={css.count}>
-              <Text fontSize="0.5em">
-                {tag?.count !== undefined ? Fmt.abbrevNum(tag.count) : "-"}
-              </Text>
-            </View>
+            !tag.category?.icon ? null : (
+              <Icon
+                name={tag.category.icon}
+                onClick={hasClick ? handleClick : null}
+                size="1em"
+                margins={{ left: "0.3em", right: "-0.2em" }}
+              />
+            )
           }
           rightNode={
             rightNode?.(tag) ??
@@ -140,16 +141,3 @@ export const TagInputRow = Comp(
     );
   },
 );
-
-const useClasses = makeClasses({
-  count: {
-    display: "flex",
-    flexShrink: 0,
-    justifyContent: "center",
-    alignItems: "center",
-    padding: "0.2em",
-    height: "100%",
-    width: "1.75rem",
-    backgroundColor: colors.custom.blue,
-  },
-});

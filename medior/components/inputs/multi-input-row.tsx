@@ -9,6 +9,7 @@ export type MultiInputRowOption<T = string> = {
 };
 
 export interface MultiInputRowProps<T> {
+  bgColor?: string;
   hasDelete?: boolean;
   leftNode?: React.ReactNode;
   onClick?: (value: T) => void;
@@ -22,9 +23,12 @@ export interface MultiInputRowProps<T> {
   valueExtractor?: (value: T) => string;
 }
 
-export const MultiInputRow = <T,>(props: MultiInputRowProps<T>) => {
+export const MultiInputRow = <T,>({
+  bgColor = colors.foreground,
+  ...props
+}: MultiInputRowProps<T>) => {
   const hasClick = !!props.onClick;
-  const { css } = useClasses({ hasClick });
+  const { css } = useClasses({ bgColor, hasClick });
 
   const value = props.valueExtractor?.(props.value) ?? props.value;
 
@@ -71,6 +75,7 @@ export const MultiInputRow = <T,>(props: MultiInputRowProps<T>) => {
 };
 
 interface ClassesProps {
+  bgColor: string;
   hasClick: boolean;
 }
 
@@ -87,7 +92,7 @@ const useClasses = makeClasses((props: ClassesProps) => ({
     borderBottom: `1px solid ${colors.custom.black}`,
     height: MULTI_INPUT_ROW_HEIGHT,
     width: "100%",
-    backgroundColor: colors.foreground,
+    backgroundColor: props.bgColor,
     cursor: props.hasClick ? "pointer" : undefined,
   },
 }));

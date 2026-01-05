@@ -6,7 +6,24 @@ model.addProp("aliases", "string[]", { defaultValue: "[]", required: true });
 
 model.addProp("ancestorIds", "Tag.id[]", { defaultValue: "[]", required: true });
 
-model.addProp("categoryId", "TagCategory.id");
+model.addProp(
+  "category",
+  `{
+    color: string | null;
+    icon: IconName | null;
+    inheritable: boolean;
+    sortRank: number | null;
+  }`,
+  {
+    defaultValue: "null",
+    schemaType: `{
+    color: String,
+    icon: String,
+    inheritable: Boolean,
+    sortRank: Number
+  }`,
+  },
+);
 
 model.addProp("childIds", "Tag.id[]", { defaultValue: "[]", required: true });
 

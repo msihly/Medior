@@ -1,5 +1,5 @@
 import { constants as fsc, promises as fs } from "fs";
-import * as models from "medior/_generated/models";
+import * as models from "medior/_generated/server/models";
 import { ModelCreationData } from "mobx-keystone";
 import * as actions from "medior/server/database/actions";
 import * as Types from "medior/server/database/types";

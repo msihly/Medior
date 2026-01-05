@@ -1,7 +1,7 @@
 import { useState } from "react";
 import Color from "color";
-import { TagSchema } from "medior/_generated";
-import { Comp, ContextMenu, FileBase, Icon, IconName, View } from "medior/components";
+import { TagSchema } from "medior/_generated/server";
+import { Comp, ContextMenu, FileBase, Icon, View } from "medior/components";
 import { useStores } from "medior/store";
 import { colors, openSearchWindow, toast } from "medior/utils/client";
 import { Fmt } from "medior/utils/common";
@@ -13,8 +13,7 @@ export interface TagCardProps {
 export const TagCard = Comp(({ tag }: TagCardProps) => {
   const stores = useStores();
 
-  const category = stores.tag.getCategory(tag.categoryId);
-  const color = category?.color || "black";
+  const color = tag.category?.color || "black";
 
   const [isHovering, setIsHovering] = useState(false);
 
@@ -69,7 +68,7 @@ export const TagCard = Comp(({ tag }: TagCardProps) => {
           background={`linear-gradient(to bottom, ${Color(color).fade(0.7).string()}, ${color})`}
         >
           <View column flex={1} align="center" justify="center">
-            {!category?.icon ? null : <Icon name={category.icon as IconName} size="2em" />}
+            {!tag.category?.icon ? null : <Icon name={tag.category.icon} size="2em" />}
 
             <FileBase.FooterText
               text={tag.label}

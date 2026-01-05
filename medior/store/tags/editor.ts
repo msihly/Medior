@@ -1,6 +1,7 @@
 import autoBind from "auto-bind";
 import { reaction } from "mobx";
 import { getRootStore, Model, model, modelAction, modelFlow, prop } from "mobx-keystone";
+import { IconName } from "medior/components";
 import { RootStore } from "medior/store";
 import { Tag } from "medior/store/tags/tag";
 import { asyncAction } from "medior/store/utils";
@@ -9,7 +10,10 @@ import { trpc } from "medior/utils/server";
 @model("medior/TagEditorStore")
 export class TagEditorStore extends Model({
   aliases: prop<string[]>(() => []).withSetter(),
-  categoryId: prop<string | null>(null).withSetter(),
+  categoryColor: prop<string>(null).withSetter(),
+  categoryIcon: prop<IconName>(null).withSetter(),
+  categoryInheritable: prop<boolean>(false).withSetter(),
+  categorySortRank: prop<number>(null).withSetter(),
   childTags: prop<Tag[]>(() => []).withSetter(),
   isDuplicate: prop<boolean>(false).withSetter(),
   isLoading: prop<boolean>(false).withSetter(),
@@ -39,7 +43,10 @@ export class TagEditorStore extends Model({
   @modelAction
   reset() {
     this.aliases = [];
-    this.categoryId = null;
+    this.categoryColor = null;
+    this.categoryIcon = null;
+    this.categoryInheritable = null;
+    this.categorySortRank = null;
     this.childTags = [];
     this.isLoading = false;
     this.label = "";
@@ -62,8 +69,12 @@ export class TagEditorStore extends Model({
     this.setChildTags(res.data.childTags.map((t) => new Tag(t)));
     this.setParentTags(res.data.parentTags.map((t) => new Tag(t)));
 
+    this.setCategoryColor(tag.category?.color);
+    this.setCategoryIcon(tag.category?.icon);
+    this.setCategoryInheritable(tag.category?.inheritable);
+    this.setCategorySortRank(tag.category?.sortRank);
+
     this.setAliases(tag.aliases);
-    this.setCategoryId(tag.categoryId || null);
     this.setLabel(tag.label);
     this.setRegExTestString("");
     this.setRegExValue(tag.regEx);

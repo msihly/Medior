@@ -12,5 +12,5 @@
     "types": ["node", "vite/client", "vite-plugin-svgr/client"]
   },
   "extends": "../../tsconfig.base.json",
-  "include": ["../_generated", "../face-models", "./database", "./main.ts", "./server.ts"]
+  "include": ["../_generated/server", "../face-models", "./database", "./main.ts", "./server.ts"]
 }

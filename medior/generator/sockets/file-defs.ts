@@ -5,7 +5,7 @@ export const FILE_DEF_SOCKETS: FileDef = {
   makeFile: async () => {
     const makeImports = () =>
       `import * as Types from "medior/server/database/types";
-      import * as models from "medior/_generated/models";`;
+      import * as models from "medior/_generated/server/models";`;
 
     return `${makeImports()}\n${makeSocketDefs()}`;
   },

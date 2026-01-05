@@ -299,11 +299,38 @@ export const createSearchStore = (def: ModelSearchStore) => {
       if (debug) perfLog(\`Loaded \${items.length} items\`);
 
       ${
-        def.withTags
-          ? `const tagIds = [...new Set(items.flatMap((item) => item.tagIds))];
+        !def.withTags
+          ? ""
+          : `const tagIds = [...new Set(items.flatMap((item) => item.tagIdsWithAncestors))];
             const tags = (await trpc.listTag.mutate({ args: { filter: { id: tagIds } } })).data.items;
-            items = items.map((item) => ({ ...item, tags: tags.filter((t) => item.tagIds.includes(t.id)) }));`
-          : ""
+
+            const tagCategoriesMap = new Map(
+              tags.filter((t) => t.category?.inheritable).map((t) => [t.id, t.category]),
+            );
+
+            const getNearestCategory = (tag: TagSchema) => {
+              let color: string = tag.category?.color;
+              let icon: IconName = tag.category?.icon;
+              let sortRank: number = tag.category?.sortRank;
+
+              for (const ancestorId of tag.ancestorIds.filter((id) => id !== tag.id)) {
+                if (tagCategoriesMap.has(ancestorId)) {
+                  const category = tagCategoriesMap.get(ancestorId);
+                  if (!color) color = category.color;
+                  if (!icon) icon = category.icon;
+                  if (!sortRank) sortRank = category.sortRank;
+                }
+              }
+
+              return { color, icon, sortRank };
+            };
+
+            items = items.map((item) => ({
+              ...item,
+              tags: tags
+                .filter((t) => item.tagIds.includes(t.id))
+                .map((t) => ({ ...t, category: getNearestCategory(t) })),
+            }));`
       }
 
       const results = ${!def.transformResultsFn ? "items" : `items.map(${def.transformResultsFn})`}

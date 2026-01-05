@@ -16,17 +16,26 @@ import {
   TooltipWrapper,
   View,
 } from "medior/components";
-import { colors, CSS, makeClasses, makeMargins, Margins, Padding } from "medior/utils/client";
+import {
+  BorderRadiuses,
+  colors,
+  CSS,
+  makeBorderRadiuses,
+  makeClasses,
+  makeMargins,
+  Margins,
+  Padding,
+} from "medior/utils/client";
 
 export interface ButtonProps
   extends Omit<
     MuiButtonProps,
     "color" | "endIcon" | "fullWidth" | "startIcon" | "type" | "variant"
   > {
+  borderRadiuses?: BorderRadiuses;
   boxShadow?: CSS["boxShadow"];
   color?: string;
   colorOnHover?: string;
-  circle?: boolean;
   endNode?: ReactNode;
   fontSize?: CSS["fontSize"];
   fontWeight?: CSS["fontWeight"];
@@ -52,9 +61,9 @@ export interface ButtonProps
 }
 
 export const Button = ({
+  borderRadiuses = { all: "0.3rem" },
   boxShadow,
   children,
-  circle = false,
   className,
   color = colors.custom.grey,
   colorOnHover,
@@ -85,10 +94,10 @@ export const Button = ({
   ...props
 }: ButtonProps) => {
   const { css, cx } = useClasses({
+    borderRadiuses,
     boxShadow,
     color,
     colorOnHover,
-    isCircle: circle,
     isLink: type === "link",
     justify,
     margins,
@@ -154,10 +163,10 @@ export const Button = ({
 };
 
 interface ClassesProps {
+  borderRadiuses: BorderRadiuses;
   boxShadow: CSS["boxShadow"];
   color: string;
   colorOnHover: string;
-  isCircle: boolean;
   isLink: boolean;
   justify: CSS["justifyContent"];
   margins: Margins;
@@ -176,7 +185,7 @@ const useClasses = makeClasses((props: ClassesProps) => ({
     justifyContent: props.justify,
     alignItems: "center",
     border: `1px solid ${props.outlined ? props.color : "transparent"}`,
-    borderRadius: props.isCircle ? "50%" : "0.3rem",
+    ...makeBorderRadiuses(props.borderRadiuses),
     ...makeMargins(props.margins),
     padding: props.padding?.all,
     paddingTop: props.padding?.top ?? (props.isLink ? 0 : undefined),

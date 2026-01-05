@@ -17,8 +17,8 @@ export const FILE_DEF_ACTIONS: FileDef = {
     const actions = await getActions();
 
     const makeImports = () =>
-      `import * as models from "medior/_generated/models";
-      import { SocketEventOptions } from "medior/_generated/socket";
+      `import * as models from "medior/_generated/server/models";
+      import { SocketEventOptions } from "medior/_generated/server/socket";
       import { FilterQuery } from "mongoose";
       import * as Types from "medior/server/database/types";
       import { SortMenuProps } from "medior/components";

@@ -1,7 +1,8 @@
 import { dialog } from "@electron/remote";
 import { useEffect, useState } from "react";
+import { SORT_OPTIONS } from "medior/store/_generated";
 import { Button, Card, Comp, ConfirmModal, Modal, Text, View } from "medior/components";
-import { SORT_OPTIONS, useStores } from "medior/store";
+import { useStores } from "medior/store";
 import { colors, loadConfig, saveConfig, toast } from "medior/utils/client";
 import { CONSTANTS } from "medior/utils/common";
 import { trpc } from "medior/utils/server";

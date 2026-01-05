@@ -92,9 +92,7 @@ export const CarouselTopBar = Comp(() => {
         <IconButton name="Label" onClick={handleEditTags} tooltip="Edit Tags" />
 
         <View row align="center" spacing="0.3rem">
-          {file?.isCorrupted && (
-            <Icon name="WarningRounded" size="1em" color={colors.custom.orange} />
-          )}
+          {file?.isCorrupted && <Icon name="Warning" size="1em" color={colors.custom.orange} />}
 
           <Icon name={ratingMeta?.icon} color={ratingMeta?.iconColor} size="inherit" />
 

@@ -1,6 +1,6 @@
 import { ReactNode, useMemo, useState } from "react";
 import { Divider } from "@mui/material";
-import { TagSchema } from "medior/_generated";
+import { TagSchema } from "medior/_generated/server";
 import { ModelCreationData } from "mobx-keystone";
 import type { ImportStatus } from "medior/server/database";
 import {

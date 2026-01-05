@@ -2,6 +2,7 @@
 /*                               THIS IS A GENERATED FILE. DO NOT EDIT.
 /* --------------------------------------------------------------------------- */
 import { model, Schema } from "mongoose";
+import { IconName } from "medior/components";
 
 /* --------------------------------------------------------------------------- */
 /*                               DeletedFile
@@ -269,7 +270,12 @@ export interface TagSchema {
   dateCreated: string;
   aliases: string[];
   ancestorIds: string[];
-  categoryId?: string;
+  category?: {
+    color: string | null;
+    icon: IconName | null;
+    inheritable: boolean;
+    sortRank: number | null;
+  };
   childIds: string[];
   count: number;
   dateModified: string;
@@ -286,7 +292,12 @@ const TagSchema = new Schema<TagSchema>({
   dateCreated: String,
   aliases: [String],
   ancestorIds: [{ type: Schema.Types.ObjectId, ref: "Tag" }],
-  categoryId: Schema.Types.ObjectId,
+  category: {
+    color: String,
+    icon: String,
+    inheritable: Boolean,
+    sortRank: Number,
+  },
   childIds: [{ type: Schema.Types.ObjectId, ref: "Tag" }],
   count: Number,
   dateModified: String,
@@ -302,30 +313,3 @@ TagSchema.index({ dateCreated: 1, _id: 1 }, { unique: true });
 TagSchema.index({ label: 1 }, { unique: true });
 
 export const TagModel = model<TagSchema>("Tag", TagSchema);
-
-/* --------------------------------------------------------------------------- */
-/*                               TagCategory
-/* --------------------------------------------------------------------------- */
-
-export interface TagCategorySchema {
-  id: string;
-  dateCreated: string;
-  color?: string;
-  icon?: string;
-  label: string;
-  sortRank?: number;
-}
-
-const TagCategorySchema = new Schema<TagCategorySchema>({
-  id: String,
-  dateCreated: String,
-  color: String,
-  icon: String,
-  label: String,
-  sortRank: Number,
-});
-
-TagCategorySchema.index({ dateCreated: 1, _id: 1 }, { unique: true });
-TagCategorySchema.index({ label: 1 }, { unique: true });
-
-export const TagCategoryModel = model<TagCategorySchema>("TagCategory", TagCategorySchema);
