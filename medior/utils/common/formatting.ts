@@ -24,6 +24,14 @@ const jstr = (val: any) => JSON.stringify(val, null, 2);
 
 const leadZeros = (num: number, places: number) => String(num).padStart(places, "0");
 
+const pascalToSnake = (str: string) =>
+  !str?.length
+    ? ""
+    : str
+        .split(/(?=[A-Z])/)
+        .join("_")
+        .toLowerCase();
+
 const regexEscape = (string: string, replacementOnly = false) =>
   string
     ? replacementOnly
@@ -49,6 +57,14 @@ const sanitizeWinPath = (winPath: string, isBasename = false): string => {
         .join("\\");
 };
 
+const snakeToPascal = (str: string) =>
+  !str?.length
+    ? ""
+    : str
+        .split("_")
+        .map((s) => capitalize(s))
+        .join("");
+
 export const Fmt = {
   abbrevNum,
   bytes,
@@ -59,6 +75,8 @@ export const Fmt = {
   frameToSec,
   jstr,
   leadZeros,
+  pascalToSnake,
   regexEscape,
   sanitizeWinPath,
+  snakeToPascal,
 };

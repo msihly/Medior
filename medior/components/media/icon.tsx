@@ -3,6 +3,7 @@ import { Icon as MuiIcon, IconProps as MuiIconProps } from "@mui/material";
 import { IconName as MuiIconName } from "medior/_generated/client/icons";
 import { View, ViewProps } from "medior/components";
 import { makeClasses, Margins } from "medior/utils/client";
+import { Fmt } from "medior/utils/common";
 
 export type IconName = MuiIconName;
 
@@ -25,21 +26,12 @@ export const Icon = ({
   viewProps = {},
   ...props
 }: IconProps) => {
-  const { css, cx } = useClasses({
-    rotation,
-  });
-
-  const nameToSnakeCase =
-    name?.length &&
-    name
-      .split(/(?=[A-Z])/)
-      .join("_")
-      .toLowerCase();
+  const { css, cx } = useClasses({ rotation });
 
   return (
     <View column className={cx(css.root, className)} margins={margins} {...viewProps}>
       <MuiIcon {...props} style={{ color, fontSize: size }}>
-        {nameToSnakeCase}
+        {Fmt.pascalToSnake(name)}
       </MuiIcon>
     </View>
   );

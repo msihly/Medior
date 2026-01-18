@@ -114,8 +114,7 @@ export const TagInputRow = Comp(
                 onClick={handleOpen}
                 icon={searchMeta?.icon}
                 iconProps={{ color: searchMeta?.color }}
-                color="transparent"
-                colorOnHover={colors.foregroundCard}
+                color={colors.foreground}
                 padding={{ all: "0.3em" }}
                 boxShadow="none"
               />

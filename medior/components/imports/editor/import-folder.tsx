@@ -4,7 +4,7 @@ import { FixedSizeList } from "react-window";
 import Color from "color";
 import { Card, Chip, Comp, FlatFolder, IconButton, Text, View } from "medior/components";
 import { useStores } from "medior/store";
-import { colors, makeClasses } from "medior/utils/client";
+import { colors, makeBorderRadiuses, makeClasses } from "medior/utils/client";
 import { Fmt } from "medior/utils/common";
 import { IMPORT_LIST_ITEM_HEIGHT, ImportListItem } from "./import-list-item";
 import { TagHierarchy } from "./tag-hierarchy";
@@ -37,7 +37,9 @@ export const ImportFolderList = Comp(
 
     const [collapsed, setCollapsed] = useState(!withListItems);
 
-    const { css } = useClasses({ collapsible, collapsed });
+    const hasCollection = folder?.collectionTitle?.length > 0;
+    const hasTags = folder?.tags?.length > 0;
+    const { css } = useClasses({ collapsible, collapsed, hasCollection, hasTags });
 
     if (!folder) return null;
     const height = getImportFolderHeight({ folder, maxVisibleFiles, withListItems: !collapsed });
@@ -86,7 +88,7 @@ export const ImportFolderList = Comp(
           </View>
         </View>
 
-        {folder.collectionTitle?.length > 0 && (
+        {hasCollection && (
           <View column className={css.collection}>
             <Text className={css.collectionTitle}>{folder.collectionTitle}</Text>
             <Text fontSize="0.7em" textAlign="center">
@@ -95,7 +97,7 @@ export const ImportFolderList = Comp(
           </View>
         )}
 
-        {folder.tags?.length > 0 && (
+        {hasTags && (
           <View row className={css.tags}>
             {folder.tags.map((tag) => (
               <TagHierarchy key={tag.label} tag={tag} className={css.tag} />
@@ -151,6 +153,8 @@ export const getImportFolderHeight = ({
 interface ClassesProps {
   collapsible: boolean;
   collapsed: boolean;
+  hasCollection: boolean;
+  hasTags: boolean;
 }
 
 const useClasses = makeClasses((props: ClassesProps) => ({
@@ -163,7 +167,7 @@ const useClasses = makeClasses((props: ClassesProps) => ({
   },
   collection: {
     justifyContent: "center",
-    borderBottom: `1px solid ${colors.custom.grey}`,
+    borderBottom: props.collapsed && !props.hasTags ? undefined : `1px solid ${colors.custom.grey}`,
     height: COLL_HEIGHT,
     overflow: "hidden",
   },
@@ -187,7 +191,10 @@ const useClasses = makeClasses((props: ClassesProps) => ({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    borderRadius: 4,
+    ...makeBorderRadiuses({
+      top: "0.5rem",
+      bottom: props.collapsed && !props.hasCollection && !props.hasTags ? "0.5rem" : 0,
+    }),
     padding: "0.5rem",
     paddingLeft: props.collapsible ? "0" : undefined,
     height: HEADER_HEIGHT,
