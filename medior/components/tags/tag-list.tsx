@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { SocketEvents } from "medior/_generated/server";
 import {
   Comp,
   MultiInputList,
@@ -30,12 +31,12 @@ export const TagList = Comp(
     useEffect(() => {
       if (!socket?.isConnected || !search?.onChange) return;
 
-      const onTagDeleted = (args: { ids: string[] }) => {
+      const onTagDeleted = (args: Parameters<SocketEvents["onTagDeleted"]>[0]) => {
         search.onChange(search.value.filter((tag) => !args.ids.includes(tag.id)));
         rerender();
       };
 
-      const onTagMerged = async (args: { oldTagId: string; newTagId: string }) => {
+      const onTagMerged = async (args: Parameters<SocketEvents["onTagMerged"]>[0]) => {
         const ids = [
           ...new Set(search.value.map((t) => (t.id === args.oldTagId ? args.newTagId : t.id))),
         ];
@@ -44,14 +45,24 @@ export const TagList = Comp(
         rerender();
       };
 
+      const onTagsUpdated = (args: Parameters<SocketEvents["onTagsUpdated"]>[0]) => {
+        for (const { tagId, updates } of args.tags) {
+          const tagToUpdate = search.value.find((t) => t.id === tagId);
+          if (tagToUpdate)
+            search.onChange(search.value.map((t) => (t.id === tagId ? { ...t, ...updates } : t)));
+        }
+      };
+
       const rerender = () => ref?.current?.forceUpdate();
 
       socket.on("onTagDeleted", onTagDeleted);
       socket.on("onTagMerged", onTagMerged);
+      socket.on("onTagsUpdated", onTagsUpdated);
 
       return () => {
         socket.off("onTagDeleted", onTagDeleted);
         socket.off("onTagMerged", onTagMerged);
+        socket.off("onTagsUpdated", onTagsUpdated);
       };
     }, [socket?.isConnected, search?.value]);
 

@@ -33,6 +33,10 @@ export const useSockets = ({ view }: UseSocketsProps) => {
       ? stores.file.search.setHasQueuedReload(true)
       : stores.file.search.loadFiltered();
 
+  const reloadTagManager = () => {
+    if (stores.tag.manager.isOpen) stores.tag.manager.search.loadFiltered();
+  };
+
   const setupSockets = () => {
     socket.connect();
 
@@ -82,24 +86,23 @@ export const useSockets = ({ view }: UseSocketsProps) => {
     });
 
     makeSocket("onTagCreated", () => {
-      if (view !== "carousel" && stores.tag.manager.isOpen)
-        stores.tag.manager.search.loadFiltered();
+      reloadTagManager();
     });
 
     makeSocket("onTagDeleted", () => {
       if (view !== "carousel") {
         queueFileReload();
-        if (stores.tag.manager.isOpen) stores.tag.manager.search.loadFiltered();
+        reloadTagManager();
       }
     });
 
     makeSocket("onTagMerged", () => {
-      if (view !== "carousel" && stores.tag.manager.isOpen)
-        stores.tag.manager.search.loadFiltered();
+      reloadTagManager();
     });
 
     makeSocket("onTagsUpdated", ({ withFileReload }) => {
       if (withFileReload && view !== "carousel") throttle(queueFileReload, 2000)();
+      reloadTagManager();
     });
 
     if (view !== "carousel") {

@@ -20,17 +20,18 @@ import { colors, openSearchWindow, toast, useDeepEffect } from "medior/utils/cli
 
 export const TagManager = Comp(() => {
   const stores = useStores();
+  const store = stores.tag.manager.search;
 
-  const hasNoSelection = stores.tag.manager.search.selectedIds.length === 0;
+  const hasNoSelection = store.selectedIds.length === 0;
 
   const resultsRef = useRef<FixedSizeGrid>(null);
   useDeepEffect(() => {
     if (resultsRef.current) resultsRef.current.scrollTo({ scrollTop: 0 });
-  }, [stores.tag.manager.search.results]);
+  }, [store.results]);
 
   useEffect(() => {
-    stores.tag.manager.search.reset();
-    stores.tag.manager.search.loadFiltered({ page: 1 });
+    store.reset();
+    store.loadFiltered({ page: 1 });
   }, []);
 
   const handleClose = () => {
@@ -42,24 +43,19 @@ export const TagManager = Comp(() => {
 
   const handleEditRelations = () => stores.tag.manager.setIsMultiTagEditorOpen(true);
 
-  const handlePageChange = (page: number) => stores.tag.manager.search.loadFiltered({ page });
+  const handlePageChange = (page: number) => store.loadFiltered({ page });
 
   const handleRefreshTags = () => stores.tag.manager.refreshSelectedTags();
 
-  const handleSearchWindow = () =>
-    openSearchWindow({ tagIds: stores.tag.manager.search.selectedIds });
+  const handleSearchWindow = () => openSearchWindow({ tagIds: store.selectedIds });
 
   const handleSelectAll = () => {
-    stores.tag.manager.search.toggleSelected(
-      stores.tag.manager.search.results.map(({ id }) => ({ id, isSelected: true })),
-    );
-    toast.info(`Added ${stores.tag.manager.search.results.length} tags to selection`);
+    store.toggleSelected(store.results.map(({ id }) => ({ id, isSelected: true })));
+    toast.info(`Added ${store.results.length} tags to selection`);
   };
 
   const handleSelectNone = () => {
-    stores.tag.manager.search.toggleSelected(
-      stores.tag.manager.search.selectedIds.map((id) => ({ id, isSelected: false })),
-    );
+    store.toggleSelected(store.selectedIds.map((id) => ({ id, isSelected: false })));
     toast.info("Deselected all tags");
   };
 
@@ -79,11 +75,9 @@ export const TagManager = Comp(() => {
           header={
             <UniformList row flex={1} justify="space-between">
               <View row align="center" spacing="0.5rem">
-                <TagFilterMenu store={stores.tag.manager.search} color={colors.foreground} />
+                <TagFilterMenu store={store} color={colors.foreground} />
 
-                {!hasNoSelection && (
-                  <Chip label={`${stores.tag.manager.search.selectedIds.length} Selected`} />
-                )}
+                {!hasNoSelection && <Chip label={`${store.selectedIds.length} Selected`} />}
               </View>
 
               <View row justify="center" align="center">
@@ -129,14 +123,14 @@ export const TagManager = Comp(() => {
           }
         >
           <CardGrid
-            cards={stores.tag.manager.search.results.map((t) => (
+            cards={store.results.map((t) => (
               <TagCard key={t.id} tag={t} />
             ))}
           >
             <Pagination
-              count={stores.tag.manager.search.pageCount}
-              page={stores.tag.manager.search.page}
-              isLoading={stores.tag.manager.search.isPageCountLoading}
+              count={store.pageCount}
+              page={store.page}
+              isLoading={store.isPageCountLoading}
               onChange={handlePageChange}
             />
           </CardGrid>
