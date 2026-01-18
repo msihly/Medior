@@ -1,28 +1,9 @@
 import { sleep } from "medior/utils/common";
 
-export class PromiseChain {
-  cancelled = false;
-  queue = Promise.resolve();
-
-  add<T>(fn: (...args: any) => Promise<T>): Promise<T> {
-    try {
-      return new Promise((resolve, reject) => {
-        this.queue = this.queue
-          .then(() => {
-            if (!this.cancelled) return fn();
-            else throw { cancelled: true };
-          })
-          .then(resolve)
-          .catch((error) => !error?.cancelled && reject(error));
-      });
-    } catch (error) {
-      return Promise.reject(error);
-    }
-  }
-
-  cancel() {
-    this.cancelled = true;
-    this.queue = Promise.reject({ cancelled: true });
+class CancelledError extends Error {
+  constructor() {
+    super("PromiseQueue cancelled");
+    this.name = "CancelledError";
   }
 }
 
@@ -33,8 +14,8 @@ export interface PromiseQueueOptions {
 
 export class PromiseQueue {
   private cancelled = false;
-  private concurrency: PromiseQueueOptions["concurrency"];
-  private delayRange: PromiseQueueOptions["delayRange"];
+  private concurrency: number;
+  private delayRange?: [number, number];
   private promise: Promise<void> | null = null;
   private queue: (() => Promise<void>)[] = [];
   private resolver: (() => void) | null = null;
@@ -45,45 +26,50 @@ export class PromiseQueue {
     this.delayRange = delayRange;
   }
 
-  add<T>(fn: (...args: any) => Promise<T>, options?: Partial<PromiseQueueOptions>): Promise<T> {
-    const opts: Partial<PromiseQueueOptions> = {
-      concurrency: options?.concurrency ?? this.concurrency,
-      delayRange: options?.delayRange ?? this.delayRange,
-    };
+  add<T>(fn: () => Promise<T>): Promise<T> {
+    if (this.cancelled) return Promise.reject(new CancelledError());
 
     if (!this.promise) this.promise = new Promise((res) => (this.resolver = res));
 
-    return new Promise((resolve, reject) => {
-      const attempt = async () => {
-        if (this.cancelled) reject({ cancelled: true });
-        else if (this.runningCount < opts.concurrency) {
+    return new Promise<T>((resolve, reject) => {
+      const task = async () => {
+        try {
+          if (this.cancelled) return reject(new CancelledError());
           this.runningCount++;
-          await fn()
-            .then(resolve)
-            .catch(reject)
-            .finally(async () => {
-              if (this.cancelled) return reject({ cancelled: true });
-              this.runningCount--;
-              if (opts.delayRange) await sleep(...opts.delayRange);
-              this.next();
-            });
-        } else this.queue.push(attempt);
+          const result = await fn();
+          resolve(result);
+        } catch (err) {
+          reject(err);
+        } finally {
+          if (this.delayRange) await sleep(...this.delayRange);
+          this.runningCount--;
+          this.next();
+        }
       };
 
-      if (this.runningCount < opts.concurrency) attempt();
-      else this.queue.push(attempt);
+      this.queue.push(task);
+      this.next();
     });
   }
 
   cancel() {
+    if (this.cancelled) return;
     this.cancelled = true;
+
+    while (this.queue.length) this.queue.shift()?.();
+
+    if (this.runningCount === 0 && this.resolver) {
+      this.resolver();
+      this.promise = null;
+      this.resolver = null;
+    }
   }
 
-  next() {
-    if (this.queue.length > 0 && this.runningCount < this.concurrency) {
-      const nextTask = this.queue.shift();
-      if (nextTask) nextTask();
-    } else if (this.queue.length === 0 && this.runningCount === 0 && this.resolver) {
+  private next() {
+    while (!this.cancelled && this.runningCount < this.concurrency && this.queue.length)
+      this.queue.shift()?.();
+
+    if (!this.queue.length && this.runningCount === 0 && this.resolver) {
       this.resolver();
       this.promise = null;
       this.resolver = null;

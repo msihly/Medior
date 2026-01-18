@@ -4,7 +4,7 @@ import * as db from "medior/server/database";
 import { TagToUpsert } from "medior/components";
 import { asyncAction } from "medior/store";
 import { toast } from "medior/utils/client";
-import { Fmt, PromiseChain } from "medior/utils/common";
+import { Fmt, PromiseQueue } from "medior/utils/common";
 import { trpc } from "medior/utils/server";
 import { Tag, TagEditorStore, TagManagerStore, TagMergerStore, TagOption } from ".";
 
@@ -108,7 +108,7 @@ export class TagStore extends Model({
 
   @modelFlow
   upsertTags = asyncAction(async (tagsToUpsert: TagToUpsert[]) => {
-    const tagQueue = new PromiseChain();
+    const tagQueue = new PromiseQueue();
     const errors: string[] = [];
     const tagIds: string[] = [];
     const tagsToInsert: Map<string, ModelCreationData<Tag>> = new Map();
@@ -165,7 +165,7 @@ export class TagStore extends Model({
       }),
     );
 
-    await tagQueue.queue;
+    await tagQueue.resolve();
     if (errors.length) throw new Error(errors.join("\n"));
 
     const regenRes = await trpc.regenTags.mutate({ tagIds, withSub: true });
