@@ -148,6 +148,7 @@ export const ImportManager = Comp(() => {
               page={store.search.page}
               isLoading={store.search.isPageCountLoading}
               onChange={handlePageChange}
+              siblingCount={2}
             />
           </Card>
         </View>

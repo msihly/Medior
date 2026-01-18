@@ -76,6 +76,19 @@ export const completeImportBatch = makeAction(
       collectionId = res.data.id;
     }
 
+    const duplicateFileIds = batch.imports
+      .filter((file) => file.status === "DUPLICATE")
+      .map((file) => file.fileId);
+
+    if (duplicateFileIds.length && batch.tagIds?.length) {
+      const res = await actions.editFileTags({
+        addedTagIds: batch.tagIds,
+        fileIds: duplicateFileIds,
+        withSub: false,
+      });
+      if (!res.success) throw new Error(`Failed to update duplicate file tags: ${res.error}`);
+    }
+
     await Promise.all([
       models.FileImportBatchModel.updateOne(
         { _id: args.id },

@@ -155,25 +155,8 @@ export class FileImporter {
 
   private updateDupeFile = async () => {
     const id = this.file.id;
-
-    if (this.tagIds?.length > 0) {
-      const res = await trpc.editFileTags.mutate({
-        addedTagIds: this.tagIds,
-        fileIds: [id],
-        withSub: false,
-      });
-      if (!res.success) throw new Error(res.error);
-      this.perfLog("Added tags to duplicate file");
-    }
-
     const res = await trpc.updateFile.mutate({ args: { id, updates: { ...this.file } } });
     if (!res.success) throw new Error(res.error);
-
-    // const updateRes = await trpc.updateFileImportByPath.mutate({
-    //   batchId: batch.id,
-    //   fileId: id,
-    //   filePath: fileImport.path,
-    // });
     this.perfLog("Updated duplicate file");
   };
 
