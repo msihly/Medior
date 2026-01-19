@@ -1,3 +1,4 @@
+import { IconName } from "medior/_generated/client";
 import * as models from "medior/_generated/server/models";
 import { SocketEmitEvent } from "medior/_generated/server/socket";
 import { AnyBulkWriteOperation } from "mongodb";
@@ -891,7 +892,36 @@ export const searchTags = makeAction(
         .limit(30)
     ).map((t) => leanModelToJson<models.TagSchema>(t));
 
-    return tags;
+    const ancestors = (
+      await models.TagModel.find({
+        _id: { $in: objectIds(tags.flatMap((t) => t.ancestorIds)) },
+      })
+        .lean()
+        .select({ _id: 1, ancestorIds: 1, category: 1 })
+    ).map((t) => leanModelToJson<models.TagSchema>(t));
+
+    const tagCategoriesMap = new Map(
+      ancestors.filter((t) => t.category?.inheritable).map((t) => [t.id, t.category]),
+    );
+
+    const getNearestCategory = (tag: models.TagSchema) => {
+      let color: string = tag.category?.color;
+      let icon: IconName = tag.category?.icon;
+      let sortRank: number = tag.category?.sortRank;
+
+      for (const ancestorId of tag.ancestorIds.map(String).filter((id) => id !== tag.id)) {
+        if (tagCategoriesMap.has(ancestorId)) {
+          const category = tagCategoriesMap.get(ancestorId);
+          if (!color) color = category.color;
+          if (!icon) icon = category.icon;
+          if (!sortRank) sortRank = category.sortRank;
+        }
+      }
+
+      return { color, icon, sortRank };
+    };
+
+    return tags.map((t) => ({ ...t, category: { ...t.category, ...getNearestCategory(t) } }));
   },
 );
 

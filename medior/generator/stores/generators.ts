@@ -313,7 +313,7 @@ export const createSearchStore = (def: ModelSearchStore) => {
               let icon: IconName = tag.category?.icon;
               let sortRank: number = tag.category?.sortRank;
 
-              for (const ancestorId of tag.ancestorIds.filter((id) => id !== tag.id)) {
+              for (const ancestorId of tag.ancestorIds.map(String).filter((id) => id !== tag.id)) {
                 if (tagCategoriesMap.has(ancestorId)) {
                   const category = tagCategoriesMap.get(ancestorId);
                   if (!color) color = category.color;
