@@ -150,8 +150,18 @@ export const createImportBatches = makeAction(
       tagIds?: string[];
     }[],
   ) => {
+    const tagMap: { tagIds: string[]; tagIdsWithAncestors: string[] }[] = [];
+
+    for (let i = 0; i < batches.length; i++) {
+      const batch = batches[i];
+      tagMap.push({
+        tagIds: batch.tagIds ? [...new Set(batch.tagIds)].flat() : [],
+        tagIdsWithAncestors: batch.tagIds ? await actions.deriveAncestorTagIds(batch.tagIds) : [],
+      });
+    }
+
     const res = await models.FileImportBatchModel.insertMany(
-      batches.map((batch) => ({
+      batches.map((batch, idx) => ({
         ...batch,
         completedAt: null,
         dateCreated: dayjs().toISOString(),
@@ -159,7 +169,8 @@ export const createImportBatches = makeAction(
         isCompleted: false,
         size: sumArray(batch.imports, (imp) => imp.size),
         startedAt: null,
-        tagIds: batch.tagIds ? [...new Set(batch.tagIds)].flat() : [],
+        tagIds: tagMap[idx].tagIds,
+        tagIdsWithAncestors: tagMap[idx].tagIdsWithAncestors,
       })),
     );
 
