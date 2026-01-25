@@ -2,7 +2,6 @@
 /*                               THIS IS A GENERATED FILE. DO NOT EDIT.
 /* --------------------------------------------------------------------------- */
 import autoBind from "auto-bind";
-import { TagSchema } from "medior/_generated/server/models";
 import { computed } from "mobx";
 import {
   applySnapshot,
@@ -196,35 +195,14 @@ export class _FileCollectionSearch extends Model({
     if (debug) perfLog(`Loaded ${items.length} items`);
 
     const tagIds = [...new Set(items.flatMap((item) => item.tagIdsWithAncestors))];
-    const tags = (await trpc.listTag.mutate({ args: { filter: { id: tagIds } } })).data.items;
+    const tags = (await trpc.listTag.mutate({ filter: { id: tagIds } })).data;
 
-    const tagCategoriesMap = new Map(
-      tags.filter((t) => t.category?.inheritable).map((t) => [t.id, t.category]),
+    items = await Promise.all(
+      items.map(async (item) => ({
+        ...item,
+        tags: await trpc.deriveTagCategories.mutate(tags.filter((t) => item.tagIds.includes(t.id))),
+      })),
     );
-
-    const getNearestCategory = (tag: TagSchema) => {
-      let color: string = tag.category?.color;
-      let icon: IconName = tag.category?.icon;
-      let sortRank: number = tag.category?.sortRank;
-
-      for (const ancestorId of tag.ancestorIds.map(String).filter((id) => id !== tag.id)) {
-        if (tagCategoriesMap.has(ancestorId)) {
-          const category = tagCategoriesMap.get(ancestorId);
-          if (!color) color = category.color;
-          if (!icon) icon = category.icon;
-          if (!sortRank) sortRank = category.sortRank;
-        }
-      }
-
-      return { color, icon, sortRank };
-    };
-
-    items = items.map((item) => ({
-      ...item,
-      tags: tags
-        .filter((t) => item.tagIds.includes(t.id))
-        .map((t) => ({ ...t, category: getNearestCategory(t) })),
-    }));
 
     const results = items;
 
@@ -454,35 +432,14 @@ export class _FileImportBatchSearch extends Model({
     if (debug) perfLog(`Loaded ${items.length} items`);
 
     const tagIds = [...new Set(items.flatMap((item) => item.tagIdsWithAncestors))];
-    const tags = (await trpc.listTag.mutate({ args: { filter: { id: tagIds } } })).data.items;
+    const tags = (await trpc.listTag.mutate({ filter: { id: tagIds } })).data;
 
-    const tagCategoriesMap = new Map(
-      tags.filter((t) => t.category?.inheritable).map((t) => [t.id, t.category]),
+    items = await Promise.all(
+      items.map(async (item) => ({
+        ...item,
+        tags: await trpc.deriveTagCategories.mutate(tags.filter((t) => item.tagIds.includes(t.id))),
+      })),
     );
-
-    const getNearestCategory = (tag: TagSchema) => {
-      let color: string = tag.category?.color;
-      let icon: IconName = tag.category?.icon;
-      let sortRank: number = tag.category?.sortRank;
-
-      for (const ancestorId of tag.ancestorIds.map(String).filter((id) => id !== tag.id)) {
-        if (tagCategoriesMap.has(ancestorId)) {
-          const category = tagCategoriesMap.get(ancestorId);
-          if (!color) color = category.color;
-          if (!icon) icon = category.icon;
-          if (!sortRank) sortRank = category.sortRank;
-        }
-      }
-
-      return { color, icon, sortRank };
-    };
-
-    items = items.map((item) => ({
-      ...item,
-      tags: tags
-        .filter((t) => item.tagIds.includes(t.id))
-        .map((t) => ({ ...t, category: getNearestCategory(t) })),
-    }));
 
     const results = items.map((batch) => ({
       ...batch,
@@ -841,35 +798,14 @@ export class _FileSearch extends Model({
     if (debug) perfLog(`Loaded ${items.length} items`);
 
     const tagIds = [...new Set(items.flatMap((item) => item.tagIdsWithAncestors))];
-    const tags = (await trpc.listTag.mutate({ args: { filter: { id: tagIds } } })).data.items;
+    const tags = (await trpc.listTag.mutate({ filter: { id: tagIds } })).data;
 
-    const tagCategoriesMap = new Map(
-      tags.filter((t) => t.category?.inheritable).map((t) => [t.id, t.category]),
+    items = await Promise.all(
+      items.map(async (item) => ({
+        ...item,
+        tags: await trpc.deriveTagCategories.mutate(tags.filter((t) => item.tagIds.includes(t.id))),
+      })),
     );
-
-    const getNearestCategory = (tag: TagSchema) => {
-      let color: string = tag.category?.color;
-      let icon: IconName = tag.category?.icon;
-      let sortRank: number = tag.category?.sortRank;
-
-      for (const ancestorId of tag.ancestorIds.map(String).filter((id) => id !== tag.id)) {
-        if (tagCategoriesMap.has(ancestorId)) {
-          const category = tagCategoriesMap.get(ancestorId);
-          if (!color) color = category.color;
-          if (!icon) icon = category.icon;
-          if (!sortRank) sortRank = category.sortRank;
-        }
-      }
-
-      return { color, icon, sortRank };
-    };
-
-    items = items.map((item) => ({
-      ...item,
-      tags: tags
-        .filter((t) => item.tagIds.includes(t.id))
-        .map((t) => ({ ...t, category: getNearestCategory(t) })),
-    }));
 
     const results = items;
 

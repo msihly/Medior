@@ -19,9 +19,9 @@ export const MultiTagEditor = Comp(() => {
   useEffect(() => {
     (async () => {
       const res = await trpc.listTag.mutate({
-        args: { filter: { id: stores.tag.manager.search.selectedIds } },
+        filter: { id: stores.tag.manager.search.selectedIds },
       });
-      selectedTags.current = res.data.items.map(tagToOption);
+      selectedTags.current = res.data.map(tagToOption);
     })();
   }, []);
 

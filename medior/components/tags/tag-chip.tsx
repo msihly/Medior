@@ -1,3 +1,4 @@
+import { Badge } from "@mui/material";
 import Color from "color";
 import { TagSchema } from "medior/_generated/server";
 import { Chip, ChipProps, Comp, Icon, IconName, Text, View } from "medior/components";
@@ -25,12 +26,10 @@ export const TagChip = Comp(
     tag,
     ...props
   }: TagChipProps) => {
-    if (!tag) return null;
-
     const stores = useStores();
 
-    color = color || tag.category?.color || colors.custom.grey;
-    icon = icon || (tag.category?.icon as IconName);
+    color = color || tag?.category?.color || colors.custom.grey;
+    icon = icon || (tag?.category?.icon as IconName);
 
     const { css, cx } = useClasses({ color, size });
 
@@ -42,24 +41,39 @@ export const TagChip = Comp(
       }
     };
 
-    return (
-      <Chip
-        {...props}
-        onClick={hasEditor || onClick ? handleClick : null}
-        size={size}
-        className={cx(css.chip, className)}
-        label={
-          <View row align="center">
-            {!icon ? null : (
-              <Icon name={icon} size="1em" margins={{ left: "0.3rem", right: "-0.2rem" }} />
-            )}
-
-            <Text tooltip={tag.label} tooltipProps={{ flexShrink: 1 }} className={css.label}>
-              {tag.label}
-            </Text>
-          </View>
+    return !tag ? null : (
+      <Badge
+        anchorOrigin={{ horizontal: "left", vertical: "top" }}
+        badgeContent={
+          !tag.id ? (
+            <View
+              borderRadiuses={{ all: "50%" }}
+              margins={{ top: "0.2rem", left: "0.4rem" }}
+              bgColor={Color(colors.custom.green).lighten(0.9).hex()}
+            >
+              <Icon name="AddCircle" color={colors.custom.green} size={15} />
+            </View>
+          ) : null
         }
-      />
+      >
+        <Chip
+          {...props}
+          onClick={hasEditor || onClick ? handleClick : null}
+          size={size}
+          className={cx(css.chip, className)}
+          label={
+            <View row align="center">
+              {!icon ? null : (
+                <Icon name={icon} size="1em" margins={{ left: "0.3rem", right: "-0.2rem" }} />
+              )}
+
+              <Text tooltip={tag.label} tooltipProps={{ flexShrink: 1 }} className={css.label}>
+                {tag.label}
+              </Text>
+            </View>
+          }
+        />
+      </Badge>
     );
   },
 );

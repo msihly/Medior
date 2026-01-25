@@ -1030,11 +1030,11 @@ export const _deleteTag = makeAction(
   },
 );
 
-export const listTag = makeAction(
+export const _listTag = makeAction(
   async ({
     args,
     socketOpts,
-  }: { args?: Types.ListTagInput; socketOpts?: SocketEventOptions } = {}) => {
+  }: { args?: Types._ListTagInput; socketOpts?: SocketEventOptions } = {}) => {
     const filter = { ...args.filter };
     if (args.filter?.id) {
       filter._id = Array.isArray(args.filter.id)

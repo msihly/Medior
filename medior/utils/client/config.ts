@@ -205,7 +205,7 @@ export const DEFAULT_CONFIG: Config = {
     manager: {
       search: {
         pageSize: 20,
-        sort: { isDesc: false, key: "dateCreated" },
+        sort: { isDesc: true, key: "dateCreated" },
       },
     },
     withDelimiters: true,

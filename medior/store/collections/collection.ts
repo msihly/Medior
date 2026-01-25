@@ -16,9 +16,9 @@ export class FileCollection extends ExtendedModel(_FileCollection, {
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */
   @modelFlow
   reloadTags = asyncAction(async () => {
-    const res = await trpc.listTag.mutate({ args: { filter: { id: this.tagIds } } });
+    const res = await trpc.listTag.mutate({ filter: { id: this.tagIds } });
     if (!res.success) throw new Error(res.error);
-    this.setTags(res.data.items);
+    this.setTags(res.data);
   });
 
   /* ----------------------------- DYNAMIC GETTERS ---------------------------- */

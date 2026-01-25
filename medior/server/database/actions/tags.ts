@@ -60,6 +60,39 @@ export const deriveDescendantTagIds = async (
   return [...new Set(results.flatMap((result) => result.tagIdsWithDescendants))];
 };
 
+export const deriveTagCategories = async (tags: models.TagSchema[]) => {
+  const ancestors = (
+    await models.TagModel.find({
+      _id: { $in: objectIds(tags.flatMap((t) => t.ancestorIds)) },
+    })
+      .lean()
+      .select({ _id: 1, ancestorIds: 1, category: 1 })
+  ).map((t) => leanModelToJson<models.TagSchema>(t));
+
+  const tagCategoriesMap = new Map(
+    ancestors.filter((t) => t.category?.inheritable).map((t) => [t.id, t.category]),
+  );
+
+  const getNearestCategory = (tag: models.TagSchema) => {
+    let color: string = tag.category?.color;
+    let icon: IconName = tag.category?.icon;
+    let sortRank: number = tag.category?.sortRank;
+
+    for (const ancestorId of tag.ancestorIds.map(String).filter((id) => id !== tag.id)) {
+      if (tagCategoriesMap.has(ancestorId)) {
+        const category = tagCategoriesMap.get(ancestorId);
+        if (!color) color = category.color;
+        if (!icon) icon = category.icon;
+        if (!sortRank) sortRank = category.sortRank;
+      }
+    }
+
+    return { color, icon, sortRank };
+  };
+
+  return tags.map((t) => ({ ...t, category: { ...t.category, ...getNearestCategory(t) } }));
+};
+
 const deriveTagThumb = async (tagId: string): Promise<models.TagSchema["thumb"]> => {
   const file = await models.FileModel.findOne({ tagIdsWithAncestors: tagId })
     .sort({ dateCreated: 1 })
@@ -719,10 +752,9 @@ export const listTagAncestorLabels = makeAction(async ({ id }: { id: string }) =
   ).map((a) => a.label);
 });
 
-export const listTagsByLabels = makeAction(async ({ labels }: { labels: string[] }) => {
-  return (await models.TagModel.find({ label: { $in: labels } }).lean()).map((t) =>
-    leanModelToJson<models.TagSchema>(t),
-  );
+export const listTag = makeAction(async (args: Types._ListTagInput) => {
+  const tags = (await actions._listTag({ args })).data.items;
+  return await deriveTagCategories(tags);
 });
 
 export const mergeTags = makeAction(
@@ -892,36 +924,7 @@ export const searchTags = makeAction(
         .limit(30)
     ).map((t) => leanModelToJson<models.TagSchema>(t));
 
-    const ancestors = (
-      await models.TagModel.find({
-        _id: { $in: objectIds(tags.flatMap((t) => t.ancestorIds)) },
-      })
-        .lean()
-        .select({ _id: 1, ancestorIds: 1, category: 1 })
-    ).map((t) => leanModelToJson<models.TagSchema>(t));
-
-    const tagCategoriesMap = new Map(
-      ancestors.filter((t) => t.category?.inheritable).map((t) => [t.id, t.category]),
-    );
-
-    const getNearestCategory = (tag: models.TagSchema) => {
-      let color: string = tag.category?.color;
-      let icon: IconName = tag.category?.icon;
-      let sortRank: number = tag.category?.sortRank;
-
-      for (const ancestorId of tag.ancestorIds.map(String).filter((id) => id !== tag.id)) {
-        if (tagCategoriesMap.has(ancestorId)) {
-          const category = tagCategoriesMap.get(ancestorId);
-          if (!color) color = category.color;
-          if (!icon) icon = category.icon;
-          if (!sortRank) sortRank = category.sortRank;
-        }
-      }
-
-      return { color, icon, sortRank };
-    };
-
-    return tags.map((t) => ({ ...t, category: { ...t.category, ...getNearestCategory(t) } }));
+    return await deriveTagCategories(tags);
   },
 );
 

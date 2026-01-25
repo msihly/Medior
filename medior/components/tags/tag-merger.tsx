@@ -51,8 +51,7 @@ export const TagMerger = Comp(() => {
       return;
     }
 
-    const tag = (await trpc.listTag.mutate({ args: { filter: { id: selectedTagValue[0].id } } }))
-      .data.items[0];
+    const tag = (await trpc.listTag.mutate({ filter: { id: selectedTagValue[0].id } })).data[0];
 
     const tagToKeep = tag.count > baseTag.count ? tag : baseTag;
     const tagToMerge = !(tag.count > baseTag.count) ? tag : baseTag;
@@ -115,7 +114,7 @@ export const TagMerger = Comp(() => {
     const result = new Set<TagOption>();
     const tagIdsSet = new Set(tagIds);
     const tagIdsToExcludeSet = new Set(tagIdsToExclude);
-    const tags = (await trpc.listTag.mutate({ args: { filter: { id: tagIds } } })).data.items;
+    const tags = (await trpc.listTag.mutate({ filter: { id: tagIds } })).data;
     const tagMap = new Map(tags.map((tag) => [tag.id, tag]));
 
     tagIdsSet.forEach((curId) => {

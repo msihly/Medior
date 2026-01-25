@@ -48,7 +48,7 @@ export class EditorImportsCache {
 
   async getTagById(id: string) {
     if (!this.tagIdCache.has(id)) {
-      const tag = (await this.stores.tag.listByIds({ ids: [id] })).data.items?.[0];
+      const tag = (await this.stores.tag.listByIds({ ids: [id] })).data?.[0];
       if (tag) this.tagIdCache.set(id, tag);
     }
     return this.tagIdCache.get(id);
@@ -256,7 +256,7 @@ export const useImportEditor = (store: Ingester | Reingester) => {
               withRegEx: store.options.withNewTagsToRegEx,
             });
             folderTags.push({ label });
-          } else folderTags.push({ id: tag?.id, label });
+          } else folderTags.push({ ...tag, label });
         }
 
         if (DEBUG) perfLog("Parsed cascading tags");
@@ -265,9 +265,9 @@ export const useImportEditor = (store: Ingester | Reingester) => {
       if (store.options.folderToTagsMode === "hierarchical" && tagLabel) {
         for (const label of delimit(tagLabel)) {
           if (label === collectionTitle) continue;
-          const id = (await cache.current.getTagByLabel(label))?.id;
+          const tag = (await cache.current.getTagByLabel(label));
           const parentLabels = tagParentLabel ? delimit(tagParentLabel) : [];
-          folderTags.push({ id, label, parentLabels });
+          folderTags.push({ ...tag, label, parentLabels });
         }
 
         for (let idx = 0; idx < folderNameParts.length; idx++) {
@@ -285,7 +285,7 @@ export const useImportEditor = (store: Ingester | Reingester) => {
                 withRegEx: store.options.withNewTagsToRegEx,
               });
             else if (tag && !cache.current.tagsToEditMap.has(tag.id))
-              cache.current.tagsToEditMap.set(tag.id, { id: tag.id, label, parentLabels });
+              cache.current.tagsToEditMap.set(tag.id, { ...tag, label, parentLabels });
           }
         }
 

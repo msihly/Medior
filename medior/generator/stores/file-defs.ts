@@ -62,7 +62,6 @@ export const FILE_DEF_STORES: FileDef = {
   makeFile: async () => {
     const makeImports = () =>
       `import autoBind from "auto-bind";
-      import { TagSchema } from "medior/_generated/server/models";
       import { computed } from "mobx";
       import {
         applySnapshot,

@@ -60,21 +60,21 @@ export class TagStore extends Model({
 
   @modelFlow
   getByLabel = asyncAction(async (label: string) => {
-    const res = await trpc.listTagsByLabels.mutate({ labels: [label] });
+    const res = await trpc.listTag.mutate({ filter: { label: { $in: [label] } } });
     if (!res.success) throw new Error(res.error);
     return res.data?.[0];
   });
 
   @modelFlow
   listByIds = asyncAction(async ({ ids }: { ids: string[] }) => {
-    const res = await trpc.listTag.mutate({ args: { filter: { id: ids } } });
+    const res = await trpc.listTag.mutate({ filter: { id: ids } });
     if (!res.success) throw new Error(res.error);
     return res.data;
   });
 
   @modelFlow
   listByLabels = asyncAction(async (labels: string[]) => {
-    const res = await trpc.listTagsByLabels.mutate({ labels });
+    const res = await trpc.listTag.mutate({ filter: { label: { $in: labels } } });
     if (!res.success) throw new Error(res.error);
     return res.data;
   });
@@ -117,10 +117,9 @@ export class TagStore extends Model({
       tagQueue.add(async () => {
         try {
           const parentTagsMap = new Map(
-            (await trpc.listTagsByLabels.mutate({ labels: t.parentLabels })).data.map((t) => [
-              t.label,
-              t,
-            ]),
+            (await trpc.listTag.mutate({ filter: { label: { $in: t.parentLabels } } })).data.map(
+              (t) => [t.label, t],
+            ),
           );
 
           const parentTags: ModelCreationData<Tag>[] = [];
@@ -134,7 +133,7 @@ export class TagStore extends Model({
           const parentIds = parentTags?.map((t) => t.id) ?? [];
 
           if (t.id) {
-            const tag = (await this.listByIds({ ids: [t.id] })).data?.items?.[0];
+            const tag = (await this.listByIds({ ids: [t.id] })).data?.[0];
             if (!parentIds.length || tag.parentIds.some((id) => parentIds.includes(id))) return;
 
             const res = await this.editTag({

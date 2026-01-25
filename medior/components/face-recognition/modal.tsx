@@ -85,7 +85,7 @@ export const FaceRecognitionModal = Comp(() => {
   const fileToDetectedFaces = async (fileFaceModels: ModelCreationData<FaceModel>[]) => {
     try {
       const tagIds = fileFaceModels.map((t) => t.tagId);
-      const tags = (await trpc.listTag.mutate({ args: { filter: { id: tagIds } } })).data.items;
+      const tags = (await trpc.listTag.mutate({ filter: { id: tagIds } })).data;
       const tagMap = new Map<string, TagSchema>(tags.map((t) => [t.id, t]));
 
       const faceModels = fileFaceModels.map((face) => ({
@@ -116,7 +116,7 @@ export const FaceRecognitionModal = Comp(() => {
       const res = await stores.faceRecog.findMatches(file.path);
 
       const tagIds = res.data.map((f) => f.tagId);
-      const tags = (await trpc.listTag.mutate({ args: { filter: { id: tagIds } } })).data.items;
+      const tags = (await trpc.listTag.mutate({ filter: { id: tagIds } })).data;
       const tagMap = new Map<string, TagSchema>(tags.map((t) => [t.id, t]));
 
       const detectedFaces = res.data.map(

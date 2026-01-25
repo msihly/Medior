@@ -2,12 +2,11 @@ import path from "path";
 import { useState } from "react";
 import { FixedSizeList } from "react-window";
 import Color from "color";
-import { Card, Chip, Comp, FlatFolder, IconButton, Text, View } from "medior/components";
+import { Card, Chip, Comp, FlatFolder, IconButton, TagRow, Text, View } from "medior/components";
 import { useStores } from "medior/store";
 import { colors, makeBorderRadiuses, makeClasses } from "medior/utils/client";
 import { Fmt } from "medior/utils/common";
 import { IMPORT_LIST_ITEM_HEIGHT, ImportListItem } from "./import-list-item";
-import { TagHierarchy } from "./tag-hierarchy";
 
 const COLL_HEIGHT = 64;
 const HEADER_HEIGHT = 43;
@@ -39,17 +38,18 @@ export const ImportFolderList = Comp(
 
     const hasCollection = folder?.collectionTitle?.length > 0;
     const hasTags = folder?.tags?.length > 0;
-    const { css } = useClasses({ collapsible, collapsed, hasCollection, hasTags });
+    const height = folder
+      ? getImportFolderHeight({ folder, maxVisibleFiles, withListItems: !collapsed })
+      : null;
+    const totalBytes = folder ? folder.imports.reduce((acc, cur) => acc + cur.size, 0) : null;
 
-    if (!folder) return null;
-    const height = getImportFolderHeight({ folder, maxVisibleFiles, withListItems: !collapsed });
-    const totalBytes = folder.imports.reduce((acc, cur) => acc + cur.size, 0);
+    const { css } = useClasses({ collapsible, collapsed, hasCollection, hasTags });
 
     const deleteBatch = () => stores.import.manager.deleteBatch({ id: batchId });
 
     const toggleCollapsed = () => setCollapsed(!collapsed);
 
-    return (
+    return !folder ? null : (
       <Card
         column
         flex="none"
@@ -97,13 +97,7 @@ export const ImportFolderList = Comp(
           </View>
         )}
 
-        {hasTags && (
-          <View row className={css.tags}>
-            {folder.tags.map((tag) => (
-              <TagHierarchy key={tag.label} tag={tag} className={css.tag} />
-            ))}
-          </View>
-        )}
+        {hasTags && <TagRow tags={folder.tags} className={css.tags} />}
 
         {!collapsed && (
           <View column className={css.list}>
@@ -172,6 +166,7 @@ const useClasses = makeClasses((props: ClassesProps) => ({
     overflow: "hidden",
   },
   collectionTitle: {
+    padding: "0 0.5rem",
     color: colors.custom.lightBlue,
     fontWeight: 500,
     textAlign: "center",
@@ -204,12 +199,9 @@ const useClasses = makeClasses((props: ClassesProps) => ({
     padding: "0 0 0.2rem 0",
     overflowY: "auto",
   },
-  tag: {
-    padding: "0.2rem 0.4rem 0.2rem 0.2rem",
-  },
   tags: {
     alignItems: "center",
-    padding: "0 0.3rem",
+    padding: "0 0.3rem 0 0.5rem",
     borderBottom: !props.collapsed ? `1px solid ${colors.custom.grey}` : undefined,
     height: TAGS_HEIGHT,
     overflowX: "auto",

@@ -78,7 +78,7 @@ export type UpdateFileInput = { id: string; updates: Partial<db.FileSchema> };
 /* ------------------------------------ Tag ----------------------------------- */
 export type _CreateTagInput = Omit<db.TagSchema, "id">;
 export type _DeleteTagInput = { ids: string[] };
-export type ListTagInput = {
+export type _ListTagInput = {
   filter?: _FilterQuery<db.TagSchema>;
   page?: number;
   pageSize?: number;
@@ -246,6 +246,9 @@ export type DeriveAncestorTagIdsOutput = ReturnType<typeof db.deriveAncestorTagI
 export type DeriveDescendantTagIdsInput = Parameters<typeof db.deriveDescendantTagIds>[0];
 export type DeriveDescendantTagIdsOutput = ReturnType<typeof db.deriveDescendantTagIds>;
 
+export type DeriveTagCategoriesInput = Parameters<typeof db.deriveTagCategories>[0];
+export type DeriveTagCategoriesOutput = ReturnType<typeof db.deriveTagCategories>;
+
 export type MakeAncestorIdsMapInput = Parameters<typeof db.makeAncestorIdsMap>[0];
 export type MakeAncestorIdsMapOutput = ReturnType<typeof db.makeAncestorIdsMap>;
 
@@ -279,8 +282,8 @@ export type ListRegExMapsOutput = ReturnType<typeof db.listRegExMaps>;
 export type ListTagAncestorLabelsInput = Parameters<typeof db.listTagAncestorLabels>[0];
 export type ListTagAncestorLabelsOutput = ReturnType<typeof db.listTagAncestorLabels>;
 
-export type ListTagsByLabelsInput = Parameters<typeof db.listTagsByLabels>[0];
-export type ListTagsByLabelsOutput = ReturnType<typeof db.listTagsByLabels>;
+export type ListTagInput = Parameters<typeof db.listTag>[0];
+export type ListTagOutput = ReturnType<typeof db.listTag>;
 
 export type MergeTagsInput = Parameters<typeof db.mergeTags>[0];
 export type MergeTagsOutput = ReturnType<typeof db.mergeTags>;

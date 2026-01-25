@@ -1,4 +1,5 @@
 import { ModelCreationData } from "mobx-keystone";
+import { TagSchema } from "medior/server/database";
 import { FileImport } from "medior/store";
 
 export type FlatFolder = {
@@ -17,6 +18,7 @@ export type FolderToTagsMode = "cascading" | "hierarchical" | "none";
 
 export type TagToUpsert = {
   aliases?: string[];
+  category?: TagSchema["category"];
   children?: TagToUpsert[];
   id?: string;
   label: string;

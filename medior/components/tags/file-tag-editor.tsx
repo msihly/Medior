@@ -108,9 +108,9 @@ export const FileTagEditor = Comp(({ batchId, fileIds }: FileTagEditorProps) => 
       if (!fileRes?.success) throw new Error(fileRes.error);
       const tagIds = [...new Set(fileRes.data.items.flatMap((f) => f.tagIds))];
 
-      const tagRes = await trpc.listTag.mutate({ args: { filter: { id: tagIds } } });
+      const tagRes = await trpc.listTag.mutate({ filter: { id: tagIds } });
       if (!tagRes?.success) throw new Error(tagRes.error);
-      setCurrentTags(tagRes.data.items);
+      setCurrentTags(tagRes.data);
     } catch (error) {
       console.error(error);
       toast.error("Failed to load tags");

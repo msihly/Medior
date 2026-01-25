@@ -94,8 +94,8 @@ export class ImportManager extends Model({
     const tagIds = [
       ...new Set([...batch.tagIds, ...batch.imports.map((imp) => imp.tagIds)].flat()),
     ];
-    const tagRes = await trpc.listTag.mutate({ args: { filter: { id: tagIds } } });
-    const tags = tagRes.data.items;
+    const tagRes = await trpc.listTag.mutate({ filter: { id: tagIds } });
+    const tags = tagRes.data;
 
     this.setActiveBatch(
       new FileImportBatch({

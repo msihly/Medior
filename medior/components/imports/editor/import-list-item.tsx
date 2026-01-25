@@ -47,8 +47,8 @@ export const ImportListItem = Comp(
 
     const handleOpen = async () => {
       try {
-        const res = await trpc.listTag.mutate({ args: { filter: { id: fileImport.tagIds } } });
-        setTags(res.data.items);
+        const res = await trpc.listTag.mutate({ filter: { id: fileImport.tagIds } });
+        setTags(res.data);
       } catch (err) {
         console.error(err);
         toast.error("Error loading tags");

@@ -18,7 +18,7 @@ export const SearchWindow = Comp(() => {
 
     ipcRenderer.on("init", async (_, { tagIds }: { tagIds: string[] }) => {
       try {
-        const tags = (await trpc.listTag.mutate({ args: { filter: { id: tagIds } } })).data.items;
+        const tags = (await trpc.listTag.mutate({ filter: { id: tagIds } })).data;
         stores.file.search.setTags(tags.map(tagToOption));
 
         await stores.file.search.loadFiltered({ page: 1 });

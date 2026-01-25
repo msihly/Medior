@@ -40,7 +40,7 @@ export const TagList = Comp(
         const ids = [
           ...new Set(search.value.map((t) => (t.id === args.oldTagId ? args.newTagId : t.id))),
         ];
-        const newValue = (await stores.tag.listByIds({ ids })).data.items.map(tagToOption);
+        const newValue = (await stores.tag.listByIds({ ids })).data.map(tagToOption);
         search.onChange(newValue);
         rerender();
       };
