@@ -50,6 +50,8 @@ export const ImportsFilterMenu = Comp(
                 flex="none"
               />
 
+              <Input header="File Path" value={store.filePath} setValue={store.setFilePath} />
+
               <Input
                 header="Collection Title"
                 value={store.collectionTitle}

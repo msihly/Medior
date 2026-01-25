@@ -276,6 +276,7 @@ export class _FileImportBatchSearch extends Model({
   dateCreatedEnd: prop<string>("").withSetter(),
   dateCreatedStart: prop<string>("").withSetter(),
   fileCount: prop<{ logOp: LogicalOp | ""; value: number }>(() => ({ logOp: "", value: 0 })),
+  filePath: prop<string>(null).withSetter(),
   forcePages: prop<boolean>(false).withSetter(),
   hasChanges: prop<boolean>(false).withSetter(),
   ids: prop<string[]>(() => []).withSetter(),
@@ -286,7 +287,6 @@ export class _FileImportBatchSearch extends Model({
   pageCount: prop<number>(1).withSetter(),
   pageSize: prop<number>(() => getConfig().imports.manager.search.pageSize).withSetter(),
   results: prop<Stores.FileImportBatch[]>(() => []).withSetter(),
-  rootFolderPath: prop<string>("").withSetter(),
   selectedIds: prop<string[]>(() => []).withSetter(),
   sortValue: prop<SortMenuProps["value"]>(
     () => getConfig().imports.manager.search.sort,
@@ -318,6 +318,7 @@ export class _FileImportBatchSearch extends Model({
     this.dateCreatedEnd = "";
     this.dateCreatedStart = "";
     this.fileCount = { logOp: "", value: 0 };
+    this.filePath = null;
     this.forcePages = false;
     this.hasChanges = false;
     this.ids = [];
@@ -328,7 +329,6 @@ export class _FileImportBatchSearch extends Model({
     this.pageCount = 1;
     this.pageSize = getConfig().imports.manager.search.pageSize;
     this.results = [];
-    this.rootFolderPath = "";
     this.selectedIds = [];
     this.sortValue = getConfig().imports.manager.search.sort;
     this.startedAtEnd = "";
@@ -477,9 +477,9 @@ export class _FileImportBatchSearch extends Model({
       (!isDeepEqual(this.dateCreatedEnd, "") ? 1 : 0) +
       (!isDeepEqual(this.dateCreatedStart, "") ? 1 : 0) +
       (!isDeepEqual(this.fileCount, { logOp: "", value: 0 }) ? 1 : 0) +
+      (!isDeepEqual(this.filePath, null) ? 1 : 0) +
       (!isDeepEqual(this.ids, []) ? 1 : 0) +
       (!isDeepEqual(this.isCompleted, false) ? 1 : 0) +
-      (!isDeepEqual(this.rootFolderPath, "") ? 1 : 0) +
       (!isDeepEqual(this.sortValue, getConfig().imports.manager.search.sort) ? 1 : 0) +
       (!isDeepEqual(this.startedAtEnd, "") ? 1 : 0) +
       (!isDeepEqual(this.startedAtStart, "") ? 1 : 0) +
@@ -496,9 +496,9 @@ export class _FileImportBatchSearch extends Model({
       dateCreatedEnd: this.dateCreatedEnd,
       dateCreatedStart: this.dateCreatedStart,
       fileCount: this.fileCount,
+      filePath: this.filePath,
       ids: this.ids,
       isCompleted: this.isCompleted,
-      rootFolderPath: this.rootFolderPath,
       sortValue: this.sortValue,
       startedAtEnd: this.startedAtEnd,
       startedAtStart: this.startedAtStart,

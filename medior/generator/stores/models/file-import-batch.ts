@@ -21,6 +21,11 @@ model.addProp("collectionTitle", "string", '""', {
   objValue: 'new RegExp(args.collectionTitle, "i")',
 });
 
+model.addProp("filePath", "string", "null", {
+  objPath: ["imports", "$elemMatch", "path", "$regex"],
+  objValue: 'new RegExp(args.filePath, "i")',
+});
+
 model.addProp("isCompleted", "boolean", "false", {
   customActionProps: [
     model.makeCustomActionProp("isCompleted", "boolean", {
@@ -31,11 +36,6 @@ model.addProp("isCompleted", "boolean", "false", {
   ],
   objPath: ["isCompleted"],
   objValue: "args.isCompleted",
-});
-
-model.addProp("rootFolderPath", "string", '""', {
-  objPath: ["rootFolderPath", "$regex"],
-  objValue: 'new RegExp(args.rootFolderPath, "i")',
 });
 
 export const MODEL_SEARCH_STORE_FILE_IMPORT_BATCH = model.getModel();

@@ -167,12 +167,12 @@ export type CreateFileImportBatchFilterPipelineInput = {
   excludedDescTagIds?: string[];
   excludedTagIds?: string[];
   fileCount?: { logOp: LogicalOp | ""; value: number };
+  filePath?: string;
   ids?: string[];
   isCompleted?: boolean;
   optionalTagIds?: string[];
   requiredDescTagIds?: string[];
   requiredTagIds?: string[];
-  rootFolderPath?: string;
   sortValue?: SortMenuProps["value"];
   startedAtEnd?: string;
   startedAtStart?: string;
@@ -195,9 +195,9 @@ export const createFileImportBatchFilterPipeline = (
     setObj($match, ["dateCreated", "$gte"], args.dateCreatedStart);
   if (!isDeepEqual(args.fileCount, { logOp: "", value: 0 }))
     setObj($match, ["fileCount", logicOpsToMongo(args.fileCount.logOp)], args.fileCount.value);
+  if (!isDeepEqual(args.filePath, null))
+    setObj($match, ["imports", "$elemMatch", "path", "$regex"], new RegExp(args.filePath, "i"));
   if (!isDeepEqual(args.ids, [])) setObj($match, ["_id", "$in"], objectIds(args.ids));
-  if (!isDeepEqual(args.rootFolderPath, ""))
-    setObj($match, ["rootFolderPath", "$regex"], new RegExp(args.rootFolderPath, "i"));
   if (!isDeepEqual(args.startedAtEnd, "")) setObj($match, ["startedAt", "$lte"], args.startedAtEnd);
   if (!isDeepEqual(args.startedAtStart, ""))
     setObj($match, ["startedAt", "$gte"], args.startedAtStart);
