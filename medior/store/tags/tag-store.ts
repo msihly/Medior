@@ -116,10 +116,12 @@ export class TagStore extends Model({
     tagsToUpsert.forEach((t) =>
       tagQueue.add(async () => {
         try {
+          const parentTagsRes = (
+            await trpc.listTag.mutate({ filter: { label: { $in: t.parentLabels } } })
+          ).data;
+
           const parentTagsMap = new Map(
-            (await trpc.listTag.mutate({ filter: { label: { $in: t.parentLabels } } })).data.map(
-              (t) => [t.label, t],
-            ),
+            (parentTagsRes?.length ? parentTagsRes : []).map((t) => [t.label, t]),
           );
 
           const parentTags: ModelCreationData<Tag>[] = [];

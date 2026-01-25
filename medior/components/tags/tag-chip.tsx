@@ -11,7 +11,7 @@ const HEIGHT_SMALL = 26;
 export interface TagChipProps extends Omit<ChipProps, "color" | "label" | "onChange" | "onClick"> {
   color?: string;
   hasEditor?: boolean;
-  onClick?: (id: string) => void;
+  onClick?: (id: string | null) => void;
   tag: TagSchema;
 }
 
@@ -34,8 +34,8 @@ export const TagChip = Comp(
     const { css, cx } = useClasses({ color, size });
 
     const handleClick = () => {
-      onClick?.(tag.id);
-      if (hasEditor) {
+      onClick?.(tag.id ?? null);
+      if (hasEditor && tag.id) {
         stores.tag.editor.setIsOpen(true);
         stores.tag.editor.loadTag(tag.id);
       }

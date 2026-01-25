@@ -37,6 +37,11 @@ export class TagEditorStore extends Model({
         else if ((await stores.tag.getByLabel(this.label)).data) this.setIsDuplicate(true);
       },
     );
+
+    reaction(
+      () => this.isOpen,
+      () => !this.isOpen && this.reset(),
+    );
   }
 
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
