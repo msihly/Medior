@@ -265,7 +265,7 @@ export const useImportEditor = (store: Ingester | Reingester) => {
       if (store.options.folderToTagsMode === "hierarchical" && tagLabel) {
         for (const label of delimit(tagLabel)) {
           if (label === collectionTitle) continue;
-          const tag = (await cache.current.getTagByLabel(label));
+          const tag = await cache.current.getTagByLabel(label);
           const parentLabels = tagParentLabel ? delimit(tagParentLabel) : [];
           folderTags.push({ ...tag, label, parentLabels });
         }

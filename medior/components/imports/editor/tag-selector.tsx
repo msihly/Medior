@@ -1,5 +1,5 @@
 import path from "path";
-import { Card, Comp, ImportEditor, Text, View } from "medior/components";
+import { Card, Comp, ImportEditor, sortTags, Text, View } from "medior/components";
 import { ImportEditorOptions, Ingester, Reingester } from "medior/store";
 import { makeClasses } from "medior/utils/client";
 
@@ -30,7 +30,7 @@ export const TagSelector = Comp(({ options, store }: TagSelectorProps) => {
       </View>
 
       <View className={css.tags}>
-        {store.tagHierarchy.map((t) => (
+        {sortTags(store.tagHierarchy).map((t) => (
           <ImportEditor.TagHierarchy key={t.label} tag={t} />
         ))}
       </View>

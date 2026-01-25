@@ -20,6 +20,7 @@ export type TagToUpsert = {
   aliases?: string[];
   category?: TagSchema["category"];
   children?: TagToUpsert[];
+  count?: number;
   id?: string;
   label: string;
   parentLabels?: string[];
