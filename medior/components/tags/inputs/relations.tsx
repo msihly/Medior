@@ -16,7 +16,6 @@ export const Relations = Comp(
     value,
     ...tagInputProps
   }: RelationsProps) => {
-    // TOOD: Show ancestry / descendants below input with a toggle button in header
     return (
       <TagInput
         {...{ value }}

@@ -28,6 +28,8 @@ model.addProp("rating", "number", {
   sort: { icon: "Star", label: "Rating" },
 });
 
+model.addProp("ratingIsManual", "boolean");
+
 model.addIndex({ tagIds: 1, _id: 1 });
 model.addProp("tagIds", "Tag.id[]", {
   defaultValue: "[]",

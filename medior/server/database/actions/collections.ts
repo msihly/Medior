@@ -219,6 +219,7 @@ export const regenCollTagAncestors = makeAction(
 
 export const updateCollection = makeAction(
   async (updates: Omit<Partial<models.FileCollectionSchema>, "tagIds"> & { id: string }) => {
+    const coll = await models.FileCollectionModel.findOne({ _id: updates.id });
     updates.dateModified = dayjs().toISOString();
 
     if (updates.fileIdIndexes) {
@@ -232,11 +233,21 @@ export const updateCollection = makeAction(
         .filter((f) => fileMap.has(String(f.fileId)))
         .map((f, i) => ({ fileId: f.fileId, index: i }));
 
+      const newAttrs = await makeCollAttrs(files, newFileIndexes);
       updates = {
         ...updates,
+        ...newAttrs,
         fileIdIndexes: newFileIndexes,
-        ...(await makeCollAttrs(files, newFileIndexes)),
+        rating: updates.ratingIsManual ? updates.rating : newAttrs.rating,
       };
+    } else if (!updates.ratingIsManual && coll.ratingIsManual) {
+      const fileIds = coll.fileIdIndexes.map((f) => f.fileId);
+      const filesRes = await actions.listFile({ args: { filter: { id: fileIds } } });
+      if (!filesRes.success) throw new Error(filesRes.error);
+      const files = filesRes.data.items;
+
+      const newAttrs = await makeCollAttrs(files, coll.fileIdIndexes);
+      updates = { ...updates, ...newAttrs };
     }
 
     const res = await models.FileCollectionModel.updateOne({ _id: updates.id }, updates, {

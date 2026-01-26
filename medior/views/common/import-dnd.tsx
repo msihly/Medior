@@ -3,7 +3,7 @@ import { Comp, View } from "medior/components";
 import { handleIngest, useStores } from "medior/store";
 import { colors, makeClasses } from "medior/utils/client";
 
-export const ImportDnD = Comp(({ children }) => {
+export const ImportDnD = Comp(({ children }: { children: JSX.Element | JSX.Element[] }) => {
   const { css } = useClasses(null);
 
   const stores = useStores();

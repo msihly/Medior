@@ -1,7 +1,6 @@
 import { Badge } from "@mui/material";
 import Color from "color";
-import { TagSchema } from "medior/_generated/server";
-import { Chip, ChipProps, Comp, Icon, IconName, Text, View } from "medior/components";
+import { Chip, ChipProps, Comp, Icon, IconName, TagToUpsert, Text, View } from "medior/components";
 import { useStores } from "medior/store";
 import { colors, makeClasses } from "medior/utils/client";
 
@@ -12,7 +11,7 @@ export interface TagChipProps extends Omit<ChipProps, "color" | "label" | "onCha
   color?: string;
   hasEditor?: boolean;
   onClick?: (id: string | null) => void;
-  tag: TagSchema;
+  tag: TagToUpsert;
 }
 
 export const TagChip = Comp(

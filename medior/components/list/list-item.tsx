@@ -1,4 +1,4 @@
-import { ReactNode } from "react";
+import { MouseEvent, ReactNode } from "react";
 import {
   // eslint-disable-next-line @typescript-eslint/no-restricted-imports
   ListItem as MuiListItem,
@@ -19,7 +19,7 @@ export interface ListItemProps extends Omit<MuiListItemProps, "children"> {
   iconEnd?: IconName;
   iconEndMargins?: Margins;
   iconMargins?: Margins;
-  onClick?: () => void;
+  onClick?: (event?: MouseEvent) => void;
   text: ReactNode;
 }
 
@@ -41,7 +41,7 @@ export const ListItem = ({
   iconMargins = { ...DEFAULT_ICON_MARGINS, ...iconMargins };
   iconEndMargins = { ...DEFAULT_ICON_END_MARGINS, ...iconEndMargins };
 
-  const { css } = useClasses({ color });
+  const { css, cx } = useClasses({ color });
 
   return (
     <TooltipWrapper
@@ -54,8 +54,13 @@ export const ListItem = ({
         PopperProps: { className: css.tooltipPopper },
       }}
     >
-      {/* @ts-expect-error */}
-      <MuiListItem onClick={onClick} button={Boolean(onClick)} className={css.root} {...props}>
+      <MuiListItem
+        // @ts-expect-error
+        button={Boolean(onClick)}
+        onClick={onClick}
+        className={cx(css.root, props.className)}
+        {...props}
+      >
         {icon && (
           <ListItemIcon className={css.icon}>
             <Icon {...iconProps} name={icon} margins={iconMargins} />
@@ -83,7 +88,10 @@ const useClasses = makeClasses((props: ClassesProps) => ({
     minWidth: 0,
   },
   root: {
-    padding: "0.5rem 1rem",
+    padding: "0.1rem 0.8rem",
+    "&:not(:last-child)": {
+      borderBottom: `1px solid ${colors.custom.darkGrey}`,
+    },
   },
   text: {
     color: props.color,

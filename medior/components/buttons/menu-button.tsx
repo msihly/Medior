@@ -6,7 +6,7 @@ import { colors, CSS, makeClasses } from "medior/utils/client";
 
 export interface MenuButtonProps extends IconButtonProps {
   bgColor?: CSS["backgroundColor"];
-  button?: (onOpen: (event: MouseEvent<HTMLButtonElement>) => void) => ReactNode;
+  button?: (onOpen: (event: MouseEvent) => void) => ReactNode;
   children: ReactNode;
   color?: string;
   icon?: IconName;
@@ -30,7 +30,7 @@ export const MenuButton = ({
 
   const handleClose = () => setAnchorEl(null);
 
-  const handleOpen = (event: MouseEvent<HTMLButtonElement>) => {
+  const handleOpen = (event: MouseEvent) => {
     event.stopPropagation();
     setAnchorEl(event.currentTarget);
   };
@@ -66,8 +66,11 @@ const useClasses = makeClasses((props: ClassesProps) => ({
   menu: {
     "& .MuiPaper-root": {
       background: props.bgColor,
-      minWidth: "10rem",
+      minWidth: props.menuWidth ?? "10rem",
       width: props.menuWidth,
+    },
+    "& .MuiList-root": {
+      padding: "4px 0",
     },
   },
 }));

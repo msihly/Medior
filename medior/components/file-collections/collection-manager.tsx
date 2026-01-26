@@ -97,7 +97,7 @@ export const FileCollectionManager = Comp(() => {
 
   const handleDeleteDuplicates = () => stores.collection.deleteDuplicates();
 
-  const handleRefreshMeta = () => stores.collection.regenAllCollMeta();
+  const handleRefreshMeta = () => stores.collection.regenCollMeta(store.search.selectedIds);
 
   const handleNewCollection = async () => {
     const res = await stores.collection.createCollection({
@@ -159,7 +159,7 @@ export const FileCollectionManager = Comp(() => {
                 {store.currentCollections.length ? (
                   <CardGrid
                     cards={store.currentCollections.map((c) => (
-                      <FileCollection key={c.id} collection={c} height={FILE_CARD_HEIGHT} />
+                      <FileCollection key={c.id} collection={c} />
                     ))}
                     maxCards={5}
                     height={FILE_CARD_HEIGHT + 50}
@@ -201,11 +201,16 @@ export const FileCollectionManager = Comp(() => {
                     onClick={handleDelete}
                     disabled={!hasSelectedCollectionIds}
                   />
+
+                  <MultiActionButton
+                    name="Refresh"
+                    tooltip="Refresh"
+                    onClick={handleRefreshMeta}
+                    disabled={!hasSelectedCollectionIds}
+                  />
                 </View>
 
                 <MenuButton color={colors.custom.grey}>
-                  <ListItem text="Refresh Metadata" icon="Refresh" onClick={handleRefreshMeta} />
-
                   <ListItem
                     text="Delete Empty"
                     icon="Delete"

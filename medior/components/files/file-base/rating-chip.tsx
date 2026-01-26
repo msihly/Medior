@@ -18,17 +18,18 @@ export const getRatingMeta = (rating: number) => {
 };
 
 interface RatingChipProps extends Omit<ChipProps, "label"> {
+  noHide?: boolean;
   rating: number;
 }
 
-export const RatingChip = ({ rating, ...props }: RatingChipProps) => {
+export const RatingChip = ({ noHide = false, rating, ...props }: RatingChipProps) => {
   const config = getConfig();
 
   const { icon, iconColor, textShadow } = getRatingMeta(rating);
 
   const { css } = useClasses({ textShadow });
 
-  return rating > 0 || !config.file.hideUnratedIcon ? (
+  return noHide || rating > 0 || !config.file.hideUnratedIcon ? (
     <Chip
       {...{ icon, iconColor }}
       label={rating}

@@ -36,6 +36,7 @@ export interface FileCollectionSchema {
   fileCount: number;
   fileIdIndexes: Array<{ fileId: string; index: number }>;
   rating: number;
+  ratingIsManual?: boolean;
   tagIds: string[];
   tagIdsWithAncestors: string[];
   title: string;
@@ -48,6 +49,7 @@ const FileCollectionSchema = new Schema<FileCollectionSchema>({
   fileCount: Number,
   fileIdIndexes: [{ fileId: Schema.Types.ObjectId, index: Number }],
   rating: Number,
+  ratingIsManual: Boolean,
   tagIds: [{ type: Schema.Types.ObjectId, ref: "Tag" }],
   tagIdsWithAncestors: [{ type: Schema.Types.ObjectId, ref: "Tag" }],
   title: String,

@@ -107,13 +107,17 @@ export class FileImporter {
   };
 
   private deleteOriginal = async () => {
-    await deleteFile(this.originalPath, this.getFilePath());
-    this.perfLog("Deleted original file");
+    const deletedOriginal = await deleteFile(this.originalPath, this.getFilePath());
+    if (deletedOriginal) this.perfLog("Deleted original file");
+    else console.error("Failed to delete original file", this.originalPath);
 
     if (this.diffParams?.length > 0) {
-      await deleteFile(extendFileName(this.originalPath, "txt"));
-      this.perfLog("Deleted diffusion params file");
+      const deletedDiff = await deleteFile(extendFileName(this.originalPath, "txt"));
+      if (deletedDiff) this.perfLog("Deleted diffusion params file");
     }
+
+    const deletedSidecar = await deleteFile(extendFileName(this.originalPath, "json"));
+    if (deletedSidecar) this.perfLog("Deleted sidecar file");
   };
 
   private getIsIgnored = () => {

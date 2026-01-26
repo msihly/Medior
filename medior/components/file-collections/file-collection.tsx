@@ -1,4 +1,3 @@
-import { round } from "es-toolkit";
 import {
   Card,
   Chip,
@@ -7,7 +6,7 @@ import {
   Divider,
   FileBase,
   FileCard,
-  getRatingMeta,
+  RatingButton,
   TagRow,
   Text,
   View,
@@ -23,9 +22,6 @@ export const FileCollection = Comp(({ collection }: FileCollectionProps) => {
   const stores = useStores();
   const store = stores.collection.manager;
 
-  const rating = round(collection.rating, 1);
-  const ratingMeta = getRatingMeta(rating);
-
   const handleClick = async (event: React.MouseEvent) => {
     const res = await store.search.handleSelect({
       hasCtrl: event.ctrlKey,
@@ -39,6 +35,9 @@ export const FileCollection = Comp(({ collection }: FileCollectionProps) => {
     await stores.collection.editor.loadCollection(collection.id);
     stores.collection.setIsConfirmDeleteOpen(true);
   };
+
+  const handleRating = (rating: number) =>
+    stores.collection.updateCollRating({ id: collection.id, rating });
 
   const handleRefreshMeta = () => stores.collection.regenCollMeta([collection.id]);
 
@@ -82,12 +81,7 @@ export const FileCollection = Comp(({ collection }: FileCollectionProps) => {
                 <View row align="center" spacing="0.5rem">
                   <Chip label={`${collection.fileCount} files`} height="1.5em" />
 
-                  <Chip
-                    label={rating}
-                    icon={ratingMeta.icon}
-                    iconColor={ratingMeta.iconColor}
-                    height="1.5em"
-                  />
+                  <RatingButton rating={collection.rating} setRating={handleRating} />
                 </View>
               </View>
 

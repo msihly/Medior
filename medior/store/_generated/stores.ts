@@ -1225,6 +1225,7 @@ export class _FileCollection extends Model({
   fileCount: prop<number>(0),
   fileIdIndexes: prop<Array<{ fileId: string; index: number }>>(),
   rating: prop<number>(0),
+  ratingIsManual: prop<boolean>(null),
   tagIds: prop<string[]>(() => []),
   tagIdsWithAncestors: prop<string[]>(() => []),
   title: prop<string>(),

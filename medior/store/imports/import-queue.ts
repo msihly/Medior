@@ -403,19 +403,22 @@ export const useImportEditor = (store: Ingester | Reingester) => {
 
     for (const imp of folder.imports) {
       const tagIds = await getIdsFromTags(imp.tagsToUpsert, imp.tagIds);
+      imports.push({ ...imp, tagIds });
+
       if (tagIds.length !== (imp.tagsToUpsert?.length ?? 0) + (imp.tagIds?.length ?? 0)) {
         console.debug({
+          message: "Failed to get tagIds from file tags",
+          filePath: imp.path,
           tagIds,
-          fileTagsToUpsert: Fmt.jstr(imp.tagsToUpsert),
-          fileTagIds: Fmt.jstr(imp.tagIds),
+          fileTagsToUpsert: JSON.parse(JSON.stringify(imp.tagsToUpsert)),
+          fileTagIds: JSON.parse(JSON.stringify(imp.tagIds)),
         });
-        throw new Error("Failed to get tagIds from file tags");
-      } else imports.push({ ...imp, tagIds });
+      }
     }
 
     const tagIds = await getIdsFromTags(folder.tags);
     if (tagIds.length !== folder.tags?.length) {
-      console.debug({ tagIds, folderTags: Fmt.jstr(folder.tags) });
+      console.debug({ tagIds, folderTags: JSON.parse(JSON.stringify(folder.tags)) });
       throw new Error("Failed to get tagIds from folder tags");
     }
 

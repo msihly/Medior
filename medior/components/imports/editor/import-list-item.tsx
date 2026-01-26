@@ -23,7 +23,6 @@ import { FileImport } from "medior/store";
 import { colors, makeClasses, toast } from "medior/utils/client";
 import { Fmt, parseDiffParams } from "medior/utils/common";
 import { trpc } from "medior/utils/server";
-import { TagHierarchy } from "./tag-hierarchy";
 
 export const IMPORT_LIST_ITEM_HEIGHT = 30;
 
@@ -95,13 +94,7 @@ export const ImportListItem = Comp(
               enterDelay={700}
               enterNextDelay={300}
             >
-              <TagRow tags={tags} />
-
-              <View className={css.tagRow}>
-                {fileImport.tagsToUpsert.map((tag) => (
-                  <TagHierarchy key={tag.label} tag={tag} />
-                ))}
-              </View>
+              <TagRow tags={[...tags, ...fileImport.tagsToUpsert]} padding={{ all: "0.5rem" }} />
             </TooltipChip>
           )}
 
@@ -193,7 +186,12 @@ const TooltipChip = ({ children, icon, label, ...tooltipProps }: TooltipChipProp
           {children}
         </View>
       }
-      tooltipProps={{ maxWidth: "40rem", minWidth: "15rem", placement: "left", ...tooltipProps }}
+      tooltipProps={{
+        maxWidth: "40rem",
+        minWidth: "15rem",
+        placement: "left-start",
+        ...tooltipProps,
+      }}
     >
       <Chip {...{ icon, label }} bgColor={colors.custom.blue} className={css.chip} />
     </TooltipWrapper>
@@ -221,11 +219,6 @@ const useClasses = makeClasses({
     alignItems: "center",
     justifyContent: "space-between",
     padding: "0 0.5rem",
-  },
-  tagRow: {
-    display: "flex",
-    flexFlow: "row wrap",
-    justifyContent: "center",
   },
   tooltipTitle: {
     marginBottom: "0.2rem",

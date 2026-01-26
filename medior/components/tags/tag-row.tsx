@@ -1,4 +1,3 @@
-import { TagSchema } from "medior/_generated/server";
 import { Comp, TagChip, TagToUpsert, View, ViewProps } from "medior/components";
 
 export const sortTags = (tags: TagToUpsert[]) =>
@@ -17,7 +16,7 @@ export const sortTags = (tags: TagToUpsert[]) =>
 
 export interface TagRowProps extends ViewProps {
   disabled?: boolean;
-  tags: TagSchema[];
+  tags: TagToUpsert[];
 }
 
 export const TagRow = Comp((props: TagRowProps) => {
