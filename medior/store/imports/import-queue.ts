@@ -441,7 +441,6 @@ export const useImportEditor = (store: Ingester | Reingester) => {
           .slice(0, store.rootFolderIndex + 1)
           .join(path.sep),
         tagIds,
-        remux: store.options.withRemux,
       });
     }
 
@@ -733,7 +732,6 @@ export const useImportEditor = (store: Ingester | Reingester) => {
 
       store.options.setDeleteOnImport(false);
       store.options.setIgnorePrevDeleted(false);
-      store.options.setWithRemux(false);
       stores.import.reingester.setTagIds(
         (await createFolderTagIds(stores.import.reingester.getCurFolder())).tagIds,
       );

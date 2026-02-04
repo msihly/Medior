@@ -11,7 +11,7 @@ import {
 import { _FileStore } from "medior/store/_generated";
 import * as db from "medior/server/database";
 import { asyncAction, FaceModel, FileImporter, RootStore } from "medior/store";
-import { getConfig, makeQueue, toast } from "medior/utils/client";
+import { makeQueue, toast } from "medior/utils/client";
 import { PromiseQueue, splitArray } from "medior/utils/common";
 import { trpc } from "medior/utils/server";
 import { File, FileSearch, FileTagsEditorStore, VideoTransformerStore } from ".";
@@ -139,50 +139,38 @@ export class FileStore extends ExtendedModel(_FileStore, {
   );
 
   @modelFlow
-  refreshFiles = asyncAction(
-    async (args: { ids: string[]; remuxOnly?: boolean; withRemux?: boolean }) => {
-      const stores = getRootStore<RootStore>(this);
+  refreshFiles = asyncAction(async (args: { ids: string[] }) => {
+    const stores = getRootStore<RootStore>(this);
 
-      const filesRes = await trpc.listFile.mutate({
-        args: {
-          filter: {
-            id: args.ids,
-            ...(args.remuxOnly
-              ? { ext: { $in: getConfig().file.remuxTypes.toMp4.map(String) } }
-              : {}),
-          },
-        },
-      });
-      if (!filesRes?.success) throw new Error("Failed to load files");
-      const files = filesRes.data.items;
+    const filesRes = await trpc.listFile.mutate({ args: { filter: { id: args.ids } } });
+    if (!filesRes?.success) throw new Error("Failed to load files");
+    const files = filesRes.data.items;
 
-      await makeQueue({
-        action: async (file) => {
-          const importer = new FileImporter({
-            deleteOnImport: false,
-            ext: file.ext,
-            ignorePrevDeleted: false,
-            originalName: file.originalName,
-            originalPath: file.path,
-            size: file.size,
-            tagIds: file.tagIds,
-            withRemux: args.remuxOnly || args.withRemux,
-          });
+    await makeQueue({
+      action: async (file) => {
+        const importer = new FileImporter({
+          deleteOnImport: false,
+          ext: file.ext,
+          ignorePrevDeleted: false,
+          originalName: file.originalName,
+          originalPath: file.path,
+          size: file.size,
+          tagIds: file.tagIds,
+        });
 
-          const res = await importer.refresh(file);
-          if (!res.success) throw new Error(res.error);
-        },
-        items: files,
-        logPrefix: args.remuxOnly || args.withRemux ? "Remuxed" : "Refreshed",
-        logSuffix: "files",
-        onComplete: () =>
-          stores.collection.editor.isOpen
-            ? stores.collection.editor.search.loadFiltered()
-            : this.search.loadFiltered(),
-        queue: this.refreshQueue,
-      });
-    },
-  );
+        const res = await importer.refresh(file);
+        if (!res.success) throw new Error(res.error);
+      },
+      items: files,
+      logPrefix: "Refreshed",
+      logSuffix: "files",
+      onComplete: () =>
+        stores.collection.editor.isOpen
+          ? stores.collection.editor.search.loadFiltered()
+          : this.search.loadFiltered(),
+      queue: this.refreshQueue,
+    });
+  });
 
   @modelFlow
   setFileRating = asyncAction(async ({ fileIds = [], rating }: db.SetFileRatingInput) => {

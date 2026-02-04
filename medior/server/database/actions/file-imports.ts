@@ -145,7 +145,6 @@ export const createImportBatches = makeAction(
       deleteOnImport: boolean;
       ignorePrevDeleted: boolean;
       imports: ModelCreationData<FileImport>[];
-      remux: boolean;
       rootFolderPath: string;
       tagIds?: string[];
     }[],
@@ -278,7 +277,6 @@ export const runImportBatch = makeAction(async (args: { id: string }) => {
         originalPath: fileImport.path,
         size: fileImport.size,
         tagIds: [...new Set([...batch.tagIds, ...fileImport.tagIds].flat())],
-        withRemux: batch.remux,
       });
 
       const copyRes = await importer.import();

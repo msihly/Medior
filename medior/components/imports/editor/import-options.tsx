@@ -189,15 +189,6 @@ export const ImportOptions = Comp(({ scan, store }: ImportOptionsProps) => {
           />
         </View>
       </View>
-
-      <Divider />
-
-      <Checkbox
-        {...checkboxProps}
-        label="Remux to MP4"
-        checked={options.withRemux}
-        setChecked={options.setWithRemux}
-      />
     </>
   );
 });

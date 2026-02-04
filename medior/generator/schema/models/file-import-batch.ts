@@ -61,8 +61,6 @@ model.addProp("isCompleted", "boolean", {
   required: true,
 });
 
-model.addProp("remux", "boolean");
-
 model.addIndex({ rootFolderPath: 1, _id: 1 });
 model.addProp("rootFolderPath", "string", { required: true });
 

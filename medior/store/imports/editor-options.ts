@@ -19,7 +19,6 @@ export class ImportEditorOptions extends Model({
   withFlattenTo: prop<boolean>(false).withSetter(),
   withFolderNameRegEx: prop<boolean>(false).withSetter(),
   withNewTagsToRegEx: prop<boolean>(false).withSetter(),
-  withRemux: prop<boolean>(false).withSetter(),
   withSidecar: prop<boolean>(false).withSetter(),
 }) {
   onInit() {
@@ -45,7 +44,6 @@ export class ImportEditorOptions extends Model({
     this.setWithFlattenTo(false);
     this.setWithFolderNameRegEx(config.imports.withFolderNameRegEx);
     this.setWithNewTagsToRegEx(config.imports.withNewTagsToRegEx);
-    this.setWithRemux(false);
     this.setWithSidecar(false);
   }
 

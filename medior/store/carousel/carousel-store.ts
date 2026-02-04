@@ -102,7 +102,6 @@ export class CarouselStore extends Model({
       originalPath: filePath,
       size,
       tagIds: activeFile.tagIds,
-      withRemux: false,
     });
     const res = await importer.import();
     if (!res.success) throw new Error(res.error);

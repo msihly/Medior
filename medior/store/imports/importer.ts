@@ -7,10 +7,9 @@ import {
   extendFileName,
   genFileInfo,
   getAvailableFileStorage,
-  getIsRemuxable,
 } from "medior/utils/client";
 import { dayjs, handleErrors } from "medior/utils/common";
-import { checkFileExists, fileLog, makePerfLog, remux, trpc } from "medior/utils/server";
+import { checkFileExists, fileLog, makePerfLog, trpc } from "medior/utils/server";
 
 const DEBUG = false;
 
@@ -35,7 +34,6 @@ export class FileImporter {
   private originalPath: string;
   private size: number;
   private tagIds: string[];
-  private withRemux: boolean;
 
   constructor(args: {
     dateCreated?: string;
@@ -46,7 +44,6 @@ export class FileImporter {
     originalPath: string;
     size: number;
     tagIds: string[];
-    withRemux: boolean;
   }) {
     (this.dateCreated = args.dateCreated ?? dayjs().toISOString()),
       (this.deleteOnImport = args.deleteOnImport);
@@ -56,7 +53,6 @@ export class FileImporter {
     this.originalPath = args.originalPath;
     this.size = args.size;
     this.tagIds = args.tagIds;
-    this.withRemux = args.withRemux;
 
     const perf = makePerfLog("[FileImporter]");
     this.perfLog = (msg) => DEBUG && perf.perfLog(msg);
@@ -134,14 +130,6 @@ export class FileImporter {
     this.perfLog(`Hashed file: ${this.hash}`);
   };
 
-  private remux = async () => {
-    const remuxed = await remux(this.originalPath, targetDir);
-    if (this.deleteOnImport) await deleteFile(this.originalPath);
-    this.perfLog(`Remuxed to MP4: ${remuxed.path}`);
-    this.ext = "mp4";
-    this.hash = remuxed.hash;
-  };
-
   private setTargetDir = async () => {
     this.perfLog(`Available bytes: ${targetDirBytesLeft}. File bytes: ${this.size}.`);
 
@@ -182,11 +170,10 @@ export class FileImporter {
     }
 
     try {
-      if (this.withRemux && getIsRemuxable(this.ext)) await this.remux();
       await this.checkHash();
     } catch (err) {
       this.perfLogTotal("Failed to import file.");
-      console.error(`Error remuxing / checking hash ${this.originalPath}:`, err.stack);
+      console.error(`Error checking hash ${this.originalPath}:`, err.stack);
       return { success: false, error: err.message, status: "ERROR" };
     }
 
@@ -237,23 +224,6 @@ export class FileImporter {
       this.file = file;
       this.hash = file.hash;
       this.originalPath = file.path;
-
-      if (this.withRemux && getIsRemuxable(this.ext)) {
-        this.deleteOnImport = true;
-        await this.remux();
-        await this.checkHash();
-
-        if (this.isDuplicate) {
-          const res = await trpc.updateFile.mutate({
-            args: {
-              id: this.file.id,
-              updates: { ...this.file, hash: file.hash, isArchived: true },
-            },
-          });
-          if (!res.success) throw new Error(res.error);
-          return { success: true, status: "DUPLICATE" };
-        }
-      }
 
       this.file = {
         ...this.file,
