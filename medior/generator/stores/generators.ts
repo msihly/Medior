@@ -84,31 +84,42 @@ export class ModelStore {
     return this.addProp("tags", "Stores.TagOption[]", "() => []", {
       filterTransform:
         "...getRootStore<Stores.RootStore>(this)?.tag?.tagSearchOptsToIds(this.tags)",
+      noInterface: true,
       customActionProps: [
-        this.makeCustomActionProp("excludedDescTagIds", "string[]", {
+        this.makeCustomActionProp({
           condition: "args.excludedDescTagIds?.length",
+          name: "excludedDescTagIds",
           objPath: [ancestorsName, "$nin"],
           objValue: "objectIds(args.excludedDescTagIds)",
+          type: "string[]",
         }),
-        this.makeCustomActionProp("excludedTagIds", "string[]", {
+        this.makeCustomActionProp({
           condition: "args.excludedTagIds?.length",
+          name: "excludedTagIds",
           objPath: [idName, "$nin"],
           objValue: "objectIds(args.excludedTagIds)",
+          type: "string[]",
         }),
-        this.makeCustomActionProp("optionalTagIds", "string[]", {
+        this.makeCustomActionProp({
           condition: "args.optionalTagIds?.length",
+          name: "optionalTagIds",
           objPath: [idName, "$in"],
           objValue: "objectIds(args.optionalTagIds)",
+          type: "string[]",
         }),
-        this.makeCustomActionProp("requiredDescTagIds", "string[]", {
+        this.makeCustomActionProp({
           condition: "args.requiredDescTagIds?.length",
+          name: "requiredDescTagIds",
           objPath: [ancestorsName, "$all"],
           objValue: "objectIds(args.requiredDescTagIds)",
+          type: "string[]",
         }),
-        this.makeCustomActionProp("requiredTagIds", "string[]", {
+        this.makeCustomActionProp({
           condition: "args.requiredTagIds?.length",
+          name: "requiredTagIds",
           objPath: [idName, "$all"],
           objValue: "objectIds(args.requiredTagIds)",
+          type: "string[]",
         }),
       ],
     });
@@ -123,12 +134,8 @@ export class ModelStore {
     };
   }
 
-  public makeCustomActionProp(
-    name: string,
-    type: string,
-    args: Omit<ModelSearchProp["customActionProps"][number], "name" | "type">,
-  ) {
-    return { ...args, name, type };
+  public makeCustomActionProp(args: ModelSearchProp["customActionProps"][number]) {
+    return { ...args };
   }
 
   public makeProp(

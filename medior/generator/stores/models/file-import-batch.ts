@@ -28,7 +28,7 @@ model.addProp("filePath", "string", "null", {
 
 model.addProp("isCompleted", "boolean", "false", {
   customActionProps: [
-    model.makeCustomActionProp("isCompleted", "boolean", {
+    model.makeCustomActionProp({
       condition: "true",
       objPath: ["isCompleted"],
       objValue: "args.isCompleted",

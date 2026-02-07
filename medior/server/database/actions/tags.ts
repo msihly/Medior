@@ -501,6 +501,7 @@ export const editTag = makeAction(
     childIds,
     id,
     parentIds,
+    withRegen = true,
     withSub = true,
     ...updates
   }: Partial<Types.CreateTagInput> & { id: string }) => {
@@ -553,7 +554,7 @@ export const editTag = makeAction(
 
     const res = await models.TagModel.bulkWrite(operations);
 
-    if (changedTagIds.length > 0) {
+    if (changedTagIds.length > 0 && withRegen) {
       await regenTagAncestors({ tagIds: changedTagIds, withSub });
 
       await Promise.all([
@@ -769,8 +770,6 @@ export const mergeTags = makeAction(
       | "descendantIds"
       | "lastSearchedAt"
       | "thumb"
-      | "withRegen"
-      | "withSub"
     > & {
       tagIdToKeep: string;
       tagIdToMerge: string;
@@ -846,36 +845,45 @@ export const mergeTags = makeAction(
         { updateOne: { filter: { _id: _tagIdToKeep }, update: { $set: tagToKeepUpdates } } },
       ]);
 
-      await regenTagAncestors({ tagIds: [args.tagIdToKeep, ...tagIdsToUpdate] });
+      if (args.withRegen) {
+        await regenTagAncestors({ tagIds: [args.tagIdToKeep, ...tagIdsToUpdate] });
 
-      await Promise.all([
-        actions.regenCollTagAncestors({ tagIds: [args.tagIdToKeep] }),
-        actions.regenFileTagAncestors({ tagIds: [args.tagIdToKeep] }),
-      ]);
+        await Promise.all([
+          actions.regenCollTagAncestors({ tagIds: [args.tagIdToKeep] }),
+          actions.regenFileTagAncestors({ tagIds: [args.tagIdToKeep] }),
+          regenTagThumbPaths({ tagId: args.tagIdToKeep }),
+        ]);
 
-      const [countRes] = await Promise.all([
-        recalculateTagCounts({ tagIds: [args.tagIdToKeep, ...tagIdsToUpdate], withSub: false }),
-        regenTagThumbPaths({ tagId: args.tagIdToKeep }),
-      ]);
-      if (!countRes.success) throw new Error(countRes.error);
+        const countRes = await recalculateTagCounts({
+          tagIds: [args.tagIdToKeep, ...tagIdsToUpdate],
+          withSub: false,
+        });
+        if (!countRes.success) throw new Error(countRes.error);
+        if (args.withSub)
+          socket.emit("onTagsUpdated", { tags: countRes.data, withFileReload: false });
+      }
 
-      socket.emit("onTagMerged", { newTagId: args.tagIdToKeep, oldTagId: args.tagIdToMerge });
-      socket.emit("onTagsUpdated", {
-        tags: [...countRes.data, { tagId: args.tagIdToKeep, updates: tagToKeepUpdates }],
-        withFileReload: true,
-      });
+      if (args.withSub) {
+        socket.emit("onTagMerged", { newTagId: args.tagIdToKeep, oldTagId: args.tagIdToMerge });
+        socket.emit("onTagsUpdated", {
+          tags: [{ tagId: args.tagIdToKeep, updates: tagToKeepUpdates }],
+          withFileReload: true,
+        });
+      }
     } catch (err) {
       error = err.message;
       fileLog(err.stack, { type: "error" });
     } finally {
-      (
-        [
-          "onReloadFileCollections",
-          "onReloadFiles",
-          "onReloadImportBatches",
-          "onReloadTags",
-        ] as SocketEmitEvent[]
-      ).forEach((event) => socket.emit(event));
+      if (args.withSub) {
+        (
+          [
+            "onReloadFileCollections",
+            "onReloadFiles",
+            "onReloadImportBatches",
+            "onReloadTags",
+          ] as SocketEmitEvent[]
+        ).forEach((event) => socket.emit(event));
+      }
 
       if (error) throw new Error(error);
     }
@@ -1029,6 +1037,103 @@ export const refreshTag = makeAction(async ({ tagId }: { tagId: string }) => {
 export const repairTags = makeAction(async () => {
   const { perfLog } = makePerfLog("[repairTags]", true);
 
+  /* -------------------------- Replace HTML Entities ------------------------- */
+  const htmlEntityRegex = /&(#\d+|#[xX][0-9a-fA-F]+|[a-zA-Z]+);/g;
+
+  const decodeHtmlEntities = (s: string) =>
+    s.replace(htmlEntityRegex, (m) => {
+      if (m.startsWith("&#x") || m.startsWith("&#X"))
+        return String.fromCharCode(parseInt(m.slice(3, -1), 16));
+      if (m.startsWith("&#")) return String.fromCharCode(parseInt(m.slice(2, -1), 10));
+      return { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'" }[m.slice(1, -1)] ?? m;
+    });
+
+  const tagsWithHtmlEntities = (
+    await models.TagModel.find({ label: { $regex: htmlEntityRegex } })
+      .allowDiskUse(true)
+      .lean()
+  ).map((t) => leanModelToJson<models.TagSchema>(t));
+
+  if (tagsWithHtmlEntities.length) {
+    const htmlBulkRes = await models.TagModel.bulkWrite(
+      tagsWithHtmlEntities
+        .map((t) => {
+          const decodedLabel = decodeHtmlEntities(t.label);
+          if (decodedLabel === t.label) return null;
+          return {
+            updateOne: {
+              filter: { _id: objectId(t.id) },
+              update: { $set: { label: decodedLabel } },
+            },
+          };
+        })
+        .filter(Boolean),
+    );
+
+    perfLog(`Repaired HTML entities on ${htmlBulkRes.modifiedCount} tags`);
+  }
+
+  /* -------------------- Merge tags with duplicate labels -------------------- */
+  const duplicateLabels = await models.TagModel.aggregate<{
+    _id: string;
+    tags: Array<{
+      _id: string;
+      aliases: string[];
+      childIds: string[];
+      count: number;
+      label: string;
+      parentIds: string[];
+      regEx: string;
+    }>;
+  }>([
+    {
+      $group: {
+        _id: "$label",
+        tags: {
+          $push: {
+            _id: "$_id",
+            aliases: "$aliases",
+            childIds: "$childIds",
+            count: "$count",
+            label: "$label",
+            parentIds: "$parentIds",
+            regEx: "$regEx",
+          },
+        },
+        count: { $sum: 1 },
+      },
+    },
+    { $match: { count: { $gt: 1 } } },
+  ]);
+
+  let mergedCount = 0;
+
+  for (const d of duplicateLabels) {
+    const [tagToKeep, ...tagsToMerge] = [...d.tags].sort((a, b) => {
+      if ((b.count ?? 0) !== (a.count ?? 0)) return (b.count ?? 0) - (a.count ?? 0);
+      return a._id.toString().localeCompare(b._id.toString());
+    });
+
+    for (const tagToMerge of tagsToMerge) {
+      await mergeTags({
+        tagIdToKeep: tagToKeep._id.toString(),
+        tagIdToMerge: tagToMerge._id.toString(),
+        label: tagToKeep.label,
+        aliases: tagToKeep.aliases ?? [],
+        childIds: tagToKeep.childIds ?? [],
+        parentIds: tagToKeep.parentIds ?? [],
+        regEx: tagToKeep.regEx,
+        withRegen: false,
+        withSub: false,
+      });
+
+      mergedCount++;
+    }
+  }
+
+  perfLog(`Merged ${mergedCount} duplicate tags`);
+
+  /* ------------------------ Fix old versions of regEx ----------------------- */
   const tagsWithBrokenRegEx = (
     await models.TagModel.find({ regExMap: { $exists: true } })
       .allowDiskUse(true)
@@ -1038,15 +1143,17 @@ export const repairTags = makeAction(async () => {
   perfLog(`Found ${tagsWithBrokenRegEx.length} tags with broken regEx`);
 
   const bulkWriteRes = await models.TagModel.bulkWrite(
-    [...tagsWithBrokenRegEx].map((f) => ({
+    tagsWithBrokenRegEx.map((f) => ({
       updateOne: {
         filter: { _id: objectId(f.id) },
         // @ts-expect-error
-        update: [{ $set: { regEx: f.regExMap?.regEx ?? null } }, { $unset: "regExMap" }],
+        update: [{ $set: { regEx: f.regEx ?? f.regExMap?.regEx ?? null } }, { $unset: "regExMap" }],
       },
     })),
   );
+
   perfLog(`Repaired regEx of ${bulkWriteRes.modifiedCount} tags`);
+
   if (bulkWriteRes.modifiedCount !== tagsWithBrokenRegEx.length)
     throw new Error(`Bulk write failed: ${JSON.stringify(bulkWriteRes, null, 2)}`);
 });

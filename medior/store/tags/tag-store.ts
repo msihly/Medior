@@ -55,7 +55,6 @@ export class TagStore extends Model({
   editTag = asyncAction(async ({ withSub = true, ...tag }: db.EditTagInput) => {
     const editRes = await trpc.editTag.mutate({ ...tag, withSub });
     if (!editRes.success) throw new Error(editRes.error);
-    toast.success(`Tag edited`);
   });
 
   @modelFlow

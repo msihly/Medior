@@ -130,8 +130,8 @@ export const makeSearchActionsDef = async (
     .flatMap((prop) => prop.customActionProps);
 
   const interfaceProps = [
-    ...props.filter((prop) => !prop.notFilterProp && !prop.customActionProps?.length),
-    ...customProps,
+    ...props.filter((prop) => !prop.notFilterProp && !prop.noInterface),
+    ...customProps.filter((prop) => prop.name && prop.type),
   ].sort((a, b) => a.name.localeCompare(b.name));
 
   const makeDefaultCondition = (prop: ModelSearchProp) =>

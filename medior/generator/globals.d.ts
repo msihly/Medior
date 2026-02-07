@@ -33,14 +33,15 @@ declare global {
   interface ModelSearchProp {
     customActionProps?: {
       condition: string;
-      name: string;
+      name?: string;
       objPath: string[];
       objValue: string;
-      type: string;
+      type?: string;
     }[];
     defaultValue: string;
     filterTransform?: string;
     name: string;
+    noInterface?: boolean;
     notFilterProp?: boolean;
     notTrackedFilter?: boolean;
     objPath?: string[];

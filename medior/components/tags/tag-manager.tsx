@@ -16,7 +16,9 @@ import {
   View,
 } from "medior/components";
 import { useStores } from "medior/store";
-import { colors, openSearchWindow, toast, useDeepEffect } from "medior/utils/client";
+import { colors, makeQueue, openSearchWindow, toast, useDeepEffect } from "medior/utils/client";
+import { PromiseQueue } from "medior/utils/common";
+import { trpc } from "medior/utils/server";
 
 export const TagManager = Comp(() => {
   const stores = useStores();
@@ -57,6 +59,35 @@ export const TagManager = Comp(() => {
   const handleSelectNone = () => {
     store.toggleSelected(store.selectedIds.map((id) => ({ id, isSelected: false })));
     toast.info("Deselected all tags");
+  };
+
+  const handleRegenerateRegEx = async () => {
+    try {
+      store.setIsLoading(true);
+
+      const tagIds = [...store.selectedIds];
+      const tags = (await stores.tag.listByIds({ ids: tagIds })).data;
+
+      await makeQueue({
+        action: async (tag) => {
+          const regEx = stores.tag.tagsToRegEx([{ aliases: tag.aliases, label: tag.label }]);
+          await stores.tag.editTag({ id: tag.id, regEx, withRegen: false, withSub: false });
+        },
+        items: tags,
+        logPrefix: "Regenerated",
+        logSuffix: "RegEx",
+        queue: new PromiseQueue({ concurrency: 10 }),
+      });
+
+      const regenRes = await trpc.regenTags.mutate({ tagIds });
+      if (!regenRes.success) throw new Error(regenRes.error);
+
+      store.setIsLoading(false);
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to regen tags");
+      store.setIsLoading(false);
+    }
   };
 
   return (
@@ -103,6 +134,13 @@ export const TagManager = Comp(() => {
                   name="Refresh"
                   tooltip="Refresh Selected Tags"
                   onClick={handleRefreshTags}
+                  disabled={hasNoSelection}
+                />
+
+                <MultiActionButton
+                  name="AccountTree"
+                  tooltip="Regenerate RegEx"
+                  onClick={handleRegenerateRegEx}
                   disabled={hasNoSelection}
                 />
 

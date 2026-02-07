@@ -16,8 +16,7 @@ export class TagSearch extends ExtendedModel(_TagSearch, {}) {
 
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
   @modelAction
-  toggleRegExMode() {
-    this.regExMode =
-      this.regExMode === "any" ? "hasRegEx" : this.regExMode === "hasRegEx" ? "hasNoRegEx" : "any";
+  toggleHasRegEx() {
+    this.hasRegEx = this.hasRegEx === null ? true : this.hasRegEx === true ? false : null;
   }
 }

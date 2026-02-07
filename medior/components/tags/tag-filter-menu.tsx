@@ -71,9 +71,9 @@ export const TagFilterMenu = Comp(({ color = colors.foreground, store }: TagFilt
 
           <Checkbox
             label="Has RegEx"
-            checked={store.regExMode === "hasRegEx"}
-            indeterminate={store.regExMode === "hasNoRegEx"}
-            setChecked={store.toggleRegExMode}
+            checked={store.hasRegEx}
+            indeterminate={store.hasRegEx === false}
+            setChecked={store.toggleHasRegEx}
           />
         </Card>
       </View>

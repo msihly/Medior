@@ -945,6 +945,7 @@ export class _TagSearch extends Model({
   dateModifiedStart: prop<string>("").withSetter(),
   forcePages: prop<boolean>(false).withSetter(),
   hasChanges: prop<boolean>(false).withSetter(),
+  hasRegEx: prop<boolean>(null).withSetter(),
   ids: prop<string[]>(() => []).withSetter(),
   isLoading: prop<boolean>(false).withSetter(),
   isPageCountLoading: prop<boolean>(false).withSetter(),
@@ -952,7 +953,6 @@ export class _TagSearch extends Model({
   page: prop<number>(1).withSetter(),
   pageCount: prop<number>(1).withSetter(),
   pageSize: prop<number>(() => getConfig().tags.manager.search.pageSize).withSetter(),
-  regExMode: prop<"any" | "hasRegEx" | "hasNoRegEx">("any").withSetter(),
   results: prop<Stores.Tag[]>(() => []).withSetter(),
   selectedIds: prop<string[]>(() => []).withSetter(),
   sortValue: prop<SortMenuProps["value"]>(() => getConfig().tags.manager.search.sort).withSetter(),
@@ -984,6 +984,7 @@ export class _TagSearch extends Model({
     this.dateModifiedStart = "";
     this.forcePages = false;
     this.hasChanges = false;
+    this.hasRegEx = null;
     this.ids = [];
     this.isLoading = false;
     this.isPageCountLoading = false;
@@ -991,7 +992,6 @@ export class _TagSearch extends Model({
     this.page = 1;
     this.pageCount = 1;
     this.pageSize = getConfig().tags.manager.search.pageSize;
-    this.regExMode = "any";
     this.results = [];
     this.selectedIds = [];
     this.sortValue = getConfig().tags.manager.search.sort;
@@ -1127,9 +1127,9 @@ export class _TagSearch extends Model({
       (!isDeepEqual(this.dateCreatedStart, "") ? 1 : 0) +
       (!isDeepEqual(this.dateModifiedEnd, "") ? 1 : 0) +
       (!isDeepEqual(this.dateModifiedStart, "") ? 1 : 0) +
+      (!isDeepEqual(this.hasRegEx, null) ? 1 : 0) +
       (!isDeepEqual(this.ids, []) ? 1 : 0) +
       (!isDeepEqual(this.label, "") ? 1 : 0) +
-      (!isDeepEqual(this.regExMode, "any") ? 1 : 0) +
       (!isDeepEqual(this.sortValue, getConfig().tags.manager.search.sort) ? 1 : 0) +
       (!isDeepEqual(this.tags, []) ? 1 : 0) +
       (!isDeepEqual(this.title, "") ? 1 : 0)
@@ -1145,9 +1145,9 @@ export class _TagSearch extends Model({
       dateCreatedStart: this.dateCreatedStart,
       dateModifiedEnd: this.dateModifiedEnd,
       dateModifiedStart: this.dateModifiedStart,
+      hasRegEx: this.hasRegEx,
       ids: this.ids,
       label: this.label,
-      regExMode: this.regExMode,
       sortValue: this.sortValue,
       ...getRootStore<Stores.RootStore>(this)?.tag?.tagSearchOptsToIds(this.tags),
       title: this.title,

@@ -41,7 +41,7 @@ model.addProp("hasDiffParams", "boolean", "false", {
 
 model.addProp("isArchived", "boolean", "false", {
   customActionProps: [
-    model.makeCustomActionProp("isArchived", "boolean", {
+    model.makeCustomActionProp({
       condition: "true",
       objPath: ["isArchived"],
       objValue: "args.isArchived",
@@ -78,7 +78,7 @@ model.addProp(
   "() => Object.fromEntries(getConfig().file.audioCodecs.map((codec) => [codec, true])) as Types.SelectedAudioCodecs",
   {
     customActionProps: [
-      model.makeCustomActionProp("selectedAudioCodecs", "Types.SelectedAudioCodecs", {
+      model.makeCustomActionProp({
         condition: "true",
         objPath: ["audioCodec", "$nin"],
         objValue:
@@ -100,7 +100,7 @@ model.addProp(
   {
     customActionProps: [
       // This handles both image and video exts because setObj does not support the `$or: [{}]` syntax
-      model.makeCustomActionProp("selectedImageExts", "Types.SelectedImageExts", {
+      model.makeCustomActionProp({
         condition: "true",
         objPath: ["ext", "$nin"],
         objValue:
@@ -121,7 +121,7 @@ model.addProp(
   "() => Object.fromEntries(getConfig().file.videoCodecs.map((codec) => [codec, true])) as Types.SelectedVideoCodecs",
   {
     customActionProps: [
-      model.makeCustomActionProp("selectedVideoCodecs", "Types.SelectedVideoCodecs", {
+      model.makeCustomActionProp({
         condition: "true",
         objPath: ["videoCodec", "$nin"],
         objValue:

@@ -23,9 +23,9 @@ model.addProp("label", "string", '""', {
   objValue: 'new RegExp(args.label, "i")',
 });
 
-model.addProp("regExMode", '"any" | "hasRegEx" | "hasNoRegEx"', '"any"', {
-  objPath: ["regExMap.regEx", "$exists"],
-  objValue: 'args.regExMode === "hasRegEx"',
+model.addProp("hasRegEx", "boolean", "null", {
+  objPath: ["$expr"],
+  objValue: `{ [args.hasRegEx ?  "$ne" : "$eq"]: [{ $ifNull: ["$regEx", ""] }, ""] }`,
 });
 
 model.addProp("title", "string", '""', {

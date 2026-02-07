@@ -520,10 +520,10 @@ export type CreateTagFilterPipelineInput = {
   dateModifiedStart?: string;
   excludedDescTagIds?: string[];
   excludedTagIds?: string[];
+  hasRegEx?: boolean;
   ids?: string[];
   label?: string;
   optionalTagIds?: string[];
-  regExMode?: "any" | "hasRegEx" | "hasNoRegEx";
   requiredDescTagIds?: string[];
   requiredTagIds?: string[];
   sortValue?: SortMenuProps["value"];
@@ -545,11 +545,13 @@ export const createTagFilterPipeline = (args: CreateTagFilterPipelineInput) => {
     setObj($match, ["dateModified", "$lte"], args.dateModifiedEnd);
   if (!isDeepEqual(args.dateModifiedStart, ""))
     setObj($match, ["dateModified", "$gte"], args.dateModifiedStart);
+  if (!isDeepEqual(args.hasRegEx, null))
+    setObj($match, ["$expr"], {
+      [args.hasRegEx ? "$ne" : "$eq"]: [{ $ifNull: ["$regEx", ""] }, ""],
+    });
   if (!isDeepEqual(args.ids, [])) setObj($match, ["_id", "$in"], objectIds(args.ids));
   if (!isDeepEqual(args.label, ""))
     setObj($match, ["label", "$regex"], new RegExp(args.label, "i"));
-  if (!isDeepEqual(args.regExMode, "any"))
-    setObj($match, ["regExMap.regEx", "$exists"], args.regExMode === "hasRegEx");
   if (!isDeepEqual(args.title, ""))
     setObj($match, ["title", "$regex"], new RegExp(args.title, "i"));
 

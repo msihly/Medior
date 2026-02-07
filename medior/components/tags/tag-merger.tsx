@@ -94,6 +94,8 @@ export const TagMerger = Comp(() => {
         regEx,
         tagIdToKeep,
         tagIdToMerge,
+        withRegen: true,
+        withSub: true,
       });
       if (!res.success) throw new Error(res.error);
       setIsSaving(false);
