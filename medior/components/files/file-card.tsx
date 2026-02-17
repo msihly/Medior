@@ -1,6 +1,6 @@
 import { Comp, Icon, LoadingOverlay, Text, View } from "medior/components";
 import { useFileDrag } from "medior/components/files/hooks";
-import { File, useStores } from "medior/store";
+import { File, FileSearch, useStores } from "medior/store";
 import { colors, CSS, openCarouselWindow, toast } from "medior/utils/client";
 import { CONSTANTS, Fmt, VideoCodec } from "medior/utils/common";
 import { FileBase } from ".";
@@ -10,14 +10,15 @@ interface FileCardProps {
   file?: File;
   height?: CSS["height"];
   id?: string;
+  store: FileSearch;
   width?: CSS["width"];
 }
 
-export const FileCard = Comp(({ disabled, file, height, id, width }: FileCardProps) => {
+export const FileCard = Comp(({ disabled, file, height, id, store, width }: FileCardProps) => {
   const stores = useStores();
 
   if (!file) file = stores.file.getById(id);
-  const fileDragProps = useFileDrag(file, stores.file.search.selectedIds);
+  const fileDragProps = useFileDrag(file, store.selectedIds);
 
   if (!file)
     return (
@@ -28,7 +29,7 @@ export const FileCard = Comp(({ disabled, file, height, id, width }: FileCardPro
 
   const handleClick = async (event: React.MouseEvent) => {
     if (disabled) return;
-    const res = await stores.file.search.handleSelect({
+    const res = await store.handleSelect({
       hasCtrl: event.ctrlKey,
       hasShift: event.shiftKey,
       id: file.id,
@@ -38,20 +39,20 @@ export const FileCard = Comp(({ disabled, file, height, id, width }: FileCardPro
 
   const handleDoubleClick = async () => {
     if (!disabled) {
-      const res = await stores.file.search.listIdsForCarousel();
+      const res = await store.listIdsForCarousel();
       if (!res?.success) console.error(res.error);
       else openCarouselWindow({ file, selectedFileIds: res.data });
     }
   };
 
   return (
-    <FileBase.ContextMenu key="context-menu" {...{ disabled, file }}>
+    <FileBase.ContextMenu key="context-menu" {...{ disabled, file }} store={store}>
       <FileBase.Tooltip {...{ file }}>
         <FileBase.Container
           {...{ disabled, height, width }}
           onClick={handleClick}
           onDoubleClick={handleDoubleClick}
-          selected={stores.file.search.getIsSelected(file.id)}
+          selected={store.getIsSelected(file.id)}
         >
           <FileBase.Image
             {...fileDragProps}

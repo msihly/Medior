@@ -25,7 +25,7 @@
     "pre-build": "pnpm run gen && pnpm run ts-compile-server && pnpm run copy-files",
     "prettier": "prettier --check medior --config ./.prettierrc --ignore-path ./.prettierignore",
     "prettier-fix": "pnpm run prettier --write",
-    "ts-check": "tsc --noEmit",
+    "ts-check": "tspc --noEmit",
     "ts-compile-server": "tspc --p medior/server/tsconfig.build.json"
   },
   "dependencies": {

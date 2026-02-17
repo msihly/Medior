@@ -137,7 +137,13 @@ export const FileCollectionManager = Comp(() => {
             >
               <CardGrid
                 cards={store.selectedFiles.map((f) => (
-                  <FileCard key={f.id} file={f} height={FILE_CARD_HEIGHT} disabled />
+                  <FileCard
+                    key={f.id}
+                    file={f}
+                    height={FILE_CARD_HEIGHT}
+                    store={stores.file.search}
+                    disabled
+                  />
                 ))}
                 maxCards={hasOneFileSelected ? 1 : 6}
                 height={FILE_CARD_HEIGHT + 50}

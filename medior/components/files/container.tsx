@@ -26,7 +26,7 @@ export const FileContainer = Comp(() => {
     <CardGrid
       ref={filesRef}
       cards={store.results.map((f, i) => (
-        <FileCard key={i} file={f} />
+        <FileCard key={i} file={f} store={store} />
       ))}
       cardsProps={{ onKeyDown: handleKeyPress, tabIndex: 1 }}
       bgColor={colors.custom.black}

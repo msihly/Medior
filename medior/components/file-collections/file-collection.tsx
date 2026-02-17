@@ -101,6 +101,7 @@ export const FileCollection = Comp(({ collection }: FileCollectionProps) => {
             <FileCard
               key={idx}
               file={store.search.files.get(id)}
+              store={stores.file.search}
               height={250}
               width={230}
               disabled

@@ -15,6 +15,7 @@ import {
   MultiActionButton,
   NumInput,
   Pagination,
+  RatingButton,
   SortMenu,
   SortMenuProps,
   TagRow,
@@ -27,11 +28,12 @@ import { useHotkeys } from "medior/views";
 
 export const FileCollectionEditor = Comp(() => {
   const stores = useStores();
+  const store = stores.collection.editor;
 
   const { handleKeyPress } = useHotkeys({ view: "home" });
 
-  const hasNoSelection = stores.collection.editor.search.selectedIds.length === 0;
-  const isCreate = stores.collection.editor.collection === null;
+  const hasNoSelection = store.search.selectedIds.length === 0;
+  const isCreate = store.collection === null;
 
   const [isAddingFiles, setIsAddingFiles] = useState(false);
   const [isConfirmDiscardOpen, setIsConfirmDiscardOpen] = useState(false);
@@ -40,28 +42,25 @@ export const FileCollectionEditor = Comp(() => {
 
   useEffect(() => {
     return () => {
-      stores.collection.editor.search.reset();
-      stores.collection.editor.fileSearch.reset();
+      store.search.reset();
+      store.fileSearch.reset();
     };
   }, []);
 
   const confirmClose = () => {
-    if (stores.collection.editor.hasUnsavedChanges) setIsConfirmDiscardOpen(true);
+    if (store.hasUnsavedChanges) setIsConfirmDiscardOpen(true);
     else handleClose();
   };
 
   const confirmRemoveFiles = async () => {
-    const res = await stores.collection.editor.removeFiles(
-      stores.collection.editor.search.selectedIds,
-    );
+    const res = await store.removeFiles(store.search.selectedIds);
     return res.success;
   };
 
-  const handleArchiveFiles = () =>
-    stores.file.confirmDeleteFiles(stores.collection.editor.search.selectedIds);
+  const handleArchiveFiles = () => stores.file.confirmDeleteFiles(store.search.selectedIds);
 
   const handleClose = async () => {
-    stores.collection.editor.setIsOpen(false);
+    store.setIsOpen(false);
     stores.file.search.reloadIfQueued();
     return true;
   };
@@ -69,64 +68,56 @@ export const FileCollectionEditor = Comp(() => {
   const handleDelete = () => stores.collection.setIsConfirmDeleteOpen(true);
 
   const handleDeselectAll = () => {
-    stores.collection.editor.search.toggleSelected(
-      stores.collection.editor.search.selectedIds.map((id) => ({ id, isSelected: false })),
-    );
+    store.search.toggleSelected(store.search.selectedIds.map((id) => ({ id, isSelected: false })));
     toast.info("Deselected all files");
   };
 
   const handleEditTags = () => {
     stores.file.tagsEditor.setBatchId(null);
-    stores.file.tagsEditor.setFileIds([...stores.collection.editor.search.selectedIds]);
+    stores.file.tagsEditor.setFileIds([...store.search.selectedIds]);
     stores.file.tagsEditor.setIsOpen(true);
   };
 
-  const handleFileInfoRefresh = () =>
-    stores.file.refreshFiles({ ids: stores.collection.editor.search.selectedIds });
+  const handleFileInfoRefresh = () => stores.file.refreshFiles({ ids: store.search.selectedIds });
 
-  const handleMoveFilesDown = () =>
-    stores.collection.editor.moveFileIndexes({ down: true, maxDelta });
+  const handleMoveFilesDown = () => store.moveFileIndexes({ down: true, maxDelta });
 
-  const handleMoveFilesUp = () =>
-    stores.collection.editor.moveFileIndexes({ down: false, maxDelta });
+  const handleMoveFilesUp = () => store.moveFileIndexes({ down: false, maxDelta });
 
   const handlePageChange = (page: number) => {
-    stores.collection.editor.search.setPage(page);
-    stores.collection.editor.search.loadFiltered();
+    store.search.setPage(page);
+    store.search.loadFiltered();
   };
 
-  const handleRefreshMeta = () =>
-    stores.collection.regenCollMeta([stores.collection.editor.collection.id]);
+  const handleRating = (rating: number) =>
+    stores.collection.updateCollRating({ id: store.collection.id, rating });
+
+  const handleRefreshMeta = () => stores.collection.regenCollMeta([store.collection.id]);
 
   const handleRemoveFiles = () => setIsConfirmRemoveFilesOpen(true);
 
   const handleSave = async () => {
-    if (!stores.collection.editor.title) return toast.error("Title is required!");
-    await stores.collection.editor.saveCollection();
+    if (!store.title) return toast.error("Title is required!");
+    await store.saveCollection();
   };
 
   const handleSelectAll = () => {
-    stores.collection.editor.search.toggleSelected(
-      stores.collection.editor.search.results.map(({ id }) => ({ id, isSelected: true })),
-    );
-    toast.info(
-      `Added all ${stores.collection.editor.search.selectedIds.length} files to selection`,
-    );
+    store.search.toggleSelected(store.search.results.map(({ id }) => ({ id, isSelected: true })));
+    toast.info(`Added all ${store.search.selectedIds.length} files to selection`);
   };
 
   const handleTitleChange = (val: string) => {
-    stores.collection.editor.setHasUnsavedChanges(true);
-    stores.collection.editor.setTitle(val);
+    store.setHasUnsavedChanges(true);
+    store.setTitle(val);
   };
 
-  const setSortValue = (value: SortMenuProps["value"]) =>
-    stores.collection.editor.setSortValue(value);
+  const setSortValue = (value: SortMenuProps["value"]) => store.setSortValue(value);
 
   const toggleAddingFiles = () => setIsAddingFiles((prev) => !prev);
 
   return (
     <Modal.Container
-      isLoading={stores.collection.editor.isLoading || stores.collection.editor.search.isLoading}
+      isLoading={store.isLoading || store.search.isLoading}
       onClose={confirmClose}
       height="100%"
       width="100%"
@@ -137,17 +128,21 @@ export const FileCollectionEditor = Comp(() => {
             text={isAddingFiles ? "Hide Search" : "Add Files"}
             icon={isAddingFiles ? "VisibilityOff" : "Add"}
             onClick={toggleAddingFiles}
-            disabled={stores.collection.editor.isLoading}
+            disabled={store.isLoading}
             color={colors.foregroundCard}
             colorOnHover={colors.custom.purple}
           />
         }
         rightNode={
           isCreate ? null : (
-            <MenuButton color={colors.custom.grey}>
-              <ListItem text="Delete" icon="Delete" onClick={handleDelete} />
-              <ListItem text="Refresh Metadata" icon="Refresh" onClick={handleRefreshMeta} />
-            </MenuButton>
+            <View row align="center" spacing="0.5rem">
+              <RatingButton rating={store.collection?.rating} setRating={handleRating} />
+
+              <MenuButton color={colors.custom.grey}>
+                <ListItem text="Delete" icon="Delete" onClick={handleDelete} />
+                <ListItem text="Refresh Metadata" icon="Refresh" onClick={handleRefreshMeta} />
+              </MenuButton>
+            </View>
           )
         }
       >
@@ -161,15 +156,11 @@ export const FileCollectionEditor = Comp(() => {
           <View row spacing="0.5rem">
             <Card column flex={1} spacing="0.5rem" overflow="hidden">
               <HeaderRow label="Title">
-                <Input
-                  value={stores.collection.editor.title}
-                  setValue={handleTitleChange}
-                  width="100%"
-                />
+                <Input value={store.title} setValue={handleTitleChange} width="100%" />
               </HeaderRow>
 
               <HeaderRow label="Tags">
-                <TagRow tags={stores.collection.editor.tags} />
+                <TagRow tags={store.tags} />
               </HeaderRow>
             </Card>
 
@@ -248,7 +239,7 @@ export const FileCollectionEditor = Comp(() => {
               </View>
 
               <SortMenu
-                value={stores.collection.editor.search.sortValue}
+                value={store.search.sortValue}
                 setValue={setSortValue}
                 rows={SORT_OPTIONS.FileCollectionFile}
                 width="100%"
@@ -258,16 +249,16 @@ export const FileCollectionEditor = Comp(() => {
 
           <Card column flex={1} overflow="auto">
             <CardGrid
-              cards={stores.collection.editor.search.results.map((f) => (
-                <FileCollectionFile key={f.id} file={f} />
+              cards={store.search.results.map((f) => (
+                <FileCollectionFile key={f.id} file={f} store={store.search} />
               ))}
               cardsProps={{ onKeyDown: handleKeyPress, tabIndex: 1 }}
             />
 
             <Pagination
-              count={stores.collection.editor.search.pageCount}
-              page={stores.collection.editor.search.page}
-              isLoading={stores.collection.editor.search.isPageCountLoading}
+              count={store.search.pageCount}
+              page={store.search.page}
+              isLoading={store.search.isPageCountLoading}
               onChange={handlePageChange}
             />
           </Card>
@@ -276,20 +267,18 @@ export const FileCollectionEditor = Comp(() => {
 
       <Modal.Footer>
         <Button
-          text={stores.collection.editor.hasUnsavedChanges ? "Cancel" : "Close"}
+          text={store.hasUnsavedChanges ? "Cancel" : "Close"}
           icon="Close"
           onClick={confirmClose}
-          disabled={stores.collection.editor.isLoading}
-          colorOnHover={stores.collection.editor.hasUnsavedChanges ? colors.custom.red : undefined}
+          disabled={store.isLoading}
+          colorOnHover={store.hasUnsavedChanges ? colors.custom.red : undefined}
         />
 
         <Button
           text="Save"
           icon="Save"
           onClick={handleSave}
-          disabled={
-            !stores.collection.editor.hasUnsavedChanges || stores.collection.editor.isLoading
-          }
+          disabled={!store.hasUnsavedChanges || store.isLoading}
           color={colors.custom.purple}
         />
       </Modal.Footer>

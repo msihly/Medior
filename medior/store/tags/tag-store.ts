@@ -133,19 +133,19 @@ export class TagStore extends Model({
 
           const parentIds = parentTags?.map((t) => t.id) ?? [];
 
-          if (t.id) {
-            const tag = (await this.listByIds({ ids: [t.id] })).data?.[0];
+          const tag = (await this.listByLabels([t.label])).data?.[0];
+          if (tag) {
             if (!parentIds.length || tag.parentIds.some((id) => parentIds.includes(id))) return;
 
             const res = await this.editTag({
-              id: t.id,
+              id: tag.id,
               parentIds: parentIds.length ? [...tag.parentIds, ...parentIds] : [],
               withRegen: false,
               withSub: false,
             });
             if (!res.success) throw new Error(res.error);
 
-            tagIds.push(t.id);
+            tagIds.push(tag.id);
           } else {
             const res = await this.createTag({
               aliases: t.aliases?.length ? [...t.aliases] : [],

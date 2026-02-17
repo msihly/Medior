@@ -4,7 +4,7 @@ import path from "path";
 import { ReactNode } from "react";
 import { FileSchema } from "medior/_generated/server";
 import { Comp, ContextMenu as ContextMenuBase, ViewProps } from "medior/components";
-import { useStores } from "medior/store";
+import { FileCollectionSearch, FileSearch, useStores } from "medior/store";
 import { colors, copyToClipboard, getConfig, getIsRemuxable, toast } from "medior/utils/client";
 import { VIDEO_EXTS, VideoExt } from "medior/utils/common";
 import { trpc } from "medior/utils/server";
@@ -13,9 +13,10 @@ export interface ContextMenuProps extends ViewProps {
   children?: ReactNode | ReactNode[];
   disabled?: boolean;
   file: FileSchema;
+  store: FileSearch | FileCollectionSearch;
 }
 
-export const ContextMenu = Comp(({ children, file, ...props }: ContextMenuProps) => {
+export const ContextMenu = Comp(({ children, file, store, ...props }: ContextMenuProps) => {
   const stores = useStores();
 
   const isReencodable = file.videoCodec?.length > 0;
@@ -31,9 +32,7 @@ export const ContextMenu = Comp(({ children, file, ...props }: ContextMenuProps)
   };
 
   const handleDelete = () =>
-    stores.file.confirmDeleteFiles(
-      stores.file.search.getIsSelected(file.id) ? stores.file.search.selectedIds : [file.id],
-    );
+    stores.file.confirmDeleteFiles(store.getIsSelected(file.id) ? store.selectedIds : [file.id]);
 
   const handleFaceRecognition = () => {
     stores.faceRecog.setActiveFileId(file.id);
@@ -59,8 +58,14 @@ export const ContextMenu = Comp(({ children, file, ...props }: ContextMenuProps)
     try {
       if (!VIDEO_EXTS.includes(file.ext as VideoExt)) shell.openPath(file.path);
       else {
-        const fileIdsRes = await stores.file.search.listIdsForCarousel();
+        const fileIdsRes = await trpc.listFileIdsForCarousel.mutate({
+          ...store.getFilterProps(),
+          page: store.page,
+          pageSize: store.pageSize,
+        });
         if (!fileIdsRes.success) throw new Error(fileIdsRes.error);
+        if (!fileIdsRes.data?.length) throw new Error("No files found");
+
         const fileIds = new Map(fileIdsRes.data.map((id, i) => [id, i]));
 
         const filesRes = await trpc.listFile.mutate({
@@ -70,7 +75,7 @@ export const ContextMenu = Comp(({ children, file, ...props }: ContextMenuProps)
 
         let files = [...filesRes.data.items].sort((a, b) => fileIds.get(a.id) - fileIds.get(b.id));
         const activeIndex = files.findIndex((f) => f.id === file.id);
-        files = files.slice(activeIndex, 100);
+        files = files.slice(Math.max(activeIndex, 0), 100);
 
         let playlistContent = "#EXTM3U\r\n";
         for (const f of files) {

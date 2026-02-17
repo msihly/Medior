@@ -1,6 +1,7 @@
 import autoBind from "auto-bind";
 import { reaction } from "mobx";
 import { getRootStore, Model, model, modelAction, modelFlow, prop } from "mobx-keystone";
+import { FileImporter } from "medior/store";
 import { File } from "medior/store/files/file";
 import { RootStore } from "medior/store/root-store";
 import { asyncAction } from "medior/store/utils";
@@ -99,11 +100,23 @@ export class VideoTransformerStore extends Model({
       });
       if (!dbRes.success) throw new Error(dbRes.error);
 
-      const stores = getRootStore<RootStore>(this);
-
       await this.updateTags(getConfig().file.reencode.onComplete);
 
-      const refreshRes = await stores.file.refreshFiles({ ids: [this.curFileId] });
+      const filesRes = await trpc.listFile.mutate({ args: { filter: { id: this.curFileId } } });
+      if (!filesRes?.success) throw new Error("Failed to load files");
+      const file = filesRes.data.items[0];
+
+      const importer = new FileImporter({
+        deleteOnImport: false,
+        ext: file.ext,
+        ignorePrevDeleted: false,
+        originalName: file.originalName,
+        originalPath: file.path,
+        size: file.size,
+        tagIds: file.tagIds,
+      });
+
+      const refreshRes = await importer.refresh(file);
       if (!refreshRes.success) throw new Error(refreshRes.error);
 
       const diskRes = await deleteFile(originalPath, this.newPath);
@@ -191,8 +204,8 @@ export class VideoTransformerStore extends Model({
       this.setIsRunning(false);
 
       if (error.message.includes("SIGKILL")) {
-        console.debug(`Cancelled ${this.fnType}`);
-        toast.warn(`Cancelled ${this.fnType}`);
+        console.debug(`Cancelled`);
+        toast.warn(`Cancelled`);
       } else {
         console.error(error);
         toast.error(error.message);

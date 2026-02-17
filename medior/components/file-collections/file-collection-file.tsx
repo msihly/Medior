@@ -1,6 +1,6 @@
 import { Comp, FileBase } from "medior/components";
 import { useFileDrag } from "medior/components/files/hooks";
-import { File, useStores } from "medior/store";
+import { File, FileSearch, useStores } from "medior/store";
 import { colors, CSS, openCarouselWindow, toast } from "medior/utils/client";
 import { Fmt } from "medior/utils/common";
 
@@ -8,11 +8,12 @@ export interface FileCollectionFileProps {
   disabled?: boolean;
   file?: File;
   height?: CSS["height"];
+  store: FileSearch;
   width?: CSS["width"];
 }
 
 export const FileCollectionFile = Comp(
-  ({ disabled, file, height, width }: FileCollectionFileProps) => {
+  ({ disabled, file, height, store, width }: FileCollectionFileProps) => {
     const stores = useStores();
 
     const fileDragProps = useFileDrag(file, stores.collection.editor.search.selectedIds);
@@ -34,7 +35,7 @@ export const FileCollectionFile = Comp(
       openCarouselWindow({ file, selectedFileIds: stores.collection.editor.search.ids });
 
     return (
-      <FileBase.ContextMenu {...{ disabled, file }}>
+      <FileBase.ContextMenu {...{ disabled, file }} store={store}>
         <FileBase.Tooltip {...{ file }}>
           <FileBase.Container
             {...{ disabled, height, width }}

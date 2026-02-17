@@ -79,7 +79,11 @@ export const Carousel = Comp((_, videoRef: MutableRefObject<ReactPlayer>) => {
             <LoadingOverlay isLoading />
           ) : (
             <View ref={zoomRef} column height="100%" justify="center">
-              <FileBase.ContextMenu file={activeFile} className={css.contextMenu}>
+              <FileBase.ContextMenu
+                file={activeFile}
+                store={stores.file.search}
+                className={css.contextMenu}
+              >
                 {activeFile.isVideo ? (
                   <View column flex={1} height="inherit" onClick={togglePlaying}>
                     <LoadingOverlay
