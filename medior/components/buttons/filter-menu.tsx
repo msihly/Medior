@@ -19,6 +19,7 @@ import { colors, CSS } from "medior/utils/client";
 export interface FilterMenuProps extends Omit<ButtonProps, "onChange" | "value"> {
   color?: string;
   menuProps?: Partial<MenuButtonProps>;
+  resetFn?: () => void;
   sortOptions: SortMenuProps["rows"];
   store: FileCollectionSearch | FileImportBatchSearch | FileSearch | TagSearch;
   viewProps?: ViewProps;
@@ -30,6 +31,7 @@ export const FilterMenu = Comp(
     children,
     color = colors.custom.black,
     menuProps = {},
+    resetFn,
     sortOptions,
     store,
     viewProps = {},
@@ -37,7 +39,7 @@ export const FilterMenu = Comp(
     ...buttonProps
   }: FilterMenuProps) => {
     const handleReset = () => {
-      store.reset();
+      resetFn ? resetFn() : store.reset();
       handleSearch();
     };
 
