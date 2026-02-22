@@ -50,11 +50,8 @@ export const TagEditor = Comp(({ isSubEditor = false }: TagEditorProps) => {
   };
 
   const handleClose = () => {
-    if (isSubEditor) stores.tag.subEditor.setIsOpen(false);
-    else {
-      stores.tag.editor.setIsOpen(false);
-      stores.file.search.reloadIfQueued();
-    }
+    store.setIsOpen(false);
+    if (!isSubEditor) stores.file.search.reloadIfQueued();
   };
 
   const handleConfirmDelete = async () => {
@@ -65,7 +62,7 @@ export const TagEditor = Comp(({ isSubEditor = false }: TagEditorProps) => {
     else {
       toast.success("Tag deleted");
       setIsConfirmDeleteOpen(false);
-      stores.tag.editor.setIsOpen(false);
+      store.setIsOpen(false);
     }
 
     store.setIsLoading(false);
@@ -74,10 +71,7 @@ export const TagEditor = Comp(({ isSubEditor = false }: TagEditorProps) => {
 
   const handleDelete = () => setIsConfirmDeleteOpen(true);
 
-  const handleMerge = () => {
-    stores.tag.merger.setIsOpen(true);
-    handleClose();
-  };
+  const handleMerge = () => stores.tag.merger.setIsOpen(true);
 
   const handleRefresh = async () => {
     store.setIsLoading(true);
@@ -120,7 +114,7 @@ export const TagEditor = Comp(({ isSubEditor = false }: TagEditorProps) => {
   };
 
   return (
-    <Modal.Container isLoading={stores.tag.editor.isLoading} onClose={handleClose} width="45rem">
+    <Modal.Container isLoading={store.isLoading} onClose={handleClose} width="45rem">
       <Modal.Header
         leftNode={
           store.tag && (

@@ -79,6 +79,8 @@ export const TagMerger = Comp(() => {
   const handleClose = async () => {
     setIsConfirmDiscardOpen(false);
     stores.tag.merger.setIsOpen(false);
+    stores.tag.subEditor.setIsOpen(false);
+    stores.tag.editor.setIsOpen(false);
     stores.file.search.reloadIfQueued();
     return true;
   };
@@ -147,7 +149,11 @@ export const TagMerger = Comp(() => {
           <UniformList row spacing="0.5rem">
             <View column flex={1}>
               <HeaderWrapper header="Base Tag">
-                <TagList search={{ onChange: null, value: [baseTag] }} hasDelete={false} hasInput />
+                <TagList
+                  search={{ onChange: null, value: baseTag ? [baseTag] : [] }}
+                  hasDelete={false}
+                  hasInput
+                />
               </HeaderWrapper>
 
               <Checkbox
