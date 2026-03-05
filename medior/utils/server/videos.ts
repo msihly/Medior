@@ -327,7 +327,7 @@ export const getVideoInfo = async (path: string): Promise<VideoInfo> => {
           audioCodec: audioStream ? audioStream.codec_name : "None",
           bitrate: parseInt(bit_rate, 10) || null,
           duration: typeof duration === "number" ? duration : parseFloat(duration) || null,
-          ext: extname(path).replace(".", ""),
+          ext: extname(path).replace(".", "").toLowerCase(),
           frameRate: fractionStringToNumber(avg_frame_rate),
           height,
           size,

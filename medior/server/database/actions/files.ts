@@ -460,21 +460,37 @@ export const repairFilesWithBrokenExt = makeAction(async () => {
 
   perfLog(`Found ${filesWithDotPrefix.length} files with legacy extension format`);
 
-  const filesWithIncorrectExt: { _id: mongoose.Types.ObjectId; path: string }[] =
-    await models.FileModel.aggregate([
-      { $addFields: { pathExt: { $regexFind: { input: "$path", regex: /\.(\w+)$/ } } } },
-      {
-        $match: {
-          $expr: { $ne: [{ $toLower: { $arrayElemAt: ["$pathExt.captures", 0] } }, "$ext"] },
+  const filesWithIncorrectOrUppercaseExt: {
+    _id: mongoose.Types.ObjectId;
+    path: string;
+  }[] = await models.FileModel.aggregate([
+    {
+      $addFields: {
+        pathExt: { $regexFind: { input: "$path", regex: /\.(\w+)$/ } },
+      },
+    },
+    {
+      $match: {
+        $expr: {
+          $or: [
+            {
+              $ne: [{ $toLower: { $arrayElemAt: ["$pathExt.captures", 0] } }, { $toLower: "$ext" }],
+            },
+            { $ne: ["$ext", { $toLower: "$ext" }] },
+          ],
         },
       },
-      { $project: { _id: 1, path: 1 } },
-    ]).allowDiskUse(true);
+    },
+    { $project: { _id: 1, path: 1 } },
+  ]).allowDiskUse(true);
 
-  perfLog(`Found ${filesWithIncorrectExt.length} files with incorrect extensions`);
+  perfLog(
+    `Found ${filesWithIncorrectOrUppercaseExt.length} files with incorrect or uppercase extensions`,
+  );
 
   const filesToUpdate = new Map(filesWithDotPrefix.map((f) => [f._id.toString(), f.path]));
-  filesWithIncorrectExt.forEach((f) => {
+
+  filesWithIncorrectOrUppercaseExt.forEach((f) => {
     if (!filesToUpdate.has(f._id.toString())) filesToUpdate.set(f._id.toString(), f.path);
   });
 
@@ -484,17 +500,21 @@ export const repairFilesWithBrokenExt = makeAction(async () => {
     [...filesToUpdate].map((f) => ({
       updateOne: {
         filter: { _id: objectId(f[0]) },
-        update: { $set: { ext: path.extname(f[1]).slice(1).toLowerCase() } },
+        update: {
+          $set: { ext: path.extname(f[1]).slice(1).toLowerCase() },
+        },
       },
     })),
   );
+
   perfLog(`Updated extensions of ${bulkWriteRes.modifiedCount} files`);
+
   if (bulkWriteRes.modifiedCount !== filesToUpdate.size)
     throw new Error(`Bulk write failed: ${JSON.stringify(bulkWriteRes, null, 2)}`);
 
   return {
     filesWithDotPrefixCount: filesWithDotPrefix.length,
-    filesWithIncorrectExtCount: filesWithIncorrectExt.length,
+    filesWithIncorrectExtCount: filesWithIncorrectOrUppercaseExt.length,
   };
 });
 
