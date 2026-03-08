@@ -12,27 +12,30 @@ import { colors } from "medior/utils/client";
 
 export const FileSearchColumn = Comp(() => {
   const stores = useStores();
+  const store = stores.collection.editor.fileSearch;
 
-  const handlePageChange = (page: number) =>
-    stores.collection.editor.fileSearch.loadFiltered({ page });
+  const handleFullPageLoad = () => store.loadFiltered({ withFullCount: true });
+
+  const handlePageChange = (page: number) => store.loadFiltered({ page });
 
   return (
     <Card column flex="none" height="100%" width="16rem" spacing="0.5rem" padding={{ all: 0 }}>
       <View column spacing="0.5rem" padding={{ all: "0.5rem" }}>
-        <FileFilter.Menu store={stores.collection.editor.fileSearch} color={colors.custom.black} />
+        <FileFilter.Menu store={store} color={colors.custom.black} />
       </View>
 
       <CardGrid
-        cards={stores.collection.editor.fileSearch.results.map((f) => (
+        cards={store.results.map((f) => (
           <FileSearchFile key={f.id} file={f} />
         ))}
         maxCards={1}
       >
         <Pagination
-          count={stores.collection.editor.fileSearch.pageCount}
-          page={stores.collection.editor.fileSearch.page}
-          isLoading={stores.collection.editor.search.isPageCountLoading}
+          count={store.pageCount}
+          page={store.page}
+          isLoading={store.isPageCountLoading}
           onChange={handlePageChange}
+          onFullLoad={handleFullPageLoad}
         />
       </CardGrid>
     </Card>

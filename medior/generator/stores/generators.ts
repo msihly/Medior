@@ -288,16 +288,35 @@ export const createSearchStore = (def: ModelSearchStore) => {
 
   const makeLoadFilteredAction = () =>
     `@modelFlow
-    loadFiltered = asyncAction(async ({ page }: { page?: number; } = {}) => {
+    loadFiltered = asyncAction(async ({ page, withFullCount }: { page?: number; withFullCount?: boolean; } = {}) => {
       const debug = false;
       const { perfLog } = makePerfLog("[${def.name}Search]");
       this.setIsLoading(true);
       this.setIsPageCountLoading(true);
 
+      const countRes = await trpc.getFiltered${def.name}Count.mutate({
+        ...this.getFilterProps(),
+        curMaxPage: this.pageCount,
+        curPage: this.page,
+        page,
+        pageSize: this.pageSize,
+        withFull: withFullCount
+      });
+      if (!countRes.success) throw new Error(countRes.error);
+      const pageCount = countRes.data.pageCount;
+
+      this.setPageCount(pageCount);
+      this.setIsPageCountLoading(false);
+      if (debug) perfLog(\`Set pageCount to \${pageCount}\`);
+
+      const newPage = page ?? (withFullCount ? pageCount : this.page);
+      this.setPage(newPage);
+      if (debug && page) perfLog(\`Set page to \${page ?? this.page}\`);
+
       const itemsRes = await trpc.listFiltered${def.name}.mutate({
         ...this.getFilterProps(),
         forcePages: this.forcePages,
-        page: page ?? this.page,
+        page: newPage,
         pageSize: this.pageSize,
       });
       if (!itemsRes.success) throw new Error(itemsRes.error);
@@ -322,17 +341,8 @@ export const createSearchStore = (def: ModelSearchStore) => {
       this.setResults(results.map((result) => new Stores.${def.name}(result)));
       if (debug) perfLog("Overwrite and re-render");
 
-      if (page) this.setPage(page);
-      if (debug && page) perfLog(\`Set page to \${page ?? this.page}\`)
       this.setIsLoading(false);
       this.setHasChanges(false);
-
-      const countRes = await trpc.getFiltered${def.name}Count.mutate({ ...this.getFilterProps(), pageSize: this.pageSize });
-      if (!countRes.success) throw new Error(countRes.error);
-      const pageCount = countRes.data.pageCount;
-      this.setPageCount(pageCount);
-      this.setIsPageCountLoading(false);
-      if (debug) perfLog(\`Set pageCount to \${pageCount}\`);
 
       return results;
     });`;

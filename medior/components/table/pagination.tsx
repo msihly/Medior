@@ -1,7 +1,9 @@
 import {
   // eslint-disable-next-line @typescript-eslint/no-restricted-imports
   Pagination as PaginationBase,
+  PaginationItem,
   PaginationProps as PaginationBaseProps,
+  PaginationRenderItemParams,
 } from "@mui/material";
 import { LoadingOverlay, View } from "medior/components";
 import { colors, makeClasses } from "medior/utils/client";
@@ -9,12 +11,25 @@ import { colors, makeClasses } from "medior/utils/client";
 export interface PaginationProps extends Omit<PaginationBaseProps, "onChange"> {
   isLoading?: boolean;
   onChange: (page: number) => void;
+  onFullLoad?: () => void;
 }
 
-export const Pagination = ({ className, isLoading, onChange, ...props }: PaginationProps) => {
+export const Pagination = ({
+  className,
+  isLoading,
+  onChange,
+  onFullLoad,
+  count,
+  ...props
+}: PaginationProps) => {
   const { css, cx } = useClasses(null);
 
   const handleChange = (_, page: number) => onChange(page);
+
+  const handleLastPageClick = (event: React.MouseEvent, item: PaginationRenderItemParams) => {
+    if (onFullLoad) event.preventDefault(), onFullLoad();
+    else item.onClick?.(event);
+  };
 
   return (
     <View className={css.root}>
@@ -27,7 +42,14 @@ export const Pagination = ({ className, isLoading, onChange, ...props }: Paginat
           showLastButton
           siblingCount={4}
           boundaryCount={2}
+          count={count}
           className={cx(css.pagination, className)}
+          renderItem={(item) => (
+            <PaginationItem
+              {...item}
+              onClick={item.type === "last" ? (e) => handleLastPageClick(e, item) : item.onClick}
+            />
+          )}
           {...props}
         />
       </View>

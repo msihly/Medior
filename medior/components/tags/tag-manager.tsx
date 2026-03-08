@@ -45,6 +45,8 @@ export const TagManager = Comp(() => {
 
   const handleEditRelations = () => stores.tag.manager.setIsMultiTagEditorOpen(true);
 
+  const handleFullPageLoad = () => store.loadFiltered({ withFullCount: true });
+
   const handlePageChange = (page: number) => store.loadFiltered({ page });
 
   const handleRefreshTags = () => stores.tag.manager.refreshSelectedTags();
@@ -170,6 +172,7 @@ export const TagManager = Comp(() => {
               page={store.page}
               isLoading={store.isPageCountLoading}
               onChange={handlePageChange}
+              onFullLoad={handleFullPageLoad}
             />
           </CardGrid>
         </Card>

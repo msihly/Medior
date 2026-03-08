@@ -37,6 +37,8 @@ export const ImportManager = Comp(() => {
     stores.file.search.reloadIfQueued();
   };
 
+  const handleFullPageLoad = () => store.search.loadFiltered({ withFullCount: true });
+
   const handlePageChange = (page: number) => store.search.loadFiltered({ page });
 
   return (
@@ -148,6 +150,7 @@ export const ImportManager = Comp(() => {
               page={store.search.page}
               isLoading={store.search.isPageCountLoading}
               onChange={handlePageChange}
+              onFullLoad={handleFullPageLoad}
               siblingCount={2}
             />
           </Card>

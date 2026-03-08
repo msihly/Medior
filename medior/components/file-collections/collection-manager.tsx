@@ -97,6 +97,8 @@ export const FileCollectionManager = Comp(() => {
 
   const handleDeleteDuplicates = () => stores.collection.deleteDuplicates();
 
+  const handleFullPageLoad = () => store.search.loadFiltered({ withFullCount: true });
+
   const handleRefreshMeta = () => stores.collection.regenCollMeta(store.search.selectedIds);
 
   const handleNewCollection = async () => {
@@ -257,6 +259,7 @@ export const FileCollectionManager = Comp(() => {
             page={page}
             onChange={handlePageChange}
             isLoading={store.search.isPageCountLoading}
+            onFullLoad={handleFullPageLoad}
           />
         </Card>
       </Modal.Content>

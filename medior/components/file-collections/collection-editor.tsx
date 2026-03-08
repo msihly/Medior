@@ -80,6 +80,8 @@ export const FileCollectionEditor = Comp(() => {
 
   const handleFileInfoRefresh = () => stores.file.refreshFiles({ ids: store.search.selectedIds });
 
+  const handleFullPageLoad = () => store.search.loadFiltered({ withFullCount: true });
+
   const handleMoveFilesDown = () => store.moveFileIndexes({ down: true, maxDelta });
 
   const handleMoveFilesUp = () => store.moveFileIndexes({ down: false, maxDelta });
@@ -260,6 +262,7 @@ export const FileCollectionEditor = Comp(() => {
               page={store.search.page}
               isLoading={store.search.isPageCountLoading}
               onChange={handlePageChange}
+              onFullLoad={handleFullPageLoad}
             />
           </Card>
         </View>

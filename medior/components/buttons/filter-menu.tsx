@@ -43,7 +43,10 @@ export const FilterMenu = Comp(
       handleSearch();
     };
 
-    const handleSearch = () => store.loadFiltered({ page: 1 });
+    const handleSearch = () => {
+      store.setPageCount(1);
+      store.loadFiltered({ page: 1 });
+    };
 
     const renderButton = (onOpen: (event: React.MouseEvent<HTMLButtonElement>) => void) => (
       <Button

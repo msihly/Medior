@@ -102,17 +102,41 @@ export const getShiftSelectedFileCollection = makeAction(
 );
 
 export type GetFilteredFileCollectionCountInput = CreateFileCollectionFilterPipelineInput & {
+  curMaxPage: number;
+  curPage: number;
+  page: number;
   pageSize: number;
+  withFull: boolean;
 };
 
 export const getFilteredFileCollectionCount = makeAction(
-  async ({ pageSize, ...filterParams }: GetFilteredFileCollectionCountInput) => {
+  async ({
+    curMaxPage,
+    curPage,
+    pageSize,
+    withFull,
+    ...filterParams
+  }: GetFilteredFileCollectionCountInput) => {
     const filterPipeline = createFileCollectionFilterPipeline(filterParams);
-    const count = await models.FileCollectionModel.countDocuments(
-      filterPipeline.$match,
-    ).allowDiskUse(true);
-    if (!(count > -1)) throw new Error("Failed to load filtered FileCollection");
-    return { count, pageCount: Math.ceil(count / pageSize) };
+
+    if (withFull) {
+      const totalDocs = await models.FileCollectionModel.countDocuments(
+        filterPipeline.$match,
+      ).allowDiskUse(true);
+      const pageCount = Math.ceil(totalDocs / pageSize);
+      return { count: totalDocs, pageCount };
+    }
+
+    const targetPage = filterParams.page;
+    const targetMaxPage = targetPage >= curMaxPage ? curMaxPage + 1000 : curMaxPage;
+    const probeLimit = targetMaxPage * pageSize;
+    const probeCount = await models.FileCollectionModel.countDocuments(filterPipeline.$match, {
+      limit: probeLimit,
+    }).allowDiskUse(true);
+
+    const pageCount = probeCount < probeLimit ? Math.ceil(probeCount / pageSize) : targetMaxPage;
+
+    return { count: probeCount, pageCount };
   },
 );
 
@@ -248,17 +272,41 @@ export const getShiftSelectedFileImportBatch = makeAction(
 );
 
 export type GetFilteredFileImportBatchCountInput = CreateFileImportBatchFilterPipelineInput & {
+  curMaxPage: number;
+  curPage: number;
+  page: number;
   pageSize: number;
+  withFull: boolean;
 };
 
 export const getFilteredFileImportBatchCount = makeAction(
-  async ({ pageSize, ...filterParams }: GetFilteredFileImportBatchCountInput) => {
+  async ({
+    curMaxPage,
+    curPage,
+    pageSize,
+    withFull,
+    ...filterParams
+  }: GetFilteredFileImportBatchCountInput) => {
     const filterPipeline = createFileImportBatchFilterPipeline(filterParams);
-    const count = await models.FileImportBatchModel.countDocuments(
-      filterPipeline.$match,
-    ).allowDiskUse(true);
-    if (!(count > -1)) throw new Error("Failed to load filtered FileImportBatch");
-    return { count, pageCount: Math.ceil(count / pageSize) };
+
+    if (withFull) {
+      const totalDocs = await models.FileImportBatchModel.countDocuments(
+        filterPipeline.$match,
+      ).allowDiskUse(true);
+      const pageCount = Math.ceil(totalDocs / pageSize);
+      return { count: totalDocs, pageCount };
+    }
+
+    const targetPage = filterParams.page;
+    const targetMaxPage = targetPage >= curMaxPage ? curMaxPage + 1000 : curMaxPage;
+    const probeLimit = targetMaxPage * pageSize;
+    const probeCount = await models.FileImportBatchModel.countDocuments(filterPipeline.$match, {
+      limit: probeLimit,
+    }).allowDiskUse(true);
+
+    const pageCount = probeCount < probeLimit ? Math.ceil(probeCount / pageSize) : targetMaxPage;
+
+    return { count: probeCount, pageCount };
   },
 );
 
@@ -464,14 +512,42 @@ export const getShiftSelectedFile = makeAction(
   },
 );
 
-export type GetFilteredFileCountInput = CreateFileFilterPipelineInput & { pageSize: number };
+export type GetFilteredFileCountInput = CreateFileFilterPipelineInput & {
+  curMaxPage: number;
+  curPage: number;
+  page: number;
+  pageSize: number;
+  withFull: boolean;
+};
 
 export const getFilteredFileCount = makeAction(
-  async ({ pageSize, ...filterParams }: GetFilteredFileCountInput) => {
+  async ({
+    curMaxPage,
+    curPage,
+    pageSize,
+    withFull,
+    ...filterParams
+  }: GetFilteredFileCountInput) => {
     const filterPipeline = createFileFilterPipeline(filterParams);
-    const count = await models.FileModel.countDocuments(filterPipeline.$match).allowDiskUse(true);
-    if (!(count > -1)) throw new Error("Failed to load filtered File");
-    return { count, pageCount: Math.ceil(count / pageSize) };
+
+    if (withFull) {
+      const totalDocs = await models.FileModel.countDocuments(filterPipeline.$match).allowDiskUse(
+        true,
+      );
+      const pageCount = Math.ceil(totalDocs / pageSize);
+      return { count: totalDocs, pageCount };
+    }
+
+    const targetPage = filterParams.page;
+    const targetMaxPage = targetPage >= curMaxPage ? curMaxPage + 1000 : curMaxPage;
+    const probeLimit = targetMaxPage * pageSize;
+    const probeCount = await models.FileModel.countDocuments(filterPipeline.$match, {
+      limit: probeLimit,
+    }).allowDiskUse(true);
+
+    const pageCount = probeCount < probeLimit ? Math.ceil(probeCount / pageSize) : targetMaxPage;
+
+    return { count: probeCount, pageCount };
   },
 );
 
@@ -591,14 +667,42 @@ export const getShiftSelectedTag = makeAction(
   },
 );
 
-export type GetFilteredTagCountInput = CreateTagFilterPipelineInput & { pageSize: number };
+export type GetFilteredTagCountInput = CreateTagFilterPipelineInput & {
+  curMaxPage: number;
+  curPage: number;
+  page: number;
+  pageSize: number;
+  withFull: boolean;
+};
 
 export const getFilteredTagCount = makeAction(
-  async ({ pageSize, ...filterParams }: GetFilteredTagCountInput) => {
+  async ({
+    curMaxPage,
+    curPage,
+    pageSize,
+    withFull,
+    ...filterParams
+  }: GetFilteredTagCountInput) => {
     const filterPipeline = createTagFilterPipeline(filterParams);
-    const count = await models.TagModel.countDocuments(filterPipeline.$match).allowDiskUse(true);
-    if (!(count > -1)) throw new Error("Failed to load filtered Tag");
-    return { count, pageCount: Math.ceil(count / pageSize) };
+
+    if (withFull) {
+      const totalDocs = await models.TagModel.countDocuments(filterPipeline.$match).allowDiskUse(
+        true,
+      );
+      const pageCount = Math.ceil(totalDocs / pageSize);
+      return { count: totalDocs, pageCount };
+    }
+
+    const targetPage = filterParams.page;
+    const targetMaxPage = targetPage >= curMaxPage ? curMaxPage + 1000 : curMaxPage;
+    const probeLimit = targetMaxPage * pageSize;
+    const probeCount = await models.TagModel.countDocuments(filterPipeline.$match, {
+      limit: probeLimit,
+    }).allowDiskUse(true);
+
+    const pageCount = probeCount < probeLimit ? Math.ceil(probeCount / pageSize) : targetMaxPage;
+
+    return { count: probeCount, pageCount };
   },
 );
 
@@ -675,10 +779,7 @@ export const deleteDeletedFile = makeAction(
 );
 
 export const listDeletedFile = makeAction(
-  async ({
-    args,
-    socketOpts,
-  }: { args?: Types.ListDeletedFileInput; socketOpts?: SocketEventOptions } = {}) => {
+  async ({ args }: { args?: Types.ListDeletedFileInput } = {}) => {
     const filter = { ...args.filter };
     if (args.filter?.id) {
       filter._id = Array.isArray(args.filter.id)
@@ -765,10 +866,7 @@ export const deleteFileCollection = makeAction(
 );
 
 export const listFileCollection = makeAction(
-  async ({
-    args,
-    socketOpts,
-  }: { args?: Types.ListFileCollectionInput; socketOpts?: SocketEventOptions } = {}) => {
+  async ({ args }: { args?: Types.ListFileCollectionInput } = {}) => {
     const filter = { ...args.filter };
     if (args.filter?.id) {
       filter._id = Array.isArray(args.filter.id)
@@ -857,10 +955,7 @@ export const deleteFileImportBatch = makeAction(
 );
 
 export const listFileImportBatch = makeAction(
-  async ({
-    args,
-    socketOpts,
-  }: { args?: Types.ListFileImportBatchInput; socketOpts?: SocketEventOptions } = {}) => {
+  async ({ args }: { args?: Types.ListFileImportBatchInput } = {}) => {
     const filter = { ...args.filter };
     if (args.filter?.id) {
       filter._id = Array.isArray(args.filter.id)
@@ -940,40 +1035,35 @@ export const deleteFile = makeAction(
   },
 );
 
-export const listFile = makeAction(
-  async ({
-    args,
-    socketOpts,
-  }: { args?: Types.ListFileInput; socketOpts?: SocketEventOptions } = {}) => {
-    const filter = { ...args.filter };
-    if (args.filter?.id) {
-      filter._id = Array.isArray(args.filter.id)
-        ? { $in: args.filter.id }
-        : typeof args.filter.id === "string"
-          ? { $in: [args.filter.id] }
-          : args.filter.id;
+export const listFile = makeAction(async ({ args }: { args?: Types.ListFileInput } = {}) => {
+  const filter = { ...args.filter };
+  if (args.filter?.id) {
+    filter._id = Array.isArray(args.filter.id)
+      ? { $in: args.filter.id }
+      : typeof args.filter.id === "string"
+        ? { $in: [args.filter.id] }
+        : args.filter.id;
 
-      delete filter.id;
-    }
+    delete filter.id;
+  }
 
-    const [items, totalCount] = await Promise.all([
-      models.FileModel.find(filter)
-        .sort(args.sort ?? { dateCreated: "desc" })
-        .skip(Math.max(0, args.page - 1) * args.pageSize)
-        .limit(args.pageSize)
-        .allowDiskUse(true)
-        .lean(),
-      models.FileModel.countDocuments(filter),
-    ]);
+  const [items, totalCount] = await Promise.all([
+    models.FileModel.find(filter)
+      .sort(args.sort ?? { dateCreated: "desc" })
+      .skip(Math.max(0, args.page - 1) * args.pageSize)
+      .limit(args.pageSize)
+      .allowDiskUse(true)
+      .lean(),
+    models.FileModel.countDocuments(filter),
+  ]);
 
-    if (!items || !(totalCount > -1)) throw new Error("Failed to load filtered File");
+  if (!items || !(totalCount > -1)) throw new Error("Failed to load filtered File");
 
-    return {
-      items: items.map((item) => leanModelToJson<models.FileSchema>(item)),
-      pageCount: Math.ceil(totalCount / args.pageSize),
-    };
-  },
-);
+  return {
+    items: items.map((item) => leanModelToJson<models.FileSchema>(item)),
+    pageCount: Math.ceil(totalCount / args.pageSize),
+  };
+});
 
 export const updateFile = makeAction(
   async ({
@@ -1032,40 +1122,35 @@ export const _deleteTag = makeAction(
   },
 );
 
-export const _listTag = makeAction(
-  async ({
-    args,
-    socketOpts,
-  }: { args?: Types._ListTagInput; socketOpts?: SocketEventOptions } = {}) => {
-    const filter = { ...args.filter };
-    if (args.filter?.id) {
-      filter._id = Array.isArray(args.filter.id)
-        ? { $in: args.filter.id }
-        : typeof args.filter.id === "string"
-          ? { $in: [args.filter.id] }
-          : args.filter.id;
+export const _listTag = makeAction(async ({ args }: { args?: Types._ListTagInput } = {}) => {
+  const filter = { ...args.filter };
+  if (args.filter?.id) {
+    filter._id = Array.isArray(args.filter.id)
+      ? { $in: args.filter.id }
+      : typeof args.filter.id === "string"
+        ? { $in: [args.filter.id] }
+        : args.filter.id;
 
-      delete filter.id;
-    }
+    delete filter.id;
+  }
 
-    const [items, totalCount] = await Promise.all([
-      models.TagModel.find(filter)
-        .sort(args.sort ?? { dateCreated: "desc" })
-        .skip(Math.max(0, args.page - 1) * args.pageSize)
-        .limit(args.pageSize)
-        .allowDiskUse(true)
-        .lean(),
-      models.TagModel.countDocuments(filter),
-    ]);
+  const [items, totalCount] = await Promise.all([
+    models.TagModel.find(filter)
+      .sort(args.sort ?? { dateCreated: "desc" })
+      .skip(Math.max(0, args.page - 1) * args.pageSize)
+      .limit(args.pageSize)
+      .allowDiskUse(true)
+      .lean(),
+    models.TagModel.countDocuments(filter),
+  ]);
 
-    if (!items || !(totalCount > -1)) throw new Error("Failed to load filtered Tag");
+  if (!items || !(totalCount > -1)) throw new Error("Failed to load filtered Tag");
 
-    return {
-      items: items.map((item) => leanModelToJson<models.TagSchema>(item)),
-      pageCount: Math.ceil(totalCount / args.pageSize),
-    };
-  },
-);
+  return {
+    items: items.map((item) => leanModelToJson<models.TagSchema>(item)),
+    pageCount: Math.ceil(totalCount / args.pageSize),
+  };
+});
 
 export const updateTag = makeAction(
   async ({ args, socketOpts }: { args: Types.UpdateTagInput; socketOpts?: SocketEventOptions }) => {

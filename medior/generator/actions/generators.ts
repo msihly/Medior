@@ -36,8 +36,16 @@ export const makeActionsDef = async (
 
   const schemaName = `${modelDef.name}Schema`;
 
-  const makeFnPrefix = (fnName: string, typeName: string, withDefault = false) =>
-    `export const ${fnName} = makeAction(async ({ args, socketOpts }: { args${withDefault ? "?" : ""}: Types.${typeName}; socketOpts?: SocketEventOptions }${withDefault ? " = {}" : ""}) => {`;
+  const makeFnPrefix = (
+    fnName: string,
+    typeName: string,
+    withDefault = false,
+    withSocketOpts = true,
+  ) =>
+    `export const ${fnName} = makeAction(async ({ args${withSocketOpts ? ", socketOpts" : ""} }: {\
+      args${withDefault ? "?" : ""}: Types.${typeName};\
+      ${withSocketOpts ? "socketOpts?: SocketEventOptions;" : ""}\
+    }${withDefault ? " = {}" : ""}) => {`;
 
   const makeCreateFn = () => {
     const { fnName, typeName } = makeFnAndTypeNames(`create${modelDef.name}`, actions);
@@ -62,7 +70,7 @@ export const makeActionsDef = async (
 
   const makeListFn = () => {
     const { fnName, typeName } = makeFnAndTypeNames(`list${modelDef.name}`, actions);
-    return `${makeFnPrefix(fnName, typeName, true)}
+    return `${makeFnPrefix(fnName, typeName, true, false)}
         const filter = { ...args.filter };
         if (args.filter?.id) {
           filter._id = Array.isArray(args.filter.id)
@@ -192,14 +200,38 @@ export const makeSearchActionsDef = async (
   const makeListFiltered = () => {
     const countFn = makeFnAndTypeNames(`getFiltered${def.name}Count`, actions);
     const listFn = makeFnAndTypeNames(`listFiltered${def.name}`, actions);
-    return `export type ${countFn.typeName} = ${filterFn.typeName} & { pageSize: number; }
+    return `export type ${countFn.typeName} = ${filterFn.typeName} & { curMaxPage: number; curPage: number; page: number; pageSize: number; withFull: boolean; };
 
     export const ${countFn.fnName} = makeAction(
-      async ({ pageSize, ...filterParams }: ${countFn.typeName}) => {
+      async ({
+        curMaxPage,
+        curPage,
+        pageSize,
+        withFull,
+        ...filterParams
+      }: ${countFn.typeName}) => {
         const filterPipeline = ${filterFn.fnName}(filterParams);
-        const count = await ${modelName}.countDocuments(filterPipeline.$match).allowDiskUse(true);
-        if (!(count > -1)) throw new Error("Failed to load filtered ${def.name}");
-        return { count, pageCount: Math.ceil(count / pageSize)  }
+
+        if (withFull) {
+          const totalDocs = await ${modelName}
+            .countDocuments(filterPipeline.$match)
+            .allowDiskUse(true);
+          const pageCount = Math.ceil(totalDocs / pageSize);
+          return { count: totalDocs, pageCount };
+        }
+
+        const targetPage = filterParams.page;
+        const targetMaxPage = targetPage >= curMaxPage ? curMaxPage + 1000 : curMaxPage;
+        const probeLimit = targetMaxPage * pageSize;
+        const probeCount = await ${modelName}
+          .countDocuments(filterPipeline.$match, { limit: probeLimit })
+          .allowDiskUse(true);
+
+        const pageCount = probeCount < probeLimit
+          ? Math.ceil(probeCount / pageSize)
+          : targetMaxPage;
+
+        return { count: probeCount, pageCount };
       }
     );
 

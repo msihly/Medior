@@ -39,7 +39,13 @@ export const FileFilterMenu = Comp(({ color = colors.foreground, store }: FileFi
     );
 
   return (
-    <FilterMenu store={store} resetFn={store._reset} color={color} sortOptions={SORT_OPTIONS.File} width="100%">
+    <FilterMenu
+      store={store}
+      resetFn={store._reset}
+      color={color}
+      sortOptions={SORT_OPTIONS.File}
+      width="100%"
+    >
       <View row height="18.5rem" spacing="0.5rem">
         <Card flex={1}>
           <TagInput
