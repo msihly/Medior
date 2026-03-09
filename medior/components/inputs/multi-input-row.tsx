@@ -23,10 +23,8 @@ export interface MultiInputRowProps<T> {
   valueExtractor?: (value: T) => string;
 }
 
-export const MultiInputRow = <T,>({
-  bgColor = colors.foreground,
-  ...props
-}: MultiInputRowProps<T>) => {
+export const MultiInputRow = <T,>({ bgColor, ...props }: MultiInputRowProps<T>) => {
+  bgColor = bgColor || colors.foreground;
   const hasClick = !!props.onClick;
   const { css } = useClasses({ bgColor, hasClick });
 

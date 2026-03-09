@@ -4,7 +4,7 @@ const model = new ModelStore("FileImportBatch", {
   defaultPageSize: "() => getConfig().imports.manager.search.pageSize",
   defaultSort: "() => getConfig().imports.manager.search.sort",
   transformResultsFn:
-    "(batch) => ({ ...batch, imports: batch.imports.map(imp => new Stores.FileImport(imp)) })",
+    "items.map((batch) => ({ ...batch, imports: batch.imports.map(imp => new Stores.FileImport(imp)) }))",
   withTags: true,
 });
 

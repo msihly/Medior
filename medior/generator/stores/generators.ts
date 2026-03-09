@@ -336,7 +336,7 @@ export const createSearchStore = (def: ModelSearchStore) => {
             })));`
       }
 
-      const results = ${!def.transformResultsFn ? "items" : `items.map(${def.transformResultsFn})`}
+      const results = ${def.transformResultsFn || "items"}
 
       this.setResults(results.map((result) => new Stores.${def.name}(result)));
       if (debug) perfLog("Overwrite and re-render");

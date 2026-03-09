@@ -22,6 +22,12 @@ export const TagFilterMenu = Comp(({ color = colors.foreground, store }: TagFilt
   return (
     <FilterMenu store={store} color={color} sortOptions={SORT_OPTIONS.Tag} width="10rem">
       <Card row spacing="0.5rem">
+        <View column width="100%" spacing="0.5rem">
+          <Input header="Label" value={store.label} setValue={store.setLabel} />
+
+          <Input header="Alias" value={store.alias} setValue={store.setAlias} />
+        </View>
+
         <View column width="100%">
           <TagInput
             header="Tags"
@@ -32,12 +38,6 @@ export const TagFilterMenu = Comp(({ color = colors.foreground, store }: TagFilt
             hasEditor
             hasSearchMenu
           />
-        </View>
-
-        <View column width="100%" spacing="0.5rem">
-          <Input header="Label" value={store.label} setValue={store.setLabel} />
-
-          <Input header="Alias" value={store.alias} setValue={store.setAlias} />
         </View>
       </Card>
 
@@ -74,6 +74,7 @@ export const TagFilterMenu = Comp(({ color = colors.foreground, store }: TagFilt
             checked={store.hasRegEx}
             indeterminate={store.hasRegEx === false}
             setChecked={store.toggleHasRegEx}
+            flex={0}
           />
         </Card>
       </View>

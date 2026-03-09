@@ -36,7 +36,7 @@ export const Header = Comp(({ type }: HeaderProps) => {
 
   return (
     <Modal.Header
-      leftNode={<Button text="Tag Manager" icon="More" onClick={handleTagManager} />}
+      leftNode={<Button text="Tag Manager" icon="Label" onClick={handleTagManager} />}
       rightNode={
         <View row spacing="0.3rem">
           {type === "Ingester" ? (

@@ -5,6 +5,7 @@ import {
   Comp,
   MultiInputList,
   MultiInputListProps,
+  sortTags,
   TagInputRow,
   TagInputRowProps,
   ViewProps,
@@ -36,6 +37,8 @@ export const TagList = Comp(
 
     const ref = useRef<FixedSizeList>(null);
 
+    const tags = sortTags(search.value);
+
     useEffect(() => {
       if (!socket?.isConnected || !search?.onChange) return;
 
@@ -57,7 +60,9 @@ export const TagList = Comp(
         for (const { tagId, updates } of args.tags) {
           const tagToUpdate = search.value.find((t) => t.id === tagId);
           if (tagToUpdate)
-            search.onChange(search.value.map((t) => (t.id === tagId ? { ...t, ...updates } : t)));
+            search.onChange(
+              search.value.map((t) => (t.id === tagId ? { ...t, ...updates } : { ...t })),
+            );
         }
       };
 
@@ -78,12 +83,13 @@ export const TagList = Comp(
       <MultiInputList
         ref={ref}
         hasInput={hasInput}
-        search={search}
+        search={{ onChange: search.onChange, value: tags }}
         renderRow={(index, style) => (
           <TagInputRow
-            {...{ hasDelete, hasEditor, hasSearchMenu, rightNode, search, style }}
+            {...{ hasDelete, hasEditor, hasSearchMenu, rightNode, style }}
             key={index}
-            tag={search.value[index]}
+            search={{ onChange: search.onChange, value: tags }}
+            tag={tags[index]}
             onClick={onTagClick}
           />
         )}

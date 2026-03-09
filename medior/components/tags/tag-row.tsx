@@ -1,17 +1,28 @@
 import { Comp, TagChip, TagToUpsert, View, ViewProps } from "medior/components";
+import { TagOption } from "medior/store";
 
-export const sortTags = (tags: TagToUpsert[]) =>
+export const sortTags = <T extends TagToUpsert | TagOption>(tags: T[]) =>
   [...tags].sort((a, b) => {
-    // Show new tags first
-    if (a.id && !b.id) return 1;
-    if (!a.id && b.id) return -1;
-    // Show tags with higher category sortRank first
-    if (a.category?.sortRank && b.category?.sortRank)
-      return b.category.sortRank - a.category.sortRank;
-    if (a.category?.sortRank) return -1;
-    if (b.category?.sortRank) return 1;
-    // Otherwise show highest counts first
-    return b.count - a.count;
+    const aCat = a.category;
+    const bCat = b.category;
+
+    const cmp =
+      // new tags first
+      (a.id ? 1 : 0) - (b.id ? 1 : 0) ||
+      // higher sortRank first
+      (bCat?.sortRank ?? -Infinity) - (aCat?.sortRank ?? -Infinity) ||
+      // category color present first
+      (aCat?.color ? -1 : 0) - (bCat?.color ? -1 : 0) ||
+      // color desc
+      (aCat?.color && bCat?.color ? bCat.color.localeCompare(aCat.color) : 0) ||
+      // icon present first
+      (aCat?.icon ? -1 : 0) - (bCat?.icon ? -1 : 0) ||
+      // icon desc
+      (aCat?.icon && bCat?.icon ? bCat.icon.localeCompare(aCat.icon) : 0) ||
+      // count desc
+      (b.count ?? 0) - (a.count ?? 0);
+
+    return cmp;
   });
 
 export interface TagRowProps extends ViewProps {

@@ -72,7 +72,7 @@ export const Drawer = Comp(({ hasImports = false, hasSettings = false }: DrawerP
         )}
 
         <IconButton
-          name="More"
+          name="Label"
           tooltip="Open Tag Manager"
           onClick={handleManageTags}
           {...{ tooltipProps }}

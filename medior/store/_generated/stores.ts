@@ -1147,7 +1147,7 @@ export class _TagSearch extends Model({
       let items = itemsRes.data;
       if (debug) perfLog(`Loaded ${items.length} items`);
 
-      const results = items;
+      const results = await trpc.deriveTagCategories.mutate(items);
 
       this.setResults(results.map((result) => new Stores.Tag(result)));
       if (debug) perfLog("Overwrite and re-render");

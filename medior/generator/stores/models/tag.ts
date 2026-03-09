@@ -3,6 +3,7 @@ import { ModelStore } from "medior/generator/stores/generators";
 const model = new ModelStore("Tag", {
   defaultPageSize: "() => getConfig().tags.manager.search.pageSize",
   defaultSort: "() => getConfig().tags.manager.search.sort",
+  transformResultsFn: "await trpc.deriveTagCategories.mutate(items)",
 });
 
 model.addTagOptsProp("_id", "ancestorIds");

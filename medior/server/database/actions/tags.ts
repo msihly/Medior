@@ -1,4 +1,3 @@
-import { IconName } from "medior/_generated/client";
 import * as models from "medior/_generated/server/models";
 import { SocketEmitEvent } from "medior/_generated/server/socket";
 import { AnyBulkWriteOperation } from "mongodb";
@@ -69,28 +68,38 @@ export const deriveTagCategories = async (tags: models.TagSchema[]) => {
       .select({ _id: 1, ancestorIds: 1, category: 1 })
   ).map((t) => leanModelToJson<models.TagSchema>(t));
 
+  const ancestorMap = new Map(ancestors.map((t) => [t.id, t]));
+
   const tagCategoriesMap = new Map(
     ancestors.filter((t) => t.category?.inheritable).map((t) => [t.id, t.category]),
   );
 
   const getNearestCategory = (tag: models.TagSchema) => {
-    let color: string = tag.category?.color;
-    let icon: IconName = tag.category?.icon;
-    let sortRank: number = tag.category?.sortRank;
+    let bestColor = tag.category?.color;
+    let bestIcon = tag.category?.icon;
+    let bestSortRank = tag.category?.sortRank;
 
     for (const ancestorId of tag.ancestorIds.map(String).filter((id) => id !== tag.id)) {
-      if (tagCategoriesMap.has(ancestorId)) {
-        const category = tagCategoriesMap.get(ancestorId);
-        if (!color) color = category.color;
-        if (!icon) icon = category.icon;
-        if (!sortRank) sortRank = category.sortRank;
-      }
+      const ancestor = ancestorMap.get(ancestorId);
+      if (!ancestor) continue;
+
+      const category = tagCategoriesMap.get(ancestorId);
+      if (!category) continue;
+
+      const sortRank = category.sortRank;
+      const isValid = sortRank > bestSortRank;
+      if (isValid) bestSortRank = sortRank;
+      if (isValid || !bestColor) bestColor = category.color;
+      if (isValid || !bestIcon) bestIcon = category.icon;
     }
 
-    return { color, icon, sortRank };
+    return { color: bestColor, icon: bestIcon, sortRank: bestSortRank };
   };
 
-  return tags.map((t) => ({ ...t, category: { ...t.category, ...getNearestCategory(t) } }));
+  return tags.map((t) => ({
+    ...t,
+    category: { ...t.category, ...getNearestCategory(t) },
+  }));
 };
 
 const deriveTagThumb = async (tagId: string): Promise<models.TagSchema["thumb"]> => {
@@ -660,34 +669,38 @@ export const editMultiTagRelations = makeAction(
 
         const tagAddOps: AnyBulkWriteOperation[] = [
           // @ts-expect-error
-          (validChildIdsToAdd.length > 0 || validParentIdsToAdd.length > 0) && {
-            updateOne: {
-              filter: { _id: tag.id },
-              update: {
-                $set: { dateModified },
-                $addToSet: {
-                  childIds: { $each: objectIds(validChildIdsToAdd) },
-                  parentIds: { $each: objectIds(validParentIdsToAdd) },
+          !validChildIdsToAdd.length && !validParentIdsToAdd.length
+            ? null
+            : {
+                updateOne: {
+                  filter: { _id: tag.id },
+                  update: {
+                    $set: { dateModified },
+                    $addToSet: {
+                      childIds: { $each: objectIds(validChildIdsToAdd) },
+                      parentIds: { $each: objectIds(validParentIdsToAdd) },
+                    },
+                  },
                 },
               },
-            },
-          },
         ];
 
         const tagRemoveOps: AnyBulkWriteOperation[] = [
           // @ts-expect-error
-          (childIdsToRemove?.length > 0 || parentIdsToRemove?.length > 0) && {
-            updateOne: {
-              filter: { _id: tag.id },
-              update: {
-                $set: { dateModified },
-                $pullAll: {
-                  childIds: args.childIdsToRemove ? objectIds(args.childIdsToRemove) : [],
-                  parentIds: args.parentIdsToRemove ? objectIds(args.parentIdsToRemove) : [],
+          !args.childIdsToRemove?.length && !args.parentIdsToRemove?.length
+            ? null
+            : {
+                updateOne: {
+                  filter: { _id: tag.id },
+                  update: {
+                    $set: { dateModified },
+                    $pullAll: {
+                      childIds: args.childIdsToRemove ? objectIds(args.childIdsToRemove) : [],
+                      parentIds: args.parentIdsToRemove ? objectIds(args.parentIdsToRemove) : [],
+                    },
+                  },
                 },
               },
-            },
-          },
         ];
 
         return [...relationOps, ...tagAddOps, ...tagRemoveOps].filter(Boolean);
