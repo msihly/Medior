@@ -31,6 +31,7 @@ export type TagInputProps = Omit<
   excludedIds?: string[];
   hasCreate?: boolean;
   hasDelete?: boolean;
+  hasDeleteAll?: boolean;
   hasEditor?: boolean;
   hasHelper?: boolean;
   hasList?: boolean;
@@ -59,6 +60,7 @@ export const TagInput = Comp(
       excludedIds = [],
       hasCreate = false,
       hasDelete = true,
+      hasDeleteAll = false,
       hasEditor = true,
       hasHelper = false,
       hasList = true,
@@ -155,7 +157,7 @@ export const TagInput = Comp(
 
     const renderList = () => (
       <TagList
-        {...{ hasDelete, hasEditor, hasSearchMenu, onTagClick, value }}
+        {...{ hasDelete, hasDeleteAll, hasEditor, hasSearchMenu, onTagClick, value }}
         search={{ onChange, value }}
         hasInput
       />

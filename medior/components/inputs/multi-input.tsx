@@ -11,6 +11,7 @@ import { MultiInputList } from "./multi-input-list";
 
 export interface MultiInputProps<T = string> {
   hasDelete?: boolean;
+  hasDeleteAll?: boolean;
   hasEditor?: boolean;
   hasHelper?: boolean;
   hasList?: boolean;
@@ -27,6 +28,7 @@ export const MultiInput = Comp(
   (
     {
       hasDelete = true,
+      hasDeleteAll = false,
       hasHelper = false,
       hasList = true,
       header,
@@ -53,7 +55,7 @@ export const MultiInput = Comp(
     };
 
     const renderList = () => (
-      <MultiInputList {...{ hasDelete }} search={{ onChange, value }} hasInput />
+      <MultiInputList {...{ hasDelete, hasDeleteAll }} search={{ onChange, value }} hasInput />
     );
 
     return (

@@ -22,6 +22,7 @@ export const Relations = Comp(
         onChange={setValue}
         hasCreate
         hasDelete
+        hasDeleteAll
         width="100%"
         {...tagInputProps}
       />

@@ -199,7 +199,7 @@ export const TagEditor = Comp(({ isSubEditor = false }: TagEditorProps) => {
           </Card>
         </View>
 
-        <Card row height="13rem" spacing="0.5rem" padding={{ all: "1rem 0.5rem" }}>
+        <Card row height="18rem" spacing="0.5rem" padding={{ all: "1rem 0.5rem 0.5rem" }}>
           <TagInputs.Aliases value={store.aliases} onChange={store.setAliases} />
 
           <TagInputs.Relations

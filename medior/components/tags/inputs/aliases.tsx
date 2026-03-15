@@ -4,6 +4,6 @@ interface AliasesProps extends MultiInputProps {
   disabled?: boolean;
 }
 
-export const Aliases = ({ disabled, onChange, value, ...props }: AliasesProps) => {
-  return <MultiInput header="Aliases" {...props} {...{ disabled, onChange, value }} />;
+export const Aliases = (props: AliasesProps) => {
+  return <MultiInput {...props} header="Aliases" hasDeleteAll />;
 };

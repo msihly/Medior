@@ -128,7 +128,7 @@ export const Button = ({
         {icon && (
           <View margins={text || iconRight ? { right: "0.3em" } : undefined}>
             {!loading ? (
-              <Icon name={icon} size={iconSize} {...iconProps} />
+              <Icon name={icon} size={iconSize} color={textColor} {...iconProps} />
             ) : (
               <CircularProgress color="inherit" size={iconSize} />
             )}
@@ -138,6 +138,7 @@ export const Button = ({
         {text && (
           <Text
             {...{ fontSize, fontWeight, tooltip, tooltipProps }}
+            color={textColor}
             className={cx(css.text, className)}
           >
             {text}
