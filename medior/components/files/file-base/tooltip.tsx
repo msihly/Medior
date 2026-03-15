@@ -12,7 +12,7 @@ import {
 } from "medior/components";
 import { File } from "medior/store";
 import { colors } from "medior/utils/client";
-import { Fmt } from "medior/utils/common";
+import { CONSTANTS, Fmt } from "medior/utils/common";
 
 interface TooltipProps {
   children: JSX.Element;
@@ -23,8 +23,8 @@ interface TooltipProps {
 export const Tooltip = Comp(({ children, disabled, file }: TooltipProps) => {
   return (
     <TooltipBase
-      enterDelay={700}
-      enterNextDelay={300}
+      enterDelay={CONSTANTS.TOOLTIP.ENTER_DELAY}
+      enterNextDelay={CONSTANTS.TOOLTIP.ENTER_NEXT_DELAY}
       minWidth="15rem"
       title={
         <View column padding={{ all: "0.3rem" }} spacing="0.5rem">

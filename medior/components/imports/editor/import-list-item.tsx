@@ -21,7 +21,7 @@ import {
 } from "medior/components";
 import { FileImport } from "medior/store";
 import { colors, makeClasses, toast } from "medior/utils/client";
-import { Fmt, parseDiffParams } from "medior/utils/common";
+import { CONSTANTS, Fmt, parseDiffParams } from "medior/utils/common";
 import { trpc } from "medior/utils/server";
 
 export const IMPORT_LIST_ITEM_HEIGHT = 30;
@@ -79,7 +79,11 @@ export const ImportListItem = Comp(
 
         <Text
           tooltip={fileImport.path}
-          tooltipProps={{ enterDelay: 1000, flexShrink: "inherit" }}
+          tooltipProps={{
+            enterDelay: CONSTANTS.TOOLTIP.ENTER_DELAY,
+            enterNextDelay: CONSTANTS.TOOLTIP.ENTER_NEXT_DELAY,
+            flexShrink: "inherit",
+          }}
           className={css.name}
         >
           {fileImport.name}
@@ -91,8 +95,8 @@ export const ImportListItem = Comp(
               icon="Label"
               label="Tags"
               onOpen={handleOpen}
-              enterDelay={700}
-              enterNextDelay={300}
+              enterDelay={CONSTANTS.TOOLTIP.ENTER_DELAY}
+              enterNextDelay={CONSTANTS.TOOLTIP.ENTER_NEXT_DELAY}
             >
               <TagRow tags={[...tags, ...fileImport.tagsToUpsert]} padding={{ all: "0.5rem" }} />
             </TooltipChip>

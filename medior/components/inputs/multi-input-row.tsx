@@ -1,5 +1,6 @@
 import { Button, Text, View } from "medior/components";
 import { colors, makeClasses } from "medior/utils/client";
+import { CONSTANTS } from "medior/utils/common";
 
 export const MULTI_INPUT_ROW_HEIGHT = 35;
 
@@ -50,7 +51,11 @@ export const MultiInputRow = <T,>({ bgColor, ...props }: MultiInputRowProps<T>) 
       >
         <Text
           tooltip={value}
-          tooltipProps={{ enterDelay: 700, enterNextDelay: 300, flexShrink: 1 }}
+          tooltipProps={{
+            enterDelay: CONSTANTS.TOOLTIP.ENTER_DELAY,
+            enterNextDelay: CONSTANTS.TOOLTIP.ENTER_NEXT_DELAY,
+            flexShrink: 1,
+          }}
           className={css.label}
         >
           {value}

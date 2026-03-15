@@ -224,6 +224,10 @@ export interface Constants {
     SERVER: number;
     SOCKET: number;
   };
+  TOOLTIP: {
+    ENTER_DELAY: number;
+    ENTER_NEXT_DELAY: number;
+  };
   VIDEO_CODECS: readonly VideoCodec[];
   VIDEO_EXTS: readonly VideoExt[];
 }
@@ -262,6 +266,10 @@ export const CONSTANTS: Constants = {
     DB: 27770,
     SERVER: 3567,
     SOCKET: 3568,
+  },
+  TOOLTIP: {
+    ENTER_DELAY: 1000,
+    ENTER_NEXT_DELAY: 500,
   },
   VIDEO_CODECS,
   VIDEO_EXTS,

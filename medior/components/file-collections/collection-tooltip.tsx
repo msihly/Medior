@@ -3,6 +3,7 @@ import { TagSchema } from "medior/_generated/server";
 import { TagRow, Text, Tooltip, View } from "medior/components";
 import { FileCollection } from "medior/store";
 import { colors, toast } from "medior/utils/client";
+import { CONSTANTS } from "medior/utils/common";
 import { trpc } from "medior/utils/server";
 
 export interface CollectionTooltipProps {
@@ -26,8 +27,8 @@ export const CollectionTooltip = ({ children, collection }: CollectionTooltipPro
   return (
     <Tooltip
       onOpen={handleOpen}
-      enterDelay={700}
-      enterNextDelay={300}
+      enterDelay={CONSTANTS.TOOLTIP.ENTER_DELAY}
+      enterNextDelay={CONSTANTS.TOOLTIP.ENTER_NEXT_DELAY}
       minWidth="25rem"
       title={
         <View column padding={{ all: "0.5rem" }}>
