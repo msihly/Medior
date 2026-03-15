@@ -72,12 +72,12 @@ export const CarouselWindow = Comp(() => {
 
           perfLog("Loading active file...");
           stores.file.search.setIds([fileId]);
-          await stores.file.search.loadFiltered();
+          await stores.file.search.loadFiltered({ noCache: true });
           stores.carousel.setActiveFileId(fileId);
 
           perfLog("Active file loaded. Loading carousel files...");
           stores.file.search.setIds([fileId, ...selectedFileIds]);
-          await stores.file.search.loadFiltered();
+          await stores.file.search.loadFiltered({ noCache: true });
           stores.carousel.setSelectedFileIds(selectedFileIds);
 
           perfLogTotal("Data loaded into MobX.");

@@ -45,7 +45,7 @@ export const FilterMenu = Comp(
 
     const handleSearch = () => {
       store.setPageCount(1);
-      store.loadFiltered({ page: 1 });
+      store.loadFiltered({ noCache: true, page: 1 });
     };
 
     const renderButton = (onOpen: (event: React.MouseEvent<HTMLButtonElement>) => void) => (

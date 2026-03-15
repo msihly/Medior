@@ -15,7 +15,7 @@ export const HomeWindow = Comp(() => {
     (async () => {
       try {
         document.title = "Medior —— Home";
-        await stores.file.search.loadFiltered({ page: 1 });
+        await stores.file.search.loadFiltered({ noCache: true, page: 1 });
         stores.import.manager.runImporter();
       } catch (err) {
         console.error(err);

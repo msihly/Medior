@@ -196,8 +196,19 @@ const createSchemaStore = async (modelDef: ModelDef) => {
 };
 
 export const createSearchStore = (def: ModelSearchStore) => {
-  const props = [...def.props].sort((a, b) => a.name.localeCompare(b.name));
   const storeName = `_${def.name}Search`;
+
+  const props = [
+    ...def.props,
+    {
+      defaultValue: `null`,
+      name: "cachedFilterProps",
+      noInterface: true,
+      notFilterProp: true,
+      notTrackedFilter: true,
+      type: "object | null",
+    },
+  ].sort((a, b) => a.name.localeCompare(b.name));
 
   const makeProps = () =>
     props
@@ -250,11 +261,38 @@ export const createSearchStore = (def: ModelSearchStore) => {
     `@modelFlow
     getShiftSelected = asyncAction(
       async ({ id, selectedIds }: { id: string; selectedIds: string[] }) => {
-        const clickedIndex = (this.page - 1) * this.pageSize + this.results.findIndex((r) => r.id === id);
+        const clickedLocalIndex = this.results.findIndex((r) => r.id === id);
+
+        const selectedLocalIndexes = selectedIds
+          .map((sid) => this.results.findIndex((r) => r.id === sid))
+          .filter((i) => i > -1);
+
+        const canResolveLocally =
+          clickedLocalIndex > -1 &&
+          selectedLocalIndexes.length === selectedIds.length &&
+          this.results.length > 0;
+
+        if (canResolveLocally) {
+          const firstSelected = Math.min(...selectedLocalIndexes);
+          const lastSelected = Math.max(...selectedLocalIndexes);
+          if (firstSelected === clickedLocalIndex) return { idsToSelect: [], idsToDeselect: [id] };
+
+          const isFirstAfterClicked = firstSelected > clickedLocalIndex;
+          const start = isFirstAfterClicked ? clickedLocalIndex : firstSelected;
+          const end = isFirstAfterClicked ? lastSelected : clickedLocalIndex;
+
+          const newIds = this.results.slice(start, end + 1).map((r) => r.id);
+          const idsToSelect = newIds.filter((i) => !selectedIds.includes(i));
+          const idsToDeselect = selectedIds.filter((i) => !newIds.includes(i));
+
+          return { idsToSelect, idsToDeselect };
+        }
+
+        const clickedIndex = (this.page - 1) * this.pageSize + clickedLocalIndex;
 
         this.setIsLoading(true);
         const res = await trpc.getShiftSelected${def.name}.mutate({
-          ...this.getFilterProps(),
+          ...this.cachedFilterProps,
           clickedId: id,
           clickedIndex,
           selectedIds,
@@ -288,16 +326,18 @@ export const createSearchStore = (def: ModelSearchStore) => {
 
   const makeLoadFilteredAction = () =>
     `@modelFlow
-    loadFiltered = asyncAction(async ({ page, withFullCount }: { page?: number; withFullCount?: boolean; } = {}) => {
+    loadFiltered = asyncAction(async ({ noCache, page, withFullCount }: { noCache?: boolean; page?: number; withFullCount?: boolean; } = {}) => {
       const debug = false;
       const { perfLog } = makePerfLog("[${def.name}Search]");
       this.setIsLoading(true);
       this.setIsPageCountLoading(true);
 
+      const filterProps = noCache ? this.getFilterProps() : this.getCachedFilterProps();
+      if (noCache || !this.cachedFilterProps) this.setCachedFilterProps(derefMobx(filterProps));
+
       const countRes = await trpc.getFiltered${def.name}Count.mutate({
-        ...this.getFilterProps(),
+        ...filterProps,
         curMaxPage: this.pageCount,
-        curPage: this.page,
         page,
         pageSize: this.pageSize,
         withFull: withFullCount
@@ -314,7 +354,7 @@ export const createSearchStore = (def: ModelSearchStore) => {
       if (debug && page) perfLog(\`Set page to \${page ?? this.page}\`);
 
       const itemsRes = await trpc.listFiltered${def.name}.mutate({
-        ...this.getFilterProps(),
+        ...filterProps,
         forcePages: this.forcePages,
         page: newPage,
         pageSize: this.pageSize,
@@ -342,12 +382,18 @@ export const createSearchStore = (def: ModelSearchStore) => {
       if (debug) perfLog("Overwrite and re-render");
 
       this.setIsLoading(false);
-      this.setHasChanges(false);
+      if (noCache) this.setHasChanges(false);
 
       return results;
     });`;
 
   /* --------------------------------- GETTERS -------------------------------- */
+  const makeCachedFilterPropsGetter = () =>
+    `getCachedFilterProps() {
+      if (!this.cachedFilterProps) this.setCachedFilterProps(derefMobx(this.getFilterProps()));
+      return this.cachedFilterProps;
+    }`;
+
   const makeFilterPropsGetter = () =>
     `getFilterProps() {
       return {
@@ -397,6 +443,7 @@ export const createSearchStore = (def: ModelSearchStore) => {
       /* GETTERS */
       ${makeNumOfFiltersGetter()}\n
       /* DYNAMIC GETTERS */
+      ${makeCachedFilterPropsGetter()}\n
       ${makeFilterPropsGetter()}\n
       ${makeIsSelectedGetter()}\n
       ${makeResultGetter()}

@@ -17,7 +17,7 @@ import {
 import * as Types from "medior/server/database/types";
 import { IconName, SortMenuProps } from "medior/components";
 import * as Stores from "medior/store";
-import { asyncAction } from "medior/store/utils";
+import { asyncAction, derefMobx } from "medior/store/utils";
 import { getConfig, toast } from "medior/utils/client";
 import { dayjs, isDeepEqual, LogicalOp } from "medior/utils/common";
 import { makePerfLog, trpc } from "medior/utils/server";
@@ -28,6 +28,7 @@ import { makePerfLog, trpc } from "medior/utils/server";
 
 @model("medior/_FileCollectionSearch")
 export class _FileCollectionSearch extends Model({
+  cachedFilterProps: prop<object | null>(null).withSetter(),
   dateCreatedEnd: prop<string>("").withSetter(),
   dateCreatedStart: prop<string>("").withSetter(),
   dateModifiedEnd: prop<string>("").withSetter(),
@@ -67,6 +68,7 @@ export class _FileCollectionSearch extends Model({
 
   @modelAction
   reset() {
+    this.cachedFilterProps = null;
     this.dateCreatedEnd = "";
     this.dateCreatedStart = "";
     this.dateModifiedEnd = "";
@@ -138,12 +140,43 @@ export class _FileCollectionSearch extends Model({
   @modelFlow
   getShiftSelected = asyncAction(
     async ({ id, selectedIds }: { id: string; selectedIds: string[] }) => {
-      const clickedIndex =
-        (this.page - 1) * this.pageSize + this.results.findIndex((r) => r.id === id);
+      const clickedLocalIndex = this.results.findIndex((r) => r.id === id);
+
+      const selectedLocalIndexes = selectedIds
+        .map((sid) => this.results.findIndex((r) => r.id === sid))
+        .filter((i) => i > -1);
+
+      const canResolveLocally =
+        clickedLocalIndex > -1 &&
+        selectedLocalIndexes.length === selectedIds.length &&
+        this.results.length > 0;
+
+      if (canResolveLocally) {
+        const firstSelected = Math.min(...selectedLocalIndexes);
+        const lastSelected = Math.max(...selectedLocalIndexes);
+
+        if (firstSelected === clickedLocalIndex) {
+          return { idsToSelect: [], idsToDeselect: [id] };
+        }
+
+        const isFirstAfterClicked = firstSelected > clickedLocalIndex;
+
+        const start = isFirstAfterClicked ? clickedLocalIndex : firstSelected;
+        const end = isFirstAfterClicked ? lastSelected : clickedLocalIndex;
+
+        const newIds = this.results.slice(start, end + 1).map((r) => r.id);
+
+        const idsToSelect = newIds.filter((i) => !selectedIds.includes(i));
+        const idsToDeselect = selectedIds.filter((i) => !newIds.includes(i));
+
+        return { idsToSelect, idsToDeselect };
+      }
+
+      const clickedIndex = (this.page - 1) * this.pageSize + clickedLocalIndex;
 
       this.setIsLoading(true);
       const res = await trpc.getShiftSelectedFileCollection.mutate({
-        ...this.getFilterProps(),
+        ...this.cachedFilterProps,
         clickedId: id,
         clickedIndex,
         selectedIds,
@@ -178,16 +211,22 @@ export class _FileCollectionSearch extends Model({
 
   @modelFlow
   loadFiltered = asyncAction(
-    async ({ page, withFullCount }: { page?: number; withFullCount?: boolean } = {}) => {
+    async ({
+      noCache,
+      page,
+      withFullCount,
+    }: { noCache?: boolean; page?: number; withFullCount?: boolean } = {}) => {
       const debug = false;
       const { perfLog } = makePerfLog("[FileCollectionSearch]");
       this.setIsLoading(true);
       this.setIsPageCountLoading(true);
 
+      const filterProps = noCache ? this.getFilterProps() : this.getCachedFilterProps();
+      if (noCache || !this.cachedFilterProps) this.setCachedFilterProps(derefMobx(filterProps));
+
       const countRes = await trpc.getFilteredFileCollectionCount.mutate({
-        ...this.getFilterProps(),
+        ...filterProps,
         curMaxPage: this.pageCount,
-        curPage: this.page,
         page,
         pageSize: this.pageSize,
         withFull: withFullCount,
@@ -204,7 +243,7 @@ export class _FileCollectionSearch extends Model({
       if (debug && page) perfLog(`Set page to ${page ?? this.page}`);
 
       const itemsRes = await trpc.listFilteredFileCollection.mutate({
-        ...this.getFilterProps(),
+        ...filterProps,
         forcePages: this.forcePages,
         page: newPage,
         pageSize: this.pageSize,
@@ -232,7 +271,7 @@ export class _FileCollectionSearch extends Model({
       if (debug) perfLog("Overwrite and re-render");
 
       this.setIsLoading(false);
-      this.setHasChanges(false);
+      if (noCache) this.setHasChanges(false);
 
       return results;
     },
@@ -256,6 +295,11 @@ export class _FileCollectionSearch extends Model({
   }
 
   /* DYNAMIC GETTERS */
+  getCachedFilterProps() {
+    if (!this.cachedFilterProps) this.setCachedFilterProps(derefMobx(this.getFilterProps()));
+    return this.cachedFilterProps;
+  }
+
   getFilterProps() {
     return {
       dateCreatedEnd: this.dateCreatedEnd,
@@ -281,6 +325,7 @@ export class _FileCollectionSearch extends Model({
 }
 @model("medior/_FileImportBatchSearch")
 export class _FileImportBatchSearch extends Model({
+  cachedFilterProps: prop<object | null>(null).withSetter(),
   collectionTitle: prop<string>("").withSetter(),
   completedAtEnd: prop<string>("").withSetter(),
   completedAtStart: prop<string>("").withSetter(),
@@ -323,6 +368,7 @@ export class _FileImportBatchSearch extends Model({
 
   @modelAction
   reset() {
+    this.cachedFilterProps = null;
     this.collectionTitle = "";
     this.completedAtEnd = "";
     this.completedAtStart = "";
@@ -386,12 +432,43 @@ export class _FileImportBatchSearch extends Model({
   @modelFlow
   getShiftSelected = asyncAction(
     async ({ id, selectedIds }: { id: string; selectedIds: string[] }) => {
-      const clickedIndex =
-        (this.page - 1) * this.pageSize + this.results.findIndex((r) => r.id === id);
+      const clickedLocalIndex = this.results.findIndex((r) => r.id === id);
+
+      const selectedLocalIndexes = selectedIds
+        .map((sid) => this.results.findIndex((r) => r.id === sid))
+        .filter((i) => i > -1);
+
+      const canResolveLocally =
+        clickedLocalIndex > -1 &&
+        selectedLocalIndexes.length === selectedIds.length &&
+        this.results.length > 0;
+
+      if (canResolveLocally) {
+        const firstSelected = Math.min(...selectedLocalIndexes);
+        const lastSelected = Math.max(...selectedLocalIndexes);
+
+        if (firstSelected === clickedLocalIndex) {
+          return { idsToSelect: [], idsToDeselect: [id] };
+        }
+
+        const isFirstAfterClicked = firstSelected > clickedLocalIndex;
+
+        const start = isFirstAfterClicked ? clickedLocalIndex : firstSelected;
+        const end = isFirstAfterClicked ? lastSelected : clickedLocalIndex;
+
+        const newIds = this.results.slice(start, end + 1).map((r) => r.id);
+
+        const idsToSelect = newIds.filter((i) => !selectedIds.includes(i));
+        const idsToDeselect = selectedIds.filter((i) => !newIds.includes(i));
+
+        return { idsToSelect, idsToDeselect };
+      }
+
+      const clickedIndex = (this.page - 1) * this.pageSize + clickedLocalIndex;
 
       this.setIsLoading(true);
       const res = await trpc.getShiftSelectedFileImportBatch.mutate({
-        ...this.getFilterProps(),
+        ...this.cachedFilterProps,
         clickedId: id,
         clickedIndex,
         selectedIds,
@@ -426,16 +503,22 @@ export class _FileImportBatchSearch extends Model({
 
   @modelFlow
   loadFiltered = asyncAction(
-    async ({ page, withFullCount }: { page?: number; withFullCount?: boolean } = {}) => {
+    async ({
+      noCache,
+      page,
+      withFullCount,
+    }: { noCache?: boolean; page?: number; withFullCount?: boolean } = {}) => {
       const debug = false;
       const { perfLog } = makePerfLog("[FileImportBatchSearch]");
       this.setIsLoading(true);
       this.setIsPageCountLoading(true);
 
+      const filterProps = noCache ? this.getFilterProps() : this.getCachedFilterProps();
+      if (noCache || !this.cachedFilterProps) this.setCachedFilterProps(derefMobx(filterProps));
+
       const countRes = await trpc.getFilteredFileImportBatchCount.mutate({
-        ...this.getFilterProps(),
+        ...filterProps,
         curMaxPage: this.pageCount,
-        curPage: this.page,
         page,
         pageSize: this.pageSize,
         withFull: withFullCount,
@@ -452,7 +535,7 @@ export class _FileImportBatchSearch extends Model({
       if (debug && page) perfLog(`Set page to ${page ?? this.page}`);
 
       const itemsRes = await trpc.listFilteredFileImportBatch.mutate({
-        ...this.getFilterProps(),
+        ...filterProps,
         forcePages: this.forcePages,
         page: newPage,
         pageSize: this.pageSize,
@@ -483,7 +566,7 @@ export class _FileImportBatchSearch extends Model({
       if (debug) perfLog("Overwrite and re-render");
 
       this.setIsLoading(false);
-      this.setHasChanges(false);
+      if (noCache) this.setHasChanges(false);
 
       return results;
     },
@@ -510,6 +593,11 @@ export class _FileImportBatchSearch extends Model({
   }
 
   /* DYNAMIC GETTERS */
+  getCachedFilterProps() {
+    if (!this.cachedFilterProps) this.setCachedFilterProps(derefMobx(this.getFilterProps()));
+    return this.cachedFilterProps;
+  }
+
   getFilterProps() {
     return {
       collectionTitle: this.collectionTitle,
@@ -539,6 +627,7 @@ export class _FileImportBatchSearch extends Model({
 @model("medior/_FileSearch")
 export class _FileSearch extends Model({
   bitrate: prop<{ logOp: LogicalOp | ""; value: number }>(() => ({ logOp: "", value: 0 })),
+  cachedFilterProps: prop<object | null>(null).withSetter(),
   dateCreatedEnd: prop<string>("").withSetter(),
   dateCreatedStart: prop<string>("").withSetter(),
   dateModifiedEnd: prop<string>("").withSetter(),
@@ -614,6 +703,7 @@ export class _FileSearch extends Model({
   @modelAction
   reset() {
     this.bitrate = { logOp: "", value: 0 };
+    this.cachedFilterProps = null;
     this.dateCreatedEnd = "";
     this.dateCreatedStart = "";
     this.dateModifiedEnd = "";
@@ -763,12 +853,43 @@ export class _FileSearch extends Model({
   @modelFlow
   getShiftSelected = asyncAction(
     async ({ id, selectedIds }: { id: string; selectedIds: string[] }) => {
-      const clickedIndex =
-        (this.page - 1) * this.pageSize + this.results.findIndex((r) => r.id === id);
+      const clickedLocalIndex = this.results.findIndex((r) => r.id === id);
+
+      const selectedLocalIndexes = selectedIds
+        .map((sid) => this.results.findIndex((r) => r.id === sid))
+        .filter((i) => i > -1);
+
+      const canResolveLocally =
+        clickedLocalIndex > -1 &&
+        selectedLocalIndexes.length === selectedIds.length &&
+        this.results.length > 0;
+
+      if (canResolveLocally) {
+        const firstSelected = Math.min(...selectedLocalIndexes);
+        const lastSelected = Math.max(...selectedLocalIndexes);
+
+        if (firstSelected === clickedLocalIndex) {
+          return { idsToSelect: [], idsToDeselect: [id] };
+        }
+
+        const isFirstAfterClicked = firstSelected > clickedLocalIndex;
+
+        const start = isFirstAfterClicked ? clickedLocalIndex : firstSelected;
+        const end = isFirstAfterClicked ? lastSelected : clickedLocalIndex;
+
+        const newIds = this.results.slice(start, end + 1).map((r) => r.id);
+
+        const idsToSelect = newIds.filter((i) => !selectedIds.includes(i));
+        const idsToDeselect = selectedIds.filter((i) => !newIds.includes(i));
+
+        return { idsToSelect, idsToDeselect };
+      }
+
+      const clickedIndex = (this.page - 1) * this.pageSize + clickedLocalIndex;
 
       this.setIsLoading(true);
       const res = await trpc.getShiftSelectedFile.mutate({
-        ...this.getFilterProps(),
+        ...this.cachedFilterProps,
         clickedId: id,
         clickedIndex,
         selectedIds,
@@ -803,16 +924,22 @@ export class _FileSearch extends Model({
 
   @modelFlow
   loadFiltered = asyncAction(
-    async ({ page, withFullCount }: { page?: number; withFullCount?: boolean } = {}) => {
+    async ({
+      noCache,
+      page,
+      withFullCount,
+    }: { noCache?: boolean; page?: number; withFullCount?: boolean } = {}) => {
       const debug = false;
       const { perfLog } = makePerfLog("[FileSearch]");
       this.setIsLoading(true);
       this.setIsPageCountLoading(true);
 
+      const filterProps = noCache ? this.getFilterProps() : this.getCachedFilterProps();
+      if (noCache || !this.cachedFilterProps) this.setCachedFilterProps(derefMobx(filterProps));
+
       const countRes = await trpc.getFilteredFileCount.mutate({
-        ...this.getFilterProps(),
+        ...filterProps,
         curMaxPage: this.pageCount,
-        curPage: this.page,
         page,
         pageSize: this.pageSize,
         withFull: withFullCount,
@@ -829,7 +956,7 @@ export class _FileSearch extends Model({
       if (debug && page) perfLog(`Set page to ${page ?? this.page}`);
 
       const itemsRes = await trpc.listFilteredFile.mutate({
-        ...this.getFilterProps(),
+        ...filterProps,
         forcePages: this.forcePages,
         page: newPage,
         pageSize: this.pageSize,
@@ -857,7 +984,7 @@ export class _FileSearch extends Model({
       if (debug) perfLog("Overwrite and re-render");
 
       this.setIsLoading(false);
-      this.setHasChanges(false);
+      if (noCache) this.setHasChanges(false);
 
       return results;
     },
@@ -927,6 +1054,11 @@ export class _FileSearch extends Model({
   }
 
   /* DYNAMIC GETTERS */
+  getCachedFilterProps() {
+    if (!this.cachedFilterProps) this.setCachedFilterProps(derefMobx(this.getFilterProps()));
+    return this.cachedFilterProps;
+  }
+
   getFilterProps() {
     return {
       bitrate: this.bitrate,
@@ -971,6 +1103,7 @@ export class _FileSearch extends Model({
 @model("medior/_TagSearch")
 export class _TagSearch extends Model({
   alias: prop<string>("").withSetter(),
+  cachedFilterProps: prop<object | null>(null).withSetter(),
   count: prop<{ logOp: LogicalOp | ""; value: number }>(() => ({ logOp: "", value: 0 })),
   dateCreatedEnd: prop<string>("").withSetter(),
   dateCreatedStart: prop<string>("").withSetter(),
@@ -1010,6 +1143,7 @@ export class _TagSearch extends Model({
   @modelAction
   reset() {
     this.alias = "";
+    this.cachedFilterProps = null;
     this.count = { logOp: "", value: 0 };
     this.dateCreatedEnd = "";
     this.dateCreatedStart = "";
@@ -1071,12 +1205,43 @@ export class _TagSearch extends Model({
   @modelFlow
   getShiftSelected = asyncAction(
     async ({ id, selectedIds }: { id: string; selectedIds: string[] }) => {
-      const clickedIndex =
-        (this.page - 1) * this.pageSize + this.results.findIndex((r) => r.id === id);
+      const clickedLocalIndex = this.results.findIndex((r) => r.id === id);
+
+      const selectedLocalIndexes = selectedIds
+        .map((sid) => this.results.findIndex((r) => r.id === sid))
+        .filter((i) => i > -1);
+
+      const canResolveLocally =
+        clickedLocalIndex > -1 &&
+        selectedLocalIndexes.length === selectedIds.length &&
+        this.results.length > 0;
+
+      if (canResolveLocally) {
+        const firstSelected = Math.min(...selectedLocalIndexes);
+        const lastSelected = Math.max(...selectedLocalIndexes);
+
+        if (firstSelected === clickedLocalIndex) {
+          return { idsToSelect: [], idsToDeselect: [id] };
+        }
+
+        const isFirstAfterClicked = firstSelected > clickedLocalIndex;
+
+        const start = isFirstAfterClicked ? clickedLocalIndex : firstSelected;
+        const end = isFirstAfterClicked ? lastSelected : clickedLocalIndex;
+
+        const newIds = this.results.slice(start, end + 1).map((r) => r.id);
+
+        const idsToSelect = newIds.filter((i) => !selectedIds.includes(i));
+        const idsToDeselect = selectedIds.filter((i) => !newIds.includes(i));
+
+        return { idsToSelect, idsToDeselect };
+      }
+
+      const clickedIndex = (this.page - 1) * this.pageSize + clickedLocalIndex;
 
       this.setIsLoading(true);
       const res = await trpc.getShiftSelectedTag.mutate({
-        ...this.getFilterProps(),
+        ...this.cachedFilterProps,
         clickedId: id,
         clickedIndex,
         selectedIds,
@@ -1111,16 +1276,22 @@ export class _TagSearch extends Model({
 
   @modelFlow
   loadFiltered = asyncAction(
-    async ({ page, withFullCount }: { page?: number; withFullCount?: boolean } = {}) => {
+    async ({
+      noCache,
+      page,
+      withFullCount,
+    }: { noCache?: boolean; page?: number; withFullCount?: boolean } = {}) => {
       const debug = false;
       const { perfLog } = makePerfLog("[TagSearch]");
       this.setIsLoading(true);
       this.setIsPageCountLoading(true);
 
+      const filterProps = noCache ? this.getFilterProps() : this.getCachedFilterProps();
+      if (noCache || !this.cachedFilterProps) this.setCachedFilterProps(derefMobx(filterProps));
+
       const countRes = await trpc.getFilteredTagCount.mutate({
-        ...this.getFilterProps(),
+        ...filterProps,
         curMaxPage: this.pageCount,
-        curPage: this.page,
         page,
         pageSize: this.pageSize,
         withFull: withFullCount,
@@ -1137,7 +1308,7 @@ export class _TagSearch extends Model({
       if (debug && page) perfLog(`Set page to ${page ?? this.page}`);
 
       const itemsRes = await trpc.listFilteredTag.mutate({
-        ...this.getFilterProps(),
+        ...filterProps,
         forcePages: this.forcePages,
         page: newPage,
         pageSize: this.pageSize,
@@ -1153,7 +1324,7 @@ export class _TagSearch extends Model({
       if (debug) perfLog("Overwrite and re-render");
 
       this.setIsLoading(false);
-      this.setHasChanges(false);
+      if (noCache) this.setHasChanges(false);
 
       return results;
     },
@@ -1179,6 +1350,11 @@ export class _TagSearch extends Model({
   }
 
   /* DYNAMIC GETTERS */
+  getCachedFilterProps() {
+    if (!this.cachedFilterProps) this.setCachedFilterProps(derefMobx(this.getFilterProps()));
+    return this.cachedFilterProps;
+  }
+
   getFilterProps() {
     return {
       alias: this.alias,

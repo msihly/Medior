@@ -103,7 +103,6 @@ export const getShiftSelectedFileCollection = makeAction(
 
 export type GetFilteredFileCollectionCountInput = CreateFileCollectionFilterPipelineInput & {
   curMaxPage: number;
-  curPage: number;
   page: number;
   pageSize: number;
   withFull: boolean;
@@ -112,7 +111,6 @@ export type GetFilteredFileCollectionCountInput = CreateFileCollectionFilterPipe
 export const getFilteredFileCollectionCount = makeAction(
   async ({
     curMaxPage,
-    curPage,
     pageSize,
     withFull,
     ...filterParams
@@ -273,7 +271,6 @@ export const getShiftSelectedFileImportBatch = makeAction(
 
 export type GetFilteredFileImportBatchCountInput = CreateFileImportBatchFilterPipelineInput & {
   curMaxPage: number;
-  curPage: number;
   page: number;
   pageSize: number;
   withFull: boolean;
@@ -282,7 +279,6 @@ export type GetFilteredFileImportBatchCountInput = CreateFileImportBatchFilterPi
 export const getFilteredFileImportBatchCount = makeAction(
   async ({
     curMaxPage,
-    curPage,
     pageSize,
     withFull,
     ...filterParams
@@ -514,20 +510,13 @@ export const getShiftSelectedFile = makeAction(
 
 export type GetFilteredFileCountInput = CreateFileFilterPipelineInput & {
   curMaxPage: number;
-  curPage: number;
   page: number;
   pageSize: number;
   withFull: boolean;
 };
 
 export const getFilteredFileCount = makeAction(
-  async ({
-    curMaxPage,
-    curPage,
-    pageSize,
-    withFull,
-    ...filterParams
-  }: GetFilteredFileCountInput) => {
+  async ({ curMaxPage, pageSize, withFull, ...filterParams }: GetFilteredFileCountInput) => {
     const filterPipeline = createFileFilterPipeline(filterParams);
 
     if (withFull) {
@@ -669,20 +658,13 @@ export const getShiftSelectedTag = makeAction(
 
 export type GetFilteredTagCountInput = CreateTagFilterPipelineInput & {
   curMaxPage: number;
-  curPage: number;
   page: number;
   pageSize: number;
   withFull: boolean;
 };
 
 export const getFilteredTagCount = makeAction(
-  async ({
-    curMaxPage,
-    curPage,
-    pageSize,
-    withFull,
-    ...filterParams
-  }: GetFilteredTagCountInput) => {
+  async ({ curMaxPage, pageSize, withFull, ...filterParams }: GetFilteredTagCountInput) => {
     const filterPipeline = createTagFilterPipeline(filterParams);
 
     if (withFull) {

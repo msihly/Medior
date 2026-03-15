@@ -21,7 +21,7 @@ export const SearchWindow = Comp(() => {
         const tags = (await trpc.listTag.mutate({ filter: { id: tagIds } })).data;
         stores.file.search.setTags(tags.map(tagToOption));
 
-        await stores.file.search.loadFiltered({ page: 1 });
+        await stores.file.search.loadFiltered({ noCache: true, page: 1 });
       } catch (err) {
         console.error(err);
       }

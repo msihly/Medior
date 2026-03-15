@@ -200,12 +200,11 @@ export const makeSearchActionsDef = async (
   const makeListFiltered = () => {
     const countFn = makeFnAndTypeNames(`getFiltered${def.name}Count`, actions);
     const listFn = makeFnAndTypeNames(`listFiltered${def.name}`, actions);
-    return `export type ${countFn.typeName} = ${filterFn.typeName} & { curMaxPage: number; curPage: number; page: number; pageSize: number; withFull: boolean; };
+    return `export type ${countFn.typeName} = ${filterFn.typeName} & { curMaxPage: number; page: number; pageSize: number; withFull: boolean; };
 
     export const ${countFn.fnName} = makeAction(
       async ({
         curMaxPage,
-        curPage,
         pageSize,
         withFull,
         ...filterParams

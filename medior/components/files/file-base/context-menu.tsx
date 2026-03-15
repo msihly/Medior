@@ -59,7 +59,7 @@ export const ContextMenu = Comp(({ children, file, store, ...props }: ContextMen
       if (!VIDEO_EXTS.includes(file.ext as VideoExt)) shell.openPath(file.path);
       else {
         const fileIdsRes = await trpc.listFileIdsForCarousel.mutate({
-          ...store.getFilterProps(),
+          ...store.getCachedFilterProps(),
           page: store.page,
           pageSize: store.pageSize,
         });

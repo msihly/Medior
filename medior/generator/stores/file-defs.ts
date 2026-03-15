@@ -77,7 +77,7 @@ export const FILE_DEF_STORES: FileDef = {
       import * as Types from "medior/server/database/types";
       import { IconName, SortMenuProps } from "medior/components";
       import * as Stores from "medior/store";
-      import { asyncAction } from "medior/store/utils";
+      import { asyncAction, derefMobx } from "medior/store/utils";
       import { getConfig, toast } from "medior/utils/client";
       import { dayjs, isDeepEqual, LogicalOp } from "medior/utils/common";
       import { makePerfLog, trpc } from "medior/utils/server";`;
