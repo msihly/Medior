@@ -6,6 +6,7 @@ import { Model, model, modelAction, modelFlow, objectToMapTransform, prop } from
 import { FlatFolder, TagToUpsert } from "medior/components";
 import { asyncAction } from "medior/store";
 import { extendFileName } from "medior/utils/client";
+import { Fmt } from "medior/utils/common";
 import { FileImport, ImportEditorOptions } from ".";
 
 export interface Sidecar {
@@ -94,7 +95,14 @@ export class Ingester extends Model({
 
       try {
         const params: Sidecar = JSON.parse(await fs.readFile(paramFileName, { encoding: "utf8" }));
-        if (params.tags) imp.addTagsToUpsert(params.tags);
+        if (params.tags)
+          imp.addTagsToUpsert(
+            params.tags.map((t) => ({
+              ...t,
+              label: Fmt.decodeHtmlEntities(t.label),
+              parentLabels: t.parentLabels?.map(Fmt.decodeHtmlEntities),
+            })),
+          );
       } catch (err) {
         console.error("Error reading sidecar:", err);
       }

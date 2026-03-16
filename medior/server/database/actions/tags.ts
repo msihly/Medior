@@ -1051,18 +1051,8 @@ export const repairTags = makeAction(async () => {
   const { perfLog } = makePerfLog("[repairTags]", true);
 
   /* -------------------------- Replace HTML Entities ------------------------- */
-  const htmlEntityRegex = /&(#\d+|#[xX][0-9a-fA-F]+|[a-zA-Z]+);/g;
-
-  const decodeHtmlEntities = (s: string) =>
-    s.replace(htmlEntityRegex, (m) => {
-      if (m.startsWith("&#x") || m.startsWith("&#X"))
-        return String.fromCharCode(parseInt(m.slice(3, -1), 16));
-      if (m.startsWith("&#")) return String.fromCharCode(parseInt(m.slice(2, -1), 10));
-      return { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'" }[m.slice(1, -1)] ?? m;
-    });
-
   const tagsWithHtmlEntities = (
-    await models.TagModel.find({ label: { $regex: htmlEntityRegex } })
+    await models.TagModel.find({ label: { $regex: Fmt.htmlEntityRegex } })
       .allowDiskUse(true)
       .lean()
   ).map((t) => leanModelToJson<models.TagSchema>(t));
@@ -1071,7 +1061,7 @@ export const repairTags = makeAction(async () => {
     const htmlBulkRes = await models.TagModel.bulkWrite(
       tagsWithHtmlEntities
         .map((t) => {
-          const decodedLabel = decodeHtmlEntities(t.label);
+          const decodedLabel = Fmt.decodeHtmlEntities(t.label);
           if (decodedLabel === t.label) return null;
           return {
             updateOne: {

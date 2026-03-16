@@ -7,7 +7,8 @@ import {
   MultiInputListProps,
   sortTags,
   TagInputRow,
-  TagInputRowProps, ViewProps
+  TagInputRowProps,
+  ViewProps,
 } from "medior/components";
 import { TagOption, tagToOption, useStores } from "medior/store";
 import { socket } from "medior/utils/server";

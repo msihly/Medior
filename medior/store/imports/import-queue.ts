@@ -230,7 +230,10 @@ export const useImportEditor = (store: Ingester | Reingester) => {
     const depth = store.options.withFlattenTo
       ? store.rootFolderIndex + store.options.flattenTo
       : undefined;
-    const folderNameParts = folderName.split(path.sep).slice(store.rootFolderIndex, depth);
+    const folderNameParts = folderName
+      .split(path.sep)
+      .slice(store.rootFolderIndex, depth)
+      .map(Fmt.decodeHtmlEntities);
     const collectionTitle =
       store.options.folderToCollectionMode !== "none"
         ? (store.options.folderToCollectionMode === "withTag"

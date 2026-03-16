@@ -154,18 +154,13 @@ export class _FileCollectionSearch extends Model({
       if (canResolveLocally) {
         const firstSelected = Math.min(...selectedLocalIndexes);
         const lastSelected = Math.max(...selectedLocalIndexes);
-
-        if (firstSelected === clickedLocalIndex) {
-          return { idsToSelect: [], idsToDeselect: [id] };
-        }
+        if (firstSelected === clickedLocalIndex) return { idsToSelect: [], idsToDeselect: [id] };
 
         const isFirstAfterClicked = firstSelected > clickedLocalIndex;
-
         const start = isFirstAfterClicked ? clickedLocalIndex : firstSelected;
         const end = isFirstAfterClicked ? lastSelected : clickedLocalIndex;
 
         const newIds = this.results.slice(start, end + 1).map((r) => r.id);
-
         const idsToSelect = newIds.filter((i) => !selectedIds.includes(i));
         const idsToDeselect = selectedIds.filter((i) => !newIds.includes(i));
 
@@ -446,18 +441,13 @@ export class _FileImportBatchSearch extends Model({
       if (canResolveLocally) {
         const firstSelected = Math.min(...selectedLocalIndexes);
         const lastSelected = Math.max(...selectedLocalIndexes);
-
-        if (firstSelected === clickedLocalIndex) {
-          return { idsToSelect: [], idsToDeselect: [id] };
-        }
+        if (firstSelected === clickedLocalIndex) return { idsToSelect: [], idsToDeselect: [id] };
 
         const isFirstAfterClicked = firstSelected > clickedLocalIndex;
-
         const start = isFirstAfterClicked ? clickedLocalIndex : firstSelected;
         const end = isFirstAfterClicked ? lastSelected : clickedLocalIndex;
 
         const newIds = this.results.slice(start, end + 1).map((r) => r.id);
-
         const idsToSelect = newIds.filter((i) => !selectedIds.includes(i));
         const idsToDeselect = selectedIds.filter((i) => !newIds.includes(i));
 
@@ -867,18 +857,13 @@ export class _FileSearch extends Model({
       if (canResolveLocally) {
         const firstSelected = Math.min(...selectedLocalIndexes);
         const lastSelected = Math.max(...selectedLocalIndexes);
-
-        if (firstSelected === clickedLocalIndex) {
-          return { idsToSelect: [], idsToDeselect: [id] };
-        }
+        if (firstSelected === clickedLocalIndex) return { idsToSelect: [], idsToDeselect: [id] };
 
         const isFirstAfterClicked = firstSelected > clickedLocalIndex;
-
         const start = isFirstAfterClicked ? clickedLocalIndex : firstSelected;
         const end = isFirstAfterClicked ? lastSelected : clickedLocalIndex;
 
         const newIds = this.results.slice(start, end + 1).map((r) => r.id);
-
         const idsToSelect = newIds.filter((i) => !selectedIds.includes(i));
         const idsToDeselect = selectedIds.filter((i) => !newIds.includes(i));
 
@@ -1219,18 +1204,13 @@ export class _TagSearch extends Model({
       if (canResolveLocally) {
         const firstSelected = Math.min(...selectedLocalIndexes);
         const lastSelected = Math.max(...selectedLocalIndexes);
-
-        if (firstSelected === clickedLocalIndex) {
-          return { idsToSelect: [], idsToDeselect: [id] };
-        }
+        if (firstSelected === clickedLocalIndex) return { idsToSelect: [], idsToDeselect: [id] };
 
         const isFirstAfterClicked = firstSelected > clickedLocalIndex;
-
         const start = isFirstAfterClicked ? clickedLocalIndex : firstSelected;
         const end = isFirstAfterClicked ? lastSelected : clickedLocalIndex;
 
         const newIds = this.results.slice(start, end + 1).map((r) => r.id);
-
         const idsToSelect = newIds.filter((i) => !selectedIds.includes(i));
         const idsToDeselect = selectedIds.filter((i) => !newIds.includes(i));
 

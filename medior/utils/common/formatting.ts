@@ -15,10 +15,20 @@ const capitalize = (str: string, restLower = false) =>
 
 const commas = (num: number) => Intl.NumberFormat().format(num);
 
+const decodeHtmlEntities = (s: string) =>
+  s.replace(htmlEntityRegex, (m) => {
+    if (m.startsWith("&#x") || m.startsWith("&#X"))
+      return String.fromCharCode(parseInt(m.slice(3, -1), 16));
+    if (m.startsWith("&#")) return String.fromCharCode(parseInt(m.slice(2, -1), 10));
+    return { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'" }[m.slice(1, -1)] ?? m;
+  });
+
 const duration = (val: number, isMs = false) =>
   !isNaN(val) ? dayjs.duration(val, isMs ? "ms" : "s").format("HH:mm:ss") : null;
 
 const frameToSec = (frame: number, frameRate: number) => round(frame / frameRate, 3);
+
+const htmlEntityRegex = /&(#\d+|#[xX][0-9a-fA-F]+|[a-zA-Z]+);/g;
 
 const jstr = (val: any) => JSON.stringify(val, null, 2);
 
@@ -71,8 +81,10 @@ export const Fmt = {
   camelCase,
   capitalize,
   commas,
+  decodeHtmlEntities,
   duration,
   frameToSec,
+  htmlEntityRegex,
   jstr,
   leadZeros,
   pascalToSnake,
