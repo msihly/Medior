@@ -55,9 +55,7 @@ export const DateInput = ({
   );
 };
 
-interface ClassesProps {
-  width: CSS["width"];
-}
+interface ClassesProps extends Pick<DateInputProps, "width"> {}
 
 const useClasses = makeClasses((props: ClassesProps) => ({
   datePicker: {

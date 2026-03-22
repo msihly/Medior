@@ -19,11 +19,7 @@ export const Chip = ({
   return <ChipBase {...props} {...{ bgColor }} className={css.chip} />;
 };
 
-interface ClassesProps {
-  hasFooter: boolean;
-  opacity: number;
-  position?: ChipProps["position"];
-}
+interface ClassesProps extends Pick<ChipProps, "hasFooter" | "opacity" | "position"> {}
 
 const useClasses = makeClasses((props: ClassesProps) => ({
   chip: {

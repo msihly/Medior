@@ -60,11 +60,7 @@ export const Checkbox = ({
   );
 };
 
-interface ClassesProps {
-  center: boolean;
-  color: string;
-  disabled: boolean;
-  flex: CSS["flex"];
+interface ClassesProps extends Pick<CheckboxProps, "center" | "color" | "disabled" | "flex"> {
   fullWidth: boolean;
   margins: Margins;
   padding: Padding;

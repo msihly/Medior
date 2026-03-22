@@ -54,10 +54,7 @@ export const Detail = ({
   );
 };
 
-interface ClassesProps {
-  overflowX: CSS["overflowX"];
-  overflowY: CSS["overflowY"];
-}
+interface ClassesProps extends Pick<DetailProps, "overflowX" | "overflowY"> {}
 
 const useClasses = makeClasses((props: ClassesProps) => ({
   value: {

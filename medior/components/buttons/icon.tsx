@@ -42,10 +42,7 @@ export const IconButton = ({
   );
 };
 
-interface ClassesProps {
-  disabled: boolean;
-  margins: Margins;
-}
+interface ClassesProps extends Pick<IconButtonProps, "disabled" | "margins"> {}
 
 const useClasses = makeClasses((props: ClassesProps) => ({
   root: {

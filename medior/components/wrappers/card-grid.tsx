@@ -52,11 +52,8 @@ export const CardGrid = Comp(
   },
 );
 
-interface ClassesProps {
+interface ClassesProps extends Pick<CardGridProps, "flexFlow" | "maxCards" | "position"> {
   hasCards: boolean;
-  flexFlow: CSS["flexFlow"];
-  maxCards: number;
-  position: CSS["position"];
 }
 
 const useClasses = makeClasses((props: ClassesProps, theme) => ({

@@ -53,9 +53,7 @@ export const Header = ({
   );
 };
 
-interface ClassesProps {
-  justify: CSS["justifyContent"];
-}
+interface ClassesProps extends Pick<HeaderProps, "justify"> {}
 
 const useClasses = makeClasses((props: ClassesProps) => ({
   root: {

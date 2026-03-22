@@ -94,26 +94,7 @@ export const View = Comp(
   },
 );
 
-interface ClassesProps {
-  align: CSS["alignItems"];
-  bgColor: CSS["backgroundColor"];
-  borders: Borders;
-  borderRadiuses: BorderRadiuses;
-  column: boolean;
-  display: CSS["display"];
-  flex: CSS["flex"];
-  height: CSS["height"];
-  justify: CSS["justifyContent"];
-  margins: Margins;
-  opacity: CSS["opacity"];
-  overflow: CSS["overflow"];
-  padding: Padding;
-  position: CSS["position"];
-  row: boolean;
-  spacing: CSS["marginRight"];
-  width: CSS["width"];
-  wrap: CSS["flexWrap"];
-}
+interface ClassesProps extends ViewProps {}
 
 const useClasses = makeClasses((props: ClassesProps) => ({
   view: {

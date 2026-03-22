@@ -257,11 +257,7 @@ export const TagInput = Comp(
   },
 );
 
-interface ClassesProps {
-  center: boolean;
-  margins: Margins;
-  width: CSS["width"];
-}
+interface ClassesProps extends Pick<TagInputProps, "center" | "margins" | "width"> {}
 
 const useClasses = makeClasses((props: ClassesProps) => ({
   listbox: {

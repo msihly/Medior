@@ -40,9 +40,7 @@ export const LoadingOverlay = ({ children, isLoading, sub }: LoadingOverlayProps
   );
 };
 
-interface ClassesProps {
-  isLoading: boolean;
-}
+interface ClassesProps extends Pick<LoadingOverlayProps, "isLoading"> {}
 
 const useClasses = makeClasses((props: ClassesProps) => ({
   loadingOverlay: {

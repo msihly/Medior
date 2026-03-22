@@ -151,11 +151,7 @@ export const Input = Comp(
   },
 );
 
-interface ClassesProps {
-  borders: Borders;
-  borderRadiuses: BorderRadiuses;
-  color: string;
-  dense: boolean;
+interface ClassesProps extends Pick<InputProps, "borders" | "borderRadiuses" | "color" | "dense"> {
   flex: CSS["flex"];
   hasHeader: boolean;
   hasHelper: boolean;

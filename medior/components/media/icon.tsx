@@ -37,9 +37,7 @@ export const Icon = ({
   );
 };
 
-interface ClassesProps {
-  rotation: number;
-}
+interface ClassesProps extends Pick<IconProps, "rotation"> {}
 
 const useClasses = makeClasses((props: ClassesProps) => ({
   root: {

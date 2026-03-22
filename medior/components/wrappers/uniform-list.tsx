@@ -17,9 +17,7 @@ export const UniformList = ({ children, uniformWidth, ...props }: UniformListPro
   );
 };
 
-interface ClassesProps {
-  uniformWidth: CSS["maxWidth"];
-}
+interface ClassesProps extends Pick<UniformListProps, "uniformWidth"> {}
 
 const useClasses = makeClasses((props: ClassesProps) => ({
   uniform: {

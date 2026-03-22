@@ -80,13 +80,8 @@ export const Text = ({
   );
 };
 
-interface ClassesProps {
-  color: string;
-  fontSize: CSS["fontSize"];
-  fontWeight: CSS["fontWeight"];
-  overflow: CSS["overflow"];
-  preset: TextProps["preset"];
-}
+interface ClassesProps
+  extends Pick<TextProps, "color" | "fontSize" | "fontWeight" | "overflow" | "preset"> {}
 
 const useClasses = makeClasses((props: ClassesProps) => {
   const preset = PRESETS[props.preset];

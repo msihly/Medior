@@ -33,9 +33,7 @@ export const DetailRows = ({ labelWidth = "8rem", rows }: DetailRowsProps) => {
   );
 };
 
-interface ClassesProps {
-  labelWidth: CSS["maxWidth"];
-}
+interface ClassesProps extends Pick<DetailRowsProps, "labelWidth"> {}
 
 const useClasses = makeClasses((props: ClassesProps) => ({
   label: {

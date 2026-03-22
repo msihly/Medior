@@ -63,10 +63,7 @@ export const SortMenu = ({
   );
 };
 
-interface ClassesProps {
-  hasHeader: boolean;
-  width: CSS["width"];
-}
+interface ClassesProps extends Pick<SortMenuProps, "hasHeader" | "width"> {}
 
 const useClasses = makeClasses((props: ClassesProps) => ({
   button: {

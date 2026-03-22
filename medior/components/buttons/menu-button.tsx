@@ -57,10 +57,7 @@ export const MenuButton = ({
   );
 };
 
-interface ClassesProps {
-  bgColor: CSS["backgroundColor"];
-  menuWidth: CSS["width"];
-}
+interface ClassesProps extends Pick<MenuButtonProps, "bgColor" | "menuWidth"> {}
 
 const useClasses = makeClasses((props: ClassesProps) => ({
   menu: {

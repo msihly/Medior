@@ -95,10 +95,7 @@ export const MultiInputList = forwardRef(
   },
 );
 
-interface ClassesProps {
-  hasDeleteAll: boolean;
-  hasInput: boolean;
-}
+interface ClassesProps extends Pick<MultiInputListProps, "hasDeleteAll" | "hasInput"> {}
 
 const useClasses = makeClasses((props: ClassesProps) => ({
   listContainer: {

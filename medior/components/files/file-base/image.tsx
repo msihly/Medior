@@ -218,13 +218,10 @@ export const Image = ({
   );
 };
 
-interface ClassesProps {
-  blur: number;
-  fit: ImageProps["fit"];
-  height: CSS["height"];
+interface ClassesProps extends Pick<ImageProps, "blur" | "fit" | "rounded"> {
+  height?: CSS["height"];
   isAnimated: boolean;
-  rounded: ImageProps["rounded"];
-  width: CSS["width"];
+  width?: CSS["width"];
 }
 
 const useClasses = makeClasses((props: ClassesProps) => ({

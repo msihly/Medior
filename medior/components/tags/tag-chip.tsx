@@ -77,10 +77,7 @@ export const TagChip = Comp(
   },
 );
 
-interface ClassesProps {
-  color: string;
-  size: ChipProps["size"];
-}
+interface ClassesProps extends Pick<TagChipProps, "color" | "size"> {}
 
 const useClasses = makeClasses((props: ClassesProps) => ({
   chip: {

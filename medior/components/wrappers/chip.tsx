@@ -52,13 +52,8 @@ export const Chip = ({
   );
 };
 
-interface ClassesProps {
-  bgColor: CSS["backgroundColor"];
-  color: CSS["color"];
-  height: CSS["height"];
-  padding: Padding;
-  width: CSS["width"];
-}
+interface ClassesProps
+  extends Pick<ChipProps, "bgColor" | "color" | "height" | "padding" | "width"> {}
 
 const useClasses = makeClasses((props: ClassesProps) => ({
   chip: {

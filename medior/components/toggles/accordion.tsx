@@ -55,11 +55,7 @@ export const Accordion = ({
   );
 };
 
-interface ClassesProps {
-  dense: boolean;
-  expanded: boolean;
-  fullWidth: boolean;
-}
+interface ClassesProps extends Pick<AccordionProps, "dense" | "expanded" | "fullWidth"> {}
 
 const useClasses = makeClasses((props: ClassesProps) => ({
   accordion: {

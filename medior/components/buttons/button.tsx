@@ -163,20 +163,23 @@ export const Button = ({
   );
 };
 
-interface ClassesProps {
-  borderRadiuses: BorderRadiuses;
-  boxShadow: CSS["boxShadow"];
-  color: string;
-  colorOnHover: string;
+interface ClassesProps
+  extends Pick<
+    ButtonProps,
+    | "borderRadiuses"
+    | "boxShadow"
+    | "color"
+    | "colorOnHover"
+    | "justify"
+    | "margins"
+    | "outlined"
+    | "outlineFill"
+    | "padding"
+    | "textColor"
+    | "textTransform"
+    | "width"
+  > {
   isLink: boolean;
-  justify: CSS["justifyContent"];
-  margins: Margins;
-  outlined: boolean;
-  outlineFill: string;
-  padding: Padding;
-  textColor: string;
-  textTransform: CSS["textTransform"];
-  width: CSS["width"];
 }
 
 const useClasses = makeClasses((props: ClassesProps) => ({
