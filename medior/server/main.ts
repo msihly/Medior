@@ -4,6 +4,7 @@ import { startServers } from "medior/server/server";
 import { getConfig, loadConfig } from "medior/utils/client";
 import { dayjs } from "medior/utils/common";
 import { fileLog, setLogsPath, setupTRPC } from "medior/utils/server";
+const remoteMain = require("@electron/remote/main");
 
 /* -------------------------------------------------------------------------- */
 /*                                   CONFIG                                   */
@@ -49,7 +50,6 @@ const createMainWindow = async () => {
 
     mainWindow.maximize();
 
-    const remoteMain = await import("@electron/remote/main");
     remoteMain.initialize();
     remoteMain.enable(mainWindow.webContents);
 
@@ -67,7 +67,7 @@ const createMainWindow = async () => {
       [...carouselWindows, ...searchWindows].forEach((win) => win.close()),
     );
   } catch (err) {
-    fileLog(JSON.stringify(err, null, 2), { type: "error" });
+    fileLog(err.stack, { type: "error" });
   }
 };
 
@@ -100,11 +100,9 @@ const createSearchWindow = async ({ tagIds }) => {
     });
 
     searchWindow.maximize();
-
-    const remoteMain = await import("@electron/remote/main");
     remoteMain.enable(searchWindow.webContents);
-
     searchWindow.show();
+
     if (!isPackaged) {
       const mode = getConfig().dev.devTools.search;
       if (mode) searchWindow.webContents.openDevTools({ mode });
@@ -123,7 +121,7 @@ const createSearchWindow = async ({ tagIds }) => {
 
     return searchWindow;
   } catch (err) {
-    fileLog(JSON.stringify(err, null, 2), { type: "error" });
+    fileLog(err.stack, { type: "error" });
   }
 };
 
@@ -160,10 +158,7 @@ const createCarouselWindow = async ({ fileId, height, selectedFileIds, width }) 
     });
 
     carouselWindow.maximize();
-
-    const remoteMain = await import("@electron/remote/main");
     remoteMain.enable(carouselWindow.webContents);
-
     carouselWindow.show();
 
     if (!isPackaged) {
@@ -184,7 +179,7 @@ const createCarouselWindow = async ({ fileId, height, selectedFileIds, width }) 
 
     return carouselWindow;
   } catch (err) {
-    fileLog(JSON.stringify(err, null, 2), { type: "error" });
+    fileLog(err.stack, { type: "error" });
   }
 };
 

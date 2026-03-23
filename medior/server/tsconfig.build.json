@@ -1,10 +1,9 @@
 {
   "compilerOptions": {
     "baseUrl": ".",
-    "module": "CommonJS",
-    "moduleResolution": "node",
-    "noEmit": false,
-    "outDir": "../../extraResources/medior",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "noEmit": true,
     "paths": {
       "medior/*": ["../*"]
     },

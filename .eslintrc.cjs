@@ -17,6 +17,7 @@ module.exports = {
     "./patches",
     "./public",
     `./${PROJECT}/face-models`,
+    "esbuild.server.ts",
     "vite.config.*",
   ],
   settings: {

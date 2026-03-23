@@ -26,7 +26,7 @@
     "prettier": "prettier --check medior --config ./.prettierrc --ignore-path ./.prettierignore",
     "prettier-fix": "pnpm run prettier --write",
     "ts-check": "tspc --noEmit",
-    "ts-compile-server": "tspc --p medior/server/tsconfig.build.json"
+    "ts-compile-server": "pnpx tsx esbuild.server.ts"
   },
   "dependencies": {
     "@electron/remote": "^2.0.8",
