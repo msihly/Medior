@@ -6,7 +6,8 @@ import { Model, model, modelAction, modelFlow, objectToMapTransform, prop } from
 import { FlatFolder, TagToUpsert } from "medior/components";
 import { asyncAction } from "medior/store";
 import { extendFileName } from "medior/utils/client";
-import { Fmt } from "medior/utils/common";
+import { Fmt, PromiseQueue } from "medior/utils/common";
+import { checkFileExists } from "medior/utils/server";
 import { FileImport, ImportEditorOptions } from ".";
 
 export interface Sidecar {
@@ -89,24 +90,50 @@ export class Ingester extends Model({
 
   @modelFlow
   loadSidecar = asyncAction(async () => {
-    for (const imp of this.imports) {
-      const paramFileName = path.resolve(extendFileName(imp.path, "json"));
-      if (!this.filePaths.has(paramFileName)) continue;
+    const queue = new PromiseQueue({ concurrency: 4 });
 
-      try {
-        const params: Sidecar = JSON.parse(await fs.readFile(paramFileName, { encoding: "utf8" }));
-        if (params.tags)
-          imp.addTagsToUpsert(
-            params.tags.map((t) => ({
-              ...t,
-              label: Fmt.decodeHtmlEntities(t.label),
-              parentLabels: t.parentLabels?.map(Fmt.decodeHtmlEntities),
-            })),
-          );
-      } catch (err) {
-        console.error("Error reading sidecar:", err);
-      }
+    const sidecars = [];
+    for (const imp of this.imports) {
+      queue.add(async () => {
+        if (imp.extension === "json") return;
+        const paramFileName = extendFileName(imp.path, "json");
+        if (await checkFileExists(paramFileName)) sidecars.push({ imp, paramFileName });
+      });
     }
+
+    await queue.resolve();
+    if (!sidecars.length) return;
+
+    for (const sidecar of sidecars) {
+      const { imp, paramFileName } = sidecar;
+
+      queue.add(async () => {
+        try {
+          const params: Sidecar = JSON.parse(await fs.readFile(paramFileName, "utf8"));
+          const tags = params.tags;
+
+          if (tags) {
+            const out = [];
+            for (let j = 0; j < tags.length; j++) {
+              const t = tags[j];
+              if (!t) continue;
+
+              out.push({
+                ...t,
+                label: Fmt.decodeHtmlEntities(t.label),
+                parentLabels: t.parentLabels?.map(Fmt.decodeHtmlEntities),
+              });
+            }
+
+            if (out.length) imp.addTagsToUpsert(out);
+          }
+        } catch (err) {
+          console.error("Error reading sidecar:", err);
+        }
+      });
+    }
+
+    await queue.resolve();
   });
 
   /* --------------------------------- GETTERS -------------------------------- */
