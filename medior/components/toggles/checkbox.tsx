@@ -60,11 +60,11 @@ export const Checkbox = ({
   );
 };
 
-interface ClassesProps extends Pick<CheckboxProps, "center" | "color" | "disabled" | "flex"> {
-  fullWidth: boolean;
-  margins: Margins;
-  padding: Padding;
-}
+interface ClassesProps
+  extends Pick<
+    CheckboxProps,
+    "center" | "color" | "disabled" | "flex" | "fullWidth" | "margins" | "padding"
+  > {}
 
 const useClasses = makeClasses((props: ClassesProps) => ({
   checkbox: {
@@ -83,7 +83,7 @@ const useClasses = makeClasses((props: ClassesProps) => ({
     transition: "all 200ms ease-in-out",
     userSelect: "none",
     "&:hover": {
-      backgroundColor: Color(colors.custom.blue).fade(0.8).string(),
+      backgroundColor: Color(props.color).fade(0.8).string(),
     },
     "& .MuiFormControlLabel-label": {
       paddingRight: "0.4em",

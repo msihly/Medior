@@ -99,7 +99,7 @@ export const TagEditor = Comp(({ isSubEditor = false }: TagEditorProps) => {
         sortRank: store.categorySortRank,
       },
       childIds: store.childTags.map((t) => t.id),
-      id: store.tag.id,
+      id: store.tag?.id,
       label: store.label,
       parentIds: store.parentTags.map((t) => t.id),
       regEx: store.regExValue,

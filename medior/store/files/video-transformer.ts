@@ -194,7 +194,8 @@ export class VideoTransformerStore extends Model({
 
       if (this.isAuto) {
         const videoInfo = await getVideoInfo(this.newPath);
-        if (videoInfo.size >= 0.9 * this.file.size) await skip(videoInfo.size);
+        if (this.fnType === "reencode" && videoInfo.size >= 0.9 * this.file.size)
+          await skip(videoInfo.size);
         else {
           const replaceRes = await this.replaceOriginal();
           if (!replaceRes.success) throw new Error(replaceRes.error);

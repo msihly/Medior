@@ -26,7 +26,10 @@ export const attachTouchedTracker = <T extends { _touched: Record<string, boolea
   });
 };
 
-export const clearTouched = <T extends { _touched: Record<string, boolean> }>(model: T, keys: string[]) => {
+export const clearTouched = <T extends { _touched: Record<string, boolean> }>(
+  model: T,
+  keys: string[],
+) => {
   for (const k of keys) model._touched[k] = false;
 };
 

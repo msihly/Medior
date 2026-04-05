@@ -5,7 +5,7 @@ import { cloneDeep } from "es-toolkit";
 import { ModelCreationData } from "mobx-keystone";
 import { CreateImportBatchesInput, TagSchema } from "medior/server/database";
 import { FlatFolder, TagToUpsert } from "medior/components";
-import { FileImport, Ingester, Reingester, RootStore, Tag, useStores } from "medior/store";
+import { derefMobx, FileImport, Ingester, Reingester, RootStore, Tag, useStores } from "medior/store";
 import { getConfig, toast } from "medior/utils/client";
 import { dayjs, Fmt, parseDiffParams } from "medior/utils/common";
 import { dirToFilePaths, makePerfLog, trpc } from "medior/utils/server";
@@ -410,18 +410,18 @@ export const useImportEditor = (store: Ingester | Reingester) => {
 
       if (tagIds.length !== (imp.tagsToUpsert?.length ?? 0) + (imp.tagIds?.length ?? 0)) {
         console.debug({
-          message: "Failed to get tagIds from file tags",
+          message: "Failed to get some tagIds from file tags",
           filePath: imp.path,
           tagIds,
-          fileTagsToUpsert: JSON.parse(JSON.stringify(imp.tagsToUpsert)),
-          fileTagIds: JSON.parse(JSON.stringify(imp.tagIds)),
+          fileTagsToUpsert: derefMobx(imp.tagsToUpsert),
+          fileTagIds: derefMobx(imp.tagIds),
         });
       }
     }
 
     const tagIds = await getIdsFromTags(folder.tags);
     if (tagIds.length !== folder.tags?.length) {
-      console.debug({ tagIds, folderTags: JSON.parse(JSON.stringify(folder.tags)) });
+      console.debug({ tagIds, folderTags: derefMobx(folder.tags) });
       throw new Error("Failed to get tagIds from folder tags");
     }
 
