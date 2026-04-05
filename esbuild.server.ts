@@ -5,7 +5,9 @@ build({
   entryPoints: [
     "medior/_generated/server/index.ts",
     "medior/server/main.ts",
-    "medior/server/server.ts",
+    "medior/server/api-process.ts",
+    "medior/server/socket-process.ts",
+    "medior/server/db-process.ts",
   ],
   bundle: true,
   platform: "node",

@@ -18,27 +18,30 @@ const baseUrl = isBundled
   : `http://localhost:3333${!!process.env.HMR ? "/index.hmr.html" : ""}`;
 
 const folderPath = isPackaged ? process.resourcesPath : rootDir;
-app.setPath("appData", folderPath);
-app.setPath("userData", path.resolve(folderPath, "userData"));
+const configPath = path.resolve(folderPath, "..", "config.json");
+ipcMain.handle("getConfigPath", () => configPath);
 
 const logsDir = path.resolve(folderPath, "..", "logs", dayjs().format("YYYY-MM-DD"));
 const logsPath = path.resolve(logsDir, `${dayjs().format("HH[h]mm[m]ss[s]")}.log`);
-app.setAppLogsPath(logsDir);
-ipcMain.handle("getLogsPath", () => logsPath);
 
-const configPath = path.resolve(folderPath, "..", "config.json");
-ipcMain.handle("getConfigPath", () => configPath);
-ipcMain.handle("reloadConfig", () => loadConfig(configPath));
+app.setAppLogsPath(logsDir);
+app.setPath("appData", folderPath);
+app.setPath("userData", path.resolve(folderPath, "userData"));
 
 /* -------------------------------------------------------------------------- */
 /*                                 MAIN WINDOW                                */
 /* -------------------------------------------------------------------------- */
+ipcMain.handle("reload", () => {
+  app.relaunch();
+  app.exit(0);
+});
+
 let mainWindow = null;
 
 const createMainWindow = async () => {
   try {
     fileLog("Loading servers...");
-    await startServers();
+    await startServers(configPath, logsPath);
 
     fileLog("Creating main window...");
     mainWindow = new BrowserWindow({
@@ -48,11 +51,10 @@ const createMainWindow = async () => {
       webPreferences: { contextIsolation: false, nodeIntegration: true, webSecurity: false },
     });
 
-    mainWindow.maximize();
-
     remoteMain.initialize();
     remoteMain.enable(mainWindow.webContents);
 
+    mainWindow.maximize();
     mainWindow.show();
     if (!isPackaged) {
       const mode = getConfig().dev.devTools.home;

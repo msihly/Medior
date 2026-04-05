@@ -1,10 +1,4 @@
-import * as _gen from "medior/_generated/server";
-import { startServers } from "medior/server/server";
+import { serverRouter as _serverRouter } from "medior/_generated/server";
 
-export const serverRouter = _gen.trpc.mergeRouters(
-  _gen.serverRouter,
-  _gen.trpc.router({
-    reloadServers: _gen.serverEndpoint((args) => startServers(args)),
-  }),
-);
+export const serverRouter = _serverRouter;
 export type ServerRouter = typeof serverRouter;

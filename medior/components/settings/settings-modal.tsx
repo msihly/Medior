@@ -1,11 +1,11 @@
 import { dialog } from "@electron/remote";
+import { ipcRenderer } from "electron";
 import { useEffect, useState } from "react";
 import { SORT_OPTIONS } from "medior/store/_generated";
 import { Button, Card, Comp, ConfirmModal, Modal, Text, View } from "medior/components";
 import { useStores } from "medior/store";
 import { colors, loadConfig, saveConfig, toast } from "medior/utils/client";
 import { CONSTANTS } from "medior/utils/common";
-import { trpc } from "medior/utils/server";
 import { RepairModal, Settings } from ".";
 
 export const SettingsModal = Comp(() => {
@@ -59,31 +59,19 @@ export const SettingsModal = Comp(() => {
     try {
       stores.home.settings.setIsLoading(true);
 
-      const oldConfig = await loadConfig();
-      const hasDbDiff =
-        oldConfig.db.path !== stores.home.settings.db.path ||
-        oldConfig.ports.db !== stores.home.settings.ports.db;
-      const hasServerDiff = oldConfig.ports.server !== stores.home.settings.ports.server;
-      const hasSocketDiff = oldConfig.ports.socket !== stores.home.settings.ports.socket;
-
-      await saveConfig(stores.home.settings.getConfig());
-
+      stores.import.manager.pauseImporter();
       stores.faceRecog.clearQueue();
       stores.file.clearRefreshQueue();
-      stores.import.manager.pauseImporter();
       stores.tag.manager.clearRefreshQueue();
 
-      if (hasDbDiff || hasServerDiff || hasSocketDiff)
-        await trpc.reloadServers.mutate({
-          emitReloadEvents: true,
-          withDatabase: hasDbDiff,
-          withServer: hasServerDiff,
-          withSocket: hasSocketDiff,
-        });
+      await saveConfig(stores.home.settings.getConfig());
 
       stores.home.settings.setIsLoading(false);
       stores.home.settings.setHasUnsavedChanges(false);
       toast.success("Settings saved!");
+
+      toast.info("Restarting in 5 seconds...");
+      setTimeout(() => ipcRenderer.invoke("reload"), 5000);
     } catch (err) {
       stores.home.settings.setIsLoading(false);
       toast.error("Failed to save settings.");

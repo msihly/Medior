@@ -249,6 +249,10 @@ export const getConfig = (debugLoc?: string) => {
   return config;
 };
 
+export const getConfigPath = async () => {
+  return process?.env?.CONFIG_PATH || (await ipcRenderer.invoke("getConfigPath"));
+};
+
 export const getIsAnimated = (ext: string) =>
   ["gif", ...getConfig().file.videoExts].includes(ext.toLowerCase());
 
@@ -261,7 +265,9 @@ export const getIsVideo = (ext: string) => getConfig().file.videoExts.includes(e
 
 export const loadConfig = async (configPath?: string) => {
   try {
-    const filePath = configPath ?? (await ipcRenderer.invoke("getConfigPath"));
+    const filePath = configPath || (await getConfigPath());
+    if (!filePath) throw new Error("No config path provided.");
+
     fileLog(`Loading config from ${filePath}...`);
 
     if (!(await checkFileExists(filePath))) {
@@ -294,11 +300,11 @@ export const loadConfig = async (configPath?: string) => {
 
 export const saveConfig = async (config: Config) => {
   try {
-    const filePath = await ipcRenderer.invoke("getConfigPath");
     const newConfig = JSON.stringify({ ...DEFAULT_CONFIG, ...config }, null, 2);
-    fileLog(`Saving config to ${filePath}...`);
-    await fs.writeFile(filePath, newConfig);
-    await ipcRenderer.invoke("reloadConfig");
+    const configPath = await getConfigPath();
+    if (!configPath) throw new Error("No config path provided.");
+    fileLog(`Saving config to ${configPath}...`);
+    await fs.writeFile(configPath, newConfig);
   } catch (err) {
     fileLog(`Failed to save config: ${err}`, { type: "error" });
   }

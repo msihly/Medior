@@ -75,6 +75,7 @@
     "sharp-bmp": "^0.1.5",
     "socket.io": "^4.6.2",
     "socket.io-client": "^4.6.2",
+    "trash": "^5.2.0",
     "tss-react": "^3.6.0",
     "util": "^0.12.5",
     "vite-plugin-electron-renderer": "0.10.1"

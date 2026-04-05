@@ -1,4 +1,3 @@
-import { app, shell } from "electron";
 import fs from "fs/promises";
 import path from "path";
 import checkDiskSpace from "check-disk-space";
@@ -6,6 +5,7 @@ import md5File from "md5-file";
 import * as models from "medior/_generated/server/models";
 import { AnyBulkWriteOperation } from "mongodb";
 import mongoose, { UpdateWithAggregationPipeline } from "mongoose";
+import trash from "trash";
 import { SortValue } from "medior/store/_generated";
 import * as actions from "medior/server/database/actions";
 import { checkFileExists, deleteFile, genFileInfo, sharp } from "medior/utils/client";
@@ -14,8 +14,8 @@ import { leanModelToJson, makeAction, objectId, objectIds } from "medior/utils/s
 import { fileLog, makePerfLog, socket } from "medior/utils/server";
 
 const FACE_MIN_CONFIDENCE = 0.4;
-const FACE_MODELS_PATH = app.isPackaged
-  ? path.resolve(process.resourcesPath, "extraResources/face-models")
+const FACE_MODELS_PATH = process.env.IS_PACKAGED
+  ? path.resolve(process.env.RESOURCES_PATH, "extraResources/face-models")
   : "medior/face-models";
 
 /* -------------------------------------------------------------------------- */
@@ -143,7 +143,7 @@ export const deleteFilesExternal = makeAction(async (args: { filePaths: string[]
     })),
   );
 
-  for (const filePath of args.filePaths) await shell.trashItem(filePath);
+  for (const filePath of args.filePaths) await trash(filePath);
 });
 
 export const detectFaces = makeAction(async ({ imagePath }: { imagePath: string }) => {

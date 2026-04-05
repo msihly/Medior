@@ -1,4 +1,3 @@
-import { ipcRenderer } from "electron";
 import fs from "fs";
 import fsPromises from "fs/promises";
 import path from "path";
@@ -6,21 +5,24 @@ import { dayjs, round } from "medior/utils/common";
 
 let logsPath: string;
 let logStream: fs.WriteStream | null = null;
-let initializing: Promise<void> | null = null;
 
 export const getLogsPath = () => logsPath;
 
 export const setLogsPath = async (filePath: string) => {
-  const resolved = path.resolve(filePath);
-  await fsPromises.mkdir(path.dirname(resolved), { recursive: true });
-  logsPath = resolved;
+  logsPath = path.resolve(filePath);
+  await fsPromises.mkdir(path.dirname(logsPath), { recursive: true });
 
   if (logStream) {
     logStream.end();
     logStream = null;
   }
-};
 
+  logStream = fs.createWriteStream(logsPath, { flags: "a", encoding: "utf8" });
+  logStream.on("error", (err) => {
+    console.error("Log stream error:", err);
+    logStream = null;
+  });
+};
 /* ----------------------------------------------------------------------- */
 
 const stringify = (args: any | any[]) => {
@@ -32,43 +34,27 @@ const stringify = (args: any | any[]) => {
   }
 };
 
-const ensureStream = async () => {
-  if (logStream) return;
-
-  if (!initializing) {
-    initializing = (async () => {
-      if (!logsPath) await setLogsPath(await ipcRenderer.invoke("getLogsPath"));
-
-      logStream = fs.createWriteStream(logsPath, { flags: "a", encoding: "utf8" });
-
-      logStream.on("error", (err) => {
-        console.error("Log stream error:", err);
-        logStream = null;
-      });
-    })().finally(() => {
-      initializing = null;
-    });
-  }
-
-  await initializing;
-};
-
 /* ----------------------------------------------------------------------- */
-
 export const fileLog = async (
   args: any | any[],
   options?: { type: "debug" | "error" | "warn" },
 ) => {
   try {
-    await ensureStream();
-    if (!logStream) return;
+    if (!logsPath) {
+      // fallback to console if logsPath is missing
+      console[options?.type ?? "debug"]("[LOG]", args);
+      return;
+    }
+
+    if (!logStream) await setLogsPath(logsPath);
 
     const timestamp = dayjs().format("YYYY-MM-DD HH:mm:ss");
     const logType = (options?.type ?? "debug").toUpperCase();
     const logContent = `[${timestamp}] [${logType}] ${stringify(args)}\n`;
 
-    if (!logStream.write(logContent))
+    if (!logStream.write(logContent)) {
       await new Promise<void>((resolve) => logStream!.once("drain", () => resolve()));
+    }
   } catch (err) {
     console.error("Failed to log to file:", err);
   }
