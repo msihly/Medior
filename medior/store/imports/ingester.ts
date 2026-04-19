@@ -4,7 +4,7 @@ import autoBind from "auto-bind";
 import { computed, reaction } from "mobx";
 import { Model, model, modelAction, modelFlow, objectToMapTransform, prop } from "mobx-keystone";
 import { FlatFolder, TagToUpsert } from "medior/components";
-import { asyncAction } from "medior/store";
+import { asyncAction, derefMobx } from "medior/store";
 import { extendFileName } from "medior/utils/client";
 import { Fmt, PromiseQueue } from "medior/utils/common";
 import { checkFileExists } from "medior/utils/server";
@@ -46,6 +46,17 @@ export class Ingester extends Model({
 
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
   @modelAction
+  addTagsToUpsert(folderName: string, tagsToUpsert: TagToUpsert[]) {
+    const folder = this.flatFolderHierarchy.get(folderName);
+    if (!folder) throw new Error(`No such folder: ${folderName}`);
+    for (const tag of tagsToUpsert) {
+      if (folder.tags.find((t) => t.label === tag.label)) continue;
+      folder.tags.push(...tagsToUpsert);
+      this.flatTagsToUpsert.push(...tagsToUpsert);
+    }
+  }
+
+  @modelAction
   clearValues({ diffusionParams = false, tagIds = false, tagsToUpsert = false } = {}) {
     this.imports.forEach((imp) => {
       if (diffusionParams && imp.diffusionParams?.length) imp.diffusionParams = null;
@@ -70,6 +81,13 @@ export class Ingester extends Model({
     this.tagHierarchy = [];
   }
 
+  @modelAction
+  setTagsToUpsert(folderName: string, tagsToUpsert: TagToUpsert[]) {
+    const folder = this.flatFolderHierarchy.get(folderName);
+    if (!folder) throw new Error(`No such folder: ${folderName}`);
+    folder.tags = tagsToUpsert.map(derefMobx);
+  }
+
   /* ---------------------------- ASYNC ACTIONS ---------------------------- */
   @modelFlow
   loadDiffusionParams = asyncAction(async () => {
@@ -92,40 +110,50 @@ export class Ingester extends Model({
   loadSidecar = asyncAction(async () => {
     const queue = new PromiseQueue({ concurrency: 4 });
 
-    const sidecars = [];
+    const sidecars: { folder?: FlatFolder; imp?: FileImport; paramFileName: string }[] = [];
     for (const imp of this.imports) {
+      if (imp.extension === "json") continue;
       queue.add(async () => {
-        if (imp.extension === "json") return;
         const paramFileName = extendFileName(imp.path, "json");
         if (await checkFileExists(paramFileName)) sidecars.push({ imp, paramFileName });
+      });
+    }
+
+    for (const folder of this.flatFolderHierarchy.values()) {
+      queue.add(async () => {
+        const folderPath = path.dirname(folder.imports[0].path);
+        const paramFileName = path.resolve(folderPath, "[[Collection]].json");
+        if (await checkFileExists(paramFileName)) sidecars.push({ folder, paramFileName });
       });
     }
 
     await queue.resolve();
     if (!sidecars.length) return;
 
-    for (const sidecar of sidecars) {
-      const { imp, paramFileName } = sidecar;
-
+    for (const { folder, imp, paramFileName } of sidecars) {
       queue.add(async () => {
         try {
           const params: Sidecar = JSON.parse(await fs.readFile(paramFileName, "utf8"));
           const tags = params.tags;
 
           if (tags) {
-            const out = [];
+            const tagsToUpsert: TagToUpsert[] = [];
             for (let j = 0; j < tags.length; j++) {
               const t = tags[j];
               if (!t) continue;
 
-              out.push({
+              tagsToUpsert.push({
                 ...t,
                 label: Fmt.decodeHtmlEntities(t.label),
                 parentLabels: t.parentLabels?.map(Fmt.decodeHtmlEntities),
               });
             }
 
-            if (out.length) imp.addTagsToUpsert(out);
+            if (tagsToUpsert.length) {
+              if (folder) this.addTagsToUpsert(folder.folderName, tagsToUpsert);
+              else if (imp) imp.addTagsToUpsert(tagsToUpsert);
+              else throw new Error("Invalid sidecar params");
+            } else throw new Error("No tagsToUpsert found in sidecar tags");
           }
         } catch (err) {
           console.error("Error reading sidecar:", err);

@@ -12,9 +12,10 @@ import {
   prop,
 } from "mobx-keystone";
 import { FlatFolder, TagToUpsert } from "medior/components";
-import { asyncAction } from "medior/store";
+import { asyncAction, derefMobx } from "medior/store";
 import { extendFileName, toast } from "medior/utils/client";
-import { trpc } from "medior/utils/server";
+import { Fmt, PromiseQueue } from "medior/utils/common";
+import { checkFileExists, trpc } from "medior/utils/server";
 import { FileImport, ImportEditorOptions, Sidecar } from ".";
 
 @model("medior/Reingester")
@@ -51,6 +52,17 @@ export class Reingester extends Model({
 
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
   @modelAction
+  addTagsToUpsert(folderName: string, tagsToUpsert: TagToUpsert[]) {
+    const folder = this.flatFolderHierarchy.get(folderName);
+    if (!folder) throw new Error(`No such folder: ${folderName}`);
+    for (const tag of tagsToUpsert) {
+      if (folder.tags.find((t) => t.label === tag.label)) continue;
+      folder.tags.push(...tagsToUpsert);
+      this.flatTagsToUpsert.push(...tagsToUpsert);
+    }
+  }
+
+  @modelAction
   clearValues({ diffusionParams = false, tagIds = false, tagsToUpsert = false } = {}) {
     this.imports.forEach((imp) => {
       if (diffusionParams && imp.diffusionParams?.length) imp.diffusionParams = null;
@@ -82,6 +94,13 @@ export class Reingester extends Model({
     this.rootFolderPath = "";
     this.tagHierarchy = [];
     this.tagIds = [];
+  }
+
+  @modelAction
+  setTagsToUpsert(folderName: string, tagsToUpsert: TagToUpsert[]) {
+    const folder = this.flatFolderHierarchy.get(folderName);
+    if (!folder) throw new Error(`No such folder: ${folderName}`);
+    folder.tags = tagsToUpsert.map(derefMobx);
   }
 
   /* ---------------------------- ASYNC ACTIONS ---------------------------- */
@@ -154,17 +173,60 @@ export class Reingester extends Model({
 
   @modelFlow
   loadSidecar = asyncAction(async () => {
-    for (const imp of this.imports) {
-      const paramFileName = path.resolve(extendFileName(imp.path, "json"));
-      if (!this.filePaths.has(paramFileName)) continue;
+    const queue = new PromiseQueue({ concurrency: 4 });
 
-      try {
-        const params: Sidecar = JSON.parse(await fs.readFile(paramFileName, { encoding: "utf8" }));
-        if (params.tags) imp.addTagsToUpsert(params.tags);
-      } catch (err) {
-        console.error("Error reading sidecar:", err);
-      }
+    const sidecars: { folder?: FlatFolder; imp?: FileImport; paramFileName: string }[] = [];
+    for (const imp of this.imports) {
+      if (imp.extension === "json") continue;
+      queue.add(async () => {
+        const paramFileName = extendFileName(imp.path, "json");
+        if (await checkFileExists(paramFileName)) sidecars.push({ imp, paramFileName });
+      });
     }
+
+    for (const folder of this.flatFolderHierarchy.values()) {
+      queue.add(async () => {
+        const folderPath = path.dirname(folder.imports[0].path);
+        const paramFileName = path.resolve(folderPath, "[[Collection]].json");
+        if (await checkFileExists(paramFileName)) sidecars.push({ folder, paramFileName });
+      });
+    }
+
+    await queue.resolve();
+    if (!sidecars.length) return;
+
+    for (const { folder, imp, paramFileName } of sidecars) {
+      queue.add(async () => {
+        try {
+          const params: Sidecar = JSON.parse(await fs.readFile(paramFileName, "utf8"));
+          const tags = params.tags;
+
+          if (tags) {
+            const tagsToUpsert: TagToUpsert[] = [];
+            for (let j = 0; j < tags.length; j++) {
+              const t = tags[j];
+              if (!t) continue;
+
+              tagsToUpsert.push({
+                ...t,
+                label: Fmt.decodeHtmlEntities(t.label),
+                parentLabels: t.parentLabels?.map(Fmt.decodeHtmlEntities),
+              });
+            }
+
+            if (tagsToUpsert.length) {
+              if (folder) this.addTagsToUpsert(folder.folderName, tagsToUpsert);
+              else if (imp) imp.addTagsToUpsert(tagsToUpsert);
+              else throw new Error("Invalid sidecar params");
+            } else throw new Error("No tagsToUpsert found in sidecar tags");
+          }
+        } catch (err) {
+          console.error("Error reading sidecar:", err);
+        }
+      });
+    }
+
+    await queue.resolve();
   });
 
   @modelFlow

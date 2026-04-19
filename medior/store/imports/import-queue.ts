@@ -5,7 +5,15 @@ import { cloneDeep } from "es-toolkit";
 import { ModelCreationData } from "mobx-keystone";
 import { CreateImportBatchesInput, TagSchema } from "medior/server/database";
 import { FlatFolder, TagToUpsert } from "medior/components";
-import { derefMobx, FileImport, Ingester, Reingester, RootStore, Tag, useStores } from "medior/store";
+import {
+  derefMobx,
+  FileImport,
+  Ingester,
+  Reingester,
+  RootStore,
+  Tag,
+  useStores,
+} from "medior/store";
 import { getConfig, toast } from "medior/utils/client";
 import { dayjs, Fmt, parseDiffParams } from "medior/utils/common";
 import { dirToFilePaths, makePerfLog, trpc } from "medior/utils/server";
@@ -25,7 +33,6 @@ export class EditorImportsCache {
 
   constructor(private stores: RootStore) {
     this.stores = stores;
-    this.loadRegExMaps();
   }
 
   async getParentTags(id: string) {
@@ -64,7 +71,9 @@ export class EditorImportsCache {
   }
 
   async loadRegExMaps() {
-    this.regExMaps = (await this.stores.tag.listRegExMaps()).data;
+    const res = await this.stores.tag.listRegExMaps();
+    if (!res.success) throw new Error(res.error);
+    this.regExMaps = res.data;
   }
 }
 
@@ -328,33 +337,7 @@ export const useImportEditor = (store: Ingester | Reingester) => {
       }
     }
 
-    const dedupeTags = async () => {
-      const descendantMap = new Map<string, Set<string>>();
-      const processedTags = new Map<string, TagToUpsert>();
-
-      for (const tag of folderTags) {
-        const parentLabels = new Set([
-          ...(tag.parentLabels ?? []),
-          ...(tag.id ? await cache.current.getParentTags(tag.id) : []),
-        ]);
-
-        parentLabels.forEach((parentLabel) => {
-          if (!descendantMap.has(parentLabel)) descendantMap.set(parentLabel, new Set());
-          descendantMap.get(parentLabel)!.add(tag.label);
-        });
-
-        if (!descendantMap.has(tag.label)) {
-          const tagToPush = store.options.withFolderNameRegEx
-            ? await replaceTagsFromRegEx(tag)
-            : tag;
-          if (!processedTags.has(tagToPush.label)) processedTags.set(tagToPush.label, tagToPush);
-        }
-      }
-
-      return Array.from(processedTags.values());
-    };
-
-    const tags = await dedupeTags();
+    const tags = await dedupeTags(folderTags);
     if (DEBUG) perfLog("Filtered out duplicate / ancestor tags");
 
     return {
@@ -464,12 +447,45 @@ export const useImportEditor = (store: Ingester | Reingester) => {
       ...cache.current.tagsToEditMap.values(),
     ];
     for (const t of tagsToReplace) {
-      const tag = store.options.withFolderNameRegEx ? await replaceTagsFromRegEx(t) : t;
-      if (!tagsToUpsertMap.has(tag.label)) tagsToUpsertMap.set(tag.label, tag);
+      const replacedTags = store.options.withFolderNameRegEx ? await replaceTagsFromRegEx(t) : [t];
+      for (const tag of replacedTags) tagsToUpsertMap.set(tag.label, tag);
     }
     if (DEBUG) perfLog("Parsed flat tags to upsert");
 
-    return [...tagsToUpsertMap.values()];
+    return await dedupeTags([...tagsToUpsertMap.values()]);
+  };
+
+  const dedupeTags = async (folderTags: TagToUpsert[]) => {
+    const descendantMap = new Map<string, Set<string>>();
+    const processedTags = new Map<string, TagToUpsert[]>();
+
+    for (const tag of folderTags) {
+      const parentLabels = new Set([
+        ...(tag.parentLabels ?? []),
+        ...(tag.id ? await cache.current.getParentTags(tag.id) : []),
+      ]);
+
+      parentLabels.forEach((parentLabel) => {
+        if (!descendantMap.has(parentLabel)) descendantMap.set(parentLabel, new Set());
+        descendantMap.get(parentLabel)!.add(tag.label);
+      });
+
+      if (!descendantMap.has(tag.label)) {
+        const tagsToPush = store.options.withFolderNameRegEx
+          ? await replaceTagsFromRegEx(tag)
+          : [tag];
+        for (const tagToPush of tagsToPush)
+          if (!processedTags.has(tagToPush.label))
+            processedTags.set(tagToPush.label, await replaceTagsFromRegEx(tagToPush));
+      }
+    }
+
+    const tagsToUpsert: TagToUpsert[] = [];
+    for (const tag of [...processedTags.values()].flat()) {
+      if (!tagsToUpsert.find((t) => t.id === tag.id)) tagsToUpsert.push(tag);
+    }
+
+    return tagsToUpsert;
   };
 
   const delimit = (str: string) =>
@@ -487,11 +503,6 @@ export const useImportEditor = (store: Ingester | Reingester) => {
       if (store.options.withDiffusionParams) {
         await store.loadDiffusionParams();
         if (DEBUG) perfLog("Loaded diffusion params");
-      }
-
-      if (store.options.withSidecar) {
-        await store.loadSidecar();
-        if (DEBUG) perfLog("Loaded sidecar");
       }
     }
 
@@ -614,38 +625,35 @@ export const useImportEditor = (store: Ingester | Reingester) => {
     return { diffFileTagIds, diffFileTagsToUpsert };
   };
 
-  const replaceTagsFromRegEx = async (tag: TagToUpsert) => {
-    const copy = { ...tag };
+  const replaceTagsFromRegEx = async (_tag: TagToUpsert) => {
+    const copy = derefMobx(_tag);
+    const tags: TagToUpsert[] = [];
 
     const tagIds = cache.current.getTagIdsByRegEx(copy.label);
     if (tagIds?.length) {
       for (const tagId of tagIds) {
         const label = (await cache.current.getTagById(tagId))?.label;
-        if (label && !copy.parentLabels?.includes(label)) {
-          copy.id = tagId;
-          copy.label = label;
-        }
+        if (label && !copy.parentLabels?.includes(label)) tags.push({ ...copy, id: tagId, label });
       }
-    }
+    } else tags.push(copy);
 
-    if (copy.parentLabels) {
-      for (let idx = 0; idx < copy.parentLabels.length; idx++) {
-        const parentTagIds = cache.current.getTagIdsByRegEx(copy.parentLabels[idx]);
-        if (parentTagIds?.length) {
-          for (const tagId of parentTagIds) {
-            const parentLabel = (await cache.current.getTagById(tagId))?.label;
-            if (
-              parentLabel &&
-              parentLabel !== copy.label &&
-              !copy.parentLabels.includes(parentLabel)
-            )
-              copy.parentLabels[idx] = parentLabel;
+    for (const tag of tags) {
+      if (tag.parentLabels) {
+        for (let idx = 0; idx < tag.parentLabels.length; idx++) {
+          const parentTagIds = cache.current.getTagIdsByRegEx(tag.parentLabels[idx]);
+          if (parentTagIds?.length) {
+            for (const tagId of parentTagIds) {
+              const parentLabel = (await cache.current.getTagById(tagId))?.label;
+              const hasNewParentLabel =
+                parentLabel && parentLabel !== tag.label && !tag.parentLabels.includes(parentLabel);
+              if (hasNewParentLabel) tag.parentLabels.splice(idx, 0, parentLabel);
+            }
           }
         }
       }
     }
 
-    return copy;
+    return tags;
   };
 
   const upsertDiffMetaTags = async () => {
@@ -758,11 +766,20 @@ export const useImportEditor = (store: Ingester | Reingester) => {
         const { perfLog, perfLogTotal } = makePerfLog("[ImportEditor.scan]");
         if (DEBUG) perfLog("START");
         cache.current = new EditorImportsCache(stores);
+        await cache.current.loadRegExMaps();
+
+        const tagsToUpsert: TagToUpsert[] = [];
+
+        const appendTagsToUpsert = (tags: TagToUpsert[]) => {
+          for (const tag of tags)
+            if (!tagsToUpsert.find((t) => t.label === tag.label)) tagsToUpsert.push(tag);
+        };
 
         /* ---------------------------------- Files --------------------------------- */
         const { diffMetaTagsToEdit, editorImports, fileTagsToUpsert } =
           await fileToTagsAndDiffParams();
         diffMetaTagsToEdit.forEach((tag) => cache.current.tagsToEditMap.set(tag.id, tag));
+        appendTagsToUpsert(fileTagsToUpsert);
         if (DEBUG) perfLog("Parsed file tags and diffusion params");
 
         /* --------------------------------- Folders -------------------------------- */
@@ -770,15 +787,30 @@ export const useImportEditor = (store: Ingester | Reingester) => {
         store.setFlatFolderHierarchy(folders);
         if (DEBUG) perfLog("Set flat folder hierarchy");
 
+        /* -------------------------------- Sidecars -------------------------------- */
+        if (store.options.withSidecar) {
+          await store.loadSidecar();
+
+          for (const folder of store.flatFolderHierarchy.values()) {
+            const dedupedTags = await dedupeTags(folder.tags);
+            store.setTagsToUpsert(folder.folderName, dedupedTags);
+
+            appendTagsToUpsert(dedupedTags);
+            for (const imp of folder.imports) appendTagsToUpsert(imp.tagsToUpsert);
+          }
+
+          if (DEBUG) perfLog("Loaded sidecar");
+        }
+
         /* ----------------------------------- Tags ---------------------------------- */
-        const tagsToUpsert = await createTagsToUpsert(fileTagsToUpsert, perfLog);
-        store.setFlatTagsToUpsert(tagsToUpsert);
+        const flatTagsToUpsert = await createTagsToUpsert(tagsToUpsert, perfLog);
+        store.setFlatTagsToUpsert(flatTagsToUpsert);
         if (DEBUG) perfLog("Set flat tags to upsert");
 
         store.setTagHierarchy(
-          tagsToUpsert
+          flatTagsToUpsert
             .filter((t) => !t.parentLabels?.length)
-            .map((t) => ({ ...t, children: createTagHierarchy(tagsToUpsert, t.label) })),
+            .map((t) => ({ ...t, children: createTagHierarchy(flatTagsToUpsert, t.label) })),
         );
         if (DEBUG) perfLog("Created tag hierarchy");
 
