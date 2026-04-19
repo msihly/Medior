@@ -535,16 +535,12 @@ export const editTag = makeAction(
       ...changedParentIds.removed,
     ];
 
-    const [affectedFileIds, affectedCollIds, bulkWriteOps] = await Promise.all([
-      (await actions.listFileIdsByTagIds({ tagIds: changedTagIds })).data,
-      (await actions.listCollectionIdsByTagIds({ tagIds: changedTagIds })).data,
-      makeRelationsUpdateOps({
-        changedChildIds,
-        changedParentIds,
-        dateModified,
-        tagId: id,
-      }),
-    ]);
+    const bulkWriteOps = await makeRelationsUpdateOps({
+      changedChildIds,
+      changedParentIds,
+      dateModified,
+      tagId: id,
+    });
 
     const operations: AnyBulkWriteOperation[] = [
       ...bulkWriteOps,
@@ -567,17 +563,15 @@ export const editTag = makeAction(
       await regenTagAncestors({ tagIds: changedTagIds, withSub });
 
       await Promise.all([
-        actions.regenCollTagAncestors({ collectionIds: affectedCollIds }),
-        actions.regenFileTagAncestors({ fileIds: affectedFileIds }),
+        actions.regenCollTagAncestors({ tagIds: changedTagIds }),
+        actions.regenFileTagAncestors({ tagIds: changedTagIds }),
       ]);
 
-      await Promise.all([
-        regenTagThumbPaths({ tagId: id }),
-        recalculateTagCounts({
-          tagIds: [id, ...changedParentIds.added, ...changedParentIds.removed],
-          withSub,
-        }),
-      ]);
+      regenTagThumbPaths({ tagId: id });
+      recalculateTagCounts({
+        tagIds: [id, ...changedParentIds.added, ...changedParentIds.removed],
+        withSub,
+      });
     }
 
     if (withSub) await emitTagUpdates(id, changedChildIds, changedParentIds);
@@ -622,9 +616,7 @@ export const editMultiTagRelations = makeAction(
       tagLabel: string;
     }[] = [];
 
-    const [affectedFileIds, affectedCollIds, ...bulkWriteOps] = await Promise.all([
-      (await actions.listFileIdsByTagIds({ tagIds: changedTagIds })).data,
-      (await actions.listCollectionIdsByTagIds({ tagIds: changedTagIds })).data,
+    const [...bulkWriteOps] = await Promise.all([
       ...tags.map(async (tag) => {
         const ancestorIds = tag.ancestorIds?.map((i) => i.toString()) ?? [];
         const descendantIds = tag.descendantIds?.map((i) => i.toString()) ?? [];
@@ -714,14 +706,12 @@ export const editMultiTagRelations = makeAction(
     await regenTagAncestors({ tagIds: changedTagIds, withSub: false });
 
     await Promise.all([
-      actions.regenCollTagAncestors({ collectionIds: affectedCollIds }),
-      actions.regenFileTagAncestors({ fileIds: affectedFileIds }),
+      actions.regenCollTagAncestors({ tagIds: changedTagIds }),
+      actions.regenFileTagAncestors({ tagIds: changedTagIds }),
     ]);
 
-    await Promise.all([
-      ...args.tagIds.map((tagId) => regenTagThumbPaths({ tagId })),
-      recalculateTagCounts({ tagIds: changedTagIds, withSub: false }),
-    ]);
+    for (const tagId of args.tagIds) regenTagThumbPaths({ tagId });
+    recalculateTagCounts({ tagIds: changedTagIds, withSub: false });
 
     return { bulkWriteRes, changedChildIds, changedParentIds, dateModified, errors };
   },
@@ -864,16 +854,13 @@ export const mergeTags = makeAction(
         await Promise.all([
           actions.regenCollTagAncestors({ tagIds: [args.tagIdToKeep] }),
           actions.regenFileTagAncestors({ tagIds: [args.tagIdToKeep] }),
-          regenTagThumbPaths({ tagId: args.tagIdToKeep }),
         ]);
 
-        const countRes = await recalculateTagCounts({
+        regenTagThumbPaths({ tagId: args.tagIdToKeep });
+        recalculateTagCounts({
           tagIds: [args.tagIdToKeep, ...tagIdsToUpdate],
           withSub: false,
         });
-        if (!countRes.success) throw new Error(countRes.error);
-        if (args.withSub)
-          socket.emit("onTagsUpdated", { tags: countRes.data, withFileReload: false });
       }
 
       if (args.withSub) {
@@ -913,7 +900,9 @@ export const searchTags = makeAction(
     includedIds: string[];
     searchStr: string;
   }) => {
-    const searchTerms = searchStr.trim().toLowerCase().split(" ");
+    const trimmed = searchStr.trim();
+    const searchTerms = trimmed.toLowerCase().split(" ");
+    const joinedTerms = searchTerms.join(" ");
 
     const tags = (
       await models.TagModel.find({
@@ -941,11 +930,37 @@ export const searchTags = makeAction(
           : {}),
       })
         .lean()
-        .sort({ lastSearchedAt: "desc", count: "desc" })
-        .limit(30)
+        .limit(100)
     ).map((t) => leanModelToJson<models.TagSchema>(t));
 
-    return await deriveTagCategories(tags);
+    const scoreTag = (tag: models.TagSchema): number => {
+      const label = (tag.label ?? "").toLowerCase();
+      const aliases = (tag.aliases ?? []).map((a) => a.toLowerCase());
+      const allValues = [label, ...aliases];
+      const input = trimmed.toLowerCase();
+
+      if (allValues.some((v) => v === input)) return 100;
+      if (allValues.some((v) => v.startsWith(input))) return 50;
+      if (allValues.some((v) => v.includes(joinedTerms))) return 25;
+      return 10;
+    };
+
+    const ranked = tags
+      .map((tag) => ({ tag, score: scoreTag(tag) }))
+      .sort((a, b) => {
+        if (b.score !== a.score) return b.score - a.score;
+
+        // Within the same score tier: most recently searched first
+        const aTime = a.tag.lastSearchedAt ? dayjs(a.tag.lastSearchedAt).valueOf() : 0;
+        const bTime = b.tag.lastSearchedAt ? dayjs(b.tag.lastSearchedAt).valueOf() : 0;
+        if (bTime !== aTime) return bTime - aTime;
+
+        return (b.tag.count ?? 0) - (a.tag.count ?? 0);
+      })
+      .slice(0, 50)
+      .map(({ tag }) => tag);
+
+    return await deriveTagCategories(ranked);
   },
 );
 
@@ -1020,12 +1035,12 @@ export const refreshTagRelations = makeAction(
     ]);
 
     if (changedChildIds.added.length || changedParentIds.added.length)
-      await recalculateTagCounts({
+      recalculateTagCounts({
         tagIds: [tagId, ...changedChildIds.added, ...changedParentIds.added],
         withSub,
       });
 
-    if (debug) perfLog("Regenerated tag ancestors, recalculated tag counts");
+    if (debug) perfLog("Regenerated tag ancestors");
 
     if (withSub) await emitTagUpdates(tagId, changedChildIds, changedParentIds);
     if (debug) perfLogTotal("Refreshed tag relations");
@@ -1091,7 +1106,7 @@ export const repairTags = makeAction(async () => {
   }>([
     {
       $group: {
-        _id: "$label",
+        _id: { $toLower: "$label" },
         tags: {
           $push: {
             _id: "$_id",
