@@ -67,14 +67,6 @@ export const ImportsFilterMenu = Comp(
               />
 
               <DateRange
-                header="Date Started"
-                startDate={store.startedAtStart}
-                setStartDate={store.setStartedAtStart}
-                endDate={store.startedAtEnd}
-                setEndDate={store.setStartedAtEnd}
-              />
-
-              <DateRange
                 header="Date Completed"
                 startDate={store.completedAtStart}
                 setStartDate={store.setCompletedAtStart}

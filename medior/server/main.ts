@@ -22,7 +22,8 @@ const configPath = path.resolve(folderPath, "..", "config.json");
 ipcMain.handle("getConfigPath", () => configPath);
 
 const logsDir = path.resolve(folderPath, "..", "logs", dayjs().format("YYYY-MM-DD"));
-const logsPath = path.resolve(logsDir, `${dayjs().format("HH[h]mm[m]ss[s]")}.log`);
+process.env.LOGS_PATH = path.resolve(logsDir, `${dayjs().format("HH[h]mm[m]ss[s]")}.log`);
+setLogsPath(process.env.LOGS_PATH);
 
 app.setAppLogsPath(logsDir);
 app.setPath("appData", folderPath);
@@ -41,7 +42,7 @@ let mainWindow = null;
 const createMainWindow = async () => {
   try {
     fileLog("Loading servers...");
-    await startServers(configPath, logsPath);
+    await startServers(configPath, process.env.LOGS_PATH);
 
     fileLog("Creating main window...");
     mainWindow = new BrowserWindow({
@@ -74,7 +75,6 @@ const createMainWindow = async () => {
 };
 
 app.whenReady().then(async () => {
-  await setLogsPath(logsPath);
   await loadConfig(configPath);
   setupTRPC();
   return createMainWindow();

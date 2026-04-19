@@ -11,21 +11,20 @@ import { makeClasses } from "medior/utils/client";
 import { CONSTANTS } from "medior/utils/common";
 
 interface SearchProps {
-  hasImports?: boolean;
-  hasSettings?: boolean;
+  isHome?: boolean;
 }
 
-export const Search = Comp(({ hasImports = false, hasSettings = false }: SearchProps) => {
+export const Search = Comp(({ isHome = false }: SearchProps) => {
   const { css } = useClasses(null);
 
   const stores = useStores();
 
   return (
     <>
-      <HomeMultiActionBar />
+      <HomeMultiActionBar isHome={isHome} />
 
       <View row height="inherit" overflow="inherit">
-        <Drawer {...{ hasImports, hasSettings }} />
+        <Drawer hasImports={isHome} hasSettings={isHome} />
 
         <View column className={css.main}>
           <FileContainer />

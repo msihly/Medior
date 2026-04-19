@@ -5,7 +5,11 @@ import { colors, makeClasses, toast } from "medior/utils/client";
 import { CONSTANTS } from "medior/utils/common";
 import { MultiActionButton, SelectedFilesInfo } from ".";
 
-export const HomeMultiActionBar = Comp(() => {
+interface HomeMultiActionBarProps {
+  isHome?: boolean;
+}
+
+export const HomeMultiActionBar = Comp(({ isHome = false }: HomeMultiActionBarProps) => {
   const stores = useStores();
   const { css } = useClasses(null);
 
@@ -47,8 +51,7 @@ export const HomeMultiActionBar = Comp(() => {
 
   const handleUnarchive = () => stores.file.unarchiveFiles({ fileIds: selectedIds });
 
-  const reingest = async () =>
-    await handleReingest({ fileIds: selectedIds, store: stores.import.reingester });
+  const reingest = () => handleReingest({ fileIds: selectedIds, store: stores.import.reingester });
 
   return (
     <AppBar position="static" className={css.appBar}>
@@ -88,7 +91,7 @@ export const HomeMultiActionBar = Comp(() => {
             iconProps={{ size: "0.85em" }}
             tooltip="Re-encode Videos"
             onClick={handleReencode}
-            disabled={hasNoSelection}
+            disabled={hasNoSelection || !isHome}
           />
 
           <MultiActionButton
@@ -96,7 +99,7 @@ export const HomeMultiActionBar = Comp(() => {
             iconProps={{ rotation: 240, size: "1.1em" }}
             tooltip="Remux Videos"
             onClick={handleRemux}
-            disabled={hasNoSelection}
+            disabled={hasNoSelection || !isHome}
           />
 
           <MultiActionButton
@@ -111,14 +114,14 @@ export const HomeMultiActionBar = Comp(() => {
             name="GetApp"
             tooltip="Reingest"
             onClick={reingest}
-            disabled={hasNoSelection}
+            disabled={hasNoSelection || !isHome}
           />
 
           <MultiActionButton
             name="Face"
             tooltip="Auto Detect Faces"
             onClick={handleAutoDetect}
-            disabled={hasNoSelection}
+            disabled={hasNoSelection || !isHome}
           />
 
           <MultiActionButton

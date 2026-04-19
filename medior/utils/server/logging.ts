@@ -6,8 +6,6 @@ import { dayjs, round } from "medior/utils/common";
 let logsPath: string;
 let logStream: fs.WriteStream | null = null;
 
-export const getLogsPath = () => logsPath;
-
 export const setLogsPath = async (filePath: string) => {
   logsPath = path.resolve(filePath);
   await fsPromises.mkdir(path.dirname(logsPath), { recursive: true });

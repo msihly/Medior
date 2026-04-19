@@ -26,7 +26,7 @@ export const HomeWindow = Comp(() => {
   return (
     <Views.ImportDnD>
       <View column className={css.root}>
-        <Views.Search hasImports hasSettings />
+        <Views.Search isHome />
 
         <Views.CollectionModals />
 

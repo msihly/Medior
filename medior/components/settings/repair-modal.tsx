@@ -5,7 +5,7 @@ import { Button, Card, Checkbox, Comp, Modal, Text, UniformList, View } from "me
 import { useStores } from "medior/store";
 import { colors, makeQueue } from "medior/utils/client";
 import { dayjs, PromiseQueue } from "medior/utils/common";
-import { getLogsPath, getVideoInfo, trpc } from "medior/utils/server";
+import { getVideoInfo, trpc } from "medior/utils/server";
 
 export const RepairModal = Comp(() => {
   const stores = useStores();
@@ -28,7 +28,7 @@ export const RepairModal = Comp(() => {
 
   const handleCancel = async () => stores.home.settings.setIsRepairOpen(false);
 
-  const handleLogs = () => shell.openPath(getLogsPath());
+  const handleLogs = () => shell.openPath(process.env["LOGS_PATH"]);
 
   const handleStart = async () => {
     try {

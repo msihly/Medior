@@ -10,7 +10,7 @@ import {
   TagInputRowProps,
   ViewProps,
 } from "medior/components";
-import { TagOption, tagToOption, useStores } from "medior/store";
+import { derefMobx, TagOption, tagToOption, useStores } from "medior/store";
 import { socket } from "medior/utils/server";
 
 export interface TagListProps extends MultiInputListProps<TagOption> {
@@ -61,9 +61,11 @@ export const TagList = Comp(
       const onTagsUpdated = (args: Parameters<SocketEvents["onTagsUpdated"]>[0]) => {
         for (const { tagId, updates } of args.tags) {
           const tagToUpdate = search.value.find((t) => t.id === tagId);
-          if (tagToUpdate)
+          if (tagToUpdate && search.onChange)
             search.onChange(
-              search.value.map((t) => (t.id === tagId ? { ...t, ...updates } : { ...t })),
+              search.value.map((t) =>
+                t.id === tagId ? { ...derefMobx(t), ...updates } : derefMobx(t),
+              ),
             );
         }
       };
