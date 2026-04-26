@@ -1,8 +1,8 @@
 /* --------------------------------------------------------------------------- */
 /*                               THIS IS A GENERATED FILE. DO NOT EDIT.
 /* --------------------------------------------------------------------------- */
-import * as db from "medior/server/database";
 import { QuerySelector, SortOrder } from "mongoose";
+import * as db from "medior/server/database";
 
 export type _FilterQuery<Schema> = {
   [SchemaKey in keyof Schema]?:

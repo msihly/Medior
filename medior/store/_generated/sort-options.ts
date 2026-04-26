@@ -1,7 +1,7 @@
 /* --------------------------------------------------------------------------- */
 /*                               THIS IS A GENERATED FILE. DO NOT EDIT.
 /* --------------------------------------------------------------------------- */
-import { IconName, IconProps } from "medior/components/media/icon";
+import { IconName, IconProps } from "trabecula/components";
 
 export type SortOption = {
   attribute: string;

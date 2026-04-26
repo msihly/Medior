@@ -69,8 +69,8 @@ export const FILE_DEF_TYPES: FileDef = {
     const actions = await getActions();
 
     const makeImports = () =>
-      `import * as db from "medior/server/database";
-      import { QuerySelector, SortOrder } from "mongoose";`;
+      `import { QuerySelector, SortOrder } from "mongoose";
+      import * as db from "medior/server/database";`;
 
     const makeCustomActions = () => makeCustomActionTypes(actions.custom);
 

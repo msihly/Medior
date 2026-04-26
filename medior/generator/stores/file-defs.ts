@@ -14,7 +14,7 @@ const CUSTOM_SORT_OPTIONS: Record<string, string[]> = {
 export const FILE_DEF_SORT_OPTIONS: FileDef = {
   name: "sort-options",
   makeFile: async () => {
-    const makeImports = () => `import { IconName, IconProps } from "medior/components/media/icon";`;
+    const makeImports = () => `import { IconName, IconProps } from "trabecula/components";`;
 
     const makeCustomSortNameType = () =>
       `type CustomSortName = ${makeSortType(Object.keys(CUSTOM_SORT_OPTIONS))};`;

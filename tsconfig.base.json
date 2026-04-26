@@ -13,7 +13,18 @@
     "noFallthroughCasesInSwitch": false,
     "noImplicitAny": false,
     "noUnusedLocals": true,
-    "plugins": [{ "name": "ts-plugin-sort-import-suggestions" }],
+    "paths": {
+      "ts-plugin-sort-import-suggestions": [
+        "./node_modules/trabercula/dist/plugins/ts-sort-imports"
+      ]
+    },
+    "plugins": [
+      {
+        "name": "ts-sort-imports",
+        "moveUpPatterns": ["@/", "^react$"],
+        "moveDownPatterns": ["dist"]
+      }
+    ],
     "resolveJsonModule": true,
     "skipLibCheck": true,
     "strict": false,

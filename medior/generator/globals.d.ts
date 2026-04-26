@@ -1,5 +1,5 @@
 import { IndexDefinition, IndexOptions } from "mongoose";
-import { IconName, IconProps } from "medior/components/media/icon";
+import { IconName, IconProps } from "trabecula/components";
 
 declare global {
   interface FileDef {

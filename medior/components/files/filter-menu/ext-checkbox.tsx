@@ -1,5 +1,5 @@
 import { Checkbox } from "medior/components";
-import { Comp } from "medior/components/comp";
+import { Comp } from "medior/components";
 import { AudioCodec, ImageExt, VideoCodec, VideoExt } from "medior/utils/common";
 
 export interface ExtCheckboxProps {

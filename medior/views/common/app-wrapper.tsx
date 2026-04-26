@@ -2,8 +2,8 @@ import { ReactNode, useEffect, useState } from "react";
 import { loadConfig, ToastContainer } from "medior/utils/client";
 import { setupTRPC } from "medior/utils/server";
 import { Views } from "medior/views";
-import "react-toastify/dist/ReactToastify.css";
-import "medior/css/fonts.css";
+import "trabecula/css/react-toastify.css";
+import "trabecula/css/fonts.css";
 import "medior/css/view.css";
 
 interface AppWrapperProps {

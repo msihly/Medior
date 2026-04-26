@@ -2,7 +2,7 @@ import fs from "fs/promises";
 import { MongoMemoryReplSet } from "mongodb-memory-server";
 import Mongoose from "mongoose";
 import { getConfig, loadConfig } from "medior/utils/client";
-import { CONSTANTS, sleep } from "medior/utils/common";
+import { sleep } from "medior/utils/common";
 import { fileLog, setLogsPath } from "medior/utils/server";
 
 let mongoServer: MongoMemoryReplSet;
@@ -34,7 +34,7 @@ const createDbServer = async () => {
   fileLog(`Connecting to db: ${uri}`);
 
   Mongoose.set("strictQuery", true);
-  await Mongoose.connect(uri, CONSTANTS.MONGOOSE_OPTS);
+  await Mongoose.connect(uri, { family: 4 });
   Mongoose.connection.on("error", (err) => fileLog(`DB Error: ${err.message}`, { type: "error" }));
 
   for (const m of Object.keys(Mongoose.models)) Mongoose.models[m].syncIndexes();

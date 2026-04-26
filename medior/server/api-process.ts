@@ -3,7 +3,7 @@ import killPort from "kill-port";
 import Mongoose from "mongoose";
 import { serverRouter } from "medior/server/trpc";
 import { getConfig, loadConfig } from "medior/utils/client";
-import { CONSTANTS, sleep } from "medior/utils/common";
+import { sleep } from "medior/utils/common";
 import { fileLog, setLogsPath, setupTRPC } from "medior/utils/server";
 
 let server: ReturnType<typeof createHTTPServer>;
@@ -38,7 +38,7 @@ process.on("message", async (msg: any) => {
       fileLog(`Connecting to db: ${uri}`);
 
       Mongoose.set("strictQuery", true);
-      await Mongoose.connect(uri, CONSTANTS.MONGOOSE_OPTS);
+      await Mongoose.connect(uri, { family: 4 });
       Mongoose.connection.on("error", (err) =>
         fileLog(`DB Error: ${err.message}`, { type: "error" }),
       );

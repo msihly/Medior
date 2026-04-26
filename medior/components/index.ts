@@ -1,6 +1,5 @@
-import { Comp } from "./comp";
-export { Comp };
-
+export * from "trabecula/components";
+// Intentional gap for sorting
 export * from "./buttons";
 export * from "./carousel";
 export * from "./drawer";
@@ -8,16 +7,6 @@ export * from "./face-recognition";
 export * from "./file-collections";
 export * from "./files";
 export * from "./imports";
-export * from "./inputs";
-export * from "./list";
-export * from "./media";
-export * from "./modals";
 export * from "./multi-action-bar";
-export * from "./progress";
 export * from "./settings";
-export * from "./table";
 export * from "./tags";
-export * from "./text";
-export * from "./toggles";
-export * from "./tooltip";
-export * from "./wrappers";

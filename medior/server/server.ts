@@ -38,10 +38,7 @@ const waitReady = (proc: Proc, startPayload: Record<string, any> = {}) =>
     proc.child.send({ type: "start", ...startPayload });
   });
 
-export const startServers = async (
-  configPath: string,
-  logsPath: string,
-) => {
+export const startServers = async (configPath: string, logsPath: string) => {
   await setLogsPath(logsPath);
   const base = app.isPackaged ? path.join(process.resourcesPath, "medior/server") : __dirname;
 
