@@ -482,7 +482,10 @@ export const useImportEditor = (store: Ingester | Reingester) => {
 
     const tagsToUpsert: TagToUpsert[] = [];
     for (const tag of [...processedTags.values()].flat()) {
-      if (!tagsToUpsert.find((t) => t.id === tag.id)) tagsToUpsert.push(tag);
+      const isDuplicate = tagsToUpsert.find((t) =>
+        t.id && tag.id ? t.id === tag.id : t.label === tag.label,
+      );
+      if (!isDuplicate) tagsToUpsert.push(tag);
     }
 
     return tagsToUpsert;
@@ -790,16 +793,15 @@ export const useImportEditor = (store: Ingester | Reingester) => {
         /* -------------------------------- Sidecars -------------------------------- */
         if (store.options.withSidecar) {
           await store.loadSidecar();
-
-          for (const folder of store.flatFolderHierarchy.values()) {
-            const dedupedTags = await dedupeTags(folder.tags);
-            store.setTagsToUpsert(folder.folderName, dedupedTags);
-
-            appendTagsToUpsert(dedupedTags);
-            for (const imp of folder.imports) appendTagsToUpsert(imp.tagsToUpsert);
-          }
-
           if (DEBUG) perfLog("Loaded sidecar");
+        }
+
+        for (const folder of store.flatFolderHierarchy.values()) {
+          const dedupedTags = await dedupeTags(folder.tags);
+          store.setTagsToUpsert(folder.folderName, dedupedTags);
+
+          appendTagsToUpsert(dedupedTags);
+          for (const imp of folder.imports) appendTagsToUpsert(imp.tagsToUpsert);
         }
 
         /* ----------------------------------- Tags ---------------------------------- */
