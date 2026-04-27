@@ -1,8 +1,8 @@
 import autoBind from "auto-bind";
 import { computed, reaction } from "mobx";
 import { Model, model, modelAction, modelFlow, prop } from "mobx-keystone";
+import { asyncAction } from "trabecula/utils/client";
 import { CreateImportBatchesInput } from "medior/server/database";
-import { asyncAction } from "medior/store/utils";
 import { sumArray } from "medior/utils/common";
 import { trpc } from "medior/utils/server";
 import { FileImport, FileImportBatch, FileImportBatchSearch } from ".";
@@ -117,7 +117,9 @@ export class ImportManager extends Model({
   });
 
   @modelFlow
-  runImporter = asyncAction(async () => {
+  runImporter = asyncAction(async (forceChange = false) => {
+    if (this.isImporting && !forceChange) return;
+
     const id = this.activeBatch?.id || (await this.loadActiveBatch()).data?.id;
     if (!id) return;
 

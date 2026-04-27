@@ -10,8 +10,8 @@ import {
 } from "mobx-keystone";
 import { _FileStore } from "medior/store/_generated";
 import * as db from "medior/server/database";
-import { asyncAction, FaceModel, FileImporter, RootStore } from "medior/store";
-import { makeQueue, toast } from "medior/utils/client";
+import { FaceModel, FileImporter, RootStore } from "medior/store";
+import { asyncAction, makeQueue, toast } from "medior/utils/client";
 import { PromiseQueue, splitArray } from "medior/utils/common";
 import { trpc } from "medior/utils/server";
 import { File, FileSearch, FileTagsEditorStore, VideoTransformerStore } from ".";
@@ -45,7 +45,7 @@ export class FileStore extends ExtendedModel(_FileStore, {
   }
 
   @modelAction
-  openVideoTransformer(fileIds: string[], fnType: "reencode" | "remux") {
+  openVideoTransformer(fileIds: string[], fnType: "reencode" | "remux" | "splice") {
     this.videoTransformer.setFileIds(fileIds);
     this.videoTransformer.setFnType(fnType);
     this.videoTransformer.setIsOpen(true);
@@ -100,8 +100,9 @@ export class FileStore extends ExtendedModel(_FileStore, {
 
     if (archivedIds?.length > 0) {
       const res = await trpc.setFileIsArchived.mutate({ fileIds: archivedIds, isArchived: true });
-      if (res.success) toast.warn(`${archivedIds.length} files archived`);
-      else throw new Error(`Error archiving files: ${res.error}`);
+      if (res.success) throw new Error(`Error archiving files: ${res.error}`);
+      toast.warn(`${archivedIds.length} files archived`);
+      this.search.removeFiles(archivedIds);
     }
 
     if (deletedIds?.length > 0) {

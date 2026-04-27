@@ -135,8 +135,8 @@ dependencies:
     specifier: ^4.6.2
     version: 4.7.5
   trabecula:
-    specifier: github:msihly/trabecula#6a94f806e0fe8746cb44f40ec4f77b69d894cc66
-    version: github.com/msihly/trabecula/6a94f806e0fe8746cb44f40ec4f77b69d894cc66(@emotion/cache@11.13.1)(@emotion/react@11.13.0)(@emotion/styled@11.13.0)(mobx-keystone@1.21.0)(mobx@6.13.1)(react-dom@17.0.2)(react@17.0.2)(tss-react@4.9.20)
+    specifier: github:msihly/trabecula#ebac6a8d7be4bb6918087e119469cfd50bf78dee
+    version: github.com/msihly/trabecula/ebac6a8d7be4bb6918087e119469cfd50bf78dee(@emotion/cache@11.13.1)(@emotion/react@11.13.0)(@emotion/styled@11.13.0)(mobx-keystone@1.21.0)(mobx@6.13.1)(react-dom@17.0.2)(react@17.0.2)(tss-react@4.9.20)
   trash:
     specifier: ^5.2.0
     version: 5.2.0
@@ -8697,11 +8697,12 @@ packages:
       readable-stream: 3.6.2
     dev: true
 
-  github.com/msihly/trabecula/6a94f806e0fe8746cb44f40ec4f77b69d894cc66(@emotion/cache@11.13.1)(@emotion/react@11.13.0)(@emotion/styled@11.13.0)(mobx-keystone@1.21.0)(mobx@6.13.1)(react-dom@17.0.2)(react@17.0.2)(tss-react@4.9.20):
-    resolution: {tarball: https://codeload.github.com/msihly/trabecula/tar.gz/6a94f806e0fe8746cb44f40ec4f77b69d894cc66}
-    id: github.com/msihly/trabecula/6a94f806e0fe8746cb44f40ec4f77b69d894cc66
+  github.com/msihly/trabecula/ebac6a8d7be4bb6918087e119469cfd50bf78dee(@emotion/cache@11.13.1)(@emotion/react@11.13.0)(@emotion/styled@11.13.0)(mobx-keystone@1.21.0)(mobx@6.13.1)(react-dom@17.0.2)(react@17.0.2)(tss-react@4.9.20):
+    resolution: {tarball: https://codeload.github.com/msihly/trabecula/tar.gz/ebac6a8d7be4bb6918087e119469cfd50bf78dee}
+    id: github.com/msihly/trabecula/ebac6a8d7be4bb6918087e119469cfd50bf78dee
     name: trabecula
     version: 1.0.0
+    prepare: true
     requiresBuild: true
     peerDependencies:
       '@emotion/cache': ^11.7.1

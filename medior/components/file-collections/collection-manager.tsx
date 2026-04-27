@@ -8,9 +8,7 @@ import {
   Comp,
   ConfirmModal,
   FileCard,
-  ListItem,
   LoadingOverlay,
-  MenuButton,
   Modal,
   MultiActionButton,
   Pagination,
@@ -19,7 +17,7 @@ import {
   View,
 } from "medior/components";
 import { useStores } from "medior/store";
-import { colors, toast } from "medior/utils/client";
+import { colors, makeClasses, toast } from "medior/utils/client";
 import { CollectionFilterMenu, FileCollection } from ".";
 
 const FILE_CARD_HEIGHT = 250;
@@ -27,6 +25,8 @@ const FILE_CARD_HEIGHT = 250;
 export const FileCollectionManager = Comp(() => {
   const stores = useStores();
   const store = stores.collection.manager;
+
+  const { css } = useClasses(null);
 
   const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
 
@@ -40,10 +40,12 @@ export const FileCollectionManager = Comp(() => {
   const pageCount = store.search.pageCount;
 
   useEffect(() => {
-    if (hasOneFileSelected) store.loadCurrentCollections();
-    else store.setCurrentCollections([]);
-    store.loadFiles();
-    store.search.loadFiltered({ page: 1 });
+    (async () => {
+      if (hasOneFileSelected) await store.loadCurrentCollections();
+      else store.setCurrentCollections([]);
+      store.loadFiles();
+      store.search.loadFiltered({ page: 1 });
+    })();
   }, [hasOneFileSelected, selectedFileIds]);
 
   useEffect(() => {
@@ -53,7 +55,7 @@ export const FileCollectionManager = Comp(() => {
 
   const handleAddToCollection = async () => {
     const collId = store.search.selectedIds[0];
-    const fileIds = new Set(store.selectedFileIds);
+    const fileIds = new Set(selectedFileIds);
 
     store.setIsLoading(true);
     const res = await stores.collection.editor.addFilesToCollection({
@@ -93,20 +95,13 @@ export const FileCollectionManager = Comp(() => {
 
   const handleDelete = () => setIsConfirmDeleteOpen(true);
 
-  const handleDeleteEmpty = () => stores.collection.deleteEmptyCollections();
-
-  const handleDeleteDuplicates = () => stores.collection.deleteDuplicates();
-
   const handleFullPageLoad = () => store.search.loadFiltered({ withFullCount: true });
 
   const handleRefreshMeta = () => stores.collection.regenCollMeta(store.search.selectedIds);
 
   const handleNewCollection = async () => {
     const res = await stores.collection.createCollection({
-      fileIdIndexes: store.selectedFileIds.map((id, index) => ({
-        fileId: id,
-        index,
-      })),
+      fileIdIndexes: selectedFileIds.map((fileId, index) => ({ fileId, index })),
       title: "Untitled Collection",
     });
 
@@ -123,18 +118,20 @@ export const FileCollectionManager = Comp(() => {
 
   return (
     <Modal.Container isLoading={store.isLoading} onClose={handleClose} height="100%" width="100%">
-      <Modal.Content dividers={false} spacing="0.5rem" overflow="hidden" padding={{ all: 0 }}>
+      <Modal.Content dividers={false} overflow="hidden" padding={{ all: 0 }}>
         {!hasAnyFilesSelected ? null : (
-          <View row spacing="0.5rem">
+          <View row className={css.topRow}>
             <Card
               header={
                 <Text preset="title" padding="0.3rem 0">
                   {`Selected File${hasOneFileSelected ? "" : "s"}`}
                 </Text>
               }
-              headerProps={{ bgColor: colors.foreground }}
+              headerProps={{ borderRadiuses: { top: 0 } }}
               width={hasOneFileSelected ? FILE_CARD_HEIGHT : "100%"}
-              padding={{ all: 4 }}
+              height="100%"
+              borderRadiuses={{ bottomRight: 0 }}
+              padding={{ all: "0.2rem" }}
               overflow="hidden"
             >
               <CardGrid
@@ -148,31 +145,26 @@ export const FileCollectionManager = Comp(() => {
                   />
                 ))}
                 maxCards={hasOneFileSelected ? 1 : 6}
-                height={FILE_CARD_HEIGHT + 50}
                 padding={{ bottom: 0 }}
               />
             </Card>
 
             {hasOneFileSelected && (
               <Card
+                column
                 header={
                   <Text preset="title" padding="0.3rem 0">
                     {"Current Collections"}
                   </Text>
                 }
+                headerProps={{ borderRadiuses: { top: 0 } }}
                 flex={1}
-                padding={{ all: 4 }}
+                padding={{ all: "0.2rem" }}
+                borderRadiuses={{ bottomLeft: 0 }}
                 overflow="auto"
               >
                 {store.currentCollections.length ? (
-                  <CardGrid
-                    cards={store.currentCollections.map((c) => (
-                      <FileCollection key={c.id} collection={c} />
-                    ))}
-                    maxCards={5}
-                    height={FILE_CARD_HEIGHT + 50}
-                    padding={{ bottom: 0 }}
-                  />
+                  store.currentCollections.map((c) => <FileCollection key={c.id} collection={c} />)
                 ) : (
                   <CenteredText text="No collections found" />
                 )}
@@ -186,6 +178,7 @@ export const FileCollectionManager = Comp(() => {
           overflow="auto"
           padding={{ all: 0 }}
           bgColor={colors.background}
+          headerProps={{ borderRadiuses: { top: hasAnyFilesSelected ? 0 : undefined } }}
           header={
             <UniformList row flex={1} justify="space-between" padding={{ all: "0.3rem" }}>
               <View row align="center" spacing="0.5rem">
@@ -217,24 +210,6 @@ export const FileCollectionManager = Comp(() => {
                     disabled={!hasSelectedCollectionIds}
                   />
                 </View>
-
-                <MenuButton color={colors.custom.grey}>
-                  <ListItem
-                    text="Delete Empty"
-                    icon="Delete"
-                    color={colors.custom.red}
-                    iconProps={{ color: colors.custom.red }}
-                    onClick={handleDeleteEmpty}
-                  />
-
-                  <ListItem
-                    text="Delete Duplicates"
-                    icon="Delete"
-                    color={colors.custom.red}
-                    iconProps={{ color: colors.custom.red }}
-                    onClick={handleDeleteDuplicates}
-                  />
-                </MenuButton>
               </View>
             </UniformList>
           }
@@ -260,6 +235,7 @@ export const FileCollectionManager = Comp(() => {
             onChange={handlePageChange}
             isLoading={store.search.isPageCountLoading}
             onFullLoad={handleFullPageLoad}
+            viewProps={{ style: { zIndex: 100 } }}
           />
         </Card>
       </Modal.Content>
@@ -295,4 +271,10 @@ export const FileCollectionManager = Comp(() => {
       )}
     </Modal.Container>
   );
+});
+
+const useClasses = makeClasses({
+  topRow: {
+    maxHeight: 500,
+  },
 });

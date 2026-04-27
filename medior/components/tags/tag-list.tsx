@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { FixedSizeList } from "react-window";
 import { SocketEvents } from "medior/_generated/server";
+import { derefMobx } from "trabecula/utils/client";
 import {
   Comp,
   MultiInputList,
@@ -10,7 +11,7 @@ import {
   TagInputRowProps,
   ViewProps,
 } from "medior/components";
-import { derefMobx, TagOption, tagToOption, useStores } from "medior/store";
+import { TagOption, tagToOption, useStores } from "medior/store";
 import { socket } from "medior/utils/server";
 
 export interface TagListProps extends MultiInputListProps<TagOption> {

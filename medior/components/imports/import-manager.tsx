@@ -1,4 +1,3 @@
-import { useEffect } from "react";
 import {
   Button,
   Card,
@@ -26,11 +25,6 @@ export const ImportManager = Comp(() => {
     : store.isImporting
       ? colors.custom.blue
       : colors.custom.grey;
-
-  useEffect(() => {
-    store.search.loadFiltered({ page: 1 });
-    store.runImporter();
-  }, []);
 
   const handleClose = () => {
     store.setIsOpen(false);

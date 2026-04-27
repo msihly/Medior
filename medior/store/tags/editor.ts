@@ -1,10 +1,10 @@
 import autoBind from "auto-bind";
 import { reaction } from "mobx";
 import { getRootStore, Model, model, modelAction, modelFlow, prop } from "mobx-keystone";
+import { asyncAction } from "trabecula/utils/client";
 import { IconName } from "medior/components";
 import { RootStore } from "medior/store";
 import { Tag } from "medior/store/tags/tag";
-import { asyncAction } from "medior/store/utils";
 import { trpc } from "medior/utils/server";
 
 @model("medior/TagEditorStore")

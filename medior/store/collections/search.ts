@@ -9,8 +9,9 @@ import {
   objectToMapTransform,
   prop,
 } from "mobx-keystone";
+import { asyncAction } from "trabecula/utils/client";
 import { _FileCollectionSearch } from "medior/store/_generated";
-import { asyncAction, File, RootStore } from "medior/store";
+import { File, RootStore } from "medior/store";
 import { trpc } from "medior/utils/server";
 
 @model("medior/FileCollectionSearch")
@@ -47,10 +48,17 @@ export class FileCollectionSearch extends ExtendedModel(_FileCollectionSearch, {
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */
   @modelFlow
   loadFiles = asyncAction(async () => {
+    const stores = getRootStore<RootStore>(this);
     this.setIsLoading(true);
 
     if (this.results.length) {
-      const fileIds = [...new Set(this.results.map((c) => c.previewIds).flat())];
+      const fileIds = [
+        ...new Set(
+          [...this.results, ...stores.collection.manager.currentCollections]
+            .map((c) => c.previewIds)
+            .flat(),
+        ),
+      ];
 
       const res = await trpc.listFile.mutate({ args: { filter: { id: fileIds } } });
       if (!res.success) throw new Error(res.error);

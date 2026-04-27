@@ -10,10 +10,11 @@ import { getVideoInfo, trpc } from "medior/utils/server";
 export const RepairModal = Comp(() => {
   const stores = useStores();
 
-  const [isThumbsChecked, setIsThumbsChecked] = useState(false);
+  const [isCollectionsChecked, setIsCollectionsChecked] = useState(false);
+  const [isExtAndCodecsChecked, setIsExtAndCodecsChecked] = useState(false);
   const [isRepairing, setIsRepairing] = useState(false);
   const [isTagsChecked, setIsTagsChecked] = useState(false);
-  const [isExtAndCodecsChecked, setIsExtAndCodecsChecked] = useState(false);
+  const [isThumbsChecked, setIsThumbsChecked] = useState(false);
   const [outputLog, setOutputLog] = useState<{ color?: string; text: string }[]>([]);
 
   const outputRef = useRef<HTMLDivElement>(null);
@@ -33,6 +34,12 @@ export const RepairModal = Comp(() => {
   const handleStart = async () => {
     try {
       setIsRepairing(true);
+
+      if (isCollectionsChecked) {
+        log("Repairing collections...");
+        const res = await trpc.repairCollections.mutate();
+        if (!res.success) throw new Error(res.error);
+      }
 
       if (isTagsChecked) {
         log("Repairing tags...");
@@ -125,14 +132,14 @@ export const RepairModal = Comp(() => {
           <UniformList row>
             <View row>
               <Checkbox
-                label="Thumbnails"
-                checked={isThumbsChecked}
-                setChecked={setIsThumbsChecked}
+                label="Collections"
+                checked={isCollectionsChecked}
+                setChecked={setIsCollectionsChecked}
                 disabled={isRepairing}
               />
 
               <Checkbox
-                label="Extensions / Codecs"
+                label="Ext. / Codecs"
                 checked={isExtAndCodecsChecked}
                 setChecked={setIsExtAndCodecsChecked}
                 disabled={isRepairing}
@@ -142,6 +149,13 @@ export const RepairModal = Comp(() => {
                 label="Tags"
                 checked={isTagsChecked}
                 setChecked={setIsTagsChecked}
+                disabled={isRepairing}
+              />
+
+              <Checkbox
+                label="Thumbnails"
+                checked={isThumbsChecked}
+                setChecked={setIsThumbsChecked}
                 disabled={isRepairing}
               />
             </View>

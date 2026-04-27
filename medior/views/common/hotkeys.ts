@@ -2,7 +2,7 @@ import { KeyboardEvent, MutableRefObject } from "react";
 import FilePlayer from "react-player/file";
 import { useStores } from "medior/store";
 import { toast, Toaster } from "medior/utils/client";
-import { Fmt, round, throttle } from "medior/utils/common";
+import { dayjs, Fmt, round, throttle } from "medior/utils/common";
 
 const RATING_KEYS = ["1", "2", "3", "4", "5", "6", "7", "8", "9"];
 
@@ -93,21 +93,27 @@ export const useHotkeys = ({ rootRef, videoRef, view }: UseHotkeysProps) => {
         if (view === "carousel") {
           if (hasAlt || hasCtrl || hasShift) {
             if (hasAlt) stores.carousel.setIsPlaying(false);
-            const dir = isLeft ? -1 : 1;
-            const frames = hasAlt ? 1 : hasShift ? 3 : 30;
             const file = stores.carousel.getActiveFile();
             const frameRate = hasAlt ? 1 : file.frameRate;
             const totalFrames = round(file.totalFrames, 0);
+
+            const dir = isLeft ? -1 : 1;
+            const seconds = hasAlt ? 1 : hasShift ? 3 : 30;
             const newFrame = Math.max(
               0,
-              Math.min(totalFrames, round(stores.carousel.curFrame + dir * frames * frameRate, 0)),
+              Math.min(totalFrames, round(stores.carousel.curFrame + dir * seconds * frameRate, 0)),
             );
+
+            const newTime = Fmt.frameToSec(newFrame, file.frameRate);
+            const timeDiff = round(newTime - stores.carousel.curTime);
+            const newPercent = round((newFrame / totalFrames) * 100, 0);
 
             if (file.isWebPlayable) videoRef.current?.seekTo(newFrame / totalFrames, "fraction");
             else await transcode(newFrame, file.frameRate);
 
-            const frameDiff = round(Math.abs(newFrame - stores.carousel.curFrame), 0);
-            toaster.toast(`Frame: ${newFrame} (${isLeft ? "-" : "+"}${frameDiff})`);
+            toaster.toast(
+              `${isLeft ? "-" : "+"}${timeDiff} sec. / ${dayjs.duration(newTime, "s").format("HH:mm:ss")} (${newPercent}%)`,
+            );
           } else navCarouselByArrowKey(isLeft);
         } else selectFileByArrowKey(isLeft, fileIds[0]);
       }

@@ -20,13 +20,6 @@ export const FileCard = Comp(({ disabled, file, height, id, store, width }: File
   if (!file) file = stores.file.getById(id);
   const fileDragProps = useFileDrag(file, store.selectedIds);
 
-  if (!file)
-    return (
-      <FileBase.Container {...{ disabled, height, width }}>
-        <LoadingOverlay isLoading />
-      </FileBase.Container>
-    );
-
   const handleClick = async (event: React.MouseEvent) => {
     if (disabled) return;
     const res = await store.handleSelect({
@@ -44,6 +37,13 @@ export const FileCard = Comp(({ disabled, file, height, id, store, width }: File
       else openCarouselWindow({ file, selectedFileIds: res.data });
     }
   };
+
+  if (!file)
+    return (
+      <FileBase.Container {...{ disabled, height, width }} flex="none">
+        <LoadingOverlay isLoading />
+      </FileBase.Container>
+    );
 
   return (
     <FileBase.ContextMenu key="context-menu" {...{ disabled, file }} store={store}>

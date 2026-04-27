@@ -1,5 +1,7 @@
 import { createContext, useContext } from "react";
 import { Model, model, prop, registerRootStore } from "mobx-keystone";
+import * as mobx from "mobx-keystone";
+import { initMobx } from "trabecula/utils/client";
 import { CarouselStore } from "./carousel";
 import { FileCollectionStore } from "./collections";
 import { FaceRecognitionStore } from "./face-recognition";
@@ -7,6 +9,8 @@ import { FileStore } from "./files";
 import { HomeStore } from "./home";
 import { ImportStore } from "./imports";
 import { TagStore } from "./tags";
+
+initMobx(mobx);
 
 @model("medior/RootStore")
 export class RootStore extends Model({

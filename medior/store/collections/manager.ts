@@ -1,6 +1,7 @@
 import autoBind from "auto-bind";
 import { getRootStore, Model, model, modelAction, modelFlow, prop } from "mobx-keystone";
-import { asyncAction, File, RootStore } from "medior/store";
+import { asyncAction } from "trabecula/utils/client";
+import { File, RootStore } from "medior/store";
 import { trpc } from "medior/utils/server";
 import { FileCollection, FileCollectionSearch } from ".";
 

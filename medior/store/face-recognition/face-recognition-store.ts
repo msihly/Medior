@@ -10,8 +10,8 @@ import {
   modelFlow,
   prop,
 } from "mobx-keystone";
-import { asyncAction, File, RootStore } from "medior/store";
-import { getIsImage, makeQueue } from "medior/utils/client";
+import { File, RootStore } from "medior/store";
+import { asyncAction, getIsImage, makeQueue } from "medior/utils/client";
 import { objectToFloat32Array, PromiseQueue } from "medior/utils/common";
 import { trpc } from "medior/utils/server";
 import { FaceModel } from ".";

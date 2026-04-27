@@ -96,14 +96,8 @@ export type AddFilesToCollectionOutput = ReturnType<typeof db.addFilesToCollecti
 export type CreateCollectionInput = Parameters<typeof db.createCollection>[0];
 export type CreateCollectionOutput = ReturnType<typeof db.createCollection>;
 
-export type DeduplicateCollectionsInput = Parameters<typeof db.deduplicateCollections>[0];
-export type DeduplicateCollectionsOutput = ReturnType<typeof db.deduplicateCollections>;
-
 export type DeleteCollectionsInput = Parameters<typeof db.deleteCollections>[0];
 export type DeleteCollectionsOutput = ReturnType<typeof db.deleteCollections>;
-
-export type DeleteEmptyCollectionsInput = Parameters<typeof db.deleteEmptyCollections>[0];
-export type DeleteEmptyCollectionsOutput = ReturnType<typeof db.deleteEmptyCollections>;
 
 export type ListAllCollectionIdsInput = Parameters<typeof db.listAllCollectionIds>[0];
 export type ListAllCollectionIdsOutput = ReturnType<typeof db.listAllCollectionIds>;
@@ -119,6 +113,9 @@ export type RegenCollAttrsOutput = ReturnType<typeof db.regenCollAttrs>;
 
 export type RegenCollTagAncestorsInput = Parameters<typeof db.regenCollTagAncestors>[0];
 export type RegenCollTagAncestorsOutput = ReturnType<typeof db.regenCollTagAncestors>;
+
+export type RepairCollectionsInput = Parameters<typeof db.repairCollections>[0];
+export type RepairCollectionsOutput = ReturnType<typeof db.repairCollections>;
 
 export type UpdateCollectionInput = Parameters<typeof db.updateCollection>[0];
 export type UpdateCollectionOutput = ReturnType<typeof db.updateCollection>;

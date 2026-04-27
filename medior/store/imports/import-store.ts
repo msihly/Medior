@@ -1,6 +1,6 @@
 import autoBind from "auto-bind";
 import { Model, model, modelAction, ModelCreationData, modelFlow, prop } from "mobx-keystone";
-import { asyncAction } from "medior/store";
+import { asyncAction } from "trabecula/utils/client";
 import { trpc } from "medior/utils/server";
 import { FileImport, FileImportBatch, ImportManager, Ingester, Reingester } from ".";
 

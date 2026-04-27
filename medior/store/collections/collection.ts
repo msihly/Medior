@@ -1,8 +1,9 @@
 import autoBind from "auto-bind";
 import { TagSchema } from "medior/_generated/server";
+import { computed } from "mobx";
 import { ExtendedModel, model, modelFlow, prop } from "mobx-keystone";
+import { asyncAction } from "trabecula/utils/client";
 import { _FileCollection } from "medior/store/_generated";
-import { asyncAction } from "medior/store/utils";
 import { trpc } from "medior/utils/server";
 
 @model("medior/FileCollection")
@@ -27,6 +28,7 @@ export class FileCollection extends ExtendedModel(_FileCollection, {
   }
 
   /* --------------------------------- GETTERS -------------------------------- */
+  @computed
   get previewIds() {
     return [...this.fileIdIndexes]
       .sort((a, b) => a.index - b.index)

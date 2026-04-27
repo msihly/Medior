@@ -6,7 +6,7 @@ import * as Types from "medior/server/database/types";
 import type { FileImport } from "medior/store";
 import { FileImporter } from "medior/store/imports/importer";
 import { dayjs, Fmt, sleep, sumArray } from "medior/utils/common";
-import { makeAction } from "medior/utils/server";
+import { fileLog, makeAction } from "medior/utils/server";
 import {
   checkFileExists,
   leanModelToJson,
@@ -58,11 +58,18 @@ export const completeImportBatch = makeAction(
     const completedAt = dayjs().toISOString();
 
     const batch = (await getImportBatch({ id: args.id })).data;
-    if (batch.imports.some((f) => f.status === "PENDING")) return null;
+    if (batch.imports.some((f) => f.status === "PENDING")) {
+      fileLog({ args, batch }, { type: "error" });
+      throw new Error("Failed to complete batch (imports pending)");
+    }
 
-    const fileIds = batch.imports
-      .filter((imp) => ["COMPLETED", "DUPLICATE"].includes(imp.status))
-      .map((imp) => imp.fileId);
+    const fileIds = [
+      ...new Set(
+        batch.imports
+          .filter((imp) => imp.fileId && ["COMPLETED", "DUPLICATE"].includes(imp.status))
+          .map((imp) => imp.fileId.toString()),
+      ),
+    ];
 
     const tagIds = [
       ...new Set([...batch.tagIds, ...batch.imports.flatMap((imp) => imp.tagIds)].flat()),
@@ -76,9 +83,11 @@ export const completeImportBatch = makeAction(
       collectionId = res.data.id;
     }
 
-    const duplicateFileIds = batch.imports
-      .filter((file) => file.status === "DUPLICATE")
-      .map((file) => file.fileId);
+    const duplicateFileIds = [
+      ...new Set(
+        batch.imports.filter((file) => file.status === "DUPLICATE").map((file) => file.fileId),
+      ),
+    ];
 
     if (duplicateFileIds.length && batch.tagIds?.length) {
       const res = await actions.editFileTags({

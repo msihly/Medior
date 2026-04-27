@@ -12,8 +12,7 @@ import {
   prop,
 } from "mobx-keystone";
 import { _File } from "medior/store/_generated";
-import { asyncAction } from "medior/store";
-import { getIsVideo } from "medior/utils/client";
+import { asyncAction, getIsVideo } from "medior/utils/client";
 import { dayjs, WEB_VIDEO_CODECS, WEB_VIDEO_EXTS } from "medior/utils/common";
 import { trpc } from "medior/utils/server";
 

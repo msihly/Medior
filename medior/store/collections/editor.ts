@@ -9,8 +9,8 @@ import {
   prop,
 } from "mobx-keystone";
 import { SortMenuProps } from "medior/components";
-import { asyncAction, File, FileSearch, RootStore, Tag } from "medior/store";
-import { getConfig, toast } from "medior/utils/client";
+import { File, FileSearch, RootStore, Tag } from "medior/store";
+import { asyncAction, getConfig, toast } from "medior/utils/client";
 import { trpc } from "medior/utils/server";
 import { FileCollection } from ".";
 
@@ -107,7 +107,7 @@ export class CollectionEditor extends Model({
 
     if (!fileIds?.length) this.search.setResults([]);
     else {
-      const fileRes = await this.search.loadFiltered();
+      const fileRes = await this.search.loadFiltered({ page: 1, withFullCount: true });
       if (!fileRes.success) throw new Error(fileRes.error);
     }
 

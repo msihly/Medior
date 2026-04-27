@@ -562,11 +562,8 @@ export const editTag = makeAction(
     if (changedTagIds.length > 0 && withRegen) {
       await regenTagAncestors({ tagIds: changedTagIds, withSub });
 
-      await Promise.all([
-        actions.regenCollTagAncestors({ tagIds: changedTagIds }),
-        actions.regenFileTagAncestors({ tagIds: changedTagIds }),
-      ]);
-
+      actions.regenCollTagAncestors({ tagIds: changedTagIds });
+      actions.regenFileTagAncestors({ tagIds: changedTagIds });
       regenTagThumbPaths({ tagId: id });
       recalculateTagCounts({
         tagIds: [id, ...changedParentIds.added, ...changedParentIds.removed],
@@ -574,7 +571,7 @@ export const editTag = makeAction(
       });
     }
 
-    if (withSub) await emitTagUpdates(id, changedChildIds, changedParentIds);
+    if (withSub) emitTagUpdates(id, changedChildIds, changedParentIds);
     return { changedChildIds, changedParentIds, dateModified, operations, res };
   },
 );
@@ -1042,7 +1039,7 @@ export const refreshTagRelations = makeAction(
 
     if (debug) perfLog("Regenerated tag ancestors");
 
-    if (withSub) await emitTagUpdates(tagId, changedChildIds, changedParentIds);
+    if (withSub) emitTagUpdates(tagId, changedChildIds, changedParentIds);
     if (debug) perfLogTotal("Refreshed tag relations");
   },
 );
