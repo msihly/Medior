@@ -22,6 +22,8 @@ export const ContextMenu = Comp(({ children, file, store, ...props }: ContextMen
   const isReencodable = file.videoCodec?.length > 0;
   const isRemuxable = getIsRemuxable(file.ext);
 
+  const copyFileIds = () => copyToClipboard(store.selectedIds.join("\n"), "Copied file IDs");
+
   const copyFilePath = () => copyToClipboard(file.path, "Copied file path");
 
   const copyFolderPath = () => copyToClipboard(path.dirname(file.path), "Copied folder path");
@@ -44,6 +46,8 @@ export const ContextMenu = Comp(({ children, file, store, ...props }: ContextMen
   const handleReencode = () => stores.file.openVideoTransformer([file.id], "reencode");
 
   const handleRemux = () => stores.file.openVideoTransformer([file.id], "remux");
+
+  const handleSplice = () => stores.file.openVideoTransformer([file.id], "splice");
 
   const handleUnarchive = () => stores.file.unarchiveFiles({ fileIds: [file.id] });
 
@@ -130,6 +134,7 @@ export const ContextMenu = Comp(({ children, file, store, ...props }: ContextMen
           subItems: [
             { icon: "Image", label: "File Path", onClick: copyFilePath },
             { icon: "Folder", label: "Folder Path", onClick: copyFolderPath },
+            { icon: "Abc", label: "File IDs", onClick: copyFileIds },
           ],
         },
         {
@@ -142,6 +147,14 @@ export const ContextMenu = Comp(({ children, file, store, ...props }: ContextMen
           label: "Face Recognition",
           onClick: handleFaceRecognition,
         },
+        isRemuxable || isReencodable
+          ? {
+              color: colors.custom.lightBlue,
+              icon: "Splitscreen",
+              label: "Splice",
+              onClick: handleSplice,
+            }
+          : null,
         isRemuxable
           ? {
               color: colors.custom.lightBlue,

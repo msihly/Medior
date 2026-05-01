@@ -442,3 +442,112 @@ export const vidToThumbGrid = async (inputPath: string, outputPath: string, file
 
   return { isCorrupted, path: gridPath };
 };
+
+export const spliceVideo = async (
+  inputPath: string,
+  outputDir: string,
+  pairs: Array<[number, number]>,
+  options?: FfmpegOptions & { forceReencode?: boolean },
+): Promise<{ hash: string; path: string }> => {
+  if (!pairs || pairs.length === 0) throw new Error("At least one timestamp pair is required.");
+
+  pairs.forEach(([start, end], i) => {
+    if (typeof start !== "number" || typeof end !== "number")
+      throw new Error(`Pair[${i}]: start and end must be numbers.`);
+    if (!Number.isFinite(start) || !Number.isFinite(end))
+      throw new Error(`Pair[${i}]: start and end must be finite numbers.`);
+    if (start < 0) throw new Error(`Pair[${i}]: start must be >= 0 (got ${start}).`);
+    if (end <= start)
+      throw new Error(`Pair[${i}]: end (${end}) must be greater than start (${start}).`);
+  });
+
+  const info = await getVideoInfo(inputPath);
+
+  pairs.forEach(([, end], i) => {
+    if (info.duration !== null && end > info.duration)
+      throw new Error(
+        `Pair[${i}]: end (${end}s) exceeds video duration (${round(info.duration, 3)}s).`,
+      );
+  });
+
+  const inputExt = info.ext.toLowerCase();
+  const canStreamCopy = !options?.forceReencode && inputExt === "mp4";
+
+  await fs.mkdir(outputDir, { recursive: true });
+
+  if (canStreamCopy) {
+    const tmpDir = path.join(outputDir, "_tmp", `stitch-${Date.now()}`);
+    await fs.mkdir(tmpDir, { recursive: true });
+
+    // Cut each segment without re-encoding
+    const segmentPaths: string[] = [];
+    for (let i = 0; i < pairs.length; i++) {
+      const [start, end] = pairs[i];
+      const duration = end - start;
+      const segPath = path.join(tmpDir, `seg-${i}.mp4`);
+
+      await new Promise<void>((resolve, reject) => {
+        const cmd = ffmpeg()
+          .input(inputPath)
+          .inputOptions([`-ss ${start}`])
+          .outputOptions([
+            `-t ${duration}`,
+            "-c copy", // stream-copy: no re-encode
+            "-avoid_negative_ts make_zero",
+            "-map_chapters -1", // drop chapter markers; avoids muxer complaints
+          ])
+          .output(segPath);
+
+        if (options?.signal) {
+          const abort = () => cmd.kill("SIGKILL");
+          options.signal.addEventListener("abort", abort, { once: true });
+          cmd
+            .on("end", () => {
+              options.signal!.removeEventListener("abort", abort);
+              resolve();
+            })
+            .on("error", (err) => {
+              options.signal!.removeEventListener("abort", abort);
+              reject(err);
+            });
+        } else {
+          cmd.on("end", () => resolve()).on("error", reject);
+        }
+
+        cmd.run();
+      });
+
+      segmentPaths.push(segPath);
+    }
+
+    const listPath = path.join(tmpDir, "concat.txt");
+    const listContent = segmentPaths.map((p) => `file '${p.replace(/'/g, "'\\''")}'`).join("\n");
+    await fs.writeFile(listPath, listContent, "utf-8");
+
+    const command = ffmpeg()
+      .input(listPath)
+      .inputOptions(["-f concat", "-safe 0"])
+      .outputOptions(["-c copy"]);
+
+    const result = await execFfmpeg(command, outputDir, options);
+    await fs.rm(tmpDir, { recursive: true, force: true });
+
+    return result;
+  } else {
+    const command = ffmpeg();
+    pairs.forEach(([start, end]) => {
+      command.input(inputPath).inputOptions([`-ss ${start}`, `-to ${end}`]);
+    });
+
+    // Build filter_complex: [0:v][0:a][1:v][1:a]...concat=n=N:v=1:a=1[v][a]
+    const streams = pairs.map((_, i) => `[${i}:v][${i}:a]`).join("");
+    const filterComplex = `${streams}concat=n=${pairs.length}:v=1:a=1[v][a]`;
+
+    command
+      .outputOptions(["-filter_complex", filterComplex, "-map", "[v]", "-map", "[a]"])
+      .videoCodec("libx264")
+      .audioCodec("aac");
+
+    return execFfmpeg(command, outputDir, options);
+  }
+};

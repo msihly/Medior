@@ -10,6 +10,7 @@ import {
   Divider,
   Icon,
   IdButton,
+  Input,
   Modal,
   ProgressCircle,
   Text,
@@ -18,7 +19,7 @@ import {
 } from "medior/components";
 import { useStores } from "medior/store";
 import { colors, getConfig, toast } from "medior/utils/client";
-import { dayjs, Fmt, round } from "medior/utils/common";
+import { dayjs, durationToSeconds, Fmt, round } from "medior/utils/common";
 import { trpc } from "medior/utils/server";
 
 export const VideoTransformerModal = Comp(() => {
@@ -32,6 +33,10 @@ export const VideoTransformerModal = Comp(() => {
   const outputBitrate = store.file?.bitrate > maxBitrate ? maxBitrate : store.file?.bitrate;
   const outputCodec = config.file.reencode.codec.replace("_nvenc", "");
 
+  const [isStarted, setIsStarted] = useState(false);
+  const [spliceStart, setSpliceStart] = useState("");
+  const [spliceEnd, setSpliceEnd] = useState("");
+
   useEffect(() => {
     (async () => {
       const res = await trpc.listFile.mutate({ args: { filter: { id: store.fileIds } } });
@@ -44,9 +49,14 @@ export const VideoTransformerModal = Comp(() => {
       store.setCurFileId(store.fileIds[0]);
       store.setFileIds(store.fileIds.slice(1));
       await store.loadFile();
-      await store.run();
+
+      if (store.fnType !== "splice") setIsStarted(true), await store.run();
     })();
   }, []);
+
+  const addTimestamp = () => {
+    store.addTimestampPair(durationToSeconds(spliceStart), durationToSeconds(spliceEnd));
+  };
 
   const handleClose = async () => {
     if (store.isRunning) store.aborter.abort("Cancelled");
@@ -58,6 +68,11 @@ export const VideoTransformerModal = Comp(() => {
   };
 
   const handleReplace = () => store.replaceOriginal();
+
+  const handleStart = () => {
+    setIsStarted(true);
+    store.run();
+  };
 
   const openFileOriginal = () => shell.openPath(store.file.path);
 
@@ -83,7 +98,7 @@ export const VideoTransformerModal = Comp(() => {
       </Modal.Header>
 
       <Modal.Content justify="center" align="center" spacing="0.5rem">
-        {!store.progress ? (
+        {!isStarted ? null : !store.progress ? (
           <CircularProgress color="inherit" size="10rem" />
         ) : (
           <View column width="100%">
@@ -176,6 +191,26 @@ export const VideoTransformerModal = Comp(() => {
             </View>
           </View>
         )}
+
+        {store.fnType === "splice" && (
+          <View column>
+            <Text preset="title">{"Timestamp Pairs"}</Text>
+
+            <View row spacing="1rem">
+              <Input header="Start" value={spliceStart} setValue={setSpliceStart} adornment="hms" />
+
+              <Input header="End" value={spliceEnd} setValue={setSpliceEnd} adornment="hms" />
+
+              <Button icon="AddCircle" onClick={addTimestamp} />
+            </View>
+
+            {store.timestampPairs.map(([start, end], i) => (
+              <Text key={i}>
+                {`${dayjs.duration(start, "s").format("HH:mm:ss.SSS")} - ${dayjs.duration(end, "s").format("HH:mm:ss.SSS")}`}
+              </Text>
+            ))}
+          </View>
+        )}
       </Modal.Content>
 
       <Modal.Footer>
@@ -202,13 +237,25 @@ export const VideoTransformerModal = Comp(() => {
         </View>
 
         <View column spacing="0.5rem">
-          <Button
-            text="Replace"
-            icon="Refresh"
-            onClick={handleReplace}
-            disabled={store.isRunning || store.isLoading || !store.newPath}
-            color={colors.custom.green}
-          />
+          {isStarted ? (
+            <Button
+              text="Replace"
+              icon="Refresh"
+              onClick={handleReplace}
+              disabled={store.isRunning || store.isLoading || !store.newPath}
+              color={colors.custom.green}
+            />
+          ) : (
+            <Button
+              text="Start"
+              icon="PlayArrow"
+              onClick={handleStart}
+              disabled={
+                store.isLoading || (store.fnType === "splice" && !store.timestampPairs?.length)
+              }
+              color={colors.custom.blue}
+            />
+          )}
 
           <Button
             text="Cancel"

@@ -12,7 +12,14 @@ import {
   toast,
 } from "medior/utils/client";
 import { round } from "medior/utils/common";
-import { FfmpegProgress, getVideoInfo, reencode, remux, trpc } from "medior/utils/server";
+import {
+  FfmpegProgress,
+  getVideoInfo,
+  reencode,
+  remux,
+  spliceVideo,
+  trpc,
+} from "medior/utils/server";
 
 @model("medior/VideoTransformerStore")
 export class VideoTransformerStore extends Model({
@@ -20,7 +27,7 @@ export class VideoTransformerStore extends Model({
   curTotalSize: prop<number>(0).withSetter(),
   file: prop<File>(null).withSetter(),
   fileIds: prop<string[]>(() => []).withSetter(),
-  fnType: prop<"reencode" | "remux">(null).withSetter(),
+  fnType: prop<"reencode" | "remux" | "splice">(null).withSetter(),
   initialTotalSize: prop<number>(0).withSetter(),
   isAuto: prop<boolean>(false).withSetter(),
   isLoading: prop<boolean>(false).withSetter(),
@@ -29,6 +36,7 @@ export class VideoTransformerStore extends Model({
   newHash: prop<string>(null).withSetter(),
   newPath: prop<string>(null).withSetter(),
   progress: prop<FfmpegProgress>(null).withSetter(),
+  timestampPairs: prop<Array<[number, number]>>(() => []).withSetter(),
 }) {
   aborter: AbortController = null;
 
@@ -42,6 +50,11 @@ export class VideoTransformerStore extends Model({
   }
 
   /* ------------------------------ STANDARD ACTIONS ----------------------------- */
+  @modelAction
+  addTimestampPair(start: number, end: number) {
+    this.timestampPairs.push([start, end]);
+  }
+
   @modelAction
   cancel() {
     if (this.aborter !== null) this.aborter.abort("Cancelled");
@@ -60,6 +73,7 @@ export class VideoTransformerStore extends Model({
     this.newHash = null;
     this.newPath = null;
     this.progress = null;
+    this.timestampPairs = [];
   }
 
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */
@@ -192,11 +206,19 @@ export class VideoTransformerStore extends Model({
 
       this.aborter = new AbortController();
 
-      const fn = this.fnType === "reencode" ? reencode : remux;
-      const res = await fn(this.file.path, targetDir, {
-        signal: this.aborter.signal,
-        onProgress: (progress) => this.setProgress(progress),
-      });
+      let res: { hash: string; path: string } = null;
+      if (this.fnType === "splice") {
+        res = await spliceVideo(this.file.path, targetDir, this.timestampPairs, {
+          signal: this.aborter.signal,
+          onProgress: (progress) => this.setProgress(progress),
+        });
+      } else {
+        const fn = this.fnType === "reencode" ? reencode : remux;
+        res = await fn(this.file.path, targetDir, {
+          signal: this.aborter.signal,
+          onProgress: (progress) => this.setProgress(progress),
+        });
+      }
 
       this.setNewHash(res.hash);
       this.setNewPath(res.path);
