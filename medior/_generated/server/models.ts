@@ -3,6 +3,7 @@
 /* --------------------------------------------------------------------------- */
 import { model, Schema } from "mongoose";
 import { IconName } from "medior/components";
+import { CssColor } from "medior/utils/client";
 
 /* --------------------------------------------------------------------------- */
 /*                               DeletedFile
@@ -271,7 +272,7 @@ export interface TagSchema {
   aliases: string[];
   ancestorIds: string[];
   category?: {
-    color: string | null;
+    color: CssColor | null;
     icon: IconName | null;
     inheritable: boolean;
     sortRank: number | null;

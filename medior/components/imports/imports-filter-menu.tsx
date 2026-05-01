@@ -10,10 +10,10 @@ import {
   View,
 } from "medior/components";
 import { FileImportBatchSearch } from "medior/store";
-import { colors } from "medior/utils/client";
+import { colors, CssColor } from "medior/utils/client";
 
 export interface ImportsFilterMenuProps {
-  color?: string;
+  color?: CssColor;
   store: FileImportBatchSearch;
 }
 

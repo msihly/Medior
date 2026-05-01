@@ -17,9 +17,11 @@ import { FfmpegProgress, getVideoInfo, reencode, remux, trpc } from "medior/util
 @model("medior/VideoTransformerStore")
 export class VideoTransformerStore extends Model({
   curFileId: prop<string>(null).withSetter(),
+  curTotalSize: prop<number>(0).withSetter(),
   file: prop<File>(null).withSetter(),
   fileIds: prop<string[]>(() => []).withSetter(),
   fnType: prop<"reencode" | "remux">(null).withSetter(),
+  initialTotalSize: prop<number>(0).withSetter(),
   isAuto: prop<boolean>(false).withSetter(),
   isLoading: prop<boolean>(false).withSetter(),
   isRunning: prop<boolean>(false).withSetter(),
@@ -66,6 +68,7 @@ export class VideoTransformerStore extends Model({
     this.setIsLoading(true);
     const res = await trpc.listFile.mutate({ args: { filter: { id: this.curFileId } } });
     this.setFile(new File(res.data.items[0]));
+    this.setProgress(null);
     this.setIsLoading(false);
   });
 
@@ -126,6 +129,8 @@ export class VideoTransformerStore extends Model({
 
       const diskRes = await deleteFile(originalPath, this.newPath);
       if (!diskRes.success) throw new Error(diskRes.error);
+
+      this.setCurTotalSize(this.curTotalSize - this.file.size);
 
       this.setIsLoading(false);
       await this.loadNextFile();

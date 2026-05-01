@@ -13,11 +13,11 @@ import {
   View,
 } from "medior/components";
 import { FileSearch } from "medior/store";
-import { colors, getConfig } from "medior/utils/client";
+import { colors, CssColor, getConfig } from "medior/utils/client";
 import { AudioCodec, ImageExt, VideoCodec, VideoExt } from "medior/utils/common";
 
 export interface FileFilterMenuProps {
-  color?: string;
+  color?: CssColor;
   store: FileSearch;
 }
 

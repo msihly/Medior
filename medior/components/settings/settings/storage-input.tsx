@@ -2,13 +2,13 @@ import { useEffect, useState } from "react";
 import { DiskSpace } from "check-disk-space";
 import { Comp, Icon, IconButton, IconName, Text, View } from "medior/components";
 import { useStores } from "medior/store";
-import { colors } from "medior/utils/client";
+import { colors, CssColor } from "medior/utils/client";
 import { Fmt, round } from "medior/utils/common";
 import { trpc } from "medior/utils/server";
 import { Input, InputProps } from "./input";
 
 interface Status {
-  color: string;
+  color: CssColor;
   icon: IconName;
   label: string;
 }

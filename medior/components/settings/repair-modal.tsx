@@ -3,7 +3,7 @@ import { useRef, useState } from "react";
 import { CircularProgress } from "@mui/material";
 import { Button, Card, Checkbox, Comp, Modal, Text, UniformList, View } from "medior/components";
 import { useStores } from "medior/store";
-import { colors, makeQueue } from "medior/utils/client";
+import { colors, CssColor, makeQueue } from "medior/utils/client";
 import { dayjs, PromiseQueue } from "medior/utils/common";
 import { getVideoInfo, trpc } from "medior/utils/server";
 
@@ -15,11 +15,11 @@ export const RepairModal = Comp(() => {
   const [isRepairing, setIsRepairing] = useState(false);
   const [isTagsChecked, setIsTagsChecked] = useState(false);
   const [isThumbsChecked, setIsThumbsChecked] = useState(false);
-  const [outputLog, setOutputLog] = useState<{ color?: string; text: string }[]>([]);
+  const [outputLog, setOutputLog] = useState<{ color?: CssColor; text: string }[]>([]);
 
   const outputRef = useRef<HTMLDivElement>(null);
 
-  const log = (log: string, color?: string) => {
+  const log = (log: string, color?: CssColor) => {
     setOutputLog((prev) => [
       ...prev,
       { color, text: `[${dayjs().format("HH:mm:ss.SSS")}] ${log}` },

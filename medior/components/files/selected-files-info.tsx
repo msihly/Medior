@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Comp, Icon, IconName, LoadingOverlay, Text, View } from "medior/components";
 import { useStores } from "medior/store";
-import { colors, getIsVideo, toast } from "medior/utils/client";
+import { colors, CssColor, getIsVideo, toast } from "medior/utils/client";
 import { Fmt } from "medior/utils/common";
 import { trpc } from "medior/utils/server";
 
@@ -100,7 +100,7 @@ export const useFileInfo = () => {
 };
 
 const FileTypeRow = Comp(
-  (props: { color: string; count: number; icon: IconName; label: string; size: number }) => {
+  (props: { color: CssColor; count: number; icon: IconName; label: string; size: number }) => {
     return (
       <View row height="2rem" align="center" spacing="0.5rem">
         <View row align="center" spacing="0.5rem" width="6rem">

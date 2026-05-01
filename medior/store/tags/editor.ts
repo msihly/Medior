@@ -1,7 +1,7 @@
 import autoBind from "auto-bind";
 import { reaction } from "mobx";
 import { getRootStore, Model, model, modelAction, modelFlow, prop } from "mobx-keystone";
-import { asyncAction } from "trabecula/utils/client";
+import { asyncAction, CssColor } from "trabecula/utils/client";
 import { IconName } from "medior/components";
 import { RootStore } from "medior/store";
 import { Tag } from "medior/store/tags/tag";
@@ -10,7 +10,7 @@ import { trpc } from "medior/utils/server";
 @model("medior/TagEditorStore")
 export class TagEditorStore extends Model({
   aliases: prop<string[]>(() => []).withSetter(),
-  categoryColor: prop<string>(null).withSetter(),
+  categoryColor: prop<CssColor>(null).withSetter(),
   categoryIcon: prop<IconName>(null).withSetter(),
   categoryInheritable: prop<boolean>(false).withSetter(),
   categorySortRank: prop<number>(null).withSetter(),

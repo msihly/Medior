@@ -10,10 +10,10 @@ import {
   View,
 } from "medior/components";
 import { FileCollectionSearch } from "medior/store";
-import { colors } from "medior/utils/client";
+import { colors, CssColor } from "medior/utils/client";
 
 export interface CollectionFilterMenuProps {
-  color?: string;
+  color?: CssColor;
   store: FileCollectionSearch;
 }
 

@@ -4,7 +4,7 @@ import { FixedSizeList } from "react-window";
 import Color from "color";
 import { Card, Chip, Comp, FlatFolder, IconButton, TagRow, Text, View } from "medior/components";
 import { useStores } from "medior/store";
-import { colors, makeBorderRadiuses, makeClasses } from "medior/utils/client";
+import { colors, CssColor, makeBorderRadiuses, makeClasses } from "medior/utils/client";
 import { Fmt } from "medior/utils/common";
 import { IMPORT_LIST_ITEM_HEIGHT, ImportListItem } from "./import-list-item";
 
@@ -114,7 +114,9 @@ export const ImportFolderList = Comp(
                   fileImport={folder.imports[index]}
                   noStatus={noStatus}
                   bgColor={
-                    index % 2 === 1 ? Color(colors.foreground).fade(0.35).string() : undefined
+                    index % 2 === 1
+                      ? (Color(colors.foreground).fade(0.35).hex() as CssColor)
+                      : undefined
                   }
                   style={style}
                 />

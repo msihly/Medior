@@ -20,14 +20,14 @@ import {
   View,
 } from "medior/components";
 import { FileImport } from "medior/store";
-import { colors, makeClasses, toast } from "medior/utils/client";
+import { colors, CssColor, makeClasses, toast } from "medior/utils/client";
 import { CONSTANTS, Fmt, parseDiffParams } from "medior/utils/common";
 import { trpc } from "medior/utils/server";
 
 export const IMPORT_LIST_ITEM_HEIGHT = 30;
 
 export interface ImportListItemProps {
-  bgColor?: string;
+  bgColor?: CssColor;
   fileImport: ModelCreationData<FileImport>;
   noStatus?: boolean;
   style?: React.CSSProperties;

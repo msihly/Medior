@@ -17,7 +17,7 @@ import {
 import * as Types from "medior/server/database/types";
 import { IconName, SortMenuProps } from "medior/components";
 import * as Stores from "medior/store";
-import { asyncAction, derefMobx, getConfig, toast } from "medior/utils/client";
+import { asyncAction, CssColor, derefMobx, getConfig, toast } from "medior/utils/client";
 import { dayjs, isDeepEqual, LogicalOp } from "medior/utils/common";
 import { makePerfLog, trpc } from "medior/utils/server";
 
@@ -1626,7 +1626,7 @@ export class _Tag extends Model({
   aliases: prop<string[]>(() => []),
   ancestorIds: prop<string[]>(() => []),
   category: prop<{
-    color: string | null;
+    color: CssColor | null;
     icon: IconName | null;
     inheritable: boolean;
     sortRank: number | null;

@@ -2,13 +2,13 @@ import { Badge } from "@mui/material";
 import Color from "color";
 import { Chip, ChipProps, Comp, Icon, IconName, TagToUpsert, Text, View } from "medior/components";
 import { useStores } from "medior/store";
-import { colors, makeClasses } from "medior/utils/client";
+import { colors, CssColor, makeClasses } from "medior/utils/client";
 
 const HEIGHT_MEDIUM = 32;
 const HEIGHT_SMALL = 26;
 
 export interface TagChipProps extends Omit<ChipProps, "color" | "label" | "onChange" | "onClick"> {
-  color?: string;
+  color?: CssColor;
   hasEditor?: boolean;
   onClick?: (id: string | null) => void;
   tag: TagToUpsert;
@@ -48,7 +48,7 @@ export const TagChip = Comp(
             <View
               borderRadiuses={{ all: "50%" }}
               margins={{ top: "0.2rem", left: "0.4rem" }}
-              bgColor={Color(colors.custom.green).lighten(0.9).hex()}
+              bgColor={Color(colors.custom.green).lighten(0.9).hex() as CssColor}
             >
               <Icon name="AddCircle" color={colors.custom.green} size={15} />
             </View>

@@ -11,10 +11,10 @@ import {
   View,
 } from "medior/components";
 import { TagSearch } from "medior/store";
-import { colors } from "medior/utils/client";
+import { colors, CssColor } from "medior/utils/client";
 
 export interface TagFilterMenuProps {
-  color?: string;
+  color?: CssColor;
   store: TagSearch;
 }
 

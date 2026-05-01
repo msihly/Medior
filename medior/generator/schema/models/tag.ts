@@ -9,7 +9,7 @@ model.addProp("ancestorIds", "Tag.id[]", { defaultValue: "[]", required: true })
 model.addProp(
   "category",
   `{
-    color: string | null;
+    color: CssColor | null;
     icon: IconName | null;
     inheritable: boolean;
     sortRank: number | null;

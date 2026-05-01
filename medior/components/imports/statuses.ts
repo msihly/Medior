@@ -1,9 +1,9 @@
 import type { ImportStatus } from "medior/server/database";
 import { IconName } from "medior/components";
-import { colors } from "medior/utils/client";
+import { colors, CssColor } from "medior/utils/client";
 
 interface Status {
-  color: string;
+  color: CssColor;
   icon: IconName;
   label: string;
 }

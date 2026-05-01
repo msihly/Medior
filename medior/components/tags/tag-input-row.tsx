@@ -11,10 +11,10 @@ import {
   View,
 } from "medior/components";
 import { SearchTagType, TagOption, useStores } from "medior/store";
-import { colors } from "medior/utils/client";
+import { colors, CssColor } from "medior/utils/client";
 
 const TAG_SEARCH_META: {
-  [key in SearchTagType]: { color: string; icon: IconName; text: string };
+  [key in SearchTagType]: { color: CssColor; icon: IconName; text: string };
 } = {
   exclude: {
     color: colors.custom.red,

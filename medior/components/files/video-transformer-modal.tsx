@@ -1,5 +1,5 @@
 import { shell } from "@electron/remote";
-import { useEffect } from "react";
+import { ReactNode, useEffect, useState } from "react";
 import { CircularProgress } from "@mui/material";
 import {
   Button,
@@ -8,8 +8,10 @@ import {
   Comp,
   Detail,
   Divider,
+  Icon,
   IdButton,
   Modal,
+  ProgressCircle,
   Text,
   UniformList,
   View,
@@ -17,6 +19,7 @@ import {
 import { useStores } from "medior/store";
 import { colors, getConfig, toast } from "medior/utils/client";
 import { dayjs, Fmt, round } from "medior/utils/common";
+import { trpc } from "medior/utils/server";
 
 export const VideoTransformerModal = Comp(() => {
   const stores = useStores();
@@ -31,6 +34,13 @@ export const VideoTransformerModal = Comp(() => {
 
   useEffect(() => {
     (async () => {
+      const res = await trpc.listFile.mutate({ args: { filter: { id: store.fileIds } } });
+      if (!res.success) throw new Error(res.error);
+      const files = res.data.items;
+      const totalSize = files.reduce((acc, f) => acc + f.size, 0);
+      store.setInitialTotalSize(totalSize);
+      store.setCurTotalSize(totalSize);
+
       store.setCurFileId(store.fileIds[0]);
       store.setFileIds(store.fileIds.slice(1));
       await store.loadFile();
@@ -61,7 +71,7 @@ export const VideoTransformerModal = Comp(() => {
     <Modal.Container
       height="100%"
       width="100%"
-      maxHeight="30rem"
+      maxHeight="35rem"
       maxWidth="45rem"
       onClose={handleClose}
     >
@@ -78,61 +88,72 @@ export const VideoTransformerModal = Comp(() => {
         ) : (
           <View column width="100%">
             <View row width="100%" spacing="2rem">
-              <View column position="relative" justify="center" align="center">
-                <View column position="absolute">
-                  <CenteredText
-                    text={`${store.progress.percent.toFixed(2)}%`}
-                    color={colors.custom.lightBlue}
-                    fontSize="1.5em"
-                    fontWeight={600}
-                  />
-
-                  <CenteredText text={store.progress.time} color={colors.custom.white} />
-
-                  <CenteredText
-                    text={dayjs
-                      .duration(store.file.duration, "s")
-                      .format("HH:mm:ss.SSS")
-                      .substring(0, 11)}
-                    color={colors.custom.lightGrey}
-                  />
-                </View>
-
-                <CircularProgress
-                  value={store.progress.percent || 0}
-                  variant="determinate"
-                  color="inherit"
-                  size="20rem"
+              <ProgressCircle
+                percent={store.progress.percent}
+                color={colors.custom.lightBlue}
+                bgColor={colors.custom.darkGrey}
+                size="20rem"
+              >
+                <CenteredText
+                  text={`${store.progress.percent.toFixed(2)}%`}
+                  color={colors.custom.lightBlue}
+                  fontSize="1.5em"
+                  fontWeight={600}
                 />
-              </View>
+
+                <CenteredText text={store.progress.time} color={colors.custom.white} />
+
+                <CenteredText
+                  text={dayjs
+                    .duration(store.file.duration, "s")
+                    .format("HH:mm:ss.SSS")
+                    .substring(0, 11)}
+                  color={colors.custom.lightGrey}
+                />
+              </ProgressCircle>
 
               <Divider orientation="vertical" />
 
               <View column spacing="1rem">
                 <UniformList column spacing="0.5rem">
-                  <UniformList row spacing="1rem">
-                    <Detail label="Original Codec" value={store.file.videoCodec} />
+                  <Detail
+                    label="Total Files Size"
+                    value={
+                      <View row spacing="0.5rem">
+                        <Text>{Fmt.bytes(store.initialTotalSize)}</Text>
+                        <Icon name="ArrowRightAlt" />
+                        <Text>{Fmt.bytes(store.curTotalSize)}</Text>
+                      </View>
+                    }
+                  />
 
-                    <Detail label="Output Codec" value={outputCodec} />
-                  </UniformList>
+                  <Divider sx={{ flex: 0 }} />
 
-                  <UniformList row spacing="1rem">
-                    <Detail label="Original FPS" value={round(store.file.frameRate)} />
+                  <InputOutputRow
+                    label="Codec"
+                    input={store.file.videoCodec}
+                    output={outputCodec}
+                  />
 
-                    <Detail label="Output FPS" value={round(outputFps)} />
-                  </UniformList>
+                  <InputOutputRow
+                    label="FPS"
+                    input={round(store.file.frameRate)}
+                    output={round(outputFps)}
+                  />
 
-                  <UniformList row spacing="1rem">
-                    <Detail label="Original Bitrate" value={Fmt.bytes(store.file.bitrate)} />
+                  <InputOutputRow
+                    label="Bitrate"
+                    input={Fmt.bytes(store.file.bitrate)}
+                    output={Fmt.bytes(outputBitrate)}
+                  />
 
-                    <Detail label="Output Bitrate" value={Fmt.bytes(outputBitrate)} />
-                  </UniformList>
+                  <InputOutputRow
+                    label="Size"
+                    input={Fmt.bytes(store.file.size)}
+                    output={Fmt.bytes(store.progress.size)}
+                  />
 
-                  <UniformList row spacing="1rem">
-                    <Detail label="Original Size" value={Fmt.bytes(store.file.size)} />
-
-                    <Detail label="Output Size" value={Fmt.bytes(store.progress.size)} />
-                  </UniformList>
+                  <Divider sx={{ flex: 0 }} />
 
                   <UniformList row spacing="1rem">
                     <Detail label="Speed" value={`${Fmt.bytes(store.progress.kbps * 1000)}/s`} />
@@ -199,5 +220,28 @@ export const VideoTransformerModal = Comp(() => {
         </View>
       </Modal.Footer>
     </Modal.Container>
+  );
+});
+
+interface InputOutputRowProps {
+  input: ReactNode;
+  label: string;
+  output: ReactNode;
+}
+
+const InputOutputRow = Comp(({ input, label, output }: InputOutputRowProps) => {
+  return (
+    <Detail
+      row
+      label={label}
+      labelProps={{ width: "5rem" }}
+      value={
+        <View row spacing="0.5rem">
+          <Text>{input}</Text>
+          <Icon name="ArrowRightAlt" />
+          <Text>{output}</Text>
+        </View>
+      }
+    />
   );
 });

@@ -1,13 +1,13 @@
 import Color from "color";
 import { IconName } from "medior/components";
-import { colors, CSS, getConfig, makeClasses } from "medior/utils/client";
+import { colors, CSS, CssColor, getConfig, makeClasses } from "medior/utils/client";
 import { Chip, ChipProps } from "./chip";
 
 export const getRatingMeta = (rating: number) => {
   const icon: IconName = rating > 0 ? "Star" : "StarOutline";
-  const iconColor =
+  const iconColor: CssColor =
     rating >= 7
-      ? Color(colors.custom.orange).lighten(0.2).string()
+      ? (Color(colors.custom.orange).lighten(0.2).hex() as CssColor)
       : rating >= 4
         ? colors.custom.lightGrey
         : colors.custom.brown;

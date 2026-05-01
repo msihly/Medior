@@ -100,7 +100,7 @@ export class FileStore extends ExtendedModel(_FileStore, {
 
     if (archivedIds?.length > 0) {
       const res = await trpc.setFileIsArchived.mutate({ fileIds: archivedIds, isArchived: true });
-      if (res.success) throw new Error(`Error archiving files: ${res.error}`);
+      if (!res.success) throw new Error(`Error archiving files: ${res.error}`);
       toast.warn(`${archivedIds.length} files archived`);
       this.search.removeFiles(archivedIds);
     }
