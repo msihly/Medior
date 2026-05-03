@@ -1,6 +1,5 @@
 import { shell } from "@electron/remote";
-import { ReactNode, useEffect, useState } from "react";
-import { CircularProgress } from "@mui/material";
+import { ReactNode, useEffect } from "react";
 import {
   Button,
   CenteredText,
@@ -10,6 +9,7 @@ import {
   Divider,
   Icon,
   IdButton,
+  LoadingOverlay,
   Modal,
   ProgressCircle,
   Text,
@@ -71,8 +71,8 @@ export const VideoTransformerModal = Comp(() => {
     <Modal.Container
       height="100%"
       width="100%"
-      maxHeight="35rem"
-      maxWidth="45rem"
+      maxHeight="25rem"
+      maxWidth="40rem"
       onClose={handleClose}
     >
       <Modal.Header
@@ -83,99 +83,96 @@ export const VideoTransformerModal = Comp(() => {
       </Modal.Header>
 
       <Modal.Content justify="center" align="center" spacing="0.5rem">
-        {!store.progress ? (
-          <CircularProgress color="inherit" size="10rem" />
-        ) : (
-          <View column width="100%">
-            <View row width="100%" spacing="2rem">
-              <ProgressCircle
-                percent={store.progress.percent}
+        <LoadingOverlay isLoading={store.isLoading || !store.progress} />
+
+        <View column width="100%">
+          <View row width="100%" spacing="2rem">
+            <ProgressCircle
+              percent={store.progress?.percent || 0}
+              color={colors.custom.lightBlue}
+              bgColor={colors.custom.darkGrey}
+              size="15rem"
+            >
+              <CenteredText
+                text={store.progress ? `${store.progress.percent?.toFixed(2)}%` : "--"}
                 color={colors.custom.lightBlue}
-                bgColor={colors.custom.darkGrey}
-                size="20rem"
-              >
-                <CenteredText
-                  text={`${store.progress.percent.toFixed(2)}%`}
-                  color={colors.custom.lightBlue}
-                  fontSize="1.5em"
-                  fontWeight={600}
+                fontSize="1.5em"
+                fontWeight={600}
+              />
+
+              <CenteredText text={store.progress?.time || "--"} color={colors.custom.white} />
+
+              <CenteredText
+                text={
+                  store.file
+                    ? dayjs
+                        .duration(store.file.duration, "s")
+                        .format("HH:mm:ss.SSS")
+                        .substring(0, 11)
+                    : "--"
+                }
+                color={colors.custom.lightGrey}
+              />
+            </ProgressCircle>
+
+            <Divider orientation="vertical" />
+
+            <View column spacing="1rem">
+              <UniformList column spacing="0.5rem">
+                <InputOutputRow
+                  label="Total"
+                  input={store.initialTotalSize ? Fmt.bytes(store.initialTotalSize) : "--"}
+                  output={store.curTotalSize ? Fmt.bytes(store.curTotalSize) : "--"}
                 />
 
-                <CenteredText text={store.progress.time} color={colors.custom.white} />
+                <Divider sx={{ flex: 0 }} />
 
-                <CenteredText
-                  text={dayjs
-                    .duration(store.file.duration, "s")
-                    .format("HH:mm:ss.SSS")
-                    .substring(0, 11)}
-                  color={colors.custom.lightGrey}
+                <InputOutputRow
+                  label="Codec"
+                  input={store.file?.videoCodec || "--"}
+                  output={outputCodec || "--"}
                 />
-              </ProgressCircle>
 
-              <Divider orientation="vertical" />
-
-              <View column spacing="1rem">
-                <UniformList column spacing="0.5rem">
-                  <Detail
-                    label="Total Files Size"
-                    value={
-                      <View row spacing="0.5rem">
-                        <Text>{Fmt.bytes(store.initialTotalSize)}</Text>
-                        <Icon name="ArrowRightAlt" />
-                        <Text>{Fmt.bytes(store.curTotalSize)}</Text>
-                      </View>
-                    }
-                  />
-
-                  <Divider sx={{ flex: 0 }} />
-
-                  <InputOutputRow
-                    label="Codec"
-                    input={store.file.videoCodec}
-                    output={outputCodec}
-                  />
-
-                  <InputOutputRow
-                    label="FPS"
-                    input={round(store.file.frameRate)}
-                    output={round(outputFps)}
-                  />
-
-                  <InputOutputRow
-                    label="Bitrate"
-                    input={Fmt.bytes(store.file.bitrate)}
-                    output={Fmt.bytes(outputBitrate)}
-                  />
-
-                  <InputOutputRow
-                    label="Size"
-                    input={Fmt.bytes(store.file.size)}
-                    output={Fmt.bytes(store.progress.size)}
-                  />
-
-                  <Divider sx={{ flex: 0 }} />
-
-                  <UniformList row spacing="1rem">
-                    <Detail label="Speed" value={`${Fmt.bytes(store.progress.kbps * 1000)}/s`} />
-
-                    <Detail
-                      label="Ratio"
-                      value={`${round(store.file.size / store.progress.size)}x`}
-                    />
-                  </UniformList>
-                </UniformList>
-
-                <Checkbox
-                  label="Auto-Replace"
-                  checked={store.isAuto}
-                  setChecked={store.setIsAuto}
-                  flex="none"
-                  margins={{ left: "-0.5rem" }}
+                <InputOutputRow
+                  label="FPS"
+                  input={store.file ? round(store.file.frameRate) : "--"}
+                  output={outputFps ? round(outputFps) : "--"}
                 />
-              </View>
+
+                <InputOutputRow
+                  label="Bitrate"
+                  input={store.file ? Fmt.bytes(store.file.bitrate) : "--"}
+                  output={outputBitrate ? Fmt.bytes(outputBitrate) : "--"}
+                />
+
+                <InputOutputRow
+                  label="Size"
+                  input={store.file ? Fmt.bytes(store.file.size) : "--"}
+                  output={store.progress ? Fmt.bytes(store.progress?.size) : "--"}
+                />
+
+                <Detail
+                  row
+                  label="Ratio"
+                  labelProps={{ width: "4rem" }}
+                  value={
+                    store.file && store.progress
+                      ? `${round(store.file.size / store.progress?.size)}x`
+                      : "--"
+                  }
+                />
+              </UniformList>
+
+              <Checkbox
+                label="Auto-Replace"
+                checked={store.isAuto}
+                setChecked={store.setIsAuto}
+                flex="none"
+                margins={{ left: "-0.5rem" }}
+              />
             </View>
           </View>
-        )}
+        </View>
       </Modal.Content>
 
       <Modal.Footer>
@@ -234,7 +231,7 @@ const InputOutputRow = Comp(({ input, label, output }: InputOutputRowProps) => {
     <Detail
       row
       label={label}
-      labelProps={{ width: "5rem" }}
+      labelProps={{ width: "4rem" }}
       value={
         <View row spacing="0.5rem">
           <Text>{input}</Text>

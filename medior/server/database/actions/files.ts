@@ -143,7 +143,14 @@ export const deleteFilesExternal = makeAction(async (args: { filePaths: string[]
     })),
   );
 
-  for (const filePath of args.filePaths) await trash(filePath);
+  const folders = new Set(
+    args.filePaths
+      .map((p) => path.dirname(p).split(path.sep))
+      .sort((a, b) => b.length - a.length)
+      .map((p) => p.join(path.sep)),
+  );
+
+  for (const folder of folders) await trash(folder);
 });
 
 export const detectFaces = makeAction(async ({ imagePath }: { imagePath: string }) => {

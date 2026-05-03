@@ -15,7 +15,7 @@
     "noUnusedLocals": true,
     "paths": {
       "ts-plugin-sort-import-suggestions": [
-        "./node_modules/trabercula/dist/plugins/ts-sort-imports"
+        "./node_modules/trabecula/dist/plugins/ts-sort-imports"
       ]
     },
     "plugins": [
