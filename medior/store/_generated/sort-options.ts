@@ -23,6 +23,7 @@ const MODEL_SORT_OPTIONS: Record<ModelSortName, SortOption[]> = {
     { attribute: "dateModified", icon: "DateRange", label: "Date Modified" },
     { attribute: "fileCount", icon: "Numbers", label: "File Count" },
     { attribute: "rating", icon: "Star", label: "Rating" },
+    { attribute: "size", icon: "FormatSize", label: "Size" },
     { attribute: "title", icon: "Title", label: "Title" },
   ],
   FileImportBatch: [

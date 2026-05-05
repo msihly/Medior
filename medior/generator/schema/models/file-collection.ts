@@ -30,6 +30,9 @@ model.addProp("rating", "number", {
 
 model.addProp("ratingIsManual", "boolean");
 
+model.addIndex({ size: 1, _id: 1 });
+model.addProp("size", "number", { required: true, sort: { icon: "FormatSize", label: "Size" } });
+
 model.addIndex({ tagIds: 1, _id: 1 });
 model.addProp("tagIds", "Tag.id[]", {
   defaultValue: "[]",

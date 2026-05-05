@@ -7,12 +7,12 @@ const model = new ModelStore("FileCollection", {
 });
 
 model.addDateRangeProp("dateCreated");
-
 model.addDateRangeProp("dateModified");
 
 model.addLogOpProp("fileCount");
-
 model.addLogOpProp("rating");
+
+model.addNumRangeProp("size");
 
 model.addTagOptsProp("tagIds", "tagIdsWithAncestors");
 

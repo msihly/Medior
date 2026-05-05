@@ -28,6 +28,8 @@ export type CreateFileCollectionFilterPipelineInput = {
   excludedTagIds?: string[];
   fileCount?: { logOp: LogicalOp | ""; value: number };
   ids?: string[];
+  maxSize?: number;
+  minSize?: number;
   optionalTagIds?: string[];
   rating?: { logOp: LogicalOp | ""; value: number };
   requiredDescTagIds?: string[];
@@ -52,6 +54,8 @@ export const createFileCollectionFilterPipeline = (
   if (!isDeepEqual(args.fileCount, { logOp: "", value: 0 }))
     setObj($match, ["fileCount", logicOpsToMongo(args.fileCount.logOp)], args.fileCount.value);
   if (!isDeepEqual(args.ids, [])) setObj($match, ["_id", "$in"], objectIds(args.ids));
+  if (!isDeepEqual(args.maxSize, null)) setObj($match, ["size", "$lte"], args.maxSize);
+  if (!isDeepEqual(args.minSize, null)) setObj($match, ["size", "$gte"], args.minSize);
   if (!isDeepEqual(args.rating, { logOp: "", value: 0 }))
     setObj($match, ["rating", logicOpsToMongo(args.rating.logOp)], args.rating.value);
   if (!isDeepEqual(args.title, ""))

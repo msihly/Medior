@@ -1,6 +1,7 @@
 import Color from "color";
 import { IconName } from "medior/components";
 import { colors, CSS, CssColor, getConfig, makeClasses } from "medior/utils/client";
+import { round } from "medior/utils/common";
 import { Chip, ChipProps } from "./chip";
 
 export const getRatingMeta = (rating: number) => {
@@ -32,7 +33,7 @@ export const RatingChip = ({ noHide = false, rating, ...props }: RatingChipProps
   return noHide || rating > 0 || !config.file.hideUnratedIcon ? (
     <Chip
       {...{ icon, iconColor }}
-      label={rating}
+      label={round(rating, 1)}
       iconProps={{ className: css.star }}
       opacity={1}
       {...props}

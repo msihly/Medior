@@ -16,6 +16,8 @@ import { trpc } from "medior/utils/server";
 
 @model("medior/FileCollectionSearch")
 export class FileCollectionSearch extends ExtendedModel(_FileCollectionSearch, {
+  _maxSize: prop<number>(null),
+  _minSize: prop<number>(null),
   files: prop<Record<string, File>>(() => ({}))
     .withTransform(objectToMapTransform<File>())
     .withSetter(),
@@ -36,6 +38,25 @@ export class FileCollectionSearch extends ExtendedModel(_FileCollectionSearch, {
   }
 
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
+  @modelAction
+  _reset() {
+    this.reset();
+    this._maxSize = null;
+    this._minSize = null;
+  }
+
+  @modelAction
+  _setMaxSize(val: number) {
+    this.setMaxSize(Number.isInteger(val) ? val * 1000 : null);
+    this._maxSize = val;
+  }
+
+  @modelAction
+  _setMinSize(val: number) {
+    this.setMinSize(Number.isInteger(val) ? val * 1000 : null);
+    this._minSize = val;
+  }
+
   @modelAction
   reloadIfQueued() {
     const stores = getRootStore<RootStore>(this);

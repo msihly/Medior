@@ -38,6 +38,7 @@ export interface FileCollectionSchema {
   fileIdIndexes: Array<{ fileId: string; index: number }>;
   rating: number;
   ratingIsManual?: boolean;
+  size: number;
   tagIds: string[];
   tagIdsWithAncestors: string[];
   title: string;
@@ -51,6 +52,7 @@ const FileCollectionSchema = new Schema<FileCollectionSchema>({
   fileIdIndexes: [{ fileId: Schema.Types.ObjectId, index: Number }],
   rating: Number,
   ratingIsManual: Boolean,
+  size: Number,
   tagIds: [{ type: Schema.Types.ObjectId, ref: "Tag" }],
   tagIdsWithAncestors: [{ type: Schema.Types.ObjectId, ref: "Tag" }],
   title: String,
@@ -60,6 +62,7 @@ FileCollectionSchema.index({ dateCreated: 1, _id: 1 }, { unique: true });
 FileCollectionSchema.index({ dateModified: 1, _id: 1 }, { unique: true });
 FileCollectionSchema.index({ fileCount: 1, _id: 1 }, { unique: true });
 FileCollectionSchema.index({ rating: 1, _id: 1 }, { unique: true });
+FileCollectionSchema.index({ size: 1, _id: 1 }, { unique: true });
 FileCollectionSchema.index({ tagIds: 1, _id: 1 }, { unique: true });
 FileCollectionSchema.index({ tagIdsWithAncestors: 1, _id: 1 }, { unique: true });
 FileCollectionSchema.index({ title: 1, _id: 1 }, { unique: true });

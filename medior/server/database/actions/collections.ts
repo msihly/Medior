@@ -31,7 +31,13 @@ const dedupeFileIdIndexes = (fileIdIndexes: { fileId: string; index: number }[])
 const makeCollAttrs = async (
   files: models.FileSchema[],
   fileIdIndexes: { fileId: string; index: number }[],
-) => {
+): Promise<{
+  fileCount: number;
+  rating: number;
+  size: number;
+  tagIds: string[];
+  tagIdsWithAncestors: string[];
+}> => {
   const indexMap = new Map(fileIdIndexes.map((f) => [f.fileId, f.index]));
   const sortedFiles = [...files].sort((a, b) => indexMap.get(a.id) - indexMap.get(b.id));
   const ratedFiles = sortedFiles.filter((f) => f.rating > 0);
@@ -39,22 +45,16 @@ const makeCollAttrs = async (
     ...new Set([...sortedFiles.map((f) => f.tagIds.map((id) => id.toString())).flat()]),
   ];
 
-  const collAttrs: {
-    fileCount: number;
-    rating: number;
-    tagIds: string[];
-    tagIdsWithAncestors: string[];
-  } = {
+  return {
     fileCount: sortedFiles.length,
     rating:
       ratedFiles.length > 0
         ? ratedFiles.reduce((acc, f) => acc + f.rating, 0) / ratedFiles.length
         : 0,
+    size: sortedFiles.reduce((acc, f) => acc + f.size, 0),
     tagIds,
     tagIdsWithAncestors: await actions.deriveAncestorTagIds(tagIds),
   };
-
-  return collAttrs;
 };
 
 /* -------------------------------------------------------------------------- */

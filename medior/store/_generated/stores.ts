@@ -38,6 +38,8 @@ export class _FileCollectionSearch extends Model({
   ids: prop<string[]>(() => []).withSetter(),
   isLoading: prop<boolean>(false).withSetter(),
   isPageCountLoading: prop<boolean>(false).withSetter(),
+  maxSize: prop<number>(null).withSetter(),
+  minSize: prop<number>(null).withSetter(),
   page: prop<number>(1).withSetter(),
   pageCount: prop<number>(1).withSetter(),
   pageSize: prop<number>(() => getConfig().collection.manager.search.pageSize).withSetter(),
@@ -78,6 +80,8 @@ export class _FileCollectionSearch extends Model({
     this.ids = [];
     this.isLoading = false;
     this.isPageCountLoading = false;
+    this.maxSize = null;
+    this.minSize = null;
     this.page = 1;
     this.pageCount = 1;
     this.pageSize = getConfig().collection.manager.search.pageSize;
@@ -281,6 +285,8 @@ export class _FileCollectionSearch extends Model({
       (!isDeepEqual(this.dateModifiedStart, "") ? 1 : 0) +
       (!isDeepEqual(this.fileCount, { logOp: "", value: 0 }) ? 1 : 0) +
       (!isDeepEqual(this.ids, []) ? 1 : 0) +
+      (!isDeepEqual(this.maxSize, null) ? 1 : 0) +
+      (!isDeepEqual(this.minSize, null) ? 1 : 0) +
       (!isDeepEqual(this.rating, { logOp: "", value: 0 }) ? 1 : 0) +
       (!isDeepEqual(this.sortValue, getConfig().collection.manager.search.sort) ? 1 : 0) +
       (!isDeepEqual(this.tags, []) ? 1 : 0) +
@@ -302,6 +308,8 @@ export class _FileCollectionSearch extends Model({
       dateModifiedStart: this.dateModifiedStart,
       fileCount: this.fileCount,
       ids: this.ids,
+      maxSize: this.maxSize,
+      minSize: this.minSize,
       rating: this.rating,
       sortValue: this.sortValue,
       ...getRootStore<Stores.RootStore>(this)?.tag?.tagSearchOptsToIds(this.tags),
@@ -1423,6 +1431,7 @@ export class _FileCollection extends Model({
   fileIdIndexes: prop<Array<{ fileId: string; index: number }>>(),
   rating: prop<number>(0),
   ratingIsManual: prop<boolean>(null),
+  size: prop<number>(),
   tagIds: prop<string[]>(() => []),
   tagIdsWithAncestors: prop<string[]>(() => []),
   title: prop<string>(),

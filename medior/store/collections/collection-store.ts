@@ -38,8 +38,13 @@ export class FileCollectionStore extends Model({
   @modelFlow
   regenCollMeta = asyncAction(async (collIds: string[]) => {
     this.editor.setIsLoading(true);
+    this.manager.setIsLoading(true);
+
     const res = await trpc.regenCollAttrs.mutate({ collIds });
+
     this.editor.setIsLoading(false);
+    this.manager.setIsLoading(false);
+
     if (!res.success) throw new Error(res.error);
     toast.success("Metadata refreshed!");
   });

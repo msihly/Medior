@@ -1,3 +1,4 @@
+import { Fmt } from "trabecula/utils/common";
 import {
   Card,
   Chip,
@@ -80,6 +81,8 @@ export const FileCollection = Comp(({ collection }: FileCollectionProps) => {
 
                 <View row align="center" spacing="0.5rem">
                   <Chip label={`${collection.fileCount} files`} height="1.5em" />
+
+                  <Chip label={Fmt.bytes(collection.size ?? 0)} height="1.5em" />
 
                   <RatingButton rating={collection.rating} setRating={handleRating} />
                 </View>
