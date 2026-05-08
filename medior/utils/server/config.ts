@@ -258,9 +258,8 @@ export const getIsRemuxable = (ext: string) =>
 
 export const getIsVideo = (ext: string) => getConfig().file.videoExts.includes(ext.toLowerCase());
 
-export const loadConfig = async (configPath?: string) => {
+export const loadConfig = async (filePath: string) => {
   try {
-    const filePath = configPath || process.env.CONFIG_PATH;
     if (!filePath) throw new Error("No config path provided.");
 
     fileLog(`Loading config from ${filePath}...`);

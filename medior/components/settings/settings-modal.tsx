@@ -31,7 +31,7 @@ export const SettingsModal = Comp(() => {
 
   const handleLoadConfig = async () => {
     stores.home.settings.setIsLoading(true);
-    const config = await loadConfig();
+    const config = await loadConfig(await ipcRenderer.invoke("getConfigPath"));
     stores.home.settings.update(config);
     stores.home.settings.setHasUnsavedChanges(false);
     stores.home.settings.setIsLoading(false);
