@@ -11,9 +11,9 @@ import {
   prop,
 } from "mobx-keystone";
 import { File, RootStore } from "medior/store";
-import { asyncAction, getIsImage, makeQueue } from "medior/utils/client";
+import { asyncAction, makeQueue } from "medior/utils/client";
 import { objectToFloat32Array, PromiseQueue } from "medior/utils/common";
-import { trpc } from "medior/utils/server";
+import { getIsImage, trpc } from "medior/utils/server";
 import { FaceModel } from ".";
 
 const DISTANCE_THRESHOLD = 0.45;

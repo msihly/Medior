@@ -17,9 +17,9 @@ import {
   View,
 } from "medior/components";
 import { useStores } from "medior/store";
-import { colors, getConfig, toast } from "medior/utils/client";
+import { colors, toast } from "medior/utils/client";
 import { dayjs, Fmt, round } from "medior/utils/common";
-import { trpc } from "medior/utils/server";
+import { getConfig, trpc } from "medior/utils/server";
 
 export const VideoTransformerModal = Comp(() => {
   const stores = useStores();

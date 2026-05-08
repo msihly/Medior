@@ -14,6 +14,9 @@ const start = (configPath: string, logsPath: string, name: string, entry: string
       LOGS_PATH: logsPath,
       IS_PACKAGED: app.isPackaged ? "1" : "0",
       RESOURCES_PATH: process.resourcesPath,
+      NODE_PATH: app.isPackaged
+        ? path.join(process.resourcesPath, "app.asar", "node_modules")
+        : path.resolve("node_modules"),
     },
   });
 
@@ -40,7 +43,9 @@ const waitReady = (proc: Proc, startPayload: Record<string, any> = {}) =>
 
 export const startServers = async (configPath: string, logsPath: string) => {
   await setLogsPath(logsPath);
-  const base = app.isPackaged ? path.join(process.resourcesPath, "medior/server") : __dirname;
+  const base = app.isPackaged
+    ? path.join(process.resourcesPath, "extraResources/medior/server")
+    : __dirname;
 
   const forkProcess = async (
     label: string,

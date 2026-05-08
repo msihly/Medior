@@ -10,8 +10,8 @@ import {
 } from "mobx-keystone";
 import { SortMenuProps } from "medior/components";
 import { File, FileSearch, RootStore, Tag } from "medior/store";
-import { asyncAction, getConfig, toast } from "medior/utils/client";
-import { trpc } from "medior/utils/server";
+import { asyncAction, toast } from "medior/utils/client";
+import { getConfig, trpc } from "medior/utils/server";
 import { FileCollection } from ".";
 
 @model("medior/CollectionEditor")

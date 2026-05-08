@@ -1,9 +1,10 @@
 import { promises as fs } from "fs";
 import path from "path";
 import type { FileSchema, ImportFileInput } from "medior/server/database";
-import { getIsAnimated, sharp } from "medior/utils/client";
+import { sharp } from "medior/utils/client";
 import { CONSTANTS, dayjs, handleErrors } from "medior/utils/common";
-import { getVideoInfo, makePerfLog, vidToThumbGrid } from "medior/utils/server";
+import { getIsAnimated, makePerfLog } from "medior/utils/server";
+import { getVideoInfo, vidToThumbGrid } from "medior/utils/server/videos";
 
 export const checkFileExists = async (path: string) => !!(await fs.stat(path).catch(() => false));
 

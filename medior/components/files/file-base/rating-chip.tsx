@@ -1,7 +1,8 @@
 import Color from "color";
 import { IconName } from "medior/components";
-import { colors, CSS, CssColor, getConfig, makeClasses } from "medior/utils/client";
+import { colors, CSS, CssColor, makeClasses } from "medior/utils/client";
 import { round } from "medior/utils/common";
+import { getConfig } from "medior/utils/server";
 import { Chip, ChipProps } from "./chip";
 
 export const getRatingMeta = (rating: number) => {

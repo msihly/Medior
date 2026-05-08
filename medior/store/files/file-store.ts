@@ -45,7 +45,7 @@ export class FileStore extends ExtendedModel(_FileStore, {
   }
 
   @modelAction
-  openVideoTransformer(fileIds: string[], fnType: "reencode" | "remux" | "splice") {
+  openVideoTransformer(fileIds: string[], fnType: "reencode" | "remux") {
     this.videoTransformer.setFileIds(fileIds);
     this.videoTransformer.setFnType(fnType);
     this.videoTransformer.setIsOpen(true);

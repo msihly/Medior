@@ -1,7 +1,6 @@
-import { ipcRenderer } from "electron";
 import fs from "fs/promises";
 import path from "path";
-import { FolderToCollMode, FolderToTagsMode, SortMenuProps } from "medior/components";
+import type { FolderToCollMode, FolderToTagsMode, SortMenuProps } from "medior/components";
 import {
   AUDIO_CODECS_COMMON,
   AudioCodec,
@@ -249,10 +248,6 @@ export const getConfig = (debugLoc?: string) => {
   return config;
 };
 
-export const getConfigPath = async () => {
-  return process?.env?.CONFIG_PATH || (await ipcRenderer.invoke("getConfigPath"));
-};
-
 export const getIsAnimated = (ext: string) =>
   ["gif", ...getConfig().file.videoExts].includes(ext.toLowerCase());
 
@@ -265,7 +260,7 @@ export const getIsVideo = (ext: string) => getConfig().file.videoExts.includes(e
 
 export const loadConfig = async (configPath?: string) => {
   try {
-    const filePath = configPath || (await getConfigPath());
+    const filePath = configPath || process.env.CONFIG_PATH;
     if (!filePath) throw new Error("No config path provided.");
 
     fileLog(`Loading config from ${filePath}...`);
@@ -301,7 +296,7 @@ export const loadConfig = async (configPath?: string) => {
 export const saveConfig = async (config: Config) => {
   try {
     const newConfig = JSON.stringify({ ...DEFAULT_CONFIG, ...config }, null, 2);
-    const configPath = await getConfigPath();
+    const configPath = process.env.CONFIG_PATH;
     if (!configPath) throw new Error("No config path provided.");
     fileLog(`Saving config to ${configPath}...`);
     await fs.writeFile(configPath, newConfig);

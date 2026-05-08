@@ -5,7 +5,8 @@ import { Button, Card, Checkbox, Comp, Modal, Text, UniformList, View } from "me
 import { useStores } from "medior/store";
 import { colors, CssColor, makeQueue } from "medior/utils/client";
 import { dayjs, PromiseQueue } from "medior/utils/common";
-import { getVideoInfo, trpc } from "medior/utils/server";
+import { trpc } from "medior/utils/server";
+import { getVideoInfo } from "medior/utils/server/videos";
 
 export const RepairModal = Comp(() => {
   const stores = useStores();

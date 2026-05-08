@@ -4,8 +4,9 @@ import { useEffect, useState } from "react";
 import { SORT_OPTIONS } from "medior/store/_generated";
 import { Button, Card, Comp, ConfirmModal, Modal, Text, View } from "medior/components";
 import { useStores } from "medior/store";
-import { colors, loadConfig, saveConfig, toast } from "medior/utils/client";
+import { colors, toast } from "medior/utils/client";
 import { CONSTANTS } from "medior/utils/common";
+import { loadConfig, saveConfig } from "medior/utils/server";
 import { RepairModal, Settings } from ".";
 
 export const SettingsModal = Comp(() => {

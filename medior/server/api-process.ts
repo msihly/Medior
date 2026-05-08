@@ -2,9 +2,8 @@ import { createHTTPServer } from "@trpc/server/adapters/standalone";
 import killPort from "kill-port";
 import Mongoose from "mongoose";
 import { serverRouter } from "medior/server/trpc";
-import { getConfig, loadConfig } from "medior/utils/client";
 import { sleep } from "medior/utils/common";
-import { fileLog, setLogsPath, setupTRPC } from "medior/utils/server";
+import { fileLog, getConfig, loadConfig, setLogsPath, setupTRPC } from "medior/utils/server";
 
 let server: ReturnType<typeof createHTTPServer>;
 

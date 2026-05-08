@@ -12,9 +12,9 @@ import {
   prop,
 } from "mobx-keystone";
 import { _File } from "medior/store/_generated";
-import { asyncAction, getIsVideo } from "medior/utils/client";
+import { asyncAction } from "medior/utils/client";
 import { dayjs, WEB_VIDEO_CODECS, WEB_VIDEO_EXTS } from "medior/utils/common";
-import { trpc } from "medior/utils/server";
+import { getIsVideo, trpc } from "medior/utils/server";
 
 @model("medior/File")
 export class File extends ExtendedModel(_File, {

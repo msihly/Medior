@@ -7,7 +7,8 @@ import { getRootStore, Model, model, modelAction, modelFlow, prop } from "mobx-k
 import { FileImporter, RootStore } from "medior/store";
 import { asyncAction, toast } from "medior/utils/client";
 import { Fmt } from "medior/utils/common";
-import { extractVideoFrame, trpc, videoTranscoder } from "medior/utils/server";
+import { trpc } from "medior/utils/server";
+import { extractVideoFrame, videoTranscoder } from "medior/utils/server/videos";
 
 @model("medior/CarouselStore")
 export class CarouselStore extends Model({

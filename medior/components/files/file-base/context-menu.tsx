@@ -5,9 +5,9 @@ import { ReactNode } from "react";
 import { FileSchema } from "medior/_generated/server";
 import { Comp, ContextMenu as ContextMenuBase, ViewProps } from "medior/components";
 import { FileCollectionSearch, FileSearch, useStores } from "medior/store";
-import { colors, copyToClipboard, getConfig, getIsRemuxable, toast } from "medior/utils/client";
+import { colors, copyToClipboard, toast } from "medior/utils/client";
 import { VIDEO_EXTS, VideoExt } from "medior/utils/common";
-import { trpc } from "medior/utils/server";
+import { getConfig, getIsRemuxable, trpc } from "medior/utils/server";
 
 export interface ContextMenuProps extends ViewProps {
   children?: ReactNode | ReactNode[];

@@ -1,10 +1,18 @@
+import { shell } from "@electron/remote";
 import path from "path";
 import { useState } from "react";
 import { FixedSizeList } from "react-window";
 import Color from "color";
 import { Card, Chip, Comp, FlatFolder, IconButton, TagRow, Text, View } from "medior/components";
 import { useStores } from "medior/store";
-import { colors, CssColor, makeBorderRadiuses, makeClasses } from "medior/utils/client";
+import {
+  checkFileExists,
+  colors,
+  CssColor,
+  makeBorderRadiuses,
+  makeClasses,
+  toast,
+} from "medior/utils/client";
 import { Fmt } from "medior/utils/common";
 import { IMPORT_LIST_ITEM_HEIGHT, ImportListItem } from "./import-list-item";
 
@@ -36,6 +44,7 @@ export const ImportFolderList = Comp(
 
     const [collapsed, setCollapsed] = useState(!withListItems);
 
+    const folderPath = folder?.imports[0]?.path && path.dirname(folder.imports[0].path);
     const hasCollection = folder?.collectionTitle?.length > 0;
     const hasTags = folder?.tags?.length > 0;
     const height = folder
@@ -46,6 +55,12 @@ export const ImportFolderList = Comp(
     const { css } = useClasses({ collapsible, collapsed, hasCollection, hasTags });
 
     const deleteBatch = () => stores.import.manager.deleteBatch({ id: batchId });
+
+    const openFolder = async () => {
+      const exists = await checkFileExists(folderPath);
+      if (exists) shell.showItemInFolder(folderPath);
+      else toast.warn("Folder does not exist");
+    };
 
     const toggleCollapsed = () => setCollapsed(!collapsed);
 
@@ -68,8 +83,8 @@ export const ImportFolderList = Comp(
               />
             ) : null}
 
-            <Text className={css.folderPath}>
-              {folder.imports[0]?.path && path.dirname(folder.imports[0].path)}
+            <Text onClick={openFolder} className={css.folderPath}>
+              {folderPath}
             </Text>
           </View>
 
@@ -179,6 +194,7 @@ const useClasses = makeClasses((props: ClassesProps) => ({
   folderPath: {
     color: colors.custom.lightGrey,
     fontSize: "0.9em",
+    cursor: "pointer",
     textOverflow: "ellipsis",
     overflow: "hidden",
     whiteSpace: "nowrap",

@@ -4,9 +4,9 @@ import { useState } from "react";
 import { CircularProgress } from "@mui/material";
 import { Button, Card, Comp, Divider, Modal, Text, UniformList, View } from "medior/components";
 import { filePathsToImports, useStores } from "medior/store";
-import { colors, deleteFile, getConfig } from "medior/utils/client";
+import { colors, deleteFile } from "medior/utils/client";
 import { dayjs, Fmt } from "medior/utils/common";
-import { dirToFilePaths, trpc } from "medior/utils/server";
+import { dirToFilePaths, getConfig, trpc } from "medior/utils/server";
 import { StorageInput } from "./storage-input";
 
 export const StorageInputs = Comp(() => {

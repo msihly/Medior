@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { Comp, Icon, IconName, LoadingOverlay, Text, View } from "medior/components";
 import { useStores } from "medior/store";
-import { colors, CssColor, getIsVideo, toast } from "medior/utils/client";
+import { colors, CssColor, toast } from "medior/utils/client";
 import { Fmt } from "medior/utils/common";
-import { trpc } from "medior/utils/server";
+import { getIsVideo, trpc } from "medior/utils/server";
 
 export const useFileInfo = () => {
   const stores = useStores();

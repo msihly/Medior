@@ -1,6 +1,7 @@
+import { ipcRenderer } from "electron";
 import { ReactNode, useEffect, useState } from "react";
-import { loadConfig, ToastContainer } from "medior/utils/client";
-import { setupTRPC } from "medior/utils/server";
+import { ToastContainer } from "medior/utils/client";
+import { loadConfig, setupTRPC } from "medior/utils/server";
 import { Views } from "medior/views";
 import "trabecula/css/react-toastify.css";
 import "trabecula/css/fonts.css";
@@ -15,7 +16,7 @@ export const AppWrapper = ({ children }: AppWrapperProps) => {
 
   useEffect(() => {
     (async () => {
-      await loadConfig();
+      await loadConfig(await ipcRenderer.invoke("getConfigPath"));
       setupTRPC();
       setIsLoading(false);
     })();

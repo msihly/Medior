@@ -62,5 +62,5 @@ export const removeEmptyFolders = async (
     }
   }
 
-  await Promise.all([...rootDirsToEmpty].map((dir) => fs.rmdir(dir, { recursive: true })));
+  await Promise.all([...rootDirsToEmpty].map((dir) => fs.rm(dir, { recursive: true })));
 };

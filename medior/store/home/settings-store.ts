@@ -1,7 +1,7 @@
 import autoBind from "auto-bind";
 import { applySnapshot, getSnapshot, Model, model, modelAction, prop } from "mobx-keystone";
-import { Config, ConfigKey, DEFAULT_CONFIG } from "medior/utils/client";
 import { convertNestedKeys, deepMerge } from "medior/utils/common";
+import { Config, ConfigKey, DEFAULT_CONFIG } from "medior/utils/server";
 
 @model("medior/SettingsStore")
 export class SettingsStore extends Model({

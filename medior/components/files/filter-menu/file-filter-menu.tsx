@@ -13,8 +13,9 @@ import {
   View,
 } from "medior/components";
 import { FileSearch } from "medior/store";
-import { colors, CssColor, getConfig } from "medior/utils/client";
+import { colors, CssColor } from "medior/utils/client";
 import { AudioCodec, ImageExt, VideoCodec, VideoExt } from "medior/utils/common";
+import { getConfig } from "medior/utils/server";
 
 export interface FileFilterMenuProps {
   color?: CssColor;

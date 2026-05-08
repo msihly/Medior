@@ -1,7 +1,7 @@
 import autoBind from "auto-bind";
 import { Model, model, prop } from "mobx-keystone";
 import { SettingsStore } from "medior/store";
-import { getConfig } from "medior/utils/client";
+import { getConfig } from "medior/utils/server";
 
 @model("medior/HomeStore")
 export class HomeStore extends Model({

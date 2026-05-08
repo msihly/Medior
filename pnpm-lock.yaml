@@ -135,8 +135,8 @@ dependencies:
     specifier: ^4.6.2
     version: 4.7.5
   trabecula:
-    specifier: github:msihly/trabecula#5eec4fb3b60a82d7c92c3b35badc7be0b1a73c04
-    version: github.com/msihly/trabecula/5eec4fb3b60a82d7c92c3b35badc7be0b1a73c04(@emotion/cache@11.13.1)(@emotion/react@11.13.0)(@emotion/styled@11.13.0)(@mui/base@5.0.0-beta.40)(@mui/icons-material@5.14.19)(@mui/lab@5.0.0-alpha.134)(@mui/material@5.13.6)(@mui/styles@5.5.1)(@mui/x-date-pickers@6.19.9)(mobx-keystone@1.21.0)(mobx@6.13.1)(react-dom@17.0.2)(react-draggable@4.5.0)(react@17.0.2)(tss-react@4.9.20)
+    specifier: github:msihly/trabecula#031dee730550525347c85fce34c3f4df59b3ef90
+    version: github.com/msihly/trabecula/031dee730550525347c85fce34c3f4df59b3ef90(@emotion/cache@11.13.1)(@emotion/react@11.13.0)(@emotion/styled@11.13.0)(@mui/base@5.0.0-beta.40)(@mui/icons-material@5.14.19)(@mui/lab@5.0.0-alpha.134)(@mui/material@5.13.6)(@mui/styles@5.5.1)(@mui/x-date-pickers@6.19.9)(mobx-keystone@1.21.0)(mobx@6.13.1)(react-dom@17.0.2)(react@17.0.2)
   trash:
     specifier: ^5.2.0
     version: 5.2.0
@@ -8125,26 +8125,20 @@ packages:
   /tslib@2.8.1:
     resolution: {integrity: sha512-oJFu94HQb+KVduSUQL7wnpmqnfmLsOA/nAh6b6EH0wCEoK0/mPeXU6c3wKDV83MkOuHPRHtSXKKU99IBazS/2w==}
 
-  /tss-react@4.9.20(@emotion/react@11.13.0)(@mui/material@5.13.6)(@types/react@17.0.80)(react@17.0.2):
-    resolution: {integrity: sha512-+tecs5hEKZmPqNDtiq5Gx2GxjrQXbV5JuOeWkV+eOf99qiIUkE3Vcn07zNLHws06iPfH2H4t5VqoVjIdCMS7hw==}
+  /tss-react@3.7.1(@emotion/react@11.13.0)(react@17.0.2):
+    resolution: {integrity: sha512-dfWUoxBlKZfIG9UC1A2h02OmcE/Ni0itCmmZu94E9g+KyBhKMHKcsKvUm0bNlRqTmYjXiCgPJDmj5fyc8CSrLg==}
     peerDependencies:
       '@emotion/react': ^11.4.1
       '@emotion/server': ^11.4.0
-      '@mui/material': ^5.0.0 || ^6.0.0 || ^7.0.0
-      '@types/react': ^16.8.0 || ^17.0.2 || ^18.0.0 || ^19.0.0
-      react: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
+      react: ^16.8.0 || ^17.0.2 || ^18.0.0
     peerDependenciesMeta:
       '@emotion/server':
-        optional: true
-      '@mui/material':
         optional: true
     dependencies:
       '@emotion/cache': 11.13.1
       '@emotion/react': 11.13.0(@types/react@17.0.80)(react@17.0.2)
       '@emotion/serialize': 1.3.0
       '@emotion/utils': 1.4.0
-      '@mui/material': 5.13.6(@emotion/react@11.13.0)(@emotion/styled@11.13.0)(@types/react@17.0.80)(react-dom@17.0.2)(react@17.0.2)
-      '@types/react': 17.0.80
       react: 17.0.2
     dev: false
 
@@ -8709,9 +8703,9 @@ packages:
       readable-stream: 3.6.2
     dev: true
 
-  github.com/msihly/trabecula/5eec4fb3b60a82d7c92c3b35badc7be0b1a73c04(@emotion/cache@11.13.1)(@emotion/react@11.13.0)(@emotion/styled@11.13.0)(@mui/base@5.0.0-beta.40)(@mui/icons-material@5.14.19)(@mui/lab@5.0.0-alpha.134)(@mui/material@5.13.6)(@mui/styles@5.5.1)(@mui/x-date-pickers@6.19.9)(mobx-keystone@1.21.0)(mobx@6.13.1)(react-dom@17.0.2)(react-draggable@4.5.0)(react@17.0.2)(tss-react@4.9.20):
-    resolution: {tarball: https://codeload.github.com/msihly/trabecula/tar.gz/5eec4fb3b60a82d7c92c3b35badc7be0b1a73c04}
-    id: github.com/msihly/trabecula/5eec4fb3b60a82d7c92c3b35badc7be0b1a73c04
+  github.com/msihly/trabecula/031dee730550525347c85fce34c3f4df59b3ef90(@emotion/cache@11.13.1)(@emotion/react@11.13.0)(@emotion/styled@11.13.0)(@mui/base@5.0.0-beta.40)(@mui/icons-material@5.14.19)(@mui/lab@5.0.0-alpha.134)(@mui/material@5.13.6)(@mui/styles@5.5.1)(@mui/x-date-pickers@6.19.9)(mobx-keystone@1.21.0)(mobx@6.13.1)(react-dom@17.0.2)(react@17.0.2):
+    resolution: {tarball: https://codeload.github.com/msihly/trabecula/tar.gz/031dee730550525347c85fce34c3f4df59b3ef90}
+    id: github.com/msihly/trabecula/031dee730550525347c85fce34c3f4df59b3ef90
     name: trabecula
     version: 1.1.1
     prepare: true
@@ -8729,8 +8723,6 @@ packages:
       mobx-keystone: ^1.21.0
       react: ^17.0.0 || ^18.0.0
       react-dom: ^17.0.0 || ^18.0.0
-      react-draggable: ^4.4.5
-      tss-react: ^4.9.20
     dependencies:
       '@emotion/cache': 11.13.1
       '@emotion/react': 11.13.0(@types/react@17.0.80)(react@17.0.2)
@@ -8748,8 +8740,9 @@ packages:
       react: 17.0.2
       react-dom: 17.0.2(react@17.0.2)
       react-draggable: 4.5.0(react-dom@17.0.2)(react@17.0.2)
-      tss-react: 4.9.20(@emotion/react@11.13.0)(@mui/material@5.13.6)(@types/react@17.0.80)(react@17.0.2)
+      tss-react: 3.7.1(@emotion/react@11.13.0)(react@17.0.2)
     transitivePeerDependencies:
+      - '@emotion/server'
       - mobx
       - react-native
     dev: false

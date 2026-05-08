@@ -1,6 +1,6 @@
 import { Checkbox, CheckboxProps, Comp } from "medior/components";
 import { useStores } from "medior/store";
-import { ConfigKey } from "medior/utils/client";
+import { ConfigKey } from "medior/utils/server";
 
 export interface ExtCheckboxProps extends Omit<CheckboxProps, "checked" | "label" | "setChecked"> {
   configKey: ConfigKey;

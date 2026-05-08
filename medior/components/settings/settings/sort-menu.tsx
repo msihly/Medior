@@ -6,7 +6,8 @@ import {
   SortMenuProps as SortMenuBaseProps,
 } from "medior/components";
 import { useStores } from "medior/store";
-import { colors, ConfigKey } from "medior/utils/client";
+import { colors } from "medior/utils/client";
+import { ConfigKey } from "medior/utils/server";
 
 export interface SortMenuProps extends Omit<SortMenuBaseProps, "setValue" | "value"> {
   configKey: ConfigKey;

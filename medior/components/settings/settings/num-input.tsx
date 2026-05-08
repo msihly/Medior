@@ -4,7 +4,7 @@ import {
   NumInputProps as NumInputBaseProps,
 } from "medior/components";
 import { useStores } from "medior/store";
-import { ConfigKey } from "medior/utils/client";
+import { ConfigKey } from "medior/utils/server";
 
 export interface NumInputProps extends NumInputBaseProps {
   configKey: ConfigKey;

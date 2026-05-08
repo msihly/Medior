@@ -6,9 +6,9 @@ import { ModelCreationData } from "mobx-keystone";
 import { CreateImportBatchesInput, TagSchema } from "medior/server/database";
 import { FlatFolder, TagToUpsert } from "medior/components";
 import { FileImport, Ingester, Reingester, RootStore, Tag, useStores } from "medior/store";
-import { derefMobx, getConfig, toast } from "medior/utils/client";
+import { derefMobx, toast } from "medior/utils/client";
 import { dayjs, Fmt, parseDiffParams } from "medior/utils/common";
-import { dirToFilePaths, makePerfLog, trpc } from "medior/utils/server";
+import { dirToFilePaths, getConfig, makePerfLog, trpc } from "medior/utils/server";
 
 type RegExMap = { regEx: RegExp; tagId: string };
 

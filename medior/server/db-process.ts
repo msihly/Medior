@@ -1,9 +1,8 @@
 import fs from "fs/promises";
 import { MongoMemoryReplSet } from "mongodb-memory-server";
 import Mongoose from "mongoose";
-import { getConfig, loadConfig } from "medior/utils/client";
 import { sleep } from "medior/utils/common";
-import { fileLog, setLogsPath } from "medior/utils/server";
+import { fileLog, getConfig, loadConfig, setLogsPath } from "medior/utils/server";
 
 let mongoServer: MongoMemoryReplSet;
 

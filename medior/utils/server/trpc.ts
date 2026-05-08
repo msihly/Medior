@@ -2,8 +2,7 @@ import { createTRPCProxyClient, httpBatchLink } from "@trpc/client";
 import { SocketEmitEvent, SocketEvents } from "medior/_generated/server/socket";
 import { io, Socket } from "socket.io-client";
 import { ServerRouter } from "medior/server/trpc";
-import { getConfig } from "medior/utils/client";
-import { fileLog } from "medior/utils/server/logging";
+import { fileLog, getConfig } from "medior/utils/server";
 
 class SocketClass {
   private socket: Socket;

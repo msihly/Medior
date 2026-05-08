@@ -1,7 +1,7 @@
 import autoBind from "auto-bind";
 import { Model, model, modelAction, prop } from "mobx-keystone";
 import { FolderToCollMode, FolderToTagsMode } from "medior/components";
-import { getConfig } from "medior/utils/client";
+import { getConfig } from "medior/utils/server";
 
 @model("medior/ImportEditorOptions")
 export class ImportEditorOptions extends Model({

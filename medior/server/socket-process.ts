@@ -1,7 +1,6 @@
 import { socketEvents } from "medior/_generated/server/socket";
 import { Server } from "socket.io";
-import { getConfig, loadConfig } from "medior/utils/client";
-import { fileLog, setLogsPath } from "medior/utils/server";
+import { fileLog, getConfig, loadConfig, setLogsPath } from "medior/utils/server";
 
 let io: Server;
 

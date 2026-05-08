@@ -1,8 +1,9 @@
 import { CSSProperties } from "react";
 import { Button, Comp, FileBase } from "medior/components";
 import { File, useStores } from "medior/store";
-import { colors, getIsAnimated } from "medior/utils/client";
+import { colors } from "medior/utils/client";
 import { Fmt } from "medior/utils/common";
+import { getIsAnimated } from "medior/utils/server";
 
 export interface FileSearchFileProps {
   disabled?: boolean;
