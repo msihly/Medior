@@ -41,7 +41,15 @@ export class CollectionEditor extends Model({
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
   @modelAction
   setIsOpen(isOpen: boolean) {
-    this.search.selectedIds = [];
+    const config = getConfig().collection.editor;
+
+    this.fileSearch.reset();
+    this.fileSearch.setPageSize(config.fileSearch.pageSize);
+
+    this.search.reset();
+    this.search.setPageSize(config.search.pageSize);
+    this.search.setSortValue(config.search.sort);
+
     this.isOpen = isOpen;
   }
 
@@ -224,7 +232,7 @@ export class CollectionEditor extends Model({
       this.search.setIds(indexesRes.data);
     }
 
-    const pageRes = await this.search.loadFiltered();
+    const pageRes = await this.search.loadFiltered({ noCache: true });
     if (!pageRes.success) throw new Error(pageRes.error);
 
     this.setIsLoading(false);

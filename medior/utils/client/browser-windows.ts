@@ -1,3 +1,4 @@
+import { ipcRenderer } from "electron";
 import { FileSchema } from "medior/server/database";
 
 export const openCarouselWindow = async ({
@@ -7,7 +8,7 @@ export const openCarouselWindow = async ({
   file: FileSchema;
   selectedFileIds: string[];
 }) =>
-  (await import("electron")).ipcRenderer.send("createCarouselWindow", {
+  ipcRenderer.send("createCarouselWindow", {
     fileId: file.id,
     height: file.height,
     selectedFileIds: [...selectedFileIds],
@@ -15,6 +16,6 @@ export const openCarouselWindow = async ({
   });
 
 export const openSearchWindow = async ({ tagIds }: { tagIds?: string[] } = {}) =>
-  (await import("electron")).ipcRenderer.send("createSearchWindow", {
+  ipcRenderer.send("createSearchWindow", {
     tagIds: tagIds?.length ? [...tagIds] : [],
   });

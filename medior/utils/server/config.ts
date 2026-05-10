@@ -14,7 +14,9 @@ import {
   VideoCodec,
   VideoExt,
 } from "medior/utils/common";
-import { checkFileExists, fileLog, trpc } from "medior/utils/server";
+import { checkFileExists } from "medior/utils/server/files";
+import { fileLog } from "medior/utils/server/logging";
+import { trpc } from "medior/utils/server/trpc";
 
 type DevToolsMode = null | Electron.OpenDevToolsOptions["mode"];
 

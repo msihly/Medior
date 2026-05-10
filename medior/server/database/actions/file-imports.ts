@@ -37,6 +37,13 @@ class ImporterStatus {
     this.isPaused = isPaused;
     socket.emit("onImporterStatusUpdated");
   }
+
+  tryRun() {
+    if (this.isImporting) return false;
+    this.isImporting = true;
+    socket.emit("onImporterStatusUpdated");
+    return true;
+  }
 }
 
 const importerStatus = new ImporterStatus();
@@ -260,7 +267,7 @@ export const reingestFolder = makeAction(
 );
 
 export const runImportBatch = makeAction(async (args: { id: string }) => {
-  if (importerStatus.getIsImporting()) return;
+  if (!importerStatus.tryRun()) return;
 
   const batch = (await getImportBatch({ id: args.id })).data;
   if (!batch) throw new Error(`Import batch not found: ${args.id}`);

@@ -1,6 +1,8 @@
 import { Chip } from "./chip";
 import { Container } from "./container";
 import { ContextMenu } from "./context-menu";
+import { Duration } from "./duration";
+import { ExtAndIcons } from "./ext-and-icons";
 import { Footer } from "./footer";
 import { FooterText } from "./footer-text";
 import { Image } from "./image";
@@ -14,6 +16,8 @@ export const FileBase = {
   Chip,
   Container,
   ContextMenu,
+  Duration,
+  ExtAndIcons,
   Footer,
   FooterText,
   Image,

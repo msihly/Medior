@@ -12,9 +12,9 @@ import {
   prop,
 } from "mobx-keystone";
 import { FlatFolder, TagToUpsert } from "medior/components";
-import { asyncAction, derefMobx, extendFileName, toast } from "medior/utils/client";
+import { asyncAction, derefMobx, toast } from "medior/utils/client";
 import { Fmt, PromiseQueue } from "medior/utils/common";
-import { checkFileExists, trpc } from "medior/utils/server";
+import { checkFileExists, extendFileName, trpc } from "medior/utils/server";
 import { FileImport, ImportEditorOptions, Sidecar } from ".";
 
 @model("medior/Reingester")

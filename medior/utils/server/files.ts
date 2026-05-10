@@ -1,6 +1,7 @@
 import { promises as fs } from "fs";
 import path from "path";
 import { fdir } from "fdir";
+import { handleErrors } from "medior/utils/common";
 
 export const checkFileExists = async (path: string) => !!(await fs.stat(path).catch(() => false));
 
@@ -18,6 +19,18 @@ const createTreeNode = (dirPath: string, tree: TreeNode[]) => {
 export const createTree = (paths: string[]): TreeNode[] =>
   paths.reduce((acc, cur) => (createTreeNode(cur, acc), acc), []);
 
+export const deleteFile = (path: string, copiedPath?: string) =>
+  handleErrors(async () => {
+    if (!(await checkFileExists(path))) return false;
+    if (copiedPath && !(await checkFileExists(copiedPath)))
+      throw new Error(
+        `Failed to delete ${path}. File does not exist at copied path ${copiedPath}.`,
+      );
+
+    await fs.unlink(path);
+    return true;
+  });
+
 export const dirToFilePaths = async (
   dirPath: string,
   filterFn?: (filePath: string) => boolean,
@@ -30,6 +43,9 @@ export const dirToFilePaths = async (
 export const dirToFolderPaths = async (dirPath: string): Promise<string[]> => {
   return await new fdir().onlyDirs().withFullPaths().crawl(dirPath).withPromise();
 };
+
+export const extendFileName = (fileName: string, ext: string) =>
+  `${path.relative(".", fileName).replace(/\.\w+$/, "")}.${ext}`;
 
 export const makeFolder = async (path: string) => await fs.mkdir(path, { recursive: true });
 

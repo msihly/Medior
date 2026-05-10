@@ -2,8 +2,9 @@ import { getCurrentWindow, screen } from "@electron/remote";
 import { useContext, useEffect, useRef, useState } from "react";
 import { Comp, getRatingMeta, Icon, IconButton, TagRow, Text, View } from "medior/components";
 import { useStores } from "medior/store";
-import { colors, makeClasses, zoomScaleStepIn, zoomScaleStepOut } from "medior/utils/client";
+import { colors, makeClasses } from "medior/utils/client";
 import { round } from "medior/utils/common";
+import { zoomScaleStepIn, zoomScaleStepOut } from "medior/utils/server";
 import { ZoomContext } from "medior/views";
 
 export const CarouselTopBar = Comp(() => {

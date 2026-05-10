@@ -2,10 +2,12 @@ import path from "path";
 import md5File from "md5-file";
 import * as models from "medior/_generated/server/models";
 import type { ImportStatus } from "medior/server/database";
-import { deleteFile, extendFileName, genFileInfo } from "medior/utils/client";
+import { genFileInfo } from "medior/utils/client";
 import { dayjs, handleErrors } from "medior/utils/common";
 import {
   checkFileExists,
+  deleteFile,
+  extendFileName,
   fileLog,
   getAvailableFileStorage,
   makePerfLog,

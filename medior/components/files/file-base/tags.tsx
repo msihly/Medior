@@ -9,7 +9,9 @@ interface TagsProps {
 export const Tags = Comp(({ tags }: TagsProps) => {
   const { css } = useClasses(null);
 
-  return (
+  return !tags?.length ? (
+    <View />
+  ) : (
     <View row spacing="0.2rem" className={css.tags}>
       {sortTags(tags)
         .slice(0, 3)

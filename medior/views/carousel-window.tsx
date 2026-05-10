@@ -4,9 +4,9 @@ import FilePlayer from "react-player/file";
 import { PanzoomObject } from "@panzoom/panzoom";
 import { Carousel, CarouselThumbNavigator, CarouselTopBar, Comp, View } from "medior/components";
 import { useStores } from "medior/store";
-import { makeClasses, zoomScaleStepIn, zoomScaleStepOut } from "medior/utils/client";
+import { makeClasses } from "medior/utils/client";
 import { debounce } from "medior/utils/common";
-import { makePerfLog } from "medior/utils/server";
+import { makePerfLog, zoomScaleStepIn, zoomScaleStepOut } from "medior/utils/server";
 import { useHotkeys, useSockets, Views } from "medior/views/common";
 
 export const VideoContext = createContext<MutableRefObject<FilePlayer>>(null);

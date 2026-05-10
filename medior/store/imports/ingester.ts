@@ -4,9 +4,9 @@ import autoBind from "auto-bind";
 import { computed, reaction } from "mobx";
 import { Model, model, modelAction, modelFlow, objectToMapTransform, prop } from "mobx-keystone";
 import { FlatFolder, TagToUpsert } from "medior/components";
-import { asyncAction, derefMobx, extendFileName } from "medior/utils/client";
+import { asyncAction, derefMobx } from "medior/utils/client";
 import { Fmt, PromiseQueue } from "medior/utils/common";
-import { checkFileExists } from "medior/utils/server";
+import { checkFileExists, extendFileName } from "medior/utils/server";
 import { FileImport, ImportEditorOptions } from ".";
 
 export interface Sidecar {

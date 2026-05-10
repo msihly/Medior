@@ -1,27 +1,9 @@
 import { promises as fs } from "fs";
 import path from "path";
 import type { FileSchema, ImportFileInput } from "medior/server/database";
-import { sharp } from "medior/utils/client";
-import { CONSTANTS, dayjs, handleErrors } from "medior/utils/common";
-import { getIsAnimated, makePerfLog } from "medior/utils/server";
+import { CONSTANTS, dayjs } from "medior/utils/common";
+import { getIsAnimated, makePerfLog, sharp } from "medior/utils/server";
 import { getVideoInfo, vidToThumbGrid } from "medior/utils/server/videos";
-
-export const checkFileExists = async (path: string) => !!(await fs.stat(path).catch(() => false));
-
-export const deleteFile = (path: string, copiedPath?: string) =>
-  handleErrors(async () => {
-    if (!(await checkFileExists(path))) return false;
-    if (copiedPath && !(await checkFileExists(copiedPath)))
-      throw new Error(
-        `Failed to delete ${path}. File does not exist at copied path ${copiedPath}.`,
-      );
-
-    await fs.unlink(path);
-    return true;
-  });
-
-export const extendFileName = (fileName: string, ext: string) =>
-  `${path.relative(".", fileName).replace(/\.\w+$/, "")}.${ext}`;
 
 export const genFileInfo = async (args: {
   file?: FileSchema;

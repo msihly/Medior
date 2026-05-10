@@ -1,8 +1,7 @@
-import { Comp, Icon, LoadingOverlay, Text, View } from "medior/components";
+import { Comp, LoadingOverlay } from "medior/components";
 import { useFileDrag } from "medior/components/files/hooks";
 import { File, FileSearch, useStores } from "medior/store";
-import { colors, CSS, openCarouselWindow, toast } from "medior/utils/client";
-import { CONSTANTS, Fmt, VideoCodec } from "medior/utils/common";
+import { CSS, openCarouselWindow, toast } from "medior/utils/client";
 import { FileBase } from ".";
 
 interface FileCardProps {
@@ -64,56 +63,13 @@ export const FileCard = Comp(({ disabled, file, height, id, store, width }: File
           >
             <FileBase.RatingChip position="top-left" rating={file.rating} />
 
-            <FileBase.Chip
-              position="top-right"
-              label={
-                <View row spacing="0.3em">
-                  {!file.isAnimated && (
-                    <Icon
-                      name="Face"
-                      size="1.2em"
-                      color={file.hasFaceModels ? colors.custom.blue : colors.custom.grey}
-                    />
-                  )}
+            <FileBase.ExtAndIcons position="top-right" file={file} />
 
-                  {file.isCorrupted && (
-                    <Icon name="Warning" size="1em" color={colors.custom.orange} />
-                  )}
-
-                  {file.diffusionParams?.length > 0 && (
-                    <Icon name="Notes" size="1em" color={colors.custom.blue} />
-                  )}
-
-                  <View row align="center">
-                    <Text>{file.ext}</Text>
-                    {!CONSTANTS.VIDEO_CODECS.includes(file.videoCodec as VideoCodec) ? null : (
-                      <Text color={colors.custom.lightGrey}>{`/${file.videoCodec}`}</Text>
-                    )}
-                  </View>
-                </View>
-              }
-            />
-
-            {file.duration && (
-              <FileBase.Chip
-                label={
-                  <View row spacing="0.3em">
-                    {file.audioCodec === "None" && <Icon name="VolumeOff" size="1em" />}
-                    <Text>{Fmt.duration(file.duration)}</Text>
-                  </View>
-                }
-                position="bottom-right"
-                hasFooter
-              />
-            )}
+            <FileBase.Duration position="bottom-right" file={file} hasFooter />
           </FileBase.Image>
 
           <FileBase.Footer>
-            {file.tags?.length > 0 ? (
-              <FileBase.Tags {...{ disabled }} tags={file.tags} />
-            ) : (
-              <View />
-            )}
+            <FileBase.Tags tags={file.tags} />
           </FileBase.Footer>
         </FileBase.Container>
       </FileBase.Tooltip>

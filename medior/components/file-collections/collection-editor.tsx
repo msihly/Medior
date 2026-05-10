@@ -17,7 +17,6 @@ import {
   Pagination,
   RatingButton,
   SortMenu,
-  SortMenuProps,
   TagRow,
   Text,
   View,
@@ -112,8 +111,6 @@ export const FileCollectionEditor = Comp(() => {
     store.setHasUnsavedChanges(true);
     store.setTitle(val);
   };
-
-  const setSortValue = (value: SortMenuProps["value"]) => store.setSortValue(value);
 
   const toggleAddingFiles = () => setIsAddingFiles((prev) => !prev);
 
@@ -242,7 +239,7 @@ export const FileCollectionEditor = Comp(() => {
 
               <SortMenu
                 value={store.search.sortValue}
-                setValue={setSortValue}
+                setValue={store.setSortValue}
                 rows={SORT_OPTIONS.FileCollectionFile}
                 width="100%"
               />
