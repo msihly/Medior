@@ -33,7 +33,7 @@ export const FileCollection = Comp(({ collection }: FileCollectionProps) => {
   };
 
   const handleDelete = async () => {
-    await stores.collection.editor.loadCollection(collection.id);
+    stores.collection.setIdsForConfirmDelete([collection.id]);
     stores.collection.setIsConfirmDeleteOpen(true);
   };
 

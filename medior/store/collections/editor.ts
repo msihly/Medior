@@ -1,15 +1,7 @@
 import autoBind from "auto-bind";
-import {
-  getRootStore,
-  Model,
-  model,
-  modelAction,
-  ModelCreationData,
-  modelFlow,
-  prop,
-} from "mobx-keystone";
+import { Model, model, modelAction, ModelCreationData, modelFlow, prop } from "mobx-keystone";
 import { SortMenuProps } from "medior/components";
-import { File, FileSearch, RootStore, Tag } from "medior/store";
+import { File, FileSearch, Tag } from "medior/store";
 import { asyncAction, toast } from "medior/utils/client";
 import { getConfig, trpc } from "medior/utils/server";
 import { FileCollection } from ".";
@@ -41,16 +33,15 @@ export class CollectionEditor extends Model({
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
   @modelAction
   setIsOpen(isOpen: boolean) {
-    const config = getConfig().collection.editor;
+    this.isOpen = isOpen;
+    if (!isOpen) this.setCollection(null);
 
+    const config = getConfig().collection.editor;
     this.fileSearch.reset();
     this.fileSearch.setPageSize(config.fileSearch.pageSize);
-
     this.search.reset();
     this.search.setPageSize(config.search.pageSize);
     this.search.setSortValue(config.search.sort);
-
-    this.isOpen = isOpen;
   }
 
   @modelAction
@@ -69,18 +60,6 @@ export class CollectionEditor extends Model({
     await this.fileSearch.loadFiltered();
     this.setIsLoading(false);
     toast.success("Collection updated");
-  });
-
-  @modelFlow
-  confirmDelete = asyncAction(async () => {
-    const stores = getRootStore<RootStore>(this);
-    const res = await stores.collection.deleteCollections([this.collection.id]);
-    if (!res.success) throw new Error("Failed to delete collection");
-    else {
-      this.setCollection(null);
-      this.setIsOpen(false);
-      toast.success("Collection deleted");
-    }
   });
 
   @modelFlow

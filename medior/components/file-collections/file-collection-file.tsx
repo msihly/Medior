@@ -30,8 +30,13 @@ export const FileCollectionFile = Comp(
       if (!res?.success) toast.error(res.error);
     };
 
-    const handleDoubleClick = () =>
-      openCarouselWindow({ file, selectedFileIds: stores.collection.editor.search.ids });
+    const handleDoubleClick = async () => {
+      if (!disabled) {
+        const res = await store.listIdsForCarousel();
+        if (!res?.success) console.error(res.error);
+        else openCarouselWindow({ file, selectedFileIds: res.data });
+      }
+    };
 
     return (
       <FileBase.ContextMenu {...{ disabled, file }} store={store}>

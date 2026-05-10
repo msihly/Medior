@@ -76,6 +76,13 @@ export class FileStore extends ExtendedModel(_FileStore, {
 
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */
   @modelFlow
+  archiveFiles = asyncAction(async (ids: string[]) => {
+    const res = await trpc.setFileIsArchived.mutate({ fileIds: ids, isArchived: true });
+    if (!res.success) throw new Error(`Error archiving files: ${res.error}`);
+    toast.warn(`${ids.length} files archived`);
+  });
+
+  @modelFlow
   confirmDeleteFiles = asyncAction(async (ids: string[]) => {
     this.setIdsForConfirmDelete([...ids]);
     const res = await trpc.listFile.mutate({ args: { filter: { id: ids } } });

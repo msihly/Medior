@@ -23,7 +23,7 @@ export const ExtCheckbox = Comp(({ configKey, ext, ...props }: ExtCheckboxProps)
       checked={extTypes?.includes(ext)}
       setChecked={handleChange}
       flex="inherit"
-      fullWidth={false}
+      width="auto"
       {...props}
     />
   );

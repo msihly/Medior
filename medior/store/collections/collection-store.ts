@@ -10,6 +10,7 @@ import { CollectionEditor, CollectionManager } from ".";
 export class FileCollectionStore extends Model({
   collectionFitMode: prop<"cover" | "contain">("contain").withSetter(),
   editor: prop<CollectionEditor>(() => new CollectionEditor({})),
+  idsForConfirmDelete: prop<string[]>(() => []).withSetter(),
   isConfirmDeleteOpen: prop<boolean>(false).withSetter(),
   manager: prop<CollectionManager>(() => new CollectionManager({})),
 }) {

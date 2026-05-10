@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import {
   Button,
   Card,
@@ -6,7 +6,6 @@ import {
   CenteredText,
   Chip,
   Comp,
-  ConfirmModal,
   FileCard,
   LoadingOverlay,
   Modal,
@@ -18,7 +17,7 @@ import {
 } from "medior/components";
 import { useStores } from "medior/store";
 import { colors, makeClasses, toast } from "medior/utils/client";
-import { CollectionFilterMenu, FileCollection } from ".";
+import { CollectionFilterMenu, DeleteCollectionModal, FileCollection } from ".";
 
 const FILE_CARD_HEIGHT = 250;
 
@@ -27,8 +26,6 @@ export const FileCollectionManager = Comp(() => {
   const store = stores.collection.manager;
 
   const { css } = useClasses(null);
-
-  const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
 
   const collsRef = useRef<HTMLDivElement>(null);
 
@@ -80,20 +77,10 @@ export const FileCollectionManager = Comp(() => {
     stores.file.search.reloadIfQueued();
   };
 
-  const handleConfirmDelete = async () => {
-    const res = await stores.collection.deleteCollections(store.search.selectedIds);
-
-    if (!res.success) {
-      toast.error(res.error);
-      return false;
-    } else {
-      setIsConfirmDeleteOpen(false);
-      store.search.loadFiltered({ page });
-      return true;
-    }
+  const handleDelete = () => {
+    stores.collection.setIdsForConfirmDelete([...store.search.selectedIds]);
+    store.setIsConfirmDeleteOpen(true);
   };
-
-  const handleDelete = () => setIsConfirmDeleteOpen(true);
 
   const handleFullPageLoad = () => store.search.loadFiltered({ withFullCount: true });
 
@@ -261,14 +248,7 @@ export const FileCollectionManager = Comp(() => {
         )}
       </Modal.Footer>
 
-      {isConfirmDeleteOpen && (
-        <ConfirmModal
-          headerText="Delete Collections"
-          subText={`Are you sure you want to delete the ${store.search.selectedIds.length} selected collections?`}
-          onConfirm={handleConfirmDelete}
-          setVisible={setIsConfirmDeleteOpen}
-        />
-      )}
+      {store.isConfirmDeleteOpen && <DeleteCollectionModal />}
     </Modal.Container>
   );
 });

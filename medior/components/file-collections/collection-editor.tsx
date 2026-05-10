@@ -64,7 +64,10 @@ export const FileCollectionEditor = Comp(() => {
     return true;
   };
 
-  const handleDelete = () => stores.collection.setIsConfirmDeleteOpen(true);
+  const handleDelete = () => {
+    stores.collection.setIdsForConfirmDelete([store.collection.id]);
+    stores.collection.setIsConfirmDeleteOpen(true);
+  };
 
   const handleDeselectAll = () => {
     store.search.toggleSelected(store.search.selectedIds.map((id) => ({ id, isSelected: false })));
@@ -138,7 +141,14 @@ export const FileCollectionEditor = Comp(() => {
               <RatingButton rating={store.collection?.rating} setRating={handleRating} />
 
               <MenuButton color={colors.custom.grey}>
-                <ListItem text="Delete" icon="Delete" onClick={handleDelete} />
+                <ListItem
+                  text="Delete"
+                  icon="Delete"
+                  onClick={handleDelete}
+                  color={colors.custom.red}
+                  iconProps={{ color: colors.custom.red }}
+                />
+
                 <ListItem text="Refresh Metadata" icon="Refresh" onClick={handleRefreshMeta} />
               </MenuButton>
             </View>

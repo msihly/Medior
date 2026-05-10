@@ -135,8 +135,8 @@ dependencies:
     specifier: ^4.6.2
     version: 4.7.5
   trabecula:
-    specifier: github:msihly/trabecula#031dee730550525347c85fce34c3f4df59b3ef90
-    version: github.com/msihly/trabecula/031dee730550525347c85fce34c3f4df59b3ef90(@emotion/cache@11.13.1)(@emotion/react@11.13.0)(@emotion/styled@11.13.0)(@mui/base@5.0.0-beta.40)(@mui/icons-material@5.14.19)(@mui/lab@5.0.0-alpha.134)(@mui/material@5.13.6)(@mui/styles@5.5.1)(@mui/x-date-pickers@6.19.9)(mobx-keystone@1.21.0)(mobx@6.13.1)(react-dom@17.0.2)(react@17.0.2)
+    specifier: github:msihly/trabecula#c97277cb8760daff4550cbb036e2c785e2a7acde
+    version: github.com/msihly/trabecula/c97277cb8760daff4550cbb036e2c785e2a7acde(@emotion/cache@11.13.1)(@emotion/react@11.13.0)(@emotion/styled@11.13.0)(@mui/base@5.0.0-beta.40)(@mui/icons-material@5.14.19)(@mui/lab@5.0.0-alpha.134)(@mui/material@5.13.6)(@mui/styles@5.5.1)(@mui/x-date-pickers@6.19.9)(mobx-keystone@1.21.0)(mobx@6.13.1)(react-dom@17.0.2)(react@17.0.2)
   trash:
     specifier: ^5.2.0
     version: 5.2.0
@@ -8703,9 +8703,9 @@ packages:
       readable-stream: 3.6.2
     dev: true
 
-  github.com/msihly/trabecula/031dee730550525347c85fce34c3f4df59b3ef90(@emotion/cache@11.13.1)(@emotion/react@11.13.0)(@emotion/styled@11.13.0)(@mui/base@5.0.0-beta.40)(@mui/icons-material@5.14.19)(@mui/lab@5.0.0-alpha.134)(@mui/material@5.13.6)(@mui/styles@5.5.1)(@mui/x-date-pickers@6.19.9)(mobx-keystone@1.21.0)(mobx@6.13.1)(react-dom@17.0.2)(react@17.0.2):
-    resolution: {tarball: https://codeload.github.com/msihly/trabecula/tar.gz/031dee730550525347c85fce34c3f4df59b3ef90}
-    id: github.com/msihly/trabecula/031dee730550525347c85fce34c3f4df59b3ef90
+  github.com/msihly/trabecula/c97277cb8760daff4550cbb036e2c785e2a7acde(@emotion/cache@11.13.1)(@emotion/react@11.13.0)(@emotion/styled@11.13.0)(@mui/base@5.0.0-beta.40)(@mui/icons-material@5.14.19)(@mui/lab@5.0.0-alpha.134)(@mui/material@5.13.6)(@mui/styles@5.5.1)(@mui/x-date-pickers@6.19.9)(mobx-keystone@1.21.0)(mobx@6.13.1)(react-dom@17.0.2)(react@17.0.2):
+    resolution: {tarball: https://codeload.github.com/msihly/trabecula/tar.gz/c97277cb8760daff4550cbb036e2c785e2a7acde}
+    id: github.com/msihly/trabecula/c97277cb8760daff4550cbb036e2c785e2a7acde
     name: trabecula
     version: 1.1.1
     prepare: true

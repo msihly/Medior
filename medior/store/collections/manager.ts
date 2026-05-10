@@ -8,7 +8,7 @@ import { FileCollection, FileCollectionSearch } from ".";
 @model("medior/CollectionManager")
 export class CollectionManager extends Model({
   currentCollections: prop<FileCollection[]>(() => []).withSetter(),
-  idsForConfirmDelete: prop<string[]>(() => []),
+  isConfirmDeleteOpen: prop<boolean>(false).withSetter(),
   isLoading: prop<boolean>(false).withSetter(),
   isOpen: prop<boolean>(false),
   search: prop<FileCollectionSearch>(() => new FileCollectionSearch({})).withSetter(),
@@ -25,6 +25,10 @@ export class CollectionManager extends Model({
     const stores = getRootStore<RootStore>(this);
     this.isOpen = isOpen;
     if (isOpen) stores.collection.editor.isOpen = false;
+
+    this.search.reset();
+    this.selectedFileIds = [];
+    this.selectedFiles = [];
   }
 
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */
