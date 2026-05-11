@@ -65,7 +65,7 @@ export const SettingsModal = Comp(() => {
       stores.file.clearRefreshQueue();
       stores.tag.manager.clearRefreshQueue();
 
-      await saveConfig(stores.home.settings.getConfig());
+      await saveConfig(await ipcRenderer.invoke("getConfigPath"), stores.home.settings.getConfig());
 
       stores.home.settings.setIsLoading(false);
       stores.home.settings.setHasUnsavedChanges(false);

@@ -1,4 +1,4 @@
-import { ReactNode, useEffect, useState } from "react";
+import { ReactNode, useEffect, useRef, useState } from "react";
 import { SORT_OPTIONS } from "medior/store/_generated";
 import {
   Button,
@@ -29,6 +29,8 @@ export const FileCollectionEditor = Comp(() => {
   const stores = useStores();
   const store = stores.collection.editor;
 
+  const filesRef = useRef<HTMLDivElement>(null);
+
   const { handleKeyPress } = useHotkeys({ view: "home" });
 
   const hasNoSelection = store.search.selectedIds.length === 0;
@@ -45,6 +47,11 @@ export const FileCollectionEditor = Comp(() => {
       store.fileSearch.reset();
     };
   }, []);
+
+  useEffect(() => {
+    scrollToTop();
+    if (store.search.page > store.search.pageCount) handlePageChange(store.search.pageCount);
+  }, [store.search.page, store.search.pageCount]);
 
   const confirmClose = () => {
     if (store.hasUnsavedChanges) setIsConfirmDiscardOpen(true);
@@ -114,6 +121,8 @@ export const FileCollectionEditor = Comp(() => {
     store.setHasUnsavedChanges(true);
     store.setTitle(val);
   };
+
+  const scrollToTop = () => filesRef.current?.scrollTo({ top: 0, behavior: "instant" });
 
   const toggleAddingFiles = () => setIsAddingFiles((prev) => !prev);
 
@@ -258,6 +267,7 @@ export const FileCollectionEditor = Comp(() => {
 
           <Card column flex={1} overflow="auto">
             <CardGrid
+              ref={filesRef}
               cards={store.search.results.map((f) => (
                 <FileCollectionFile key={f.id} file={f} store={store.search} />
               ))}

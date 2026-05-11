@@ -294,10 +294,9 @@ export const loadConfig = async (filePath: string) => {
   }
 };
 
-export const saveConfig = async (config: Config) => {
+export const saveConfig = async (configPath: string, config: Config) => {
   try {
     const newConfig = JSON.stringify({ ...DEFAULT_CONFIG, ...config }, null, 2);
-    const configPath = process.env.CONFIG_PATH;
     if (!configPath) throw new Error("No config path provided.");
     fileLog(`Saving config to ${configPath}...`);
     await fs.writeFile(configPath, newConfig);
