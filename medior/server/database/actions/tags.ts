@@ -109,15 +109,6 @@ export const deriveTagCategories = async (tags: models.TagSchema[]) => {
   }));
 };
 
-const deriveTagThumb = async (tagId: string): Promise<models.TagSchema["thumb"]> => {
-  const file = await models.FileModel.findOne({ tagIdsWithAncestors: tagId })
-    .sort({ dateCreated: 1 })
-    .select({ thumb: 1 })
-    .lean();
-
-  return file?.thumb;
-};
-
 const emitTagUpdates = (
   tagId: string,
   changedChildIds: { added: string[]; removed: string[] },
@@ -394,10 +385,7 @@ export const makeUniqueAncestorUpdates = ({
 
 export const regenTags = makeAction(
   async ({ tagIds, withSub = false }: { tagIds: string[]; withSub?: boolean }) => {
-    await Promise.all([
-      regenTagAncestors({ tagIds, withSub }),
-      tagIds.map((tagId) => regenTagThumbPaths({ tagId })),
-    ]);
+    await Promise.all([regenTagAncestors({ tagIds, withSub }), regenTagThumbPaths({ tagIds })]);
 
     await Promise.all([
       actions.regenCollTagAncestors({ tagIds }),
@@ -423,13 +411,35 @@ export const regenTagAncestors = makeAction(
   },
 );
 
-export const regenTagThumbPaths = makeAction(async ({ tagId }: { tagId: string }) => {
-  return models.TagModel.updateOne(
-    { _id: tagId },
+export const regenTagThumbPaths = makeAction(async ({ tagIds }: { tagIds: string[] }) => {
+  const thumbsByTagId = await models.FileModel.aggregate<{
+    _id: string;
+    thumb: models.TagSchema["thumb"];
+  }>([
+    { $match: { tagIdsWithAncestors: { $in: tagIds } } },
+    { $sort: { dateCreated: 1 } },
+    { $unwind: "$tagIdsWithAncestors" },
+    { $match: { tagIdsWithAncestors: { $in: tagIds } } },
     {
-      $unset: { thumbPaths: true },
-      $set: { thumb: await deriveTagThumb(tagId) },
+      $group: {
+        _id: "$tagIdsWithAncestors",
+        thumb: { $first: "$thumb" },
+      },
     },
+  ]);
+
+  const thumbMap = new Map(thumbsByTagId.map(({ _id, thumb }) => [_id, thumb]));
+
+  await models.TagModel.bulkWrite(
+    tagIds.map((tagId) => ({
+      updateOne: {
+        filter: { _id: objectId(tagId) },
+        update: {
+          $unset: { thumbPaths: true },
+          $set: { thumb: thumbMap.get(tagId) ?? null },
+        },
+      },
+    })),
   );
 });
 
@@ -571,7 +581,7 @@ export const editTag = makeAction(
 
       actions.regenCollTagAncestors({ tagIds: changedTagIds });
       actions.regenFileTagAncestors({ tagIds: changedTagIds });
-      regenTagThumbPaths({ tagId: id });
+      regenTagThumbPaths({ tagIds: changedTagIds });
       recalculateTagCounts({
         tagIds: [id, ...changedParentIds.added, ...changedParentIds.removed],
         withSub,
@@ -714,7 +724,7 @@ export const editMultiTagRelations = makeAction(
       actions.regenFileTagAncestors({ tagIds: changedTagIds }),
     ]);
 
-    for (const tagId of args.tagIds) regenTagThumbPaths({ tagId });
+    regenTagThumbPaths({ tagIds: changedTagIds });
     recalculateTagCounts({ tagIds: changedTagIds, withSub: false });
 
     return { bulkWriteRes, changedChildIds, changedParentIds, dateModified, errors };
@@ -853,18 +863,17 @@ export const mergeTags = makeAction(
       ]);
 
       if (args.withRegen) {
-        await regenTagAncestors({ tagIds: [args.tagIdToKeep, ...tagIdsToUpdate] });
+        const changedTagIds = [args.tagIdToKeep, ...tagIdsToUpdate];
+
+        await regenTagAncestors({ tagIds: changedTagIds });
 
         await Promise.all([
           actions.regenCollTagAncestors({ tagIds: [args.tagIdToKeep] }),
           actions.regenFileTagAncestors({ tagIds: [args.tagIdToKeep] }),
         ]);
 
-        regenTagThumbPaths({ tagId: args.tagIdToKeep });
-        recalculateTagCounts({
-          tagIds: [args.tagIdToKeep, ...tagIdsToUpdate],
-          withSub: false,
-        });
+        regenTagThumbPaths({ tagIds: changedTagIds });
+        recalculateTagCounts({ tagIds: changedTagIds, withSub: false });
       }
 
       if (args.withSub) {
@@ -1060,7 +1069,7 @@ export const refreshTag = makeAction(async ({ tagId }: { tagId: string }) => {
 
   await Promise.all([
     recalculateTagCounts({ tagIds: [tagId], withSub: false }),
-    regenTagThumbPaths({ tagId }),
+    regenTagThumbPaths({ tagIds: [tagId] }),
   ]);
 
   if (debug) perfLogTotal(`Refreshed tag ${tagId}`);

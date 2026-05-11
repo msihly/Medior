@@ -113,7 +113,7 @@ export const completeImportBatch = makeAction(
       ),
       tagIds.length && actions.regenFileTagAncestors({ fileIds }),
       tagIds.length && actions.recalculateTagCounts({ tagIds }),
-      ...tagIds.map((tagId) => actions.regenTagThumbPaths({ tagId })),
+      actions.regenTagThumbPaths({ tagIds }),
     ]);
 
     socket.emit("onImportBatchCompleted", { id: args.id });
@@ -250,7 +250,7 @@ export const reingestFolder = makeAction(
       const fileIds = args.fileTagIds.flatMap((f) => f.fileId);
       await actions.regenFileTagAncestors({ fileIds });
       await actions.recalculateTagCounts({ tagIds });
-      await Promise.all(tagIds.map((tagId) => actions.regenTagThumbPaths({ tagId })));
+      await actions.regenTagThumbPaths({ tagIds });
     }
 
     if (args.collectionTitle) {

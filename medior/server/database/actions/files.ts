@@ -9,7 +9,7 @@ import trash from "trash";
 import { SortValue } from "medior/store/_generated";
 import * as actions from "medior/server/database/actions";
 import { genFileInfo } from "medior/utils/client";
-import { CONSTANTS, dayjs, Fmt, PromiseQueue } from "medior/utils/common";
+import { CONSTANTS, dayjs, Fmt } from "medior/utils/common";
 import {
   checkFileExists,
   deleteFile,
@@ -87,38 +87,26 @@ export const regenFileTagAncestors = makeAction(
 /*                                API ENDPOINTS                               */
 /* -------------------------------------------------------------------------- */
 export const deleteFiles = makeAction(async (args: { fileIds: string[] }) => {
-  const collections = (
-    await models.FileCollectionModel.find({
-      fileIdIndexes: { $elemMatch: { fileId: { $in: args.fileIds } } },
-    }).lean()
-  ).map((c) => leanModelToJson<models.FileCollectionSchema>(c));
+  const collRes = await actions.listCollectionsByFileIds(args);
+  if (!collRes.success) throw new Error(collRes.error);
+  const collections = collRes.data;
 
   const fileIdSet = new Set(args.fileIds);
 
-  await Promise.all(
-    collections.map((collection) => {
-      const fileIdIndexes = collection.fileIdIndexes.filter(
-        (fileIdIndex) => !fileIdSet.has(String(fileIdIndex.fileId)),
-      );
-      if (!fileIdIndexes.length) return actions.deleteCollections({ ids: [collection.id] });
-      return actions.updateCollection({ fileIdIndexes, id: collection.id });
-    }),
-  );
+  for (const collection of collections) {
+    const fileIdIndexes = collection.fileIdIndexes.filter(
+      (fileIdIndex) => !fileIdSet.has(String(fileIdIndex.fileId)),
+    );
+    if (!fileIdIndexes.length) await actions.deleteCollections({ ids: [collection.id] });
+    else await actions.updateCollection({ fileIdIndexes, id: collection.id });
+  }
 
-  const files = (await models.FileModel.find({ _id: { $in: args.fileIds } }).lean()).map((f) =>
-    leanModelToJson<models.FileSchema>(f),
-  );
+  const filesRes = await actions.listFile({ args: { filter: { id: args.fileIds } } });
+  if (!filesRes.success) throw new Error(filesRes.error);
+  const files = filesRes.data.items;
 
   const fileHashes = files.map((f) => f.hash);
   const tagIds = [...new Set(files.flatMap((f) => f.tagIds))];
-
-  const deletedHashesBulkOps = fileHashes.map((hash) => ({
-    updateOne: {
-      filter: { hash },
-      update: { $setOnInsert: { hash } },
-      upsert: true,
-    },
-  }));
 
   for (const file of files) {
     await deleteFile(file.path);
@@ -127,13 +115,21 @@ export const deleteFiles = makeAction(async (args: { fileIds: string[] }) => {
 
   await Promise.all([
     models.FileModel.deleteMany({ _id: { $in: args.fileIds } }),
-    models.DeletedFileModel.bulkWrite(deletedHashesBulkOps),
+    models.DeletedFileModel.bulkWrite(
+      fileHashes.map((hash) => ({
+        updateOne: {
+          filter: { hash },
+          update: { $setOnInsert: { hash } },
+          upsert: true,
+        },
+      })),
+    ),
   ]);
 
   await Promise.all([
     actions.recalculateTagCounts({ tagIds }),
     actions.regenCollAttrs({ fileIds: args.fileIds }),
-    ...tagIds.map((tagId) => actions.regenTagThumbPaths({ tagId })),
+    actions.regenTagThumbPaths({ tagIds }),
   ]);
 
   socket.emit("onFilesDeleted", { fileHashes, fileIds: args.fileIds });
@@ -264,7 +260,7 @@ export const editFileTags = makeAction(
     await Promise.all([
       actions.recalculateTagCounts({ tagIds: changedTagIds, withSub }),
       actions.regenCollAttrs({ fileIds }),
-      ...changedTagIds.map((tagId) => actions.regenTagThumbPaths({ tagId })),
+      actions.regenTagThumbPaths({ tagIds: changedTagIds }),
     ]);
 
     if (withSub) socket.emit("onFileTagsUpdated", { addedTagIds, batchId, fileIds, removedTagIds });
@@ -796,11 +792,7 @@ class ThumbRepairer {
     this.perfLog(`Found ${this.tagCount} tags with old thumbPaths.`);
 
     if (this.tagCount > 0) {
-      const tagQueue = new PromiseQueue({ concurrency: 10 });
-      tags.forEach((tag) =>
-        tagQueue.add(async () => await actions.regenTagThumbPaths({ tagId: tag.id })),
-      );
-      await tagQueue.resolve();
+      await actions.regenTagThumbPaths({ tagIds: tags.map((t) => t.id) });
       this.perfLog("Regenerated thumb for affected tags.");
 
       const unsetRes = await models.TagModel.updateMany(
