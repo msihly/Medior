@@ -27,6 +27,8 @@ const createTRPCServer = async () => {
   });
 };
 
+Mongoose.connection.on("error", (err) => fileLog(`DB Error: ${err.message}`, { type: "error" }));
+
 process.on("message", async (msg: any) => {
   if (msg?.type === "start") {
     try {
@@ -38,9 +40,6 @@ process.on("message", async (msg: any) => {
 
       Mongoose.set("strictQuery", true);
       await Mongoose.connect(uri, { family: 4 });
-      Mongoose.connection.on("error", (err) =>
-        fileLog(`DB Error: ${err.message}`, { type: "error" }),
-      );
 
       fileLog("Connected to db.");
 
