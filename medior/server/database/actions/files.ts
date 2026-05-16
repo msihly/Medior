@@ -19,6 +19,7 @@ import {
   makePerfLog,
   objectId,
   objectIds,
+  removeEmptyFolders,
   sharp,
   socket,
 } from "medior/utils/server";
@@ -149,6 +150,8 @@ export const deleteFilesExternal = makeAction(async (args: { filePaths: string[]
     })),
   );
 
+  await trash(args.filePaths);
+
   const folders = new Set(
     args.filePaths
       .map((p) => path.dirname(p).split(path.sep))
@@ -156,7 +159,7 @@ export const deleteFilesExternal = makeAction(async (args: { filePaths: string[]
       .map((p) => p.join(path.sep)),
   );
 
-  for (const folder of folders) await trash(folder);
+  for (const folder of folders) await removeEmptyFolders(folder);
 });
 
 export const detectFaces = makeAction(async ({ imagePath }: { imagePath: string }) => {

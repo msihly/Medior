@@ -125,7 +125,7 @@ export const completeImportBatch = makeAction(
         });
         if (!res.success) throw new Error(res.error);
         if (res.data.items.length > 0) {
-          await removeEmptyFolders(batch.rootFolderPath);
+          await removeEmptyFolders(batch.rootFolderPath, { hardDelete: true });
           console.debug(`Removed empty folders: ${batch.rootFolderPath}`);
         }
       } catch (err) {

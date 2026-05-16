@@ -1,6 +1,7 @@
 import { promises as fs } from "fs";
 import path from "path";
 import { fdir } from "fdir";
+import trash from "trash";
 import { handleErrors } from "medior/utils/common";
 
 export const checkFileExists = async (path: string) => !!(await fs.stat(path).catch(() => false));
@@ -51,7 +52,7 @@ export const makeFolder = async (path: string) => await fs.mkdir(path, { recursi
 
 export const removeEmptyFolders = async (
   dirPath: string = ".",
-  options: { excludedPaths?: string[] } = {},
+  options: { excludedPaths?: string[]; hardDelete?: boolean } = {},
 ) => {
   const dirPathsParts = [...new Set([dirPath, ...(await dirToFolderPaths(dirPath))])]
     .filter((p) => !options.excludedPaths?.includes(p))
@@ -78,5 +79,9 @@ export const removeEmptyFolders = async (
     }
   }
 
-  await Promise.all([...rootDirsToEmpty].map((dir) => fs.rm(dir, { recursive: true })));
+  await Promise.all(
+    [...rootDirsToEmpty].map((dir) =>
+      options.hardDelete ? fs.rm(dir, { recursive: true }) : trash(dir),
+    ),
+  );
 };
