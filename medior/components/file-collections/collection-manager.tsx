@@ -79,7 +79,7 @@ export const FileCollectionManager = Comp(() => {
 
   const handleDelete = () => {
     stores.collection.setIdsForConfirmDelete([...store.search.selectedIds]);
-    store.setIsConfirmDeleteOpen(true);
+    stores.collection.setIsConfirmDeleteOpen(true);
   };
 
   const handleFullPageLoad = () => store.search.loadFiltered({ withFullCount: true });
@@ -201,19 +201,20 @@ export const FileCollectionManager = Comp(() => {
             </UniformList>
           }
         >
-          <View
-            ref={collsRef}
-            position="relative"
-            column
-            spacing="0.5rem"
-            overflow="auto"
-            padding={{ bottom: "5rem" }}
-          >
+          <View position="relative" overflow="auto">
             <LoadingOverlay isLoading={store.search.isLoading} />
 
-            {store.search.results.map((c) => (
-              <FileCollection key={c.id} collection={c} />
-            ))}
+            <View
+              ref={collsRef}
+              column
+              spacing="0.5rem"
+              overflow="auto"
+              padding={{ bottom: "5rem" }}
+            >
+              {store.search.results.map((c) => (
+                <FileCollection key={c.id} collection={c} />
+              ))}
+            </View>
           </View>
 
           <Pagination
