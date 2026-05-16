@@ -237,6 +237,9 @@ export type SetFileRatingOutput = ReturnType<typeof db.setFileRating>;
 export type RepairThumbsInput = Parameters<typeof db.repairThumbs>[0];
 export type RepairThumbsOutput = ReturnType<typeof db.repairThumbs>;
 
+export type _emitEventInput = Parameters<typeof db._emitEvent>[0];
+export type _emitEventOutput = ReturnType<typeof db._emitEvent>;
+
 export type DeriveAncestorTagIdsInput = Parameters<typeof db.deriveAncestorTagIds>[0];
 export type DeriveAncestorTagIdsOutput = ReturnType<typeof db.deriveAncestorTagIds>;
 

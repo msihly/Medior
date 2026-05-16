@@ -9,7 +9,7 @@ import trash from "trash";
 import { SortValue } from "medior/store/_generated";
 import * as actions from "medior/server/database/actions";
 import { genFileInfo } from "medior/utils/client";
-import { CONSTANTS, dayjs, Fmt } from "medior/utils/common";
+import { chunkArray, CONSTANTS, dayjs, Fmt } from "medior/utils/common";
 import {
   checkFileExists,
   deleteFile,
@@ -150,7 +150,8 @@ export const deleteFilesExternal = makeAction(async (args: { filePaths: string[]
     })),
   );
 
-  await trash(args.filePaths);
+  const chunks = chunkArray(args.filePaths, 200);
+  for (const chunk of chunks) await trash(chunk);
 
   const folders = new Set(
     args.filePaths

@@ -7,6 +7,7 @@ import { dayjs, handleErrors } from "medior/utils/common";
 import {
   checkFileExists,
   deleteFile,
+  emitEvent,
   extendFileName,
   fileLog,
   getAvailableFileStorage,
@@ -162,6 +163,8 @@ export class FileImporter {
     status: ImportStatus;
     success: boolean;
   }> => {
+    emitEvent("onFileImportStarted", { filePath: this.originalPath });
+
     try {
       await this.setTargetDir();
       await this.hashFile(this.originalPath);
@@ -189,7 +192,7 @@ export class FileImporter {
         if (this.isDuplicate) await this.updateDupeFile();
         if (this.deleteOnImport) await this.deleteOriginal();
         this.perfLogTotal("Duplicate file imported.");
-        fileLog(`Duplicate file: ${this.file.id}`);
+        if (DEBUG) fileLog(`Duplicate file: ${this.file.id}`);
         return { success: true, file: this.file, status: "DUPLICATE" };
       }
     }
@@ -199,7 +202,7 @@ export class FileImporter {
         await this.updateDupeFile();
         if (this.deleteOnImport) await this.deleteOriginal();
         this.perfLogTotal("Duplicate file imported.");
-        fileLog(`Duplicate file: ${this.file.id}`);
+        if (DEBUG) fileLog(`Duplicate file: ${this.file.id}`);
         return { success: true, file: this.file, status: "DUPLICATE" };
       } else if (this.getIsIgnored()) {
         if (this.deleteOnImport) await this.deleteOriginal();
@@ -212,7 +215,7 @@ export class FileImporter {
     } catch (err) {
       if (err.message.includes("duplicate key")) {
         this.perfLogTotal("File imported with duplicate hash error.");
-        fileLog(`Duplicate hash error: ${this.file.id}`);
+        fileLog(`Duplicate hash error: ${this.file.id}`, { type: "error" });
         return { success: true, file: this.file, status: "DUPLICATE" };
       } else {
         this.perfLogTotal("Failed to import file.");

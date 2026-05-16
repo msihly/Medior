@@ -1,9 +1,24 @@
 import { createTRPCProxyClient, httpBatchLink } from "@trpc/client";
-import { SocketEmitEvent, SocketEvents } from "medior/_generated/server/socket";
+import { SocketEmitEvent, SocketEmitEvents, SocketEvents } from "medior/_generated/server/socket";
 import { io, Socket } from "socket.io-client";
 import { ServerRouter } from "medior/server/trpc";
 import { fileLog, getConfig } from "medior/utils/server";
 
+/* -------------------------------------------------------------------------- */
+/*                                    TRPC                                    */
+/* -------------------------------------------------------------------------- */
+export let trpc: ReturnType<typeof createTRPCProxyClient<ServerRouter>>;
+
+export const setupTRPC = () => {
+  // @ts-expect-error
+  trpc = createTRPCProxyClient<ServerRouter>({
+    links: [httpBatchLink({ url: `http://localhost:${getConfig().ports.server}` })],
+  });
+};
+
+/* -------------------------------------------------------------------------- */
+/*                                   SOCKETS                                  */
+/* -------------------------------------------------------------------------- */
 class SocketClass {
   private socket: Socket;
   private port: number;
@@ -93,11 +108,7 @@ class SocketClass {
 
 export const socket = new SocketClass();
 
-export let trpc: ReturnType<typeof createTRPCProxyClient<ServerRouter>>;
-
-export const setupTRPC = () => {
-  // @ts-expect-error
-  trpc = createTRPCProxyClient<ServerRouter>({
-    links: [httpBatchLink({ url: `http://localhost:${getConfig().ports.server}` })],
-  });
-};
+export const emitEvent = <E extends SocketEmitEvent>(
+  event: E,
+  data: Parameters<SocketEmitEvents[E]>[0],
+) => trpc._emitEvent.mutate({ event, data });

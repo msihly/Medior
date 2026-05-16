@@ -145,8 +145,6 @@ export const completeImportBatch = makeAction(
 
 export const copyFile = makeAction(
   async (args: { dirPath: string; originalPath: string; newPath: string }) => {
-    socket.emit("onFileImportStarted", { filePath: args.originalPath });
-
     if (await checkFileExists(args.newPath)) return false;
     await fs.mkdir(args.dirPath, { recursive: true });
 
@@ -370,8 +368,11 @@ export const updateFileImportByPath = makeAction(
       { arrayFilters: [{ "fileImport.path": args.filePath }] },
     );
 
-    if (res?.matchedCount !== res?.modifiedCount)
-      throw new Error("Failed to update file import by path");
+    if (res?.matchedCount !== res?.modifiedCount) {
+      const errorMsg = "Failed to update file import";
+      socket.emit("onFileImportUpdated", { ...args, status: "ERROR", errorMsg });
+      throw new Error(errorMsg);
+    }
 
     socket.emit("onFileImportUpdated", args);
   },

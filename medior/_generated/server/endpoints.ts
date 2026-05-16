@@ -47,6 +47,7 @@ export const serverRouter = trpc.router({
   listFilteredFileImportBatch: serverEndpoint(db.listFilteredFileImportBatch),
   listFilteredTag: serverEndpoint(db.listFilteredTag),
   /** Custom actions */
+  _emitEvent: serverEndpoint(db._emitEvent),
   addFilesToCollection: serverEndpoint(db.addFilesToCollection),
   checkFileImportHashes: serverEndpoint(db.checkFileImportHashes),
   completeImportBatch: serverEndpoint(db.completeImportBatch),
