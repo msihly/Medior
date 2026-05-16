@@ -9,6 +9,7 @@ import {
   getAvailableFileStorage,
   getConfig,
   makePerfLog,
+  sharp,
 } from "medior/utils/server";
 
 export type FfmpegOptions = {
@@ -401,48 +402,104 @@ export const vidToThumbGrid = async (inputPath: string, outputPath: string, file
   try {
     if (DEBUG) perfLog(`Generating thumbnail grid for: ${inputPath}`);
 
-    const { duration, height, width } = await getVideoInfo(inputPath);
+    const { duration, frameRate, height, width } = await getVideoInfo(inputPath);
+    if (DEBUG) perfLog(`Video duration: ${duration}`);
 
+    const numOfFrames = 9;
     const scaled = getScaledThumbSize(width, height);
-
     const skipDuration = duration * CONSTANTS.FILE.THUMB.FRAME_SKIP_PERCENT;
-    const usableDuration = duration - skipDuration;
+    const frameInterval = (duration - skipDuration) / numOfFrames;
+    const timestamps = Array.from(
+      { length: numOfFrames },
+      (_, idx) => idx * frameInterval + skipDuration,
+    );
+    const frames = timestamps.map((t) => Math.floor(t * frameRate));
+    const tempPaths = frames.map((_, i) => path.resolve(outputPath, `${fileHash}-thumb-${i}.jpg`));
+    if (DEBUG) perfLog(`Frames: ${JSON.stringify(timestamps.map((t, i) => [i, t, frames[i]]))}`);
 
-    const numFrames = 9;
-    const interval = usableDuration / numFrames;
+    for (let idx = 0; idx < timestamps.length; idx++) {
+      const timestamp = timestamps[idx];
+      const temp = tempPaths[idx];
 
-    const fps = 1 / interval;
+      await new Promise<void>((resolve) => {
+        ffmpeg()
+          .input(inputPath)
+          .inputOptions([`-ss ${timestamp}`])
+          .outputOptions(["-vf", `scale=${scaled.width}:${scaled.height}`, "-frames:v", "1"])
+          .output(temp)
+          .on("end", () => resolve())
+          .on("error", (err) => {
+            console.error(`Error generating thumbnail for timestamp ${timestamp}: ${err}`);
+            isCorrupted = true;
+            resolve();
+          })
+          .run();
+      });
+    }
 
-    if (DEBUG) perfLog(`Using fps=${fps}`);
+    const validTempPaths: string[] = [];
+    const compositeInputs = await Promise.all(
+      tempPaths.map(async (tempPath) => {
+        if (!(await checkFileExists(tempPath))) {
+          console.error(`Corrupted file. Failed to generate thumb temp frame: ${tempPath}`);
+          isCorrupted = true;
+          return null;
+        } else {
+          validTempPaths.push(tempPath);
+          return tempPath;
+        }
+      }),
+    );
 
-    await new Promise<void>((resolve, reject) => {
-      ffmpeg()
-        .input(inputPath)
-        .inputOptions([
-          `-ss ${skipDuration}`,
-          "-analyzeduration 10M",
-          "-probesize 10M",
-          "-err_detect ignore_err",
-        ])
-        .outputOptions([
-          "-threads 1",
-          "-fflags +discardcorrupt",
-          "-vsync vfr",
-          `-vf fps=${fps},scale=${scaled.width}:${scaled.height},tile=3x3`,
-          "-frames:v 1",
-          "-q:v 2",
-        ])
-        .output(gridPath)
-        .on("end", () => resolve())
-        .on("error", reject)
-        .run();
-    });
+    try {
+      const channels = 4;
+      const colCount = 3;
+      const rowCount = 3;
+      const gridWidth = scaled.width * colCount;
+      const gridHeight = scaled.height * rowCount;
+      const compositeArray = compositeInputs
+        .map((input, idx) => {
+          if (input === null) return;
+          const row = Math.floor(idx / rowCount);
+          const col = idx % colCount;
+          return { input, left: col * scaled.width, top: row * scaled.height };
+        })
+        .filter(Boolean);
+
+      const blankCanvas = Buffer.from(new Array(gridWidth * gridHeight * channels).fill(0));
+
+      const result = await sharp(blankCanvas, {
+        raw: { channels, height: gridHeight, width: gridWidth },
+      })
+        .composite(compositeArray)
+        .jpeg()
+        .toFile(gridPath);
+
+      if (DEBUG) perfLog(`Grid created successfully: ${result}`);
+    } catch (error) {
+      isCorrupted = true;
+      throw new Error(`Error creating thumb grid: ${error.message}`);
+    } finally {
+      const res = await Promise.all(
+        validTempPaths.map((p) =>
+          fs
+            .unlink(p)
+            .then(() => true)
+            .catch(() => false),
+        ),
+      );
+      if (DEBUG) perfLog(`Unlink res: ${res.join(", ")}`);
+      if (res.some((v) => !v)) {
+        isCorrupted = true;
+        console.error(`Corrupted file: ${inputPath}`);
+      }
+    }
 
     if (DEBUG) perfLogTotal(`Thumbnail grid generated: ${gridPath}`);
   } catch (err) {
     isCorrupted = true;
     console.error(err);
+  } finally {
+    return { isCorrupted, path: gridPath };
   }
-
-  return { isCorrupted, path: gridPath };
 };

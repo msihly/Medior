@@ -811,7 +811,7 @@ class ThumbRepairer {
   private regenThumbs = async (file: models.FileSchema, skipThumbs = false) => {
     const info = await genFileInfo({ file, filePath: file.path, hash: file.hash, skipThumbs });
     this.thumbMap.set(file.id, info.thumb);
-    const res = await actions.updateFile({ args: { id: file.id, updates: { thumb: info.thumb } } });
+    const res = await actions.updateFile({ args: { id: file.id, updates: info } });
     if (!res.success) throw new Error(`Failed to update file: ${res.error}`);
   };
 

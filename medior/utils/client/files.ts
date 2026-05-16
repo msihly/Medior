@@ -17,7 +17,7 @@ export const genFileInfo = async (args: {
   const ext = args.filePath.split(".").pop().toLowerCase();
   const isAnimated = getIsAnimated(ext);
 
-  let isCorrupted: boolean;
+  let isCorrupted = false;
   const stats = await fs.stat(args?.filePath);
   const imageInfo = !isAnimated ? await sharp(args.filePath).metadata() : null;
   const videoInfo = isAnimated ? await getVideoInfo(args.filePath) : null;
