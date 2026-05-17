@@ -57,39 +57,47 @@ export const ImportListItem = Comp(
     const statusMeta = IMPORT_STATUSES[fileImport.status as ImportStatus];
 
     return (
-      <View key={fileImport.path} bgColor={bgColor} className={css.root} {...{ style }}>
-        <View row spacing="1rem">
-          {!noStatus && statusMeta ? (
-            <Tooltip
-              title={
-                <View column spacing="0.5rem">
-                  <Text color={statusMeta.color} fontWeight={500}>
-                    {statusMeta.label}
-                  </Text>
+      <View
+        key={fileImport.path}
+        row
+        align="center"
+        justify="space-between"
+        padding={{ all: "0 0.5rem" }}
+        bgColor={bgColor}
+        spacing="0.5rem"
+        {...{ style }}
+      >
+        {!noStatus && statusMeta ? (
+          <Tooltip
+            borderColor={statusMeta.color}
+            title={
+              <View column spacing="0.5rem">
+                <Text color={statusMeta.color} fontWeight={500}>
+                  {statusMeta.label}
+                </Text>
 
-                  {fileImport?.errorMsg && <Text>{fileImport?.errorMsg}</Text>}
+                {fileImport?.errorMsg && <Text>{fileImport?.errorMsg}</Text>}
 
-                  {fileImport?.fileId && <IdButton value={fileImport?.fileId} />}
-                </View>
-              }
-              borderColor={statusMeta.color}
-            >
-              <Icon name={statusMeta.icon} color={statusMeta.color} margins={{ right: "0.5rem" }} />
-            </Tooltip>
-          ) : null}
-
-          <Text
-            tooltip={fileImport.path}
-            tooltipProps={{
-              enterDelay: CONSTANTS.TOOLTIP.ENTER_DELAY,
-              enterNextDelay: CONSTANTS.TOOLTIP.ENTER_NEXT_DELAY,
-              flexShrink: "inherit",
-            }}
-            className={css.name}
+                {fileImport?.fileId && <IdButton value={fileImport?.fileId} />}
+              </View>
+            }
           >
-            {fileImport.name}
-          </Text>
-        </View>
+            <Icon name={statusMeta.icon} color={statusMeta.color} />
+          </Tooltip>
+        ) : null}
+
+        <Text
+          tooltip={fileImport.path}
+          tooltipProps={{
+            enterDelay: CONSTANTS.TOOLTIP.ENTER_DELAY,
+            enterNextDelay: CONSTANTS.TOOLTIP.ENTER_NEXT_DELAY,
+            flexShrink: "inherit",
+            viewProps: { width: "100%" },
+          }}
+          className={css.name}
+        >
+          {fileImport.name}
+        </Text>
 
         <View row spacing="0.5rem">
           {(fileImport.tagIds?.length > 0 || fileImport.tagsToUpsert?.length > 0) && (
@@ -213,17 +221,8 @@ const useClasses = makeClasses({
     minWidth: "4em",
   },
   name: {
-    flex: "none",
-    width: "-webkit-fill-available",
     textOverflow: "ellipsis",
     textWrap: "nowrap",
-  },
-  root: {
-    display: "flex",
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    padding: "0 0.5rem",
   },
   tooltipTitle: {
     marginBottom: "0.2rem",

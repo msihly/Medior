@@ -1,5 +1,4 @@
 import { useEffect } from "react";
-import { sleep } from "trabecula/utils/common";
 import { Comp, SettingsModal, View } from "medior/components";
 import { useStores } from "medior/store";
 import { makeClasses } from "medior/utils/client";
@@ -17,8 +16,7 @@ export const HomeWindow = Comp(() => {
       try {
         document.title = "Medior —— Home";
         await stores.file.search.loadFiltered({ noCache: true, page: 1 });
-        await sleep(2000);
-        await stores.import.manager.runImporter();
+        await stores.import.manager.runImporter(true);
       } catch (err) {
         console.error(err);
       }
