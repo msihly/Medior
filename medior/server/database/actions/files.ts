@@ -60,26 +60,31 @@ export const regenFileTagAncestors = makeAction(
         .select({ _id: 1, tagIds: 1, tagIdsWithAncestors: 1 })
         .lean()
     ).map(leanModelToJson<models.FileSchema>);
-
     if (debug) perfLog(`Loaded files (${files.length})`);
 
     const ancestorsMap = await actions.makeAncestorIdsMap(files.flatMap((f) => f.tagIds));
-
     if (debug) perfLog(`Loaded ancestorsMap (${Object.keys(ancestorsMap).length})`);
 
-    await Promise.all(
-      files.map(async (f) => {
-        const { hasUpdates, tagIdsWithAncestors } = actions.makeUniqueAncestorUpdates({
-          ancestorsMap,
-          oldTagIdsWithAncestors: f.tagIdsWithAncestors,
-          tagIds: f.tagIds,
-        });
+    const updates: AnyBulkWriteOperation<models.FileSchema>[] = files.flatMap((f) => {
+      const { hasUpdates, tagIdsWithAncestors } = actions.makeUniqueAncestorUpdates({
+        ancestorsMap,
+        oldTagIdsWithAncestors: f.tagIdsWithAncestors,
+        tagIds: f.tagIds,
+      });
 
-        if (!hasUpdates) return;
-        await models.FileModel.updateOne({ _id: f.id }, { $set: { tagIdsWithAncestors } });
-      }),
-    );
+      return !hasUpdates
+        ? []
+        : [
+            {
+              updateOne: {
+                filter: { _id: objectId(f.id) },
+                update: { $set: { tagIdsWithAncestors } },
+              },
+            },
+          ];
+    });
 
+    if (updates.length > 0) await models.FileModel.bulkWrite(updates, { ordered: false });
     if (debug) perfLogTotal("Updated file tag ancestors");
   },
 );
@@ -127,11 +132,9 @@ export const deleteFiles = makeAction(async (args: { fileIds: string[] }) => {
     ),
   ]);
 
-  await Promise.all([
-    actions.recalculateTagCounts({ tagIds }),
-    actions.regenCollAttrs({ fileIds: args.fileIds }),
-    actions.regenTagThumbPaths({ tagIds }),
-  ]);
+  actions.recalculateTagCounts({ tagIds });
+  actions.regenCollAttrs({ fileIds: args.fileIds });
+  actions.regenTagThumbPaths({ tagIds });
 
   socket.emit("onFilesDeleted", { fileHashes, fileIds: args.fileIds });
 });
@@ -261,11 +264,9 @@ export const editFileTags = makeAction(
     await regenFileTagAncestors({ fileIds });
 
     const changedTagIds = [...new Set([...addedTagIds, ...removedTagIds])];
-    await Promise.all([
-      actions.recalculateTagCounts({ tagIds: changedTagIds, withSub }),
-      actions.regenCollAttrs({ fileIds }),
-      actions.regenTagThumbPaths({ tagIds: changedTagIds }),
-    ]);
+    actions.recalculateTagCounts({ tagIds: changedTagIds, withSub });
+    actions.regenCollAttrs({ fileIds });
+    actions.regenTagThumbPaths({ tagIds: changedTagIds });
 
     if (withSub) socket.emit("onFileTagsUpdated", { addedTagIds, batchId, fileIds, removedTagIds });
   },
@@ -600,7 +601,7 @@ export const setFileRating = makeAction(async (args: { fileIds: string[]; rating
   await models.FileModel.updateMany({ _id: { $in: args.fileIds } }, updates);
   socket.emit("onFilesUpdated", { fileIds: args.fileIds, updates });
 
-  await actions.regenCollAttrs({ fileIds: args.fileIds });
+  actions.regenCollAttrs({ fileIds: args.fileIds });
 });
 
 /* ----------------------------------------------------------------------- */

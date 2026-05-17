@@ -26,8 +26,8 @@ export class ImportManager extends Model({
           this.setIsLoading(true);
           this.search.reset();
         } else {
+          this.loadActiveBatch();
           this.search.loadFiltered({ page: 1 });
-          this.runImporter();
         }
       },
     );

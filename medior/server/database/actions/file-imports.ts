@@ -106,17 +106,17 @@ export const completeImportBatch = makeAction(
       if (!res.success) throw new Error(`Failed to update duplicate file tags: ${res.error}`);
     }
 
-    await Promise.all([
-      models.FileImportBatchModel.updateOne(
-        { _id: args.id },
-        { collectionId, completedAt, isCompleted: true },
-      ),
-      tagIds.length && actions.regenFileTagAncestors({ fileIds }),
-      tagIds.length && actions.recalculateTagCounts({ tagIds }),
-      actions.regenTagThumbPaths({ tagIds }),
-    ]);
-
+    await models.FileImportBatchModel.updateOne(
+      { _id: args.id },
+      { collectionId, completedAt, isCompleted: true },
+    );
     socket.emit("onImportBatchCompleted", { id: args.id });
+
+    if (tagIds.length) {
+      actions.regenFileTagAncestors({ fileIds });
+      actions.recalculateTagCounts({ tagIds });
+      actions.regenTagThumbPaths({ tagIds });
+    }
 
     if (batch.deleteOnImport) {
       try {

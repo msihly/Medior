@@ -63,11 +63,15 @@ export const removeEmptyFolders = async (
     .map((p) => p.join(path.sep));
 
   const emptyFolders = new Set<string>();
-  await Promise.all(
-    dirPathsDeepToShallow.map(async (dir) => {
-      if ((await dirToFilePaths(dir)).length === 0) emptyFolders.add(dir);
-    }),
-  );
+  for (const dir of dirPathsDeepToShallow) {
+    const entries = await fs.readdir(dir, { withFileTypes: true });
+    const hasFiles = entries.some((e) => !e.isDirectory());
+    const hasNonEmptySubdirs = entries
+      .filter((e) => e.isDirectory())
+      .some((e) => !emptyFolders.has(path.join(dir, e.name)));
+
+    if (!hasFiles && !hasNonEmptySubdirs) emptyFolders.add(dir);
+  }
 
   const rootDirsToEmpty = new Set<string>();
   for (const dir of dirPathsDeepToShallow) {
