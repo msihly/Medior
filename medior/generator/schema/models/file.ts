@@ -10,6 +10,12 @@ model.addProp("audioCodec", "string");
 model.addIndex({ bitrate: 1, _id: 1 });
 model.addProp("bitrate", "number", { sort: { icon: "DataThresholding", label: "Bitrate" } });
 
+model.addIndex({ dateImported: 1, _id: 1 });
+model.addProp("dateImported", "string", {
+  required: true,
+  sort: { icon: "DateRange", label: "Date Imported" },
+});
+
 model.addIndex({ dateModified: 1, _id: 1 });
 model.addProp("dateModified", "string", {
   required: true,

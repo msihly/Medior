@@ -356,6 +356,8 @@ export type CreateFileFilterPipelineInput = {
   bitrate?: { logOp: LogicalOp | ""; value: number };
   dateCreatedEnd?: string;
   dateCreatedStart?: string;
+  dateImportedEnd?: string;
+  dateImportedStart?: string;
   dateModifiedEnd?: string;
   dateModifiedStart?: string;
   duration?: { logOp: LogicalOp | ""; value: number };
@@ -396,6 +398,10 @@ export const createFileFilterPipeline = (args: CreateFileFilterPipelineInput) =>
     setObj($match, ["dateCreated", "$lte"], args.dateCreatedEnd);
   if (!isDeepEqual(args.dateCreatedStart, ""))
     setObj($match, ["dateCreated", "$gte"], args.dateCreatedStart);
+  if (!isDeepEqual(args.dateImportedEnd, ""))
+    setObj($match, ["dateImported", "$lte"], args.dateImportedEnd);
+  if (!isDeepEqual(args.dateImportedStart, ""))
+    setObj($match, ["dateImported", "$gte"], args.dateImportedStart);
   if (!isDeepEqual(args.dateModifiedEnd, ""))
     setObj($match, ["dateModified", "$lte"], args.dateModifiedEnd);
   if (!isDeepEqual(args.dateModifiedStart, ""))

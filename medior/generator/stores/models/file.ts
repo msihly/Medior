@@ -7,6 +7,7 @@ const model = new ModelStore("File", {
 });
 
 model.addDateRangeProp("dateCreated");
+model.addDateRangeProp("dateImported");
 model.addDateRangeProp("dateModified");
 
 model.addNumRangeProp("height");

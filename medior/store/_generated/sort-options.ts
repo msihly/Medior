@@ -36,6 +36,7 @@ const MODEL_SORT_OPTIONS: Record<ModelSortName, SortOption[]> = {
   File: [
     { attribute: "bitrate", icon: "DataThresholding", label: "Bitrate" },
     { attribute: "dateCreated", icon: "DateRange", label: "Date Created" },
+    { attribute: "dateImported", icon: "DateRange", label: "Date Imported" },
     { attribute: "dateModified", icon: "DateRange", label: "Date Modified" },
     { attribute: "duration", icon: "HourglassBottom", label: "Duration" },
     { attribute: "height", icon: "Height", label: "Height" },

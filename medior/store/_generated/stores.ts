@@ -627,6 +627,8 @@ export class _FileSearch extends Model({
   cachedFilterProps: prop<object | null>(null).withSetter(),
   dateCreatedEnd: prop<string>("").withSetter(),
   dateCreatedStart: prop<string>("").withSetter(),
+  dateImportedEnd: prop<string>("").withSetter(),
+  dateImportedStart: prop<string>("").withSetter(),
   dateModifiedEnd: prop<string>("").withSetter(),
   dateModifiedStart: prop<string>("").withSetter(),
   duration: prop<{ logOp: LogicalOp | ""; value: number }>(() => ({ logOp: "", value: 0 })),
@@ -703,6 +705,8 @@ export class _FileSearch extends Model({
     this.cachedFilterProps = null;
     this.dateCreatedEnd = "";
     this.dateCreatedStart = "";
+    this.dateImportedEnd = "";
+    this.dateImportedStart = "";
     this.dateModifiedEnd = "";
     this.dateModifiedStart = "";
     this.duration = { logOp: "", value: 0 };
@@ -989,6 +993,8 @@ export class _FileSearch extends Model({
       (!isDeepEqual(this.bitrate, { logOp: "", value: 0 }) ? 1 : 0) +
       (!isDeepEqual(this.dateCreatedEnd, "") ? 1 : 0) +
       (!isDeepEqual(this.dateCreatedStart, "") ? 1 : 0) +
+      (!isDeepEqual(this.dateImportedEnd, "") ? 1 : 0) +
+      (!isDeepEqual(this.dateImportedStart, "") ? 1 : 0) +
       (!isDeepEqual(this.dateModifiedEnd, "") ? 1 : 0) +
       (!isDeepEqual(this.dateModifiedStart, "") ? 1 : 0) +
       (!isDeepEqual(this.duration, { logOp: "", value: 0 }) ? 1 : 0) +
@@ -1056,6 +1062,8 @@ export class _FileSearch extends Model({
       bitrate: this.bitrate,
       dateCreatedEnd: this.dateCreatedEnd,
       dateCreatedStart: this.dateCreatedStart,
+      dateImportedEnd: this.dateImportedEnd,
+      dateImportedStart: this.dateImportedStart,
       dateModifiedEnd: this.dateModifiedEnd,
       dateModifiedStart: this.dateModifiedStart,
       duration: this.duration,
@@ -1562,6 +1570,7 @@ export class _File extends Model({
   audioBitrate: prop<number>(null),
   audioCodec: prop<string>(null),
   bitrate: prop<number>(null),
+  dateImported: prop<string>(),
   dateModified: prop<string>(),
   diffusionParams: prop<string>(null),
   duration: prop<number>(null),

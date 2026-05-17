@@ -175,6 +175,7 @@ export interface FileSchema {
   audioBitrate?: number;
   audioCodec?: string;
   bitrate?: number;
+  dateImported: string;
   dateModified: string;
   diffusionParams?: string;
   duration?: number;
@@ -209,6 +210,7 @@ const FileSchema = new Schema<FileSchema>({
   audioBitrate: Number,
   audioCodec: String,
   bitrate: Number,
+  dateImported: String,
   dateModified: String,
   diffusionParams: String,
   duration: Number,
@@ -247,6 +249,7 @@ const FileSchema = new Schema<FileSchema>({
 FileSchema.index({ dateCreated: 1, _id: 1 }, { unique: true });
 FileSchema.index({ audioCodec: 1, _id: 1 }, { unique: true });
 FileSchema.index({ bitrate: 1, _id: 1 }, { unique: true });
+FileSchema.index({ dateImported: 1, _id: 1 }, { unique: true });
 FileSchema.index({ dateModified: 1, _id: 1 }, { unique: true });
 FileSchema.index({ duration: 1, _id: 1 }, { unique: true });
 FileSchema.index({ ext: 1, _id: 1 }, { unique: true });

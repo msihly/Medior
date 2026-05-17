@@ -93,6 +93,7 @@ export class FileImporter {
     const res = await trpc.importFile.mutate({
       ...(await genFileInfo({ file, filePath: this.getFilePath(), hash: this.hash })),
       dateCreated: this.dateCreated,
+      dateImported: dayjs().toISOString(),
       diffusionParams: this.diffParams,
       originalHash: this.originalHash,
       originalName: this.originalName,
