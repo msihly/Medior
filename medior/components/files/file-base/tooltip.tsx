@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import {
   Card,
   Comp,
@@ -21,11 +22,24 @@ interface TooltipProps {
 }
 
 export const Tooltip = Comp(({ children, disabled, file }: TooltipProps) => {
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    const handleScroll = () => setOpen(false);
+    window.addEventListener("scroll", handleScroll, true);
+    return () => window.removeEventListener("scroll", handleScroll, true);
+  }, [open]);
+
   return (
     <TooltipBase
+      open={open}
+      onOpen={() => setOpen(true)}
+      onClose={() => setOpen(false)}
       enterDelay={CONSTANTS.TOOLTIP.ENTER_DELAY}
       enterNextDelay={CONSTANTS.TOOLTIP.ENTER_NEXT_DELAY}
       minWidth="15rem"
+      viewProps={{ column: true, width: "100%" }}
       title={
         <View column padding={{ all: "0.3rem" }} spacing="0.5rem">
           {file.isCorrupted && (
@@ -66,9 +80,7 @@ export const Tooltip = Comp(({ children, disabled, file }: TooltipProps) => {
         </View>
       }
     >
-      <View column width="100%">
-        {children}
-      </View>
+      {children}
     </TooltipBase>
   );
 });
