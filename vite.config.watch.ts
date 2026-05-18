@@ -3,6 +3,7 @@ import pluginReact from "@vitejs/plugin-react";
 import pluginRenderer from "vite-plugin-electron-renderer";
 import pluginSVGR from "vite-plugin-svgr";
 import pluginTsconfigPaths from "vite-tsconfig-paths";
+import { exec } from "child_process";
 
 const EXTERNALS = [
   "@tensorflow/tfjs-node",
@@ -45,8 +46,10 @@ export default defineConfig({
       enforce: "post",
       async writeBundle() {
         if (isInitialBuild) {
-          const { exec } = await import("child_process");
-          exec("electron .");
+          const child = exec("electron .", { cwd: process.cwd() });
+          child.stdout?.pipe(process.stdout);
+          child.stderr?.pipe(process.stderr);
+          child.on("error", (err) => console.error("Electron launch error:", err));
           isInitialBuild = false;
         }
       },

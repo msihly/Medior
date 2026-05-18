@@ -12,11 +12,11 @@
     "build": "pnpm run pre-build && vite build",
     "check": "pnpm run ts-check && pnpm run lint && pnpm run prettier",
     "check-fix": "pnpm run lint-fix && pnpm run prettier-fix",
-    "copy-files": "pnpx copyfiles -f medior/face-models/**/* extraResources/face-models && pnpx copyfiles extraResources/**/* build",
+    "copy-files": "copyfiles -f medior/face-models/**/* extraResources/face-models && copyfiles extraResources/**/* build",
     "dev": "SET BUILD_DEV=true&& pnpm run pre-build && vite build --mode development --config ./vite.config.watch.ts",
-    "dist": "rimraf build dist extraResources && pnpm run build && pnpm run electron-build && pnpx copyfiles config.json dist/win-unpacked",
+    "dist": "rimraf build dist extraResources && pnpm run build && pnpm run electron-build && copyfiles config.json dist/win-unpacked",
     "electron-build": "electron-builder build --dir --win --publish never",
-    "gen": "pnpx tsx medior/generator/generator.ts",
+    "gen": "tsx medior/generator/generator.ts",
     "hmr": "SET HMR=true&& SET BROWSER=none&& pnpm run pre-build && concurrently --kill-others \"vite --config ./vite.config.hmr.ts\" \"electron .\"",
     "kill-ports": "kill-port 3333 3334 3335",
     "lint": "eslint medior/{components,generator,server,store,utils}/**/*{.ts,.tsx}",
@@ -26,7 +26,13 @@
     "prettier": "prettier --check medior --config ./.prettierrc --ignore-path ./.prettierignore",
     "prettier-fix": "pnpm run prettier --write",
     "ts-check": "tspc --noEmit",
-    "ts-compile-server": "pnpx tsx esbuild.server.ts"
+    "ts-compile-server": "tsx esbuild.server.ts"
+  },
+  "pnpm": {
+    "neverBuiltDependencies": [
+      "@tensorflow/tfjs-node",
+      "@tensorflow/tfjs-node-gpu"
+    ]
   },
   "dependencies": {
     "@electron/remote": "^2.0.8",
@@ -72,7 +78,7 @@
     "sharp-bmp": "^0.1.5",
     "socket.io": "^4.6.2",
     "socket.io-client": "^4.6.2",
-    "trabecula": "github:msihly/trabecula#c97277cb8760daff4550cbb036e2c785e2a7acde",
+    "trabecula": "github:msihly/trabecula#2ad90c1160fd00cd6eb43d44415b9314fa912d1e",
     "trash": "^5.2.0",
     "util": "^0.12.5",
     "vite-plugin-electron-renderer": "0.10.1"
@@ -91,6 +97,7 @@
     "@vitejs/plugin-react": "^4.0.3",
     "chalk": "^5.3.0",
     "concurrently": "^7.2.2",
+    "copyfiles": "^2.4.1",
     "electron": "25.9.8",
     "electron-builder": "^24.9.1",
     "electron-devtools-installer": "^3.2.0",
@@ -101,9 +108,10 @@
     "eslint-plugin-tss-unused-classes": "1.0.2",
     "patch-package": "^6.4.7",
     "prettier": "^3.3.1",
-    "rimraf": "^5.0.7",
+    "rimraf": "^5.0.10",
     "ts-patch": "^3.3.0",
     "tsconfig-paths": "^4.2.0",
+    "tsx": "4.7.0",
     "typescript": "5.3.x",
     "typescript-transform-paths": "^3.5.3",
     "vite": "4.5.1",

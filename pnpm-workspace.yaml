@@ -1,9 +1,0 @@
-packages:
-  - "."
-
-enablePrePostScripts: true
-nodeLinker: hoisted
-useNodeVersion: "22.x.x"
-
-allowBuilds:
-  esbuild: true

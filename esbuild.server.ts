@@ -18,6 +18,7 @@ const nativeAddons = [
   "@tensorflow/tfjs-node-gpu",
   "@tensorflow/tfjs-node",
   "electron",
+  "fluent-ffmpeg",
   "sharp-bmp",
   "sharp",
   "trash",
@@ -37,6 +38,6 @@ const nativeAddons = [
   await build({
     ...common,
     entryPoints: ["medior/server/main.ts", "medior/server/api-process.ts"],
-    external: [...nativeAddons, "fluent-ffmpeg"],
+    external: nativeAddons,
   });
 })();
