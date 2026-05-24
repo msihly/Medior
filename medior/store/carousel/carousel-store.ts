@@ -4,10 +4,9 @@ import { Mark } from "@mui/base";
 import autoBind from "auto-bind";
 import { computed } from "mobx";
 import { getRootStore, Model, model, modelAction, modelFlow, prop } from "mobx-keystone";
-import { FileImporter, RootStore } from "medior/store";
-import { asyncAction, toast } from "medior/utils/client";
+import { FileImporter, RootStore, Splicer } from "medior/store";
+import { asyncAction, openCarouselWindow, toast } from "medior/utils/client";
 import { Fmt } from "medior/utils/common";
-import { trpc } from "medior/utils/server";
 import { extractVideoFrame, videoTranscoder } from "medior/utils/server/videos";
 
 @model("medior/CarouselStore")
@@ -26,6 +25,7 @@ export class CarouselStore extends Model({
   playbackRate: prop<number>(1).withSetter(),
   seekOffset: prop<number>(0).withSetter(),
   selectedFileIds: prop<string[]>(() => []).withSetter(),
+  splicer: prop<Splicer>(() => new Splicer({})).withSetter(),
   volume: prop<number>(0.3).withSetter(),
 }) {
   onInit() {
@@ -85,7 +85,6 @@ export class CarouselStore extends Model({
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */
   @modelFlow
   extractFrame = asyncAction(async () => {
-    const stores = getRootStore<RootStore>(this);
     const activeFile = this.getActiveFile();
     if (!activeFile) throw new Error("Active file not found");
 
@@ -107,12 +106,7 @@ export class CarouselStore extends Model({
     const res = await importer.import();
     if (!res.success) throw new Error(res.error);
 
-    await trpc.recalculateTagCounts.mutate({ tagIds: activeFile.tagIds });
-
-    stores.file.addFileAfterIndex(res.file, this.activeFileIndex);
-    this.addFileAfterIndex(res.file.id, this.activeFileIndex);
-    this.setActiveFileId(res.file.id);
-
+    await openCarouselWindow({ file: res.file, selectedFileIds: [res.file.id] });
     toast.success("Frame extracted");
   });
 

@@ -17,41 +17,6 @@ export const useHotkeys = ({ rootRef, videoRef, view }: UseHotkeysProps) => {
 
   const toaster = new Toaster();
 
-  const navCarouselByArrowKey = (isLeft: boolean) => {
-    if (
-      stores.carousel.activeFileIndex === (isLeft ? 0 : stores.carousel.selectedFileIds.length - 1)
-    )
-      return;
-
-    const newFileId =
-      stores.carousel.selectedFileIds[stores.carousel.activeFileIndex + (isLeft ? -1 : 1)];
-    stores.carousel.setActiveFileId(newFileId);
-    stores.file.setActiveFileId(newFileId);
-
-    rootRef.current?.focus();
-  };
-
-  const selectFileByArrowKey = (isLeft: boolean, selectedId: string) => {
-    const indexOfSelected = stores.file.search.results.findIndex((f) => f.id === selectedId);
-    const nextIndex =
-      indexOfSelected === stores.file.search.results.length - 1 ? 0 : indexOfSelected + 1;
-    const nextId = stores.file.search.results[nextIndex].id;
-    const prevIndex =
-      indexOfSelected === 0 ? stores.file.search.results.length - 1 : indexOfSelected - 1;
-    const prevId = stores.file.search.results[prevIndex].id;
-    const newId = isLeft ? prevId : nextId;
-
-    if (!stores.file.search.results.find((f) => f.id === newId))
-      stores.file.search.loadFiltered({
-        page: stores.file.search.page + 1 * (isLeft ? -1 : 1),
-      });
-
-    stores.file.search.toggleSelected([
-      { id: selectedId, isSelected: false },
-      { id: newId, isSelected: true },
-    ]);
-  };
-
   const handleKeyPress = async (event: KeyboardEvent) => {
     if (
       stores.file.tagsEditor.isOpen ||
@@ -91,30 +56,9 @@ export const useHotkeys = ({ rootRef, videoRef, view }: UseHotkeysProps) => {
       if (["ArrowLeft", "ArrowRight"].includes(key)) {
         const isLeft = key === "ArrowLeft";
         if (view === "carousel") {
-          if (hasAlt || hasCtrl || hasShift) {
-            if (hasAlt) stores.carousel.setIsPlaying(false);
-            const file = stores.carousel.getActiveFile();
-            const frameRate = hasAlt ? 1 : file.frameRate;
-            const totalFrames = round(file.totalFrames, 0);
-
-            const dir = isLeft ? -1 : 1;
-            const seconds = hasAlt ? 1 : hasShift ? 3 : 30;
-            const newFrame = Math.max(
-              0,
-              Math.min(totalFrames, round(stores.carousel.curFrame + dir * seconds * frameRate, 0)),
-            );
-
-            const newTime = Fmt.frameToSec(newFrame, file.frameRate);
-            const timeDiff = round(newTime - stores.carousel.curTime);
-            const newPercent = round((newFrame / totalFrames) * 100, 0);
-
-            if (file.isWebPlayable) videoRef.current?.seekTo(newFrame / totalFrames, "fraction");
-            else await transcode(newFrame, file.frameRate);
-
-            toaster.toast(
-              `${isLeft ? "-" : "+"}${timeDiff} sec. / ${dayjs.duration(newTime, "s").format("HH:mm:ss")} (${newPercent}%)`,
-            );
-          } else navCarouselByArrowKey(isLeft);
+          if (hasAlt || hasCtrl || hasShift)
+            await seekVideoByArrowKey(isLeft, { hasAlt, hasCtrl, hasShift });
+          else if (!stores.carousel.splicer.isOpen) navCarouselByArrowKey(isLeft);
         } else selectFileByArrowKey(isLeft, fileIds[0]);
       }
 
@@ -153,6 +97,67 @@ export const useHotkeys = ({ rootRef, videoRef, view }: UseHotkeysProps) => {
     }
 
     if (key === "Delete") stores.file.confirmDeleteFiles(fileIds);
+  };
+
+  const navCarouselByArrowKey = (isLeft: boolean) => {
+    const oldIndex = stores.carousel.activeFileIndex;
+    const newIndex = oldIndex + (isLeft ? -1 : 1);
+    if (newIndex < 0 || newIndex >= stores.carousel.selectedFileIds.length) return;
+
+    const newFileId = stores.carousel.selectedFileIds[newIndex];
+    stores.carousel.setActiveFileId(newFileId);
+    stores.file.setActiveFileId(newFileId);
+
+    rootRef.current?.focus();
+  };
+
+  const seekVideoByArrowKey = async (
+    isLeft: boolean,
+    { hasAlt, hasCtrl, hasShift }: { hasAlt: boolean; hasCtrl: boolean; hasShift: boolean },
+  ) => {
+    if (hasAlt) stores.carousel.setIsPlaying(false);
+    const file = stores.carousel.getActiveFile();
+    const frameRate = hasAlt ? 1 : file.frameRate;
+    const totalFrames = round(file.totalFrames, 0);
+
+    const dir = isLeft ? -1 : 1;
+    const seconds = hasAlt ? 1 : hasShift ? 3 : hasCtrl ? 30 : 0;
+    const newFrame = Math.max(
+      0,
+      Math.min(totalFrames, round(stores.carousel.curFrame + dir * seconds * frameRate, 0)),
+    );
+
+    const newTime = Fmt.frameToSec(newFrame, file.frameRate);
+    const timeDiff = round(newTime - stores.carousel.curTime);
+    const newPercent = round((newFrame / totalFrames) * 100, 0);
+
+    if (file.isWebPlayable) videoRef.current?.seekTo(newFrame / totalFrames, "fraction");
+    else await transcode(newFrame, file.frameRate);
+
+    toaster.toast(
+      `${isLeft ? "-" : "+"}${timeDiff} sec. / ${dayjs.duration(newTime, "s").format("HH:mm:ss")} (${newPercent}%)`,
+    );
+  };
+
+  const selectFileByArrowKey = (isLeft: boolean, selectedId: string) => {
+    const indexOfSelected = stores.file.search.results.findIndex((f) => f.id === selectedId);
+    const nextIndex =
+      indexOfSelected === stores.file.search.results.length - 1 ? 0 : indexOfSelected + 1;
+    const nextId = stores.file.search.results[nextIndex].id;
+    const prevIndex =
+      indexOfSelected === 0 ? stores.file.search.results.length - 1 : indexOfSelected - 1;
+    const prevId = stores.file.search.results[prevIndex].id;
+    const newId = isLeft ? prevId : nextId;
+
+    if (!stores.file.search.results.find((f) => f.id === newId))
+      stores.file.search.loadFiltered({
+        page: stores.file.search.page + 1 * (isLeft ? -1 : 1),
+      });
+
+    stores.file.search.toggleSelected([
+      { id: selectedId, isSelected: false },
+      { id: newId, isSelected: true },
+    ]);
   };
 
   const transcode = throttle(async (frame: number, frameRate: number) => {

@@ -140,30 +140,39 @@ export const deleteFiles = makeAction(async (args: { fileIds: string[] }) => {
 });
 
 export const deleteFilesExternal = makeAction(async (args: { filePaths: string[] }) => {
-  const fileHashes: string[] = [];
-  for (const filePath of args.filePaths) fileHashes.push(await md5File(filePath));
+  try {
+    const fileHashes = new Set<string>()
+    for (const filePath of args.filePaths) fileHashes.add(await md5File(filePath));
 
-  await models.DeletedFileModel.bulkWrite(
-    fileHashes.map((hash) => ({
-      updateOne: {
-        filter: { hash },
-        update: { $setOnInsert: { hash } },
-        upsert: true,
-      },
-    })),
-  );
+    await models.DeletedFileModel.bulkWrite(
+      [...fileHashes].map((hash) => ({
+        updateOne: {
+          filter: { hash },
+          update: { $setOnInsert: { hash } },
+          upsert: true,
+        },
+      })),
+    );
 
-  const chunks = chunkArray(args.filePaths, 200);
-  for (const chunk of chunks) await trash(chunk);
+    fileLog(`[DFE] Added ${fileHashes.size} file hashes.`);
 
-  const folders = new Set(
-    args.filePaths
-      .map((p) => path.dirname(p).split(path.sep))
-      .sort((a, b) => b.length - a.length)
-      .map((p) => p.join(path.sep)),
-  );
+    const chunks = chunkArray(args.filePaths, 200);
+    for (const chunk of chunks) await trash(chunk);
 
-  for (const folder of folders) await removeEmptyFolders(folder);
+    fileLog(`[DFE] Deleted ${args.filePaths.length} files.`);
+
+    const folders = new Set(
+      args.filePaths
+        .map((p) => path.dirname(p).split(path.sep))
+        .sort((a, b) => b.length - a.length)
+        .map((p) => p.join(path.sep)),
+    );
+
+    for (const folder of folders) await removeEmptyFolders(folder);
+    fileLog(`[DFE] Deleted empty folders.`);
+  } catch (err) {
+    return { success: true, error: err.message };
+  }
 });
 
 export const detectFaces = makeAction(async ({ imagePath }: { imagePath: string }) => {

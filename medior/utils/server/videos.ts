@@ -249,11 +249,17 @@ const execFfmpeg = async (
   command: FfmpegCommand,
   outputDir: string,
   options?: FfmpegOptions,
+  duration?: number,
 ): Promise<{ hash: string; path: string }> => {
   const DEBUG = false;
   const { perfLog } = makePerfLog("[ffmpeg]", true);
 
   const tempPath = path.resolve(outputDir, "temp.mp4");
+
+  const timemarkToSeconds = (timemark: string) => {
+    const [hh, mm, ss] = timemark.split(":");
+    return Number(hh) * 3600 + Number(mm) * 60 + Number(ss);
+  };
 
   const ffmpegPromise = new Promise((resolve, reject) => {
     command
@@ -264,7 +270,10 @@ const execFfmpeg = async (
             fps: progress.currentFps ?? 0,
             frames: progress.frames ?? 0,
             kbps: progress.currentKbps ?? 0,
-            percent: progress.percent ?? 0,
+            percent:
+              duration && progress.timemark
+                ? Math.min(100, (timemarkToSeconds(progress.timemark) / duration) * 100)
+                : (progress.percent ?? 0),
             size: progress.targetSize ? progress.targetSize * 1000 : 0,
             time: progress.timemark ?? "",
           });
@@ -390,6 +399,110 @@ export const reencode = async (inputPath: string, outputDir: string, options?: F
 export const remux = async (inputPath: string, outputDir: string, options?: FfmpegOptions) => {
   const command = ffmpeg().input(inputPath).outputOptions(["-c copy"]);
   return execFfmpeg(command, outputDir, options);
+};
+
+export const spliceVideo = async (
+  inputPath: string,
+  outputDir: string,
+  pairs: Array<[number, number]>,
+  options?: FfmpegOptions & { forceReencode?: boolean },
+): Promise<{ hash: string; path: string }> => {
+  if (!pairs || pairs.length === 0) throw new Error("At least one timestamp pair is required.");
+
+  pairs.forEach(([start, end], i) => {
+    if (typeof start !== "number" || typeof end !== "number")
+      throw new Error(`Pair[${i}]: start and end must be numbers.`);
+    if (!Number.isFinite(start) || !Number.isFinite(end))
+      throw new Error(`Pair[${i}]: start and end must be finite numbers.`);
+    if (start < 0) throw new Error(`Pair[${i}]: start must be >= 0 (got ${start}).`);
+    if (end <= start)
+      throw new Error(`Pair[${i}]: end (${end}) must be greater than start (${start}).`);
+  });
+
+  const info = await getVideoInfo(inputPath);
+
+  pairs.forEach(([, end], i) => {
+    if (info.duration !== null && end > info.duration)
+      throw new Error(
+        `Pair[${i}]: end (${end}s) exceeds video duration (${round(info.duration, 3)}s).`,
+      );
+  });
+
+  const inputExt = info.ext.toLowerCase();
+  const canStreamCopy = !options?.forceReencode && inputExt === "mp4";
+  const totalDuration = pairs.reduce((acc, [start, end]) => acc + (end - start), 0);
+
+  await fs.mkdir(outputDir, { recursive: true });
+
+  if (canStreamCopy) {
+    const tmpDir = path.join(outputDir, "_tmp", `stitch-${Date.now()}`);
+    await fs.mkdir(tmpDir, { recursive: true });
+
+    const segmentPaths: string[] = [];
+    for (let i = 0; i < pairs.length; i++) {
+      const [start, end] = pairs[i];
+      const duration = end - start;
+      const segPath = path.join(tmpDir, `seg-${i}.ts`);
+
+      const cmd = ffmpeg()
+        .input(inputPath)
+        .inputOptions([`-ss ${start}`])
+        .outputOptions([
+          `-t ${duration}`,
+          "-map 0",
+          "-c copy",
+          "-avoid_negative_ts make_zero",
+          "-muxpreload 0",
+          "-muxdelay 0",
+          "-f mpegts",
+        ]);
+
+      await new Promise<void>((resolve, reject) => {
+        cmd
+          .output(segPath)
+          .on("end", () => resolve())
+          .on("error", reject)
+          .run();
+
+        if (options?.signal) {
+          const abort = () => cmd.kill("SIGKILL");
+          if (options.signal.aborted) {
+            abort();
+            reject(new Error("Command cancelled before start."));
+          } else options.signal.addEventListener("abort", abort, { once: true });
+        }
+      });
+
+      segmentPaths.push(segPath);
+    }
+
+    const concatInput = `concat:${segmentPaths.join("|")}`;
+
+    const command = ffmpeg()
+      .input(concatInput)
+      .inputOptions(["-fflags +genpts"])
+      .outputOptions(["-map 0", "-c copy", "-movflags +faststart"]);
+
+    return execFfmpeg(command, outputDir, options, totalDuration).finally(async () => {
+      await fs.rm(tmpDir, { recursive: true, force: true });
+    });
+  } else {
+    const command = ffmpeg();
+    pairs.forEach(([start, end]) => {
+      command.input(inputPath).inputOptions([`-ss ${start}`, `-to ${end}`]);
+    });
+
+    // Build filter_complex: [0:v][0:a][1:v][1:a]...concat=n=N:v=1:a=1[v][a]
+    const streams = pairs.map((_, i) => `[${i}:v][${i}:a]`).join("");
+    const filterComplex = `${streams}concat=n=${pairs.length}:v=1:a=1[v][a]`;
+
+    command
+      .outputOptions(["-filter_complex", filterComplex, "-map", "[v]", "-map", "[a]"])
+      .videoCodec(getConfig().file.reencode.codec)
+      .audioCodec("aac");
+
+    return execFfmpeg(command, outputDir, options, totalDuration);
+  }
 };
 
 export const vidToThumbGrid = async (inputPath: string, outputPath: string, fileHash: string) => {

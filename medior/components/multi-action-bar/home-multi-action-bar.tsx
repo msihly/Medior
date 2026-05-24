@@ -1,9 +1,9 @@
 import { AppBar } from "@mui/material";
-import { Chip, Comp, FileFilter, View } from "medior/components";
+import { Chip, Comp, FileFilter, MultiActionButton, View } from "medior/components";
 import { handleReingest, useStores } from "medior/store";
 import { colors, makeClasses, toast } from "medior/utils/client";
 import { CONSTANTS } from "medior/utils/common";
-import { MultiActionButton, SelectedFilesInfo } from ".";
+import { SelectedFilesInfo } from ".";
 
 interface HomeMultiActionBarProps {
   isHome?: boolean;

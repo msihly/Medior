@@ -4,10 +4,17 @@ import { getRootStore, Model, model, modelAction, modelFlow, prop } from "mobx-k
 import { FileImporter } from "medior/store";
 import { File } from "medior/store/files/file";
 import { RootStore } from "medior/store/root-store";
-import { asyncAction, toast } from "medior/utils/client";
+import { asyncAction, openCarouselWindow, toast } from "medior/utils/client";
 import { round } from "medior/utils/common";
 import { deleteFile, getAvailableFileStorage, getConfig, trpc } from "medior/utils/server";
-import { FfmpegProgress, getVideoInfo, reencode, remux } from "medior/utils/server/videos";
+import {
+  FfmpegOptions,
+  FfmpegProgress,
+  getVideoInfo,
+  reencode,
+  remux,
+  spliceVideo,
+} from "medior/utils/server/videos";
 
 @model("medior/VideoTransformerStore")
 export class VideoTransformerStore extends Model({
@@ -15,7 +22,7 @@ export class VideoTransformerStore extends Model({
   curTotalSize: prop<number>(0).withSetter(),
   file: prop<File>(null).withSetter(),
   fileIds: prop<string[]>(() => []).withSetter(),
-  fnType: prop<"reencode" | "remux">(null).withSetter(),
+  fnType: prop<"reencode" | "remux" | "splice">(null).withSetter(),
   initialTotalSize: prop<number>(0).withSetter(),
   isAuto: prop<boolean>(false).withSetter(),
   isLoading: prop<boolean>(false).withSetter(),
@@ -23,7 +30,11 @@ export class VideoTransformerStore extends Model({
   isOpen: prop<boolean>(false).withSetter(),
   newHash: prop<string>(null).withSetter(),
   newPath: prop<string>(null).withSetter(),
+  outputBitrate: prop<number>(null).withSetter(),
+  outputFps: prop<number>(null).withSetter(),
+  outputCodec: prop<string>(null).withSetter(),
   progress: prop<FfmpegProgress>(null).withSetter(),
+  timestampPairs: prop<Array<[number, number]>>(() => []).withSetter(),
 }) {
   aborter: AbortController = null;
 
@@ -55,6 +66,7 @@ export class VideoTransformerStore extends Model({
     this.newHash = null;
     this.newPath = null;
     this.progress = null;
+    this.timestampPairs = [];
   }
 
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */
@@ -146,23 +158,41 @@ export class VideoTransformerStore extends Model({
   run = asyncAction(async () => {
     const config = getConfig().file.reencode;
 
+    const willReencode =
+      this.fnType === "reencode" || (this.fnType === "splice" && this.file.ext !== "mp4");
+
     const originalCodec = this.file.videoCodec;
     const newCodec = config.codec.replace("_nvenc", "");
+    const outputCodec = !willReencode ? originalCodec : newCodec;
+
     const originalFps = round(this.file.frameRate, 0);
     const maxFps = round(config.maxFps, 0);
+    const outputFps = !willReencode ? originalFps : originalFps > maxFps ? maxFps : originalFps;
+
     const originalBitrate = round(this.file.bitrate, 0);
     const maxBitrate = round(config.maxBitrate * 1000, 0);
+    const outputBitrate = !willReencode
+      ? originalBitrate
+      : originalBitrate > maxBitrate
+        ? maxBitrate
+        : originalBitrate;
+
+    this.setOutputBitrate(outputBitrate);
+    this.setOutputCodec(outputCodec);
+    this.setOutputFps(outputFps);
 
     const skip = async (newSize?: number) => {
-      console.debug(`Skipped re-encode: ${this.file.id}`);
-      console.debug({
-        originalBitrate,
-        originalCodec,
-        originalFps,
+      console.debug("Skipped re-encode", this.file.id, {
         maxBitrate,
         maxFps,
         newCodec,
         newSize,
+        originalBitrate,
+        originalCodec,
+        originalFps,
+        outputBitrate,
+        outputCodec,
+        outputFps,
       });
 
       toast.warn("Skipped re-encode");
@@ -186,25 +216,33 @@ export class VideoTransformerStore extends Model({
       const targetDir = storageRes.data.location;
 
       this.aborter = new AbortController();
-
-      const fn = this.fnType === "reencode" ? reencode : remux;
-      const res = await fn(this.file.path, targetDir, {
+      const options: FfmpegOptions = {
         signal: this.aborter.signal,
         onProgress: (progress) => this.setProgress(progress),
-      });
+      };
+
+      let res: { hash: string; path: string } = null;
+      if (this.fnType === "splice") {
+        res = await spliceVideo(this.file.path, targetDir, this.timestampPairs, options);
+      } else {
+        const fn = this.fnType === "reencode" ? reencode : remux;
+        res = await fn(this.file.path, targetDir, options);
+      }
 
       this.setNewHash(res.hash);
       this.setNewPath(res.path);
       this.setIsRunning(false);
+      if (!this.isAuto) return;
 
-      if (this.isAuto) {
-        const videoInfo = await getVideoInfo(this.newPath);
-        if (this.fnType === "reencode" && videoInfo.size >= 0.9 * this.file.size)
-          await skip(videoInfo.size);
-        else {
-          const replaceRes = await this.replaceOriginal();
-          if (!replaceRes.success) throw new Error(replaceRes.error);
-        }
+      const videoInfo = await getVideoInfo(this.newPath);
+      if (this.fnType === "reencode" && videoInfo.size >= 0.9 * this.file.size) {
+        await skip(videoInfo.size);
+      } else if (this.fnType === "splice") {
+        const res = await this.saveSpliced();
+        if (!res.success) throw new Error(res.error);
+      } else {
+        const replaceRes = await this.replaceOriginal();
+        if (!replaceRes.success) throw new Error(replaceRes.error);
       }
     } catch (error) {
       this.setIsRunning(false);
@@ -218,6 +256,45 @@ export class VideoTransformerStore extends Model({
         await this.updateTags(config.onError);
         if (this.isAuto) this.loadNextFile();
       }
+    }
+  });
+
+  @modelFlow
+  saveSpliced = asyncAction(async () => {
+    try {
+      this.setIsLoading(true);
+
+      const videoInfo = await getVideoInfo(this.newPath);
+
+      const config = getConfig().file.splice.onComplete;
+      const tagIds = [
+        ...this.file.tagIds.filter((id) => !config.removeTagIds.includes(id)),
+        ...config.addTagIds,
+      ];
+
+      const importer = new FileImporter({
+        deleteOnImport: false,
+        ext: videoInfo.ext,
+        ignorePrevDeleted: false,
+        originalName: this.file.originalName,
+        originalPath: this.newPath,
+        size: videoInfo.size,
+        tagIds,
+      });
+
+      const res = await importer.import();
+      this.setIsLoading(false);
+      if (!res.success) throw new Error(res.error);
+
+      toast.success("Video rendered");
+      await openCarouselWindow({ file: res.file, selectedFileIds: [res.file.id] });
+    } catch (error) {
+      this.setIsLoading(false);
+
+      if (error.message.includes("duplicate key error")) {
+        console.debug(`Video transform resulted in duplicate: ${this.newHash}`);
+        throw new Error("Render resulted in duplicate");
+      } else throw new Error(error);
     }
   });
 

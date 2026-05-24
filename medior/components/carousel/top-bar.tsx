@@ -111,11 +111,19 @@ export const CarouselTopBar = Comp(() => {
 
       <View row flex={1} justify="flex-end">
         {file?.isVideo ? (
-          <IconButton
-            name="Camera"
-            onClick={stores.carousel.extractFrame}
-            tooltip="Extract Frame"
-          />
+          <>
+            <IconButton
+              name="Camera"
+              onClick={stores.carousel.extractFrame}
+              tooltip="Extract Frame"
+            />
+
+            <IconButton
+              name="Cut"
+              onClick={stores.carousel.splicer.toggleIsOpen}
+              tooltip={stores.carousel.splicer.isOpen ? "Close Splicer" : "Open Splicer"}
+            />
+          </>
         ) : (
           <>
             <IconButton name="Replay" onClick={zoomReset} tooltip="Reset Zoom" />
@@ -153,7 +161,7 @@ const useClasses = makeClasses((props: ClassesProps) => ({
     justifyContent: "space-between",
     padding: "0.2rem 0.5rem",
     height: "2.5rem",
-    backgroundColor: "black",
+    backgroundColor: colors.custom.black,
     opacity: props.isPinned ? 1 : props.isMouseMoving ? 0.3 : 0,
     zIndex: 10,
     transition: "all 200ms ease-in-out",

@@ -1,3 +1,4 @@
+export * from "./carousel";
 export * from "./collections";
 export * from "./face-recognition";
 export * from "./files";

@@ -82,6 +82,12 @@ export interface Config {
       toMp4: Array<Omit<VideoExt, "mp4"> | string>;
     };
     search: Search;
+    splice: {
+      onComplete: {
+        addTagIds: string[];
+        removeTagIds: string[];
+      };
+    }
     videoCodecs: Array<VideoCodec | string>;
     videoExts: Array<VideoExt | string>;
   };
@@ -189,6 +195,12 @@ export const DEFAULT_CONFIG: Config = {
     search: {
       pageSize: 100,
       sort: { isDesc: true, key: "dateCreated" },
+    },
+    splice: {
+      onComplete: {
+        addTagIds: [],
+        removeTagIds: [],
+      },
     },
     videoCodecs: [...VIDEO_CODECS_COMMON],
     videoExts: [...VIDEO_EXTS_COMMON],

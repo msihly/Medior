@@ -1,5 +1,6 @@
 import { defineConfig } from "vite";
 import pluginReact from "@vitejs/plugin-react";
+// @ts-expect-error
 import pluginRenderer from "vite-plugin-electron-renderer";
 import pluginSVGR from "vite-plugin-svgr";
 import pluginTsconfigPaths from "vite-tsconfig-paths";

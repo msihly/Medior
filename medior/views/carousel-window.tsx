@@ -33,14 +33,21 @@ export const CarouselWindow = Comp(() => {
   });
 
   const handleScroll = (event: WheelEvent) => {
-    if (stores.file.isInfoModalOpen || stores._getIsBlockingModalOpen()) return;
-    else if (event.ctrlKey) {
+    if (
+      stores.carousel.splicer.isOpen ||
+      stores.file.isInfoModalOpen ||
+      stores._getIsBlockingModalOpen()
+    )
+      return;
+
+    if (!event.ctrlKey) debounce(navCarouselByArrowKey, 100)(event.deltaY < 0);
+    else {
       if (!panZoomRef.current) return console.error("Panzoom ref not set");
 
       const curScale = panZoomRef.current.getScale();
       const newScale = event.deltaY > 0 ? zoomScaleStepOut(curScale) : zoomScaleStepIn(curScale);
       panZoomRef.current.zoomToPoint(newScale, { clientX: event.clientX, clientY: event.clientY });
-    } else debounce(navCarouselByArrowKey, 100)(event.deltaY < 0);
+    }
   };
 
   useSockets({ view: "carousel" });

@@ -200,6 +200,11 @@ export interface FileSchema {
   tagIds: string[];
   tagIdsWithAncestors: string[];
   thumb: { frameHeight?: number; frameWidth?: number; path: string };
+  timestamps?: Array<{
+    id: string;
+    label: string;
+    pairs: Array<{ endDuration: string; id: string; order: number; startDuration: string }>;
+  }>;
   videoCodec?: string;
   width: number;
 }
@@ -242,6 +247,14 @@ const FileSchema = new Schema<FileSchema>({
   tagIds: [{ type: Schema.Types.ObjectId, ref: "Tag" }],
   tagIdsWithAncestors: [{ type: Schema.Types.ObjectId, ref: "Tag" }],
   thumb: { frameHeight: Number, frameWidth: Number, path: String },
+  timestamps: [
+    {
+      id: String,
+      label: String,
+      order: Number,
+      pairs: [{ endDuration: String, id: String, order: Number, startDuration: String }],
+    },
+  ],
   videoCodec: String,
   width: Number,
 });

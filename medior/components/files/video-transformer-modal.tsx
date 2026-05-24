@@ -19,18 +19,11 @@ import {
 import { useStores } from "medior/store";
 import { colors, toast } from "medior/utils/client";
 import { dayjs, Fmt, round } from "medior/utils/common";
-import { getConfig, trpc } from "medior/utils/server";
+import { trpc } from "medior/utils/server";
 
 export const VideoTransformerModal = Comp(() => {
   const stores = useStores();
   const store = stores.file.videoTransformer;
-
-  const config = getConfig();
-  const maxBitrate = config.file.reencode.maxBitrate * 1000;
-  const maxFps = config.file.reencode.maxFps;
-  const outputFps = store.file?.frameRate > maxFps ? maxFps : store.file?.frameRate;
-  const outputBitrate = store.file?.bitrate > maxBitrate ? maxBitrate : store.file?.bitrate;
-  const outputCodec = config.file.reencode.codec.replace("_nvenc", "");
 
   useEffect(() => {
     (async () => {
@@ -59,6 +52,8 @@ export const VideoTransformerModal = Comp(() => {
 
   const handleReplace = () => store.replaceOriginal();
 
+  const handleSaveCopy = () => store.saveSpliced();
+
   const openFileOriginal = () => shell.openPath(store.file.path);
 
   const openFileOutput = () => shell.openPath(store.newPath);
@@ -77,9 +72,19 @@ export const VideoTransformerModal = Comp(() => {
     >
       <Modal.Header
         leftNode={<IdButton value={store.curFileId} />}
-        rightNode={<Text preset="sub-text">{`${store.fileIds.length} in queue`}</Text>}
+        rightNode={
+          store.fnType === "splice" ? null : (
+            <Text preset="sub-text">{`${store.fileIds.length} in queue`}</Text>
+          )
+        }
       >
-        <Text preset="title">{store.fnType === "reencode" ? "Re-encoder" : "Remuxer"}</Text>
+        <Text preset="title">
+          {store.fnType === "reencode"
+            ? "Re-encoder"
+            : store.fnType === "remux"
+              ? "Remuxer"
+              : "Splicer"}
+        </Text>
       </Modal.Header>
 
       <Modal.Content justify="center" align="center" spacing="0.5rem">
@@ -117,32 +122,36 @@ export const VideoTransformerModal = Comp(() => {
 
             <Divider orientation="vertical" />
 
-            <View column spacing="1rem">
+            <View column spacing="1rem" justify="space-between">
               <UniformList column spacing="0.5rem">
-                <InputOutputRow
-                  label="Total"
-                  input={store.initialTotalSize ? Fmt.bytes(store.initialTotalSize) : "--"}
-                  output={store.curTotalSize ? Fmt.bytes(store.curTotalSize) : "--"}
-                />
+                {store.fnType === "splice" ? null : (
+                  <>
+                    <InputOutputRow
+                      label="Total"
+                      input={store.initialTotalSize ? Fmt.bytes(store.initialTotalSize) : "--"}
+                      output={store.curTotalSize ? Fmt.bytes(store.curTotalSize) : "--"}
+                    />
 
-                <Divider sx={{ flex: 0 }} />
+                    <Divider sx={{ flex: 0 }} />
+                  </>
+                )}
 
                 <InputOutputRow
                   label="Codec"
                   input={store.file?.videoCodec || "--"}
-                  output={outputCodec || "--"}
+                  output={store.outputCodec || "--"}
                 />
 
                 <InputOutputRow
                   label="FPS"
                   input={store.file ? round(store.file.frameRate) : "--"}
-                  output={outputFps ? round(outputFps) : "--"}
+                  output={store.outputFps ? round(store.outputFps) : "--"}
                 />
 
                 <InputOutputRow
                   label="Bitrate"
                   input={store.file ? Fmt.bytes(store.file.bitrate) : "--"}
-                  output={outputBitrate ? Fmt.bytes(outputBitrate) : "--"}
+                  output={store.outputBitrate ? Fmt.bytes(store.outputBitrate) : "--"}
                 />
 
                 <InputOutputRow
@@ -163,13 +172,15 @@ export const VideoTransformerModal = Comp(() => {
                 />
               </UniformList>
 
-              <Checkbox
-                label="Auto-Replace"
-                checked={store.isAuto}
-                setChecked={store.setIsAuto}
-                flex="none"
-                margins={{ left: "-0.5rem" }}
-              />
+              {store.fnType === "splice" ? null : (
+                <Checkbox
+                  label="Auto-Replace"
+                  checked={store.isAuto}
+                  setChecked={store.setIsAuto}
+                  flex="none"
+                  margins={{ left: "-0.5rem" }}
+                />
+              )}
             </View>
           </View>
         </View>
@@ -200,9 +211,9 @@ export const VideoTransformerModal = Comp(() => {
 
         <View column spacing="0.5rem">
           <Button
-            text="Replace"
-            icon="Refresh"
-            onClick={handleReplace}
+            text={store.fnType === "splice" ? "Save Copy" : "Replace"}
+            icon={store.fnType === "splice" ? "Save" : "Refresh"}
+            onClick={store.fnType === "splice" ? handleSaveCopy : handleReplace}
             disabled={store.isRunning || store.isLoading || !store.newPath}
             color={colors.custom.green}
           />

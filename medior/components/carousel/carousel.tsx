@@ -2,7 +2,7 @@ import { MutableRefObject, useContext, useEffect, useRef } from "react";
 import { OnProgressProps } from "react-player/base";
 import ReactPlayer from "react-player/file";
 import Panzoom, { PanzoomOptions } from "@panzoom/panzoom";
-import { Comp, FileBase, LoadingOverlay, VideoControls, View } from "medior/components";
+import { Comp, FileBase, LoadingOverlay, Splicer, VideoControls, View } from "medior/components";
 import { useStores } from "medior/store";
 import { makeClasses } from "medior/utils/client";
 import { CONSTANTS, round } from "medior/utils/common";
@@ -20,13 +20,12 @@ export const Carousel = Comp((_, videoRef: MutableRefObject<ReactPlayer>) => {
 
   useEffect(() => {
     panZoomRef.current =
-      zoomRef.current !== null
-        ? Panzoom(zoomRef.current, {
+      activeFile?.isVideo || zoomRef.current === null
+        ? null
+        : Panzoom(zoomRef.current, {
             animate: true,
             contain: "outside",
             cursor: "grab",
-            disablePan: activeFile?.isVideo,
-            disableZoom: activeFile?.isVideo,
             maxScale: CONSTANTS.CAROUSEL.ZOOM.MAX_SCALE,
             minScale: CONSTANTS.CAROUSEL.ZOOM.MIN_SCALE,
             panOnlyWhenZoomed: true,
@@ -34,8 +33,7 @@ export const Carousel = Comp((_, videoRef: MutableRefObject<ReactPlayer>) => {
             startX: 0,
             startY: 0,
             step: CONSTANTS.CAROUSEL.ZOOM.STEP,
-          } as PanzoomOptions)
-        : null;
+          } as PanzoomOptions);
   }, [stores.carousel.activeFileId, stores.carousel.isPinned]);
 
   useEffect(() => {
@@ -78,43 +76,47 @@ export const Carousel = Comp((_, videoRef: MutableRefObject<ReactPlayer>) => {
           {!activeFile ? (
             <LoadingOverlay isLoading />
           ) : (
-            <View ref={zoomRef} column height="100%" justify="center">
-              <FileBase.ContextMenu
-                file={activeFile}
-                store={stores.file.search}
-                className={css.contextMenu}
-              >
-                {activeFile.isVideo ? (
-                  <View column flex={1} height="inherit" onClick={togglePlaying}>
-                    <LoadingOverlay
-                      isLoading={stores.carousel.isWaitingForFrames}
-                      sub="Transcoding..."
-                    />
+            <View row width="100%" height="100%">
+              <View ref={zoomRef} column height="100%" justify="center">
+                <FileBase.ContextMenu
+                  file={activeFile}
+                  store={stores.file.search}
+                  className={css.contextMenu}
+                >
+                  {activeFile.isVideo ? (
+                    <View column flex={1} height="inherit" onClick={togglePlaying}>
+                      <LoadingOverlay
+                        isLoading={stores.carousel.isWaitingForFrames}
+                        sub="Transcoding..."
+                      />
 
-                    <ReactPlayer
-                      ref={videoRef}
-                      url={stores.carousel.mediaSourceUrl ?? activeFile.path}
-                      playing={stores.carousel.isPlaying}
-                      onEnded={handleVideoEnd}
-                      onProgress={handleVideoProgress}
-                      progressInterval={100}
-                      width="100%"
-                      height="100%"
-                      muted={stores.carousel.volume === 0}
-                      volume={stores.carousel.volume}
-                      playbackRate={stores.carousel.playbackRate}
+                      <ReactPlayer
+                        ref={videoRef}
+                        url={stores.carousel.mediaSourceUrl ?? activeFile.path}
+                        playing={stores.carousel.isPlaying}
+                        onEnded={handleVideoEnd}
+                        onProgress={handleVideoProgress}
+                        progressInterval={100}
+                        width="100%"
+                        height="100%"
+                        muted={stores.carousel.volume === 0}
+                        volume={stores.carousel.volume}
+                        playbackRate={stores.carousel.playbackRate}
+                      />
+                    </View>
+                  ) : (
+                    <img
+                      src={activeFile.path}
+                      alt={activeFile.originalName}
+                      draggable={false}
+                      loading="lazy"
+                      className={css.image}
                     />
-                  </View>
-                ) : (
-                  <img
-                    src={activeFile.path}
-                    alt={activeFile.originalName}
-                    draggable={false}
-                    loading="lazy"
-                    className={css.image}
-                  />
-                )}
-              </FileBase.ContextMenu>
+                  )}
+                </FileBase.ContextMenu>
+              </View>
+
+              {stores.carousel.splicer.isOpen && <Splicer />}
             </View>
           )}
         </View>

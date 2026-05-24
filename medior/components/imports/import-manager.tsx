@@ -59,7 +59,6 @@ export const ImportManager = Comp(() => {
                     name={store.isPaused ? "PlayArrow" : "Pause"}
                     iconProps={{ color: statusColor }}
                     onClick={store.togglePaused}
-                    disabled={!store.isPaused && !store.isImporting}
                   />
 
                   <Text fontWeight={500} color={statusColor}>

@@ -304,7 +304,7 @@ const useClasses = makeClasses((props?: { isVertical: boolean }) => ({
     padding: "0 1rem",
     width: "100%",
     height: CONSTANTS.CAROUSEL.VIDEO.CONTROLS_HEIGHT,
-    backgroundColor: "rgb(0, 0, 0, 0.5)",
+    backgroundColor: colors.custom.black,
     cursor: "default",
     zIndex: 5,
     "&:hover": { opacity: 1 },

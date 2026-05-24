@@ -58,6 +58,7 @@ export class TagStore extends Model({
 
   @modelFlow
   getByLabel = asyncAction(async (label: string) => {
+    if (!label) throw new Error("No label provided");
     const res = await trpc.listTag.mutate({ filter: { label: { $in: [label] } } });
     if (!res.success) throw new Error(res.error);
     return res.data?.[0];
@@ -72,6 +73,7 @@ export class TagStore extends Model({
 
   @modelFlow
   listByLabels = asyncAction(async (labels: string[]) => {
+    if (!labels?.length) throw new Error("No labels provided");
     const res = await trpc.listTag.mutate({ filter: { label: { $in: labels } } });
     if (!res.success) throw new Error(res.error);
     return res.data;
@@ -115,7 +117,7 @@ export class TagStore extends Model({
       tagQueue.add(async () => {
         try {
           const parentTagsRes = (
-            await trpc.listTag.mutate({ filter: { label: { $in: t.parentLabels } } })
+            await trpc.listTag.mutate({ filter: { label: { $in: t.parentLabels ?? [] } } })
           ).data;
 
           const parentTagsMap = new Map(

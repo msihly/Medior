@@ -95,6 +95,15 @@ model.addProp("thumb", "{ frameHeight?: number; frameWidth?: number; path: strin
   schemaType: "{ frameHeight: Number, frameWidth: Number, path: String }",
 });
 
+model.addProp(
+  "timestamps",
+  "Array<{ id: string; label: string; pairs: Array<{ endDuration: string; id: string; order: number; startDuration: string; }> }>",
+  {
+    schemaType:
+      "[{ id: String, label: String, order: Number, pairs: [{ endDuration: String, id: String, order: Number, startDuration: String }] }]",
+  },
+);
+
 model.addIndex({ videoCodec: 1, _id: 1 });
 model.addProp("videoCodec", "string");
 
