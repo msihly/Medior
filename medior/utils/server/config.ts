@@ -87,7 +87,7 @@ export interface Config {
         addTagIds: string[];
         removeTagIds: string[];
       };
-    }
+    };
     videoCodecs: Array<VideoCodec | string>;
     videoExts: Array<VideoExt | string>;
   };

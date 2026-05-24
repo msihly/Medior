@@ -141,7 +141,7 @@ export const deleteFiles = makeAction(async (args: { fileIds: string[] }) => {
 
 export const deleteFilesExternal = makeAction(async (args: { filePaths: string[] }) => {
   try {
-    const fileHashes = new Set<string>()
+    const fileHashes = new Set<string>();
     for (const filePath of args.filePaths) fileHashes.add(await md5File(filePath));
 
     await models.DeletedFileModel.bulkWrite(

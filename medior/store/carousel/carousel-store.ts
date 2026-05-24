@@ -116,10 +116,15 @@ export class CarouselStore extends Model({
     const activeFile = stores.file.getById(this.activeFileId);
     if (activeFile?.isVideo && !activeFile?.isWebPlayable) {
       this.setIsWaitingForFrames(true);
-      const url = await videoTranscoder.transcode(activeFile.path, args?.seekTime, () => {
-        this.setIsWaitingForFrames(false);
-        args?.onFirstFrames?.();
-      });
+      const url = await videoTranscoder.transcode(
+        activeFile.path,
+        activeFile.bitrate,
+        args?.seekTime,
+        () => {
+          this.setIsWaitingForFrames(false);
+          args?.onFirstFrames?.();
+        },
+      );
       if (url) this.setMediaSourceUrl(url);
     } else this.setMediaSourceUrl(null);
   });

@@ -39,6 +39,9 @@ export interface VideoInfo {
   width: number;
 }
 
+const HIGH_BITRATE_THRESHOLD = 4_000_000;
+const CHUNK_FLUSH_BYTES = 512 * 1024;
+
 class VideoTranscoder {
   private DEBUG = false;
 
@@ -53,11 +56,13 @@ class VideoTranscoder {
     return VideoTranscoder.instance;
   }
 
-  public async transcode(inputPath: string, seekTime: number = 0, onFirstFrames?: () => void) {
-    if (this.prevInst) {
-      this.prevInst.revoke();
-      await sleep(500);
-    }
+  public async transcode(
+    inputPath: string,
+    videoBitrate: number,
+    seekTime: number = 0,
+    onFirstFrames?: () => void,
+  ) {
+    if (this.prevInst) this.prevInst.revoke(), await sleep(500);
 
     if (this.isTranscoding) return;
     this.isTranscoding = true;
@@ -65,9 +70,18 @@ class VideoTranscoder {
     const mediaSource = new MediaSource();
     const stream = new PassThrough();
 
-    const command = this.init(inputPath, seekTime, stream);
+    const highBitrate = videoBitrate > HIGH_BITRATE_THRESHOLD;
 
-    const handleSourceOpen = this.handleSourceOpen.bind(this, mediaSource, stream, onFirstFrames);
+    const command = this.initReencode(inputPath, seekTime, stream, highBitrate);
+
+    const handleSourceOpen = this.handleSourceOpen.bind(
+      this,
+      mediaSource,
+      stream,
+      highBitrate,
+      onFirstFrames,
+    );
+
     mediaSource.addEventListener("sourceopen", handleSourceOpen);
     const mediaSourceUrl = URL.createObjectURL(mediaSource);
 
@@ -78,39 +92,43 @@ class VideoTranscoder {
     return mediaSourceUrl;
   }
 
-  private init(inputPath: string, seekTime: number, stream: PassThrough) {
+  private initReencode(
+    inputPath: string,
+    seekTime: number,
+    stream: PassThrough,
+    highBitrate: boolean,
+  ) {
     const { perfLog, perfLogTotal } = makePerfLog("[Transcode]", true);
+
     return ffmpeg()
       .input(inputPath)
       .seekInput(seekTime)
-      .videoCodec("libvpx") // libvpx required for webm
-      .audioCodec("libvorbis") // libvorbis required for webm
+      .videoCodec("libvpx")
+      .audioCodec("libvorbis")
       .outputOptions([
-        "-preset medium",
-        "-crf 18",
-        "-b:v 8M", // bitrate
-        "-qmin 10", // quantizer min
-        "-qmax 42", // quantizer max
-        "-pix_fmt yuv420p",
+        `-crf ${highBitrate ? 24 : 18}`,
+        `-b:v 6M`,
+        `-bufsize 2M`,
+        `-qmin 10`,
+        `-qmax 42`,
+        `-deadline realtime`, // libvpx: fastest encode
+        `-cpu-used ${highBitrate ? 8 : 6}`, // libvpx: 0–8, higher = faster/lower quality
+        `-threads ${highBitrate ? 4 : 2}`, // 0 = all
+        `-tile-columns 2`,
+        `-frame-parallel 1`,
+        `-pix_fmt yuv420p`,
+        `-af aresample=async=1:min_hard_comp=0.100000:first_pts=0`, // fix audio drift
       ])
-      .format("webm") // webm required for seekable muxer stream
-      .on("start", (commandLine) => {
-        if (this.DEBUG) perfLog(`Spawned ffmpeg with command: ${commandLine}`);
+      .format("webm")
+      .on("start", (cmd) => {
+        if (this.DEBUG) perfLog(`Spawned: ${cmd}`);
       })
-      .on("stderr", (stderrLine) => {
-        if (this.DEBUG) perfLog(stderrLine);
+      .on("stderr", (line) => {
+        if (this.DEBUG) perfLog(line);
       })
-      .on("error", (err, stdout, stderr) => {
-        if (err.message !== "Output stream closed") {
-          console.error(`Error transcoding video: ${err.message}`);
-          console.error(`ffmpeg stdout: ${stdout}`);
-          console.error(`ffmpeg stderr: ${stderr}`);
-        }
-        stream.destroy(err);
-        this.isTranscoding = false;
-      })
+      .on("error", (err, stdout, stderr) => this.onError(err, stdout, stderr, stream))
       .on("end", () => {
-        if (this.DEBUG) perfLogTotal("Transcoding finished.");
+        if (this.DEBUG) perfLogTotal("Transcode finished.");
         stream.end();
         this.isTranscoding = false;
       })
@@ -120,65 +138,118 @@ class VideoTranscoder {
   private handleSourceOpen(
     mediaSource: MediaSource,
     stream: PassThrough,
+    highBitrate: boolean,
     onFirstFrames?: () => void,
   ) {
-    const sourceBuffer = mediaSource.addSourceBuffer('video/webm; codecs="vp8, vorbis"');
-    let queue: Uint8Array[] = [];
+    const mimeType = 'video/webm; codecs="vp8, vorbis"';
+    if (!MediaSource.isTypeSupported(mimeType)) {
+      console.error("[Transcode] MIME type not supported:", mimeType);
+      mediaSource.endOfStream("decode");
+      return;
+    }
+
+    const sourceBuffer = mediaSource.addSourceBuffer(mimeType);
+
+    const queue: Uint8Array[] = [];
     let isAppending = false;
     let firstFrameReceived = false;
+    let streamEnded = false;
+
+    const flushThreshold = highBitrate ? CHUNK_FLUSH_BYTES : CHUNK_FLUSH_BYTES / 4;
+    let accumulator: Uint8Array[] = [];
+    let accumulatedBytes = 0;
+
+    const flushAccumulator = () => {
+      if (accumulatedBytes === 0) return;
+
+      const merged = new Uint8Array(accumulatedBytes);
+      let offset = 0;
+      for (const chunk of accumulator) {
+        merged.set(chunk, offset);
+        offset += chunk.byteLength;
+      }
+      accumulator = [];
+      accumulatedBytes = 0;
+      queue.push(merged);
+      appendNextChunk();
+    };
 
     const appendNextChunk = () => {
-      if (queue.length > 0 && !isAppending && !sourceBuffer.updating) {
-        isAppending = true;
-        const chunk = queue.shift();
-        try {
-          if (sourceBuffer) sourceBuffer.appendBuffer(chunk as BufferSource);
-        } catch (err) {
-          if (!err.message?.includes("removed from the parent media"))
-            console.error("Error appending buffer:", err);
-        }
+      if (isAppending || sourceBuffer.updating || queue.length === 0) return;
+      isAppending = true;
+      const chunk = queue.shift()!;
+      try {
+        sourceBuffer.appendBuffer(chunk as any);
+      } catch (err: any) {
+        isAppending = false;
+        if (!err.message?.includes("removed from the parent media"))
+          console.error("[Transcode] Error appending buffer:", err);
       }
     };
 
     const handleUpdateEnd = () => {
       isAppending = false;
-      appendNextChunk();
+      if (queue.length > 0) appendNextChunk();
+      else if (streamEnded) tryEndStream();
+    };
+
+    const tryEndStream = () => {
+      if (mediaSource.readyState !== "open") return;
+      if (!isAppending && queue.length === 0 && !sourceBuffer.updating) mediaSource.endOfStream();
     };
 
     sourceBuffer.addEventListener("updateend", handleUpdateEnd);
 
-    stream.on("data", (chunk) => {
-      queue.push(chunk);
-      appendNextChunk();
+    stream.on("data", (chunk: Buffer) => {
+      const u8 = new Uint8Array(chunk.buffer, chunk.byteOffset, chunk.byteLength);
+      accumulator.push(u8);
+      accumulatedBytes += u8.byteLength;
+
       if (!firstFrameReceived) {
         firstFrameReceived = true;
-        if (onFirstFrames) onFirstFrames();
-      }
+        onFirstFrames?.();
+        flushAccumulator();
+      } else if (accumulatedBytes >= flushThreshold) flushAccumulator();
     });
 
     stream.on("end", () => {
-      if (queue.length === 0 && !sourceBuffer.updating) return mediaSource.endOfStream();
-      const checkEnd = setInterval(() => {
-        if (queue.length === 0 && !sourceBuffer.updating) {
-          mediaSource.endOfStream();
-          clearInterval(checkEnd);
-        }
-      }, 100);
+      flushAccumulator();
+      streamEnded = true;
+      if (!isAppending && queue.length === 0 && !sourceBuffer.updating) tryEndStream();
     });
 
     stream.on("error", (err) => {
-      console.error("Stream error:", err);
-      mediaSource.endOfStream("decode");
+      console.error("[Transcode] Stream error:", err);
+      if (mediaSource.readyState === "open") mediaSource.endOfStream("decode");
     });
 
     const cleanup = () => {
       sourceBuffer.removeEventListener("updateend", handleUpdateEnd);
       stream.removeAllListeners();
-      if (mediaSource.readyState === "open") mediaSource.removeSourceBuffer(sourceBuffer);
+      if (mediaSource.readyState === "open") {
+        try {
+          mediaSource.removeSourceBuffer(sourceBuffer);
+        } catch (err) {
+          console.warn("[Transcode] Error removing source buffer:", err);
+        }
+      }
     };
 
-    mediaSource.addEventListener("sourceclose", cleanup);
-    mediaSource.addEventListener("sourceended", cleanup);
+    mediaSource.addEventListener("sourceclose", cleanup, { once: true });
+    mediaSource.addEventListener("sourceended", cleanup, { once: true });
+  }
+
+  private onError(err: Error, stdout: string, stderr: string, stream: PassThrough) {
+    if (err.message !== "Output stream closed") {
+      console.error(`[Transcode] Error: ${err.message}`);
+      if (this.DEBUG) {
+        console.error(`ffmpeg stdout: ${stdout}`);
+        console.error(`ffmpeg stderr: ${stderr}`);
+      }
+    }
+
+    stream.destroy(err);
+    this.isTranscoding = false;
   }
 
   private revoke(
