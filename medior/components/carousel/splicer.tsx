@@ -53,6 +53,9 @@ export const Splicer = Comp(() => {
     const res = await store.saveTimestamps();
     if (!res.success) toast.error(res.error);
     else toast.success("Saved");
+
+    store.setTimestampId(res.data);
+    await store.loadTimestamps();
   };
 
   return (
@@ -60,7 +63,7 @@ export const Splicer = Comp(() => {
       column
       height="100%"
       padding={{ all: stores.carousel.isPinned ? "0.5rem" : "3rem 0.5rem 3.5rem 0.5rem" }}
-      bgColor={colors.custom.black}
+      bgColor="rgb(0 0 0 / 0.5)"
       style={{ minWidth: "21rem", maxWidth: "21rem" }}
     >
       <Card column spacing="1rem" height="100%" width="100%" bgColor={colors.background}>

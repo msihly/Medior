@@ -72,12 +72,19 @@ export const Carousel = Comp((_, videoRef: MutableRefObject<ReactPlayer>) => {
   return (
     <VideoContext.Provider value={videoRef}>
       <View column flex={1} overflow="hidden">
-        <View flex={1}>
+        <View
+          flex={1}
+          height={
+            stores.carousel.isPinned
+              ? `calc(100% - ${CONSTANTS.CAROUSEL.VIDEO.CONTROLS_HEIGHT}px)`
+              : "100%"
+          }
+        >
           {!activeFile ? (
             <LoadingOverlay isLoading />
           ) : (
             <View row width="100%" height="100%">
-              <View ref={zoomRef} column height="100%" justify="center">
+              <View ref={zoomRef} column height="100%" width="100%" justify="center">
                 <FileBase.ContextMenu
                   file={activeFile}
                   store={stores.file.search}

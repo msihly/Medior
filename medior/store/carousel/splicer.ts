@@ -164,6 +164,8 @@ export class Splicer extends Model({
     if (!res.success) throw new Error(res.error);
 
     this.setHasChanges(false);
+
+    return id;
   });
 
   /* --------------------------------- GETTERS -------------------------------- */

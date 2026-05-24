@@ -288,6 +288,7 @@ export class VideoTransformerStore extends Model({
 
       toast.success("Video rendered");
       await openCarouselWindow({ file: res.file, selectedFileIds: [res.file.id] });
+      this.setIsOpen(false);
     } catch (error) {
       this.setIsLoading(false);
 

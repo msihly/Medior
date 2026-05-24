@@ -171,7 +171,7 @@ const createCarouselWindow = async ({ fileId, height, selectedFileIds, width }) 
     await carouselWindow.loadURL(`${baseUrl}${isBundled ? "#" : "/"}carousel`);
     fileLog("Carousel window loaded.");
 
-    setTimeout(() => carouselWindow.webContents.send("init", { fileId, selectedFileIds }), 100);
+    setTimeout(() => carouselWindow.webContents.send("init", { fileId, selectedFileIds }), 500);
     carouselWindows.push(carouselWindow);
 
     carouselWindow.on("close", () => {

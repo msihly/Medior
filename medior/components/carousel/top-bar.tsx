@@ -161,7 +161,7 @@ const useClasses = makeClasses((props: ClassesProps) => ({
     justifyContent: "space-between",
     padding: "0.2rem 0.5rem",
     height: "2.5rem",
-    backgroundColor: colors.custom.black,
+    backgroundColor: "rgb(0 0 0 / 0.5)",
     opacity: props.isPinned ? 1 : props.isMouseMoving ? 0.3 : 0,
     zIndex: 10,
     transition: "all 200ms ease-in-out",
