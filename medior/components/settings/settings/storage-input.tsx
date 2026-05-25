@@ -111,11 +111,11 @@ export const StorageInput = Comp(({ index, selectLocation, ...props }: StorageIn
         ) : !diskStats ? (
           <Text color={colors.custom.grey}>{"Loading..."}</Text>
         ) : (
-          <>
+          <View row spacing="1rem">
             <Text color={status.color} fontWeight={500}>{`${round(percentFilled * 100)}%`}</Text>
 
-            <Text>{`-- ${Fmt.bytes(diskStats.free)} / ${Fmt.bytes(diskStats.size)}`}</Text>
-          </>
+            <Text>{`${Fmt.bytes(diskStats.free)} / ${Fmt.bytes(diskStats.size)}`}</Text>
+          </View>
         )}
       </View>
 

@@ -147,7 +147,6 @@ interface ClassesProps {
 const useClasses = makeClasses((props: ClassesProps) => ({
   rating: {
     color: colors.custom.lightGrey,
-    lineHeight: 1,
     textShadow: props.ratingTextShadow,
   },
   root: {

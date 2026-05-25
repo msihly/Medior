@@ -156,7 +156,7 @@ export const FileFilterMenu = Comp(({ color = colors.foreground, store }: FileFi
       </View>
 
       <View row spacing="0.5rem">
-        <Card flex="none" width="20rem" spacing="0.5rem">
+        <Card flex="none" width="21rem" spacing="0.5rem">
           <DateRange
             header="Date Created"
             startDate={store.dateCreatedStart}

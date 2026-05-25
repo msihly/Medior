@@ -211,11 +211,11 @@ export const VideoControls = Comp(() => {
       </View>
 
       <View column>
-        <Text color={colors.custom.white} className={css.videoTime}>
+        <Text color={colors.custom.white} fontSize="0.8em">
           {Fmt.duration(stores.carousel.curTime)}
         </Text>
 
-        <Text color={colors.custom.lightGrey} className={css.videoTime}>
+        <Text color={colors.custom.lightGrey} fontSize="0.8em">
           {Fmt.duration(activeFile?.duration)}
         </Text>
       </View>
@@ -308,9 +308,5 @@ const useClasses = makeClasses((props?: { isVertical: boolean }) => ({
     cursor: "default",
     zIndex: 5,
     "&:hover": { opacity: 1 },
-  },
-  videoTime: {
-    fontSize: "0.8em",
-    lineHeight: 1,
   },
 }));

@@ -1,43 +1,34 @@
-import { build, BuildOptions } from "esbuild";
+import { build } from "esbuild";
 import path from "path";
-
-const common: BuildOptions = {
-  bundle: true,
-  platform: "node",
-  format: "cjs",
-  outdir: "extraResources/medior",
-  outbase: "medior",
-  tsconfig: "medior/server/tsconfig.build.json",
-  jsx: "transform",
-  target: "node18",
-  alias: { medior: path.resolve("medior") },
-};
-
-const nativeAddons = [
-  "@electron/remote",
-  "@tensorflow/tfjs-node-gpu",
-  "@tensorflow/tfjs-node",
-  "electron",
-  "fluent-ffmpeg",
-  "sharp-bmp",
-  "sharp",
-  "trash",
-];
 
 (async () => {
   await build({
-    ...common,
+    alias: { medior: path.resolve("medior") },
+    bundle: true,
     entryPoints: [
       "medior/_generated/server/index.ts",
+      "medior/server/api-process.ts",
       "medior/server/db-process.ts",
+      "medior/server/main.ts",
       "medior/server/socket-process.ts",
     ],
-    external: nativeAddons,
-  });
-
-  await build({
-    ...common,
-    entryPoints: ["medior/server/main.ts", "medior/server/api-process.ts"],
-    external: nativeAddons,
+    external: [
+      "@electron/remote",
+      "@tensorflow/tfjs-node-gpu",
+      "@tensorflow/tfjs-node",
+      "electron",
+      "fdir",
+      "fluent-ffmpeg",
+      "sharp-bmp",
+      "sharp",
+      "trash",
+    ],
+    format: "cjs",
+    jsx: "transform",
+    outbase: "medior",
+    outdir: "extraResources/medior",
+    platform: "node",
+    target: "node18",
+    tsconfig: "medior/server/tsconfig.build.json",
   });
 })();

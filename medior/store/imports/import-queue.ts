@@ -3,12 +3,13 @@ import path from "path";
 import { useEffect, useRef } from "react";
 import { cloneDeep } from "es-toolkit";
 import { ModelCreationData } from "mobx-keystone";
+import { dirToFilePaths } from "trabecula/utils/server";
 import { CreateImportBatchesInput, TagSchema } from "medior/server/database";
 import { FlatFolder, TagToUpsert } from "medior/components";
 import { FileImport, Ingester, Reingester, RootStore, Tag, useStores } from "medior/store";
 import { derefMobx, toast } from "medior/utils/client";
-import { dayjs, Fmt, parseDiffParams } from "medior/utils/common";
-import { dirToFilePaths, getConfig, makePerfLog, trpc } from "medior/utils/server";
+import { dayjs, Fmt, ImageExt, parseDiffParams, VideoExt } from "medior/utils/common";
+import { getConfig, makePerfLog, trpc } from "medior/utils/server";
 
 type RegExMap = { regEx: RegExp; tagId: string };
 
@@ -82,7 +83,7 @@ export const filePathsToImports = async (filePaths: string[]) => {
   return (
     await Promise.all(
       filePaths.map(async (filePath) => {
-        const extension = path.extname(filePath).slice(1).toLowerCase();
+        const extension = path.extname(filePath).slice(1).toLowerCase() as ImageExt | VideoExt;
         if (!validExts.has(extension)) return null;
 
         const stats = await fs.stat(filePath);

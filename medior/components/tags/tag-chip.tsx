@@ -1,6 +1,16 @@
 import { Badge } from "@mui/material";
 import Color from "color";
-import { Chip, ChipProps, Comp, Icon, IconName, TagToUpsert, Text, View } from "medior/components";
+import {
+  Chip,
+  ChipProps,
+  Comp,
+  ConditionalWrap,
+  Icon,
+  IconName,
+  TagToUpsert,
+  Text,
+  View,
+} from "medior/components";
 import { useStores } from "medior/store";
 import { colors, CssColor, makeClasses } from "medior/utils/client";
 
@@ -41,20 +51,7 @@ export const TagChip = Comp(
     };
 
     return !tag ? null : (
-      <Badge
-        anchorOrigin={{ horizontal: "left", vertical: "top" }}
-        badgeContent={
-          !tag.id ? (
-            <View
-              borderRadiuses={{ all: "50%" }}
-              margins={{ top: "0.2rem", left: "0.4rem" }}
-              bgColor={Color(colors.custom.green).lighten(0.9).hex() as CssColor}
-            >
-              <Icon name="AddCircle" color={colors.custom.green} size={15} />
-            </View>
-          ) : null
-        }
-      >
+      <BadgeWrapper condition={!tag.id}>
         <Chip
           {...props}
           onClick={hasEditor || onClick ? handleClick : null}
@@ -72,10 +69,42 @@ export const TagChip = Comp(
             </View>
           }
         />
-      </Badge>
+      </BadgeWrapper>
     );
   },
 );
+
+const BadgeContent = () => {
+  return (
+    <View
+      borderRadiuses={{ all: "50%" }}
+      margins={{ top: "0.2rem", left: "0.4rem" }}
+      bgColor={Color(colors.custom.green).lighten(0.9).hex() as CssColor}
+    >
+      <Icon name="AddCircle" color={colors.custom.green} size={15} />
+    </View>
+  );
+};
+
+interface BadgeWrapperProps {
+  children: JSX.Element;
+  condition: boolean;
+}
+
+const BadgeWrapper = ({ children, condition }: BadgeWrapperProps) => {
+  return (
+    <ConditionalWrap
+      condition={condition}
+      wrap={(c) => (
+        <Badge badgeContent={BadgeContent} anchorOrigin={{ horizontal: "left", vertical: "top" }}>
+          {c}
+        </Badge>
+      )}
+    >
+      {children}
+    </ConditionalWrap>
+  );
+};
 
 interface ClassesProps extends Pick<TagChipProps, "color" | "size"> {}
 
@@ -93,7 +122,6 @@ const useClasses = makeClasses((props: ClassesProps) => ({
   },
   label: {
     padding: "0 0.4rem",
-    lineHeight: 1,
     overflow: "hidden",
     textOverflow: "ellipsis",
   },

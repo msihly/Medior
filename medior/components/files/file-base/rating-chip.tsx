@@ -33,8 +33,11 @@ export const RatingChip = ({ noHide = false, rating, ...props }: RatingChipProps
 
   return noHide || rating > 0 || !config.file.hideUnratedIcon ? (
     <Chip
-      {...{ icon, iconColor }}
       label={round(rating, 1)}
+      color={colors.custom.lightGrey}
+      fontWeight={600}
+      icon={icon}
+      iconColor={iconColor}
       iconProps={{ className: css.star }}
       opacity={1}
       {...props}

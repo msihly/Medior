@@ -3,11 +3,11 @@ import path from "path";
 import { useState } from "react";
 import { FixedSizeList } from "react-window";
 import Color from "color";
+import { checkFileExists } from "trabecula/utils/server";
 import { Card, Chip, Comp, FlatFolder, IconButton, TagRow, Text, View } from "medior/components";
 import { useStores } from "medior/store";
 import { colors, CssColor, makeBorderRadiuses, makeClasses, toast } from "medior/utils/client";
 import { Fmt } from "medior/utils/common";
-import { checkFileExists } from "medior/utils/server";
 import { IMPORT_LIST_ITEM_HEIGHT, ImportListItem } from "./import-list-item";
 
 const COLL_HEIGHT = 64;

@@ -1,5 +1,6 @@
 import fs from "fs/promises";
 import path from "path";
+import { checkFileExists } from "trabecula/utils/server";
 import type { FolderToCollMode, FolderToTagsMode, SortMenuProps } from "medior/components";
 import {
   AUDIO_CODECS_COMMON,
@@ -14,7 +15,6 @@ import {
   VideoCodec,
   VideoExt,
 } from "medior/utils/common";
-import { checkFileExists } from "medior/utils/server/files";
 import { fileLog } from "medior/utils/server/logging";
 import { trpc } from "medior/utils/server/trpc";
 
@@ -50,10 +50,10 @@ export interface Config {
     };
   };
   file: {
-    audioCodecs: Array<AudioCodec | string>;
+    audioCodecs: Array<AudioCodec>;
     fileCardFit: "contain" | "cover";
     hideUnratedIcon: boolean;
-    imageExts: Array<ImageExt | string>;
+    imageExts: Array<ImageExt>;
     reencode: {
       codec: string;
       maxBitrate: number;
@@ -79,7 +79,7 @@ export interface Config {
       override: string[];
     };
     remuxTypes: {
-      toMp4: Array<Omit<VideoExt, "mp4"> | string>;
+      toMp4: Array<Omit<VideoExt, "mp4">>;
     };
     search: Search;
     splice: {
@@ -88,8 +88,8 @@ export interface Config {
         removeTagIds: string[];
       };
     };
-    videoCodecs: Array<VideoCodec | string>;
-    videoExts: Array<VideoExt | string>;
+    videoCodecs: Array<VideoCodec>;
+    videoExts: Array<VideoExt>;
   };
   imports: {
     deleteOnImport: boolean;
@@ -265,12 +265,14 @@ export const getConfig = (debugLoc?: string) => {
 export const getIsAnimated = (ext: string) =>
   ["gif", ...getConfig().file.videoExts].includes(ext.toLowerCase());
 
-export const getIsImage = (ext: string) => getConfig().file.imageExts.includes(ext.toLowerCase());
+export const getIsImage = (ext: string) =>
+  getConfig().file.imageExts.includes(ext.toLowerCase() as ImageExt);
 
 export const getIsRemuxable = (ext: string) =>
   getConfig().file.remuxTypes.toMp4.includes(ext.toLowerCase());
 
-export const getIsVideo = (ext: string) => getConfig().file.videoExts.includes(ext.toLowerCase());
+export const getIsVideo = (ext: string) =>
+  getConfig().file.videoExts.includes(ext.toLowerCase() as VideoExt);
 
 export const loadConfig = async (filePath: string) => {
   try {
