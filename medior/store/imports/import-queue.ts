@@ -3,13 +3,13 @@ import path from "path";
 import { useEffect, useRef } from "react";
 import { cloneDeep } from "es-toolkit";
 import { ModelCreationData } from "mobx-keystone";
-import { dirToFilePaths } from "trabecula/utils/server";
+import { dirToFilePaths, makePerfLog } from "trabecula/utils/server";
 import { CreateImportBatchesInput, TagSchema } from "medior/server/database";
 import { FlatFolder, TagToUpsert } from "medior/components";
 import { FileImport, Ingester, Reingester, RootStore, Tag, useStores } from "medior/store";
 import { derefMobx, toast } from "medior/utils/client";
 import { dayjs, Fmt, ImageExt, parseDiffParams, VideoExt } from "medior/utils/common";
-import { getConfig, makePerfLog, trpc } from "medior/utils/server";
+import { getConfig, trpc } from "medior/utils/server";
 
 type RegExMap = { regEx: RegExp; tagId: string };
 

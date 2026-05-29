@@ -1,8 +1,9 @@
 import { createTRPCProxyClient, httpBatchLink } from "@trpc/client";
 import { SocketEmitEvent, SocketEmitEvents, SocketEvents } from "medior/_generated/server/socket";
 import { io, Socket } from "socket.io-client";
+import { fileLog } from "trabecula/utils/server";
 import { ServerRouter } from "medior/server/trpc";
-import { fileLog, getConfig } from "medior/utils/server";
+import { getConfig } from "medior/utils/server";
 
 /* -------------------------------------------------------------------------- */
 /*                                    TRPC                                    */

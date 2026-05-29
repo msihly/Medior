@@ -1,8 +1,9 @@
 import { promises as fs } from "fs";
 import path from "path";
+import { makePerfLog } from "trabecula/utils/server";
 import type { FileSchema, ImportFileInput } from "medior/server/database";
 import { CONSTANTS, dayjs } from "medior/utils/common";
-import { getIsAnimated, makePerfLog, sharp } from "medior/utils/server";
+import { getIsAnimated, sharp } from "medior/utils/server";
 import { getVideoInfo, vidToThumbGrid } from "medior/utils/server/videos";
 
 export const genFileInfo = async (args: {

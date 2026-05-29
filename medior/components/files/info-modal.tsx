@@ -84,7 +84,7 @@ export const InfoModal = Comp(() => {
 
       <Modal.Content spacing="0.5rem">
         <UniformList row>
-          <View column>
+          <View column spacing="0.5rem">
             <Detail label="Extension" value={file?.ext} />
 
             <Detail
@@ -105,13 +105,13 @@ export const InfoModal = Comp(() => {
             />
           </View>
 
-          <View column>
+          <View column spacing="0.5rem">
             <Detail label="Duration" value={Fmt.duration(file?.duration)} />
 
             <Detail label="FPS" value={file?.frameRate ? round(file.frameRate) : null} />
           </View>
 
-          <View column>
+          <View column spacing="0.5rem">
             <Detail
               label="Video Codec"
               value={file?.videoCodec}
@@ -125,7 +125,7 @@ export const InfoModal = Comp(() => {
             />
           </View>
 
-          <View column>
+          <View column spacing="0.5rem">
             <Detail
               label="Video Bitrate"
               value={file?.bitrate ? `${Fmt.bytes(file.bitrate)}/s` : null}

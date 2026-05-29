@@ -1,6 +1,6 @@
 import fs from "fs/promises";
 import path from "path";
-import { checkFileExists } from "trabecula/utils/server";
+import { checkFileExists, fileLog } from "trabecula/utils/server";
 import type { FolderToCollMode, FolderToTagsMode, SortMenuProps } from "medior/components";
 import {
   AUDIO_CODECS_COMMON,
@@ -15,7 +15,6 @@ import {
   VideoCodec,
   VideoExt,
 } from "medior/utils/common";
-import { fileLog } from "medior/utils/server/logging";
 import { trpc } from "medior/utils/server/trpc";
 
 type DevToolsMode = null | Electron.OpenDevToolsOptions["mode"];

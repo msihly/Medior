@@ -1,9 +1,9 @@
 import fs from "fs/promises";
 import { MongoMemoryReplSet } from "mongodb-memory-server";
 import Mongoose from "mongoose";
+import { fileLog, setLogsPath } from "trabecula/utils/server";
 import { sleep } from "medior/utils/common";
 import { getConfig, loadConfig } from "medior/utils/server/config";
-import { fileLog, setLogsPath } from "medior/utils/server/logging";
 
 let mongoServer: MongoMemoryReplSet;
 

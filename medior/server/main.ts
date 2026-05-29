@@ -1,8 +1,9 @@
 import { app, BrowserWindow, ipcMain, screen } from "electron";
 import path from "path";
+import { fileLog, setLogsPath } from "trabecula/utils/server";
 import { startServers } from "medior/server/server";
 import { dayjs } from "medior/utils/common";
-import { fileLog, getConfig, loadConfig, setLogsPath, setupTRPC } from "medior/utils/server";
+import { getConfig, loadConfig, setupTRPC } from "medior/utils/server";
 const remoteMain = require("@electron/remote/main");
 
 /* -------------------------------------------------------------------------- */

@@ -1,7 +1,7 @@
 import { app } from "electron";
 import path from "path";
 import { ChildProcess, fork } from "child_process";
-import { fileLog, setLogsPath } from "medior/utils/server";
+import { fileLog, setLogsPath } from "trabecula/utils/server";
 
 type Proc = { name: string; child: ChildProcess };
 

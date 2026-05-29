@@ -2,11 +2,12 @@ import { ipcRenderer } from "electron";
 import { createContext, MutableRefObject, useEffect, useRef, WheelEvent } from "react";
 import FilePlayer from "react-player/file";
 import { PanzoomObject } from "@panzoom/panzoom";
+import { makePerfLog } from "trabecula/utils/server";
 import { Carousel, CarouselThumbNavigator, CarouselTopBar, Comp, View } from "medior/components";
 import { useStores } from "medior/store";
 import { makeClasses } from "medior/utils/client";
 import { debounce } from "medior/utils/common";
-import { makePerfLog, zoomScaleStepIn, zoomScaleStepOut } from "medior/utils/server";
+import { zoomScaleStepIn, zoomScaleStepOut } from "medior/utils/server";
 import { useHotkeys, useSockets, Views } from "medior/views/common";
 
 export const VideoContext = createContext<MutableRefObject<FilePlayer>>(null);

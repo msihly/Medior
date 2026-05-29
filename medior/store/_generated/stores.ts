@@ -14,12 +14,13 @@ import {
   modelFlow,
   prop,
 } from "mobx-keystone";
+import { makePerfLog } from "trabecula/utils/server";
 import * as Types from "medior/server/database/types";
 import { IconName, SortMenuProps } from "medior/components";
 import * as Stores from "medior/store";
 import { asyncAction, CssColor, derefMobx, toast } from "medior/utils/client";
 import { dayjs, isDeepEqual, LogicalOp } from "medior/utils/common";
-import { getConfig, makePerfLog, trpc } from "medior/utils/server";
+import { getConfig, trpc } from "medior/utils/server";
 
 /* --------------------------------------------------------------------------- */
 /*                               SEARCH STORES
