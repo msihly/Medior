@@ -30,13 +30,13 @@ export interface TagRowProps extends ViewProps {
   tags: TagToUpsert[];
 }
 
-export const TagRow = Comp((props: TagRowProps) => {
-  if (!props.tags?.length) return null;
+export const TagRow = Comp(({ disabled, tags, ...props }: TagRowProps) => {
+  if (!tags?.length) return null;
 
   return (
     <View row spacing="0.5rem" overflow="auto hidden" {...props}>
-      {sortTags(props.tags).map((tag) => (
-        <TagChip key={tag.label} tag={tag} disabled={props.disabled} hasEditor />
+      {sortTags(tags).map((tag) => (
+        <TagChip key={tag.label} tag={tag} disabled={disabled} hasEditor />
       ))}
     </View>
   );

@@ -53,19 +53,23 @@ export const Tooltip = Comp(({ children, disabled, file }: TooltipProps) => {
           )}
 
           <UniformList row spacing="1rem">
-            <UniformList column>
+            <UniformList column spacing="0.5rem">
               <Detail label="Size" value={Fmt.bytes(file.size)} />
               <Detail label="Dimensions" value={`${file.width} x ${file.height}`} />
             </UniformList>
 
-            <UniformList column>
+            <UniformList column spacing="0.5rem">
               <DateDetail label="Date Created" value={file.dateCreated} />
               <DateDetail label="Date Modified" value={file.dateModified} />
             </UniformList>
           </UniformList>
 
-          <Text preset="detail-label">{"Tags"}</Text>
-          <TagRow tags={file.tags} disabled={disabled} />
+          {file.tags?.length > 0 && (
+            <Detail
+              label="Tags"
+              value={<TagRow tags={file.tags} disabled={disabled} padding={{ top: "0.3rem" }} />}
+            />
+          )}
 
           {file.diffusionParams?.length > 0 && (
             <Detail

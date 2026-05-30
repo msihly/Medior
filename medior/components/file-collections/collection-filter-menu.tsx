@@ -8,6 +8,7 @@ import {
   LogOpsInput,
   NumRange,
   TagInput,
+  UniformList,
   View,
 } from "medior/components";
 import { FileCollectionSearch } from "medior/store";
@@ -26,7 +27,7 @@ export const CollectionFilterMenu = Comp(
         color={color}
         sortOptions={SORT_OPTIONS.FileCollection}
         width="10rem"
-        viewProps={{ width: "35rem" }}
+        viewProps={{ width: "36rem" }}
       >
         <View row spacing="0.5rem">
           <Card flex={1}>
@@ -45,7 +46,7 @@ export const CollectionFilterMenu = Comp(
           <Card column spacing="0.5rem">
             <Input header="Title" value={store.title} setValue={store.setTitle} />
 
-            <View row spacing="0.5rem">
+            <UniformList row spacing="0.5rem">
               <LogOpsInput
                 header="File Count"
                 logOpValue={store.fileCount.logOp}
@@ -53,7 +54,6 @@ export const CollectionFilterMenu = Comp(
                 setLogOpValue={store.setFileCountOp}
                 setNumValue={store.setFileCountValue}
                 numInputProps={{ minValue: 0 }}
-                width="9rem"
               />
 
               <LogOpsInput
@@ -63,9 +63,8 @@ export const CollectionFilterMenu = Comp(
                 setLogOpValue={store.setRatingOp}
                 setNumValue={store.setRatingValue}
                 numInputProps={{ maxValue: 9, minValue: 0 }}
-                width="9rem"
               />
-            </View>
+            </UniformList>
 
             <NumRange
               header="Size"

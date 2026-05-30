@@ -1,4 +1,4 @@
-import { Comp, FileBase } from "medior/components";
+import { CardBase, Comp, FileBase } from "medior/components";
 import { useFileDrag } from "medior/components/files/hooks";
 import { File, FileSearch, useStores } from "medior/store";
 import { colors, CSS, openCarouselWindow, toast } from "medior/utils/client";
@@ -55,11 +55,13 @@ export const FileCollectionFile = Comp(
               title={file.originalName}
               draggable
             >
-              <FileBase.Chip
+              <CardBase.Chip
                 position="top-left"
                 label={fileIndex + 1}
                 bgColor={hasChangedIndex ? colors.custom.purple : colors.custom.black}
-                opacity={0.8}
+                opacity={0.6}
+                radiuses={{ left: 0, top: 0, bottomRight: "inherit" }}
+                flush
               />
 
               <FileBase.ExtAndIcons position="top-right" file={file} />

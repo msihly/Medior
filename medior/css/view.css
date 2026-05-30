@@ -28,8 +28,9 @@ body {
 }
 
 ::-webkit-scrollbar {
-  width: 9px;
-  height: 9px;
+  padding: 1px 0px;
+  width: 8px;
+  height: 8px;
   background: transparent;
 }
 
@@ -39,7 +40,7 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  border-radius: 9px;
+  border-radius: 6px;
   background: rgb(50, 50, 50);
   transition: "all 200ms ease-in-out";
 }

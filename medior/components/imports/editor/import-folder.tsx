@@ -10,7 +10,7 @@ import { colors, CssColor, makeBorderRadiuses, makeClasses, toast } from "medior
 import { Fmt } from "medior/utils/common";
 import { IMPORT_LIST_ITEM_HEIGHT, ImportListItem } from "./import-list-item";
 
-const COLL_HEIGHT = 64;
+const COLL_HEIGHT = 42;
 const HEADER_HEIGHT = 43;
 const TAGS_HEIGHT = 46;
 
@@ -100,9 +100,6 @@ export const ImportFolderList = Comp(
         {hasCollection && (
           <View column className={css.collection}>
             <Text className={css.collectionTitle}>{folder.collectionTitle}</Text>
-            <Text fontSize="0.7em" textAlign="center">
-              {"Collection"}
-            </Text>
           </View>
         )}
 

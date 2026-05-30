@@ -69,7 +69,7 @@ export const FileCollection = Comp(({ collection }: FileCollectionProps) => {
           padding={{ all: 0 }}
           overflow="hidden"
           header={
-            <View column width="100%">
+            <View column spacing="0.3rem" width="100%">
               <View
                 row
                 align="center"
@@ -90,7 +90,8 @@ export const FileCollection = Comp(({ collection }: FileCollectionProps) => {
 
               {!collection.tags ? null : (
                 <>
-                  <Divider sx={{ height: "2px", margin: "0 0 0.3rem 0" }} />
+                  <Divider sx={{ height: "2px" }} />
+
                   <TagRow
                     tags={collection.tags.slice(0, 15)}
                     padding={{ all: "0 0.3rem 0.3rem 0.2rem" }}

@@ -82,9 +82,9 @@ export const InfoModal = Comp(() => {
         <Text preset="title">{"File Info"}</Text>
       </Modal.Header>
 
-      <Modal.Content spacing="0.5rem">
+      <Modal.Content spacing="1rem">
         <UniformList row>
-          <View column spacing="0.5rem">
+          <View column spacing="1rem">
             <Detail label="Extension" value={file?.ext} />
 
             <Detail
@@ -105,13 +105,13 @@ export const InfoModal = Comp(() => {
             />
           </View>
 
-          <View column spacing="0.5rem">
+          <View column spacing="1rem">
             <Detail label="Duration" value={Fmt.duration(file?.duration)} />
 
             <Detail label="FPS" value={file?.frameRate ? round(file.frameRate) : null} />
           </View>
 
-          <View column spacing="0.5rem">
+          <View column spacing="1rem">
             <Detail
               label="Video Codec"
               value={file?.videoCodec}
@@ -125,7 +125,7 @@ export const InfoModal = Comp(() => {
             />
           </View>
 
-          <View column spacing="0.5rem">
+          <View column spacing="1rem">
             <Detail
               label="Video Bitrate"
               value={file?.bitrate ? `${Fmt.bytes(file.bitrate)}/s` : null}
@@ -152,9 +152,7 @@ export const InfoModal = Comp(() => {
           </View>
         </UniformList>
 
-        <View row spacing="0.5rem">
-          <Detail label="Original File Name" value={file?.originalName} withTooltip />
-        </View>
+        <Detail label="Original File Name" value={file?.originalName} withTooltip />
 
         <Detail
           label="Original Folder"
@@ -168,6 +166,7 @@ export const InfoModal = Comp(() => {
           tooltip={
             <View column spacing="0.5rem">
               {file?.path ? <Button text="Open File in Folder" onClick={openFileLocation} /> : null}
+
               {file?.thumb?.path ? (
                 <Button text="Open Thumb in Folder" onClick={openThumbLocation} />
               ) : null}
@@ -175,20 +174,20 @@ export const InfoModal = Comp(() => {
           }
         />
 
-        <UniformList row>
-          <Detail
-            label="Hash"
-            value={file?.hash}
-            tooltip={<Detail label="Original Hash" value={file?.originalHash} />}
-          />
-        </UniformList>
+        <Detail
+          label="Hash"
+          value={file?.hash}
+          tooltip={<Detail label="Original Hash" value={file?.originalHash} />}
+        />
 
         <UniformList row>
           <DateDetail label="Date Created" value={file?.dateCreated} />
           <DateDetail label="Date Modified" value={file?.dateModified} />
         </UniformList>
 
-        {file?.tags?.length > 0 && <Detail label="Tags" value={<TagRow tags={file.tags} />} />}
+        {file?.tags?.length > 0 && (
+          <Detail label="Tags" value={<TagRow tags={file.tags} padding={{ top: "0.3rem" }} />} />
+        )}
 
         {file?.diffusionParams?.length > 0 && (
           <Detail

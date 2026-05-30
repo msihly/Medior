@@ -8,6 +8,7 @@ import mongoose, { UpdateWithAggregationPipeline } from "mongoose";
 import {
   checkFileExists,
   deleteFile,
+  dirToFilePaths,
   fileLog,
   makePerfLog,
   removeEmptyFolders,
@@ -141,30 +142,50 @@ export const deleteFiles = makeAction(async (args: { fileIds: string[] }) => {
   socket.emit("onFilesDeleted", { fileHashes, fileIds: args.fileIds });
 });
 
-export const deleteFilesExternal = makeAction(async (args: { filePaths: string[] }) => {
+export const deleteFilesExternal = makeAction(async (args: { paths: string[] }) => {
   try {
-    const fileHashes = new Set<string>();
-    for (const filePath of args.filePaths) fileHashes.add(await md5File(filePath));
+    fileLog(`[DFE] Deleting ${args.paths.length} paths...`);
 
-    await models.DeletedFileModel.bulkWrite(
-      [...fileHashes].map((hash) => ({
-        updateOne: {
-          filter: { hash },
-          update: { $setOnInsert: { hash } },
-          upsert: true,
-        },
-      })),
-    );
+    const filePaths: string[] = [];
+    for (const p of args.paths) {
+      if ((await fs.stat(p)).isDirectory()) {
+        const files = await dirToFilePaths(p);
+        for (const file of files) filePaths.push(file);
+      }
 
-    fileLog(`[DFE] Added ${fileHashes.size} file hashes.`);
+      fileLog(`[DFE] Total files scanned: ${filePaths.length}`);
+    }
 
-    const chunks = chunkArray(args.filePaths, 200);
-    for (const chunk of chunks) await trash(chunk);
+    if (!filePaths.length) throw new Error("No valid files found");
+    fileLog(`[DFE] Total files to delete: ${filePaths.length}`);
 
-    fileLog(`[DFE] Deleted ${args.filePaths.length} files.`);
+    if (!filePaths.length) throw new Error("No valid files found");
+
+    const chunks = chunkArray(filePaths, 500);
+    for (const chunk of chunks) {
+      const fileHashes: string[] = [];
+      for (const filePath of chunk) fileHashes.push(await md5File(filePath));
+      fileLog(`[DFE] Hashed ${fileHashes.length} file hashes.`);
+
+      await models.DeletedFileModel.bulkWrite(
+        fileHashes.map((hash) => ({
+          updateOne: {
+            filter: { hash },
+            update: { $setOnInsert: { hash } },
+            upsert: true,
+          },
+        })),
+      );
+      fileLog(`[DFE] Stored ${fileHashes.length} file hashes.`);
+
+      await trash(chunk);
+      fileLog(`[DFE] Trashed ${chunk.length} files.`);
+    }
+
+    fileLog(`[DFE] Deleted ${filePaths.length} total files.`);
 
     const folders = new Set(
-      args.filePaths
+      filePaths
         .map((p) => path.dirname(p).split(path.sep))
         .sort((a, b) => b.length - a.length)
         .map((p) => p.join(path.sep)),
@@ -172,6 +193,8 @@ export const deleteFilesExternal = makeAction(async (args: { filePaths: string[]
 
     for (const folder of folders) await removeEmptyFolders(folder);
     fileLog(`[DFE] Deleted empty folders.`);
+
+    return { success: true, data: filePaths.length };
   } catch (err) {
     return { success: true, error: err.message };
   }

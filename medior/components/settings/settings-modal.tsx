@@ -128,9 +128,7 @@ export const SettingsModal = Comp(() => {
             {stores.home.settings.isRepairOpen && <RepairModal />}
           </View>
 
-          <View column>
-            <Settings.StorageInputs />
-          </View>
+          <Settings.StorageInputs />
         </Settings.Section>
 
         <Settings.Section title="Collections">

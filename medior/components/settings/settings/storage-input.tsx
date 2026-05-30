@@ -3,7 +3,7 @@ import { DiskSpace } from "check-disk-space";
 import { Comp, Icon, IconButton, IconName, Text, View } from "medior/components";
 import { useStores } from "medior/store";
 import { colors, CssColor } from "medior/utils/client";
-import { Fmt, round } from "medior/utils/common";
+import { Fmt } from "medior/utils/common";
 import { trpc } from "medior/utils/server";
 import { Input, InputProps } from "./input";
 
@@ -112,7 +112,9 @@ export const StorageInput = Comp(({ index, selectLocation, ...props }: StorageIn
           <Text color={colors.custom.grey}>{"Loading..."}</Text>
         ) : (
           <View row spacing="1rem">
-            <Text color={status.color} fontWeight={500}>{`${round(percentFilled * 100)}%`}</Text>
+            <Text color={status.color} fontWeight={500}>
+              {`${(percentFilled * 100).toFixed(2)}%`}
+            </Text>
 
             <Text>{`${Fmt.bytes(diskStats.free)} / ${Fmt.bytes(diskStats.size)}`}</Text>
           </View>

@@ -1,5 +1,6 @@
 import { promises as fs } from "fs";
 import path from "path";
+import { Metadata } from "sharp";
 import { makePerfLog } from "trabecula/utils/server";
 import type { FileSchema, ImportFileInput } from "medior/server/database";
 import { CONSTANTS, dayjs } from "medior/utils/common";
@@ -18,9 +19,19 @@ export const genFileInfo = async (args: {
   const ext = args.filePath.split(".").pop().toLowerCase();
   const isAnimated = getIsAnimated(ext);
 
-  let isCorrupted = false;
+  let isCorrupted: boolean = false;
+  let imageInfo: Metadata = null;
+
   const stats = await fs.stat(args?.filePath);
-  const imageInfo = !isAnimated ? await sharp(args.filePath).metadata() : null;
+
+  if (!isAnimated) {
+    try {
+      imageInfo = await sharp(args.filePath, { failOn: "none" }).metadata();
+    } catch (err) {
+      isCorrupted = true;
+    }
+  }
+
   const videoInfo = isAnimated ? await getVideoInfo(args.filePath) : null;
 
   const audioBitrate = isAnimated ? videoInfo.audioBitrate : null;
@@ -46,10 +57,16 @@ export const genFileInfo = async (args: {
       const thumbGridRes = await vidToThumbGrid(args.filePath, dirPath, args.hash);
       isCorrupted = thumbGridRes.isCorrupted;
       thumbPath = thumbGridRes.path;
-    } else
-      sharp(args.filePath, { failOn: "none" })
-        .resize(null, CONSTANTS.FILE.THUMB.MAX_DIM)
-        .toFile(thumbPath);
+    } else {
+      try {
+        await sharp(args.filePath, { failOn: "none" })
+          .resize(null, CONSTANTS.FILE.THUMB.MAX_DIM)
+          .toFile(thumbPath);
+      } catch {
+        isCorrupted = true;
+      }
+    }
+
     if (DEBUG) perfLog(`Generated thumbnail.`);
   }
 

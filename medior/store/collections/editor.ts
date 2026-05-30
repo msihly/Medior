@@ -79,22 +79,40 @@ export class CollectionEditor extends Model({
     this.setCollection(new FileCollection(collection));
     this.setTitle(collection.title);
 
-    const fileIndexes = collection.fileIdIndexes.sort((a, b) => a.index - b.index);
-    this.setFileIndexes(fileIndexes);
+    if (this.search.sortValue.key === "custom") {
+      this.setFileIndexes(
+        collection.fileIdIndexes
+          .sort((a, b) => (this.search.sortValue.isDesc ? b.index - a.index : a.index - b.index))
+          .map((f, i) => ({ fileId: f.fileId, index: i })),
+      );
+    } else {
+      const indexesRes = await trpc.listSortedFileIds.mutate({
+        ids: collection.fileIdIndexes.map((f) => f.fileId),
+        sortValue: this.search.sortValue,
+      });
+      if (!indexesRes.success) throw new Error(indexesRes.error);
+
+      this.setFileIndexes(indexesRes.data.map((fileId, index) => ({ fileId, index })));
+    }
+
+    const fileIds = [...new Set(this.fileIndexes.map((f) => f.fileId))];
+    this.search.setIds(fileIds);
+    this.fileSearch.setExcludedFileIds(fileIds);
 
     const tagsRes = await trpc.listTag.mutate({ filter: { id: collection.tagIds } });
     if (!tagsRes.success) throw new Error(tagsRes.error);
     const tags = tagsRes.data.sort((a, b) => b.count - a.count).map((t) => new Tag(t));
     this.setTags(tags);
 
-    const fileIds = [...new Set(fileIndexes.map((f) => f.fileId))];
-    this.fileSearch.setExcludedFileIds(fileIds);
-    this.search.setIds(fileIds);
     this.search.setForcePages(true);
 
     if (!fileIds?.length) this.search.setResults([]);
     else {
-      const fileRes = await this.search.loadFiltered({ page: 1, withFullCount: true });
+      const fileRes = await this.search.loadFiltered({
+        noCache: true,
+        page: 1,
+        withFullCount: true,
+      });
       if (!fileRes.success) throw new Error(fileRes.error);
     }
 

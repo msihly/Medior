@@ -194,92 +194,96 @@ export const StorageInputs = Comp(() => {
   };
 
   return (
-    <Card header="File Storage Locations" bgColor={colors.foregroundCard}>
-      <View column spacing="0.5rem" padding={{ all: "0.5rem" }}>
-        {stores.home.settings.db.fileStorage.locations.map((_, index) => (
-          <StorageInput
-            {...{ index, selectLocation }}
-            key={index}
-            configKey="db.fileStorage.locations"
-          />
-        ))}
+    <Card
+      header="File Storage Locations"
+      column
+      spacing="0.5rem"
+      padding={{ all: "0.5rem" }}
+      bgColor={colors.foregroundCard}
+    >
+      {stores.home.settings.db.fileStorage.locations.map((_, index) => (
+        <StorageInput
+          {...{ index, selectLocation }}
+          key={index}
+          configKey="db.fileStorage.locations"
+        />
+      ))}
 
-        <UniformList row justify="center" spacing="0.5rem">
-          <Button
-            text="Add Location"
-            icon="Add"
-            onClick={handleAddLocation}
-            colorOnHover={colors.custom.blue}
-          />
+      <UniformList row justify="center" spacing="0.5rem">
+        <Button
+          text="Add Location"
+          icon="Add"
+          onClick={handleAddLocation}
+          colorOnHover={colors.custom.blue}
+        />
 
-          <Button
-            text="Scan"
-            icon="Refresh"
-            onClick={handleScan}
-            colorOnHover={colors.custom.purple}
-          />
-        </UniformList>
+        <Button
+          text="Scan"
+          icon="Refresh"
+          onClick={handleScan}
+          colorOnHover={colors.custom.purple}
+        />
+      </UniformList>
 
-        {isModalOpen && (
-          <Modal.Container height="90%" width="90%">
-            <Modal.Header>
-              <Text preset="title">{"File Storage / Database Sync"}</Text>
-            </Modal.Header>
+      {isModalOpen && (
+        <Modal.Container height="90%" width="90%">
+          <Modal.Header>
+            <Text preset="title">{"File Storage / Database Sync"}</Text>
+          </Modal.Header>
 
-            <Modal.Content>
-              <Card column height="100%" spacing="1rem">
-                <View row spacing="0.5rem">
-                  {isLoading && <CircularProgress size="1em" />}
+          <Modal.Content>
+            <Card column height="100%" spacing="1rem">
+              <View row spacing="0.5rem">
+                {isLoading && <CircularProgress size="1em" />}
 
-                  {fileIdsLeftInDbOnly.length > 0 && (
+                {fileIdsLeftInDbOnly.length > 0 && (
+                  <Button
+                    text="Delete Files in Database Only"
+                    icon="Delete"
+                    color={colors.custom.red}
+                    onClick={handleDeleteFilesInDbOnly}
+                    disabled={isLoading}
+                  />
+                )}
+
+                {filesLeftInStorageOnly.length > 0 && (
+                  <>
                     <Button
-                      text="Delete Files in Database Only"
+                      text="Delete Files in Storages Only"
                       icon="Delete"
                       color={colors.custom.red}
-                      onClick={handleDeleteFilesInDbOnly}
+                      onClick={handleDeleteFilesInStorageOnly}
                       disabled={isLoading}
                     />
-                  )}
 
-                  {filesLeftInStorageOnly.length > 0 && (
-                    <>
-                      <Button
-                        text="Delete Files in Storages Only"
-                        icon="Delete"
-                        color={colors.custom.red}
-                        onClick={handleDeleteFilesInStorageOnly}
-                        disabled={isLoading}
-                      />
+                    <Button
+                      text="Re-Import Files in Storages Only"
+                      icon="Refresh"
+                      onClick={handleReImportFilesInStorageOnly}
+                      disabled={isLoading}
+                    />
+                  </>
+                )}
+              </View>
 
-                      <Button
-                        text="Re-Import Files in Storages Only"
-                        icon="Refresh"
-                        onClick={handleReImportFilesInStorageOnly}
-                        disabled={isLoading}
-                      />
-                    </>
-                  )}
-                </View>
+              <Divider />
 
-                <Divider />
+              <Text overflow="auto" whiteSpace="pre">
+                {modalOutput}
+              </Text>
+            </Card>
+          </Modal.Content>
 
-                <Text overflow="auto" whiteSpace="pre">
-                  {modalOutput}
-                </Text>
-              </Card>
-            </Modal.Content>
-
-            <Modal.Footer>
-              <Button
-                text="Close"
-                onClick={() => setIsModalOpen(false)}
-                disabled={isLoading}
-                color={colors.custom.darkGrey}
-              />
-            </Modal.Footer>
-          </Modal.Container>
-        )}
-      </View>
+          <Modal.Footer>
+            <Button
+              text="Close"
+              onClick={() => setIsModalOpen(false)}
+              disabled={isLoading}
+              color={colors.custom.darkGrey}
+            />
+          </Modal.Footer>
+        </Modal.Container>
+      )}
     </Card>
   );
 });
