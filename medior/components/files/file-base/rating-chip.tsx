@@ -9,7 +9,7 @@ export const getRatingMeta = (rating: number) => {
   const icon: IconName = rating > 0 ? "Star" : "StarOutline";
   const iconColor: CssColor =
     rating >= 7
-      ? (Color(colors.custom.orange).lighten(0.2).hex() as CssColor)
+      ? (Color(colors.custom.orange).lighten(0.2).string() as CssColor)
       : rating >= 4
         ? colors.custom.lightGrey
         : colors.custom.brown;

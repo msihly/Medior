@@ -54,8 +54,8 @@ export const TagChip = Comp(
       <BadgeWrapper condition={!tag.id}>
         <Chip
           {...props}
-          onClick={hasEditor || onClick ? handleClick : null}
           size={size}
+          onClick={onClick || (hasEditor && tag.id) ? handleClick : null}
           className={cx(css.chip, className)}
           label={
             <View row align="center">
@@ -79,7 +79,7 @@ const BadgeContent = () => {
     <View
       borderRadiuses={{ all: "50%" }}
       margins={{ top: "0.2rem", left: "0.4rem" }}
-      bgColor={Color(colors.custom.green).lighten(0.9).hex() as CssColor}
+      bgColor={Color(colors.custom.green).lighten(0.9).string() as CssColor}
     >
       <Icon name="AddCircle" color={colors.custom.green} size={15} />
     </View>
@@ -96,7 +96,10 @@ const BadgeWrapper = ({ children, condition }: BadgeWrapperProps) => {
     <ConditionalWrap
       condition={condition}
       wrap={(c) => (
-        <Badge badgeContent={BadgeContent} anchorOrigin={{ horizontal: "left", vertical: "top" }}>
+        <Badge
+          badgeContent={<BadgeContent />}
+          anchorOrigin={{ horizontal: "left", vertical: "top" }}
+        >
           {c}
         </Badge>
       )}

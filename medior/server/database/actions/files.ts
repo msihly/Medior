@@ -161,7 +161,7 @@ export const deleteFilesExternal = makeAction(async (args: { paths: string[] }) 
 
     if (!filePaths.length) throw new Error("No valid files found");
 
-    const chunks = chunkArray(filePaths, 500);
+    const chunks = chunkArray(filePaths, 200);
     for (const chunk of chunks) {
       const fileHashes: string[] = [];
       for (const filePath of chunk) fileHashes.push(await md5File(filePath));
@@ -196,7 +196,7 @@ export const deleteFilesExternal = makeAction(async (args: { paths: string[] }) 
 
     return { success: true, data: filePaths.length };
   } catch (err) {
-    return { success: true, error: err.message };
+    return { success: false, error: err.message };
   }
 });
 

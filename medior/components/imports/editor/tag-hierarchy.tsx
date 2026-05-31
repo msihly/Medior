@@ -27,7 +27,7 @@ const TagLevel = Comp(({ isChild, tag }: TagHierarchyProps) => {
       className={isChild ? css.tagLevel : undefined}
       data-child={isChild || undefined}
     >
-      <TagChip tag={tag} hasEditor />
+      <TagChip tag={tag} hasEditor width="fit-content" />
 
       {tag.children?.length > 0 && (
         <View column spacing="0.3rem" margins={{ left: "1rem" }} className={css.children}>

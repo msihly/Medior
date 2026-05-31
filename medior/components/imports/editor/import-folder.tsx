@@ -121,7 +121,7 @@ export const ImportFolderList = Comp(
                   noStatus={noStatus}
                   bgColor={
                     index % 2 === 1
-                      ? (Color(colors.foreground).fade(0.35).hex() as CssColor)
+                      ? (Color(colors.foreground).fade(0.35).string() as CssColor)
                       : undefined
                   }
                   style={style}

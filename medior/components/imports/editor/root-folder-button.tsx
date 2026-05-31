@@ -22,11 +22,11 @@ export const RootFolderButton = Comp(({ folderPart, index, store }: RootFolderBu
         type="link"
         text={folderPart}
         onClick={handleClick}
-        fontWeight={500}
+        fontWeight={600}
         textColor={
           Color(colors.custom.lightBlue)
             .fade(!isSelected ? 0.3 : 0)
-            .hex() as CssColor
+            .string() as CssColor
         }
       />
     </Fragment>

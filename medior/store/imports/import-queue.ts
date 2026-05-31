@@ -232,10 +232,13 @@ export const useImportEditor = (store: Ingester | Reingester) => {
     const depth = store.options.withFlattenTo
       ? store.rootFolderIndex + store.options.flattenTo
       : undefined;
+
     const folderNameParts = folderName
       .split(path.sep)
       .slice(store.rootFolderIndex, depth)
-      .map(Fmt.decodeHtmlEntities);
+      .map(Fmt.decodeHtmlEntities)
+      .filter((part, idx, arr) => arr.indexOf(part) === idx);
+
     const collectionTitle =
       store.options.folderToCollectionMode !== "none"
         ? (store.options.folderToCollectionMode === "withTag"
@@ -252,9 +255,11 @@ export const useImportEditor = (store: Ingester | Reingester) => {
         const labels = store.options.withDelimiters
           ? folderNameParts.flatMap(delimit)
           : folderNameParts;
+
         for (const label of labels) {
           if (label === collectionTitle) continue;
           const tag = await cache.current.getTagByLabel(label);
+
           if (!tag && !cache.current.tagsToCreateMap.has(label)) {
             cache.current.tagsToCreateMap.set(label, {
               label,
@@ -268,9 +273,14 @@ export const useImportEditor = (store: Ingester | Reingester) => {
       }
 
       if (store.options.folderToTagsMode === "hierarchical" && tagLabel) {
-        for (const label of delimit(tagLabel)) {
+        const labels = store.options.withDelimiters
+          ? folderNameParts.flatMap(delimit)
+          : folderNameParts;
+
+        for (const label of labels) {
           if (label === collectionTitle) continue;
           const tag = await cache.current.getTagByLabel(label);
+
           const parentLabels = tagParentLabel ? delimit(tagParentLabel) : [];
           folderTags.push({ ...tag, label, parentLabels });
         }
@@ -426,10 +436,12 @@ export const useImportEditor = (store: Ingester | Reingester) => {
     return importBatches;
   };
 
-  const createTagHierarchy = (tags: TagToUpsert[], label: string): TagToUpsert[] =>
-    tags
-      .filter((c) => c.parentLabels?.includes(label))
+  const createTagHierarchy = (tags: TagToUpsert[], label: string): TagToUpsert[] => {
+    const labelRegex = new RegExp(`^${label}$`, "i");
+    return tags
+      .filter((c) => c.parentLabels?.some((l) => labelRegex.test(l)))
       .map((c) => ({ ...c, children: createTagHierarchy(tags, c.label) }));
+  };
 
   const createTagsToUpsert = async (tags: TagToUpsert[], perfLog: (str: string) => void) => {
     const tagsToUpsertMap = new Map<string, TagToUpsert>();
@@ -780,6 +792,7 @@ export const useImportEditor = (store: Ingester | Reingester) => {
 
         /* --------------------------------- Folders -------------------------------- */
         const folders = await createFolderHierarchy(editorImports, perfLog);
+
         store.setFlatFolderHierarchy(folders);
         if (DEBUG) perfLog("Set flat folder hierarchy");
 
@@ -799,6 +812,25 @@ export const useImportEditor = (store: Ingester | Reingester) => {
 
         /* ----------------------------------- Tags ---------------------------------- */
         const flatTagsToUpsert = await createTagsToUpsert(tagsToUpsert, perfLog);
+        const labels = new Set(flatTagsToUpsert.map((t) => t.label));
+
+        for (const tag of [...flatTagsToUpsert]) {
+          for (const parentLabel of tag.parentLabels ?? []) {
+            if (labels.has(parentLabel)) continue;
+
+            const parentTags = store.options.withFolderNameRegEx
+              ? await replaceTagsFromRegEx({ label: parentLabel })
+              : [{ label: parentLabel }];
+
+            for (const parentTag of parentTags) {
+              if (labels.has(parentTag.label)) continue;
+
+              labels.add(parentTag.label);
+              flatTagsToUpsert.push(parentTag);
+            }
+          }
+        }
+
         store.setFlatTagsToUpsert(flatTagsToUpsert);
         if (DEBUG) perfLog("Set flat tags to upsert");
 
