@@ -13,7 +13,7 @@ import {
 } from "mobx-keystone";
 import { _File } from "medior/store/_generated";
 import { asyncAction } from "medior/utils/client";
-import { dayjs, WEB_VIDEO_CODECS, WEB_VIDEO_EXTS } from "medior/utils/common";
+import { CONSTANTS, dayjs, WebVideoCodec, WebVideoExt } from "medior/utils/common";
 import { getIsVideo, trpc } from "medior/utils/server";
 
 @model("medior/File")
@@ -71,8 +71,8 @@ export class File extends ExtendedModel(_File, {
   @computed
   get isWebPlayable() {
     return (
-      WEB_VIDEO_CODECS.includes(this.videoCodec.toLowerCase()) &&
-      WEB_VIDEO_EXTS.includes(this.ext.toLowerCase())
+      CONSTANTS.WEB_VIDEO.CODECS.includes(this.videoCodec.toLowerCase() as WebVideoCodec) &&
+      CONSTANTS.WEB_VIDEO.EXTS.includes(this.ext.toLowerCase() as WebVideoExt)
     );
   }
 

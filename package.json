@@ -58,7 +58,7 @@
     "sharp-bmp": "^0.1.5",
     "socket.io": "^4.6.2",
     "socket.io-client": "^4.6.2",
-    "trabecula": "github:msihly/trabecula#1a73a868364583da2851e5ca1a7c07f9184a3b61",
+    "trabecula": "github:msihly/trabecula#c88aed85c940ba75326947f13d5eff358cf35d87",
     "util": "^0.12.5",
     "vite-plugin-electron-renderer": "0.10.1"
   },

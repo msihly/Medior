@@ -2,7 +2,16 @@ import { dialog } from "@electron/remote";
 import { ipcRenderer } from "electron";
 import { useEffect, useState } from "react";
 import { SORT_OPTIONS } from "medior/store/_generated";
-import { Button, Card, Comp, ConfirmModal, Modal, Text, View } from "medior/components";
+import {
+  Button,
+  Card,
+  Comp,
+  ConfirmModal,
+  Modal,
+  Text,
+  UniformList,
+  View,
+} from "medior/components";
 import { useStores } from "medior/store";
 import { colors, toast } from "medior/utils/client";
 import { CONSTANTS } from "medior/utils/common";
@@ -210,41 +219,31 @@ export const SettingsModal = Comp(() => {
             </Card>
           </View>
 
-          <Card
-            header="Handled Image Types"
-            row
-            wrap="wrap"
-            flex="inherit"
-            bgColor={colors.foregroundCard}
-          >
-            {CONSTANTS.IMAGE_EXTS.map((ext) => (
-              <Settings.ExtCheckbox key={ext} ext={ext} configKey="file.imageExts" />
-            ))}
-          </Card>
+          <UniformList row spacing="0.5rem" height="15rem">
+            <Settings.ExtColumn
+              label="Audio Codecs"
+              options={CONSTANTS.AUDIO.CODECS}
+              configKey="file.audioCodecs"
+            />
 
-          <Card
-            header="Handled Video Types"
-            row
-            wrap="wrap"
-            flex="inherit"
-            bgColor={colors.foregroundCard}
-          >
-            {CONSTANTS.VIDEO_EXTS.map((ext) => (
-              <Settings.ExtCheckbox key={ext} ext={ext} configKey="file.videoExts" />
-            ))}
-          </Card>
+            <Settings.ExtColumn
+              label="Image Exts"
+              options={CONSTANTS.IMAGE.EXTS}
+              configKey="file.imageExts"
+            />
 
-          <Card
-            header="Handled Video Codecs"
-            row
-            wrap="wrap"
-            flex="inherit"
-            bgColor={colors.foregroundCard}
-          >
-            {CONSTANTS.VIDEO_CODECS.map((ext) => (
-              <Settings.ExtCheckbox key={ext} ext={ext} configKey="file.videoCodecs" />
-            ))}
-          </Card>
+            <Settings.ExtColumn
+              label="Video Codecs"
+              options={CONSTANTS.VIDEO.CODECS}
+              configKey="file.videoCodecs"
+            />
+
+            <Settings.ExtColumn
+              label="VideoExts"
+              options={CONSTANTS.VIDEO.EXTS}
+              configKey="file.videoExts"
+            />
+          </UniformList>
         </Settings.Section>
 
         <Settings.Section title="Imports">

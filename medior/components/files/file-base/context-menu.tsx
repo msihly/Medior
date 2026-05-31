@@ -6,7 +6,7 @@ import { FileSchema } from "medior/_generated/server";
 import { Comp, ContextMenu as ContextMenuBase, ViewProps } from "medior/components";
 import { FileCollectionSearch, FileSearch, useStores } from "medior/store";
 import { colors, copyToClipboard, toast } from "medior/utils/client";
-import { VIDEO_EXTS, VideoExt } from "medior/utils/common";
+import { CONSTANTS, VideoExt } from "medior/utils/common";
 import { getConfig, getIsRemuxable, trpc } from "medior/utils/server";
 
 export interface ContextMenuProps extends ViewProps {
@@ -58,7 +58,7 @@ export const ContextMenu = Comp(({ children, file, store, ...props }: ContextMen
 
   const openNatively = async () => {
     try {
-      if (!VIDEO_EXTS.includes(file.ext as VideoExt)) shell.openPath(file.path);
+      if (!CONSTANTS.VIDEO.EXTS.includes(file.ext as VideoExt)) shell.openPath(file.path);
       else {
         const fileIdsRes = await trpc.listFileIdsForCarousel.mutate({
           ...store.getCachedFilterProps(),

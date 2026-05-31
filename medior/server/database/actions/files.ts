@@ -146,12 +146,14 @@ export const deleteFilesExternal = makeAction(async (args: { paths: string[] }) 
   try {
     fileLog(`[DFE] Deleting ${args.paths.length} paths...`);
 
+    const folderPaths: string[] = [];
     const filePaths: string[] = [];
     for (const p of args.paths) {
       if ((await fs.stat(p)).isDirectory()) {
+        folderPaths.push(p);
         const files = await dirToFilePaths(p);
         for (const file of files) filePaths.push(file);
-      }
+      } else filePaths.push(p);
 
       fileLog(`[DFE] Total files scanned: ${filePaths.length}`);
     }
@@ -184,12 +186,13 @@ export const deleteFilesExternal = makeAction(async (args: { paths: string[] }) 
 
     fileLog(`[DFE] Deleted ${filePaths.length} total files.`);
 
-    const folders = new Set(
-      filePaths
+    const folders = new Set([
+      ...folderPaths,
+      ...filePaths
         .map((p) => path.dirname(p).split(path.sep))
         .sort((a, b) => b.length - a.length)
         .map((p) => p.join(path.sep)),
-    );
+    ]);
 
     for (const folder of folders) await removeEmptyFolders(folder);
     fileLog(`[DFE] Deleted empty folders.`);
@@ -406,7 +409,7 @@ export const listSortedFileIds = makeAction(
 
 export const listVideosWithMissingInfo = makeAction(async () => {
   const files = await models.FileModel.find({
-    ext: { $in: CONSTANTS.VIDEO_EXTS },
+    ext: { $in: CONSTANTS.VIDEO.EXTS },
     $or: [
       { audioBitrate: { $exists: false } },
       { audioBitrate: "" },
@@ -574,7 +577,7 @@ export const repairFilesWithMissingInfo = makeAction(async () => {
   const updateMissingOriginal = async (name: string) => {
     const originalName = `original${Fmt.capitalize(name)}`;
     const files = await models.FileModel.find({
-      ext: { $in: CONSTANTS.VIDEO_EXTS },
+      ext: { $in: CONSTANTS.VIDEO.EXTS },
       $or: [
         {
           $and: [

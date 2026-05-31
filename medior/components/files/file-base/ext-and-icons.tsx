@@ -30,7 +30,7 @@ export const ExtAndIcons = ({ file, ...props }: ExtAndIconsProps) => {
 
           <View row align="center">
             <Text>{file.ext}</Text>
-            {!CONSTANTS.VIDEO_CODECS.includes(file.videoCodec as VideoCodec) ? null : (
+            {!CONSTANTS.VIDEO.CODECS.includes(file.videoCodec as VideoCodec) ? null : (
               <Text color={colors.custom.lightGrey}>{`/${file.videoCodec}`}</Text>
             )}
           </View>

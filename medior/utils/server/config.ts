@@ -3,15 +3,12 @@ import path from "path";
 import { checkFileExists, fileLog } from "trabecula/utils/server";
 import type { FolderToCollMode, FolderToTagsMode, SortMenuProps } from "medior/components";
 import {
-  AUDIO_CODECS_COMMON,
   AudioCodec,
+  CONSTANTS,
   deepMerge,
   handleErrors,
-  IMAGE_EXTS_COMMON,
   ImageExt,
   NestedKeys,
-  VIDEO_CODECS_COMMON,
-  VIDEO_EXTS_COMMON,
   VideoCodec,
   VideoExt,
 } from "medior/utils/common";
@@ -160,9 +157,9 @@ export const DEFAULT_CONFIG: Config = {
     },
   },
   file: {
-    audioCodecs: [...AUDIO_CODECS_COMMON],
+    audioCodecs: [...CONSTANTS.AUDIO.CODECS_COMMON],
     fileCardFit: "contain",
-    imageExts: [...IMAGE_EXTS_COMMON],
+    imageExts: [...CONSTANTS.IMAGE.EXTS_COMMON],
     hideUnratedIcon: false,
     reencode: {
       codec: "hevc_nvenc",
@@ -201,8 +198,8 @@ export const DEFAULT_CONFIG: Config = {
         removeTagIds: [],
       },
     },
-    videoCodecs: [...VIDEO_CODECS_COMMON],
-    videoExts: [...VIDEO_EXTS_COMMON],
+    videoCodecs: [...CONSTANTS.VIDEO.CODECS_COMMON],
+    videoExts: [...CONSTANTS.VIDEO.EXTS_COMMON],
   },
   imports: {
     deleteOnImport: true,
