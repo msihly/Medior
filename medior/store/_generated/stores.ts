@@ -1595,14 +1595,13 @@ export class _File extends Model({
   tagIds: prop<string[]>(),
   tagIdsWithAncestors: prop<string[]>(),
   thumb: prop<{ frameHeight?: number; frameWidth?: number; path: string }>(),
-  timestamps:
-    prop<
-      Array<{
-        id: string;
-        label: string;
-        pairs: Array<{ endDuration: string; id: string; order: number; startDuration: string }>;
-      }>
-    >(null),
+  timestamps: prop<
+    Array<{
+      id: string;
+      label: string;
+      pairs: Array<{ endDuration: string; id: string; order: number; startDuration: string }>;
+    }>
+  >(null),
   videoCodec: prop<string>(null),
   width: prop<number>(),
 }) {

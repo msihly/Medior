@@ -18,19 +18,12 @@ import { SortValue } from "medior/store/_generated";
 import * as actions from "medior/server/database/actions";
 import { genFileInfo } from "medior/utils/client";
 import { chunkArray, CONSTANTS, dayjs, Fmt } from "medior/utils/common";
-import {
-  leanModelToJson,
-  makeAction,
-  objectId,
-  objectIds,
-  sharp,
-  socket,
-} from "medior/utils/server";
+import { leanModelToJson, makeAction, objectId, objectIds, socket } from "medior/utils/server";
 
-const FACE_MIN_CONFIDENCE = 0.4;
-const FACE_MODELS_PATH = process.env.IS_PACKAGED
-  ? path.resolve(process.env.RESOURCES_PATH, "extraResources/face-models")
-  : "medior/face-models";
+// const FACE_MIN_CONFIDENCE = 0.4;
+// const FACE_MODELS_PATH = process.env.IS_PACKAGED
+//   ? path.resolve(process.env.RESOURCES_PATH, "extraResources/face-models")
+//   : "medior/face-models";
 
 /* -------------------------------------------------------------------------- */
 /*                              HELPER FUNCTIONS                              */
@@ -204,35 +197,37 @@ export const deleteFilesExternal = makeAction(async (args: { paths: string[] }) 
 });
 
 export const detectFaces = makeAction(async ({ imagePath }: { imagePath: string }) => {
-  const faceapi = await import("@vladmandic/face-api/dist/face-api.node-gpu.js");
-  const tf = await import("@tensorflow/tfjs-node-gpu");
+  return imagePath;
 
-  let buffer: Buffer;
+  // const faceapi = await import("@vladmandic/face-api/dist/face-api.node-gpu.js");
+  // const tf = await import("@tensorflow/tfjs-node-gpu");
 
-  try {
-    buffer = await fs.readFile(imagePath);
-    buffer = await sharp(buffer).png().toBuffer();
-  } catch (err) {
-    throw new Error(`Failed to convert image to buffer: ${err.message}`);
-  }
+  // let buffer: Buffer;
 
-  const tensor = tf.node.decodeImage(buffer as Uint8Array);
+  // try {
+  //   buffer = await fs.readFile(imagePath);
+  //   buffer = await sharp(buffer).png().toBuffer();
+  // } catch (err) {
+  //   throw new Error(`Failed to convert image to buffer: ${err.message}`);
+  // }
 
-  try {
-    const options = new faceapi.SsdMobilenetv1Options({ minConfidence: FACE_MIN_CONFIDENCE });
-    const faces = await faceapi
-      .detectAllFaces(tensor as any, options)
-      .withFaceLandmarks()
-      .withFaceExpressions()
-      .withFaceDescriptors()
-      .run();
+  // const tensor = tf.node.decodeImage(buffer as Uint8Array);
 
-    tf.dispose(tensor);
-    return faces;
-  } catch (err) {
-    tf.dispose(tensor);
-    throw new Error(err);
-  }
+  // try {
+  //   const options = new faceapi.SsdMobilenetv1Options({ minConfidence: FACE_MIN_CONFIDENCE });
+  //   const faces = await faceapi
+  //     .detectAllFaces(tensor as any, options)
+  //     .withFaceLandmarks()
+  //     .withFaceExpressions()
+  //     .withFaceDescriptors()
+  //     .run();
+
+  //   tf.dispose(tensor);
+  //   return faces;
+  // } catch (err) {
+  //   tf.dispose(tensor);
+  //   throw new Error(err);
+  // }
 });
 
 export const editFileTags = makeAction(
@@ -429,11 +424,11 @@ export const listVideosWithMissingInfo = makeAction(async () => {
 });
 
 export const loadFaceApiNets = makeAction(async () => {
-  const faceapi = await import("@vladmandic/face-api/dist/face-api.node-gpu.js");
-  await faceapi.nets.ssdMobilenetv1.loadFromDisk(FACE_MODELS_PATH);
-  await faceapi.nets.faceLandmark68Net.loadFromDisk(FACE_MODELS_PATH);
-  await faceapi.nets.faceExpressionNet.loadFromDisk(FACE_MODELS_PATH);
-  await faceapi.nets.faceRecognitionNet.loadFromDisk(FACE_MODELS_PATH);
+  // const faceapi = await import("@vladmandic/face-api/dist/face-api.node-gpu.js");
+  // await faceapi.nets.ssdMobilenetv1.loadFromDisk(FACE_MODELS_PATH);
+  // await faceapi.nets.faceLandmark68Net.loadFromDisk(FACE_MODELS_PATH);
+  // await faceapi.nets.faceExpressionNet.loadFromDisk(FACE_MODELS_PATH);
+  // await faceapi.nets.faceRecognitionNet.loadFromDisk(FACE_MODELS_PATH);
 });
 
 export const relinkFiles = makeAction(

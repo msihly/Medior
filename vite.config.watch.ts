@@ -1,14 +1,12 @@
 import { defineConfig } from "vite";
 import pluginReact from "@vitejs/plugin-react";
+// @ts-expect-error
 import pluginRenderer from "vite-plugin-electron-renderer";
 import pluginSVGR from "vite-plugin-svgr";
 import pluginTsconfigPaths from "vite-tsconfig-paths";
 import { exec } from "child_process";
 
 const EXTERNALS = [
-  "@tensorflow/tfjs-node",
-  "@tensorflow/tfjs-node-gpu",
-  "@vladmandic/face-api/dist/face-api.node-gpu.js",
   "aws-sdk",
   "crypto",
   "fluent-ffmpeg",

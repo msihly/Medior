@@ -16,6 +16,7 @@ import path from "path";
       "@electron/remote",
       "@tensorflow/tfjs-node-gpu",
       "@tensorflow/tfjs-node",
+      "@vladmandic/face-api",
       "electron",
       "fdir",
       "fluent-ffmpeg",

@@ -120,7 +120,7 @@ export const FaceRecognitionModal = Comp(() => {
       const tagMap = new Map<string, TagSchema>(tags.map((t) => [t.id, t]));
 
       const detectedFaces = res.data.map(
-        // @ts-expect-error
+        // @ts-no-check
         ({ detection: { _box: box }, descriptor, tagId }) =>
           new FaceModel({
             box: { height: box._height, width: box._width, x: box._x, y: box._y },

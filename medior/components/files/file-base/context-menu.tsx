@@ -36,10 +36,10 @@ export const ContextMenu = Comp(({ children, file, store, ...props }: ContextMen
   const handleDelete = () =>
     stores.file.confirmDeleteFiles(store.getIsSelected(file.id) ? store.selectedIds : [file.id]);
 
-  const handleFaceRecognition = () => {
-    stores.faceRecog.setActiveFileId(file.id);
-    stores.faceRecog.setIsModalOpen(true);
-  };
+  // const handleFaceRecognition = () => {
+  //   stores.faceRecog.setActiveFileId(file.id);
+  //   stores.faceRecog.setIsModalOpen(true);
+  // };
 
   const handleRefresh = () => stores.file.refreshFiles({ ids: [file.id] });
 
@@ -140,11 +140,11 @@ export const ContextMenu = Comp(({ children, file, store, ...props }: ContextMen
           label: "Collections",
           onClick: handleCollections,
         },
-        {
-          icon: "Face",
-          label: "Face Recognition",
-          onClick: handleFaceRecognition,
-        },
+        // {
+        //   icon: "Face",
+        //   label: "Face Recognition",
+        //   onClick: handleFaceRecognition,
+        // },
         isRemuxable
           ? {
               color: colors.custom.lightBlue,

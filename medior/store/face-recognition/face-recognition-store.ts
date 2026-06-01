@@ -1,4 +1,3 @@
-import type { FaceDetection, LabeledFaceDescriptors } from "@vladmandic/face-api";
 import autoBind from "auto-bind";
 import { computed } from "mobx";
 import {
@@ -12,11 +11,11 @@ import {
 } from "mobx-keystone";
 import { File, RootStore } from "medior/store";
 import { asyncAction, makeQueue } from "medior/utils/client";
-import { objectToFloat32Array, PromiseQueue } from "medior/utils/common";
+import { PromiseQueue } from "medior/utils/common";
 import { getIsImage, trpc } from "medior/utils/server";
 import { FaceModel } from ".";
 
-const DISTANCE_THRESHOLD = 0.45;
+// const DISTANCE_THRESHOLD = 0.45;
 
 @model("medior/FaceRecognitionStore")
 export class FaceRecognitionStore extends Model({
@@ -75,7 +74,7 @@ export class FaceRecognitionStore extends Model({
 
         this.addDetectedFaces(
           matchesRes.data.map(
-            // @ts-expect-error
+            // @ts-no-check
             ({ detection: { _box: box }, descriptor, tagId }) =>
               new FaceModel({
                 box: { height: box._height, width: box._width, x: box._x, y: box._y },
@@ -106,50 +105,51 @@ export class FaceRecognitionStore extends Model({
 
   @modelFlow
   findMatches = asyncAction(
-    async (
-      imagePath: string,
-    ): Promise<
-      { descriptor: Float32Array; detection: FaceDetection; distance?: number; tagId?: string }[]
-    > => {
-      this.setIsDetecting(true);
+    async () => [],
+    // async (
+    //   imagePath: string,
+    // ): Promise<
+    //   { descriptor: Float32Array; detection: FaceDetection; distance?: number; tagId?: string }[]
+    // > => {
+    //   this.setIsDetecting(true);
 
-      const { FaceMatcher, LabeledFaceDescriptors } = await import("@vladmandic/face-api");
+    //   const { FaceMatcher, LabeledFaceDescriptors } = await import("@vladmandic/face-api");
 
-      const facesRes = await this.detectFaces(imagePath);
-      if (!facesRes.success) throw new Error(facesRes.error);
+    //   const facesRes = await this.detectFaces(imagePath);
+    //   if (!facesRes.success) throw new Error(facesRes.error);
 
-      this.setIsDetecting(false);
+    //   this.setIsDetecting(false);
 
-      const storedDescriptors = this.faceModels.reduce((acc, cur) => {
-        if (cur.descriptorsFloat32.some((d) => d.some((n) => isNaN(n))))
-          console.error(
-            `NaN found in descriptors for fileId ${cur.fileId}`,
-            cur.descriptorsFloat32,
-          );
-        else acc.push(new LabeledFaceDescriptors(cur.tagId, cur.descriptorsFloat32));
-        return acc;
-      }, [] as LabeledFaceDescriptors[]);
+    //   const storedDescriptors = this.faceModels.reduce((acc, cur) => {
+    //     if (cur.descriptorsFloat32.some((d) => d.some((n) => isNaN(n))))
+    //       console.error(
+    //         `NaN found in descriptors for fileId ${cur.fileId}`,
+    //         cur.descriptorsFloat32,
+    //       );
+    //     else acc.push(new LabeledFaceDescriptors(cur.tagId, cur.descriptorsFloat32));
+    //     return acc;
+    //   }, [] as LabeledFaceDescriptors[]);
 
-      if (!storedDescriptors.length)
-        return facesRes.data.map((f) => ({
-          descriptor: objectToFloat32Array(f.descriptor),
-          detection: f.detection,
-          distance: null,
-          tagId: null,
-        }));
+    //   if (!storedDescriptors.length)
+    //     return facesRes.data.map((f) => ({
+    //       descriptor: objectToFloat32Array(f.descriptor),
+    //       detection: f.detection,
+    //       distance: null,
+    //       tagId: null,
+    //     }));
 
-      const matcher = new FaceMatcher(storedDescriptors, DISTANCE_THRESHOLD);
-      return facesRes.data.map((f) => {
-        const descriptor = objectToFloat32Array(f.descriptor);
-        const match = matcher.findBestMatch(descriptor);
-        return {
-          descriptor,
-          detection: f.detection,
-          distance: match?.distance,
-          tagId: match?.label !== "unknown" ? match?.label : null,
-        };
-      });
-    },
+    //   const matcher = new FaceMatcher(storedDescriptors, DISTANCE_THRESHOLD);
+    //   return facesRes.data.map((f) => {
+    //     const descriptor = objectToFloat32Array(f.descriptor);
+    //     const match = matcher.findBestMatch(descriptor);
+    //     return {
+    //       descriptor,
+    //       detection: f.detection,
+    //       distance: match?.distance,
+    //       tagId: match?.label !== "unknown" ? match?.label : null,
+    //     };
+    //   });
+    // },
   );
 
   @modelFlow
