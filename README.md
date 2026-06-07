@@ -27,7 +27,7 @@
 * Comprehensive querying and file organization optimized for large scale personal file systems
 * File collections with customizable sorting and rating
 * Media carousel with seamless custom image viewer and video player with transcoding support
-* Facial recognition for images
+    * Lossless video splicing and configurable batch reencoding with automated tag updates based on status
 
 <hr />
 
