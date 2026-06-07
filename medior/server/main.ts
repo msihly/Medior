@@ -37,7 +37,7 @@ ipcMain.handle("reload", () => {
   app.exit(0);
 });
 
-let mainWindow = null;
+let mainWindow: BrowserWindow = null;
 
 const createMainWindow = async () => {
   try {
@@ -70,7 +70,7 @@ const createMainWindow = async () => {
       [...carouselWindows, ...searchWindows].forEach((win) => win.close()),
     );
   } catch (err) {
-    fileLog(err.stack, { type: "error" });
+    fileLog(err.message, { type: "error" });
   }
 };
 

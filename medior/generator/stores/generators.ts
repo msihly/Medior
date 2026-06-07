@@ -372,7 +372,7 @@ export const createSearchStore = (def: ModelSearchStore) => {
 
             items = await Promise.all(items.map(async (item) => ({
               ...item,
-              tags: await trpc.deriveTagCategories.mutate(tags.filter((t) => item.tagIds.includes(t.id)))
+              tags: tags.filter((t) => item.tagIds.includes(t.id))
             })));`
       }
 

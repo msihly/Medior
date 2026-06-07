@@ -239,7 +239,7 @@ export const SettingsModal = Comp(() => {
             />
 
             <Settings.ExtColumn
-              label="VideoExts"
+              label="Video Exts"
               options={CONSTANTS.VIDEO.EXTS}
               configKey="file.videoExts"
             />

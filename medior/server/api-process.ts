@@ -22,13 +22,15 @@ const createTRPCServer = async () => {
   await new Promise<void>((resolve) => {
     // @ts-expect-error
     server.listen(port, () => {
-      fileLog(`tRPC server listening on ${port}`);
+      fileLog(`[API] tRPC server listening on ${port}`);
       resolve();
     });
   });
 };
 
-Mongoose.connection.on("error", (err) => fileLog(`DB Error: ${err.message}`, { type: "error" }));
+Mongoose.connection.on("error", (err) =>
+  fileLog(`[API] DB Error: ${err.message}`, { type: "error" }),
+);
 
 process.on("message", async (msg: any) => {
   if (msg?.type === "start") {
@@ -37,12 +39,12 @@ process.on("message", async (msg: any) => {
       await setLogsPath(process.env.LOGS_PATH);
 
       const uri = msg.uri;
-      fileLog(`Connecting to db: ${uri}`);
+      fileLog(`[API] Connecting to db: ${uri}`);
 
       Mongoose.set("strictQuery", true);
       await Mongoose.connect(uri, { family: 4 });
 
-      fileLog("Connected to db.");
+      fileLog("[API] Connected to db.");
 
       await createTRPCServer();
       setupTRPC();

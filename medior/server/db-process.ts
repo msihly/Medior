@@ -16,13 +16,13 @@ const createDbServer = async () => {
   if (!exists) await fs.mkdir(dbPath, { recursive: true });
 
   if (mongoServer) {
-    fileLog("Disconnecting from db...");
+    fileLog("[DB] Disconnecting from db...");
     await Mongoose.disconnect();
     await mongoServer.stop();
     await sleep(1000);
   }
 
-  fileLog("Starting db...");
+  fileLog("[DB] Starting db...");
   mongoServer = await MongoMemoryReplSet.create({
     instanceOpts: [{ dbPath, port, storageEngine: "wiredTiger" }],
     replSet: { dbName: "medior", name: "rs0" },
@@ -31,15 +31,18 @@ const createDbServer = async () => {
   await mongoServer.waitUntilRunning();
 
   const uri = mongoServer.getUri();
-  fileLog(`Connecting to db: ${uri}`);
+  fileLog(`[DB] Connecting to db: ${uri}`);
 
   Mongoose.set("strictQuery", true);
   await Mongoose.connect(uri, { family: 4 });
-  Mongoose.connection.on("error", (err) => fileLog(`DB Error: ${err.message}`, { type: "error" }));
+  Mongoose.connection.on("error", (err) => fileLog(`[DB] ${err.message}`, { type: "error" }));
 
-  for (const m of Object.keys(Mongoose.models)) Mongoose.models[m].syncIndexes();
+  for (const m of Object.keys(Mongoose.models))
+    Mongoose.models[m].syncIndexes().then(() => {
+      fileLog(`[DB] Synced indexes for ${m}`);
+    });
 
-  fileLog("Connected to db.");
+  fileLog("[DB] Connected to db.");
 };
 
 process.on("message", async (msg: any) => {

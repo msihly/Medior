@@ -183,6 +183,7 @@ export const InfoModal = Comp(() => {
         <UniformList row>
           <DateDetail label="Date Created" value={file?.dateCreated} />
           <DateDetail label="Date Modified" value={file?.dateModified} />
+          <DateDetail label="Date Imported" value={file?.dateImported} />
         </UniformList>
 
         {file?.tags?.length > 0 && (

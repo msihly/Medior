@@ -4,7 +4,7 @@ const model = new ModelDb("File", { withStore: true });
 
 model.addProp("audioBitrate", "number");
 
-model.addIndex({ audioCodec: 1, _id: 1 });
+model.addIndex({ audioCodec: 1 }, { unique: false });
 model.addProp("audioCodec", "string");
 
 model.addIndex({ bitrate: 1, _id: 1 });
@@ -27,7 +27,7 @@ model.addProp("diffusionParams", "string");
 model.addIndex({ duration: 1, _id: 1 });
 model.addProp("duration", "number", { sort: { icon: "HourglassBottom", label: "Duration" } });
 
-model.addIndex({ ext: 1, _id: 1 });
+model.addIndex({ ext: 1 }, { unique: false });
 model.addProp("ext", "string", { required: true });
 
 model.addProp("faceModels", "FaceModel[]", {
@@ -52,10 +52,10 @@ model.addProp("hash", "string", { required: true });
 model.addIndex({ height: 1, _id: 1 });
 model.addProp("height", "number", { required: true, sort: { icon: "Height", label: "Height" } });
 
-model.addIndex({ isArchived: 1, _id: 1 });
+model.addIndex({ isArchived: 1 }, { unique: false });
 model.addProp("isArchived", "boolean");
 
-model.addIndex({ isCorrupted: 1, _id: 1 });
+model.addIndex({ isCorrupted: 1 }, { unique: false });
 model.addProp("isCorrupted", "boolean");
 
 model.addProp("originalAudioBitrate", "number");
@@ -64,12 +64,12 @@ model.addProp("originalAudioCodec", "string");
 
 model.addProp("originalBitrate", "number");
 
-model.addIndex({ originalHash: 1, _id: 1 });
+model.addIndex({ originalHash: 1 }, { unique: false });
 model.addProp("originalHash", "string");
 
 model.addProp("originalName", "string");
 
-model.addIndex({ originalPath: 1, _id: 1 });
+model.addIndex({ originalPath: 1 }, { unique: false });
 model.addProp("originalPath", "string", { required: true });
 
 model.addProp("originalSize", "number", { required: true });
@@ -84,10 +84,10 @@ model.addProp("rating", "number", { required: true, sort: { icon: "Star", label:
 model.addIndex({ size: 1, _id: 1 });
 model.addProp("size", "number", { required: true, sort: { icon: "FormatSize", label: "Size" } });
 
-model.addIndex({ tagIds: 1, _id: 1 });
+model.addIndex({ tagIds: 1 }, { unique: false });
 model.addProp("tagIds", "Tag.id[]", { required: true });
 
-model.addIndex({ tagIdsWithAncestors: 1, _id: 1 });
+model.addIndex({ tagIdsWithAncestors: 1 }, { unique: false });
 model.addProp("tagIdsWithAncestors", "Tag.id[]", { required: true });
 
 model.addProp("thumb", "{ frameHeight?: number; frameWidth?: number; path: string }", {
@@ -97,14 +97,23 @@ model.addProp("thumb", "{ frameHeight?: number; frameWidth?: number; path: strin
 
 model.addProp(
   "timestamps",
-  "Array<{ id: string; label: string; pairs: Array<{ endDuration: string; id: string; order: number; startDuration: string; }> }>",
+  `Array<{
+    id: string;
+    label: string;
+    pairs: Array<{
+      endDuration: string;
+      id: string;
+      order: number;
+      startDuration: string;
+    }>
+  }>`,
   {
     schemaType:
       "[{ id: String, label: String, order: Number, pairs: [{ endDuration: String, id: String, order: Number, startDuration: String }] }]",
   },
 );
 
-model.addIndex({ videoCodec: 1, _id: 1 });
+model.addIndex({ videoCodec: 1 }, { unique: false });
 model.addProp("videoCodec", "string");
 
 model.addIndex({ width: 1, _id: 1 });

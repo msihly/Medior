@@ -3,7 +3,7 @@ import path, { extname } from "path";
 import ffmpeg, { FfmpegCommand } from "fluent-ffmpeg";
 import { PassThrough } from "stream";
 import { checkFileExists, makePerfLog, md5File } from "trabecula/utils/server";
-import { CONSTANTS, fractionStringToNumber, round, sleep } from "medior/utils/common";
+import { CONSTANTS, fractionStringToNumber, PromiseQueue, round, sleep } from "medior/utils/common";
 import { getAvailableFileStorage, getConfig, sharp } from "medior/utils/server";
 
 export type FfmpegOptions = {
@@ -580,69 +580,71 @@ export const vidToThumbGrid = async (inputPath: string, outputPath: string, file
   try {
     if (DEBUG) perfLog(`Generating thumbnail grid for: ${inputPath}`);
 
-    const { duration, frameRate, height, width } = await getVideoInfo(inputPath);
+    const { duration, height, width } = await getVideoInfo(inputPath);
     if (DEBUG) perfLog(`Video duration: ${duration}`);
 
     const numOfFrames = 9;
     const scaled = getScaledThumbSize(width, height);
     const skipDuration = duration * CONSTANTS.FILE.THUMB.FRAME_SKIP_PERCENT;
     const frameInterval = (duration - skipDuration) / numOfFrames;
-    const timestamps = Array.from(
-      { length: numOfFrames },
-      (_, idx) => idx * frameInterval + skipDuration,
-    );
-    const frames = timestamps.map((t) => Math.floor(t * frameRate));
-    const tempPaths = frames.map((_, i) => path.resolve(outputPath, `${fileHash}-thumb-${i}.jpg`));
-    if (DEBUG) perfLog(`Frames: ${JSON.stringify(timestamps.map((t, i) => [i, t, frames[i]]))}`);
 
-    for (let idx = 0; idx < timestamps.length; idx++) {
-      const timestamp = timestamps[idx];
-      const temp = tempPaths[idx];
+    const thumbs = Array.from({ length: numOfFrames }, (_, idx) => ({
+      timestamp: idx * frameInterval + skipDuration,
+      tempPath: path.resolve(outputPath, `${fileHash}-thumb-${idx}.jpg`),
+    }));
 
-      await new Promise<void>((resolve) => {
-        ffmpeg()
-          .input(inputPath)
-          .inputOptions([`-ss ${timestamp}`])
-          .outputOptions(["-vf", `scale=${scaled.width}:${scaled.height}`, "-frames:v", "1"])
-          .output(temp)
-          .on("end", () => resolve())
-          .on("error", (err) => {
-            console.error(`Error generating thumbnail for timestamp ${timestamp}: ${err}`);
-            isCorrupted = true;
-            resolve();
-          })
-          .run();
-      });
+    const queue = new PromiseQueue({ concurrency: 3 });
+
+    for (const thumb of thumbs) {
+      queue.add(
+        () =>
+          new Promise<void>((resolve) => {
+            ffmpeg()
+              .input(inputPath)
+              .inputOptions(["-ss", `${thumb.timestamp}`])
+              .outputOptions(["-vf", `scale=${scaled.width}:${scaled.height}`, "-frames:v", "1"])
+              .output(thumb.tempPath)
+              .on("end", () => resolve())
+              .on("error", (err) => {
+                console.error(`Failed thumb gen ${thumb.timestamp}: ${err}`);
+                isCorrupted = true;
+                resolve();
+              })
+              .run();
+          }),
+      );
     }
 
+    await queue.resolve();
+
+    if (DEBUG) perfLog(`Generated ${thumbs.length} thumbnails`);
+
+    const channels = 4;
+    const colCount = 3;
+    const rowCount = 3;
+    const gridWidth = scaled.width * colCount;
+    const gridHeight = scaled.height * rowCount;
     const validTempPaths: string[] = [];
-    const compositeInputs = await Promise.all(
-      tempPaths.map(async (tempPath) => {
-        if (!(await checkFileExists(tempPath))) {
-          console.error(`Corrupted file. Failed to generate thumb temp frame: ${tempPath}`);
-          isCorrupted = true;
-          return null;
-        } else {
-          validTempPaths.push(tempPath);
-          return tempPath;
-        }
-      }),
-    );
 
     try {
-      const channels = 4;
-      const colCount = 3;
-      const rowCount = 3;
-      const gridWidth = scaled.width * colCount;
-      const gridHeight = scaled.height * rowCount;
-      const compositeArray = compositeInputs
-        .map((input, idx) => {
-          if (input === null) return;
-          const row = Math.floor(idx / rowCount);
-          const col = idx % colCount;
-          return { input, left: col * scaled.width, top: row * scaled.height };
-        })
-        .filter(Boolean);
+      const compositeArray = (
+        await Promise.all(
+          thumbs.map(async ({ tempPath }, idx) => {
+            if (!(await checkFileExists(tempPath))) {
+              console.error(`Corrupted file. Failed thumb gen temp frame: ${tempPath}`);
+              isCorrupted = true;
+              return null;
+            } else {
+              validTempPaths.push(tempPath);
+              const row = Math.floor(idx / rowCount);
+              const col = idx % colCount;
+              return { input: tempPath, left: col * scaled.width, top: row * scaled.height };
+            }
+          }),
+        )
+      ).filter(Boolean);
+
+      if (DEBUG) perfLog(`Composite array: ${JSON.stringify(compositeArray)}`);
 
       const blankCanvas = Buffer.from(new Array(gridWidth * gridHeight * channels).fill(0));
 

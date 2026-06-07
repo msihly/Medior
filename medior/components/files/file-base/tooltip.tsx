@@ -43,7 +43,7 @@ export const Tooltip = Comp(({ children, disabled, file }: TooltipProps) => {
       title={
         <View column padding={{ all: "0.3rem" }} spacing="0.5rem">
           {file.isCorrupted && (
-            <View row justify="center" spacing="0.5rem">
+            <View row align="center" justify="center" spacing="0.5rem">
               <Icon name="Warning" color={colors.custom.orange} />
 
               <Text preset="title" color={colors.custom.orange}>
@@ -52,15 +52,22 @@ export const Tooltip = Comp(({ children, disabled, file }: TooltipProps) => {
             </View>
           )}
 
+          <Detail label="Original Name" value={file.originalName} />
+
           <UniformList row spacing="1rem">
             <UniformList column spacing="0.5rem">
               <Detail label="Size" value={Fmt.bytes(file.size)} />
               <Detail label="Dimensions" value={`${file.width} x ${file.height}`} />
+              <Detail
+                label="Bitrate"
+                value={file.bitrate ? `${Fmt.bytes(file.bitrate)}/s` : "--"}
+              />
             </UniformList>
 
             <UniformList column spacing="0.5rem">
               <DateDetail label="Date Created" value={file.dateCreated} />
               <DateDetail label="Date Modified" value={file.dateModified} />
+              <DateDetail label="Date Imported" value={file.dateImported} />
             </UniformList>
           </UniformList>
 

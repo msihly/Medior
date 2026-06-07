@@ -104,6 +104,7 @@ export class Splicer extends Model({
     this.setIsLoading(false);
     if (!res.success) throw new Error(res.error);
 
+    await stores.file.search.loadFiltered();
     await this.loadTimestamps();
   });
 

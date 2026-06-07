@@ -16,7 +16,7 @@ export const useSockets = ({ view }: UseSocketsProps) => {
   const debugLog = (
     eventName: SocketEmitEvent,
     eventArgs: Parameters<SocketEmitEvents[SocketEmitEvent]>[0],
-  ) => debug && console.debug(`[Socket] ${eventName}`, eventArgs);
+  ) => debug && console.debug(`[SOCKET] ${eventName}`, eventArgs);
 
   const makeSocket = <T extends SocketEmitEvent>(
     eventName: T,

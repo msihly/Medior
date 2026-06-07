@@ -82,15 +82,14 @@ export const makeActionsDef = async (
           delete filter.id;
         }
 
-        const [items, totalCount] = await Promise.all([
-          models.${modelDef.name}Model.find(filter)
-            .sort(args.sort ?? { ${modelDef.defaultSort.key}: "${modelDef.defaultSort.isDesc ? "desc" : "asc"}" })
-            .skip(Math.max(0, args.page - 1) * args.pageSize)
-            .limit(args.pageSize)
-            .allowDiskUse(true)
-            .lean(),
-          models.${modelDef.name}Model.countDocuments(filter),
-        ]);
+        const items = await models.${modelDef.name}Model.find(filter)
+          .sort(args.sort ?? { ${modelDef.defaultSort.key}: "${modelDef.defaultSort.isDesc ? "desc" : "asc"}" })
+          .skip(Math.max(0, args.page - 1) * args.pageSize)
+          .limit(args.pageSize)
+          .allowDiskUse(true)
+          .lean();
+
+        const totalCount = await models.${modelDef.name}Model.countDocuments(filter);
 
         if (!items || !(totalCount > -1)) throw new Error("Failed to load filtered ${modelDef.name}");
 

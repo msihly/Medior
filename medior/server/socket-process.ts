@@ -21,7 +21,7 @@ const createSocketServer = async () => {
     );
   });
 
-  fileLog(`Socket server listening on ${port}`);
+  fileLog(`[SOCKET] Listening on ${port}`);
 };
 
 process.on("message", async (msg: any) => {
