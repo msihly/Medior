@@ -128,9 +128,8 @@ export const deleteFiles = makeAction(async (args: { fileIds: string[] }) => {
     ),
   ]);
 
-  actions.recalculateTagCounts({ tagIds });
   actions.regenCollAttrs({ fileIds: args.fileIds });
-  actions.regenTagThumbPaths({ tagIds });
+  actions.regenTags({ tagIds });
 
   socket.emit("onFilesDeleted", { fileHashes, fileIds: args.fileIds });
 });
@@ -293,12 +292,9 @@ export const editFileTags = makeAction(
         : null,
     ]);
 
-    await regenFileTagAncestors({ fileIds });
-
     const changedTagIds = [...new Set([...addedTagIds, ...removedTagIds])];
-    actions.recalculateTagCounts({ tagIds: changedTagIds, withSub });
+    actions.regenTags({ tagIds: changedTagIds, withSub });
     actions.regenCollAttrs({ fileIds });
-    actions.regenTagThumbPaths({ tagIds: changedTagIds });
 
     if (withSub) socket.emit("onFileTagsUpdated", { addedTagIds, batchId, fileIds, removedTagIds });
   },
@@ -829,7 +825,8 @@ class ThumbRepairer {
     this.perfLog(`Found ${this.tagCount} tags with old thumbPaths.`);
 
     if (this.tagCount > 0) {
-      await actions.regenTagThumbPaths({ tagIds: tags.map((t) => t.id) });
+      const tagIds = [...new Set(tags.map((t) => t.id))];
+      await actions.regenTagMeta({ tagIds });
       this.perfLog("Regenerated thumb for affected tags.");
 
       const unsetRes = await models.TagModel.updateMany(
@@ -841,6 +838,7 @@ class ThumbRepairer {
         throw new Error(
           `Failed to unset thumbPaths from tags: ${JSON.stringify(unsetRes, null, 2)}`,
         );
+
       this.perfLog("Unset thumbPaths from tags.");
     }
   };

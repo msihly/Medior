@@ -1,4 +1,5 @@
 import * as models from "medior/_generated/server/models";
+import { AnyBulkWriteOperation } from "mongodb";
 import { FilterQuery } from "mongoose";
 import { fileLog, makePerfLog } from "trabecula/utils/server";
 import * as actions from "medior/server/database/actions";
@@ -213,21 +214,22 @@ export const regenCollTagAncestors = makeAction(
 
     const ancestorsMap = await actions.makeAncestorIdsMap(collections.flatMap((c) => c.tagIds));
 
-    await Promise.all(
-      collections.map(async (c) => {
-        const { hasUpdates, tagIdsWithAncestors } = actions.makeUniqueAncestorUpdates({
-          ancestorsMap,
-          oldTagIdsWithAncestors: c.tagIdsWithAncestors,
-          tagIds: c.tagIds,
-        });
+    const bulkWriteOps: AnyBulkWriteOperation[] = [];
 
-        if (!hasUpdates) return;
-        await models.FileCollectionModel.updateOne(
-          { _id: c.id },
-          { $set: { tagIdsWithAncestors } },
-        );
-      }),
-    );
+    for (const c of collections) {
+      const { hasUpdates, tagIdsWithAncestors } = actions.makeUniqueAncestorUpdates({
+        ancestorsMap,
+        oldTagIdsWithAncestors: c.tagIdsWithAncestors,
+        tagIds: c.tagIds,
+      });
+
+      if (!hasUpdates) continue;
+      bulkWriteOps.push({
+        updateOne: { filter: { _id: c.id }, update: { $set: { tagIdsWithAncestors } } },
+      });
+    }
+
+    await models.FileCollectionModel.bulkWrite(bulkWriteOps);
   },
 );
 

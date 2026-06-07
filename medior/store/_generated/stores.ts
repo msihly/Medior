@@ -258,9 +258,7 @@ export class _FileCollectionSearch extends Model({
       items = await Promise.all(
         items.map(async (item) => ({
           ...item,
-          tags: await trpc.deriveTagCategories.mutate(
-            tags.filter((t) => item.tagIds.includes(t.id)),
-          ),
+          tags: tags.filter((t) => item.tagIds.includes(t.id)),
         })),
       );
 
@@ -549,9 +547,7 @@ export class _FileImportBatchSearch extends Model({
       items = await Promise.all(
         items.map(async (item) => ({
           ...item,
-          tags: await trpc.deriveTagCategories.mutate(
-            tags.filter((t) => item.tagIds.includes(t.id)),
-          ),
+          tags: tags.filter((t) => item.tagIds.includes(t.id)),
         })),
       );
 
@@ -969,9 +965,7 @@ export class _FileSearch extends Model({
       items = await Promise.all(
         items.map(async (item) => ({
           ...item,
-          tags: await trpc.deriveTagCategories.mutate(
-            tags.filter((t) => item.tagIds.includes(t.id)),
-          ),
+          tags: tags.filter((t) => item.tagIds.includes(t.id)),
         })),
       );
 
@@ -1122,6 +1116,7 @@ export class _TagSearch extends Model({
   pageSize: prop<number>(() => getConfig().tags.manager.search.pageSize).withSetter(),
   results: prop<Stores.Tag[]>(() => []).withSetter(),
   selectedIds: prop<string[]>(() => []).withSetter(),
+  size: prop<{ logOp: LogicalOp | ""; value: number }>(() => ({ logOp: "", value: 0 })),
   sortValue: prop<SortMenuProps["value"]>(() => getConfig().tags.manager.search.sort).withSetter(),
   tags: prop<Stores.TagOption[]>(() => []).withSetter(),
   title: prop<string>("").withSetter(),
@@ -1162,6 +1157,7 @@ export class _TagSearch extends Model({
     this.pageSize = getConfig().tags.manager.search.pageSize;
     this.results = [];
     this.selectedIds = [];
+    this.size = { logOp: "", value: 0 };
     this.sortValue = getConfig().tags.manager.search.sort;
     this.tags = [];
     this.title = "";
@@ -1200,6 +1196,17 @@ export class _TagSearch extends Model({
   @modelAction
   setCountValue(val: number) {
     this.count.value = val;
+  }
+
+  @modelAction
+  setSizeOp(val: LogicalOp | "") {
+    this.size.logOp = val;
+    if (val === "") this.size.value = 0;
+  }
+
+  @modelAction
+  setSizeValue(val: number) {
+    this.size.value = val;
   }
 
   /* ASYNC ACTIONS */
@@ -1339,6 +1346,7 @@ export class _TagSearch extends Model({
       (!isDeepEqual(this.hasRegEx, null) ? 1 : 0) +
       (!isDeepEqual(this.ids, []) ? 1 : 0) +
       (!isDeepEqual(this.label, "") ? 1 : 0) +
+      (!isDeepEqual(this.size, { logOp: "", value: 0 }) ? 1 : 0) +
       (!isDeepEqual(this.sortValue, getConfig().tags.manager.search.sort) ? 1 : 0) +
       (!isDeepEqual(this.tags, []) ? 1 : 0) +
       (!isDeepEqual(this.title, "") ? 1 : 0)
@@ -1362,6 +1370,7 @@ export class _TagSearch extends Model({
       hasRegEx: this.hasRegEx,
       ids: this.ids,
       label: this.label,
+      size: this.size,
       sortValue: this.sortValue,
       ...getRootStore<Stores.RootStore>(this)?.tag?.tagSearchOptsToIds(this.tags),
       title: this.title,
@@ -1388,7 +1397,7 @@ export class _TagSearch extends Model({
 @model("medior/_DeletedFile")
 export class _DeletedFile extends Model({
   id: prop<string>(),
-  dateCreated: prop<string>(() => dayjs().toISOString()),
+  dateCreated: prop<string>(),
   hash: prop<string>(),
 }) {
   @modelAction
@@ -1599,7 +1608,12 @@ export class _File extends Model({
     Array<{
       id: string;
       label: string;
-      pairs: Array<{ endDuration: string; id: string; order: number; startDuration: string }>;
+      pairs: Array<{
+        endDuration: string;
+        id: string;
+        order: number;
+        startDuration: string;
+      }>;
     }>
   >(null),
   videoCodec: prop<string>(null),
@@ -1665,6 +1679,7 @@ export class _Tag extends Model({
   lastSearchedAt: prop<string>(null),
   parentIds: prop<string[]>(() => []),
   regEx: prop<string>(null),
+  size: prop<number>(),
   thumb: prop<{ frameHeight?: number; frameWidth?: number; path: string }>(null),
 }) {
   @modelAction

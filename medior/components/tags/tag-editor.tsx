@@ -18,6 +18,7 @@ import {
 } from "medior/components";
 import { TagOption, useStores } from "medior/store";
 import { colors, openSearchWindow, toast } from "medior/utils/client";
+import { Fmt } from "medior/utils/common";
 import { RegExMapCard, TagInputs } from ".";
 
 export interface TagEditorProps {
@@ -133,7 +134,7 @@ export const TagEditor = Comp(({ isSubEditor = false }: TagEditorProps) => {
           store.tag && (
             <View row align="center" spacing="0.5rem">
               <Text tooltip={store.tag?.count} tooltipProps={{ flexShrink: 1 }} preset="sub-text">
-                {`Count: ${store.tag?.count}`}
+                {`${Fmt.commas(store.tag?.count ?? 0)} files / ${Fmt.bytes(store.tag?.size ?? 0)}`}
               </Text>
 
               <IconButton

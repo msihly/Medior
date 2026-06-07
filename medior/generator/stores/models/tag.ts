@@ -14,6 +14,7 @@ model.addProp("alias", "string", '""', {
 });
 
 model.addLogOpProp("count");
+model.addLogOpProp("size");
 
 model.addDateRangeProp("dateCreated");
 

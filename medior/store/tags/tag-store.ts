@@ -169,8 +169,7 @@ export class TagStore extends Model({
     await tagQueue.resolve();
     if (errors.length) throw new Error(errors.join("\n"));
 
-    const regenRes = await trpc.regenTags.mutate({ tagIds, withSub: true });
-    if (!regenRes.success) throw new Error(regenRes.error);
+    trpc.regenTags.mutate({ tagIds, withSub: true });
 
     return tagIds;
   });
@@ -179,7 +178,7 @@ export class TagStore extends Model({
   tagsToRegEx(tags: { aliases?: string[]; label: string }[]) {
     return `(${tags
       .flatMap((tag) => [tag.label, ...tag.aliases])
-      .map((s) => `\\b${Fmt.regexEscape(s).replaceAll(/[\s-_]+/g, "[\\s\\-_\\.]+")}\\b`)
+      .map((s) => `\\^${Fmt.regexEscape(s).replaceAll(/[\s-_]+/g, "[\\s\\-_\\.]+")}\\$`)
       .join(")|(")})`;
   }
 

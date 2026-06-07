@@ -56,7 +56,7 @@ export class TagManagerStore extends Model({
   refreshSelectedTags = asyncAction(async () => {
     makeQueue({
       action: async (tagId) => {
-        const res = await trpc.refreshTag.mutate({ tagId });
+        const res = await trpc.refreshTag.mutate({ tagId, withSub: false });
         if (!res.success) throw new Error(res.error);
       },
       items: this.search.selectedIds,

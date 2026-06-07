@@ -601,6 +601,7 @@ export type CreateTagFilterPipelineInput = {
   optionalTagIds?: string[];
   requiredDescTagIds?: string[];
   requiredTagIds?: string[];
+  size?: { logOp: LogicalOp | ""; value: number };
   sortValue?: SortMenuProps["value"];
   title?: string;
 };
@@ -627,6 +628,8 @@ export const createTagFilterPipeline = (args: CreateTagFilterPipelineInput) => {
   if (!isDeepEqual(args.ids, [])) setObj($match, ["_id", "$in"], objectIds(args.ids));
   if (!isDeepEqual(args.label, ""))
     setObj($match, ["label", "$regex"], new RegExp(args.label, "i"));
+  if (!isDeepEqual(args.size, { logOp: "", value: 0 }))
+    setObj($match, ["size", logicOpsToMongo(args.size.logOp)], args.size.value);
   if (!isDeepEqual(args.title, ""))
     setObj($match, ["title", "$regex"], new RegExp(args.title, "i"));
 
@@ -747,7 +750,7 @@ export const createDeletedFile = makeAction(
     args: Types.CreateDeletedFileInput;
     socketOpts?: SocketEventOptions;
   }) => {
-    const model = { ...args, dateCreated: dayjs().toISOString() };
+    const model = { ...args };
 
     const res = await models.DeletedFileModel.create(model);
     const id = res._id.toString();
@@ -783,15 +786,14 @@ export const listDeletedFile = makeAction(
       delete filter.id;
     }
 
-    const [items, totalCount] = await Promise.all([
-      models.DeletedFileModel.find(filter)
-        .sort(args.sort ?? { hash: "desc" })
-        .skip(Math.max(0, args.page - 1) * args.pageSize)
-        .limit(args.pageSize)
-        .allowDiskUse(true)
-        .lean(),
-      models.DeletedFileModel.countDocuments(filter),
-    ]);
+    const items = await models.DeletedFileModel.find(filter)
+      .sort(args.sort ?? { hash: "desc" })
+      .skip(Math.max(0, args.page - 1) * args.pageSize)
+      .limit(args.pageSize)
+      .allowDiskUse(true)
+      .lean();
+
+    const totalCount = await models.DeletedFileModel.countDocuments(filter);
 
     if (!items || !(totalCount > -1)) throw new Error("Failed to load filtered DeletedFile");
 
@@ -870,15 +872,14 @@ export const listFileCollection = makeAction(
       delete filter.id;
     }
 
-    const [items, totalCount] = await Promise.all([
-      models.FileCollectionModel.find(filter)
-        .sort(args.sort ?? { dateCreated: "desc" })
-        .skip(Math.max(0, args.page - 1) * args.pageSize)
-        .limit(args.pageSize)
-        .allowDiskUse(true)
-        .lean(),
-      models.FileCollectionModel.countDocuments(filter),
-    ]);
+    const items = await models.FileCollectionModel.find(filter)
+      .sort(args.sort ?? { dateCreated: "desc" })
+      .skip(Math.max(0, args.page - 1) * args.pageSize)
+      .limit(args.pageSize)
+      .allowDiskUse(true)
+      .lean();
+
+    const totalCount = await models.FileCollectionModel.countDocuments(filter);
 
     if (!items || !(totalCount > -1)) throw new Error("Failed to load filtered FileCollection");
 
@@ -959,15 +960,14 @@ export const listFileImportBatch = makeAction(
       delete filter.id;
     }
 
-    const [items, totalCount] = await Promise.all([
-      models.FileImportBatchModel.find(filter)
-        .sort(args.sort ?? { dateCreated: "desc" })
-        .skip(Math.max(0, args.page - 1) * args.pageSize)
-        .limit(args.pageSize)
-        .allowDiskUse(true)
-        .lean(),
-      models.FileImportBatchModel.countDocuments(filter),
-    ]);
+    const items = await models.FileImportBatchModel.find(filter)
+      .sort(args.sort ?? { dateCreated: "desc" })
+      .skip(Math.max(0, args.page - 1) * args.pageSize)
+      .limit(args.pageSize)
+      .allowDiskUse(true)
+      .lean();
+
+    const totalCount = await models.FileImportBatchModel.countDocuments(filter);
 
     if (!items || !(totalCount > -1)) throw new Error("Failed to load filtered FileImportBatch");
 
@@ -1039,15 +1039,14 @@ export const listFile = makeAction(async ({ args }: { args?: Types.ListFileInput
     delete filter.id;
   }
 
-  const [items, totalCount] = await Promise.all([
-    models.FileModel.find(filter)
-      .sort(args.sort ?? { dateCreated: "desc" })
-      .skip(Math.max(0, args.page - 1) * args.pageSize)
-      .limit(args.pageSize)
-      .allowDiskUse(true)
-      .lean(),
-    models.FileModel.countDocuments(filter),
-  ]);
+  const items = await models.FileModel.find(filter)
+    .sort(args.sort ?? { dateCreated: "desc" })
+    .skip(Math.max(0, args.page - 1) * args.pageSize)
+    .limit(args.pageSize)
+    .allowDiskUse(true)
+    .lean();
+
+  const totalCount = await models.FileModel.countDocuments(filter);
 
   if (!items || !(totalCount > -1)) throw new Error("Failed to load filtered File");
 
@@ -1126,15 +1125,14 @@ export const _listTag = makeAction(async ({ args }: { args?: Types._ListTagInput
     delete filter.id;
   }
 
-  const [items, totalCount] = await Promise.all([
-    models.TagModel.find(filter)
-      .sort(args.sort ?? { dateCreated: "desc" })
-      .skip(Math.max(0, args.page - 1) * args.pageSize)
-      .limit(args.pageSize)
-      .allowDiskUse(true)
-      .lean(),
-    models.TagModel.countDocuments(filter),
-  ]);
+  const items = await models.TagModel.find(filter)
+    .sort(args.sort ?? { dateCreated: "desc" })
+    .skip(Math.max(0, args.page - 1) * args.pageSize)
+    .limit(args.pageSize)
+    .allowDiskUse(true)
+    .lean();
+
+  const totalCount = await models.TagModel.countDocuments(filter);
 
   if (!items || !(totalCount > -1)) throw new Error("Failed to load filtered Tag");
 

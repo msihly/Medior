@@ -21,7 +21,6 @@ const DeletedFileSchema = new Schema<DeletedFileSchema>({
   hash: String,
 });
 
-DeletedFileSchema.index({ dateCreated: 1, _id: 1 }, { unique: true });
 DeletedFileSchema.index({ hash: 1 }, { unique: true });
 
 export const DeletedFileModel = model<DeletedFileSchema>("DeletedFile", DeletedFileSchema);
@@ -203,7 +202,12 @@ export interface FileSchema {
   timestamps?: Array<{
     id: string;
     label: string;
-    pairs: Array<{ endDuration: string; id: string; order: number; startDuration: string }>;
+    pairs: Array<{
+      endDuration: string;
+      id: string;
+      order: number;
+      startDuration: string;
+    }>;
   }>;
   videoCodec?: string;
   width: number;
@@ -260,23 +264,23 @@ const FileSchema = new Schema<FileSchema>({
 });
 
 FileSchema.index({ dateCreated: 1, _id: 1 }, { unique: true });
-FileSchema.index({ audioCodec: 1, _id: 1 }, { unique: true });
+FileSchema.index({ audioCodec: 1 }, { unique: false });
 FileSchema.index({ bitrate: 1, _id: 1 }, { unique: true });
 FileSchema.index({ dateImported: 1, _id: 1 }, { unique: true });
 FileSchema.index({ dateModified: 1, _id: 1 }, { unique: true });
 FileSchema.index({ duration: 1, _id: 1 }, { unique: true });
-FileSchema.index({ ext: 1, _id: 1 }, { unique: true });
+FileSchema.index({ ext: 1 }, { unique: false });
 FileSchema.index({ hash: 1 }, { unique: true });
 FileSchema.index({ height: 1, _id: 1 }, { unique: true });
-FileSchema.index({ isArchived: 1, _id: 1 }, { unique: true });
-FileSchema.index({ isCorrupted: 1, _id: 1 }, { unique: true });
-FileSchema.index({ originalHash: 1, _id: 1 }, { unique: true });
-FileSchema.index({ originalPath: 1, _id: 1 }, { unique: true });
+FileSchema.index({ isArchived: 1 }, { unique: false });
+FileSchema.index({ isCorrupted: 1 }, { unique: false });
+FileSchema.index({ originalHash: 1 }, { unique: false });
+FileSchema.index({ originalPath: 1 }, { unique: false });
 FileSchema.index({ rating: 1, _id: 1 }, { unique: true });
 FileSchema.index({ size: 1, _id: 1 }, { unique: true });
-FileSchema.index({ tagIds: 1, _id: 1 }, { unique: true });
-FileSchema.index({ tagIdsWithAncestors: 1, _id: 1 }, { unique: true });
-FileSchema.index({ videoCodec: 1, _id: 1 }, { unique: true });
+FileSchema.index({ tagIds: 1 }, { unique: false });
+FileSchema.index({ tagIdsWithAncestors: 1 }, { unique: false });
+FileSchema.index({ videoCodec: 1 }, { unique: false });
 FileSchema.index({ width: 1, _id: 1 }, { unique: true });
 
 export const FileModel = model<FileSchema>("File", FileSchema);
@@ -304,6 +308,7 @@ export interface TagSchema {
   lastSearchedAt?: string;
   parentIds: string[];
   regEx?: string;
+  size: number;
   thumb: { frameHeight?: number; frameWidth?: number; path: string };
 }
 
@@ -326,6 +331,7 @@ const TagSchema = new Schema<TagSchema>({
   lastSearchedAt: String,
   parentIds: [{ type: Schema.Types.ObjectId, ref: "Tag" }],
   regEx: String,
+  size: Number,
   thumb: { frameHeight: Number, frameWidth: Number, path: String },
 });
 

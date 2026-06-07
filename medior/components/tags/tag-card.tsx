@@ -77,7 +77,7 @@ export const TagCard = Comp(({ tag }: TagCardProps) => {
             />
 
             <FileBase.FooterText
-              text={Fmt.commas(tag.count)}
+              text={`${Fmt.commas(tag.count)} files / ${Fmt.bytes(tag.size ?? 0)}`}
               noTooltip
               textProps={{ color: colors.custom.lightGrey, fontSize: "0.8em" }}
             />

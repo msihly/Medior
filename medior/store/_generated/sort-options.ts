@@ -17,7 +17,7 @@ type ModelSortName = "DeletedFile" | "FileCollection" | "FileImportBatch" | "Fil
 type CustomSortName = "FileCollectionFile";
 
 const MODEL_SORT_OPTIONS: Record<ModelSortName, SortOption[]> = {
-  DeletedFile: [{ attribute: "dateCreated", icon: "DateRange", label: "Date Created" }],
+  DeletedFile: [],
   FileCollection: [
     { attribute: "dateCreated", icon: "DateRange", label: "Date Created" },
     { attribute: "dateModified", icon: "DateRange", label: "Date Modified" },
@@ -49,6 +49,7 @@ const MODEL_SORT_OPTIONS: Record<ModelSortName, SortOption[]> = {
     { attribute: "dateCreated", icon: "DateRange", label: "Date Created" },
     { attribute: "dateModified", icon: "DateRange", label: "Date Modified" },
     { attribute: "label", icon: "Label", label: "Label" },
+    { attribute: "size", icon: "FormatSize", label: "Size" },
   ],
 };
 

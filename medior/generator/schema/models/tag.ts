@@ -45,6 +45,8 @@ model.addProp("parentIds", "Tag.id[]", { defaultValue: "[]", required: true });
 
 model.addProp("regEx", "string");
 
+model.addProp("size", "number", { required: true, sort: { icon: "FormatSize", label: "Size" } });
+
 model.addProp("thumb", "{ frameHeight?: number; frameWidth?: number; path: string }", {
   defaultValue: "null",
   required: true,

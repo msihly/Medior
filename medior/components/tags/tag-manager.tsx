@@ -81,8 +81,7 @@ export const TagManager = Comp(() => {
         queue: new PromiseQueue({ concurrency: 10 }),
       });
 
-      const regenRes = await trpc.regenTags.mutate({ tagIds });
-      if (!regenRes.success) throw new Error(regenRes.error);
+      trpc.regenTags.mutate({ tagIds });
 
       store.setIsLoading(false);
     } catch (err) {

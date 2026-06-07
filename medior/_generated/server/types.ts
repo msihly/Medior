@@ -252,15 +252,6 @@ export type DeriveTagCategoriesOutput = ReturnType<typeof db.deriveTagCategories
 export type MakeAncestorIdsMapInput = Parameters<typeof db.makeAncestorIdsMap>[0];
 export type MakeAncestorIdsMapOutput = ReturnType<typeof db.makeAncestorIdsMap>;
 
-export type RegenTagsInput = Parameters<typeof db.regenTags>[0];
-export type RegenTagsOutput = ReturnType<typeof db.regenTags>;
-
-export type RegenTagAncestorsInput = Parameters<typeof db.regenTagAncestors>[0];
-export type RegenTagAncestorsOutput = ReturnType<typeof db.regenTagAncestors>;
-
-export type RegenTagThumbPathsInput = Parameters<typeof db.regenTagThumbPaths>[0];
-export type RegenTagThumbPathsOutput = ReturnType<typeof db.regenTagThumbPaths>;
-
 export type CreateTagInput = Parameters<typeof db.createTag>[0];
 export type CreateTagOutput = ReturnType<typeof db.createTag>;
 
@@ -291,14 +282,17 @@ export type MergeTagsOutput = ReturnType<typeof db.mergeTags>;
 export type SearchTagsInput = Parameters<typeof db.searchTags>[0];
 export type SearchTagsOutput = ReturnType<typeof db.searchTags>;
 
-export type RecalculateTagCountsInput = Parameters<typeof db.recalculateTagCounts>[0];
-export type RecalculateTagCountsOutput = ReturnType<typeof db.recalculateTagCounts>;
-
-export type RefreshTagRelationsInput = Parameters<typeof db.refreshTagRelations>[0];
-export type RefreshTagRelationsOutput = ReturnType<typeof db.refreshTagRelations>;
-
 export type RefreshTagInput = Parameters<typeof db.refreshTag>[0];
 export type RefreshTagOutput = ReturnType<typeof db.refreshTag>;
+
+export type RegenTagsInput = Parameters<typeof db.regenTags>[0];
+export type RegenTagsOutput = ReturnType<typeof db.regenTags>;
+
+export type RegenTagAncestorsInput = Parameters<typeof db.regenTagAncestors>[0];
+export type RegenTagAncestorsOutput = ReturnType<typeof db.regenTagAncestors>;
+
+export type RegenTagMetaInput = Parameters<typeof db.regenTagMeta>[0];
+export type RegenTagMetaOutput = ReturnType<typeof db.regenTagMeta>;
 
 export type RepairTagsInput = Parameters<typeof db.repairTags>[0];
 export type RepairTagsOutput = ReturnType<typeof db.repairTags>;

@@ -5,7 +5,14 @@ import mongoose, { FilterQuery, PipelineStage, UpdateQuery } from "mongoose";
 import { fileLog, makePerfLog } from "trabecula/utils/server";
 import * as actions from "medior/server/database/actions";
 import * as Types from "medior/server/database/types";
-import { bisectArrayChanges, dayjs, Fmt, handleErrors, splitArray } from "medior/utils/common";
+import {
+  bisectArrayChanges,
+  chunkArray,
+  dayjs,
+  Fmt,
+  handleErrors,
+  splitArray,
+} from "medior/utils/common";
 import { leanModelToJson, makeAction, objectId, objectIds, socket } from "medior/utils/server";
 
 /* -------------------------------------------------------------------------- */
@@ -299,7 +306,7 @@ const makeMergeRelationsPipeline = ({
 
 /** Adds or removes `tagId` to the opposite type (`childIds` or `parentIds`) to create hierarchical relations.
  *  For example, adds `tagId` to the `parentIds` of every id in `changedChildIds.added.` */
-const makeRelationsUpdateOps = async ({
+const makeRelationsUpdateOps = ({
   changedChildIds,
   changedParentIds,
   dateModified,
@@ -376,66 +383,6 @@ export const makeUniqueAncestorUpdates = ({
   };
 };
 
-export const regenTags = makeAction(
-  async ({ tagIds, withSub = false }: { tagIds: string[]; withSub?: boolean }) => {
-    await Promise.all([regenTagAncestors({ tagIds, withSub }), regenTagThumbPaths({ tagIds })]);
-
-    await Promise.all([
-      actions.regenCollTagAncestors({ tagIds }),
-      actions.regenFileTagAncestors({ tagIds }),
-    ]);
-  },
-);
-
-export const regenTagAncestors = makeAction(
-  async ({ tagIds, withSub = false }: { tagIds: string[]; withSub?: boolean }) => {
-    const updates: { tagId: string; updates: Partial<models.TagSchema> }[] = [];
-
-    await Promise.all(
-      tagIds.map(async (tagId) => {
-        const ancestorIds = await deriveAncestorTagIds([tagId]);
-        const descendantIds = await deriveDescendantTagIds([tagId]);
-        await models.TagModel.updateOne({ _id: tagId }, { $set: { ancestorIds, descendantIds } });
-        updates.push({ tagId, updates: { ancestorIds, descendantIds } });
-      }),
-    );
-
-    if (withSub) socket.emit("onTagsUpdated", { tags: updates, withFileReload: true });
-  },
-);
-
-export const regenTagThumbPaths = makeAction(async ({ tagIds }: { tagIds: string[] }) => {
-  const thumbsByTagId = await models.FileModel.aggregate<{
-    _id: string;
-    thumb: models.TagSchema["thumb"];
-  }>([
-    { $match: { tagIdsWithAncestors: { $in: tagIds } } },
-    { $sort: { dateCreated: 1 } },
-    { $unwind: "$tagIdsWithAncestors" },
-    { $match: { tagIdsWithAncestors: { $in: tagIds } } },
-    {
-      $group: {
-        _id: "$tagIdsWithAncestors",
-        thumb: { $first: "$thumb" },
-      },
-    },
-  ]);
-
-  const thumbMap = new Map(thumbsByTagId.map(({ _id, thumb }) => [_id, thumb]));
-
-  await models.TagModel.bulkWrite(
-    tagIds.map((tagId) => ({
-      updateOne: {
-        filter: { _id: objectId(tagId) },
-        update: {
-          $unset: { thumbPaths: true },
-          $set: { thumb: thumbMap.get(tagId) ?? null },
-        },
-      },
-    })),
-  );
-});
-
 /* -------------------------------------------------------------------------- */
 /*                                API ENDPOINTS                               */
 /* -------------------------------------------------------------------------- */
@@ -467,13 +414,14 @@ export const createTag = makeAction(
       lastSearchedAt: dateModified,
       parentIds,
       regEx,
+      size: 0,
       thumb: null,
     };
 
     const res = await models.TagModel.create(tag);
     const id = res._id.toString();
 
-    const tagBulkWriteOps = await makeRelationsUpdateOps({
+    const tagBulkWriteOps = makeRelationsUpdateOps({
       changedChildIds: { added: childIds },
       changedParentIds: { added: parentIds },
       dateModified,
@@ -484,7 +432,7 @@ export const createTag = makeAction(
 
     if (withRegen && (childIds.length > 0 || parentIds.length > 0)) {
       const tagIds = [id, ...childIds, ...parentIds];
-      await regenTags({ tagIds, withSub });
+      regenTags({ tagIds, withSub });
     }
 
     if (withRegen || withSub) socket.emit("onTagCreated", { ...tag, id });
@@ -509,8 +457,7 @@ export const deleteTag = makeAction(async ({ id }: { id: string }) => {
     models.TagModel.deleteOne({ _id: id }),
   ]);
 
-  const countRes = await recalculateTagCounts({ tagIds: parentIds, withSub: true });
-  if (!countRes.success) throw new Error(countRes.error);
+  regenTags({ tagIds: parentIds, withSub: true });
 
   socket.emit("onTagDeleted", { ids: [id] });
 });
@@ -545,7 +492,7 @@ export const editTag = makeAction(
       ...changedParentIds.removed,
     ];
 
-    const bulkWriteOps = await makeRelationsUpdateOps({
+    const bulkWriteOps = makeRelationsUpdateOps({
       changedChildIds,
       changedParentIds,
       dateModified,
@@ -569,19 +516,9 @@ export const editTag = makeAction(
 
     const res = await models.TagModel.bulkWrite(operations);
 
-    if (changedTagIds.length > 0 && withRegen) {
-      await regenTagAncestors({ tagIds: changedTagIds, withSub });
-
-      actions.regenCollTagAncestors({ tagIds: changedTagIds });
-      actions.regenFileTagAncestors({ tagIds: changedTagIds });
-      regenTagThumbPaths({ tagIds: changedTagIds });
-      recalculateTagCounts({
-        tagIds: [id, ...changedParentIds.added, ...changedParentIds.removed],
-        withSub,
-      });
-    }
-
+    if (changedTagIds.length > 0 && withRegen) regenTags({ tagIds: changedTagIds, withSub });
     if (withSub) emitTagUpdates(id, changedChildIds, changedParentIds);
+
     return { changedChildIds, changedParentIds, dateModified, operations, res };
   },
 );
@@ -623,102 +560,86 @@ export const editMultiTagRelations = makeAction(
       tagLabel: string;
     }[] = [];
 
-    const [...bulkWriteOps] = await Promise.all([
-      ...tags.map(async (tag) => {
-        const ancestorIds = tag.ancestorIds?.map((i) => i.toString()) ?? [];
-        const descendantIds = tag.descendantIds?.map((i) => i.toString()) ?? [];
+    const [...bulkWriteOps] = tags.map((tag) => {
+      const ancestorIds = tag.ancestorIds?.map((i) => i.toString()) ?? [];
+      const descendantIds = tag.descendantIds?.map((i) => i.toString()) ?? [];
 
-        /** Prevent creating an invalid hierarchy */
-        const [invalidChildIdsToAdd, validChildIdsToAdd] = splitArray(args.childIdsToAdd, (id) =>
-          ancestorIds.includes(id),
-        );
-        const [invalidParentIdsToAdd, validParentIdsToAdd] = splitArray(args.parentIdsToAdd, (id) =>
-          descendantIds.includes(id),
-        );
+      /** Prevent creating an invalid hierarchy */
+      const [invalidChildIdsToAdd, validChildIdsToAdd] = splitArray(args.childIdsToAdd, (id) =>
+        ancestorIds.includes(id),
+      );
+      const [invalidParentIdsToAdd, validParentIdsToAdd] = splitArray(args.parentIdsToAdd, (id) =>
+        descendantIds.includes(id),
+      );
 
-        if (invalidChildIdsToAdd.length > 0 || invalidParentIdsToAdd.length > 0) {
-          errors.push({
-            invalidChildTags: invalidChildIdsToAdd.map((id) => ({
-              id,
-              label: tags.find((t) => t.id === id)?.label,
-            })),
-            invalidParentTags: invalidParentIdsToAdd.map((id) => ({
-              id,
-              label: tags.find((t) => t.id === id)?.label,
-            })),
-            tagId: tag.id,
-            tagLabel: tag.label,
-          });
-
-          return [];
-        }
-
-        const relationOps = await makeRelationsUpdateOps({
-          changedChildIds: {
-            added: validChildIdsToAdd,
-            removed: args.childIdsToRemove ?? [],
-          },
-          changedParentIds: {
-            added: validParentIdsToAdd,
-            removed: args.parentIdsToRemove ?? [],
-          },
-          dateModified,
+      if (invalidChildIdsToAdd.length > 0 || invalidParentIdsToAdd.length > 0) {
+        errors.push({
+          invalidChildTags: invalidChildIdsToAdd.map((id) => ({
+            id,
+            label: tags.find((t) => t.id === id)?.label,
+          })),
+          invalidParentTags: invalidParentIdsToAdd.map((id) => ({
+            id,
+            label: tags.find((t) => t.id === id)?.label,
+          })),
           tagId: tag.id,
+          tagLabel: tag.label,
         });
 
-        const tagAddOps: AnyBulkWriteOperation[] = [
-          // @ts-expect-error
-          !validChildIdsToAdd.length && !validParentIdsToAdd.length
-            ? null
-            : {
-                updateOne: {
-                  filter: { _id: tag.id },
-                  update: {
-                    $set: { dateModified },
-                    $addToSet: {
-                      childIds: { $each: objectIds(validChildIdsToAdd) },
-                      parentIds: { $each: objectIds(validParentIdsToAdd) },
-                    },
+        return [];
+      }
+
+      const relationOps = makeRelationsUpdateOps({
+        changedChildIds: { added: validChildIdsToAdd, removed: args.childIdsToRemove ?? [] },
+        changedParentIds: { added: validParentIdsToAdd, removed: args.parentIdsToRemove ?? [] },
+        dateModified,
+        tagId: tag.id,
+      });
+
+      const tagAddOps: AnyBulkWriteOperation[] = [
+        // @ts-expect-error
+        !validChildIdsToAdd.length && !validParentIdsToAdd.length
+          ? null
+          : {
+              updateOne: {
+                filter: { _id: tag.id },
+                update: {
+                  $set: { dateModified },
+                  $addToSet: {
+                    childIds: { $each: objectIds(validChildIdsToAdd) },
+                    parentIds: { $each: objectIds(validParentIdsToAdd) },
                   },
                 },
               },
-        ];
+            },
+      ];
 
-        const tagRemoveOps: AnyBulkWriteOperation[] = [
-          // @ts-expect-error
-          !args.childIdsToRemove?.length && !args.parentIdsToRemove?.length
-            ? null
-            : {
-                updateOne: {
-                  filter: { _id: tag.id },
-                  update: {
-                    $set: { dateModified },
-                    $pullAll: {
-                      childIds: args.childIdsToRemove ? objectIds(args.childIdsToRemove) : [],
-                      parentIds: args.parentIdsToRemove ? objectIds(args.parentIdsToRemove) : [],
-                    },
+      const tagRemoveOps: AnyBulkWriteOperation[] = [
+        // @ts-expect-error
+        !args.childIdsToRemove?.length && !args.parentIdsToRemove?.length
+          ? null
+          : {
+              updateOne: {
+                filter: { _id: tag.id },
+                update: {
+                  $set: { dateModified },
+                  $pullAll: {
+                    childIds: args.childIdsToRemove ? objectIds(args.childIdsToRemove) : [],
+                    parentIds: args.parentIdsToRemove ? objectIds(args.parentIdsToRemove) : [],
                   },
                 },
               },
-        ];
+            },
+      ];
 
-        return [...relationOps, ...tagAddOps, ...tagRemoveOps].filter(Boolean);
-      }),
-    ]);
+      return [...relationOps, ...tagAddOps, ...tagRemoveOps].filter(Boolean);
+    });
 
     if (errors.length > 0) fileLog(["editMultiTagRelations", errors], { type: "warn" });
 
     const bulkWriteRes = await models.TagModel.bulkWrite(bulkWriteOps.flat());
 
-    await regenTagAncestors({ tagIds: changedTagIds, withSub: false });
-
-    await Promise.all([
-      actions.regenCollTagAncestors({ tagIds: changedTagIds }),
-      actions.regenFileTagAncestors({ tagIds: changedTagIds }),
-    ]);
-
-    regenTagThumbPaths({ tagIds: changedTagIds });
-    recalculateTagCounts({ tagIds: changedTagIds, withSub: false });
+    regenTags({ tagIds: changedTagIds, withSub: false });
 
     return { bulkWriteRes, changedChildIds, changedParentIds, dateModified, errors };
   },
@@ -779,6 +700,7 @@ export const mergeTags = makeAction(
       | "dateModified"
       | "descendantIds"
       | "lastSearchedAt"
+      | "size"
       | "thumb"
     > & {
       tagIdToKeep: string;
@@ -855,19 +777,8 @@ export const mergeTags = makeAction(
         { updateOne: { filter: { _id: _tagIdToKeep }, update: { $set: tagToKeepUpdates } } },
       ]);
 
-      if (args.withRegen) {
-        const changedTagIds = [args.tagIdToKeep, ...tagIdsToUpdate];
-
-        await regenTagAncestors({ tagIds: changedTagIds });
-
-        await Promise.all([
-          actions.regenCollTagAncestors({ tagIds: [args.tagIdToKeep] }),
-          actions.regenFileTagAncestors({ tagIds: [args.tagIdToKeep] }),
-        ]);
-
-        regenTagThumbPaths({ tagIds: changedTagIds });
-        recalculateTagCounts({ tagIds: changedTagIds, withSub: false });
-      }
+      if (args.withRegen)
+        regenTags({ tagIds: [args.tagIdToKeep, ...tagIdsToUpdate], withSub: false });
 
       if (args.withSub) {
         socket.emit("onTagMerged", { newTagId: args.tagIdToKeep, oldTagId: args.tagIdToMerge });
@@ -970,24 +881,7 @@ export const searchTags = makeAction(
   },
 );
 
-export const recalculateTagCounts = makeAction(
-  async ({ tagIds, withSub = true }: { tagIds: string[]; withSub?: boolean }) => {
-    const updatedTags: { tagId: string; updates: Partial<models.TagSchema> }[] = [];
-
-    await Promise.all(
-      tagIds.map(async (id) => {
-        const count = await models.FileModel.count({ tagIdsWithAncestors: id });
-        updatedTags.push({ tagId: id, updates: { count } });
-        return models.TagModel.updateOne({ _id: id }, { $set: { count } });
-      }),
-    );
-
-    if (withSub) socket.emit("onTagsUpdated", { tags: updatedTags, withFileReload: false });
-    return updatedTags;
-  },
-);
-
-export const refreshTagRelations = makeAction(
+export const refreshTag = makeAction(
   async ({ tagId, withSub = true }: { tagId: string; withSub?: boolean }) => {
     const debug = false;
 
@@ -997,7 +891,7 @@ export const refreshTagRelations = makeAction(
     const childIds = tag.childIds?.map((i) => i.toString()) ?? [];
     const parentIds = tag.parentIds?.map((i) => i.toString()) ?? [];
 
-    const { perfLog, perfLogTotal } = makePerfLog("[refreshTagRelations]", true);
+    const { perfLog, perfLogTotal } = makePerfLog("[refreshTag]", true);
 
     if (!tag.childIds || !tag.parentIds) {
       await models.TagModel.updateOne(
@@ -1024,7 +918,7 @@ export const refreshTagRelations = makeAction(
     const changedChildIds = { added: idsWithOrphanedParent, removed: [] };
     const changedParentIds = { added: idsWithOrphanedChild, removed: [] };
 
-    const bulkWriteOps = await makeRelationsUpdateOps({
+    const bulkWriteOps = makeRelationsUpdateOps({
       changedChildIds,
       changedParentIds,
       dateModified,
@@ -1035,38 +929,103 @@ export const refreshTagRelations = makeAction(
     await models.TagModel.bulkWrite(bulkWriteOps);
     if (debug) perfLog("Bulk write operations executed");
 
-    await Promise.all([
-      actions.regenCollTagAncestors({ tagIds: [tagId] }),
-      actions.regenFileTagAncestors({ tagIds: [tagId] }),
-    ]);
-
-    if (changedChildIds.added.length || changedParentIds.added.length)
-      recalculateTagCounts({
-        tagIds: [tagId, ...changedChildIds.added, ...changedParentIds.added],
-        withSub,
-      });
-
-    if (debug) perfLog("Regenerated tag ancestors");
+    await regenTags({
+      tagIds: [tagId, ...changedChildIds.added, ...changedParentIds.added],
+      withSub,
+    });
 
     if (withSub) emitTagUpdates(tagId, changedChildIds, changedParentIds);
     if (debug) perfLogTotal("Refreshed tag relations");
   },
 );
 
-export const refreshTag = makeAction(async ({ tagId }: { tagId: string }) => {
-  const debug = false;
-  const { perfLogTotal } = makePerfLog("[refreshTags]", true);
+export const regenTags = makeAction(async (args: { tagIds: string[]; withSub?: boolean }) => {
+  const chunks = chunkArray(args.tagIds, 5000);
 
-  await refreshTagRelations({ tagId, withSub: false });
-  await regenTagAncestors({ tagIds: [tagId], withSub: false });
+  for (const tagIds of chunks) {
+    await regenTagAncestors({ tagIds, withSub: args.withSub });
+    await actions.regenFileTagAncestors({ tagIds });
+    await actions.regenCollTagAncestors({ tagIds });
 
-  await Promise.all([
-    recalculateTagCounts({ tagIds: [tagId], withSub: false }),
-    regenTagThumbPaths({ tagIds: [tagId] }),
-  ]);
-
-  if (debug) perfLogTotal(`Refreshed tag ${tagId}`);
+    await regenTagMeta({ tagIds, withSub: args.withSub });
+  }
 });
+
+export const regenTagAncestors = makeAction(
+  async ({ tagIds, withSub = false }: { tagIds: string[]; withSub?: boolean }) => {
+    const bulkWriteOps: AnyBulkWriteOperation[] = [];
+    const updates: { tagId: string; updates: Partial<models.TagSchema> }[] = [];
+
+    for (const tagId of tagIds) {
+      const ancestorIds = await deriveAncestorTagIds([tagId]);
+      const descendantIds = await deriveDescendantTagIds([tagId]);
+      updates.push({ tagId, updates: { ancestorIds, descendantIds } });
+      bulkWriteOps.push({
+        updateOne: {
+          filter: { _id: tagId },
+          update: { $set: { ancestorIds, descendantIds } },
+        },
+      });
+    }
+
+    await models.TagModel.bulkWrite(bulkWriteOps);
+
+    if (withSub) socket.emit("onTagsUpdated", { tags: updates, withFileReload: true });
+  },
+);
+
+export const regenTagMeta = makeAction(
+  async ({ tagIds, withSub = true }: { tagIds: string[]; withSub?: boolean }) => {
+    const metaByTagId = await models.FileModel.aggregate<{
+      _id: string;
+      count: number;
+      size: number;
+      thumb: models.TagSchema["thumb"];
+    }>([
+      { $match: { tagIdsWithAncestors: { $in: objectIds(tagIds) } } },
+      { $sort: { dateCreated: 1 } },
+      { $unwind: "$tagIdsWithAncestors" },
+      { $match: { tagIdsWithAncestors: { $in: objectIds(tagIds) } } },
+      {
+        $group: {
+          _id: "$tagIdsWithAncestors",
+          count: { $sum: 1 },
+          size: { $sum: "$size" },
+          thumb: { $first: "$thumb" },
+        },
+      },
+    ]);
+
+    const metaMap = new Map(metaByTagId.map((m) => [m._id.toString(), m]));
+
+    const updatedTags: { tagId: string; updates: Partial<models.TagSchema> }[] = [];
+
+    const bulkWriteOps: AnyBulkWriteOperation[] = tagIds.map((tagId) => {
+      const meta = metaMap.get(tagId);
+      if (!meta) throw new Error(`Missing meta for tag ${tagId}`);
+
+      const updates: Partial<models.TagSchema> = {
+        count: meta.count ?? 0,
+        size: meta.size ?? 0,
+        thumb: meta.thumb ?? null,
+      };
+
+      updatedTags.push({ tagId, updates });
+
+      return {
+        updateOne: {
+          filter: { _id: objectId(tagId) },
+          update: { $set: updates, $unset: { thumbPaths: true } },
+        },
+      };
+    });
+
+    await models.TagModel.bulkWrite(bulkWriteOps);
+
+    if (withSub) socket.emit("onTagsUpdated", { tags: updatedTags, withFileReload: false });
+    return updatedTags;
+  },
+);
 
 export const repairTags = makeAction(async () => {
   const { perfLog } = makePerfLog("[repairTags]", true);
