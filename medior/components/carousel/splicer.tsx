@@ -49,15 +49,6 @@ export const Splicer = Comp(() => {
     stores.file.openVideoTransformer([file.id], "splice");
   };
 
-  const handleSave = async () => {
-    const res = await store.saveTimestamps();
-    if (!res.success) toast.error(res.error);
-    else toast.success("Saved");
-
-    store.setTimestampId(res.data);
-    await store.loadTimestamps();
-  };
-
   return (
     <View
       column
@@ -122,7 +113,7 @@ export const Splicer = Comp(() => {
             <Button
               text="Save"
               icon="Check"
-              onClick={handleSave}
+              onClick={store.saveTimestamps}
               disabled={!store.hasChanges}
               color={colors.custom.green}
             />

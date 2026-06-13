@@ -3,7 +3,7 @@ import { computed, reaction } from "mobx";
 import { getRootStore, Model, model, modelAction, modelFlow, prop } from "mobx-keystone";
 import { FileSchema } from "medior/server/database";
 import { RootStore } from "medior/store";
-import { asyncAction, derefMobx } from "medior/utils/client";
+import { asyncAction, derefMobx, toast } from "medior/utils/client";
 import { durationRegex, isDeepEqual, secondsToDuration, uuid } from "medior/utils/common";
 import { trpc } from "medior/utils/server";
 
@@ -166,7 +166,12 @@ export class Splicer extends Model({
 
     this.setHasChanges(false);
 
-    return id;
+    if (!res.success) toast.error(res.error);
+    else toast.success("Saved");
+
+    this.setTimestampId(id);
+    await stores.file.search.loadFiltered();
+    await this.loadTimestamps();
   });
 
   /* --------------------------------- GETTERS -------------------------------- */
