@@ -11,6 +11,7 @@ import {
   dayjs,
   Fmt,
   handleErrors,
+  PromiseQueue,
   splitArray,
 } from "medior/utils/common";
 import { leanModelToJson, makeAction, objectId, objectIds, socket } from "medior/utils/server";
@@ -145,18 +146,28 @@ const getOrphanedIds = async (tagId: string, field: string, oppIds: string[]) =>
 };
 
 export const makeAncestorIdsMap = async (tagIds: string[]) => {
-  const tags = (
-    await models.TagModel.find({ _id: { $in: objectIds([...new Set(tagIds)]) } })
-      .select({ _id: 1, ancestorIds: 1 })
-      .lean()
-  ).map(leanModelToJson<models.TagSchema>);
+  fileLog(`[DFE] Making ancestorIds map for ${tagIds.length} tags...`);
 
-  return Object.fromEntries(
-    tags.map((t) => [
-      t.id.toString(),
-      [t.id.toString(), ...t.ancestorIds.map((id) => id.toString())],
-    ]),
-  );
+  const map = new Map<string, string[]>();
+  const chunks = chunkArray(tagIds, 5000);
+
+  for (const chunk of chunks) {
+    const tags = (
+      await models.TagModel.find({ _id: { $in: objectIds(chunk) } })
+        .select({ _id: 1, ancestorIds: 1 })
+        .allowDiskUse(true)
+        .lean()
+    ).map(leanModelToJson<models.TagSchema>);
+
+    for (const tag of tags) {
+      const id = tag.id.toString();
+      map.set(id, [id, ...tag.ancestorIds.map((id) => id.toString())]);
+    }
+  }
+
+  fileLog(`[DFE] Finished making ancestorIds map for ${tagIds.length} tags.`);
+
+  return map;
 };
 
 /*
@@ -367,15 +378,13 @@ export const makeUniqueAncestorUpdates = ({
   oldTagIdsWithAncestors,
   tagIds,
 }: {
-  ancestorsMap: Record<string, string[]>;
+  ancestorsMap: Map<string, string[]>;
   oldTagIdsWithAncestors: string[];
   tagIds: string[];
 }) => {
   const oldSet = new Set(oldTagIdsWithAncestors.map((id) => id.toString()));
   const newSet = new Set(
-    tagIds
-      .flatMap((tagId) => ancestorsMap[tagId.toString()]?.map((id) => id.toString()))
-      .filter(Boolean),
+    tagIds.flatMap((tagId) => ancestorsMap.get(tagId.toString())).filter(Boolean),
   );
   return {
     hasUpdates: oldSet.size !== newSet.size || [...oldSet].some((item) => !newSet.has(item)),
@@ -939,16 +948,22 @@ export const refreshTag = makeAction(
   },
 );
 
+const regenQueue = new PromiseQueue();
+
 export const regenTags = makeAction(async (args: { tagIds: string[]; withSub?: boolean }) => {
-  const chunks = chunkArray(args.tagIds, 5000);
+  regenQueue.add(async () => {
+    const chunks = chunkArray(args.tagIds, 5000);
 
-  for (const tagIds of chunks) {
-    await regenTagAncestors({ tagIds, withSub: args.withSub });
-    await actions.regenFileTagAncestors({ tagIds });
-    await actions.regenCollTagAncestors({ tagIds });
+    for (const tagIds of chunks) {
+      await regenTagAncestors({ tagIds, withSub: args.withSub });
+      await actions.regenFileTagAncestors({ tagIds });
+      await actions.regenCollTagAncestors({ tagIds });
 
-    await regenTagMeta({ tagIds, withSub: args.withSub });
-  }
+      await regenTagMeta({ tagIds, withSub: args.withSub });
+    }
+  });
+
+  await regenQueue.resolve();
 });
 
 export const regenTagAncestors = makeAction(
@@ -1115,30 +1130,6 @@ export const repairTags = makeAction(async () => {
   }
 
   perfLog(`Merged ${mergedCount} duplicate tags`);
-
-  /* ------------------------ Fix old versions of regEx ----------------------- */
-  const tagsWithBrokenRegEx = (
-    await models.TagModel.find({ regExMap: { $exists: true } })
-      .allowDiskUse(true)
-      .lean()
-  ).map((t) => leanModelToJson<models.TagSchema>(t));
-
-  perfLog(`Found ${tagsWithBrokenRegEx.length} tags with broken regEx`);
-
-  const bulkWriteRes = await models.TagModel.bulkWrite(
-    tagsWithBrokenRegEx.map((f) => ({
-      updateOne: {
-        filter: { _id: objectId(f.id) },
-        // @ts-expect-error
-        update: [{ $set: { regEx: f.regEx ?? f.regExMap?.regEx ?? null } }, { $unset: "regExMap" }],
-      },
-    })),
-  );
-
-  perfLog(`Repaired regEx of ${bulkWriteRes.modifiedCount} tags`);
-
-  if (bulkWriteRes.modifiedCount !== tagsWithBrokenRegEx.length)
-    throw new Error(`Bulk write failed: ${JSON.stringify(bulkWriteRes, null, 2)}`);
 });
 
 export const setTagCount = makeAction(async ({ count, id }: { count: number; id: string }) => {

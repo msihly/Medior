@@ -178,7 +178,7 @@ export class TagStore extends Model({
   tagsToRegEx(tags: { aliases?: string[]; label: string }[]) {
     return `(${tags
       .flatMap((tag) => [tag.label, ...tag.aliases])
-      .map((s) => `\\^${Fmt.regexEscape(s).replaceAll(/[\s-_]+/g, "[\\s\\-_\\.]+")}\\$`)
+      .map((s) => `^${Fmt.regexEscape(s).replaceAll(/[\s-_]+/g, "[\\s\\-_\\.]+")}$`)
       .join(")|(")})`;
   }
 

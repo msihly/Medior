@@ -212,7 +212,12 @@ export const regenCollTagAncestors = makeAction(
         .lean()
     ).map(leanModelToJson<models.FileCollectionSchema>);
 
-    const ancestorsMap = await actions.makeAncestorIdsMap(collections.flatMap((c) => c.tagIds));
+    const tagIds = new Set<string>();
+    for (const collection of collections) {
+      for (const tagId of collection.tagIds) tagIds.add(tagId);
+    }
+
+    const ancestorsMap = await actions.makeAncestorIdsMap([...tagIds]);
 
     const bulkWriteOps: AnyBulkWriteOperation[] = [];
 

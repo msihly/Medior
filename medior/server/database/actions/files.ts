@@ -58,8 +58,13 @@ export const regenFileTagAncestors = makeAction(
     ).map(leanModelToJson<models.FileSchema>);
     if (debug) perfLog(`Loaded files (${files.length})`);
 
-    const ancestorsMap = await actions.makeAncestorIdsMap(files.flatMap((f) => f.tagIds));
-    if (debug) perfLog(`Loaded ancestorsMap (${Object.keys(ancestorsMap).length})`);
+    const tagIds = new Set<string>();
+    for (const file of files) {
+      for (const tagId of file.tagIds) tagIds.add(tagId);
+    }
+
+    const ancestorsMap = await actions.makeAncestorIdsMap([...tagIds]);
+    if (debug) perfLog(`Loaded ancestorsMap (${ancestorsMap.size})`);
 
     const updates: AnyBulkWriteOperation<models.FileSchema>[] = files.flatMap((f) => {
       const { hasUpdates, tagIdsWithAncestors } = actions.makeUniqueAncestorUpdates({

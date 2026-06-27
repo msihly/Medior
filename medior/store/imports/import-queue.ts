@@ -437,7 +437,7 @@ export const useImportEditor = (store: Ingester | Reingester) => {
   };
 
   const createTagHierarchy = (tags: TagToUpsert[], label: string): TagToUpsert[] => {
-    const labelRegex = new RegExp(`^${label}$`, "i");
+    const labelRegex = new RegExp(`^${Fmt.regexEscape(label)}$`, "i");
     return tags
       .filter((c) => c.parentLabels?.some((l) => labelRegex.test(l)))
       .map((c) => ({ ...c, children: createTagHierarchy(tags, c.label) }));
