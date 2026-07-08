@@ -1104,6 +1104,8 @@ export class _TagSearch extends Model({
   dateCreatedStart: prop<string>("").withSetter(),
   dateModifiedEnd: prop<string>("").withSetter(),
   dateModifiedStart: prop<string>("").withSetter(),
+  dateOfInceptionEnd: prop<string>("").withSetter(),
+  dateOfInceptionStart: prop<string>("").withSetter(),
   forcePages: prop<boolean>(false).withSetter(),
   hasChanges: prop<boolean>(false).withSetter(),
   hasRegEx: prop<boolean>(null).withSetter(),
@@ -1114,6 +1116,7 @@ export class _TagSearch extends Model({
   page: prop<number>(1).withSetter(),
   pageCount: prop<number>(1).withSetter(),
   pageSize: prop<number>(() => getConfig().tags.manager.search.pageSize).withSetter(),
+  rating: prop<{ logOp: LogicalOp | ""; value: number }>(() => ({ logOp: "", value: 0 })),
   results: prop<Stores.Tag[]>(() => []).withSetter(),
   selectedIds: prop<string[]>(() => []).withSetter(),
   size: prop<{ logOp: LogicalOp | ""; value: number }>(() => ({ logOp: "", value: 0 })),
@@ -1145,6 +1148,8 @@ export class _TagSearch extends Model({
     this.dateCreatedStart = "";
     this.dateModifiedEnd = "";
     this.dateModifiedStart = "";
+    this.dateOfInceptionEnd = "";
+    this.dateOfInceptionStart = "";
     this.forcePages = false;
     this.hasChanges = false;
     this.hasRegEx = null;
@@ -1155,6 +1160,7 @@ export class _TagSearch extends Model({
     this.page = 1;
     this.pageCount = 1;
     this.pageSize = getConfig().tags.manager.search.pageSize;
+    this.rating = { logOp: "", value: 0 };
     this.results = [];
     this.selectedIds = [];
     this.size = { logOp: "", value: 0 };
@@ -1196,6 +1202,17 @@ export class _TagSearch extends Model({
   @modelAction
   setCountValue(val: number) {
     this.count.value = val;
+  }
+
+  @modelAction
+  setRatingOp(val: LogicalOp | "") {
+    this.rating.logOp = val;
+    if (val === "") this.rating.value = 0;
+  }
+
+  @modelAction
+  setRatingValue(val: number) {
+    this.rating.value = val;
   }
 
   @modelAction
@@ -1343,9 +1360,12 @@ export class _TagSearch extends Model({
       (!isDeepEqual(this.dateCreatedStart, "") ? 1 : 0) +
       (!isDeepEqual(this.dateModifiedEnd, "") ? 1 : 0) +
       (!isDeepEqual(this.dateModifiedStart, "") ? 1 : 0) +
+      (!isDeepEqual(this.dateOfInceptionEnd, "") ? 1 : 0) +
+      (!isDeepEqual(this.dateOfInceptionStart, "") ? 1 : 0) +
       (!isDeepEqual(this.hasRegEx, null) ? 1 : 0) +
       (!isDeepEqual(this.ids, []) ? 1 : 0) +
       (!isDeepEqual(this.label, "") ? 1 : 0) +
+      (!isDeepEqual(this.rating, { logOp: "", value: 0 }) ? 1 : 0) +
       (!isDeepEqual(this.size, { logOp: "", value: 0 }) ? 1 : 0) +
       (!isDeepEqual(this.sortValue, getConfig().tags.manager.search.sort) ? 1 : 0) +
       (!isDeepEqual(this.tags, []) ? 1 : 0) +
@@ -1367,9 +1387,12 @@ export class _TagSearch extends Model({
       dateCreatedStart: this.dateCreatedStart,
       dateModifiedEnd: this.dateModifiedEnd,
       dateModifiedStart: this.dateModifiedStart,
+      dateOfInceptionEnd: this.dateOfInceptionEnd,
+      dateOfInceptionStart: this.dateOfInceptionStart,
       hasRegEx: this.hasRegEx,
       ids: this.ids,
       label: this.label,
+      rating: this.rating,
       size: this.size,
       sortValue: this.sortValue,
       ...getRootStore<Stores.RootStore>(this)?.tag?.tagSearchOptsToIds(this.tags),
@@ -1674,10 +1697,12 @@ export class _Tag extends Model({
   childIds: prop<string[]>(() => []),
   count: prop<number>(),
   dateModified: prop<string>(),
+  dateOfInception: prop<string>(null),
   descendantIds: prop<string[]>(() => []),
   label: prop<string>(),
   lastSearchedAt: prop<string>(null),
   parentIds: prop<string[]>(() => []),
+  rating: prop<number>(null),
   regEx: prop<string>(null),
   size: prop<number>(),
   thumb: prop<{ frameHeight?: number; frameWidth?: number; path: string }>(null),

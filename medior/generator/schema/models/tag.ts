@@ -34,6 +34,9 @@ model.addProp("dateModified", "string", {
   sort: { icon: "DateRange", label: "Date Modified" },
 });
 
+model.addIndex({ dateOfInception: 1, _id: 1 });
+model.addProp("dateOfInception", "string", { sort: { icon: "DateRange", label: "Date of Inception" } });
+
 model.addProp("descendantIds", "Tag.id[]", { defaultValue: "[]", required: true });
 
 model.addIndex({ label: 1 });
@@ -42,6 +45,9 @@ model.addProp("label", "string", { required: true, sort: { icon: "Label", label:
 model.addProp("lastSearchedAt", "string");
 
 model.addProp("parentIds", "Tag.id[]", { defaultValue: "[]", required: true });
+
+model.addIndex({ rating: 1, _id: 1 });
+model.addProp("rating", "number", { sort: { icon: "Star", label: "Rating" } });
 
 model.addProp("regEx", "string");
 

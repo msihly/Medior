@@ -303,10 +303,12 @@ export interface TagSchema {
   childIds: string[];
   count: number;
   dateModified: string;
+  dateOfInception?: string;
   descendantIds: string[];
   label: string;
   lastSearchedAt?: string;
   parentIds: string[];
+  rating?: number;
   regEx?: string;
   size: number;
   thumb: { frameHeight?: number; frameWidth?: number; path: string };
@@ -326,16 +328,20 @@ const TagSchema = new Schema<TagSchema>({
   childIds: [{ type: Schema.Types.ObjectId, ref: "Tag" }],
   count: Number,
   dateModified: String,
+  dateOfInception: String,
   descendantIds: [{ type: Schema.Types.ObjectId, ref: "Tag" }],
   label: String,
   lastSearchedAt: String,
   parentIds: [{ type: Schema.Types.ObjectId, ref: "Tag" }],
+  rating: Number,
   regEx: String,
   size: Number,
   thumb: { frameHeight: Number, frameWidth: Number, path: String },
 });
 
 TagSchema.index({ dateCreated: 1, _id: 1 }, { unique: true });
+TagSchema.index({ dateOfInception: 1, _id: 1 }, { unique: true });
 TagSchema.index({ label: 1 }, { unique: true });
+TagSchema.index({ rating: 1, _id: 1 }, { unique: true });
 
 export const TagModel = model<TagSchema>("Tag", TagSchema);

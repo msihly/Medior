@@ -48,7 +48,9 @@ const MODEL_SORT_OPTIONS: Record<ModelSortName, SortOption[]> = {
     { attribute: "count", icon: "Numbers", label: "Count" },
     { attribute: "dateCreated", icon: "DateRange", label: "Date Created" },
     { attribute: "dateModified", icon: "DateRange", label: "Date Modified" },
+    { attribute: "dateOfInception", icon: "DateRange", label: "Date of Inception" },
     { attribute: "label", icon: "Label", label: "Label" },
+    { attribute: "rating", icon: "Star", label: "Rating" },
     { attribute: "size", icon: "FormatSize", label: "Size" },
   ],
 };

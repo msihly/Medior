@@ -14,11 +14,12 @@ model.addProp("alias", "string", '""', {
 });
 
 model.addLogOpProp("count");
+model.addLogOpProp("rating");
 model.addLogOpProp("size");
 
 model.addDateRangeProp("dateCreated");
-
 model.addDateRangeProp("dateModified");
+model.addDateRangeProp("dateOfInception");
 
 model.addProp("label", "string", '""', {
   objPath: ["label", "$regex"],

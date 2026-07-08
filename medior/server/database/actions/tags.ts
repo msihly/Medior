@@ -146,7 +146,8 @@ const getOrphanedIds = async (tagId: string, field: string, oppIds: string[]) =>
 };
 
 export const makeAncestorIdsMap = async (tagIds: string[]) => {
-  fileLog(`[DFE] Making ancestorIds map for ${tagIds.length} tags...`);
+  const debug = false;
+  const { perfLogTotal } = makePerfLog("makeAncestorIdsMap", true);
 
   const map = new Map<string, string[]>();
   const chunks = chunkArray(tagIds, 5000);
@@ -165,8 +166,7 @@ export const makeAncestorIdsMap = async (tagIds: string[]) => {
     }
   }
 
-  fileLog(`[DFE] Finished making ancestorIds map for ${tagIds.length} tags.`);
-
+  if (debug) perfLogTotal(`Created ancestorIds map for ${tagIds.length} tags.`);
   return map;
 };
 
@@ -318,12 +318,16 @@ const makeMergeRelationsPipeline = ({
 /** Adds or removes `tagId` to the opposite type (`childIds` or `parentIds`) to create hierarchical relations.
  *  For example, adds `tagId` to the `parentIds` of every id in `changedChildIds.added.` */
 const makeRelationsUpdateOps = ({
+  changedAncestorIds,
   changedChildIds,
+  changedDescendantIds,
   changedParentIds,
   dateModified,
   tagId,
 }: {
+  changedAncestorIds?: { added?: string[]; removed?: string[] };
   changedChildIds?: { added?: string[]; removed?: string[] };
+  changedDescendantIds?: { added?: string[]; removed?: string[] };
   changedParentIds?: { added?: string[]; removed?: string[] };
   dateModified: string;
   tagId: string;
@@ -331,13 +335,11 @@ const makeRelationsUpdateOps = ({
   const ids = [tagId];
 
   const updateRelatedTags = (
-    type: "child" | "parent",
+    keyOfOppType: "ancestorIds" | "childIds" | "descendantIds" | "parentIds",
     changedIds: { added?: string[]; removed?: string[] },
   ) => {
     const ops: AnyBulkWriteOperation[] = [];
     if (!changedIds?.added?.length && !changedIds?.removed?.length) return ops;
-
-    const keyOfOppType = type === "child" ? "parentIds" : "childIds";
 
     if (changedIds.added?.length > 0)
       ops.push({
@@ -367,8 +369,10 @@ const makeRelationsUpdateOps = ({
   };
 
   return [
-    ...updateRelatedTags("child", changedChildIds),
-    ...updateRelatedTags("parent", changedParentIds),
+    ...updateRelatedTags("ancestorIds", changedDescendantIds),
+    ...updateRelatedTags("childIds", changedParentIds),
+    ...updateRelatedTags("descendantIds", changedAncestorIds),
+    ...updateRelatedTags("parentIds", changedChildIds),
   ];
 };
 
@@ -707,8 +711,10 @@ export const mergeTags = makeAction(
       | "count"
       | "dateCreated"
       | "dateModified"
+      | "dateOfInception"
       | "descendantIds"
       | "lastSearchedAt"
+      | "rating"
       | "size"
       | "thumb"
     > & {
@@ -897,8 +903,12 @@ export const refreshTag = makeAction(
     const tag = await models.TagModel.findById(tagId);
     if (!tag) throw new Error(`Tag not found: ${tagId}`);
 
-    const childIds = tag.childIds?.map((i) => i.toString()) ?? [];
-    const parentIds = tag.parentIds?.map((i) => i.toString()) ?? [];
+    const [ancestorIds, childIds, descendantIds, parentIds] = [
+      tag.ancestorIds,
+      tag.childIds,
+      tag.descendantIds,
+      tag.parentIds,
+    ].map((ids) => ids?.map((i) => i.toString()) ?? []);
 
     const { perfLog, perfLogTotal } = makePerfLog("[refreshTag]", true);
 
@@ -918,17 +928,28 @@ export const refreshTag = makeAction(
 
     const dateModified = dayjs().toISOString();
 
-    const [idsWithOrphanedChild, idsWithOrphanedParent] = await Promise.all([
+    const [
+      idsWithOrphanedAncestor,
+      idsWithOrphanedChild,
+      idsWithOrphanedDescendant,
+      idsWithOrphanedParent,
+    ] = await Promise.all([
+      getOrphanedIds(tagId, "ancestorIds", descendantIds),
       getOrphanedIds(tagId, "childIds", parentIds),
+      getOrphanedIds(tagId, "descendantIds", ancestorIds),
       getOrphanedIds(tagId, "parentIds", childIds),
     ]);
-    if (debug) perfLog("Derived orphaned childIds / parentIds");
+    if (debug) perfLog("Derived orphaned ids");
 
+    const changedAncestorIds = { added: idsWithOrphanedDescendant, removed: [] };
     const changedChildIds = { added: idsWithOrphanedParent, removed: [] };
+    const changedDescendantIds = { added: idsWithOrphanedAncestor, removed: [] };
     const changedParentIds = { added: idsWithOrphanedChild, removed: [] };
 
     const bulkWriteOps = makeRelationsUpdateOps({
+      changedAncestorIds,
       changedChildIds,
+      changedDescendantIds,
       changedParentIds,
       dateModified,
       tagId,
@@ -939,7 +960,13 @@ export const refreshTag = makeAction(
     if (debug) perfLog("Bulk write operations executed");
 
     await regenTags({
-      tagIds: [tagId, ...changedChildIds.added, ...changedParentIds.added],
+      tagIds: [
+        tagId,
+        ...idsWithOrphanedAncestor,
+        ...idsWithOrphanedChild,
+        ...idsWithOrphanedDescendant,
+        ...idsWithOrphanedParent,
+      ],
       withSub,
     });
 
@@ -991,16 +1018,18 @@ export const regenTagAncestors = makeAction(
 
 export const regenTagMeta = makeAction(
   async ({ tagIds, withSub = true }: { tagIds: string[]; withSub?: boolean }) => {
+    const uniqueTagIds = [...new Set(tagIds)];
+
     const metaByTagId = await models.FileModel.aggregate<{
       _id: string;
       count: number;
       size: number;
       thumb: models.TagSchema["thumb"];
     }>([
-      { $match: { tagIdsWithAncestors: { $in: objectIds(tagIds) } } },
+      { $match: { tagIdsWithAncestors: { $in: objectIds(uniqueTagIds) } } },
       { $sort: { dateCreated: 1 } },
       { $unwind: "$tagIdsWithAncestors" },
-      { $match: { tagIdsWithAncestors: { $in: objectIds(tagIds) } } },
+      { $match: { tagIdsWithAncestors: { $in: objectIds(uniqueTagIds) } } },
       {
         $group: {
           _id: "$tagIdsWithAncestors",
@@ -1015,14 +1044,13 @@ export const regenTagMeta = makeAction(
 
     const updatedTags: { tagId: string; updates: Partial<models.TagSchema> }[] = [];
 
-    const bulkWriteOps: AnyBulkWriteOperation[] = tagIds.map((tagId) => {
+    const bulkWriteOps: AnyBulkWriteOperation[] = uniqueTagIds.map((tagId) => {
       const meta = metaMap.get(tagId);
-      if (!meta) throw new Error(`Missing meta for tag ${tagId}`);
 
       const updates: Partial<models.TagSchema> = {
-        count: meta.count ?? 0,
-        size: meta.size ?? 0,
-        thumb: meta.thumb ?? null,
+        count: meta?.count ?? 0,
+        size: meta?.size ?? 0,
+        thumb: meta?.thumb ?? null,
       };
 
       updatedTags.push({ tagId, updates });

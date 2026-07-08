@@ -361,7 +361,11 @@ export const updateCollection = makeAction(
         ...updates,
         ...newAttrs,
         fileIdIndexes: newFileIndexes,
-        rating: updates.ratingIsManual ? updates.rating : newAttrs.rating,
+        rating: updates.ratingIsManual
+          ? (updates.rating ?? coll.rating)
+          : coll.ratingIsManual
+            ? coll.rating
+            : newAttrs.rating,
       };
     } else if (!updates.ratingIsManual && coll.ratingIsManual) {
       const fileIds = coll.fileIdIndexes.map((f) => f.fileId);

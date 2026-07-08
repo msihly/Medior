@@ -21,28 +21,52 @@ export interface TagFilterMenuProps {
 export const TagFilterMenu = Comp(({ color = colors.foreground, store }: TagFilterMenuProps) => {
   return (
     <FilterMenu store={store} color={color} sortOptions={SORT_OPTIONS.Tag} width="10rem">
-      <Card row spacing="0.5rem">
-        <View column width="100%" spacing="0.5rem">
-          <Input header="Label" value={store.label} setValue={store.setLabel} />
-
-          <Input header="Alias" value={store.alias} setValue={store.setAlias} />
-        </View>
-
-        <View column width="100%">
+      <View row spacing="0.5rem" width="100%">
+        <Card column flex={1} spacing="0.5rem">
           <TagInput
             header="Tags"
             value={store.tags}
             onChange={store.setTags}
+            width="12rem"
             hasCreate
             hasDelete
             hasEditor
             hasSearchMenu
           />
-        </View>
-      </Card>
 
-      <View row spacing="0.5rem">
-        <Card width="20rem" spacing="0.5rem">
+          <Checkbox
+            label="Has RegEx"
+            checked={store.hasRegEx}
+            indeterminate={store.hasRegEx === false}
+            setChecked={store.toggleHasRegEx}
+            flex={0}
+          />
+        </Card>
+
+        <Card column width="20rem" spacing="0.5rem">
+          <Input header="Label" value={store.label} setValue={store.setLabel} />
+
+          <Input header="Alias" value={store.alias} setValue={store.setAlias} />
+
+          <View row spacing="0.5rem">
+            <LogOpsInput
+              header="File Count"
+              logOpValue={store.count.logOp}
+              setLogOpValue={store.setCountOp}
+              numValue={store.count.value}
+              setNumValue={store.setCountValue}
+            />
+
+            <LogOpsInput
+              header="Rating"
+              logOpValue={store.rating.logOp}
+              numValue={store.rating.value}
+              setLogOpValue={store.setRatingOp}
+              setNumValue={store.setRatingValue}
+              numInputProps={{ maxValue: 9, minValue: 0 }}
+            />
+          </View>
+
           <DateRange
             header="Date Created"
             startDate={store.dateCreatedStart}
@@ -58,23 +82,13 @@ export const TagFilterMenu = Comp(({ color = colors.foreground, store }: TagFilt
             endDate={store.dateModifiedEnd}
             setEndDate={store.setDateModifiedEnd}
           />
-        </Card>
 
-        <Card column flex={1} spacing="0.5rem">
-          <LogOpsInput
-            header="Tag File Count"
-            logOpValue={store.count.logOp}
-            setLogOpValue={store.setCountOp}
-            numValue={store.count.value}
-            setNumValue={store.setCountValue}
-          />
-
-          <Checkbox
-            label="Has RegEx"
-            checked={store.hasRegEx}
-            indeterminate={store.hasRegEx === false}
-            setChecked={store.toggleHasRegEx}
-            flex={0}
+          <DateRange
+            header="Date of Inception"
+            startDate={store.dateOfInceptionStart}
+            setStartDate={store.setDateOfInceptionStart}
+            endDate={store.dateOfInceptionEnd}
+            setEndDate={store.setDateOfInceptionEnd}
           />
         </Card>
       </View>

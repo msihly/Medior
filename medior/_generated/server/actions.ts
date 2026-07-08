@@ -593,12 +593,15 @@ export type CreateTagFilterPipelineInput = {
   dateCreatedStart?: string;
   dateModifiedEnd?: string;
   dateModifiedStart?: string;
+  dateOfInceptionEnd?: string;
+  dateOfInceptionStart?: string;
   excludedDescTagIds?: string[];
   excludedTagIds?: string[];
   hasRegEx?: boolean;
   ids?: string[];
   label?: string;
   optionalTagIds?: string[];
+  rating?: { logOp: LogicalOp | ""; value: number };
   requiredDescTagIds?: string[];
   requiredTagIds?: string[];
   size?: { logOp: LogicalOp | ""; value: number };
@@ -621,6 +624,10 @@ export const createTagFilterPipeline = (args: CreateTagFilterPipelineInput) => {
     setObj($match, ["dateModified", "$lte"], args.dateModifiedEnd);
   if (!isDeepEqual(args.dateModifiedStart, ""))
     setObj($match, ["dateModified", "$gte"], args.dateModifiedStart);
+  if (!isDeepEqual(args.dateOfInceptionEnd, ""))
+    setObj($match, ["dateOfInception", "$lte"], args.dateOfInceptionEnd);
+  if (!isDeepEqual(args.dateOfInceptionStart, ""))
+    setObj($match, ["dateOfInception", "$gte"], args.dateOfInceptionStart);
   if (!isDeepEqual(args.hasRegEx, null))
     setObj($match, ["$expr"], {
       [args.hasRegEx ? "$ne" : "$eq"]: [{ $ifNull: ["$regEx", ""] }, ""],
@@ -628,6 +635,8 @@ export const createTagFilterPipeline = (args: CreateTagFilterPipelineInput) => {
   if (!isDeepEqual(args.ids, [])) setObj($match, ["_id", "$in"], objectIds(args.ids));
   if (!isDeepEqual(args.label, ""))
     setObj($match, ["label", "$regex"], new RegExp(args.label, "i"));
+  if (!isDeepEqual(args.rating, { logOp: "", value: 0 }))
+    setObj($match, ["rating", logicOpsToMongo(args.rating.logOp)], args.rating.value);
   if (!isDeepEqual(args.size, { logOp: "", value: 0 }))
     setObj($match, ["size", logicOpsToMongo(args.size.logOp)], args.size.value);
   if (!isDeepEqual(args.title, ""))

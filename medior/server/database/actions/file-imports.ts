@@ -1,7 +1,13 @@
 import { constants as fsc, promises as fs } from "fs";
 import * as models from "medior/_generated/server/models";
 import { ModelCreationData } from "mobx-keystone";
-import { checkFileExists, fileLog, removeEmptyFolders } from "trabecula/utils/server";
+import {
+  checkFileExists,
+  deleteFile,
+  dirToFilePaths,
+  fileLog,
+  removeEmptyFolders,
+} from "trabecula/utils/server";
 import * as actions from "medior/server/database/actions";
 import * as Types from "medior/server/database/types";
 import type { FileImport } from "medior/store";
@@ -113,7 +119,14 @@ export const completeImportBatch = makeAction(
           args: { filter: { rootFolderPath: batch.rootFolderPath } },
         });
         if (!res.success) throw new Error(res.error);
+
         if (res.data.items.length > 0) {
+          const sidecars = await dirToFilePaths(batch.rootFolderPath, (p) =>
+            p.endsWith("[[Collection]].json"),
+          );
+
+          for (const sidecar of sidecars) await deleteFile(sidecar);
+
           await removeEmptyFolders(batch.rootFolderPath, { hardDelete: true });
           console.debug(`Removed empty folders: ${batch.rootFolderPath}`);
         }
