@@ -101,6 +101,8 @@ export const startServers = async (configPath: string, logsPath: string) => {
 
   const { uri } = await makeProc("DB", "db-process").spawn();
 
+  await makeProc("VECTOR", "vector-process", () => ({ uri })).spawn();
+
   await Promise.all([
     makeProc("API", "api-process", () => ({ uri })).spawn(),
     makeProc("SOCKET", "socket-process").spawn(),

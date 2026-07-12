@@ -3,17 +3,26 @@ import { SocketEmitEvent, SocketEmitEvents, SocketEvents } from "medior/_generat
 import { io, Socket } from "socket.io-client";
 import { fileLog } from "trabecula/utils/server";
 import { ServerRouter } from "medior/server/trpc";
+import type { VectorRouter } from "medior/server/vector-process";
 import { getConfig } from "medior/utils/server";
 
 /* -------------------------------------------------------------------------- */
 /*                                    TRPC                                    */
 /* -------------------------------------------------------------------------- */
 export let trpc: ReturnType<typeof createTRPCProxyClient<ServerRouter>>;
+export let vectorTrpc: ReturnType<typeof createTRPCProxyClient<VectorRouter>>;
 
 export const setupTRPC = () => {
   // @ts-expect-error
   trpc = createTRPCProxyClient<ServerRouter>({
     links: [httpBatchLink({ url: `http://localhost:${getConfig().ports.server}` })],
+  });
+};
+
+export const setupVectorTRPC = () => {
+  // @ts-expect-error
+  vectorTrpc = createTRPCProxyClient<VectorRouter>({
+    links: [httpBatchLink({ url: `http://localhost:${getConfig().ports.vector}` })],
   });
 };
 

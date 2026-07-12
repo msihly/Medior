@@ -237,6 +237,35 @@ export type SetFileRatingOutput = ReturnType<typeof db.setFileRating>;
 export type RepairThumbsInput = Parameters<typeof db.repairThumbs>[0];
 export type RepairThumbsOutput = ReturnType<typeof db.repairThumbs>;
 
+export type FindSimilarFilesInput = Parameters<typeof db.findSimilarFiles>[0];
+export type FindSimilarFilesOutput = ReturnType<typeof db.findSimilarFiles>;
+
+export type ListFilesNeedingSimilarityIndexInput = Parameters<
+  typeof db.listFilesNeedingSimilarityIndex
+>[0];
+export type ListFilesNeedingSimilarityIndexOutput = ReturnType<
+  typeof db.listFilesNeedingSimilarityIndex
+>;
+
+export type OptimizeFileSimilarityIndexInput = Parameters<typeof db.optimizeFileSimilarityIndex>[0];
+export type OptimizeFileSimilarityIndexOutput = ReturnType<typeof db.optimizeFileSimilarityIndex>;
+
+export type CancelSimilarityBackfillInput = Parameters<typeof db.cancelSimilarityBackfill>[0];
+export type CancelSimilarityBackfillOutput = ReturnType<typeof db.cancelSimilarityBackfill>;
+
+export type GetSimilarityBackfillProgressInput = Parameters<
+  typeof db.getSimilarityBackfillProgress
+>[0];
+export type GetSimilarityBackfillProgressOutput = ReturnType<
+  typeof db.getSimilarityBackfillProgress
+>;
+
+export type RebuildFileSimilarityIndexInput = Parameters<typeof db.rebuildFileSimilarityIndex>[0];
+export type RebuildFileSimilarityIndexOutput = ReturnType<typeof db.rebuildFileSimilarityIndex>;
+
+export type StartSimilarityBackfillInput = Parameters<typeof db.startSimilarityBackfill>[0];
+export type StartSimilarityBackfillOutput = ReturnType<typeof db.startSimilarityBackfill>;
+
 export type _emitEventInput = Parameters<typeof db._emitEvent>[0];
 export type _emitEventOutput = ReturnType<typeof db._emitEvent>;
 

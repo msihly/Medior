@@ -63,6 +63,20 @@ export const SettingsModal = Comp(() => {
     stores.home.settings.setDbPath(res.filePaths[0]);
   };
 
+  const handleSimilarityModelCachePathClick = async (event: React.MouseEvent) => {
+    event.preventDefault();
+    const res = await dialog.showOpenDialog({ properties: ["openDirectory"] });
+    if (res.canceled) return;
+    stores.home.settings.setSimilarityModelCachePath(res.filePaths[0]);
+  };
+
+  const handleVectorDbPathClick = async (event: React.MouseEvent) => {
+    event.preventDefault();
+    const res = await dialog.showOpenDialog({ properties: ["openDirectory"] });
+    if (res.canceled) return;
+    stores.home.settings.setVectorDbPath(res.filePaths[0]);
+  };
+
   const handleRepair = () => stores.home.settings.setIsRepairOpen(true);
 
   const handleSaveConfig = async () => {
@@ -107,20 +121,9 @@ export const SettingsModal = Comp(() => {
         <Text preset="title">{"Settings"}</Text>
       </Modal.Header>
 
-      <Modal.Content spacing="2rem" padding={{ bottom: "3rem" }}>
-        <Settings.Section
-          title="Database / Servers"
-          rightNode={
-            <Button
-              text="Repair Database"
-              icon="Build"
-              onClick={handleRepair}
-              color={colors.custom.black}
-              padding={{ all: "0.5rem 0.8rem" }}
-            />
-          }
-        >
-          <View row spacing="0.5rem">
+      <Modal.Content spacing="1.3rem" padding={{ bottom: "3rem" }}>
+        <Settings.Section title="Database / Servers">
+          <View row align="center" spacing="0.5rem">
             <Settings.Input
               header="Database Path"
               configKey="db.path"
@@ -134,10 +137,47 @@ export const SettingsModal = Comp(() => {
 
             <Settings.NumInput header="Socket Port" configKey="ports.socket" />
 
+            <Button
+              text="Repair Database"
+              icon="Build"
+              onClick={handleRepair}
+              color={colors.custom.black}
+              padding={{ all: "0.5rem 0.8rem" }}
+            />
+
             {stores.home.settings.isRepairOpen && <RepairModal />}
           </View>
 
           <Settings.StorageInputs />
+        </Settings.Section>
+
+        <Settings.Section title="Vectors">
+          <View row spacing="0.5rem" overflow="auto">
+            <Settings.Input
+              header="Vector DB Path"
+              configKey="db.vector.path"
+              onClick={handleVectorDbPathClick}
+              flex={1}
+            />
+
+            <Settings.Input
+              header="Model Cache Path"
+              configKey="file.similarity.modelCachePath"
+              onClick={handleSimilarityModelCachePathClick}
+              flex={1}
+            />
+          </View>
+
+          <View row spacing="0.5rem" overflow="auto">
+            <Settings.NumInput header="Vector Port" configKey="ports.vector" />
+
+            <Settings.NumInput
+              header="Inference Batch"
+              configKey="file.similarity.visual.inferenceBatchSize"
+              minValue={1}
+              width="10rem"
+            />
+          </View>
         </Settings.Section>
 
         <Settings.Section title="Collections">

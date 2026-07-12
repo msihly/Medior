@@ -1,10 +1,20 @@
 import { shell } from "@electron/remote";
 import { useRef, useState } from "react";
 import { CircularProgress } from "@mui/material";
-import { Button, Card, Checkbox, Comp, Modal, Text, UniformList, View } from "medior/components";
+import {
+  Button,
+  Card,
+  Checkbox,
+  Comp,
+  ConfirmModal,
+  Modal,
+  Text,
+  UniformList,
+  View,
+} from "medior/components";
 import { useStores } from "medior/store";
 import { colors, CssColor, makeQueue } from "medior/utils/client";
-import { dayjs, PromiseQueue } from "medior/utils/common";
+import { dayjs, PromiseQueue, sleep } from "medior/utils/common";
 import { trpc } from "medior/utils/server";
 import { getVideoInfo } from "medior/utils/server/videos";
 
@@ -13,12 +23,17 @@ export const RepairModal = Comp(() => {
 
   const [isCollectionsChecked, setIsCollectionsChecked] = useState(false);
   const [isExtAndCodecsChecked, setIsExtAndCodecsChecked] = useState(false);
+  const [isConfirmCancelOpen, setIsConfirmCancelOpen] = useState(false);
   const [isRepairing, setIsRepairing] = useState(false);
+  const [isSimilarityChecked, setIsSimilarityChecked] = useState(false);
   const [isTagsChecked, setIsTagsChecked] = useState(false);
   const [isThumbsChecked, setIsThumbsChecked] = useState(false);
   const [outputLog, setOutputLog] = useState<{ color?: CssColor; text: string }[]>([]);
 
+  const isCancelRequestedRef = useRef(false);
   const outputRef = useRef<HTMLDivElement>(null);
+  const shouldCloseAfterCancelRef = useRef(false);
+  const similarityJobIdRef = useRef<string | null>(null);
 
   const log = (log: string, color?: CssColor) => {
     setOutputLog((prev) => [
@@ -28,12 +43,136 @@ export const RepairModal = Comp(() => {
     outputRef.current?.scrollTo({ top: outputRef.current.scrollHeight });
   };
 
-  const handleCancel = async () => stores.home.settings.setIsRepairOpen(false);
+  const assertNotCancelled = () => {
+    if (isCancelRequestedRef.current) throw new Error("Repair cancelled");
+  };
+
+  const handleCancel = async () => {
+    if (isRepairing) setIsConfirmCancelOpen(true);
+    else stores.home.settings.setIsRepairOpen(false);
+  };
+
+  const handleConfirmCancel = async () => {
+    isCancelRequestedRef.current = true;
+    shouldCloseAfterCancelRef.current = true;
+
+    if (similarityJobIdRef.current) {
+      log("Cancelling similarity index job...", colors.custom.lightBlue);
+      const res = await trpc.cancelSimilarityBackfill.mutate({
+        jobId: similarityJobIdRef.current,
+      });
+      if (!res.success) log(`[ERROR] ${res.error}`, colors.custom.red);
+      return true;
+    }
+
+    log("Cancelling repair after the current operation finishes...", colors.custom.lightBlue);
+    return true;
+  };
 
   const handleLogs = () => shell.openPath(process.env["LOGS_PATH"]);
 
+  const rebuildSimilarityIndex = async () => {
+    const formatProgress = (progress: any) =>
+      `${progress.index.toLocaleString()} / ${progress.total?.toLocaleString() ?? "?"}`;
+
+    log("Starting similarity index job...", colors.custom.lightBlue);
+    const startRes = await trpc.startSimilarityBackfill.mutate({});
+    if (!startRes.success) throw new Error(startRes.error);
+
+    similarityJobIdRef.current = startRes.data.jobId;
+    let lastLoggedProgress:
+      | {
+          index: number;
+          indexedCount: number;
+          skippedFreshCount: number;
+          timings: { decodeMs: number; inferenceMs: number; writeMs: number };
+        }
+      | undefined;
+    let lastIndex = -1;
+    let lastMessage = "";
+    let lastProgressLogAt = 0;
+
+    while (similarityJobIdRef.current) {
+      assertNotCancelled();
+      const res = await trpc.getSimilarityBackfillProgress.mutate({
+        jobId: similarityJobIdRef.current,
+      });
+      if (!res.success) throw new Error(res.error);
+
+      const progress = res.data;
+      const now = Date.now();
+      const isTerminal = ["cancelled", "complete", "error"].includes(progress.status);
+      const shouldLogProgress =
+        lastIndex < 0 ||
+        progress.index - lastIndex >= 250 ||
+        now - lastProgressLogAt >= 30_000 ||
+        isTerminal;
+      if (shouldLogProgress) {
+        const delta = lastLoggedProgress
+          ? {
+              decodeMs: progress.timings.decodeMs - lastLoggedProgress.timings.decodeMs,
+              indexedCount: progress.indexedCount - lastLoggedProgress.indexedCount,
+              inferenceMs: progress.timings.inferenceMs - lastLoggedProgress.timings.inferenceMs,
+              processedCount: progress.index - lastLoggedProgress.index,
+              skippedFreshCount: progress.skippedFreshCount - lastLoggedProgress.skippedFreshCount,
+              writeMs: progress.timings.writeMs - lastLoggedProgress.timings.writeMs,
+            }
+          : {
+              decodeMs: progress.timings.decodeMs,
+              indexedCount: progress.indexedCount,
+              inferenceMs: progress.timings.inferenceMs,
+              processedCount: progress.index,
+              skippedFreshCount: progress.skippedFreshCount,
+              writeMs: progress.timings.writeMs,
+            };
+
+        log(
+          `Similarity index: ${formatProgress(progress)} | ${progress.stage} | +${delta.processedCount.toLocaleString()} processed, +${delta.indexedCount.toLocaleString()} indexed, +${delta.skippedFreshCount.toLocaleString()} skipped | decode ${(delta.decodeMs / 1000).toFixed(1)}s, inference ${(delta.inferenceMs / 1000).toFixed(1)}s, write ${(delta.writeMs / 1000).toFixed(1)}s`,
+          colors.custom.lightBlue,
+        );
+        lastIndex = progress.index;
+        lastLoggedProgress = {
+          index: progress.index,
+          indexedCount: progress.indexedCount,
+          skippedFreshCount: progress.skippedFreshCount,
+          timings: {
+            decodeMs: progress.timings.decodeMs,
+            inferenceMs: progress.timings.inferenceMs,
+            writeMs: progress.timings.writeMs,
+          },
+        };
+        lastProgressLogAt = now;
+      }
+
+      if (progress.message && progress.message !== lastMessage) {
+        log(
+          progress.message,
+          progress.status === "error" ? colors.custom.red : colors.custom.lightBlue,
+        );
+        lastMessage = progress.message;
+      }
+
+      if (progress.status === "cancelled") throw new Error("Repair cancelled");
+      if (progress.status === "error")
+        throw new Error(progress.message || "Similarity index failed");
+      if (progress.status === "complete") {
+        log(
+          `Similarity index rebuild complete: ${formatProgress(progress)}. Indexed ${progress.indexedCount.toLocaleString()} and migrated ${progress.migratedCount.toLocaleString()} vectors.`,
+          colors.custom.green,
+        );
+        break;
+      }
+
+      await sleep(1000);
+    }
+
+    similarityJobIdRef.current = null;
+  };
+
   const handleStart = async () => {
     try {
+      isCancelRequestedRef.current = false;
+      shouldCloseAfterCancelRef.current = false;
       setIsRepairing(true);
 
       if (isCollectionsChecked) {
@@ -105,12 +244,19 @@ export const RepairModal = Comp(() => {
         await trpc.repairFilesWithMissingInfo.mutate();
       }
 
+      if (isSimilarityChecked) {
+        await rebuildSimilarityIndex();
+      }
+
       log("Done.", colors.custom.green);
     } catch (error) {
       console.error(error);
-      log(`[ERROR] ${error.message}`, colors.custom.red);
+      if (error.message === "Repair cancelled") log("Repair cancelled.", colors.custom.lightBlue);
+      else log(`[ERROR] ${error.message}`, colors.custom.red);
     } finally {
+      similarityJobIdRef.current = null;
       setIsRepairing(false);
+      if (shouldCloseAfterCancelRef.current) stores.home.settings.setIsRepairOpen(false);
     }
   };
 
@@ -159,6 +305,13 @@ export const RepairModal = Comp(() => {
                 setChecked={setIsThumbsChecked}
                 disabled={isRepairing}
               />
+
+              <Checkbox
+                label="Similarity Index"
+                checked={isSimilarityChecked}
+                setChecked={setIsSimilarityChecked}
+                disabled={isRepairing}
+              />
             </View>
           </UniformList>
         </Card>
@@ -176,7 +329,7 @@ export const RepairModal = Comp(() => {
 
           <Card ref={outputRef} height="100%" bgColor={colors.foregroundCard} overflow="auto">
             {outputLog.map((log, i) => (
-              <Text key={i} color={log.color}>
+              <Text key={i} color={log.color} overflow="unset">
                 {log.text}
               </Text>
             ))}
@@ -187,7 +340,7 @@ export const RepairModal = Comp(() => {
       </Modal.Content>
 
       <Modal.Footer>
-        <Button text="Cancel" icon="Close" onClick={handleCancel} disabled={isRepairing} />
+        <Button text="Cancel" icon="Close" onClick={handleCancel} />
 
         <Button
           text="Start"
@@ -197,6 +350,16 @@ export const RepairModal = Comp(() => {
           color={colors.custom.blue}
         />
       </Modal.Footer>
+
+      {isConfirmCancelOpen && (
+        <ConfirmModal
+          headerText="Cancel Repair"
+          subText="Are you sure you want to cancel the active repair? Similarity indexing will stop its worker job."
+          confirmText="Cancel Repair"
+          setVisible={setIsConfirmCancelOpen}
+          onConfirm={handleConfirmCancel}
+        />
+      )}
     </Modal.Container>
   );
 });

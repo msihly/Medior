@@ -47,6 +47,8 @@ export const ContextMenu = Comp(({ children, file, store, ...props }: ContextMen
 
   const handleRemux = () => stores.file.openVideoTransformer([file.id], "remux");
 
+  const handleSimilarity = () => stores.file.similarity.open(file.id);
+
   const handleUnarchive = () => stores.file.unarchiveFiles({ fileIds: [file.id] });
 
   const openInfo = () => {
@@ -119,6 +121,11 @@ export const ContextMenu = Comp(({ children, file, store, ...props }: ContextMen
           icon: "Info",
           label: "Info",
           onClick: openInfo,
+        },
+        {
+          icon: "Compare",
+          label: "Find Similar",
+          onClick: handleSimilarity,
         },
         {
           icon: "Refresh",

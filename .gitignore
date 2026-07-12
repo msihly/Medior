@@ -22,6 +22,8 @@ env.*
 extraResources/
 FileStorage/
 logs/
+LanceDB/
 MongoDB/
+ModelCache/
 npm-debug.log*
 plugins/

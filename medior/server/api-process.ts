@@ -4,7 +4,7 @@ import Mongoose from "mongoose";
 import { fileLog, setLogsPath } from "trabecula/utils/server";
 import { serverRouter } from "medior/server/trpc";
 import { sleep } from "medior/utils/common";
-import { getConfig, loadConfig, setupTRPC } from "medior/utils/server";
+import { getConfig, loadConfig, setupTRPC, setupVectorTRPC } from "medior/utils/server";
 
 let server: ReturnType<typeof createHTTPServer>;
 
@@ -48,6 +48,7 @@ process.on("message", async (msg: any) => {
 
       await createTRPCServer();
       setupTRPC();
+      setupVectorTRPC();
       process.send?.({ type: "ready" });
     } catch (err: any) {
       process.send?.({ type: "error", error: err.message });

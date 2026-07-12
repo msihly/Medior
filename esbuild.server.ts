@@ -11,9 +11,12 @@ import path from "path";
       "medior/server/db-process.ts",
       "medior/server/main.ts",
       "medior/server/socket-process.ts",
+      "medior/server/vector-process.ts",
     ],
     external: [
       "@electron/remote",
+      "@huggingface/transformers",
+      "@lancedb/lancedb",
       "@tensorflow/tfjs-node-gpu",
       "@tensorflow/tfjs-node",
       "@vladmandic/face-api",

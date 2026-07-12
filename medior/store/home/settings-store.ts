@@ -41,6 +41,18 @@ export class SettingsStore extends Model({
   }
 
   @modelAction
+  setSimilarityModelCachePath(value: Config["file"]["similarity"]["modelCachePath"]) {
+    this.file.similarity.modelCachePath = value;
+    this.setHasUnsavedChanges(true);
+  }
+
+  @modelAction
+  setVectorDbPath(value: Config["db"]["vector"]["path"]) {
+    this.db.vector.path = value;
+    this.setHasUnsavedChanges(true);
+  }
+
+  @modelAction
   setFileCardFit(value: Config["file"]["fileCardFit"]) {
     this.file.fileCardFit = value;
     this.setHasUnsavedChanges(true);

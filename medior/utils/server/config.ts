@@ -37,6 +37,9 @@ export interface Config {
       threshold: number;
     };
     path: string;
+    vector: {
+      path: string;
+    };
   };
   dev: {
     devTools: {
@@ -78,6 +81,40 @@ export interface Config {
       toMp4: Array<Omit<VideoExt, "mp4">>;
     };
     search: Search;
+    similarity: {
+      batchSize?: number;
+      defaultLimit: number;
+      device?: "cpu" | "cuda" | "dml" | "gpu" | "webgpu";
+      dtype?: "fp32" | "fp16" | "q4" | "q8";
+      index: {
+        ivfPq: {
+          maxIterations: number;
+          nprobes: number;
+          numBits: 4 | 8;
+          numPartitions: number;
+          numSubVectors: number;
+          refineFactor: number;
+          sampleRate: number;
+        };
+      };
+      modelCachePath: string;
+      storageDType: "float16" | "float32";
+      visual: {
+        device: "cpu" | "cuda" | "dml" | "gpu" | "webgpu";
+        inferenceBatchSize: number;
+        inferenceDType: "fp32" | "fp16" | "q4" | "q8";
+      };
+      weights: {
+        audio: number;
+        description: number;
+        face: number;
+        params: number;
+        tags: number;
+        transcript: number;
+        visual: number;
+      };
+      writerBatchSize: number;
+    };
     splice: {
       onComplete: {
         addTagIds: string[];
@@ -113,6 +150,7 @@ export interface Config {
     db: number;
     server: number;
     socket: number;
+    vector: number;
   };
   tags: {
     manager: {
@@ -148,6 +186,9 @@ export const DEFAULT_CONFIG: Config = {
       threshold: 0.99,
     },
     path: path.resolve("MongoDB"),
+    vector: {
+      path: path.resolve("LanceDB"),
+    },
   },
   dev: {
     devTools: {
@@ -192,6 +233,37 @@ export const DEFAULT_CONFIG: Config = {
       pageSize: 100,
       sort: { isDesc: true, key: "dateCreated" },
     },
+    similarity: {
+      defaultLimit: 100,
+      index: {
+        ivfPq: {
+          maxIterations: 20,
+          nprobes: 32,
+          numBits: 8,
+          numPartitions: 0,
+          numSubVectors: 0,
+          refineFactor: 4,
+          sampleRate: 64,
+        },
+      },
+      modelCachePath: path.resolve("ModelCache"),
+      storageDType: "float16",
+      visual: {
+        device: "dml",
+        inferenceBatchSize: 16,
+        inferenceDType: "fp32",
+      },
+      weights: {
+        audio: 0,
+        description: 0,
+        face: 0,
+        params: 0,
+        tags: 0,
+        transcript: 0,
+        visual: 1,
+      },
+      writerBatchSize: 5000,
+    },
     splice: {
       onComplete: {
         addTagIds: [],
@@ -230,6 +302,7 @@ export const DEFAULT_CONFIG: Config = {
     db: 27070,
     server: 3334,
     socket: 3335,
+    vector: 3336,
   },
   tags: {
     manager: {
@@ -286,14 +359,46 @@ export const loadConfig = async (filePath: string) => {
     const loadedConfig = JSON.parse(await fs.readFile(filePath, "utf-8")) as Config;
 
     config = deepMerge(DEFAULT_CONFIG, loadedConfig);
+    const loadedSimilarity = (loadedConfig.file?.similarity ?? {}) as Config["file"]["similarity"];
+    if (loadedSimilarity.batchSize && !loadedSimilarity.visual?.inferenceBatchSize)
+      config.file.similarity.visual.inferenceBatchSize = +loadedSimilarity.batchSize;
+    if (loadedSimilarity.device && !loadedSimilarity.visual?.device)
+      config.file.similarity.visual.device = loadedSimilarity.device;
+    if (loadedSimilarity.dtype && !loadedSimilarity.visual?.inferenceDType)
+      config.file.similarity.visual.inferenceDType = loadedSimilarity.dtype;
     config.collection.editor.fileSearch.pageSize = +config.collection.editor.fileSearch.pageSize;
     config.collection.editor.search.pageSize = +config.collection.editor.search.pageSize;
     config.collection.manager.search.pageSize = +config.collection.manager.search.pageSize;
     config.db.fileStorage.threshold = +config.db.fileStorage.threshold;
+    config.file.similarity.defaultLimit = +config.file.similarity.defaultLimit;
+    config.file.similarity.index.ivfPq.maxIterations =
+      +config.file.similarity.index.ivfPq.maxIterations;
+    config.file.similarity.index.ivfPq.nprobes = +config.file.similarity.index.ivfPq.nprobes;
+    config.file.similarity.index.ivfPq.numBits = +config.file.similarity.index.ivfPq.numBits as
+      | 4
+      | 8;
+    config.file.similarity.index.ivfPq.numPartitions =
+      +config.file.similarity.index.ivfPq.numPartitions;
+    config.file.similarity.index.ivfPq.numSubVectors =
+      +config.file.similarity.index.ivfPq.numSubVectors;
+    config.file.similarity.index.ivfPq.refineFactor =
+      +config.file.similarity.index.ivfPq.refineFactor;
+    config.file.similarity.index.ivfPq.sampleRate = +config.file.similarity.index.ivfPq.sampleRate;
+    config.file.similarity.visual.inferenceBatchSize =
+      +config.file.similarity.visual.inferenceBatchSize;
+    config.file.similarity.weights.audio = +config.file.similarity.weights.audio;
+    config.file.similarity.weights.description = +config.file.similarity.weights.description;
+    config.file.similarity.weights.face = +config.file.similarity.weights.face;
+    config.file.similarity.weights.params = +config.file.similarity.weights.params;
+    config.file.similarity.weights.tags = +config.file.similarity.weights.tags;
+    config.file.similarity.weights.transcript = +config.file.similarity.weights.transcript;
+    config.file.similarity.weights.visual = +config.file.similarity.weights.visual;
+    config.file.similarity.writerBatchSize = +config.file.similarity.writerBatchSize;
     config.file.search.pageSize = +config.file.search.pageSize;
     config.ports.db = +config.ports.db;
     config.ports.server = +config.ports.server;
     config.ports.socket = +config.ports.socket;
+    config.ports.vector = +config.ports.vector;
     config.tags.manager.search.pageSize = +config.tags.manager.search.pageSize;
 
     return config;

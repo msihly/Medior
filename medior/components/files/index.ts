@@ -5,4 +5,5 @@ export * from "./file-card";
 export * from "./filter-menu";
 export * from "./info-modal";
 export * from "./selected-files-info";
+export * from "./similarity-modal";
 export * from "./video-transformer-modal";

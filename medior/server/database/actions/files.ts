@@ -330,7 +330,8 @@ export const importFile = makeAction(async (args: Omit<models.FileSchema, "id">)
   };
 
   const res = await models.FileModel.create(file);
-  return { ...file, id: res._id.toString() };
+  const id = res._id.toString();
+  return { ...file, id };
 });
 
 export const listDeletedFiles = makeAction(async () =>

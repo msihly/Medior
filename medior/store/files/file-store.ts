@@ -14,7 +14,13 @@ import { FaceModel, FileImporter, RootStore } from "medior/store";
 import { asyncAction, makeQueue, toast } from "medior/utils/client";
 import { PromiseQueue, splitArray } from "medior/utils/common";
 import { trpc } from "medior/utils/server";
-import { File, FileSearch, FileTagsEditorStore, VideoTransformerStore } from ".";
+import {
+  File,
+  FileSearch,
+  FileSimilarityStore,
+  FileTagsEditorStore,
+  VideoTransformerStore,
+} from ".";
 
 @model("medior/FileStore")
 export class FileStore extends ExtendedModel(_FileStore, {
@@ -23,6 +29,7 @@ export class FileStore extends ExtendedModel(_FileStore, {
   isConfirmDeleteOpen: prop<boolean>(false).withSetter(),
   isInfoModalOpen: prop<boolean>(false).withSetter(),
   search: prop<FileSearch>(() => new FileSearch({})),
+  similarity: prop<FileSimilarityStore>(() => new FileSimilarityStore({})),
   tagsEditor: prop<FileTagsEditorStore>(() => new FileTagsEditorStore({})),
   videoTransformer: prop<VideoTransformerStore>(() => new VideoTransformerStore({})),
 }) {

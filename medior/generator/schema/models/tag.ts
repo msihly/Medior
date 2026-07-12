@@ -35,7 +35,9 @@ model.addProp("dateModified", "string", {
 });
 
 model.addIndex({ dateOfInception: 1, _id: 1 });
-model.addProp("dateOfInception", "string", { sort: { icon: "DateRange", label: "Date of Inception" } });
+model.addProp("dateOfInception", "string", {
+  sort: { icon: "DateRange", label: "Date of Inception" },
+});
 
 model.addProp("descendantIds", "Tag.id[]", { defaultValue: "[]", required: true });
 

@@ -4,6 +4,11 @@
   "author": "msihly",
   "version": "2.13.0",
   "private": true,
+  "pnpm": {
+    "overrides": {
+      "@huggingface/transformers>sharp": "0.32.4"
+    }
+  },
   "homepage": "./",
   "main": "extraResources/medior/server/main.js",
   "icon": "public/favicon.ico",
@@ -30,6 +35,8 @@
   },
   "dependencies": {
     "@electron/remote": "^2.0.8",
+    "@huggingface/transformers": "^4.2.0",
+    "@lancedb/lancedb": "^0.31.0",
     "@panzoom/panzoom": "^4.5.1",
     "@trpc/client": "^10.30.0",
     "@trpc/server": "^10.30.0",
