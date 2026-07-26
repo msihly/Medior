@@ -4,7 +4,7 @@ import { ExtendedModel, getRootStore, model, modelAction, modelFlow, prop } from
 import { asyncAction } from "trabecula/utils/client";
 import { _FileSearch } from "medior/store/_generated";
 import { RootStore } from "medior/store";
-import { durationToSeconds } from "medior/utils/common";
+import { durationToSeconds, secondsToDuration } from "medior/utils/common";
 import { trpc } from "medior/utils/server";
 
 @model("medior/FileSearch")
@@ -83,6 +83,19 @@ export class FileSearch extends ExtendedModel(_FileSearch, {
   _setMinSize(val: number) {
     this.setMinSize(Number.isInteger(val) ? val * 1000 : null);
     this._minSize = val;
+  }
+
+  @modelAction
+  afterApplySearchProps(searchProps: Record<string, any>) {
+    this._bitrate = Number.isInteger(searchProps.bitrate?.value)
+      ? searchProps.bitrate.value / 1000
+      : null;
+    this._duration =
+      typeof searchProps.duration?.value === "number" && searchProps.duration.value > 0
+        ? secondsToDuration(searchProps.duration.value)
+        : "";
+    this._maxSize = Number.isInteger(searchProps.maxSize) ? searchProps.maxSize / 1000 : null;
+    this._minSize = Number.isInteger(searchProps.minSize) ? searchProps.minSize / 1000 : null;
   }
 
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */

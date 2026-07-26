@@ -58,6 +58,12 @@ export class FileCollectionSearch extends ExtendedModel(_FileCollectionSearch, {
   }
 
   @modelAction
+  afterApplySearchProps(searchProps: Record<string, any>) {
+    this._maxSize = Number.isInteger(searchProps.maxSize) ? searchProps.maxSize / 1000 : null;
+    this._minSize = Number.isInteger(searchProps.minSize) ? searchProps.minSize / 1000 : null;
+  }
+
+  @modelAction
   reloadIfQueued() {
     const stores = getRootStore<RootStore>(this);
     if (this.hasQueuedReload && !stores.collection.editor.isOpen) {

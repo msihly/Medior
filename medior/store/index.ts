@@ -5,4 +5,5 @@ export * from "./files";
 export * from "./home";
 export * from "./imports";
 export * from "./root-store";
+export * from "./saved-search";
 export * from "./tags";

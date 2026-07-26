@@ -75,6 +75,18 @@ export type ListFileInput = {
 };
 export type UpdateFileInput = { id: string; updates: Partial<db.FileSchema> };
 
+/* ------------------------------------ SavedSearch ----------------------------------- */
+export type CreateSavedSearchInput = Omit<db.SavedSearchSchema, "id">;
+export type DeleteSavedSearchInput = { ids: string[] };
+export type ListSavedSearchInput = {
+  filter?: _FilterQuery<db.SavedSearchSchema>;
+  page?: number;
+  pageSize?: number;
+  sort?: Record<string, SortOrder>;
+  withOverwrite?: boolean;
+};
+export type UpdateSavedSearchInput = { id: string; updates: Partial<db.SavedSearchSchema> };
+
 /* ------------------------------------ Tag ----------------------------------- */
 export type _CreateTagInput = Omit<db.TagSchema, "id">;
 export type _DeleteTagInput = { ids: string[] };

@@ -286,6 +286,31 @@ FileSchema.index({ width: 1, _id: 1 }, { unique: true });
 export const FileModel = model<FileSchema>("File", FileSchema);
 
 /* --------------------------------------------------------------------------- */
+/*                               SavedSearch
+/* --------------------------------------------------------------------------- */
+
+export interface SavedSearchSchema {
+  id: string;
+  dateCreated: string;
+  filterProps: Record<string, any>;
+  label: string;
+  searchType: string;
+}
+
+const SavedSearchSchema = new Schema<SavedSearchSchema>({
+  id: String,
+  dateCreated: String,
+  filterProps: Object,
+  label: String,
+  searchType: String,
+});
+
+SavedSearchSchema.index({ dateCreated: 1, _id: 1 }, { unique: true });
+SavedSearchSchema.index({ searchType: 1, label: 1 }, { unique: true });
+
+export const SavedSearchModel = model<SavedSearchSchema>("SavedSearch", SavedSearchSchema);
+
+/* --------------------------------------------------------------------------- */
 /*                               Tag
 /* --------------------------------------------------------------------------- */
 

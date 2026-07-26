@@ -12,7 +12,13 @@ export type SortOption = {
 
 export type SortValue = { isDesc: boolean; key: string };
 
-type ModelSortName = "DeletedFile" | "FileCollection" | "FileImportBatch" | "File" | "Tag";
+type ModelSortName =
+  | "DeletedFile"
+  | "FileCollection"
+  | "FileImportBatch"
+  | "File"
+  | "SavedSearch"
+  | "Tag";
 
 type CustomSortName = "FileCollectionFile";
 
@@ -43,6 +49,11 @@ const MODEL_SORT_OPTIONS: Record<ModelSortName, SortOption[]> = {
     { attribute: "rating", icon: "Star", label: "Rating" },
     { attribute: "size", icon: "FormatSize", label: "Size" },
     { attribute: "width", icon: "Height", iconProps: { rotation: 90 }, label: "Width" },
+  ],
+  SavedSearch: [
+    { attribute: "dateCreated", icon: "DateRange", label: "Date Created" },
+    { attribute: "label", icon: "Label", label: "Label" },
+    { attribute: "searchType", icon: "Search", label: "Search Type" },
   ],
   Tag: [
     { attribute: "count", icon: "Numbers", label: "Count" },

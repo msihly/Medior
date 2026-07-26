@@ -198,6 +198,33 @@ const createSchemaStore = async (modelDef: ModelDef) => {
 export const createSearchStore = (def: ModelSearchStore) => {
   const storeName = `_${def.name}Search`;
 
+  const savedSearchProps: ModelSearchProp[] = [
+    {
+      defaultValue: `false`,
+      name: "isDeleteModalOpen",
+      setter: null,
+      type: "boolean",
+    },
+    {
+      defaultValue: `false`,
+      name: "isSaveModalOpen",
+      setter: null,
+      type: "boolean",
+    },
+    {
+      defaultValue: `() => []`,
+      name: "savedSearches",
+      setter: null,
+      type: "Stores.SavedSearch[]",
+    },
+    {
+      defaultValue: `""`,
+      name: "selectedSavedSearchId",
+      setter: null,
+      type: "string",
+    },
+  ];
+
   const props = [
     ...def.props,
     {
@@ -211,7 +238,7 @@ export const createSearchStore = (def: ModelSearchStore) => {
   ].sort((a, b) => a.name.localeCompare(b.name));
 
   const makeProps = () =>
-    props
+    [...props, ...savedSearchProps]
       .map(
         (prop) =>
           `${prop.name}: prop<${prop.type}>(${prop.defaultValue})${!prop.setter ? ".withSetter()" : ""}`,
@@ -233,6 +260,19 @@ export const createSearchStore = (def: ModelSearchStore) => {
 
   const makeResetAction = () =>
     `@modelAction\nreset() { ${props.map((prop) => `this.${prop.name} = ${prop.defaultValue.replace("() => ", "")};`).join("\n")} }`;
+
+  const makeApplySearchPropsAction = () =>
+    `@modelAction
+    applySearchProps(searchProps: Record<string, any>) {
+      this.reset();
+      Object.entries(searchProps).forEach(([key, value]) => {
+        if (key in this) this[key] = value;
+      });
+      this.cachedFilterProps = null;
+      this.hasChanges = true;
+      this.page = 1;
+      (this as any).afterApplySearchProps?.(searchProps);
+    }`;
 
   const makeToggleSelectedAction = () =>
     `@modelAction
@@ -257,6 +297,32 @@ export const createSearchStore = (def: ModelSearchStore) => {
     }`;
 
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */
+  const makeApplySavedSearchAction = () =>
+    `@modelFlow
+    applySavedSearch = asyncAction(async (id: string) => {
+      if (!this.savedSearches.some((s) => s.id === id)) await this.loadSavedSearches();
+      const savedSearch = this.savedSearches.find((s) => s.id === id);
+      if (!savedSearch) return;
+
+      this.applySearchProps(derefMobx(savedSearch.filterProps));
+      this.setSelectedSavedSearchId(id);
+      await this.loadFiltered({ noCache: true, page: 1 });
+    });`;
+
+  const makeDeleteSavedSearchAction = () =>
+    `@modelFlow
+    deleteSavedSearch = asyncAction(async (id: string = this.selectedSavedSearchId) => {
+      if (!id) return;
+
+      const res = await trpc.deleteSavedSearch.mutate({ args: { ids: [id] } });
+      if (!res.success) throw new Error(res.error);
+
+      await this.loadSavedSearches();
+      if (this.selectedSavedSearchId === id) this.setSelectedSavedSearchId("");
+      this.setIsDeleteModalOpen(false);
+      toast.warn("Saved search deleted");
+    });`;
+
   const makeGetShiftSelectedAction = () =>
     `@modelFlow
     getShiftSelected = asyncAction(
@@ -387,6 +453,60 @@ export const createSearchStore = (def: ModelSearchStore) => {
       return results;
     });`;
 
+  const makeLoadSavedSearchesAction = () =>
+    `@modelFlow
+    loadSavedSearches = asyncAction(async () => {
+      const res = await trpc.listSavedSearch.mutate({
+        args: {
+          filter: { searchType: "${def.name}" },
+          page: 1,
+          pageSize: 1000,
+          sort: { label: "asc" },
+        },
+      });
+      if (!res.success) throw new Error(res.error);
+      this.setSavedSearches(res.data.items.map((result) => new Stores.SavedSearch(result)));
+      return res.data.items;
+    });`;
+
+  const makeSaveSavedSearchAction = () =>
+    `@modelFlow
+    saveSavedSearch = asyncAction(async (label: string) => {
+      const trimmedLabel = label.trim();
+      if (!trimmedLabel) throw new Error("Saved search label is required");
+
+      const existing = this.savedSearches.find((s) => s.label === trimmedLabel);
+      const filterProps = this.getSearchProps();
+
+      if (existing) {
+        const res = await trpc.updateSavedSearch.mutate({
+          args: { id: existing.id, updates: { filterProps } },
+        });
+        if (!res.success) throw new Error(res.error);
+        await this.loadSavedSearches();
+        this.setSelectedSavedSearchId(existing.id);
+        this.setIsSaveModalOpen(false);
+        toast.success("Saved search updated");
+        return res.data;
+      }
+
+      const res = await trpc.createSavedSearch.mutate({
+        args: {
+          dateCreated: dayjs().toISOString(),
+          filterProps,
+          label: trimmedLabel,
+          searchType: "${def.name}",
+        },
+      });
+      if (!res.success) throw new Error(res.error);
+
+      await this.loadSavedSearches();
+      this.setSelectedSavedSearchId(res.data.id);
+      this.setIsSaveModalOpen(false);
+      toast.success("Saved search created");
+      return res.data;
+    });`;
+
   /* --------------------------------- GETTERS -------------------------------- */
   const makeCachedFilterPropsGetter = () =>
     `getCachedFilterProps() {
@@ -402,6 +522,16 @@ export const createSearchStore = (def: ModelSearchStore) => {
           .map((prop) => prop.filterTransform ?? `${prop.name}: this.${prop.name}`)
           .join(",\n")}
       };
+    }`;
+
+  const makeSearchPropsGetter = () =>
+    `getSearchProps() {
+      return derefMobx({
+        ${props
+          .filter((prop) => !prop.notFilterProp)
+          .map((prop) => `${prop.name}: this.${prop.name}`)
+          .join(",\n")}
+      });
     }`;
 
   const makeIsSelectedGetter = () =>
@@ -432,14 +562,19 @@ export const createSearchStore = (def: ModelSearchStore) => {
 
       /* STANDARD ACTIONS */
       ${makeAddResultAction()}\n
+      ${makeApplySearchPropsAction()}\n
+      ${makeCustomSetters()}\n
       ${makeDeleteResultsAction()}\n
       ${makeResetAction()}\n
       ${makeToggleSelectedAction()}\n
-      ${makeCustomSetters()}\n
       /* ASYNC ACTIONS */
+      ${makeApplySavedSearchAction()}\n
+      ${makeDeleteSavedSearchAction()}\n
       ${makeGetShiftSelectedAction()}\n
       ${makeHandleSelectAction()}\n
       ${makeLoadFilteredAction()}\n
+      ${makeLoadSavedSearchesAction()}\n
+      ${makeSaveSavedSearchAction()}\n
       /* GETTERS */
       ${makeNumOfFiltersGetter()}\n
       /* DYNAMIC GETTERS */
@@ -447,6 +582,7 @@ export const createSearchStore = (def: ModelSearchStore) => {
       ${makeFilterPropsGetter()}\n
       ${makeIsSelectedGetter()}\n
       ${makeResultGetter()}
+      ${makeSearchPropsGetter()}\n
     }`;
 };
 

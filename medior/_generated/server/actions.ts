@@ -1080,6 +1080,84 @@ export const updateFile = makeAction(
     return res;
   },
 );
+/* ------------------------------------ SavedSearch ----------------------------------- */
+export const createSavedSearch = makeAction(
+  async ({
+    args,
+    socketOpts,
+  }: {
+    args: Types.CreateSavedSearchInput;
+    socketOpts?: SocketEventOptions;
+  }) => {
+    const model = { ...args, dateCreated: dayjs().toISOString() };
+
+    const res = await models.SavedSearchModel.create(model);
+    const id = res._id.toString();
+
+    socket.emit("onSavedSearchCreated", { ...model, id }, socketOpts);
+    return { ...model, id };
+  },
+);
+
+export const deleteSavedSearch = makeAction(
+  async ({
+    args,
+    socketOpts,
+  }: {
+    args: Types.DeleteSavedSearchInput;
+    socketOpts?: SocketEventOptions;
+  }) => {
+    await models.SavedSearchModel.deleteMany({ _id: { $in: args.ids } });
+    socket.emit("onSavedSearchDeleted", args, socketOpts);
+  },
+);
+
+export const listSavedSearch = makeAction(
+  async ({ args }: { args?: Types.ListSavedSearchInput } = {}) => {
+    const filter = { ...args.filter };
+    if (args.filter?.id) {
+      filter._id = Array.isArray(args.filter.id)
+        ? { $in: args.filter.id }
+        : typeof args.filter.id === "string"
+          ? { $in: [args.filter.id] }
+          : args.filter.id;
+
+      delete filter.id;
+    }
+
+    const items = await models.SavedSearchModel.find(filter)
+      .sort(args.sort ?? { dateCreated: "desc" })
+      .skip(Math.max(0, args.page - 1) * args.pageSize)
+      .limit(args.pageSize)
+      .allowDiskUse(true)
+      .lean();
+
+    const totalCount = await models.SavedSearchModel.countDocuments(filter);
+
+    if (!items || !(totalCount > -1)) throw new Error("Failed to load filtered SavedSearch");
+
+    return {
+      items: items.map((item) => leanModelToJson<models.SavedSearchSchema>(item)),
+      pageCount: Math.ceil(totalCount / args.pageSize),
+    };
+  },
+);
+
+export const updateSavedSearch = makeAction(
+  async ({
+    args,
+    socketOpts,
+  }: {
+    args: Types.UpdateSavedSearchInput;
+    socketOpts?: SocketEventOptions;
+  }) => {
+    const res = leanModelToJson<models.SavedSearchSchema>(
+      await models.SavedSearchModel.findByIdAndUpdate(args.id, args.updates, { new: true }).lean(),
+    );
+    socket.emit("onSavedSearchUpdated", args, socketOpts);
+    return res;
+  },
+);
 /* ------------------------------------ Tag ----------------------------------- */
 export const _createTag = makeAction(
   async ({

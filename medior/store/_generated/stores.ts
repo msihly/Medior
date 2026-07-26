@@ -52,6 +52,10 @@ export class _FileCollectionSearch extends Model({
   ).withSetter(),
   tags: prop<Stores.TagOption[]>(() => []).withSetter(),
   title: prop<string>("").withSetter(),
+  isDeleteModalOpen: prop<boolean>(false).withSetter(),
+  isSaveModalOpen: prop<boolean>(false).withSetter(),
+  savedSearches: prop<Stores.SavedSearch[]>(() => []).withSetter(),
+  selectedSavedSearchId: prop<string>("").withSetter(),
 }) {
   onInit() {
     autoBind(this);
@@ -61,6 +65,40 @@ export class _FileCollectionSearch extends Model({
   @modelAction
   _addResult(result: ModelCreationData<Stores.FileCollection>) {
     this.results.push(new Stores.FileCollection(result));
+  }
+
+  @modelAction
+  applySearchProps(searchProps: Record<string, any>) {
+    this.reset();
+    Object.entries(searchProps).forEach(([key, value]) => {
+      if (key in this) this[key] = value;
+    });
+    this.cachedFilterProps = null;
+    this.hasChanges = true;
+    this.page = 1;
+    (this as any).afterApplySearchProps?.(searchProps);
+  }
+
+  @modelAction
+  setFileCountOp(val: LogicalOp | "") {
+    this.fileCount.logOp = val;
+    if (val === "") this.fileCount.value = 0;
+  }
+
+  @modelAction
+  setFileCountValue(val: number) {
+    this.fileCount.value = val;
+  }
+
+  @modelAction
+  setRatingOp(val: LogicalOp | "") {
+    this.rating.logOp = val;
+    if (val === "") this.rating.value = 0;
+  }
+
+  @modelAction
+  setRatingValue(val: number) {
+    this.rating.value = val;
   }
 
   @modelAction
@@ -118,29 +156,31 @@ export class _FileCollectionSearch extends Model({
     }
   }
 
-  @modelAction
-  setFileCountOp(val: LogicalOp | "") {
-    this.fileCount.logOp = val;
-    if (val === "") this.fileCount.value = 0;
-  }
-
-  @modelAction
-  setFileCountValue(val: number) {
-    this.fileCount.value = val;
-  }
-
-  @modelAction
-  setRatingOp(val: LogicalOp | "") {
-    this.rating.logOp = val;
-    if (val === "") this.rating.value = 0;
-  }
-
-  @modelAction
-  setRatingValue(val: number) {
-    this.rating.value = val;
-  }
-
   /* ASYNC ACTIONS */
+  @modelFlow
+  applySavedSearch = asyncAction(async (id: string) => {
+    if (!this.savedSearches.some((s) => s.id === id)) await this.loadSavedSearches();
+    const savedSearch = this.savedSearches.find((s) => s.id === id);
+    if (!savedSearch) return;
+
+    this.applySearchProps(derefMobx(savedSearch.filterProps));
+    this.setSelectedSavedSearchId(id);
+    await this.loadFiltered({ noCache: true, page: 1 });
+  });
+
+  @modelFlow
+  deleteSavedSearch = asyncAction(async (id: string = this.selectedSavedSearchId) => {
+    if (!id) return;
+
+    const res = await trpc.deleteSavedSearch.mutate({ args: { ids: [id] } });
+    if (!res.success) throw new Error(res.error);
+
+    await this.loadSavedSearches();
+    if (this.selectedSavedSearchId === id) this.setSelectedSavedSearchId("");
+    this.setIsDeleteModalOpen(false);
+    toast.warn("Saved search deleted");
+  });
+
   @modelFlow
   getShiftSelected = asyncAction(
     async ({ id, selectedIds }: { id: string; selectedIds: string[] }) => {
@@ -274,6 +314,58 @@ export class _FileCollectionSearch extends Model({
     },
   );
 
+  @modelFlow
+  loadSavedSearches = asyncAction(async () => {
+    const res = await trpc.listSavedSearch.mutate({
+      args: {
+        filter: { searchType: "FileCollection" },
+        page: 1,
+        pageSize: 1000,
+        sort: { label: "asc" },
+      },
+    });
+    if (!res.success) throw new Error(res.error);
+    this.setSavedSearches(res.data.items.map((result) => new Stores.SavedSearch(result)));
+    return res.data.items;
+  });
+
+  @modelFlow
+  saveSavedSearch = asyncAction(async (label: string) => {
+    const trimmedLabel = label.trim();
+    if (!trimmedLabel) throw new Error("Saved search label is required");
+
+    const existing = this.savedSearches.find((s) => s.label === trimmedLabel);
+    const filterProps = this.getSearchProps();
+
+    if (existing) {
+      const res = await trpc.updateSavedSearch.mutate({
+        args: { id: existing.id, updates: { filterProps } },
+      });
+      if (!res.success) throw new Error(res.error);
+      await this.loadSavedSearches();
+      this.setSelectedSavedSearchId(existing.id);
+      this.setIsSaveModalOpen(false);
+      toast.success("Saved search updated");
+      return res.data;
+    }
+
+    const res = await trpc.createSavedSearch.mutate({
+      args: {
+        dateCreated: dayjs().toISOString(),
+        filterProps,
+        label: trimmedLabel,
+        searchType: "FileCollection",
+      },
+    });
+    if (!res.success) throw new Error(res.error);
+
+    await this.loadSavedSearches();
+    this.setSelectedSavedSearchId(res.data.id);
+    this.setIsSaveModalOpen(false);
+    toast.success("Saved search created");
+    return res.data;
+  });
+
   /* GETTERS */
   @computed
   get numOfFilters() {
@@ -323,6 +415,22 @@ export class _FileCollectionSearch extends Model({
   getResult(id: string) {
     return this.results.find((r) => r.id === id);
   }
+  getSearchProps() {
+    return derefMobx({
+      dateCreatedEnd: this.dateCreatedEnd,
+      dateCreatedStart: this.dateCreatedStart,
+      dateModifiedEnd: this.dateModifiedEnd,
+      dateModifiedStart: this.dateModifiedStart,
+      fileCount: this.fileCount,
+      ids: this.ids,
+      maxSize: this.maxSize,
+      minSize: this.minSize,
+      rating: this.rating,
+      sortValue: this.sortValue,
+      tags: this.tags,
+      title: this.title,
+    });
+  }
 }
 @model("medior/_FileImportBatchSearch")
 export class _FileImportBatchSearch extends Model({
@@ -351,6 +459,10 @@ export class _FileImportBatchSearch extends Model({
   startedAtEnd: prop<string>("").withSetter(),
   startedAtStart: prop<string>("").withSetter(),
   tags: prop<Stores.TagOption[]>(() => []).withSetter(),
+  isDeleteModalOpen: prop<boolean>(false).withSetter(),
+  isSaveModalOpen: prop<boolean>(false).withSetter(),
+  savedSearches: prop<Stores.SavedSearch[]>(() => []).withSetter(),
+  selectedSavedSearchId: prop<string>("").withSetter(),
 }) {
   onInit() {
     autoBind(this);
@@ -360,6 +472,29 @@ export class _FileImportBatchSearch extends Model({
   @modelAction
   _addResult(result: ModelCreationData<Stores.FileImportBatch>) {
     this.results.push(new Stores.FileImportBatch(result));
+  }
+
+  @modelAction
+  applySearchProps(searchProps: Record<string, any>) {
+    this.reset();
+    Object.entries(searchProps).forEach(([key, value]) => {
+      if (key in this) this[key] = value;
+    });
+    this.cachedFilterProps = null;
+    this.hasChanges = true;
+    this.page = 1;
+    (this as any).afterApplySearchProps?.(searchProps);
+  }
+
+  @modelAction
+  setFileCountOp(val: LogicalOp | "") {
+    this.fileCount.logOp = val;
+    if (val === "") this.fileCount.value = 0;
+  }
+
+  @modelAction
+  setFileCountValue(val: number) {
+    this.fileCount.value = val;
   }
 
   @modelAction
@@ -418,18 +553,31 @@ export class _FileImportBatchSearch extends Model({
     }
   }
 
-  @modelAction
-  setFileCountOp(val: LogicalOp | "") {
-    this.fileCount.logOp = val;
-    if (val === "") this.fileCount.value = 0;
-  }
-
-  @modelAction
-  setFileCountValue(val: number) {
-    this.fileCount.value = val;
-  }
-
   /* ASYNC ACTIONS */
+  @modelFlow
+  applySavedSearch = asyncAction(async (id: string) => {
+    if (!this.savedSearches.some((s) => s.id === id)) await this.loadSavedSearches();
+    const savedSearch = this.savedSearches.find((s) => s.id === id);
+    if (!savedSearch) return;
+
+    this.applySearchProps(derefMobx(savedSearch.filterProps));
+    this.setSelectedSavedSearchId(id);
+    await this.loadFiltered({ noCache: true, page: 1 });
+  });
+
+  @modelFlow
+  deleteSavedSearch = asyncAction(async (id: string = this.selectedSavedSearchId) => {
+    if (!id) return;
+
+    const res = await trpc.deleteSavedSearch.mutate({ args: { ids: [id] } });
+    if (!res.success) throw new Error(res.error);
+
+    await this.loadSavedSearches();
+    if (this.selectedSavedSearchId === id) this.setSelectedSavedSearchId("");
+    this.setIsDeleteModalOpen(false);
+    toast.warn("Saved search deleted");
+  });
+
   @modelFlow
   getShiftSelected = asyncAction(
     async ({ id, selectedIds }: { id: string; selectedIds: string[] }) => {
@@ -566,6 +714,58 @@ export class _FileImportBatchSearch extends Model({
     },
   );
 
+  @modelFlow
+  loadSavedSearches = asyncAction(async () => {
+    const res = await trpc.listSavedSearch.mutate({
+      args: {
+        filter: { searchType: "FileImportBatch" },
+        page: 1,
+        pageSize: 1000,
+        sort: { label: "asc" },
+      },
+    });
+    if (!res.success) throw new Error(res.error);
+    this.setSavedSearches(res.data.items.map((result) => new Stores.SavedSearch(result)));
+    return res.data.items;
+  });
+
+  @modelFlow
+  saveSavedSearch = asyncAction(async (label: string) => {
+    const trimmedLabel = label.trim();
+    if (!trimmedLabel) throw new Error("Saved search label is required");
+
+    const existing = this.savedSearches.find((s) => s.label === trimmedLabel);
+    const filterProps = this.getSearchProps();
+
+    if (existing) {
+      const res = await trpc.updateSavedSearch.mutate({
+        args: { id: existing.id, updates: { filterProps } },
+      });
+      if (!res.success) throw new Error(res.error);
+      await this.loadSavedSearches();
+      this.setSelectedSavedSearchId(existing.id);
+      this.setIsSaveModalOpen(false);
+      toast.success("Saved search updated");
+      return res.data;
+    }
+
+    const res = await trpc.createSavedSearch.mutate({
+      args: {
+        dateCreated: dayjs().toISOString(),
+        filterProps,
+        label: trimmedLabel,
+        searchType: "FileImportBatch",
+      },
+    });
+    if (!res.success) throw new Error(res.error);
+
+    await this.loadSavedSearches();
+    this.setSelectedSavedSearchId(res.data.id);
+    this.setIsSaveModalOpen(false);
+    toast.success("Saved search created");
+    return res.data;
+  });
+
   /* GETTERS */
   @computed
   get numOfFilters() {
@@ -616,6 +816,23 @@ export class _FileImportBatchSearch extends Model({
 
   getResult(id: string) {
     return this.results.find((r) => r.id === id);
+  }
+  getSearchProps() {
+    return derefMobx({
+      collectionTitle: this.collectionTitle,
+      completedAtEnd: this.completedAtEnd,
+      completedAtStart: this.completedAtStart,
+      dateCreatedEnd: this.dateCreatedEnd,
+      dateCreatedStart: this.dateCreatedStart,
+      fileCount: this.fileCount,
+      filePath: this.filePath,
+      ids: this.ids,
+      isCompleted: this.isCompleted,
+      sortValue: this.sortValue,
+      startedAtEnd: this.startedAtEnd,
+      startedAtStart: this.startedAtStart,
+      tags: this.tags,
+    });
   }
 }
 @model("medior/_FileSearch")
@@ -680,6 +897,10 @@ export class _FileSearch extends Model({
   ),
   sortValue: prop<SortMenuProps["value"]>(() => getConfig().file.search.sort).withSetter(),
   tags: prop<Stores.TagOption[]>(() => []).withSetter(),
+  isDeleteModalOpen: prop<boolean>(false).withSetter(),
+  isSaveModalOpen: prop<boolean>(false).withSetter(),
+  savedSearches: prop<Stores.SavedSearch[]>(() => []).withSetter(),
+  selectedSavedSearchId: prop<string>("").withSetter(),
 }) {
   onInit() {
     autoBind(this);
@@ -689,6 +910,93 @@ export class _FileSearch extends Model({
   @modelAction
   _addResult(result: ModelCreationData<Stores.File>) {
     this.results.push(new Stores.File(result));
+  }
+
+  @modelAction
+  applySearchProps(searchProps: Record<string, any>) {
+    this.reset();
+    Object.entries(searchProps).forEach(([key, value]) => {
+      if (key in this) this[key] = value;
+    });
+    this.cachedFilterProps = null;
+    this.hasChanges = true;
+    this.page = 1;
+    (this as any).afterApplySearchProps?.(searchProps);
+  }
+
+  @modelAction
+  setBitrateOp(val: LogicalOp | "") {
+    this.bitrate.logOp = val;
+    if (val === "") this.bitrate.value = 0;
+  }
+
+  @modelAction
+  setBitrateValue(val: number) {
+    this.bitrate.value = val;
+  }
+
+  @modelAction
+  setDurationOp(val: LogicalOp | "") {
+    this.duration.logOp = val;
+    if (val === "") this.duration.value = 0;
+  }
+
+  @modelAction
+  setDurationValue(val: number) {
+    this.duration.value = val;
+  }
+
+  @modelAction
+  setFrameRateOp(val: LogicalOp | "") {
+    this.frameRate.logOp = val;
+    if (val === "") this.frameRate.value = 0;
+  }
+
+  @modelAction
+  setFrameRateValue(val: number) {
+    this.frameRate.value = val;
+  }
+
+  @modelAction
+  setNumOfTagsOp(val: LogicalOp | "") {
+    this.numOfTags.logOp = val;
+    if (val === "") this.numOfTags.value = 0;
+  }
+
+  @modelAction
+  setNumOfTagsValue(val: number) {
+    this.numOfTags.value = val;
+  }
+
+  @modelAction
+  setRatingOp(val: LogicalOp | "") {
+    this.rating.logOp = val;
+    if (val === "") this.rating.value = 0;
+  }
+
+  @modelAction
+  setRatingValue(val: number) {
+    this.rating.value = val;
+  }
+
+  @modelAction
+  setSelectedAudioCodecs(types: Partial<Types.SelectedAudioCodecs>) {
+    this.selectedAudioCodecs = { ...this.selectedAudioCodecs, ...types };
+  }
+
+  @modelAction
+  setSelectedImageExts(types: Partial<Types.SelectedImageExts>) {
+    this.selectedImageExts = { ...this.selectedImageExts, ...types };
+  }
+
+  @modelAction
+  setSelectedVideoCodecs(types: Partial<Types.SelectedVideoCodecs>) {
+    this.selectedVideoCodecs = { ...this.selectedVideoCodecs, ...types };
+  }
+
+  @modelAction
+  setSelectedVideoExts(types: Partial<Types.SelectedVideoExts>) {
+    this.selectedVideoExts = { ...this.selectedVideoExts, ...types };
   }
 
   @modelAction
@@ -772,82 +1080,31 @@ export class _FileSearch extends Model({
     }
   }
 
-  @modelAction
-  setBitrateOp(val: LogicalOp | "") {
-    this.bitrate.logOp = val;
-    if (val === "") this.bitrate.value = 0;
-  }
-
-  @modelAction
-  setBitrateValue(val: number) {
-    this.bitrate.value = val;
-  }
-
-  @modelAction
-  setDurationOp(val: LogicalOp | "") {
-    this.duration.logOp = val;
-    if (val === "") this.duration.value = 0;
-  }
-
-  @modelAction
-  setDurationValue(val: number) {
-    this.duration.value = val;
-  }
-
-  @modelAction
-  setFrameRateOp(val: LogicalOp | "") {
-    this.frameRate.logOp = val;
-    if (val === "") this.frameRate.value = 0;
-  }
-
-  @modelAction
-  setFrameRateValue(val: number) {
-    this.frameRate.value = val;
-  }
-
-  @modelAction
-  setNumOfTagsOp(val: LogicalOp | "") {
-    this.numOfTags.logOp = val;
-    if (val === "") this.numOfTags.value = 0;
-  }
-
-  @modelAction
-  setNumOfTagsValue(val: number) {
-    this.numOfTags.value = val;
-  }
-
-  @modelAction
-  setRatingOp(val: LogicalOp | "") {
-    this.rating.logOp = val;
-    if (val === "") this.rating.value = 0;
-  }
-
-  @modelAction
-  setRatingValue(val: number) {
-    this.rating.value = val;
-  }
-
-  @modelAction
-  setSelectedAudioCodecs(types: Partial<Types.SelectedAudioCodecs>) {
-    this.selectedAudioCodecs = { ...this.selectedAudioCodecs, ...types };
-  }
-
-  @modelAction
-  setSelectedImageExts(types: Partial<Types.SelectedImageExts>) {
-    this.selectedImageExts = { ...this.selectedImageExts, ...types };
-  }
-
-  @modelAction
-  setSelectedVideoCodecs(types: Partial<Types.SelectedVideoCodecs>) {
-    this.selectedVideoCodecs = { ...this.selectedVideoCodecs, ...types };
-  }
-
-  @modelAction
-  setSelectedVideoExts(types: Partial<Types.SelectedVideoExts>) {
-    this.selectedVideoExts = { ...this.selectedVideoExts, ...types };
-  }
-
   /* ASYNC ACTIONS */
+  @modelFlow
+  applySavedSearch = asyncAction(async (id: string) => {
+    if (!this.savedSearches.some((s) => s.id === id)) await this.loadSavedSearches();
+    const savedSearch = this.savedSearches.find((s) => s.id === id);
+    if (!savedSearch) return;
+
+    this.applySearchProps(derefMobx(savedSearch.filterProps));
+    this.setSelectedSavedSearchId(id);
+    await this.loadFiltered({ noCache: true, page: 1 });
+  });
+
+  @modelFlow
+  deleteSavedSearch = asyncAction(async (id: string = this.selectedSavedSearchId) => {
+    if (!id) return;
+
+    const res = await trpc.deleteSavedSearch.mutate({ args: { ids: [id] } });
+    if (!res.success) throw new Error(res.error);
+
+    await this.loadSavedSearches();
+    if (this.selectedSavedSearchId === id) this.setSelectedSavedSearchId("");
+    this.setIsDeleteModalOpen(false);
+    toast.warn("Saved search deleted");
+  });
+
   @modelFlow
   getShiftSelected = asyncAction(
     async ({ id, selectedIds }: { id: string; selectedIds: string[] }) => {
@@ -981,6 +1238,58 @@ export class _FileSearch extends Model({
     },
   );
 
+  @modelFlow
+  loadSavedSearches = asyncAction(async () => {
+    const res = await trpc.listSavedSearch.mutate({
+      args: {
+        filter: { searchType: "File" },
+        page: 1,
+        pageSize: 1000,
+        sort: { label: "asc" },
+      },
+    });
+    if (!res.success) throw new Error(res.error);
+    this.setSavedSearches(res.data.items.map((result) => new Stores.SavedSearch(result)));
+    return res.data.items;
+  });
+
+  @modelFlow
+  saveSavedSearch = asyncAction(async (label: string) => {
+    const trimmedLabel = label.trim();
+    if (!trimmedLabel) throw new Error("Saved search label is required");
+
+    const existing = this.savedSearches.find((s) => s.label === trimmedLabel);
+    const filterProps = this.getSearchProps();
+
+    if (existing) {
+      const res = await trpc.updateSavedSearch.mutate({
+        args: { id: existing.id, updates: { filterProps } },
+      });
+      if (!res.success) throw new Error(res.error);
+      await this.loadSavedSearches();
+      this.setSelectedSavedSearchId(existing.id);
+      this.setIsSaveModalOpen(false);
+      toast.success("Saved search updated");
+      return res.data;
+    }
+
+    const res = await trpc.createSavedSearch.mutate({
+      args: {
+        dateCreated: dayjs().toISOString(),
+        filterProps,
+        label: trimmedLabel,
+        searchType: "File",
+      },
+    });
+    if (!res.success) throw new Error(res.error);
+
+    await this.loadSavedSearches();
+    this.setSelectedSavedSearchId(res.data.id);
+    this.setIsSaveModalOpen(false);
+    toast.success("Saved search created");
+    return res.data;
+  });
+
   /* GETTERS */
   @computed
   get numOfFilters() {
@@ -1094,6 +1403,40 @@ export class _FileSearch extends Model({
   getResult(id: string) {
     return this.results.find((r) => r.id === id);
   }
+  getSearchProps() {
+    return derefMobx({
+      bitrate: this.bitrate,
+      dateCreatedEnd: this.dateCreatedEnd,
+      dateCreatedStart: this.dateCreatedStart,
+      dateImportedEnd: this.dateImportedEnd,
+      dateImportedStart: this.dateImportedStart,
+      dateModifiedEnd: this.dateModifiedEnd,
+      dateModifiedStart: this.dateModifiedStart,
+      duration: this.duration,
+      excludedFileIds: this.excludedFileIds,
+      frameRate: this.frameRate,
+      hasDiffParams: this.hasDiffParams,
+      ids: this.ids,
+      isArchived: this.isArchived,
+      isCorrupted: this.isCorrupted,
+      isModified: this.isModified,
+      maxHeight: this.maxHeight,
+      maxSize: this.maxSize,
+      maxWidth: this.maxWidth,
+      minHeight: this.minHeight,
+      minSize: this.minSize,
+      minWidth: this.minWidth,
+      numOfTags: this.numOfTags,
+      originalPath: this.originalPath,
+      rating: this.rating,
+      selectedAudioCodecs: this.selectedAudioCodecs,
+      selectedImageExts: this.selectedImageExts,
+      selectedVideoCodecs: this.selectedVideoCodecs,
+      selectedVideoExts: this.selectedVideoExts,
+      sortValue: this.sortValue,
+      tags: this.tags,
+    });
+  }
 }
 @model("medior/_TagSearch")
 export class _TagSearch extends Model({
@@ -1123,6 +1466,10 @@ export class _TagSearch extends Model({
   sortValue: prop<SortMenuProps["value"]>(() => getConfig().tags.manager.search.sort).withSetter(),
   tags: prop<Stores.TagOption[]>(() => []).withSetter(),
   title: prop<string>("").withSetter(),
+  isDeleteModalOpen: prop<boolean>(false).withSetter(),
+  isSaveModalOpen: prop<boolean>(false).withSetter(),
+  savedSearches: prop<Stores.SavedSearch[]>(() => []).withSetter(),
+  selectedSavedSearchId: prop<string>("").withSetter(),
 }) {
   onInit() {
     autoBind(this);
@@ -1132,6 +1479,51 @@ export class _TagSearch extends Model({
   @modelAction
   _addResult(result: ModelCreationData<Stores.Tag>) {
     this.results.push(new Stores.Tag(result));
+  }
+
+  @modelAction
+  applySearchProps(searchProps: Record<string, any>) {
+    this.reset();
+    Object.entries(searchProps).forEach(([key, value]) => {
+      if (key in this) this[key] = value;
+    });
+    this.cachedFilterProps = null;
+    this.hasChanges = true;
+    this.page = 1;
+    (this as any).afterApplySearchProps?.(searchProps);
+  }
+
+  @modelAction
+  setCountOp(val: LogicalOp | "") {
+    this.count.logOp = val;
+    if (val === "") this.count.value = 0;
+  }
+
+  @modelAction
+  setCountValue(val: number) {
+    this.count.value = val;
+  }
+
+  @modelAction
+  setRatingOp(val: LogicalOp | "") {
+    this.rating.logOp = val;
+    if (val === "") this.rating.value = 0;
+  }
+
+  @modelAction
+  setRatingValue(val: number) {
+    this.rating.value = val;
+  }
+
+  @modelAction
+  setSizeOp(val: LogicalOp | "") {
+    this.size.logOp = val;
+    if (val === "") this.size.value = 0;
+  }
+
+  @modelAction
+  setSizeValue(val: number) {
+    this.size.value = val;
   }
 
   @modelAction
@@ -1193,40 +1585,31 @@ export class _TagSearch extends Model({
     }
   }
 
-  @modelAction
-  setCountOp(val: LogicalOp | "") {
-    this.count.logOp = val;
-    if (val === "") this.count.value = 0;
-  }
-
-  @modelAction
-  setCountValue(val: number) {
-    this.count.value = val;
-  }
-
-  @modelAction
-  setRatingOp(val: LogicalOp | "") {
-    this.rating.logOp = val;
-    if (val === "") this.rating.value = 0;
-  }
-
-  @modelAction
-  setRatingValue(val: number) {
-    this.rating.value = val;
-  }
-
-  @modelAction
-  setSizeOp(val: LogicalOp | "") {
-    this.size.logOp = val;
-    if (val === "") this.size.value = 0;
-  }
-
-  @modelAction
-  setSizeValue(val: number) {
-    this.size.value = val;
-  }
-
   /* ASYNC ACTIONS */
+  @modelFlow
+  applySavedSearch = asyncAction(async (id: string) => {
+    if (!this.savedSearches.some((s) => s.id === id)) await this.loadSavedSearches();
+    const savedSearch = this.savedSearches.find((s) => s.id === id);
+    if (!savedSearch) return;
+
+    this.applySearchProps(derefMobx(savedSearch.filterProps));
+    this.setSelectedSavedSearchId(id);
+    await this.loadFiltered({ noCache: true, page: 1 });
+  });
+
+  @modelFlow
+  deleteSavedSearch = asyncAction(async (id: string = this.selectedSavedSearchId) => {
+    if (!id) return;
+
+    const res = await trpc.deleteSavedSearch.mutate({ args: { ids: [id] } });
+    if (!res.success) throw new Error(res.error);
+
+    await this.loadSavedSearches();
+    if (this.selectedSavedSearchId === id) this.setSelectedSavedSearchId("");
+    this.setIsDeleteModalOpen(false);
+    toast.warn("Saved search deleted");
+  });
+
   @modelFlow
   getShiftSelected = asyncAction(
     async ({ id, selectedIds }: { id: string; selectedIds: string[] }) => {
@@ -1350,6 +1733,58 @@ export class _TagSearch extends Model({
     },
   );
 
+  @modelFlow
+  loadSavedSearches = asyncAction(async () => {
+    const res = await trpc.listSavedSearch.mutate({
+      args: {
+        filter: { searchType: "Tag" },
+        page: 1,
+        pageSize: 1000,
+        sort: { label: "asc" },
+      },
+    });
+    if (!res.success) throw new Error(res.error);
+    this.setSavedSearches(res.data.items.map((result) => new Stores.SavedSearch(result)));
+    return res.data.items;
+  });
+
+  @modelFlow
+  saveSavedSearch = asyncAction(async (label: string) => {
+    const trimmedLabel = label.trim();
+    if (!trimmedLabel) throw new Error("Saved search label is required");
+
+    const existing = this.savedSearches.find((s) => s.label === trimmedLabel);
+    const filterProps = this.getSearchProps();
+
+    if (existing) {
+      const res = await trpc.updateSavedSearch.mutate({
+        args: { id: existing.id, updates: { filterProps } },
+      });
+      if (!res.success) throw new Error(res.error);
+      await this.loadSavedSearches();
+      this.setSelectedSavedSearchId(existing.id);
+      this.setIsSaveModalOpen(false);
+      toast.success("Saved search updated");
+      return res.data;
+    }
+
+    const res = await trpc.createSavedSearch.mutate({
+      args: {
+        dateCreated: dayjs().toISOString(),
+        filterProps,
+        label: trimmedLabel,
+        searchType: "Tag",
+      },
+    });
+    if (!res.success) throw new Error(res.error);
+
+    await this.loadSavedSearches();
+    this.setSelectedSavedSearchId(res.data.id);
+    this.setIsSaveModalOpen(false);
+    toast.success("Saved search created");
+    return res.data;
+  });
+
   /* GETTERS */
   @computed
   get numOfFilters() {
@@ -1406,6 +1841,26 @@ export class _TagSearch extends Model({
 
   getResult(id: string) {
     return this.results.find((r) => r.id === id);
+  }
+  getSearchProps() {
+    return derefMobx({
+      alias: this.alias,
+      count: this.count,
+      dateCreatedEnd: this.dateCreatedEnd,
+      dateCreatedStart: this.dateCreatedStart,
+      dateModifiedEnd: this.dateModifiedEnd,
+      dateModifiedStart: this.dateModifiedStart,
+      dateOfInceptionEnd: this.dateOfInceptionEnd,
+      dateOfInceptionStart: this.dateOfInceptionStart,
+      hasRegEx: this.hasRegEx,
+      ids: this.ids,
+      label: this.label,
+      rating: this.rating,
+      size: this.size,
+      sortValue: this.sortValue,
+      tags: this.tags,
+      title: this.title,
+    });
   }
 }
 
@@ -1673,6 +2128,54 @@ export class _FileStore extends Model({ isLoading: prop<boolean>(false).withSett
   updateFile = asyncAction(async (args: Types.UpdateFileInput) => {
     this.setIsLoading(true);
     const res = await trpc.updateFile.mutate({ args });
+    this.setIsLoading(false);
+    if (res.error) throw new Error(res.error);
+    return res.data;
+  });
+}
+/* --------------------------------------------------------------------------- */
+/*                               SavedSearch
+/* --------------------------------------------------------------------------- */
+
+@model("medior/_SavedSearch")
+export class _SavedSearch extends Model({
+  id: prop<string>(),
+  dateCreated: prop<string>(() => dayjs().toISOString()),
+  filterProps: prop<Record<string, any>>(),
+  label: prop<string>(),
+  searchType: prop<string>(),
+}) {
+  @modelAction
+  update(updates: Partial<ModelCreationData<this>>) {
+    applySnapshot(this, { ...getSnapshot(this), ...updates });
+  }
+}
+
+@model("medior/_SavedSearchStore")
+export class _SavedSearchStore extends Model({ isLoading: prop<boolean>(false).withSetter() }) {
+  /* ------------------------------ ASYNC ACTIONS ----------------------------- */
+  @modelFlow
+  createSavedSearch = asyncAction(async (args: Types.CreateSavedSearchInput) => {
+    this.setIsLoading(true);
+    const res = await trpc.createSavedSearch.mutate({ args });
+    this.setIsLoading(false);
+    if (res.error) throw new Error(res.error);
+    return res.data;
+  });
+
+  @modelFlow
+  deleteSavedSearch = asyncAction(async (args: Types.DeleteSavedSearchInput) => {
+    this.setIsLoading(true);
+    const res = await trpc.deleteSavedSearch.mutate({ args });
+    this.setIsLoading(false);
+    if (res.error) throw new Error(res.error);
+    return res.data;
+  });
+
+  @modelFlow
+  updateSavedSearch = asyncAction(async (args: Types.UpdateSavedSearchInput) => {
+    this.setIsLoading(true);
+    const res = await trpc.updateSavedSearch.mutate({ args });
     this.setIsLoading(false);
     if (res.error) throw new Error(res.error);
     return res.data;
