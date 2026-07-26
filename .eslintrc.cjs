@@ -17,6 +17,7 @@ module.exports = {
     "./patches",
     "./public",
     `./${PROJECT}/face-models`,
+    "./scripts/update-trabecula.ts",
     "esbuild.server.ts",
     "vite.config.*",
   ],

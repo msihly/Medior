@@ -25,6 +25,7 @@
     "pre-build": "pnpm run gen && pnpm run ts-compile-server && pnpm run copy-files",
     "prettier": "prettier --check medior --config ./.prettierrc --ignore-path ./.prettierignore",
     "prettier-fix": "pnpm run prettier --write",
+    "trabecula": "tsx scripts/update-trabecula.ts",
     "ts-check": "tspc --noEmit",
     "ts-compile-server": "tsx esbuild.server.ts"
   },
