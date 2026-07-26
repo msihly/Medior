@@ -13,6 +13,7 @@ import {
   handleErrors,
   PromiseQueue,
   splitArray,
+  tagsToRegEx,
 } from "medior/utils/common";
 import { leanModelToJson, makeAction, objectId, objectIds, socket } from "medior/utils/server";
 
@@ -1165,8 +1166,22 @@ export const setTagCount = makeAction(async ({ count, id }: { count: number; id:
   return models.TagModel.updateOne({ _id: id }, { $set: { count }, dateModified });
 });
 
+
+
 export const upsertTag = makeAction(
-  async ({ label, parentLabels }: { label: string; parentLabels?: string[] }) => {
+  async ({
+    aliases,
+    label,
+    parentLabels,
+    regEx,
+    withRegEx = false,
+  }: {
+    aliases?: string[];
+    label: string;
+    parentLabels?: string[];
+    regEx?: string;
+    withRegEx?: boolean;
+  }) => {
     const parentIds: string[] =
       parentLabels?.length > 0
         ? (await Promise.all(parentLabels.map(async (pLabel) => upsertTag({ label: pLabel }))))
@@ -1174,17 +1189,33 @@ export const upsertTag = makeAction(
             .filter(Boolean)
         : [];
 
-    const tagId = await models.TagModel.findOne({ label }).then((r) => r?._id?.toString());
+    const tag = await models.TagModel.findOne({ label });
+    const tagId = tag?._id?.toString();
     if (tagId) {
-      if (parentIds.length) {
-        const res = await editTag({ id: tagId, label, parentIds, withSub: false });
+      const existingParentIds = tag?.parentIds.map((id) => id.toString()) ?? [];
+      const missingParentIds = parentIds.filter((id) => !existingParentIds.includes(id));
+
+      if (missingParentIds.length) {
+        const res = await editTag({
+          id: tagId,
+          label,
+          parentIds: [...existingParentIds, ...missingParentIds],
+          withSub: false,
+        });
         if (!res.success) throw new Error(res.error);
       }
-      return { id: tagId, parentIds };
+
+      return { id: tagId, label, parentIds };
     }
 
-    const res = await createTag({ label, parentIds, withSub: false });
+    const res = await createTag({
+      aliases: aliases?.length ? aliases : [],
+      label,
+      parentIds,
+      regEx: regEx ?? (withRegEx ? tagsToRegEx([{ aliases, label }]) : null),
+      withSub: false,
+    });
     if (!res.success) throw new Error(res.error);
-    return { id: res.data.id, parentIds };
+    return { id: res.data.id, label: res.data.label, parentIds };
   },
 );

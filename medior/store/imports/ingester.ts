@@ -32,6 +32,7 @@ export class Ingester extends Model({
   options: prop<ImportEditorOptions>(() => new ImportEditorOptions({})),
   rootFolderIndex: prop<number>(0).withSetter(),
   rootFolderPath: prop<string>("").withSetter(),
+  saveStatus: prop<string>("").withSetter(),
   tagHierarchy: prop<TagToUpsert[]>(() => []).withSetter(),
 }) {
   onInit() {
@@ -77,6 +78,7 @@ export class Ingester extends Model({
     this.options = new ImportEditorOptions({});
     this.rootFolderIndex = 0;
     this.rootFolderPath = "";
+    this.saveStatus = "";
     this.tagHierarchy = [];
   }
 

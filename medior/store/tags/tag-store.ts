@@ -1,11 +1,11 @@
 import autoBind from "auto-bind";
-import { Model, model, ModelCreationData, modelFlow, prop } from "mobx-keystone";
+import { Model, model, modelFlow, prop } from "mobx-keystone";
 import * as db from "medior/server/database";
 import { TagToUpsert } from "medior/components";
 import { asyncAction, toast } from "medior/utils/client";
-import { Fmt, PromiseQueue } from "medior/utils/common";
+import { PromiseQueue, tagsToRegEx } from "medior/utils/common";
 import { trpc } from "medior/utils/server";
-import { Tag, TagEditorStore, TagManagerStore, TagMergerStore, TagOption } from ".";
+import { TagEditorStore, TagManagerStore, TagMergerStore, TagOption } from ".";
 
 @model("medior/TagStore")
 export class TagStore extends Model({
@@ -30,7 +30,7 @@ export class TagStore extends Model({
       withSub = true,
       ...tag
     }: db.CreateTagInput & { withRegEx?: boolean }) => {
-      regEx = regEx || withRegEx ? this.tagsToRegEx([{ aliases, label }]) : null;
+      regEx = regEx || withRegEx ? tagsToRegEx([{ aliases, label }]) : null;
 
       const res = await trpc.createTag.mutate({
         ...tag,
@@ -110,56 +110,19 @@ export class TagStore extends Model({
   upsertTags = asyncAction(async (tagsToUpsert: TagToUpsert[]) => {
     const tagQueue = new PromiseQueue();
     const errors: string[] = [];
-    const tagIds: string[] = [];
-    const tagsToInsert: Map<string, ModelCreationData<Tag>> = new Map();
+    const upsertedTags: { id: string; label: string; parentIds: string[] }[] = [];
 
     tagsToUpsert.forEach((t) =>
       tagQueue.add(async () => {
         try {
-          const parentTagsRes = (
-            await trpc.listTag.mutate({ filter: { label: { $in: t.parentLabels ?? [] } } })
-          ).data;
-
-          const parentTagsMap = new Map(
-            (parentTagsRes?.length ? parentTagsRes : []).map((t) => [t.label, t]),
-          );
-
-          const parentTags: ModelCreationData<Tag>[] = [];
-          if (t.parentLabels?.length) {
-            for (const label of t.parentLabels) {
-              if (parentTagsMap.has(label)) parentTags.push(parentTagsMap.get(label));
-              else if (tagsToInsert.has(label)) parentTags.push(tagsToInsert.get(label));
-            }
-          }
-
-          const parentIds = parentTags?.map((t) => t.id) ?? [];
-
-          const tag = (await this.listByLabels([t.label])).data?.[0];
-          if (tag) {
-            if (!parentIds.length || tag.parentIds.some((id) => parentIds.includes(id))) return;
-
-            const res = await this.editTag({
-              id: tag.id,
-              parentIds: parentIds.length ? [...tag.parentIds, ...parentIds] : [],
-              withRegen: false,
-              withSub: false,
-            });
-            if (!res.success) throw new Error(res.error);
-
-            tagIds.push(tag.id);
-          } else {
-            const res = await this.createTag({
-              aliases: t.aliases?.length ? [...t.aliases] : [],
-              label: t.label,
-              parentIds,
-              withRegEx: t.withRegEx,
-              withSub: false,
-            });
-            if (!res.success) throw new Error(res.error);
-
-            tagIds.push(res.data.id);
-            tagsToInsert.set(res.data.label, res.data);
-          }
+          const res = await trpc.upsertTag.mutate({
+            aliases: t.aliases?.length ? [...t.aliases] : [],
+            label: t.label,
+            parentLabels: t.parentLabels?.length ? [...t.parentLabels] : [],
+            withRegEx: t.withRegEx,
+          });
+          if (!res.success) throw new Error(res.error);
+          upsertedTags.push(res.data);
         } catch (err) {
           errors.push(`Tag: ${JSON.stringify(t, null, 2)}\nError: ${err.message}`);
         }
@@ -169,19 +132,15 @@ export class TagStore extends Model({
     await tagQueue.resolve();
     if (errors.length) throw new Error(errors.join("\n"));
 
-    trpc.regenTags.mutate({ tagIds, withSub: true });
+    const tagIds = upsertedTags.map((tag) => tag.id);
+    trpc.regenTags.mutate({ tagIds, withSub: true }).then((res) => {
+      if (!res.success) console.error(res.error);
+    });
 
-    return tagIds;
+    return upsertedTags;
   });
 
   /* ----------------------------- DYNAMIC GETTERS ---------------------------- */
-  tagsToRegEx(tags: { aliases?: string[]; label: string }[]) {
-    return `(${tags
-      .flatMap((tag) => [tag.label, ...tag.aliases])
-      .map((s) => `^${Fmt.regexEscape(s).replaceAll(/[\s-_]+/g, "[\\s\\-_\\.]+")}$`)
-      .join(")|(")})`;
-  }
-
   tagSearchOptsToIds(options: TagOption[], withDescArrays = false) {
     return options.reduce(
       (acc, cur) => {

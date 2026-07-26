@@ -17,7 +17,7 @@ import {
 } from "medior/components";
 import { useStores } from "medior/store";
 import { colors, makeQueue, openSearchWindow, toast, useDeepEffect } from "medior/utils/client";
-import { PromiseQueue } from "medior/utils/common";
+import { PromiseQueue, tagsToRegEx } from "medior/utils/common";
 import { trpc } from "medior/utils/server";
 
 export const TagManager = Comp(() => {
@@ -72,7 +72,7 @@ export const TagManager = Comp(() => {
 
       await makeQueue({
         action: async (tag) => {
-          const regEx = stores.tag.tagsToRegEx([{ aliases: tag.aliases, label: tag.label }]);
+          const regEx = tagsToRegEx([{ aliases: tag.aliases, label: tag.label }]);
           await stores.tag.editTag({ id: tag.id, regEx, withRegen: false, withSub: false });
         },
         items: tags,

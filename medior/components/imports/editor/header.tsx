@@ -28,6 +28,8 @@ export const Header = Comp(({ type }: HeaderProps) => {
     type === "Ingester"
       ? null
       : totalFiles - (stores.import.reingester.curFolderFileIds?.length ?? 0);
+  const saveStatus =
+    type === "Ingester" ? stores.import.ingester.saveStatus : stores.import.reingester.saveStatus;
 
   const handleTagManager = () => {
     if (stores.tag.manager.isOpen) stores.tag.manager.setIsOpen(false);
@@ -39,6 +41,8 @@ export const Header = Comp(({ type }: HeaderProps) => {
       leftNode={<Button text="Tag Manager" icon="Label" onClick={handleTagManager} />}
       rightNode={
         <View row spacing="0.3rem">
+          {saveStatus && <Chip label={saveStatus} />}
+
           {type === "Ingester" ? (
             <>
               <Chip label={Fmt.bytes(totalBytes)} />

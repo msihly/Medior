@@ -167,12 +167,19 @@ export const createImportBatches = makeAction(
     }[],
   ) => {
     const tagMap: { tagIds: string[]; tagIdsWithAncestors: string[] }[] = [];
+    const batchTagIds = batches.map((batch) =>
+      batch.tagIds ? [...new Set(batch.tagIds)].flat() : [],
+    );
+    const uniqueTagIds = [...new Set(batchTagIds.flat())];
+    const ancestorMap = uniqueTagIds.length
+      ? await actions.makeAncestorIdsMap(uniqueTagIds)
+      : new Map<string, string[]>();
 
     for (let i = 0; i < batches.length; i++) {
-      const batch = batches[i];
+      const tagIds = batchTagIds[i];
       tagMap.push({
-        tagIds: batch.tagIds ? [...new Set(batch.tagIds)].flat() : [],
-        tagIdsWithAncestors: batch.tagIds ? await actions.deriveAncestorTagIds(batch.tagIds) : [],
+        tagIds,
+        tagIdsWithAncestors: [...new Set(tagIds.flatMap((tagId) => ancestorMap.get(tagId) ?? []))],
       });
     }
 
@@ -191,7 +198,7 @@ export const createImportBatches = makeAction(
     );
 
     if (res.length !== batches.length) throw new Error("Failed to create import batches");
-    return res;
+    return { count: res.length, ids: res.map((batch) => batch._id.toString()) };
   },
 );
 

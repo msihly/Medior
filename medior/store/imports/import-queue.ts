@@ -54,6 +54,11 @@ export class EditorImportsCache {
     return this.tagIdCache.get(id);
   }
 
+  setTagByLabel(tag: Pick<TagSchema, "label"> & { id?: string }) {
+    if (!tag.id) return;
+    this.tagLabelCache.set(tag.label, tag as TagSchema);
+  }
+
   getTagIdsByRegEx(label: string) {
     if (!this.regExMapsCache.has(label))
       this.regExMapsCache.set(
@@ -585,9 +590,11 @@ export const useImportEditor = (store: Ingester | Reingester) => {
     return { diffMetaTagsToEdit, editorImports, fileTagsToUpsert: tagsToUpsert };
   };
 
-  const getIdsFromTags = async (tags: TagToUpsert[], tagIds: string[] = []) => {
-    const tagsFromCache = await Promise.all(tags.map((t) => cache.current.getTagByLabel(t.label)));
-    return [...new Set([...tagIds, ...tagsFromCache.map((t) => t?.id)])].filter(Boolean);
+  const getIdsFromTags = async (tags: TagToUpsert[] = [], tagIds: string[] = []) => {
+    const resolvedTagIds = await Promise.all(
+      tags.map(async (t) => t.id ?? (await cache.current.getTagByLabel(t.label))?.id),
+    );
+    return [...new Set([...tagIds, ...resolvedTagIds])].filter(Boolean);
   };
 
   const parseDiffTags = async ({
@@ -702,16 +709,25 @@ export const useImportEditor = (store: Ingester | Reingester) => {
   };
 
   const upsertTags = async (perfLog: (logStr: string) => void) => {
-    if (store.flatTagsToUpsert.length > 0) {
-      if (DEBUG) perfLog(`Creating tags: ${Fmt.jstr(store.flatTagsToUpsert.filter((t) => !t.id))}`);
+    store.flatTagsToUpsert
+      .filter((tag) => tag.id)
+      .forEach((tag) => cache.current.setTagByLabel(tag));
 
-      const res = await stores.tag.upsertTags(store.flatTagsToUpsert);
+    const tagsToUpsert = store.flatTagsToUpsert.filter(
+      (tag) => !tag.id || tag.aliases?.length || tag.parentLabels?.length || tag.withRegEx,
+    );
+
+    if (tagsToUpsert.length > 0) {
+      if (DEBUG) perfLog(`Creating tags: ${Fmt.jstr(tagsToUpsert.filter((t) => !t.id))}`);
+
+      const res = await stores.tag.upsertTags(tagsToUpsert);
       if (!res.success) {
         console.error(res.error);
         toast.error("Failed to create tags");
-        return store.setIsSaving(false);
+        throw new Error(res.error);
       }
 
+      res.data.forEach((tag) => cache.current.setTagByLabel(tag));
       if (DEBUG) perfLog("Created tags");
     }
   };
@@ -724,20 +740,26 @@ export const useImportEditor = (store: Ingester | Reingester) => {
       const { perfLog, perfLogTotal } = makePerfLog("[ImportEditor.ingest]");
       if (DEBUG) perfLog("START");
       store.setIsSaving(true);
+      store.setSaveStatus("Creating tags");
 
       await upsertTags(perfLog);
 
+      store.setSaveStatus("Preparing batches");
       const importBatches = await createImportBatches();
+      store.setSaveStatus("Queueing batches");
       const res = await stores.import.manager.createImportBatches(importBatches);
       if (!res.success) throw new Error(res.error);
 
-      store.setIsSaving(false);
       if (DEBUG) perfLogTotal("Import batches created");
       toast.success(`Queued ${store.flatFolderHierarchy.size} import batches`);
       store.setIsOpen(false);
       stores.import.manager.setIsOpen(true);
     } catch (err) {
+      toast.error("Failed to queue imports");
       console.error(err);
+    } finally {
+      store.setIsSaving(false);
+      store.setSaveStatus("");
     }
   };
 
@@ -746,22 +768,28 @@ export const useImportEditor = (store: Ingester | Reingester) => {
       const { perfLog, perfLogTotal } = makePerfLog("[ImportEditor.reingest]");
       if (DEBUG) perfLog("START");
       store.setIsSaving(true);
+      store.setSaveStatus("Creating tags");
 
       await upsertTags(perfLog);
 
+      store.setSaveStatus("Preparing folder");
       store.options.setDeleteOnImport(false);
       store.options.setIgnorePrevDeleted(false);
       stores.import.reingester.setTagIds(
         (await createFolderTagIds(stores.import.reingester.getCurFolder())).tagIds,
       );
 
+      store.setSaveStatus("Re-importing folder");
       const res = await stores.import.reingester.reingest();
       if (!res.success) throw new Error(res.error);
 
-      store.setIsSaving(false);
       if (DEBUG) perfLogTotal("Folder reingested");
     } catch (err) {
+      toast.error("Failed to re-import folder");
       console.error(err);
+    } finally {
+      store.setIsSaving(false);
+      store.setSaveStatus("");
     }
   };
 
