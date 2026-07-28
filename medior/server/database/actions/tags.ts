@@ -1166,8 +1166,6 @@ export const setTagCount = makeAction(async ({ count, id }: { count: number; id:
   return models.TagModel.updateOne({ _id: id }, { $set: { count }, dateModified });
 });
 
-
-
 export const upsertTag = makeAction(
   async ({
     aliases,

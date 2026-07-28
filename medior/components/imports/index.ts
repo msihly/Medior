@@ -1,4 +1,5 @@
 export { ImportEditor } from "./editor";
+export * from "./import-editor-modal";
 export * from "./import-manager";
 export * from "./imports-filter-menu";
 export * from "./ingester";
