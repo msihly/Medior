@@ -39,6 +39,7 @@ export class _FileCollectionSearch extends Model({
   ids: prop<string[]>(() => []).withSetter(),
   isLoading: prop<boolean>(false).withSetter(),
   isPageCountLoading: prop<boolean>(false).withSetter(),
+  loadId: prop<number>(0).withSetter(),
   maxSize: prop<number>(null).withSetter(),
   minSize: prop<number>(null).withSetter(),
   page: prop<number>(1).withSetter(),
@@ -119,6 +120,7 @@ export class _FileCollectionSearch extends Model({
     this.ids = [];
     this.isLoading = false;
     this.isPageCountLoading = false;
+    this.loadId = 0;
     this.maxSize = null;
     this.minSize = null;
     this.page = 1;
@@ -257,27 +259,34 @@ export class _FileCollectionSearch extends Model({
     }: { noCache?: boolean; page?: number; withFullCount?: boolean } = {}) => {
       const debug = false;
       const { perfLog } = makePerfLog("[FileCollectionSearch]");
+      const loadId = this.loadId + 1;
+      this.setLoadId(loadId);
       this.setIsLoading(true);
       this.setIsPageCountLoading(true);
 
       const filterProps = noCache ? this.getFilterProps() : this.getCachedFilterProps();
       if (noCache || !this.cachedFilterProps) this.setCachedFilterProps(derefMobx(filterProps));
 
-      const countRes = await trpc.getFilteredFileCollectionCount.mutate({
-        ...filterProps,
-        curMaxPage: this.pageCount,
-        page,
-        pageSize: this.pageSize,
-        withFull: withFullCount,
-      });
-      if (!countRes.success) throw new Error(countRes.error);
-      const pageCount = countRes.data.pageCount;
+      if (withFullCount) {
+        const countRes = await trpc.getFilteredFileCollectionCount.mutate({
+          ...filterProps,
+          curMaxPage: this.pageCount,
+          page,
+          pageSize: this.pageSize,
+          withFull: withFullCount,
+        });
+        if (loadId !== this.loadId) return;
+        if (!countRes.success) throw new Error(countRes.error);
+        const pageCount = countRes.data.pageCount;
 
-      this.setPageCount(pageCount);
-      this.setIsPageCountLoading(false);
-      if (debug) perfLog(`Set pageCount to ${pageCount}`);
+        this.setPageCount(pageCount);
+        this.setIsPageCountLoading(false);
+        if (debug) perfLog(`Set pageCount to ${pageCount}`);
 
-      const newPage = page ?? (withFullCount ? pageCount : this.page);
+        page = pageCount;
+      }
+
+      const newPage = page ?? this.page;
       this.setPage(newPage);
       if (debug && page) perfLog(`Set page to ${page ?? this.page}`);
 
@@ -287,6 +296,7 @@ export class _FileCollectionSearch extends Model({
         page: newPage,
         pageSize: this.pageSize,
       });
+      if (loadId !== this.loadId) return;
       if (!itemsRes.success) throw new Error(itemsRes.error);
 
       let items = itemsRes.data;
@@ -294,6 +304,8 @@ export class _FileCollectionSearch extends Model({
 
       const tagIds = [...new Set(items.flatMap((item) => item.tagIdsWithAncestors))];
       const tags = (await trpc.listTag.mutate({ filter: { id: tagIds } })).data;
+
+      if (loadId !== this.loadId) return;
 
       items = await Promise.all(
         items.map(async (item) => ({
@@ -309,6 +321,26 @@ export class _FileCollectionSearch extends Model({
 
       this.setIsLoading(false);
       if (noCache) this.setHasChanges(false);
+
+      if (!withFullCount) {
+        trpc.getFilteredFileCollectionCount
+          .mutate({
+            ...filterProps,
+            curMaxPage: this.pageCount,
+            page,
+            pageSize: this.pageSize,
+            withFull: withFullCount,
+          })
+          .then((countRes) => {
+            if (loadId !== this.loadId) return;
+            this.setIsPageCountLoading(false);
+            if (!countRes.success) return console.error(countRes.error);
+            const pageCount = countRes.data.pageCount;
+
+            this.setPageCount(pageCount);
+            if (debug) perfLog(`Set pageCount to ${pageCount}`);
+          });
+      }
 
       return results;
     },
@@ -461,6 +493,7 @@ export class _FileImportBatchSearch extends Model({
   isCompleted: prop<boolean>(false).withSetter(),
   isLoading: prop<boolean>(false).withSetter(),
   isPageCountLoading: prop<boolean>(false).withSetter(),
+  loadId: prop<number>(0).withSetter(),
   page: prop<number>(1).withSetter(),
   pageCount: prop<number>(1).withSetter(),
   pageSize: prop<number>(() => getConfig().imports.manager.search.pageSize).withSetter(),
@@ -531,6 +564,7 @@ export class _FileImportBatchSearch extends Model({
     this.isCompleted = false;
     this.isLoading = false;
     this.isPageCountLoading = false;
+    this.loadId = 0;
     this.page = 1;
     this.pageCount = 1;
     this.pageSize = getConfig().imports.manager.search.pageSize;
@@ -667,27 +701,34 @@ export class _FileImportBatchSearch extends Model({
     }: { noCache?: boolean; page?: number; withFullCount?: boolean } = {}) => {
       const debug = false;
       const { perfLog } = makePerfLog("[FileImportBatchSearch]");
+      const loadId = this.loadId + 1;
+      this.setLoadId(loadId);
       this.setIsLoading(true);
       this.setIsPageCountLoading(true);
 
       const filterProps = noCache ? this.getFilterProps() : this.getCachedFilterProps();
       if (noCache || !this.cachedFilterProps) this.setCachedFilterProps(derefMobx(filterProps));
 
-      const countRes = await trpc.getFilteredFileImportBatchCount.mutate({
-        ...filterProps,
-        curMaxPage: this.pageCount,
-        page,
-        pageSize: this.pageSize,
-        withFull: withFullCount,
-      });
-      if (!countRes.success) throw new Error(countRes.error);
-      const pageCount = countRes.data.pageCount;
+      if (withFullCount) {
+        const countRes = await trpc.getFilteredFileImportBatchCount.mutate({
+          ...filterProps,
+          curMaxPage: this.pageCount,
+          page,
+          pageSize: this.pageSize,
+          withFull: withFullCount,
+        });
+        if (loadId !== this.loadId) return;
+        if (!countRes.success) throw new Error(countRes.error);
+        const pageCount = countRes.data.pageCount;
 
-      this.setPageCount(pageCount);
-      this.setIsPageCountLoading(false);
-      if (debug) perfLog(`Set pageCount to ${pageCount}`);
+        this.setPageCount(pageCount);
+        this.setIsPageCountLoading(false);
+        if (debug) perfLog(`Set pageCount to ${pageCount}`);
 
-      const newPage = page ?? (withFullCount ? pageCount : this.page);
+        page = pageCount;
+      }
+
+      const newPage = page ?? this.page;
       this.setPage(newPage);
       if (debug && page) perfLog(`Set page to ${page ?? this.page}`);
 
@@ -697,6 +738,7 @@ export class _FileImportBatchSearch extends Model({
         page: newPage,
         pageSize: this.pageSize,
       });
+      if (loadId !== this.loadId) return;
       if (!itemsRes.success) throw new Error(itemsRes.error);
 
       let items = itemsRes.data;
@@ -704,6 +746,8 @@ export class _FileImportBatchSearch extends Model({
 
       const tagIds = [...new Set(items.flatMap((item) => item.tagIdsWithAncestors))];
       const tags = (await trpc.listTag.mutate({ filter: { id: tagIds } })).data;
+
+      if (loadId !== this.loadId) return;
 
       items = await Promise.all(
         items.map(async (item) => ({
@@ -722,6 +766,26 @@ export class _FileImportBatchSearch extends Model({
 
       this.setIsLoading(false);
       if (noCache) this.setHasChanges(false);
+
+      if (!withFullCount) {
+        trpc.getFilteredFileImportBatchCount
+          .mutate({
+            ...filterProps,
+            curMaxPage: this.pageCount,
+            page,
+            pageSize: this.pageSize,
+            withFull: withFullCount,
+          })
+          .then((countRes) => {
+            if (loadId !== this.loadId) return;
+            this.setIsPageCountLoading(false);
+            if (!countRes.success) return console.error(countRes.error);
+            const pageCount = countRes.data.pageCount;
+
+            this.setPageCount(pageCount);
+            if (debug) perfLog(`Set pageCount to ${pageCount}`);
+          });
+      }
 
       return results;
     },
@@ -883,6 +947,7 @@ export class _FileSearch extends Model({
   isLoading: prop<boolean>(false).withSetter(),
   isModified: prop<boolean>(null).withSetter(),
   isPageCountLoading: prop<boolean>(false).withSetter(),
+  loadId: prop<number>(0).withSetter(),
   maxHeight: prop<number>(null).withSetter(),
   maxSize: prop<number>(null).withSetter(),
   maxWidth: prop<number>(null).withSetter(),
@@ -1052,6 +1117,7 @@ export class _FileSearch extends Model({
     this.isLoading = false;
     this.isModified = null;
     this.isPageCountLoading = false;
+    this.loadId = 0;
     this.maxHeight = null;
     this.maxSize = null;
     this.maxWidth = null;
@@ -1207,27 +1273,34 @@ export class _FileSearch extends Model({
     }: { noCache?: boolean; page?: number; withFullCount?: boolean } = {}) => {
       const debug = false;
       const { perfLog } = makePerfLog("[FileSearch]");
+      const loadId = this.loadId + 1;
+      this.setLoadId(loadId);
       this.setIsLoading(true);
       this.setIsPageCountLoading(true);
 
       const filterProps = noCache ? this.getFilterProps() : this.getCachedFilterProps();
       if (noCache || !this.cachedFilterProps) this.setCachedFilterProps(derefMobx(filterProps));
 
-      const countRes = await trpc.getFilteredFileCount.mutate({
-        ...filterProps,
-        curMaxPage: this.pageCount,
-        page,
-        pageSize: this.pageSize,
-        withFull: withFullCount,
-      });
-      if (!countRes.success) throw new Error(countRes.error);
-      const pageCount = countRes.data.pageCount;
+      if (withFullCount) {
+        const countRes = await trpc.getFilteredFileCount.mutate({
+          ...filterProps,
+          curMaxPage: this.pageCount,
+          page,
+          pageSize: this.pageSize,
+          withFull: withFullCount,
+        });
+        if (loadId !== this.loadId) return;
+        if (!countRes.success) throw new Error(countRes.error);
+        const pageCount = countRes.data.pageCount;
 
-      this.setPageCount(pageCount);
-      this.setIsPageCountLoading(false);
-      if (debug) perfLog(`Set pageCount to ${pageCount}`);
+        this.setPageCount(pageCount);
+        this.setIsPageCountLoading(false);
+        if (debug) perfLog(`Set pageCount to ${pageCount}`);
 
-      const newPage = page ?? (withFullCount ? pageCount : this.page);
+        page = pageCount;
+      }
+
+      const newPage = page ?? this.page;
       this.setPage(newPage);
       if (debug && page) perfLog(`Set page to ${page ?? this.page}`);
 
@@ -1237,6 +1310,7 @@ export class _FileSearch extends Model({
         page: newPage,
         pageSize: this.pageSize,
       });
+      if (loadId !== this.loadId) return;
       if (!itemsRes.success) throw new Error(itemsRes.error);
 
       let items = itemsRes.data;
@@ -1244,6 +1318,8 @@ export class _FileSearch extends Model({
 
       const tagIds = [...new Set(items.flatMap((item) => item.tagIdsWithAncestors))];
       const tags = (await trpc.listTag.mutate({ filter: { id: tagIds } })).data;
+
+      if (loadId !== this.loadId) return;
 
       items = await Promise.all(
         items.map(async (item) => ({
@@ -1259,6 +1335,26 @@ export class _FileSearch extends Model({
 
       this.setIsLoading(false);
       if (noCache) this.setHasChanges(false);
+
+      if (!withFullCount) {
+        trpc.getFilteredFileCount
+          .mutate({
+            ...filterProps,
+            curMaxPage: this.pageCount,
+            page,
+            pageSize: this.pageSize,
+            withFull: withFullCount,
+          })
+          .then((countRes) => {
+            if (loadId !== this.loadId) return;
+            this.setIsPageCountLoading(false);
+            if (!countRes.success) return console.error(countRes.error);
+            const pageCount = countRes.data.pageCount;
+
+            this.setPageCount(pageCount);
+            if (debug) perfLog(`Set pageCount to ${pageCount}`);
+          });
+      }
 
       return results;
     },
@@ -1489,6 +1585,7 @@ export class _SavedImportConfigSearch extends Model({
   isLoading: prop<boolean>(false).withSetter(),
   isPageCountLoading: prop<boolean>(false).withSetter(),
   label: prop<string>(""),
+  loadId: prop<number>(0).withSetter(),
   page: prop<number>(1).withSetter(),
   pageCount: prop<number>(1).withSetter(),
   pageSize: prop<number>(20).withSetter(),
@@ -1554,6 +1651,7 @@ export class _SavedImportConfigSearch extends Model({
     this.isLoading = false;
     this.isPageCountLoading = false;
     this.label = "";
+    this.loadId = 0;
     this.page = 1;
     this.pageCount = 1;
     this.pageSize = 20;
@@ -1687,27 +1785,34 @@ export class _SavedImportConfigSearch extends Model({
     }: { noCache?: boolean; page?: number; withFullCount?: boolean } = {}) => {
       const debug = false;
       const { perfLog } = makePerfLog("[SavedImportConfigSearch]");
+      const loadId = this.loadId + 1;
+      this.setLoadId(loadId);
       this.setIsLoading(true);
       this.setIsPageCountLoading(true);
 
       const filterProps = noCache ? this.getFilterProps() : this.getCachedFilterProps();
       if (noCache || !this.cachedFilterProps) this.setCachedFilterProps(derefMobx(filterProps));
 
-      const countRes = await trpc.getFilteredSavedImportConfigCount.mutate({
-        ...filterProps,
-        curMaxPage: this.pageCount,
-        page,
-        pageSize: this.pageSize,
-        withFull: withFullCount,
-      });
-      if (!countRes.success) throw new Error(countRes.error);
-      const pageCount = countRes.data.pageCount;
+      if (withFullCount) {
+        const countRes = await trpc.getFilteredSavedImportConfigCount.mutate({
+          ...filterProps,
+          curMaxPage: this.pageCount,
+          page,
+          pageSize: this.pageSize,
+          withFull: withFullCount,
+        });
+        if (loadId !== this.loadId) return;
+        if (!countRes.success) throw new Error(countRes.error);
+        const pageCount = countRes.data.pageCount;
 
-      this.setPageCount(pageCount);
-      this.setIsPageCountLoading(false);
-      if (debug) perfLog(`Set pageCount to ${pageCount}`);
+        this.setPageCount(pageCount);
+        this.setIsPageCountLoading(false);
+        if (debug) perfLog(`Set pageCount to ${pageCount}`);
 
-      const newPage = page ?? (withFullCount ? pageCount : this.page);
+        page = pageCount;
+      }
+
+      const newPage = page ?? this.page;
       this.setPage(newPage);
       if (debug && page) perfLog(`Set page to ${page ?? this.page}`);
 
@@ -1717,6 +1822,7 @@ export class _SavedImportConfigSearch extends Model({
         page: newPage,
         pageSize: this.pageSize,
       });
+      if (loadId !== this.loadId) return;
       if (!itemsRes.success) throw new Error(itemsRes.error);
 
       let items = itemsRes.data;
@@ -1729,6 +1835,26 @@ export class _SavedImportConfigSearch extends Model({
 
       this.setIsLoading(false);
       if (noCache) this.setHasChanges(false);
+
+      if (!withFullCount) {
+        trpc.getFilteredSavedImportConfigCount
+          .mutate({
+            ...filterProps,
+            curMaxPage: this.pageCount,
+            page,
+            pageSize: this.pageSize,
+            withFull: withFullCount,
+          })
+          .then((countRes) => {
+            if (loadId !== this.loadId) return;
+            this.setIsPageCountLoading(false);
+            if (!countRes.success) return console.error(countRes.error);
+            const pageCount = countRes.data.pageCount;
+
+            this.setPageCount(pageCount);
+            if (debug) perfLog(`Set pageCount to ${pageCount}`);
+          });
+      }
 
       return results;
     },
@@ -1865,6 +1991,7 @@ export class _TagSearch extends Model({
   isLoading: prop<boolean>(false).withSetter(),
   isPageCountLoading: prop<boolean>(false).withSetter(),
   label: prop<string>("").withSetter(),
+  loadId: prop<number>(0).withSetter(),
   page: prop<number>(1).withSetter(),
   pageCount: prop<number>(1).withSetter(),
   pageSize: prop<number>(() => getConfig().tags.manager.search.pageSize).withSetter(),
@@ -1958,6 +2085,7 @@ export class _TagSearch extends Model({
     this.isLoading = false;
     this.isPageCountLoading = false;
     this.label = "";
+    this.loadId = 0;
     this.page = 1;
     this.pageCount = 1;
     this.pageSize = getConfig().tags.manager.search.pageSize;
@@ -2095,27 +2223,34 @@ export class _TagSearch extends Model({
     }: { noCache?: boolean; page?: number; withFullCount?: boolean } = {}) => {
       const debug = false;
       const { perfLog } = makePerfLog("[TagSearch]");
+      const loadId = this.loadId + 1;
+      this.setLoadId(loadId);
       this.setIsLoading(true);
       this.setIsPageCountLoading(true);
 
       const filterProps = noCache ? this.getFilterProps() : this.getCachedFilterProps();
       if (noCache || !this.cachedFilterProps) this.setCachedFilterProps(derefMobx(filterProps));
 
-      const countRes = await trpc.getFilteredTagCount.mutate({
-        ...filterProps,
-        curMaxPage: this.pageCount,
-        page,
-        pageSize: this.pageSize,
-        withFull: withFullCount,
-      });
-      if (!countRes.success) throw new Error(countRes.error);
-      const pageCount = countRes.data.pageCount;
+      if (withFullCount) {
+        const countRes = await trpc.getFilteredTagCount.mutate({
+          ...filterProps,
+          curMaxPage: this.pageCount,
+          page,
+          pageSize: this.pageSize,
+          withFull: withFullCount,
+        });
+        if (loadId !== this.loadId) return;
+        if (!countRes.success) throw new Error(countRes.error);
+        const pageCount = countRes.data.pageCount;
 
-      this.setPageCount(pageCount);
-      this.setIsPageCountLoading(false);
-      if (debug) perfLog(`Set pageCount to ${pageCount}`);
+        this.setPageCount(pageCount);
+        this.setIsPageCountLoading(false);
+        if (debug) perfLog(`Set pageCount to ${pageCount}`);
 
-      const newPage = page ?? (withFullCount ? pageCount : this.page);
+        page = pageCount;
+      }
+
+      const newPage = page ?? this.page;
       this.setPage(newPage);
       if (debug && page) perfLog(`Set page to ${page ?? this.page}`);
 
@@ -2125,6 +2260,7 @@ export class _TagSearch extends Model({
         page: newPage,
         pageSize: this.pageSize,
       });
+      if (loadId !== this.loadId) return;
       if (!itemsRes.success) throw new Error(itemsRes.error);
 
       let items = itemsRes.data;
@@ -2137,6 +2273,26 @@ export class _TagSearch extends Model({
 
       this.setIsLoading(false);
       if (noCache) this.setHasChanges(false);
+
+      if (!withFullCount) {
+        trpc.getFilteredTagCount
+          .mutate({
+            ...filterProps,
+            curMaxPage: this.pageCount,
+            page,
+            pageSize: this.pageSize,
+            withFull: withFullCount,
+          })
+          .then((countRes) => {
+            if (loadId !== this.loadId) return;
+            this.setIsPageCountLoading(false);
+            if (!countRes.success) return console.error(countRes.error);
+            const pageCount = countRes.data.pageCount;
+
+            this.setPageCount(pageCount);
+            if (debug) perfLog(`Set pageCount to ${pageCount}`);
+          });
+      }
 
       return results;
     },
