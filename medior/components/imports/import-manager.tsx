@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import {
   Button,
   Card,
@@ -9,6 +10,7 @@ import {
   Modal,
   Pagination,
   ProgressBar,
+  SavedImportConfigsModal,
   Text,
   View,
 } from "medior/components";
@@ -19,6 +21,7 @@ import { Fmt } from "medior/utils/common";
 export const ImportManager = Comp(() => {
   const stores = useStores();
   const store = stores.import.manager;
+  const [isConfigsModalOpen, setIsConfigsModalOpen] = useState(false);
 
   const statusColor = store.isPaused
     ? colors.custom.orange
@@ -35,124 +38,140 @@ export const ImportManager = Comp(() => {
 
   const handlePageChange = (page: number) => store.search.loadFiltered({ page });
 
-  return (
-    <Modal.Container
-      visible={stores.import.manager.isOpen}
-      onClose={handleClose}
-      width="100%"
-      height="100%"
-    >
-      <Modal.Content row dividers={false}>
-        <View column flex={1} overflow="auto">
-          <Modal.Header>
-            <Text preset="title">{"Active Batch"}</Text>
-          </Modal.Header>
+  useEffect(() => {
+    if (store.isOpen) stores.import.loadSavedConfigs();
+  }, [store.isOpen]);
 
-          <View column height="100%" spacing="0.5rem">
+  return (
+    <>
+      <Modal.Container
+        visible={stores.import.manager.isOpen}
+        onClose={handleClose}
+        width="100%"
+        height="100%"
+      >
+        <Modal.Content row dividers={false}>
+          <View column flex={1} overflow="auto">
+            <Modal.Header>
+              <Text preset="title">{"Active Batch"}</Text>
+            </Modal.Header>
+
+            <View column height="100%" spacing="0.5rem">
+              <Card
+                height="100%"
+                width="100%"
+                padding={{ all: "0.8rem" }}
+                header={
+                  <View row align="center" spacing="0.5rem">
+                    <IconButton
+                      name={store.isPaused ? "PlayArrow" : "Pause"}
+                      iconProps={{ color: statusColor }}
+                      onClick={store.togglePaused}
+                    />
+
+                    <Text fontWeight={500} color={statusColor}>
+                      {store.isPaused ? "Paused" : store.isImporting ? "Importing" : "Inactive"}
+                    </Text>
+                  </View>
+                }
+                headerProps={{ justify: "flex-start" }}
+              >
+                <View column spacing="1rem">
+                  <ProgressBar
+                    numerator={store.activeBatch?.imported?.length}
+                    denominator={store.activeBatch?.imports?.length}
+                    withText
+                    minWidth="5rem"
+                  />
+
+                  <ProgressBar
+                    numerator={store.bytesCompleted || null}
+                    denominator={store.bytesTotal || null}
+                    numeratorFormatter={Fmt.bytes}
+                    denominatorFormatter={Fmt.bytes}
+                    withText
+                    minWidth="5rem"
+                  />
+
+                  <Text
+                    dir="rtl"
+                    whiteSpace="nowrap"
+                    textOverflow="ellipsis"
+                    textAlign="center"
+                    color={colors.custom.lightGrey}
+                  >
+                    {store.activeFilePath || "No active import"}
+                  </Text>
+
+                  <ImportEditor.ImportFolderList
+                    folder={store.activeBatch}
+                    batchId={store.activeBatch?.id}
+                    maxVisibleFiles={15}
+                  />
+                </View>
+              </Card>
+            </View>
+          </View>
+
+          <View column flex={1} overflow="auto">
+            <Modal.Header>
+              <Text preset="title">{"Search"}</Text>
+            </Modal.Header>
+
             <Card
               height="100%"
-              width="100%"
-              padding={{ all: "0.8rem" }}
-              header={
-                <View row align="center" spacing="0.5rem">
-                  <IconButton
-                    name={store.isPaused ? "PlayArrow" : "Pause"}
-                    iconProps={{ color: statusColor }}
-                    onClick={store.togglePaused}
-                  />
-
-                  <Text fontWeight={500} color={statusColor}>
-                    {store.isPaused ? "Paused" : store.isImporting ? "Importing" : "Inactive"}
-                  </Text>
-                </View>
-              }
-              headerProps={{ justify: "flex-start" }}
+              overflow="auto"
+              header={<ImportsFilterMenu store={store.search} />}
+              headerProps={{ justify: "flex-start", padding: { all: "0.3rem" } }}
             >
-              <View column spacing="1rem">
-                <ProgressBar
-                  numerator={store.activeBatch?.imported?.length}
-                  denominator={store.activeBatch?.imports?.length}
-                  withText
-                  minWidth="5rem"
-                />
-
-                <ProgressBar
-                  numerator={store.bytesCompleted || null}
-                  denominator={store.bytesTotal || null}
-                  numeratorFormatter={Fmt.bytes}
-                  denominatorFormatter={Fmt.bytes}
-                  withText
-                  minWidth="5rem"
-                />
-
-                <Text
-                  dir="rtl"
-                  whiteSpace="nowrap"
-                  textOverflow="ellipsis"
-                  textAlign="center"
-                  color={colors.custom.lightGrey}
-                >
-                  {store.activeFilePath || "No active import"}
-                </Text>
-
-                <ImportEditor.ImportFolderList
-                  folder={store.activeBatch}
-                  batchId={store.activeBatch?.id}
-                  maxVisibleFiles={15}
-                />
+              <View
+                column
+                spacing="1rem"
+                height="100%"
+                padding={{ bottom: "5rem" }}
+                overflow="hidden auto"
+              >
+                {store.search.results?.length ? (
+                  store.search.results.map((batch) => (
+                    <ImportEditor.ImportFolderList
+                      key={batch.id}
+                      folder={batch}
+                      batchId={batch.id}
+                      withListItems={false}
+                      collapsible
+                    />
+                  ))
+                ) : (
+                  <CenteredText text="No Results Found" color={colors.custom.lightGrey} />
+                )}
               </View>
+
+              <Pagination
+                count={store.search.pageCount}
+                page={store.search.page}
+                isLoading={store.search.isPageCountLoading}
+                onChange={handlePageChange}
+                onFullLoad={handleFullPageLoad}
+                siblingCount={2}
+              />
             </Card>
           </View>
-        </View>
+        </Modal.Content>
 
-        <View column flex={1} overflow="auto">
-          <Modal.Header>
-            <Text preset="title">{"Search"}</Text>
-          </Modal.Header>
+        <Modal.Footer>
+          <Button
+            text="Saved Configs"
+            icon="Settings"
+            onClick={() => setIsConfigsModalOpen(true)}
+          />
 
-          <Card
-            height="100%"
-            overflow="auto"
-            header={<ImportsFilterMenu store={store.search} />}
-            headerProps={{ justify: "flex-start", padding: { all: "0.3rem" } }}
-          >
-            <View
-              column
-              spacing="1rem"
-              height="100%"
-              padding={{ bottom: "5rem" }}
-              overflow="hidden auto"
-            >
-              {store.search.results?.length ? (
-                store.search.results.map((batch) => (
-                  <ImportEditor.ImportFolderList
-                    key={batch.id}
-                    folder={batch}
-                    batchId={batch.id}
-                    withListItems={false}
-                    collapsible
-                  />
-                ))
-              ) : (
-                <CenteredText text="No Results Found" color={colors.custom.lightGrey} />
-              )}
-            </View>
+          <Button text="Close" icon="Close" onClick={handleClose} color={colors.custom.grey} />
+        </Modal.Footer>
+      </Modal.Container>
 
-            <Pagination
-              count={store.search.pageCount}
-              page={store.search.page}
-              isLoading={store.search.isPageCountLoading}
-              onChange={handlePageChange}
-              onFullLoad={handleFullPageLoad}
-              siblingCount={2}
-            />
-          </Card>
-        </View>
-      </Modal.Content>
-
-      <Modal.Footer>
-        <Button text="Close" icon="Close" onClick={handleClose} color={colors.custom.grey} />
-      </Modal.Footer>
-    </Modal.Container>
+      {isConfigsModalOpen && (
+        <SavedImportConfigsModal onClose={() => setIsConfigsModalOpen(false)} />
+      )}
+    </>
   );
 });

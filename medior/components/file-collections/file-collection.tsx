@@ -4,7 +4,6 @@ import {
   Chip,
   Comp,
   ContextMenu,
-  Divider,
   FileBase,
   FileCard,
   RatingButton,
@@ -69,13 +68,13 @@ export const FileCollection = Comp(({ collection }: FileCollectionProps) => {
           padding={{ all: 0 }}
           overflow="hidden"
           header={
-            <View column spacing="0.3rem" width="100%">
+            <View column spacing="0.5rem" width="100%">
               <View
                 row
                 align="center"
                 justify="space-between"
                 width="100%"
-                padding={{ all: "0.2rem 0.3rem 0 0.4rem" }}
+                padding={{ all: "0.2rem 0.4rem 0 0.4rem" }}
               >
                 <Text>{collection.title}</Text>
 
@@ -89,14 +88,11 @@ export const FileCollection = Comp(({ collection }: FileCollectionProps) => {
               </View>
 
               {!collection.tags ? null : (
-                <>
-                  <Divider sx={{ height: "2px" }} />
-
-                  <TagRow
-                    tags={collection.tags.slice(0, 15)}
-                    padding={{ all: "0 0.3rem 0.3rem 0.2rem" }}
-                  />
-                </>
+                <TagRow
+                  tags={collection.tags}
+                  limit={15}
+                  padding={{ all: "0 0.3rem 0.3rem 0.2rem" }}
+                />
               )}
             </View>
           }

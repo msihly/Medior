@@ -27,17 +27,20 @@ export const sortTags = <T extends TagToUpsert | TagOption>(tags: T[]) =>
 
 export interface TagRowProps extends ViewProps {
   disabled?: boolean;
+  limit?: number;
   tags: TagToUpsert[];
 }
 
-export const TagRow = Comp(({ disabled, tags, ...props }: TagRowProps) => {
+export const TagRow = Comp(({ disabled, limit, tags, ...props }: TagRowProps) => {
   if (!tags?.length) return null;
 
   return (
     <View row spacing="0.5rem" overflow="auto hidden" {...props}>
-      {sortTags(tags).map((tag) => (
-        <TagChip key={tag.label} tag={tag} disabled={disabled} hasEditor />
-      ))}
+      {sortTags(tags)
+        .slice(0, limit)
+        .map((tag) => (
+          <TagChip key={tag.label} tag={tag} disabled={disabled} hasEditor />
+        ))}
     </View>
   );
 });

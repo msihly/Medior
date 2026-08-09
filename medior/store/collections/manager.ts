@@ -27,8 +27,10 @@ export class CollectionManager extends Model({
     if (isOpen) stores.collection.editor.isOpen = false;
 
     this.search.reset();
-    this.selectedFileIds = [];
-    this.selectedFiles = [];
+    if (!isOpen) {
+      this.selectedFileIds = [];
+      this.selectedFiles = [];
+    }
   }
 
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */

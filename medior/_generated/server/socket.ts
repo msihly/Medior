@@ -40,6 +40,15 @@ export interface SocketEmitEvents {
     args: { id: string; updates: Partial<models.FileSchema> },
     options?: SocketEventOptions,
   ) => void;
+  onSavedImportConfigCreated: (
+    args: models.SavedImportConfigSchema,
+    options?: SocketEventOptions,
+  ) => void;
+  onSavedImportConfigDeleted: (args: { ids: string[] }, options?: SocketEventOptions) => void;
+  onSavedImportConfigUpdated: (
+    args: { id: string; updates: Partial<models.SavedImportConfigSchema> },
+    options?: SocketEventOptions,
+  ) => void;
   onSavedSearchCreated: (args: models.SavedSearchSchema, options?: SocketEventOptions) => void;
   onSavedSearchDeleted: (args: { ids: string[] }, options?: SocketEventOptions) => void;
   onSavedSearchUpdated: (
@@ -114,6 +123,9 @@ export const socketEvents: SocketEmitEvent[] = [
   "onFileCreated",
   "onFileDeleted",
   "onFileUpdated",
+  "onSavedImportConfigCreated",
+  "onSavedImportConfigDeleted",
+  "onSavedImportConfigUpdated",
   "onSavedSearchCreated",
   "onSavedSearchDeleted",
   "onSavedSearchUpdated",

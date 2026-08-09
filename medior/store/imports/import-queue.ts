@@ -341,6 +341,7 @@ export const useImportEditor = (store: Ingester | Reingester) => {
     store.options.withFileNameToTags,
     store.options.withFlattenTo,
     store.options.withFolderNameRegEx,
+    store.options.useSavedConfigs,
     store.options.withSidecar,
     store.rootFolderIndex,
   ]);
@@ -357,122 +358,134 @@ export const useImportEditor = (store: Ingester | Reingester) => {
     folderName: string;
   }): Promise<FlatFolder> => {
     const { perfLog } = makePerfLog("[ImportEditor.createFolder]");
+    const savedConfig = store.options.useSavedConfigs
+      ? stores.import.getSavedConfigForFolder(folderName)
+      : null;
+    const originalOptions = store.options.toSavedConfig();
 
-    const folderTags: TagToUpsert[] = [];
+    if (savedConfig) store.options.applySavedConfig(savedConfig.options);
 
-    const folderNameParts = createFolderNameParts(folderName);
+    try {
+      const folderTags: TagToUpsert[] = [];
 
-    const collectionTitle =
-      store.options.folderToCollectionMode !== "none"
-        ? (store.options.folderToCollectionMode === "withTag"
-            ? folderNameParts.slice()
-            : folderNameParts
-          ).pop()
-        : null;
+      const folderNameParts = createFolderNameParts(folderName);
 
-    const tagLabel = folderNameParts.slice().pop()!;
-    const tagParentLabel = folderNameParts.slice(0, -1).pop();
+      const collectionTitle =
+        store.options.folderToCollectionMode !== "none"
+          ? (store.options.folderToCollectionMode === "withTag"
+              ? folderNameParts.slice()
+              : folderNameParts
+            ).pop()
+          : null;
 
-    if (store.options.folderToTagsMode !== "none") {
-      if (store.options.folderToTagsMode === "cascading") {
-        const labels = store.options.withDelimiters
-          ? folderNameParts.flatMap(delimit)
-          : folderNameParts;
+      const tagLabel = folderNameParts.slice().pop()!;
+      const tagParentLabel = folderNameParts.slice(0, -1).pop();
 
-        for (const label of labels) {
-          if (label === collectionTitle) continue;
-          const tag = await cache.current.getTagByLabel(label);
+      if (store.options.folderToTagsMode !== "none") {
+        if (store.options.folderToTagsMode === "cascading") {
+          const labels = store.options.withDelimiters
+            ? folderNameParts.flatMap(delimit)
+            : folderNameParts;
 
-          if (!tag && !cache.current.tagsToCreateMap.has(label)) {
-            cache.current.tagsToCreateMap.set(label, {
-              label,
-              withRegEx: store.options.withNewTagsToRegEx,
-            });
-            folderTags.push({ label });
-          } else folderTags.push({ ...tag, label });
-        }
-
-        if (DEBUG) perfLog("Parsed cascading tags");
-      }
-
-      if (store.options.folderToTagsMode === "hierarchical" && tagLabel) {
-        const labels = store.options.withDelimiters
-          ? folderNameParts.flatMap(delimit)
-          : folderNameParts;
-
-        for (const label of labels) {
-          if (label === collectionTitle) continue;
-          const tag = await cache.current.getTagByLabel(label);
-
-          const parentLabels = tagParentLabel ? delimit(tagParentLabel) : [];
-          folderTags.push({ ...tag, label, parentLabels });
-        }
-
-        for (let idx = 0; idx < folderNameParts.length; idx++) {
-          const namePart = folderNameParts[idx];
-          for (const label of delimit(namePart)) {
+          for (const label of labels) {
             if (label === collectionTitle) continue;
             const tag = await cache.current.getTagByLabel(label);
-            const parentLabel = folderNameParts[idx - 1];
-            const parentLabels = parentLabel ? delimit(parentLabel) : [];
 
-            if (!tag && !cache.current.tagsToCreateMap.has(label))
+            if (!tag && !cache.current.tagsToCreateMap.has(label)) {
               cache.current.tagsToCreateMap.set(label, {
                 label,
-                parentLabels,
                 withRegEx: store.options.withNewTagsToRegEx,
               });
-            else if (tag && !cache.current.tagsToEditMap.has(tag.id))
-              cache.current.tagsToEditMap.set(tag.id, { ...tag, label, parentLabels });
+              folderTags.push({ label });
+            } else folderTags.push({ ...tag, label });
           }
+
+          if (DEBUG) perfLog("Parsed cascading tags");
         }
 
-        if (DEBUG) perfLog("Parsed hierarchical tags");
-      }
+        if (store.options.folderToTagsMode === "hierarchical" && tagLabel) {
+          const labels = store.options.withDelimiters
+            ? folderNameParts.flatMap(delimit)
+            : folderNameParts;
 
-      if (store.options.withFolderNameRegEx) {
-        const existingLabels = new Set(folderTags.map((tag) => tag.label));
-        const tagsToPush: TagToUpsert[] = [];
+          for (const label of labels) {
+            if (label === collectionTitle) continue;
+            const tag = await cache.current.getTagByLabel(label);
 
-        for (const folderNamePart of folderNameParts) {
-          const tagIds = cache.current.getTagIdsByRegEx(folderNamePart);
-          if (!tagIds?.length) continue;
+            const parentLabels = tagParentLabel ? delimit(tagParentLabel) : [];
+            folderTags.push({ ...tag, label, parentLabels });
+          }
 
-          for (const id of tagIds) {
-            const label = (await cache.current.getTagById(id))?.label;
-            if (!label) continue;
-            if (!existingLabels.has(label)) {
-              tagsToPush.push({ id, label });
-              existingLabels.add(label);
+          for (let idx = 0; idx < folderNameParts.length; idx++) {
+            const namePart = folderNameParts[idx];
+            for (const label of delimit(namePart)) {
+              if (label === collectionTitle) continue;
+              const tag = await cache.current.getTagByLabel(label);
+              const parentLabel = folderNameParts[idx - 1];
+              const parentLabels = parentLabel ? delimit(parentLabel) : [];
+
+              if (!tag && !cache.current.tagsToCreateMap.has(label))
+                cache.current.tagsToCreateMap.set(label, {
+                  label,
+                  parentLabels,
+                  withRegEx: store.options.withNewTagsToRegEx,
+                });
+              else if (tag && !cache.current.tagsToEditMap.has(tag.id))
+                cache.current.tagsToEditMap.set(tag.id, { ...tag, label, parentLabels });
+            }
+          }
+
+          if (DEBUG) perfLog("Parsed hierarchical tags");
+        }
+
+        if (store.options.withFolderNameRegEx) {
+          const existingLabels = new Set(folderTags.map((tag) => tag.label));
+          const tagsToPush: TagToUpsert[] = [];
+
+          for (const folderNamePart of folderNameParts) {
+            const tagIds = cache.current.getTagIdsByRegEx(folderNamePart);
+            if (!tagIds?.length) continue;
+
+            for (const id of tagIds) {
+              const label = (await cache.current.getTagById(id))?.label;
+              if (!label) continue;
+              if (!existingLabels.has(label)) {
+                tagsToPush.push({ id, label });
+                existingLabels.add(label);
+              }
+            }
+          }
+
+          folderTags.push(...tagsToPush);
+          if (DEBUG) perfLog("Parsed tags from folder name RegEx maps");
+        }
+
+        /** Parse tags from collectionTitle via folder regex maps */
+        if (collectionTitle && store.options.folderToCollectionMode === "withTag") {
+          const collectionTitleTags = cache.current.getTagIdsByRegEx(collectionTitle);
+          if (collectionTitleTags?.length) {
+            for (const tagId of collectionTitleTags) {
+              const tag = await cache.current.getTagById(tagId);
+              if (tag && !folderTags.some((t) => t.label === tag.label)) folderTags.push(tag);
             }
           }
         }
-
-        if (DEBUG) perfLog("Parsed tags from folder name RegEx maps");
       }
 
-      /** Parse tags from collectionTitle via folder regex maps */
-      if (collectionTitle && store.options.folderToCollectionMode === "withTag") {
-        const collectionTitleTags = cache.current.getTagIdsByRegEx(collectionTitle);
-        if (collectionTitleTags?.length) {
-          for (const tagId of collectionTitleTags) {
-            const tag = await cache.current.getTagById(tagId);
-            if (tag && !folderTags.some((t) => t.label === tag.label)) folderTags.push(tag);
-          }
-        }
-      }
+      const tags = await dedupeTags(folderTags);
+      if (DEBUG) perfLog("Filtered out duplicate / ancestor tags");
+
+      return {
+        collectionTitle,
+        folderName,
+        folderNameParts,
+        imports: [cloneFileImportSnapshot(fileImport)],
+        savedConfigLabel: savedConfig?.label,
+        tags,
+      };
+    } finally {
+      if (savedConfig) store.options.applySavedConfig(originalOptions);
     }
-
-    const tags = await dedupeTags(folderTags);
-    if (DEBUG) perfLog("Filtered out duplicate / ancestor tags");
-
-    return {
-      collectionTitle,
-      folderName,
-      folderNameParts,
-      imports: [cloneFileImportSnapshot(fileImport)],
-      tags,
-    };
   };
 
   const cloneFileImportSnapshot = (imp: ModelCreationData<FileImport>) => {
@@ -572,11 +585,15 @@ export const useImportEditor = (store: Ingester | Reingester) => {
 
       const folder = folders[idx];
       const { imports, tagIds } = await createFolderTagIds(folder);
+      const savedConfig = store.options.useSavedConfigs
+        ? stores.import.getSavedConfigForFolder(folder.folderName)
+        : null;
 
       importBatches.push({
         collectionTitle: folder.collectionTitle,
-        deleteOnImport: store.options.deleteOnImport,
-        ignorePrevDeleted: store.options.ignorePrevDeleted,
+        deleteOnImport: savedConfig?.options.deleteOnImport ?? store.options.deleteOnImport,
+        ignorePrevDeleted:
+          savedConfig?.options.ignorePrevDeleted ?? store.options.ignorePrevDeleted,
         imports,
         rootFolderPath: folder.folderName
           .split(path.sep)
@@ -852,8 +869,15 @@ export const useImportEditor = (store: Ingester | Reingester) => {
     const tagIds = cache.current.getTagIdsByRegEx(copy.label);
     if (tagIds?.length) {
       for (const tagId of tagIds) {
-        const label = (await cache.current.getTagById(tagId))?.label;
-        if (label && !copy.parentLabels?.includes(label)) tags.push({ ...copy, id: tagId, label });
+        const tag = await cache.current.getTagById(tagId);
+        if (tag?.label && !copy.parentLabels?.includes(tag.label)) {
+          tags.push({
+            ...copy,
+            category: tag.category,
+            id: tagId,
+            label: tag.label,
+          });
+        }
       }
     } else tags.push(copy);
 
@@ -976,6 +1000,7 @@ export const useImportEditor = (store: Ingester | Reingester) => {
       toast.success(`Queued ${store.allFlatFolderHierarchy.size} import batches`);
       store.setIsOpen(false);
       stores.import.manager.setIsOpen(true);
+      void stores.import.manager.runImporter();
     } catch (err) {
       if (err instanceof IngestCancelledError) return;
       toast.error("Failed to queue imports");
@@ -1040,10 +1065,23 @@ export const useImportEditor = (store: Ingester | Reingester) => {
         if (DEBUG) perfLog("START");
 
         cache.current = new EditorImportsCache(stores);
+        if (store.options.useSavedConfigs) {
+          await stores.import.loadSavedConfigs();
+
+          const savedConfigMatch = stores.import.getSavedConfigMatchForFolder(store.rootFolderPath);
+          if (savedConfigMatch?.rootFolderPath) {
+            store.setRootFolderPath(savedConfigMatch.rootFolderPath);
+            store.setRootFolderIndex(savedConfigMatch.rootFolderPath.split(path.sep).length - 1);
+          }
+        }
 
         const hasRegExScan =
           store.options.withFileNameToTags ||
           store.options.withFolderNameRegEx ||
+          (store.options.useSavedConfigs &&
+            stores.import.savedConfigs.some(
+              (savedConfig) => savedConfig.options.withFolderNameRegEx,
+            )) ||
           (store.options.withDiffusionParams &&
             store.options.withDiffusionTags &&
             store.options.withDiffusionRegExMaps);

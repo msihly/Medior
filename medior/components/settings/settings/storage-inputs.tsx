@@ -132,6 +132,7 @@ export const StorageInputs = Comp(() => {
         },
       ]);
       if (!res.success) throw new Error(res.error);
+      void stores.import.manager.runImporter();
       _log("Created import batch. Check Import Manager for progress.");
       setFilesLeftInStorageOnly([]);
     });

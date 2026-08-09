@@ -286,6 +286,37 @@ FileSchema.index({ width: 1, _id: 1 }, { unique: true });
 export const FileModel = model<FileSchema>("File", FileSchema);
 
 /* --------------------------------------------------------------------------- */
+/*                               SavedImportConfig
+/* --------------------------------------------------------------------------- */
+
+export interface SavedImportConfigSchema {
+  id: string;
+  dateCreated: string;
+  dateModified?: string;
+  folderPath: string;
+  label: string;
+  options: Record<string, any>;
+}
+
+const SavedImportConfigSchema = new Schema<SavedImportConfigSchema>({
+  id: String,
+  dateCreated: String,
+  dateModified: String,
+  folderPath: String,
+  label: String,
+  options: Object,
+});
+
+SavedImportConfigSchema.index({ dateCreated: 1, _id: 1 }, { unique: true });
+SavedImportConfigSchema.index({ dateModified: 1, _id: 1 }, { unique: true });
+SavedImportConfigSchema.index({ folderPath: 1 }, { unique: true });
+
+export const SavedImportConfigModel = model<SavedImportConfigSchema>(
+  "SavedImportConfig",
+  SavedImportConfigSchema,
+);
+
+/* --------------------------------------------------------------------------- */
 /*                               SavedSearch
 /* --------------------------------------------------------------------------- */
 

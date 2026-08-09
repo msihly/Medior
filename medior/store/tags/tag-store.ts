@@ -3,7 +3,7 @@ import { Model, model, modelFlow, prop } from "mobx-keystone";
 import * as db from "medior/server/database";
 import { TagToUpsert } from "medior/components";
 import { asyncAction, toast } from "medior/utils/client";
-import { PromiseQueue, tagsToRegEx } from "medior/utils/common";
+import { Fmt, PromiseQueue, tagsToRegEx } from "medior/utils/common";
 import { trpc } from "medior/utils/server";
 import { TagEditorStore, TagManagerStore, TagMergerStore, TagOption } from ".";
 
@@ -30,7 +30,7 @@ export class TagStore extends Model({
       withSub = true,
       ...tag
     }: db.CreateTagInput & { withRegEx?: boolean }) => {
-      regEx = regEx || withRegEx ? tagsToRegEx([{ aliases, label }]) : null;
+      regEx = regEx || (withRegEx ? tagsToRegEx([{ aliases, label }]) : null);
 
       const res = await trpc.createTag.mutate({
         ...tag,
@@ -59,7 +59,9 @@ export class TagStore extends Model({
   @modelFlow
   getByLabel = asyncAction(async (label: string) => {
     if (!label) throw new Error("No label provided");
-    const res = await trpc.listTag.mutate({ filter: { label: { $in: [label] } } });
+    const res = await trpc.listTag.mutate({
+      filter: { label: { $regex: `^${Fmt.regexEscape(label)}$`, $options: "i" } },
+    });
     if (!res.success) throw new Error(res.error);
     return res.data?.[0];
   });
@@ -74,7 +76,13 @@ export class TagStore extends Model({
   @modelFlow
   listByLabels = asyncAction(async (labels: string[]) => {
     if (!labels?.length) throw new Error("No labels provided");
-    const res = await trpc.listTag.mutate({ filter: { label: { $in: labels } } });
+    const res = await trpc.listTag.mutate({
+      filter: {
+        $or: labels.map((label) => ({
+          label: { $regex: `^${Fmt.regexEscape(label)}$`, $options: "i" },
+        })),
+      },
+    });
     if (!res.success) throw new Error(res.error);
     return res.data;
   });
@@ -117,6 +125,7 @@ export class TagStore extends Model({
         try {
           const res = await trpc.upsertTag.mutate({
             aliases: t.aliases?.length ? [...t.aliases] : [],
+            category: t.category,
             label: t.label,
             parentLabels: t.parentLabels?.length ? [...t.parentLabels] : [],
             withRegEx: t.withRegEx,

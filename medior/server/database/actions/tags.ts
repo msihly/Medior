@@ -1169,12 +1169,14 @@ export const setTagCount = makeAction(async ({ count, id }: { count: number; id:
 export const upsertTag = makeAction(
   async ({
     aliases,
+    category,
     label,
     parentLabels,
     regEx,
     withRegEx = false,
   }: {
     aliases?: string[];
+    category?: models.TagSchema["category"];
     label: string;
     parentLabels?: string[];
     regEx?: string;
@@ -1193,8 +1195,9 @@ export const upsertTag = makeAction(
       const existingParentIds = tag?.parentIds.map((id) => id.toString()) ?? [];
       const missingParentIds = parentIds.filter((id) => !existingParentIds.includes(id));
 
-      if (missingParentIds.length) {
+      if (missingParentIds.length || category !== undefined) {
         const res = await editTag({
+          ...(category !== undefined ? { category } : {}),
           id: tagId,
           label,
           parentIds: [...existingParentIds, ...missingParentIds],
@@ -1208,6 +1211,7 @@ export const upsertTag = makeAction(
 
     const res = await createTag({
       aliases: aliases?.length ? aliases : [],
+      category,
       label,
       parentIds,
       regEx: regEx ?? (withRegEx ? tagsToRegEx([{ aliases, label }]) : null),

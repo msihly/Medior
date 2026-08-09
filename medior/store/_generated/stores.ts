@@ -335,7 +335,20 @@ export class _FileCollectionSearch extends Model({
     if (!trimmedLabel) throw new Error("Saved search label is required");
 
     const existing = this.savedSearches.find((s) => s.label === trimmedLabel);
+    const selected = this.savedSearches.find((s) => s.id === this.selectedSavedSearchId);
     const filterProps = this.getSearchProps();
+
+    if (selected) {
+      const res = await trpc.updateSavedSearch.mutate({
+        args: { id: selected.id, updates: { filterProps, label: trimmedLabel } },
+      });
+      if (!res.success) throw new Error(res.error);
+      await this.loadSavedSearches();
+      this.setSelectedSavedSearchId(selected.id);
+      this.setIsSaveModalOpen(false);
+      toast.success("Saved search updated");
+      return res.data;
+    }
 
     if (existing) {
       const res = await trpc.updateSavedSearch.mutate({
@@ -735,7 +748,20 @@ export class _FileImportBatchSearch extends Model({
     if (!trimmedLabel) throw new Error("Saved search label is required");
 
     const existing = this.savedSearches.find((s) => s.label === trimmedLabel);
+    const selected = this.savedSearches.find((s) => s.id === this.selectedSavedSearchId);
     const filterProps = this.getSearchProps();
+
+    if (selected) {
+      const res = await trpc.updateSavedSearch.mutate({
+        args: { id: selected.id, updates: { filterProps, label: trimmedLabel } },
+      });
+      if (!res.success) throw new Error(res.error);
+      await this.loadSavedSearches();
+      this.setSelectedSavedSearchId(selected.id);
+      this.setIsSaveModalOpen(false);
+      toast.success("Saved search updated");
+      return res.data;
+    }
 
     if (existing) {
       const res = await trpc.updateSavedSearch.mutate({
@@ -1259,7 +1285,20 @@ export class _FileSearch extends Model({
     if (!trimmedLabel) throw new Error("Saved search label is required");
 
     const existing = this.savedSearches.find((s) => s.label === trimmedLabel);
+    const selected = this.savedSearches.find((s) => s.id === this.selectedSavedSearchId);
     const filterProps = this.getSearchProps();
+
+    if (selected) {
+      const res = await trpc.updateSavedSearch.mutate({
+        args: { id: selected.id, updates: { filterProps, label: trimmedLabel } },
+      });
+      if (!res.success) throw new Error(res.error);
+      await this.loadSavedSearches();
+      this.setSelectedSavedSearchId(selected.id);
+      this.setIsSaveModalOpen(false);
+      toast.success("Saved search updated");
+      return res.data;
+    }
 
     if (existing) {
       const res = await trpc.updateSavedSearch.mutate({
@@ -1435,6 +1474,376 @@ export class _FileSearch extends Model({
       selectedVideoExts: this.selectedVideoExts,
       sortValue: this.sortValue,
       tags: this.tags,
+    });
+  }
+}
+@model("medior/_SavedImportConfigSearch")
+export class _SavedImportConfigSearch extends Model({
+  cachedFilterProps: prop<object | null>(null).withSetter(),
+  dateModifiedEnd: prop<string>("").withSetter(),
+  dateModifiedStart: prop<string>("").withSetter(),
+  folderPath: prop<string>(""),
+  forcePages: prop<boolean>(false).withSetter(),
+  hasChanges: prop<boolean>(false).withSetter(),
+  ids: prop<string[]>(() => []).withSetter(),
+  isLoading: prop<boolean>(false).withSetter(),
+  isPageCountLoading: prop<boolean>(false).withSetter(),
+  label: prop<string>(""),
+  page: prop<number>(1).withSetter(),
+  pageCount: prop<number>(1).withSetter(),
+  pageSize: prop<number>(20).withSetter(),
+  results: prop<Stores.SavedImportConfig[]>(() => []).withSetter(),
+  selectedIds: prop<string[]>(() => []).withSetter(),
+  sortValue: prop<SortMenuProps["value"]>(() => ({
+    isDesc: true,
+    key: "dateModified",
+  })).withSetter(),
+  isDeleteModalOpen: prop<boolean>(false).withSetter(),
+  isSaveModalOpen: prop<boolean>(false).withSetter(),
+  savedSearches: prop<Stores.SavedSearch[]>(() => []).withSetter(),
+  selectedSavedSearchId: prop<string>("").withSetter(),
+}) {
+  onInit() {
+    autoBind(this);
+  }
+
+  /* STANDARD ACTIONS */
+  @modelAction
+  _addResult(result: ModelCreationData<Stores.SavedImportConfig>) {
+    this.results.push(new Stores.SavedImportConfig(result));
+  }
+
+  @modelAction
+  applySearchProps(searchProps: Record<string, any>) {
+    this.reset();
+    Object.entries(searchProps).forEach(([key, value]) => {
+      if (key in this) this[key] = value;
+    });
+    this.cachedFilterProps = null;
+    this.hasChanges = true;
+    this.page = 1;
+    (this as any).afterApplySearchProps?.(searchProps);
+  }
+
+  @modelAction
+  setFolderPath(value: string) {
+    this.folderPath = value;
+    this.hasChanges = true;
+  }
+
+  @modelAction
+  setLabel(value: string) {
+    this.label = value;
+    this.hasChanges = true;
+  }
+
+  @modelAction
+  _deleteResults(ids: string[]) {
+    this.results = this.results.filter((d) => !ids.includes(d.id));
+  }
+
+  @modelAction
+  reset() {
+    this.cachedFilterProps = null;
+    this.dateModifiedEnd = "";
+    this.dateModifiedStart = "";
+    this.folderPath = "";
+    this.forcePages = false;
+    this.hasChanges = false;
+    this.ids = [];
+    this.isLoading = false;
+    this.isPageCountLoading = false;
+    this.label = "";
+    this.page = 1;
+    this.pageCount = 1;
+    this.pageSize = 20;
+    this.results = [];
+    this.selectedIds = [];
+    this.sortValue = { isDesc: true, key: "dateModified" };
+  }
+
+  @modelAction
+  toggleSelected(selected: { id: string; isSelected?: boolean }[], withToast = false) {
+    if (!selected?.length) return;
+
+    const [added, removed] = selected.reduce(
+      (acc, cur) => (acc[cur.isSelected ? 0 : 1].push(cur.id), acc),
+      [[], []],
+    );
+
+    const removedSet = new Set(removed);
+    this.selectedIds = [...new Set(this.selectedIds.concat(added))].filter(
+      (id) => !removedSet.has(id),
+    );
+
+    if (withToast) {
+      const addedCount = added.length;
+      const removedCount = removed.length;
+      if (addedCount && removedCount)
+        toast.success(`Selected ${addedCount} items and deselected ${removedCount} items`);
+      else if (addedCount) toast.success(`Selected ${addedCount} items`);
+      else if (removedCount) toast.success(`Deselected ${removedCount} items`);
+    }
+  }
+
+  /* ASYNC ACTIONS */
+  @modelFlow
+  applySavedSearch = asyncAction(async (id: string) => {
+    if (!this.savedSearches.some((s) => s.id === id)) await this.loadSavedSearches();
+    const savedSearch = this.savedSearches.find((s) => s.id === id);
+    if (!savedSearch) return;
+
+    this.applySearchProps(derefMobx(savedSearch.filterProps));
+    this.setSelectedSavedSearchId(id);
+    await this.loadFiltered({ noCache: true, page: 1 });
+  });
+
+  @modelFlow
+  deleteSavedSearch = asyncAction(async (id: string = this.selectedSavedSearchId) => {
+    if (!id) return;
+
+    const res = await trpc.deleteSavedSearch.mutate({ args: { ids: [id] } });
+    if (!res.success) throw new Error(res.error);
+
+    await this.loadSavedSearches();
+    if (this.selectedSavedSearchId === id) this.setSelectedSavedSearchId("");
+    this.setIsDeleteModalOpen(false);
+    toast.warn("Saved search deleted");
+  });
+
+  @modelFlow
+  getShiftSelected = asyncAction(
+    async ({ id, selectedIds }: { id: string; selectedIds: string[] }) => {
+      const clickedLocalIndex = this.results.findIndex((r) => r.id === id);
+
+      const selectedLocalIndexes = selectedIds
+        .map((sid) => this.results.findIndex((r) => r.id === sid))
+        .filter((i) => i > -1);
+
+      const canResolveLocally =
+        clickedLocalIndex > -1 &&
+        selectedLocalIndexes.length === selectedIds.length &&
+        this.results.length > 0;
+
+      if (canResolveLocally) {
+        const firstSelected = Math.min(...selectedLocalIndexes);
+        const lastSelected = Math.max(...selectedLocalIndexes);
+        if (firstSelected === clickedLocalIndex) return { idsToSelect: [], idsToDeselect: [id] };
+
+        const isFirstAfterClicked = firstSelected > clickedLocalIndex;
+        const start = isFirstAfterClicked ? clickedLocalIndex : firstSelected;
+        const end = isFirstAfterClicked ? lastSelected : clickedLocalIndex;
+
+        const newIds = this.results.slice(start, end + 1).map((r) => r.id);
+        const idsToSelect = newIds.filter((i) => !selectedIds.includes(i));
+        const idsToDeselect = selectedIds.filter((i) => !newIds.includes(i));
+
+        return { idsToSelect, idsToDeselect };
+      }
+
+      const clickedIndex = (this.page - 1) * this.pageSize + clickedLocalIndex;
+
+      this.setIsLoading(true);
+      const res = await trpc.getShiftSelectedSavedImportConfig.mutate({
+        ...this.cachedFilterProps,
+        clickedId: id,
+        clickedIndex,
+        selectedIds,
+      });
+      this.setIsLoading(false);
+
+      if (!res.success) throw new Error(res.error);
+      return res.data;
+    },
+  );
+
+  @modelFlow
+  handleSelect = asyncAction(
+    async ({ hasCtrl, hasShift, id }: { hasCtrl: boolean; hasShift: boolean; id: string }) => {
+      if (hasShift) {
+        const res = await this.getShiftSelected({ id, selectedIds: this.selectedIds });
+        if (!res?.success) throw new Error(res.error);
+        this.toggleSelected([
+          ...res.data.idsToDeselect.map((i) => ({ id: i, isSelected: false })),
+          ...res.data.idsToSelect.map((i) => ({ id: i, isSelected: true })),
+        ]);
+      } else if (hasCtrl) {
+        this.toggleSelected([{ id, isSelected: !this.getIsSelected(id) }]);
+      } else {
+        this.toggleSelected([
+          ...this.selectedIds.map((id) => ({ id, isSelected: false })),
+          { id, isSelected: true },
+        ]);
+      }
+    },
+  );
+
+  @modelFlow
+  loadFiltered = asyncAction(
+    async ({
+      noCache,
+      page,
+      withFullCount,
+    }: { noCache?: boolean; page?: number; withFullCount?: boolean } = {}) => {
+      const debug = false;
+      const { perfLog } = makePerfLog("[SavedImportConfigSearch]");
+      this.setIsLoading(true);
+      this.setIsPageCountLoading(true);
+
+      const filterProps = noCache ? this.getFilterProps() : this.getCachedFilterProps();
+      if (noCache || !this.cachedFilterProps) this.setCachedFilterProps(derefMobx(filterProps));
+
+      const countRes = await trpc.getFilteredSavedImportConfigCount.mutate({
+        ...filterProps,
+        curMaxPage: this.pageCount,
+        page,
+        pageSize: this.pageSize,
+        withFull: withFullCount,
+      });
+      if (!countRes.success) throw new Error(countRes.error);
+      const pageCount = countRes.data.pageCount;
+
+      this.setPageCount(pageCount);
+      this.setIsPageCountLoading(false);
+      if (debug) perfLog(`Set pageCount to ${pageCount}`);
+
+      const newPage = page ?? (withFullCount ? pageCount : this.page);
+      this.setPage(newPage);
+      if (debug && page) perfLog(`Set page to ${page ?? this.page}`);
+
+      const itemsRes = await trpc.listFilteredSavedImportConfig.mutate({
+        ...filterProps,
+        forcePages: this.forcePages,
+        page: newPage,
+        pageSize: this.pageSize,
+      });
+      if (!itemsRes.success) throw new Error(itemsRes.error);
+
+      let items = itemsRes.data;
+      if (debug) perfLog(`Loaded ${items.length} items`);
+
+      const results = items;
+
+      this.setResults(results.map((result) => new Stores.SavedImportConfig(result)));
+      if (debug) perfLog("Overwrite and re-render");
+
+      this.setIsLoading(false);
+      if (noCache) this.setHasChanges(false);
+
+      return results;
+    },
+  );
+
+  @modelFlow
+  loadSavedSearches = asyncAction(async () => {
+    const res = await trpc.listSavedSearch.mutate({
+      args: {
+        filter: { searchType: "SavedImportConfig" },
+        page: 1,
+        pageSize: 1000,
+        sort: { label: "asc" },
+      },
+    });
+    if (!res.success) throw new Error(res.error);
+    this.setSavedSearches(res.data.items.map((result) => new Stores.SavedSearch(result)));
+    return res.data.items;
+  });
+
+  @modelFlow
+  saveSavedSearch = asyncAction(async (label: string) => {
+    const trimmedLabel = label.trim();
+    if (!trimmedLabel) throw new Error("Saved search label is required");
+
+    const existing = this.savedSearches.find((s) => s.label === trimmedLabel);
+    const selected = this.savedSearches.find((s) => s.id === this.selectedSavedSearchId);
+    const filterProps = this.getSearchProps();
+
+    if (selected) {
+      const res = await trpc.updateSavedSearch.mutate({
+        args: { id: selected.id, updates: { filterProps, label: trimmedLabel } },
+      });
+      if (!res.success) throw new Error(res.error);
+      await this.loadSavedSearches();
+      this.setSelectedSavedSearchId(selected.id);
+      this.setIsSaveModalOpen(false);
+      toast.success("Saved search updated");
+      return res.data;
+    }
+
+    if (existing) {
+      const res = await trpc.updateSavedSearch.mutate({
+        args: { id: existing.id, updates: { filterProps } },
+      });
+      if (!res.success) throw new Error(res.error);
+      await this.loadSavedSearches();
+      this.setSelectedSavedSearchId(existing.id);
+      this.setIsSaveModalOpen(false);
+      toast.success("Saved search updated");
+      return res.data;
+    }
+
+    const res = await trpc.createSavedSearch.mutate({
+      args: {
+        dateCreated: dayjs().toISOString(),
+        filterProps,
+        label: trimmedLabel,
+        searchType: "SavedImportConfig",
+      },
+    });
+    if (!res.success) throw new Error(res.error);
+
+    await this.loadSavedSearches();
+    this.setSelectedSavedSearchId(res.data.id);
+    this.setIsSaveModalOpen(false);
+    toast.success("Saved search created");
+    return res.data;
+  });
+
+  /* GETTERS */
+  @computed
+  get numOfFilters() {
+    return (
+      (!isDeepEqual(this.dateModifiedEnd, "") ? 1 : 0) +
+      (!isDeepEqual(this.dateModifiedStart, "") ? 1 : 0) +
+      (!isDeepEqual(this.folderPath, "") ? 1 : 0) +
+      (!isDeepEqual(this.ids, []) ? 1 : 0) +
+      (!isDeepEqual(this.label, "") ? 1 : 0) +
+      (!isDeepEqual(this.sortValue, { isDesc: true, key: "dateModified" }) ? 1 : 0)
+    );
+  }
+
+  /* DYNAMIC GETTERS */
+  getCachedFilterProps() {
+    if (!this.cachedFilterProps) this.setCachedFilterProps(derefMobx(this.getFilterProps()));
+    return this.cachedFilterProps;
+  }
+
+  getFilterProps() {
+    return {
+      dateModifiedEnd: this.dateModifiedEnd,
+      dateModifiedStart: this.dateModifiedStart,
+      folderPath: this.folderPath,
+      ids: this.ids,
+      label: this.label,
+      sortValue: this.sortValue,
+    };
+  }
+
+  getIsSelected(id: string) {
+    return !!this.selectedIds.find((s) => s === id);
+  }
+
+  getResult(id: string) {
+    return this.results.find((r) => r.id === id);
+  }
+  getSearchProps() {
+    return derefMobx({
+      dateModifiedEnd: this.dateModifiedEnd,
+      dateModifiedStart: this.dateModifiedStart,
+      folderPath: this.folderPath,
+      ids: this.ids,
+      label: this.label,
+      sortValue: this.sortValue,
     });
   }
 }
@@ -1754,7 +2163,20 @@ export class _TagSearch extends Model({
     if (!trimmedLabel) throw new Error("Saved search label is required");
 
     const existing = this.savedSearches.find((s) => s.label === trimmedLabel);
+    const selected = this.savedSearches.find((s) => s.id === this.selectedSavedSearchId);
     const filterProps = this.getSearchProps();
+
+    if (selected) {
+      const res = await trpc.updateSavedSearch.mutate({
+        args: { id: selected.id, updates: { filterProps, label: trimmedLabel } },
+      });
+      if (!res.success) throw new Error(res.error);
+      await this.loadSavedSearches();
+      this.setSelectedSavedSearchId(selected.id);
+      this.setIsSaveModalOpen(false);
+      toast.success("Saved search updated");
+      return res.data;
+    }
 
     if (existing) {
       const res = await trpc.updateSavedSearch.mutate({
@@ -2128,6 +2550,57 @@ export class _FileStore extends Model({ isLoading: prop<boolean>(false).withSett
   updateFile = asyncAction(async (args: Types.UpdateFileInput) => {
     this.setIsLoading(true);
     const res = await trpc.updateFile.mutate({ args });
+    this.setIsLoading(false);
+    if (res.error) throw new Error(res.error);
+    return res.data;
+  });
+}
+/* --------------------------------------------------------------------------- */
+/*                               SavedImportConfig
+/* --------------------------------------------------------------------------- */
+
+@model("medior/_SavedImportConfig")
+export class _SavedImportConfig extends Model({
+  id: prop<string>(),
+  dateCreated: prop<string>(() => dayjs().toISOString()),
+  dateModified: prop<string>(null),
+  folderPath: prop<string>(),
+  label: prop<string>(),
+  options: prop<Record<string, any>>(),
+}) {
+  @modelAction
+  update(updates: Partial<ModelCreationData<this>>) {
+    applySnapshot(this, { ...getSnapshot(this), ...updates });
+  }
+}
+
+@model("medior/_SavedImportConfigStore")
+export class _SavedImportConfigStore extends Model({
+  isLoading: prop<boolean>(false).withSetter(),
+}) {
+  /* ------------------------------ ASYNC ACTIONS ----------------------------- */
+  @modelFlow
+  createSavedImportConfig = asyncAction(async (args: Types.CreateSavedImportConfigInput) => {
+    this.setIsLoading(true);
+    const res = await trpc.createSavedImportConfig.mutate({ args });
+    this.setIsLoading(false);
+    if (res.error) throw new Error(res.error);
+    return res.data;
+  });
+
+  @modelFlow
+  deleteSavedImportConfig = asyncAction(async (args: Types.DeleteSavedImportConfigInput) => {
+    this.setIsLoading(true);
+    const res = await trpc.deleteSavedImportConfig.mutate({ args });
+    this.setIsLoading(false);
+    if (res.error) throw new Error(res.error);
+    return res.data;
+  });
+
+  @modelFlow
+  updateSavedImportConfig = asyncAction(async (args: Types.UpdateSavedImportConfigInput) => {
+    this.setIsLoading(true);
+    const res = await trpc.updateSavedImportConfig.mutate({ args });
     this.setIsLoading(false);
     if (res.error) throw new Error(res.error);
     return res.data;

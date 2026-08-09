@@ -261,6 +261,7 @@ export const FileCollectionEditor = Comp(() => {
                 setValue={store.setSortValue}
                 rows={SORT_OPTIONS.FileCollectionFile}
                 width="100%"
+                height="auto"
               />
             </Card>
           </View>

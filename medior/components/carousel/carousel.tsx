@@ -88,6 +88,7 @@ export const Carousel = Comp((_, videoRef: MutableRefObject<ReactPlayer>) => {
                 <FileBase.ContextMenu
                   file={activeFile}
                   store={stores.file.search}
+                  carouselFileIds={stores.carousel.selectedFileIds}
                   className={css.contextMenu}
                 >
                   {activeFile.isVideo ? (

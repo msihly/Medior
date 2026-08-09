@@ -75,6 +75,21 @@ export type ListFileInput = {
 };
 export type UpdateFileInput = { id: string; updates: Partial<db.FileSchema> };
 
+/* ------------------------------------ SavedImportConfig ----------------------------------- */
+export type CreateSavedImportConfigInput = Omit<db.SavedImportConfigSchema, "id">;
+export type DeleteSavedImportConfigInput = { ids: string[] };
+export type ListSavedImportConfigInput = {
+  filter?: _FilterQuery<db.SavedImportConfigSchema>;
+  page?: number;
+  pageSize?: number;
+  sort?: Record<string, SortOrder>;
+  withOverwrite?: boolean;
+};
+export type UpdateSavedImportConfigInput = {
+  id: string;
+  updates: Partial<db.SavedImportConfigSchema>;
+};
+
 /* ------------------------------------ SavedSearch ----------------------------------- */
 export type CreateSavedSearchInput = Omit<db.SavedSearchSchema, "id">;
 export type DeleteSavedSearchInput = { ids: string[] };

@@ -3,7 +3,6 @@ import {
   Button,
   Card,
   CardGrid,
-  CenteredText,
   Chip,
   Comp,
   FileCard,
@@ -38,12 +37,12 @@ export const FileCollectionManager = Comp(() => {
 
   useEffect(() => {
     (async () => {
-      if (hasOneFileSelected) await store.loadCurrentCollections();
+      if (hasAnyFilesSelected) await store.loadCurrentCollections();
       else store.setCurrentCollections([]);
       store.loadFiles();
       store.search.loadFiltered({ page: 1 });
     })();
-  }, [hasOneFileSelected, selectedFileIds]);
+  }, [hasAnyFilesSelected, selectedFileIds]);
 
   useEffect(() => {
     scrollToTop();
@@ -108,61 +107,67 @@ export const FileCollectionManager = Comp(() => {
       <Modal.Content dividers={false} overflow="hidden" padding={{ all: 0 }}>
         {!hasAnyFilesSelected ? null : (
           <View row className={css.topRow}>
-            <Card
-              header={
-                <Text preset="title" padding="0.3rem 0">
-                  {`Selected File${hasOneFileSelected ? "" : "s"}`}
-                </Text>
-              }
-              headerProps={{ borderRadiuses: { top: 0 } }}
-              width={hasOneFileSelected ? FILE_CARD_HEIGHT : "100%"}
-              height="100%"
-              borderRadiuses={{ bottomRight: 0 }}
-              padding={{ all: "0.2rem" }}
-              overflow="hidden"
-            >
-              <CardGrid
-                cards={store.selectedFiles.map((f) => (
-                  <FileCard
-                    key={f.id}
-                    file={f}
-                    height={FILE_CARD_HEIGHT}
-                    store={stores.file.search}
-                    disabled
-                  />
-                ))}
-                maxCards={hasOneFileSelected ? 1 : 6}
-                padding={{ bottom: 0 }}
-              />
-            </Card>
-
-            {hasOneFileSelected && (
+            <View width="50%" height="100%" overflow="hidden">
               <Card
-                column
                 header={
                   <Text preset="title" padding="0.3rem 0">
-                    {"Current Collections"}
+                    {`Selected File${hasOneFileSelected ? "" : "s"}`}
                   </Text>
                 }
                 headerProps={{ borderRadiuses: { top: 0 } }}
-                flex={1}
+                height="100%"
+                borderRadiuses={{ bottomRight: 0 }}
                 padding={{ all: "0.2rem" }}
-                borderRadiuses={{ bottomLeft: 0 }}
-                overflow="auto"
+                overflow="hidden"
               >
-                {store.currentCollections.length ? (
-                  store.currentCollections.map((c) => <FileCollection key={c.id} collection={c} />)
-                ) : (
-                  <CenteredText text="No collections found" />
-                )}
+                <CardGrid
+                  cards={store.selectedFiles.map((f) => (
+                    <FileCard
+                      key={f.id}
+                      file={f}
+                      height={FILE_CARD_HEIGHT}
+                      store={stores.file.search}
+                      disabled
+                    />
+                  ))}
+                  maxCards={hasOneFileSelected ? 1 : 3}
+                  padding={{ all: "0.3rem" }}
+                />
               </Card>
+            </View>
+
+            {hasAnyFilesSelected && (
+              <View width="50%" height="100%" overflow="hidden">
+                <Card
+                  column
+                  header={
+                    <Text preset="title" padding="0.3rem 0">
+                      {"Current Collections"}
+                    </Text>
+                  }
+                  headerProps={{ borderRadiuses: { top: 0 } }}
+                  height="100%"
+                  padding={{ all: "0.2rem" }}
+                  borderRadiuses={{ bottomLeft: 0 }}
+                  overflow="hidden"
+                >
+                  <CardGrid
+                    cards={store.currentCollections.map((c) => (
+                      <FileCollection key={c.id} collection={c} />
+                    ))}
+                    maxCards={1}
+                    noResultsText="No collections found"
+                    padding={{ all: "0.3rem" }}
+                  />
+                </Card>
+              </View>
             )}
           </View>
         )}
 
         <Card
           flex={1}
-          overflow="auto"
+          overflow="hidden"
           padding={{ all: 0 }}
           bgColor={colors.background}
           headerProps={{ borderRadiuses: { top: hasAnyFilesSelected ? 0 : undefined } }}
@@ -201,12 +206,13 @@ export const FileCollectionManager = Comp(() => {
             </UniformList>
           }
         >
-          <View position="relative" overflow="auto">
+          <View flex={1} position="relative" overflow="hidden">
             <LoadingOverlay isLoading={store.search.isLoading} />
 
             <View
               ref={collsRef}
               column
+              height="100%"
               spacing="0.5rem"
               overflow="auto"
               padding={{ bottom: "5rem" }}
@@ -256,6 +262,9 @@ export const FileCollectionManager = Comp(() => {
 
 const useClasses = makeClasses({
   topRow: {
-    maxHeight: 500,
+    flexShrink: 0,
+    height: FILE_CARD_HEIGHT + 50,
+    maxHeight: FILE_CARD_HEIGHT + 50,
+    overflow: "hidden",
   },
 });

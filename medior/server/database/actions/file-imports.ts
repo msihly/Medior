@@ -46,6 +46,7 @@ class ImporterStatus {
 }
 
 const importerStatus = new ImporterStatus();
+const COLLECTION_IMPORT_STATUSES = ["COMPLETE", "DUPLICATE"] satisfies Types.ImportStatus[];
 
 export const checkFileImportHashes = makeAction(async (args: { hash: string }) => {
   const [deletedFileRes, fileRes] = await Promise.all([
@@ -70,12 +71,17 @@ export const completeImportBatch = makeAction(
       throw new Error("Failed to complete batch (imports pending)");
     }
 
+    const collectionImports = batch.imports.filter((imp) =>
+      COLLECTION_IMPORT_STATUSES.some((status) => status === imp.status),
+    );
+    const missingCollectionFileIds = collectionImports.filter((imp) => !imp.fileId);
+    if (batch.collectionTitle && missingCollectionFileIds.length) {
+      fileLog({ args, batch, missingCollectionFileIds }, { type: "error" });
+      throw new Error("Failed to complete batch collection (completed imports missing file ids)");
+    }
+
     const fileIds = [
-      ...new Set(
-        batch.imports
-          .filter((imp) => imp.fileId && ["COMPLETED", "DUPLICATE"].includes(imp.status))
-          .map((imp) => imp.fileId.toString()),
-      ),
+      ...new Set(collectionImports.map((imp) => imp.fileId?.toString()).filter(Boolean)),
     ];
 
     const tagIds = [
@@ -83,10 +89,19 @@ export const completeImportBatch = makeAction(
     ];
 
     let collectionId: string = null;
-    if (fileIds.length && batch.collectionTitle) {
+    if (batch.collectionTitle) {
+      if (!fileIds.length) {
+        fileLog({ args, batch }, { type: "error" });
+        throw new Error("Failed to complete batch collection (no completed or duplicate file ids)");
+      }
+
       const fileIdIndexes = fileIds.map((fileId, index) => ({ fileId, index }));
       const res = await actions.createCollection({ fileIdIndexes, title: batch.collectionTitle });
       if (!res.success) throw new Error(`Failed to create collection: ${res.error}`);
+      if (res.data.fileIdIndexes.length !== fileIdIndexes.length) {
+        fileLog({ args, batch, collection: res.data, fileIdIndexes }, { type: "error" });
+        throw new Error("Failed to create collection with all completed or duplicate file ids");
+      }
       collectionId = res.data.id;
     }
 

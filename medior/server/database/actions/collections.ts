@@ -166,7 +166,7 @@ export const regenCollAttrs = makeAction(
         null,
         { strict: false },
       )
-        .select({ _id: 1, fileIdIndexes: 1 })
+        .select({ _id: 1, fileIdIndexes: 1, rating: 1, ratingIsManual: 1 })
         .allowDiskUse(true)
         .lean()
     ).map((r) => leanModelToJson<models.FileCollectionSchema>(r));
@@ -183,7 +183,11 @@ export const regenCollAttrs = makeAction(
           const filesRes = await actions.listFile({ args: { filter: { id: fileIds } } });
           if (!filesRes.success) throw new Error(filesRes.error);
 
-          const updates = await makeCollAttrs(filesRes.data.items, c.fileIdIndexes);
+          const newAttrs = await makeCollAttrs(filesRes.data.items, c.fileIdIndexes);
+          const updates = {
+            ...newAttrs,
+            rating: c.ratingIsManual ? c.rating : newAttrs.rating,
+          };
           await models.FileCollectionModel.updateOne({ _id: c.id }, updates);
           socket.emit("onFileCollectionUpdated", { id: c.id, updates });
         } catch (err) {
@@ -367,7 +371,7 @@ export const updateCollection = makeAction(
             ? coll.rating
             : newAttrs.rating,
       };
-    } else if (!updates.ratingIsManual && coll.ratingIsManual) {
+    } else if (updates.ratingIsManual === false && coll.ratingIsManual) {
       const fileIds = coll.fileIdIndexes.map((f) => f.fileId);
       const filesRes = await actions.listFile({ args: { filter: { id: fileIds } } });
       if (!filesRes.success) throw new Error(filesRes.error);

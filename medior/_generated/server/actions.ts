@@ -586,6 +586,142 @@ export const listFilteredFile = makeAction(
   },
 );
 
+export type CreateSavedImportConfigFilterPipelineInput = {
+  dateModifiedEnd?: string;
+  dateModifiedStart?: string;
+  folderPath?: string;
+  ids?: string[];
+  label?: string;
+  sortValue?: SortMenuProps["value"];
+};
+
+export const createSavedImportConfigFilterPipeline = (
+  args: CreateSavedImportConfigFilterPipelineInput,
+) => {
+  const $match: FilterQuery<models.SavedImportConfigSchema> = {};
+
+  if (!isDeepEqual(args.dateModifiedEnd, ""))
+    setObj($match, ["dateModified", "$lte"], args.dateModifiedEnd);
+  if (!isDeepEqual(args.dateModifiedStart, ""))
+    setObj($match, ["dateModified", "$gte"], args.dateModifiedStart);
+  if (!isDeepEqual(args.folderPath, ""))
+    setObj($match, ["folderPath", "$regex"], new RegExp(args.folderPath, "i"));
+  if (!isDeepEqual(args.ids, [])) setObj($match, ["_id", "$in"], objectIds(args.ids));
+  if (!isDeepEqual(args.label, ""))
+    setObj($match, ["label", "$regex"], new RegExp(args.label, "i"));
+
+  const sortDir = args.sortValue.isDesc ? -1 : 1;
+
+  return {
+    $match,
+    $sort: { [args.sortValue.key]: sortDir, _id: sortDir } as { [key: string]: 1 | -1 },
+  };
+};
+
+export type GetShiftSelectedSavedImportConfigInput = CreateSavedImportConfigFilterPipelineInput & {
+  clickedId: string;
+  clickedIndex: number;
+  selectedIds: string[];
+};
+
+export const getShiftSelectedSavedImportConfig = makeAction(
+  async ({
+    clickedId,
+    clickedIndex,
+    selectedIds,
+    ...filterParams
+  }: GetShiftSelectedSavedImportConfigInput) => {
+    const filterPipeline = createSavedImportConfigFilterPipeline(filterParams);
+    return getShiftSelectedItems({
+      clickedId,
+      clickedIndex,
+      filterPipeline,
+      ids: filterParams.ids,
+      model: models.SavedImportConfigModel,
+      selectedIds,
+    });
+  },
+);
+
+export type GetFilteredSavedImportConfigCountInput = CreateSavedImportConfigFilterPipelineInput & {
+  curMaxPage: number;
+  page: number;
+  pageSize: number;
+  withFull: boolean;
+};
+
+export const getFilteredSavedImportConfigCount = makeAction(
+  async ({
+    curMaxPage,
+    pageSize,
+    withFull,
+    ...filterParams
+  }: GetFilteredSavedImportConfigCountInput) => {
+    const filterPipeline = createSavedImportConfigFilterPipeline(filterParams);
+
+    if (withFull) {
+      const totalDocs = await models.SavedImportConfigModel.countDocuments(
+        filterPipeline.$match,
+      ).allowDiskUse(true);
+      const pageCount = Math.ceil(totalDocs / pageSize);
+      return { count: totalDocs, pageCount };
+    }
+
+    const targetPage = filterParams.page;
+    const targetMaxPage = targetPage >= curMaxPage ? curMaxPage + 1000 : curMaxPage;
+    const probeLimit = targetMaxPage * pageSize;
+    const probeCount = await models.SavedImportConfigModel.countDocuments(filterPipeline.$match, {
+      limit: probeLimit,
+    }).allowDiskUse(true);
+
+    const pageCount = probeCount < probeLimit ? Math.ceil(probeCount / pageSize) : targetMaxPage;
+
+    return { count: probeCount, pageCount };
+  },
+);
+
+export type ListFilteredSavedImportConfigInput = CreateSavedImportConfigFilterPipelineInput & {
+  forcePages?: boolean;
+  page: number;
+  pageSize: number;
+  select?: Record<string, 1 | -1>;
+};
+
+export const listFilteredSavedImportConfig = makeAction(
+  async ({
+    forcePages,
+    page,
+    pageSize,
+    select,
+    ...filterParams
+  }: ListFilteredSavedImportConfigInput) => {
+    const filterPipeline = createSavedImportConfigFilterPipeline(filterParams);
+    const hasIds = forcePages || filterParams.ids?.length > 0;
+
+    const items = await (hasIds
+      ? models.SavedImportConfigModel.aggregate([
+          { $match: { _id: { $in: objectIds(filterParams.ids) } } },
+          { $addFields: { __order: { $indexOfArray: [objectIds(filterParams.ids), "$_id"] } } },
+          { $sort: { __order: 1 } },
+          ...(forcePages
+            ? [{ $skip: Math.max(0, page - 1) * pageSize }, { $limit: pageSize }]
+            : []),
+        ])
+          .allowDiskUse(true)
+          .exec()
+      : models.SavedImportConfigModel.find(filterPipeline.$match)
+          .sort(filterPipeline.$sort)
+          .select(select)
+          .skip(Math.max(0, page - 1) * pageSize)
+          .limit(pageSize)
+          .allowDiskUse(true)
+          .lean());
+
+    if (!items) throw new Error("Failed to load filtered SavedImportConfig");
+    return items.map((i) => leanModelToJson<models.SavedImportConfigSchema>(i));
+  },
+);
+
 export type CreateTagFilterPipelineInput = {
   alias?: string;
   count?: { logOp: LogicalOp | ""; value: number };
@@ -1077,6 +1213,86 @@ export const updateFile = makeAction(
       await models.FileModel.findByIdAndUpdate(args.id, args.updates, { new: true }).lean(),
     );
     socket.emit("onFileUpdated", args, socketOpts);
+    return res;
+  },
+);
+/* ------------------------------------ SavedImportConfig ----------------------------------- */
+export const createSavedImportConfig = makeAction(
+  async ({
+    args,
+    socketOpts,
+  }: {
+    args: Types.CreateSavedImportConfigInput;
+    socketOpts?: SocketEventOptions;
+  }) => {
+    const model = { ...args, dateCreated: dayjs().toISOString() };
+
+    const res = await models.SavedImportConfigModel.create(model);
+    const id = res._id.toString();
+
+    socket.emit("onSavedImportConfigCreated", { ...model, id }, socketOpts);
+    return { ...model, id };
+  },
+);
+
+export const deleteSavedImportConfig = makeAction(
+  async ({
+    args,
+    socketOpts,
+  }: {
+    args: Types.DeleteSavedImportConfigInput;
+    socketOpts?: SocketEventOptions;
+  }) => {
+    await models.SavedImportConfigModel.deleteMany({ _id: { $in: args.ids } });
+    socket.emit("onSavedImportConfigDeleted", args, socketOpts);
+  },
+);
+
+export const listSavedImportConfig = makeAction(
+  async ({ args }: { args?: Types.ListSavedImportConfigInput } = {}) => {
+    const filter = { ...args.filter };
+    if (args.filter?.id) {
+      filter._id = Array.isArray(args.filter.id)
+        ? { $in: args.filter.id }
+        : typeof args.filter.id === "string"
+          ? { $in: [args.filter.id] }
+          : args.filter.id;
+
+      delete filter.id;
+    }
+
+    const items = await models.SavedImportConfigModel.find(filter)
+      .sort(args.sort ?? { dateCreated: "desc" })
+      .skip(Math.max(0, args.page - 1) * args.pageSize)
+      .limit(args.pageSize)
+      .allowDiskUse(true)
+      .lean();
+
+    const totalCount = await models.SavedImportConfigModel.countDocuments(filter);
+
+    if (!items || !(totalCount > -1)) throw new Error("Failed to load filtered SavedImportConfig");
+
+    return {
+      items: items.map((item) => leanModelToJson<models.SavedImportConfigSchema>(item)),
+      pageCount: Math.ceil(totalCount / args.pageSize),
+    };
+  },
+);
+
+export const updateSavedImportConfig = makeAction(
+  async ({
+    args,
+    socketOpts,
+  }: {
+    args: Types.UpdateSavedImportConfigInput;
+    socketOpts?: SocketEventOptions;
+  }) => {
+    const res = leanModelToJson<models.SavedImportConfigSchema>(
+      await models.SavedImportConfigModel.findByIdAndUpdate(args.id, args.updates, {
+        new: true,
+      }).lean(),
+    );
+    socket.emit("onSavedImportConfigUpdated", args, socketOpts);
     return res;
   },
 );

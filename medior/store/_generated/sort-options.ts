@@ -17,6 +17,7 @@ type ModelSortName =
   | "FileCollection"
   | "FileImportBatch"
   | "File"
+  | "SavedImportConfig"
   | "SavedSearch"
   | "Tag";
 
@@ -49,6 +50,12 @@ const MODEL_SORT_OPTIONS: Record<ModelSortName, SortOption[]> = {
     { attribute: "rating", icon: "Star", label: "Rating" },
     { attribute: "size", icon: "FormatSize", label: "Size" },
     { attribute: "width", icon: "Height", iconProps: { rotation: 90 }, label: "Width" },
+  ],
+  SavedImportConfig: [
+    { attribute: "dateCreated", icon: "DateRange", label: "Date Created" },
+    { attribute: "dateModified", icon: "DateRange", label: "Date Modified" },
+    { attribute: "folderPath", icon: "Folder", label: "Folder Path" },
+    { attribute: "label", icon: "Label", label: "Label" },
   ],
   SavedSearch: [
     { attribute: "dateCreated", icon: "DateRange", label: "Date Created" },

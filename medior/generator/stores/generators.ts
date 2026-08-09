@@ -476,7 +476,20 @@ export const createSearchStore = (def: ModelSearchStore) => {
       if (!trimmedLabel) throw new Error("Saved search label is required");
 
       const existing = this.savedSearches.find((s) => s.label === trimmedLabel);
+      const selected = this.savedSearches.find((s) => s.id === this.selectedSavedSearchId);
       const filterProps = this.getSearchProps();
+
+      if (selected) {
+        const res = await trpc.updateSavedSearch.mutate({
+          args: { id: selected.id, updates: { filterProps, label: trimmedLabel } },
+        });
+        if (!res.success) throw new Error(res.error);
+        await this.loadSavedSearches();
+        this.setSelectedSavedSearchId(selected.id);
+        this.setIsSaveModalOpen(false);
+        toast.success("Saved search updated");
+        return res.data;
+      }
 
       if (existing) {
         const res = await trpc.updateSavedSearch.mutate({

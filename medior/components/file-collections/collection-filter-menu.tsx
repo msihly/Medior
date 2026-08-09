@@ -27,7 +27,7 @@ export const CollectionFilterMenu = Comp(
         color={color}
         sortOptions={SORT_OPTIONS.FileCollection}
         width="10rem"
-        viewProps={{ width: "36rem" }}
+        viewProps={{ width: "40rem" }}
       >
         <View row spacing="0.5rem">
           <Card flex={1}>

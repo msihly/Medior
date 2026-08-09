@@ -248,4 +248,8 @@ export class CollectionEditor extends Model({
   getOriginalIndex(id: string) {
     return this.collection?.fileIdIndexes.find((f) => f.fileId === id)?.index;
   }
+
+  getFileIdsForCarousel() {
+    return this.fileIndexes.map((f) => f.fileId);
+  }
 }
