@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { FixedSizeGrid } from "react-window";
 import {
   Button,
@@ -6,6 +6,7 @@ import {
   CardGrid,
   Chip,
   Comp,
+  ConfirmModal,
   Modal,
   MultiActionButton,
   Pagination,
@@ -23,6 +24,7 @@ import { trpc } from "medior/utils/server";
 export const TagManager = Comp(() => {
   const stores = useStores();
   const store = stores.tag.manager.search;
+  const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
 
   const hasNoSelection = store.selectedIds.length === 0;
 
@@ -42,6 +44,37 @@ export const TagManager = Comp(() => {
   };
 
   const handleCreate = () => stores.tag.editor.setIsOpen(true);
+
+  const handleConfirmDelete = async () => {
+    try {
+      stores.tag.manager.setIsLoading(true);
+      const tagIds = [...store.selectedIds];
+
+      await makeQueue({
+        action: async (id) => {
+          const res = await stores.tag.deleteTag({ id });
+          if (!res.success) throw new Error(res.error);
+        },
+        items: tagIds,
+        logPrefix: "Deleted",
+        logSuffix: "tags",
+        queue: new PromiseQueue({ concurrency: 10 }),
+      });
+
+      store.toggleSelected(tagIds.map((id) => ({ id, isSelected: false })));
+      toast.success(`${tagIds.length} tags deleted`);
+      await store.loadFiltered();
+      return true;
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to delete tags");
+      return false;
+    } finally {
+      stores.tag.manager.setIsLoading(false);
+    }
+  };
+
+  const handleDelete = () => setIsConfirmDeleteOpen(true);
 
   const handleEditRelations = () => stores.tag.manager.setIsMultiTagEditorOpen(true);
 
@@ -118,6 +151,14 @@ export const TagManager = Comp(() => {
 
               <View row justify="flex-end" spacing="0.5rem">
                 <MultiActionButton
+                  name="Delete"
+                  tooltip="Delete Selected Tags"
+                  onClick={handleDelete}
+                  disabled={hasNoSelection}
+                  iconProps={{ color: hasNoSelection ? colors.custom.grey : colors.custom.red }}
+                />
+
+                <MultiActionButton
                   name="Search"
                   tooltip="Open Search Window with Selected Tags"
                   onClick={handleSearchWindow}
@@ -182,6 +223,15 @@ export const TagManager = Comp(() => {
 
         <Button text="Create" icon="Add" onClick={handleCreate} colorOnHover={colors.custom.blue} />
       </Modal.Footer>
+
+      {isConfirmDeleteOpen && (
+        <ConfirmModal
+          headerText="Delete Tags"
+          subText={`Are you sure you want to delete ${store.selectedIds.length} selected tags?`}
+          onConfirm={handleConfirmDelete}
+          setVisible={setIsConfirmDeleteOpen}
+        />
+      )}
     </Modal.Container>
   );
 });

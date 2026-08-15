@@ -76,14 +76,16 @@ export const FileCollection = Comp(({ collection }: FileCollectionProps) => {
                 width="100%"
                 padding={{ all: "0.2rem 0.4rem 0 0.4rem" }}
               >
-                <Text>{collection.title}</Text>
+                <View row align="center" spacing="0.5rem">
+                  <RatingButton rating={collection.rating} setRating={handleRating} />
+
+                  <Text color={colors.custom.lightBlue}>{collection.title}</Text>
+                </View>
 
                 <View row align="center" spacing="0.5rem">
                   <Chip label={`${collection.fileCount} files`} height="1.5em" />
 
                   <Chip label={Fmt.bytes(collection.size ?? 0)} height="1.5em" />
-
-                  <RatingButton rating={collection.rating} setRating={handleRating} />
                 </View>
               </View>
 
@@ -92,6 +94,7 @@ export const FileCollection = Comp(({ collection }: FileCollectionProps) => {
                   tags={collection.tags}
                   limit={15}
                   padding={{ all: "0 0.3rem 0.3rem 0.2rem" }}
+                  overflow="hidden"
                 />
               )}
             </View>
