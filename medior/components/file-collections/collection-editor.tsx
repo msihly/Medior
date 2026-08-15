@@ -117,6 +117,11 @@ export const FileCollectionEditor = Comp(() => {
     toast.info(`Added all ${store.search.selectedIds.length} files to selection`);
   };
 
+  const handleSelectAllInQuery = async () => {
+    const count = await store.search.selectAllInQuery();
+    toast.info(`Added ${count} files to selection`);
+  };
+
   const handleTitleChange = (val: string) => {
     store.setHasUnsavedChanges(true);
     store.setTitle(val);
@@ -253,6 +258,12 @@ export const FileCollectionEditor = Comp(() => {
                   name="SelectAll"
                   tooltip="Select All Files in View"
                   onClick={handleSelectAll}
+                />
+
+                <MultiActionButton
+                  name="LibraryAddCheck"
+                  tooltip="Select All Files in Query"
+                  onClick={handleSelectAllInQuery}
                 />
               </View>
 

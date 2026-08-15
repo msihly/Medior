@@ -431,6 +431,8 @@ export const reencode = async (inputPath: string, outputDir: string, options?: F
 
   const filterArray = [
     `scale='if(gt(iw,${maxWidth}),${maxWidth},iw)':'if(gt(ih,${maxHeight}),${maxHeight},ih)':force_original_aspect_ratio=decrease`,
+    "scale='trunc(iw/2)*2':'trunc(ih/2)*2'",
+    "format=yuv420p",
   ];
 
   if (maxFps && inputFps > maxFps) filterArray.push(`fps=${maxFps}`);

@@ -57,7 +57,9 @@ export const Tooltip = Comp(({ children, disabled, file }: TooltipProps) => {
           <UniformList row spacing="1rem">
             <UniformList column spacing="0.5rem">
               <Detail label="Size" value={Fmt.bytes(file.size)} />
+
               <Detail label="Dimensions" value={`${file.width} x ${file.height}`} />
+
               <Detail
                 label="Bitrate"
                 value={file.bitrate ? `${Fmt.bytes(file.bitrate)}/s` : "--"}
@@ -66,7 +68,9 @@ export const Tooltip = Comp(({ children, disabled, file }: TooltipProps) => {
 
             <UniformList column spacing="0.5rem">
               <DateDetail label="Date Created" value={file.dateCreated} />
+
               <DateDetail label="Date Modified" value={file.dateModified} />
+
               <DateDetail label="Date Imported" value={file.dateImported} />
             </UniformList>
           </UniformList>

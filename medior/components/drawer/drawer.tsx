@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Badge, CircularProgress, Drawer as MuiDrawer } from "@mui/material";
 import { Comp, Icon, IconButton, TooltipProps, View } from "medior/components";
 import { useStores } from "medior/store";
@@ -13,6 +14,7 @@ export const Drawer = Comp(({ hasImports = false, hasSettings = false }: DrawerP
   const { css } = useClasses(null);
 
   const stores = useStores();
+  const videoTransformer = stores.file.videoTransformer;
 
   const handleClose = () => stores.home.setIsDrawerOpen(false);
 
@@ -32,6 +34,11 @@ export const Drawer = Comp(({ hasImports = false, hasSettings = false }: DrawerP
   const tooltipProps: Partial<TooltipProps> = {
     placement: "right",
   };
+
+  useEffect(() => {
+    videoTransformer.getTransformerStatus();
+    videoTransformer.loadQueueCount();
+  }, []);
 
   return (
     <MuiDrawer
@@ -70,6 +77,28 @@ export const Drawer = Comp(({ hasImports = false, hasSettings = false }: DrawerP
             />
           </Badge>
         )}
+
+        <Badge
+          badgeContent={
+            videoTransformer.isPaused ? (
+              <Icon name="Pause" color={colors.custom.orange} />
+            ) : videoTransformer.isTransforming ? (
+              <CircularProgress size={20} color="inherit" />
+            ) : null
+          }
+          overlap="circular"
+        >
+          <IconButton
+            name="MovieFilter"
+            tooltip="Open Video Transformer"
+            onClick={() => {
+              videoTransformer.setFileIds([]);
+              videoTransformer.setFnType(null);
+              videoTransformer.setIsOpen(true);
+            }}
+            {...{ tooltipProps }}
+          />
+        </Badge>
 
         <IconButton
           name="Label"

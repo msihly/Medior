@@ -1,321 +1,231 @@
 import autoBind from "auto-bind";
 import { reaction } from "mobx";
-import { getRootStore, Model, model, modelAction, modelFlow, prop } from "mobx-keystone";
-import { deleteFile } from "trabecula/utils/server";
-import { FileImporter } from "medior/store";
-import { File } from "medior/store/files/file";
-import { RootStore } from "medior/store/root-store";
+import { Model, model, modelAction, modelFlow, prop } from "mobx-keystone";
 import { asyncAction, openCarouselWindow, toast } from "medior/utils/client";
-import { round } from "medior/utils/common";
-import { getAvailableFileStorage, getConfig, trpc } from "medior/utils/server";
-import {
-  FfmpegOptions,
-  FfmpegProgress,
-  getVideoInfo,
-  reencode,
-  remux,
-  spliceVideo,
-} from "medior/utils/server/videos";
+import { trpc } from "medior/utils/server";
+import { File, FileTransform, FileTransformSearch } from ".";
+
+export type FileTransformType = "reencode" | "remux" | "splice";
 
 @model("medior/VideoTransformerStore")
 export class VideoTransformerStore extends Model({
-  curFileId: prop<string>(null).withSetter(),
-  curTotalSize: prop<number>(0).withSetter(),
-  file: prop<File>(null).withSetter(),
+  activeFile: prop<File>(null).withSetter(),
+  activeTransform: prop<FileTransform>(null).withSetter(),
   fileIds: prop<string[]>(() => []).withSetter(),
-  fnType: prop<"reencode" | "remux" | "splice">(null).withSetter(),
-  initialTotalSize: prop<number>(0).withSetter(),
+  fnType: prop<FileTransformType>(null).withSetter(),
   isAuto: prop<boolean>(false).withSetter(),
+  isConfigOpen: prop<boolean>(false).withSetter(),
   isLoading: prop<boolean>(false).withSetter(),
-  isRunning: prop<boolean>(false).withSetter(),
+  isMinimized: prop<boolean>(false).withSetter(),
   isOpen: prop<boolean>(false).withSetter(),
-  newHash: prop<string>(null).withSetter(),
-  newPath: prop<string>(null).withSetter(),
-  outputBitrate: prop<number>(null).withSetter(),
-  outputFps: prop<number>(null).withSetter(),
-  outputCodec: prop<string>(null).withSetter(),
-  progress: prop<FfmpegProgress>(null).withSetter(),
+  isPaused: prop<boolean>(false).withSetter(),
+  isTransforming: prop<boolean>(false).withSetter(),
+  pendingCount: prop<number>(0).withSetter(),
+  queueAfterSize: prop<number>(0).withSetter(),
+  queueBeforeSize: prop<number>(0).withSetter(),
+  search: prop<FileTransformSearch>(() => new FileTransformSearch({})),
   timestampPairs: prop<Array<[number, number]>>(() => []).withSetter(),
 }) {
-  aborter: AbortController = null;
-
   onInit() {
     autoBind(this);
 
     reaction(
       () => this.isOpen,
-      () => !this.isOpen && this.reset(),
+      () => {
+        if (!this.isOpen) this.reset();
+        else {
+          this.getTransformerStatus();
+          this.loadQueueCount();
+          this.loadActiveTransform();
+          this.loadQueue({ page: 1 });
+        }
+      },
     );
   }
 
-  /* ------------------------------ STANDARD ACTIONS ----------------------------- */
+  /* ---------------------------- STANDARD ACTIONS ---------------------------- */
   @modelAction
-  cancel() {
-    if (this.aborter !== null) this.aborter.abort("Cancelled");
-    else throw new Error("No aborter set");
+  reset() {
+    this.setActiveTransform(null);
+    this.setActiveFile(null);
+    this.setFileIds([]);
+    this.setFnType(null);
+    this.setIsLoading(false);
+    this.setIsMinimized(false);
+    this.setPendingCount(0);
+    this.setQueueAfterSize(0);
+    this.setQueueBeforeSize(0);
+    this.setTimestampPairs([]);
   }
 
   @modelAction
-  reset() {
-    this.curFileId = null;
-    this.file = null;
-    this.fileIds = [];
-    this.fnType = null;
-    this.isAuto = false;
-    this.isLoading = false;
-    this.isRunning = false;
-    this.newHash = null;
-    this.newPath = null;
-    this.progress = null;
-    this.timestampPairs = [];
+  removeQueueFiles(fileIds: string[]) {
+    const fileIdSet = new Set(fileIds);
+    const ids = this.search.results
+      .filter((transform) => fileIdSet.has(transform.fileId))
+      .map((transform) => transform.id);
+    this.search._deleteResults(ids);
+    this.search.setFiles(
+      new Map([...this.search.files].filter(([fileId]) => !fileIdSet.has(fileId))),
+    );
   }
 
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */
   @modelFlow
-  loadFile = asyncAction(async () => {
+  createTransforms = asyncAction(async () => {
+    if (!this.fileIds.length || !this.fnType) return;
+
     this.setIsLoading(true);
-    const res = await trpc.listFile.mutate({ args: { filter: { id: this.curFileId } } });
-    this.setFile(new File(res.data.items[0]));
-    this.setProgress(null);
-    this.setIsLoading(false);
+    const res = await trpc.createFileTransforms
+      .mutate({
+        fileIds: this.fileIds,
+        timestampPairs: this.timestampPairs.map(([start, end]) => ({ end, start })),
+        type: this.fnType,
+      })
+      .finally(() => this.setIsLoading(false));
+    if (!res.success) throw new Error(res.error);
+
+    this.setFileIds([]);
+    await this.loadQueue({ page: 1 });
+    await this.loadQueueCount();
+    await this.loadActiveTransform();
+    await this.runTransformer();
+    await this.loadQueueCount();
+    await this.loadActiveTransform();
   });
 
   @modelFlow
-  loadNextFile = asyncAction(async () => {
-    const nextFileId = this.fileIds[0];
-    if (!nextFileId) {
-      this.setIsOpen(false);
-    } else {
-      this.setCurFileId(nextFileId);
-      this.setFileIds(this.fileIds.slice(1));
-      this.setNewPath(null);
-      await this.loadFile();
-      if (this.isAuto) this.run();
-    }
+  deleteTransforms = asyncAction(async (ids: string[]) => {
+    if (!ids.length) return;
+    const res = await trpc.deleteFileTransforms.mutate({ ids });
+    if (!res.success) throw new Error(res.error);
+    const fileIds = ids.map((id) => this.search.getResult(id)?.fileId).filter(Boolean);
+    this.removeQueueFiles(fileIds);
+    if (this.activeTransform && ids.includes(this.activeTransform.id))
+      this.setActiveTransform(null);
+    await this.loadQueueCount();
   });
 
   @modelFlow
-  replaceOriginal = asyncAction(async () => {
-    const config = getConfig().file.reencode;
+  getTransformerStatus = asyncAction(async () => {
+    const res = await trpc.getFileTransformerStatus.mutate();
+    if (!res.success) throw new Error(res.error);
+    this.setIsAuto(res.data.isAuto);
+    this.setIsPaused(res.data.isPaused);
+    this.setIsTransforming(res.data.isTransforming);
+    return res.data;
+  });
+
+  @modelFlow
+  loadActiveTransform = asyncAction(async () => {
+    this.setIsLoading(true);
 
     try {
-      this.setIsLoading(true);
-
-      const originalPath = this.file.path;
-      const videoInfo = await getVideoInfo(this.newPath);
-
-      const dbRes = await trpc.updateFile.mutate({
-        args: {
-          id: this.curFileId,
-          updates: {
-            ...videoInfo,
-            hash: this.newHash,
-            path: this.newPath,
-          },
-        },
-      });
-      if (!dbRes.success) throw new Error(dbRes.error);
-
-      await this.updateTags(getConfig().file.reencode.onComplete);
-
-      const filesRes = await trpc.listFile.mutate({ args: { filter: { id: this.curFileId } } });
-      if (!filesRes?.success) throw new Error("Failed to load files");
-      const file = filesRes.data.items[0];
-
-      const importer = new FileImporter({
-        deleteOnImport: false,
-        ext: file.ext,
-        ignorePrevDeleted: false,
-        originalName: file.originalName,
-        originalPath: file.path,
-        size: file.size,
-        tagIds: file.tagIds,
-      });
-
-      const refreshRes = await importer.refresh(file);
-      if (!refreshRes.success) throw new Error(refreshRes.error);
-
-      const diskRes = await deleteFile(originalPath, this.newPath);
-      if (!diskRes.success) throw new Error(diskRes.error);
-
-      this.setCurTotalSize(this.curTotalSize - this.file.size);
-
-      this.setIsLoading(false);
-      await this.loadNextFile();
-    } catch (error) {
-      this.setIsLoading(false);
-
-      if (error.message.includes("duplicate key error")) {
-        console.debug(`Video transform resulted in duplicate: ${this.newHash}`);
-        await this.updateTags(config.onDuplicate);
-        this.loadNextFile();
-      } else {
-        throw new Error(error);
-      }
-    }
-  });
-
-  @modelFlow
-  run = asyncAction(async () => {
-    const config = getConfig().file.reencode;
-
-    const willReencode =
-      this.fnType === "reencode" || (this.fnType === "splice" && this.file.ext !== "mp4");
-
-    const originalCodec = this.file.videoCodec;
-    const newCodec = config.codec.replace("_nvenc", "");
-    const outputCodec = !willReencode ? originalCodec : newCodec;
-
-    const originalFps = round(this.file.frameRate, 0);
-    const maxFps = round(config.maxFps, 0);
-    const outputFps = !willReencode ? originalFps : originalFps > maxFps ? maxFps : originalFps;
-
-    const originalBitrate = round(this.file.bitrate, 0);
-    const maxBitrate = round(config.maxBitrate * 1000, 0);
-    const outputBitrate = !willReencode
-      ? originalBitrate
-      : originalBitrate > maxBitrate
-        ? maxBitrate
-        : originalBitrate;
-
-    this.setOutputBitrate(outputBitrate);
-    this.setOutputCodec(outputCodec);
-    this.setOutputFps(outputFps);
-
-    const skip = async (newSize?: number) => {
-      console.debug("Skipped re-encode", this.file.id, {
-        maxBitrate,
-        maxFps,
-        newCodec,
-        newSize,
-        originalBitrate,
-        originalCodec,
-        originalFps,
-        outputBitrate,
-        outputCodec,
-        outputFps,
-      });
-
-      toast.warn("Skipped re-encode");
-      await this.updateTags(config.onSkip);
-      this.loadNextFile();
-    };
-
-    if (
-      this.fnType === "reencode" &&
-      originalCodec === newCodec &&
-      originalFps <= maxFps &&
-      originalBitrate <= maxBitrate
-    ) {
-      return await skip();
-    }
-
-    try {
-      this.setIsRunning(true);
-      const storageRes = await getAvailableFileStorage(this.file.size);
-      if (!storageRes.success) throw new Error(storageRes.error);
-      const targetDir = storageRes.data.location;
-
-      this.aborter = new AbortController();
-      const options: FfmpegOptions = {
-        signal: this.aborter.signal,
-        onProgress: (progress) => this.setProgress(progress),
-      };
-
-      let res: { hash: string; path: string } = null;
-      if (this.fnType === "splice") {
-        res = await spliceVideo(this.file.path, targetDir, this.timestampPairs, options);
-      } else {
-        const fn = this.fnType === "reencode" ? reencode : remux;
-        res = await fn(this.file.path, targetDir, options);
-      }
-
-      this.setNewHash(res.hash);
-      this.setNewPath(res.path);
-      this.setIsRunning(false);
-      if (!this.isAuto) return;
-
-      const videoInfo = await getVideoInfo(this.newPath);
-      if (this.fnType === "reencode" && videoInfo.size >= 0.9 * this.file.size) {
-        await skip(videoInfo.size);
-      } else if (this.fnType === "splice") {
-        const res = await this.saveSpliced();
-        if (!res.success) throw new Error(res.error);
-      } else {
-        const replaceRes = await this.replaceOriginal();
-        if (!replaceRes.success) throw new Error(replaceRes.error);
-      }
-    } catch (error) {
-      this.setIsRunning(false);
-
-      if (error.message.includes("SIGKILL")) {
-        console.debug(`Cancelled`);
-        toast.warn(`Cancelled`);
-      } else {
-        console.error(error);
-        toast.error(error.message);
-        await this.updateTags(config.onError);
-        if (this.isAuto) this.loadNextFile();
-      }
-    }
-  });
-
-  @modelFlow
-  saveSpliced = asyncAction(async () => {
-    try {
-      this.setIsLoading(true);
-
-      const videoInfo = await getVideoInfo(this.newPath);
-
-      const config = getConfig().file.splice.onComplete;
-      const tagIds = [
-        ...this.file.tagIds.filter((id) => !config.removeTagIds.includes(id)),
-        ...config.addTagIds,
-      ];
-
-      const importer = new FileImporter({
-        deleteOnImport: false,
-        ext: videoInfo.ext,
-        ignorePrevDeleted: false,
-        originalName: this.file.originalName,
-        originalPath: this.newPath,
-        size: videoInfo.size,
-        tagIds,
-      });
-
-      const res = await importer.import();
-      this.setIsLoading(false);
+      const res = await trpc.getNextFileTransform.mutate();
       if (!res.success) throw new Error(res.error);
 
-      toast.success("Video rendered");
-      await openCarouselWindow({ file: res.file, selectedFileIds: [res.file.id] });
-      this.setIsOpen(false);
-    } catch (error) {
-      this.setIsLoading(false);
+      this.setActiveTransform(new FileTransform(res.data));
 
-      if (error.message.includes("duplicate key error")) {
-        console.debug(`Video transform resulted in duplicate: ${this.newHash}`);
-        throw new Error("Render resulted in duplicate");
-      } else throw new Error(error);
+      const fileId = res.data?.fileId;
+      if (!fileId) {
+        this.setActiveFile(null);
+        return;
+      }
+
+      const filesRes = await trpc.listFile.mutate({ args: { filter: { id: [fileId] } } });
+      if (!filesRes.success) throw new Error(filesRes.error);
+
+      const file = filesRes.data.items[0];
+      if (!file) throw new Error("File not found");
+
+      const tagRes = await trpc.listTag.mutate({ filter: { id: file.tagIds } });
+      if (!tagRes.success) throw new Error(tagRes.error);
+
+      this.setActiveFile(new File({ ...file, tags: tagRes.data }));
+    } finally {
+      this.setIsLoading(false);
     }
   });
 
   @modelFlow
-  updateTags = asyncAction(async (args: { addTagIds: string[]; removeTagIds: string[] }) => {
-    const stores = getRootStore<RootStore>(this);
+  loadQueue = asyncAction(async (args: { page?: number; withFullCount?: boolean } = {}) => {
+    await this.search.loadFiltered(args);
+    await this.search.loadFiles();
+  });
 
-    if (args.addTagIds.length > 0 || args.removeTagIds.length > 0) {
-      const tagsRes = await stores.file.editFileTags({
-        fileIds: [this.curFileId],
-        addedTagIds: args.addTagIds,
-        removedTagIds: args.removeTagIds,
-        withSub: false,
-        withToast: false,
-      });
-      if (!tagsRes.success) {
-        console.error("Video transformer updateTags failed", tagsRes.error);
-        toast.warn("Failed to update tags");
-      }
-    }
+  @modelFlow
+  loadQueueCount = asyncAction(async () => {
+    const res = await trpc.getFileTransformQueueCount.mutate();
+    if (!res.success) throw new Error(res.error);
+    this.setQueueAfterSize(res.data.afterSize);
+    this.setQueueBeforeSize(res.data.beforeSize);
+    this.setPendingCount(res.data.pendingCount);
+    return res.data;
+  });
+
+  @modelFlow
+  removeFilesFromQueue = asyncAction(async (fileIds: string[]) => {
+    const fileIdSet = new Set(fileIds);
+    const res = await trpc.deleteFileTransformsByFileIds.mutate({ fileIds });
+    if (!res.success) throw new Error(res.error);
+    this.removeQueueFiles(fileIds);
+    if (this.activeTransform && fileIdSet.has(this.activeTransform.fileId))
+      await this.loadActiveTransform();
+    await this.loadQueueCount();
+  });
+
+  @modelFlow
+  replaceOutput = asyncAction(async () => {
+    if (!this.activeTransform?.id) return;
+    this.setIsLoading(true);
+    const res = await trpc.replaceFileTransformOutput
+      .mutate({ id: this.activeTransform.id })
+      .finally(() => this.setIsLoading(false));
+    if (!res.success) throw new Error(res.error);
+    toast.success("Video replaced");
+    await this.search.loadFiltered();
+    await this.loadQueueCount();
+    await this.loadActiveTransform();
+    if (this.isAuto) await this.runTransformer();
+  });
+
+  @modelFlow
+  runTransformer = asyncAction(async () => {
+    const res = await trpc.runFileTransformer.mutate({ isAuto: this.isAuto });
+    if (!res.success) throw new Error(res.error);
+    await this.getTransformerStatus();
+    await this.loadActiveTransform();
+  });
+
+  @modelFlow
+  setAutoReplace = asyncAction(async (isAuto: boolean) => {
+    this.setIsAuto(isAuto);
+    const res = await trpc.setFileTransformerAuto.mutate({ isAuto });
+    if (!res.success) throw new Error(res.error);
+  });
+
+  @modelFlow
+  saveCopy = asyncAction(async () => {
+    if (!this.activeTransform?.id) return;
+    this.setIsLoading(true);
+    const res = await trpc.saveFileTransformCopy
+      .mutate({ id: this.activeTransform.id })
+      .finally(() => this.setIsLoading(false));
+    if (!res.success) throw new Error(res.error);
+    toast.success("Video rendered");
+    await openCarouselWindow({ file: res.data, selectedFileIds: [res.data.id] });
+    await this.search.loadFiltered();
+    await this.loadQueueCount();
+    await this.loadActiveTransform();
+  });
+
+  @modelFlow
+  togglePaused = asyncAction(async () => {
+    const res = await (this.isPaused
+      ? trpc.resumeFileTransformer.mutate()
+      : trpc.pauseFileTransformer.mutate());
+    if (!res.success) throw new Error(res.error);
+    await this.getTransformerStatus();
+    if (!this.isPaused) this.runTransformer();
   });
 }

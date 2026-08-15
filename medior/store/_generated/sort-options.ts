@@ -16,6 +16,7 @@ type ModelSortName =
   | "DeletedFile"
   | "FileCollection"
   | "FileImportBatch"
+  | "FileTransform"
   | "File"
   | "SavedImportConfig"
   | "SavedSearch"
@@ -39,6 +40,13 @@ const MODEL_SORT_OPTIONS: Record<ModelSortName, SortOption[]> = {
     { attribute: "fileCount", icon: "Numbers", label: "File Count" },
     { attribute: "size", icon: "FormatSize", label: "Size" },
     { attribute: "startedAt", icon: "HourglassTop", label: "Started At" },
+  ],
+  FileTransform: [
+    { attribute: "completedAt", icon: "HourglassBottom", label: "Completed At" },
+    { attribute: "dateCreated", icon: "DateRange", label: "Date Created" },
+    { attribute: "startedAt", icon: "HourglassTop", label: "Started At" },
+    { attribute: "status", icon: "PendingActions", label: "Status" },
+    { attribute: "type", icon: "Movie", label: "Type" },
   ],
   File: [
     { attribute: "bitrate", icon: "DataThresholding", label: "Bitrate" },

@@ -1,4 +1,4 @@
-import { createTRPCProxyClient, httpBatchLink } from "@trpc/client";
+import { createTRPCProxyClient, httpLink } from "@trpc/client";
 import { SocketEmitEvent, SocketEmitEvents, SocketEvents } from "medior/_generated/server/socket";
 import { io, Socket } from "socket.io-client";
 import { fileLog } from "trabecula/utils/server";
@@ -13,7 +13,7 @@ export let trpc: ReturnType<typeof createTRPCProxyClient<ServerRouter>>;
 export const setupTRPC = () => {
   // @ts-expect-error
   trpc = createTRPCProxyClient<ServerRouter>({
-    links: [httpBatchLink({ url: `http://localhost:${getConfig().ports.server}` })],
+    links: [httpLink({ url: `http://localhost:${getConfig().ports.server}` })],
   });
 };
 

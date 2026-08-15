@@ -4,7 +4,7 @@ import path from "path";
 import { ReactNode } from "react";
 import { FileSchema } from "medior/_generated/server";
 import { Comp, ContextMenu as ContextMenuBase, ViewProps } from "medior/components";
-import { FileCollectionSearch, FileSearch, useStores } from "medior/store";
+import { FileCollectionSearch, FileSearch, FileTransformSearch, useStores } from "medior/store";
 import { colors, copyToClipboard, toast } from "medior/utils/client";
 import { CONSTANTS, VideoExt } from "medior/utils/common";
 import { getConfig, getIsRemuxable, trpc } from "medior/utils/server";
@@ -14,7 +14,7 @@ export interface ContextMenuProps extends ViewProps {
   carouselFileIds?: string[];
   disabled?: boolean;
   file: FileSchema;
-  store: FileSearch | FileCollectionSearch;
+  store: FileCollectionSearch | FileSearch | FileTransformSearch;
 }
 
 export const ContextMenu = Comp(
@@ -24,14 +24,18 @@ export const ContextMenu = Comp(
     const isReencodable = file.videoCodec?.length > 0;
     const isRemuxable = getIsRemuxable(file.ext);
 
-    const copyFileIds = () => copyToClipboard(store.selectedIds.join("\n"), "Copied file IDs");
+    const copyFileIds = () => copyToClipboard(getActionFileIds().join("\n"), "Copied file IDs");
 
     const copyFilePath = () => copyToClipboard(file.path, "Copied file path");
 
     const copyFolderPath = () => copyToClipboard(path.dirname(file.path), "Copied folder path");
 
     const getActionFileIds = () =>
-      store.getIsSelected(file.id) ? [...store.selectedIds] : [file.id];
+      "getSelectedFileIds" in store
+        ? store.getSelectedFileIds(file.id)
+        : store.getIsSelected(file.id)
+          ? [...store.selectedIds]
+          : [file.id];
 
     const handleCollections = () => {
       stores.collection.manager.setSelectedFileIds(getActionFileIds());

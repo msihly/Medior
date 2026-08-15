@@ -40,11 +40,17 @@ export const useSockets = ({ view }: UseSocketsProps) => {
   const setupSockets = () => {
     socket.connect();
 
-    makeSocket("onFilesArchived", ({ fileIds }) =>
-      view === "carousel"
-        ? stores.carousel.removeFiles(fileIds)
-        : stores.file.search.removeFiles(fileIds),
-    );
+    makeSocket("onFilesArchived", ({ fileIds }) => {
+      if (view === "carousel") stores.carousel.removeFiles(fileIds);
+      else {
+        stores.file.search.removeFiles(fileIds);
+        stores.file.videoTransformer.removeQueueFiles(fileIds);
+        if (stores.file.videoTransformer.isOpen) {
+          stores.file.videoTransformer.loadQueueCount();
+          stores.file.videoTransformer.loadActiveTransform();
+        }
+      }
+    });
 
     makeSocket("onFilesDeleted", ({ fileHashes, fileIds }) => {
       if (view === "carousel") stores.carousel.removeFiles(fileIds);
@@ -53,6 +59,11 @@ export const useSockets = ({ view }: UseSocketsProps) => {
         if (stores.collection.manager.isOpen) stores.collection.manager.search.setHasChanges(true);
         if (stores.collection.editor.isOpen) stores.collection.editor.search.setHasChanges(true);
         stores.file.search.removeFiles(fileIds);
+        stores.file.videoTransformer.removeQueueFiles(fileIds);
+        if (stores.file.videoTransformer.isOpen) {
+          stores.file.videoTransformer.loadQueueCount();
+          stores.file.videoTransformer.loadActiveTransform();
+        }
         stores.file.search.setHasChanges(true);
       }
     });
@@ -132,6 +143,44 @@ export const useSockets = ({ view }: UseSocketsProps) => {
 
       makeSocket("onImporterStatusUpdated", () => {
         stores.import.manager.getImporterStatus();
+      });
+
+      makeSocket("onFileTransformerStatusUpdated", () => {
+        stores.file.videoTransformer.getTransformerStatus();
+        stores.file.videoTransformer.loadQueueCount();
+      });
+
+      makeSocket("onFileTransformLoaded", () => {
+        if (stores.file.videoTransformer.isOpen) stores.file.videoTransformer.loadActiveTransform();
+      });
+
+      makeSocket("onFileTransformUpdated", ({ id, updates }) => {
+        const isConsumed = ["REPLACED", "SAVED"].includes(updates.status);
+        const transform = stores.file.videoTransformer.search.getResult(id);
+        const fileId = transform?.fileId;
+
+        if (stores.file.videoTransformer.activeTransform?.id === id) {
+          stores.file.videoTransformer.activeTransform.update(updates);
+          if (isConsumed) stores.file.videoTransformer.loadActiveTransform();
+        } else if (stores.file.videoTransformer.isOpen && updates.status === "RUNNING") {
+          stores.file.videoTransformer.loadActiveTransform();
+        }
+
+        if (isConsumed) {
+          stores.file.videoTransformer.search._deleteResults([id]);
+          if (fileId) stores.file.videoTransformer.removeQueueFiles([fileId]);
+        } else transform?.update(updates);
+
+        if (updates.isCompleted || ["ERROR", "REPLACED", "SAVED"].includes(updates.status))
+          stores.file.videoTransformer.search.setHasChanges(true);
+        stores.file.videoTransformer.loadQueueCount();
+      });
+
+      makeSocket("onReloadFileTransforms", () => {
+        if (stores.file.videoTransformer.isOpen) {
+          stores.file.videoTransformer.loadQueueCount();
+          stores.file.videoTransformer.loadQueue();
+        }
       });
 
       makeSocket("onReloadFileCollections", () => {

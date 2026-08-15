@@ -8,6 +8,7 @@ import pluginTsconfigPaths from "vite-tsconfig-paths";
 const EXTERNALS = [
   "aws-sdk",
   "crypto",
+  "fdir",
   "fluent-ffmpeg",
   "fs",
   "mock-aws-s3",
@@ -15,6 +16,7 @@ const EXTERNALS = [
   "nock",
   "path",
   "sharp",
+  "trash",
 ];
 
 export default defineConfig({

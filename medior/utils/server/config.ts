@@ -74,6 +74,9 @@ export interface Config {
       };
       override: string[];
     };
+    transforms: {
+      search: Search;
+    };
     remuxTypes: {
       toMp4: Array<Omit<VideoExt, "mp4">>;
     };
@@ -162,7 +165,7 @@ export const DEFAULT_CONFIG: Config = {
     imageExts: [...CONSTANTS.IMAGE.EXTS_COMMON],
     hideUnratedIcon: false,
     reencode: {
-      codec: "hevc_nvenc",
+      codec: "libx265",
       maxBitrate: 5000,
       maxFps: 60,
       maxHeight: 1080,
@@ -183,7 +186,13 @@ export const DEFAULT_CONFIG: Config = {
         addTagIds: [],
         removeTagIds: [],
       },
-      override: [],
+      override: ["-preset", "slow", "-crf", "26", "-x265-params", "log-level=error"],
+    },
+    transforms: {
+      search: {
+        pageSize: 20,
+        sort: { isDesc: false, key: "dateCreated" },
+      },
     },
     remuxTypes: {
       toMp4: ["ts"],
@@ -291,6 +300,7 @@ export const loadConfig = async (filePath: string) => {
     config.collection.manager.search.pageSize = +config.collection.manager.search.pageSize;
     config.db.fileStorage.threshold = +config.db.fileStorage.threshold;
     config.file.search.pageSize = +config.file.search.pageSize;
+    config.file.transforms.search.pageSize = +config.file.transforms.search.pageSize;
     config.ports.db = +config.ports.db;
     config.ports.server = +config.ports.server;
     config.ports.socket = +config.ports.socket;

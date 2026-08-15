@@ -494,6 +494,7 @@ export const editTag = makeAction(
     const changedChildIds = childIds
       ? bisectArrayChanges(origChildIds, childIds)
       : { added: [], removed: [] };
+
     const changedParentIds = parentIds
       ? bisectArrayChanges(origParentIds, parentIds)
       : { added: [], removed: [] };
@@ -551,10 +552,12 @@ export const editMultiTagRelations = makeAction(
       added: args.childIdsToAdd ?? [],
       removed: args.childIdsToRemove ?? [],
     };
+
     const changedParentIds = {
       added: args.parentIdsToAdd ?? [],
       removed: args.parentIdsToRemove ?? [],
     };
+
     const changedTagIds = [
       ...args.tagIds,
       ...changedChildIds.added,
@@ -582,6 +585,7 @@ export const editMultiTagRelations = makeAction(
       const [invalidChildIdsToAdd, validChildIdsToAdd] = splitArray(args.childIdsToAdd, (id) =>
         ancestorIds.includes(id),
       );
+
       const [invalidParentIdsToAdd, validParentIdsToAdd] = splitArray(args.parentIdsToAdd, (id) =>
         descendantIds.includes(id),
       );

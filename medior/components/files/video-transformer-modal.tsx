@@ -1,255 +1,51 @@
-import { shell } from "@electron/remote";
-import { ReactNode, useEffect } from "react";
-import {
-  Button,
-  CenteredText,
-  Checkbox,
-  Comp,
-  Detail,
-  Divider,
-  Icon,
-  IdButton,
-  LoadingOverlay,
-  Modal,
-  ProgressCircle,
-  Text,
-  UniformList,
-  View,
-} from "medior/components";
+import { ipcRenderer } from "electron";
+import { useEffect } from "react";
+import { Button, Comp, Modal, Text, View } from "medior/components";
 import { useStores } from "medior/store";
-import { colors, toast } from "medior/utils/client";
-import { dayjs, Fmt, round } from "medior/utils/common";
-import { trpc } from "medior/utils/server";
+import { loadConfig } from "medior/utils/server";
+import { ActiveTransform } from "./video-transformer-modal/active-transform";
+import { TransformConfig } from "./video-transformer-modal/transform-config";
+import { TransformSearch } from "./video-transformer-modal/transform-search";
 
 export const VideoTransformerModal = Comp(() => {
   const stores = useStores();
+
   const store = stores.file.videoTransformer;
 
   useEffect(() => {
     (async () => {
-      const res = await trpc.listFile.mutate({ args: { filter: { id: store.fileIds } } });
-      if (!res.success) throw new Error(res.error);
-      const files = res.data.items;
-      const totalSize = files.reduce((acc, f) => acc + f.size, 0);
-      store.setInitialTotalSize(totalSize);
-      store.setCurTotalSize(totalSize);
-
-      store.setCurFileId(store.fileIds[0]);
-      store.setFileIds(store.fileIds.slice(1));
-      await store.loadFile();
-      await store.run();
+      const config = await loadConfig(await ipcRenderer.invoke("getConfigPath"));
+      stores.home.settings.update(config);
+      stores.home.settings.setHasUnsavedChanges(false);
+      await store.createTransforms();
     })();
   }, []);
 
-  const handleClose = async () => {
-    if (store.isRunning) store.aborter.abort("Cancelled");
-    else if (store.newPath) {
-      toast.error("Trashing transformed video...");
-      await shell.trashItem(store.newPath);
-    }
-    store.setIsOpen(false);
-  };
+  const handleClose = () => store.setIsOpen(false);
 
-  const handleReplace = () => store.replaceOriginal();
-
-  const handleSaveCopy = () => store.saveSpliced();
-
-  const openFileOriginal = () => shell.openPath(store.file.path);
-
-  const openFileOutput = () => shell.openPath(store.newPath);
-
-  const openLocationOriginal = () => shell.showItemInFolder(store.file.path);
-
-  const openLocationOutput = () => shell.showItemInFolder(store.newPath);
+  const toggleConfig = () => store.setIsConfigOpen(!store.isConfigOpen);
 
   return (
-    <Modal.Container
-      height="100%"
-      width="100%"
-      maxHeight="25rem"
-      maxWidth="40rem"
-      onClose={handleClose}
-    >
-      <Modal.Header
-        leftNode={<IdButton value={store.curFileId} />}
-        rightNode={
-          store.fnType === "splice" ? null : (
-            <Text preset="sub-text">{`${store.fileIds.length} in queue`}</Text>
-          )
-        }
-      >
-        <Text preset="title">
-          {store.fnType === "reencode"
-            ? "Re-encoder"
-            : store.fnType === "remux"
-              ? "Remuxer"
-              : "Splicer"}
-        </Text>
+    <Modal.Container height="100%" width="100%" onClose={handleClose}>
+      <Modal.Header>
+        <Text preset="title">{"Video Transformer"}</Text>
       </Modal.Header>
 
-      <Modal.Content justify="center" align="center" spacing="0.5rem">
-        <LoadingOverlay isLoading={store.isLoading || !store.progress} />
+      <Modal.Content dividers={false} overflow="hidden">
+        <View column flex="none" height="25rem" overflow="hidden">
+          <ActiveTransform />
+        </View>
 
-        <View column width="100%">
-          <View row width="100%" spacing="2rem">
-            <ProgressCircle
-              percent={store.progress?.percent || 0}
-              color={colors.custom.lightBlue}
-              bgColor={colors.custom.darkGrey}
-              size="15rem"
-            >
-              <CenteredText
-                text={store.progress ? `${store.progress.percent?.toFixed(2)}%` : "--"}
-                color={colors.custom.lightBlue}
-                fontSize="1.5em"
-                fontWeight={600}
-              />
-
-              <CenteredText text={store.progress?.time || "--"} color={colors.custom.white} />
-
-              <CenteredText
-                text={
-                  store.file
-                    ? dayjs
-                        .duration(store.file.duration, "s")
-                        .format("HH:mm:ss.SSS")
-                        .substring(0, 11)
-                    : "--"
-                }
-                color={colors.custom.lightGrey}
-              />
-            </ProgressCircle>
-
-            <Divider orientation="vertical" />
-
-            <View column spacing="1rem" justify="space-between">
-              <UniformList column spacing="0.5rem">
-                {store.fnType === "splice" ? null : (
-                  <>
-                    <InputOutputRow
-                      label="Total"
-                      input={store.initialTotalSize ? Fmt.bytes(store.initialTotalSize) : "--"}
-                      output={store.curTotalSize ? Fmt.bytes(store.curTotalSize) : "--"}
-                    />
-
-                    <Divider sx={{ flex: 0 }} />
-                  </>
-                )}
-
-                <InputOutputRow
-                  label="Codec"
-                  input={store.file?.videoCodec || "--"}
-                  output={store.outputCodec || "--"}
-                />
-
-                <InputOutputRow
-                  label="FPS"
-                  input={store.file ? round(store.file.frameRate) : "--"}
-                  output={store.outputFps ? round(store.outputFps) : "--"}
-                />
-
-                <InputOutputRow
-                  label="Bitrate"
-                  input={store.file ? Fmt.bytes(store.file.bitrate) : "--"}
-                  output={store.outputBitrate ? Fmt.bytes(store.outputBitrate) : "--"}
-                />
-
-                <InputOutputRow
-                  label="Size"
-                  input={store.file ? Fmt.bytes(store.file.size) : "--"}
-                  output={store.progress ? Fmt.bytes(store.progress?.size) : "--"}
-                />
-
-                <Detail
-                  row
-                  label="Ratio"
-                  labelProps={{ width: "4rem" }}
-                  value={
-                    store.file && store.progress
-                      ? `${round(store.file.size / store.progress?.size)}x`
-                      : "--"
-                  }
-                />
-              </UniformList>
-
-              {store.fnType === "splice" ? null : (
-                <Checkbox
-                  label="Auto-Replace"
-                  checked={store.isAuto}
-                  setChecked={store.setIsAuto}
-                  flex="none"
-                  margins={{ left: "-0.5rem" }}
-                />
-              )}
-            </View>
-          </View>
+        <View column flex={1} overflow="hidden">
+          {store.isConfigOpen ? <TransformConfig /> : <TransformSearch />}
         </View>
       </Modal.Content>
 
       <Modal.Footer>
-        <View column spacing="0.5rem">
-          <Button text="Play: Original" icon="PlayArrow" onClick={openFileOriginal} />
+        <Button text="Config" icon="Settings" onClick={toggleConfig} />
 
-          <Button text="Find: Original" icon="Folder" onClick={openLocationOriginal} />
-        </View>
-
-        <View column spacing="0.5rem">
-          <Button
-            text="Play: Output"
-            icon="PlayArrow"
-            onClick={openFileOutput}
-            disabled={!store.newPath}
-          />
-
-          <Button
-            text="Find: Output"
-            icon="Folder"
-            onClick={openLocationOutput}
-            disabled={!store.newPath}
-          />
-        </View>
-
-        <View column spacing="0.5rem">
-          <Button
-            text={store.fnType === "splice" ? "Save Copy" : "Replace"}
-            icon={store.fnType === "splice" ? "Save" : "Refresh"}
-            onClick={store.fnType === "splice" ? handleSaveCopy : handleReplace}
-            disabled={store.isRunning || store.isLoading || !store.newPath}
-            color={colors.custom.green}
-          />
-
-          <Button
-            text="Cancel"
-            icon="Close"
-            onClick={handleClose}
-            disabled={store.isLoading}
-            colorOnHover={colors.custom.red}
-          />
-        </View>
+        <Button text="Close" icon="Close" onClick={handleClose} />
       </Modal.Footer>
     </Modal.Container>
-  );
-});
-
-interface InputOutputRowProps {
-  input: ReactNode;
-  label: string;
-  output: ReactNode;
-}
-
-const InputOutputRow = Comp(({ input, label, output }: InputOutputRowProps) => {
-  return (
-    <Detail
-      row
-      label={label}
-      labelProps={{ width: "4rem" }}
-      value={
-        <View row spacing="0.5rem">
-          <Text>{input}</Text>
-          <Icon name="ArrowRightAlt" />
-          <Text>{output}</Text>
-        </View>
-      }
-    />
   );
 });

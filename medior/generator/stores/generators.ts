@@ -391,6 +391,31 @@ export const createSearchStore = (def: ModelSearchStore) => {
       }
     });`;
 
+  const makeSelectAllInQueryAction = () =>
+    `@modelFlow
+    selectAllInQuery = asyncAction(async () => {
+      const countRes = await trpc.getFiltered${def.name}Count.mutate({
+        ...this.getFilterProps(),
+        curMaxPage: this.pageCount,
+        page: this.page,
+        pageSize: this.pageSize,
+        withFull: true,
+      });
+      if (!countRes.success) throw new Error(countRes.error);
+      if (countRes.data.count === 0) return 0;
+
+      const res = await trpc.listFiltered${def.name}.mutate({
+        ...this.getFilterProps(),
+        page: 1,
+        pageSize: countRes.data.count,
+        select: { _id: 1 },
+      });
+      if (!res.success) throw new Error(res.error);
+
+      this.toggleSelected(res.data.map(({ id }) => ({ id, isSelected: true })));
+      return res.data.length;
+    });`;
+
   const makeLoadFilteredAction = () =>
     `@modelFlow
     loadFiltered = asyncAction(async ({ noCache, page, withFullCount }: { noCache?: boolean; page?: number; withFullCount?: boolean; } = {}) => {
@@ -614,6 +639,7 @@ export const createSearchStore = (def: ModelSearchStore) => {
       ${makeDeleteSavedSearchAction()}\n
       ${makeGetShiftSelectedAction()}\n
       ${makeHandleSelectAction()}\n
+      ${makeSelectAllInQueryAction()}\n
       ${makeLoadFilteredAction()}\n
       ${makeLoadSavedSearchesAction()}\n
       ${makeSaveSavedSearchAction()}\n

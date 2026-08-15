@@ -116,33 +116,46 @@ export const ImportListItem = Comp(
             <TooltipChip icon="Notes" label="Parsed Params">
               <View column>
                 <Detail label="Positive Prompt" value={parsedParams?.prompt} />
+
                 <Detail label="Negative Prompt" value={parsedParams?.negPrompt} />
 
                 <UniformList row>
                   <Detail label="Model" value={parsedParams?.model} flex="300%" />
+
                   <Detail label="Model Hash" value={parsedParams?.modelHash} />
+
                   <Detail label="VAE" value={parsedParams?.vae} />
+
                   <Detail label="VAE Hash" value={parsedParams?.vaeHash} />
                 </UniformList>
 
                 <UniformList row>
                   <Detail label="Width" value={parsedParams?.width} />
+
                   <Detail label="Height" value={parsedParams?.height} />
+
                   <Detail label="Seed" value={parsedParams?.seed} />
+
                   <Detail label="Subseed" value={parsedParams?.subseed} />
+
                   <Detail label="Subseed Strength" value={parsedParams?.subseedStrength} />
                 </UniformList>
 
                 <UniformList row>
                   <Detail label="Steps" value={parsedParams?.steps} />
+
                   <Detail label="Sampler" value={parsedParams?.sampler} flex="200%" />
+
                   <Detail label="CFG Scale" value={parsedParams?.cfgScale} />
+
                   <Detail label="Clip Skip" value={parsedParams?.clipSkip} />
                 </UniformList>
 
                 <UniformList row>
                   <Detail label="Upscaled?" value={parsedParams?.isUpscaled ? "Yes" : "No"} />
+
                   <Detail label="Face Restoration" value={parsedParams?.faceRestoration} />
+
                   <Detail
                     label="ADetailer?"
                     value={parsedParams?.aDetailer?.enabled ? "Yes" : "No"}
@@ -151,11 +164,14 @@ export const ImportListItem = Comp(
 
                 <UniformList row>
                   <Detail label="Hires Scale" value={parsedParams?.hiresScale} />
+
                   <Detail label="Hires Upscaler" value={parsedParams?.hiresUpscaler} flex="150%" />
+
                   <Detail
                     label="Hires Denoising Strength"
                     value={parsedParams?.hiresDenoisingStrength}
                   />
+
                   <Detail label="Hires Steps" value={parsedParams?.hiresSteps} />
                 </UniformList>
 
@@ -169,6 +185,7 @@ export const ImportListItem = Comp(
                 >
                   {"Raw Params"}
                 </Text>
+
                 <Text>{fileImport.diffusionParams}</Text>
               </View>
             </TooltipChip>
@@ -197,6 +214,7 @@ const TooltipChip = ({ children, icon, label, ...tooltipProps }: TooltipChipProp
       tooltip={
         <View column padding={{ all: "0.5rem", top: "0.2rem" }}>
           <Text className={css.tooltipTitle}>{label}</Text>
+
           {children}
         </View>
       }

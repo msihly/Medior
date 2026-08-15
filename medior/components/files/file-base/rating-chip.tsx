@@ -13,6 +13,7 @@ export const getRatingMeta = (rating: number) => {
       : rating >= 4
         ? colors.custom.lightGrey
         : colors.custom.brown;
+
   const textShadow = /^[235689]/.test(String(rating))
     ? `0px 0px ${/^[369]/.test(String(rating)) ? "7px" : "2px"} ${iconColor}`
     : undefined;

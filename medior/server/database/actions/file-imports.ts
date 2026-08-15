@@ -210,10 +210,14 @@ export const createImportBatches = makeAction(
         tagIds: tagMap[idx].tagIds,
         tagIdsWithAncestors: tagMap[idx].tagIdsWithAncestors,
       })),
+      { rawResult: true },
     );
 
-    if (res.length !== batches.length) throw new Error("Failed to create import batches");
-    return { count: res.length, ids: res.map((batch) => batch._id.toString()) };
+    const ids = Object.values(res.insertedIds).map((id) => id.toString());
+
+    if (res.insertedCount !== batches.length) throw new Error("Failed to create import batches");
+    socket.emit("onReloadImportBatches");
+    return { count: res.insertedCount, ids };
   },
 );
 

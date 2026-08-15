@@ -1,16 +1,22 @@
 import { useEffect, useState } from "react";
 import { Card, Comp, View } from "medior/components";
+import { useStores } from "medior/store";
 import { makeClasses } from "medior/utils/client";
-import { Views } from "./common";
+import { useSockets, Views } from "./common";
 
 export const HMR = Comp(() => {
+  const stores = useStores();
+
   const { css } = useClasses(null);
 
   const [isLoading, setIsLoading] = useState(true);
 
+  useSockets({ view: "home" });
+
   useEffect(() => {
     (async () => {
       setIsLoading(false);
+      stores.file.videoTransformer.setIsOpen(true);
     })();
   }, []);
 
@@ -20,8 +26,11 @@ export const HMR = Comp(() => {
         <Card height="100%" width="100%"></Card>
 
         <Views.CollectionModals />
+
         <Views.FileModals />
+
         <Views.ImportModals />
+
         <Views.TagModals view="home" />
       </View>
     </Views.ImportDnD>

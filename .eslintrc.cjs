@@ -28,9 +28,30 @@ module.exports = {
       },
     },
   },
-  plugins: ["@typescript-eslint", "import", "prettier", "simple-import-sort", "tss-unused-classes"],
+  plugins: [
+    "@typescript-eslint",
+    "import",
+    "prettier",
+    "react",
+    "simple-import-sort",
+    "tss-unused-classes",
+  ],
   rules: {
     "import/order": "off",
+    "padding-line-between-statements": [
+      "warn",
+      {
+        blankLine: "always",
+        prev: "*",
+        next: ["class", "function"],
+      },
+      {
+        blankLine: "always",
+        prev: ["class", "function"],
+        next: "*",
+      },
+    ],
+    "react/jsx-newline": "warn",
     "simple-import-sort/imports": [
       "warn",
       {

@@ -105,6 +105,7 @@ const FileTypeRow = Comp(
       <View row height="2rem" align="center" spacing="0.5rem">
         <View row align="center" spacing="0.5rem" width="6rem">
           <Icon name={props.icon} color={props.color} />
+
           <Text fontWeight={600} color={props.color}>
             {props.label}
           </Text>
@@ -112,7 +113,9 @@ const FileTypeRow = Comp(
 
         <View row flex={1} justify="space-between" spacing="1rem">
           <Text>{Fmt.commas(props.count)}</Text>
+
           <Text>{"-"}</Text>
+
           <Text>{Fmt.bytes(props.size)}</Text>
         </View>
       </View>

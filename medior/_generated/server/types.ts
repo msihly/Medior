@@ -63,6 +63,18 @@ export type ListFileImportBatchInput = {
 };
 export type UpdateFileImportBatchInput = { id: string; updates: Partial<db.FileImportBatchSchema> };
 
+/* ------------------------------------ FileTransform ----------------------------------- */
+export type CreateFileTransformInput = Omit<db.FileTransformSchema, "id">;
+export type DeleteFileTransformInput = { ids: string[] };
+export type ListFileTransformInput = {
+  filter?: _FilterQuery<db.FileTransformSchema>;
+  page?: number;
+  pageSize?: number;
+  sort?: Record<string, SortOrder>;
+  withOverwrite?: boolean;
+};
+export type UpdateFileTransformInput = { id: string; updates: Partial<db.FileTransformSchema> };
+
 /* ------------------------------------ File ----------------------------------- */
 export type CreateFileInput = Omit<db.FileSchema, "id">;
 export type DeleteFileInput = { ids: string[] };
@@ -188,6 +200,49 @@ export type StartImportBatchOutput = ReturnType<typeof db.startImportBatch>;
 
 export type UpdateFileImportByPathInput = Parameters<typeof db.updateFileImportByPath>[0];
 export type UpdateFileImportByPathOutput = ReturnType<typeof db.updateFileImportByPath>;
+
+export type GetNextFileTransformInput = Parameters<typeof db.getNextFileTransform>[0];
+export type GetNextFileTransformOutput = ReturnType<typeof db.getNextFileTransform>;
+
+export type CreateFileTransformsInput = Parameters<typeof db.createFileTransforms>[0];
+export type CreateFileTransformsOutput = ReturnType<typeof db.createFileTransforms>;
+
+export type DeleteFileTransformsInput = Parameters<typeof db.deleteFileTransforms>[0];
+export type DeleteFileTransformsOutput = ReturnType<typeof db.deleteFileTransforms>;
+
+export type DeleteFileTransformsByFileIdsInput = Parameters<
+  typeof db.deleteFileTransformsByFileIds
+>[0];
+export type DeleteFileTransformsByFileIdsOutput = ReturnType<
+  typeof db.deleteFileTransformsByFileIds
+>;
+
+export type GetFileTransformerStatusInput = Parameters<typeof db.getFileTransformerStatus>[0];
+export type GetFileTransformerStatusOutput = ReturnType<typeof db.getFileTransformerStatus>;
+
+export type GetFileTransformQueueCountInput = Parameters<typeof db.getFileTransformQueueCount>[0];
+export type GetFileTransformQueueCountOutput = ReturnType<typeof db.getFileTransformQueueCount>;
+
+export type PauseFileTransformerInput = Parameters<typeof db.pauseFileTransformer>[0];
+export type PauseFileTransformerOutput = ReturnType<typeof db.pauseFileTransformer>;
+
+export type ResumeFileTransformerInput = Parameters<typeof db.resumeFileTransformer>[0];
+export type ResumeFileTransformerOutput = ReturnType<typeof db.resumeFileTransformer>;
+
+export type SetFileTransformerAutoInput = Parameters<typeof db.setFileTransformerAuto>[0];
+export type SetFileTransformerAutoOutput = ReturnType<typeof db.setFileTransformerAuto>;
+
+export type ReplaceFileTransformOutputInput = Parameters<typeof db.replaceFileTransformOutput>[0];
+export type ReplaceFileTransformOutputOutput = ReturnType<typeof db.replaceFileTransformOutput>;
+
+export type RunFileTransformInput = Parameters<typeof db.runFileTransform>[0];
+export type RunFileTransformOutput = ReturnType<typeof db.runFileTransform>;
+
+export type RunFileTransformerInput = Parameters<typeof db.runFileTransformer>[0];
+export type RunFileTransformerOutput = ReturnType<typeof db.runFileTransformer>;
+
+export type SaveFileTransformCopyInput = Parameters<typeof db.saveFileTransformCopy>[0];
+export type SaveFileTransformCopyOutput = ReturnType<typeof db.saveFileTransformCopy>;
 
 export type ListFileIdsByTagIdsInput = Parameters<typeof db.listFileIdsByTagIds>[0];
 export type ListFileIdsByTagIdsOutput = ReturnType<typeof db.listFileIdsByTagIds>;

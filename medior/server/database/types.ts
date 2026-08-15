@@ -9,6 +9,16 @@ export type ImportStats = {
 
 export type ImportStatus = "COMPLETE" | "DELETED" | "DUPLICATE" | "ERROR" | "PENDING";
 
+export type FileTransformStatus =
+  | "COMPLETE"
+  | "ERROR"
+  | "PENDING"
+  | "REPLACED"
+  | "RUNNING"
+  | "SAVED";
+
+export type FileTransformType = "reencode" | "remux" | "splice";
+
 export type SelectedAudioCodecs = { [codec in AudioCodec]: boolean };
 
 export type SelectedImageExts = { [ext in ImageExt]: boolean };

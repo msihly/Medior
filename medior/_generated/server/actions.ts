@@ -352,6 +352,161 @@ export const listFilteredFileImportBatch = makeAction(
   },
 );
 
+export type CreateFileTransformFilterPipelineInput = {
+  afterSize?: { logOp: LogicalOp | ""; value: number };
+  beforePath?: string;
+  beforeSize?: { logOp: LogicalOp | ""; value: number };
+  completedAtEnd?: string;
+  completedAtStart?: string;
+  dateCreatedEnd?: string;
+  dateCreatedStart?: string;
+  ids?: string[];
+  isCompleted?: boolean;
+  sortValue?: SortMenuProps["value"];
+  startedAtEnd?: string;
+  startedAtStart?: string;
+  status?: string;
+  type?: string;
+};
+
+export const createFileTransformFilterPipeline = (args: CreateFileTransformFilterPipelineInput) => {
+  const $match: FilterQuery<models.FileTransformSchema> = {};
+
+  if (!isDeepEqual(args.afterSize, { logOp: "", value: 0 }))
+    setObj($match, ["afterSize", logicOpsToMongo(args.afterSize.logOp)], args.afterSize.value);
+  if (!isDeepEqual(args.beforePath, null))
+    setObj($match, ["beforePath", "$regex"], new RegExp(args.beforePath, "i"));
+  if (!isDeepEqual(args.beforeSize, { logOp: "", value: 0 }))
+    setObj($match, ["beforeSize", logicOpsToMongo(args.beforeSize.logOp)], args.beforeSize.value);
+  if (!isDeepEqual(args.completedAtEnd, ""))
+    setObj($match, ["completedAt", "$lte"], args.completedAtEnd);
+  if (!isDeepEqual(args.completedAtStart, ""))
+    setObj($match, ["completedAt", "$gte"], args.completedAtStart);
+  if (!isDeepEqual(args.dateCreatedEnd, ""))
+    setObj($match, ["dateCreated", "$lte"], args.dateCreatedEnd);
+  if (!isDeepEqual(args.dateCreatedStart, ""))
+    setObj($match, ["dateCreated", "$gte"], args.dateCreatedStart);
+  if (!isDeepEqual(args.ids, [])) setObj($match, ["_id", "$in"], objectIds(args.ids));
+  if (!isDeepEqual(args.startedAtEnd, "")) setObj($match, ["startedAt", "$lte"], args.startedAtEnd);
+  if (!isDeepEqual(args.startedAtStart, ""))
+    setObj($match, ["startedAt", "$gte"], args.startedAtStart);
+  if (!isDeepEqual(args.status, "")) setObj($match, ["status"], args.status);
+  if (!isDeepEqual(args.type, "")) setObj($match, ["type"], args.type);
+
+  if (true) setObj($match, ["isCompleted"], args.isCompleted);
+
+  const sortDir = args.sortValue.isDesc ? -1 : 1;
+
+  return {
+    $match,
+    $sort: { [args.sortValue.key]: sortDir, _id: sortDir } as { [key: string]: 1 | -1 },
+  };
+};
+
+export type GetShiftSelectedFileTransformInput = CreateFileTransformFilterPipelineInput & {
+  clickedId: string;
+  clickedIndex: number;
+  selectedIds: string[];
+};
+
+export const getShiftSelectedFileTransform = makeAction(
+  async ({
+    clickedId,
+    clickedIndex,
+    selectedIds,
+    ...filterParams
+  }: GetShiftSelectedFileTransformInput) => {
+    const filterPipeline = createFileTransformFilterPipeline(filterParams);
+    return getShiftSelectedItems({
+      clickedId,
+      clickedIndex,
+      filterPipeline,
+      ids: filterParams.ids,
+      model: models.FileTransformModel,
+      selectedIds,
+    });
+  },
+);
+
+export type GetFilteredFileTransformCountInput = CreateFileTransformFilterPipelineInput & {
+  curMaxPage: number;
+  page: number;
+  pageSize: number;
+  withFull: boolean;
+};
+
+export const getFilteredFileTransformCount = makeAction(
+  async ({
+    curMaxPage,
+    pageSize,
+    withFull,
+    ...filterParams
+  }: GetFilteredFileTransformCountInput) => {
+    const filterPipeline = createFileTransformFilterPipeline(filterParams);
+
+    if (withFull) {
+      const totalDocs = await models.FileTransformModel.countDocuments(
+        filterPipeline.$match,
+      ).allowDiskUse(true);
+      const pageCount = Math.ceil(totalDocs / pageSize);
+      return { count: totalDocs, pageCount };
+    }
+
+    const targetPage = filterParams.page;
+    const targetMaxPage = targetPage >= curMaxPage ? curMaxPage + 1000 : curMaxPage;
+    const probeLimit = targetMaxPage * pageSize;
+    const probeCount = await models.FileTransformModel.countDocuments(filterPipeline.$match, {
+      limit: probeLimit,
+    }).allowDiskUse(true);
+
+    const pageCount = probeCount < probeLimit ? Math.ceil(probeCount / pageSize) : targetMaxPage;
+
+    return { count: probeCount, pageCount };
+  },
+);
+
+export type ListFilteredFileTransformInput = CreateFileTransformFilterPipelineInput & {
+  forcePages?: boolean;
+  page: number;
+  pageSize: number;
+  select?: Record<string, 1 | -1>;
+};
+
+export const listFilteredFileTransform = makeAction(
+  async ({
+    forcePages,
+    page,
+    pageSize,
+    select,
+    ...filterParams
+  }: ListFilteredFileTransformInput) => {
+    const filterPipeline = createFileTransformFilterPipeline(filterParams);
+    const hasIds = forcePages || filterParams.ids?.length > 0;
+
+    const items = await (hasIds
+      ? models.FileTransformModel.aggregate([
+          { $match: { _id: { $in: objectIds(filterParams.ids) } } },
+          { $addFields: { __order: { $indexOfArray: [objectIds(filterParams.ids), "$_id"] } } },
+          { $sort: { __order: 1 } },
+          ...(forcePages
+            ? [{ $skip: Math.max(0, page - 1) * pageSize }, { $limit: pageSize }]
+            : []),
+        ])
+          .allowDiskUse(true)
+          .exec()
+      : models.FileTransformModel.find(filterPipeline.$match)
+          .sort(filterPipeline.$sort)
+          .select(select)
+          .skip(Math.max(0, page - 1) * pageSize)
+          .limit(pageSize)
+          .allowDiskUse(true)
+          .lean());
+
+    if (!items) throw new Error("Failed to load filtered FileTransform");
+    return items.map((i) => leanModelToJson<models.FileTransformSchema>(i));
+  },
+);
+
 export type CreateFileFilterPipelineInput = {
   bitrate?: { logOp: LogicalOp | ""; value: number };
   dateCreatedEnd?: string;
@@ -1137,6 +1292,92 @@ export const updateFileImportBatch = makeAction(
       }).lean(),
     );
     socket.emit("onFileImportBatchUpdated", args, socketOpts);
+    return res;
+  },
+);
+/* ------------------------------------ FileTransform ----------------------------------- */
+export const createFileTransform = makeAction(
+  async ({
+    args,
+    socketOpts,
+  }: {
+    args: Types.CreateFileTransformInput;
+    socketOpts?: SocketEventOptions;
+  }) => {
+    const model = {
+      ...args,
+      dateCreated: dayjs().toISOString(),
+      configOverride: [],
+      isCompleted: false,
+      timestampPairs: [],
+    };
+
+    const res = await models.FileTransformModel.create(model);
+    const id = res._id.toString();
+
+    socket.emit("onFileTransformCreated", { ...model, id }, socketOpts);
+    return { ...model, id };
+  },
+);
+
+export const deleteFileTransform = makeAction(
+  async ({
+    args,
+    socketOpts,
+  }: {
+    args: Types.DeleteFileTransformInput;
+    socketOpts?: SocketEventOptions;
+  }) => {
+    await models.FileTransformModel.deleteMany({ _id: { $in: args.ids } });
+    socket.emit("onFileTransformDeleted", args, socketOpts);
+  },
+);
+
+export const listFileTransform = makeAction(
+  async ({ args }: { args?: Types.ListFileTransformInput } = {}) => {
+    const filter = { ...args.filter };
+    if (args.filter?.id) {
+      filter._id = Array.isArray(args.filter.id)
+        ? { $in: args.filter.id }
+        : typeof args.filter.id === "string"
+          ? { $in: [args.filter.id] }
+          : args.filter.id;
+
+      delete filter.id;
+    }
+
+    const items = await models.FileTransformModel.find(filter)
+      .sort(args.sort ?? { dateCreated: "desc" })
+      .skip(Math.max(0, args.page - 1) * args.pageSize)
+      .limit(args.pageSize)
+      .allowDiskUse(true)
+      .lean();
+
+    const totalCount = await models.FileTransformModel.countDocuments(filter);
+
+    if (!items || !(totalCount > -1)) throw new Error("Failed to load filtered FileTransform");
+
+    return {
+      items: items.map((item) => leanModelToJson<models.FileTransformSchema>(item)),
+      pageCount: Math.ceil(totalCount / args.pageSize),
+    };
+  },
+);
+
+export const updateFileTransform = makeAction(
+  async ({
+    args,
+    socketOpts,
+  }: {
+    args: Types.UpdateFileTransformInput;
+    socketOpts?: SocketEventOptions;
+  }) => {
+    const res = leanModelToJson<models.FileTransformSchema>(
+      await models.FileTransformModel.findByIdAndUpdate(args.id, args.updates, {
+        new: true,
+      }).lean(),
+    );
+    socket.emit("onFileTransformUpdated", args, socketOpts);
     return res;
   },
 );

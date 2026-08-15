@@ -16,14 +16,23 @@ export const RatingButton = Comp((props: RatingButtonProps) => {
       )}
     >
       <OptionRow value={9} setRating={props.setRating} />
+
       <OptionRow value={8} setRating={props.setRating} />
+
       <OptionRow value={7} setRating={props.setRating} />
+
       <OptionRow value={6} setRating={props.setRating} />
+
       <OptionRow value={5} setRating={props.setRating} />
+
       <OptionRow value={4} setRating={props.setRating} />
+
       <OptionRow value={3} setRating={props.setRating} />
+
       <OptionRow value={2} setRating={props.setRating} />
+
       <OptionRow value={1} setRating={props.setRating} />
+
       <OptionRow value={0} setRating={props.setRating} />
     </MenuButton>
   );
@@ -43,6 +52,12 @@ const OptionRow = Comp((props: OptionRowProps) => {
   };
 
   return (
-    <ListItem icon={meta.icon} color={meta.iconColor} text={props.value} onClick={handleClick} />
+    <ListItem
+      text={props.value}
+      onClick={handleClick}
+      icon={meta.icon}
+      iconProps={{ color: meta.iconColor }}
+      color={meta.iconColor}
+    />
   );
 });

@@ -95,17 +95,10 @@ export const Image = ({
   const getThumbScale = () => {
     if (!scaled || !containerDims) return;
     const isVertical = scaled.height > scaled.width;
-    const isContainerLarger = isVertical
-      ? containerDims.height > scaled.height
-      : containerDims.width > scaled.width;
-    const scaleFactor = isContainerLarger
-      ? isVertical
-        ? containerDims.height / scaled.height
-        : containerDims.width / scaled.width
-      : isVertical
-        ? scaled.height / containerDims.height
-        : containerDims.width / scaled.width;
-    return scaleFactor;
+    const scaleFactor = isVertical
+      ? containerDims.height / scaled.height
+      : containerDims.width / scaled.width;
+    return Math.max(1, scaleFactor);
   };
 
   const { css, cx } = useClasses({

@@ -32,6 +32,7 @@ export class RootStore extends Model({
       this.import?.manager?.isOpen ||
       this.import?.reingester?.isOpen ||
       this.file?.tagsEditor?.isOpen ||
+      (this.file?.videoTransformer?.isOpen && !this.file?.videoTransformer?.isMinimized) ||
       this.tag?.editor?.isOpen ||
       this.tag?.merger?.isOpen ||
       this.tag?.manager?.isOpen

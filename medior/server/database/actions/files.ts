@@ -623,6 +623,10 @@ export const setFileIsArchived = makeAction(
   async (args: { fileIds: string[]; isArchived: boolean }) => {
     const updates = { isArchived: args.isArchived };
     await models.FileModel.updateMany({ _id: { $in: args.fileIds } }, updates);
+    if (args.isArchived) {
+      const res = await actions.deleteFileTransformsByFileIds({ fileIds: args.fileIds });
+      if (!res.success) throw new Error(res.error);
+    }
 
     if (args.isArchived) socket.emit("onFilesArchived", { fileIds: args.fileIds });
     socket.emit("onFilesUpdated", { fileIds: args.fileIds, updates });

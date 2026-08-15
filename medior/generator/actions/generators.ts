@@ -132,6 +132,7 @@ export const makeSearchActionsDef = async (
     (prop) =>
       !prop.customActionProps?.length && prop.objPath?.length && prop.objValue !== undefined,
   );
+
   const customProps = props
     .filter((prop) => prop.customActionProps?.length)
     .flatMap((prop) => prop.customActionProps);

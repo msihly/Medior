@@ -251,6 +251,30 @@ export class _FileCollectionSearch extends Model({
   );
 
   @modelFlow
+  selectAllInQuery = asyncAction(async () => {
+    const countRes = await trpc.getFilteredFileCollectionCount.mutate({
+      ...this.getFilterProps(),
+      curMaxPage: this.pageCount,
+      page: this.page,
+      pageSize: this.pageSize,
+      withFull: true,
+    });
+    if (!countRes.success) throw new Error(countRes.error);
+    if (countRes.data.count === 0) return 0;
+
+    const res = await trpc.listFilteredFileCollection.mutate({
+      ...this.getFilterProps(),
+      page: 1,
+      pageSize: countRes.data.count,
+      select: { _id: 1 },
+    });
+    if (!res.success) throw new Error(res.error);
+
+    this.toggleSelected(res.data.map(({ id }) => ({ id, isSelected: true })));
+    return res.data.length;
+  });
+
+  @modelFlow
   loadFiltered = asyncAction(
     async ({
       noCache,
@@ -693,6 +717,30 @@ export class _FileImportBatchSearch extends Model({
   );
 
   @modelFlow
+  selectAllInQuery = asyncAction(async () => {
+    const countRes = await trpc.getFilteredFileImportBatchCount.mutate({
+      ...this.getFilterProps(),
+      curMaxPage: this.pageCount,
+      page: this.page,
+      pageSize: this.pageSize,
+      withFull: true,
+    });
+    if (!countRes.success) throw new Error(countRes.error);
+    if (countRes.data.count === 0) return 0;
+
+    const res = await trpc.listFilteredFileImportBatch.mutate({
+      ...this.getFilterProps(),
+      page: 1,
+      pageSize: countRes.data.count,
+      select: { _id: 1 },
+    });
+    if (!res.success) throw new Error(res.error);
+
+    this.toggleSelected(res.data.map(({ id }) => ({ id, isSelected: true })));
+    return res.data.length;
+  });
+
+  @modelFlow
   loadFiltered = asyncAction(
     async ({
       noCache,
@@ -922,6 +970,479 @@ export class _FileImportBatchSearch extends Model({
       startedAtEnd: this.startedAtEnd,
       startedAtStart: this.startedAtStart,
       tags: this.tags,
+    });
+  }
+}
+@model("medior/_FileTransformSearch")
+export class _FileTransformSearch extends Model({
+  afterSize: prop<{ logOp: LogicalOp | ""; value: number }>(() => ({ logOp: "", value: 0 })),
+  beforePath: prop<string>(null).withSetter(),
+  beforeSize: prop<{ logOp: LogicalOp | ""; value: number }>(() => ({ logOp: "", value: 0 })),
+  cachedFilterProps: prop<object | null>(null).withSetter(),
+  completedAtEnd: prop<string>("").withSetter(),
+  completedAtStart: prop<string>("").withSetter(),
+  dateCreatedEnd: prop<string>("").withSetter(),
+  dateCreatedStart: prop<string>("").withSetter(),
+  forcePages: prop<boolean>(false).withSetter(),
+  hasChanges: prop<boolean>(false).withSetter(),
+  ids: prop<string[]>(() => []).withSetter(),
+  isCompleted: prop<boolean>(false).withSetter(),
+  isLoading: prop<boolean>(false).withSetter(),
+  isPageCountLoading: prop<boolean>(false).withSetter(),
+  loadId: prop<number>(0).withSetter(),
+  page: prop<number>(1).withSetter(),
+  pageCount: prop<number>(1).withSetter(),
+  pageSize: prop<number>(() => getConfig().file.transforms.search.pageSize).withSetter(),
+  results: prop<Stores.FileTransform[]>(() => []).withSetter(),
+  selectedIds: prop<string[]>(() => []).withSetter(),
+  sortValue: prop<SortMenuProps["value"]>(
+    () => getConfig().file.transforms.search.sort,
+  ).withSetter(),
+  startedAtEnd: prop<string>("").withSetter(),
+  startedAtStart: prop<string>("").withSetter(),
+  status: prop<string>("").withSetter(),
+  type: prop<string>("").withSetter(),
+  isDeleteModalOpen: prop<boolean>(false).withSetter(),
+  isSaveModalOpen: prop<boolean>(false).withSetter(),
+  savedSearches: prop<Stores.SavedSearch[]>(() => []).withSetter(),
+  selectedSavedSearchId: prop<string>("").withSetter(),
+}) {
+  onInit() {
+    autoBind(this);
+  }
+
+  /* STANDARD ACTIONS */
+  @modelAction
+  _addResult(result: ModelCreationData<Stores.FileTransform>) {
+    this.results.push(new Stores.FileTransform(result));
+  }
+
+  @modelAction
+  applySearchProps(searchProps: Record<string, any>) {
+    this.reset();
+    Object.entries(searchProps).forEach(([key, value]) => {
+      if (key in this) this[key] = value;
+    });
+    this.cachedFilterProps = null;
+    this.hasChanges = true;
+    this.page = 1;
+    (this as any).afterApplySearchProps?.(searchProps);
+  }
+
+  @modelAction
+  setAfterSizeOp(val: LogicalOp | "") {
+    this.afterSize.logOp = val;
+    if (val === "") this.afterSize.value = 0;
+  }
+
+  @modelAction
+  setAfterSizeValue(val: number) {
+    this.afterSize.value = val;
+  }
+
+  @modelAction
+  setBeforeSizeOp(val: LogicalOp | "") {
+    this.beforeSize.logOp = val;
+    if (val === "") this.beforeSize.value = 0;
+  }
+
+  @modelAction
+  setBeforeSizeValue(val: number) {
+    this.beforeSize.value = val;
+  }
+
+  @modelAction
+  _deleteResults(ids: string[]) {
+    this.results = this.results.filter((d) => !ids.includes(d.id));
+  }
+
+  @modelAction
+  reset() {
+    this.afterSize = { logOp: "", value: 0 };
+    this.beforePath = null;
+    this.beforeSize = { logOp: "", value: 0 };
+    this.cachedFilterProps = null;
+    this.completedAtEnd = "";
+    this.completedAtStart = "";
+    this.dateCreatedEnd = "";
+    this.dateCreatedStart = "";
+    this.forcePages = false;
+    this.hasChanges = false;
+    this.ids = [];
+    this.isCompleted = false;
+    this.isLoading = false;
+    this.isPageCountLoading = false;
+    this.loadId = 0;
+    this.page = 1;
+    this.pageCount = 1;
+    this.pageSize = getConfig().file.transforms.search.pageSize;
+    this.results = [];
+    this.selectedIds = [];
+    this.sortValue = getConfig().file.transforms.search.sort;
+    this.startedAtEnd = "";
+    this.startedAtStart = "";
+    this.status = "";
+    this.type = "";
+  }
+
+  @modelAction
+  toggleSelected(selected: { id: string; isSelected?: boolean }[], withToast = false) {
+    if (!selected?.length) return;
+
+    const [added, removed] = selected.reduce(
+      (acc, cur) => (acc[cur.isSelected ? 0 : 1].push(cur.id), acc),
+      [[], []],
+    );
+
+    const removedSet = new Set(removed);
+    this.selectedIds = [...new Set(this.selectedIds.concat(added))].filter(
+      (id) => !removedSet.has(id),
+    );
+
+    if (withToast) {
+      const addedCount = added.length;
+      const removedCount = removed.length;
+      if (addedCount && removedCount)
+        toast.success(`Selected ${addedCount} items and deselected ${removedCount} items`);
+      else if (addedCount) toast.success(`Selected ${addedCount} items`);
+      else if (removedCount) toast.success(`Deselected ${removedCount} items`);
+    }
+  }
+
+  /* ASYNC ACTIONS */
+  @modelFlow
+  applySavedSearch = asyncAction(async (id: string) => {
+    if (!this.savedSearches.some((s) => s.id === id)) await this.loadSavedSearches();
+    const savedSearch = this.savedSearches.find((s) => s.id === id);
+    if (!savedSearch) return;
+
+    this.applySearchProps(derefMobx(savedSearch.filterProps));
+    this.setSelectedSavedSearchId(id);
+    await this.loadFiltered({ noCache: true, page: 1 });
+  });
+
+  @modelFlow
+  deleteSavedSearch = asyncAction(async (id: string = this.selectedSavedSearchId) => {
+    if (!id) return;
+
+    const res = await trpc.deleteSavedSearch.mutate({ args: { ids: [id] } });
+    if (!res.success) throw new Error(res.error);
+
+    await this.loadSavedSearches();
+    if (this.selectedSavedSearchId === id) this.setSelectedSavedSearchId("");
+    this.setIsDeleteModalOpen(false);
+    toast.warn("Saved search deleted");
+  });
+
+  @modelFlow
+  getShiftSelected = asyncAction(
+    async ({ id, selectedIds }: { id: string; selectedIds: string[] }) => {
+      const clickedLocalIndex = this.results.findIndex((r) => r.id === id);
+
+      const selectedLocalIndexes = selectedIds
+        .map((sid) => this.results.findIndex((r) => r.id === sid))
+        .filter((i) => i > -1);
+
+      const canResolveLocally =
+        clickedLocalIndex > -1 &&
+        selectedLocalIndexes.length === selectedIds.length &&
+        this.results.length > 0;
+
+      if (canResolveLocally) {
+        const firstSelected = Math.min(...selectedLocalIndexes);
+        const lastSelected = Math.max(...selectedLocalIndexes);
+        if (firstSelected === clickedLocalIndex) return { idsToSelect: [], idsToDeselect: [id] };
+
+        const isFirstAfterClicked = firstSelected > clickedLocalIndex;
+        const start = isFirstAfterClicked ? clickedLocalIndex : firstSelected;
+        const end = isFirstAfterClicked ? lastSelected : clickedLocalIndex;
+
+        const newIds = this.results.slice(start, end + 1).map((r) => r.id);
+        const idsToSelect = newIds.filter((i) => !selectedIds.includes(i));
+        const idsToDeselect = selectedIds.filter((i) => !newIds.includes(i));
+
+        return { idsToSelect, idsToDeselect };
+      }
+
+      const clickedIndex = (this.page - 1) * this.pageSize + clickedLocalIndex;
+
+      this.setIsLoading(true);
+      const res = await trpc.getShiftSelectedFileTransform.mutate({
+        ...this.cachedFilterProps,
+        clickedId: id,
+        clickedIndex,
+        selectedIds,
+      });
+      this.setIsLoading(false);
+
+      if (!res.success) throw new Error(res.error);
+      return res.data;
+    },
+  );
+
+  @modelFlow
+  handleSelect = asyncAction(
+    async ({ hasCtrl, hasShift, id }: { hasCtrl: boolean; hasShift: boolean; id: string }) => {
+      if (hasShift) {
+        const res = await this.getShiftSelected({ id, selectedIds: this.selectedIds });
+        if (!res?.success) throw new Error(res.error);
+        this.toggleSelected([
+          ...res.data.idsToDeselect.map((i) => ({ id: i, isSelected: false })),
+          ...res.data.idsToSelect.map((i) => ({ id: i, isSelected: true })),
+        ]);
+      } else if (hasCtrl) {
+        this.toggleSelected([{ id, isSelected: !this.getIsSelected(id) }]);
+      } else {
+        this.toggleSelected([
+          ...this.selectedIds.map((id) => ({ id, isSelected: false })),
+          { id, isSelected: true },
+        ]);
+      }
+    },
+  );
+
+  @modelFlow
+  selectAllInQuery = asyncAction(async () => {
+    const countRes = await trpc.getFilteredFileTransformCount.mutate({
+      ...this.getFilterProps(),
+      curMaxPage: this.pageCount,
+      page: this.page,
+      pageSize: this.pageSize,
+      withFull: true,
+    });
+    if (!countRes.success) throw new Error(countRes.error);
+    if (countRes.data.count === 0) return 0;
+
+    const res = await trpc.listFilteredFileTransform.mutate({
+      ...this.getFilterProps(),
+      page: 1,
+      pageSize: countRes.data.count,
+      select: { _id: 1 },
+    });
+    if (!res.success) throw new Error(res.error);
+
+    this.toggleSelected(res.data.map(({ id }) => ({ id, isSelected: true })));
+    return res.data.length;
+  });
+
+  @modelFlow
+  loadFiltered = asyncAction(
+    async ({
+      noCache,
+      page,
+      withFullCount,
+    }: { noCache?: boolean; page?: number; withFullCount?: boolean } = {}) => {
+      const debug = false;
+      const { perfLog } = makePerfLog("[FileTransformSearch]");
+      const loadId = this.loadId + 1;
+      this.setLoadId(loadId);
+      this.setIsLoading(true);
+      this.setIsPageCountLoading(true);
+
+      const filterProps = noCache ? this.getFilterProps() : this.getCachedFilterProps();
+      if (noCache || !this.cachedFilterProps) this.setCachedFilterProps(derefMobx(filterProps));
+
+      if (withFullCount) {
+        const countRes = await trpc.getFilteredFileTransformCount.mutate({
+          ...filterProps,
+          curMaxPage: this.pageCount,
+          page,
+          pageSize: this.pageSize,
+          withFull: withFullCount,
+        });
+        if (loadId !== this.loadId) return;
+        if (!countRes.success) throw new Error(countRes.error);
+        const pageCount = countRes.data.pageCount;
+
+        this.setPageCount(pageCount);
+        this.setIsPageCountLoading(false);
+        if (debug) perfLog(`Set pageCount to ${pageCount}`);
+
+        page = pageCount;
+      }
+
+      const newPage = page ?? this.page;
+      this.setPage(newPage);
+      if (debug && page) perfLog(`Set page to ${page ?? this.page}`);
+
+      const itemsRes = await trpc.listFilteredFileTransform.mutate({
+        ...filterProps,
+        forcePages: this.forcePages,
+        page: newPage,
+        pageSize: this.pageSize,
+      });
+      if (loadId !== this.loadId) return;
+      if (!itemsRes.success) throw new Error(itemsRes.error);
+
+      let items = itemsRes.data;
+      if (debug) perfLog(`Loaded ${items.length} items`);
+
+      const results = items;
+
+      this.setResults(results.map((result) => new Stores.FileTransform(result)));
+      if (debug) perfLog("Overwrite and re-render");
+
+      this.setIsLoading(false);
+      if (noCache) this.setHasChanges(false);
+
+      if (!withFullCount) {
+        trpc.getFilteredFileTransformCount
+          .mutate({
+            ...filterProps,
+            curMaxPage: this.pageCount,
+            page,
+            pageSize: this.pageSize,
+            withFull: withFullCount,
+          })
+          .then((countRes) => {
+            if (loadId !== this.loadId) return;
+            this.setIsPageCountLoading(false);
+            if (!countRes.success) return console.error(countRes.error);
+            const pageCount = countRes.data.pageCount;
+
+            this.setPageCount(pageCount);
+            if (debug) perfLog(`Set pageCount to ${pageCount}`);
+          });
+      }
+
+      return results;
+    },
+  );
+
+  @modelFlow
+  loadSavedSearches = asyncAction(async () => {
+    const res = await trpc.listSavedSearch.mutate({
+      args: {
+        filter: { searchType: "FileTransform" },
+        page: 1,
+        pageSize: 1000,
+        sort: { label: "asc" },
+      },
+    });
+    if (!res.success) throw new Error(res.error);
+    this.setSavedSearches(res.data.items.map((result) => new Stores.SavedSearch(result)));
+    return res.data.items;
+  });
+
+  @modelFlow
+  saveSavedSearch = asyncAction(async (label: string) => {
+    const trimmedLabel = label.trim();
+    if (!trimmedLabel) throw new Error("Saved search label is required");
+
+    const existing = this.savedSearches.find((s) => s.label === trimmedLabel);
+    const selected = this.savedSearches.find((s) => s.id === this.selectedSavedSearchId);
+    const filterProps = this.getSearchProps();
+
+    if (selected) {
+      const res = await trpc.updateSavedSearch.mutate({
+        args: { id: selected.id, updates: { filterProps, label: trimmedLabel } },
+      });
+      if (!res.success) throw new Error(res.error);
+      await this.loadSavedSearches();
+      this.setSelectedSavedSearchId(selected.id);
+      this.setIsSaveModalOpen(false);
+      toast.success("Saved search updated");
+      return res.data;
+    }
+
+    if (existing) {
+      const res = await trpc.updateSavedSearch.mutate({
+        args: { id: existing.id, updates: { filterProps } },
+      });
+      if (!res.success) throw new Error(res.error);
+      await this.loadSavedSearches();
+      this.setSelectedSavedSearchId(existing.id);
+      this.setIsSaveModalOpen(false);
+      toast.success("Saved search updated");
+      return res.data;
+    }
+
+    const res = await trpc.createSavedSearch.mutate({
+      args: {
+        dateCreated: dayjs().toISOString(),
+        filterProps,
+        label: trimmedLabel,
+        searchType: "FileTransform",
+      },
+    });
+    if (!res.success) throw new Error(res.error);
+
+    await this.loadSavedSearches();
+    this.setSelectedSavedSearchId(res.data.id);
+    this.setIsSaveModalOpen(false);
+    toast.success("Saved search created");
+    return res.data;
+  });
+
+  /* GETTERS */
+  @computed
+  get numOfFilters() {
+    return (
+      (!isDeepEqual(this.afterSize, { logOp: "", value: 0 }) ? 1 : 0) +
+      (!isDeepEqual(this.beforePath, null) ? 1 : 0) +
+      (!isDeepEqual(this.beforeSize, { logOp: "", value: 0 }) ? 1 : 0) +
+      (!isDeepEqual(this.completedAtEnd, "") ? 1 : 0) +
+      (!isDeepEqual(this.completedAtStart, "") ? 1 : 0) +
+      (!isDeepEqual(this.dateCreatedEnd, "") ? 1 : 0) +
+      (!isDeepEqual(this.dateCreatedStart, "") ? 1 : 0) +
+      (!isDeepEqual(this.ids, []) ? 1 : 0) +
+      (!isDeepEqual(this.isCompleted, false) ? 1 : 0) +
+      (!isDeepEqual(this.sortValue, getConfig().file.transforms.search.sort) ? 1 : 0) +
+      (!isDeepEqual(this.startedAtEnd, "") ? 1 : 0) +
+      (!isDeepEqual(this.startedAtStart, "") ? 1 : 0) +
+      (!isDeepEqual(this.status, "") ? 1 : 0) +
+      (!isDeepEqual(this.type, "") ? 1 : 0)
+    );
+  }
+
+  /* DYNAMIC GETTERS */
+  getCachedFilterProps() {
+    if (!this.cachedFilterProps) this.setCachedFilterProps(derefMobx(this.getFilterProps()));
+    return this.cachedFilterProps;
+  }
+
+  getFilterProps() {
+    return {
+      afterSize: this.afterSize,
+      beforePath: this.beforePath,
+      beforeSize: this.beforeSize,
+      completedAtEnd: this.completedAtEnd,
+      completedAtStart: this.completedAtStart,
+      dateCreatedEnd: this.dateCreatedEnd,
+      dateCreatedStart: this.dateCreatedStart,
+      ids: this.ids,
+      isCompleted: this.isCompleted,
+      sortValue: this.sortValue,
+      startedAtEnd: this.startedAtEnd,
+      startedAtStart: this.startedAtStart,
+      status: this.status,
+      type: this.type,
+    };
+  }
+
+  getIsSelected(id: string) {
+    return !!this.selectedIds.find((s) => s === id);
+  }
+
+  getResult(id: string) {
+    return this.results.find((r) => r.id === id);
+  }
+  getSearchProps() {
+    return derefMobx({
+      afterSize: this.afterSize,
+      beforePath: this.beforePath,
+      beforeSize: this.beforeSize,
+      completedAtEnd: this.completedAtEnd,
+      completedAtStart: this.completedAtStart,
+      dateCreatedEnd: this.dateCreatedEnd,
+      dateCreatedStart: this.dateCreatedStart,
+      ids: this.ids,
+      isCompleted: this.isCompleted,
+      sortValue: this.sortValue,
+      startedAtEnd: this.startedAtEnd,
+      startedAtStart: this.startedAtStart,
+      status: this.status,
+      type: this.type,
     });
   }
 }
@@ -1263,6 +1784,30 @@ export class _FileSearch extends Model({
       }
     },
   );
+
+  @modelFlow
+  selectAllInQuery = asyncAction(async () => {
+    const countRes = await trpc.getFilteredFileCount.mutate({
+      ...this.getFilterProps(),
+      curMaxPage: this.pageCount,
+      page: this.page,
+      pageSize: this.pageSize,
+      withFull: true,
+    });
+    if (!countRes.success) throw new Error(countRes.error);
+    if (countRes.data.count === 0) return 0;
+
+    const res = await trpc.listFilteredFile.mutate({
+      ...this.getFilterProps(),
+      page: 1,
+      pageSize: countRes.data.count,
+      select: { _id: 1 },
+    });
+    if (!res.success) throw new Error(res.error);
+
+    this.toggleSelected(res.data.map(({ id }) => ({ id, isSelected: true })));
+    return res.data.length;
+  });
 
   @modelFlow
   loadFiltered = asyncAction(
@@ -1777,6 +2322,30 @@ export class _SavedImportConfigSearch extends Model({
   );
 
   @modelFlow
+  selectAllInQuery = asyncAction(async () => {
+    const countRes = await trpc.getFilteredSavedImportConfigCount.mutate({
+      ...this.getFilterProps(),
+      curMaxPage: this.pageCount,
+      page: this.page,
+      pageSize: this.pageSize,
+      withFull: true,
+    });
+    if (!countRes.success) throw new Error(countRes.error);
+    if (countRes.data.count === 0) return 0;
+
+    const res = await trpc.listFilteredSavedImportConfig.mutate({
+      ...this.getFilterProps(),
+      page: 1,
+      pageSize: countRes.data.count,
+      select: { _id: 1 },
+    });
+    if (!res.success) throw new Error(res.error);
+
+    this.toggleSelected(res.data.map(({ id }) => ({ id, isSelected: true })));
+    return res.data.length;
+  });
+
+  @modelFlow
   loadFiltered = asyncAction(
     async ({
       noCache,
@@ -2215,6 +2784,30 @@ export class _TagSearch extends Model({
   );
 
   @modelFlow
+  selectAllInQuery = asyncAction(async () => {
+    const countRes = await trpc.getFilteredTagCount.mutate({
+      ...this.getFilterProps(),
+      curMaxPage: this.pageCount,
+      page: this.page,
+      pageSize: this.pageSize,
+      withFull: true,
+    });
+    if (!countRes.success) throw new Error(countRes.error);
+    if (countRes.data.count === 0) return 0;
+
+    const res = await trpc.listFilteredTag.mutate({
+      ...this.getFilterProps(),
+      page: 1,
+      pageSize: countRes.data.count,
+      select: { _id: 1 },
+    });
+    if (!res.success) throw new Error(res.error);
+
+    this.toggleSelected(res.data.map(({ id }) => ({ id, isSelected: true })));
+    return res.data.length;
+  });
+
+  @modelFlow
   loadFiltered = asyncAction(
     async ({
       noCache,
@@ -2620,6 +3213,90 @@ export class _FileImportBatchStore extends Model({ isLoading: prop<boolean>(fals
   updateFileImportBatch = asyncAction(async (args: Types.UpdateFileImportBatchInput) => {
     this.setIsLoading(true);
     const res = await trpc.updateFileImportBatch.mutate({ args });
+    this.setIsLoading(false);
+    if (res.error) throw new Error(res.error);
+    return res.data;
+  });
+}
+/* --------------------------------------------------------------------------- */
+/*                               FileTransform
+/* --------------------------------------------------------------------------- */
+
+@model("medior/_FileTransform")
+export class _FileTransform extends Model({
+  id: prop<string>(),
+  dateCreated: prop<string>(() => dayjs().toISOString()),
+  afterAudioBitrate: prop<number>(null),
+  afterAudioCodec: prop<string>(null),
+  afterBitrate: prop<number>(null),
+  afterDuration: prop<number>(null),
+  afterFrameRate: prop<number>(null),
+  afterHash: prop<string>(null),
+  afterHeight: prop<number>(null),
+  afterPath: prop<string>(null),
+  afterSize: prop<number>(null),
+  afterVideoCodec: prop<string>(null),
+  afterWidth: prop<number>(null),
+  beforeAudioBitrate: prop<number>(null),
+  beforeAudioCodec: prop<string>(null),
+  beforeBitrate: prop<number>(null),
+  beforeDuration: prop<number>(null),
+  beforeFrameRate: prop<number>(null),
+  beforeHash: prop<string>(null),
+  beforeHeight: prop<number>(null),
+  beforePath: prop<string>(),
+  beforeSize: prop<number>(),
+  beforeVideoCodec: prop<string>(null),
+  beforeWidth: prop<number>(null),
+  completedAt: prop<string>(null),
+  configCodec: prop<string>(null),
+  configMaxBitrate: prop<number>(null),
+  configMaxFps: prop<number>(null),
+  configMaxHeight: prop<number>(null),
+  configMaxWidth: prop<number>(null),
+  configOverride: prop<string[]>(() => []),
+  errorMsg: prop<string>(null),
+  fileId: prop<string>(),
+  isCompleted: prop<boolean>(false),
+  progressPercent: prop<number>(null),
+  progressSize: prop<number>(null),
+  progressTime: prop<string>(null),
+  startedAt: prop<string>(null),
+  status: prop<string | "COMPLETE" | "ERROR" | "PENDING" | "REPLACED" | "RUNNING" | "SAVED">(),
+  timestampPairs: prop<Array<{ end: number; start: number }>>(() => []),
+  type: prop<string | "reencode" | "remux" | "splice">(),
+}) {
+  @modelAction
+  update(updates: Partial<ModelCreationData<this>>) {
+    applySnapshot(this, { ...getSnapshot(this), ...updates });
+  }
+}
+
+@model("medior/_FileTransformStore")
+export class _FileTransformStore extends Model({ isLoading: prop<boolean>(false).withSetter() }) {
+  /* ------------------------------ ASYNC ACTIONS ----------------------------- */
+  @modelFlow
+  createFileTransform = asyncAction(async (args: Types.CreateFileTransformInput) => {
+    this.setIsLoading(true);
+    const res = await trpc.createFileTransform.mutate({ args });
+    this.setIsLoading(false);
+    if (res.error) throw new Error(res.error);
+    return res.data;
+  });
+
+  @modelFlow
+  deleteFileTransform = asyncAction(async (args: Types.DeleteFileTransformInput) => {
+    this.setIsLoading(true);
+    const res = await trpc.deleteFileTransform.mutate({ args });
+    this.setIsLoading(false);
+    if (res.error) throw new Error(res.error);
+    return res.data;
+  });
+
+  @modelFlow
+  updateFileTransform = asyncAction(async (args: Types.UpdateFileTransformInput) => {
+    this.setIsLoading(true);
+    const res = await trpc.updateFileTransform.mutate({ args });
     this.setIsLoading(false);
     if (res.error) throw new Error(res.error);
     return res.data;

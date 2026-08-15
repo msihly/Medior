@@ -116,6 +116,7 @@ export const VideoControls = Comp(() => {
 
       <View row>
         <IconButton name="SkipPrevious" onClick={goToPrevFrame} />
+
         <IconButton name="SkipNext" onClick={goToNextFrame} />
       </View>
 
@@ -164,6 +165,7 @@ export const VideoControls = Comp(() => {
           valueLabelFormat={(v) => (
             <View column align="center" justify="center" width="7rem">
               <Text>{`F: ${Fmt.commas(v)} (${round((v / activeFile.totalFrames) * 100, 0)}%)`}</Text>
+
               <Text>{`${Fmt.duration(Fmt.frameToSec(v, activeFile.frameRate))}`}</Text>
             </View>
           )}

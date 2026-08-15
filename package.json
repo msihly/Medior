@@ -49,7 +49,7 @@
     "sharp-bmp": "^0.1.5",
     "socket.io": "^4.6.2",
     "socket.io-client": "^4.6.2",
-    "trabecula": "github:msihly/trabecula#ec8e05bfb0c4f0a0503867d7cb175976b20bdf42",
+    "trabecula": "github:msihly/trabecula#e2e6262ea99781d333f97560cd136b894c290b45",
     "util": "^0.12.5",
     "vite-plugin-electron-renderer": "0.10.1"
   },
@@ -74,6 +74,7 @@
     "eslint": "8.54.0",
     "eslint-plugin-import": "^2.31.0",
     "eslint-plugin-prettier": "^5.2.6",
+    "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-simple-import-sort": "^12.1.1",
     "eslint-plugin-tss-unused-classes": "1.0.2",
     "patch-package": "^6.4.7",

@@ -14,6 +14,7 @@ export const Duration = ({ file, ...props }: DurationProps) => {
       label={
         <View row spacing="0.3em">
           {file.audioCodec === "None" && <Icon name="VolumeOff" size="1em" />}
+
           <Text>{Fmt.duration(file.duration)}</Text>
         </View>
       }

@@ -42,12 +42,15 @@ export const Header = Comp(({ type }: HeaderProps) => {
           {type === "Ingester" ? (
             <>
               <Chip label={Fmt.bytes(totalBytes)} />
+
               <Chip label={`${Fmt.commas(totalFolders)} Folders`} />
+
               <Chip label={`${Fmt.commas(totalFiles)} Files`} />
             </>
           ) : (
             <>
               <Chip label={`${Fmt.commas(totalFolders - 1)} Folders Left`} />
+
               <Chip label={`${Fmt.commas(totalFilesLeft)} Files Left`} />
             </>
           )}

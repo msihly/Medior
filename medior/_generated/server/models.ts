@@ -158,6 +158,108 @@ export const FileImportBatchModel = model<FileImportBatchSchema>(
 );
 
 /* --------------------------------------------------------------------------- */
+/*                               FileTransform
+/* --------------------------------------------------------------------------- */
+
+export interface FileTransformSchema {
+  id: string;
+  dateCreated: string;
+  afterAudioBitrate?: number;
+  afterAudioCodec?: string;
+  afterBitrate?: number;
+  afterDuration?: number;
+  afterFrameRate?: number;
+  afterHash?: string;
+  afterHeight?: number;
+  afterPath?: string;
+  afterSize?: number;
+  afterVideoCodec?: string;
+  afterWidth?: number;
+  beforeAudioBitrate?: number;
+  beforeAudioCodec?: string;
+  beforeBitrate?: number;
+  beforeDuration?: number;
+  beforeFrameRate?: number;
+  beforeHash?: string;
+  beforeHeight?: number;
+  beforePath: string;
+  beforeSize: number;
+  beforeVideoCodec?: string;
+  beforeWidth?: number;
+  completedAt?: string;
+  configCodec?: string;
+  configMaxBitrate?: number;
+  configMaxFps?: number;
+  configMaxHeight?: number;
+  configMaxWidth?: number;
+  configOverride?: string[];
+  errorMsg?: string;
+  fileId: string;
+  isCompleted: boolean;
+  progressPercent?: number;
+  progressSize?: number;
+  progressTime?: string;
+  startedAt?: string;
+  status: string | "COMPLETE" | "ERROR" | "PENDING" | "REPLACED" | "RUNNING" | "SAVED";
+  timestampPairs?: Array<{ end: number; start: number }>;
+  type: string | "reencode" | "remux" | "splice";
+}
+
+const FileTransformSchema = new Schema<FileTransformSchema>({
+  id: String,
+  dateCreated: String,
+  afterAudioBitrate: Number,
+  afterAudioCodec: String,
+  afterBitrate: Number,
+  afterDuration: Number,
+  afterFrameRate: Number,
+  afterHash: String,
+  afterHeight: Number,
+  afterPath: String,
+  afterSize: Number,
+  afterVideoCodec: String,
+  afterWidth: Number,
+  beforeAudioBitrate: Number,
+  beforeAudioCodec: String,
+  beforeBitrate: Number,
+  beforeDuration: Number,
+  beforeFrameRate: Number,
+  beforeHash: String,
+  beforeHeight: Number,
+  beforePath: String,
+  beforeSize: Number,
+  beforeVideoCodec: String,
+  beforeWidth: Number,
+  completedAt: String,
+  configCodec: String,
+  configMaxBitrate: Number,
+  configMaxFps: Number,
+  configMaxHeight: Number,
+  configMaxWidth: Number,
+  configOverride: [String],
+  errorMsg: String,
+  fileId: Schema.Types.ObjectId,
+  isCompleted: Boolean,
+  progressPercent: Number,
+  progressSize: Number,
+  progressTime: String,
+  startedAt: String,
+  status: { type: String, enum: ["COMPLETE", "ERROR", "PENDING", "REPLACED", "RUNNING", "SAVED"] },
+  timestampPairs: [{ end: Number, start: Number }],
+  type: { type: String, enum: ["reencode", "remux", "splice"] },
+});
+
+FileTransformSchema.index({ dateCreated: 1, _id: 1 }, { unique: true });
+FileTransformSchema.index({ completedAt: 1, _id: 1 }, { unique: false });
+FileTransformSchema.index({ fileId: 1, _id: 1 }, { unique: false });
+FileTransformSchema.index({ isCompleted: 1, _id: 1 }, { unique: false });
+FileTransformSchema.index({ startedAt: 1, _id: 1 }, { unique: false });
+FileTransformSchema.index({ status: 1, _id: 1 }, { unique: false });
+FileTransformSchema.index({ type: 1, _id: 1 }, { unique: false });
+
+export const FileTransformModel = model<FileTransformSchema>("FileTransform", FileTransformSchema);
+
+/* --------------------------------------------------------------------------- */
 /*                               File
 /* --------------------------------------------------------------------------- */
 

@@ -49,6 +49,11 @@ export const HomeMultiActionBar = Comp(({ isHome = false }: HomeMultiActionBarPr
     toast.info(`Added ${stores.file.search.results.length} files to selection`);
   };
 
+  const handleSelectAllInQuery = async () => {
+    const count = await stores.file.search.selectAllInQuery();
+    toast.info(`Added ${count} files to selection`);
+  };
+
   const handleUnarchive = () => stores.file.unarchiveFiles({ fileIds: selectedIds });
 
   const reingest = () => handleReingest({ fileIds: selectedIds, store: stores.import.reingester });
@@ -57,9 +62,7 @@ export const HomeMultiActionBar = Comp(({ isHome = false }: HomeMultiActionBarPr
     <AppBar position="static" className={css.appBar}>
       <View className={css.container}>
         <View row align="center" spacing="0.5rem">
-          <View row width="10rem">
-            <FileFilter.Menu store={stores.file.search} />
-          </View>
+          <FileFilter.Menu store={stores.file.search} />
 
           {stores.file.search.isArchiveOpen && (
             <Chip label="Archived" bgColor={colors.custom.red} />
@@ -149,6 +152,12 @@ export const HomeMultiActionBar = Comp(({ isHome = false }: HomeMultiActionBarPr
             name="SelectAll"
             tooltip="Select All Files in View"
             onClick={handleSelectAll}
+          />
+
+          <MultiActionButton
+            name="LibraryAddCheck"
+            tooltip="Select All Files in Query"
+            onClick={handleSelectAllInQuery}
           />
         </View>
       </View>

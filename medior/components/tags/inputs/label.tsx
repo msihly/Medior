@@ -44,6 +44,7 @@ export const Label = Comp(
           helperText: isDuplicate && (
             <View row align="center" justify="center">
               <Text>{"Tag already exists"}</Text>
+
               <Button
                 type="link"
                 text="(Click to edit)"

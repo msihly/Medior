@@ -34,6 +34,12 @@ export interface SocketEmitEvents {
     args: { id: string; updates: Partial<models.FileImportBatchSchema> },
     options?: SocketEventOptions,
   ) => void;
+  onFileTransformCreated: (args: models.FileTransformSchema, options?: SocketEventOptions) => void;
+  onFileTransformDeleted: (args: { ids: string[] }, options?: SocketEventOptions) => void;
+  onFileTransformUpdated: (
+    args: { id: string; updates: Partial<models.FileTransformSchema> },
+    options?: SocketEventOptions,
+  ) => void;
   onFileCreated: (args: models.FileSchema, options?: SocketEventOptions) => void;
   onFileDeleted: (args: { ids: string[] }, options?: SocketEventOptions) => void;
   onFileUpdated: (
@@ -86,11 +92,14 @@ export interface SocketEmitEvents {
     args: { addedTagIds: string[]; batchId?: string; fileIds?: string[]; removedTagIds: string[] },
     options?: SocketEventOptions,
   ) => void;
+  onFileTransformLoaded: (args: { id: string }, options?: SocketEventOptions) => void;
+  onFileTransformerStatusUpdated: (options?: SocketEventOptions) => void;
   onImportBatchCompleted: (args: { id: string }, options?: SocketEventOptions) => void;
   onImportBatchLoaded: (args: { id: string }, options?: SocketEventOptions) => void;
   onImporterStatusUpdated: (options?: SocketEventOptions) => void;
   onReloadFileCollections: (options?: SocketEventOptions) => void;
   onReloadFiles: (options?: SocketEventOptions) => void;
+  onReloadFileTransforms: (options?: SocketEventOptions) => void;
   onReloadImportBatches: (options?: SocketEventOptions) => void;
   onReloadRegExMaps: (options?: SocketEventOptions) => void;
   onReloadTags: (options?: SocketEventOptions) => void;
@@ -120,6 +129,9 @@ export const socketEvents: SocketEmitEvent[] = [
   "onFileImportBatchCreated",
   "onFileImportBatchDeleted",
   "onFileImportBatchUpdated",
+  "onFileTransformCreated",
+  "onFileTransformDeleted",
+  "onFileTransformUpdated",
   "onFileCreated",
   "onFileDeleted",
   "onFileUpdated",
@@ -139,11 +151,14 @@ export const socketEvents: SocketEmitEvent[] = [
   "onFileImportStarted",
   "onFileImportUpdated",
   "onFileTagsUpdated",
+  "onFileTransformLoaded",
+  "onFileTransformerStatusUpdated",
   "onImportBatchCompleted",
   "onImportBatchLoaded",
   "onImporterStatusUpdated",
   "onReloadFileCollections",
   "onReloadFiles",
+  "onReloadFileTransforms",
   "onReloadImportBatches",
   "onReloadRegExMaps",
   "onReloadTags",

@@ -99,6 +99,7 @@ export const InfoModal = Comp(() => {
               tooltip={
                 <UniformList row spacing="1rem">
                   <Detail label="Width" value={file?.width} />
+
                   <Detail label="Height" value={file?.height} />
                 </UniformList>
               }
@@ -182,7 +183,9 @@ export const InfoModal = Comp(() => {
 
         <UniformList row>
           <DateDetail label="Date Created" value={file?.dateCreated} />
+
           <DateDetail label="Date Modified" value={file?.dateModified} />
+
           <DateDetail label="Date Imported" value={file?.dateImported} />
         </UniformList>
 

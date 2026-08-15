@@ -306,12 +306,7 @@ export const SavedImportConfigsModal = Comp(
 );
 
 const SavedImportConfigsFilterMenu = Comp(({ store }: { store: SavedImportConfigSearch }) => (
-  <FilterMenu
-    store={store}
-    color={colors.foreground}
-    sortOptions={SORT_OPTIONS.SavedImportConfig}
-    width="10rem"
-  >
+  <FilterMenu store={store} color={colors.foreground} sortOptions={SORT_OPTIONS.SavedImportConfig}>
     <Card column spacing="0.5rem" width="30rem">
       <Input header="Label" value={store.label} setValue={store.setLabel} />
 
