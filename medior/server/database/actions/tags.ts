@@ -707,6 +707,37 @@ export const listTag = makeAction(async (args: Types._ListTagInput) => {
   return await deriveTagCategories(tags);
 });
 
+const mergeTagAliases = ({
+  aliases,
+  label,
+  tagToKeep,
+  tagToMerge,
+}: {
+  aliases: string[];
+  label: string;
+  tagToKeep: Pick<models.TagSchema, "aliases" | "label">;
+  tagToMerge: Pick<models.TagSchema, "aliases" | "label">;
+}) => {
+  const seen = new Set([label.trim().toLowerCase()]);
+  const values = [
+    ...aliases,
+    ...(tagToKeep.aliases ?? []),
+    ...(tagToMerge.aliases ?? []),
+    tagToKeep.label,
+    tagToMerge.label,
+  ];
+
+  return values.reduce<string[]>((acc, value) => {
+    const alias = value?.trim();
+    const normalized = alias?.toLowerCase();
+    if (!alias || seen.has(normalized)) return acc;
+
+    seen.add(normalized);
+    acc.push(alias);
+    return acc;
+  }, []);
+};
+
 export const mergeTags = makeAction(
   async (
     args: Omit<
@@ -733,6 +764,14 @@ export const mergeTags = makeAction(
       const _tagIdToKeep = objectId(args.tagIdToKeep);
       const _tagIdToMerge = objectId(args.tagIdToMerge);
       const dateModified = dayjs().toISOString();
+      const tagsBeingMerged = await models.TagModel.find({
+        _id: { $in: [_tagIdToKeep, _tagIdToMerge] },
+      })
+        .select({ aliases: 1, label: 1 })
+        .lean();
+      const tagToKeep = tagsBeingMerged.find((t) => t._id.equals(_tagIdToKeep));
+      const tagToMerge = tagsBeingMerged.find((t) => t._id.equals(_tagIdToMerge));
+      if (!tagToKeep || !tagToMerge) throw new Error("Tag not found");
 
       type Collections =
         | models.FileSchema
@@ -764,7 +803,12 @@ export const mergeTags = makeAction(
       );
 
       const tagToKeepUpdates = {
-        aliases: args.aliases,
+        aliases: mergeTagAliases({
+          aliases: args.aliases,
+          label: args.label,
+          tagToKeep,
+          tagToMerge,
+        }),
         childIds: args.childIds,
         dateModified,
         label: args.label,

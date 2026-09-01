@@ -50,8 +50,9 @@ export const HomeMultiActionBar = Comp(({ isHome = false }: HomeMultiActionBarPr
   };
 
   const handleSelectAllInQuery = async () => {
-    const count = await stores.file.search.selectAllInQuery();
-    toast.info(`Added ${count} files to selection`);
+    const res = await stores.file.search.selectAllInQuery();
+    if (!res.success) toast.error("Failed to select all files");
+    else toast.info(`Selected ${res.data} files`);
   };
 
   const handleUnarchive = () => stores.file.unarchiveFiles({ fileIds: selectedIds });
