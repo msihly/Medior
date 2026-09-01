@@ -77,6 +77,12 @@ export const VideoControls = Comp(() => {
 
   const handlePlaybackRateChange = (_, rate: number) => stores.carousel.setPlaybackRate(rate);
 
+  const handleTranscodeBitrateChange = (_, bitrate: number) =>
+    stores.carousel.setTranscodeBitrate(bitrate);
+
+  const handleTranscodeBitrateCommit = () =>
+    !activeFile?.isWebPlayable && transcode(stores.carousel.curFrame);
+
   const handleVolumeChange = (_, vol: number) => {
     stores.carousel.setVolume(vol);
     stores.carousel.setLastVolume(vol);
@@ -210,6 +216,24 @@ export const VideoControls = Comp(() => {
             fontSize="0.9em"
           />
         </CustomSlider>
+
+        {!activeFile?.isWebPlayable && (
+          <CustomSlider
+            value={stores.carousel.transcodeBitrate}
+            onChange={handleTranscodeBitrateChange}
+            onChangeCommitted={handleTranscodeBitrateCommit}
+            min={0.5}
+            max={12}
+            step={0.5}
+          >
+            <Button
+              text={`${stores.carousel.transcodeBitrate.toFixed(1)}M`}
+              icon="Speed"
+              color="transparent"
+              fontSize="0.9em"
+            />
+          </CustomSlider>
+        )}
       </View>
 
       <View column>
@@ -231,6 +255,7 @@ const CustomSlider = (props: {
   max: number;
   min: number;
   onChange: (event: any, value: number) => void;
+  onChangeCommitted?: () => void;
   step: number;
   value: number;
 }) => {
@@ -259,6 +284,7 @@ const CustomSlider = (props: {
         <Slider
           value={props?.value}
           onChange={props?.onChange}
+          onChangeCommitted={props?.onChangeCommitted}
           onMouseDown={handleMouseDown}
           onMouseUp={handleMouseUp}
           disabled={props?.disabled}

@@ -3,8 +3,15 @@ import path, { extname } from "path";
 import ffmpeg, { FfmpegCommand } from "fluent-ffmpeg";
 import { PassThrough } from "stream";
 import { checkFileExists, makePerfLog, md5File } from "trabecula/utils/server";
-import { CONSTANTS, fractionStringToNumber, PromiseQueue, round, sleep } from "medior/utils/common";
-import { getAvailableFileStorage, getConfig, sharp } from "medior/utils/server";
+import {
+  CONSTANTS,
+  fractionStringToNumber,
+  ImageExt,
+  PromiseQueue,
+  round,
+  sleep,
+} from "medior/utils/common";
+import { getAvailableFileStorage, getConfig, getIsImage, sharp } from "medior/utils/server";
 
 export type FfmpegOptions = {
   onProgress?: (progress: FfmpegProgress) => void;
@@ -33,8 +40,26 @@ export interface VideoInfo {
   width: number;
 }
 
+export interface MediaInfo extends VideoInfo {
+  ext: string;
+}
+
 const HIGH_BITRATE_THRESHOLD = 4_000_000;
 const CHUNK_FLUSH_BYTES = 512 * 1024;
+
+const timemarkToSeconds = (timemark: string) => {
+  const [hh, mm, ss] = timemark.split(":");
+  return Number(hh) * 3600 + Number(mm) * 60 + Number(ss);
+};
+
+const secondsToTimemark = (seconds: number) => {
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const remainingSeconds = seconds % 60;
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${remainingSeconds
+    .toFixed(2)
+    .padStart(5, "0")}`;
+};
 
 class VideoTranscoder {
   private DEBUG = false;
@@ -53,6 +78,7 @@ class VideoTranscoder {
   public async transcode(
     inputPath: string,
     videoBitrate: number,
+    targetBitrateMbps: number,
     seekTime: number = 0,
     onFirstFrames?: () => void,
   ) {
@@ -66,7 +92,7 @@ class VideoTranscoder {
 
     const highBitrate = videoBitrate > HIGH_BITRATE_THRESHOLD;
 
-    const command = this.initReencode(inputPath, seekTime, stream, highBitrate);
+    const command = this.initReencode(inputPath, seekTime, stream, highBitrate, targetBitrateMbps);
 
     const handleSourceOpen = this.handleSourceOpen.bind(
       this,
@@ -91,8 +117,10 @@ class VideoTranscoder {
     seekTime: number,
     stream: PassThrough,
     highBitrate: boolean,
+    targetBitrateMbps: number,
   ) {
     const { perfLog, perfLogTotal } = makePerfLog("[Transcode]", true);
+    const bitrate = Math.max(0.5, targetBitrateMbps);
 
     return ffmpeg()
       .input(inputPath)
@@ -101,8 +129,9 @@ class VideoTranscoder {
       .audioCodec("libvorbis")
       .outputOptions([
         `-crf ${highBitrate ? 24 : 18}`,
-        `-b:v 6M`,
-        `-bufsize 2M`,
+        `-b:v ${bitrate}M`,
+        `-maxrate ${bitrate}M`,
+        `-bufsize ${Math.max(1, bitrate * 2)}M`,
         `-qmin 10`,
         `-qmax 42`,
         `-deadline realtime`, // libvpx: fastest encode
@@ -315,16 +344,14 @@ const execFfmpeg = async (
   outputDir: string,
   options?: FfmpegOptions,
   duration?: number,
+  outputExt = "mp4",
 ): Promise<{ hash: string; path: string }> => {
   const DEBUG = false;
   const { perfLog } = makePerfLog("[ffmpeg]", true);
 
-  const tempPath = path.resolve(outputDir, "temp.mp4");
+  const tempPath = path.resolve(outputDir, `temp.${outputExt}`);
 
-  const timemarkToSeconds = (timemark: string) => {
-    const [hh, mm, ss] = timemark.split(":");
-    return Number(hh) * 3600 + Number(mm) * 60 + Number(ss);
-  };
+  command.outputOptions(["-y"]);
 
   const ffmpegPromise = new Promise((resolve, reject) => {
     command
@@ -374,7 +401,7 @@ const execFfmpeg = async (
     outputDir,
     newHash.substring(0, 2),
     newHash.substring(2, 4),
-    `${newHash}.mp4`,
+    `${newHash}.${outputExt}`,
   );
   if (DEBUG) perfLog(`Moving temp file from ${tempPath} to ${newPath}.`);
 
@@ -420,9 +447,106 @@ export const getVideoInfo = async (path: string): Promise<VideoInfo> => {
   })) as VideoInfo;
 };
 
+export const getMediaInfo = async (filePath: string): Promise<MediaInfo> => {
+  const ext = extname(filePath).replace(".", "").toLowerCase();
+  if (getIsImage(ext) && ext !== "gif") {
+    const [metadata, stats] = await Promise.all([
+      sharp(filePath, { failOn: "none" }).metadata(),
+      fs.stat(filePath),
+    ]);
+    return {
+      audioBitrate: null,
+      audioCodec: null,
+      bitrate: null,
+      duration: null,
+      ext,
+      frameRate: null,
+      height: metadata.height,
+      size: stats.size,
+      videoCodec: null,
+      width: metadata.width,
+    };
+  }
+
+  return getVideoInfo(filePath);
+};
+
+const moveHashedOutput = async (tempPath: string, outputDir: string, outputExt: string) => {
+  const newHash = await md5File(tempPath);
+  const newPath = path.resolve(
+    outputDir,
+    newHash.substring(0, 2),
+    newHash.substring(2, 4),
+    `${newHash}.${outputExt}`,
+  );
+
+  await fs.mkdir(path.dirname(newPath), { recursive: true });
+  await fs.rename(tempPath, newPath);
+  const res = await checkFileExists(newPath);
+  if (!res) throw new Error("Command failed.");
+
+  return { hash: newHash, path: newPath };
+};
+
+const normalizeImageExt = (ext: ImageExt) => (ext === "jpeg" ? "jpg" : ext);
+
+export const compressImage = async (
+  inputPath: string,
+  outputDir: string,
+  options?: FfmpegOptions,
+) => {
+  const { imageExt, imageMaxHeight, imageMaxWidth } = getConfig().file.reencode;
+  const outputExt = normalizeImageExt(imageExt);
+  const tempPath = path.resolve(outputDir, `temp.${outputExt}`);
+
+  await fs.mkdir(outputDir, { recursive: true });
+
+  const image = sharp(inputPath, { failOn: "none" }).resize({
+    fit: "inside",
+    height: imageMaxHeight,
+    width: imageMaxWidth,
+    withoutEnlargement: true,
+  });
+
+  await image.toFormat((outputExt === "jpg" ? "jpeg" : outputExt) as any).toFile(tempPath);
+  options?.onProgress?.({ fps: 0, frames: 1, kbps: 0, percent: 100, size: 0, time: "" });
+
+  return moveHashedOutput(tempPath, outputDir, outputExt);
+};
+
+export const gifToLoopableVideo = async (
+  inputPath: string,
+  outputDir: string,
+  options?: FfmpegOptions,
+) => {
+  const config = getConfig().file.reencode;
+  const videoInfo = await getVideoInfo(inputPath);
+  const filterArray = [
+    `scale='if(gt(iw,${config.maxWidth}),${config.maxWidth},iw)':'if(gt(ih,${config.maxHeight}),${config.maxHeight},ih)':force_original_aspect_ratio=decrease`,
+    "scale='trunc(iw/2)*2':'trunc(ih/2)*2'",
+    "format=yuv420p",
+  ];
+
+  if (config.maxFps && videoInfo.frameRate > config.maxFps)
+    filterArray.push(`fps=${config.maxFps}`);
+
+  const command = ffmpeg()
+    .input(inputPath)
+    .videoCodec("libx264")
+    .addOption(["-vf", filterArray.join(",")])
+    .outputOptions(["-movflags", "+faststart", "-an"]);
+
+  return execFfmpeg(command, outputDir, options, videoInfo.duration);
+};
+
 export const reencode = async (inputPath: string, outputDir: string, options?: FfmpegOptions) => {
   const config = getConfig();
   const { codec, maxBitrate, maxFps, maxHeight, maxWidth, override } = config.file.reencode;
+  const inputExt = extname(inputPath).replace(".", "").toLowerCase();
+
+  if (getIsImage(inputExt) && inputExt !== "gif")
+    return compressImage(inputPath, outputDir, options);
+  if (inputExt === "gif") return gifToLoopableVideo(inputPath, outputDir, options);
 
   const videoInfo = await getVideoInfo(inputPath);
   const inputFps = videoInfo.frameRate;
@@ -495,81 +619,112 @@ export const spliceVideo = async (
       );
   });
 
-  const inputExt = info.ext.toLowerCase();
-  const canStreamCopy = !options?.forceReencode && inputExt === "mp4";
   const totalDuration = pairs.reduce((acc, [start, end]) => acc + (end - start), 0);
 
   await fs.mkdir(outputDir, { recursive: true });
 
-  if (canStreamCopy) {
-    const tmpDir = path.join(outputDir, "_tmp", `stitch-${Date.now()}`);
-    await fs.mkdir(tmpDir, { recursive: true });
+  if (!options?.forceReencode) {
+    const tempDir = path.join(outputDir, "_tmp", `splice-${Date.now()}`);
+    await fs.mkdir(tempDir, { recursive: true });
 
     const segmentPaths: string[] = [];
-    for (let i = 0; i < pairs.length; i++) {
-      const [start, end] = pairs[i];
-      const duration = end - start;
-      const segPath = path.join(tmpDir, `seg-${i}.ts`);
-
-      const cmd = ffmpeg()
+    let completedDuration = 0;
+    let completedSize = 0;
+    for (const [index, [start, end]] of pairs.entries()) {
+      const segmentPath = path.join(tempDir, `segment-${index}.ts`);
+      const segmentDuration = end - start;
+      const command = ffmpeg()
         .input(inputPath)
         .inputOptions([`-ss ${start}`])
         .outputOptions([
-          `-t ${duration}`,
+          `-t ${end - start}`,
           "-map 0",
           "-c copy",
           "-avoid_negative_ts make_zero",
           "-muxpreload 0",
           "-muxdelay 0",
-          "-f mpegts",
         ]);
 
-      await new Promise<void>((resolve, reject) => {
-        cmd
-          .output(segPath)
-          .on("end", () => resolve())
-          .on("error", reject)
-          .run();
-
-        if (options?.signal) {
-          const abort = () => cmd.kill("SIGKILL");
-          if (options.signal.aborted) {
-            abort();
-            reject(new Error("Command cancelled before start."));
-          } else options.signal.addEventListener("abort", abort, { once: true });
-        }
+      options?.onProgress?.({
+        fps: 0,
+        frames: 0,
+        kbps: 0,
+        percent: (completedDuration / totalDuration) * 100,
+        size: completedSize,
+        time: secondsToTimemark(completedDuration),
       });
 
-      segmentPaths.push(segPath);
+      await new Promise<void>((resolve, reject) => {
+        const signal = options?.signal;
+        const abort = () => command.kill("SIGKILL");
+        const cleanup = () => signal?.removeEventListener("abort", abort);
+
+        command
+          .output(segmentPath)
+          .on("progress", (progress) => {
+            const elapsed = progress.timemark
+              ? Math.min(timemarkToSeconds(progress.timemark), segmentDuration)
+              : 0;
+            options?.onProgress?.({
+              fps: progress.currentFps ?? 0,
+              frames: progress.frames ?? 0,
+              kbps: progress.currentKbps ?? 0,
+              percent: ((completedDuration + elapsed) / totalDuration) * 100,
+              size: completedSize + (progress.targetSize ?? 0) * 1000,
+              time: secondsToTimemark(completedDuration + elapsed),
+            });
+          })
+          .on("end", () => (cleanup(), resolve()))
+          .on("error", (err) => (cleanup(), reject(err)))
+          .run();
+
+        if (!signal) return;
+        if (signal.aborted) {
+          cleanup();
+          abort();
+          reject(new Error("Command cancelled before start."));
+        } else signal.addEventListener("abort", abort, { once: true });
+      });
+
+      segmentPaths.push(segmentPath);
+      completedDuration += segmentDuration;
+      completedSize += (await fs.stat(segmentPath)).size;
     }
 
-    const concatInput = `concat:${segmentPaths.join("|")}`;
-
     const command = ffmpeg()
-      .input(concatInput)
-      .inputOptions(["-fflags +genpts"])
+      .input(`concat:${segmentPaths.join("|")}`)
       .outputOptions(["-map 0", "-c copy", "-movflags +faststart"]);
 
-    return execFfmpeg(command, outputDir, options, totalDuration).finally(async () => {
-      await fs.rm(tmpDir, { recursive: true, force: true });
-    });
-  } else {
-    const command = ffmpeg();
-    pairs.forEach(([start, end]) => {
-      command.input(inputPath).inputOptions([`-ss ${start}`, `-to ${end}`]);
-    });
-
-    // Build filter_complex: [0:v][0:a][1:v][1:a]...concat=n=N:v=1:a=1[v][a]
-    const streams = pairs.map((_, i) => `[${i}:v][${i}:a]`).join("");
-    const filterComplex = `${streams}concat=n=${pairs.length}:v=1:a=1[v][a]`;
-
-    command
-      .outputOptions(["-filter_complex", filterComplex, "-map", "[v]", "-map", "[a]"])
-      .videoCodec(getConfig().file.reencode.codec)
-      .audioCodec("aac");
-
-    return execFfmpeg(command, outputDir, options, totalDuration);
+    return execFfmpeg(command, outputDir, options, totalDuration).finally(() =>
+      fs.rm(tempDir, { force: true, recursive: true }),
+    );
   }
+
+  const command = ffmpeg();
+  pairs.forEach(([start, end]) => {
+    command.input(inputPath).inputOptions([`-ss ${start}`, `-to ${end}`]);
+  });
+
+  const hasAudio = info.audioCodec && info.audioCodec !== "None";
+  const streams = pairs.map((_, i) => (hasAudio ? `[${i}:v][${i}:a]` : `[${i}:v]`)).join("");
+  const filterComplex = hasAudio
+    ? `${streams}concat=n=${pairs.length}:v=1:a=1[v][a]`
+    : `${streams}concat=n=${pairs.length}:v=1:a=0[v]`;
+
+  command
+    .outputOptions([
+      "-filter_complex",
+      filterComplex,
+      "-map",
+      "[v]",
+      ...(hasAudio ? ["-map", "[a]"] : []),
+    ])
+    .videoCodec(getConfig().file.reencode.codec)
+    .outputOptions(hasAudio ? [] : ["-an"]);
+
+  if (hasAudio) command.audioCodec("aac");
+
+  return execFfmpeg(command, outputDir, options, totalDuration);
 };
 
 export const vidToThumbGrid = async (inputPath: string, outputPath: string, fileHash: string) => {

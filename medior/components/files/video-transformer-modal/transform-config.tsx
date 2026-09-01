@@ -78,6 +78,24 @@ export const TransformConfig = Comp(() => {
         />
       </View>
 
+      <View row spacing="0.5rem" align="flex-end">
+        <Settings.Input header="Image Ext" configKey="file.reencode.imageExt" width="8rem" />
+
+        <Settings.NumInput
+          header="Image Max Height"
+          configKey="file.reencode.imageMaxHeight"
+          minValue={1}
+          width="8rem"
+        />
+
+        <Settings.NumInput
+          header="Image Max Width"
+          configKey="file.reencode.imageMaxWidth"
+          minValue={1}
+          width="8rem"
+        />
+      </View>
+
       <Settings.Input
         header="Override Args"
         configKey={overrideKey}

@@ -26,6 +26,7 @@ export class CarouselStore extends Model({
   seekOffset: prop<number>(0).withSetter(),
   selectedFileIds: prop<string[]>(() => []).withSetter(),
   splicer: prop<Splicer>(() => new Splicer({})).withSetter(),
+  transcodeBitrate: prop<number>(6).withSetter(),
   volume: prop<number>(0.3).withSetter(),
 }) {
   onInit() {
@@ -119,6 +120,7 @@ export class CarouselStore extends Model({
       const url = await videoTranscoder.transcode(
         activeFile.path,
         activeFile.bitrate,
+        this.transcodeBitrate,
         args?.seekTime,
         () => {
           this.setIsWaitingForFrames(false);

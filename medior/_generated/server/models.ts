@@ -173,6 +173,7 @@ export interface FileTransformSchema {
   afterHeight?: number;
   afterPath?: string;
   afterSize?: number;
+  afterExt?: string;
   afterVideoCodec?: string;
   afterWidth?: number;
   beforeAudioBitrate?: number;
@@ -184,10 +185,14 @@ export interface FileTransformSchema {
   beforeHeight?: number;
   beforePath: string;
   beforeSize: number;
+  beforeExt: string;
   beforeVideoCodec?: string;
   beforeWidth?: number;
   completedAt?: string;
   configCodec?: string;
+  configImageExt?: string;
+  configImageMaxHeight?: number;
+  configImageMaxWidth?: number;
   configMaxBitrate?: number;
   configMaxFps?: number;
   configMaxHeight?: number;
@@ -200,7 +205,16 @@ export interface FileTransformSchema {
   progressSize?: number;
   progressTime?: string;
   startedAt?: string;
-  status: string | "COMPLETE" | "ERROR" | "PENDING" | "REPLACED" | "RUNNING" | "SAVED";
+  status:
+    | string
+    | "COMPLETE"
+    | "COMPRESSED"
+    | "ERROR"
+    | "PENDING"
+    | "REPLACED"
+    | "RUNNING"
+    | "SAVED"
+    | "SKIPPED";
   timestampPairs?: Array<{ end: number; start: number }>;
   type: string | "reencode" | "remux" | "splice";
 }
@@ -217,6 +231,7 @@ const FileTransformSchema = new Schema<FileTransformSchema>({
   afterHeight: Number,
   afterPath: String,
   afterSize: Number,
+  afterExt: String,
   afterVideoCodec: String,
   afterWidth: Number,
   beforeAudioBitrate: Number,
@@ -228,10 +243,14 @@ const FileTransformSchema = new Schema<FileTransformSchema>({
   beforeHeight: Number,
   beforePath: String,
   beforeSize: Number,
+  beforeExt: String,
   beforeVideoCodec: String,
   beforeWidth: Number,
   completedAt: String,
   configCodec: String,
+  configImageExt: String,
+  configImageMaxHeight: Number,
+  configImageMaxWidth: Number,
   configMaxBitrate: Number,
   configMaxFps: Number,
   configMaxHeight: Number,
@@ -244,7 +263,10 @@ const FileTransformSchema = new Schema<FileTransformSchema>({
   progressSize: Number,
   progressTime: String,
   startedAt: String,
-  status: { type: String, enum: ["COMPLETE", "ERROR", "PENDING", "REPLACED", "RUNNING", "SAVED"] },
+  status: {
+    type: String,
+    enum: ["COMPLETE", "COMPRESSED", "ERROR", "PENDING", "REPLACED", "RUNNING", "SAVED", "SKIPPED"],
+  },
   timestampPairs: [{ end: Number, start: Number }],
   type: { type: String, enum: ["reencode", "remux", "splice"] },
 });

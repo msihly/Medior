@@ -45,9 +45,11 @@ export const ProgressCircle = Comp(({ transform }: { transform: FileTransform })
 export const TransformDetails = Comp(
   ({
     transform,
+    compact = false,
     withAutoReplace = false,
     withQueueTotals = false,
   }: {
+    compact?: boolean;
     transform: FileTransform;
     withAutoReplace?: boolean;
     withQueueTotals?: boolean;
@@ -61,8 +63,8 @@ export const TransformDetails = Comp(
     const outputFrameRate = getOutputFrameRate(transform);
 
     return (
-      <View column spacing="0.8rem" overflow="visible">
-        <UniformList column spacing="0.5rem">
+      <View column spacing={compact ? "0.35rem" : "0.8rem"} overflow="visible">
+        <UniformList column spacing={compact ? "0.25rem" : "0.5rem"}>
           {withQueueTotals && transform.type !== "splice" ? (
             <>
               <InputOutputRow
@@ -76,12 +78,21 @@ export const TransformDetails = Comp(
           ) : null}
 
           <InputOutputRow
+            compact={compact}
+            label="Ext"
+            input={transform.beforeExt || "--"}
+            output={transform.afterExt || getOutputExt(transform)}
+          />
+
+          <InputOutputRow
+            compact={compact}
             label="Codec"
             input={transform.beforeVideoCodec || "--"}
             output={outputCodec}
           />
 
           <InputOutputRow
+            compact={compact}
             label="Dimensions"
             input={
               transform.beforeWidth && transform.beforeHeight
@@ -92,24 +103,21 @@ export const TransformDetails = Comp(
           />
 
           <InputOutputRow
+            compact={compact}
             label="FPS"
             input={transform.beforeFrameRate ? round(transform.beforeFrameRate) : "--"}
             output={outputFrameRate}
           />
 
           <InputOutputRow
+            compact={compact}
             label="Bitrate"
             input={transform.beforeBitrate ? Fmt.bytes(transform.beforeBitrate) : "--"}
-            output={
-              transform.afterBitrate
-                ? Fmt.bytes(transform.afterBitrate)
-                : transform.configMaxBitrate
-                  ? Fmt.bytes(transform.configMaxBitrate * 1000)
-                  : "--"
-            }
+            output={getOutputBitrate(transform)}
           />
 
           <InputOutputRow
+            compact={compact}
             label="Size"
             input={transform.beforeSize ? Fmt.bytes(transform.beforeSize) : "--"}
             output={outputSize ? Fmt.bytes(outputSize) : "--"}
@@ -118,7 +126,11 @@ export const TransformDetails = Comp(
           <Detail
             row
             label="Ratio"
-            labelProps={{ width: "6rem", fontSize: "1em", alignSelf: "center" }}
+            labelProps={{
+              width: compact ? "5rem" : "6rem",
+              fontSize: compact ? "0.9em" : "1em",
+              alignSelf: "center",
+            }}
             value={
               transform.beforeSize && outputSize
                 ? `${round(transform.beforeSize / outputSize)}x`
@@ -143,8 +155,8 @@ export const TransformDetails = Comp(
 
 const getOutputCodec = (transform: FileTransform) => {
   if (transform.afterVideoCodec) return transform.afterVideoCodec;
-  if (transform.type === "remux") return transform.beforeVideoCodec || "--";
-  if (transform.type === "splice") return "--";
+  if (!transform.beforeVideoCodec && transform.beforeExt !== "gif") return "--";
+  if (["remux", "splice"].includes(transform.type)) return transform.beforeVideoCodec || "--";
   return (
     {
       "libaom-av1": "av1",
@@ -162,27 +174,34 @@ const getOutputCodec = (transform: FileTransform) => {
   );
 };
 
+const getOutputExt = (transform: FileTransform) => {
+  if (transform.type === "remux") return "mp4";
+  if (transform.type === "splice") return "mp4";
+  if (transform.type !== "reencode") return "--";
+  if (transform.beforeExt === "gif") return "mp4";
+  if (!transform.beforeVideoCodec) return transform.configImageExt || "--";
+  return "mp4";
+};
+
 const getOutputDimensions = (transform: FileTransform) => {
   if (transform.afterWidth && transform.afterHeight)
     return `${transform.afterWidth}x${transform.afterHeight}`;
-  if (transform.type === "remux")
+  if (["remux", "splice"].includes(transform.type))
     return transform.beforeWidth && transform.beforeHeight
       ? `${transform.beforeWidth}x${transform.beforeHeight}`
       : "--";
-  if (
-    transform.type !== "reencode" ||
-    !transform.beforeWidth ||
-    !transform.beforeHeight ||
-    !transform.configMaxWidth ||
-    !transform.configMaxHeight
-  )
+  if (transform.type !== "reencode" || !transform.beforeWidth || !transform.beforeHeight)
     return "--";
 
-  const scale = Math.min(
-    1,
-    transform.configMaxWidth / transform.beforeWidth,
-    transform.configMaxHeight / transform.beforeHeight,
-  );
+  const maxWidth = !transform.beforeVideoCodec
+    ? transform.configImageMaxWidth
+    : transform.configMaxWidth;
+  const maxHeight = !transform.beforeVideoCodec
+    ? transform.configImageMaxHeight
+    : transform.configMaxHeight;
+  if (!maxWidth || !maxHeight) return "--";
+
+  const scale = Math.min(1, maxWidth / transform.beforeWidth, maxHeight / transform.beforeHeight);
   const width = Math.floor((transform.beforeWidth * scale) / 2) * 2;
   const height = Math.floor((transform.beforeHeight * scale) / 2) * 2;
   return `${width}x${height}`;
@@ -190,7 +209,7 @@ const getOutputDimensions = (transform: FileTransform) => {
 
 const getOutputFrameRate = (transform: FileTransform) => {
   if (transform.afterFrameRate) return round(transform.afterFrameRate);
-  if (transform.type === "remux")
+  if (["remux", "splice"].includes(transform.type))
     return transform.beforeFrameRate ? round(transform.beforeFrameRate) : "--";
   if (transform.type !== "reencode") return "--";
   if (!transform.configMaxFps)
@@ -199,26 +218,38 @@ const getOutputFrameRate = (transform: FileTransform) => {
   return round(Math.min(transform.beforeFrameRate, transform.configMaxFps));
 };
 
+const getOutputBitrate = (transform: FileTransform) => {
+  if (transform.afterBitrate) return Fmt.bytes(transform.afterBitrate);
+  if (["remux", "splice"].includes(transform.type))
+    return transform.beforeBitrate ? Fmt.bytes(transform.beforeBitrate) : "--";
+  return transform.configMaxBitrate ? Fmt.bytes(transform.configMaxBitrate * 1000) : "--";
+};
+
 interface InputOutputRowProps {
+  compact?: boolean;
   input: ReactNode;
   label: string;
   output: ReactNode;
 }
 
-const InputOutputRow = Comp(({ input, label, output }: InputOutputRowProps) => (
+const InputOutputRow = Comp(({ compact = false, input, label, output }: InputOutputRowProps) => (
   <Detail
     row
     label={label}
-    labelProps={{ width: "6rem", fontSize: "1em", alignSelf: "center" }}
+    labelProps={{
+      width: compact ? "5rem" : "6rem",
+      fontSize: compact ? "0.9em" : "1em",
+      alignSelf: "center",
+    }}
     value={
-      <View row align="center" spacing="1rem">
-        <Text width="6rem" whiteSpace="nowrap">
+      <View row align="center" spacing={compact ? "0.6rem" : "1rem"}>
+        <Text width={compact ? "5.5rem" : "6rem"} whiteSpace="nowrap">
           {input}
         </Text>
 
         <Icon name="ArrowRightAlt" />
 
-        <Text width="6rem" whiteSpace="nowrap">
+        <Text width={compact ? "5.5rem" : "6rem"} whiteSpace="nowrap">
           {output}
         </Text>
       </View>

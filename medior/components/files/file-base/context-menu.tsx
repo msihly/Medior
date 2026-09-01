@@ -6,8 +6,8 @@ import { FileSchema } from "medior/_generated/server";
 import { Comp, ContextMenu as ContextMenuBase, ViewProps } from "medior/components";
 import { FileCollectionSearch, FileSearch, FileTransformSearch, useStores } from "medior/store";
 import { colors, copyToClipboard, toast } from "medior/utils/client";
-import { CONSTANTS, VideoExt } from "medior/utils/common";
-import { getConfig, getIsRemuxable, trpc } from "medior/utils/server";
+import { CONSTANTS, durationToSeconds, VideoExt } from "medior/utils/common";
+import { getConfig, getIsImage, getIsRemuxable, trpc } from "medior/utils/server";
 
 export interface ContextMenuProps extends ViewProps {
   children?: ReactNode | ReactNode[];
@@ -21,8 +21,9 @@ export const ContextMenu = Comp(
   ({ carouselFileIds, children, file, store, ...props }: ContextMenuProps) => {
     const stores = useStores();
 
-    const isReencodable = file.videoCodec?.length > 0;
+    const isReencodable = file.videoCodec?.length > 0 || getIsImage(file.ext);
     const isRemuxable = getIsRemuxable(file.ext);
+    const spliceTimelines = file.timestamps?.filter((timeline) => timeline.pairs.length) ?? [];
 
     const copyFileIds = () => copyToClipboard(getActionFileIds().join("\n"), "Copied file IDs");
 
@@ -54,6 +55,18 @@ export const ContextMenu = Comp(
     const handleReencode = () => stores.file.openVideoTransformer([file.id], "reencode");
 
     const handleRemux = () => stores.file.openVideoTransformer([file.id], "remux");
+
+    const handleSplice = (timeline: FileSchema["timestamps"][number]) => {
+      stores.file.videoTransformer.setTimestampPairs(
+        [...timeline.pairs]
+          .sort((a, b) => a.order - b.order)
+          .map((pair) => [
+            durationToSeconds(pair.startDuration),
+            durationToSeconds(pair.endDuration),
+          ]),
+      );
+      stores.file.openVideoTransformer([file.id], "splice");
+    };
 
     const handleUnarchive = () => stores.file.unarchiveFiles({ fileIds: [file.id] });
 
@@ -177,6 +190,19 @@ export const ContextMenu = Comp(
                 icon: "AutoMode",
                 label: "Re-encode",
                 onClick: handleReencode,
+              }
+            : null,
+          spliceTimelines.length
+            ? {
+                color: colors.custom.purple,
+                divider: "bottom",
+                icon: "ContentCut",
+                label: "Splice",
+                subItems: spliceTimelines.map((timeline) => ({
+                  icon: "ContentCut",
+                  label: timeline.label,
+                  onClick: () => handleSplice(timeline),
+                })),
               }
             : null,
           stores.file.search.isArchived

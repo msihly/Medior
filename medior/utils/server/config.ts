@@ -52,6 +52,9 @@ export interface Config {
     imageExts: Array<ImageExt>;
     reencode: {
       codec: string;
+      imageExt: ImageExt;
+      imageMaxHeight: number;
+      imageMaxWidth: number;
       maxBitrate: number;
       maxFps: number;
       maxHeight: number;
@@ -166,6 +169,9 @@ export const DEFAULT_CONFIG: Config = {
     hideUnratedIcon: false,
     reencode: {
       codec: "libx265",
+      imageExt: "jpg",
+      imageMaxHeight: 1440,
+      imageMaxWidth: 2560,
       maxBitrate: 5000,
       maxFps: 60,
       maxHeight: 1080,

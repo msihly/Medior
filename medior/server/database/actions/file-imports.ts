@@ -89,12 +89,7 @@ export const completeImportBatch = makeAction(
     ];
 
     let collectionId: string = null;
-    if (batch.collectionTitle) {
-      if (!fileIds.length) {
-        fileLog({ args, batch }, { type: "error" });
-        throw new Error("Failed to complete batch collection (no completed or duplicate file ids)");
-      }
-
+    if (batch.collectionTitle && fileIds.length) {
       const fileIdIndexes = fileIds.map((fileId, index) => ({ fileId, index }));
       const res = await actions.createCollection({ fileIdIndexes, title: batch.collectionTitle });
       if (!res.success) throw new Error(`Failed to create collection: ${res.error}`);

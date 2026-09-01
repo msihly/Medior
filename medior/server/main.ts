@@ -134,6 +134,18 @@ ipcMain.on("createSearchWindow", (_, args) => createSearchWindow(args));
 /* -------------------------------------------------------------------------- */
 let carouselWindows: BrowserWindow[] = [];
 
+const registerCarouselDevToolsShortcuts = (window: BrowserWindow) => {
+  window.webContents.on("before-input-event", (event, input) => {
+    const isDevToolsShortcut =
+      input.type === "keyDown" &&
+      (input.key === "F12" || (input.control && input.shift && input.key.toLowerCase() === "i"));
+    if (!isDevToolsShortcut) return;
+
+    event.preventDefault();
+    window.webContents.toggleDevTools();
+  });
+};
+
 const createCarouselWindow = async ({ fileId, height, selectedFileIds, width }) => {
   try {
     fileLog("Creating carousel window...");
@@ -161,6 +173,7 @@ const createCarouselWindow = async ({ fileId, height, selectedFileIds, width }) 
 
     carouselWindow.maximize();
     remoteMain.enable(carouselWindow.webContents);
+    registerCarouselDevToolsShortcuts(carouselWindow);
     carouselWindow.show();
 
     if (!isPackaged) {

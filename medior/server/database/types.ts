@@ -11,11 +11,13 @@ export type ImportStatus = "COMPLETE" | "DELETED" | "DUPLICATE" | "ERROR" | "PEN
 
 export type FileTransformStatus =
   | "COMPLETE"
+  | "COMPRESSED"
   | "ERROR"
   | "PENDING"
   | "REPLACED"
   | "RUNNING"
-  | "SAVED";
+  | "SAVED"
+  | "SKIPPED";
 
 export type FileTransformType = "reencode" | "remux" | "splice";
 

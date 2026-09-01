@@ -145,48 +145,57 @@ export const useSockets = ({ view }: UseSocketsProps) => {
         stores.import.manager.getImporterStatus();
       });
 
-      makeSocket("onFileTransformerStatusUpdated", () => {
-        stores.file.videoTransformer.getTransformerStatus();
-        stores.file.videoTransformer.loadQueueCount();
-      });
-
-      makeSocket("onFileTransformLoaded", () => {
-        if (stores.file.videoTransformer.isOpen) stores.file.videoTransformer.loadActiveTransform();
-      });
-
-      makeSocket("onFileTransformUpdated", ({ id, updates }) => {
-        const isConsumed = ["REPLACED", "SAVED"].includes(updates.status);
-        const transform = stores.file.videoTransformer.search.getResult(id);
-        const fileId = transform?.fileId;
-
-        if (stores.file.videoTransformer.activeTransform?.id === id) {
-          stores.file.videoTransformer.activeTransform.update(updates);
-          if (isConsumed) stores.file.videoTransformer.loadActiveTransform();
-        } else if (stores.file.videoTransformer.isOpen && updates.status === "RUNNING") {
-          stores.file.videoTransformer.loadActiveTransform();
-        }
-
-        if (isConsumed) {
-          stores.file.videoTransformer.search._deleteResults([id]);
-          if (fileId) stores.file.videoTransformer.removeQueueFiles([fileId]);
-        } else transform?.update(updates);
-
-        if (updates.isCompleted || ["ERROR", "REPLACED", "SAVED"].includes(updates.status))
-          stores.file.videoTransformer.search.setHasChanges(true);
-        stores.file.videoTransformer.loadQueueCount();
-      });
-
-      makeSocket("onReloadFileTransforms", () => {
-        if (stores.file.videoTransformer.isOpen) {
-          stores.file.videoTransformer.loadQueueCount();
-          stores.file.videoTransformer.loadQueue();
-        }
-      });
-
       makeSocket("onReloadFileCollections", () => {
         if (stores.collection.manager.isOpen) stores.collection.manager.search.loadFiltered();
       });
     }
+
+    makeSocket("onFileTransformerStatusUpdated", () => {
+      stores.file.videoTransformer.getTransformerStatus();
+      stores.file.videoTransformer.loadQueueCount();
+    });
+
+    makeSocket("onFileTransformLoaded", ({ id }) => {
+      if (stores.file.videoTransformer.isOpen) stores.file.videoTransformer.loadActiveTransform(id);
+    });
+
+    makeSocket("onFileTransformUpdated", ({ id, updates }) => {
+      const isConsumed = ["REPLACED", "SAVED"].includes(updates.status);
+      const isTerminal = updates.isCompleted || ["ERROR", "SKIPPED"].includes(updates.status);
+      const transform = stores.file.videoTransformer.search.getResult(id);
+      const fileId = transform?.fileId;
+
+      if (stores.file.videoTransformer.activeTransform?.id === id) {
+        stores.file.videoTransformer.activeTransform.update(updates);
+        if (isConsumed) {
+          stores.file.videoTransformer.setFocusedTransformId(null);
+          stores.file.videoTransformer.loadActiveTransform();
+        }
+        if (isTerminal) {
+          stores.file.videoTransformer.setIsPaused(false);
+          stores.file.videoTransformer.setIsTransforming(false);
+          stores.file.videoTransformer.loadActiveTransform(id);
+        }
+      } else if (stores.file.videoTransformer.isOpen && updates.status === "RUNNING") {
+        stores.file.videoTransformer.loadActiveTransform(id);
+      }
+
+      if (isConsumed) {
+        stores.file.videoTransformer.search._deleteResults([id]);
+        if (fileId) stores.file.videoTransformer.removeQueueFiles([fileId]);
+      } else transform?.update(updates);
+
+      if (updates.isCompleted || ["ERROR", "REPLACED", "SAVED"].includes(updates.status))
+        stores.file.videoTransformer.search.setHasChanges(true);
+      stores.file.videoTransformer.loadQueueCount();
+    });
+
+    makeSocket("onReloadFileTransforms", () => {
+      if (stores.file.videoTransformer.isOpen) {
+        stores.file.videoTransformer.loadQueueCount();
+        stores.file.videoTransformer.loadQueue();
+      }
+    });
 
     if (view === "home") {
       makeSocket("onFileImportUpdated", ({ errorMsg, fileId, filePath, status }) => {

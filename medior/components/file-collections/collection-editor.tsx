@@ -50,7 +50,8 @@ export const FileCollectionEditor = Comp(() => {
 
   useEffect(() => {
     scrollToTop();
-    if (store.search.page > store.search.pageCount) handlePageChange(store.search.pageCount);
+    if (store.search.pageCount > 0 && store.search.page > store.search.pageCount)
+      handlePageChange(store.search.pageCount);
   }, [store.search.page, store.search.pageCount]);
 
   const confirmClose = () => {
@@ -118,8 +119,9 @@ export const FileCollectionEditor = Comp(() => {
   };
 
   const handleSelectAllInQuery = async () => {
-    const count = await store.search.selectAllInQuery();
-    toast.info(`Added ${count} files to selection`);
+    const res = await store.search.selectAllInQuery();
+    if (!res.success) throw new Error(res.error);
+    toast.info(`Added ${res.data} files to selection`);
   };
 
   const handleTitleChange = (val: string) => {

@@ -13,6 +13,8 @@ export const FileDetails = Comp(({ transform }: FileDetailsProps) => {
   const store = stores.file.videoTransformer;
   const file = store.search.files.get(transform.fileId);
   const fileIndex = store.search.results.findIndex((t) => t.id === transform.id);
+  const queueIndex = (store.search.page - 1) * store.search.pageSize + fileIndex + 1;
+  const status = getTransformStatusDisplay(transform);
 
   const handleClick = async (event: React.MouseEvent) => {
     const res = await store.search.handleSelect({
@@ -49,8 +51,8 @@ export const FileDetails = Comp(({ transform }: FileDetailsProps) => {
               >
                 <CardBase.Chip
                   position="top-left"
-                  label={fileIndex + 1}
-                  bgColor={colors.custom.black}
+                  label={status ? `${queueIndex} - ${status.label}` : queueIndex}
+                  bgColor={status?.color ?? colors.custom.black}
                   opacity={1}
                   radiuses={{ left: 0, top: 0, bottomRight: "inherit" }}
                   flush
@@ -69,7 +71,7 @@ export const FileDetails = Comp(({ transform }: FileDetailsProps) => {
             </FileBase.Container>
 
             <View column justify="center" padding={{ all: 4 }}>
-              <TransformDetails transform={transform} />
+              <TransformDetails transform={transform} compact />
             </View>
           </Card>
         </FileBase.Container>
@@ -77,3 +79,10 @@ export const FileDetails = Comp(({ transform }: FileDetailsProps) => {
     </FileBase.ContextMenu>
   );
 });
+
+const getTransformStatusDisplay = (transform: FileTransform) => {
+  if (transform.status === "COMPRESSED") return { color: colors.custom.green, label: "Compressed" };
+  if (transform.status === "SKIPPED") return { color: colors.custom.orange, label: "Skipped" };
+  if (transform.status === "ERROR") return { color: colors.custom.red, label: "Error" };
+  return null;
+};

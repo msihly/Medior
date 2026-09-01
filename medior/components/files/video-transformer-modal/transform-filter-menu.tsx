@@ -39,11 +39,13 @@ export const TransformFilterMenu = Comp(() => {
             options={[
               { label: "Any", value: "" },
               { label: "Complete", value: "COMPLETE" },
+              { label: "Compressed", value: "COMPRESSED" },
               { label: "Error", value: "ERROR" },
               { label: "Pending", value: "PENDING" },
               { label: "Replaced", value: "REPLACED" },
               { label: "Running", value: "RUNNING" },
               { label: "Saved", value: "SAVED" },
+              { label: "Skipped", value: "SKIPPED" },
             ]}
             value={store.status ?? ""}
             setValue={store.setStatus}

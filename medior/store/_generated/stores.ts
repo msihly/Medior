@@ -3235,6 +3235,7 @@ export class _FileTransform extends Model({
   afterHeight: prop<number>(null),
   afterPath: prop<string>(null),
   afterSize: prop<number>(null),
+  afterExt: prop<string>(null),
   afterVideoCodec: prop<string>(null),
   afterWidth: prop<number>(null),
   beforeAudioBitrate: prop<number>(null),
@@ -3246,10 +3247,14 @@ export class _FileTransform extends Model({
   beforeHeight: prop<number>(null),
   beforePath: prop<string>(),
   beforeSize: prop<number>(),
+  beforeExt: prop<string>(),
   beforeVideoCodec: prop<string>(null),
   beforeWidth: prop<number>(null),
   completedAt: prop<string>(null),
   configCodec: prop<string>(null),
+  configImageExt: prop<string>(null),
+  configImageMaxHeight: prop<number>(null),
+  configImageMaxWidth: prop<number>(null),
   configMaxBitrate: prop<number>(null),
   configMaxFps: prop<number>(null),
   configMaxHeight: prop<number>(null),
@@ -3262,7 +3267,17 @@ export class _FileTransform extends Model({
   progressSize: prop<number>(null),
   progressTime: prop<string>(null),
   startedAt: prop<string>(null),
-  status: prop<string | "COMPLETE" | "ERROR" | "PENDING" | "REPLACED" | "RUNNING" | "SAVED">(),
+  status: prop<
+    | string
+    | "COMPLETE"
+    | "COMPRESSED"
+    | "ERROR"
+    | "PENDING"
+    | "REPLACED"
+    | "RUNNING"
+    | "SAVED"
+    | "SKIPPED"
+  >(),
   timestampPairs: prop<Array<{ end: number; start: number }>>(() => []),
   type: prop<string | "reencode" | "remux" | "splice">(),
 }) {

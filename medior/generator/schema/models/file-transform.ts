@@ -11,6 +11,7 @@ model.addProp("afterHash", "string");
 model.addProp("afterHeight", "number");
 model.addProp("afterPath", "string");
 model.addProp("afterSize", "number");
+model.addProp("afterExt", "string");
 model.addProp("afterVideoCodec", "string");
 model.addProp("afterWidth", "number");
 
@@ -23,6 +24,7 @@ model.addProp("beforeHash", "string");
 model.addProp("beforeHeight", "number");
 model.addProp("beforePath", "string", { required: true });
 model.addProp("beforeSize", "number", { required: true });
+model.addProp("beforeExt", "string", { required: true });
 model.addProp("beforeVideoCodec", "string");
 model.addProp("beforeWidth", "number");
 
@@ -32,6 +34,9 @@ model.addProp("completedAt", "string", {
 });
 
 model.addProp("configCodec", "string");
+model.addProp("configImageExt", "string");
+model.addProp("configImageMaxHeight", "number");
+model.addProp("configImageMaxWidth", "number");
 model.addProp("configMaxBitrate", "number");
 model.addProp("configMaxFps", "number");
 model.addProp("configMaxHeight", "number");
@@ -56,11 +61,11 @@ model.addProp("startedAt", "string", { sort: { icon: "HourglassTop", label: "Sta
 model.addIndex({ status: 1, _id: 1 }, { unique: false });
 model.addProp(
   "status",
-  "string | 'COMPLETE' | 'ERROR' | 'PENDING' | 'REPLACED' | 'RUNNING' | 'SAVED'",
+  "string | 'COMPLETE' | 'COMPRESSED' | 'ERROR' | 'PENDING' | 'REPLACED' | 'RUNNING' | 'SAVED' | 'SKIPPED'",
   {
     required: true,
     schemaType:
-      "{ type: String, enum: ['COMPLETE', 'ERROR', 'PENDING', 'REPLACED', 'RUNNING', 'SAVED'] }",
+      "{ type: String, enum: ['COMPLETE', 'COMPRESSED', 'ERROR', 'PENDING', 'REPLACED', 'RUNNING', 'SAVED', 'SKIPPED'] }",
     sort: { icon: "PendingActions", label: "Status" },
   },
 );

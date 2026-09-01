@@ -7,7 +7,7 @@ import { FileImporter } from "medior/store/imports/importer";
 import { dayjs } from "medior/utils/common";
 import { leanModelToJson, makeAction, objectIds, socket } from "medior/utils/server";
 import { getAvailableFileStorage, getConfig } from "medior/utils/server/config";
-import { getVideoInfo, reencode, remux, spliceVideo, VideoInfo } from "medior/utils/server/videos";
+import { getMediaInfo, MediaInfo, reencode, remux, spliceVideo } from "medior/utils/server/videos";
 
 class FileTransformerStatus {
   private abortController: AbortController = null;
@@ -66,6 +66,7 @@ class FileTransformerStatus {
 }
 
 const fileTransformerStatus = new FileTransformerStatus();
+let activeTransformExecution: Promise<void> = null;
 
 const makeBeforeAttrs = (file: models.FileSchema) => ({
   beforeAudioBitrate: file.audioBitrate,
@@ -75,13 +76,14 @@ const makeBeforeAttrs = (file: models.FileSchema) => ({
   beforeFrameRate: file.frameRate,
   beforeHash: file.hash,
   beforeHeight: file.height,
+  beforeExt: file.ext,
   beforePath: file.path,
   beforeSize: file.size,
   beforeVideoCodec: file.videoCodec,
   beforeWidth: file.width,
 });
 
-const makeAfterAttrs = (info: VideoInfo, path: string, hash: string) => ({
+const makeAfterAttrs = (info: MediaInfo, path: string, hash: string) => ({
   afterAudioBitrate: info.audioBitrate,
   afterAudioCodec: info.audioCodec,
   afterBitrate: info.bitrate,
@@ -89,6 +91,7 @@ const makeAfterAttrs = (info: VideoInfo, path: string, hash: string) => ({
   afterFrameRate: info.frameRate,
   afterHash: hash,
   afterHeight: info.height,
+  afterExt: info.ext,
   afterPath: path,
   afterSize: info.size,
   afterVideoCodec: info.videoCodec,
@@ -164,6 +167,9 @@ export const createFileTransforms = makeAction(
         return {
           ...makeBeforeAttrs(file),
           configCodec: config.codec,
+          configImageExt: config.imageExt,
+          configImageMaxHeight: config.imageMaxHeight,
+          configImageMaxWidth: config.imageMaxWidth,
           configMaxBitrate: config.maxBitrate,
           configMaxFps: config.maxFps,
           configMaxHeight: config.maxHeight,
@@ -188,10 +194,13 @@ export const createFileTransforms = makeAction(
   },
 );
 
-export const deleteFileTransforms = makeAction(
-  async (args: { ids: string[] }) =>
-    await models.FileTransformModel.deleteMany({ _id: { $in: args.ids } }),
-);
+export const deleteFileTransforms = makeAction(async (args: { ids: string[] }) => {
+  const transforms = await models.FileTransformModel.find({ _id: { $in: args.ids } })
+    .select("fileId")
+    .lean();
+  fileTransformerStatus.abortByFileIds(transforms.map((transform) => transform.fileId.toString()));
+  return await models.FileTransformModel.deleteMany({ _id: { $in: args.ids } });
+});
 
 export const deleteFileTransformsByFileIds = makeAction(async (args: { fileIds: string[] }) => {
   fileTransformerStatus.abortByFileIds(args.fileIds);
@@ -252,7 +261,7 @@ export const replaceFileTransformOutput = makeAction(async (args: { id: string }
   const file = await models.FileModel.findById(transform.fileId).lean();
   if (!file) throw new Error(`File not found: ${transform.fileId}`);
 
-  const info = await getVideoInfo(transform.afterPath);
+  const info = await getMediaInfo(transform.afterPath);
   const updates = {
     ...makeAfterAttrs(info, transform.afterPath, transform.afterHash),
     status: "REPLACED" as const,
@@ -298,10 +307,7 @@ export const replaceFileTransformOutput = makeAction(async (args: { id: string }
   return updates;
 });
 
-export const runFileTransform = makeAction(async (args: { id: string; isAuto?: boolean }) => {
-  const signal = fileTransformerStatus.tryRun();
-  if (!signal) return;
-
+const executeFileTransform = async (args: { id: string }, signal: AbortSignal) => {
   let withNextTransform = true;
   const transform = (await models.FileTransformModel.findById(
     args.id,
@@ -330,8 +336,10 @@ export const runFileTransform = makeAction(async (args: { id: string; isAuto?: b
     const options = {
       onProgress: (progress) =>
         updateFileTransform(args.id, {
-          progressPercent: progress.percent,
-          progressSize: progress.size,
+          progressPercent: Number.isFinite(progress.percent)
+            ? Math.min(100, Math.max(0, progress.percent))
+            : 0,
+          progressSize: Number.isFinite(progress.size) ? progress.size : 0,
           progressTime: progress.time,
         }),
       signal,
@@ -349,15 +357,28 @@ export const runFileTransform = makeAction(async (args: { id: string; isAuto?: b
               options,
             );
 
-    const info = await getVideoInfo(res.path);
+    const info = await getMediaInfo(res.path);
+    const status =
+      transform.type === "reencode"
+        ? info.size < transform.beforeSize
+          ? ("COMPRESSED" as const)
+          : ("SKIPPED" as const)
+        : ("COMPLETE" as const);
+
+    if (status === "SKIPPED") await deleteFile(res.path);
+
     await updateFileTransform(args.id, {
-      ...makeAfterAttrs(info, res.path, res.hash),
+      ...makeAfterAttrs(
+        info,
+        status === "SKIPPED" ? null : res.path,
+        status === "SKIPPED" ? null : res.hash,
+      ),
       completedAt: dayjs().toISOString(),
       isCompleted: true,
       progressPercent: 100,
-      status: "COMPLETE",
+      status,
     });
-    if (fileTransformerStatus.getIsAuto() && transform.type !== "splice") {
+    if (fileTransformerStatus.getIsAuto() && status !== "SKIPPED" && transform.type !== "splice") {
       const replaceRes = await replaceFileTransformOutput({ id: args.id });
       if (!replaceRes.success) throw new Error(replaceRes.error);
     }
@@ -390,16 +411,62 @@ export const runFileTransform = makeAction(async (args: { id: string; isAuto?: b
       !fileTransformerStatus.getIsPaused()
     ) {
       const nextTransform = await getQueueTransform("PENDING");
-      if (nextTransform) runFileTransform({ id: nextTransform.id });
+      if (nextTransform) startFileTransform({ id: nextTransform.id });
     }
   }
+};
+
+const startFileTransform = (args: { id: string }) => {
+  const signal = fileTransformerStatus.tryRun();
+  if (!signal) return false;
+  let execution: Promise<void>;
+  execution = executeFileTransform(args, signal)
+    .catch((err) => {
+      console.error(`Failed to execute file transform ${args.id}:`, err);
+      fileTransformerStatus.setIsTransforming(false);
+    })
+    .finally(() => {
+      if (activeTransformExecution === execution) activeTransformExecution = null;
+    });
+  activeTransformExecution = execution;
+  return true;
+};
+
+export const runFileTransform = makeAction(async (args: { id: string; isAuto?: boolean }) => {
+  if (typeof args.isAuto === "boolean") fileTransformerStatus.setIsAuto(args.isAuto);
+
+  if (activeTransformExecution) {
+    fileTransformerStatus.setIsPaused(true);
+    await activeTransformExecution;
+  }
+
+  const transform = await models.FileTransformModel.findById(args.id).lean();
+  if (!transform) throw new Error(`File transform not found: ${args.id}`);
+  if (transform.isCompleted && transform.status !== "ERROR")
+    throw new Error(`File transform is completed: ${args.id}`);
+
+  if (transform.status === "ERROR") {
+    await updateFileTransform(args.id, {
+      completedAt: null,
+      errorMsg: null,
+      isCompleted: false,
+      progressPercent: null,
+      progressSize: null,
+      progressTime: null,
+      startedAt: null,
+      status: "PENDING",
+    });
+  }
+
+  fileTransformerStatus.setIsPaused(false);
+  return { started: startFileTransform({ id: args.id }) };
 });
 
 export const runFileTransformer = makeAction(async (args: { isAuto?: boolean }) => {
   if (typeof args.isAuto === "boolean") fileTransformerStatus.setIsAuto(args.isAuto);
   await resetStaleRunningTransforms();
   const transform = await getQueueTransform("PENDING");
-  if (transform) runFileTransform({ id: transform.id });
+  return { started: transform ? startFileTransform({ id: transform.id }) : false };
 });
 
 export const saveFileTransformCopy = makeAction(async (args: { id: string }) => {
@@ -409,7 +476,7 @@ export const saveFileTransformCopy = makeAction(async (args: { id: string }) => 
   const file = await models.FileModel.findById(transform.fileId).lean();
   if (!file) throw new Error(`File not found: ${transform.fileId}`);
 
-  const info = await getVideoInfo(transform.afterPath);
+  const info = await getMediaInfo(transform.afterPath);
   const spliceConfig = getConfig().file.splice.onComplete;
   const tagIds = [
     ...file.tagIds.filter((id) => !spliceConfig.removeTagIds.includes(id.toString())),

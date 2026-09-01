@@ -17,6 +17,9 @@ export const ActiveTransform = Comp(() => {
   const stores = useStores();
   const store = stores.file.videoTransformer;
 
+  const canReplace =
+    store.activeTransform?.status === "COMPLETE" || store.activeTransform?.status === "COMPRESSED";
+
   return (
     <View
       column
@@ -101,7 +104,10 @@ export const ActiveTransform = Comp(() => {
                   store.activeTransform.type === "splice" ? store.saveCopy : store.replaceOutput
                 }
                 disabled={
-                  !store.activeTransform.afterPath || store.activeTransform.status !== "COMPLETE"
+                  !store.activeTransform.afterPath ||
+                  (store.activeTransform.type === "splice"
+                    ? store.activeTransform.status !== "COMPLETE"
+                    : !canReplace)
                 }
                 color={colors.custom.green}
               />
@@ -112,7 +118,7 @@ export const ActiveTransform = Comp(() => {
                 onClick={() =>
                   store.isTransforming || store.isPaused
                     ? store.togglePaused()
-                    : store.runTransformer()
+                    : store.runActiveTransform()
                 }
                 disabled={store.isLoading}
                 color={
@@ -131,7 +137,7 @@ export const ActiveTransform = Comp(() => {
           ) : null}
         </View>
       ) : (
-        <CenteredText text="No store.activeTransform transform" color={colors.custom.lightGrey} />
+        <CenteredText text="Nothing queued" color={colors.custom.lightGrey} />
       )}
     </View>
   );

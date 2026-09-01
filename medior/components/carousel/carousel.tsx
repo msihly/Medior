@@ -1,8 +1,17 @@
 import { MutableRefObject, useContext, useEffect, useRef } from "react";
 import { OnProgressProps } from "react-player/base";
 import ReactPlayer from "react-player/file";
+import { CircularProgress } from "@mui/material";
 import Panzoom, { PanzoomOptions } from "@panzoom/panzoom";
-import { Comp, FileBase, LoadingOverlay, Splicer, VideoControls, View } from "medior/components";
+import {
+  Comp,
+  FileBase,
+  LoadingOverlay,
+  Splicer,
+  Text,
+  VideoControls,
+  View,
+} from "medior/components";
 import { useStores } from "medior/store";
 import { makeClasses } from "medior/utils/client";
 import { CONSTANTS, round } from "medior/utils/common";
@@ -92,11 +101,31 @@ export const Carousel = Comp((_, videoRef: MutableRefObject<ReactPlayer>) => {
                   className={css.contextMenu}
                 >
                   {activeFile.isVideo ? (
-                    <View column flex={1} height="inherit" onClick={togglePlaying}>
-                      <LoadingOverlay
-                        isLoading={stores.carousel.isWaitingForFrames}
-                        sub="Transcoding..."
-                      />
+                    <View
+                      column
+                      flex={1}
+                      height="inherit"
+                      onClick={togglePlaying}
+                      className={css.videoSurface}
+                    >
+                      {stores.carousel.isWaitingForFrames && (
+                        <View
+                          column
+                          align="center"
+                          justify="center"
+                          spacing="1rem"
+                          height="100%"
+                          width="100%"
+                          onClick={(event) => event.stopPropagation()}
+                          className={css.transcodingOverlay}
+                        >
+                          <CircularProgress color="inherit" />
+
+                          <Text preset="title" fontSize="0.9em">
+                            {"Transcoding..."}
+                          </Text>
+                        </View>
+                      )}
 
                       <ReactPlayer
                         ref={videoRef}
@@ -145,5 +174,17 @@ const useClasses = makeClasses({
     width: "100%",
     objectFit: "scale-down",
     userSelect: "none",
+  },
+  videoSurface: {
+    position: "relative",
+  },
+  transcodingOverlay: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    zIndex: 1,
   },
 });
