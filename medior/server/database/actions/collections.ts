@@ -3,6 +3,7 @@ import { AnyBulkWriteOperation } from "mongodb";
 import { FilterQuery } from "mongoose";
 import { fileLog, makePerfLog } from "trabecula/utils/server";
 import * as actions from "medior/server/database/actions";
+import { makeRepairReporter } from "medior/server/database/repair-progress";
 import { dayjs, PromiseQueue } from "medior/utils/common";
 import { leanModelToJson, makeAction, objectIds, socket } from "medior/utils/server";
 
@@ -205,143 +206,218 @@ export const regenCollAttrs = makeAction(
 
 export const regenCollTagAncestors = makeAction(
   async (
-    args: { collectionIds: string[]; tagIds?: never } | { collectionIds?: never; tagIds: string[] },
+    args: (
+      | { collectionIds: string[]; tagIds?: never }
+      | { collectionIds?: never; tagIds: string[] }
+    ) & { repairId?: string },
   ) => {
-    const collections = (
-      await models.FileCollectionModel.find({
-        ...(args.collectionIds ? { _id: { $in: objectIds(args.collectionIds) } } : {}),
-        ...(args.tagIds ? { tagIdsWithAncestors: { $in: objectIds(args.tagIds) } } : {}),
-      })
-        .select({ _id: 1, tagIds: 1, tagIdsWithAncestors: 1 })
-        .lean()
-    ).map(leanModelToJson<models.FileCollectionSchema>);
+    const batchSize = 1000;
+    let processedCount = 0;
+    let updatedCount = 0;
+    let collections: models.FileCollectionSchema[] = [];
+    const reporter = args.repairId ? makeRepairReporter(args.repairId, "repairTags") : undefined;
+    const report = reporter?.report;
 
-    const tagIds = new Set<string>();
-    for (const collection of collections) {
-      for (const tagId of collection.tagIds) tagIds.add(tagId);
+    const processBatch = async () => {
+      reporter?.checkCancelled();
+      if (!collections.length) return;
+
+      const tagIds = new Set<string>();
+      for (const collection of collections) {
+        for (const tagId of collection.tagIds) tagIds.add(tagId);
+      }
+
+      const ancestorsMap = await actions.makeAncestorIdsMap([...tagIds]);
+      const bulkWriteOps: AnyBulkWriteOperation[] = [];
+
+      for (const collection of collections) {
+        const { hasUpdates, tagIdsWithAncestors } = actions.makeUniqueAncestorUpdates({
+          ancestorsMap,
+          oldTagIdsWithAncestors: collection.tagIdsWithAncestors,
+          tagIds: collection.tagIds,
+        });
+
+        if (!hasUpdates) continue;
+        bulkWriteOps.push({
+          updateOne: {
+            filter: { _id: collection.id },
+            update: { $set: { tagIdsWithAncestors } },
+          },
+        });
+      }
+
+      if (bulkWriteOps.length > 0) {
+        await models.FileCollectionModel.bulkWrite(bulkWriteOps, { ordered: false });
+      }
+      processedCount += collections.length;
+      updatedCount += bulkWriteOps.length;
+      collections = [];
+      report?.(
+        `Processed ${processedCount} collections; repaired cached tag ancestors on ${updatedCount}.`,
+        "progress",
+      );
+    };
+
+    const cursor = models.FileCollectionModel.find({
+      ...(args.collectionIds ? { _id: { $in: objectIds(args.collectionIds) } } : {}),
+      ...(args.tagIds
+        ? {
+            $or: [
+              { tagIds: { $in: objectIds(args.tagIds) } },
+              { tagIdsWithAncestors: { $in: objectIds(args.tagIds) } },
+            ],
+          }
+        : {}),
+    })
+      .select({ _id: 1, tagIds: 1, tagIdsWithAncestors: 1 })
+      .lean()
+      .cursor({ batchSize });
+
+    for await (const collection of cursor) {
+      reporter?.checkCancelled();
+      collections.push(leanModelToJson<models.FileCollectionSchema>(collection));
+      if (collections.length >= batchSize) await processBatch();
     }
+    await processBatch();
 
-    const ancestorsMap = await actions.makeAncestorIdsMap([...tagIds]);
-
-    const bulkWriteOps: AnyBulkWriteOperation[] = [];
-
-    for (const c of collections) {
-      const { hasUpdates, tagIdsWithAncestors } = actions.makeUniqueAncestorUpdates({
-        ancestorsMap,
-        oldTagIdsWithAncestors: c.tagIdsWithAncestors,
-        tagIds: c.tagIds,
-      });
-
-      if (!hasUpdates) continue;
-      bulkWriteOps.push({
-        updateOne: { filter: { _id: c.id }, update: { $set: { tagIdsWithAncestors } } },
-      });
-    }
-
-    await models.FileCollectionModel.bulkWrite(bulkWriteOps);
+    return { processedCount, updatedCount };
   },
 );
 
-export const repairCollections = makeAction(async () => {
-  const deletedIds: string[] = [];
+export const repairCollections = makeAction(async ({ repairId }: { repairId: string }) => {
+  const { checkCancelled, report, run } = makeRepairReporter(repairId, "repairCollections");
+  return run(async () => {
+    const deletedIds: string[] = [];
 
-  /* -------------------- Deduplicate collections by fileId ------------------- */
-  fileLog(`Getting all collections...`);
-  const collections = await models.FileCollectionModel.find({});
-  const seen = new Set<string>();
-  const duplicateIds: string[] = [];
+    /* -------------------- Deduplicate collections by fileId ------------------- */
+    report("Loading collections to identify duplicates.");
+    const collections = await models.FileCollectionModel.find({});
+    const seen = new Set<string>();
+    const duplicateIds: string[] = [];
 
-  fileLog(`Found ${collections.length} collections.`);
-  for (const collection of collections) {
-    const key = [...collection.fileIdIndexes]
-      .filter((f) => f.fileId)
-      .map((f) => f.fileId.toString())
-      .sort()
-      .join(",");
-    if (seen.has(key)) duplicateIds.push(collection._id.toString());
-    else seen.add(key);
-  }
-
-  fileLog(`Found ${duplicateIds.length} duplicate collections.`);
-  if (duplicateIds.length) {
-    await models.FileCollectionModel.deleteMany({ _id: { $in: duplicateIds } });
-    deletedIds.push(...duplicateIds);
-  }
-
-  /* ------------------------ Delete empty collections ------------------------ */
-  fileLog(`Searching for empty collections...`);
-  const emptyCollections = await models.FileCollectionModel.find({ fileCount: 0 }, { _id: 1 });
-  const emptyIds = emptyCollections.map((c) => c._id.toString());
-
-  fileLog(`Found ${emptyIds.length} empty collections`);
-  if (emptyIds.length) {
-    await models.FileCollectionModel.deleteMany({ _id: { $in: emptyIds } });
-    deletedIds.push(...emptyIds);
-  }
-
-  /* -------- Remove duplicate and invalid fileIds, collapse index gaps ------- */
-  fileLog(`Searching for remaining collections...`);
-  const remaining = await models.FileCollectionModel.find({});
-  const bulkOps = [];
-
-  fileLog(`Found ${remaining.length} remaining collections.`);
-  for (const collection of remaining) {
-    const cleaned = dedupeFileIdIndexes(collection.fileIdIndexes);
-
-    const hasChanges =
-      cleaned.length !== collection.fileIdIndexes.length ||
-      cleaned.some((entry, i) => entry.index !== collection.fileIdIndexes[i]?.index);
-
-    if (hasChanges)
-      bulkOps.push({
-        updateOne: {
-          filter: { _id: collection._id },
-          update: { $set: { fileIdIndexes: cleaned, fileCount: cleaned.length } },
-        },
-      });
-  }
-
-  fileLog(`Found ${bulkOps.length} collections to update.`);
-  if (bulkOps.length) {
-    const res = await models.FileCollectionModel.bulkWrite(bulkOps);
-    if (res.modifiedCount !== bulkOps.length) {
-      fileLog({ bulkOps, res }, { type: "error" });
-      throw new Error("Deduplication of fileIdIndexes failed!");
+    report(`Loaded ${collections.length} collections.`, "progress");
+    for (let collectionIndex = 0; collectionIndex < collections.length; collectionIndex++) {
+      checkCancelled();
+      const collection = collections[collectionIndex];
+      const key = [...collection.fileIdIndexes]
+        .filter((f) => f.fileId)
+        .map((f) => f.fileId.toString())
+        .sort()
+        .join(",");
+      if (seen.has(key)) duplicateIds.push(collection._id.toString());
+      else seen.add(key);
+      if ((collectionIndex + 1) % 1000 === 0 || collectionIndex + 1 === collections.length)
+        report(
+          `Checked ${collectionIndex + 1} / ${collections.length} collections for duplicates.`,
+          "progress",
+        );
     }
-  }
 
-  /* --------------- Delete collections that are subsets of others ------------ */
-  fileLog(`Searching for remaining collections...`);
-  const remaining1 = await models.FileCollectionModel.find({});
-  const fileIdSets = remaining1.map((collection) => ({
-    id: collection._id.toString(),
-    fileIds: new Set(
-      collection.fileIdIndexes.filter((f) => f.fileId).map((f) => f.fileId.toString()),
-    ),
-  }));
-  fileIdSets.sort((a, b) => a.fileIds.size - b.fileIds.size);
-  fileLog(`Found ${fileIdSets.length} remaining collections.`);
+    report(`Found ${duplicateIds.length} duplicate collections.`, "progress");
+    if (duplicateIds.length) {
+      report(`Deleting ${duplicateIds.length} duplicate collections.`);
+      await models.FileCollectionModel.deleteMany({ _id: { $in: duplicateIds } });
+      deletedIds.push(...duplicateIds);
+    }
 
-  fileLog(`Searching for subset collections...`);
-  const subsetIds: string[] = [];
-  for (let i = 0; i < fileIdSets.length; i++) {
-    if (subsetIds.includes(fileIdSets[i].id)) continue;
-    for (let j = i + 1; j < fileIdSets.length; j++) {
-      if (fileIdSets[i].fileIds.size === fileIdSets[j].fileIds.size) continue;
-      if ([...fileIdSets[i].fileIds].every((id) => fileIdSets[j].fileIds.has(id))) {
-        subsetIds.push(fileIdSets[i].id);
-        break;
+    /* ------------------------ Delete empty collections ------------------------ */
+    report("Searching for empty collections.");
+    checkCancelled();
+    const emptyCollections = await models.FileCollectionModel.find({ fileCount: 0 }, { _id: 1 });
+    const emptyIds = emptyCollections.map((c) => c._id.toString());
+
+    report(`Found ${emptyIds.length} empty collections.`, "progress");
+    if (emptyIds.length) {
+      report(`Deleting ${emptyIds.length} empty collections.`);
+      await models.FileCollectionModel.deleteMany({ _id: { $in: emptyIds } });
+      deletedIds.push(...emptyIds);
+    }
+
+    /* -------- Remove duplicate and invalid fileIds, collapse index gaps ------- */
+    report("Checking remaining collections for invalid IDs, duplicate IDs, and index gaps.");
+    const remaining = await models.FileCollectionModel.find({});
+    const bulkOps = [];
+
+    report(`Checking ${remaining.length} remaining collections.`, "progress");
+    for (let collectionIndex = 0; collectionIndex < remaining.length; collectionIndex++) {
+      checkCancelled();
+      const collection = remaining[collectionIndex];
+      const cleaned = dedupeFileIdIndexes(collection.fileIdIndexes);
+
+      const hasChanges =
+        cleaned.length !== collection.fileIdIndexes.length ||
+        cleaned.some((entry, i) => entry.index !== collection.fileIdIndexes[i]?.index);
+
+      if (hasChanges)
+        bulkOps.push({
+          updateOne: {
+            filter: { _id: collection._id },
+            update: { $set: { fileIdIndexes: cleaned, fileCount: cleaned.length } },
+          },
+        });
+      if ((collectionIndex + 1) % 1000 === 0 || collectionIndex + 1 === remaining.length)
+        report(
+          `Checked ${collectionIndex + 1} / ${remaining.length} collection file indexes.`,
+          "progress",
+        );
+    }
+
+    report(`Found ${bulkOps.length} collections with file-index problems.`, "progress");
+    if (bulkOps.length) {
+      report(`Repairing file indexes on ${bulkOps.length} collections.`);
+      const res = await models.FileCollectionModel.bulkWrite(bulkOps);
+      if (res.modifiedCount !== bulkOps.length) {
+        throw new Error("Deduplication of fileIdIndexes failed!");
       }
     }
-  }
 
-  fileLog(`Found ${subsetIds.length} subset collections.`);
-  if (subsetIds.length) {
-    await models.FileCollectionModel.deleteMany({ _id: { $in: subsetIds } });
-    deletedIds.push(...subsetIds);
-  }
+    /* --------------- Delete collections that are subsets of others ------------ */
+    report("Loading repaired collections for subset detection.");
+    const remaining1 = await models.FileCollectionModel.find({});
+    const fileIdSets = remaining1.map((collection) => ({
+      id: collection._id.toString(),
+      fileIds: new Set(
+        collection.fileIdIndexes.filter((f) => f.fileId).map((f) => f.fileId.toString()),
+      ),
+    }));
+    fileIdSets.sort((a, b) => a.fileIds.size - b.fileIds.size);
+    report(`Loaded ${fileIdSets.length} collections for subset detection.`, "progress");
 
-  if (deletedIds.length) socket.emit("onFileCollectionsDeleted", { ids: deletedIds });
+    report("Searching for collections whose files are entirely contained by another collection.");
+    const subsetIds: string[] = [];
+    for (let i = 0; i < fileIdSets.length; i++) {
+      checkCancelled();
+      if (!subsetIds.includes(fileIdSets[i].id)) {
+        for (let j = i + 1; j < fileIdSets.length; j++) {
+          if (fileIdSets[i].fileIds.size === fileIdSets[j].fileIds.size) continue;
+          if ([...fileIdSets[i].fileIds].every((id) => fileIdSets[j].fileIds.has(id))) {
+            subsetIds.push(fileIdSets[i].id);
+            break;
+          }
+        }
+      }
+      if ((i + 1) % 100 === 0 || i + 1 === fileIdSets.length)
+        report(
+          `Checked ${i + 1} / ${fileIdSets.length} collections for subset relationships.`,
+          "progress",
+        );
+    }
+
+    report(`Found ${subsetIds.length} subset collections.`, "progress");
+    if (subsetIds.length) {
+      checkCancelled();
+      report(`Deleting ${subsetIds.length} subset collections.`);
+      await models.FileCollectionModel.deleteMany({ _id: { $in: subsetIds } });
+      deletedIds.push(...subsetIds);
+    }
+
+    if (deletedIds.length) socket.emit("onFileCollectionsDeleted", { ids: deletedIds });
+    report(
+      `Collection repair completed successfully: deleted ${deletedIds.length} collections and repaired ${bulkOps.length}.`,
+      "success",
+    );
+    return { deletedCount: deletedIds.length, repairedCount: bulkOps.length };
+  });
 });
 
 export const updateCollection = makeAction(

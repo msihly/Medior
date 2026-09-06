@@ -6,17 +6,17 @@ import {
   Chip,
   Comp,
   FileCard,
-  LoadingOverlay,
   Modal,
   MultiActionButton,
   Pagination,
+  SearchLoadingOverlay,
   Text,
   UniformList,
   View,
 } from "medior/components";
 import { useStores } from "medior/store";
 import { colors, makeClasses, toast } from "medior/utils/client";
-import { CollectionFilterMenu, DeleteCollectionModal, FileCollection } from ".";
+import { CollectionFilterMenu, CollectionTriager, DeleteCollectionModal, FileCollection } from ".";
 
 const FILE_CARD_HEIGHT = 250;
 
@@ -207,7 +207,7 @@ export const FileCollectionManager = Comp(() => {
           }
         >
           <View flex={1} position="relative" overflow="hidden">
-            <LoadingOverlay isLoading={store.search.isLoading} />
+            <SearchLoadingOverlay store={store.search} />
 
             <View
               ref={collsRef}
@@ -244,6 +244,14 @@ export const FileCollectionManager = Comp(() => {
           colorOnHover={colors.custom.blue}
         />
 
+        <Button
+          text="Triager"
+          icon="AutoMode"
+          onClick={() => store.setIsTriagerOpen(true)}
+          disabled={store.search.isLoading || !store.search.results.length}
+          colorOnHover={colors.custom.purple}
+        />
+
         {!hasAnyFilesSelected ? null : (
           <Button
             text="Add to Collection"
@@ -256,6 +264,8 @@ export const FileCollectionManager = Comp(() => {
       </Modal.Footer>
 
       {store.isConfirmDeleteOpen && <DeleteCollectionModal />}
+
+      {store.isTriagerOpen && <CollectionTriager />}
     </Modal.Container>
   );
 });

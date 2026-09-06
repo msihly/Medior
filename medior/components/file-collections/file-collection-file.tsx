@@ -57,6 +57,8 @@ export const FileCollectionFile = Comp(
               {...fileDragProps}
               {...{ disabled, height }}
               thumb={file.thumb}
+              fileId={file.id}
+              isCorrupted={file.isCorrupted}
               title={file.originalName}
               draggable
             >

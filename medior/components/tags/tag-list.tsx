@@ -51,10 +51,20 @@ export const TagList = Comp(
       };
 
       const onTagMerged = async (args: Parameters<SocketEvents["onTagMerged"]>[0]) => {
+        const currentOptions = new Map(search.value.map((tag) => [tag.id, derefMobx(tag)]));
         const ids = [
           ...new Set(search.value.map((t) => (t.id === args.oldTagId ? args.newTagId : t.id))),
         ];
-        const newValue = (await stores.tag.listByIds({ ids })).data.map(tagToOption);
+        const newValue = (await stores.tag.listByIds({ ids })).data.map((tag) => {
+          const option = tagToOption(tag);
+          const currentOption = currentOptions.get(tag.id);
+          const mergedOption = tag.id === args.newTagId ? currentOptions.get(args.oldTagId) : null;
+
+          return {
+            ...option,
+            searchType: currentOption?.searchType ?? mergedOption?.searchType ?? option.searchType,
+          };
+        });
         search.onChange(newValue);
         rerender();
       };

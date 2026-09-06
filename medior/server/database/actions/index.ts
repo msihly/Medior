@@ -2,6 +2,7 @@ export * from "./collections";
 export * from "./file-imports";
 export * from "./file-transforms";
 export * from "./files";
+export * from "./indexes";
 export * from "./sockets";
 export * from "./tags";
 export * from "medior/_generated/server/actions";

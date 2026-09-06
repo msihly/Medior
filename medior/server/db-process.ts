@@ -1,11 +1,10 @@
 import fs from "fs/promises";
-import { MongoMemoryReplSet } from "mongodb-memory-server";
-import Mongoose from "mongoose";
+import { MongoMemoryServer } from "mongodb-memory-server";
 import { fileLog, setLogsPath } from "trabecula/utils/server";
 import { sleep } from "medior/utils/common";
 import { getConfig, loadConfig } from "medior/utils/server/config";
 
-let mongoServer: MongoMemoryReplSet;
+let mongoServer: MongoMemoryServer;
 
 const createDbServer = async () => {
   const config = getConfig();
@@ -16,33 +15,25 @@ const createDbServer = async () => {
   if (!exists) await fs.mkdir(dbPath, { recursive: true });
 
   if (mongoServer) {
-    fileLog("[DB] Disconnecting from db...");
-    await Mongoose.disconnect();
+    fileLog("[DB] Stopping db...");
     await mongoServer.stop();
     await sleep(1000);
   }
 
   fileLog("[DB] Starting db...");
-  mongoServer = await MongoMemoryReplSet.create({
-    instanceOpts: [{ dbPath, port, storageEngine: "wiredTiger" }],
-    replSet: { dbName: "medior", name: "rs0" },
+  mongoServer = await MongoMemoryServer.create({
+    instance: {
+      args: ["--wiredTigerCacheSizeGB", "2"],
+      dbPath,
+      port,
+      storageEngine: "wiredTiger",
+    },
   });
-
-  await mongoServer.waitUntilRunning();
 
   const uri = mongoServer.getUri();
   fileLog(`[DB] Connecting to db: ${uri}`);
 
-  Mongoose.set("strictQuery", true);
-  await Mongoose.connect(uri, { family: 4 });
-  Mongoose.connection.on("error", (err) => fileLog(`[DB] ${err.message}`, { type: "error" }));
-
-  for (const m of Object.keys(Mongoose.models))
-    Mongoose.models[m].syncIndexes().then(() => {
-      fileLog(`[DB] Synced indexes for ${m}`);
-    });
-
-  fileLog("[DB] Connected to db.");
+  fileLog("[DB] Started db.");
 };
 
 process.on("message", async (msg: any) => {

@@ -12,9 +12,15 @@ import { _FileStore } from "medior/store/_generated";
 import * as db from "medior/server/database";
 import { FaceModel, FileImporter, RootStore } from "medior/store";
 import { asyncAction, makeQueue, toast } from "medior/utils/client";
-import { PromiseQueue, splitArray } from "medior/utils/common";
+import { chunkArray, PromiseQueue, splitArray } from "medior/utils/common";
 import { trpc } from "medior/utils/server";
 import { File, FileSearch, FileTagsEditorStore, VideoTransformerStore } from ".";
+
+export interface FileDeletionProgress {
+  message: string;
+  processedCount: number;
+  totalCount: number;
+}
 
 @model("medior/FileStore")
 export class FileStore extends ExtendedModel(_FileStore, {
@@ -92,9 +98,13 @@ export class FileStore extends ExtendedModel(_FileStore, {
   });
 
   @modelFlow
-  deleteFiles = asyncAction(async () => {
+  deleteFiles = asyncAction(async (onProgress?: (progress: FileDeletionProgress) => void) => {
     const fileIds = [...this.idsForConfirmDelete];
     if (!fileIds?.length) throw new Error("No files to delete");
+
+    const reportProgress = (processedCount: number, message: string) =>
+      onProgress?.({ message, processedCount, totalCount: fileIds.length });
+    reportProgress(0, `Preparing to process ${fileIds.length} files.`);
 
     const res = await trpc.listFile.mutate({ args: { filter: { id: fileIds } } });
     if (!res.success) throw new Error(res.error);
@@ -105,22 +115,38 @@ export class FileStore extends ExtendedModel(_FileStore, {
 
     if (!deletedIds.length && !archivedIds.length) throw new Error("No files to delete or archive");
 
-    if (archivedIds?.length > 0) {
-      const res = await trpc.setFileIsArchived.mutate({ fileIds: archivedIds, isArchived: true });
+    let processedCount = 0;
+    for (const chunk of chunkArray(archivedIds, 200)) {
+      const res = await trpc.setFileIsArchived.mutate({ fileIds: chunk, isArchived: true });
       if (!res.success) throw new Error(`Error archiving files: ${res.error}`);
-      toast.warn(`${archivedIds.length} files archived`);
-      this.search.removeFiles(archivedIds);
+      this.search.removeFiles(chunk);
+      processedCount += chunk.length;
+      reportProgress(
+        processedCount,
+        `Archived ${processedCount} / ${archivedIds.length} files; ${deletedIds.length} files remain to be deleted.`,
+      );
     }
 
-    if (deletedIds?.length > 0) {
-      const deleteRes = await trpc.deleteFiles.mutate({ fileIds: deletedIds });
+    if (archivedIds.length) toast.warn(`${archivedIds.length} files archived`);
+
+    let deletedCount = 0;
+    for (const chunk of chunkArray(deletedIds, 200)) {
+      const deleteRes = await trpc.deleteFiles.mutate({ fileIds: chunk });
       if (!deleteRes.success) throw new Error(deleteRes.error);
-      toast.warn(`${deletedIds.length} files deleted`);
-      this.search.removeFiles(deletedIds);
+      this.search.removeFiles(chunk);
+      deletedCount += chunk.length;
+      processedCount += chunk.length;
+      reportProgress(
+        processedCount,
+        `Deleted ${deletedCount} / ${deletedIds.length} files; processed ${processedCount} / ${fileIds.length} total.`,
+      );
     }
+
+    if (deletedIds.length) toast.warn(`${deletedIds.length} files deleted`);
 
     this.search.toggleSelected(fileIds.map((id) => ({ id, isSelected: false })));
     this.setIsConfirmDeleteOpen(false);
+    return { archivedCount: archivedIds.length, deletedCount: deletedIds.length };
   });
 
   @modelFlow

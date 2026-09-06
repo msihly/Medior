@@ -14,7 +14,11 @@ export const VideoContext = createContext<MutableRefObject<FilePlayer>>(null);
 
 export const ZoomContext = createContext<MutableRefObject<PanzoomObject>>(null);
 
-export const CarouselWindow = Comp(() => {
+export interface CarouselWindowProps {
+  embedded?: boolean;
+}
+
+export const CarouselWindow = Comp(({ embedded = false }: CarouselWindowProps) => {
   const { css } = useClasses(null);
 
   const stores = useStores();
@@ -51,7 +55,7 @@ export const CarouselWindow = Comp(() => {
     }
   };
 
-  useSockets({ view: "carousel" });
+  useSockets({ enabled: !embedded, view: "carousel" });
 
   const mouseMoveTimeout = useRef<number | null>(null);
 
@@ -70,6 +74,8 @@ export const CarouselWindow = Comp(() => {
   }, []);
 
   useEffect(() => {
+    if (embedded) return;
+
     document.title = "Medior —— Carousel";
 
     ipcRenderer.on(
@@ -94,7 +100,7 @@ export const CarouselWindow = Comp(() => {
         }
       },
     );
-  }, []);
+  }, [embedded]);
 
   return (
     <ZoomContext.Provider value={panZoomRef}>
@@ -104,6 +110,10 @@ export const CarouselWindow = Comp(() => {
           onKeyDown={handleKeyPress}
           onMouseMove={handleMouseMove}
           onWheel={handleScroll}
+          column
+          height={embedded ? "100%" : "100vh"}
+          position="relative"
+          overflow="hidden"
           tabIndex={-1}
           className={css.root}
         >
@@ -124,11 +134,6 @@ export const CarouselWindow = Comp(() => {
 
 const useClasses = makeClasses({
   root: {
-    position: "relative",
-    display: "flex",
-    flexDirection: "column",
-    height: "100vh",
-    overflow: "hidden",
     transition: "all 200ms ease-in-out",
   },
 });

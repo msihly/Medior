@@ -24,27 +24,42 @@ export class FileTransformSearch extends ExtendedModel(_FileTransformSearch, {
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */
   @modelFlow
   loadFiles = asyncAction(async () => {
-    const fileIds = [...new Set(this.results.map((f) => f.fileId))];
-    if (!fileIds.length) return this.setFiles(new Map());
-
+    const loadId = this.loadId;
     this.setIsLoading(true);
-    const res = await trpc.listFile
-      .mutate({ args: { filter: { id: fileIds } } })
-      .finally(() => this.setIsLoading(false));
-    if (!res.success) throw new Error(res.error);
 
-    const tagIds = [...new Set(res.data.items.flatMap((file) => file.tagIds))];
-    const tagRes = await trpc.listTag.mutate({ filter: { id: tagIds } });
-    if (!tagRes.success) throw new Error(tagRes.error);
+    try {
+      const fileIds = [...new Set(this.results.map((f) => f.fileId))];
+      if (!fileIds.length) {
+        if (loadId === this.loadId) {
+          this.setFiles(new Map());
+          this.setIsLoading(false);
+        }
+        return;
+      }
 
-    this.setFiles(
-      new Map(
-        res.data.items.map((file) => [
-          file.id,
-          new File({ ...file, tags: tagRes.data.filter((tag) => file.tagIds.includes(tag.id)) }),
-        ]),
-      ),
-    );
+      const res = await trpc.listFile.mutate({ args: { filter: { id: fileIds } } });
+      if (loadId !== this.loadId) return;
+      if (!res.success) throw new Error(res.error);
+
+      const tagIds = [...new Set(res.data.items.flatMap((file) => file.tagIds))];
+      const tagRes = await trpc.listTag.mutate({ filter: { id: tagIds } });
+      if (loadId !== this.loadId) return;
+      if (!tagRes.success) throw new Error(tagRes.error);
+
+      this.setFiles(
+        new Map(
+          res.data.items.map((file) => [
+            file.id,
+            new File({ ...file, tags: tagRes.data.filter((tag) => file.tagIds.includes(tag.id)) }),
+          ]),
+        ),
+      );
+      this.setIsLoading(false);
+    } catch (error) {
+      if (loadId !== this.loadId) return;
+      this.setIsLoading(false);
+      throw error;
+    }
   });
 
   @modelFlow

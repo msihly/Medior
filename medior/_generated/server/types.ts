@@ -316,11 +316,26 @@ export type SetFileIsArchivedOutput = ReturnType<typeof db.setFileIsArchived>;
 export type SetFileRatingInput = Parameters<typeof db.setFileRating>[0];
 export type SetFileRatingOutput = ReturnType<typeof db.setFileRating>;
 
+export type RepairFileThumbnailInput = Parameters<typeof db.repairFileThumbnail>[0];
+export type RepairFileThumbnailOutput = ReturnType<typeof db.repairFileThumbnail>;
+
 export type RepairThumbsInput = Parameters<typeof db.repairThumbs>[0];
 export type RepairThumbsOutput = ReturnType<typeof db.repairThumbs>;
 
+export type RebuildIndexesInput = Parameters<typeof db.rebuildIndexes>[0];
+export type RebuildIndexesOutput = ReturnType<typeof db.rebuildIndexes>;
+
 export type _emitEventInput = Parameters<typeof db._emitEvent>[0];
 export type _emitEventOutput = ReturnType<typeof db._emitEvent>;
+
+export type StartRepairInput = Parameters<typeof db.startRepair>[0];
+export type StartRepairOutput = ReturnType<typeof db.startRepair>;
+
+export type CancelRepairInput = Parameters<typeof db.cancelRepair>[0];
+export type CancelRepairOutput = ReturnType<typeof db.cancelRepair>;
+
+export type FinishRepairInput = Parameters<typeof db.finishRepair>[0];
+export type FinishRepairOutput = ReturnType<typeof db.finishRepair>;
 
 export type DeriveAncestorTagIdsInput = Parameters<typeof db.deriveAncestorTagIds>[0];
 export type DeriveAncestorTagIdsOutput = ReturnType<typeof db.deriveAncestorTagIds>;

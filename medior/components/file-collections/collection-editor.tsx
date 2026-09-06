@@ -16,6 +16,7 @@ import {
   NumInput,
   Pagination,
   RatingButton,
+  SearchLoadingOverlay,
   SortMenu,
   TagRow,
   Text,
@@ -25,319 +26,343 @@ import { useStores } from "medior/store";
 import { colors, toast } from "medior/utils/client";
 import { useHotkeys } from "medior/views";
 
-export const FileCollectionEditor = Comp(() => {
-  const stores = useStores();
-  const store = stores.collection.editor;
+export interface FileCollectionEditorProps {
+  embedded?: boolean;
+  maxCards?: number;
+  onClose?: () => void;
+}
 
-  const filesRef = useRef<HTMLDivElement>(null);
+export const FileCollectionEditor = Comp(
+  ({ embedded = false, maxCards = 6, onClose }: FileCollectionEditorProps) => {
+    const stores = useStores();
+    const store = stores.collection.editor;
 
-  const { handleKeyPress } = useHotkeys({ view: "home" });
+    const filesRef = useRef<HTMLDivElement>(null);
 
-  const hasNoSelection = store.search.selectedIds.length === 0;
-  const isCreate = store.collection === null;
+    const { handleKeyPress } = useHotkeys({ view: "home" });
 
-  const [isAddingFiles, setIsAddingFiles] = useState(false);
-  const [isConfirmDiscardOpen, setIsConfirmDiscardOpen] = useState(false);
-  const [isConfirmRemoveFilesOpen, setIsConfirmRemoveFilesOpen] = useState(false);
-  const [maxDelta, setMaxDelta] = useState<number>(null);
+    const hasNoSelection = store.search.selectedIds.length === 0;
+    const isCreate = store.collection === null;
 
-  useEffect(() => {
-    return () => {
-      store.search.reset();
-      store.fileSearch.reset();
+    const [isAddingFiles, setIsAddingFiles] = useState(false);
+    const [isConfirmDiscardOpen, setIsConfirmDiscardOpen] = useState(false);
+    const [isConfirmRemoveFilesOpen, setIsConfirmRemoveFilesOpen] = useState(false);
+    const [maxDelta, setMaxDelta] = useState<number>(null);
+
+    useEffect(() => {
+      return () => {
+        store.search.reset();
+        store.fileSearch.reset();
+      };
+    }, []);
+
+    useEffect(() => {
+      scrollToTop();
+      if (store.search.pageCount > 0 && store.search.page > store.search.pageCount)
+        handlePageChange(store.search.pageCount);
+    }, [store.search.page, store.search.pageCount]);
+
+    const confirmClose = () => {
+      if (store.hasUnsavedChanges) setIsConfirmDiscardOpen(true);
+      else handleClose();
     };
-  }, []);
 
-  useEffect(() => {
-    scrollToTop();
-    if (store.search.pageCount > 0 && store.search.page > store.search.pageCount)
-      handlePageChange(store.search.pageCount);
-  }, [store.search.page, store.search.pageCount]);
+    const confirmRemoveFiles = async () => {
+      const res = await store.removeFiles(store.search.selectedIds);
+      return res.success;
+    };
 
-  const confirmClose = () => {
-    if (store.hasUnsavedChanges) setIsConfirmDiscardOpen(true);
-    else handleClose();
-  };
+    const handleArchiveFiles = () => stores.file.confirmDeleteFiles(store.search.selectedIds);
 
-  const confirmRemoveFiles = async () => {
-    const res = await store.removeFiles(store.search.selectedIds);
-    return res.success;
-  };
+    const handleClose = async () => {
+      if (onClose) onClose();
+      else store.setIsOpen(false);
+      stores.file.search.reloadIfQueued();
+      return true;
+    };
 
-  const handleArchiveFiles = () => stores.file.confirmDeleteFiles(store.search.selectedIds);
+    const handleDelete = () => {
+      stores.collection.setIdsForConfirmDelete([store.collection.id]);
+      stores.collection.setIsConfirmDeleteOpen(true);
+    };
 
-  const handleClose = async () => {
-    store.setIsOpen(false);
-    stores.file.search.reloadIfQueued();
-    return true;
-  };
+    const handleDeselectAll = () => {
+      store.search.toggleSelected(
+        store.search.selectedIds.map((id) => ({ id, isSelected: false })),
+      );
+      toast.info("Deselected all files");
+    };
 
-  const handleDelete = () => {
-    stores.collection.setIdsForConfirmDelete([store.collection.id]);
-    stores.collection.setIsConfirmDeleteOpen(true);
-  };
+    const handleEditTags = () => {
+      stores.file.tagsEditor.setBatchId(null);
+      stores.file.tagsEditor.setFileIds([...store.search.selectedIds]);
+      stores.file.tagsEditor.setIsOpen(true);
+    };
 
-  const handleDeselectAll = () => {
-    store.search.toggleSelected(store.search.selectedIds.map((id) => ({ id, isSelected: false })));
-    toast.info("Deselected all files");
-  };
+    const handleFileInfoRefresh = () => stores.file.refreshFiles({ ids: store.search.selectedIds });
 
-  const handleEditTags = () => {
-    stores.file.tagsEditor.setBatchId(null);
-    stores.file.tagsEditor.setFileIds([...store.search.selectedIds]);
-    stores.file.tagsEditor.setIsOpen(true);
-  };
+    const handleFullPageLoad = () => store.search.loadFiltered({ withFullCount: true });
 
-  const handleFileInfoRefresh = () => stores.file.refreshFiles({ ids: store.search.selectedIds });
+    const handleMoveFilesDown = () => store.moveFileIndexes({ down: true, maxDelta });
 
-  const handleFullPageLoad = () => store.search.loadFiltered({ withFullCount: true });
+    const handleMoveFilesUp = () => store.moveFileIndexes({ down: false, maxDelta });
 
-  const handleMoveFilesDown = () => store.moveFileIndexes({ down: true, maxDelta });
+    const handlePageChange = (page: number) => {
+      store.search.setPage(page);
+      store.search.loadFiltered();
+    };
 
-  const handleMoveFilesUp = () => store.moveFileIndexes({ down: false, maxDelta });
+    const handleRating = (rating: number) =>
+      stores.collection.updateCollRating({ id: store.collection.id, rating });
 
-  const handlePageChange = (page: number) => {
-    store.search.setPage(page);
-    store.search.loadFiltered();
-  };
+    const handleRefreshMeta = () => stores.collection.regenCollMeta([store.collection.id]);
 
-  const handleRating = (rating: number) =>
-    stores.collection.updateCollRating({ id: store.collection.id, rating });
+    const handleRemoveFiles = () => setIsConfirmRemoveFilesOpen(true);
 
-  const handleRefreshMeta = () => stores.collection.regenCollMeta([store.collection.id]);
+    const handleSave = async () => {
+      if (!store.title) return toast.error("Title is required!");
+      await store.saveCollection();
+    };
 
-  const handleRemoveFiles = () => setIsConfirmRemoveFilesOpen(true);
+    const handleSelectAll = () => {
+      store.search.toggleSelected(store.search.results.map(({ id }) => ({ id, isSelected: true })));
+      toast.info(`Added all ${store.search.selectedIds.length} files to selection`);
+    };
 
-  const handleSave = async () => {
-    if (!store.title) return toast.error("Title is required!");
-    await store.saveCollection();
-  };
+    const handleSelectAllInQuery = async () => {
+      const res = await store.search.selectAllInQuery();
+      if (!res.success) throw new Error(res.error);
+      toast.info(`Added ${res.data} files to selection`);
+    };
 
-  const handleSelectAll = () => {
-    store.search.toggleSelected(store.search.results.map(({ id }) => ({ id, isSelected: true })));
-    toast.info(`Added all ${store.search.selectedIds.length} files to selection`);
-  };
+    const handleTitleChange = (val: string) => {
+      store.setHasUnsavedChanges(true);
+      store.setTitle(val);
+    };
 
-  const handleSelectAllInQuery = async () => {
-    const res = await store.search.selectAllInQuery();
-    if (!res.success) throw new Error(res.error);
-    toast.info(`Added ${res.data} files to selection`);
-  };
+    const scrollToTop = () => filesRef.current?.scrollTo({ top: 0, behavior: "instant" });
 
-  const handleTitleChange = (val: string) => {
-    store.setHasUnsavedChanges(true);
-    store.setTitle(val);
-  };
+    const toggleAddingFiles = () => setIsAddingFiles((prev) => !prev);
 
-  const scrollToTop = () => filesRef.current?.scrollTo({ top: 0, behavior: "instant" });
+    const content = (
+      <>
+        <Modal.Header
+          leftNode={
+            <Button
+              text={isAddingFiles ? "Hide Search" : "Add Files"}
+              icon={isAddingFiles ? "VisibilityOff" : "Add"}
+              onClick={toggleAddingFiles}
+              disabled={store.isLoading}
+              color={colors.foregroundCard}
+              colorOnHover={colors.custom.purple}
+            />
+          }
+          rightNode={
+            isCreate ? null : (
+              <View row align="center" spacing="0.5rem">
+                <RatingButton rating={store.collection?.rating} setRating={handleRating} />
 
-  const toggleAddingFiles = () => setIsAddingFiles((prev) => !prev);
+                <MenuButton color={colors.custom.grey}>
+                  <ListItem
+                    text="Delete"
+                    icon="Delete"
+                    onClick={handleDelete}
+                    color={colors.custom.red}
+                    iconProps={{ color: colors.custom.red }}
+                  />
 
-  return (
-    <Modal.Container
-      isLoading={store.isLoading || store.search.isLoading}
-      onClose={confirmClose}
-      height="100%"
-      width="100%"
-    >
-      <Modal.Header
-        leftNode={
-          <Button
-            text={isAddingFiles ? "Hide Search" : "Add Files"}
-            icon={isAddingFiles ? "VisibilityOff" : "Add"}
-            onClick={toggleAddingFiles}
-            disabled={store.isLoading}
-            color={colors.foregroundCard}
-            colorOnHover={colors.custom.purple}
-          />
-        }
-        rightNode={
-          isCreate ? null : (
-            <View row align="center" spacing="0.5rem">
-              <RatingButton rating={store.collection?.rating} setRating={handleRating} />
+                  <ListItem text="Refresh Metadata" icon="Refresh" onClick={handleRefreshMeta} />
+                </MenuButton>
+              </View>
+            )
+          }
+        >
+          <Text preset="title">{`${isCreate ? "Create" : "Edit"} Collection`}</Text>
+        </Modal.Header>
 
-              <MenuButton color={colors.custom.grey}>
-                <ListItem
-                  text="Delete"
-                  icon="Delete"
-                  onClick={handleDelete}
-                  color={colors.custom.red}
-                  iconProps={{ color: colors.custom.red }}
+        <Modal.Content dividers={false} row flex={1} height="100%" spacing="0.5rem">
+          {isAddingFiles && <FileSearchColumn />}
+
+          <View column flex={1} spacing="0.5rem" overflow="hidden">
+            <View row spacing="0.5rem">
+              <Card column flex={1} spacing="0.5rem" overflow="hidden">
+                <HeaderRow label="Title">
+                  <Input value={store.title} setValue={handleTitleChange} width="100%" />
+                </HeaderRow>
+
+                <HeaderRow label="Tags">
+                  <TagRow tags={store.tags} />
+                </HeaderRow>
+              </Card>
+
+              <Card column flex="none" height="100%">
+                <View row>
+                  <MultiActionButton
+                    name="ArrowUpward"
+                    tooltip="Move Files Up"
+                    onClick={handleMoveFilesUp}
+                    disabled={hasNoSelection}
+                  />
+
+                  <MultiActionButton
+                    name="ArrowDownward"
+                    tooltip="Move Files Down"
+                    onClick={handleMoveFilesDown}
+                    disabled={hasNoSelection}
+                  />
+                </View>
+
+                <NumInput
+                  placeholder="Delta"
+                  value={maxDelta}
+                  setValue={setMaxDelta}
+                  minValue={1}
+                  hasHelper={false}
+                  width="5rem"
+                  textAlign="center"
                 />
+              </Card>
 
-                <ListItem text="Refresh Metadata" icon="Refresh" onClick={handleRefreshMeta} />
-              </MenuButton>
+              <Card column flex="none" height="100%">
+                <View row>
+                  <MultiActionButton
+                    name="Delete"
+                    tooltip="Remove Files From Collection"
+                    iconProps={{ color: colors.custom.red }}
+                    onClick={handleRemoveFiles}
+                    disabled={hasNoSelection}
+                  />
+
+                  <MultiActionButton
+                    name="Archive"
+                    tooltip="Archive Files"
+                    iconProps={{ color: colors.custom.orange }}
+                    onClick={handleArchiveFiles}
+                    disabled={hasNoSelection}
+                  />
+
+                  <MultiActionButton
+                    name="Label"
+                    tooltip="Edit Tags"
+                    onClick={handleEditTags}
+                    disabled={hasNoSelection}
+                  />
+
+                  <MultiActionButton
+                    name="Refresh"
+                    tooltip="Refresh File Info"
+                    onClick={handleFileInfoRefresh}
+                    disabled={hasNoSelection}
+                  />
+
+                  <MultiActionButton
+                    name="Deselect"
+                    tooltip="Deselect All Files"
+                    onClick={handleDeselectAll}
+                    disabled={hasNoSelection}
+                  />
+
+                  <MultiActionButton
+                    name="SelectAll"
+                    tooltip="Select All Files in View"
+                    onClick={handleSelectAll}
+                  />
+
+                  <MultiActionButton
+                    name="LibraryAddCheck"
+                    tooltip="Select All Files in Query"
+                    onClick={handleSelectAllInQuery}
+                  />
+                </View>
+
+                <SortMenu
+                  value={store.search.sortValue}
+                  setValue={store.setSortValue}
+                  rows={SORT_OPTIONS.FileCollectionFile}
+                  width="100%"
+                  height="auto"
+                />
+              </Card>
             </View>
-          )
-        }
-      >
-        <Text preset="title">{`${isCreate ? "Create" : "Edit"} Collection`}</Text>
-      </Modal.Header>
 
-      <Modal.Content dividers={false} row flex={1} height="100%" spacing="0.5rem">
-        {isAddingFiles && <FileSearchColumn />}
+            <Card column flex={1} overflow="auto" position="relative">
+              <SearchLoadingOverlay store={store.search} />
 
-        <View column flex={1} spacing="0.5rem" overflow="hidden">
-          <View row spacing="0.5rem">
-            <Card column flex={1} spacing="0.5rem" overflow="hidden">
-              <HeaderRow label="Title">
-                <Input value={store.title} setValue={handleTitleChange} width="100%" />
-              </HeaderRow>
-
-              <HeaderRow label="Tags">
-                <TagRow tags={store.tags} />
-              </HeaderRow>
-            </Card>
-
-            <Card column flex="none" height="100%">
-              <View row>
-                <MultiActionButton
-                  name="ArrowUpward"
-                  tooltip="Move Files Up"
-                  onClick={handleMoveFilesUp}
-                  disabled={hasNoSelection}
-                />
-
-                <MultiActionButton
-                  name="ArrowDownward"
-                  tooltip="Move Files Down"
-                  onClick={handleMoveFilesDown}
-                  disabled={hasNoSelection}
-                />
-              </View>
-
-              <NumInput
-                placeholder="Delta"
-                value={maxDelta}
-                setValue={setMaxDelta}
-                minValue={1}
-                hasHelper={false}
-                width="5rem"
-                textAlign="center"
+              <CardGrid
+                ref={filesRef}
+                maxCards={maxCards}
+                cards={store.search.results.map((f) => (
+                  <FileCollectionFile key={f.id} file={f} store={store.search} />
+                ))}
+                cardsProps={{ onKeyDown: handleKeyPress, tabIndex: 1 }}
               />
-            </Card>
 
-            <Card column flex="none" height="100%">
-              <View row>
-                <MultiActionButton
-                  name="Delete"
-                  tooltip="Remove Files From Collection"
-                  iconProps={{ color: colors.custom.red }}
-                  onClick={handleRemoveFiles}
-                  disabled={hasNoSelection}
-                />
-
-                <MultiActionButton
-                  name="Archive"
-                  tooltip="Archive Files"
-                  iconProps={{ color: colors.custom.orange }}
-                  onClick={handleArchiveFiles}
-                  disabled={hasNoSelection}
-                />
-
-                <MultiActionButton
-                  name="Label"
-                  tooltip="Edit Tags"
-                  onClick={handleEditTags}
-                  disabled={hasNoSelection}
-                />
-
-                <MultiActionButton
-                  name="Refresh"
-                  tooltip="Refresh File Info"
-                  onClick={handleFileInfoRefresh}
-                  disabled={hasNoSelection}
-                />
-
-                <MultiActionButton
-                  name="Deselect"
-                  tooltip="Deselect All Files"
-                  onClick={handleDeselectAll}
-                  disabled={hasNoSelection}
-                />
-
-                <MultiActionButton
-                  name="SelectAll"
-                  tooltip="Select All Files in View"
-                  onClick={handleSelectAll}
-                />
-
-                <MultiActionButton
-                  name="LibraryAddCheck"
-                  tooltip="Select All Files in Query"
-                  onClick={handleSelectAllInQuery}
-                />
-              </View>
-
-              <SortMenu
-                value={store.search.sortValue}
-                setValue={store.setSortValue}
-                rows={SORT_OPTIONS.FileCollectionFile}
-                width="100%"
-                height="auto"
+              <Pagination
+                count={store.search.pageCount}
+                page={store.search.page}
+                isLoading={store.search.isPageCountLoading}
+                onChange={handlePageChange}
+                onFullLoad={handleFullPageLoad}
               />
             </Card>
           </View>
+        </Modal.Content>
 
-          <Card column flex={1} overflow="auto">
-            <CardGrid
-              ref={filesRef}
-              cards={store.search.results.map((f) => (
-                <FileCollectionFile key={f.id} file={f} store={store.search} />
-              ))}
-              cardsProps={{ onKeyDown: handleKeyPress, tabIndex: 1 }}
-            />
+        <Modal.Footer>
+          <Button
+            text={store.hasUnsavedChanges ? "Cancel" : "Close"}
+            icon="Close"
+            onClick={confirmClose}
+            disabled={store.isLoading}
+            colorOnHover={store.hasUnsavedChanges ? colors.custom.red : undefined}
+          />
 
-            <Pagination
-              count={store.search.pageCount}
-              page={store.search.page}
-              isLoading={store.search.isPageCountLoading}
-              onChange={handlePageChange}
-              onFullLoad={handleFullPageLoad}
-            />
-          </Card>
-        </View>
-      </Modal.Content>
+          <Button
+            text="Save"
+            icon="Save"
+            onClick={handleSave}
+            disabled={!store.hasUnsavedChanges || store.isLoading}
+            color={colors.custom.purple}
+          />
+        </Modal.Footer>
 
-      <Modal.Footer>
-        <Button
-          text={store.hasUnsavedChanges ? "Cancel" : "Close"}
-          icon="Close"
-          onClick={confirmClose}
-          disabled={store.isLoading}
-          colorOnHover={store.hasUnsavedChanges ? colors.custom.red : undefined}
-        />
+        {isConfirmRemoveFilesOpen && (
+          <ConfirmModal
+            headerText="Remove Files"
+            subText="Are you sure you want to remove the selected files from the collection?"
+            setVisible={setIsConfirmRemoveFilesOpen}
+            onConfirm={confirmRemoveFiles}
+          />
+        )}
 
-        <Button
-          text="Save"
-          icon="Save"
-          onClick={handleSave}
-          disabled={!store.hasUnsavedChanges || store.isLoading}
-          color={colors.custom.purple}
-        />
-      </Modal.Footer>
+        {isConfirmDiscardOpen && (
+          <ConfirmModal
+            headerText="Discard Changes"
+            subText="Are you sure you want to discard changes?"
+            confirmText="Discard"
+            setVisible={setIsConfirmDiscardOpen}
+            onConfirm={handleClose}
+          />
+        )}
+      </>
+    );
 
-      {isConfirmRemoveFilesOpen && (
-        <ConfirmModal
-          headerText="Remove Files"
-          subText="Are you sure you want to remove the selected files from the collection?"
-          setVisible={setIsConfirmRemoveFilesOpen}
-          onConfirm={confirmRemoveFiles}
-        />
-      )}
-
-      {isConfirmDiscardOpen && (
-        <ConfirmModal
-          headerText="Discard Changes"
-          subText="Are you sure you want to discard changes?"
-          confirmText="Discard"
-          setVisible={setIsConfirmDiscardOpen}
-          onConfirm={handleClose}
-        />
-      )}
-    </Modal.Container>
-  );
-});
+    return embedded ? (
+      <View column flex={1} overflow="hidden">
+        {content}
+      </View>
+    ) : (
+      <Modal.Container
+        isLoading={store.isLoading}
+        onClose={confirmClose}
+        height="100%"
+        width="100%"
+      >
+        {content}
+      </Modal.Container>
+    );
+  },
+);
 
 const HeaderRow = (props: { children: ReactNode | ReactNode[]; label: string }) => {
   return (

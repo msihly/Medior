@@ -114,6 +114,9 @@ export class CollectionEditor extends Model({
         withFullCount: true,
       });
       if (!fileRes.success) throw new Error(fileRes.error);
+
+      const firstPageRes = await this.search.loadFiltered({ page: 1 });
+      if (!firstPageRes.success) throw new Error(firstPageRes.error);
     }
 
     this.setIsLoading(false);

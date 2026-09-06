@@ -26,6 +26,10 @@ export const CUSTOM_EVENTS: {
   { name: "onReloadImportBatches" },
   { name: "onReloadRegExMaps" },
   { name: "onReloadTags" },
+  {
+    name: "onRepairProgress",
+    args: "{ repairId: string; message: string; status: 'info' | 'progress' | 'success' | 'error' | 'cancelled' }",
+  },
   { name: "onTagMerged", args: "{ oldTagId: string; newTagId: string }" },
   {
     name: "onTagsUpdated",

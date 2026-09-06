@@ -32,6 +32,19 @@ Mongoose.connection.on("error", (err) =>
   fileLog(`[API] DB Error: ${err.message}`, { type: "error" }),
 );
 
+const ensureIndexes = async () => {
+  for (const modelName of Object.keys(Mongoose.models)) {
+    try {
+      await Mongoose.models[modelName].createIndexes();
+      fileLog(`[API] Ensured indexes for ${modelName}`);
+    } catch (error: any) {
+      fileLog(`[API] Failed to ensure indexes for ${modelName}: ${error.message}`, {
+        type: "error",
+      });
+    }
+  }
+};
+
 process.on("message", async (msg: any) => {
   if (msg?.type === "start") {
     try {
@@ -42,13 +55,15 @@ process.on("message", async (msg: any) => {
       fileLog(`[API] Connecting to db: ${uri}`);
 
       Mongoose.set("strictQuery", true);
-      await Mongoose.connect(uri, { family: 4 });
+      await Mongoose.connect(uri, { autoIndex: false, family: 4 });
 
       fileLog("[API] Connected to db.");
 
       await createTRPCServer();
       setupTRPC();
       process.send?.({ type: "ready" });
+
+      void ensureIndexes();
     } catch (err: any) {
       process.send?.({ type: "error", error: err.message });
     }

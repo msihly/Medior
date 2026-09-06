@@ -10,6 +10,7 @@ import {
   Modal,
   MultiActionButton,
   Pagination,
+  SearchLoadingOverlay,
   TagCard,
   TagFilterMenu,
   Text,
@@ -135,6 +136,7 @@ export const TagManager = Comp(() => {
         <Card
           column
           flex={1}
+          position="relative"
           padding={{ all: 0 }}
           overflow="hidden"
           header={
@@ -202,6 +204,8 @@ export const TagManager = Comp(() => {
             </UniformList>
           }
         >
+          <SearchLoadingOverlay store={store} />
+
           <CardGrid
             cards={store.results.map((t) => (
               <TagCard key={t.id} tag={t} />

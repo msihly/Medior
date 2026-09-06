@@ -64,6 +64,8 @@ export const FileCard = Comp(({ disabled, file, height, store, width }: FileCard
           <FileBase.Image
             {...fileDragProps}
             thumb={file.thumb}
+            fileId={file.id}
+            isCorrupted={file.isCorrupted}
             title={file.originalName}
             fit={stores.home.fileCardFit}
             height={height}

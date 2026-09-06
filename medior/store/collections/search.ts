@@ -76,9 +76,18 @@ export class FileCollectionSearch extends ExtendedModel(_FileCollectionSearch, {
   @modelFlow
   loadFiles = asyncAction(async () => {
     const stores = getRootStore<RootStore>(this);
+    const loadId = this.loadId;
     this.setIsLoading(true);
 
-    if (this.results.length) {
+    try {
+      if (!this.results.length) {
+        if (loadId === this.loadId) {
+          this.setFiles(new Map());
+          this.setIsLoading(false);
+        }
+        return;
+      }
+
       const fileIds = [
         ...new Set(
           [...this.results, ...stores.collection.manager.currentCollections]
@@ -88,11 +97,15 @@ export class FileCollectionSearch extends ExtendedModel(_FileCollectionSearch, {
       ];
 
       const res = await trpc.listFile.mutate({ args: { filter: { id: fileIds } } });
+      if (loadId !== this.loadId) return;
       if (!res.success) throw new Error(res.error);
 
       this.setFiles(new Map(res.data.items.map((f) => [f.id, new File(f)])));
+      this.setIsLoading(false);
+    } catch (error) {
+      if (loadId !== this.loadId) return;
+      this.setIsLoading(false);
+      throw error;
     }
-
-    this.setIsLoading(false);
   });
 }

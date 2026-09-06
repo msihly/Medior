@@ -4,8 +4,8 @@ import {
   Chip,
   Comp,
   IconButton,
-  LoadingOverlay,
   Pagination,
+  SearchLoadingOverlay,
   View,
 } from "medior/components";
 import { useStores } from "medior/store";
@@ -43,7 +43,7 @@ export const TransformSearch = Comp(() => {
       headerProps={{ justify: "flex-start", padding: { all: "0.3rem" } }}
       padding={{ all: "0" }}
     >
-      <LoadingOverlay isLoading={store.search.isLoading} />
+      <SearchLoadingOverlay store={store.search} />
 
       <CardGrid
         cards={store.search.results.map((transform) => (

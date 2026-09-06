@@ -11,6 +11,7 @@ import {
   Pagination,
   ProgressBar,
   SavedImportConfigsModal,
+  SearchLoadingOverlay,
   Text,
   View,
 } from "medior/components";
@@ -121,9 +122,12 @@ export const ImportManager = Comp(() => {
             <Card
               height="100%"
               overflow="auto"
+              position="relative"
               header={<ImportsFilterMenu store={store.search} />}
               headerProps={{ justify: "flex-start", padding: { all: "0.3rem" } }}
             >
+              <SearchLoadingOverlay store={store.search} />
+
               <View
                 column
                 spacing="1rem"

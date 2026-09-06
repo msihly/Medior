@@ -45,6 +45,8 @@ export const FileDetails = Comp(({ transform }: FileDetailsProps) => {
             <FileBase.Container disabled height="13rem" width="13rem">
               <FileBase.Image
                 thumb={file.thumb}
+                fileId={file.id}
+                isCorrupted={file.isCorrupted}
                 title={file.originalName}
                 fit="contain"
                 height="13rem"

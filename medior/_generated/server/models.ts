@@ -398,8 +398,6 @@ FileSchema.index({ hash: 1 }, { unique: true });
 FileSchema.index({ height: 1, _id: 1 }, { unique: true });
 FileSchema.index({ isArchived: 1 }, { unique: false });
 FileSchema.index({ isCorrupted: 1 }, { unique: false });
-FileSchema.index({ originalHash: 1 }, { unique: false });
-FileSchema.index({ originalPath: 1 }, { unique: false });
 FileSchema.index({ rating: 1, _id: 1 }, { unique: true });
 FileSchema.index({ size: 1, _id: 1 }, { unique: true });
 FileSchema.index({ tagIds: 1 }, { unique: false });

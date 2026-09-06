@@ -103,6 +103,14 @@ export interface SocketEmitEvents {
   onReloadImportBatches: (options?: SocketEventOptions) => void;
   onReloadRegExMaps: (options?: SocketEventOptions) => void;
   onReloadTags: (options?: SocketEventOptions) => void;
+  onRepairProgress: (
+    args: {
+      repairId: string;
+      message: string;
+      status: "info" | "progress" | "success" | "error" | "cancelled";
+    },
+    options?: SocketEventOptions,
+  ) => void;
   onTagMerged: (args: { oldTagId: string; newTagId: string }, options?: SocketEventOptions) => void;
   onTagsUpdated: (
     args: {
@@ -162,6 +170,7 @@ export const socketEvents: SocketEmitEvent[] = [
   "onReloadImportBatches",
   "onReloadRegExMaps",
   "onReloadTags",
+  "onRepairProgress",
   "onTagMerged",
   "onTagsUpdated",
 ];

@@ -5,10 +5,11 @@ import { throttle } from "medior/utils/common";
 import { socket } from "medior/utils/server";
 
 export interface UseSocketsProps {
+  enabled?: boolean;
   view: "carousel" | "home" | "search";
 }
 
-export const useSockets = ({ view }: UseSocketsProps) => {
+export const useSockets = ({ enabled = true, view }: UseSocketsProps) => {
   const debug = false;
 
   const stores = useStores();
@@ -125,8 +126,13 @@ export const useSockets = ({ view }: UseSocketsProps) => {
     const replace = (options: TagOption[], setOptions: (options: TagOption[]) => void) => {
       if (!options.some((tag) => tag.id === oldTagId || tag.id === newTagId)) return;
 
+      const retainedSearchType =
+        options.find((tag) => tag.id === newTagId)?.searchType ??
+        options.find((tag) => tag.id === oldTagId)?.searchType ??
+        newTag.searchType;
+      const replacement = { ...newTag, searchType: retainedSearchType };
       const nextOptions = options
-        .map((tag) => (tag.id === oldTagId || tag.id === newTagId ? newTag : tag))
+        .map((tag) => (tag.id === oldTagId || tag.id === newTagId ? replacement : tag))
         .filter((tag, index, arr) => arr.findIndex((t) => t.id === tag.id) === index);
       setOptions(nextOptions);
     };
@@ -406,7 +412,9 @@ export const useSockets = ({ view }: UseSocketsProps) => {
   };
 
   useEffect(() => {
+    if (!enabled) return;
+
     setupSockets();
     return () => (socket.disconnect(), null);
-  }, []);
+  }, [enabled]);
 };

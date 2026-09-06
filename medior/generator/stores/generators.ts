@@ -260,7 +260,15 @@ export const createSearchStore = (def: ModelSearchStore) => {
     `@modelAction\n_deleteResults(ids: string[]) { this.results = this.results.filter((d) => !ids.includes(d.id)); }`;
 
   const makeResetAction = () =>
-    `@modelAction\nreset() { ${props.map((prop) => `this.${prop.name} = ${prop.defaultValue.replace("() => ", "")};`).join("\n")} }`;
+    `@modelAction\nreset() { ${props.map((prop) => (prop.name === "loadId" ? "this.loadId += 1;" : `this.${prop.name} = ${prop.defaultValue.replace("() => ", "")};`)).join("\n")} }`;
+
+  const makeCancelLoadAction = () =>
+    `@modelAction
+    cancelLoad() {
+      this.loadId += 1;
+      this.isLoading = false;
+      this.isPageCountLoading = false;
+    }`;
 
   const makeApplySearchPropsAction = () =>
     `@modelAction
@@ -426,8 +434,12 @@ export const createSearchStore = (def: ModelSearchStore) => {
       this.setIsLoading(true);
       this.setIsPageCountLoading(true);
 
-      const filterProps = noCache ? this.getFilterProps() : this.getCachedFilterProps();
-      if (noCache || !this.cachedFilterProps) this.setCachedFilterProps(derefMobx(filterProps));
+      try {
+      const shouldCacheFilterProps = noCache || !this.cachedFilterProps;
+      const filterProps = shouldCacheFilterProps
+        ? this.getFilterProps()
+        : this.cachedFilterProps;
+      let nextPageCount = this.pageCount;
 
       if (withFullCount) {
         const countRes = await trpc.getFiltered${def.name}Count.mutate({
@@ -439,18 +451,10 @@ export const createSearchStore = (def: ModelSearchStore) => {
         });
         if (loadId !== this.loadId) return;
         if (!countRes.success) throw new Error(countRes.error);
-        const pageCount = countRes.data.pageCount;
-
-        this.setPageCount(pageCount);
-        this.setIsPageCountLoading(false);
-        if (debug) perfLog(\`Set pageCount to \${pageCount}\`);
-
-        page = pageCount;
+        nextPageCount = countRes.data.pageCount;
       }
 
-      const newPage = page ?? this.page;
-      this.setPage(newPage);
-      if (debug && page) perfLog(\`Set page to \${page ?? this.page}\`);
+      const newPage = withFullCount ? nextPageCount : page ?? this.page;
 
       const itemsRes = await trpc.listFiltered${def.name}.mutate({
         ...filterProps,
@@ -480,7 +484,15 @@ export const createSearchStore = (def: ModelSearchStore) => {
 
       const results = ${def.transformResultsFn || "items"}
 
+      if (loadId !== this.loadId) return;
+
       this.setResults(results.map((result) => new Stores.${def.name}(result)));
+      this.setPage(newPage);
+      if (shouldCacheFilterProps) this.setCachedFilterProps(derefMobx(filterProps));
+      if (withFullCount) {
+        this.setPageCount(nextPageCount);
+        this.setIsPageCountLoading(false);
+      }
       if (debug) perfLog("Overwrite and re-render");
 
       this.setIsLoading(false);
@@ -490,7 +502,7 @@ export const createSearchStore = (def: ModelSearchStore) => {
         trpc.getFiltered${def.name}Count.mutate({
           ...filterProps,
           curMaxPage: this.pageCount,
-          page,
+          page: newPage,
           pageSize: this.pageSize,
           withFull: withFullCount
         }).then((countRes) => {
@@ -501,10 +513,20 @@ export const createSearchStore = (def: ModelSearchStore) => {
 
           this.setPageCount(pageCount);
           if (debug) perfLog(\`Set pageCount to \${pageCount}\`);
+        }).catch((error) => {
+          if (loadId !== this.loadId) return;
+          this.setIsPageCountLoading(false);
+          console.error(error);
         });
       }
 
       return results;
+      } catch (error) {
+        if (loadId !== this.loadId) return;
+        this.setIsLoading(false);
+        this.setIsPageCountLoading(false);
+        throw error;
+      }
     });`;
 
   const makeLoadSavedSearchesAction = () =>
@@ -630,6 +652,7 @@ export const createSearchStore = (def: ModelSearchStore) => {
       /* STANDARD ACTIONS */
       ${makeAddResultAction()}\n
       ${makeApplySearchPropsAction()}\n
+      ${makeCancelLoadAction()}\n
       ${makeCustomSetters()}\n
       ${makeDeleteResultsAction()}\n
       ${makeResetAction()}\n

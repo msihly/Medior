@@ -1,8 +1,8 @@
 import { MouseEvent } from "react";
-import { Comp, ListItem, MenuButton } from "medior/components";
-import { getRatingMeta, RatingChip } from "medior/components/files/file-base/rating-chip";
+import { Comp, FileBase, getRatingMeta, ListItem, MenuButton } from "medior/components";
 
 export interface RatingButtonProps {
+  button?: boolean;
   rating: number;
   setRating: (rating: number) => void;
 }
@@ -12,28 +12,18 @@ export const RatingButton = Comp((props: RatingButtonProps) => {
     <MenuButton
       menuWidth="5rem"
       button={(onOpen) => (
-        <RatingChip onClick={onOpen} rating={props.rating} height="1.5em" noHide />
+        <FileBase.RatingChip
+          button={props.button}
+          rating={props.rating}
+          onClick={onOpen}
+          height="1.5em"
+          noHide
+        />
       )}
     >
-      <OptionRow value={9} setRating={props.setRating} />
-
-      <OptionRow value={8} setRating={props.setRating} />
-
-      <OptionRow value={7} setRating={props.setRating} />
-
-      <OptionRow value={6} setRating={props.setRating} />
-
-      <OptionRow value={5} setRating={props.setRating} />
-
-      <OptionRow value={4} setRating={props.setRating} />
-
-      <OptionRow value={3} setRating={props.setRating} />
-
-      <OptionRow value={2} setRating={props.setRating} />
-
-      <OptionRow value={1} setRating={props.setRating} />
-
-      <OptionRow value={0} setRating={props.setRating} />
+      {[9, 8, 7, 6, 5, 4, 3, 2, 1, 0].map((value) => (
+        <OptionRow key={value} value={value} setRating={props.setRating} />
+      ))}
     </MenuButton>
   );
 });

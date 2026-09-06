@@ -11,6 +11,7 @@ import {
   Input,
   Modal,
   Pagination,
+  SearchLoadingOverlay,
   Text,
   View,
 } from "medior/components";
@@ -147,6 +148,8 @@ export const SavedImportConfigsModal = Comp(
 
         <Modal.Content dividers={false}>
           <View column spacing="0.8rem" height="100%" overflow="hidden" position="relative">
+            <SearchLoadingOverlay store={store} />
+
             {editorStore && (
               <Card column spacing="0.6rem" bgColor={colors.background}>
                 <View row align="stretch" spacing={0}>

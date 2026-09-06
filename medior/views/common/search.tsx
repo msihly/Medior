@@ -3,7 +3,7 @@ import {
   Drawer,
   FileContainer,
   HomeMultiActionBar,
-  LoadingOverlay,
+  SearchLoadingOverlay,
   View,
 } from "medior/components";
 import { useStores } from "medior/store";
@@ -31,7 +31,7 @@ export const Search = Comp(({ isHome = false }: SearchProps) => {
         </View>
       </View>
 
-      <LoadingOverlay isLoading={stores.file.search.isLoading} />
+      <SearchLoadingOverlay store={stores.file.search} />
     </>
   );
 });

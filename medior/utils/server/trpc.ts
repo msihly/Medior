@@ -76,6 +76,19 @@ class SocketClass {
     }
   }
 
+  public emitReliable<Event extends SocketEmitEvent>(
+    event: Event,
+    ...args: Parameters<SocketEvents[Event]>
+  ) {
+    if (!this.socket) this.connect();
+
+    try {
+      this.socket.emit(event, ...args);
+    } catch (err) {
+      fileLog(`Reliable socket emit error: ${err.message}`, { type: "error" });
+    }
+  }
+
   public isConnected(): boolean {
     return !!this.socket;
   }

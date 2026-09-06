@@ -1,5 +1,5 @@
 import Color from "color";
-import { IconName } from "medior/components";
+import { Button, IconName } from "medior/components";
 import { colors, CSS, CssColor, makeClasses } from "medior/utils/client";
 import { round } from "medior/utils/common";
 import { getConfig } from "medior/utils/server";
@@ -21,18 +21,34 @@ export const getRatingMeta = (rating: number) => {
 };
 
 interface RatingChipProps extends Omit<ChipProps, "label"> {
+  button?: boolean;
   noHide?: boolean;
   rating: number;
 }
 
-export const RatingChip = ({ noHide = false, rating, ...props }: RatingChipProps) => {
+export const RatingChip = ({
+  button = false,
+  noHide = false,
+  rating,
+  ...props
+}: RatingChipProps) => {
   const config = getConfig();
 
   const { icon, iconColor, textShadow } = getRatingMeta(rating);
 
   const { css } = useClasses({ textShadow });
 
-  return noHide || rating > 0 || !config.file.hideUnratedIcon ? (
+  if (!noHide && rating === 0 && config.file.hideUnratedIcon) return null;
+
+  return button ? (
+    <Button
+      text={round(rating, 1)}
+      icon={icon}
+      iconProps={{ className: css.star, color: iconColor }}
+      color={colors.custom.grey}
+      onClick={(event) => props.onClick?.(event as unknown as React.MouseEvent<HTMLDivElement>)}
+    />
+  ) : (
     <Chip
       label={round(rating, 1)}
       color={colors.custom.lightGrey}
@@ -43,7 +59,7 @@ export const RatingChip = ({ noHide = false, rating, ...props }: RatingChipProps
       opacity={1}
       {...props}
     />
-  ) : null;
+  );
 };
 
 interface ClassesProps {

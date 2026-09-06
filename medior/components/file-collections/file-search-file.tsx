@@ -28,6 +28,8 @@ export const FileSearchFile = Comp(({ disabled, file, height = "14rem" }: FileSe
         <FileBase.Image
           {...{ animated, disabled, height }}
           thumb={file.thumb}
+          fileId={file.id}
+          isCorrupted={file.isCorrupted}
           title={file.originalName}
           fit="contain"
         >

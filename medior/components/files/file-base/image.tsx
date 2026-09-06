@@ -10,6 +10,7 @@ import { FileSchema } from "medior/_generated/server";
 import { Icon, View } from "medior/components";
 import { colors, CSS, makeClasses, useElementResize, useLazyLoad } from "medior/utils/client";
 import { sleep } from "medior/utils/common";
+import { trpc } from "medior/utils/server";
 import { getScaledThumbSize } from "medior/utils/server/videos";
 
 const POS_INTERVAL = 300;
@@ -35,7 +36,9 @@ type ImageProps = Omit<
   children?: ReactNode | ReactNode[];
   draggable?: boolean;
   fit?: "contain" | "cover";
+  fileId?: string;
   height?: CSS["height"];
+  isCorrupted?: boolean;
   rounded?: "all" | "bottom" | "top";
   title?: string;
 } & (
@@ -50,7 +53,9 @@ export const Image = ({
   className,
   draggable,
   fit = "contain",
+  fileId,
   height,
+  isCorrupted,
   loading = "lazy",
   onDragEnd,
   onDragStart,
@@ -61,6 +66,8 @@ export const Image = ({
 }: ImageProps) => {
   const thumbInterval = useRef<NodeJS.Timeout>(null);
   const videoPosInterval = useRef<NodeJS.Timeout>(null);
+  const isRepairingThumbnail = useRef(false);
+  const repairAttempted = useRef(false);
   const clearIntervals = () => {
     clearInterval(thumbInterval.current);
     clearInterval(videoPosInterval.current);
@@ -68,10 +75,11 @@ export const Image = ({
 
   const [hasError, setHasError] = useState(false);
   const [imagePos, setImagePos] = useState<string>("center");
+  const [repairedThumb, setRepairedThumb] = useState<FileSchema["thumb"]>();
   const [thumbIndex, setThumbIndex] = useState(0);
   const [videoPosIndex, setVideoPosIndex] = useState(1);
 
-  const curThumb = thumbs?.[thumbIndex] ?? thumb;
+  const curThumb = repairedThumb ?? thumbs?.[thumbIndex] ?? thumb;
   const isAnimated = curThumb?.frameHeight > 0 && curThumb?.frameWidth > 0;
   const scaled = isAnimated ? getScaledThumbSize(curThumb.frameWidth, curThumb.frameHeight) : null;
   const videoPos = isAnimated ? VIDEO_POSITIONS[videoPosIndex] : null;
@@ -84,6 +92,8 @@ export const Image = ({
     if (!isVisible) clearIntervals();
     else {
       setHasError(false);
+      setRepairedThumb(undefined);
+      repairAttempted.current = false;
       setThumbIndex(0);
       setVideoPosIndex(1);
       setImagePos("center");
@@ -142,9 +152,24 @@ export const Image = ({
   const getThumbInterval = (t: FileSchema["thumb"]) =>
     POS_INTERVAL * (t.frameHeight > 0 && t.frameWidth > 0 ? 9 : 1);
 
-  const handleError = () => {
+  const handleError = async () => {
     setHasError(true);
     clearIntervals();
+    if (!fileId || isCorrupted || isRepairingThumbnail.current || repairAttempted.current) return;
+
+    repairAttempted.current = true;
+    isRepairingThumbnail.current = true;
+    try {
+      const res = await trpc.repairFileThumbnail.mutate({ fileId });
+      if (res.success && res.data.status === "repaired") {
+        setRepairedThumb(res.data.thumb);
+        setHasError(false);
+      }
+    } catch (error) {
+      console.error(`Failed to repair thumbnail for file ${fileId}:`, error);
+    } finally {
+      isRepairingThumbnail.current = false;
+    }
   };
 
   const handleMouseEnter = () => {

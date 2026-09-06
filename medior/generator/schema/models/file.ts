@@ -64,12 +64,10 @@ model.addProp("originalAudioCodec", "string");
 
 model.addProp("originalBitrate", "number");
 
-model.addIndex({ originalHash: 1 }, { unique: false });
 model.addProp("originalHash", "string");
 
 model.addProp("originalName", "string");
 
-model.addIndex({ originalPath: 1 }, { unique: false });
 model.addProp("originalPath", "string", { required: true });
 
 model.addProp("originalSize", "number", { required: true });
