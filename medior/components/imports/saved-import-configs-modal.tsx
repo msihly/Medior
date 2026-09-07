@@ -280,7 +280,7 @@ export const SavedImportConfigsModal = Comp(
             <Pagination
               count={store.pageCount}
               page={store.page}
-              isLoading={store.isPageCountLoading}
+              isLoading={store.isPageCountLoading && !store.isLoading}
               onChange={(page) => store.loadFiltered({ page })}
               onFullLoad={() => store.loadFiltered({ withFullCount: true })}
               siblingCount={2}

@@ -1,3 +1,4 @@
+import { ReactNode } from "react";
 import { Fmt } from "trabecula/utils/common";
 import {
   Card,
@@ -16,102 +17,113 @@ import { colors, toast } from "medior/utils/client";
 
 export interface FileCollectionProps {
   collection: FileCollType;
+  disableSelection?: boolean;
+  rightNode?: ReactNode;
 }
 
-export const FileCollection = Comp(({ collection }: FileCollectionProps) => {
-  const stores = useStores();
-  const store = stores.collection.manager;
+export const FileCollection = Comp(
+  ({ collection, disableSelection = false, rightNode }: FileCollectionProps) => {
+    const stores = useStores();
+    const store = stores.collection.manager;
 
-  const handleClick = async (event: React.MouseEvent) => {
-    const res = await store.search.handleSelect({
-      hasCtrl: event.ctrlKey,
-      hasShift: event.shiftKey,
-      id: collection.id,
-    });
-    if (!res?.success) toast.error(res.error);
-  };
+    const handleClick = async (event: React.MouseEvent) => {
+      if (disableSelection) return;
+      const res = await store.search.handleSelect({
+        hasCtrl: event.ctrlKey,
+        hasShift: event.shiftKey,
+        id: collection.id,
+      });
+      if (!res?.success) toast.error(res.error);
+    };
 
-  const handleDelete = async () => {
-    stores.collection.setIdsForConfirmDelete([collection.id]);
-    stores.collection.setIsConfirmDeleteOpen(true);
-  };
+    const handleDelete = async () => {
+      stores.collection.setIdsForConfirmDelete([collection.id]);
+      stores.collection.setIsConfirmDeleteOpen(true);
+    };
 
-  const handleRating = (rating: number) =>
-    stores.collection.updateCollRating({ id: collection.id, rating });
+    const handleRating = (rating: number) =>
+      stores.collection.updateCollRating({ id: collection.id, rating });
 
-  const handleRefreshMeta = () => stores.collection.regenCollMeta([collection.id]);
+    const handleRefreshMeta = () => stores.collection.regenCollMeta([collection.id]);
 
-  const openCollection = async () => {
-    stores.collection.editor.setIsOpen(true);
-    await stores.collection.editor.loadCollection(collection.id);
-  };
+    const openCollection = async () => {
+      stores.collection.editor.setIsOpen(true);
+      await stores.collection.editor.loadCollection(collection.id);
+    };
 
-  return (
-    <ContextMenu
-      id={collection.id}
-      menuItems={[
-        { label: "Refresh Metadata", icon: "Refresh", onClick: handleRefreshMeta },
-        { label: "Delete", icon: "Delete", color: colors.custom.red, onClick: handleDelete },
-      ]}
-    >
-      <FileBase.Container
-        height="100%"
-        width="100%"
-        onClick={handleClick}
-        onDoubleClick={openCollection}
-        selected={store.search.getIsSelected(collection.id)}
+    return (
+      <ContextMenu
+        id={collection.id}
+        menuItems={[
+          { label: "Refresh Metadata", icon: "Refresh", onClick: handleRefreshMeta },
+          { label: "Delete", icon: "Delete", color: colors.custom.red, onClick: handleDelete },
+        ]}
       >
-        <Card
-          row
+        <FileBase.Container
           height="100%"
-          bgColor={colors.foregroundCard}
-          padding={{ all: 0 }}
-          overflow="hidden"
-          header={
-            <View column spacing="0.5rem" width="100%">
-              <View
-                row
-                align="center"
-                justify="space-between"
-                width="100%"
-                padding={{ all: "0.2rem 0.4rem 0 0.4rem" }}
-              >
-                <View row align="center" spacing="0.5rem">
-                  <RatingButton rating={collection.rating} setRating={handleRating} />
-
-                  <Text color={colors.custom.lightBlue}>{collection.title}</Text>
-                </View>
-
-                <View row align="center" spacing="0.5rem">
-                  <Chip label={`${collection.fileCount} files`} height="1.5em" />
-
-                  <Chip label={Fmt.bytes(collection.size ?? 0)} height="1.5em" />
-                </View>
-              </View>
-
-              {!collection.tags ? null : (
-                <TagRow
-                  tags={collection.tags}
-                  limit={15}
-                  padding={{ all: "0 0.3rem 0.3rem 0.2rem" }}
-                  overflow="hidden"
-                />
-              )}
-            </View>
-          }
+          width="100%"
+          onClick={handleClick}
+          onDoubleClick={openCollection}
+          selected={!disableSelection && store.search.getIsSelected(collection.id)}
         >
-          {collection.previewIds.map((id, idx) => (
-            <FileCard
-              key={idx}
-              file={store.search.files.get(id)}
-              store={stores.file.search}
-              height={250}
-              width={230}
-              disabled
-            />
-          ))}
-        </Card>
-      </FileBase.Container>
-    </ContextMenu>
-  );
-});
+          <Card
+            row
+            height="100%"
+            bgColor={colors.foregroundCard}
+            padding={{ all: 0 }}
+            overflow="hidden"
+            header={
+              <View column spacing="0.5rem" width="100%">
+                <View
+                  row
+                  align="center"
+                  justify="space-between"
+                  width="100%"
+                  padding={{ all: "0.2rem 0.4rem 0 0.4rem" }}
+                >
+                  <View row align="center" spacing="0.5rem">
+                    <RatingButton
+                      disabled={disableSelection}
+                      rating={collection.rating}
+                      setRating={handleRating}
+                    />
+
+                    <Text color={colors.custom.lightBlue}>{collection.title}</Text>
+                  </View>
+
+                  <View row align="center" spacing="0.5rem">
+                    {rightNode}
+
+                    <Chip label={`${collection.fileCount} files`} height="1.5em" />
+
+                    <Chip label={Fmt.bytes(collection.size ?? 0)} height="1.5em" />
+                  </View>
+                </View>
+
+                {!collection.tags ? null : (
+                  <TagRow
+                    tags={collection.tags}
+                    limit={15}
+                    padding={{ all: "0 0.3rem 0.3rem 0.2rem" }}
+                    overflow="hidden"
+                  />
+                )}
+              </View>
+            }
+          >
+            {collection.previewIds.map((id, idx) => (
+              <FileCard
+                key={idx}
+                file={store.search.files.get(id)}
+                store={stores.file.search}
+                height={250}
+                width={230}
+                disabled
+              />
+            ))}
+          </Card>
+        </FileBase.Container>
+      </ContextMenu>
+    );
+  },
+);

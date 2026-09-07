@@ -16,7 +16,13 @@ import {
 } from "medior/components";
 import { useStores } from "medior/store";
 import { colors, makeClasses, toast } from "medior/utils/client";
-import { CollectionFilterMenu, CollectionTriager, DeleteCollectionModal, FileCollection } from ".";
+import {
+  CollectionFilterMenu,
+  CollectionTriager,
+  DeleteCollectionModal,
+  FileCollection,
+  RelatedCollectionsQueue,
+} from ".";
 
 const FILE_CARD_HEIGHT = 250;
 
@@ -27,7 +33,6 @@ export const FileCollectionManager = Comp(() => {
   const { css } = useClasses(null);
 
   const collsRef = useRef<HTMLDivElement>(null);
-
   const hasSelectedCollectionIds = store.search.selectedIds.length > 0;
   const selectedFileIds = store.selectedFileIds;
   const hasAnyFilesSelected = selectedFileIds.length > 0;
@@ -84,6 +89,11 @@ export const FileCollectionManager = Comp(() => {
   const handleFullPageLoad = () => store.search.loadFiltered({ withFullCount: true });
 
   const handleRefreshMeta = () => stores.collection.regenCollMeta(store.search.selectedIds);
+
+  const handleRelatedQueueClose = () => {
+    store.setIsRelatedQueueOpen(false);
+    store.search.reloadIfQueued();
+  };
 
   const handleNewCollection = async () => {
     const res = await stores.collection.createCollection({
@@ -227,7 +237,7 @@ export const FileCollectionManager = Comp(() => {
             count={pageCount}
             page={page}
             onChange={handlePageChange}
-            isLoading={store.search.isPageCountLoading}
+            isLoading={store.search.isPageCountLoading && !store.search.isLoading}
             onFullLoad={handleFullPageLoad}
             viewProps={{ style: { zIndex: 100 } }}
           />
@@ -252,6 +262,14 @@ export const FileCollectionManager = Comp(() => {
           colorOnHover={colors.custom.purple}
         />
 
+        <Button
+          text="Related"
+          icon="Search"
+          onClick={() => store.setIsRelatedQueueOpen(true)}
+          disabled={store.search.isLoading}
+          colorOnHover={colors.custom.lightBlue}
+        />
+
         {!hasAnyFilesSelected ? null : (
           <Button
             text="Add to Collection"
@@ -266,6 +284,8 @@ export const FileCollectionManager = Comp(() => {
       {store.isConfirmDeleteOpen && <DeleteCollectionModal />}
 
       {store.isTriagerOpen && <CollectionTriager />}
+
+      {store.isRelatedQueueOpen && <RelatedCollectionsQueue onClose={handleRelatedQueueClose} />}
     </Modal.Container>
   );
 });

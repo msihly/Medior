@@ -57,7 +57,7 @@ export const TransformSearch = Comp(() => {
       <Pagination
         count={store.search.pageCount}
         page={store.search.page}
-        isLoading={store.search.isPageCountLoading}
+        isLoading={store.search.isPageCountLoading && !store.search.isLoading}
         onChange={(page) => store.loadQueue({ page })}
         onFullLoad={() => store.loadQueue({ withFullCount: true })}
         siblingCount={2}

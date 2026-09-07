@@ -36,7 +36,7 @@ export const FileContainer = Comp(() => {
       <Pagination
         count={store.pageCount}
         page={store.page}
-        isLoading={store.isPageCountLoading}
+        isLoading={store.isPageCountLoading && !store.isLoading}
         onChange={handlePageChange}
         onFullLoad={handleFullPageLoad}
       />

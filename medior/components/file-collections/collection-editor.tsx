@@ -4,6 +4,7 @@ import {
   Button,
   Card,
   CardGrid,
+  Chip,
   Comp,
   ConfirmModal,
   FileCollectionFile,
@@ -28,12 +29,24 @@ import { useHotkeys } from "medior/views";
 
 export interface FileCollectionEditorProps {
   embedded?: boolean;
+  isSaving?: boolean;
   maxCards?: number;
+  mode?: "edit" | "merge";
+  onCancelLoad?: () => void;
   onClose?: () => void;
+  onSave?: () => Promise<void>;
 }
 
 export const FileCollectionEditor = Comp(
-  ({ embedded = false, maxCards = 6, onClose }: FileCollectionEditorProps) => {
+  ({
+    embedded = false,
+    isSaving = false,
+    maxCards = 6,
+    mode = "edit",
+    onCancelLoad,
+    onClose,
+    onSave,
+  }: FileCollectionEditorProps) => {
     const stores = useStores();
     const store = stores.collection.editor;
 
@@ -63,6 +76,7 @@ export const FileCollectionEditor = Comp(
     }, [store.search.page, store.search.pageCount]);
 
     const confirmClose = () => {
+      if (mode === "merge") return handleClose();
       if (store.hasUnsavedChanges) setIsConfirmDiscardOpen(true);
       else handleClose();
     };
@@ -121,7 +135,8 @@ export const FileCollectionEditor = Comp(
 
     const handleSave = async () => {
       if (!store.title) return toast.error("Title is required!");
-      await store.saveCollection();
+      if (onSave) await onSave();
+      else await store.saveCollection();
     };
 
     const handleSelectAll = () => {
@@ -148,40 +163,48 @@ export const FileCollectionEditor = Comp(
       <>
         <Modal.Header
           leftNode={
-            <Button
-              text={isAddingFiles ? "Hide Search" : "Add Files"}
-              icon={isAddingFiles ? "VisibilityOff" : "Add"}
-              onClick={toggleAddingFiles}
-              disabled={store.isLoading}
-              color={colors.foregroundCard}
-              colorOnHover={colors.custom.purple}
-            />
+            mode === "edit" ? (
+              <Button
+                text={isAddingFiles ? "Hide Search" : "Add Files"}
+                icon={isAddingFiles ? "VisibilityOff" : "Add"}
+                onClick={toggleAddingFiles}
+                disabled={store.isLoading}
+                color={colors.foregroundCard}
+                colorOnHover={colors.custom.purple}
+              />
+            ) : null
           }
           rightNode={
             isCreate ? null : (
               <View row align="center" spacing="0.5rem">
                 <RatingButton rating={store.collection?.rating} setRating={handleRating} />
 
-                <MenuButton color={colors.custom.grey}>
-                  <ListItem
-                    text="Delete"
-                    icon="Delete"
-                    onClick={handleDelete}
-                    color={colors.custom.red}
-                    iconProps={{ color: colors.custom.red }}
-                  />
+                <Chip label={`${store.fileIndexes.length} files`} />
 
-                  <ListItem text="Refresh Metadata" icon="Refresh" onClick={handleRefreshMeta} />
-                </MenuButton>
+                {mode === "edit" && (
+                  <MenuButton color={colors.custom.grey}>
+                    <ListItem
+                      text="Delete"
+                      icon="Delete"
+                      onClick={handleDelete}
+                      color={colors.custom.red}
+                      iconProps={{ color: colors.custom.red }}
+                    />
+
+                    <ListItem text="Refresh Metadata" icon="Refresh" onClick={handleRefreshMeta} />
+                  </MenuButton>
+                )}
               </View>
             )
           }
         >
-          <Text preset="title">{`${isCreate ? "Create" : "Edit"} Collection`}</Text>
+          <Text preset="title">
+            {mode === "merge" ? "Merge Collections" : `${isCreate ? "Create" : "Edit"} Collection`}
+          </Text>
         </Modal.Header>
 
         <Modal.Content dividers={false} row flex={1} height="100%" spacing="0.5rem">
-          {isAddingFiles && <FileSearchColumn />}
+          {mode === "edit" && isAddingFiles && <FileSearchColumn />}
 
           <View column flex={1} spacing="0.5rem" overflow="hidden">
             <View row spacing="0.5rem">
@@ -225,35 +248,39 @@ export const FileCollectionEditor = Comp(
 
               <Card column flex="none" height="100%">
                 <View row>
-                  <MultiActionButton
-                    name="Delete"
-                    tooltip="Remove Files From Collection"
-                    iconProps={{ color: colors.custom.red }}
-                    onClick={handleRemoveFiles}
-                    disabled={hasNoSelection}
-                  />
+                  {mode === "edit" && (
+                    <>
+                      <MultiActionButton
+                        name="Delete"
+                        tooltip="Remove Files From Collection"
+                        iconProps={{ color: colors.custom.red }}
+                        onClick={handleRemoveFiles}
+                        disabled={hasNoSelection}
+                      />
 
-                  <MultiActionButton
-                    name="Archive"
-                    tooltip="Archive Files"
-                    iconProps={{ color: colors.custom.orange }}
-                    onClick={handleArchiveFiles}
-                    disabled={hasNoSelection}
-                  />
+                      <MultiActionButton
+                        name="Archive"
+                        tooltip="Archive Files"
+                        iconProps={{ color: colors.custom.orange }}
+                        onClick={handleArchiveFiles}
+                        disabled={hasNoSelection}
+                      />
 
-                  <MultiActionButton
-                    name="Label"
-                    tooltip="Edit Tags"
-                    onClick={handleEditTags}
-                    disabled={hasNoSelection}
-                  />
+                      <MultiActionButton
+                        name="Label"
+                        tooltip="Edit Tags"
+                        onClick={handleEditTags}
+                        disabled={hasNoSelection}
+                      />
 
-                  <MultiActionButton
-                    name="Refresh"
-                    tooltip="Refresh File Info"
-                    onClick={handleFileInfoRefresh}
-                    disabled={hasNoSelection}
-                  />
+                      <MultiActionButton
+                        name="Refresh"
+                        tooltip="Refresh File Info"
+                        onClick={handleFileInfoRefresh}
+                        disabled={hasNoSelection}
+                      />
+                    </>
+                  )}
 
                   <MultiActionButton
                     name="Deselect"
@@ -286,7 +313,15 @@ export const FileCollectionEditor = Comp(
             </View>
 
             <Card column flex={1} overflow="auto" position="relative">
-              <SearchLoadingOverlay store={store.search} />
+              <SearchLoadingOverlay
+                isLoading={
+                  mode === "merge"
+                    ? !isSaving && (store.isLoading || store.search.isLoading)
+                    : undefined
+                }
+                onCancel={mode === "merge" ? onCancelLoad : undefined}
+                store={store.search}
+              />
 
               <CardGrid
                 ref={filesRef}
@@ -300,7 +335,7 @@ export const FileCollectionEditor = Comp(
               <Pagination
                 count={store.search.pageCount}
                 page={store.search.page}
-                isLoading={store.search.isPageCountLoading}
+                isLoading={store.search.isPageCountLoading && !store.search.isLoading}
                 onChange={handlePageChange}
                 onFullLoad={handleFullPageLoad}
               />
@@ -310,18 +345,20 @@ export const FileCollectionEditor = Comp(
 
         <Modal.Footer>
           <Button
-            text={store.hasUnsavedChanges ? "Cancel" : "Close"}
+            text={mode === "merge" || store.hasUnsavedChanges ? "Cancel" : "Close"}
             icon="Close"
             onClick={confirmClose}
             disabled={store.isLoading}
-            colorOnHover={store.hasUnsavedChanges ? colors.custom.red : undefined}
+            colorOnHover={
+              mode === "merge" || store.hasUnsavedChanges ? colors.custom.red : undefined
+            }
           />
 
           <Button
-            text="Save"
-            icon="Save"
+            text={mode === "merge" ? "Merge" : "Save"}
+            icon={mode === "merge" ? "Merge" : "Save"}
             onClick={handleSave}
-            disabled={!store.hasUnsavedChanges || store.isLoading}
+            disabled={(mode === "edit" && !store.hasUnsavedChanges) || store.isLoading}
             color={colors.custom.purple}
           />
         </Modal.Footer>
@@ -353,7 +390,7 @@ export const FileCollectionEditor = Comp(
       </View>
     ) : (
       <Modal.Container
-        isLoading={store.isLoading}
+        isLoading={mode === "edit" ? store.isLoading : isSaving}
         onClose={confirmClose}
         height="100%"
         width="100%"

@@ -22,6 +22,8 @@ export const RepairModal = Comp(() => {
   const stores = useStores();
 
   const [isCollectionsChecked, setIsCollectionsChecked] = useState(false);
+  const [isDeleteExactDuplicatesChecked, setIsDeleteExactDuplicatesChecked] = useState(true);
+  const [isDeleteSubsetsChecked, setIsDeleteSubsetsChecked] = useState(true);
   const [isExtAndCodecsChecked, setIsExtAndCodecsChecked] = useState(false);
   const [isConfirmCancelOpen, setIsConfirmCancelOpen] = useState(false);
   const [isIndexesChecked, setIsIndexesChecked] = useState(false);
@@ -94,7 +96,11 @@ export const RepairModal = Comp(() => {
 
       if (isCollectionsChecked) {
         log("[INFO] Starting collection repair.");
-        const res = await trpc.repairCollections.mutate({ repairId });
+        const res = await trpc.repairCollections.mutate({
+          deleteExactDuplicates: isDeleteExactDuplicatesChecked,
+          deleteSubsetCollections: isDeleteSubsetsChecked,
+          repairId,
+        });
         if (!res.success) throw new Error(res.error);
       }
 
@@ -218,12 +224,30 @@ export const RepairModal = Comp(() => {
 
           <UniformList row>
             <View row>
-              <Checkbox
-                label="Collections"
-                checked={isCollectionsChecked}
-                setChecked={setIsCollectionsChecked}
-                disabled={isRepairing}
-              />
+              <View column>
+                <Checkbox
+                  label="Collections"
+                  checked={isCollectionsChecked}
+                  setChecked={setIsCollectionsChecked}
+                  disabled={isRepairing}
+                />
+
+                <View column margins={{ left: "1rem" }}>
+                  <Checkbox
+                    label="Delete Exact Duplicates"
+                    checked={isDeleteExactDuplicatesChecked}
+                    setChecked={setIsDeleteExactDuplicatesChecked}
+                    disabled={isRepairing || !isCollectionsChecked}
+                  />
+
+                  <Checkbox
+                    label="Delete Subset Collections"
+                    checked={isDeleteSubsetsChecked}
+                    setChecked={setIsDeleteSubsetsChecked}
+                    disabled={isRepairing || !isCollectionsChecked}
+                  />
+                </View>
+              </View>
 
               <Checkbox
                 label="Ext. / Codecs"

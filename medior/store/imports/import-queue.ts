@@ -590,6 +590,7 @@ export const useImportEditor = (store: Ingester | Reingester) => {
         : null;
 
       importBatches.push({
+        collectionSourceFolderPath: folder.collectionTitle ? folder.folderName : null,
         collectionTitle: folder.collectionTitle,
         deleteOnImport: savedConfig?.options.deleteOnImport ?? store.options.deleteOnImport,
         ignorePrevDeleted:

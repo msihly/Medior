@@ -8,3 +8,4 @@ export * from "./file-collection";
 export * from "./file-collection-file";
 export * from "./file-search-column";
 export * from "./file-search-file";
+export * from "./related-collections-queue";

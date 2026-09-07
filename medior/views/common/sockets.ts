@@ -303,7 +303,9 @@ export const useSockets = ({ enabled = true, view }: UseSocketsProps) => {
               (collection) => !ids.includes(collection.id),
             ),
           );
-          stores.collection.manager.search.loadFiltered();
+          if (stores.collection.manager.isRelatedQueueOpen)
+            stores.collection.manager.search.setHasQueuedReload(true);
+          else stores.collection.manager.search.loadFiltered();
         }
       });
 

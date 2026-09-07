@@ -3,6 +3,7 @@ import { Comp, FileBase, getRatingMeta, ListItem, MenuButton } from "medior/comp
 
 export interface RatingButtonProps {
   button?: boolean;
+  disabled?: boolean;
   rating: number;
   setRating: (rating: number) => void;
 }
@@ -14,8 +15,9 @@ export const RatingButton = Comp((props: RatingButtonProps) => {
       button={(onOpen) => (
         <FileBase.RatingChip
           button={props.button}
+          disabled={props.disabled}
           rating={props.rating}
-          onClick={onOpen}
+          onClick={props.disabled ? undefined : onOpen}
           height="1.5em"
           noHide
         />

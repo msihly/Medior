@@ -38,6 +38,8 @@ export interface FileCollectionSchema {
   rating: number;
   ratingIsManual?: boolean;
   size: number;
+  sourceFolderKeys: string[];
+  sourceFolderPaths: string[];
   tagIds: string[];
   tagIdsWithAncestors: string[];
   title: string;
@@ -52,6 +54,8 @@ const FileCollectionSchema = new Schema<FileCollectionSchema>({
   rating: Number,
   ratingIsManual: Boolean,
   size: Number,
+  sourceFolderKeys: [String],
+  sourceFolderPaths: [String],
   tagIds: [{ type: Schema.Types.ObjectId, ref: "Tag" }],
   tagIdsWithAncestors: [{ type: Schema.Types.ObjectId, ref: "Tag" }],
   title: String,
@@ -62,6 +66,7 @@ FileCollectionSchema.index({ dateModified: 1, _id: 1 }, { unique: true });
 FileCollectionSchema.index({ fileCount: 1, _id: 1 }, { unique: true });
 FileCollectionSchema.index({ rating: 1, _id: 1 }, { unique: true });
 FileCollectionSchema.index({ size: 1, _id: 1 }, { unique: true });
+FileCollectionSchema.index({ sourceFolderKeys: 1 }, { unique: false });
 FileCollectionSchema.index({ tagIds: 1, _id: 1 }, { unique: true });
 FileCollectionSchema.index({ tagIdsWithAncestors: 1, _id: 1 }, { unique: true });
 FileCollectionSchema.index({ title: 1, _id: 1 }, { unique: true });
@@ -94,6 +99,7 @@ export interface FileImportBatchSchema {
   id: string;
   dateCreated: string;
   collectionId?: string;
+  collectionSourceFolderPath?: string;
   collectionTitle?: string;
   completedAt: string;
   deleteOnImport: boolean;
@@ -112,6 +118,7 @@ const FileImportBatchSchema = new Schema<FileImportBatchSchema>({
   id: String,
   dateCreated: String,
   collectionId: String,
+  collectionSourceFolderPath: String,
   collectionTitle: String,
   completedAt: String,
   deleteOnImport: Boolean,

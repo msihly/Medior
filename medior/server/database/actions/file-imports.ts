@@ -1,4 +1,5 @@
 import { constants as fsc, promises as fs } from "fs";
+import path from "path";
 import * as models from "medior/_generated/server/models";
 import { ModelCreationData } from "mobx-keystone";
 import {
@@ -48,6 +49,31 @@ class ImporterStatus {
 const importerStatus = new ImporterStatus();
 const COLLECTION_IMPORT_STATUSES = ["COMPLETE", "DUPLICATE"] satisfies Types.ImportStatus[];
 
+const deriveImportCollectionSourceFolderPath = (filePaths: string[]) => {
+  const folders = filePaths.filter(Boolean).map((filePath) => path.win32.dirname(filePath));
+  if (!folders.length) return null;
+  const root = path.win32.parse(folders[0]).root;
+  if (
+    !folders.every((folder) => path.win32.parse(folder).root.toLowerCase() === root.toLowerCase())
+  )
+    return null;
+
+  const relativeParts = folders.map((folder) =>
+    path.win32
+      .relative(root, folder)
+      .split(/[\\/]+/)
+      .filter(Boolean),
+  );
+  const commonParts: string[] = [];
+  const maxLength = Math.min(...relativeParts.map((parts) => parts.length));
+  for (let index = 0; index < maxLength; index++) {
+    const part = relativeParts[0][index];
+    if (!relativeParts.every((parts) => parts[index].toLowerCase() === part.toLowerCase())) break;
+    commonParts.push(part);
+  }
+  return commonParts.length ? path.win32.join(root, ...commonParts) : null;
+};
+
 export const checkFileImportHashes = makeAction(async (args: { hash: string }) => {
   const [deletedFileRes, fileRes] = await Promise.all([
     actions.getDeletedFile({ hash: args.hash }),
@@ -91,9 +117,23 @@ export const completeImportBatch = makeAction(
     let collectionId: string = null;
     if (batch.collectionTitle && fileIds.length) {
       const fileIdIndexes = fileIds.map((fileId, index) => ({ fileId, index }));
-      const res = await actions.createCollection({ fileIdIndexes, title: batch.collectionTitle });
+      const sourceFolderPath =
+        batch.collectionSourceFolderPath ??
+        deriveImportCollectionSourceFolderPath(
+          collectionImports.map((fileImport) => fileImport.path),
+        );
+      const res = sourceFolderPath
+        ? await actions.upsertImportedCollection({
+            fileIdIndexes,
+            sourceFolderPath,
+            title: batch.collectionTitle,
+          })
+        : await actions.createCollection({ fileIdIndexes, title: batch.collectionTitle });
       if (!res.success) throw new Error(`Failed to create collection: ${res.error}`);
-      if (res.data.fileIdIndexes.length !== fileIdIndexes.length) {
+      const collectionFileIds = new Set(
+        res.data.fileIdIndexes.map((entry) => entry.fileId.toString()),
+      );
+      if (!fileIds.every((fileId) => collectionFileIds.has(fileId))) {
         fileLog({ args, batch, collection: res.data, fileIdIndexes }, { type: "error" });
         throw new Error("Failed to create collection with all completed or duplicate file ids");
       }
@@ -168,6 +208,7 @@ export const copyFile = makeAction(
 export const createImportBatches = makeAction(
   async (
     batches: {
+      collectionSourceFolderPath?: string;
       collectionTitle?: string;
       deleteOnImport: boolean;
       ignorePrevDeleted: boolean;

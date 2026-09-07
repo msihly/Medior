@@ -1134,6 +1134,8 @@ export const createFileCollection = makeAction(
       dateModified: null,
       fileCount: 0,
       rating: 0,
+      sourceFolderKeys: [],
+      sourceFolderPaths: [],
       tagIds: [],
       tagIdsWithAncestors: [],
     };

@@ -153,7 +153,7 @@ export const ImportManager = Comp(() => {
               <Pagination
                 count={store.search.pageCount}
                 page={store.search.page}
-                isLoading={store.search.isPageCountLoading}
+                isLoading={store.search.isPageCountLoading && !store.search.isLoading}
                 onChange={handlePageChange}
                 onFullLoad={handleFullPageLoad}
                 siblingCount={2}

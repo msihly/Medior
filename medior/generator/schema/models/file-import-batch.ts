@@ -4,6 +4,8 @@ const model = new ModelDb("FileImportBatch", { defaultPageSize: 20, withStore: t
 
 model.addProp("collectionId", "string");
 
+model.addProp("collectionSourceFolderPath", "string");
+
 model.addIndex({ collectionTitle: 1, _id: 1 });
 model.addProp("collectionTitle", "string");
 

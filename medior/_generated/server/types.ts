@@ -135,11 +135,23 @@ export type AddFilesToCollectionOutput = ReturnType<typeof db.addFilesToCollecti
 export type CreateCollectionInput = Parameters<typeof db.createCollection>[0];
 export type CreateCollectionOutput = ReturnType<typeof db.createCollection>;
 
+export type UpsertImportedCollectionInput = Parameters<typeof db.upsertImportedCollection>[0];
+export type UpsertImportedCollectionOutput = ReturnType<typeof db.upsertImportedCollection>;
+
+export type PreviewCollectionMergeInput = Parameters<typeof db.previewCollectionMerge>[0];
+export type PreviewCollectionMergeOutput = ReturnType<typeof db.previewCollectionMerge>;
+
+export type MergeCollectionsInput = Parameters<typeof db.mergeCollections>[0];
+export type MergeCollectionsOutput = ReturnType<typeof db.mergeCollections>;
+
 export type DeleteCollectionsInput = Parameters<typeof db.deleteCollections>[0];
 export type DeleteCollectionsOutput = ReturnType<typeof db.deleteCollections>;
 
 export type ListAllCollectionIdsInput = Parameters<typeof db.listAllCollectionIds>[0];
 export type ListAllCollectionIdsOutput = ReturnType<typeof db.listAllCollectionIds>;
+
+export type FindRelatedCollectionGroupsInput = Parameters<typeof db.findRelatedCollectionGroups>[0];
+export type FindRelatedCollectionGroupsOutput = ReturnType<typeof db.findRelatedCollectionGroups>;
 
 export type ListCollectionsByFileIdsInput = Parameters<typeof db.listCollectionsByFileIds>[0];
 export type ListCollectionsByFileIdsOutput = ReturnType<typeof db.listCollectionsByFileIds>;
