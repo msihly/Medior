@@ -123,7 +123,7 @@ export const CarouselWindow = Comp(({ embedded = false }: CarouselWindowProps) =
 
           <CarouselThumbNavigator />
 
-          <Views.FileModals />
+          {!embedded && <Views.FileModals />}
 
           <Views.TagModals view="carousel" />
         </View>

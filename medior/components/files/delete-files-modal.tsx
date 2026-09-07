@@ -40,18 +40,16 @@ export const DeleteFilesModal = Comp(() => {
   };
 
   const handleClose = () => {
-    if (isDeleting) setIsMinimized(true);
-    else stores.file.setIsConfirmDeleteOpen(false);
+    if (isDeleting) {
+      stores.file.cancelDeleteFiles();
+      setProgress((prev) => ({ ...prev, message: "Stopping deletion..." }));
+    } else stores.file.setIsConfirmDeleteOpen(false);
   };
 
   return (
     <>
       <Modal.Container height="25rem" width="25rem" visible={!isMinimized} onClose={handleClose}>
-        <Modal.Header
-          rightNode={
-            <Button text="Minimize" icon="Minimize" onClick={() => setIsMinimized(true)} />
-          }
-        >
+        <Modal.Header>
           <Text preset="title">{"Delete Files"}</Text>
         </Modal.Header>
 
@@ -68,7 +66,6 @@ export const DeleteFilesModal = Comp(() => {
             <ProgressBar
               numerator={progress.processedCount}
               denominator={progress.totalCount}
-              withText
               viewProps={{ width: "100%" }}
             />
           ) : (
@@ -77,7 +74,13 @@ export const DeleteFilesModal = Comp(() => {
         </Modal.Content>
 
         <Modal.Footer>
-          <Button text="Cancel" icon="Close" onClick={handleClose} disabled={isDeleting} />
+          <Button text="Cancel" icon="Close" onClick={handleClose} />
+
+          <Button
+            text="Minimize"
+            icon="IndeterminateCheckBox"
+            onClick={() => setIsMinimized(true)}
+          />
 
           <Button
             text="Delete"
@@ -101,7 +104,6 @@ export const DeleteFilesModal = Comp(() => {
             <ProgressBar
               numerator={progress.processedCount}
               denominator={progress.totalCount}
-              withText
             />
 
             <Button text="Restore" icon="OpenInFull" onClick={() => setIsMinimized(false)} />

@@ -102,6 +102,7 @@ export const serverRouter = trpc.router({
   getNextImportBatch: serverEndpoint(db.getNextImportBatch),
   getTagWithRelations: serverEndpoint(db.getTagWithRelations),
   importFile: serverEndpoint(db.importFile),
+  listAllArchivedFileIds: serverEndpoint(db.listAllArchivedFileIds),
   listAllCollectionIds: serverEndpoint(db.listAllCollectionIds),
   listCollectionIdsByTagIds: serverEndpoint(db.listCollectionIdsByTagIds),
   listCollectionsByFileIds: serverEndpoint(db.listCollectionsByFileIds),

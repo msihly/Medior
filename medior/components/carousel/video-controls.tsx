@@ -83,10 +83,7 @@ export const VideoControls = Comp(() => {
   const handleTranscodeBitrateCommit = () =>
     !activeFile?.isWebPlayable && transcode(stores.carousel.curFrame);
 
-  const handleVolumeChange = (_, vol: number) => {
-    stores.carousel.setVolume(vol);
-    stores.carousel.setLastVolume(vol);
-  };
+  const handleVolumeChange = (_, vol: number) => stores.carousel.setVolumePreference(vol);
 
   const resetPlaybackRate = () => stores.carousel.setPlaybackRate(1);
 

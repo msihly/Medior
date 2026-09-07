@@ -23,6 +23,8 @@ export const Drawer = Comp(({ hasImports = false, hasSettings = false }: DrawerP
     stores.collection.manager.setIsOpen(true);
   };
 
+  const handleDeleteArchivedFiles = () => stores.file.confirmDeleteArchivedFiles();
+
   const handleImport = () => stores.import.manager.setIsOpen(true);
 
   const handleManageTags = () => stores.tag.manager.setIsOpen(true);
@@ -36,6 +38,7 @@ export const Drawer = Comp(({ hasImports = false, hasSettings = false }: DrawerP
   };
 
   useEffect(() => {
+    stores.file.loadArchivedFileIds();
     videoTransformer.getTransformerStatus();
     videoTransformer.loadQueueCount();
   }, []);
@@ -118,6 +121,14 @@ export const Drawer = Comp(({ hasImports = false, hasSettings = false }: DrawerP
           name="Search"
           tooltip="Open New Search Window"
           onClick={handleSearchWindow}
+          {...{ tooltipProps }}
+        />
+
+        <IconButton
+          name={stores.file.hasArchivedFiles ? "Delete" : "DeleteOutline"}
+          tooltip="Delete Archived Files"
+          onClick={handleDeleteArchivedFiles}
+          disabled={!stores.file.hasArchivedFiles}
           {...{ tooltipProps }}
         />
       </View>

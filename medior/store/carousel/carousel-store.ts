@@ -9,6 +9,10 @@ import { asyncAction, openCarouselWindow, toast } from "medior/utils/client";
 import { Fmt } from "medior/utils/common";
 import { extractVideoFrame, videoTranscoder } from "medior/utils/server/videos";
 
+const IS_PINNED_KEY = "medior.carousel.isPinned";
+const LAST_VOLUME_KEY = "medior.carousel.lastVolume";
+const VOLUME_KEY = "medior.carousel.volume";
+
 @model("medior/CarouselStore")
 export class CarouselStore extends Model({
   activeFileId: prop<string>("").withSetter(),
@@ -31,6 +35,13 @@ export class CarouselStore extends Model({
 }) {
   onInit() {
     autoBind(this);
+    const volume = localStorage.getItem(VOLUME_KEY);
+    const lastVolume = localStorage.getItem(LAST_VOLUME_KEY);
+    const isPinned = localStorage.getItem(IS_PINNED_KEY);
+    if (volume !== null && Number.isFinite(Number(volume))) this.volume = Number(volume);
+    if (lastVolume !== null && Number.isFinite(Number(lastVolume)))
+      this.lastVolume = Number(lastVolume);
+    if (isPinned !== null) this.isPinned = isPinned === "true";
   }
 
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
@@ -43,7 +54,15 @@ export class CarouselStore extends Model({
   removeFiles(fileIds: string[]) {
     const stores = getRootStore<RootStore>(this);
     const newSelectedIds = this.selectedFileIds.filter((id) => !fileIds.includes(id));
-    if (!newSelectedIds.length) return remote.getCurrentWindow().close();
+    if (!newSelectedIds.length) {
+      if (!stores.collection.manager.isTriagerOpen) return remote.getCurrentWindow().close();
+      this.setActiveFileId("");
+      this.setSelectedFileIds([]);
+      stores.file.setActiveFileId("");
+      stores.file.search.setIds([]);
+      stores.file.search.setResults([]);
+      return;
+    }
 
     if (fileIds.includes(this.activeFileId)) {
       const newFileId =
@@ -65,8 +84,17 @@ export class CarouselStore extends Model({
   }
 
   @modelAction
+  setVolumePreference(volume: number) {
+    this.setLastVolume(volume);
+    this.setVolume(volume);
+    localStorage.setItem(LAST_VOLUME_KEY, String(this.lastVolume));
+    localStorage.setItem(VOLUME_KEY, String(this.volume));
+  }
+
+  @modelAction
   toggleIsPinned() {
     this.setIsPinned(!this.isPinned);
+    localStorage.setItem(IS_PINNED_KEY, String(this.isPinned));
   }
 
   @modelAction
@@ -81,6 +109,8 @@ export class CarouselStore extends Model({
       this.setLastVolume(this.volume);
       this.setVolume(0);
     }
+    localStorage.setItem(LAST_VOLUME_KEY, String(this.lastVolume));
+    localStorage.setItem(VOLUME_KEY, String(this.volume));
   }
 
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */
@@ -128,7 +158,10 @@ export class CarouselStore extends Model({
         },
       );
       if (url) this.setMediaSourceUrl(url);
-    } else this.setMediaSourceUrl(null);
+    } else {
+      this.setIsWaitingForFrames(false);
+      this.setMediaSourceUrl(null);
+    }
   });
 
   /* --------------------------------- GETTERS -------------------------------- */

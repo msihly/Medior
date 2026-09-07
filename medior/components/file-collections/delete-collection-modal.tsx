@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { colors, toast } from "trabecula/utils/client";
-import { Button, Chip, Comp, LoadingOverlay, Modal, Text, View } from "medior/components";
+import { Button, Chip, Comp, LoadingOverlay, Modal, Text, UniformList } from "medior/components";
 import { useStores } from "medior/store";
 import { trpc } from "medior/utils/server";
 
@@ -69,21 +69,14 @@ export const DeleteCollectionModal = Comp(() => {
       <Modal.Content>
         <LoadingOverlay isLoading={isLoading} />
 
-        <View column justify="center" align="center" width="10rem" spacing="0.5rem">
+        <UniformList column uniformWidth="10rem" justify="center" align="center" spacing="0.5rem">
           <Chip
             label={`${store.idsForConfirmDelete.length} Collections`}
-            color={colors.custom.white}
             bgColor={colors.custom.red}
-            width="100%"
           />
 
-          <Chip
-            label={`${fileIds.length} Files`}
-            color={colors.custom.white}
-            bgColor={colors.custom.orange}
-            width="100%"
-          />
-        </View>
+          <Chip label={`${fileIds.length} Files`} bgColor={colors.custom.orange} />
+        </UniformList>
       </Modal.Content>
 
       <Modal.Footer>

@@ -97,7 +97,6 @@ export const CollectionTriager = Comp(() => {
   const handleCarouselWheel = (event: WheelEvent) => {
     if (event.ctrlKey) return;
 
-    event.preventDefault();
     event.stopPropagation();
 
     const nextIndex = stores.carousel.activeFileIndex + (event.deltaY < 0 ? -1 : 1);
@@ -144,13 +143,13 @@ export const CollectionTriager = Comp(() => {
     }
   };
 
+  const handleSave = async () => {
+    if (!editor.title) return toast.error("Title is required!");
+    await editor.saveCollection();
+  };
+
   return (
-    <Modal.Container
-      isLoading={isLoading || editor.isLoading}
-      onClose={close}
-      height="100%"
-      width="100%"
-    >
+    <Modal.Container onClose={close} height="100%" width="100%">
       <Modal.Header rightNode={<Text preset="sub-text">{`${queue.length} remaining`}</Text>}>
         <Text preset="title">{"Collection Triager"}</Text>
       </Modal.Header>
@@ -183,6 +182,14 @@ export const CollectionTriager = Comp(() => {
         />
 
         <RatingButton button rating={collection?.rating ?? 0} setRating={handleRating} />
+
+        <Button
+          text="Save"
+          icon="Save"
+          onClick={handleSave}
+          disabled={!editor.hasUnsavedChanges || editor.isLoading}
+          color={colors.custom.purple}
+        />
       </Modal.Footer>
     </Modal.Container>
   );

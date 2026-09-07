@@ -44,7 +44,7 @@
     "kill-port": "^2.0.1",
     "mongodb-memory-server": "^8.9.3",
     "mongoose": "^6.2.8",
-    "react-player": "^2.10.1",
+    "react-player": "^2.16.0",
     "sharp": "^0.32.4",
     "sharp-bmp": "^0.1.5",
     "socket.io": "^4.6.2",

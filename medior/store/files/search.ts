@@ -52,6 +52,21 @@ export class FileSearch extends ExtendedModel(_FileSearch, {
   }
 
   @modelAction
+  updateFileTags({
+    addedTagIds,
+    fileIds,
+    removedTagIds,
+  }: {
+    addedTagIds: string[];
+    fileIds: string[];
+    removedTagIds: string[];
+  }) {
+    this.results.forEach((file) => {
+      if (fileIds.includes(file.id)) file.updateTags({ addedTagIds, removedTagIds });
+    });
+  }
+
+  @modelAction
   _reset() {
     this.reset();
     this._bitrate = null;

@@ -42,9 +42,9 @@ export const RatingChip = ({
 
   return button ? (
     <Button
-      text={round(rating, 1)}
-      icon={icon}
-      iconProps={{ className: css.star, color: iconColor }}
+      text={rating === 0 ? "Rate" : round(rating, 1)}
+      icon="Star"
+      iconProps={{ color: colors.custom.white }}
       color={colors.custom.grey}
       onClick={(event) => props.onClick?.(event as unknown as React.MouseEvent<HTMLDivElement>)}
     />

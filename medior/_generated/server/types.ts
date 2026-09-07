@@ -256,6 +256,9 @@ export type RunFileTransformerOutput = ReturnType<typeof db.runFileTransformer>;
 export type SaveFileTransformCopyInput = Parameters<typeof db.saveFileTransformCopy>[0];
 export type SaveFileTransformCopyOutput = ReturnType<typeof db.saveFileTransformCopy>;
 
+export type ListAllArchivedFileIdsInput = Parameters<typeof db.listAllArchivedFileIds>[0];
+export type ListAllArchivedFileIdsOutput = ReturnType<typeof db.listAllArchivedFileIds>;
+
 export type ListFileIdsByTagIdsInput = Parameters<typeof db.listFileIdsByTagIds>[0];
 export type ListFileIdsByTagIdsOutput = ReturnType<typeof db.listFileIdsByTagIds>;
 

@@ -23,14 +23,17 @@ export const RatingButton = Comp((props: RatingButtonProps) => {
         />
       )}
     >
-      {[9, 8, 7, 6, 5, 4, 3, 2, 1, 0].map((value) => (
-        <OptionRow key={value} value={value} setRating={props.setRating} />
-      ))}
+      {(onClose) =>
+        [9, 8, 7, 6, 5, 4, 3, 2, 1, 0].map((value) => (
+          <OptionRow key={value} onClose={onClose} value={value} setRating={props.setRating} />
+        ))
+      }
     </MenuButton>
   );
 });
 
 interface OptionRowProps {
+  onClose: () => void;
   setRating: RatingButtonProps["setRating"];
   value: number;
 }
@@ -41,6 +44,7 @@ const OptionRow = Comp((props: OptionRowProps) => {
   const handleClick = (event: MouseEvent) => {
     event.stopPropagation();
     props.setRating(props.value);
+    props.onClose();
   };
 
   return (

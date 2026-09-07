@@ -48,7 +48,7 @@ dependencies:
     specifier: ^6.2.8
     version: 6.13.0(@aws-sdk/client-sso-oidc@3.632.0)
   react-player:
-    specifier: ^2.10.1
+    specifier: ^2.16.0
     version: 2.16.0(react@17.0.2)
   sharp:
     specifier: ^0.32.4

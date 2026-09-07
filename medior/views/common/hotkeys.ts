@@ -71,8 +71,7 @@ export const useHotkeys = ({ rootRef, videoRef, view }: UseHotkeysProps) => {
             key === "ArrowUp"
               ? Math.min(1, stores.carousel.volume + 0.05)
               : Math.max(0, stores.carousel.volume - 0.05);
-          stores.carousel.setVolume(vol);
-          stores.carousel.setLastVolume(vol);
+          stores.carousel.setVolumePreference(vol);
         }
       }
     }

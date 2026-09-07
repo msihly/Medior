@@ -29,6 +29,12 @@ import { leanModelToJson, makeAction, objectId, objectIds, socket } from "medior
 /* -------------------------------------------------------------------------- */
 /*                              HELPER FUNCTIONS                              */
 /* -------------------------------------------------------------------------- */
+export const listAllArchivedFileIds = makeAction(async () =>
+  (await models.FileModel.find({ isArchived: true }).select({ _id: 1 }).lean()).map((file) =>
+    file._id.toString(),
+  ),
+);
+
 export const listFileIdsByTagIds = makeAction(async (args: { tagIds: string[] }) => {
   return (
     await models.FileModel.find({ tagIds: { $in: objectIds(args.tagIds) } })
@@ -122,51 +128,56 @@ export const regenFileTagAncestors = makeAction(
 /* -------------------------------------------------------------------------- */
 /*                                API ENDPOINTS                               */
 /* -------------------------------------------------------------------------- */
-export const deleteFiles = makeAction(async (args: { fileIds: string[] }) => {
-  const collRes = await actions.listCollectionsByFileIds(args);
-  if (!collRes.success) throw new Error(collRes.error);
-  const collections = collRes.data;
+export const deleteFiles = makeAction(
+  async (args: { fileIds: string[]; withTagRegen?: boolean }) => {
+    const collRes = await actions.listCollectionsByFileIds(args);
+    if (!collRes.success) throw new Error(collRes.error);
+    const collections = collRes.data;
 
-  const fileIdSet = new Set(args.fileIds);
+    const fileIdSet = new Set(args.fileIds);
 
-  for (const collection of collections) {
-    const fileIdIndexes = collection.fileIdIndexes.filter(
-      (fileIdIndex) => !fileIdSet.has(String(fileIdIndex.fileId)),
-    );
-    if (!fileIdIndexes.length) await actions.deleteCollections({ ids: [collection.id] });
-    else await actions.updateCollection({ fileIdIndexes, id: collection.id });
-  }
+    for (const collection of collections) {
+      const fileIdIndexes = collection.fileIdIndexes.filter(
+        (fileIdIndex) => !fileIdSet.has(String(fileIdIndex.fileId)),
+      );
+      if (!fileIdIndexes.length) await actions.deleteCollections({ ids: [collection.id] });
+      else await actions.updateCollection({ fileIdIndexes, id: collection.id });
+    }
 
-  const filesRes = await actions.listFile({ args: { filter: { id: args.fileIds } } });
-  if (!filesRes.success) throw new Error(filesRes.error);
-  const files = filesRes.data.items;
+    const filesRes = await actions.listFile({ args: { filter: { id: args.fileIds } } });
+    if (!filesRes.success) throw new Error(filesRes.error);
+    const files = filesRes.data.items;
 
-  const fileHashes = files.map((f) => f.hash);
-  const tagIds = [...new Set(files.flatMap((f) => f.tagIds))];
+    const fileHashes = files.map((f) => f.hash);
+    const tagIds = [...new Set(files.flatMap((f) => f.tagIds))];
 
-  for (const file of files) {
-    await deleteFile(file.path);
-    await deleteFile(file.thumb?.path);
-  }
+    for (const file of files) {
+      await deleteFile(file.path);
+      await deleteFile(file.thumb?.path);
+    }
 
-  await Promise.all([
-    models.FileModel.deleteMany({ _id: { $in: args.fileIds } }),
-    models.DeletedFileModel.bulkWrite(
-      fileHashes.map((hash) => ({
-        updateOne: {
-          filter: { hash },
-          update: { $setOnInsert: { hash } },
-          upsert: true,
-        },
-      })),
-    ),
-  ]);
+    await Promise.all([
+      models.FileModel.deleteMany({ _id: { $in: args.fileIds } }),
+      models.DeletedFileModel.bulkWrite(
+        fileHashes.map((hash) => ({
+          updateOne: {
+            filter: { hash },
+            update: { $setOnInsert: { hash } },
+            upsert: true,
+          },
+        })),
+      ),
+    ]);
 
-  actions.regenCollAttrs({ fileIds: args.fileIds });
-  actions.regenTags({ tagIds });
+    if (args.withTagRegen !== false) {
+      const regenRes = await actions.regenTags({ tagIds });
+      if (!regenRes.success) throw new Error(regenRes.error);
+    }
 
-  socket.emit("onFilesDeleted", { fileHashes, fileIds: args.fileIds });
-});
+    socket.emit("onFilesDeleted", { fileHashes, fileIds: args.fileIds });
+    return { tagIds };
+  },
+);
 
 export const deleteFilesExternal = makeAction(
   async (args: { paths: string[]; progress?: { processedCount: number; totalCount: number } }) => {
@@ -339,7 +350,8 @@ export const editFileTags = makeAction(
 
     const changedTagIds = [...new Set([...addedTagIds, ...removedTagIds])];
     actions.regenTags({ tagIds: changedTagIds, withSub });
-    actions.regenCollAttrs({ fileIds });
+    const collectionRes = await actions.regenCollAttrs({ fileIds });
+    if (!collectionRes.success) throw new Error(collectionRes.error);
 
     if (withSub) socket.emit("onFileTagsUpdated", { addedTagIds, batchId, fileIds, removedTagIds });
   },

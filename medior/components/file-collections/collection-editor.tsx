@@ -1,4 +1,4 @@
-import { ReactNode, useEffect, useRef, useState } from "react";
+import { KeyboardEvent, ReactNode, useEffect, useRef, useState } from "react";
 import { SORT_OPTIONS } from "medior/store/_generated";
 import {
   Button,
@@ -113,6 +113,15 @@ export const FileCollectionEditor = Comp(
       stores.file.tagsEditor.setIsOpen(true);
     };
 
+    const handleEditorKeyPress = (event: KeyboardEvent) => {
+      if (mode === "edit" && event.key === "Delete" && !hasNoSelection) {
+        event.preventDefault();
+        handleRemoveFiles();
+        return;
+      }
+      handleKeyPress(event);
+    };
+
     const handleFileInfoRefresh = () => stores.file.refreshFiles({ ids: store.search.selectedIds });
 
     const handleFullPageLoad = () => store.search.loadFiltered({ withFullCount: true });
@@ -148,6 +157,25 @@ export const FileCollectionEditor = Comp(
       const res = await store.search.selectAllInQuery();
       if (!res.success) throw new Error(res.error);
       toast.info(`Added ${res.data} files to selection`);
+    };
+
+    const handleSplitFiles = async () => {
+      const selectedIds = [...store.search.selectedIds];
+      const createRes = await stores.collection.createCollection({
+        fileIdIndexes: store.fileIndexes
+          .filter(({ fileId }) => selectedIds.includes(fileId))
+          .map(({ fileId }, index) => ({ fileId, index })),
+        title: "Untitled Collection",
+      });
+      if (!createRes.success) return toast.error(createRes.error);
+
+      const removeRes = await store.removeFiles(selectedIds);
+      if (!removeRes.success) {
+        await stores.collection.deleteCollections([createRes.data.id]);
+        return toast.error(removeRes.error);
+      }
+
+      await store.loadCollection(createRes.data.id);
     };
 
     const handleTitleChange = (val: string) => {
@@ -259,6 +287,13 @@ export const FileCollectionEditor = Comp(
                       />
 
                       <MultiActionButton
+                        name="ContentCut"
+                        tooltip="Split Files Into New Collection"
+                        onClick={handleSplitFiles}
+                        disabled={hasNoSelection}
+                      />
+
+                      <MultiActionButton
                         name="Archive"
                         tooltip="Archive Files"
                         iconProps={{ color: colors.custom.orange }}
@@ -329,7 +364,7 @@ export const FileCollectionEditor = Comp(
                 cards={store.search.results.map((f) => (
                   <FileCollectionFile key={f.id} file={f} store={store.search} />
                 ))}
-                cardsProps={{ onKeyDown: handleKeyPress, tabIndex: 1 }}
+                cardsProps={{ onKeyDown: handleEditorKeyPress, tabIndex: 1 }}
               />
 
               <Pagination
@@ -343,25 +378,27 @@ export const FileCollectionEditor = Comp(
           </View>
         </Modal.Content>
 
-        <Modal.Footer>
-          <Button
-            text={mode === "merge" || store.hasUnsavedChanges ? "Cancel" : "Close"}
-            icon="Close"
-            onClick={confirmClose}
-            disabled={store.isLoading}
-            colorOnHover={
-              mode === "merge" || store.hasUnsavedChanges ? colors.custom.red : undefined
-            }
-          />
+        {!embedded && (
+          <Modal.Footer>
+            <Button
+              text={mode === "merge" || store.hasUnsavedChanges ? "Cancel" : "Close"}
+              icon="Close"
+              onClick={confirmClose}
+              disabled={store.isLoading}
+              colorOnHover={
+                mode === "merge" || store.hasUnsavedChanges ? colors.custom.red : undefined
+              }
+            />
 
-          <Button
-            text={mode === "merge" ? "Merge" : "Save"}
-            icon={mode === "merge" ? "Merge" : "Save"}
-            onClick={handleSave}
-            disabled={(mode === "edit" && !store.hasUnsavedChanges) || store.isLoading}
-            color={colors.custom.purple}
-          />
-        </Modal.Footer>
+            <Button
+              text={mode === "merge" ? "Merge" : "Save"}
+              icon={mode === "merge" ? "Merge" : "Save"}
+              onClick={handleSave}
+              disabled={(mode === "edit" && !store.hasUnsavedChanges) || store.isLoading}
+              color={colors.custom.purple}
+            />
+          </Modal.Footer>
+        )}
 
         {isConfirmRemoveFilesOpen && (
           <ConfirmModal

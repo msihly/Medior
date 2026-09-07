@@ -218,8 +218,11 @@ export class CollectionEditor extends Model({
         .map((f, i) => ({ fileId: f.fileId, index: i })),
       id: this.collection.id,
     });
-    this.setIsLoading(false);
-    if (!res.success) throw new Error(res.error);
+    if (!res.success) {
+      this.setIsLoading(false);
+      throw new Error(res.error);
+    }
+    await this.loadCollection(this.collection.id);
     toast.success("Files removed from collection");
   });
 

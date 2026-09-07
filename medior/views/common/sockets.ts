@@ -175,8 +175,9 @@ export const useSockets = ({ enabled = true, view }: UseSocketsProps) => {
     socket.connect();
 
     makeSocket("onFilesArchived", ({ fileIds }) => {
-      if (view === "carousel") stores.carousel.removeFiles(fileIds);
-      else {
+      if (view === "carousel" || stores.collection.manager.isTriagerOpen)
+        stores.carousel.removeFiles(fileIds);
+      if (view !== "carousel") {
         stores.file.search.removeFiles(fileIds);
         stores.file.videoTransformer.removeQueueFiles(fileIds);
         if (stores.file.videoTransformer.isOpen) {
@@ -187,8 +188,10 @@ export const useSockets = ({ enabled = true, view }: UseSocketsProps) => {
     });
 
     makeSocket("onFilesDeleted", ({ fileHashes, fileIds }) => {
-      if (view === "carousel") stores.carousel.removeFiles(fileIds);
-      else {
+      stores.file.updateArchivedFileIds(fileIds, false);
+      if (view === "carousel" || stores.collection.manager.isTriagerOpen)
+        stores.carousel.removeFiles(fileIds);
+      if (view !== "carousel") {
         if (view === "home") stores.import.addDeletedFileHashes(fileHashes);
         if (stores.collection.manager.isOpen) stores.collection.manager.search.setHasChanges(true);
         if (stores.collection.editor.isOpen) stores.collection.editor.search.setHasChanges(true);
@@ -204,6 +207,8 @@ export const useSockets = ({ enabled = true, view }: UseSocketsProps) => {
 
     makeSocket("onFilesUpdated", ({ fileIds, updates }) => {
       updateVisibleFiles(fileIds, updates);
+      if (typeof updates.isArchived === "boolean")
+        stores.file.updateArchivedFileIds(fileIds, updates.isArchived);
 
       if (view !== "carousel") {
         const updatedKeys = Object.keys(updates);
@@ -224,9 +229,12 @@ export const useSockets = ({ enabled = true, view }: UseSocketsProps) => {
 
     makeSocket("onFileTagsUpdated", ({ addedTagIds, fileIds, removedTagIds }) => {
       stores.file.updateFileTags({ addedTagIds, fileIds, removedTagIds });
-      stores.file.search.reloadTags(fileIds);
-      stores.collection.editor.search.reloadTags(fileIds);
-      stores.collection.editor.fileSearch.reloadTags(fileIds);
+      stores.collection.editor.search.updateFileTags({ addedTagIds, fileIds, removedTagIds });
+      stores.collection.editor.fileSearch.updateFileTags({
+        addedTagIds,
+        fileIds,
+        removedTagIds,
+      });
       reloadVisibleTagChips();
 
       if (view !== "carousel") {

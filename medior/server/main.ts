@@ -6,6 +6,22 @@ import { dayjs } from "medior/utils/common";
 import { getConfig, loadConfig, setupTRPC } from "medior/utils/server";
 const remoteMain = require("@electron/remote/main");
 
+type WindowType = "carousel" | "home" | "search";
+
+const lastDisplayIds: Partial<Record<WindowType, number>> = {};
+
+const getLastDisplay = (windowType: WindowType) =>
+  screen.getAllDisplays().find((display) => display.id === lastDisplayIds[windowType]) ??
+  screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
+
+const trackWindowDisplay = (window: BrowserWindow, windowType: WindowType) => {
+  const updateDisplay = () => {
+    lastDisplayIds[windowType] = screen.getDisplayMatching(window.getBounds()).id;
+  };
+  updateDisplay();
+  window.on("move", updateDisplay);
+};
+
 /* -------------------------------------------------------------------------- */
 /*                                   CONFIG                                   */
 /* -------------------------------------------------------------------------- */
@@ -45,9 +61,12 @@ const createMainWindow = async () => {
     await startServers(configPath, process.env.LOGS_PATH);
 
     fileLog("Creating main window...");
+    const display = getLastDisplay("home");
     mainWindow = new BrowserWindow({
       autoHideMenuBar: true,
       backgroundColor: "#111",
+      x: display.workArea.x,
+      y: display.workArea.y,
       show: false,
       webPreferences: { contextIsolation: false, nodeIntegration: true, webSecurity: false },
     });
@@ -57,6 +76,7 @@ const createMainWindow = async () => {
 
     mainWindow.maximize();
     mainWindow.show();
+    trackWindowDisplay(mainWindow, "home");
     if (!isPackaged) {
       const mode = getConfig().dev.devTools.home;
       if (mode) mainWindow.webContents.openDevTools({ mode });
@@ -89,9 +109,12 @@ let searchWindows: BrowserWindow[] = [];
 
 const createSearchWindow = async ({ tagIds }) => {
   try {
+    const display = getLastDisplay("search");
     const searchWindow = new BrowserWindow({
       autoHideMenuBar: true,
       backgroundColor: "#111",
+      x: display.workArea.x,
+      y: display.workArea.y,
       show: false,
       webPreferences: {
         contextIsolation: false,
@@ -104,6 +127,7 @@ const createSearchWindow = async ({ tagIds }) => {
     searchWindow.maximize();
     remoteMain.enable(searchWindow.webContents);
     searchWindow.show();
+    trackWindowDisplay(searchWindow, "search");
 
     if (!isPackaged) {
       const mode = getConfig().dev.devTools.search;
@@ -150,8 +174,8 @@ const createCarouselWindow = async ({ fileId, height, selectedFileIds, width }) 
   try {
     fileLog("Creating carousel window...");
 
-    const primaryDisplay = screen.getPrimaryDisplay();
-    const { width: screenWidth, height: screenHeight } = primaryDisplay.workAreaSize;
+    const display = getLastDisplay("carousel");
+    const { width: screenWidth, height: screenHeight } = display.workAreaSize;
 
     const winWidth = Math.min(width, screenWidth);
     const winHeight = Math.min(height, screenHeight);
@@ -159,6 +183,8 @@ const createCarouselWindow = async ({ fileId, height, selectedFileIds, width }) 
     const carouselWindow = new BrowserWindow({
       autoHideMenuBar: true,
       backgroundColor: "#111",
+      x: display.workArea.x,
+      y: display.workArea.y,
       width: winWidth,
       height: winHeight,
       show: false,
@@ -175,6 +201,7 @@ const createCarouselWindow = async ({ fileId, height, selectedFileIds, width }) 
     remoteMain.enable(carouselWindow.webContents);
     registerCarouselDevToolsShortcuts(carouselWindow);
     carouselWindow.show();
+    trackWindowDisplay(carouselWindow, "carousel");
 
     if (!isPackaged) {
       const mode = getConfig().dev.devTools.carousel;
