@@ -13,17 +13,26 @@ import {
   View,
 } from "medior/components";
 import { useStores } from "medior/store";
-import { makeClasses } from "medior/utils/client";
+import { colors, makeClasses } from "medior/utils/client";
 import { CONSTANTS, round } from "medior/utils/common";
 import { VideoContext, ZoomContext } from "medior/views";
 
 export const Carousel = Comp((_, videoRef: MutableRefObject<ReactPlayer>) => {
-  const { css } = useClasses(null);
-
-  const panZoomRef = useContext(ZoomContext);
-
   const stores = useStores();
   const activeFile = stores.carousel.getActiveFile();
+  const activeTranscript = stores.carousel.isCaptionsVisible
+    ? activeFile?.transcription?.segments?.find(
+        ({ end, start }) => stores.carousel.curTime >= start && stores.carousel.curTime <= end,
+      )?.text
+    : null;
+
+  const { css } = useClasses({
+    isPinned: stores.carousel.isPinned,
+    isWaveformVisible:
+      stores.carousel.isWaveformVisible && Boolean(activeFile?.waveformPeaks?.length),
+  });
+
+  const panZoomRef = useContext(ZoomContext);
 
   const zoomRef = useRef<HTMLDivElement>(null);
 
@@ -50,8 +59,6 @@ export const Carousel = Comp((_, videoRef: MutableRefObject<ReactPlayer>) => {
   }, [activeFile?.isVideo]);
 
   useEffect(() => {
-    if (stores.carousel.selectedFileIds.length)
-      document.title = `Medior — Carousel — (${stores.carousel.activeFileIndex + 1} / ${stores.carousel.selectedFileIds.length})`;
     stores.carousel.setSeekOffset(0);
     stores.carousel.transcodeVideo();
   }, [activeFile?.path]);
@@ -140,6 +147,14 @@ export const Carousel = Comp((_, videoRef: MutableRefObject<ReactPlayer>) => {
                         volume={stores.carousel.volume}
                         playbackRate={stores.carousel.playbackRate}
                       />
+
+                      {activeTranscript && (
+                        <View className={css.captions}>
+                          <Text color={colors.custom.white} fontSize="1.1em" fontWeight={600}>
+                            {activeTranscript}
+                          </Text>
+                        </View>
+                      )}
                     </View>
                   ) : (
                     <img
@@ -164,7 +179,29 @@ export const Carousel = Comp((_, videoRef: MutableRefObject<ReactPlayer>) => {
   );
 });
 
-const useClasses = makeClasses({
+interface ClassesProps {
+  isPinned: boolean;
+  isWaveformVisible: boolean;
+}
+
+const useClasses = makeClasses((props: ClassesProps) => ({
+  captions: {
+    backgroundColor: "rgba(0, 0, 0, 0.65)",
+    bottom:
+      (props.isPinned ? 0 : CONSTANTS.CAROUSEL.VIDEO.CONTROLS_HEIGHT) +
+      (props.isWaveformVisible ? 48 : 0) +
+      8,
+    maxWidth: "70%",
+    minWidth: "10rem",
+    padding: "0.3rem 0.6rem",
+    pointerEvents: "none",
+    position: "absolute",
+    right: "50%",
+    textAlign: "center",
+    transform: "translateX(50%)",
+    width: "fit-content",
+    zIndex: 4,
+  },
   contextMenu: {
     display: "flex",
     height: "100%",
@@ -179,12 +216,12 @@ const useClasses = makeClasses({
     position: "relative",
   },
   transcodingOverlay: {
-    position: "absolute",
-    top: 0,
-    right: 0,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
     bottom: 0,
     left: 0,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    position: "absolute",
+    right: 0,
+    top: 0,
     zIndex: 1,
   },
-});
+}));

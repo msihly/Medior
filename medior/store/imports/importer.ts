@@ -10,8 +10,14 @@ import {
 } from "trabecula/utils/server";
 import type { ImportStatus } from "medior/server/database";
 import { genFileInfo } from "medior/utils/client";
-import { dayjs, handleErrors } from "medior/utils/common";
-import { emitEvent, getAvailableFileStorage, trpc } from "medior/utils/server";
+import { dayjs } from "medior/utils/common";
+import {
+  emitEvent,
+  getAvailableFileStorage,
+  getConfig,
+  getIsVideo,
+  trpc,
+} from "medior/utils/server";
 
 const DEBUG = false;
 
@@ -149,6 +155,25 @@ export class FileImporter {
   };
 
   private updateDupeFile = async () => {
+    const config = getConfig().file;
+    if (
+      getIsVideo(this.file.ext) &&
+      this.file.audioCodec !== "None" &&
+      ((config.waveform.enabled && !this.file.waveformPeaks?.length) ||
+        (config.transcription.enabled && !this.file.transcription) ||
+        this.file.peakDecibels === null ||
+        this.file.peakDecibels === undefined)
+    )
+      this.file = {
+        ...this.file,
+        ...(await genFileInfo({
+          file: this.file,
+          filePath: this.file.path,
+          hash: this.file.hash,
+          skipThumbs: true,
+        })),
+      };
+
     const id = this.file.id;
     const res = await trpc.updateFile.mutate({ args: { id, updates: { ...this.file } } });
     if (!res.success) throw new Error(res.error);
@@ -223,23 +248,4 @@ export class FileImporter {
       }
     }
   };
-
-  public refresh = (file: models.FileSchema) =>
-    handleErrors(async () => {
-      this.file = file;
-      this.hash = file.hash;
-      this.originalPath = file.path;
-
-      this.file = {
-        ...this.file,
-        ...(await genFileInfo({ file, filePath: file.path, hash: this.hash })),
-      };
-
-      const res = await trpc.updateFile.mutate({
-        args: { id: this.file.id, updates: { ...this.file } },
-      });
-      if (!res.success) throw new Error(res.error);
-      this.perfLog("Refreshed file");
-      return { success: true, status: "COMPLETE" };
-    });
 }

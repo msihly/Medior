@@ -42,7 +42,7 @@ export const CarouselThumbNavigator = Comp(() => {
 
   return (
     <View className={css.root}>
-      <View row justify="center">
+      <View row justify="flex-end" padding={{ right: "1rem" }}>
         <IconButton
           name="ArrowUpward"
           onClick={toggleVisibility}

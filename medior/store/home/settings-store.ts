@@ -1,21 +1,33 @@
+import { ipcRenderer } from "electron";
 import autoBind from "auto-bind";
-import { applySnapshot, getSnapshot, Model, model, modelAction, prop } from "mobx-keystone";
+import {
+  applySnapshot,
+  getRootStore,
+  getSnapshot,
+  Model,
+  model,
+  modelAction,
+  modelFlow,
+  prop,
+} from "mobx-keystone";
+import type { RootStore } from "medior/store";
+import { asyncAction } from "medior/utils/client";
 import { convertNestedKeys, deepMerge } from "medior/utils/common";
-import { Config, ConfigKey, DEFAULT_CONFIG } from "medior/utils/server";
+import { Config, ConfigKey, getConfig, setConfig } from "medior/utils/server";
 
 @model("medior/SettingsStore")
 export class SettingsStore extends Model({
-  collection: prop<Config["collection"]>(() => DEFAULT_CONFIG.collection),
-  dev: prop<Config["dev"]>(() => DEFAULT_CONFIG.dev),
-  db: prop<Config["db"]>(() => DEFAULT_CONFIG.db),
-  file: prop<Config["file"]>(() => DEFAULT_CONFIG.file),
+  collection: prop<Config["collection"]>(() => getConfig().collection),
+  dev: prop<Config["dev"]>(() => getConfig().dev),
+  db: prop<Config["db"]>(() => getConfig().db),
+  file: prop<Config["file"]>(() => getConfig().file),
   hasUnsavedChanges: prop<boolean>(false).withSetter(),
-  imports: prop<Config["imports"]>(() => DEFAULT_CONFIG.imports),
+  imports: prop<Config["imports"]>(() => getConfig().imports),
   isLoading: prop<boolean>(false).withSetter(),
   isOpen: prop<boolean>(false).withSetter(),
   isRepairOpen: prop<boolean>(false).withSetter(),
-  ports: prop<Config["ports"]>(() => DEFAULT_CONFIG.ports),
-  tags: prop<Config["tags"]>(() => DEFAULT_CONFIG.tags),
+  ports: prop<Config["ports"]>(() => getConfig().ports),
+  tags: prop<Config["tags"]>(() => getConfig().tags),
 }) {
   onInit() {
     autoBind(this);
@@ -81,6 +93,17 @@ export class SettingsStore extends Model({
       this.imports.folderToCollMode === "withTag" ? "withoutTag" : "withTag";
     this.setHasUnsavedChanges(true);
   }
+
+  @modelFlow
+  save = asyncAction(async () => {
+    const config = this.getConfig();
+    const result = await ipcRenderer.invoke("saveConfig", config);
+    if (!result.success) throw new Error(result.error);
+
+    setConfig(config);
+    getRootStore<RootStore>(this).applyConfig(config);
+    return result;
+  });
 
   @modelAction
   update(

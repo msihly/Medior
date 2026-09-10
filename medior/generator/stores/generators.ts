@@ -4,8 +4,9 @@ import { capitalize, makeSectionComment } from "medior/generator/utils";
 export class ModelStore {
   private name: ModelSearchStore["name"];
   private props: ModelSearchStore["props"] = [];
-  private withTags: boolean = false;
   private transformResultsFn: string = null;
+  private withCarouselIds: boolean = false;
+  private withTags: boolean = false;
 
   constructor(
     name: ModelSearchStore["name"],
@@ -13,12 +14,16 @@ export class ModelStore {
       defaultPageSize: string;
       defaultSort: string;
       transformResultsFn?: string;
+      withCarouselIds?: boolean;
       withTags?: boolean;
     },
   ) {
     this.name = name;
     this.transformResultsFn = options.transformResultsFn;
+    this.withCarouselIds = options.withCarouselIds;
     this.withTags = options.withTags;
+    if (this.withCarouselIds)
+      this.addProp("carouselFileIds", "string[]", "() => []", { notFilterProp: true });
     this.addProp("forcePages", "boolean", "false", { notFilterProp: true });
     this.addProp("hasChanges", "boolean", "false", { notFilterProp: true });
     this.addProp("ids", "string[]", "() => []", {
@@ -131,6 +136,7 @@ export class ModelStore {
       name: this.name,
       props: this.props,
       transformResultsFn: this.transformResultsFn,
+      withCarouselIds: this.withCarouselIds,
       withTags: this.withTags,
     };
   }
@@ -420,8 +426,14 @@ export const createSearchStore = (def: ModelSearchStore) => {
       });
       if (!res.success) throw new Error(res.error);
 
-      this.toggleSelected(res.data.map(({ id }) => ({ id, isSelected: true })));
-      return res.data.length;
+      ${
+        def.withCarouselIds
+          ? `const items = res.data.items;
+            this.toggleSelected(items.map(({ id }) => ({ id, isSelected: true })));
+            return items.length;`
+          : `this.toggleSelected(res.data.map(({ id }) => ({ id, isSelected: true })));
+            return res.data.length;`
+      }
     });`;
 
   const makeLoadFilteredAction = () =>
@@ -465,7 +477,7 @@ export const createSearchStore = (def: ModelSearchStore) => {
       if (loadId !== this.loadId) return;
       if (!itemsRes.success) throw new Error(itemsRes.error);
 
-      let items = itemsRes.data;
+      let items = ${def.withCarouselIds ? `itemsRes.data.items as ModelCreationData<Stores.${def.name}>[]` : "itemsRes.data"};
       if (debug) perfLog(\`Loaded \${items.length} items\`);
 
       ${
@@ -486,7 +498,12 @@ export const createSearchStore = (def: ModelSearchStore) => {
 
       if (loadId !== this.loadId) return;
 
-      this.setResults(results.map((result) => new Stores.${def.name}(result)));
+      ${
+        def.withCarouselIds
+          ? `this.setResults(results.map((result) => new Stores.${def.name}(result)));
+            this.setCarouselFileIds(itemsRes.data.carouselFileIds);`
+          : `this.setResults(results.map((result) => new Stores.${def.name}(result)));`
+      }
       this.setPage(newPage);
       if (shouldCacheFilterProps) this.setCachedFilterProps(derefMobx(filterProps));
       if (withFullCount) {

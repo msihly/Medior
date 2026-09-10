@@ -1,9 +1,9 @@
 import { app, BrowserWindow, ipcMain, screen } from "electron";
 import path from "path";
 import { fileLog, setLogsPath } from "trabecula/utils/server";
-import { startServers } from "medior/server/server";
+import { ServerManager, ServerProcessStatus, startServers } from "medior/server/server";
 import { dayjs } from "medior/utils/common";
-import { getConfig, loadConfig, setupTRPC } from "medior/utils/server";
+import { Config, getConfig, loadConfig, saveConfig, setupTRPC } from "medior/utils/server";
 const remoteMain = require("@electron/remote/main");
 
 type WindowType = "carousel" | "home" | "search";
@@ -37,6 +37,61 @@ const folderPath = isPackaged ? process.resourcesPath : rootDir;
 const configPath = path.resolve(folderPath, "..", "config.json");
 ipcMain.handle("getConfigPath", () => configPath);
 
+let servers: ServerManager = null;
+
+ipcMain.handle("getServerStatuses", () => servers?.getStatuses() ?? []);
+
+const broadcastConfig = (config: Config) =>
+  BrowserWindow.getAllWindows().forEach((window) =>
+    window.webContents.send("config-updated", config),
+  );
+
+const broadcastServerStatuses = (statuses: ServerProcessStatus[]) =>
+  BrowserWindow.getAllWindows().forEach((window) =>
+    window.webContents.send("server-status-changed", statuses),
+  );
+
+ipcMain.handle("saveConfig", async (_, config: Config) => {
+  try {
+    const previousConfig = getConfig();
+    let restartedServers =
+      previousConfig.db.path !== config.db.path ||
+      previousConfig.ports.db !== config.ports.db ||
+      previousConfig.ports.server !== config.ports.server ||
+      previousConfig.ports.socket !== config.ports.socket;
+
+    await saveConfig(configPath, config);
+    setupTRPC();
+
+    try {
+      if (restartedServers) await servers.restart();
+      else await servers.reloadConfig();
+      broadcastConfig(config);
+      return { restartedServers, success: true };
+    } catch (error) {
+      fileLog(`Failed to apply server config: ${error.message}`, { type: "error" });
+      if (!restartedServers) {
+        restartedServers = true;
+        try {
+          await servers.restart();
+          broadcastConfig(config);
+          return { restartedServers, success: true };
+        } catch (restartError) {
+          fileLog(`Failed to restart servers: ${restartError.message}`, { type: "error" });
+          broadcastConfig(config);
+          return { error: restartError.message, restartedServers, success: true };
+        }
+      }
+
+      broadcastConfig(config);
+      return { error: error.message, restartedServers, success: true };
+    }
+  } catch (error) {
+    fileLog(`Failed to save config: ${error.message}`, { type: "error" });
+    return { error: error.message, restartedServers: false, success: false };
+  }
+});
+
 const logsDir = path.resolve(folderPath, "..", "logs", dayjs().format("YYYY-MM-DD"));
 process.env.LOGS_PATH = path.resolve(logsDir, `${dayjs().format("HH[h]mm[m]ss[s]")}.log`);
 setLogsPath(process.env.LOGS_PATH);
@@ -58,13 +113,14 @@ let mainWindow: BrowserWindow = null;
 const createMainWindow = async () => {
   try {
     fileLog("Loading servers...");
-    await startServers(configPath, process.env.LOGS_PATH);
+    servers = await startServers(configPath, process.env.LOGS_PATH, broadcastServerStatuses);
 
     fileLog("Creating main window...");
     const display = getLastDisplay("home");
     mainWindow = new BrowserWindow({
       autoHideMenuBar: true,
       backgroundColor: "#111",
+      frame: false,
       x: display.workArea.x,
       y: display.workArea.y,
       show: false,
@@ -113,6 +169,7 @@ const createSearchWindow = async ({ tagIds }) => {
     const searchWindow = new BrowserWindow({
       autoHideMenuBar: true,
       backgroundColor: "#111",
+      frame: false,
       x: display.workArea.x,
       y: display.workArea.y,
       show: false,
@@ -183,6 +240,7 @@ const createCarouselWindow = async ({ fileId, height, selectedFileIds, width }) 
     const carouselWindow = new BrowserWindow({
       autoHideMenuBar: true,
       backgroundColor: "#111",
+      frame: false,
       x: display.workArea.x,
       y: display.workArea.y,
       width: winWidth,

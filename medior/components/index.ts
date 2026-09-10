@@ -11,3 +11,4 @@ export * from "./multi-action-bar";
 export * from "./search-loading-overlay";
 export * from "./settings";
 export * from "./tags";
+export * from "./window-title-bar";

@@ -170,7 +170,7 @@ const useClasses = makeClasses({
   appBar: {
     display: "flex",
     flexFlow: "row nowrap",
-    flexGrow: 1,
+    flexGrow: 0,
     flexShrink: 0,
     boxShadow: "rgb(0 0 0 / 50%) 2px 2px 4px 0px",
     zIndex: 5,

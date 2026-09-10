@@ -1,8 +1,8 @@
 import Color from "color";
 import { Button, IconName } from "medior/components";
+import { useStores } from "medior/store";
 import { colors, CSS, CssColor, makeClasses } from "medior/utils/client";
 import { round } from "medior/utils/common";
-import { getConfig } from "medior/utils/server";
 import { Chip, ChipProps } from "./chip";
 
 export const getRatingMeta = (rating: number) => {
@@ -32,13 +32,13 @@ export const RatingChip = ({
   rating,
   ...props
 }: RatingChipProps) => {
-  const config = getConfig();
+  const stores = useStores();
 
   const { icon, iconColor, textShadow } = getRatingMeta(rating);
 
   const { css } = useClasses({ textShadow });
 
-  if (!noHide && rating === 0 && config.file.hideUnratedIcon) return null;
+  if (!noHide && rating === 0 && stores.home.settings.file.hideUnratedIcon) return null;
 
   return button ? (
     <Button

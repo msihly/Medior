@@ -7,6 +7,7 @@ import {
   Card,
   Comp,
   ConfirmModal,
+  Divider,
   Modal,
   Text,
   UniformList,
@@ -15,11 +16,17 @@ import {
 import { useStores } from "medior/store";
 import { colors, toast } from "medior/utils/client";
 import { CONSTANTS } from "medior/utils/common";
-import { loadConfig, saveConfig } from "medior/utils/server";
+import {
+  loadConfig,
+  TRANSCRIPTION_MODELS,
+  TRANSCRIPTION_QUANTIZATION_OPTIONS,
+  TranscriptionModel,
+} from "medior/utils/server";
 import { RepairModal, Settings } from ".";
 
 export const SettingsModal = Comp(() => {
   const stores = useStores();
+  const store = stores.home.settings;
 
   const [isConfirmDiscardOpen, setIsConfirmDiscardOpen] = useState(false);
 
@@ -28,76 +35,92 @@ export const SettingsModal = Comp(() => {
   }, []);
 
   const handleCancel = () => {
-    if (stores.home.settings.hasUnsavedChanges) setIsConfirmDiscardOpen(true);
+    if (store.hasUnsavedChanges) setIsConfirmDiscardOpen(true);
     else handleClose();
   };
 
   const handleClose = async () => {
-    stores.home.settings.setIsOpen(false);
-    stores.home.settings.setHasUnsavedChanges(false);
+    store.setIsOpen(false);
+    store.setHasUnsavedChanges(false);
     return true;
   };
 
   const handleLoadConfig = async () => {
-    stores.home.settings.setIsLoading(true);
+    store.setIsLoading(true);
     const config = await loadConfig(await ipcRenderer.invoke("getConfigPath"));
-    stores.home.settings.update(config);
-    stores.home.settings.setHasUnsavedChanges(false);
-    stores.home.settings.setIsLoading(false);
+    stores.applyConfig(config);
+    store.setIsLoading(false);
   };
 
-  const handleFileCardFitContain = () => stores.home.settings.setFileCardFit("contain");
+  const handleFileCardFitContain = () => store.setFileCardFit("contain");
 
-  const handleFileCardFitCover = () => stores.home.settings.setFileCardFit("cover");
+  const handleFileCardFitCover = () => store.setFileCardFit("cover");
 
   const handleFolderToCollection = (checked: boolean) =>
-    stores.home.settings.setFolderToCollMode(checked ? "withoutTag" : "none");
+    store.setFolderToCollMode(checked ? "withoutTag" : "none");
 
   const handleFoldersToTags = (checked: boolean) =>
-    stores.home.settings.setFolderToTagsMode(checked ? "hierarchical" : "none");
+    store.setFolderToTagsMode(checked ? "hierarchical" : "none");
 
   const handleMongoDbPathClick = async (event: React.MouseEvent) => {
     event.preventDefault();
     const res = await dialog.showOpenDialog({ properties: ["openDirectory"] });
     if (res.canceled) return;
-    stores.home.settings.setDbPath(res.filePaths[0]);
+    store.setDbPath(res.filePaths[0]);
   };
 
-  const handleRepair = () => stores.home.settings.setIsRepairOpen(true);
+  const handleRepair = () => store.setIsRepairOpen(true);
+
+  const handleTranscriptionModelChange = (model?: string) => {
+    if (!model) return;
+
+    const transcription = store.file.transcription;
+    const selectedModel = TRANSCRIPTION_MODELS.find(({ value }) => value === model);
+
+    store.update({
+      file: {
+        transcription: {
+          ...transcription,
+          model: model as TranscriptionModel,
+          quantization: selectedModel?.quantizations.includes(transcription.quantization)
+            ? transcription.quantization
+            : selectedModel?.quantizations.includes("int8")
+              ? "int8"
+              : selectedModel.quantizations[0],
+        },
+      },
+    });
+  };
 
   const handleSaveConfig = async () => {
     try {
-      stores.home.settings.setIsLoading(true);
+      store.setIsLoading(true);
 
       stores.import.manager.pauseImporter();
       stores.faceRecog.clearQueue();
-      stores.file.clearRefreshQueue();
+      stores.file.cancelFileRefresh();
       stores.tag.manager.clearRefreshQueue();
 
-      await saveConfig(await ipcRenderer.invoke("getConfigPath"), stores.home.settings.getConfig());
+      await store.save();
 
-      stores.home.settings.setIsLoading(false);
-      stores.home.settings.setHasUnsavedChanges(false);
+      store.setIsLoading(false);
+      store.setHasUnsavedChanges(false);
       toast.success("Settings saved!");
-
-      toast.info("Restarting in 5 seconds...");
-      setTimeout(() => ipcRenderer.invoke("reload"), 5000);
     } catch (err) {
-      stores.home.settings.setIsLoading(false);
+      store.setIsLoading(false);
       toast.error("Failed to save settings.");
     }
   };
 
-  const toggleFolderToCollWithTag = () => stores.home.settings.toggleFolderToCollMode();
+  const toggleFolderToCollWithTag = () => store.toggleFolderToCollMode();
 
-  const toggleFoldersToTagsCascading = () => stores.home.settings.setFolderToTagsMode("cascading");
+  const toggleFoldersToTagsCascading = () => store.setFolderToTagsMode("cascading");
 
-  const toggleFoldersToTagsHierarchical = () =>
-    stores.home.settings.setFolderToTagsMode("hierarchical");
+  const toggleFoldersToTagsHierarchical = () => store.setFolderToTagsMode("hierarchical");
 
   return (
     <Modal.Container
-      isLoading={stores.home.settings.isLoading}
+      isLoading={store.isLoading}
       onClose={handleCancel}
       height="100%"
       width="100%"
@@ -134,7 +157,7 @@ export const SettingsModal = Comp(() => {
 
             <Settings.NumInput header="Socket Port" configKey="ports.socket" />
 
-            {stores.home.settings.isRepairOpen && <RepairModal />}
+            {store.isRepairOpen && <RepairModal />}
           </View>
 
           <Settings.StorageInputs />
@@ -197,16 +220,25 @@ export const SettingsModal = Comp(() => {
               <Settings.Checkbox
                 label="Contain"
                 configKey="file.fileCardFit"
-                checked={stores.home.settings.file.fileCardFit === "contain"}
+                checked={store.file.fileCardFit === "contain"}
                 setChecked={handleFileCardFitContain}
               />
 
               <Settings.Checkbox
                 label="Cover"
                 configKey="file.fileCardFit"
-                checked={stores.home.settings.file.fileCardFit === "cover"}
+                checked={store.file.fileCardFit === "cover"}
                 setChecked={handleFileCardFitCover}
               />
+            </Card>
+
+            <Card
+              header="File Name"
+              row
+              bgColor={colors.foregroundCard}
+              padding={{ all: "0.1rem" }}
+            >
+              <Settings.Checkbox label="Show" configKey="file.showFileName" />
             </Card>
 
             <Card
@@ -218,6 +250,43 @@ export const SettingsModal = Comp(() => {
               <Settings.Checkbox label="Hide Unrated" configKey="file.hideUnratedIcon" />
             </Card>
           </View>
+
+          <Card
+            header="Audio Metadata"
+            row
+            align="center"
+            bgColor={colors.foregroundCard}
+            padding={{ all: "0.1rem" }}
+            spacing="0.5rem"
+            width="fit-content"
+          >
+            <Settings.Checkbox label="Waveforms" configKey="file.waveform.enabled" />
+
+            <Settings.Checkbox label="Transcriptions" configKey="file.transcription.enabled" />
+
+            <Divider orientation="vertical" />
+
+            <Settings.Dropdown
+              configKey="file.transcription.model"
+              header="Model"
+              options={TRANSCRIPTION_MODELS}
+              setValue={handleTranscriptionModelChange}
+              value={store.file.transcription.model}
+              width="15rem"
+            />
+
+            <Settings.Dropdown
+              configKey="file.transcription.quantization"
+              header="Quantization"
+              options={TRANSCRIPTION_QUANTIZATION_OPTIONS.filter(({ value }) =>
+                TRANSCRIPTION_MODELS.find(
+                  ({ value }) => value === store.file.transcription.model,
+                )?.quantizations.includes(value),
+              )}
+              value={store.file.transcription.quantization}
+              width="8rem"
+            />
+          </Card>
 
           <UniformList row spacing="0.5rem" height="15rem">
             <Settings.ExtColumn
@@ -275,7 +344,7 @@ export const SettingsModal = Comp(() => {
               <Settings.Checkbox
                 label="Folder to Tags"
                 configKey="imports.folderToTagsMode"
-                checked={stores.home.settings.imports.folderToTagsMode !== "none"}
+                checked={store.imports.folderToTagsMode !== "none"}
                 setChecked={handleFoldersToTags}
               />
 
@@ -283,14 +352,14 @@ export const SettingsModal = Comp(() => {
                 <Settings.Checkbox
                   label="Hierarchical"
                   configKey="imports.folderToTagsMode"
-                  checked={stores.home.settings.imports.folderToTagsMode.includes("hierarchical")}
+                  checked={store.imports.folderToTagsMode.includes("hierarchical")}
                   setChecked={toggleFoldersToTagsHierarchical}
                 />
 
                 <Settings.Checkbox
                   label="Cascading"
                   configKey="imports.folderToTagsMode"
-                  checked={stores.home.settings.imports.folderToTagsMode === "cascading"}
+                  checked={store.imports.folderToTagsMode === "cascading"}
                   setChecked={toggleFoldersToTagsCascading}
                 />
 
@@ -304,7 +373,7 @@ export const SettingsModal = Comp(() => {
               <Settings.Checkbox
                 label="Folder to Collection"
                 configKey="imports.folderToCollMode"
-                checked={stores.home.settings.imports.folderToCollMode !== "none"}
+                checked={store.imports.folderToCollMode !== "none"}
                 setChecked={handleFolderToCollection}
               />
 
@@ -312,7 +381,7 @@ export const SettingsModal = Comp(() => {
                 <Settings.Checkbox
                   label="With Tags"
                   configKey="imports.folderToCollMode"
-                  checked={stores.home.settings.imports.folderToCollMode === "withTag"}
+                  checked={store.imports.folderToCollMode === "withTag"}
                   setChecked={toggleFolderToCollWithTag}
                 />
               </View>
@@ -377,8 +446,8 @@ export const SettingsModal = Comp(() => {
           text="Save"
           icon="Save"
           onClick={handleSaveConfig}
-          disabled={!stores.home.settings.hasUnsavedChanges}
-          color={stores.home.settings.hasUnsavedChanges ? colors.custom.blue : undefined}
+          disabled={!store.hasUnsavedChanges}
+          color={store.hasUnsavedChanges ? colors.custom.blue : undefined}
         />
       </Modal.Footer>
 

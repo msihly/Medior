@@ -10,6 +10,7 @@ export class HomeStore extends Model({
   isDraggingOut: prop<boolean>(false).withSetter(),
   isDrawerOpen: prop<boolean>(true).withSetter(),
   settings: prop<SettingsStore>(() => new SettingsStore({})),
+  showFileName: prop<boolean>(() => getConfig().file.showFileName).withSetter(),
 }) {
   onInit() {
     autoBind(this);

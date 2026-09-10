@@ -5,7 +5,6 @@ import { asyncAction } from "trabecula/utils/client";
 import { _FileSearch } from "medior/store/_generated";
 import { RootStore } from "medior/store";
 import { durationToSeconds, secondsToDuration } from "medior/utils/common";
-import { trpc } from "medior/utils/server";
 
 @model("medior/FileSearch")
 export class FileSearch extends ExtendedModel(_FileSearch, {
@@ -116,14 +115,8 @@ export class FileSearch extends ExtendedModel(_FileSearch, {
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */
   @modelFlow
   listIdsForCarousel = asyncAction(async () => {
-    const res = await trpc.listFileIdsForCarousel.mutate({
-      ...this.getFilterProps(),
-      page: this.page,
-      pageSize: this.pageSize,
-    });
-    if (!res.success) throw new Error(res.error);
-    if (!res.data?.length) throw new Error("No files found");
-    return res.data;
+    if (!this.carouselFileIds.length) throw new Error("No files found");
+    return [...this.carouselFileIds];
   });
 
   @modelFlow

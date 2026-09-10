@@ -73,7 +73,7 @@ export const TransformDetails = Comp(
                 output={store.queueAfterSize ? Fmt.bytes(store.queueAfterSize) : "--"}
               />
 
-              <Divider sx={{ flex: 0 }} />
+              <Divider style={{ flex: 0 }} />
             </>
           ) : null}
 

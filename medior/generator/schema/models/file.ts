@@ -10,6 +10,9 @@ model.addProp("audioCodec", "string");
 model.addIndex({ bitrate: 1, _id: 1 });
 model.addProp("bitrate", "number", { sort: { icon: "DataThresholding", label: "Bitrate" } });
 
+model.addIndex({ collectionIds: 1 }, { unique: false });
+model.addProp("collectionIds", "FileCollection.id[]", { defaultValue: "[]", required: true });
+
 model.addIndex({ dateImported: 1, _id: 1 });
 model.addProp("dateImported", "string", {
   required: true,
@@ -49,6 +52,9 @@ model.addProp("frameRate", "number");
 model.addIndex({ hash: 1 });
 model.addProp("hash", "string", { required: true });
 
+model.addIndex({ hasTranscript: 1 }, { unique: false });
+model.addProp("hasTranscript", "boolean", { required: true });
+
 model.addIndex({ height: 1, _id: 1 });
 model.addProp("height", "number", { required: true, sort: { icon: "Height", label: "Height" } });
 
@@ -66,7 +72,8 @@ model.addProp("originalBitrate", "number");
 
 model.addProp("originalHash", "string");
 
-model.addProp("originalName", "string");
+model.addIndex({ originalName: 1, _id: 1 });
+model.addProp("originalName", "string", { sort: { icon: "Abc", label: "File Name" } });
 
 model.addProp("originalPath", "string", { required: true });
 
@@ -75,6 +82,11 @@ model.addProp("originalSize", "number", { required: true });
 model.addProp("originalVideoCodec", "string");
 
 model.addProp("path", "string", { required: true });
+
+model.addIndex({ peakDecibels: 1, _id: 1 });
+model.addProp("peakDecibels", "number", {
+  sort: { icon: "GraphicEq", label: "Peak Decibels" },
+});
 
 model.addIndex({ rating: 1, _id: 1 });
 model.addProp("rating", "number", { required: true, sort: { icon: "Star", label: "Rating" } });
@@ -111,8 +123,18 @@ model.addProp(
   },
 );
 
+model.addProp(
+  "transcription",
+  "{ segments: Array<{ end: number; start: number; text: string }>; text: string }",
+  {
+    schemaType: "{ segments: [{ end: Number, start: Number, text: String }], text: String }",
+  },
+);
+
 model.addIndex({ videoCodec: 1 }, { unique: false });
 model.addProp("videoCodec", "string");
+
+model.addProp("waveformPeaks", "number[]");
 
 model.addIndex({ width: 1, _id: 1 });
 model.addProp("width", "number", {

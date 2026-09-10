@@ -5,6 +5,10 @@ import * as models from "medior/_generated/server/models";
 import { SocketEventOptions } from "medior/_generated/server/socket";
 import { FilterQuery } from "mongoose";
 import * as Types from "medior/server/database/types";
+import {
+  removeFileCollectionIds,
+  syncCollectionFileIds,
+} from "medior/server/database/actions/collections";
 import { SortMenuProps } from "medior/components";
 import { dayjs, isDeepEqual, LogicalOp, logicOpsToMongo, setObj } from "medior/utils/common";
 import {
@@ -515,6 +519,7 @@ export type CreateFileFilterPipelineInput = {
   dateImportedStart?: string;
   dateModifiedEnd?: string;
   dateModifiedStart?: string;
+  diffusionParams?: string;
   duration?: { logOp: LogicalOp | ""; value: number };
   excludedDescTagIds?: string[];
   excludedFileIds?: string[];
@@ -525,12 +530,14 @@ export type CreateFileFilterPipelineInput = {
   isArchived?: boolean;
   isCorrupted?: boolean;
   isModified?: boolean;
+  isTranscribed?: boolean;
   maxHeight?: number;
   maxSize?: number;
   maxWidth?: number;
   minHeight?: number;
   minSize?: number;
   minWidth?: number;
+  numOfCollections?: { logOp: LogicalOp | ""; value: number };
   numOfTags?: { logOp: LogicalOp | ""; value: number };
   optionalTagIds?: string[];
   originalPath?: string;
@@ -542,6 +549,7 @@ export type CreateFileFilterPipelineInput = {
   selectedVideoCodecs?: Types.SelectedVideoCodecs;
   selectedVideoExts?: Types.SelectedVideoExts;
   sortValue?: SortMenuProps["value"];
+  transcription?: string;
 };
 
 export const createFileFilterPipeline = (args: CreateFileFilterPipelineInput) => {
@@ -561,6 +569,8 @@ export const createFileFilterPipeline = (args: CreateFileFilterPipelineInput) =>
     setObj($match, ["dateModified", "$lte"], args.dateModifiedEnd);
   if (!isDeepEqual(args.dateModifiedStart, ""))
     setObj($match, ["dateModified", "$gte"], args.dateModifiedStart);
+  if (!isDeepEqual(args.diffusionParams, null))
+    setObj($match, ["diffusionParams", "$regex"], new RegExp(args.diffusionParams, "i"));
   if (!isDeepEqual(args.duration, { logOp: "", value: 0 }))
     setObj($match, ["duration", logicOpsToMongo(args.duration.logOp)], args.duration.value);
   if (!isDeepEqual(args.excludedFileIds, []))
@@ -598,6 +608,21 @@ export const createFileFilterPipeline = (args: CreateFileFilterPipelineInput) =>
   if (!isDeepEqual(args.minHeight, null)) setObj($match, ["height", "$gte"], args.minHeight);
   if (!isDeepEqual(args.minSize, null)) setObj($match, ["size", "$gte"], args.minSize);
   if (!isDeepEqual(args.minWidth, null)) setObj($match, ["width", "$gte"], args.minWidth);
+  if (!isDeepEqual(args.numOfCollections, { logOp: "", value: 0 }))
+    setObj(
+      $match,
+      ["$and"],
+      [
+        {
+          $expr: {
+            [logicOpsToMongo(args.numOfCollections.logOp)]: [
+              { $size: { $ifNull: ["$collectionIds", []] } },
+              args.numOfCollections.value,
+            ],
+          },
+        },
+      ],
+    );
   if (!isDeepEqual(args.numOfTags, { logOp: "", value: 0 }))
     setObj(
       $match,
@@ -608,8 +633,12 @@ export const createFileFilterPipeline = (args: CreateFileFilterPipelineInput) =>
     setObj($match, ["originalPath", "$regex"], new RegExp(args.originalPath, "i"));
   if (!isDeepEqual(args.rating, { logOp: "", value: 0 }))
     setObj($match, ["rating", logicOpsToMongo(args.rating.logOp)], args.rating.value);
+  if (!isDeepEqual(args.transcription, null))
+    setObj($match, ["transcription.text", "$regex"], new RegExp(args.transcription, "i"));
 
   if (true) setObj($match, ["isArchived"], args.isArchived);
+  if (args.isTranscribed === true) setObj($match, ["hasTranscript"], true);
+  if (args.isTranscribed === false) setObj($match, ["hasTranscript", "$in"], [false, null]);
   if (true)
     setObj(
       $match,
@@ -717,27 +746,52 @@ export const listFilteredFile = makeAction(
     const filterPipeline = createFileFilterPipeline(filterParams);
     const hasIds = forcePages || filterParams.ids?.length > 0;
 
-    const items = await (hasIds
-      ? models.FileModel.aggregate([
-          { $match: { _id: { $in: objectIds(filterParams.ids) } } },
-          { $addFields: { __order: { $indexOfArray: [objectIds(filterParams.ids), "$_id"] } } },
-          { $sort: { __order: 1 } },
-          ...(forcePages
-            ? [{ $skip: Math.max(0, page - 1) * pageSize }, { $limit: pageSize }]
-            : []),
-        ])
-          .allowDiskUse(true)
-          .exec()
-      : models.FileModel.find(filterPipeline.$match)
-          .sort(filterPipeline.$sort)
-          .select(select)
-          .skip(Math.max(0, page - 1) * pageSize)
-          .limit(pageSize)
-          .allowDiskUse(true)
-          .lean());
+    let carouselFileIds: string[];
+    let items;
+
+    if (hasIds) {
+      items = await models.FileModel.aggregate([
+        { $match: { _id: { $in: objectIds(filterParams.ids) } } },
+        { $addFields: { __order: { $indexOfArray: [objectIds(filterParams.ids), "$_id"] } } },
+        { $sort: { __order: 1 } },
+        ...(forcePages ? [{ $skip: Math.max(0, page - 1) * pageSize }, { $limit: pageSize }] : []),
+      ])
+        .allowDiskUse(true)
+        .exec();
+      carouselFileIds = items.map((item) => item._id.toString());
+    } else {
+      const [result] = await models.FileModel.aggregate([
+        { $match: filterPipeline.$match },
+        { $sort: filterPipeline.$sort },
+        {
+          $limit: Math.max(
+            Math.max(0, page - 1) * pageSize + pageSize,
+            Math.max(0, Math.max(0, page - 1) * pageSize - 250) + 501,
+          ),
+        },
+        {
+          $facet: {
+            carouselFiles: [
+              { $skip: Math.max(0, Math.max(0, page - 1) * pageSize - 250) },
+              { $limit: 501 },
+              { $project: { _id: 1 } },
+            ],
+            items: [
+              { $skip: Math.max(0, page - 1) * pageSize },
+              { $limit: pageSize },
+              ...(select ? [{ $project: select }] : []),
+            ],
+          },
+        },
+      ])
+        .allowDiskUse(true)
+        .exec();
+      carouselFileIds = result.carouselFiles.map((item) => item._id.toString());
+      items = result.items;
+    }
 
     if (!items) throw new Error("Failed to load filtered File");
-    return items.map((i) => leanModelToJson<models.FileSchema>(i));
+    return { carouselFileIds, items: items.map((i) => leanModelToJson<models.FileSchema>(i)) };
   },
 );
 
@@ -1069,6 +1123,7 @@ export const deleteDeletedFile = makeAction(
     socketOpts?: SocketEventOptions;
   }) => {
     await models.DeletedFileModel.deleteMany({ _id: { $in: args.ids } });
+
     socket.emit("onDeletedFileDeleted", args, socketOpts);
   },
 );
@@ -1115,6 +1170,7 @@ export const updateDeletedFile = makeAction(
     const res = leanModelToJson<models.DeletedFileSchema>(
       await models.DeletedFileModel.findByIdAndUpdate(args.id, args.updates, { new: true }).lean(),
     );
+
     socket.emit("onDeletedFileUpdated", args, socketOpts);
     return res;
   },
@@ -1143,6 +1199,10 @@ export const createFileCollection = makeAction(
     const res = await models.FileCollectionModel.create(model);
     const id = res._id.toString();
 
+    await syncCollectionFileIds(
+      id,
+      model.fileIdIndexes.map(({ fileId }) => String(fileId)),
+    );
     socket.emit("onFileCollectionCreated", { ...model, id }, socketOpts);
     return { ...model, id };
   },
@@ -1157,6 +1217,7 @@ export const deleteFileCollection = makeAction(
     socketOpts?: SocketEventOptions;
   }) => {
     await models.FileCollectionModel.deleteMany({ _id: { $in: args.ids } });
+    await removeFileCollectionIds(args.ids);
     socket.emit("onFileCollectionDeleted", args, socketOpts);
   },
 );
@@ -1205,6 +1266,11 @@ export const updateFileCollection = makeAction(
         new: true,
       }).lean(),
     );
+    if (res && args.updates.fileIdIndexes)
+      await syncCollectionFileIds(
+        args.id,
+        res.fileIdIndexes.map(({ fileId }) => String(fileId)),
+      );
     socket.emit("onFileCollectionUpdated", args, socketOpts);
     return res;
   },
@@ -1245,6 +1311,7 @@ export const deleteFileImportBatch = makeAction(
     socketOpts?: SocketEventOptions;
   }) => {
     await models.FileImportBatchModel.deleteMany({ _id: { $in: args.ids } });
+
     socket.emit("onFileImportBatchDeleted", args, socketOpts);
   },
 );
@@ -1293,6 +1360,7 @@ export const updateFileImportBatch = makeAction(
         new: true,
       }).lean(),
     );
+
     socket.emit("onFileImportBatchUpdated", args, socketOpts);
     return res;
   },
@@ -1331,6 +1399,7 @@ export const deleteFileTransform = makeAction(
     socketOpts?: SocketEventOptions;
   }) => {
     await models.FileTransformModel.deleteMany({ _id: { $in: args.ids } });
+
     socket.emit("onFileTransformDeleted", args, socketOpts);
   },
 );
@@ -1379,6 +1448,7 @@ export const updateFileTransform = makeAction(
         new: true,
       }).lean(),
     );
+
     socket.emit("onFileTransformUpdated", args, socketOpts);
     return res;
   },
@@ -1392,7 +1462,7 @@ export const createFile = makeAction(
     args: Types.CreateFileInput;
     socketOpts?: SocketEventOptions;
   }) => {
-    const model = { ...args, dateCreated: dayjs().toISOString() };
+    const model = { ...args, dateCreated: dayjs().toISOString(), collectionIds: [] };
 
     const res = await models.FileModel.create(model);
     const id = res._id.toString();
@@ -1411,6 +1481,7 @@ export const deleteFile = makeAction(
     socketOpts?: SocketEventOptions;
   }) => {
     await models.FileModel.deleteMany({ _id: { $in: args.ids } });
+
     socket.emit("onFileDeleted", args, socketOpts);
   },
 );
@@ -1455,6 +1526,7 @@ export const updateFile = makeAction(
     const res = leanModelToJson<models.FileSchema>(
       await models.FileModel.findByIdAndUpdate(args.id, args.updates, { new: true }).lean(),
     );
+
     socket.emit("onFileUpdated", args, socketOpts);
     return res;
   },
@@ -1487,6 +1559,7 @@ export const deleteSavedImportConfig = makeAction(
     socketOpts?: SocketEventOptions;
   }) => {
     await models.SavedImportConfigModel.deleteMany({ _id: { $in: args.ids } });
+
     socket.emit("onSavedImportConfigDeleted", args, socketOpts);
   },
 );
@@ -1535,6 +1608,7 @@ export const updateSavedImportConfig = makeAction(
         new: true,
       }).lean(),
     );
+
     socket.emit("onSavedImportConfigUpdated", args, socketOpts);
     return res;
   },
@@ -1567,6 +1641,7 @@ export const deleteSavedSearch = makeAction(
     socketOpts?: SocketEventOptions;
   }) => {
     await models.SavedSearchModel.deleteMany({ _id: { $in: args.ids } });
+
     socket.emit("onSavedSearchDeleted", args, socketOpts);
   },
 );
@@ -1613,6 +1688,7 @@ export const updateSavedSearch = makeAction(
     const res = leanModelToJson<models.SavedSearchSchema>(
       await models.SavedSearchModel.findByIdAndUpdate(args.id, args.updates, { new: true }).lean(),
     );
+
     socket.emit("onSavedSearchUpdated", args, socketOpts);
     return res;
   },
@@ -1655,6 +1731,7 @@ export const _deleteTag = makeAction(
     socketOpts?: SocketEventOptions;
   }) => {
     await models.TagModel.deleteMany({ _id: { $in: args.ids } });
+
     socket.emit("onTagDeleted", args, socketOpts);
   },
 );
@@ -1693,6 +1770,7 @@ export const updateTag = makeAction(
     const res = leanModelToJson<models.TagSchema>(
       await models.TagModel.findByIdAndUpdate(args.id, args.updates, { new: true }).lean(),
     );
+
     socket.emit("onTagUpdated", args, socketOpts);
     return res;
   },

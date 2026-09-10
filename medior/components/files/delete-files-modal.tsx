@@ -101,10 +101,7 @@ export const DeleteFilesModal = Comp(() => {
           <Card spacing="0.75rem" padding={{ all: "0.75rem" }} width="100%">
             <Text whiteSpace="normal">{progress.message}</Text>
 
-            <ProgressBar
-              numerator={progress.processedCount}
-              denominator={progress.totalCount}
-            />
+            <ProgressBar numerator={progress.processedCount} denominator={progress.totalCount} />
 
             <Button text="Restore" icon="OpenInFull" onClick={() => setIsMinimized(false)} />
           </Card>

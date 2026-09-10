@@ -10,9 +10,9 @@ import {
 } from "mobx-keystone";
 import { _FileStore } from "medior/store/_generated";
 import * as db from "medior/server/database";
-import { FaceModel, FileImporter, RootStore } from "medior/store";
-import { asyncAction, makeQueue, toast } from "medior/utils/client";
-import { chunkArray, PromiseQueue, splitArray } from "medior/utils/common";
+import { FaceModel, RootStore } from "medior/store";
+import { asyncAction, toast } from "medior/utils/client";
+import { chunkArray, splitArray } from "medior/utils/common";
 import { trpc } from "medior/utils/server";
 import { File, FileSearch, FileTagsEditorStore, VideoTransformerStore } from ".";
 
@@ -31,11 +31,24 @@ export class FileStore extends ExtendedModel(_FileStore, {
   idsForConfirmDelete: prop<string[]>(() => []).withSetter(),
   isConfirmDeleteOpen: prop<boolean>(false).withSetter(),
   isInfoModalOpen: prop<boolean>(false).withSetter(),
+  isRefreshMinimized: prop<boolean>(false).withSetter(),
+  isRefreshOpen: prop<boolean>(false).withSetter(),
+  isRefreshing: prop<boolean>(false).withSetter(),
+  refreshCancelToken: prop<number>(0).withSetter(),
+  refreshCurrentFileId: prop<string | null>(null).withSetter(),
+  refreshCurrentFileName: prop<string | null>(null).withSetter(),
+  refreshErrorCount: prop<number>(0).withSetter(),
+  refreshFileIds: prop<string[]>(() => []).withSetter(),
+  refreshId: prop<string | null>(null).withSetter(),
+  refreshMessage: prop<string>("").withSetter(),
+  refreshProcessedCount: prop<number>(0).withSetter(),
+  refreshStepProgress: prop<number | null>(null).withSetter(),
+  refreshTotalCount: prop<number>(0).withSetter(),
   search: prop<FileSearch>(() => new FileSearch({})),
   tagsEditor: prop<FileTagsEditorStore>(() => new FileTagsEditorStore({})),
   videoTransformer: prop<VideoTransformerStore>(() => new VideoTransformerStore({})),
 }) {
-  refreshQueue = new PromiseQueue();
+  private refreshAbortController: AbortController = null;
 
   onInit() {
     autoBind(this);
@@ -53,9 +66,38 @@ export class FileStore extends ExtendedModel(_FileStore, {
   }
 
   @modelAction
-  clearRefreshQueue() {
-    this.refreshQueue.cancel();
-    this.refreshQueue = new PromiseQueue();
+  cancelFileRefresh() {
+    if (!this.isRefreshing) return;
+    const refreshId = this.refreshId;
+
+    this.refreshAbortController?.abort();
+    this.setRefreshCancelToken(this.refreshCancelToken + 1);
+    this.resetFileRefreshState();
+    toast.info("File refresh cancelled.");
+
+    if (refreshId)
+      void trpc.cancelFileRefresh.mutate({ refreshId }).catch((error) => console.error(error));
+  }
+
+  @modelAction
+  handleFileRefreshProgress({
+    fileId,
+    fileName,
+    message,
+    progress,
+    refreshId,
+  }: {
+    fileId: string;
+    fileName: string;
+    message: string;
+    progress?: number;
+    refreshId: string;
+  }) {
+    if (refreshId !== this.refreshId) return;
+    this.setRefreshCurrentFileId(fileId);
+    this.setRefreshCurrentFileName(fileName);
+    this.setRefreshMessage(message);
+    this.setRefreshStepProgress(progress ?? null);
   }
 
   @modelAction
@@ -63,6 +105,18 @@ export class FileStore extends ExtendedModel(_FileStore, {
     this.videoTransformer.setFileIds(fileIds);
     this.videoTransformer.setFnType(fnType);
     this.videoTransformer.setIsOpen(true);
+  }
+
+  @modelAction
+  resetFileRefreshState() {
+    this.refreshAbortController = null;
+    this.setIsRefreshMinimized(false);
+    this.setIsRefreshOpen(false);
+    this.setIsRefreshing(false);
+    this.setRefreshCurrentFileId(null);
+    this.setRefreshCurrentFileName(null);
+    this.setRefreshFileIds([]);
+    this.setRefreshId(null);
   }
 
   @modelAction
@@ -83,6 +137,27 @@ export class FileStore extends ExtendedModel(_FileStore, {
     >,
   ) {
     fileIds.forEach((id) => this.getById(id)?.update?.(updates));
+  }
+
+  @modelAction
+  updateVisibleFiles(
+    fileIds: string[],
+    updates: Partial<
+      Omit<ModelCreationData<File>, "faceModels"> & { faceModels?: ModelCreationData<FaceModel>[] }
+    >,
+  ) {
+    const stores = getRootStore<RootStore>(this);
+    this.updateFiles(fileIds, updates);
+    stores.collection.editor.updateFiles(fileIds, updates);
+    stores.collection.manager.selectedFiles.forEach((file) => {
+      if (fileIds.includes(file.id)) file.update(updates);
+    });
+    stores.collection.editor.fileSearch.results.forEach((file) => {
+      if (fileIds.includes(file.id)) file.update(updates);
+    });
+    stores.collection.manager.search.files.forEach((file) => {
+      if (fileIds.includes(file.id)) file.update(updates);
+    });
   }
 
   @modelAction
@@ -184,6 +259,10 @@ export class FileStore extends ExtendedModel(_FileStore, {
       );
     }
 
+    this.search.toggleSelected(processedIds.map((id) => ({ id, isSelected: false })));
+    this.setIdsForConfirmDelete([]);
+    this.setIsConfirmDeleteOpen(false);
+
     if (tagIdsToRegen.size) {
       const regenRes = await trpc.regenTags.mutate({ tagIds: [...tagIdsToRegen] });
       if (!regenRes.success) throw new Error(regenRes.error);
@@ -191,8 +270,6 @@ export class FileStore extends ExtendedModel(_FileStore, {
 
     if (deletedCount) toast.warn(`${deletedCount} files deleted`);
 
-    this.search.toggleSelected(processedIds.map((id) => ({ id, isSelected: false })));
-    this.setIsConfirmDeleteOpen(false);
     if (this.search.isArchived)
       await this.search.loadFiltered({ noCache: true, page: 1, withFullCount: true });
     return { archivedCount, deletedCount };
@@ -231,36 +308,94 @@ export class FileStore extends ExtendedModel(_FileStore, {
 
   @modelFlow
   refreshFiles = asyncAction(async (args: { ids: string[] }) => {
+    if (!args.ids.length) return;
     const stores = getRootStore<RootStore>(this);
+    const ids = [...new Set(args.ids)];
+    if (this.isRefreshing) {
+      this.setRefreshFileIds([...new Set([...this.refreshFileIds, ...ids])]);
+      this.setRefreshTotalCount(this.refreshFileIds.length);
+      this.setIsRefreshMinimized(false);
+      this.setIsRefreshOpen(true);
+      return;
+    }
 
-    const filesRes = await trpc.listFile.mutate({ args: { filter: { id: args.ids } } });
-    if (!filesRes?.success) throw new Error("Failed to load files");
-    const files = filesRes.data.items;
+    const cancelToken = this.refreshCancelToken;
+    const refreshId = crypto.randomUUID();
+    const abortController = new AbortController();
+    const finishRefresh = async () => {
+      const res = await trpc.finishFileRefresh.mutate({ refreshId });
+      if (!res.success) console.error(res.error);
+    };
+    this.refreshAbortController = abortController;
+    this.setIsRefreshMinimized(false);
+    this.setIsRefreshOpen(true);
+    this.setIsRefreshing(true);
+    this.setRefreshCurrentFileId(null);
+    this.setRefreshCurrentFileName(null);
+    this.setRefreshErrorCount(0);
+    this.setRefreshFileIds(ids);
+    this.setRefreshId(refreshId);
+    this.setRefreshMessage("Preparing refresh queue.");
+    this.setRefreshProcessedCount(0);
+    this.setRefreshStepProgress(null);
+    this.setRefreshTotalCount(ids.length);
 
-    await makeQueue({
-      action: async (file) => {
-        const importer = new FileImporter({
-          deleteOnImport: false,
-          ext: file.ext,
-          ignorePrevDeleted: false,
-          originalName: file.originalName,
-          originalPath: file.path,
-          size: file.size,
-          tagIds: file.tagIds,
-        });
+    while (
+      this.refreshCancelToken === cancelToken &&
+      this.refreshProcessedCount < this.refreshFileIds.length
+    ) {
+      const fileId = this.refreshFileIds[this.refreshProcessedCount];
+      const file =
+        this.getById(fileId) ??
+        stores.collection.editor.getFileById(fileId) ??
+        stores.collection.editor.fileSearch.getResult(fileId);
+      this.setRefreshCurrentFileId(fileId);
+      this.setRefreshCurrentFileName(file?.originalName ?? fileId);
+      this.setRefreshMessage("Starting refresh.");
+      this.setRefreshStepProgress(null);
 
-        const res = await importer.refresh(file);
+      try {
+        const res = await trpc.refreshFileInfo.mutate(
+          { fileId, refreshId },
+          { signal: abortController.signal },
+        );
         if (!res.success) throw new Error(res.error);
-      },
-      items: files,
-      logPrefix: "Refreshed",
-      logSuffix: "files",
-      onComplete: () =>
-        stores.collection.editor.isOpen
-          ? stores.collection.editor.search.loadFiltered()
-          : this.search.loadFiltered(),
-      queue: this.refreshQueue,
-    });
+        this.updateVisibleFiles([fileId], res.data);
+      } catch (error) {
+        if (this.refreshCancelToken === cancelToken) {
+          console.error(error);
+          this.setRefreshErrorCount(this.refreshErrorCount + 1);
+        }
+      } finally {
+        if (this.refreshCancelToken === cancelToken) {
+          this.setRefreshProcessedCount(this.refreshProcessedCount + 1);
+          this.setRefreshTotalCount(this.refreshFileIds.length);
+        }
+      }
+    }
+
+    const wasCancelled = this.refreshCancelToken !== cancelToken;
+    if (wasCancelled) {
+      await finishRefresh();
+      return;
+    }
+
+    this.setRefreshMessage("Reloading refreshed files.");
+    try {
+      await (stores.collection.editor.isOpen
+        ? stores.collection.editor.search.loadFiltered()
+        : this.search.loadFiltered());
+    } catch (error) {
+      console.error(error);
+    }
+
+    const refreshedCount = this.refreshProcessedCount - this.refreshErrorCount;
+    if (this.refreshErrorCount)
+      toast.warn(`Refreshed ${refreshedCount} / ${this.refreshTotalCount} files.`);
+    else toast.success(`Refreshed ${refreshedCount} files.`);
+
+    await finishRefresh();
+    if (this.refreshId === refreshId) this.resetFileRefreshState();
   });
 
   @modelFlow

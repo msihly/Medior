@@ -2,6 +2,7 @@ import {
   Comp,
   DeleteFilesModal,
   FaceRecognitionModal,
+  FileRefreshModal,
   InfoModal,
   VideoTransformerModal,
 } from "medior/components";
@@ -15,6 +16,8 @@ export const FileModals = Comp(() => {
       {stores.faceRecog.isModalOpen && <FaceRecognitionModal />}
 
       {stores.file.isInfoModalOpen && <InfoModal />}
+
+      {stores.file.isRefreshOpen && <FileRefreshModal />}
 
       {stores.file.videoTransformer.isOpen && <VideoTransformerModal />}
 

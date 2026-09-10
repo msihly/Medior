@@ -7,6 +7,11 @@
   "homepage": "./",
   "main": "extraResources/medior/server/main.js",
   "icon": "public/favicon.ico",
+  "pnpm": {
+    "overrides": {
+      "sharp": "0.32.6"
+    }
+  },
   "scripts": {
     ".exe": "start \"\" dist/win-unpacked/Medior.exe",
     "build": "pnpm run pre-build && vite build",
@@ -31,6 +36,7 @@
   },
   "dependencies": {
     "@electron/remote": "^2.0.8",
+    "@huggingface/transformers": "3.8.1",
     "@panzoom/panzoom": "^4.5.1",
     "@trpc/client": "^10.30.0",
     "@trpc/server": "^10.30.0",
@@ -39,7 +45,7 @@
     "color": "^4.2.3",
     "es-toolkit": "^1.16.0",
     "fastest-levenshtein": "^1.0.16",
-    "fluent-ffmpeg": "2.1.2",
+    "fluent-ffmpeg": "2.1.3",
     "jsonfile": "^6.1.0",
     "kill-port": "^2.0.1",
     "mongodb-memory-server": "^8.9.3",
@@ -49,9 +55,10 @@
     "sharp-bmp": "^0.1.5",
     "socket.io": "^4.6.2",
     "socket.io-client": "^4.6.2",
-    "trabecula": "github:msihly/trabecula#fe4a2f3802155b92106cb1ec03917b0b6101d6bb",
+    "trabecula": "github:msihly/trabecula#383be4dbd81b7f3c41400dd4d0eeacadff7bbc29",
     "util": "^0.12.5",
-    "vite-plugin-electron-renderer": "0.10.1"
+    "vite-plugin-electron-renderer": "0.10.1",
+    "wavesurfer.js": "^7.12.11"
   },
   "devDependencies": {
     "@types/color": "^3.0.3",

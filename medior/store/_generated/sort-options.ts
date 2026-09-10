@@ -54,7 +54,9 @@ const MODEL_SORT_OPTIONS: Record<ModelSortName, SortOption[]> = {
     { attribute: "dateImported", icon: "DateRange", label: "Date Imported" },
     { attribute: "dateModified", icon: "DateRange", label: "Date Modified" },
     { attribute: "duration", icon: "HourglassBottom", label: "Duration" },
+    { attribute: "originalName", icon: "Abc", label: "File Name" },
     { attribute: "height", icon: "Height", label: "Height" },
+    { attribute: "peakDecibels", icon: "GraphicEq", label: "Peak Decibels" },
     { attribute: "rating", icon: "Star", label: "Rating" },
     { attribute: "size", icon: "FormatSize", label: "Size" },
     { attribute: "width", icon: "Height", iconProps: { rotation: 90 }, label: "Width" },
@@ -84,7 +86,6 @@ const MODEL_SORT_OPTIONS: Record<ModelSortName, SortOption[]> = {
 const CUSTOM_SORT_OPTIONS: Record<CustomSortName, SortOption[]> = {
   FileCollectionFile: [
     { attribute: "custom", icon: "Settings", label: "Custom" },
-    { attribute: "originalName", icon: "Abc", label: "Original Name" },
     ...MODEL_SORT_OPTIONS.File,
   ],
 };

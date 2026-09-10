@@ -1,10 +1,9 @@
-import { ipcRenderer } from "electron";
 import { useEffect, useState } from "react";
 import { Button, Card, Comp, TagInput, UniformList, View } from "medior/components";
 import { Settings } from "medior/components/settings";
 import { TagOption, tagToOption, useStores } from "medior/store";
 import { colors, toast } from "medior/utils/client";
-import { ConfigKey, loadConfig, saveConfig } from "medior/utils/server";
+import { ConfigKey } from "medior/utils/server";
 
 export const TransformConfig = Comp(() => {
   const stores = useStores();
@@ -13,9 +12,7 @@ export const TransformConfig = Comp(() => {
   const overrideKey = "file.reencode.override" as ConfigKey;
 
   const handleSaveConfig = async () => {
-    await saveConfig(await ipcRenderer.invoke("getConfigPath"), stores.home.settings.getConfig());
-    await loadConfig(await ipcRenderer.invoke("getConfigPath"));
-    stores.home.settings.setHasUnsavedChanges(false);
+    await stores.home.settings.save();
     toast.success("Transform config saved");
   };
 

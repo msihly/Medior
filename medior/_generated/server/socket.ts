@@ -68,6 +68,16 @@ export interface SocketEmitEvents {
     options?: SocketEventOptions,
   ) => void;
   onFileCollectionsDeleted: (args: { ids: string[] }, options?: SocketEventOptions) => void;
+  onFileRefreshProgress: (
+    args: {
+      fileId: string;
+      fileName: string;
+      message: string;
+      progress?: number;
+      refreshId: string;
+    },
+    options?: SocketEventOptions,
+  ) => void;
   onFilesArchived: (args: { fileIds: string[] }, options?: SocketEventOptions) => void;
   onFilesDeleted: (
     args: { fileHashes: string[]; fileIds: string[] },
@@ -153,6 +163,7 @@ export const socketEvents: SocketEmitEvent[] = [
   "onTagDeleted",
   "onTagUpdated",
   "onFileCollectionsDeleted",
+  "onFileRefreshProgress",
   "onFilesArchived",
   "onFilesDeleted",
   "onFilesUpdated",

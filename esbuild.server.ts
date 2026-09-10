@@ -14,6 +14,7 @@ import path from "path";
     ],
     external: [
       "@electron/remote",
+      "@huggingface/transformers",
       "@tensorflow/tfjs-node-gpu",
       "@tensorflow/tfjs-node",
       "@vladmandic/face-api",

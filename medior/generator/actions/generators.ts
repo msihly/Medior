@@ -55,6 +55,7 @@ export const makeActionsDef = async (
         const res = await models.${modelDef.name}Model.create(model);
         const id = res._id.toString();
 
+        ${modelDef.name === "FileCollection" ? "await syncCollectionFileIds(id, model.fileIdIndexes.map(({ fileId }) => String(fileId)));" : ""}
         socket.emit("on${modelDef.name}Created", { ...model, id }, socketOpts);
         return { ...model, id };
       });`;
@@ -64,6 +65,7 @@ export const makeActionsDef = async (
     const { fnName, typeName } = makeFnAndTypeNames(`delete${modelDef.name}`, actions);
     return `${makeFnPrefix(fnName, typeName)}
         await models.${modelDef.name}Model.deleteMany({ _id: { $in: args.ids } });
+        ${modelDef.name === "FileCollection" ? "await removeFileCollectionIds(args.ids);" : ""}
         socket.emit("on${modelDef.name}Deleted", args, socketOpts);
       });`;
   };
@@ -106,6 +108,7 @@ export const makeActionsDef = async (
         const res = leanModelToJson<models.${schemaName}>(
           await models.${modelDef.name}Model.findByIdAndUpdate(args.id, args.updates, { new: true }).lean()
         );
+        ${modelDef.name === "FileCollection" ? "if (res && args.updates.fileIdIndexes) await syncCollectionFileIds(args.id, res.fileIdIndexes.map(({ fileId }) => String(fileId)));" : ""}
         socket.emit("on${modelDef.name}Updated", args, socketOpts);
         return res;
       });`;
@@ -200,6 +203,59 @@ export const makeSearchActionsDef = async (
   const makeListFiltered = () => {
     const countFn = makeFnAndTypeNames(`getFiltered${def.name}Count`, actions);
     const listFn = makeFnAndTypeNames(`listFiltered${def.name}`, actions);
+    const makeIdsQuery = () => `${modelName}.aggregate([
+                { $match: { _id: { $in: objectIds(filterParams.ids) } } },
+                { $addFields: { __order: { $indexOfArray: [objectIds(filterParams.ids), "$_id"] } } },
+                { $sort: { __order: 1 } },
+                ...(forcePages ? [{ $skip: Math.max(0, page - 1) * pageSize }, { $limit: pageSize }] : [])
+              ]).allowDiskUse(true).exec()`;
+
+    const makeListQuery = () => `const items =
+          await (hasIds
+            ? ${makeIdsQuery()}
+            : ${modelName}.find(filterPipeline.$match)
+                .sort(filterPipeline.$sort)
+                .select(select)
+                .skip(Math.max(0, page - 1) * pageSize)
+                .limit(pageSize)
+                .allowDiskUse(true)
+                .lean());`;
+
+    const makeListWithCarouselIdsQuery = () => `let carouselFileIds: string[];
+        let items;
+
+        if (hasIds) {
+          items = await ${makeIdsQuery()};
+          carouselFileIds = items.map((item) => item._id.toString());
+        } else {
+          const [result] = await ${modelName}.aggregate([
+            { $match: filterPipeline.$match },
+            { $sort: filterPipeline.$sort },
+            {
+              $limit: Math.max(
+                Math.max(0, page - 1) * pageSize + pageSize,
+                Math.max(0, Math.max(0, page - 1) * pageSize - 250) + 501,
+              ),
+            },
+            {
+              $facet: {
+                carouselFiles: [
+                  { $skip: Math.max(0, Math.max(0, page - 1) * pageSize - 250) },
+                  { $limit: 501 },
+                  { $project: { _id: 1 } },
+                ],
+                items: [
+                  { $skip: Math.max(0, page - 1) * pageSize },
+                  { $limit: pageSize },
+                  ...(select ? [{ $project: select }] : []),
+                ],
+              },
+            },
+          ]).allowDiskUse(true).exec();
+          carouselFileIds = result.carouselFiles.map((item) => item._id.toString());
+          items = result.items;
+        }`;
+
     return `export type ${countFn.typeName} = ${filterFn.typeName} & { curMaxPage: number; page: number; pageSize: number; withFull: boolean; };
 
     export const ${countFn.fnName} = makeAction(
@@ -241,24 +297,10 @@ export const makeSearchActionsDef = async (
         const filterPipeline = ${filterFn.fnName}(filterParams);
         const hasIds = forcePages || filterParams.ids?.length > 0;
 
-        const items =
-          await (hasIds
-            ? ${modelName}.aggregate([
-                { $match: { _id: { $in: objectIds(filterParams.ids) } } },
-                { $addFields: { __order: { $indexOfArray: [objectIds(filterParams.ids), "$_id"] } } },
-                { $sort: { __order: 1 } },
-                ...(forcePages ? [{ $skip: Math.max(0, page - 1) * pageSize }, { $limit: pageSize }] : [])
-              ]).allowDiskUse(true).exec()
-            : ${modelName}.find(filterPipeline.$match)
-                .sort(filterPipeline.$sort)
-                .select(select)
-                .skip(Math.max(0, page - 1) * pageSize)
-                .limit(pageSize)
-                .allowDiskUse(true)
-                .lean());
+        ${def.withCarouselIds ? makeListWithCarouselIdsQuery() : makeListQuery()}
 
         if (!items) throw new Error("Failed to load filtered ${def.name}");
-        return items.map((i) => leanModelToJson<${schemaName}>(i));
+        ${def.withCarouselIds ? `return { carouselFileIds, items: items.map((i) => leanModelToJson<${schemaName}>(i)) };` : `return items.map((i) => leanModelToJson<${schemaName}>(i));`}
       }
     );`;
   };

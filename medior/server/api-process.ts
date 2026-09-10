@@ -61,11 +61,22 @@ process.on("message", async (msg: any) => {
 
       await createTRPCServer();
       setupTRPC();
-      process.send?.({ type: "ready" });
+      process.send?.({ requestId: msg.requestId, type: "ready" });
 
       void ensureIndexes();
     } catch (err: any) {
-      process.send?.({ type: "error", error: err.message });
+      process.send?.({ error: err.message, requestId: msg.requestId, type: "error" }, () =>
+        process.exit(1),
+      );
+    }
+  }
+
+  if (msg?.type === "reload-config") {
+    try {
+      await loadConfig(process.env.CONFIG_PATH);
+      process.send?.({ requestId: msg.requestId, type: "config-reloaded" });
+    } catch (err: any) {
+      process.send?.({ error: err.message, requestId: msg.requestId, type: "error" });
     }
   }
 });

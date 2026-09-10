@@ -5,3 +5,4 @@ export * from "./thumb-navigator";
 export * from "./timestamp-row";
 export * from "./top-bar";
 export * from "./video-controls";
+export * from "./video-waveform";

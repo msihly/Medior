@@ -19,7 +19,17 @@ import * as actions from "medior/server/database/actions";
 import { makeRepairReporter } from "medior/server/database/repair-progress";
 import { genFileInfo } from "medior/utils/client";
 import { chunkArray, CONSTANTS, dayjs, Fmt } from "medior/utils/common";
-import { leanModelToJson, makeAction, objectId, objectIds, socket } from "medior/utils/server";
+import {
+  analyzeAudio,
+  getConfig,
+  leanModelToJson,
+  makeAction,
+  objectId,
+  objectIds,
+  releaseTranscriptionModel,
+  retainTranscriptionModel,
+  socket,
+} from "medior/utils/server";
 
 // const FACE_MIN_CONFIDENCE = 0.4;
 // const FACE_MODELS_PATH = process.env.IS_PACKAGED
@@ -415,28 +425,6 @@ export const listFilesByTagIds = makeAction(async ({ tagIds }: { tagIds: string[
   );
 });
 
-export const listFileIdsForCarousel = makeAction(
-  async ({
-    page,
-    pageSize,
-    ...filterParams
-  }: actions.CreateFileFilterPipelineInput & {
-    page: number;
-    pageSize: number;
-  }) => {
-    const filterPipeline = actions.createFileFilterPipeline(filterParams);
-
-    const files = await models.FileModel.find(filterPipeline.$match)
-      .sort(filterPipeline.$sort)
-      .skip(Math.max(0, Math.max(0, page - 1) * pageSize - 250))
-      .limit(501)
-      .allowDiskUse(true)
-      .select({ _id: 1 });
-
-    return files.map((f) => f._id.toString());
-  },
-);
-
 export const listFilePaths = makeAction(async () => {
   return (await models.FileModel.find().select({ _id: 1, path: 1 }).lean()).map((f) => ({
     id: f._id.toString(),
@@ -688,6 +676,147 @@ export const repairFilesWithMissingInfo = makeAction(async ({ repairId }: { repa
   });
 });
 
+export const repairMissingAudioAnalysis = makeAction(
+  async ({
+    maxTranscriptionDuration,
+    repairId,
+    repairTranscriptions,
+    repairWaveforms,
+  }: {
+    maxTranscriptionDuration: number;
+    repairId: string;
+    repairTranscriptions: boolean;
+    repairWaveforms: boolean;
+  }) => {
+    const { checkCancelled, report, run, signal } = makeRepairReporter(
+      repairId,
+      "repairAudioAnalysis",
+    );
+    return run(async () => {
+      if (
+        repairTranscriptions &&
+        (!Number.isFinite(maxTranscriptionDuration) || maxTranscriptionDuration <= 0)
+      )
+        throw new Error("Maximum transcription duration must be greater than zero.");
+
+      const missingFilters: mongoose.FilterQuery<models.FileSchema>[] = [];
+      if (repairTranscriptions)
+        missingFilters.push({
+          duration: { $lte: maxTranscriptionDuration },
+          transcription: null,
+        });
+      if (repairWaveforms) missingFilters.push({ "waveformPeaks.0": { $exists: false } });
+      if (!missingFilters.length) return { repairedTranscriptions: 0, repairedWaveforms: 0 };
+
+      report(
+        `Searching for videos with audio and missing analysis data.${repairTranscriptions ? ` Transcriptions are limited to ${Fmt.duration(maxTranscriptionDuration)}.` : ""}`,
+      );
+
+      const fileFilter: mongoose.FilterQuery<models.FileSchema> = {
+        $or: missingFilters,
+        audioCodec: { $exists: true, $nin: ["", "None", null] },
+        ext: { $in: CONSTANTS.VIDEO.EXTS },
+      };
+
+      const fileCount = await models.FileModel.countDocuments(fileFilter).allowDiskUse(true);
+      report(`Found ${fileCount} videos requiring audio analysis.`, "progress");
+
+      const cursor = models.FileModel.find(fileFilter)
+        .allowDiskUse(true)
+        .select({ _id: 1, duration: 1, path: 1, transcription: 1, waveformPeaks: 1 })
+        .lean()
+        .cursor({ batchSize: 100 });
+
+      const modelOwnerId = `repair:${repairId}`;
+      let completedCount = 0;
+      let processedCount = 0;
+      let repairedTranscriptions = 0;
+      let repairedWaveforms = 0;
+      let reportedModelDownloadProgress = -1;
+      let totalProcessingTime = 0;
+
+      const reportAnalysisProgress = (message: string, progress?: number) => {
+        if (message.startsWith("Downloading transcription model:")) {
+          const roundedProgress = Math.floor(progress / 10) * 10;
+          if (roundedProgress <= reportedModelDownloadProgress) return;
+          reportedModelDownloadProgress = roundedProgress;
+          report(`${message.replace(/\.$/, "")} (${roundedProgress}%).`, "progress", true);
+        } else if (message.startsWith("Transcribing audio:")) {
+          report(message, "progress", true);
+        } else if (
+          message.startsWith("Audio duration:") ||
+          message === "Extracting audio." ||
+          message === "Generating waveform." ||
+          message === "Loading transcription model." ||
+          message === "Measuring peak volume." ||
+          message === "Preparing transcription model." ||
+          message === "Transcribing audio." ||
+          message.startsWith("GPU transcription unavailable.") ||
+          message.startsWith("Transcription model loaded on")
+        )
+          report(message, "progress");
+      };
+
+      if (repairTranscriptions) retainTranscriptionModel(modelOwnerId);
+
+      try {
+        for await (const file of cursor) {
+          checkCancelled();
+          processedCount++;
+          const withTranscription =
+            repairTranscriptions &&
+            file.duration <= maxTranscriptionDuration &&
+            !file.transcription;
+          const withWaveform = repairWaveforms && !file.waveformPeaks?.length;
+          if (!withTranscription && !withWaveform) continue;
+
+          const startedAt = Date.now();
+
+          report(`Analyzing video ${processedCount} / ${fileCount}.`, "progress");
+          const analysis = await analyzeAudio(file.path, reportAnalysisProgress, signal, {
+            withTranscription,
+            withWaveform,
+          });
+
+          checkCancelled();
+          const updates: Partial<models.FileSchema> = {};
+
+          if (withTranscription) {
+            updates.hasTranscript = Boolean(analysis.transcription);
+            updates.transcription = analysis.transcription;
+            repairedTranscriptions++;
+          }
+
+          if (withWaveform) {
+            updates.waveformPeaks = analysis.waveformPeaks;
+            repairedWaveforms++;
+          }
+
+          const updateRes = await actions.updateFile({
+            args: { id: file._id.toString(), updates },
+          });
+          if (!updateRes.success) throw new Error(updateRes.error);
+          completedCount++;
+          totalProcessingTime += Date.now() - startedAt;
+          report(
+            `Completed video ${processedCount} / ${fileCount} in ${dayjs.duration(Date.now() - startedAt).format("HH:mm:ss")}; average ${dayjs.duration(totalProcessingTime / completedCount).format("HH:mm:ss")} per completed video.`,
+            "progress",
+          );
+        }
+      } finally {
+        await cursor.close();
+        if (repairTranscriptions) await releaseTranscriptionModel(modelOwnerId);
+      }
+
+      report(
+        `Audio analysis repair completed successfully: regenerated ${repairedWaveforms} waveforms and ${repairedTranscriptions} transcriptions.`,
+        "success",
+      );
+      return { repairedTranscriptions, repairedWaveforms };
+    });
+  },
+);
+
 export const setFileFaceModels = makeAction(
   async (args: {
     faceModels: {
@@ -744,6 +873,7 @@ const fileThumbnailRepairPromises = new Map<
   string,
   Promise<{ status: "repaired" | "skipped"; thumb?: models.FileSchema["thumb"] }>
 >();
+const fileRefreshAbortControllers = new Map<string, AbortController>();
 
 export const repairFileThumbnail = makeAction(async ({ fileId }: { fileId: string }) => {
   const pendingRepair = fileThumbnailRepairPromises.get(fileId);
@@ -779,6 +909,63 @@ export const repairFileThumbnail = makeAction(async ({ fileId }: { fileId: strin
     fileThumbnailRepairPromises.delete(fileId);
   }
 });
+
+export const cancelFileRefresh = makeAction(async ({ refreshId }: { refreshId: string }) => {
+  const abortController = fileRefreshAbortControllers.get(refreshId);
+  abortController?.abort();
+  await releaseTranscriptionModel(`file-refresh:${refreshId}`);
+  return Boolean(abortController);
+});
+
+export const finishFileRefresh = makeAction(async ({ refreshId }: { refreshId: string }) => {
+  await releaseTranscriptionModel(`file-refresh:${refreshId}`);
+});
+
+export const refreshFileInfo = makeAction(
+  async ({ fileId, refreshId }: { fileId: string; refreshId?: string }) => {
+    const abortController = new AbortController();
+    if (refreshId) {
+      fileRefreshAbortControllers.set(refreshId, abortController);
+      if (getConfig().file.transcription.enabled)
+        retainTranscriptionModel(`file-refresh:${refreshId}`);
+    }
+
+    try {
+      const fileModel = await models.FileModel.findById(fileId).lean();
+      if (!fileModel) throw new Error(`File ${fileId} was not found.`);
+
+      const file = leanModelToJson<models.FileSchema>(fileModel);
+
+      const report = (message: string, progress?: number) =>
+        refreshId &&
+        socket.emitReliable("onFileRefreshProgress", {
+          fileId,
+          fileName: file.originalName,
+          message,
+          progress,
+          refreshId,
+        });
+
+      const updates = await genFileInfo({
+        file,
+        filePath: file.path,
+        hash: file.hash,
+        onProgress: report,
+        signal: abortController.signal,
+      });
+
+      abortController.signal.throwIfAborted();
+      report("Saving refreshed metadata.");
+
+      const updateRes = await actions.updateFile({ args: { id: file.id, updates } });
+      if (!updateRes.success) throw new Error(updateRes.error);
+      return updateRes.data;
+    } finally {
+      if (refreshId && fileRefreshAbortControllers.get(refreshId) === abortController)
+        fileRefreshAbortControllers.delete(refreshId);
+    }
+  },
+);
 
 /* ----------------------------------------------------------------------- */
 class ThumbRepairer {
@@ -1089,20 +1276,30 @@ class ThumbRepairer {
   };
 
   /* ----------------------------------------------------------------------- */
-  public processAllFiles = async () => {
+  public processAllFiles = async ({
+    repairMissingThumbnails,
+    repairPaths,
+  }: {
+    repairMissingThumbnails: boolean;
+    repairPaths: boolean;
+  }) => {
     this.checkCancelled();
-    this.report("Searching for malformed thumbnail paths.");
-    await this.fixMalformedThumbPaths();
+    if (repairPaths) {
+      this.report("Searching for malformed thumbnail paths.");
+      await this.fixMalformedThumbPaths();
 
-    this.report("Counting files with legacy thumbnail paths.");
-    this.totalCount = await this.getTotalFilesWithThumbPaths();
-    this.progressLog(`Found ${this.totalCount} files with legacy thumbnail paths.`);
-    if (this.totalCount) this.report("Migrating legacy file thumbnail paths.");
-    while (this.hasMorePages) await this.iterateFiles();
+      this.report("Counting files with legacy thumbnail paths.");
+      this.totalCount = await this.getTotalFilesWithThumbPaths();
+      this.progressLog(`Found ${this.totalCount} files with legacy thumbnail paths.`);
+      if (this.totalCount) this.report("Migrating legacy file thumbnail paths.");
+      while (this.hasMorePages) await this.iterateFiles();
+    }
 
     this.checkCancelled();
-    this.report("Searching for files without thumbnail data.");
-    await this.validateFileThumbnails();
+    if (repairMissingThumbnails) {
+      this.report("Searching for files without thumbnail data.");
+      await this.validateFileThumbnails();
+    }
 
     if (!this.hasFilesWithOldThumbPaths && !this.hasInvalidThumbnails) {
       this.perfLogTotal("No files to process found");
@@ -1133,8 +1330,20 @@ class ThumbRepairer {
   };
 }
 
-export const repairThumbs = makeAction(async ({ repairId }: { repairId: string }) => {
-  const { run } = makeRepairReporter(repairId, "repairThumbs");
-  const repairer = new ThumbRepairer(repairId);
-  return run(async () => await repairer.processAllFiles());
-});
+export const repairThumbs = makeAction(
+  async ({
+    repairId,
+    repairMissingThumbnails = true,
+    repairPaths = true,
+  }: {
+    repairId: string;
+    repairMissingThumbnails?: boolean;
+    repairPaths?: boolean;
+  }) => {
+    const { run } = makeRepairReporter(repairId, "repairThumbs");
+    const repairer = new ThumbRepairer(repairId);
+    return run(
+      async () => await repairer.processAllFiles({ repairMissingThumbnails, repairPaths }),
+    );
+  },
+);

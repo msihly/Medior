@@ -3,6 +3,10 @@ export const CUSTOM_EVENTS: {
   name: string;
 }[] = [
   { name: "onFileCollectionsDeleted", args: "{ ids: string[] }" },
+  {
+    name: "onFileRefreshProgress",
+    args: "{ fileId: string; fileName: string; message: string; progress?: number; refreshId: string }",
+  },
   { name: "onFilesArchived", args: "{ fileIds: string[] }" },
   { name: "onFilesDeleted", args: "{ fileHashes: string[]; fileIds: string[] }" },
   { name: "onFilesUpdated", args: "{ fileIds: string[]; updates: Partial<models.FileSchema> }" },

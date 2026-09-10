@@ -15,8 +15,7 @@ export const VideoTransformerModal = Comp(() => {
   useEffect(() => {
     (async () => {
       const config = await loadConfig(await ipcRenderer.invoke("getConfigPath"));
-      stores.home.settings.update(config);
-      stores.home.settings.setHasUnsavedChanges(false);
+      stores.applyConfig(config);
       await store.createTransforms();
     })();
   }, []);

@@ -1127,311 +1127,342 @@ export const regenTagMeta = makeAction(
   },
 );
 
-export const repairTags = makeAction(async ({ repairId }: { repairId: string }) => {
-  const { perfLog } = makePerfLog("[repairTags]", true);
-  const { checkCancelled, report, run } = makeRepairReporter(repairId, "repairTags");
-  return run(async () => {
-    /* -------------------------- Replace HTML Entities ------------------------- */
-    report("Searching tag labels for encoded HTML entities.");
-    const tagsWithHtmlEntities = (
-      await models.TagModel.find({ label: { $regex: Fmt.htmlEntityRegex } })
-        .allowDiskUse(true)
-        .lean()
-    ).map((t) => leanModelToJson<models.TagSchema>(t));
+export const repairTags = makeAction(
+  async ({
+    decodeLabels = true,
+    mergeDuplicateLabels = true,
+    regenerateMetadata = true,
+    repairHierarchy = true,
+    repairId,
+  }: {
+    decodeLabels?: boolean;
+    mergeDuplicateLabels?: boolean;
+    regenerateMetadata?: boolean;
+    repairHierarchy?: boolean;
+    repairId: string;
+  }) => {
+    const { perfLog } = makePerfLog("[repairTags]", true);
+    const { checkCancelled, report, run } = makeRepairReporter(repairId, "repairTags");
+    return run(async () => {
+      let mergedCount = 0;
+      let regeneratedMetadataCount = 0;
+      let repairedDerivedHierarchyCount = 0;
+      const tagsWithRepairedDirectRelations = new Set<string>();
 
-    if (tagsWithHtmlEntities.length) {
-      report(`Decoding labels on ${tagsWithHtmlEntities.length} tags.`);
-      const htmlBulkRes = await models.TagModel.bulkWrite(
-        tagsWithHtmlEntities
-          .map((t) => {
-            const decodedLabel = Fmt.decodeHtmlEntities(t.label);
-            if (decodedLabel === t.label) return null;
-            return {
-              updateOne: {
-                filter: { _id: objectId(t.id) },
-                update: { $set: { label: decodedLabel } },
-              },
-            };
-          })
-          .filter(Boolean),
-      );
+      if (decodeLabels) {
+        /* -------------------------- Replace HTML Entities ------------------------- */
+        report("Searching tag labels for encoded HTML entities.");
+        const tagsWithHtmlEntities = (
+          await models.TagModel.find({ label: { $regex: Fmt.htmlEntityRegex } })
+            .allowDiskUse(true)
+            .lean()
+        ).map((t) => leanModelToJson<models.TagSchema>(t));
 
-      perfLog(`Repaired HTML entities on ${htmlBulkRes.modifiedCount} tags`);
-    }
-    report(
-      `HTML entity repair completed: ${tagsWithHtmlEntities.length} tags required inspection.`,
-      "progress",
-    );
+        if (tagsWithHtmlEntities.length) {
+          report(`Decoding labels on ${tagsWithHtmlEntities.length} tags.`);
+          const htmlBulkRes = await models.TagModel.bulkWrite(
+            tagsWithHtmlEntities
+              .map((t) => {
+                const decodedLabel = Fmt.decodeHtmlEntities(t.label);
+                if (decodedLabel === t.label) return null;
+                return {
+                  updateOne: {
+                    filter: { _id: objectId(t.id) },
+                    update: { $set: { label: decodedLabel } },
+                  },
+                };
+              })
+              .filter(Boolean),
+          );
 
-    /* -------------------- Merge tags with duplicate labels -------------------- */
-    report("Searching for tags with duplicate labels.");
-    checkCancelled();
-    const duplicateLabels = await models.TagModel.aggregate<{
-      _id: string;
-      tags: Array<{
-        _id: string;
-        aliases: string[];
-        childIds: string[];
-        count: number;
-        label: string;
-        parentIds: string[];
-        regEx: string;
-      }>;
-    }>([
-      {
-        $group: {
-          _id: { $toLower: "$label" },
-          tags: {
-            $push: {
-              _id: "$_id",
-              aliases: "$aliases",
-              childIds: "$childIds",
-              count: "$count",
-              label: "$label",
-              parentIds: "$parentIds",
-              regEx: "$regEx",
-            },
-          },
-          count: { $sum: 1 },
-        },
-      },
-      { $match: { count: { $gt: 1 } } },
-    ]);
-
-    let mergedCount = 0;
-    const duplicateTagCount = duplicateLabels.reduce(
-      (count, group) => count + group.tags.length - 1,
-      0,
-    );
-    report(`Found ${duplicateTagCount} duplicate tags to merge.`, "progress");
-
-    for (const d of duplicateLabels) {
-      const [tagToKeep, ...tagsToMerge] = [...d.tags].sort((a, b) => {
-        if ((b.count ?? 0) !== (a.count ?? 0)) return (b.count ?? 0) - (a.count ?? 0);
-        return a._id.toString().localeCompare(b._id.toString());
-      });
-
-      for (const tagToMerge of tagsToMerge) {
-        checkCancelled();
-        await mergeTags({
-          tagIdToKeep: tagToKeep._id.toString(),
-          tagIdToMerge: tagToMerge._id.toString(),
-          label: tagToKeep.label,
-          aliases: tagToKeep.aliases ?? [],
-          childIds: tagToKeep.childIds ?? [],
-          parentIds: tagToKeep.parentIds ?? [],
-          regEx: tagToKeep.regEx,
-          withRegen: false,
-          withSub: false,
-        });
-
-        mergedCount++;
-        if (mergedCount % 25 === 0 || mergedCount === duplicateTagCount)
-          report(`Merged ${mergedCount} / ${duplicateTagCount} duplicate tags.`, "progress");
-      }
-    }
-
-    perfLog(`Merged ${mergedCount} duplicate tags`);
-
-    /* ---------------------- Repair derived hierarchy ids --------------------- */
-    report("Loading all tags to validate direct and derived hierarchy relationships.");
-    const tags = (
-      await models.TagModel.find({})
-        .select({ _id: 1, ancestorIds: 1, childIds: 1, descendantIds: 1, parentIds: 1 })
-        .allowDiskUse(true)
-        .lean()
-    ).map((tag) => leanModelToJson<models.TagSchema>(tag));
-    report(`Loaded ${tags.length} tags for hierarchy validation.`, "progress");
-
-    const hasSameIds = (currentIds: string[], expectedIds: string[]) => {
-      if ((currentIds?.length ?? 0) !== expectedIds.length) return false;
-
-      const currentIdSet = new Set((currentIds ?? []).map((id) => id.toString()));
-      return (
-        currentIdSet.size === expectedIds.length && expectedIds.every((id) => currentIdSet.has(id))
-      );
-    };
-
-    const validTagIds = new Set(tags.map((tag) => tag.id));
-    const parentIdsByTagId = new Map(
-      tags.map((tag) => [
-        tag.id,
-        new Set(
-          (tag.parentIds ?? [])
-            .map((id) => id.toString())
-            .filter((id) => id !== tag.id && validTagIds.has(id)),
-        ),
-      ]),
-    );
-    const childIdsByTagId = new Map(
-      tags.map((tag) => [
-        tag.id,
-        new Set(
-          (tag.childIds ?? [])
-            .map((id) => id.toString())
-            .filter((id) => id !== tag.id && validTagIds.has(id)),
-        ),
-      ]),
-    );
-
-    for (let tagIndex = 0; tagIndex < tags.length; tagIndex++) {
-      checkCancelled();
-      const tag = tags[tagIndex];
-      for (const childId of childIdsByTagId.get(tag.id)) {
-        parentIdsByTagId.get(childId).add(tag.id);
-      }
-      for (const parentId of parentIdsByTagId.get(tag.id)) {
-        childIdsByTagId.get(parentId).add(tag.id);
-      }
-      if ((tagIndex + 1) % 1000 === 0 || tagIndex + 1 === tags.length)
-        report(
-          `Reconciled direct relationships for ${tagIndex + 1} / ${tags.length} tags.`,
-          "progress",
-        );
-    }
-    report("Reconciled direct parent and child relationships in memory.", "progress");
-
-    const tagsWithRepairedDirectRelations = new Set<string>();
-    for (let tagIndex = 0; tagIndex < tags.length; tagIndex++) {
-      checkCancelled();
-      const tag = tags[tagIndex];
-      const childIds = [...childIdsByTagId.get(tag.id)];
-      const parentIds = [...parentIdsByTagId.get(tag.id)];
-      if (!hasSameIds(tag.childIds, childIds) || !hasSameIds(tag.parentIds, parentIds)) {
-        tagsWithRepairedDirectRelations.add(tag.id);
-      }
-
-      tag.childIds = childIds;
-      tag.parentIds = parentIds;
-    }
-
-    const tagMap = new Map(tags.map((tag) => [tag.id, tag]));
-
-    const deriveRelatedIds = (tagId: string, relationKey: "childIds" | "parentIds") => {
-      const relatedIds = new Set([tagId]);
-      const queue = [tagId];
-
-      for (let index = 0; index < queue.length; index++) {
-        const currentTag = tagMap.get(queue[index]);
-        if (!currentTag) continue;
-
-        for (const relatedIdValue of currentTag[relationKey] ?? []) {
-          const relatedId = relatedIdValue.toString();
-          if (!tagMap.has(relatedId) || relatedIds.has(relatedId)) continue;
-
-          relatedIds.add(relatedId);
-          queue.push(relatedId);
+          perfLog(`Repaired HTML entities on ${htmlBulkRes.modifiedCount} tags`);
         }
-      }
-
-      return [...relatedIds];
-    };
-
-    let repairedDerivedHierarchyCount = 0;
-    const hierarchyBulkWriteOps: AnyBulkWriteOperation[] = [];
-
-    for (let tagIndex = 0; tagIndex < tags.length; tagIndex++) {
-      checkCancelled();
-      const tag = tags[tagIndex];
-      const ancestorIds = deriveRelatedIds(tag.id, "parentIds");
-      const descendantIds = deriveRelatedIds(tag.id, "childIds");
-      const derivedHierarchyNeedsRepair =
-        !hasSameIds(tag.ancestorIds, ancestorIds) || !hasSameIds(tag.descendantIds, descendantIds);
-      const directRelationsNeedRepair = tagsWithRepairedDirectRelations.has(tag.id);
-      if (directRelationsNeedRepair || derivedHierarchyNeedsRepair) {
-        if (derivedHierarchyNeedsRepair) repairedDerivedHierarchyCount++;
-        hierarchyBulkWriteOps.push({
-          updateOne: {
-            filter: { _id: objectId(tag.id) },
-            update: {
-              $set: {
-                ...(directRelationsNeedRepair
-                  ? {
-                      childIds: objectIds(tag.childIds),
-                      parentIds: objectIds(tag.parentIds),
-                    }
-                  : {}),
-                ...(derivedHierarchyNeedsRepair
-                  ? {
-                      ancestorIds: objectIds(ancestorIds),
-                      descendantIds: objectIds(descendantIds),
-                    }
-                  : {}),
-              },
-            },
-          },
-        });
-      }
-      if ((tagIndex + 1) % 1000 === 0 || tagIndex + 1 === tags.length)
         report(
-          `Validated derived hierarchies for ${tagIndex + 1} / ${tags.length} tags.`,
+          `HTML entity repair completed: ${tagsWithHtmlEntities.length} tags required inspection.`,
           "progress",
         );
-    }
-    report(
-      `Hierarchy validation found ${tagsWithRepairedDirectRelations.size} tags with direct relationship errors and ${repairedDerivedHierarchyCount} with derived hierarchy errors.`,
-      "progress",
-    );
+      }
 
-    let writtenHierarchyOperations = 0;
-    for (const operations of chunkArray(hierarchyBulkWriteOps, 5000)) {
-      checkCancelled();
+      if (mergeDuplicateLabels) {
+        /* -------------------- Merge tags with duplicate labels -------------------- */
+        report("Searching for tags with duplicate labels.");
+        checkCancelled();
+        const duplicateLabels = await models.TagModel.aggregate<{
+          _id: string;
+          tags: Array<{
+            _id: string;
+            aliases: string[];
+            childIds: string[];
+            count: number;
+            label: string;
+            parentIds: string[];
+            regEx: string;
+          }>;
+        }>([
+          {
+            $group: {
+              _id: { $toLower: "$label" },
+              tags: {
+                $push: {
+                  _id: "$_id",
+                  aliases: "$aliases",
+                  childIds: "$childIds",
+                  count: "$count",
+                  label: "$label",
+                  parentIds: "$parentIds",
+                  regEx: "$regEx",
+                },
+              },
+              count: { $sum: 1 },
+            },
+          },
+          { $match: { count: { $gt: 1 } } },
+        ]);
+
+        const duplicateTagCount = duplicateLabels.reduce(
+          (count, group) => count + group.tags.length - 1,
+          0,
+        );
+        report(`Found ${duplicateTagCount} duplicate tags to merge.`, "progress");
+
+        for (const d of duplicateLabels) {
+          const [tagToKeep, ...tagsToMerge] = [...d.tags].sort((a, b) => {
+            if ((b.count ?? 0) !== (a.count ?? 0)) return (b.count ?? 0) - (a.count ?? 0);
+            return a._id.toString().localeCompare(b._id.toString());
+          });
+
+          for (const tagToMerge of tagsToMerge) {
+            checkCancelled();
+            await mergeTags({
+              tagIdToKeep: tagToKeep._id.toString(),
+              tagIdToMerge: tagToMerge._id.toString(),
+              label: tagToKeep.label,
+              aliases: tagToKeep.aliases ?? [],
+              childIds: tagToKeep.childIds ?? [],
+              parentIds: tagToKeep.parentIds ?? [],
+              regEx: tagToKeep.regEx,
+              withRegen: false,
+              withSub: false,
+            });
+
+            mergedCount++;
+            if (mergedCount % 25 === 0 || mergedCount === duplicateTagCount)
+              report(`Merged ${mergedCount} / ${duplicateTagCount} duplicate tags.`, "progress");
+          }
+        }
+
+        perfLog(`Merged ${mergedCount} duplicate tags`);
+      }
+
+      if (repairHierarchy || mergedCount > 0) {
+        /* ---------------------- Repair derived hierarchy ids --------------------- */
+        report("Loading all tags to validate direct and derived hierarchy relationships.");
+        const tags = (
+          await models.TagModel.find({})
+            .select({ _id: 1, ancestorIds: 1, childIds: 1, descendantIds: 1, parentIds: 1 })
+            .allowDiskUse(true)
+            .lean()
+        ).map((tag) => leanModelToJson<models.TagSchema>(tag));
+        report(`Loaded ${tags.length} tags for hierarchy validation.`, "progress");
+
+        const hasSameIds = (currentIds: string[], expectedIds: string[]) => {
+          if ((currentIds?.length ?? 0) !== expectedIds.length) return false;
+
+          const currentIdSet = new Set((currentIds ?? []).map((id) => id.toString()));
+          return (
+            currentIdSet.size === expectedIds.length &&
+            expectedIds.every((id) => currentIdSet.has(id))
+          );
+        };
+
+        const validTagIds = new Set(tags.map((tag) => tag.id));
+        const parentIdsByTagId = new Map(
+          tags.map((tag) => [
+            tag.id,
+            new Set(
+              (tag.parentIds ?? [])
+                .map((id) => id.toString())
+                .filter((id) => id !== tag.id && validTagIds.has(id)),
+            ),
+          ]),
+        );
+        const childIdsByTagId = new Map(
+          tags.map((tag) => [
+            tag.id,
+            new Set(
+              (tag.childIds ?? [])
+                .map((id) => id.toString())
+                .filter((id) => id !== tag.id && validTagIds.has(id)),
+            ),
+          ]),
+        );
+
+        for (let tagIndex = 0; tagIndex < tags.length; tagIndex++) {
+          checkCancelled();
+          const tag = tags[tagIndex];
+          for (const childId of childIdsByTagId.get(tag.id)) {
+            parentIdsByTagId.get(childId).add(tag.id);
+          }
+          for (const parentId of parentIdsByTagId.get(tag.id)) {
+            childIdsByTagId.get(parentId).add(tag.id);
+          }
+          if ((tagIndex + 1) % 1000 === 0 || tagIndex + 1 === tags.length)
+            report(
+              `Reconciled direct relationships for ${tagIndex + 1} / ${tags.length} tags.`,
+              "progress",
+            );
+        }
+        report("Reconciled direct parent and child relationships in memory.", "progress");
+
+        for (let tagIndex = 0; tagIndex < tags.length; tagIndex++) {
+          checkCancelled();
+          const tag = tags[tagIndex];
+          const childIds = [...childIdsByTagId.get(tag.id)];
+          const parentIds = [...parentIdsByTagId.get(tag.id)];
+          if (!hasSameIds(tag.childIds, childIds) || !hasSameIds(tag.parentIds, parentIds)) {
+            tagsWithRepairedDirectRelations.add(tag.id);
+          }
+
+          tag.childIds = childIds;
+          tag.parentIds = parentIds;
+        }
+
+        const tagMap = new Map(tags.map((tag) => [tag.id, tag]));
+
+        const deriveRelatedIds = (tagId: string, relationKey: "childIds" | "parentIds") => {
+          const relatedIds = new Set([tagId]);
+          const queue = [tagId];
+
+          for (let index = 0; index < queue.length; index++) {
+            const currentTag = tagMap.get(queue[index]);
+            if (!currentTag) continue;
+
+            for (const relatedIdValue of currentTag[relationKey] ?? []) {
+              const relatedId = relatedIdValue.toString();
+              if (!tagMap.has(relatedId) || relatedIds.has(relatedId)) continue;
+
+              relatedIds.add(relatedId);
+              queue.push(relatedId);
+            }
+          }
+
+          return [...relatedIds];
+        };
+
+        const hierarchyBulkWriteOps: AnyBulkWriteOperation[] = [];
+
+        for (let tagIndex = 0; tagIndex < tags.length; tagIndex++) {
+          checkCancelled();
+          const tag = tags[tagIndex];
+          const ancestorIds = deriveRelatedIds(tag.id, "parentIds");
+          const descendantIds = deriveRelatedIds(tag.id, "childIds");
+          const derivedHierarchyNeedsRepair =
+            !hasSameIds(tag.ancestorIds, ancestorIds) ||
+            !hasSameIds(tag.descendantIds, descendantIds);
+          const directRelationsNeedRepair = tagsWithRepairedDirectRelations.has(tag.id);
+          if (directRelationsNeedRepair || derivedHierarchyNeedsRepair) {
+            if (derivedHierarchyNeedsRepair) repairedDerivedHierarchyCount++;
+            hierarchyBulkWriteOps.push({
+              updateOne: {
+                filter: { _id: objectId(tag.id) },
+                update: {
+                  $set: {
+                    ...(directRelationsNeedRepair
+                      ? {
+                          childIds: objectIds(tag.childIds),
+                          parentIds: objectIds(tag.parentIds),
+                        }
+                      : {}),
+                    ...(derivedHierarchyNeedsRepair
+                      ? {
+                          ancestorIds: objectIds(ancestorIds),
+                          descendantIds: objectIds(descendantIds),
+                        }
+                      : {}),
+                  },
+                },
+              },
+            });
+          }
+          if ((tagIndex + 1) % 1000 === 0 || tagIndex + 1 === tags.length)
+            report(
+              `Validated derived hierarchies for ${tagIndex + 1} / ${tags.length} tags.`,
+              "progress",
+            );
+        }
+        report(
+          `Hierarchy validation found ${tagsWithRepairedDirectRelations.size} tags with direct relationship errors and ${repairedDerivedHierarchyCount} with derived hierarchy errors.`,
+          "progress",
+        );
+
+        let writtenHierarchyOperations = 0;
+        for (const operations of chunkArray(hierarchyBulkWriteOps, 5000)) {
+          checkCancelled();
+          report(
+            `Writing hierarchy repairs ${writtenHierarchyOperations + 1}-${writtenHierarchyOperations + operations.length} of ${hierarchyBulkWriteOps.length}.`,
+            "progress",
+          );
+          await models.TagModel.bulkWrite(operations, { ordered: false });
+          writtenHierarchyOperations += operations.length;
+        }
+
+        perfLog(
+          `Repaired direct parent/child relations on ${tagsWithRepairedDirectRelations.size} tags`,
+        );
+        perfLog(`Repaired derived hierarchy ids on ${repairedDerivedHierarchyCount} tags`);
+
+        const tagIds = tags.map((tag) => tag.id);
+
+        report("Regenerating cached tag ancestors on files.");
+        checkCancelled();
+        const fileRes = await actions.regenFileTagAncestors({ repairId, tagIds });
+        if (!fileRes.success) throw new Error(fileRes.error);
+        perfLog(
+          `Repaired file tag ancestors on ${fileRes.data.updatedCount} / ${fileRes.data.processedCount} files`,
+        );
+        report(
+          `File tag-ancestor repair completed: updated ${fileRes.data.updatedCount} of ${fileRes.data.processedCount} files.`,
+          "progress",
+        );
+
+        report("Regenerating cached tag ancestors on collections.");
+        checkCancelled();
+        const collectionRes = await actions.regenCollTagAncestors({ repairId, tagIds });
+        if (!collectionRes.success) throw new Error(collectionRes.error);
+        perfLog(
+          `Repaired collection tag ancestors on ${collectionRes.data.updatedCount} / ${collectionRes.data.processedCount} collections`,
+        );
+        report(
+          `Collection tag-ancestor repair completed: updated ${collectionRes.data.updatedCount} of ${collectionRes.data.processedCount} collections.`,
+          "progress",
+        );
+      }
+
+      if (regenerateMetadata || mergedCount > 0) {
+        report("Regenerating tag counts, sizes, and thumbnails from repaired file data.");
+        const tagIds = (await models.TagModel.find({}).select({ _id: 1 }).lean()).map((tag) =>
+          tag._id.toString(),
+        );
+        checkCancelled();
+        const metaRes = await regenTagMeta({ tagIds, withSub: false });
+        if (!metaRes.success) throw new Error(metaRes.error);
+        regeneratedMetadataCount = metaRes.data.length;
+        perfLog("Regenerated tag metadata");
+      }
+
       report(
-        `Writing hierarchy repairs ${writtenHierarchyOperations + 1}-${writtenHierarchyOperations + operations.length} of ${hierarchyBulkWriteOps.length}.`,
-        "progress",
+        `Tag repair completed successfully: merged ${mergedCount} duplicates, repaired ${tagsWithRepairedDirectRelations.size} direct relationships, repaired ${repairedDerivedHierarchyCount} derived hierarchies, and regenerated metadata for ${regeneratedMetadataCount} tags.`,
+        "success",
       );
-      await models.TagModel.bulkWrite(operations, { ordered: false });
-      writtenHierarchyOperations += operations.length;
-    }
-
-    perfLog(
-      `Repaired direct parent/child relations on ${tagsWithRepairedDirectRelations.size} tags`,
-    );
-    perfLog(`Repaired derived hierarchy ids on ${repairedDerivedHierarchyCount} tags`);
-
-    const tagIds = tags.map((tag) => tag.id);
-
-    report("Regenerating cached tag ancestors on files.");
-    checkCancelled();
-    const fileRes = await actions.regenFileTagAncestors({ repairId, tagIds });
-    if (!fileRes.success) throw new Error(fileRes.error);
-    perfLog(
-      `Repaired file tag ancestors on ${fileRes.data.updatedCount} / ${fileRes.data.processedCount} files`,
-    );
-    report(
-      `File tag-ancestor repair completed: updated ${fileRes.data.updatedCount} of ${fileRes.data.processedCount} files.`,
-      "progress",
-    );
-
-    report("Regenerating cached tag ancestors on collections.");
-    checkCancelled();
-    const collectionRes = await actions.regenCollTagAncestors({ repairId, tagIds });
-    if (!collectionRes.success) throw new Error(collectionRes.error);
-    perfLog(
-      `Repaired collection tag ancestors on ${collectionRes.data.updatedCount} / ${collectionRes.data.processedCount} collections`,
-    );
-    report(
-      `Collection tag-ancestor repair completed: updated ${collectionRes.data.updatedCount} of ${collectionRes.data.processedCount} collections.`,
-      "progress",
-    );
-
-    report("Regenerating tag counts, sizes, and thumbnails from repaired file data.");
-    checkCancelled();
-    const metaRes = await regenTagMeta({ tagIds, withSub: false });
-    if (!metaRes.success) throw new Error(metaRes.error);
-    perfLog("Regenerated tag metadata");
-    report(
-      `Tag repair completed successfully: merged ${mergedCount} duplicates, repaired ${tagsWithRepairedDirectRelations.size} direct relationships, repaired ${repairedDerivedHierarchyCount} derived hierarchies, and regenerated metadata for ${metaRes.data.length} tags.`,
-      "success",
-    );
-    return {
-      mergedCount,
-      repairedDerivedHierarchyCount,
-      repairedDirectRelationshipCount: tagsWithRepairedDirectRelations.size,
-      regeneratedMetadataCount: metaRes.data.length,
-    };
-  });
-});
+      return {
+        mergedCount,
+        repairedDerivedHierarchyCount,
+        repairedDirectRelationshipCount: tagsWithRepairedDirectRelations.size,
+        regeneratedMetadataCount,
+      };
+    });
+  },
+);
 
 export const setTagCount = makeAction(async ({ count, id }: { count: number; id: string }) => {
   const dateModified = dayjs().toISOString();

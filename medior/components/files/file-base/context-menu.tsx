@@ -83,12 +83,9 @@ export const ContextMenu = Comp(
         else {
           let orderedFileIds = carouselFileIds;
           if (!orderedFileIds?.length) {
-            const fileIdsRes = await trpc.listFileIdsForCarousel.mutate({
-              ...store.getCachedFilterProps(),
-              page: store.page,
-              pageSize: store.pageSize,
-            });
-            if (!fileIdsRes.success) throw new Error(fileIdsRes.error);
+            if (!("listIdsForCarousel" in store)) throw new Error("No files found");
+            const fileIdsRes = await store.listIdsForCarousel();
+            if (!fileIdsRes?.success) throw new Error(fileIdsRes.error);
             orderedFileIds = fileIdsRes.data;
           }
           if (!orderedFileIds?.length) throw new Error("No files found");

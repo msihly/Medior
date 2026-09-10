@@ -154,25 +154,10 @@ export const useSockets = ({ enabled = true, view }: UseSocketsProps) => {
     stores.collection.editor.collection?.reloadTags();
   };
 
-  const updateVisibleFiles = (
-    fileIds: string[],
-    updates: Parameters<typeof stores.file.updateFiles>[1],
-  ) => {
-    stores.file.updateFiles(fileIds, updates);
-    stores.collection.editor.updateFiles(fileIds, updates);
-    stores.collection.manager.selectedFiles.forEach((file) => {
-      if (fileIds.includes(file.id)) file.update(updates);
-    });
-    stores.collection.editor.fileSearch.results.forEach((file) => {
-      if (fileIds.includes(file.id)) file.update(updates);
-    });
-    stores.collection.manager.search.files.forEach((file) => {
-      if (fileIds.includes(file.id)) file.update(updates);
-    });
-  };
-
   const setupSockets = () => {
     socket.connect();
+
+    makeSocket("onFileRefreshProgress", stores.file.handleFileRefreshProgress);
 
     makeSocket("onFilesArchived", ({ fileIds }) => {
       if (view === "carousel" || stores.collection.manager.isTriagerOpen)
@@ -206,14 +191,14 @@ export const useSockets = ({ enabled = true, view }: UseSocketsProps) => {
     });
 
     makeSocket("onFilesUpdated", ({ fileIds, updates }) => {
-      updateVisibleFiles(fileIds, updates);
+      stores.file.updateVisibleFiles(fileIds, updates);
       if (typeof updates.isArchived === "boolean")
         stores.file.updateArchivedFileIds(fileIds, updates.isArchived);
 
       if (view !== "carousel") {
         const updatedKeys = Object.keys(updates);
         const shouldReload =
-          updatedKeys.some((k) => ["isArchived", "tagIds"].includes(k)) ||
+          updatedKeys.some((k) => ["collectionIds", "isArchived", "tagIds"].includes(k)) ||
           updatedKeys.includes(stores.file.search.sortValue.key) ||
           updatedKeys.includes(stores.collection.editor.search.sortValue.key) ||
           updatedKeys.includes(stores.collection.editor.fileSearch.sortValue.key);

@@ -288,16 +288,7 @@ export const replaceFileTransformOutput = makeAction(async (args: { id: string }
   });
   if (!dbRes.success) throw new Error(dbRes.error);
 
-  const importer = new FileImporter({
-    deleteOnImport: false,
-    ext: info.ext,
-    ignorePrevDeleted: false,
-    originalName: file.originalName,
-    originalPath: transform.afterPath,
-    size: info.size,
-    tagIds: file.tagIds,
-  });
-  const refreshRes = await importer.refresh(dbRes.data);
+  const refreshRes = await actions.refreshFileInfo({ fileId: dbRes.data.id });
   if (!refreshRes.success) throw new Error(refreshRes.error);
 
   const diskRes = await deleteFile(file.path, transform.afterPath);

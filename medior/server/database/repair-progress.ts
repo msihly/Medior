@@ -11,14 +11,30 @@ class RepairCancelledError extends Error {
 }
 
 const cancelledRepairIds = new Set<string>();
+const repairAbortControllers = new Map<string, AbortController>();
 
-export const startRepair = (repairId: string) => cancelledRepairIds.delete(repairId);
-export const cancelRepair = (repairId: string) => cancelledRepairIds.add(repairId);
-export const finishRepair = (repairId: string) => cancelledRepairIds.delete(repairId);
+export const startRepair = (repairId: string) => {
+  cancelledRepairIds.delete(repairId);
+  repairAbortControllers.set(repairId, new AbortController());
+};
+
+export const cancelRepair = (repairId: string) => {
+  cancelledRepairIds.add(repairId);
+  repairAbortControllers.get(repairId)?.abort(new RepairCancelledError());
+};
+
+export const finishRepair = (repairId: string) => {
+  cancelledRepairIds.delete(repairId);
+  repairAbortControllers.delete(repairId);
+};
 
 export const makeRepairReporter = (repairId: string, repairName: string) => {
-  const report = (message: string, status: RepairProgressStatus = "info") => {
-    fileLog(`[${repairName}] ${message}`, status === "error" ? { type: "error" } : undefined);
+  const abortController =
+    repairAbortControllers.get(repairId) ??
+    repairAbortControllers.set(repairId, new AbortController()).get(repairId);
+  const report = (message: string, status: RepairProgressStatus = "info", isTransient = false) => {
+    if (!isTransient)
+      fileLog(`[${repairName}] ${message}`, status === "error" ? { type: "error" } : undefined);
     socket.emitReliable("onRepairProgress", { message, repairId, status });
   };
 
@@ -40,5 +56,5 @@ export const makeRepairReporter = (repairId: string, repairName: string) => {
     }
   };
 
-  return { checkCancelled, report, run };
+  return { checkCancelled, report, run, signal: abortController.signal };
 };

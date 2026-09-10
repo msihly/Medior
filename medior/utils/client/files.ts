@@ -4,24 +4,28 @@ import { Metadata } from "sharp";
 import { makePerfLog } from "trabecula/utils/server";
 import type { FileSchema, ImportFileInput } from "medior/server/database";
 import { CONSTANTS, dayjs } from "medior/utils/common";
-import { getIsAnimated, sharp } from "medior/utils/server";
+import { analyzeAudio, getIsAnimated, sharp } from "medior/utils/server";
 import { getVideoInfo, vidToThumbGrid } from "medior/utils/server/videos";
 
 export const genFileInfo = async (args: {
   file?: FileSchema;
   filePath: string;
   hash: string;
+  onProgress?: (message: string, progress?: number) => void;
+  signal?: AbortSignal;
   skipThumbs?: boolean;
 }) => {
   const DEBUG = false;
   const { perfLog, perfLogTotal } = makePerfLog("[genFileInfo]");
 
+  args.signal?.throwIfAborted();
   const ext = args.filePath.split(".").pop().toLowerCase();
   const isAnimated = getIsAnimated(ext);
 
   let isCorrupted: boolean = false;
   let imageInfo: Metadata = null;
 
+  args.onProgress?.("Reading file metadata.");
   const stats = await fs.stat(args?.filePath);
 
   if (!isAnimated) {
@@ -32,7 +36,13 @@ export const genFileInfo = async (args: {
     }
   }
 
+  if (isAnimated) args.onProgress?.("Inspecting video metadata.");
   const videoInfo = isAnimated ? await getVideoInfo(args.filePath) : null;
+  args.signal?.throwIfAborted();
+  const audioAnalysis =
+    videoInfo?.audioCodec && videoInfo.audioCodec !== "None"
+      ? await analyzeAudio(args.filePath, args.onProgress, args.signal)
+      : null;
 
   const audioBitrate = isAnimated ? videoInfo.audioBitrate : null;
   const audioCodec = isAnimated ? videoInfo.audioCodec : null;
@@ -53,6 +63,8 @@ export const genFileInfo = async (args: {
   let thumbPath = path.resolve(dirPath, `${args.hash}-thumb.jpg`);
 
   if (!args.skipThumbs) {
+    args.signal?.throwIfAborted();
+    args.onProgress?.("Generating thumbnail.");
     if (hasFrames) {
       const thumbGridRes = await vidToThumbGrid(args.filePath, dirPath, args.hash);
       isCorrupted = thumbGridRes.isCorrupted;
@@ -67,6 +79,8 @@ export const genFileInfo = async (args: {
       }
     }
 
+    args.signal?.throwIfAborted();
+
     if (DEBUG) perfLog(`Generated thumbnail.`);
   }
 
@@ -79,15 +93,19 @@ export const genFileInfo = async (args: {
     ext,
     frameRate,
     hash: args?.hash,
+    hasTranscript: Boolean(audioAnalysis?.transcription ?? args.file?.transcription),
     height,
     isCorrupted,
+    peakDecibels: audioAnalysis?.peakDecibels,
     size: stats.size,
     thumb: {
       frameHeight: isAnimated ? height : null,
       frameWidth: isAnimated ? width : null,
       path: thumbPath,
     },
+    transcription: audioAnalysis?.transcription,
     videoCodec,
+    waveformPeaks: audioAnalysis?.waveformPeaks,
     width,
   };
 

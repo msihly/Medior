@@ -9,19 +9,23 @@ import { asyncAction, openCarouselWindow, toast } from "medior/utils/client";
 import { Fmt } from "medior/utils/common";
 import { extractVideoFrame, videoTranscoder } from "medior/utils/server/videos";
 
+const CAPTIONS_VISIBLE_KEY = "medior.carousel.captionsVisible";
 const IS_PINNED_KEY = "medior.carousel.isPinned";
 const LAST_VOLUME_KEY = "medior.carousel.lastVolume";
 const VOLUME_KEY = "medior.carousel.volume";
+const WAVEFORM_VISIBLE_KEY = "medior.carousel.waveformVisible";
 
 @model("medior/CarouselStore")
 export class CarouselStore extends Model({
   activeFileId: prop<string>("").withSetter(),
   curFrame: prop<number>(1),
   curTime: prop<number>(0),
+  isCaptionsVisible: prop<boolean>(false),
   isMouseMoving: prop<boolean>(false).withSetter(),
   isPinned: prop<boolean>(false).withSetter(),
   isPlaying: prop<boolean>(true).withSetter(),
   isWaitingForFrames: prop<boolean>(false).withSetter(),
+  isWaveformVisible: prop<boolean>(true),
   lastVolume: prop<number>(0.3).withSetter(),
   markIn: prop<number>(null).withSetter(),
   markOut: prop<number>(null).withSetter(),
@@ -35,13 +39,17 @@ export class CarouselStore extends Model({
 }) {
   onInit() {
     autoBind(this);
-    const volume = localStorage.getItem(VOLUME_KEY);
-    const lastVolume = localStorage.getItem(LAST_VOLUME_KEY);
+    const captionsVisible = localStorage.getItem(CAPTIONS_VISIBLE_KEY);
     const isPinned = localStorage.getItem(IS_PINNED_KEY);
-    if (volume !== null && Number.isFinite(Number(volume))) this.volume = Number(volume);
+    const lastVolume = localStorage.getItem(LAST_VOLUME_KEY);
+    const volume = localStorage.getItem(VOLUME_KEY);
+    const waveformVisible = localStorage.getItem(WAVEFORM_VISIBLE_KEY);
+    if (captionsVisible !== null) this.isCaptionsVisible = captionsVisible === "true";
+    if (isPinned !== null) this.isPinned = isPinned === "true";
     if (lastVolume !== null && Number.isFinite(Number(lastVolume)))
       this.lastVolume = Number(lastVolume);
-    if (isPinned !== null) this.isPinned = isPinned === "true";
+    if (volume !== null && Number.isFinite(Number(volume))) this.volume = Number(volume);
+    if (waveformVisible !== null) this.isWaveformVisible = waveformVisible === "true";
   }
 
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
@@ -92,6 +100,12 @@ export class CarouselStore extends Model({
   }
 
   @modelAction
+  toggleCaptions() {
+    this.isCaptionsVisible = !this.isCaptionsVisible;
+    localStorage.setItem(CAPTIONS_VISIBLE_KEY, String(this.isCaptionsVisible));
+  }
+
+  @modelAction
   toggleIsPinned() {
     this.setIsPinned(!this.isPinned);
     localStorage.setItem(IS_PINNED_KEY, String(this.isPinned));
@@ -111,6 +125,12 @@ export class CarouselStore extends Model({
     }
     localStorage.setItem(LAST_VOLUME_KEY, String(this.lastVolume));
     localStorage.setItem(VOLUME_KEY, String(this.volume));
+  }
+
+  @modelAction
+  toggleWaveform() {
+    this.isWaveformVisible = !this.isWaveformVisible;
+    localStorage.setItem(WAVEFORM_VISIBLE_KEY, String(this.isWaveformVisible));
   }
 
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */

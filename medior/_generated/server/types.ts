@@ -298,9 +298,6 @@ export type ListFaceModelsOutput = ReturnType<typeof db.listFaceModels>;
 export type ListFilesByTagIdsInput = Parameters<typeof db.listFilesByTagIds>[0];
 export type ListFilesByTagIdsOutput = ReturnType<typeof db.listFilesByTagIds>;
 
-export type ListFileIdsForCarouselInput = Parameters<typeof db.listFileIdsForCarousel>[0];
-export type ListFileIdsForCarouselOutput = ReturnType<typeof db.listFileIdsForCarousel>;
-
 export type ListFilePathsInput = Parameters<typeof db.listFilePaths>[0];
 export type ListFilePathsOutput = ReturnType<typeof db.listFilePaths>;
 
@@ -322,6 +319,9 @@ export type RepairFilesWithBrokenExtOutput = ReturnType<typeof db.repairFilesWit
 export type RepairFilesWithMissingInfoInput = Parameters<typeof db.repairFilesWithMissingInfo>[0];
 export type RepairFilesWithMissingInfoOutput = ReturnType<typeof db.repairFilesWithMissingInfo>;
 
+export type RepairMissingAudioAnalysisInput = Parameters<typeof db.repairMissingAudioAnalysis>[0];
+export type RepairMissingAudioAnalysisOutput = ReturnType<typeof db.repairMissingAudioAnalysis>;
+
 export type SetFileFaceModelsInput = Parameters<typeof db.setFileFaceModels>[0];
 export type SetFileFaceModelsOutput = ReturnType<typeof db.setFileFaceModels>;
 
@@ -333,6 +333,15 @@ export type SetFileRatingOutput = ReturnType<typeof db.setFileRating>;
 
 export type RepairFileThumbnailInput = Parameters<typeof db.repairFileThumbnail>[0];
 export type RepairFileThumbnailOutput = ReturnType<typeof db.repairFileThumbnail>;
+
+export type CancelFileRefreshInput = Parameters<typeof db.cancelFileRefresh>[0];
+export type CancelFileRefreshOutput = ReturnType<typeof db.cancelFileRefresh>;
+
+export type FinishFileRefreshInput = Parameters<typeof db.finishFileRefresh>[0];
+export type FinishFileRefreshOutput = ReturnType<typeof db.finishFileRefresh>;
+
+export type RefreshFileInfoInput = Parameters<typeof db.refreshFileInfo>[0];
+export type RefreshFileInfoOutput = ReturnType<typeof db.refreshFileInfo>;
 
 export type RepairThumbsInput = Parameters<typeof db.repairThumbs>[0];
 export type RepairThumbsOutput = ReturnType<typeof db.repairThumbs>;

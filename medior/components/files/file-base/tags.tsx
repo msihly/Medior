@@ -3,11 +3,12 @@ import { Comp, TagRow, View } from "medior/components";
 import { makeClasses } from "medior/utils/client";
 
 interface TagsProps {
+  compact?: boolean;
   tags: TagSchema[];
 }
 
-export const Tags = Comp(({ tags }: TagsProps) => {
-  const { css } = useClasses(null);
+export const Tags = Comp(({ compact = false, tags }: TagsProps) => {
+  const { css } = useClasses({ compact });
 
   return !tags?.length ? (
     <View />
@@ -16,11 +17,11 @@ export const Tags = Comp(({ tags }: TagsProps) => {
   );
 });
 
-const useClasses = makeClasses({
+const useClasses = makeClasses(({ compact }: Pick<TagsProps, "compact">) => ({
   tags: {
     position: "relative",
     borderRadius: "inherit",
-    padding: "1rem 0 0.3rem 0.3rem",
+    padding: `${compact ? "0.2rem" : "1rem"} 0 0.3rem 0.3rem`,
     width: "100%",
     "&::after": {
       content: '""',
@@ -32,4 +33,4 @@ const useClasses = makeClasses({
       background: "linear-gradient(155deg, transparent 75%, black)",
     },
   },
-});
+}));

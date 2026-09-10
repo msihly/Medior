@@ -1510,12 +1510,14 @@ export class _FileTransformSearch extends Model({
 export class _FileSearch extends Model({
   bitrate: prop<{ logOp: LogicalOp | ""; value: number }>(() => ({ logOp: "", value: 0 })),
   cachedFilterProps: prop<object | null>(null).withSetter(),
+  carouselFileIds: prop<string[]>(() => []).withSetter(),
   dateCreatedEnd: prop<string>("").withSetter(),
   dateCreatedStart: prop<string>("").withSetter(),
   dateImportedEnd: prop<string>("").withSetter(),
   dateImportedStart: prop<string>("").withSetter(),
   dateModifiedEnd: prop<string>("").withSetter(),
   dateModifiedStart: prop<string>("").withSetter(),
+  diffusionParams: prop<string>(null).withSetter(),
   duration: prop<{ logOp: LogicalOp | ""; value: number }>(() => ({ logOp: "", value: 0 })),
   excludedFileIds: prop<string[]>(() => []).withSetter(),
   forcePages: prop<boolean>(false).withSetter(),
@@ -1528,6 +1530,7 @@ export class _FileSearch extends Model({
   isLoading: prop<boolean>(false).withSetter(),
   isModified: prop<boolean>(null).withSetter(),
   isPageCountLoading: prop<boolean>(false).withSetter(),
+  isTranscribed: prop<boolean>(null).withSetter(),
   loadId: prop<number>(0).withSetter(),
   maxHeight: prop<number>(null).withSetter(),
   maxSize: prop<number>(null).withSetter(),
@@ -1535,6 +1538,7 @@ export class _FileSearch extends Model({
   minHeight: prop<number>(null).withSetter(),
   minSize: prop<number>(null).withSetter(),
   minWidth: prop<number>(null).withSetter(),
+  numOfCollections: prop<{ logOp: LogicalOp | ""; value: number }>(() => ({ logOp: "", value: 0 })),
   numOfTags: prop<{ logOp: LogicalOp | ""; value: number }>(() => ({ logOp: "", value: 0 })),
   originalPath: prop<string>(null).withSetter(),
   page: prop<number>(1).withSetter(),
@@ -1569,6 +1573,7 @@ export class _FileSearch extends Model({
   ),
   sortValue: prop<SortMenuProps["value"]>(() => getConfig().file.search.sort).withSetter(),
   tags: prop<Stores.TagOption[]>(() => []).withSetter(),
+  transcription: prop<string>(null).withSetter(),
   isDeleteModalOpen: prop<boolean>(false).withSetter(),
   isSaveModalOpen: prop<boolean>(false).withSetter(),
   savedSearches: prop<Stores.SavedSearch[]>(() => []).withSetter(),
@@ -1637,6 +1642,17 @@ export class _FileSearch extends Model({
   }
 
   @modelAction
+  setNumOfCollectionsOp(val: LogicalOp | "") {
+    this.numOfCollections.logOp = val;
+    if (val === "") this.numOfCollections.value = 0;
+  }
+
+  @modelAction
+  setNumOfCollectionsValue(val: number) {
+    this.numOfCollections.value = val;
+  }
+
+  @modelAction
   setNumOfTagsOp(val: LogicalOp | "") {
     this.numOfTags.logOp = val;
     if (val === "") this.numOfTags.value = 0;
@@ -1687,12 +1703,14 @@ export class _FileSearch extends Model({
   reset() {
     this.bitrate = { logOp: "", value: 0 };
     this.cachedFilterProps = null;
+    this.carouselFileIds = [];
     this.dateCreatedEnd = "";
     this.dateCreatedStart = "";
     this.dateImportedEnd = "";
     this.dateImportedStart = "";
     this.dateModifiedEnd = "";
     this.dateModifiedStart = "";
+    this.diffusionParams = null;
     this.duration = { logOp: "", value: 0 };
     this.excludedFileIds = [];
     this.forcePages = false;
@@ -1705,6 +1723,7 @@ export class _FileSearch extends Model({
     this.isLoading = false;
     this.isModified = null;
     this.isPageCountLoading = false;
+    this.isTranscribed = null;
     this.loadId += 1;
     this.maxHeight = null;
     this.maxSize = null;
@@ -1712,6 +1731,7 @@ export class _FileSearch extends Model({
     this.minHeight = null;
     this.minSize = null;
     this.minWidth = null;
+    this.numOfCollections = { logOp: "", value: 0 };
     this.numOfTags = { logOp: "", value: 0 };
     this.originalPath = null;
     this.page = 1;
@@ -1734,6 +1754,7 @@ export class _FileSearch extends Model({
     ) as Types.SelectedVideoExts;
     this.sortValue = getConfig().file.search.sort;
     this.tags = [];
+    this.transcription = null;
   }
 
   @modelAction
@@ -1872,8 +1893,9 @@ export class _FileSearch extends Model({
     });
     if (!res.success) throw new Error(res.error);
 
-    this.toggleSelected(res.data.map(({ id }) => ({ id, isSelected: true })));
-    return res.data.length;
+    const items = res.data.items;
+    this.toggleSelected(items.map(({ id }) => ({ id, isSelected: true })));
+    return items.length;
   });
 
   @modelFlow
@@ -1919,7 +1941,7 @@ export class _FileSearch extends Model({
         if (loadId !== this.loadId) return;
         if (!itemsRes.success) throw new Error(itemsRes.error);
 
-        let items = itemsRes.data;
+        let items = itemsRes.data.items as ModelCreationData<Stores.File>[];
         if (debug) perfLog(`Loaded ${items.length} items`);
 
         const tagIds = [...new Set(items.flatMap((item) => item.tagIdsWithAncestors))];
@@ -1939,6 +1961,7 @@ export class _FileSearch extends Model({
         if (loadId !== this.loadId) return;
 
         this.setResults(results.map((result) => new Stores.File(result)));
+        this.setCarouselFileIds(itemsRes.data.carouselFileIds);
         this.setPage(newPage);
         if (shouldCacheFilterProps) this.setCachedFilterProps(derefMobx(filterProps));
         if (withFullCount) {
@@ -2061,6 +2084,7 @@ export class _FileSearch extends Model({
       (!isDeepEqual(this.dateImportedStart, "") ? 1 : 0) +
       (!isDeepEqual(this.dateModifiedEnd, "") ? 1 : 0) +
       (!isDeepEqual(this.dateModifiedStart, "") ? 1 : 0) +
+      (!isDeepEqual(this.diffusionParams, null) ? 1 : 0) +
       (!isDeepEqual(this.duration, { logOp: "", value: 0 }) ? 1 : 0) +
       (!isDeepEqual(this.excludedFileIds, []) ? 1 : 0) +
       (!isDeepEqual(this.frameRate, { logOp: "", value: 0 }) ? 1 : 0) +
@@ -2069,12 +2093,14 @@ export class _FileSearch extends Model({
       (!isDeepEqual(this.isArchived, false) ? 1 : 0) +
       (!isDeepEqual(this.isCorrupted, null) ? 1 : 0) +
       (!isDeepEqual(this.isModified, null) ? 1 : 0) +
+      (!isDeepEqual(this.isTranscribed, null) ? 1 : 0) +
       (!isDeepEqual(this.maxHeight, null) ? 1 : 0) +
       (!isDeepEqual(this.maxSize, null) ? 1 : 0) +
       (!isDeepEqual(this.maxWidth, null) ? 1 : 0) +
       (!isDeepEqual(this.minHeight, null) ? 1 : 0) +
       (!isDeepEqual(this.minSize, null) ? 1 : 0) +
       (!isDeepEqual(this.minWidth, null) ? 1 : 0) +
+      (!isDeepEqual(this.numOfCollections, { logOp: "", value: 0 }) ? 1 : 0) +
       (!isDeepEqual(this.numOfTags, { logOp: "", value: 0 }) ? 1 : 0) +
       (!isDeepEqual(this.originalPath, null) ? 1 : 0) +
       (!isDeepEqual(this.rating, { logOp: "", value: 0 }) ? 1 : 0) +
@@ -2111,7 +2137,8 @@ export class _FileSearch extends Model({
         ? 1
         : 0) +
       (!isDeepEqual(this.sortValue, getConfig().file.search.sort) ? 1 : 0) +
-      (!isDeepEqual(this.tags, []) ? 1 : 0)
+      (!isDeepEqual(this.tags, []) ? 1 : 0) +
+      (!isDeepEqual(this.transcription, null) ? 1 : 0)
     );
   }
 
@@ -2130,6 +2157,7 @@ export class _FileSearch extends Model({
       dateImportedStart: this.dateImportedStart,
       dateModifiedEnd: this.dateModifiedEnd,
       dateModifiedStart: this.dateModifiedStart,
+      diffusionParams: this.diffusionParams,
       duration: this.duration,
       excludedFileIds: this.excludedFileIds,
       frameRate: this.frameRate,
@@ -2138,12 +2166,14 @@ export class _FileSearch extends Model({
       isArchived: this.isArchived,
       isCorrupted: this.isCorrupted,
       isModified: this.isModified,
+      isTranscribed: this.isTranscribed,
       maxHeight: this.maxHeight,
       maxSize: this.maxSize,
       maxWidth: this.maxWidth,
       minHeight: this.minHeight,
       minSize: this.minSize,
       minWidth: this.minWidth,
+      numOfCollections: this.numOfCollections,
       numOfTags: this.numOfTags,
       originalPath: this.originalPath,
       rating: this.rating,
@@ -2153,6 +2183,7 @@ export class _FileSearch extends Model({
       selectedVideoExts: this.selectedVideoExts,
       sortValue: this.sortValue,
       ...getRootStore<Stores.RootStore>(this)?.tag?.tagSearchOptsToIds(this.tags),
+      transcription: this.transcription,
     };
   }
 
@@ -2172,6 +2203,7 @@ export class _FileSearch extends Model({
       dateImportedStart: this.dateImportedStart,
       dateModifiedEnd: this.dateModifiedEnd,
       dateModifiedStart: this.dateModifiedStart,
+      diffusionParams: this.diffusionParams,
       duration: this.duration,
       excludedFileIds: this.excludedFileIds,
       frameRate: this.frameRate,
@@ -2180,12 +2212,14 @@ export class _FileSearch extends Model({
       isArchived: this.isArchived,
       isCorrupted: this.isCorrupted,
       isModified: this.isModified,
+      isTranscribed: this.isTranscribed,
       maxHeight: this.maxHeight,
       maxSize: this.maxSize,
       maxWidth: this.maxWidth,
       minHeight: this.minHeight,
       minSize: this.minSize,
       minWidth: this.minWidth,
+      numOfCollections: this.numOfCollections,
       numOfTags: this.numOfTags,
       originalPath: this.originalPath,
       rating: this.rating,
@@ -2195,6 +2229,7 @@ export class _FileSearch extends Model({
       selectedVideoExts: this.selectedVideoExts,
       sortValue: this.sortValue,
       tags: this.tags,
+      transcription: this.transcription,
     });
   }
 }
@@ -3451,6 +3486,7 @@ export class _File extends Model({
   audioBitrate: prop<number>(null),
   audioCodec: prop<string>(null),
   bitrate: prop<number>(null),
+  collectionIds: prop<string[]>(() => []),
   dateImported: prop<string>(),
   dateModified: prop<string>(),
   diffusionParams: prop<string>(null),
@@ -3458,6 +3494,7 @@ export class _File extends Model({
   ext: prop<string>(),
   frameRate: prop<number>(null),
   hash: prop<string>(),
+  hasTranscript: prop<boolean>(),
   height: prop<number>(),
   isArchived: prop<boolean>(null),
   isCorrupted: prop<boolean>(null),
@@ -3470,6 +3507,7 @@ export class _File extends Model({
   originalSize: prop<number>(),
   originalVideoCodec: prop<string>(null),
   path: prop<string>(),
+  peakDecibels: prop<number>(null),
   rating: prop<number>(),
   size: prop<number>(),
   tagIds: prop<string[]>(),
@@ -3487,7 +3525,12 @@ export class _File extends Model({
       }>;
     }>
   >(null),
+  transcription: prop<{
+    segments: Array<{ end: number; start: number; text: string }>;
+    text: string;
+  }>(null),
   videoCodec: prop<string>(null),
+  waveformPeaks: prop<number[]>(null),
   width: prop<number>(),
 }) {
   @modelAction

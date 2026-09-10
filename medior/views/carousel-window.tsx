@@ -3,7 +3,14 @@ import { createContext, MutableRefObject, useEffect, useRef, WheelEvent } from "
 import FilePlayer from "react-player/file";
 import { PanzoomObject } from "@panzoom/panzoom";
 import { makePerfLog } from "trabecula/utils/server";
-import { Carousel, CarouselThumbNavigator, CarouselTopBar, Comp, View } from "medior/components";
+import {
+  Carousel,
+  CarouselThumbNavigator,
+  CarouselTopBar,
+  Comp,
+  View,
+  WindowTitleBar,
+} from "medior/components";
 import { useStores } from "medior/store";
 import { makeClasses } from "medior/utils/client";
 import { debounce } from "medior/utils/common";
@@ -22,6 +29,14 @@ export const CarouselWindow = Comp(({ embedded = false }: CarouselWindowProps) =
   const { css } = useClasses(null);
 
   const stores = useStores();
+  const activeFile = stores.carousel.getActiveFile();
+  const title = activeFile
+    ? `Medior — ${activeFile.originalName}${
+        stores.carousel.selectedFileIds.length
+          ? ` — (${stores.carousel.activeFileIndex + 1} / ${stores.carousel.selectedFileIds.length})`
+          : ""
+      }`
+    : "Medior";
 
   const panZoomRef = useRef<PanzoomObject>(null);
   const videoRef = useRef<FilePlayer>(null);
@@ -76,8 +91,6 @@ export const CarouselWindow = Comp(({ embedded = false }: CarouselWindowProps) =
   useEffect(() => {
     if (embedded) return;
 
-    document.title = "Medior —— Carousel";
-
     ipcRenderer.on(
       "init",
       async (_, { fileId, selectedFileIds }: { fileId: string; selectedFileIds: string[] }) => {
@@ -117,15 +130,19 @@ export const CarouselWindow = Comp(({ embedded = false }: CarouselWindowProps) =
           tabIndex={-1}
           className={css.root}
         >
-          <CarouselTopBar />
+          {!embedded && <WindowTitleBar isDark {...{ title }} />}
 
-          <Carousel ref={videoRef} />
+          <View column flex={1} overflow="hidden" position="relative">
+            <CarouselTopBar />
 
-          <CarouselThumbNavigator />
+            <Carousel ref={videoRef} />
 
-          {!embedded && <Views.FileModals />}
+            <CarouselThumbNavigator />
 
-          <Views.TagModals view="carousel" />
+            {!embedded && <Views.FileModals />}
+
+            <Views.TagModals view="carousel" />
+          </View>
         </View>
       </VideoContext.Provider>
     </ZoomContext.Provider>

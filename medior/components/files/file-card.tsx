@@ -1,4 +1,4 @@
-import { Comp, LoadingOverlay } from "medior/components";
+import { Comp, Icon, LoadingOverlay, Text, View } from "medior/components";
 import { useFileDrag } from "medior/components/files/hooks";
 import { File, FileSearch, FileTransformSearch, useStores } from "medior/store";
 import { CSS, openCarouselWindow, toast } from "medior/utils/client";
@@ -14,6 +14,7 @@ interface FileCardProps {
 
 export const FileCard = Comp(({ disabled, file, height, store, width }: FileCardProps) => {
   const stores = useStores();
+  const footerOffset = stores.home.showFileName ? "3.5rem" : undefined;
 
   const fileDragProps = useFileDrag(file, store.selectedIds);
 
@@ -75,11 +76,35 @@ export const FileCard = Comp(({ disabled, file, height, store, width }: FileCard
 
             <FileBase.ExtAndIcons position="top-right" file={file} />
 
-            <FileBase.Duration position="bottom-right" file={file} hasFooter />
+            {file.collectionIds?.length > 0 && (
+              <FileBase.Chip
+                position="bottom-left"
+                hasFooter
+                footerOffset={footerOffset}
+                label={
+                  <View row spacing="0.3em">
+                    <Icon name="Collections" size="1em" />
+
+                    <Text>{file.collectionIds.length}</Text>
+                  </View>
+                }
+              />
+            )}
+
+            <FileBase.Duration
+              position="bottom-right"
+              file={file}
+              hasFooter
+              footerOffset={footerOffset}
+            />
           </FileBase.Image>
 
-          <FileBase.Footer>
-            <FileBase.Tags tags={file.tags} />
+          <FileBase.Footer height={stores.home.showFileName ? "4rem" : undefined}>
+            <View column width="100%" overflow="hidden">
+              {stores.home.showFileName && <FileBase.FooterText text={file.originalName} />}
+
+              <FileBase.Tags compact={stores.home.showFileName} tags={file.tags} />
+            </View>
           </FileBase.Footer>
         </FileBase.Container>
       </FileBase.Tooltip>

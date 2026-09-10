@@ -305,6 +305,7 @@ export interface FileSchema {
   audioBitrate?: number;
   audioCodec?: string;
   bitrate?: number;
+  collectionIds: string[];
   dateImported: string;
   dateModified: string;
   diffusionParams?: string;
@@ -313,6 +314,7 @@ export interface FileSchema {
   faceModels?: FaceModel[];
   frameRate?: number;
   hash: string;
+  hasTranscript: boolean;
   height: number;
   isArchived?: boolean;
   isCorrupted?: boolean;
@@ -325,6 +327,7 @@ export interface FileSchema {
   originalSize: number;
   originalVideoCodec?: string;
   path: string;
+  peakDecibels?: number;
   rating: number;
   size: number;
   tagIds: string[];
@@ -340,7 +343,9 @@ export interface FileSchema {
       startDuration: string;
     }>;
   }>;
+  transcription?: { segments: Array<{ end: number; start: number; text: string }>; text: string };
   videoCodec?: string;
+  waveformPeaks?: number[];
   width: number;
 }
 
@@ -350,6 +355,7 @@ const FileSchema = new Schema<FileSchema>({
   audioBitrate: Number,
   audioCodec: String,
   bitrate: Number,
+  collectionIds: [{ type: Schema.Types.ObjectId, ref: "FileCollection" }],
   dateImported: String,
   dateModified: String,
   diffusionParams: String,
@@ -365,6 +371,7 @@ const FileSchema = new Schema<FileSchema>({
   ],
   frameRate: Number,
   hash: String,
+  hasTranscript: Boolean,
   height: Number,
   isArchived: Boolean,
   isCorrupted: Boolean,
@@ -377,6 +384,7 @@ const FileSchema = new Schema<FileSchema>({
   originalSize: Number,
   originalVideoCodec: String,
   path: String,
+  peakDecibels: Number,
   rating: Number,
   size: Number,
   tagIds: [{ type: Schema.Types.ObjectId, ref: "Tag" }],
@@ -390,21 +398,27 @@ const FileSchema = new Schema<FileSchema>({
       pairs: [{ endDuration: String, id: String, order: Number, startDuration: String }],
     },
   ],
+  transcription: { segments: [{ end: Number, start: Number, text: String }], text: String },
   videoCodec: String,
+  waveformPeaks: [Number],
   width: Number,
 });
 
 FileSchema.index({ dateCreated: 1, _id: 1 }, { unique: true });
 FileSchema.index({ audioCodec: 1 }, { unique: false });
 FileSchema.index({ bitrate: 1, _id: 1 }, { unique: true });
+FileSchema.index({ collectionIds: 1 }, { unique: false });
 FileSchema.index({ dateImported: 1, _id: 1 }, { unique: true });
 FileSchema.index({ dateModified: 1, _id: 1 }, { unique: true });
 FileSchema.index({ duration: 1, _id: 1 }, { unique: true });
 FileSchema.index({ ext: 1 }, { unique: false });
 FileSchema.index({ hash: 1 }, { unique: true });
+FileSchema.index({ hasTranscript: 1 }, { unique: false });
 FileSchema.index({ height: 1, _id: 1 }, { unique: true });
 FileSchema.index({ isArchived: 1 }, { unique: false });
 FileSchema.index({ isCorrupted: 1 }, { unique: false });
+FileSchema.index({ originalName: 1, _id: 1 }, { unique: true });
+FileSchema.index({ peakDecibels: 1, _id: 1 }, { unique: true });
 FileSchema.index({ rating: 1, _id: 1 }, { unique: true });
 FileSchema.index({ size: 1, _id: 1 }, { unique: true });
 FileSchema.index({ tagIds: 1 }, { unique: false });

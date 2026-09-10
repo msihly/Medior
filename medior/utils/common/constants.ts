@@ -3,6 +3,7 @@ import { _CONSTANTS, _Constants } from "trabecula/utils/common";
 export interface Constants extends _Constants {
   CAROUSEL: {
     THUMB_NAV: { WIDTH: number };
+    TOP_BAR: { BACKGROUND: string };
     VIDEO: { CONTROLS_HEIGHT: number };
     ZOOM: {
       MAX_SCALE: number;
@@ -24,12 +25,16 @@ export interface Constants extends _Constants {
     ENTER_DELAY: number;
     ENTER_NEXT_DELAY: number;
   };
+  WINDOW: {
+    TITLE_BAR: { HEIGHT: number };
+  };
 }
 
 export const CONSTANTS: Constants = {
   ..._CONSTANTS,
   CAROUSEL: {
     THUMB_NAV: { WIDTH: 135 },
+    TOP_BAR: { BACKGROUND: "rgb(0 0 0 / 0.5)" },
     VIDEO: { CONTROLS_HEIGHT: 55 },
     ZOOM: {
       MAX_SCALE: 5,
@@ -45,10 +50,13 @@ export const CONSTANTS: Constants = {
   },
   HOME: {
     DRAWER: { WIDTH: 55 },
-    TOP_BAR: { HEIGHT: 55 },
+    TOP_BAR: { HEIGHT: 45 },
   },
   TOOLTIP: {
     ENTER_DELAY: 1000,
     ENTER_NEXT_DELAY: 500,
+  },
+  WINDOW: {
+    TITLE_BAR: { HEIGHT: 32 },
   },
 };

@@ -3,7 +3,7 @@ import { useContext, useEffect, useRef, useState } from "react";
 import { Comp, getRatingMeta, Icon, IconButton, TagRow, Text, View } from "medior/components";
 import { useStores } from "medior/store";
 import { colors, makeClasses } from "medior/utils/client";
-import { round } from "medior/utils/common";
+import { CONSTANTS, round } from "medior/utils/common";
 import { zoomScaleStepIn, zoomScaleStepOut } from "medior/utils/server";
 import { ZoomContext } from "medior/views";
 
@@ -160,7 +160,7 @@ const useClasses = makeClasses((props: ClassesProps) => ({
     justifyContent: "space-between",
     padding: "0.2rem 0.5rem",
     height: "2.5rem",
-    backgroundColor: "rgb(0 0 0 / 0.5)",
+    backgroundColor: CONSTANTS.CAROUSEL.TOP_BAR.BACKGROUND,
     opacity: props.isPinned ? 1 : props.isMouseMoving ? 0.3 : 0,
     zIndex: 10,
     transition: "all 200ms ease-in-out",

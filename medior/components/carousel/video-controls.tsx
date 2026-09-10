@@ -1,6 +1,6 @@
-import { useContext, useState } from "react";
+import { useCallback, useContext, useEffect, useRef, useState } from "react";
 import { Slider } from "@mui/material";
-import { Button, Comp, IconButton, Text, View } from "medior/components";
+import { Button, Comp, IconButton, Text, VideoWaveform, View } from "medior/components";
 import { useStores } from "medior/store";
 import { colors, makeClasses, toast, Toaster } from "medior/utils/client";
 import { CONSTANTS, Fmt, round, throttle } from "medior/utils/common";
@@ -49,6 +49,16 @@ export const VideoControls = Comp(() => {
       setLastPlayingState(false);
     }
   };
+
+  const handleWaveformSeek = useCallback(
+    (time: number) => {
+      const frame = round(time * activeFile.frameRate, 0);
+      setCurFrame(frame);
+      if (!activeFile.isWebPlayable) transcode(frame);
+      else videoContext?.current?.seekTo(time, "seconds");
+    },
+    [activeFile?.id],
+  );
 
   const getNewMark = (frame: number) =>
     stores.carousel.videoMarks.map((m) => m.value).includes(frame) ? null : frame;
@@ -155,7 +165,16 @@ export const VideoControls = Comp(() => {
         />
       </View>
 
-      <View column flex={1}>
+      <View column flex={1} height="100%" justify="center" className={css.progressControl}>
+        {stores.carousel.isWaveformVisible && (
+          <VideoWaveform
+            currentTime={stores.carousel.curTime}
+            duration={activeFile.duration}
+            onSeek={handleWaveformSeek}
+            peaks={activeFile.waveformPeaks}
+          />
+        )}
+
         <Slider
           value={stores.carousel.curFrame}
           onChange={handleFrameSeek}
@@ -177,6 +196,30 @@ export const VideoControls = Comp(() => {
       </View>
 
       <View row align="center">
+        <IconButton
+          name={stores.carousel.isCaptionsVisible ? "ClosedCaption" : "ClosedCaptionOff"}
+          onClick={stores.carousel.toggleCaptions}
+          disabled={!activeFile.transcription?.segments?.length}
+          iconProps={{
+            color: stores.carousel.isCaptionsVisible
+              ? colors.custom.lightBlue
+              : colors.custom.lightGrey,
+          }}
+          tooltip={stores.carousel.isCaptionsVisible ? "Hide Captions" : "Show Captions"}
+        />
+
+        <IconButton
+          name="GraphicEq"
+          onClick={stores.carousel.toggleWaveform}
+          disabled={!activeFile.waveformPeaks?.length}
+          iconProps={{
+            color: stores.carousel.isWaveformVisible
+              ? colors.custom.lightBlue
+              : colors.custom.lightGrey,
+          }}
+          tooltip={stores.carousel.isWaveformVisible ? "Hide Waveform" : "Show Waveform"}
+        />
+
         <CustomSlider
           value={stores.carousel.volume}
           onChange={handleVolumeChange}
@@ -261,14 +304,31 @@ const CustomSlider = (props: {
   const [isDragging, setIsDragging] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
 
+  const rootRef = useRef<HTMLDivElement>(null);
+
   const handleMouseDown = () => setIsDragging(true);
+
   const handleMouseUp = () => setIsDragging(false);
 
   const handleMouseEnter = () => setIsVisible(true);
+
   const handleMouseLeave = () => !isDragging && setIsVisible(false);
+
+  useEffect(() => {
+    if (!isDragging) return;
+
+    const handleWindowMouseUp = (event: MouseEvent) => {
+      setIsDragging(false);
+      if (!rootRef.current?.contains(event.target as Node)) setIsVisible(false);
+    };
+
+    window.addEventListener("mouseup", handleWindowMouseUp, { once: true });
+    return () => window.removeEventListener("mouseup", handleWindowMouseUp);
+  }, [isDragging]);
 
   return (
     <View
+      ref={rootRef}
       column
       justify="center"
       height="100%"
@@ -298,6 +358,9 @@ const CustomSlider = (props: {
 };
 
 const useClasses = makeClasses((props?: { isVertical: boolean }) => ({
+  progressControl: {
+    position: "relative",
+  },
   slider: {
     marginBottom: "0 !important",
     color: colors.custom.lightBlue,
