@@ -6,7 +6,9 @@ import {
   AudioCodec,
   CONSTANTS,
   deepMerge,
+  DEFAULT_HOTKEYS,
   handleErrors,
+  Hotkeys,
   ImageExt,
   NestedKeys,
   VideoCodec,
@@ -185,6 +187,7 @@ export interface Config {
       enabled: boolean;
     };
   };
+  hotkeys: Hotkeys;
   imports: {
     deleteOnImport: boolean;
     folderDelimiter: string;
@@ -318,6 +321,7 @@ export const DEFAULT_CONFIG: Config = {
       enabled: false,
     },
   },
+  hotkeys: DEFAULT_HOTKEYS,
   imports: {
     deleteOnImport: true,
     folderDelimiter: ";;",

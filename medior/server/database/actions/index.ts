@@ -1,3 +1,4 @@
+export * from "./background-operations";
 export * from "./collections";
 export * from "./file-imports";
 export * from "./file-transforms";

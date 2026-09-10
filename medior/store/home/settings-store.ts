@@ -18,10 +18,11 @@ import { Config, ConfigKey, getConfig, setConfig } from "medior/utils/server";
 @model("medior/SettingsStore")
 export class SettingsStore extends Model({
   collection: prop<Config["collection"]>(() => getConfig().collection),
-  dev: prop<Config["dev"]>(() => getConfig().dev),
   db: prop<Config["db"]>(() => getConfig().db),
+  dev: prop<Config["dev"]>(() => getConfig().dev),
   file: prop<Config["file"]>(() => getConfig().file),
   hasUnsavedChanges: prop<boolean>(false).withSetter(),
+  hotkeys: prop<Config["hotkeys"]>(() => getConfig().hotkeys),
   imports: prop<Config["imports"]>(() => getConfig().imports),
   isLoading: prop<boolean>(false).withSetter(),
   isOpen: prop<boolean>(false).withSetter(),
@@ -94,6 +95,26 @@ export class SettingsStore extends Model({
     this.setHasUnsavedChanges(true);
   }
 
+  @modelAction
+  update(
+    updates: Partial<{
+      collection: Partial<Config["collection"]>;
+      db: Partial<Config["db"]>;
+      dev: Partial<Config["dev"]>;
+      file: Partial<Config["file"]>;
+      hotkeys: Partial<Config["hotkeys"]>;
+      imports: Partial<Config["imports"]>;
+      ports: Partial<Config["ports"]>;
+      tags: Partial<Config["tags"]>;
+    }>,
+  ) {
+    const nestedUpdates = convertNestedKeys(updates);
+    const snapshot = deepMerge(getSnapshot(this), nestedUpdates);
+    applySnapshot(this, snapshot);
+    this.setHasUnsavedChanges(true);
+  }
+
+  /* ------------------------------ ASYNC ACTIONS ----------------------------- */
   @modelFlow
   save = asyncAction(async () => {
     const config = this.getConfig();
@@ -105,32 +126,15 @@ export class SettingsStore extends Model({
     return result;
   });
 
-  @modelAction
-  update(
-    updates: Partial<{
-      collection: Partial<Config["collection"]>;
-      dev: Partial<Config["dev"]>;
-      file: Partial<Config["file"]>;
-      imports: Partial<Config["imports"]>;
-      db: Partial<Config["db"]>;
-      ports: Partial<Config["ports"]>;
-      tags: Partial<Config["tags"]>;
-    }>,
-  ) {
-    const nestedUpdates = convertNestedKeys(updates);
-    const snapshot = deepMerge(getSnapshot(this), nestedUpdates);
-    applySnapshot(this, snapshot);
-    this.setHasUnsavedChanges(true);
-  }
-
   /* ----------------------------- DYNAMIC GETTERS ---------------------------- */
   getConfig() {
     return {
       collection: getSnapshot(this.collection),
+      db: getSnapshot(this.db),
       dev: getSnapshot(this.dev),
       file: getSnapshot(this.file),
+      hotkeys: getSnapshot(this.hotkeys),
       imports: getSnapshot(this.imports),
-      db: getSnapshot(this.db),
       ports: getSnapshot(this.ports),
       tags: getSnapshot(this.tags),
     } as Config;

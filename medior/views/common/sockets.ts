@@ -40,7 +40,7 @@ export const useSockets = ({ enabled = true, view }: UseSocketsProps) => {
 
   const refreshOpenTagEditors = (tagIds: string[]) => {
     [stores.tag.editor, stores.tag.subEditor].forEach((editor) => {
-      if (editor.isOpen && editor.tag?.id && tagIds.includes(editor.tag.id)) {
+      if (editor.isOpen && !editor.isLoading && editor.tag?.id && tagIds.includes(editor.tag.id)) {
         editor.loadTag(editor.tag.id);
       }
     });
@@ -156,6 +156,16 @@ export const useSockets = ({ enabled = true, view }: UseSocketsProps) => {
 
   const setupSockets = () => {
     socket.connect();
+
+    makeSocket("onBackgroundOperationUpdated", ({ id, updates }) => {
+      const current = stores.home.backgroundOperations.find((operation) => operation.id === id);
+      if (current) stores.home.updateBackgroundOperation({ ...current, ...updates });
+      else stores.home.loadBackgroundActivity();
+    });
+
+    makeSocket("onNotificationCreated", stores.home.addNotification);
+
+    makeSocket("onNotificationsRead", ({ ids }) => stores.home.markNotificationsRead(ids));
 
     makeSocket("onFileRefreshProgress", stores.file.handleFileRefreshProgress);
 

@@ -25,6 +25,7 @@ import {
 } from "medior/components";
 import { useStores } from "medior/store";
 import { colors, toast } from "medior/utils/client";
+import { matchesHotkey } from "medior/utils/common";
 import { useHotkeys } from "medior/views";
 
 export interface FileCollectionEditorProps {
@@ -52,7 +53,7 @@ export const FileCollectionEditor = Comp(
 
     const filesRef = useRef<HTMLDivElement>(null);
 
-    const { handleKeyPress } = useHotkeys({ view: "home" });
+    const { handleKeyPress } = useHotkeys({ view: "collectionEditor" });
 
     const hasNoSelection = store.search.selectedIds.length === 0;
     const isCreate = store.collection === null;
@@ -114,7 +115,11 @@ export const FileCollectionEditor = Comp(
     };
 
     const handleEditorKeyPress = (event: KeyboardEvent) => {
-      if (mode === "edit" && event.key === "Delete" && !hasNoSelection) {
+      if (
+        mode === "edit" &&
+        matchesHotkey(event, stores.home.settings.hotkeys.collectionEditor.removeFiles) &&
+        !hasNoSelection
+      ) {
         event.preventDefault();
         handleRemoveFiles();
         return;

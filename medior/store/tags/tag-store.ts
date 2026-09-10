@@ -115,6 +115,18 @@ export class TagStore extends Model({
   });
 
   @modelFlow
+  updateTagRating = asyncAction(async ({ id, rating }: { id: string; rating: number }) => {
+    this.manager.setIsLoading(true);
+    const res = await trpc.editTag.mutate({
+      id,
+      rating,
+      ratingIsManual: rating > 0,
+    });
+    this.manager.setIsLoading(false);
+    if (!res.success) throw new Error(res.error);
+  });
+
+  @modelFlow
   upsertTags = asyncAction(async (tagsToUpsert: TagToUpsert[]) => {
     const tagQueue = new PromiseQueue();
     const errors: string[] = [];

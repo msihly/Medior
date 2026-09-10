@@ -24,6 +24,13 @@ export interface Sidecar {
 
 const IMPORT_FOLDER_PAGE_SIZE = 20;
 
+const setTagId = (tags: TagToUpsert[], { id, label }: Pick<TagToUpsert, "id" | "label">) =>
+  tags.map((tag) => ({
+    ...tag,
+    children: tag.children ? setTagId(tag.children, { id, label }) : tag.children,
+    id: tag.label === label ? id : tag.id,
+  }));
+
 @model("medior/ImportEditorStore")
 export class ImportEditorStore extends Model({
   filePaths: prop<Record<string, string>>(() => ({}))
@@ -139,6 +146,14 @@ export class ImportEditorStore extends Model({
   }
 
   @modelAction
+  setCreatedTagId(tag: Pick<TagToUpsert, "id" | "label">) {
+    this.flatTagsToUpsert = this.flatTagsToUpsert.map((candidate) =>
+      candidate.label === tag.label ? { ...candidate, id: tag.id } : candidate,
+    );
+    this.tagHierarchy = setTagId(this.tagHierarchy, tag);
+  }
+
+  @modelAction
   setFolderPageFromPagination(page: number) {
     this.folderPage = page - 1;
     this.setVisibleFolderPage();
@@ -173,7 +188,7 @@ export class ImportEditorStore extends Model({
     this.flatFolderHierarchy = visibleFolders;
   }
 
-  /* ---------------------------- ASYNC ACTIONS ---------------------------- */
+  /* ------------------------------ ASYNC ACTIONS ----------------------------- */
   @modelFlow
   loadDiffusionParams = asyncAction(async () => {
     for (const imp of this.imports) {

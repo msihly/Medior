@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { KeyboardEvent, useEffect, useRef, useState } from "react";
 import { FixedSizeGrid } from "react-window";
 import {
   Button,
@@ -19,7 +19,7 @@ import {
 } from "medior/components";
 import { useStores } from "medior/store";
 import { colors, makeQueue, openSearchWindow, toast, useDeepEffect } from "medior/utils/client";
-import { PromiseQueue, tagsToRegEx } from "medior/utils/common";
+import { getHotkeyRating, matchesHotkey, PromiseQueue, tagsToRegEx } from "medior/utils/common";
 import { trpc } from "medior/utils/server";
 
 export const TagManager = Comp(() => {
@@ -81,6 +81,21 @@ export const TagManager = Comp(() => {
 
   const handleFullPageLoad = () => store.loadFiltered({ withFullCount: true });
 
+  const handleKeyPress = (event: KeyboardEvent) => {
+    if (matchesHotkey(event, stores.home.settings.hotkeys.tagManager.selectAll)) {
+      event.preventDefault();
+      handleSelectAll();
+      return;
+    }
+
+    if (store.selectedIds.length !== 1) return;
+    const rating = getHotkeyRating(event, stores.home.settings.hotkeys.tagManager);
+    if (!rating) return;
+
+    event.preventDefault();
+    stores.tag.updateTagRating({ id: store.selectedIds[0], rating });
+  };
+
   const handlePageChange = (page: number) => store.loadFiltered({ page });
 
   const handleRefreshTags = () => stores.tag.manager.refreshSelectedTags();
@@ -90,6 +105,12 @@ export const TagManager = Comp(() => {
   const handleSelectAll = () => {
     store.toggleSelected(store.results.map(({ id }) => ({ id, isSelected: true })));
     toast.info(`Added ${store.results.length} tags to selection`);
+  };
+
+  const handleSelectAllInQuery = async () => {
+    const res = await store.selectAllInQuery();
+    if (!res.success) toast.error("Failed to select all tags");
+    else toast.info(`Selected ${res.data} tags`);
   };
 
   const handleSelectNone = () => {
@@ -200,6 +221,12 @@ export const TagManager = Comp(() => {
                   tooltip="Select All Tags in View"
                   onClick={handleSelectAll}
                 />
+
+                <MultiActionButton
+                  name="LibraryAddCheck"
+                  tooltip="Select All Tags in Query"
+                  onClick={handleSelectAllInQuery}
+                />
               </View>
             </UniformList>
           }
@@ -210,6 +237,7 @@ export const TagManager = Comp(() => {
             cards={store.results.map((t) => (
               <TagCard key={t.id} tag={t} />
             ))}
+            cardsProps={{ onKeyDown: handleKeyPress, tabIndex: 1 }}
           >
             <Pagination
               count={store.pageCount}

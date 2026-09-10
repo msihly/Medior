@@ -1,7 +1,7 @@
 import { getCurrentWindow } from "@electron/remote";
 import { MouseEvent, useEffect, useState } from "react";
 import { Menu } from "@mui/material";
-import { Comp, IconButton, ListItem, Text, View } from "medior/components";
+import { Comp, HotkeysModal, IconButton, ListItem, Text, View } from "medior/components";
 import { useStores } from "medior/store";
 import { colors, makeClasses, toast } from "medior/utils/client";
 import { CONSTANTS } from "medior/utils/common";
@@ -17,6 +17,7 @@ export const WindowTitleBar = Comp(({ isDark = false, title }: WindowTitleBarPro
   const [isDevToolsOpen, setIsDevToolsOpen] = useState(() =>
     getCurrentWindow().webContents.isDevToolsOpened(),
   );
+  const [isHotkeysOpen, setIsHotkeysOpen] = useState(false);
   const [isMaximized, setIsMaximized] = useState(() => getCurrentWindow().isMaximized());
   const { css } = useClasses({ isDark, isDragEnabled: !(isDevToolsOpen && isMaximized) });
 
@@ -34,7 +35,8 @@ export const WindowTitleBar = Comp(({ isDark = false, title }: WindowTitleBarPro
     stores.home.settings.update({ file: { showFileName } });
 
     try {
-      await stores.home.settings.save();
+      const res = await stores.home.settings.save();
+      if (!res.success) throw new Error(res.error);
     } catch (error) {
       stores.home.setShowFileName(!showFileName);
       stores.home.settings.update({ file: { showFileName: !showFileName } });
@@ -43,13 +45,18 @@ export const WindowTitleBar = Comp(({ isDark = false, title }: WindowTitleBarPro
     }
   };
 
+  const handleHotkeysClose = () => setIsHotkeysOpen(false);
+
+  const handleHotkeysOpen = () => {
+    setAnchorEl(null);
+    setIsHotkeysOpen(true);
+  };
+
   const handleMaximize = () => {
     const browserWindow = getCurrentWindow();
     if (browserWindow.isMaximized()) browserWindow.unmaximize();
     else browserWindow.maximize();
   };
-
-  const handleMinimize = () => getCurrentWindow().minimize();
 
   const handleMenuClose = () => setAnchorEl(null);
 
@@ -57,6 +64,8 @@ export const WindowTitleBar = Comp(({ isDark = false, title }: WindowTitleBarPro
     event.stopPropagation();
     setAnchorEl(event.currentTarget);
   };
+
+  const handleMinimize = () => getCurrentWindow().minimize();
 
   useEffect(() => {
     document.title = title;
@@ -103,6 +112,8 @@ export const WindowTitleBar = Comp(({ isDark = false, title }: WindowTitleBarPro
             text="Show File Names"
           />
 
+          <ListItem icon="Keyboard" onClick={handleHotkeysOpen} text="Hotkeys" />
+
           <ListItem icon="DeveloperMode" onClick={handleDeveloperTools} text="Developer Tools" />
         </View>
       </Menu>
@@ -137,6 +148,8 @@ export const WindowTitleBar = Comp(({ isDark = false, title }: WindowTitleBarPro
           onClick={handleClose}
         />
       </View>
+
+      {isHotkeysOpen && <HotkeysModal onClose={handleHotkeysClose} />}
     </View>
   );
 });

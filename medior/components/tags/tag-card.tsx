@@ -1,10 +1,10 @@
 import { useState } from "react";
 import Color from "color";
 import { TagSchema } from "medior/_generated/server";
-import { Comp, ContextMenu, FileBase, Icon, View } from "medior/components";
+import { Comp, ContextMenu, FileBase, getRatingMeta, Icon, Text, View } from "medior/components";
 import { useStores } from "medior/store";
 import { colors, openSearchWindow, toast } from "medior/utils/client";
-import { Fmt } from "medior/utils/common";
+import { Fmt, round } from "medior/utils/common";
 
 export interface TagCardProps {
   tag: TagSchema;
@@ -14,6 +14,7 @@ export const TagCard = Comp(({ tag }: TagCardProps) => {
   const stores = useStores();
 
   const color = tag.category?.color || "black";
+  const ratingMeta = getRatingMeta(tag.rating);
 
   const [isHovering, setIsHovering] = useState(false);
 
@@ -81,6 +82,19 @@ export const TagCard = Comp(({ tag }: TagCardProps) => {
               noTooltip
               textProps={{ color: colors.custom.lightGrey, fontSize: "0.8em" }}
             />
+
+            <View row align="center" spacing="0.2rem">
+              <Icon
+                color={ratingMeta.iconColor}
+                name={ratingMeta.icon}
+                size="0.9em"
+                style={{ textShadow: ratingMeta.textShadow }}
+              />
+
+              <Text color={colors.custom.lightGrey} fontSize="0.8em">
+                {round(tag.rating, 1)}
+              </Text>
+            </View>
           </View>
         </FileBase.Footer>
       </FileBase.Container>

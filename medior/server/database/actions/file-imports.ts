@@ -161,7 +161,7 @@ export const completeImportBatch = makeAction(
     );
     socket.emit("onImportBatchCompleted", { id: args.id });
 
-    if (tagIds.length) actions.regenTags({ tagIds });
+    if (tagIds.length) await actions.regenTags({ tagIds });
 
     if (batch.deleteOnImport) {
       try {
@@ -308,7 +308,7 @@ export const reingestFolder = makeAction(
       throw new Error(`Failed to update file tagIds: ${Fmt.jstr({ args, bulkRes })}`);
 
     const tagIds = [...new Set(args.fileTagIds.flatMap((f) => f.tagIds))];
-    if (tagIds.length) actions.regenTags({ tagIds });
+    if (tagIds.length) await actions.regenTags({ tagIds });
 
     if (args.collectionTitle) {
       const collRes = await actions.createCollection({

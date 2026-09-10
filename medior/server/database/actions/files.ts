@@ -16,6 +16,7 @@ import {
 import trash from "trash";
 import { SortValue } from "medior/store/_generated";
 import * as actions from "medior/server/database/actions";
+import { makeBackgroundOperationRunner } from "medior/server/database/actions/background-operations";
 import { makeRepairReporter } from "medior/server/database/repair-progress";
 import { genFileInfo } from "medior/utils/client";
 import { chunkArray, CONSTANTS, dayjs, Fmt } from "medior/utils/common";
@@ -134,6 +135,64 @@ export const regenFileTagAncestors = makeAction(
     return { processedCount, updatedCount };
   },
 );
+
+const processFileTagAncestorRegenQueue = async () => {
+  while (true) {
+    const operation = leanModelToJson<models.BackgroundOperationSchema>(
+      await models.BackgroundOperationModel.findOne({
+        status: { $in: ["PENDING", "RUNNING"] },
+        type: "fileTagAncestors",
+      })
+        .sort({ dateCreated: 1 })
+        .lean(),
+    );
+    if (!operation) return;
+
+    try {
+      if (operation.status === "PENDING")
+        await actions.setBackgroundOperationStatus(operation.id, "RUNNING");
+
+      const fileIds = operation.targetIds.slice(0, 1000);
+      if (!fileIds.length) {
+        await actions.setBackgroundOperationStatus(operation.id, "COMPLETE", {
+          message: "File tag ancestor regeneration completed.",
+          processedCount: operation.totalCount,
+        });
+        continue;
+      }
+
+      const regenRes = await regenFileTagAncestors({ fileIds });
+      if (!regenRes.success) throw new Error(regenRes.error);
+      await actions.completeBackgroundOperationTargets(
+        operation.id,
+        fileIds,
+        `File tag ancestors: processed ${operation.processedCount + fileIds.length} of ${operation.totalCount}.`,
+      );
+    } catch (error) {
+      await actions.setBackgroundOperationStatus(operation.id, "ERROR", {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+};
+
+const runFileTagAncestorRegenQueue = makeBackgroundOperationRunner(
+  "file tag ancestor regeneration",
+  processFileTagAncestorRegenQueue,
+);
+
+// @generator-ignore-export
+export const queueFileTagAncestorRegen = async (fileIds: string[]) => {
+  await actions.queueBackgroundOperation({
+    label: "File tag ancestor regeneration",
+    targetIds: fileIds,
+    type: "fileTagAncestors",
+  });
+  runFileTagAncestorRegenQueue();
+};
+
+// @generator-ignore-export
+export const resumeFileRegens = () => runFileTagAncestorRegenQueue();
 
 /* -------------------------------------------------------------------------- */
 /*                                API ENDPOINTS                               */
@@ -359,7 +418,8 @@ export const editFileTags = makeAction(
     ]);
 
     const changedTagIds = [...new Set([...addedTagIds, ...removedTagIds])];
-    actions.regenTags({ tagIds: changedTagIds, withSub });
+    await queueFileTagAncestorRegen(fileIds);
+    await actions.queueTagMetadataRegen(await actions.deriveAncestorTagIds(changedTagIds));
     const collectionRes = await actions.regenCollAttrs({ fileIds });
     if (!collectionRes.success) throw new Error(collectionRes.error);
 
@@ -849,11 +909,21 @@ export const setFileIsArchived = makeAction(
 );
 
 export const setFileRating = makeAction(async (args: { fileIds: string[]; rating: number }) => {
+  const tagIds = [
+    ...new Set(
+      (
+        await models.FileModel.find({ _id: { $in: args.fileIds } })
+          .select({ tagIdsWithAncestors: 1 })
+          .lean()
+      ).flatMap((file) => file.tagIdsWithAncestors.map(String)),
+    ),
+  ];
   const updates = { rating: args.rating, dateModified: dayjs().toISOString() };
   await models.FileModel.updateMany({ _id: { $in: args.fileIds } }, updates);
   socket.emit("onFilesUpdated", { fileIds: args.fileIds, updates });
 
-  actions.regenCollAttrs({ fileIds: args.fileIds });
+  await actions.regenCollAttrs({ fileIds: args.fileIds });
+  if (tagIds.length) await actions.queueTagMetadataRegen(tagIds);
 });
 
 /* ----------------------------------------------------------------------- */

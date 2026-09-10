@@ -1,6 +1,13 @@
 import { useEffect } from "react";
 import { Badge, CircularProgress, Drawer as MuiDrawer } from "@mui/material";
-import { Comp, Icon, IconButton, TooltipProps, View } from "medior/components";
+import {
+  BackgroundActivityModal,
+  Comp,
+  Icon,
+  IconButton,
+  TooltipProps,
+  View,
+} from "medior/components";
 import { useStores } from "medior/store";
 import { colors, makeClasses, openSearchWindow } from "medior/utils/client";
 import { CONSTANTS } from "medior/utils/common";
@@ -15,6 +22,11 @@ export const Drawer = Comp(({ hasImports = false, hasSettings = false }: DrawerP
 
   const stores = useStores();
   const videoTransformer = stores.file.videoTransformer;
+
+  const handleActivity = () => {
+    stores.home.setIsActivityOpen(true);
+    stores.home.readNotifications();
+  };
 
   const handleClose = () => stores.home.setIsDrawerOpen(false);
 
@@ -39,6 +51,7 @@ export const Drawer = Comp(({ hasImports = false, hasSettings = false }: DrawerP
 
   useEffect(() => {
     stores.file.loadArchivedFileIds();
+    stores.home.loadBackgroundActivity();
     videoTransformer.getTransformerStatus();
     videoTransformer.loadQueueCount();
   }, []);
@@ -132,6 +145,35 @@ export const Drawer = Comp(({ hasImports = false, hasSettings = false }: DrawerP
           {...{ tooltipProps }}
         />
       </View>
+
+      <View column flex={1} justify="flex-end">
+        <Badge
+          badgeContent={
+            stores.home.backgroundOperations.filter(
+              ({ status }) => status === "PENDING" || status === "RUNNING",
+            ).length
+          }
+          color="primary"
+          overlap="circular"
+        >
+          <IconButton
+            name={
+              stores.home.hasUnreadErrors
+                ? "NotificationImportant"
+                : stores.home.hasRunningBackgroundOperations
+                  ? "NotificationsActive"
+                  : stores.home.hasUnreadNotifications
+                    ? "Notifications"
+                    : "NotificationsNone"
+            }
+            tooltip="Open Activity"
+            onClick={handleActivity}
+            {...{ tooltipProps }}
+          />
+        </Badge>
+      </View>
+
+      {stores.home.isActivityOpen && <BackgroundActivityModal />}
     </MuiDrawer>
   );
 });

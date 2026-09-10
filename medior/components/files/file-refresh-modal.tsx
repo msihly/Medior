@@ -60,7 +60,7 @@ export const FileRefreshModal = Comp(() => {
           style={{ bottom: "1rem", right: "1rem", zIndex: 1400 }}
           width="24rem"
         >
-          <Card spacing="0.75rem" padding={{ all: "0.75rem" }} width="100%">
+          <Card spacing="0.5rem" padding={{ all: "0.5rem" }} width="100%">
             <Text preset="title">{`Refreshing file ${currentFileNumber} of ${store.refreshTotalCount}`}</Text>
 
             <Text whiteSpace="normal">{store.refreshCurrentFileName}</Text>

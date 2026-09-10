@@ -11,13 +11,13 @@ export const _emitEvent = makeAction(async (args: { event: SocketEmitEvent; data
 });
 
 export const startRepair = makeAction(async ({ repairId }: { repairId: string }) => {
-  startRepairRun(repairId);
+  await startRepairRun(repairId);
 });
 
 export const cancelRepair = makeAction(async ({ repairId }: { repairId: string }) => {
-  cancelRepairRun(repairId);
+  await cancelRepairRun(repairId);
 });
 
 export const finishRepair = makeAction(async ({ repairId }: { repairId: string }) => {
-  finishRepairRun(repairId);
+  await finishRepairRun(repairId);
 });

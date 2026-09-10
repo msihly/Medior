@@ -2,6 +2,7 @@ import { createHTTPServer } from "@trpc/server/adapters/standalone";
 import killPort from "kill-port";
 import Mongoose from "mongoose";
 import { fileLog, setLogsPath } from "trabecula/utils/server";
+import { resumeCollectionRegens, resumeFileRegens, resumeTagRegens } from "medior/server/database";
 import { serverRouter } from "medior/server/trpc";
 import { sleep } from "medior/utils/common";
 import { getConfig, loadConfig, setupTRPC } from "medior/utils/server";
@@ -63,7 +64,10 @@ process.on("message", async (msg: any) => {
       setupTRPC();
       process.send?.({ requestId: msg.requestId, type: "ready" });
 
-      void ensureIndexes();
+      resumeCollectionRegens();
+      resumeFileRegens();
+      resumeTagRegens();
+      ensureIndexes();
     } catch (err: any) {
       process.send?.({ error: err.message, requestId: msg.requestId, type: "error" }, () =>
         process.exit(1),

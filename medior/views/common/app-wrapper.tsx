@@ -2,7 +2,7 @@ import { ipcRenderer } from "electron";
 import { ReactNode, useEffect, useRef, useState } from "react";
 import type { ServerProcessStatus } from "medior/server/server";
 import { useStores } from "medior/store";
-import { Toaster, ToastContainer } from "medior/utils/client";
+import { persistNotification, Toaster, ToastContainer } from "medior/utils/client";
 import { Config, getConfig, loadConfig, setConfig, setupTRPC, socket } from "medior/utils/server";
 import { Views } from "medior/views";
 import "trabecula/css/react-toastify.css";
@@ -16,11 +16,22 @@ interface AppWrapperProps {
 const RuntimeSync = () => {
   const stores = useStores();
   const pollInterval = useRef<ReturnType<typeof setInterval>>(null);
+  const previousStatusMessage = useRef<string>(null);
   const serverToaster = useRef(new Toaster()).current;
   const wasApplyingConfig = useRef(false);
   const wasDisconnected = useRef(false);
 
   useEffect(() => {
+    const notifyServerStatus = (
+      message: string,
+      type: "error" | "info" | "success",
+      autoClose?: false,
+    ) => {
+      if (message !== previousStatusMessage.current) persistNotification(message, type);
+      previousStatusMessage.current = message;
+      serverToaster.toast(message, { autoClose, type });
+    };
+
     const handleConfigUpdated = (_, config: Config) => {
       const previousConfig = getConfig();
       setConfig(config);
@@ -40,30 +51,32 @@ const RuntimeSync = () => {
       if (failed.length) {
         stopPolling();
         wasDisconnected.current = true;
-        serverToaster.toast(
+        notifyServerStatus(
           `${failed.map(({ label }) => label).join(" / ")} failed to restart. Restart Medior.`,
-          { autoClose: false, type: "error" },
+          "error",
+          false,
         );
       } else if (unavailable.length) {
         startPolling();
         wasDisconnected.current = true;
         wasApplyingConfig.current = unavailable.every(({ isConfigRestart }) => isConfigRestart);
-        serverToaster.toast(
+        notifyServerStatus(
           wasApplyingConfig.current
             ? "Applying server configuration..."
             : `${unavailable.map(({ label }) => label).join(" / ")} process unavailable. Attempting to reconnect...`,
-          { autoClose: false, type: wasApplyingConfig.current ? "info" : "error" },
+          wasApplyingConfig.current ? "info" : "error",
+          false,
         );
       } else {
         stopPolling();
         if (!wasDisconnected.current) return;
 
         wasDisconnected.current = false;
-        serverToaster.toast(
+        notifyServerStatus(
           wasApplyingConfig.current
             ? "Server configuration applied."
             : "Server processes reconnected.",
-          { type: "success" },
+          "success",
         );
         wasApplyingConfig.current = false;
       }
@@ -77,13 +90,14 @@ const RuntimeSync = () => {
         handleServerStatuses(
           (await ipcRenderer.invoke("getServerStatuses")) as ServerProcessStatus[],
         );
-      } catch (error) {
+      } catch {
         wasDisconnected.current = true;
         startPolling();
-        serverToaster.toast("Unable to check server processes. Restart Medior if this persists.", {
-          autoClose: false,
-          type: "error",
-        });
+        notifyServerStatus(
+          "Unable to check server processes. Restart Medior if this persists.",
+          "error",
+          false,
+        );
       }
     };
 

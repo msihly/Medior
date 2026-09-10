@@ -4,6 +4,7 @@ import { AnyBulkWriteOperation } from "mongodb";
 import { FilterQuery, UpdateQuery } from "mongoose";
 import { fileLog, makePerfLog } from "trabecula/utils/server";
 import * as actions from "medior/server/database/actions";
+import { makeBackgroundOperationRunner } from "medior/server/database/actions/background-operations";
 import { makeRepairReporter } from "medior/server/database/repair-progress";
 import { SortMenuProps } from "medior/components";
 import { chunkArray, dayjs, PromiseQueue } from "medior/utils/common";
@@ -177,6 +178,96 @@ const makeCollAttrs = async (
     tagIdsWithAncestors: await actions.deriveAncestorTagIds(tagIds),
   };
 };
+
+const runCollAttrsRegen = async (collIds: string[]) => {
+  const { perfLog, perfLogTotal } = makePerfLog("[regenCollAttrs]");
+
+  const collections = (
+    await models.FileCollectionModel.find({ _id: { $in: objectIds(collIds) } }, null, {
+      strict: false,
+    })
+      .select({ _id: 1, fileIdIndexes: 1, rating: 1, ratingIsManual: 1 })
+      .allowDiskUse(true)
+      .lean()
+  ).map((r) => leanModelToJson<models.FileCollectionSchema>(r));
+
+  perfLog(`Found ${collections.length} to regen.`);
+
+  const queue = new PromiseQueue({ concurrency: 10 });
+  const errors: { collId: string; error: string }[] = [];
+
+  collections.forEach((collection) => {
+    queue.add(async () => {
+      try {
+        const fileIds = collection.fileIdIndexes.map((file) => file.fileId);
+        const filesRes = await actions.listFile({ args: { filter: { id: fileIds } } });
+        if (!filesRes.success) throw new Error(filesRes.error);
+
+        const newAttrs = await makeCollAttrs(filesRes.data.items, collection.fileIdIndexes);
+        const updates = {
+          ...newAttrs,
+          rating: collection.ratingIsManual ? collection.rating : newAttrs.rating,
+        };
+        await models.FileCollectionModel.updateOne({ _id: collection.id }, updates);
+        socket.emit("onFileCollectionUpdated", { id: collection.id, updates });
+      } catch (error) {
+        errors.push({ collId: collection.id, error: error.message });
+        perfLog(`[ERROR] ${error.message}`);
+      }
+    });
+  });
+
+  await queue.resolve();
+  if (errors.length) throw new Error(JSON.stringify(errors, null, 2));
+  perfLogTotal("Regenerated collections.");
+};
+
+const processCollectionMetadataRegenQueue = async () => {
+  while (true) {
+    const operation = leanModelToJson<models.BackgroundOperationSchema>(
+      await models.BackgroundOperationModel.findOne({
+        status: { $in: ["PENDING", "RUNNING"] },
+        type: "collectionMetadata",
+      })
+        .sort({ dateCreated: 1 })
+        .lean(),
+    );
+    if (!operation) return;
+
+    try {
+      if (operation.status === "PENDING")
+        await actions.setBackgroundOperationStatus(operation.id, "RUNNING");
+
+      const collectionIds = operation.targetIds.slice(0, 100);
+      if (!collectionIds.length) {
+        await actions.setBackgroundOperationStatus(operation.id, "COMPLETE", {
+          message: "Collection metadata regeneration completed.",
+          processedCount: operation.totalCount,
+        });
+        continue;
+      }
+
+      await runCollAttrsRegen(collectionIds);
+      await actions.completeBackgroundOperationTargets(
+        operation.id,
+        collectionIds,
+        `Collection metadata: processed ${operation.processedCount + collectionIds.length} of ${operation.totalCount}.`,
+      );
+    } catch (error) {
+      await actions.setBackgroundOperationStatus(operation.id, "ERROR", {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+};
+
+const runCollectionMetadataRegenQueue = makeBackgroundOperationRunner(
+  "collection metadata regeneration",
+  processCollectionMetadataRegenQueue,
+);
+
+// @generator-ignore-export
+export const resumeCollectionRegens = () => runCollectionMetadataRegenQueue();
 
 /* -------------------------------------------------------------------------- */
 /*                                API ENDPOINTS                               */
@@ -661,9 +752,7 @@ export const regenCollAttrs = makeAction(
       fileIds?: string[];
     } = {},
   ) => {
-    const { perfLog, perfLogTotal } = makePerfLog("[regenCollAttrs]");
-
-    const collections = (
+    const collectionIds = (
       await models.FileCollectionModel.find(
         {
           ...(args.collFilter ??
@@ -673,43 +762,18 @@ export const regenCollAttrs = makeAction(
                 ? { fileIdIndexes: { $elemMatch: { fileId: { $in: args.fileIds } } } }
                 : {})),
         },
-        null,
+        { _id: 1 },
         { strict: false },
-      )
-        .select({ _id: 1, fileIdIndexes: 1, rating: 1, ratingIsManual: 1 })
-        .allowDiskUse(true)
-        .lean()
-    ).map((r) => leanModelToJson<models.FileCollectionSchema>(r));
+      ).lean()
+    ).map(({ _id }) => _id.toString());
 
-    perfLog(`Found ${collections.length} to regen.`);
-
-    const queue = new PromiseQueue({ concurrency: 10 });
-
-    const errors: { collId: string; error: string }[] = [];
-    collections.forEach((c) => {
-      queue.add(async () => {
-        try {
-          const fileIds = c.fileIdIndexes.map((f) => f.fileId);
-          const filesRes = await actions.listFile({ args: { filter: { id: fileIds } } });
-          if (!filesRes.success) throw new Error(filesRes.error);
-
-          const newAttrs = await makeCollAttrs(filesRes.data.items, c.fileIdIndexes);
-          const updates = {
-            ...newAttrs,
-            rating: c.ratingIsManual ? c.rating : newAttrs.rating,
-          };
-          await models.FileCollectionModel.updateOne({ _id: c.id }, updates);
-          socket.emit("onFileCollectionUpdated", { id: c.id, updates });
-        } catch (err) {
-          errors.push({ collId: c.id, error: err.message });
-          perfLog(`[ERROR] ${err.message}`);
-        }
-      });
+    await actions.queueBackgroundOperation({
+      label: "Collection metadata regeneration",
+      targetIds: collectionIds,
+      type: "collectionMetadata",
     });
-
-    await queue.resolve();
-    if (errors.length) throw new Error(JSON.stringify(errors, null, 2));
-    perfLogTotal("Regenerated collections.");
+    runCollectionMetadataRegenQueue();
+    return { queuedCount: collectionIds.length };
   },
 );
 

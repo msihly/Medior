@@ -1095,6 +1095,95 @@ export const listFilteredTag = makeAction(
 /*                               MODEL ACTIONS
 /* --------------------------------------------------------------------------- */
 
+/* ------------------------------------ BackgroundOperation ----------------------------------- */
+export const createBackgroundOperation = makeAction(
+  async ({
+    args,
+    socketOpts,
+  }: {
+    args: Types.CreateBackgroundOperationInput;
+    socketOpts?: SocketEventOptions;
+  }) => {
+    const model = {
+      ...args,
+      dateCreated: dayjs().toISOString(),
+      processedCount: 0,
+      targetIds: [],
+      totalCount: 0,
+    };
+
+    const res = await models.BackgroundOperationModel.create(model);
+    const id = res._id.toString();
+
+    socket.emit("onBackgroundOperationCreated", { ...model, id }, socketOpts);
+    return { ...model, id };
+  },
+);
+
+export const deleteBackgroundOperation = makeAction(
+  async ({
+    args,
+    socketOpts,
+  }: {
+    args: Types.DeleteBackgroundOperationInput;
+    socketOpts?: SocketEventOptions;
+  }) => {
+    await models.BackgroundOperationModel.deleteMany({ _id: { $in: args.ids } });
+
+    socket.emit("onBackgroundOperationDeleted", args, socketOpts);
+  },
+);
+
+export const listBackgroundOperation = makeAction(
+  async ({ args }: { args?: Types.ListBackgroundOperationInput } = {}) => {
+    const filter = { ...args.filter };
+    if (args.filter?.id) {
+      filter._id = Array.isArray(args.filter.id)
+        ? { $in: args.filter.id }
+        : typeof args.filter.id === "string"
+          ? { $in: [args.filter.id] }
+          : args.filter.id;
+
+      delete filter.id;
+    }
+
+    const items = await models.BackgroundOperationModel.find(filter)
+      .sort(args.sort ?? { dateCreated: "desc" })
+      .skip(Math.max(0, args.page - 1) * args.pageSize)
+      .limit(args.pageSize)
+      .allowDiskUse(true)
+      .lean();
+
+    const totalCount = await models.BackgroundOperationModel.countDocuments(filter);
+
+    if (!items || !(totalCount > -1))
+      throw new Error("Failed to load filtered BackgroundOperation");
+
+    return {
+      items: items.map((item) => leanModelToJson<models.BackgroundOperationSchema>(item)),
+      pageCount: Math.ceil(totalCount / args.pageSize),
+    };
+  },
+);
+
+export const updateBackgroundOperation = makeAction(
+  async ({
+    args,
+    socketOpts,
+  }: {
+    args: Types.UpdateBackgroundOperationInput;
+    socketOpts?: SocketEventOptions;
+  }) => {
+    const res = leanModelToJson<models.BackgroundOperationSchema>(
+      await models.BackgroundOperationModel.findByIdAndUpdate(args.id, args.updates, {
+        new: true,
+      }).lean(),
+    );
+
+    socket.emit("onBackgroundOperationUpdated", args, socketOpts);
+    return res;
+  },
+);
 /* ------------------------------------ DeletedFile ----------------------------------- */
 export const createDeletedFile = makeAction(
   async ({
@@ -1531,6 +1620,86 @@ export const updateFile = makeAction(
     return res;
   },
 );
+/* ------------------------------------ Notification ----------------------------------- */
+export const createNotification = makeAction(
+  async ({
+    args,
+    socketOpts,
+  }: {
+    args: Types.CreateNotificationInput;
+    socketOpts?: SocketEventOptions;
+  }) => {
+    const model = { ...args, dateCreated: dayjs().toISOString(), isRead: false };
+
+    const res = await models.NotificationModel.create(model);
+    const id = res._id.toString();
+
+    socket.emit("onNotificationCreated", { ...model, id }, socketOpts);
+    return { ...model, id };
+  },
+);
+
+export const deleteNotification = makeAction(
+  async ({
+    args,
+    socketOpts,
+  }: {
+    args: Types.DeleteNotificationInput;
+    socketOpts?: SocketEventOptions;
+  }) => {
+    await models.NotificationModel.deleteMany({ _id: { $in: args.ids } });
+
+    socket.emit("onNotificationDeleted", args, socketOpts);
+  },
+);
+
+export const listNotification = makeAction(
+  async ({ args }: { args?: Types.ListNotificationInput } = {}) => {
+    const filter = { ...args.filter };
+    if (args.filter?.id) {
+      filter._id = Array.isArray(args.filter.id)
+        ? { $in: args.filter.id }
+        : typeof args.filter.id === "string"
+          ? { $in: [args.filter.id] }
+          : args.filter.id;
+
+      delete filter.id;
+    }
+
+    const items = await models.NotificationModel.find(filter)
+      .sort(args.sort ?? { dateCreated: "desc" })
+      .skip(Math.max(0, args.page - 1) * args.pageSize)
+      .limit(args.pageSize)
+      .allowDiskUse(true)
+      .lean();
+
+    const totalCount = await models.NotificationModel.countDocuments(filter);
+
+    if (!items || !(totalCount > -1)) throw new Error("Failed to load filtered Notification");
+
+    return {
+      items: items.map((item) => leanModelToJson<models.NotificationSchema>(item)),
+      pageCount: Math.ceil(totalCount / args.pageSize),
+    };
+  },
+);
+
+export const updateNotification = makeAction(
+  async ({
+    args,
+    socketOpts,
+  }: {
+    args: Types.UpdateNotificationInput;
+    socketOpts?: SocketEventOptions;
+  }) => {
+    const res = leanModelToJson<models.NotificationSchema>(
+      await models.NotificationModel.findByIdAndUpdate(args.id, args.updates, { new: true }).lean(),
+    );
+
+    socket.emit("onNotificationUpdated", args, socketOpts);
+    return res;
+  },
+);
 /* ------------------------------------ SavedImportConfig ----------------------------------- */
 export const createSavedImportConfig = makeAction(
   async ({
@@ -1711,6 +1880,7 @@ export const _createTag = makeAction(
       childIds: [],
       descendantIds: [],
       parentIds: [],
+      rating: 0,
       thumb: null,
     };
 

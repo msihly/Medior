@@ -6,6 +6,53 @@ import { IconName } from "medior/components";
 import { CssColor } from "medior/utils/client";
 
 /* --------------------------------------------------------------------------- */
+/*                               BackgroundOperation
+/* --------------------------------------------------------------------------- */
+
+export interface BackgroundOperationSchema {
+  id: string;
+  dateCreated: string;
+  completedAt?: string;
+  dateModified: string;
+  error?: string;
+  label: string;
+  message?: string;
+  processedCount: number;
+  startedAt?: string;
+  status: "CANCELLED" | "COMPLETE" | "ERROR" | "PENDING" | "RUNNING";
+  targetIds: string[];
+  totalCount: number;
+  type: "collectionMetadata" | "fileTagAncestors" | "repair" | "tagHierarchy" | "tagMetadata";
+}
+
+const BackgroundOperationSchema = new Schema<BackgroundOperationSchema>({
+  id: String,
+  dateCreated: String,
+  completedAt: String,
+  dateModified: String,
+  error: String,
+  label: String,
+  message: String,
+  processedCount: Number,
+  startedAt: String,
+  status: { type: String, enum: ["CANCELLED", "COMPLETE", "ERROR", "PENDING", "RUNNING"] },
+  targetIds: [String],
+  totalCount: Number,
+  type: {
+    type: String,
+    enum: ["collectionMetadata", "fileTagAncestors", "repair", "tagHierarchy", "tagMetadata"],
+  },
+});
+
+BackgroundOperationSchema.index({ dateCreated: 1, _id: 1 }, { unique: true });
+BackgroundOperationSchema.index({ type: 1, status: 1, _id: 1 }, { unique: false });
+
+export const BackgroundOperationModel = model<BackgroundOperationSchema>(
+  "BackgroundOperation",
+  BackgroundOperationSchema,
+);
+
+/* --------------------------------------------------------------------------- */
 /*                               DeletedFile
 /* --------------------------------------------------------------------------- */
 
@@ -429,6 +476,30 @@ FileSchema.index({ width: 1, _id: 1 }, { unique: true });
 export const FileModel = model<FileSchema>("File", FileSchema);
 
 /* --------------------------------------------------------------------------- */
+/*                               Notification
+/* --------------------------------------------------------------------------- */
+
+export interface NotificationSchema {
+  id: string;
+  dateCreated: string;
+  isRead: boolean;
+  message: string;
+  type: "error" | "info" | "success" | "warning";
+}
+
+const NotificationSchema = new Schema<NotificationSchema>({
+  id: String,
+  dateCreated: String,
+  isRead: Boolean,
+  message: String,
+  type: { type: String, enum: ["error", "info", "success", "warning"] },
+});
+
+NotificationSchema.index({ dateCreated: 1, _id: 1 }, { unique: true });
+
+export const NotificationModel = model<NotificationSchema>("Notification", NotificationSchema);
+
+/* --------------------------------------------------------------------------- */
 /*                               SavedImportConfig
 /* --------------------------------------------------------------------------- */
 
@@ -507,7 +578,8 @@ export interface TagSchema {
   label: string;
   lastSearchedAt?: string;
   parentIds: string[];
-  rating?: number;
+  rating: number;
+  ratingIsManual?: boolean;
   regEx?: string;
   size: number;
   thumb: { frameHeight?: number; frameWidth?: number; path: string };
@@ -533,6 +605,7 @@ const TagSchema = new Schema<TagSchema>({
   lastSearchedAt: String,
   parentIds: [{ type: Schema.Types.ObjectId, ref: "Tag" }],
   rating: Number,
+  ratingIsManual: Boolean,
   regEx: String,
   size: Number,
   thumb: { frameHeight: Number, frameWidth: Number, path: String },

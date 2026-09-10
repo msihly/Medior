@@ -5,13 +5,17 @@ import { colors } from "medior/utils/client";
 import { useHotkeys } from "medior/views";
 import { FileCard } from ".";
 
-export const FileContainer = Comp(() => {
+interface FileContainerProps {
+  view: "home" | "search";
+}
+
+export const FileContainer = Comp(({ view }: FileContainerProps) => {
   const stores = useStores();
   const store = stores.file.search;
 
   const filesRef = useRef<HTMLDivElement>(null);
 
-  const { handleKeyPress } = useHotkeys({ view: "home" });
+  const { handleKeyPress } = useHotkeys({ view });
 
   useEffect(() => {
     scrollToTop();

@@ -10,6 +10,15 @@ import * as Types from "medior/server/database/types";
 export type SocketEventOptions = { contentId: string; tabId: number };
 
 export interface SocketEmitEvents {
+  onBackgroundOperationCreated: (
+    args: models.BackgroundOperationSchema,
+    options?: SocketEventOptions,
+  ) => void;
+  onBackgroundOperationDeleted: (args: { ids: string[] }, options?: SocketEventOptions) => void;
+  onBackgroundOperationUpdated: (
+    args: { id: string; updates: Partial<models.BackgroundOperationSchema> },
+    options?: SocketEventOptions,
+  ) => void;
   onDeletedFileCreated: (args: models.DeletedFileSchema, options?: SocketEventOptions) => void;
   onDeletedFileDeleted: (args: { ids: string[] }, options?: SocketEventOptions) => void;
   onDeletedFileUpdated: (
@@ -44,6 +53,12 @@ export interface SocketEmitEvents {
   onFileDeleted: (args: { ids: string[] }, options?: SocketEventOptions) => void;
   onFileUpdated: (
     args: { id: string; updates: Partial<models.FileSchema> },
+    options?: SocketEventOptions,
+  ) => void;
+  onNotificationCreated: (args: models.NotificationSchema, options?: SocketEventOptions) => void;
+  onNotificationDeleted: (args: { ids: string[] }, options?: SocketEventOptions) => void;
+  onNotificationUpdated: (
+    args: { id: string; updates: Partial<models.NotificationSchema> },
     options?: SocketEventOptions,
   ) => void;
   onSavedImportConfigCreated: (
@@ -107,6 +122,7 @@ export interface SocketEmitEvents {
   onImportBatchCompleted: (args: { id: string }, options?: SocketEventOptions) => void;
   onImportBatchLoaded: (args: { id: string }, options?: SocketEventOptions) => void;
   onImporterStatusUpdated: (options?: SocketEventOptions) => void;
+  onNotificationsRead: (args: { ids: string[] }, options?: SocketEventOptions) => void;
   onReloadFileCollections: (options?: SocketEventOptions) => void;
   onReloadFiles: (options?: SocketEventOptions) => void;
   onReloadFileTransforms: (options?: SocketEventOptions) => void;
@@ -138,6 +154,9 @@ export interface SocketEvents extends SocketEmitEvents {
 }
 
 export const socketEvents: SocketEmitEvent[] = [
+  "onBackgroundOperationCreated",
+  "onBackgroundOperationDeleted",
+  "onBackgroundOperationUpdated",
   "onDeletedFileCreated",
   "onDeletedFileDeleted",
   "onDeletedFileUpdated",
@@ -153,6 +172,9 @@ export const socketEvents: SocketEmitEvent[] = [
   "onFileCreated",
   "onFileDeleted",
   "onFileUpdated",
+  "onNotificationCreated",
+  "onNotificationDeleted",
+  "onNotificationUpdated",
   "onSavedImportConfigCreated",
   "onSavedImportConfigDeleted",
   "onSavedImportConfigUpdated",
@@ -175,6 +197,7 @@ export const socketEvents: SocketEmitEvent[] = [
   "onImportBatchCompleted",
   "onImportBatchLoaded",
   "onImporterStatusUpdated",
+  "onNotificationsRead",
   "onReloadFileCollections",
   "onReloadFiles",
   "onReloadFileTransforms",

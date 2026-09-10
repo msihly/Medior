@@ -27,7 +27,7 @@ export const Search = Comp(({ isHome = false }: SearchProps) => {
         <Drawer hasImports={isHome} hasSettings={isHome} />
 
         <View column className={css.main}>
-          <FileContainer />
+          <FileContainer view={isHome ? "home" : "search"} />
         </View>
       </View>
 

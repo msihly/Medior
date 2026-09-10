@@ -27,6 +27,21 @@ export type _FilterQuery<Schema> = {
 /* --------------------------------------------------------------------------- */
 /*                               MODEL ACTIONS
 /* --------------------------------------------------------------------------- */
+/* ------------------------------------ BackgroundOperation ----------------------------------- */
+export type CreateBackgroundOperationInput = Omit<db.BackgroundOperationSchema, "id">;
+export type DeleteBackgroundOperationInput = { ids: string[] };
+export type ListBackgroundOperationInput = {
+  filter?: _FilterQuery<db.BackgroundOperationSchema>;
+  page?: number;
+  pageSize?: number;
+  sort?: Record<string, SortOrder>;
+  withOverwrite?: boolean;
+};
+export type UpdateBackgroundOperationInput = {
+  id: string;
+  updates: Partial<db.BackgroundOperationSchema>;
+};
+
 /* ------------------------------------ DeletedFile ----------------------------------- */
 export type CreateDeletedFileInput = Omit<db.DeletedFileSchema, "id">;
 export type DeleteDeletedFileInput = { ids: string[] };
@@ -87,6 +102,18 @@ export type ListFileInput = {
 };
 export type UpdateFileInput = { id: string; updates: Partial<db.FileSchema> };
 
+/* ------------------------------------ Notification ----------------------------------- */
+export type CreateNotificationInput = Omit<db.NotificationSchema, "id">;
+export type DeleteNotificationInput = { ids: string[] };
+export type ListNotificationInput = {
+  filter?: _FilterQuery<db.NotificationSchema>;
+  page?: number;
+  pageSize?: number;
+  sort?: Record<string, SortOrder>;
+  withOverwrite?: boolean;
+};
+export type UpdateNotificationInput = { id: string; updates: Partial<db.NotificationSchema> };
+
 /* ------------------------------------ SavedImportConfig ----------------------------------- */
 export type CreateSavedImportConfigInput = Omit<db.SavedImportConfigSchema, "id">;
 export type DeleteSavedImportConfigInput = { ids: string[] };
@@ -129,6 +156,15 @@ export type UpdateTagInput = { id: string; updates: Partial<db.TagSchema> };
 /* --------------------------------------------------------------------------- */
 /*                               CUSTOM ACTIONS
 /* --------------------------------------------------------------------------- */
+export type ListBackgroundActivityInput = Parameters<typeof db.listBackgroundActivity>[0];
+export type ListBackgroundActivityOutput = ReturnType<typeof db.listBackgroundActivity>;
+
+export type MarkNotificationsReadInput = Parameters<typeof db.markNotificationsRead>[0];
+export type MarkNotificationsReadOutput = ReturnType<typeof db.markNotificationsRead>;
+
+export type RecordNotificationInput = Parameters<typeof db.recordNotification>[0];
+export type RecordNotificationOutput = ReturnType<typeof db.recordNotification>;
+
 export type AddFilesToCollectionInput = Parameters<typeof db.addFilesToCollection>[0];
 export type AddFilesToCollectionOutput = ReturnType<typeof db.addFilesToCollection>;
 

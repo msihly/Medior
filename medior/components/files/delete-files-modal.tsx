@@ -98,7 +98,7 @@ export const DeleteFilesModal = Comp(() => {
           style={{ bottom: "1rem", right: "1rem", zIndex: 1400 }}
           width="22rem"
         >
-          <Card spacing="0.75rem" padding={{ all: "0.75rem" }} width="100%">
+          <Card spacing="0.5rem" padding={{ all: "0.5rem" }} width="100%">
             <Text whiteSpace="normal">{progress.message}</Text>
 
             <ProgressBar numerator={progress.processedCount} denominator={progress.totalCount} />

@@ -13,11 +13,13 @@ export type SortOption = {
 export type SortValue = { isDesc: boolean; key: string };
 
 type ModelSortName =
+  | "BackgroundOperation"
   | "DeletedFile"
   | "FileCollection"
   | "FileImportBatch"
   | "FileTransform"
   | "File"
+  | "Notification"
   | "SavedImportConfig"
   | "SavedSearch"
   | "Tag";
@@ -25,6 +27,7 @@ type ModelSortName =
 type CustomSortName = "FileCollectionFile";
 
 const MODEL_SORT_OPTIONS: Record<ModelSortName, SortOption[]> = {
+  BackgroundOperation: [{ attribute: "dateCreated", icon: "DateRange", label: "Date Created" }],
   DeletedFile: [],
   FileCollection: [
     { attribute: "dateCreated", icon: "DateRange", label: "Date Created" },
@@ -61,6 +64,7 @@ const MODEL_SORT_OPTIONS: Record<ModelSortName, SortOption[]> = {
     { attribute: "size", icon: "FormatSize", label: "Size" },
     { attribute: "width", icon: "Height", iconProps: { rotation: 90 }, label: "Width" },
   ],
+  Notification: [{ attribute: "dateCreated", icon: "DateRange", label: "Date Created" }],
   SavedImportConfig: [
     { attribute: "dateCreated", icon: "DateRange", label: "Date Created" },
     { attribute: "dateModified", icon: "DateRange", label: "Date Modified" },

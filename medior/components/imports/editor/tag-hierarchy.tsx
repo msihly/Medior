@@ -1,24 +1,49 @@
+import { useState } from "react";
 import { Comp, TagChip, TagToUpsert, View } from "medior/components";
-import { colors, makeClasses } from "medior/utils/client";
+import { Ingester, Reingester, useStores } from "medior/store";
+import { colors, makeClasses, toast } from "medior/utils/client";
 
 export interface TagHierarchyProps {
   className?: string;
   isChild?: boolean;
+  store: Ingester | Reingester;
   tag: TagToUpsert;
 }
 
-export const TagHierarchy = Comp(({ className, tag }: TagHierarchyProps) => {
+export const TagHierarchy = Comp(({ className, store, tag }: TagHierarchyProps) => {
   const { css, cx } = useClasses(null);
 
   return (
     <View column className={cx(css.container, className)}>
-      <TagLevel tag={tag} />
+      <TagLevel store={store} tag={tag} />
     </View>
   );
 });
 
-const TagLevel = Comp(({ isChild, tag }: TagHierarchyProps) => {
+const TagLevel = Comp(({ isChild, store, tag }: TagHierarchyProps) => {
+  const stores = useStores();
+  const [isCreating, setIsCreating] = useState(false);
   const { css } = useClasses(null);
+
+  const handleCreate = async () => {
+    if (isCreating) return;
+    setIsCreating(true);
+
+    try {
+      const res = await stores.tag.upsertTags([tag]);
+      if (!res.success) throw new Error(res.error);
+
+      const createdTag = res.data[0];
+      if (!createdTag) throw new Error("Failed to create tag");
+      store.setCreatedTagId(createdTag);
+      stores.tag.editor.setIsOpen(true);
+      stores.tag.editor.loadTag(createdTag.id);
+    } catch (error) {
+      toast.error(error);
+    } finally {
+      setIsCreating(false);
+    }
+  };
 
   return (
     <View
@@ -27,12 +52,18 @@ const TagLevel = Comp(({ isChild, tag }: TagHierarchyProps) => {
       className={isChild ? css.tagLevel : undefined}
       data-child={isChild || undefined}
     >
-      <TagChip tag={tag} hasEditor width="fit-content" />
+      <TagChip
+        disabled={isCreating}
+        onClick={tag.id ? undefined : handleCreate}
+        tag={tag}
+        hasEditor
+        width="fit-content"
+      />
 
       {tag.children?.length > 0 && (
         <View column spacing="0.3rem" margins={{ left: "1rem" }} className={css.children}>
           {tag.children.map((t) => (
-            <TagLevel key={t.label} tag={t} isChild />
+            <TagLevel key={t.label} store={store} tag={t} isChild />
           ))}
         </View>
       )}

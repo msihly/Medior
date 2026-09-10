@@ -3195,6 +3195,66 @@ export class _TagSearch extends Model({
 /* --------------------------------------------------------------------------- */
 
 /* --------------------------------------------------------------------------- */
+/*                               BackgroundOperation
+/* --------------------------------------------------------------------------- */
+
+@model("medior/_BackgroundOperation")
+export class _BackgroundOperation extends Model({
+  id: prop<string>(),
+  dateCreated: prop<string>(() => dayjs().toISOString()),
+  completedAt: prop<string>(null),
+  dateModified: prop<string>(),
+  error: prop<string>(null),
+  label: prop<string>(),
+  message: prop<string>(null),
+  processedCount: prop<number>(0),
+  startedAt: prop<string>(null),
+  status: prop<"CANCELLED" | "COMPLETE" | "ERROR" | "PENDING" | "RUNNING">(),
+  targetIds: prop<string[]>(() => []),
+  totalCount: prop<number>(0),
+  type: prop<
+    "collectionMetadata" | "fileTagAncestors" | "repair" | "tagHierarchy" | "tagMetadata"
+  >(),
+}) {
+  @modelAction
+  update(updates: Partial<ModelCreationData<this>>) {
+    applySnapshot(this, { ...getSnapshot(this), ...updates });
+  }
+}
+
+@model("medior/_BackgroundOperationStore")
+export class _BackgroundOperationStore extends Model({
+  isLoading: prop<boolean>(false).withSetter(),
+}) {
+  /* ------------------------------ ASYNC ACTIONS ----------------------------- */
+  @modelFlow
+  createBackgroundOperation = asyncAction(async (args: Types.CreateBackgroundOperationInput) => {
+    this.setIsLoading(true);
+    const res = await trpc.createBackgroundOperation.mutate({ args });
+    this.setIsLoading(false);
+    if (res.error) throw new Error(res.error);
+    return res.data;
+  });
+
+  @modelFlow
+  deleteBackgroundOperation = asyncAction(async (args: Types.DeleteBackgroundOperationInput) => {
+    this.setIsLoading(true);
+    const res = await trpc.deleteBackgroundOperation.mutate({ args });
+    this.setIsLoading(false);
+    if (res.error) throw new Error(res.error);
+    return res.data;
+  });
+
+  @modelFlow
+  updateBackgroundOperation = asyncAction(async (args: Types.UpdateBackgroundOperationInput) => {
+    this.setIsLoading(true);
+    const res = await trpc.updateBackgroundOperation.mutate({ args });
+    this.setIsLoading(false);
+    if (res.error) throw new Error(res.error);
+    return res.data;
+  });
+}
+/* --------------------------------------------------------------------------- */
 /*                               DeletedFile
 /* --------------------------------------------------------------------------- */
 
@@ -3570,6 +3630,54 @@ export class _FileStore extends Model({ isLoading: prop<boolean>(false).withSett
   });
 }
 /* --------------------------------------------------------------------------- */
+/*                               Notification
+/* --------------------------------------------------------------------------- */
+
+@model("medior/_Notification")
+export class _Notification extends Model({
+  id: prop<string>(),
+  dateCreated: prop<string>(() => dayjs().toISOString()),
+  isRead: prop<boolean>(false),
+  message: prop<string>(),
+  type: prop<"error" | "info" | "success" | "warning">(),
+}) {
+  @modelAction
+  update(updates: Partial<ModelCreationData<this>>) {
+    applySnapshot(this, { ...getSnapshot(this), ...updates });
+  }
+}
+
+@model("medior/_NotificationStore")
+export class _NotificationStore extends Model({ isLoading: prop<boolean>(false).withSetter() }) {
+  /* ------------------------------ ASYNC ACTIONS ----------------------------- */
+  @modelFlow
+  createNotification = asyncAction(async (args: Types.CreateNotificationInput) => {
+    this.setIsLoading(true);
+    const res = await trpc.createNotification.mutate({ args });
+    this.setIsLoading(false);
+    if (res.error) throw new Error(res.error);
+    return res.data;
+  });
+
+  @modelFlow
+  deleteNotification = asyncAction(async (args: Types.DeleteNotificationInput) => {
+    this.setIsLoading(true);
+    const res = await trpc.deleteNotification.mutate({ args });
+    this.setIsLoading(false);
+    if (res.error) throw new Error(res.error);
+    return res.data;
+  });
+
+  @modelFlow
+  updateNotification = asyncAction(async (args: Types.UpdateNotificationInput) => {
+    this.setIsLoading(true);
+    const res = await trpc.updateNotification.mutate({ args });
+    this.setIsLoading(false);
+    if (res.error) throw new Error(res.error);
+    return res.data;
+  });
+}
+/* --------------------------------------------------------------------------- */
 /*                               SavedImportConfig
 /* --------------------------------------------------------------------------- */
 
@@ -3692,7 +3800,8 @@ export class _Tag extends Model({
   label: prop<string>(),
   lastSearchedAt: prop<string>(null),
   parentIds: prop<string[]>(() => []),
-  rating: prop<number>(null),
+  rating: prop<number>(0),
+  ratingIsManual: prop<boolean>(null),
   regEx: prop<string>(null),
   size: prop<number>(),
   thumb: prop<{ frameHeight?: number; frameWidth?: number; path: string }>(null),
