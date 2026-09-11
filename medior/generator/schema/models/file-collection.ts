@@ -33,6 +33,17 @@ model.addProp("ratingIsManual", "boolean");
 model.addIndex({ size: 1, _id: 1 });
 model.addProp("size", "number", { required: true, sort: { icon: "FormatSize", label: "Size" } });
 
+model.addIndex({ sourceFolderKeys: 1 }, { unique: false });
+model.addProp("sourceFolderKeys", "string[]", {
+  defaultValue: "[]",
+  required: true,
+});
+
+model.addProp("sourceFolderPaths", "string[]", {
+  defaultValue: "[]",
+  required: true,
+});
+
 model.addIndex({ tagIds: 1, _id: 1 });
 model.addProp("tagIds", "Tag.id[]", {
   defaultValue: "[]",

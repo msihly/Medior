@@ -1,8 +1,9 @@
 import { MouseEvent } from "react";
-import { Comp, IconName, ListItem, MenuButton } from "medior/components";
-import { RatingChip } from "medior/components/files/file-base/rating-chip";
+import { Comp, FileBase, getRatingMeta, ListItem, MenuButton } from "medior/components";
 
 export interface RatingButtonProps {
+  button?: boolean;
+  disabled?: boolean;
   rating: number;
   setRating: (rating: number) => void;
 }
@@ -12,34 +13,47 @@ export const RatingButton = Comp((props: RatingButtonProps) => {
     <MenuButton
       menuWidth="5rem"
       button={(onOpen) => (
-        <RatingChip onClick={onOpen} rating={props.rating} height="1.5em" noHide />
+        <FileBase.RatingChip
+          button={props.button}
+          disabled={props.disabled}
+          rating={props.rating}
+          onClick={props.disabled ? undefined : onOpen}
+          height="1.5em"
+          noHide
+        />
       )}
     >
-      <OptionRow value={0} setRating={props.setRating} />
-      <OptionRow value={1} setRating={props.setRating} />
-      <OptionRow value={2} setRating={props.setRating} />
-      <OptionRow value={3} setRating={props.setRating} />
-      <OptionRow value={4} setRating={props.setRating} />
-      <OptionRow value={5} setRating={props.setRating} />
-      <OptionRow value={6} setRating={props.setRating} />
-      <OptionRow value={7} setRating={props.setRating} />
-      <OptionRow value={8} setRating={props.setRating} />
-      <OptionRow value={9} setRating={props.setRating} />
+      {(onClose) =>
+        [9, 8, 7, 6, 5, 4, 3, 2, 1, 0].map((value) => (
+          <OptionRow key={value} onClose={onClose} value={value} setRating={props.setRating} />
+        ))
+      }
     </MenuButton>
   );
 });
 
 interface OptionRowProps {
-  icon?: IconName;
+  onClose: () => void;
   setRating: RatingButtonProps["setRating"];
   value: number;
 }
 
-const OptionRow = Comp(({ icon = "Star", ...props }: OptionRowProps) => {
+const OptionRow = Comp((props: OptionRowProps) => {
+  const meta = getRatingMeta(props.value);
+
   const handleClick = (event: MouseEvent) => {
     event.stopPropagation();
     props.setRating(props.value);
+    props.onClose();
   };
 
-  return <ListItem icon={icon} text={props.value} onClick={handleClick} />;
+  return (
+    <ListItem
+      text={props.value}
+      onClick={handleClick}
+      icon={meta.icon}
+      iconProps={{ color: meta.iconColor }}
+      color={meta.iconColor}
+    />
+  );
 });

@@ -1,4 +1,4 @@
-import { createTRPCProxyClient, httpBatchLink } from "@trpc/client";
+import { createTRPCProxyClient, httpBatchLink, httpLink } from "@trpc/client";
 import { SocketEmitEvent, SocketEmitEvents, SocketEvents } from "medior/_generated/server/socket";
 import { io, Socket } from "socket.io-client";
 import { fileLog } from "trabecula/utils/server";
@@ -15,7 +15,7 @@ export let vectorTrpc: ReturnType<typeof createTRPCProxyClient<VectorRouter>>;
 export const setupTRPC = () => {
   // @ts-expect-error
   trpc = createTRPCProxyClient<ServerRouter>({
-    links: [httpBatchLink({ url: `http://localhost:${getConfig().ports.server}` })],
+    links: [httpLink({ url: `http://localhost:${getConfig().ports.server}` })],
   });
 };
 
@@ -82,6 +82,19 @@ class SocketClass {
       });
     } catch (err) {
       fileLog(`emit() scheduleer error: ${err.message}`, { type: "error" });
+    }
+  }
+
+  public emitReliable<Event extends SocketEmitEvent>(
+    event: Event,
+    ...args: Parameters<SocketEvents[Event]>
+  ) {
+    if (!this.socket) this.connect();
+
+    try {
+      this.socket.emit(event, ...args);
+    } catch (err) {
+      fileLog(`Reliable socket emit error: ${err.message}`, { type: "error" });
     }
   }
 

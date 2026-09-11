@@ -1,6 +1,6 @@
 import { ipcRenderer } from "electron";
 import { useEffect } from "react";
-import { Comp, View } from "medior/components";
+import { Comp, View, WindowTitleBar } from "medior/components";
 import { tagToOption, useStores } from "medior/store";
 import { makeClasses } from "medior/utils/client";
 import { trpc } from "medior/utils/server";
@@ -14,8 +14,6 @@ export const SearchWindow = Comp(() => {
   useSockets({ view: "search" });
 
   useEffect(() => {
-    document.title = "Medior —— Search";
-
     ipcRenderer.on("init", async (_, { tagIds }: { tagIds: string[] }) => {
       try {
         const tags = (await trpc.listTag.mutate({ filter: { id: tagIds } })).data;
@@ -30,13 +28,17 @@ export const SearchWindow = Comp(() => {
 
   return (
     <View column className={css.root}>
-      <Views.Search />
+      <WindowTitleBar title="Medior" />
 
-      <Views.CollectionModals />
+      <View column flex={1} overflow="hidden" position="relative">
+        <Views.Search />
 
-      <Views.FileModals />
+        <Views.CollectionModals />
 
-      <Views.TagModals view="search" />
+        <Views.FileModals />
+
+        <Views.TagModals view="search" />
+      </View>
     </View>
   );
 });

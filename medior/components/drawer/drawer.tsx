@@ -1,5 +1,13 @@
+import { useEffect } from "react";
 import { Badge, CircularProgress, Drawer as MuiDrawer } from "@mui/material";
-import { Comp, Icon, IconButton, TooltipProps, View } from "medior/components";
+import {
+  BackgroundActivityModal,
+  Comp,
+  Icon,
+  IconButton,
+  TooltipProps,
+  View,
+} from "medior/components";
 import { useStores } from "medior/store";
 import { colors, makeClasses, openSearchWindow } from "medior/utils/client";
 import { CONSTANTS } from "medior/utils/common";
@@ -13,6 +21,12 @@ export const Drawer = Comp(({ hasImports = false, hasSettings = false }: DrawerP
   const { css } = useClasses(null);
 
   const stores = useStores();
+  const videoTransformer = stores.file.videoTransformer;
+
+  const handleActivity = () => {
+    stores.home.setIsActivityOpen(true);
+    stores.home.readNotifications();
+  };
 
   const handleClose = () => stores.home.setIsDrawerOpen(false);
 
@@ -20,6 +34,8 @@ export const Drawer = Comp(({ hasImports = false, hasSettings = false }: DrawerP
     stores.collection.manager.setSelectedFileIds([]);
     stores.collection.manager.setIsOpen(true);
   };
+
+  const handleDeleteArchivedFiles = () => stores.file.confirmDeleteArchivedFiles();
 
   const handleImport = () => stores.import.manager.setIsOpen(true);
 
@@ -32,6 +48,13 @@ export const Drawer = Comp(({ hasImports = false, hasSettings = false }: DrawerP
   const tooltipProps: Partial<TooltipProps> = {
     placement: "right",
   };
+
+  useEffect(() => {
+    stores.file.loadArchivedFileIds();
+    stores.home.loadBackgroundActivity();
+    videoTransformer.getTransformerStatus();
+    videoTransformer.loadQueueCount();
+  }, []);
 
   return (
     <MuiDrawer
@@ -71,6 +94,28 @@ export const Drawer = Comp(({ hasImports = false, hasSettings = false }: DrawerP
           </Badge>
         )}
 
+        <Badge
+          badgeContent={
+            videoTransformer.isPaused ? (
+              <Icon name="Pause" color={colors.custom.orange} />
+            ) : videoTransformer.isTransforming ? (
+              <CircularProgress size={20} color="inherit" />
+            ) : null
+          }
+          overlap="circular"
+        >
+          <IconButton
+            name="MovieFilter"
+            tooltip="Open Video Transformer"
+            onClick={() => {
+              videoTransformer.setFileIds([]);
+              videoTransformer.setFnType(null);
+              videoTransformer.setIsOpen(true);
+            }}
+            {...{ tooltipProps }}
+          />
+        </Badge>
+
         <IconButton
           name="Label"
           tooltip="Open Tag Manager"
@@ -91,7 +136,44 @@ export const Drawer = Comp(({ hasImports = false, hasSettings = false }: DrawerP
           onClick={handleSearchWindow}
           {...{ tooltipProps }}
         />
+
+        <IconButton
+          name={stores.file.hasArchivedFiles ? "Delete" : "DeleteOutline"}
+          tooltip="Delete Archived Files"
+          onClick={handleDeleteArchivedFiles}
+          disabled={!stores.file.hasArchivedFiles}
+          {...{ tooltipProps }}
+        />
       </View>
+
+      <View column flex={1} justify="flex-end">
+        <Badge
+          badgeContent={
+            stores.home.backgroundOperations.filter(
+              ({ status }) => status === "PENDING" || status === "RUNNING",
+            ).length
+          }
+          color="primary"
+          overlap="circular"
+        >
+          <IconButton
+            name={
+              stores.home.hasUnreadErrors
+                ? "NotificationImportant"
+                : stores.home.hasRunningBackgroundOperations
+                  ? "NotificationsActive"
+                  : stores.home.hasUnreadNotifications
+                    ? "Notifications"
+                    : "NotificationsNone"
+            }
+            tooltip="Open Activity"
+            onClick={handleActivity}
+            {...{ tooltipProps }}
+          />
+        </Badge>
+      </View>
+
+      {stores.home.isActivityOpen && <BackgroundActivityModal />}
     </MuiDrawer>
   );
 });
@@ -102,7 +184,8 @@ const useClasses = makeClasses({
     flexDirection: "column",
     alignItems: "center",
     borderRight: "1px solid #111",
-    marginTop: CONSTANTS.HOME.TOP_BAR.HEIGHT,
+    height: `calc(100% - ${CONSTANTS.HOME.TOP_BAR.HEIGHT + CONSTANTS.WINDOW.TITLE_BAR.HEIGHT}px)`,
+    marginTop: CONSTANTS.HOME.TOP_BAR.HEIGHT + CONSTANTS.WINDOW.TITLE_BAR.HEIGHT,
     padding: "0.2rem 0.3rem",
     width: CONSTANTS.HOME.DRAWER.WIDTH,
     background: colors.background,

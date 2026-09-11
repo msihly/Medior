@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { Comp, SettingsModal, View } from "medior/components";
+import { Comp, SettingsModal, View, WindowTitleBar } from "medior/components";
 import { useStores } from "medior/store";
 import { makeClasses } from "medior/utils/client";
 import { useSockets, Views } from "./common";
@@ -14,7 +14,6 @@ export const HomeWindow = Comp(() => {
   useEffect(() => {
     (async () => {
       try {
-        document.title = "Medior —— Home";
         await stores.file.search.loadFiltered({ noCache: true, page: 1 });
         await stores.import.manager.runImporter(true);
       } catch (err) {
@@ -26,17 +25,21 @@ export const HomeWindow = Comp(() => {
   return (
     <Views.ImportDnD>
       <View column className={css.root}>
-        <Views.Search isHome />
+        <WindowTitleBar title="Medior" />
 
-        <Views.CollectionModals />
+        <View column flex={1} overflow="hidden" position="relative">
+          <Views.Search isHome />
 
-        <Views.FileModals />
+          <Views.CollectionModals />
 
-        <Views.ImportModals />
+          <Views.FileModals />
 
-        <Views.TagModals view="home" />
+          <Views.ImportModals />
 
-        {stores.home.settings.isOpen && <SettingsModal />}
+          <Views.TagModals view="home" />
+
+          {stores.home.settings.isOpen && <SettingsModal />}
+        </View>
       </View>
     </Views.ImportDnD>
   );

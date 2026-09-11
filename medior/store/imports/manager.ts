@@ -56,8 +56,7 @@ export class ImportManager extends Model({
       })),
     );
     if (!batchRes.success) throw new Error(batchRes?.error);
-
-    this.runImporter();
+    return batchRes.data;
   });
 
   @modelFlow

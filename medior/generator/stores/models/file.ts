@@ -3,6 +3,7 @@ import { ModelStore } from "medior/generator/stores/generators";
 const model = new ModelStore("File", {
   defaultPageSize: "() => getConfig().file.search.pageSize",
   defaultSort: "() => getConfig().file.search.sort",
+  withCarouselIds: true,
   withTags: true,
 });
 
@@ -18,6 +19,12 @@ model.addLogOpProp("bitrate");
 model.addLogOpProp("duration");
 model.addLogOpProp("frameRate");
 
+model.addLogOpProp("numOfCollections", {
+  objPath: ["$and"],
+  objValue:
+    "[{ $expr: { [logicOpsToMongo(args.numOfCollections.logOp)]: [{ $size: { $ifNull: ['$collectionIds', []] } }, args.numOfCollections.value] } }]",
+});
+
 model.addLogOpProp("numOfTags", {
   objPath: ["$expr", "~logicOpsToMongo(args.numOfTags.logOp)"],
   objValue: "[{ $size: '$tagIds' }, args.numOfTags.value]",
@@ -26,6 +33,11 @@ model.addLogOpProp("numOfTags", {
 model.addLogOpProp("rating");
 
 model.addTagOptsProp("tagIds", "tagIdsWithAncestors");
+
+model.addProp("diffusionParams", "string", "null", {
+  objPath: ["diffusionParams", "$regex"],
+  objValue: 'new RegExp(args.diffusionParams, "i")',
+});
 
 model.addProp("excludedFileIds", "string[]", "() => []", {
   objPath: ["_id", "$nin"],
@@ -68,9 +80,29 @@ model.addProp("isModified", "boolean", "null", {
     ]`,
 });
 
+model.addProp("isTranscribed", "boolean", "null", {
+  customActionProps: [
+    model.makeCustomActionProp({
+      condition: "args.isTranscribed === true",
+      objPath: ["hasTranscript"],
+      objValue: "true",
+    }),
+    model.makeCustomActionProp({
+      condition: "args.isTranscribed === false",
+      objPath: ["hasTranscript", "$in"],
+      objValue: "[false, null]",
+    }),
+  ],
+});
+
 model.addProp("originalPath", "string", "null", {
   objPath: ["originalPath", "$regex"],
   objValue: 'new RegExp(args.originalPath, "i")',
+});
+
+model.addProp("transcription", "string", "null", {
+  objPath: ["transcription.text", "$regex"],
+  objValue: 'new RegExp(args.transcription, "i")',
 });
 
 model.addProp(

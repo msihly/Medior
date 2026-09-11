@@ -1,4 +1,5 @@
 import { constants as fsc, promises as fs } from "fs";
+import path from "path";
 import * as models from "medior/_generated/server/models";
 import { ModelCreationData } from "mobx-keystone";
 import {
@@ -46,6 +47,32 @@ class ImporterStatus {
 }
 
 const importerStatus = new ImporterStatus();
+const COLLECTION_IMPORT_STATUSES = ["COMPLETE", "DUPLICATE"] satisfies Types.ImportStatus[];
+
+const deriveImportCollectionSourceFolderPath = (filePaths: string[]) => {
+  const folders = filePaths.filter(Boolean).map((filePath) => path.win32.dirname(filePath));
+  if (!folders.length) return null;
+  const root = path.win32.parse(folders[0]).root;
+  if (
+    !folders.every((folder) => path.win32.parse(folder).root.toLowerCase() === root.toLowerCase())
+  )
+    return null;
+
+  const relativeParts = folders.map((folder) =>
+    path.win32
+      .relative(root, folder)
+      .split(/[\\/]+/)
+      .filter(Boolean),
+  );
+  const commonParts: string[] = [];
+  const maxLength = Math.min(...relativeParts.map((parts) => parts.length));
+  for (let index = 0; index < maxLength; index++) {
+    const part = relativeParts[0][index];
+    if (!relativeParts.every((parts) => parts[index].toLowerCase() === part.toLowerCase())) break;
+    commonParts.push(part);
+  }
+  return commonParts.length ? path.win32.join(root, ...commonParts) : null;
+};
 
 export const checkFileImportHashes = makeAction(async (args: { hash: string }) => {
   const [deletedFileRes, fileRes] = await Promise.all([
@@ -70,12 +97,17 @@ export const completeImportBatch = makeAction(
       throw new Error("Failed to complete batch (imports pending)");
     }
 
+    const collectionImports = batch.imports.filter((imp) =>
+      COLLECTION_IMPORT_STATUSES.some((status) => status === imp.status),
+    );
+    const missingCollectionFileIds = collectionImports.filter((imp) => !imp.fileId);
+    if (batch.collectionTitle && missingCollectionFileIds.length) {
+      fileLog({ args, batch, missingCollectionFileIds }, { type: "error" });
+      throw new Error("Failed to complete batch collection (completed imports missing file ids)");
+    }
+
     const fileIds = [
-      ...new Set(
-        batch.imports
-          .filter((imp) => imp.fileId && ["COMPLETED", "DUPLICATE"].includes(imp.status))
-          .map((imp) => imp.fileId.toString()),
-      ),
+      ...new Set(collectionImports.map((imp) => imp.fileId?.toString()).filter(Boolean)),
     ];
 
     const tagIds = [
@@ -83,10 +115,28 @@ export const completeImportBatch = makeAction(
     ];
 
     let collectionId: string = null;
-    if (fileIds.length && batch.collectionTitle) {
+    if (batch.collectionTitle && fileIds.length) {
       const fileIdIndexes = fileIds.map((fileId, index) => ({ fileId, index }));
-      const res = await actions.createCollection({ fileIdIndexes, title: batch.collectionTitle });
+      const sourceFolderPath =
+        batch.collectionSourceFolderPath ??
+        deriveImportCollectionSourceFolderPath(
+          collectionImports.map((fileImport) => fileImport.path),
+        );
+      const res = sourceFolderPath
+        ? await actions.upsertImportedCollection({
+            fileIdIndexes,
+            sourceFolderPath,
+            title: batch.collectionTitle,
+          })
+        : await actions.createCollection({ fileIdIndexes, title: batch.collectionTitle });
       if (!res.success) throw new Error(`Failed to create collection: ${res.error}`);
+      const collectionFileIds = new Set(
+        res.data.fileIdIndexes.map((entry) => entry.fileId.toString()),
+      );
+      if (!fileIds.every((fileId) => collectionFileIds.has(fileId))) {
+        fileLog({ args, batch, collection: res.data, fileIdIndexes }, { type: "error" });
+        throw new Error("Failed to create collection with all completed or duplicate file ids");
+      }
       collectionId = res.data.id;
     }
 
@@ -111,7 +161,7 @@ export const completeImportBatch = makeAction(
     );
     socket.emit("onImportBatchCompleted", { id: args.id });
 
-    if (tagIds.length) actions.regenTags({ tagIds });
+    if (tagIds.length) await actions.regenTags({ tagIds });
 
     if (batch.deleteOnImport) {
       try {
@@ -158,6 +208,7 @@ export const copyFile = makeAction(
 export const createImportBatches = makeAction(
   async (
     batches: {
+      collectionSourceFolderPath?: string;
       collectionTitle?: string;
       deleteOnImport: boolean;
       ignorePrevDeleted: boolean;
@@ -167,12 +218,19 @@ export const createImportBatches = makeAction(
     }[],
   ) => {
     const tagMap: { tagIds: string[]; tagIdsWithAncestors: string[] }[] = [];
+    const batchTagIds = batches.map((batch) =>
+      batch.tagIds ? [...new Set(batch.tagIds)].flat() : [],
+    );
+    const uniqueTagIds = [...new Set(batchTagIds.flat())];
+    const ancestorMap = uniqueTagIds.length
+      ? await actions.makeAncestorIdsMap(uniqueTagIds)
+      : new Map<string, string[]>();
 
     for (let i = 0; i < batches.length; i++) {
-      const batch = batches[i];
+      const tagIds = batchTagIds[i];
       tagMap.push({
-        tagIds: batch.tagIds ? [...new Set(batch.tagIds)].flat() : [],
-        tagIdsWithAncestors: batch.tagIds ? await actions.deriveAncestorTagIds(batch.tagIds) : [],
+        tagIds,
+        tagIdsWithAncestors: [...new Set(tagIds.flatMap((tagId) => ancestorMap.get(tagId) ?? []))],
       });
     }
 
@@ -188,10 +246,14 @@ export const createImportBatches = makeAction(
         tagIds: tagMap[idx].tagIds,
         tagIdsWithAncestors: tagMap[idx].tagIdsWithAncestors,
       })),
+      { rawResult: true },
     );
 
-    if (res.length !== batches.length) throw new Error("Failed to create import batches");
-    return res;
+    const ids = Object.values(res.insertedIds).map((id) => id.toString());
+
+    if (res.insertedCount !== batches.length) throw new Error("Failed to create import batches");
+    socket.emit("onReloadImportBatches");
+    return { count: res.insertedCount, ids };
   },
 );
 
@@ -246,7 +308,7 @@ export const reingestFolder = makeAction(
       throw new Error(`Failed to update file tagIds: ${Fmt.jstr({ args, bulkRes })}`);
 
     const tagIds = [...new Set(args.fileTagIds.flatMap((f) => f.tagIds))];
-    if (tagIds.length) actions.regenTags({ tagIds });
+    if (tagIds.length) await actions.regenTags({ tagIds });
 
     if (args.collectionTitle) {
       const collRes = await actions.createCollection({

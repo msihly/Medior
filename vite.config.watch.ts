@@ -7,6 +7,7 @@ import pluginTsconfigPaths from "vite-tsconfig-paths";
 import { exec } from "child_process";
 
 const EXTERNALS = [
+  "@huggingface/transformers",
   "aws-sdk",
   "crypto",
   "fluent-ffmpeg",

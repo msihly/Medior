@@ -14,7 +14,7 @@ const COLL_HEIGHT = 42;
 const HEADER_HEIGHT = 43;
 const TAGS_HEIGHT = 46;
 
-type Folder = Pick<FlatFolder, "collectionTitle" | "imports" | "tags">;
+type Folder = Pick<FlatFolder, "collectionTitle" | "imports" | "savedConfigLabel" | "tags">;
 
 export interface ImportFolderListProps {
   batchId?: string;
@@ -46,7 +46,7 @@ export const ImportFolderList = Comp(
       : null;
     const totalBytes = folder ? folder.imports.reduce((acc, cur) => acc + cur.size, 0) : null;
 
-    const { css } = useClasses({ collapsible, collapsed, hasCollection, hasTags });
+    const { css, cx } = useClasses({ collapsible, collapsed, hasCollection, hasTags });
 
     const deleteBatch = () => stores.import.manager.deleteBatch({ id: batchId });
 
@@ -83,6 +83,13 @@ export const ImportFolderList = Comp(
           </View>
 
           <View row spacing="0.3rem" align="center">
+            {folder.savedConfigLabel ? (
+              <Chip
+                label={`Config: ${folder.savedConfigLabel}`}
+                className={cx(css.chip, css.configChip)}
+              />
+            ) : null}
+
             <Chip label={Fmt.bytes(totalBytes)} className={css.chip} />
 
             <Chip label={`${folder.imports.length} files`} className={css.chip} />
@@ -166,6 +173,11 @@ const useClasses = makeClasses((props: ClassesProps) => ({
     height: "auto",
     width: "auto",
     minWidth: "4em",
+  },
+  configChip: {
+    maxWidth: "12rem",
+    color: colors.custom.lightBlue,
+    fontWeight: 600,
   },
   collection: {
     justifyContent: "center",

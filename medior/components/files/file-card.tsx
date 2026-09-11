@@ -1,6 +1,6 @@
-import { Comp, LoadingOverlay, Text } from "medior/components";
+import { Comp, Icon, LoadingOverlay, Text, View } from "medior/components";
 import { useFileDrag } from "medior/components/files/hooks";
-import { File, FileSearch, useStores } from "medior/store";
+import { File, FileSearch, FileTransformSearch, useStores } from "medior/store";
 import { CSS, openCarouselWindow, toast } from "medior/utils/client";
 import { round } from "medior/utils/common";
 import { FileBase } from ".";
@@ -10,29 +10,34 @@ interface FileCardProps {
   disabled?: boolean;
   file?: File;
   height?: CSS["height"];
-  id?: string;
   similarity?: {
     rank: number;
     score: number;
   };
-  store: FileSearch;
+  store: FileSearch | FileTransformSearch;
   width?: CSS["width"];
 }
 
 export const FileCard = Comp(
-  ({ carouselFileIds, disabled, file, height, id, similarity, store, width }: FileCardProps) => {
+  ({ carouselFileIds, disabled, file, height, similarity, store, width }: FileCardProps) => {
     const stores = useStores();
+    const footerOffset = stores.home.showFileName ? "3.5rem" : undefined;
 
-    if (!file) file = stores.file.getById(id);
     const fileDragProps = useFileDrag(file, store.selectedIds);
 
     const handleClick = async (event: React.MouseEvent) => {
       if (disabled) return;
-      const res = await store.handleSelect({
-        hasCtrl: event.ctrlKey,
-        hasShift: event.shiftKey,
-        id: file.id,
-      });
+      const res = await ("handleFileSelect" in store
+        ? store.handleFileSelect({
+            hasCtrl: event.ctrlKey,
+            hasShift: event.shiftKey,
+            id: file.id,
+          })
+        : store.handleSelect({
+            hasCtrl: event.ctrlKey,
+            hasShift: event.shiftKey,
+            id: file.id,
+          }));
       if (!res?.success) toast.error(res.error);
     };
 
@@ -55,17 +60,27 @@ export const FileCard = Comp(
       );
 
     return (
-      <FileBase.ContextMenu key="context-menu" {...{ disabled, file }} store={store}>
+      <FileBase.ContextMenu
+        key="context-menu"
+        {...{ carouselFileIds, disabled, file }}
+        store={store}
+      >
         <FileBase.Tooltip {...{ file }}>
           <FileBase.Container
             {...{ disabled, height, width }}
             onClick={handleClick}
             onDoubleClick={handleDoubleClick}
-            selected={store.getIsSelected(file.id)}
+            selected={
+              "getIsFileSelected" in store
+                ? store.getIsFileSelected(file.id)
+                : store.getIsSelected(file.id)
+            }
           >
             <FileBase.Image
               {...fileDragProps}
               thumb={file.thumb}
+              fileId={file.id}
+              isCorrupted={file.isCorrupted}
               title={file.originalName}
               fit={stores.home.fileCardFit}
               height={height}
@@ -93,11 +108,35 @@ export const FileCard = Comp(
 
               <FileBase.ExtAndIcons position="top-right" file={file} />
 
-              <FileBase.Duration position="bottom-right" file={file} hasFooter />
+              {file.collectionIds?.length > 0 && (
+                <FileBase.Chip
+                  position="bottom-left"
+                  hasFooter
+                  footerOffset={footerOffset}
+                  label={
+                    <View row spacing="0.3em">
+                      <Icon name="Collections" size="1em" />
+
+                      <Text>{file.collectionIds.length}</Text>
+                    </View>
+                  }
+                />
+              )}
+
+              <FileBase.Duration
+                position="bottom-right"
+                file={file}
+                hasFooter
+                footerOffset={footerOffset}
+              />
             </FileBase.Image>
 
-            <FileBase.Footer>
-              <FileBase.Tags tags={file.tags} />
+            <FileBase.Footer height={stores.home.showFileName ? "4rem" : undefined}>
+              <View column width="100%" overflow="hidden">
+                {stores.home.showFileName && <FileBase.FooterText text={file.originalName} />}
+
+                <FileBase.Tags compact={stores.home.showFileName} tags={file.tags} />
+              </View>
             </FileBase.Footer>
           </FileBase.Container>
         </FileBase.Tooltip>

@@ -5,6 +5,10 @@ import * as models from "medior/_generated/server/models";
 import { SocketEventOptions } from "medior/_generated/server/socket";
 import { FilterQuery } from "mongoose";
 import * as Types from "medior/server/database/types";
+import {
+  removeFileCollectionIds,
+  syncCollectionFileIds,
+} from "medior/server/database/actions/collections";
 import { SortMenuProps } from "medior/components";
 import { dayjs, isDeepEqual, LogicalOp, logicOpsToMongo, setObj } from "medior/utils/common";
 import {
@@ -352,6 +356,161 @@ export const listFilteredFileImportBatch = makeAction(
   },
 );
 
+export type CreateFileTransformFilterPipelineInput = {
+  afterSize?: { logOp: LogicalOp | ""; value: number };
+  beforePath?: string;
+  beforeSize?: { logOp: LogicalOp | ""; value: number };
+  completedAtEnd?: string;
+  completedAtStart?: string;
+  dateCreatedEnd?: string;
+  dateCreatedStart?: string;
+  ids?: string[];
+  isCompleted?: boolean;
+  sortValue?: SortMenuProps["value"];
+  startedAtEnd?: string;
+  startedAtStart?: string;
+  status?: string;
+  type?: string;
+};
+
+export const createFileTransformFilterPipeline = (args: CreateFileTransformFilterPipelineInput) => {
+  const $match: FilterQuery<models.FileTransformSchema> = {};
+
+  if (!isDeepEqual(args.afterSize, { logOp: "", value: 0 }))
+    setObj($match, ["afterSize", logicOpsToMongo(args.afterSize.logOp)], args.afterSize.value);
+  if (!isDeepEqual(args.beforePath, null))
+    setObj($match, ["beforePath", "$regex"], new RegExp(args.beforePath, "i"));
+  if (!isDeepEqual(args.beforeSize, { logOp: "", value: 0 }))
+    setObj($match, ["beforeSize", logicOpsToMongo(args.beforeSize.logOp)], args.beforeSize.value);
+  if (!isDeepEqual(args.completedAtEnd, ""))
+    setObj($match, ["completedAt", "$lte"], args.completedAtEnd);
+  if (!isDeepEqual(args.completedAtStart, ""))
+    setObj($match, ["completedAt", "$gte"], args.completedAtStart);
+  if (!isDeepEqual(args.dateCreatedEnd, ""))
+    setObj($match, ["dateCreated", "$lte"], args.dateCreatedEnd);
+  if (!isDeepEqual(args.dateCreatedStart, ""))
+    setObj($match, ["dateCreated", "$gte"], args.dateCreatedStart);
+  if (!isDeepEqual(args.ids, [])) setObj($match, ["_id", "$in"], objectIds(args.ids));
+  if (!isDeepEqual(args.startedAtEnd, "")) setObj($match, ["startedAt", "$lte"], args.startedAtEnd);
+  if (!isDeepEqual(args.startedAtStart, ""))
+    setObj($match, ["startedAt", "$gte"], args.startedAtStart);
+  if (!isDeepEqual(args.status, "")) setObj($match, ["status"], args.status);
+  if (!isDeepEqual(args.type, "")) setObj($match, ["type"], args.type);
+
+  if (true) setObj($match, ["isCompleted"], args.isCompleted);
+
+  const sortDir = args.sortValue.isDesc ? -1 : 1;
+
+  return {
+    $match,
+    $sort: { [args.sortValue.key]: sortDir, _id: sortDir } as { [key: string]: 1 | -1 },
+  };
+};
+
+export type GetShiftSelectedFileTransformInput = CreateFileTransformFilterPipelineInput & {
+  clickedId: string;
+  clickedIndex: number;
+  selectedIds: string[];
+};
+
+export const getShiftSelectedFileTransform = makeAction(
+  async ({
+    clickedId,
+    clickedIndex,
+    selectedIds,
+    ...filterParams
+  }: GetShiftSelectedFileTransformInput) => {
+    const filterPipeline = createFileTransformFilterPipeline(filterParams);
+    return getShiftSelectedItems({
+      clickedId,
+      clickedIndex,
+      filterPipeline,
+      ids: filterParams.ids,
+      model: models.FileTransformModel,
+      selectedIds,
+    });
+  },
+);
+
+export type GetFilteredFileTransformCountInput = CreateFileTransformFilterPipelineInput & {
+  curMaxPage: number;
+  page: number;
+  pageSize: number;
+  withFull: boolean;
+};
+
+export const getFilteredFileTransformCount = makeAction(
+  async ({
+    curMaxPage,
+    pageSize,
+    withFull,
+    ...filterParams
+  }: GetFilteredFileTransformCountInput) => {
+    const filterPipeline = createFileTransformFilterPipeline(filterParams);
+
+    if (withFull) {
+      const totalDocs = await models.FileTransformModel.countDocuments(
+        filterPipeline.$match,
+      ).allowDiskUse(true);
+      const pageCount = Math.ceil(totalDocs / pageSize);
+      return { count: totalDocs, pageCount };
+    }
+
+    const targetPage = filterParams.page;
+    const targetMaxPage = targetPage >= curMaxPage ? curMaxPage + 1000 : curMaxPage;
+    const probeLimit = targetMaxPage * pageSize;
+    const probeCount = await models.FileTransformModel.countDocuments(filterPipeline.$match, {
+      limit: probeLimit,
+    }).allowDiskUse(true);
+
+    const pageCount = probeCount < probeLimit ? Math.ceil(probeCount / pageSize) : targetMaxPage;
+
+    return { count: probeCount, pageCount };
+  },
+);
+
+export type ListFilteredFileTransformInput = CreateFileTransformFilterPipelineInput & {
+  forcePages?: boolean;
+  page: number;
+  pageSize: number;
+  select?: Record<string, 1 | -1>;
+};
+
+export const listFilteredFileTransform = makeAction(
+  async ({
+    forcePages,
+    page,
+    pageSize,
+    select,
+    ...filterParams
+  }: ListFilteredFileTransformInput) => {
+    const filterPipeline = createFileTransformFilterPipeline(filterParams);
+    const hasIds = forcePages || filterParams.ids?.length > 0;
+
+    const items = await (hasIds
+      ? models.FileTransformModel.aggregate([
+          { $match: { _id: { $in: objectIds(filterParams.ids) } } },
+          { $addFields: { __order: { $indexOfArray: [objectIds(filterParams.ids), "$_id"] } } },
+          { $sort: { __order: 1 } },
+          ...(forcePages
+            ? [{ $skip: Math.max(0, page - 1) * pageSize }, { $limit: pageSize }]
+            : []),
+        ])
+          .allowDiskUse(true)
+          .exec()
+      : models.FileTransformModel.find(filterPipeline.$match)
+          .sort(filterPipeline.$sort)
+          .select(select)
+          .skip(Math.max(0, page - 1) * pageSize)
+          .limit(pageSize)
+          .allowDiskUse(true)
+          .lean());
+
+    if (!items) throw new Error("Failed to load filtered FileTransform");
+    return items.map((i) => leanModelToJson<models.FileTransformSchema>(i));
+  },
+);
+
 export type CreateFileFilterPipelineInput = {
   bitrate?: { logOp: LogicalOp | ""; value: number };
   dateCreatedEnd?: string;
@@ -360,6 +519,7 @@ export type CreateFileFilterPipelineInput = {
   dateImportedStart?: string;
   dateModifiedEnd?: string;
   dateModifiedStart?: string;
+  diffusionParams?: string;
   duration?: { logOp: LogicalOp | ""; value: number };
   excludedDescTagIds?: string[];
   excludedFileIds?: string[];
@@ -370,12 +530,14 @@ export type CreateFileFilterPipelineInput = {
   isArchived?: boolean;
   isCorrupted?: boolean;
   isModified?: boolean;
+  isTranscribed?: boolean;
   maxHeight?: number;
   maxSize?: number;
   maxWidth?: number;
   minHeight?: number;
   minSize?: number;
   minWidth?: number;
+  numOfCollections?: { logOp: LogicalOp | ""; value: number };
   numOfTags?: { logOp: LogicalOp | ""; value: number };
   optionalTagIds?: string[];
   originalPath?: string;
@@ -387,6 +549,7 @@ export type CreateFileFilterPipelineInput = {
   selectedVideoCodecs?: Types.SelectedVideoCodecs;
   selectedVideoExts?: Types.SelectedVideoExts;
   sortValue?: SortMenuProps["value"];
+  transcription?: string;
 };
 
 export const createFileFilterPipeline = (args: CreateFileFilterPipelineInput) => {
@@ -406,6 +569,8 @@ export const createFileFilterPipeline = (args: CreateFileFilterPipelineInput) =>
     setObj($match, ["dateModified", "$lte"], args.dateModifiedEnd);
   if (!isDeepEqual(args.dateModifiedStart, ""))
     setObj($match, ["dateModified", "$gte"], args.dateModifiedStart);
+  if (!isDeepEqual(args.diffusionParams, null))
+    setObj($match, ["diffusionParams", "$regex"], new RegExp(args.diffusionParams, "i"));
   if (!isDeepEqual(args.duration, { logOp: "", value: 0 }))
     setObj($match, ["duration", logicOpsToMongo(args.duration.logOp)], args.duration.value);
   if (!isDeepEqual(args.excludedFileIds, []))
@@ -443,6 +608,21 @@ export const createFileFilterPipeline = (args: CreateFileFilterPipelineInput) =>
   if (!isDeepEqual(args.minHeight, null)) setObj($match, ["height", "$gte"], args.minHeight);
   if (!isDeepEqual(args.minSize, null)) setObj($match, ["size", "$gte"], args.minSize);
   if (!isDeepEqual(args.minWidth, null)) setObj($match, ["width", "$gte"], args.minWidth);
+  if (!isDeepEqual(args.numOfCollections, { logOp: "", value: 0 }))
+    setObj(
+      $match,
+      ["$and"],
+      [
+        {
+          $expr: {
+            [logicOpsToMongo(args.numOfCollections.logOp)]: [
+              { $size: { $ifNull: ["$collectionIds", []] } },
+              args.numOfCollections.value,
+            ],
+          },
+        },
+      ],
+    );
   if (!isDeepEqual(args.numOfTags, { logOp: "", value: 0 }))
     setObj(
       $match,
@@ -453,8 +633,12 @@ export const createFileFilterPipeline = (args: CreateFileFilterPipelineInput) =>
     setObj($match, ["originalPath", "$regex"], new RegExp(args.originalPath, "i"));
   if (!isDeepEqual(args.rating, { logOp: "", value: 0 }))
     setObj($match, ["rating", logicOpsToMongo(args.rating.logOp)], args.rating.value);
+  if (!isDeepEqual(args.transcription, null))
+    setObj($match, ["transcription.text", "$regex"], new RegExp(args.transcription, "i"));
 
   if (true) setObj($match, ["isArchived"], args.isArchived);
+  if (args.isTranscribed === true) setObj($match, ["hasTranscript"], true);
+  if (args.isTranscribed === false) setObj($match, ["hasTranscript", "$in"], [false, null]);
   if (true)
     setObj(
       $match,
@@ -562,8 +746,169 @@ export const listFilteredFile = makeAction(
     const filterPipeline = createFileFilterPipeline(filterParams);
     const hasIds = forcePages || filterParams.ids?.length > 0;
 
+    let carouselFileIds: string[];
+    let items;
+
+    if (hasIds) {
+      items = await models.FileModel.aggregate([
+        { $match: { _id: { $in: objectIds(filterParams.ids) } } },
+        { $addFields: { __order: { $indexOfArray: [objectIds(filterParams.ids), "$_id"] } } },
+        { $sort: { __order: 1 } },
+        ...(forcePages ? [{ $skip: Math.max(0, page - 1) * pageSize }, { $limit: pageSize }] : []),
+      ])
+        .allowDiskUse(true)
+        .exec();
+      carouselFileIds = items.map((item) => item._id.toString());
+    } else {
+      const [result] = await models.FileModel.aggregate([
+        { $match: filterPipeline.$match },
+        { $sort: filterPipeline.$sort },
+        {
+          $limit: Math.max(
+            Math.max(0, page - 1) * pageSize + pageSize,
+            Math.max(0, Math.max(0, page - 1) * pageSize - 250) + 501,
+          ),
+        },
+        {
+          $facet: {
+            carouselFiles: [
+              { $skip: Math.max(0, Math.max(0, page - 1) * pageSize - 250) },
+              { $limit: 501 },
+              { $project: { _id: 1 } },
+            ],
+            items: [
+              { $skip: Math.max(0, page - 1) * pageSize },
+              { $limit: pageSize },
+              ...(select ? [{ $project: select }] : []),
+            ],
+          },
+        },
+      ])
+        .allowDiskUse(true)
+        .exec();
+      carouselFileIds = result.carouselFiles.map((item) => item._id.toString());
+      items = result.items;
+    }
+
+    if (!items) throw new Error("Failed to load filtered File");
+    return { carouselFileIds, items: items.map((i) => leanModelToJson<models.FileSchema>(i)) };
+  },
+);
+
+export type CreateSavedImportConfigFilterPipelineInput = {
+  dateModifiedEnd?: string;
+  dateModifiedStart?: string;
+  folderPath?: string;
+  ids?: string[];
+  label?: string;
+  sortValue?: SortMenuProps["value"];
+};
+
+export const createSavedImportConfigFilterPipeline = (
+  args: CreateSavedImportConfigFilterPipelineInput,
+) => {
+  const $match: FilterQuery<models.SavedImportConfigSchema> = {};
+
+  if (!isDeepEqual(args.dateModifiedEnd, ""))
+    setObj($match, ["dateModified", "$lte"], args.dateModifiedEnd);
+  if (!isDeepEqual(args.dateModifiedStart, ""))
+    setObj($match, ["dateModified", "$gte"], args.dateModifiedStart);
+  if (!isDeepEqual(args.folderPath, ""))
+    setObj($match, ["folderPath", "$regex"], new RegExp(args.folderPath, "i"));
+  if (!isDeepEqual(args.ids, [])) setObj($match, ["_id", "$in"], objectIds(args.ids));
+  if (!isDeepEqual(args.label, ""))
+    setObj($match, ["label", "$regex"], new RegExp(args.label, "i"));
+
+  const sortDir = args.sortValue.isDesc ? -1 : 1;
+
+  return {
+    $match,
+    $sort: { [args.sortValue.key]: sortDir, _id: sortDir } as { [key: string]: 1 | -1 },
+  };
+};
+
+export type GetShiftSelectedSavedImportConfigInput = CreateSavedImportConfigFilterPipelineInput & {
+  clickedId: string;
+  clickedIndex: number;
+  selectedIds: string[];
+};
+
+export const getShiftSelectedSavedImportConfig = makeAction(
+  async ({
+    clickedId,
+    clickedIndex,
+    selectedIds,
+    ...filterParams
+  }: GetShiftSelectedSavedImportConfigInput) => {
+    const filterPipeline = createSavedImportConfigFilterPipeline(filterParams);
+    return getShiftSelectedItems({
+      clickedId,
+      clickedIndex,
+      filterPipeline,
+      ids: filterParams.ids,
+      model: models.SavedImportConfigModel,
+      selectedIds,
+    });
+  },
+);
+
+export type GetFilteredSavedImportConfigCountInput = CreateSavedImportConfigFilterPipelineInput & {
+  curMaxPage: number;
+  page: number;
+  pageSize: number;
+  withFull: boolean;
+};
+
+export const getFilteredSavedImportConfigCount = makeAction(
+  async ({
+    curMaxPage,
+    pageSize,
+    withFull,
+    ...filterParams
+  }: GetFilteredSavedImportConfigCountInput) => {
+    const filterPipeline = createSavedImportConfigFilterPipeline(filterParams);
+
+    if (withFull) {
+      const totalDocs = await models.SavedImportConfigModel.countDocuments(
+        filterPipeline.$match,
+      ).allowDiskUse(true);
+      const pageCount = Math.ceil(totalDocs / pageSize);
+      return { count: totalDocs, pageCount };
+    }
+
+    const targetPage = filterParams.page;
+    const targetMaxPage = targetPage >= curMaxPage ? curMaxPage + 1000 : curMaxPage;
+    const probeLimit = targetMaxPage * pageSize;
+    const probeCount = await models.SavedImportConfigModel.countDocuments(filterPipeline.$match, {
+      limit: probeLimit,
+    }).allowDiskUse(true);
+
+    const pageCount = probeCount < probeLimit ? Math.ceil(probeCount / pageSize) : targetMaxPage;
+
+    return { count: probeCount, pageCount };
+  },
+);
+
+export type ListFilteredSavedImportConfigInput = CreateSavedImportConfigFilterPipelineInput & {
+  forcePages?: boolean;
+  page: number;
+  pageSize: number;
+  select?: Record<string, 1 | -1>;
+};
+
+export const listFilteredSavedImportConfig = makeAction(
+  async ({
+    forcePages,
+    page,
+    pageSize,
+    select,
+    ...filterParams
+  }: ListFilteredSavedImportConfigInput) => {
+    const filterPipeline = createSavedImportConfigFilterPipeline(filterParams);
+    const hasIds = forcePages || filterParams.ids?.length > 0;
+
     const items = await (hasIds
-      ? models.FileModel.aggregate([
+      ? models.SavedImportConfigModel.aggregate([
           { $match: { _id: { $in: objectIds(filterParams.ids) } } },
           { $addFields: { __order: { $indexOfArray: [objectIds(filterParams.ids), "$_id"] } } },
           { $sort: { __order: 1 } },
@@ -573,7 +918,7 @@ export const listFilteredFile = makeAction(
         ])
           .allowDiskUse(true)
           .exec()
-      : models.FileModel.find(filterPipeline.$match)
+      : models.SavedImportConfigModel.find(filterPipeline.$match)
           .sort(filterPipeline.$sort)
           .select(select)
           .skip(Math.max(0, page - 1) * pageSize)
@@ -581,8 +926,8 @@ export const listFilteredFile = makeAction(
           .allowDiskUse(true)
           .lean());
 
-    if (!items) throw new Error("Failed to load filtered File");
-    return items.map((i) => leanModelToJson<models.FileSchema>(i));
+    if (!items) throw new Error("Failed to load filtered SavedImportConfig");
+    return items.map((i) => leanModelToJson<models.SavedImportConfigSchema>(i));
   },
 );
 
@@ -750,6 +1095,96 @@ export const listFilteredTag = makeAction(
 /*                               MODEL ACTIONS
 /* --------------------------------------------------------------------------- */
 
+/* ------------------------------------ BackgroundOperation ----------------------------------- */
+export const createBackgroundOperation = makeAction(
+  async ({
+    args,
+    socketOpts,
+  }: {
+    args: Types.CreateBackgroundOperationInput;
+    socketOpts?: SocketEventOptions;
+  }) => {
+    const model = {
+      ...args,
+      dateCreated: dayjs().toISOString(),
+      processedCount: 0,
+      targetIds: [],
+      totalCount: 0,
+    };
+
+    const res = await models.BackgroundOperationModel.create(model);
+    const id = res._id.toString();
+
+    socket.emit("onBackgroundOperationCreated", { ...model, id }, socketOpts);
+    return { ...model, id };
+  },
+);
+
+export const deleteBackgroundOperation = makeAction(
+  async ({
+    args,
+    socketOpts,
+  }: {
+    args: Types.DeleteBackgroundOperationInput;
+    socketOpts?: SocketEventOptions;
+  }) => {
+    await models.BackgroundOperationModel.deleteMany({ _id: { $in: args.ids } });
+
+    socket.emit("onBackgroundOperationDeleted", args, socketOpts);
+  },
+);
+
+export const listBackgroundOperation = makeAction(
+  async ({ args }: { args?: Types.ListBackgroundOperationInput } = {}) => {
+    const filter = { ...args.filter };
+    if (args.filter?.id) {
+      filter._id = Array.isArray(args.filter.id)
+        ? { $in: args.filter.id }
+        : typeof args.filter.id === "string"
+          ? { $in: [args.filter.id] }
+          : args.filter.id;
+
+      delete filter.id;
+    }
+
+    const items = await models.BackgroundOperationModel.find(filter)
+      .sort(args.sort ?? { dateCreated: "desc" })
+      .skip(Math.max(0, args.page - 1) * args.pageSize)
+      .limit(args.pageSize)
+      .allowDiskUse(true)
+      .lean();
+
+    const totalCount = await models.BackgroundOperationModel.countDocuments(filter);
+
+    if (!items || !(totalCount > -1))
+      throw new Error("Failed to load filtered BackgroundOperation");
+
+    return {
+      items: items.map((item) => leanModelToJson<models.BackgroundOperationSchema>(item)),
+      pageCount: Math.ceil(totalCount / args.pageSize),
+    };
+  },
+);
+
+export const updateBackgroundOperation = makeAction(
+  async ({
+    args,
+    socketOpts,
+  }: {
+    args: Types.UpdateBackgroundOperationInput;
+    socketOpts?: SocketEventOptions;
+  }) => {
+    const updates = { ...args.updates, dateModified: dayjs().toISOString() };
+    const res = leanModelToJson<models.BackgroundOperationSchema>(
+      await models.BackgroundOperationModel.findByIdAndUpdate(args.id, updates, {
+        new: true,
+      }).lean(),
+    );
+
+    socket.emit("onBackgroundOperationUpdated", { ...args, updates }, socketOpts);
+    return res;
+  },
+);
 /* ------------------------------------ DeletedFile ----------------------------------- */
 export const createDeletedFile = makeAction(
   async ({
@@ -778,6 +1213,7 @@ export const deleteDeletedFile = makeAction(
     socketOpts?: SocketEventOptions;
   }) => {
     await models.DeletedFileModel.deleteMany({ _id: { $in: args.ids } });
+
     socket.emit("onDeletedFileDeleted", args, socketOpts);
   },
 );
@@ -824,6 +1260,7 @@ export const updateDeletedFile = makeAction(
     const res = leanModelToJson<models.DeletedFileSchema>(
       await models.DeletedFileModel.findByIdAndUpdate(args.id, args.updates, { new: true }).lean(),
     );
+
     socket.emit("onDeletedFileUpdated", args, socketOpts);
     return res;
   },
@@ -843,6 +1280,8 @@ export const createFileCollection = makeAction(
       dateModified: null,
       fileCount: 0,
       rating: 0,
+      sourceFolderKeys: [],
+      sourceFolderPaths: [],
       tagIds: [],
       tagIdsWithAncestors: [],
     };
@@ -850,6 +1289,10 @@ export const createFileCollection = makeAction(
     const res = await models.FileCollectionModel.create(model);
     const id = res._id.toString();
 
+    await syncCollectionFileIds(
+      id,
+      model.fileIdIndexes.map(({ fileId }) => String(fileId)),
+    );
     socket.emit("onFileCollectionCreated", { ...model, id }, socketOpts);
     return { ...model, id };
   },
@@ -864,6 +1307,7 @@ export const deleteFileCollection = makeAction(
     socketOpts?: SocketEventOptions;
   }) => {
     await models.FileCollectionModel.deleteMany({ _id: { $in: args.ids } });
+    await removeFileCollectionIds(args.ids);
     socket.emit("onFileCollectionDeleted", args, socketOpts);
   },
 );
@@ -907,12 +1351,16 @@ export const updateFileCollection = makeAction(
     args: Types.UpdateFileCollectionInput;
     socketOpts?: SocketEventOptions;
   }) => {
+    const updates = { ...args.updates, dateModified: dayjs().toISOString() };
     const res = leanModelToJson<models.FileCollectionSchema>(
-      await models.FileCollectionModel.findByIdAndUpdate(args.id, args.updates, {
-        new: true,
-      }).lean(),
+      await models.FileCollectionModel.findByIdAndUpdate(args.id, updates, { new: true }).lean(),
     );
-    socket.emit("onFileCollectionUpdated", args, socketOpts);
+    if (res && args.updates.fileIdIndexes)
+      await syncCollectionFileIds(
+        args.id,
+        res.fileIdIndexes.map(({ fileId }) => String(fileId)),
+      );
+    socket.emit("onFileCollectionUpdated", { ...args, updates }, socketOpts);
     return res;
   },
 );
@@ -952,6 +1400,7 @@ export const deleteFileImportBatch = makeAction(
     socketOpts?: SocketEventOptions;
   }) => {
     await models.FileImportBatchModel.deleteMany({ _id: { $in: args.ids } });
+
     socket.emit("onFileImportBatchDeleted", args, socketOpts);
   },
 );
@@ -1000,7 +1449,96 @@ export const updateFileImportBatch = makeAction(
         new: true,
       }).lean(),
     );
+
     socket.emit("onFileImportBatchUpdated", args, socketOpts);
+    return res;
+  },
+);
+/* ------------------------------------ FileTransform ----------------------------------- */
+export const createFileTransform = makeAction(
+  async ({
+    args,
+    socketOpts,
+  }: {
+    args: Types.CreateFileTransformInput;
+    socketOpts?: SocketEventOptions;
+  }) => {
+    const model = {
+      ...args,
+      dateCreated: dayjs().toISOString(),
+      configOverride: [],
+      isCompleted: false,
+      timestampPairs: [],
+    };
+
+    const res = await models.FileTransformModel.create(model);
+    const id = res._id.toString();
+
+    socket.emit("onFileTransformCreated", { ...model, id }, socketOpts);
+    return { ...model, id };
+  },
+);
+
+export const deleteFileTransform = makeAction(
+  async ({
+    args,
+    socketOpts,
+  }: {
+    args: Types.DeleteFileTransformInput;
+    socketOpts?: SocketEventOptions;
+  }) => {
+    await models.FileTransformModel.deleteMany({ _id: { $in: args.ids } });
+
+    socket.emit("onFileTransformDeleted", args, socketOpts);
+  },
+);
+
+export const listFileTransform = makeAction(
+  async ({ args }: { args?: Types.ListFileTransformInput } = {}) => {
+    const filter = { ...args.filter };
+    if (args.filter?.id) {
+      filter._id = Array.isArray(args.filter.id)
+        ? { $in: args.filter.id }
+        : typeof args.filter.id === "string"
+          ? { $in: [args.filter.id] }
+          : args.filter.id;
+
+      delete filter.id;
+    }
+
+    const items = await models.FileTransformModel.find(filter)
+      .sort(args.sort ?? { dateCreated: "desc" })
+      .skip(Math.max(0, args.page - 1) * args.pageSize)
+      .limit(args.pageSize)
+      .allowDiskUse(true)
+      .lean();
+
+    const totalCount = await models.FileTransformModel.countDocuments(filter);
+
+    if (!items || !(totalCount > -1)) throw new Error("Failed to load filtered FileTransform");
+
+    return {
+      items: items.map((item) => leanModelToJson<models.FileTransformSchema>(item)),
+      pageCount: Math.ceil(totalCount / args.pageSize),
+    };
+  },
+);
+
+export const updateFileTransform = makeAction(
+  async ({
+    args,
+    socketOpts,
+  }: {
+    args: Types.UpdateFileTransformInput;
+    socketOpts?: SocketEventOptions;
+  }) => {
+    const res = leanModelToJson<models.FileTransformSchema>(
+      await models.FileTransformModel.findByIdAndUpdate(args.id, args.updates, {
+        new: true,
+      }).lean(),
+    );
+
+    socket.emit("onFileTransformUpdated", args, socketOpts);
     return res;
   },
 );
@@ -1013,7 +1551,7 @@ export const createFile = makeAction(
     args: Types.CreateFileInput;
     socketOpts?: SocketEventOptions;
   }) => {
-    const model = { ...args, dateCreated: dayjs().toISOString() };
+    const model = { ...args, dateCreated: dayjs().toISOString(), collectionIds: [] };
 
     const res = await models.FileModel.create(model);
     const id = res._id.toString();
@@ -1032,6 +1570,7 @@ export const deleteFile = makeAction(
     socketOpts?: SocketEventOptions;
   }) => {
     await models.FileModel.deleteMany({ _id: { $in: args.ids } });
+
     socket.emit("onFileDeleted", args, socketOpts);
   },
 );
@@ -1073,10 +1612,253 @@ export const updateFile = makeAction(
     args: Types.UpdateFileInput;
     socketOpts?: SocketEventOptions;
   }) => {
+    const updates = { ...args.updates, dateModified: dayjs().toISOString() };
     const res = leanModelToJson<models.FileSchema>(
-      await models.FileModel.findByIdAndUpdate(args.id, args.updates, { new: true }).lean(),
+      await models.FileModel.findByIdAndUpdate(args.id, updates, { new: true }).lean(),
     );
-    socket.emit("onFileUpdated", args, socketOpts);
+
+    socket.emit("onFileUpdated", { ...args, updates }, socketOpts);
+    return res;
+  },
+);
+/* ------------------------------------ Notification ----------------------------------- */
+export const createNotification = makeAction(
+  async ({
+    args,
+    socketOpts,
+  }: {
+    args: Types.CreateNotificationInput;
+    socketOpts?: SocketEventOptions;
+  }) => {
+    const model = { ...args, dateCreated: dayjs().toISOString(), isRead: false };
+
+    const res = await models.NotificationModel.create(model);
+    const id = res._id.toString();
+
+    socket.emit("onNotificationCreated", { ...model, id }, socketOpts);
+    return { ...model, id };
+  },
+);
+
+export const deleteNotification = makeAction(
+  async ({
+    args,
+    socketOpts,
+  }: {
+    args: Types.DeleteNotificationInput;
+    socketOpts?: SocketEventOptions;
+  }) => {
+    await models.NotificationModel.deleteMany({ _id: { $in: args.ids } });
+
+    socket.emit("onNotificationDeleted", args, socketOpts);
+  },
+);
+
+export const listNotification = makeAction(
+  async ({ args }: { args?: Types.ListNotificationInput } = {}) => {
+    const filter = { ...args.filter };
+    if (args.filter?.id) {
+      filter._id = Array.isArray(args.filter.id)
+        ? { $in: args.filter.id }
+        : typeof args.filter.id === "string"
+          ? { $in: [args.filter.id] }
+          : args.filter.id;
+
+      delete filter.id;
+    }
+
+    const items = await models.NotificationModel.find(filter)
+      .sort(args.sort ?? { dateCreated: "desc" })
+      .skip(Math.max(0, args.page - 1) * args.pageSize)
+      .limit(args.pageSize)
+      .allowDiskUse(true)
+      .lean();
+
+    const totalCount = await models.NotificationModel.countDocuments(filter);
+
+    if (!items || !(totalCount > -1)) throw new Error("Failed to load filtered Notification");
+
+    return {
+      items: items.map((item) => leanModelToJson<models.NotificationSchema>(item)),
+      pageCount: Math.ceil(totalCount / args.pageSize),
+    };
+  },
+);
+
+export const updateNotification = makeAction(
+  async ({
+    args,
+    socketOpts,
+  }: {
+    args: Types.UpdateNotificationInput;
+    socketOpts?: SocketEventOptions;
+  }) => {
+    const res = leanModelToJson<models.NotificationSchema>(
+      await models.NotificationModel.findByIdAndUpdate(args.id, args.updates, { new: true }).lean(),
+    );
+
+    socket.emit("onNotificationUpdated", args, socketOpts);
+    return res;
+  },
+);
+/* ------------------------------------ SavedImportConfig ----------------------------------- */
+export const createSavedImportConfig = makeAction(
+  async ({
+    args,
+    socketOpts,
+  }: {
+    args: Types.CreateSavedImportConfigInput;
+    socketOpts?: SocketEventOptions;
+  }) => {
+    const model = { ...args, dateCreated: dayjs().toISOString() };
+
+    const res = await models.SavedImportConfigModel.create(model);
+    const id = res._id.toString();
+
+    socket.emit("onSavedImportConfigCreated", { ...model, id }, socketOpts);
+    return { ...model, id };
+  },
+);
+
+export const deleteSavedImportConfig = makeAction(
+  async ({
+    args,
+    socketOpts,
+  }: {
+    args: Types.DeleteSavedImportConfigInput;
+    socketOpts?: SocketEventOptions;
+  }) => {
+    await models.SavedImportConfigModel.deleteMany({ _id: { $in: args.ids } });
+
+    socket.emit("onSavedImportConfigDeleted", args, socketOpts);
+  },
+);
+
+export const listSavedImportConfig = makeAction(
+  async ({ args }: { args?: Types.ListSavedImportConfigInput } = {}) => {
+    const filter = { ...args.filter };
+    if (args.filter?.id) {
+      filter._id = Array.isArray(args.filter.id)
+        ? { $in: args.filter.id }
+        : typeof args.filter.id === "string"
+          ? { $in: [args.filter.id] }
+          : args.filter.id;
+
+      delete filter.id;
+    }
+
+    const items = await models.SavedImportConfigModel.find(filter)
+      .sort(args.sort ?? { dateCreated: "desc" })
+      .skip(Math.max(0, args.page - 1) * args.pageSize)
+      .limit(args.pageSize)
+      .allowDiskUse(true)
+      .lean();
+
+    const totalCount = await models.SavedImportConfigModel.countDocuments(filter);
+
+    if (!items || !(totalCount > -1)) throw new Error("Failed to load filtered SavedImportConfig");
+
+    return {
+      items: items.map((item) => leanModelToJson<models.SavedImportConfigSchema>(item)),
+      pageCount: Math.ceil(totalCount / args.pageSize),
+    };
+  },
+);
+
+export const updateSavedImportConfig = makeAction(
+  async ({
+    args,
+    socketOpts,
+  }: {
+    args: Types.UpdateSavedImportConfigInput;
+    socketOpts?: SocketEventOptions;
+  }) => {
+    const updates = { ...args.updates, dateModified: dayjs().toISOString() };
+    const res = leanModelToJson<models.SavedImportConfigSchema>(
+      await models.SavedImportConfigModel.findByIdAndUpdate(args.id, updates, { new: true }).lean(),
+    );
+
+    socket.emit("onSavedImportConfigUpdated", { ...args, updates }, socketOpts);
+    return res;
+  },
+);
+/* ------------------------------------ SavedSearch ----------------------------------- */
+export const createSavedSearch = makeAction(
+  async ({
+    args,
+    socketOpts,
+  }: {
+    args: Types.CreateSavedSearchInput;
+    socketOpts?: SocketEventOptions;
+  }) => {
+    const model = { ...args, dateCreated: dayjs().toISOString() };
+
+    const res = await models.SavedSearchModel.create(model);
+    const id = res._id.toString();
+
+    socket.emit("onSavedSearchCreated", { ...model, id }, socketOpts);
+    return { ...model, id };
+  },
+);
+
+export const deleteSavedSearch = makeAction(
+  async ({
+    args,
+    socketOpts,
+  }: {
+    args: Types.DeleteSavedSearchInput;
+    socketOpts?: SocketEventOptions;
+  }) => {
+    await models.SavedSearchModel.deleteMany({ _id: { $in: args.ids } });
+
+    socket.emit("onSavedSearchDeleted", args, socketOpts);
+  },
+);
+
+export const listSavedSearch = makeAction(
+  async ({ args }: { args?: Types.ListSavedSearchInput } = {}) => {
+    const filter = { ...args.filter };
+    if (args.filter?.id) {
+      filter._id = Array.isArray(args.filter.id)
+        ? { $in: args.filter.id }
+        : typeof args.filter.id === "string"
+          ? { $in: [args.filter.id] }
+          : args.filter.id;
+
+      delete filter.id;
+    }
+
+    const items = await models.SavedSearchModel.find(filter)
+      .sort(args.sort ?? { dateCreated: "desc" })
+      .skip(Math.max(0, args.page - 1) * args.pageSize)
+      .limit(args.pageSize)
+      .allowDiskUse(true)
+      .lean();
+
+    const totalCount = await models.SavedSearchModel.countDocuments(filter);
+
+    if (!items || !(totalCount > -1)) throw new Error("Failed to load filtered SavedSearch");
+
+    return {
+      items: items.map((item) => leanModelToJson<models.SavedSearchSchema>(item)),
+      pageCount: Math.ceil(totalCount / args.pageSize),
+    };
+  },
+);
+
+export const updateSavedSearch = makeAction(
+  async ({
+    args,
+    socketOpts,
+  }: {
+    args: Types.UpdateSavedSearchInput;
+    socketOpts?: SocketEventOptions;
+  }) => {
+    const res = leanModelToJson<models.SavedSearchSchema>(
+      await models.SavedSearchModel.findByIdAndUpdate(args.id, args.updates, { new: true }).lean(),
+    );
+
+    socket.emit("onSavedSearchUpdated", args, socketOpts);
     return res;
   },
 );
@@ -1098,6 +1880,7 @@ export const _createTag = makeAction(
       childIds: [],
       descendantIds: [],
       parentIds: [],
+      rating: 0,
       thumb: null,
     };
 
@@ -1118,6 +1901,7 @@ export const _deleteTag = makeAction(
     socketOpts?: SocketEventOptions;
   }) => {
     await models.TagModel.deleteMany({ _id: { $in: args.ids } });
+
     socket.emit("onTagDeleted", args, socketOpts);
   },
 );
@@ -1153,10 +1937,12 @@ export const _listTag = makeAction(async ({ args }: { args?: Types._ListTagInput
 
 export const updateTag = makeAction(
   async ({ args, socketOpts }: { args: Types.UpdateTagInput; socketOpts?: SocketEventOptions }) => {
+    const updates = { ...args.updates, dateModified: dayjs().toISOString() };
     const res = leanModelToJson<models.TagSchema>(
-      await models.TagModel.findByIdAndUpdate(args.id, args.updates, { new: true }).lean(),
+      await models.TagModel.findByIdAndUpdate(args.id, updates, { new: true }).lean(),
     );
-    socket.emit("onTagUpdated", args, socketOpts);
+
+    socket.emit("onTagUpdated", { ...args, updates }, socketOpts);
     return res;
   },
 );

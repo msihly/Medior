@@ -114,10 +114,41 @@ export class CollectionEditor extends Model({
         withFullCount: true,
       });
       if (!fileRes.success) throw new Error(fileRes.error);
+
+      const firstPageRes = await this.search.loadFiltered({ page: 1 });
+      if (!firstPageRes.success) throw new Error(firstPageRes.error);
     }
 
     this.setIsLoading(false);
     this.setHasUnsavedChanges(false);
+  });
+
+  @modelFlow
+  loadMergePreview = asyncAction(async (collection: ModelCreationData<FileCollection>) => {
+    this.setIsOpen(false);
+    this.setIsLoading(true);
+    this.setCollection(new FileCollection(collection));
+    this.setFileIndexes(
+      [...collection.fileIdIndexes]
+        .sort((a, b) => a.index - b.index)
+        .map(({ fileId }, index) => ({ fileId, index })),
+    );
+    this.setTitle(collection.title);
+    this.search.setForcePages(true);
+    this.search.setIds(this.fileIndexes.map(({ fileId }) => fileId));
+    this.search.setSortValue({ isDesc: false, key: "custom" });
+
+    const tagsRes = await trpc.listTag.mutate({ filter: { id: collection.tagIds } });
+    if (!tagsRes.success) throw new Error(tagsRes.error);
+    this.setTags(tagsRes.data.sort((a, b) => b.count - a.count).map((tag) => new Tag(tag)));
+
+    const fileRes = await this.search.loadFiltered({ noCache: true, page: 1, withFullCount: true });
+    if (!fileRes.success) throw new Error(fileRes.error);
+    const firstPageRes = await this.search.loadFiltered({ page: 1 });
+    if (!firstPageRes.success) throw new Error(firstPageRes.error);
+
+    this.setHasUnsavedChanges(false);
+    this.setIsLoading(false);
   });
 
   @modelFlow
@@ -187,8 +218,11 @@ export class CollectionEditor extends Model({
         .map((f, i) => ({ fileId: f.fileId, index: i })),
       id: this.collection.id,
     });
-    this.setIsLoading(false);
-    if (!res.success) throw new Error(res.error);
+    if (!res.success) {
+      this.setIsLoading(false);
+      throw new Error(res.error);
+    }
+    await this.loadCollection(this.collection.id);
     toast.success("Files removed from collection");
   });
 
@@ -247,5 +281,9 @@ export class CollectionEditor extends Model({
 
   getOriginalIndex(id: string) {
     return this.collection?.fileIdIndexes.find((f) => f.fileId === id)?.index;
+  }
+
+  getFileIdsForCarousel() {
+    return this.fileIndexes.map((f) => f.fileId);
   }
 }

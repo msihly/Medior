@@ -11,6 +11,8 @@ export class CollectionManager extends Model({
   isConfirmDeleteOpen: prop<boolean>(false).withSetter(),
   isLoading: prop<boolean>(false).withSetter(),
   isOpen: prop<boolean>(false),
+  isRelatedQueueOpen: prop<boolean>(false).withSetter(),
+  isTriagerOpen: prop<boolean>(false).withSetter(),
   search: prop<FileCollectionSearch>(() => new FileCollectionSearch({})).withSetter(),
   selectedFileIds: prop<string[]>(() => []).withSetter(),
   selectedFiles: prop<File[]>(() => []).withSetter(),
@@ -25,10 +27,16 @@ export class CollectionManager extends Model({
     const stores = getRootStore<RootStore>(this);
     this.isOpen = isOpen;
     if (isOpen) stores.collection.editor.isOpen = false;
+    else {
+      this.isRelatedQueueOpen = false;
+      this.isTriagerOpen = false;
+    }
 
     this.search.reset();
-    this.selectedFileIds = [];
-    this.selectedFiles = [];
+    if (!isOpen) {
+      this.selectedFileIds = [];
+      this.selectedFiles = [];
+    }
   }
 
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */

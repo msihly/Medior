@@ -54,6 +54,7 @@ declare global {
     name: string;
     props: ModelSearchProp[];
     transformResultsFn?: string;
+    withCarouselIds?: boolean;
     withTags?: boolean;
   }
 }

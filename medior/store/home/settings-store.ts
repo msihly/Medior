@@ -1,21 +1,34 @@
+import { ipcRenderer } from "electron";
 import autoBind from "auto-bind";
-import { applySnapshot, getSnapshot, Model, model, modelAction, prop } from "mobx-keystone";
+import {
+  applySnapshot,
+  getRootStore,
+  getSnapshot,
+  Model,
+  model,
+  modelAction,
+  modelFlow,
+  prop,
+} from "mobx-keystone";
+import type { RootStore } from "medior/store";
+import { asyncAction } from "medior/utils/client";
 import { convertNestedKeys, deepMerge } from "medior/utils/common";
-import { Config, ConfigKey, DEFAULT_CONFIG } from "medior/utils/server";
+import { Config, ConfigKey, getConfig, setConfig } from "medior/utils/server";
 
 @model("medior/SettingsStore")
 export class SettingsStore extends Model({
-  collection: prop<Config["collection"]>(() => DEFAULT_CONFIG.collection),
-  dev: prop<Config["dev"]>(() => DEFAULT_CONFIG.dev),
-  db: prop<Config["db"]>(() => DEFAULT_CONFIG.db),
-  file: prop<Config["file"]>(() => DEFAULT_CONFIG.file),
+  collection: prop<Config["collection"]>(() => getConfig().collection),
+  db: prop<Config["db"]>(() => getConfig().db),
+  dev: prop<Config["dev"]>(() => getConfig().dev),
+  file: prop<Config["file"]>(() => getConfig().file),
   hasUnsavedChanges: prop<boolean>(false).withSetter(),
-  imports: prop<Config["imports"]>(() => DEFAULT_CONFIG.imports),
+  hotkeys: prop<Config["hotkeys"]>(() => getConfig().hotkeys),
+  imports: prop<Config["imports"]>(() => getConfig().imports),
   isLoading: prop<boolean>(false).withSetter(),
   isOpen: prop<boolean>(false).withSetter(),
   isRepairOpen: prop<boolean>(false).withSetter(),
-  ports: prop<Config["ports"]>(() => DEFAULT_CONFIG.ports),
-  tags: prop<Config["tags"]>(() => DEFAULT_CONFIG.tags),
+  ports: prop<Config["ports"]>(() => getConfig().ports),
+  tags: prop<Config["tags"]>(() => getConfig().tags),
 }) {
   onInit() {
     autoBind(this);
@@ -98,10 +111,11 @@ export class SettingsStore extends Model({
   update(
     updates: Partial<{
       collection: Partial<Config["collection"]>;
+      db: Partial<Config["db"]>;
       dev: Partial<Config["dev"]>;
       file: Partial<Config["file"]>;
+      hotkeys: Partial<Config["hotkeys"]>;
       imports: Partial<Config["imports"]>;
-      db: Partial<Config["db"]>;
       ports: Partial<Config["ports"]>;
       tags: Partial<Config["tags"]>;
     }>,
@@ -112,14 +126,27 @@ export class SettingsStore extends Model({
     this.setHasUnsavedChanges(true);
   }
 
+  /* ------------------------------ ASYNC ACTIONS ----------------------------- */
+  @modelFlow
+  save = asyncAction(async () => {
+    const config = this.getConfig();
+    const result = await ipcRenderer.invoke("saveConfig", config);
+    if (!result.success) throw new Error(result.error);
+
+    setConfig(config);
+    getRootStore<RootStore>(this).applyConfig(config);
+    return result;
+  });
+
   /* ----------------------------- DYNAMIC GETTERS ---------------------------- */
   getConfig() {
     return {
       collection: getSnapshot(this.collection),
+      db: getSnapshot(this.db),
       dev: getSnapshot(this.dev),
       file: getSnapshot(this.file),
+      hotkeys: getSnapshot(this.hotkeys),
       imports: getSnapshot(this.imports),
-      db: getSnapshot(this.db),
       ports: getSnapshot(this.ports),
       tags: getSnapshot(this.tags),
     } as Config;

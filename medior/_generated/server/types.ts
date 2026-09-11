@@ -27,6 +27,21 @@ export type _FilterQuery<Schema> = {
 /* --------------------------------------------------------------------------- */
 /*                               MODEL ACTIONS
 /* --------------------------------------------------------------------------- */
+/* ------------------------------------ BackgroundOperation ----------------------------------- */
+export type CreateBackgroundOperationInput = Omit<db.BackgroundOperationSchema, "id">;
+export type DeleteBackgroundOperationInput = { ids: string[] };
+export type ListBackgroundOperationInput = {
+  filter?: _FilterQuery<db.BackgroundOperationSchema>;
+  page?: number;
+  pageSize?: number;
+  sort?: Record<string, SortOrder>;
+  withOverwrite?: boolean;
+};
+export type UpdateBackgroundOperationInput = {
+  id: string;
+  updates: Partial<db.BackgroundOperationSchema>;
+};
+
 /* ------------------------------------ DeletedFile ----------------------------------- */
 export type CreateDeletedFileInput = Omit<db.DeletedFileSchema, "id">;
 export type DeleteDeletedFileInput = { ids: string[] };
@@ -63,6 +78,18 @@ export type ListFileImportBatchInput = {
 };
 export type UpdateFileImportBatchInput = { id: string; updates: Partial<db.FileImportBatchSchema> };
 
+/* ------------------------------------ FileTransform ----------------------------------- */
+export type CreateFileTransformInput = Omit<db.FileTransformSchema, "id">;
+export type DeleteFileTransformInput = { ids: string[] };
+export type ListFileTransformInput = {
+  filter?: _FilterQuery<db.FileTransformSchema>;
+  page?: number;
+  pageSize?: number;
+  sort?: Record<string, SortOrder>;
+  withOverwrite?: boolean;
+};
+export type UpdateFileTransformInput = { id: string; updates: Partial<db.FileTransformSchema> };
+
 /* ------------------------------------ File ----------------------------------- */
 export type CreateFileInput = Omit<db.FileSchema, "id">;
 export type DeleteFileInput = { ids: string[] };
@@ -74,6 +101,45 @@ export type ListFileInput = {
   withOverwrite?: boolean;
 };
 export type UpdateFileInput = { id: string; updates: Partial<db.FileSchema> };
+
+/* ------------------------------------ Notification ----------------------------------- */
+export type CreateNotificationInput = Omit<db.NotificationSchema, "id">;
+export type DeleteNotificationInput = { ids: string[] };
+export type ListNotificationInput = {
+  filter?: _FilterQuery<db.NotificationSchema>;
+  page?: number;
+  pageSize?: number;
+  sort?: Record<string, SortOrder>;
+  withOverwrite?: boolean;
+};
+export type UpdateNotificationInput = { id: string; updates: Partial<db.NotificationSchema> };
+
+/* ------------------------------------ SavedImportConfig ----------------------------------- */
+export type CreateSavedImportConfigInput = Omit<db.SavedImportConfigSchema, "id">;
+export type DeleteSavedImportConfigInput = { ids: string[] };
+export type ListSavedImportConfigInput = {
+  filter?: _FilterQuery<db.SavedImportConfigSchema>;
+  page?: number;
+  pageSize?: number;
+  sort?: Record<string, SortOrder>;
+  withOverwrite?: boolean;
+};
+export type UpdateSavedImportConfigInput = {
+  id: string;
+  updates: Partial<db.SavedImportConfigSchema>;
+};
+
+/* ------------------------------------ SavedSearch ----------------------------------- */
+export type CreateSavedSearchInput = Omit<db.SavedSearchSchema, "id">;
+export type DeleteSavedSearchInput = { ids: string[] };
+export type ListSavedSearchInput = {
+  filter?: _FilterQuery<db.SavedSearchSchema>;
+  page?: number;
+  pageSize?: number;
+  sort?: Record<string, SortOrder>;
+  withOverwrite?: boolean;
+};
+export type UpdateSavedSearchInput = { id: string; updates: Partial<db.SavedSearchSchema> };
 
 /* ------------------------------------ Tag ----------------------------------- */
 export type _CreateTagInput = Omit<db.TagSchema, "id">;
@@ -90,17 +156,38 @@ export type UpdateTagInput = { id: string; updates: Partial<db.TagSchema> };
 /* --------------------------------------------------------------------------- */
 /*                               CUSTOM ACTIONS
 /* --------------------------------------------------------------------------- */
+export type ListBackgroundActivityInput = Parameters<typeof db.listBackgroundActivity>[0];
+export type ListBackgroundActivityOutput = ReturnType<typeof db.listBackgroundActivity>;
+
+export type MarkNotificationsReadInput = Parameters<typeof db.markNotificationsRead>[0];
+export type MarkNotificationsReadOutput = ReturnType<typeof db.markNotificationsRead>;
+
+export type RecordNotificationInput = Parameters<typeof db.recordNotification>[0];
+export type RecordNotificationOutput = ReturnType<typeof db.recordNotification>;
+
 export type AddFilesToCollectionInput = Parameters<typeof db.addFilesToCollection>[0];
 export type AddFilesToCollectionOutput = ReturnType<typeof db.addFilesToCollection>;
 
 export type CreateCollectionInput = Parameters<typeof db.createCollection>[0];
 export type CreateCollectionOutput = ReturnType<typeof db.createCollection>;
 
+export type UpsertImportedCollectionInput = Parameters<typeof db.upsertImportedCollection>[0];
+export type UpsertImportedCollectionOutput = ReturnType<typeof db.upsertImportedCollection>;
+
+export type PreviewCollectionMergeInput = Parameters<typeof db.previewCollectionMerge>[0];
+export type PreviewCollectionMergeOutput = ReturnType<typeof db.previewCollectionMerge>;
+
+export type MergeCollectionsInput = Parameters<typeof db.mergeCollections>[0];
+export type MergeCollectionsOutput = ReturnType<typeof db.mergeCollections>;
+
 export type DeleteCollectionsInput = Parameters<typeof db.deleteCollections>[0];
 export type DeleteCollectionsOutput = ReturnType<typeof db.deleteCollections>;
 
 export type ListAllCollectionIdsInput = Parameters<typeof db.listAllCollectionIds>[0];
 export type ListAllCollectionIdsOutput = ReturnType<typeof db.listAllCollectionIds>;
+
+export type FindRelatedCollectionGroupsInput = Parameters<typeof db.findRelatedCollectionGroups>[0];
+export type FindRelatedCollectionGroupsOutput = ReturnType<typeof db.findRelatedCollectionGroups>;
 
 export type ListCollectionsByFileIdsInput = Parameters<typeof db.listCollectionsByFileIds>[0];
 export type ListCollectionsByFileIdsOutput = ReturnType<typeof db.listCollectionsByFileIds>;
@@ -162,6 +249,52 @@ export type StartImportBatchOutput = ReturnType<typeof db.startImportBatch>;
 export type UpdateFileImportByPathInput = Parameters<typeof db.updateFileImportByPath>[0];
 export type UpdateFileImportByPathOutput = ReturnType<typeof db.updateFileImportByPath>;
 
+export type GetNextFileTransformInput = Parameters<typeof db.getNextFileTransform>[0];
+export type GetNextFileTransformOutput = ReturnType<typeof db.getNextFileTransform>;
+
+export type CreateFileTransformsInput = Parameters<typeof db.createFileTransforms>[0];
+export type CreateFileTransformsOutput = ReturnType<typeof db.createFileTransforms>;
+
+export type DeleteFileTransformsInput = Parameters<typeof db.deleteFileTransforms>[0];
+export type DeleteFileTransformsOutput = ReturnType<typeof db.deleteFileTransforms>;
+
+export type DeleteFileTransformsByFileIdsInput = Parameters<
+  typeof db.deleteFileTransformsByFileIds
+>[0];
+export type DeleteFileTransformsByFileIdsOutput = ReturnType<
+  typeof db.deleteFileTransformsByFileIds
+>;
+
+export type GetFileTransformerStatusInput = Parameters<typeof db.getFileTransformerStatus>[0];
+export type GetFileTransformerStatusOutput = ReturnType<typeof db.getFileTransformerStatus>;
+
+export type GetFileTransformQueueCountInput = Parameters<typeof db.getFileTransformQueueCount>[0];
+export type GetFileTransformQueueCountOutput = ReturnType<typeof db.getFileTransformQueueCount>;
+
+export type PauseFileTransformerInput = Parameters<typeof db.pauseFileTransformer>[0];
+export type PauseFileTransformerOutput = ReturnType<typeof db.pauseFileTransformer>;
+
+export type ResumeFileTransformerInput = Parameters<typeof db.resumeFileTransformer>[0];
+export type ResumeFileTransformerOutput = ReturnType<typeof db.resumeFileTransformer>;
+
+export type SetFileTransformerAutoInput = Parameters<typeof db.setFileTransformerAuto>[0];
+export type SetFileTransformerAutoOutput = ReturnType<typeof db.setFileTransformerAuto>;
+
+export type ReplaceFileTransformOutputInput = Parameters<typeof db.replaceFileTransformOutput>[0];
+export type ReplaceFileTransformOutputOutput = ReturnType<typeof db.replaceFileTransformOutput>;
+
+export type RunFileTransformInput = Parameters<typeof db.runFileTransform>[0];
+export type RunFileTransformOutput = ReturnType<typeof db.runFileTransform>;
+
+export type RunFileTransformerInput = Parameters<typeof db.runFileTransformer>[0];
+export type RunFileTransformerOutput = ReturnType<typeof db.runFileTransformer>;
+
+export type SaveFileTransformCopyInput = Parameters<typeof db.saveFileTransformCopy>[0];
+export type SaveFileTransformCopyOutput = ReturnType<typeof db.saveFileTransformCopy>;
+
+export type ListAllArchivedFileIdsInput = Parameters<typeof db.listAllArchivedFileIds>[0];
+export type ListAllArchivedFileIdsOutput = ReturnType<typeof db.listAllArchivedFileIds>;
+
 export type ListFileIdsByTagIdsInput = Parameters<typeof db.listFileIdsByTagIds>[0];
 export type ListFileIdsByTagIdsOutput = ReturnType<typeof db.listFileIdsByTagIds>;
 
@@ -201,9 +334,6 @@ export type ListFaceModelsOutput = ReturnType<typeof db.listFaceModels>;
 export type ListFilesByTagIdsInput = Parameters<typeof db.listFilesByTagIds>[0];
 export type ListFilesByTagIdsOutput = ReturnType<typeof db.listFilesByTagIds>;
 
-export type ListFileIdsForCarouselInput = Parameters<typeof db.listFileIdsForCarousel>[0];
-export type ListFileIdsForCarouselOutput = ReturnType<typeof db.listFileIdsForCarousel>;
-
 export type ListFilePathsInput = Parameters<typeof db.listFilePaths>[0];
 export type ListFilePathsOutput = ReturnType<typeof db.listFilePaths>;
 
@@ -225,6 +355,9 @@ export type RepairFilesWithBrokenExtOutput = ReturnType<typeof db.repairFilesWit
 export type RepairFilesWithMissingInfoInput = Parameters<typeof db.repairFilesWithMissingInfo>[0];
 export type RepairFilesWithMissingInfoOutput = ReturnType<typeof db.repairFilesWithMissingInfo>;
 
+export type RepairMissingAudioAnalysisInput = Parameters<typeof db.repairMissingAudioAnalysis>[0];
+export type RepairMissingAudioAnalysisOutput = ReturnType<typeof db.repairMissingAudioAnalysis>;
+
 export type SetFileFaceModelsInput = Parameters<typeof db.setFileFaceModels>[0];
 export type SetFileFaceModelsOutput = ReturnType<typeof db.setFileFaceModels>;
 
@@ -234,8 +367,23 @@ export type SetFileIsArchivedOutput = ReturnType<typeof db.setFileIsArchived>;
 export type SetFileRatingInput = Parameters<typeof db.setFileRating>[0];
 export type SetFileRatingOutput = ReturnType<typeof db.setFileRating>;
 
+export type RepairFileThumbnailInput = Parameters<typeof db.repairFileThumbnail>[0];
+export type RepairFileThumbnailOutput = ReturnType<typeof db.repairFileThumbnail>;
+
+export type CancelFileRefreshInput = Parameters<typeof db.cancelFileRefresh>[0];
+export type CancelFileRefreshOutput = ReturnType<typeof db.cancelFileRefresh>;
+
+export type FinishFileRefreshInput = Parameters<typeof db.finishFileRefresh>[0];
+export type FinishFileRefreshOutput = ReturnType<typeof db.finishFileRefresh>;
+
+export type RefreshFileInfoInput = Parameters<typeof db.refreshFileInfo>[0];
+export type RefreshFileInfoOutput = ReturnType<typeof db.refreshFileInfo>;
+
 export type RepairThumbsInput = Parameters<typeof db.repairThumbs>[0];
 export type RepairThumbsOutput = ReturnType<typeof db.repairThumbs>;
+
+export type RebuildIndexesInput = Parameters<typeof db.rebuildIndexes>[0];
+export type RebuildIndexesOutput = ReturnType<typeof db.rebuildIndexes>;
 
 export type FindSimilarFilesInput = Parameters<typeof db.findSimilarFiles>[0];
 export type FindSimilarFilesOutput = ReturnType<typeof db.findSimilarFiles>;
@@ -268,6 +416,15 @@ export type StartSimilarityBackfillOutput = ReturnType<typeof db.startSimilarity
 
 export type _emitEventInput = Parameters<typeof db._emitEvent>[0];
 export type _emitEventOutput = ReturnType<typeof db._emitEvent>;
+
+export type StartRepairInput = Parameters<typeof db.startRepair>[0];
+export type StartRepairOutput = ReturnType<typeof db.startRepair>;
+
+export type CancelRepairInput = Parameters<typeof db.cancelRepair>[0];
+export type CancelRepairOutput = ReturnType<typeof db.cancelRepair>;
+
+export type FinishRepairInput = Parameters<typeof db.finishRepair>[0];
+export type FinishRepairOutput = ReturnType<typeof db.finishRepair>;
 
 export type DeriveAncestorTagIdsInput = Parameters<typeof db.deriveAncestorTagIds>[0];
 export type DeriveAncestorTagIdsOutput = ReturnType<typeof db.deriveAncestorTagIds>;

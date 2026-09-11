@@ -49,7 +49,13 @@ model.addProp("lastSearchedAt", "string");
 model.addProp("parentIds", "Tag.id[]", { defaultValue: "[]", required: true });
 
 model.addIndex({ rating: 1, _id: 1 });
-model.addProp("rating", "number", { sort: { icon: "Star", label: "Rating" } });
+model.addProp("rating", "number", {
+  defaultValue: "0",
+  required: true,
+  sort: { icon: "Star", label: "Rating" },
+});
+
+model.addProp("ratingIsManual", "boolean");
 
 model.addProp("regEx", "string");
 

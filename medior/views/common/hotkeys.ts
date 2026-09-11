@@ -1,15 +1,13 @@
 import { KeyboardEvent, MutableRefObject } from "react";
 import FilePlayer from "react-player/file";
 import { useStores } from "medior/store";
-import { toast, Toaster } from "medior/utils/client";
-import { dayjs, Fmt, round, throttle } from "medior/utils/common";
-
-const RATING_KEYS = ["1", "2", "3", "4", "5", "6", "7", "8", "9"];
+import { persistNotification, toast, Toaster } from "medior/utils/client";
+import { dayjs, Fmt, getHotkeyRating, matchesHotkey, round, throttle } from "medior/utils/common";
 
 export interface UseHotkeysProps {
   rootRef?: MutableRefObject<HTMLElement>;
   videoRef?: MutableRefObject<FilePlayer>;
-  view: "carousel" | "home" | "search";
+  view: "carousel" | "collectionEditor" | "home" | "search";
 }
 
 export const useHotkeys = ({ rootRef, videoRef, view }: UseHotkeysProps) => {
@@ -26,58 +24,67 @@ export const useHotkeys = ({ rootRef, videoRef, view }: UseHotkeysProps) => {
     )
       return;
 
+    const searchStore =
+      view === "collectionEditor" ? stores.collection.editor.search : stores.file.search;
     const fileIds =
-      view === "carousel"
-        ? [stores.carousel.activeFileId]
-        : stores.collection.editor.isOpen
-          ? [...stores.collection.editor.search.selectedIds]
-          : [...stores.file.search.selectedIds];
+      view === "carousel" ? [stores.carousel.activeFileId] : [...searchStore.selectedIds];
     if (!fileIds.length) return;
 
+    const hotkeys = stores.home.settings.hotkeys[view];
     const isOneFileSelected = fileIds.length === 1;
-    const key = event.key;
-    const hasAlt = event.altKey;
-    const hasCtrl = event.ctrlKey;
-    const hasShift = event.shiftKey;
+    const rating = getHotkeyRating(event, hotkeys);
 
     event.preventDefault();
 
-    if (view !== "carousel" && hasCtrl && key === "a") {
-      stores.file.search.toggleSelected(
-        stores.file.search.results.map(({ id }) => ({ id, isSelected: true })),
-      );
-      toast.info(`Added ${stores.file.search.results.length} files to selection`);
+    if (view !== "carousel" && matchesHotkey(event, stores.home.settings.hotkeys[view].selectAll)) {
+      searchStore.toggleSelected(searchStore.results.map(({ id }) => ({ id, isSelected: true })));
+      toast.info(`Added ${searchStore.results.length} files to selection`);
     } else if (isOneFileSelected) {
-      if (key === "i") {
+      if (matchesHotkey(event, hotkeys.fileInfo)) {
         stores.file.setActiveFileId(fileIds[0]);
         stores.file.setIsInfoModalOpen(true);
       }
 
-      if (["ArrowLeft", "ArrowRight"].includes(key)) {
-        const isLeft = key === "ArrowLeft";
-        if (view === "carousel") {
-          if (hasAlt || hasCtrl || hasShift)
-            await seekVideoByArrowKey(isLeft, { hasAlt, hasCtrl, hasShift });
-          else if (!stores.carousel.splicer.isOpen) navCarouselByArrowKey(isLeft);
-        } else selectFileByArrowKey(isLeft, fileIds[0]);
+      const isPreviousFile = matchesHotkey(event, hotkeys.previousFile);
+      const isNextFile = matchesHotkey(event, hotkeys.nextFile);
+      if (isPreviousFile || isNextFile) {
+        if (view === "carousel" && !stores.carousel.splicer.isOpen)
+          navCarouselByArrowKey(isPreviousFile);
+        else if (view !== "carousel") selectFileByArrowKey(isPreviousFile, fileIds[0], searchStore);
       }
 
-      if (RATING_KEYS.includes(key)) await stores.file.setFileRating({ fileIds, rating: +key });
+      if (rating) await stores.file.setFileRating({ fileIds, rating });
 
       if (view === "carousel") {
-        if (key === " ") stores.carousel.toggleIsPlaying();
-        else if (["ArrowUp", "ArrowDown"].includes(key)) {
-          const vol =
-            key === "ArrowUp"
+        const carouselHotkeys = stores.home.settings.hotkeys.carousel;
+        const isPreviousFrame = matchesHotkey(event, carouselHotkeys.previousFrame);
+        const isNextFrame = matchesHotkey(event, carouselHotkeys.nextFrame);
+        const isSeekBackward3 = matchesHotkey(event, carouselHotkeys.seekBackward3Seconds);
+        const isSeekBackward30 = matchesHotkey(event, carouselHotkeys.seekBackward30Seconds);
+        const isSeekForward3 = matchesHotkey(event, carouselHotkeys.seekForward3Seconds);
+        const isSeekForward30 = matchesHotkey(event, carouselHotkeys.seekForward30Seconds);
+
+        if (matchesHotkey(event, carouselHotkeys.playPause)) stores.carousel.toggleIsPlaying();
+        else if (isPreviousFrame || isNextFrame)
+          await seekVideoByHotkey(isPreviousFrame, { frameRate: 1, pause: true, seconds: 1 });
+        else if (isSeekBackward3 || isSeekForward3)
+          await seekVideoByHotkey(isSeekBackward3, { seconds: 3 });
+        else if (isSeekBackward30 || isSeekForward30)
+          await seekVideoByHotkey(isSeekBackward30, { seconds: 30 });
+        else {
+          const isVolumeUp = matchesHotkey(event, carouselHotkeys.volumeUp);
+          const isVolumeDown = matchesHotkey(event, carouselHotkeys.volumeDown);
+          if (isVolumeUp || isVolumeDown) {
+            const vol = isVolumeUp
               ? Math.min(1, stores.carousel.volume + 0.05)
               : Math.max(0, stores.carousel.volume - 0.05);
-          stores.carousel.setVolume(vol);
-          stores.carousel.setLastVolume(vol);
+            stores.carousel.setVolumePreference(vol);
+          }
         }
       }
     }
 
-    if (key === "f") {
+    if (matchesHotkey(event, hotkeys.detectFaces)) {
       if (isOneFileSelected) {
         const file = stores.file.getById(fileIds[0]);
         if (file.isAnimated) {
@@ -90,13 +97,17 @@ export const useHotkeys = ({ rootRef, videoRef, view }: UseHotkeysProps) => {
       } else stores.faceRecog.addFilesToAutoDetectQueue(fileIds);
     }
 
-    if (key === "t") {
+    if (matchesHotkey(event, hotkeys.editTags)) {
       stores.file.tagsEditor.setBatchId(null);
       stores.file.tagsEditor.setFileIds(fileIds);
       stores.file.tagsEditor.setIsOpen(true);
     }
 
-    if (key === "Delete") stores.file.confirmDeleteFiles(fileIds);
+    if (
+      view !== "collectionEditor" &&
+      matchesHotkey(event, stores.home.settings.hotkeys[view].deleteFiles)
+    )
+      stores.file.confirmDeleteFiles(fileIds);
   };
 
   const navCarouselByArrowKey = (isLeft: boolean) => {
@@ -111,20 +122,21 @@ export const useHotkeys = ({ rootRef, videoRef, view }: UseHotkeysProps) => {
     rootRef.current?.focus();
   };
 
-  const seekVideoByArrowKey = async (
+  const seekVideoByHotkey = async (
     isLeft: boolean,
-    { hasAlt, hasCtrl, hasShift }: { hasAlt: boolean; hasCtrl: boolean; hasShift: boolean },
+    { frameRate, pause = false, seconds }: { frameRate?: number; pause?: boolean; seconds: number },
   ) => {
-    if (hasAlt) stores.carousel.setIsPlaying(false);
+    if (pause) stores.carousel.setIsPlaying(false);
     const file = stores.carousel.getActiveFile();
-    const frameRate = hasAlt ? 1 : file.frameRate;
     const totalFrames = round(file.totalFrames, 0);
 
     const dir = isLeft ? -1 : 1;
-    const seconds = hasAlt ? 1 : hasShift ? 3 : hasCtrl ? 30 : 0;
     const newFrame = Math.max(
       0,
-      Math.min(totalFrames, round(stores.carousel.curFrame + dir * seconds * frameRate, 0)),
+      Math.min(
+        totalFrames,
+        round(stores.carousel.curFrame + dir * seconds * (frameRate ?? file.frameRate), 0),
+      ),
     );
 
     const newTime = Fmt.frameToSec(newFrame, file.frameRate);
@@ -134,27 +146,29 @@ export const useHotkeys = ({ rootRef, videoRef, view }: UseHotkeysProps) => {
     if (file.isWebPlayable) videoRef.current?.seekTo(newFrame / totalFrames, "fraction");
     else await transcode(newFrame, file.frameRate);
 
-    toaster.toast(
-      `${isLeft ? "-" : "+"}${timeDiff} sec. / ${dayjs.duration(newTime, "s").format("HH:mm:ss")} (${newPercent}%)`,
-    );
+    const message = `${isLeft ? "-" : "+"}${timeDiff} sec. / ${dayjs.duration(newTime, "s").format("HH:mm:ss")} (${newPercent}%)`;
+    persistNotification(message, "info");
+    toaster.toast(message);
   };
 
-  const selectFileByArrowKey = (isLeft: boolean, selectedId: string) => {
-    const indexOfSelected = stores.file.search.results.findIndex((f) => f.id === selectedId);
-    const nextIndex =
-      indexOfSelected === stores.file.search.results.length - 1 ? 0 : indexOfSelected + 1;
-    const nextId = stores.file.search.results[nextIndex].id;
-    const prevIndex =
-      indexOfSelected === 0 ? stores.file.search.results.length - 1 : indexOfSelected - 1;
-    const prevId = stores.file.search.results[prevIndex].id;
+  const selectFileByArrowKey = (
+    isLeft: boolean,
+    selectedId: string,
+    searchStore: typeof stores.file.search,
+  ) => {
+    const indexOfSelected = searchStore.results.findIndex((f) => f.id === selectedId);
+    const nextIndex = indexOfSelected === searchStore.results.length - 1 ? 0 : indexOfSelected + 1;
+    const nextId = searchStore.results[nextIndex].id;
+    const prevIndex = indexOfSelected === 0 ? searchStore.results.length - 1 : indexOfSelected - 1;
+    const prevId = searchStore.results[prevIndex].id;
     const newId = isLeft ? prevId : nextId;
 
-    if (!stores.file.search.results.find((f) => f.id === newId))
-      stores.file.search.loadFiltered({
-        page: stores.file.search.page + 1 * (isLeft ? -1 : 1),
+    if (!searchStore.results.find((f) => f.id === newId))
+      searchStore.loadFiltered({
+        page: searchStore.page + 1 * (isLeft ? -1 : 1),
       });
 
-    stores.file.search.toggleSelected([
+    searchStore.toggleSelected([
       { id: selectedId, isSelected: false },
       { id: newId, isSelected: true },
     ]);

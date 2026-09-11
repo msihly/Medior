@@ -77,6 +77,7 @@ export const TagEditor = Comp(({ isSubEditor = false }: TagEditorProps) => {
   const handleRefresh = async () => {
     store.setIsLoading(true);
     await stores.tag.refreshTag({ id: store.tag.id });
+    await store.loadTag(store.tag.id);
     store.setIsLoading(false);
   };
 
@@ -108,10 +109,16 @@ export const TagEditor = Comp(({ isSubEditor = false }: TagEditorProps) => {
 
     store.setIsLoading(true);
     const res = await (!store.tag ? stores.tag.createTag(tag) : stores.tag.editTag(tag));
-    store.setIsLoading(false);
 
-    if (res.success) hasContinue ? clearInputs() : handleClose();
-    else toast.error(res.error);
+    if (res.success) {
+      if (hasContinue) {
+        clearInputs();
+        store.setIsLoading(false);
+      } else handleClose();
+    } else {
+      store.setIsLoading(false);
+      toast.error(res.error);
+    }
   };
 
   return (

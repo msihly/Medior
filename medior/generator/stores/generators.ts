@@ -4,8 +4,9 @@ import { capitalize, makeSectionComment } from "medior/generator/utils";
 export class ModelStore {
   private name: ModelSearchStore["name"];
   private props: ModelSearchStore["props"] = [];
-  private withTags: boolean = false;
   private transformResultsFn: string = null;
+  private withCarouselIds: boolean = false;
+  private withTags: boolean = false;
 
   constructor(
     name: ModelSearchStore["name"],
@@ -13,12 +14,16 @@ export class ModelStore {
       defaultPageSize: string;
       defaultSort: string;
       transformResultsFn?: string;
+      withCarouselIds?: boolean;
       withTags?: boolean;
     },
   ) {
     this.name = name;
     this.transformResultsFn = options.transformResultsFn;
+    this.withCarouselIds = options.withCarouselIds;
     this.withTags = options.withTags;
+    if (this.withCarouselIds)
+      this.addProp("carouselFileIds", "string[]", "() => []", { notFilterProp: true });
     this.addProp("forcePages", "boolean", "false", { notFilterProp: true });
     this.addProp("hasChanges", "boolean", "false", { notFilterProp: true });
     this.addProp("ids", "string[]", "() => []", {
@@ -27,6 +32,7 @@ export class ModelStore {
     });
     this.addProp("isLoading", "boolean", "false", { notFilterProp: true });
     this.addProp("isPageCountLoading", "boolean", "false", { notFilterProp: true });
+    this.addProp("loadId", "number", "0", { notFilterProp: true });
     this.addProp("page", "number", "1", { notFilterProp: true });
     this.addProp("pageCount", "number", "1", { notFilterProp: true });
     this.addProp("pageSize", "number", options.defaultPageSize, { notFilterProp: true });
@@ -130,6 +136,7 @@ export class ModelStore {
       name: this.name,
       props: this.props,
       transformResultsFn: this.transformResultsFn,
+      withCarouselIds: this.withCarouselIds,
       withTags: this.withTags,
     };
   }
@@ -198,6 +205,33 @@ const createSchemaStore = async (modelDef: ModelDef) => {
 export const createSearchStore = (def: ModelSearchStore) => {
   const storeName = `_${def.name}Search`;
 
+  const savedSearchProps: ModelSearchProp[] = [
+    {
+      defaultValue: `false`,
+      name: "isDeleteModalOpen",
+      setter: null,
+      type: "boolean",
+    },
+    {
+      defaultValue: `false`,
+      name: "isSaveModalOpen",
+      setter: null,
+      type: "boolean",
+    },
+    {
+      defaultValue: `() => []`,
+      name: "savedSearches",
+      setter: null,
+      type: "Stores.SavedSearch[]",
+    },
+    {
+      defaultValue: `""`,
+      name: "selectedSavedSearchId",
+      setter: null,
+      type: "string",
+    },
+  ];
+
   const props = [
     ...def.props,
     {
@@ -211,7 +245,7 @@ export const createSearchStore = (def: ModelSearchStore) => {
   ].sort((a, b) => a.name.localeCompare(b.name));
 
   const makeProps = () =>
-    props
+    [...props, ...savedSearchProps]
       .map(
         (prop) =>
           `${prop.name}: prop<${prop.type}>(${prop.defaultValue})${!prop.setter ? ".withSetter()" : ""}`,
@@ -232,7 +266,28 @@ export const createSearchStore = (def: ModelSearchStore) => {
     `@modelAction\n_deleteResults(ids: string[]) { this.results = this.results.filter((d) => !ids.includes(d.id)); }`;
 
   const makeResetAction = () =>
-    `@modelAction\nreset() { ${props.map((prop) => `this.${prop.name} = ${prop.defaultValue.replace("() => ", "")};`).join("\n")} }`;
+    `@modelAction\nreset() { ${props.map((prop) => (prop.name === "loadId" ? "this.loadId += 1;" : `this.${prop.name} = ${prop.defaultValue.replace("() => ", "")};`)).join("\n")} }`;
+
+  const makeCancelLoadAction = () =>
+    `@modelAction
+    cancelLoad() {
+      this.loadId += 1;
+      this.isLoading = false;
+      this.isPageCountLoading = false;
+    }`;
+
+  const makeApplySearchPropsAction = () =>
+    `@modelAction
+    applySearchProps(searchProps: Record<string, any>) {
+      this.reset();
+      Object.entries(searchProps).forEach(([key, value]) => {
+        if (key in this) this[key] = value;
+      });
+      this.cachedFilterProps = null;
+      this.hasChanges = true;
+      this.page = 1;
+      (this as any).afterApplySearchProps?.(searchProps);
+    }`;
 
   const makeToggleSelectedAction = () =>
     `@modelAction
@@ -257,6 +312,32 @@ export const createSearchStore = (def: ModelSearchStore) => {
     }`;
 
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */
+  const makeApplySavedSearchAction = () =>
+    `@modelFlow
+    applySavedSearch = asyncAction(async (id: string) => {
+      if (!this.savedSearches.some((s) => s.id === id)) await this.loadSavedSearches();
+      const savedSearch = this.savedSearches.find((s) => s.id === id);
+      if (!savedSearch) return;
+
+      this.applySearchProps(derefMobx(savedSearch.filterProps));
+      this.setSelectedSavedSearchId(id);
+      await this.loadFiltered({ noCache: true, page: 1 });
+    });`;
+
+  const makeDeleteSavedSearchAction = () =>
+    `@modelFlow
+    deleteSavedSearch = asyncAction(async (id: string = this.selectedSavedSearchId) => {
+      if (!id) return;
+
+      const res = await trpc.deleteSavedSearch.mutate({ args: { ids: [id] } });
+      if (!res.success) throw new Error(res.error);
+
+      await this.loadSavedSearches();
+      if (this.selectedSavedSearchId === id) this.setSelectedSavedSearchId("");
+      this.setIsDeleteModalOpen(false);
+      toast.warn("Saved search deleted");
+    });`;
+
   const makeGetShiftSelectedAction = () =>
     `@modelFlow
     getShiftSelected = asyncAction(
@@ -324,34 +405,68 @@ export const createSearchStore = (def: ModelSearchStore) => {
       }
     });`;
 
+  const makeSelectAllInQueryAction = () =>
+    `@modelFlow
+    selectAllInQuery = asyncAction(async () => {
+      const countRes = await trpc.getFiltered${def.name}Count.mutate({
+        ...this.getFilterProps(),
+        curMaxPage: this.pageCount,
+        page: this.page,
+        pageSize: this.pageSize,
+        withFull: true,
+      });
+      if (!countRes.success) throw new Error(countRes.error);
+      if (countRes.data.count === 0) return 0;
+
+      const res = await trpc.listFiltered${def.name}.mutate({
+        ...this.getFilterProps(),
+        page: 1,
+        pageSize: countRes.data.count,
+        select: { _id: 1 },
+      });
+      if (!res.success) throw new Error(res.error);
+
+      ${
+        def.withCarouselIds
+          ? `const items = res.data.items;
+            this.toggleSelected(items.map(({ id }) => ({ id, isSelected: true })));
+            return items.length;`
+          : `this.toggleSelected(res.data.map(({ id }) => ({ id, isSelected: true })));
+            return res.data.length;`
+      }
+    });`;
+
   const makeLoadFilteredAction = () =>
     `@modelFlow
     loadFiltered = asyncAction(async ({ noCache, page, withFullCount }: { noCache?: boolean; page?: number; withFullCount?: boolean; } = {}) => {
       const debug = false;
       const { perfLog } = makePerfLog("[${def.name}Search]");
+      const loadId = this.loadId + 1;
+      this.setLoadId(loadId);
       this.setIsLoading(true);
       this.setIsPageCountLoading(true);
 
-      const filterProps = noCache ? this.getFilterProps() : this.getCachedFilterProps();
-      if (noCache || !this.cachedFilterProps) this.setCachedFilterProps(derefMobx(filterProps));
+      try {
+      const shouldCacheFilterProps = noCache || !this.cachedFilterProps;
+      const filterProps = shouldCacheFilterProps
+        ? this.getFilterProps()
+        : this.cachedFilterProps;
+      let nextPageCount = this.pageCount;
 
-      const countRes = await trpc.getFiltered${def.name}Count.mutate({
-        ...filterProps,
-        curMaxPage: this.pageCount,
-        page,
-        pageSize: this.pageSize,
-        withFull: withFullCount
-      });
-      if (!countRes.success) throw new Error(countRes.error);
-      const pageCount = countRes.data.pageCount;
+      if (withFullCount) {
+        const countRes = await trpc.getFiltered${def.name}Count.mutate({
+          ...filterProps,
+          curMaxPage: this.pageCount,
+          page,
+          pageSize: this.pageSize,
+          withFull: withFullCount
+        });
+        if (loadId !== this.loadId) return;
+        if (!countRes.success) throw new Error(countRes.error);
+        nextPageCount = countRes.data.pageCount;
+      }
 
-      this.setPageCount(pageCount);
-      this.setIsPageCountLoading(false);
-      if (debug) perfLog(\`Set pageCount to \${pageCount}\`);
-
-      const newPage = page ?? (withFullCount ? pageCount : this.page);
-      this.setPage(newPage);
-      if (debug && page) perfLog(\`Set page to \${page ?? this.page}\`);
+      const newPage = withFullCount ? nextPageCount : page ?? this.page;
 
       const itemsRes = await trpc.listFiltered${def.name}.mutate({
         ...filterProps,
@@ -359,9 +474,10 @@ export const createSearchStore = (def: ModelSearchStore) => {
         page: newPage,
         pageSize: this.pageSize,
       });
+      if (loadId !== this.loadId) return;
       if (!itemsRes.success) throw new Error(itemsRes.error);
 
-      let items = itemsRes.data;
+      let items = ${def.withCarouselIds ? `itemsRes.data.items as ModelCreationData<Stores.${def.name}>[]` : "itemsRes.data"};
       if (debug) perfLog(\`Loaded \${items.length} items\`);
 
       ${
@@ -369,6 +485,8 @@ export const createSearchStore = (def: ModelSearchStore) => {
           ? ""
           : `const tagIds = [...new Set(items.flatMap((item) => item.tagIdsWithAncestors))];
             const tags = (await trpc.listTag.mutate({ filter: { id: tagIds } })).data;
+
+            if (loadId !== this.loadId) return;
 
             items = await Promise.all(items.map(async (item) => ({
               ...item,
@@ -378,13 +496,121 @@ export const createSearchStore = (def: ModelSearchStore) => {
 
       const results = ${def.transformResultsFn || "items"}
 
-      this.setResults(results.map((result) => new Stores.${def.name}(result)));
+      if (loadId !== this.loadId) return;
+
+      ${
+        def.withCarouselIds
+          ? `this.setResults(results.map((result) => new Stores.${def.name}(result)));
+            this.setCarouselFileIds(itemsRes.data.carouselFileIds);`
+          : `this.setResults(results.map((result) => new Stores.${def.name}(result)));`
+      }
+      this.setPage(newPage);
+      if (shouldCacheFilterProps) this.setCachedFilterProps(derefMobx(filterProps));
+      if (withFullCount) {
+        this.setPageCount(nextPageCount);
+        this.setIsPageCountLoading(false);
+      }
       if (debug) perfLog("Overwrite and re-render");
 
       this.setIsLoading(false);
       if (noCache) this.setHasChanges(false);
 
+      if (!withFullCount) {
+        trpc.getFiltered${def.name}Count.mutate({
+          ...filterProps,
+          curMaxPage: this.pageCount,
+          page: newPage,
+          pageSize: this.pageSize,
+          withFull: withFullCount
+        }).then((countRes) => {
+          if (loadId !== this.loadId) return;
+          this.setIsPageCountLoading(false);
+          if (!countRes.success) return console.error(countRes.error);
+          const pageCount = countRes.data.pageCount;
+
+          this.setPageCount(pageCount);
+          if (debug) perfLog(\`Set pageCount to \${pageCount}\`);
+        }).catch((error) => {
+          if (loadId !== this.loadId) return;
+          this.setIsPageCountLoading(false);
+          console.error(error);
+        });
+      }
+
       return results;
+      } catch (error) {
+        if (loadId !== this.loadId) return;
+        this.setIsLoading(false);
+        this.setIsPageCountLoading(false);
+        throw error;
+      }
+    });`;
+
+  const makeLoadSavedSearchesAction = () =>
+    `@modelFlow
+    loadSavedSearches = asyncAction(async () => {
+      const res = await trpc.listSavedSearch.mutate({
+        args: {
+          filter: { searchType: "${def.name}" },
+          page: 1,
+          pageSize: 1000,
+          sort: { label: "asc" },
+        },
+      });
+      if (!res.success) throw new Error(res.error);
+      this.setSavedSearches(res.data.items.map((result) => new Stores.SavedSearch(result)));
+      return res.data.items;
+    });`;
+
+  const makeSaveSavedSearchAction = () =>
+    `@modelFlow
+    saveSavedSearch = asyncAction(async (label: string) => {
+      const trimmedLabel = label.trim();
+      if (!trimmedLabel) throw new Error("Saved search label is required");
+
+      const existing = this.savedSearches.find((s) => s.label === trimmedLabel);
+      const selected = this.savedSearches.find((s) => s.id === this.selectedSavedSearchId);
+      const filterProps = this.getSearchProps();
+
+      if (selected) {
+        const res = await trpc.updateSavedSearch.mutate({
+          args: { id: selected.id, updates: { filterProps, label: trimmedLabel } },
+        });
+        if (!res.success) throw new Error(res.error);
+        await this.loadSavedSearches();
+        this.setSelectedSavedSearchId(selected.id);
+        this.setIsSaveModalOpen(false);
+        toast.success("Saved search updated");
+        return res.data;
+      }
+
+      if (existing) {
+        const res = await trpc.updateSavedSearch.mutate({
+          args: { id: existing.id, updates: { filterProps } },
+        });
+        if (!res.success) throw new Error(res.error);
+        await this.loadSavedSearches();
+        this.setSelectedSavedSearchId(existing.id);
+        this.setIsSaveModalOpen(false);
+        toast.success("Saved search updated");
+        return res.data;
+      }
+
+      const res = await trpc.createSavedSearch.mutate({
+        args: {
+          dateCreated: dayjs().toISOString(),
+          filterProps,
+          label: trimmedLabel,
+          searchType: "${def.name}",
+        },
+      });
+      if (!res.success) throw new Error(res.error);
+
+      await this.loadSavedSearches();
+      this.setSelectedSavedSearchId(res.data.id);
+      this.setIsSaveModalOpen(false);
+      toast.success("Saved search created");
+      return res.data;
     });`;
 
   /* --------------------------------- GETTERS -------------------------------- */
@@ -402,6 +628,16 @@ export const createSearchStore = (def: ModelSearchStore) => {
           .map((prop) => prop.filterTransform ?? `${prop.name}: this.${prop.name}`)
           .join(",\n")}
       };
+    }`;
+
+  const makeSearchPropsGetter = () =>
+    `getSearchProps() {
+      return derefMobx({
+        ${props
+          .filter((prop) => !prop.notFilterProp)
+          .map((prop) => `${prop.name}: this.${prop.name}`)
+          .join(",\n")}
+      });
     }`;
 
   const makeIsSelectedGetter = () =>
@@ -432,14 +668,21 @@ export const createSearchStore = (def: ModelSearchStore) => {
 
       /* STANDARD ACTIONS */
       ${makeAddResultAction()}\n
+      ${makeApplySearchPropsAction()}\n
+      ${makeCancelLoadAction()}\n
+      ${makeCustomSetters()}\n
       ${makeDeleteResultsAction()}\n
       ${makeResetAction()}\n
       ${makeToggleSelectedAction()}\n
-      ${makeCustomSetters()}\n
       /* ASYNC ACTIONS */
+      ${makeApplySavedSearchAction()}\n
+      ${makeDeleteSavedSearchAction()}\n
       ${makeGetShiftSelectedAction()}\n
       ${makeHandleSelectAction()}\n
+      ${makeSelectAllInQueryAction()}\n
       ${makeLoadFilteredAction()}\n
+      ${makeLoadSavedSearchesAction()}\n
+      ${makeSaveSavedSearchAction()}\n
       /* GETTERS */
       ${makeNumOfFiltersGetter()}\n
       /* DYNAMIC GETTERS */
@@ -447,6 +690,7 @@ export const createSearchStore = (def: ModelSearchStore) => {
       ${makeFilterPropsGetter()}\n
       ${makeIsSelectedGetter()}\n
       ${makeResultGetter()}
+      ${makeSearchPropsGetter()}\n
     }`;
 };
 

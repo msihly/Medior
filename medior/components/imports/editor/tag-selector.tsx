@@ -31,7 +31,7 @@ export const TagSelector = Comp(({ options, store }: TagSelectorProps) => {
 
       <View className={css.tags}>
         {sortTags(store.tagHierarchy).map((t) => (
-          <ImportEditor.TagHierarchy key={t.label} tag={t} />
+          <ImportEditor.TagHierarchy key={t.label} store={store} tag={t} />
         ))}
       </View>
     </Card>

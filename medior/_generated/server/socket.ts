@@ -10,6 +10,15 @@ import * as Types from "medior/server/database/types";
 export type SocketEventOptions = { contentId: string; tabId: number };
 
 export interface SocketEmitEvents {
+  onBackgroundOperationCreated: (
+    args: models.BackgroundOperationSchema,
+    options?: SocketEventOptions,
+  ) => void;
+  onBackgroundOperationDeleted: (args: { ids: string[] }, options?: SocketEventOptions) => void;
+  onBackgroundOperationUpdated: (
+    args: { id: string; updates: Partial<models.BackgroundOperationSchema> },
+    options?: SocketEventOptions,
+  ) => void;
   onDeletedFileCreated: (args: models.DeletedFileSchema, options?: SocketEventOptions) => void;
   onDeletedFileDeleted: (args: { ids: string[] }, options?: SocketEventOptions) => void;
   onDeletedFileUpdated: (
@@ -34,10 +43,37 @@ export interface SocketEmitEvents {
     args: { id: string; updates: Partial<models.FileImportBatchSchema> },
     options?: SocketEventOptions,
   ) => void;
+  onFileTransformCreated: (args: models.FileTransformSchema, options?: SocketEventOptions) => void;
+  onFileTransformDeleted: (args: { ids: string[] }, options?: SocketEventOptions) => void;
+  onFileTransformUpdated: (
+    args: { id: string; updates: Partial<models.FileTransformSchema> },
+    options?: SocketEventOptions,
+  ) => void;
   onFileCreated: (args: models.FileSchema, options?: SocketEventOptions) => void;
   onFileDeleted: (args: { ids: string[] }, options?: SocketEventOptions) => void;
   onFileUpdated: (
     args: { id: string; updates: Partial<models.FileSchema> },
+    options?: SocketEventOptions,
+  ) => void;
+  onNotificationCreated: (args: models.NotificationSchema, options?: SocketEventOptions) => void;
+  onNotificationDeleted: (args: { ids: string[] }, options?: SocketEventOptions) => void;
+  onNotificationUpdated: (
+    args: { id: string; updates: Partial<models.NotificationSchema> },
+    options?: SocketEventOptions,
+  ) => void;
+  onSavedImportConfigCreated: (
+    args: models.SavedImportConfigSchema,
+    options?: SocketEventOptions,
+  ) => void;
+  onSavedImportConfigDeleted: (args: { ids: string[] }, options?: SocketEventOptions) => void;
+  onSavedImportConfigUpdated: (
+    args: { id: string; updates: Partial<models.SavedImportConfigSchema> },
+    options?: SocketEventOptions,
+  ) => void;
+  onSavedSearchCreated: (args: models.SavedSearchSchema, options?: SocketEventOptions) => void;
+  onSavedSearchDeleted: (args: { ids: string[] }, options?: SocketEventOptions) => void;
+  onSavedSearchUpdated: (
+    args: { id: string; updates: Partial<models.SavedSearchSchema> },
     options?: SocketEventOptions,
   ) => void;
   onTagCreated: (args: models.TagSchema, options?: SocketEventOptions) => void;
@@ -47,6 +83,16 @@ export interface SocketEmitEvents {
     options?: SocketEventOptions,
   ) => void;
   onFileCollectionsDeleted: (args: { ids: string[] }, options?: SocketEventOptions) => void;
+  onFileRefreshProgress: (
+    args: {
+      fileId: string;
+      fileName: string;
+      message: string;
+      progress?: number;
+      refreshId: string;
+    },
+    options?: SocketEventOptions,
+  ) => void;
   onFilesArchived: (args: { fileIds: string[] }, options?: SocketEventOptions) => void;
   onFilesDeleted: (
     args: { fileHashes: string[]; fileIds: string[] },
@@ -71,14 +117,26 @@ export interface SocketEmitEvents {
     args: { addedTagIds: string[]; batchId?: string; fileIds?: string[]; removedTagIds: string[] },
     options?: SocketEventOptions,
   ) => void;
+  onFileTransformLoaded: (args: { id: string }, options?: SocketEventOptions) => void;
+  onFileTransformerStatusUpdated: (options?: SocketEventOptions) => void;
   onImportBatchCompleted: (args: { id: string }, options?: SocketEventOptions) => void;
   onImportBatchLoaded: (args: { id: string }, options?: SocketEventOptions) => void;
   onImporterStatusUpdated: (options?: SocketEventOptions) => void;
+  onNotificationsRead: (args: { ids: string[] }, options?: SocketEventOptions) => void;
   onReloadFileCollections: (options?: SocketEventOptions) => void;
   onReloadFiles: (options?: SocketEventOptions) => void;
+  onReloadFileTransforms: (options?: SocketEventOptions) => void;
   onReloadImportBatches: (options?: SocketEventOptions) => void;
   onReloadRegExMaps: (options?: SocketEventOptions) => void;
   onReloadTags: (options?: SocketEventOptions) => void;
+  onRepairProgress: (
+    args: {
+      repairId: string;
+      message: string;
+      status: "info" | "progress" | "success" | "error" | "cancelled";
+    },
+    options?: SocketEventOptions,
+  ) => void;
   onTagMerged: (args: { oldTagId: string; newTagId: string }, options?: SocketEventOptions) => void;
   onTagsUpdated: (
     args: {
@@ -96,6 +154,9 @@ export interface SocketEvents extends SocketEmitEvents {
 }
 
 export const socketEvents: SocketEmitEvent[] = [
+  "onBackgroundOperationCreated",
+  "onBackgroundOperationDeleted",
+  "onBackgroundOperationUpdated",
   "onDeletedFileCreated",
   "onDeletedFileDeleted",
   "onDeletedFileUpdated",
@@ -105,27 +166,45 @@ export const socketEvents: SocketEmitEvent[] = [
   "onFileImportBatchCreated",
   "onFileImportBatchDeleted",
   "onFileImportBatchUpdated",
+  "onFileTransformCreated",
+  "onFileTransformDeleted",
+  "onFileTransformUpdated",
   "onFileCreated",
   "onFileDeleted",
   "onFileUpdated",
+  "onNotificationCreated",
+  "onNotificationDeleted",
+  "onNotificationUpdated",
+  "onSavedImportConfigCreated",
+  "onSavedImportConfigDeleted",
+  "onSavedImportConfigUpdated",
+  "onSavedSearchCreated",
+  "onSavedSearchDeleted",
+  "onSavedSearchUpdated",
   "onTagCreated",
   "onTagDeleted",
   "onTagUpdated",
   "onFileCollectionsDeleted",
+  "onFileRefreshProgress",
   "onFilesArchived",
   "onFilesDeleted",
   "onFilesUpdated",
   "onFileImportStarted",
   "onFileImportUpdated",
   "onFileTagsUpdated",
+  "onFileTransformLoaded",
+  "onFileTransformerStatusUpdated",
   "onImportBatchCompleted",
   "onImportBatchLoaded",
   "onImporterStatusUpdated",
+  "onNotificationsRead",
   "onReloadFileCollections",
   "onReloadFiles",
+  "onReloadFileTransforms",
   "onReloadImportBatches",
   "onReloadRegExMaps",
   "onReloadTags",
+  "onRepairProgress",
   "onTagMerged",
   "onTagsUpdated",
 ];

@@ -99,6 +99,7 @@ export const InfoModal = Comp(() => {
               tooltip={
                 <UniformList row spacing="1rem">
                   <Detail label="Width" value={file?.width} />
+
                   <Detail label="Height" value={file?.height} />
                 </UniformList>
               }
@@ -149,6 +150,15 @@ export const InfoModal = Comp(() => {
                 />
               }
             />
+
+            <Detail
+              label="Peak Decibels"
+              value={
+                file?.peakDecibels === null || file?.peakDecibels === undefined
+                  ? null
+                  : `${round(file.peakDecibels, 2)} dBFS`
+              }
+            />
           </View>
         </UniformList>
 
@@ -182,12 +192,34 @@ export const InfoModal = Comp(() => {
 
         <UniformList row>
           <DateDetail label="Date Created" value={file?.dateCreated} />
+
           <DateDetail label="Date Modified" value={file?.dateModified} />
+
           <DateDetail label="Date Imported" value={file?.dateImported} />
         </UniformList>
 
         {file?.tags?.length > 0 && (
           <Detail label="Tags" value={<TagRow tags={file.tags} padding={{ top: "0.3rem" }} />} />
+        )}
+
+        {(file?.transcription?.text || file?.transcription?.segments?.length > 0) && (
+          <Detail
+            label="Transcript"
+            value={
+              <Card height="15rem" overflow="auto">
+                <Text flexShrink={0} whiteSpace="pre-wrap">
+                  {file.transcription.segments?.length
+                    ? file.transcription.segments
+                        .map(
+                          ({ end, start, text }) =>
+                            `[${Fmt.duration(start)} – ${Fmt.duration(end)}] ${text.trim()}`,
+                        )
+                        .join("\n\n")
+                    : file.transcription.text}
+                </Text>
+              </Card>
+            }
+          />
         )}
 
         {file?.diffusionParams?.length > 0 && (

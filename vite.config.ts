@@ -6,6 +6,7 @@ import pluginSVGR from "vite-plugin-svgr";
 import pluginTsconfigPaths from "vite-tsconfig-paths";
 
 const EXTERNALS = [
+  "@huggingface/transformers",
   "aws-sdk",
   "crypto",
   "fluent-ffmpeg",

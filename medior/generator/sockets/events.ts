@@ -3,6 +3,10 @@ export const CUSTOM_EVENTS: {
   name: string;
 }[] = [
   { name: "onFileCollectionsDeleted", args: "{ ids: string[] }" },
+  {
+    name: "onFileRefreshProgress",
+    args: "{ fileId: string; fileName: string; message: string; progress?: number; refreshId: string }",
+  },
   { name: "onFilesArchived", args: "{ fileIds: string[] }" },
   { name: "onFilesDeleted", args: "{ fileHashes: string[]; fileIds: string[] }" },
   { name: "onFilesUpdated", args: "{ fileIds: string[]; updates: Partial<models.FileSchema> }" },
@@ -15,14 +19,22 @@ export const CUSTOM_EVENTS: {
     name: "onFileTagsUpdated",
     args: "{ addedTagIds: string[]; batchId?: string; fileIds?: string[]; removedTagIds: string[] }",
   },
+  { name: "onFileTransformLoaded", args: "{ id: string }" },
+  { name: "onFileTransformerStatusUpdated" },
   { name: "onImportBatchCompleted", args: "{ id: string }" },
   { name: "onImportBatchLoaded", args: "{ id: string }" },
   { name: "onImporterStatusUpdated" },
+  { name: "onNotificationsRead", args: "{ ids: string[] }" },
   { name: "onReloadFileCollections" },
   { name: "onReloadFiles" },
+  { name: "onReloadFileTransforms" },
   { name: "onReloadImportBatches" },
   { name: "onReloadRegExMaps" },
   { name: "onReloadTags" },
+  {
+    name: "onRepairProgress",
+    args: "{ repairId: string; message: string; status: 'info' | 'progress' | 'success' | 'error' | 'cancelled' }",
+  },
   { name: "onTagMerged", args: "{ oldTagId: string; newTagId: string }" },
   {
     name: "onTagsUpdated",

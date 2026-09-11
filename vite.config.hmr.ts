@@ -6,8 +6,10 @@ import pluginSVGR from "vite-plugin-svgr";
 import pluginTsconfigPaths from "vite-tsconfig-paths";
 
 const EXTERNALS = [
+  "@huggingface/transformers",
   "aws-sdk",
   "crypto",
+  "fdir",
   "fluent-ffmpeg",
   "fs",
   "mock-aws-s3",
@@ -15,6 +17,7 @@ const EXTERNALS = [
   "nock",
   "path",
   "sharp",
+  "trash",
 ];
 
 export default defineConfig({

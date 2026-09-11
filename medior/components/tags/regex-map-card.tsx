@@ -1,8 +1,9 @@
 import { useMemo } from "react";
 import { InputAdornment } from "@mui/material";
 import { Button, Card, Comp, Input, View } from "medior/components";
-import { TagEditorStore, useStores } from "medior/store";
+import { TagEditorStore } from "medior/store";
 import { colors } from "medior/utils/client";
+import { tagsToRegEx } from "medior/utils/common";
 
 export interface RegExMapCardProps {
   disabled?: boolean;
@@ -10,8 +11,6 @@ export interface RegExMapCardProps {
 }
 
 export const RegExMapCard = Comp(({ disabled = false, store }: RegExMapCardProps) => {
-  const stores = useStores();
-
   const [isRegExValid, isTestStringValid] = useMemo(() => {
     try {
       return [
@@ -26,7 +25,7 @@ export const RegExMapCard = Comp(({ disabled = false, store }: RegExMapCardProps
   }, [store.regExValue, store.regExTestString]);
 
   const generateRegEx = () =>
-    store.setRegExValue(stores.tag.tagsToRegEx([{ aliases: store.aliases, label: store.label }]));
+    store.setRegExValue(tagsToRegEx([{ aliases: store.aliases, label: store.label }]));
 
   return (
     <Card column header="Regular Expression">

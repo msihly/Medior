@@ -7,6 +7,7 @@ export type FlatFolder = {
   folderName: string;
   folderNameParts: string[];
   imports: ModelCreationData<FileImport>[];
+  savedConfigLabel?: string;
   tags: TagToUpsert[];
 };
 

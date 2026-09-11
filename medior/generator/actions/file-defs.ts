@@ -21,6 +21,7 @@ export const FILE_DEF_ACTIONS: FileDef = {
       import { SocketEventOptions } from "medior/_generated/server/socket";
       import { FilterQuery } from "mongoose";
       import * as Types from "medior/server/database/types";
+      import { removeFileCollectionIds, syncCollectionFileIds } from "medior/server/database/actions/collections";
       import { SortMenuProps } from "medior/components";
       import { dayjs, isDeepEqual, LogicalOp, logicOpsToMongo, setObj } from "medior/utils/common";
       import {

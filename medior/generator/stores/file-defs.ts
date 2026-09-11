@@ -6,7 +6,6 @@ import { makeSectionComment } from "medior/generator/utils";
 const CUSTOM_SORT_OPTIONS: Record<string, string[]> = {
   FileCollectionFile: [
     `{ attribute: "custom", icon: "Settings", label: "Custom" }`,
-    `{ attribute: "originalName", icon: "Abc", label: "Original Name" }`,
     `...MODEL_SORT_OPTIONS.File`,
   ],
 };

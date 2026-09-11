@@ -2,6 +2,7 @@ import {
   Comp,
   DeleteFilesModal,
   FaceRecognitionModal,
+  FileRefreshModal,
   InfoModal,
   SimilarityModal,
   VideoTransformerModal,
@@ -16,6 +17,8 @@ export const FileModals = Comp(() => {
       {stores.faceRecog.isModalOpen && <FaceRecognitionModal />}
 
       {stores.file.isInfoModalOpen && <InfoModal />}
+
+      {stores.file.isRefreshOpen && <FileRefreshModal />}
 
       {stores.file.similarity.isOpen && <SimilarityModal />}
 

@@ -1,10 +1,26 @@
 import { app, BrowserWindow, ipcMain, screen } from "electron";
 import path from "path";
 import { fileLog, setLogsPath } from "trabecula/utils/server";
-import { startServers } from "medior/server/server";
+import { ServerManager, ServerProcessStatus, startServers } from "medior/server/server";
 import { dayjs } from "medior/utils/common";
-import { getConfig, loadConfig, setupTRPC } from "medior/utils/server";
+import { Config, getConfig, loadConfig, saveConfig, setupTRPC } from "medior/utils/server";
 const remoteMain = require("@electron/remote/main");
+
+type WindowType = "carousel" | "home" | "search";
+
+const lastDisplayIds: Partial<Record<WindowType, number>> = {};
+
+const getLastDisplay = (windowType: WindowType) =>
+  screen.getAllDisplays().find((display) => display.id === lastDisplayIds[windowType]) ??
+  screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
+
+const trackWindowDisplay = (window: BrowserWindow, windowType: WindowType) => {
+  const updateDisplay = () => {
+    lastDisplayIds[windowType] = screen.getDisplayMatching(window.getBounds()).id;
+  };
+  updateDisplay();
+  window.on("move", updateDisplay);
+};
 
 /* -------------------------------------------------------------------------- */
 /*                                   CONFIG                                   */
@@ -20,6 +36,61 @@ const baseUrl = isBundled
 const folderPath = isPackaged ? process.resourcesPath : rootDir;
 const configPath = path.resolve(folderPath, "..", "config.json");
 ipcMain.handle("getConfigPath", () => configPath);
+
+let servers: ServerManager = null;
+
+ipcMain.handle("getServerStatuses", () => servers?.getStatuses() ?? []);
+
+const broadcastConfig = (config: Config) =>
+  BrowserWindow.getAllWindows().forEach((window) =>
+    window.webContents.send("config-updated", config),
+  );
+
+const broadcastServerStatuses = (statuses: ServerProcessStatus[]) =>
+  BrowserWindow.getAllWindows().forEach((window) =>
+    window.webContents.send("server-status-changed", statuses),
+  );
+
+ipcMain.handle("saveConfig", async (_, config: Config) => {
+  try {
+    const previousConfig = getConfig();
+    let restartedServers =
+      previousConfig.db.path !== config.db.path ||
+      previousConfig.ports.db !== config.ports.db ||
+      previousConfig.ports.server !== config.ports.server ||
+      previousConfig.ports.socket !== config.ports.socket;
+
+    await saveConfig(configPath, config);
+    setupTRPC();
+
+    try {
+      if (restartedServers) await servers.restart();
+      else await servers.reloadConfig();
+      broadcastConfig(config);
+      return { restartedServers, success: true };
+    } catch (error) {
+      fileLog(`Failed to apply server config: ${error.message}`, { type: "error" });
+      if (!restartedServers) {
+        restartedServers = true;
+        try {
+          await servers.restart();
+          broadcastConfig(config);
+          return { restartedServers, success: true };
+        } catch (restartError) {
+          fileLog(`Failed to restart servers: ${restartError.message}`, { type: "error" });
+          broadcastConfig(config);
+          return { error: restartError.message, restartedServers, success: true };
+        }
+      }
+
+      broadcastConfig(config);
+      return { error: error.message, restartedServers, success: true };
+    }
+  } catch (error) {
+    fileLog(`Failed to save config: ${error.message}`, { type: "error" });
+    return { error: error.message, restartedServers: false, success: false };
+  }
+});
 
 const logsDir = path.resolve(folderPath, "..", "logs", dayjs().format("YYYY-MM-DD"));
 process.env.LOGS_PATH = path.resolve(logsDir, `${dayjs().format("HH[h]mm[m]ss[s]")}.log`);
@@ -42,12 +113,16 @@ let mainWindow: BrowserWindow = null;
 const createMainWindow = async () => {
   try {
     fileLog("Loading servers...");
-    await startServers(configPath, process.env.LOGS_PATH);
+    servers = await startServers(configPath, process.env.LOGS_PATH, broadcastServerStatuses);
 
     fileLog("Creating main window...");
+    const display = getLastDisplay("home");
     mainWindow = new BrowserWindow({
       autoHideMenuBar: true,
       backgroundColor: "#111",
+      frame: false,
+      x: display.workArea.x,
+      y: display.workArea.y,
       show: false,
       webPreferences: { contextIsolation: false, nodeIntegration: true, webSecurity: false },
     });
@@ -57,6 +132,7 @@ const createMainWindow = async () => {
 
     mainWindow.maximize();
     mainWindow.show();
+    trackWindowDisplay(mainWindow, "home");
     if (!isPackaged) {
       const mode = getConfig().dev.devTools.home;
       if (mode) mainWindow.webContents.openDevTools({ mode });
@@ -89,9 +165,13 @@ let searchWindows: BrowserWindow[] = [];
 
 const createSearchWindow = async ({ tagIds }) => {
   try {
+    const display = getLastDisplay("search");
     const searchWindow = new BrowserWindow({
       autoHideMenuBar: true,
       backgroundColor: "#111",
+      frame: false,
+      x: display.workArea.x,
+      y: display.workArea.y,
       show: false,
       webPreferences: {
         contextIsolation: false,
@@ -104,6 +184,7 @@ const createSearchWindow = async ({ tagIds }) => {
     searchWindow.maximize();
     remoteMain.enable(searchWindow.webContents);
     searchWindow.show();
+    trackWindowDisplay(searchWindow, "search");
 
     if (!isPackaged) {
       const mode = getConfig().dev.devTools.search;
@@ -134,12 +215,24 @@ ipcMain.on("createSearchWindow", (_, args) => createSearchWindow(args));
 /* -------------------------------------------------------------------------- */
 let carouselWindows: BrowserWindow[] = [];
 
+const registerCarouselDevToolsShortcuts = (window: BrowserWindow) => {
+  window.webContents.on("before-input-event", (event, input) => {
+    const isDevToolsShortcut =
+      input.type === "keyDown" &&
+      (input.key === "F12" || (input.control && input.shift && input.key.toLowerCase() === "i"));
+    if (!isDevToolsShortcut) return;
+
+    event.preventDefault();
+    window.webContents.toggleDevTools();
+  });
+};
+
 const createCarouselWindow = async ({ fileId, height, selectedFileIds, width }) => {
   try {
     fileLog("Creating carousel window...");
 
-    const primaryDisplay = screen.getPrimaryDisplay();
-    const { width: screenWidth, height: screenHeight } = primaryDisplay.workAreaSize;
+    const display = getLastDisplay("carousel");
+    const { width: screenWidth, height: screenHeight } = display.workAreaSize;
 
     const winWidth = Math.min(width, screenWidth);
     const winHeight = Math.min(height, screenHeight);
@@ -147,6 +240,9 @@ const createCarouselWindow = async ({ fileId, height, selectedFileIds, width }) 
     const carouselWindow = new BrowserWindow({
       autoHideMenuBar: true,
       backgroundColor: "#111",
+      frame: false,
+      x: display.workArea.x,
+      y: display.workArea.y,
       width: winWidth,
       height: winHeight,
       show: false,
@@ -161,7 +257,9 @@ const createCarouselWindow = async ({ fileId, height, selectedFileIds, width }) 
 
     carouselWindow.maximize();
     remoteMain.enable(carouselWindow.webContents);
+    registerCarouselDevToolsShortcuts(carouselWindow);
     carouselWindow.show();
+    trackWindowDisplay(carouselWindow, "carousel");
 
     if (!isPackaged) {
       const mode = getConfig().dev.devTools.carousel;

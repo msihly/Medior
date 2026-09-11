@@ -3,7 +3,14 @@ import { createContext, MutableRefObject, useEffect, useRef, WheelEvent } from "
 import FilePlayer from "react-player/file";
 import { PanzoomObject } from "@panzoom/panzoom";
 import { makePerfLog } from "trabecula/utils/server";
-import { Carousel, CarouselThumbNavigator, CarouselTopBar, Comp, View } from "medior/components";
+import {
+  Carousel,
+  CarouselThumbNavigator,
+  CarouselTopBar,
+  Comp,
+  View,
+  WindowTitleBar,
+} from "medior/components";
 import { useStores } from "medior/store";
 import { makeClasses } from "medior/utils/client";
 import { debounce } from "medior/utils/common";
@@ -14,10 +21,22 @@ export const VideoContext = createContext<MutableRefObject<FilePlayer>>(null);
 
 export const ZoomContext = createContext<MutableRefObject<PanzoomObject>>(null);
 
-export const CarouselWindow = Comp(() => {
+export interface CarouselWindowProps {
+  embedded?: boolean;
+}
+
+export const CarouselWindow = Comp(({ embedded = false }: CarouselWindowProps) => {
   const { css } = useClasses(null);
 
   const stores = useStores();
+  const activeFile = stores.carousel.getActiveFile();
+  const title = activeFile
+    ? `Medior — ${activeFile.originalName}${
+        stores.carousel.selectedFileIds.length
+          ? ` — (${stores.carousel.activeFileIndex + 1} / ${stores.carousel.selectedFileIds.length})`
+          : ""
+      }`
+    : "Medior";
 
   const panZoomRef = useRef<PanzoomObject>(null);
   const videoRef = useRef<FilePlayer>(null);
@@ -51,7 +70,7 @@ export const CarouselWindow = Comp(() => {
     }
   };
 
-  useSockets({ view: "carousel" });
+  useSockets({ enabled: !embedded, view: "carousel" });
 
   const mouseMoveTimeout = useRef<number | null>(null);
 
@@ -70,7 +89,7 @@ export const CarouselWindow = Comp(() => {
   }, []);
 
   useEffect(() => {
-    document.title = "Medior —— Carousel";
+    if (embedded) return;
 
     ipcRenderer.on(
       "init",
@@ -94,7 +113,7 @@ export const CarouselWindow = Comp(() => {
         }
       },
     );
-  }, []);
+  }, [embedded]);
 
   return (
     <ZoomContext.Provider value={panZoomRef}>
@@ -104,18 +123,26 @@ export const CarouselWindow = Comp(() => {
           onKeyDown={handleKeyPress}
           onMouseMove={handleMouseMove}
           onWheel={handleScroll}
+          column
+          height={embedded ? "100%" : "100vh"}
+          position="relative"
+          overflow="hidden"
           tabIndex={-1}
           className={css.root}
         >
-          <CarouselTopBar />
+          {!embedded && <WindowTitleBar isDark {...{ title }} />}
 
-          <Carousel ref={videoRef} />
+          <View column flex={1} overflow="hidden" position="relative">
+            <CarouselTopBar />
 
-          <CarouselThumbNavigator />
+            <Carousel ref={videoRef} />
 
-          <Views.FileModals />
+            {!stores.carousel.splicer.isOpen && <CarouselThumbNavigator />}
 
-          <Views.TagModals view="carousel" />
+            {!embedded && <Views.FileModals />}
+
+            <Views.TagModals view="carousel" />
+          </View>
         </View>
       </VideoContext.Provider>
     </ZoomContext.Provider>
@@ -124,11 +151,6 @@ export const CarouselWindow = Comp(() => {
 
 const useClasses = makeClasses({
   root: {
-    position: "relative",
-    display: "flex",
-    flexDirection: "column",
-    height: "100vh",
-    overflow: "hidden",
     transition: "all 200ms ease-in-out",
   },
 });

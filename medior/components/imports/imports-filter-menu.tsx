@@ -20,12 +20,7 @@ export interface ImportsFilterMenuProps {
 export const ImportsFilterMenu = Comp(
   ({ color = colors.foreground, store }: ImportsFilterMenuProps) => {
     return (
-      <FilterMenu
-        store={store}
-        color={color}
-        sortOptions={SORT_OPTIONS.FileImportBatch}
-        width="10rem"
-      >
+      <FilterMenu store={store} color={color} sortOptions={SORT_OPTIONS.FileImportBatch}>
         <View row height="20rem" spacing="0.5rem">
           <Card>
             <TagInput

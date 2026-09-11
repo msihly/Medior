@@ -12,11 +12,22 @@ export type SortOption = {
 
 export type SortValue = { isDesc: boolean; key: string };
 
-type ModelSortName = "DeletedFile" | "FileCollection" | "FileImportBatch" | "File" | "Tag";
+type ModelSortName =
+  | "BackgroundOperation"
+  | "DeletedFile"
+  | "FileCollection"
+  | "FileImportBatch"
+  | "FileTransform"
+  | "File"
+  | "Notification"
+  | "SavedImportConfig"
+  | "SavedSearch"
+  | "Tag";
 
 type CustomSortName = "FileCollectionFile";
 
 const MODEL_SORT_OPTIONS: Record<ModelSortName, SortOption[]> = {
+  BackgroundOperation: [{ attribute: "dateCreated", icon: "DateRange", label: "Date Created" }],
   DeletedFile: [],
   FileCollection: [
     { attribute: "dateCreated", icon: "DateRange", label: "Date Created" },
@@ -33,16 +44,37 @@ const MODEL_SORT_OPTIONS: Record<ModelSortName, SortOption[]> = {
     { attribute: "size", icon: "FormatSize", label: "Size" },
     { attribute: "startedAt", icon: "HourglassTop", label: "Started At" },
   ],
+  FileTransform: [
+    { attribute: "completedAt", icon: "HourglassBottom", label: "Completed At" },
+    { attribute: "dateCreated", icon: "DateRange", label: "Date Created" },
+    { attribute: "startedAt", icon: "HourglassTop", label: "Started At" },
+    { attribute: "status", icon: "PendingActions", label: "Status" },
+    { attribute: "type", icon: "Movie", label: "Type" },
+  ],
   File: [
     { attribute: "bitrate", icon: "DataThresholding", label: "Bitrate" },
     { attribute: "dateCreated", icon: "DateRange", label: "Date Created" },
     { attribute: "dateImported", icon: "DateRange", label: "Date Imported" },
     { attribute: "dateModified", icon: "DateRange", label: "Date Modified" },
     { attribute: "duration", icon: "HourglassBottom", label: "Duration" },
+    { attribute: "originalName", icon: "Abc", label: "File Name" },
     { attribute: "height", icon: "Height", label: "Height" },
+    { attribute: "peakDecibels", icon: "GraphicEq", label: "Peak Decibels" },
     { attribute: "rating", icon: "Star", label: "Rating" },
     { attribute: "size", icon: "FormatSize", label: "Size" },
     { attribute: "width", icon: "Height", iconProps: { rotation: 90 }, label: "Width" },
+  ],
+  Notification: [{ attribute: "dateCreated", icon: "DateRange", label: "Date Created" }],
+  SavedImportConfig: [
+    { attribute: "dateCreated", icon: "DateRange", label: "Date Created" },
+    { attribute: "dateModified", icon: "DateRange", label: "Date Modified" },
+    { attribute: "folderPath", icon: "Folder", label: "Folder Path" },
+    { attribute: "label", icon: "Label", label: "Label" },
+  ],
+  SavedSearch: [
+    { attribute: "dateCreated", icon: "DateRange", label: "Date Created" },
+    { attribute: "label", icon: "Label", label: "Label" },
+    { attribute: "searchType", icon: "Search", label: "Search Type" },
   ],
   Tag: [
     { attribute: "count", icon: "Numbers", label: "Count" },
@@ -58,7 +90,6 @@ const MODEL_SORT_OPTIONS: Record<ModelSortName, SortOption[]> = {
 const CUSTOM_SORT_OPTIONS: Record<CustomSortName, SortOption[]> = {
   FileCollectionFile: [
     { attribute: "custom", icon: "Settings", label: "Custom" },
-    { attribute: "originalName", icon: "Abc", label: "Original Name" },
     ...MODEL_SORT_OPTIONS.File,
   ],
 };

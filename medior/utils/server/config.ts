@@ -6,7 +6,9 @@ import {
   AudioCodec,
   CONSTANTS,
   deepMerge,
+  DEFAULT_HOTKEYS,
   handleErrors,
+  Hotkeys,
   ImageExt,
   NestedKeys,
   VideoCodec,
@@ -15,6 +17,88 @@ import {
 import { trpc } from "medior/utils/server/trpc";
 
 type DevToolsMode = null | Electron.OpenDevToolsOptions["mode"];
+
+export type TranscriptionModel =
+  | "onnx-community/whisper-base_timestamped"
+  | "onnx-community/whisper-large-v3-turbo_timestamped"
+  | "onnx-community/whisper-medium_timestamped"
+  | "onnx-community/whisper-small_timestamped"
+  | "onnx-community/whisper-tiny_timestamped";
+
+export type TranscriptionQuantization =
+  | "bnb4"
+  | "fp16"
+  | "fp32"
+  | "int8"
+  | "q4"
+  | "q4f16"
+  | "q8"
+  | "uint8";
+
+const COMMON_TRANSCRIPTION_QUANTIZATIONS: TranscriptionQuantization[] = [
+  "bnb4",
+  "fp16",
+  "fp32",
+  "int8",
+  "q4",
+  "q8",
+  "uint8",
+];
+
+export const TRANSCRIPTION_MODELS: Array<{
+  label: string;
+  quantizations: TranscriptionQuantization[];
+  value: TranscriptionModel;
+}> = [
+  {
+    label: "Whisper Tiny",
+    quantizations: COMMON_TRANSCRIPTION_QUANTIZATIONS,
+    value: "onnx-community/whisper-tiny_timestamped",
+  },
+  {
+    label: "Whisper Base",
+    quantizations: COMMON_TRANSCRIPTION_QUANTIZATIONS,
+    value: "onnx-community/whisper-base_timestamped",
+  },
+  {
+    label: "Whisper Small",
+    quantizations: COMMON_TRANSCRIPTION_QUANTIZATIONS,
+    value: "onnx-community/whisper-small_timestamped",
+  },
+  {
+    label: "Whisper Medium",
+    quantizations: ["fp32", "int8", "uint8"],
+    value: "onnx-community/whisper-medium_timestamped",
+  },
+  {
+    label: "Whisper Large V3 Turbo",
+    quantizations: [...COMMON_TRANSCRIPTION_QUANTIZATIONS, "q4f16"],
+    value: "onnx-community/whisper-large-v3-turbo_timestamped",
+  },
+];
+
+const TRANSCRIPTION_MODEL_MIGRATIONS: Record<string, TranscriptionModel> = {
+  "onnx-community/whisper-base": "onnx-community/whisper-base_timestamped",
+  "onnx-community/whisper-large-v3-ONNX": "onnx-community/whisper-large-v3-turbo_timestamped",
+  "onnx-community/whisper-large-v3-turbo": "onnx-community/whisper-large-v3-turbo_timestamped",
+  "onnx-community/whisper-medium": "onnx-community/whisper-medium_timestamped",
+  "onnx-community/whisper-small": "onnx-community/whisper-small_timestamped",
+  "onnx-community/whisper-tiny": "onnx-community/whisper-tiny_timestamped",
+};
+
+export const TRANSCRIPTION_QUANTIZATION_OPTIONS: Array<{
+  label: string;
+  value: TranscriptionQuantization;
+}> = [
+  { label: "BNB4", value: "bnb4" },
+  { label: "FP16", value: "fp16" },
+  { label: "FP32", value: "fp32" },
+  { label: "INT8", value: "int8" },
+  { label: "Q4", value: "q4" },
+  { label: "Q4F16", value: "q4f16" },
+  { label: "Q8", value: "q8" },
+  { label: "UINT8", value: "uint8" },
+];
 
 type Search = {
   pageSize: number;
@@ -55,6 +139,9 @@ export interface Config {
     imageExts: Array<ImageExt>;
     reencode: {
       codec: string;
+      imageExt: ImageExt;
+      imageMaxHeight: number;
+      imageMaxWidth: number;
       maxBitrate: number;
       maxFps: number;
       maxHeight: number;
@@ -81,6 +168,7 @@ export interface Config {
       toMp4: Array<Omit<VideoExt, "mp4">>;
     };
     search: Search;
+    showFileName: boolean;
     similarity: {
       batchSize?: number;
       defaultLimit: number;
@@ -121,9 +209,22 @@ export interface Config {
         removeTagIds: string[];
       };
     };
+    transcription: {
+      enabled: boolean;
+      model: TranscriptionModel;
+      modelCachePath: string;
+      quantization: TranscriptionQuantization;
+    };
+    transforms: {
+      search: Search;
+    };
     videoCodecs: Array<VideoCodec>;
     videoExts: Array<VideoExt>;
+    waveform: {
+      enabled: boolean;
+    };
   };
+  hotkeys: Hotkeys;
   imports: {
     deleteOnImport: boolean;
     folderDelimiter: string;
@@ -200,10 +301,13 @@ export const DEFAULT_CONFIG: Config = {
   file: {
     audioCodecs: [...CONSTANTS.AUDIO.CODECS_COMMON],
     fileCardFit: "contain",
-    imageExts: [...CONSTANTS.IMAGE.EXTS_COMMON],
     hideUnratedIcon: false,
+    imageExts: [...CONSTANTS.IMAGE.EXTS_COMMON],
     reencode: {
-      codec: "hevc_nvenc",
+      codec: "libx265",
+      imageExt: "jpg",
+      imageMaxHeight: 1440,
+      imageMaxWidth: 2560,
       maxBitrate: 5000,
       maxFps: 60,
       maxHeight: 1080,
@@ -224,7 +328,7 @@ export const DEFAULT_CONFIG: Config = {
         addTagIds: [],
         removeTagIds: [],
       },
-      override: [],
+      override: ["-preset", "slow", "-crf", "26", "-x265-params", "log-level=error"],
     },
     remuxTypes: {
       toMp4: ["ts"],
@@ -233,6 +337,7 @@ export const DEFAULT_CONFIG: Config = {
       pageSize: 100,
       sort: { isDesc: true, key: "dateCreated" },
     },
+    showFileName: false,
     similarity: {
       defaultLimit: 100,
       index: {
@@ -270,9 +375,25 @@ export const DEFAULT_CONFIG: Config = {
         removeTagIds: [],
       },
     },
+    transcription: {
+      enabled: false,
+      model: "onnx-community/whisper-tiny_timestamped",
+      modelCachePath: path.resolve("ModelCache"),
+      quantization: "int8",
+    },
+    transforms: {
+      search: {
+        pageSize: 20,
+        sort: { isDesc: false, key: "dateCreated" },
+      },
+    },
     videoCodecs: [...CONSTANTS.VIDEO.CODECS_COMMON],
     videoExts: [...CONSTANTS.VIDEO.EXTS_COMMON],
+    waveform: {
+      enabled: true,
+    },
   },
+  hotkeys: DEFAULT_HOTKEYS,
   imports: {
     deleteOnImport: true,
     folderDelimiter: ";;",
@@ -316,6 +437,14 @@ export const DEFAULT_CONFIG: Config = {
 
 let config: Config;
 
+export const setConfig = (value: Config) => {
+  config = deepMerge(DEFAULT_CONFIG, value);
+  return config;
+};
+
+const writeConfig = (filePath: string, value: Config) =>
+  fs.writeFile(filePath, JSON.stringify(value, null, 2));
+
 export const getAvailableFileStorage = (bytesNeeded: number) =>
   handleErrors(async () => {
     for (const location of config.db.fileStorage.locations) {
@@ -351,14 +480,22 @@ export const loadConfig = async (filePath: string) => {
 
     if (!(await checkFileExists(filePath))) {
       fileLog(`Config file not found at ${filePath}. Initializing with defaults.`);
-      await fs.writeFile(filePath, JSON.stringify(DEFAULT_CONFIG, null, 2));
-      config = DEFAULT_CONFIG;
+      await writeConfig(filePath, DEFAULT_CONFIG);
+      setConfig(DEFAULT_CONFIG);
       return config;
     }
 
     const loadedConfig = JSON.parse(await fs.readFile(filePath, "utf-8")) as Config;
 
-    config = deepMerge(DEFAULT_CONFIG, loadedConfig);
+    setConfig(loadedConfig);
+
+    const migratedTranscriptionModel =
+      TRANSCRIPTION_MODEL_MIGRATIONS[config.file.transcription.model];
+    if (migratedTranscriptionModel) {
+      config.file.transcription.model = migratedTranscriptionModel;
+      await writeConfig(filePath, config);
+    }
+
     const loadedSimilarity = (loadedConfig.file?.similarity ?? {}) as Config["file"]["similarity"];
     if (loadedSimilarity.batchSize && !loadedSimilarity.visual?.inferenceBatchSize)
       config.file.similarity.visual.inferenceBatchSize = +loadedSimilarity.batchSize;
@@ -366,6 +503,7 @@ export const loadConfig = async (filePath: string) => {
       config.file.similarity.visual.device = loadedSimilarity.device;
     if (loadedSimilarity.dtype && !loadedSimilarity.visual?.inferenceDType)
       config.file.similarity.visual.inferenceDType = loadedSimilarity.dtype;
+
     config.collection.editor.fileSearch.pageSize = +config.collection.editor.fileSearch.pageSize;
     config.collection.editor.search.pageSize = +config.collection.editor.search.pageSize;
     config.collection.manager.search.pageSize = +config.collection.manager.search.pageSize;
@@ -395,6 +533,7 @@ export const loadConfig = async (filePath: string) => {
     config.file.similarity.weights.visual = +config.file.similarity.weights.visual;
     config.file.similarity.writerBatchSize = +config.file.similarity.writerBatchSize;
     config.file.search.pageSize = +config.file.search.pageSize;
+    config.file.transforms.search.pageSize = +config.file.transforms.search.pageSize;
     config.ports.db = +config.ports.db;
     config.ports.server = +config.ports.server;
     config.ports.socket = +config.ports.socket;
@@ -404,18 +543,18 @@ export const loadConfig = async (filePath: string) => {
     return config;
   } catch (err) {
     fileLog(`Failed to load config: ${err}`, { type: "error" });
-    config = DEFAULT_CONFIG;
+    setConfig(DEFAULT_CONFIG);
     return config;
   }
 };
 
-export const saveConfig = async (configPath: string, config: Config) => {
+export const saveConfig = async (configPath: string, value: Config) => {
   try {
-    const newConfig = JSON.stringify({ ...DEFAULT_CONFIG, ...config }, null, 2);
     if (!configPath) throw new Error("No config path provided.");
     fileLog(`Saving config to ${configPath}...`);
-    await fs.writeFile(configPath, newConfig);
+    await writeConfig(configPath, setConfig(value));
   } catch (err) {
     fileLog(`Failed to save config: ${err}`, { type: "error" });
+    throw err;
   }
 };

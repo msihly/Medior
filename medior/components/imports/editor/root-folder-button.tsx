@@ -18,6 +18,7 @@ export const RootFolderButton = Comp(({ folderPart, index, store }: RootFolderBu
   return (
     <Fragment key={index}>
       {index !== 0 && <Text margin="0 0.3em">{"\\"}</Text>}
+
       <Button
         type="link"
         text={folderPart}

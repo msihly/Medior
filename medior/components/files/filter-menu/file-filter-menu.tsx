@@ -12,10 +12,9 @@ import {
   TagInput,
   View,
 } from "medior/components";
-import { FileSearch } from "medior/store";
+import { FileSearch, useStores } from "medior/store";
 import { colors, CssColor } from "medior/utils/client";
 import { AudioCodec, ImageExt, VideoCodec, VideoExt } from "medior/utils/common";
-import { getConfig } from "medior/utils/server";
 
 export interface FileFilterMenuProps {
   color?: CssColor;
@@ -23,7 +22,8 @@ export interface FileFilterMenuProps {
 }
 
 export const FileFilterMenu = Comp(({ color = colors.foreground, store }: FileFilterMenuProps) => {
-  const config = getConfig();
+  const stores = useStores();
+  const config = stores.home.settings;
 
   const toggleArchiveOpen = () => store.setIsArchived(!store.isArchived);
 
@@ -39,15 +39,14 @@ export const FileFilterMenu = Comp(({ color = colors.foreground, store }: FileFi
       store.isModified === true ? false : store.isModified === false ? null : true,
     );
 
+  const toggleIsTranscribed = () =>
+    store.setIsTranscribed(
+      store.isTranscribed === true ? false : store.isTranscribed === false ? null : true,
+    );
+
   return (
-    <FilterMenu
-      store={store}
-      resetFn={store._reset}
-      color={color}
-      sortOptions={SORT_OPTIONS.File}
-      width="100%"
-    >
-      <View row height="18.5rem" spacing="0.5rem">
+    <FilterMenu store={store} resetFn={store._reset} color={color} sortOptions={SORT_OPTIONS.File}>
+      <View row height="20.5rem" spacing="0.5rem">
         <Card flex={1}>
           <TagInput
             header="Tags"
@@ -61,7 +60,7 @@ export const FileFilterMenu = Comp(({ color = colors.foreground, store }: FileFi
           />
         </Card>
 
-        <Card height="100%" width="8rem" spacing="0.5rem">
+        <Card height="100%" width="9rem" spacing="0.5rem">
           <LogOpsInput
             header="# of Tags"
             logOpValue={store.numOfTags.logOp}
@@ -113,6 +112,15 @@ export const FileFilterMenu = Comp(({ color = colors.foreground, store }: FileFi
               color={colors.custom.purple}
               flex="none"
             />
+
+            <Checkbox
+              label="Transcribed"
+              checked={store.isTranscribed}
+              indeterminate={store.isTranscribed === false}
+              setChecked={toggleIsTranscribed}
+              color={colors.custom.green}
+              flex="none"
+            />
           </View>
         </Card>
 
@@ -156,7 +164,7 @@ export const FileFilterMenu = Comp(({ color = colors.foreground, store }: FileFi
       </View>
 
       <View row spacing="0.5rem">
-        <Card flex="none" width="21rem" spacing="0.5rem">
+        <Card flex="none" width="22rem" spacing="0.5rem">
           <DateRange
             header="Date Created"
             startDate={store.dateCreatedStart}
@@ -177,6 +185,12 @@ export const FileFilterMenu = Comp(({ color = colors.foreground, store }: FileFi
             header="Original File Path"
             value={store.originalPath}
             setValue={store.setOriginalPath}
+          />
+
+          <Input
+            header="Transcription"
+            value={store.transcription}
+            setValue={store.setTranscription}
           />
         </Card>
 
@@ -207,9 +221,15 @@ export const FileFilterMenu = Comp(({ color = colors.foreground, store }: FileFi
             setMax={store._setMaxSize}
             numInputProps={{ adornment: "kb" }}
           />
+
+          <Input
+            header="Diffusion Params"
+            value={store.diffusionParams}
+            setValue={store.setDiffusionParams}
+          />
         </Card>
 
-        <Card flex={1} width="12rem" spacing="0.5rem">
+        <Card flex={1} width="11rem" spacing="0.5rem">
           <LogOpsInput
             header="Bitrate"
             logOpValue={store.bitrate.logOp}
@@ -235,6 +255,15 @@ export const FileFilterMenu = Comp(({ color = colors.foreground, store }: FileFi
             numValue={store.frameRate.value}
             setLogOpValue={store.setFrameRateOp}
             setNumValue={store.setFrameRateValue}
+            numInputProps={{ minValue: 0 }}
+          />
+
+          <LogOpsInput
+            header="# of Collections"
+            logOpValue={store.numOfCollections.logOp}
+            numValue={store.numOfCollections.value}
+            setLogOpValue={store.setNumOfCollectionsOp}
+            setNumValue={store.setNumOfCollectionsValue}
             numInputProps={{ minValue: 0 }}
           />
         </Card>

@@ -32,14 +32,19 @@ export const FileCollectionFile = Comp(
 
     const handleDoubleClick = async () => {
       if (!disabled) {
-        const res = await store.listIdsForCarousel();
-        if (!res?.success) console.error(res.error);
-        else openCarouselWindow({ file, selectedFileIds: res.data });
+        openCarouselWindow({
+          file,
+          selectedFileIds: stores.collection.editor.getFileIdsForCarousel(),
+        });
       }
     };
 
     return (
-      <FileBase.ContextMenu {...{ disabled, file }} store={store}>
+      <FileBase.ContextMenu
+        {...{ disabled, file }}
+        store={store}
+        carouselFileIds={stores.collection.editor.getFileIdsForCarousel()}
+      >
         <FileBase.Tooltip {...{ file }}>
           <FileBase.Container
             {...{ disabled, height, width }}
@@ -52,6 +57,8 @@ export const FileCollectionFile = Comp(
               {...fileDragProps}
               {...{ disabled, height }}
               thumb={file.thumb}
+              fileId={file.id}
+              isCorrupted={file.isCorrupted}
               title={file.originalName}
               draggable
             >

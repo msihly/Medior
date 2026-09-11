@@ -27,3 +27,4 @@ MongoDB/
 ModelCache/
 npm-debug.log*
 plugins/
+scripts/update-trabecula.branch.txt

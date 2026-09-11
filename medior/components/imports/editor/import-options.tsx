@@ -45,6 +45,15 @@ export const ImportOptions = Comp(({ scan, store }: ImportOptionsProps) => {
 
       <Checkbox
         {...checkboxProps}
+        label="Use Saved Configs"
+        checked={options.useSavedConfigs}
+        setChecked={options.setUseSavedConfigs}
+      />
+
+      <Divider />
+
+      <Checkbox
+        {...checkboxProps}
         label="New Tags to RegEx"
         checked={options.withNewTagsToRegEx}
         setChecked={options.setWithNewTagsToRegEx}

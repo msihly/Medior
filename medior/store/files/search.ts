@@ -4,8 +4,7 @@ import { ExtendedModel, getRootStore, model, modelAction, modelFlow, prop } from
 import { asyncAction } from "trabecula/utils/client";
 import { _FileSearch } from "medior/store/_generated";
 import { RootStore } from "medior/store";
-import { durationToSeconds } from "medior/utils/common";
-import { trpc } from "medior/utils/server";
+import { durationToSeconds, secondsToDuration } from "medior/utils/common";
 
 @model("medior/FileSearch")
 export class FileSearch extends ExtendedModel(_FileSearch, {
@@ -52,6 +51,21 @@ export class FileSearch extends ExtendedModel(_FileSearch, {
   }
 
   @modelAction
+  updateFileTags({
+    addedTagIds,
+    fileIds,
+    removedTagIds,
+  }: {
+    addedTagIds: string[];
+    fileIds: string[];
+    removedTagIds: string[];
+  }) {
+    this.results.forEach((file) => {
+      if (fileIds.includes(file.id)) file.updateTags({ addedTagIds, removedTagIds });
+    });
+  }
+
+  @modelAction
   _reset() {
     this.reset();
     this._bitrate = null;
@@ -85,17 +99,24 @@ export class FileSearch extends ExtendedModel(_FileSearch, {
     this._minSize = val;
   }
 
+  @modelAction
+  afterApplySearchProps(searchProps: Record<string, any>) {
+    this._bitrate = Number.isInteger(searchProps.bitrate?.value)
+      ? searchProps.bitrate.value / 1000
+      : null;
+    this._duration =
+      typeof searchProps.duration?.value === "number" && searchProps.duration.value > 0
+        ? secondsToDuration(searchProps.duration.value)
+        : "";
+    this._maxSize = Number.isInteger(searchProps.maxSize) ? searchProps.maxSize / 1000 : null;
+    this._minSize = Number.isInteger(searchProps.minSize) ? searchProps.minSize / 1000 : null;
+  }
+
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */
   @modelFlow
   listIdsForCarousel = asyncAction(async () => {
-    const res = await trpc.listFileIdsForCarousel.mutate({
-      ...this.getFilterProps(),
-      page: this.page,
-      pageSize: this.pageSize,
-    });
-    if (!res.success) throw new Error(res.error);
-    if (!res.data?.length) throw new Error("No files found");
-    return res.data;
+    if (!this.carouselFileIds.length) throw new Error("No files found");
+    return [...this.carouselFileIds];
   });
 
   @modelFlow

@@ -1,34 +1,28 @@
 import { TagSchema } from "medior/_generated/server";
-import { Comp, sortTags, TagChip, View } from "medior/components";
+import { Comp, TagRow, View } from "medior/components";
 import { makeClasses } from "medior/utils/client";
 
 interface TagsProps {
+  compact?: boolean;
   tags: TagSchema[];
 }
 
-export const Tags = Comp(({ tags }: TagsProps) => {
-  const { css } = useClasses(null);
+export const Tags = Comp(({ compact = false, tags }: TagsProps) => {
+  const { css } = useClasses({ compact });
 
   return !tags?.length ? (
     <View />
   ) : (
-    <View row spacing="0.2rem" className={css.tags}>
-      {sortTags(tags)
-        .slice(0, 3)
-        .map((tag, i) => (
-          <TagChip key={i} tag={tag} size="small" />
-        ))}
-    </View>
+    <TagRow tags={tags} limit={3} spacing="0.2rem" overflow="hidden" className={css.tags} />
   );
 });
 
-const useClasses = makeClasses({
+const useClasses = makeClasses(({ compact }: Pick<TagsProps, "compact">) => ({
   tags: {
     position: "relative",
     borderRadius: "inherit",
-    padding: "1rem 0 0.3rem 0.3rem",
+    padding: `${compact ? "0.2rem" : "1rem"} 0 0.3rem 0.3rem`,
     width: "100%",
-    overflow: "hidden",
     "&::after": {
       content: '""',
       position: "absolute",
@@ -39,4 +33,4 @@ const useClasses = makeClasses({
       background: "linear-gradient(155deg, transparent 75%, black)",
     },
   },
-});
+}));

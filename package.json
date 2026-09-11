@@ -6,7 +6,8 @@
   "private": true,
   "pnpm": {
     "overrides": {
-      "@huggingface/transformers>sharp": "0.32.4"
+      "@huggingface/transformers>sharp": "0.32.4",
+      "sharp": "0.32.6"
     }
   },
   "homepage": "./",
@@ -30,12 +31,13 @@
     "pre-build": "pnpm run gen && pnpm run ts-compile-server && pnpm run copy-files",
     "prettier": "prettier --check medior --config ./.prettierrc --ignore-path ./.prettierignore",
     "prettier-fix": "pnpm run prettier --write",
+    "trabecula": "tsx scripts/update-trabecula.ts",
     "ts-check": "tspc --noEmit",
     "ts-compile-server": "tsx esbuild.server.ts"
   },
   "dependencies": {
     "@electron/remote": "^2.0.8",
-    "@huggingface/transformers": "^4.2.0",
+    "@huggingface/transformers": "3.8.1",
     "@lancedb/lancedb": "^0.31.0",
     "@panzoom/panzoom": "^4.5.1",
     "@trpc/client": "^10.30.0",
@@ -45,19 +47,20 @@
     "color": "^4.2.3",
     "es-toolkit": "^1.16.0",
     "fastest-levenshtein": "^1.0.16",
-    "fluent-ffmpeg": "2.1.2",
+    "fluent-ffmpeg": "2.1.3",
     "jsonfile": "^6.1.0",
     "kill-port": "^2.0.1",
     "mongodb-memory-server": "^8.9.3",
     "mongoose": "^6.2.8",
-    "react-player": "^2.10.1",
+    "react-player": "^2.16.0",
     "sharp": "^0.32.4",
     "sharp-bmp": "^0.1.5",
     "socket.io": "^4.6.2",
     "socket.io-client": "^4.6.2",
-    "trabecula": "github:msihly/trabecula#db03c3722f8c8fb29de3bbc6f9ab2edb28929a5a",
+    "trabecula": "github:msihly/trabecula#23f457e0f10c489a8f2042732d0ba9e6227230e9",
     "util": "^0.12.5",
-    "vite-plugin-electron-renderer": "0.10.1"
+    "vite-plugin-electron-renderer": "0.10.1",
+    "wavesurfer.js": "^7.12.11"
   },
   "devDependencies": {
     "@types/color": "^3.0.3",
@@ -80,6 +83,7 @@
     "eslint": "8.54.0",
     "eslint-plugin-import": "^2.31.0",
     "eslint-plugin-prettier": "^5.2.6",
+    "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-simple-import-sort": "^12.1.1",
     "eslint-plugin-tss-unused-classes": "1.0.2",
     "patch-package": "^6.4.7",

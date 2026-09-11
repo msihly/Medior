@@ -20,7 +20,7 @@ export interface TagFilterMenuProps {
 
 export const TagFilterMenu = Comp(({ color = colors.foreground, store }: TagFilterMenuProps) => {
   return (
-    <FilterMenu store={store} color={color} sortOptions={SORT_OPTIONS.Tag} width="10rem">
+    <FilterMenu store={store} color={color} sortOptions={SORT_OPTIONS.Tag}>
       <View row spacing="0.5rem" width="100%">
         <Card column flex={1} spacing="0.5rem">
           <TagInput

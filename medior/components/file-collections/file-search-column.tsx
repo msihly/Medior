@@ -5,6 +5,7 @@ import {
   FileFilter,
   FileSearchFile,
   Pagination,
+  SearchLoadingOverlay,
   View,
 } from "medior/components";
 import { useStores } from "medior/store";
@@ -19,7 +20,17 @@ export const FileSearchColumn = Comp(() => {
   const handlePageChange = (page: number) => store.loadFiltered({ page });
 
   return (
-    <Card column flex="none" height="100%" width="16rem" spacing="0.5rem" padding={{ all: 0 }}>
+    <Card
+      column
+      flex="none"
+      height="100%"
+      width="16rem"
+      spacing="0.5rem"
+      padding={{ all: 0 }}
+      position="relative"
+    >
+      <SearchLoadingOverlay store={store} />
+
       <View column spacing="0.5rem" padding={{ all: "0.5rem" }}>
         <FileFilter.Menu store={store} color={colors.custom.black} />
       </View>
@@ -33,7 +44,7 @@ export const FileSearchColumn = Comp(() => {
         <Pagination
           count={store.pageCount}
           page={store.page}
-          isLoading={store.isPageCountLoading}
+          isLoading={store.isPageCountLoading && !store.isLoading}
           onChange={handlePageChange}
           onFullLoad={handleFullPageLoad}
         />

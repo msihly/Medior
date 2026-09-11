@@ -1,6 +1,6 @@
-import { useContext, useState } from "react";
+import { useCallback, useContext, useEffect, useRef, useState } from "react";
 import { Slider } from "@mui/material";
-import { Button, Comp, IconButton, Text, View } from "medior/components";
+import { Button, Comp, IconButton, Text, VideoWaveform, View } from "medior/components";
 import { useStores } from "medior/store";
 import { colors, makeClasses, toast, Toaster } from "medior/utils/client";
 import { CONSTANTS, Fmt, round, throttle } from "medior/utils/common";
@@ -9,6 +9,10 @@ import { VideoContext } from "medior/views";
 export const VideoControls = Comp(() => {
   const stores = useStores();
   const activeFile = stores.carousel.getActiveFile();
+  const isCaptionsActive =
+    stores.carousel.isCaptionsVisible && Boolean(activeFile?.transcription?.segments?.length);
+  const isWaveformActive =
+    stores.carousel.isWaveformVisible && Boolean(activeFile?.waveformPeaks?.length);
 
   const videoContext = useContext(VideoContext);
 
@@ -50,6 +54,16 @@ export const VideoControls = Comp(() => {
     }
   };
 
+  const handleWaveformSeek = useCallback(
+    (time: number) => {
+      const frame = round(time * activeFile.frameRate, 0);
+      setCurFrame(frame);
+      if (!activeFile.isWebPlayable) transcode(frame);
+      else videoContext?.current?.seekTo(time, "seconds");
+    },
+    [activeFile?.id],
+  );
+
   const getNewMark = (frame: number) =>
     stores.carousel.videoMarks.map((m) => m.value).includes(frame) ? null : frame;
 
@@ -77,10 +91,13 @@ export const VideoControls = Comp(() => {
 
   const handlePlaybackRateChange = (_, rate: number) => stores.carousel.setPlaybackRate(rate);
 
-  const handleVolumeChange = (_, vol: number) => {
-    stores.carousel.setVolume(vol);
-    stores.carousel.setLastVolume(vol);
-  };
+  const handleTranscodeBitrateChange = (_, bitrate: number) =>
+    stores.carousel.setTranscodeBitrate(bitrate);
+
+  const handleTranscodeBitrateCommit = () =>
+    !activeFile?.isWebPlayable && transcode(stores.carousel.curFrame);
+
+  const handleVolumeChange = (_, vol: number) => stores.carousel.setVolumePreference(vol);
 
   const resetPlaybackRate = () => stores.carousel.setPlaybackRate(1);
 
@@ -116,6 +133,7 @@ export const VideoControls = Comp(() => {
 
       <View row>
         <IconButton name="SkipPrevious" onClick={goToPrevFrame} />
+
         <IconButton name="SkipNext" onClick={goToNextFrame} />
       </View>
 
@@ -151,7 +169,16 @@ export const VideoControls = Comp(() => {
         />
       </View>
 
-      <View column flex={1}>
+      <View column flex={1} height="100%" justify="center" className={css.progressControl}>
+        {stores.carousel.isWaveformVisible && (
+          <VideoWaveform
+            currentTime={stores.carousel.curTime}
+            duration={activeFile.duration}
+            onSeek={handleWaveformSeek}
+            peaks={activeFile.waveformPeaks}
+          />
+        )}
+
         <Slider
           value={stores.carousel.curFrame}
           onChange={handleFrameSeek}
@@ -164,6 +191,7 @@ export const VideoControls = Comp(() => {
           valueLabelFormat={(v) => (
             <View column align="center" justify="center" width="7rem">
               <Text>{`F: ${Fmt.commas(v)} (${round((v / activeFile.totalFrames) * 100, 0)}%)`}</Text>
+
               <Text>{`${Fmt.duration(Fmt.frameToSec(v, activeFile.frameRate))}`}</Text>
             </View>
           )}
@@ -172,6 +200,26 @@ export const VideoControls = Comp(() => {
       </View>
 
       <View row align="center">
+        <IconButton
+          name={isCaptionsActive ? "ClosedCaption" : "ClosedCaptionOff"}
+          onClick={stores.carousel.toggleCaptions}
+          disabled={!activeFile.transcription?.segments?.length}
+          iconProps={{
+            color: isCaptionsActive ? colors.custom.lightBlue : colors.custom.lightGrey,
+          }}
+          tooltip={isCaptionsActive ? "Hide Captions" : "Show Captions"}
+        />
+
+        <IconButton
+          name="GraphicEq"
+          onClick={stores.carousel.toggleWaveform}
+          disabled={!activeFile.waveformPeaks?.length}
+          iconProps={{
+            color: isWaveformActive ? colors.custom.lightBlue : colors.custom.lightGrey,
+          }}
+          tooltip={isWaveformActive ? "Hide Waveform" : "Show Waveform"}
+        />
+
         <CustomSlider
           value={stores.carousel.volume}
           onChange={handleVolumeChange}
@@ -208,6 +256,24 @@ export const VideoControls = Comp(() => {
             fontSize="0.9em"
           />
         </CustomSlider>
+
+        {!activeFile?.isWebPlayable && (
+          <CustomSlider
+            value={stores.carousel.transcodeBitrate}
+            onChange={handleTranscodeBitrateChange}
+            onChangeCommitted={handleTranscodeBitrateCommit}
+            min={0.5}
+            max={12}
+            step={0.5}
+          >
+            <Button
+              text={`${stores.carousel.transcodeBitrate.toFixed(1)}M`}
+              icon="Speed"
+              color="transparent"
+              fontSize="0.9em"
+            />
+          </CustomSlider>
+        )}
       </View>
 
       <View column>
@@ -229,6 +295,7 @@ const CustomSlider = (props: {
   max: number;
   min: number;
   onChange: (event: any, value: number) => void;
+  onChangeCommitted?: () => void;
   step: number;
   value: number;
 }) => {
@@ -237,14 +304,31 @@ const CustomSlider = (props: {
   const [isDragging, setIsDragging] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
 
+  const rootRef = useRef<HTMLDivElement>(null);
+
   const handleMouseDown = () => setIsDragging(true);
+
   const handleMouseUp = () => setIsDragging(false);
 
   const handleMouseEnter = () => setIsVisible(true);
+
   const handleMouseLeave = () => !isDragging && setIsVisible(false);
+
+  useEffect(() => {
+    if (!isDragging) return;
+
+    const handleWindowMouseUp = (event: MouseEvent) => {
+      setIsDragging(false);
+      if (!rootRef.current?.contains(event.target as Node)) setIsVisible(false);
+    };
+
+    window.addEventListener("mouseup", handleWindowMouseUp, { once: true });
+    return () => window.removeEventListener("mouseup", handleWindowMouseUp);
+  }, [isDragging]);
 
   return (
     <View
+      ref={rootRef}
       column
       justify="center"
       height="100%"
@@ -257,6 +341,7 @@ const CustomSlider = (props: {
         <Slider
           value={props?.value}
           onChange={props?.onChange}
+          onChangeCommitted={props?.onChangeCommitted}
           onMouseDown={handleMouseDown}
           onMouseUp={handleMouseUp}
           disabled={props?.disabled}
@@ -273,6 +358,9 @@ const CustomSlider = (props: {
 };
 
 const useClasses = makeClasses((props?: { isVertical: boolean }) => ({
+  progressControl: {
+    position: "relative",
+  },
   slider: {
     marginBottom: "0 !important",
     color: colors.custom.lightBlue,

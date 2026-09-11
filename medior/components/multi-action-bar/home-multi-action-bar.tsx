@@ -49,6 +49,12 @@ export const HomeMultiActionBar = Comp(({ isHome = false }: HomeMultiActionBarPr
     toast.info(`Added ${stores.file.search.results.length} files to selection`);
   };
 
+  const handleSelectAllInQuery = async () => {
+    const res = await stores.file.search.selectAllInQuery();
+    if (!res.success) toast.error("Failed to select all files");
+    else toast.info(`Selected ${res.data} files`);
+  };
+
   const handleUnarchive = () => stores.file.unarchiveFiles({ fileIds: selectedIds });
 
   const reingest = () => handleReingest({ fileIds: selectedIds, store: stores.import.reingester });
@@ -57,9 +63,7 @@ export const HomeMultiActionBar = Comp(({ isHome = false }: HomeMultiActionBarPr
     <AppBar position="static" className={css.appBar}>
       <View className={css.container}>
         <View row align="center" spacing="0.5rem">
-          <View row width="10rem">
-            <FileFilter.Menu store={stores.file.search} />
-          </View>
+          <FileFilter.Menu store={stores.file.search} />
 
           {stores.file.search.isArchiveOpen && (
             <Chip label="Archived" bgColor={colors.custom.red} />
@@ -150,6 +154,12 @@ export const HomeMultiActionBar = Comp(({ isHome = false }: HomeMultiActionBarPr
             tooltip="Select All Files in View"
             onClick={handleSelectAll}
           />
+
+          <MultiActionButton
+            name="LibraryAddCheck"
+            tooltip="Select All Files in Query"
+            onClick={handleSelectAllInQuery}
+          />
         </View>
       </View>
     </AppBar>
@@ -160,7 +170,7 @@ const useClasses = makeClasses({
   appBar: {
     display: "flex",
     flexFlow: "row nowrap",
-    flexGrow: 1,
+    flexGrow: 0,
     flexShrink: 0,
     boxShadow: "rgb(0 0 0 / 50%) 2px 2px 4px 0px",
     zIndex: 5,
