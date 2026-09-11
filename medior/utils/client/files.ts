@@ -14,6 +14,8 @@ export const genFileInfo = async (args: {
   onProgress?: (message: string, progress?: number) => void;
   signal?: AbortSignal;
   skipThumbs?: boolean;
+  withTranscription?: boolean;
+  withWaveform?: boolean;
 }) => {
   const DEBUG = false;
   const { perfLog, perfLogTotal } = makePerfLog("[genFileInfo]");
@@ -41,7 +43,10 @@ export const genFileInfo = async (args: {
   args.signal?.throwIfAborted();
   const audioAnalysis =
     videoInfo?.audioCodec && videoInfo.audioCodec !== "None"
-      ? await analyzeAudio(args.filePath, args.onProgress, args.signal)
+      ? await analyzeAudio(args.filePath, args.onProgress, args.signal, {
+          withTranscription: args.withTranscription,
+          withWaveform: args.withWaveform,
+        })
       : null;
 
   const audioBitrate = isAnimated ? videoInfo.audioBitrate : null;

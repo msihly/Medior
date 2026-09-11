@@ -11,13 +11,7 @@ import {
 import type { ImportStatus } from "medior/server/database";
 import { genFileInfo } from "medior/utils/client";
 import { dayjs } from "medior/utils/common";
-import {
-  emitEvent,
-  getAvailableFileStorage,
-  getConfig,
-  getIsVideo,
-  trpc,
-} from "medior/utils/server";
+import { emitEvent, getAvailableFileStorage, getIsVideo, trpc } from "medior/utils/server";
 
 const DEBUG = false;
 
@@ -95,7 +89,13 @@ export class FileImporter {
 
   private createFileSchema = async (file?: models.FileSchema) => {
     const res = await trpc.importFile.mutate({
-      ...(await genFileInfo({ file, filePath: this.getFilePath(), hash: this.hash })),
+      ...(await genFileInfo({
+        file,
+        filePath: this.getFilePath(),
+        hash: this.hash,
+        withTranscription: false,
+        withWaveform: true,
+      })),
       dateCreated: this.dateCreated,
       dateImported: dayjs().toISOString(),
       diffusionParams: this.diffParams,
@@ -155,12 +155,10 @@ export class FileImporter {
   };
 
   private updateDupeFile = async () => {
-    const config = getConfig().file;
     if (
       getIsVideo(this.file.ext) &&
       this.file.audioCodec !== "None" &&
-      ((config.waveform.enabled && !this.file.waveformPeaks?.length) ||
-        (config.transcription.enabled && !this.file.transcription) ||
+      (!this.file.waveformPeaks?.length ||
         this.file.peakDecibels === null ||
         this.file.peakDecibels === undefined)
     )
@@ -171,6 +169,8 @@ export class FileImporter {
           filePath: this.file.path,
           hash: this.file.hash,
           skipThumbs: true,
+          withTranscription: false,
+          withWaveform: true,
         })),
       };
 

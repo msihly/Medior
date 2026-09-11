@@ -30,13 +30,15 @@ export const SearchWindow = Comp(() => {
     <View column className={css.root}>
       <WindowTitleBar title="Medior" />
 
-      <Views.Search />
+      <View column flex={1} overflow="hidden" position="relative">
+        <Views.Search />
 
-      <Views.CollectionModals />
+        <Views.CollectionModals />
 
-      <Views.FileModals />
+        <Views.FileModals />
 
-      <Views.TagModals view="search" />
+        <Views.TagModals view="search" />
+      </View>
     </View>
   );
 });

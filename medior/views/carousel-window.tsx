@@ -137,7 +137,7 @@ export const CarouselWindow = Comp(({ embedded = false }: CarouselWindowProps) =
 
             <Carousel ref={videoRef} />
 
-            <CarouselThumbNavigator />
+            {!stores.carousel.splicer.isOpen && <CarouselThumbNavigator />}
 
             {!embedded && <Views.FileModals />}
 

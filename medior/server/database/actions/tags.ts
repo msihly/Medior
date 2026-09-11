@@ -974,64 +974,99 @@ export const searchTags = makeAction(
     searchStr: string;
   }) => {
     const trimmed = searchStr.trim();
-    const searchTerms = trimmed.toLowerCase().split(" ");
+    const input = trimmed.toLowerCase();
+    const searchTerms = input.split(" ");
     const joinedTerms = searchTerms.join(" ");
 
-    const tags = (
-      await models.TagModel.find({
-        label: { $exists: true, $ne: "" },
-        ...(excludedIds.length || includedIds.length
-          ? {
-              _id: {
-                ...(excludedIds.length ? { $nin: excludedIds } : {}),
-                ...(includedIds.length ? { $in: includedIds } : {}),
+    const ranked = (
+      await models.TagModel.aggregate([
+        {
+          $match: {
+            label: { $exists: true, $ne: "" },
+            ...(excludedIds.length || includedIds.length
+              ? {
+                  _id: {
+                    ...(excludedIds.length ? { $nin: objectIds(excludedIds) } : {}),
+                    ...(includedIds.length ? { $in: objectIds(includedIds) } : {}),
+                  },
+                }
+              : {}),
+            ...(searchTerms.length
+              ? {
+                  $and: searchTerms.map((term) => {
+                    const regEx = Fmt.regexEscape(term);
+                    return {
+                      $or: [
+                        { label: { $regex: regEx, $options: "i" } },
+                        { aliases: { $elemMatch: { $regex: regEx, $options: "i" } } },
+                      ],
+                    };
+                  }),
+                }
+              : {}),
+          },
+        },
+        {
+          $set: {
+            _searchValues: {
+              $concatArrays: [
+                [{ $toLower: { $ifNull: ["$label", ""] } }],
+                {
+                  $map: {
+                    as: "alias",
+                    in: { $toLower: "$$alias" },
+                    input: { $ifNull: ["$aliases", []] },
+                  },
+                },
+              ],
+            },
+          },
+        },
+        {
+          $set: {
+            _searchScore: {
+              $switch: {
+                branches: [
+                  { case: { $in: [input, "$_searchValues"] }, then: 100 },
+                  {
+                    case: {
+                      $anyElementTrue: [
+                        {
+                          $map: {
+                            as: "value",
+                            in: { $eq: [{ $indexOfCP: ["$$value", input] }, 0] },
+                            input: "$_searchValues",
+                          },
+                        },
+                      ],
+                    },
+                    then: 50,
+                  },
+                  {
+                    case: {
+                      $anyElementTrue: [
+                        {
+                          $map: {
+                            as: "value",
+                            in: { $gte: [{ $indexOfCP: ["$$value", joinedTerms] }, 0] },
+                            input: "$_searchValues",
+                          },
+                        },
+                      ],
+                    },
+                    then: 25,
+                  },
+                ],
+                default: 10,
               },
-            }
-          : {}),
-        ...(searchTerms.length
-          ? {
-              $and: searchTerms.map((term) => {
-                const regEx = Fmt.regexEscape(term);
-                return {
-                  $or: [
-                    { label: { $regex: regEx, $options: "i" } },
-                    { aliases: { $elemMatch: { $regex: regEx, $options: "i" } } },
-                  ],
-                };
-              }),
-            }
-          : {}),
-      })
-        .lean()
-        .limit(100)
-    ).map((t) => leanModelToJson<models.TagSchema>(t));
-
-    const scoreTag = (tag: models.TagSchema): number => {
-      const label = (tag.label ?? "").toLowerCase();
-      const aliases = (tag.aliases ?? []).map((a) => a.toLowerCase());
-      const allValues = [label, ...aliases];
-      const input = trimmed.toLowerCase();
-
-      if (allValues.some((v) => v === input)) return 100;
-      if (allValues.some((v) => v.startsWith(input))) return 50;
-      if (allValues.some((v) => v.includes(joinedTerms))) return 25;
-      return 10;
-    };
-
-    const ranked = tags
-      .map((tag) => ({ tag, score: scoreTag(tag) }))
-      .sort((a, b) => {
-        if (b.score !== a.score) return b.score - a.score;
-
-        // Within the same score tier: most recently searched first
-        const aTime = a.tag.lastSearchedAt ? dayjs(a.tag.lastSearchedAt).valueOf() : 0;
-        const bTime = b.tag.lastSearchedAt ? dayjs(b.tag.lastSearchedAt).valueOf() : 0;
-        if (bTime !== aTime) return bTime - aTime;
-
-        return (b.tag.count ?? 0) - (a.tag.count ?? 0);
-      })
-      .slice(0, 50)
-      .map(({ tag }) => tag);
+            },
+          },
+        },
+        { $sort: { _searchScore: -1, lastSearchedAt: -1, count: -1 } },
+        { $limit: 50 },
+        { $project: { _searchScore: 0, _searchValues: 0 } },
+      ]).allowDiskUse(true)
+    ).map((tag) => leanModelToJson<models.TagSchema>(tag));
 
     return await deriveTagCategories(ranked);
   },

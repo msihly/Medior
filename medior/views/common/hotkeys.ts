@@ -74,11 +74,12 @@ export const useHotkeys = ({ rootRef, videoRef, view }: UseHotkeysProps) => {
         else {
           const isVolumeUp = matchesHotkey(event, carouselHotkeys.volumeUp);
           const isVolumeDown = matchesHotkey(event, carouselHotkeys.volumeDown);
-          if (!isVolumeUp && !isVolumeDown) return;
-          const vol = isVolumeUp
-            ? Math.min(1, stores.carousel.volume + 0.05)
-            : Math.max(0, stores.carousel.volume - 0.05);
-          stores.carousel.setVolumePreference(vol);
+          if (isVolumeUp || isVolumeDown) {
+            const vol = isVolumeUp
+              ? Math.min(1, stores.carousel.volume + 0.05)
+              : Math.max(0, stores.carousel.volume - 0.05);
+            stores.carousel.setVolumePreference(vol);
+          }
         }
       }
     }

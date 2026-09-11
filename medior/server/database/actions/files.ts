@@ -992,11 +992,21 @@ export const finishFileRefresh = makeAction(async ({ refreshId }: { refreshId: s
 });
 
 export const refreshFileInfo = makeAction(
-  async ({ fileId, refreshId }: { fileId: string; refreshId?: string }) => {
+  async ({
+    fileId,
+    refreshId,
+    withTranscription,
+    withWaveform,
+  }: {
+    fileId: string;
+    refreshId?: string;
+    withTranscription?: boolean;
+    withWaveform?: boolean;
+  }) => {
     const abortController = new AbortController();
     if (refreshId) {
       fileRefreshAbortControllers.set(refreshId, abortController);
-      if (getConfig().file.transcription.enabled)
+      if (withTranscription ?? getConfig().file.transcription.enabled)
         retainTranscriptionModel(`file-refresh:${refreshId}`);
     }
 
@@ -1022,6 +1032,8 @@ export const refreshFileInfo = makeAction(
         hash: file.hash,
         onProgress: report,
         signal: abortController.signal,
+        withTranscription,
+        withWaveform,
       });
 
       abortController.signal.throwIfAborted();

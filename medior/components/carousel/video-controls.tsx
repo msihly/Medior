@@ -9,6 +9,10 @@ import { VideoContext } from "medior/views";
 export const VideoControls = Comp(() => {
   const stores = useStores();
   const activeFile = stores.carousel.getActiveFile();
+  const isCaptionsActive =
+    stores.carousel.isCaptionsVisible && Boolean(activeFile?.transcription?.segments?.length);
+  const isWaveformActive =
+    stores.carousel.isWaveformVisible && Boolean(activeFile?.waveformPeaks?.length);
 
   const videoContext = useContext(VideoContext);
 
@@ -197,15 +201,13 @@ export const VideoControls = Comp(() => {
 
       <View row align="center">
         <IconButton
-          name={stores.carousel.isCaptionsVisible ? "ClosedCaption" : "ClosedCaptionOff"}
+          name={isCaptionsActive ? "ClosedCaption" : "ClosedCaptionOff"}
           onClick={stores.carousel.toggleCaptions}
           disabled={!activeFile.transcription?.segments?.length}
           iconProps={{
-            color: stores.carousel.isCaptionsVisible
-              ? colors.custom.lightBlue
-              : colors.custom.lightGrey,
+            color: isCaptionsActive ? colors.custom.lightBlue : colors.custom.lightGrey,
           }}
-          tooltip={stores.carousel.isCaptionsVisible ? "Hide Captions" : "Show Captions"}
+          tooltip={isCaptionsActive ? "Hide Captions" : "Show Captions"}
         />
 
         <IconButton
@@ -213,11 +215,9 @@ export const VideoControls = Comp(() => {
           onClick={stores.carousel.toggleWaveform}
           disabled={!activeFile.waveformPeaks?.length}
           iconProps={{
-            color: stores.carousel.isWaveformVisible
-              ? colors.custom.lightBlue
-              : colors.custom.lightGrey,
+            color: isWaveformActive ? colors.custom.lightBlue : colors.custom.lightGrey,
           }}
-          tooltip={stores.carousel.isWaveformVisible ? "Hide Waveform" : "Show Waveform"}
+          tooltip={isWaveformActive ? "Hide Waveform" : "Show Waveform"}
         />
 
         <CustomSlider

@@ -278,6 +278,9 @@ export const replaceFileTransformOutput = makeAction(async (args: { id: string }
         ext: info.ext,
         frameRate: info.frameRate,
         hash: transform.afterHash,
+        ...(transform.type === "reencode"
+          ? { hasTranscript: false, transcription: null, waveformPeaks: null }
+          : {}),
         height: info.height,
         path: transform.afterPath,
         size: info.size,
@@ -288,7 +291,11 @@ export const replaceFileTransformOutput = makeAction(async (args: { id: string }
   });
   if (!dbRes.success) throw new Error(dbRes.error);
 
-  const refreshRes = await actions.refreshFileInfo({ fileId: dbRes.data.id });
+  const refreshRes = await actions.refreshFileInfo({
+    fileId: dbRes.data.id,
+    withTranscription: false,
+    withWaveform: true,
+  });
   if (!refreshRes.success) throw new Error(refreshRes.error);
 
   const diskRes = await deleteFile(file.path, transform.afterPath);

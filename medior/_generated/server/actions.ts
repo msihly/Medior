@@ -1174,13 +1174,14 @@ export const updateBackgroundOperation = makeAction(
     args: Types.UpdateBackgroundOperationInput;
     socketOpts?: SocketEventOptions;
   }) => {
+    const updates = { ...args.updates, dateModified: dayjs().toISOString() };
     const res = leanModelToJson<models.BackgroundOperationSchema>(
-      await models.BackgroundOperationModel.findByIdAndUpdate(args.id, args.updates, {
+      await models.BackgroundOperationModel.findByIdAndUpdate(args.id, updates, {
         new: true,
       }).lean(),
     );
 
-    socket.emit("onBackgroundOperationUpdated", args, socketOpts);
+    socket.emit("onBackgroundOperationUpdated", { ...args, updates }, socketOpts);
     return res;
   },
 );
@@ -1350,17 +1351,16 @@ export const updateFileCollection = makeAction(
     args: Types.UpdateFileCollectionInput;
     socketOpts?: SocketEventOptions;
   }) => {
+    const updates = { ...args.updates, dateModified: dayjs().toISOString() };
     const res = leanModelToJson<models.FileCollectionSchema>(
-      await models.FileCollectionModel.findByIdAndUpdate(args.id, args.updates, {
-        new: true,
-      }).lean(),
+      await models.FileCollectionModel.findByIdAndUpdate(args.id, updates, { new: true }).lean(),
     );
     if (res && args.updates.fileIdIndexes)
       await syncCollectionFileIds(
         args.id,
         res.fileIdIndexes.map(({ fileId }) => String(fileId)),
       );
-    socket.emit("onFileCollectionUpdated", args, socketOpts);
+    socket.emit("onFileCollectionUpdated", { ...args, updates }, socketOpts);
     return res;
   },
 );
@@ -1612,11 +1612,12 @@ export const updateFile = makeAction(
     args: Types.UpdateFileInput;
     socketOpts?: SocketEventOptions;
   }) => {
+    const updates = { ...args.updates, dateModified: dayjs().toISOString() };
     const res = leanModelToJson<models.FileSchema>(
-      await models.FileModel.findByIdAndUpdate(args.id, args.updates, { new: true }).lean(),
+      await models.FileModel.findByIdAndUpdate(args.id, updates, { new: true }).lean(),
     );
 
-    socket.emit("onFileUpdated", args, socketOpts);
+    socket.emit("onFileUpdated", { ...args, updates }, socketOpts);
     return res;
   },
 );
@@ -1772,13 +1773,12 @@ export const updateSavedImportConfig = makeAction(
     args: Types.UpdateSavedImportConfigInput;
     socketOpts?: SocketEventOptions;
   }) => {
+    const updates = { ...args.updates, dateModified: dayjs().toISOString() };
     const res = leanModelToJson<models.SavedImportConfigSchema>(
-      await models.SavedImportConfigModel.findByIdAndUpdate(args.id, args.updates, {
-        new: true,
-      }).lean(),
+      await models.SavedImportConfigModel.findByIdAndUpdate(args.id, updates, { new: true }).lean(),
     );
 
-    socket.emit("onSavedImportConfigUpdated", args, socketOpts);
+    socket.emit("onSavedImportConfigUpdated", { ...args, updates }, socketOpts);
     return res;
   },
 );
@@ -1937,11 +1937,12 @@ export const _listTag = makeAction(async ({ args }: { args?: Types._ListTagInput
 
 export const updateTag = makeAction(
   async ({ args, socketOpts }: { args: Types.UpdateTagInput; socketOpts?: SocketEventOptions }) => {
+    const updates = { ...args.updates, dateModified: dayjs().toISOString() };
     const res = leanModelToJson<models.TagSchema>(
-      await models.TagModel.findByIdAndUpdate(args.id, args.updates, { new: true }).lean(),
+      await models.TagModel.findByIdAndUpdate(args.id, updates, { new: true }).lean(),
     );
 
-    socket.emit("onTagUpdated", args, socketOpts);
+    socket.emit("onTagUpdated", { ...args, updates }, socketOpts);
     return res;
   },
 );

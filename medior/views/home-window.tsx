@@ -27,17 +27,19 @@ export const HomeWindow = Comp(() => {
       <View column className={css.root}>
         <WindowTitleBar title="Medior" />
 
-        <Views.Search isHome />
+        <View column flex={1} overflow="hidden" position="relative">
+          <Views.Search isHome />
 
-        <Views.CollectionModals />
+          <Views.CollectionModals />
 
-        <Views.FileModals />
+          <Views.FileModals />
 
-        <Views.ImportModals />
+          <Views.ImportModals />
 
-        <Views.TagModals view="home" />
+          <Views.TagModals view="home" />
 
-        {stores.home.settings.isOpen && <SettingsModal />}
+          {stores.home.settings.isOpen && <SettingsModal />}
+        </View>
       </View>
     </Views.ImportDnD>
   );

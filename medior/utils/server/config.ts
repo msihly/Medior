@@ -318,7 +318,7 @@ export const DEFAULT_CONFIG: Config = {
     videoCodecs: [...CONSTANTS.VIDEO.CODECS_COMMON],
     videoExts: [...CONSTANTS.VIDEO.EXTS_COMMON],
     waveform: {
-      enabled: false,
+      enabled: true,
     },
   },
   hotkeys: DEFAULT_HOTKEYS,

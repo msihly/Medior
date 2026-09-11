@@ -104,12 +104,14 @@ export const makeActionsDef = async (
 
   const makeUpdateFn = () => {
     const { fnName, typeName } = makeFnAndTypeNames(`update${modelDef.name}`, actions);
+    const withDateModified = modelDef.properties.some(({ name }) => name === "dateModified");
     return `${makeFnPrefix(fnName, typeName)}
+        ${withDateModified ? "const updates = { ...args.updates, dateModified: dayjs().toISOString() };" : ""}
         const res = leanModelToJson<models.${schemaName}>(
-          await models.${modelDef.name}Model.findByIdAndUpdate(args.id, args.updates, { new: true }).lean()
+          await models.${modelDef.name}Model.findByIdAndUpdate(args.id, ${withDateModified ? "updates" : "args.updates"}, { new: true }).lean()
         );
         ${modelDef.name === "FileCollection" ? "if (res && args.updates.fileIdIndexes) await syncCollectionFileIds(args.id, res.fileIdIndexes.map(({ fileId }) => String(fileId)));" : ""}
-        socket.emit("on${modelDef.name}Updated", args, socketOpts);
+        socket.emit("on${modelDef.name}Updated", ${withDateModified ? "{ ...args, updates }" : "args"}, socketOpts);
         return res;
       });`;
   };

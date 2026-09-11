@@ -198,9 +198,10 @@ const useClasses = makeClasses((props: ClassesProps) => ({
     height: CONSTANTS.WINDOW.TITLE_BAR.HEIGHT,
     maxHeight: CONSTANTS.WINDOW.TITLE_BAR.HEIGHT,
     minHeight: CONSTANTS.WINDOW.TITLE_BAR.HEIGHT,
+    position: "relative",
     userSelect: "none",
     width: "100%",
-    zIndex: 30,
+    zIndex: 1401,
   },
   title: {
     "-webkit-app-region": props.isDragEnabled ? "drag" : "no-drag",
