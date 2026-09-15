@@ -148,10 +148,13 @@ export const makeSearchActionsDef = async (
   ].sort((a, b) => a.name.localeCompare(b.name));
 
   const makeDefaultCondition = (prop: ModelSearchProp) =>
-    `!isDeepEqual(args.${prop.name}, ${prop.defaultValue.replace("() => ", "")})`;
+    prop.condition ??
+    `args.${prop.name} != null && ${prop.type === "string" ? `args.${prop.name} !== "" && ` : ""}!isDeepEqual(args.${prop.name}, ${prop.defaultValue.replace("() => ", "")})`;
 
-  const makeSetObj = (args: { objPath?: string[]; objValue?: string }) =>
-    `setObj($match, [${args.objPath.map((p) => (p.charAt(0) === "~" ? p.substring(1) : `"${p}"`)).join(", ")}], ${args.objValue});`;
+  const makeSetObj = (args: { objPath?: string[]; objValue?: string }, target = "$match") => {
+    const appendExpression = target !== "$match" && args.objPath[0] === "$expr";
+    return `${appendExpression ? `(${target}.$and ??= []).push(` : ""}setObj(${appendExpression ? "{}" : target}, [${args.objPath.map((p) => (p.charAt(0) === "~" ? p.substring(1) : `"${p}"`)).join(", ")}], ${args.objValue})${appendExpression ? ")" : ""};`;
+  };
 
   const makeFilterFn = () => {
     return `export type ${filterFn.typeName} = { ${interfaceProps.map((prop) => `${prop.name}?: ${prop.type};`).join("\n")} }
@@ -160,10 +163,28 @@ export const makeSearchActionsDef = async (
       const $match: FilterQuery<${schemaName}> = {};
 
       ${defaultProps
+        .filter((prop) => !prop.filterGroup)
         .map((prop) => `if (${makeDefaultCondition(prop)}) ${makeSetObj(prop)}`)
         .join("\n")}
 
       ${customProps.map((prop) => `if (${prop.condition}) ${makeSetObj(prop)}`).join("\n")}
+
+      ${[...new Set(defaultProps.map((prop) => prop.filterGroup).filter(Boolean))]
+        .sort()
+        .map(
+          (group) => `{
+          const filter: FilterQuery<${schemaName}> = {};
+          ${defaultProps
+            .filter((prop) => prop.filterGroup === group)
+            .map((prop) => `if (${makeDefaultCondition(prop)}) ${makeSetObj(prop, "filter")}`)
+            .join("\n")}
+          if (Object.keys(filter).length) {
+            const operator = args.${group}Mode === "optional" ? "$or" : "$and";
+            ($match[operator] ??= []).push(filter);
+          }
+        }`,
+        )
+        .join("\n")}
 
       const sortDir = args.sortValue.isDesc ? -1 : 1;
 
@@ -230,9 +251,22 @@ export const makeSearchActionsDef = async (
           items = await ${makeIdsQuery()};
           carouselFileIds = items.map((item) => item._id.toString());
         } else {
+          const hasUnindexedRegex = [filterPipeline.$match, ...(filterPipeline.$match.$and ?? []), ...(filterPipeline.$match.$or ?? [])].some(
+            (filter) => ["diffusionParams", "originalPath", "transcription.text"].some(
+              (field) => filter[field]?.$regex instanceof RegExp,
+            ),
+          );
           const [result] = await ${modelName}.aggregate([
             { $match: filterPipeline.$match },
-            { $sort: filterPipeline.$sort },
+            // A computed sort document keeps unindexed regex filtering ahead of sorting.
+            // Carry only sort keys, then fetch full documents for the displayed page.
+            ...(hasUnindexedRegex ? [{ $replaceRoot: { newRoot: {
+              _id: "$_id",
+              sort: Object.fromEntries(Object.keys(filterPipeline.$sort).map((key) => [key, "$" + key])),
+            } } }] : []),
+            { $sort: hasUnindexedRegex
+              ? Object.fromEntries(Object.entries(filterPipeline.$sort).map(([key, direction]) => ["sort." + key, direction]))
+              : filterPipeline.$sort },
             {
               $limit: Math.max(
                 Math.max(0, page - 1) * pageSize + pageSize,
@@ -249,6 +283,16 @@ export const makeSearchActionsDef = async (
                 items: [
                   { $skip: Math.max(0, page - 1) * pageSize },
                   { $limit: pageSize },
+                  ...(hasUnindexedRegex ? [
+                    { $lookup: {
+                      as: "file",
+                      foreignField: "_id",
+                      from: ${modelName}.collection.name,
+                      localField: "_id",
+                    } },
+                    { $unwind: "$file" },
+                    { $replaceRoot: { newRoot: "$file" } },
+                  ] : []),
                   ...(select ? [{ $project: select }] : []),
                 ],
               },

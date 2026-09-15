@@ -233,7 +233,9 @@ export class VideoTransformerStore extends Model({
       .mutate({ id: this.activeTransform.id })
       .finally(() => this.setIsLoading(false));
     if (!res.success) throw new Error(res.error);
-    toast.success("Video replaced");
+    if (res.data.status === "DUPLICATE")
+      toast.info("Output matches an existing file. Original retained.");
+    else toast.success("Media replaced");
     await this.search.loadFiltered();
     await this.loadQueueCount();
     await this.loadActiveTransform();
@@ -282,7 +284,7 @@ export class VideoTransformerStore extends Model({
       .mutate({ id: this.activeTransform.id })
       .finally(() => this.setIsLoading(false));
     if (!res.success) throw new Error(res.error);
-    toast.success("Video rendered");
+    toast.success("Media rendered");
     await openCarouselWindow({ file: res.data, selectedFileIds: [res.data.id] });
     await this.search.loadFiltered();
     await this.loadQueueCount();

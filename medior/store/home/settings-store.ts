@@ -11,6 +11,7 @@ import {
   prop,
 } from "mobx-keystone";
 import type { RootStore } from "medior/store";
+import { RepairStore } from "medior/store/home/repair";
 import { asyncAction } from "medior/utils/client";
 import { convertNestedKeys, deepMerge } from "medior/utils/common";
 import { Config, ConfigKey, getConfig, setConfig } from "medior/utils/server";
@@ -26,8 +27,8 @@ export class SettingsStore extends Model({
   imports: prop<Config["imports"]>(() => getConfig().imports),
   isLoading: prop<boolean>(false).withSetter(),
   isOpen: prop<boolean>(false).withSetter(),
-  isRepairOpen: prop<boolean>(false).withSetter(),
   ports: prop<Config["ports"]>(() => getConfig().ports),
+  repair: prop<RepairStore>(() => new RepairStore({})),
   tags: prop<Config["tags"]>(() => getConfig().tags),
 }) {
   onInit() {

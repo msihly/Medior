@@ -21,7 +21,10 @@ interface FileCardProps {
 export const FileCard = Comp(
   ({ carouselFileIds, disabled, file, height, similarity, store, width }: FileCardProps) => {
     const stores = useStores();
-    const footerOffset = stores.home.showFileName ? "3.5rem" : undefined;
+    const hasTags = file?.tags?.length > 0;
+    const showFileName = stores.home.showFileName && !!file?.originalName;
+    const hasFooter = hasTags || showFileName;
+    const footerOffset = showFileName ? (hasTags ? "3.5rem" : "1.5rem") : undefined;
 
     const fileDragProps = useFileDrag(file, store.selectedIds);
 
@@ -111,7 +114,7 @@ export const FileCard = Comp(
               {file.collectionIds?.length > 0 && (
                 <FileBase.Chip
                   position="bottom-left"
-                  hasFooter
+                  hasFooter={hasFooter}
                   footerOffset={footerOffset}
                   label={
                     <View row spacing="0.3em">
@@ -126,18 +129,20 @@ export const FileCard = Comp(
               <FileBase.Duration
                 position="bottom-right"
                 file={file}
-                hasFooter
+                hasFooter={hasFooter}
                 footerOffset={footerOffset}
               />
             </FileBase.Image>
 
-            <FileBase.Footer height={stores.home.showFileName ? "4rem" : undefined}>
-              <View column width="100%" overflow="hidden">
-                {stores.home.showFileName && <FileBase.FooterText text={file.originalName} />}
+            {hasFooter && (
+              <FileBase.Footer height={showFileName ? (hasTags ? "4rem" : "1.8rem") : undefined}>
+                <View column width="100%" overflow="hidden">
+                  {showFileName && <FileBase.FooterText text={file.originalName} />}
 
-                <FileBase.Tags compact={stores.home.showFileName} tags={file.tags} />
-              </View>
-            </FileBase.Footer>
+                  {hasTags && <FileBase.Tags compact={showFileName} tags={file.tags} />}
+                </View>
+              </FileBase.Footer>
+            )}
           </FileBase.Container>
         </FileBase.Tooltip>
       </FileBase.ContextMenu>

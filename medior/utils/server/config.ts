@@ -10,6 +10,7 @@ import {
   handleErrors,
   Hotkeys,
   ImageExt,
+  migrateReencodeDimensions,
   NestedKeys,
   VideoCodec,
   VideoExt,
@@ -140,12 +141,13 @@ export interface Config {
     reencode: {
       codec: string;
       imageExt: ImageExt;
-      imageMaxHeight: number;
-      imageMaxWidth: number;
+      imageJpgQuality: number;
+      imageMaxLongEdge: number;
+      imageMaxShortEdge: number;
       maxBitrate: number;
       maxFps: number;
-      maxHeight: number;
-      maxWidth: number;
+      maxLongEdge: number;
+      maxShortEdge: number;
       onComplete: {
         addTagIds: string[];
         removeTagIds: string[];
@@ -306,12 +308,13 @@ export const DEFAULT_CONFIG: Config = {
     reencode: {
       codec: "libx265",
       imageExt: "jpg",
-      imageMaxHeight: 1440,
-      imageMaxWidth: 2560,
+      imageJpgQuality: 90,
+      imageMaxLongEdge: 2560,
+      imageMaxShortEdge: 1440,
       maxBitrate: 5000,
       maxFps: 60,
-      maxHeight: 1080,
-      maxWidth: 1920,
+      maxLongEdge: 1920,
+      maxShortEdge: 1080,
       onComplete: {
         addTagIds: [],
         removeTagIds: [],
@@ -460,17 +463,17 @@ export const getConfig = (debugLoc?: string) => {
   return config;
 };
 
-export const getIsAnimated = (ext: string) =>
-  ["gif", ...getConfig().file.videoExts].includes(ext.toLowerCase());
+export const getIsAnimated = (ext?: string | null) =>
+  Boolean(ext && ["gif", ...getConfig().file.videoExts].includes(ext.toLowerCase()));
 
-export const getIsImage = (ext: string) =>
-  getConfig().file.imageExts.includes(ext.toLowerCase() as ImageExt);
+export const getIsImage = (ext?: string | null) =>
+  Boolean(ext && getConfig().file.imageExts.includes(ext.toLowerCase() as ImageExt));
 
-export const getIsRemuxable = (ext: string) =>
-  getConfig().file.remuxTypes.toMp4.includes(ext.toLowerCase());
+export const getIsRemuxable = (ext?: string | null) =>
+  Boolean(ext && getConfig().file.remuxTypes.toMp4.includes(ext.toLowerCase()));
 
-export const getIsVideo = (ext: string) =>
-  getConfig().file.videoExts.includes(ext.toLowerCase() as VideoExt);
+export const getIsVideo = (ext?: string | null) =>
+  Boolean(ext && getConfig().file.videoExts.includes(ext.toLowerCase() as VideoExt));
 
 export const loadConfig = async (filePath: string) => {
   try {
@@ -486,8 +489,9 @@ export const loadConfig = async (filePath: string) => {
     }
 
     const loadedConfig = JSON.parse(await fs.readFile(filePath, "utf-8")) as Config;
-
+    const migratedDimensions = migrateReencodeDimensions(loadedConfig);
     setConfig(loadedConfig);
+    if (migratedDimensions) await writeConfig(filePath, config);
 
     const migratedTranscriptionModel =
       TRANSCRIPTION_MODEL_MIGRATIONS[config.file.transcription.model];

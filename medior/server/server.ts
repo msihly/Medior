@@ -2,7 +2,9 @@ import { app } from "electron";
 import path from "path";
 import { ChildProcess, fork } from "child_process";
 import { randomUUID } from "crypto";
+import { availableParallelism } from "os";
 import { fileLog, setLogsPath } from "trabecula/utils/server";
+import { CONSTANTS } from "medior/utils/common";
 
 export type ServerProcessState = "failed" | "ready" | "restarting" | "starting";
 
@@ -16,6 +18,10 @@ export interface ServerProcessStatus {
 const BASE_RESTART_DELAY_MS = 2000;
 const MAX_RESTARTS = 5;
 const READY_TIMEOUT_MS = 30000;
+const VECTOR_THREAD_POOL_SIZE = Math.max(
+  1,
+  Math.min(CONSTANTS.VECTOR.MAX_IO_CONCURRENCY, availableParallelism()),
+);
 
 class ManagedProc {
   private intentionalStop = false;
@@ -32,6 +38,7 @@ class ManagedProc {
     private readonly configPath: string,
     private readonly logsPath: string,
     private readonly onStatusChange: () => void,
+    private readonly env?: Record<string, string>,
   ) {}
 
   getStatus(): ServerProcessStatus {
@@ -57,6 +64,7 @@ class ManagedProc {
           ? path.join(process.resourcesPath, "app.asar", "node_modules")
           : path.resolve("node_modules"),
         RESOURCES_PATH: process.resourcesPath,
+        ...this.env,
       },
     });
 
@@ -237,6 +245,7 @@ export class ServerManager {
       configPath,
       logsPath,
       this.notifyStatusChange,
+      { UV_THREADPOOL_SIZE: String(VECTOR_THREAD_POOL_SIZE) },
     );
   }
 

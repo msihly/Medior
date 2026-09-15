@@ -83,7 +83,7 @@ export const SettingsModal = Comp(() => {
     store.setVectorDbPath(res.filePaths[0]);
   };
 
-  const handleRepair = () => store.setIsRepairOpen(true);
+  const handleRepair = () => store.repair.setIsOpen(true);
 
   const handleTranscriptionModelChange = (model?: string) => {
     if (!model) return;
@@ -168,7 +168,7 @@ export const SettingsModal = Comp(() => {
               padding={{ all: "0.5rem 0.8rem" }}
             />
 
-            {stores.home.settings.isRepairOpen && <RepairModal />}
+            {store.repair.isOpen && <RepairModal />}
           </View>
 
           <Settings.StorageInputs />

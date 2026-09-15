@@ -44,6 +44,8 @@ model.addProp("configMaxWidth", "number");
 model.addProp("configOverride", "string[]", { defaultValue: "[]" });
 
 model.addProp("errorMsg", "string");
+model.addProp("duplicateFileId", "File.id");
+model.addProp("duplicatePath", "string");
 
 model.addIndex({ fileId: 1, _id: 1 }, { unique: false });
 model.addProp("fileId", "File.id", { required: true });
@@ -61,11 +63,11 @@ model.addProp("startedAt", "string", { sort: { icon: "HourglassTop", label: "Sta
 model.addIndex({ status: 1, _id: 1 }, { unique: false });
 model.addProp(
   "status",
-  "string | 'COMPLETE' | 'COMPRESSED' | 'ERROR' | 'PENDING' | 'REPLACED' | 'RUNNING' | 'SAVED' | 'SKIPPED'",
+  "string | 'COMPLETE' | 'COMPRESSED' | 'DUPLICATE' | 'ERROR' | 'MERGED' | 'PENDING' | 'REPLACED' | 'RUNNING' | 'SAVED' | 'SKIPPED'",
   {
     required: true,
     schemaType:
-      "{ type: String, enum: ['COMPLETE', 'COMPRESSED', 'ERROR', 'PENDING', 'REPLACED', 'RUNNING', 'SAVED', 'SKIPPED'] }",
+      "{ type: String, enum: ['COMPLETE', 'COMPRESSED', 'DUPLICATE', 'ERROR', 'MERGED', 'PENDING', 'REPLACED', 'RUNNING', 'SAVED', 'SKIPPED'] }",
     sort: { icon: "PendingActions", label: "Status" },
   },
 );

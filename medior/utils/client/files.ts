@@ -4,7 +4,7 @@ import { Metadata } from "sharp";
 import { makePerfLog } from "trabecula/utils/server";
 import type { FileSchema, ImportFileInput } from "medior/server/database";
 import { CONSTANTS, dayjs } from "medior/utils/common";
-import { analyzeAudio, getIsAnimated, sharp } from "medior/utils/server";
+import { analyzeAudio, getIsAnimated, getNtfsFileIdentity, sharp } from "medior/utils/server";
 import { getVideoInfo, vidToThumbGrid } from "medior/utils/server/videos";
 
 export const genFileInfo = async (args: {
@@ -89,6 +89,12 @@ export const genFileInfo = async (args: {
     if (DEBUG) perfLog(`Generated thumbnail.`);
   }
 
+  const thumbNtfsIdentity = await getNtfsFileIdentity(thumbPath).catch((error) => {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+
+    return null;
+  });
+
   const fileInfo: Partial<ImportFileInput> = {
     audioBitrate,
     audioCodec,
@@ -106,6 +112,8 @@ export const genFileInfo = async (args: {
     thumb: {
       frameHeight: isAnimated ? height : null,
       frameWidth: isAnimated ? width : null,
+      ntfsFileId: thumbNtfsIdentity?.fileId,
+      ntfsVolumeId: thumbNtfsIdentity?.volumeId,
       path: thumbPath,
     },
     transcription: audioAnalysis?.transcription,

@@ -14,7 +14,11 @@ export interface Constants extends _Constants {
   FILE: {
     THUMB: {
       FRAME_SKIP_PERCENT: number;
+      GRID_COLUMNS: number;
+      GRID_ROWS: number;
       MAX_DIM: number;
+      NTFS_BATCH_SIZE: number;
+      NTFS_CONCURRENCY: number;
     };
   };
   HOME: {
@@ -25,8 +29,12 @@ export interface Constants extends _Constants {
     ENTER_DELAY: number;
     ENTER_NEXT_DELAY: number;
   };
+  VECTOR: {
+    DEFAULT_THREAD_POOL_SIZE: number;
+    MAX_IO_CONCURRENCY: number;
+  };
   WINDOW: {
-    TITLE_BAR: { HEIGHT: number };
+    TITLE_BAR: { HEIGHT: number; Z_INDEX: number };
   };
 }
 
@@ -45,7 +53,11 @@ export const CONSTANTS: Constants = {
   FILE: {
     THUMB: {
       FRAME_SKIP_PERCENT: 0.03,
+      GRID_COLUMNS: 3,
+      GRID_ROWS: 3,
       MAX_DIM: 300,
+      NTFS_BATCH_SIZE: 1000,
+      NTFS_CONCURRENCY: 32,
     },
   },
   HOME: {
@@ -56,7 +68,11 @@ export const CONSTANTS: Constants = {
     ENTER_DELAY: 1000,
     ENTER_NEXT_DELAY: 500,
   },
+  VECTOR: {
+    DEFAULT_THREAD_POOL_SIZE: 4,
+    MAX_IO_CONCURRENCY: 32,
+  },
   WINDOW: {
-    TITLE_BAR: { HEIGHT: 32 },
+    TITLE_BAR: { HEIGHT: 32, Z_INDEX: 1401 },
   },
 };

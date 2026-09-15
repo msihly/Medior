@@ -129,6 +129,7 @@ const createMainWindow = async () => {
 
     remoteMain.initialize();
     remoteMain.enable(mainWindow.webContents);
+    registerDevToolsShortcuts(mainWindow);
 
     mainWindow.maximize();
     mainWindow.show();
@@ -183,6 +184,7 @@ const createSearchWindow = async ({ tagIds }) => {
 
     searchWindow.maximize();
     remoteMain.enable(searchWindow.webContents);
+    registerDevToolsShortcuts(searchWindow);
     searchWindow.show();
     trackWindowDisplay(searchWindow, "search");
 
@@ -215,7 +217,7 @@ ipcMain.on("createSearchWindow", (_, args) => createSearchWindow(args));
 /* -------------------------------------------------------------------------- */
 let carouselWindows: BrowserWindow[] = [];
 
-const registerCarouselDevToolsShortcuts = (window: BrowserWindow) => {
+const registerDevToolsShortcuts = (window: BrowserWindow) => {
   window.webContents.on("before-input-event", (event, input) => {
     const isDevToolsShortcut =
       input.type === "keyDown" &&
@@ -257,7 +259,7 @@ const createCarouselWindow = async ({ fileId, height, selectedFileIds, width }) 
 
     carouselWindow.maximize();
     remoteMain.enable(carouselWindow.webContents);
-    registerCarouselDevToolsShortcuts(carouselWindow);
+    registerDevToolsShortcuts(carouselWindow);
     carouselWindow.show();
     trackWindowDisplay(carouselWindow, "carousel");
 

@@ -51,6 +51,44 @@ export class CollectionEditor extends Model({
 
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */
   @modelFlow
+  addFiles = asyncAction(async (ids: string[]) => {
+    if (this.isLoading || !this.collection) return;
+    const fileIds = [...new Set(ids)].filter((id) => !this.search.ids.includes(id));
+    if (!fileIds.length) return;
+    this.setIsLoading(true);
+    try {
+      let orderedIds = [...fileIds, ...this.fileIndexes.map(({ fileId }) => fileId)];
+      if (this.search.sortValue.key !== "custom") {
+        const res = await trpc.listSortedFileIds.mutate({
+          ids: orderedIds,
+          sortValue: this.search.sortValue,
+        });
+        if (!res.success) throw new Error(res.error);
+        orderedIds = res.data;
+      }
+      this.setFileIndexes(orderedIds.map((fileId, index) => ({ fileId, index })));
+      this.search.setIds(orderedIds);
+      this.fileSearch.setExcludedFileIds(orderedIds);
+      if (this.fileSearch.cachedFilterProps)
+        this.fileSearch.setCachedFilterProps({
+          ...this.fileSearch.cachedFilterProps,
+          excludedFileIds: [...orderedIds],
+        });
+      this.fileSearch.setHasChanges(true);
+      this.setHasUnsavedChanges(true);
+      this.fileSearch.removeFiles(fileIds);
+      this.fileSearch.setSelectedIds(
+        this.fileSearch.selectedIds.filter((id) => !fileIds.includes(id)),
+      );
+      const res = await this.search.loadFiltered({ noCache: true, page: this.search.page });
+      if (!res.success) throw new Error(res.error);
+      toast.success(`Added ${fileIds.length} files. Save the collection to keep these changes.`);
+    } finally {
+      this.setIsLoading(false);
+    }
+  });
+
+  @modelFlow
   addFilesToCollection = asyncAction(async (args: { collId: string; fileIds: string[] }) => {
     if (!this.isOpen) this.setIsOpen(true);
     this.setIsLoading(true);
@@ -251,7 +289,13 @@ export class CollectionEditor extends Model({
 
     this.setIsLoading(true);
     if (sortValue.key === "custom") {
-      const fileIdIndexes = this.collection.fileIdIndexes
+      const fileIdIndexes = [
+        ...this.fileIndexes.filter(
+          (file) => !this.collection.fileIdIndexes.some(({ fileId }) => fileId === file.fileId),
+        ),
+        ...[...this.collection.fileIdIndexes].sort((a, b) => a.index - b.index),
+      ]
+        .map(({ fileId }, index) => ({ fileId, index }))
         .sort((a, b) => (sortValue.isDesc ? b.index - a.index : a.index - b.index))
         .map((f, i) => ({ fileId: f.fileId, index: i }));
       this.setFileIndexes(fileIdIndexes);

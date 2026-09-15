@@ -10,6 +10,7 @@ import {
 } from "medior/components";
 import { useStores } from "medior/store";
 import { colors } from "medior/utils/client";
+import { DuplicateBatch } from "./duplicate-batch";
 import { FileDetails } from "./file-details";
 import { TransformFilterMenu } from "./transform-filter-menu";
 
@@ -27,6 +28,8 @@ export const TransformSearch = Comp(() => {
         <View row align="center" justify="space-between" width="100%">
           <View row align="center" spacing="0.5rem">
             <TransformFilterMenu />
+
+            <DuplicateBatch />
 
             {hasSelected && <Chip label={`${store.search.selectedIds.length} Selected`} />}
           </View>

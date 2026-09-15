@@ -501,6 +501,7 @@ export const listAllCollectionIds = makeAction(async () => {
 
 export const findRelatedCollectionGroups = makeAction(
   async (args: {
+    ids?: string[];
     includeFileOverlap?: boolean;
     includeOriginalFolder?: boolean;
     includeTitle?: boolean;
@@ -514,7 +515,9 @@ export const findRelatedCollectionGroups = makeAction(
     const sortDirection = args.sortValue.isDesc ? -1 : 1;
     const sortKey = args.sortValue.key === "custom" ? "dateCreated" : args.sortValue.key;
     const collections = (
-      await models.FileCollectionModel.find({})
+      await models.FileCollectionModel.find(
+        args.ids?.length ? { _id: { $in: objectIds(args.ids) } } : {},
+      )
         .sort({ [sortKey]: sortDirection, _id: sortDirection })
         .lean()
     ).map((collection) => leanModelToJson<models.FileCollectionSchema>(collection));

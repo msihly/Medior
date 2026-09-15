@@ -323,28 +323,9 @@ export const useImportEditor = (store: Ingester | Reingester) => {
 
   const cache = useRef<EditorImportsCache>();
 
-  const isInitMount = useRef(true);
   useEffect(() => {
-    if (isInitMount.current) {
-      isInitMount.current = false;
-      store.options.reset();
-    } else store.setHasChangesSinceLastScan(true);
-  }, [
-    store.options.flattenTo,
-    store.options.folderToCollectionMode,
-    store.options.folderToTagsMode,
-    store.options.withDelimiters,
-    store.options.withDiffusionModel,
-    store.options.withDiffusionParams,
-    store.options.withDiffusionRegExMaps,
-    store.options.withDiffusionTags,
-    store.options.withFileNameToTags,
-    store.options.withFlattenTo,
-    store.options.withFolderNameRegEx,
-    store.options.useSavedConfigs,
-    store.options.withSidecar,
-    store.rootFolderIndex,
-  ]);
+    store.options.reset();
+  }, [store]);
 
   useEffect(() => {
     if (store.isInitDone) scan();
@@ -1119,7 +1100,6 @@ export const useImportEditor = (store: Ingester | Reingester) => {
         if (store.options.withSidecar) {
           store.setAllFlatFolderHierarchy(folders);
           await store.loadSidecar();
-          folders.clear();
           store.allFlatFolderHierarchy.forEach((folder, folderName) =>
             folders.set(folderName, derefMobx(folder)),
           );

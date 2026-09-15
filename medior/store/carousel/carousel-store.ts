@@ -35,6 +35,7 @@ export class CarouselStore extends Model({
   selectedFileIds: prop<string[]>(() => []).withSetter(),
   splicer: prop<Splicer>(() => new Splicer({})).withSetter(),
   transcodeBitrate: prop<number>(6).withSetter(),
+  transcodingFileId: prop<string>("").withSetter(),
   volume: prop<number>(0.3).withSetter(),
 }) {
   onInit() {
@@ -53,6 +54,14 @@ export class CarouselStore extends Model({
   }
 
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
+  @modelAction
+  handleTranscodeError(error: unknown) {
+    this.setIsWaitingForFrames(false);
+    this.setIsPlaying(false);
+    this.setMediaSourceUrl(null);
+    toast.error(error);
+  }
+
   @modelAction
   addFileAfterIndex(fileId: string, index: number) {
     this.selectedFileIds.splice(index + 1, 0, fileId);
@@ -162,32 +171,50 @@ export class CarouselStore extends Model({
   });
 
   @modelFlow
-  transcodeVideo = asyncAction(async (args: { seekTime?: number; onFirstFrames?: () => void }) => {
-    const stores = getRootStore<RootStore>(this);
-    const activeFile = stores.file.getById(this.activeFileId);
-    if (activeFile?.isVideo && !activeFile?.isWebPlayable) {
-      this.setIsWaitingForFrames(true);
-      const url = await videoTranscoder.transcode(
-        activeFile.path,
-        activeFile.bitrate,
-        this.transcodeBitrate,
-        args?.seekTime,
-        () => {
-          this.setIsWaitingForFrames(false);
-          args?.onFirstFrames?.();
-        },
-      );
-      if (url) this.setMediaSourceUrl(url);
-    } else {
-      this.setIsWaitingForFrames(false);
-      this.setMediaSourceUrl(null);
-    }
-  });
+  transcodeVideo = asyncAction(
+    async (args?: { force?: boolean; onFirstFrames?: () => void; seekTime?: number }) => {
+      const stores = getRootStore<RootStore>(this);
+      const activeFile = stores.file.getById(this.activeFileId);
+      if (activeFile?.isVideo && (args?.force || this.requiresTranscoding)) {
+        this.setTranscodingFileId(activeFile.id);
+        this.setIsWaitingForFrames(true);
+        this.setSeekOffset((args?.seekTime ?? 0) * activeFile.frameRate);
+        try {
+          this.setMediaSourceUrl(
+            videoTranscoder.transcode(
+              activeFile.path,
+              activeFile.bitrate,
+              this.transcodeBitrate,
+              args?.seekTime,
+              args?.onFirstFrames,
+              this.handleTranscodeError,
+            ),
+          );
+        } catch (error) {
+          this.handleTranscodeError(error);
+        }
+      } else {
+        videoTranscoder.dispose();
+        this.setIsWaitingForFrames(false);
+        this.setMediaSourceUrl(null);
+        this.setTranscodingFileId("");
+      }
+    },
+  );
 
   /* --------------------------------- GETTERS -------------------------------- */
   @computed
   get activeFileIndex() {
     return this.getFileIndex(this.activeFileId);
+  }
+
+  @computed
+  get requiresTranscoding() {
+    const activeFile = this.getActiveFile();
+    return Boolean(
+      activeFile?.isVideo &&
+        (this.transcodingFileId === activeFile.id || !activeFile.isWebPlayable),
+    );
   }
 
   @computed

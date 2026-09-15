@@ -1,15 +1,5 @@
 import { useEffect, useState } from "react";
-import {
-  Button,
-  Card,
-  Comp,
-  Icon,
-  Modal,
-  ProgressBar,
-  Text,
-  useFileInfo,
-  View,
-} from "medior/components";
+import { Button, Card, Comp, Icon, Modal, Text, useFileInfo, View } from "medior/components";
 import { useStores } from "medior/store";
 import { FileDeletionProgress } from "medior/store/files/file-store";
 import { colors, toast } from "medior/utils/client";
@@ -53,7 +43,7 @@ export const DeleteFilesModal = Comp(() => {
           <Text preset="title">{"Delete Files"}</Text>
         </Modal.Header>
 
-        <Modal.Content align="center" justify="center">
+        <Modal.Content align="center" height="auto" justify="center">
           <Icon name="Delete" color={colors.custom.red} size="5rem" />
 
           <Text fontSize="1.3em" textAlign="center" whiteSpace="normal">
@@ -62,15 +52,7 @@ export const DeleteFilesModal = Comp(() => {
               : `Are you sure you want to delete these ${stores.file.idsForConfirmDelete.length} files?`}
           </Text>
 
-          {isDeleting ? (
-            <ProgressBar
-              numerator={progress.processedCount}
-              denominator={progress.totalCount}
-              viewProps={{ width: "100%" }}
-            />
-          ) : (
-            renderFileInfo()
-          )}
+          {!isDeleting && renderFileInfo()}
         </Modal.Content>
 
         <Modal.Footer>
@@ -99,9 +81,9 @@ export const DeleteFilesModal = Comp(() => {
           width="22rem"
         >
           <Card spacing="0.5rem" padding={{ all: "0.5rem" }} width="100%">
-            <Text whiteSpace="normal">{progress.message}</Text>
-
-            <ProgressBar numerator={progress.processedCount} denominator={progress.totalCount} />
+            <Text textAlign="center" whiteSpace="normal">
+              {progress.message}
+            </Text>
 
             <Button text="Restore" icon="OpenInFull" onClick={() => setIsMinimized(false)} />
           </Card>

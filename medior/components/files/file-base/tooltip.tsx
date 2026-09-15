@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { MouseEvent, useEffect, useRef, useState } from "react";
 import {
   Card,
   Comp,
@@ -23,19 +23,43 @@ interface TooltipProps {
 
 export const Tooltip = Comp(({ children, disabled, file }: TooltipProps) => {
   const [open, setOpen] = useState(false);
+  const anchorRef = useRef<HTMLElement>(null);
+
+  const handleClose = () => setOpen(false);
+
+  const handleMouseEnter = (event: MouseEvent<HTMLElement>) => {
+    anchorRef.current = event.currentTarget;
+  };
+
+  const handleOpen = () => {
+    if (!disabled && anchorRef.current && !anchorRef.current.closest('[aria-hidden="true"]'))
+      setOpen(true);
+  };
 
   useEffect(() => {
     if (!open) return;
-    const handleScroll = () => setOpen(false);
-    window.addEventListener("scroll", handleScroll, true);
-    return () => window.removeEventListener("scroll", handleScroll, true);
-  }, [open]);
+    if (disabled) return setOpen(false);
+    const observer = new MutationObserver(() => {
+      if (anchorRef.current?.closest('[aria-hidden="true"]')) setOpen(false);
+    });
+    observer.observe(document.body, {
+      attributes: true,
+      attributeFilter: ["aria-hidden"],
+      subtree: true,
+    });
+    window.addEventListener("scroll", handleClose, true);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("scroll", handleClose, true);
+    };
+  }, [disabled, open]);
 
   return (
     <TooltipBase
-      open={open}
-      onOpen={() => setOpen(true)}
-      onClose={() => setOpen(false)}
+      open={open && !disabled}
+      onOpen={handleOpen}
+      onClose={handleClose}
+      onMouseEnter={handleMouseEnter}
       enterDelay={CONSTANTS.TOOLTIP.ENTER_DELAY}
       enterNextDelay={CONSTANTS.TOOLTIP.ENTER_NEXT_DELAY}
       minWidth="15rem"

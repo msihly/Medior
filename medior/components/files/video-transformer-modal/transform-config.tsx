@@ -61,35 +61,56 @@ export const TransformConfig = Comp(() => {
         />
 
         <Settings.NumInput
-          header="Max Height"
-          configKey="file.reencode.maxHeight"
+          header="Max Long Edge"
+          configKey="file.reencode.maxLongEdge"
           minValue={1}
           width="8rem"
         />
 
         <Settings.NumInput
-          header="Max Width"
-          configKey="file.reencode.maxWidth"
+          header="Max Short Edge"
+          configKey="file.reencode.maxShortEdge"
           minValue={1}
           width="8rem"
         />
       </View>
 
       <View row spacing="0.5rem" align="flex-end">
-        <Settings.Input header="Image Ext" configKey="file.reencode.imageExt" width="8rem" />
+        <Settings.Dropdown
+          header="Image Output Format"
+          configKey="file.reencode.imageExt"
+          options={["avif", "gif", "jpeg", "jpg", "png", "tiff", "webp"].map((value) => ({
+            label: value.toUpperCase(),
+            value,
+          }))}
+          width="10rem"
+        />
 
         <Settings.NumInput
-          header="Image Max Height"
-          configKey="file.reencode.imageMaxHeight"
+          header="JPG Quality"
+          configKey="file.reencode.imageJpgQuality"
+          disabled={
+            !["jpeg", "jpg"].includes(
+              stores.home.settings.getConfigByKey<string>("file.reencode.imageExt"),
+            )
+          }
           minValue={1}
+          maxValue={100}
           width="8rem"
         />
 
         <Settings.NumInput
-          header="Image Max Width"
-          configKey="file.reencode.imageMaxWidth"
+          header="Image Max Long Edge"
+          configKey="file.reencode.imageMaxLongEdge"
           minValue={1}
-          width="8rem"
+          width="10rem"
+        />
+
+        <Settings.NumInput
+          header="Image Max Short Edge"
+          configKey="file.reencode.imageMaxShortEdge"
+          minValue={1}
+          width="10rem"
         />
       </View>
 

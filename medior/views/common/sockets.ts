@@ -1,7 +1,15 @@
-import { useEffect } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { SocketEmitEvent, SocketEmitEvents } from "medior/_generated/server/socket";
-import { TagOption, tagToOption, useStores } from "medior/store";
-import { throttle } from "medior/utils/common";
+import {
+  FileCollectionSearch,
+  FileSearch,
+  TagOption,
+  TagSearch,
+  tagToOption,
+  useStores,
+} from "medior/store";
+import { updatesAffectSearch } from "medior/utils/client/search-updates";
+import { isDeepEqual, throttle } from "medior/utils/common";
 import { socket } from "medior/utils/server";
 
 export interface UseSocketsProps {
@@ -13,6 +21,24 @@ export const useSockets = ({ enabled = true, view }: UseSocketsProps) => {
   const debug = false;
 
   const stores = useStores();
+  const pendingReloads = useRef(new Set<FileCollectionSearch | FileSearch | TagSearch>());
+  const reloadSearches = useMemo(
+    () =>
+      throttle(() => {
+        for (const search of pendingReloads.current) {
+          if (search === stores.file.search && stores._getIsBlockingModalOpen())
+            stores.file.search.setHasQueuedReload(true);
+          else if (
+            search === stores.collection.manager.search &&
+            stores.collection.manager.isRelatedQueueOpen
+          )
+            stores.collection.manager.search.setHasQueuedReload(true);
+          else search.loadFiltered();
+        }
+        pendingReloads.current.clear();
+      }, 2000),
+    [stores],
+  );
 
   const debugLog = (
     eventName: SocketEmitEvent,
@@ -29,13 +55,29 @@ export const useSockets = ({ enabled = true, view }: UseSocketsProps) => {
       callback(eventArgs);
     });
 
-  const queueFileReload = () =>
-    stores._getIsBlockingModalOpen()
-      ? stores.file.search.setHasQueuedReload(true)
-      : stores.file.search.loadFiltered();
+  const queueSearchReload = (search: FileCollectionSearch | FileSearch | TagSearch) => {
+    search.setHasChanges(true);
+    pendingReloads.current.add(search);
+    reloadSearches();
+  };
+
+  const updateSearch = (
+    search: FileCollectionSearch | FileSearch | TagSearch,
+    updatedKeys: string[],
+  ) => {
+    search.setHasChanges(true);
+    if (updatesAffectSearch(search, updatedKeys)) queueSearchReload(search);
+  };
+
+  const getActiveFileSearches = () => [
+    stores.file.search,
+    ...(stores.collection.editor.isOpen
+      ? [stores.collection.editor.search, stores.collection.editor.fileSearch]
+      : []),
+  ];
 
   const reloadTagManager = () => {
-    if (stores.tag.manager.isOpen) stores.tag.manager.search.loadFiltered();
+    if (stores.tag.manager.isOpen) queueSearchReload(stores.tag.manager.search);
   };
 
   const refreshOpenTagEditors = (tagIds: string[]) => {
@@ -201,23 +243,24 @@ export const useSockets = ({ enabled = true, view }: UseSocketsProps) => {
     });
 
     makeSocket("onFilesUpdated", ({ fileIds, updates }) => {
+      if (view !== "carousel") {
+        getActiveFileSearches().forEach((search) => {
+          updateSearch(
+            search,
+            Object.keys(updates).filter((key) =>
+              fileIds.some(
+                (id) =>
+                  !search.getResult(id) || !isDeepEqual(search.getResult(id)[key], updates[key]),
+              ),
+            ),
+          );
+        });
+      }
       stores.file.updateVisibleFiles(fileIds, updates);
       if (typeof updates.isArchived === "boolean")
         stores.file.updateArchivedFileIds(fileIds, updates.isArchived);
 
       if (view !== "carousel") {
-        const updatedKeys = Object.keys(updates);
-        const shouldReload =
-          updatedKeys.some((k) => ["collectionIds", "isArchived", "tagIds"].includes(k)) ||
-          updatedKeys.includes(stores.file.search.sortValue.key) ||
-          updatedKeys.includes(stores.collection.editor.search.sortValue.key) ||
-          updatedKeys.includes(stores.collection.editor.fileSearch.sortValue.key);
-        if (shouldReload) {
-          stores.file.search.setHasChanges(true);
-          stores.collection.editor.search.setHasChanges(true);
-          stores.collection.editor.fileSearch.setHasChanges(true);
-        }
-
         if (updates.tagIds) reloadVisibleTagChips();
       }
     });
@@ -233,16 +276,17 @@ export const useSockets = ({ enabled = true, view }: UseSocketsProps) => {
       reloadVisibleTagChips();
 
       if (view !== "carousel") {
-        stores.file.search.setHasChanges(true);
-        stores.collection.editor.search.setHasChanges(true);
+        getActiveFileSearches().forEach((search) =>
+          updateSearch(search, ["tagIds", "tagIdsWithAncestors"]),
+        );
       }
     });
 
     makeSocket("onReloadFiles", () => {
       if (view === "carousel") {
         stores.file.search.setIds(stores.carousel.selectedFileIds);
-        stores.file.search.loadFiltered();
-      } else queueFileReload();
+        queueSearchReload(stores.file.search);
+      } else stores.file.search.setHasChanges(true);
     });
 
     makeSocket("onTagCreated", () => {
@@ -254,7 +298,7 @@ export const useSockets = ({ enabled = true, view }: UseSocketsProps) => {
       removeFilterTagOptions(ids);
 
       if (view !== "carousel") {
-        queueFileReload();
+        updateSearch(stores.file.search, ["tagIds", "tagIdsWithAncestors"]);
         reloadVisibleTagChips();
         reloadTagManager();
       }
@@ -269,14 +313,34 @@ export const useSockets = ({ enabled = true, view }: UseSocketsProps) => {
     });
 
     makeSocket("onTagUpdated", ({ id, updates }) => {
+      if (stores.tag.manager.isOpen)
+        updateSearch(
+          stores.tag.manager.search,
+          Object.keys(updates).filter(
+            (key) =>
+              !stores.tag.manager.search.getResult(id) ||
+              !isDeepEqual(stores.tag.manager.search.getResult(id)[key], updates[key]),
+          ),
+        );
       const tagUpdates = new Map<string, Partial<TagOption>>([[id, updates]]);
       updateFilterTagOptions(tagUpdates);
       refreshOpenTagEditors([id]);
       reloadVisibleTagChips();
-      reloadTagManager();
     });
 
     makeSocket("onTagsUpdated", ({ tags, withFileReload }) => {
+      if (stores.tag.manager.isOpen)
+        updateSearch(stores.tag.manager.search, [
+          ...new Set(
+            tags.flatMap(({ tagId, updates }) =>
+              Object.keys(updates).filter(
+                (key) =>
+                  !stores.tag.manager.search.getResult(tagId) ||
+                  !isDeepEqual(stores.tag.manager.search.getResult(tagId)[key], updates[key]),
+              ),
+            ),
+          ),
+        ]);
       const tagUpdates = new Map(tags.map(({ tagId, updates }) => [tagId, updates]));
       const tagIds = tags.map(({ tagId }) => tagId);
 
@@ -284,8 +348,24 @@ export const useSockets = ({ enabled = true, view }: UseSocketsProps) => {
       refreshOpenTagEditors(tagIds);
       reloadVisibleTagChips();
 
-      if (withFileReload && view !== "carousel") throttle(queueFileReload, 2000)();
-      reloadTagManager();
+      if (withFileReload && view !== "carousel") {
+        [
+          ...getActiveFileSearches(),
+          ...(stores.collection.manager.isOpen ? [stores.collection.manager.search] : []),
+        ].forEach((search) => {
+          search.setHasChanges(true);
+          const filters = (search.cachedFilterProps ?? search.getFilterProps()) as Record<
+            string,
+            any
+          >;
+          if (
+            [...(filters.excludedDescTagIds ?? []), ...(filters.requiredDescTagIds ?? [])].some(
+              (id) => tagIds.includes(id),
+            )
+          )
+            queueSearchReload(search);
+        });
+      }
     });
 
     if (view !== "carousel") {
@@ -308,14 +388,19 @@ export const useSockets = ({ enabled = true, view }: UseSocketsProps) => {
           );
           if (stores.collection.manager.isRelatedQueueOpen)
             stores.collection.manager.search.setHasQueuedReload(true);
-          else stores.collection.manager.search.loadFiltered();
+          else queueSearchReload(stores.collection.manager.search);
         }
       });
 
       makeSocket("onFileCollectionUpdated", ({ id, updates }) => {
         if (stores.collection.manager.isOpen) {
-          stores.collection.manager.search.setHasChanges(true);
           const collection = stores.collection.manager.search.getResult(id);
+          updateSearch(
+            stores.collection.manager.search,
+            Object.keys(updates).filter(
+              (key) => !collection || !isDeepEqual(collection[key], updates[key]),
+            ),
+          );
           if (collection) collection.update(updates);
 
           const currentCollection = stores.collection.manager.currentCollections.find(
@@ -324,8 +409,10 @@ export const useSockets = ({ enabled = true, view }: UseSocketsProps) => {
           if (currentCollection) currentCollection.update(updates);
         }
 
-        if (stores.collection.editor.isOpen && id === stores.collection.editor.collection?.id)
-          stores.collection.editor.loadCollection(id);
+        if (stores.collection.editor.isOpen && id === stores.collection.editor.collection?.id) {
+          stores.collection.editor.collection.update(updates);
+          stores.collection.editor.search.setHasChanges(true);
+        }
       });
 
       makeSocket("onImportBatchCompleted", () => {
@@ -342,7 +429,7 @@ export const useSockets = ({ enabled = true, view }: UseSocketsProps) => {
       });
 
       makeSocket("onReloadFileCollections", () => {
-        if (stores.collection.manager.isOpen) stores.collection.manager.search.loadFiltered();
+        if (stores.collection.manager.isOpen) stores.collection.manager.search.setHasChanges(true);
       });
     }
 
@@ -356,7 +443,7 @@ export const useSockets = ({ enabled = true, view }: UseSocketsProps) => {
     });
 
     makeSocket("onFileTransformUpdated", ({ id, updates }) => {
-      const isConsumed = ["REPLACED", "SAVED"].includes(updates.status);
+      const isConsumed = ["MERGED", "REPLACED", "SAVED"].includes(updates.status);
       const isTerminal = updates.isCompleted || ["ERROR", "SKIPPED"].includes(updates.status);
       const transform = stores.file.videoTransformer.search.getResult(id);
       const fileId = transform?.fileId;
@@ -381,7 +468,7 @@ export const useSockets = ({ enabled = true, view }: UseSocketsProps) => {
         if (fileId) stores.file.videoTransformer.removeQueueFiles([fileId]);
       } else transform?.update(updates);
 
-      if (updates.isCompleted || ["ERROR", "REPLACED", "SAVED"].includes(updates.status))
+      if (updates.isCompleted || ["ERROR", "MERGED", "REPLACED", "SAVED"].includes(updates.status))
         stores.file.videoTransformer.search.setHasChanges(true);
       stores.file.videoTransformer.loadQueueCount();
     });
@@ -420,6 +507,9 @@ export const useSockets = ({ enabled = true, view }: UseSocketsProps) => {
     if (!enabled) return;
 
     setupSockets();
-    return () => (socket.disconnect(), null);
+    return () => {
+      pendingReloads.current.clear();
+      socket.disconnect();
+    };
   }, [enabled]);
 };

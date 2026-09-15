@@ -48,9 +48,14 @@ model.addProp("imports", "FileImport[]", {
       },
     ),
     model.makeProp("tagIds", "Tag.id[]"),
-    model.makeProp("thumb", "{ frameHeight?: number; frameWidth?: number; path: string }", {
-      schemaType: "{ frameHeight: Number, frameWidth: Number, path: String }",
-    }),
+    model.makeProp(
+      "thumb",
+      "{ frameHeight?: number; frameWidth?: number; ntfsFileId?: string; ntfsVolumeId?: string; path: string }",
+      {
+        schemaType:
+          "{ frameHeight: Number, frameWidth: Number, ntfsFileId: String, ntfsVolumeId: String, path: String }",
+      },
+    ),
   ],
   storeType: "Stores.FileImport[]",
   typeName: "FileImport",

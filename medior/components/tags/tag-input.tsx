@@ -1,4 +1,4 @@
-import { ComponentProps, HTMLAttributes, MouseEvent, useEffect, useState } from "react";
+import { ComponentProps, HTMLAttributes, MouseEvent, useEffect, useRef, useState } from "react";
 import {
   Autocomplete,
   AutocompleteChangeReason,
@@ -91,23 +91,44 @@ export const TagInput = Comp(
     const [isLoading, setIsLoading] = useState(false);
     const [isOpen, setIsOpen] = useState(false);
     const [options, setOptions] = useState<TagOption[]>([]);
+    const lookupId = useRef(0);
 
     useEffect(() => {
       setInputValue(inputProps?.value as string);
     }, [inputProps?.value]);
 
-    const filterOptions = (val: unknown[]) => val;
+    const isOptionEqualToValue = (option: TagOption, val: TagOption) =>
+      option.id && val.id
+        ? option.id === val.id
+        : option.label.toLowerCase() === val.label.toLowerCase();
+    const isUnavailableOption = (option: TagOption) =>
+      excludedIds.includes(option.id) || value.some((tag) => isOptionEqualToValue(option, tag));
+    const filterOptions = (options: TagOption[]) =>
+      options.filter((option) => !isUnavailableOption(option));
     const getOptionLabel = (option: TagOption) => option.label;
     const handleClose = () => setIsOpen(false);
     const handleOpen = () => !disabled && !!inputValue && setIsOpen(true);
-    const isOptionEqualToValue = (option: TagOption, val: TagOption) => option.id === val.id;
     const renderTags = () => null;
 
-    const handleChange = (_, val: TagOption[], reason?: AutocompleteChangeReason) => {
+    const handleChange = (
+      _,
+      val: TagOption[],
+      reason?: AutocompleteChangeReason,
+      details?: { option: TagOption },
+    ) => {
       if (disabled) return;
+      if (
+        details?.option &&
+        isUnavailableOption(details.option) &&
+        (reason === "selectOption" ||
+          (reason === "removeOption" && (_.type === "click" || _.key === "Enter")))
+      )
+        return;
       if (reason === "selectOption") {
         if (val.some((t) => t.id === "optionsEndNode")) return handleCreateTag();
         setInputValue("");
+        lookupId.current++;
+        setIsLoading(false);
         const { added } = bisectArrayChanges(value, val);
         if (added?.length)
           trpc.updateTag.mutate({
@@ -118,10 +139,13 @@ export const TagInput = Comp(
     };
 
     const handleCreateTag = async () => {
+      if (value.some((tag) => tag.label.toLowerCase() === inputValue?.toLowerCase())) return;
       const res = await stores.tag.createTag({ label: inputValue });
       if (!res.success) return toast.error(res.error);
       onChange?.([...value, res.data]);
       setInputValue("");
+      lookupId.current++;
+      setIsLoading(false);
       handleClose();
     };
 
@@ -168,9 +192,11 @@ export const TagInput = Comp(
       option: TagOption,
     ) => {
       const handleClick = (event: MouseEvent<HTMLDivElement>) => {
-        if (option.id === "optionsEndNode") return;
+        if (option.id === "optionsEndNode" || isUnavailableOption(option)) return;
         onSelect ? onSelect(option) : props.onClick?.(event);
         setInputValue("");
+        lookupId.current++;
+        setIsLoading(false);
         handleClose();
       };
 
@@ -192,7 +218,9 @@ export const TagInput = Comp(
     };
 
     const searchTags = async (val: string) => {
+      const requestId = ++lookupId.current;
       if (val.length === 0) {
+        setIsLoading(false);
         setOptions([]);
         handleClose();
         return;
@@ -202,19 +230,32 @@ export const TagInput = Comp(
         setIsLoading(true);
 
         const searchStr = val.toLowerCase();
-        const res = await trpc.searchTags.mutate({ excludedIds, includedIds, searchStr });
+        const res = await trpc.searchTags.mutate({
+          excludedIds: [
+            ...new Set([...excludedIds, ...value.map((tag) => tag.id).filter(Boolean)]),
+          ],
+          includedIds,
+          searchStr,
+        });
+        if (requestId !== lookupId.current) return;
         if (!res.success) throw new Error(res.error);
         const opts = res.data.map(tagToOption);
 
-        if (hasCreate && val.length > 0 && !opts.find((o) => o.label.toLowerCase() === searchStr))
+        if (
+          hasCreate &&
+          val.length > 0 &&
+          !value.some((tag) => tag.label.toLowerCase() === searchStr) &&
+          !opts.find((o) => o.label.toLowerCase() === searchStr)
+        )
           opts.push({ id: "optionsEndNode", aliases: [], count: 0, descendantIds: [], label: "" });
 
         setOptions(opts);
         handleOpen();
       } catch (err) {
+        if (requestId !== lookupId.current) return;
         console.error(err), toast.error(err.message);
       } finally {
-        setIsLoading(false);
+        if (requestId === lookupId.current) setIsLoading(false);
       }
     };
 
@@ -240,6 +281,8 @@ export const TagInput = Comp(
               clearOnBlur={false}
               disableClearable
               forcePopupIcon={false}
+              filterSelectedOptions
+              getOptionDisabled={isUnavailableOption}
               ListboxProps={{ className: css.listbox }}
               multiple
               onChange={handleChange}

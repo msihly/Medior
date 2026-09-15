@@ -14,12 +14,16 @@ import {
 } from "medior/components";
 import { useStores } from "medior/store";
 import { colors, makeClasses } from "medior/utils/client";
-import { CONSTANTS, round } from "medior/utils/common";
+import { CONSTANTS, Fmt, round } from "medior/utils/common";
+import { videoTranscoder } from "medior/utils/server/videos";
 import { VideoContext, ZoomContext } from "medior/views";
 
 export const Carousel = Comp((_, videoRef: MutableRefObject<ReactPlayer>) => {
   const stores = useStores();
   const activeFile = stores.carousel.getActiveFile();
+  const playbackUrl = stores.carousel.requiresTranscoding
+    ? stores.carousel.mediaSourceUrl
+    : activeFile?.path;
   const activeTranscript = stores.carousel.isCaptionsVisible
     ? activeFile?.transcription?.segments?.find(
         ({ end, start }) => stores.carousel.curTime >= start && stores.carousel.curTime <= end,
@@ -60,26 +64,74 @@ export const Carousel = Comp((_, videoRef: MutableRefObject<ReactPlayer>) => {
 
   useEffect(() => {
     stores.carousel.setSeekOffset(0);
+    if (activeFile?.isVideo) stores.carousel.setCurFrame(0, activeFile.frameRate);
     stores.carousel.transcodeVideo();
+    return () => videoTranscoder.dispose();
   }, [activeFile?.path]);
 
+  useEffect(() => {
+    if (stores.carousel.mediaSourceUrl)
+      videoTranscoder.setMediaElementGetter(
+        stores.carousel.mediaSourceUrl,
+        () => (videoRef.current?.getInternalPlayer() as HTMLMediaElement | undefined) ?? null,
+      );
+  }, [playbackUrl]);
+
+  const isCurrentPlayback = () =>
+    activeFile?.id === stores.carousel.activeFileId &&
+    playbackUrl ===
+      (stores.carousel.requiresTranscoding
+        ? stores.carousel.mediaSourceUrl
+        : stores.carousel.getActiveFile()?.path);
+
+  const handleVideoError = (error: Error | Event) => {
+    if (!isCurrentPlayback()) return;
+    if (error instanceof Error && error.name === "AbortError") return;
+    if (!stores.carousel.requiresTranscoding) {
+      stores.carousel.transcodeVideo({ force: true, seekTime: stores.carousel.curTime });
+    } else {
+      console.error(
+        "[Transcode] Browser playback failed:",
+        error instanceof Error ? error : ((error.target as HTMLMediaElement)?.error ?? error),
+      );
+      videoTranscoder.dispose();
+      stores.carousel.handleTranscodeError(
+        error instanceof Error
+          ? error
+          : new Error(
+              (error.target as HTMLMediaElement)?.error?.message ||
+                "The browser could not play the transcoded video.",
+            ),
+      );
+    }
+  };
+
+  const handleVideoReady = () => {
+    if (!isCurrentPlayback()) return;
+    stores.carousel.setIsWaitingForFrames(false);
+    if (stores.carousel.mediaSourceUrl) videoTranscoder.markReady(stores.carousel.mediaSourceUrl);
+  };
+
   const handleVideoEnd = () => {
+    if (!isCurrentPlayback()) return;
     stores.carousel.setCurFrame(1, activeFile.frameRate);
-    if (stores.carousel.seekOffset > 0) {
-      stores.carousel.setSeekOffset(0);
-      stores.carousel.transcodeVideo({
-        onFirstFrames: () => {
-          videoRef.current?.seekTo(0);
-          stores.carousel.setIsPlaying(true);
-        },
-      });
+    if (stores.carousel.requiresTranscoding) {
+      stores.carousel.transcodeVideo();
+      stores.carousel.setIsPlaying(true);
     } else videoRef.current?.seekTo(0);
   };
 
   const handleVideoProgress = (args: OnProgressProps) => {
+    if (!isCurrentPlayback()) return;
+    videoTranscoder.setCurrentTime(args.playedSeconds);
     const frame = round(stores.carousel.seekOffset + args.playedSeconds * activeFile?.frameRate, 0);
     if (stores.carousel.videoMarks.length === 2 && frame >= stores.carousel.markOut) {
-      videoRef.current.seekTo(stores.carousel.markIn / activeFile.totalFrames, "fraction");
+      if (stores.carousel.requiresTranscoding) {
+        if (stores.carousel.isWaitingForFrames) return;
+        stores.carousel.transcodeVideo({
+          seekTime: Fmt.frameToSec(stores.carousel.markIn, activeFile.frameRate),
+        });
+      } else videoRef.current.seekTo(stores.carousel.markIn / activeFile.totalFrames, "fraction");
     } else stores.carousel.setCurFrame(frame, activeFile.frameRate);
   };
 
@@ -135,11 +187,14 @@ export const Carousel = Comp((_, videoRef: MutableRefObject<ReactPlayer>) => {
                       )}
 
                       <ReactPlayer
+                        key={playbackUrl ?? activeFile.path}
                         ref={videoRef}
-                        url={stores.carousel.mediaSourceUrl ?? activeFile.path}
+                        url={playbackUrl ?? undefined}
                         playing={stores.carousel.isPlaying}
                         onEnded={handleVideoEnd}
+                        onError={handleVideoError}
                         onProgress={handleVideoProgress}
+                        onReady={handleVideoReady}
                         progressInterval={100}
                         width="100%"
                         height="100%"

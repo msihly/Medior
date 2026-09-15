@@ -18,11 +18,13 @@ import { SortValue } from "medior/store/_generated";
 import * as actions from "medior/server/database/actions";
 import { makeBackgroundOperationRunner } from "medior/server/database/actions/background-operations";
 import { makeRepairReporter } from "medior/server/database/repair-progress";
+import { ThumbnailNtfsMetadata } from "medior/server/database/types";
 import { genFileInfo } from "medior/utils/client";
-import { chunkArray, CONSTANTS, dayjs, Fmt } from "medior/utils/common";
+import { chunkArray, CONSTANTS, dayjs, Fmt, PromiseQueue } from "medior/utils/common";
 import {
   analyzeAudio,
   getConfig,
+  getNtfsFileIdentity,
   leanModelToJson,
   makeAction,
   objectId,
@@ -980,6 +982,111 @@ export const repairFileThumbnail = makeAction(async ({ fileId }: { fileId: strin
     fileThumbnailRepairPromises.delete(fileId);
   }
 });
+
+export const repairThumbnailNtfsMetadata = makeAction(
+  async ({ repairId }: { repairId: string }) => {
+    const { checkCancelled, report, run } = makeRepairReporter(
+      repairId,
+      "repairThumbnailNtfsMetadata",
+    );
+
+    return run(async () => {
+      const filter = {
+        $or: [
+          { "thumb.ntfsFileId": { $exists: false } },
+          { "thumb.ntfsFileId": null },
+          { "thumb.ntfsVolumeId": { $exists: false } },
+          { "thumb.ntfsVolumeId": null },
+        ],
+        "thumb.path": { $exists: true, $nin: [null, ""] },
+      };
+      const totalCount = await models.FileModel.countDocuments(filter);
+      let cursor: mongoose.Types.ObjectId;
+      let failedCount = 0;
+      let inspectedCount = 0;
+      let storedCount = 0;
+
+      report(`Found ${totalCount} thumbnails missing NTFS ordering metadata.`, "progress");
+
+      while (true) {
+        checkCancelled();
+
+        const files = await models.FileModel.find({
+          ...filter,
+          ...(cursor ? { _id: { $gt: cursor } } : {}),
+        })
+          .sort({ _id: 1 })
+          .limit(CONSTANTS.FILE.THUMB.NTFS_BATCH_SIZE)
+          .select({ _id: 1, thumb: 1 })
+          .lean();
+        if (!files.length) break;
+
+        const metadataUpdates: ThumbnailNtfsMetadata[] = [];
+        const queue = new PromiseQueue({ concurrency: CONSTANTS.FILE.THUMB.NTFS_CONCURRENCY });
+
+        await Promise.all(
+          files.map((file) =>
+            queue.add(async () => {
+              checkCancelled();
+
+              try {
+                const identity = await getNtfsFileIdentity(file.thumb.path);
+                metadataUpdates.push({
+                  fileId: file._id.toString(),
+                  ntfsFileId: identity.fileId,
+                  ntfsVolumeId: identity.volumeId,
+                  sourcePath: file.thumb.path,
+                });
+              } catch {
+                failedCount++;
+              }
+            }),
+          ),
+        );
+
+        checkCancelled();
+
+        storedCount += await storeThumbnailNtfsMetadata(metadataUpdates);
+
+        cursor = files[files.length - 1]._id;
+        inspectedCount += files.length;
+
+        report(
+          `Inspected ${inspectedCount} / ${totalCount} thumbnails; stored ${storedCount} NTFS identities and could not inspect ${failedCount}.`,
+          "progress",
+        );
+      }
+
+      report(
+        `Thumbnail NTFS metadata repair completed successfully: inspected ${inspectedCount} thumbnails, stored ${storedCount} identities, and could not inspect ${failedCount}.`,
+        "success",
+      );
+
+      return { failedCount, inspectedCount, storedCount };
+    });
+  },
+);
+
+// @generator-ignore-export
+export const storeThumbnailNtfsMetadata = async (metadataItems: ThumbnailNtfsMetadata[]) => {
+  if (!metadataItems.length) return 0;
+
+  const result = await models.FileModel.bulkWrite(
+    metadataItems.map((metadata) => ({
+      updateOne: {
+        filter: { _id: objectId(metadata.fileId), "thumb.path": metadata.sourcePath },
+        update: {
+          $set: {
+            "thumb.ntfsFileId": metadata.ntfsFileId,
+            "thumb.ntfsVolumeId": metadata.ntfsVolumeId,
+          },
+        },
+      },
+    })),
+  );
+
+  return result.modifiedCount;
+};
 
 export const cancelFileRefresh = makeAction(async ({ refreshId }: { refreshId: string }) => {
   const abortController = fileRefreshAbortControllers.get(refreshId);

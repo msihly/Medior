@@ -302,17 +302,22 @@ const makeMergeRelationsPipeline = ({
       },
     },
     in: {
-      $map: {
-        input: "$$filteredIds",
-        as: "id",
-        in: {
-          $cond: {
-            if: { $eq: ["$$id", tagIdToMerge] },
-            then: tagIdToKeep,
-            else: "$$id",
+      $setUnion: [
+        {
+          $map: {
+            input: "$$filteredIds",
+            as: "id",
+            in: {
+              $cond: {
+                if: { $eq: ["$$id", tagIdToMerge] },
+                then: tagIdToKeep,
+                else: "$$id",
+              },
+            },
           },
         },
-      },
+        [],
+      ],
     },
   },
 });
@@ -884,8 +889,8 @@ export const mergeTags = makeAction(
         models.FileModel.updateMany(updateManyFilter, updateManyPull),
       ]);
 
-      const relationsFilter = {
-        $or: [{ childIds: [_tagIdToMerge] }, { parentIds: [_tagIdToMerge] }],
+      const relationsFilter: FilterQuery<models.TagSchema> = {
+        $or: [{ childIds: _tagIdToMerge }, { parentIds: _tagIdToMerge }],
       };
 
       const tagIdsToUpdate = (await models.TagModel.find(relationsFilter, { _id: 1 }).lean()).map(

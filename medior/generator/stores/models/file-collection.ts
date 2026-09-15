@@ -17,6 +17,7 @@ model.addNumRangeProp("size");
 model.addTagOptsProp("tagIds", "tagIdsWithAncestors");
 
 model.addProp("title", "string", '""', {
+  filterGroup: "title",
   objPath: ["title", "$regex"],
   objValue: 'new RegExp(args.title, "i")',
 });

@@ -12,6 +12,8 @@ model.addDateRangeProp("dateImported");
 model.addDateRangeProp("dateModified");
 
 model.addNumRangeProp("height");
+model.addNumRangeProp("longEdge", '{ $max: ["$width", "$height"] }');
+model.addNumRangeProp("shortEdge", '{ $min: ["$width", "$height"] }');
 model.addNumRangeProp("size");
 model.addNumRangeProp("width");
 
@@ -35,6 +37,7 @@ model.addLogOpProp("rating");
 model.addTagOptsProp("tagIds", "tagIdsWithAncestors");
 
 model.addProp("diffusionParams", "string", "null", {
+  filterGroup: "diffusionParams",
   objPath: ["diffusionParams", "$regex"],
   objValue: 'new RegExp(args.diffusionParams, "i")',
 });
@@ -96,11 +99,13 @@ model.addProp("isTranscribed", "boolean", "null", {
 });
 
 model.addProp("originalPath", "string", "null", {
+  filterGroup: "originalPath",
   objPath: ["originalPath", "$regex"],
   objValue: 'new RegExp(args.originalPath, "i")',
 });
 
 model.addProp("transcription", "string", "null", {
+  filterGroup: "transcription",
   objPath: ["transcription.text", "$regex"],
   objValue: 'new RegExp(args.transcription, "i")',
 });

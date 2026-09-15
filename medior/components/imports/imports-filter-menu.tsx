@@ -4,6 +4,7 @@ import {
   Checkbox,
   Comp,
   DateRange,
+  FilterHeader,
   FilterMenu,
   Input,
   TagInput,
@@ -45,16 +46,38 @@ export const ImportsFilterMenu = Comp(
                 flex="none"
               />
 
-              <Input header="File Path" value={store.filePath} setValue={store.setFilePath} />
+              <Input
+                header={
+                  <FilterHeader
+                    label="File Path"
+                    mode={store.filePathMode}
+                    setMode={store.setFilePathMode}
+                  />
+                }
+                value={store.filePath}
+                setValue={store.setFilePath}
+              />
 
               <Input
-                header="Collection Title"
+                header={
+                  <FilterHeader
+                    label="Collection Title"
+                    mode={store.collectionTitleMode}
+                    setMode={store.setCollectionTitleMode}
+                  />
+                }
                 value={store.collectionTitle}
                 setValue={store.setCollectionTitle}
               />
 
               <DateRange
-                header="Date Created"
+                header={
+                  <FilterHeader
+                    label="Date Created"
+                    mode={store.dateCreatedMode}
+                    setMode={store.setDateCreatedMode}
+                  />
+                }
                 startDate={store.dateCreatedStart}
                 setStartDate={store.setDateCreatedStart}
                 endDate={store.dateCreatedEnd}
@@ -62,7 +85,13 @@ export const ImportsFilterMenu = Comp(
               />
 
               <DateRange
-                header="Date Completed"
+                header={
+                  <FilterHeader
+                    label="Date Completed"
+                    mode={store.completedAtMode}
+                    setMode={store.setCompletedAtMode}
+                  />
+                }
                 startDate={store.completedAtStart}
                 setStartDate={store.setCompletedAtStart}
                 endDate={store.completedAtEnd}

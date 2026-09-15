@@ -1,10 +1,18 @@
 import { getCurrentWindow, screen } from "@electron/remote";
 import { useContext, useEffect, useRef, useState } from "react";
-import { Comp, getRatingMeta, Icon, IconButton, TagRow, Text, View } from "medior/components";
+import {
+  Comp,
+  getRatingMeta,
+  Icon,
+  IconButton,
+  TagRow,
+  Text,
+  View,
+  ZoomControls,
+} from "medior/components";
 import { useStores } from "medior/store";
 import { colors, makeClasses } from "medior/utils/client";
 import { CONSTANTS, round } from "medior/utils/common";
-import { zoomScaleStepIn, zoomScaleStepOut } from "medior/utils/server";
 import { ZoomContext } from "medior/views";
 
 export const CarouselTopBar = Comp(() => {
@@ -65,15 +73,6 @@ export const CarouselTopBar = Comp(() => {
     else getCurrentWindow().setAspectRatio(0);
   };
 
-  const zoomIn = () => panZoomRef.current.zoom(zoomScaleStepIn(panZoomRef.current.getScale()));
-
-  const zoomOut = () => panZoomRef.current.zoom(zoomScaleStepOut(panZoomRef.current.getScale()));
-
-  const zoomReset = () => {
-    panZoomRef.current.reset();
-    panZoomRef.current.resetStyle();
-  };
-
   return (
     <View row spacing="0.5rem" className={css.root}>
       <View row flex={1}>
@@ -125,13 +124,7 @@ export const CarouselTopBar = Comp(() => {
             />
           </>
         ) : (
-          <>
-            <IconButton name="Replay" onClick={zoomReset} tooltip="Reset Zoom" />
-
-            <IconButton name="ZoomOut" onClick={zoomOut} tooltip="Zoom Out" />
-
-            <IconButton name="ZoomIn" onClick={zoomIn} tooltip="Zoom In" />
-          </>
+          <ZoomControls panZoomRef={panZoomRef} />
         )}
       </View>
     </View>

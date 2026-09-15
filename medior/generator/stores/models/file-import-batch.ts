@@ -17,11 +17,13 @@ model.addLogOpProp("fileCount");
 model.addTagOptsProp("tagIds", "tagIdsWithAncestors");
 
 model.addProp("collectionTitle", "string", '""', {
+  filterGroup: "collectionTitle",
   objPath: ["collectionTitle", "$regex"],
   objValue: 'new RegExp(args.collectionTitle, "i")',
 });
 
 model.addProp("filePath", "string", "null", {
+  filterGroup: "filePath",
   objPath: ["imports", "$elemMatch", "path", "$regex"],
   objValue: 'new RegExp(args.filePath, "i")',
 });

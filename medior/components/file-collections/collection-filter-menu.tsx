@@ -3,6 +3,7 @@ import {
   Card,
   Comp,
   DateRange,
+  FilterHeader,
   FilterMenu,
   Input,
   LogOpsInput,
@@ -43,11 +44,23 @@ export const CollectionFilterMenu = Comp(
           </Card>
 
           <Card column spacing="0.5rem">
-            <Input header="Title" value={store.title} setValue={store.setTitle} />
+            <Input
+              header={
+                <FilterHeader label="Title" mode={store.titleMode} setMode={store.setTitleMode} />
+              }
+              value={store.title}
+              setValue={store.setTitle}
+            />
 
             <UniformList row spacing="0.5rem">
               <LogOpsInput
-                header="File Count"
+                header={
+                  <FilterHeader
+                    label="File Count"
+                    mode={store.fileCountMode}
+                    setMode={store.setFileCountMode}
+                  />
+                }
                 logOpValue={store.fileCount.logOp}
                 numValue={store.fileCount.value}
                 setLogOpValue={store.setFileCountOp}
@@ -56,7 +69,13 @@ export const CollectionFilterMenu = Comp(
               />
 
               <LogOpsInput
-                header="Rating"
+                header={
+                  <FilterHeader
+                    label="Rating"
+                    mode={store.ratingMode}
+                    setMode={store.setRatingMode}
+                  />
+                }
                 logOpValue={store.rating.logOp}
                 numValue={store.rating.value}
                 setLogOpValue={store.setRatingOp}
@@ -66,7 +85,9 @@ export const CollectionFilterMenu = Comp(
             </UniformList>
 
             <NumRange
-              header="Size"
+              header={
+                <FilterHeader label="Size" mode={store.sizeMode} setMode={store.setSizeMode} />
+              }
               min={store._minSize}
               max={store._maxSize}
               setMin={store._setMinSize}
@@ -75,7 +96,13 @@ export const CollectionFilterMenu = Comp(
             />
 
             <DateRange
-              header="Date Created"
+              header={
+                <FilterHeader
+                  label="Date Created"
+                  mode={store.dateCreatedMode}
+                  setMode={store.setDateCreatedMode}
+                />
+              }
               startDate={store.dateCreatedStart}
               setStartDate={store.setDateCreatedStart}
               endDate={store.dateCreatedEnd}
@@ -83,7 +110,13 @@ export const CollectionFilterMenu = Comp(
             />
 
             <DateRange
-              header="Date Modified"
+              header={
+                <FilterHeader
+                  label="Date Modified"
+                  mode={store.dateModifiedMode}
+                  setMode={store.setDateModifiedMode}
+                />
+              }
               startDate={store.dateModifiedStart}
               setStartDate={store.setDateModifiedStart}
               endDate={store.dateModifiedEnd}

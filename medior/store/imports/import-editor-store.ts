@@ -69,19 +69,43 @@ export class ImportEditorStore extends Model({
       () => this.isOpen,
       () => !this.isOpen && this.reset(),
     );
+
+    reaction(
+      () => [
+        this.options.flattenTo,
+        this.options.folderToCollectionMode,
+        this.options.folderToTagsMode,
+        this.options.useSavedConfigs,
+        this.options.withDelimiters,
+        this.options.withDiffusionModel,
+        this.options.withDiffusionParams,
+        this.options.withDiffusionRegExMaps,
+        this.options.withDiffusionTags,
+        this.options.withFileNameToTags,
+        this.options.withFlattenTo,
+        this.options.withFolderNameRegEx,
+        this.options.withSidecar,
+        this.rootFolderIndex,
+      ],
+      () => {
+        if (this.isOpen && this.isInitDone && !this.isDisabled)
+          this.setHasChangesSinceLastScan(true);
+      },
+    );
   }
 
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
   @modelAction
   addTagsToUpsert(folderName: string, tagsToUpsert: TagToUpsert[]) {
-    const folder = this.flatFolderHierarchy.get(folderName);
+    const folder =
+      this.allFlatFolderHierarchy.get(folderName) ?? this.flatFolderHierarchy.get(folderName);
     if (!folder) throw new Error(`No such folder: ${folderName}`);
 
     for (const tag of tagsToUpsert) {
       if (folder.tags.find((t) => t.label === tag.label)) continue;
 
-      folder.tags.push(...tagsToUpsert);
-      this.flatTagsToUpsert.push(...tagsToUpsert);
+      folder.tags.push(tag);
+      this.flatTagsToUpsert.push(tag);
     }
   }
 

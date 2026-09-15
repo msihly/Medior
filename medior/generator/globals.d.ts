@@ -31,6 +31,7 @@ declare global {
   }
 
   interface ModelSearchProp {
+    condition?: string;
     customActionProps?: {
       condition: string;
       name?: string;
@@ -39,6 +40,7 @@ declare global {
       type?: string;
     }[];
     defaultValue: string;
+    filterGroup?: string;
     filterTransform?: string;
     name: string;
     noInterface?: boolean;

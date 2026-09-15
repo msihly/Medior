@@ -12,7 +12,9 @@ export type ImportStatus = "COMPLETE" | "DELETED" | "DUPLICATE" | "ERROR" | "PEN
 export type FileTransformStatus =
   | "COMPLETE"
   | "COMPRESSED"
+  | "DUPLICATE"
   | "ERROR"
+  | "MERGED"
   | "PENDING"
   | "REPLACED"
   | "RUNNING"
@@ -28,3 +30,10 @@ export type SelectedImageExts = { [ext in ImageExt]: boolean };
 export type SelectedVideoCodecs = { [codec in VideoCodec]: boolean };
 
 export type SelectedVideoExts = { [ext in VideoExt]: boolean };
+
+export interface ThumbnailNtfsMetadata {
+  fileId: string;
+  ntfsFileId: string;
+  ntfsVolumeId: string;
+  sourcePath: string;
+}

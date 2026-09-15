@@ -2,6 +2,7 @@ import { shell } from "@electron/remote";
 import {
   Button,
   CenteredText,
+  Checkbox,
   Comp,
   Divider,
   FileCard,
@@ -13,7 +14,7 @@ import { useStores } from "medior/store";
 import { colors } from "medior/utils/client";
 import { ProgressCircle, TransformDetails } from "./transform-details";
 
-export const ActiveTransform = Comp(() => {
+export const ActiveTransform = Comp(({ onCompare }: { onCompare: () => void }) => {
   const stores = useStores();
   const store = stores.file.videoTransformer;
 
@@ -47,7 +48,7 @@ export const ActiveTransform = Comp(() => {
 
               <Divider orientation="vertical" />
 
-              <TransformDetails transform={store.activeTransform} withAutoReplace withQueueTotals />
+              <TransformDetails transform={store.activeTransform} withQueueTotals />
             </View>
           </View>
 
@@ -98,18 +99,15 @@ export const ActiveTransform = Comp(() => {
 
             <View column spacing="0.5rem" width="11rem">
               <Button
-                text={store.activeTransform.type === "splice" ? "Save Copy" : "Replace"}
-                icon={store.activeTransform.type === "splice" ? "Save" : "Refresh"}
-                onClick={
-                  store.activeTransform.type === "splice" ? store.saveCopy : store.replaceOutput
-                }
+                text="Compare"
+                icon="Compare"
+                onClick={onCompare}
                 disabled={
+                  !store.activeTransform.beforePath ||
                   !store.activeTransform.afterPath ||
-                  (store.activeTransform.type === "splice"
-                    ? store.activeTransform.status !== "COMPLETE"
-                    : !canReplace)
+                  store.activeTransform.type === "splice" ||
+                  !canReplace
                 }
-                color={colors.custom.green}
               />
 
               <Button
@@ -130,10 +128,48 @@ export const ActiveTransform = Comp(() => {
                 }
               />
             </View>
+
+            <View column spacing="0.5rem" width="11rem">
+              <View row flex={1} align="center">
+                {store.activeTransform.type !== "splice" && (
+                  <Checkbox
+                    label="Auto-Replace"
+                    labelProps={{ fontSize: "0.9em" }}
+                    checked={store.isAuto}
+                    setChecked={store.setAutoReplace}
+                    flex="none"
+                    padding={{ all: "0.1rem 0.3rem" }}
+                  />
+                )}
+              </View>
+
+              <Button
+                text={store.activeTransform.type === "splice" ? "Save Copy" : "Replace"}
+                icon={store.activeTransform.type === "splice" ? "Save" : "Refresh"}
+                onClick={
+                  store.activeTransform.type === "splice" ? store.saveCopy : store.replaceOutput
+                }
+                disabled={
+                  !store.activeTransform.afterPath ||
+                  (store.activeTransform.type === "splice"
+                    ? store.activeTransform.status !== "COMPLETE"
+                    : !canReplace)
+                }
+                color={colors.custom.green}
+              />
+            </View>
           </View>
 
           {store.activeTransform.errorMsg ? (
-            <Text color={colors.custom.red}>{store.activeTransform.errorMsg}</Text>
+            <Text
+              color={
+                ["DUPLICATE", "SKIPPED"].includes(store.activeTransform.status)
+                  ? colors.custom.orange
+                  : colors.custom.red
+              }
+            >
+              {store.activeTransform.errorMsg}
+            </Text>
           ) : null}
         </View>
       ) : (

@@ -1,7 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { CircularProgress } from "@mui/material";
 import { SocketEvents } from "medior/_generated/server";
-import { SimilarityBackfillProgress } from "medior/server/vector-service";
+import {
+  SimilarityBackfillProgress,
+  SimilarityDecodeDiagnostics,
+} from "medior/server/vector-service";
 import {
   Button,
   Card,
@@ -17,11 +20,12 @@ import {
 } from "medior/components";
 import { useStores } from "medior/store";
 import { colors, CssColor, makeQueue } from "medior/utils/client";
-import { dayjs, durationToSeconds, PromiseQueue, sleep } from "medior/utils/common";
+import { PromiseQueue, sleep } from "medior/utils/common";
 import { socket, trpc } from "medior/utils/server";
 import { getVideoInfo } from "medior/utils/server/videos";
 
-const MAX_OUTPUT_LOG_LENGTH = 500;
+const SIMILARITY_PROGRESS_COUNT_INTERVAL = 250;
+const SIMILARITY_PROGRESS_TIME_INTERVAL_MS = 30_000;
 
 const checkboxColumnProps: ViewProps = {
   column: true,
@@ -29,74 +33,25 @@ const checkboxColumnProps: ViewProps = {
   spacing: "0.5rem",
 };
 
-interface RepairLog {
-  color?: CssColor;
-  isReplaceable?: boolean;
-  text: string;
-}
-
 export const RepairModal = Comp(() => {
   const stores = useStores();
+  const store = stores.home.settings.repair;
+  const audio = store.audio;
+  const collections = store.collections;
+  const files = store.files;
+  const indexes = store.indexes;
+  const tags = store.tags;
+  const thumbnails = store.thumbnails;
 
-  const [isAudioAnalysisChecked, setIsAudioAnalysisChecked] = useState(false);
-  const [isCollectionsChecked, setIsCollectionsChecked] = useState(false);
-  const [isConfirmCancelOpen, setIsConfirmCancelOpen] = useState(false);
-  const [isDecodeTagLabelsChecked, setIsDecodeTagLabelsChecked] = useState(true);
-  const [isDeleteEmptyCollectionsChecked, setIsDeleteEmptyCollectionsChecked] = useState(true);
-  const [isDeleteExactDuplicatesChecked, setIsDeleteExactDuplicatesChecked] = useState(true);
-  const [isDeleteSubsetsChecked, setIsDeleteSubsetsChecked] = useState(true);
-  const [isExtAndCodecsChecked, setIsExtAndCodecsChecked] = useState(false);
-  const [isIndexesChecked, setIsIndexesChecked] = useState(false);
-  const [isInspectVideoCodecsChecked, setIsInspectVideoCodecsChecked] = useState(true);
-  const [isMergeDuplicateTagLabelsChecked, setIsMergeDuplicateTagLabelsChecked] = useState(true);
-  const [isRebuildExistingIndexesChecked, setIsRebuildExistingIndexesChecked] = useState(true);
-  const [isRegenerateMissingTranscriptionsChecked, setIsRegenerateMissingTranscriptionsChecked] =
-    useState(true);
-  const [isRegenerateMissingWaveformsChecked, setIsRegenerateMissingWaveformsChecked] =
-    useState(true);
-  const [isRegenerateTagMetadataChecked, setIsRegenerateTagMetadataChecked] = useState(true);
-  const [isRepairExtensionsChecked, setIsRepairExtensionsChecked] = useState(true);
-  const [isRepairFileIndexesChecked, setIsRepairFileIndexesChecked] = useState(true);
-  const [isRepairMissingThumbnailsChecked, setIsRepairMissingThumbnailsChecked] = useState(true);
-  const [isRepairOriginalVideoInfoChecked, setIsRepairOriginalVideoInfoChecked] = useState(true);
-  const [isRepairTagHierarchyChecked, setIsRepairTagHierarchyChecked] = useState(true);
-  const [isRepairThumbnailPathsChecked, setIsRepairThumbnailPathsChecked] = useState(true);
-  const [isRepairing, setIsRepairing] = useState(false);
-  const [isSimilarityChecked, setIsSimilarityChecked] = useState(false);
-  const [isSyncFileMembershipChecked, setIsSyncFileMembershipChecked] = useState(true);
-  const [isSyncIndexDefinitionsChecked, setIsSyncIndexDefinitionsChecked] = useState(true);
-  const [isTagsChecked, setIsTagsChecked] = useState(false);
-  const [isThumbsChecked, setIsThumbsChecked] = useState(false);
-  const [maxTranscriptionDurationDisplay, setMaxTranscriptionDurationDisplay] = useState("20m");
-  const [outputLog, setOutputLog] = useState<RepairLog[]>([]);
-
-  const isCancellationRequested = useRef(false);
   const outputRef = useRef<HTMLDivElement>(null);
-  const repairIdRef = useRef<string>();
-  const similarityJobIdRef = useRef<string | null>(null);
-  const maxTranscriptionDuration = durationToSeconds(maxTranscriptionDurationDisplay ?? "");
-
-  const log = useCallback((log: string, color?: CssColor, isReplaceable = false) => {
-    const entry = {
-      color,
-      isReplaceable,
-      text: `[${dayjs().format("HH:mm:ss.SSS")}] ${log}`,
-    };
-    setOutputLog((prev) =>
-      (isReplaceable && prev[prev.length - 1]?.isReplaceable
-        ? [...prev.slice(0, -1), entry]
-        : [...prev, entry]
-      ).slice(-MAX_OUTPUT_LOG_LENGTH),
-    );
-  }, []);
 
   useEffect(() => {
     outputRef.current?.scrollTo({ top: outputRef.current.scrollHeight });
-  }, [outputLog]);
+  }, [store.outputLog]);
 
   useEffect(() => {
     const onRepairProgress = (args: Parameters<SocketEvents["onRepairProgress"]>[0]) => {
-      if (args.repairId !== repairIdRef.current) return;
+      if (args.repairId !== store.repairId) return;
       const colorsByStatus: Record<typeof args.status, CssColor> = {
         cancelled: colors.custom.orange,
         error: colors.custom.red,
@@ -104,7 +59,7 @@ export const RepairModal = Comp(() => {
         progress: colors.custom.lightBlue,
         success: colors.custom.green,
       };
-      log(
+      store.log(
         `[${args.status.toUpperCase()}] ${args.message}`,
         colorsByStatus[args.status],
         args.status === "progress" &&
@@ -115,112 +70,177 @@ export const RepairModal = Comp(() => {
 
     socket.on("onRepairProgress", onRepairProgress);
     return () => socket.off("onRepairProgress", onRepairProgress);
-  }, [log]);
+  }, [store]);
 
   const handleCancel = async () => {
-    if (isRepairing) setIsConfirmCancelOpen(true);
-    else stores.home.settings.setIsRepairOpen(false);
+    if (store.isRunning) store.setIsConfirmCancelOpen(true);
+    else store.setIsOpen(false);
   };
 
   const handleConfirmCancel = async () => {
     let isSuccessful = true;
-    const repairId = repairIdRef.current;
-    isCancellationRequested.current = true;
-    log("[INFO] Cancelling the current operation.");
+    const repairId = store.repairId;
+    store.setIsCancellationRequested(true);
+    store.log("[INFO] Cancelling the current operation.");
     if (repairId) {
       const res = await trpc.cancelRepair.mutate({ repairId });
       if (!res.success) {
         isSuccessful = false;
-        log(`[ERROR] Failed to request repair cancellation: ${res.error}`, colors.custom.red);
+        store.log(`[ERROR] Failed to request repair cancellation: ${res.error}`, colors.custom.red);
       }
     }
-    if (similarityJobIdRef.current) {
+    if (store.similarityJobId) {
       const res = await trpc.cancelSimilarityBackfill.mutate({
-        jobId: similarityJobIdRef.current,
+        jobId: store.similarityJobId,
       });
       if (!res.success) {
         isSuccessful = false;
-        log(`[ERROR] Failed to request similarity cancellation: ${res.error}`, colors.custom.red);
+        store.log(
+          `[ERROR] Failed to request similarity cancellation: ${res.error}`,
+          colors.custom.red,
+        );
       }
     }
     return isSuccessful;
   };
 
   const rebuildSimilarityIndex = async () => {
+    const formatDecodeDiagnostics = (diagnostics: SimilarityDecodeDiagnostics) => {
+      const decodedCount = diagnostics.imageCount + diagnostics.videoCount;
+      const parts = (["image", "video"] as const).map((kind) => {
+        const count = diagnostics[`${kind}Count`];
+
+        return [
+          `${count.toLocaleString()} ${kind}s`,
+          count ? ` @ ${Math.round(diagnostics[`${kind}Ms`] / count)}ms` : "",
+        ].join("");
+      });
+
+      if (decodedCount && diagnostics.estimatedPixelCount)
+        parts.push(
+          `~${(diagnostics.estimatedPixelCount / decodedCount / 1_000_000).toFixed(2)} MP/thumb`,
+        );
+
+      return parts.join(", ");
+    };
+
     const formatProgress = (progress: SimilarityBackfillProgress) =>
       `${progress.index.toLocaleString()} / ${progress.total?.toLocaleString() ?? "?"}`;
 
-    log("Starting similarity index job...", colors.custom.lightBlue);
+    store.log("Starting similarity index job...", colors.custom.lightBlue);
     const startRes = await trpc.startSimilarityBackfill.mutate({});
     if (!startRes.success) throw new Error(startRes.error);
 
-    similarityJobIdRef.current = startRes.data.jobId;
+    store.setSimilarityJobId(startRes.data.jobId);
     let lastLoggedProgress:
       | {
+          decodeDiagnostics: SimilarityDecodeDiagnostics;
           index: number;
           indexedCount: number;
           skippedFreshCount: number;
-          timings: { decodeMs: number; inferenceMs: number; writeMs: number };
+          timings: { decodeMs: number; inferenceMs: number };
         }
       | undefined;
     let lastIndex = -1;
     let lastMessage = "";
+    let lastOrderingIndex = 0;
     let lastProgressLogAt = 0;
+    let lastStage: SimilarityBackfillProgress["stage"] | undefined;
 
-    while (similarityJobIdRef.current) {
-      if (isCancellationRequested.current) throw new Error("Repair cancelled by user.");
+    while (store.similarityJobId) {
+      if (store.isCancellationRequested) throw new Error("Repair cancelled by user.");
       const res = await trpc.getSimilarityBackfillProgress.mutate({
-        jobId: similarityJobIdRef.current,
+        jobId: store.similarityJobId,
       });
       if (!res.success) throw new Error(res.error);
 
       const progress = res.data;
       const now = Date.now();
+      const isOrderingProgress =
+        progress.stage === "ordering" &&
+        (lastStage !== "ordering" ||
+          progress.orderingIndex - lastOrderingIndex >= SIMILARITY_PROGRESS_COUNT_INTERVAL);
       const isTerminal = ["cancelled", "complete", "error"].includes(progress.status);
       const shouldLogProgress =
         lastIndex < 0 ||
-        progress.index - lastIndex >= 250 ||
-        now - lastProgressLogAt >= 30_000 ||
+        progress.index - lastIndex >= SIMILARITY_PROGRESS_COUNT_INTERVAL ||
+        isOrderingProgress ||
+        now - lastProgressLogAt >= SIMILARITY_PROGRESS_TIME_INTERVAL_MS ||
         isTerminal;
+
       if (shouldLogProgress) {
         const delta = lastLoggedProgress
           ? {
+              decodeDiagnostics: {
+                estimatedPixelCount:
+                  progress.decodeDiagnostics.estimatedPixelCount -
+                  lastLoggedProgress.decodeDiagnostics.estimatedPixelCount,
+                imageCount:
+                  progress.decodeDiagnostics.imageCount -
+                  lastLoggedProgress.decodeDiagnostics.imageCount,
+                imageMs:
+                  progress.decodeDiagnostics.imageMs - lastLoggedProgress.decodeDiagnostics.imageMs,
+                videoCount:
+                  progress.decodeDiagnostics.videoCount -
+                  lastLoggedProgress.decodeDiagnostics.videoCount,
+                videoMs:
+                  progress.decodeDiagnostics.videoMs - lastLoggedProgress.decodeDiagnostics.videoMs,
+              },
               decodeMs: progress.timings.decodeMs - lastLoggedProgress.timings.decodeMs,
               indexedCount: progress.indexedCount - lastLoggedProgress.indexedCount,
               inferenceMs: progress.timings.inferenceMs - lastLoggedProgress.timings.inferenceMs,
               processedCount: progress.index - lastLoggedProgress.index,
               skippedFreshCount: progress.skippedFreshCount - lastLoggedProgress.skippedFreshCount,
-              writeMs: progress.timings.writeMs - lastLoggedProgress.timings.writeMs,
             }
           : {
+              decodeDiagnostics: progress.decodeDiagnostics,
               decodeMs: progress.timings.decodeMs,
               indexedCount: progress.indexedCount,
               inferenceMs: progress.timings.inferenceMs,
               processedCount: progress.index,
               skippedFreshCount: progress.skippedFreshCount,
-              writeMs: progress.timings.writeMs,
             };
 
-        log(
-          `Similarity index: ${formatProgress(progress)} | ${progress.stage} | +${delta.processedCount.toLocaleString()} processed, +${delta.indexedCount.toLocaleString()} indexed, +${delta.skippedFreshCount.toLocaleString()} skipped | decode ${(delta.decodeMs / 1000).toFixed(1)}s, inference ${(delta.inferenceMs / 1000).toFixed(1)}s, write ${(delta.writeMs / 1000).toFixed(1)}s`,
+        store.log(
+          [
+            `Similarity index: ${formatProgress(progress)}`,
+            ...(progress.stage === "ordering"
+              ? [
+                  `ordering NTFS file IDs ${progress.orderingIndex.toLocaleString()} / ${progress.orderingTotal.toLocaleString()} thumbnails`,
+                ]
+              : []),
+            [
+              `+${delta.processedCount.toLocaleString()} processed`,
+              `+${delta.indexedCount.toLocaleString()} indexed`,
+              `+${delta.skippedFreshCount.toLocaleString()} skipped`,
+            ].join(", "),
+            formatDecodeDiagnostics(delta.decodeDiagnostics),
+            [
+              `decode ${(delta.decodeMs / 1000).toFixed(1)}s`,
+              `inference ${(delta.inferenceMs / 1000).toFixed(1)}s`,
+            ].join(", "),
+          ].join(" | "),
           colors.custom.lightBlue,
         );
+
         lastIndex = progress.index;
         lastLoggedProgress = {
+          decodeDiagnostics: { ...progress.decodeDiagnostics },
           index: progress.index,
           indexedCount: progress.indexedCount,
           skippedFreshCount: progress.skippedFreshCount,
           timings: {
             decodeMs: progress.timings.decodeMs,
             inferenceMs: progress.timings.inferenceMs,
-            writeMs: progress.timings.writeMs,
           },
         };
+        lastOrderingIndex = progress.orderingIndex;
         lastProgressLogAt = now;
+        lastStage = progress.stage;
       }
 
       if (progress.message && progress.message !== lastMessage) {
-        log(
+        store.log(
           progress.message,
           progress.status === "error" ? colors.custom.red : colors.custom.lightBlue,
         );
@@ -231,7 +251,7 @@ export const RepairModal = Comp(() => {
       if (progress.status === "error")
         throw new Error(progress.message || "Similarity index failed");
       if (progress.status === "complete") {
-        log(
+        store.log(
           `Similarity index rebuild complete: ${formatProgress(progress)}. Indexed ${progress.indexedCount.toLocaleString()} and migrated ${progress.migratedCount.toLocaleString()} vectors.`,
           colors.custom.green,
         );
@@ -241,122 +261,107 @@ export const RepairModal = Comp(() => {
       await sleep(1000);
     }
 
-    similarityJobIdRef.current = null;
+    store.setSimilarityJobId(null);
   };
 
   const handleStart = async () => {
     const repairId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-    repairIdRef.current = repairId;
-    isCancellationRequested.current = false;
-    setOutputLog([]);
+    store.setRepairId(repairId);
+    store.setIsCancellationRequested(false);
+    store.setOutputLog([]);
 
     try {
-      setIsRepairing(true);
+      store.setIsRunning(true);
       const startRes = await trpc.startRepair.mutate({ repairId });
       if (!startRes.success) throw new Error(startRes.error);
-      log("[INFO] Starting the selected database repairs.");
+      store.log("[INFO] Starting the selected database repairs.");
 
-      if (
-        isAudioAnalysisChecked &&
-        (isRegenerateMissingTranscriptionsChecked || isRegenerateMissingWaveformsChecked)
-      ) {
-        log("[INFO] Starting missing audio analysis repair.");
+      if (audio.isSelected) {
+        store.log("[INFO] Starting missing audio analysis repair.");
         const res = await trpc.repairMissingAudioAnalysis.mutate({
-          maxTranscriptionDuration,
+          maxTranscriptionDuration: audio.maxDuration,
           repairId,
-          repairTranscriptions: isRegenerateMissingTranscriptionsChecked,
-          repairWaveforms: isRegenerateMissingWaveformsChecked,
+          repairTranscriptions: audio.transcriptions,
+          repairWaveforms: audio.waveforms,
         });
         if (!res.success) throw new Error(res.error);
       }
 
-      if (
-        isCollectionsChecked &&
-        (isDeleteEmptyCollectionsChecked ||
-          isDeleteExactDuplicatesChecked ||
-          isDeleteSubsetsChecked ||
-          isRepairFileIndexesChecked ||
-          isSyncFileMembershipChecked)
-      ) {
-        log("[INFO] Starting collection repair.");
+      if (collections.isSelected) {
+        store.log("[INFO] Starting collection repair.");
         const res = await trpc.repairCollections.mutate({
-          deleteEmptyCollections: isDeleteEmptyCollectionsChecked,
-          deleteExactDuplicates: isDeleteExactDuplicatesChecked,
-          deleteSubsetCollections: isDeleteSubsetsChecked,
-          repairFileIndexes: isRepairFileIndexesChecked,
+          deleteEmptyCollections: collections.deleteEmpty,
+          deleteExactDuplicates: collections.deleteDuplicates,
+          deleteSubsetCollections: collections.deleteSubsets,
+          repairFileIndexes: collections.fileIndexes,
           repairId,
-          syncFileMembership: isSyncFileMembershipChecked,
+          syncFileMembership: collections.fileMembership,
         });
         if (!res.success) throw new Error(res.error);
       }
 
-      if (
-        isTagsChecked &&
-        (isDecodeTagLabelsChecked ||
-          isMergeDuplicateTagLabelsChecked ||
-          isRepairTagHierarchyChecked ||
-          isRegenerateTagMetadataChecked)
-      ) {
-        log("[INFO] Starting tag repair.");
+      if (tags.isSelected) {
+        store.log("[INFO] Starting tag repair.");
         const res = await trpc.repairTags.mutate({
-          decodeLabels: isDecodeTagLabelsChecked,
-          mergeDuplicateLabels: isMergeDuplicateTagLabelsChecked,
-          regenerateMetadata: isRegenerateTagMetadataChecked,
-          repairHierarchy: isRepairTagHierarchyChecked,
+          decodeLabels: tags.decodeLabels,
+          mergeDuplicateLabels: tags.mergeDuplicates,
+          regenerateMetadata: tags.metadata,
+          repairHierarchy: tags.hierarchy,
           repairId,
         });
         if (!res.success) throw new Error(res.error);
       }
 
-      if (isThumbsChecked && (isRepairThumbnailPathsChecked || isRepairMissingThumbnailsChecked)) {
-        log("[INFO] Starting thumbnail repair.");
+      if (thumbnails.enabled && (thumbnails.paths || thumbnails.missing)) {
+        store.log("[INFO] Starting thumbnail repair.");
         const res = await trpc.repairThumbs.mutate({
           repairId,
-          repairMissingThumbnails: isRepairMissingThumbnailsChecked,
-          repairPaths: isRepairThumbnailPathsChecked,
+          repairMissingThumbnails: thumbnails.missing,
+          repairPaths: thumbnails.paths,
         });
         if (!res.success) throw new Error(res.error);
       }
 
-      if (
-        isExtAndCodecsChecked &&
-        (isRepairExtensionsChecked ||
-          isInspectVideoCodecsChecked ||
-          isRepairOriginalVideoInfoChecked)
-      ) {
-        log("[INFO] Starting file extension and codec repair.");
-        if (isRepairExtensionsChecked) {
+      if (thumbnails.enabled && thumbnails.ntfsMetadata) {
+        store.log("[INFO] Starting thumbnail NTFS metadata repair.");
+        const res = await trpc.repairThumbnailNtfsMetadata.mutate({ repairId });
+        if (!res.success) throw new Error(res.error);
+      }
+
+      if (files.isSelected) {
+        store.log("[INFO] Starting file extension and codec repair.");
+        if (files.extensions) {
           const extRes = await trpc.repairFilesWithBrokenExt.mutate({ repairId });
           if (!extRes.success) throw new Error(extRes.error);
         }
 
-        if (isInspectVideoCodecsChecked) {
-          log("[INFO] Searching for videos with incomplete codec information.");
+        if (files.codecs) {
+          store.log("[INFO] Searching for videos with incomplete codec information.");
           const res = await trpc.listVideosWithMissingInfo.mutate();
           if (!res.success) throw new Error(res.error);
           const validVideos = res.data.filter((f) => !f.isCorrupted);
-          log(
+          store.log(
             `[PROGRESS] Found ${res.data.length} videos with incomplete information; ${validVideos.length} can be inspected and ${res.data.length - validVideos.length} are already marked corrupted.`,
             colors.custom.lightBlue,
           );
 
           if (validVideos.length) {
-            log(`[INFO] Reading codec information from ${validVideos.length} video files.`);
+            store.log(`[INFO] Reading codec information from ${validVideos.length} video files.`);
             let processedCount = 0;
             let corruptedCount = 0;
             await makeQueue({
               action: async (file) => {
-                if (isCancellationRequested.current) return;
+                if (store.isCancellationRequested) return;
                 try {
                   const info = await getVideoInfo(file.path);
-                  if (isCancellationRequested.current) return;
+                  if (store.isCancellationRequested) return;
                   const updateRes = await trpc.updateFile.mutate({
                     args: { id: file.id, updates: { ...info } },
                   });
                   if (!updateRes.success) throw new Error(updateRes.error);
                 } catch (error) {
                   corruptedCount++;
-                  log(
+                  store.log(
                     `[ERROR] Failed to read codec information for ${file.path}: ${error instanceof Error ? error.message : String(error)}. Marking the file corrupted.`,
                     colors.custom.red,
                   );
@@ -367,7 +372,7 @@ export const RepairModal = Comp(() => {
                 } finally {
                   processedCount++;
                   if (processedCount % 25 === 0 || processedCount === validVideos.length)
-                    log(
+                    store.log(
                       `[PROGRESS] Inspected ${processedCount} / ${validVideos.length} videos; ${corruptedCount} were marked corrupted.`,
                       colors.custom.lightBlue,
                     );
@@ -378,49 +383,52 @@ export const RepairModal = Comp(() => {
               logSuffix: "videos",
               queue: new PromiseQueue({ concurrency: 10 }),
             });
-            if (isCancellationRequested.current) throw new Error("Repair cancelled by user.");
-            log(
+            if (store.isCancellationRequested) throw new Error("Repair cancelled by user.");
+            store.log(
               `[SUCCESS] Codec inspection completed: inspected ${processedCount} videos and marked ${corruptedCount} corrupted.`,
               colors.custom.green,
             );
           } else {
-            log("[SUCCESS] No uncorrupted videos require codec inspection.", colors.custom.green);
+            store.log(
+              "[SUCCESS] No uncorrupted videos require codec inspection.",
+              colors.custom.green,
+            );
           }
         }
 
-        if (isRepairOriginalVideoInfoChecked) {
-          log("[INFO] Starting missing original video information repair.");
+        if (files.originalInfo) {
+          store.log("[INFO] Starting missing original video information repair.");
           const missingInfoRes = await trpc.repairFilesWithMissingInfo.mutate({ repairId });
           if (!missingInfoRes.success) throw new Error(missingInfoRes.error);
         }
       }
 
-      if (isIndexesChecked && (isSyncIndexDefinitionsChecked || isRebuildExistingIndexesChecked)) {
-        log("[INFO] Starting the selected index repairs.");
+      if (indexes.isSelected) {
+        store.log("[INFO] Starting the selected index repairs.");
         const res = await trpc.rebuildIndexes.mutate({
-          rebuildExisting: isRebuildExistingIndexesChecked,
+          rebuildExisting: indexes.rebuild,
           repairId,
-          syncDefinitions: isSyncIndexDefinitionsChecked,
+          syncDefinitions: indexes.sync,
         });
         if (!res.success) throw new Error(res.error);
       }
 
-      if (isSimilarityChecked) await rebuildSimilarityIndex();
+      if (store.similarity) await rebuildSimilarityIndex();
 
-      log("[SUCCESS] All selected repairs completed successfully.", colors.custom.green);
+      store.log("[SUCCESS] All selected repairs completed successfully.", colors.custom.green);
     } catch (error) {
       console.error(error);
-      if (isCancellationRequested.current)
-        log("[CANCELLED] Repair cancelled by user.", colors.custom.orange);
+      if (store.isCancellationRequested)
+        store.log("[CANCELLED] Repair cancelled by user.", colors.custom.orange);
       else
-        log(
+        store.log(
           `[ERROR] Repair stopped: ${error instanceof Error ? error.message : String(error)}`,
           colors.custom.red,
         );
     } finally {
       await trpc.finishRepair.mutate({ repairId });
-      similarityJobIdRef.current = null;
-      setIsRepairing(false);
+      store.setSimilarityJobId(null);
+      store.setIsRunning(false);
     }
   };
 
@@ -447,9 +455,9 @@ export const RepairModal = Comp(() => {
             <RepairCheckbox
               label="Audio Analysis"
               description="Missing waveform and transcription data for videos with audio."
-              checked={isAudioAnalysisChecked}
-              setChecked={setIsAudioAnalysisChecked}
-              disabled={isRepairing}
+              checked={audio.enabled}
+              setChecked={audio.setEnabled}
+              disabled={store.isRunning}
             />
 
             <View {...checkboxColumnProps}>
@@ -457,22 +465,18 @@ export const RepairModal = Comp(() => {
                 <RepairCheckbox
                   label="Regenerate Missing Transcriptions"
                   description="Transcribes videos with audio that do not have a transcription."
-                  checked={isRegenerateMissingTranscriptionsChecked}
-                  setChecked={setIsRegenerateMissingTranscriptionsChecked}
-                  disabled={isRepairing || !isAudioAnalysisChecked}
+                  checked={audio.transcriptions}
+                  setChecked={audio.setTranscriptions}
+                  disabled={store.isRunning || !audio.enabled}
                 />
 
                 <NumInput
                   header="Max Length"
                   adornment="hms"
-                  value={maxTranscriptionDuration}
-                  valueDisplay={maxTranscriptionDurationDisplay}
-                  setValueDisplay={setMaxTranscriptionDurationDisplay}
-                  disabled={
-                    isRepairing ||
-                    !isAudioAnalysisChecked ||
-                    !isRegenerateMissingTranscriptionsChecked
-                  }
+                  value={audio.maxDuration}
+                  valueDisplay={audio.maxDurationDisplay}
+                  setValueDisplay={audio.setMaxDurationDisplay}
+                  disabled={store.isRunning || !audio.enabled || !audio.transcriptions}
                   minValue={1}
                   width="8rem"
                   dense
@@ -482,195 +486,203 @@ export const RepairModal = Comp(() => {
               <RepairCheckbox
                 label="Regenerate Missing Waveforms"
                 description="Generates waveforms for videos with audio that do not have one."
-                checked={isRegenerateMissingWaveformsChecked}
-                setChecked={setIsRegenerateMissingWaveformsChecked}
-                disabled={isRepairing || !isAudioAnalysisChecked}
+                checked={audio.waveforms}
+                setChecked={audio.setWaveforms}
+                disabled={store.isRunning || !audio.enabled}
               />
             </View>
 
             <RepairCheckbox
               label="Collections"
               description="Collection cleanup, file ordering, and membership repairs."
-              checked={isCollectionsChecked}
-              setChecked={setIsCollectionsChecked}
-              disabled={isRepairing}
+              checked={collections.enabled}
+              setChecked={collections.setEnabled}
+              disabled={store.isRunning}
             />
 
             <View {...checkboxColumnProps}>
               <RepairCheckbox
                 label="Delete Empty Collections"
                 description="Deletes collections with no files."
-                checked={isDeleteEmptyCollectionsChecked}
-                setChecked={setIsDeleteEmptyCollectionsChecked}
-                disabled={isRepairing || !isCollectionsChecked}
+                checked={collections.deleteEmpty}
+                setChecked={collections.setDeleteEmpty}
+                disabled={store.isRunning || !collections.enabled}
               />
 
               <RepairCheckbox
                 label="Delete Exact Duplicates"
                 description="Keeps one collection with each identical file set; leaves files intact."
-                checked={isDeleteExactDuplicatesChecked}
-                setChecked={setIsDeleteExactDuplicatesChecked}
-                disabled={isRepairing || !isCollectionsChecked}
+                checked={collections.deleteDuplicates}
+                setChecked={collections.setDeleteDuplicates}
+                disabled={store.isRunning || !collections.enabled}
               />
 
               <RepairCheckbox
                 label="Delete Subset Collections"
                 description="Deletes collections entirely contained in a larger collection; leaves files intact."
-                checked={isDeleteSubsetsChecked}
-                setChecked={setIsDeleteSubsetsChecked}
-                disabled={isRepairing || !isCollectionsChecked}
+                checked={collections.deleteSubsets}
+                setChecked={collections.setDeleteSubsets}
+                disabled={store.isRunning || !collections.enabled}
               />
 
               <RepairCheckbox
                 label="Repair File Indexes"
                 description="Removes invalid or repeated file IDs and closes gaps in file order."
-                checked={isRepairFileIndexesChecked}
-                setChecked={setIsRepairFileIndexesChecked}
-                disabled={isRepairing || !isCollectionsChecked}
+                checked={collections.fileIndexes}
+                setChecked={collections.setFileIndexes}
+                disabled={store.isRunning || !collections.enabled}
               />
 
               <RepairCheckbox
                 label="Synchronize File Membership"
                 description="Rebuilds each file's collection IDs and removes stale memberships."
-                checked={isSyncFileMembershipChecked}
-                setChecked={setIsSyncFileMembershipChecked}
-                disabled={isRepairing || !isCollectionsChecked}
+                checked={collections.fileMembership}
+                setChecked={collections.setFileMembership}
+                disabled={store.isRunning || !collections.enabled}
               />
             </View>
 
             <RepairCheckbox
               label="Ext. / Codecs"
               description="File extension and video metadata repairs."
-              checked={isExtAndCodecsChecked}
-              setChecked={setIsExtAndCodecsChecked}
-              disabled={isRepairing}
+              checked={files.enabled}
+              setChecked={files.setEnabled}
+              disabled={store.isRunning}
             />
 
             <View {...checkboxColumnProps}>
               <RepairCheckbox
                 label="Repair Extensions"
                 description="Corrects stored file extensions using the file paths."
-                checked={isRepairExtensionsChecked}
-                setChecked={setIsRepairExtensionsChecked}
-                disabled={isRepairing || !isExtAndCodecsChecked}
+                checked={files.extensions}
+                setChecked={files.setExtensions}
+                disabled={store.isRunning || !files.enabled}
               />
 
               <RepairCheckbox
                 label="Inspect Video Codecs"
                 description="Reads missing video metadata and marks unreadable videos as corrupted."
-                checked={isInspectVideoCodecsChecked}
-                setChecked={setIsInspectVideoCodecsChecked}
-                disabled={isRepairing || !isExtAndCodecsChecked}
+                checked={files.codecs}
+                setChecked={files.setCodecs}
+                disabled={store.isRunning || !files.enabled}
               />
 
               <RepairCheckbox
                 label="Repair Original Video Info"
                 description="Fills missing original bitrate, size, and codec fields from stored metadata."
-                checked={isRepairOriginalVideoInfoChecked}
-                setChecked={setIsRepairOriginalVideoInfoChecked}
-                disabled={isRepairing || !isExtAndCodecsChecked}
+                checked={files.originalInfo}
+                setChecked={files.setOriginalInfo}
+                disabled={store.isRunning || !files.enabled}
               />
             </View>
 
             <RepairCheckbox
               label="Indexes"
               description="Index definition synchronization and rebuilding."
-              checked={isIndexesChecked}
-              setChecked={setIsIndexesChecked}
-              disabled={isRepairing}
+              checked={indexes.enabled}
+              setChecked={indexes.setEnabled}
+              disabled={store.isRunning}
             />
 
             <View {...checkboxColumnProps}>
               <RepairCheckbox
                 label="Synchronize Definitions"
                 description="Creates missing indexes and removes obsolete index definitions."
-                checked={isSyncIndexDefinitionsChecked}
-                setChecked={setIsSyncIndexDefinitionsChecked}
-                disabled={isRepairing || !isIndexesChecked}
+                checked={indexes.sync}
+                setChecked={indexes.setSync}
+                disabled={store.isRunning || !indexes.enabled}
               />
 
               <RepairCheckbox
                 label="Rebuild Existing Indexes"
                 description="Rebuilds indexes; affected data is unavailable during rebuilding."
-                checked={isRebuildExistingIndexesChecked}
-                setChecked={setIsRebuildExistingIndexesChecked}
-                disabled={isRepairing || !isIndexesChecked}
+                checked={indexes.rebuild}
+                setChecked={indexes.setRebuild}
+                disabled={store.isRunning || !indexes.enabled}
               />
             </View>
 
             <RepairCheckbox
               label="Similarity Index"
               description="Generates missing similarity vectors and migrates legacy vectors."
-              checked={isSimilarityChecked}
-              setChecked={setIsSimilarityChecked}
-              disabled={isRepairing}
+              checked={store.similarity}
+              setChecked={store.setSimilarity}
+              disabled={store.isRunning}
             />
 
             <RepairCheckbox
               label="Tags"
               description="Tag label, relationship, and cached metadata repairs."
-              checked={isTagsChecked}
-              setChecked={setIsTagsChecked}
-              disabled={isRepairing}
+              checked={tags.enabled}
+              setChecked={tags.setEnabled}
+              disabled={store.isRunning}
             />
 
             <View {...checkboxColumnProps}>
               <RepairCheckbox
                 label="Decode Labels"
                 description="Replaces encoded HTML entities in tag labels with readable text."
-                checked={isDecodeTagLabelsChecked}
-                setChecked={setIsDecodeTagLabelsChecked}
-                disabled={isRepairing || !isTagsChecked}
+                checked={tags.decodeLabels}
+                setChecked={tags.setDecodeLabels}
+                disabled={store.isRunning || !tags.enabled}
               />
 
               <RepairCheckbox
                 label="Merge Duplicate Labels"
                 description="Merges case-insensitive duplicate labels, then refreshes hierarchy and metadata for consistency."
-                checked={isMergeDuplicateTagLabelsChecked}
-                setChecked={setIsMergeDuplicateTagLabelsChecked}
-                disabled={isRepairing || !isTagsChecked}
+                checked={tags.mergeDuplicates}
+                setChecked={tags.setMergeDuplicates}
+                disabled={store.isRunning || !tags.enabled}
               />
 
               <RepairCheckbox
                 label="Repair Hierarchy"
                 description="Repairs parent/child relationships and cached ancestors on files and collections."
-                checked={isRepairTagHierarchyChecked}
-                setChecked={setIsRepairTagHierarchyChecked}
-                disabled={isRepairing || !isTagsChecked}
+                checked={tags.hierarchy}
+                setChecked={tags.setHierarchy}
+                disabled={store.isRunning || !tags.enabled}
               />
 
               <RepairCheckbox
                 label="Regenerate Metadata"
                 description="Recalculates tag counts, sizes, and thumbnails."
-                checked={isRegenerateTagMetadataChecked}
-                setChecked={setIsRegenerateTagMetadataChecked}
-                disabled={isRepairing || !isTagsChecked}
+                checked={tags.metadata}
+                setChecked={tags.setMetadata}
+                disabled={store.isRunning || !tags.enabled}
               />
             </View>
 
             <RepairCheckbox
               label="Thumbnails"
-              description="Thumbnail data and path repairs, including affected tag thumbnails."
-              checked={isThumbsChecked}
-              setChecked={setIsThumbsChecked}
-              disabled={isRepairing}
+              description="Thumbnail files, paths, and NTFS metadata, including affected tag thumbnails."
+              checked={thumbnails.enabled}
+              setChecked={thumbnails.setEnabled}
+              disabled={store.isRunning}
             />
 
             <View {...checkboxColumnProps}>
               <RepairCheckbox
                 label="Repair Paths"
                 description="Corrects malformed thumbnail paths and migrates legacy paths."
-                checked={isRepairThumbnailPathsChecked}
-                setChecked={setIsRepairThumbnailPathsChecked}
-                disabled={isRepairing || !isThumbsChecked}
+                checked={thumbnails.paths}
+                setChecked={thumbnails.setPaths}
+                disabled={store.isRunning || !thumbnails.enabled}
               />
 
               <RepairCheckbox
                 label="Regenerate Missing Thumbnails"
                 description="Generates thumbnails for files without thumbnail data."
-                checked={isRepairMissingThumbnailsChecked}
-                setChecked={setIsRepairMissingThumbnailsChecked}
-                disabled={isRepairing || !isThumbsChecked}
+                checked={thumbnails.missing}
+                setChecked={thumbnails.setMissing}
+                disabled={store.isRunning || !thumbnails.enabled}
+              />
+
+              <RepairCheckbox
+                label="Store NTFS Ordering Metadata"
+                description="Stores each thumbnail's NTFS volume and file IDs for filesystem-aware processing order."
+                checked={thumbnails.ntfsMetadata}
+                setChecked={thumbnails.setNtfsMetadata}
+                disabled={store.isRunning || !thumbnails.enabled}
               />
             </View>
           </Card>
@@ -682,7 +694,7 @@ export const RepairModal = Comp(() => {
             overflow="hidden auto"
             bgColor={colors.foregroundCard}
           >
-            {outputLog.map((log, i) => (
+            {store.outputLog.map((log, i) => (
               <Text
                 key={i}
                 color={log.color}
@@ -696,7 +708,7 @@ export const RepairModal = Comp(() => {
               </Text>
             ))}
 
-            {isRepairing && <CircularProgress color="inherit" />}
+            {store.isRunning && <CircularProgress color="inherit" />}
           </Card>
         </UniformList>
       </Modal.Content>
@@ -708,56 +720,17 @@ export const RepairModal = Comp(() => {
           text="Start"
           icon="PlayArrow"
           onClick={handleStart}
-          disabled={
-            isRepairing ||
-            (isAudioAnalysisChecked &&
-              isRegenerateMissingTranscriptionsChecked &&
-              !maxTranscriptionDuration) ||
-            (!(
-              isAudioAnalysisChecked &&
-              (isRegenerateMissingTranscriptionsChecked || isRegenerateMissingWaveformsChecked)
-            ) &&
-              !(
-                isCollectionsChecked &&
-                (isDeleteEmptyCollectionsChecked ||
-                  isDeleteExactDuplicatesChecked ||
-                  isDeleteSubsetsChecked ||
-                  isRepairFileIndexesChecked ||
-                  isSyncFileMembershipChecked)
-              ) &&
-              !(
-                isExtAndCodecsChecked &&
-                (isRepairExtensionsChecked ||
-                  isInspectVideoCodecsChecked ||
-                  isRepairOriginalVideoInfoChecked)
-              ) &&
-              !(
-                isIndexesChecked &&
-                (isSyncIndexDefinitionsChecked || isRebuildExistingIndexesChecked)
-              ) &&
-              !isSimilarityChecked &&
-              !(
-                isTagsChecked &&
-                (isDecodeTagLabelsChecked ||
-                  isMergeDuplicateTagLabelsChecked ||
-                  isRepairTagHierarchyChecked ||
-                  isRegenerateTagMetadataChecked)
-              ) &&
-              !(
-                isThumbsChecked &&
-                (isRepairThumbnailPathsChecked || isRepairMissingThumbnailsChecked)
-              ))
-          }
+          disabled={!store.canStart}
           color={colors.custom.blue}
         />
       </Modal.Footer>
 
-      {isConfirmCancelOpen && (
+      {store.isConfirmCancelOpen && (
         <ConfirmModal
           headerText="Cancel Repair"
           subText="Are you sure you want to cancel the running repair? The current operation will be interrupted immediately."
-          confirmText="Cancel Repair"
-          setVisible={setIsConfirmCancelOpen}
+          confirmText="Cancel"
+          setVisible={store.setIsConfirmCancelOpen}
           onConfirm={handleConfirmCancel}
         />
       )}

@@ -1,4 +1,4 @@
-import { useCallback, useContext, useEffect, useRef, useState } from "react";
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { Slider } from "@mui/material";
 import { Button, Comp, IconButton, Text, VideoWaveform, View } from "medior/components";
 import { useStores } from "medior/store";
@@ -43,11 +43,15 @@ export const VideoControls = Comp(() => {
     const frame = event.target.value;
     setCurFrame(frame);
 
-    if (!activeFile?.isWebPlayable) transcode(frame);
+    if (stores.carousel.requiresTranscoding) transcode(frame);
     else seekVideoPlayer(frame);
   };
 
-  const handleFrameSeekCommit = () => {
+  const handleFrameSeekCommit = (_event: unknown, frame: number | number[]) => {
+    if (typeof frame === "number" && stores.carousel.requiresTranscoding) {
+      setCurFrame(frame);
+      seekVideoPlayer(frame);
+    }
     if (lastPlayingState) {
       stores.carousel.setIsPlaying(true);
       setLastPlayingState(false);
@@ -58,7 +62,7 @@ export const VideoControls = Comp(() => {
     (time: number) => {
       const frame = round(time * activeFile.frameRate, 0);
       setCurFrame(frame);
-      if (!activeFile.isWebPlayable) transcode(frame);
+      if (stores.carousel.requiresTranscoding) transcode(frame);
       else videoContext?.current?.seekTo(time, "seconds");
     },
     [activeFile?.id],
@@ -95,14 +99,19 @@ export const VideoControls = Comp(() => {
     stores.carousel.setTranscodeBitrate(bitrate);
 
   const handleTranscodeBitrateCommit = () =>
-    !activeFile?.isWebPlayable && transcode(stores.carousel.curFrame);
+    stores.carousel.requiresTranscoding && seekVideoPlayer(stores.carousel.curFrame);
 
   const handleVolumeChange = (_, vol: number) => stores.carousel.setVolumePreference(vol);
 
   const resetPlaybackRate = () => stores.carousel.setPlaybackRate(1);
 
-  const seekVideoPlayer = (frame: number) =>
+  const seekVideoPlayer = (frame: number) => {
+    if (stores.carousel.requiresTranscoding)
+      return stores.carousel.transcodeVideo({
+        seekTime: Fmt.frameToSec(frame, activeFile.frameRate),
+      });
     videoContext?.current?.seekTo(frame / activeFile.totalFrames, "fraction");
+  };
 
   const setCurFrame = (frame: number) => stores.carousel.setCurFrame(frame, activeFile.frameRate);
 
@@ -110,13 +119,18 @@ export const VideoControls = Comp(() => {
 
   const togglePlaying = () => stores.carousel.toggleIsPlaying();
 
-  const transcode = throttle(async (frame: number) => {
-    stores.carousel.setSeekOffset(frame);
-    return await stores.carousel.transcodeVideo({
-      seekTime: Fmt.frameToSec(frame, activeFile.frameRate),
-      onFirstFrames: () => setCurFrame(frame),
-    });
-  }, 200);
+  const transcode = useMemo(
+    () =>
+      throttle(async (frame: number) => {
+        if (stores.carousel.activeFileId !== activeFile?.id || stores.carousel.curFrame !== frame)
+          return;
+        return await stores.carousel.transcodeVideo({
+          onFirstFrames: () => setCurFrame(frame),
+          seekTime: Fmt.frameToSec(frame, activeFile.frameRate),
+        });
+      }, 200),
+    [activeFile?.id],
+  );
 
   return (
     <View
@@ -257,7 +271,7 @@ export const VideoControls = Comp(() => {
           />
         </CustomSlider>
 
-        {!activeFile?.isWebPlayable && (
+        {stores.carousel.requiresTranscoding && (
           <CustomSlider
             value={stores.carousel.transcodeBitrate}
             onChange={handleTranscodeBitrateChange}

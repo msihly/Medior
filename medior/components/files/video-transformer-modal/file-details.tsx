@@ -83,6 +83,8 @@ export const FileDetails = Comp(({ transform }: FileDetailsProps) => {
 });
 
 const getTransformStatusDisplay = (transform: FileTransform) => {
+  if (transform.status === "MERGED") return { color: colors.custom.green, label: "Merged" };
+  if (transform.status === "DUPLICATE") return { color: colors.custom.orange, label: "Duplicate" };
   if (transform.status === "COMPRESSED") return { color: colors.custom.green, label: "Compressed" };
   if (transform.status === "SKIPPED") return { color: colors.custom.orange, label: "Skipped" };
   if (transform.status === "ERROR") return { color: colors.custom.red, label: "Error" };

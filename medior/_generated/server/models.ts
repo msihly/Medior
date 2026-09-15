@@ -139,7 +139,13 @@ export interface FileImport {
   size: number;
   status: string | "COMPLETE" | "DELETED" | "DUPLICATE" | "ERROR" | "PENDING";
   tagIds: string[];
-  thumb: { frameHeight?: number; frameWidth?: number; path: string };
+  thumb: {
+    frameHeight?: number;
+    frameWidth?: number;
+    ntfsFileId?: string;
+    ntfsVolumeId?: string;
+    path: string;
+  };
 }
 
 export interface FileImportBatchSchema {
@@ -184,7 +190,13 @@ const FileImportBatchSchema = new Schema<FileImportBatchSchema>({
       size: Number,
       status: { type: String, enum: ["COMPLETE", "DELETED", "DUPLICATE", "ERROR", "PENDING"] },
       tagIds: [{ type: Schema.Types.ObjectId, ref: "Tag" }],
-      thumb: { frameHeight: Number, frameWidth: Number, path: String },
+      thumb: {
+        frameHeight: Number,
+        frameWidth: Number,
+        ntfsFileId: String,
+        ntfsVolumeId: String,
+        path: String,
+      },
     },
   ],
   isCompleted: Boolean,
@@ -253,6 +265,8 @@ export interface FileTransformSchema {
   configMaxWidth?: number;
   configOverride?: string[];
   errorMsg?: string;
+  duplicateFileId?: string;
+  duplicatePath?: string;
   fileId: string;
   isCompleted: boolean;
   progressPercent?: number;
@@ -263,7 +277,9 @@ export interface FileTransformSchema {
     | string
     | "COMPLETE"
     | "COMPRESSED"
+    | "DUPLICATE"
     | "ERROR"
+    | "MERGED"
     | "PENDING"
     | "REPLACED"
     | "RUNNING"
@@ -311,6 +327,8 @@ const FileTransformSchema = new Schema<FileTransformSchema>({
   configMaxWidth: Number,
   configOverride: [String],
   errorMsg: String,
+  duplicateFileId: Schema.Types.ObjectId,
+  duplicatePath: String,
   fileId: Schema.Types.ObjectId,
   isCompleted: Boolean,
   progressPercent: Number,
@@ -319,7 +337,18 @@ const FileTransformSchema = new Schema<FileTransformSchema>({
   startedAt: String,
   status: {
     type: String,
-    enum: ["COMPLETE", "COMPRESSED", "ERROR", "PENDING", "REPLACED", "RUNNING", "SAVED", "SKIPPED"],
+    enum: [
+      "COMPLETE",
+      "COMPRESSED",
+      "DUPLICATE",
+      "ERROR",
+      "MERGED",
+      "PENDING",
+      "REPLACED",
+      "RUNNING",
+      "SAVED",
+      "SKIPPED",
+    ],
   },
   timestampPairs: [{ end: Number, start: Number }],
   type: { type: String, enum: ["reencode", "remux", "splice"] },
@@ -379,7 +408,13 @@ export interface FileSchema {
   size: number;
   tagIds: string[];
   tagIdsWithAncestors: string[];
-  thumb: { frameHeight?: number; frameWidth?: number; path: string };
+  thumb: {
+    frameHeight?: number;
+    frameWidth?: number;
+    ntfsFileId?: string;
+    ntfsVolumeId?: string;
+    path: string;
+  };
   timestamps?: Array<{
     id: string;
     label: string;
@@ -436,7 +471,13 @@ const FileSchema = new Schema<FileSchema>({
   size: Number,
   tagIds: [{ type: Schema.Types.ObjectId, ref: "Tag" }],
   tagIdsWithAncestors: [{ type: Schema.Types.ObjectId, ref: "Tag" }],
-  thumb: { frameHeight: Number, frameWidth: Number, path: String },
+  thumb: {
+    frameHeight: Number,
+    frameWidth: Number,
+    ntfsFileId: String,
+    ntfsVolumeId: String,
+    path: String,
+  },
   timestamps: [
     {
       id: String,

@@ -4,6 +4,7 @@ import {
   Checkbox,
   Comp,
   DateRange,
+  FilterHeader,
   FilterMenu,
   Input,
   LogOpsInput,
@@ -44,13 +45,31 @@ export const TagFilterMenu = Comp(({ color = colors.foreground, store }: TagFilt
         </Card>
 
         <Card column width="20rem" spacing="0.5rem">
-          <Input header="Label" value={store.label} setValue={store.setLabel} />
+          <Input
+            header={
+              <FilterHeader label="Label" mode={store.labelMode} setMode={store.setLabelMode} />
+            }
+            value={store.label}
+            setValue={store.setLabel}
+          />
 
-          <Input header="Alias" value={store.alias} setValue={store.setAlias} />
+          <Input
+            header={
+              <FilterHeader label="Alias" mode={store.aliasMode} setMode={store.setAliasMode} />
+            }
+            value={store.alias}
+            setValue={store.setAlias}
+          />
 
           <View row spacing="0.5rem">
             <LogOpsInput
-              header="File Count"
+              header={
+                <FilterHeader
+                  label="File Count"
+                  mode={store.countMode}
+                  setMode={store.setCountMode}
+                />
+              }
               logOpValue={store.count.logOp}
               setLogOpValue={store.setCountOp}
               numValue={store.count.value}
@@ -58,7 +77,13 @@ export const TagFilterMenu = Comp(({ color = colors.foreground, store }: TagFilt
             />
 
             <LogOpsInput
-              header="Rating"
+              header={
+                <FilterHeader
+                  label="Rating"
+                  mode={store.ratingMode}
+                  setMode={store.setRatingMode}
+                />
+              }
               logOpValue={store.rating.logOp}
               numValue={store.rating.value}
               setLogOpValue={store.setRatingOp}
@@ -68,7 +93,13 @@ export const TagFilterMenu = Comp(({ color = colors.foreground, store }: TagFilt
           </View>
 
           <DateRange
-            header="Date Created"
+            header={
+              <FilterHeader
+                label="Date Created"
+                mode={store.dateCreatedMode}
+                setMode={store.setDateCreatedMode}
+              />
+            }
             startDate={store.dateCreatedStart}
             setStartDate={store.setDateCreatedStart}
             endDate={store.dateCreatedEnd}
@@ -76,7 +107,13 @@ export const TagFilterMenu = Comp(({ color = colors.foreground, store }: TagFilt
           />
 
           <DateRange
-            header="Date Modified"
+            header={
+              <FilterHeader
+                label="Date Modified"
+                mode={store.dateModifiedMode}
+                setMode={store.setDateModifiedMode}
+              />
+            }
             startDate={store.dateModifiedStart}
             setStartDate={store.setDateModifiedStart}
             endDate={store.dateModifiedEnd}
@@ -84,7 +121,13 @@ export const TagFilterMenu = Comp(({ color = colors.foreground, store }: TagFilt
           />
 
           <DateRange
-            header="Date of Inception"
+            header={
+              <FilterHeader
+                label="Date of Inception"
+                mode={store.dateOfInceptionMode}
+                setMode={store.setDateOfInceptionMode}
+              />
+            }
             startDate={store.dateOfInceptionStart}
             setStartDate={store.setDateOfInceptionStart}
             endDate={store.dateOfInceptionEnd}

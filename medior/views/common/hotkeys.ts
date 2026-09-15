@@ -1,4 +1,4 @@
-import { KeyboardEvent, MutableRefObject } from "react";
+import { KeyboardEvent, MutableRefObject, useMemo } from "react";
 import FilePlayer from "react-player/file";
 import { useStores } from "medior/store";
 import { persistNotification, toast, Toaster } from "medior/utils/client";
@@ -12,6 +12,7 @@ export interface UseHotkeysProps {
 
 export const useHotkeys = ({ rootRef, videoRef, view }: UseHotkeysProps) => {
   const stores = useStores();
+  const activeFileId = stores.carousel.activeFileId;
 
   const toaster = new Toaster();
 
@@ -143,7 +144,8 @@ export const useHotkeys = ({ rootRef, videoRef, view }: UseHotkeysProps) => {
     const timeDiff = round(newTime - stores.carousel.curTime);
     const newPercent = round((newFrame / totalFrames) * 100, 0);
 
-    if (file.isWebPlayable) videoRef.current?.seekTo(newFrame / totalFrames, "fraction");
+    if (!stores.carousel.requiresTranscoding)
+      videoRef.current?.seekTo(newFrame / totalFrames, "fraction");
     else await transcode(newFrame, file.frameRate);
 
     const message = `${isLeft ? "-" : "+"}${timeDiff} sec. / ${dayjs.duration(newTime, "s").format("HH:mm:ss")} (${newPercent}%)`;
@@ -174,13 +176,17 @@ export const useHotkeys = ({ rootRef, videoRef, view }: UseHotkeysProps) => {
     ]);
   };
 
-  const transcode = throttle(async (frame: number, frameRate: number) => {
-    stores.carousel.setSeekOffset(frame);
-    return await stores.carousel.transcodeVideo({
-      seekTime: Fmt.frameToSec(frame, frameRate),
-      onFirstFrames: () => stores.carousel.setCurFrame(frame, frameRate),
-    });
-  }, 400);
+  const transcode = useMemo(
+    () =>
+      throttle(async (frame: number, frameRate: number) => {
+        if (activeFileId !== stores.carousel.activeFileId) return;
+        return await stores.carousel.transcodeVideo({
+          onFirstFrames: () => stores.carousel.setCurFrame(frame, frameRate),
+          seekTime: Fmt.frameToSec(frame, frameRate),
+        });
+      }, 400),
+    [activeFileId],
+  );
 
   return {
     handleKeyPress,

@@ -5,6 +5,7 @@ import {
   Comp,
   DateRange,
   Dropdown,
+  FilterHeader,
   FilterMenu,
   Input,
   View,
@@ -20,10 +21,20 @@ export const TransformFilterMenu = Comp(() => {
     <FilterMenu store={store} color={colors.foreground} sortOptions={SORT_OPTIONS.FileTransform}>
       <View row height="18rem" spacing="0.5rem">
         <Card column width="20rem" spacing="0.5rem">
-          <Input header="Path" value={store.beforePath} setValue={store.setBeforePath} />
+          <Input
+            header={
+              <FilterHeader
+                label="Path"
+                mode={store.beforePathMode}
+                setMode={store.setBeforePathMode}
+              />
+            }
+            value={store.beforePath}
+            setValue={store.setBeforePath}
+          />
 
           <Dropdown
-            header="Type"
+            header={<FilterHeader label="Type" mode={store.typeMode} setMode={store.setTypeMode} />}
             options={[
               { label: "Any", value: "" },
               { label: "Re-encode", value: "reencode" },
@@ -35,12 +46,16 @@ export const TransformFilterMenu = Comp(() => {
           />
 
           <Dropdown
-            header="Status"
+            header={
+              <FilterHeader label="Status" mode={store.statusMode} setMode={store.setStatusMode} />
+            }
             options={[
               { label: "Any", value: "" },
               { label: "Complete", value: "COMPLETE" },
               { label: "Compressed", value: "COMPRESSED" },
+              { label: "Duplicate", value: "DUPLICATE" },
               { label: "Error", value: "ERROR" },
+              { label: "Merged", value: "MERGED" },
               { label: "Pending", value: "PENDING" },
               { label: "Replaced", value: "REPLACED" },
               { label: "Running", value: "RUNNING" },
@@ -62,7 +77,13 @@ export const TransformFilterMenu = Comp(() => {
           />
 
           <DateRange
-            header="Date Created"
+            header={
+              <FilterHeader
+                label="Date Created"
+                mode={store.dateCreatedMode}
+                setMode={store.setDateCreatedMode}
+              />
+            }
             startDate={store.dateCreatedStart}
             setStartDate={store.setDateCreatedStart}
             endDate={store.dateCreatedEnd}
@@ -70,7 +91,13 @@ export const TransformFilterMenu = Comp(() => {
           />
 
           <DateRange
-            header="Date Completed"
+            header={
+              <FilterHeader
+                label="Date Completed"
+                mode={store.completedAtMode}
+                setMode={store.setCompletedAtMode}
+              />
+            }
             startDate={store.completedAtStart}
             setStartDate={store.setCompletedAtStart}
             endDate={store.completedAtEnd}

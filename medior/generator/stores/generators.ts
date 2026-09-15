@@ -43,28 +43,39 @@ export class ModelStore {
 
   public addProp(...args: Parameters<typeof this.makeProp>) {
     this.props.push(this.makeProp(...args));
+    if (
+      args[3]?.filterGroup &&
+      !this.props.some((prop) => prop.name === `${args[3].filterGroup}Mode`)
+    )
+      this.addProp(`${args[3].filterGroup}Mode`, '"optional" | "required"', '"required"', {
+        notTrackedFilter: true,
+      });
   }
 
   public addDateRangeProp(name: string) {
     this.addProp(`${name}End`, "string", '""', {
+      filterGroup: name,
       objPath: [name, "$lte"],
       objValue: `args.${name}End`,
     });
     this.addProp(`${name}Start`, "string", '""', {
+      filterGroup: name,
       objPath: [name, "$gte"],
       objValue: `args.${name}Start`,
     });
   }
 
-  public addNumRangeProp(name: string) {
+  public addNumRangeProp(name: string, expression?: string) {
     const capName = capitalize(name);
     this.addProp(`max${capName}`, "number", "null", {
-      objPath: [name, "$lte"],
-      objValue: `args.max${capName}`,
+      filterGroup: name,
+      objPath: [expression ? "$expr" : name, "$lte"],
+      objValue: expression ? `[${expression}, args.max${capName}]` : `args.max${capName}`,
     });
     this.addProp(`min${capName}`, "number", "null", {
-      objPath: [name, "$gte"],
-      objValue: `args.min${capName}`,
+      filterGroup: name,
+      objPath: [expression ? "$expr" : name, "$gte"],
+      objValue: expression ? `[${expression}, args.min${capName}]` : `args.min${capName}`,
     });
   }
 
@@ -77,6 +88,8 @@ export class ModelStore {
       "{ logOp: LogicalOp | '', value: number }",
       "() => ({ logOp: '', value: 0 })",
       {
+        condition: `args.${name}?.logOp && args.${name}?.value != null`,
+        filterGroup: name,
         objPath: [name, `~logicOpsToMongo(args.${name}.logOp)`],
         objValue: `args.${name}.value`,
         setter: `${this.makeSetterProp(`${name}Op`, ["val: LogicalOp | ''"], `this.${name}.logOp = val;\nif(val === '') this.${name}.value = 0;`)}\n

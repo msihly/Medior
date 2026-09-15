@@ -57,8 +57,7 @@ export const TagMerger = Comp(() => {
     const tagToMerge = !(tag.count > baseTag.count) ? tag : baseTag;
     setTagIdToKeep(tagToKeep.id);
     setTagIdToMerge(tagToMerge.id);
-    if (!tagLabelToKeep)
-      setTagLabelToKeep(tagToKeep.id === stores.tag.merger.tagId ? "base" : "merge");
+    if (!tagLabelToKeep) setTagLabelToKeep(tagToKeep.id === baseTag.id ? "base" : "merge");
 
     const aliasToSet = tagLabelToKeep === "merge" ? baseTag.label : tag.label;
     setAliases([...new Set([aliasToSet, ...tagToKeep.aliases, ...tagToMerge.aliases])]);
@@ -115,27 +114,28 @@ export const TagMerger = Comp(() => {
   };
 
   const mergeRelatedTags = async (tagIds: string[], tagIdsToExclude: string[]) => {
-    const result = new Set<TagOption>();
-    const tagIdsSet = new Set(tagIds);
+    const result: TagOption[] = [];
     const tagIdsToExcludeSet = new Set(tagIdsToExclude);
-    const tags = (await trpc.listTag.mutate({ filter: { id: tagIds } })).data;
+    const tagIdsSet = new Set(tagIds.filter((id) => !tagIdsToExcludeSet.has(id)));
+    const tags = (await trpc.listTag.mutate({ filter: { id: [...tagIdsSet] } })).data;
     const tagMap = new Map(tags.map((tag) => [tag.id, tag]));
 
     tagIdsSet.forEach((curId) => {
       const tagOption = tagMap.has(curId) ? tagToOption(tagMap.get(curId)) : null;
-      if (tagIdsToExcludeSet.has(curId) || result.has(tagOption)) return;
+      if (!tagOption) return;
 
       const hasDescendants = Array.from(tagIdsSet).some((otherId) => {
+        if (otherId === curId) return false;
         const otherTag = tagMap.get(otherId);
         if (!otherTag) return false;
         const parentIds = new Set(otherTag.ancestorIds ?? []);
         return parentIds.has(curId);
       });
 
-      if (!hasDescendants && tagOption) result.add(tagOption);
+      if (!hasDescendants) result.push(tagOption);
     });
 
-    return Array.from(result);
+    return result;
   };
 
   return (
@@ -168,7 +168,7 @@ export const TagMerger = Comp(() => {
             <View column flex={1}>
               <TagInput
                 header="Tag to Merge"
-                excludedIds={[stores.tag.merger.tagId]}
+                excludedIds={[baseTag.id]}
                 value={selectedTagValue}
                 onChange={setSelectedTagValue}
                 single
@@ -197,7 +197,9 @@ export const TagMerger = Comp(() => {
 
             <TagInputs.Relations
               header="Parent Tags"
-              excludedIds={[stores.tag.merger.tagId, ...childTags.map((t) => t.id)]}
+              excludedIds={[tagIdToKeep, tagIdToMerge, ...childTags.map((t) => t.id)].filter(
+                Boolean,
+              )}
               value={parentTags}
               setValue={setParentTags}
               disabled
@@ -206,7 +208,9 @@ export const TagMerger = Comp(() => {
 
             <TagInputs.Relations
               header="Child Tags"
-              excludedIds={[stores.tag.merger.tagId, ...parentTags.map((t) => t.id)]}
+              excludedIds={[tagIdToKeep, tagIdToMerge, ...parentTags.map((t) => t.id)].filter(
+                Boolean,
+              )}
               value={childTags}
               setValue={setChildTags}
               disabled

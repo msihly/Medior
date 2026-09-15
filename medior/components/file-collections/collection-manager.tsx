@@ -6,6 +6,7 @@ import {
   Chip,
   Comp,
   FileCard,
+  FileCollectionEditor,
   Modal,
   MultiActionButton,
   Pagination,
@@ -23,6 +24,7 @@ import {
   FileCollection,
   RelatedCollectionsQueue,
 } from ".";
+import { useCollectionMerge } from "./hooks";
 
 const FILE_CARD_HEIGHT = 250;
 
@@ -90,6 +92,17 @@ export const FileCollectionManager = Comp(() => {
 
   const handleRefreshMeta = () => stores.collection.regenCollMeta(store.search.selectedIds);
 
+  const handleMerged = () => {
+    store.search.setSelectedIds([]);
+    store.search.loadFiltered();
+    if (hasAnyFilesSelected) store.loadCurrentCollections();
+  };
+
+  const merge = useCollectionMerge({
+    getSelectedIds: () => store.search.selectedIds,
+    onMerged: handleMerged,
+  });
+
   const handleRelatedQueueClose = () => {
     store.setIsRelatedQueueOpen(false);
     store.search.reloadIfQueued();
@@ -113,7 +126,14 @@ export const FileCollectionManager = Comp(() => {
   const scrollToTop = () => collsRef.current?.scrollTo({ top: 0, behavior: "instant" });
 
   return (
-    <Modal.Container isLoading={store.isLoading} onClose={handleClose} height="100%" width="100%">
+    <Modal.Container
+      isLoading={
+        store.isLoading || (merge.isLoading && !merge.isMergeEditorOpen) || merge.isQuickMergeSaving
+      }
+      onClose={handleClose}
+      height="100%"
+      width="100%"
+    >
       <Modal.Content dividers={false} overflow="hidden" padding={{ all: 0 }}>
         {!hasAnyFilesSelected ? null : (
           <View row className={css.topRow}>
@@ -198,6 +218,22 @@ export const FileCollectionManager = Comp(() => {
               <View row justify="flex-end">
                 <View row>
                   <MultiActionButton
+                    name="Merge"
+                    tooltip="Quick Merge Selected Collections"
+                    iconProps={{ color: colors.custom.purple }}
+                    onClick={merge.handleQuickMerge}
+                    disabled={store.search.isLoading || store.search.selectedIds.length < 2}
+                  />
+
+                  <MultiActionButton
+                    name="Merge"
+                    tooltip="Merge Selected Collections"
+                    iconProps={{ color: colors.custom.blue }}
+                    onClick={merge.openMergeConfirmation}
+                    disabled={store.search.isLoading || store.search.selectedIds.length < 2}
+                  />
+
+                  <MultiActionButton
                     name="Delete"
                     tooltip="Delete"
                     iconProps={{ color: colors.custom.red }}
@@ -265,9 +301,15 @@ export const FileCollectionManager = Comp(() => {
         <Button
           text="Related"
           icon="Search"
+          tooltip={
+            hasSelectedCollectionIds
+              ? "Find Related Within Selected Collections"
+              : "Find Related Across All Collections"
+          }
           onClick={() => store.setIsRelatedQueueOpen(true)}
           disabled={store.search.isLoading}
           colorOnHover={colors.custom.lightBlue}
+          width="100%"
         />
 
         {!hasAnyFilesSelected ? null : (
@@ -286,6 +328,16 @@ export const FileCollectionManager = Comp(() => {
       {store.isTriagerOpen && <CollectionTriager />}
 
       {store.isRelatedQueueOpen && <RelatedCollectionsQueue onClose={handleRelatedQueueClose} />}
+
+      {merge.isMergeEditorOpen && (
+        <FileCollectionEditor
+          mode="merge"
+          isSaving={merge.isMergeSaving}
+          onCancelLoad={merge.closeMergeEditor}
+          onClose={merge.closeMergeEditor}
+          onSave={merge.handleMerge}
+        />
+      )}
     </Modal.Container>
   );
 });

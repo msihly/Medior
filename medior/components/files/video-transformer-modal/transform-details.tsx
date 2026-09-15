@@ -1,7 +1,6 @@
 import { ReactNode } from "react";
 import {
   CenteredText,
-  Checkbox,
   Comp,
   Detail,
   Divider,
@@ -14,6 +13,7 @@ import {
 import { FileTransform, useStores } from "medior/store";
 import { colors } from "medior/utils/client";
 import { dayjs, Fmt, round } from "medior/utils/common";
+import { DuplicateReview } from "./duplicate-review";
 
 export const ProgressCircle = Comp(({ transform }: { transform: FileTransform }) => (
   <ProgressCircleBase
@@ -29,16 +29,23 @@ export const ProgressCircle = Comp(({ transform }: { transform: FileTransform })
       fontWeight={600}
     />
 
-    <CenteredText text={transform.progress.time || "--"} color={colors.custom.white} />
+    {transform.isAnimated && (
+      <>
+        <CenteredText text={transform.progress.time || "--"} color={colors.custom.white} />
 
-    <CenteredText
-      text={
-        transform.beforeDuration
-          ? dayjs.duration(transform.beforeDuration, "s").format("HH:mm:ss.SSS").substring(0, 11)
-          : "--"
-      }
-      color={colors.custom.lightGrey}
-    />
+        <CenteredText
+          text={
+            transform.beforeDuration
+              ? dayjs
+                  .duration(transform.beforeDuration, "s")
+                  .format("HH:mm:ss.SSS")
+                  .substring(0, 11)
+              : "--"
+          }
+          color={colors.custom.lightGrey}
+        />
+      </>
+    )}
   </ProgressCircleBase>
 ));
 
@@ -46,12 +53,10 @@ export const TransformDetails = Comp(
   ({
     transform,
     compact = false,
-    withAutoReplace = false,
     withQueueTotals = false,
   }: {
     compact?: boolean;
     transform: FileTransform;
-    withAutoReplace?: boolean;
     withQueueTotals?: boolean;
   }) => {
     const stores = useStores();
@@ -69,8 +74,8 @@ export const TransformDetails = Comp(
             <>
               <InputOutputRow
                 label="Total"
-                input={store.queueBeforeSize ? Fmt.bytes(store.queueBeforeSize) : "--"}
-                output={store.queueAfterSize ? Fmt.bytes(store.queueAfterSize) : "--"}
+                input={Fmt.bytes(store.queueBeforeSize)}
+                output={Fmt.bytes(store.queueAfterSize)}
               />
 
               <Divider style={{ flex: 0 }} />
@@ -84,12 +89,14 @@ export const TransformDetails = Comp(
             output={transform.afterExt || getOutputExt(transform)}
           />
 
-          <InputOutputRow
-            compact={compact}
-            label="Codec"
-            input={transform.beforeVideoCodec || "--"}
-            output={outputCodec}
-          />
+          {transform.isAnimated && (
+            <InputOutputRow
+              compact={compact}
+              label="Codec"
+              input={transform.beforeVideoCodec || "--"}
+              output={outputCodec}
+            />
+          )}
 
           <InputOutputRow
             compact={compact}
@@ -102,19 +109,23 @@ export const TransformDetails = Comp(
             output={outputDimensions}
           />
 
-          <InputOutputRow
-            compact={compact}
-            label="FPS"
-            input={transform.beforeFrameRate ? round(transform.beforeFrameRate) : "--"}
-            output={outputFrameRate}
-          />
+          {transform.isAnimated && (
+            <>
+              <InputOutputRow
+                compact={compact}
+                label="FPS"
+                input={transform.beforeFrameRate ? round(transform.beforeFrameRate) : "--"}
+                output={outputFrameRate}
+              />
 
-          <InputOutputRow
-            compact={compact}
-            label="Bitrate"
-            input={transform.beforeBitrate ? Fmt.bytes(transform.beforeBitrate) : "--"}
-            output={getOutputBitrate(transform)}
-          />
+              <InputOutputRow
+                compact={compact}
+                label="Bitrate"
+                input={transform.beforeBitrate ? Fmt.bytes(transform.beforeBitrate) : "--"}
+                output={getOutputBitrate(transform)}
+              />
+            </>
+          )}
 
           <InputOutputRow
             compact={compact}
@@ -139,15 +150,7 @@ export const TransformDetails = Comp(
           />
         </UniformList>
 
-        {withAutoReplace && transform.type !== "splice" ? (
-          <Checkbox
-            label="Auto-Replace"
-            checked={store.isAuto}
-            setChecked={store.setAutoReplace}
-            flex="none"
-            margins={{ left: "-0.5rem" }}
-          />
-        ) : null}
+        <DuplicateReview transform={transform} />
       </View>
     );
   },
@@ -193,17 +196,19 @@ const getOutputDimensions = (transform: FileTransform) => {
   if (transform.type !== "reencode" || !transform.beforeWidth || !transform.beforeHeight)
     return "--";
 
-  const maxWidth = !transform.beforeVideoCodec
-    ? transform.configImageMaxWidth
-    : transform.configMaxWidth;
-  const maxHeight = !transform.beforeVideoCodec
-    ? transform.configImageMaxHeight
-    : transform.configMaxHeight;
+  const maxWidth = transform.isAnimated ? transform.configMaxWidth : transform.configImageMaxWidth;
+  const maxHeight = transform.isAnimated
+    ? transform.configMaxHeight
+    : transform.configImageMaxHeight;
   if (!maxWidth || !maxHeight) return "--";
 
   const scale = Math.min(1, maxWidth / transform.beforeWidth, maxHeight / transform.beforeHeight);
-  const width = Math.floor((transform.beforeWidth * scale) / 2) * 2;
-  const height = Math.floor((transform.beforeHeight * scale) / 2) * 2;
+  const width = transform.isAnimated
+    ? Math.floor((transform.beforeWidth * scale) / 2) * 2
+    : Math.round(transform.beforeWidth * scale);
+  const height = transform.isAnimated
+    ? Math.floor((transform.beforeHeight * scale) / 2) * 2
+    : Math.round(transform.beforeHeight * scale);
   return `${width}x${height}`;
 };
 

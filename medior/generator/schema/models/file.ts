@@ -100,10 +100,15 @@ model.addProp("tagIds", "Tag.id[]", { required: true });
 model.addIndex({ tagIdsWithAncestors: 1 }, { unique: false });
 model.addProp("tagIdsWithAncestors", "Tag.id[]", { required: true });
 
-model.addProp("thumb", "{ frameHeight?: number; frameWidth?: number; path: string }", {
-  required: true,
-  schemaType: "{ frameHeight: Number, frameWidth: Number, path: String }",
-});
+model.addProp(
+  "thumb",
+  "{ frameHeight?: number; frameWidth?: number; ntfsFileId?: string; ntfsVolumeId?: string; path: string }",
+  {
+    required: true,
+    schemaType:
+      "{ frameHeight: Number, frameWidth: Number, ntfsFileId: String, ntfsVolumeId: String, path: String }",
+  },
+);
 
 model.addProp(
   "timestamps",

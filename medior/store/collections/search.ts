@@ -100,7 +100,15 @@ export class FileCollectionSearch extends ExtendedModel(_FileCollectionSearch, {
       if (loadId !== this.loadId) return;
       if (!res.success) throw new Error(res.error);
 
-      this.setFiles(new Map(res.data.items.map((f) => [f.id, new File(f)])));
+      const files = res.data.items.map((file) => new File(file));
+      await Promise.all(
+        files.map(async (file) => {
+          const res = await file.reloadTags();
+          if (!res.success) throw new Error(res.error);
+        }),
+      );
+      if (loadId !== this.loadId) return;
+      this.setFiles(new Map(files.map((file) => [file.id, file])));
       this.setIsLoading(false);
     } catch (error) {
       if (loadId !== this.loadId) return;

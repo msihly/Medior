@@ -30,10 +30,13 @@ import { getConfig, trpc } from "medior/utils/server";
 export class _FileCollectionSearch extends Model({
   cachedFilterProps: prop<object | null>(null).withSetter(),
   dateCreatedEnd: prop<string>("").withSetter(),
+  dateCreatedMode: prop<"optional" | "required">("required").withSetter(),
   dateCreatedStart: prop<string>("").withSetter(),
   dateModifiedEnd: prop<string>("").withSetter(),
+  dateModifiedMode: prop<"optional" | "required">("required").withSetter(),
   dateModifiedStart: prop<string>("").withSetter(),
   fileCount: prop<{ logOp: LogicalOp | ""; value: number }>(() => ({ logOp: "", value: 0 })),
+  fileCountMode: prop<"optional" | "required">("required").withSetter(),
   forcePages: prop<boolean>(false).withSetter(),
   hasChanges: prop<boolean>(false).withSetter(),
   ids: prop<string[]>(() => []).withSetter(),
@@ -46,13 +49,16 @@ export class _FileCollectionSearch extends Model({
   pageCount: prop<number>(1).withSetter(),
   pageSize: prop<number>(() => getConfig().collection.manager.search.pageSize).withSetter(),
   rating: prop<{ logOp: LogicalOp | ""; value: number }>(() => ({ logOp: "", value: 0 })),
+  ratingMode: prop<"optional" | "required">("required").withSetter(),
   results: prop<Stores.FileCollection[]>(() => []).withSetter(),
   selectedIds: prop<string[]>(() => []).withSetter(),
+  sizeMode: prop<"optional" | "required">("required").withSetter(),
   sortValue: prop<SortMenuProps["value"]>(
     () => getConfig().collection.manager.search.sort,
   ).withSetter(),
   tags: prop<Stores.TagOption[]>(() => []).withSetter(),
   title: prop<string>("").withSetter(),
+  titleMode: prop<"optional" | "required">("required").withSetter(),
   isDeleteModalOpen: prop<boolean>(false).withSetter(),
   isSaveModalOpen: prop<boolean>(false).withSetter(),
   savedSearches: prop<Stores.SavedSearch[]>(() => []).withSetter(),
@@ -118,10 +124,13 @@ export class _FileCollectionSearch extends Model({
   reset() {
     this.cachedFilterProps = null;
     this.dateCreatedEnd = "";
+    this.dateCreatedMode = "required";
     this.dateCreatedStart = "";
     this.dateModifiedEnd = "";
+    this.dateModifiedMode = "required";
     this.dateModifiedStart = "";
     this.fileCount = { logOp: "", value: 0 };
+    this.fileCountMode = "required";
     this.forcePages = false;
     this.hasChanges = false;
     this.ids = [];
@@ -134,11 +143,14 @@ export class _FileCollectionSearch extends Model({
     this.pageCount = 1;
     this.pageSize = getConfig().collection.manager.search.pageSize;
     this.rating = { logOp: "", value: 0 };
+    this.ratingMode = "required";
     this.results = [];
     this.selectedIds = [];
+    this.sizeMode = "required";
     this.sortValue = getConfig().collection.manager.search.sort;
     this.tags = [];
     this.title = "";
+    this.titleMode = "required";
   }
 
   @modelAction
@@ -483,17 +495,23 @@ export class _FileCollectionSearch extends Model({
   getFilterProps() {
     return {
       dateCreatedEnd: this.dateCreatedEnd,
+      dateCreatedMode: this.dateCreatedMode,
       dateCreatedStart: this.dateCreatedStart,
       dateModifiedEnd: this.dateModifiedEnd,
+      dateModifiedMode: this.dateModifiedMode,
       dateModifiedStart: this.dateModifiedStart,
       fileCount: this.fileCount,
+      fileCountMode: this.fileCountMode,
       ids: this.ids,
       maxSize: this.maxSize,
       minSize: this.minSize,
       rating: this.rating,
+      ratingMode: this.ratingMode,
+      sizeMode: this.sizeMode,
       sortValue: this.sortValue,
       ...getRootStore<Stores.RootStore>(this)?.tag?.tagSearchOptsToIds(this.tags),
       title: this.title,
+      titleMode: this.titleMode,
     };
   }
 
@@ -507,17 +525,23 @@ export class _FileCollectionSearch extends Model({
   getSearchProps() {
     return derefMobx({
       dateCreatedEnd: this.dateCreatedEnd,
+      dateCreatedMode: this.dateCreatedMode,
       dateCreatedStart: this.dateCreatedStart,
       dateModifiedEnd: this.dateModifiedEnd,
+      dateModifiedMode: this.dateModifiedMode,
       dateModifiedStart: this.dateModifiedStart,
       fileCount: this.fileCount,
+      fileCountMode: this.fileCountMode,
       ids: this.ids,
       maxSize: this.maxSize,
       minSize: this.minSize,
       rating: this.rating,
+      ratingMode: this.ratingMode,
+      sizeMode: this.sizeMode,
       sortValue: this.sortValue,
       tags: this.tags,
       title: this.title,
+      titleMode: this.titleMode,
     });
   }
 }
@@ -525,12 +549,17 @@ export class _FileCollectionSearch extends Model({
 export class _FileImportBatchSearch extends Model({
   cachedFilterProps: prop<object | null>(null).withSetter(),
   collectionTitle: prop<string>("").withSetter(),
+  collectionTitleMode: prop<"optional" | "required">("required").withSetter(),
   completedAtEnd: prop<string>("").withSetter(),
+  completedAtMode: prop<"optional" | "required">("required").withSetter(),
   completedAtStart: prop<string>("").withSetter(),
   dateCreatedEnd: prop<string>("").withSetter(),
+  dateCreatedMode: prop<"optional" | "required">("required").withSetter(),
   dateCreatedStart: prop<string>("").withSetter(),
   fileCount: prop<{ logOp: LogicalOp | ""; value: number }>(() => ({ logOp: "", value: 0 })),
+  fileCountMode: prop<"optional" | "required">("required").withSetter(),
   filePath: prop<string>(null).withSetter(),
+  filePathMode: prop<"optional" | "required">("required").withSetter(),
   forcePages: prop<boolean>(false).withSetter(),
   hasChanges: prop<boolean>(false).withSetter(),
   ids: prop<string[]>(() => []).withSetter(),
@@ -547,6 +576,7 @@ export class _FileImportBatchSearch extends Model({
     () => getConfig().imports.manager.search.sort,
   ).withSetter(),
   startedAtEnd: prop<string>("").withSetter(),
+  startedAtMode: prop<"optional" | "required">("required").withSetter(),
   startedAtStart: prop<string>("").withSetter(),
   tags: prop<Stores.TagOption[]>(() => []).withSetter(),
   isDeleteModalOpen: prop<boolean>(false).withSetter(),
@@ -603,12 +633,17 @@ export class _FileImportBatchSearch extends Model({
   reset() {
     this.cachedFilterProps = null;
     this.collectionTitle = "";
+    this.collectionTitleMode = "required";
     this.completedAtEnd = "";
+    this.completedAtMode = "required";
     this.completedAtStart = "";
     this.dateCreatedEnd = "";
+    this.dateCreatedMode = "required";
     this.dateCreatedStart = "";
     this.fileCount = { logOp: "", value: 0 };
+    this.fileCountMode = "required";
     this.filePath = null;
+    this.filePathMode = "required";
     this.forcePages = false;
     this.hasChanges = false;
     this.ids = [];
@@ -623,6 +658,7 @@ export class _FileImportBatchSearch extends Model({
     this.selectedIds = [];
     this.sortValue = getConfig().imports.manager.search.sort;
     this.startedAtEnd = "";
+    this.startedAtMode = "required";
     this.startedAtStart = "";
     this.tags = [];
   }
@@ -973,16 +1009,22 @@ export class _FileImportBatchSearch extends Model({
   getFilterProps() {
     return {
       collectionTitle: this.collectionTitle,
+      collectionTitleMode: this.collectionTitleMode,
       completedAtEnd: this.completedAtEnd,
+      completedAtMode: this.completedAtMode,
       completedAtStart: this.completedAtStart,
       dateCreatedEnd: this.dateCreatedEnd,
+      dateCreatedMode: this.dateCreatedMode,
       dateCreatedStart: this.dateCreatedStart,
       fileCount: this.fileCount,
+      fileCountMode: this.fileCountMode,
       filePath: this.filePath,
+      filePathMode: this.filePathMode,
       ids: this.ids,
       isCompleted: this.isCompleted,
       sortValue: this.sortValue,
       startedAtEnd: this.startedAtEnd,
+      startedAtMode: this.startedAtMode,
       startedAtStart: this.startedAtStart,
       ...getRootStore<Stores.RootStore>(this)?.tag?.tagSearchOptsToIds(this.tags),
     };
@@ -998,16 +1040,22 @@ export class _FileImportBatchSearch extends Model({
   getSearchProps() {
     return derefMobx({
       collectionTitle: this.collectionTitle,
+      collectionTitleMode: this.collectionTitleMode,
       completedAtEnd: this.completedAtEnd,
+      completedAtMode: this.completedAtMode,
       completedAtStart: this.completedAtStart,
       dateCreatedEnd: this.dateCreatedEnd,
+      dateCreatedMode: this.dateCreatedMode,
       dateCreatedStart: this.dateCreatedStart,
       fileCount: this.fileCount,
+      fileCountMode: this.fileCountMode,
       filePath: this.filePath,
+      filePathMode: this.filePathMode,
       ids: this.ids,
       isCompleted: this.isCompleted,
       sortValue: this.sortValue,
       startedAtEnd: this.startedAtEnd,
+      startedAtMode: this.startedAtMode,
       startedAtStart: this.startedAtStart,
       tags: this.tags,
     });
@@ -1016,12 +1064,17 @@ export class _FileImportBatchSearch extends Model({
 @model("medior/_FileTransformSearch")
 export class _FileTransformSearch extends Model({
   afterSize: prop<{ logOp: LogicalOp | ""; value: number }>(() => ({ logOp: "", value: 0 })),
+  afterSizeMode: prop<"optional" | "required">("required").withSetter(),
   beforePath: prop<string>(null).withSetter(),
+  beforePathMode: prop<"optional" | "required">("required").withSetter(),
   beforeSize: prop<{ logOp: LogicalOp | ""; value: number }>(() => ({ logOp: "", value: 0 })),
+  beforeSizeMode: prop<"optional" | "required">("required").withSetter(),
   cachedFilterProps: prop<object | null>(null).withSetter(),
   completedAtEnd: prop<string>("").withSetter(),
+  completedAtMode: prop<"optional" | "required">("required").withSetter(),
   completedAtStart: prop<string>("").withSetter(),
   dateCreatedEnd: prop<string>("").withSetter(),
+  dateCreatedMode: prop<"optional" | "required">("required").withSetter(),
   dateCreatedStart: prop<string>("").withSetter(),
   forcePages: prop<boolean>(false).withSetter(),
   hasChanges: prop<boolean>(false).withSetter(),
@@ -1039,9 +1092,12 @@ export class _FileTransformSearch extends Model({
     () => getConfig().file.transforms.search.sort,
   ).withSetter(),
   startedAtEnd: prop<string>("").withSetter(),
+  startedAtMode: prop<"optional" | "required">("required").withSetter(),
   startedAtStart: prop<string>("").withSetter(),
   status: prop<string>("").withSetter(),
+  statusMode: prop<"optional" | "required">("required").withSetter(),
   type: prop<string>("").withSetter(),
+  typeMode: prop<"optional" | "required">("required").withSetter(),
   isDeleteModalOpen: prop<boolean>(false).withSetter(),
   isSaveModalOpen: prop<boolean>(false).withSetter(),
   savedSearches: prop<Stores.SavedSearch[]>(() => []).withSetter(),
@@ -1106,12 +1162,17 @@ export class _FileTransformSearch extends Model({
   @modelAction
   reset() {
     this.afterSize = { logOp: "", value: 0 };
+    this.afterSizeMode = "required";
     this.beforePath = null;
+    this.beforePathMode = "required";
     this.beforeSize = { logOp: "", value: 0 };
+    this.beforeSizeMode = "required";
     this.cachedFilterProps = null;
     this.completedAtEnd = "";
+    this.completedAtMode = "required";
     this.completedAtStart = "";
     this.dateCreatedEnd = "";
+    this.dateCreatedMode = "required";
     this.dateCreatedStart = "";
     this.forcePages = false;
     this.hasChanges = false;
@@ -1127,9 +1188,12 @@ export class _FileTransformSearch extends Model({
     this.selectedIds = [];
     this.sortValue = getConfig().file.transforms.search.sort;
     this.startedAtEnd = "";
+    this.startedAtMode = "required";
     this.startedAtStart = "";
     this.status = "";
+    this.statusMode = "required";
     this.type = "";
+    this.typeMode = "required";
   }
 
   @modelAction
@@ -1464,19 +1528,27 @@ export class _FileTransformSearch extends Model({
   getFilterProps() {
     return {
       afterSize: this.afterSize,
+      afterSizeMode: this.afterSizeMode,
       beforePath: this.beforePath,
+      beforePathMode: this.beforePathMode,
       beforeSize: this.beforeSize,
+      beforeSizeMode: this.beforeSizeMode,
       completedAtEnd: this.completedAtEnd,
+      completedAtMode: this.completedAtMode,
       completedAtStart: this.completedAtStart,
       dateCreatedEnd: this.dateCreatedEnd,
+      dateCreatedMode: this.dateCreatedMode,
       dateCreatedStart: this.dateCreatedStart,
       ids: this.ids,
       isCompleted: this.isCompleted,
       sortValue: this.sortValue,
       startedAtEnd: this.startedAtEnd,
+      startedAtMode: this.startedAtMode,
       startedAtStart: this.startedAtStart,
       status: this.status,
+      statusMode: this.statusMode,
       type: this.type,
+      typeMode: this.typeMode,
     };
   }
 
@@ -1490,40 +1562,56 @@ export class _FileTransformSearch extends Model({
   getSearchProps() {
     return derefMobx({
       afterSize: this.afterSize,
+      afterSizeMode: this.afterSizeMode,
       beforePath: this.beforePath,
+      beforePathMode: this.beforePathMode,
       beforeSize: this.beforeSize,
+      beforeSizeMode: this.beforeSizeMode,
       completedAtEnd: this.completedAtEnd,
+      completedAtMode: this.completedAtMode,
       completedAtStart: this.completedAtStart,
       dateCreatedEnd: this.dateCreatedEnd,
+      dateCreatedMode: this.dateCreatedMode,
       dateCreatedStart: this.dateCreatedStart,
       ids: this.ids,
       isCompleted: this.isCompleted,
       sortValue: this.sortValue,
       startedAtEnd: this.startedAtEnd,
+      startedAtMode: this.startedAtMode,
       startedAtStart: this.startedAtStart,
       status: this.status,
+      statusMode: this.statusMode,
       type: this.type,
+      typeMode: this.typeMode,
     });
   }
 }
 @model("medior/_FileSearch")
 export class _FileSearch extends Model({
   bitrate: prop<{ logOp: LogicalOp | ""; value: number }>(() => ({ logOp: "", value: 0 })),
+  bitrateMode: prop<"optional" | "required">("required").withSetter(),
   cachedFilterProps: prop<object | null>(null).withSetter(),
   carouselFileIds: prop<string[]>(() => []).withSetter(),
   dateCreatedEnd: prop<string>("").withSetter(),
+  dateCreatedMode: prop<"optional" | "required">("required").withSetter(),
   dateCreatedStart: prop<string>("").withSetter(),
   dateImportedEnd: prop<string>("").withSetter(),
+  dateImportedMode: prop<"optional" | "required">("required").withSetter(),
   dateImportedStart: prop<string>("").withSetter(),
   dateModifiedEnd: prop<string>("").withSetter(),
+  dateModifiedMode: prop<"optional" | "required">("required").withSetter(),
   dateModifiedStart: prop<string>("").withSetter(),
   diffusionParams: prop<string>(null).withSetter(),
+  diffusionParamsMode: prop<"optional" | "required">("required").withSetter(),
   duration: prop<{ logOp: LogicalOp | ""; value: number }>(() => ({ logOp: "", value: 0 })),
+  durationMode: prop<"optional" | "required">("required").withSetter(),
   excludedFileIds: prop<string[]>(() => []).withSetter(),
   forcePages: prop<boolean>(false).withSetter(),
   frameRate: prop<{ logOp: LogicalOp | ""; value: number }>(() => ({ logOp: "", value: 0 })),
+  frameRateMode: prop<"optional" | "required">("required").withSetter(),
   hasChanges: prop<boolean>(false).withSetter(),
   hasDiffParams: prop<boolean>(false).withSetter(),
+  heightMode: prop<"optional" | "required">("required").withSetter(),
   ids: prop<string[]>(() => []).withSetter(),
   isArchived: prop<boolean>(false).withSetter(),
   isCorrupted: prop<boolean>(null).withSetter(),
@@ -1532,19 +1620,28 @@ export class _FileSearch extends Model({
   isPageCountLoading: prop<boolean>(false).withSetter(),
   isTranscribed: prop<boolean>(null).withSetter(),
   loadId: prop<number>(0).withSetter(),
+  longEdgeMode: prop<"optional" | "required">("required").withSetter(),
   maxHeight: prop<number>(null).withSetter(),
+  maxLongEdge: prop<number>(null).withSetter(),
+  maxShortEdge: prop<number>(null).withSetter(),
   maxSize: prop<number>(null).withSetter(),
   maxWidth: prop<number>(null).withSetter(),
   minHeight: prop<number>(null).withSetter(),
+  minLongEdge: prop<number>(null).withSetter(),
+  minShortEdge: prop<number>(null).withSetter(),
   minSize: prop<number>(null).withSetter(),
   minWidth: prop<number>(null).withSetter(),
   numOfCollections: prop<{ logOp: LogicalOp | ""; value: number }>(() => ({ logOp: "", value: 0 })),
+  numOfCollectionsMode: prop<"optional" | "required">("required").withSetter(),
   numOfTags: prop<{ logOp: LogicalOp | ""; value: number }>(() => ({ logOp: "", value: 0 })),
+  numOfTagsMode: prop<"optional" | "required">("required").withSetter(),
   originalPath: prop<string>(null).withSetter(),
+  originalPathMode: prop<"optional" | "required">("required").withSetter(),
   page: prop<number>(1).withSetter(),
   pageCount: prop<number>(1).withSetter(),
   pageSize: prop<number>(() => getConfig().file.search.pageSize).withSetter(),
   rating: prop<{ logOp: LogicalOp | ""; value: number }>(() => ({ logOp: "", value: 0 })),
+  ratingMode: prop<"optional" | "required">("required").withSetter(),
   results: prop<Stores.File[]>(() => []).withSetter(),
   selectedAudioCodecs: prop<Types.SelectedAudioCodecs>(
     () =>
@@ -1571,9 +1668,13 @@ export class _FileSearch extends Model({
         getConfig().file.videoExts.map((ext) => [ext, true]),
       ) as Types.SelectedVideoExts,
   ),
+  shortEdgeMode: prop<"optional" | "required">("required").withSetter(),
+  sizeMode: prop<"optional" | "required">("required").withSetter(),
   sortValue: prop<SortMenuProps["value"]>(() => getConfig().file.search.sort).withSetter(),
   tags: prop<Stores.TagOption[]>(() => []).withSetter(),
   transcription: prop<string>(null).withSetter(),
+  transcriptionMode: prop<"optional" | "required">("required").withSetter(),
+  widthMode: prop<"optional" | "required">("required").withSetter(),
   isDeleteModalOpen: prop<boolean>(false).withSetter(),
   isSaveModalOpen: prop<boolean>(false).withSetter(),
   savedSearches: prop<Stores.SavedSearch[]>(() => []).withSetter(),
@@ -1702,21 +1803,29 @@ export class _FileSearch extends Model({
   @modelAction
   reset() {
     this.bitrate = { logOp: "", value: 0 };
+    this.bitrateMode = "required";
     this.cachedFilterProps = null;
     this.carouselFileIds = [];
     this.dateCreatedEnd = "";
+    this.dateCreatedMode = "required";
     this.dateCreatedStart = "";
     this.dateImportedEnd = "";
+    this.dateImportedMode = "required";
     this.dateImportedStart = "";
     this.dateModifiedEnd = "";
+    this.dateModifiedMode = "required";
     this.dateModifiedStart = "";
     this.diffusionParams = null;
+    this.diffusionParamsMode = "required";
     this.duration = { logOp: "", value: 0 };
+    this.durationMode = "required";
     this.excludedFileIds = [];
     this.forcePages = false;
     this.frameRate = { logOp: "", value: 0 };
+    this.frameRateMode = "required";
     this.hasChanges = false;
     this.hasDiffParams = false;
+    this.heightMode = "required";
     this.ids = [];
     this.isArchived = false;
     this.isCorrupted = null;
@@ -1725,19 +1834,28 @@ export class _FileSearch extends Model({
     this.isPageCountLoading = false;
     this.isTranscribed = null;
     this.loadId += 1;
+    this.longEdgeMode = "required";
     this.maxHeight = null;
+    this.maxLongEdge = null;
+    this.maxShortEdge = null;
     this.maxSize = null;
     this.maxWidth = null;
     this.minHeight = null;
+    this.minLongEdge = null;
+    this.minShortEdge = null;
     this.minSize = null;
     this.minWidth = null;
     this.numOfCollections = { logOp: "", value: 0 };
+    this.numOfCollectionsMode = "required";
     this.numOfTags = { logOp: "", value: 0 };
+    this.numOfTagsMode = "required";
     this.originalPath = null;
+    this.originalPathMode = "required";
     this.page = 1;
     this.pageCount = 1;
     this.pageSize = getConfig().file.search.pageSize;
     this.rating = { logOp: "", value: 0 };
+    this.ratingMode = "required";
     this.results = [];
     this.selectedAudioCodecs = Object.fromEntries(
       getConfig().file.audioCodecs.map((codec) => [codec, true]),
@@ -1752,9 +1870,13 @@ export class _FileSearch extends Model({
     this.selectedVideoExts = Object.fromEntries(
       getConfig().file.videoExts.map((ext) => [ext, true]),
     ) as Types.SelectedVideoExts;
+    this.shortEdgeMode = "required";
+    this.sizeMode = "required";
     this.sortValue = getConfig().file.search.sort;
     this.tags = [];
     this.transcription = null;
+    this.transcriptionMode = "required";
+    this.widthMode = "required";
   }
 
   @modelAction
@@ -2095,9 +2217,13 @@ export class _FileSearch extends Model({
       (!isDeepEqual(this.isModified, null) ? 1 : 0) +
       (!isDeepEqual(this.isTranscribed, null) ? 1 : 0) +
       (!isDeepEqual(this.maxHeight, null) ? 1 : 0) +
+      (!isDeepEqual(this.maxLongEdge, null) ? 1 : 0) +
+      (!isDeepEqual(this.maxShortEdge, null) ? 1 : 0) +
       (!isDeepEqual(this.maxSize, null) ? 1 : 0) +
       (!isDeepEqual(this.maxWidth, null) ? 1 : 0) +
       (!isDeepEqual(this.minHeight, null) ? 1 : 0) +
+      (!isDeepEqual(this.minLongEdge, null) ? 1 : 0) +
+      (!isDeepEqual(this.minShortEdge, null) ? 1 : 0) +
       (!isDeepEqual(this.minSize, null) ? 1 : 0) +
       (!isDeepEqual(this.minWidth, null) ? 1 : 0) +
       (!isDeepEqual(this.numOfCollections, { logOp: "", value: 0 }) ? 1 : 0) +
@@ -2151,39 +2277,60 @@ export class _FileSearch extends Model({
   getFilterProps() {
     return {
       bitrate: this.bitrate,
+      bitrateMode: this.bitrateMode,
       dateCreatedEnd: this.dateCreatedEnd,
+      dateCreatedMode: this.dateCreatedMode,
       dateCreatedStart: this.dateCreatedStart,
       dateImportedEnd: this.dateImportedEnd,
+      dateImportedMode: this.dateImportedMode,
       dateImportedStart: this.dateImportedStart,
       dateModifiedEnd: this.dateModifiedEnd,
+      dateModifiedMode: this.dateModifiedMode,
       dateModifiedStart: this.dateModifiedStart,
       diffusionParams: this.diffusionParams,
+      diffusionParamsMode: this.diffusionParamsMode,
       duration: this.duration,
+      durationMode: this.durationMode,
       excludedFileIds: this.excludedFileIds,
       frameRate: this.frameRate,
+      frameRateMode: this.frameRateMode,
       hasDiffParams: this.hasDiffParams,
+      heightMode: this.heightMode,
       ids: this.ids,
       isArchived: this.isArchived,
       isCorrupted: this.isCorrupted,
       isModified: this.isModified,
       isTranscribed: this.isTranscribed,
+      longEdgeMode: this.longEdgeMode,
       maxHeight: this.maxHeight,
+      maxLongEdge: this.maxLongEdge,
+      maxShortEdge: this.maxShortEdge,
       maxSize: this.maxSize,
       maxWidth: this.maxWidth,
       minHeight: this.minHeight,
+      minLongEdge: this.minLongEdge,
+      minShortEdge: this.minShortEdge,
       minSize: this.minSize,
       minWidth: this.minWidth,
       numOfCollections: this.numOfCollections,
+      numOfCollectionsMode: this.numOfCollectionsMode,
       numOfTags: this.numOfTags,
+      numOfTagsMode: this.numOfTagsMode,
       originalPath: this.originalPath,
+      originalPathMode: this.originalPathMode,
       rating: this.rating,
+      ratingMode: this.ratingMode,
       selectedAudioCodecs: this.selectedAudioCodecs,
       selectedImageExts: this.selectedImageExts,
       selectedVideoCodecs: this.selectedVideoCodecs,
       selectedVideoExts: this.selectedVideoExts,
+      shortEdgeMode: this.shortEdgeMode,
+      sizeMode: this.sizeMode,
       sortValue: this.sortValue,
       ...getRootStore<Stores.RootStore>(this)?.tag?.tagSearchOptsToIds(this.tags),
       transcription: this.transcription,
+      transcriptionMode: this.transcriptionMode,
+      widthMode: this.widthMode,
     };
   }
 
@@ -2197,39 +2344,60 @@ export class _FileSearch extends Model({
   getSearchProps() {
     return derefMobx({
       bitrate: this.bitrate,
+      bitrateMode: this.bitrateMode,
       dateCreatedEnd: this.dateCreatedEnd,
+      dateCreatedMode: this.dateCreatedMode,
       dateCreatedStart: this.dateCreatedStart,
       dateImportedEnd: this.dateImportedEnd,
+      dateImportedMode: this.dateImportedMode,
       dateImportedStart: this.dateImportedStart,
       dateModifiedEnd: this.dateModifiedEnd,
+      dateModifiedMode: this.dateModifiedMode,
       dateModifiedStart: this.dateModifiedStart,
       diffusionParams: this.diffusionParams,
+      diffusionParamsMode: this.diffusionParamsMode,
       duration: this.duration,
+      durationMode: this.durationMode,
       excludedFileIds: this.excludedFileIds,
       frameRate: this.frameRate,
+      frameRateMode: this.frameRateMode,
       hasDiffParams: this.hasDiffParams,
+      heightMode: this.heightMode,
       ids: this.ids,
       isArchived: this.isArchived,
       isCorrupted: this.isCorrupted,
       isModified: this.isModified,
       isTranscribed: this.isTranscribed,
+      longEdgeMode: this.longEdgeMode,
       maxHeight: this.maxHeight,
+      maxLongEdge: this.maxLongEdge,
+      maxShortEdge: this.maxShortEdge,
       maxSize: this.maxSize,
       maxWidth: this.maxWidth,
       minHeight: this.minHeight,
+      minLongEdge: this.minLongEdge,
+      minShortEdge: this.minShortEdge,
       minSize: this.minSize,
       minWidth: this.minWidth,
       numOfCollections: this.numOfCollections,
+      numOfCollectionsMode: this.numOfCollectionsMode,
       numOfTags: this.numOfTags,
+      numOfTagsMode: this.numOfTagsMode,
       originalPath: this.originalPath,
+      originalPathMode: this.originalPathMode,
       rating: this.rating,
+      ratingMode: this.ratingMode,
       selectedAudioCodecs: this.selectedAudioCodecs,
       selectedImageExts: this.selectedImageExts,
       selectedVideoCodecs: this.selectedVideoCodecs,
       selectedVideoExts: this.selectedVideoExts,
+      shortEdgeMode: this.shortEdgeMode,
+      sizeMode: this.sizeMode,
       sortValue: this.sortValue,
       tags: this.tags,
       transcription: this.transcription,
+      transcriptionMode: this.transcriptionMode,
+      widthMode: this.widthMode,
     });
   }
 }
@@ -2237,6 +2405,7 @@ export class _FileSearch extends Model({
 export class _SavedImportConfigSearch extends Model({
   cachedFilterProps: prop<object | null>(null).withSetter(),
   dateModifiedEnd: prop<string>("").withSetter(),
+  dateModifiedMode: prop<"optional" | "required">("required").withSetter(),
   dateModifiedStart: prop<string>("").withSetter(),
   folderPath: prop<string>(""),
   forcePages: prop<boolean>(false).withSetter(),
@@ -2310,6 +2479,7 @@ export class _SavedImportConfigSearch extends Model({
   reset() {
     this.cachedFilterProps = null;
     this.dateModifiedEnd = "";
+    this.dateModifiedMode = "required";
     this.dateModifiedStart = "";
     this.folderPath = "";
     this.forcePages = false;
@@ -2651,6 +2821,7 @@ export class _SavedImportConfigSearch extends Model({
   getFilterProps() {
     return {
       dateModifiedEnd: this.dateModifiedEnd,
+      dateModifiedMode: this.dateModifiedMode,
       dateModifiedStart: this.dateModifiedStart,
       folderPath: this.folderPath,
       ids: this.ids,
@@ -2669,6 +2840,7 @@ export class _SavedImportConfigSearch extends Model({
   getSearchProps() {
     return derefMobx({
       dateModifiedEnd: this.dateModifiedEnd,
+      dateModifiedMode: this.dateModifiedMode,
       dateModifiedStart: this.dateModifiedStart,
       folderPath: this.folderPath,
       ids: this.ids,
@@ -2680,13 +2852,18 @@ export class _SavedImportConfigSearch extends Model({
 @model("medior/_TagSearch")
 export class _TagSearch extends Model({
   alias: prop<string>("").withSetter(),
+  aliasMode: prop<"optional" | "required">("required").withSetter(),
   cachedFilterProps: prop<object | null>(null).withSetter(),
   count: prop<{ logOp: LogicalOp | ""; value: number }>(() => ({ logOp: "", value: 0 })),
+  countMode: prop<"optional" | "required">("required").withSetter(),
   dateCreatedEnd: prop<string>("").withSetter(),
+  dateCreatedMode: prop<"optional" | "required">("required").withSetter(),
   dateCreatedStart: prop<string>("").withSetter(),
   dateModifiedEnd: prop<string>("").withSetter(),
+  dateModifiedMode: prop<"optional" | "required">("required").withSetter(),
   dateModifiedStart: prop<string>("").withSetter(),
   dateOfInceptionEnd: prop<string>("").withSetter(),
+  dateOfInceptionMode: prop<"optional" | "required">("required").withSetter(),
   dateOfInceptionStart: prop<string>("").withSetter(),
   forcePages: prop<boolean>(false).withSetter(),
   hasChanges: prop<boolean>(false).withSetter(),
@@ -2695,17 +2872,21 @@ export class _TagSearch extends Model({
   isLoading: prop<boolean>(false).withSetter(),
   isPageCountLoading: prop<boolean>(false).withSetter(),
   label: prop<string>("").withSetter(),
+  labelMode: prop<"optional" | "required">("required").withSetter(),
   loadId: prop<number>(0).withSetter(),
   page: prop<number>(1).withSetter(),
   pageCount: prop<number>(1).withSetter(),
   pageSize: prop<number>(() => getConfig().tags.manager.search.pageSize).withSetter(),
   rating: prop<{ logOp: LogicalOp | ""; value: number }>(() => ({ logOp: "", value: 0 })),
+  ratingMode: prop<"optional" | "required">("required").withSetter(),
   results: prop<Stores.Tag[]>(() => []).withSetter(),
   selectedIds: prop<string[]>(() => []).withSetter(),
   size: prop<{ logOp: LogicalOp | ""; value: number }>(() => ({ logOp: "", value: 0 })),
+  sizeMode: prop<"optional" | "required">("required").withSetter(),
   sortValue: prop<SortMenuProps["value"]>(() => getConfig().tags.manager.search.sort).withSetter(),
   tags: prop<Stores.TagOption[]>(() => []).withSetter(),
   title: prop<string>("").withSetter(),
+  titleMode: prop<"optional" | "required">("required").withSetter(),
   isDeleteModalOpen: prop<boolean>(false).withSetter(),
   isSaveModalOpen: prop<boolean>(false).withSetter(),
   savedSearches: prop<Stores.SavedSearch[]>(() => []).withSetter(),
@@ -2781,13 +2962,18 @@ export class _TagSearch extends Model({
   @modelAction
   reset() {
     this.alias = "";
+    this.aliasMode = "required";
     this.cachedFilterProps = null;
     this.count = { logOp: "", value: 0 };
+    this.countMode = "required";
     this.dateCreatedEnd = "";
+    this.dateCreatedMode = "required";
     this.dateCreatedStart = "";
     this.dateModifiedEnd = "";
+    this.dateModifiedMode = "required";
     this.dateModifiedStart = "";
     this.dateOfInceptionEnd = "";
+    this.dateOfInceptionMode = "required";
     this.dateOfInceptionStart = "";
     this.forcePages = false;
     this.hasChanges = false;
@@ -2796,17 +2982,21 @@ export class _TagSearch extends Model({
     this.isLoading = false;
     this.isPageCountLoading = false;
     this.label = "";
+    this.labelMode = "required";
     this.loadId += 1;
     this.page = 1;
     this.pageCount = 1;
     this.pageSize = getConfig().tags.manager.search.pageSize;
     this.rating = { logOp: "", value: 0 };
+    this.ratingMode = "required";
     this.results = [];
     this.selectedIds = [];
     this.size = { logOp: "", value: 0 };
+    this.sizeMode = "required";
     this.sortValue = getConfig().tags.manager.search.sort;
     this.tags = [];
     this.title = "";
+    this.titleMode = "required";
   }
 
   @modelAction
@@ -3143,21 +3333,30 @@ export class _TagSearch extends Model({
   getFilterProps() {
     return {
       alias: this.alias,
+      aliasMode: this.aliasMode,
       count: this.count,
+      countMode: this.countMode,
       dateCreatedEnd: this.dateCreatedEnd,
+      dateCreatedMode: this.dateCreatedMode,
       dateCreatedStart: this.dateCreatedStart,
       dateModifiedEnd: this.dateModifiedEnd,
+      dateModifiedMode: this.dateModifiedMode,
       dateModifiedStart: this.dateModifiedStart,
       dateOfInceptionEnd: this.dateOfInceptionEnd,
+      dateOfInceptionMode: this.dateOfInceptionMode,
       dateOfInceptionStart: this.dateOfInceptionStart,
       hasRegEx: this.hasRegEx,
       ids: this.ids,
       label: this.label,
+      labelMode: this.labelMode,
       rating: this.rating,
+      ratingMode: this.ratingMode,
       size: this.size,
+      sizeMode: this.sizeMode,
       sortValue: this.sortValue,
       ...getRootStore<Stores.RootStore>(this)?.tag?.tagSearchOptsToIds(this.tags),
       title: this.title,
+      titleMode: this.titleMode,
     };
   }
 
@@ -3171,21 +3370,30 @@ export class _TagSearch extends Model({
   getSearchProps() {
     return derefMobx({
       alias: this.alias,
+      aliasMode: this.aliasMode,
       count: this.count,
+      countMode: this.countMode,
       dateCreatedEnd: this.dateCreatedEnd,
+      dateCreatedMode: this.dateCreatedMode,
       dateCreatedStart: this.dateCreatedStart,
       dateModifiedEnd: this.dateModifiedEnd,
+      dateModifiedMode: this.dateModifiedMode,
       dateModifiedStart: this.dateModifiedStart,
       dateOfInceptionEnd: this.dateOfInceptionEnd,
+      dateOfInceptionMode: this.dateOfInceptionMode,
       dateOfInceptionStart: this.dateOfInceptionStart,
       hasRegEx: this.hasRegEx,
       ids: this.ids,
       label: this.label,
+      labelMode: this.labelMode,
       rating: this.rating,
+      ratingMode: this.ratingMode,
       size: this.size,
+      sizeMode: this.sizeMode,
       sortValue: this.sortValue,
       tags: this.tags,
       title: this.title,
+      titleMode: this.titleMode,
     });
   }
 }
@@ -3398,7 +3606,13 @@ export class _FileImport extends Model({
   size: prop<number>(),
   status: prop<string | "COMPLETE" | "DELETED" | "DUPLICATE" | "ERROR" | "PENDING">(null),
   tagIds: prop<string[]>(null),
-  thumb: prop<{ frameHeight?: number; frameWidth?: number; path: string }>(null),
+  thumb: prop<{
+    frameHeight?: number;
+    frameWidth?: number;
+    ntfsFileId?: string;
+    ntfsVolumeId?: string;
+    path: string;
+  }>(null),
 }) {
   @modelAction
   update(updates: Partial<ModelCreationData<this>>) {
@@ -3479,6 +3693,8 @@ export class _FileTransform extends Model({
   configMaxWidth: prop<number>(null),
   configOverride: prop<string[]>(() => []),
   errorMsg: prop<string>(null),
+  duplicateFileId: prop<string>(null),
+  duplicatePath: prop<string>(null),
   fileId: prop<string>(),
   isCompleted: prop<boolean>(false),
   progressPercent: prop<number>(null),
@@ -3489,7 +3705,9 @@ export class _FileTransform extends Model({
     | string
     | "COMPLETE"
     | "COMPRESSED"
+    | "DUPLICATE"
     | "ERROR"
+    | "MERGED"
     | "PENDING"
     | "REPLACED"
     | "RUNNING"
@@ -3572,7 +3790,13 @@ export class _File extends Model({
   size: prop<number>(),
   tagIds: prop<string[]>(),
   tagIdsWithAncestors: prop<string[]>(),
-  thumb: prop<{ frameHeight?: number; frameWidth?: number; path: string }>(),
+  thumb: prop<{
+    frameHeight?: number;
+    frameWidth?: number;
+    ntfsFileId?: string;
+    ntfsVolumeId?: string;
+    path: string;
+  }>(),
   timestamps: prop<
     Array<{
       id: string;

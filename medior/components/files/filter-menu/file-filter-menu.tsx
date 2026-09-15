@@ -5,6 +5,7 @@ import {
   Comp,
   DateRange,
   FileFilter,
+  FilterHeader,
   FilterMenu,
   Input,
   LogOpsInput,
@@ -62,7 +63,13 @@ export const FileFilterMenu = Comp(({ color = colors.foreground, store }: FileFi
 
         <Card height="100%" width="9rem" spacing="0.5rem">
           <LogOpsInput
-            header="# of Tags"
+            header={
+              <FilterHeader
+                label="# of Tags"
+                mode={store.numOfTagsMode}
+                setMode={store.setNumOfTagsMode}
+              />
+            }
             logOpValue={store.numOfTags.logOp}
             numValue={store.numOfTags.value}
             setLogOpValue={store.setNumOfTagsOp}
@@ -71,7 +78,9 @@ export const FileFilterMenu = Comp(({ color = colors.foreground, store }: FileFi
           />
 
           <LogOpsInput
-            header="Rating"
+            header={
+              <FilterHeader label="Rating" mode={store.ratingMode} setMode={store.setRatingMode} />
+            }
             logOpValue={store.rating.logOp}
             numValue={store.rating.value}
             setLogOpValue={store.setRatingOp}
@@ -166,7 +175,13 @@ export const FileFilterMenu = Comp(({ color = colors.foreground, store }: FileFi
       <View row spacing="0.5rem">
         <Card flex="none" width="22rem" spacing="0.5rem">
           <DateRange
-            header="Date Created"
+            header={
+              <FilterHeader
+                label="Date Created"
+                mode={store.dateCreatedMode}
+                setMode={store.setDateCreatedMode}
+              />
+            }
             startDate={store.dateCreatedStart}
             setStartDate={store.setDateCreatedStart}
             endDate={store.dateCreatedEnd}
@@ -174,7 +189,13 @@ export const FileFilterMenu = Comp(({ color = colors.foreground, store }: FileFi
           />
 
           <DateRange
-            header="Date Modified"
+            header={
+              <FilterHeader
+                label="Date Modified"
+                mode={store.dateModifiedMode}
+                setMode={store.setDateModifiedMode}
+              />
+            }
             startDate={store.dateModifiedStart}
             setStartDate={store.setDateModifiedStart}
             endDate={store.dateModifiedEnd}
@@ -182,21 +203,77 @@ export const FileFilterMenu = Comp(({ color = colors.foreground, store }: FileFi
           />
 
           <Input
-            header="Original File Path"
+            header={
+              <FilterHeader
+                label="Original File Path"
+                mode={store.originalPathMode}
+                setMode={store.setOriginalPathMode}
+              />
+            }
             value={store.originalPath}
             setValue={store.setOriginalPath}
           />
 
           <Input
-            header="Transcription"
+            header={
+              <FilterHeader
+                label="Transcription"
+                mode={store.transcriptionMode}
+                setMode={store.setTranscriptionMode}
+              />
+            }
             value={store.transcription}
             setValue={store.setTranscription}
+          />
+
+          <Input
+            header={
+              <FilterHeader
+                label="Diffusion Params"
+                mode={store.diffusionParamsMode}
+                setMode={store.setDiffusionParamsMode}
+              />
+            }
+            value={store.diffusionParams}
+            setValue={store.setDiffusionParams}
           />
         </Card>
 
         <Card flex={1} width="12rem" spacing="0.5rem">
           <NumRange
-            header="Height"
+            header={
+              <FilterHeader
+                label="Long Edge"
+                mode={store.longEdgeMode}
+                setMode={store.setLongEdgeMode}
+              />
+            }
+            min={store.minLongEdge}
+            max={store.maxLongEdge}
+            setMin={store.setMinLongEdge}
+            setMax={store.setMaxLongEdge}
+            numInputProps={{ adornment: "px" }}
+          />
+
+          <NumRange
+            header={
+              <FilterHeader
+                label="Short Edge"
+                mode={store.shortEdgeMode}
+                setMode={store.setShortEdgeMode}
+              />
+            }
+            min={store.minShortEdge}
+            max={store.maxShortEdge}
+            setMin={store.setMinShortEdge}
+            setMax={store.setMaxShortEdge}
+            numInputProps={{ adornment: "px" }}
+          />
+
+          <NumRange
+            header={
+              <FilterHeader label="Height" mode={store.heightMode} setMode={store.setHeightMode} />
+            }
             min={store.minHeight}
             max={store.maxHeight}
             setMin={store.setMinHeight}
@@ -205,7 +282,9 @@ export const FileFilterMenu = Comp(({ color = colors.foreground, store }: FileFi
           />
 
           <NumRange
-            header="Width"
+            header={
+              <FilterHeader label="Width" mode={store.widthMode} setMode={store.setWidthMode} />
+            }
             min={store.minWidth}
             max={store.maxWidth}
             setMin={store.setMinWidth}
@@ -214,24 +293,24 @@ export const FileFilterMenu = Comp(({ color = colors.foreground, store }: FileFi
           />
 
           <NumRange
-            header="Size"
+            header={<FilterHeader label="Size" mode={store.sizeMode} setMode={store.setSizeMode} />}
             min={store._minSize}
             max={store._maxSize}
             setMin={store._setMinSize}
             setMax={store._setMaxSize}
             numInputProps={{ adornment: "kb" }}
           />
-
-          <Input
-            header="Diffusion Params"
-            value={store.diffusionParams}
-            setValue={store.setDiffusionParams}
-          />
         </Card>
 
         <Card flex={1} width="11rem" spacing="0.5rem">
           <LogOpsInput
-            header="Bitrate"
+            header={
+              <FilterHeader
+                label="Bitrate"
+                mode={store.bitrateMode}
+                setMode={store.setBitrateMode}
+              />
+            }
             logOpValue={store.bitrate.logOp}
             numValue={store._bitrate}
             setLogOpValue={store.setBitrateOp}
@@ -240,7 +319,13 @@ export const FileFilterMenu = Comp(({ color = colors.foreground, store }: FileFi
           />
 
           <LogOpsInput
-            header="Duration"
+            header={
+              <FilterHeader
+                label="Duration"
+                mode={store.durationMode}
+                setMode={store.setDurationMode}
+              />
+            }
             logOpValue={store.duration.logOp}
             setLogOpValue={store.setDurationOp}
             numValue={store.duration.value}
@@ -250,7 +335,13 @@ export const FileFilterMenu = Comp(({ color = colors.foreground, store }: FileFi
           />
 
           <LogOpsInput
-            header="FPS"
+            header={
+              <FilterHeader
+                label="FPS"
+                mode={store.frameRateMode}
+                setMode={store.setFrameRateMode}
+              />
+            }
             logOpValue={store.frameRate.logOp}
             numValue={store.frameRate.value}
             setLogOpValue={store.setFrameRateOp}
@@ -259,7 +350,13 @@ export const FileFilterMenu = Comp(({ color = colors.foreground, store }: FileFi
           />
 
           <LogOpsInput
-            header="# of Collections"
+            header={
+              <FilterHeader
+                label="# of Collections"
+                mode={store.numOfCollectionsMode}
+                setMode={store.setNumOfCollectionsMode}
+              />
+            }
             logOpValue={store.numOfCollections.logOp}
             numValue={store.numOfCollections.value}
             setLogOpValue={store.setNumOfCollectionsOp}

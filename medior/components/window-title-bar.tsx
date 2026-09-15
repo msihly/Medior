@@ -104,7 +104,13 @@ export const WindowTitleBar = Comp(({ isDark = false, title }: WindowTitleBarPro
         tooltip="Menu"
       />
 
-      <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={handleMenuClose} keepMounted>
+      <Menu
+        anchorEl={anchorEl}
+        className={css.menu}
+        open={Boolean(anchorEl)}
+        onClose={handleMenuClose}
+        keepMounted
+      >
         <View>
           <ListItem
             icon={stores.home.showFileName ? "CheckBox" : "CheckBoxOutlineBlank"}
@@ -183,6 +189,9 @@ const useClasses = makeClasses((props: ClassesProps) => ({
     marginLeft: 10,
     width: 16,
   },
+  menu: {
+    zIndex: CONSTANTS.WINDOW.TITLE_BAR.Z_INDEX + 1,
+  },
   menuButton: {
     "-webkit-app-region": "no-drag",
     borderRadius: 0,
@@ -201,7 +210,7 @@ const useClasses = makeClasses((props: ClassesProps) => ({
     position: "relative",
     userSelect: "none",
     width: "100%",
-    zIndex: 1401,
+    zIndex: CONSTANTS.WINDOW.TITLE_BAR.Z_INDEX,
   },
   title: {
     "-webkit-app-region": props.isDragEnabled ? "drag" : "no-drag",

@@ -274,6 +274,19 @@ export type GetFileTransformQueueCountOutput = ReturnType<typeof db.getFileTrans
 export type PauseFileTransformerInput = Parameters<typeof db.pauseFileTransformer>[0];
 export type PauseFileTransformerOutput = ReturnType<typeof db.pauseFileTransformer>;
 
+export type InspectFileTransformDuplicateInput = Parameters<
+  typeof db.inspectFileTransformDuplicate
+>[0];
+export type InspectFileTransformDuplicateOutput = ReturnType<
+  typeof db.inspectFileTransformDuplicate
+>;
+
+export type ListFileTransformDuplicatesInput = Parameters<typeof db.listFileTransformDuplicates>[0];
+export type ListFileTransformDuplicatesOutput = ReturnType<typeof db.listFileTransformDuplicates>;
+
+export type MergeFileTransformDuplicateInput = Parameters<typeof db.mergeFileTransformDuplicate>[0];
+export type MergeFileTransformDuplicateOutput = ReturnType<typeof db.mergeFileTransformDuplicate>;
+
 export type ResumeFileTransformerInput = Parameters<typeof db.resumeFileTransformer>[0];
 export type ResumeFileTransformerOutput = ReturnType<typeof db.resumeFileTransformer>;
 
@@ -369,6 +382,9 @@ export type SetFileRatingOutput = ReturnType<typeof db.setFileRating>;
 
 export type RepairFileThumbnailInput = Parameters<typeof db.repairFileThumbnail>[0];
 export type RepairFileThumbnailOutput = ReturnType<typeof db.repairFileThumbnail>;
+
+export type RepairThumbnailNtfsMetadataInput = Parameters<typeof db.repairThumbnailNtfsMetadata>[0];
+export type RepairThumbnailNtfsMetadataOutput = ReturnType<typeof db.repairThumbnailNtfsMetadata>;
 
 export type CancelFileRefreshInput = Parameters<typeof db.cancelFileRefresh>[0];
 export type CancelFileRefreshOutput = ReturnType<typeof db.cancelFileRefresh>;

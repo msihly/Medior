@@ -93,7 +93,7 @@ export const HomeMultiActionBar = Comp(({ isHome = false }: HomeMultiActionBarPr
           <MultiActionButton
             name="AutoMode"
             iconProps={{ size: "0.85em" }}
-            tooltip="Re-encode Videos"
+            tooltip="Re-encode Media"
             onClick={handleReencode}
             disabled={hasNoSelection || !isHome}
           />

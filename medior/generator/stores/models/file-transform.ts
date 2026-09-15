@@ -13,6 +13,7 @@ model.addLogOpProp("afterSize");
 model.addLogOpProp("beforeSize");
 
 model.addProp("beforePath", "string", "null", {
+  filterGroup: "beforePath",
   objPath: ["beforePath", "$regex"],
   objValue: 'new RegExp(args.beforePath, "i")',
 });
@@ -30,11 +31,13 @@ model.addProp("isCompleted", "boolean", "false", {
 });
 
 model.addProp("status", "string", '""', {
+  filterGroup: "status",
   objPath: ["status"],
   objValue: "args.status",
 });
 
 model.addProp("type", "string", '""', {
+  filterGroup: "type",
   objPath: ["type"],
   objValue: "args.type",
 });

@@ -3,9 +3,14 @@ import path from "path";
 import { Field, FixedSizeList, Float16, Float32, Schema, Utf8 } from "apache-arrow";
 import { randomUUID } from "crypto";
 import * as models from "medior/_generated/server/models";
+import { availableParallelism } from "os";
 import { fileLog } from "trabecula/utils/server";
-import { chunkArray } from "medior/utils/common";
-import { getConfig } from "medior/utils/server/config";
+import { storeThumbnailNtfsMetadata } from "medior/server/database/actions/files";
+import { ThumbnailNtfsMetadata } from "medior/server/database/types";
+import { chunkArray, CONSTANTS, PromiseQueue } from "medior/utils/common";
+import { getConfig, getIsAnimated } from "medior/utils/server/config";
+import { getNtfsFileIdentity } from "medior/utils/server/ntfs";
+import { getScaledThumbSize } from "medior/utils/server/videos";
 
 export type VectorScope = "file" | "region" | "segment";
 
@@ -75,6 +80,14 @@ export interface SimilarityBackfillTimings {
   writeMs: number;
 }
 
+export interface SimilarityDecodeDiagnostics {
+  estimatedPixelCount: number;
+  imageCount: number;
+  imageMs: number;
+  videoCount: number;
+  videoMs: number;
+}
+
 export type SimilarityBackfillStage =
   | "cancelled"
   | "complete"
@@ -85,6 +98,7 @@ export type SimilarityBackfillStage =
   | "inferencing"
   | "migrating"
   | "optimizing"
+  | "ordering"
   | "scanning"
   | "writing";
 
@@ -94,6 +108,7 @@ export interface SimilarityBackfillProgress {
   averageRate: number;
   completedAt?: number;
   currentRate: number;
+  decodeDiagnostics: SimilarityDecodeDiagnostics;
   errorCount: number;
   index: number;
   indexedCount: number;
@@ -102,6 +117,8 @@ export interface SimilarityBackfillProgress {
   migratedCount: number;
   missingFileCount: number;
   missingThumbCount: number;
+  orderingIndex: number;
+  orderingTotal: number;
   skippedFreshCount: number;
   stage: SimilarityBackfillStage;
   startedAt: number;
@@ -115,14 +132,25 @@ export interface SimilarityBackfillProgress {
 
 interface VisualSourceItem {
   entityId: string;
+  estimatedPixelCount: number;
   fileId: string;
+  kind: "image" | "video";
+  ntfsFileId?: string;
+  ntfsVolumeId?: string;
   sourceHash: string;
   sourcePath: string;
 }
 
+interface VisualSourceOrderItem {
+  ntfsFileId?: bigint;
+  ntfsVolumeId?: bigint;
+  sourceItem: VisualSourceItem;
+  volumeRoot: string;
+}
+
 interface VisualDecodedItem extends VisualSourceItem {
   channels: 3;
-  data: ArrayBuffer;
+  data: Uint8ClampedArray;
   height: number;
   width: number;
 }
@@ -154,25 +182,30 @@ interface SimilarityIndexBatchResult {
   unsupportedFileTypeCount: number;
 }
 
+const DEFAULT_SCAN_WINDOW_SIZE = 50_000;
 const MANIFEST_FILE_NAME = "manifest.json";
-const VISUAL_VECTOR_TYPE: SimilarityVectorType = "visual";
-const VISUAL_MODEL_ID = "Xenova/dinov2-small";
-const VISUAL_PREPROCESSOR_ID = "sharp-224-cover";
-const VISUAL_TABLE_NAME = "file_visual_dinov2_small_v1";
+const MAX_CONCURRENT_VECTOR_ROW_QUERIES = 10;
+const MAX_FILE_ID_QUERY_SIZE = 500;
+const ORDERING_PROGRESS_INTERVAL = 512;
+const VISUAL_DECODE_CONCURRENCY = Math.max(
+  1,
+  Math.min(
+    CONSTANTS.VECTOR.MAX_IO_CONCURRENCY,
+    Number(process.env.UV_THREADPOOL_SIZE) || CONSTANTS.VECTOR.DEFAULT_THREAD_POOL_SIZE,
+  ),
+);
+const VISUAL_INPUT_SIZE = 224;
 const VISUAL_LEGACY_TABLE_NAMES = [
+  "file_visual_dinov2_small_v2",
+  "file_visual_dinov2_small_v1",
   "file_visual_dinov2_base_v1",
   "file_visual_clip_v4",
   "file_visual_clip_v3",
   "file_visual_clip_v2",
   "file_visual_clip_v1",
 ];
-const VISUAL_VECTOR_DIMENSIONS = 384;
-const VISUAL_VECTOR_VERSION = `dinov2-small:${VISUAL_PREPROCESSOR_ID}:float16:v1`;
-const VISUAL_INPUT_SIZE = 224;
-const VISUAL_DECODE_CONCURRENCY = 8;
-const VISUAL_WRITE_FLUSH_ROW_COUNT = 512;
-const MAX_FILE_ID_QUERY_SIZE = 500;
-const DEFAULT_SCAN_BATCH_SIZE = 5000;
+const VISUAL_MODEL_ID = "Xenova/dinov2-small";
+const VISUAL_PREPROCESSOR_ID = "sharp-224-cover-cubic-direct";
 const VISUAL_REQUIRED_FIELDS = [
   "entityId",
   "fileId",
@@ -182,6 +215,11 @@ const VISUAL_REQUIRED_FIELDS = [
   "vector",
   "vectorVersion",
 ] as const;
+const VISUAL_TABLE_NAME = "file_visual_dinov2_small_v3";
+const VISUAL_VECTOR_DIMENSIONS = 384;
+const VISUAL_VECTOR_TYPE: SimilarityVectorType = "visual";
+const VISUAL_VECTOR_VERSION = `dinov2-small:${VISUAL_PREPROCESSOR_ID}:float16:v1`;
+const VISUAL_WRITE_FLUSH_ROW_COUNT = 512;
 
 const VISUAL_TABLE_DEF: VectorTableManifestEntry = {
   dimensions: VISUAL_VECTOR_DIMENSIONS,
@@ -225,6 +263,14 @@ const makeEmptyTimings = (): SimilarityBackfillTimings => ({
   totalMs: 0,
   vectorPostMs: 0,
   writeMs: 0,
+});
+
+const makeEmptyDecodeDiagnostics = (): SimilarityDecodeDiagnostics => ({
+  estimatedPixelCount: 0,
+  imageCount: 0,
+  imageMs: 0,
+  videoCount: 0,
+  videoMs: 0,
 });
 
 const escapeSqlString = (str: string) => str.replace(/'/g, "''");
@@ -386,6 +432,7 @@ export class VectorSimilarityService {
       progress: {
         averageRate: 0,
         currentRate: 0,
+        decodeDiagnostics: makeEmptyDecodeDiagnostics(),
         errorCount: 0,
         index: 0,
         indexedCount: 0,
@@ -393,6 +440,8 @@ export class VectorSimilarityService {
         migratedCount: 0,
         missingFileCount: 0,
         missingThumbCount: 0,
+        orderingIndex: 0,
+        orderingTotal: 0,
         skippedFreshCount: 0,
         stage: "idle",
         startedAt: now,
@@ -442,7 +491,7 @@ export class VectorSimilarityService {
     if (!args.fileIds.length) return result;
     const fileStart = Date.now();
     const files = await models.FileModel.find({ _id: { $in: args.fileIds } })
-      .select({ _id: 1, ext: 1, hash: 1, thumb: 1 })
+      .select({ _id: 1, ext: 1, hash: 1, height: 1, thumb: 1, width: 1 })
       .lean();
     result.timings.mongoMs += Date.now() - fileStart;
 
@@ -566,21 +615,21 @@ export class VectorSimilarityService {
       const mongoStart = Date.now();
       const files = args.fileIds?.length
         ? await models.FileModel.find({
-            _id: { $in: args.fileIds.slice(offset, offset + DEFAULT_SCAN_BATCH_SIZE) },
+            _id: { $in: args.fileIds.slice(offset, offset + DEFAULT_SCAN_WINDOW_SIZE) },
           })
-            .select({ _id: 1, ext: 1, hash: 1, thumb: 1 })
+            .select({ _id: 1, ext: 1, hash: 1, height: 1, thumb: 1, width: 1 })
             .lean()
         : await models.FileModel.find(cursor ? { _id: { $gt: cursor } } : {})
             .sort({ _id: 1 })
-            .limit(DEFAULT_SCAN_BATCH_SIZE)
-            .select({ _id: 1, ext: 1, hash: 1, thumb: 1 })
+            .limit(DEFAULT_SCAN_WINDOW_SIZE)
+            .select({ _id: 1, ext: 1, hash: 1, height: 1, thumb: 1, width: 1 })
             .lean();
       this.addTiming(job, "mongoMs", Date.now() - mongoStart);
 
       if (!files.length) break;
 
       cursor = files[files.length - 1]._id.toString();
-      offset += DEFAULT_SCAN_BATCH_SIZE;
+      offset += DEFAULT_SCAN_WINDOW_SIZE;
 
       const batchResult = this.makeEmptyBatchResult(files.length);
       await this.indexVisualFileDocs({
@@ -690,53 +739,117 @@ export class VectorSimilarityService {
       });
 
     const pipelineBatchSize = this.getVisualInferenceBatchSize();
+    let pendingDecodeDiagnostics = makeEmptyDecodeDiagnostics();
+    let pendingDecodeMs = 0;
+    let pendingErrorCount = 0;
+    let pendingInferenceMs = 0;
+    let pendingProcessedCount = 0;
     const pendingRows: Record<string, any>[] = [];
+
     const flushPendingRows = async () => {
-      if (!pendingRows.length) return;
+      if (!pendingProcessedCount) return;
+
       const rows = pendingRows.splice(0, pendingRows.length);
-      await this.writeVectorRows({
-        generatedCount: rows.length,
+      const writeMs = await this.writeVectorRows({
         job: args.job,
-        migratedCount: 0,
         rows,
         tableDef,
       });
+
+      args.result.timings.writeMs += writeMs;
+
+      if (args.job)
+        this.addCompletedRows(args.job, {
+          decodeDiagnostics: pendingDecodeDiagnostics,
+          decodeMs: pendingDecodeMs,
+          errorCount: pendingErrorCount,
+          generatedCount: rows.length,
+          inferenceMs: pendingInferenceMs,
+          migratedCount: 0,
+          processedCount: pendingProcessedCount,
+          writeMs,
+        });
+
       args.result.indexedCount += rows.length;
+
+      pendingDecodeDiagnostics = makeEmptyDecodeDiagnostics();
+      pendingDecodeMs = 0;
+      pendingErrorCount = 0;
+      pendingInferenceMs = 0;
+      pendingProcessedCount = 0;
     };
 
-    for (const sourceBatch of chunkArray(sourceItems, pipelineBatchSize)) {
+    const storageOrderStart = Date.now();
+    const orderedSourceItems = await this.sortVisualSourcesByNtfsFileId(sourceItems, args.job);
+    const storageOrderMs = Date.now() - storageOrderStart;
+
+    args.result.timings.sourcePrepMs += storageOrderMs;
+    if (args.job) this.addTiming(args.job, "sourcePrepMs", storageOrderMs);
+
+    const sourceBatches = chunkArray(
+      orderedSourceItems,
+      Math.max(pipelineBatchSize, VISUAL_DECODE_CONCURRENCY),
+    );
+    let decodedBatchPromise = sourceBatches.length
+      ? this.decodeVisualSourceBatch({
+          job: args.job,
+          result: args.result,
+          sourceItems: sourceBatches[0],
+        })
+      : null;
+
+    for (let batchIndex = 0; batchIndex < sourceBatches.length; batchIndex++) {
       args.job && this.assertJobNotCancelled(args.job);
-      const decoded = await this.decodeVisualSourceBatch({
-        job: args.job,
-        result: args.result,
-        sourceItems: sourceBatch,
-      });
+      if (!decodedBatchPromise) break;
 
-      const batchRows = await this.embedVisualDecodedSources({
-        decoded,
-        job: args.job,
-        result: args.result,
-        tableDef,
-      });
-      const failedCount = sourceBatch.length - batchRows.length;
-      if (failedCount) {
-        args.result.errorCount += failedCount;
-        if (args.job)
-          this.addProcessedRows(args.job, {
-            errorCount: failedCount,
-            processedCount: failedCount,
-          });
+      const sourceBatch = sourceBatches[batchIndex];
+      const { decodeMs, decoded, diagnostics } = await decodedBatchPromise;
+      decodedBatchPromise = sourceBatches[batchIndex + 1]
+        ? this.decodeVisualSourceBatch({
+            job: args.job,
+            result: args.result,
+            sourceItems: sourceBatches[batchIndex + 1],
+          })
+        : null;
+
+      const batchRows: Record<string, any>[] = [];
+      let inferenceMs = 0;
+
+      for (const inferenceBatch of chunkArray(decoded, pipelineBatchSize)) {
+        const embedded = await this.embedVisualDecodedSources({
+          decoded: inferenceBatch,
+          job: args.job,
+          result: args.result,
+          tableDef,
+        });
+        batchRows.push(...embedded.rows);
+        inferenceMs += embedded.inferenceMs;
       }
-      if (!batchRows.length) continue;
 
+      const failedCount = sourceBatch.length - batchRows.length;
+      args.result.errorCount += failedCount;
+      pendingDecodeDiagnostics = this.sumDecodeDiagnostics(pendingDecodeDiagnostics, diagnostics);
+      pendingDecodeMs += decodeMs;
+      pendingErrorCount += failedCount;
+      pendingInferenceMs += inferenceMs;
+      pendingProcessedCount += sourceBatch.length;
       pendingRows.push(...batchRows);
-      if (pendingRows.length >= VISUAL_WRITE_FLUSH_ROW_COUNT) await flushPendingRows();
+
+      if (pendingProcessedCount >= VISUAL_WRITE_FLUSH_ROW_COUNT) await flushPendingRows();
     }
 
     await flushPendingRows();
 
     fileLog(
-      `[VECTOR] Indexed visual batch: files=${args.result.fileCount}, indexed=${args.result.indexedCount}, migrated=${args.result.migratedCount}, skipped=${args.result.skippedFreshCount}, errors=${args.result.errorCount}, decode=${args.result.timings.decodeMs}ms, inference=${args.result.timings.inferenceMs}ms, write=${args.result.timings.writeMs}ms`,
+      [
+        `[VECTOR] Indexed visual batch: files=${args.result.fileCount}`,
+        `indexed=${args.result.indexedCount}`,
+        `migrated=${args.result.migratedCount}`,
+        `skipped=${args.result.skippedFreshCount}`,
+        `errors=${args.result.errorCount}`,
+        `decode=${args.result.timings.decodeMs}ms`,
+        `inference=${args.result.timings.inferenceMs}ms`,
+      ].join(", "),
     );
   }
 
@@ -747,11 +860,12 @@ export class VectorSimilarityService {
   }) {
     const decodeStart = Date.now();
     if (args.job) this.updateJobProgress(args.job, { stage: "decoding" });
-    const decoded = await this.decodeVisualSourcesInline(args.sourceItems);
+
+    const { decoded, diagnostics } = await this.decodeVisualSourcesInline(args.sourceItems);
     const decodeMs = Date.now() - decodeStart;
     args.result.timings.decodeMs += decodeMs;
-    if (args.job) this.addTiming(args.job, "decodeMs", decodeMs);
-    return decoded;
+
+    return { decodeMs, decoded, diagnostics };
   }
 
   private async embedVisualDecodedSources(args: {
@@ -760,7 +874,8 @@ export class VectorSimilarityService {
     result: SimilarityIndexBatchResult;
     tableDef: VectorTableManifestEntry;
   }) {
-    if (!args.decoded.length) return [];
+    if (!args.decoded.length) return { inferenceMs: 0, rows: [] };
+
     const rows: Record<string, any>[] = [];
 
     const inferenceStart = Date.now();
@@ -768,10 +883,10 @@ export class VectorSimilarityService {
       this.assertJobNotCancelled(args.job);
       this.updateJobProgress(args.job, { stage: "inferencing" });
     }
+
     const vectors = await this.inferVisualDecodedItemsInline(args.decoded);
     const inferenceMs = Date.now() - inferenceStart;
     args.result.timings.inferenceMs += inferenceMs;
-    if (args.job) this.addTiming(args.job, "inferenceMs", inferenceMs);
 
     for (const vectorItem of vectors) {
       rows.push(
@@ -784,75 +899,207 @@ export class VectorSimilarityService {
       );
     }
 
-    return rows;
+    return { inferenceMs, rows };
   }
 
   private async embedVisualSource(sourcePath: string, fileId: string, sourceHash: string) {
-    const decoded = await this.decodeVisualSourcesInline([
-      { entityId: fileId, fileId, sourceHash, sourcePath },
+    const { decoded } = await this.decodeVisualSourcesInline([
+      {
+        entityId: fileId,
+        estimatedPixelCount: 0,
+        fileId,
+        kind: "image",
+        sourceHash,
+        sourcePath,
+      },
     ]);
     const vectors = await this.inferVisualDecodedItemsInline(decoded);
+
     return vectors[0]?.vector;
+  }
+
+  private async sortVisualSourcesByNtfsFileId(
+    sourceItems: VisualSourceItem[],
+    job?: SimilarityBackfillJob,
+  ) {
+    if (sourceItems.length < 2) return sourceItems;
+
+    const metadataUpdates: ThumbnailNtfsMetadata[] = [];
+    const orderedItems: VisualSourceOrderItem[] = [];
+    const queue = new PromiseQueue({ concurrency: VISUAL_DECODE_CONCURRENCY });
+    let orderedCount = 0;
+
+    if (job)
+      this.updateJobProgress(job, {
+        orderingIndex: 0,
+        orderingTotal: sourceItems.length,
+        stage: "ordering",
+      });
+
+    await Promise.all(
+      sourceItems.map((sourceItem) =>
+        queue.add(async () => {
+          job && this.assertJobNotCancelled(job);
+
+          let ntfsFileId = this.parseNtfsId(sourceItem.ntfsFileId);
+          let ntfsVolumeId = this.parseNtfsId(sourceItem.ntfsVolumeId);
+
+          if (ntfsFileId === undefined || ntfsVolumeId === undefined) {
+            try {
+              const identity = await getNtfsFileIdentity(sourceItem.sourcePath);
+              ntfsFileId = BigInt(identity.fileId);
+              ntfsVolumeId = BigInt(identity.volumeId);
+              metadataUpdates.push({
+                fileId: sourceItem.fileId,
+                ntfsFileId: identity.fileId,
+                ntfsVolumeId: identity.volumeId,
+                sourcePath: sourceItem.sourcePath,
+              });
+            } catch {
+              // The read pass reports missing or inaccessible sources with the file identifier.
+            }
+          }
+
+          orderedItems.push({
+            ntfsFileId,
+            ntfsVolumeId,
+            sourceItem,
+            volumeRoot: path.parse(sourceItem.sourcePath).root,
+          });
+
+          orderedCount++;
+          if (
+            job &&
+            (orderedCount % ORDERING_PROGRESS_INTERVAL === 0 || orderedCount === sourceItems.length)
+          )
+            this.updateJobProgress(job, { orderingIndex: orderedCount });
+        }),
+      ),
+    );
+
+    for (const metadataItems of chunkArray(metadataUpdates, CONSTANTS.FILE.THUMB.NTFS_BATCH_SIZE)) {
+      job && this.assertJobNotCancelled(job);
+
+      await storeThumbnailNtfsMetadata(metadataItems);
+    }
+
+    orderedItems.sort((left, right) => {
+      const volumeComparison = left.volumeRoot.localeCompare(right.volumeRoot);
+      if (volumeComparison) return volumeComparison;
+
+      if (left.ntfsVolumeId === undefined || right.ntfsVolumeId === undefined) {
+        if (left.ntfsVolumeId === undefined && right.ntfsVolumeId !== undefined) return 1;
+        if (left.ntfsVolumeId !== undefined && right.ntfsVolumeId === undefined) return -1;
+      } else {
+        if (left.ntfsVolumeId < right.ntfsVolumeId) return -1;
+        if (left.ntfsVolumeId > right.ntfsVolumeId) return 1;
+      }
+
+      if (left.ntfsFileId === undefined)
+        return right.ntfsFileId === undefined
+          ? left.sourceItem.sourcePath.localeCompare(right.sourceItem.sourcePath)
+          : 1;
+      if (right.ntfsFileId === undefined) return -1;
+      if (left.ntfsFileId < right.ntfsFileId) return -1;
+      if (left.ntfsFileId > right.ntfsFileId) return 1;
+
+      return left.sourceItem.sourcePath.localeCompare(right.sourceItem.sourcePath);
+    });
+
+    return orderedItems.map(({ sourceItem }) => sourceItem);
+  }
+
+  private parseNtfsId(value?: string) {
+    if (!value) return;
+
+    try {
+      return BigInt(value);
+    } catch {
+      return;
+    }
   }
 
   private async decodeVisualSourcesInline(sourceItems: VisualSourceItem[]) {
     const sharp = await this.getSharp();
     const decoded: VisualDecodedItem[] = [];
-    let nextIndex = 0;
+    const decodeQueue = new PromiseQueue({ concurrency: VISUAL_DECODE_CONCURRENCY });
+    const diagnostics = makeEmptyDecodeDiagnostics();
+    const readQueue = new PromiseQueue();
 
-    const decodeNext = async () => {
-      while (nextIndex < sourceItems.length) {
-        const item = sourceItems[nextIndex++];
+    const decodeBuffer = async (item: VisualSourceItem, sourceData: Buffer, readMs: number) => {
+      const itemStart = Date.now();
 
-        try {
-          const { data, info } = await sharp(item.sourcePath, {
-            failOn: "none",
-            limitInputPixels: false,
+      try {
+        const { data, info } = await sharp(sourceData, {
+          failOn: "none",
+          limitInputPixels: false,
+        })
+          .rotate()
+          .resize(VISUAL_INPUT_SIZE, VISUAL_INPUT_SIZE, {
+            fit: "cover",
+            kernel: "cubic",
+            position: "centre",
           })
-            .rotate()
-            .resize(VISUAL_INPUT_SIZE, VISUAL_INPUT_SIZE, {
-              fit: "cover",
-              position: "centre",
-            })
-            .toColorspace("srgb")
-            .removeAlpha()
-            .raw()
-            .toBuffer({ resolveWithObject: true });
+          .toColorspace("srgb")
+          .removeAlpha()
+          .raw()
+          .toBuffer({ resolveWithObject: true });
 
-          if (info.channels !== 3) {
-            throw new Error(
-              `Unexpected visual source channel count: ${info.channels}. Expected 3.`,
-            );
-          }
+        if (info.channels !== 3)
+          throw new Error(`Unexpected visual source channel count: ${info.channels}. Expected 3.`);
 
-          decoded.push({
-            ...item,
-            channels: 3,
-            data: data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength),
-            height: info.height,
-            width: info.width,
-          });
-        } catch (err) {
-          fileLog(`[VECTOR] Failed visual similarity decode for ${item.fileId}: ${err.message}`, {
-            type: "error",
-          });
-        }
+        decoded.push({
+          ...item,
+          channels: 3,
+          data: new Uint8ClampedArray(data.buffer, data.byteOffset, data.byteLength),
+          height: info.height,
+          width: info.width,
+        });
+      } catch (err) {
+        fileLog(`[VECTOR] Failed visual similarity decode for ${item.fileId}: ${err.message}`, {
+          type: "error",
+        });
+      } finally {
+        diagnostics.estimatedPixelCount += item.estimatedPixelCount;
+        diagnostics[`${item.kind}Count`]++;
+        diagnostics[`${item.kind}Ms`] += readMs + Date.now() - itemStart;
       }
     };
 
     await Promise.all(
-      Array.from({ length: Math.min(VISUAL_DECODE_CONCURRENCY, sourceItems.length) }, decodeNext),
+      sourceItems.map((item) =>
+        decodeQueue.add(async () => {
+          const source = await readQueue.add(async () => {
+            const readStart = Date.now();
+
+            try {
+              const data = await fs.readFile(item.sourcePath);
+
+              return { data, readMs: Date.now() - readStart };
+            } catch (err) {
+              diagnostics.estimatedPixelCount += item.estimatedPixelCount;
+              diagnostics[`${item.kind}Count`]++;
+              diagnostics[`${item.kind}Ms`] += Date.now() - readStart;
+
+              fileLog(`[VECTOR] Failed visual similarity read for ${item.fileId}: ${err.message}`, {
+                type: "error",
+              });
+            }
+          });
+
+          if (source) await decodeBuffer(item, source.data, source.readMs);
+        }),
+      ),
     );
 
-    return decoded;
+    return { decoded, diagnostics };
   }
 
   private async inferVisualDecodedItemsInline(items: VisualDecodedItem[]) {
     if (!items.length) return [];
+
     const extractor = await this.getImageFeatureExtractor();
-    const images = items.map(
-      (item) => new this.RawImage(new Uint8ClampedArray(item.data), item.width, item.height, 3),
-    );
+    const images = items.map((item) => new this.RawImage(item.data, item.width, item.height, 3));
     const tensor = await this.extractVisualFeatures(extractor, images);
     const vectors = this.extractVisualFeatureVectors(tensor, items.length);
 
@@ -910,7 +1157,15 @@ export class VectorSimilarityService {
     if (!this.sharp) {
       const sharpMod = await import("sharp");
       this.sharp = sharpMod.default ?? sharpMod;
+      this.sharp.concurrency(
+        Math.max(1, Math.floor(availableParallelism() / VISUAL_DECODE_CONCURRENCY)),
+      );
+
+      fileLog(
+        `[VECTOR] Configured visual decoder concurrency: images=${VISUAL_DECODE_CONCURRENCY}, threadsPerImage=${this.sharp.concurrency()}`,
+      );
     }
+
     return this.sharp;
   }
 
@@ -935,8 +1190,16 @@ export class VectorSimilarityService {
         dtype,
       },
     );
+
+    const imageProcessor = this.imageFeatureExtractor.processor?.image_processor;
+    if (!imageProcessor)
+      throw new Error("Visual similarity model did not provide an image processor.");
+
+    imageProcessor.do_center_crop = false;
+    imageProcessor.do_resize = false;
+
     fileLog(
-      `[VECTOR] Loaded visual similarity model ${VISUAL_MODEL_ID} device=${config.file.similarity.visual.device} dtype=${dtype}`,
+      `[VECTOR] Loaded visual similarity model ${VISUAL_MODEL_ID} device=${config.file.similarity.visual.device} dtype=${dtype}; redundant model resize disabled`,
     );
 
     return this.imageFeatureExtractor;
@@ -1008,7 +1271,7 @@ export class VectorSimilarityService {
       (
         await table
           .query()
-          .select(["entityId", "fileId", "sourceHash", "vector"])
+          .select(["fileId", "sourceHash"])
           .where(makeFileIdPredicate(fileId))
           .limit(1)
           .toArray()
@@ -1055,12 +1318,36 @@ export class VectorSimilarityService {
 
   private makeVisualSource(file: any): VisualSourceItem {
     const fileId = file._id.toString();
+    const kind = getIsAnimated(file.ext) ? "video" : "image";
+
     return {
       entityId: fileId,
+      estimatedPixelCount: this.getEstimatedThumbnailPixelCount(file, kind),
       fileId,
+      kind,
+      ntfsFileId: file.thumb.ntfsFileId,
+      ntfsVolumeId: file.thumb.ntfsVolumeId,
       sourceHash: file.hash,
       sourcePath: file.thumb.path,
     };
+  }
+
+  private getEstimatedThumbnailPixelCount(file: any, kind: VisualSourceItem["kind"]) {
+    const height = Number(file.height);
+    const width = Number(file.width);
+    if (!Number.isFinite(height) || !Number.isFinite(width) || height <= 0 || width <= 0) return 0;
+
+    const maxDimension = CONSTANTS.FILE.THUMB.MAX_DIM;
+    if (kind === "image") return Math.round((width * maxDimension) / height) * maxDimension;
+
+    const scaled = getScaledThumbSize(width, height);
+
+    return (
+      scaled.width *
+      scaled.height *
+      CONSTANTS.FILE.THUMB.GRID_COLUMNS *
+      CONSTANTS.FILE.THUMB.GRID_ROWS
+    );
   }
 
   private makeVectorRow(args: {
@@ -1081,13 +1368,12 @@ export class VectorSimilarityService {
   }
 
   private async writeVectorRows(args: {
-    generatedCount: number;
     job?: SimilarityBackfillJob;
-    migratedCount: number;
     rows: Record<string, any>[];
     tableDef: VectorTableManifestEntry;
   }) {
-    if (!args.rows.length) return;
+    if (!args.rows.length) return 0;
+
     args.job && this.assertJobNotCancelled(args.job);
     args.job && this.updateJobProgress(args.job, { stage: "writing" });
 
@@ -1099,14 +1385,7 @@ export class VectorSimilarityService {
       await this.mergeInsertRows(args.tableDef, table, rows);
     }
 
-    const writeMs = Date.now() - startedAt;
-    if (args.job) {
-      this.addTiming(args.job, "writeMs", writeMs);
-      this.addCompletedRows(args.job, {
-        generatedCount: args.generatedCount,
-        migratedCount: args.migratedCount,
-      });
-    }
+    return Date.now() - startedAt;
   }
 
   private async getCurrentVectorRowsByFileId(args: {
@@ -1124,12 +1403,7 @@ export class VectorSimilarityService {
         continue;
       }
 
-      const rows = await this.queryRowsByFileIds(table, args.fileIds, [
-        "entityId",
-        "fileId",
-        "sourceHash",
-        "vector",
-      ]);
+      const rows = await this.queryRowsByFileIds(table, args.fileIds, ["fileId", "sourceHash"]);
       rowsByVectorType[vectorType] = new Map(rows.map((row) => [String(row.fileId), row]));
     }
 
@@ -1138,12 +1412,22 @@ export class VectorSimilarityService {
 
   private async queryRowsByFileIds(table: LanceTable, fileIds: string[], columns: string[]) {
     const rows: any[] = [];
-    for (const fileIdBatch of chunkArray(fileIds, MAX_FILE_ID_QUERY_SIZE)) {
-      if (!fileIdBatch.length) continue;
+
+    for (const queryBatch of chunkArray(
+      chunkArray(fileIds, MAX_FILE_ID_QUERY_SIZE),
+      MAX_CONCURRENT_VECTOR_ROW_QUERIES,
+    )) {
       rows.push(
-        ...(await table.query().select(columns).where(makeFileIdsPredicate(fileIdBatch)).toArray()),
+        ...(
+          await Promise.all(
+            queryBatch.map((fileIdBatch) =>
+              table.query().select(columns).where(makeFileIdsPredicate(fileIdBatch)).toArray(),
+            ),
+          )
+        ).flat(),
       );
     }
+
     return rows;
   }
 
@@ -1483,14 +1767,46 @@ export class VectorSimilarityService {
 
   private addCompletedRows(
     job: SimilarityBackfillJob,
-    args: { generatedCount: number; migratedCount: number },
+    args: {
+      decodeDiagnostics: SimilarityDecodeDiagnostics;
+      decodeMs: number;
+      errorCount: number;
+      generatedCount: number;
+      inferenceMs: number;
+      migratedCount: number;
+      processedCount: number;
+      writeMs: number;
+    },
   ) {
-    const processedCount = args.generatedCount + args.migratedCount;
     this.updateJobProgress(job, {
-      index: Math.min(job.progress.index + processedCount, job.progress.total),
+      decodeDiagnostics: this.sumDecodeDiagnostics(
+        job.progress.decodeDiagnostics,
+        args.decodeDiagnostics,
+      ),
+      errorCount: job.progress.errorCount + args.errorCount,
+      index: Math.min(job.progress.index + args.processedCount, job.progress.total),
       indexedCount: job.progress.indexedCount + args.generatedCount,
       migratedCount: job.progress.migratedCount + args.migratedCount,
+      timings: {
+        ...job.progress.timings,
+        decodeMs: job.progress.timings.decodeMs + args.decodeMs,
+        inferenceMs: job.progress.timings.inferenceMs + args.inferenceMs,
+        writeMs: job.progress.timings.writeMs + args.writeMs,
+      },
     });
+  }
+
+  private sumDecodeDiagnostics(
+    left: SimilarityDecodeDiagnostics,
+    right: SimilarityDecodeDiagnostics,
+  ) {
+    return {
+      estimatedPixelCount: left.estimatedPixelCount + right.estimatedPixelCount,
+      imageCount: left.imageCount + right.imageCount,
+      imageMs: left.imageMs + right.imageMs,
+      videoCount: left.videoCount + right.videoCount,
+      videoMs: left.videoMs + right.videoMs,
+    };
   }
 
   private addProcessedRows(

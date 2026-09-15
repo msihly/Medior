@@ -106,7 +106,7 @@ export const Drawer = Comp(({ hasImports = false, hasSettings = false }: DrawerP
         >
           <IconButton
             name="MovieFilter"
-            tooltip="Open Video Transformer"
+            tooltip="Open Media Transformer"
             onClick={() => {
               videoTransformer.setFileIds([]);
               videoTransformer.setFnType(null);
