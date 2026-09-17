@@ -1,7 +1,8 @@
 import autoBind from "auto-bind";
-import { FileTransformSchema } from "medior/_generated/server";
+import { FileSchema, FileTransformSchema } from "medior/_generated/server";
 import { reaction } from "mobx";
 import { Model, model, modelAction, modelFlow, prop } from "mobx-keystone";
+import { SortValue } from "medior/store/_generated";
 import { asyncAction, openCarouselWindow, toast } from "medior/utils/client";
 import { trpc } from "medior/utils/server";
 import { File, FileTransform, FileTransformSearch } from ".";
@@ -26,8 +27,11 @@ export class VideoTransformerStore extends Model({
   queueAfterSize: prop<number>(0).withSetter(),
   queueBeforeSize: prop<number>(0).withSetter(),
   search: prop<FileTransformSearch>(() => new FileTransformSearch({})),
+  sourceSortValue: prop<SortValue>(null).withSetter(),
   timestampPairs: prop<Array<[number, number]>>(() => []).withSetter(),
 }) {
+  private activeTransformLoadId = 0;
+
   onInit() {
     autoBind(this);
 
@@ -50,6 +54,7 @@ export class VideoTransformerStore extends Model({
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
   @modelAction
   reset() {
+    this.activeTransformLoadId++;
     this.setActiveTransform(null);
     this.setActiveFile(null);
     this.setFileIds([]);
@@ -60,6 +65,7 @@ export class VideoTransformerStore extends Model({
     this.setPendingCount(0);
     this.setQueueAfterSize(0);
     this.setQueueBeforeSize(0);
+    this.setSourceSortValue(null);
     this.setTimestampPairs([]);
     this.search.reset();
   }
@@ -67,19 +73,16 @@ export class VideoTransformerStore extends Model({
   @modelAction
   removeQueueFiles(fileIds: string[], transformIds: string[] = []) {
     const fileIdSet = new Set(fileIds);
-    const ids = [
-      ...new Set([
-        ...transformIds,
-        ...this.search.results
-          .filter((transform) => fileIdSet.has(transform.fileId))
-          .map((transform) => transform.id),
-      ]),
-    ];
-    this.search._deleteResults(ids);
-    this.search.setSelectedIds(this.search.selectedIds.filter((id) => !ids.includes(id)));
-    this.search.setIds(this.search.ids.filter((id) => !ids.includes(id)));
+    const ids = new Set(transformIds);
+    for (const transform of this.search.results) {
+      if (fileIdSet.has(transform.fileId)) ids.add(transform.id);
+    }
+    this.search.setResults(this.search.results.filter((transform) => !ids.has(transform.id)));
+    this.search.setSelectedIds(this.search.selectedIds.filter((id) => !ids.has(id)));
+    this.search.setIds(this.search.ids.filter((id) => !ids.has(id)));
+    const retainedFileIds = new Set(this.search.results.map((transform) => transform.fileId));
     this.search.setFiles(
-      new Map([...this.search.files].filter(([fileId]) => !fileIdSet.has(fileId))),
+      new Map([...this.search.files].filter(([fileId]) => retainedFileIds.has(fileId))),
     );
   }
 
@@ -92,6 +95,20 @@ export class VideoTransformerStore extends Model({
     return true;
   }
 
+  @modelAction
+  receiveActiveTransform({
+    file,
+    transform,
+  }: {
+    file: FileSchema;
+    transform: FileTransformSchema;
+  }) {
+    this.activeTransformLoadId++;
+    this.setActiveFile(new File(file));
+    this.setActiveTransform(new FileTransform(transform));
+    this.setIsLoading(false);
+  }
+
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */
   @modelFlow
   createTransforms = asyncAction(async () => {
@@ -101,6 +118,7 @@ export class VideoTransformerStore extends Model({
     const res = await trpc.createFileTransforms
       .mutate({
         fileIds: this.fileIds,
+        sortValue: this.sourceSortValue,
         timestampPairs: this.timestampPairs.map(([start, end]) => ({ end, start })),
         type: this.fnType,
       })
@@ -119,24 +137,24 @@ export class VideoTransformerStore extends Model({
 
   @modelFlow
   deleteTransforms = asyncAction(async (ids: string[]) => {
-    if (!ids.length) return;
+    if (!ids.length) return 0;
     const deletedActiveTransform = Boolean(
       this.activeTransform && ids.includes(this.activeTransform.id),
     );
     const res = await trpc.deleteFileTransforms.mutate({ ids });
     if (!res.success) throw new Error(res.error);
-    const fileIds = ids.map((id) => this.search.getResult(id)?.fileId).filter(Boolean);
-    this.removeQueueFiles(fileIds, ids);
+    this.removeQueueFiles([], ids);
     if (deletedActiveTransform) {
       this.setFocusedTransformId(null);
       await this.loadActiveTransform();
     }
     await this.loadQueueCount();
-    if (this.resetEmptyConstrainedQueue()) return;
-    await this.loadQueue({
-      noCache: true,
-      page: this.search.results.length ? this.search.page : Math.max(1, this.search.page - 1),
-    });
+    if (!this.resetEmptyConstrainedQueue())
+      await this.loadQueue({
+        noCache: true,
+        page: this.search.results.length ? this.search.page : Math.max(1, this.search.page - 1),
+      });
+    return res.data.deletedCount;
   });
 
   @modelFlow
@@ -151,6 +169,7 @@ export class VideoTransformerStore extends Model({
 
   @modelFlow
   loadActiveTransform = asyncAction(async (id?: string) => {
+    const loadId = ++this.activeTransformLoadId;
     this.setIsLoading(true);
 
     try {
@@ -167,6 +186,7 @@ export class VideoTransformerStore extends Model({
         transform = res.data;
       }
 
+      if (loadId !== this.activeTransformLoadId) return;
       this.setActiveTransform(transform ? new FileTransform(transform) : null);
 
       const fileId = transform?.fileId;
@@ -176,17 +196,19 @@ export class VideoTransformerStore extends Model({
       }
 
       const filesRes = await trpc.listFile.mutate({ args: { filter: { id: [fileId] } } });
+      if (loadId !== this.activeTransformLoadId) return;
       if (!filesRes.success) throw new Error(filesRes.error);
 
       const file = filesRes.data.items[0];
       if (!file) throw new Error("File not found");
 
       const tagRes = await trpc.listTag.mutate({ filter: { id: file.tagIds } });
+      if (loadId !== this.activeTransformLoadId) return;
       if (!tagRes.success) throw new Error(tagRes.error);
 
       this.setActiveFile(new File({ ...file, tags: tagRes.data }));
     } finally {
-      this.setIsLoading(false);
+      if (loadId === this.activeTransformLoadId) this.setIsLoading(false);
     }
   });
 
@@ -227,15 +249,18 @@ export class VideoTransformerStore extends Model({
   @modelFlow
   replaceOutput = asyncAction(async () => {
     if (!this.activeTransform?.id) return;
+    const id = this.activeTransform.id;
     this.setFocusedTransformId(null);
     this.setIsLoading(true);
     const res = await trpc.replaceFileTransformOutput
-      .mutate({ id: this.activeTransform.id })
+      .mutate({ id })
       .finally(() => this.setIsLoading(false));
     if (!res.success) throw new Error(res.error);
-    if (res.data.status === "DUPLICATE")
-      toast.info("Output matches an existing file. Original retained.");
-    else toast.success("Media replaced");
+    if (res.data.status === "DUPLICATE") {
+      const mergeRes = await trpc.mergeFileTransformDuplicate.mutate({ id });
+      if (!mergeRes.success) throw new Error(mergeRes.error);
+      toast.success("Duplicate merged; original archived");
+    } else toast.success("Media replaced");
     await this.search.loadFiltered();
     await this.loadQueueCount();
     await this.loadActiveTransform();

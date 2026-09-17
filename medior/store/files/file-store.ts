@@ -8,7 +8,7 @@ import {
   modelFlow,
   prop,
 } from "mobx-keystone";
-import { _FileStore } from "medior/store/_generated";
+import { _FileStore, SortValue } from "medior/store/_generated";
 import * as db from "medior/server/database";
 import { FaceModel, RootStore } from "medior/store";
 import { asyncAction, toast } from "medior/utils/client";
@@ -108,9 +108,19 @@ export class FileStore extends ExtendedModel(_FileStore, {
   }
 
   @modelAction
-  openVideoTransformer(fileIds: string[], fnType: "reencode" | "remux" | "splice") {
+  openVideoTransformer(
+    fileIds: string[],
+    fnType: "reencode" | "remux" | "splice",
+    sortValue?: SortValue,
+  ) {
+    if (sortValue && this.search.ids.length) {
+      const selectedIds = new Set(fileIds);
+      fileIds = this.search.ids.filter((id) => selectedIds.has(id));
+      sortValue = null;
+    }
     this.videoTransformer.setFileIds(fileIds);
     this.videoTransformer.setFnType(fnType);
+    this.videoTransformer.setSourceSortValue(sortValue ? { ...sortValue } : null);
     this.videoTransformer.setIsOpen(true);
   }
 

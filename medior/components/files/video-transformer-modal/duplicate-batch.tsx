@@ -1,8 +1,10 @@
 import { useRef, useState } from "react";
-import { Button, Card, Comp, Dropdown, Modal, Text, TextProps } from "medior/components";
+import { SocketEvents } from "medior/_generated/server/socket";
+import { Button, Card, Comp, Modal, Text, TextProps } from "medior/components";
 import { useStores } from "medior/store";
 import { toast } from "medior/utils/client";
-import { trpc } from "medior/utils/server";
+import { chunkArray, CONSTANTS } from "medior/utils/common";
+import { socket, trpc } from "medior/utils/server";
 
 const descriptionProps: TextProps = {
   fontSize: "0.9em",
@@ -18,53 +20,56 @@ export const DuplicateBatch = Comp(() => {
   const cancelled = useRef(false);
   const [isOpen, setIsOpen] = useState(false);
   const [isRunning, setIsRunning] = useState(false);
-  const [scope, setScope] = useState("filtered");
   const [progress, setProgress] = useState("");
   const [failures, setFailures] = useState<string[]>([]);
 
   const open = () => {
-    setScope(store.search.selectedIds.length ? "selected" : "filtered");
     setIsOpen(true);
   };
   const close = () => {
     if (!isRunning) setIsOpen(false);
   };
-  const stop = () => {
+  const stop = async () => {
     cancelled.current = true;
+    setProgress("Stopping after the current file and finishing metadata updates...");
+    const res = await trpc.cancelFileTransformDuplicateMerge.mutate();
+    if (!res.success) toast.error(res.error);
   };
 
   const merge = async () => {
     cancelled.current = false;
     setIsRunning(true);
     setFailures([]);
-    setProgress("Finding duplicates in the chosen scope...");
+    setProgress("Finding all completed duplicates...");
     try {
-      const candidates = await trpc.listFileTransformDuplicates.mutate({
-        filter: store.search.cachedFilterProps ?? store.search.getFilterProps(),
-        ...(scope === "selected"
-          ? { ids: [...store.search.selectedIds] }
-          : store.search.forcePages
-            ? { ids: [...store.search.ids] }
-            : {}),
-      });
+      const candidates = await trpc.listFileTransformDuplicates.mutate();
       if (!candidates.success) throw new Error(candidates.error);
+      setProgress(`Found ${candidates.data.length} duplicates. Starting merge...`);
       let completed = 0;
       let failed = 0;
-      for (const id of candidates.data) {
+      for (const ids of chunkArray(candidates.data, CONSTANTS.FILE.TRANSFORM.BATCH_SIZE)) {
         if (cancelled.current) break;
+        const onProgress = (args: Parameters<SocketEvents["onDuplicateMergeProgress"]>[0]) => {
+          if (args.batchId !== ids[0]) return;
+          setProgress(
+            `${completed + failed + args.completed + args.failed} / ${candidates.data.length} checked; ${completed + args.completed} merged; ${failed + args.failed} need attention.${args.isRegenerating ? " Updating batch metadata..." : ""}`,
+          );
+        };
+        socket.on("onDuplicateMergeProgress", onProgress);
         try {
-          const res = await trpc.mergeFileTransformDuplicate.mutate({ id });
+          const res = await trpc.mergeFileTransformDuplicate.mutate({ ids });
           if (!res.success) throw new Error(res.error);
-          completed++;
-        } catch (error) {
-          failed++;
-          setFailures((previous) => [...previous, `${id}: ${error.message}`]);
+          completed += res.data.completed;
+          failed += res.data.failures.length;
+          setFailures((previous) => [...previous, ...res.data.failures]);
+          setProgress(
+            `${completed + failed} / ${candidates.data.length} checked; ${completed} merged; ${failed} need attention.`,
+          );
+        } finally {
+          socket.off("onDuplicateMergeProgress", onProgress);
         }
-        setProgress(
-          `${completed + failed} / ${candidates.data.length} checked; ${completed} merged; ${failed} need attention.`,
-        );
       }
-      if (!candidates.data.length) setProgress("No duplicates in this scope.");
+      if (!candidates.data.length) setProgress("No completed duplicates found.");
       if (cancelled.current) setProgress((previous) => `Stopped. ${previous}`);
       await store.loadQueue({ noCache: true, withFullCount: true });
       await store.loadQueueCount();
@@ -77,8 +82,7 @@ export const DuplicateBatch = Comp(() => {
     }
   };
 
-  const actionsDisabled =
-    isRunning || store.isTransforming || (scope === "selected" && !store.search.selectedIds.length);
+  const actionsDisabled = isRunning || store.isTransforming;
 
   return (
     <>
@@ -91,16 +95,11 @@ export const DuplicateBatch = Comp(() => {
           </Modal.Header>
 
           <Modal.Content minWidth={0} height="auto" spacing="0.75rem" padding={{ all: "1rem" }}>
-            <Dropdown
-              header="Scope"
-              value={scope}
-              setValue={setScope}
-              disabled={isRunning}
-              options={[
-                { label: "Duplicates in current search (all pages)", value: "filtered" },
-                { label: "Selected duplicates", value: "selected" },
-              ]}
-            />
+            <Text {...descriptionProps}>
+              {
+                "Merge all completed duplicates, regardless of the current search. New duplicates are merged automatically during processing."
+              }
+            </Text>
 
             <Card
               flex="none"
@@ -139,7 +138,13 @@ export const DuplicateBatch = Comp(() => {
 
             {progress && <Text {...descriptionProps}>{progress}</Text>}
 
-            {failures.map((failure) => (
+            {failures.length > 100 && (
+              <Text
+                {...descriptionProps}
+              >{`Showing the latest 100 of ${failures.length} errors.`}</Text>
+            )}
+
+            {failures.slice(-100).map((failure) => (
               <Text
                 {...descriptionProps}
                 key={failure}

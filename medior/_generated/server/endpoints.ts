@@ -76,6 +76,7 @@ export const serverRouter = trpc.router({
   _emitEvent: serverEndpoint(db._emitEvent),
   addFilesToCollection: serverEndpoint(db.addFilesToCollection),
   cancelFileRefresh: serverEndpoint(db.cancelFileRefresh),
+  cancelFileTransformDuplicateMerge: serverEndpoint(db.cancelFileTransformDuplicateMerge),
   cancelRepair: serverEndpoint(db.cancelRepair),
   cancelSimilarityBackfill: serverEndpoint(db.cancelSimilarityBackfill),
   checkFileImportHashes: serverEndpoint(db.checkFileImportHashes),

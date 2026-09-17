@@ -284,6 +284,13 @@ export type InspectFileTransformDuplicateOutput = ReturnType<
 export type ListFileTransformDuplicatesInput = Parameters<typeof db.listFileTransformDuplicates>[0];
 export type ListFileTransformDuplicatesOutput = ReturnType<typeof db.listFileTransformDuplicates>;
 
+export type CancelFileTransformDuplicateMergeInput = Parameters<
+  typeof db.cancelFileTransformDuplicateMerge
+>[0];
+export type CancelFileTransformDuplicateMergeOutput = ReturnType<
+  typeof db.cancelFileTransformDuplicateMerge
+>;
+
 export type MergeFileTransformDuplicateInput = Parameters<typeof db.mergeFileTransformDuplicate>[0];
 export type MergeFileTransformDuplicateOutput = ReturnType<typeof db.mergeFileTransformDuplicate>;
 

@@ -17,6 +17,7 @@ import trash from "trash";
 import { SortValue } from "medior/store/_generated";
 import * as actions from "medior/server/database/actions";
 import { makeBackgroundOperationRunner } from "medior/server/database/actions/background-operations";
+import { deferRegeneration } from "medior/server/database/regeneration-batch";
 import { makeRepairReporter } from "medior/server/database/repair-progress";
 import { ThumbnailNtfsMetadata } from "medior/server/database/types";
 import { genFileInfo } from "medior/utils/client";
@@ -183,8 +184,14 @@ const runFileTagAncestorRegenQueue = makeBackgroundOperationRunner(
   processFileTagAncestorRegenQueue,
 );
 
+const flushFileTagAncestorRegen = async (fileIds: string[]) => {
+  const res = await regenFileTagAncestors({ fileIds });
+  if (!res.success) throw new Error(res.error);
+};
+
 // @generator-ignore-export
 export const queueFileTagAncestorRegen = async (fileIds: string[]) => {
+  if (deferRegeneration(flushFileTagAncestorRegen, fileIds)) return;
   await actions.queueBackgroundOperation({
     label: "File tag ancestor regeneration",
     targetIds: fileIds,
@@ -356,6 +363,10 @@ export const detectFaces = makeAction(async ({ imagePath }: { imagePath: string 
   // }
 });
 
+const notifyFileMetadataChanges = async () => {
+  socket.emit("onReloadFiles");
+};
+
 export const editFileTags = makeAction(
   async ({
     addedTagIds = [],
@@ -421,11 +432,12 @@ export const editFileTags = makeAction(
 
     const changedTagIds = [...new Set([...addedTagIds, ...removedTagIds])];
     await queueFileTagAncestorRegen(fileIds);
-    await actions.queueTagMetadataRegen(await actions.deriveAncestorTagIds(changedTagIds));
+    await actions.queueTagMetadataRegen(changedTagIds);
     const collectionRes = await actions.regenCollAttrs({ fileIds });
     if (!collectionRes.success) throw new Error(collectionRes.error);
 
-    if (withSub) socket.emit("onFileTagsUpdated", { addedTagIds, batchId, fileIds, removedTagIds });
+    if (withSub && !deferRegeneration(notifyFileMetadataChanges, fileIds, "complete"))
+      socket.emit("onFileTagsUpdated", { addedTagIds, batchId, fileIds, removedTagIds });
   },
 );
 
@@ -897,6 +909,11 @@ export const setFileFaceModels = makeAction(
   },
 );
 
+const emitFilesArchived = async (fileIds: string[]) => {
+  socket.emit("onFilesArchived", { fileIds });
+  socket.emit("onFilesUpdated", { fileIds, updates: { isArchived: true } });
+};
+
 export const setFileIsArchived = makeAction(
   async (args: { fileIds: string[]; isArchived: boolean }) => {
     const updates = { isArchived: args.isArchived };
@@ -906,8 +923,10 @@ export const setFileIsArchived = makeAction(
       if (!res.success) throw new Error(res.error);
     }
 
-    if (args.isArchived) socket.emit("onFilesArchived", { fileIds: args.fileIds });
-    socket.emit("onFilesUpdated", { fileIds: args.fileIds, updates });
+    if (args.isArchived) {
+      if (!deferRegeneration(emitFilesArchived, args.fileIds, "complete"))
+        await emitFilesArchived(args.fileIds);
+    } else socket.emit("onFilesUpdated", { fileIds: args.fileIds, updates });
   },
 );
 
@@ -923,7 +942,8 @@ export const setFileRating = makeAction(async (args: { fileIds: string[]; rating
   ];
   const updates = { rating: args.rating, dateModified: dayjs().toISOString() };
   await models.FileModel.updateMany({ _id: { $in: args.fileIds } }, updates);
-  socket.emit("onFilesUpdated", { fileIds: args.fileIds, updates });
+  if (!deferRegeneration(notifyFileMetadataChanges, args.fileIds, "complete"))
+    socket.emit("onFilesUpdated", { fileIds: args.fileIds, updates });
 
   await actions.regenCollAttrs({ fileIds: args.fileIds });
   if (tagIds.length) await actions.queueTagMetadataRegen(tagIds);

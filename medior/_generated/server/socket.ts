@@ -82,6 +82,10 @@ export interface SocketEmitEvents {
     args: { id: string; updates: Partial<models.TagSchema> },
     options?: SocketEventOptions,
   ) => void;
+  onDuplicateMergeProgress: (
+    args: { batchId: string; completed: number; failed: number; isRegenerating: boolean },
+    options?: SocketEventOptions,
+  ) => void;
   onFileCollectionsDeleted: (args: { ids: string[] }, options?: SocketEventOptions) => void;
   onFileRefreshProgress: (
     args: {
@@ -117,7 +121,10 @@ export interface SocketEmitEvents {
     args: { addedTagIds: string[]; batchId?: string; fileIds?: string[]; removedTagIds: string[] },
     options?: SocketEventOptions,
   ) => void;
-  onFileTransformLoaded: (args: { id: string }, options?: SocketEventOptions) => void;
+  onFileTransformLoaded: (
+    args: { file: models.FileSchema; transform: models.FileTransformSchema },
+    options?: SocketEventOptions,
+  ) => void;
   onFileTransformerStatusUpdated: (options?: SocketEventOptions) => void;
   onImportBatchCompleted: (args: { id: string }, options?: SocketEventOptions) => void;
   onImportBatchLoaded: (args: { id: string }, options?: SocketEventOptions) => void;
@@ -184,6 +191,7 @@ export const socketEvents: SocketEmitEvent[] = [
   "onTagCreated",
   "onTagDeleted",
   "onTagUpdated",
+  "onDuplicateMergeProgress",
   "onFileCollectionsDeleted",
   "onFileRefreshProgress",
   "onFilesArchived",

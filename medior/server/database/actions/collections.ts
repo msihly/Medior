@@ -5,6 +5,7 @@ import { FilterQuery, UpdateQuery } from "mongoose";
 import { fileLog, makePerfLog } from "trabecula/utils/server";
 import * as actions from "medior/server/database/actions";
 import { makeBackgroundOperationRunner } from "medior/server/database/actions/background-operations";
+import { deferRegeneration } from "medior/server/database/regeneration-batch";
 import { makeRepairReporter } from "medior/server/database/repair-progress";
 import { SortMenuProps } from "medior/components";
 import { chunkArray, dayjs, PromiseQueue } from "medior/utils/common";
@@ -747,6 +748,27 @@ export const listCollectionIdsByTagIds = makeAction(async (args: { tagIds: strin
   ).map((f) => f._id.toString());
 });
 
+const regenCollectionsByFileIds = async (fileIds: string[]) => {
+  const collections = await models.FileCollectionModel.find({
+    "fileIdIndexes.fileId": { $in: objectIds(fileIds) },
+  })
+    .select({ _id: 1 })
+    .lean();
+  await regenCollectionsByIds(collections.map(({ _id }) => _id.toString()));
+};
+
+const regenCollectionsByIds = async (collIds: string[]) => {
+  const collections = await models.FileCollectionModel.find({ _id: { $in: objectIds(collIds) } })
+    .select({ fileIdIndexes: 1 })
+    .lean();
+  for (const collection of collections)
+    await syncCollectionFileIds(
+      collection._id.toString(),
+      collection.fileIdIndexes.map(({ fileId }) => String(fileId)),
+    );
+  await runCollAttrsRegen(collIds);
+};
+
 export const regenCollAttrs = makeAction(
   async (
     args: {
@@ -755,6 +777,19 @@ export const regenCollAttrs = makeAction(
       fileIds?: string[];
     } = {},
   ) => {
+    if (!args.collFilter) {
+      if (
+        args.collIds?.length &&
+        deferRegeneration(regenCollectionsByIds, args.collIds, "collections")
+      )
+        return { queuedCount: args.collIds.length };
+      if (
+        !args.collIds?.length &&
+        args.fileIds?.length &&
+        deferRegeneration(regenCollectionsByFileIds, args.fileIds, "collections")
+      )
+        return { queuedCount: 0 };
+    }
     const collectionIds = (
       await models.FileCollectionModel.find(
         {
@@ -1065,12 +1100,21 @@ export const repairCollections = makeAction(
   },
 );
 
+const notifyCollectionChanges = async () => {
+  socket.emit("onReloadFileCollections");
+};
+
 export const updateCollection = makeAction(
   async (updates: Omit<Partial<models.FileCollectionSchema>, "tagIds"> & { id: string }) => {
     const coll = await models.FileCollectionModel.findOne({ _id: updates.id });
     updates.dateModified = dayjs().toISOString();
 
-    if (updates.fileIdIndexes) {
+    if (
+      updates.fileIdIndexes &&
+      deferRegeneration(regenCollectionsByIds, [updates.id], "collections")
+    ) {
+      updates.fileCount = updates.fileIdIndexes.length;
+    } else if (updates.fileIdIndexes) {
       const fileIds = updates.fileIdIndexes.map((f) => f.fileId);
       const filesRes = await actions.listFile({ args: { filter: { id: fileIds } } });
       if (!filesRes.success) throw new Error(filesRes.error);
@@ -1105,12 +1149,16 @@ export const updateCollection = makeAction(
     const res = await models.FileCollectionModel.updateOne({ _id: updates.id }, updates, {
       new: true,
     });
-    if (updates.fileIdIndexes)
+    if (
+      updates.fileIdIndexes &&
+      !deferRegeneration(regenCollectionsByIds, [updates.id], "collections")
+    )
       await syncCollectionFileIds(
         updates.id,
         updates.fileIdIndexes.map(({ fileId }) => String(fileId)),
       );
-    socket.emit("onFileCollectionUpdated", { id: updates.id, updates });
+    if (!deferRegeneration(notifyCollectionChanges, [updates.id], "complete"))
+      socket.emit("onFileCollectionUpdated", { id: updates.id, updates });
     return res;
   },
 );

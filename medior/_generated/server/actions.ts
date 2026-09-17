@@ -2074,6 +2074,7 @@ export const createFileTransform = makeAction(
       dateCreated: dayjs().toISOString(),
       configOverride: [],
       isCompleted: false,
+      regenerationPending: false,
       timestampPairs: [],
     };
 

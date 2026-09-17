@@ -272,6 +272,8 @@ export interface FileTransformSchema {
   progressPercent?: number;
   progressSize?: number;
   progressTime?: string;
+  queueIndex?: number;
+  regenerationPending?: boolean;
   startedAt?: string;
   status:
     | string
@@ -334,6 +336,8 @@ const FileTransformSchema = new Schema<FileTransformSchema>({
   progressPercent: Number,
   progressSize: Number,
   progressTime: String,
+  queueIndex: Number,
+  regenerationPending: Boolean,
   startedAt: String,
   status: {
     type: String,
@@ -355,6 +359,10 @@ const FileTransformSchema = new Schema<FileTransformSchema>({
 });
 
 FileTransformSchema.index({ dateCreated: 1, _id: 1 }, { unique: true });
+FileTransformSchema.index(
+  { isCompleted: 1, status: 1, dateCreated: 1, queueIndex: 1, _id: 1 },
+  { unique: true },
+);
 FileTransformSchema.index({ completedAt: 1, _id: 1 }, { unique: false });
 FileTransformSchema.index({ fileId: 1, _id: 1 }, { unique: false });
 FileTransformSchema.index({ isCompleted: 1, _id: 1 }, { unique: false });

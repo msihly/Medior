@@ -2,6 +2,8 @@ import { ModelDb } from "medior/generator/schema/generators";
 
 const model = new ModelDb("FileTransform", { defaultPageSize: 20, withStore: true });
 
+model.addIndex({ isCompleted: 1, status: 1, dateCreated: 1, queueIndex: 1, _id: 1 });
+
 model.addProp("afterAudioBitrate", "number");
 model.addProp("afterAudioCodec", "string");
 model.addProp("afterBitrate", "number");
@@ -56,6 +58,10 @@ model.addProp("isCompleted", "boolean", { defaultValue: "false", required: true 
 model.addProp("progressPercent", "number");
 model.addProp("progressSize", "number");
 model.addProp("progressTime", "string");
+
+model.addProp("queueIndex", "number");
+
+model.addProp("regenerationPending", "boolean", { defaultValue: "false" });
 
 model.addIndex({ startedAt: 1, _id: 1 }, { unique: false });
 model.addProp("startedAt", "string", { sort: { icon: "HourglassTop", label: "Started At" } });

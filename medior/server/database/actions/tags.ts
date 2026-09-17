@@ -5,6 +5,7 @@ import mongoose, { FilterQuery, PipelineStage, UpdateQuery } from "mongoose";
 import { fileLog, makePerfLog } from "trabecula/utils/server";
 import * as actions from "medior/server/database/actions";
 import { makeBackgroundOperationRunner } from "medior/server/database/actions/background-operations";
+import { deferRegeneration } from "medior/server/database/regeneration-batch";
 import { makeRepairReporter } from "medior/server/database/repair-progress";
 import * as Types from "medior/server/database/types";
 import {
@@ -466,11 +467,18 @@ const processTagRegenQueue = async () => {
 
 const runTagRegenQueue = makeBackgroundOperationRunner("tag regeneration", processTagRegenQueue);
 
+const flushTagMetadataRegen = async (tagIds: string[]) => {
+  const res = await regenTagMeta({ tagIds: await deriveAncestorTagIds(tagIds) });
+  if (!res.success) throw new Error(res.error);
+};
+
 // @generator-ignore-export
 export const queueTagMetadataRegen = async (tagIds: string[]) => {
+  if (!tagIds.length) return;
+  if (deferRegeneration(flushTagMetadataRegen, tagIds, "tags")) return;
   await actions.queueBackgroundOperation({
     label: "Tag metadata regeneration",
-    targetIds: tagIds,
+    targetIds: await deriveAncestorTagIds(tagIds),
     type: "tagMetadata",
   });
   runTagRegenQueue();

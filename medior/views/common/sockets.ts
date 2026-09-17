@@ -433,44 +433,35 @@ export const useSockets = ({ enabled = true, view }: UseSocketsProps) => {
       });
     }
 
-    makeSocket("onFileTransformerStatusUpdated", () => {
-      stores.file.videoTransformer.getTransformerStatus();
-      stores.file.videoTransformer.loadQueueCount();
+    makeSocket("onFileTransformerStatusUpdated", async () => {
+      await stores.file.videoTransformer.getTransformerStatus();
+      if (!stores.file.videoTransformer.isOpen) return;
+      if (!stores.file.videoTransformer.isTransforming) {
+        await stores.file.videoTransformer.loadActiveTransform(
+          stores.file.videoTransformer.focusedTransformId ?? undefined,
+        );
+        await stores.file.videoTransformer.loadQueue();
+      }
+      await stores.file.videoTransformer.loadQueueCount();
     });
 
-    makeSocket("onFileTransformLoaded", ({ id }) => {
-      if (stores.file.videoTransformer.isOpen) stores.file.videoTransformer.loadActiveTransform(id);
+    makeSocket("onFileTransformLoaded", (args) => {
+      if (stores.file.videoTransformer.isOpen)
+        stores.file.videoTransformer.receiveActiveTransform(args);
     });
 
     makeSocket("onFileTransformUpdated", ({ id, updates }) => {
       const isConsumed = ["MERGED", "REPLACED", "SAVED"].includes(updates.status);
-      const isTerminal = updates.isCompleted || ["ERROR", "SKIPPED"].includes(updates.status);
       const transform = stores.file.videoTransformer.search.getResult(id);
-      const fileId = transform?.fileId;
 
       if (stores.file.videoTransformer.activeTransform?.id === id) {
         stores.file.videoTransformer.activeTransform.update(updates);
         if (isConsumed) {
           stores.file.videoTransformer.setFocusedTransformId(null);
-          stores.file.videoTransformer.loadActiveTransform();
         }
-        if (isTerminal) {
-          stores.file.videoTransformer.setIsPaused(false);
-          stores.file.videoTransformer.setIsTransforming(false);
-          stores.file.videoTransformer.loadActiveTransform(id);
-        }
-      } else if (stores.file.videoTransformer.isOpen && updates.status === "RUNNING") {
-        stores.file.videoTransformer.loadActiveTransform(id);
       }
 
-      if (isConsumed) {
-        stores.file.videoTransformer.search._deleteResults([id]);
-        if (fileId) stores.file.videoTransformer.removeQueueFiles([fileId]);
-      } else transform?.update(updates);
-
-      if (updates.isCompleted || ["ERROR", "MERGED", "REPLACED", "SAVED"].includes(updates.status))
-        stores.file.videoTransformer.search.setHasChanges(true);
-      stores.file.videoTransformer.loadQueueCount();
+      transform?.update(updates);
     });
 
     makeSocket("onReloadFileTransforms", () => {

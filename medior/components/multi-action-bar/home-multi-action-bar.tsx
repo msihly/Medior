@@ -1,4 +1,5 @@
 import { AppBar } from "@mui/material";
+import { SortValue } from "medior/store/_generated";
 import { Chip, Comp, FileFilter, MultiActionButton, View } from "medior/components";
 import { handleReingest, useStores } from "medior/store";
 import { colors, makeClasses, toast } from "medior/utils/client";
@@ -15,6 +16,9 @@ export const HomeMultiActionBar = Comp(({ isHome = false }: HomeMultiActionBarPr
 
   const selectedIds = [...stores.file.search.selectedIds];
   const hasNoSelection = selectedIds.length === 0;
+  const sourceSortValue =
+    (stores.file.search.cachedFilterProps as { sortValue?: SortValue })?.sortValue ??
+    stores.file.search.sortValue;
 
   const handleAutoDetect = () => stores.faceRecog.addFilesToAutoDetectQueue(selectedIds);
 
@@ -38,9 +42,10 @@ export const HomeMultiActionBar = Comp(({ isHome = false }: HomeMultiActionBarPr
 
   const handleFileInfoRefresh = () => stores.file.refreshFiles({ ids: selectedIds });
 
-  const handleReencode = () => stores.file.openVideoTransformer(selectedIds, "reencode");
+  const handleReencode = () =>
+    stores.file.openVideoTransformer(selectedIds, "reencode", sourceSortValue);
 
-  const handleRemux = () => stores.file.openVideoTransformer(selectedIds, "remux");
+  const handleRemux = () => stores.file.openVideoTransformer(selectedIds, "remux", sourceSortValue);
 
   const handleSelectAll = () => {
     stores.file.search.toggleSelected(

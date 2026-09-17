@@ -47,20 +47,20 @@ export class FileCollectionSearch extends ExtendedModel(_FileCollectionSearch, {
 
   @modelAction
   _setMaxSize(val: number) {
-    this.setMaxSize(Number.isInteger(val) ? val * 1000 : null);
+    this.setMaxSize(Number.isFinite(val) ? val * 1024 : null);
     this._maxSize = val;
   }
 
   @modelAction
   _setMinSize(val: number) {
-    this.setMinSize(Number.isInteger(val) ? val * 1000 : null);
+    this.setMinSize(Number.isFinite(val) ? val * 1024 : null);
     this._minSize = val;
   }
 
   @modelAction
   afterApplySearchProps(searchProps: Record<string, any>) {
-    this._maxSize = Number.isInteger(searchProps.maxSize) ? searchProps.maxSize / 1000 : null;
-    this._minSize = Number.isInteger(searchProps.minSize) ? searchProps.minSize / 1000 : null;
+    this._maxSize = Number.isFinite(searchProps.maxSize) ? searchProps.maxSize / 1024 : null;
+    this._minSize = Number.isFinite(searchProps.minSize) ? searchProps.minSize / 1024 : null;
   }
 
   @modelAction

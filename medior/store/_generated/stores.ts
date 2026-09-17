@@ -3700,6 +3700,8 @@ export class _FileTransform extends Model({
   progressPercent: prop<number>(null),
   progressSize: prop<number>(null),
   progressTime: prop<string>(null),
+  queueIndex: prop<number>(null),
+  regenerationPending: prop<boolean>(false),
   startedAt: prop<string>(null),
   status: prop<
     | string

@@ -298,7 +298,7 @@ export const FileFilterMenu = Comp(({ color = colors.foreground, store }: FileFi
             max={store._maxSize}
             setMin={store._setMinSize}
             setMax={store._setMaxSize}
-            numInputProps={{ adornment: "kb" }}
+            numInputProps={{ adornment: "KB" }}
           />
         </Card>
 

@@ -2,6 +2,10 @@ export const CUSTOM_EVENTS: {
   args?: string;
   name: string;
 }[] = [
+  {
+    name: "onDuplicateMergeProgress",
+    args: "{ batchId: string; completed: number; failed: number; isRegenerating: boolean }",
+  },
   { name: "onFileCollectionsDeleted", args: "{ ids: string[] }" },
   {
     name: "onFileRefreshProgress",
@@ -19,7 +23,10 @@ export const CUSTOM_EVENTS: {
     name: "onFileTagsUpdated",
     args: "{ addedTagIds: string[]; batchId?: string; fileIds?: string[]; removedTagIds: string[] }",
   },
-  { name: "onFileTransformLoaded", args: "{ id: string }" },
+  {
+    name: "onFileTransformLoaded",
+    args: "{ file: models.FileSchema; transform: models.FileTransformSchema }",
+  },
   { name: "onFileTransformerStatusUpdated" },
   { name: "onImportBatchCompleted", args: "{ id: string }" },
   { name: "onImportBatchLoaded", args: "{ id: string }" },
