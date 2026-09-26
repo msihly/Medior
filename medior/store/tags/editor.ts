@@ -5,7 +5,23 @@ import { asyncAction, CssColor } from "trabecula/utils/client";
 import { IconName } from "medior/components";
 import { RootStore } from "medior/store";
 import { Tag } from "medior/store/tags/tag";
+import { isDeepEqual } from "medior/utils/common";
 import { trpc } from "medior/utils/server";
+
+const reconcileRelationships = (current: Tag[], previousIds: string[], next: Tag[]) => {
+  const selectedIds = new Set(current.map(({ id }) => id));
+  const tags = new Map(next.map((tag) => [tag.id, tag]));
+
+  for (const id of previousIds) {
+    if (!selectedIds.has(id)) tags.delete(id);
+  }
+
+  for (const tag of current) {
+    if (!previousIds.includes(tag.id)) tags.set(tag.id, tag);
+  }
+
+  return [...tags.values()];
+};
 
 @model("medior/TagEditorStore")
 export class TagEditorStore extends Model({
@@ -20,21 +36,31 @@ export class TagEditorStore extends Model({
   isOpen: prop<boolean>(false).withSetter(),
   label: prop<string>("").withSetter(),
   parentTags: prop<Tag[]>(() => []).withSetter(),
-  regExValue: prop<string>("").withSetter(),
   regExTestString: prop<string>("").withSetter(),
+  regExValue: prop<string>("").withSetter(),
   tag: prop<Tag>(null).withSetter(),
 }) {
+  private labelLookupId = 0;
+  private loadingTagId: string;
+  private tagLoadRevision = 0;
+
   onInit() {
     autoBind(this);
 
     reaction(
-      () => this.label,
+      () => [this.label, this.tag?.id],
       async () => {
+        const lookupId = ++this.labelLookupId;
         const stores = getRootStore<RootStore>(this);
-        if (!this.label?.length || !this.tag?.label?.length) this.setIsDuplicate(false);
-        else if (this.label.toLowerCase() === this.tag.label.toLowerCase())
-          this.setIsDuplicate(false);
-        else if ((await stores.tag.getByLabel(this.label)).data) this.setIsDuplicate(true);
+        this.setIsDuplicate(false);
+
+        if (!this.label?.length || this.label.toLowerCase() === this.tag?.label?.toLowerCase())
+          return;
+
+        const res = await stores.tag.getByLabel(this.label);
+        if (lookupId !== this.labelLookupId) return;
+
+        this.setIsDuplicate(!!res.data?.id && res.data.id !== this.tag?.id);
       },
     );
 
@@ -47,12 +73,15 @@ export class TagEditorStore extends Model({
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
   @modelAction
   reset() {
+    this.labelLookupId++;
+    this.tagLoadRevision++;
     this.aliases = [];
     this.categoryColor = null;
     this.categoryIcon = null;
     this.categoryInheritable = null;
     this.categorySortRank = null;
     this.childTags = [];
+    this.isDuplicate = false;
     this.isLoading = false;
     this.label = "";
     this.parentTags = [];
@@ -63,27 +92,58 @@ export class TagEditorStore extends Model({
 
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */
   @modelFlow
-  loadTag = asyncAction(async (id: string) => {
-    this.setIsLoading(true);
+  loadTag = asyncAction(
+    async ({ id, preserveChanges = false }: { id: string; preserveChanges?: boolean }) => {
+      if (preserveChanges && this.isLoading && this.loadingTagId !== id) return;
 
-    const res = await trpc.getTagWithRelations.mutate({ id });
-    if (!res.success) throw new Error(res.error);
+      const revision = ++this.tagLoadRevision;
+      this.loadingTagId = id;
+      if (!preserveChanges) this.setIsLoading(true);
 
-    const tag = res.data.tag;
-    this.setTag(new Tag(tag));
-    this.setChildTags(res.data.childTags.map((t) => new Tag(t)));
-    this.setParentTags(res.data.parentTags.map((t) => new Tag(t)));
+      try {
+        const res = await trpc.getTagWithRelations.mutate({ id });
+        if (!res.success) throw new Error(res.error);
+        if (revision !== this.tagLoadRevision) return;
 
-    this.setCategoryColor(tag.category?.color);
-    this.setCategoryIcon(tag.category?.icon);
-    this.setCategoryInheritable(tag.category?.inheritable);
-    this.setCategorySortRank(tag.category?.sortRank);
+        const tag = res.data.tag;
+        const previous = preserveChanges ? this.tag : null;
 
-    this.setAliases(tag.aliases);
-    this.setLabel(tag.label);
-    this.setRegExTestString("");
-    this.setRegExValue(tag.regEx);
+        this.setChildTags(
+          previous
+            ? reconcileRelationships(
+                this.childTags,
+                previous.childIds,
+                res.data.childTags.map((child) => new Tag(child)),
+              )
+            : res.data.childTags.map((child) => new Tag(child)),
+        );
+        this.setParentTags(
+          previous
+            ? reconcileRelationships(
+                this.parentTags,
+                previous.parentIds,
+                res.data.parentTags.map((parent) => new Tag(parent)),
+              )
+            : res.data.parentTags.map((parent) => new Tag(parent)),
+        );
 
-    this.setIsLoading(false);
-  });
+        if (!previous || this.categoryColor === previous.category?.color)
+          this.setCategoryColor(tag.category?.color);
+        if (!previous || this.categoryIcon === previous.category?.icon)
+          this.setCategoryIcon(tag.category?.icon);
+        if (!previous || this.categoryInheritable === previous.category?.inheritable)
+          this.setCategoryInheritable(tag.category?.inheritable);
+        if (!previous || this.categorySortRank === previous.category?.sortRank)
+          this.setCategorySortRank(tag.category?.sortRank);
+        if (!previous || isDeepEqual(this.aliases, previous.aliases)) this.setAliases(tag.aliases);
+        if (!previous || this.label === previous.label) this.setLabel(tag.label);
+        if (!previous) this.setRegExTestString("");
+        if (!previous || this.regExValue === previous.regEx) this.setRegExValue(tag.regEx);
+
+        this.setTag(new Tag(tag));
+      } finally {
+        if (revision === this.tagLoadRevision) this.setIsLoading(false);
+      }
+    },
+  );
 }

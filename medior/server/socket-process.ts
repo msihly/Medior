@@ -1,14 +1,18 @@
 import { socketEvents } from "medior/_generated/server/socket";
 import { Server } from "socket.io";
 import { fileLog, setLogsPath } from "trabecula/utils/server";
+import { checkServerShutdown, registerProcessLifecycle } from "medior/server/process-lifecycle";
 import { getConfig, loadConfig } from "medior/utils/server";
 
 let io: Server;
 
 const createSocketServer = async () => {
+  checkServerShutdown();
+
   const port = getConfig().ports.socket;
 
   if (io) io.close();
+
   io = new Server(port);
 
   io.on("connection", (socket) => {
@@ -24,30 +28,25 @@ const createSocketServer = async () => {
   fileLog(`[SOCKET] Listening on ${port}`);
 };
 
-process.on("message", async (msg: any) => {
-  if (msg?.type === "start") {
-    try {
-      await loadConfig(process.env.CONFIG_PATH);
-      await setLogsPath(process.env.LOGS_PATH);
-      await createSocketServer();
-      process.send?.({ requestId: msg.requestId, type: "ready" });
-    } catch (err: any) {
-      process.send?.({ error: err.message, requestId: msg.requestId, type: "error" }, () =>
-        process.exit(1),
+registerProcessLifecycle({
+  reload: async () => {
+    await loadConfig(process.env.CONFIG_PATH);
+  },
+
+  start: async () => {
+    await loadConfig(process.env.CONFIG_PATH);
+    await setLogsPath(process.env.LOGS_PATH);
+    await createSocketServer();
+  },
+
+  stop: async () => {
+    if (io)
+      await new Promise<void>((resolve, reject) =>
+        io.close((error) => (error ? reject(error) : resolve())),
       );
-    }
-  }
+  },
+});
 
-  if (msg?.type === "reload-config") {
-    try {
-      await loadConfig(process.env.CONFIG_PATH);
-      process.send?.({ requestId: msg.requestId, type: "config-reloaded" });
-    } catch (err: any) {
-      process.send?.({ error: err.message, requestId: msg.requestId, type: "error" });
-    }
-  }
-
-  if (msg?.type === "emit" && io) {
-    io.emit(msg.event, ...(msg.args || []));
-  }
+process.on("message", (message: any) => {
+  if (message?.type === "emit" && io) io.emit(message.event, ...(message.args || []));
 });

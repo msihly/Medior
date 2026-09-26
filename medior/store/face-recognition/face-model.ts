@@ -33,6 +33,7 @@ export class FaceModel extends Model({
       return (JSON.parse(this.descriptors) as object[]).map(objectToFloat32Array);
     } catch (err) {
       console.error(err);
+
       return null;
     }
   }

@@ -1,26 +1,32 @@
 import fs from "fs/promises";
 import path, { extname } from "path";
+import { execFile } from "child_process";
+import { randomUUID } from "crypto";
 import ffmpeg, { FfmpegCommand } from "fluent-ffmpeg";
-import { checkFileExists, makePerfLog, md5File } from "trabecula/utils/server";
+import type { FormatEnum } from "sharp";
+import { checkFileExists, makePerfLog } from "trabecula/utils/server";
 import {
   CONSTANTS,
   fractionStringToNumber,
-  getOrientedSizeLimits,
   getVideoResizeFilters,
   ImageExt,
-  PromiseQueue,
   round,
 } from "medior/utils/common";
-import { getAvailableFileStorage, getConfig, getIsImage, sharp } from "medior/utils/server";
+import { getAvailableFileStorage, getConfig, getIsImage } from "medior/utils/server";
+import { runImageTask } from "medior/utils/server/image-task";
+import { hashMediaFile, MediaOutput, publishMediaOutput } from "medior/utils/server/media-output";
+import { runConcurrent, workSignal } from "medior/utils/server/work-signal";
 
 export type FfmpegOptions = {
+  onOutputPrepared?: (output: MediaOutput) => Promise<void>;
   onProgress?: (progress: FfmpegProgress) => void;
+  onTempPath?: (tempPath: string) => Promise<void>;
   signal?: AbortSignal;
 };
 
 export type FfmpegProgress = {
-  frames: number;
   fps: number;
+  frames: number;
   kbps: number;
   percent: number;
   size: number;
@@ -53,6 +59,7 @@ const secondsToTimemark = (seconds: number) => {
   const hours = Math.floor(seconds / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);
   const remainingSeconds = seconds % 60;
+
   return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${remainingSeconds
     .toFixed(2)
     .padStart(5, "0")}`;
@@ -64,9 +71,11 @@ export const extractVideoFrame = async (inputPath: string, frameIndex: number): 
   try {
     const fileStorageRes = await getAvailableFileStorage(10000);
     if (!fileStorageRes.success) throw new Error(fileStorageRes.error);
+
     const targetDir = fileStorageRes.data.location;
 
-    const outputPath = path.join(targetDir, "_tmp", "extracted-frame.jpg");
+    const outputPath = path.join(targetDir, "_tmp", `extracted-frame-${randomUUID()}.jpg`);
+
     await fs.mkdir(path.dirname(outputPath), { recursive: true });
 
     await new Promise((resolve, reject) => {
@@ -80,6 +89,9 @@ export const extractVideoFrame = async (inputPath: string, frameIndex: number): 
           reject(err);
         })
         .run();
+    }).catch(async (error) => {
+      await fs.rm(outputPath, { force: true });
+      throw error;
     });
 
     const fileExists = await checkFileExists(outputPath);
@@ -88,6 +100,7 @@ export const extractVideoFrame = async (inputPath: string, frameIndex: number): 
     return outputPath;
   } catch (err) {
     console.error("Error in extractVideoFrame:", err);
+
     return null;
   }
 };
@@ -115,13 +128,21 @@ const execFfmpeg = async (
   const DEBUG = false;
   const { perfLog } = makePerfLog("[ffmpeg]", true);
 
-  const tempPath = path.resolve(outputDir, `temp.${outputExt}`);
+  const tempPath = path.resolve(outputDir, `temp-${randomUUID()}.${outputExt}`);
+
+  options = { ...options, signal: options?.signal ?? workSignal.getStore() };
+  await fs.mkdir(outputDir, { recursive: true });
+  await options?.onTempPath?.(tempPath);
+  options?.signal?.throwIfAborted();
 
   command.outputOptions(["-y"]);
 
   const ffmpegPromise = new Promise((resolve, reject) => {
     command
       .output(tempPath)
+      .on("start", () => {
+        if (options?.signal?.aborted) command.kill("SIGKILL");
+      })
       .on("progress", (progress) => {
         if (options?.onProgress) {
           options.onProgress({
@@ -148,7 +169,8 @@ const execFfmpeg = async (
 
     if (options.signal.aborted) {
       abortHandler();
-      throw new Error("Command cancelled before start.");
+      await ffmpegPromise;
+      options.signal.throwIfAborted();
     }
 
     options.signal.addEventListener("abort", abortHandler);
@@ -162,64 +184,85 @@ const execFfmpeg = async (
 
   if (DEBUG) perfLog(`Temp file created: ${tempPath}.`);
 
-  const newHash = await md5File(tempPath);
+  const newHash = await hashMediaFile(tempPath);
+
   const newPath = path.resolve(
     outputDir,
     newHash.substring(0, 2),
     newHash.substring(2, 4),
     `${newHash}.${outputExt}`,
   );
+
   if (DEBUG) perfLog(`Moving temp file from ${tempPath} to ${newPath}.`);
 
-  await fs.mkdir(path.dirname(newPath), { recursive: true });
-  await fs.rename(tempPath, newPath);
+  await publishMediaOutput({ hash: newHash, path: newPath, tempPath }, options?.onOutputPrepared);
+
   const res = await checkFileExists(newPath);
+
   if (DEBUG) perfLog(`Moved temp file to ${newPath}: ${res}`);
+
   if (!res) throw new Error("Command failed.");
 
   return { hash: newHash, path: newPath };
 };
 
-export const getVideoInfo = async (path: string): Promise<VideoInfo> => {
-  return (await new Promise(async (resolve, reject) => {
-    try {
-      ffmpeg.ffprobe(path, (err, info) => {
-        if (err) return reject(err);
+export const getVideoInfo = (
+  filePath: string,
+  signal = workSignal.getStore(),
+): Promise<VideoInfo> =>
+  new Promise((resolve, reject) => {
+    signal?.throwIfAborted();
 
-        const videoStream = info.streams.find((s) => s.codec_type === "video");
-        if (!videoStream) return reject(new Error("No video stream found."));
+    execFile(
+      process.env.FFPROBE_PATH || "ffprobe",
+      ["-v", "quiet", "-print_format", "json", "-show_format", "-show_streams", filePath],
+      { maxBuffer: 16 * 1024 * 1024, signal, windowsHide: true },
+      (error, stdout) => {
+        if (error) return reject(error);
 
-        const audioStream = info.streams.find((s) => s.codec_type === "audio");
+        try {
+          const info: ffmpeg.FfprobeData = JSON.parse(stdout);
+          const videoStream = info.streams.find((stream) => stream.codec_type === "video");
+          const audioStream = info.streams.find((stream) => stream.codec_type === "audio");
 
-        const { avg_frame_rate, bit_rate, codec_name, height, width } = videoStream;
-        const { duration, size } = info.format;
+          if (!videoStream?.codec_name) throw new Error("No video stream codec found.");
 
-        return resolve({
-          audioBitrate: audioStream ? parseInt(audioStream.bit_rate, 10) || null : null,
-          audioCodec: audioStream ? audioStream.codec_name : "None",
-          bitrate: parseInt(bit_rate, 10) || null,
-          duration: typeof duration === "number" ? duration : parseFloat(duration) || null,
-          ext: extname(path).replace(".", "").toLowerCase(),
-          frameRate: fractionStringToNumber(avg_frame_rate),
-          height,
-          size,
-          videoCodec: codec_name,
-          width,
-        });
-      });
-    } catch (err: any) {
-      reject(err.message);
-    }
-  })) as VideoInfo;
-};
+          if (audioStream && !audioStream.codec_name)
+            throw new Error("No audio stream codec found.");
+
+          const { avg_frame_rate, bit_rate, codec_name, height, width } = videoStream;
+          const { duration, size } = info.format;
+
+          resolve({
+            audioBitrate: audioStream ? parseInt(audioStream.bit_rate, 10) || null : null,
+            audioCodec: audioStream ? audioStream.codec_name : "None",
+            bitrate: parseInt(bit_rate, 10) || null,
+            duration: typeof duration === "number" ? duration : parseFloat(duration) || null,
+            ext: extname(filePath).replace(".", "").toLowerCase(),
+            frameRate: fractionStringToNumber(avg_frame_rate),
+            height,
+            size,
+            videoCodec: codec_name,
+            width,
+          });
+        } catch (error) {
+          reject(error);
+        }
+      },
+    );
+  });
 
 export const getMediaInfo = async (filePath: string): Promise<MediaInfo> => {
   const ext = extname(filePath).replace(".", "").toLowerCase();
+
   if (getIsImage(ext) && ext !== "gif") {
     const [metadata, stats] = await Promise.all([
-      sharp(filePath, { failOn: "none" }).metadata(),
+      runImageTask({ input: filePath, options: { failOn: "none" } }).then(
+        ({ metadata }) => metadata,
+      ),
       fs.stat(filePath),
     ]);
+
     return {
       audioBitrate: null,
       audioCodec: null,
@@ -237,23 +280,6 @@ export const getMediaInfo = async (filePath: string): Promise<MediaInfo> => {
   return getVideoInfo(filePath);
 };
 
-const moveHashedOutput = async (tempPath: string, outputDir: string, outputExt: string) => {
-  const newHash = await md5File(tempPath);
-  const newPath = path.resolve(
-    outputDir,
-    newHash.substring(0, 2),
-    newHash.substring(2, 4),
-    `${newHash}.${outputExt}`,
-  );
-
-  await fs.mkdir(path.dirname(newPath), { recursive: true });
-  await fs.rename(tempPath, newPath);
-  const res = await checkFileExists(newPath);
-  if (!res) throw new Error("Command failed.");
-
-  return { hash: newHash, path: newPath };
-};
-
 const normalizeImageExt = (ext: ImageExt) => (ext === "jpeg" ? "jpg" : ext);
 
 export const compressImage = async (
@@ -263,25 +289,69 @@ export const compressImage = async (
 ) => {
   const { imageExt, imageJpgQuality, imageMaxLongEdge, imageMaxShortEdge } =
     getConfig().file.reencode;
+
   const outputExt = normalizeImageExt(imageExt);
-  const tempPath = path.resolve(outputDir, `temp.${outputExt}`);
+  const tempPath = path.resolve(outputDir, `temp-${randomUUID()}.${outputExt}`);
 
+  options?.signal?.throwIfAborted();
   await fs.mkdir(outputDir, { recursive: true });
+  await options?.onTempPath?.(tempPath);
 
-  const image = sharp(inputPath, { failOn: "none" });
-  const metadata = await image.metadata();
-  image.resize({
-    ...getOrientedSizeLimits(metadata.width, metadata.height, imageMaxLongEdge, imageMaxShortEdge),
-    fit: "inside",
-    withoutEnlargement: true,
-  });
+  try {
+    const { output } = await runImageTask(
+      {
+        format: outputExt as keyof FormatEnum,
+        input: inputPath,
+        maxLongEdge: imageMaxLongEdge,
+        maxShortEdge: imageMaxShortEdge,
+        options: { failOn: "none" },
+        outputPath: tempPath,
+        quality: imageJpgQuality,
+      },
+      options?.signal,
+    );
 
-  if (outputExt === "jpg") image.jpeg({ quality: imageJpgQuality });
-  else image.toFormat(outputExt as any);
-  await image.toFile(tempPath);
-  options?.onProgress?.({ fps: 0, frames: 1, kbps: 0, percent: 100, size: 0, time: "" });
+    options?.signal?.throwIfAborted();
 
-  return moveHashedOutput(tempPath, outputDir, outputExt);
+    const hash = await hashMediaFile(tempPath);
+
+    options?.signal?.throwIfAborted();
+
+    const outputPath = path.resolve(
+      outputDir,
+      hash.substring(0, 2),
+      hash.substring(2, 4),
+      `${hash}.${outputExt}`,
+    );
+
+    await publishMediaOutput({ hash, path: outputPath, tempPath }, options?.onOutputPrepared);
+
+    options?.onProgress?.({
+      fps: 0,
+      frames: 1,
+      kbps: 0,
+      percent: 100,
+      size: output.size,
+      time: "",
+    });
+
+    const info: MediaInfo = {
+      audioBitrate: null,
+      audioCodec: null,
+      bitrate: null,
+      duration: null,
+      ext: outputExt,
+      frameRate: null,
+      height: output.height,
+      size: output.size,
+      videoCodec: null,
+      width: output.width,
+    };
+
+    return { hash, info, path: outputPath };
+  } finally {
+    await fs.rm(tempPath, { force: true });
+  }
 };
 
 export const gifToLoopableVideo = async (
@@ -387,88 +457,104 @@ export const spliceVideo = async (
 
   if (!options?.forceReencode) {
     const tempDir = path.join(outputDir, "_tmp", `splice-${Date.now()}`);
+
     await fs.mkdir(tempDir, { recursive: true });
 
     const segmentPaths: string[] = [];
     let completedDuration = 0;
     let completedSize = 0;
-    for (const [index, [start, end]] of pairs.entries()) {
-      const segmentPath = path.join(tempDir, `segment-${index}.ts`);
-      const segmentDuration = end - start;
+
+    try {
+      for (const [index, [start, end]] of pairs.entries()) {
+        const segmentPath = path.join(tempDir, `segment-${index}.ts`);
+        const segmentDuration = end - start;
+
+        const command = ffmpeg()
+          .input(inputPath)
+          .inputOptions([`-ss ${start}`])
+          .outputOptions([
+            `-t ${end - start}`,
+            "-map 0",
+            "-c copy",
+            "-avoid_negative_ts make_zero",
+            "-muxpreload 0",
+            "-muxdelay 0",
+          ]);
+
+        options?.onProgress?.({
+          fps: 0,
+          frames: 0,
+          kbps: 0,
+          percent: (completedDuration / totalDuration) * 100,
+          size: completedSize,
+          time: secondsToTimemark(completedDuration),
+        });
+
+        await new Promise<void>((resolve, reject) => {
+          const signal = options?.signal ?? workSignal.getStore();
+
+          signal?.throwIfAborted();
+
+          const abort = () => command.kill("SIGKILL");
+
+          const cleanup = () => signal?.removeEventListener("abort", abort);
+
+          command
+            .output(segmentPath)
+            .on("start", () => {
+              if (signal?.aborted) abort();
+            })
+            .on("progress", (progress) => {
+              const elapsed = progress.timemark
+                ? Math.min(timemarkToSeconds(progress.timemark), segmentDuration)
+                : 0;
+
+              options?.onProgress?.({
+                fps: progress.currentFps ?? 0,
+                frames: progress.frames ?? 0,
+                kbps: progress.currentKbps ?? 0,
+                percent: ((completedDuration + elapsed) / totalDuration) * 100,
+                size: completedSize + (progress.targetSize ?? 0) * 1000,
+                time: secondsToTimemark(completedDuration + elapsed),
+              });
+            })
+            .on("end", () => (cleanup(), resolve()))
+            .on("error", (err) => (cleanup(), reject(err)))
+            .run();
+
+          if (!signal) return;
+
+          if (signal.aborted) {
+            cleanup();
+            abort();
+            reject(new Error("Command cancelled before start."));
+          } else signal.addEventListener("abort", abort, { once: true });
+        });
+
+        segmentPaths.push(segmentPath);
+        completedDuration += segmentDuration;
+        completedSize += (await fs.stat(segmentPath)).size;
+      }
+
       const command = ffmpeg()
-        .input(inputPath)
-        .inputOptions([`-ss ${start}`])
-        .outputOptions([
-          `-t ${end - start}`,
-          "-map 0",
-          "-c copy",
-          "-avoid_negative_ts make_zero",
-          "-muxpreload 0",
-          "-muxdelay 0",
-        ]);
+        .input(`concat:${segmentPaths.join("|")}`)
+        .outputOptions(["-map 0", "-c copy", "-movflags +faststart"]);
 
-      options?.onProgress?.({
-        fps: 0,
-        frames: 0,
-        kbps: 0,
-        percent: (completedDuration / totalDuration) * 100,
-        size: completedSize,
-        time: secondsToTimemark(completedDuration),
-      });
-
-      await new Promise<void>((resolve, reject) => {
-        const signal = options?.signal;
-        const abort = () => command.kill("SIGKILL");
-        const cleanup = () => signal?.removeEventListener("abort", abort);
-
-        command
-          .output(segmentPath)
-          .on("progress", (progress) => {
-            const elapsed = progress.timemark
-              ? Math.min(timemarkToSeconds(progress.timemark), segmentDuration)
-              : 0;
-            options?.onProgress?.({
-              fps: progress.currentFps ?? 0,
-              frames: progress.frames ?? 0,
-              kbps: progress.currentKbps ?? 0,
-              percent: ((completedDuration + elapsed) / totalDuration) * 100,
-              size: completedSize + (progress.targetSize ?? 0) * 1000,
-              time: secondsToTimemark(completedDuration + elapsed),
-            });
-          })
-          .on("end", () => (cleanup(), resolve()))
-          .on("error", (err) => (cleanup(), reject(err)))
-          .run();
-
-        if (!signal) return;
-        if (signal.aborted) {
-          cleanup();
-          abort();
-          reject(new Error("Command cancelled before start."));
-        } else signal.addEventListener("abort", abort, { once: true });
-      });
-
-      segmentPaths.push(segmentPath);
-      completedDuration += segmentDuration;
-      completedSize += (await fs.stat(segmentPath)).size;
+      return await execFfmpeg(command, outputDir, options, totalDuration);
+    } finally {
+      await fs.rm(tempDir, { force: true, recursive: true });
     }
-
-    const command = ffmpeg()
-      .input(`concat:${segmentPaths.join("|")}`)
-      .outputOptions(["-map 0", "-c copy", "-movflags +faststart"]);
-
-    return execFfmpeg(command, outputDir, options, totalDuration).finally(() =>
-      fs.rm(tempDir, { force: true, recursive: true }),
-    );
   }
 
   const command = ffmpeg();
+
   pairs.forEach(([start, end]) => {
     command.input(inputPath).inputOptions([`-ss ${start}`, `-to ${end}`]);
   });
 
   const hasAudio = info.audioCodec && info.audioCodec !== "None";
   const streams = pairs.map((_, i) => (hasAudio ? `[${i}:v][${i}:a]` : `[${i}:v]`)).join("");
+
   const filterComplex = hasAudio
     ? `${streams}concat=n=${pairs.length}:v=1:a=1[v][a]`
     : `${streams}concat=n=${pairs.length}:v=1:a=0[v]`;
@@ -489,17 +575,30 @@ export const spliceVideo = async (
   return execFfmpeg(command, outputDir, options, totalDuration);
 };
 
-export const vidToThumbGrid = async (inputPath: string, outputPath: string, fileHash: string) => {
+export const vidToThumbGrid = async (
+  inputPath: string,
+  outputPath: string,
+  fileHash: string,
+  signal = workSignal.getStore(),
+) => {
   const DEBUG = false;
   const { perfLog, perfLogTotal } = makePerfLog("[vidToThumbGrid]", true);
 
   let isCorrupted = false;
   const gridPath = path.resolve(outputPath, `${fileHash}-thumb.jpg`);
 
+  const tempPaths = Array.from(
+    { length: CONSTANTS.FILE.THUMB.GRID_COLUMNS * CONSTANTS.FILE.THUMB.GRID_ROWS },
+    (_, index) => path.resolve(outputPath, `${fileHash}-thumb-${index}.jpg`),
+  );
+
   try {
     if (DEBUG) perfLog(`Generating thumbnail grid for: ${inputPath}`);
 
-    const { duration, height, width } = await getVideoInfo(inputPath);
+    signal?.throwIfAborted();
+
+    const { duration, height, width } = await getVideoInfo(inputPath, signal);
+
     if (DEBUG) perfLog(`Video duration: ${duration}`);
 
     const numOfFrames = CONSTANTS.FILE.THUMB.GRID_COLUMNS * CONSTANTS.FILE.THUMB.GRID_ROWS;
@@ -507,34 +606,53 @@ export const vidToThumbGrid = async (inputPath: string, outputPath: string, file
     const skipDuration = duration * CONSTANTS.FILE.THUMB.FRAME_SKIP_PERCENT;
     const frameInterval = (duration - skipDuration) / numOfFrames;
 
-    const thumbs = Array.from({ length: numOfFrames }, (_, idx) => ({
+    const thumbs = tempPaths.map((tempPath, idx) => ({
       timestamp: idx * frameInterval + skipDuration,
-      tempPath: path.resolve(outputPath, `${fileHash}-thumb-${idx}.jpg`),
+      tempPath,
     }));
 
-    const queue = new PromiseQueue({ concurrency: 3 });
+    await runConcurrent(
+      thumbs,
+      3,
+      (thumb) =>
+        new Promise<void>((resolve, reject) => {
+          signal?.throwIfAborted();
 
-    for (const thumb of thumbs) {
-      queue.add(
-        () =>
-          new Promise<void>((resolve) => {
-            ffmpeg()
-              .input(inputPath)
-              .inputOptions(["-ss", `${thumb.timestamp}`])
-              .outputOptions(["-vf", `scale=${scaled.width}:${scaled.height}`, "-frames:v", "1"])
-              .output(thumb.tempPath)
-              .on("end", () => resolve())
-              .on("error", (err) => {
-                console.error(`Failed thumb gen ${thumb.timestamp}: ${err}`);
-                isCorrupted = true;
-                resolve();
-              })
-              .run();
-          }),
-      );
-    }
+          const command = ffmpeg()
+            .input(inputPath)
+            .inputOptions(["-ss", `${thumb.timestamp}`])
+            .outputOptions(["-vf", `scale=${scaled.width}:${scaled.height}`, "-frames:v", "1"])
+            .output(thumb.tempPath)
+            .on("start", () => {
+              if (signal?.aborted) command.kill("SIGKILL");
+            })
+            .on("end", () => {
+              signal?.removeEventListener("abort", abort);
+              resolve();
+            })
+            .on("error", (err) => {
+              signal?.removeEventListener("abort", abort);
 
-    await queue.resolve();
+              if (signal?.aborted) {
+                reject(signal.reason);
+
+                return;
+              }
+
+              console.error(`Failed thumb gen ${thumb.timestamp}: ${err}`);
+              isCorrupted = true;
+              resolve();
+            });
+
+          const abort = () => command.kill("SIGKILL");
+
+          signal?.addEventListener("abort", abort, { once: true });
+          command.run();
+        }),
+      signal,
+    );
+
+    signal?.throwIfAborted();
 
     if (DEBUG) perfLog(`Generated ${thumbs.length} thumbnails`);
 
@@ -542,62 +660,50 @@ export const vidToThumbGrid = async (inputPath: string, outputPath: string, file
     const colCount = CONSTANTS.FILE.THUMB.GRID_COLUMNS;
     const gridWidth = scaled.width * colCount;
     const gridHeight = scaled.height * CONSTANTS.FILE.THUMB.GRID_ROWS;
-    const validTempPaths: string[] = [];
 
-    try {
-      const compositeArray = (
-        await Promise.all(
-          thumbs.map(async ({ tempPath }, idx) => {
-            if (!(await checkFileExists(tempPath))) {
-              console.error(`Corrupted file. Failed thumb gen temp frame: ${tempPath}`);
-              isCorrupted = true;
-              return null;
-            } else {
-              validTempPaths.push(tempPath);
-              const row = Math.floor(idx / colCount);
-              const col = idx % colCount;
-              return { input: tempPath, left: col * scaled.width, top: row * scaled.height };
-            }
-          }),
-        )
-      ).filter(Boolean);
+    const compositeArray = (
+      await Promise.all(
+        thumbs.map(async ({ tempPath }, idx) => {
+          if (!(await checkFileExists(tempPath))) {
+            console.error(`Corrupted file. Failed thumb gen temp frame: ${tempPath}`);
+            isCorrupted = true;
 
-      if (DEBUG) perfLog(`Composite array: ${JSON.stringify(compositeArray)}`);
+            return null;
+          }
 
-      const blankCanvas = Buffer.from(new Array(gridWidth * gridHeight * channels).fill(0));
+          const row = Math.floor(idx / colCount);
+          const col = idx % colCount;
 
-      const result = await sharp(blankCanvas, {
-        raw: { channels, height: gridHeight, width: gridWidth },
-      })
-        .composite(compositeArray)
-        .jpeg()
-        .toFile(gridPath);
+          return { input: tempPath, left: col * scaled.width, top: row * scaled.height };
+        }),
+      )
+    ).filter(Boolean);
 
-      if (DEBUG) perfLog(`Grid created successfully: ${result}`);
-    } catch (error) {
-      isCorrupted = true;
-      throw new Error(`Error creating thumb grid: ${error.message}`);
-    } finally {
-      const res = await Promise.all(
-        validTempPaths.map((p) =>
-          fs
-            .unlink(p)
-            .then(() => true)
-            .catch(() => false),
-        ),
-      );
-      if (DEBUG) perfLog(`Unlink res: ${res.join(", ")}`);
-      if (res.some((v) => !v)) {
-        isCorrupted = true;
-        console.error(`Corrupted file: ${inputPath}`);
-      }
-    }
+    if (DEBUG) perfLog(`Composite array: ${JSON.stringify(compositeArray)}`);
+
+    const blankCanvas = Buffer.alloc(gridWidth * gridHeight * channels);
+
+    const result = await runImageTask(
+      {
+        composite: compositeArray,
+        format: "jpeg",
+        input: blankCanvas,
+        options: { raw: { channels, height: gridHeight, width: gridWidth } },
+        outputPath: gridPath,
+      },
+      signal,
+    );
+
+    if (DEBUG) perfLog(`Grid created successfully: ${result}`);
 
     if (DEBUG) perfLogTotal(`Thumbnail grid generated: ${gridPath}`);
-  } catch (err) {
-    isCorrupted = true;
-    console.error(err);
   } finally {
-    return { isCorrupted, path: gridPath };
+    await Promise.all(
+      tempPaths.map((tempPath) => fs.rm(tempPath, { force: true }).catch(console.error)),
+    );
   }
+
+  signal?.throwIfAborted();
+
+  return { isCorrupted, path: gridPath };
 };

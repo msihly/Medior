@@ -11,10 +11,13 @@ export const getActions = async () => {
   const customActions = await parseExportsFromIndex(
     `${ROOT_PATH}/server/database/actions/index.ts`,
   );
+
   const customActionsSet = new Set(customActions.map((a) => a.toUpperCase()));
+
   const modelActions = MODEL_DEFS.flatMap((def) =>
     MODEL_ACTIONS.map((action) => `${action}${def.name}`),
   );
+
   return {
     custom: customActions,
     model: modelActions.filter((a) => !customActionsSet.has(a.toUpperCase())),
@@ -23,6 +26,7 @@ export const getActions = async () => {
 
 const makeFnAndTypeNames = (rawName: string, actions: { custom: string[]; model: string[] }) => {
   const prefix = [...actions.custom].includes(rawName) ? "_" : "";
+
   return { fnName: `${prefix}${rawName}`, typeName: `${prefix}${capitalize(rawName)}Input` };
 };
 
@@ -36,44 +40,109 @@ export const makeActionsDef = async (
 
   const schemaName = `${modelDef.name}Schema`;
 
+  const usesMetadataWork = (fnName: string) =>
+    /^_?((create|update)(File|FileCollection)|updateTag|deleteFileCollection)$/.test(fnName);
+
   const makeFnPrefix = (
     fnName: string,
     typeName: string,
     withDefault = false,
     withSocketOpts = true,
   ) =>
-    `export const ${fnName} = makeAction(async ({ args${withSocketOpts ? ", socketOpts" : ""} }: {\
-      args${withDefault ? "?" : ""}: Types.${typeName};\
-      ${withSocketOpts ? "socketOpts?: SocketEventOptions;" : ""}\
+    `export const ${fnName} = makeAction(${usesMetadataWork(fnName) ? `registerMetadataWork("generated:${fnName}", ` : ""}async ({ args${withSocketOpts ? ", socketOpts" : ""} }: {
+      args${withDefault ? "?" : ""}: Types.${typeName};
+      ${withSocketOpts ? "socketOpts?: SocketEventOptions;" : ""}
     }${withDefault ? " = {}" : ""}) => {`;
 
   const makeCreateFn = () => {
     const { fnName, typeName } = makeFnAndTypeNames(`create${modelDef.name}`, actions);
+
+    if (!["File", "FileCollection"].includes(modelDef.name))
+      return `${makeFnPrefix(fnName, typeName)}
+        const model = { ...args${defaultProps.length ? `, ${defaultProps.join(", ")}` : ""} };
+
+        const res = await new models.${modelDef.name}Model(model).save(metadataWriteOptions());
+        const created = { ...model, id: res._id.toString() };
+
+        socket.emit("on${modelDef.name}Created", created, socketOpts);
+
+        return created;
+      }${usesMetadataWork(fnName) ? ")" : ""});`;
+
     return `${makeFnPrefix(fnName, typeName)}
         const model = { ...args${defaultProps.length ? `, ${defaultProps.join(", ")}` : ""} };
 
-        const res = await models.${modelDef.name}Model.create(model);
+        ${
+          modelDef.name === "File"
+            ? "await assertMediaPathsAvailable([model.path, model.thumb?.path]);"
+            : ""
+        }
+
+        const res = await models.${modelDef.name}Model.findOneAndUpdate(
+          { _id: getMetadataCreateId("generated:${fnName}") },
+          { $setOnInsert: model },
+          { ...metadataWriteOptions(), new: true, upsert: true }
+        );
+
         const id = res._id.toString();
 
-        ${modelDef.name === "FileCollection" ? "await syncCollectionFileIds(id, model.fileIdIndexes.map(({ fileId }) => String(fileId)));" : ""}
-        socket.emit("on${modelDef.name}Created", { ...model, id }, socketOpts);
-        return { ...model, id };
-      });`;
+        ${
+          modelDef.name === "FileCollection"
+            ? `await syncCollectionFileIds(
+                id,
+                model.fileIdIndexes.map(({ fileId }) => String(fileId))
+              );`
+            : ""
+        }
+
+        const created = { ...model, id };
+
+        socket.emit("on${modelDef.name}Created", created, socketOpts);
+
+        return created;
+      }${usesMetadataWork(fnName) ? ")" : ""});`;
   };
 
   const makeDeleteFn = () => {
     const { fnName, typeName } = makeFnAndTypeNames(`delete${modelDef.name}`, actions);
+
+    if (["File", "FileImportBatch", "FileTransform"].includes(modelDef.name))
+      return `${makeFnPrefix(fnName, typeName)}
+        const deleted = await ${
+          modelDef.name === "File"
+            ? "deleteFiles({ fileIds: args.ids })"
+            : modelDef.name === "FileImportBatch"
+              ? "deleteImportBatches(args)"
+              : "deleteFileTransforms(args)"
+        };
+        if (!deleted.success) throw new Error(deleted.error);
+
+        socket.emit("on${modelDef.name}Deleted", args, socketOpts);
+      }${usesMetadataWork(fnName) ? ")" : ""});`;
+
+    if (modelDef.name !== "FileCollection")
+      return `${makeFnPrefix(fnName, typeName)}
+        await models.${modelDef.name}Model.deleteMany({ _id: { $in: args.ids } }, metadataWriteOptions());
+        socket.emit("on${modelDef.name}Deleted", args, socketOpts);
+      }${usesMetadataWork(fnName) ? ")" : ""});`;
+
     return `${makeFnPrefix(fnName, typeName)}
         await models.${modelDef.name}Model.deleteMany({ _id: { $in: args.ids } });
-        ${modelDef.name === "FileCollection" ? "await removeFileCollectionIds(args.ids);" : ""}
+
+        await removeFileCollectionIds(args.ids);
+
         socket.emit("on${modelDef.name}Deleted", args, socketOpts);
-      });`;
+      }${usesMetadataWork(fnName) ? ")" : ""});`;
   };
 
   const makeListFn = () => {
     const { fnName, typeName } = makeFnAndTypeNames(`list${modelDef.name}`, actions);
+
     return `${makeFnPrefix(fnName, typeName, true, false)}
+        args ??= {};
+
         const filter = { ...args.filter };
+
         if (args.filter?.id) {
           filter._id = Array.isArray(args.filter.id)
             ? { $in: args.filter.id }
@@ -86,8 +155,8 @@ export const makeActionsDef = async (
 
         const items = await models.${modelDef.name}Model.find(filter)
           .sort(args.sort ?? { ${modelDef.defaultSort.key}: "${modelDef.defaultSort.isDesc ? "desc" : "asc"}" })
-          .skip(Math.max(0, args.page - 1) * args.pageSize)
-          .limit(args.pageSize)
+          .skip(Math.max(0, (args.page ?? 1) - 1) * (args.pageSize ?? 0))
+          .limit(args.pageSize ?? 0)
           .allowDiskUse(true)
           .lean();
 
@@ -97,23 +166,67 @@ export const makeActionsDef = async (
 
         return {
           items: items.map(item => leanModelToJson<models.${schemaName}>(item)),
-          pageCount: Math.ceil(totalCount / args.pageSize),
+          pageCount: args.pageSize > 0 ? Math.ceil(totalCount / args.pageSize) : Number(totalCount > 0),
         };
-      });`;
+      }${usesMetadataWork(fnName) ? ")" : ""});`;
   };
 
   const makeUpdateFn = () => {
     const { fnName, typeName } = makeFnAndTypeNames(`update${modelDef.name}`, actions);
     const withDateModified = modelDef.properties.some(({ name }) => name === "dateModified");
-    return `${makeFnPrefix(fnName, typeName)}
-        ${withDateModified ? "const updates = { ...args.updates, dateModified: dayjs().toISOString() };" : ""}
-        const res = leanModelToJson<models.${schemaName}>(
-          await models.${modelDef.name}Model.findByIdAndUpdate(args.id, ${withDateModified ? "updates" : "args.updates"}, { new: true }).lean()
+
+    if (!["File", "FileCollection", "Tag"].includes(modelDef.name))
+      return `${makeFnPrefix(fnName, typeName)}
+        const updates = { ...args.updates${withDateModified ? ", dateModified: dayjs().toISOString()" : ""} };
+
+        const updated = leanModelToJson<models.${schemaName}>(
+          await models.${modelDef.name}Model.findByIdAndUpdate(
+            args.id,
+            updates,
+            { new: true, ...metadataWriteOptions() }
+          ).lean()
         );
-        ${modelDef.name === "FileCollection" ? "if (res && args.updates.fileIdIndexes) await syncCollectionFileIds(args.id, res.fileIdIndexes.map(({ fileId }) => String(fileId)));" : ""}
+
+        socket.emit("on${modelDef.name}Updated", { id: args.id, updates }, socketOpts);
+
+        return updated;
+      }${usesMetadataWork(fnName) ? ")" : ""});`;
+
+    return `${makeFnPrefix(fnName, typeName)}
+        ${
+          withDateModified
+            ? "const updates = { ...args.updates, dateModified: dayjs().toISOString() };"
+            : ""
+        }
+
+        ${
+          modelDef.name === "File"
+            ? "await assertMediaPathsAvailable([args.updates.path, args.updates.thumb?.path]);"
+            : ""
+        }
+
+        const updated = leanModelToJson<models.${schemaName}>(
+          await models.${modelDef.name}Model.findByIdAndUpdate(
+            args.id,
+            ${withDateModified ? "updates" : "args.updates"},
+            { new: true, ...metadataWriteOptions() }
+          ).lean()
+        );
+
+        ${
+          modelDef.name === "FileCollection"
+            ? `if (updated && args.updates.fileIdIndexes)
+                await syncCollectionFileIds(
+                  args.id,
+                  updated.fileIdIndexes.map(({ fileId }) => String(fileId))
+                );`
+            : ""
+        }
+
         socket.emit("on${modelDef.name}Updated", ${withDateModified ? "{ ...args, updates }" : "args"}, socketOpts);
-        return res;
-      });`;
+
+        return updated;
+      }${usesMetadataWork(fnName) ? ")" : ""});`;
   };
 
   return `/* ------------------------------------ ${modelDef.name} ----------------------------------- */
@@ -133,6 +246,7 @@ export const makeSearchActionsDef = async (
   const filterFn = makeFnAndTypeNames(`create${def.name}FilterPipeline`, actions);
 
   const props = def.props.sort((a, b) => a.name.localeCompare(b.name));
+
   const defaultProps = props.filter(
     (prop) =>
       !prop.customActionProps?.length && prop.objPath?.length && prop.objValue !== undefined,
@@ -153,13 +267,18 @@ export const makeSearchActionsDef = async (
 
   const makeSetObj = (args: { objPath?: string[]; objValue?: string }, target = "$match") => {
     const appendExpression = target !== "$match" && args.objPath[0] === "$expr";
-    return `${appendExpression ? `(${target}.$and ??= []).push(` : ""}setObj(${appendExpression ? "{}" : target}, [${args.objPath.map((p) => (p.charAt(0) === "~" ? p.substring(1) : `"${p}"`)).join(", ")}], ${args.objValue})${appendExpression ? ")" : ""};`;
+
+    return `${appendExpression ? `(${target}.$and ??= []).push(` : ""}setObj(
+      ${appendExpression ? "{}" : target},
+      [${args.objPath.map((p) => (p.charAt(0) === "~" ? p.substring(1) : `"${p}"`)).join(", ")}],
+      ${args.objValue}
+    )${appendExpression ? ")" : ""};`;
   };
 
   const makeFilterFn = () => {
     return `export type ${filterFn.typeName} = { ${interfaceProps.map((prop) => `${prop.name}?: ${prop.type};`).join("\n")} }
 
-    export const ${filterFn.fnName} = (args: ${filterFn.typeName}) => {
+    export const ${filterFn.fnName} = async (args: ${filterFn.typeName}) => {
       const $match: FilterQuery<${schemaName}> = {};
 
       ${defaultProps
@@ -174,17 +293,20 @@ export const makeSearchActionsDef = async (
         .map(
           (group) => `{
           const filter: FilterQuery<${schemaName}> = {};
+
           ${defaultProps
             .filter((prop) => prop.filterGroup === group)
             .map((prop) => `if (${makeDefaultCondition(prop)}) ${makeSetObj(prop, "filter")}`)
             .join("\n")}
+
           if (Object.keys(filter).length) {
             const operator = args.${group}Mode === "optional" ? "$or" : "$and";
+
             ($match[operator] ??= []).push(filter);
           }
         }`,
         )
-        .join("\n")}
+        .join("\n\n")}
 
       const sortDir = args.sortValue.isDesc ? -1 : 1;
 
@@ -197,6 +319,7 @@ export const makeSearchActionsDef = async (
 
   const makeGetShiftSelected = () => {
     const { fnName, typeName } = makeFnAndTypeNames(`getShiftSelected${def.name}`, actions);
+
     return `export type ${typeName} = ${filterFn.typeName} & {
       clickedId: string;
       clickedIndex: number;
@@ -210,7 +333,8 @@ export const makeSearchActionsDef = async (
         selectedIds,
         ...filterParams
       }: ${typeName}) => {
-        const filterPipeline = ${filterFn.fnName}(filterParams);
+        const filterPipeline = await ${filterFn.fnName}(filterParams);
+
         return getShiftSelectedItems({
           clickedId,
           clickedIndex,
@@ -226,6 +350,7 @@ export const makeSearchActionsDef = async (
   const makeListFiltered = () => {
     const countFn = makeFnAndTypeNames(`getFiltered${def.name}Count`, actions);
     const listFn = makeFnAndTypeNames(`listFiltered${def.name}`, actions);
+
     const makeIdsQuery = () => `${modelName}.aggregate([
                 { $match: { _id: { $in: objectIds(filterParams.ids) } } },
                 { $addFields: { __order: { $indexOfArray: [objectIds(filterParams.ids), "$_id"] } } },
@@ -251,22 +376,42 @@ export const makeSearchActionsDef = async (
           items = await ${makeIdsQuery()};
           carouselFileIds = items.map((item) => item._id.toString());
         } else {
-          const hasUnindexedRegex = [filterPipeline.$match, ...(filterPipeline.$match.$and ?? []), ...(filterPipeline.$match.$or ?? [])].some(
+          const hasUnindexedRegex = [
+            filterPipeline.$match,
+            ...(filterPipeline.$match.$and ?? []),
+            ...(filterPipeline.$match.$or ?? [])
+          ].some(
             (filter) => ["diffusionParams", "originalPath", "transcription.text"].some(
               (field) => filter[field]?.$regex instanceof RegExp,
             ),
           );
+
           const [result] = await ${modelName}.aggregate([
             { $match: filterPipeline.$match },
             // A computed sort document keeps unindexed regex filtering ahead of sorting.
             // Carry only sort keys, then fetch full documents for the displayed page.
-            ...(hasUnindexedRegex ? [{ $replaceRoot: { newRoot: {
-              _id: "$_id",
-              sort: Object.fromEntries(Object.keys(filterPipeline.$sort).map((key) => [key, "$" + key])),
-            } } }] : []),
-            { $sort: hasUnindexedRegex
-              ? Object.fromEntries(Object.entries(filterPipeline.$sort).map(([key, direction]) => ["sort." + key, direction]))
-              : filterPipeline.$sort },
+            ...(hasUnindexedRegex
+              ? [{
+                  $replaceRoot: {
+                    newRoot: {
+                      _id: "$_id",
+                      sort: Object.fromEntries(
+                        Object.keys(filterPipeline.$sort).map((key) => [key, "$" + key])
+                      ),
+                    },
+                  },
+                }]
+              : []),
+            {
+              $sort: hasUnindexedRegex
+                ? Object.fromEntries(
+                    Object.entries(filterPipeline.$sort).map(([key, direction]) => [
+                      "sort." + key,
+                      direction
+                    ])
+                  )
+                : filterPipeline.$sort
+            },
             {
               $limit: Math.max(
                 Math.max(0, page - 1) * pageSize + pageSize,
@@ -311,19 +456,22 @@ export const makeSearchActionsDef = async (
         withFull,
         ...filterParams
       }: ${countFn.typeName}) => {
-        const filterPipeline = ${filterFn.fnName}(filterParams);
+        const filterPipeline = await ${filterFn.fnName}(filterParams);
 
         if (withFull) {
           const totalDocs = await ${modelName}
             .countDocuments(filterPipeline.$match)
             .allowDiskUse(true);
+
           const pageCount = Math.ceil(totalDocs / pageSize);
+
           return { count: totalDocs, pageCount };
         }
 
         const targetPage = filterParams.page;
         const targetMaxPage = targetPage >= curMaxPage ? curMaxPage + 1000 : curMaxPage;
         const probeLimit = targetMaxPage * pageSize;
+
         const probeCount = await ${modelName}
           .countDocuments(filterPipeline.$match, { limit: probeLimit })
           .allowDiskUse(true);
@@ -340,13 +488,18 @@ export const makeSearchActionsDef = async (
 
     export const ${listFn.fnName} = makeAction(
       async ({ forcePages, page, pageSize, select, ...filterParams }: ${listFn.typeName}) => {
-        const filterPipeline = ${filterFn.fnName}(filterParams);
+        const filterPipeline = await ${filterFn.fnName}(filterParams);
         const hasIds = forcePages || filterParams.ids?.length > 0;
 
         ${def.withCarouselIds ? makeListWithCarouselIdsQuery() : makeListQuery()}
 
         if (!items) throw new Error("Failed to load filtered ${def.name}");
-        ${def.withCarouselIds ? `return { carouselFileIds, items: items.map((i) => leanModelToJson<${schemaName}>(i)) };` : `return items.map((i) => leanModelToJson<${schemaName}>(i));`}
+
+        ${
+          def.withCarouselIds
+            ? `return { carouselFileIds, items: items.map((i) => leanModelToJson<${schemaName}>(i)) };`
+            : `return items.map((i) => leanModelToJson<${schemaName}>(i));`
+        }
       }
     );`;
   };
@@ -440,16 +593,16 @@ export const makeFilterQueryType = () =>
   } & {
     _id?: string | Array<string> | QuerySelector<string>;
     $and?: Array<_FilterQuery<Schema>>;
+    $comment?: string;
     $nor?: Array<_FilterQuery<Schema>>;
     $or?: Array<_FilterQuery<Schema>>;
     $text?: {
-      $search: string;
-      $language?: string;
       $caseSensitive?: boolean;
       $diacriticSensitive?: boolean;
+      $language?: string;
+      $search: string;
     };
     $where?: string | Function;
-    $comment?: string;
   };`;
 
 export const makeModelActionTypes = (modelName: string, uniqueTypeNames: string[]) => {

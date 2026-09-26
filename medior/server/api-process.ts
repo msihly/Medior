@@ -1,87 +1,79 @@
 import { createHTTPServer } from "@trpc/server/adapters/standalone";
-import killPort from "kill-port";
 import Mongoose from "mongoose";
 import { fileLog, setLogsPath } from "trabecula/utils/server";
-import { resumeCollectionRegens, resumeFileRegens, resumeTagRegens } from "medior/server/database";
+import {
+  startBackgroundQueues,
+  stopBackgroundQueues,
+} from "medior/server/database/actions/background-operations";
+import { stopImporter } from "medior/server/database/actions/file-imports";
+import { stopFileTransformer } from "medior/server/database/actions/file-transforms";
+import {
+  checkServerShutdown,
+  closeHttpServer,
+  registerProcessLifecycle,
+} from "medior/server/process-lifecycle";
 import { serverRouter } from "medior/server/trpc";
-import { sleep } from "medior/utils/common";
-import { getConfig, loadConfig, setupTRPC, setupVectorTRPC } from "medior/utils/server";
+import { getConfig, loadConfig, setupTRPC, setupVectorTRPC, socket } from "medior/utils/server";
 
 let server: ReturnType<typeof createHTTPServer>;
 
-const createTRPCServer = async () => {
-  const port = getConfig().ports.server;
-
-  if (server) {
-    server.server.close();
-    await sleep(500);
-  }
-
-  await killPort(port);
-  server = createHTTPServer({ router: serverRouter });
-
-  await new Promise<void>((resolve) => {
-    // @ts-expect-error
-    server.listen(port, () => {
-      fileLog(`[API] tRPC server listening on ${port}`);
-      resolve();
-    });
-  });
-};
-
-Mongoose.connection.on("error", (err) =>
-  fileLog(`[API] DB Error: ${err.message}`, { type: "error" }),
+Mongoose.connection.on("error", (error) =>
+  fileLog(`[API] DB Error: ${error.message}`, { type: "error" }),
 );
 
-const ensureIndexes = async () => {
-  for (const modelName of Object.keys(Mongoose.models)) {
-    try {
-      await Mongoose.models[modelName].createIndexes();
-      fileLog(`[API] Ensured indexes for ${modelName}`);
-    } catch (error: any) {
-      fileLog(`[API] Failed to ensure indexes for ${modelName}: ${error.message}`, {
-        type: "error",
-      });
-    }
-  }
-};
+registerProcessLifecycle({
+  reload: async () => {
+    await loadConfig(process.env.CONFIG_PATH);
+  },
 
-process.on("message", async (msg: any) => {
-  if (msg?.type === "start") {
-    try {
-      await loadConfig(process.env.CONFIG_PATH);
-      await setLogsPath(process.env.LOGS_PATH);
+  start: async (message) => {
+    await loadConfig(process.env.CONFIG_PATH);
+    await setLogsPath(process.env.LOGS_PATH);
+    checkServerShutdown();
+    Mongoose.set("strictQuery", true);
 
-      const uri = msg.uri;
-      fileLog(`[API] Connecting to db: ${uri}`);
+    await Mongoose.connect(message.uri, {
+      autoIndex: false,
+      family: 4,
+      writeConcern: { j: true, w: "majority" },
+    });
 
-      Mongoose.set("strictQuery", true);
-      await Mongoose.connect(uri, { autoIndex: false, family: 4 });
+    checkServerShutdown();
 
-      fileLog("[API] Connected to db.");
+    const hello = await Mongoose.connection.db.admin().command({ hello: 1 });
+    checkServerShutdown();
+    if (hello.setName !== "rs0" || !hello.isWritablePrimary)
+      throw new Error("The configured rs0 database is not PRIMARY yet.");
 
-      await createTRPCServer();
-      setupTRPC();
-      setupVectorTRPC();
-      process.send?.({ requestId: msg.requestId, type: "ready" });
+    setupTRPC();
+    setupVectorTRPC();
 
-      resumeCollectionRegens();
-      resumeFileRegens();
-      resumeTagRegens();
-      ensureIndexes();
-    } catch (err: any) {
-      process.send?.({ error: err.message, requestId: msg.requestId, type: "error" }, () =>
-        process.exit(1),
-      );
-    }
-  }
+    server = createHTTPServer({ router: serverRouter });
 
-  if (msg?.type === "reload-config") {
-    try {
-      await loadConfig(process.env.CONFIG_PATH);
-      process.send?.({ requestId: msg.requestId, type: "config-reloaded" });
-    } catch (err: any) {
-      process.send?.({ error: err.message, requestId: msg.requestId, type: "error" });
-    }
-  }
+    await new Promise<void>((resolve, reject) => {
+      server.server.once("error", reject);
+      // @ts-expect-error
+      server.listen(getConfig().ports.server, resolve);
+    });
+
+    checkServerShutdown();
+    startBackgroundQueues();
+    fileLog("[API] Ready for requests.");
+  },
+
+  stop: async () => {
+    fileLog("[API] Closing HTTP connections and stopping the transformer...");
+
+    await Promise.all([
+      closeHttpServer(server?.server).then(() => fileLog("[API] HTTP connections closed.")),
+      stopFileTransformer().then(() => fileLog("[API] Transformer stopped.")),
+      stopImporter().then(() => fileLog("[API] Importer stopped.")),
+      stopBackgroundQueues().then(() => fileLog("[API] Background queues stopped.")),
+    ]);
+
+    socket.disconnect();
+    fileLog("[API] Disconnecting MongoDB client...");
+    await Mongoose.connection.close(true);
+    fileLog("[API] Shutdown complete.");
+  },
 });

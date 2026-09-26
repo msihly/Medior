@@ -13,10 +13,12 @@ import {
   IdButton,
   Modal,
   NumInput,
+  TagEditorAncestry,
+  TagToUpsert,
   Text,
   View,
 } from "medior/components";
-import { TagOption, useStores } from "medior/store";
+import { useStores } from "medior/store";
 import { colors, openSearchWindow, toast } from "medior/utils/client";
 import { Fmt } from "medior/utils/common";
 import { RegExMapCard, TagInputs } from ".";
@@ -47,6 +49,7 @@ export const TagEditor = Comp(({ isSubEditor = false }: TagEditorProps) => {
     store.setCategorySortRank(null);
     if (!hasKeepParentTags) store.setParentTags([]);
     if (!hasKeepChildTags) store.setChildTags([]);
+
     labelRef.current?.focus();
   };
 
@@ -57,6 +60,7 @@ export const TagEditor = Comp(({ isSubEditor = false }: TagEditorProps) => {
 
   const handleConfirmDelete = async () => {
     store.setIsLoading(true);
+
     const res = await stores.tag.deleteTag({ id: store.tag.id });
 
     if (!res.success) toast.error("Failed to delete tag");
@@ -67,25 +71,32 @@ export const TagEditor = Comp(({ isSubEditor = false }: TagEditorProps) => {
     }
 
     store.setIsLoading(false);
+
     return res.success;
   };
 
   const handleDelete = () => setIsConfirmDeleteOpen(true);
+
+  const handleFindTagsOnSameFiles = () => {
+    stores.tag.manager.findTagsOnSameFiles(store.tag.tagOption);
+    handleClose();
+  };
 
   const handleMerge = () => stores.tag.merger.setIsOpen(true);
 
   const handleRefresh = async () => {
     store.setIsLoading(true);
     await stores.tag.refreshTag({ id: store.tag.id });
-    await store.loadTag(store.tag.id);
+    await store.loadTag({ id: store.tag.id });
     store.setIsLoading(false);
   };
 
   const handleSearch = () => openSearchWindow({ tagIds: [store.tag.id] });
 
-  const handleSubEditorClick = (tagOpt: TagOption) => {
+  const handleSubEditorClick = (tagOpt: TagToUpsert) => {
+    if (!tagOpt.id || tagOpt.id === store.tag?.id) return;
     stores.tag.subEditor.setIsOpen(true);
-    stores.tag.subEditor.loadTag(tagOpt.id);
+    stores.tag.subEditor.loadTag({ id: tagOpt.id });
   };
 
   const saveTag = async () => {
@@ -108,6 +119,7 @@ export const TagEditor = Comp(({ isSubEditor = false }: TagEditorProps) => {
     };
 
     store.setIsLoading(true);
+
     const res = await (!store.tag ? stores.tag.createTag(tag) : stores.tag.editTag(tag));
 
     if (res.success) {
@@ -122,7 +134,7 @@ export const TagEditor = Comp(({ isSubEditor = false }: TagEditorProps) => {
   };
 
   return (
-    <Modal.Container isLoading={store.isLoading} onClose={handleClose} width="45rem">
+    <Modal.Container isLoading={store.isLoading} onClose={handleClose} width="66rem">
       <Modal.Header
         leftNode={
           store.tag && (
@@ -131,9 +143,19 @@ export const TagEditor = Comp(({ isSubEditor = false }: TagEditorProps) => {
 
               <IconButton
                 name="Search"
+                tooltip="Search Files"
                 iconProps={{ color: colors.custom.grey }}
                 onClick={handleSearch}
               />
+
+              {!isSubEditor && (
+                <IconButton
+                  name="FindInPage"
+                  tooltip="Find Tags on Same Files"
+                  iconProps={{ color: colors.custom.grey }}
+                  onClick={handleFindTagsOnSameFiles}
+                />
+              )}
             </View>
           )
         }
@@ -202,6 +224,7 @@ export const TagEditor = Comp(({ isSubEditor = false }: TagEditorProps) => {
               value={store.label}
               setValue={store.setLabel}
               isDuplicate={store.isDuplicate}
+              onLoadTag={store.loadTag}
               width="100%"
             />
           </Card>
@@ -229,6 +252,11 @@ export const TagEditor = Comp(({ isSubEditor = false }: TagEditorProps) => {
             ancestryType="descendants"
             ancestryTagIds={store.tag?.descendantIds}
             hasEditor={false}
+            onTagClick={!isSubEditor ? handleSubEditorClick : null}
+          />
+
+          <TagEditorAncestry
+            store={store}
             onTagClick={!isSubEditor ? handleSubEditorClick : null}
           />
         </Card>

@@ -24,7 +24,7 @@ import { trpc } from "medior/utils/server";
 
 export type TagInputProps = Omit<
   ComponentProps<typeof Autocomplete>,
-  "defaultValue" | "fullWidth" | "label" | "renderInput" | "onChange" | "onSelect" | "options"
+  "defaultValue" | "fullWidth" | "label" | "onChange" | "onSelect" | "options" | "renderInput"
 > & {
   autoFocus?: boolean;
   center?: boolean;
@@ -101,10 +101,13 @@ export const TagInput = Comp(
       option.id && val.id
         ? option.id === val.id
         : option.label.toLowerCase() === val.label.toLowerCase();
+
     const isUnavailableOption = (option: TagOption) =>
       excludedIds.includes(option.id) || value.some((tag) => isOptionEqualToValue(option, tag));
+
     const filterOptions = (options: TagOption[]) =>
       options.filter((option) => !isUnavailableOption(option));
+
     const getOptionLabel = (option: TagOption) => option.label;
     const handleClose = () => setIsOpen(false);
     const handleOpen = () => !disabled && !!inputValue && setIsOpen(true);
@@ -124,24 +127,30 @@ export const TagInput = Comp(
           (reason === "removeOption" && (_.type === "click" || _.key === "Enter")))
       )
         return;
+
       if (reason === "selectOption") {
         if (val.some((t) => t.id === "optionsEndNode")) return handleCreateTag();
+
         setInputValue("");
         lookupId.current++;
         setIsLoading(false);
+
         const { added } = bisectArrayChanges(value, val);
         if (added?.length)
           trpc.updateTag.mutate({
             args: { id: added[0].id, updates: { lastSearchedAt: dayjs().toISOString() } },
           });
       }
+
       onChange?.(val);
     };
 
     const handleCreateTag = async () => {
       if (value.some((tag) => tag.label.toLowerCase() === inputValue?.toLowerCase())) return;
+
       const res = await stores.tag.createTag({ label: inputValue });
       if (!res.success) return toast.error(res.error);
+
       onChange?.([...value, res.data]);
       setInputValue("");
       lookupId.current++;
@@ -151,9 +160,11 @@ export const TagInput = Comp(
 
     const handleInputChange = (val: string) => {
       if (disabled) return;
+
       setInputValue(val);
       inputProps?.setValue?.(val);
       if (val.length > 0 && !isOpen) setIsOpen(true);
+
       searchTags(val);
     };
 
@@ -193,6 +204,7 @@ export const TagInput = Comp(
     ) => {
       const handleClick = (event: MouseEvent<HTMLDivElement>) => {
         if (option.id === "optionsEndNode" || isUnavailableOption(option)) return;
+
         onSelect ? onSelect(option) : props.onClick?.(event);
         setInputValue("");
         lookupId.current++;
@@ -219,10 +231,12 @@ export const TagInput = Comp(
 
     const searchTags = async (val: string) => {
       const requestId = ++lookupId.current;
+
       if (val.length === 0) {
         setIsLoading(false);
         setOptions([]);
         handleClose();
+
         return;
       }
 
@@ -230,6 +244,7 @@ export const TagInput = Comp(
         setIsLoading(true);
 
         const searchStr = val.toLowerCase();
+
         const res = await trpc.searchTags.mutate({
           excludedIds: [
             ...new Set([...excludedIds, ...value.map((tag) => tag.id).filter(Boolean)]),
@@ -239,6 +254,7 @@ export const TagInput = Comp(
         });
         if (requestId !== lookupId.current) return;
         if (!res.success) throw new Error(res.error);
+
         const opts = res.data.map(tagToOption);
 
         if (
@@ -247,12 +263,13 @@ export const TagInput = Comp(
           !value.some((tag) => tag.label.toLowerCase() === searchStr) &&
           !opts.find((o) => o.label.toLowerCase() === searchStr)
         )
-          opts.push({ id: "optionsEndNode", aliases: [], count: 0, descendantIds: [], label: "" });
+          opts.push({ aliases: [], count: 0, descendantIds: [], id: "optionsEndNode", label: "" });
 
         setOptions(opts);
         handleOpen();
       } catch (err) {
         if (requestId !== lookupId.current) return;
+
         console.error(err), toast.error(err.message);
       } finally {
         if (requestId === lookupId.current) setIsLoading(false);
@@ -303,12 +320,6 @@ export const TagInput = Comp(
 interface ClassesProps extends Pick<TagInputProps, "center" | "margins" | "width"> {}
 
 const useClasses = makeClasses((props: ClassesProps) => ({
-  listbox: {
-    backgroundColor: colors.background,
-    boxShadow: "0 0 0.5rem 0.1rem rgba(0, 0, 0, 0.3)",
-    overflowX: "hidden",
-    overflowY: "auto",
-  },
   input: {
     ...makeMargins(props.margins),
     "& .MuiAutocomplete-inputRoot": {
@@ -318,16 +329,22 @@ const useClasses = makeClasses((props: ClassesProps) => ({
       minWidth: "0 !important",
     },
   },
+  listbox: {
+    backgroundColor: colors.background,
+    boxShadow: "0 0 0.5rem 0.1rem rgba(0, 0, 0, 0.3)",
+    overflowX: "hidden",
+    overflowY: "auto",
+  },
   root: {
-    display: "flex",
-    alignItems: "center",
-    width: props.width,
     "& > div": { width: "100%" },
+    alignItems: "center",
+    display: "flex",
+    width: props.width,
   },
   tagOption: {
-    width: "100%",
     "&.MuiAutocomplete-option": {
       padding: 0,
     },
+    width: "100%",
   },
 }));

@@ -24,7 +24,6 @@ export interface FileFilterMenuProps {
 
 export const FileFilterMenu = Comp(({ color = colors.foreground, store }: FileFilterMenuProps) => {
   const stores = useStores();
-  const config = stores.home.settings;
 
   const toggleArchiveOpen = () => store.setIsArchived(!store.isArchived);
 
@@ -137,7 +136,7 @@ export const FileFilterMenu = Comp(({ color = colors.foreground, store }: FileFi
           <Card width="9rem" overflow="auto">
             <FileFilter.ExtColumn
               label="Audio"
-              configTypes={config.file.audioCodecs as AudioCodec[]}
+              configTypes={stores.home.settings.file.audioCodecs as AudioCodec[]}
               selected={store.selectedAudioCodecs}
               setSelected={store.setSelectedAudioCodecs}
             />
@@ -146,7 +145,7 @@ export const FileFilterMenu = Comp(({ color = colors.foreground, store }: FileFi
           <Card width="9rem" overflow="auto">
             <FileFilter.ExtColumn
               label="Images"
-              configTypes={config.file.imageExts as ImageExt[]}
+              configTypes={stores.home.settings.file.imageExts as ImageExt[]}
               selected={store.selectedImageExts}
               setSelected={store.setSelectedImageExts}
             />
@@ -155,7 +154,7 @@ export const FileFilterMenu = Comp(({ color = colors.foreground, store }: FileFi
           <Card width="9rem" overflow="auto">
             <FileFilter.ExtColumn
               label="Videos"
-              configTypes={config.file.videoExts as VideoExt[]}
+              configTypes={stores.home.settings.file.videoExts as VideoExt[]}
               selected={store.selectedVideoExts}
               setSelected={store.setSelectedVideoExts}
             />
@@ -164,7 +163,7 @@ export const FileFilterMenu = Comp(({ color = colors.foreground, store }: FileFi
           <Card width="9rem" overflow="auto">
             <FileFilter.ExtColumn
               label="V-Codecs"
-              configTypes={config.file.videoCodecs as VideoCodec[]}
+              configTypes={stores.home.settings.file.videoCodecs as VideoCodec[]}
               selected={store.selectedVideoCodecs}
               setSelected={store.setSelectedVideoCodecs}
             />
@@ -315,7 +314,7 @@ export const FileFilterMenu = Comp(({ color = colors.foreground, store }: FileFi
             numValue={store._bitrate}
             setLogOpValue={store.setBitrateOp}
             setNumValue={store._setBitrate}
-            numInputProps={{ minValue: 0, adornment: "kb/s" }}
+            numInputProps={{ adornment: "kb/s", minValue: 0 }}
           />
 
           <LogOpsInput
@@ -331,7 +330,7 @@ export const FileFilterMenu = Comp(({ color = colors.foreground, store }: FileFi
             numValue={store.duration.value}
             numValueDisplay={store._duration}
             setNumValueDisplay={store._setDuration}
-            numInputProps={{ minValue: 0, adornment: "hms" }}
+            numInputProps={{ adornment: "hms", minValue: 0 }}
           />
 
           <LogOpsInput

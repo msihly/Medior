@@ -1,11 +1,11 @@
 import autoBind from "auto-bind";
 import { Model, model, modelAction, modelFlow, prop } from "mobx-keystone";
-import { TagSearch } from "medior/store";
-import { asyncAction, makeQueue } from "medior/utils/client";
-import { PromiseQueue } from "medior/utils/common";
+import { TagOption, TagSearch } from "medior/store";
+import { asyncAction, toast } from "medior/utils/client";
 import { trpc } from "medior/utils/server";
 
 export type TagManagerMode = "create" | "edit" | "search";
+
 @model("medior/TagManagerStore")
 export class TagManagerStore extends Model({
   isLoading: prop<boolean>(false).withSetter(),
@@ -13,17 +13,18 @@ export class TagManagerStore extends Model({
   isOpen: prop<boolean>(false).withSetter(),
   search: prop<TagSearch>(() => new TagSearch({})).withSetter(),
 }) {
-  refreshQueue = new PromiseQueue();
-
   onInit() {
     autoBind(this);
   }
 
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
   @modelAction
-  clearRefreshQueue() {
-    this.refreshQueue.cancel();
-    this.refreshQueue = new PromiseQueue();
+  findTagsOnSameFiles(tag: TagOption) {
+    this.search.reset();
+    this.search.setFileTags([tag]);
+
+    if (this.isOpen) this.search.loadFiltered({ page: 1 });
+    else this.setIsOpen(true);
   }
 
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */
@@ -48,23 +49,17 @@ export class TagManagerStore extends Model({
         tagIds: this.search.selectedIds,
       });
       if (!res.success) throw new Error(res.error);
+
       return res.data;
     },
   );
 
   @modelFlow
   refreshSelectedTags = asyncAction(async () => {
-    makeQueue({
-      action: async (tagId) => {
-        const res = await trpc.refreshTag.mutate({ tagId, withSub: false });
-        if (!res.success) throw new Error(res.error);
-      },
-      items: this.search.selectedIds,
-      logPrefix: "Refreshed",
-      logSuffix: "tags",
-      onComplete: () => this.search.loadFiltered(),
-      queue: this.refreshQueue,
-    });
+    const result = await trpc.refreshTag.mutate({ tagIds: this.search.selectedIds });
+    if (!result.success) throw new Error(result.error);
+
+    toast.success("Tag refresh queued in Activity");
   });
 
   /* ----------------------------- DYNAMIC GETTERS ---------------------------- */

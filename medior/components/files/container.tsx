@@ -22,11 +22,11 @@ export const FileContainer = Comp(({ view }: FileContainerProps) => {
     if (store.page > store.pageCount) handlePageChange(store.pageCount);
   }, [store.page, store.pageCount]);
 
-  const handleFullPageLoad = () => store.loadFiltered({ withFullCount: true });
+  const handleFullPageLoad = () => store.loadFiltered({ toLastPage: true });
 
   const handlePageChange = (page: number) => store.loadFiltered({ page });
 
-  const scrollToTop = () => filesRef.current?.scrollTo({ top: 0, behavior: "instant" });
+  const scrollToTop = () => filesRef.current?.scrollTo({ behavior: "instant", top: 0 });
 
   return (
     <CardGrid

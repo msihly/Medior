@@ -27,6 +27,7 @@ export const ComparisonViewer = Comp(
     const outputRef = useRef<HTMLImageElement>(null);
     const panZoomRef = useRef<PanzoomObject>(null);
     const { css } = useClasses(null);
+
     const duration = Math.max(
       0,
       Math.min(transform.beforeDuration || 0, transform.afterDuration || 0) -
@@ -35,8 +36,10 @@ export const ComparisonViewer = Comp(
 
     useEffect(() => {
       if (frames.length !== 2) return;
+
       const original = originalRef.current;
       const output = outputRef.current;
+
       const syncZoom = () => {
         original.style.transform = output.style.transform;
         original.style.transition = output.style.transition;
@@ -51,6 +54,7 @@ export const ComparisonViewer = Comp(
         panOnlyWhenZoomed: true,
         step: CONSTANTS.CAROUSEL.ZOOM.STEP,
       });
+
       return () => {
         output.removeEventListener("panzoomchange", syncZoom);
         panZoomRef.current?.destroy();
@@ -90,6 +94,7 @@ export const ComparisonViewer = Comp(
             controller.abort();
           }
         });
+
       return () => controller.abort();
     }, [
       outputPath,
@@ -116,7 +121,7 @@ export const ComparisonViewer = Comp(
         </Modal.Header>
 
         <Modal.Content dividers={false} overflow="hidden">
-          <View row align="center" flex="none" padding={{ top: "0.3rem", bottom: "0.3rem" }}>
+          <View row align="center" flex="none" padding={{ bottom: "0.3rem", top: "0.3rem" }}>
             <View row flex={1} align="center" justify="center">
               <Text fontWeight={600}>{"Original"}</Text>
             </View>
@@ -200,21 +205,8 @@ export const ComparisonViewer = Comp(
 
 const useClasses = makeClasses(() => ({
   divider: {
-    height: "100%",
-    left: 0,
-    padding: "0 !important",
-    pointerEvents: "none",
-    position: "absolute",
-    top: 0,
     "& .MuiSlider-rail, & .MuiSlider-track": { display: "none" },
     "& .MuiSlider-thumb": {
-      borderRadius: 0,
-      boxShadow: "0 0 3px black",
-      color: "white",
-      cursor: "ew-resize",
-      height: "100%",
-      pointerEvents: "auto",
-      width: 2,
       "&::after": {
         backgroundColor: colors.background,
         border: "2px solid white",
@@ -225,7 +217,20 @@ const useClasses = makeClasses(() => ({
         placeItems: "center",
         width: 32,
       },
+      borderRadius: 0,
+      boxShadow: "0 0 3px black",
+      color: "white",
+      cursor: "ew-resize",
+      height: "100%",
+      pointerEvents: "auto",
+      width: 2,
     },
+    height: "100%",
+    left: 0,
+    padding: "0 !important",
+    pointerEvents: "none",
+    position: "absolute",
+    top: 0,
   },
   image: {
     backgroundColor: colors.custom.black,

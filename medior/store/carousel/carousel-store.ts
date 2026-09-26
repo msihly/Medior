@@ -4,9 +4,10 @@ import { Mark } from "@mui/base";
 import autoBind from "auto-bind";
 import { computed } from "mobx";
 import { getRootStore, Model, model, modelAction, modelFlow, prop } from "mobx-keystone";
-import { FileImporter, RootStore, Splicer } from "medior/store";
+import { RootStore, Splicer } from "medior/store";
 import { asyncAction, openCarouselWindow, toast } from "medior/utils/client";
 import { Fmt } from "medior/utils/common";
+import { trpc } from "medior/utils/server";
 import { extractVideoFrame, videoTranscoder } from "medior/utils/server/videos";
 
 const CAPTIONS_VISIBLE_KEY = "medior.carousel.captionsVisible";
@@ -40,6 +41,7 @@ export class CarouselStore extends Model({
 }) {
   onInit() {
     autoBind(this);
+
     const captionsVisible = localStorage.getItem(CAPTIONS_VISIBLE_KEY);
     const isPinned = localStorage.getItem(IS_PINNED_KEY);
     const lastVolume = localStorage.getItem(LAST_VOLUME_KEY);
@@ -70,14 +72,18 @@ export class CarouselStore extends Model({
   @modelAction
   removeFiles(fileIds: string[]) {
     const stores = getRootStore<RootStore>(this);
-    const newSelectedIds = this.selectedFileIds.filter((id) => !fileIds.includes(id));
+    const removedIds = new Set(fileIds);
+    const newSelectedIds = this.selectedFileIds.filter((id) => !removedIds.has(id));
+
     if (!newSelectedIds.length) {
       if (!stores.collection.manager.isTriagerOpen) return remote.getCurrentWindow().close();
+
       this.setActiveFileId("");
       this.setSelectedFileIds([]);
       stores.file.setActiveFileId("");
       stores.file.search.setIds([]);
       stores.file.search.setResults([]);
+
       return;
     }
 
@@ -132,6 +138,7 @@ export class CarouselStore extends Model({
       this.setLastVolume(this.volume);
       this.setVolume(0);
     }
+
     localStorage.setItem(LAST_VOLUME_KEY, String(this.lastVolume));
     localStorage.setItem(VOLUME_KEY, String(this.volume));
   }
@@ -149,13 +156,14 @@ export class CarouselStore extends Model({
     if (!activeFile) throw new Error("Active file not found");
 
     this.setIsPlaying(false);
+
     const filePath = await extractVideoFrame(activeFile.path, this.curFrame);
     if (!filePath) throw new Error("Error extracting frame");
 
     const { size } = await fs.stat(filePath);
 
-    const importer = new FileImporter({
-      deleteOnImport: false,
+    const res = await trpc.importMediaFile.mutate({
+      deleteOnImport: true,
       ext: "jpg",
       ignorePrevDeleted: false,
       originalName: activeFile.originalName,
@@ -163,10 +171,9 @@ export class CarouselStore extends Model({
       size,
       tagIds: activeFile.tagIds,
     });
-    const res = await importer.import();
     if (!res.success) throw new Error(res.error);
 
-    await openCarouselWindow({ file: res.file, selectedFileIds: [res.file.id] });
+    await openCarouselWindow({ file: res.data.file, selectedFileIds: [res.data.file.id] });
     toast.success("Frame extracted");
   });
 
@@ -175,10 +182,12 @@ export class CarouselStore extends Model({
     async (args?: { force?: boolean; onFirstFrames?: () => void; seekTime?: number }) => {
       const stores = getRootStore<RootStore>(this);
       const activeFile = stores.file.getById(this.activeFileId);
+
       if (activeFile?.isVideo && (args?.force || this.requiresTranscoding)) {
         this.setTranscodingFileId(activeFile.id);
         this.setIsWaitingForFrames(true);
         this.setSeekOffset((args?.seekTime ?? 0) * activeFile.frameRate);
+
         try {
           this.setMediaSourceUrl(
             videoTranscoder.transcode(
@@ -220,8 +229,9 @@ export class CarouselStore extends Model({
   @computed
   get videoMarks() {
     const marks: Mark[] = [];
-    if (this.markIn) marks.push({ value: this.markIn, label: "A" });
-    if (this.markOut) marks.push({ value: this.markOut, label: "B" });
+    if (this.markIn) marks.push({ label: "A", value: this.markIn });
+    if (this.markOut) marks.push({ label: "B", value: this.markOut });
+
     return marks;
   }
 

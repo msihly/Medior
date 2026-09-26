@@ -10,11 +10,11 @@ import { TagSelector } from "./tag-selector";
 
 export const ImportEditor = {
   CancelButton,
+  Header,
   ImportFolderList,
   ImportFoldersList,
   ImportListItem,
   ImportOptions,
-  Header,
   RootFolderButton,
   TagHierarchy,
   TagSelector,

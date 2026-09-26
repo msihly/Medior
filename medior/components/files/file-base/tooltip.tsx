@@ -39,15 +39,17 @@ export const Tooltip = Comp(({ children, disabled, file }: TooltipProps) => {
   useEffect(() => {
     if (!open) return;
     if (disabled) return setOpen(false);
+
     const observer = new MutationObserver(() => {
       if (anchorRef.current?.closest('[aria-hidden="true"]')) setOpen(false);
     });
     observer.observe(document.body, {
-      attributes: true,
       attributeFilter: ["aria-hidden"],
+      attributes: true,
       subtree: true,
     });
     window.addEventListener("scroll", handleClose, true);
+
     return () => {
       observer.disconnect();
       window.removeEventListener("scroll", handleClose, true);

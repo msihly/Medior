@@ -27,6 +27,7 @@ export const FileDetails = Comp(({ transform }: FileDetailsProps) => {
 
   const handleDoubleClick = async () => {
     if (!file) return;
+
     const res = await store.search.listIdsForCarousel();
     if (!res?.success) console.error(res.error);
     else openCarouselWindow({ file, selectedFileIds: res.data });
@@ -56,7 +57,7 @@ export const FileDetails = Comp(({ transform }: FileDetailsProps) => {
                   label={status ? `${queueIndex} - ${status.label}` : queueIndex}
                   bgColor={status?.color ?? colors.custom.black}
                   opacity={1}
-                  radiuses={{ left: 0, top: 0, bottomRight: "inherit" }}
+                  radiuses={{ bottomRight: "inherit", left: 0, top: 0 }}
                   flush
                 />
 
@@ -88,5 +89,6 @@ const getTransformStatusDisplay = (transform: FileTransform) => {
   if (transform.status === "COMPRESSED") return { color: colors.custom.green, label: "Compressed" };
   if (transform.status === "SKIPPED") return { color: colors.custom.orange, label: "Skipped" };
   if (transform.status === "ERROR") return { color: colors.custom.red, label: "Error" };
+
   return null;
 };

@@ -1,53 +1,8 @@
-import { ReactNode } from "react";
-import {
-  CenteredText,
-  Comp,
-  Detail,
-  Divider,
-  Icon,
-  ProgressCircle as ProgressCircleBase,
-  Text,
-  UniformList,
-  View,
-} from "medior/components";
+import { Comp, Detail, Divider, UniformList, View } from "medior/components";
 import { FileTransform, useStores } from "medior/store";
-import { colors } from "medior/utils/client";
-import { dayjs, Fmt, round } from "medior/utils/common";
+import { Fmt, round } from "medior/utils/common";
 import { DuplicateReview } from "./duplicate-review";
-
-export const ProgressCircle = Comp(({ transform }: { transform: FileTransform }) => (
-  <ProgressCircleBase
-    percent={transform.progress.percent}
-    color={colors.custom.blue}
-    bgColor={colors.custom.grey}
-    size="13rem"
-  >
-    <CenteredText
-      text={`${transform.progress.percent?.toFixed(2)}%`}
-      color={colors.custom.blue}
-      fontSize="1.5em"
-      fontWeight={600}
-    />
-
-    {transform.isAnimated && (
-      <>
-        <CenteredText text={transform.progress.time || "--"} color={colors.custom.white} />
-
-        <CenteredText
-          text={
-            transform.beforeDuration
-              ? dayjs
-                  .duration(transform.beforeDuration, "s")
-                  .format("HH:mm:ss.SSS")
-                  .substring(0, 11)
-              : "--"
-          }
-          color={colors.custom.lightGrey}
-        />
-      </>
-    )}
-  </ProgressCircleBase>
-));
+import { InputOutputRow } from "./input-output-row";
 
 export const TransformDetails = Comp(
   ({
@@ -138,9 +93,9 @@ export const TransformDetails = Comp(
             row
             label="Ratio"
             labelProps={{
-              width: compact ? "5rem" : "6rem",
-              fontSize: compact ? "0.9em" : "1em",
               alignSelf: "center",
+              fontSize: compact ? "0.9em" : "1em",
+              width: compact ? "5rem" : "6rem",
             }}
             value={
               transform.beforeSize && outputSize
@@ -160,15 +115,16 @@ const getOutputCodec = (transform: FileTransform) => {
   if (transform.afterVideoCodec) return transform.afterVideoCodec;
   if (!transform.beforeVideoCodec && transform.beforeExt !== "gif") return "--";
   if (["remux", "splice"].includes(transform.type)) return transform.beforeVideoCodec || "--";
+
   return (
     {
-      "libaom-av1": "av1",
-      "libsvt-av1": "av1",
-      libaomAv1: "av1",
       libaom_av1: "av1",
+      "libaom-av1": "av1",
+      libaomAv1: "av1",
+      "libsvt-av1": "av1",
       libvpx: "vp8",
-      libvpxVp9: "vp9",
       libvpx_vp9: "vp9",
+      libvpxVp9: "vp9",
       libx264: "h264",
       libx265: "hevc",
     }[transform.configCodec] ??
@@ -183,6 +139,7 @@ const getOutputExt = (transform: FileTransform) => {
   if (transform.type !== "reencode") return "--";
   if (transform.beforeExt === "gif") return "mp4";
   if (!transform.beforeVideoCodec) return transform.configImageExt || "--";
+
   return "mp4";
 };
 
@@ -197,18 +154,22 @@ const getOutputDimensions = (transform: FileTransform) => {
     return "--";
 
   const maxWidth = transform.isAnimated ? transform.configMaxWidth : transform.configImageMaxWidth;
+
   const maxHeight = transform.isAnimated
     ? transform.configMaxHeight
     : transform.configImageMaxHeight;
   if (!maxWidth || !maxHeight) return "--";
 
   const scale = Math.min(1, maxWidth / transform.beforeWidth, maxHeight / transform.beforeHeight);
+
   const width = transform.isAnimated
     ? Math.floor((transform.beforeWidth * scale) / 2) * 2
     : Math.round(transform.beforeWidth * scale);
+
   const height = transform.isAnimated
     ? Math.floor((transform.beforeHeight * scale) / 2) * 2
     : Math.round(transform.beforeHeight * scale);
+
   return `${width}x${height}`;
 };
 
@@ -220,6 +181,7 @@ const getOutputFrameRate = (transform: FileTransform) => {
   if (!transform.configMaxFps)
     return transform.beforeFrameRate ? round(transform.beforeFrameRate) : "--";
   if (!transform.beforeFrameRate) return transform.configMaxFps;
+
   return round(Math.min(transform.beforeFrameRate, transform.configMaxFps));
 };
 
@@ -227,37 +189,6 @@ const getOutputBitrate = (transform: FileTransform) => {
   if (transform.afterBitrate) return Fmt.bytes(transform.afterBitrate);
   if (["remux", "splice"].includes(transform.type))
     return transform.beforeBitrate ? Fmt.bytes(transform.beforeBitrate) : "--";
+
   return transform.configMaxBitrate ? Fmt.bytes(transform.configMaxBitrate * 1000) : "--";
 };
-
-interface InputOutputRowProps {
-  compact?: boolean;
-  input: ReactNode;
-  label: string;
-  output: ReactNode;
-}
-
-const InputOutputRow = Comp(({ compact = false, input, label, output }: InputOutputRowProps) => (
-  <Detail
-    row
-    label={label}
-    labelProps={{
-      width: compact ? "5rem" : "6rem",
-      fontSize: compact ? "0.9em" : "1em",
-      alignSelf: "center",
-    }}
-    value={
-      <View row align="center" spacing={compact ? "0.6rem" : "1rem"}>
-        <Text width={compact ? "5.5rem" : "6rem"} whiteSpace="nowrap">
-          {input}
-        </Text>
-
-        <Icon name="ArrowRightAlt" />
-
-        <Text width={compact ? "5.5rem" : "6rem"} whiteSpace="nowrap">
-          {output}
-        </Text>
-      </View>
-    }
-  />
-));

@@ -40,11 +40,11 @@ const useClasses = makeClasses({
   main: {
     display: "flex",
     flexFlow: "column",
-    marginLeft: CONSTANTS.HOME.DRAWER.WIDTH,
-    width: `calc(100% - ${CONSTANTS.HOME.DRAWER.WIDTH}px)`,
     height: "100%",
+    marginLeft: CONSTANTS.HOME.DRAWER.WIDTH,
     overflow: "auto",
     transition: "all 225ms ease-in-out",
+    width: `calc(100% - ${CONSTANTS.HOME.DRAWER.WIDTH}px)`,
   },
   root: {
     flex: 1,

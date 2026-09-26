@@ -1,16 +1,19 @@
-import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useContext, useMemo, useState } from "react";
 import { Slider } from "@mui/material";
 import { Button, Comp, IconButton, Text, VideoWaveform, View } from "medior/components";
 import { useStores } from "medior/store";
 import { colors, makeClasses, toast, Toaster } from "medior/utils/client";
 import { CONSTANTS, Fmt, round, throttle } from "medior/utils/common";
 import { VideoContext } from "medior/views";
+import { CustomSlider } from "./video-control-slider";
 
 export const VideoControls = Comp(() => {
   const stores = useStores();
   const activeFile = stores.carousel.getActiveFile();
+
   const isCaptionsActive =
     stores.carousel.isCaptionsVisible && Boolean(activeFile?.transcription?.segments?.length);
+
   const isWaveformActive =
     stores.carousel.isWaveformVisible && Boolean(activeFile?.waveformPeaks?.length);
 
@@ -52,6 +55,7 @@ export const VideoControls = Comp(() => {
       setCurFrame(frame);
       seekVideoPlayer(frame);
     }
+
     if (lastPlayingState) {
       stores.carousel.setIsPlaying(true);
       setLastPlayingState(false);
@@ -110,6 +114,7 @@ export const VideoControls = Comp(() => {
       return stores.carousel.transcodeVideo({
         seekTime: Fmt.frameToSec(frame, activeFile.frameRate),
       });
+
     videoContext?.current?.seekTo(frame / activeFile.totalFrames, "fraction");
   };
 
@@ -124,6 +129,7 @@ export const VideoControls = Comp(() => {
       throttle(async (frame: number) => {
         if (stores.carousel.activeFileId !== activeFile?.id || stores.carousel.curFrame !== frame)
           return;
+
         return await stores.carousel.transcodeVideo({
           onFirstFrames: () => setCurFrame(frame),
           seekTime: Fmt.frameToSec(frame, activeFile.frameRate),
@@ -303,112 +309,36 @@ export const VideoControls = Comp(() => {
   );
 });
 
-const CustomSlider = (props: {
-  children: JSX.Element;
-  disabled?: boolean;
-  max: number;
-  min: number;
-  onChange: (event: any, value: number) => void;
-  onChangeCommitted?: () => void;
-  step: number;
-  value: number;
-}) => {
-  const { css } = useClasses({ isVertical: true });
-
-  const [isDragging, setIsDragging] = useState(false);
-  const [isVisible, setIsVisible] = useState(false);
-
-  const rootRef = useRef<HTMLDivElement>(null);
-
-  const handleMouseDown = () => setIsDragging(true);
-
-  const handleMouseUp = () => setIsDragging(false);
-
-  const handleMouseEnter = () => setIsVisible(true);
-
-  const handleMouseLeave = () => !isDragging && setIsVisible(false);
-
-  useEffect(() => {
-    if (!isDragging) return;
-
-    const handleWindowMouseUp = (event: MouseEvent) => {
-      setIsDragging(false);
-      if (!rootRef.current?.contains(event.target as Node)) setIsVisible(false);
-    };
-
-    window.addEventListener("mouseup", handleWindowMouseUp, { once: true });
-    return () => window.removeEventListener("mouseup", handleWindowMouseUp);
-  }, [isDragging]);
-
-  return (
-    <View
-      ref={rootRef}
-      column
-      justify="center"
-      height="100%"
-      onMouseLeave={handleMouseLeave}
-      padding={{ top: "1rem", bottom: "1rem" }}
-    >
-      <View onMouseEnter={handleMouseEnter}>{props.children}</View>
-
-      <View display={isVisible ? "block" : "none"} className={css.sliderContainer}>
-        <Slider
-          value={props?.value}
-          onChange={props?.onChange}
-          onChangeCommitted={props?.onChangeCommitted}
-          onMouseDown={handleMouseDown}
-          onMouseUp={handleMouseUp}
-          disabled={props?.disabled}
-          min={props?.min}
-          max={props?.max}
-          step={props?.step}
-          orientation="vertical"
-          valueLabelDisplay="off"
-          className={css.slider}
-        />
-      </View>
-    </View>
-  );
-};
-
-const useClasses = makeClasses((props?: { isVertical: boolean }) => ({
+const useClasses = makeClasses({
   progressControl: {
     position: "relative",
   },
   slider: {
-    marginBottom: "0 !important",
-    color: colors.custom.lightBlue,
     "& .MuiSlider-markLabel": {
-      top: -10,
       fontSize: "0.65em",
       fontWeight: 600,
+      top: -10,
     },
     "& .MuiSlider-thumb": {
       borderRadius: "0.5rem",
-      height: props?.isVertical ? 4 : 18,
-      width: props?.isVertical ? 18 : 4,
+      height: 18,
+      width: 4,
     },
-  },
-  sliderContainer: {
-    position: "absolute",
-    bottom: CONSTANTS.CAROUSEL.VIDEO.CONTROLS_HEIGHT,
-    padding: "0.8rem 0.3rem 0",
-    height: "8rem",
-    backgroundColor: "rgb(0, 0, 0, 0.5)",
-    borderRadius: "0.5rem 0.5rem 0 0",
+    color: colors.custom.lightBlue,
+    marginBottom: "0 !important",
   },
   videoControlBar: {
-    bottom: 0,
-    left: 0,
-    right: 0,
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: "0 1rem",
-    width: "100%",
-    height: CONSTANTS.CAROUSEL.VIDEO.CONTROLS_HEIGHT,
-    backgroundColor: "rgb(0, 0, 0, 0.5)",
-    cursor: "default",
-    zIndex: 5,
     "&:hover": { opacity: 1 },
+    alignItems: "center",
+    backgroundColor: "rgb(0, 0, 0, 0.5)",
+    bottom: 0,
+    cursor: "default",
+    height: CONSTANTS.CAROUSEL.VIDEO.CONTROLS_HEIGHT,
+    justifyContent: "space-between",
+    left: 0,
+    padding: "0 1rem",
+    right: 0,
+    width: "100%",
+    zIndex: 5,
   },
-}));
+});

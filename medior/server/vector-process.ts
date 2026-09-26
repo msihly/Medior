@@ -1,10 +1,13 @@
 import { initTRPC } from "@trpc/server";
 import { createHTTPServer } from "@trpc/server/adapters/standalone";
-import killPort from "kill-port";
 import Mongoose from "mongoose";
 import { fileLog, setLogsPath } from "trabecula/utils/server";
+import {
+  checkServerShutdown,
+  closeHttpServer,
+  registerProcessLifecycle,
+} from "medior/server/process-lifecycle";
 import { SimilarityVectorType, vectorSimilarityService } from "medior/server/vector-service";
-import { sleep } from "medior/utils/common";
 import { getConfig, loadConfig } from "medior/utils/server/config";
 
 const trpc = initTRPC.create();
@@ -13,6 +16,7 @@ let server: ReturnType<typeof createHTTPServer>;
 
 const getVectorService = () => {
   if (!vectorSimilarityService) throw new Error("Vector service not initialized");
+
   return vectorSimilarityService;
 };
 
@@ -43,6 +47,12 @@ export const vectorRouter = trpc.router({
   optimizeSimilarityTables: trpc.procedure
     .input((input: { vectorTypes?: SimilarityVectorType[] }) => input)
     .mutation(({ input }) => getVectorService().optimizeSimilarityTables(input)),
+  pauseSimilarityBackfills: trpc.procedure.mutation(() =>
+    getVectorService().pauseSimilarityBackfills(),
+  ),
+  resumeSimilarityBackfills: trpc.procedure.mutation(() =>
+    getVectorService().resumeSimilarityBackfills(),
+  ),
   startSimilarityBackfill: trpc.procedure
     .input(
       (input: { fileIds?: string[]; force?: boolean; vectorTypes?: SimilarityVectorType[] }) =>
@@ -56,16 +66,11 @@ export type VectorRouter = typeof vectorRouter;
 const createVectorServer = async () => {
   const port = getConfig().ports.vector;
 
-  if (server) {
-    server.server.close();
-    await sleep(500);
-  }
-
-  await killPort(port);
-  await vectorSimilarityService.init();
   server = createHTTPServer({ router: vectorRouter });
 
-  await new Promise<void>((resolve) => {
+  await new Promise<void>((resolve, reject) => {
+    server.server.once("error", reject);
+
     // @ts-expect-error
     server.listen(port, () => {
       fileLog(`[VECTOR] tRPC server listening on ${port}`);
@@ -78,35 +83,27 @@ Mongoose.connection.on("error", (err) =>
   fileLog(`[VECTOR] DB Error: ${err.message}`, { type: "error" }),
 );
 
-process.on("message", async (msg: any) => {
-  if (msg?.type === "start") {
-    try {
-      await loadConfig(process.env.CONFIG_PATH);
-      await setLogsPath(process.env.LOGS_PATH);
+registerProcessLifecycle({
+  reload: async () => {
+    await loadConfig(process.env.CONFIG_PATH);
+  },
 
-      const uri = msg.uri;
-      fileLog(`[VECTOR] Connecting to db: ${uri}`);
+  start: async (message) => {
+    await loadConfig(process.env.CONFIG_PATH);
+    await setLogsPath(process.env.LOGS_PATH);
+    checkServerShutdown();
+    Mongoose.set("strictQuery", true);
+    await Mongoose.connect(message.uri, { autoIndex: false, family: 4 });
+    checkServerShutdown();
+    await createVectorServer();
+    checkServerShutdown();
+  },
 
-      Mongoose.set("strictQuery", true);
-      await Mongoose.connect(uri, { family: 4 });
-
-      fileLog("[VECTOR] Connected to db.");
-
-      await createVectorServer();
-      process.send?.({ requestId: msg.requestId, type: "ready" });
-    } catch (err: any) {
-      process.send?.({ error: err.message, requestId: msg.requestId, type: "error" }, () =>
-        process.exit(1),
-      );
-    }
-  }
-
-  if (msg?.type === "reload-config") {
-    try {
-      await loadConfig(process.env.CONFIG_PATH);
-      process.send?.({ requestId: msg.requestId, type: "config-reloaded" });
-    } catch (err: any) {
-      process.send?.({ error: err.message, requestId: msg.requestId, type: "error" });
-    }
-  }
+  stop: async () => {
+    fileLog("[VECTOR] Closing HTTP connections and cancelling background jobs...");
+    vectorSimilarityService.cancelAllJobs();
+    await closeHttpServer(server?.server);
+    await Mongoose.connection.close(true);
+    fileLog("[VECTOR] Shutdown complete.");
+  },
 });

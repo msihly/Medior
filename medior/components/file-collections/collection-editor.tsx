@@ -1,4 +1,4 @@
-import { KeyboardEvent, ReactNode, useEffect, useRef, useState } from "react";
+import { KeyboardEvent, useEffect, useRef, useState } from "react";
 import { SORT_OPTIONS } from "medior/store/_generated";
 import {
   Button,
@@ -27,6 +27,7 @@ import { useStores } from "medior/store";
 import { colors, toast } from "medior/utils/client";
 import { matchesHotkey } from "medior/utils/common";
 import { useHotkeys } from "medior/views";
+import { HeaderRow } from "./collection-editor-header-row";
 
 export interface FileCollectionEditorProps {
   embedded?: boolean;
@@ -35,6 +36,7 @@ export interface FileCollectionEditorProps {
   mode?: "edit" | "merge";
   onCancelLoad?: () => void;
   onClose?: () => void;
+  onRating?: (rating: number) => Promise<void>;
   onSave?: () => Promise<void>;
 }
 
@@ -46,6 +48,7 @@ export const FileCollectionEditor = Comp(
     mode = "edit",
     onCancelLoad,
     onClose,
+    onRating,
     onSave,
   }: FileCollectionEditorProps) => {
     const stores = useStores();
@@ -92,7 +95,9 @@ export const FileCollectionEditor = Comp(
     const handleClose = async () => {
       if (onClose) onClose();
       else store.setIsOpen(false);
+
       stores.file.search.reloadIfQueued();
+
       return true;
     };
 
@@ -122,14 +127,16 @@ export const FileCollectionEditor = Comp(
       ) {
         event.preventDefault();
         handleRemoveFiles();
+
         return;
       }
+
       handleKeyPress(event);
     };
 
     const handleFileInfoRefresh = () => stores.file.refreshFiles({ ids: store.search.selectedIds });
 
-    const handleFullPageLoad = () => store.search.loadFiltered({ withFullCount: true });
+    const handleFullPageLoad = () => store.search.loadFiltered({ toLastPage: true });
 
     const handleMoveFilesDown = () => store.moveFileIndexes({ down: true, maxDelta });
 
@@ -140,8 +147,10 @@ export const FileCollectionEditor = Comp(
       store.search.loadFiltered();
     };
 
-    const handleRating = (rating: number) =>
-      stores.collection.updateCollRating({ id: store.collection.id, rating });
+    const handleRating = async (rating: number) => {
+      if (onRating) await onRating(rating);
+      else await stores.collection.updateCollRating({ id: store.collection.id, rating });
+    };
 
     const handleRefreshMeta = () => stores.collection.regenCollMeta([store.collection.id]);
 
@@ -161,22 +170,27 @@ export const FileCollectionEditor = Comp(
     const handleSelectAllInQuery = async () => {
       const res = await store.search.selectAllInQuery();
       if (!res.success) throw new Error(res.error);
+
       toast.info(`Added ${res.data} files to selection`);
     };
 
     const handleSplitFiles = async () => {
       const selectedIds = [...store.search.selectedIds];
+      const selectedIdSet = new Set(selectedIds);
+
       const createRes = await stores.collection.createCollection({
         fileIdIndexes: store.fileIndexes
-          .filter(({ fileId }) => selectedIds.includes(fileId))
+          .filter(({ fileId }) => selectedIdSet.has(fileId))
           .map(({ fileId }, index) => ({ fileId, index })),
         title: "Untitled Collection",
       });
       if (!createRes.success) return toast.error(createRes.error);
 
       const removeRes = await store.removeFiles(selectedIds);
+
       if (!removeRes.success) {
         await stores.collection.deleteCollections([createRes.data.id]);
+
         return toast.error(removeRes.error);
       }
 
@@ -188,7 +202,7 @@ export const FileCollectionEditor = Comp(
       store.setTitle(val);
     };
 
-    const scrollToTop = () => filesRef.current?.scrollTo({ top: 0, behavior: "instant" });
+    const scrollToTop = () => filesRef.current?.scrollTo({ behavior: "instant", top: 0 });
 
     const toggleAddingFiles = () => setIsAddingFiles((prev) => !prev);
 
@@ -442,17 +456,3 @@ export const FileCollectionEditor = Comp(
     );
   },
 );
-
-const HeaderRow = (props: { children: ReactNode | ReactNode[]; label: string }) => {
-  return (
-    <View row align="center" spacing="0.5rem" overflow="hidden">
-      <View column align="flex-start">
-        <Text fontSize="1.2em" fontWeight={500} width="3rem" color={colors.custom.lightGrey}>
-          {props.label}
-        </Text>
-      </View>
-
-      {props.children}
-    </View>
-  );
-};

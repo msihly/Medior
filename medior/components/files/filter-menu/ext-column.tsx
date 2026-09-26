@@ -13,6 +13,7 @@ export const ExtColumn = Comp(({ configTypes, label, selected, setSelected }: Ex
     const selectedTypes = allTypes.filter((t) => t === true);
     const isAllSelected = allTypes.length === selectedTypes.length;
     const isAnySelected = selectedTypes.length > 0 && selectedTypes.length !== allTypes.length;
+
     return [isAllSelected, isAnySelected];
   }, [selected]);
 

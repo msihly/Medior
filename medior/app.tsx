@@ -18,7 +18,9 @@ export const App = () => {
       >
         <Switch>
           <Route exact path="/" component={HomeWindow} />
+
           <Route path="/carousel" component={CarouselWindow} />
+
           <Route path="/search" component={SearchWindow} />
         </Switch>
       </ConditionalWrap>

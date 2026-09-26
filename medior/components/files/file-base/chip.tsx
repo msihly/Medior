@@ -5,7 +5,7 @@ export interface ChipProps extends ChipBaseProps {
   footerOffset?: CSS["bottom"];
   hasFooter?: boolean;
   opacity?: number;
-  position?: "top-left" | "top-right" | "bottom-left" | "bottom-right";
+  position?: "bottom-left" | "bottom-right" | "top-left" | "top-right";
 }
 
 export const Chip = ({
@@ -26,15 +26,15 @@ interface ClassesProps
 
 const useClasses = makeClasses((props: ClassesProps) => ({
   chip: {
-    position: props.position ? "absolute" : undefined,
-    top: props.position?.includes("top") ? "0.3rem" : undefined,
-    right: props.position?.includes("right") ? "0.3rem" : undefined,
+    "&:hover": { opacity: Math.min(1, props.opacity + 0.3) },
     bottom: props.position?.includes("bottom")
       ? (props.footerOffset ?? (props.hasFooter ? "2rem" : "0.3rem"))
       : undefined,
-    left: props.position?.includes("left") ? "0.3rem" : undefined,
     cursor: "pointer",
+    left: props.position?.includes("left") ? "0.3rem" : undefined,
     opacity: props.opacity,
-    "&:hover": { opacity: Math.min(1, props.opacity + 0.3) },
+    position: props.position ? "absolute" : undefined,
+    right: props.position?.includes("right") ? "0.3rem" : undefined,
+    top: props.position?.includes("top") ? "0.3rem" : undefined,
   },
 }));

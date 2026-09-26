@@ -42,10 +42,10 @@ export class ModelDb {
 
   public getModel() {
     return {
-      name: this.name,
       defaultPageSize: this.defaultPageSize,
       defaultSort: this.defaultSort,
       indexes: this.indexes,
+      name: this.name,
       properties: this.properties,
       withStore: this.withStore,
     };
@@ -76,11 +76,13 @@ export class ModelDb {
         ? `{ type: Schema.Types.ObjectId, ref: "${type.split(".")[0]}" }`
         : "Schema.Types.ObjectId";
     if (type.startsWith("Array<") || type.endsWith("[]")) schemaType = `[${schemaType}]`;
+
     return schemaType;
   };
 
   public makeType = (type: string) => {
     if (!type.includes(".id")) return type;
+
     return type.startsWith("Array<") || type.endsWith("[]") ? "string[]" : "string";
   };
 }
@@ -91,20 +93,24 @@ const makeInterfacesAndSchemaProps = (modelDef: ModelDef, schemaName: string) =>
       if (typeof cur.schemaType === "string")
         acc.schemaProps.push(`${cur.name}: ${cur.schemaType},`);
       else {
+        const properties = [...cur.schemaType].sort((a, b) => a.name.localeCompare(b.name));
+
         acc.interfaces.push(
-          `export interface ${cur.typeName} { ${cur.schemaType.map((p) => `${p.name}: ${p.type};`).join("\n")} }`,
+          `export interface ${cur.typeName} { ${properties.map((p) => `${p.name}: ${p.type};`).join("\n")} }`,
         );
         acc.schemaProps.push(
           `${cur.name}: [{ ${cur.schemaType.map((p) => `${p.name}: ${p.schemaType}`)} }],`,
         );
       }
+
       return acc;
     },
     { interfaces: [], schemaProps: [] } as { interfaces: string[]; schemaProps: string[] },
   );
 
   interfaces.push(`export interface ${schemaName} {
-    ${modelDef.properties
+    ${[...modelDef.properties]
+      .sort((a, b) => a.name.localeCompare(b.name))
       .map((prop) => `${prop.name}${prop.required ? "" : "?"}: ${prop.type};`)
       .join("\n")}
   }`);
@@ -116,7 +122,17 @@ const makeModel = (modelDef: ModelDef, schemaName: string) =>
   `export const ${modelDef.name}Model = model<${schemaName}>("${modelDef.name}", ${schemaName});`;
 
 const makeSchemaDef = (schemaName: string, schemaProps: string[]) =>
-  `const ${schemaName} = new Schema<${schemaName}>({ ${schemaProps.join("\n")} });`;
+  `const ${schemaName} = new Schema<${schemaName}>({ ${schemaProps.join("\n")} });
+
+  ${schemaName}.plugin(backgroundExecutionPlugin);
+  ${["FileSchema", "FileTransformSchema", "TagSchema"].includes(schemaName) ? `${schemaName}.plugin(mediaPathPlugin, { modelName: "${schemaName.replace(/Schema$/, "")}" });` : ""}
+  ${
+    ["FileSchema", "FileCollectionSchema", "FileImportBatchSchema"].includes(schemaName)
+      ? `${schemaName}.plugin(mediaAncestryPlugin);`
+      : schemaName === "TagSchema"
+        ? `${schemaName}.plugin(tagAncestryPlugin);`
+        : ""
+  }`;
 
 const makeSchemaIndexes = (modelDef: ModelDef, schemaName: string) =>
   `${

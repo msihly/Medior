@@ -25,15 +25,22 @@ export interface SocketEmitEvents {
     args: { id: string; updates: Partial<models.DeletedFileSchema> },
     options?: SocketEventOptions,
   ) => void;
+  onDuplicateMergeProgress: (
+    args: { batchId: string; completed: number; failed: number; isRegenerating: boolean },
+    options?: SocketEventOptions,
+  ) => void;
   onFileCollectionCreated: (
     args: models.FileCollectionSchema,
     options?: SocketEventOptions,
   ) => void;
   onFileCollectionDeleted: (args: { ids: string[] }, options?: SocketEventOptions) => void;
+  onFileCollectionsDeleted: (args: { ids: string[] }, options?: SocketEventOptions) => void;
   onFileCollectionUpdated: (
     args: { id: string; updates: Partial<models.FileCollectionSchema> },
     options?: SocketEventOptions,
   ) => void;
+  onFileCreated: (args: models.FileSchema, options?: SocketEventOptions) => void;
+  onFileDeleted: (args: { ids: string[] }, options?: SocketEventOptions) => void;
   onFileImportBatchCreated: (
     args: models.FileImportBatchSchema,
     options?: SocketEventOptions,
@@ -43,50 +50,27 @@ export interface SocketEmitEvents {
     args: { id: string; updates: Partial<models.FileImportBatchSchema> },
     options?: SocketEventOptions,
   ) => void;
-  onFileTransformCreated: (args: models.FileTransformSchema, options?: SocketEventOptions) => void;
-  onFileTransformDeleted: (args: { ids: string[] }, options?: SocketEventOptions) => void;
-  onFileTransformUpdated: (
-    args: { id: string; updates: Partial<models.FileTransformSchema> },
+  onFileImportProgress: (
+    args: {
+      batchId?: string;
+      elapsed: number;
+      filePath: string;
+      message: string;
+      progress?: number;
+    },
     options?: SocketEventOptions,
   ) => void;
-  onFileCreated: (args: models.FileSchema, options?: SocketEventOptions) => void;
-  onFileDeleted: (args: { ids: string[] }, options?: SocketEventOptions) => void;
-  onFileUpdated: (
-    args: { id: string; updates: Partial<models.FileSchema> },
+  onFileImportStarted: (args: { filePath: string }, options?: SocketEventOptions) => void;
+  onFileImportUpdated: (
+    args: {
+      batchId: string;
+      errorMsg?: string;
+      fileId?: string;
+      filePath: string;
+      status?: Types.ImportStatus;
+    },
     options?: SocketEventOptions,
   ) => void;
-  onNotificationCreated: (args: models.NotificationSchema, options?: SocketEventOptions) => void;
-  onNotificationDeleted: (args: { ids: string[] }, options?: SocketEventOptions) => void;
-  onNotificationUpdated: (
-    args: { id: string; updates: Partial<models.NotificationSchema> },
-    options?: SocketEventOptions,
-  ) => void;
-  onSavedImportConfigCreated: (
-    args: models.SavedImportConfigSchema,
-    options?: SocketEventOptions,
-  ) => void;
-  onSavedImportConfigDeleted: (args: { ids: string[] }, options?: SocketEventOptions) => void;
-  onSavedImportConfigUpdated: (
-    args: { id: string; updates: Partial<models.SavedImportConfigSchema> },
-    options?: SocketEventOptions,
-  ) => void;
-  onSavedSearchCreated: (args: models.SavedSearchSchema, options?: SocketEventOptions) => void;
-  onSavedSearchDeleted: (args: { ids: string[] }, options?: SocketEventOptions) => void;
-  onSavedSearchUpdated: (
-    args: { id: string; updates: Partial<models.SavedSearchSchema> },
-    options?: SocketEventOptions,
-  ) => void;
-  onTagCreated: (args: models.TagSchema, options?: SocketEventOptions) => void;
-  onTagDeleted: (args: { ids: string[] }, options?: SocketEventOptions) => void;
-  onTagUpdated: (
-    args: { id: string; updates: Partial<models.TagSchema> },
-    options?: SocketEventOptions,
-  ) => void;
-  onDuplicateMergeProgress: (
-    args: { batchId: string; completed: number; failed: number; isRegenerating: boolean },
-    options?: SocketEventOptions,
-  ) => void;
-  onFileCollectionsDeleted: (args: { ids: string[] }, options?: SocketEventOptions) => void;
   onFileRefreshProgress: (
     args: {
       fileId: string;
@@ -106,50 +90,79 @@ export interface SocketEmitEvents {
     args: { fileIds: string[]; updates: Partial<models.FileSchema> },
     options?: SocketEventOptions,
   ) => void;
-  onFileImportStarted: (args: { filePath: string }, options?: SocketEventOptions) => void;
-  onFileImportUpdated: (
-    args: {
-      batchId: string;
-      errorMsg?: string;
-      fileId?: string;
-      filePath: string;
-      status?: Types.ImportStatus;
-    },
-    options?: SocketEventOptions,
-  ) => void;
   onFileTagsUpdated: (
     args: { addedTagIds: string[]; batchId?: string; fileIds?: string[]; removedTagIds: string[] },
     options?: SocketEventOptions,
   ) => void;
+  onFileTransformCreated: (args: models.FileTransformSchema, options?: SocketEventOptions) => void;
+  onFileTransformDeleted: (args: { ids: string[] }, options?: SocketEventOptions) => void;
+  onFileTransformerStatusUpdated: (options?: SocketEventOptions) => void;
   onFileTransformLoaded: (
     args: { file: models.FileSchema; transform: models.FileTransformSchema },
     options?: SocketEventOptions,
   ) => void;
-  onFileTransformerStatusUpdated: (options?: SocketEventOptions) => void;
+  onFileTransformUpdated: (
+    args: { id: string; updates: Partial<models.FileTransformSchema> },
+    options?: SocketEventOptions,
+  ) => void;
+  onFileUpdated: (
+    args: { id: string; updates: Partial<models.FileSchema> },
+    options?: SocketEventOptions,
+  ) => void;
   onImportBatchCompleted: (args: { id: string }, options?: SocketEventOptions) => void;
   onImportBatchLoaded: (args: { id: string }, options?: SocketEventOptions) => void;
   onImporterStatusUpdated: (options?: SocketEventOptions) => void;
+  onNotificationCreated: (args: models.NotificationSchema, options?: SocketEventOptions) => void;
+  onNotificationDeleted: (args: { ids: string[] }, options?: SocketEventOptions) => void;
   onNotificationsRead: (args: { ids: string[] }, options?: SocketEventOptions) => void;
+  onNotificationUpdated: (
+    args: { id: string; updates: Partial<models.NotificationSchema> },
+    options?: SocketEventOptions,
+  ) => void;
   onReloadFileCollections: (options?: SocketEventOptions) => void;
   onReloadFiles: (options?: SocketEventOptions) => void;
-  onReloadFileTransforms: (options?: SocketEventOptions) => void;
+  onReloadFileTransforms: (
+    args: { reason: "created" | "reset" },
+    options?: SocketEventOptions,
+  ) => void;
   onReloadImportBatches: (options?: SocketEventOptions) => void;
   onReloadRegExMaps: (options?: SocketEventOptions) => void;
   onReloadTags: (options?: SocketEventOptions) => void;
   onRepairProgress: (
     args: {
-      repairId: string;
       message: string;
-      status: "info" | "progress" | "success" | "error" | "cancelled";
+      repairId: string;
+      status: "cancelled" | "error" | "info" | "progress" | "success";
     },
     options?: SocketEventOptions,
   ) => void;
-  onTagMerged: (args: { oldTagId: string; newTagId: string }, options?: SocketEventOptions) => void;
+  onSavedImportConfigCreated: (
+    args: models.SavedImportConfigSchema,
+    options?: SocketEventOptions,
+  ) => void;
+  onSavedImportConfigDeleted: (args: { ids: string[] }, options?: SocketEventOptions) => void;
+  onSavedImportConfigUpdated: (
+    args: { id: string; updates: Partial<models.SavedImportConfigSchema> },
+    options?: SocketEventOptions,
+  ) => void;
+  onSavedSearchCreated: (args: models.SavedSearchSchema, options?: SocketEventOptions) => void;
+  onSavedSearchDeleted: (args: { ids: string[] }, options?: SocketEventOptions) => void;
+  onSavedSearchUpdated: (
+    args: { id: string; updates: Partial<models.SavedSearchSchema> },
+    options?: SocketEventOptions,
+  ) => void;
+  onTagCreated: (args: models.TagSchema, options?: SocketEventOptions) => void;
+  onTagDeleted: (args: { ids: string[] }, options?: SocketEventOptions) => void;
+  onTagMerged: (args: { newTagId: string; oldTagId: string }, options?: SocketEventOptions) => void;
   onTagsUpdated: (
     args: {
       tags: Array<{ tagId: string; updates: Partial<models.TagSchema> }>;
       withFileReload: boolean;
     },
+    options?: SocketEventOptions,
+  ) => void;
+  onTagUpdated: (
+    args: { id: string; updates: Partial<models.TagSchema> },
     options?: SocketEventOptions,
   ) => void;
 }
@@ -197,6 +210,7 @@ export const socketEvents: SocketEmitEvent[] = [
   "onFilesArchived",
   "onFilesDeleted",
   "onFilesUpdated",
+  "onFileImportProgress",
   "onFileImportStarted",
   "onFileImportUpdated",
   "onFileTagsUpdated",

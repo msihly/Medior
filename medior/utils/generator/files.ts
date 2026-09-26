@@ -33,7 +33,7 @@ export const formatFile = (str: string): Promise<string> =>
 
 export const makeIndexDef = (fileDefs: FileDef[]) => {
   const imports = fileDefs.map((fileDef) => `export * from "./${fileDef.name}";`).join("\n");
-  fileDefs.push({ name: "index", makeFile: async () => imports });
+  fileDefs.push({ makeFile: async () => imports, name: "index" });
 };
 
 export const makeSectionComment = (sectionName: string) =>
@@ -50,8 +50,10 @@ export const parseExports = async (filePath: string): Promise<string[]> => {
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim();
     const match = line.match(fnRegEx);
+
     if (match) {
       const prevLine = lines[i - 1]?.trim();
+
       if (prevLine !== ignoreComment) {
         exportedFunctions.push(match[0].replace(/export\s+(class|const|function|let)\s+/, ""));
       }
@@ -60,6 +62,7 @@ export const parseExports = async (filePath: string): Promise<string[]> => {
 
   if (exportedFunctions.length === 0)
     throw new Error(`No exported functions found in '${filePath}'`);
+
   return exportedFunctions;
 };
 

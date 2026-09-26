@@ -28,6 +28,7 @@ export const FileCollection = Comp(
 
     const handleClick = async (event: React.MouseEvent) => {
       if (disableSelection) return;
+
       const res = await store.search.handleSelect({
         hasCtrl: event.ctrlKey,
         hasShift: event.shiftKey,
@@ -55,8 +56,8 @@ export const FileCollection = Comp(
       <ContextMenu
         id={collection.id}
         menuItems={[
-          { label: "Refresh Metadata", icon: "Refresh", onClick: handleRefreshMeta },
-          { label: "Delete", icon: "Delete", color: colors.custom.red, onClick: handleDelete },
+          { icon: "Refresh", label: "Refresh Metadata", onClick: handleRefreshMeta },
+          { color: colors.custom.red, icon: "Delete", label: "Delete", onClick: handleDelete },
         ]}
       >
         <FileBase.Container

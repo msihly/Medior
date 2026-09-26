@@ -39,11 +39,13 @@ export const MultiTagEditor = Comp(() => {
 
   const handleClose = () => {
     if (hasUnsavedChanges) return setIsConfirmDiscardOpen(true);
+
     store.setIsMultiTagEditorOpen(false);
   };
 
   const handleConfirm = async () => {
     setIsLoading(true);
+
     const res = await store.editMultiTagRelations({
       childIdsToAdd: childTagsToAdd.map((t) => t.id),
       childIdsToRemove: childTagsToRemove.map((t) => t.id),
@@ -69,6 +71,7 @@ export const MultiTagEditor = Comp(() => {
     setHasUnsavedChanges(false);
     setIsConfirmDiscardOpen(false);
     store.setIsMultiTagEditorOpen(false);
+
     return true;
   };
 
@@ -134,7 +137,7 @@ export const MultiTagEditor = Comp(() => {
 
           <HeaderWrapper header="Selected Tags" height="100%">
             <TagList
-              search={{ onChange: null, value: selectedTags }}
+              search={{ onChange: setSelectedTags, value: selectedTags }}
               hasDelete={false}
               hasEditor
               hasInput

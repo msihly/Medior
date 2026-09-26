@@ -14,10 +14,8 @@ export const HMR = Comp(() => {
   useSockets({ view: "home" });
 
   useEffect(() => {
-    (async () => {
-      setIsLoading(false);
-      stores.file.videoTransformer.setIsOpen(true);
-    })();
+    setIsLoading(false);
+    stores.file.videoTransformer.setIsOpen(true);
   }, []);
 
   return isLoading ? null : (
@@ -41,9 +39,9 @@ export const HMR = Comp(() => {
 
 const useClasses = makeClasses({
   root: {
-    padding: "0.5rem",
     height: "100vh",
-    width: "100vw",
     overflow: "hidden",
+    padding: "0.5rem",
+    width: "100vw",
   },
 });

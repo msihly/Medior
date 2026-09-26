@@ -16,7 +16,7 @@ import { ImportEditorStore } from "./import-editor-store";
 
 @model("medior/Reingester")
 export class Reingester extends ExtendedModel(ImportEditorStore, {
-  folderFileIds: prop<{ folder: string; fileIds: string[] }[]>(() => []).withSetter(),
+  folderFileIds: prop<{ fileIds: string[]; folder: string }[]>(() => []).withSetter(),
   tagIds: prop<string[]>(() => []).withSetter(),
 }) {
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
@@ -26,7 +26,6 @@ export class Reingester extends ExtendedModel(ImportEditorStore, {
 
     arrayActions.shift(this.folderFileIds);
     this.allFlatFolderHierarchy.delete(folderName);
-    this.flatFolderHierarchy.delete(folderName);
     this.folderTotalCount = this.allFlatFolderHierarchy.size;
     this.setVisibleFolderPage();
   }
@@ -44,6 +43,7 @@ export class Reingester extends ExtendedModel(ImportEditorStore, {
   loadFolder = asyncAction(async () => {
     if (!this.curFolderFileIds?.length) {
       this.setIsOpen(false);
+
       return;
     }
 
@@ -96,7 +96,7 @@ export class Reingester extends ExtendedModel(ImportEditorStore, {
   reingest = asyncAction(async () => {
     const fileTagIds: { fileId: string; tagIds: string[] }[] = [];
 
-    for (const imp of this.imports) {
+    for (const imp of this.getCurFolder().imports) {
       fileTagIds.push({
         fileId: imp.fileId,
         tagIds: [...new Set([...this.tagIds, ...(imp.tagIds ?? [])])],

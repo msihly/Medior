@@ -5,6 +5,7 @@ export * from "./regex-map-card";
 export * from "./tag-card";
 export * from "./tag-chip";
 export * from "./tag-editor";
+export * from "./tag-editor-ancestry";
 export * from "./tag-filter-menu";
 export * from "./tag-input";
 export * from "./tag-input-row";

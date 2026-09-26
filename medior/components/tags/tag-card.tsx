@@ -2,7 +2,7 @@ import { useState } from "react";
 import Color from "color";
 import { TagSchema } from "medior/_generated/server";
 import { Comp, ContextMenu, FileBase, getRatingMeta, Icon, Text, View } from "medior/components";
-import { useStores } from "medior/store";
+import { tagToOption, useStores } from "medior/store";
 import { colors, openSearchWindow, toast } from "medior/utils/client";
 import { Fmt, round } from "medior/utils/common";
 
@@ -12,31 +12,36 @@ export interface TagCardProps {
 
 export const TagCard = Comp(({ tag }: TagCardProps) => {
   const stores = useStores();
+  const store = stores.tag;
 
-  const color = tag.category?.color || "black";
+  const category = store.getCategory(tag);
+  const color = category?.color || "black";
   const ratingMeta = getRatingMeta(tag.rating);
 
   const [isHovering, setIsHovering] = useState(false);
 
   const handleClick = async (event: React.MouseEvent) => {
-    const res = await stores.tag.manager.search.handleSelect({
+    const res = await store.manager.search.handleSelect({
       hasCtrl: event.ctrlKey,
       hasShift: event.shiftKey,
       id: tag.id,
     });
+
     if (!res?.success) toast.error(res.error);
   };
 
   const handleEdit = () => {
-    stores.tag.editor.setIsOpen(true);
-    stores.tag.editor.loadTag(tag.id);
+    store.editor.setIsOpen(true);
+    store.editor.loadTag({ id: tag.id });
   };
+
+  const handleFindTagsOnSameFiles = () => store.manager.findTagsOnSameFiles(tagToOption(tag));
 
   const handleMouseEnter = () => setIsHovering(true);
 
   const handleMouseLeave = () => setIsHovering(false);
 
-  const handleRefresh = () => stores.tag.refreshTag({ id: tag.id });
+  const handleRefresh = () => store.refreshTag({ id: tag.id });
 
   const handleSearch = () => openSearchWindow({ tagIds: [tag.id] });
 
@@ -44,9 +49,14 @@ export const TagCard = Comp(({ tag }: TagCardProps) => {
     <ContextMenu
       id={tag.id}
       menuItems={[
-        { label: "Search", icon: "Search", onClick: handleSearch },
-        { label: "Edit", icon: "Edit", onClick: handleEdit },
-        { label: "Refresh", icon: "Refresh", onClick: handleRefresh },
+        { icon: "Search", label: "Search", onClick: handleSearch },
+        {
+          icon: "FindInPage",
+          label: "Find Tags on Same Files",
+          onClick: handleFindTagsOnSameFiles,
+        },
+        { icon: "Edit", label: "Edit", onClick: handleEdit },
+        { icon: "Refresh", label: "Refresh", onClick: handleRefresh },
       ]}
     >
       <FileBase.Container
@@ -54,7 +64,7 @@ export const TagCard = Comp(({ tag }: TagCardProps) => {
         onDoubleClick={handleEdit}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
-        selected={stores.tag.manager.search.getIsSelected(tag.id)}
+        selected={store.manager.search.getIsSelected(tag.id)}
       >
         <FileBase.Image
           thumb={tag.thumb}
@@ -69,7 +79,7 @@ export const TagCard = Comp(({ tag }: TagCardProps) => {
           background={`linear-gradient(to bottom, ${Color(color).fade(0.7).string()}, ${color})`}
         >
           <View column flex={1} align="center" justify="center">
-            {!tag.category?.icon ? null : <Icon name={tag.category.icon} size="2em" />}
+            {!category?.icon ? null : <Icon name={category.icon} size="2em" />}
 
             <FileBase.FooterText
               text={tag.label}

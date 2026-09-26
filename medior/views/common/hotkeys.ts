@@ -27,6 +27,7 @@ export const useHotkeys = ({ rootRef, videoRef, view }: UseHotkeysProps) => {
 
     const searchStore =
       view === "collectionEditor" ? stores.collection.editor.search : stores.file.search;
+
     const fileIds =
       view === "carousel" ? [stores.carousel.activeFileId] : [...searchStore.selectedIds];
     if (!fileIds.length) return;
@@ -48,6 +49,7 @@ export const useHotkeys = ({ rootRef, videoRef, view }: UseHotkeysProps) => {
 
       const isPreviousFile = matchesHotkey(event, hotkeys.previousFile);
       const isNextFile = matchesHotkey(event, hotkeys.nextFile);
+
       if (isPreviousFile || isNextFile) {
         if (view === "carousel" && !stores.carousel.splicer.isOpen)
           navCarouselByArrowKey(isPreviousFile);
@@ -75,6 +77,7 @@ export const useHotkeys = ({ rootRef, videoRef, view }: UseHotkeysProps) => {
         else {
           const isVolumeUp = matchesHotkey(event, carouselHotkeys.volumeUp);
           const isVolumeDown = matchesHotkey(event, carouselHotkeys.volumeDown);
+
           if (isVolumeUp || isVolumeDown) {
             const vol = isVolumeUp
               ? Math.min(1, stores.carousel.volume + 0.05)
@@ -88,8 +91,10 @@ export const useHotkeys = ({ rootRef, videoRef, view }: UseHotkeysProps) => {
     if (matchesHotkey(event, hotkeys.detectFaces)) {
       if (isOneFileSelected) {
         const file = stores.file.getById(fileIds[0]);
+
         if (file.isAnimated) {
           toast.error("Cannot detect faces in animated files");
+
           return;
         }
 
@@ -128,10 +133,12 @@ export const useHotkeys = ({ rootRef, videoRef, view }: UseHotkeysProps) => {
     { frameRate, pause = false, seconds }: { frameRate?: number; pause?: boolean; seconds: number },
   ) => {
     if (pause) stores.carousel.setIsPlaying(false);
+
     const file = stores.carousel.getActiveFile();
     const totalFrames = round(file.totalFrames, 0);
 
     const dir = isLeft ? -1 : 1;
+
     const newFrame = Math.max(
       0,
       Math.min(
@@ -180,6 +187,7 @@ export const useHotkeys = ({ rootRef, videoRef, view }: UseHotkeysProps) => {
     () =>
       throttle(async (frame: number, frameRate: number) => {
         if (activeFileId !== stores.carousel.activeFileId) return;
+
         return await stores.carousel.transcodeVideo({
           onFirstFrames: () => stores.carousel.setCurFrame(frame, frameRate),
           seekTime: Fmt.frameToSec(frame, frameRate),

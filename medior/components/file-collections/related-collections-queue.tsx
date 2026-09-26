@@ -16,6 +16,7 @@ import {
 } from "medior/components";
 import { File, FileCollection as FileCollectionModel, useStores } from "medior/store";
 import { colors, toast } from "medior/utils/client";
+import { makeTagSelector } from "medior/utils/common";
 import { trpc } from "medior/utils/server";
 import { useCollectionMerge } from "./hooks";
 
@@ -35,9 +36,11 @@ const getHighestSimilarity = (group: RelatedGroup) =>
 
 const getSelectableIds = (group?: RelatedGroup, selectedBaseId?: string) => {
   if (!group) return [];
+
   const baseId =
     selectedBaseId ??
     [...group.collections].sort((left, right) => left.searchIndex - right.searchIndex)[0].id;
+
   return group.collections.filter(({ id }) => id !== baseId).map(({ id }) => id);
 };
 
@@ -47,10 +50,10 @@ export interface RelatedCollectionsQueueProps {
 
 export const RelatedCollectionsQueue = Comp(({ onClose }: RelatedCollectionsQueueProps) => {
   const stores = useStores();
-  const manager = stores.collection.manager;
+  const store = stores.collection.manager;
 
-  const managerFiles = useRef(new Map(manager.search.files));
-  const managerSelectedIds = useRef([...manager.search.selectedIds]);
+  const managerFiles = useRef(new Map(store.search.files));
+  const managerSelectedIds = useRef([...store.search.selectedIds]);
   const collectionLoadId = useRef(0);
   const queueLoadId = useRef(0);
 
@@ -68,10 +71,13 @@ export const RelatedCollectionsQueue = Comp(({ onClose }: RelatedCollectionsQueu
   const [resultPage, setResultPage] = useState(1);
 
   const group = groups[groupIndex];
+
   const defaultBaseEntry = group
     ? [...group.collections].sort((left, right) => left.searchIndex - right.searchIndex)[0]
     : null;
+
   const baseEntry = group?.collections.find(({ id }) => id === baseId) ?? defaultBaseEntry;
+
   const foundEntries =
     group?.collections
       .filter(({ id }) => id !== baseEntry.id)
@@ -80,18 +86,19 @@ export const RelatedCollectionsQueue = Comp(({ onClose }: RelatedCollectionsQueu
           right.similarityPercentageById[baseEntry.id] -
             left.similarityPercentageById[baseEntry.id] || left.searchIndex - right.searchIndex,
       ) ?? [];
-  const pageSize = Math.max(1, manager.search.pageSize);
+
+  const pageSize = Math.max(1, store.search.pageSize);
   const pageCount = Math.ceil(foundEntries.length / pageSize);
   const pagedEntries = foundEntries.slice((resultPage - 1) * pageSize, resultPage * pageSize);
   const visibleIds = [baseEntry?.id, ...pagedEntries.map(({ id }) => id)].filter(Boolean);
+
   const loadedCollectionById = new Map(
     loadedCollections.map((collection) => [collection.id, collection]),
   );
+
+  const searchSelectedIds = new Set(store.search.selectedIds);
   const selectedIds = baseEntry
-    ? [
-        baseEntry.id,
-        ...foundEntries.map(({ id }) => id).filter((id) => manager.search.selectedIds.includes(id)),
-      ]
+    ? [baseEntry.id, ...foundEntries.map(({ id }) => id).filter((id) => searchSelectedIds.has(id))]
     : [];
 
   useEffect(() => {
@@ -100,7 +107,7 @@ export const RelatedCollectionsQueue = Comp(({ onClose }: RelatedCollectionsQueu
 
   useEffect(() => {
     setBaseId(defaultBaseEntry?.id ?? "");
-    manager.search.setSelectedIds(getSelectableIds(group, defaultBaseEntry?.id));
+    store.search.setSelectedIds(getSelectableIds(group, defaultBaseEntry?.id));
     setResultPage(1);
   }, [groupIndex, groups]);
 
@@ -113,32 +120,37 @@ export const RelatedCollectionsQueue = Comp(({ onClose }: RelatedCollectionsQueu
   useEffect(() => {
     return () => {
       collectionLoadId.current += 1;
-      manager.search.setFiles(managerFiles.current);
-      manager.search.setSelectedIds(managerSelectedIds.current);
+      store.search.setFiles(managerFiles.current);
+      store.search.setSelectedIds(managerSelectedIds.current);
     };
   }, []);
 
   const loadCollections = async (ids: string[]) => {
     const loadId = ++collectionLoadId.current;
+
     try {
       setIsLoading(true);
+
       const collectionRes = await trpc.listFileCollection.mutate({
         args: { filter: { id: ids } },
       });
       if (!collectionRes.success) throw new Error(collectionRes.error);
       if (loadId !== collectionLoadId.current) return;
+
       const collectionById = new Map(
         collectionRes.data.items.map((collection) => [collection.id, collection]),
       );
+
       const nextCollections = ids.map((id) => new FileCollectionModel(collectionById.get(id)));
+
       const tagsRes = await trpc.listTag.mutate({
         filter: { id: [...new Set(nextCollections.flatMap(({ tagIds }) => tagIds))] },
       });
       if (!tagsRes.success) throw new Error(tagsRes.error);
       if (loadId !== collectionLoadId.current) return;
-      nextCollections.forEach((collection) =>
-        collection.setTags(tagsRes.data.filter(({ id }) => collection.tagIds.includes(id))),
-      );
+
+      const selectTags = makeTagSelector(tagsRes.data);
+      nextCollections.forEach((collection) => collection.setTags(selectTags(collection.tagIds)));
 
       const filesRes = await trpc.listFile.mutate({
         args: {
@@ -148,7 +160,7 @@ export const RelatedCollectionsQueue = Comp(({ onClose }: RelatedCollectionsQueu
       if (!filesRes.success) throw new Error(filesRes.error);
       if (loadId !== collectionLoadId.current) return;
 
-      manager.search.setFiles(
+      store.search.setFiles(
         new Map([
           ...managerFiles.current,
           ...filesRes.data.items.map((file) => [file.id, new File(file)] as const),
@@ -164,19 +176,22 @@ export const RelatedCollectionsQueue = Comp(({ onClose }: RelatedCollectionsQueu
 
   const loadQueue = async () => {
     const loadId = ++queueLoadId.current;
+
     try {
       setIsLoading(true);
       setLookupError("");
+
       const res = await trpc.findRelatedCollectionGroups.mutate({
         ids: managerSelectedIds.current.length ? managerSelectedIds.current : undefined,
         includeFileOverlap,
         includeOriginalFolder,
         includeTitle,
         minCommonPercentage,
-        sortValue: manager.search.sortValue,
+        sortValue: store.search.sortValue,
       });
       if (!res.success) throw new Error(res.error);
       if (loadId !== queueLoadId.current) return;
+
       setGroupIndex(0);
       setGroups(
         [...res.data].sort(
@@ -190,6 +205,7 @@ export const RelatedCollectionsQueue = Comp(({ onClose }: RelatedCollectionsQueu
       if (!res.data.length) toast.info("No related collections found");
     } catch (error) {
       if (loadId !== queueLoadId.current) return;
+
       setGroupIndex(0);
       setGroups([]);
       setLookupError(error instanceof Error ? error.message : String(error));
@@ -203,7 +219,7 @@ export const RelatedCollectionsQueue = Comp(({ onClose }: RelatedCollectionsQueu
     collectionLoadId.current += 1;
     merge.cancelLoad();
     queueLoadId.current += 1;
-    manager.search.cancelLoad();
+    store.search.cancelLoad();
     setIsLoading(false);
   };
 
@@ -238,9 +254,10 @@ export const RelatedCollectionsQueue = Comp(({ onClose }: RelatedCollectionsQueu
   const handleSetBase = (event: MouseEvent, id: string) => {
     event.stopPropagation();
     setBaseId(id);
-    manager.search.setSelectedIds(getSelectableIds(group, id));
+    store.search.setSelectedIds(getSelectableIds(group, id));
   };
 
+  const selectedIdSet = new Set(selectedIds);
   const getOrderedSelectedIds = () =>
     [
       baseEntry,
@@ -249,7 +266,7 @@ export const RelatedCollectionsQueue = Comp(({ onClose }: RelatedCollectionsQueu
         .sort((left, right) => left.searchIndex - right.searchIndex),
     ]
       .map(({ id }) => id)
-      .filter((id) => selectedIds.includes(id));
+      .filter((id) => selectedIdSet.has(id));
 
   const advanceAfterMerge = () => {
     const nextGroups = groups.filter((_, index) => index !== groupIndex);
@@ -257,7 +274,7 @@ export const RelatedCollectionsQueue = Comp(({ onClose }: RelatedCollectionsQueu
     setGroups(nextGroups);
     setGroupIndex(nextGroupIndex);
     setBaseId("");
-    manager.search.setSelectedIds(getSelectableIds(nextGroups[nextGroupIndex]));
+    store.search.setSelectedIds(getSelectableIds(nextGroups[nextGroupIndex]));
   };
 
   const merge = useCollectionMerge({
@@ -346,7 +363,7 @@ export const RelatedCollectionsQueue = Comp(({ onClose }: RelatedCollectionsQueu
         <SearchLoadingOverlay
           isLoading={(isLoading || merge.isLoading) && !merge.isMergeEditorOpen}
           onCancel={cancelLoad}
-          store={manager.search}
+          store={store.search}
         />
 
         <View row flex="none" align="center" padding={{ all: "0.3rem" }}>

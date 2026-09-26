@@ -66,6 +66,7 @@ export class FileCollectionSearch extends ExtendedModel(_FileCollectionSearch, {
   @modelAction
   reloadIfQueued() {
     const stores = getRootStore<RootStore>(this);
+
     if (this.hasQueuedReload && !stores.collection.editor.isOpen) {
       this.setHasQueuedReload(false);
       this.loadFiltered();
@@ -85,6 +86,7 @@ export class FileCollectionSearch extends ExtendedModel(_FileCollectionSearch, {
           this.setFiles(new Map());
           this.setIsLoading(false);
         }
+
         return;
       }
 
@@ -108,10 +110,12 @@ export class FileCollectionSearch extends ExtendedModel(_FileCollectionSearch, {
         }),
       );
       if (loadId !== this.loadId) return;
+
       this.setFiles(new Map(files.map((file) => [file.id, file])));
       this.setIsLoading(false);
     } catch (error) {
       if (loadId !== this.loadId) return;
+
       this.setIsLoading(false);
       throw error;
     }

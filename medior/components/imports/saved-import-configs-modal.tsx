@@ -1,13 +1,11 @@
 import path from "path";
 import { useEffect, useState } from "react";
-import { SORT_OPTIONS } from "medior/store/_generated";
 import {
   Button,
   Card,
   CenteredText,
   Comp,
   ConfirmModal,
-  FilterMenu,
   Input,
   Modal,
   Pagination,
@@ -15,16 +13,11 @@ import {
   Text,
   View,
 } from "medior/components";
-import {
-  Ingester,
-  Reingester,
-  SavedImportConfig,
-  SavedImportConfigSearch,
-  useStores,
-} from "medior/store";
+import { Ingester, Reingester, SavedImportConfig, useStores } from "medior/store";
 import { normalizeImportConfigPath } from "medior/store/saved-import-config";
 import { colors, toast } from "medior/utils/client";
 import { dayjs } from "medior/utils/common";
+import { SavedImportConfigsFilterMenu } from "./saved-import-configs-filter-menu";
 
 export interface SavedImportConfigsModalProps {
   onClose: () => void;
@@ -106,9 +99,11 @@ export const SavedImportConfigsModal = Comp(
         resetEditorConfig();
         setOverwriteConfig(null);
         toast.success("Saved import config saved");
+
         return true;
       } catch (err) {
         toast.error(err instanceof Error ? err.message : "Failed to save import config");
+
         return false;
       }
     };
@@ -282,7 +277,7 @@ export const SavedImportConfigsModal = Comp(
               page={store.page}
               isLoading={store.isPageCountLoading && !store.isLoading}
               onChange={(page) => store.loadFiltered({ page })}
-              onFullLoad={() => store.loadFiltered({ withFullCount: true })}
+              onFullLoad={() => store.loadFiltered({ toLastPage: true })}
               siblingCount={2}
             />
           </View>
@@ -307,16 +302,6 @@ export const SavedImportConfigsModal = Comp(
     );
   },
 );
-
-const SavedImportConfigsFilterMenu = Comp(({ store }: { store: SavedImportConfigSearch }) => (
-  <FilterMenu store={store} color={colors.foreground} sortOptions={SORT_OPTIONS.SavedImportConfig}>
-    <Card column spacing="0.5rem" width="30rem">
-      <Input header="Label" value={store.label} setValue={store.setLabel} />
-
-      <Input header="Folder Path" value={store.folderPath} setValue={store.setFolderPath} />
-    </Card>
-  </FilterMenu>
-));
 
 const getEditorRootPath = (store: Ingester | Reingester) => {
   const pathParts = store?.rootFolderPath?.split(path.sep) ?? [];

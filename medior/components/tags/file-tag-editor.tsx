@@ -52,6 +52,7 @@ export const FileTagEditor = Comp(({ batchId, fileIds }: FileTagEditorProps) => 
 
   const handleClose = () => {
     if (hasUnsavedChanges) return setIsConfirmDiscardOpen(true);
+
     stores.file.tagsEditor.setIsOpen(false);
     stores.file.search.reloadIfQueued();
   };
@@ -60,6 +61,7 @@ export const FileTagEditor = Comp(({ batchId, fileIds }: FileTagEditorProps) => 
     setHasUnsavedChanges(false);
     stores.file.tagsEditor.setIsOpen(false);
     stores.file.search.reloadIfQueued();
+
     return true;
   };
 
@@ -71,6 +73,7 @@ export const FileTagEditor = Comp(({ batchId, fileIds }: FileTagEditorProps) => 
 
       const addedTagIds = addedTags.map((t) => t.id);
       const removedTagIds = removedTags.map((t) => t.id);
+
       const res = await stores.file.editFileTags({
         addedTagIds,
         batchId,
@@ -89,14 +92,16 @@ export const FileTagEditor = Comp(({ batchId, fileIds }: FileTagEditorProps) => 
   };
 
   const handleTagAdded = (tags: TagOption[]) => {
+    const addedIds = new Set(tags.map((tag) => tag.id));
     setAddedTags(tags);
-    setRemovedTags((prev) => prev.filter((r) => !tags.find((t) => t.id === r.id)));
+    setRemovedTags((prev) => prev.filter((r) => !addedIds.has(r.id)));
     setHasUnsavedChanges(true);
   };
 
   const handleTagRemoved = (tags: TagOption[]) => {
+    const removedIds = new Set(tags.map((tag) => tag.id));
     setRemovedTags(tags);
-    setAddedTags((prev) => prev.filter((a) => !tags.find((t) => t.id === a.id)));
+    setAddedTags((prev) => prev.filter((a) => !removedIds.has(a.id)));
     setHasUnsavedChanges(true);
   };
 
@@ -106,10 +111,12 @@ export const FileTagEditor = Comp(({ batchId, fileIds }: FileTagEditorProps) => 
 
       const fileRes = await trpc.listFile.mutate({ args: { filter: { id: fileIds } } });
       if (!fileRes?.success) throw new Error(fileRes.error);
+
       const tagIds = [...new Set(fileRes.data.items.flatMap((f) => f.tagIds))];
 
       const tagRes = await trpc.listTag.mutate({ filter: { id: tagIds } });
       if (!tagRes?.success) throw new Error(tagRes.error);
+
       setCurrentTags(tagRes.data);
     } catch (error) {
       console.error(error);

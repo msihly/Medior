@@ -37,6 +37,7 @@ export const CarouselTopBar = Comp(() => {
       const { width: screenWidth, height: screenHeight } = primaryDisplay.workAreaSize;
 
       let winWidth = Math.min(file?.width, screenWidth);
+
       let winHeight =
         winWidth === screenWidth
           ? (screenWidth / file?.width) * file?.height
@@ -143,20 +144,20 @@ const useClasses = makeClasses((props: ClassesProps) => ({
     textShadow: props.ratingTextShadow,
   },
   root: {
-    position: props.isPinned ? undefined : "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
+    "&:hover": { opacity: 1 },
+    alignItems: "center",
+    backgroundColor: CONSTANTS.CAROUSEL.TOP_BAR.BACKGROUND,
     display: "flex",
     flexFlow: "row nowrap",
-    alignItems: "center",
-    justifyContent: "space-between",
-    padding: "0.2rem 0.5rem",
     height: "2.5rem",
-    backgroundColor: CONSTANTS.CAROUSEL.TOP_BAR.BACKGROUND,
+    justifyContent: "space-between",
+    left: 0,
     opacity: props.isPinned ? 1 : props.isMouseMoving ? 0.3 : 0,
-    zIndex: 10,
+    padding: "0.2rem 0.5rem",
+    position: props.isPinned ? undefined : "absolute",
+    right: 0,
+    top: 0,
     transition: "all 200ms ease-in-out",
-    "&:hover": { opacity: 1 },
+    zIndex: 10,
   },
 }));

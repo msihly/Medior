@@ -21,11 +21,9 @@ export const Drawer = Comp(({ hasImports = false, hasSettings = false }: DrawerP
   const { css } = useClasses(null);
 
   const stores = useStores();
-  const videoTransformer = stores.file.videoTransformer;
 
   const handleActivity = () => {
     stores.home.setIsActivityOpen(true);
-    stores.home.readNotifications();
   };
 
   const handleClose = () => stores.home.setIsDrawerOpen(false);
@@ -52,8 +50,8 @@ export const Drawer = Comp(({ hasImports = false, hasSettings = false }: DrawerP
   useEffect(() => {
     stores.file.loadArchivedFileIds();
     stores.home.loadBackgroundActivity();
-    videoTransformer.getTransformerStatus();
-    videoTransformer.loadQueueCount();
+    stores.file.videoTransformer.getTransformerStatus();
+    stores.file.videoTransformer.loadQueueCount();
   }, []);
 
   return (
@@ -96,9 +94,9 @@ export const Drawer = Comp(({ hasImports = false, hasSettings = false }: DrawerP
 
         <Badge
           badgeContent={
-            videoTransformer.isPaused ? (
+            stores.file.videoTransformer.isPaused ? (
               <Icon name="Pause" color={colors.custom.orange} />
-            ) : videoTransformer.isTransforming ? (
+            ) : stores.file.videoTransformer.isTransforming ? (
               <CircularProgress size={20} color="inherit" />
             ) : null
           }
@@ -108,9 +106,9 @@ export const Drawer = Comp(({ hasImports = false, hasSettings = false }: DrawerP
             name="MovieFilter"
             tooltip="Open Media Transformer"
             onClick={() => {
-              videoTransformer.setFileIds([]);
-              videoTransformer.setFnType(null);
-              videoTransformer.setIsOpen(true);
+              stores.file.videoTransformer.setFileIds([]);
+              stores.file.videoTransformer.setFnType(null);
+              stores.file.videoTransformer.setIsOpen(true);
             }}
             {...{ tooltipProps }}
           />
@@ -180,18 +178,18 @@ export const Drawer = Comp(({ hasImports = false, hasSettings = false }: DrawerP
 
 const useClasses = makeClasses({
   drawer: {
+    "&::-webkit-scrollbar": {
+      display: "none",
+    },
+    alignItems: "center",
+    background: colors.background,
+    borderRight: "1px solid #111",
     display: "flex",
     flexDirection: "column",
-    alignItems: "center",
-    borderRight: "1px solid #111",
     height: `calc(100% - ${CONSTANTS.HOME.TOP_BAR.HEIGHT + CONSTANTS.WINDOW.TITLE_BAR.HEIGHT}px)`,
     marginTop: CONSTANTS.HOME.TOP_BAR.HEIGHT + CONSTANTS.WINDOW.TITLE_BAR.HEIGHT,
     padding: "0.2rem 0.3rem",
     width: CONSTANTS.HOME.DRAWER.WIDTH,
-    background: colors.background,
     zIndex: 20,
-    "&::-webkit-scrollbar": {
-      display: "none",
-    },
   },
 });

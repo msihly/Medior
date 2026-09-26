@@ -19,13 +19,16 @@ const renderWaveform = (
   if (!peaks.length) return;
 
   const peakMaximum = Math.max(...Array.from(peaks, (peak) => Math.abs(peak)), Number.EPSILON);
+
   const points = Array.from(peaks, (peak, index) => ({
     x: (index / Math.max(peaks.length - 1, 1)) * width,
     y: height - (Math.abs(peak) / peakMaximum) * (height - 2),
   }));
+
   const line = new Path2D();
 
   line.moveTo(points[0].x, points[0].y);
+
   for (let index = 1; index < points.length; index++) {
     const previous = points[index - 1];
     const point = points[index];
@@ -36,6 +39,7 @@ const renderWaveform = (
       (previous.y + point.y) / 2,
     );
   }
+
   line.lineTo(points[points.length - 1].x, points[points.length - 1].y);
 
   const area = new Path2D(line);
@@ -61,6 +65,7 @@ export const VideoWaveform = Comp(
 
     useEffect(() => {
       if (!containerRef.current || !duration || !peaks?.length) return;
+
       waveformRef.current = WaveSurfer.create({
         container: containerRef.current,
         cursorWidth: 0,
@@ -73,10 +78,13 @@ export const VideoWaveform = Comp(
         renderFunction: renderWaveform,
         waveColor: colors.custom.white,
       });
+
       const handleError = (error: Error) =>
         toast.error(`Unable to render waveform: ${error.message}`);
+
       const unsubscribeError = waveformRef.current.on("error", handleError);
       const unsubscribe = waveformRef.current.on("interaction", onSeek);
+
       return () => {
         unsubscribe();
         unsubscribeError();
@@ -90,17 +98,18 @@ export const VideoWaveform = Comp(
     }, [currentTime]);
 
     if (!peaks?.length) return null;
+
     return <View ref={containerRef} className={css.root} />;
   },
 );
 
 const useClasses = makeClasses({
   root: {
+    bottom: "100%",
+    cursor: "pointer",
+    height: "3rem",
+    left: 0,
     position: "absolute",
     right: 0,
-    bottom: "100%",
-    left: 0,
-    height: "3rem",
-    cursor: "pointer",
   },
 });

@@ -3,9 +3,11 @@ import sharpBase, { Sharp, SharpOptions } from "sharp";
 import { sharpFromBmp } from "sharp-bmp";
 import { CONSTANTS } from "medior/utils/common";
 
-export const sharp = (input: string | Buffer, opts?: SharpOptions): Sharp => {
+export const sharp = (input: string | Buffer, opts?: SharpOptions, concurrency?: number): Sharp => {
   /** Prevents WEBP lockout during deletion. See: https://github.com/lovell/sharp/issues/415#issuecomment-212817987 */
   sharpBase.cache(false);
+
+  if (concurrency) sharpBase.concurrency(concurrency);
 
   const isBmp =
     typeof input === "string"

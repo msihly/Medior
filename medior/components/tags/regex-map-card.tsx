@@ -37,7 +37,7 @@ export const RegExMapCard = Comp(({ disabled = false, store }: RegExMapCardProps
           disabled={disabled}
           tooltip="Generate RegEx from Label and Aliases"
           color={colors.custom.black}
-          borderRadiuses={{ right: 0, bottom: 0 }}
+          borderRadiuses={{ bottom: 0, right: 0 }}
         />
 
         <Input

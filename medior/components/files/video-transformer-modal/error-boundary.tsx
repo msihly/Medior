@@ -25,6 +25,7 @@ export class MediaTransformerErrorBoundary extends Component<
 
   render() {
     if (!this.state.error) return this.props.children;
+
     return (
       <Modal.Container onClose={this.props.onClose} width="45rem">
         <Modal.Header>

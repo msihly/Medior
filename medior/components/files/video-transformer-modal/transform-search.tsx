@@ -35,17 +35,23 @@ export const TransformSearch = Comp(() => {
 
   const confirmDelete = async () => {
     setIsDeleting(true);
+
     try {
       await new Promise<void>((resolve) =>
         requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
       );
+
       const res = await store.deleteTransforms(idsForDelete);
+
       if (!res.success) {
         toast.error(res.error);
+
         return false;
       }
+
       toast.success(`Deleted ${res.data.toLocaleString()} transform records`);
       setIdsForDelete([]);
+
       return true;
     } finally {
       setIsDeleting(false);
@@ -97,7 +103,7 @@ export const TransformSearch = Comp(() => {
           page={store.search.page}
           isLoading={store.search.isPageCountLoading && !store.search.isLoading}
           onChange={(page) => store.loadQueue({ page })}
-          onFullLoad={() => store.loadQueue({ withFullCount: true })}
+          onFullLoad={() => store.loadQueue({ toLastPage: true })}
           siblingCount={2}
         />
       </Card>

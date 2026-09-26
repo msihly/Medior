@@ -1,5 +1,6 @@
 import * as models from "medior/_generated/server/models";
 import { SimilarityCandidate, SimilarityVectorType } from "medior/server/vector-service";
+import { makeTagSelector } from "medior/utils/common";
 import { leanModelToJson, makeAction, objectIds } from "medior/utils/server";
 import { vectorTrpc } from "medior/utils/server/trpc";
 
@@ -16,19 +17,22 @@ export const findSimilarFiles = makeAction(
       leanModelToJson<models.FileSchema>,
     );
 
-    const tagIds = [...new Set(files.flatMap((file) => file.tagIdsWithAncestors))];
+    const tagIds = [...new Set(files.flatMap((file) => file.tagIds))];
+
     const tags = tagIds.length
       ? (await models.TagModel.find({ _id: { $in: objectIds(tagIds) } }).lean()).map(
           leanModelToJson<models.TagSchema>,
         )
       : [];
 
+    const selectTags = makeTagSelector(tags);
+
     const fileMap = new Map(
       files.map((file) => [
         file.id,
         {
           ...file,
-          tags: tags.filter((tag) => file.tagIds.includes(tag.id)),
+          tags: selectTags(file.tagIds),
         },
       ]),
     );

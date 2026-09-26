@@ -9,10 +9,7 @@ export interface HeaderProps {
 export const Header = Comp(({ type }: HeaderProps) => {
   const stores = useStores();
 
-  const totalBytes =
-    type === "Ingester"
-      ? stores.import.ingester.imports.reduce((acc, cur) => acc + cur.size, 0)
-      : null;
+  const totalBytes = type === "Ingester" ? stores.import.ingester.importSize : null;
 
   const totalFolders =
     type === "Ingester"
@@ -21,7 +18,7 @@ export const Header = Comp(({ type }: HeaderProps) => {
 
   const totalFiles =
     type === "Ingester"
-      ? stores.import.ingester.imports.length
+      ? stores.import.ingester.importCount
       : sumArray(stores.import.reingester.folderFileIds, (f) => f.fileIds.length);
 
   const totalFilesLeft =
@@ -31,6 +28,7 @@ export const Header = Comp(({ type }: HeaderProps) => {
 
   const handleTagManager = () => {
     if (stores.tag.manager.isOpen) stores.tag.manager.setIsOpen(false);
+
     setTimeout(() => stores.tag.manager.setIsOpen(true), 0);
   };
 

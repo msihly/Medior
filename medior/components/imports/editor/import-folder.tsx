@@ -3,7 +3,6 @@ import path from "path";
 import { useState } from "react";
 import { FixedSizeList } from "react-window";
 import Color from "color";
-import { checkFileExists } from "trabecula/utils/server";
 import { Card, Chip, Comp, FlatFolder, IconButton, TagRow, Text, View } from "medior/components";
 import { useStores } from "medior/store";
 import { colors, CssColor, makeBorderRadiuses, makeClasses, toast } from "medior/utils/client";
@@ -12,7 +11,7 @@ import { IMPORT_LIST_ITEM_HEIGHT, ImportListItem } from "./import-list-item";
 
 const COLL_HEIGHT = 42;
 const HEADER_HEIGHT = 43;
-const TAGS_HEIGHT = 46;
+const TAGS_HEIGHT = 56;
 
 type Folder = Pick<FlatFolder, "collectionTitle" | "imports" | "savedConfigLabel" | "tags">;
 
@@ -41,19 +40,22 @@ export const ImportFolderList = Comp(
     const folderPath = folder?.imports[0]?.path && path.dirname(folder.imports[0].path);
     const hasCollection = folder?.collectionTitle?.length > 0;
     const hasTags = folder?.tags?.length > 0;
+
     const height = folder
       ? getImportFolderHeight({ folder, maxVisibleFiles, withListItems: !collapsed })
       : null;
+
     const totalBytes = folder ? folder.imports.reduce((acc, cur) => acc + cur.size, 0) : null;
 
-    const { css, cx } = useClasses({ collapsible, collapsed, hasCollection, hasTags });
+    const { css, cx } = useClasses({ collapsed, collapsible, hasCollection, hasTags });
 
     const deleteBatch = () => stores.import.manager.deleteBatch({ id: batchId });
 
     const openFolder = async () => {
-      const exists = await checkFileExists(folderPath);
-      if (exists) shell.showItemInFolder(folderPath);
-      else toast.warn("Folder does not exist");
+      if (!folderPath) return;
+
+      const error = await shell.openPath(folderPath);
+      if (error) toast.error(error);
     };
 
     const toggleCollapsed = () => setCollapsed(!collapsed);
@@ -62,6 +64,7 @@ export const ImportFolderList = Comp(
       <Card
         column
         flex="none"
+        overflow="hidden"
         padding={{ all: 0 }}
         height={height}
         width="100%"
@@ -74,8 +77,17 @@ export const ImportFolderList = Comp(
                 name="ChevronRight"
                 onClick={toggleCollapsed}
                 iconProps={{ rotation: collapsed ? 90 : 270 }}
+                padding={{ all: "0.3em" }}
               />
             ) : null}
+
+            <IconButton
+              name="FolderOpen"
+              tooltip="Open Folder"
+              onClick={openFolder}
+              padding={{ all: "0.3em" }}
+              iconProps={{ size: "0.9em" }}
+            />
 
             <Text onClick={openFolder} className={css.folderPath}>
               {folderPath}
@@ -110,7 +122,9 @@ export const ImportFolderList = Comp(
           </View>
         )}
 
-        {hasTags && <TagRow tags={folder.tags} className={css.tags} />}
+        {hasTags && (
+          <TagRow tags={folder.tags} virtualized={folder.tags.length > 30} className={css.tags} />
+        )}
 
         {!collapsed && (
           <View column className={css.list}>
@@ -124,6 +138,7 @@ export const ImportFolderList = Comp(
               {({ index, style }) => (
                 <ImportListItem
                   key={index}
+                  batchImports={folder.imports}
                   fileImport={folder.imports[index]}
                   noStatus={noStatus}
                   bgColor={
@@ -160,8 +175,8 @@ export const getImportFolderHeight = ({
 };
 
 interface ClassesProps {
-  collapsible: boolean;
   collapsed: boolean;
+  collapsible: boolean;
   hasCollection: boolean;
   hasTags: boolean;
 }
@@ -169,47 +184,49 @@ interface ClassesProps {
 const useClasses = makeClasses((props: ClassesProps) => ({
   chip: {
     flexShrink: 0,
-    padding: "0.2em",
     height: "auto",
-    width: "auto",
     minWidth: "4em",
-  },
-  configChip: {
-    maxWidth: "12rem",
-    color: colors.custom.lightBlue,
-    fontWeight: 600,
+    padding: "0.2em",
+    width: "auto",
   },
   collection: {
-    justifyContent: "center",
     borderBottom: props.collapsed && !props.hasTags ? undefined : `1px solid ${colors.custom.grey}`,
+    flexShrink: 0,
     height: COLL_HEIGHT,
+    justifyContent: "center",
     overflow: "hidden",
   },
   collectionTitle: {
-    padding: "0 0.5rem",
     color: colors.custom.lightBlue,
     fontWeight: 500,
+    overflow: "hidden",
+    padding: "0 0.5rem",
     textAlign: "center",
     textOverflow: "ellipsis",
-    overflow: "hidden",
     whiteSpace: "nowrap",
+  },
+  configChip: {
+    color: colors.custom.lightBlue,
+    fontWeight: 600,
+    maxWidth: "12rem",
   },
   folderPath: {
     color: colors.custom.lightGrey,
-    fontSize: "0.9em",
     cursor: "pointer",
-    textOverflow: "ellipsis",
+    fontSize: "0.9em",
     overflow: "hidden",
+    textOverflow: "ellipsis",
     whiteSpace: "nowrap",
   },
   header: {
     display: "flex",
     flexDirection: "row",
+    flexShrink: 0,
     justifyContent: "space-between",
     alignItems: "center",
     ...makeBorderRadiuses({
-      top: "0.5rem",
       bottom: props.collapsed && !props.hasCollection && !props.hasTags ? "0.5rem" : 0,
+      top: "0.5rem",
     }),
     padding: "0.5rem",
     paddingLeft: props.collapsible ? "0" : undefined,
@@ -217,14 +234,16 @@ const useClasses = makeClasses((props: ClassesProps) => ({
     backgroundColor: colors.custom.black,
   },
   list: {
-    padding: "0 0 0.2rem 0",
-    overflowY: "auto",
+    minHeight: 0,
+    overflow: "hidden",
   },
   tags: {
     alignItems: "center",
-    padding: "0 0.3rem 0 0.5rem",
     borderBottom: !props.collapsed ? `1px solid ${colors.custom.grey}` : undefined,
+    boxSizing: "border-box",
+    flexShrink: 0,
     height: TAGS_HEIGHT,
     overflowX: "auto",
+    padding: "0 0.3rem 0 0.5rem",
   },
 }));

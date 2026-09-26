@@ -9,8 +9,6 @@ export interface ImportOptionsProps {
 }
 
 export const ImportOptions = Comp(({ scan, store }: ImportOptionsProps) => {
-  const options = store.options;
-
   const checkboxProps: Partial<CheckboxProps> = {
     disabled: store.isDisabled,
     flex: "initial",
@@ -30,15 +28,15 @@ export const ImportOptions = Comp(({ scan, store }: ImportOptionsProps) => {
       <Checkbox
         {...checkboxProps}
         label="Delete on Import"
-        checked={options.deleteOnImport}
-        setChecked={options.setDeleteOnImport}
+        checked={store.options.deleteOnImport}
+        setChecked={store.options.setDeleteOnImport}
       />
 
       <Checkbox
         {...checkboxProps}
         label="Ignore Prev. Deleted"
-        checked={options.ignorePrevDeleted}
-        setChecked={options.setIgnorePrevDeleted}
+        checked={store.options.ignorePrevDeleted}
+        setChecked={store.options.setIgnorePrevDeleted}
       />
 
       <Divider />
@@ -46,8 +44,8 @@ export const ImportOptions = Comp(({ scan, store }: ImportOptionsProps) => {
       <Checkbox
         {...checkboxProps}
         label="Use Saved Configs"
-        checked={options.useSavedConfigs}
-        setChecked={options.setUseSavedConfigs}
+        checked={store.options.useSavedConfigs}
+        setChecked={store.options.setUseSavedConfigs}
       />
 
       <Divider />
@@ -55,8 +53,8 @@ export const ImportOptions = Comp(({ scan, store }: ImportOptionsProps) => {
       <Checkbox
         {...checkboxProps}
         label="New Tags to RegEx"
-        checked={options.withNewTagsToRegEx}
-        setChecked={options.setWithNewTagsToRegEx}
+        checked={store.options.withNewTagsToRegEx}
+        setChecked={store.options.setWithNewTagsToRegEx}
       />
 
       <Divider />
@@ -64,8 +62,8 @@ export const ImportOptions = Comp(({ scan, store }: ImportOptionsProps) => {
       <Checkbox
         {...checkboxProps}
         label="File to Tags (RegEx)"
-        checked={options.withFileNameToTags}
-        setChecked={options.setWithFileNameToTags}
+        checked={store.options.withFileNameToTags}
+        setChecked={store.options.setWithFileNameToTags}
       />
 
       <Divider />
@@ -73,41 +71,41 @@ export const ImportOptions = Comp(({ scan, store }: ImportOptionsProps) => {
       <Checkbox
         {...checkboxProps}
         label="Folder to Tags"
-        checked={options.folderToTagsMode !== "none"}
-        setChecked={options.toggleFolderToTags}
+        checked={store.options.folderToTagsMode !== "none"}
+        setChecked={store.options.toggleFolderToTags}
       />
 
       <View column margins={{ left: "1rem" }}>
         <Checkbox
           {...checkboxProps}
           label="Hierarchical"
-          checked={options.folderToTagsMode.includes("hierarchical")}
-          setChecked={options.toggleFolderToTagsHierarchical}
-          disabled={checkboxProps.disabled || options.folderToTagsMode === "none"}
+          checked={store.options.folderToTagsMode.includes("hierarchical")}
+          setChecked={store.options.toggleFolderToTagsHierarchical}
+          disabled={checkboxProps.disabled || store.options.folderToTagsMode === "none"}
         />
 
         <Checkbox
           {...checkboxProps}
           label="Cascading"
-          checked={options.folderToTagsMode === "cascading"}
-          setChecked={options.toggleFolderToTagsCascading}
-          disabled={checkboxProps.disabled || options.folderToTagsMode === "none"}
+          checked={store.options.folderToTagsMode === "cascading"}
+          setChecked={store.options.toggleFolderToTagsCascading}
+          disabled={checkboxProps.disabled || store.options.folderToTagsMode === "none"}
         />
 
         <Checkbox
           {...checkboxProps}
           label="Delimited"
-          checked={options.withDelimiters}
-          setChecked={options.setWithDelimiters}
-          disabled={checkboxProps.disabled || options.folderToTagsMode === "none"}
+          checked={store.options.withDelimiters}
+          setChecked={store.options.setWithDelimiters}
+          disabled={checkboxProps.disabled || store.options.folderToTagsMode === "none"}
         />
 
         <Checkbox
           {...checkboxProps}
           label="With RegEx"
-          checked={options.withFolderNameRegEx}
-          setChecked={options.setWithFolderNameRegEx}
-          disabled={checkboxProps.disabled || options.folderToTagsMode === "none"}
+          checked={store.options.withFolderNameRegEx}
+          setChecked={store.options.setWithFolderNameRegEx}
+          disabled={checkboxProps.disabled || store.options.folderToTagsMode === "none"}
         />
       </View>
 
@@ -116,32 +114,34 @@ export const ImportOptions = Comp(({ scan, store }: ImportOptionsProps) => {
       <Checkbox
         {...checkboxProps}
         label="Folder to Collection"
-        checked={options.folderToCollectionMode !== "none"}
-        setChecked={options.toggleFolderToCollection}
+        checked={store.options.folderToCollectionMode !== "none"}
+        setChecked={store.options.toggleFolderToCollection}
       />
 
       <View column margins={{ left: "1rem" }}>
         <Checkbox
           {...checkboxProps}
           label="With Tag"
-          checked={options.folderToCollectionMode === "withTag"}
-          setChecked={options.toggleFolderToCollWithTag}
+          checked={store.options.folderToCollectionMode === "withTag"}
+          setChecked={store.options.toggleFolderToCollWithTag}
         />
 
         <View row align="center" spacing="0.5rem">
           <Checkbox
             {...checkboxProps}
             label="Flatten to"
-            checked={options.withFlattenTo}
-            setChecked={options.setWithFlattenTo}
-            disabled={checkboxProps.disabled || options.folderToCollectionMode === "none"}
+            checked={store.options.withFlattenTo}
+            setChecked={store.options.setWithFlattenTo}
+            disabled={checkboxProps.disabled || store.options.folderToCollectionMode === "none"}
           />
 
           <NumInput
             placeholder="Depth"
-            value={options.flattenTo}
-            setValue={options.setFlattenTo}
-            disabled={options.folderToCollectionMode === "none" || !options.withFlattenTo}
+            value={store.options.flattenTo}
+            setValue={store.options.setFlattenTo}
+            disabled={
+              store.options.folderToCollectionMode === "none" || !store.options.withFlattenTo
+            }
             hasHelper={false}
             textAlign="center"
             dense
@@ -154,8 +154,8 @@ export const ImportOptions = Comp(({ scan, store }: ImportOptionsProps) => {
       <Checkbox
         {...checkboxProps}
         label="Sidecar"
-        checked={options.withSidecar}
-        setChecked={options.setWithSidecar}
+        checked={store.options.withSidecar}
+        setChecked={store.options.setWithSidecar}
       />
 
       <Divider />
@@ -163,37 +163,41 @@ export const ImportOptions = Comp(({ scan, store }: ImportOptionsProps) => {
       <Checkbox
         {...checkboxProps}
         label="Diffusion Params"
-        checked={options.withDiffusionParams}
-        setChecked={options.setWithDiffusionParams}
+        checked={store.options.withDiffusionParams}
+        setChecked={store.options.setWithDiffusionParams}
       />
 
       <View column margins={{ left: "1rem" }}>
         <Checkbox
           {...checkboxProps}
           label="With Tags"
-          checked={options.withDiffusionTags}
-          setChecked={options.setWithDiffusionTags}
-          disabled={checkboxProps.disabled || !options.withDiffusionParams}
+          checked={store.options.withDiffusionTags}
+          setChecked={store.options.setWithDiffusionTags}
+          disabled={checkboxProps.disabled || !store.options.withDiffusionParams}
         />
 
         <View column margins={{ left: "1rem" }}>
           <Checkbox
             {...checkboxProps}
             label="Model"
-            checked={options.withDiffusionModel}
-            setChecked={options.setWithDiffusionModel}
+            checked={store.options.withDiffusionModel}
+            setChecked={store.options.setWithDiffusionModel}
             disabled={
-              checkboxProps.disabled || !options.withDiffusionParams || !options.withDiffusionTags
+              checkboxProps.disabled ||
+              !store.options.withDiffusionParams ||
+              !store.options.withDiffusionTags
             }
           />
 
           <Checkbox
             {...checkboxProps}
             label="With RegEx"
-            checked={options.withDiffusionRegExMaps}
-            setChecked={options.setWithDiffusionRegExMaps}
+            checked={store.options.withDiffusionRegExMaps}
+            setChecked={store.options.setWithDiffusionRegExMaps}
             disabled={
-              checkboxProps.disabled || !options.withDiffusionParams || !options.withDiffusionTags
+              checkboxProps.disabled ||
+              !store.options.withDiffusionParams ||
+              !store.options.withDiffusionTags
             }
           />
         </View>

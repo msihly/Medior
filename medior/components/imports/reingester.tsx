@@ -3,7 +3,9 @@ import { useImportEditor, useStores } from "medior/store";
 import { ImportEditorModal } from "./import-editor-modal";
 
 export const Reingester = Comp(() => {
-  const store = useStores().import.reingester;
+  const stores = useStores();
+  const store = stores.import.reingester;
+
   const { reingest, scan } = useImportEditor(store);
 
   return (

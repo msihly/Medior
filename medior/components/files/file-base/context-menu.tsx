@@ -10,8 +10,8 @@ import { CONSTANTS, durationToSeconds, VideoExt } from "medior/utils/common";
 import { getConfig, getIsImage, getIsRemuxable, trpc } from "medior/utils/server";
 
 export interface ContextMenuProps extends ViewProps {
-  children?: ReactNode | ReactNode[];
   carouselFileIds?: string[];
+  children?: ReactNode | ReactNode[];
   disabled?: boolean;
   file: FileSchema;
   store: FileCollectionSearch | FileSearch | FileTransformSearch;
@@ -84,12 +84,16 @@ export const ContextMenu = Comp(
         if (!CONSTANTS.VIDEO.EXTS.includes(file.ext as VideoExt)) shell.openPath(file.path);
         else {
           let orderedFileIds = carouselFileIds;
+
           if (!orderedFileIds?.length) {
             if (!("listIdsForCarousel" in store)) throw new Error("No files found");
+
             const fileIdsRes = await store.listIdsForCarousel();
             if (!fileIdsRes?.success) throw new Error(fileIdsRes.error);
+
             orderedFileIds = fileIdsRes.data;
           }
+
           if (!orderedFileIds?.length) throw new Error("No files found");
 
           const fileIds = new Map(orderedFileIds.map((id, i) => [id, i]));
@@ -102,11 +106,13 @@ export const ContextMenu = Comp(
           let files = [...filesRes.data.items].sort(
             (a, b) => fileIds.get(a.id) - fileIds.get(b.id),
           );
+
           const activeIndex = files.findIndex((f) => f.id === file.id);
           const startIndex = Math.max(activeIndex, 0);
           files = files.slice(startIndex, startIndex + 100);
 
           let playlistContent = "#EXTM3U\r\n";
+
           for (const f of files) {
             playlistContent += `#EXTINF:0,${f.originalName}\r\n${f.path}\r\n`;
           }

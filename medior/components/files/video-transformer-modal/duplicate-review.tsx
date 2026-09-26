@@ -36,10 +36,12 @@ export const DuplicateReview = Comp(({ transform }: { transform: FileTransform }
   const inspectOutputHash = async (event: MouseEvent) => {
     event.stopPropagation();
     setIsLoading(true);
+
     try {
       const res = await trpc.inspectFileTransformDuplicate.mutate({ id: transform.id });
       if (!res.success) return toast.error(res.error);
       if (!res.data) return toast.info("No other file currently has the recorded output hash.");
+
       transform.update(res.data);
       setIsOpen(true);
     } catch (error) {
@@ -57,9 +59,11 @@ export const DuplicateReview = Comp(({ transform }: { transform: FileTransform }
 
   const mergeDuplicate = async () => {
     setIsLoading(true);
+
     try {
       const res = await trpc.mergeFileTransformDuplicate.mutate({ id: transform.id });
       if (!res.success) throw new Error(res.error);
+
       closeReview();
       await store.loadQueue({ noCache: true, withFullCount: true });
       await store.loadQueueCount();

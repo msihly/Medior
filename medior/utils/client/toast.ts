@@ -9,6 +9,7 @@ const pendingNotifications: Array<{
   message: string;
   type: NotificationType;
 }> = [];
+
 let notificationSavePromise: Promise<void> = null;
 
 const saveNotificationHistory = () => {
@@ -18,6 +19,7 @@ const saveNotificationHistory = () => {
     while (pendingNotifications.length) {
       const res = await trpc.recordNotification.mutate(pendingNotifications[0]);
       if (!res.success) throw new Error(res.error);
+
       pendingNotifications.shift();
     }
   })()
@@ -25,6 +27,7 @@ const saveNotificationHistory = () => {
     .finally(() => {
       notificationSavePromise = null;
     });
+
   return notificationSavePromise;
 };
 
@@ -48,6 +51,7 @@ const toastByType = {
 
 const showToast = (content: ToastContent, options: ToastOptions, type: NotificationType) => {
   persistNotification(content, type);
+
   return toastByType[type](content, options);
 };
 

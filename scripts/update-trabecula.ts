@@ -28,6 +28,7 @@ const getBranch = async () => {
     (await fs.readFile(path.resolve(__dirname, branchFile), "utf8")).trim();
 
   if (!branch) throw new Error(`Pass a branch or add one to ${branchFile}`);
+
   return branch;
 };
 

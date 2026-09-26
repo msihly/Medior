@@ -35,6 +35,7 @@ export class Splicer extends Model({
         if (!file) return;
 
         const timestamp = file.timestamps?.find((p) => p.id === this.timestampId);
+
         if (timestamp) {
           const hasLabelDiff = timestamp.label !== this.timestampLabel;
           const hasPairsDiff = !isDeepEqual(timestamp.pairs, this.timestampPairs);
@@ -93,6 +94,7 @@ export class Splicer extends Model({
     if (!file) throw new Error("Active file not found");
 
     this.setIsLoading(true);
+
     const res = await trpc.updateFile.mutate({
       args: {
         id: file.id,
@@ -115,6 +117,7 @@ export class Splicer extends Model({
     if (!file) throw new Error("Active file not found");
 
     const timestamp = derefMobx(file.timestamps?.[0]);
+
     if (timestamp) {
       this.timestampId = timestamp.id;
       this.timestampLabel = timestamp.label;
@@ -149,6 +152,7 @@ export class Splicer extends Model({
     const newTimestamp = { id, label: this.timestampLabel, pairs: this.timestampPairs };
 
     this.setIsLoading(true);
+
     const res = await trpc.updateFile.mutate({
       args: {
         id: stores.carousel.activeFileId,

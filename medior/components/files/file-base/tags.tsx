@@ -19,18 +19,18 @@ export const Tags = Comp(({ compact = false, tags }: TagsProps) => {
 
 const useClasses = makeClasses(({ compact }: Pick<TagsProps, "compact">) => ({
   tags: {
-    position: "relative",
+    "&::after": {
+      background: "linear-gradient(155deg, transparent 75%, black)",
+      bottom: 0,
+      content: '""',
+      left: 0,
+      position: "absolute",
+      right: 0,
+      top: 0,
+    },
     borderRadius: "inherit",
     padding: `${compact ? "0.2rem" : "1rem"} 0 0.3rem 0.3rem`,
+    position: "relative",
     width: "100%",
-    "&::after": {
-      content: '""',
-      position: "absolute",
-      top: 0,
-      bottom: 0,
-      right: 0,
-      left: 0,
-      background: "linear-gradient(155deg, transparent 75%, black)",
-    },
   },
 }));

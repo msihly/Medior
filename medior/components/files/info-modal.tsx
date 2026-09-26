@@ -45,6 +45,7 @@ export const InfoModal = Comp(() => {
         args: { filter: { id: stores.file.activeFileId } },
       });
       if (!fileRes.success) throw new Error(fileRes.error);
+
       const fileSchema = fileRes.data.items[0];
 
       const tagsRes = await trpc.listTag.mutate({ filter: { id: fileSchema.tagIds } });

@@ -19,16 +19,28 @@ model.addProp("afterWidth", "number");
 
 model.addProp("beforeAudioBitrate", "number");
 model.addProp("beforeAudioCodec", "string");
-model.addProp("beforeBitrate", "number");
-model.addProp("beforeDuration", "number");
+model.addProp("beforeBitrate", "number", {
+  sort: { icon: "DataThresholding", label: "Bitrate" },
+});
+model.addProp("beforeDuration", "number", {
+  sort: { icon: "HourglassBottom", label: "Duration" },
+});
 model.addProp("beforeFrameRate", "number");
 model.addProp("beforeHash", "string");
-model.addProp("beforeHeight", "number");
+model.addProp("beforeHeight", "number", { sort: { icon: "Height", label: "Height" } });
 model.addProp("beforePath", "string", { required: true });
-model.addProp("beforeSize", "number", { required: true });
+model.addProp("beforeSize", "number", {
+  required: true,
+  sort: { icon: "FormatSize", label: "Size" },
+});
 model.addProp("beforeExt", "string", { required: true });
 model.addProp("beforeVideoCodec", "string");
-model.addProp("beforeWidth", "number");
+model.addProp("beforeWidth", "number", {
+  sort: { icon: "Height", iconProps: { rotation: 90 }, label: "Width" },
+});
+
+model.addIndex({ cleanupPending: 1 }, { unique: false });
+model.addProp("cleanupPending", "boolean", { defaultValue: "false" });
 
 model.addIndex({ completedAt: 1, _id: 1 }, { unique: false });
 model.addProp("completedAt", "string", {
@@ -52,8 +64,17 @@ model.addProp("duplicatePath", "string");
 model.addIndex({ fileId: 1, _id: 1 }, { unique: false });
 model.addProp("fileId", "File.id", { required: true });
 
+model.addIndex({ finalizationPending: 1 }, { unique: false });
+model.addProp("finalizationPending", "boolean", { defaultValue: "false" });
+
 model.addIndex({ isCompleted: 1, _id: 1 }, { unique: false });
 model.addProp("isCompleted", "boolean", { defaultValue: "false", required: true });
+
+model.addIndex(
+  { outputTempPath: 1 },
+  { partialFilterExpression: { outputTempPath: { $type: "string" } }, unique: false },
+);
+model.addProp("outputTempPath", "string");
 
 model.addProp("progressPercent", "number");
 model.addProp("progressSize", "number");
@@ -61,7 +82,9 @@ model.addProp("progressTime", "string");
 
 model.addProp("queueIndex", "number");
 
+model.addIndex({ regenerationPending: 1 }, { unique: false });
 model.addProp("regenerationPending", "boolean", { defaultValue: "false" });
+model.addProp("regenerationTagIds", "Tag.id[]", { defaultValue: "[]" });
 
 model.addIndex({ startedAt: 1, _id: 1 }, { unique: false });
 model.addProp("startedAt", "string", { sort: { icon: "HourglassTop", label: "Started At" } });

@@ -35,8 +35,8 @@ type ImageProps = Omit<
   blur?: number;
   children?: ReactNode | ReactNode[];
   draggable?: boolean;
-  fit?: "contain" | "cover";
   fileId?: string;
+  fit?: "contain" | "cover";
   height?: CSS["height"];
   isCorrupted?: boolean;
   rounded?: "all" | "bottom" | "top";
@@ -68,6 +68,7 @@ export const Image = ({
   const videoPosInterval = useRef<NodeJS.Timeout>(null);
   const isRepairingThumbnail = useRef(false);
   const repairAttempted = useRef(false);
+
   const clearIntervals = () => {
     clearInterval(thumbInterval.current);
     clearInterval(videoPosInterval.current);
@@ -104,10 +105,13 @@ export const Image = ({
 
   const getThumbScale = () => {
     if (!scaled || !containerDims) return;
+
     const isVertical = scaled.height > scaled.width;
+
     const scaleFactor = isVertical
       ? containerDims.height / scaled.height
       : containerDims.width / scaled.width;
+
     return Math.max(1, scaleFactor);
   };
 
@@ -122,6 +126,7 @@ export const Image = ({
 
   useEffect(() => {
     if (autoAnimate && isVisible) createThumbInterval();
+
     return () => clearIntervals();
   }, []);
 
@@ -139,6 +144,7 @@ export const Image = ({
       const loopThumbs = async () => {
         for (const t of thumbs) {
           if (!thumbInterval.current) break;
+
           setThumbIndex((prev) => (prev + 1 >= thumbs.length ? 0 : prev + 1));
           await sleep(getThumbInterval(t));
         }
@@ -159,8 +165,10 @@ export const Image = ({
 
     repairAttempted.current = true;
     isRepairingThumbnail.current = true;
+
     try {
       const res = await trpc.repairFileThumbnail.mutate({ fileId });
+
       if (res.success && res.data.status === "repaired") {
         setRepairedThumb(res.data.thumb);
         setHasError(false);
@@ -222,9 +230,9 @@ export const Image = ({
           onMouseMove={fit === "cover" ? handleMouseMove : undefined}
           className={css.image}
           style={{
-            transform: `scale(${getThumbScale()})`,
             objectPosition:
               fit === "cover" || isAnimated ? (isAnimated ? videoPos : imagePos) : undefined,
+            transform: `scale(${getThumbScale()})`,
           }}
         />
       ) : (

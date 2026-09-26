@@ -111,6 +111,7 @@ export const HotkeysModal = Comp(({ onClose }: HotkeysModalProps) => {
       store.update({ hotkeys: initialHotkeys });
       store.setHasUnsavedChanges(initialHasUnsavedChanges);
     }
+
     onClose();
   };
 
@@ -131,8 +132,10 @@ export const HotkeysModal = Comp(({ onClose }: HotkeysModalProps) => {
   const handleSave = async () => {
     try {
       setIsLoading(true);
+
       const res = await store.save();
       if (!res.success) throw new Error(res.error);
+
       store.setHasUnsavedChanges(false);
       toast.success("Hotkeys saved!");
       onClose();
@@ -210,11 +213,11 @@ const useClasses = makeClasses({
     padding: "0.2rem",
   },
   tabs: {
-    flexShrink: 0,
-    minHeight: 36,
     "& .MuiTab-root": {
       minHeight: 36,
       textTransform: "none",
     },
+    flexShrink: 0,
+    minHeight: 36,
   },
 });

@@ -21,9 +21,11 @@ import { VideoContext, ZoomContext } from "medior/views";
 export const Carousel = Comp((_, videoRef: MutableRefObject<ReactPlayer>) => {
   const stores = useStores();
   const activeFile = stores.carousel.getActiveFile();
+
   const playbackUrl = stores.carousel.requiresTranscoding
     ? stores.carousel.mediaSourceUrl
     : activeFile?.path;
+
   const activeTranscript = stores.carousel.isCaptionsVisible
     ? activeFile?.transcription?.segments?.find(
         ({ end, start }) => stores.carousel.curTime >= start && stores.carousel.curTime <= end,
@@ -65,7 +67,9 @@ export const Carousel = Comp((_, videoRef: MutableRefObject<ReactPlayer>) => {
   useEffect(() => {
     stores.carousel.setSeekOffset(0);
     if (activeFile?.isVideo) stores.carousel.setCurFrame(0, activeFile.frameRate);
+
     stores.carousel.transcodeVideo();
+
     return () => videoTranscoder.dispose();
   }, [activeFile?.path]);
 
@@ -87,6 +91,7 @@ export const Carousel = Comp((_, videoRef: MutableRefObject<ReactPlayer>) => {
   const handleVideoError = (error: Error | Event) => {
     if (!isCurrentPlayback()) return;
     if (error instanceof Error && error.name === "AbortError") return;
+
     if (!stores.carousel.requiresTranscoding) {
       stores.carousel.transcodeVideo({ force: true, seekTime: stores.carousel.curTime });
     } else {
@@ -108,13 +113,16 @@ export const Carousel = Comp((_, videoRef: MutableRefObject<ReactPlayer>) => {
 
   const handleVideoReady = () => {
     if (!isCurrentPlayback()) return;
+
     stores.carousel.setIsWaitingForFrames(false);
     if (stores.carousel.mediaSourceUrl) videoTranscoder.markReady(stores.carousel.mediaSourceUrl);
   };
 
   const handleVideoEnd = () => {
     if (!isCurrentPlayback()) return;
+
     stores.carousel.setCurFrame(1, activeFile.frameRate);
+
     if (stores.carousel.requiresTranscoding) {
       stores.carousel.transcodeVideo();
       stores.carousel.setIsPlaying(true);
@@ -123,11 +131,15 @@ export const Carousel = Comp((_, videoRef: MutableRefObject<ReactPlayer>) => {
 
   const handleVideoProgress = (args: OnProgressProps) => {
     if (!isCurrentPlayback()) return;
+
     videoTranscoder.setCurrentTime(args.playedSeconds);
+
     const frame = round(stores.carousel.seekOffset + args.playedSeconds * activeFile?.frameRate, 0);
+
     if (stores.carousel.videoMarks.length === 2 && frame >= stores.carousel.markOut) {
       if (stores.carousel.requiresTranscoding) {
         if (stores.carousel.isWaitingForFrames) return;
+
         stores.carousel.transcodeVideo({
           seekTime: Fmt.frameToSec(stores.carousel.markIn, activeFile.frameRate),
         });
@@ -263,12 +275,9 @@ const useClasses = makeClasses((props: ClassesProps) => ({
   },
   image: {
     borderRadius: "inherit",
-    width: "100%",
     objectFit: "scale-down",
     userSelect: "none",
-  },
-  videoSurface: {
-    position: "relative",
+    width: "100%",
   },
   transcodingOverlay: {
     backgroundColor: "rgba(0, 0, 0, 0.5)",
@@ -278,5 +287,8 @@ const useClasses = makeClasses((props: ClassesProps) => ({
     right: 0,
     top: 0,
     zIndex: 1,
+  },
+  videoSurface: {
+    position: "relative",
   },
 }));

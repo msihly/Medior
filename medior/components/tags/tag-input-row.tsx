@@ -62,20 +62,25 @@ export const TagInputRow = Comp(
     tag,
   }: TagInputRowProps) => {
     const stores = useStores();
+    const store = stores.tag;
+    const category = store.getCategory(tag);
 
     const hasClick = hasEditor || !!onClick;
+
     const searchType = hasSearchMenu
       ? search.value.find((t) => t.id === tag?.id)?.searchType
       : null;
+
     const searchMeta = hasSearchMenu ? TAG_SEARCH_META[searchType] : null;
 
     const [anchorEl, setAnchorEl] = useState(null);
 
     const handleClick = () => {
       onClick?.(tag);
+
       if (hasEditor) {
-        stores.tag.editor.setIsOpen(true);
-        stores.tag.editor.loadTag(tag.id);
+        store.editor.setIsOpen(true);
+        store.editor.loadTag({ id: tag.id });
       }
     };
 
@@ -93,14 +98,14 @@ export const TagInputRow = Comp(
       <>
         <MultiInputRow
           {...{ hasDelete, search, style }}
-          bgColor={tag.category?.color}
+          bgColor={category?.color}
           value={tag}
           valueExtractor={(tag) => tag.label}
           onClick={hasClick ? handleClick : null}
           leftNode={
-            !tag.category?.icon ? null : (
+            !category?.icon ? null : (
               <Icon
-                name={tag.category.icon}
+                name={category.icon}
                 onClick={hasClick ? handleClick : null}
                 size="1em"
                 margins={{ left: "0.3em", right: "-0.2em" }}

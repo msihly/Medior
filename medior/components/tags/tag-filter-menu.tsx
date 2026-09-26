@@ -42,6 +42,15 @@ export const TagFilterMenu = Comp(({ color = colors.foreground, store }: TagFilt
             setChecked={store.toggleHasRegEx}
             flex={0}
           />
+
+          <TagInput
+            header="On Files with Tag"
+            value={store.fileTags}
+            onChange={store.setFileTags}
+            width="12rem"
+            maxTags={1}
+            hasEditor={false}
+          />
         </Card>
 
         <Card column width="20rem" spacing="0.5rem">
@@ -89,6 +98,38 @@ export const TagFilterMenu = Comp(({ color = colors.foreground, store }: TagFilt
               setLogOpValue={store.setRatingOp}
               setNumValue={store.setRatingValue}
               numInputProps={{ maxValue: 9, minValue: 0 }}
+            />
+          </View>
+
+          <View row spacing="0.5rem">
+            <LogOpsInput
+              header={
+                <FilterHeader
+                  label="Parent Tag Count"
+                  mode={store.numOfParentTagsMode}
+                  setMode={store.setNumOfParentTagsMode}
+                />
+              }
+              logOpValue={store.numOfParentTags.logOp}
+              numValue={store.numOfParentTags.value}
+              setLogOpValue={store.setNumOfParentTagsOp}
+              setNumValue={store.setNumOfParentTagsValue}
+              numInputProps={{ minValue: 0 }}
+            />
+
+            <LogOpsInput
+              header={
+                <FilterHeader
+                  label="Child Tag Count"
+                  mode={store.numOfChildTagsMode}
+                  setMode={store.setNumOfChildTagsMode}
+                />
+              }
+              logOpValue={store.numOfChildTags.logOp}
+              numValue={store.numOfChildTags.value}
+              setLogOpValue={store.setNumOfChildTagsOp}
+              setNumValue={store.setNumOfChildTagsValue}
+              numInputProps={{ minValue: 0 }}
             />
           </View>
 

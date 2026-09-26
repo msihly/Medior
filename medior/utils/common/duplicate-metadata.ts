@@ -47,7 +47,9 @@ export const replaceDuplicateCollectionReferences = (
     }))
     .filter(({ fileId }) => {
       if (seen.has(fileId)) return false;
+
       seen.add(fileId);
+
       return true;
     })
     .map((entry, index) => ({ ...entry, index }));

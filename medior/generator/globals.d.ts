@@ -3,8 +3,8 @@ import { IconName, IconProps } from "trabecula/components";
 
 declare global {
   interface FileDef {
-    name: string;
     makeFile: () => Promise<string>;
+    name: string;
   }
 
   interface ModelDefProperty {

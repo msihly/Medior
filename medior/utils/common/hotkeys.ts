@@ -35,10 +35,10 @@ export interface Hotkeys {
     playPause: string;
     previousFile: string;
     previousFrame: string;
-    seekBackward3Seconds: string;
     seekBackward30Seconds: string;
-    seekForward3Seconds: string;
+    seekBackward3Seconds: string;
     seekForward30Seconds: string;
+    seekForward3Seconds: string;
     volumeDown: string;
     volumeUp: string;
   };
@@ -137,6 +137,7 @@ export const matchesHotkey = (event: HotkeyEvent, hotkey: string) => {
 
   const parts = hotkey.split("+");
   const key = parts.at(-1);
+
   return (
     event.altKey === parts.includes("Alt") &&
     event.ctrlKey === parts.includes("Ctrl") &&

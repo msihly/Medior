@@ -15,6 +15,7 @@ export const TimestampRow = Comp(({ timestamp }: TimestampRowProps) => {
   const [isDurationInvalid, isEndInvalid, isStartInvalid] = useMemo(() => {
     const isEndInvalid = !timestamp.endDuration || !durationRegex.test(timestamp.endDuration);
     const isStartInvalid = !timestamp.startDuration || !durationRegex.test(timestamp.startDuration);
+
     const isDurationInvalid =
       isEndInvalid ||
       isStartInvalid ||
@@ -44,7 +45,7 @@ export const TimestampRow = Comp(({ timestamp }: TimestampRowProps) => {
           onClick={() => store.removeTimestampPair(timestamp.id)}
           color={colors.custom.black}
           colorOnHover={colors.custom.red}
-          borderRadiuses={{ top: 0, right: 0 }}
+          borderRadiuses={{ right: 0, top: 0 }}
           height="100%"
           width="100%"
         />
@@ -91,7 +92,7 @@ export const TimestampRow = Comp(({ timestamp }: TimestampRowProps) => {
           onClick={() => setEndVal(secondsToDuration(stores.carousel.curTime))}
           color={colors.custom.black}
           colorOnHover={colors.custom.blue}
-          borderRadiuses={{ top: 0, left: 0 }}
+          borderRadiuses={{ left: 0, top: 0 }}
           height="100%"
           width="100%"
           fontSize="0.7rem"

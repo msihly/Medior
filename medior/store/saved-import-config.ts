@@ -39,6 +39,7 @@ export const normalizeImportConfigPath = (folderPath: string) =>
 export const getImportConfigRootPath = (folderPath: string) => {
   const normalizedPath = path.normalize(folderPath);
   const globIndex = normalizedPath.split(path.sep).findIndex((part) => part === "*");
+
   return globIndex > -1
     ? normalizedPath.split(path.sep).slice(0, globIndex).join(path.sep)
     : normalizedPath;

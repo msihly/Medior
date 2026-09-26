@@ -25,6 +25,7 @@ model.addProp(
   },
 );
 
+model.addIndex({ childIds: 1 }, { unique: false });
 model.addProp("childIds", "Tag.id[]", { defaultValue: "[]", required: true });
 
 model.addProp("count", "number", { required: true, sort: { icon: "Numbers", label: "Count" } });
@@ -46,6 +47,7 @@ model.addProp("label", "string", { required: true, sort: { icon: "Label", label:
 
 model.addProp("lastSearchedAt", "string");
 
+model.addIndex({ parentIds: 1 }, { unique: false });
 model.addProp("parentIds", "Tag.id[]", { defaultValue: "[]", required: true });
 
 model.addIndex({ rating: 1, _id: 1 });

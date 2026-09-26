@@ -22,8 +22,8 @@ export class ImportStore extends Model({
   ingester: prop<Ingester>(() => new Ingester({})),
   manager: prop<ImportManager>(() => new ImportManager({})),
   reingester: prop<Reingester>(() => new Reingester({})),
-  savedConfigSearch: prop<SavedImportConfigSearch>(() => new SavedImportConfigSearch({})),
   savedConfigs: prop<SavedImportConfig[]>(() => []).withSetter(),
+  savedConfigSearch: prop<SavedImportConfigSearch>(() => new SavedImportConfigSearch({})),
 }) {
   onInit() {
     autoBind(this);
@@ -48,7 +48,9 @@ export class ImportStore extends Model({
       args: { page: 1, pageSize: 1000, sort: { dateModified: "desc" } },
     });
     if (!res.success) throw new Error(res.error);
+
     this.setSavedConfigs(res.data.items.map((item) => new SavedImportConfig(item)));
+
     return res.data.items;
   });
 
@@ -56,7 +58,9 @@ export class ImportStore extends Model({
   deleteSavedConfig = asyncAction(async (id: string) => {
     const res = await trpc.deleteSavedImportConfig.mutate({ args: { ids: [id] } });
     if (!res.success) throw new Error(res.error);
+
     await this.loadSavedConfigs();
+
     return res.data;
   });
 
@@ -66,7 +70,9 @@ export class ImportStore extends Model({
       args: { id, updates: { dateModified: dayjs().toISOString(), label } },
     });
     if (!res.success) throw new Error(res.error);
+
     await this.loadSavedConfigs();
+
     return res.data;
   });
 
@@ -84,9 +90,11 @@ export class ImportStore extends Model({
       options: SavedImportConfigOptions;
     }) => {
       const normalizedFolderPath = normalizeImportConfigPath(folderPath);
+
       const existing = this.savedConfigs.find(
         (config) => config.normalizedFolderPath === normalizedFolderPath,
       );
+
       const dateModified = dayjs().toISOString();
 
       if (id || existing) {
@@ -94,7 +102,9 @@ export class ImportStore extends Model({
           args: { id: id || existing.id, updates: { dateModified, folderPath, label, options } },
         });
         if (!res.success) throw new Error(res.error);
+
         await this.loadSavedConfigs();
+
         return res.data;
       }
 
@@ -102,7 +112,9 @@ export class ImportStore extends Model({
         args: { dateCreated: dateModified, dateModified, folderPath, label, options },
       });
       if (!res.success) throw new Error(res.error);
+
       await this.loadSavedConfigs();
+
       return res.data;
     },
   );

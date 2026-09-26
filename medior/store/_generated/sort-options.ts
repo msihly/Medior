@@ -45,11 +45,16 @@ const MODEL_SORT_OPTIONS: Record<ModelSortName, SortOption[]> = {
     { attribute: "startedAt", icon: "HourglassTop", label: "Started At" },
   ],
   FileTransform: [
+    { attribute: "beforeBitrate", icon: "DataThresholding", label: "Bitrate" },
     { attribute: "completedAt", icon: "HourglassBottom", label: "Completed At" },
     { attribute: "dateCreated", icon: "DateRange", label: "Date Created" },
+    { attribute: "beforeDuration", icon: "HourglassBottom", label: "Duration" },
+    { attribute: "beforeHeight", icon: "Height", label: "Height" },
+    { attribute: "beforeSize", icon: "FormatSize", label: "Size" },
     { attribute: "startedAt", icon: "HourglassTop", label: "Started At" },
     { attribute: "status", icon: "PendingActions", label: "Status" },
     { attribute: "type", icon: "Movie", label: "Type" },
+    { attribute: "beforeWidth", icon: "Height", iconProps: { rotation: 90 }, label: "Width" },
   ],
   File: [
     { attribute: "bitrate", icon: "DataThresholding", label: "Bitrate" },

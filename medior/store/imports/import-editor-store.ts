@@ -2,19 +2,11 @@ import fs from "fs/promises";
 import path from "path";
 import autoBind from "auto-bind";
 import { computed, reaction } from "mobx";
-import {
-  Model,
-  model,
-  modelAction,
-  ModelCreationData,
-  modelFlow,
-  objectToMapTransform,
-  prop,
-} from "mobx-keystone";
-import { checkFileExists, extendFileName } from "trabecula/utils/server";
+import { Model, model, modelAction, ModelCreationData, modelFlow, prop } from "mobx-keystone";
+import { extendFileName } from "trabecula/utils/server";
 import { FlatFolder, TagToUpsert } from "medior/components";
 import { asyncAction, derefMobx } from "medior/utils/client";
-import { Fmt, PromiseQueue } from "medior/utils/common";
+import { Fmt, mergeTagDefinitions, PromiseQueue } from "medior/utils/common";
 import { ImportEditorOptions } from "./editor-options";
 import { FileImport } from "./file-import";
 
@@ -24,27 +16,15 @@ export interface Sidecar {
 
 const IMPORT_FOLDER_PAGE_SIZE = 20;
 
-const setTagId = (tags: TagToUpsert[], { id, label }: Pick<TagToUpsert, "id" | "label">) =>
-  tags.map((tag) => ({
-    ...tag,
-    children: tag.children ? setTagId(tag.children, { id, label }) : tag.children,
-    id: tag.label === label ? id : tag.id,
-  }));
-
 @model("medior/ImportEditorStore")
 export class ImportEditorStore extends Model({
-  filePaths: prop<Record<string, string>>(() => ({}))
-    .withTransform(objectToMapTransform<string>())
-    .withSetter(),
-  flatFolderHierarchy: prop<Record<string, FlatFolder>>(() => ({}))
-    .withTransform(objectToMapTransform<FlatFolder>())
-    .withSetter(),
   flatTagsToUpsert: prop<TagToUpsert[]>(() => []).withSetter(),
   folderPage: prop<number>(0).withSetter(),
   folderPageSize: prop<number>(IMPORT_FOLDER_PAGE_SIZE).withSetter(),
   folderTotalCount: prop<number>(0).withSetter(),
   hasChangesSinceLastScan: prop<boolean>(false).withSetter(),
-  imports: prop<ModelCreationData<FileImport>[]>(() => []).withSetter(),
+  importCount: prop<number>(0),
+  importSize: prop<number>(0),
   ingestCancelToken: prop<number>(0).withSetter(),
   initProgressCompleted: prop<number>(0).withSetter(),
   initProgressStatus: prop<string>("").withSetter(),
@@ -58,9 +38,11 @@ export class ImportEditorStore extends Model({
   rootFolderIndex: prop<number>(0).withSetter(),
   rootFolderPath: prop<string>("").withSetter(),
   saveStatus: prop<string>("").withSetter(),
-  tagHierarchy: prop<TagToUpsert[]>(() => []).withSetter(),
+  visibleFolderNames: prop<string[]>(() => []),
 }) {
   allFlatFolderHierarchy = new Map<string, FlatFolder>();
+  filePaths = new Map<string, string>();
+  imports: ModelCreationData<FileImport>[] = [];
 
   onInit() {
     autoBind(this);
@@ -101,12 +83,7 @@ export class ImportEditorStore extends Model({
       this.allFlatFolderHierarchy.get(folderName) ?? this.flatFolderHierarchy.get(folderName);
     if (!folder) throw new Error(`No such folder: ${folderName}`);
 
-    for (const tag of tagsToUpsert) {
-      if (folder.tags.find((t) => t.label === tag.label)) continue;
-
-      folder.tags.push(tag);
-      this.flatTagsToUpsert.push(tag);
-    }
+    folder.tags = mergeTagDefinitions([...folder.tags, ...tagsToUpsert]);
   }
 
   @modelAction
@@ -140,14 +117,15 @@ export class ImportEditorStore extends Model({
   reset() {
     this.allFlatFolderHierarchy = new Map();
     this.filePaths = new Map();
-    this.flatFolderHierarchy = new Map();
     this.flatTagsToUpsert = [];
     this.folderPage = 0;
     this.folderPageSize = IMPORT_FOLDER_PAGE_SIZE;
     this.folderTotalCount = 0;
     this.hasChangesSinceLastScan = false;
     this.imports = [];
-    this.ingestCancelToken = 0;
+    this.importCount = 0;
+    this.importSize = 0;
+    this.ingestCancelToken++;
     this.initProgressCompleted = 0;
     this.initProgressStatus = "";
     this.initProgressTotal = 0;
@@ -158,7 +136,7 @@ export class ImportEditorStore extends Model({
     this.rootFolderIndex = 0;
     this.rootFolderPath = "";
     this.saveStatus = "";
-    this.tagHierarchy = [];
+    this.visibleFolderNames = [];
   }
 
   @modelAction
@@ -170,11 +148,24 @@ export class ImportEditorStore extends Model({
   }
 
   @modelAction
+  setFilePaths(filePaths: Map<string, string>) {
+    this.filePaths = filePaths;
+  }
+
+  @modelAction
+  setImports(imports: ModelCreationData<FileImport>[]) {
+    this.imports = imports;
+    this.importCount = imports.length;
+    this.importSize = imports.reduce((total, imp) => total + imp.size, 0);
+  }
+
+  @modelAction
   setCreatedTagId(tag: Pick<TagToUpsert, "id" | "label">) {
     this.flatTagsToUpsert = this.flatTagsToUpsert.map((candidate) =>
-      candidate.label === tag.label ? { ...candidate, id: tag.id } : candidate,
+      candidate.label.toLowerCase() === tag.label.toLowerCase()
+        ? { ...candidate, id: tag.id, label: tag.label }
+        : candidate,
     );
-    this.tagHierarchy = setTagId(this.tagHierarchy, tag);
   }
 
   @modelAction
@@ -189,86 +180,103 @@ export class ImportEditorStore extends Model({
     if (!folder) throw new Error(`No such folder: ${folderName}`);
 
     folder.tags = tagsToUpsert.map(derefMobx);
+    this.setVisibleFolderPage();
   }
 
   @modelAction
   setVisibleFolderPage() {
-    const visibleFolders = new Map<string, FlatFolder>();
+    const visibleFolderNames: string[] = [];
     const maxPage = this.folderPageCount - 1;
     const page = Math.min(Math.max(this.folderPage, 0), maxPage);
     const startIndex = page * this.folderPageSize;
     const endIndex = startIndex + this.folderPageSize;
     let idx = 0;
 
-    for (const [folderName, folder] of this.allFlatFolderHierarchy) {
+    for (const folderName of this.allFlatFolderHierarchy.keys()) {
       if (idx >= endIndex) break;
 
-      if (idx >= startIndex) visibleFolders.set(folderName, folder);
+      if (idx >= startIndex) visibleFolderNames.push(folderName);
 
       idx++;
     }
 
     this.folderPage = page;
-    this.flatFolderHierarchy = visibleFolders;
+    this.visibleFolderNames = visibleFolderNames;
   }
 
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */
   @modelFlow
   loadDiffusionParams = asyncAction(async () => {
-    for (const imp of this.imports) {
+    const cancelToken = this.ingestCancelToken;
+    const isCancelled = () => !this.isOpen || this.ingestCancelToken !== cancelToken;
+    const queue = new PromiseQueue({ concurrency: 4 });
+    this.setInitProgressStatus("Reading diffusion parameters");
+    this.setInitProgressTotal(this.imports.length);
+
+    for (let idx = 0; idx < this.imports.length; idx++) {
+      if (isCancelled()) return;
+
+      if (idx % 128 === 0) {
+        await queue.resolve();
+        if (isCancelled()) return;
+
+        this.setInitProgressCompleted(idx);
+        await new Promise<void>((resolve) => setTimeout(resolve, 0));
+      }
+
+      const imp = this.imports[idx];
       if (imp.extension !== "jpg") continue;
 
       const paramFileName = path.resolve(extendFileName(imp.path, "txt"));
       if (!this.filePaths.has(paramFileName)) continue;
 
-      try {
-        const params = await fs.readFile(paramFileName, { encoding: "utf8" });
-        if (params !== imp.diffusionParams) imp.diffusionParams = params;
-      } catch (err) {
-        console.error("Error reading diffusion params:", err);
-      }
-    }
-  });
-
-  @modelFlow
-  loadSidecar = asyncAction(async () => {
-    const queue = new PromiseQueue({ concurrency: 4 });
-
-    const sidecars: {
-      folder?: FlatFolder;
-      imp?: ModelCreationData<FileImport>;
-      paramFileName: string;
-    }[] = [];
-
-    for (const imp of this.imports) {
-      if (imp.extension === "json") continue;
-
       queue.add(async () => {
-        const paramFileName = extendFileName(imp.path, "json");
-        if (await checkFileExists(paramFileName)) sidecars.push({ imp, paramFileName });
-      });
-    }
+        try {
+          if (isCancelled()) return;
 
-    const folders = this.allFlatFolderHierarchy.size
-      ? this.allFlatFolderHierarchy.values()
-      : this.flatFolderHierarchy.values();
-
-    for (const folder of folders) {
-      queue.add(async () => {
-        const folderPath = path.dirname(folder.imports[0].path);
-        const paramFileName = path.resolve(folderPath, "[[Collection]].json");
-
-        if (await checkFileExists(paramFileName)) sidecars.push({ folder, paramFileName });
+          const params = await fs.readFile(paramFileName, { encoding: "utf8" });
+          if (isCancelled()) return;
+          if (params !== imp.diffusionParams) imp.diffusionParams = params;
+        } catch (err) {
+          console.error("Error reading diffusion params:", err);
+        }
       });
     }
 
     await queue.resolve();
-    if (!sidecars.length) return;
+  });
 
-    for (const { folder, imp, paramFileName } of sidecars) {
-      queue.add(async () => {
+  @modelFlow
+  loadSidecar = asyncAction(
+    async ({
+      folderPaths,
+      imports,
+    }: {
+      folderPaths: Set<string>;
+      imports: ModelCreationData<FileImport>[];
+    }) => {
+      const cancelToken = this.ingestCancelToken;
+      const isCancelled = () => !this.isOpen || this.ingestCancelToken !== cancelToken;
+      const queue = new PromiseQueue({ concurrency: 4 });
+      let failedCount = 0;
+      let firstError: string;
+      let queued = 0;
+
+      const readSidecar = async ({
+        folder,
+        imp,
+        paramFileName,
+      }: {
+        folder?: FlatFolder;
+        imp?: ModelCreationData<FileImport>;
+        paramFileName: string;
+      }) => {
         try {
+          if (isCancelled()) return;
+
           const params: Sidecar = JSON.parse(await fs.readFile(paramFileName, "utf8"));
+          if (isCancelled()) return;
+
           const tags = params.tags;
 
           if (tags) {
@@ -289,18 +297,77 @@ export class ImportEditorStore extends Model({
               if (folder) this.addTagsToUpsert(folder.folderName, tagsToUpsert);
               else if (imp) this.addTagsToImport(imp, tagsToUpsert);
               else throw new Error("Invalid sidecar params");
-            } else throw new Error("No tagsToUpsert found in sidecar tags");
+            }
           }
         } catch (err) {
-          console.error("Error reading sidecar:", err);
+          if (err.code !== "ENOENT") {
+            failedCount++;
+            firstError ??= `${paramFileName}: ${err.message}`;
+          }
         }
-      });
-    }
+      };
+      this.setInitProgressStatus("Reading file sidecars");
+      this.setInitProgressTotal(imports.length);
 
-    await queue.resolve();
-  });
+      for (let idx = 0; idx < imports.length; idx++) {
+        if (isCancelled()) return;
+
+        const imp = imports[idx];
+
+        if (imp.extension !== "json" && folderPaths.has(path.dirname(imp.path))) {
+          queue.add(() => readSidecar({ imp, paramFileName: extendFileName(imp.path, "json") }));
+          queued++;
+        }
+
+        if (idx % 128 === 0) {
+          await queue.resolve();
+          if (isCancelled()) return;
+
+          this.setInitProgressCompleted(idx);
+          await new Promise<void>((resolve) => setTimeout(resolve, 0));
+        }
+      }
+
+      await queue.resolve();
+      if (isCancelled()) return;
+
+      this.setInitProgressStatus("Reading collection sidecars");
+      this.setInitProgressCompleted(0);
+      this.setInitProgressTotal(this.allFlatFolderHierarchy.size);
+
+      let completed = 0;
+
+      for (const folder of this.allFlatFolderHierarchy.values()) {
+        if (isCancelled()) return;
+
+        const folderPath = path.dirname(folder.imports[0].path);
+        if (!folderPaths.has(folderPath)) continue;
+
+        queue.add(() =>
+          readSidecar({ folder, paramFileName: path.resolve(folderPath, "[[Collection]].json") }),
+        );
+        if (++queued % 128 === 0) await queue.resolve();
+
+        this.setInitProgressCompleted(++completed);
+      }
+
+      await queue.resolve();
+      if (!isCancelled() && failedCount)
+        throw new Error(`Failed to read ${failedCount} sidecars. ${firstError}`);
+    },
+  );
 
   /* --------------------------------- GETTERS -------------------------------- */
+  @computed
+  get flatFolderHierarchy() {
+    return new Map(
+      this.visibleFolderNames.map((folderName) => [
+        folderName,
+        this.allFlatFolderHierarchy.get(folderName),
+      ]),
+    );
+  }
+
   @computed
   get folderPageCount() {
     return Math.max(1, Math.ceil(this.folderTotalCount / this.folderPageSize));
@@ -317,12 +384,8 @@ export class ImportEditorStore extends Model({
   }
 
   /* ----------------------------- DYNAMIC GETTERS ---------------------------- */
+  @modelAction
   private addTagsToImport(imp: ModelCreationData<FileImport>, tagsToUpsert: TagToUpsert[]) {
-    const labels = new Set(imp.tagsToUpsert?.map((tag) => tag.label) ?? []);
-
-    imp.tagsToUpsert = [
-      ...(imp.tagsToUpsert ?? []),
-      ...tagsToUpsert.filter((tag) => !labels.has(tag.label)),
-    ];
+    imp.tagsToUpsert = mergeTagDefinitions([...(imp.tagsToUpsert ?? []), ...tagsToUpsert]);
   }
 }

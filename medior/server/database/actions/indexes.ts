@@ -1,4 +1,5 @@
 import Mongoose from "mongoose";
+import { backgroundExecution } from "medior/server/database/background-execution";
 import { makeRepairReporter } from "medior/server/database/repair-progress";
 import { sleep } from "medior/utils/common";
 import { makeAction } from "medior/utils/server";
@@ -31,19 +32,28 @@ export const rebuildIndexes = makeAction(
       const modelsByCollectionName = new Map(
         Object.values(Mongoose.models).map((model) => [model.collection.collectionName, model]),
       );
+
       const collectionNames = [...modelsByCollectionName.keys()].sort();
 
       report(
-        `Repairing indexes for ${collectionNames.length} collections.${rebuildExisting ? " Each collection will be unavailable while its indexes are rebuilt." : ""}`,
+        `Repairing indexes for ${collectionNames.length} collections.${
+          rebuildExisting
+            ? " Each collection will be unavailable while its indexes are rebuilt."
+            : ""
+        }`,
       );
 
       for (let index = 0; index < collectionNames.length; index++) {
         checkCancelled();
+
         const collectionName = collectionNames[index];
+
         const runWhenNoIndexBuildIsRunning = async <T>(action: () => Promise<T>) => {
           let waitSeconds = 0;
+
           while (true) {
             checkCancelled();
+
             try {
               return await action();
             } catch (error) {
@@ -58,6 +68,7 @@ export const rebuildIndexes = makeAction(
                   `Still waiting for the existing index build on ${collectionName} (${waitSeconds} seconds).`,
                   "progress",
                 );
+
               await sleep(1000);
               waitSeconds++;
             }
@@ -68,20 +79,27 @@ export const rebuildIndexes = makeAction(
           `Repairing indexes for ${collectionName} (${index + 1} / ${collectionNames.length}).`,
           "progress",
         );
+
         if (syncDefinitions) {
           const droppedIndexNames = await runWhenNoIndexBuildIsRunning(() =>
             modelsByCollectionName.get(collectionName).syncIndexes(),
           );
+
           if (droppedIndexNames.length)
             report(
               `Removed ${droppedIndexNames.length} obsolete indexes from ${collectionName}: ${droppedIndexNames.join(", ")}.`,
               "progress",
             );
         }
+
         if (rebuildExisting)
           await runWhenNoIndexBuildIsRunning(() =>
-            Mongoose.connection.db.command({ reIndex: collectionName }),
+            Mongoose.connection.db.command(
+              { reIndex: collectionName },
+              { session: backgroundExecution.getStore()?.session },
+            ),
           );
+
         report(
           `Repaired indexes for ${collectionName} (${index + 1} / ${collectionNames.length}).`,
           "progress",
@@ -92,6 +110,7 @@ export const rebuildIndexes = makeAction(
         `Index repair completed successfully for ${collectionNames.length} collections.`,
         "success",
       );
+
       return { collectionCount: collectionNames.length };
     });
   },

@@ -1,6 +1,8 @@
 import * as models from "medior/_generated/server/models";
 import { fileLog } from "trabecula/utils/server";
-import { dayjs, PromiseQueue } from "medior/utils/common";
+import { runBackgroundExecution } from "medior/server/database/background-execution";
+import { isServerStopping } from "medior/server/process-lifecycle";
+import { dayjs } from "medior/utils/common";
 import { leanModelToJson, socket } from "medior/utils/server";
 
 export type RepairProgressStatus = "cancelled" | "error" | "info" | "progress" | "success";
@@ -14,7 +16,6 @@ class RepairCancelledError extends Error {
 
 const cancelledRepairIds = new Set<string>();
 const repairAbortControllers = new Map<string, AbortController>();
-const repairOperationQueue = new PromiseQueue();
 
 /* -------------------------------------------------------------------------- */
 /*                              HELPER FUNCTIONS                              */
@@ -40,27 +41,37 @@ const updateRepairOperation = async (
 };
 
 export const startRepair = async (repairId: string) => {
+  if (repairAbortControllers.has(repairId)) throw new Error("Repair is already active");
+
   cancelledRepairIds.delete(repairId);
   repairAbortControllers.set(repairId, new AbortController());
+
   const now = dayjs().toISOString();
-  const operation = await models.BackgroundOperationModel.create({
-    dateCreated: now,
-    dateModified: now,
-    label: "Database repair",
-    processedCount: 0,
-    startedAt: now,
-    status: "RUNNING",
-    targetIds: [repairId],
-    totalCount: 1,
-    type: "repair",
-  });
-  await emitRepairOperation(operation._id.toString());
+
+  try {
+    const operation = await models.BackgroundOperationModel.create({
+      dateCreated: now,
+      dateModified: now,
+      label: "Database repair",
+      processedCount: 0,
+      startedAt: now,
+      status: "RUNNING",
+      targetIds: [repairId],
+      totalCount: 1,
+      type: "repair",
+    });
+
+    await emitRepairOperation(operation._id.toString());
+  } catch (error) {
+    repairAbortControllers.delete(repairId);
+    throw error;
+  }
 };
 
 export const cancelRepair = async (repairId: string) => {
   cancelledRepairIds.add(repairId);
   repairAbortControllers.get(repairId)?.abort(new RepairCancelledError());
-  await repairOperationQueue.resolve();
+
   await updateRepairOperation(repairId, {
     completedAt: dayjs().toISOString(),
     message: "Repair cancelled by user.",
@@ -68,10 +79,13 @@ export const cancelRepair = async (repairId: string) => {
   });
 };
 
+export const pauseRepairs = () => Promise.all([...repairAbortControllers.keys()].map(cancelRepair));
+
 export const finishRepair = async (repairId: string) => {
+  repairAbortControllers.get(repairId)?.abort();
   cancelledRepairIds.delete(repairId);
   repairAbortControllers.delete(repairId);
-  await repairOperationQueue.resolve();
+
   await updateRepairOperation(repairId, {
     completedAt: dayjs().toISOString(),
     message: "Database repair completed.",
@@ -81,46 +95,64 @@ export const finishRepair = async (repairId: string) => {
 };
 
 export const makeRepairReporter = (repairId: string, repairName: string) => {
+  let progressMessage: string;
+
   const abortController =
     repairAbortControllers.get(repairId) ??
     repairAbortControllers.set(repairId, new AbortController()).get(repairId);
+
   const report = (message: string, status: RepairProgressStatus = "info", isTransient = false) => {
     if (!isTransient)
       fileLog(`[${repairName}] ${message}`, status === "error" ? { type: "error" } : undefined);
+
     socket.emitReliable("onRepairProgress", { message, repairId, status });
-    repairOperationQueue
-      .add(() =>
-        updateRepairOperation(repairId, {
-          ...(status === "error"
-            ? { completedAt: dayjs().toISOString(), error: message, status: "ERROR" }
-            : status === "cancelled"
-              ? { completedAt: dayjs().toISOString(), status: "CANCELLED" }
-              : {}),
-          message,
-        }),
-      )
-      .catch((error) =>
-        fileLog(`Failed to persist repair progress: ${error.message}`, { type: "error" }),
-      );
   };
 
   const checkCancelled = () => {
-    if (cancelledRepairIds.has(repairId)) throw new RepairCancelledError();
+    if (cancelledRepairIds.has(repairId) || isServerStopping()) throw new RepairCancelledError();
   };
 
   const run = async <T>(action: () => Promise<T>) => {
+    const progressTimer = setInterval(() => {
+      if (progressMessage) report(progressMessage, "progress", true);
+    }, 1000);
+
     try {
       checkCancelled();
-      return await action();
+      await updateRepairOperation(repairId, { message: `${repairName} started.` });
+
+      const result = await runBackgroundExecution(action, abortController.signal, false);
+
+      checkCancelled();
+      await updateRepairOperation(repairId, { message: `${repairName} completed.` });
+
+      return result;
     } catch (error) {
+      if (abortController.signal.aborted || isServerStopping()) error = new RepairCancelledError();
+
       const message = error instanceof Error ? error.message : String(error);
+
+      await updateRepairOperation(repairId, {
+        completedAt: dayjs().toISOString(),
+        error: error instanceof RepairCancelledError ? undefined : message,
+        message,
+        status: error instanceof RepairCancelledError ? "CANCELLED" : "ERROR",
+      });
+
       report(
         error instanceof RepairCancelledError ? message : `Failed: ${message}`,
         error instanceof RepairCancelledError ? "cancelled" : "error",
       );
+
       throw error;
+    } finally {
+      clearInterval(progressTimer);
     }
   };
 
-  return { checkCancelled, report, run, signal: abortController.signal };
+  const progress = (message: string) => {
+    progressMessage = message;
+  };
+
+  return { checkCancelled, progress, report, run, signal: abortController.signal };
 };

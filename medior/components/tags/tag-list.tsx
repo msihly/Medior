@@ -12,14 +12,16 @@ import {
   ViewProps,
 } from "medior/components";
 import { TagOption, tagToOption, useStores } from "medior/store";
+import { toast } from "medior/utils/client";
+import { isDeepEqual } from "medior/utils/common";
 import { socket } from "medior/utils/server";
 
 export interface TagListProps extends MultiInputListProps<TagOption> {
   hasDelete?: boolean;
   hasDeleteAll?: boolean;
   hasEditor?: boolean;
-  hasSearchMenu?: boolean;
   hasInput?: boolean;
+  hasSearchMenu?: boolean;
   onTagClick?: (tagOpt: TagOption) => void;
   rightNode?: TagInputRowProps["rightNode"];
   viewProps?: Partial<ViewProps>;
@@ -39,60 +41,84 @@ export const TagList = Comp(
     const stores = useStores();
 
     const ref = useRef<FixedSizeList>(null);
+    const searchRef = useRef(search);
+    searchRef.current = search;
 
-    const tags = sortTags(search.value);
+    const tags = sortTags(search.value, stores.tag.getCategory);
 
     useEffect(() => {
-      if (!socket?.isConnected || !search?.onChange) return;
+      if (!socket?.isConnected) return;
+
+      let isActive = true;
+
+      const updateTags = (value: TagOption[]) => {
+        if (!isActive || !searchRef.current.onChange || isDeepEqual(searchRef.current.value, value))
+          return;
+
+        searchRef.current = { ...searchRef.current, value };
+        searchRef.current.onChange(value);
+        ref.current?.forceUpdate();
+      };
 
       const onTagDeleted = (args: Parameters<SocketEvents["onTagDeleted"]>[0]) => {
-        search.onChange(search.value.filter((tag) => !args.ids.includes(tag.id)));
-        rerender();
+        const removedIds = new Set(args.ids);
+        updateTags(searchRef.current.value.filter((tag) => !removedIds.has(tag.id)));
       };
 
       const onTagMerged = async (args: Parameters<SocketEvents["onTagMerged"]>[0]) => {
-        const currentOptions = new Map(search.value.map((tag) => [tag.id, derefMobx(tag)]));
-        const ids = [
-          ...new Set(search.value.map((t) => (t.id === args.oldTagId ? args.newTagId : t.id))),
-        ];
-        const newValue = (await stores.tag.listByIds({ ids })).data.map((tag) => {
-          const option = tagToOption(tag);
-          const currentOption = currentOptions.get(tag.id);
-          const mergedOption = tag.id === args.newTagId ? currentOptions.get(args.oldTagId) : null;
+        if (
+          !searchRef.current.onChange ||
+          !searchRef.current.value.some((tag) => tag.id === args.oldTagId)
+        )
+          return;
 
-          return {
-            ...option,
-            searchType: currentOption?.searchType ?? mergedOption?.searchType ?? option.searchType,
-          };
-        });
-        search.onChange(newValue);
-        rerender();
+        const res = await stores.tag.listByIds({ ids: [args.newTagId] });
+        if (!isActive || !searchRef.current.value.some((tag) => tag.id === args.oldTagId)) return;
+        if (!res.success || !res.data?.some((tag) => tag.id === args.newTagId))
+          return toast.error("Failed to load merged tag");
+
+        const option = tagToOption(res.data.find((tag) => tag.id === args.newTagId));
+        const existingOption = searchRef.current.value.find((tag) => tag.id === args.newTagId);
+        updateTags(
+          searchRef.current.value.flatMap((tag) =>
+            tag.id !== args.oldTagId
+              ? [tag]
+              : existingOption
+                ? []
+                : [{ ...option, searchType: tag.searchType ?? option.searchType }],
+          ),
+        );
+      };
+
+      const onTagUpdated = ({ id, updates }: Parameters<SocketEvents["onTagUpdated"]>[0]) => {
+        onTagsUpdated({ tags: [{ tagId: id, updates }], withFileReload: false });
       };
 
       const onTagsUpdated = (args: Parameters<SocketEvents["onTagsUpdated"]>[0]) => {
-        for (const { tagId, updates } of args.tags) {
-          const tagToUpdate = search.value.find((t) => t.id === tagId);
-          if (tagToUpdate && search.onChange)
-            search.onChange(
-              search.value.map((t) =>
-                t.id === tagId ? { ...derefMobx(t), ...updates } : derefMobx(t),
-              ),
-            );
-        }
-      };
+        const updatesById = new Map(args.tags.map(({ tagId, updates }) => [tagId, updates]));
 
-      const rerender = () => ref?.current?.forceUpdate();
+        const newValue = searchRef.current.value.map((tag) =>
+          updatesById.has(tag.id)
+            ? { ...derefMobx(tag), ...updatesById.get(tag.id) }
+            : derefMobx(tag),
+        );
+
+        updateTags(newValue);
+      };
 
       socket.on("onTagDeleted", onTagDeleted);
       socket.on("onTagMerged", onTagMerged);
+      socket.on("onTagUpdated", onTagUpdated);
       socket.on("onTagsUpdated", onTagsUpdated);
 
       return () => {
+        isActive = false;
         socket.off("onTagDeleted", onTagDeleted);
         socket.off("onTagMerged", onTagMerged);
+        socket.off("onTagUpdated", onTagUpdated);
         socket.off("onTagsUpdated", onTagsUpdated);
       };
-    }, [socket?.isConnected, search?.value]);
+    }, [socket?.isConnected]);
 
     return (
       <MultiInputList

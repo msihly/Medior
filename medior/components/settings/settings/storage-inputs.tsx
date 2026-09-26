@@ -41,11 +41,13 @@ export const StorageInputs = Comp(() => {
     for (const pathInDb of pathsInDb) {
       if (!pathsInStorage.has(pathInDb)) pathsInDbOnly.add(pathInDb);
     }
+
     _log(`Found ${Fmt.commas(pathsInDbOnly.size)} files in database only.`);
 
     for (const pathInStorage of pathsInStorage) {
       if (!pathsInDb.has(pathInStorage)) pathsInStorageOnly.add(pathInStorage);
     }
+
     _log(`Found ${Fmt.commas(pathsInStorageOnly.size)} files in storage only.`);
 
     return { pathsInDbOnly, pathsInStorageOnly };
@@ -55,8 +57,10 @@ export const StorageInputs = Comp(() => {
     const locations = getConfig().db.fileStorage.locations;
 
     const map = new Map<string, string[]>();
+
     for (const dirPath of locations) {
       _log(`Scanning file storage: ${dirPath}`);
+
       const files = await dirToFilePaths(dirPath, (f) => /-thumb(-\d+)?\.\w+$/.test(f));
       _log(`Found ${Fmt.commas(files.length)} in storage.`);
       map.set(dirPath, files);
@@ -64,26 +68,32 @@ export const StorageInputs = Comp(() => {
 
     const filesInStorage = new Set([...map.values()].flat());
     _log(`Found ${Fmt.commas(filesInStorage.size)} files in storage.`);
+
     return filesInStorage;
   };
 
   const getFilesInDatabase = async () => {
     _log("Loading files in database...");
+
     const filePathsRes = await trpc.listFilePaths.mutate();
     if (!filePathsRes.success) throw new Error(filePathsRes.error);
+
     const pathToIdMap = new Map(filePathsRes.data.map((file) => [file.path, file.id]));
     const pathsInDb = new Set(pathToIdMap.keys());
     _log(`Loaded ${Fmt.commas(pathsInDb.size)} files in database.`);
+
     return { pathsInDb, pathToIdMap };
   };
 
   const getFilesToRelink = async (pathsInDb: Set<string>, pathsInStorage: Set<string>) => {
     const storageBasenameMap = new Map<string, string>();
+
     for (const pathInStorage of pathsInStorage) {
       storageBasenameMap.set(basename(pathInStorage).toLowerCase(), pathInStorage);
     }
 
     const filesToRelinkMap = new Map<string, string>();
+
     for (const pathInDb of pathsInDb) {
       const pathInStorage = storageBasenameMap.get(basename(pathInDb).toLowerCase());
       if (pathInStorage && pathInDb !== pathInStorage)
@@ -91,6 +101,7 @@ export const StorageInputs = Comp(() => {
     }
 
     _log(`Found ${Fmt.commas(filesToRelinkMap.size)} files to relink.`);
+
     return { filesToRelinkMap };
   };
 
@@ -102,8 +113,10 @@ export const StorageInputs = Comp(() => {
   const handleDeleteFilesInDbOnly = () =>
     _asyncTry(async () => {
       _log(`Deleting ${Fmt.commas(fileIdsLeftInDbOnly.length)} files in database only...`);
+
       const res = await trpc.deleteFiles.mutate({ fileIds: fileIdsLeftInDbOnly });
       if (!res.success) throw new Error(res.error);
+
       _log(`Deleted ${Fmt.commas(fileIdsLeftInDbOnly.length)} files.`);
       setFileIdsLeftInDbOnly([]);
     });
@@ -111,11 +124,13 @@ export const StorageInputs = Comp(() => {
   const handleDeleteFilesInStorageOnly = () =>
     _asyncTry(async () => {
       _log(`Deleting ${Fmt.commas(filesLeftInStorageOnly.length)} files in storage only...`);
+
       for (const file of filesLeftInStorageOnly) {
         const res = await deleteFile(file);
         if (!res.success) _log(`[Warning] Failed to delete: ${file}`);
         if (res.data === false) _log(`[Warning] Skipping deletion, file does not exist: ${file}`);
       }
+
       _log(`Deleted ${Fmt.commas(filesLeftInStorageOnly.length)} files.`);
       setFilesLeftInStorageOnly([]);
     });
@@ -123,15 +138,19 @@ export const StorageInputs = Comp(() => {
   const handleReImportFilesInStorageOnly = () =>
     _asyncTry(async () => {
       _log(`Re-importing ${Fmt.commas(filesLeftInStorageOnly.length)} files in storage only...`);
-      const res = await stores.import.manager.createImportBatches([
-        {
-          deleteOnImport: false,
-          ignorePrevDeleted: false,
-          imports: await filePathsToImports(filesLeftInStorageOnly),
-          rootFolderPath: stores.import.ingester.rootFolder,
-        },
-      ]);
+
+      const res = await stores.import.manager.createImportBatches({
+        batches: [
+          {
+            deleteOnImport: false,
+            ignorePrevDeleted: false,
+            imports: await filePathsToImports(filesLeftInStorageOnly),
+            rootFolderPath: stores.import.ingester.rootFolder,
+          },
+        ],
+      });
       if (!res.success) throw new Error(res.error);
+
       void stores.import.manager.runImporter();
       _log("Created import batch. Check Import Manager for progress.");
       setFilesLeftInStorageOnly([]);
@@ -180,17 +199,20 @@ export const StorageInputs = Comp(() => {
     const filesToRelink = [...filesToRelinkMap.entries()].map(([oldPath, newPath]) => {
       const id = pathToIdMap.get(oldPath);
       pathToIdMap.delete(oldPath);
+
       return { id, path: newPath };
     });
 
     const res = await trpc.relinkFiles.mutate({ filesToRelink });
     if (!res.success) throw new Error(res.error);
+
     _log("Relinked files.");
   };
 
   const selectLocation = async () => {
     const res = await dialog.showOpenDialog({ properties: ["openDirectory"] });
     if (res.canceled) return;
+
     return res.filePaths[0];
   };
 

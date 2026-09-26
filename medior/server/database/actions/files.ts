@@ -4,24 +4,41 @@ import checkDiskSpace from "check-disk-space";
 import md5File from "md5-file";
 import * as models from "medior/_generated/server/models";
 import { AnyBulkWriteOperation } from "mongodb";
-import mongoose, { UpdateWithAggregationPipeline } from "mongoose";
+import mongoose from "mongoose";
 import {
   checkFileExists,
-  deleteFile,
   dirToFilePaths,
   fileLog,
   makePerfLog,
   removeEmptyFolders,
 } from "trabecula/utils/server";
-import trash from "trash";
 import { SortValue } from "medior/store/_generated";
 import * as actions from "medior/server/database/actions";
-import { makeBackgroundOperationRunner } from "medior/server/database/actions/background-operations";
-import { deferRegeneration } from "medior/server/database/regeneration-batch";
+import {
+  canRunBackgroundQueues,
+  makeBackgroundOperationRunner,
+} from "medior/server/database/actions/background-operations";
+import { runBackgroundExecution } from "medior/server/database/background-execution";
+import {
+  assertMediaPathsAvailable,
+  describeFileCleanup,
+  FileOperationModel,
+  finishFileOperation,
+} from "medior/server/database/file-operations";
+import { normalizeMediaPathWrites } from "medior/server/database/media-paths";
+import {
+  getBackgroundSession,
+  getMetadataCreateId,
+  metadataWriteOptions,
+  readMetadataSnapshot,
+  registerMetadataWork,
+  repairMetadata,
+} from "medior/server/database/metadata-work";
 import { makeRepairReporter } from "medior/server/database/repair-progress";
+import { repairThumbnail } from "medior/server/database/thumbnail-repair";
 import { ThumbnailNtfsMetadata } from "medior/server/database/types";
-import { genFileInfo } from "medior/utils/client";
-import { chunkArray, CONSTANTS, dayjs, Fmt, PromiseQueue } from "medior/utils/common";
+import { isServerStopping } from "medior/server/process-lifecycle";
+import { chunkArray, CONSTANTS, dayjs, Fmt } from "medior/utils/common";
 import {
   analyzeAudio,
   getConfig,
@@ -34,6 +51,7 @@ import {
   retainTranscriptionModel,
   socket,
 } from "medior/utils/server";
+import { getVideoInfo } from "medior/utils/server/videos";
 
 // const FACE_MIN_CONFIDENCE = 0.4;
 // const FACE_MODELS_PATH = process.env.IS_PACKAGED
@@ -57,121 +75,33 @@ export const listFileIdsByTagIds = makeAction(async (args: { tagIds: string[] })
   ).map((f) => f._id.toString());
 });
 
-export const regenFileTagAncestors = makeAction(
-  async (
-    args: ({ fileIds: string[]; tagIds?: never } | { fileIds?: never; tagIds: string[] }) & {
-      repairId?: string;
-    },
-  ) => {
-    const debug = false;
-    const { perfLog, perfLogTotal } = makePerfLog("[regenFileTagAncestors]", true);
-    const batchSize = 1000;
-    let processedCount = 0;
-    let updatedCount = 0;
-    let files: models.FileSchema[] = [];
-    const reporter = args.repairId ? makeRepairReporter(args.repairId, "repairTags") : undefined;
-    const report = reporter?.report;
-
-    const processBatch = async () => {
-      reporter?.checkCancelled();
-      if (!files.length) return;
-
-      const tagIds = new Set<string>();
-      for (const file of files) {
-        for (const tagId of file.tagIds) tagIds.add(tagId);
-      }
-
-      const ancestorsMap = await actions.makeAncestorIdsMap([...tagIds]);
-      const updates: AnyBulkWriteOperation<models.FileSchema>[] = files.flatMap((file) => {
-        const { hasUpdates, tagIdsWithAncestors } = actions.makeUniqueAncestorUpdates({
-          ancestorsMap,
-          oldTagIdsWithAncestors: file.tagIdsWithAncestors,
-          tagIds: file.tagIds,
-        });
-
-        return !hasUpdates
-          ? []
-          : [
-              {
-                updateOne: {
-                  filter: { _id: objectId(file.id) },
-                  update: { $set: { tagIdsWithAncestors } },
-                },
-              },
-            ];
-      });
-
-      if (updates.length > 0) await models.FileModel.bulkWrite(updates, { ordered: false });
-      processedCount += files.length;
-      updatedCount += updates.length;
-      files = [];
-      report?.(
-        `Processed ${processedCount} files; repaired cached tag ancestors on ${updatedCount}.`,
-        "progress",
-      );
-      if (debug) perfLog(`Processed ${processedCount} files`);
-    };
-
-    const cursor = models.FileModel.find({
-      ...(args.fileIds ? { _id: { $in: objectIds(args.fileIds) } } : {}),
-      ...(args.tagIds
-        ? {
-            $or: [
-              { tagIds: { $in: objectIds(args.tagIds) } },
-              { tagIdsWithAncestors: { $in: objectIds(args.tagIds) } },
-            ],
-          }
-        : {}),
-    })
-      .select({ _id: 1, tagIds: 1, tagIdsWithAncestors: 1 })
-      .lean()
-      .cursor({ batchSize });
-
-    for await (const file of cursor) {
-      reporter?.checkCancelled();
-      files.push(leanModelToJson<models.FileSchema>(file));
-      if (files.length >= batchSize) await processBatch();
-    }
-    await processBatch();
-
-    if (debug) perfLogTotal(`Updated ${updatedCount} / ${processedCount} file tag ancestors`);
-    return { processedCount, updatedCount };
-  },
-);
-
 const processFileTagAncestorRegenQueue = async () => {
-  while (true) {
-    const operation = leanModelToJson<models.BackgroundOperationSchema>(
-      await models.BackgroundOperationModel.findOne({
-        status: { $in: ["PENDING", "RUNNING"] },
-        type: "fileTagAncestors",
-      })
-        .sort({ dateCreated: 1 })
-        .lean(),
-    );
-    if (!operation) return;
+  while (canRunBackgroundQueues()) {
+    let operation: models.BackgroundOperationSchema;
 
     try {
-      if (operation.status === "PENDING")
-        await actions.setBackgroundOperationStatus(operation.id, "RUNNING");
-
-      const fileIds = operation.targetIds.slice(0, 1000);
-      if (!fileIds.length) {
-        await actions.setBackgroundOperationStatus(operation.id, "COMPLETE", {
-          message: "File tag ancestor regeneration completed.",
-          processedCount: operation.totalCount,
-        });
-        continue;
-      }
-
-      const regenRes = await regenFileTagAncestors({ fileIds });
-      if (!regenRes.success) throw new Error(regenRes.error);
-      await actions.completeBackgroundOperationTargets(
-        operation.id,
-        fileIds,
-        `File tag ancestors: processed ${operation.processedCount + fileIds.length} of ${operation.totalCount}.`,
+      operation = leanModelToJson<models.BackgroundOperationSchema>(
+        await models.BackgroundOperationModel.findOne({
+          status: { $in: ["PENDING", "RUNNING"] },
+          type: "fileTagAncestors",
+        })
+          .sort({ dateCreated: 1 })
+          .lean(),
       );
+
+      if (!operation) return;
+
+      await actions.setBackgroundOperationStatus(operation.id, "COMPLETE", {
+        message:
+          "Inherited tags now use the current hierarchy; stored ancestor rewrites are no longer required.",
+        processedCount: operation.totalCount,
+        targetIds: [],
+      });
     } catch (error) {
+      if (!canRunBackgroundQueues()) return;
+
+      if (!operation) throw error;
+
       await actions.setBackgroundOperationStatus(operation.id, "ERROR", {
         error: error instanceof Error ? error.message : String(error),
       });
@@ -179,82 +109,122 @@ const processFileTagAncestorRegenQueue = async () => {
   }
 };
 
-const runFileTagAncestorRegenQueue = makeBackgroundOperationRunner(
+makeBackgroundOperationRunner(
   "file tag ancestor regeneration",
   processFileTagAncestorRegenQueue,
+  false,
 );
-
-const flushFileTagAncestorRegen = async (fileIds: string[]) => {
-  const res = await regenFileTagAncestors({ fileIds });
-  if (!res.success) throw new Error(res.error);
-};
-
-// @generator-ignore-export
-export const queueFileTagAncestorRegen = async (fileIds: string[]) => {
-  if (deferRegeneration(flushFileTagAncestorRegen, fileIds)) return;
-  await actions.queueBackgroundOperation({
-    label: "File tag ancestor regeneration",
-    targetIds: fileIds,
-    type: "fileTagAncestors",
-  });
-  runFileTagAncestorRegenQueue();
-};
-
-// @generator-ignore-export
-export const resumeFileRegens = () => runFileTagAncestorRegenQueue();
 
 /* -------------------------------------------------------------------------- */
 /*                                API ENDPOINTS                               */
 /* -------------------------------------------------------------------------- */
 export const deleteFiles = makeAction(
-  async (args: { fileIds: string[]; withTagRegen?: boolean }) => {
-    const collRes = await actions.listCollectionsByFileIds(args);
-    if (!collRes.success) throw new Error(collRes.error);
-    const collections = collRes.data;
-
-    const fileIdSet = new Set(args.fileIds);
-
-    for (const collection of collections) {
-      const fileIdIndexes = collection.fileIdIndexes.filter(
-        (fileIdIndex) => !fileIdSet.has(String(fileIdIndex.fileId)),
+  registerMetadataWork(
+    "deleteFiles",
+    async (args: { fileIds: string[]; withTagRegen?: boolean }) => {
+      const files = await readMetadataSnapshot(`deleteFiles:${args.fileIds.join()}`, () =>
+        models.FileModel.find({ _id: { $in: objectIds(args.fileIds) } })
+          .select({ hash: 1, path: 1, tagIdsWithAncestors: 1, thumb: 1 })
+          .lean(),
       );
-      if (!fileIdIndexes.length) await actions.deleteCollections({ ids: [collection.id] });
-      else await actions.updateCollection({ fileIdIndexes, id: collection.id });
-    }
 
-    const filesRes = await actions.listFile({ args: { filter: { id: args.fileIds } } });
-    if (!filesRes.success) throw new Error(filesRes.error);
-    const files = filesRes.data.items;
+      const cleanup = await readMetadataSnapshot(
+        `deleteFilesCleanup:${args.fileIds.join()}`,
+        async () => {
+          const cleanup = [];
 
-    const fileHashes = files.map((f) => f.hash);
-    const tagIds = [...new Set(files.flatMap((f) => f.tagIds))];
+          for (const file of files) {
+            for (const path of [file.path, file.thumb?.path]) {
+              const entry = await describeFileCleanup(path);
 
-    for (const file of files) {
-      await deleteFile(file.path);
-      await deleteFile(file.thumb?.path);
-    }
+              if (entry) cleanup.push(entry);
+            }
+          }
 
-    await Promise.all([
-      models.FileModel.deleteMany({ _id: { $in: args.fileIds } }),
-      models.DeletedFileModel.bulkWrite(
-        fileHashes.map((hash) => ({
-          updateOne: {
-            filter: { hash },
-            update: { $setOnInsert: { hash } },
-            upsert: true,
-          },
-        })),
-      ),
-    ]);
+          return cleanup;
+        },
+      );
 
-    if (args.withTagRegen !== false) {
-      const regenRes = await actions.regenTags({ tagIds });
-      if (!regenRes.success) throw new Error(regenRes.error);
-    }
+      const tagIds = new Set<string>();
 
-    socket.emit("onFilesDeleted", { fileHashes, fileIds: args.fileIds });
-    return { tagIds };
-  },
+      for (const file of files) {
+        const current = await models.FileModel.findById(file._id).lean();
+        if (
+          current &&
+          (current.hash !== file.hash ||
+            current.path !== file.path ||
+            current.thumb?.path !== file.thumb?.path)
+        )
+          throw new Error("File changed while preparing deletion; retry deletion");
+
+        for (const id of file.tagIdsWithAncestors) tagIds.add(String(id));
+      }
+
+      const transforms = await actions.deleteFileTransformsByFileIds(args);
+      if (!transforms.success) throw new Error(transforms.error);
+
+      const collRes = await actions.listCollectionsByFileIds(args);
+      if (!collRes.success) throw new Error(collRes.error);
+
+      const fileIdSet = new Set(args.fileIds);
+
+      for (const collection of collRes.data) {
+        const fileIdIndexes = collection.fileIdIndexes.filter(
+          ({ fileId }) => !fileIdSet.has(String(fileId)),
+        );
+
+        const updated = fileIdIndexes.length
+          ? await actions.updateCollection({ fileIdIndexes, id: collection.id })
+          : await actions.deleteCollections({ ids: [collection.id] });
+        if (!updated.success) throw new Error(updated.error);
+      }
+
+      const fileHashes = files.map((file) => file.hash);
+
+      if (files.length)
+        await models.FileModel.deleteMany({
+          $or: files.map((file) => ({
+            _id: file._id,
+            hash: file.hash,
+            path: file.path,
+            "thumb.path": file.thumb?.path ?? null,
+          })),
+        });
+
+      if (await models.FileModel.exists({ _id: { $in: args.fileIds } }))
+        throw new Error(
+          "A file changed during deletion. Its current media and record were retained.",
+        );
+
+      if (fileHashes.length)
+        await models.DeletedFileModel.bulkWrite(
+          fileHashes.map((hash) => ({
+            updateOne: { filter: { hash }, update: { $setOnInsert: { hash } }, upsert: true },
+          })),
+          { session: getBackgroundSession() },
+        );
+
+      await actions.queueTagMetadataRegen([...tagIds]);
+
+      const operation = cleanup.length
+        ? await FileOperationModel.findOneAndUpdate(
+            { _id: String(getMetadataCreateId(`deleteFilesCleanup:${args.fileIds.join()}`)) },
+            { $setOnInsert: { cleanup, state: "COMMITTED" } },
+            { ...metadataWriteOptions(), new: true, upsert: true },
+          )
+        : null;
+
+      if (operation)
+        void finishFileOperation(operation._id).catch((error) =>
+          console.error("File deletion committed; cleanup retained:", error),
+        );
+
+      socket.emit("onFilesDeleted", { fileHashes, fileIds: args.fileIds });
+
+      return { tagIds: [...tagIds] };
+    },
+    true,
+  ),
 );
 
 export const deleteFilesExternal = makeAction(
@@ -264,10 +234,13 @@ export const deleteFilesExternal = makeAction(
 
       const folderPaths: string[] = [];
       const filePaths: string[] = [];
+
       for (const p of args.paths) {
         if ((await fs.stat(p)).isDirectory()) {
           folderPaths.push(p);
+
           const files = await dirToFilePaths(p);
+
           for (const file of files) filePaths.push(file);
         } else filePaths.push(p);
 
@@ -275,32 +248,43 @@ export const deleteFilesExternal = makeAction(
       }
 
       if (!filePaths.length) throw new Error("No valid files found");
-      fileLog(`[DFE] Total files to delete: ${filePaths.length}`);
 
-      if (!filePaths.length) throw new Error("No valid files found");
+      fileLog(`[DFE] Total files to delete: ${filePaths.length}`);
 
       const chunks = chunkArray(filePaths, 200);
       let deletedCount = 0;
+
       for (const chunk of chunks) {
         const fileHashes: string[] = [];
+
         for (const filePath of chunk) fileHashes.push(await md5File(filePath));
+
         fileLog(`[DFE] Hashed ${fileHashes.length} file hashes.`);
 
         await models.DeletedFileModel.bulkWrite(
           fileHashes.map((hash) => ({
-            updateOne: {
-              filter: { hash },
-              update: { $setOnInsert: { hash } },
-              upsert: true,
-            },
+            updateOne: { filter: { hash }, update: { $setOnInsert: { hash } }, upsert: true },
           })),
+          { session: getBackgroundSession() },
         );
+
+        const operation = await FileOperationModel.create({
+          cleanup: chunk.map((filePath, index) => ({
+            hash: fileHashes[index],
+            path: filePath,
+            pathKey: path.resolve(filePath).toLowerCase(),
+          })),
+          state: "COMMITTED",
+        });
+
         fileLog(`[DFE] Stored ${fileHashes.length} file hashes.`);
 
-        await trash(chunk);
+        await finishFileOperation(operation._id);
         deletedCount += chunk.length;
+
         const processedCount = (args.progress?.processedCount ?? 0) + deletedCount;
         const totalCount = args.progress?.totalCount ?? filePaths.length;
+
         fileLog(`[DFE] Deleted ${processedCount} / ${totalCount} files.`);
       }
 
@@ -309,6 +293,7 @@ export const deleteFilesExternal = makeAction(
         processedCount: (args.progress?.processedCount ?? 0) + filePaths.length,
         totalCount: args.progress?.totalCount ?? filePaths.length,
       };
+
       fileLog(`[DFE] ${progress.message}`);
 
       const folders = new Set([
@@ -320,6 +305,7 @@ export const deleteFilesExternal = makeAction(
       ]);
 
       for (const folder of folders) await removeEmptyFolders(folder);
+
       fileLog(`[DFE] Deleted empty folders.`);
 
       return { success: true, data: filePaths.length, progress };
@@ -363,81 +349,88 @@ export const detectFaces = makeAction(async ({ imagePath }: { imagePath: string 
   // }
 });
 
-const notifyFileMetadataChanges = async () => {
-  socket.emit("onReloadFiles");
-};
-
 export const editFileTags = makeAction(
-  async ({
-    addedTagIds = [],
-    batchId,
-    fileIds,
-    removedTagIds = [],
-    withSub = true,
-  }: {
-    addedTagIds?: string[];
-    batchId?: string;
-    fileIds: string[];
-    removedTagIds?: string[];
-    withSub?: boolean;
-  }) => {
-    if (!fileIds.length) throw new Error("Missing fileIds in editFileTags");
-    if (!addedTagIds.length && !removedTagIds.length)
-      throw new Error("Missing updated tagIds in editFileTags");
+  registerMetadataWork(
+    "editFileTags",
+    async ({
+      addedTagIds = [],
+      batchId,
+      fileIds,
+      removedTagIds = [],
+      withRegen = true,
+    }: {
+      addedTagIds?: string[];
+      batchId?: string;
+      fileIds: string[];
+      removedTagIds?: string[];
+      withRegen?: boolean;
+      withSub?: boolean;
+    }) => {
+      if (!fileIds.length) throw new Error("Missing fileIds in editFileTags");
 
-    const dateModified = dayjs().toISOString();
-    const fileBulkWriteOps: AnyBulkWriteOperation<models.FileSchema>[] = [];
-    const fileImportBatchBulkWriteOps: AnyBulkWriteOperation<models.FileImportBatchSchema>[] = [];
+      if (!addedTagIds.length && !removedTagIds.length)
+        throw new Error("Missing updated tagIds in editFileTags");
 
-    if (addedTagIds.length > 0) {
-      fileBulkWriteOps.push({
-        updateMany: {
-          filter: { _id: objectIds(fileIds) },
-          update: { $addToSet: { tagIds: { $each: addedTagIds } }, dateModified },
-        },
-      });
+      const dateModified = dayjs().toISOString();
+      const fileBulkWriteOps: AnyBulkWriteOperation<models.FileSchema>[] = [];
+      const fileImportBatchBulkWriteOps: AnyBulkWriteOperation<models.FileImportBatchSchema>[] = [];
 
-      if (batchId)
-        fileImportBatchBulkWriteOps.push({
+      if (addedTagIds.length > 0) {
+        fileBulkWriteOps.push({
           updateMany: {
-            filter: { _id: objectId(batchId) },
-            update: { $addToSet: { tagIds: { $each: addedTagIds } } },
+            filter: { _id: objectIds(fileIds) },
+            update: { $addToSet: { tagIds: { $each: addedTagIds } }, $set: { dateModified } },
           },
         });
-    }
 
-    if (removedTagIds.length > 0) {
-      fileBulkWriteOps.push({
-        updateMany: {
-          filter: { _id: objectIds(fileIds) },
-          update: { $pullAll: { tagIds: removedTagIds }, dateModified },
-        },
-      });
+        if (batchId)
+          fileImportBatchBulkWriteOps.push({
+            updateMany: {
+              filter: { _id: objectId(batchId) },
+              update: { $addToSet: { tagIds: { $each: addedTagIds } } },
+            },
+          });
+      }
 
-      if (batchId)
-        fileImportBatchBulkWriteOps.push({
+      if (removedTagIds.length > 0) {
+        fileBulkWriteOps.push({
           updateMany: {
-            filter: { _id: objectId(batchId) },
-            update: { $pullAll: { tagIds: removedTagIds } },
+            filter: { _id: objectIds(fileIds) },
+            update: { $pullAll: { tagIds: removedTagIds }, $set: { dateModified } },
           },
         });
-    }
 
-    await Promise.all([
-      fileBulkWriteOps.length > 0 ? models.FileModel.bulkWrite(fileBulkWriteOps) : null,
-      fileImportBatchBulkWriteOps.length > 0
-        ? models.FileImportBatchModel.bulkWrite(fileImportBatchBulkWriteOps)
-        : null,
-    ]);
+        if (batchId)
+          fileImportBatchBulkWriteOps.push({
+            updateMany: {
+              filter: { _id: objectId(batchId) },
+              update: { $pullAll: { tagIds: removedTagIds } },
+            },
+          });
+      }
 
-    const changedTagIds = [...new Set([...addedTagIds, ...removedTagIds])];
-    await queueFileTagAncestorRegen(fileIds);
-    await actions.queueTagMetadataRegen(changedTagIds);
-    const collectionRes = await actions.regenCollAttrs({ fileIds });
-    if (!collectionRes.success) throw new Error(collectionRes.error);
+      if (fileBulkWriteOps.length)
+        await models.FileModel.bulkWrite(normalizeMediaPathWrites("File", fileBulkWriteOps), {
+          session: getBackgroundSession(),
+        });
 
-    if (withSub && !deferRegeneration(notifyFileMetadataChanges, fileIds, "complete"))
-      socket.emit("onFileTagsUpdated", { addedTagIds, batchId, fileIds, removedTagIds });
+      if (fileImportBatchBulkWriteOps.length)
+        await models.FileImportBatchModel.bulkWrite(fileImportBatchBulkWriteOps, {
+          session: getBackgroundSession(),
+        });
+
+      const changedTagIds = [...new Set([...addedTagIds, ...removedTagIds])];
+
+      if (withRegen) {
+        await actions.queueTagMetadataRegen(changedTagIds);
+
+        const collectionRes = await actions.regenCollAttrs({ fileIds });
+        if (!collectionRes.success) throw new Error(collectionRes.error);
+      }
+    },
+  ),
+  ({ addedTagIds = [], batchId, fileIds, removedTagIds = [], withSub = true }) => {
+    if (withSub) socket.emit("onFileTagsUpdated", { addedTagIds, batchId, fileIds, removedTagIds });
   },
 );
 
@@ -453,22 +446,56 @@ export const getFileByHash = makeAction(async ({ hash }: { hash: string }) =>
   leanModelToJson<models.FileSchema>(await models.FileModel.findOne({ hash }).lean()),
 );
 
-export const importFile = makeAction(async (args: Omit<models.FileSchema, "id">) => {
-  const file: Omit<models.FileSchema, "id"> = {
-    ...args,
-    dateModified: args.dateModified ?? dayjs().toISOString(),
-    isArchived: false,
-    originalBitrate: args.originalBitrate ?? args.bitrate,
-    originalHash: args.originalHash ?? args.hash,
-    originalSize: args.originalSize ?? args.size,
-    rating: 0,
-    tagIdsWithAncestors: await actions.deriveAncestorTagIds(args.tagIds),
-  };
+export const importFile = makeAction(
+  registerMetadataWork(
+    "importFile",
+    async ({
+      withTagRegen = true,
+      ...args
+    }: Omit<models.FileSchema, "id"> & { withTagRegen?: boolean }) => {
+      const [tagIdsWithAncestors] = await Promise.all([
+        actions.deriveAncestorTagIds(args.tagIds),
+        assertMediaPathsAvailable([args.path, args.thumb?.path]),
+      ]);
 
-  const res = await models.FileModel.create(file);
-  const id = res._id.toString();
-  return { ...file, id };
-});
+      const file: Omit<models.FileSchema, "id"> = {
+        ...args,
+        dateModified: args.dateModified ?? dayjs().toISOString(),
+        isArchived: false,
+        originalBitrate: args.originalBitrate ?? args.bitrate,
+        originalHash: args.originalHash ?? args.hash,
+        originalSize: args.originalSize ?? args.size,
+        rating: 0,
+        tagIdsWithAncestors,
+      };
+
+      const res = await models.FileModel.findOneAndUpdate(
+        { hash: file.hash },
+        { $setOnInsert: file },
+        { ...metadataWriteOptions(), new: true, upsert: true },
+      ).select("-tagIdsWithAncestors");
+
+      const id = res._id.toString();
+
+      if (withTagRegen) await actions.queueTagMetadataRegen(file.tagIds, file.tagIdsWithAncestors);
+
+      // The insert already resolved these tags. A concurrent duplicate may have different tags.
+      const importedTagIds = new Set(file.tagIds.map(String));
+      const storedTagIds = new Set(res.tagIds.map(String));
+      const sameTags =
+        importedTagIds.size === storedTagIds.size &&
+        [...storedTagIds].every((tagId) => importedTagIds.has(tagId));
+
+      return {
+        ...res.toObject(),
+        id,
+        tagIdsWithAncestors: sameTags
+          ? tagIdsWithAncestors
+          : await actions.deriveAncestorTagIds(res.tagIds.map(String)),
+      };
+    },
+  ),
+);
 
 export const listDeletedFiles = makeAction(async () =>
   (await models.DeletedFileModel.find().lean()).map((f) =>
@@ -518,25 +545,112 @@ export const listSortedFileIds = makeAction(
   },
 );
 
+const missingVideoInfoFilter = {
+  ext: { $in: CONSTANTS.VIDEO.EXTS },
+  $or: [
+    { audioBitrate: { $exists: false } },
+    { audioBitrate: "" },
+    { audioCodec: { $exists: false } },
+    { audioCodec: "" },
+    { bitrate: { $exists: false } },
+    { bitrate: "" },
+    { videoCodec: { $exists: false } },
+    { videoCodec: "" },
+  ],
+};
+
 export const listVideosWithMissingInfo = makeAction(async () => {
-  const files = await models.FileModel.find({
-    ext: { $in: CONSTANTS.VIDEO.EXTS },
-    $or: [
-      { audioBitrate: { $exists: false } },
-      { audioBitrate: "" },
-      { audioCodec: { $exists: false } },
-      { audioCodec: "" },
-      { bitrate: { $exists: false } },
-      { bitrate: "" },
-      { videoCodec: { $exists: false } },
-      { videoCodec: "" },
-    ],
-  })
+  const files = await models.FileModel.find(missingVideoInfoFilter)
     .allowDiskUse(true)
     .select({ _id: 1, isCorrupted: 1, path: 1 })
     .lean();
 
   return files.map((f) => ({ id: f._id.toString(), isCorrupted: f.isCorrupted, path: f.path }));
+});
+
+export const repairVideoCodecs = makeAction(async ({ repairId }: { repairId: string }) => {
+  const { checkCancelled, report, run, signal } = makeRepairReporter(repairId, "repairVideoCodecs");
+
+  return run(async () => {
+    let corruptedCount = 0;
+    let processedCount = 0;
+
+    while (true) {
+      checkCancelled();
+
+      // Missing metadata is the durable pending-work predicate; committed repairs leave this set.
+      const files = await models.FileModel.find({
+        ...missingVideoInfoFilter,
+        isCorrupted: { $ne: true },
+      })
+        .select({ hash: 1, path: 1 })
+        .sort({ _id: 1 })
+        .limit(100)
+        .lean();
+      if (!files.length) break;
+
+      await Promise.all(
+        Array.from({ length: Math.min(10, files.length) }, (_, worker) =>
+          runBackgroundExecution(
+            async () => {
+              for (let index = worker; index < files.length; index += 10) {
+                checkCancelled();
+
+                const file = files[index];
+                let updates: Partial<models.FileSchema>;
+
+                try {
+                  updates = await getVideoInfo(file.path, signal);
+                } catch (error) {
+                  signal.throwIfAborted();
+                  checkCancelled();
+                  updates = { isCorrupted: true };
+
+                  report(
+                    `Failed to read codec information for ${file.path}: ${error.message}.`,
+                    "error",
+                  );
+                }
+
+                await (async () => {
+                  checkCancelled();
+
+                  const current = await models.FileModel.findById(file._id)
+                    .select({ hash: 1, path: 1 })
+                    .lean();
+                  if (!current || current.hash !== file.hash || current.path !== file.path) return;
+
+                  const result = await actions.updateFile({
+                    args: { id: String(file._id), updates },
+                  });
+                  if (!result.success) throw new Error(result.error);
+                })();
+
+                if (updates.isCorrupted) corruptedCount++;
+
+                processedCount++;
+
+                if (processedCount % 25 === 0)
+                  report(
+                    `Inspected ${processedCount} videos; ${corruptedCount} were marked corrupted.`,
+                    "progress",
+                  );
+              }
+            },
+            signal,
+            false,
+          ),
+        ),
+      );
+    }
+
+    report(
+      `Codec inspection completed: inspected ${processedCount} videos and marked ${corruptedCount} corrupted.`,
+      "success",
+    );
+
+    return { corruptedCount, processedCount };
+  });
 });
 
 export const loadFaceApiNets = makeAction(async () => {
@@ -548,205 +662,220 @@ export const loadFaceApiNets = makeAction(async () => {
 });
 
 export const relinkFiles = makeAction(
-  async (args: { filesToRelink: { id: string; path: string }[] }) => {
-    const oldFiles = (
-      await models.FileModel.find({
-        _id: { $in: objectIds(args.filesToRelink.map((f) => f.id)) },
-      }).lean()
-    ).map(leanModelToJson<models.FileSchema>);
+  registerMetadataWork(
+    "relinkFiles",
+    async (args: { filesToRelink: { id: string; path: string }[] }) => {
+      if (!args.filesToRelink.length) return;
 
-    const filesToRelinkMap = new Map(args.filesToRelink.map((f) => [f.id, f.path]));
-    const newFilesMap = new Map<string, { path: string; thumb: models.FileSchema["thumb"] }>();
+      const oldFiles = (
+        await models.FileModel.find({
+          _id: { $in: objectIds(args.filesToRelink.map((f) => f.id)) },
+        }).lean()
+      ).map(leanModelToJson<models.FileSchema>);
 
-    oldFiles.forEach((f) => {
-      const newPath = filesToRelinkMap.get(f.id);
-      const newThumb = {
-        path: path.resolve(
-          path.dirname(newPath),
-          `${path.basename(newPath, path.extname(newPath))}-thumb`,
-          ".jpg",
-        ),
-      };
+      const filesToRelinkMap = new Map(args.filesToRelink.map((f) => [f.id, f.path]));
+      if (filesToRelinkMap.size !== args.filesToRelink.length)
+        throw new Error("Each file can only be relinked once per request");
 
-      newFilesMap.set(f.id, { path: newPath, thumb: newThumb });
-    });
+      if (oldFiles.length !== filesToRelinkMap.size)
+        throw new Error("Some files to relink were not found");
 
-    const fileRes = await models.FileModel.bulkWrite(
-      [...newFilesMap].map(([id, { path, thumb }]) => ({
-        updateOne: {
-          filter: { _id: objectId(id) },
-          update: { $set: { path, thumb: { path: thumb.path } } },
-        },
-      })),
-    );
+      const newFilesMap = new Map<string, { path: string; thumb: models.FileSchema["thumb"] }>();
 
-    if (fileRes.modifiedCount !== fileRes.matchedCount)
-      throw new Error(`Failed to bulk write relinked file: ${JSON.stringify(fileRes, null, 2)}`);
+      oldFiles.forEach((f) => {
+        const newPath = filesToRelinkMap.get(f.id);
 
-    const fileIds = [...newFilesMap.keys()];
-    const collRes = await actions.regenCollAttrs({ fileIds });
-    if (!collRes.success) throw new Error(`Failed to update collections: ${collRes.error}`);
+        const newThumb = {
+          ...f.thumb,
+          ntfsFileId: undefined,
+          ntfsVolumeId: undefined,
+          path: path.resolve(
+            path.dirname(newPath),
+            f.thumb?.path ? path.basename(f.thumb.path) : `${f.hash}-thumb.jpg`,
+          ),
+        };
 
-    const importBatches = (
-      await models.FileImportBatchModel.find({
-        imports: { $elemMatch: { fileId: { $in: objectIds(fileIds) } } },
-      }).lean()
-    ).map(leanModelToJson<models.FileImportBatchSchema>);
+        newFilesMap.set(f.id, { path: newPath, thumb: newThumb });
+      });
 
-    const importsRes = await models.FileImportBatchModel.bulkWrite(
-      importBatches.map((importBatch) => ({
-        updateOne: {
-          filter: { _id: objectId(importBatch.id) },
-          update: {
-            $set: {
-              imports: importBatch.imports.map((fileImport) => {
-                if (!fileIds.includes(fileImport.fileId)) return fileImport;
-                return { ...fileImport, ...newFilesMap.get(fileImport.fileId) };
-              }),
-            },
-          },
-        },
-      })),
-    );
+      await assertMediaPathsAvailable(
+        [...newFilesMap.values()].flatMap(({ path, thumb }) => [path, thumb?.path]),
+      );
 
-    if (importsRes.modifiedCount !== importBatches.length)
-      throw new Error("Failed to bulk write relinked file imports");
-  },
-);
-
-export const repairFilesWithBrokenExt = makeAction(async ({ repairId }: { repairId: string }) => {
-  const { perfLog } = makePerfLog("[repairFiles]", true);
-  const { checkCancelled, report, run } = makeRepairReporter(repairId, "repairFiles");
-  return run(async () => {
-    report("Searching for files whose stored extension begins with a dot.");
-    const filesWithDotPrefix = await models.FileModel.find({
-      ext: { $regex: /^\./ },
-    })
-      .allowDiskUse(true)
-      .select({ _id: 1, path: 1 })
-      .lean();
-
-    perfLog(`Found ${filesWithDotPrefix.length} files with legacy extension format`);
-    report(
-      `Found ${filesWithDotPrefix.length} files with a legacy dot-prefixed extension.`,
-      "progress",
-    );
-
-    report("Comparing stored file extensions with the extensions in file paths.");
-    checkCancelled();
-    const filesWithIncorrectOrUppercaseExt: {
-      _id: mongoose.Types.ObjectId;
-      path: string;
-    }[] = await models.FileModel.aggregate([
-      {
-        $addFields: {
-          pathExt: { $regexFind: { input: "$path", regex: /\.(\w+)$/ } },
-        },
-      },
-      {
-        $match: {
-          $expr: {
-            $or: [
-              {
-                $ne: [
-                  { $toLower: { $arrayElemAt: ["$pathExt.captures", 0] } },
-                  { $toLower: "$ext" },
-                ],
-              },
-              { $ne: ["$ext", { $toLower: "$ext" }] },
-            ],
-          },
-        },
-      },
-      { $project: { _id: 1, path: 1 } },
-    ]).allowDiskUse(true);
-
-    perfLog(
-      `Found ${filesWithIncorrectOrUppercaseExt.length} files with incorrect or uppercase extensions`,
-    );
-    report(
-      `Found ${filesWithIncorrectOrUppercaseExt.length} files with an incorrect or uppercase extension.`,
-      "progress",
-    );
-
-    const filesToUpdate = new Map(filesWithDotPrefix.map((f) => [f._id.toString(), f.path]));
-
-    filesWithIncorrectOrUppercaseExt.forEach((f) => {
-      if (!filesToUpdate.has(f._id.toString())) filesToUpdate.set(f._id.toString(), f.path);
-    });
-
-    perfLog(`Found ${filesToUpdate.size} files to update`);
-    report(`Updating extensions on ${filesToUpdate.size} unique files.`);
-    checkCancelled();
-
-    const bulkWriteRes = filesToUpdate.size
-      ? await models.FileModel.bulkWrite(
-          [...filesToUpdate].map((f) => ({
+      const fileRes = await models.FileModel.bulkWrite(
+        normalizeMediaPathWrites(
+          "File",
+          [...newFilesMap].map(([id, { path, thumb }]) => ({
             updateOne: {
-              filter: { _id: objectId(f[0]) },
+              filter: { _id: objectId(id) },
+              update: { $set: { path, thumb } },
+            },
+          })),
+        ),
+        { session: getBackgroundSession() },
+      );
+
+      if (fileRes.matchedCount !== newFilesMap.size)
+        throw new Error(`Failed to bulk write relinked file: ${JSON.stringify(fileRes, null, 2)}`);
+
+      const fileIds = [...newFilesMap.keys()];
+
+      await actions.queueTagMetadataRegen(oldFiles.flatMap((file) => file.tagIds.map(String)));
+
+      const collRes = await actions.regenCollAttrs({ fileIds });
+      if (!collRes.success) throw new Error(`Failed to update collections: ${collRes.error}`);
+
+      const importBatches = (
+        await models.FileImportBatchModel.find({
+          imports: { $elemMatch: { fileId: { $in: objectIds(fileIds) } } },
+        }).lean()
+      ).map(leanModelToJson<models.FileImportBatchSchema>);
+
+      if (importBatches.length) {
+        const importsRes = await models.FileImportBatchModel.bulkWrite(
+          importBatches.map((importBatch) => ({
+            updateOne: {
+              filter: { _id: objectId(importBatch.id) },
               update: {
-                $set: { ext: path.extname(f[1]).slice(1).toLowerCase() },
+                $set: {
+                  imports: importBatch.imports.map((fileImport) => {
+                    if (!newFilesMap.has(String(fileImport.fileId))) return fileImport;
+
+                    return { ...fileImport, ...newFilesMap.get(String(fileImport.fileId)) };
+                  }),
+                },
               },
             },
           })),
-        )
-      : { modifiedCount: 0 };
+          { session: getBackgroundSession() },
+        );
 
-    perfLog(`Updated extensions of ${bulkWriteRes.modifiedCount} files`);
+        if (importsRes.matchedCount !== importBatches.length)
+          throw new Error("Failed to bulk write relinked file imports");
+      }
 
-    if (bulkWriteRes.modifiedCount !== filesToUpdate.size)
-      throw new Error(`Bulk write failed: ${JSON.stringify(bulkWriteRes, null, 2)}`);
+      for (const [id, updates] of newFilesMap) socket.emit("onFileUpdated", { id, updates });
+    },
+  ),
+);
+
+export const repairFilesWithBrokenExt = makeAction(async ({ repairId }: { repairId: string }) => {
+  const { checkCancelled, report, run } = makeRepairReporter(repairId, "repairFiles");
+
+  return run(async () => {
+    let filesWithDotPrefixCount = 0;
+    let filesWithIncorrectExtCount = 0;
+
+    report("Checking file extensions in bounded metadata batches.");
+
+    await repairMetadata(
+      models.FileModel.aggregate<{ _id: mongoose.Types.ObjectId }>([
+        { $addFields: { pathExt: { $regexFind: { input: "$path", regex: /\.([^./\\]*)$/ } } } },
+        {
+          $match: {
+            $expr: {
+              $ne: [
+                "$ext",
+                { $toLower: { $ifNull: [{ $arrayElemAt: ["$pathExt.captures", 0] }, ""] } },
+              ],
+            },
+          },
+        },
+        { $project: { _id: 1 } },
+      ]).cursor({ batchSize: 100 }),
+      async (candidate) => {
+        checkCancelled();
+
+        const file = await models.FileModel.findById(candidate._id)
+          .select({ ext: 1, path: 1 })
+          .lean();
+        if (!file) return null;
+
+        const ext = path.extname(file.path).slice(1).toLowerCase();
+        if (file.ext === ext) return null;
+
+        await models.FileModel.updateOne({ _id: file._id }, { $set: { ext } });
+        socket.emit("onFileUpdated", { id: String(file._id), updates: { ext } });
+        checkCancelled();
+
+        return { dotPrefix: file.ext?.startsWith(".") ?? false };
+      },
+      async ({ result }) => {
+        checkCancelled();
+
+        if (result) {
+          if (result.dotPrefix) filesWithDotPrefixCount++;
+
+          filesWithIncorrectExtCount++;
+        }
+      },
+    );
 
     report(
-      `File extension repair completed successfully: updated ${bulkWriteRes.modifiedCount} files.`,
+      `File extension repair completed successfully: updated ${filesWithIncorrectExtCount} files.`,
       "success",
     );
-    return {
-      filesWithDotPrefixCount: filesWithDotPrefix.length,
-      filesWithIncorrectExtCount: filesWithIncorrectOrUppercaseExt.length,
-    };
+
+    return { filesWithDotPrefixCount, filesWithIncorrectExtCount };
   });
 });
 
 export const repairFilesWithMissingInfo = makeAction(async ({ repairId }: { repairId: string }) => {
   const { checkCancelled, report, run } = makeRepairReporter(repairId, "repairFiles");
+
   return run(async () => {
-    const updateMissingOriginal = async (name: string) => {
-      checkCancelled();
-      const originalName = `original${Fmt.capitalize(name)}`;
-      report(`Searching for videos with ${name} but no ${originalName}.`);
-      const files = await models.FileModel.find({
+    report("Checking original video information in bounded metadata batches.");
+
+    await repairMetadata(
+      models.FileModel.find({
         ext: { $in: CONSTANTS.VIDEO.EXTS },
-        $or: [
-          {
-            $and: [
-              { [name]: { $exists: true } },
-              { $or: [{ [originalName]: { $exists: false } }, { [originalName]: "" }] },
-            ],
-          },
-        ],
+        $or: ["bitrate", "size", "videoCodec"].map((name) => ({
+          [name]: { $exists: true, $ne: null },
+          $or: [
+            { [`original${Fmt.capitalize(name)}`]: null },
+            { [`original${Fmt.capitalize(name)}`]: "" },
+          ],
+        })),
       })
-        .allowDiskUse(true)
-        .select({ _id: 1, [name]: 1 })
-        .lean();
+        .select({ _id: 1 })
+        .sort({ _id: 1 })
+        .lean()
+        .cursor(),
+      async (candidate) => {
+        checkCancelled();
 
-      report(`Found ${files.length} videos missing ${originalName}.`, "progress");
-      if (files.length)
-        await models.FileModel.bulkWrite(
-          files.map((file) => ({
-            updateOne: {
-              filter: { _id: file._id },
-              update: { $set: { [originalName]: file[name] } },
-            },
-          })),
-        );
-      report(`Repaired ${originalName} on ${files.length} videos.`, "progress");
-    };
+        const file = await models.FileModel.findById(candidate._id)
+          .select({
+            bitrate: 1,
+            ext: 1,
+            originalBitrate: 1,
+            originalSize: 1,
+            originalVideoCodec: 1,
+            size: 1,
+            videoCodec: 1,
+          })
+          .lean();
+        if (!file || !CONSTANTS.VIDEO.EXTS.some((ext) => ext === file.ext)) return;
 
-    await updateMissingOriginal("bitrate");
-    await updateMissingOriginal("size");
-    await updateMissingOriginal("videoCodec");
+        const updates: Partial<models.FileSchema> = {};
+
+        for (const name of ["bitrate", "size", "videoCodec"] as const) {
+          const originalName = `original${Fmt.capitalize(name)}`;
+
+          if (file[name] != null && (file[originalName] == null || file[originalName] === ""))
+            updates[originalName] = file[name];
+        }
+
+        if (!Object.keys(updates).length) return;
+
+        await models.FileModel.updateOne({ _id: file._id }, { $set: updates });
+        socket.emit("onFileUpdated", { id: String(file._id), updates });
+        checkCancelled();
+      },
+    );
+
     report("Missing original video information repair completed successfully.", "success");
+
     return { repairedFields: ["originalBitrate", "originalSize", "originalVideoCodec"] };
   });
 });
@@ -767,6 +896,7 @@ export const repairMissingAudioAnalysis = makeAction(
       repairId,
       "repairAudioAnalysis",
     );
+
     return run(async () => {
       if (
         repairTranscriptions &&
@@ -775,16 +905,23 @@ export const repairMissingAudioAnalysis = makeAction(
         throw new Error("Maximum transcription duration must be greater than zero.");
 
       const missingFilters: mongoose.FilterQuery<models.FileSchema>[] = [];
+
       if (repairTranscriptions)
         missingFilters.push({
           duration: { $lte: maxTranscriptionDuration },
           transcription: null,
         });
+
       if (repairWaveforms) missingFilters.push({ "waveformPeaks.0": { $exists: false } });
+
       if (!missingFilters.length) return { repairedTranscriptions: 0, repairedWaveforms: 0 };
 
       report(
-        `Searching for videos with audio and missing analysis data.${repairTranscriptions ? ` Transcriptions are limited to ${Fmt.duration(maxTranscriptionDuration)}.` : ""}`,
+        `Searching for videos with audio and missing analysis data.${
+          repairTranscriptions
+            ? ` Transcriptions are limited to ${Fmt.duration(maxTranscriptionDuration)}.`
+            : ""
+        }`,
       );
 
       const fileFilter: mongoose.FilterQuery<models.FileSchema> = {
@@ -794,11 +931,20 @@ export const repairMissingAudioAnalysis = makeAction(
       };
 
       const fileCount = await models.FileModel.countDocuments(fileFilter).allowDiskUse(true);
+
       report(`Found ${fileCount} videos requiring audio analysis.`, "progress");
 
       const cursor = models.FileModel.find(fileFilter)
         .allowDiskUse(true)
-        .select({ _id: 1, duration: 1, path: 1, transcription: 1, waveformPeaks: 1 })
+        .select({
+          _id: 1,
+          dateModified: 1,
+          duration: 1,
+          hash: 1,
+          path: 1,
+          transcription: 1,
+          waveformPeaks: 1,
+        })
         .lean()
         .cursor({ batchSize: 100 });
 
@@ -814,6 +960,7 @@ export const repairMissingAudioAnalysis = makeAction(
         if (message.startsWith("Downloading transcription model:")) {
           const roundedProgress = Math.floor(progress / 10) * 10;
           if (roundedProgress <= reportedModelDownloadProgress) return;
+
           reportedModelDownloadProgress = roundedProgress;
           report(`${message.replace(/\.$/, "")} (${roundedProgress}%).`, "progress", true);
         } else if (message.startsWith("Transcribing audio:")) {
@@ -832,28 +979,32 @@ export const repairMissingAudioAnalysis = makeAction(
           report(message, "progress");
       };
 
-      if (repairTranscriptions) retainTranscriptionModel(modelOwnerId);
+      if (repairTranscriptions) retainTranscriptionModel(modelOwnerId, signal);
 
       try {
         for await (const file of cursor) {
           checkCancelled();
           processedCount++;
+
           const withTranscription =
             repairTranscriptions &&
             file.duration <= maxTranscriptionDuration &&
             !file.transcription;
+
           const withWaveform = repairWaveforms && !file.waveformPeaks?.length;
           if (!withTranscription && !withWaveform) continue;
 
           const startedAt = Date.now();
 
           report(`Analyzing video ${processedCount} / ${fileCount}.`, "progress");
+
           const analysis = await analyzeAudio(file.path, reportAnalysisProgress, signal, {
             withTranscription,
             withWaveform,
           });
 
           checkCancelled();
+
           const updates: Partial<models.FileSchema> = {};
 
           if (withTranscription) {
@@ -867,12 +1018,26 @@ export const repairMissingAudioAnalysis = makeAction(
             repairedWaveforms++;
           }
 
-          const updateRes = await actions.updateFile({
-            args: { id: file._id.toString(), updates },
-          });
-          if (!updateRes.success) throw new Error(updateRes.error);
+          updates.dateModified = dayjs().toISOString();
+
+          const updateRes = await models.FileModel.updateOne(
+            {
+              _id: file._id,
+              dateModified: file.dateModified,
+              hash: file.hash,
+              path: file.path,
+            },
+            { $set: updates },
+            metadataWriteOptions(),
+          );
+          if (!updateRes.matchedCount)
+            throw new Error("File changed during audio analysis; retry repair");
+
+          socket.emit("onFileUpdated", { id: file._id.toString(), updates });
+
           completedCount++;
           totalProcessingTime += Date.now() - startedAt;
+
           report(
             `Completed video ${processedCount} / ${fileCount} in ${dayjs.duration(Date.now() - startedAt).format("HH:mm:ss")}; average ${dayjs.duration(totalProcessingTime / completedCount).format("HH:mm:ss")} per completed video.`,
             "progress",
@@ -880,6 +1045,7 @@ export const repairMissingAudioAnalysis = makeAction(
         }
       } finally {
         await cursor.close();
+
         if (repairTranscriptions) await releaseTranscriptionModel(modelOwnerId);
       }
 
@@ -887,6 +1053,7 @@ export const repairMissingAudioAnalysis = makeAction(
         `Audio analysis repair completed successfully: regenerated ${repairedWaveforms} waveforms and ${repairedTranscriptions} transcriptions.`,
         "success",
       );
+
       return { repairedTranscriptions, repairedWaveforms };
     });
   },
@@ -909,97 +1076,108 @@ export const setFileFaceModels = makeAction(
   },
 );
 
-const emitFilesArchived = async (fileIds: string[]) => {
-  socket.emit("onFilesArchived", { fileIds });
-  socket.emit("onFilesUpdated", { fileIds, updates: { isArchived: true } });
-};
-
 export const setFileIsArchived = makeAction(
-  async (args: { fileIds: string[]; isArchived: boolean }) => {
-    const updates = { isArchived: args.isArchived };
-    await models.FileModel.updateMany({ _id: { $in: args.fileIds } }, updates);
-    if (args.isArchived) {
-      const res = await actions.deleteFileTransformsByFileIds({ fileIds: args.fileIds });
-      if (!res.success) throw new Error(res.error);
-    }
+  registerMetadataWork(
+    "setFileIsArchived",
+    async (args: { fileIds: string[]; isArchived: boolean }) => {
+      const updates = { isArchived: args.isArchived };
 
-    if (args.isArchived) {
-      if (!deferRegeneration(emitFilesArchived, args.fileIds, "complete"))
-        await emitFilesArchived(args.fileIds);
-    } else socket.emit("onFilesUpdated", { fileIds: args.fileIds, updates });
+      await models.FileModel.updateMany({ _id: { $in: args.fileIds } }, updates);
+
+      if (args.isArchived) {
+        const res = await actions.deleteFileTransformsByFileIds({ fileIds: args.fileIds });
+        if (!res.success) throw new Error(res.error);
+      }
+    },
+  ),
+  ({ fileIds, isArchived }) => {
+    if (isArchived) socket.emit("onFilesArchived", { fileIds });
+
+    socket.emit("onFilesUpdated", { fileIds, updates: { isArchived } });
   },
 );
 
-export const setFileRating = makeAction(async (args: { fileIds: string[]; rating: number }) => {
-  const tagIds = [
-    ...new Set(
-      (
-        await models.FileModel.find({ _id: { $in: args.fileIds } })
-          .select({ tagIdsWithAncestors: 1 })
-          .lean()
-      ).flatMap((file) => file.tagIdsWithAncestors.map(String)),
-    ),
-  ];
-  const updates = { rating: args.rating, dateModified: dayjs().toISOString() };
-  await models.FileModel.updateMany({ _id: { $in: args.fileIds } }, updates);
-  if (!deferRegeneration(notifyFileMetadataChanges, args.fileIds, "complete"))
+export const setFileRating = makeAction(
+  registerMetadataWork("setFileRating", async (args: { fileIds: string[]; rating: number }) => {
+    const tagIds = [
+      ...new Set(
+        (
+          await models.FileModel.find({ _id: { $in: args.fileIds } })
+            .select({ tagIdsWithAncestors: 1 })
+            .lean()
+        ).flatMap((file) => file.tagIdsWithAncestors.map(String)),
+      ),
+    ];
+
+    const updates = { rating: args.rating, dateModified: dayjs().toISOString() };
+
+    await models.FileModel.updateMany({ _id: { $in: args.fileIds } }, updates);
     socket.emit("onFilesUpdated", { fileIds: args.fileIds, updates });
 
-  await actions.regenCollAttrs({ fileIds: args.fileIds });
-  if (tagIds.length) await actions.queueTagMetadataRegen(tagIds);
-});
+    const collections = await actions.regenCollAttrs({ fileIds: args.fileIds });
+    if (!collections.success) throw new Error(collections.error);
+
+    if (tagIds.length) await actions.queueTagMetadataRegen(tagIds);
+  }),
+);
 
 /* ----------------------------------------------------------------------- */
-const generateFileThumbnail = async (file: models.FileSchema, skipThumbs = false) => {
-  const info = await genFileInfo({ file, filePath: file.path, hash: file.hash, skipThumbs });
-  const thumbnailExists = info.thumb?.path && (await checkFileExists(info.thumb.path));
-  if (info.isCorrupted || !thumbnailExists)
-    throw new Error(
-      info.isCorrupted
-        ? "Thumbnail generation reported that the source file is corrupted."
-        : `Thumbnail ${skipThumbs ? "was not found at the expected path" : "generation did not create a file"}: ${info.thumb?.path ?? "no path returned"}`,
-    );
-  return info;
-};
-
 const fileThumbnailRepairPromises = new Map<
   string,
   Promise<{ status: "repaired" | "skipped"; thumb?: models.FileSchema["thumb"] }>
 >();
+
 const fileRefreshAbortControllers = new Map<string, AbortController>();
 
-export const repairFileThumbnail = makeAction(async ({ fileId }: { fileId: string }) => {
-  const pendingRepair = fileThumbnailRepairPromises.get(fileId);
-  if (pendingRepair) return pendingRepair;
+export const repairFileThumbnail = makeAction(
+  registerMetadataWork(
+    "repairFileThumbnail",
+    async ({ fileId }: { fileId: string }) => {
+      const pendingRepair = fileThumbnailRepairPromises.get(fileId);
+      if (pendingRepair) return pendingRepair;
 
-  const repairPromise = (async () => {
-    const fileModel = await models.FileModel.findById(fileId).lean();
-    if (!fileModel) throw new Error(`File ${fileId} was not found.`);
-    const file = leanModelToJson<models.FileSchema>(fileModel);
-    if (file.isCorrupted) return { status: "skipped" as const };
+      const repairPromise = (async () => {
+        const fileModel = await models.FileModel.findById(fileId).lean();
+        if (!fileModel) throw new Error(`File ${fileId} was not found.`);
 
-    try {
-      const info = await generateFileThumbnail(file);
-      const updateRes = await actions.updateFile({ args: { id: file.id, updates: info } });
-      if (!updateRes.success) throw new Error(updateRes.error);
-      return { status: "repaired" as const, thumb: info.thumb };
-    } catch (error) {
-      const updateRes = await actions.updateFile({
-        args: { id: file.id, updates: { isCorrupted: true } },
-      });
-      if (!updateRes.success)
-        throw new Error(
-          `Thumbnail repair failed and the file could not be marked corrupted: ${updateRes.error}`,
-        );
-      throw error;
+        const file = leanModelToJson<models.FileSchema>(fileModel);
+        if (file.isCorrupted) return { status: "skipped" as const };
+
+        const info = await repairThumbnail(file);
+
+        return { status: "repaired" as const, thumb: info.thumb };
+      })();
+
+      fileThumbnailRepairPromises.set(fileId, repairPromise);
+
+      try {
+        return await repairPromise;
+      } finally {
+        fileThumbnailRepairPromises.delete(fileId);
+      }
+    },
+    true,
+  ),
+);
+
+makeBackgroundOperationRunner("thumbnail recovery", async () => {
+  for await (const operation of FileOperationModel.find({
+    error: { $exists: false },
+    kind: "thumbnail",
+    state: "PREPARED",
+  })
+    .lean()
+    .cursor()) {
+    if (!canRunBackgroundQueues()) return;
+
+    const result = await repairFileThumbnail({ fileId: operation.fileId });
+
+    if (!result.success) {
+      await FileOperationModel.updateOne(
+        { _id: operation._id, state: "PREPARED" },
+        { $set: { error: result.error } },
+      );
     }
-  })();
-
-  fileThumbnailRepairPromises.set(fileId, repairPromise);
-  try {
-    return await repairPromise;
-  } finally {
-    fileThumbnailRepairPromises.delete(fileId);
   }
 });
 
@@ -1020,6 +1198,7 @@ export const repairThumbnailNtfsMetadata = makeAction(
         ],
         "thumb.path": { $exists: true, $nin: [null, ""] },
       };
+
       const totalCount = await models.FileModel.countDocuments(filter);
       let cursor: mongoose.Types.ObjectId;
       let failedCount = 0;
@@ -1028,7 +1207,7 @@ export const repairThumbnailNtfsMetadata = makeAction(
 
       report(`Found ${totalCount} thumbnails missing NTFS ordering metadata.`, "progress");
 
-      while (true) {
+      while (!isServerStopping()) {
         checkCancelled();
 
         const files = await models.FileModel.find({
@@ -1041,32 +1220,27 @@ export const repairThumbnailNtfsMetadata = makeAction(
           .lean();
         if (!files.length) break;
 
-        const metadataUpdates: ThumbnailNtfsMetadata[] = [];
-        const queue = new PromiseQueue({ concurrency: CONSTANTS.FILE.THUMB.NTFS_CONCURRENCY });
+        for (const file of files) {
+          checkCancelled();
 
-        await Promise.all(
-          files.map((file) =>
-            queue.add(async () => {
-              checkCancelled();
+          let identity: Awaited<ReturnType<typeof getNtfsFileIdentity>>;
 
-              try {
-                const identity = await getNtfsFileIdentity(file.thumb.path);
-                metadataUpdates.push({
-                  fileId: file._id.toString(),
-                  ntfsFileId: identity.fileId,
-                  ntfsVolumeId: identity.volumeId,
-                  sourcePath: file.thumb.path,
-                });
-              } catch {
-                failedCount++;
-              }
-            }),
-          ),
-        );
+          try {
+            identity = await getNtfsFileIdentity(file.thumb.path);
+          } catch {
+            failedCount++;
+            continue;
+          }
 
-        checkCancelled();
-
-        storedCount += await storeThumbnailNtfsMetadata(metadataUpdates);
+          storedCount += await storeThumbnailNtfsMetadata([
+            {
+              fileId: String(file._id),
+              ntfsFileId: identity.fileId,
+              ntfsVolumeId: identity.volumeId,
+              sourcePath: file.thumb.path,
+            },
+          ]);
+        }
 
         cursor = files[files.length - 1]._id;
         inspectedCount += files.length;
@@ -1076,6 +1250,13 @@ export const repairThumbnailNtfsMetadata = makeAction(
           "progress",
         );
       }
+
+      checkCancelled();
+
+      if (failedCount)
+        throw new Error(
+          `${failedCount} thumbnail identities could not be inspected; successful repairs were retained.`,
+        );
 
       report(
         `Thumbnail NTFS metadata repair completed successfully: inspected ${inspectedCount} thumbnails, stored ${storedCount} identities, and could not inspect ${failedCount}.`,
@@ -1092,17 +1273,21 @@ export const storeThumbnailNtfsMetadata = async (metadataItems: ThumbnailNtfsMet
   if (!metadataItems.length) return 0;
 
   const result = await models.FileModel.bulkWrite(
-    metadataItems.map((metadata) => ({
-      updateOne: {
-        filter: { _id: objectId(metadata.fileId), "thumb.path": metadata.sourcePath },
-        update: {
-          $set: {
-            "thumb.ntfsFileId": metadata.ntfsFileId,
-            "thumb.ntfsVolumeId": metadata.ntfsVolumeId,
+    normalizeMediaPathWrites(
+      "File",
+      metadataItems.map((metadata) => ({
+        updateOne: {
+          filter: { _id: objectId(metadata.fileId), "thumb.path": metadata.sourcePath },
+          update: {
+            $set: {
+              "thumb.ntfsFileId": metadata.ntfsFileId,
+              "thumb.ntfsVolumeId": metadata.ntfsVolumeId,
+            },
           },
         },
-      },
-    })),
+      })),
+    ),
+    { session: getBackgroundSession(), ...metadataWriteOptions() },
   );
 
   return result.modifiedCount;
@@ -1112,10 +1297,13 @@ export const cancelFileRefresh = makeAction(async ({ refreshId }: { refreshId: s
   const abortController = fileRefreshAbortControllers.get(refreshId);
   abortController?.abort();
   await releaseTranscriptionModel(`file-refresh:${refreshId}`);
+
   return Boolean(abortController);
 });
 
 export const finishFileRefresh = makeAction(async ({ refreshId }: { refreshId: string }) => {
+  fileRefreshAbortControllers.get(refreshId)?.abort();
+  fileRefreshAbortControllers.delete(refreshId);
   await releaseTranscriptionModel(`file-refresh:${refreshId}`);
 });
 
@@ -1131,11 +1319,13 @@ export const refreshFileInfo = makeAction(
     withTranscription?: boolean;
     withWaveform?: boolean;
   }) => {
-    const abortController = new AbortController();
+    const abortController = fileRefreshAbortControllers.get(refreshId) ?? new AbortController();
+
     if (refreshId) {
       fileRefreshAbortControllers.set(refreshId, abortController);
+
       if (withTranscription ?? getConfig().file.transcription.enabled)
-        retainTranscriptionModel(`file-refresh:${refreshId}`);
+        retainTranscriptionModel(`file-refresh:${refreshId}`, abortController.signal);
     }
 
     try {
@@ -1154,25 +1344,19 @@ export const refreshFileInfo = makeAction(
           refreshId,
         });
 
-      const updates = await genFileInfo({
-        file,
-        filePath: file.path,
-        hash: file.hash,
-        onProgress: report,
-        signal: abortController.signal,
-        withTranscription,
-        withWaveform,
-      });
-
-      abortController.signal.throwIfAborted();
-      report("Saving refreshed metadata.");
-
-      const updateRes = await actions.updateFile({ args: { id: file.id, updates } });
-      if (!updateRes.success) throw new Error(updateRes.error);
-      return updateRes.data;
+      return await runBackgroundExecution(
+        () =>
+          repairThumbnail(file, false, [], {
+            onProgress: report,
+            signal: abortController.signal,
+            withTranscription,
+            withWaveform,
+          }),
+        abortController.signal,
+        false,
+      );
     } finally {
-      if (refreshId && fileRefreshAbortControllers.get(refreshId) === abortController)
-        fileRefreshAbortControllers.delete(refreshId);
+      if (!refreshId) abortController.abort();
     }
   },
 );
@@ -1180,26 +1364,25 @@ export const refreshFileInfo = makeAction(
 /* ----------------------------------------------------------------------- */
 class ThumbRepairer {
   private checkCancelled: ReturnType<typeof makeRepairReporter>["checkCancelled"];
+  private chunkSize = 1000;
+  private errorCount = 0;
+  private fileChunkIteration = 0;
+  private hasFilesWithOldThumbPaths = false;
+  private hasInvalidThumbnails = false;
+  private hasMorePages = true;
   private logTag = "[repairThumbs]";
   private perfLog: (str: string) => void;
   private perfLogTotal: (str: string) => void;
   private report: ReturnType<typeof makeRepairReporter>["report"];
-
-  private chunkSize = 1000;
-  private fileChunkIteration = 0;
-  private errorCount = 0;
-  private hasFilesWithOldThumbPaths = false;
-  private hasInvalidThumbnails = false;
-  private hasMorePages = true;
-  private thumbMap = new Map<string, models.FileSchema["thumb"]>();
-
   private tagCount = 0;
+  private thumbMap = new Map<string, models.FileSchema["thumb"]>();
   private totalCount = 0;
 
   constructor(repairId: string) {
     const { perfLog, perfLogTotal } = makePerfLog(this.logTag, true);
     this.perfLog = perfLog;
     this.perfLogTotal = perfLogTotal;
+
     const reporter = makeRepairReporter(repairId, "repairThumbs");
     this.checkCancelled = reporter.checkCancelled;
     this.report = reporter.report;
@@ -1212,6 +1395,7 @@ class ThumbRepairer {
 
   private errorLog = async (...args: any[]) => {
     this.errorCount++;
+
     const message = args.map(String).join(" ");
     this.report(message, "error");
   };
@@ -1237,9 +1421,12 @@ class ThumbRepairer {
         );
       } catch (error) {
         if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+
         loadedDirectoryFileNames = new Set();
       }
+
       loadedDirectoryPath = directoryPath;
+
       return loadedDirectoryFileNames;
     };
 
@@ -1248,9 +1435,11 @@ class ThumbRepairer {
 
       for (const file of files) {
         this.checkCancelled();
+
         const sourceDirectoryPath = path.dirname(file.path);
         const sourceDirectoryFileNames = await loadDirectoryFileNames(sourceDirectoryPath);
         const storedThumbnailPath = file.thumb?.path;
+
         const storedThumbnailExists = !storedThumbnailPath
           ? false
           : path.dirname(storedThumbnailPath).toLowerCase() === sourceDirectoryPath.toLowerCase()
@@ -1259,7 +1448,9 @@ class ThumbRepairer {
         if (storedThumbnailExists) continue;
 
         invalidThumbnailCount++;
+
         const expectedThumbPath = path.resolve(path.dirname(file.path), `${file.hash}-thumb.jpg`);
+
         const expectedThumbnailExists = sourceDirectoryFileNames.has(
           path.basename(expectedThumbPath).toLowerCase(),
         );
@@ -1294,11 +1485,13 @@ class ThumbRepairer {
       .select({ _id: 1, dateModified: 1, hash: 1, isCorrupted: 1, path: 1, thumb: 1 })
       .lean()
       .cursor({ batchSize: validationBatchSize });
+
     for await (const file of cursor) {
       this.checkCancelled();
       files.push(leanModelToJson<models.FileSchema>(file));
       if (files.length >= validationBatchSize) await processBatch();
     }
+
     await processBatch();
 
     this.hasInvalidThumbnails = invalidThumbnailCount > 0;
@@ -1332,157 +1525,107 @@ class ThumbRepairer {
   };
 
   private iterateFiles = async () => {
-    const processedFileIds: string[] = [];
-    let idsToRegenThumb: string[] = [];
-    let idsToUnset: string[] = [];
-    let deletedThumbCount = 0;
-    let movedImageThumbCount = 0;
-    let skippedThumbCount = 0;
+    const files = await this.getFilesWithThumbPaths();
 
+    this.hasMorePages = files.length === this.chunkSize;
+    this.hasFilesWithOldThumbPaths ||= files.length > 0;
     this.fileChunkIteration++;
 
-    const filesWithThumbPaths = await this.getFilesWithThumbPaths();
-    if (filesWithThumbPaths.length < this.chunkSize) this.hasMorePages = false;
-    if (!this.hasFilesWithOldThumbPaths && filesWithThumbPaths.length > 0)
-      this.hasFilesWithOldThumbPaths = true;
-
-    const filesWithThumbPathsMap = new Map<string, models.FileSchema & { thumbPaths: string[] }>(
-      filesWithThumbPaths.map((f) => [f.id, f]),
-    );
-    filesWithThumbPaths.forEach((f) => this.thumbMap.set(f.id, null));
-
-    this.progressLog(
-      `Files iteration ${this.fileChunkIteration}. Files to process: ${filesWithThumbPaths.length}.`,
-    );
-
-    for (const file of filesWithThumbPaths) {
+    for (const file of files) {
       this.checkCancelled();
-      if (file.thumbPaths.length === 1) {
-        const originalPath = file.thumbPaths[0];
-        const newThumbPath = this.makeFileThumbPath(file);
-        await actions.copyFile({
-          dirPath: path.dirname(file.path),
-          originalPath,
-          newPath: newThumbPath,
-        });
-        await actions.updateFile({
-          args: {
-            id: file.id,
-            updates: { thumb: { frameHeight: null, frameWidth: null, path: newThumbPath } },
-          },
-        });
-        await deleteFile(originalPath, newThumbPath);
-        movedImageThumbCount++;
-      } else {
-        for (const t of file.thumbPaths) {
-          const res = await deleteFile(t);
-          if (!res.success) throw new Error(res.error);
-          if (res.data) deletedThumbCount++;
-          else skippedThumbCount++;
-        }
-      }
 
-      processedFileIds.push(file.id);
-      idsToUnset.push(file.id);
-      if (!file.thumb?.path) idsToRegenThumb.push(file.id);
+      const info = await repairThumbnail(file, false, file.thumbPaths);
 
-      if (
-        processedFileIds.length % 100 === 0 ||
-        processedFileIds.length === filesWithThumbPaths.length
-      ) {
-        for (const fileId of idsToRegenThumb) {
-          this.checkCancelled();
-          await this.regenThumbs(filesWithThumbPathsMap.get(fileId)).catch(() => {
-            this.checkCancelled();
-            return this.errorLog(`Failed to regen thumb for file ${fileId}`);
-          });
-        }
-        this.progressLog(`Regenerated thumbnail data for ${idsToRegenThumb.length} files.`);
-        idsToRegenThumb = [];
-
-        try {
-          const res = await models.FileModel.updateMany(
-            { _id: idsToUnset },
-            { $unset: { thumbPaths: "" } },
-            { strict: false },
-          );
-          if (res.modifiedCount !== idsToUnset.length)
-            throw new Error(JSON.stringify(res, null, 2));
-          this.progressLog(`Removed legacy thumbnail paths from ${res.modifiedCount} files.`);
-        } catch (err) {
-          this.errorLog(`Failed to unset 'thumbPaths': ${err.message}`);
-        }
-        idsToUnset = [];
-      }
+      this.thumbMap.set(file.id, info.thumb);
     }
 
     this.progressLog(
-      `Iteration complete. Deleted ${deletedThumbCount} thumbnail files. Moved and renamed ${movedImageThumbCount} image thumb paths. Found ${skippedThumbCount} thumbnail paths without files.`,
+      `Repaired ${files.length} legacy thumbnail records in iteration ${this.fileChunkIteration}.`,
     );
   };
 
-  private makeFileThumbPath = (file: models.FileSchema) =>
-    path.resolve(path.dirname(file.path), `${path.basename(file.path, file.ext)}-thumb${file.ext}`);
-
   private processTags = async () => {
     this.checkCancelled();
+
     const filter = { thumbPaths: { $exists: true } };
-    const tags = (
-      await models.TagModel.find(filter, null, { strict: false }).allowDiskUse(true).lean()
-    ).map(leanModelToJson<models.TagSchema>);
-    this.tagCount = tags.length;
-    this.progressLog(`Found ${this.tagCount} tags with legacy thumbnail paths.`);
 
-    if (this.tagCount > 0) {
-      const tagIds = [...new Set(tags.map((t) => t.id))];
-      await actions.regenTagMeta({ tagIds });
-      this.progressLog("Regenerated thumbnail metadata for affected tags.");
+    this.tagCount = 0;
 
-      const unsetRes = await models.TagModel.updateMany(
-        filter,
-        { $unset: { thumbPaths: "" } },
-        { strict: false },
-      );
-      if (!unsetRes.matchedCount || unsetRes.modifiedCount !== unsetRes.matchedCount)
-        throw new Error(
-          `Failed to unset thumbPaths from tags: ${JSON.stringify(unsetRes, null, 2)}`,
-        );
+    while (true) {
+      this.checkCancelled();
 
-      this.progressLog("Removed legacy thumbnail paths from tags.");
+      const tags = await models.TagModel.find(filter, null, { strict: false })
+        .select({ _id: 1 })
+        .sort({ _id: 1 })
+        .limit(100)
+        .lean();
+      if (!tags.length) break;
+
+      const result = await actions.regenTagMeta({ tagIds: tags.map(({ _id }) => String(_id)) });
+      if (!result.success) throw new Error(result.error);
+
+      this.tagCount += tags.length;
     }
+
+    this.progressLog(
+      `Regenerated thumbnail metadata and removed legacy thumbnail paths on ${this.tagCount} tags.`,
+    );
   };
 
   private regenThumbs = async (file: models.FileSchema, skipThumbs = false) => {
     this.checkCancelled();
-    const info = await generateFileThumbnail(file, skipThumbs);
+
+    const info = await repairThumbnail(file, skipThumbs);
+
     this.checkCancelled();
     this.thumbMap.set(file.id, info.thumb);
-    const res = await actions.updateFile({ args: { id: file.id, updates: info } });
-    if (!res.success) throw new Error(`Failed to update file: ${res.error}`);
   };
 
   private fixMalformedThumbPaths = async () => {
-    const pipeline: UpdateWithAggregationPipeline = [
-      {
-        $set: {
-          "thumb.path": {
-            $replaceOne: { input: "$thumb.path", find: "\\.jpg", replacement: ".jpg" },
+    const filter = { "thumb.path": { $regex: "\\\\.jpg$" } };
+
+    await repairMetadata(models.FileModel.find(filter).lean().cursor(), async (file) => {
+      const current = await models.FileModel.findById(file._id).lean();
+      if (!current?.thumb?.path?.endsWith("\\.jpg")) return;
+
+      const updated = await actions.updateFile({
+        args: {
+          id: String(current._id),
+          updates: {
+            thumb: { ...current.thumb, path: current.thumb.path.replace(/\\\.jpg$/, ".jpg") },
           },
         },
-      },
-    ];
+      });
+      if (!updated.success) throw new Error(updated.error);
 
-    const fileRes = await models.FileModel.updateMany(
-      { "thumb.path": { $regex: "\\\\.jpg$" } },
-      pipeline,
-    );
-    this.progressLog(`Fixed ${fileRes.matchedCount} files with malformed thumbnail paths.`);
+      await actions.queueTagMetadataRegen(current.tagIds.map(String));
 
-    const tagRes = await models.TagModel.updateMany(
-      { "thumb.path": { $regex: "\\\\.jpg$" } },
-      pipeline,
-    );
-    this.progressLog(`Fixed ${tagRes.matchedCount} tags with malformed thumbnail paths.`);
+      const collections = await actions.regenCollAttrs({ fileIds: [String(current._id)] });
+      if (!collections.success) throw new Error(collections.error);
+    });
+
+    let lastId: mongoose.Types.ObjectId;
+
+    while (true) {
+      this.checkCancelled();
+
+      const tags = await models.TagModel.find({
+        ...filter,
+        ...(lastId ? { _id: { $gt: lastId } } : {}),
+      })
+        .select({ _id: 1 })
+        .sort({ _id: 1 })
+        .limit(100)
+        .lean();
+      if (!tags.length) break;
+
+      const result = await actions.regenTagMeta({ tagIds: tags.map(({ _id }) => String(_id)) });
+      if (!result.success) throw new Error(result.error);
+
+      lastId = tags[tags.length - 1]._id;
+    }
+
+    this.progressLog("Repaired malformed thumbnail references and dependent metadata.");
   };
 
   /* ----------------------------------------------------------------------- */
@@ -1494,6 +1637,7 @@ class ThumbRepairer {
     repairPaths: boolean;
   }) => {
     this.checkCancelled();
+
     if (repairPaths) {
       this.report("Searching for malformed thumbnail paths.");
       await this.fixMalformedThumbPaths();
@@ -1501,27 +1645,31 @@ class ThumbRepairer {
       this.report("Counting files with legacy thumbnail paths.");
       this.totalCount = await this.getTotalFilesWithThumbPaths();
       this.progressLog(`Found ${this.totalCount} files with legacy thumbnail paths.`);
+
       if (this.totalCount) this.report("Migrating legacy file thumbnail paths.");
+
       while (this.hasMorePages) await this.iterateFiles();
     }
 
     this.checkCancelled();
+
     if (repairMissingThumbnails) {
       this.report("Searching for files without thumbnail data.");
       await this.validateFileThumbnails();
     }
 
+    await this.processTags();
+
     if (!this.hasFilesWithOldThumbPaths && !this.hasInvalidThumbnails) {
       this.perfLogTotal("No files to process found");
+
       this.report(
         "Thumbnail repair completed successfully: no remaining files required repair.",
         "success",
       );
+
       return { fileCount: this.thumbMap.size, tagCount: this.tagCount };
     }
-
-    this.report("Repairing tag thumbnails affected by file thumbnail changes.");
-    await this.processTags();
 
     if (this.errorCount)
       throw new Error(
@@ -1529,10 +1677,12 @@ class ThumbRepairer {
       );
 
     this.perfLogTotal("Repaired all thumbs");
+
     this.report(
       `Thumbnail repair completed successfully: processed ${this.thumbMap.size} files and ${this.tagCount} tags.`,
       "success",
     );
+
     return {
       fileCount: this.thumbMap.size,
       tagCount: this.tagCount,
@@ -1552,6 +1702,7 @@ export const repairThumbs = makeAction(
   }) => {
     const { run } = makeRepairReporter(repairId, "repairThumbs");
     const repairer = new ThumbRepairer(repairId);
+
     return run(
       async () => await repairer.processAllFiles({ repairMissingThumbnails, repairPaths }),
     );

@@ -6,7 +6,7 @@ import {
 } from "medior/server/database/repair-progress";
 import { makeAction, socket } from "medior/utils/server";
 
-export const _emitEvent = makeAction(async (args: { event: SocketEmitEvent; data: any }) => {
+export const _emitEvent = makeAction(async (args: { data: any; event: SocketEmitEvent }) => {
   socket.emit(args.event as any, args.data);
 });
 

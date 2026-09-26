@@ -23,6 +23,7 @@ const WEB_AUDIO_CODECS: Record<string, string> = {
   opus: "opus",
   vorbis: "vorbis",
 };
+
 const WEB_VIDEO_CODECS: Record<string, string> = {
   av1: "av01.0.04M.08",
   h264: "avc1.42E01E",
@@ -57,9 +58,11 @@ export class File extends ExtendedModel(_File, {
     dateModified?: string;
     removedTagIds?: string[];
   }) {
+    const existingIds = new Set(this.tagIds);
+    const removedIds = new Set(removedTagIds);
     this.tagIds = this.tagIds
-      .filter((tagId) => !removedTagIds?.includes(tagId))
-      .concat(addedTagIds?.filter?.((tagId) => !this.tagIds.includes(tagId)) ?? []);
+      .filter((tagId) => !removedIds.has(tagId))
+      .concat(addedTagIds?.filter?.((tagId) => !existingIds.has(tagId)) ?? []);
     this.dateModified = dateModified;
   }
 
@@ -68,6 +71,7 @@ export class File extends ExtendedModel(_File, {
   reload = asyncAction(async () => {
     const res = await trpc.listFile.mutate({ args: { filter: { id: this.id } } });
     if (!res.success) throw new Error(res.error);
+
     this.update(res.data.items[0]);
   });
 
@@ -75,6 +79,7 @@ export class File extends ExtendedModel(_File, {
   reloadTags = asyncAction(async () => {
     const res = await trpc.listTag.mutate({ filter: { id: this.tagIds } });
     if (!res.success) throw new Error(res.error);
+
     this.setTags(res.data);
   });
 

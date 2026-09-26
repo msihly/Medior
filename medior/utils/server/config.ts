@@ -15,7 +15,6 @@ import {
   VideoCodec,
   VideoExt,
 } from "medior/utils/common";
-import { trpc } from "medior/utils/server/trpc";
 
 type DevToolsMode = null | Electron.OpenDevToolsOptions["mode"];
 
@@ -140,6 +139,7 @@ export interface Config {
     imageExts: Array<ImageExt>;
     reencode: {
       codec: string;
+      imageConcurrency: number;
       imageExt: ImageExt;
       imageJpgQuality: number;
       imageMaxLongEdge: number;
@@ -175,7 +175,7 @@ export interface Config {
       batchSize?: number;
       defaultLimit: number;
       device?: "cpu" | "cuda" | "dml" | "gpu" | "webgpu";
-      dtype?: "fp32" | "fp16" | "q4" | "q8";
+      dtype?: "fp16" | "fp32" | "q4" | "q8";
       index: {
         ivfPq: {
           maxIterations: number;
@@ -192,7 +192,7 @@ export interface Config {
       visual: {
         device: "cpu" | "cuda" | "dml" | "gpu" | "webgpu";
         inferenceBatchSize: number;
-        inferenceDType: "fp32" | "fp16" | "q4" | "q8";
+        inferenceDType: "fp16" | "fp32" | "q4" | "q8";
       };
       weights: {
         audio: number;
@@ -307,6 +307,7 @@ export const DEFAULT_CONFIG: Config = {
     imageExts: [...CONSTANTS.IMAGE.EXTS_COMMON],
     reencode: {
       codec: "libx265",
+      imageConcurrency: 2,
       imageExt: "jpg",
       imageJpgQuality: 90,
       imageMaxLongEdge: 2560,
@@ -442,6 +443,7 @@ let config: Config;
 
 export const setConfig = (value: Config) => {
   config = deepMerge(DEFAULT_CONFIG, value);
+
   return config;
 };
 
@@ -451,15 +453,29 @@ const writeConfig = (filePath: string, value: Config) =>
 export const getAvailableFileStorage = (bytesNeeded: number) =>
   handleErrors(async () => {
     for (const location of config.db.fileStorage.locations) {
-      const res = await trpc.getDiskStats.mutate({ diskPath: location });
-      if (!res.success) throw new Error(res.error);
-      if (res.data.free > bytesNeeded) return { bytesLeft: res.data.free, location };
+      let storagePath = path.resolve(location);
+
+      while (true) {
+        try {
+          const { bavail, bsize } = await fs.statfs(storagePath);
+
+          if (bavail * bsize > bytesNeeded) return { bytesLeft: bavail * bsize, location };
+
+          break;
+        } catch (error) {
+          if (error.code !== "ENOENT" || storagePath === path.dirname(storagePath)) throw error;
+
+          storagePath = path.dirname(storagePath);
+        }
+      }
     }
+
     throw new Error("No available file storage location found.");
   });
 
 export const getConfig = (debugLoc?: string) => {
   if (!config) throw new Error(`Config not loaded. ${debugLoc}`);
+
   return config;
 };
 
@@ -485,6 +501,7 @@ export const loadConfig = async (filePath: string) => {
       fileLog(`Config file not found at ${filePath}. Initializing with defaults.`);
       await writeConfig(filePath, DEFAULT_CONFIG);
       setConfig(DEFAULT_CONFIG);
+
       return config;
     }
 
@@ -495,6 +512,7 @@ export const loadConfig = async (filePath: string) => {
 
     const migratedTranscriptionModel =
       TRANSCRIPTION_MODEL_MIGRATIONS[config.file.transcription.model];
+
     if (migratedTranscriptionModel) {
       config.file.transcription.model = migratedTranscriptionModel;
       await writeConfig(filePath, config);
@@ -548,6 +566,7 @@ export const loadConfig = async (filePath: string) => {
   } catch (err) {
     fileLog(`Failed to load config: ${err}`, { type: "error" });
     setConfig(DEFAULT_CONFIG);
+
     return config;
   }
 };
@@ -555,6 +574,7 @@ export const loadConfig = async (filePath: string) => {
 export const saveConfig = async (configPath: string, value: Config) => {
   try {
     if (!configPath) throw new Error("No config path provided.");
+
     fileLog(`Saving config to ${configPath}...`);
     await writeConfig(configPath, setConfig(value));
   } catch (err) {

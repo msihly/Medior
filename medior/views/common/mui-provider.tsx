@@ -15,6 +15,7 @@ export const MuiProvider = ({ children }: { children: React.ReactNode }) => {
       palette: { mode: "dark" },
     }),
   );
+
   const muiCacheRef = useRef(createCache({ key: "mui", prepend: true, stylisPlugins: [] }));
 
   return (

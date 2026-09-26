@@ -1,18 +1,8 @@
-import { Badge } from "@mui/material";
 import Color from "color";
-import {
-  Chip,
-  ChipProps,
-  Comp,
-  ConditionalWrap,
-  Icon,
-  IconName,
-  TagToUpsert,
-  Text,
-  View,
-} from "medior/components";
+import { Chip, ChipProps, Comp, Icon, IconName, TagToUpsert, Text, View } from "medior/components";
 import { useStores } from "medior/store";
 import { colors, CssColor, makeClasses } from "medior/utils/client";
+import { BadgeWrapper } from "./tag-chip-badge";
 
 const HEIGHT_MEDIUM = 32;
 const HEIGHT_SMALL = 26;
@@ -36,17 +26,20 @@ export const TagChip = Comp(
     ...props
   }: TagChipProps) => {
     const stores = useStores();
+    const store = stores.tag;
 
-    color = color || tag?.category?.color || colors.custom.grey;
-    icon = icon || (tag?.category?.icon as IconName);
+    const category = store.getCategory(tag);
+    color = color || category?.color || colors.custom.grey;
+    icon = icon || (category?.icon as IconName);
 
     const { css, cx } = useClasses({ color, size });
 
     const handleClick = () => {
       onClick?.(tag.id ?? null);
+
       if (hasEditor && tag.id) {
-        stores.tag.editor.setIsOpen(true);
-        stores.tag.editor.loadTag(tag.id);
+        store.editor.setIsOpen(true);
+        store.editor.loadTag({ id: tag.id });
       }
     };
 
@@ -74,58 +67,23 @@ export const TagChip = Comp(
   },
 );
 
-const BadgeContent = () => {
-  return (
-    <View
-      borderRadiuses={{ all: "50%" }}
-      margins={{ top: "0.2rem", left: "0.4rem" }}
-      bgColor={Color(colors.custom.green).lighten(0.9).string() as CssColor}
-    >
-      <Icon name="AddCircle" color={colors.custom.green} size={15} />
-    </View>
-  );
-};
-
-interface BadgeWrapperProps {
-  children: JSX.Element;
-  condition: boolean;
-}
-
-const BadgeWrapper = ({ children, condition }: BadgeWrapperProps) => {
-  return (
-    <ConditionalWrap
-      condition={condition}
-      wrap={(c) => (
-        <Badge
-          badgeContent={<BadgeContent />}
-          anchorOrigin={{ horizontal: "left", vertical: "top" }}
-        >
-          {c}
-        </Badge>
-      )}
-    >
-      {children}
-    </ConditionalWrap>
-  );
-};
-
 interface ClassesProps extends Pick<TagChipProps, "color" | "size"> {}
 
 const useClasses = makeClasses((props: ClassesProps) => ({
   chip: {
-    border: `2px solid ${props.color}`,
-    borderRadius: 12,
-    padding: "0.3em 0",
-    height: props.size === "medium" ? HEIGHT_MEDIUM : HEIGHT_SMALL,
-    background: Color(props.color).lighten(0.2).fade(0.5).toString(),
     "& .MuiChip-label": {
       padding: "0",
       width: "100%",
     },
+    background: Color(props.color).lighten(0.2).fade(0.5).toString(),
+    border: `2px solid ${props.color}`,
+    borderRadius: 12,
+    height: props.size === "medium" ? HEIGHT_MEDIUM : HEIGHT_SMALL,
+    padding: "0.3em 0",
   },
   label: {
-    padding: "0 0.4rem",
     overflow: "hidden",
+    padding: "0 0.4rem",
     textOverflow: "ellipsis",
   },
 }));

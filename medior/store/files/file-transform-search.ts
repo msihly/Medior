@@ -4,6 +4,7 @@ import { ExtendedModel, model, modelFlow, objectToMapTransform, prop } from "mob
 import { _FileTransformSearch } from "medior/store/_generated";
 import { File } from "medior/store";
 import { asyncAction } from "medior/utils/client";
+import { makeTagSelector } from "medior/utils/common";
 import { trpc } from "medior/utils/server";
 
 @model("medior/FileTransformSearch")
@@ -17,7 +18,11 @@ export class FileTransformSearch extends ExtendedModel(_FileTransformSearch, {
 
     reaction(
       () => this.results,
-      () => this.loadFiles(),
+      () => {
+        if (!this.results.length) this.setFiles(new Map());
+        else if (this.results.some((transform) => !this.files.has(transform.fileId)))
+          this.loadFiles();
+      },
     );
   }
 
@@ -29,11 +34,13 @@ export class FileTransformSearch extends ExtendedModel(_FileTransformSearch, {
 
     try {
       const fileIds = [...new Set(this.results.map((f) => f.fileId))];
+
       if (!fileIds.length) {
         if (loadId === this.loadId) {
           this.setFiles(new Map());
           this.setIsLoading(false);
         }
+
         return;
       }
 
@@ -46,17 +53,20 @@ export class FileTransformSearch extends ExtendedModel(_FileTransformSearch, {
       if (loadId !== this.loadId) return;
       if (!tagRes.success) throw new Error(tagRes.error);
 
+      const selectTags = makeTagSelector(tagRes.data);
+
       this.setFiles(
         new Map(
           res.data.items.map((file) => [
             file.id,
-            new File({ ...file, tags: tagRes.data.filter((tag) => file.tagIds.includes(tag.id)) }),
+            new File({ ...file, tags: selectTags(file.tagIds) }),
           ]),
         ),
       );
       this.setIsLoading(false);
     } catch (error) {
       if (loadId !== this.loadId) return;
+
       this.setIsLoading(false);
       throw error;
     }
@@ -73,6 +83,7 @@ export class FileTransformSearch extends ExtendedModel(_FileTransformSearch, {
 
     const fileIds = res.data.map((transform) => transform.fileId);
     if (!fileIds.length) throw new Error("No files found");
+
     return fileIds;
   });
 
@@ -81,6 +92,7 @@ export class FileTransformSearch extends ExtendedModel(_FileTransformSearch, {
     async ({ hasCtrl, hasShift, id }: { hasCtrl: boolean; hasShift: boolean; id: string }) => {
       const transform = this.getFileTransformByFileId(id);
       if (!transform) throw new Error("File transform not found");
+
       const res = await this.handleSelect({ hasCtrl, hasShift, id: transform.id });
       if (!res?.success) throw new Error(res.error);
     },
@@ -98,7 +110,9 @@ export class FileTransformSearch extends ExtendedModel(_FileTransformSearch, {
 
   getSelectedFileIds(fileId: string) {
     if (!this.getIsFileSelected(fileId)) return [fileId];
+
     const selectedIds = new Set(this.selectedIds);
+
     return this.results
       .filter((transform) => selectedIds.has(transform.id))
       .map((transform) => transform.fileId);

@@ -24,15 +24,15 @@ const STATUSES: Record<string, Status> = {
     icon: "Warning",
     label: "Near Threshold",
   },
-  ONLINE: {
-    color: colors.custom.green,
-    icon: "CheckCircle",
-    label: "Online",
-  },
   OFFLINE: {
     color: colors.custom.red,
     icon: "Error",
     label: "Offline",
+  },
+  ONLINE: {
+    color: colors.custom.green,
+    icon: "CheckCircle",
+    label: "Online",
   },
 };
 
@@ -51,6 +51,7 @@ export const StorageInput = Comp(({ index, selectLocation, ...props }: StorageIn
   const percentFilled = (diskStats?.size - diskStats?.free) / diskStats?.size;
   const isAtThreshold = percentFilled >= threshold;
   const isNearThreshold = percentFilled >= threshold - 0.1;
+
   const status = isOffline
     ? STATUSES.OFFLINE
     : isAtThreshold
@@ -58,6 +59,7 @@ export const StorageInput = Comp(({ index, selectLocation, ...props }: StorageIn
       : isNearThreshold
         ? STATUSES.NEAR_THRESHOLD
         : STATUSES.ONLINE;
+
   const value = stores.home.settings.db.fileStorage.locations[index];
 
   useEffect(() => {
@@ -66,6 +68,7 @@ export const StorageInput = Comp(({ index, selectLocation, ...props }: StorageIn
         try {
           const res = await trpc.getDiskStats.mutate({ diskPath: value });
           if (!res.success) throw new Error(res.error);
+
           setDiskStats(res.data);
         } catch (err) {
           setIsOffline(true);
@@ -79,6 +82,7 @@ export const StorageInput = Comp(({ index, selectLocation, ...props }: StorageIn
 
   const handleLocationClick = async (event: React.MouseEvent) => {
     event.preventDefault();
+
     const location = await selectLocation();
     if (location) setLocationValue(location);
   };

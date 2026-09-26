@@ -7,6 +7,7 @@ import { Chip, ChipProps } from "./chip";
 
 export const getRatingMeta = (rating: number) => {
   const icon: IconName = rating > 0 ? "Star" : "StarOutline";
+
   const iconColor: CssColor =
     rating >= 7
       ? (Color(colors.custom.orange).lighten(0.2).string() as CssColor)
@@ -17,6 +18,7 @@ export const getRatingMeta = (rating: number) => {
   const textShadow = /^[235689]/.test(String(rating))
     ? `0px 0px ${/^[369]/.test(String(rating)) ? "7px" : "2px"} ${iconColor}`
     : undefined;
+
   return { icon, iconColor, textShadow };
 };
 

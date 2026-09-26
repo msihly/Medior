@@ -1,32 +1,31 @@
-import { ReactNode, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Divider } from "@mui/material";
 import { TagSchema } from "medior/_generated/server";
 import { ModelCreationData } from "mobx-keystone";
 import type { ImportStatus } from "medior/server/database";
 import {
+  Button,
   Chip,
   Comp,
   Detail,
   Icon,
-  IconName,
-  IdButton,
   IMPORT_STATUSES,
   TagRow,
   Text,
   Tooltip,
-  TooltipProps,
-  TooltipWrapper,
   UniformList,
   View,
 } from "medior/components";
 import { FileImport } from "medior/store";
-import { colors, CssColor, makeClasses, toast } from "medior/utils/client";
+import { colors, CssColor, makeClasses, openCarouselWindow, toast } from "medior/utils/client";
 import { CONSTANTS, Fmt, parseDiffParams } from "medior/utils/common";
 import { trpc } from "medior/utils/server";
+import { TooltipChip } from "./tooltip-chip";
 
 export const IMPORT_LIST_ITEM_HEIGHT = 30;
 
 export interface ImportListItemProps {
+  batchImports: ModelCreationData<FileImport>[];
   bgColor?: CssColor;
   fileImport: ModelCreationData<FileImport>;
   noStatus?: boolean;
@@ -34,13 +33,15 @@ export interface ImportListItemProps {
 }
 
 export const ImportListItem = Comp(
-  ({ bgColor, fileImport, noStatus = false, style = {} }: ImportListItemProps) => {
+  ({ batchImports, bgColor, fileImport, noStatus = false, style = {} }: ImportListItemProps) => {
     const { css } = useClasses(null);
 
+    const [isOpening, setIsOpening] = useState(false);
     const [tags, setTags] = useState<TagSchema[]>([]);
 
     const parsedParams = useMemo(() => {
       if (!fileImport.diffusionParams) return null;
+
       return parseDiffParams(fileImport.diffusionParams);
     }, [fileImport.diffusionParams]);
 
@@ -51,6 +52,32 @@ export const ImportListItem = Comp(
       } catch (err) {
         console.error(err);
         toast.error("Error loading tags");
+      }
+    };
+
+    const openFile = async () => {
+      setIsOpening(true);
+
+      try {
+        const res = await trpc.listFile.mutate({ args: { filter: { id: fileImport.fileId } } });
+        if (!res.success) throw new Error(res.error);
+        if (!res.data.items.length) return toast.warn("File no longer exists in the library");
+
+        await openCarouselWindow({
+          file: res.data.items[0],
+          selectedFileIds: Array.from(
+            new Set(
+              batchImports
+                .filter((item) => item.fileId && ["COMPLETE", "DUPLICATE"].includes(item.status))
+                .map((item) => item.fileId),
+            ),
+          ),
+        });
+      } catch (error) {
+        console.error(error);
+        toast.error("Failed to open file");
+      } finally {
+        setIsOpening(false);
       }
     };
 
@@ -78,7 +105,9 @@ export const ImportListItem = Comp(
 
                 {fileImport?.errorMsg && <Text>{fileImport?.errorMsg}</Text>}
 
-                {fileImport?.fileId && <IdButton value={fileImport?.fileId} />}
+                {fileImport.fileId && ["COMPLETE", "DUPLICATE"].includes(fileImport.status) && (
+                  <Button text="Open File" onClick={openFile} loading={isOpening} />
+                )}
               </View>
             }
           >
@@ -200,53 +229,16 @@ export const ImportListItem = Comp(
   },
 );
 
-interface TooltipChipProps extends Partial<Omit<TooltipProps, "children">> {
-  children: ReactNode | ReactNode[];
-  icon: IconName;
-  label: string;
-}
-
-const TooltipChip = ({ children, icon, label, ...tooltipProps }: TooltipChipProps) => {
-  const { css } = useClasses({});
-
-  return (
-    <TooltipWrapper
-      tooltip={
-        <View column padding={{ all: "0.5rem", top: "0.2rem" }}>
-          <Text className={css.tooltipTitle}>{label}</Text>
-
-          {children}
-        </View>
-      }
-      tooltipProps={{
-        maxWidth: "40rem",
-        minWidth: "15rem",
-        placement: "left-start",
-        ...tooltipProps,
-      }}
-    >
-      <Chip {...{ icon, label }} bgColor={colors.custom.blue} className={css.chip} />
-    </TooltipWrapper>
-  );
-};
-
 const useClasses = makeClasses({
   chip: {
     flexShrink: 0,
-    padding: "0.2em",
     height: "auto",
-    width: "auto",
     minWidth: "4em",
+    padding: "0.2em",
+    width: "auto",
   },
   name: {
     textOverflow: "ellipsis",
     textWrap: "nowrap",
-  },
-  tooltipTitle: {
-    marginBottom: "0.2rem",
-    color: colors.custom.blue,
-    fontSize: "1.3em",
-    fontWeight: 600,
-    textAlign: "center",
   },
 });

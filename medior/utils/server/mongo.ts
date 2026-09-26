@@ -1,12 +1,13 @@
 import type { SocketEventOptions } from "medior/_generated/server/socket";
 import mongoose, { LeanDocument, PipelineStage, Types } from "mongoose";
+import { metadataWork } from "medior/server/database/metadata-work";
 import { handleErrors } from "medior/utils/common";
 
 export const getShiftSelectedItems = async <ModelType>({
   clickedId,
   clickedIndex,
   filterPipeline,
-  ids,
+  ids = [],
   model,
   selectedIds,
 }: {
@@ -18,6 +19,7 @@ export const getShiftSelectedItems = async <ModelType>({
   selectedIds: string[];
 }) => {
   if (selectedIds.length === 0) return { idsToDeselect: [], idsToSelect: [clickedId] };
+
   if (selectedIds.length === 1 && selectedIds[0] === clickedId)
     return { idsToDeselect: [clickedId], idsToSelect: [] };
 
@@ -130,18 +132,24 @@ export const getShiftSelectedItems = async <ModelType>({
     if (hasIds) return ids.indexOf(selectedItem._id.toString());
 
     const selectedItemIndex = await model.countDocuments({
-      ...filterPipeline.$match,
-      $or: [
-        { [sortKey]: selectedItem[sortKey], _id: { [sortOp]: selectedItem._id } },
-        { [sortKey]: { [sortOp]: selectedItem[sortKey] } },
+      $and: [
+        filterPipeline.$match,
+        {
+          $or: [
+            { [sortKey]: selectedItem[sortKey], _id: { [sortOp]: selectedItem._id } },
+            { [sortKey]: { [sortOp]: selectedItem[sortKey] } },
+          ],
+        },
       ],
     });
     if (!(selectedItemIndex > -1)) throw new Error(`Failed to load ${type} selected index`);
+
     return selectedItemIndex;
   };
 
   const firstSelectedIndex = await getSelectedIndex("first");
   if (!(firstSelectedIndex > -1)) return { idsToDeselect: [], idsToSelect: [clickedId] };
+
   if (firstSelectedIndex === clickedIndex) return { idsToDeselect: [clickedId], idsToSelect: [] };
 
   const isFirstAfterClicked = firstSelectedIndex > clickedIndex;
@@ -169,23 +177,41 @@ export const getShiftSelectedItems = async <ModelType>({
 };
 
 export const leanModelToJson = <T>(
-  doc: LeanDocument<T & { _id: Types.ObjectId; __v?: number }>,
+  doc: LeanDocument<T & { __v?: number; _id: Types.ObjectId }>,
 ) => {
   try {
     if (!doc) return null;
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { _id, __v, ...rest } = doc;
+
     return { ...rest, id: _id.toString() } as unknown as T;
   } catch (err) {
     console.error(err.message);
+
     return null;
   }
 };
 
 export const makeAction =
-  <Input, Output>(fn: (input: Input, opts?: SocketEventOptions) => Promise<Output>) =>
-  (args: Input, opts?: SocketEventOptions) =>
-    handleErrors(async () => await fn(args, opts));
+  <Input, Output>(
+    fn: (input: Input, opts?: SocketEventOptions) => Promise<Output>,
+    onSuccess?: (input: Input, result: Output, opts?: SocketEventOptions) => void,
+  ) =>
+  (
+    args: Input,
+    opts?: SocketEventOptions,
+  ): Promise<{ data?: Output; error?: string; success: boolean }> => {
+    const execute = async () => {
+      const result = await fn(args, opts);
+      onSuccess?.(args, result, opts);
+
+      return result;
+    };
+
+    return metadataWork.getStore()
+      ? execute().then((data) => ({ data, success: true as const }))
+      : handleErrors(execute);
+  };
 
 export const objectId = (id: string) => new Types.ObjectId(id);
 

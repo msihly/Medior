@@ -48,6 +48,7 @@ export const TagMerger = Comp(() => {
       setParentTags([]);
       setRegEx("");
       setTagLabelToKeep(null);
+
       return;
     }
 
@@ -81,12 +82,14 @@ export const TagMerger = Comp(() => {
     stores.tag.subEditor.setIsOpen(false);
     stores.tag.editor.setIsOpen(false);
     stores.file.search.reloadIfQueued();
+
     return true;
   };
 
   const handleConfirm = async () => {
     try {
       setIsSaving(true);
+
       const res = await stores.tag.mergeTags({
         aliases,
         childIds: childTags.map((t) => t.id),
@@ -99,6 +102,7 @@ export const TagMerger = Comp(() => {
         withSub: true,
       });
       if (!res.success) throw new Error(res.error);
+
       setIsSaving(false);
 
       stores.tag.merger.setIsOpen(false);
@@ -126,9 +130,12 @@ export const TagMerger = Comp(() => {
 
       const hasDescendants = Array.from(tagIdsSet).some((otherId) => {
         if (otherId === curId) return false;
+
         const otherTag = tagMap.get(otherId);
         if (!otherTag) return false;
+
         const parentIds = new Set(otherTag.ancestorIds ?? []);
+
         return parentIds.has(curId);
       });
 
@@ -256,15 +263,15 @@ export const TagMerger = Comp(() => {
 
 const useClasses = makeClasses({
   disabledOverlay: {
-    position: "absolute",
-    top: 0,
-    bottom: 0,
-    left: 0,
-    right: 0,
-    borderRadius: "inherit",
-    width: "100%",
-    height: "100%",
     background: Color(colors.background).fade(0.3).string(),
+    borderRadius: "inherit",
+    bottom: 0,
+    height: "100%",
+    left: 0,
+    position: "absolute",
+    right: 0,
+    top: 0,
+    width: "100%",
     zIndex: 20,
   },
 });

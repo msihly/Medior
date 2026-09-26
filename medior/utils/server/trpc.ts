@@ -4,7 +4,7 @@ import { io, Socket } from "socket.io-client";
 import { fileLog } from "trabecula/utils/server";
 import { ServerRouter } from "medior/server/trpc";
 import type { VectorRouter } from "medior/server/vector-process";
-import { getConfig } from "medior/utils/server";
+import { getConfig } from "medior/utils/server/config";
 
 /* -------------------------------------------------------------------------- */
 /*                                    TRPC                                    */
@@ -30,8 +30,9 @@ export const setupVectorTRPC = () => {
 /*                                   SOCKETS                                  */
 /* -------------------------------------------------------------------------- */
 class SocketClass {
-  private socket: Socket;
+  private listeners: Array<{ event: keyof SocketEvents; listener: (...args: any[]) => void }> = [];
   private port: number;
+  private socket: Socket;
 
   public constructor() {}
 
@@ -59,6 +60,8 @@ class SocketClass {
   }
 
   public disconnect() {
+    this.listeners = [];
+
     if (this.socket) {
       this.socket.disconnect();
       this.socket = null;
@@ -75,7 +78,7 @@ class SocketClass {
     try {
       setImmediate(() => {
         try {
-          this.socket.volatile?.emit?.(event, ...args) ?? this.socket.emit(event, ...args);
+          this.socket?.volatile.emit(event, ...args);
         } catch (err) {
           fileLog(`emit() inner error: ${err.message}`, { type: "error" });
         }
@@ -99,7 +102,7 @@ class SocketClass {
   }
 
   public isConnected(): boolean {
-    return !!this.socket;
+    return !!this.socket?.connected;
   }
 
   public off<Event extends keyof SocketEvents>(
@@ -107,9 +110,11 @@ class SocketClass {
     listener: (...args: any[]) => void,
   ): void {
     try {
-      if (!this.socket) this.connect();
+      this.listeners = this.listeners.filter(
+        (entry) => entry.event !== event || entry.listener !== listener,
+      );
       // @ts-expect-error
-      this.socket.off(event, listener);
+      this.socket?.off(event, listener);
     } catch (err) {
       fileLog(err, { type: "error" });
     }
@@ -123,9 +128,18 @@ class SocketClass {
       if (!this.socket) this.connect();
       // @ts-expect-error
       this.socket.on(event, listener);
+      this.listeners.push({ event, listener });
     } catch (err) {
       fileLog(err, { type: "error" });
     }
+  }
+
+  public reconnect() {
+    const listeners = this.listeners;
+    this.disconnect();
+    this.connect();
+
+    for (const { event, listener } of listeners) this.on(event, listener);
   }
 }
 

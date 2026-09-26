@@ -66,6 +66,7 @@ export class RootStore extends Model({
 export const createRootStore = () => {
   const rootStore = new RootStore({});
   registerRootStore(rootStore);
+
   return rootStore;
 };
 

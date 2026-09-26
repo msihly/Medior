@@ -15,12 +15,40 @@ model.addProp("alias", "string", '""', {
 });
 
 model.addLogOpProp("count");
+
+model.addLogOpProp("numOfChildTags", {
+  objPath: ["$expr", "~logicOpsToMongo(args.numOfChildTags.logOp)"],
+  objValue: "[{ $size: { $ifNull: ['$childIds', []] } }, args.numOfChildTags.value]",
+});
+
+model.addLogOpProp("numOfParentTags", {
+  objPath: ["$expr", "~logicOpsToMongo(args.numOfParentTags.logOp)"],
+  objValue: "[{ $size: { $ifNull: ['$parentIds', []] } }, args.numOfParentTags.value]",
+});
+
 model.addLogOpProp("rating");
 model.addLogOpProp("size");
 
 model.addDateRangeProp("dateCreated");
 model.addDateRangeProp("dateModified");
 model.addDateRangeProp("dateOfInception");
+
+model.addProp("fileTags", "Stores.TagOption[]", "() => []", {
+  customActionProps: [
+    {
+      condition: "args.fileTagId",
+      name: "fileTagId",
+      objPath: ["$and"],
+      objValue: `[{ _id: {
+        $in: await models.FileModel.distinct("tagIds", { tagIds: objectId(args.fileTagId) }),
+        $ne: objectId(args.fileTagId),
+      } }]`,
+      type: "string",
+    },
+  ],
+  filterTransform: "fileTagId: this.fileTags[0]?.id",
+  noInterface: true,
+});
 
 model.addProp("label", "string", '""', {
   filterGroup: "label",

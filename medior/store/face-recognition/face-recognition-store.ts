@@ -100,6 +100,7 @@ export class FaceRecognitionStore extends Model({
   detectFaces = asyncAction(async (imagePath: string) => {
     const res = await trpc.detectFaces.mutate({ imagePath });
     if (!res.success) throw new Error(res.error);
+
     return res.data;
   });
 
@@ -156,8 +157,10 @@ export class FaceRecognitionStore extends Model({
   init = asyncAction(async () => {
     const netsRes = await trpc.loadFaceApiNets.mutate();
     if (!netsRes.success) throw new Error(netsRes.error);
+
     const faceModelsRes = await this.loadFaceModels();
     if (!faceModelsRes.success) throw new Error(faceModelsRes.error);
+
     this.setIsInitializing(false);
   });
 
@@ -171,6 +174,7 @@ export class FaceRecognitionStore extends Model({
       const res = await trpc.listFaceModels.mutate({ ids: fileIds });
       if (!res.success) throw new Error(res.error);
       if (withOverwrite) this.setFaceModels(res.data.map((f) => new FaceModel(f)));
+
       return res.data;
     },
   );
@@ -198,6 +202,7 @@ export class FaceRecognitionStore extends Model({
 
     const newTagIds = faceModels.reduce((acc, cur) => {
       if (!file.tagIds.includes(cur.tagId)) acc.push(cur.tagId);
+
       return acc;
     }, []);
 
@@ -205,6 +210,7 @@ export class FaceRecognitionStore extends Model({
       await stores.file.editFileTags({ addedTagIds: newTagIds, fileIds: [file.id] });
 
     this.setIsSaving(false);
+
     return this.faceModels;
   });
 

@@ -18,30 +18,38 @@ const TRIAGE_QUEUE_PAGE_SIZE = 100_000;
 
 export const CollectionTriager = Comp(() => {
   const stores = useStores();
-  const manager = stores.collection.manager;
-  const editor = stores.collection.editor;
 
   const carouselSnapshot = useRef(getSnapshot(stores.carousel));
   const fileSearchSnapshot = useRef(getSnapshot(stores.file.search));
+  const loadRevision = useRef(0);
+  const disposed = useRef(false);
 
   const [isLoading, setIsLoading] = useState(true);
   const [queue, setQueue] = useState<string[]>([]);
 
-  const collection = editor.collection;
+  const collection = stores.collection.editor.collection;
 
   useEffect(() => {
+    disposed.current = false;
     void loadQueue();
 
     return () => {
+      disposed.current = true;
+      loadRevision.current++;
+      stores.collection.editor.setIsOpen(false);
       applySnapshot(stores.carousel, carouselSnapshot.current);
-      applySnapshot(stores.file.search, fileSearchSnapshot.current);
+      applySnapshot(stores.file.search, {
+        ...fileSearchSnapshot.current,
+        isLoading: false,
+        loadId: stores.file.search.loadId + 1,
+      });
     };
   }, []);
 
   useEffect(() => {
     if (queue[0]) void loadCollection(queue[0]);
     else {
-      editor.setIsOpen(false);
+      stores.collection.editor.setIsOpen(false);
       stores.carousel.setActiveFileId("");
       stores.carousel.setSelectedFileIds([]);
       setIsLoading(false);
@@ -51,48 +59,66 @@ export const CollectionTriager = Comp(() => {
   const loadQueue = async () => {
     try {
       setIsLoading(true);
+
       const res = await trpc.listFilteredFileCollection.mutate({
-        ...manager.search.getCachedFilterProps(),
+        ...stores.collection.manager.search.getCachedFilterProps(),
         page: 1,
         pageSize: TRIAGE_QUEUE_PAGE_SIZE,
         select: { _id: 1 },
       });
       if (!res.success) throw new Error(res.error);
+      if (disposed.current) return;
 
       setQueue(res.data.map((item) => item.id));
       if (!res.data.length) toast.info("No collections found for this search");
     } catch (err) {
+      if (disposed.current) return;
+
       toast.error(err);
       setIsLoading(false);
     }
   };
 
   const loadCollection = async (id: string) => {
+    const revision = ++loadRevision.current;
+
     try {
       setIsLoading(true);
-      await editor.loadCollection(id);
+      stores.carousel.setActiveFileId("");
+      stores.carousel.setIsPlaying(false);
+      stores.carousel.setSelectedFileIds([]);
+      stores.file.setActiveFileId("");
+      stores.file.search.setLoadId(stores.file.search.loadId + 1);
+      stores.file.search.setIds([]);
+      stores.file.search.setResults([]);
 
-      const fileIds = editor.getFileIdsForCarousel();
+      const loaded = await stores.collection.editor.loadCollection(id);
+      if (!loaded.success) throw new Error(loaded.error);
+      if (disposed.current || revision !== loadRevision.current) return;
+
+      const fileIds = stores.collection.editor.getFileIdsForCarousel();
       const filesRes = await trpc.listFile.mutate({ args: { filter: { id: fileIds } } });
       if (!filesRes.success) throw new Error(filesRes.error);
+      if (disposed.current || revision !== loadRevision.current) return;
 
       stores.file.search.setIds(fileIds);
       stores.file.search.setResults(filesRes.data.items.map((file) => new File(file)));
       stores.carousel.setSelectedFileIds(fileIds);
       stores.carousel.setActiveFileId(fileIds[0] ?? "");
+      stores.file.setActiveFileId(fileIds[0] ?? "");
     } catch (err) {
       toast.error(err);
     } finally {
-      setIsLoading(false);
+      if (!disposed.current && revision === loadRevision.current) setIsLoading(false);
     }
   };
 
   const advance = () => {
     setQueue((prev) => prev.slice(1));
-    void manager.search.loadFiltered();
+    void stores.collection.manager.search.loadFiltered();
   };
 
-  const close = () => manager.setIsTriagerOpen(false);
+  const close = () => stores.collection.manager.setIsTriagerOpen(false);
 
   const handleCarouselWheel = (event: WheelEvent) => {
     if (event.ctrlKey) return;
@@ -112,8 +138,11 @@ export const CollectionTriager = Comp(() => {
 
     try {
       setIsLoading(true);
+
       if (withFiles) {
-        const archiveRes = await stores.file.archiveFiles(editor.getFileIdsForCarousel());
+        const archiveRes = await stores.file.archiveFiles(
+          stores.collection.editor.getFileIdsForCarousel(),
+        );
         if (!archiveRes.success) throw new Error(archiveRes.error);
       }
 
@@ -134,7 +163,11 @@ export const CollectionTriager = Comp(() => {
 
     try {
       setIsLoading(true);
-      await stores.collection.updateCollRating({ id: collection.id, rating });
+
+      const result = await stores.collection.updateCollRating({ id: collection.id, rating });
+      if (!result.success) throw new Error(result.error);
+      if (disposed.current) return;
+
       advance();
     } catch (err) {
       toast.error(err);
@@ -144,8 +177,9 @@ export const CollectionTriager = Comp(() => {
   };
 
   const handleSave = async () => {
-    if (!editor.title) return toast.error("Title is required!");
-    await editor.saveCollection();
+    if (!stores.collection.editor.title) return toast.error("Title is required!");
+
+    await stores.collection.editor.saveCollection();
   };
 
   return (
@@ -159,7 +193,7 @@ export const CollectionTriager = Comp(() => {
           <CarouselWindow embedded />
         </View>
 
-        <FileCollectionEditor embedded maxCards={3} onClose={close} />
+        <FileCollectionEditor embedded maxCards={3} onClose={close} onRating={handleRating} />
       </Modal.Content>
 
       <Modal.Footer>
@@ -187,7 +221,9 @@ export const CollectionTriager = Comp(() => {
           text="Save"
           icon="Save"
           onClick={handleSave}
-          disabled={!editor.hasUnsavedChanges || editor.isLoading}
+          disabled={
+            !stores.collection.editor.hasUnsavedChanges || stores.collection.editor.isLoading
+          }
           color={colors.custom.purple}
         />
       </Modal.Footer>

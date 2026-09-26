@@ -17,7 +17,7 @@ export const FileSearchColumn = Comp(() => {
   const stores = useStores();
   const store = stores.collection.editor.fileSearch;
 
-  const handleFullPageLoad = () => store.loadFiltered({ withFullCount: true });
+  const handleFullPageLoad = () => store.loadFiltered({ toLastPage: true });
 
   const handlePageChange = (page: number) => store.loadFiltered({ page });
 

@@ -10,6 +10,7 @@ export const DeleteFilesModal = Comp(() => {
   const { loadFileInfo, renderFileInfo } = useFileInfo();
   const [isDeleting, setIsDeleting] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
+
   const [progress, setProgress] = useState<FileDeletionProgress>({
     message: "Ready to delete files.",
     processedCount: 0,
@@ -22,7 +23,9 @@ export const DeleteFilesModal = Comp(() => {
 
   const handleDeleteFilesConfirm = async () => {
     setIsDeleting(true);
+
     const res = await stores.file.deleteFiles(setProgress);
+
     if (!res.success) {
       toast.error(res.error);
       setIsDeleting(false);

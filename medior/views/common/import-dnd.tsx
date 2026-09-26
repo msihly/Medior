@@ -38,14 +38,14 @@ export const ImportDnD = Comp(({ children }: { children: JSX.Element | JSX.Eleme
 
 const useClasses = makeClasses({
   overlay: {
-    position: "fixed",
-    top: 0,
-    bottom: 0,
-    right: 0,
-    left: 0,
-    border: `15px dashed ${colors.custom.blue}`,
     backgroundColor: Color(colors.custom.blue).fade(0.5).string(),
+    border: `15px dashed ${colors.custom.blue}`,
+    bottom: 0,
+    left: 0,
     opacity: 0.3,
+    position: "fixed",
+    right: 0,
+    top: 0,
     zIndex: 5000, // necessary for MUI z-index values
   },
 });

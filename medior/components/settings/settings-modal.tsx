@@ -42,11 +42,13 @@ export const SettingsModal = Comp(() => {
   const handleClose = async () => {
     store.setIsOpen(false);
     store.setHasUnsavedChanges(false);
+
     return true;
   };
 
   const handleLoadConfig = async () => {
     store.setIsLoading(true);
+
     const config = await loadConfig(await ipcRenderer.invoke("getConfigPath"));
     stores.applyConfig(config);
     store.setIsLoading(false);
@@ -64,22 +66,28 @@ export const SettingsModal = Comp(() => {
 
   const handleMongoDbPathClick = async (event: React.MouseEvent) => {
     event.preventDefault();
+
     const res = await dialog.showOpenDialog({ properties: ["openDirectory"] });
     if (res.canceled) return;
+
     store.setDbPath(res.filePaths[0]);
   };
 
   const handleSimilarityModelCachePathClick = async (event: React.MouseEvent) => {
     event.preventDefault();
+
     const res = await dialog.showOpenDialog({ properties: ["openDirectory"] });
     if (res.canceled) return;
+
     store.setSimilarityModelCachePath(res.filePaths[0]);
   };
 
   const handleVectorDbPathClick = async (event: React.MouseEvent) => {
     event.preventDefault();
+
     const res = await dialog.showOpenDialog({ properties: ["openDirectory"] });
     if (res.canceled) return;
+
     store.setVectorDbPath(res.filePaths[0]);
   };
 
@@ -113,9 +121,9 @@ export const SettingsModal = Comp(() => {
       stores.import.manager.pauseImporter();
       stores.faceRecog.clearQueue();
       stores.file.cancelFileRefresh();
-      stores.tag.manager.clearRefreshQueue();
 
-      await store.save();
+      const result = await store.save();
+      if (!result.success) throw new Error(result.error);
 
       store.setIsLoading(false);
       store.setHasUnsavedChanges(false);

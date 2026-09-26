@@ -22,6 +22,7 @@ export const FileCollectionFile = Comp(
 
     const handleClick = async (event: React.MouseEvent) => {
       if (disabled) return;
+
       const res = await stores.collection.editor.search.handleSelect({
         hasCtrl: event.ctrlKey,
         hasShift: event.shiftKey,
@@ -67,7 +68,7 @@ export const FileCollectionFile = Comp(
                 label={fileIndex + 1}
                 bgColor={hasChangedIndex ? colors.custom.purple : colors.custom.black}
                 opacity={0.6}
-                radiuses={{ left: 0, top: 0, bottomRight: "inherit" }}
+                radiuses={{ bottomRight: "inherit", left: 0, top: 0 }}
                 flush
               />
 

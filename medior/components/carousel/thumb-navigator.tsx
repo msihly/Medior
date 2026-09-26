@@ -20,8 +20,8 @@ export const CarouselThumbNavigator = Comp(() => {
   const { css } = useClasses({ isMouseMoving: stores.carousel.isMouseMoving, isVisible });
 
   const { handleMouseDown, isDragging } = useDragScroll({
-    listRef,
     listOuterRef,
+    listRef,
     scrollLeft,
     width,
   });
@@ -89,35 +89,35 @@ interface ClassesProps {
 
 const useClasses = makeClasses((props: ClassesProps) => ({
   hideButton: {
-    marginBottom: 10 + (props.isVisible ? 0 : CONSTANTS.CAROUSEL.VIDEO.CONTROLS_HEIGHT),
-    backgroundColor: "rgba(0, 0, 0, 0.3)",
-    opacity: props.isMouseMoving || props.isVisible ? 0.4 : 0,
-    pointerEvents: "auto",
-    transition: "all 200ms ease-in-out",
     "&:hover": {
       backgroundColor: "rgba(0, 0, 0, 0.6)",
       opacity: 1,
     },
-  },
-  root: {
-    position: "absolute",
-    bottom: props.isVisible ? 0 : -CONSTANTS.CAROUSEL.THUMB_NAV.WIDTH,
-    right: 0,
-    left: 0,
-    zIndex: 5,
-    pointerEvents: props.isVisible ? "auto" : "none",
+    backgroundColor: "rgba(0, 0, 0, 0.3)",
+    marginBottom: 10 + (props.isVisible ? 0 : CONSTANTS.CAROUSEL.VIDEO.CONTROLS_HEIGHT),
+    opacity: props.isMouseMoving || props.isVisible ? 0.4 : 0,
+    pointerEvents: "auto",
     transition: "all 200ms ease-in-out",
   },
+  root: {
+    bottom: props.isVisible ? 0 : -CONSTANTS.CAROUSEL.THUMB_NAV.WIDTH,
+    left: 0,
+    pointerEvents: props.isVisible ? "auto" : "none",
+    position: "absolute",
+    right: 0,
+    transition: "all 200ms ease-in-out",
+    zIndex: 5,
+  },
   scrollContainer: {
+    "&::-webkit-scrollbar": { height: 0 },
     backgroundColor: Color("black").fade(0.3).string(),
     overflowX: "scroll",
     whiteSpace: "nowrap",
     zIndex: 15,
-    "&::-webkit-scrollbar": { height: 0 },
   },
   thumbnails: {
+    "&::-webkit-scrollbar": { height: 0 },
     justifyContent: "center",
     userSelect: "none",
-    "&::-webkit-scrollbar": { height: 0 },
   },
 }));

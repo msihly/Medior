@@ -1,4 +1,5 @@
 import { getCurrentWindow } from "@electron/remote";
+import { ipcRenderer } from "electron";
 import { MouseEvent, useEffect, useState } from "react";
 import { Menu } from "@mui/material";
 import { Comp, HotkeysModal, IconButton, ListItem, Text, View } from "medior/components";
@@ -13,10 +14,14 @@ interface WindowTitleBarProps {
 
 export const WindowTitleBar = Comp(({ isDark = false, title }: WindowTitleBarProps) => {
   const stores = useStores();
+  const store = stores.home;
+
   const [anchorEl, setAnchorEl] = useState<HTMLElement>(null);
+
   const [isDevToolsOpen, setIsDevToolsOpen] = useState(() =>
     getCurrentWindow().webContents.isDevToolsOpened(),
   );
+
   const [isHotkeysOpen, setIsHotkeysOpen] = useState(false);
   const [isMaximized, setIsMaximized] = useState(() => getCurrentWindow().isMaximized());
   const { css } = useClasses({ isDark, isDragEnabled: !(isDevToolsOpen && isMaximized) });
@@ -30,17 +35,18 @@ export const WindowTitleBar = Comp(({ isDark = false, title }: WindowTitleBarPro
 
   const handleFileNameToggle = async () => {
     setAnchorEl(null);
-    const showFileName = !stores.home.showFileName;
-    stores.home.setShowFileName(showFileName);
-    stores.home.settings.update({ file: { showFileName } });
+
+    const showFileName = !store.showFileName;
+    store.setShowFileName(showFileName);
+    store.settings.update({ file: { showFileName } });
 
     try {
-      const res = await stores.home.settings.save();
+      const res = await store.settings.save();
       if (!res.success) throw new Error(res.error);
     } catch (error) {
-      stores.home.setShowFileName(!showFileName);
-      stores.home.settings.update({ file: { showFileName: !showFileName } });
-      stores.home.settings.setHasUnsavedChanges(false);
+      store.setShowFileName(!showFileName);
+      store.settings.update({ file: { showFileName: !showFileName } });
+      store.settings.setHasUnsavedChanges(false);
       toast.error(error instanceof Error ? error.message : "Failed to save file name setting");
     }
   };
@@ -72,21 +78,15 @@ export const WindowTitleBar = Comp(({ isDark = false, title }: WindowTitleBarPro
   }, [title]);
 
   useEffect(() => {
-    const browserWindow = getCurrentWindow();
-    const handleDevToolsClosed = () => setIsDevToolsOpen(false);
-    const handleDevToolsOpened = () => setIsDevToolsOpen(true);
-    const handleMaximized = () => setIsMaximized(true);
-    const handleUnmaximized = () => setIsMaximized(false);
+    const handleWindowState = (_, state: { isDevToolsOpen: boolean; isMaximized: boolean }) => {
+      setIsDevToolsOpen(state.isDevToolsOpen);
+      setIsMaximized(state.isMaximized);
+    };
 
-    browserWindow.webContents.on("devtools-closed", handleDevToolsClosed);
-    browserWindow.webContents.on("devtools-opened", handleDevToolsOpened);
-    browserWindow.on("maximize", handleMaximized);
-    browserWindow.on("unmaximize", handleUnmaximized);
+    ipcRenderer.on("window-state", handleWindowState);
+
     return () => {
-      browserWindow.webContents.off("devtools-closed", handleDevToolsClosed);
-      browserWindow.webContents.off("devtools-opened", handleDevToolsOpened);
-      browserWindow.off("maximize", handleMaximized);
-      browserWindow.off("unmaximize", handleUnmaximized);
+      ipcRenderer.off("window-state", handleWindowState);
     };
   }, []);
 
@@ -113,7 +113,7 @@ export const WindowTitleBar = Comp(({ isDark = false, title }: WindowTitleBarPro
       >
         <View>
           <ListItem
-            icon={stores.home.showFileName ? "CheckBox" : "CheckBoxOutlineBlank"}
+            icon={store.showFileName ? "CheckBox" : "CheckBoxOutlineBlank"}
             onClick={handleFileNameToggle}
             text="Show File Names"
           />
@@ -173,13 +173,13 @@ const useClasses = makeClasses((props: ClassesProps) => ({
   },
   control: {
     "-webkit-app-region": "no-drag",
+    "&:hover": {
+      background: colors.custom.darkGrey,
+    },
     borderRadius: 0,
     height: "100%",
     padding: 0,
     width: 46,
-    "&:hover": {
-      background: colors.custom.darkGrey,
-    },
   },
   controls: {
     "-webkit-app-region": "no-drag",
@@ -194,12 +194,12 @@ const useClasses = makeClasses((props: ClassesProps) => ({
   },
   menuButton: {
     "-webkit-app-region": "no-drag",
-    borderRadius: 0,
-    height: CONSTANTS.WINDOW.TITLE_BAR.HEIGHT,
-    width: 40,
     "&:hover": {
       background: colors.custom.darkGrey,
     },
+    borderRadius: 0,
+    height: CONSTANTS.WINDOW.TITLE_BAR.HEIGHT,
+    width: 40,
   },
   root: {
     background: props.isDark ? CONSTANTS.CAROUSEL.TOP_BAR.BACKGROUND : colors.background,

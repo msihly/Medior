@@ -87,10 +87,12 @@ class TranscodeSession {
 
   public dispose() {
     if (this.disposed) return;
+
     this.disposed = true;
     clearTimeout(this.startupTimer);
     if (this.bufferErrorTimer) clearTimeout(this.bufferErrorTimer);
     if (this.retryTimer) clearTimeout(this.retryTimer);
+
     this.mediaSource.removeEventListener("sourceopen", this.handleSourceOpen);
     this.mediaSource.removeEventListener("sourceclose", this.handleSourceClose);
     this.sourceBuffer?.removeEventListener("error", this.handleBufferError);
@@ -113,12 +115,14 @@ class TranscodeSession {
 
   public setCurrentTime(time: number) {
     if (!Number.isFinite(time) || time < 0 || this.disposed) return;
+
     this.currentTime = time;
     this.pump();
   }
 
   private fail(error: Error) {
     if (this.disposed) return;
+
     console.error("[Transcode]", error);
     this.dispose();
     this.onError?.(error);
@@ -126,6 +130,7 @@ class TranscodeSession {
 
   private handleBufferError = () => {
     if (this.disposed || this.hasBufferError) return;
+
     this.hasBufferError = true;
     this.stream.pause();
     this.bufferErrorTimer = setTimeout(() => {
@@ -160,15 +165,18 @@ class TranscodeSession {
 
   private handleSourceOpen = () => {
     if (this.disposed) return;
+
     this.command.ffprobe((error, metadata) => {
       if (this.disposed) return;
       if (error) return this.fail(error);
+
       try {
         this.mimeType = metadata.streams.some((stream) => stream.codec_type === "audio")
           ? 'video/mp4; codecs="avc1.42C034, mp4a.40.2"'
           : MIME_TYPE;
         if (!MediaSource.isTypeSupported(this.mimeType))
           throw new Error(`Transcoding format is not supported: ${this.mimeType}`);
+
         this.sourceBuffer = this.mediaSource.addSourceBuffer(this.mimeType);
         this.sourceBuffer.addEventListener("error", this.handleBufferError);
         this.sourceBuffer.addEventListener("updateend", this.pump);
@@ -199,8 +207,10 @@ class TranscodeSession {
       if (this.sourceBuffer.buffered.length > 0) {
         if (this.sourceBuffer.buffered.start(0) < this.currentTime - BUFFER_BEHIND_SECONDS) {
           this.sourceBuffer.remove(0, this.currentTime - BUFFER_BEHIND_SECONDS);
+
           return;
         }
+
         if (
           this.sourceBuffer.buffered.end(this.sourceBuffer.buffered.length - 1) -
             this.currentTime >=
@@ -215,6 +225,7 @@ class TranscodeSession {
       } else if (this.streamEnded) {
         if (!this.firstFramesReceived)
           throw new Error("FFmpeg finished without producing playable video frames.");
+
         this.mediaSource.endOfStream();
       } else this.stream.resume();
     } catch (error) {
@@ -260,6 +271,7 @@ class VideoTranscoder {
     this.dispose();
     if (!MediaSource.isTypeSupported(MIME_TYPE))
       throw new Error(`Transcoding format is not supported: ${MIME_TYPE}`);
+
     this.session = new TranscodeSession(
       inputPath,
       videoBitrate,
@@ -268,6 +280,7 @@ class VideoTranscoder {
       onFirstFrames,
       onError,
     );
+
     return this.session.url;
   }
 }

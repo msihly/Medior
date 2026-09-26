@@ -30,6 +30,7 @@ export const FileCard = Comp(
 
     const handleClick = async (event: React.MouseEvent) => {
       if (disabled) return;
+
       const res = await ("handleFileSelect" in store
         ? store.handleFileSelect({
             hasCtrl: event.ctrlKey,

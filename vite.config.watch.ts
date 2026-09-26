@@ -4,7 +4,6 @@ import pluginReact from "@vitejs/plugin-react";
 import pluginRenderer from "vite-plugin-electron-renderer";
 import pluginSVGR from "vite-plugin-svgr";
 import pluginTsconfigPaths from "vite-tsconfig-paths";
-import { exec } from "child_process";
 
 const EXTERNALS = [
   "@huggingface/transformers",
@@ -18,8 +17,6 @@ const EXTERNALS = [
   "path",
   "sharp",
 ];
-
-let isInitialBuild = true;
 
 export default defineConfig({
   build: {
@@ -39,19 +36,5 @@ export default defineConfig({
     pluginRenderer({ nodeIntegration: true, resolve: () => EXTERNALS }),
     pluginSVGR(),
     pluginTsconfigPaths(),
-    {
-      name: "post-build",
-      apply: "build",
-      enforce: "post",
-      async writeBundle() {
-        if (isInitialBuild) {
-          const child = exec("electron .", { cwd: process.cwd() });
-          child.stdout?.pipe(process.stdout);
-          child.stderr?.pipe(process.stderr);
-          child.on("error", (err) => console.error("Electron launch error:", err));
-          isInitialBuild = false;
-        }
-      },
-    },
   ],
 });

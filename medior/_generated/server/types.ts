@@ -12,16 +12,16 @@ export type _FilterQuery<Schema> = {
 } & {
   _id?: string | Array<string> | QuerySelector<string>;
   $and?: Array<_FilterQuery<Schema>>;
+  $comment?: string;
   $nor?: Array<_FilterQuery<Schema>>;
   $or?: Array<_FilterQuery<Schema>>;
   $text?: {
-    $search: string;
-    $language?: string;
     $caseSensitive?: boolean;
     $diacriticSensitive?: boolean;
+    $language?: string;
+    $search: string;
   };
   $where?: string | Function;
-  $comment?: string;
 };
 
 /* --------------------------------------------------------------------------- */
@@ -159,6 +159,15 @@ export type UpdateTagInput = { id: string; updates: Partial<db.TagSchema> };
 export type ListBackgroundActivityInput = Parameters<typeof db.listBackgroundActivity>[0];
 export type ListBackgroundActivityOutput = ReturnType<typeof db.listBackgroundActivity>;
 
+export type RetryBackgroundOperationInput = Parameters<typeof db.retryBackgroundOperation>[0];
+export type RetryBackgroundOperationOutput = ReturnType<typeof db.retryBackgroundOperation>;
+
+export type CancelBackgroundOperationInput = Parameters<typeof db.cancelBackgroundOperation>[0];
+export type CancelBackgroundOperationOutput = ReturnType<typeof db.cancelBackgroundOperation>;
+
+export type DismissBackgroundOperationInput = Parameters<typeof db.dismissBackgroundOperation>[0];
+export type DismissBackgroundOperationOutput = ReturnType<typeof db.dismissBackgroundOperation>;
+
 export type MarkNotificationsReadInput = Parameters<typeof db.markNotificationsRead>[0];
 export type MarkNotificationsReadOutput = ReturnType<typeof db.markNotificationsRead>;
 
@@ -198,9 +207,6 @@ export type ListCollectionIdsByTagIdsOutput = ReturnType<typeof db.listCollectio
 export type RegenCollAttrsInput = Parameters<typeof db.regenCollAttrs>[0];
 export type RegenCollAttrsOutput = ReturnType<typeof db.regenCollAttrs>;
 
-export type RegenCollTagAncestorsInput = Parameters<typeof db.regenCollTagAncestors>[0];
-export type RegenCollTagAncestorsOutput = ReturnType<typeof db.regenCollTagAncestors>;
-
 export type RepairCollectionsInput = Parameters<typeof db.repairCollections>[0];
 export type RepairCollectionsOutput = ReturnType<typeof db.repairCollections>;
 
@@ -239,6 +245,9 @@ export type GetImporterStatusOutput = ReturnType<typeof db.getImporterStatus>;
 
 export type ReingestFolderInput = Parameters<typeof db.reingestFolder>[0];
 export type ReingestFolderOutput = ReturnType<typeof db.reingestFolder>;
+
+export type ImportMediaFileInput = Parameters<typeof db.importMediaFile>[0];
+export type ImportMediaFileOutput = ReturnType<typeof db.importMediaFile>;
 
 export type RunImportBatchInput = Parameters<typeof db.runImportBatch>[0];
 export type RunImportBatchOutput = ReturnType<typeof db.runImportBatch>;
@@ -318,9 +327,6 @@ export type ListAllArchivedFileIdsOutput = ReturnType<typeof db.listAllArchivedF
 export type ListFileIdsByTagIdsInput = Parameters<typeof db.listFileIdsByTagIds>[0];
 export type ListFileIdsByTagIdsOutput = ReturnType<typeof db.listFileIdsByTagIds>;
 
-export type RegenFileTagAncestorsInput = Parameters<typeof db.regenFileTagAncestors>[0];
-export type RegenFileTagAncestorsOutput = ReturnType<typeof db.regenFileTagAncestors>;
-
 export type DeleteFilesInput = Parameters<typeof db.deleteFiles>[0];
 export type DeleteFilesOutput = ReturnType<typeof db.deleteFiles>;
 
@@ -362,6 +368,9 @@ export type ListSortedFileIdsOutput = ReturnType<typeof db.listSortedFileIds>;
 
 export type ListVideosWithMissingInfoInput = Parameters<typeof db.listVideosWithMissingInfo>[0];
 export type ListVideosWithMissingInfoOutput = ReturnType<typeof db.listVideosWithMissingInfo>;
+
+export type RepairVideoCodecsInput = Parameters<typeof db.repairVideoCodecs>[0];
+export type RepairVideoCodecsOutput = ReturnType<typeof db.repairVideoCodecs>;
 
 export type LoadFaceApiNetsInput = Parameters<typeof db.loadFaceApiNets>[0];
 export type LoadFaceApiNetsOutput = ReturnType<typeof db.loadFaceApiNets>;
@@ -479,8 +488,17 @@ export type GetTagWithRelationsOutput = ReturnType<typeof db.getTagWithRelations
 export type ListRegExMapsInput = Parameters<typeof db.listRegExMaps>[0];
 export type ListRegExMapsOutput = ReturnType<typeof db.listRegExMaps>;
 
+export type ListImportTagsInput = Parameters<typeof db.listImportTags>[0];
+export type ListImportTagsOutput = ReturnType<typeof db.listImportTags>;
+
+export type ListTagAncestryInput = Parameters<typeof db.listTagAncestry>[0];
+export type ListTagAncestryOutput = ReturnType<typeof db.listTagAncestry>;
+
 export type ListTagAncestorLabelsInput = Parameters<typeof db.listTagAncestorLabels>[0];
 export type ListTagAncestorLabelsOutput = ReturnType<typeof db.listTagAncestorLabels>;
+
+export type ListTagCategoriesInput = Parameters<typeof db.listTagCategories>[0];
+export type ListTagCategoriesOutput = ReturnType<typeof db.listTagCategories>;
 
 export type ListTagInput = Parameters<typeof db.listTag>[0];
 export type ListTagOutput = ReturnType<typeof db.listTag>;
@@ -511,3 +529,6 @@ export type SetTagCountOutput = ReturnType<typeof db.setTagCount>;
 
 export type UpsertTagInput = Parameters<typeof db.upsertTag>[0];
 export type UpsertTagOutput = ReturnType<typeof db.upsertTag>;
+
+export type UpsertImportTagsInput = Parameters<typeof db.upsertImportTags>[0];
+export type UpsertImportTagsOutput = ReturnType<typeof db.upsertImportTags>;

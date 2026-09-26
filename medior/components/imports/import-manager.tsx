@@ -17,7 +17,7 @@ import {
 } from "medior/components";
 import { useStores } from "medior/store";
 import { colors } from "medior/utils/client";
-import { Fmt } from "medior/utils/common";
+import { Fmt, round } from "medior/utils/common";
 
 export const ImportManager = Comp(() => {
   const stores = useStores();
@@ -35,7 +35,7 @@ export const ImportManager = Comp(() => {
     stores.file.search.reloadIfQueued();
   };
 
-  const handleFullPageLoad = () => store.search.loadFiltered({ withFullCount: true });
+  const handleFullPageLoad = () => store.search.loadFiltered({ toLastPage: true });
 
   const handlePageChange = (page: number) => store.search.loadFiltered({ page });
 
@@ -51,15 +51,15 @@ export const ImportManager = Comp(() => {
         width="100%"
         height="100%"
       >
-        <Modal.Content row dividers={false}>
-          <View column flex={1} overflow="auto">
+        <Modal.Content row dividers={false} overflow="hidden">
+          <View column flex={1} minHeight={0} minWidth={0} overflow="hidden">
             <Modal.Header>
               <Text preset="title">{"Active Batch"}</Text>
             </Modal.Header>
 
-            <View column height="100%" spacing="0.5rem">
+            <View column flex={1} minHeight={0} spacing="0.5rem" overflow="hidden auto">
               <Card
-                height="100%"
+                flex="none"
                 width="100%"
                 padding={{ all: "0.8rem" }}
                 header={
@@ -104,6 +104,22 @@ export const ImportManager = Comp(() => {
                     {store.activeFilePath || "No active import"}
                   </Text>
 
+                  {store.activeFileProgress && (
+                    <View column spacing="0.5rem">
+                      <Text textAlign="center">
+                        {`${store.activeFileProgress.message} (${store.activeFileProgress.elapsed}s elapsed)`}
+                      </Text>
+
+                      {store.activeFileProgress.progress != null && (
+                        <ProgressBar
+                          numerator={round(store.activeFileProgress.progress)}
+                          denominator={100}
+                          withText
+                        />
+                      )}
+                    </View>
+                  )}
+
                   <ImportEditor.ImportFolderList
                     folder={store.activeBatch}
                     batchId={store.activeBatch?.id}
@@ -114,14 +130,15 @@ export const ImportManager = Comp(() => {
             </View>
           </View>
 
-          <View column flex={1} overflow="auto">
+          <View column flex={1} minHeight={0} minWidth={0} overflow="hidden">
             <Modal.Header>
               <Text preset="title">{"Search"}</Text>
             </Modal.Header>
 
             <Card
-              height="100%"
-              overflow="auto"
+              flex={1}
+              minHeight={0}
+              overflow="hidden"
               position="relative"
               header={<ImportsFilterMenu store={store.search} />}
               headerProps={{ justify: "flex-start", padding: { all: "0.3rem" } }}
@@ -131,7 +148,8 @@ export const ImportManager = Comp(() => {
               <View
                 column
                 spacing="1rem"
-                height="100%"
+                flex={1}
+                minHeight={0}
                 padding={{ bottom: "5rem" }}
                 overflow="hidden auto"
               >

@@ -58,6 +58,7 @@ export const FILE_DEF_SORT_OPTIONS: FileDef = {
 
 export const FILE_DEF_STORES: FileDef = {
   name: "stores",
+
   makeFile: async () => {
     const makeImports = () =>
       `import autoBind from "auto-bind";
@@ -78,17 +79,19 @@ export const FILE_DEF_STORES: FileDef = {
       import { IconName, SortMenuProps } from "medior/components";
       import * as Stores from "medior/store";
       import { asyncAction, CssColor, derefMobx, toast } from "medior/utils/client";
-      import { dayjs, isDeepEqual, LogicalOp } from "medior/utils/common";
+      import { dayjs, isDeepEqual, LogicalOp, makeTagSelector } from "medior/utils/common";
       import { getConfig, trpc } from "medior/utils/server";`;
 
     const makeSchemaStores = async () => {
       const storeDefs = [];
+
       for (const def of MODEL_DEFS) storeDefs.push(await makeStoreDef(def));
+
       return storeDefs.join("\n");
     };
 
     const makeSearchStores = () =>
-      MODEL_SEARCH_STORE_DEFS.map((def) => createSearchStore(def)).join("\n");
+      MODEL_SEARCH_STORE_DEFS.map((def) => createSearchStore(def)).join("\n\n");
 
     return `${makeImports()}\n
     ${makeSectionComment("SEARCH STORES")}\n

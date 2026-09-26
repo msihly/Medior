@@ -3,6 +3,7 @@ import { Model, model, prop } from "mobx-keystone";
 
 @model("medior/RepairTagsStore")
 export class RepairTagsStore extends Model({
+  cleanNames: prop<boolean>(false).withSetter(),
   decodeLabels: prop<boolean>(true).withSetter(),
   enabled: prop<boolean>(false).withSetter(),
   hierarchy: prop<boolean>(true).withSetter(),
@@ -16,7 +17,12 @@ export class RepairTagsStore extends Model({
   /* ----------------------------- DYNAMIC GETTERS ---------------------------- */
   get isSelected() {
     return (
-      this.enabled && (this.decodeLabels || this.hierarchy || this.mergeDuplicates || this.metadata)
+      this.enabled &&
+      (this.cleanNames ||
+        this.decodeLabels ||
+        this.hierarchy ||
+        this.mergeDuplicates ||
+        this.metadata)
     );
   }
 }

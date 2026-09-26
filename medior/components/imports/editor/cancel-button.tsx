@@ -10,6 +10,7 @@ export interface CancelButtonProps {
 export const CancelButton = Comp(({ store }: CancelButtonProps) => {
   const confirmDiscard = async () => {
     store.setIsOpen(false);
+
     return true;
   };
 

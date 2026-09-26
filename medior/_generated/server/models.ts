@@ -2,6 +2,9 @@
 /*                               THIS IS A GENERATED FILE. DO NOT EDIT.
 /* --------------------------------------------------------------------------- */
 import { model, Schema } from "mongoose";
+import { mediaPathPlugin } from "medior/server/database/media-paths";
+import { backgroundExecutionPlugin } from "medior/server/database/database-context";
+import { mediaAncestryPlugin, tagAncestryPlugin } from "medior/server/database/tag-ancestry";
 import { IconName } from "medior/components";
 import { CssColor } from "medior/utils/client";
 
@@ -10,19 +13,38 @@ import { CssColor } from "medior/utils/client";
 /* --------------------------------------------------------------------------- */
 
 export interface BackgroundOperationSchema {
-  id: string;
-  dateCreated: string;
   completedAt?: string;
+  dateCreated: string;
   dateModified: string;
+  dismissedAt?: string;
   error?: string;
+  failures?: Array<{ message: string; targetId: string }>;
+  id: string;
   label: string;
   message?: string;
   processedCount: number;
+  queueKey?: string;
+  source?: string;
   startedAt?: string;
   status: "CANCELLED" | "COMPLETE" | "ERROR" | "PENDING" | "RUNNING";
   targetIds: string[];
+  targetVersions?: Record<string, string>;
   totalCount: number;
-  type: "collectionMetadata" | "fileTagAncestors" | "repair" | "tagHierarchy" | "tagMetadata";
+  transformIds?: string[];
+  transformOptions?: import("medior/server/database/actions/file-transforms").TransformQueueOptions;
+  type:
+    | "audioAnalysis"
+    | "collectionMetadata"
+    | "duplicateMerge"
+    | "fileTagAncestors"
+    | "mediaPathIndex"
+    | "metadataAction"
+    | "repair"
+    | "tagHierarchy"
+    | "tagMetadata"
+    | "tagRefresh"
+    | "transformQueue";
+  work?: import("medior/server/database/metadata-work").MetadataWork;
 }
 
 const BackgroundOperationSchema = new Schema<BackgroundOperationSchema>({
@@ -30,21 +52,47 @@ const BackgroundOperationSchema = new Schema<BackgroundOperationSchema>({
   dateCreated: String,
   completedAt: String,
   dateModified: String,
+  dismissedAt: String,
   error: String,
+  failures: [{ message: String, targetId: String }],
   label: String,
   message: String,
   processedCount: Number,
+  queueKey: String,
+  source: String,
   startedAt: String,
   status: { type: String, enum: ["CANCELLED", "COMPLETE", "ERROR", "PENDING", "RUNNING"] },
   targetIds: [String],
+  targetVersions: Schema.Types.Mixed,
   totalCount: Number,
+  transformIds: [String],
+  transformOptions: Schema.Types.Mixed,
   type: {
     type: String,
-    enum: ["collectionMetadata", "fileTagAncestors", "repair", "tagHierarchy", "tagMetadata"],
+    enum: [
+      "audioAnalysis",
+      "collectionMetadata",
+      "duplicateMerge",
+      "fileTagAncestors",
+      "mediaPathIndex",
+      "metadataAction",
+      "repair",
+      "tagHierarchy",
+      "tagMetadata",
+      "tagRefresh",
+      "transformQueue",
+    ],
   },
+  work: Schema.Types.Mixed,
 });
 
+BackgroundOperationSchema.plugin(backgroundExecutionPlugin);
+
 BackgroundOperationSchema.index({ dateCreated: 1, _id: 1 }, { unique: true });
+BackgroundOperationSchema.index(
+  { queueKey: 1 },
+  { unique: true, partialFilterExpression: { queueKey: { $type: "string" } } },
+);
 BackgroundOperationSchema.index({ type: 1, status: 1, _id: 1 }, { unique: false });
 
 export const BackgroundOperationModel = model<BackgroundOperationSchema>(
@@ -57,9 +105,9 @@ export const BackgroundOperationModel = model<BackgroundOperationSchema>(
 /* --------------------------------------------------------------------------- */
 
 export interface DeletedFileSchema {
-  id: string;
   dateCreated: string;
   hash: string;
+  id: string;
 }
 
 const DeletedFileSchema = new Schema<DeletedFileSchema>({
@@ -67,6 +115,8 @@ const DeletedFileSchema = new Schema<DeletedFileSchema>({
   dateCreated: String,
   hash: String,
 });
+
+DeletedFileSchema.plugin(backgroundExecutionPlugin);
 
 DeletedFileSchema.index({ hash: 1 }, { unique: true });
 
@@ -77,11 +127,11 @@ export const DeletedFileModel = model<DeletedFileSchema>("DeletedFile", DeletedF
 /* --------------------------------------------------------------------------- */
 
 export interface FileCollectionSchema {
-  id: string;
   dateCreated: string;
   dateModified: string;
   fileCount: number;
   fileIdIndexes: Array<{ fileId: string; index: number }>;
+  id: string;
   rating: number;
   ratingIsManual?: boolean;
   size: number;
@@ -108,9 +158,14 @@ const FileCollectionSchema = new Schema<FileCollectionSchema>({
   title: String,
 });
 
+FileCollectionSchema.plugin(backgroundExecutionPlugin);
+
+FileCollectionSchema.plugin(mediaAncestryPlugin);
+
 FileCollectionSchema.index({ dateCreated: 1, _id: 1 }, { unique: true });
 FileCollectionSchema.index({ dateModified: 1, _id: 1 }, { unique: true });
 FileCollectionSchema.index({ fileCount: 1, _id: 1 }, { unique: true });
+FileCollectionSchema.index({ "fileIdIndexes.fileId": 1 }, { unique: false });
 FileCollectionSchema.index({ rating: 1, _id: 1 }, { unique: true });
 FileCollectionSchema.index({ size: 1, _id: 1 }, { unique: true });
 FileCollectionSchema.index({ sourceFolderKeys: 1 }, { unique: false });
@@ -149,14 +204,14 @@ export interface FileImport {
 }
 
 export interface FileImportBatchSchema {
-  id: string;
-  dateCreated: string;
   collectionId?: string;
   collectionSourceFolderPath?: string;
   collectionTitle?: string;
   completedAt: string;
+  dateCreated: string;
   deleteOnImport: boolean;
   fileCount: number;
+  id: string;
   ignorePrevDeleted: boolean;
   imports?: FileImport[];
   isCompleted: boolean;
@@ -207,6 +262,10 @@ const FileImportBatchSchema = new Schema<FileImportBatchSchema>({
   tagIdsWithAncestors: [{ type: Schema.Types.ObjectId, ref: "Tag" }],
 });
 
+FileImportBatchSchema.plugin(backgroundExecutionPlugin);
+
+FileImportBatchSchema.plugin(mediaAncestryPlugin);
+
 FileImportBatchSchema.index({ dateCreated: 1, _id: 1 }, { unique: true });
 FileImportBatchSchema.index({ collectionTitle: 1, _id: 1 }, { unique: true });
 FileImportBatchSchema.index({ completedAt: 1, _id: 1 }, { unique: true });
@@ -228,32 +287,31 @@ export const FileImportBatchModel = model<FileImportBatchSchema>(
 /* --------------------------------------------------------------------------- */
 
 export interface FileTransformSchema {
-  id: string;
-  dateCreated: string;
   afterAudioBitrate?: number;
   afterAudioCodec?: string;
   afterBitrate?: number;
   afterDuration?: number;
+  afterExt?: string;
   afterFrameRate?: number;
   afterHash?: string;
   afterHeight?: number;
   afterPath?: string;
   afterSize?: number;
-  afterExt?: string;
   afterVideoCodec?: string;
   afterWidth?: number;
   beforeAudioBitrate?: number;
   beforeAudioCodec?: string;
   beforeBitrate?: number;
   beforeDuration?: number;
+  beforeExt: string;
   beforeFrameRate?: number;
   beforeHash?: string;
   beforeHeight?: number;
   beforePath: string;
   beforeSize: number;
-  beforeExt: string;
   beforeVideoCodec?: string;
   beforeWidth?: number;
+  cleanupPending?: boolean;
   completedAt?: string;
   configCodec?: string;
   configImageExt?: string;
@@ -264,16 +322,21 @@ export interface FileTransformSchema {
   configMaxHeight?: number;
   configMaxWidth?: number;
   configOverride?: string[];
-  errorMsg?: string;
+  dateCreated: string;
   duplicateFileId?: string;
   duplicatePath?: string;
+  errorMsg?: string;
   fileId: string;
+  finalizationPending?: boolean;
+  id: string;
   isCompleted: boolean;
+  outputTempPath?: string;
   progressPercent?: number;
   progressSize?: number;
   progressTime?: string;
   queueIndex?: number;
   regenerationPending?: boolean;
+  regenerationTagIds?: string[];
   startedAt?: string;
   status:
     | string
@@ -318,6 +381,7 @@ const FileTransformSchema = new Schema<FileTransformSchema>({
   beforeExt: String,
   beforeVideoCodec: String,
   beforeWidth: Number,
+  cleanupPending: Boolean,
   completedAt: String,
   configCodec: String,
   configImageExt: String,
@@ -332,12 +396,15 @@ const FileTransformSchema = new Schema<FileTransformSchema>({
   duplicateFileId: Schema.Types.ObjectId,
   duplicatePath: String,
   fileId: Schema.Types.ObjectId,
+  finalizationPending: Boolean,
   isCompleted: Boolean,
+  outputTempPath: String,
   progressPercent: Number,
   progressSize: Number,
   progressTime: String,
   queueIndex: Number,
   regenerationPending: Boolean,
+  regenerationTagIds: [{ type: Schema.Types.ObjectId, ref: "Tag" }],
   startedAt: String,
   status: {
     type: String,
@@ -358,14 +425,24 @@ const FileTransformSchema = new Schema<FileTransformSchema>({
   type: { type: String, enum: ["reencode", "remux", "splice"] },
 });
 
+FileTransformSchema.plugin(backgroundExecutionPlugin);
+FileTransformSchema.plugin(mediaPathPlugin, { modelName: "FileTransform" });
+
 FileTransformSchema.index({ dateCreated: 1, _id: 1 }, { unique: true });
 FileTransformSchema.index(
   { isCompleted: 1, status: 1, dateCreated: 1, queueIndex: 1, _id: 1 },
   { unique: true },
 );
+FileTransformSchema.index({ cleanupPending: 1 }, { unique: false });
 FileTransformSchema.index({ completedAt: 1, _id: 1 }, { unique: false });
 FileTransformSchema.index({ fileId: 1, _id: 1 }, { unique: false });
+FileTransformSchema.index({ finalizationPending: 1 }, { unique: false });
 FileTransformSchema.index({ isCompleted: 1, _id: 1 }, { unique: false });
+FileTransformSchema.index(
+  { outputTempPath: 1 },
+  { partialFilterExpression: { outputTempPath: { $type: "string" } }, unique: false },
+);
+FileTransformSchema.index({ regenerationPending: 1 }, { unique: false });
 FileTransformSchema.index({ startedAt: 1, _id: 1 }, { unique: false });
 FileTransformSchema.index({ status: 1, _id: 1 }, { unique: false });
 FileTransformSchema.index({ type: 1, _id: 1 }, { unique: false });
@@ -384,12 +461,11 @@ export interface FaceModel {
 }
 
 export interface FileSchema {
-  id: string;
-  dateCreated: string;
   audioBitrate?: number;
   audioCodec?: string;
   bitrate?: number;
   collectionIds: string[];
+  dateCreated: string;
   dateImported: string;
   dateModified: string;
   diffusionParams?: string;
@@ -400,6 +476,7 @@ export interface FileSchema {
   hash: string;
   hasTranscript: boolean;
   height: number;
+  id: string;
   isArchived?: boolean;
   isCorrupted?: boolean;
   originalAudioBitrate?: number;
@@ -500,6 +577,10 @@ const FileSchema = new Schema<FileSchema>({
   width: Number,
 });
 
+FileSchema.plugin(backgroundExecutionPlugin);
+FileSchema.plugin(mediaPathPlugin, { modelName: "File" });
+FileSchema.plugin(mediaAncestryPlugin);
+
 FileSchema.index({ dateCreated: 1, _id: 1 }, { unique: true });
 FileSchema.index({ audioCodec: 1 }, { unique: false });
 FileSchema.index({ bitrate: 1, _id: 1 }, { unique: true });
@@ -529,8 +610,8 @@ export const FileModel = model<FileSchema>("File", FileSchema);
 /* --------------------------------------------------------------------------- */
 
 export interface NotificationSchema {
-  id: string;
   dateCreated: string;
+  id: string;
   isRead: boolean;
   message: string;
   type: "error" | "info" | "success" | "warning";
@@ -544,6 +625,8 @@ const NotificationSchema = new Schema<NotificationSchema>({
   type: { type: String, enum: ["error", "info", "success", "warning"] },
 });
 
+NotificationSchema.plugin(backgroundExecutionPlugin);
+
 NotificationSchema.index({ dateCreated: 1, _id: 1 }, { unique: true });
 
 export const NotificationModel = model<NotificationSchema>("Notification", NotificationSchema);
@@ -553,10 +636,10 @@ export const NotificationModel = model<NotificationSchema>("Notification", Notif
 /* --------------------------------------------------------------------------- */
 
 export interface SavedImportConfigSchema {
-  id: string;
   dateCreated: string;
   dateModified?: string;
   folderPath: string;
+  id: string;
   label: string;
   options: Record<string, any>;
 }
@@ -569,6 +652,8 @@ const SavedImportConfigSchema = new Schema<SavedImportConfigSchema>({
   label: String,
   options: Object,
 });
+
+SavedImportConfigSchema.plugin(backgroundExecutionPlugin);
 
 SavedImportConfigSchema.index({ dateCreated: 1, _id: 1 }, { unique: true });
 SavedImportConfigSchema.index({ dateModified: 1, _id: 1 }, { unique: true });
@@ -584,9 +669,9 @@ export const SavedImportConfigModel = model<SavedImportConfigSchema>(
 /* --------------------------------------------------------------------------- */
 
 export interface SavedSearchSchema {
-  id: string;
   dateCreated: string;
   filterProps: Record<string, any>;
+  id: string;
   label: string;
   searchType: string;
 }
@@ -599,6 +684,8 @@ const SavedSearchSchema = new Schema<SavedSearchSchema>({
   searchType: String,
 });
 
+SavedSearchSchema.plugin(backgroundExecutionPlugin);
+
 SavedSearchSchema.index({ dateCreated: 1, _id: 1 }, { unique: true });
 SavedSearchSchema.index({ searchType: 1, label: 1 }, { unique: true });
 
@@ -609,8 +696,6 @@ export const SavedSearchModel = model<SavedSearchSchema>("SavedSearch", SavedSea
 /* --------------------------------------------------------------------------- */
 
 export interface TagSchema {
-  id: string;
-  dateCreated: string;
   aliases: string[];
   ancestorIds: string[];
   category?: {
@@ -621,9 +706,11 @@ export interface TagSchema {
   };
   childIds: string[];
   count: number;
+  dateCreated: string;
   dateModified: string;
   dateOfInception?: string;
   descendantIds: string[];
+  id: string;
   label: string;
   lastSearchedAt?: string;
   parentIds: string[];
@@ -660,9 +747,15 @@ const TagSchema = new Schema<TagSchema>({
   thumb: { frameHeight: Number, frameWidth: Number, path: String },
 });
 
+TagSchema.plugin(backgroundExecutionPlugin);
+TagSchema.plugin(mediaPathPlugin, { modelName: "Tag" });
+TagSchema.plugin(tagAncestryPlugin);
+
 TagSchema.index({ dateCreated: 1, _id: 1 }, { unique: true });
+TagSchema.index({ childIds: 1 }, { unique: false });
 TagSchema.index({ dateOfInception: 1, _id: 1 }, { unique: true });
 TagSchema.index({ label: 1 }, { unique: true });
+TagSchema.index({ parentIds: 1 }, { unique: false });
 TagSchema.index({ rating: 1, _id: 1 }, { unique: true });
 
 export const TagModel = model<TagSchema>("Tag", TagSchema);

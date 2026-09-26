@@ -33,6 +33,7 @@ export class CollectionManager extends Model({
     }
 
     this.search.reset();
+
     if (!isOpen) {
       this.selectedFileIds = [];
       this.selectedFiles = [];
@@ -43,9 +44,11 @@ export class CollectionManager extends Model({
   @modelFlow
   loadCurrentCollections = asyncAction(async () => {
     this.setIsLoading(true);
+
     const res = await trpc.listCollectionsByFileIds.mutate({ fileIds: this.selectedFileIds });
     this.setIsLoading(false);
     if (!res.success) throw new Error(res.error);
+
     this.setCurrentCollections(res.data.map((c) => new FileCollection(c)));
   });
 
@@ -55,6 +58,7 @@ export class CollectionManager extends Model({
       args: { filter: { id: this.selectedFileIds } },
     });
     if (!res.success) throw new Error(res.error);
+
     this.setSelectedFiles(res.data.items.map((f) => new File(f)));
   });
 }

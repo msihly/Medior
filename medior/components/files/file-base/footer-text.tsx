@@ -28,10 +28,10 @@ export const FooterText = (props: FooterTextProps) => {
 
 const useClasses = makeClasses({
   title: {
+    overflow: "hidden",
     padding: "0 0.4rem 0.2rem",
-    width: "100%",
     textAlign: "center",
     textOverflow: "ellipsis",
-    overflow: "hidden",
+    width: "100%",
   },
 });

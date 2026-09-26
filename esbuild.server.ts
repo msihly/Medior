@@ -9,9 +9,12 @@ import path from "path";
       "medior/_generated/server/index.ts",
       "medior/server/api-process.ts",
       "medior/server/db-process.ts",
+      "medior/server/image-process.ts",
       "medior/server/main.ts",
       "medior/server/socket-process.ts",
+      "medior/server/transcription-process.ts",
       "medior/server/vector-process.ts",
+      "medior/server/visual-process.ts",
     ],
     external: [
       "@electron/remote",

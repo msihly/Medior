@@ -5,4 +5,5 @@ export * from "./constants";
 export * from "./diffusion";
 export * from "./dimensions";
 export * from "./hotkeys";
+export * from "./tag-categories";
 export * from "./tags";

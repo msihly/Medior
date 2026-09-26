@@ -25,7 +25,7 @@ export const SortMenu = Comp(({ configKey, header, width = "10rem", ...props }: 
   return (
     <HeaderWrapper {...{ header, width }} height="100%">
       <SortMenuBase
-        {...{ setValue, width, value }}
+        {...{ setValue, value, width }}
         color={colors.background}
         hasHeader
         {...props}

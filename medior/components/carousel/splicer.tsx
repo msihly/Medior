@@ -25,7 +25,7 @@ export const Splicer = Comp(() => {
   const handleAddPair = async () => {
     store.addTimestampPair();
     await sleep(500);
-    timestampsRef.current.scrollTo({ top: timestampsRef.current.scrollHeight, behavior: "smooth" });
+    timestampsRef.current.scrollTo({ behavior: "smooth", top: timestampsRef.current.scrollHeight });
   };
 
   const handleDeleteTimeline = async () => {
@@ -55,7 +55,7 @@ export const Splicer = Comp(() => {
       height="100%"
       padding={{ all: stores.carousel.isPinned ? "0.5rem" : "3rem 0.5rem 3.5rem 0.5rem" }}
       bgColor="rgb(0 0 0 / 0.5)"
-      style={{ minWidth: "21rem", maxWidth: "21rem" }}
+      style={{ maxWidth: "21rem", minWidth: "21rem" }}
     >
       <Card column spacing="1rem" height="100%" width="100%" bgColor={colors.background}>
         <View column>

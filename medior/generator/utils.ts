@@ -20,10 +20,19 @@ export const createFiles = async (folder: string, fileDefs: FileDef[]) => {
       const file = await formatFile(
         `${makeSectionComment("THIS IS A GENERATED FILE. DO NOT EDIT.")}\n${await fileDef.makeFile()}`,
       );
-      await fs.writeFile(filePath, file);
-      console.log(chalk.green(`Created ${filePath}`));
+
+      const previous = await fs.readFile(filePath, "utf8").catch((error) => {
+        if (error.code === "ENOENT") return null;
+
+        throw error;
+      });
+
+      if (previous !== file) await fs.writeFile(filePath, file);
+
+      console.log(chalk.green(`${previous === file ? "Unchanged" : "Created"} ${filePath}`));
     } catch (err) {
       console.error(chalk.red(`\n[ERROR] '${filePath}': ${err.message}\n\n${err.stack}\n`));
+      throw err;
     }
   }
 };
@@ -33,7 +42,7 @@ export const formatFile = (str: string): Promise<string> =>
 
 export const makeIndexDef = (fileDefs: FileDef[]) => {
   const imports = fileDefs.map((fileDef) => `export * from "./${fileDef.name}";`).join("\n");
-  fileDefs.push({ name: "index", makeFile: async () => imports });
+  fileDefs.push({ makeFile: async () => imports, name: "index" });
 };
 
 export const makeSectionComment = (sectionName: string) =>
@@ -50,8 +59,10 @@ export const parseExports = async (filePath: string): Promise<string[]> => {
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim();
     const match = line.match(fnRegEx);
+
     if (match) {
       const prevLine = lines[i - 1]?.trim();
+
       if (prevLine !== ignoreComment) {
         exportedFunctions.push(match[0].replace(/export\s+(class|const|function|let)\s+/, ""));
       }
@@ -60,6 +71,7 @@ export const parseExports = async (filePath: string): Promise<string[]> => {
 
   if (exportedFunctions.length === 0)
     throw new Error(`No exported functions found in '${filePath}'`);
+
   return exportedFunctions;
 };
 

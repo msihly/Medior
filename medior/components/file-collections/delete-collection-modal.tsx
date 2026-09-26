@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
-import { colors, toast } from "trabecula/utils/client";
-import { Button, Chip, Comp, LoadingOverlay, Modal, Text, UniformList } from "medior/components";
+import { Button, Comp, Icon, LoadingOverlay, Modal, Text } from "medior/components";
 import { useStores } from "medior/store";
+import { colors, toast } from "medior/utils/client";
 import { trpc } from "medior/utils/server";
 
 export const DeleteCollectionModal = Comp(() => {
@@ -10,6 +10,7 @@ export const DeleteCollectionModal = Comp(() => {
 
   const [fileIds, setFileIds] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const collectionCount = store.idsForConfirmDelete.length;
 
   useEffect(() => {
     (async () => {
@@ -35,21 +36,25 @@ export const DeleteCollectionModal = Comp(() => {
   const handleDelete = async (withFiles: boolean) => {
     try {
       setIsLoading(true);
+
       if (withFiles) {
         const archiveRes = await stores.file.archiveFiles(fileIds);
         if (!archiveRes.success) throw new Error(archiveRes.error);
       }
 
-      const res = await stores.collection.deleteCollections(store.idsForConfirmDelete);
+      const res = await store.deleteCollections(store.idsForConfirmDelete);
       if (!res.success) throw new Error(res.error);
+
       toast.success("Collection deleted");
 
-      stores.collection.editor.setIsOpen(false);
+      store.editor.setIsOpen(false);
       store.manager.search.loadFiltered();
       store.setIsConfirmDeleteOpen(false);
+
       return true;
     } catch (err) {
       toast.error(err);
+
       return false;
     } finally {
       setIsLoading(false);
@@ -59,24 +64,27 @@ export const DeleteCollectionModal = Comp(() => {
   return (
     <Modal.Container
       height="auto"
-      width="22rem"
+      width="32rem"
       onClose={() => store.setIsConfirmDeleteOpen(false)}
     >
       <Modal.Header>
-        <Text preset="title">{"Delete Collections"}</Text>
+        <Text preset="title">{`Delete Collection${collectionCount === 1 ? "" : "s"}`}</Text>
       </Modal.Header>
 
-      <Modal.Content>
+      <Modal.Content align="center" height="auto" justify="center" spacing="0.75rem">
         <LoadingOverlay isLoading={isLoading} />
 
-        <UniformList column uniformWidth="10rem" justify="center" align="center" spacing="0.5rem">
-          <Chip
-            label={`${store.idsForConfirmDelete.length} Collections`}
-            bgColor={colors.custom.red}
-          />
+        <Icon name="Delete" color={colors.custom.red} size="4rem" />
 
-          <Chip label={`${fileIds.length} Files`} bgColor={colors.custom.orange} />
-        </UniformList>
+        <Text fontSize="1.2em" textAlign="center" whiteSpace="normal">
+          {`Delete ${collectionCount} collection${collectionCount === 1 ? "" : "s"} containing ${fileIds.length} file${fileIds.length === 1 ? "" : "s"}?`}
+        </Text>
+
+        <Text color={colors.custom.lightGrey} textAlign="center" whiteSpace="normal">
+          {
+            '"Delete" keeps the files. "Delete with Files" archives the contained files before deleting the collection.'
+          }
+        </Text>
       </Modal.Content>
 
       <Modal.Footer>

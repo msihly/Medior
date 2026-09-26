@@ -52,6 +52,7 @@ export const updatesAffectSearch = (
               filterKey,
             )
           );
+
         return true;
       }),
   );

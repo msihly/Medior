@@ -1,21 +1,51 @@
 import autoBind from "auto-bind";
-import { Model, model, modelFlow, prop } from "mobx-keystone";
+import type { TagSchema } from "medior/_generated/server/models";
+import { Model, model, modelAction, modelFlow, objectToMapTransform, prop } from "mobx-keystone";
 import * as db from "medior/server/database";
 import { TagToUpsert } from "medior/components";
 import { asyncAction, toast } from "medior/utils/client";
-import { Fmt, PromiseQueue, tagsToRegEx } from "medior/utils/common";
+import {
+  Fmt,
+  mergeTagDefinitions,
+  resolveTagCategory,
+  TagCategorySource,
+  tagsToRegEx,
+} from "medior/utils/common";
 import { trpc } from "medior/utils/server";
 import { TagEditorStore, TagManagerStore, TagMergerStore, TagOption } from ".";
 
 @model("medior/TagStore")
 export class TagStore extends Model({
+  categorySources: prop<Record<string, TagCategorySource>>(() => ({}))
+    .withTransform(objectToMapTransform<TagCategorySource>())
+    .withSetter(),
   editor: prop<TagEditorStore>(() => new TagEditorStore({})),
   manager: prop<TagManagerStore>(() => new TagManagerStore({})),
   merger: prop<TagMergerStore>(() => new TagMergerStore({})),
   subEditor: prop<TagEditorStore>(() => new TagEditorStore({})),
 }) {
+  private categoryLoad: Promise<void> = null;
+  private categoryRevision = 0;
+
   onInit() {
     autoBind(this);
+  }
+
+  /* ---------------------------- STANDARD ACTIONS ---------------------------- */
+  @modelAction
+  updateCategorySources(tags: { tagId: string; updates: Partial<TagSchema> }[]) {
+    for (const { tagId, updates } of tags) {
+      if (!("category" in updates) && !("parentIds" in updates)) continue;
+
+      this.categoryRevision++;
+      const current = this.categorySources.get(tagId);
+      const category = "category" in updates ? updates.category : current?.category;
+      this.categorySources.set(tagId, {
+        category: category ? { ...category } : null,
+        id: tagId,
+        parentIds: [...(updates.parentIds ?? current?.parentIds ?? [])],
+      });
+    }
   }
 
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */
@@ -41,6 +71,7 @@ export class TagStore extends Model({
         withSub,
       });
       if (!res.success) throw new Error(res.error);
+
       return res.data;
     },
   );
@@ -59,10 +90,12 @@ export class TagStore extends Model({
   @modelFlow
   getByLabel = asyncAction(async (label: string) => {
     if (!label) throw new Error("No label provided");
+
     const res = await trpc.listTag.mutate({
-      filter: { label: { $regex: `^${Fmt.regexEscape(label)}$`, $options: "i" } },
+      filter: { label: { $options: "i", $regex: `^${Fmt.regexEscape(label)}$` } },
     });
     if (!res.success) throw new Error(res.error);
+
     return res.data?.[0];
   });
 
@@ -70,20 +103,23 @@ export class TagStore extends Model({
   listByIds = asyncAction(async ({ ids }: { ids: string[] }) => {
     const res = await trpc.listTag.mutate({ filter: { id: ids } });
     if (!res.success) throw new Error(res.error);
+
     return res.data;
   });
 
   @modelFlow
   listByLabels = asyncAction(async (labels: string[]) => {
     if (!labels?.length) throw new Error("No labels provided");
+
     const res = await trpc.listTag.mutate({
       filter: {
         $or: labels.map((label) => ({
-          label: { $regex: `^${Fmt.regexEscape(label)}$`, $options: "i" },
+          label: { $options: "i", $regex: `^${Fmt.regexEscape(label)}$` },
         })),
       },
     });
     if (!res.success) throw new Error(res.error);
+
     return res.data;
   });
 
@@ -91,6 +127,7 @@ export class TagStore extends Model({
   listRegExMaps = asyncAction(async () => {
     const res = await trpc.listRegExMaps.mutate();
     if (!res.success) throw new Error(res.error);
+
     return res.data.map((t) => ({ regEx: new RegExp(t.regEx, "im"), tagId: t.id }));
   });
 
@@ -98,7 +135,33 @@ export class TagStore extends Model({
   listTagAncestorLabels = asyncAction(async ({ id }: { id: string }) => {
     const res = await trpc.listTagAncestorLabels.mutate({ id });
     if (!res.success) throw new Error(res.error);
+
     return res.data;
+  });
+
+  @modelFlow
+  loadCategorySources = asyncAction(async () => {
+    this.categoryRevision++;
+    if (this.categoryLoad) return this.categoryLoad;
+
+    this.categoryLoad = (async () => {
+      let revision: number;
+
+      do {
+        revision = this.categoryRevision;
+        const res = await trpc.listTagCategories.mutate();
+        if (!res.success) throw new Error(res.error);
+        if (revision !== this.categoryRevision) continue;
+
+        this.setCategorySources(new Map(res.data.map((tag) => [tag.id, tag])));
+      } while (revision !== this.categoryRevision);
+    })();
+
+    try {
+      await this.categoryLoad;
+    } finally {
+      this.categoryLoad = null;
+    }
   });
 
   @modelFlow
@@ -111,12 +174,14 @@ export class TagStore extends Model({
   refreshTag = asyncAction(async ({ id }: { id: string }) => {
     const res = await trpc.refreshTag.mutate({ tagId: id });
     if (!res.success) throw new Error(res.error);
+
     toast.success("Tag refreshed");
   });
 
   @modelFlow
   updateTagRating = asyncAction(async ({ id, rating }: { id: string; rating: number }) => {
     this.manager.setIsLoading(true);
+
     const res = await trpc.editTag.mutate({
       id,
       rating,
@@ -127,47 +192,55 @@ export class TagStore extends Model({
   });
 
   @modelFlow
-  upsertTags = asyncAction(async (tagsToUpsert: TagToUpsert[]) => {
-    const tagQueue = new PromiseQueue();
-    const errors: string[] = [];
-    const upsertedTags: { id: string; label: string; parentIds: string[] }[] = [];
+  upsertTags = asyncAction(
+    async ({
+      tagsToUpsert,
+      onProgress,
+    }: {
+      onProgress?: (completed: number, total: number) => void;
+      tagsToUpsert: TagToUpsert[];
+    }) => {
+      const upsertedTags: { id: string; label: string; parentIds: string[] }[] = [];
+      tagsToUpsert = mergeTagDefinitions(tagsToUpsert);
 
-    tagsToUpsert.forEach((t) =>
-      tagQueue.add(async () => {
-        try {
-          const res = await trpc.upsertTag.mutate({
+      for (let idx = 0; idx < tagsToUpsert.length; idx += 256) {
+        onProgress?.(idx, tagsToUpsert.length);
+
+        const batch = tagsToUpsert.slice(idx, idx + 256);
+
+        const res = await trpc.upsertImportTags.mutate(
+          batch.map((t) => ({
             aliases: t.aliases?.length ? [...t.aliases] : [],
             category: t.category,
             label: t.label,
             parentLabels: t.parentLabels?.length ? [...t.parentLabels] : [],
             withRegEx: t.withRegEx,
-          });
-          if (!res.success) throw new Error(res.error);
-          upsertedTags.push(res.data);
-        } catch (err) {
-          errors.push(`Tag: ${JSON.stringify(t, null, 2)}\nError: ${err.message}`);
-        }
-      }),
-    );
+          })),
+        );
+        if (!res.success) throw new Error(res.error);
 
-    await tagQueue.resolve();
-    if (errors.length) throw new Error(errors.join("\n"));
+        upsertedTags.push(...res.data);
+        onProgress?.(idx + batch.length, tagsToUpsert.length);
+        await new Promise<void>((resolve) => setTimeout(resolve, 0));
+      }
 
-    const tagIds = upsertedTags.map((tag) => tag.id);
-    trpc.regenTags.mutate({ tagIds, withSub: true }).then((res) => {
-      if (!res.success) console.error(res.error);
-    });
-
-    return upsertedTags;
-  });
+      return upsertedTags;
+    },
+  );
 
   /* ----------------------------- DYNAMIC GETTERS ---------------------------- */
+  getCategory(tag: { category?: TagSchema["category"]; id?: string }) {
+    const source = this.categorySources.get(tag?.id);
+    return source ? resolveTagCategory(source, this.categorySources) : tag?.category;
+  }
+
   tagSearchOptsToIds(options: TagOption[], withDescArrays = false) {
     return options.reduce(
       (acc, cur) => {
         if (cur.searchType.includes("Desc")) {
           const childTagIds = withDescArrays ? cur.descendantIds : [];
           const tagIds = [cur.id, ...childTagIds];
+
           if (cur.searchType === "excludeDesc") {
             acc["excludedDescTagIds"].push(cur.id);
             if (withDescArrays) acc["excludedDescTagIdArrays"].push(tagIds);
@@ -182,21 +255,21 @@ export class TagStore extends Model({
         return acc;
       },
       {
-        excludedTagIds: [],
-        excludedDescTagIds: [],
         excludedDescTagIdArrays: [],
+        excludedDescTagIds: [],
+        excludedTagIds: [],
         optionalTagIds: [],
-        requiredTagIds: [],
-        requiredDescTagIds: [],
         requiredDescTagIdArrays: [],
+        requiredDescTagIds: [],
+        requiredTagIds: [],
       } as {
-        excludedTagIds: string[];
-        excludedDescTagIds: string[];
         excludedDescTagIdArrays: string[][];
+        excludedDescTagIds: string[];
+        excludedTagIds: string[];
         optionalTagIds: string[];
-        requiredTagIds: string[];
-        requiredDescTagIds: string[];
         requiredDescTagIdArrays: string[][];
+        requiredDescTagIds: string[];
+        requiredTagIds: string[];
       },
     );
   }

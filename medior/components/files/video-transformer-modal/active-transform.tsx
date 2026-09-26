@@ -11,8 +11,9 @@ import {
   View,
 } from "medior/components";
 import { useStores } from "medior/store";
-import { colors } from "medior/utils/client";
-import { ProgressCircle, TransformDetails } from "./transform-details";
+import { colors, toast } from "medior/utils/client";
+import { TransformDetails } from "./transform-details";
+import { ProgressCircle } from "./transform-progress-circle";
 
 export const ActiveTransform = Comp(({ onCompare }: { onCompare: () => void }) => {
   const stores = useStores();
@@ -20,6 +21,25 @@ export const ActiveTransform = Comp(({ onCompare }: { onCompare: () => void }) =
 
   const canReplace =
     store.activeTransform?.status === "COMPLETE" || store.activeTransform?.status === "COMPRESSED";
+
+  const handleAutoReplace = async (isAuto: boolean) => {
+    const res = await store.setAutoReplace(isAuto);
+    if (!res.success) toast.error(res.error);
+  };
+
+  const handleReplace = async () => {
+    const res = await (store.activeTransform.type === "splice"
+      ? store.saveCopy()
+      : store.replaceOutput());
+    if (!res.success) toast.error(res.error);
+  };
+
+  const handleTogglePaused = async () => {
+    const res = await (store.isTransforming || store.isPaused
+      ? store.togglePaused()
+      : store.runActiveTransform());
+    if (!res.success) toast.error(res.error);
+  };
 
   return (
     <View
@@ -30,7 +50,7 @@ export const ActiveTransform = Comp(({ onCompare }: { onCompare: () => void }) =
       padding={{ all: "0.8rem" }}
       bgColor={colors.background}
     >
-      <LoadingOverlay isLoading={store.isLoading} />
+      <LoadingOverlay isLoading={store.isLoading || store.isUpdating} />
 
       {store.activeTransform ? (
         <View column height="100%" spacing="0.8rem" overflow="hidden">
@@ -113,12 +133,8 @@ export const ActiveTransform = Comp(({ onCompare }: { onCompare: () => void }) =
               <Button
                 text={store.isPaused ? "Restart" : store.isTransforming ? "Pause" : "Run"}
                 icon={store.isPaused || !store.isTransforming ? "PlayArrow" : "Pause"}
-                onClick={() =>
-                  store.isTransforming || store.isPaused
-                    ? store.togglePaused()
-                    : store.runActiveTransform()
-                }
-                disabled={store.isLoading}
+                onClick={handleTogglePaused}
+                disabled={store.isUpdating || (store.isLoading && !store.isTransforming)}
                 color={
                   store.isPaused
                     ? colors.custom.orange
@@ -136,7 +152,8 @@ export const ActiveTransform = Comp(({ onCompare }: { onCompare: () => void }) =
                     label="Auto-Replace"
                     labelProps={{ fontSize: "0.9em" }}
                     checked={store.isAuto}
-                    setChecked={store.setAutoReplace}
+                    disabled={store.isUpdating}
+                    setChecked={handleAutoReplace}
                     flex="none"
                     padding={{ all: "0.1rem 0.3rem" }}
                   />
@@ -146,10 +163,11 @@ export const ActiveTransform = Comp(({ onCompare }: { onCompare: () => void }) =
               <Button
                 text={store.activeTransform.type === "splice" ? "Save Copy" : "Replace"}
                 icon={store.activeTransform.type === "splice" ? "Save" : "Refresh"}
-                onClick={
-                  store.activeTransform.type === "splice" ? store.saveCopy : store.replaceOutput
-                }
+                onClick={handleReplace}
                 disabled={
+                  store.isLoading ||
+                  store.isTransforming ||
+                  store.isUpdating ||
                   !store.activeTransform.afterPath ||
                   (store.activeTransform.type === "splice"
                     ? store.activeTransform.status !== "COMPLETE"

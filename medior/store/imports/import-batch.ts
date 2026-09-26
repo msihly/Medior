@@ -15,7 +15,7 @@ export class FileImportBatch extends ExtendedModel(_FileImportBatch, {
 
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
   @modelAction
-  updateImport(paths: { originalPath?: string; newPath?: string }, updates: Partial<FileImport>) {
+  updateImport(paths: { newPath?: string; originalPath?: string }, updates: Partial<FileImport>) {
     const index = this.imports.findIndex((imp) =>
       [paths.newPath, paths.originalPath].includes(imp.path),
     );

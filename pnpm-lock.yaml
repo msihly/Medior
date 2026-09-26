@@ -73,8 +73,8 @@ dependencies:
     specifier: ^4.6.2
     version: 4.7.5
   trabecula:
-    specifier: github:msihly/trabecula#2da9cfdddcf9b7dc83a63da8041cb7633294dcd4
-    version: github.com/msihly/trabecula/2da9cfdddcf9b7dc83a63da8041cb7633294dcd4(@mui/system@5.16.7)(@types/react@17.0.80)
+    specifier: github:msihly/trabecula#fc0e5010cd072bb82ad5fe9f4b9a0288faa97174
+    version: github.com/msihly/trabecula/fc0e5010cd072bb82ad5fe9f4b9a0288faa97174(@mui/system@5.16.7)(@types/react@17.0.80)
   util:
     specifier: ^0.12.5
     version: 0.12.5
@@ -9422,12 +9422,11 @@ packages:
       readable-stream: 3.6.2
     dev: true
 
-  github.com/msihly/trabecula/2da9cfdddcf9b7dc83a63da8041cb7633294dcd4(@mui/system@5.16.7)(@types/react@17.0.80):
-    resolution: {tarball: https://codeload.github.com/msihly/trabecula/tar.gz/2da9cfdddcf9b7dc83a63da8041cb7633294dcd4}
-    id: github.com/msihly/trabecula/2da9cfdddcf9b7dc83a63da8041cb7633294dcd4
+  github.com/msihly/trabecula/fc0e5010cd072bb82ad5fe9f4b9a0288faa97174(@mui/system@5.16.7)(@types/react@17.0.80):
+    resolution: {tarball: https://codeload.github.com/msihly/trabecula/tar.gz/fc0e5010cd072bb82ad5fe9f4b9a0288faa97174}
+    id: github.com/msihly/trabecula/fc0e5010cd072bb82ad5fe9f4b9a0288faa97174
     name: trabecula
     version: 1.1.1
-    requiresBuild: true
     dependencies:
       '@emotion/cache': 11.14.0
       '@emotion/react': 11.14.0(@types/react@17.0.80)(react@17.0.2)

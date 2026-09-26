@@ -136,6 +136,7 @@ export class SettingsStore extends Model({
 
     setConfig(config);
     getRootStore<RootStore>(this).applyConfig(config);
+
     return result;
   });
 
@@ -155,10 +156,12 @@ export class SettingsStore extends Model({
 
   getConfigByKey<T>(key: ConfigKey): T {
     let result = this.getConfig();
+
     for (const k of key.split(".")) {
       if (result && typeof result === "object") result = result[k];
       else return undefined;
     }
+
     return result as T;
   }
 }

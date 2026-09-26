@@ -25,22 +25,24 @@ import { trpc } from "medior/utils/server";
 export const TagManager = Comp(() => {
   const stores = useStores();
   const store = stores.tag.manager.search;
+
   const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
 
   const hasNoSelection = store.selectedIds.length === 0;
 
   const resultsRef = useRef<FixedSizeGrid>(null);
+
   useDeepEffect(() => {
     if (resultsRef.current) resultsRef.current.scrollTo({ scrollTop: 0 });
   }, [store.results]);
 
   useEffect(() => {
-    store.reset();
     store.loadFiltered({ page: 1 });
   }, []);
 
   const handleClose = () => {
     stores.tag.manager.setIsOpen(false);
+    store.reset();
     stores.file.search.reloadIfQueued();
   };
 
@@ -49,6 +51,7 @@ export const TagManager = Comp(() => {
   const handleConfirmDelete = async () => {
     try {
       stores.tag.manager.setIsLoading(true);
+
       const tagIds = [...store.selectedIds];
 
       await makeQueue({
@@ -56,6 +59,7 @@ export const TagManager = Comp(() => {
           const res = await stores.tag.deleteTag({ id });
           if (!res.success) throw new Error(res.error);
         },
+
         items: tagIds,
         logPrefix: "Deleted",
         logSuffix: "tags",
@@ -65,10 +69,12 @@ export const TagManager = Comp(() => {
       store.toggleSelected(tagIds.map((id) => ({ id, isSelected: false })));
       toast.success(`${tagIds.length} tags deleted`);
       await store.loadFiltered();
+
       return true;
     } catch (err) {
       console.error(err);
       toast.error("Failed to delete tags");
+
       return false;
     } finally {
       stores.tag.manager.setIsLoading(false);
@@ -79,16 +85,18 @@ export const TagManager = Comp(() => {
 
   const handleEditRelations = () => stores.tag.manager.setIsMultiTagEditorOpen(true);
 
-  const handleFullPageLoad = () => store.loadFiltered({ withFullCount: true });
+  const handleFullPageLoad = () => store.loadFiltered({ toLastPage: true });
 
   const handleKeyPress = (event: KeyboardEvent) => {
     if (matchesHotkey(event, stores.home.settings.hotkeys.tagManager.selectAll)) {
       event.preventDefault();
       handleSelectAll();
+
       return;
     }
 
     if (store.selectedIds.length !== 1) return;
+
     const rating = getHotkeyRating(event, stores.home.settings.hotkeys.tagManager);
     if (!rating) return;
 
@@ -164,6 +172,10 @@ export const TagManager = Comp(() => {
             <UniformList row flex={1} justify="space-between">
               <View row align="center" spacing="0.5rem">
                 <TagFilterMenu store={store} color={colors.foreground} />
+
+                {store.fileTags.length > 0 && (
+                  <Chip label={`On files with: ${store.fileTags[0].label}`} />
+                )}
 
                 {!hasNoSelection && <Chip label={`${store.selectedIds.length} Selected`} />}
               </View>

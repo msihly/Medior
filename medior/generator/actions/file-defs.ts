@@ -13,6 +13,7 @@ import { capitalize, makeSectionComment } from "medior/generator/utils";
 
 export const FILE_DEF_ACTIONS: FileDef = {
   name: "actions",
+
   makeFile: async () => {
     const actions = await getActions();
 
@@ -22,26 +23,36 @@ export const FILE_DEF_ACTIONS: FileDef = {
       import { FilterQuery } from "mongoose";
       import * as Types from "medior/server/database/types";
       import { removeFileCollectionIds, syncCollectionFileIds } from "medior/server/database/actions/collections";
+      import { deleteImportBatches } from "medior/server/database/actions/file-imports";
+      import { deleteFileTransforms } from "medior/server/database/actions/file-transforms";
+      import { deleteFiles } from "medior/server/database/actions/files";
+      import { assertMediaPathsAvailable } from "medior/server/database/file-operations";
+      import { getMetadataCreateId, metadataWriteOptions, registerMetadataWork } from "medior/server/database/metadata-work";
       import { SortMenuProps } from "medior/components";
       import { dayjs, isDeepEqual, LogicalOp, logicOpsToMongo, setObj } from "medior/utils/common";
       import {
         getShiftSelectedItems,
         leanModelToJson,
         makeAction,
+        objectId,
         objectIds,
         socket,
       } from "medior/utils/server";`;
 
     const makeModelActions = async () => {
       const defs: string[] = [];
+
       for (const def of MODEL_DEFS) defs.push(await makeActionsDef(def, actions));
+
       return defs.join("\n");
     };
 
     const makeSearchActions = async () => {
       const defs: string[] = [];
+
       for (const def of MODEL_SEARCH_STORE_DEFS)
         defs.push(await makeSearchActionsDef(def, actions));
+
       return defs.join("\n");
     };
 

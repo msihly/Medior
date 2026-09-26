@@ -6,8 +6,9 @@ import { useSockets, Views } from "./common";
 
 export const HomeWindow = Comp(() => {
   const stores = useStores();
+  const store = stores.home;
 
-  const { css } = useClasses({ isDrawerOpen: stores.home.isDrawerOpen });
+  const { css } = useClasses({ isDrawerOpen: store.isDrawerOpen });
 
   useSockets({ view: "home" });
 
@@ -15,7 +16,7 @@ export const HomeWindow = Comp(() => {
     (async () => {
       try {
         await stores.file.search.loadFiltered({ noCache: true, page: 1 });
-        await stores.import.manager.runImporter(true);
+        await stores.import.manager.getImporterStatus();
       } catch (err) {
         console.error(err);
       }
@@ -38,7 +39,7 @@ export const HomeWindow = Comp(() => {
 
           <Views.TagModals view="home" />
 
-          {stores.home.settings.isOpen && <SettingsModal />}
+          {store.settings.isOpen && <SettingsModal />}
         </View>
       </View>
     </Views.ImportDnD>

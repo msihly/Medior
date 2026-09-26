@@ -24,18 +24,18 @@ interface ClassesProps extends Required<Pick<FooterProps, "align" | "background"
 
 const useClasses = makeClasses((props: ClassesProps) => ({
   footer: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    display: "flex",
-    flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: props.align,
+    background: props.background,
     borderBottomLeftRadius: "inherit",
     borderBottomRightRadius: "inherit",
-    padding: 0,
+    bottom: 0,
+    display: "flex",
+    flexDirection: "row",
     height: props.height,
-    background: props.background,
+    justifyContent: "space-between",
+    left: 0,
+    padding: 0,
+    position: "absolute",
+    right: 0,
   },
 }));

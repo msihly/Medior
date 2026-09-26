@@ -92,8 +92,8 @@ export const FaceRecognitionModal = Comp(() => {
         box: { ...face.box },
         descriptors: face.descriptors,
         fileId: face.fileId,
-        tagId: face.tagId,
         selectedTag: tagToOption(tagMap.get(face.tagId)),
+        tagId: face.tagId,
       }));
 
       return faceModels.map((face) => new FaceModel(face));
@@ -111,6 +111,7 @@ export const FaceRecognitionModal = Comp(() => {
   const handleDetect = async () => {
     try {
       if (stores.faceRecog.isDisabled) return;
+
       stores.faceRecog.setIsDetecting(true);
 
       const res = await stores.faceRecog.findMatches(file.path);
@@ -132,6 +133,7 @@ export const FaceRecognitionModal = Comp(() => {
 
       stores.faceRecog.setIsDetecting(false);
       if (detectedFaces.length === 0) return toast.warn("No new faces detected");
+
       stores.faceRecog.addDetectedFaces(detectedFaces);
     } catch (err) {
       stores.faceRecog.setIsDetecting(false);
@@ -155,6 +157,7 @@ export const FaceRecognitionModal = Comp(() => {
         withOverwrite: false,
       });
       if (!res.success) throw new Error(res.error);
+
       stores.faceRecog.setDetectedFaces(await fileToDetectedFaces(res.data));
     } catch (err) {
       console.error(err);
@@ -178,6 +181,7 @@ export const FaceRecognitionModal = Comp(() => {
 
   useEffect(() => {
     if (!stores.faceRecog.isModalOpen) return;
+
     loadFaceModels();
   }, [stores.faceRecog.isModalOpen]);
 
@@ -278,10 +282,10 @@ export const FaceRecognitionModal = Comp(() => {
 
 const useClasses = makeClasses({
   image: {
-    maxHeight: "100%",
     height: "fit-content",
-    width: "100%",
+    maxHeight: "100%",
     objectFit: "contain",
+    width: "100%",
   },
   rootContainer: {
     maxHeight: "-webkit-fill-available",

@@ -32,14 +32,14 @@ interface ClassesProps {
 
 const useClasses = makeClasses((props: ClassesProps) => ({
   container: {
+    left: props.face.box.x * props.widthScale + props.offsetLeft,
     position: "absolute",
     top: props.face.box.y * props.heightScale + props.offsetTop,
-    left: props.face.box.x * props.widthScale + props.offsetLeft,
   },
   faceBox: {
-    borderRadius: "0.2rem",
     border: `2px solid ${props.face.boxColor}`,
-    width: props.face.box.width * props.widthScale,
+    borderRadius: "0.2rem",
     height: props.face.box.height * props.heightScale,
+    width: props.face.box.width * props.widthScale,
   },
 }));

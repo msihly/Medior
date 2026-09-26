@@ -21,6 +21,7 @@ export class FileImportBatchSearch extends ExtendedModel(_FileImportBatchSearch,
   @modelAction
   reloadIfQueued() {
     const stores = getRootStore<RootStore>(this);
+
     if (this.hasQueuedReload && !stores._getIsBlockingModalOpen()) {
       this.setHasQueuedReload(false);
       this.loadFiltered();

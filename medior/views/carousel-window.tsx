@@ -30,6 +30,7 @@ export const CarouselWindow = Comp(({ embedded = false }: CarouselWindowProps) =
 
   const stores = useStores();
   const activeFile = stores.carousel.getActiveFile();
+
   const title = activeFile
     ? `Medior — ${activeFile.originalName}${
         stores.carousel.selectedFileIds.length
@@ -41,6 +42,7 @@ export const CarouselWindow = Comp(({ embedded = false }: CarouselWindowProps) =
   const panZoomRef = useRef<PanzoomObject>(null);
   const videoRef = useRef<FilePlayer>(null);
   const rootRef = useRef<HTMLDivElement>(null);
+
   const setRootRef = (ref: HTMLDivElement) => {
     rootRef.current = ref;
     ref?.focus();
@@ -76,6 +78,7 @@ export const CarouselWindow = Comp(({ embedded = false }: CarouselWindowProps) =
 
   const handleMouseMove = () => {
     if (mouseMoveTimeout.current) clearTimeout(mouseMoveTimeout.current);
+
     stores.carousel.setIsMouseMoving(true);
     mouseMoveTimeout.current = window.setTimeout(
       () => stores.carousel.setIsMouseMoving(false),
@@ -85,6 +88,7 @@ export const CarouselWindow = Comp(({ embedded = false }: CarouselWindowProps) =
 
   useEffect(() => {
     window.addEventListener("mousemove", handleMouseMove);
+
     return () => window.removeEventListener("mousemove", handleMouseMove);
   }, []);
 

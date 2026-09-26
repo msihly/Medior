@@ -1,10 +1,11 @@
+import { useState } from "react";
 import { AppBar } from "@mui/material";
 import { SortValue } from "medior/store/_generated";
 import { Chip, Comp, FileFilter, MultiActionButton, View } from "medior/components";
 import { handleReingest, useStores } from "medior/store";
 import { colors, makeClasses, toast } from "medior/utils/client";
 import { CONSTANTS } from "medior/utils/common";
-import { SelectedFilesInfo } from ".";
+import { SelectedFilesInfo, SelectFilesModal } from ".";
 
 interface HomeMultiActionBarProps {
   isHome?: boolean;
@@ -12,20 +13,23 @@ interface HomeMultiActionBarProps {
 
 export const HomeMultiActionBar = Comp(({ isHome = false }: HomeMultiActionBarProps) => {
   const stores = useStores();
+  const store = stores.file.search;
   const { css } = useClasses(null);
 
-  const selectedIds = [...stores.file.search.selectedIds];
+  const [isSelectModalOpen, setIsSelectModalOpen] = useState(false);
+
+  const selectedIds = [...store.selectedIds];
   const hasNoSelection = selectedIds.length === 0;
+
   const sourceSortValue =
-    (stores.file.search.cachedFilterProps as { sortValue?: SortValue })?.sortValue ??
-    stores.file.search.sortValue;
+    (store.cachedFilterProps as { sortValue?: SortValue })?.sortValue ?? store.sortValue;
 
   const handleAutoDetect = () => stores.faceRecog.addFilesToAutoDetectQueue(selectedIds);
 
   const handleDelete = () => stores.file.confirmDeleteFiles(selectedIds);
 
   const handleDeselectAll = () => {
-    stores.file.search.toggleSelected(selectedIds.map((id) => ({ id, isSelected: false })));
+    store.toggleSelected(selectedIds.map((id) => ({ id, isSelected: false })));
     toast.info("Deselected all files");
   };
 
@@ -48,14 +52,12 @@ export const HomeMultiActionBar = Comp(({ isHome = false }: HomeMultiActionBarPr
   const handleRemux = () => stores.file.openVideoTransformer(selectedIds, "remux", sourceSortValue);
 
   const handleSelectAll = () => {
-    stores.file.search.toggleSelected(
-      stores.file.search.results.map(({ id }) => ({ id, isSelected: true })),
-    );
-    toast.info(`Added ${stores.file.search.results.length} files to selection`);
+    store.toggleSelected(store.results.map(({ id }) => ({ id, isSelected: true })));
+    toast.info(`Added ${store.results.length} files to selection`);
   };
 
   const handleSelectAllInQuery = async () => {
-    const res = await stores.file.search.selectAllInQuery();
+    const res = await store.selectAllInQuery();
     if (!res.success) toast.error("Failed to select all files");
     else toast.info(`Selected ${res.data} files`);
   };
@@ -65,128 +67,136 @@ export const HomeMultiActionBar = Comp(({ isHome = false }: HomeMultiActionBarPr
   const reingest = () => handleReingest({ fileIds: selectedIds, store: stores.import.reingester });
 
   return (
-    <AppBar position="static" className={css.appBar}>
-      <View className={css.container}>
-        <View row align="center" spacing="0.5rem">
-          <FileFilter.Menu store={stores.file.search} />
+    <>
+      <AppBar position="static" className={css.appBar}>
+        <View className={css.container}>
+          <View row align="center" spacing="0.5rem">
+            <FileFilter.Menu store={store} />
 
-          {stores.file.search.isArchiveOpen && (
-            <Chip label="Archived" bgColor={colors.custom.red} />
-          )}
+            {store.isArchiveOpen && <Chip label="Archived" bgColor={colors.custom.red} />}
 
-          {stores.file.search.selectedIds.length > 0 && <SelectedFilesInfo />}
-        </View>
+            {store.selectedIds.length > 0 && <SelectedFilesInfo />}
+          </View>
 
-        <View row align="center" spacing="0.5rem">
-          {stores.file.search.isArchived && (
+          <View row align="center" spacing="0.5rem">
+            {store.isArchived && (
+              <MultiActionButton
+                name="Delete"
+                tooltip="Delete"
+                iconProps={{ color: colors.custom.red }}
+                onClick={handleDelete}
+                disabled={hasNoSelection}
+              />
+            )}
+
             <MultiActionButton
-              name="Delete"
-              tooltip="Delete"
-              iconProps={{ color: colors.custom.red }}
-              onClick={handleDelete}
+              name={store.isArchived ? "Unarchive" : "Archive"}
+              tooltip={store.isArchived ? "Unarchive" : "Archive"}
+              onClick={store.isArchived ? handleUnarchive : handleDelete}
               disabled={hasNoSelection}
             />
-          )}
 
-          <MultiActionButton
-            name={stores.file.search.isArchived ? "Unarchive" : "Archive"}
-            tooltip={stores.file.search.isArchived ? "Unarchive" : "Archive"}
-            onClick={stores.file.search.isArchived ? handleUnarchive : handleDelete}
-            disabled={hasNoSelection}
-          />
+            <MultiActionButton
+              name="AutoMode"
+              iconProps={{ size: "0.85em" }}
+              tooltip="Re-encode Media"
+              onClick={handleReencode}
+              disabled={hasNoSelection || !isHome}
+            />
 
-          <MultiActionButton
-            name="AutoMode"
-            iconProps={{ size: "0.85em" }}
-            tooltip="Re-encode Media"
-            onClick={handleReencode}
-            disabled={hasNoSelection || !isHome}
-          />
+            <MultiActionButton
+              name="RotateRight"
+              iconProps={{ rotation: 240, size: "1.1em" }}
+              tooltip="Remux Videos"
+              onClick={handleRemux}
+              disabled={hasNoSelection || !isHome}
+            />
 
-          <MultiActionButton
-            name="RotateRight"
-            iconProps={{ rotation: 240, size: "1.1em" }}
-            tooltip="Remux Videos"
-            onClick={handleRemux}
-            disabled={hasNoSelection || !isHome}
-          />
+            <MultiActionButton
+              name="Refresh"
+              iconProps={{ rotation: 190, size: "1.1em" }}
+              tooltip="Refresh File Info"
+              onClick={handleFileInfoRefresh}
+              disabled={hasNoSelection}
+            />
 
-          <MultiActionButton
-            name="Refresh"
-            iconProps={{ rotation: 190, size: "1.1em" }}
-            tooltip="Refresh File Info"
-            onClick={handleFileInfoRefresh}
-            disabled={hasNoSelection}
-          />
+            <MultiActionButton
+              name="GetApp"
+              tooltip="Reingest"
+              onClick={reingest}
+              disabled={hasNoSelection || !isHome}
+            />
 
-          <MultiActionButton
-            name="GetApp"
-            tooltip="Reingest"
-            onClick={reingest}
-            disabled={hasNoSelection || !isHome}
-          />
+            <MultiActionButton
+              name="Face"
+              tooltip="Auto Detect Faces"
+              onClick={handleAutoDetect}
+              disabled={hasNoSelection || !isHome}
+            />
 
-          <MultiActionButton
-            name="Face"
-            tooltip="Auto Detect Faces"
-            onClick={handleAutoDetect}
-            disabled={hasNoSelection || !isHome}
-          />
+            <MultiActionButton
+              name="Collections"
+              tooltip="Edit Collections"
+              onClick={handleEditCollections}
+              disabled={hasNoSelection}
+            />
 
-          <MultiActionButton
-            name="Collections"
-            tooltip="Edit Collections"
-            onClick={handleEditCollections}
-            disabled={hasNoSelection}
-          />
+            <MultiActionButton
+              name="Label"
+              tooltip="Edit Tags"
+              onClick={handleEditTags}
+              disabled={hasNoSelection}
+            />
 
-          <MultiActionButton
-            name="Label"
-            tooltip="Edit Tags"
-            onClick={handleEditTags}
-            disabled={hasNoSelection}
-          />
+            <MultiActionButton
+              name="Deselect"
+              tooltip="Deselect All Files"
+              onClick={handleDeselectAll}
+              disabled={hasNoSelection}
+            />
 
-          <MultiActionButton
-            name="Deselect"
-            tooltip="Deselect All Files"
-            onClick={handleDeselectAll}
-            disabled={hasNoSelection}
-          />
+            <MultiActionButton
+              name="SelectAll"
+              tooltip="Select All Files in View"
+              onClick={handleSelectAll}
+            />
 
-          <MultiActionButton
-            name="SelectAll"
-            tooltip="Select All Files in View"
-            onClick={handleSelectAll}
-          />
+            <MultiActionButton
+              name="Checklist"
+              tooltip="Select First Files in Query"
+              onClick={() => setIsSelectModalOpen(true)}
+            />
 
-          <MultiActionButton
-            name="LibraryAddCheck"
-            tooltip="Select All Files in Query"
-            onClick={handleSelectAllInQuery}
-          />
+            <MultiActionButton
+              name="LibraryAddCheck"
+              tooltip="Select All Files in Query"
+              onClick={handleSelectAllInQuery}
+            />
+          </View>
         </View>
-      </View>
-    </AppBar>
+      </AppBar>
+
+      {isSelectModalOpen && <SelectFilesModal onClose={() => setIsSelectModalOpen(false)} />}
+    </>
   );
 });
 
 const useClasses = makeClasses({
   appBar: {
+    boxShadow: "rgb(0 0 0 / 50%) 2px 2px 4px 0px",
     display: "flex",
     flexFlow: "row nowrap",
     flexGrow: 0,
     flexShrink: 0,
-    boxShadow: "rgb(0 0 0 / 50%) 2px 2px 4px 0px",
     zIndex: 5,
   },
   container: {
+    background: colors.background,
     display: "flex",
     flexGrow: 1,
     flexShrink: 0,
-    justifyContent: "space-between",
     height: CONSTANTS.HOME.TOP_BAR.HEIGHT,
+    justifyContent: "space-between",
     padding: "0.3rem 0.5rem",
-    background: colors.background,
   },
 });

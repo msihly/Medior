@@ -24,6 +24,7 @@ export const useFileInfo = () => {
         args: { filter: { id: stores.file.search.selectedIds } },
       });
       if (!res?.success) throw new Error(res.error);
+
       const selectedFiles = res.data.items;
 
       const [images, videos, imagesSize, videosSize] = selectedFiles.reduce(
@@ -31,6 +32,7 @@ export const useFileInfo = () => {
           const isVideo = getIsVideo(cur.ext);
           acc[isVideo ? 1 : 0]++;
           acc[isVideo ? 3 : 2] += cur.size;
+
           return acc;
         },
         [0, 0, 0, 0],

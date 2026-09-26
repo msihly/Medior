@@ -78,15 +78,18 @@ export const parseDiffParam = <IsNum extends boolean>(
 ): IsNum extends true ? number : string => {
   try {
     const hasParam = diffParams.includes(`${paramName}: `);
+
     if (!hasParam) {
       if (!optional)
         throw new Error(`Param "${paramName}" not found in generation parameters: ${diffParams}.`);
+
       return undefined;
     }
 
     const rawParamUnterminated = diffParams.substring(
       diffParams.indexOf(`${paramName}${startDelimeter}`),
     );
+
     const startIndex = rawParamUnterminated.indexOf(startDelimeter) + startDelimeter.length;
     let endIndex = rawParamUnterminated.indexOf(endDelimiter, startIndex);
     if (!(endIndex > 0)) endIndex = undefined;
@@ -94,8 +97,10 @@ export const parseDiffParam = <IsNum extends boolean>(
     const value = rawParamUnterminated
       .substring(startIndex, endIndex)
       ?.replace?.(/^(\s|\r)|(\s|\r)$/gim, "");
+
     if (isNumber) {
       if (isNaN(+value)) throw new Error(`Received NaN when parsing ${paramName}`);
+
       return +value as any;
     } else return value as any;
   } catch (err) {
@@ -109,9 +114,11 @@ export const parseDiffParams = (diffParams: string): DiffParams => {
   if (negPromptStartIndex < 0) negPromptStartIndex = negPromptEndIndex;
 
   const prompt = diffParams.substring(0, negPromptStartIndex).replace(/(\n|\r)$/gim, "");
+
   const negPrompt = diffParams
     .substring(negPromptStartIndex, negPromptEndIndex)
     .replace(/(\n|\r)|Negative prompt:\s/gim, "");
+
   const restParams = diffParams.substring(negPromptEndIndex);
 
   const model = parseDiffParam(restParams, "Model", false);
@@ -133,6 +140,7 @@ export const parseDiffParams = (diffParams: string): DiffParams => {
   const subseed = parseDiffParam(restParams, "Variation seed", true, true);
   const subseedStrength = parseDiffParam(restParams, "Variation seed strength", true, true);
   const vaeHash = parseDiffParam(restParams, '"vae"', false, true, '"', ': "') ?? "None";
+
   const [width, height] = parseDiffParam(restParams, "Size", false)
     .split("x")
     .map((d) => +d);
@@ -183,7 +191,7 @@ export const parseDiffParams = (diffParams: string): DiffParams => {
     subseed,
     subseedStrength,
     template,
-    width,
     vaeHash,
+    width,
   };
 };

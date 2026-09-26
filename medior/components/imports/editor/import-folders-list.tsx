@@ -25,6 +25,7 @@ export const ImportFoldersList = Comp(({ store }: ImportFoldersListProps) => {
 
   useEffect(() => {
     if (store.isLoading) return;
+
     listRef.current?.resetAfterIndex(0, true);
     listRef.current?.scrollTo(0);
   }, [folders, store.isLoading]);
@@ -35,6 +36,7 @@ export const ImportFoldersList = Comp(({ store }: ImportFoldersListProps) => {
     (index: number) => {
       const folder = getByIndex(index);
       if (!folder) return isPaged ? PAGINATION_HEIGHT : 0;
+
       return FOLDER_GAP + getImportFolderHeight({ folder, withListItems: true });
     },
     [getByIndex, isPaged],

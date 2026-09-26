@@ -20,7 +20,10 @@ export interface Constants extends _Constants {
       NTFS_BATCH_SIZE: number;
       NTFS_CONCURRENCY: number;
     };
-    TRANSFORM: { BATCH_SIZE: number; REGEN_INTERVAL_MS: number };
+    TRANSFORM: {
+      BATCH_SIZE: number;
+      PREVIEW_INTERVAL_MS: number;
+    };
   };
   HOME: {
     DRAWER: { WIDTH: number };
@@ -60,7 +63,10 @@ export const CONSTANTS: Constants = {
       NTFS_BATCH_SIZE: 1000,
       NTFS_CONCURRENCY: 32,
     },
-    TRANSFORM: { BATCH_SIZE: 1000, REGEN_INTERVAL_MS: 5 * 60 * 1000 },
+    TRANSFORM: {
+      BATCH_SIZE: 1000,
+      PREVIEW_INTERVAL_MS: 500,
+    },
   },
   HOME: {
     DRAWER: { WIDTH: 55 },

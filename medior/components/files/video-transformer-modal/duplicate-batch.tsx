@@ -26,12 +26,15 @@ export const DuplicateBatch = Comp(() => {
   const open = () => {
     setIsOpen(true);
   };
+
   const close = () => {
     if (!isRunning) setIsOpen(false);
   };
+
   const stop = async () => {
     cancelled.current = true;
-    setProgress("Stopping after the current file and finishing metadata updates...");
+    setProgress("Stopping duplicate merge; unfinished work is retained...");
+
     const res = await trpc.cancelFileTransformDuplicateMerge.mutate();
     if (!res.success) toast.error(res.error);
   };
@@ -41,24 +44,32 @@ export const DuplicateBatch = Comp(() => {
     setIsRunning(true);
     setFailures([]);
     setProgress("Finding all completed duplicates...");
+
     try {
       const candidates = await trpc.listFileTransformDuplicates.mutate();
       if (!candidates.success) throw new Error(candidates.error);
+
       setProgress(`Found ${candidates.data.length} duplicates. Starting merge...`);
+
       let completed = 0;
       let failed = 0;
+
       for (const ids of chunkArray(candidates.data, CONSTANTS.FILE.TRANSFORM.BATCH_SIZE)) {
         if (cancelled.current) break;
+
         const onProgress = (args: Parameters<SocketEvents["onDuplicateMergeProgress"]>[0]) => {
           if (args.batchId !== ids[0]) return;
+
           setProgress(
             `${completed + failed + args.completed + args.failed} / ${candidates.data.length} checked; ${completed + args.completed} merged; ${failed + args.failed} need attention.${args.isRegenerating ? " Updating batch metadata..." : ""}`,
           );
         };
         socket.on("onDuplicateMergeProgress", onProgress);
+
         try {
           const res = await trpc.mergeFileTransformDuplicate.mutate({ ids });
           if (!res.success) throw new Error(res.error);
+
           completed += res.data.completed;
           failed += res.data.failures.length;
           setFailures((previous) => [...previous, ...res.data.failures]);
@@ -69,8 +80,11 @@ export const DuplicateBatch = Comp(() => {
           socket.off("onDuplicateMergeProgress", onProgress);
         }
       }
+
       if (!candidates.data.length) setProgress("No completed duplicates found.");
+      else if (!cancelled.current) setProgress((previous) => `Finished. ${previous}`);
       if (cancelled.current) setProgress((previous) => `Stopped. ${previous}`);
+
       await store.loadQueue({ noCache: true, withFullCount: true });
       await store.loadQueueCount();
       await store.loadActiveTransform();
@@ -138,6 +152,14 @@ export const DuplicateBatch = Comp(() => {
 
             {progress && <Text {...descriptionProps}>{progress}</Text>}
 
+            {!!failures.length && (
+              <Text {...descriptionProps}>
+                {
+                  "Completed merge steps are retained. Retry continues unfinished work. If the files are permanently gone, use Remove Failed Records on the duplicate merge operation in Activity."
+                }
+              </Text>
+            )}
+
             {failures.length > 100 && (
               <Text
                 {...descriptionProps}
@@ -158,7 +180,7 @@ export const DuplicateBatch = Comp(() => {
 
           <Modal.Footer>
             {isRunning ? (
-              <Button text="Stop After Current File" icon="Stop" onClick={stop} />
+              <Button text="Stop" icon="Stop" onClick={stop} />
             ) : (
               <Button text="Close" icon="Close" onClick={close} />
             )}

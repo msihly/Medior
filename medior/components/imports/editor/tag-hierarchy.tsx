@@ -1,127 +1,164 @@
-import { useState } from "react";
-import { Comp, TagChip, TagToUpsert, View } from "medior/components";
+import { useLayoutEffect, useRef, useState } from "react";
+import { Comp, IconButton, sortTags, TagChip, TagToUpsert, View } from "medior/components";
 import { Ingester, Reingester, useStores } from "medior/store";
-import { colors, makeClasses, toast } from "medior/utils/client";
+import { toast } from "medior/utils/client";
+import { mergeTagDefinitions } from "medior/utils/common";
+
+export const IMPORT_TAG_ROW_HEIGHT = 40;
 
 export interface TagHierarchyProps {
-  className?: string;
-  isChild?: boolean;
-  store: Ingester | Reingester;
+  depth: number;
+  expanded: boolean;
+  hasChildren: boolean;
+  hasEditor?: boolean;
+  onTagClick?: (tag: TagToUpsert) => void;
+  onToggle: () => void;
+  onWidth: (width: number) => void;
+  store?: Ingester | Reingester;
   tag: TagToUpsert;
 }
 
-export const TagHierarchy = Comp(({ className, store, tag }: TagHierarchyProps) => {
-  const { css, cx } = useClasses(null);
+export const TagHierarchy = Comp(
+  ({
+    depth,
+    expanded,
+    hasChildren,
+    hasEditor = true,
+    onTagClick,
+    onToggle,
+    onWidth,
+    store,
+    tag,
+  }: TagHierarchyProps) => {
+    const stores = useStores();
 
-  return (
-    <View column className={cx(css.container, className)}>
-      <TagLevel store={store} tag={tag} />
-    </View>
-  );
-});
+    const [isCreating, setIsCreating] = useState(false);
+    const rowRef = useRef<HTMLDivElement>(null);
 
-const TagLevel = Comp(({ isChild, store, tag }: TagHierarchyProps) => {
-  const stores = useStores();
-  const [isCreating, setIsCreating] = useState(false);
-  const { css } = useClasses(null);
+    useLayoutEffect(() => {
+      const row = rowRef.current;
+      if (!row) return;
 
-  const handleCreate = async () => {
-    if (isCreating) return;
-    setIsCreating(true);
+      const measure = () => onWidth(row.offsetWidth);
+      const observer = new ResizeObserver(measure);
+      observer.observe(row);
+      measure();
 
-    try {
-      const res = await stores.tag.upsertTags([tag]);
-      if (!res.success) throw new Error(res.error);
+      return () => observer.disconnect();
+    }, [onWidth]);
 
-      const createdTag = res.data[0];
-      if (!createdTag) throw new Error("Failed to create tag");
-      store.setCreatedTagId(createdTag);
-      stores.tag.editor.setIsOpen(true);
-      stores.tag.editor.loadTag(createdTag.id);
-    } catch (error) {
-      toast.error(error);
-    } finally {
-      setIsCreating(false);
+    const handleCreate = async () => {
+      if (isCreating || !store) return;
+
+      setIsCreating(true);
+
+      try {
+        const res = await stores.tag.upsertTags({ tagsToUpsert: [tag] });
+        if (!res.success) throw new Error(res.error);
+
+        const createdTag = res.data[0];
+        if (!createdTag) throw new Error("Failed to create tag");
+
+        store.setCreatedTagId(createdTag);
+        stores.tag.editor.setIsOpen(true);
+        stores.tag.editor.loadTag({ id: createdTag.id });
+      } catch (error) {
+        toast.error(error);
+      } finally {
+        setIsCreating(false);
+      }
+    };
+
+    const handleClick = () => {
+      if (tag.id) onTagClick?.(tag);
+      else if (store) handleCreate();
+    };
+
+    return (
+      <View
+        ref={rowRef}
+        row
+        align="center"
+        width="max-content"
+        height={IMPORT_TAG_ROW_HEIGHT}
+        padding={{ left: depth * 12 }}
+      >
+        {hasChildren && (
+          <View width={24} flex="none">
+            <IconButton
+              name="ChevronRight"
+              tooltip={expanded ? "Collapse tags" : "Expand tags"}
+              onClick={onToggle}
+              iconProps={{ rotation: expanded ? 90 : 0, size: 24 }}
+              padding={{ all: 0 }}
+            />
+          </View>
+        )}
+
+        <TagChip
+          disabled={isCreating}
+          onClick={onTagClick || (!tag.id && store) ? handleClick : undefined}
+          tag={tag}
+          hasEditor={hasEditor}
+          width="fit-content"
+        />
+      </View>
+    );
+  },
+);
+
+export const createImportTagHierarchy = (tags: TagToUpsert[]) => {
+  const childrenByLabel = new Map<string, TagToUpsert[]>();
+  const roots: TagToUpsert[] = [];
+
+  for (const tag of sortTags(mergeTagDefinitions(tags))) {
+    if (!tag.parentLabels?.length) roots.push(tag);
+
+    for (const label of new Set(tag.parentLabels?.map((parent) => parent.toLowerCase()))) {
+      if (!childrenByLabel.has(label)) childrenByLabel.set(label, []);
+
+      childrenByLabel.get(label).push(tag);
     }
-  };
+  }
 
-  return (
-    <View
-      column
-      spacing="0.3rem"
-      className={isChild ? css.tagLevel : undefined}
-      data-child={isChild || undefined}
-    >
-      <TagChip
-        disabled={isCreating}
-        onClick={tag.id ? undefined : handleCreate}
-        tag={tag}
-        hasEditor
-        width="fit-content"
-      />
-
-      {tag.children?.length > 0 && (
-        <View column spacing="0.3rem" margins={{ left: "1rem" }} className={css.children}>
-          {tag.children.map((t) => (
-            <TagLevel key={t.label} store={store} tag={t} isChild />
-          ))}
-        </View>
-      )}
-    </View>
+  roots.sort(
+    (a, b) =>
+      Number(childrenByLabel.has(b.label.toLowerCase())) -
+      Number(childrenByLabel.has(a.label.toLowerCase())),
   );
-});
 
-const ELBOW_HEIGHT = 14;
-const LINE_WIDTH = 2;
-const LINE_COLOR = colors.custom.lightGrey;
+  return { childrenByLabel, roots };
+};
 
-const useClasses = makeClasses({
-  container: {
-    flexShrink: 0,
-    borderRadius: 8,
-    marginRight: "0.5rem",
-    padding: "0.6rem 0.7rem 0.5rem 0.7rem",
-    backgroundColor: colors.background,
-    overflowY: "auto",
-  },
-  children: {
-    position: "relative",
-    "&::before": {
-      content: '""',
-      position: "absolute",
-      left: "-0.5rem",
-      top: 0,
-      bottom: 0,
-      width: LINE_WIDTH,
-      backgroundColor: LINE_COLOR,
-    },
-    "& > :last-child": {
-      position: "relative",
-      "&::before": {
-        content: '""',
-        position: "absolute",
-        left: "-0.5rem",
-        top: ELBOW_HEIGHT - LINE_WIDTH,
-        bottom: 0,
-        width: LINE_WIDTH,
-        backgroundColor: colors.background,
-        pointerEvents: "none",
-      },
-    },
-  },
-  tagLevel: {
-    position: "relative",
-    "&::after": {
-      content: '""',
-      position: "absolute",
-      left: "-0.5rem",
-      top: ELBOW_HEIGHT - 7,
-      width: "0.5rem",
-      height: "0.5rem",
-      borderLeft: `${LINE_WIDTH}px solid ${LINE_COLOR}`,
-      borderBottom: `${LINE_WIDTH}px solid ${LINE_COLOR}`,
-      borderBottomLeftRadius: "0.5rem",
-      pointerEvents: "none",
-    },
-  },
-});
+export const getImportTagRows = (
+  { childrenByLabel, roots }: ReturnType<typeof createImportTagHierarchy>,
+  expanded: Set<string> | "all",
+  collapsed?: Set<string>,
+) => {
+  const rows: { depth: number; hasChildren: boolean; key: string; tag: TagToUpsert }[] = [];
+
+  const pending = roots
+    .map((tag) => ({ ancestors: [] as string[], key: JSON.stringify(tag.label), tag }))
+    .reverse();
+
+  while (pending.length) {
+    const { ancestors, key, tag } = pending.pop();
+    const label = tag.label.toLowerCase();
+    if (ancestors.includes(label)) continue;
+
+    const children = childrenByLabel.get(label) ?? [];
+    rows.push({ depth: ancestors.length, hasChildren: children.length > 0, key, tag });
+    if (collapsed?.has(key) || (expanded !== "all" && !expanded.has(key))) continue;
+
+    for (let idx = children.length - 1; idx >= 0; idx--) {
+      const child = children[idx];
+      pending.push({
+        ancestors: [...ancestors, label],
+        key: `${key}/${JSON.stringify(child.label)}`,
+        tag: child,
+      });
+    }
+  }
+
+  return rows;
+};

@@ -46,6 +46,7 @@ export const FileCollectionManager = Comp(() => {
     (async () => {
       if (hasAnyFilesSelected) await store.loadCurrentCollections();
       else store.setCurrentCollections([]);
+
       store.loadFiles();
       store.search.loadFiltered({ page: 1 });
     })();
@@ -61,6 +62,7 @@ export const FileCollectionManager = Comp(() => {
     const fileIds = new Set(selectedFileIds);
 
     store.setIsLoading(true);
+
     const res = await stores.collection.editor.addFilesToCollection({
       collId,
       fileIds: [...fileIds],
@@ -88,7 +90,7 @@ export const FileCollectionManager = Comp(() => {
     stores.collection.setIsConfirmDeleteOpen(true);
   };
 
-  const handleFullPageLoad = () => store.search.loadFiltered({ withFullCount: true });
+  const handleFullPageLoad = () => store.search.loadFiltered({ toLastPage: true });
 
   const handleRefreshMeta = () => stores.collection.regenCollMeta(store.search.selectedIds);
 
@@ -123,7 +125,7 @@ export const FileCollectionManager = Comp(() => {
 
   const handlePageChange = (page: number) => store.search.loadFiltered({ page });
 
-  const scrollToTop = () => collsRef.current?.scrollTo({ top: 0, behavior: "instant" });
+  const scrollToTop = () => collsRef.current?.scrollTo({ behavior: "instant", top: 0 });
 
   return (
     <Modal.Container

@@ -5,6 +5,7 @@ import { asyncAction } from "trabecula/utils/client";
 import { _FileSearch } from "medior/store/_generated";
 import { RootStore } from "medior/store";
 import { durationToSeconds, secondsToDuration } from "medior/utils/common";
+import { trpc } from "medior/utils/server";
 
 @model("medior/FileSearch")
 export class FileSearch extends ExtendedModel(_FileSearch, {
@@ -39,6 +40,7 @@ export class FileSearch extends ExtendedModel(_FileSearch, {
   @modelAction
   reloadIfQueued() {
     const stores = getRootStore<RootStore>(this);
+
     if (this.hasQueuedReload && !stores._getIsBlockingModalOpen()) {
       this.setHasQueuedReload(false);
       this.loadFiltered();
@@ -47,7 +49,8 @@ export class FileSearch extends ExtendedModel(_FileSearch, {
 
   @modelAction
   removeFiles(fileIds: string[]) {
-    this.results = this.results.filter((file) => !fileIds.includes(file.id));
+    const removedIds = new Set(fileIds);
+    this.results = this.results.filter((file) => !removedIds.has(file.id));
   }
 
   @modelAction
@@ -60,8 +63,9 @@ export class FileSearch extends ExtendedModel(_FileSearch, {
     fileIds: string[];
     removedTagIds: string[];
   }) {
+    const updatedIds = new Set(fileIds);
     this.results.forEach((file) => {
-      if (fileIds.includes(file.id)) file.updateTags({ addedTagIds, removedTagIds });
+      if (updatedIds.has(file.id)) file.updateTags({ addedTagIds, removedTagIds });
     });
   }
 
@@ -116,6 +120,7 @@ export class FileSearch extends ExtendedModel(_FileSearch, {
   @modelFlow
   listIdsForCarousel = asyncAction(async () => {
     if (!this.carouselFileIds.length) throw new Error("No files found");
+
     return [...this.carouselFileIds];
   });
 
@@ -131,5 +136,25 @@ export class FileSearch extends ExtendedModel(_FileSearch, {
     for (const file of this.results) {
       if (fileIds.includes(file.id)) await file.reloadTags();
     }
+  });
+
+  @modelFlow
+  selectFirstInQuery = asyncAction(async (limit: number) => {
+    if (!Number.isSafeInteger(limit) || limit < 1) throw new Error("Enter a positive whole number");
+
+    const filterProps = this.cachedFilterProps as ReturnType<typeof this.getFilterProps> | null;
+    const filters = filterProps ?? this.getFilterProps();
+    const res = await trpc.listFilteredFile.mutate({
+      ...filters,
+      ...(filters.ids?.length ? { forcePages: true, ids: filters.ids.slice(0, limit) } : {}),
+      page: 1,
+      pageSize: limit,
+      select: { _id: 1 },
+    });
+    if (!res.success) throw new Error(res.error);
+
+    this.toggleSelected(res.data.items.map(({ id }) => ({ id, isSelected: true })));
+
+    return res.data.items.length;
   });
 }
