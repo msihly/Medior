@@ -43,6 +43,7 @@
     "@trpc/client": "^10.30.0",
     "@trpc/server": "^10.30.0",
     "aws-sdk": "^2.1450.0",
+    "bson": "^4.7.2",
     "check-disk-space": "^3.4.0",
     "color": "^4.2.3",
     "es-toolkit": "^1.16.0",
@@ -57,7 +58,7 @@
     "sharp-bmp": "^0.1.5",
     "socket.io": "^4.6.2",
     "socket.io-client": "^4.6.2",
-    "trabecula": "github:msihly/trabecula#fc0e5010cd072bb82ad5fe9f4b9a0288faa97174",
+    "trabecula": "github:msihly/trabecula#713b0b031e65500ac27e9bffceb2621cb6a2a03e",
     "util": "^0.12.5",
     "vite-plugin-electron-renderer": "0.10.1",
     "wavesurfer.js": "^7.12.11"

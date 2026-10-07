@@ -15,9 +15,10 @@ export interface TagSelectorProps {
 export const TagSelector = Comp(({ options, store }: TagSelectorProps) => {
   const columnWidths = useRef(new Map<string, number>());
   const listRef = useRef<VariableSizeList>(null);
+
+  const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
   const [viewport, setViewport] = useState<HTMLDivElement>(null);
   const [viewportSize, setViewportSize] = useState({ height: 0, scrollbar: 0 });
-  const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
 
   const hierarchy = useMemo(
     () => createImportTagHierarchy(store.flatTagsToUpsert),
@@ -36,6 +37,7 @@ export const TagSelector = Comp(({ options, store }: TagSelectorProps) => {
     const measure = () => {
       const height = viewport.clientHeight;
       const scrollbar = viewport.offsetHeight - height;
+
       setViewportSize((previous) =>
         previous.height === height && previous.scrollbar === scrollbar
           ? previous
@@ -44,6 +46,7 @@ export const TagSelector = Comp(({ options, store }: TagSelectorProps) => {
     };
 
     const observer = new ResizeObserver(measure);
+
     observer.observe(viewport);
     measure();
 
@@ -62,6 +65,7 @@ export const TagSelector = Comp(({ options, store }: TagSelectorProps) => {
   const toggleExpanded = useCallback((key: string) => {
     setExpanded((previous) => {
       const next = new Set(previous);
+
       if (next.has(key)) next.delete(key);
       else next.add(key);
 

@@ -1,6 +1,6 @@
 import { ipcRenderer } from "electron";
 import { ReactNode, useEffect, useRef, useState } from "react";
-import { Text, View, WindowTitleBar } from "medior/components";
+import { LoadingOverlay, Text, View, WindowTitleBar } from "medior/components";
 import type { ServerProcessStatus } from "medior/server/server";
 import { useStores } from "medior/store";
 import { persistNotification, Toaster } from "medior/utils/client";
@@ -11,9 +11,11 @@ export interface RuntimeSyncProps {
 }
 
 export const RuntimeSync = ({ children }: RuntimeSyncProps) => {
+  const stores = useStores();
+
   const [hasStarted, setHasStarted] = useState(false);
   const [startupMessage, setStartupMessage] = useState("Starting Medior services...");
-  const stores = useStores();
+
   const pollInterval = useRef<ReturnType<typeof setInterval>>(null);
   const previousStatusMessage = useRef<string>(null);
   const serverToaster = useRef(new Toaster()).current;
@@ -37,6 +39,7 @@ export const RuntimeSync = ({ children }: RuntimeSyncProps) => {
 
     const handleConfigUpdated = (_, config: Config) => {
       const previousConfig = getConfig();
+
       setConfig(config);
       stores.applyConfig(config);
 
@@ -56,9 +59,14 @@ export const RuntimeSync = ({ children }: RuntimeSyncProps) => {
       if (!ready) {
         if (!statuses.length || unavailable.length) {
           setStartupMessage(
-            failed.length
-              ? `${failed.map(({ label }) => label).join(" / ")} failed to start. Close Medior and restart it.`
-              : `Starting ${unavailable.map(({ label }) => label).join(" / ") || "Medior services"}...`,
+            [
+              failed.length
+                ? `${failed.map(({ label }) => label).join(" / ")} failed to start. Close Medior and restart it.`
+                : `Starting ${unavailable.map(({ label }) => label).join(" / ") || "Medior services"}...`,
+              ...unavailable
+                .filter(({ message }) => message)
+                .map(({ label, message }) => `${label}: ${message}`),
+            ].join("\n\n"),
           );
           startPolling();
 
@@ -90,6 +98,7 @@ export const RuntimeSync = ({ children }: RuntimeSyncProps) => {
         );
       } else {
         stopPolling();
+
         if (!wasDisconnected.current) return;
 
         wasDisconnected.current = false;
@@ -160,8 +169,15 @@ export const RuntimeSync = ({ children }: RuntimeSyncProps) => {
     <View column height="100vh">
       <WindowTitleBar title="Medior" />
 
-      <View flex={1} align="center" justify="center" padding={{ all: "1rem" }}>
-        <Text whiteSpace="pre-wrap">{startupMessage}</Text>
+      <View flex={1} position="relative">
+        <LoadingOverlay
+          isLoading
+          sub={
+            <Text preset="title" fontSize="0.9em" padding="1rem" whiteSpace="pre-wrap">
+              {startupMessage}
+            </Text>
+          }
+        />
       </View>
     </View>
   );

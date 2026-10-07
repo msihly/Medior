@@ -12,6 +12,8 @@ export interface Constants extends _Constants {
     };
   };
   FILE: {
+    IO_CONCURRENCY: number;
+    TAG_QUERY_BATCH_SIZE: number;
     THUMB: {
       FRAME_SKIP_PERCENT: number;
       GRID_COLUMNS: number;
@@ -35,7 +37,6 @@ export interface Constants extends _Constants {
   };
   VECTOR: {
     DEFAULT_THREAD_POOL_SIZE: number;
-    MAX_IO_CONCURRENCY: number;
   };
   WINDOW: {
     TITLE_BAR: { HEIGHT: number; Z_INDEX: number };
@@ -55,6 +56,8 @@ export const CONSTANTS: Constants = {
     },
   },
   FILE: {
+    IO_CONCURRENCY: 32,
+    TAG_QUERY_BATCH_SIZE: 1000,
     THUMB: {
       FRAME_SKIP_PERCENT: 0.03,
       GRID_COLUMNS: 3,
@@ -78,9 +81,18 @@ export const CONSTANTS: Constants = {
   },
   VECTOR: {
     DEFAULT_THREAD_POOL_SIZE: 4,
-    MAX_IO_CONCURRENCY: 32,
   },
   WINDOW: {
     TITLE_BAR: { HEIGHT: 32, Z_INDEX: 1401 },
   },
 };
+
+// Archive and path predicates lead; the remaining keys cover IDs and date sorting.
+export const FILE_PATH_SEARCH_INDEX = {
+  isArchived: 1,
+  originalPath: 1,
+  _id: 1,
+  dateCreated: 1,
+  dateImported: 1,
+  dateModified: 1,
+} as const;

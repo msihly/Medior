@@ -4,34 +4,36 @@ import {
   Button,
   Comp,
   FileCollectionEditor,
+  LoadingOverlay,
   Modal,
   RatingButton,
   Text,
   View,
 } from "medior/components";
-import { File, useStores } from "medior/store";
+import { useStores } from "medior/store";
 import { colors, toast } from "medior/utils/client";
 import { trpc } from "medior/utils/server";
 import { CarouselWindow } from "medior/views";
 
-const TRIAGE_QUEUE_PAGE_SIZE = 100_000;
+const TRIAGE_QUEUE_PAGE_SIZE = 1000;
 
 export const CollectionTriager = Comp(() => {
   const stores = useStores();
 
   const carouselSnapshot = useRef(getSnapshot(stores.carousel));
+  const disposed = useRef(false);
   const fileSearchSnapshot = useRef(getSnapshot(stores.file.search));
   const loadRevision = useRef(0);
-  const disposed = useRef(false);
 
   const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
   const [queue, setQueue] = useState<string[]>([]);
 
   const collection = stores.collection.editor.collection;
 
   useEffect(() => {
     disposed.current = false;
-    void loadQueue();
+    loadQueue();
 
     return () => {
       disposed.current = true;
@@ -47,12 +49,12 @@ export const CollectionTriager = Comp(() => {
   }, []);
 
   useEffect(() => {
-    if (queue[0]) void loadCollection(queue[0]);
+    if (queue[0]) loadCollection(queue[0]);
     else {
       stores.collection.editor.setIsOpen(false);
       stores.carousel.setActiveFileId("");
       stores.carousel.setSelectedFileIds([]);
-      setIsLoading(false);
+      stores.carousel.setVisibleFileIds([]);
     }
   }, [queue[0]]);
 
@@ -60,17 +62,35 @@ export const CollectionTriager = Comp(() => {
     try {
       setIsLoading(true);
 
-      const res = await trpc.listFilteredFileCollection.mutate({
-        ...stores.collection.manager.search.getCachedFilterProps(),
-        page: 1,
-        pageSize: TRIAGE_QUEUE_PAGE_SIZE,
-        select: { _id: 1 },
-      });
-      if (!res.success) throw new Error(res.error);
+      const filters = stores.collection.manager.search.getCachedFilterProps();
+      const ids: string[] = [];
+      let page = 1;
+
+      while (!disposed.current) {
+        const res = await trpc.listFilteredFileCollection.mutate({
+          ...filters,
+          page,
+          pageSize: TRIAGE_QUEUE_PAGE_SIZE,
+          select: { _id: 1 },
+        });
+
+        if (!res.success) throw new Error(res.error);
+
+        for (const item of res.data) ids.push(item.id);
+
+        if (res.data.length < TRIAGE_QUEUE_PAGE_SIZE) break;
+
+        page++;
+      }
+
       if (disposed.current) return;
 
-      setQueue(res.data.map((item) => item.id));
-      if (!res.data.length) toast.info("No collections found for this search");
+      setQueue([...new Set(ids)]);
+
+      if (!ids.length) {
+        setIsLoading(false);
+        toast.info("No collections found for this search");
+      }
     } catch (err) {
       if (disposed.current) return;
 
@@ -87,27 +107,25 @@ export const CollectionTriager = Comp(() => {
       stores.carousel.setActiveFileId("");
       stores.carousel.setIsPlaying(false);
       stores.carousel.setSelectedFileIds([]);
+      stores.carousel.setVisibleFileIds([]);
       stores.file.setActiveFileId("");
       stores.file.search.setLoadId(stores.file.search.loadId + 1);
       stores.file.search.setIds([]);
       stores.file.search.setResults([]);
 
       const loaded = await stores.collection.editor.loadCollection(id);
+
       if (!loaded.success) throw new Error(loaded.error);
-      if (disposed.current || revision !== loadRevision.current) return;
+
+      if (!loaded.data || disposed.current || revision !== loadRevision.current) return;
 
       const fileIds = stores.collection.editor.getFileIdsForCarousel();
-      const filesRes = await trpc.listFile.mutate({ args: { filter: { id: fileIds } } });
-      if (!filesRes.success) throw new Error(filesRes.error);
-      if (disposed.current || revision !== loadRevision.current) return;
 
-      stores.file.search.setIds(fileIds);
-      stores.file.search.setResults(filesRes.data.items.map((file) => new File(file)));
       stores.carousel.setSelectedFileIds(fileIds);
       stores.carousel.setActiveFileId(fileIds[0] ?? "");
       stores.file.setActiveFileId(fileIds[0] ?? "");
     } catch (err) {
-      toast.error(err);
+      if (!disposed.current && revision === loadRevision.current) toast.error(err);
     } finally {
       if (!disposed.current && revision === loadRevision.current) setIsLoading(false);
     }
@@ -115,10 +133,17 @@ export const CollectionTriager = Comp(() => {
 
   const advance = () => {
     setQueue((prev) => prev.slice(1));
-    void stores.collection.manager.search.loadFiltered();
+    stores.collection.manager.search.loadFiltered();
   };
 
-  const close = () => stores.collection.manager.setIsTriagerOpen(false);
+  const close = () => {
+    if (!isSaving && !stores.collection.editor.isSaving) {
+      disposed.current = true;
+      loadRevision.current++;
+      stores.collection.editor.cancelLoad();
+      stores.collection.manager.setIsTriagerOpen(false);
+    }
+  };
 
   const handleCarouselWheel = (event: WheelEvent) => {
     if (event.ctrlKey) return;
@@ -127,6 +152,7 @@ export const CollectionTriager = Comp(() => {
 
     const nextIndex = stores.carousel.activeFileIndex + (event.deltaY < 0 ? -1 : 1);
     const nextFileId = stores.carousel.selectedFileIds[nextIndex];
+
     if (!nextFileId) return;
 
     stores.carousel.setActiveFileId(nextFileId);
@@ -137,16 +163,18 @@ export const CollectionTriager = Comp(() => {
     if (!collection) return;
 
     try {
-      setIsLoading(true);
+      setIsSaving(true);
 
       if (withFiles) {
         const archiveRes = await stores.file.archiveFiles(
           stores.collection.editor.getFileIdsForCarousel(),
         );
+
         if (!archiveRes.success) throw new Error(archiveRes.error);
       }
 
       const deleteRes = await stores.collection.deleteCollections([collection.id]);
+
       if (!deleteRes.success) throw new Error(deleteRes.error);
 
       toast.success("Collection deleted");
@@ -154,7 +182,7 @@ export const CollectionTriager = Comp(() => {
     } catch (err) {
       toast.error(err);
     } finally {
-      setIsLoading(false);
+      setIsSaving(false);
     }
   };
 
@@ -162,17 +190,19 @@ export const CollectionTriager = Comp(() => {
     if (!collection) return;
 
     try {
-      setIsLoading(true);
+      setIsSaving(true);
 
       const result = await stores.collection.updateCollRating({ id: collection.id, rating });
+
       if (!result.success) throw new Error(result.error);
+
       if (disposed.current) return;
 
       advance();
     } catch (err) {
       toast.error(err);
     } finally {
-      setIsLoading(false);
+      setIsSaving(false);
     }
   };
 
@@ -183,7 +213,17 @@ export const CollectionTriager = Comp(() => {
   };
 
   return (
-    <Modal.Container onClose={close} height="100%" width="100%">
+    <Modal.Container
+      onClose={close}
+      height="100%"
+      width="100%"
+      isLoading={isSaving || stores.collection.editor.isSaving}
+    >
+      <LoadingOverlay
+        isLoading={isLoading && !isSaving}
+        sub={<Button text="Cancel" icon="Close" onClick={close} />}
+      />
+
       <Modal.Header rightNode={<Text preset="sub-text">{`${queue.length} remaining`}</Text>}>
         <Text preset="title">{"Collection Triager"}</Text>
       </Modal.Header>
@@ -193,7 +233,13 @@ export const CollectionTriager = Comp(() => {
           <CarouselWindow embedded />
         </View>
 
-        <FileCollectionEditor embedded maxCards={3} onClose={close} onRating={handleRating} />
+        <FileCollectionEditor
+          embedded
+          maxCards={3}
+          onCancelLoad={close}
+          onClose={close}
+          onRating={handleRating}
+        />
       </Modal.Content>
 
       <Modal.Footer>

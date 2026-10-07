@@ -53,6 +53,8 @@ export class RootStore extends Model({
       this.import?.ingester?.isOpen ||
       this.import?.manager?.isOpen ||
       this.import?.reingester?.isOpen ||
+      this.file?.lowerResolution?.isOpen ||
+      this.file?.similarity?.isOpen ||
       this.file?.tagsEditor?.isOpen ||
       (this.file?.isRefreshOpen && !this.file?.isRefreshMinimized) ||
       (this.file?.videoTransformer?.isOpen && !this.file?.videoTransformer?.isMinimized) ||
@@ -65,6 +67,7 @@ export class RootStore extends Model({
 
 export const createRootStore = () => {
   const rootStore = new RootStore({});
+
   registerRootStore(rootStore);
 
   return rootStore;

@@ -1,10 +1,13 @@
 import { Button, Card, Comp, Icon, Modal, ProgressBar, Text, View } from "medior/components";
 import { useStores } from "medior/store";
-import { colors } from "medior/utils/client";
+import { colors, makeClasses } from "medior/utils/client";
 
 export const FileRefreshModal = Comp(() => {
   const stores = useStores();
   const store = stores.file;
+
+  const { css } = useClasses(null);
+
   const currentFileNumber = Math.min(store.refreshProcessedCount + 1, store.refreshTotalCount);
 
   const handleClose = () =>
@@ -55,11 +58,7 @@ export const FileRefreshModal = Comp(() => {
       </Modal.Container>
 
       {store.isRefreshMinimized && (
-        <View
-          position="fixed"
-          style={{ bottom: "1rem", right: "1rem", zIndex: 1400 }}
-          width="24rem"
-        >
+        <View position="fixed" className={css.minimized} width="24rem">
           <Card spacing="0.5rem" padding={{ all: "0.5rem" }} width="100%">
             <Text preset="title">{`Refreshing file ${currentFileNumber} of ${store.refreshTotalCount}`}</Text>
 
@@ -90,4 +89,12 @@ export const FileRefreshModal = Comp(() => {
       )}
     </>
   );
+});
+
+const useClasses = makeClasses({
+  minimized: {
+    bottom: "1rem",
+    right: "1rem",
+    zIndex: 1400,
+  },
 });

@@ -11,17 +11,19 @@ interface CarouselThumbProps {
 
 export const CarouselThumb = Comp(({ id, isDragging = false, style }: CarouselThumbProps) => {
   const stores = useStores();
+  const store = stores.carousel;
+
   const file = stores.file.getById(id);
 
   const handleSelect = (event: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
     if (isDragging) event.preventDefault();
-    else stores.carousel.setActiveFileId(id);
+    else store.setActiveFileId(id);
   };
 
   return (
     <FileBase.Container
       onClick={handleSelect}
-      selected={stores.carousel.activeFileId === id}
+      selected={store.activeFileId === id}
       height={CONSTANTS.CAROUSEL.THUMB_NAV.WIDTH}
       width={CONSTANTS.CAROUSEL.THUMB_NAV.WIDTH}
       style={style}

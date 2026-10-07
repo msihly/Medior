@@ -62,6 +62,7 @@ export const prepareTransformMetadata = async (
       ...args,
       thumbId: path.basename(operation.tempPath).replace(/-thumb\.jpg$/, ""),
     });
+
     if (isGeneratedMediaUnreadable(info))
       throw new Error("Transform output could not be read; preparation retained");
 
@@ -100,7 +101,9 @@ export const commitTransformMetadata = async (
   { retainOutput = false }: { retainOutput?: boolean } = {},
 ) => {
   const operation = await FileOperationModel.findById(`transform:${id}`).lean();
+
   if (operation?.state === "COMMITTED") return;
+
   if (!operation) throw new Error("Transform preparation missing");
 
   const cleanup = [...operation.cleanup];

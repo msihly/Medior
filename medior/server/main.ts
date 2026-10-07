@@ -55,6 +55,7 @@ const trackWindowDisplay = (window: BrowserWindow, windowType: WindowType) => {
   const updateDisplay = () => {
     lastDisplayIds[windowType] = screen.getDisplayMatching(window.getBounds()).id;
   };
+
   updateDisplay();
   window.on("move", updateDisplay);
 };
@@ -73,6 +74,7 @@ const baseUrl = isBundled
 
 const folderPath = isPackaged ? process.resourcesPath : rootDir;
 const configPath = path.resolve(folderPath, "..", "config.json");
+
 ipcMain.handle("getConfigPath", () => configPath);
 
 let relaunchAfterShutdown = false;
@@ -157,9 +159,11 @@ ipcMain.handle("saveConfig", async (_, config: Config) => {
 
     let restartedServers =
       previousConfig.db.path !== config.db.path ||
+      previousConfig.db.vector.path !== config.db.vector.path ||
       previousConfig.ports.db !== config.ports.db ||
       previousConfig.ports.server !== config.ports.server ||
-      previousConfig.ports.socket !== config.ports.socket;
+      previousConfig.ports.socket !== config.ports.socket ||
+      previousConfig.ports.vector !== config.ports.vector;
 
     await saveConfig(configPath, config);
 
@@ -205,6 +209,7 @@ ipcMain.handle("saveConfig", async (_, config: Config) => {
 });
 
 const logsDir = path.resolve(folderPath, "..", "logs", dayjs().format("YYYY-MM-DD"));
+
 process.env.LOGS_PATH = path.resolve(logsDir, `${dayjs().format("HH[h]mm[m]ss[s]")}.log`);
 setLogsPath(process.env.LOGS_PATH);
 
@@ -271,9 +276,10 @@ const createMainWindow = async () => {
     }
 
     fileLog("Loading main window...");
-    void servers.start().catch((error) => {
+    servers.start().catch((error) => {
       fileLog(`Server startup failed: ${error.message}`, { type: "error" });
     });
+
     await mainWindow.loadURL(baseUrl);
     fileLog("Main window loaded.");
   } catch (err) {
@@ -341,6 +347,7 @@ const createSearchWindow = async ({ tagIds }) => {
 
     if (!isPackaged) {
       const mode = getConfig().dev.devTools.search;
+
       if (mode) searchWindow.webContents.openDevTools({ mode });
     }
 
@@ -371,6 +378,7 @@ const registerDevToolsShortcuts = (window: BrowserWindow) => {
     const isDevToolsShortcut =
       input.type === "keyDown" &&
       (input.key === "F12" || (input.control && input.shift && input.key.toLowerCase() === "i"));
+
     if (!isDevToolsShortcut) return;
 
     event.preventDefault();
@@ -421,6 +429,7 @@ const createCarouselWindow = async ({ fileId, height, selectedFileIds, width }) 
 
     if (!isPackaged) {
       const mode = getConfig().dev.devTools.carousel;
+
       if (mode) carouselWindow.webContents.openDevTools({ mode });
     }
 

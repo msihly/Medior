@@ -3,7 +3,7 @@ import path from "path";
 import { useEffect, useRef } from "react";
 import { ModelCreationData } from "mobx-keystone";
 import { dirToFilePaths, makePerfLog } from "trabecula/utils/server";
-import { CreateImportBatchesInput, TagSchema } from "medior/server/database";
+import { TagSchema } from "medior/server/database";
 import { FlatFolder, TagToUpsert } from "medior/components";
 import { FileImport, Ingester, Reingester, RootStore, useStores } from "medior/store";
 import { derefMobx, toast } from "medior/utils/client";
@@ -11,6 +11,7 @@ import {
   dayjs,
   Fmt,
   ImageExt,
+  ImportBatchInput,
   mergeTagDefinitions,
   parseDiffParams,
   preferredTagLabel,
@@ -58,6 +59,7 @@ export class EditorImportsCache {
 
   async checkpoint() {
     throwIfIngestCancelled(this.isCancelled);
+
     if (performance.now() - this.lastYield < 8) return;
 
     await new Promise<void>((resolve) => setTimeout(resolve, 0));
@@ -68,6 +70,7 @@ export class EditorImportsCache {
   async getParentTags(id: string) {
     if (!this.parentTagsCache.has(id)) {
       const tag = await this.getTagById(id);
+
       this.tagLabelDirectory ??= this.loadTagLabelDirectory();
       await this.tagLabelDirectory;
       this.parentTagsCache.set(
@@ -86,6 +89,7 @@ export class EditorImportsCache {
 
   async getTagByLabel(label: string) {
     label = label.toLowerCase();
+
     if (!this.tagLabelCache.has(label)) await this.preloadTagsByLabels([label]);
 
     return this.tagLabelCache.get(label);
@@ -104,6 +108,7 @@ export class EditorImportsCache {
 
     const key = tag.label.toLowerCase();
     const previous = this.tagLabelCache.get(key);
+
     if (!previous || preferredTagLabel(previous.label, tag.label) === tag.label)
       this.tagLabelCache.set(key, tag as TagSchema);
 
@@ -121,6 +126,7 @@ export class EditorImportsCache {
         await this.checkpoint();
 
         const tag = pending.pop();
+
         if (tag.id) ids.add(tag.id);
 
         labels.add(tag.label);
@@ -134,6 +140,7 @@ export class EditorImportsCache {
     await this.preloadTagsByLabels([...labels]);
 
     const matchingStatus = withRegEx ? "Matching tag regex rules" : "Collecting matched tags";
+
     this.onProgress?.(matchingStatus, 0, labels.size);
 
     let completed = 0;
@@ -142,6 +149,7 @@ export class EditorImportsCache {
       await this.checkpoint();
 
       const tag = this.tagLabelCache.get(label.toLowerCase());
+
       if (tag) ids.add(tag.id);
 
       if (withRegEx) {
@@ -161,6 +169,7 @@ export class EditorImportsCache {
     for (const id of ids) {
       await this.checkpoint();
       await this.getParentTags(id);
+
       if (++completed % STAT_BATCH_SIZE === 0)
         this.onProgress?.("Preparing ancestor lookups", completed, ids.size);
     }
@@ -170,6 +179,7 @@ export class EditorImportsCache {
 
   async preloadTagsByIds(ids: string[], status = "Resolving matched tags") {
     const missingIds = [...new Set(ids.filter(Boolean))].filter((id) => !this.tagIdCache.has(id));
+
     if (!missingIds.length) return;
 
     for (let idx = 0; idx < missingIds.length; idx += TAG_LOOKUP_BATCH_SIZE) {
@@ -178,6 +188,7 @@ export class EditorImportsCache {
 
       const batch = missingIds.slice(idx, idx + TAG_LOOKUP_BATCH_SIZE);
       const res = await trpc.listImportTags.mutate({ ids: batch });
+
       if (!res.success) throw new Error(res.error);
 
       await this.checkpoint();
@@ -186,7 +197,9 @@ export class EditorImportsCache {
 
       for (const id of batch) {
         const tag = tagsById.get(id) ?? null;
+
         this.tagIdCache.set(id, tag);
+
         if (tag) this.setTagByLabel(tag);
       }
 
@@ -198,6 +211,7 @@ export class EditorImportsCache {
     const missingLabels = [
       ...new Set(labels.filter(Boolean).map((label) => label.toLowerCase())),
     ].filter((label) => !this.tagLabelCache.has(label));
+
     if (!missingLabels.length) return;
 
     this.tagLabelDirectory ??= this.loadTagLabelDirectory();
@@ -209,6 +223,7 @@ export class EditorImportsCache {
       await this.checkpoint();
 
       const id = directory.get(label.toLowerCase());
+
       if (id) ids.add(id);
     }
 
@@ -218,10 +233,12 @@ export class EditorImportsCache {
       await this.checkpoint();
 
       const label = missingLabels[idx];
+
       this.tagLabelCache.set(
         label,
         this.tagIdCache.get(directory.get(label.toLowerCase())) ?? null,
       );
+
       if (idx % STAT_BATCH_SIZE === 0)
         this.onProgress?.("Resolving tag labels", idx, missingLabels.length);
     }
@@ -233,6 +250,7 @@ export class EditorImportsCache {
     this.onProgress?.("Loading tag label directory", 0, 0);
 
     const index = await getImportTagIndex(this.stores).getDirectory();
+
     await this.checkpoint();
     this.ancestorLabels = index.ancestorLabels;
 
@@ -268,6 +286,7 @@ export const dirToFileImports = async (
   throwIfIngestCancelled(options.isCancelled);
 
   const filePaths = await dirToFilePaths(dirPath, makeImportPathFilter());
+
   throwIfIngestCancelled(options.isCancelled);
 
   const imports = await filePathsToImports(filePaths, options);
@@ -277,13 +296,16 @@ export const dirToFileImports = async (
 
 const getValidExts = () => {
   const config = getConfig();
+
   return new Set([...config.file.imageExts, ...config.file.videoExts]);
 };
 
 const makeImportPathFilter = () => {
   const validExts = getValidExts();
+
   return (filePath: string) => {
     const ext = path.extname(filePath).slice(1).toLowerCase();
+
     return validExts.has(ext as ImageExt | VideoExt) || ext === "json" || ext === "txt";
   };
 };
@@ -308,6 +330,7 @@ export const filePathsToImports = async (
         await Promise.all(
           validFilePaths.slice(idx, idx + STAT_BATCH_SIZE).map(async (filePath) => {
             const stats = await fs.stat(filePath);
+
             return {
               dateCreated: dayjs(
                 Math.min(stats.birthtime.valueOf(), stats.ctime.valueOf(), stats.mtime.valueOf()),
@@ -336,6 +359,7 @@ export const handleIngest = async ({
   store: Ingester;
 }) => {
   const cancelToken = store.ingestCancelToken;
+
   const isCancelled = () => !store.isOpen || store.ingestCancelToken !== cancelToken;
 
   const setInitProgress = (status: string, completed = 0, total = 0) => {
@@ -348,6 +372,7 @@ export const handleIngest = async ({
 
   try {
     const { perfLog, perfLogTotal } = makePerfLog("[Ingest]");
+
     store.setIsInitDone(false);
     store.setIsOpen(true);
     store.setIsLoading(true);
@@ -356,6 +381,7 @@ export const handleIngest = async ({
     const [filePaths, folderPaths] = [...fileList]
       .sort((a, b) => {
         const lengthDiff = a.path.split(path.sep).length - b.path.split(path.sep).length;
+
         if (lengthDiff !== 0) return lengthDiff;
 
         return a.name.localeCompare(b.name);
@@ -367,6 +393,7 @@ export const handleIngest = async ({
 
     const rootFolderPath = filePaths[0] ? path.dirname(filePaths[0]) : folderPaths[0];
     const initialRootIndex = rootFolderPath.split(path.sep).length - 1;
+
     store.setRootFolderPath(rootFolderPath);
     store.setRootFolderIndex(initialRootIndex);
     store.setFilePaths(new Map());
@@ -374,6 +401,7 @@ export const handleIngest = async ({
     perfLog("Init");
 
     let completedFolders = 0;
+
     setInitProgress("Scanning folders", completedFolders, folderPaths.length);
 
     const editorPaths = new Set(filePaths);
@@ -385,6 +413,7 @@ export const handleIngest = async ({
           throwIfIngestCancelled(isCancelled);
 
           const paths = await dirToFilePaths(folderPath, filter);
+
           setInitProgress("Scanning folders", ++completedFolders, folderPaths.length);
 
           return paths;
@@ -406,6 +435,7 @@ export const handleIngest = async ({
       isCancelled,
       onProgress: (completed, total) => setInitProgress("Preparing files", completed, total),
     });
+
     throwIfIngestCancelled(isCancelled);
     perfLog(
       `Created editor file paths and imports (${Fmt.commas(editorFilePaths.length)} paths, ${Fmt.commas(editorImports.length)} imports)`,
@@ -422,7 +452,7 @@ export const handleIngest = async ({
       store.setIsLoading(false);
     }, 0);
   } catch (err) {
-    if (err instanceof IngestCancelledError) return;
+    if (err?.name === "IngestCancelledError") return;
 
     toast.error("Error queuing imports");
     console.error(err);
@@ -441,6 +471,7 @@ export const handleReingest = async ({
   store: Reingester;
 }) => {
   const cancelToken = store.ingestCancelToken;
+
   const isCancelled = () => !store.isOpen || store.ingestCancelToken !== cancelToken;
 
   const setInitProgress = (status: string, completed = 0, total = 0) => {
@@ -458,6 +489,7 @@ export const handleReingest = async ({
     setInitProgress("Preparing re-import", 0, fileIds.length);
 
     const res = await trpc.listFile.mutate({ args: { filter: { id: fileIds } } });
+
     if (!res.success) throw new Error(res.error);
 
     throwIfIngestCancelled(isCancelled);
@@ -485,7 +517,7 @@ export const handleReingest = async ({
     setInitProgress("Opening editor", files.length, files.length);
     await store.loadFolder();
   } catch (err) {
-    if (err instanceof IngestCancelledError) return;
+    if (err?.name === "IngestCancelledError") return;
 
     toast.error("Error queuing imports");
     console.error(err);
@@ -560,6 +592,7 @@ export const useImportEditor = (store: Ingester | Reingester) => {
                 label,
                 withRegEx: store.options.withNewTagsToRegEx,
               });
+
               folderTags.push({ label });
             } else folderTags.push({ ...tag, label });
           }
@@ -578,6 +611,7 @@ export const useImportEditor = (store: Ingester | Reingester) => {
             const tag = await cache.current.getTagByLabel(label);
 
             const parentLabels = tagParentLabel ? delimit(tagParentLabel) : [];
+
             folderTags.push({ ...tag, label, parentLabels });
           }
 
@@ -611,10 +645,12 @@ export const useImportEditor = (store: Ingester | Reingester) => {
 
           for (const folderNamePart of folderNameParts) {
             const tagIds = await cache.current.getTagIdsByRegEx(folderNamePart);
+
             if (!tagIds?.length) continue;
 
             for (const id of tagIds) {
               const label = (await cache.current.getTagById(id))?.label;
+
               if (!label) continue;
 
               if (!existingLabels.has(label)) {
@@ -625,6 +661,7 @@ export const useImportEditor = (store: Ingester | Reingester) => {
           }
 
           folderTags.push(...tagsToPush);
+
           if (DEBUG) perfLog("Parsed tags from folder name RegEx maps");
         }
 
@@ -635,6 +672,7 @@ export const useImportEditor = (store: Ingester | Reingester) => {
           if (collectionTitleTags?.length) {
             for (const tagId of collectionTitleTags) {
               const tag = await cache.current.getTagById(tagId);
+
               if (tag && !folderTags.some((t) => t.label === tag.label)) folderTags.push(tag);
             }
           }
@@ -642,6 +680,7 @@ export const useImportEditor = (store: Ingester | Reingester) => {
       }
 
       const tags = await dedupeTags(folderTags);
+
       if (DEBUG) perfLog("Filtered out duplicate / ancestor tags");
 
       return {
@@ -676,12 +715,15 @@ export const useImportEditor = (store: Ingester | Reingester) => {
       if (folderInMap) folderInMap.imports.push(imp);
       else {
         const folder = await createFolder({ fileImport: imp, folderName });
+
         folderMap.set(folderName, folder);
+
         if (DEBUG) perfLog(`Created folder #${folderMap.size}`);
       }
 
       if (imp.tagsToUpsert)
         imp.tagsToUpsert.forEach((tag) => cache.current.tagsToCreateMap.set(tag.label, tag));
+
       if (DEBUG) perfLog(`Parsed import #${idx + 1} / ${imports.length}`);
     }
 
@@ -692,6 +734,7 @@ export const useImportEditor = (store: Ingester | Reingester) => {
         (a, b) => a[1].folderNameParts.length - b[1].folderNameParts.length,
       ),
     );
+
     if (DEBUG) perfLog("Sorted flat folder hierarchy");
 
     return sortedFolderMap;
@@ -708,7 +751,7 @@ export const useImportEditor = (store: Ingester | Reingester) => {
   };
 
   const createFolderTagIds = async (folder: FlatFolder) => {
-    const imports: CreateImportBatchesInput[number]["imports"] = [];
+    const imports: ImportBatchInput["imports"] = [];
 
     for (const imp of folder.imports) {
       await cache.current.checkpoint();
@@ -725,7 +768,7 @@ export const useImportEditor = (store: Ingester | Reingester) => {
   };
 
   const createImportBatches = async (isCancelled?: () => boolean) => {
-    const importBatches: CreateImportBatchesInput = [];
+    const importBatches: ImportBatchInput[] = [];
     const folders = [...store.allFlatFolderHierarchy.values()];
 
     store.setInitProgressCompleted(0);
@@ -777,6 +820,7 @@ export const useImportEditor = (store: Ingester | Reingester) => {
 
       for (const tag of replacedTags) {
         const existing = tag.id ? null : await cache.current.getTagByLabel(tag.label);
+
         tagsToUpsertMap.set(
           tag.label,
           existing
@@ -836,8 +880,10 @@ export const useImportEditor = (store: Ingester | Reingester) => {
     for (const tags of processedTags.values()) {
       for (const tag of tags) {
         await cache.current.checkpoint();
+
         if (tag.id ? ids.has(tag.id) || labelsWithoutIds.has(tag.label) : labels.has(tag.label))
           continue;
+
         if (tag.id) ids.add(tag.id);
         else labelsWithoutIds.add(tag.label);
 
@@ -859,17 +905,21 @@ export const useImportEditor = (store: Ingester | Reingester) => {
 
     if (!store.options.withDiffusionParams && !store.options.withSidecar) {
       store.clearValues({ diffusionParams: true, tagIds: true, tagsToUpsert: true });
+
       if (DEBUG) perfLog("Cleared diffParams and tags");
     } else {
       if (store.options.withDiffusionParams) {
         const res = await store.loadDiffusionParams();
+
         if (!res.success) throw new Error(res.error);
+
         if (DEBUG) perfLog("Loaded diffusion params");
       }
     }
 
     /** Create meta tags for diffusion params if not found. */
     const { diffMetaTagsToEdit, originalTag, upscaledTag } = await upsertDiffMetaTags();
+
     if (DEBUG) perfLog("Upserted diffusion meta tags");
 
     const tagsToUpsert: TagToUpsert[] = [];
@@ -880,6 +930,7 @@ export const useImportEditor = (store: Ingester | Reingester) => {
 
       for (const imp of store.imports) {
         await cache.current.checkpoint();
+
         if (imp.diffusionParams)
           labels.add(`Diff Model: ${parseDiffParams(imp.diffusionParams).model}`);
       }
@@ -889,6 +940,7 @@ export const useImportEditor = (store: Ingester | Reingester) => {
 
     const editorImports: ModelCreationData<FileImport>[] = [];
     const matchedIds = new Set<string>();
+
     store.setInitProgressStatus("Parsing file tags");
     store.setInitProgressTotal(store.imports.length);
 
@@ -903,7 +955,9 @@ export const useImportEditor = (store: Ingester | Reingester) => {
 
       if (store.options.withFileNameToTags) {
         const tagIds = await cache.current.getTagIdsByRegEx(imp.name);
+
         if (tagIds?.length) fileTagIds.push(...tagIds);
+
         if (DEBUG) perfLog(`Parsed tag ids from file name via regEx`);
       }
 
@@ -913,6 +967,7 @@ export const useImportEditor = (store: Ingester | Reingester) => {
           originalTagId: originalTag?.id,
           upscaledTagId: upscaledTag?.id,
         });
+
         if (DEBUG) perfLog(`Parsed diffusion params for ${imp.name}`);
 
         fileTagIds.push(...diffFileTagIds);
@@ -935,6 +990,7 @@ export const useImportEditor = (store: Ingester | Reingester) => {
         ...cloneFileImportSnapshot(imp),
         ...updates,
       });
+
       if (editorImports.length % STAT_BATCH_SIZE === 0)
         store.setInitProgressCompleted(editorImports.length);
     }
@@ -952,6 +1008,7 @@ export const useImportEditor = (store: Ingester | Reingester) => {
 
       for (const id of imp.tagIds) {
         const tag = await cache.current.getTagById(id);
+
         if (!tag) continue;
 
         existingIds.push(id);
@@ -962,6 +1019,7 @@ export const useImportEditor = (store: Ingester | Reingester) => {
       }
 
       imp.tagIds = existingIds.filter((id) => !ancestors.has(id));
+
       if (idx % STAT_BATCH_SIZE === 0) store.setInitProgressCompleted(idx);
     }
 
@@ -977,11 +1035,13 @@ export const useImportEditor = (store: Ingester | Reingester) => {
       await cache.current.checkpoint();
 
       const id = tag.id ?? (await cache.current.getTagByLabel(tag.label))?.id;
+
       if (id) resolvedIds.add(id);
       else {
         const mappedIds = store.options.withFolderNameRegEx
           ? await cache.current.getTagIdsByRegEx(tag.label)
           : [];
+
         if (!mappedIds.length) throw new Error(`Failed to resolve import tag: ${tag.label}`);
 
         for (const mappedId of mappedIds) resolvedIds.add(mappedId);
@@ -1006,16 +1066,19 @@ export const useImportEditor = (store: Ingester | Reingester) => {
     const diffFileTagsToUpsert: TagToUpsert[] = [];
 
     const parsedParams = parseDiffParams(diffusionParams);
+
     if (DEBUG) perfLog(`Parsed diffusion params`);
 
     if (store.options.withDiffusionRegExMaps) {
       diffFileTagIds.push(...(await cache.current.getTagIdsByRegEx(parsedParams.prompt)));
+
       if (DEBUG) perfLog(`Parsed tag ids from diffusion params via regEx`);
     }
 
     if (store.options.withDiffusionModel) {
       const modelTagLabel = `Diff Model: ${parsedParams.model}`;
       const modelTag = await cache.current.getTagByLabel(modelTagLabel);
+
       if (modelTag) diffFileTagIds.push(modelTag.id);
       else
         diffFileTagsToUpsert.push({
@@ -1024,10 +1087,12 @@ export const useImportEditor = (store: Ingester | Reingester) => {
           parentLabels: [config.imports.labelDiffModel],
           withRegEx: true,
         });
+
       if (DEBUG) perfLog(`Parsed model tag from diffusion params`);
     }
 
     const upscaledTypeTagId = parsedParams.isUpscaled ? upscaledTagId : originalTagId;
+
     if (upscaledTypeTagId && !diffFileTagIds.includes(upscaledTypeTagId))
       diffFileTagIds.push(upscaledTypeTagId);
 
@@ -1050,6 +1115,7 @@ export const useImportEditor = (store: Ingester | Reingester) => {
 
       const options = { ...store.options.toSavedConfig(), ...saved?.options };
       const parts = createFolderNameParts(folderName, options);
+
       if (options.folderToTagsMode === "none") continue;
 
       for (const part of parts) {
@@ -1057,6 +1123,7 @@ export const useImportEditor = (store: Ingester | Reingester) => {
           ? part.split(config.imports.folderDelimiter).map((label) => label.trim())
           : [part]) {
           labels.add(label);
+
           if (options.withFolderNameRegEx) regexLabels.add(label);
         }
 
@@ -1067,6 +1134,7 @@ export const useImportEditor = (store: Ingester | Reingester) => {
 
     for (const imp of store.imports) {
       await cache.current.checkpoint();
+
       if (!imp.tagsToUpsert?.length) continue;
 
       for (const tag of imp.tagsToUpsert) {
@@ -1159,13 +1227,15 @@ export const useImportEditor = (store: Ingester | Reingester) => {
 
     if (store.options.withDiffusionTags) {
       const upsertTag = async (label: string, isChild = false): Promise<TagToUpsert> => {
-        const existsRes = await stores.tag.getByLabel(label);
+        const existsRes = await stores.tag.getByLabel({ label });
+
         if (!existsRes.success) throw new Error(existsRes.error);
 
         let tag: TagSchema = existsRes.data;
 
         if (!tag) {
           const createRes = await stores.tag.createTag({ label });
+
           if (!createRes.success) throw new Error(createRes.error);
 
           tag = createRes.data;
@@ -1197,9 +1267,11 @@ export const useImportEditor = (store: Ingester | Reingester) => {
 
     for (const tag of store.flatTagsToUpsert) {
       await cache.current.checkpoint();
+
       if (!tag.id) continue;
 
       const existing = await cache.current.getTagById(tag.id);
+
       if (existing && existing.label !== tag.label) changedLabels.add(tag.id);
 
       cache.current.setTagByLabel(tag);
@@ -1229,10 +1301,12 @@ export const useImportEditor = (store: Ingester | Reingester) => {
       if (!res.success) {
         console.error(res.error);
         toast.error("Failed to create tags");
+
         throw new Error(res.error);
       }
 
       res.data.forEach((tag) => cache.current.setTagByLabel(tag));
+
       if (DEBUG) perfLog("Created tags");
     }
   };
@@ -1255,6 +1329,7 @@ export const useImportEditor = (store: Ingester | Reingester) => {
 
     try {
       const { perfLog, perfLogTotal } = makePerfLog("[ImportEditor.ingest]");
+
       if (DEBUG) perfLog("START");
 
       store.setIsSaving(true);
@@ -1266,17 +1341,20 @@ export const useImportEditor = (store: Ingester | Reingester) => {
       setSaveProgress("Preparing batches");
 
       const importBatches = await createImportBatches(isCancelled);
+
       throwIfIngestCancelled(isCancelled);
 
       setSaveProgress("Queueing files");
 
       const res = await stores.import.manager.createImportBatches({
         batches: importBatches,
+        isCancelled,
         onProgress: (completed, total) => {
           throwIfIngestCancelled(isCancelled);
           setSaveProgress("Queueing files", completed, total);
         },
       });
+
       if (!res.success) throw new Error(res.error);
 
       throwIfIngestCancelled(isCancelled);
@@ -1286,9 +1364,9 @@ export const useImportEditor = (store: Ingester | Reingester) => {
       toast.success(`Queued ${res.data.count} import batches`);
       store.setIsOpen(false);
       stores.import.manager.setIsOpen(true);
-      void stores.import.manager.runImporter();
+      stores.import.manager.runImporter();
     } catch (err) {
-      if (err instanceof IngestCancelledError) return;
+      if (err?.name === "IngestCancelledError") return;
 
       toast.error("Failed to queue imports");
       console.error(err);
@@ -1305,6 +1383,7 @@ export const useImportEditor = (store: Ingester | Reingester) => {
 
     try {
       const { perfLog, perfLogTotal } = makePerfLog("[ImportEditor.reingest]");
+
       if (DEBUG) perfLog("START");
 
       store.setIsSaving(true);
@@ -1319,18 +1398,20 @@ export const useImportEditor = (store: Ingester | Reingester) => {
       stores.import.reingester.setTagIds(
         (await createFolderTagIds(stores.import.reingester.getCurFolder())).tagIds,
       );
+
       throwIfIngestCancelled(isCancelled);
 
       setSaveProgress("Re-importing folder");
 
       const res = await stores.import.reingester.reingest();
+
       if (!res.success) throw new Error(res.error);
 
       throwIfIngestCancelled(isCancelled);
 
       if (DEBUG) perfLogTotal("Folder reingested");
     } catch (err) {
-      if (err instanceof IngestCancelledError) return;
+      if (err?.name === "IngestCancelledError") return;
 
       toast.error("Failed to re-import folder");
       console.error(err);
@@ -1346,7 +1427,9 @@ export const useImportEditor = (store: Ingester | Reingester) => {
     if (store.isSaving) return;
 
     const cancelToken = store.ingestCancelToken;
+
     const isCancelled = () => !store.isOpen || store.ingestCancelToken !== cancelToken;
+
     store.setIsLoading(true);
     store.setInitProgressStatus("Scanning imports");
     store.setInitProgressCompleted(0);
@@ -1355,6 +1438,7 @@ export const useImportEditor = (store: Ingester | Reingester) => {
     setTimeout(async () => {
       try {
         const { perfLog, perfLogTotal } = makePerfLog("[ImportEditor.scan]");
+
         if (DEBUG) perfLog("START");
 
         cache.current = new EditorImportsCache(stores, isCancelled, (status, completed, total) => {
@@ -1364,6 +1448,7 @@ export const useImportEditor = (store: Ingester | Reingester) => {
           store.setInitProgressCompleted(completed);
           store.setInitProgressTotal(total);
         });
+
         await cache.current.checkpoint();
 
         if (store.options.useSavedConfigs) {
@@ -1371,6 +1456,7 @@ export const useImportEditor = (store: Ingester | Reingester) => {
           throwIfIngestCancelled(isCancelled);
 
           const savedConfigMatch = stores.import.getSavedConfigMatchForFolder(store.rootFolderPath);
+
           if (
             !store.allFlatFolderHierarchy.size &&
             savedConfigMatch?.config.options.withSidecar != null
@@ -1396,10 +1482,12 @@ export const useImportEditor = (store: Ingester | Reingester) => {
           (store.options.withDiffusionParams &&
             store.options.withDiffusionTags &&
             store.options.withDiffusionRegExMaps);
+
         if (hasRegExScan) await cache.current.loadRegExMaps();
 
         store.setInitProgressStatus("Loading tags");
         await preloadScanTags();
+
         if (DEBUG) perfLog("Preloaded scan tags");
 
         const tagsToUpsert: TagToUpsert[] = [];
@@ -1422,15 +1510,18 @@ export const useImportEditor = (store: Ingester | Reingester) => {
         /* ---------------------------------- Files --------------------------------- */
         const { diffMetaTagsToEdit, editorImports, fileTagsToUpsert } =
           await fileToTagsAndDiffParams();
+
         throwIfIngestCancelled(isCancelled);
         diffMetaTagsToEdit.forEach((tag) => cache.current.tagsToEditMap.set(tag.id, tag));
         appendTagsToUpsert(fileTagsToUpsert);
+
         if (DEBUG) perfLog("Parsed file tags and diffusion params");
 
         /* --------------------------------- Folders -------------------------------- */
         store.setInitProgressStatus("Grouping folders");
 
         const folders = await createFolderHierarchy(editorImports, perfLog);
+
         throwIfIngestCancelled(isCancelled);
 
         /* -------------------------------- Sidecars -------------------------------- */
@@ -1439,6 +1530,7 @@ export const useImportEditor = (store: Ingester | Reingester) => {
             const savedConfig = store.options.useSavedConfigs
               ? stores.import.getSavedConfigForFolder(folderPath)
               : null;
+
             return savedConfig?.options.withSidecar ?? store.options.withSidecar;
           }),
         );
@@ -1450,6 +1542,7 @@ export const useImportEditor = (store: Ingester | Reingester) => {
             folderPaths: sidecarFolderPaths,
             imports: editorImports,
           });
+
           if (!sidecarRes.success) throw new Error(sidecarRes.error);
 
           throwIfIngestCancelled(isCancelled);
@@ -1461,9 +1554,11 @@ export const useImportEditor = (store: Ingester | Reingester) => {
 
             for (const folder of store.allFlatFolderHierarchy.values()) yield* folder.tags;
           };
+
           await cache.current.preloadTags(sidecarTags(), store.options.withFolderNameRegEx);
           store.setInitProgressCompleted(0);
           store.setInitProgressTotal(0);
+
           if (DEBUG) perfLog("Loaded sidecar");
         }
 
@@ -1473,6 +1568,7 @@ export const useImportEditor = (store: Ingester | Reingester) => {
           await cache.current.checkpoint();
 
           const dedupedTags = await dedupeTags(folder.tags);
+
           folder.tags = dedupedTags;
 
           appendTagsToUpsert(dedupedTags);
@@ -1485,6 +1581,7 @@ export const useImportEditor = (store: Ingester | Reingester) => {
 
         store.setInitProgressStatus("Building folder pages");
         store.setAllFlatFolderHierarchy(folders);
+
         if (DEBUG) perfLog(`Set flat folder hierarchy (${Fmt.commas(folders.size)} folders)`);
 
         /* ----------------------------------- Tags ---------------------------------- */
@@ -1511,6 +1608,7 @@ export const useImportEditor = (store: Ingester | Reingester) => {
               labels.add(parentTag.label.toLowerCase());
 
               const existing = await cache.current.getTagByLabel(parentTag.label);
+
               flatTagsToUpsert.push(
                 existing
                   ? {
@@ -1527,6 +1625,7 @@ export const useImportEditor = (store: Ingester | Reingester) => {
         }
 
         store.setFlatTagsToUpsert(mergeTagDefinitions(flatTagsToUpsert));
+
         if (DEBUG) perfLog("Set flat tags to upsert");
 
         store.setIsLoading(false);
@@ -1536,7 +1635,7 @@ export const useImportEditor = (store: Ingester | Reingester) => {
         store.setHasChangesSinceLastScan(false);
         perfLogTotal("Scan completed");
       } catch (err) {
-        if (err instanceof IngestCancelledError || isCancelled()) return;
+        if (err?.name === "IngestCancelledError" || isCancelled()) return;
 
         toast.error("Failed to scan imports");
         console.error(err);

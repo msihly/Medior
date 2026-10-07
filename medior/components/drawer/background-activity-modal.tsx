@@ -11,7 +11,7 @@ export const BackgroundActivityModal = Comp(() => {
 
   const handleClose = () => {
     store.setIsActivityOpen(false);
-    void store.readNotifications();
+    store.readNotifications();
   };
 
   const handleRefresh = () => store.loadBackgroundActivity();

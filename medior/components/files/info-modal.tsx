@@ -9,6 +9,7 @@ import {
   Detail,
   Icon,
   IdButton,
+  LoadingOverlay,
   Modal,
   TagRow,
   Text,
@@ -16,58 +17,70 @@ import {
   View,
 } from "medior/components";
 import { File, useStores } from "medior/store";
-import { colors, toast } from "medior/utils/client";
+import { colors, useCancellableLoad } from "medior/utils/client";
 import { Fmt, round } from "medior/utils/common";
 import { trpc } from "medior/utils/server";
 
 export const InfoModal = Comp(() => {
   const stores = useStores();
+  const store = stores.file;
 
   const [file, setFile] = useState<File>(null);
-  const [isLoading, setIsLoading] = useState(false);
+
+  const load = useCancellableLoad();
 
   useEffect(() => {
     loadFile();
-  }, [stores.file.activeFileId]);
+  }, [store.activeFileId]);
 
-  const handleClose = () => stores.file.setIsInfoModalOpen(false);
-
-  const handleRefresh = async () => {
-    await stores.file.refreshFiles({ ids: [file.id] });
-    await loadFile();
+  const handleClose = () => {
+    load.cancel();
+    store.setIsInfoModalOpen(false);
   };
 
-  const loadFile = async () => {
-    try {
-      setIsLoading(true);
+  const handleRefresh = async () => {
+    await store.refreshFiles({ ids: [file.id] });
 
-      const fileRes = await trpc.listFile.mutate({
-        args: { filter: { id: stores.file.activeFileId } },
-      });
+    if (store.isInfoModalOpen) await loadFile();
+  };
+
+  const loadFile = () =>
+    load.run(async (signal) => {
+      const fileRes = await trpc.listFile.mutate(
+        { args: { filter: { id: store.activeFileId } } },
+        { signal },
+      );
+
+      signal.throwIfAborted();
+
       if (!fileRes.success) throw new Error(fileRes.error);
 
       const fileSchema = fileRes.data.items[0];
 
-      const tagsRes = await trpc.listTag.mutate({ filter: { id: fileSchema.tagIds } });
+      if (!fileSchema) throw new Error("File no longer exists");
+
+      const tagsRes = await trpc.listTag.mutate({ filter: { id: fileSchema.tagIds } }, { signal });
+
+      signal.throwIfAborted();
+
       if (!tagsRes.success) throw new Error(tagsRes.error);
 
       setFile(new File({ ...fileSchema, tags: tagsRes.data }));
-    } catch (error) {
-      console.error(error);
-      toast.error("Failed to load file");
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    });
 
   const openFileLocation = () => shell.showItemInFolder(file.path);
 
   const openThumbLocation = () => shell.showItemInFolder(file.thumb.path);
 
   return (
-    <Modal.Container width="100%" maxWidth="50rem" onClose={handleClose} isLoading={isLoading}>
+    <Modal.Container width="100%" maxWidth="50rem" onClose={handleClose}>
+      <LoadingOverlay
+        isLoading={load.isLoading}
+        sub={<Button text="Cancel" icon="Close" onClick={handleClose} />}
+      />
+
       <Modal.Header
-        leftNode={<IdButton value={stores.file.activeFileId} />}
+        leftNode={<IdButton value={store.activeFileId} />}
         rightNode={
           file?.isCorrupted && (
             <View row justify="center" spacing="0.5rem">
@@ -242,6 +255,7 @@ export const InfoModal = Comp(() => {
           text="Refresh"
           icon="Refresh"
           onClick={handleRefresh}
+          disabled={!file}
           colorOnHover={colors.custom.blue}
         />
       </Modal.Footer>

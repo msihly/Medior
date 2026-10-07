@@ -58,6 +58,13 @@ export class VideoTransformerStore extends Model({
 
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
   @modelAction
+  cancelLoad() {
+    this.activeTransformLoadId++;
+    this.activeTransformUpdates.clear();
+    this.setIsLoading(false);
+  }
+
+  @modelAction
   reset() {
     this.activeTransformLoadId++;
     this.activeTransformUpdates.clear();
@@ -92,6 +99,7 @@ export class VideoTransformerStore extends Model({
     this.search.setIds(this.search.ids.filter((id) => !ids.has(id)));
 
     const retainedFileIds = new Set(this.search.results.map((transform) => transform.fileId));
+
     this.search.setFiles(
       new Map([...this.search.files].filter(([fileId]) => retainedFileIds.has(fileId))),
     );
@@ -141,9 +149,11 @@ export class VideoTransformerStore extends Model({
     }
 
     const transform = this.search.getResult(id);
+
     if (!transform) return;
 
     transform.update(updates);
+
     if (
       transform.isCompleted !== this.search.isCompleted ||
       (this.search.status && transform.status !== this.search.status)
@@ -165,6 +175,7 @@ export class VideoTransformerStore extends Model({
         timestampPairs: this.timestampPairs.map(([start, end]) => ({ end, start })),
         type: this.fnType,
       });
+
       if (!res.success) throw new Error(res.error);
 
       const transformIds = res.data.ids;
@@ -191,6 +202,7 @@ export class VideoTransformerStore extends Model({
     );
 
     const res = await trpc.deleteFileTransforms.mutate({ ids });
+
     if (!res.success) throw new Error(res.error);
 
     this.removeQueueFiles([], ids);
@@ -210,6 +222,7 @@ export class VideoTransformerStore extends Model({
   getTransformerStatus = asyncAction(async () => {
     const loadId = ++this.transformerStatusLoadId;
     const res = await trpc.getFileTransformerStatus.mutate();
+
     if (loadId !== this.transformerStatusLoadId) return;
 
     if (!res.success) throw new Error(res.error);
@@ -235,11 +248,13 @@ export class VideoTransformerStore extends Model({
         const res = await trpc.listFileTransform.mutate({
           args: { filter: { id }, page: 1, pageSize: 1 },
         });
+
         if (!res.success) throw new Error(res.error);
 
         transform = res.data.items[0];
       } else {
         const res = await trpc.getNextFileTransform.mutate();
+
         if (!res.success) throw new Error(res.error);
 
         transform = res.data;
@@ -257,14 +272,19 @@ export class VideoTransformerStore extends Model({
       }
 
       const filesRes = await trpc.listFile.mutate({ args: { filter: { id: [fileId] } } });
+
       if (loadId !== this.activeTransformLoadId) return;
+
       if (!filesRes.success) throw new Error(filesRes.error);
 
       const file = filesRes.data.items[0];
+
       if (!file) throw new Error("File not found");
 
       const tagRes = await trpc.listTag.mutate({ filter: { id: file.tagIds } });
+
       if (loadId !== this.activeTransformLoadId) return;
+
       if (!tagRes.success) throw new Error(tagRes.error);
 
       this.setActiveFile(new File({ ...file, tags: tagRes.data }));
@@ -290,6 +310,7 @@ export class VideoTransformerStore extends Model({
       } = {},
     ) => {
       const search = await this.search.loadFiltered(args);
+
       if (!search.success) throw new Error(search.error);
     },
   );
@@ -298,7 +319,9 @@ export class VideoTransformerStore extends Model({
   loadQueueCount = asyncAction(async () => {
     const loadId = ++this.queueCountLoadId;
     const res = await trpc.getFileTransformQueueCount.mutate();
+
     if (!res.success) throw new Error(res.error);
+
     if (loadId !== this.queueCountLoadId) return;
 
     this.setQueueAfterSize(res.data.afterSize);
@@ -324,9 +347,11 @@ export class VideoTransformerStore extends Model({
   removeFilesFromQueue = asyncAction(async (fileIds: string[]) => {
     const fileIdSet = new Set(fileIds);
     const res = await trpc.deleteFileTransformsByFileIds.mutate({ fileIds });
+
     if (!res.success) throw new Error(res.error);
 
     this.removeQueueFiles(fileIds);
+
     if (this.activeTransform && fileIdSet.has(this.activeTransform.fileId))
       await this.loadActiveTransform();
 
@@ -344,10 +369,12 @@ export class VideoTransformerStore extends Model({
 
     try {
       const res = await trpc.replaceFileTransformOutput.mutate({ id });
+
       if (!res.success) throw new Error(res.error);
 
       if (res.data.status === "DUPLICATE") {
         const mergeRes = await trpc.mergeFileTransformDuplicate.mutate({ id });
+
         if (!mergeRes.success) throw new Error(mergeRes.error);
 
         toast.success("Duplicate merged; original archived");
@@ -381,6 +408,7 @@ export class VideoTransformerStore extends Model({
 
     try {
       const res = await trpc.runFileTransformer.mutate({ isAuto: this.isAuto });
+
       if (!res.success) throw new Error(res.error);
 
       await this.getTransformerStatus();
@@ -408,6 +436,7 @@ export class VideoTransformerStore extends Model({
 
     try {
       const res = await trpc.runFileTransform.mutate({ id, isAuto: this.isAuto });
+
       if (!res.success) throw new Error(res.error);
 
       await this.getTransformerStatus();
@@ -446,6 +475,7 @@ export class VideoTransformerStore extends Model({
     this.setIsAuto(isAuto);
 
     const res = await trpc.setFileTransformerAuto.mutate({ isAuto });
+
     if (!res.success) throw new Error(res.error);
   });
 
@@ -459,6 +489,7 @@ export class VideoTransformerStore extends Model({
 
     try {
       const res = await trpc.saveFileTransformCopy.mutate({ id });
+
       if (!res.success) throw new Error(res.error);
 
       toast.success("Media rendered");
@@ -477,6 +508,7 @@ export class VideoTransformerStore extends Model({
 
     if (this.isPaused) {
       const res = await this.runActiveTransform();
+
       if (!res.success) throw new Error(res.error);
 
       return;
@@ -486,6 +518,7 @@ export class VideoTransformerStore extends Model({
 
     try {
       const res = await trpc.pauseFileTransformer.mutate();
+
       if (!res.success) throw new Error(res.error);
 
       await this.getTransformerStatus();

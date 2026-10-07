@@ -4,52 +4,46 @@ import { getRootStore, Model, model, modelAction, modelFlow, prop } from "mobx-k
 import { FileSchema } from "medior/server/database";
 import { RootStore } from "medior/store";
 import { asyncAction, derefMobx, toast } from "medior/utils/client";
-import { durationRegex, isDeepEqual, secondsToDuration, uuid } from "medior/utils/common";
+import {
+  isDeepEqual,
+  normalizeTimestampPairs,
+  parseTimestampPairs,
+  secondsToDuration,
+  uuid,
+} from "medior/utils/common";
 import { trpc } from "medior/utils/server";
 
 export type FileTimestamp = FileSchema["timestamps"][number];
+
 export type FileTimestampPair = FileTimestamp["pairs"][number];
 
 @model("medior/Splicer")
 export class Splicer extends Model({
-  hasChanges: prop<boolean>(false).withSetter(),
   isLoading: prop<boolean>(false).withSetter(),
   isOpen: prop<boolean>(false).withSetter(),
-  timestampId: prop<string>("").withSetter(),
+  timestampId: prop<string>(""),
   timestampLabel: prop<string>("").withSetter(),
   timestampPairs: prop<FileTimestampPair[]>(() => []).withSetter(),
 }) {
+  onAttachedToRootStore(stores: RootStore) {
+    return reaction(
+      () => [this.isOpen, stores.carousel.activeFileId],
+      () => {
+        if (this.isOpen) this.loadTimestamps();
+      },
+      { fireImmediately: true },
+    );
+  }
+
   onInit() {
     autoBind(this);
-
-    reaction(
-      () => this.isOpen,
-      () => this.isOpen && this.loadTimestamps(),
-    );
-
-    reaction(
-      () => [this.timestampLabel, this.timestampPairs],
-      () => {
-        const stores = getRootStore<RootStore>(this);
-        const file = stores.carousel.getActiveFile();
-        if (!file) return;
-
-        const timestamp = file.timestamps?.find((p) => p.id === this.timestampId);
-
-        if (timestamp) {
-          const hasLabelDiff = timestamp.label !== this.timestampLabel;
-          const hasPairsDiff = !isDeepEqual(timestamp.pairs, this.timestampPairs);
-          if (hasLabelDiff || hasPairsDiff) this.setHasChanges(true);
-          else this.setHasChanges(false);
-        } else this.setHasChanges(true);
-      },
-    );
   }
 
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
   @modelAction
   addTimestampPair() {
     const stores = getRootStore<RootStore>(this);
+
     this.timestampPairs.push({
       endDuration: "",
       id: uuid(),
@@ -67,11 +61,14 @@ export class Splicer extends Model({
 
   @modelAction
   setTimestampPairOrder(id: string, order: number) {
-    const oldOrder = this.timestampPairs.find((p) => p.id === id).order;
-    const otherId = this.timestampPairs.find((p) => p.order === order).id;
+    const current = this.timestampPairs.find((pair) => pair.id === id);
+    const other = this.timestampPairs.find((pair) => pair.order === order);
+
+    if (!current || !other) throw new Error("Timestamp pair not found");
+
     this.timestampPairs = this.timestampPairs
       .map((p) =>
-        p.id === id ? { ...p, order } : p.id === otherId ? { ...p, order: oldOrder } : p,
+        p.id === id ? { ...p, order } : p.id === other.id ? { ...p, order: current.order } : p,
       )
       .sort((a, b) => a.order - b.order);
   }
@@ -79,6 +76,19 @@ export class Splicer extends Model({
   @modelAction
   setTimestampPairVal(id: string, key: "endDuration" | "startDuration", val: string) {
     this.timestampPairs = this.timestampPairs.map((p) => (p.id === id ? { ...p, [key]: val } : p));
+  }
+
+  @modelAction
+  setTimestampId(id: string) {
+    const stores = getRootStore<RootStore>(this);
+
+    const timestamp = stores.carousel.getActiveFile()?.timestamps?.find((item) => item.id === id);
+
+    if (id && !timestamp) throw new Error("Timeline not found");
+
+    this.timestampId = timestamp?.id ?? "";
+    this.timestampLabel = timestamp?.label ?? "Timeline #1";
+    this.timestampPairs = normalizeTimestampPairs(derefMobx(timestamp?.pairs ?? []));
   }
 
   @modelAction
@@ -90,95 +100,103 @@ export class Splicer extends Model({
   @modelFlow
   deleteTimeline = asyncAction(async () => {
     const stores = getRootStore<RootStore>(this);
+
     const file = stores.carousel.getActiveFile();
+
     if (!file) throw new Error("Active file not found");
 
     this.setIsLoading(true);
 
-    const res = await trpc.updateFile.mutate({
-      args: {
-        id: file.id,
-        updates: {
-          timestamps: file.timestamps.filter((t) => t.id !== this.timestampId),
+    try {
+      const timestamps = file.timestamps.filter((timestamp) => timestamp.id !== this.timestampId);
+      const res = await trpc.updateFile.mutate({
+        args: {
+          id: file.id,
+          updates: { timestamps },
         },
-      },
-    });
-    this.setIsLoading(false);
-    if (!res.success) throw new Error(res.error);
+      });
 
-    await stores.file.search.loadFiltered();
-    await this.loadTimestamps();
-  });
+      if (!res.success) throw new Error(res.error);
 
-  @modelFlow
-  loadTimestamps = asyncAction(async () => {
-    const stores = getRootStore<RootStore>(this);
-    const file = stores.carousel.getActiveFile();
-    if (!file) throw new Error("Active file not found");
+      file.update({ timestamps });
 
-    const timestamp = derefMobx(file.timestamps?.[0]);
-
-    if (timestamp) {
-      this.timestampId = timestamp.id;
-      this.timestampLabel = timestamp.label;
-      this.timestampPairs = timestamp.pairs;
-    } else {
-      this.timestampId = null;
-      this.timestampLabel = "Timeline #1";
-      this.timestampPairs = [];
+      if (stores.carousel.activeFileId === file.id) this.loadTimestamps();
+    } finally {
+      this.setIsLoading(false);
     }
   });
 
+  @modelAction
+  loadTimestamps() {
+    const stores = getRootStore<RootStore>(this);
+
+    const file = stores.carousel.getActiveFile();
+
+    this.setTimestampId(file?.timestamps?.[0]?.id ?? "");
+  }
+
   @modelFlow
   saveTimestamps = asyncAction(async () => {
-    if (!this.timestampLabel) throw new Error("Label is required");
-    if (!this.timestampPairs.length) throw new Error("At least one pair is required");
-    if (
-      this.timestampPairs.some(
-        (p) =>
-          !p.startDuration ||
-          !p.endDuration ||
-          !durationRegex.test(p.startDuration) ||
-          !durationRegex.test(p.endDuration),
-      )
-    )
-      throw new Error("Fix invalid timestamps");
+    if (!this.timestampLabel.trim()) throw new Error("Label is required");
 
     const stores = getRootStore<RootStore>(this);
+
     const file = stores.carousel.getActiveFile();
+
     if (!file) throw new Error("Active file not found");
 
+    parseTimestampPairs(this.timestampPairs, file.duration);
+
     const id = this.timestampId || uuid();
-    const newTimestamp = { id, label: this.timestampLabel, pairs: this.timestampPairs };
+    const newTimestamp = {
+      id,
+      label: this.timestampLabel.trim(),
+      pairs: normalizeTimestampPairs<FileTimestampPair>(derefMobx(this.timestampPairs)),
+    };
+    const timestamps = this.timestampId
+      ? file.timestamps.map((timestamp) =>
+          timestamp.id === this.timestampId ? newTimestamp : timestamp,
+        )
+      : [...(file.timestamps ?? []), newTimestamp];
 
     this.setIsLoading(true);
 
-    const res = await trpc.updateFile.mutate({
-      args: {
-        id: stores.carousel.activeFileId,
-        updates: {
-          timestamps: !file.timestamps
-            ? [newTimestamp]
-            : this.timestampId
-              ? file.timestamps.map((t) => (t.id === this.timestampId ? newTimestamp : t))
-              : [...file.timestamps, newTimestamp],
+    try {
+      const res = await trpc.updateFile.mutate({
+        args: {
+          id: file.id,
+          updates: { timestamps },
         },
-      },
-    });
-    this.setIsLoading(false);
-    if (!res.success) throw new Error(res.error);
+      });
 
-    this.setHasChanges(false);
+      if (!res.success) throw new Error(res.error);
 
-    if (!res.success) toast.error(res.error);
-    else toast.success("Saved");
+      file.update({ timestamps });
 
-    this.setTimestampId(id);
-    await stores.file.search.loadFiltered();
-    await this.loadTimestamps();
+      if (stores.carousel.activeFileId === file.id) this.setTimestampId(id);
+
+      toast.success("Saved");
+    } finally {
+      this.setIsLoading(false);
+    }
   });
 
   /* --------------------------------- GETTERS -------------------------------- */
+  @computed
+  get hasChanges() {
+    const stores = getRootStore<RootStore>(this);
+
+    const timestamp = stores.carousel
+      .getActiveFile()
+      ?.timestamps?.find((item) => item.id === this.timestampId);
+
+    return (
+      !timestamp ||
+      timestamp.label !== this.timestampLabel ||
+      !isDeepEqual(normalizeTimestampPairs(timestamp.pairs), this.timestampPairs)
+    );
+  }
+
   @computed
   get orderOptions() {
     return [...this.timestampPairs]

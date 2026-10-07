@@ -25,6 +25,10 @@ const sortOperations = (operations: BackgroundOperationSchema[]) =>
     )
     .sort(
       (a, b) =>
+        Number(b.type === "mediaPathIndex" && hasOperationAction(b)) -
+          Number(a.type === "mediaPathIndex" && hasOperationAction(a)) ||
+        Number(["PENDING", "RUNNING"].includes(b.status)) -
+          Number(["PENDING", "RUNNING"].includes(a.status)) ||
         Number(!hasOperationAction(a)) - Number(!hasOperationAction(b)) ||
         b.dateCreated.localeCompare(a.dateCreated) ||
         b.id.localeCompare(a.id),
@@ -74,6 +78,7 @@ export class HomeStore extends Model({
   @modelAction
   updateBackgroundOperation(operation: BackgroundOperationSchema) {
     const index = this.backgroundOperations.findIndex(({ id }) => id === operation.id);
+
     if (index >= 0 && this.backgroundOperations[index].dateModified > operation.dateModified)
       return;
 
@@ -96,6 +101,7 @@ export class HomeStore extends Model({
       const notificationRevision = this.notificationRevision;
       const revision = ++this.activityLoadRevision;
       const res = await trpc.listBackgroundActivity.mutate();
+
       if (!res.success) throw new Error(res.error);
 
       if (revision !== this.activityLoadRevision) return;
@@ -126,6 +132,7 @@ export class HomeStore extends Model({
 
       if (!isDeepEqual(this.backgroundOperations, operations))
         this.setBackgroundOperations(operations);
+
       if (!isDeepEqual(this.notifications, notifications)) this.setNotifications(notifications);
     })().finally(() => {
       this.activityLoad = null;
@@ -138,6 +145,7 @@ export class HomeStore extends Model({
   @modelFlow
   retryBackgroundOperation = asyncAction(async (id: string) => {
     const res = await trpc.retryBackgroundOperation.mutate({ id });
+
     if (!res.success) throw new Error(res.error);
 
     await this.loadBackgroundActivity();
@@ -148,6 +156,7 @@ export class HomeStore extends Model({
     this.activityLoadRevision++;
 
     const res = await trpc.cancelBackgroundOperation.mutate({ id });
+
     if (!res.success) throw new Error(res.error);
 
     this.updateBackgroundOperation(res.data);
@@ -158,9 +167,11 @@ export class HomeStore extends Model({
     const ids = this.notifications
       .filter((notification) => !notification.isRead)
       .map((notification) => notification.id);
+
     if (!ids.length) return;
 
     const res = await trpc.markNotificationsRead.mutate({ ids });
+
     if (!res.success) throw new Error(res.error);
 
     this.markNotificationsRead(ids);

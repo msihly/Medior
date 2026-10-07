@@ -95,10 +95,11 @@ export const TransformSearch = Comp(() => {
           ))}
           maxCards={3}
           noResultsText="No files found"
-          padding={{ all: "0.3rem 0.3rem 3.5rem" }}
+          padding={{ all: "0.3rem" }}
         />
 
         <Pagination
+          inline
           count={store.search.pageCount}
           page={store.search.page}
           isLoading={store.search.isPageCountLoading && !store.search.isLoading}

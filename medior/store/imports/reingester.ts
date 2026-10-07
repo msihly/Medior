@@ -10,6 +10,7 @@ import {
   prop,
 } from "mobx-keystone";
 import { asyncAction, toast } from "medior/utils/client";
+import { chunkArray } from "medior/utils/common";
 import { trpc } from "medior/utils/server";
 import { FileImport } from "./file-import";
 import { ImportEditorStore } from "./import-editor-store";
@@ -41,31 +42,41 @@ export class Reingester extends ExtendedModel(ImportEditorStore, {
   /* ---------------------------- ASYNC ACTIONS ---------------------------- */
   @modelFlow
   loadFolder = asyncAction(async () => {
-    if (!this.curFolderFileIds?.length) {
+    const cancelToken = this.ingestCancelToken;
+    const files: Awaited<ReturnType<typeof trpc.listFileReingestMetadata.mutate>>["data"] = [];
+
+    this.setIsInitDone(false);
+
+    while (this.folderFileIds.length && !files.length) {
+      for (const fileIds of chunkArray(this.curFolderFileIds, 1000)) {
+        const res = await trpc.listFileReingestMetadata.mutate({ fileIds });
+
+        if (cancelToken !== this.ingestCancelToken) return;
+
+        if (!res.success) throw new Error(res.error);
+
+        files.push(...res.data);
+      }
+
+      if (!files.length) arrayActions.shift(this.folderFileIds);
+    }
+
+    if (!files.length) {
       this.setIsOpen(false);
 
       return;
     }
 
-    this.setIsInitDone(false);
+    files.sort((a, b) => {
+      const lengthDiff =
+        a.originalPath.split(path.sep).length - b.originalPath.split(path.sep).length;
 
-    const res = await trpc.listFile.mutate({ args: { filter: { id: this.curFolderFileIds } } });
-    if (!res.success) throw new Error(res.error);
+      if (lengthDiff !== 0) return lengthDiff;
 
-    const filePathMap = new Map(
-      [...res.data.items]
-        .sort((a, b) => {
-          const lengthDiff =
-            a.originalPath.split(path.sep).length - b.originalPath.split(path.sep).length;
+      return a.originalName.localeCompare(b.originalName);
+    });
 
-          if (lengthDiff !== 0) return lengthDiff;
-
-          return a.originalName.localeCompare(b.originalName);
-        })
-        .map((f) => [f.originalPath, f]),
-    );
-
-    const filePaths = [...filePathMap.keys()];
+    const filePaths = files.map((file) => file.originalPath);
     const rootFolderPath = path.dirname(filePaths[0]);
     const newIndex = rootFolderPath.split(path.sep).length - 1;
     const curIndex = this.rootFolderIndex;
@@ -75,7 +86,7 @@ export class Reingester extends ExtendedModel(ImportEditorStore, {
     this.setRootFolderPath(rootFolderPath);
     this.setRootFolderIndex(rootIndex);
 
-    for (const original of filePathMap.values()) {
+    for (const original of files) {
       imports.push({
         dateCreated: original.dateCreated,
         extension: original.ext,
@@ -107,6 +118,7 @@ export class Reingester extends ExtendedModel(ImportEditorStore, {
       collectionTitle: this.getCurFolder().collectionTitle,
       fileTagIds,
     });
+
     if (!res.success) throw new Error(res.error);
 
     this.removeCurFolder();

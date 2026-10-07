@@ -12,6 +12,7 @@ export const backgroundExecutionPlugin = (schema: Schema) => {
     /^(find|count|distinct|update|delete|replace)/,
     function (this: Query<unknown, unknown>, next) {
       checkBackgroundExecution();
+
       if (getBackgroundSession()) this.session(getBackgroundSession());
 
       next();
@@ -20,6 +21,7 @@ export const backgroundExecutionPlugin = (schema: Schema) => {
 
   schema.pre("aggregate", function (next) {
     checkBackgroundExecution();
+
     if (getBackgroundSession()) this.session(getBackgroundSession());
 
     next();
@@ -27,6 +29,7 @@ export const backgroundExecutionPlugin = (schema: Schema) => {
 
   schema.pre("save", function (next) {
     checkBackgroundExecution();
+
     if (getBackgroundSession()) this.$session(getBackgroundSession());
 
     next();

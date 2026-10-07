@@ -12,22 +12,23 @@ export type ServerProcessState = "failed" | "ready" | "restarting" | "starting";
 export interface ServerProcessStatus {
   isConfigRestart?: boolean;
   label: string;
+  message?: string;
   restartCount: number;
   state: ServerProcessState;
 }
 
 const BASE_RESTART_DELAY_MS = 2000;
+const FILE_IO_THREAD_POOL_SIZE = Math.max(
+  1,
+  Math.min(CONSTANTS.FILE.IO_CONCURRENCY, availableParallelism()),
+);
 const MAX_RESTARTS = 5;
 const READY_TIMEOUT_MS = 30000;
 const START_TIMEOUT_MS = 6 * 60 * 1000;
 
-const VECTOR_THREAD_POOL_SIZE = Math.max(
-  1,
-  Math.min(CONSTANTS.VECTOR.MAX_IO_CONCURRENCY, availableParallelism()),
-);
-
 class ManagedProc {
   private intentionalStop = false;
+  private message: string = null;
   private proc: ChildProcess = null;
   private rejectStartup: (error: Error) => void = null;
   private resolveStartup: (message: ServerProcessMessage) => void = null;
@@ -48,7 +49,12 @@ class ManagedProc {
   ) {}
 
   getStatus(): ServerProcessStatus {
-    return { label: this.label, restartCount: this.restartCount, state: this.state };
+    return {
+      label: this.label,
+      message: this.message,
+      restartCount: this.restartCount,
+      state: this.state,
+    };
   }
 
   private handleExit(child: ChildProcess, code: number | null) {
@@ -105,6 +111,7 @@ class ManagedProc {
         fileLog(`${this.label} restarted successfully.`);
       } catch (error) {
         fileLog(`${this.label} failed to restart: ${error.message}`, { type: "error" });
+
         if (!this.proc) this.scheduleRestart();
       }
     }, delay);
@@ -117,6 +124,7 @@ class ManagedProc {
   ): Promise<ServerProcessMessage> {
     return new Promise((resolve, reject) => {
       const child = this.proc;
+
       if (!child?.connected) return reject(new Error(`${this.label} process is unavailable.`));
 
       const requestId = randomUUID();
@@ -152,7 +160,9 @@ class ManagedProc {
 
       const timeout = setInterval(() => {
         if (message.type === "start") {
-          fileLog(`${this.label} is still starting; waiting without terminating storage recovery.`);
+          fileLog(
+            `${this.label} is still starting: ${this.message ?? "waiting for the service to report progress"}`,
+          );
         } else {
           cleanup();
           reject(new Error(`${this.label} process response timed out; process retained.`));
@@ -177,6 +187,7 @@ class ManagedProc {
   private async spawn(): Promise<ServerProcessMessage> {
     if (this.intentionalStop) throw new Error(`${this.label} is stopping.`);
 
+    this.message = null;
     this.setState(this.restartCount ? "restarting" : "starting");
 
     const options: ForkOptions & { windowsHide: boolean } = {
@@ -216,9 +227,20 @@ class ManagedProc {
     });
 
     child.on("message", (message: ServerProcessMessage) => {
-      if (message?.type === "shutdown-error") {
-        this.setState("failed");
-        this.rejectStartup?.(new Error(message.error));
+      if (this.proc === child) {
+        if (message?.type === "startup-progress" && !this.intentionalStop) {
+          this.message = message.message;
+          this.onStatusChange();
+        } else if (message?.type === "error" || message?.type === "shutdown-error") {
+          this.message = message.error?.split(/\r?\n/)[0];
+
+          if (message.type === "shutdown-error") {
+            this.setState("failed");
+            this.rejectStartup?.(new Error(message.error));
+          } else {
+            this.onStatusChange();
+          }
+        }
       }
     });
 
@@ -231,6 +253,7 @@ class ManagedProc {
     );
 
     this.restartCount = 0;
+    this.message = null;
     this.setState("ready");
     this.resolveStartup?.(message);
 
@@ -247,7 +270,7 @@ class ManagedProc {
       this.resolveStartup = resolve;
     });
 
-    void this.spawn().catch((error) => {
+    this.spawn().catch((error) => {
       fileLog(`${this.label} failed to start: ${error.message}`, { type: "error" });
 
       if (!this.proc) this.scheduleRestart();
@@ -260,6 +283,7 @@ class ManagedProc {
     this.prepareStop();
 
     const child = this.proc;
+
     if (!child || child.exitCode !== null || child.signalCode !== null) return;
 
     // Client work is already journalled. Terminating its owner also stops native descendants.
@@ -352,6 +376,7 @@ export class ServerManager {
       configPath,
       logsPath,
       this.notifyStatusChange,
+      { UV_THREADPOOL_SIZE: String(FILE_IO_THREAD_POOL_SIZE) },
     );
 
     this.db = new ManagedProc(
@@ -383,7 +408,7 @@ export class ServerManager {
       configPath,
       logsPath,
       this.notifyStatusChange,
-      { UV_THREADPOOL_SIZE: String(VECTOR_THREAD_POOL_SIZE) },
+      { UV_THREADPOOL_SIZE: String(FILE_IO_THREAD_POOL_SIZE) },
     );
   }
 

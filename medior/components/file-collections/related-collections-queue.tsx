@@ -52,14 +52,14 @@ export const RelatedCollectionsQueue = Comp(({ onClose }: RelatedCollectionsQueu
   const stores = useStores();
   const store = stores.collection.manager;
 
+  const collectionLoadId = useRef(0);
   const managerFiles = useRef(new Map(store.search.files));
   const managerSelectedIds = useRef([...store.search.selectedIds]);
-  const collectionLoadId = useRef(0);
   const queueLoadId = useRef(0);
 
-  const [groups, setGroups] = useState<RelatedGroup[]>([]);
   const [baseId, setBaseId] = useState("");
   const [groupIndex, setGroupIndex] = useState(0);
+  const [groups, setGroups] = useState<RelatedGroup[]>([]);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [includeFileOverlap, setIncludeFileOverlap] = useState(true);
   const [includeOriginalFolder, setIncludeOriginalFolder] = useState(false);
@@ -71,13 +71,11 @@ export const RelatedCollectionsQueue = Comp(({ onClose }: RelatedCollectionsQueu
   const [resultPage, setResultPage] = useState(1);
 
   const group = groups[groupIndex];
-
   const defaultBaseEntry = group
     ? [...group.collections].sort((left, right) => left.searchIndex - right.searchIndex)[0]
     : null;
 
   const baseEntry = group?.collections.find(({ id }) => id === baseId) ?? defaultBaseEntry;
-
   const foundEntries =
     group?.collections
       .filter(({ id }) => id !== baseEntry.id)
@@ -91,7 +89,6 @@ export const RelatedCollectionsQueue = Comp(({ onClose }: RelatedCollectionsQueu
   const pageCount = Math.ceil(foundEntries.length / pageSize);
   const pagedEntries = foundEntries.slice((resultPage - 1) * pageSize, resultPage * pageSize);
   const visibleIds = [baseEntry?.id, ...pagedEntries.map(({ id }) => id)].filter(Boolean);
-
   const loadedCollectionById = new Map(
     loadedCollections.map((collection) => [collection.id, collection]),
   );
@@ -102,7 +99,7 @@ export const RelatedCollectionsQueue = Comp(({ onClose }: RelatedCollectionsQueu
     : [];
 
   useEffect(() => {
-    void loadQueue();
+    loadQueue();
   }, []);
 
   useEffect(() => {
@@ -113,7 +110,8 @@ export const RelatedCollectionsQueue = Comp(({ onClose }: RelatedCollectionsQueu
 
   useEffect(() => {
     setLoadedCollections([]);
-    if (visibleIds.length) void loadCollections(visibleIds);
+
+    if (visibleIds.length) loadCollections(visibleIds);
     else collectionLoadId.current += 1;
   }, [visibleIds.join(":")]);
 
@@ -134,7 +132,9 @@ export const RelatedCollectionsQueue = Comp(({ onClose }: RelatedCollectionsQueu
       const collectionRes = await trpc.listFileCollection.mutate({
         args: { filter: { id: ids } },
       });
+
       if (!collectionRes.success) throw new Error(collectionRes.error);
+
       if (loadId !== collectionLoadId.current) return;
 
       const collectionById = new Map(
@@ -142,14 +142,16 @@ export const RelatedCollectionsQueue = Comp(({ onClose }: RelatedCollectionsQueu
       );
 
       const nextCollections = ids.map((id) => new FileCollectionModel(collectionById.get(id)));
-
       const tagsRes = await trpc.listTag.mutate({
         filter: { id: [...new Set(nextCollections.flatMap(({ tagIds }) => tagIds))] },
       });
+
       if (!tagsRes.success) throw new Error(tagsRes.error);
+
       if (loadId !== collectionLoadId.current) return;
 
       const selectTags = makeTagSelector(tagsRes.data);
+
       nextCollections.forEach((collection) => collection.setTags(selectTags(collection.tagIds)));
 
       const filesRes = await trpc.listFile.mutate({
@@ -157,7 +159,9 @@ export const RelatedCollectionsQueue = Comp(({ onClose }: RelatedCollectionsQueu
           filter: { id: [...new Set(nextCollections.flatMap(({ previewIds }) => previewIds))] },
         },
       });
+
       if (!filesRes.success) throw new Error(filesRes.error);
+
       if (loadId !== collectionLoadId.current) return;
 
       store.search.setFiles(
@@ -189,7 +193,9 @@ export const RelatedCollectionsQueue = Comp(({ onClose }: RelatedCollectionsQueu
         minCommonPercentage,
         sortValue: store.search.sortValue,
       });
+
       if (!res.success) throw new Error(res.error);
+
       if (loadId !== queueLoadId.current) return;
 
       setGroupIndex(0);
@@ -202,13 +208,14 @@ export const RelatedCollectionsQueue = Comp(({ onClose }: RelatedCollectionsQueu
         ),
       );
       setHasUnsavedChanges(false);
+
       if (!res.data.length) toast.info("No related collections found");
     } catch (error) {
       if (loadId !== queueLoadId.current) return;
 
       setGroupIndex(0);
       setGroups([]);
-      setLookupError(error instanceof Error ? error.message : String(error));
+      setLookupError(error.message);
       toast.error(error);
     } finally {
       if (loadId === queueLoadId.current) setIsLoading(false);
@@ -258,6 +265,7 @@ export const RelatedCollectionsQueue = Comp(({ onClose }: RelatedCollectionsQueu
   };
 
   const selectedIdSet = new Set(selectedIds);
+
   const getOrderedSelectedIds = () =>
     [
       baseEntry,
@@ -271,6 +279,7 @@ export const RelatedCollectionsQueue = Comp(({ onClose }: RelatedCollectionsQueu
   const advanceAfterMerge = () => {
     const nextGroups = groups.filter((_, index) => index !== groupIndex);
     const nextGroupIndex = Math.min(groupIndex, Math.max(0, nextGroups.length - 1));
+
     setGroups(nextGroups);
     setGroupIndex(nextGroupIndex);
     setBaseId("");
@@ -308,6 +317,7 @@ export const RelatedCollectionsQueue = Comp(({ onClose }: RelatedCollectionsQueu
         <View column flex={1} spacing="0.5rem" overflow="hidden auto">
           {pagedEntries.map((entry) => {
             const foundCollection = loadedCollectionById.get(entry.id);
+
             return foundCollection ? (
               <FileCollection
                 key={entry.id}
@@ -330,14 +340,13 @@ export const RelatedCollectionsQueue = Comp(({ onClose }: RelatedCollectionsQueu
           })}
         </View>
 
-        <View flex="none" height="3rem" position="relative">
-          <Pagination
-            count={pageCount}
-            page={resultPage}
-            onChange={setResultPage}
-            siblingCount={2}
-          />
-        </View>
+        <Pagination
+          inline
+          count={pageCount}
+          page={resultPage}
+          onChange={setResultPage}
+          siblingCount={2}
+        />
       </View>
     </View>
   );

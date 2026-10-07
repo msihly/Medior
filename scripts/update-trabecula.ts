@@ -36,6 +36,7 @@ const main = async () => {
   const branch = await getBranch();
   const output = await run("git", ["ls-remote", "--heads", repoUrl, branch], true);
   const commitHash = output.trim().split(/\s+/)[0];
+
   if (!commitHash) throw new Error(`Unable to find branch "${branch}"`);
 
   console.log(`Installing trabecula - ${branch} - ${commitHash}...`);
@@ -45,6 +46,6 @@ const main = async () => {
 };
 
 main().catch((error) => {
-  console.error(error instanceof Error ? error.message : error);
+  console.error(error);
   process.exitCode = 1;
 });

@@ -21,25 +21,31 @@ export const makeEditorAncestry = (
   childIds: string[],
 ) => {
   const byId = new Map(tags.map((tag) => [tag.id, tag]));
+
   byId.set(current.id, current);
 
   for (const id of childIds) {
     const child = byId.get(id);
+
     if (child)
       byId.set(id, { ...child, parentIds: [...new Set([...child.parentIds, current.id])] });
   }
 
   const included = new Set<string>();
   const pending = [current.id, ...childIds];
+
   while (pending.length) {
     const id = pending.pop();
+
     if (included.has(id)) continue;
+
     included.add(id);
     pending.push(...(byId.get(id)?.parentIds ?? []));
   }
 
   return [...included].flatMap((id): TagToUpsert[] => {
     const tag = byId.get(id);
+
     return tag
       ? [
           {
@@ -88,19 +94,26 @@ export const TagEditorAncestry = Comp(({ onTagClick, store }: TagEditorAncestryP
       if (inFlight) return;
 
       inFlight = true;
+
       const request = ++revision;
+
       setIsLoading(true);
 
       try {
         const res = await trpc.listTagAncestry.mutate({ ids });
+
         if (!active || request !== revision) return;
+
         if (!res.success) throw new Error(res.error);
+
         for (const tag of res.data) knownIds.add(tag.id);
+
         setTags(res.data);
       } catch (error) {
         if (active && request === revision) toast.error(error);
       } finally {
         inFlight = false;
+
         if (active) {
           if (request === revision) setIsLoading(false);
           else {
@@ -167,8 +180,10 @@ export const TagEditorAncestry = Comp(({ onTagClick, store }: TagEditorAncestryP
   const toggle = (key: string) =>
     setCollapsed((previous) => {
       const next = new Set(previous);
+
       if (next.has(key)) next.delete(key);
       else next.add(key);
+
       return next;
     });
 
@@ -190,6 +205,7 @@ export const TagEditorAncestry = Comp(({ onTagClick, store }: TagEditorAncestryP
       store.childTags.map((tag) => tag.id),
     ),
   );
+
   const rows = getImportTagRows(hierarchy, "all", collapsed);
 
   return (
@@ -222,6 +238,7 @@ export const TagEditorAncestry = Comp(({ onTagClick, store }: TagEditorAncestryP
             >
               {({ index, style }) => {
                 const row = rows[index];
+
                 return (
                   <View style={{ ...style, minWidth: rowWidth }}>
                     <TagHierarchy

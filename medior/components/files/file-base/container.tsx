@@ -1,5 +1,4 @@
 import { MouseEvent, ReactNode } from "react";
-import { Paper } from "@mui/material";
 import Color from "color";
 import { View, ViewProps } from "medior/components";
 import { colors, CSS, CssColor, makeClasses } from "medior/utils/client";
@@ -34,14 +33,13 @@ export const Container = ({
 
   return (
     <View {...viewProps} className={cx(css.container, className)}>
-      <Paper
+      <View
         onClick={!disabled ? onClick : undefined}
         onDoubleClick={!disabled ? onDoubleClick : undefined}
-        elevation={3}
         className={css.paper}
       >
         {children}
-      </Paper>
+      </View>
     </View>
   );
 };
@@ -75,6 +73,13 @@ const useClasses = makeClasses((props: ClassesProps, theme) => ({
     userSelect: "none",
   },
   paper: {
+    backgroundImage:
+      theme.palette.mode === "dark"
+        ? "linear-gradient(rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.08))"
+        : undefined,
+    boxShadow: theme.shadows[3],
+    color: theme.palette.text.primary,
+    transition: theme.transitions.create("box-shadow"),
     backgroundColor: colors.background,
     borderRadius: 10,
     display: "flex",

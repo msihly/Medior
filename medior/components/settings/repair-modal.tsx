@@ -1,7 +1,6 @@
-import { useEffect, useRef } from "react";
-import { CircularProgress } from "@mui/material";
-import { SocketEvents } from "medior/_generated/server";
-import {
+import { useEffect, useRef, useState } from "react";
+import { ScanFileStorageOutput, SocketEvents } from "medior/_generated/server";
+import type {
   SimilarityBackfillProgress,
   SimilarityDecodeDiagnostics,
 } from "medior/server/vector-service";
@@ -12,20 +11,18 @@ import {
   ConfirmModal,
   Modal,
   NumInput,
+  ProgressCircle,
   RepairCheckbox,
   Text,
-  UniformList,
   View,
   ViewProps,
 } from "medior/components";
-import { useStores } from "medior/store";
-import { colors, CssColor } from "medior/utils/client";
-import { sleep } from "medior/utils/common";
+import { filePathsToImports, useStores } from "medior/store";
+import { colors, CssColor, makeClasses } from "medior/utils/client";
+import { chunkArray, Fmt, sleep } from "medior/utils/common";
 import { socket, trpc } from "medior/utils/server";
 
-const SIMILARITY_PROGRESS_COUNT_INTERVAL = 250;
 const SIMILARITY_PROGRESS_TIME_INTERVAL_MS = 30_000;
-
 const checkboxColumnProps: ViewProps = {
   column: true,
   margins: { left: "1rem" },
@@ -36,7 +33,11 @@ export const RepairModal = Comp(() => {
   const stores = useStores();
   const store = stores.home.settings.repair;
 
+  const { css } = useClasses(null);
+
   const outputRef = useRef<HTMLDivElement>(null);
+
+  const [storageResult, setStorageResult] = useState<Awaited<ScanFileStorageOutput>["data"]>(null);
 
   useEffect(() => {
     outputRef.current?.scrollTo({ top: outputRef.current.scrollHeight });
@@ -53,11 +54,13 @@ export const RepairModal = Comp(() => {
         progress: colors.custom.lightBlue,
         success: colors.custom.green,
       };
+
       store.log(
         `[${args.status.toUpperCase()}] ${args.message}`,
         colorsByStatus[args.status],
         args.status === "progress" &&
           (args.message.startsWith("Tag repair:") ||
+            args.message.startsWith("Storage scan:") ||
             args.message.startsWith("Downloading transcription model:") ||
             args.message.startsWith("Transcribing audio:")),
       );
@@ -76,6 +79,7 @@ export const RepairModal = Comp(() => {
   const handleConfirmCancel = async () => {
     let isSuccessful = true;
     const repairId = store.repairId;
+
     store.setIsCancellationRequested(true);
     store.log("[INFO] Cancelling the current operation.");
 
@@ -88,27 +92,12 @@ export const RepairModal = Comp(() => {
       }
     }
 
-    if (store.similarityJobId) {
-      const res = await trpc.cancelSimilarityBackfill.mutate({
-        jobId: store.similarityJobId,
-      });
-
-      if (!res.success) {
-        isSuccessful = false;
-        store.log(
-          `[ERROR] Failed to request similarity cancellation: ${res.error}`,
-          colors.custom.red,
-        );
-      }
-    }
-
     return isSuccessful;
   };
 
   const rebuildSimilarityIndex = async () => {
     const formatDecodeDiagnostics = (diagnostics: SimilarityDecodeDiagnostics) => {
       const decodedCount = diagnostics.imageCount + diagnostics.videoCount;
-
       const parts = (["image", "video"] as const).map((kind) => {
         const count = diagnostics[`${kind}Count`];
 
@@ -131,7 +120,8 @@ export const RepairModal = Comp(() => {
 
     store.log("Starting similarity index job...", colors.custom.lightBlue);
 
-    const startRes = await trpc.startSimilarityBackfill.mutate({});
+    const startRes = await trpc.startSimilarityBackfill.mutate({ repairId: store.repairId });
+
     if (!startRes.success) throw new Error(startRes.error);
 
     store.setSimilarityJobId(startRes.data.jobId);
@@ -139,18 +129,25 @@ export const RepairModal = Comp(() => {
     let lastLoggedProgress:
       | {
           decodeDiagnostics: SimilarityDecodeDiagnostics;
+          errorCount: number;
           index: number;
           indexedCount: number;
+          missingFileCount: number;
+          missingThumbCount: number;
           skippedFreshCount: number;
-          timings: { decodeMs: number; inferenceMs: number };
+          timings: {
+            decodeMs: number;
+            existingRowsMs: number;
+            indexMs: number;
+            inferenceMs: number;
+            writeMs: number;
+          };
+          unsupportedFileTypeCount: number;
         }
       | undefined;
 
-    let lastIndex = -1;
     let lastMessage = "";
-    let lastOrderingIndex = 0;
     let lastProgressLogAt = 0;
-    let lastStage: SimilarityBackfillProgress["stage"] | undefined;
 
     while (store.similarityJobId) {
       if (store.isCancellationRequested) throw new Error("Repair cancelled by user.");
@@ -158,22 +155,14 @@ export const RepairModal = Comp(() => {
       const res = await trpc.getSimilarityBackfillProgress.mutate({
         jobId: store.similarityJobId,
       });
+
       if (!res.success) throw new Error(res.error);
 
       const progress = res.data;
       const now = Date.now();
-
-      const isOrderingProgress =
-        progress.stage === "ordering" &&
-        (lastStage !== "ordering" ||
-          progress.orderingIndex - lastOrderingIndex >= SIMILARITY_PROGRESS_COUNT_INTERVAL);
-
       const isTerminal = ["cancelled", "complete", "error"].includes(progress.status);
-
       const shouldLogProgress =
-        lastIndex < 0 ||
-        progress.index - lastIndex >= SIMILARITY_PROGRESS_COUNT_INTERVAL ||
-        isOrderingProgress ||
+        !lastLoggedProgress ||
         now - lastProgressLogAt >= SIMILARITY_PROGRESS_TIME_INTERVAL_MS ||
         isTerminal;
 
@@ -196,23 +185,40 @@ export const RepairModal = Comp(() => {
                   progress.decodeDiagnostics.videoMs - lastLoggedProgress.decodeDiagnostics.videoMs,
               },
               decodeMs: progress.timings.decodeMs - lastLoggedProgress.timings.decodeMs,
+              errorCount: progress.errorCount - lastLoggedProgress.errorCount,
+              existingRowsMs:
+                progress.timings.existingRowsMs - lastLoggedProgress.timings.existingRowsMs,
+              indexMs: progress.timings.indexMs - lastLoggedProgress.timings.indexMs,
               indexedCount: progress.indexedCount - lastLoggedProgress.indexedCount,
               inferenceMs: progress.timings.inferenceMs - lastLoggedProgress.timings.inferenceMs,
+              missingFileCount: progress.missingFileCount - lastLoggedProgress.missingFileCount,
+              missingThumbCount: progress.missingThumbCount - lastLoggedProgress.missingThumbCount,
               processedCount: progress.index - lastLoggedProgress.index,
               skippedFreshCount: progress.skippedFreshCount - lastLoggedProgress.skippedFreshCount,
+              unsupportedFileTypeCount:
+                progress.unsupportedFileTypeCount - lastLoggedProgress.unsupportedFileTypeCount,
+              writeMs: progress.timings.writeMs - lastLoggedProgress.timings.writeMs,
             }
           : {
               decodeDiagnostics: progress.decodeDiagnostics,
               decodeMs: progress.timings.decodeMs,
+              errorCount: progress.errorCount,
+              existingRowsMs: progress.timings.existingRowsMs,
+              indexMs: progress.timings.indexMs,
               indexedCount: progress.indexedCount,
               inferenceMs: progress.timings.inferenceMs,
+              missingFileCount: progress.missingFileCount,
+              missingThumbCount: progress.missingThumbCount,
               processedCount: progress.index,
               skippedFreshCount: progress.skippedFreshCount,
+              unsupportedFileTypeCount: progress.unsupportedFileTypeCount,
+              writeMs: progress.timings.writeMs,
             };
 
         store.log(
           [
             `Similarity index: ${formatProgress(progress)}`,
+            `stage: ${progress.stage}`,
             ...(progress.stage === "ordering"
               ? [
                   `ordering NTFS file IDs ${progress.orderingIndex.toLocaleString()} / ${progress.orderingTotal.toLocaleString()} thumbnails`,
@@ -220,32 +226,43 @@ export const RepairModal = Comp(() => {
               : []),
             [
               `+${delta.processedCount.toLocaleString()} processed`,
-              `+${delta.indexedCount.toLocaleString()} indexed`,
-              `+${delta.skippedFreshCount.toLocaleString()} skipped`,
+              `+${delta.indexedCount.toLocaleString()} vectors generated`,
+              `+${delta.skippedFreshCount.toLocaleString()} already current`,
+              `+${delta.errorCount.toLocaleString()} failed`,
+              `+${delta.missingFileCount.toLocaleString()} missing files`,
+              `+${delta.missingThumbCount.toLocaleString()} missing thumbnail paths`,
+              `+${delta.unsupportedFileTypeCount.toLocaleString()} unsupported`,
             ].join(", "),
             formatDecodeDiagnostics(delta.decodeDiagnostics),
             [
               `decode ${(delta.decodeMs / 1000).toFixed(1)}s`,
               `inference ${(delta.inferenceMs / 1000).toFixed(1)}s`,
+              `lookup ${(delta.existingRowsMs / 1000).toFixed(1)}s`,
+              `write ${(delta.writeMs / 1000).toFixed(1)}s`,
+              `maintenance ${(delta.indexMs / 1000).toFixed(1)}s`,
             ].join(", "),
           ].join(" | "),
           colors.custom.lightBlue,
         );
 
-        lastIndex = progress.index;
         lastLoggedProgress = {
           decodeDiagnostics: { ...progress.decodeDiagnostics },
+          errorCount: progress.errorCount,
           index: progress.index,
           indexedCount: progress.indexedCount,
+          missingFileCount: progress.missingFileCount,
+          missingThumbCount: progress.missingThumbCount,
           skippedFreshCount: progress.skippedFreshCount,
           timings: {
             decodeMs: progress.timings.decodeMs,
+            existingRowsMs: progress.timings.existingRowsMs,
+            indexMs: progress.timings.indexMs,
             inferenceMs: progress.timings.inferenceMs,
+            writeMs: progress.timings.writeMs,
           },
+          unsupportedFileTypeCount: progress.unsupportedFileTypeCount,
         };
-        lastOrderingIndex = progress.orderingIndex;
         lastProgressLogAt = now;
-        lastStage = progress.stage;
       }
 
       if (progress.message && progress.message !== lastMessage) {
@@ -257,13 +274,14 @@ export const RepairModal = Comp(() => {
       }
 
       if (progress.status === "cancelled") throw new Error("Repair cancelled");
+
       if (progress.status === "error")
         throw new Error(progress.message || "Similarity index failed");
 
       if (progress.status === "complete") {
         store.log(
-          `Similarity index rebuild complete: ${formatProgress(progress)}. Indexed ${progress.indexedCount.toLocaleString()} and migrated ${progress.migratedCount.toLocaleString()} vectors.`,
-          colors.custom.green,
+          `Similarity repair complete: ${formatProgress(progress)}. Generated ${progress.indexedCount.toLocaleString()} vectors; ${progress.skippedFreshCount.toLocaleString()} already current; ${progress.errorCount.toLocaleString()} failed. Search index maintenance complete.`,
+          progress.errorCount ? colors.custom.orange : colors.custom.green,
         );
         break;
       }
@@ -274,20 +292,157 @@ export const RepairModal = Comp(() => {
     store.setSimilarityJobId(null);
   };
 
-  const handleStart = async () => {
+  const runRepair = async (action: (repairId: string) => Promise<void>, clearLog = false) => {
+    if (store.isRunning) return;
+
     const repairId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    let failure: string;
 
     store.setRepairId(repairId);
     store.setIsCancellationRequested(false);
-    store.setOutputLog([]);
+
+    if (clearLog) store.setOutputLog([]);
 
     try {
       store.setIsRunning(true);
 
       const startRes = await trpc.startRepair.mutate({ repairId });
+
       if (!startRes.success) throw new Error(startRes.error);
 
+      await action(repairId);
+    } catch (error) {
+      failure = error.message;
+      console.error(error);
+
+      if (store.isCancellationRequested)
+        store.log("[CANCELLED] Repair cancelled by user.", colors.custom.orange);
+      else store.log(`[ERROR] Repair stopped: ${error.message}`, colors.custom.red);
+    } finally {
+      try {
+        const result = await trpc.finishRepair.mutate({ error: failure, repairId });
+
+        if (!result.success) throw new Error(result.error);
+      } catch (error) {
+        store.log(`[ERROR] Could not save repair status: ${error.message}`, colors.custom.red);
+      } finally {
+        store.setSimilarityJobId(null);
+        store.setIsRunning(false);
+      }
+    }
+  };
+
+  const handleDeleteUntrackedFiles = () =>
+    runRepair(async (repairId) => {
+      for (const paths of chunkArray(storageResult.filesLeftInStorageOnly, 200)) {
+        if (store.isCancellationRequested) throw new Error("Repair cancelled.");
+
+        const result = await trpc.deleteUntrackedStorageFiles.mutate({ paths, repairId });
+
+        if (!result.success) throw new Error(result.error);
+
+        const removed = new Set(result.data.removedPaths);
+
+        setStorageResult((previous) => ({
+          ...previous,
+          filesLeftInStorageOnly: previous.filesLeftInStorageOnly.filter(
+            (file) => !removed.has(file),
+          ),
+        }));
+        store.log(
+          `[INFO] Removed ${Fmt.commas(removed.size)} untracked files; retained ${Fmt.commas(result.data.retainedCount)} files.`,
+        );
+      }
+    });
+
+  const handleReimportUntrackedFiles = () =>
+    runRepair(async () => {
+      const paths = storageResult.filesLeftInStorageOnly;
+      const queuedPaths = new Set<string>();
+
+      async function* readImports() {
+        for (let offset = 0; offset < paths.length; offset += 200) {
+          if (store.isCancellationRequested) throw new Error("Repair cancelled.");
+
+          const imports = await filePathsToImports(paths.slice(offset, offset + 200), {
+            isCancelled: () => store.isCancellationRequested,
+          });
+
+          for (const entry of imports) {
+            queuedPaths.add(entry.path);
+
+            yield entry;
+          }
+        }
+      }
+
+      const result = await stores.import.manager.uploadImportBatch({
+        imports: readImports(),
+        isCancelled: () => store.isCancellationRequested,
+        onProgress: (count) =>
+          store.log(
+            `[INFO] Preparing ${Fmt.commas(count)} files for re-import.`,
+            colors.custom.lightBlue,
+            true,
+          ),
+        options: {
+          deleteOnImport: false,
+          ignorePrevDeleted: false,
+          rootFolderPath: stores.import.ingester.rootFolder,
+        },
+      });
+
+      if (!result.success) throw new Error(result.error);
+
+      if (result.data.count) {
+        setStorageResult((previous) => ({
+          ...previous,
+          filesLeftInStorageOnly: previous.filesLeftInStorageOnly.filter(
+            (file) => !queuedPaths.has(file),
+          ),
+        }));
+        stores.import.manager.runImporter();
+        store.log(
+          `[INFO] ${Fmt.commas(result.data.count)} files queued in one batch. Follow their progress in Import Manager.`,
+        );
+      }
+    });
+
+  const handleRemoveMissingRecords = () =>
+    runRepair(async (repairId) => {
+      for (const fileIds of chunkArray(storageResult.fileIdsLeftInDbOnly, 200)) {
+        if (store.isCancellationRequested) throw new Error("Repair cancelled.");
+
+        const result = await trpc.removeMissingStorageRecords.mutate({ fileIds, repairId });
+
+        if (!result.success) throw new Error(result.error);
+
+        const checkedIds = new Set(fileIds);
+
+        setStorageResult((previous) => ({
+          ...previous,
+          fileIdsLeftInDbOnly: previous.fileIdsLeftInDbOnly.filter((id) => !checkedIds.has(id)),
+        }));
+        store.log(
+          `[INFO] Removed ${Fmt.commas(result.data.removedCount)} missing records; retained ${Fmt.commas(result.data.retainedCount)} records whose files are now present.`,
+        );
+      }
+    });
+
+  const handleStart = () =>
+    runRepair(async (repairId) => {
       store.log("[INFO] Starting the selected database repairs.");
+
+      if (store.storage) {
+        setStorageResult(null);
+        store.log("[INFO] Reconciling storage before the selected repairs.");
+
+        const res = await trpc.scanFileStorage.mutate({ repairId });
+
+        if (!res.success) throw new Error(res.error);
+
+        setStorageResult(res.data);
+      }
 
       if (store.audio.isSelected) {
         store.log("[INFO] Starting missing audio analysis repair.");
@@ -298,6 +453,7 @@ export const RepairModal = Comp(() => {
           repairTranscriptions: store.audio.transcriptions,
           repairWaveforms: store.audio.waveforms,
         });
+
         if (!res.success) throw new Error(res.error);
       }
 
@@ -312,6 +468,7 @@ export const RepairModal = Comp(() => {
           repairId,
           syncFileMembership: store.collections.fileMembership,
         });
+
         if (!res.success) throw new Error(res.error);
       }
 
@@ -326,6 +483,7 @@ export const RepairModal = Comp(() => {
           repairHierarchy: store.tags.hierarchy,
           repairId,
         });
+
         if (!res.success) throw new Error(res.error);
       }
 
@@ -337,6 +495,7 @@ export const RepairModal = Comp(() => {
           repairMissingThumbnails: store.thumbnails.missing,
           repairPaths: store.thumbnails.paths,
         });
+
         if (!res.success) throw new Error(res.error);
       }
 
@@ -344,6 +503,7 @@ export const RepairModal = Comp(() => {
         store.log("[INFO] Starting thumbnail NTFS metadata repair.");
 
         const res = await trpc.repairThumbnailNtfsMetadata.mutate({ repairId });
+
         if (!res.success) throw new Error(res.error);
       }
 
@@ -352,6 +512,7 @@ export const RepairModal = Comp(() => {
 
         if (store.files.extensions) {
           const extRes = await trpc.repairFilesWithBrokenExt.mutate({ repairId });
+
           if (!extRes.success) throw new Error(extRes.error);
         }
 
@@ -359,6 +520,7 @@ export const RepairModal = Comp(() => {
           store.log("[INFO] Starting video codec inspection.");
 
           const res = await trpc.repairVideoCodecs.mutate({ repairId });
+
           if (!res.success) throw new Error(res.error);
         }
 
@@ -366,6 +528,7 @@ export const RepairModal = Comp(() => {
           store.log("[INFO] Starting missing original video information repair.");
 
           const missingInfoRes = await trpc.repairFilesWithMissingInfo.mutate({ repairId });
+
           if (!missingInfoRes.success) throw new Error(missingInfoRes.error);
         }
       }
@@ -378,28 +541,14 @@ export const RepairModal = Comp(() => {
           repairId,
           syncDefinitions: store.indexes.sync,
         });
+
         if (!res.success) throw new Error(res.error);
       }
 
       if (store.similarity) await rebuildSimilarityIndex();
 
       store.log("[SUCCESS] All selected repairs completed successfully.", colors.custom.green);
-    } catch (error) {
-      console.error(error);
-
-      if (store.isCancellationRequested)
-        store.log("[CANCELLED] Repair cancelled by user.", colors.custom.orange);
-      else
-        store.log(
-          `[ERROR] Repair stopped: ${error instanceof Error ? error.message : String(error)}`,
-          colors.custom.red,
-        );
-    } finally {
-      await trpc.finishRepair.mutate({ repairId });
-      store.setSimilarityJobId(null);
-      store.setIsRunning(false);
-    }
-  };
+    }, true);
 
   return (
     <Modal.Container
@@ -414,13 +563,23 @@ export const RepairModal = Comp(() => {
       </Modal.Header>
 
       <Modal.Content>
-        <UniformList column height="100%" spacing="1rem">
+        <View column height="100%" minHeight={0} spacing="1rem">
           <Card
             header="Select Issues to Repair"
+            flex={1}
+            minHeight={0}
             spacing="0.5rem"
             overflow="hidden auto"
             bgColor={colors.foregroundCard}
           >
+            <RepairCheckbox
+              label="Storage Reconciliation"
+              description="Runs first. Restores verified paths and lists missing records and untracked files for removal or re-import below."
+              checked={store.storage}
+              setChecked={store.setStorage}
+              disabled={store.isRunning}
+            />
+
             <RepairCheckbox
               label="Audio Analysis"
               description="Missing waveform and transcription data for videos with audio."
@@ -656,7 +815,7 @@ export const RepairModal = Comp(() => {
 
               <RepairCheckbox
                 label="Store NTFS Ordering Metadata"
-                description="Stores each thumbnail's NTFS volume and file IDs for filesystem-aware processing order."
+                description="Repairs missing thumbnails and stores their NTFS volume and file IDs for filesystem-aware processing order."
                 checked={store.thumbnails.ntfsMetadata}
                 setChecked={store.thumbnails.setNtfsMetadata}
                 disabled={store.isRunning || !store.thumbnails.enabled}
@@ -664,10 +823,54 @@ export const RepairModal = Comp(() => {
             </View>
           </Card>
 
+          {storageResult && (
+            <Card
+              header="Storage Reconciliation Results"
+              flex="none"
+              spacing="0.75rem"
+              padding={{ all: "0.75rem" }}
+              bgColor={colors.foregroundCard}
+            >
+              <Text whiteSpace="normal">
+                {`Recovered ${Fmt.commas(storageResult.recoveredFiles)} media paths and ${Fmt.commas(storageResult.recoveredThumbs)} thumbnail paths.`}
+              </Text>
+
+              <Text whiteSpace="normal">
+                {`${Fmt.commas(storageResult.fileIdsLeftInDbOnly.length)} records with missing originals · ${Fmt.commas(storageResult.filesLeftInStorageOnly.length)} untracked storage files · ${Fmt.commas(storageResult.unresolvedThumbs)} unresolved thumbnails at scan completion`}
+              </Text>
+
+              <View row wrap="wrap" className={css.storageActions}>
+                <Button
+                  text="Remove Missing File Records"
+                  icon="Delete"
+                  color={colors.custom.red}
+                  onClick={handleRemoveMissingRecords}
+                  disabled={store.isRunning || !storageResult.fileIdsLeftInDbOnly.length}
+                />
+
+                <Button
+                  text="Delete Untracked Files"
+                  icon="Delete"
+                  color={colors.custom.red}
+                  onClick={handleDeleteUntrackedFiles}
+                  disabled={store.isRunning || !storageResult.filesLeftInStorageOnly.length}
+                />
+
+                <Button
+                  text="Re-import Untracked Files"
+                  icon="Refresh"
+                  onClick={handleReimportUntrackedFiles}
+                  disabled={store.isRunning || !storageResult.filesLeftInStorageOnly.length}
+                />
+              </View>
+            </Card>
+          )}
+
           <Card
             header="Log"
             ref={outputRef}
-            height="100%"
+            flex={1}
+            minHeight={0}
             overflow="hidden auto"
             bgColor={colors.foregroundCard}
           >
@@ -679,15 +882,15 @@ export const RepairModal = Comp(() => {
                 overflow="visible"
                 whiteSpace="pre-wrap"
                 width="100%"
-                sx={{ overflowWrap: "anywhere", textOverflow: "clip", wordBreak: "break-word" }}
+                className={css.log}
               >
                 {log.text}
               </Text>
             ))}
 
-            {store.isRunning && <CircularProgress color="inherit" />}
+            {store.isRunning && <ProgressCircle color="inherit" variant="indeterminate" />}
           </Card>
-        </UniformList>
+        </View>
       </Modal.Content>
 
       <Modal.Footer>
@@ -713,4 +916,15 @@ export const RepairModal = Comp(() => {
       )}
     </Modal.Container>
   );
+});
+
+const useClasses = makeClasses({
+  log: {
+    overflowWrap: "anywhere",
+    textOverflow: "clip",
+    wordBreak: "break-word",
+  },
+  storageActions: {
+    gap: "0.5rem",
+  },
 });

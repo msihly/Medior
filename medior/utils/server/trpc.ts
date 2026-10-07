@@ -15,14 +15,14 @@ export let vectorTrpc: ReturnType<typeof createTRPCProxyClient<VectorRouter>>;
 export const setupTRPC = () => {
   // @ts-expect-error
   trpc = createTRPCProxyClient<ServerRouter>({
-    links: [httpLink({ url: `http://localhost:${getConfig().ports.server}` })],
+    links: [httpLink({ url: `http://127.0.0.1:${getConfig().ports.server}` })],
   });
 };
 
 export const setupVectorTRPC = () => {
   // @ts-expect-error
   vectorTrpc = createTRPCProxyClient<VectorRouter>({
-    links: [httpBatchLink({ url: `http://localhost:${getConfig().ports.vector}` })],
+    links: [httpBatchLink({ url: `http://127.0.0.1:${getConfig().ports.vector}` })],
   });
 };
 
@@ -41,7 +41,7 @@ class SocketClass {
 
     try {
       this.port = getConfig().ports.socket;
-      this.socket = io(`ws://localhost:${this.port}`);
+      this.socket = io(`ws://127.0.0.1:${this.port}`);
 
       this.socket.on("connected", () =>
         fileLog(`Socket.io connected on port ${this.port}. ID: ${this.socket.id}`),
@@ -126,6 +126,7 @@ class SocketClass {
   ): void {
     try {
       if (!this.socket) this.connect();
+
       // @ts-expect-error
       this.socket.on(event, listener);
       this.listeners.push({ event, listener });
@@ -136,6 +137,7 @@ class SocketClass {
 
   public reconnect() {
     const listeners = this.listeners;
+
     this.disconnect();
     this.connect();
 

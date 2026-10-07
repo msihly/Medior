@@ -1,9 +1,9 @@
 import autoBind from "auto-bind";
 import { reaction } from "mobx";
 import { ExtendedModel, getRootStore, model, modelAction, modelFlow, prop } from "mobx-keystone";
-import { asyncAction } from "trabecula/utils/client";
 import { _FileSearch } from "medior/store/_generated";
 import { RootStore } from "medior/store";
+import { asyncAction, reloadItemTags } from "medior/utils/client";
 import { durationToSeconds, secondsToDuration } from "medior/utils/common";
 import { trpc } from "medior/utils/server";
 
@@ -29,6 +29,7 @@ export class FileSearch extends ExtendedModel(_FileSearch, {
       () => {
         if (!this.hasChanges) {
           this.setIsArchiveOpen(this.isArchived);
+
           if (this.selectedIds?.length > 0)
             this.toggleSelected(this.selectedIds.map((id) => ({ id, isSelected: false })));
         }
@@ -50,7 +51,10 @@ export class FileSearch extends ExtendedModel(_FileSearch, {
   @modelAction
   removeFiles(fileIds: string[]) {
     const removedIds = new Set(fileIds);
+
+    this.carouselFileIds = this.carouselFileIds.filter((id) => !removedIds.has(id));
     this.results = this.results.filter((file) => !removedIds.has(file.id));
+    this.selectedIds = this.selectedIds.filter((id) => !removedIds.has(id));
   }
 
   @modelAction
@@ -64,6 +68,7 @@ export class FileSearch extends ExtendedModel(_FileSearch, {
     removedTagIds: string[];
   }) {
     const updatedIds = new Set(fileIds);
+
     this.results.forEach((file) => {
       if (updatedIds.has(file.id)) file.updateTags({ addedTagIds, removedTagIds });
     });
@@ -80,13 +85,14 @@ export class FileSearch extends ExtendedModel(_FileSearch, {
 
   @modelAction
   _setBitrate(val: number) {
-    this.setBitrateValue(val * 1000);
+    this.setBitrateValue(Number.isFinite(val) ? val * 1000 : null);
     this._bitrate = val;
   }
 
   @modelAction
   _setDuration(val: string) {
     const parsedSeconds = val.length > 0 ? durationToSeconds(val) : null;
+
     this.setDurationValue(parsedSeconds);
     this._duration = val;
   }
@@ -108,10 +114,12 @@ export class FileSearch extends ExtendedModel(_FileSearch, {
     this._bitrate = Number.isInteger(searchProps.bitrate?.value)
       ? searchProps.bitrate.value / 1000
       : null;
+
     this._duration =
       typeof searchProps.duration?.value === "number" && searchProps.duration.value > 0
         ? secondsToDuration(searchProps.duration.value)
         : "";
+
     this._maxSize = Number.isFinite(searchProps.maxSize) ? searchProps.maxSize / 1024 : null;
     this._minSize = Number.isFinite(searchProps.minSize) ? searchProps.minSize / 1024 : null;
   }
@@ -126,16 +134,26 @@ export class FileSearch extends ExtendedModel(_FileSearch, {
 
   @modelFlow
   reloadFiles = asyncAction(async (fileIds: string[]) => {
-    for (const file of this.results) {
-      if (fileIds.includes(file.id)) await file.reload();
+    const requestedIds = new Set(fileIds);
+    const results = this.results;
+    const visibleIds = results.filter((file) => requestedIds.has(file.id)).map((file) => file.id);
+
+    if (visibleIds.length) {
+      const res = await trpc.listFile.mutate({ args: { filter: { id: visibleIds } } });
+
+      if (!res.success) throw new Error(res.error);
+
+      if (results === this.results) {
+        for (const file of res.data.items) this.getResult(file.id)?.update(file);
+      }
     }
   });
 
   @modelFlow
   reloadTags = asyncAction(async (fileIds: string[]) => {
-    for (const file of this.results) {
-      if (fileIds.includes(file.id)) await file.reloadTags();
-    }
+    const requestedIds = new Set(fileIds);
+
+    await reloadItemTags(this.results.filter((file) => requestedIds.has(file.id)));
   });
 
   @modelFlow
@@ -144,17 +162,32 @@ export class FileSearch extends ExtendedModel(_FileSearch, {
 
     const filterProps = this.cachedFilterProps as ReturnType<typeof this.getFilterProps> | null;
     const filters = filterProps ?? this.getFilterProps();
-    const res = await trpc.listFilteredFile.mutate({
-      ...filters,
-      ...(filters.ids?.length ? { forcePages: true, ids: filters.ids.slice(0, limit) } : {}),
-      page: 1,
-      pageSize: limit,
-      select: { _id: 1 },
-    });
-    if (!res.success) throw new Error(res.error);
+    const loadId = this.loadId + 1;
 
-    this.toggleSelected(res.data.items.map(({ id }) => ({ id, isSelected: true })));
+    this.setLoadId(loadId);
+    this.setIsLoading(true);
+    this.setIsPageCountLoading(false);
 
-    return res.data.items.length;
+    try {
+      const res = await trpc.listFileSearchIds.mutate({
+        ...filters,
+        forcePages: this.forcePages,
+        limit,
+      });
+
+      if (loadId !== this.loadId) return null;
+
+      if (!res.success) throw new Error(res.error);
+
+      this.selectedIds = [...new Set([...this.selectedIds, ...res.data])];
+
+      return res.data.length;
+    } catch (error) {
+      if (loadId === this.loadId) throw error;
+
+      return null;
+    } finally {
+      if (loadId === this.loadId) this.setIsLoading(false);
+    }
   });
 }

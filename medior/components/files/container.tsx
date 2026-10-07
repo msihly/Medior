@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { CardGrid, Comp, Pagination } from "medior/components";
+import { CardGrid, Comp, Pagination, View } from "medior/components";
 import { useStores } from "medior/store";
 import { colors } from "medior/utils/client";
 import { useHotkeys } from "medior/views";
@@ -19,8 +19,12 @@ export const FileContainer = Comp(({ view }: FileContainerProps) => {
 
   useEffect(() => {
     scrollToTop();
-    if (store.page > store.pageCount) handlePageChange(store.pageCount);
   }, [store.page, store.pageCount]);
+
+  useEffect(() => {
+    if (!store.isLoading && !store.isPageCountLoading && store.page > Math.max(store.pageCount, 1))
+      handlePageChange(Math.max(store.pageCount, 1));
+  }, [store.isLoading, store.isPageCountLoading, store.page, store.pageCount]);
 
   const handleFullPageLoad = () => store.loadFiltered({ toLastPage: true });
 
@@ -29,21 +33,25 @@ export const FileContainer = Comp(({ view }: FileContainerProps) => {
   const scrollToTop = () => filesRef.current?.scrollTo({ behavior: "instant", top: 0 });
 
   return (
-    <CardGrid
-      ref={filesRef}
-      cards={store.results.map((f, i) => (
-        <FileCard key={i} file={f} store={store} />
-      ))}
-      cardsProps={{ onKeyDown: handleKeyPress, tabIndex: 1 }}
-      bgColor={colors.custom.black}
-    >
+    <View column flex={1} minHeight={0} overflow="hidden">
+      <CardGrid
+        padding={{ all: "0.3rem" }}
+        ref={filesRef}
+        cards={store.results.map((f, i) => (
+          <FileCard key={i} file={f} store={store} />
+        ))}
+        cardsProps={{ onKeyDown: handleKeyPress, tabIndex: 1 }}
+        bgColor={colors.custom.black}
+      />
+
       <Pagination
+        inline
         count={store.pageCount}
         page={store.page}
         isLoading={store.isPageCountLoading && !store.isLoading}
         onChange={handlePageChange}
         onFullLoad={handleFullPageLoad}
       />
-    </CardGrid>
+    </View>
   );
 });

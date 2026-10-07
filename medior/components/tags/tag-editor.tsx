@@ -1,5 +1,4 @@
 import { useRef, useState } from "react";
-import { Divider } from "@mui/material";
 import { EditTagInput } from "medior/_generated/server";
 import {
   Button,
@@ -8,11 +7,14 @@ import {
   ColorPicker,
   Comp,
   ConfirmModal,
+  Divider,
   IconButton,
   IconPicker,
   IdButton,
+  LoadingOverlay,
   Modal,
   NumInput,
+  RatingButton,
   TagEditorAncestry,
   TagToUpsert,
   Text,
@@ -37,6 +39,7 @@ export const TagEditor = Comp(({ isSubEditor = false }: TagEditorProps) => {
   const [hasKeepChildTags, setHasKeepChildTags] = useState(false);
   const [hasKeepParentTags, setHasKeepParentTags] = useState(false);
   const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   const clearInputs = () => {
     store.setLabel("");
@@ -47,19 +50,24 @@ export const TagEditor = Comp(({ isSubEditor = false }: TagEditorProps) => {
     store.setCategoryIcon(null);
     store.setCategoryInheritable(null);
     store.setCategorySortRank(null);
+
     if (!hasKeepParentTags) store.setParentTags([]);
+
     if (!hasKeepChildTags) store.setChildTags([]);
 
     labelRef.current?.focus();
   };
 
   const handleClose = () => {
+    if (isSaving) return;
+
     store.setIsOpen(false);
+
     if (!isSubEditor) stores.file.search.reloadIfQueued();
   };
 
   const handleConfirmDelete = async () => {
-    store.setIsLoading(true);
+    setIsSaving(true);
 
     const res = await stores.tag.deleteTag({ id: store.tag.id });
 
@@ -70,7 +78,7 @@ export const TagEditor = Comp(({ isSubEditor = false }: TagEditorProps) => {
       store.setIsOpen(false);
     }
 
-    store.setIsLoading(false);
+    setIsSaving(false);
 
     return res.success;
   };
@@ -84,23 +92,27 @@ export const TagEditor = Comp(({ isSubEditor = false }: TagEditorProps) => {
 
   const handleMerge = () => stores.tag.merger.setIsOpen(true);
 
+  const handleRating = (rating: number) => stores.tag.updateTagRating({ id: store.tag.id, rating });
+
   const handleRefresh = async () => {
-    store.setIsLoading(true);
+    setIsSaving(true);
     await stores.tag.refreshTag({ id: store.tag.id });
+    setIsSaving(false);
     await store.loadTag({ id: store.tag.id });
-    store.setIsLoading(false);
   };
 
   const handleSearch = () => openSearchWindow({ tagIds: [store.tag.id] });
 
   const handleSubEditorClick = (tagOpt: TagToUpsert) => {
     if (!tagOpt.id || tagOpt.id === store.tag?.id) return;
+
     stores.tag.subEditor.setIsOpen(true);
     stores.tag.subEditor.loadTag({ id: tagOpt.id });
   };
 
   const saveTag = async () => {
     if (store.isDuplicate) return toast.error("Tag label must be unique");
+
     if (!store.label.trim().length) return toast.error("Tag label cannot be blank");
 
     const tag: EditTagInput = {
@@ -118,23 +130,28 @@ export const TagEditor = Comp(({ isSubEditor = false }: TagEditorProps) => {
       regEx: store.regExValue,
     };
 
-    store.setIsLoading(true);
+    setIsSaving(true);
 
     const res = await (!store.tag ? stores.tag.createTag(tag) : stores.tag.editTag(tag));
 
     if (res.success) {
       if (hasContinue) {
         clearInputs();
-        store.setIsLoading(false);
+        setIsSaving(false);
       } else handleClose();
     } else {
-      store.setIsLoading(false);
+      setIsSaving(false);
       toast.error(res.error);
     }
   };
 
   return (
-    <Modal.Container isLoading={store.isLoading} onClose={handleClose} width="66rem">
+    <Modal.Container isLoading={isSaving} onClose={handleClose} width="66rem">
+      <LoadingOverlay
+        isLoading={store.isLoading}
+        sub={<Button text="Cancel" icon="Close" onClick={handleClose} />}
+      />
+
       <Modal.Header
         leftNode={
           store.tag && (
@@ -162,6 +179,8 @@ export const TagEditor = Comp(({ isSubEditor = false }: TagEditorProps) => {
         rightNode={
           store.tag && (
             <View row align="center" spacing="0.5rem">
+              <RatingButton rating={store.tag.rating} setRating={handleRating} />
+
               <Text tooltip={store.tag?.count} tooltipProps={{ flexShrink: 1 }} preset="sub-text">
                 {`${Fmt.commas(store.tag?.count ?? 0)} files / ${Fmt.bytes(store.tag?.size ?? 0)}`}
               </Text>

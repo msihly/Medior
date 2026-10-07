@@ -11,6 +11,7 @@ import {
   FileSearchColumn,
   Input,
   ListItem,
+  LoadingOverlay,
   MenuButton,
   Modal,
   MultiActionButton,
@@ -68,6 +69,7 @@ export const FileCollectionEditor = Comp(
 
     useEffect(() => {
       return () => {
+        store.cancelLoad();
         store.search.reset();
         store.fileSearch.reset();
       };
@@ -75,18 +77,42 @@ export const FileCollectionEditor = Comp(
 
     useEffect(() => {
       scrollToTop();
-      if (store.search.pageCount > 0 && store.search.page > store.search.pageCount)
-        handlePageChange(store.search.pageCount);
     }, [store.search.page, store.search.pageCount]);
 
+    useEffect(() => {
+      if (
+        !store.search.isLoading &&
+        !store.search.isPageCountLoading &&
+        store.search.page > Math.max(store.search.pageCount, 1)
+      )
+        handlePageChange(Math.max(store.search.pageCount, 1));
+    }, [
+      store.search.isLoading,
+      store.search.isPageCountLoading,
+      store.search.page,
+      store.search.pageCount,
+    ]);
+
     const confirmClose = () => {
-      if (mode === "merge") return handleClose();
-      if (store.hasUnsavedChanges) setIsConfirmDiscardOpen(true);
+      if (store.isSaving || isSaving) return;
+
+      if (mode === "merge") handleClose();
+      else if (store.hasUnsavedChanges) setIsConfirmDiscardOpen(true);
       else handleClose();
+    };
+
+    const handleCancelLoad = () => {
+      if (onCancelLoad) onCancelLoad();
+      else {
+        store.cancelLoad();
+
+        if (!store.collection) handleClose();
+      }
     };
 
     const confirmRemoveFiles = async () => {
       const res = await store.removeFiles(store.search.selectedIds);
+
       return res.success;
     };
 
@@ -127,11 +153,7 @@ export const FileCollectionEditor = Comp(
       ) {
         event.preventDefault();
         handleRemoveFiles();
-
-        return;
-      }
-
-      handleKeyPress(event);
+      } else handleKeyPress(event);
     };
 
     const handleFileInfoRefresh = () => stores.file.refreshFiles({ ids: store.search.selectedIds });
@@ -158,6 +180,7 @@ export const FileCollectionEditor = Comp(
 
     const handleSave = async () => {
       if (!store.title) return toast.error("Title is required!");
+
       if (onSave) await onSave();
       else await store.saveCollection();
     };
@@ -169,32 +192,40 @@ export const FileCollectionEditor = Comp(
 
     const handleSelectAllInQuery = async () => {
       const res = await store.search.selectAllInQuery();
-      if (!res.success) throw new Error(res.error);
 
-      toast.info(`Added ${res.data} files to selection`);
+      if (!res.success) toast.error(res.error);
+      else if (res.data !== null) toast.info(`Added ${res.data} files to selection`);
     };
 
     const handleSplitFiles = async () => {
       const selectedIds = [...store.search.selectedIds];
       const selectedIdSet = new Set(selectedIds);
 
-      const createRes = await stores.collection.createCollection({
-        fileIdIndexes: store.fileIndexes
-          .filter(({ fileId }) => selectedIdSet.has(fileId))
-          .map(({ fileId }, index) => ({ fileId, index })),
-        title: "Untitled Collection",
-      });
-      if (!createRes.success) return toast.error(createRes.error);
+      store.setIsSaving(true);
 
-      const removeRes = await store.removeFiles(selectedIds);
+      try {
+        const createRes = await stores.collection.createCollection({
+          fileIdIndexes: store.fileIndexes
+            .filter(({ fileId }) => selectedIdSet.has(fileId))
+            .map(({ fileId }, index) => ({ fileId, index })),
+          title: "Untitled Collection",
+        });
 
-      if (!removeRes.success) {
-        await stores.collection.deleteCollections([createRes.data.id]);
+        if (!createRes.success) return toast.error(createRes.error);
 
-        return toast.error(removeRes.error);
+        const removeRes = await store.removeFiles(selectedIds);
+
+        if (!removeRes.success) {
+          await stores.collection.deleteCollections([createRes.data.id]);
+
+          return toast.error(removeRes.error);
+        }
+
+        store.setIsSaving(true);
+        await store.loadCollection(createRes.data.id);
+      } finally {
+        store.setIsSaving(false);
       }
-
-      await store.loadCollection(createRes.data.id);
     };
 
     const handleTitleChange = (val: string) => {
@@ -208,6 +239,11 @@ export const FileCollectionEditor = Comp(
 
     const content = (
       <>
+        <LoadingOverlay
+          isLoading={store.isLoading && !store.isSaving && !isSaving}
+          sub={<Button text="Cancel" icon="Close" onClick={handleCancelLoad} />}
+        />
+
         <Modal.Header
           leftNode={
             mode === "edit" ? (
@@ -366,18 +402,24 @@ export const FileCollectionEditor = Comp(
               </Card>
             </View>
 
-            <Card column flex={1} overflow="auto" position="relative">
+            <Card
+              column
+              flex={1}
+              minHeight={0}
+              overflow="hidden"
+              padding={{ all: 0 }}
+              position="relative"
+            >
               <SearchLoadingOverlay
                 isLoading={
-                  mode === "merge"
-                    ? !isSaving && (store.isLoading || store.search.isLoading)
-                    : undefined
+                  !isSaving && !store.isSaving && !store.isLoading && store.search.isLoading
                 }
                 onCancel={mode === "merge" ? onCancelLoad : undefined}
                 store={store.search}
               />
 
               <CardGrid
+                padding={{ all: "0.8rem" }}
                 ref={filesRef}
                 maxCards={maxCards}
                 cards={store.search.results.map((f) => (
@@ -387,6 +429,7 @@ export const FileCollectionEditor = Comp(
               />
 
               <Pagination
+                inline
                 count={store.search.pageCount}
                 page={store.search.page}
                 isLoading={store.search.isPageCountLoading && !store.search.isLoading}
@@ -441,12 +484,12 @@ export const FileCollectionEditor = Comp(
     );
 
     return embedded ? (
-      <View column flex={1} overflow="hidden">
+      <View column flex={1} overflow="hidden" position="relative">
         {content}
       </View>
     ) : (
       <Modal.Container
-        isLoading={mode === "edit" ? store.isLoading : isSaving}
+        isLoading={store.isSaving || isSaving}
         onClose={confirmClose}
         height="100%"
         width="100%"

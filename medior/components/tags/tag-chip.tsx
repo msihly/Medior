@@ -29,6 +29,7 @@ export const TagChip = Comp(
     const store = stores.tag;
 
     const category = store.getCategory(tag);
+
     color = color || category?.color || colors.custom.grey;
     icon = icon || (category?.icon as IconName);
 

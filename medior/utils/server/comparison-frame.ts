@@ -34,13 +34,16 @@ export const loadComparisonFrame = async (
           if (!chunks.length) reject(new Error("No frame found at this time"));
           else resolve(Buffer.concat(chunks));
         });
+
         signal.addEventListener("abort", handleAbort, { once: true });
 
         const cleanup = () => signal.removeEventListener("abort", handleAbort);
+
         command.on("end", cleanup).on("error", cleanup);
         command.on("start", () => {
           if (signal.aborted) handleAbort();
         });
+
         command.pipe(output);
       })
     : await sharp(inputPath).rotate().png().toBuffer();

@@ -16,6 +16,7 @@ type ModelSortName =
   | "BackgroundOperation"
   | "DeletedFile"
   | "FileCollection"
+  | "FileImport"
   | "FileImportBatch"
   | "FileTransform"
   | "File"
@@ -37,6 +38,7 @@ const MODEL_SORT_OPTIONS: Record<ModelSortName, SortOption[]> = {
     { attribute: "size", icon: "FormatSize", label: "Size" },
     { attribute: "title", icon: "Title", label: "Title" },
   ],
+  FileImport: [],
   FileImportBatch: [
     { attribute: "completedAt", icon: "HourglassBottom", label: "Completed At" },
     { attribute: "dateCreated", icon: "DateRange", label: "Date Created" },

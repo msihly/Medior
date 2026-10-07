@@ -33,6 +33,7 @@ class TranscodeSession {
     private onError?: (error: Error) => void,
   ) {
     const bitrate = Math.max(0.5, targetBitrateMbps);
+
     this.command = ffmpeg()
       .input(inputPath)
       .seekInput(seekTime)
@@ -90,7 +91,9 @@ class TranscodeSession {
 
     this.disposed = true;
     clearTimeout(this.startupTimer);
+
     if (this.bufferErrorTimer) clearTimeout(this.bufferErrorTimer);
+
     if (this.retryTimer) clearTimeout(this.retryTimer);
 
     this.mediaSource.removeEventListener("sourceopen", this.handleSourceOpen);
@@ -135,6 +138,7 @@ class TranscodeSession {
     this.stream.pause();
     this.bufferErrorTimer = setTimeout(() => {
       const error = this.getMediaElement?.()?.error;
+
       this.fail(
         new Error(
           `The browser could not decode the transcoded video (${this.mimeType}). ${
@@ -168,12 +172,14 @@ class TranscodeSession {
 
     this.command.ffprobe((error, metadata) => {
       if (this.disposed) return;
+
       if (error) return this.fail(error);
 
       try {
         this.mimeType = metadata.streams.some((stream) => stream.codec_type === "audio")
           ? 'video/mp4; codecs="avc1.42C034, mp4a.40.2"'
           : MIME_TYPE;
+
         if (!MediaSource.isTypeSupported(this.mimeType))
           throw new Error(`Transcoding format is not supported: ${this.mimeType}`);
 
@@ -201,6 +207,7 @@ class TranscodeSession {
       if (!this.firstFramesReceived && this.sourceBuffer.buffered.length > 0) {
         this.firstFramesReceived = true;
         this.onFirstFrames?.();
+
         if (this.disposed) return;
       }
 
@@ -269,6 +276,7 @@ class VideoTranscoder {
     onError?: (error: Error) => void,
   ) {
     this.dispose();
+
     if (!MediaSource.isTypeSupported(MIME_TYPE))
       throw new Error(`Transcoding format is not supported: ${MIME_TYPE}`);
 

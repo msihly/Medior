@@ -1,4 +1,5 @@
 export * from "./carousel";
+export * from "./image-crop";
 export * from "./splicer";
 export * from "./thumb";
 export * from "./thumb-navigator";

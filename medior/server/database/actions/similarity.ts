@@ -1,45 +1,34 @@
 import * as models from "medior/_generated/server/models";
-import { SimilarityCandidate, SimilarityVectorType } from "medior/server/vector-service";
-import { makeTagSelector } from "medior/utils/common";
-import { leanModelToJson, makeAction, objectIds } from "medior/utils/server";
+import { startRepairChild } from "medior/server/database/repair-progress";
+import type { SimilarityVectorType } from "medior/server/vector-service";
+import { makeAction, objectIds } from "medior/utils/server";
 import { vectorTrpc } from "medior/utils/server/trpc";
 
 export const findSimilarFiles = makeAction(
-  async (args: { fileId: string; limit?: number; vectorTypes?: SimilarityVectorType[] }) => {
-    const candidates = (await vectorTrpc.findSimilarVectorCandidates.mutate(args)).filter(
-      (candidate) => candidate.fileId !== args.fileId,
-    ) as SimilarityCandidate[];
+  async (args: {
+    exact?: boolean;
+    fileId: string;
+    limit?: number;
+    offset?: number;
+    vectorType?: SimilarityVectorType;
+  }) => {
+    const { candidates, hasMore, nextOffset } =
+      await vectorTrpc.findSimilarVectorCandidates.mutate(args);
 
     const fileIds = candidates.map((candidate) => candidate.fileId);
-    if (!fileIds.length) return { candidates: [], items: [] };
+    const files = await models.FileModel.find({
+      _id: { $in: objectIds(fileIds) },
+      isArchived: { $ne: true },
+    })
+      .select({ _id: 1 })
+      .lean();
 
-    const files = (await models.FileModel.find({ _id: { $in: objectIds(fileIds) } }).lean()).map(
-      leanModelToJson<models.FileSchema>,
-    );
-
-    const tagIds = [...new Set(files.flatMap((file) => file.tagIds))];
-
-    const tags = tagIds.length
-      ? (await models.TagModel.find({ _id: { $in: objectIds(tagIds) } }).lean()).map(
-          leanModelToJson<models.TagSchema>,
-        )
-      : [];
-
-    const selectTags = makeTagSelector(tags);
-
-    const fileMap = new Map(
-      files.map((file) => [
-        file.id,
-        {
-          ...file,
-          tags: selectTags(file.tagIds),
-        },
-      ]),
-    );
+    const availableIds = new Set(files.map((file) => String(file._id)));
 
     return {
-      candidates,
-      items: fileIds.map((id) => fileMap.get(id)).filter(Boolean),
+      candidates: candidates.filter((candidate) => availableIds.has(candidate.fileId)),
+      hasMore,
+      nextOffset,
     };
   },
 );
@@ -85,7 +74,18 @@ export const startSimilarityBackfill = makeAction(
     args: {
       fileIds?: string[];
       force?: boolean;
+      repairId?: string;
       vectorTypes?: SimilarityVectorType[];
     } = {},
-  ) => await vectorTrpc.startSimilarityBackfill.mutate(args),
+  ) => {
+    const { repairId, ...options } = args;
+
+    const start = () => vectorTrpc.startSimilarityBackfill.mutate(options);
+
+    return repairId
+      ? startRepairChild(repairId, start, (job) =>
+          vectorTrpc.cancelSimilarityBackfill.mutate({ jobId: job.jobId }),
+        )
+      : start();
+  },
 );

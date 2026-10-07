@@ -1,10 +1,13 @@
 import { useEffect, useState } from "react";
 import {
   Button,
+  Checkbox,
   Comp,
   ConfirmModal,
   HeaderWrapper,
+  LoadingOverlay,
   Modal,
+  MultiTagEditor,
   TagInput,
   TagList,
   Text,
@@ -12,7 +15,8 @@ import {
   View,
 } from "medior/components";
 import { TagOption, useStores } from "medior/store";
-import { colors, toast } from "medior/utils/client";
+import { colors, toast, useCancellableLoad } from "medior/utils/client";
+import { CONSTANTS } from "medior/utils/common";
 import { trpc } from "medior/utils/server";
 
 interface FileTagEditorProps {
@@ -22,13 +26,21 @@ interface FileTagEditorProps {
 
 export const FileTagEditor = Comp(({ batchId, fileIds }: FileTagEditorProps) => {
   const stores = useStores();
+  const store = stores.file;
+
+  const load = useCancellableLoad();
 
   const [addedTags, setAddedTags] = useState<TagOption[]>([]);
   const [currentTags, setCurrentTags] = useState<TagOption[]>([]);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [isConfirmDiscardOpen, setIsConfirmDiscardOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isMultiTagEditorOpen, setIsMultiTagEditorOpen] = useState(false);
   const [removedTags, setRemovedTags] = useState<TagOption[]>([]);
+  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
+
+  const selectedTagIdSet = new Set(selectedTagIds);
+  const selectedTags = currentTags.filter((tag) => selectedTagIdSet.has(tag.id));
 
   useEffect(() => {
     loadTags();
@@ -51,16 +63,21 @@ export const FileTagEditor = Comp(({ batchId, fileIds }: FileTagEditorProps) => 
   };
 
   const handleClose = () => {
-    if (hasUnsavedChanges) return setIsConfirmDiscardOpen(true);
+    if (isLoading) return;
 
-    stores.file.tagsEditor.setIsOpen(false);
-    stores.file.search.reloadIfQueued();
+    load.cancel();
+
+    if (hasUnsavedChanges) setIsConfirmDiscardOpen(true);
+    else {
+      store.tagsEditor.setIsOpen(false);
+      store.search.reloadIfQueued();
+    }
   };
 
   const handleCloseForced = async () => {
     setHasUnsavedChanges(false);
-    stores.file.tagsEditor.setIsOpen(false);
-    stores.file.search.reloadIfQueued();
+    store.tagsEditor.setIsOpen(false);
+    store.search.reloadIfQueued();
 
     return true;
   };
@@ -68,18 +85,19 @@ export const FileTagEditor = Comp(({ batchId, fileIds }: FileTagEditorProps) => 
   const handleConfirm = async () => {
     try {
       setIsLoading(true);
+
       if (addedTags.length === 0 && removedTags.length === 0)
         throw new Error("You must enter at least one tag");
 
       const addedTagIds = addedTags.map((t) => t.id);
       const removedTagIds = removedTags.map((t) => t.id);
-
-      const res = await stores.file.editFileTags({
+      const res = await store.editFileTags({
         addedTagIds,
         batchId,
         fileIds,
         removedTagIds,
       });
+
       if (!res?.success) throw new Error(res.error);
 
       handleCloseForced();
@@ -91,8 +109,24 @@ export const FileTagEditor = Comp(({ batchId, fileIds }: FileTagEditorProps) => 
     }
   };
 
+  const handleMultiTagEditorClose = () => {
+    setIsMultiTagEditorOpen(false);
+    loadTags();
+  };
+
+  const handleSelectAllTags = (selected: boolean) => {
+    setSelectedTagIds(selected ? currentTags.map((tag) => tag.id) : []);
+  };
+
+  const handleSelectTag = (tag: TagOption, selected: boolean) => {
+    setSelectedTagIds((previous) =>
+      selected ? [...new Set([...previous, tag.id])] : previous.filter((id) => id !== tag.id),
+    );
+  };
+
   const handleTagAdded = (tags: TagOption[]) => {
     const addedIds = new Set(tags.map((tag) => tag.id));
+
     setAddedTags(tags);
     setRemovedTags((prev) => prev.filter((r) => !addedIds.has(r.id)));
     setHasUnsavedChanges(true);
@@ -100,31 +134,52 @@ export const FileTagEditor = Comp(({ batchId, fileIds }: FileTagEditorProps) => 
 
   const handleTagRemoved = (tags: TagOption[]) => {
     const removedIds = new Set(tags.map((tag) => tag.id));
+
     setRemovedTags(tags);
     setAddedTags((prev) => prev.filter((a) => !removedIds.has(a.id)));
     setHasUnsavedChanges(true);
   };
 
-  const loadTags = async () => {
-    try {
-      setIsLoading(true);
+  const loadTags = () =>
+    load.run(async (signal) => {
+      const batchSize = CONSTANTS.FILE.TAG_QUERY_BATCH_SIZE;
+      const currentTagIds = new Set<string>();
 
-      const fileRes = await trpc.listFile.mutate({ args: { filter: { id: fileIds } } });
-      if (!fileRes?.success) throw new Error(fileRes.error);
+      for (let offset = 0; offset < fileIds.length; offset += batchSize) {
+        signal.throwIfAborted();
 
-      const tagIds = [...new Set(fileRes.data.items.flatMap((f) => f.tagIds))];
+        const res = await trpc.listFileTagIds.mutate(
+          { fileIds: fileIds.slice(offset, offset + batchSize) },
+          { signal },
+        );
 
-      const tagRes = await trpc.listTag.mutate({ filter: { id: tagIds } });
-      if (!tagRes?.success) throw new Error(tagRes.error);
+        signal.throwIfAborted();
 
-      setCurrentTags(tagRes.data);
-    } catch (error) {
-      console.error(error);
-      toast.error("Failed to load tags");
-    } finally {
-      setIsLoading(false);
-    }
-  };
+        if (!res.success) throw new Error(res.error);
+
+        for (const tagId of res.data) currentTagIds.add(tagId);
+      }
+
+      const tagIds = [...currentTagIds];
+      const tags: TagOption[] = [];
+
+      for (let offset = 0; offset < tagIds.length; offset += batchSize) {
+        signal.throwIfAborted();
+
+        const res = await trpc.listTag.mutate(
+          { filter: { id: tagIds.slice(offset, offset + batchSize) } },
+          { signal },
+        );
+
+        signal.throwIfAborted();
+
+        if (!res.success) throw new Error(res.error);
+
+        tags.push(...res.data);
+      }
+
+      setCurrentTags(tags);
+    });
 
   return (
     <Modal.Container
@@ -134,12 +189,17 @@ export const FileTagEditor = Comp(({ batchId, fileIds }: FileTagEditorProps) => 
       width="100%"
       draggable
     >
+      <LoadingOverlay
+        isLoading={load.isLoading}
+        sub={<Button text="Cancel" icon="Close" onClick={handleClose} />}
+      />
+
       <Modal.Header>
         <Text preset="title">{"Update File Tags"}</Text>
       </Modal.Header>
 
       <Modal.Content dividers={false}>
-        <UniformList row uniformWidth="20rem" height="15rem" spacing="0.5rem">
+        <UniformList row uniformWidth="20rem" height="30rem" spacing="0.5rem">
           <TagInput
             header="Tags to Add"
             value={addedTags}
@@ -150,14 +210,31 @@ export const FileTagEditor = Comp(({ batchId, fileIds }: FileTagEditorProps) => 
             autoFocus
           />
 
-          <HeaderWrapper header="Current Tags" height="100%">
+          <HeaderWrapper
+            header={
+              <Checkbox
+                checked={currentTags.length > 0 && selectedTags.length === currentTags.length}
+                disabled={!currentTags.length}
+                indeterminate={selectedTags.length > 0 && selectedTags.length < currentTags.length}
+                label={`Current Tags (${selectedTags.length} selected)`}
+                setChecked={handleSelectAllTags}
+              />
+            }
+            height="100%"
+          >
             <TagList
-              search={{ onChange: null, value: currentTags }}
+              search={{ onChange: setCurrentTags, value: currentTags }}
               hasDelete={false}
               hasEditor
               hasInput
               rightNode={(tag) => (
                 <View row>
+                  <Checkbox
+                    checked={selectedTagIdSet.has(tag.id)}
+                    setChecked={(selected) => handleSelectTag(tag, selected)}
+                    width="auto"
+                  />
+
                   <Button
                     onClick={() => handleAdd(tag)}
                     icon="Add"
@@ -194,8 +271,20 @@ export const FileTagEditor = Comp(({ batchId, fileIds }: FileTagEditorProps) => 
       <Modal.Footer>
         <Button text="Cancel" icon="Close" onClick={handleClose} colorOnHover={colors.custom.red} />
 
+        <Button
+          text="Edit Selected Tags"
+          icon="Edit"
+          onClick={() => setIsMultiTagEditorOpen(true)}
+          disabled={!selectedTags.length || load.isLoading || isLoading}
+          colorOnHover={colors.custom.purple}
+        />
+
         <Button text="Confirm" icon="Check" onClick={handleConfirm} color={colors.custom.blue} />
       </Modal.Footer>
+
+      {isMultiTagEditorOpen && (
+        <MultiTagEditor initialTags={selectedTags} onClose={handleMultiTagEditorClose} />
+      )}
 
       {isConfirmDiscardOpen && (
         <ConfirmModal

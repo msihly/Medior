@@ -28,7 +28,8 @@ export const Label = Comp(
     const store = stores.tag;
 
     const handleEditExisting = async () => {
-      const res = await store.getByLabel(value);
+      const res = await store.getByLabel({ label: value });
+
       if (!res.success || !res.data?.id) return toast.error("Failed to load existing tag");
 
       await handleSelectExisting(tagToOption(res.data));
@@ -36,6 +37,7 @@ export const Label = Comp(
 
     const handleSelectExisting = async (option: TagOption) => {
       const res = await (onLoadTag ?? store.editor.loadTag)({ id: option.id });
+
       if (!res.success) toast.error(res.error);
     };
 

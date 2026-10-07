@@ -23,6 +23,7 @@ export const VirtualTagRow = Comp(({ disabled, tags }: Pick<TagRowProps, "disabl
       if (width <= 0) return;
 
       const label = tags[index].label;
+
       if (widths.current.get(label) === width) return;
 
       widths.current.set(label, width);

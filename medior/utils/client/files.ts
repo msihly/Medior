@@ -1,19 +1,17 @@
 import { promises as fs } from "fs";
 import path from "path";
-import { Metadata } from "sharp";
 import { makePerfLog } from "trabecula/utils/server";
 import type { FileSchema, ImportFileInput } from "medior/server/database";
-import { CONSTANTS, dayjs } from "medior/utils/common";
+import { CONSTANTS, dayjs, hasTranscription } from "medior/utils/common";
 import { analyzeAudio, getIsAnimated, getNtfsFileIdentity } from "medior/utils/server";
 import { runImageTask } from "medior/utils/server/image-task";
-import { getVideoInfo, vidToThumbGrid } from "medior/utils/server/videos";
+import { getMediaInfo, vidToThumbGrid } from "medior/utils/server/videos";
 import { workSignal } from "medior/utils/server/work-signal";
 
 export const genFileInfo = async (args: {
   file?: FileSchema;
   filePath: string;
   hash: string;
-  imageInfo?: Pick<Metadata, "height" | "width">;
   onProgress?: (message: string, progress?: number) => void;
   signal?: AbortSignal;
   skipAudio?: boolean;
@@ -29,52 +27,29 @@ export const genFileInfo = async (args: {
 
   args.signal?.throwIfAborted();
 
-  const ext = args.filePath.split(".").pop().toLowerCase();
-  const isAnimated = getIsAnimated(ext);
-
   let isCorrupted: boolean = false;
-  let imageInfo: Pick<Metadata, "height" | "width"> = args.imageInfo ?? null;
 
   args.onProgress?.("Reading file metadata.");
 
   const stats = await fs.stat(args?.filePath);
-
-  if (!isAnimated && !imageInfo && args.skipThumbs) {
-    try {
-      imageInfo = (
-        await runImageTask({ input: args.filePath, options: { failOn: "none" } }, args.signal)
-      ).metadata;
-    } catch (err) {
-      isCorrupted = true;
-    }
-  }
-
-  if (isAnimated) args.onProgress?.("Inspecting video metadata.");
-
-  const videoInfo = isAnimated ? await getVideoInfo(args.filePath, args.signal) : null;
+  const info = await getMediaInfo(args.filePath, args.signal);
+  const { audioBitrate, audioCodec, bitrate, duration, ext, frameRate, height, videoCodec, width } =
+    info;
 
   args.signal?.throwIfAborted();
 
   const audioAnalysis =
-    !args.skipAudio && videoInfo?.audioCodec && videoInfo.audioCodec !== "None"
+    !args.skipAudio && audioCodec && audioCodec !== "None"
       ? await analyzeAudio(args.filePath, args.onProgress, args.signal, {
           withTranscription: args.withTranscription,
           withWaveform: args.withWaveform,
         })
       : null;
 
-  const audioBitrate = isAnimated ? videoInfo.audioBitrate : null;
-  const audioCodec = isAnimated ? videoInfo.audioCodec : null;
-  const bitrate = isAnimated ? videoInfo.bitrate : null;
-
   const dateModified =
     !args.file || dayjs(stats.mtime).isAfter(args.file?.dateModified)
       ? stats.mtime.toISOString()
       : args.file?.dateModified;
-
-  const duration = isAnimated ? videoInfo?.duration : null;
-  const frameRate = isAnimated ? videoInfo?.frameRate : null;
-  const videoCodec = isAnimated ? videoInfo?.videoCodec : null;
 
   if (DEBUG) perfLog(`Got file info.`);
 
@@ -91,6 +66,7 @@ export const genFileInfo = async (args: {
         args.filePath,
         dirPath,
         args.thumbId ?? args.hash,
+        info,
         args.signal,
       );
 
@@ -98,7 +74,7 @@ export const genFileInfo = async (args: {
       thumbPath = thumbGridRes.path;
     } else {
       try {
-        const result = await runImageTask(
+        await runImageTask(
           {
             input: args.filePath,
             options: { failOn: "none" },
@@ -107,8 +83,6 @@ export const genFileInfo = async (args: {
           },
           args.signal,
         );
-
-        imageInfo ??= result.metadata;
       } catch {
         isCorrupted = true;
       }
@@ -118,9 +92,6 @@ export const genFileInfo = async (args: {
 
     if (DEBUG) perfLog(`Generated thumbnail.`);
   }
-
-  const width = isAnimated ? videoInfo?.width : imageInfo?.width;
-  const height = isAnimated ? videoInfo?.height : imageInfo?.height;
 
   const thumbNtfsIdentity = await getNtfsFileIdentity(thumbPath).catch((error) => {
     if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
@@ -137,14 +108,14 @@ export const genFileInfo = async (args: {
     ext,
     frameRate,
     hash: args?.hash,
-    hasTranscript: Boolean(audioAnalysis?.transcription ?? args.file?.transcription),
+    hasTranscript: hasTranscription(audioAnalysis?.transcription ?? args.file?.transcription),
     height,
     isCorrupted,
     peakDecibels: audioAnalysis?.peakDecibels,
     size: stats.size,
     thumb: {
-      frameHeight: isAnimated ? height : null,
-      frameWidth: isAnimated ? width : null,
+      frameHeight: hasFrames ? height : null,
+      frameWidth: hasFrames ? width : null,
       ntfsFileId: thumbNtfsIdentity?.fileId,
       ntfsVolumeId: thumbNtfsIdentity?.volumeId,
       path: thumbPath,
@@ -161,5 +132,6 @@ export const genFileInfo = async (args: {
 };
 
 /** Missing video frames retain their corruption flag when the thumbnail grid is readable. */
-export const isGeneratedMediaUnreadable = (info: Pick<ImportFileInput, "ext" | "isCorrupted">) =>
-  info.isCorrupted && !getIsAnimated(info.ext);
+export const isGeneratedMediaUnreadable = (
+  info: Pick<ImportFileInput, "duration" | "ext" | "isCorrupted">,
+) => info.isCorrupted && !(info.duration > 0 || getIsAnimated(info.ext));

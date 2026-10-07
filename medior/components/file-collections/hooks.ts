@@ -12,8 +12,10 @@ export const useCollectionMerge = ({
 }) => {
   const stores = useStores();
   const store = stores.collection.editor;
+
   const loadId = useRef(0);
   const mergeIds = useRef<string[]>([]);
+
   const [isLoading, setIsLoading] = useState(false);
   const [isMergeEditorOpen, setIsMergeEditorOpen] = useState(false);
   const [isMergeSaving, setIsMergeSaving] = useState(false);
@@ -28,6 +30,7 @@ export const useCollectionMerge = ({
 
   const cancelLoad = () => {
     loadId.current += 1;
+    store.cancelLoad();
     setIsLoading(false);
   };
 
@@ -44,6 +47,7 @@ export const useCollectionMerge = ({
 
     try {
       mergeIds.current = [...getSelectedIds()];
+
       if (mergeIds.current.length < 2) throw new Error("Select at least two collections to merge");
 
       setIsLoading(true);
@@ -52,10 +56,13 @@ export const useCollectionMerge = ({
       setIsMergeEditorOpen(true);
 
       const res = await trpc.previewCollectionMerge.mutate({ ids: mergeIds.current });
+
       if (requestId !== loadId.current) return;
+
       if (!res.success) throw new Error(res.error);
 
       const previewRes = await store.loadMergePreview(res.data.collection);
+
       if (!previewRes.success) throw new Error(previewRes.error);
     } catch (error) {
       if (requestId === loadId.current) {
@@ -80,6 +87,7 @@ export const useCollectionMerge = ({
         ids: mergeIds.current,
         title: store.title,
       });
+
       if (!res.success) throw new Error(res.error);
 
       toast.success("Collections merged");
@@ -98,12 +106,15 @@ export const useCollectionMerge = ({
 
     try {
       const ids = [...getSelectedIds()];
+
       if (ids.length < 2) throw new Error("Select at least two collections to merge");
 
       setIsLoading(true);
 
       const previewRes = await trpc.previewCollectionMerge.mutate({ ids });
+
       if (requestId !== loadId.current) return;
+
       if (!previewRes.success) throw new Error(previewRes.error);
 
       setIsLoading(false);
@@ -114,6 +125,7 @@ export const useCollectionMerge = ({
         ids,
         title: previewRes.data.collection.title,
       });
+
       if (!res.success) throw new Error(res.error);
 
       toast.success("Collections merged");

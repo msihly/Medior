@@ -1,4 +1,5 @@
 import { ModelDb } from "medior/generator/schema/generators";
+import { FILE_PATH_SEARCH_INDEX } from "medior/utils/common/constants";
 
 const model = new ModelDb("File", { withStore: true });
 
@@ -75,6 +76,7 @@ model.addProp("originalHash", "string");
 model.addIndex({ originalName: 1, _id: 1 });
 model.addProp("originalName", "string", { sort: { icon: "Abc", label: "File Name" } });
 
+model.addIndex(FILE_PATH_SEARCH_INDEX, { unique: false });
 model.addProp("originalPath", "string", { required: true });
 
 model.addProp("originalSize", "number", { required: true });

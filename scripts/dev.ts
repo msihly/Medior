@@ -58,13 +58,14 @@ const stop = () => {
 const handleError = (error: Error) => {
   console.error(error);
   process.exitCode = 1;
-  void stop();
+  stop();
 };
 
 const launch = () => {
   if (electron || stopping) return;
 
   const executable = createRequire(import.meta.url)("electron");
+
   if (typeof executable !== "string") throw new Error("Electron executable path is unavailable.");
 
   electron = spawn(executable, ["."], {
@@ -94,14 +95,14 @@ const launch = () => {
     if (!stopping) console.log(`Medior exited (code: ${code}, signal: ${signal ?? "none"}).`);
 
     process.exitCode = code ?? 1;
-    void stop();
+    stop();
   });
 };
 
-process.on("SIGINT", () => void stop());
-process.on("SIGTERM", () => void stop());
+process.on("SIGINT", stop);
+process.on("SIGTERM", stop);
 
-void (async () => {
+(async () => {
   if (process.argv.includes("hmr")) {
     server = await createServer({ configFile: "vite.config.hmr.ts" });
     await server.listen();
@@ -113,7 +114,7 @@ void (async () => {
     })) as RollupWatcher;
 
     watcher.on("event", (event) => {
-      if (event.code === "END") launch();
+      if (event.code === "BUNDLE_END") launch();
       else if (event.code === "ERROR") console.error(event.error);
     });
   }

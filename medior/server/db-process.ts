@@ -93,6 +93,7 @@ registerProcessLifecycle({
 
   stop: async () => {
     const native = mongoServer?.instanceInfo?.instance.mongodProcess;
+
     if (!native || native.exitCode !== null || native.signalCode !== null) return;
 
     // Windows kill() is forced termination. A direct connection also works before election.
@@ -120,7 +121,7 @@ registerProcessLifecycle({
         // MongoDB treats the first key as the command name; shutdown must precede its options.
         await client.db("admin").command({ shutdown: 1, force: true, timeoutSecs: 0 });
       } catch (error) {
-        if (!(error instanceof Mongoose.mongo.MongoNetworkError)) throw error;
+        if (!["MongoNetworkError", "MongoNetworkTimeoutError"].includes(error?.name)) throw error;
       }
 
       if (native.exitCode === null && native.signalCode === null) await exited;

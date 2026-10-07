@@ -1,12 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Color from "color";
 import {
   Button,
   Card,
   Checkbox,
   Comp,
-  ConfirmModal,
   HeaderWrapper,
+  LoadingOverlay,
   Modal,
   TagInput,
   TagInputs,
@@ -16,17 +16,20 @@ import {
   View,
 } from "medior/components";
 import { TagOption, tagToOption, useStores } from "medior/store";
-import { colors, makeClasses, toast } from "medior/utils/client";
+import { colors, makeClasses, toast, useCancellableLoad } from "medior/utils/client";
 import { trpc } from "medior/utils/server";
 
 export const TagMerger = Comp(() => {
+  const stores = useStores();
+  const store = stores.tag;
+
   const { css } = useClasses(null);
 
-  const stores = useStores();
+  const load = useCancellableLoad();
 
   const [aliases, setAliases] = useState<string[]>([]);
   const [childTags, setChildTags] = useState<TagOption[]>([]);
-  const [isConfirmDiscardOpen, setIsConfirmDiscardOpen] = useState(false);
+  const [isPreviewReady, setIsPreviewReady] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [label, setLabel] = useState<string>("");
   const [parentTags, setParentTags] = useState<TagOption[]>([]);
@@ -36,61 +39,103 @@ export const TagMerger = Comp(() => {
   const [tagIdToMerge, setTagIdToMerge] = useState<string>("");
   const [tagLabelToKeep, setTagLabelToKeep] = useState<null | "base" | "merge">(null);
 
-  const hasSelectedTag = selectedTagValue.length > 0;
-  const disabled = isSaving || !hasSelectedTag;
-  const baseTag = stores.tag.subEditor.isOpen ? stores.tag.subEditor.tag : stores.tag.editor.tag;
+  const mergeTag = useRef<TagOption>(null);
 
-  const updateInputs = async () => {
+  const hasSelectedTag = selectedTagValue.length > 0;
+  const disabled = isSaving || load.isLoading || !hasSelectedTag || !isPreviewReady;
+  const baseTag = store.subEditor.isOpen ? store.subEditor.tag : store.editor.tag;
+
+  const updateInputs = () => {
+    setIsPreviewReady(false);
+
     if (!selectedTagValue.length) {
+      load.cancel();
       setAliases([]);
       setChildTags([]);
       setLabel("");
       setParentTags([]);
       setRegEx("");
       setTagLabelToKeep(null);
+      mergeTag.current = null;
+    } else {
+      load.run(async (signal) => {
+        const res = await trpc.listTag.mutate(
+          { filter: { id: selectedTagValue[0].id } },
+          { signal },
+        );
 
-      return;
+        signal.throwIfAborted();
+
+        if (!res.success) throw new Error(res.error);
+
+        const tag = res.data[0];
+
+        if (!tag) throw new Error("Tag no longer exists");
+
+        const tagToKeep = tag.count > baseTag.count ? tag : baseTag;
+        const tagToMerge = tag.count > baseTag.count ? baseTag : tag;
+        const labelToKeep = tagLabelToKeep ?? (tagToKeep.id === baseTag.id ? "base" : "merge");
+        const tagIdsToExclude = [tagToKeep.id, tagToMerge.id];
+        const [childTags, parentTags] = await Promise.all([
+          mergeRelatedTags(
+            [...tagToKeep.childIds, ...tagToMerge.childIds],
+            tagIdsToExclude,
+            signal,
+          ),
+          mergeRelatedTags(
+            [...tagToKeep.parentIds, ...tagToMerge.parentIds],
+            tagIdsToExclude,
+            signal,
+          ),
+        ]);
+
+        signal.throwIfAborted();
+        mergeTag.current = tag;
+        setTagIdToKeep(tagToKeep.id);
+        setTagIdToMerge(tagToMerge.id);
+        handleLabelChange(labelToKeep);
+        setRegEx(tagToKeep.regEx);
+        setChildTags(childTags);
+        setParentTags(parentTags);
+        setIsPreviewReady(true);
+      });
     }
-
-    const tag = (await trpc.listTag.mutate({ filter: { id: selectedTagValue[0].id } })).data[0];
-
-    const tagToKeep = tag.count > baseTag.count ? tag : baseTag;
-    const tagToMerge = !(tag.count > baseTag.count) ? tag : baseTag;
-    setTagIdToKeep(tagToKeep.id);
-    setTagIdToMerge(tagToMerge.id);
-    if (!tagLabelToKeep) setTagLabelToKeep(tagToKeep.id === baseTag.id ? "base" : "merge");
-
-    const aliasToSet = tagLabelToKeep === "merge" ? baseTag.label : tag.label;
-    setAliases([...new Set([aliasToSet, ...tagToKeep.aliases, ...tagToMerge.aliases])]);
-    setLabel(tagLabelToKeep === "base" ? baseTag.label : tag.label);
-    setRegEx(tagToKeep.regEx);
-
-    const childIds = [...tagToKeep.childIds, ...tagToMerge.childIds];
-    const parentIds = [...tagToKeep.parentIds, ...tagToMerge.parentIds];
-    const tagIdsToExclude = [tagToKeep.id, tagToMerge.id];
-    setChildTags(await mergeRelatedTags(childIds, tagIdsToExclude));
-    setParentTags(await mergeRelatedTags(parentIds, tagIdsToExclude));
   };
 
   useEffect(() => {
     updateInputs();
-  }, [hasSelectedTag, tagLabelToKeep]);
+  }, [baseTag?.id, selectedTagValue[0]?.id]);
+
+  const handleLabelChange = (labelToKeep: "base" | "merge") => {
+    const tag = mergeTag.current;
+    const tagToKeep = tag.count > baseTag.count ? tag : baseTag;
+    const tagToMerge = tag.count > baseTag.count ? baseTag : tag;
+    const aliasToSet = labelToKeep === "merge" ? baseTag.label : tag.label;
+
+    setTagLabelToKeep(labelToKeep);
+    setAliases([...new Set([aliasToSet, ...tagToKeep.aliases, ...tagToMerge.aliases])]);
+    setLabel(labelToKeep === "base" ? baseTag.label : tag.label);
+  };
 
   const handleClose = async () => {
-    setIsConfirmDiscardOpen(false);
-    stores.tag.merger.setIsOpen(false);
-    stores.tag.subEditor.setIsOpen(false);
-    stores.tag.editor.setIsOpen(false);
+    if (isSaving) return false;
+
+    load.cancel();
+    store.merger.setIsOpen(false);
+    store.subEditor.setIsOpen(false);
+    store.editor.setIsOpen(false);
     stores.file.search.reloadIfQueued();
 
     return true;
   };
 
   const handleConfirm = async () => {
+    if (disabled) return;
+
     try {
       setIsSaving(true);
 
-      const res = await stores.tag.mergeTags({
+      const res = await store.mergeTags({
         aliases,
         childIds: childTags.map((t) => t.id),
         label,
@@ -101,13 +146,14 @@ export const TagMerger = Comp(() => {
         withRegen: true,
         withSub: true,
       });
+
       if (!res.success) throw new Error(res.error);
 
       setIsSaving(false);
 
-      stores.tag.merger.setIsOpen(false);
-      stores.tag.merger.setTagId(tagIdToKeep);
-      stores.tag.editor.setIsOpen(true);
+      store.merger.setIsOpen(false);
+      store.merger.setTagId(tagIdToKeep);
+      store.editor.setIsOpen(true);
 
       toast.success("Tags merged successfully!");
     } catch (err) {
@@ -117,36 +163,38 @@ export const TagMerger = Comp(() => {
     }
   };
 
-  const mergeRelatedTags = async (tagIds: string[], tagIdsToExclude: string[]) => {
+  const mergeRelatedTags = async (
+    tagIds: string[],
+    tagIdsToExclude: string[],
+    signal: AbortSignal,
+  ) => {
     const result: TagOption[] = [];
     const tagIdsToExcludeSet = new Set(tagIdsToExclude);
     const tagIdsSet = new Set(tagIds.filter((id) => !tagIdsToExcludeSet.has(id)));
-    const tags = (await trpc.listTag.mutate({ filter: { id: [...tagIdsSet] } })).data;
-    const tagMap = new Map(tags.map((tag) => [tag.id, tag]));
+    const res = await trpc.listTag.mutate({ filter: { id: [...tagIdsSet] } }, { signal });
 
-    tagIdsSet.forEach((curId) => {
-      const tagOption = tagMap.has(curId) ? tagToOption(tagMap.get(curId)) : null;
-      if (!tagOption) return;
+    signal.throwIfAborted();
 
-      const hasDescendants = Array.from(tagIdsSet).some((otherId) => {
-        if (otherId === curId) return false;
+    if (!res.success) throw new Error(res.error);
 
-        const otherTag = tagMap.get(otherId);
-        if (!otherTag) return false;
+    const tagMap = new Map(res.data.map((tag) => [tag.id, tag]));
 
-        const parentIds = new Set(otherTag.ancestorIds ?? []);
+    for (const tagId of tagIdsSet) {
+      const tag = tagMap.get(tagId);
 
-        return parentIds.has(curId);
-      });
-
-      if (!hasDescendants) result.push(tagOption);
-    });
+      if (tag) result.push(tagToOption(tag));
+    }
 
     return result;
   };
 
   return (
     <Modal.Container isLoading={isSaving} onClose={handleClose} width="50rem" draggable>
+      <LoadingOverlay
+        isLoading={load.isLoading}
+        sub={<Button text="Cancel" icon="Close" onClick={handleClose} />}
+      />
+
       <Modal.Header>
         <Text preset="title">{"Merge Tags"}</Text>
       </Modal.Header>
@@ -166,7 +214,7 @@ export const TagMerger = Comp(() => {
               <Checkbox
                 label="Keep This Label"
                 checked={tagLabelToKeep === "base"}
-                setChecked={() => setTagLabelToKeep("base")}
+                setChecked={() => handleLabelChange("base")}
                 disabled={disabled}
                 center
               />
@@ -184,7 +232,7 @@ export const TagMerger = Comp(() => {
               <Checkbox
                 label="Keep This Label"
                 checked={tagLabelToKeep === "merge"}
-                setChecked={() => setTagLabelToKeep("merge")}
+                setChecked={() => handleLabelChange("merge")}
                 disabled={disabled}
                 center
               />
@@ -248,15 +296,6 @@ export const TagMerger = Comp(() => {
           {...{ disabled }}
         />
       </Modal.Footer>
-
-      {isConfirmDiscardOpen && (
-        <ConfirmModal
-          headerText="Discard Changes"
-          subText="Are you sure you want to cancel merging?"
-          setVisible={setIsConfirmDiscardOpen}
-          onConfirm={handleClose}
-        />
-      )}
     </Modal.Container>
   );
 });

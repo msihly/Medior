@@ -19,6 +19,7 @@ export const Dropdown = Comp(({ configKey, setValue, value, ...props }: Dropdown
 
   const handleSetValue = (value?: string) => {
     if (value === undefined) return;
+
     if (setValue) setValue(value);
     else stores.home.settings.update({ [configKey]: value });
   };

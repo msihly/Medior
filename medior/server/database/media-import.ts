@@ -15,9 +15,12 @@ import {
   FileOperation,
   FileOperationModel,
   finishFileOperation,
+  isMediaPathReferenced,
 } from "medior/server/database/file-operations";
+import { mediaPathKey } from "medior/server/database/media-paths";
+import { withMetadataMutation } from "medior/server/database/metadata-mutations";
 import { metadataWriteOptions } from "medior/server/database/metadata-work";
-import { isServerStopping } from "medior/server/process-lifecycle";
+import { isServerStopping, serverShutdownSignal } from "medior/server/process-lifecycle";
 import { genFileInfo, isGeneratedMediaUnreadable } from "medior/utils/client/files";
 import { dayjs } from "medior/utils/common";
 import {
@@ -34,7 +37,7 @@ import {
   recoverMediaOutput,
   syncMediaFile,
 } from "medior/utils/server/media-output";
-import { workSignal } from "medior/utils/server/work-signal";
+import { waitForWork, workSignal } from "medior/utils/server/work-signal";
 
 export interface MediaImportInput {
   batchId?: string;
@@ -58,22 +61,37 @@ let importStorageCheck: Promise<{ bytesLeft: number; location: string }>;
 const pendingImportCleanups = new Set<string>();
 
 const acquireImportHash = async (hash: string) => {
-  const previous = activeImportHashes.get(hash);
+  checkBackgroundExecution();
+  workSignal.getStore()?.throwIfAborted();
+
+  const previous = activeImportHashes.get(hash) ?? Promise.resolve();
   let release: () => void;
-  const pending = new Promise<void>((resolve) => {
+  const completed = new Promise<void>((resolve) => {
     release = resolve;
   });
-  activeImportHashes.set(hash, pending);
-  await previous;
+  const pending = previous.then(() => completed);
 
-  return () => {
+  activeImportHashes.set(hash, pending);
+  pending.then(() => {
     if (activeImportHashes.get(hash) === pending) activeImportHashes.delete(hash);
+  });
+
+  try {
+    await waitForWork(previous, [serverShutdownSignal, workSignal.getStore()]);
+    checkBackgroundExecution();
+    workSignal.getStore()?.throwIfAborted();
+
+    return release;
+  } catch (error) {
     release();
-  };
+
+    throw error;
+  }
 };
 
 const startImportCleanup = (id: string) => {
   pendingImportCleanups.add(id);
+
   if (importCleanupCount >= 2) return;
 
   importCleanupCount++;
@@ -83,6 +101,7 @@ const startImportCleanup = (id: string) => {
       try {
         while (pendingImportCleanups.size && !isServerStopping()) {
           const nextId = pendingImportCleanups.values().next().value;
+
           pendingImportCleanups.delete(nextId);
 
           try {
@@ -110,6 +129,7 @@ const prepareMediaImport = async (operation: FileOperation) => {
     { $set: operation },
     { ...metadataWriteOptions(), upsert: true },
   );
+
   if (result.matchedCount + result.upsertedCount !== 1)
     throw new Error("Import preparation changed before its intent was saved");
 };
@@ -158,6 +178,7 @@ export const importMedia = async (args: MediaImportInput, operationId?: string) 
   socket.emitReliable("onFileImportStarted", { filePath: args.originalPath });
 
   const id = operationId ?? getImportOperationId(args);
+
   if (activeImports.has(id)) throw new Error("This file import is already active");
 
   activeImports.add(id);
@@ -169,10 +190,12 @@ export const importMedia = async (args: MediaImportInput, operationId?: string) 
 
   let message = "Preparing import.";
   let progress: number;
+
   const reportProgress = (nextMessage: string, nextProgress?: number) => {
     message = nextMessage;
     progress = nextProgress;
   };
+
   const emitProgress = () =>
     socket.emit("onFileImportProgress", {
       batchId: args.batchId,
@@ -181,17 +204,21 @@ export const importMedia = async (args: MediaImportInput, operationId?: string) 
       message,
       progress,
     });
+
   const progressTimer = getIsVideo(args.ext) ? setInterval(emitProgress, 1000) : null;
+
   if (progressTimer) emitProgress();
 
   const recordTiming = (stage: string) => {
     const now = performance.now();
+
     timings.push(`${stage}: ${Math.round(now - stageStartedAt)}ms`);
     stageStartedAt = now;
   };
 
   try {
     let operation: FileOperation = await FileOperationModel.findById(id).lean();
+
     recordTiming("recovery lookup");
 
     if (operation?.outputHash) {
@@ -208,7 +235,8 @@ export const importMedia = async (args: MediaImportInput, operationId?: string) 
         );
 
       const result = await commitMediaImport(args, operation, operation.importResult, recordTiming);
-      void startImportCleanup(id);
+
+      startImportCleanup(id);
 
       return result;
     }
@@ -231,22 +259,25 @@ export const importMedia = async (args: MediaImportInput, operationId?: string) 
       };
 
       await updateBatchImport(args, result);
-      void startImportCleanup(id);
+      startImportCleanup(id);
 
       return result;
     }
 
     reportProgress("Calculating checksum.", 0);
+
     const hash = await hashMediaFile(args.originalPath, workSignal.getStore(), (bytes) =>
       reportProgress(
         "Calculating checksum.",
         args.size > 0 ? Math.min(100, (bytes / args.size) * 100) : undefined,
       ),
     );
+
     reportProgress("Checking for duplicates.");
     recordTiming("source checksum");
 
     if (!releaseHash) releaseHash = await acquireImportHash(hash);
+
     checkBackgroundExecution();
 
     const duplicate = await models.FileModel.findOne({ hash })
@@ -304,22 +335,57 @@ export const importMedia = async (args: MediaImportInput, operationId?: string) 
       if (!operation.outputPath)
         throw new Error("Import eligibility changed; cancel and requeue this import");
 
+      let recovered: Awaited<ReturnType<typeof recoverMediaOutput>>;
+
       reportProgress("Verifying existing media.");
-      if (
-        !(await recoverMediaOutput({
+
+      try {
+        recovered = await recoverMediaOutput({
           hash,
           path: operation.outputPath,
           tempPath: operation.tempPath,
-        }))
-      ) {
+        });
+      } catch (error) {
+        if (
+          error?.name !== "MediaChecksumMismatchError" ||
+          error.filePath !== operation.tempPath ||
+          operation.tempPath !== `${operation.outputPath}.${id}.tmp` ||
+          mediaPathKey(operation.tempPath) === mediaPathKey(args.originalPath)
+        )
+          throw error;
+
+        await withMetadataMutation(async () => {
+          let isPublished = false;
+
+          try {
+            await fs.lstat(operation.outputPath);
+            isPublished = true;
+          } catch (statError) {
+            if (statError.code !== "ENOENT") throw statError;
+          }
+
+          if (
+            isPublished ||
+            (await isMediaPathReferenced(operation.tempPath, { fileOperationId: id }))
+          )
+            throw error;
+
+          await assertMediaPathsAvailable([operation.tempPath]);
+          workSignal.getStore()?.throwIfAborted();
+          await fs.rm(operation.tempPath, { force: true });
+        });
+      }
+
+      if (!recovered) {
         await fs.mkdir(path.dirname(operation.outputPath), { recursive: true });
         reportProgress("Copying media.", 0);
-        await copyMediaFile(args.originalPath, operation.tempPath, false, (bytes) =>
+        await copyMediaFile(args.originalPath, operation.tempPath, true, (bytes) =>
           reportProgress(
             "Copying media.",
             args.size > 0 ? Math.min(100, (bytes / args.size) * 100) : undefined,
           ),
         );
+
         reportProgress("Verifying and saving media.");
 
         await publishMediaOutput({
@@ -366,6 +432,7 @@ export const importMedia = async (args: MediaImportInput, operationId?: string) 
             skipAudio: true,
           })
         : null;
+
     if (info && isGeneratedMediaUnreadable(info))
       throw new Error("Imported media could not be read; source retained");
 
@@ -377,6 +444,7 @@ export const importMedia = async (args: MediaImportInput, operationId?: string) 
     recordTiming("metadata and thumbnail");
 
     reportProgress("Preparing source cleanup.");
+
     const cleanup = [];
 
     if (args.deleteOnImport) {
@@ -417,13 +485,15 @@ export const importMedia = async (args: MediaImportInput, operationId?: string) 
     const importResult = { cleanup, ignored, info, unusedOutput };
 
     reportProgress("Saving file and tag metadata.");
+
     const result = await commitMediaImport(args, operation, importResult, recordTiming);
 
-    void startImportCleanup(id);
+    startImportCleanup(id);
 
     return result;
   } finally {
     if (progressTimer) clearInterval(progressTimer);
+
     releaseHash?.();
     activeImports.delete(id);
 
@@ -441,6 +511,7 @@ const commitMediaImport = async (
   recordTiming: (stage: string) => void,
 ) => {
   if (operation.state !== "PREPARED") throw new Error("Import is no longer prepared");
+
   if (!(prepared ?? operation.importResult))
     throw new Error("Import output is not ready to commit");
 
@@ -448,6 +519,7 @@ const commitMediaImport = async (
   const { audio, cleanup, ignored, info, unusedOutput } = prepared ?? operation.importResult;
 
   let file = leanModelToJson<models.FileSchema>(await models.FileModel.findOne({ hash }).lean());
+
   recordTiming("file lookup");
 
   const status: "COMPLETE" | "DELETED" | "DUPLICATE" =
@@ -468,6 +540,7 @@ const commitMediaImport = async (
       tagIds: args.tagIds,
       withTagRegen: !args.batchId,
     });
+
     if (!imported.success) throw new Error(imported.error);
 
     file = imported.data;
@@ -482,6 +555,7 @@ const commitMediaImport = async (
         fileIds: [file.id],
         withRegen: !args.batchId,
       });
+
       if (!tagged.success) throw new Error(tagged.error);
     } else if (status === "COMPLETE" && !args.batchId) {
       await actions.queueTagMetadataRegen(file.tagIds, file.tagIdsWithAncestors);
@@ -509,6 +583,7 @@ const commitMediaImport = async (
     !audio
   ) {
     const { queueImportedAudio } = await import("medior/server/database/import-audio");
+
     await queueImportedAudio(file.id);
   }
 
@@ -557,6 +632,7 @@ const updateBatchImport = async (
     status: result.status,
     thumb: result.file?.thumb,
   });
+
   if (!updated.success && (await models.FileImportBatchModel.exists({ _id: input.batchId })))
     throw new Error(updated.error);
 };
@@ -568,10 +644,11 @@ const recordImportError = async (input: MediaImportInput, error: unknown) => {
 
   const updated = await actions.updateFileImportByPath({
     batchId: input.batchId,
-    errorMsg: error instanceof Error ? error.message : String(error),
+    errorMsg: (error as Error)?.message ?? String(error),
     filePath: input.originalPath,
     status: "ERROR",
   });
+
   if (!updated.success) throw new Error(updated.error);
 
   console.error("Error importing file:", error);

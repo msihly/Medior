@@ -160,19 +160,20 @@ export class _FileCollectionSearch extends Model({
   toggleSelected(selected: { id: string; isSelected?: boolean }[], withToast = false) {
     if (!selected?.length) return;
 
-    const [added, removed] = selected.reduce(
-      (acc, cur) => (acc[cur.isSelected ? 0 : 1].push(cur.id), acc),
-      [[], []],
-    );
+    const previous = this.selectedIdSet;
+    const next = new Set(previous);
 
-    const removedSet = new Set(removed);
-    this.selectedIds = [...new Set(this.selectedIds.concat(added))].filter(
-      (id) => !removedSet.has(id),
-    );
+    for (const { id, isSelected } of selected) {
+      if (isSelected) next.add(id);
+      else next.delete(id);
+    }
+
+    this.selectedIds = [...next];
 
     if (withToast) {
-      const addedCount = added.length;
-      const removedCount = removed.length;
+      const addedCount = [...next].filter((id) => !previous.has(id)).length;
+      const removedCount = [...previous].filter((id) => !next.has(id)).length;
+
       if (addedCount && removedCount)
         toast.success(`Selected ${addedCount} items and deselected ${removedCount} items`);
       else if (addedCount) toast.success(`Selected ${addedCount} items`);
@@ -186,6 +187,7 @@ export class _FileCollectionSearch extends Model({
     if (!this.savedSearches.some((s) => s.id === id)) await this.loadSavedSearches();
 
     const savedSearch = this.savedSearches.find((s) => s.id === id);
+
     if (!savedSearch) return;
 
     this.applySearchProps(derefMobx(savedSearch.filterProps));
@@ -198,9 +200,11 @@ export class _FileCollectionSearch extends Model({
     if (!id) return;
 
     const res = await trpc.deleteSavedSearch.mutate({ args: { ids: [id] } });
+
     if (!res.success) throw new Error(res.error);
 
     await this.loadSavedSearches();
+
     if (this.selectedSavedSearchId === id) this.setSelectedSavedSearchId("");
 
     this.setIsDeleteModalOpen(false);
@@ -223,6 +227,8 @@ export class _FileCollectionSearch extends Model({
         this.results.length > 0;
 
       if (canResolveLocally) {
+        if (!selectedIds.length) return { idsToDeselect: [], idsToSelect: [id] };
+
         const firstSelected = selectedLocalIndexes.reduce(
           (min, index) => Math.min(min, index),
           Infinity,
@@ -231,6 +237,7 @@ export class _FileCollectionSearch extends Model({
           (max, index) => Math.max(max, index),
           -Infinity,
         );
+
         if (firstSelected === clickedLocalIndex) return { idsToDeselect: [id], idsToSelect: [] };
 
         const isFirstAfterClicked = firstSelected > clickedLocalIndex;
@@ -246,21 +253,31 @@ export class _FileCollectionSearch extends Model({
         return { idsToDeselect, idsToSelect };
       }
 
-      const clickedIndex = (this.page - 1) * this.pageSize + clickedLocalIndex;
+      const loadId = this.loadId + 1;
 
+      this.setLoadId(loadId);
       this.setIsLoading(true);
+      this.setIsPageCountLoading(false);
 
-      const res = await trpc.getShiftSelectedFileCollection.mutate({
-        ...this.cachedFilterProps,
-        clickedId: id,
-        clickedIndex,
-        selectedIds,
-      });
-      this.setIsLoading(false);
+      try {
+        const res = await trpc.getShiftSelectedFileCollection.mutate({
+          ...this.cachedFilterProps,
+          clickedId: id,
+          selectedIds,
+        });
 
-      if (!res.success) throw new Error(res.error);
+        if (loadId !== this.loadId) return null;
 
-      return res.data;
+        if (!res.success) throw new Error(res.error);
+
+        return res.data;
+      } catch (error) {
+        if (loadId === this.loadId) throw error;
+
+        return null;
+      } finally {
+        if (loadId === this.loadId) this.setIsLoading(false);
+      }
     },
   );
 
@@ -269,46 +286,72 @@ export class _FileCollectionSearch extends Model({
     async ({ hasCtrl, hasShift, id }: { hasCtrl: boolean; hasShift: boolean; id: string }) => {
       if (hasShift) {
         const res = await this.getShiftSelected({ id, selectedIds: this.selectedIds });
+
         if (!res?.success) throw new Error(res.error);
 
-        this.toggleSelected([
-          ...res.data.idsToDeselect.map((i) => ({ id: i, isSelected: false })),
-          ...res.data.idsToSelect.map((i) => ({ id: i, isSelected: true })),
-        ]);
+        if (res.data) {
+          this.toggleSelected([
+            ...res.data.idsToDeselect.map((i) => ({ id: i, isSelected: false })),
+            ...res.data.idsToSelect.map((i) => ({ id: i, isSelected: true })),
+          ]);
+        }
       } else if (hasCtrl) {
         this.toggleSelected([{ id, isSelected: !this.getIsSelected(id) }]);
       } else {
-        this.toggleSelected([
-          ...this.selectedIds.map((id) => ({ id, isSelected: false })),
-          { id, isSelected: true },
-        ]);
+        this.selectedIds = [id];
       }
     },
   );
 
   @modelFlow
   selectAllInQuery = asyncAction(async () => {
-    const countRes = await trpc.getFilteredFileCollectionCount.mutate({
-      ...this.getFilterProps(),
-      curMaxPage: this.pageCount,
-      page: this.page,
-      pageSize: this.pageSize,
-      withFull: true,
-    });
-    if (!countRes.success) throw new Error(countRes.error);
-    if (countRes.data.count === 0) return 0;
+    const filterProps = this.cachedFilterProps ?? this.getFilterProps();
+    const loadId = this.loadId + 1;
 
-    const res = await trpc.listFilteredFileCollection.mutate({
-      ...this.getFilterProps(),
-      page: 1,
-      pageSize: countRes.data.count,
-      select: { _id: 1 },
-    });
-    if (!res.success) throw new Error(res.error);
+    this.setLoadId(loadId);
+    this.setIsLoading(true);
+    this.setIsPageCountLoading(false);
 
-    this.toggleSelected(res.data.map(({ id }) => ({ id, isSelected: true })));
+    try {
+      const countRes = await trpc.getFilteredFileCollectionCount.mutate({
+        ...filterProps,
+        curMaxPage: this.pageCount,
+        forcePages: this.forcePages,
+        page: this.page,
+        pageSize: this.pageSize,
+        withFull: true,
+      });
 
-    return res.data.length;
+      if (loadId !== this.loadId) return null;
+
+      if (!countRes.success) throw new Error(countRes.error);
+
+      if (countRes.data.count === 0) return 0;
+
+      const res = await trpc.listFilteredFileCollection.mutate({
+        ...filterProps,
+        forcePages: this.forcePages,
+        page: 1,
+        pageSize: countRes.data.count,
+        select: { _id: 1 },
+      });
+
+      if (loadId !== this.loadId) return null;
+
+      if (!res.success) throw new Error(res.error);
+
+      const items = res.data;
+
+      this.toggleSelected(items.map(({ id }) => ({ id, isSelected: true })));
+
+      return items.length;
+    } catch (error) {
+      if (loadId === this.loadId) throw error;
+
+      return null;
+    } finally {
+      if (loadId === this.loadId) this.setIsLoading(false);
+    }
   });
 
   @modelFlow
@@ -327,6 +370,7 @@ export class _FileCollectionSearch extends Model({
       const debug = false;
       const { perfLog } = makePerfLog("[FileCollectionSearch]");
       const loadId = this.loadId + 1;
+
       this.setLoadId(loadId);
       this.setIsLoading(true);
       this.setIsPageCountLoading(true);
@@ -334,6 +378,7 @@ export class _FileCollectionSearch extends Model({
       try {
         const shouldCacheFilterProps = noCache || !this.cachedFilterProps;
         const filterProps = shouldCacheFilterProps ? this.getFilterProps() : this.cachedFilterProps;
+
         const exactCount = withFullCount || toLastPage;
         let nextPageCount = this.pageCount;
 
@@ -341,11 +386,14 @@ export class _FileCollectionSearch extends Model({
           const countRes = await trpc.getFilteredFileCollectionCount.mutate({
             ...filterProps,
             curMaxPage: this.pageCount,
+            forcePages: this.forcePages,
             page,
             pageSize: this.pageSize,
             withFull: true,
           });
+
           if (loadId !== this.loadId) return;
+
           if (!countRes.success) throw new Error(countRes.error);
 
           nextPageCount = countRes.data.pageCount;
@@ -363,18 +411,24 @@ export class _FileCollectionSearch extends Model({
           page: newPage,
           pageSize: this.pageSize,
         });
+
         if (loadId !== this.loadId) return;
+
         if (!itemsRes.success) throw new Error(itemsRes.error);
 
         let items = itemsRes.data;
+
         if (debug) perfLog(`Loaded ${items.length} items`);
 
         const tagIds = [...new Set(items.flatMap((item) => item.tagIds))];
-        const tags = (await trpc.listTag.mutate({ filter: { id: tagIds } })).data;
+        const tagRes = await trpc.listTag.mutate({ filter: { id: tagIds } });
 
         if (loadId !== this.loadId) return;
 
-        const selectTags = makeTagSelector(tags);
+        if (!tagRes.success) throw new Error(tagRes.error);
+
+        const selectTags = makeTagSelector(tagRes.data);
+
         items = items.map((item) => ({ ...item, tags: selectTags(item.tagIds) }));
 
         const results = items;
@@ -382,6 +436,7 @@ export class _FileCollectionSearch extends Model({
         if (loadId !== this.loadId) return;
 
         this.setResults(results.map((result) => new Stores.FileCollection(result)));
+
         if (shouldCacheFilterProps) this.setCachedFilterProps(derefMobx(filterProps));
 
         if (exactCount) {
@@ -390,37 +445,43 @@ export class _FileCollectionSearch extends Model({
         }
 
         this.setPage(newPage);
+
         if (debug) perfLog("Overwrite and re-render");
 
         this.setIsLoading(false);
+
         if (noCache) this.setHasChanges(false);
 
         if (!exactCount) {
-          trpc.getFilteredFileCollectionCount
-            .mutate({
-              ...filterProps,
-              curMaxPage: this.pageCount,
-              page: newPage,
-              pageSize: this.pageSize,
-              withFull: withFullCount,
-            })
-            .then((countRes) => {
+          (async () => {
+            try {
+              const countRes = await trpc.getFilteredFileCollectionCount.mutate({
+                ...filterProps,
+                curMaxPage: this.pageCount,
+                forcePages: this.forcePages,
+                page: newPage,
+                pageSize: this.pageSize,
+                withFull: withFullCount,
+              });
+
               if (loadId !== this.loadId) return;
 
               this.setIsPageCountLoading(false);
+
               if (!countRes.success) return console.error(countRes.error);
 
               const pageCount = countRes.data.pageCount;
 
               this.setPageCount(pageCount);
+
               if (debug) perfLog(`Set pageCount to ${pageCount}`);
-            })
-            .catch((error) => {
+            } catch (error) {
               if (loadId !== this.loadId) return;
 
               this.setIsPageCountLoading(false);
               console.error(error);
-            });
+            }
+          })();
         }
 
         return results;
@@ -429,6 +490,7 @@ export class _FileCollectionSearch extends Model({
 
         this.setIsLoading(false);
         this.setIsPageCountLoading(false);
+
         throw error;
       }
     },
@@ -444,6 +506,7 @@ export class _FileCollectionSearch extends Model({
         sort: { label: "asc" },
       },
     });
+
     if (!res.success) throw new Error(res.error);
 
     this.setSavedSearches(res.data.items.map((result) => new Stores.SavedSearch(result)));
@@ -454,6 +517,7 @@ export class _FileCollectionSearch extends Model({
   @modelFlow
   saveSavedSearch = asyncAction(async (label: string) => {
     const trimmedLabel = label.trim();
+
     if (!trimmedLabel) throw new Error("Saved search label is required");
 
     const existing = this.savedSearches.find((s) => s.label === trimmedLabel);
@@ -464,6 +528,7 @@ export class _FileCollectionSearch extends Model({
       const res = await trpc.updateSavedSearch.mutate({
         args: { id: selected.id, updates: { filterProps, label: trimmedLabel } },
       });
+
       if (!res.success) throw new Error(res.error);
 
       await this.loadSavedSearches();
@@ -478,6 +543,7 @@ export class _FileCollectionSearch extends Model({
       const res = await trpc.updateSavedSearch.mutate({
         args: { id: existing.id, updates: { filterProps } },
       });
+
       if (!res.success) throw new Error(res.error);
 
       await this.loadSavedSearches();
@@ -496,6 +562,7 @@ export class _FileCollectionSearch extends Model({
         searchType: "FileCollection",
       },
     });
+
     if (!res.success) throw new Error(res.error);
 
     await this.loadSavedSearches();
@@ -523,6 +590,16 @@ export class _FileCollectionSearch extends Model({
       (!isDeepEqual(this.tags, []) ? 1 : 0) +
       (!isDeepEqual(this.title, "") ? 1 : 0)
     );
+  }
+
+  @computed({ keepAlive: true })
+  get resultsById() {
+    return new Map(this.results.map((result) => [result.id, result]));
+  }
+
+  @computed({ keepAlive: true })
+  get selectedIdSet() {
+    return new Set(this.selectedIds);
   }
 
   /* DYNAMIC GETTERS */
@@ -556,11 +633,11 @@ export class _FileCollectionSearch extends Model({
   }
 
   getIsSelected(id: string) {
-    return !!this.selectedIds.find((s) => s === id);
+    return this.selectedIdSet.has(id);
   }
 
   getResult(id: string) {
-    return this.results.find((r) => r.id === id);
+    return this.resultsById.get(id);
   }
 
   getSearchProps() {
@@ -711,19 +788,20 @@ export class _FileImportBatchSearch extends Model({
   toggleSelected(selected: { id: string; isSelected?: boolean }[], withToast = false) {
     if (!selected?.length) return;
 
-    const [added, removed] = selected.reduce(
-      (acc, cur) => (acc[cur.isSelected ? 0 : 1].push(cur.id), acc),
-      [[], []],
-    );
+    const previous = this.selectedIdSet;
+    const next = new Set(previous);
 
-    const removedSet = new Set(removed);
-    this.selectedIds = [...new Set(this.selectedIds.concat(added))].filter(
-      (id) => !removedSet.has(id),
-    );
+    for (const { id, isSelected } of selected) {
+      if (isSelected) next.add(id);
+      else next.delete(id);
+    }
+
+    this.selectedIds = [...next];
 
     if (withToast) {
-      const addedCount = added.length;
-      const removedCount = removed.length;
+      const addedCount = [...next].filter((id) => !previous.has(id)).length;
+      const removedCount = [...previous].filter((id) => !next.has(id)).length;
+
       if (addedCount && removedCount)
         toast.success(`Selected ${addedCount} items and deselected ${removedCount} items`);
       else if (addedCount) toast.success(`Selected ${addedCount} items`);
@@ -737,6 +815,7 @@ export class _FileImportBatchSearch extends Model({
     if (!this.savedSearches.some((s) => s.id === id)) await this.loadSavedSearches();
 
     const savedSearch = this.savedSearches.find((s) => s.id === id);
+
     if (!savedSearch) return;
 
     this.applySearchProps(derefMobx(savedSearch.filterProps));
@@ -749,9 +828,11 @@ export class _FileImportBatchSearch extends Model({
     if (!id) return;
 
     const res = await trpc.deleteSavedSearch.mutate({ args: { ids: [id] } });
+
     if (!res.success) throw new Error(res.error);
 
     await this.loadSavedSearches();
+
     if (this.selectedSavedSearchId === id) this.setSelectedSavedSearchId("");
 
     this.setIsDeleteModalOpen(false);
@@ -774,6 +855,8 @@ export class _FileImportBatchSearch extends Model({
         this.results.length > 0;
 
       if (canResolveLocally) {
+        if (!selectedIds.length) return { idsToDeselect: [], idsToSelect: [id] };
+
         const firstSelected = selectedLocalIndexes.reduce(
           (min, index) => Math.min(min, index),
           Infinity,
@@ -782,6 +865,7 @@ export class _FileImportBatchSearch extends Model({
           (max, index) => Math.max(max, index),
           -Infinity,
         );
+
         if (firstSelected === clickedLocalIndex) return { idsToDeselect: [id], idsToSelect: [] };
 
         const isFirstAfterClicked = firstSelected > clickedLocalIndex;
@@ -797,21 +881,31 @@ export class _FileImportBatchSearch extends Model({
         return { idsToDeselect, idsToSelect };
       }
 
-      const clickedIndex = (this.page - 1) * this.pageSize + clickedLocalIndex;
+      const loadId = this.loadId + 1;
 
+      this.setLoadId(loadId);
       this.setIsLoading(true);
+      this.setIsPageCountLoading(false);
 
-      const res = await trpc.getShiftSelectedFileImportBatch.mutate({
-        ...this.cachedFilterProps,
-        clickedId: id,
-        clickedIndex,
-        selectedIds,
-      });
-      this.setIsLoading(false);
+      try {
+        const res = await trpc.getShiftSelectedFileImportBatch.mutate({
+          ...this.cachedFilterProps,
+          clickedId: id,
+          selectedIds,
+        });
 
-      if (!res.success) throw new Error(res.error);
+        if (loadId !== this.loadId) return null;
 
-      return res.data;
+        if (!res.success) throw new Error(res.error);
+
+        return res.data;
+      } catch (error) {
+        if (loadId === this.loadId) throw error;
+
+        return null;
+      } finally {
+        if (loadId === this.loadId) this.setIsLoading(false);
+      }
     },
   );
 
@@ -820,46 +914,72 @@ export class _FileImportBatchSearch extends Model({
     async ({ hasCtrl, hasShift, id }: { hasCtrl: boolean; hasShift: boolean; id: string }) => {
       if (hasShift) {
         const res = await this.getShiftSelected({ id, selectedIds: this.selectedIds });
+
         if (!res?.success) throw new Error(res.error);
 
-        this.toggleSelected([
-          ...res.data.idsToDeselect.map((i) => ({ id: i, isSelected: false })),
-          ...res.data.idsToSelect.map((i) => ({ id: i, isSelected: true })),
-        ]);
+        if (res.data) {
+          this.toggleSelected([
+            ...res.data.idsToDeselect.map((i) => ({ id: i, isSelected: false })),
+            ...res.data.idsToSelect.map((i) => ({ id: i, isSelected: true })),
+          ]);
+        }
       } else if (hasCtrl) {
         this.toggleSelected([{ id, isSelected: !this.getIsSelected(id) }]);
       } else {
-        this.toggleSelected([
-          ...this.selectedIds.map((id) => ({ id, isSelected: false })),
-          { id, isSelected: true },
-        ]);
+        this.selectedIds = [id];
       }
     },
   );
 
   @modelFlow
   selectAllInQuery = asyncAction(async () => {
-    const countRes = await trpc.getFilteredFileImportBatchCount.mutate({
-      ...this.getFilterProps(),
-      curMaxPage: this.pageCount,
-      page: this.page,
-      pageSize: this.pageSize,
-      withFull: true,
-    });
-    if (!countRes.success) throw new Error(countRes.error);
-    if (countRes.data.count === 0) return 0;
+    const filterProps = this.cachedFilterProps ?? this.getFilterProps();
+    const loadId = this.loadId + 1;
 
-    const res = await trpc.listFilteredFileImportBatch.mutate({
-      ...this.getFilterProps(),
-      page: 1,
-      pageSize: countRes.data.count,
-      select: { _id: 1 },
-    });
-    if (!res.success) throw new Error(res.error);
+    this.setLoadId(loadId);
+    this.setIsLoading(true);
+    this.setIsPageCountLoading(false);
 
-    this.toggleSelected(res.data.map(({ id }) => ({ id, isSelected: true })));
+    try {
+      const countRes = await trpc.getFilteredFileImportBatchCount.mutate({
+        ...filterProps,
+        curMaxPage: this.pageCount,
+        forcePages: this.forcePages,
+        page: this.page,
+        pageSize: this.pageSize,
+        withFull: true,
+      });
 
-    return res.data.length;
+      if (loadId !== this.loadId) return null;
+
+      if (!countRes.success) throw new Error(countRes.error);
+
+      if (countRes.data.count === 0) return 0;
+
+      const res = await trpc.listFilteredFileImportBatch.mutate({
+        ...filterProps,
+        forcePages: this.forcePages,
+        page: 1,
+        pageSize: countRes.data.count,
+        select: { _id: 1 },
+      });
+
+      if (loadId !== this.loadId) return null;
+
+      if (!res.success) throw new Error(res.error);
+
+      const items = res.data;
+
+      this.toggleSelected(items.map(({ id }) => ({ id, isSelected: true })));
+
+      return items.length;
+    } catch (error) {
+      if (loadId === this.loadId) throw error;
+
+      return null;
+    } finally {
+      if (loadId === this.loadId) this.setIsLoading(false);
+    }
   });
 
   @modelFlow
@@ -878,6 +998,7 @@ export class _FileImportBatchSearch extends Model({
       const debug = false;
       const { perfLog } = makePerfLog("[FileImportBatchSearch]");
       const loadId = this.loadId + 1;
+
       this.setLoadId(loadId);
       this.setIsLoading(true);
       this.setIsPageCountLoading(true);
@@ -885,6 +1006,7 @@ export class _FileImportBatchSearch extends Model({
       try {
         const shouldCacheFilterProps = noCache || !this.cachedFilterProps;
         const filterProps = shouldCacheFilterProps ? this.getFilterProps() : this.cachedFilterProps;
+
         const exactCount = withFullCount || toLastPage;
         let nextPageCount = this.pageCount;
 
@@ -892,11 +1014,14 @@ export class _FileImportBatchSearch extends Model({
           const countRes = await trpc.getFilteredFileImportBatchCount.mutate({
             ...filterProps,
             curMaxPage: this.pageCount,
+            forcePages: this.forcePages,
             page,
             pageSize: this.pageSize,
             withFull: true,
           });
+
           if (loadId !== this.loadId) return;
+
           if (!countRes.success) throw new Error(countRes.error);
 
           nextPageCount = countRes.data.pageCount;
@@ -914,28 +1039,32 @@ export class _FileImportBatchSearch extends Model({
           page: newPage,
           pageSize: this.pageSize,
         });
+
         if (loadId !== this.loadId) return;
+
         if (!itemsRes.success) throw new Error(itemsRes.error);
 
         let items = itemsRes.data;
+
         if (debug) perfLog(`Loaded ${items.length} items`);
 
         const tagIds = [...new Set(items.flatMap((item) => item.tagIds))];
-        const tags = (await trpc.listTag.mutate({ filter: { id: tagIds } })).data;
+        const tagRes = await trpc.listTag.mutate({ filter: { id: tagIds } });
 
         if (loadId !== this.loadId) return;
 
-        const selectTags = makeTagSelector(tags);
+        if (!tagRes.success) throw new Error(tagRes.error);
+
+        const selectTags = makeTagSelector(tagRes.data);
+
         items = items.map((item) => ({ ...item, tags: selectTags(item.tagIds) }));
 
-        const results = items.map((batch) => ({
-          ...batch,
-          imports: batch.imports.map((imp) => new Stores.FileImport(imp)),
-        }));
+        const results = items;
 
         if (loadId !== this.loadId) return;
 
         this.setResults(results.map((result) => new Stores.FileImportBatch(result)));
+
         if (shouldCacheFilterProps) this.setCachedFilterProps(derefMobx(filterProps));
 
         if (exactCount) {
@@ -944,37 +1073,43 @@ export class _FileImportBatchSearch extends Model({
         }
 
         this.setPage(newPage);
+
         if (debug) perfLog("Overwrite and re-render");
 
         this.setIsLoading(false);
+
         if (noCache) this.setHasChanges(false);
 
         if (!exactCount) {
-          trpc.getFilteredFileImportBatchCount
-            .mutate({
-              ...filterProps,
-              curMaxPage: this.pageCount,
-              page: newPage,
-              pageSize: this.pageSize,
-              withFull: withFullCount,
-            })
-            .then((countRes) => {
+          (async () => {
+            try {
+              const countRes = await trpc.getFilteredFileImportBatchCount.mutate({
+                ...filterProps,
+                curMaxPage: this.pageCount,
+                forcePages: this.forcePages,
+                page: newPage,
+                pageSize: this.pageSize,
+                withFull: withFullCount,
+              });
+
               if (loadId !== this.loadId) return;
 
               this.setIsPageCountLoading(false);
+
               if (!countRes.success) return console.error(countRes.error);
 
               const pageCount = countRes.data.pageCount;
 
               this.setPageCount(pageCount);
+
               if (debug) perfLog(`Set pageCount to ${pageCount}`);
-            })
-            .catch((error) => {
+            } catch (error) {
               if (loadId !== this.loadId) return;
 
               this.setIsPageCountLoading(false);
               console.error(error);
-            });
+            }
+          })();
         }
 
         return results;
@@ -983,6 +1118,7 @@ export class _FileImportBatchSearch extends Model({
 
         this.setIsLoading(false);
         this.setIsPageCountLoading(false);
+
         throw error;
       }
     },
@@ -998,6 +1134,7 @@ export class _FileImportBatchSearch extends Model({
         sort: { label: "asc" },
       },
     });
+
     if (!res.success) throw new Error(res.error);
 
     this.setSavedSearches(res.data.items.map((result) => new Stores.SavedSearch(result)));
@@ -1008,6 +1145,7 @@ export class _FileImportBatchSearch extends Model({
   @modelFlow
   saveSavedSearch = asyncAction(async (label: string) => {
     const trimmedLabel = label.trim();
+
     if (!trimmedLabel) throw new Error("Saved search label is required");
 
     const existing = this.savedSearches.find((s) => s.label === trimmedLabel);
@@ -1018,6 +1156,7 @@ export class _FileImportBatchSearch extends Model({
       const res = await trpc.updateSavedSearch.mutate({
         args: { id: selected.id, updates: { filterProps, label: trimmedLabel } },
       });
+
       if (!res.success) throw new Error(res.error);
 
       await this.loadSavedSearches();
@@ -1032,6 +1171,7 @@ export class _FileImportBatchSearch extends Model({
       const res = await trpc.updateSavedSearch.mutate({
         args: { id: existing.id, updates: { filterProps } },
       });
+
       if (!res.success) throw new Error(res.error);
 
       await this.loadSavedSearches();
@@ -1050,6 +1190,7 @@ export class _FileImportBatchSearch extends Model({
         searchType: "FileImportBatch",
       },
     });
+
     if (!res.success) throw new Error(res.error);
 
     await this.loadSavedSearches();
@@ -1078,6 +1219,16 @@ export class _FileImportBatchSearch extends Model({
       (!isDeepEqual(this.startedAtStart, "") ? 1 : 0) +
       (!isDeepEqual(this.tags, []) ? 1 : 0)
     );
+  }
+
+  @computed({ keepAlive: true })
+  get resultsById() {
+    return new Map(this.results.map((result) => [result.id, result]));
+  }
+
+  @computed({ keepAlive: true })
+  get selectedIdSet() {
+    return new Set(this.selectedIds);
   }
 
   /* DYNAMIC GETTERS */
@@ -1112,11 +1263,11 @@ export class _FileImportBatchSearch extends Model({
   }
 
   getIsSelected(id: string) {
-    return !!this.selectedIds.find((s) => s === id);
+    return this.selectedIdSet.has(id);
   }
 
   getResult(id: string) {
-    return this.results.find((r) => r.id === id);
+    return this.resultsById.get(id);
   }
 
   getSearchProps() {
@@ -1286,19 +1437,20 @@ export class _FileTransformSearch extends Model({
   toggleSelected(selected: { id: string; isSelected?: boolean }[], withToast = false) {
     if (!selected?.length) return;
 
-    const [added, removed] = selected.reduce(
-      (acc, cur) => (acc[cur.isSelected ? 0 : 1].push(cur.id), acc),
-      [[], []],
-    );
+    const previous = this.selectedIdSet;
+    const next = new Set(previous);
 
-    const removedSet = new Set(removed);
-    this.selectedIds = [...new Set(this.selectedIds.concat(added))].filter(
-      (id) => !removedSet.has(id),
-    );
+    for (const { id, isSelected } of selected) {
+      if (isSelected) next.add(id);
+      else next.delete(id);
+    }
+
+    this.selectedIds = [...next];
 
     if (withToast) {
-      const addedCount = added.length;
-      const removedCount = removed.length;
+      const addedCount = [...next].filter((id) => !previous.has(id)).length;
+      const removedCount = [...previous].filter((id) => !next.has(id)).length;
+
       if (addedCount && removedCount)
         toast.success(`Selected ${addedCount} items and deselected ${removedCount} items`);
       else if (addedCount) toast.success(`Selected ${addedCount} items`);
@@ -1312,6 +1464,7 @@ export class _FileTransformSearch extends Model({
     if (!this.savedSearches.some((s) => s.id === id)) await this.loadSavedSearches();
 
     const savedSearch = this.savedSearches.find((s) => s.id === id);
+
     if (!savedSearch) return;
 
     this.applySearchProps(derefMobx(savedSearch.filterProps));
@@ -1324,9 +1477,11 @@ export class _FileTransformSearch extends Model({
     if (!id) return;
 
     const res = await trpc.deleteSavedSearch.mutate({ args: { ids: [id] } });
+
     if (!res.success) throw new Error(res.error);
 
     await this.loadSavedSearches();
+
     if (this.selectedSavedSearchId === id) this.setSelectedSavedSearchId("");
 
     this.setIsDeleteModalOpen(false);
@@ -1349,6 +1504,8 @@ export class _FileTransformSearch extends Model({
         this.results.length > 0;
 
       if (canResolveLocally) {
+        if (!selectedIds.length) return { idsToDeselect: [], idsToSelect: [id] };
+
         const firstSelected = selectedLocalIndexes.reduce(
           (min, index) => Math.min(min, index),
           Infinity,
@@ -1357,6 +1514,7 @@ export class _FileTransformSearch extends Model({
           (max, index) => Math.max(max, index),
           -Infinity,
         );
+
         if (firstSelected === clickedLocalIndex) return { idsToDeselect: [id], idsToSelect: [] };
 
         const isFirstAfterClicked = firstSelected > clickedLocalIndex;
@@ -1372,21 +1530,31 @@ export class _FileTransformSearch extends Model({
         return { idsToDeselect, idsToSelect };
       }
 
-      const clickedIndex = (this.page - 1) * this.pageSize + clickedLocalIndex;
+      const loadId = this.loadId + 1;
 
+      this.setLoadId(loadId);
       this.setIsLoading(true);
+      this.setIsPageCountLoading(false);
 
-      const res = await trpc.getShiftSelectedFileTransform.mutate({
-        ...this.cachedFilterProps,
-        clickedId: id,
-        clickedIndex,
-        selectedIds,
-      });
-      this.setIsLoading(false);
+      try {
+        const res = await trpc.getShiftSelectedFileTransform.mutate({
+          ...this.cachedFilterProps,
+          clickedId: id,
+          selectedIds,
+        });
 
-      if (!res.success) throw new Error(res.error);
+        if (loadId !== this.loadId) return null;
 
-      return res.data;
+        if (!res.success) throw new Error(res.error);
+
+        return res.data;
+      } catch (error) {
+        if (loadId === this.loadId) throw error;
+
+        return null;
+      } finally {
+        if (loadId === this.loadId) this.setIsLoading(false);
+      }
     },
   );
 
@@ -1395,46 +1563,72 @@ export class _FileTransformSearch extends Model({
     async ({ hasCtrl, hasShift, id }: { hasCtrl: boolean; hasShift: boolean; id: string }) => {
       if (hasShift) {
         const res = await this.getShiftSelected({ id, selectedIds: this.selectedIds });
+
         if (!res?.success) throw new Error(res.error);
 
-        this.toggleSelected([
-          ...res.data.idsToDeselect.map((i) => ({ id: i, isSelected: false })),
-          ...res.data.idsToSelect.map((i) => ({ id: i, isSelected: true })),
-        ]);
+        if (res.data) {
+          this.toggleSelected([
+            ...res.data.idsToDeselect.map((i) => ({ id: i, isSelected: false })),
+            ...res.data.idsToSelect.map((i) => ({ id: i, isSelected: true })),
+          ]);
+        }
       } else if (hasCtrl) {
         this.toggleSelected([{ id, isSelected: !this.getIsSelected(id) }]);
       } else {
-        this.toggleSelected([
-          ...this.selectedIds.map((id) => ({ id, isSelected: false })),
-          { id, isSelected: true },
-        ]);
+        this.selectedIds = [id];
       }
     },
   );
 
   @modelFlow
   selectAllInQuery = asyncAction(async () => {
-    const countRes = await trpc.getFilteredFileTransformCount.mutate({
-      ...this.getFilterProps(),
-      curMaxPage: this.pageCount,
-      page: this.page,
-      pageSize: this.pageSize,
-      withFull: true,
-    });
-    if (!countRes.success) throw new Error(countRes.error);
-    if (countRes.data.count === 0) return 0;
+    const filterProps = this.cachedFilterProps ?? this.getFilterProps();
+    const loadId = this.loadId + 1;
 
-    const res = await trpc.listFilteredFileTransform.mutate({
-      ...this.getFilterProps(),
-      page: 1,
-      pageSize: countRes.data.count,
-      select: { _id: 1 },
-    });
-    if (!res.success) throw new Error(res.error);
+    this.setLoadId(loadId);
+    this.setIsLoading(true);
+    this.setIsPageCountLoading(false);
 
-    this.toggleSelected(res.data.map(({ id }) => ({ id, isSelected: true })));
+    try {
+      const countRes = await trpc.getFilteredFileTransformCount.mutate({
+        ...filterProps,
+        curMaxPage: this.pageCount,
+        forcePages: this.forcePages,
+        page: this.page,
+        pageSize: this.pageSize,
+        withFull: true,
+      });
 
-    return res.data.length;
+      if (loadId !== this.loadId) return null;
+
+      if (!countRes.success) throw new Error(countRes.error);
+
+      if (countRes.data.count === 0) return 0;
+
+      const res = await trpc.listFilteredFileTransform.mutate({
+        ...filterProps,
+        forcePages: this.forcePages,
+        page: 1,
+        pageSize: countRes.data.count,
+        select: { _id: 1 },
+      });
+
+      if (loadId !== this.loadId) return null;
+
+      if (!res.success) throw new Error(res.error);
+
+      const items = res.data;
+
+      this.toggleSelected(items.map(({ id }) => ({ id, isSelected: true })));
+
+      return items.length;
+    } catch (error) {
+      if (loadId === this.loadId) throw error;
+
+      return null;
+    } finally {
+      if (loadId === this.loadId) this.setIsLoading(false);
+    }
   });
 
   @modelFlow
@@ -1453,6 +1647,7 @@ export class _FileTransformSearch extends Model({
       const debug = false;
       const { perfLog } = makePerfLog("[FileTransformSearch]");
       const loadId = this.loadId + 1;
+
       this.setLoadId(loadId);
       this.setIsLoading(true);
       this.setIsPageCountLoading(true);
@@ -1460,6 +1655,7 @@ export class _FileTransformSearch extends Model({
       try {
         const shouldCacheFilterProps = noCache || !this.cachedFilterProps;
         const filterProps = shouldCacheFilterProps ? this.getFilterProps() : this.cachedFilterProps;
+
         const exactCount = withFullCount || toLastPage;
         let nextPageCount = this.pageCount;
 
@@ -1467,11 +1663,14 @@ export class _FileTransformSearch extends Model({
           const countRes = await trpc.getFilteredFileTransformCount.mutate({
             ...filterProps,
             curMaxPage: this.pageCount,
+            forcePages: this.forcePages,
             page,
             pageSize: this.pageSize,
             withFull: true,
           });
+
           if (loadId !== this.loadId) return;
+
           if (!countRes.success) throw new Error(countRes.error);
 
           nextPageCount = countRes.data.pageCount;
@@ -1489,10 +1688,13 @@ export class _FileTransformSearch extends Model({
           page: newPage,
           pageSize: this.pageSize,
         });
+
         if (loadId !== this.loadId) return;
+
         if (!itemsRes.success) throw new Error(itemsRes.error);
 
         let items = itemsRes.data;
+
         if (debug) perfLog(`Loaded ${items.length} items`);
 
         const results = items;
@@ -1500,6 +1702,7 @@ export class _FileTransformSearch extends Model({
         if (loadId !== this.loadId) return;
 
         this.setResults(results.map((result) => new Stores.FileTransform(result)));
+
         if (shouldCacheFilterProps) this.setCachedFilterProps(derefMobx(filterProps));
 
         if (exactCount) {
@@ -1508,37 +1711,43 @@ export class _FileTransformSearch extends Model({
         }
 
         this.setPage(newPage);
+
         if (debug) perfLog("Overwrite and re-render");
 
         this.setIsLoading(false);
+
         if (noCache) this.setHasChanges(false);
 
         if (!exactCount) {
-          trpc.getFilteredFileTransformCount
-            .mutate({
-              ...filterProps,
-              curMaxPage: this.pageCount,
-              page: newPage,
-              pageSize: this.pageSize,
-              withFull: withFullCount,
-            })
-            .then((countRes) => {
+          (async () => {
+            try {
+              const countRes = await trpc.getFilteredFileTransformCount.mutate({
+                ...filterProps,
+                curMaxPage: this.pageCount,
+                forcePages: this.forcePages,
+                page: newPage,
+                pageSize: this.pageSize,
+                withFull: withFullCount,
+              });
+
               if (loadId !== this.loadId) return;
 
               this.setIsPageCountLoading(false);
+
               if (!countRes.success) return console.error(countRes.error);
 
               const pageCount = countRes.data.pageCount;
 
               this.setPageCount(pageCount);
+
               if (debug) perfLog(`Set pageCount to ${pageCount}`);
-            })
-            .catch((error) => {
+            } catch (error) {
               if (loadId !== this.loadId) return;
 
               this.setIsPageCountLoading(false);
               console.error(error);
-            });
+            }
+          })();
         }
 
         return results;
@@ -1547,6 +1756,7 @@ export class _FileTransformSearch extends Model({
 
         this.setIsLoading(false);
         this.setIsPageCountLoading(false);
+
         throw error;
       }
     },
@@ -1562,6 +1772,7 @@ export class _FileTransformSearch extends Model({
         sort: { label: "asc" },
       },
     });
+
     if (!res.success) throw new Error(res.error);
 
     this.setSavedSearches(res.data.items.map((result) => new Stores.SavedSearch(result)));
@@ -1572,6 +1783,7 @@ export class _FileTransformSearch extends Model({
   @modelFlow
   saveSavedSearch = asyncAction(async (label: string) => {
     const trimmedLabel = label.trim();
+
     if (!trimmedLabel) throw new Error("Saved search label is required");
 
     const existing = this.savedSearches.find((s) => s.label === trimmedLabel);
@@ -1582,6 +1794,7 @@ export class _FileTransformSearch extends Model({
       const res = await trpc.updateSavedSearch.mutate({
         args: { id: selected.id, updates: { filterProps, label: trimmedLabel } },
       });
+
       if (!res.success) throw new Error(res.error);
 
       await this.loadSavedSearches();
@@ -1596,6 +1809,7 @@ export class _FileTransformSearch extends Model({
       const res = await trpc.updateSavedSearch.mutate({
         args: { id: existing.id, updates: { filterProps } },
       });
+
       if (!res.success) throw new Error(res.error);
 
       await this.loadSavedSearches();
@@ -1614,6 +1828,7 @@ export class _FileTransformSearch extends Model({
         searchType: "FileTransform",
       },
     });
+
     if (!res.success) throw new Error(res.error);
 
     await this.loadSavedSearches();
@@ -1643,6 +1858,16 @@ export class _FileTransformSearch extends Model({
       (!isDeepEqual(this.status, "") ? 1 : 0) +
       (!isDeepEqual(this.type, "") ? 1 : 0)
     );
+  }
+
+  @computed({ keepAlive: true })
+  get resultsById() {
+    return new Map(this.results.map((result) => [result.id, result]));
+  }
+
+  @computed({ keepAlive: true })
+  get selectedIdSet() {
+    return new Set(this.selectedIds);
   }
 
   /* DYNAMIC GETTERS */
@@ -1680,11 +1905,11 @@ export class _FileTransformSearch extends Model({
   }
 
   getIsSelected(id: string) {
-    return !!this.selectedIds.find((s) => s === id);
+    return this.selectedIdSet.has(id);
   }
 
   getResult(id: string) {
-    return this.results.find((r) => r.id === id);
+    return this.resultsById.get(id);
   }
 
   getSearchProps() {
@@ -2019,19 +2244,20 @@ export class _FileSearch extends Model({
   toggleSelected(selected: { id: string; isSelected?: boolean }[], withToast = false) {
     if (!selected?.length) return;
 
-    const [added, removed] = selected.reduce(
-      (acc, cur) => (acc[cur.isSelected ? 0 : 1].push(cur.id), acc),
-      [[], []],
-    );
+    const previous = this.selectedIdSet;
+    const next = new Set(previous);
 
-    const removedSet = new Set(removed);
-    this.selectedIds = [...new Set(this.selectedIds.concat(added))].filter(
-      (id) => !removedSet.has(id),
-    );
+    for (const { id, isSelected } of selected) {
+      if (isSelected) next.add(id);
+      else next.delete(id);
+    }
+
+    this.selectedIds = [...next];
 
     if (withToast) {
-      const addedCount = added.length;
-      const removedCount = removed.length;
+      const addedCount = [...next].filter((id) => !previous.has(id)).length;
+      const removedCount = [...previous].filter((id) => !next.has(id)).length;
+
       if (addedCount && removedCount)
         toast.success(`Selected ${addedCount} items and deselected ${removedCount} items`);
       else if (addedCount) toast.success(`Selected ${addedCount} items`);
@@ -2045,6 +2271,7 @@ export class _FileSearch extends Model({
     if (!this.savedSearches.some((s) => s.id === id)) await this.loadSavedSearches();
 
     const savedSearch = this.savedSearches.find((s) => s.id === id);
+
     if (!savedSearch) return;
 
     this.applySearchProps(derefMobx(savedSearch.filterProps));
@@ -2057,9 +2284,11 @@ export class _FileSearch extends Model({
     if (!id) return;
 
     const res = await trpc.deleteSavedSearch.mutate({ args: { ids: [id] } });
+
     if (!res.success) throw new Error(res.error);
 
     await this.loadSavedSearches();
+
     if (this.selectedSavedSearchId === id) this.setSelectedSavedSearchId("");
 
     this.setIsDeleteModalOpen(false);
@@ -2082,6 +2311,8 @@ export class _FileSearch extends Model({
         this.results.length > 0;
 
       if (canResolveLocally) {
+        if (!selectedIds.length) return { idsToDeselect: [], idsToSelect: [id] };
+
         const firstSelected = selectedLocalIndexes.reduce(
           (min, index) => Math.min(min, index),
           Infinity,
@@ -2090,6 +2321,7 @@ export class _FileSearch extends Model({
           (max, index) => Math.max(max, index),
           -Infinity,
         );
+
         if (firstSelected === clickedLocalIndex) return { idsToDeselect: [id], idsToSelect: [] };
 
         const isFirstAfterClicked = firstSelected > clickedLocalIndex;
@@ -2105,21 +2337,31 @@ export class _FileSearch extends Model({
         return { idsToDeselect, idsToSelect };
       }
 
-      const clickedIndex = (this.page - 1) * this.pageSize + clickedLocalIndex;
+      const loadId = this.loadId + 1;
 
+      this.setLoadId(loadId);
       this.setIsLoading(true);
+      this.setIsPageCountLoading(false);
 
-      const res = await trpc.getShiftSelectedFile.mutate({
-        ...this.cachedFilterProps,
-        clickedId: id,
-        clickedIndex,
-        selectedIds,
-      });
-      this.setIsLoading(false);
+      try {
+        const res = await trpc.getShiftSelectedFile.mutate({
+          ...this.cachedFilterProps,
+          clickedId: id,
+          selectedIds,
+        });
 
-      if (!res.success) throw new Error(res.error);
+        if (loadId !== this.loadId) return null;
 
-      return res.data;
+        if (!res.success) throw new Error(res.error);
+
+        return res.data;
+      } catch (error) {
+        if (loadId === this.loadId) throw error;
+
+        return null;
+      } finally {
+        if (loadId === this.loadId) this.setIsLoading(false);
+      }
     },
   );
 
@@ -2128,47 +2370,52 @@ export class _FileSearch extends Model({
     async ({ hasCtrl, hasShift, id }: { hasCtrl: boolean; hasShift: boolean; id: string }) => {
       if (hasShift) {
         const res = await this.getShiftSelected({ id, selectedIds: this.selectedIds });
+
         if (!res?.success) throw new Error(res.error);
 
-        this.toggleSelected([
-          ...res.data.idsToDeselect.map((i) => ({ id: i, isSelected: false })),
-          ...res.data.idsToSelect.map((i) => ({ id: i, isSelected: true })),
-        ]);
+        if (res.data) {
+          this.toggleSelected([
+            ...res.data.idsToDeselect.map((i) => ({ id: i, isSelected: false })),
+            ...res.data.idsToSelect.map((i) => ({ id: i, isSelected: true })),
+          ]);
+        }
       } else if (hasCtrl) {
         this.toggleSelected([{ id, isSelected: !this.getIsSelected(id) }]);
       } else {
-        this.toggleSelected([
-          ...this.selectedIds.map((id) => ({ id, isSelected: false })),
-          { id, isSelected: true },
-        ]);
+        this.selectedIds = [id];
       }
     },
   );
 
   @modelFlow
   selectAllInQuery = asyncAction(async () => {
-    const countRes = await trpc.getFilteredFileCount.mutate({
-      ...this.getFilterProps(),
-      curMaxPage: this.pageCount,
-      page: this.page,
-      pageSize: this.pageSize,
-      withFull: true,
-    });
-    if (!countRes.success) throw new Error(countRes.error);
-    if (countRes.data.count === 0) return 0;
+    const filterProps = this.cachedFilterProps ?? this.getFilterProps();
+    const loadId = this.loadId + 1;
 
-    const res = await trpc.listFilteredFile.mutate({
-      ...this.getFilterProps(),
-      page: 1,
-      pageSize: countRes.data.count,
-      select: { _id: 1 },
-    });
-    if (!res.success) throw new Error(res.error);
+    this.setLoadId(loadId);
+    this.setIsLoading(true);
+    this.setIsPageCountLoading(false);
 
-    const items = res.data.items;
-    this.toggleSelected(items.map(({ id }) => ({ id, isSelected: true })));
+    try {
+      const res = await trpc.listFileSearchIds.mutate({
+        ...filterProps,
+        forcePages: this.forcePages,
+      });
 
-    return items.length;
+      if (loadId !== this.loadId) return null;
+
+      if (!res.success) throw new Error(res.error);
+
+      this.selectedIds = [...new Set([...this.selectedIds, ...res.data])];
+
+      return res.data.length;
+    } catch (error) {
+      if (loadId === this.loadId) throw error;
+
+      return null;
+    } finally {
+      if (loadId === this.loadId) this.setIsLoading(false);
+    }
   });
 
   @modelFlow
@@ -2187,6 +2434,7 @@ export class _FileSearch extends Model({
       const debug = false;
       const { perfLog } = makePerfLog("[FileSearch]");
       const loadId = this.loadId + 1;
+
       this.setLoadId(loadId);
       this.setIsLoading(true);
       this.setIsPageCountLoading(true);
@@ -2194,6 +2442,7 @@ export class _FileSearch extends Model({
       try {
         const shouldCacheFilterProps = noCache || !this.cachedFilterProps;
         const filterProps = shouldCacheFilterProps ? this.getFilterProps() : this.cachedFilterProps;
+
         const exactCount = withFullCount || toLastPage;
         let nextPageCount = this.pageCount;
 
@@ -2201,11 +2450,14 @@ export class _FileSearch extends Model({
           const countRes = await trpc.getFilteredFileCount.mutate({
             ...filterProps,
             curMaxPage: this.pageCount,
+            forcePages: this.forcePages,
             page,
             pageSize: this.pageSize,
             withFull: true,
           });
+
           if (loadId !== this.loadId) return;
+
           if (!countRes.success) throw new Error(countRes.error);
 
           nextPageCount = countRes.data.pageCount;
@@ -2223,18 +2475,24 @@ export class _FileSearch extends Model({
           page: newPage,
           pageSize: this.pageSize,
         });
+
         if (loadId !== this.loadId) return;
+
         if (!itemsRes.success) throw new Error(itemsRes.error);
 
         let items = itemsRes.data.items as ModelCreationData<Stores.File>[];
+
         if (debug) perfLog(`Loaded ${items.length} items`);
 
         const tagIds = [...new Set(items.flatMap((item) => item.tagIds))];
-        const tags = (await trpc.listTag.mutate({ filter: { id: tagIds } })).data;
+        const tagRes = await trpc.listTag.mutate({ filter: { id: tagIds } });
 
         if (loadId !== this.loadId) return;
 
-        const selectTags = makeTagSelector(tags);
+        if (!tagRes.success) throw new Error(tagRes.error);
+
+        const selectTags = makeTagSelector(tagRes.data);
+
         items = items.map((item) => ({ ...item, tags: selectTags(item.tagIds) }));
 
         const results = items;
@@ -2243,6 +2501,7 @@ export class _FileSearch extends Model({
 
         this.setResults(results.map((result) => new Stores.File(result)));
         this.setCarouselFileIds(itemsRes.data.carouselFileIds);
+
         if (shouldCacheFilterProps) this.setCachedFilterProps(derefMobx(filterProps));
 
         if (exactCount) {
@@ -2251,37 +2510,43 @@ export class _FileSearch extends Model({
         }
 
         this.setPage(newPage);
+
         if (debug) perfLog("Overwrite and re-render");
 
         this.setIsLoading(false);
+
         if (noCache) this.setHasChanges(false);
 
         if (!exactCount) {
-          trpc.getFilteredFileCount
-            .mutate({
-              ...filterProps,
-              curMaxPage: this.pageCount,
-              page: newPage,
-              pageSize: this.pageSize,
-              withFull: withFullCount,
-            })
-            .then((countRes) => {
+          (async () => {
+            try {
+              const countRes = await trpc.getFilteredFileCount.mutate({
+                ...filterProps,
+                curMaxPage: this.pageCount,
+                forcePages: this.forcePages,
+                page: newPage,
+                pageSize: this.pageSize,
+                withFull: withFullCount,
+              });
+
               if (loadId !== this.loadId) return;
 
               this.setIsPageCountLoading(false);
+
               if (!countRes.success) return console.error(countRes.error);
 
               const pageCount = countRes.data.pageCount;
 
               this.setPageCount(pageCount);
+
               if (debug) perfLog(`Set pageCount to ${pageCount}`);
-            })
-            .catch((error) => {
+            } catch (error) {
               if (loadId !== this.loadId) return;
 
               this.setIsPageCountLoading(false);
               console.error(error);
-            });
+            }
+          })();
         }
 
         return results;
@@ -2290,6 +2555,7 @@ export class _FileSearch extends Model({
 
         this.setIsLoading(false);
         this.setIsPageCountLoading(false);
+
         throw error;
       }
     },
@@ -2305,6 +2571,7 @@ export class _FileSearch extends Model({
         sort: { label: "asc" },
       },
     });
+
     if (!res.success) throw new Error(res.error);
 
     this.setSavedSearches(res.data.items.map((result) => new Stores.SavedSearch(result)));
@@ -2315,6 +2582,7 @@ export class _FileSearch extends Model({
   @modelFlow
   saveSavedSearch = asyncAction(async (label: string) => {
     const trimmedLabel = label.trim();
+
     if (!trimmedLabel) throw new Error("Saved search label is required");
 
     const existing = this.savedSearches.find((s) => s.label === trimmedLabel);
@@ -2325,6 +2593,7 @@ export class _FileSearch extends Model({
       const res = await trpc.updateSavedSearch.mutate({
         args: { id: selected.id, updates: { filterProps, label: trimmedLabel } },
       });
+
       if (!res.success) throw new Error(res.error);
 
       await this.loadSavedSearches();
@@ -2339,6 +2608,7 @@ export class _FileSearch extends Model({
       const res = await trpc.updateSavedSearch.mutate({
         args: { id: existing.id, updates: { filterProps } },
       });
+
       if (!res.success) throw new Error(res.error);
 
       await this.loadSavedSearches();
@@ -2357,6 +2627,7 @@ export class _FileSearch extends Model({
         searchType: "File",
       },
     });
+
     if (!res.success) throw new Error(res.error);
 
     await this.loadSavedSearches();
@@ -2440,6 +2711,16 @@ export class _FileSearch extends Model({
     );
   }
 
+  @computed({ keepAlive: true })
+  get resultsById() {
+    return new Map(this.results.map((result) => [result.id, result]));
+  }
+
+  @computed({ keepAlive: true })
+  get selectedIdSet() {
+    return new Set(this.selectedIds);
+  }
+
   /* DYNAMIC GETTERS */
   getCachedFilterProps() {
     if (!this.cachedFilterProps) this.setCachedFilterProps(derefMobx(this.getFilterProps()));
@@ -2508,11 +2789,11 @@ export class _FileSearch extends Model({
   }
 
   getIsSelected(id: string) {
-    return !!this.selectedIds.find((s) => s === id);
+    return this.selectedIdSet.has(id);
   }
 
   getResult(id: string) {
-    return this.results.find((r) => r.id === id);
+    return this.resultsById.get(id);
   }
 
   getSearchProps() {
@@ -2677,19 +2958,20 @@ export class _SavedImportConfigSearch extends Model({
   toggleSelected(selected: { id: string; isSelected?: boolean }[], withToast = false) {
     if (!selected?.length) return;
 
-    const [added, removed] = selected.reduce(
-      (acc, cur) => (acc[cur.isSelected ? 0 : 1].push(cur.id), acc),
-      [[], []],
-    );
+    const previous = this.selectedIdSet;
+    const next = new Set(previous);
 
-    const removedSet = new Set(removed);
-    this.selectedIds = [...new Set(this.selectedIds.concat(added))].filter(
-      (id) => !removedSet.has(id),
-    );
+    for (const { id, isSelected } of selected) {
+      if (isSelected) next.add(id);
+      else next.delete(id);
+    }
+
+    this.selectedIds = [...next];
 
     if (withToast) {
-      const addedCount = added.length;
-      const removedCount = removed.length;
+      const addedCount = [...next].filter((id) => !previous.has(id)).length;
+      const removedCount = [...previous].filter((id) => !next.has(id)).length;
+
       if (addedCount && removedCount)
         toast.success(`Selected ${addedCount} items and deselected ${removedCount} items`);
       else if (addedCount) toast.success(`Selected ${addedCount} items`);
@@ -2703,6 +2985,7 @@ export class _SavedImportConfigSearch extends Model({
     if (!this.savedSearches.some((s) => s.id === id)) await this.loadSavedSearches();
 
     const savedSearch = this.savedSearches.find((s) => s.id === id);
+
     if (!savedSearch) return;
 
     this.applySearchProps(derefMobx(savedSearch.filterProps));
@@ -2715,9 +2998,11 @@ export class _SavedImportConfigSearch extends Model({
     if (!id) return;
 
     const res = await trpc.deleteSavedSearch.mutate({ args: { ids: [id] } });
+
     if (!res.success) throw new Error(res.error);
 
     await this.loadSavedSearches();
+
     if (this.selectedSavedSearchId === id) this.setSelectedSavedSearchId("");
 
     this.setIsDeleteModalOpen(false);
@@ -2740,6 +3025,8 @@ export class _SavedImportConfigSearch extends Model({
         this.results.length > 0;
 
       if (canResolveLocally) {
+        if (!selectedIds.length) return { idsToDeselect: [], idsToSelect: [id] };
+
         const firstSelected = selectedLocalIndexes.reduce(
           (min, index) => Math.min(min, index),
           Infinity,
@@ -2748,6 +3035,7 @@ export class _SavedImportConfigSearch extends Model({
           (max, index) => Math.max(max, index),
           -Infinity,
         );
+
         if (firstSelected === clickedLocalIndex) return { idsToDeselect: [id], idsToSelect: [] };
 
         const isFirstAfterClicked = firstSelected > clickedLocalIndex;
@@ -2763,21 +3051,31 @@ export class _SavedImportConfigSearch extends Model({
         return { idsToDeselect, idsToSelect };
       }
 
-      const clickedIndex = (this.page - 1) * this.pageSize + clickedLocalIndex;
+      const loadId = this.loadId + 1;
 
+      this.setLoadId(loadId);
       this.setIsLoading(true);
+      this.setIsPageCountLoading(false);
 
-      const res = await trpc.getShiftSelectedSavedImportConfig.mutate({
-        ...this.cachedFilterProps,
-        clickedId: id,
-        clickedIndex,
-        selectedIds,
-      });
-      this.setIsLoading(false);
+      try {
+        const res = await trpc.getShiftSelectedSavedImportConfig.mutate({
+          ...this.cachedFilterProps,
+          clickedId: id,
+          selectedIds,
+        });
 
-      if (!res.success) throw new Error(res.error);
+        if (loadId !== this.loadId) return null;
 
-      return res.data;
+        if (!res.success) throw new Error(res.error);
+
+        return res.data;
+      } catch (error) {
+        if (loadId === this.loadId) throw error;
+
+        return null;
+      } finally {
+        if (loadId === this.loadId) this.setIsLoading(false);
+      }
     },
   );
 
@@ -2786,46 +3084,72 @@ export class _SavedImportConfigSearch extends Model({
     async ({ hasCtrl, hasShift, id }: { hasCtrl: boolean; hasShift: boolean; id: string }) => {
       if (hasShift) {
         const res = await this.getShiftSelected({ id, selectedIds: this.selectedIds });
+
         if (!res?.success) throw new Error(res.error);
 
-        this.toggleSelected([
-          ...res.data.idsToDeselect.map((i) => ({ id: i, isSelected: false })),
-          ...res.data.idsToSelect.map((i) => ({ id: i, isSelected: true })),
-        ]);
+        if (res.data) {
+          this.toggleSelected([
+            ...res.data.idsToDeselect.map((i) => ({ id: i, isSelected: false })),
+            ...res.data.idsToSelect.map((i) => ({ id: i, isSelected: true })),
+          ]);
+        }
       } else if (hasCtrl) {
         this.toggleSelected([{ id, isSelected: !this.getIsSelected(id) }]);
       } else {
-        this.toggleSelected([
-          ...this.selectedIds.map((id) => ({ id, isSelected: false })),
-          { id, isSelected: true },
-        ]);
+        this.selectedIds = [id];
       }
     },
   );
 
   @modelFlow
   selectAllInQuery = asyncAction(async () => {
-    const countRes = await trpc.getFilteredSavedImportConfigCount.mutate({
-      ...this.getFilterProps(),
-      curMaxPage: this.pageCount,
-      page: this.page,
-      pageSize: this.pageSize,
-      withFull: true,
-    });
-    if (!countRes.success) throw new Error(countRes.error);
-    if (countRes.data.count === 0) return 0;
+    const filterProps = this.cachedFilterProps ?? this.getFilterProps();
+    const loadId = this.loadId + 1;
 
-    const res = await trpc.listFilteredSavedImportConfig.mutate({
-      ...this.getFilterProps(),
-      page: 1,
-      pageSize: countRes.data.count,
-      select: { _id: 1 },
-    });
-    if (!res.success) throw new Error(res.error);
+    this.setLoadId(loadId);
+    this.setIsLoading(true);
+    this.setIsPageCountLoading(false);
 
-    this.toggleSelected(res.data.map(({ id }) => ({ id, isSelected: true })));
+    try {
+      const countRes = await trpc.getFilteredSavedImportConfigCount.mutate({
+        ...filterProps,
+        curMaxPage: this.pageCount,
+        forcePages: this.forcePages,
+        page: this.page,
+        pageSize: this.pageSize,
+        withFull: true,
+      });
 
-    return res.data.length;
+      if (loadId !== this.loadId) return null;
+
+      if (!countRes.success) throw new Error(countRes.error);
+
+      if (countRes.data.count === 0) return 0;
+
+      const res = await trpc.listFilteredSavedImportConfig.mutate({
+        ...filterProps,
+        forcePages: this.forcePages,
+        page: 1,
+        pageSize: countRes.data.count,
+        select: { _id: 1 },
+      });
+
+      if (loadId !== this.loadId) return null;
+
+      if (!res.success) throw new Error(res.error);
+
+      const items = res.data;
+
+      this.toggleSelected(items.map(({ id }) => ({ id, isSelected: true })));
+
+      return items.length;
+    } catch (error) {
+      if (loadId === this.loadId) throw error;
+
+      return null;
+    } finally {
+      if (loadId === this.loadId) this.setIsLoading(false);
+    }
   });
 
   @modelFlow
@@ -2844,6 +3168,7 @@ export class _SavedImportConfigSearch extends Model({
       const debug = false;
       const { perfLog } = makePerfLog("[SavedImportConfigSearch]");
       const loadId = this.loadId + 1;
+
       this.setLoadId(loadId);
       this.setIsLoading(true);
       this.setIsPageCountLoading(true);
@@ -2851,6 +3176,7 @@ export class _SavedImportConfigSearch extends Model({
       try {
         const shouldCacheFilterProps = noCache || !this.cachedFilterProps;
         const filterProps = shouldCacheFilterProps ? this.getFilterProps() : this.cachedFilterProps;
+
         const exactCount = withFullCount || toLastPage;
         let nextPageCount = this.pageCount;
 
@@ -2858,11 +3184,14 @@ export class _SavedImportConfigSearch extends Model({
           const countRes = await trpc.getFilteredSavedImportConfigCount.mutate({
             ...filterProps,
             curMaxPage: this.pageCount,
+            forcePages: this.forcePages,
             page,
             pageSize: this.pageSize,
             withFull: true,
           });
+
           if (loadId !== this.loadId) return;
+
           if (!countRes.success) throw new Error(countRes.error);
 
           nextPageCount = countRes.data.pageCount;
@@ -2880,10 +3209,13 @@ export class _SavedImportConfigSearch extends Model({
           page: newPage,
           pageSize: this.pageSize,
         });
+
         if (loadId !== this.loadId) return;
+
         if (!itemsRes.success) throw new Error(itemsRes.error);
 
         let items = itemsRes.data;
+
         if (debug) perfLog(`Loaded ${items.length} items`);
 
         const results = items;
@@ -2891,6 +3223,7 @@ export class _SavedImportConfigSearch extends Model({
         if (loadId !== this.loadId) return;
 
         this.setResults(results.map((result) => new Stores.SavedImportConfig(result)));
+
         if (shouldCacheFilterProps) this.setCachedFilterProps(derefMobx(filterProps));
 
         if (exactCount) {
@@ -2899,37 +3232,43 @@ export class _SavedImportConfigSearch extends Model({
         }
 
         this.setPage(newPage);
+
         if (debug) perfLog("Overwrite and re-render");
 
         this.setIsLoading(false);
+
         if (noCache) this.setHasChanges(false);
 
         if (!exactCount) {
-          trpc.getFilteredSavedImportConfigCount
-            .mutate({
-              ...filterProps,
-              curMaxPage: this.pageCount,
-              page: newPage,
-              pageSize: this.pageSize,
-              withFull: withFullCount,
-            })
-            .then((countRes) => {
+          (async () => {
+            try {
+              const countRes = await trpc.getFilteredSavedImportConfigCount.mutate({
+                ...filterProps,
+                curMaxPage: this.pageCount,
+                forcePages: this.forcePages,
+                page: newPage,
+                pageSize: this.pageSize,
+                withFull: withFullCount,
+              });
+
               if (loadId !== this.loadId) return;
 
               this.setIsPageCountLoading(false);
+
               if (!countRes.success) return console.error(countRes.error);
 
               const pageCount = countRes.data.pageCount;
 
               this.setPageCount(pageCount);
+
               if (debug) perfLog(`Set pageCount to ${pageCount}`);
-            })
-            .catch((error) => {
+            } catch (error) {
               if (loadId !== this.loadId) return;
 
               this.setIsPageCountLoading(false);
               console.error(error);
-            });
+            }
+          })();
         }
 
         return results;
@@ -2938,6 +3277,7 @@ export class _SavedImportConfigSearch extends Model({
 
         this.setIsLoading(false);
         this.setIsPageCountLoading(false);
+
         throw error;
       }
     },
@@ -2953,6 +3293,7 @@ export class _SavedImportConfigSearch extends Model({
         sort: { label: "asc" },
       },
     });
+
     if (!res.success) throw new Error(res.error);
 
     this.setSavedSearches(res.data.items.map((result) => new Stores.SavedSearch(result)));
@@ -2963,6 +3304,7 @@ export class _SavedImportConfigSearch extends Model({
   @modelFlow
   saveSavedSearch = asyncAction(async (label: string) => {
     const trimmedLabel = label.trim();
+
     if (!trimmedLabel) throw new Error("Saved search label is required");
 
     const existing = this.savedSearches.find((s) => s.label === trimmedLabel);
@@ -2973,6 +3315,7 @@ export class _SavedImportConfigSearch extends Model({
       const res = await trpc.updateSavedSearch.mutate({
         args: { id: selected.id, updates: { filterProps, label: trimmedLabel } },
       });
+
       if (!res.success) throw new Error(res.error);
 
       await this.loadSavedSearches();
@@ -2987,6 +3330,7 @@ export class _SavedImportConfigSearch extends Model({
       const res = await trpc.updateSavedSearch.mutate({
         args: { id: existing.id, updates: { filterProps } },
       });
+
       if (!res.success) throw new Error(res.error);
 
       await this.loadSavedSearches();
@@ -3005,6 +3349,7 @@ export class _SavedImportConfigSearch extends Model({
         searchType: "SavedImportConfig",
       },
     });
+
     if (!res.success) throw new Error(res.error);
 
     await this.loadSavedSearches();
@@ -3028,6 +3373,16 @@ export class _SavedImportConfigSearch extends Model({
     );
   }
 
+  @computed({ keepAlive: true })
+  get resultsById() {
+    return new Map(this.results.map((result) => [result.id, result]));
+  }
+
+  @computed({ keepAlive: true })
+  get selectedIdSet() {
+    return new Set(this.selectedIds);
+  }
+
   /* DYNAMIC GETTERS */
   getCachedFilterProps() {
     if (!this.cachedFilterProps) this.setCachedFilterProps(derefMobx(this.getFilterProps()));
@@ -3048,11 +3403,11 @@ export class _SavedImportConfigSearch extends Model({
   }
 
   getIsSelected(id: string) {
-    return !!this.selectedIds.find((s) => s === id);
+    return this.selectedIdSet.has(id);
   }
 
   getResult(id: string) {
-    return this.results.find((r) => r.id === id);
+    return this.resultsById.get(id);
   }
 
   getSearchProps() {
@@ -3260,19 +3615,20 @@ export class _TagSearch extends Model({
   toggleSelected(selected: { id: string; isSelected?: boolean }[], withToast = false) {
     if (!selected?.length) return;
 
-    const [added, removed] = selected.reduce(
-      (acc, cur) => (acc[cur.isSelected ? 0 : 1].push(cur.id), acc),
-      [[], []],
-    );
+    const previous = this.selectedIdSet;
+    const next = new Set(previous);
 
-    const removedSet = new Set(removed);
-    this.selectedIds = [...new Set(this.selectedIds.concat(added))].filter(
-      (id) => !removedSet.has(id),
-    );
+    for (const { id, isSelected } of selected) {
+      if (isSelected) next.add(id);
+      else next.delete(id);
+    }
+
+    this.selectedIds = [...next];
 
     if (withToast) {
-      const addedCount = added.length;
-      const removedCount = removed.length;
+      const addedCount = [...next].filter((id) => !previous.has(id)).length;
+      const removedCount = [...previous].filter((id) => !next.has(id)).length;
+
       if (addedCount && removedCount)
         toast.success(`Selected ${addedCount} items and deselected ${removedCount} items`);
       else if (addedCount) toast.success(`Selected ${addedCount} items`);
@@ -3286,6 +3642,7 @@ export class _TagSearch extends Model({
     if (!this.savedSearches.some((s) => s.id === id)) await this.loadSavedSearches();
 
     const savedSearch = this.savedSearches.find((s) => s.id === id);
+
     if (!savedSearch) return;
 
     this.applySearchProps(derefMobx(savedSearch.filterProps));
@@ -3298,9 +3655,11 @@ export class _TagSearch extends Model({
     if (!id) return;
 
     const res = await trpc.deleteSavedSearch.mutate({ args: { ids: [id] } });
+
     if (!res.success) throw new Error(res.error);
 
     await this.loadSavedSearches();
+
     if (this.selectedSavedSearchId === id) this.setSelectedSavedSearchId("");
 
     this.setIsDeleteModalOpen(false);
@@ -3323,6 +3682,8 @@ export class _TagSearch extends Model({
         this.results.length > 0;
 
       if (canResolveLocally) {
+        if (!selectedIds.length) return { idsToDeselect: [], idsToSelect: [id] };
+
         const firstSelected = selectedLocalIndexes.reduce(
           (min, index) => Math.min(min, index),
           Infinity,
@@ -3331,6 +3692,7 @@ export class _TagSearch extends Model({
           (max, index) => Math.max(max, index),
           -Infinity,
         );
+
         if (firstSelected === clickedLocalIndex) return { idsToDeselect: [id], idsToSelect: [] };
 
         const isFirstAfterClicked = firstSelected > clickedLocalIndex;
@@ -3346,21 +3708,31 @@ export class _TagSearch extends Model({
         return { idsToDeselect, idsToSelect };
       }
 
-      const clickedIndex = (this.page - 1) * this.pageSize + clickedLocalIndex;
+      const loadId = this.loadId + 1;
 
+      this.setLoadId(loadId);
       this.setIsLoading(true);
+      this.setIsPageCountLoading(false);
 
-      const res = await trpc.getShiftSelectedTag.mutate({
-        ...this.cachedFilterProps,
-        clickedId: id,
-        clickedIndex,
-        selectedIds,
-      });
-      this.setIsLoading(false);
+      try {
+        const res = await trpc.getShiftSelectedTag.mutate({
+          ...this.cachedFilterProps,
+          clickedId: id,
+          selectedIds,
+        });
 
-      if (!res.success) throw new Error(res.error);
+        if (loadId !== this.loadId) return null;
 
-      return res.data;
+        if (!res.success) throw new Error(res.error);
+
+        return res.data;
+      } catch (error) {
+        if (loadId === this.loadId) throw error;
+
+        return null;
+      } finally {
+        if (loadId === this.loadId) this.setIsLoading(false);
+      }
     },
   );
 
@@ -3369,46 +3741,72 @@ export class _TagSearch extends Model({
     async ({ hasCtrl, hasShift, id }: { hasCtrl: boolean; hasShift: boolean; id: string }) => {
       if (hasShift) {
         const res = await this.getShiftSelected({ id, selectedIds: this.selectedIds });
+
         if (!res?.success) throw new Error(res.error);
 
-        this.toggleSelected([
-          ...res.data.idsToDeselect.map((i) => ({ id: i, isSelected: false })),
-          ...res.data.idsToSelect.map((i) => ({ id: i, isSelected: true })),
-        ]);
+        if (res.data) {
+          this.toggleSelected([
+            ...res.data.idsToDeselect.map((i) => ({ id: i, isSelected: false })),
+            ...res.data.idsToSelect.map((i) => ({ id: i, isSelected: true })),
+          ]);
+        }
       } else if (hasCtrl) {
         this.toggleSelected([{ id, isSelected: !this.getIsSelected(id) }]);
       } else {
-        this.toggleSelected([
-          ...this.selectedIds.map((id) => ({ id, isSelected: false })),
-          { id, isSelected: true },
-        ]);
+        this.selectedIds = [id];
       }
     },
   );
 
   @modelFlow
   selectAllInQuery = asyncAction(async () => {
-    const countRes = await trpc.getFilteredTagCount.mutate({
-      ...this.getFilterProps(),
-      curMaxPage: this.pageCount,
-      page: this.page,
-      pageSize: this.pageSize,
-      withFull: true,
-    });
-    if (!countRes.success) throw new Error(countRes.error);
-    if (countRes.data.count === 0) return 0;
+    const filterProps = this.cachedFilterProps ?? this.getFilterProps();
+    const loadId = this.loadId + 1;
 
-    const res = await trpc.listFilteredTag.mutate({
-      ...this.getFilterProps(),
-      page: 1,
-      pageSize: countRes.data.count,
-      select: { _id: 1 },
-    });
-    if (!res.success) throw new Error(res.error);
+    this.setLoadId(loadId);
+    this.setIsLoading(true);
+    this.setIsPageCountLoading(false);
 
-    this.toggleSelected(res.data.map(({ id }) => ({ id, isSelected: true })));
+    try {
+      const countRes = await trpc.getFilteredTagCount.mutate({
+        ...filterProps,
+        curMaxPage: this.pageCount,
+        forcePages: this.forcePages,
+        page: this.page,
+        pageSize: this.pageSize,
+        withFull: true,
+      });
 
-    return res.data.length;
+      if (loadId !== this.loadId) return null;
+
+      if (!countRes.success) throw new Error(countRes.error);
+
+      if (countRes.data.count === 0) return 0;
+
+      const res = await trpc.listFilteredTag.mutate({
+        ...filterProps,
+        forcePages: this.forcePages,
+        page: 1,
+        pageSize: countRes.data.count,
+        select: { _id: 1 },
+      });
+
+      if (loadId !== this.loadId) return null;
+
+      if (!res.success) throw new Error(res.error);
+
+      const items = res.data;
+
+      this.toggleSelected(items.map(({ id }) => ({ id, isSelected: true })));
+
+      return items.length;
+    } catch (error) {
+      if (loadId === this.loadId) throw error;
+
+      return null;
+    } finally {
+      if (loadId === this.loadId) this.setIsLoading(false);
+    }
   });
 
   @modelFlow
@@ -3427,6 +3825,7 @@ export class _TagSearch extends Model({
       const debug = false;
       const { perfLog } = makePerfLog("[TagSearch]");
       const loadId = this.loadId + 1;
+
       this.setLoadId(loadId);
       this.setIsLoading(true);
       this.setIsPageCountLoading(true);
@@ -3434,6 +3833,7 @@ export class _TagSearch extends Model({
       try {
         const shouldCacheFilterProps = noCache || !this.cachedFilterProps;
         const filterProps = shouldCacheFilterProps ? this.getFilterProps() : this.cachedFilterProps;
+
         const exactCount = withFullCount || toLastPage;
         let nextPageCount = this.pageCount;
 
@@ -3441,11 +3841,14 @@ export class _TagSearch extends Model({
           const countRes = await trpc.getFilteredTagCount.mutate({
             ...filterProps,
             curMaxPage: this.pageCount,
+            forcePages: this.forcePages,
             page,
             pageSize: this.pageSize,
             withFull: true,
           });
+
           if (loadId !== this.loadId) return;
+
           if (!countRes.success) throw new Error(countRes.error);
 
           nextPageCount = countRes.data.pageCount;
@@ -3463,10 +3866,13 @@ export class _TagSearch extends Model({
           page: newPage,
           pageSize: this.pageSize,
         });
+
         if (loadId !== this.loadId) return;
+
         if (!itemsRes.success) throw new Error(itemsRes.error);
 
         let items = itemsRes.data;
+
         if (debug) perfLog(`Loaded ${items.length} items`);
 
         const results = await trpc.deriveTagCategories.mutate(items);
@@ -3474,6 +3880,7 @@ export class _TagSearch extends Model({
         if (loadId !== this.loadId) return;
 
         this.setResults(results.map((result) => new Stores.Tag(result)));
+
         if (shouldCacheFilterProps) this.setCachedFilterProps(derefMobx(filterProps));
 
         if (exactCount) {
@@ -3482,37 +3889,43 @@ export class _TagSearch extends Model({
         }
 
         this.setPage(newPage);
+
         if (debug) perfLog("Overwrite and re-render");
 
         this.setIsLoading(false);
+
         if (noCache) this.setHasChanges(false);
 
         if (!exactCount) {
-          trpc.getFilteredTagCount
-            .mutate({
-              ...filterProps,
-              curMaxPage: this.pageCount,
-              page: newPage,
-              pageSize: this.pageSize,
-              withFull: withFullCount,
-            })
-            .then((countRes) => {
+          (async () => {
+            try {
+              const countRes = await trpc.getFilteredTagCount.mutate({
+                ...filterProps,
+                curMaxPage: this.pageCount,
+                forcePages: this.forcePages,
+                page: newPage,
+                pageSize: this.pageSize,
+                withFull: withFullCount,
+              });
+
               if (loadId !== this.loadId) return;
 
               this.setIsPageCountLoading(false);
+
               if (!countRes.success) return console.error(countRes.error);
 
               const pageCount = countRes.data.pageCount;
 
               this.setPageCount(pageCount);
+
               if (debug) perfLog(`Set pageCount to ${pageCount}`);
-            })
-            .catch((error) => {
+            } catch (error) {
               if (loadId !== this.loadId) return;
 
               this.setIsPageCountLoading(false);
               console.error(error);
-            });
+            }
+          })();
         }
 
         return results;
@@ -3521,6 +3934,7 @@ export class _TagSearch extends Model({
 
         this.setIsLoading(false);
         this.setIsPageCountLoading(false);
+
         throw error;
       }
     },
@@ -3536,6 +3950,7 @@ export class _TagSearch extends Model({
         sort: { label: "asc" },
       },
     });
+
     if (!res.success) throw new Error(res.error);
 
     this.setSavedSearches(res.data.items.map((result) => new Stores.SavedSearch(result)));
@@ -3546,6 +3961,7 @@ export class _TagSearch extends Model({
   @modelFlow
   saveSavedSearch = asyncAction(async (label: string) => {
     const trimmedLabel = label.trim();
+
     if (!trimmedLabel) throw new Error("Saved search label is required");
 
     const existing = this.savedSearches.find((s) => s.label === trimmedLabel);
@@ -3556,6 +3972,7 @@ export class _TagSearch extends Model({
       const res = await trpc.updateSavedSearch.mutate({
         args: { id: selected.id, updates: { filterProps, label: trimmedLabel } },
       });
+
       if (!res.success) throw new Error(res.error);
 
       await this.loadSavedSearches();
@@ -3570,6 +3987,7 @@ export class _TagSearch extends Model({
       const res = await trpc.updateSavedSearch.mutate({
         args: { id: existing.id, updates: { filterProps } },
       });
+
       if (!res.success) throw new Error(res.error);
 
       await this.loadSavedSearches();
@@ -3588,6 +4006,7 @@ export class _TagSearch extends Model({
         searchType: "Tag",
       },
     });
+
     if (!res.success) throw new Error(res.error);
 
     await this.loadSavedSearches();
@@ -3622,6 +4041,16 @@ export class _TagSearch extends Model({
       (!isDeepEqual(this.tags, []) ? 1 : 0) +
       (!isDeepEqual(this.title, "") ? 1 : 0)
     );
+  }
+
+  @computed({ keepAlive: true })
+  get resultsById() {
+    return new Map(this.results.map((result) => [result.id, result]));
+  }
+
+  @computed({ keepAlive: true })
+  get selectedIdSet() {
+    return new Set(this.selectedIds);
   }
 
   /* DYNAMIC GETTERS */
@@ -3667,11 +4096,11 @@ export class _TagSearch extends Model({
   }
 
   getIsSelected(id: string) {
-    return !!this.selectedIds.find((s) => s === id);
+    return this.selectedIdSet.has(id);
   }
 
   getResult(id: string) {
-    return this.results.find((r) => r.id === id);
+    return this.resultsById.get(id);
   }
 
   getSearchProps() {
@@ -3745,8 +4174,10 @@ export class _BackgroundOperation extends Model({
     | "collectionMetadata"
     | "duplicateMerge"
     | "fileTagAncestors"
+    | "importEntryMigration"
     | "mediaPathIndex"
     | "metadataAction"
+    | "persistenceMigration"
     | "repair"
     | "tagHierarchy"
     | "tagMetadata"
@@ -3771,7 +4202,9 @@ export class _BackgroundOperationStore extends Model({
     this.setIsLoading(true);
 
     const res = await trpc.createBackgroundOperation.mutate({ args });
+
     this.setIsLoading(false);
+
     if (res.error) throw new Error(res.error);
 
     return res.data;
@@ -3782,7 +4215,9 @@ export class _BackgroundOperationStore extends Model({
     this.setIsLoading(true);
 
     const res = await trpc.deleteBackgroundOperation.mutate({ args });
+
     this.setIsLoading(false);
+
     if (res.error) throw new Error(res.error);
 
     return res.data;
@@ -3793,7 +4228,9 @@ export class _BackgroundOperationStore extends Model({
     this.setIsLoading(true);
 
     const res = await trpc.updateBackgroundOperation.mutate({ args });
+
     this.setIsLoading(false);
+
     if (res.error) throw new Error(res.error);
 
     return res.data;
@@ -3823,7 +4260,9 @@ export class _DeletedFileStore extends Model({ isLoading: prop<boolean>(false).w
     this.setIsLoading(true);
 
     const res = await trpc.createDeletedFile.mutate({ args });
+
     this.setIsLoading(false);
+
     if (res.error) throw new Error(res.error);
 
     return res.data;
@@ -3834,7 +4273,9 @@ export class _DeletedFileStore extends Model({ isLoading: prop<boolean>(false).w
     this.setIsLoading(true);
 
     const res = await trpc.deleteDeletedFile.mutate({ args });
+
     this.setIsLoading(false);
+
     if (res.error) throw new Error(res.error);
 
     return res.data;
@@ -3845,7 +4286,9 @@ export class _DeletedFileStore extends Model({ isLoading: prop<boolean>(false).w
     this.setIsLoading(true);
 
     const res = await trpc.updateDeletedFile.mutate({ args });
+
     this.setIsLoading(false);
+
     if (res.error) throw new Error(res.error);
 
     return res.data;
@@ -3885,7 +4328,9 @@ export class _FileCollectionStore extends Model({ isLoading: prop<boolean>(false
     this.setIsLoading(true);
 
     const res = await trpc.createFileCollection.mutate({ args });
+
     this.setIsLoading(false);
+
     if (res.error) throw new Error(res.error);
 
     return res.data;
@@ -3896,7 +4341,9 @@ export class _FileCollectionStore extends Model({ isLoading: prop<boolean>(false
     this.setIsLoading(true);
 
     const res = await trpc.deleteFileCollection.mutate({ args });
+
     this.setIsLoading(false);
+
     if (res.error) throw new Error(res.error);
 
     return res.data;
@@ -3907,12 +4354,49 @@ export class _FileCollectionStore extends Model({ isLoading: prop<boolean>(false
     this.setIsLoading(true);
 
     const res = await trpc.updateFileCollection.mutate({ args });
+
     this.setIsLoading(false);
+
     if (res.error) throw new Error(res.error);
 
     return res.data;
   });
 }
+/* --------------------------------------------------------------------------- */
+/*                               FileImport
+/* --------------------------------------------------------------------------- */
+
+@model("medior/_FileImport")
+export class _FileImport extends Model({
+  batchId: prop<string>(null),
+  dateCreated: prop<string>(),
+  diffusionParams: prop<string>(null),
+  errorMsg: prop<string>(null),
+  extension: prop<string>(),
+  fileId: prop<string>(null),
+  hash: prop<string>(null),
+  id: prop<string>(null),
+  index: prop<number>(null),
+  name: prop<string>(),
+  path: prop<string>(),
+  progressRevision: prop<number>(0),
+  size: prop<number>(),
+  status: prop<string | "COMPLETE" | "DELETED" | "DUPLICATE" | "ERROR" | "PENDING">("PENDING"),
+  tagIds: prop<string[]>(() => []),
+  thumb: prop<{
+    frameHeight?: number;
+    frameWidth?: number;
+    ntfsFileId?: string;
+    ntfsVolumeId?: string;
+    path: string;
+  }>(null),
+}) {
+  @modelAction
+  update(updates: Partial<ModelCreationData<this>>) {
+    applySnapshot(this, { ...getSnapshot(this), ...updates });
+  }
+}
+
 /* --------------------------------------------------------------------------- */
 /*                               FileImportBatch
 /* --------------------------------------------------------------------------- */
@@ -3928,40 +4412,19 @@ export class _FileImportBatch extends Model({
   fileCount: prop<number>(0),
   id: prop<string>(),
   ignorePrevDeleted: prop<boolean>(),
-  imports: prop<Stores.FileImport[]>(() => []),
   isCompleted: prop<boolean>(false),
+  isReady: prop<boolean>(false),
+  lastUploadHash: prop<string>(null),
+  lastUploadOffset: prop<number>(null),
+  processedCount: prop<number>(0),
+  processedSize: prop<number>(0),
+  progressRevision: prop<number>(0),
   rootFolderPath: prop<string>(),
   size: prop<number>(null),
+  sourceFolderPath: prop<string>(null),
   startedAt: prop<string>(null),
   tagIds: prop<string[]>(() => []),
   tagIdsWithAncestors: prop<string[]>(() => []),
-}) {
-  @modelAction
-  update(updates: Partial<ModelCreationData<this>>) {
-    applySnapshot(this, { ...getSnapshot(this), ...updates });
-  }
-}
-
-@model("medior/_FileImport")
-export class _FileImport extends Model({
-  dateCreated: prop<string>(),
-  diffusionParams: prop<string>(null),
-  errorMsg: prop<string>(null),
-  extension: prop<string>(),
-  fileId: prop<string>(null),
-  hash: prop<string>(null),
-  name: prop<string>(),
-  path: prop<string>(),
-  size: prop<number>(),
-  status: prop<string | "COMPLETE" | "DELETED" | "DUPLICATE" | "ERROR" | "PENDING">(null),
-  tagIds: prop<string[]>(null),
-  thumb: prop<{
-    frameHeight?: number;
-    frameWidth?: number;
-    ntfsFileId?: string;
-    ntfsVolumeId?: string;
-    path: string;
-  }>(null),
 }) {
   @modelAction
   update(updates: Partial<ModelCreationData<this>>) {
@@ -3977,7 +4440,9 @@ export class _FileImportBatchStore extends Model({ isLoading: prop<boolean>(fals
     this.setIsLoading(true);
 
     const res = await trpc.createFileImportBatch.mutate({ args });
+
     this.setIsLoading(false);
+
     if (res.error) throw new Error(res.error);
 
     return res.data;
@@ -3988,7 +4453,9 @@ export class _FileImportBatchStore extends Model({ isLoading: prop<boolean>(fals
     this.setIsLoading(true);
 
     const res = await trpc.deleteFileImportBatch.mutate({ args });
+
     this.setIsLoading(false);
+
     if (res.error) throw new Error(res.error);
 
     return res.data;
@@ -3999,7 +4466,9 @@ export class _FileImportBatchStore extends Model({ isLoading: prop<boolean>(fals
     this.setIsLoading(true);
 
     const res = await trpc.updateFileImportBatch.mutate({ args });
+
     this.setIsLoading(false);
+
     if (res.error) throw new Error(res.error);
 
     return res.data;
@@ -4092,7 +4561,9 @@ export class _FileTransformStore extends Model({ isLoading: prop<boolean>(false)
     this.setIsLoading(true);
 
     const res = await trpc.createFileTransform.mutate({ args });
+
     this.setIsLoading(false);
+
     if (res.error) throw new Error(res.error);
 
     return res.data;
@@ -4103,7 +4574,9 @@ export class _FileTransformStore extends Model({ isLoading: prop<boolean>(false)
     this.setIsLoading(true);
 
     const res = await trpc.deleteFileTransform.mutate({ args });
+
     this.setIsLoading(false);
+
     if (res.error) throw new Error(res.error);
 
     return res.data;
@@ -4114,7 +4587,9 @@ export class _FileTransformStore extends Model({ isLoading: prop<boolean>(false)
     this.setIsLoading(true);
 
     const res = await trpc.updateFileTransform.mutate({ args });
+
     this.setIsLoading(false);
+
     if (res.error) throw new Error(res.error);
 
     return res.data;
@@ -4198,7 +4673,9 @@ export class _FileStore extends Model({ isLoading: prop<boolean>(false).withSett
     this.setIsLoading(true);
 
     const res = await trpc.createFile.mutate({ args });
+
     this.setIsLoading(false);
+
     if (res.error) throw new Error(res.error);
 
     return res.data;
@@ -4209,7 +4686,9 @@ export class _FileStore extends Model({ isLoading: prop<boolean>(false).withSett
     this.setIsLoading(true);
 
     const res = await trpc.deleteFile.mutate({ args });
+
     this.setIsLoading(false);
+
     if (res.error) throw new Error(res.error);
 
     return res.data;
@@ -4220,7 +4699,9 @@ export class _FileStore extends Model({ isLoading: prop<boolean>(false).withSett
     this.setIsLoading(true);
 
     const res = await trpc.updateFile.mutate({ args });
+
     this.setIsLoading(false);
+
     if (res.error) throw new Error(res.error);
 
     return res.data;
@@ -4252,7 +4733,9 @@ export class _NotificationStore extends Model({ isLoading: prop<boolean>(false).
     this.setIsLoading(true);
 
     const res = await trpc.createNotification.mutate({ args });
+
     this.setIsLoading(false);
+
     if (res.error) throw new Error(res.error);
 
     return res.data;
@@ -4263,7 +4746,9 @@ export class _NotificationStore extends Model({ isLoading: prop<boolean>(false).
     this.setIsLoading(true);
 
     const res = await trpc.deleteNotification.mutate({ args });
+
     this.setIsLoading(false);
+
     if (res.error) throw new Error(res.error);
 
     return res.data;
@@ -4274,7 +4759,9 @@ export class _NotificationStore extends Model({ isLoading: prop<boolean>(false).
     this.setIsLoading(true);
 
     const res = await trpc.updateNotification.mutate({ args });
+
     this.setIsLoading(false);
+
     if (res.error) throw new Error(res.error);
 
     return res.data;
@@ -4309,7 +4796,9 @@ export class _SavedImportConfigStore extends Model({
     this.setIsLoading(true);
 
     const res = await trpc.createSavedImportConfig.mutate({ args });
+
     this.setIsLoading(false);
+
     if (res.error) throw new Error(res.error);
 
     return res.data;
@@ -4320,7 +4809,9 @@ export class _SavedImportConfigStore extends Model({
     this.setIsLoading(true);
 
     const res = await trpc.deleteSavedImportConfig.mutate({ args });
+
     this.setIsLoading(false);
+
     if (res.error) throw new Error(res.error);
 
     return res.data;
@@ -4331,7 +4822,9 @@ export class _SavedImportConfigStore extends Model({
     this.setIsLoading(true);
 
     const res = await trpc.updateSavedImportConfig.mutate({ args });
+
     this.setIsLoading(false);
+
     if (res.error) throw new Error(res.error);
 
     return res.data;
@@ -4363,7 +4856,9 @@ export class _SavedSearchStore extends Model({ isLoading: prop<boolean>(false).w
     this.setIsLoading(true);
 
     const res = await trpc.createSavedSearch.mutate({ args });
+
     this.setIsLoading(false);
+
     if (res.error) throw new Error(res.error);
 
     return res.data;
@@ -4374,7 +4869,9 @@ export class _SavedSearchStore extends Model({ isLoading: prop<boolean>(false).w
     this.setIsLoading(true);
 
     const res = await trpc.deleteSavedSearch.mutate({ args });
+
     this.setIsLoading(false);
+
     if (res.error) throw new Error(res.error);
 
     return res.data;
@@ -4385,7 +4882,9 @@ export class _SavedSearchStore extends Model({ isLoading: prop<boolean>(false).w
     this.setIsLoading(true);
 
     const res = await trpc.updateSavedSearch.mutate({ args });
+
     this.setIsLoading(false);
+
     if (res.error) throw new Error(res.error);
 
     return res.data;
@@ -4435,7 +4934,9 @@ export class _TagStore extends Model({ isLoading: prop<boolean>(false).withSette
     this.setIsLoading(true);
 
     const res = await trpc._createTag.mutate({ args });
+
     this.setIsLoading(false);
+
     if (res.error) throw new Error(res.error);
 
     return res.data;
@@ -4446,7 +4947,9 @@ export class _TagStore extends Model({ isLoading: prop<boolean>(false).withSette
     this.setIsLoading(true);
 
     const res = await trpc._deleteTag.mutate({ args });
+
     this.setIsLoading(false);
+
     if (res.error) throw new Error(res.error);
 
     return res.data;
@@ -4457,7 +4960,9 @@ export class _TagStore extends Model({ isLoading: prop<boolean>(false).withSette
     this.setIsLoading(true);
 
     const res = await trpc.updateTag.mutate({ args });
+
     this.setIsLoading(false);
+
     if (res.error) throw new Error(res.error);
 
     return res.data;

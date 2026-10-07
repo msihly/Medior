@@ -1,5 +1,5 @@
 import autoBind from "auto-bind";
-import { Model, model, modelAction, ModelCreationData, modelFlow, prop } from "mobx-keystone";
+import { Model, model, modelAction, modelFlow, prop } from "mobx-keystone";
 import { asyncAction } from "trabecula/utils/client";
 import { dayjs } from "medior/utils/common";
 import { trpc } from "medior/utils/server";
@@ -10,11 +10,7 @@ import {
   SavedImportConfig,
   SavedImportConfigSearch,
 } from "../saved-import-config";
-import { FileImport, FileImportBatch, ImportManager, Ingester, Reingester } from ".";
-
-export type ImportBatchInput = Omit<ModelCreationData<FileImportBatch>, "imports"> & {
-  imports?: ModelCreationData<FileImport>[];
-};
+import { ImportManager, Ingester, Reingester } from ".";
 
 @model("medior/ImportStore")
 export class ImportStore extends Model({
@@ -39,6 +35,7 @@ export class ImportStore extends Model({
   @modelFlow
   loadDeletedFiles = asyncAction(async () => {
     const res = await trpc.listDeletedFiles.mutate();
+
     if (res.success) this.deletedFileHashes = res.data.map((f) => f.hash);
   });
 
@@ -47,6 +44,7 @@ export class ImportStore extends Model({
     const res = await trpc.listSavedImportConfig.mutate({
       args: { page: 1, pageSize: 1000, sort: { dateModified: "desc" } },
     });
+
     if (!res.success) throw new Error(res.error);
 
     this.setSavedConfigs(res.data.items.map((item) => new SavedImportConfig(item)));
@@ -57,6 +55,7 @@ export class ImportStore extends Model({
   @modelFlow
   deleteSavedConfig = asyncAction(async (id: string) => {
     const res = await trpc.deleteSavedImportConfig.mutate({ args: { ids: [id] } });
+
     if (!res.success) throw new Error(res.error);
 
     await this.loadSavedConfigs();
@@ -69,6 +68,7 @@ export class ImportStore extends Model({
     const res = await trpc.updateSavedImportConfig.mutate({
       args: { id, updates: { dateModified: dayjs().toISOString(), label } },
     });
+
     if (!res.success) throw new Error(res.error);
 
     await this.loadSavedConfigs();
@@ -101,6 +101,7 @@ export class ImportStore extends Model({
         const res = await trpc.updateSavedImportConfig.mutate({
           args: { id: id || existing.id, updates: { dateModified, folderPath, label, options } },
         });
+
         if (!res.success) throw new Error(res.error);
 
         await this.loadSavedConfigs();
@@ -111,6 +112,7 @@ export class ImportStore extends Model({
       const res = await trpc.createSavedImportConfig.mutate({
         args: { dateCreated: dateModified, dateModified, folderPath, label, options },
       });
+
       if (!res.success) throw new Error(res.error);
 
       await this.loadSavedConfigs();

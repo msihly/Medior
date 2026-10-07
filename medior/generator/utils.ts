@@ -32,6 +32,7 @@ export const createFiles = async (folder: string, fileDefs: FileDef[]) => {
       console.log(chalk.green(`${previous === file ? "Unchanged" : "Created"} ${filePath}`));
     } catch (err) {
       console.error(chalk.red(`\n[ERROR] '${filePath}': ${err.message}\n\n${err.stack}\n`));
+
       throw err;
     }
   }
@@ -42,6 +43,7 @@ export const formatFile = (str: string): Promise<string> =>
 
 export const makeIndexDef = (fileDefs: FileDef[]) => {
   const imports = fileDefs.map((fileDef) => `export * from "./${fileDef.name}";`).join("\n");
+
   fileDefs.push({ makeFile: async () => imports, name: "index" });
 };
 

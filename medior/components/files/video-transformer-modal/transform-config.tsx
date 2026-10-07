@@ -1,4 +1,5 @@
-import { Button, Card, Comp, UniformList, View } from "medior/components";
+import { useState } from "react";
+import { Button, Card, Comp, LoadingOverlay, UniformList, View } from "medior/components";
 import { Settings } from "medior/components/settings";
 import { useStores } from "medior/store";
 import { colors, toast } from "medior/utils/client";
@@ -8,6 +9,8 @@ import { ConfigTags } from "./config-tags";
 export const TransformConfig = Comp(() => {
   const stores = useStores();
   const store = stores.file.videoTransformer;
+
+  const [isSaving, setIsSaving] = useState(false);
 
   const overrideKey = "file.reencode.override" as ConfigKey;
 
@@ -20,10 +23,16 @@ export const TransformConfig = Comp(() => {
     });
 
   const handleSaveConfig = async () => {
-    const result = await stores.home.settings.save();
-    if (!result.success) return toast.error(result.error);
+    setIsSaving(true);
 
-    toast.success("Transform config saved");
+    try {
+      const result = await stores.home.settings.save();
+
+      if (!result.success) toast.error(result.error);
+      else toast.success("Transform config saved");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleToggleConfig = () => store.setIsConfigOpen(!store.isConfigOpen);
@@ -31,6 +40,7 @@ export const TransformConfig = Comp(() => {
   return (
     <Card
       column
+      position="relative"
       spacing="0.5rem"
       height="fit-content"
       overflow="hidden auto"
@@ -55,6 +65,8 @@ export const TransformConfig = Comp(() => {
       }
       headerProps={{ justify: "flex-start", padding: { all: "0.4rem 0.6rem" } }}
     >
+      <LoadingOverlay isLoading={isSaving} />
+
       <View
         column
         spacing="1rem"

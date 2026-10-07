@@ -5,6 +5,7 @@ import {
   ConfirmModal,
   HeaderWrapper,
   ListItem,
+  LoadingOverlay,
   MenuButton,
   Modal,
   TagInput,
@@ -14,33 +15,64 @@ import {
   View,
 } from "medior/components";
 import { TagOption, tagToOption, useStores } from "medior/store";
-import { colors, toast } from "medior/utils/client";
+import { colors, toast, useCancellableLoad } from "medior/utils/client";
 import { trpc } from "medior/utils/server";
 
-export const MultiTagEditor = Comp(() => {
+interface MultiTagEditorProps {
+  initialTags?: TagOption[];
+  onClose?: () => void;
+}
+
+export const MultiTagEditor = Comp(({ initialTags, onClose }: MultiTagEditorProps) => {
   const stores = useStores();
   const store = stores.tag.manager;
 
+  const load = useCancellableLoad();
+
   const [childTagsToAdd, setChildTagsToAdd] = useState<TagOption[]>([]);
   const [childTagsToRemove, setChildTagsToRemove] = useState<TagOption[]>([]);
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [isConfirmDiscardOpen, setIsConfirmDiscardOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [parentTagsToAdd, setParentTagsToAdd] = useState<TagOption[]>([]);
   const [parentTagsToRemove, setParentTagsToRemove] = useState<TagOption[]>([]);
-  const [selectedTags, setSelectedTags] = useState<TagOption[]>([]);
+  const [selectedTags, setSelectedTags] = useState<TagOption[]>(initialTags ?? []);
+
+  const hasUnsavedChanges =
+    childTagsToAdd.length +
+      childTagsToRemove.length +
+      parentTagsToAdd.length +
+      parentTagsToRemove.length >
+    0;
 
   useEffect(() => {
-    (async () => {
-      const res = await trpc.listTag.mutate({ filter: { id: store.search.selectedIds } });
-      setSelectedTags(res.data.map(tagToOption));
-    })();
+    if (!initialTags) {
+      load.run(async (signal) => {
+        const res = await trpc.listTag.mutate(
+          { filter: { id: store.search.selectedIds } },
+          { signal },
+        );
+
+        signal.throwIfAborted();
+
+        if (!res.success) throw new Error(res.error);
+
+        setSelectedTags(res.data.map(tagToOption));
+      });
+    }
   }, []);
 
-  const handleClose = () => {
-    if (hasUnsavedChanges) return setIsConfirmDiscardOpen(true);
+  const closeEditor = () => {
+    if (onClose) onClose();
+    else store.setIsMultiTagEditorOpen(false);
+  };
 
-    store.setIsMultiTagEditorOpen(false);
+  const handleClose = () => {
+    if (isLoading) return;
+
+    load.cancel();
+
+    if (hasUnsavedChanges) setIsConfirmDiscardOpen(true);
+    else closeEditor();
   };
 
   const handleConfirm = async () => {
@@ -51,26 +83,24 @@ export const MultiTagEditor = Comp(() => {
       childIdsToRemove: childTagsToRemove.map((t) => t.id),
       parentIdsToAdd: parentTagsToAdd.map((t) => t.id),
       parentIdsToRemove: parentTagsToRemove.map((t) => t.id),
+      tagIds: selectedTags.map((tag) => tag.id),
     });
+
     setIsLoading(false);
 
     if (!res.success) {
-      toast.error("Failed to update tags");
+      toast.error(res.error || "Failed to update tags");
     } else {
       toast.success("Tags updated");
-      if (res.data.errors?.length)
-        toast.warn("Some changes were ignored. See logs folder for details");
 
-      setHasUnsavedChanges(false);
-      store.setIsMultiTagEditorOpen(false);
+      closeEditor();
       store.search.loadFiltered();
     }
   };
 
   const handleDiscard = async () => {
-    setHasUnsavedChanges(false);
     setIsConfirmDiscardOpen(false);
-    store.setIsMultiTagEditorOpen(false);
+    closeEditor();
 
     return true;
   };
@@ -78,39 +108,54 @@ export const MultiTagEditor = Comp(() => {
   const appendTag = (tags: TagOption[], tag: TagOption) =>
     tags.find((t) => t.id === tag.id) ? tags : tags.concat(tag);
 
-  const removeTag = (tags: TagOption[], tag: TagOption) =>
-    tags.find((t) => t.id === tag.id) ? tags.filter((t) => t.id !== tag.id) : tags;
+  const handleAddChild = (tag: TagOption) => handleChildAdditions(appendTag(childTagsToAdd, tag));
 
-  const handleAddChild = (tag: TagOption) => {
-    setChildTagsToAdd((prev) => appendTag(prev, tag));
-    setChildTagsToRemove((prev) => removeTag(prev, tag));
-    setParentTagsToAdd((prev) => removeTag(prev, tag));
-    setHasUnsavedChanges(true);
+  const handleAddParent = (tag: TagOption) =>
+    handleParentAdditions(appendTag(parentTagsToAdd, tag));
+
+  const handleRemoveChild = (tag: TagOption) =>
+    handleChildRemovals(appendTag(childTagsToRemove, tag));
+
+  const handleRemoveParent = (tag: TagOption) =>
+    handleParentRemovals(appendTag(parentTagsToRemove, tag));
+
+  const handleChildAdditions = (tags: TagOption[]) => {
+    const ids = new Set(tags.map(({ id }) => id));
+
+    setChildTagsToAdd(tags);
+    setChildTagsToRemove((previous) => previous.filter(({ id }) => !ids.has(id)));
+    setParentTagsToAdd((previous) => previous.filter(({ id }) => !ids.has(id)));
   };
 
-  const handleAddParent = (tag: TagOption) => {
-    setParentTagsToAdd((prev) => appendTag(prev, tag));
-    setParentTagsToRemove((prev) => removeTag(prev, tag));
-    setChildTagsToAdd((prev) => removeTag(prev, tag));
-    setHasUnsavedChanges(true);
+  const handleParentAdditions = (tags: TagOption[]) => {
+    const ids = new Set(tags.map(({ id }) => id));
+
+    setParentTagsToAdd(tags);
+    setParentTagsToRemove((previous) => previous.filter(({ id }) => !ids.has(id)));
+    setChildTagsToAdd((previous) => previous.filter(({ id }) => !ids.has(id)));
   };
 
-  const handleRemoveChild = (tag: TagOption) => {
-    setChildTagsToRemove((prev) => appendTag(prev, tag));
-    setChildTagsToAdd((prev) => removeTag(prev, tag));
-    setParentTagsToAdd((prev) => removeTag(prev, tag));
-    setHasUnsavedChanges(true);
+  const handleChildRemovals = (tags: TagOption[]) => {
+    const ids = new Set(tags.map(({ id }) => id));
+
+    setChildTagsToRemove(tags);
+    setChildTagsToAdd((previous) => previous.filter(({ id }) => !ids.has(id)));
   };
 
-  const handleRemoveParent = (tag: TagOption) => {
-    setParentTagsToRemove((prev) => appendTag(prev, tag));
-    setParentTagsToAdd((prev) => removeTag(prev, tag));
-    setChildTagsToAdd((prev) => removeTag(prev, tag));
-    setHasUnsavedChanges(true);
+  const handleParentRemovals = (tags: TagOption[]) => {
+    const ids = new Set(tags.map(({ id }) => id));
+
+    setParentTagsToRemove(tags);
+    setParentTagsToAdd((previous) => previous.filter(({ id }) => !ids.has(id)));
   };
 
   return (
     <Modal.Container {...{ isLoading }} onClose={handleClose} width="50rem" draggable>
+      <LoadingOverlay
+        isLoading={load.isLoading}
+        sub={<Button text="Cancel" icon="Close" onClick={handleClose} />}
+      />
+
       <Modal.Header>
         <Text preset="title">{"Multi Tags Editor"}</Text>
       </Modal.Header>
@@ -121,7 +166,7 @@ export const MultiTagEditor = Comp(() => {
             <TagInput
               header="Parent Tags to Add"
               value={parentTagsToAdd}
-              onChange={setParentTagsToAdd}
+              onChange={handleParentAdditions}
               hasCreate
               hasDelete
             />
@@ -129,7 +174,7 @@ export const MultiTagEditor = Comp(() => {
             <TagInput
               header="Child Tags to Add"
               value={childTagsToAdd}
-              onChange={setChildTagsToAdd}
+              onChange={handleChildAdditions}
               hasCreate
               hasDelete
             />
@@ -183,14 +228,14 @@ export const MultiTagEditor = Comp(() => {
             <TagInput
               header="Parent Tags to Remove"
               value={parentTagsToRemove}
-              onChange={setParentTagsToRemove}
+              onChange={handleParentRemovals}
               hasDelete
             />
 
             <TagInput
               header="Child Tags to Remove"
               value={childTagsToRemove}
-              onChange={setChildTagsToRemove}
+              onChange={handleChildRemovals}
               hasDelete
             />
           </View>
@@ -202,14 +247,20 @@ export const MultiTagEditor = Comp(() => {
           textAlign="center"
           color={colors.custom.lightGrey}
         >
-          {"Changes that result in a broken hierarchy will be ignored."}
+          {"Changes that create a hierarchy cycle cannot be saved."}
         </Text>
       </Modal.Content>
 
       <Modal.Footer>
         <Button text="Close" icon="Close" onClick={handleClose} />
 
-        <Button text="Confirm" icon="Check" onClick={handleConfirm} color={colors.custom.blue} />
+        <Button
+          text="Confirm"
+          icon="Check"
+          onClick={handleConfirm}
+          color={colors.custom.blue}
+          disabled={!hasUnsavedChanges || !selectedTags.length || isLoading || load.isLoading}
+        />
       </Modal.Footer>
 
       {isConfirmDiscardOpen && (

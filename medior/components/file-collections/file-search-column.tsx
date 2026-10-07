@@ -23,6 +23,7 @@ export const FileSearchColumn = Comp(() => {
 
   const handleAddSelected = async () => {
     const res = await stores.collection.editor.addFiles([...store.selectedIds]);
+
     if (!res.success) toast.error(res.error);
   };
 
@@ -37,7 +38,7 @@ export const FileSearchColumn = Comp(() => {
       flex="none"
       height="100%"
       width="16rem"
-      spacing="0.5rem"
+      overflow="hidden"
       padding={{ all: 0 }}
       position="relative"
     >
@@ -75,22 +76,24 @@ export const FileSearchColumn = Comp(() => {
       </View>
 
       <CardGrid
+        padding={{ all: "0.3rem" }}
         cards={store.results.map((f) => (
           <FileCard key={f.id} file={f} store={store} height="14rem" />
         ))}
         maxCards={1}
-      >
-        <Pagination
-          count={store.pageCount}
-          page={store.page}
-          isLoading={store.isPageCountLoading && !store.isLoading}
-          onChange={handlePageChange}
-          onFullLoad={handleFullPageLoad}
-          boundaryCount={0}
-          siblingCount={0}
-          size="small"
-        />
-      </CardGrid>
+      />
+
+      <Pagination
+        inline
+        count={store.pageCount}
+        page={store.page}
+        isLoading={store.isPageCountLoading && !store.isLoading}
+        onChange={handlePageChange}
+        onFullLoad={handleFullPageLoad}
+        boundaryCount={0}
+        siblingCount={0}
+        size="small"
+      />
     </Card>
   );
 });

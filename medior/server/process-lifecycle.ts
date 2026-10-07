@@ -5,6 +5,7 @@ import { ownProcessTree } from "medior/server/process-job";
 
 export interface ServerProcessMessage {
   error?: string;
+  message?: string;
   requestId?: string;
   type:
     | "config-reloaded"
@@ -14,6 +15,7 @@ export interface ServerProcessMessage {
     | "reload-config"
     | "shutdown-error"
     | "start"
+    | "startup-progress"
     | "stop";
   uri?: string;
 }
@@ -37,6 +39,15 @@ export const closeHttpServer = async (server?: Server) => {
 };
 
 export const isServerStopping = () => stopping;
+
+export const reportStartupProgress = (message: string) => {
+  fileLog(`[Startup] ${message}`);
+
+  if (process.connected)
+    process.send({ message, type: "startup-progress" } satisfies ServerProcessMessage, (error) => {
+      if (error) console.error("Startup progress could not be delivered:", error);
+    });
+};
 
 /** Interrupt worker startup and active work before closing its resources. */
 export const registerProcessLifecycle = ({
@@ -109,16 +120,16 @@ export const registerProcessLifecycle = ({
         type: "error",
       });
 
-      if (message?.type === "start") void shutdownProcess(1).catch(() => {});
+      if (message?.type === "start") shutdownProcess(1).catch(() => {});
     }
   });
 
-  process.on("disconnect", () => void shutdownProcess().catch(() => {}));
+  process.on("disconnect", () => shutdownProcess().catch(() => {}));
 
   for (const signal of ["SIGINT", "SIGTERM"] as const)
     process.on(signal, () => {
       // The connected parent coordinates client shutdown before storage shutdown.
-      if (!process.connected) void shutdownProcess().catch(() => {});
+      if (!process.connected) shutdownProcess().catch(() => {});
       else fileLog(`Waiting for parent shutdown after ${signal}.`);
     });
 };

@@ -2,19 +2,22 @@ import path from "path";
 import { createHash } from "crypto";
 import { models, Query, Schema } from "mongoose";
 
+let mediaIndexModelCount = 0;
 let mediaIndexVersion: string;
 
-export const getMediaIndexVersion = () =>
-  (mediaIndexVersion ??= `media-path-indexes:${createHash("sha256")
-    .update(JSON.stringify(MEDIA_PATH_FIELDS))
-    .update(
-      JSON.stringify(
-        Object.keys(models)
-          .sort()
-          .map((name) => [name, models[name].schema.indexes()]),
-      ),
-    )
-    .digest("hex")}`);
+export const getMediaIndexVersion = () => {
+  const names = Object.keys(models);
+
+  if (!mediaIndexVersion || mediaIndexModelCount !== names.length) {
+    mediaIndexModelCount = names.length;
+    mediaIndexVersion = `media-path-indexes:${createHash("sha256")
+      .update(JSON.stringify(MEDIA_PATH_FIELDS))
+      .update(JSON.stringify(names.sort().map((name) => [name, models[name].schema.indexes()])))
+      .digest("hex")}`;
+  }
+
+  return mediaIndexVersion;
+};
 
 export const MEDIA_PATH_FIELDS = {
   File: { path: "pathKey", "thumb.path": "thumbPathKey" },
@@ -129,6 +132,7 @@ export const mediaPathPlugin = (
         ),
       ),
     );
+
     next();
   });
 

@@ -12,6 +12,7 @@ const FILTER_DEPENDENCIES: Record<string, string[]> = {
   diffusionParams: ["diffusionParams", "hasDiffParams"],
   ext: ["selectedImageExts", "selectedVideoExts"],
   hash: ["isModified"],
+  hasTranscript: ["isTranscribed"],
   height: ["maxHeight", "maxLongEdge", "maxShortEdge", "minHeight", "minLongEdge", "minShortEdge"],
   id: ["excludedFileIds", "ids"],
   originalHash: ["isModified"],
@@ -36,24 +37,25 @@ export const updatesAffectSearch = (
   updatedKeys: string[],
 ) => {
   const filters = (search.cachedFilterProps ?? search.getFilterProps()) as Record<string, any>;
+
   return updatedKeys.some(
     (key) =>
       key === (filters.sortValue ?? search.sortValue).key ||
       (FILTER_DEPENDENCIES[key] ?? [key]).some((filterKey) => {
         const value = filters[filterKey];
+
         if (value === null || value === undefined || value === "") return false;
-        if (Array.isArray(value)) return value.length > 0;
-        if (typeof value === "object")
+        else if (Array.isArray(value)) return value.length > 0;
+        else if (typeof value === "object")
           return "logOp" in value ? Boolean(value.logOp) : Object.values(value).includes(false);
-        if (typeof value === "boolean")
+        else if (typeof value === "boolean")
           return (
             value ||
             ["hasRegEx", "isArchived", "isCorrupted", "isModified", "isTranscribed"].includes(
               filterKey,
             )
           );
-
-        return true;
+        else return true;
       }),
   );
 };

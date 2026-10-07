@@ -1,179 +1,108 @@
 import type { SocketEventOptions } from "medior/_generated/server/socket";
 import mongoose, { LeanDocument, PipelineStage, Types } from "mongoose";
-import { metadataWork } from "medior/server/database/metadata-work";
+import { metadataWork } from "medior/server/database/metadata-context";
 import { handleErrors } from "medior/utils/common";
 
 export const getShiftSelectedItems = async <ModelType>({
   clickedId,
-  clickedIndex,
   filterPipeline,
   ids = [],
   model,
+  searchPlan,
   selectedIds,
 }: {
   clickedId: string;
-  clickedIndex: number;
-  filterPipeline: { $match: mongoose.FilterQuery<ModelType>; $sort: { [key: string]: 1 | -1 } };
+  filterPipeline: { $match: mongoose.FilterQuery<ModelType>; $sort: Record<string, 1 | -1> };
   ids?: string[];
   model: mongoose.Model<ModelType>;
+  searchPlan?: { options: Record<string, unknown>; pipeline: PipelineStage[] };
   selectedIds: string[];
 }) => {
-  if (selectedIds.length === 0) return { idsToDeselect: [], idsToSelect: [clickedId] };
+  const selected = new Set(selectedIds);
+  let result: { idsToDeselect: string[]; idsToSelect: string[] };
 
-  if (selectedIds.length === 1 && selectedIds[0] === clickedId)
-    return { idsToDeselect: [clickedId], idsToSelect: [] };
+  if (!selected.size) {
+    result = { idsToDeselect: [], idsToSelect: [clickedId] };
+  } else if (selected.size === 1 && selected.has(clickedId)) {
+    result = { idsToDeselect: [clickedId], idsToSelect: [] };
+  } else {
+    const cursor = ids.length
+      ? null
+      : model
+          .aggregate<{ _id: Types.ObjectId }>([
+            ...(searchPlan?.pipeline ?? [
+              { $match: filterPipeline.$match },
+              { $sort: filterPipeline.$sort },
+            ]),
+            { $project: { _id: 1 } },
+          ])
+          .option(searchPlan?.options ?? {})
+          .allowDiskUse(true)
+          .cursor({ batchSize: 1000 });
 
-  const createMainPipeline = (args: {
-    endIndex: number;
-    filterPipeline: mongoose.FilterQuery<ModelType>;
-    isFirstAfterClicked: boolean;
-    limit: number;
-    selectedIds: string[];
-    skip: number;
-    startIndex: number;
-  }): PipelineStage[] => [
-    ...(ids.length > 0
-      ? [
-          { $match: { _id: { $in: objectIds(ids) } } },
-          { $addFields: { __order: { $indexOfArray: [objectIds(ids), "$_id"] } } },
-          { $sort: { __order: 1 } },
-        ]
-      : [{ $match: args.filterPipeline.$match }, { $sort: args.filterPipeline.$sort }]),
-    ...(args.limit > -1 ? [{ $limit: args.limit }] : []),
-    ...(args.skip > -1 ? [{ $skip: args.skip }] : []),
-    { $project: { _id: 1 } },
-    { $group: { _id: null, filteredIds: { $push: "$_id" } } },
-    {
-      $addFields: {
-        selectedIdsNotInFiltered: {
-          $filter: {
-            input: objectIds(args.selectedIds),
-            as: "id",
-            cond: { $not: { $in: ["$$id", "$filteredIds"] } },
-          },
-        },
-        selectedIdsInFiltered: {
-          $filter: {
-            input: objectIds(args.selectedIds),
-            as: "id",
-            cond: { $in: ["$$id", "$filteredIds"] },
-          },
-        },
-      },
-    },
-    {
-      $addFields: {
-        newSelectedIds:
-          args.startIndex === args.endIndex
-            ? []
-            : args.isFirstAfterClicked
-              ? { $slice: ["$filteredIds", 0, args.limit] }
-              : { $slice: ["$filteredIds", 0, args.limit - args.skip] },
-      },
-    },
-    {
-      $addFields: {
-        idsToDeselect: {
-          $concatArrays: [
-            "$selectedIdsNotInFiltered",
-            {
-              $filter: {
-                input: "$selectedIdsInFiltered",
-                as: "id",
-                cond: { $not: { $in: ["$$id", "$newSelectedIds"] } },
-              },
-            },
-          ],
-        },
-        idsToSelect: {
-          $filter: {
-            input: "$newSelectedIds",
-            as: "id",
-            cond: { $not: { $in: ["$$id", objectIds(args.selectedIds)] } },
-          },
-        },
-      },
-    },
-    { $project: { _id: 0, idsToDeselect: 1, idsToSelect: 1 } },
-  ];
+    const items = cursor ?? (await listItemsByIds({ ids, model, select: { _id: 1 } }));
+    const rangeIds: string[] = [];
+    const remaining = new Set(selected);
+    let clickedIndex = -1;
+    let firstSelectedIndex = -1;
+    let index = 0;
+    let lastSelectedIndex = -1;
+    let startIndex = -1;
 
-  const getSelectedIndex = async (type: "first" | "last") => {
-    let selectedItems: any[];
-    let sortKey;
-    let sortOp;
+    try {
+      for await (const item of items) {
+        const id = String(item._id);
 
-    const hasIds = ids?.length > 0;
+        if (id === clickedId) clickedIndex = index;
 
-    if (hasIds) {
-      selectedItems = await model
-        .aggregate([
-          { $match: { _id: { $in: objectIds(selectedIds) } } },
-          { $addFields: { __order: { $indexOfArray: [objectIds(ids), "$_id"] } } },
-          { $sort: { __order: 1 } },
-        ])
-        .allowDiskUse(true)
-        .exec();
-    } else {
-      sortKey = Object.keys(filterPipeline.$sort)[0];
-      sortOp = filterPipeline.$sort[sortKey] === -1 ? "$gt" : "$lt";
+        if (selected.has(id)) {
+          if (firstSelectedIndex < 0) firstSelectedIndex = index;
 
-      selectedItems = await model
-        .find({ _id: { $in: objectIds(selectedIds) } })
-        .sort(filterPipeline.$sort)
-        .lean();
+          lastSelectedIndex = index;
+          remaining.delete(id);
+        }
+
+        if (clickedIndex >= 0 || firstSelectedIndex >= 0) {
+          if (startIndex < 0) startIndex = index;
+
+          rangeIds.push(id);
+        }
+
+        if (
+          clickedIndex >= 0 &&
+          ((clickedIndex >= firstSelectedIndex && firstSelectedIndex >= 0) || !remaining.size)
+        )
+          break;
+
+        index++;
+      }
+    } finally {
+      await cursor?.close();
     }
 
-    if (!selectedItems || selectedItems.length === 0)
-      throw new Error(`Failed to load selected tags`);
+    if (clickedIndex < 0) {
+      throw new Error("The clicked item is no longer in the search results");
+    } else if (clickedIndex === firstSelectedIndex) {
+      result = { idsToDeselect: [clickedId], idsToSelect: [] };
+    } else {
+      const endIndex =
+        firstSelectedIndex < 0
+          ? clickedIndex
+          : clickedIndex < firstSelectedIndex
+            ? lastSelectedIndex
+            : clickedIndex;
 
-    const selectedItem =
-      type === "first" ? selectedItems[0] : selectedItems[selectedItems.length - 1];
+      const nextIds = rangeIds.slice(0, endIndex - startIndex + 1);
+      const nextSelected = new Set(nextIds);
 
-    if (hasIds) return ids.indexOf(selectedItem._id.toString());
+      result = {
+        idsToDeselect: [...selected].filter((id) => !nextSelected.has(id)),
+        idsToSelect: nextIds.filter((id) => !selected.has(id)),
+      };
+    }
+  }
 
-    const selectedItemIndex = await model.countDocuments({
-      $and: [
-        filterPipeline.$match,
-        {
-          $or: [
-            { [sortKey]: selectedItem[sortKey], _id: { [sortOp]: selectedItem._id } },
-            { [sortKey]: { [sortOp]: selectedItem[sortKey] } },
-          ],
-        },
-      ],
-    });
-    if (!(selectedItemIndex > -1)) throw new Error(`Failed to load ${type} selected index`);
-
-    return selectedItemIndex;
-  };
-
-  const firstSelectedIndex = await getSelectedIndex("first");
-  if (!(firstSelectedIndex > -1)) return { idsToDeselect: [], idsToSelect: [clickedId] };
-
-  if (firstSelectedIndex === clickedIndex) return { idsToDeselect: [clickedId], idsToSelect: [] };
-
-  const isFirstAfterClicked = firstSelectedIndex > clickedIndex;
-  const lastSelectedIndex = isFirstAfterClicked ? await getSelectedIndex("last") : null;
-  const endIndex = isFirstAfterClicked ? lastSelectedIndex : clickedIndex;
-  const startIndex = isFirstAfterClicked ? clickedIndex : firstSelectedIndex;
-
-  const mainPipeline = createMainPipeline({
-    endIndex,
-    filterPipeline,
-    isFirstAfterClicked,
-    limit: endIndex + 1,
-    selectedIds,
-    skip: startIndex,
-    startIndex,
-  });
-
-  const mainRes: {
-    idsToDeselect: string[];
-    idsToSelect: string[];
-  } = (await model.aggregate(mainPipeline).allowDiskUse(true)).flatMap((f) => f)?.[0];
-  if (!mainRes) throw new Error("Failed to load shift selected item IDs");
-
-  return mainRes;
+  return result;
 };
 
 export const leanModelToJson = <T>(
@@ -181,6 +110,7 @@ export const leanModelToJson = <T>(
 ) => {
   try {
     if (!doc) return null;
+
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { _id, __v, ...rest } = doc;
 
@@ -190,6 +120,63 @@ export const leanModelToJson = <T>(
 
     return null;
   }
+};
+
+/** Resolve membership in bounded batches and fetch metadata only for the requested page. */
+export const listItemsByIds = async <ModelType>({
+  ids,
+  model,
+  page,
+  pageSize,
+  select,
+}: {
+  ids: string[];
+  model: mongoose.Model<ModelType>;
+  page?: number;
+  pageSize?: number;
+  select?: Record<string, number>;
+}) => {
+  type Item = LeanDocument<ModelType & { _id: Types.ObjectId }>;
+
+  const requestedIds = [...new Set(ids)];
+  const items: Item[] = [];
+  const isPaged = page !== undefined;
+  const start = isPaged ? Math.max(0, page - 1) * pageSize : 0;
+  const end = isPaged ? start + pageSize : Infinity;
+  let matched = 0;
+
+  for (let offset = 0; offset < requestedIds.length && matched < end; offset += 1000) {
+    const batch = requestedIds.slice(offset, offset + 1000);
+    const found = await model
+      .find({ _id: { $in: objectIds(batch) } })
+      .select(isPaged ? { _id: 1 } : select)
+      .lean<Item[]>();
+
+    const byId = new Map(found.map((item) => [String(item._id), item]));
+    const ordered = batch.filter((id) => byId.has(id));
+    const pageIds = ordered.slice(Math.max(0, start - matched), Math.max(0, end - matched));
+
+    if (isPaged && pageIds.length && !(select?._id === 1 && Object.keys(select).length === 1)) {
+      const documents = await model
+        .find({ _id: { $in: objectIds(pageIds) } })
+        .select(select)
+        .lean<Item[]>();
+
+      const documentsById = new Map(documents.map((item) => [String(item._id), item]));
+
+      for (const id of pageIds) {
+        const document = documentsById.get(id);
+
+        if (document) items.push(document);
+      }
+    } else {
+      for (const id of pageIds) items.push(byId.get(id));
+    }
+
+    matched += ordered.length;
+  }
+
+  return items;
 };
 
 export const makeAction =

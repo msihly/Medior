@@ -1,5 +1,4 @@
 import { useMemo, useState } from "react";
-import { Divider } from "@mui/material";
 import { TagSchema } from "medior/_generated/server";
 import { ModelCreationData } from "mobx-keystone";
 import type { ImportStatus } from "medior/server/database";
@@ -8,6 +7,7 @@ import {
   Chip,
   Comp,
   Detail,
+  Divider,
   Icon,
   IMPORT_STATUSES,
   TagRow,
@@ -48,6 +48,7 @@ export const ImportListItem = Comp(
     const handleOpen = async () => {
       try {
         const res = await trpc.listTag.mutate({ filter: { id: fileImport.tagIds } });
+
         setTags(res.data);
       } catch (err) {
         console.error(err);
@@ -60,7 +61,9 @@ export const ImportListItem = Comp(
 
       try {
         const res = await trpc.listFile.mutate({ args: { filter: { id: fileImport.fileId } } });
+
         if (!res.success) throw new Error(res.error);
+
         if (!res.data.items.length) return toast.warn("File no longer exists in the library");
 
         await openCarouselWindow({
@@ -92,7 +95,7 @@ export const ImportListItem = Comp(
         padding={{ all: "0 0.5rem" }}
         bgColor={bgColor}
         spacing="0.5rem"
-        {...{ style }}
+        style={style}
       >
         {!noStatus && statusMeta ? (
           <Tooltip
@@ -204,7 +207,7 @@ export const ImportListItem = Comp(
                   <Detail label="Hires Steps" value={parsedParams?.hiresSteps} />
                 </UniformList>
 
-                <Divider sx={{ margin: "0.5rem 0" }} />
+                <Divider className={css.divider} flexItem={false} />
 
                 <Text
                   color={colors.custom.blue}
@@ -236,6 +239,9 @@ const useClasses = makeClasses({
     minWidth: "4em",
     padding: "0.2em",
     width: "auto",
+  },
+  divider: {
+    margin: "0.5rem 0",
   },
   name: {
     textOverflow: "ellipsis",

@@ -2,19 +2,22 @@ import { useEffect, useState } from "react";
 import { Button, Card, Comp, Icon, Modal, Text, useFileInfo, View } from "medior/components";
 import { useStores } from "medior/store";
 import { FileDeletionProgress } from "medior/store/files/file-store";
-import { colors, toast } from "medior/utils/client";
+import { colors, makeClasses, toast } from "medior/utils/client";
 
 export const DeleteFilesModal = Comp(() => {
   const stores = useStores();
+  const store = stores.file;
+
+  const { css } = useClasses(null);
 
   const { loadFileInfo, renderFileInfo } = useFileInfo();
+
   const [isDeleting, setIsDeleting] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
-
   const [progress, setProgress] = useState<FileDeletionProgress>({
     message: "Ready to delete files.",
     processedCount: 0,
-    totalCount: stores.file.idsForConfirmDelete.length,
+    totalCount: store.idsForConfirmDelete.length,
   });
 
   useEffect(() => {
@@ -24,7 +27,7 @@ export const DeleteFilesModal = Comp(() => {
   const handleDeleteFilesConfirm = async () => {
     setIsDeleting(true);
 
-    const res = await stores.file.deleteFiles(setProgress);
+    const res = await store.deleteFiles(setProgress);
 
     if (!res.success) {
       toast.error(res.error);
@@ -34,9 +37,9 @@ export const DeleteFilesModal = Comp(() => {
 
   const handleClose = () => {
     if (isDeleting) {
-      stores.file.cancelDeleteFiles();
+      store.cancelDeleteFiles();
       setProgress((prev) => ({ ...prev, message: "Stopping deletion..." }));
-    } else stores.file.setIsConfirmDeleteOpen(false);
+    } else store.setIsConfirmDeleteOpen(false);
   };
 
   return (
@@ -52,7 +55,7 @@ export const DeleteFilesModal = Comp(() => {
           <Text fontSize="1.3em" textAlign="center" whiteSpace="normal">
             {isDeleting
               ? progress.message
-              : `Are you sure you want to delete these ${stores.file.idsForConfirmDelete.length} files?`}
+              : `Are you sure you want to delete these ${store.idsForConfirmDelete.length} files?`}
           </Text>
 
           {!isDeleting && renderFileInfo()}
@@ -78,11 +81,7 @@ export const DeleteFilesModal = Comp(() => {
       </Modal.Container>
 
       {isMinimized && (
-        <View
-          position="fixed"
-          style={{ bottom: "1rem", right: "1rem", zIndex: 1400 }}
-          width="22rem"
-        >
+        <View position="fixed" className={css.minimized} width="22rem">
           <Card spacing="0.5rem" padding={{ all: "0.5rem" }} width="100%">
             <Text textAlign="center" whiteSpace="normal">
               {progress.message}
@@ -94,4 +93,12 @@ export const DeleteFilesModal = Comp(() => {
       )}
     </>
   );
+});
+
+const useClasses = makeClasses({
+  minimized: {
+    bottom: "1rem",
+    right: "1rem",
+    zIndex: 1400,
+  },
 });

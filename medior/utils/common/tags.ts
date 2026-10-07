@@ -14,6 +14,7 @@ export const makeTagSelector = <T extends { id: string }>(tags: T[]) => {
 export const preferredTagLabel = (a: string, b: string) => {
   const rank = (label: string) =>
     label[0] !== label[0]?.toLowerCase() ? 2 : label !== label.toLowerCase() ? 1 : 0;
+
   return rank(b) > rank(a) ? b : a;
 };
 
@@ -34,11 +35,13 @@ export const mergeTagDefinitions = <
   for (const tag of tags) {
     for (const label of [tag.label, ...(tag.parentLabels ?? [])]) {
       const key = label.toLowerCase();
+
       labels.set(key, preferredTagLabel(labels.get(key) ?? label, label));
     }
 
     const key = tag.label.toLowerCase();
     const previous = merged.get(key);
+
     if (!previous) merged.set(key, { ...tag });
     else
       merged.set(key, {
@@ -100,6 +103,7 @@ const getTagRegExKeys = (regEx: RegExp) => {
         idx += separator.length - 1;
       } else if (pattern[idx] === "\\") {
         const escaped = pattern[++idx];
+
         if (!escaped || !".*+?^${}()|[]\\/".includes(escaped)) return null;
 
         literal += escaped;
@@ -157,6 +161,7 @@ export class TagRegExMatcher {
       if (idx % 128 === 0) await checkpoint();
 
       const map = candidates[idx];
+
       if (map.regEx.test(label)) matches.push(map);
     }
 

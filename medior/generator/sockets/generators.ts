@@ -6,7 +6,7 @@ export const makeSocketDefs = () => {
   const socketEmitEvents: string[] = [];
   const socketEvents: string[] = [];
 
-  MODEL_DEFS.forEach((modelDef) => {
+  MODEL_DEFS.filter((def) => def.withActions !== false).forEach((modelDef) => {
     const schemaName = `models.${modelDef.name}Schema`;
 
     const events = {

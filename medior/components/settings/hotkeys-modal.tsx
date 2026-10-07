@@ -1,6 +1,5 @@
-import { KeyboardEvent, SyntheticEvent, useState } from "react";
-import { Tab, Tabs } from "@mui/material";
-import { Button, Comp, Modal, Settings, Text, View } from "medior/components";
+import { KeyboardEvent, useState } from "react";
+import { Button, Comp, Modal, Settings, TabContainer, Text, View } from "medior/components";
 import { useStores } from "medior/store";
 import { colors, makeClasses, toast } from "medior/utils/client";
 import { getHotkey, Hotkeys, RATING_HOTKEY_KEYS } from "medior/utils/common";
@@ -99,8 +98,9 @@ export interface HotkeysModalProps {
 export const HotkeysModal = Comp(({ onClose }: HotkeysModalProps) => {
   const stores = useStores();
   const store = stores.home.settings;
+
   const { css } = useClasses(null);
-  const [activeTab, setActiveTab] = useState(0);
+
   const [hasChanges, setHasChanges] = useState(false);
   const [initialHasUnsavedChanges] = useState(store.hasUnsavedChanges);
   const [initialHotkeys] = useState(() => store.getConfig().hotkeys);
@@ -117,9 +117,11 @@ export const HotkeysModal = Comp(({ onClose }: HotkeysModalProps) => {
 
   const handleHotkeyChange = (event: KeyboardEvent<HTMLInputElement>) => {
     event.stopPropagation();
+
     if (event.key === "Tab") return;
 
     const hotkey = getHotkey(event);
+
     if (hotkey === null) return;
 
     event.preventDefault();
@@ -134,19 +136,18 @@ export const HotkeysModal = Comp(({ onClose }: HotkeysModalProps) => {
       setIsLoading(true);
 
       const res = await store.save();
+
       if (!res.success) throw new Error(res.error);
 
       store.setHasUnsavedChanges(false);
       toast.success("Hotkeys saved!");
       onClose();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to save hotkeys");
+      toast.error(error?.message ?? "Failed to save hotkeys");
     } finally {
       setIsLoading(false);
     }
   };
-
-  const handleTabChange = (_: SyntheticEvent, value: number) => setActiveTab(value);
 
   return (
     <Modal.Container
@@ -165,29 +166,29 @@ export const HotkeysModal = Comp(({ onClose }: HotkeysModalProps) => {
           {"Press a shortcut to assign it. Press Backspace to clear it."}
         </Text>
 
-        <Tabs
-          className={css.tabs}
-          onChange={handleTabChange}
-          value={activeTab}
-          variant="scrollable"
-        >
-          {HOTKEY_TABS.map(({ label }) => (
-            <Tab key={label} label={label} />
-          ))}
-        </Tabs>
-
-        <View className={css.fields} overflow="auto">
-          {HOTKEY_TABS[activeTab].fields.map(({ configKey, label }) => (
-            <Settings.Input
-              key={configKey}
-              configKey={configKey}
-              header={label}
-              inputProps={{ name: configKey, readOnly: true }}
-              onKeyDown={handleHotkeyChange}
-              textAlign="center"
-            />
-          ))}
-        </View>
+        <TabContainer
+          color={colors.background}
+          contentClassName={css.content}
+          tabHeight={36}
+          tabs={HOTKEY_TABS.map(({ fields, label }) => ({
+            content: (
+              <View className={css.fields} height="100%" overflow="auto">
+                {fields.map(({ configKey, label }) => (
+                  <Settings.Input
+                    key={configKey}
+                    configKey={configKey}
+                    header={label}
+                    inputProps={{ name: configKey, readOnly: true }}
+                    onKeyDown={handleHotkeyChange}
+                    textAlign="center"
+                  />
+                ))}
+              </View>
+            ),
+            label,
+          }))}
+          viewProps={{ flex: 1, height: "auto" }}
+        />
       </Modal.Content>
 
       <Modal.Footer>
@@ -212,12 +213,7 @@ const useClasses = makeClasses({
     gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
     padding: "0.2rem",
   },
-  tabs: {
-    "& .MuiTab-root": {
-      minHeight: 36,
-      textTransform: "none",
-    },
-    flexShrink: 0,
-    minHeight: 36,
+  content: {
+    padding: "1rem 0 0",
   },
 });

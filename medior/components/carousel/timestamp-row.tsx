@@ -1,8 +1,13 @@
 import { useMemo } from "react";
 import { colors } from "trabecula/utils/client";
-import { durationRegex, durationToSeconds, secondsToDuration } from "trabecula/utils/common";
 import { Button, Comp, Dropdown, Input, View } from "medior/components";
 import { FileTimestampPair, useStores } from "medior/store";
+import {
+  durationRegex,
+  durationToSeconds,
+  getTimestampPairError,
+  secondsToDuration,
+} from "medior/utils/common";
 
 export interface TimestampRowProps {
   timestamp: FileTimestampPair;
@@ -12,6 +17,8 @@ export const TimestampRow = Comp(({ timestamp }: TimestampRowProps) => {
   const stores = useStores();
   const store = stores.carousel.splicer;
 
+  const duration = stores.carousel.getActiveFile()?.duration;
+
   const [isDurationInvalid, isEndInvalid, isStartInvalid] = useMemo(() => {
     const isEndInvalid = !timestamp.endDuration || !durationRegex.test(timestamp.endDuration);
     const isStartInvalid = !timestamp.startDuration || !durationRegex.test(timestamp.startDuration);
@@ -19,10 +26,16 @@ export const TimestampRow = Comp(({ timestamp }: TimestampRowProps) => {
     const isDurationInvalid =
       isEndInvalid ||
       isStartInvalid ||
-      durationToSeconds(timestamp.endDuration) <= durationToSeconds(timestamp.startDuration);
+      Boolean(
+        getTimestampPairError(
+          durationToSeconds(timestamp.startDuration),
+          durationToSeconds(timestamp.endDuration),
+          duration,
+        ),
+      );
 
     return [isDurationInvalid, isEndInvalid, isStartInvalid];
-  }, [timestamp.endDuration, timestamp.startDuration]);
+  }, [duration, timestamp.endDuration, timestamp.startDuration]);
 
   const setEndVal = (val: string) => store.setTimestampPairVal(timestamp.id, "endDuration", val);
 
@@ -36,6 +49,7 @@ export const TimestampRow = Comp(({ timestamp }: TimestampRowProps) => {
           options={store.orderOptions}
           value={String(timestamp.order)}
           setValue={(val) => store.setTimestampPairOrder(timestamp.id, +val)}
+          disabled={store.isLoading}
           borderRadiuses={{ bottom: 0, right: 0 }}
           dense
         />
@@ -43,6 +57,7 @@ export const TimestampRow = Comp(({ timestamp }: TimestampRowProps) => {
         <Button
           icon="Delete"
           onClick={() => store.removeTimestampPair(timestamp.id)}
+          disabled={store.isLoading}
           color={colors.custom.black}
           colorOnHover={colors.custom.red}
           borderRadiuses={{ right: 0, top: 0 }}
@@ -56,6 +71,7 @@ export const TimestampRow = Comp(({ timestamp }: TimestampRowProps) => {
           placeholder="Start"
           value={timestamp.startDuration}
           setValue={setStartVal}
+          disabled={store.isLoading}
           error={isStartInvalid || (isDurationInvalid && !isEndInvalid)}
           adornment="hmsz"
           borderRadiuses={{ all: 0 }}
@@ -67,6 +83,7 @@ export const TimestampRow = Comp(({ timestamp }: TimestampRowProps) => {
           placeholder="End"
           value={timestamp.endDuration}
           setValue={setEndVal}
+          disabled={store.isLoading}
           error={isEndInvalid || (isDurationInvalid && !isStartInvalid)}
           adornment="hmsz"
           borderRadiuses={{ all: 0 }}
@@ -78,6 +95,7 @@ export const TimestampRow = Comp(({ timestamp }: TimestampRowProps) => {
         <Button
           text="SET"
           onClick={() => setStartVal(secondsToDuration(stores.carousel.curTime))}
+          disabled={store.isLoading}
           color={colors.custom.black}
           colorOnHover={colors.custom.blue}
           borderRadiuses={{ bottom: 0, left: 0 }}
@@ -90,6 +108,7 @@ export const TimestampRow = Comp(({ timestamp }: TimestampRowProps) => {
         <Button
           text="SET"
           onClick={() => setEndVal(secondsToDuration(stores.carousel.curTime))}
+          disabled={store.isLoading}
           color={colors.custom.black}
           colorOnHover={colors.custom.blue}
           borderRadiuses={{ left: 0, top: 0 }}

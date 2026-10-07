@@ -20,6 +20,7 @@ export const createFiles = async (folder: string, fileDefs: FileDef[]) => {
       const file = await formatFile(
         `${makeSectionComment("THIS IS A GENERATED FILE. DO NOT EDIT.")}\n${await fileDef.makeFile()}`,
       );
+
       await fs.writeFile(filePath, file);
       console.log(chalk.green(`Created ${filePath}`));
     } catch (err) {
@@ -33,6 +34,7 @@ export const formatFile = (str: string): Promise<string> =>
 
 export const makeIndexDef = (fileDefs: FileDef[]) => {
   const imports = fileDefs.map((fileDef) => `export * from "./${fileDef.name}";`).join("\n");
+
   fileDefs.push({ makeFile: async () => imports, name: "index" });
 };
 

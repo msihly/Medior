@@ -24,6 +24,7 @@ import { workSignal } from "medior/utils/server/work-signal";
 const processImportedAudio = async () => {
   while (canRunBackgroundQueues()) {
     let operation: BackgroundOperationSchema;
+
     try {
       operation = leanModelToJson<BackgroundOperationSchema>(
         await BackgroundOperationModel.findOne({
@@ -34,13 +35,16 @@ const processImportedAudio = async () => {
           .sort({ dateCreated: 1 })
           .lean(),
       );
+
       if (!operation) return;
 
       backgroundExecution.getStore().operationId = operation.id;
+
       if (operation.status === "PENDING")
         await setBackgroundOperationStatus(operation.id, "RUNNING");
 
       const fileId = operation.targetIds[0];
+
       if (!fileId) {
         await completeEmptyBackgroundOperation(operation.id, "Imported audio analysis completed.");
         continue;
@@ -49,15 +53,19 @@ const processImportedAudio = async () => {
       const file = await FileModel.findById(fileId)
         .select({ audioCodec: 1, hash: 1, path: 1, peakDecibels: 1, waveformPeaks: 1 })
         .lean();
+
       if (
         file?.audioCodec &&
         file.audioCodec !== "None" &&
         (!file.waveformPeaks?.length || file.peakDecibels == null)
       ) {
         let lastProgress = 0;
+
         const reportProgress = (message: string) => {
           const now = Date.now();
+
           if (now - lastProgress < 1000) return;
+
           lastProgress = now;
           socket.emit("onBackgroundOperationUpdated", {
             id: operation.id,
@@ -68,6 +76,7 @@ const processImportedAudio = async () => {
           withTranscription: false,
           withWaveform: true,
         });
+
         checkBackgroundExecution();
 
         const updates = {
@@ -79,6 +88,7 @@ const processImportedAudio = async () => {
           { $set: updates },
           metadataWriteOptions(),
         );
+
         if (!result.matchedCount)
           throw new Error("File changed during audio analysis; retry analysis");
 
@@ -93,10 +103,11 @@ const processImportedAudio = async () => {
       );
     } catch (error) {
       if (!canRunBackgroundQueues()) return;
+
       if (!operation) throw error;
 
       await setBackgroundOperationStatus(operation.id, "ERROR", {
-        error: error instanceof Error ? error.message : String(error),
+        error: error?.message ?? String(error),
       });
     }
   }
@@ -114,5 +125,6 @@ export const queueImportedAudio = async (fileId: string) => {
     targetIds: [fileId],
     type: "audioAnalysis",
   });
-  void runImportedAudio();
+
+  runImportedAudio();
 };

@@ -1,7 +1,15 @@
 import { useEffect, useRef, useState } from "react";
-import { Slider } from "@mui/material";
 import Panzoom, { PanzoomObject } from "@panzoom/panzoom";
-import { Button, Comp, LoadingOverlay, Modal, Text, View, ZoomControls } from "medior/components";
+import {
+  Button,
+  Comp,
+  LoadingOverlay,
+  Modal,
+  Slider,
+  Text,
+  View,
+  ZoomControls,
+} from "medior/components";
 import { FileTransform } from "medior/store";
 import { colors, makeClasses } from "medior/utils/client";
 import { CONSTANTS } from "medior/utils/common";
@@ -23,10 +31,12 @@ export const ComparisonViewer = Comp(
     const [position, setPosition] = useState(50);
     const [selectedTime, setSelectedTime] = useState(0);
     const [time, setTime] = useState(0);
+
     const originalRef = useRef<HTMLImageElement>(null);
     const outputRef = useRef<HTMLImageElement>(null);
     const panZoomRef = useRef<PanzoomObject>(null);
-    const { css } = useClasses(null);
+
+    const { css } = useClasses({ position });
 
     const duration = Math.max(
       0,
@@ -44,6 +54,7 @@ export const ComparisonViewer = Comp(
         original.style.transform = output.style.transform;
         original.style.transition = output.style.transition;
       };
+
       output.addEventListener("panzoomchange", syncZoom);
       panZoomRef.current = Panzoom(output, {
         animate: true,
@@ -64,36 +75,42 @@ export const ComparisonViewer = Comp(
 
     useEffect(() => {
       const controller = new AbortController();
-      setError("");
-      setIsLoading(true);
-      Promise.all([
-        loadComparisonFrame(
-          transform.beforePath,
-          time,
-          getIsAnimated(transform.beforeExt),
-          controller.signal,
-        ),
-        loadComparisonFrame(
-          outputPath ?? transform.afterPath,
-          time,
-          getIsAnimated(transform.afterExt),
-          controller.signal,
-        ),
-      ])
-        .then((result) => {
+
+      const loadFrames = async () => {
+        setError("");
+        setIsLoading(true);
+
+        try {
+          const result = await Promise.all([
+            loadComparisonFrame(
+              transform.beforePath,
+              time,
+              getIsAnimated(transform.beforeExt),
+              controller.signal,
+            ),
+            loadComparisonFrame(
+              outputPath ?? transform.afterPath,
+              time,
+              getIsAnimated(transform.afterExt),
+              controller.signal,
+            ),
+          ]);
+
           if (!controller.signal.aborted) {
             setFrames(result);
             setIsLoading(false);
           }
-        })
-        .catch((err: Error) => {
+        } catch (err) {
           if (!controller.signal.aborted) {
             setFrames([]);
             setError(`Unable to compare these files: ${err.message}`);
             setIsLoading(false);
             controller.abort();
           }
-        });
+        }
+      };
+
+      loadFrames();
 
       return () => controller.abort();
     }, [
@@ -104,15 +121,6 @@ export const ComparisonViewer = Comp(
       transform.beforePath,
       time,
     ]);
-
-    const handlePositionChange = (_event: unknown, value: number | number[]) =>
-      setPosition(value as number);
-
-    const handleTimeChange = (_event: unknown, value: number | number[]) =>
-      setSelectedTime(value as number);
-
-    const handleTimeCommit = (_event: unknown, value: number | number[]) =>
-      setTime(value as number);
 
     return (
       <Modal.Container height="100%" width="100%" onClose={onClose}>
@@ -136,13 +144,17 @@ export const ComparisonViewer = Comp(
           </View>
 
           <View flex={1} className={css.surface}>
-            <LoadingOverlay isLoading={isLoading} />
+            <LoadingOverlay
+              isLoading={isLoading}
+              sub={<Button text="Cancel" icon="Close" onClick={onClose} />}
+            />
 
             {error ? (
               <Text color={colors.custom.red}>{error}</Text>
             ) : frames.length === 2 ? (
               <>
-                <img
+                <View
+                  component="img"
                   ref={outputRef}
                   className={css.image}
                   src={frames[1]}
@@ -150,11 +162,9 @@ export const ComparisonViewer = Comp(
                   draggable={false}
                 />
 
-                <View
-                  className={css.original}
-                  style={{ clipPath: `inset(0 ${100 - position}% 0 0)` }}
-                >
-                  <img
+                <View className={css.original}>
+                  <View
+                    component="img"
                     ref={originalRef}
                     className={css.image}
                     src={frames[0]}
@@ -166,7 +176,7 @@ export const ComparisonViewer = Comp(
                 <Slider
                   className={css.divider}
                   value={position}
-                  onChange={handlePositionChange}
+                  setValue={setPosition}
                   slotProps={{ input: { title: "Original / re-encoded comparison" } }}
                 />
               </>
@@ -187,8 +197,8 @@ export const ComparisonViewer = Comp(
                 max={duration}
                 step={0.01}
                 value={selectedTime}
-                onChange={handleTimeChange}
-                onChangeCommitted={handleTimeCommit}
+                setValue={setSelectedTime}
+                onCommit={setTime}
                 slotProps={{ input: { title: "Comparison time" } }}
               />
             </View>
@@ -203,7 +213,7 @@ export const ComparisonViewer = Comp(
   },
 );
 
-const useClasses = makeClasses(() => ({
+const useClasses = makeClasses(({ position }: { position: number }) => ({
   divider: {
     "& .MuiSlider-rail, & .MuiSlider-track": { display: "none" },
     "& .MuiSlider-thumb": {
@@ -242,6 +252,7 @@ const useClasses = makeClasses(() => ({
     width: "100%",
   },
   original: {
+    clipPath: `inset(0 ${100 - position}% 0 0)`,
     inset: 0,
     overflow: "hidden",
     pointerEvents: "none",

@@ -42,6 +42,7 @@ export const TagList = Comp(
 
     const ref = useRef<FixedSizeList>(null);
     const searchRef = useRef(search);
+
     searchRef.current = search;
 
     const tags = sortTags(search.value, stores.tag.getCategory);
@@ -62,6 +63,7 @@ export const TagList = Comp(
 
       const onTagDeleted = (args: Parameters<SocketEvents["onTagDeleted"]>[0]) => {
         const removedIds = new Set(args.ids);
+
         updateTags(searchRef.current.value.filter((tag) => !removedIds.has(tag.id)));
       };
 
@@ -73,12 +75,15 @@ export const TagList = Comp(
           return;
 
         const res = await stores.tag.listByIds({ ids: [args.newTagId] });
+
         if (!isActive || !searchRef.current.value.some((tag) => tag.id === args.oldTagId)) return;
+
         if (!res.success || !res.data?.some((tag) => tag.id === args.newTagId))
           return toast.error("Failed to load merged tag");
 
         const option = tagToOption(res.data.find((tag) => tag.id === args.newTagId));
         const existingOption = searchRef.current.value.find((tag) => tag.id === args.newTagId);
+
         updateTags(
           searchRef.current.value.flatMap((tag) =>
             tag.id !== args.oldTagId
@@ -96,7 +101,6 @@ export const TagList = Comp(
 
       const onTagsUpdated = (args: Parameters<SocketEvents["onTagsUpdated"]>[0]) => {
         const updatesById = new Map(args.tags.map(({ tagId, updates }) => [tagId, updates]));
-
         const newValue = searchRef.current.value.map((tag) =>
           updatesById.has(tag.id)
             ? { ...derefMobx(tag), ...updatesById.get(tag.id) }

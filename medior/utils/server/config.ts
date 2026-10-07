@@ -508,6 +508,7 @@ export const loadConfig = async (filePath: string) => {
     const loadedConfig = JSON.parse(await fs.readFile(filePath, "utf-8")) as Config;
     const migratedDimensions = migrateReencodeDimensions(loadedConfig);
     setConfig(loadedConfig);
+
     if (migratedDimensions) await writeConfig(filePath, config);
 
     const migratedTranscriptionModel =
@@ -519,10 +520,13 @@ export const loadConfig = async (filePath: string) => {
     }
 
     const loadedSimilarity = (loadedConfig.file?.similarity ?? {}) as Config["file"]["similarity"];
+
     if (loadedSimilarity.batchSize && !loadedSimilarity.visual?.inferenceBatchSize)
       config.file.similarity.visual.inferenceBatchSize = +loadedSimilarity.batchSize;
+
     if (loadedSimilarity.device && !loadedSimilarity.visual?.device)
       config.file.similarity.visual.device = loadedSimilarity.device;
+
     if (loadedSimilarity.dtype && !loadedSimilarity.visual?.inferenceDType)
       config.file.similarity.visual.inferenceDType = loadedSimilarity.dtype;
 

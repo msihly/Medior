@@ -12,7 +12,7 @@ import {
   prop,
 } from "mobx-keystone";
 import { _File } from "medior/store/_generated";
-import { asyncAction } from "medior/utils/client";
+import { asyncAction, reloadItemTags } from "medior/utils/client";
 import { CONSTANTS, dayjs, WebVideoCodec, WebVideoExt } from "medior/utils/common";
 import { getIsVideo, trpc } from "medior/utils/server";
 
@@ -60,9 +60,11 @@ export class File extends ExtendedModel(_File, {
   }) {
     const existingIds = new Set(this.tagIds);
     const removedIds = new Set(removedTagIds);
+
     this.tagIds = this.tagIds
       .filter((tagId) => !removedIds.has(tagId))
       .concat(addedTagIds?.filter?.((tagId) => !existingIds.has(tagId)) ?? []);
+
     this.dateModified = dateModified;
   }
 
@@ -70,6 +72,7 @@ export class File extends ExtendedModel(_File, {
   @modelFlow
   reload = asyncAction(async () => {
     const res = await trpc.listFile.mutate({ args: { filter: { id: this.id } } });
+
     if (!res.success) throw new Error(res.error);
 
     this.update(res.data.items[0]);
@@ -77,21 +80,19 @@ export class File extends ExtendedModel(_File, {
 
   @modelFlow
   reloadTags = asyncAction(async () => {
-    const res = await trpc.listTag.mutate({ filter: { id: this.tagIds } });
-    if (!res.success) throw new Error(res.error);
-
-    this.setTags(res.data);
+    await reloadItemTags([this]);
   });
 
   /* ----------------------------- GETTERS ----------------------------- */
   @computed
   get isAnimated() {
-    return this.isVideo || this.ext === "gif";
+    return this.duration > 0 || this.isVideo || this.ext === "gif";
   }
 
   @computed
   get isWebPlayable() {
     const audioCodec = this.audioCodec?.toLowerCase();
+
     return (
       CONSTANTS.WEB_VIDEO.CODECS.includes(this.videoCodec?.toLowerCase() as WebVideoCodec) &&
       CONSTANTS.WEB_VIDEO.EXTS.includes(this.ext?.toLowerCase() as WebVideoExt) &&

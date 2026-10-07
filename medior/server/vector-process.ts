@@ -21,14 +21,23 @@ const getVectorService = () => {
 };
 
 export const vectorRouter = trpc.router({
-  findSimilarVectorCandidates: trpc.procedure
-    .input(
-      (input: { fileId: string; limit?: number; vectorTypes?: SimilarityVectorType[] }) => input,
-    )
-    .mutation(({ input }) => getVectorService().findSimilarVectorCandidates(input)),
   cancelSimilarityBackfill: trpc.procedure
     .input((input: { jobId: string }) => input)
     .mutation(({ input }) => getVectorService().cancelSimilarityBackfill(input)),
+  findImageCopyCandidates: trpc.procedure
+    .input((input: { files: { fileId: string; hash: string }[] }) => input)
+    .mutation(({ input }) => getVectorService().findImageCopyCandidates(input)),
+  findSimilarVectorCandidates: trpc.procedure
+    .input(
+      (input: {
+        exact?: boolean;
+        fileId: string;
+        limit?: number;
+        offset?: number;
+        vectorType?: SimilarityVectorType;
+      }) => input,
+    )
+    .mutation(({ input }) => getVectorService().findSimilarVectorCandidates(input)),
   getSimilarityBackfillProgress: trpc.procedure
     .input((input: { jobId: string }) => input)
     .mutation(({ input }) => getVectorService().getSimilarityBackfillProgress(input)),
@@ -49,6 +58,9 @@ export const vectorRouter = trpc.router({
     .mutation(({ input }) => getVectorService().optimizeSimilarityTables(input)),
   pauseSimilarityBackfills: trpc.procedure.mutation(() =>
     getVectorService().pauseSimilarityBackfills(),
+  ),
+  prepareImageCopySearch: trpc.procedure.mutation(() =>
+    getVectorService().prepareImageCopySearch(),
   ),
   resumeSimilarityBackfills: trpc.procedure.mutation(() =>
     getVectorService().resumeSimilarityBackfills(),
@@ -71,8 +83,7 @@ const createVectorServer = async () => {
   await new Promise<void>((resolve, reject) => {
     server.server.once("error", reject);
 
-    // @ts-expect-error
-    server.listen(port, () => {
+    server.server.listen(port, "127.0.0.1", () => {
       fileLog(`[VECTOR] tRPC server listening on ${port}`);
       resolve();
     });

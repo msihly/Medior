@@ -3,7 +3,7 @@ import path, { extname } from "path";
 import { execFile } from "child_process";
 import { randomUUID } from "crypto";
 import ffmpeg, { FfmpegCommand } from "fluent-ffmpeg";
-import type { FormatEnum } from "sharp";
+import type { FormatEnum, Metadata } from "sharp";
 import { checkFileExists, makePerfLog } from "trabecula/utils/server";
 import {
   CONSTANTS,
@@ -11,8 +11,9 @@ import {
   getVideoResizeFilters,
   ImageExt,
   round,
+  validateTimestampPairs,
 } from "medior/utils/common";
-import { getAvailableFileStorage, getConfig, getIsImage } from "medior/utils/server";
+import { getAvailableFileStorage, getConfig } from "medior/utils/server";
 import { runImageTask } from "medior/utils/server/image-task";
 import { hashMediaFile, MediaOutput, publishMediaOutput } from "medior/utils/server/media-output";
 import { runConcurrent, workSignal } from "medior/utils/server/work-signal";
@@ -47,11 +48,61 @@ export interface VideoInfo {
 }
 
 export interface MediaInfo extends VideoInfo {
-  ext: string;
+  frameDelays?: number[];
+  isAnimated: boolean;
 }
+
+const PROBE_EXTENSIONS: Record<string, string[]> = {
+  apng: ["png", "apng"],
+  asf: ["wmv", "asf", "wm", "wmp"],
+  avi: ["avi", "divx"],
+  flv: ["flv", "f4v"],
+  jpeg_pipe: ["jpg", "jpeg"],
+  matroska: ["mkv", "webm"],
+  mov: ["mp4", "3gp", "3gp2", "3gpp", "m4v", "mov", "qt"],
+  mpeg: ["mpg", "mpeg", "vob"],
+  mpegts: ["ts", "m2t", "m2ts", "mts"],
+  mpegvideo: ["mpg", "m2v", "mpeg"],
+  ogg: ["ogv"],
+  tiff_pipe: ["tiff", "tif"],
+};
+
+const getProbedExtension = (info: ffmpeg.FfprobeData, filePath: string) => {
+  const format = info.format.format_name?.split(",")[0];
+  const pathExt = extname(filePath).slice(1).toLowerCase();
+  const majorBrand = String(info.format.tags?.major_brand ?? "")
+    .trim()
+    .toLowerCase();
+
+  const extensions = PROBE_EXTENSIONS[format];
+  let ext: string;
+
+  if (!format) throw new Error("Media format could not be detected.");
+
+  if (format === "mov" && ["avif", "avis"].includes(majorBrand)) ext = "avif";
+  else if (
+    format === "mov" &&
+    ["heic", "heix", "hevc", "hevx", "mif1", "msf1"].includes(majorBrand)
+  )
+    ext = "heic";
+  else if (format === "mov" && majorBrand === "qt") ext = "mov";
+  else if (format === "mov" && majorBrand.startsWith("3g2")) ext = "3gp2";
+  else if (format === "mov" && majorBrand.startsWith("3gp")) ext = "3gp";
+  else if (extensions) ext = extensions.includes(pathExt) ? pathExt : extensions[0];
+  else if (["image2", "image2pipe"].includes(format)) {
+    const codec = info.streams.find((stream) => stream.codec_type === "video")?.codec_name;
+
+    if (!codec) throw new Error("Image format could not be detected.");
+
+    ext = codec === "mjpeg" ? "jpg" : codec === "jpeg2000" ? "jp2" : codec;
+  } else ext = format.replace(/_pipe$/, "");
+
+  return ext;
+};
 
 const timemarkToSeconds = (timemark: string) => {
   const [hh, mm, ss] = timemark.split(":");
+
   return Number(hh) * 3600 + Number(mm) * 60 + Number(ss);
 };
 
@@ -67,41 +118,63 @@ const secondsToTimemark = (seconds: number) => {
 
 export { videoTranscoder } from "./video-transcoder";
 
-export const extractVideoFrame = async (inputPath: string, frameIndex: number): Promise<string> => {
+export const extractVideoFrame = async (
+  inputPath: string,
+  frameIndex: number,
+  signal = workSignal.getStore(),
+): Promise<string> => {
+  signal?.throwIfAborted();
+
+  const fileStorageRes = await getAvailableFileStorage(10000);
+
+  signal?.throwIfAborted();
+
+  if (!fileStorageRes.success) throw new Error(fileStorageRes.error);
+
+  const outputPath = path.join(
+    fileStorageRes.data.location,
+    "_tmp",
+    `extracted-frame-${randomUUID()}.jpg`,
+  );
+
   try {
-    const fileStorageRes = await getAvailableFileStorage(10000);
-    if (!fileStorageRes.success) throw new Error(fileStorageRes.error);
-
-    const targetDir = fileStorageRes.data.location;
-
-    const outputPath = path.join(targetDir, "_tmp", `extracted-frame-${randomUUID()}.jpg`);
-
     await fs.mkdir(path.dirname(outputPath), { recursive: true });
+    signal?.throwIfAborted();
 
-    await new Promise((resolve, reject) => {
-      ffmpeg()
-        .input(inputPath)
-        .outputOptions([`-vf select='eq(n\\,${round(frameIndex, 0)})'`, `-vframes 1`])
-        .output(outputPath)
-        .on("end", resolve)
-        .on("error", (err) => {
-          console.error(`Error extracting frame: ${err}`);
-          reject(err);
-        })
-        .run();
-    }).catch(async (error) => {
-      await fs.rm(outputPath, { force: true });
-      throw error;
-    });
+    const command = ffmpeg()
+      .input(inputPath)
+      .outputOptions([`-vf select='eq(n\\,${round(frameIndex, 0)})'`, "-vframes 1"])
+      .output(outputPath);
+
+    const abort = () => command.kill("SIGKILL");
+
+    signal?.addEventListener("abort", abort, { once: true });
+
+    try {
+      await new Promise<void>((resolve, reject) => {
+        command
+          .on("start", () => {
+            if (signal?.aborted) abort();
+          })
+          .on("end", () => resolve())
+          .on("error", reject)
+          .run();
+      });
+    } finally {
+      signal?.removeEventListener("abort", abort);
+    }
+
+    signal?.throwIfAborted();
 
     const fileExists = await checkFileExists(outputPath);
+
     if (!fileExists) throw new Error("Extracted frame not found.");
 
     return outputPath;
-  } catch (err) {
-    console.error("Error in extractVideoFrame:", err);
+  } catch (error) {
+    await fs.rm(outputPath, { force: true });
 
-    return null;
+    throw error;
   }
 };
 
@@ -111,6 +184,7 @@ export const getScaledThumbSize = (
   maxDim = CONSTANTS.FILE.THUMB.MAX_DIM,
 ) => {
   const scaleFactor = Math.min(maxDim / width, maxDim / height);
+
   return {
     scaleFactor,
     height: Math.floor(height * scaleFactor),
@@ -209,7 +283,7 @@ const execFfmpeg = async (
 export const getVideoInfo = (
   filePath: string,
   signal = workSignal.getStore(),
-): Promise<VideoInfo> =>
+): Promise<MediaInfo> =>
   new Promise((resolve, reject) => {
     signal?.throwIfAborted();
 
@@ -230,17 +304,31 @@ export const getVideoInfo = (
           if (audioStream && !audioStream.codec_name)
             throw new Error("No audio stream codec found.");
 
-          const { avg_frame_rate, bit_rate, codec_name, height, width } = videoStream;
-          const { duration, size } = info.format;
+          const { avg_frame_rate, bit_rate, codec_name, height, r_frame_rate, width } = videoStream;
+          const { size } = info.format;
+          const duration = [info.format.duration, videoStream.duration]
+            .map(Number)
+            .find((value) => Number.isFinite(value) && value > 0);
+
+          const frameRate = [avg_frame_rate, r_frame_rate]
+            .map((rate) => (rate ? fractionStringToNumber(rate) : null))
+            .find((rate) => Number.isFinite(rate) && rate > 0);
+
+          const ext = getProbedExtension(info, filePath);
+          const format = info.format.format_name.split(",")[0];
 
           resolve({
             audioBitrate: audioStream ? parseInt(audioStream.bit_rate, 10) || null : null,
             audioCodec: audioStream ? audioStream.codec_name : "None",
             bitrate: parseInt(bit_rate, 10) || null,
-            duration: typeof duration === "number" ? duration : parseFloat(duration) || null,
-            ext: extname(filePath).replace(".", "").toLowerCase(),
-            frameRate: fractionStringToNumber(avg_frame_rate),
+            duration: duration ?? null,
+            ext,
+            frameRate: frameRate ?? null,
             height,
+            isAnimated:
+              !format.endsWith("_pipe") &&
+              !["image2", "image2pipe"].includes(format) &&
+              !["avif", "heic"].includes(ext),
             size,
             videoCodec: codec_name,
             width,
@@ -252,32 +340,88 @@ export const getVideoInfo = (
     );
   });
 
-export const getMediaInfo = async (filePath: string): Promise<MediaInfo> => {
-  const ext = extname(filePath).replace(".", "").toLowerCase();
+export const getMediaInfo = async (
+  filePath: string,
+  signal = workSignal.getStore(),
+): Promise<MediaInfo> => {
+  let metadata: Metadata;
 
-  if (getIsImage(ext) && ext !== "gif") {
-    const [metadata, stats] = await Promise.all([
-      runImageTask({ input: filePath, options: { failOn: "none" } }).then(
-        ({ metadata }) => metadata,
-      ),
-      fs.stat(filePath),
-    ]);
+  try {
+    metadata = (await runImageTask({ input: filePath, options: { failOn: "none" } }, signal))
+      .metadata;
+  } catch {
+    signal?.throwIfAborted();
+  }
 
-    return {
+  let info: MediaInfo;
+
+  if (!metadata || metadata.format === "raw") info = await getVideoInfo(filePath, signal);
+  else if (metadata.format === "webp" && metadata.pages > 1) {
+    if (
+      metadata.delay?.length !== metadata.pages ||
+      metadata.delay.some((delay) => !Number.isFinite(delay) || delay < 0)
+    )
+      throw new Error("Animated WebP frame timing is incomplete or invalid.");
+
+    // Match Chromium playback: frame delays of 10 ms or less are displayed for 100 ms.
+    const frameDelays = metadata.delay.map((delay) => (delay <= 10 ? 100 : delay));
+    const duration = frameDelays.reduce((total, delay) => total + delay, 0) / 1000;
+
+    info = {
       audioBitrate: null,
       audioCodec: null,
       bitrate: null,
-      duration: null,
-      ext,
-      frameRate: null,
-      height: metadata.height,
-      size: stats.size,
-      videoCodec: null,
+      duration,
+      ext: "webp",
+      frameDelays,
+      frameRate: metadata.pages / duration,
+      height: metadata.pageHeight ?? metadata.height,
+      isAnimated: true,
+      size: (await fs.stat(filePath)).size,
+      videoCodec: "webp",
       width: metadata.width,
     };
+  } else {
+    const isAnimated =
+      metadata.format === "gif" ||
+      ((metadata.pages ?? 1) > 1 &&
+        (["png", "webp"].includes(metadata.format) || (metadata.delay?.length ?? 0) > 1));
+
+    const videoInfo =
+      isAnimated || metadata.format === "png" ? await getVideoInfo(filePath, signal) : null;
+
+    const ext =
+      metadata.format === "png" && videoInfo
+        ? videoInfo.ext
+        : metadata.format === "jpeg"
+          ? "jpg"
+          : metadata.format === "heif"
+            ? metadata.compression === "av1"
+              ? "avif"
+              : "heic"
+            : metadata.format;
+
+    if ((metadata.pages ?? 1) > 1 && isAnimated && !(videoInfo.duration > 0))
+      throw new Error("Animated image timing could not be read; refusing to flatten its frames.");
+
+    if (isAnimated || videoInfo?.isAnimated) info = { ...videoInfo, ext, isAnimated: true };
+    else
+      info = {
+        audioBitrate: null,
+        audioCodec: null,
+        bitrate: null,
+        duration: null,
+        ext,
+        frameRate: null,
+        height: metadata.height,
+        isAnimated: false,
+        size: (await fs.stat(filePath)).size,
+        videoCodec: null,
+        width: metadata.width,
+      };
   }
 
-  return getVideoInfo(filePath);
+  return info;
 };
 
 const normalizeImageExt = (ext: ImageExt) => (ext === "jpeg" ? "jpg" : ext);
@@ -343,6 +487,7 @@ export const compressImage = async (
       ext: outputExt,
       frameRate: null,
       height: output.height,
+      isAnimated: false,
       size: output.size,
       videoCodec: null,
       width: output.width,
@@ -378,49 +523,51 @@ export const gifToLoopableVideo = async (
 export const reencode = async (inputPath: string, outputDir: string, options?: FfmpegOptions) => {
   const config = getConfig();
   const { codec, maxBitrate, maxFps, maxLongEdge, maxShortEdge, override } = config.file.reencode;
-  const inputExt = extname(inputPath).replace(".", "").toLowerCase();
+  const videoInfo = await getMediaInfo(inputPath, options?.signal);
 
-  if (getIsImage(inputExt) && inputExt !== "gif")
+  if (!videoInfo.isAnimated) {
     return compressImage(inputPath, outputDir, options);
-  if (inputExt === "gif") return gifToLoopableVideo(inputPath, outputDir, options);
+  } else if (videoInfo.ext === "gif") {
+    return gifToLoopableVideo(inputPath, outputDir, options);
+  } else {
+    const inputFps = videoInfo.frameRate;
+    const inputBitrate = videoInfo.bitrate / 1000;
+    const targetBitrate = Math.min(inputBitrate || maxBitrate, maxBitrate);
 
-  const videoInfo = await getVideoInfo(inputPath);
-  const inputFps = videoInfo.frameRate;
-  const inputBitrate = videoInfo.bitrate / 1000;
-  const targetBitrate = Math.min(inputBitrate || maxBitrate, maxBitrate);
+    const filterArray = getVideoResizeFilters(maxLongEdge, maxShortEdge);
 
-  const filterArray = getVideoResizeFilters(maxLongEdge, maxShortEdge);
+    if (maxFps && inputFps > maxFps) filterArray.push(`fps=${maxFps}`);
 
-  if (maxFps && inputFps > maxFps) filterArray.push(`fps=${maxFps}`);
+    const outputOptions = override?.length
+      ? override
+      : [
+          "-rc",
+          "vbr_hq",
+          "-cq",
+          "18",
+          "-b:v",
+          `${targetBitrate}k`,
+          "-maxrate",
+          `${targetBitrate}k`,
+          "-bufsize",
+          `${targetBitrate * 2}k`,
+          "-2pass",
+          "0",
+        ];
 
-  const outputOptions = override?.length
-    ? override
-    : [
-        "-rc",
-        "vbr_hq",
-        "-cq",
-        "18",
-        "-b:v",
-        `${targetBitrate}k`,
-        "-maxrate",
-        `${targetBitrate}k`,
-        "-bufsize",
-        `${targetBitrate * 2}k`,
-        "-2pass",
-        "0",
-      ];
+    const command = ffmpeg()
+      .input(inputPath)
+      .videoCodec(codec)
+      .addOption(["-vf", filterArray.join(",")])
+      .outputOptions(outputOptions);
 
-  const command = ffmpeg()
-    .input(inputPath)
-    .videoCodec(codec)
-    .addOption(["-vf", filterArray.join(",")])
-    .outputOptions(outputOptions);
-
-  return execFfmpeg(command, outputDir, options);
+    return execFfmpeg(command, outputDir, options);
+  }
 };
 
 export const remux = async (inputPath: string, outputDir: string, options?: FfmpegOptions) => {
   const command = ffmpeg().input(inputPath).outputOptions(["-c copy"]);
+
   return execFfmpeg(command, outputDir, options);
 };
 
@@ -430,26 +577,11 @@ export const spliceVideo = async (
   pairs: Array<[number, number]>,
   options?: FfmpegOptions & { forceReencode?: boolean },
 ): Promise<{ hash: string; path: string }> => {
-  if (!pairs || pairs.length === 0) throw new Error("At least one timestamp pair is required.");
-
-  pairs.forEach(([start, end], i) => {
-    if (typeof start !== "number" || typeof end !== "number")
-      throw new Error(`Pair[${i}]: start and end must be numbers.`);
-    if (!Number.isFinite(start) || !Number.isFinite(end))
-      throw new Error(`Pair[${i}]: start and end must be finite numbers.`);
-    if (start < 0) throw new Error(`Pair[${i}]: start must be >= 0 (got ${start}).`);
-    if (end <= start)
-      throw new Error(`Pair[${i}]: end (${end}) must be greater than start (${start}).`);
-  });
+  validateTimestampPairs(pairs);
 
   const info = await getVideoInfo(inputPath);
 
-  pairs.forEach(([, end], i) => {
-    if (info.duration !== null && end > info.duration)
-      throw new Error(
-        `Pair[${i}]: end (${end}s) exceeds video duration (${round(info.duration, 3)}s).`,
-      );
-  });
+  validateTimestampPairs(pairs, info.duration);
 
   const totalDuration = pairs.reduce((acc, [start, end]) => acc + (end - start), 0);
 
@@ -579,6 +711,7 @@ export const vidToThumbGrid = async (
   inputPath: string,
   outputPath: string,
   fileHash: string,
+  info: MediaInfo,
   signal = workSignal.getStore(),
 ) => {
   const DEBUG = false;
@@ -597,7 +730,7 @@ export const vidToThumbGrid = async (
 
     signal?.throwIfAborted();
 
-    const { duration, height, width } = await getVideoInfo(inputPath, signal);
+    const { duration, frameDelays, height, width } = info;
 
     if (DEBUG) perfLog(`Video duration: ${duration}`);
 
@@ -605,50 +738,71 @@ export const vidToThumbGrid = async (
     const scaled = getScaledThumbSize(width, height);
     const skipDuration = duration * CONSTANTS.FILE.THUMB.FRAME_SKIP_PERCENT;
     const frameInterval = (duration - skipDuration) / numOfFrames;
+    let frameEnd = frameDelays?.[0] ?? 0;
+    let page = 0;
 
-    const thumbs = tempPaths.map((tempPath, idx) => ({
-      timestamp: idx * frameInterval + skipDuration,
-      tempPath,
-    }));
+    const thumbs = tempPaths.map((tempPath, idx) => {
+      const timestamp = idx * frameInterval + skipDuration;
+
+      if (frameDelays) {
+        while (page < frameDelays.length - 1 && timestamp * 1000 >= frameEnd) {
+          page++;
+          frameEnd += frameDelays[page];
+        }
+      }
+
+      return { page, tempPath, timestamp };
+    });
 
     await runConcurrent(
       thumbs,
       3,
-      (thumb) =>
-        new Promise<void>((resolve, reject) => {
-          signal?.throwIfAborted();
+      async (thumb) => {
+        if (frameDelays) {
+          await runImageTask(
+            {
+              format: "jpeg",
+              input: inputPath,
+              options: { page: thumb.page, pages: 1 },
+              outputPath: thumb.tempPath,
+              resize: { fit: "fill", height: scaled.height, width: scaled.width },
+            },
+            signal,
+          );
+        } else {
+          await new Promise<void>((resolve, reject) => {
+            signal?.throwIfAborted();
 
-          const command = ffmpeg()
-            .input(inputPath)
-            .inputOptions(["-ss", `${thumb.timestamp}`])
-            .outputOptions(["-vf", `scale=${scaled.width}:${scaled.height}`, "-frames:v", "1"])
-            .output(thumb.tempPath)
-            .on("start", () => {
-              if (signal?.aborted) command.kill("SIGKILL");
-            })
-            .on("end", () => {
-              signal?.removeEventListener("abort", abort);
-              resolve();
-            })
-            .on("error", (err) => {
-              signal?.removeEventListener("abort", abort);
+            const command = ffmpeg()
+              .input(inputPath)
+              .inputOptions(["-ss", `${thumb.timestamp}`])
+              .outputOptions(["-vf", `scale=${scaled.width}:${scaled.height}`, "-frames:v", "1"])
+              .output(thumb.tempPath)
+              .on("start", () => {
+                if (signal?.aborted) command.kill("SIGKILL");
+              })
+              .on("end", () => {
+                signal?.removeEventListener("abort", abort);
+                resolve();
+              })
+              .on("error", (err) => {
+                signal?.removeEventListener("abort", abort);
 
-              if (signal?.aborted) {
-                reject(signal.reason);
+                if (signal?.aborted) reject(signal.reason);
+                else {
+                  console.error(`Failed thumb gen ${thumb.timestamp}: ${err}`);
+                  isCorrupted = true;
+                  resolve();
+                }
+              });
 
-                return;
-              }
+            const abort = () => command.kill("SIGKILL");
 
-              console.error(`Failed thumb gen ${thumb.timestamp}: ${err}`);
-              isCorrupted = true;
-              resolve();
-            });
-
-          const abort = () => command.kill("SIGKILL");
-
-          signal?.addEventListener("abort", abort, { once: true });
-          command.run();
-        }),
+            signal?.addEventListener("abort", abort, { once: true });
+            command.run();
+          });
+        }
+      },
       signal,
     );
 

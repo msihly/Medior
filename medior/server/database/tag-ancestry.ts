@@ -31,6 +31,7 @@ export const loadTagGraph = async (
       for (const tag of documents) {
         const id = String(tag._id);
         const parents = (tag.parentIds ?? []).map(String);
+
         tags.set(id, parents);
 
         for (const related of descendants ? [id] : parents) {
@@ -132,6 +133,7 @@ export const resolveAncestorFilter = async (
           );
 
         const ids = Array.isArray(operand) ? operand : [operand];
+
         if (operator === "$all") {
           const related = new Map(
             (await getRelatedTags(ids, descendants, session)).map((tag) => [
@@ -139,6 +141,7 @@ export const resolveAncestorFilter = async (
               tag.related,
             ]),
           );
+
           for (const id of ids)
             clauses.push({
               [targetField]: {
@@ -149,6 +152,7 @@ export const resolveAncestorFilter = async (
           if (!ids.length) clauses.push({ _id: { $in: [] } });
         } else {
           const graph = await loadTagGraph(ids.map(String), descendants, session);
+
           clauses.push({
             [targetField]: {
               [operator === "$ne" || operator === "$nin" ? "$nin" : "$in"]: collectRelatedTagIds(
@@ -174,6 +178,7 @@ export const deriveMediaAncestors = async (documents: any, session?: ClientSessi
 
   if (!ids.length) {
     for (const item of items) item.tagIdsWithAncestors = [];
+
     return;
   }
 
@@ -310,6 +315,7 @@ const deriveTagHierarchy = async (
   session?: ClientSession,
 ) => {
   const tags = (Array.isArray(documents) ? documents : [documents]).filter((tag) => tag?._id);
+
   if (!tags.length) return;
 
   for (const field of ["ancestorIds", "descendantIds"] as const) {
@@ -348,6 +354,7 @@ export const tagAncestryPlugin = (schema: Schema) => {
       this.setQuery(await resolveTagHierarchyFilter(this.getFilter(), this.getOptions().session));
 
       const projection = this.projection();
+
       projections.set(this, projection && { ...projection });
 
       if (

@@ -31,8 +31,9 @@ export const SavedImportConfigsModal = Comp(
 
     const [configFolderPath, setConfigFolderPath] = useState("");
     const [configLabel, setConfigLabel] = useState(getDefaultConfigLabel(editorStore));
-    const [editingLabelConfigId, setEditingLabelConfigId] = useState("");
     const [editingLabel, setEditingLabel] = useState("");
+    const [editingLabelConfigId, setEditingLabelConfigId] = useState("");
+    const [isSaving, setIsSaving] = useState(false);
     const [overwriteConfig, setOverwriteConfig] = useState<SavedImportConfig>(null);
 
     const canSave =
@@ -46,6 +47,13 @@ export const SavedImportConfigsModal = Comp(
     useEffect(() => {
       resetEditorConfig();
     }, [editorStore?.rootFolderPath, editorStore?.rootFolderIndex]);
+
+    const handleClose = () => {
+      if (!isSaving) {
+        store.cancelLoad();
+        onClose();
+      }
+    };
 
     const clearLabelEditing = () => {
       setEditingLabelConfigId("");
@@ -69,6 +77,7 @@ export const SavedImportConfigsModal = Comp(
 
     const getOverwriteConfig = (folderPath: string) => {
       const normalizedFolderPath = normalizeImportConfigPath(folderPath);
+
       return stores.import.savedConfigs.find(
         (config) => config.normalizedFolderPath === normalizedFolderPath,
       );
@@ -77,23 +86,28 @@ export const SavedImportConfigsModal = Comp(
     const handleSaveConfig = () => {
       const folderPath = getSaveFolderPath(configFolderPath);
       const existing = getOverwriteConfig(folderPath);
+
       if (existing) setOverwriteConfig(existing);
-      else void saveConfig();
+      else saveConfig();
     };
 
     const saveConfig = async (id?: string) => {
+      setIsSaving(true);
+
       try {
         if (!editorStore?.rootFolderPath) {
           throw new Error("Open the Import Editor with a loaded folder first");
         }
 
         const folderPath = getSaveFolderPath(configFolderPath);
-        await stores.import.saveSavedConfig({
+        const res = await stores.import.saveSavedConfig({
           folderPath,
           id,
           label: configLabel.trim() || getDefaultConfigLabel(editorStore),
           options: editorStore.options.toSavedConfig(),
         });
+
+        if (!res.success) throw new Error(res.error);
 
         await refreshConfigs();
         resetEditorConfig();
@@ -102,177 +116,196 @@ export const SavedImportConfigsModal = Comp(
 
         return true;
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : "Failed to save import config");
+        toast.error(err?.message ?? "Failed to save import config");
 
         return false;
+      } finally {
+        setIsSaving(false);
       }
     };
 
     const confirmOverwrite = async () => saveConfig(overwriteConfig.id);
 
     const deleteConfig = async (id: string) => {
+      setIsSaving(true);
+
       try {
-        await stores.import.deleteSavedConfig(id);
+        const res = await stores.import.deleteSavedConfig(id);
+
+        if (!res.success) throw new Error(res.error);
+
         await refreshConfigs();
 
         if (editingLabelConfigId === id) clearLabelEditing();
 
         toast.warn("Saved import config deleted");
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : "Failed to delete import config");
+        toast.error(err?.message ?? "Failed to delete import config");
+      } finally {
+        setIsSaving(false);
       }
     };
 
     const saveConfigLabel = async (id: string) => {
+      setIsSaving(true);
+
       try {
-        await stores.import.renameSavedConfig({ id, label: editingLabel.trim() });
+        const res = await stores.import.renameSavedConfig({ id, label: editingLabel.trim() });
+
+        if (!res.success) throw new Error(res.error);
+
         await refreshConfigs();
         clearLabelEditing();
 
         toast.success("Saved import config label updated");
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : "Failed to update import config label");
+        toast.error(err?.message ?? "Failed to update import config label");
+      } finally {
+        setIsSaving(false);
       }
     };
 
     return (
-      <Modal.Container onClose={onClose} width="60rem" maxWidth="95%" height="90%">
+      <Modal.Container
+        isLoading={isSaving}
+        onClose={handleClose}
+        width="60rem"
+        maxWidth="95%"
+        height="90%"
+      >
         <Modal.Header leftNode={<SavedImportConfigsFilterMenu store={store} />}>
           <Text preset="title">{"Saved Import Configs"}</Text>
         </Modal.Header>
 
-        <Modal.Content dividers={false}>
-          <View column spacing="0.8rem" height="100%" overflow="hidden" position="relative">
+        <Modal.Content dividers={false} padding={{ all: 0 }}>
+          <View column height="100%" overflow="hidden" position="relative">
             <SearchLoadingOverlay store={store} />
 
-            {editorStore && (
-              <Card column spacing="0.6rem" bgColor={colors.background}>
-                <View row align="stretch" spacing={0}>
-                  <Input
-                    header="Config Label"
-                    headerProps={{ borderRadiuses: { topRight: 0 } }}
-                    value={configLabel}
-                    setValue={setConfigLabel}
-                    borders={{ right: "none" }}
-                    borderRadiuses={{ right: 0 }}
-                    dense
-                    flex={1}
-                  />
+            <View column flex={1} minHeight={0} spacing="0.8rem" padding={{ all: "0.2rem 1rem" }}>
+              {editorStore && (
+                <Card column spacing="0.6rem" bgColor={colors.background}>
+                  <View row align="stretch" spacing={0}>
+                    <Input
+                      header="Config Label"
+                      headerProps={{ borderRadiuses: { topRight: 0 } }}
+                      value={configLabel}
+                      setValue={setConfigLabel}
+                      borders={{ right: "none" }}
+                      borderRadiuses={{ right: 0 }}
+                      dense
+                      flex={1}
+                    />
 
-                  <Input
-                    header="Folder Path"
-                    headerProps={{ borderRadiuses: { topLeft: 0, topRight: 0 } }}
-                    value={configFolderPath}
-                    setValue={setConfigFolderPath}
-                    borders={{ right: "none" }}
-                    borderRadiuses={{ left: 0, right: 0 }}
-                    dense
-                    flex={2}
-                  />
+                    <Input
+                      header="Folder Path"
+                      headerProps={{ borderRadiuses: { topLeft: 0, topRight: 0 } }}
+                      value={configFolderPath}
+                      setValue={setConfigFolderPath}
+                      borders={{ right: "none" }}
+                      borderRadiuses={{ left: 0, right: 0 }}
+                      dense
+                      flex={2}
+                    />
 
-                  <Button
-                    icon="Save"
-                    onClick={handleSaveConfig}
-                    disabled={!canSave}
-                    borderRadiuses={{ left: 0 }}
-                    color={colors.custom.blue}
-                    height="100%"
-                  />
-                </View>
-              </Card>
-            )}
+                    <Button
+                      icon="Save"
+                      onClick={handleSaveConfig}
+                      disabled={!canSave}
+                      borderRadiuses={{ left: 0 }}
+                      color={colors.custom.blue}
+                      height="100%"
+                    />
+                  </View>
+                </Card>
+              )}
 
-            <View
-              column
-              flex={1}
-              overflow="hidden auto"
-              spacing="0.5rem"
-              padding={{ bottom: "4rem" }}
-            >
-              {store.results.length ? (
-                store.results.map((config) => (
-                  <Card
-                    key={config.id}
-                    row
-                    align="center"
-                    spacing="0.7rem"
-                    bgColor={
-                      editingLabelConfigId === config.id ? colors.custom.darkGrey : undefined
-                    }
-                  >
-                    <View column flex={1} spacing="0.3rem" overflow="hidden">
-                      {editingLabelConfigId === config.id ? (
-                        <Input value={editingLabel} setValue={setEditingLabel} dense />
-                      ) : (
+              <View column flex={1} overflow="hidden auto" spacing="0.5rem">
+                {store.results.length ? (
+                  store.results.map((config) => (
+                    <Card
+                      key={config.id}
+                      row
+                      align="center"
+                      spacing="0.7rem"
+                      bgColor={
+                        editingLabelConfigId === config.id ? colors.custom.darkGrey : undefined
+                      }
+                    >
+                      <View column flex={1} spacing="0.3rem" overflow="hidden">
+                        {editingLabelConfigId === config.id ? (
+                          <Input value={editingLabel} setValue={setEditingLabel} dense />
+                        ) : (
+                          <Text
+                            fontWeight={500}
+                            textOverflow="ellipsis"
+                            overflow="hidden"
+                            whiteSpace="nowrap"
+                          >
+                            {config.label}
+                          </Text>
+                        )}
+
                         <Text
-                          fontWeight={500}
+                          color={colors.custom.lightGrey}
+                          fontSize="0.85em"
                           textOverflow="ellipsis"
                           overflow="hidden"
                           whiteSpace="nowrap"
                         >
-                          {config.label}
-                        </Text>
-                      )}
-
-                      <Text
-                        color={colors.custom.lightGrey}
-                        fontSize="0.85em"
-                        textOverflow="ellipsis"
-                        overflow="hidden"
-                        whiteSpace="nowrap"
-                      >
-                        {config.folderPath}
-                      </Text>
-
-                      <View row spacing="0.5rem" overflow="hidden">
-                        <Text color={colors.custom.lightGrey} fontSize="0.7em">
-                          {`Created: ${formatDate(config.dateCreated)}`}
+                          {config.folderPath}
                         </Text>
 
-                        <Text color={colors.custom.lightGrey} fontSize="0.7em">
-                          {`Modified: ${formatDate(config.dateModified)}`}
-                        </Text>
+                        <View row spacing="0.5rem" overflow="hidden">
+                          <Text color={colors.custom.lightGrey} fontSize="0.7em">
+                            {`Created: ${formatDate(config.dateCreated)}`}
+                          </Text>
+
+                          <Text color={colors.custom.lightGrey} fontSize="0.7em">
+                            {`Modified: ${formatDate(config.dateModified)}`}
+                          </Text>
+                        </View>
                       </View>
-                    </View>
 
-                    <View column align="flex-end" spacing="0.5rem">
-                      {editingLabelConfigId === config.id ? (
-                        <View row align="center" spacing="0.5rem">
+                      <View column align="flex-end" spacing="0.5rem">
+                        {editingLabelConfigId === config.id ? (
+                          <View row align="center" spacing="0.5rem">
+                            <Button
+                              icon="Save"
+                              onClick={() => saveConfigLabel(config.id)}
+                              disabled={!editingLabel.trim()}
+                              colorOnHover={colors.custom.blue}
+                            />
+
+                            <Button
+                              icon="Close"
+                              onClick={clearLabelEditing}
+                              colorOnHover={colors.custom.grey}
+                            />
+                          </View>
+                        ) : (
                           <Button
-                            icon="Save"
-                            onClick={() => saveConfigLabel(config.id)}
-                            disabled={!editingLabel.trim()}
+                            icon="Edit"
+                            onClick={() => editConfigLabel(config)}
                             colorOnHover={colors.custom.blue}
                           />
+                        )}
 
-                          <Button
-                            icon="Close"
-                            onClick={clearLabelEditing}
-                            colorOnHover={colors.custom.grey}
-                          />
-                        </View>
-                      ) : (
                         <Button
-                          icon="Edit"
-                          onClick={() => editConfigLabel(config)}
-                          colorOnHover={colors.custom.blue}
+                          icon="Delete"
+                          onClick={() => deleteConfig(config.id)}
+                          colorOnHover={colors.custom.red}
                         />
-                      )}
-
-                      <Button
-                        icon="Delete"
-                        onClick={() => deleteConfig(config.id)}
-                        colorOnHover={colors.custom.red}
-                      />
-                    </View>
-                  </Card>
-                ))
-              ) : (
-                <CenteredText text="No Saved Configs" color={colors.custom.lightGrey} />
-              )}
+                      </View>
+                    </Card>
+                  ))
+                ) : (
+                  <CenteredText text="No Saved Configs" color={colors.custom.lightGrey} />
+                )}
+              </View>
             </View>
 
             <Pagination
+              inline
               count={store.pageCount}
               page={store.page}
               isLoading={store.isPageCountLoading && !store.isLoading}
@@ -284,7 +317,7 @@ export const SavedImportConfigsModal = Comp(
         </Modal.Content>
 
         <Modal.Footer>
-          <Button text="Close" icon="Close" onClick={onClose} color={colors.custom.grey} />
+          <Button text="Close" icon="Close" onClick={handleClose} color={colors.custom.grey} />
         </Modal.Footer>
 
         {overwriteConfig && (
@@ -305,6 +338,7 @@ export const SavedImportConfigsModal = Comp(
 
 const getEditorRootPath = (store: Ingester | Reingester) => {
   const pathParts = store?.rootFolderPath?.split(path.sep) ?? [];
+
   return pathParts.slice(0, Math.min(store.rootFolderIndex + 1, pathParts.length)).join(path.sep);
 };
 
@@ -316,6 +350,7 @@ const getDefaultConfigLabel = (store: Ingester | Reingester) =>
 
 const getSaveFolderPath = (folderPath: string) => {
   const trimmedFolderPath = folderPath.trim();
+
   return path.basename(path.normalize(trimmedFolderPath)) === "*"
     ? trimmedFolderPath
     : path.join(trimmedFolderPath, "*");

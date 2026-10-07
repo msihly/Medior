@@ -5,50 +5,59 @@ import {
   getRatingMeta,
   Icon,
   IconButton,
+  ImageCrop,
   TagRow,
   Text,
   View,
   ZoomControls,
 } from "medior/components";
 import { useStores } from "medior/store";
-import { colors, makeClasses } from "medior/utils/client";
+import { colors, makeClasses, toast } from "medior/utils/client";
 import { CONSTANTS, round } from "medior/utils/common";
+import { getIsAnimated, getIsImage } from "medior/utils/server";
 import { ZoomContext } from "medior/views";
 
 export const CarouselTopBar = Comp(() => {
   const stores = useStores();
+  const store = stores.carousel;
 
-  const file = stores.file.getById(stores.carousel.activeFileId);
+  const file = stores.file.getById(store.activeFileId);
+  const canEditImage = file && getIsImage(file.ext) && !getIsAnimated(file.ext);
   const ratingMeta = getRatingMeta(file?.rating);
 
+  const [cropTarget, setCropTarget] = useState<{ expectedHash: string; fileId: string }>(null);
   const [isAspectRatioLocked, setIsAspectRatioLocked] = useState(false);
 
   const { css } = useClasses({
-    isMouseMoving: stores.carousel.isMouseMoving,
-    isPinned: stores.carousel.isPinned,
+    isMouseMoving: store.isMouseMoving,
+    isPinned: store.isPinned,
     ratingTextShadow: ratingMeta?.textShadow,
   });
 
   const panZoomRef = useContext(ZoomContext);
 
+  const didAspectInit = useRef(false);
+
   const fitToAspectRatio = () => {
     try {
       const primaryDisplay = screen.getPrimaryDisplay();
-      const { width: screenWidth, height: screenHeight } = primaryDisplay.workAreaSize;
+      const { height: screenHeight, width: screenWidth } = primaryDisplay.workAreaSize;
 
       let winWidth = Math.min(file?.width, screenWidth);
-
       let winHeight =
         winWidth === screenWidth
           ? (screenWidth / file?.width) * file?.height
           : Math.min(file?.height, screenHeight);
+
       if (winHeight === screenHeight) winWidth = (screenHeight / file?.height) * file?.width;
 
       const win = getCurrentWindow();
+
       win.setContentSize(round(winWidth, 0), round(winHeight, 0), true);
 
       setTimeout(() => {
         const [width, height] = win.getSize();
+
         win.setAspectRatio(width / height);
       }, 0);
     } catch (err) {
@@ -57,7 +66,6 @@ export const CarouselTopBar = Comp(() => {
     }
   };
 
-  const didAspectInit = useRef(false);
   useEffect(() => {
     if (!didAspectInit.current && file?.width > 0 && file?.height > 0) {
       fitToAspectRatio();
@@ -67,9 +75,26 @@ export const CarouselTopBar = Comp(() => {
 
   const handleEditTags = () => stores.file.tagsEditor.setIsOpen(true);
 
+  const handleOpenCrop = () => setCropTarget({ expectedHash: file.hash, fileId: file.id });
+
+  const handleCloseCrop = () => setCropTarget(null);
+
+  const rotate = async (rotation: -90 | 90) => {
+    const result = await store.editImage({ expectedHash: file.hash, fileId: file.id, rotation });
+
+    if (result.success) toast.success("Image rotated");
+    else toast.error(result.error);
+  };
+
+  const handleRotateLeft = () => rotate(-90);
+
+  const handleRotateRight = () => rotate(90);
+
   const toggleAspectRatioLock = () => {
     const isLocked = !isAspectRatioLocked;
+
     setIsAspectRatioLocked(isLocked);
+
     if (isLocked) fitToAspectRatio();
     else getCurrentWindow().setAspectRatio(0);
   };
@@ -79,9 +104,9 @@ export const CarouselTopBar = Comp(() => {
       <View row flex={1}>
         <IconButton
           name="PushPin"
-          iconProps={{ rotation: stores.carousel.isPinned ? 45 : 0 }}
-          onClick={stores.carousel.toggleIsPinned}
-          tooltip={stores.carousel.isPinned ? "Unpin" : "Pin"}
+          iconProps={{ rotation: store.isPinned ? 45 : 0 }}
+          onClick={store.toggleIsPinned}
+          tooltip={store.isPinned ? "Unpin" : "Pin"}
         />
 
         <IconButton
@@ -112,22 +137,47 @@ export const CarouselTopBar = Comp(() => {
       <View row flex={1} justify="flex-end">
         {file?.isVideo ? (
           <>
-            <IconButton
-              name="Camera"
-              onClick={stores.carousel.extractFrame}
-              tooltip="Extract Frame"
-            />
+            <IconButton name="Camera" onClick={store.extractFrame} tooltip="Extract Frame" />
 
             <IconButton
               name="Cut"
-              onClick={stores.carousel.splicer.toggleIsOpen}
-              tooltip={stores.carousel.splicer.isOpen ? "Close Splicer" : "Open Splicer"}
+              onClick={store.splicer.toggleIsOpen}
+              tooltip={store.splicer.isOpen ? "Close Splicer" : "Open Splicer"}
             />
           </>
         ) : (
-          <ZoomControls panZoomRef={panZoomRef} />
+          <>
+            {canEditImage && (
+              <>
+                <IconButton
+                  name="Crop"
+                  onClick={handleOpenCrop}
+                  tooltip="Crop Image"
+                  disabled={store.isEditingImage}
+                />
+
+                <IconButton
+                  name="RotateLeft"
+                  onClick={handleRotateLeft}
+                  tooltip="Rotate Left and Save"
+                  disabled={store.isEditingImage}
+                />
+
+                <IconButton
+                  name="RotateRight"
+                  onClick={handleRotateRight}
+                  tooltip="Rotate Right and Save"
+                  disabled={store.isEditingImage}
+                />
+              </>
+            )}
+
+            <ZoomControls panZoomRef={panZoomRef} />
+          </>
         )}
       </View>
+
+      {cropTarget && <ImageCrop {...cropTarget} onClose={handleCloseCrop} />}
     </View>
   );
 });

@@ -1,7 +1,7 @@
 import { Comp, Icon, LoadingOverlay, Text, View } from "medior/components";
 import { useFileDrag } from "medior/components/files/hooks";
 import { File, FileSearch, FileTransformSearch, useStores } from "medior/store";
-import { CSS, openCarouselWindow, toast } from "medior/utils/client";
+import { colors, CSS, openCarouselWindow, toast } from "medior/utils/client";
 import { round } from "medior/utils/common";
 import { FileBase } from ".";
 
@@ -21,11 +21,11 @@ interface FileCardProps {
 export const FileCard = Comp(
   ({ carouselFileIds, disabled, file, height, similarity, store, width }: FileCardProps) => {
     const stores = useStores();
+
     const hasTags = file?.tags?.length > 0;
     const showFileName = stores.home.showFileName && !!file?.originalName;
     const hasFooter = hasTags || showFileName;
     const footerOffset = showFileName ? (hasTags ? "3.5rem" : "1.5rem") : undefined;
-
     const fileDragProps = useFileDrag(file, store.selectedIds);
 
     const handleClick = async (event: React.MouseEvent) => {
@@ -42,6 +42,7 @@ export const FileCard = Comp(
             hasShift: event.shiftKey,
             id: file.id,
           }));
+
       if (!res?.success) toast.error(res.error);
     };
 
@@ -50,6 +51,7 @@ export const FileCard = Comp(
         if (carouselFileIds?.length) openCarouselWindow({ file, selectedFileIds: carouselFileIds });
         else {
           const res = await store.listIdsForCarousel();
+
           if (!res?.success) console.error(res.error);
           else openCarouselWindow({ file, selectedFileIds: res.data });
         }
@@ -93,6 +95,15 @@ export const FileCard = Comp(
               {similarity ? (
                 <FileBase.Chip
                   position="top-left"
+                  bgColor={
+                    similarity.score >= 0.9
+                      ? colors.custom.green
+                      : similarity.score >= 0.7
+                        ? colors.custom.orange
+                        : colors.custom.red
+                  }
+                  color={colors.custom.white}
+                  opacity={1}
                   avatar={
                     <Text
                       display="flex"

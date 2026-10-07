@@ -1,3 +1,4 @@
+import { createServer } from "http";
 import { socketEvents } from "medior/_generated/server/socket";
 import { Server } from "socket.io";
 import { fileLog, setLogsPath } from "trabecula/utils/server";
@@ -10,10 +11,11 @@ const createSocketServer = async () => {
   checkServerShutdown();
 
   const port = getConfig().ports.socket;
+  const server = createServer();
 
   if (io) io.close();
 
-  io = new Server(port);
+  io = new Server(server);
 
   io.on("connection", (socket) => {
     socket.emit("connected");
@@ -23,6 +25,11 @@ const createSocketServer = async () => {
         socket.broadcast.emit(event, ...args);
       }),
     );
+  });
+
+  await new Promise<void>((resolve, reject) => {
+    server.once("error", reject);
+    server.listen(port, "127.0.0.1", resolve);
   });
 
   fileLog(`[SOCKET] Listening on ${port}`);

@@ -2,9 +2,8 @@ import autoBind from "auto-bind";
 import { TagSchema } from "medior/_generated/server";
 import { computed } from "mobx";
 import { ExtendedModel, model, modelFlow, prop } from "mobx-keystone";
-import { asyncAction } from "trabecula/utils/client";
 import { _FileCollection } from "medior/store/_generated";
-import { trpc } from "medior/utils/server";
+import { asyncAction, reloadItemTags } from "medior/utils/client";
 
 @model("medior/FileCollection")
 export class FileCollection extends ExtendedModel(_FileCollection, {
@@ -17,10 +16,7 @@ export class FileCollection extends ExtendedModel(_FileCollection, {
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */
   @modelFlow
   reloadTags = asyncAction(async () => {
-    const res = await trpc.listTag.mutate({ filter: { id: this.tagIds } });
-    if (!res.success) throw new Error(res.error);
-
-    this.setTags(res.data);
+    await reloadItemTags([this]);
   });
 
   /* ----------------------------- DYNAMIC GETTERS ---------------------------- */

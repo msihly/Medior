@@ -1,8 +1,15 @@
 import { getCurrentWindow } from "@electron/remote";
 import { ipcRenderer } from "electron";
-import { MouseEvent, useEffect, useState } from "react";
-import { Menu } from "@mui/material";
-import { Comp, HotkeysModal, IconButton, ListItem, Text, View } from "medior/components";
+import { useEffect, useState } from "react";
+import {
+  Comp,
+  HotkeysModal,
+  IconButton,
+  ListItem,
+  MenuButton,
+  Text,
+  View,
+} from "medior/components";
 import { useStores } from "medior/store";
 import { colors, makeClasses, toast } from "medior/utils/client";
 import { CONSTANTS } from "medior/utils/common";
@@ -16,59 +23,45 @@ export const WindowTitleBar = Comp(({ isDark = false, title }: WindowTitleBarPro
   const stores = useStores();
   const store = stores.home;
 
-  const [anchorEl, setAnchorEl] = useState<HTMLElement>(null);
-
   const [isDevToolsOpen, setIsDevToolsOpen] = useState(() =>
     getCurrentWindow().webContents.isDevToolsOpened(),
   );
-
   const [isHotkeysOpen, setIsHotkeysOpen] = useState(false);
   const [isMaximized, setIsMaximized] = useState(() => getCurrentWindow().isMaximized());
+
   const { css } = useClasses({ isDark, isDragEnabled: !(isDevToolsOpen && isMaximized) });
 
   const handleClose = () => getCurrentWindow().close();
 
-  const handleDeveloperTools = () => {
-    setAnchorEl(null);
-    getCurrentWindow().webContents.toggleDevTools();
-  };
+  const handleDeveloperTools = () => getCurrentWindow().webContents.toggleDevTools();
 
   const handleFileNameToggle = async () => {
-    setAnchorEl(null);
-
     const showFileName = !store.showFileName;
+
     store.setShowFileName(showFileName);
     store.settings.update({ file: { showFileName } });
 
     try {
       const res = await store.settings.save();
+
       if (!res.success) throw new Error(res.error);
     } catch (error) {
       store.setShowFileName(!showFileName);
       store.settings.update({ file: { showFileName: !showFileName } });
       store.settings.setHasUnsavedChanges(false);
-      toast.error(error instanceof Error ? error.message : "Failed to save file name setting");
+      toast.error(error.message || "Failed to save file name setting");
     }
   };
 
   const handleHotkeysClose = () => setIsHotkeysOpen(false);
 
-  const handleHotkeysOpen = () => {
-    setAnchorEl(null);
-    setIsHotkeysOpen(true);
-  };
+  const handleHotkeysOpen = () => setIsHotkeysOpen(true);
 
   const handleMaximize = () => {
     const browserWindow = getCurrentWindow();
+
     if (browserWindow.isMaximized()) browserWindow.unmaximize();
     else browserWindow.maximize();
-  };
-
-  const handleMenuClose = () => setAnchorEl(null);
-
-  const handleMenuOpen = (event: MouseEvent<HTMLElement>) => {
-    event.stopPropagation();
-    setAnchorEl(event.currentTarget);
   };
 
   const handleMinimize = () => getCurrentWindow().minimize();
@@ -92,37 +85,56 @@ export const WindowTitleBar = Comp(({ isDark = false, title }: WindowTitleBarPro
 
   return (
     <View row align="center" className={css.root}>
-      <img alt="Medior" className={css.favicon} draggable={false} src="./favicon.ico" />
-
-      <IconButton
-        aria-label="Open window menu"
-        className={css.menuButton}
-        iconProps={{ size: "1.2rem" }}
-        name="Menu"
-        onClick={handleMenuOpen}
-        padding={{ all: 0 }}
-        tooltip="Menu"
+      <View
+        component="img"
+        alt="Medior"
+        className={css.favicon}
+        draggable={false}
+        src="./favicon.ico"
       />
 
-      <Menu
-        anchorEl={anchorEl}
-        className={css.menu}
-        open={Boolean(anchorEl)}
-        onClose={handleMenuClose}
-        keepMounted
+      <MenuButton
+        anchorOrigin={{ horizontal: "left", vertical: "top" }}
+        aria-label="Open window menu"
+        className={css.menuButton}
+        icon="Menu"
+        iconProps={{ size: "1.2rem" }}
+        menuClassName={css.menu}
+        padding={{ all: 0 }}
+        tooltip="Menu"
+        transformOrigin={{ horizontal: "left", vertical: "top" }}
       >
-        <View>
-          <ListItem
-            icon={store.showFileName ? "CheckBox" : "CheckBoxOutlineBlank"}
-            onClick={handleFileNameToggle}
-            text="Show File Names"
-          />
+        {(onClose) => (
+          <View>
+            <ListItem
+              icon={store.showFileName ? "CheckBox" : "CheckBoxOutlineBlank"}
+              onClick={() => {
+                onClose();
+                handleFileNameToggle();
+              }}
+              text="Show File Names"
+            />
 
-          <ListItem icon="Keyboard" onClick={handleHotkeysOpen} text="Hotkeys" />
+            <ListItem
+              icon="Keyboard"
+              onClick={() => {
+                onClose();
+                handleHotkeysOpen();
+              }}
+              text="Hotkeys"
+            />
 
-          <ListItem icon="DeveloperMode" onClick={handleDeveloperTools} text="Developer Tools" />
-        </View>
-      </Menu>
+            <ListItem
+              icon="DeveloperMode"
+              onClick={() => {
+                onClose();
+                handleDeveloperTools();
+              }}
+              text="Developer Tools"
+            />
+          </View>
+        )}
+      </MenuButton>
 
       <Text className={css.title}>{title}</Text>
 

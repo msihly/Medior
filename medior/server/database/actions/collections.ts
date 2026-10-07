@@ -1,12 +1,13 @@
 import path from "path";
 import * as models from "medior/_generated/server/models";
 import mongoose, { FilterQuery, UpdateQuery } from "mongoose";
-import { fileLog } from "trabecula/utils/server";
 import * as actions from "medior/server/database/actions";
 import {
   canRunBackgroundQueues,
   makeBackgroundOperationRunner,
 } from "medior/server/database/actions/background-operations";
+import { getImportSourceFolder } from "medior/server/database/import-entries";
+import { assertImportEntriesReady } from "medior/server/database/import-entry-state";
 import {
   getBackgroundSession,
   getMetadataCreateId,
@@ -19,6 +20,7 @@ import { makeRepairReporter } from "medior/server/database/repair-progress";
 import { SortMenuProps } from "medior/components";
 import { chunkArray, dayjs } from "medior/utils/common";
 import { leanModelToJson, makeAction, objectId, objectIds, socket } from "medior/utils/server";
+import { getCommonSourceFolder } from "medior/utils/server/source-folders";
 
 /* -------------------------------------------------------------------------- */
 /*                              HELPER FUNCTIONS                              */
@@ -43,6 +45,7 @@ const updateFileCollectionIds = async (
     for (const file of updatedFiles) {
       const collectionIds = file.collectionIds.map(String).sort();
       const key = collectionIds.join(",");
+
       if (!groups.has(key)) groups.set(key, { collectionIds, fileIds: [] });
 
       groups.get(key).fileIds.push(file._id.toString());
@@ -59,6 +62,7 @@ export const syncCollectionFileIds = async (collectionId: string, fileIds: strin
     { _id: { $nin: objectIds(fileIds) }, collectionIds: collectionId },
     { $pull: { collectionIds: collectionId } },
   );
+
   await updateFileCollectionIds(
     { _id: { $in: objectIds(fileIds) }, collectionIds: { $ne: collectionId } },
     { $addToSet: { collectionIds: collectionId } },
@@ -75,11 +79,13 @@ export const removeFileCollectionIds = async (collectionIds: string[]) => {
 
 const dedupeFileIdIndexes = (fileIdIndexes: { fileId: string; index: number }[]) => {
   const seenFileIds = new Set<string>();
+
   return fileIdIndexes
     .filter(({ fileId }) => {
       if (!fileId) return false;
 
       const id = fileId.toString();
+
       if (seenFileIds.has(id)) return false;
 
       seenFileIds.add(id);
@@ -116,41 +122,6 @@ const normalizeSourceFolderPath = (sourceFolderPath: string) =>
     .replace(/[\\/]+$/, "")
     .toLowerCase();
 
-const deriveCommonFolderPath = (folderPaths: string[]) => {
-  folderPaths = folderPaths.filter(Boolean);
-  if (!folderPaths.length) return null;
-
-  const root = path.win32.parse(folderPaths[0]).root;
-  if (
-    !folderPaths.every(
-      (folderPath) => path.win32.parse(folderPath).root.toLowerCase() === root.toLowerCase(),
-    )
-  )
-    return null;
-
-  const splitPaths = folderPaths.map((folderPath) =>
-    path.win32
-      .relative(root, folderPath)
-      .split(/[\\/]+/)
-      .filter(Boolean),
-  );
-
-  const commonParts: string[] = [];
-  const maxLength = Math.min(...splitPaths.map((parts) => parts.length));
-
-  for (let index = 0; index < maxLength; index++) {
-    const part = splitPaths[0][index];
-    if (!splitPaths.every((parts) => parts[index].toLowerCase() === part.toLowerCase())) break;
-
-    commonParts.push(part);
-  }
-
-  return commonParts.length ? path.win32.join(root, ...commonParts) : null;
-};
-
-const deriveCommonSourceFolderPath = (originalPaths: string[]) =>
-  deriveCommonFolderPath(originalPaths.map((filePath) => path.win32.dirname(filePath)));
-
 const deriveCollectionSourceFolderPath = async (collection: models.FileCollectionSchema) => {
   if (collection.sourceFolderPaths?.length) return collection.sourceFolderPaths[0];
 
@@ -160,45 +131,46 @@ const deriveCollectionSourceFolderPath = async (collection: models.FileCollectio
     .select({ originalPath: 1 })
     .lean();
 
-  const fromFiles = deriveCommonSourceFolderPath(files.map((file) => file.originalPath));
+  const fromFiles = getCommonSourceFolder(files.map((file) => file.originalPath));
+
   if (fromFiles) return fromFiles;
 
   const batches = await models.FileImportBatchModel.find({ collectionId: collection.id })
-    .select({ imports: 1 })
+    .select({ _id: 1 })
     .lean();
 
-  return deriveCommonSourceFolderPath(
-    batches.flatMap((batch) => batch.imports?.map((fileImport) => fileImport.path) ?? []),
-  );
+  return getImportSourceFolder(batches.map((batch) => String(batch._id)));
 };
 
-const makeCollAttrs = async (
-  files: models.FileSchema[],
-  fileIdIndexes: { fileId: string; index: number }[],
-): Promise<{
-  fileCount: number;
-  rating: number;
-  size: number;
-  tagIds: string[];
-  tagIdsWithAncestors: string[];
-}> => {
-  const indexMap = new Map(fileIdIndexes.map((f) => [f.fileId, f.index]));
-  const sortedFiles = [...files].sort((a, b) => indexMap.get(a.id) - indexMap.get(b.id));
-  const ratedFiles = sortedFiles.filter((f) => f.rating > 0);
+const readCollectionAttributes = async (fileIds: string[]) => {
+  let fileCount = 0;
+  let ratedCount = 0;
+  let ratingSum = 0;
+  let size = 0;
+  const tagIds = new Set<string>();
 
-  const tagIds = [
-    ...new Set([...sortedFiles.map((f) => f.tagIds.map((id) => id.toString())).flat()]),
-  ];
+  for await (const file of models.FileModel.find({ _id: { $in: objectIds(fileIds) } })
+    .select({ rating: 1, size: 1, tagIds: 1 })
+    .readConcern("majority")
+    .lean()
+    .cursor({ batchSize: 500 })) {
+    fileCount++;
+    size += file.size;
+
+    if (file.rating > 0) {
+      ratedCount++;
+      ratingSum += file.rating;
+    }
+
+    for (const id of file.tagIds) tagIds.add(String(id));
+  }
 
   return {
-    fileCount: sortedFiles.length,
-    rating:
-      ratedFiles.length > 0
-        ? ratedFiles.reduce((acc, f) => acc + f.rating, 0) / ratedFiles.length
-        : 0,
-    size: sortedFiles.reduce((acc, f) => acc + f.size, 0),
-    tagIds,
-    tagIdsWithAncestors: await actions.deriveAncestorTagIds(tagIds),
+    fileCount,
+    rating: ratedCount ? ratingSum / ratedCount : 0,
+    size,
+    tagIds: [...tagIds].sort(),
+    tagIdsWithAncestors: await actions.deriveAncestorTagIds([...tagIds]),
   };
 };
 
@@ -210,23 +182,16 @@ const readCollectionMetadata = async (collIds: string[]) => {
 
   const snapshots: {
     id: string;
-    updates: Awaited<ReturnType<typeof makeCollAttrs>>;
+    updates: Awaited<ReturnType<typeof readCollectionAttributes>>;
     version: number;
   }[] = [];
 
   for (const collection of collections) {
-    const files = (
-      await models.FileModel.find({
-        _id: { $in: collection.fileIdIndexes.map(({ fileId }) => fileId) },
-      })
-        .select({ rating: 1, size: 1, tagIds: 1 })
-        .readConcern("majority")
-        .lean()
-    ).map(leanModelToJson<models.FileSchema>);
-
     snapshots.push({
       id: String(collection._id),
-      updates: await makeCollAttrs(files, collection.fileIdIndexes),
+      updates: await readCollectionAttributes(
+        collection.fileIdIndexes.map(({ fileId }) => String(fileId)),
+      ),
       version: collection.__v ?? 0,
     });
   }
@@ -244,6 +209,7 @@ const writeCollectionMetadata = async (
     .lean<Array<models.FileCollectionSchema & { __v?: number; _id: mongoose.Types.ObjectId }>>();
 
   const current = new Map(collections.map((collection) => [String(collection._id), collection]));
+
   if (
     snapshots.some(
       (snapshot) =>
@@ -299,6 +265,7 @@ const processCollectionMetadataRegenQueue = async () => {
           .sort({ dateCreated: 1 })
           .lean(),
       );
+
       if (operation?.status === "PENDING")
         await actions.setBackgroundOperationStatus(operation.id, "RUNNING");
 
@@ -309,6 +276,7 @@ const processCollectionMetadataRegenQueue = async () => {
 
       await (async () => {
         const current = await models.BackgroundOperationModel.findById(operation.id).lean();
+
         if (
           !current ||
           !["PENDING", "RUNNING"].includes(current.status) ||
@@ -342,7 +310,7 @@ const processCollectionMetadataRegenQueue = async () => {
       if (!operation) throw error;
 
       await actions.setBackgroundOperationStatus(operation.id, "ERROR", {
-        error: error instanceof Error ? error.message : String(error),
+        error: error?.message ?? String(error),
       });
     }
   }
@@ -362,6 +330,7 @@ export const addFilesToCollection = makeAction(
     "addFilesToCollection",
     async (args: { collId: string; fileIds: string[] }) => {
       const collRes = await models.FileCollectionModel.findById(args.collId).lean();
+
       if (!collRes) throw new Error("Collection not found");
 
       const existingFileIds = collRes.fileIdIndexes.map((f) => String(f.fileId));
@@ -376,6 +345,7 @@ export const addFilesToCollection = makeAction(
         id: args.collId,
         fileIdIndexes: newFileIdIndexes,
       });
+
       if (!updateRes.success) throw new Error(updateRes.error);
 
       return updateRes.data;
@@ -395,22 +365,15 @@ export const createCollection = makeAction(
     }) => {
       const deduped = dedupeFileIdIndexes(args.fileIdIndexes);
 
-      const filesRes = await actions.listFile({
-        args: { filter: { id: deduped.map((f) => f.fileId) }, page: 1, pageSize: deduped.length },
-      });
-      if (!filesRes.success) throw new Error(filesRes.error);
+      const attributes = await readCollectionAttributes(deduped.map(({ fileId }) => fileId));
 
-      if (filesRes.data.items?.length !== deduped.length) {
-        fileLog({ deduped, resFileIds: filesRes.data.items.map((f) => f.id) });
-        throw new Error(
-          `Some files not found (${deduped.length} != ${filesRes.data.items?.length})`,
-        );
-      }
+      if (attributes.fileCount !== deduped.length)
+        throw new Error(`Some files not found (${deduped.length} != ${attributes.fileCount})`);
 
       const dateCreated = dayjs().toISOString();
 
       const collection = {
-        ...(await makeCollAttrs(filesRes.data.items, deduped)),
+        ...attributes,
         dateCreated,
         dateModified: dateCreated,
         fileIdIndexes: deduped,
@@ -465,6 +428,7 @@ export const upsertImportedCollection = makeAction(
 
         for (const collection of overlapping) {
           const derivedPath = await deriveCollectionSourceFolderPath(collection);
+
           if (derivedPath && normalizeSourceFolderPath(derivedPath) === sourceFolderKey)
             matching.push(collection);
         }
@@ -498,6 +462,7 @@ export const upsertImportedCollection = makeAction(
           sourceFolderKeys,
           sourceFolderPaths,
         });
+
         if (!updateRes.success) throw new Error(updateRes.error);
 
         return { fileIdIndexes, id: collection.id };
@@ -508,6 +473,7 @@ export const upsertImportedCollection = makeAction(
         sourceFolderPath: args.sourceFolderPath,
         withSub: true,
       });
+
       if (!createRes.success) throw new Error(createRes.error);
 
       return createRes.data;
@@ -525,6 +491,7 @@ export const previewCollectionMerge = makeAction(async (args: { ids: string[] })
 
   const byId = new Map(collections.map((collection) => [collection.id, collection]));
   const ordered = args.ids.map((id) => byId.get(id)).filter(Boolean);
+
   if (ordered.length !== args.ids.length) throw new Error("One or more collections were not found");
 
   const fileIdIndexes = getMergedFileIdIndexes(ordered);
@@ -551,7 +518,10 @@ export const mergeCollections = makeAction(
     }) => {
       if (args.ids.length < 2 || new Set(args.ids).size !== args.ids.length)
         throw new Error("At least two unique collections are required to merge");
+
       if (!args.title.trim()) throw new Error("A collection title is required");
+
+      await assertImportEntriesReady();
 
       const collections = await readMetadataSnapshot(
         `mergeCollections:${args.ids.join()}`,
@@ -563,6 +533,7 @@ export const mergeCollections = makeAction(
 
       const byId = new Map(collections.map((collection) => [collection.id, collection]));
       const ordered = args.ids.map((id) => byId.get(id)).filter(Boolean);
+
       if (ordered.length !== args.ids.length)
         throw new Error("One or more collections were not found");
 
@@ -571,6 +542,7 @@ export const mergeCollections = makeAction(
       );
 
       const submittedFileIds = new Set(args.fileIdIndexes.map(({ fileId }) => fileId.toString()));
+
       if (
         submittedFileIds.size !== args.fileIdIndexes.length ||
         submittedFileIds.size !== expectedFileIds.size ||
@@ -586,6 +558,7 @@ export const mergeCollections = makeAction(
           sourceFolderPathByKey.set(normalizeSourceFolderPath(sourceFolderPath), sourceFolderPath);
 
         const derivedPath = await deriveCollectionSourceFolderPath(collection);
+
         if (derivedPath)
           sourceFolderPathByKey.set(normalizeSourceFolderPath(derivedPath), derivedPath);
       }
@@ -603,6 +576,7 @@ export const mergeCollections = makeAction(
         sourceFolderPaths: [...sourceFolderPathByKey.values()],
         title: args.title.trim(),
       });
+
       if (!updateRes.success) throw new Error(updateRes.error);
 
       await models.FileImportBatchModel.updateMany(
@@ -611,6 +585,7 @@ export const mergeCollections = makeAction(
       );
 
       const deleteRes = await deleteCollections({ ids: sourceIds });
+
       if (!deleteRes.success) throw new Error(deleteRes.error);
 
       return {
@@ -664,6 +639,7 @@ export const findRelatedCollectionGroups = makeAction(
         .sort({ [sortKey]: sortDirection, _id: sortDirection })
         .lean()
     ).map((collection) => leanModelToJson<models.FileCollectionSchema>(collection));
+
     if (collections.length < 2) return [];
 
     const collectionIndexById = new Map(
@@ -676,11 +652,13 @@ export const findRelatedCollectionGroups = makeAction(
       (collection) =>
         new Set(collection.fileIdIndexes.map((entry) => entry.fileId.toString())).size,
     );
+
     collections.forEach((collection, collectionIndex) => {
       for (const fileId of new Set(
         collection.fileIdIndexes.map((entry) => entry.fileId.toString()),
       )) {
         const indexes = collectionIndexesByFileId.get(fileId) ?? [];
+
         indexes.push(collectionIndex);
         collectionIndexesByFileId.set(fileId, indexes);
       }
@@ -714,7 +692,7 @@ export const findRelatedCollectionGroups = makeAction(
                 ? folderPath
                 : currentPath === null
                   ? null
-                  : deriveCommonFolderPath([currentPath, folderPath]);
+                  : getCommonSourceFolder([currentPath, folderPath], true);
           }
         }
       }
@@ -731,23 +709,26 @@ export const findRelatedCollectionGroups = makeAction(
         const batches = await models.FileImportBatchModel.find({
           collectionId: { $in: collectionIds },
         })
-          .select({ collectionId: 1, imports: 1 })
+          .select({ collectionId: 1 })
           .lean();
 
-        const importPathsByCollectionId = new Map<string, string[]>();
+        const batchIdsByCollectionId = new Map<string, string[]>();
 
         for (const batch of batches) {
           const collectionId = batch.collectionId?.toString();
+
           if (!collectionId) continue;
 
-          const importPaths = importPathsByCollectionId.get(collectionId) ?? [];
-          importPaths.push(...(batch.imports?.map((fileImport) => fileImport.path) ?? []));
-          importPathsByCollectionId.set(collectionId, importPaths);
+          const batchIds = batchIdsByCollectionId.get(collectionId) ?? [];
+
+          batchIds.push(String(batch._id));
+          batchIdsByCollectionId.set(collectionId, batchIds);
         }
 
-        for (const [collectionId, importPaths] of importPathsByCollectionId) {
+        for (const [collectionId, batchIds] of batchIdsByCollectionId) {
           const collectionIndex = collectionIndexById.get(collectionId);
-          const derived = deriveCommonSourceFolderPath(importPaths);
+          const derived = await getImportSourceFolder(batchIds);
+
           if (collectionIndex !== undefined && derived)
             sourcePathsByCollection[collectionIndex] = [derived];
         }
@@ -768,6 +749,7 @@ export const findRelatedCollectionGroups = makeAction(
     const union = (left: number, right: number) => {
       const leftRoot = find(left);
       const rightRoot = find(right);
+
       if (leftRoot !== rightRoot) parentIndexes[rightRoot] = leftRoot;
     };
 
@@ -777,6 +759,7 @@ export const findRelatedCollectionGroups = makeAction(
       for (let left = 0; left < indexes.length; left++) {
         for (let right = left + 1; right < indexes.length; right++) {
           const key = `${indexes[left]}:${indexes[right]}`;
+
           pairCounts.set(key, (pairCounts.get(key) ?? 0) + 1);
         }
       }
@@ -790,6 +773,7 @@ export const findRelatedCollectionGroups = makeAction(
       const normalizedLeft = Math.min(leftIndex, rightIndex);
       const normalizedRight = Math.max(leftIndex, rightIndex);
       const pairKey = `${normalizedLeft}:${normalizedRight}`;
+
       if (relatedPairKeys.has(pairKey)) return;
 
       relatedPairKeys.add(pairKey);
@@ -801,6 +785,7 @@ export const findRelatedCollectionGroups = makeAction(
         const [leftIndex, rightIndex] = pairKey.split(":").map(Number);
         const leftPercentage = (commonFileCount / collectionFileCounts[leftIndex]) * 100;
         const rightPercentage = (commonFileCount / collectionFileCounts[rightIndex]) * 100;
+
         if (leftPercentage < minCommonPercentage || rightPercentage < minCommonPercentage) continue;
 
         addRelatedPair(leftIndex, rightIndex);
@@ -809,9 +794,11 @@ export const findRelatedCollectionGroups = makeAction(
 
     if (includeOriginalFolder) {
       const sourceIndexes = new Map<string, number[]>();
+
       sourcePathsByCollection.forEach((sourceFolderPaths, index) => {
         for (const sourceFolderPath of sourceFolderPaths) {
           const key = normalizeSourceFolderPath(sourceFolderPath);
+
           sourceIndexes.set(key, [...(sourceIndexes.get(key) ?? []), index]);
         }
       });
@@ -827,8 +814,10 @@ export const findRelatedCollectionGroups = makeAction(
 
     if (includeTitle) {
       const titleIndexes = new Map<string, number[]>();
+
       collections.forEach((collection, index) => {
         const key = collection.title.trim().toLowerCase();
+
         if (key) titleIndexes.set(key, [...(titleIndexes.get(key) ?? []), index]);
       });
 
@@ -838,6 +827,7 @@ export const findRelatedCollectionGroups = makeAction(
             const leftIndex = indexes[left];
             const rightIndex = indexes[right];
             const pairKey = `${Math.min(leftIndex, rightIndex)}:${Math.max(leftIndex, rightIndex)}`;
+
             if (relatedPairKeys.has(pairKey)) continue;
 
             addRelatedPair(leftIndex, rightIndex);
@@ -847,8 +837,10 @@ export const findRelatedCollectionGroups = makeAction(
     }
 
     const indexesByRoot = new Map<number, number[]>();
+
     collections.forEach((_, index) => {
       const root = find(index);
+
       indexesByRoot.set(root, [...(indexesByRoot.get(root) ?? []), index]);
     });
 
@@ -901,6 +893,7 @@ export const listCollectionsByFileIds = makeAction(async (args: { fileIds: strin
 
   const tagIds = [...new Set(collections.flatMap((c) => c.tagIds.map((id) => id.toString())))];
   const res = await actions.listTag({ filter: { id: tagIds } });
+
   if (!res.success) throw new Error(res.error);
 
   const tagsMap = new Map(res.data.map((t) => [t.id, t]));
@@ -918,6 +911,23 @@ export const listCollectionIdsByTagIds = makeAction(async (args: { tagIds: strin
       .lean()
   ).map((f) => f._id.toString());
 });
+
+export const listFileSelectionCollections = makeAction(
+  async ({ fileIds, page }: { fileIds: string[]; page: number }) => {
+    if (!Number.isSafeInteger(page) || page < 1) throw new Error("Invalid collection page.");
+
+    const filter = { "fileIdIndexes.fileId": { $in: objectIds(fileIds) } };
+    const items = await models.FileCollectionModel.find(filter)
+      .sort({ dateCreated: -1, _id: -1 })
+      .skip(page - 1)
+      .limit(1)
+      .lean();
+
+    const count = await models.FileCollectionModel.countDocuments(filter);
+
+    return { items: items.map(leanModelToJson<models.FileCollectionSchema>), pageCount: count };
+  },
+);
 
 export const regenCollAttrs = makeAction(
   registerMetadataWork(
@@ -956,6 +966,7 @@ export const regenCollAttrs = makeAction(
         { _id: { $in: objectIds(collectionIds) } },
         { $inc: { __v: 1 } },
       );
+
       await actions.queueBackgroundOperation({
         label: "Collection metadata regeneration",
         targetIds: collectionIds,
@@ -999,6 +1010,7 @@ export const repairCollections = makeAction(
           checkCancelled();
 
           const collection = await models.FileCollectionModel.findById(candidate._id).lean();
+
           if (!collection) return { deleted: 0, repaired: 0 };
 
           let repaired = 0;
@@ -1029,6 +1041,7 @@ export const repairCollections = makeAction(
               )
             ) {
               const result = await updateCollection({ fileIdIndexes, id: String(collection._id) });
+
               if (!result.success) throw new Error(result.error);
 
               collection.fileIdIndexes = fileIdIndexes;
@@ -1046,6 +1059,7 @@ export const repairCollections = makeAction(
             if (!deleteEmptyCollections) return { deleted: 0, repaired };
 
             const result = await deleteCollections({ ids: [String(collection._id)] });
+
             if (!result.success) throw new Error(result.error);
 
             return { deleted: result.data.deletedCount, repaired };
@@ -1067,16 +1081,15 @@ export const repairCollections = makeAction(
                   .filter(({ fileId }) => fileId)
                   .map(({ fileId }) => String(fileId)),
               );
+
               if (![...fileIds].every((id) => retainedIds.has(id))) continue;
 
               if (fileIds.size === retainedIds.size) {
                 if (!deleteExactDuplicates || String(collection._id) < String(keeper._id)) continue;
               } else if (!deleteSubsetCollections) continue;
 
-              // Keep the retained collection in the write-conflict check for concurrent edits.
-              await models.FileCollectionModel.updateOne({ _id: keeper._id }, { $inc: { __v: 1 } });
-
               const result = await deleteCollections({ ids: [String(collection._id)] });
+
               if (!result.success) throw new Error(result.error);
 
               return { deleted: result.data.deletedCount, repaired };
@@ -1102,6 +1115,7 @@ export const repairCollections = makeAction(
             const file = await models.FileModel.findById(candidate._id)
               .select({ collectionIds: 1 })
               .lean();
+
             if (!file) return;
 
             const collectionIds = (
@@ -1111,6 +1125,7 @@ export const repairCollections = makeAction(
             )
               .map(({ _id }) => String(_id))
               .sort();
+
             if (
               file.collectionIds &&
               [...file.collectionIds].map(String).sort().join(",") === collectionIds.join(",")
@@ -1147,6 +1162,7 @@ export const updateCollection = makeAction(
     "updateCollection",
     async (updates: Omit<Partial<models.FileCollectionSchema>, "tagIds"> & { id: string }) => {
       const coll = await models.FileCollectionModel.findOne({ _id: updates.id });
+
       if (!coll) throw new Error("Collection not found");
 
       updates.dateModified = dayjs().toISOString();
@@ -1163,6 +1179,7 @@ export const updateCollection = makeAction(
         updates.fileIdIndexes = dedupeFileIdIndexes(
           updates.fileIdIndexes.filter(({ fileId }) => fileIds.has(String(fileId))),
         );
+
         updates.fileCount = updates.fileIdIndexes.length;
       }
 
@@ -1183,6 +1200,7 @@ export const updateCollection = makeAction(
 
       if (updates.fileIdIndexes || (updates.ratingIsManual === false && coll.ratingIsManual)) {
         const queued = await regenCollAttrs({ collIds: [updates.id] });
+
         if (!queued.success) throw new Error(queued.error);
       }
 

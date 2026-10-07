@@ -41,6 +41,7 @@ process.on(
         extractor.processor.image_processor.do_resize = false;
       })().catch((error) => {
         loading = null;
+
         throw error;
       });
 

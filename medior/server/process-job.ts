@@ -166,6 +166,7 @@ public static class MediorProcessJob
     ],
     options,
   );
+
   if (result.error) throw result.error;
 
   if (result.status !== 0)

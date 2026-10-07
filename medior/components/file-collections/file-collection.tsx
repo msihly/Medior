@@ -34,6 +34,7 @@ export const FileCollection = Comp(
         hasShift: event.shiftKey,
         id: collection.id,
       });
+
       if (!res?.success) toast.error(res.error);
     };
 
@@ -73,15 +74,10 @@ export const FileCollection = Comp(
             bgColor={colors.foregroundCard}
             padding={{ all: 0 }}
             overflow="hidden"
+            headerProps={{ flex: "none", padding: { all: "0.5rem 0.75rem" } }}
             header={
               <View column spacing="0.5rem" width="100%">
-                <View
-                  row
-                  align="center"
-                  justify="space-between"
-                  width="100%"
-                  padding={{ all: "0.2rem 0.4rem 0 0.4rem" }}
-                >
+                <View row align="center" justify="space-between" width="100%">
                   <View row align="center" spacing="0.5rem">
                     <RatingButton
                       disabled={disableSelection}
@@ -101,13 +97,8 @@ export const FileCollection = Comp(
                   </View>
                 </View>
 
-                {!collection.tags ? null : (
-                  <TagRow
-                    tags={collection.tags}
-                    limit={15}
-                    padding={{ all: "0 0.3rem 0.3rem 0.2rem" }}
-                    overflow="hidden"
-                  />
+                {!collection.tags?.length ? null : (
+                  <TagRow tags={collection.tags} limit={15} overflow="hidden" />
                 )}
               </View>
             }

@@ -105,6 +105,7 @@ export class SettingsStore extends Model({
   toggleFolderToCollMode() {
     this.imports.folderToCollMode =
       this.imports.folderToCollMode === "withTag" ? "withoutTag" : "withTag";
+
     this.setHasUnsavedChanges(true);
   }
 
@@ -123,6 +124,7 @@ export class SettingsStore extends Model({
   ) {
     const nestedUpdates = convertNestedKeys(updates);
     const snapshot = deepMerge(getSnapshot(this), nestedUpdates);
+
     applySnapshot(this, snapshot);
     this.setHasUnsavedChanges(true);
   }
@@ -132,6 +134,7 @@ export class SettingsStore extends Model({
   save = asyncAction(async () => {
     const config = this.getConfig();
     const result = await ipcRenderer.invoke("saveConfig", config);
+
     if (!result.success) throw new Error(result.error);
 
     setConfig(config);

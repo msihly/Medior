@@ -22,6 +22,7 @@ export class FileCollectionStore extends Model({
   createCollection = asyncAction(
     async ({ fileIdIndexes, title, withSub = true }: Types.CreateCollectionInput) => {
       const res = await trpc.createCollection.mutate({ fileIdIndexes, title, withSub });
+
       if (!res.success) throw new Error(res.error);
 
       return res.data;
@@ -31,6 +32,7 @@ export class FileCollectionStore extends Model({
   @modelFlow
   deleteCollections = asyncAction(async (ids: string[]) => {
     const res = await trpc.deleteCollections.mutate({ ids });
+
     if (!res.success) throw new Error(res.error);
 
     return res;
@@ -61,6 +63,7 @@ export class FileCollectionStore extends Model({
         rating: args.rating,
         ratingIsManual: args.rating > 0,
       });
+
       if (!res.success) throw new Error(res.error);
 
       for (const collection of new Set(

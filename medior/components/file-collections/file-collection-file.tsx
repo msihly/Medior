@@ -14,20 +14,21 @@ export interface FileCollectionFileProps {
 export const FileCollectionFile = Comp(
   ({ disabled, file, height, store, width }: FileCollectionFileProps) => {
     const stores = useStores();
+    const editor = stores.collection.editor;
 
-    const fileDragProps = useFileDrag(file, stores.collection.editor.search.selectedIds);
-
-    const fileIndex = stores.collection.editor.getIndexById(file.id);
-    const hasChangedIndex = fileIndex !== stores.collection.editor.getOriginalIndex(file.id);
+    const fileDragProps = useFileDrag(file, editor.search.selectedIds);
+    const fileIndex = editor.getIndexById(file.id);
+    const hasChangedIndex = fileIndex !== editor.getOriginalIndex(file.id);
 
     const handleClick = async (event: React.MouseEvent) => {
       if (disabled) return;
 
-      const res = await stores.collection.editor.search.handleSelect({
+      const res = await editor.search.handleSelect({
         hasCtrl: event.ctrlKey,
         hasShift: event.shiftKey,
         id: file.id,
       });
+
       if (!res?.success) toast.error(res.error);
     };
 
@@ -35,7 +36,7 @@ export const FileCollectionFile = Comp(
       if (!disabled) {
         openCarouselWindow({
           file,
-          selectedFileIds: stores.collection.editor.getFileIdsForCarousel(),
+          selectedFileIds: editor.getFileIdsForCarousel(),
         });
       }
     };
@@ -44,14 +45,14 @@ export const FileCollectionFile = Comp(
       <FileBase.ContextMenu
         {...{ disabled, file }}
         store={store}
-        carouselFileIds={stores.collection.editor.getFileIdsForCarousel()}
+        carouselFileIds={editor.getFileIdsForCarousel()}
       >
         <FileBase.Tooltip {...{ file }}>
           <FileBase.Container
             {...{ disabled, height, width }}
             onClick={handleClick}
             onDoubleClick={handleDoubleClick}
-            selected={stores.collection.editor.search.getIsSelected(file.id)}
+            selected={editor.search.getIsSelected(file.id)}
             opacity={file.isArchived ? 0.5 : 1}
           >
             <FileBase.Image

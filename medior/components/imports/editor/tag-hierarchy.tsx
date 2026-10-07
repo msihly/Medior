@@ -33,14 +33,18 @@ export const TagHierarchy = Comp(
     const stores = useStores();
 
     const [isCreating, setIsCreating] = useState(false);
+
     const rowRef = useRef<HTMLDivElement>(null);
 
     useLayoutEffect(() => {
       const row = rowRef.current;
+
       if (!row) return;
 
       const measure = () => onWidth(row.offsetWidth);
+
       const observer = new ResizeObserver(measure);
+
       observer.observe(row);
       measure();
 
@@ -54,9 +58,11 @@ export const TagHierarchy = Comp(
 
       try {
         const res = await stores.tag.upsertTags({ tagsToUpsert: [tag] });
+
         if (!res.success) throw new Error(res.error);
 
         const createdTag = res.data[0];
+
         if (!createdTag) throw new Error("Failed to create tag");
 
         store.setCreatedTagId(createdTag);
@@ -136,7 +142,6 @@ export const getImportTagRows = (
   collapsed?: Set<string>,
 ) => {
   const rows: { depth: number; hasChildren: boolean; key: string; tag: TagToUpsert }[] = [];
-
   const pending = roots
     .map((tag) => ({ ancestors: [] as string[], key: JSON.stringify(tag.label), tag }))
     .reverse();
@@ -144,14 +149,18 @@ export const getImportTagRows = (
   while (pending.length) {
     const { ancestors, key, tag } = pending.pop();
     const label = tag.label.toLowerCase();
+
     if (ancestors.includes(label)) continue;
 
     const children = childrenByLabel.get(label) ?? [];
+
     rows.push({ depth: ancestors.length, hasChildren: children.length > 0, key, tag });
+
     if (collapsed?.has(key) || (expanded !== "all" && !expanded.has(key))) continue;
 
     for (let idx = children.length - 1; idx >= 0; idx--) {
       const child = children[idx];
+
       pending.push({
         ancestors: [...ancestors, label],
         key: `${key}/${JSON.stringify(child.label)}`,

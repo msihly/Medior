@@ -8,7 +8,7 @@ import {
   FileTransformModel,
   TagModel,
 } from "medior/_generated/server/models";
-import { model, Schema } from "mongoose";
+import { Schema } from "mongoose";
 import { addAbortSignal } from "stream";
 import { deleteFile, removeEmptyFolders } from "trabecula/utils/server";
 import { backgroundExecutionPlugin } from "medior/server/database/database-context";
@@ -18,6 +18,7 @@ import {
   mediaPathKey,
   mediaPathPlugin,
 } from "medior/server/database/media-paths";
+import { registerPersistenceModel } from "medior/server/database/persistence";
 import { isServerStopping, serverShutdownSignal } from "medior/server/process-lifecycle";
 import { Fmt } from "medior/utils/common";
 import { workSignal } from "medior/utils/server/work-signal";
@@ -33,6 +34,7 @@ export interface FileCleanup {
 class FileCleanupPausedError extends Error {
   constructor() {
     super("File cleanup paused; remaining work retained.");
+    this.name = "FileCleanupPausedError";
   }
 }
 
@@ -117,7 +119,7 @@ const schema = new Schema<FileOperation>({
   thumbPath: String,
 });
 
-export const MediaOwnershipModel = model(
+export const MediaOwnershipModel = registerPersistenceModel(
   "MediaOwnership",
   new Schema({
     _id: String,
@@ -156,7 +158,7 @@ schema.index({ fileId: 1 }, { partialFilterExpression: { kind: "thumbnail" }, un
 schema.index({ state: 1, "cleanup.pathKey": 1 });
 schema.index({ state: 1, tempPath: 1 });
 
-export const FileOperationModel = model<FileOperation>("FileOperation", schema);
+export const FileOperationModel = registerPersistenceModel<FileOperation>("FileOperation", schema);
 
 export const mediaPathPattern = (filePath: string) =>
   new RegExp(
@@ -170,6 +172,7 @@ export const mediaPathPattern = (filePath: string) =>
 
 export const assertMediaPathsAvailable = async (paths: string[], transformId?: string) => {
   const keys = [...new Set(paths.filter(Boolean).map(mediaPathKey))];
+
   if (!keys.length) return;
 
   await assertMediaPathIndexesReady();
@@ -280,10 +283,13 @@ export const finishFileOperation = (id: string, canContinue: () => boolean = () 
   const revision = cleanupRevision;
   const controller = new AbortController();
   const parentSignal = workSignal.getStore();
+
   const abort = () => controller.abort(new FileCleanupPausedError());
+
   cleanupControllers.add(controller);
   parentSignal?.addEventListener("abort", abort, { once: true });
   serverShutdownSignal.addEventListener("abort", abort, { once: true });
+
   if (parentSignal?.aborted || serverShutdownSignal.aborted) abort();
 
   const execution = workSignal
@@ -307,6 +313,7 @@ const cleanFileOperation = async (id: string, canContinue: () => boolean) => {
     checkCleanupCancelled(canContinue);
 
     const operation = await FileOperationModel.findById(id).lean();
+
     if (operation?.state !== "COMMITTED") return;
 
     for (const file of operation.cleanup) {
@@ -340,6 +347,7 @@ const cleanFileOperation = async (id: string, canContinue: () => boolean) => {
         checkCleanupCancelled(canContinue);
 
         const removed = await deleteFile(file.path, file.retainedPath);
+
         if (!removed.success) throw new Error(removed.error);
       }
 
@@ -374,7 +382,7 @@ const cleanFileOperation = async (id: string, canContinue: () => boolean) => {
     await FileOperationModel.deleteOne({ _id: id, state: "COMMITTED" });
   } catch (error) {
     if (
-      error instanceof FileCleanupPausedError ||
+      error?.name === "FileCleanupPausedError" ||
       workSignal.getStore()?.aborted ||
       !canContinue() ||
       isServerStopping()
@@ -382,6 +390,7 @@ const cleanFileOperation = async (id: string, canContinue: () => boolean) => {
       return;
 
     await FileOperationModel.updateOne({ _id: id }, { error: error.message });
+
     throw error;
   }
 };
@@ -389,7 +398,7 @@ const cleanFileOperation = async (id: string, canContinue: () => boolean) => {
 export const recoverFileOperations = async (canContinue: () => boolean) => {
   for await (const operation of FileOperationModel.find({ state: "COMMITTED" })
     .select({ _id: 1 })
-    .hint({ state: 1, "cleanup.pathKey": 1 })
+    .hint({ recordType: 1, state: 1, "cleanup.pathKey": 1 })
     .lean()
     .cursor()) {
     if (!canContinue()) return;

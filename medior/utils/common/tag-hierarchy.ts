@@ -9,9 +9,11 @@ export const collectRelatedTagIds = (
 
   while (pending.length) {
     const id = pending.pop();
+
     if (related.has(id) || !graph.has(id)) continue;
 
     related.add(id);
+
     for (const next of graph.get(id)) {
       if (!related.has(next)) pending.push(next);
     }

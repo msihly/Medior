@@ -14,6 +14,7 @@ interface TagModalsProps {
 
 export const TagModals = Comp(({ view }: TagModalsProps) => {
   const stores = useStores();
+  const store = stores.tag;
 
   return (
     <>
@@ -25,15 +26,15 @@ export const TagModals = Comp(({ view }: TagModalsProps) => {
         />
       )}
 
-      {stores.tag.manager.isMultiTagEditorOpen && <MultiTagEditor />}
+      {store.manager.isMultiTagEditorOpen && <MultiTagEditor />}
 
-      {stores.tag.editor.isOpen && <TagEditor />}
+      {store.editor.isOpen && <TagEditor />}
 
-      {stores.tag.subEditor.isOpen && <TagEditor isSubEditor />}
+      {store.subEditor.isOpen && <TagEditor isSubEditor />}
 
-      {stores.tag.merger.isOpen && <TagMerger />}
+      {store.merger.isOpen && <TagMerger />}
 
-      {stores.tag.manager.isOpen && <TagManager />}
+      {store.manager.isOpen && <TagManager />}
     </>
   );
 });

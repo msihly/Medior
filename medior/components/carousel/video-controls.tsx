@@ -1,6 +1,5 @@
 import { useCallback, useContext, useMemo, useState } from "react";
-import { Slider } from "@mui/material";
-import { Button, Comp, IconButton, Text, VideoWaveform, View } from "medior/components";
+import { Button, Comp, IconButton, Slider, Text, VideoWaveform, View } from "medior/components";
 import { useStores } from "medior/store";
 import { colors, makeClasses, toast, Toaster } from "medior/utils/client";
 import { CONSTANTS, Fmt, round, throttle } from "medior/utils/common";
@@ -9,13 +8,14 @@ import { CustomSlider } from "./video-control-slider";
 
 export const VideoControls = Comp(() => {
   const stores = useStores();
-  const activeFile = stores.carousel.getActiveFile();
+  const store = stores.carousel;
+
+  const activeFile = store.getActiveFile();
 
   const isCaptionsActive =
-    stores.carousel.isCaptionsVisible && Boolean(activeFile?.transcription?.segments?.length);
+    store.isCaptionsVisible && Boolean(activeFile?.transcription?.segments?.length);
 
-  const isWaveformActive =
-    stores.carousel.isWaveformVisible && Boolean(activeFile?.waveformPeaks?.length);
+  const isWaveformActive = store.isWaveformVisible && Boolean(activeFile?.waveformPeaks?.length);
 
   const videoContext = useContext(VideoContext);
 
@@ -26,38 +26,36 @@ export const VideoControls = Comp(() => {
   const toaster = new Toaster();
 
   const goToFrame = (frame: number) => {
-    stores.carousel.setIsPlaying(false);
+    store.setIsPlaying(false);
     setCurFrame(frame);
     seekVideoPlayer(frame);
     toaster.toast(`Frame: ${Fmt.commas(frame)}`);
   };
 
-  const goToNextFrame = () =>
-    goToFrame(Math.min(stores.carousel.curFrame + 1, activeFile?.totalFrames));
+  const goToNextFrame = () => goToFrame(Math.min(store.curFrame + 1, activeFile?.totalFrames));
 
-  const goToPrevFrame = () => goToFrame(Math.max(stores.carousel.curFrame - 1, 1));
+  const goToPrevFrame = () => goToFrame(Math.max(store.curFrame - 1, 1));
 
-  const handleFrameSeek = (event: any) => {
-    if (stores.carousel.isPlaying) {
+  const handleFrameSeek = (frame: number) => {
+    if (store.isPlaying) {
       setLastPlayingState(true);
-      stores.carousel.setIsPlaying(false);
+      store.setIsPlaying(false);
     }
 
-    const frame = event.target.value;
     setCurFrame(frame);
 
-    if (stores.carousel.requiresTranscoding) transcode(frame);
+    if (store.requiresTranscoding) transcode(frame);
     else seekVideoPlayer(frame);
   };
 
-  const handleFrameSeekCommit = (_event: unknown, frame: number | number[]) => {
-    if (typeof frame === "number" && stores.carousel.requiresTranscoding) {
+  const handleFrameSeekCommit = (frame: number) => {
+    if (store.requiresTranscoding) {
       setCurFrame(frame);
       seekVideoPlayer(frame);
     }
 
     if (lastPlayingState) {
-      stores.carousel.setIsPlaying(true);
+      store.setIsPlaying(true);
       setLastPlayingState(false);
     }
   };
@@ -65,72 +63,73 @@ export const VideoControls = Comp(() => {
   const handleWaveformSeek = useCallback(
     (time: number) => {
       const frame = round(time * activeFile.frameRate, 0);
+
       setCurFrame(frame);
-      if (stores.carousel.requiresTranscoding) transcode(frame);
+
+      if (store.requiresTranscoding) transcode(frame);
       else videoContext?.current?.seekTo(time, "seconds");
     },
     [activeFile?.id],
   );
 
   const getNewMark = (frame: number) =>
-    stores.carousel.videoMarks.map((m) => m.value).includes(frame) ? null : frame;
+    store.videoMarks.map((m) => m.value).includes(frame) ? null : frame;
 
   const handleMarkInChange = () => {
-    const newMarkIn = getNewMark(stores.carousel.curFrame);
-    if (![newMarkIn, stores.carousel.markOut].includes(null) && newMarkIn > stores.carousel.markOut)
+    const newMarkIn = getNewMark(store.curFrame);
+
+    if (![newMarkIn, store.markOut].includes(null) && newMarkIn > store.markOut)
       return toast.error("Mark In (A) must be before Mark Out (B)");
 
-    stores.carousel.setMarkIn(newMarkIn);
+    store.setMarkIn(newMarkIn);
     toaster.toast(
       newMarkIn === null ? "Mark In (A) Cleared" : `Mark In (A): ${Fmt.commas(newMarkIn)}`,
     );
   };
 
   const handleMarkOutChange = () => {
-    const newMarkOut = getNewMark(stores.carousel.curFrame);
-    if (![stores.carousel.markIn, newMarkOut].includes(null) && newMarkOut < stores.carousel.markIn)
+    const newMarkOut = getNewMark(store.curFrame);
+
+    if (![store.markIn, newMarkOut].includes(null) && newMarkOut < store.markIn)
       return toast.error("Mark Out (B) must be after Mark In (A)");
 
-    stores.carousel.setMarkOut(newMarkOut);
+    store.setMarkOut(newMarkOut);
     toaster.toast(
       newMarkOut === null ? "Mark Out (B) Cleared" : `Mark Out (B): ${Fmt.commas(newMarkOut)}`,
     );
   };
 
-  const handlePlaybackRateChange = (_, rate: number) => stores.carousel.setPlaybackRate(rate);
+  const handlePlaybackRateChange = (rate: number) => store.setPlaybackRate(rate);
 
-  const handleTranscodeBitrateChange = (_, bitrate: number) =>
-    stores.carousel.setTranscodeBitrate(bitrate);
+  const handleTranscodeBitrateChange = (bitrate: number) => store.setTranscodeBitrate(bitrate);
 
   const handleTranscodeBitrateCommit = () =>
-    stores.carousel.requiresTranscoding && seekVideoPlayer(stores.carousel.curFrame);
+    store.requiresTranscoding && seekVideoPlayer(store.curFrame);
 
-  const handleVolumeChange = (_, vol: number) => stores.carousel.setVolumePreference(vol);
+  const handleVolumeChange = (vol: number) => store.setVolumePreference(vol);
 
-  const resetPlaybackRate = () => stores.carousel.setPlaybackRate(1);
+  const resetPlaybackRate = () => store.setPlaybackRate(1);
 
   const seekVideoPlayer = (frame: number) => {
-    if (stores.carousel.requiresTranscoding)
-      return stores.carousel.transcodeVideo({
+    if (store.requiresTranscoding)
+      store.transcodeVideo({
         seekTime: Fmt.frameToSec(frame, activeFile.frameRate),
       });
-
-    videoContext?.current?.seekTo(frame / activeFile.totalFrames, "fraction");
+    else videoContext?.current?.seekTo(frame / activeFile.totalFrames, "fraction");
   };
 
-  const setCurFrame = (frame: number) => stores.carousel.setCurFrame(frame, activeFile.frameRate);
+  const setCurFrame = (frame: number) => store.setCurFrame(frame, activeFile.frameRate);
 
-  const toggleMute = () => stores.carousel.toggleMute();
+  const toggleMute = () => store.toggleMute();
 
-  const togglePlaying = () => stores.carousel.toggleIsPlaying();
+  const togglePlaying = () => store.toggleIsPlaying();
 
   const transcode = useMemo(
     () =>
       throttle(async (frame: number) => {
-        if (stores.carousel.activeFileId !== activeFile?.id || stores.carousel.curFrame !== frame)
-          return;
+        if (store.activeFileId !== activeFile?.id || store.curFrame !== frame) return;
 
-        return await stores.carousel.transcodeVideo({
+        return await store.transcodeVideo({
           onFirstFrames: () => setCurFrame(frame),
           seekTime: Fmt.frameToSec(frame, activeFile.frameRate),
         });
@@ -142,14 +141,11 @@ export const VideoControls = Comp(() => {
     <View
       row
       spacing="0.5rem"
-      position={stores.carousel.isPinned ? undefined : "absolute"}
-      opacity={stores.carousel.isPinned ? 1 : stores.carousel.isMouseMoving ? 0.3 : 0}
+      position={store.isPinned ? undefined : "absolute"}
+      opacity={store.isPinned ? 1 : store.isMouseMoving ? 0.3 : 0}
       className={css.videoControlBar}
     >
-      <IconButton
-        name={stores.carousel.isPlaying ? "Pause" : "PlayArrow"}
-        onClick={togglePlaying}
-      />
+      <IconButton name={store.isPlaying ? "Pause" : "PlayArrow"} onClick={togglePlaying} />
 
       <View row>
         <IconButton name="SkipPrevious" onClick={goToPrevFrame} />
@@ -165,8 +161,8 @@ export const VideoControls = Comp(() => {
           fontSize="0.9em"
           color="transparent"
           textColor={
-            stores.carousel.markIn !== null
-              ? stores.carousel.markOut !== null
+            store.markIn !== null
+              ? store.markOut !== null
                 ? colors.custom.green
                 : colors.custom.orange
               : colors.custom.lightGrey
@@ -180,8 +176,8 @@ export const VideoControls = Comp(() => {
           fontSize="0.9em"
           color="transparent"
           textColor={
-            stores.carousel.markOut !== null
-              ? stores.carousel.markIn !== null
+            store.markOut !== null
+              ? store.markIn !== null
                 ? colors.custom.green
                 : colors.custom.orange
               : colors.custom.lightGrey
@@ -190,9 +186,9 @@ export const VideoControls = Comp(() => {
       </View>
 
       <View column flex={1} height="100%" justify="center" className={css.progressControl}>
-        {stores.carousel.isWaveformVisible && (
+        {store.isWaveformVisible && (
           <VideoWaveform
-            currentTime={stores.carousel.curTime}
+            currentTime={store.curTime}
             duration={activeFile.duration}
             onSeek={handleWaveformSeek}
             peaks={activeFile.waveformPeaks}
@@ -200,13 +196,13 @@ export const VideoControls = Comp(() => {
         )}
 
         <Slider
-          value={stores.carousel.curFrame}
-          onChange={handleFrameSeek}
-          onChangeCommitted={handleFrameSeekCommit}
+          value={store.curFrame}
+          setValue={handleFrameSeek}
+          onCommit={handleFrameSeekCommit}
           min={1}
           max={activeFile?.totalFrames}
           step={1}
-          marks={stores.carousel.videoMarks}
+          marks={store.videoMarks}
           valueLabelDisplay="auto"
           valueLabelFormat={(v) => (
             <View column align="center" justify="center" width="7rem">
@@ -222,7 +218,7 @@ export const VideoControls = Comp(() => {
       <View row align="center">
         <IconButton
           name={isCaptionsActive ? "ClosedCaption" : "ClosedCaptionOff"}
-          onClick={stores.carousel.toggleCaptions}
+          onClick={store.toggleCaptions}
           disabled={!activeFile.transcription?.segments?.length}
           iconProps={{
             color: isCaptionsActive ? colors.custom.lightBlue : colors.custom.lightGrey,
@@ -232,7 +228,7 @@ export const VideoControls = Comp(() => {
 
         <IconButton
           name="GraphicEq"
-          onClick={stores.carousel.toggleWaveform}
+          onClick={store.toggleWaveform}
           disabled={!activeFile.waveformPeaks?.length}
           iconProps={{
             color: isWaveformActive ? colors.custom.lightBlue : colors.custom.lightGrey,
@@ -241,8 +237,8 @@ export const VideoControls = Comp(() => {
         />
 
         <CustomSlider
-          value={stores.carousel.volume}
-          onChange={handleVolumeChange}
+          value={store.volume}
+          setValue={handleVolumeChange}
           disabled={activeFile.audioCodec === "None"}
           min={0}
           max={1}
@@ -250,11 +246,11 @@ export const VideoControls = Comp(() => {
         >
           <IconButton
             name={
-              stores.carousel.volume > 0.65
+              store.volume > 0.65
                 ? "VolumeUp"
-                : stores.carousel.volume > 0.3
+                : store.volume > 0.3
                   ? "VolumeDown"
-                  : stores.carousel.volume > 0
+                  : store.volume > 0
                     ? "VolumeMute"
                     : "VolumeOff"
             }
@@ -263,31 +259,31 @@ export const VideoControls = Comp(() => {
         </CustomSlider>
 
         <CustomSlider
-          value={stores.carousel.playbackRate}
-          onChange={handlePlaybackRateChange}
+          value={store.playbackRate}
+          setValue={handlePlaybackRateChange}
           min={0.01}
           max={3}
           step={0.01}
         >
           <Button
-            text={`${stores.carousel.playbackRate.toFixed(2)}x`}
+            text={`${store.playbackRate.toFixed(2)}x`}
             onClick={resetPlaybackRate}
             color="transparent"
             fontSize="0.9em"
           />
         </CustomSlider>
 
-        {stores.carousel.requiresTranscoding && (
+        {store.requiresTranscoding && (
           <CustomSlider
-            value={stores.carousel.transcodeBitrate}
-            onChange={handleTranscodeBitrateChange}
-            onChangeCommitted={handleTranscodeBitrateCommit}
+            value={store.transcodeBitrate}
+            setValue={handleTranscodeBitrateChange}
+            onCommit={handleTranscodeBitrateCommit}
             min={0.5}
             max={12}
             step={0.5}
           >
             <Button
-              text={`${stores.carousel.transcodeBitrate.toFixed(1)}M`}
+              text={`${store.transcodeBitrate.toFixed(1)}M`}
               icon="Speed"
               color="transparent"
               fontSize="0.9em"
@@ -298,7 +294,7 @@ export const VideoControls = Comp(() => {
 
       <View column>
         <Text color={colors.custom.white} fontSize="0.8em">
-          {Fmt.duration(stores.carousel.curTime)}
+          {Fmt.duration(store.curTime)}
         </Text>
 
         <Text color={colors.custom.lightGrey} fontSize="0.8em">
@@ -314,17 +310,6 @@ const useClasses = makeClasses({
     position: "relative",
   },
   slider: {
-    "& .MuiSlider-markLabel": {
-      fontSize: "0.65em",
-      fontWeight: 600,
-      top: -10,
-    },
-    "& .MuiSlider-thumb": {
-      borderRadius: "0.5rem",
-      height: 18,
-      width: 4,
-    },
-    color: colors.custom.lightBlue,
     marginBottom: "0 !important",
   },
   videoControlBar: {

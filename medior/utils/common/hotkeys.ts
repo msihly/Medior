@@ -114,6 +114,7 @@ const normalizeKey = (key: string) => (key === " " ? "space" : key.toLowerCase()
 
 export const getHotkey = ({ altKey, ctrlKey, key, metaKey, shiftKey }: HotkeyEvent) => {
   if (["Alt", "Control", "Meta", "Shift"].includes(key)) return null;
+
   if (key === "Backspace") return "";
 
   return [
@@ -129,6 +130,7 @@ export const getHotkey = ({ altKey, ctrlKey, key, metaKey, shiftKey }: HotkeyEve
 
 export const getHotkeyRating = (event: HotkeyEvent, hotkeys: RatingHotkeys) => {
   const index = RATING_HOTKEY_KEYS.findIndex((key) => matchesHotkey(event, hotkeys[key]));
+
   return index < 0 ? null : index + 1;
 };
 

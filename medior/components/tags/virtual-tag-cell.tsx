@@ -14,10 +14,13 @@ export const VirtualTagCell = Comp(
 
     useLayoutEffect(() => {
       const row = rowRef.current;
+
       if (!row) return;
 
       const measure = () => data.onWidth(index, parseFloat(getComputedStyle(row).width));
+
       const observer = new ResizeObserver(measure);
+
       observer.observe(row);
       measure();
 

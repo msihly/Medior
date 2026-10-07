@@ -49,3 +49,23 @@ export const runConcurrent = async <T>(
 
   if (hasFailed) throw failure;
 };
+
+export const waitForWork = async (pending: Promise<void>, signals: AbortSignal[]) => {
+  const activeSignals = [...new Set(signals.filter(Boolean))];
+  let handleAbort: () => void;
+
+  try {
+    await new Promise<void>((resolve, reject) => {
+      handleAbort = () => reject(activeSignals.find((signal) => signal.aborted)?.reason);
+
+      for (const signal of activeSignals)
+        signal.addEventListener("abort", handleAbort, { once: true });
+
+      pending.then(resolve, reject);
+
+      if (activeSignals.some((signal) => signal.aborted)) handleAbort();
+    });
+  } finally {
+    for (const signal of activeSignals) signal.removeEventListener("abort", handleAbort);
+  }
+};

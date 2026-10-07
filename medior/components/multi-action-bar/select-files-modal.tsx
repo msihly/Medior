@@ -1,33 +1,39 @@
 import { useState } from "react";
-import { Button, Comp, Modal, NumInput, Text } from "medior/components";
-import { useStores } from "medior/store";
+import { Button, Comp, Modal, NumInput, SearchLoadingOverlay, Text } from "medior/components";
+import { FileSearch, useStores } from "medior/store";
 import { colors, toast } from "medior/utils/client";
 
 interface SelectFilesModalProps {
   onClose: () => void;
+  store?: FileSearch;
 }
 
-export const SelectFilesModal = Comp(({ onClose }: SelectFilesModalProps) => {
+export const SelectFilesModal = Comp(({ onClose, store: suppliedStore }: SelectFilesModalProps) => {
   const stores = useStores();
-  const store = stores.file.search;
+  const store = suppliedStore ?? stores.file.search;
 
   const [isSelecting, setIsSelecting] = useState(false);
   const [limit, setLimit] = useState(store.pageSize);
+
   const hasError = !Number.isSafeInteger(limit) || limit < 1;
 
   const handleClose = () => {
-    if (!isSelecting) onClose();
+    if (isSelecting) store.cancelLoad();
+
+    onClose();
   };
 
   const handleSelect = async () => {
     if (hasError || isSelecting) return;
 
     setIsSelecting(true);
+
     const res = await store.selectFirstInQuery(limit);
+
     setIsSelecting(false);
 
     if (!res.success) toast.error(res.error);
-    else {
+    else if (res.data !== null) {
       toast.info(`Added ${res.data} files to selection`);
       onClose();
     }
@@ -35,6 +41,8 @@ export const SelectFilesModal = Comp(({ onClose }: SelectFilesModalProps) => {
 
   return (
     <Modal.Container onClose={handleClose} width="24rem">
+      <SearchLoadingOverlay isLoading={isSelecting} onCancel={handleClose} store={store} />
+
       <Modal.Header>
         <Text preset="title">{"Select First Files"}</Text>
       </Modal.Header>
@@ -55,13 +63,7 @@ export const SelectFilesModal = Comp(({ onClose }: SelectFilesModalProps) => {
       </Modal.Content>
 
       <Modal.Footer uniformWidth="7rem">
-        <Button
-          text="Cancel"
-          icon="Close"
-          onClick={handleClose}
-          disabled={isSelecting}
-          color={colors.foregroundCard}
-        />
+        <Button text="Cancel" icon="Close" onClick={handleClose} color={colors.foregroundCard} />
 
         <Button
           text="Select"

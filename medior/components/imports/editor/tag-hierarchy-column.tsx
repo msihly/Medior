@@ -2,7 +2,7 @@ import { useCallback, useLayoutEffect, useMemo, useState } from "react";
 import { FixedSizeList } from "react-window";
 import { Comp, ImportEditor, TagToUpsert, View } from "medior/components";
 import { Ingester, Reingester } from "medior/store";
-import { colors } from "medior/utils/client";
+import { colors, makeClasses } from "medior/utils/client";
 import { createImportTagHierarchy, getImportTagRows, IMPORT_TAG_ROW_HEIGHT } from "./tag-hierarchy";
 
 export interface TagHierarchyColumnData {
@@ -30,14 +30,18 @@ export const TagHierarchyColumn = Comp(
     tag: TagToUpsert;
     width: number;
   }) => {
+    const { css } = useClasses(null);
+
     const rows = useMemo(
       () => getImportTagRows({ ...hierarchy, roots: [tag] }, expanded),
       [hierarchy, tag, expanded],
     );
 
     const measuredWidth = useMemo(() => ({ value: 0 }), [rows]);
-    const [viewport, setViewport] = useState<HTMLDivElement>(null);
+
     const [scrollbar, setScrollbar] = useState(0);
+    const [viewport, setViewport] = useState<HTMLDivElement>(null);
+
     const columnHeight = Math.floor(Math.min(height, rows.length * IMPORT_TAG_ROW_HEIGHT));
     const root = rows[0];
 
@@ -57,7 +61,9 @@ export const TagHierarchyColumn = Comp(
       }
 
       const measure = () => setScrollbar(viewport.offsetWidth - viewport.clientWidth);
+
       const observer = new ResizeObserver(measure);
+
       observer.observe(viewport);
       measure();
 
@@ -69,7 +75,7 @@ export const TagHierarchyColumn = Comp(
         height={columnHeight}
         width={width - 8}
         padding={{ left: 4, right: 4 }}
-        style={{ boxSizing: "border-box" }}
+        className={css.column}
         bgColor={colors.background}
         borderRadiuses={{ all: "0.5rem" }}
       >
@@ -95,6 +101,7 @@ export const TagHierarchyColumn = Comp(
           >
             {({ index, style }) => {
               const row = rows[index + 1];
+
               return (
                 <View style={style}>
                   <ImportEditor.TagHierarchy
@@ -115,3 +122,9 @@ export const TagHierarchyColumn = Comp(
     );
   },
 );
+
+const useClasses = makeClasses({
+  column: {
+    boxSizing: "border-box",
+  },
+});

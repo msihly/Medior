@@ -8,23 +8,19 @@ export interface HeaderProps {
 
 export const Header = Comp(({ type }: HeaderProps) => {
   const stores = useStores();
+  const store = stores.import;
 
-  const totalBytes = type === "Ingester" ? stores.import.ingester.importSize : null;
-
+  const totalBytes = type === "Ingester" ? store.ingester.importSize : null;
   const totalFolders =
-    type === "Ingester"
-      ? stores.import.ingester.folderTotalCount
-      : stores.import.reingester.folderFileIds.length;
+    type === "Ingester" ? store.ingester.folderTotalCount : store.reingester.folderFileIds.length;
 
   const totalFiles =
     type === "Ingester"
-      ? stores.import.ingester.importCount
-      : sumArray(stores.import.reingester.folderFileIds, (f) => f.fileIds.length);
+      ? store.ingester.importCount
+      : sumArray(store.reingester.folderFileIds, (f) => f.fileIds.length);
 
   const totalFilesLeft =
-    type === "Ingester"
-      ? null
-      : totalFiles - (stores.import.reingester.curFolderFileIds?.length ?? 0);
+    type === "Ingester" ? null : totalFiles - (store.reingester.curFolderFileIds?.length ?? 0);
 
   const handleTagManager = () => {
     if (stores.tag.manager.isOpen) stores.tag.manager.setIsOpen(false);

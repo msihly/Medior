@@ -11,7 +11,7 @@ model.addTagOptsProp("_id", "ancestorIds");
 model.addProp("alias", "string", '""', {
   filterGroup: "alias",
   objPath: ["aliases", "$elemMatch", "$regex"],
-  objValue: 'new RegExp(args.alias, "i")',
+  objValue: "args.alias",
 });
 
 model.addLogOpProp("count");
@@ -53,7 +53,7 @@ model.addProp("fileTags", "Stores.TagOption[]", "() => []", {
 model.addProp("label", "string", '""', {
   filterGroup: "label",
   objPath: ["label", "$regex"],
-  objValue: 'new RegExp(args.label, "i")',
+  objValue: "args.label",
 });
 
 model.addProp("hasRegEx", "boolean", "null", {
@@ -64,7 +64,7 @@ model.addProp("hasRegEx", "boolean", "null", {
 model.addProp("title", "string", '""', {
   filterGroup: "title",
   objPath: ["title", "$regex"],
-  objValue: 'new RegExp(args.title, "i")',
+  objValue: "args.title",
 });
 
 export const MODEL_SEARCH_STORE_TAG = model.getModel();

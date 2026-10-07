@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import AutoSizer from "react-virtualized-auto-sizer";
-import { FixedSizeList, ListOnScrollProps } from "react-window";
+import { FixedSizeList, ListOnItemsRenderedProps, ListOnScrollProps } from "react-window";
 import Color from "color";
 import { CarouselThumb, Comp, IconButton, View } from "medior/components";
 import { useStores } from "medior/store";
@@ -9,15 +9,19 @@ import { CONSTANTS } from "medior/utils/common";
 
 export const CarouselThumbNavigator = Comp(() => {
   const stores = useStores();
+  const store = stores.carousel;
 
-  const listRef = useRef<FixedSizeList>(null);
   const listOuterRef = useRef(null);
+  const listRef = useRef<FixedSizeList>(null);
   const scrollLeft = useRef(0);
 
   const [isVisible, setIsVisible] = useState(false);
+  const [visibleRange, setVisibleRange] = useState({ start: 0, stop: -1 });
   const [width, setWidth] = useState(0);
 
-  const { css } = useClasses({ isMouseMoving: stores.carousel.isMouseMoving, isVisible });
+  const visibleFileIds = store.selectedFileIds.slice(visibleRange.start, visibleRange.stop + 1);
+
+  const { css } = useClasses({ isMouseMoving: store.isMouseMoving, isVisible });
 
   const { handleMouseDown, isDragging } = useDragScroll({
     listOuterRef,
@@ -28,17 +32,34 @@ export const CarouselThumbNavigator = Comp(() => {
 
   const handleScroll = ({ scrollOffset }: ListOnScrollProps) => (scrollLeft.current = scrollOffset);
 
+  const handleItemsRendered = ({
+    overscanStartIndex,
+    overscanStopIndex,
+  }: ListOnItemsRenderedProps) => {
+    setVisibleRange((previous) =>
+      previous.start === overscanStartIndex && previous.stop === overscanStopIndex
+        ? previous
+        : { start: overscanStartIndex, stop: overscanStopIndex },
+    );
+  };
+
   const toggleVisibility = () => setIsVisible(!isVisible);
 
   useEffect(() => {
-    if (listRef.current !== null && stores.carousel.activeFileIndex > -1) {
+    if (visibleFileIds.join() !== store.visibleFileIds.join())
+      store.setVisibleFileIds(visibleFileIds);
+  }, [visibleFileIds.join()]);
+
+  useEffect(() => {
+    if (listRef.current !== null && store.activeFileIndex > -1) {
       const newScrollLeft =
-        stores.carousel.activeFileIndex * CONSTANTS.CAROUSEL.THUMB_NAV.WIDTH +
+        store.activeFileIndex * CONSTANTS.CAROUSEL.THUMB_NAV.WIDTH +
         CONSTANTS.CAROUSEL.THUMB_NAV.WIDTH / 2 -
         width / 2;
+
       listRef.current.scrollTo(newScrollLeft);
     }
-  }, [stores.carousel.activeFileIndex, width]);
+  }, [store.activeFileIndex, width]);
 
   return (
     <View className={css.root}>
@@ -57,19 +78,20 @@ export const CarouselThumbNavigator = Comp(() => {
             <FixedSizeList
               ref={listRef}
               outerRef={listOuterRef}
+              onItemsRendered={handleItemsRendered}
               onScroll={handleScroll}
               layout="horizontal"
               width={width}
               height={CONSTANTS.CAROUSEL.THUMB_NAV.WIDTH}
               itemSize={CONSTANTS.CAROUSEL.THUMB_NAV.WIDTH}
-              itemCount={stores.carousel.selectedFileIds.length}
+              itemCount={store.selectedFileIds.length}
               overscanCount={7}
               className={css.thumbnails}
             >
               {({ index, style }) => (
                 <CarouselThumb
                   key={index}
-                  id={stores.carousel.selectedFileIds[index]}
+                  id={store.selectedFileIds[index]}
                   isDragging={isDragging}
                   style={style}
                 />

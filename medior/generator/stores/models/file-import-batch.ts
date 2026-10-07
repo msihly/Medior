@@ -3,8 +3,6 @@ import { ModelStore } from "medior/generator/stores/generators";
 const model = new ModelStore("FileImportBatch", {
   defaultPageSize: "() => getConfig().imports.manager.search.pageSize",
   defaultSort: "() => getConfig().imports.manager.search.sort",
-  transformResultsFn:
-    "items.map((batch) => ({ ...batch, imports: batch.imports.map(imp => new Stores.FileImport(imp)) }))",
   withTags: true,
 });
 
@@ -19,13 +17,13 @@ model.addTagOptsProp("tagIds", "tagIdsWithAncestors");
 model.addProp("collectionTitle", "string", '""', {
   filterGroup: "collectionTitle",
   objPath: ["collectionTitle", "$regex"],
-  objValue: 'new RegExp(args.collectionTitle, "i")',
+  objValue: "args.collectionTitle",
 });
 
 model.addProp("filePath", "string", "null", {
   filterGroup: "filePath",
   objPath: ["imports", "$elemMatch", "path", "$regex"],
-  objValue: 'new RegExp(args.filePath, "i")',
+  objValue: "args.filePath",
 });
 
 model.addProp("isCompleted", "boolean", "false", {

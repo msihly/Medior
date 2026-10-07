@@ -1,4 +1,3 @@
-import { AsyncLocalStorage } from "async_hooks";
 import { createHash } from "crypto";
 import {
   BackgroundOperationModel,
@@ -11,26 +10,35 @@ import {
   runBackgroundExecution,
 } from "medior/server/database/background-execution";
 import { dayjs } from "medior/utils/common";
+import { metadataWork } from "./metadata-context";
+import { withMetadataMutation } from "./metadata-mutations";
+import { MetadataPayload, readMetadataPayload, writeMetadataPayload } from "./metadata-payloads";
 
 export interface MetadataWork {
-  input: unknown;
+  input?: unknown;
+  inputPayload?: MetadataPayload;
   name: string;
   result?: unknown;
+  resultPayload?: MetadataPayload;
+  snapshotPayloads?: Record<string, MetadataPayload>;
   snapshots?: Record<string, { value: unknown }>;
 }
 
 const activeWork = new Map<string, Promise<unknown>>();
 const handlers = new Map<string, (input: any) => Promise<unknown>>();
 
-export const metadataWork = new AsyncLocalStorage<{
-  id: string;
-  name: string;
-  snapshots: MetadataWork["snapshots"];
-}>();
-
 export { getBackgroundSession } from "medior/server/database/database-context";
 
 export const metadataWriteOptions = () => ({ j: true, w: "majority" as const });
+
+export const readSavedMetadataSnapshot = async <T>(
+  key: string,
+): Promise<{ value: T } | undefined> => {
+  const payload =
+    metadataWork.getStore()?.snapshotPayloads[createHash("sha256").update(key).digest("hex")];
+
+  if (payload) return { value: await readMetadataPayload<T>(payload) };
+};
 
 /** Keep the original input to destructive steps available after partial success. */
 export const readMetadataSnapshot = async <T>(
@@ -38,18 +46,24 @@ export const readMetadataSnapshot = async <T>(
   read: () => PromiseLike<T>,
 ): Promise<T> => {
   const work = metadataWork.getStore();
+
   if (!work) return read();
 
   const snapshotKey = createHash("sha256").update(key).digest("hex");
-  if (work.snapshots[snapshotKey]) return work.snapshots[snapshotKey].value as T;
+  const saved = await readSavedMetadataSnapshot<T>(key);
+
+  if (saved) return saved.value;
 
   const value = await read();
+  const payload = await writeMetadataPayload(work.id, snapshotKey, value);
+
   await BackgroundOperationModel.updateOne(
     { _id: work.id },
-    { $set: { [`work.snapshots.${snapshotKey}`]: { value } } },
+    { $set: { [`work.snapshotPayloads.${snapshotKey}`]: payload } },
     metadataWriteOptions(),
   );
-  work.snapshots[snapshotKey] = { value };
+
+  work.snapshotPayloads[snapshotKey] = payload;
 
   return value;
 };
@@ -71,17 +85,20 @@ export const runMetadataWork = async (operation: BackgroundOperationSchema) => {
   const pending = Promise.resolve().then(async () => {
     const execution = backgroundExecution.getStore();
     const previousLabel = execution?.label;
+    const previousOperationId = execution?.operationId;
 
     try {
       checkBackgroundExecution();
 
       if (execution) {
         execution.operationId = operation.id;
+
         if (operation.work?.name === "completeImportBatch")
           execution.label = "import metadata finalization";
       }
 
       const handler = handlers.get(operation.work?.name);
+
       if (!handler) throw new Error(`Metadata handler unavailable: ${operation.work?.name}`);
 
       const claimed = await BackgroundOperationModel.updateOne(
@@ -92,15 +109,54 @@ export const runMetadataWork = async (operation: BackgroundOperationSchema) => {
 
       if (!claimed.matchedCount) {
         const current = await BackgroundOperationModel.findById(operation.id)
-          .select({ "work.result": 1 })
+          .select({ "work.result": 1, "work.resultPayload": 1 })
           .lean();
-        return current?.work?.result;
+
+        return current?.work?.resultPayload
+          ? readMetadataPayload(current.work.resultPayload)
+          : current?.work?.result;
       }
 
+      // Migrate saved requests before executing them; already queued work remains recoverable.
+      if (!operation.work.inputPayload) {
+        operation.work.inputPayload = await writeMetadataPayload(
+          operation.id,
+          "input",
+          operation.work.input,
+        );
+
+        operation.work.snapshotPayloads = {};
+
+        for (const [key, snapshot] of Object.entries(operation.work.snapshots ?? {}))
+          operation.work.snapshotPayloads[key] = await writeMetadataPayload(
+            operation.id,
+            key,
+            snapshot.value,
+          );
+
+        await BackgroundOperationModel.updateOne(
+          { _id: operation.id },
+          {
+            $set: {
+              "work.inputPayload": operation.work.inputPayload,
+              "work.snapshotPayloads": operation.work.snapshotPayloads,
+            },
+            $unset: { "work.input": 1, "work.snapshots": 1 },
+          },
+          metadataWriteOptions(),
+        );
+      }
+
+      const input = await readMetadataPayload(operation.work.inputPayload);
       const result = await metadataWork.run(
-        { id: operation.id, name: operation.work.name, snapshots: operation.work.snapshots ?? {} },
-        () => handler(operation.work.input),
+        {
+          id: operation.id,
+          name: operation.work.name,
+          snapshotPayloads: operation.work.snapshotPayloads ?? {},
+        },
+        () => withMetadataMutation(() => handler(input)),
       );
+      const resultPayload = await writeMetadataPayload(operation.id, "result", result);
 
       await BackgroundOperationModel.updateOne(
         { _id: operation.id },
@@ -111,7 +167,7 @@ export const runMetadataWork = async (operation: BackgroundOperationSchema) => {
             message: "Metadata changes completed.",
             processedCount: 1,
             status: "COMPLETE",
-            "work.result": result,
+            "work.resultPayload": resultPayload,
           },
         },
         metadataWriteOptions(),
@@ -126,7 +182,7 @@ export const runMetadataWork = async (operation: BackgroundOperationSchema) => {
         {
           $set: {
             dateModified: dayjs().toISOString(),
-            error: error instanceof Error ? error.message : String(error),
+            error: error?.message ?? String(error),
             message: "Completed changes were retained. Retry continues this saved request.",
             status: "ERROR",
           },
@@ -136,10 +192,13 @@ export const runMetadataWork = async (operation: BackgroundOperationSchema) => {
 
       throw error;
     } finally {
-      if (execution) execution.label = previousLabel;
+      if (execution) {
+        execution.label = previousLabel;
+        execution.operationId = previousOperationId;
+      }
 
       activeWork.delete(operation.id);
-      void backgroundExecution.exit(() =>
+      backgroundExecution.exit(() =>
         import("medior/server/database/actions/background-operations")
           .then(({ emitBackgroundOperation }) => emitBackgroundOperation(operation.id))
           .catch((error) => console.error("Metadata activity update failed:", error)),
@@ -165,9 +224,13 @@ export const registerMetadataWork = <Input, Output>(
   return async (input: Input): Promise<Output> => {
     // Linked calls belong to the same saved request and propagate failures to its owner.
     if (metadataWork.getStore() || (backgroundExecution.getStore() && !persistInBackground))
-      return run(input);
+      return withMetadataMutation(() => run(input));
+
+    const id = new Types.ObjectId();
+    const inputPayload = await writeMetadataPayload(String(id), "input", input);
 
     const operation = await new BackgroundOperationModel({
+      _id: id,
       dateCreated: dayjs().toISOString(),
       dateModified: dayjs().toISOString(),
       label: name
@@ -179,7 +242,7 @@ export const registerMetadataWork = <Input, Output>(
       targetIds: [],
       totalCount: 1,
       type: "metadataAction",
-      work: { input, name, snapshots: {} },
+      work: { inputPayload, name, snapshotPayloads: {} },
     }).save(metadataWriteOptions());
 
     return (await runBackgroundExecution(() =>
@@ -200,6 +263,7 @@ export const resumeMetadataWork = async (canContinue: () => boolean) => {
     })
       .sort({ dateCreated: 1, _id: 1 })
       .lean();
+
     if (!operation) return;
 
     try {
@@ -219,7 +283,8 @@ export const repairMetadata = async <T, R>(
   for await (const candidate of candidates) {
     checkBackgroundExecution();
 
-    const result = await repair(candidate);
+    const result = await withMetadataMutation(() => repair(candidate));
+
     await onProcessed?.({ candidate, result });
   }
 };

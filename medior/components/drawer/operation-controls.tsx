@@ -11,6 +11,7 @@ export const OperationControls = Comp(({ operation }: { operation: BackgroundOpe
 
   const [isConfirmRemoveOpen, setIsConfirmRemoveOpen] = useState(false);
   const [isRemoving, setIsRemoving] = useState(false);
+  const [isRetrying, setIsRetrying] = useState(false);
 
   const confirmRemove = async () => {
     setIsRemoving(true);
@@ -20,6 +21,7 @@ export const OperationControls = Comp(({ operation }: { operation: BackgroundOpe
         ids: operation.failures.map((failure) => failure.targetId),
         retainMedia: true,
       });
+
       if (!result.success) throw new Error(result.error);
 
       setIsConfirmRemoveOpen(false);
@@ -39,6 +41,7 @@ export const OperationControls = Comp(({ operation }: { operation: BackgroundOpe
 
   const handleDismiss = async () => {
     const result = await trpc.dismissBackgroundOperation.mutate({ id: operation.id });
+
     if (!result.success) return toast.error(result.error);
 
     store.updateBackgroundOperation(result.data);
@@ -47,7 +50,17 @@ export const OperationControls = Comp(({ operation }: { operation: BackgroundOpe
 
   const handleRemove = () => setIsConfirmRemoveOpen(true);
 
-  const handleRetry = () => store.retryBackgroundOperation(operation.id);
+  const handleRetry = async () => {
+    setIsRetrying(true);
+
+    try {
+      const result = await store.retryBackgroundOperation(operation.id);
+
+      if (!result.success) toast.error(result.error);
+    } finally {
+      setIsRetrying(false);
+    }
+  };
 
   return (
     <>
@@ -68,18 +81,34 @@ export const OperationControls = Comp(({ operation }: { operation: BackgroundOpe
 
       {operation.type !== "repair" &&
         (!!operation.targetIds.length ||
-          ["mediaPathIndex", "metadataAction", "transformQueue"].includes(operation.type)) &&
+          [
+            "importEntryMigration",
+            "mediaPathIndex",
+            "metadataAction",
+            "persistenceMigration",
+            "transformQueue",
+          ].includes(operation.type)) &&
         ["CANCELLED", "ERROR"].includes(operation.status) && (
-          <Button text="Retry" onClick={handleRetry} />
+          <Button
+            text={isRetrying ? "Retrying…" : "Retry"}
+            disabled={isRetrying}
+            onClick={handleRetry}
+          />
         )}
 
-      {["PENDING", "RUNNING"].includes(operation.status) && (
-        <Button text="Cancel" onClick={handleCancel} />
+      {(["PENDING", "RUNNING"].includes(operation.status) ||
+        (operation.type === "repair" && operation.status === "ERROR")) && (
+        <Button
+          text={operation.status === "ERROR" ? "Cancel Remaining Work" : "Cancel"}
+          onClick={handleCancel}
+        />
       )}
 
-      {["CANCELLED", "COMPLETE", "ERROR"].includes(operation.status) && (
-        <Button text="Dismiss" icon="Close" onClick={handleDismiss} />
-      )}
+      {["CANCELLED", "COMPLETE", "ERROR"].includes(operation.status) &&
+        (!["importEntryMigration", "persistenceMigration"].includes(operation.type) ||
+          operation.status === "COMPLETE") && (
+          <Button text="Dismiss" icon="Close" disabled={isRetrying} onClick={handleDismiss} />
+        )}
     </>
   );
 });

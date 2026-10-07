@@ -9,7 +9,7 @@ model.addDateRangeProp("dateModified");
 
 model.addProp("folderPath", "string", '""', {
   objPath: ["folderPath", "$regex"],
-  objValue: 'new RegExp(args.folderPath, "i")',
+  objValue: "args.folderPath",
   setter: model.makeSetterProp(
     "folderPath",
     ["value: string"],
@@ -19,7 +19,7 @@ model.addProp("folderPath", "string", '""', {
 
 model.addProp("label", "string", '""', {
   objPath: ["label", "$regex"],
-  objValue: 'new RegExp(args.label, "i")',
+  objValue: "args.label",
   setter: model.makeSetterProp(
     "label",
     ["value: string"],

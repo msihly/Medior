@@ -10,7 +10,7 @@ import {
   prop,
 } from "mobx-keystone";
 import { File, RootStore } from "medior/store";
-import { asyncAction, makeQueue } from "medior/utils/client";
+import { asyncAction, makeQueue, toast } from "medior/utils/client";
 import { PromiseQueue } from "medior/utils/common";
 import { getIsImage, trpc } from "medior/utils/server";
 import { FaceModel } from ".";
@@ -25,9 +25,11 @@ export class FaceRecognitionStore extends Model({
   isDetecting: prop<boolean>(false).withSetter(),
   isInitializing: prop<boolean>(true).withSetter(),
   isModalOpen: prop<boolean>(false).withSetter(),
+  isPreparingAutoDetect: prop<boolean>(false).withSetter(),
   isSaving: prop<boolean>(false).withSetter(),
 }) {
   autoDetectQueue = new PromiseQueue();
+  private prepareAbortController: AbortController = null;
 
   onInit() {
     autoBind(this);
@@ -46,6 +48,13 @@ export class FaceRecognitionStore extends Model({
   }
 
   @modelAction
+  cancelAutoDetectPreparation() {
+    this.prepareAbortController?.abort();
+    this.prepareAbortController = null;
+    this.setIsPreparingAutoDetect(false);
+  }
+
+  @modelAction
   clearQueue() {
     this.autoDetectQueue.cancel();
     this.autoDetectQueue = new PromiseQueue();
@@ -54,51 +63,81 @@ export class FaceRecognitionStore extends Model({
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */
   @modelFlow
   addFilesToAutoDetectQueue = asyncAction(async (fileIds: string[]) => {
-    const filesRes = await trpc.listFile.mutate({ args: { filter: { id: fileIds } } });
-    if (!filesRes?.success) throw new Error("Failed to load files");
+    this.cancelAutoDetectPreparation();
 
-    const images = filesRes.data.items.filter((f) => getIsImage(f.ext));
-    if (!images.length) throw new Error("No images found");
+    const controller = new AbortController();
 
-    if (this.isInitializing) {
-      const initRes = await this.init();
-      if (!initRes.success) throw new Error(`Init error: ${initRes.error}`);
+    this.prepareAbortController = controller;
+    this.setIsPreparingAutoDetect(true);
+
+    try {
+      const filesRes = await trpc.listFile.mutate(
+        { args: { filter: { id: fileIds } } },
+        { signal: controller.signal },
+      );
+
+      controller.signal.throwIfAborted();
+
+      if (!filesRes?.success) throw new Error("Failed to load files");
+
+      const images = filesRes.data.items.filter((f) => getIsImage(f.ext));
+
+      if (!images.length) throw new Error("No images found");
+
+      if (this.isInitializing) {
+        const initRes = await this.init();
+
+        controller.signal.throwIfAborted();
+
+        if (!initRes.success) throw new Error(`Init error: ${initRes.error}`);
+      }
+
+      makeQueue({
+        action: async (item) => {
+          this.setDetectedFaces(item.faceModels?.map?.((f) => new FaceModel(f)) ?? []);
+
+          const matchesRes = await this.findMatches(item.path);
+
+          if (!matchesRes.success) throw new Error(`Error finding matches: ${matchesRes.error}`);
+
+          this.addDetectedFaces(
+            matchesRes.data.map(
+              // @ts-no-check
+              ({ detection: { _box: box }, descriptor, tagId }) =>
+                new FaceModel({
+                  box: { height: box._height, width: box._width, x: box._x, y: box._y },
+                  descriptors: JSON.stringify([descriptor]),
+                  fileId: item.id,
+                  tagId,
+                }),
+            ),
+          );
+
+          const registerRes = await this.registerDetectedFaces(new File(item));
+
+          if (!registerRes.success)
+            throw new Error(`Error registering faces: ${registerRes.error}`);
+        },
+        items: images,
+        logPrefix: "Facial Recognition:",
+        logSuffix: "images",
+        onComplete: () => null,
+        queue: this.autoDetectQueue,
+      });
+    } catch (error) {
+      if (!controller.signal.aborted) toast.error(error);
+    } finally {
+      if (this.prepareAbortController === controller) {
+        this.prepareAbortController = null;
+        this.setIsPreparingAutoDetect(false);
+      }
     }
-
-    makeQueue({
-      action: async (item) => {
-        this.setDetectedFaces(item.faceModels?.map?.((f) => new FaceModel(f)) ?? []);
-
-        const matchesRes = await this.findMatches(item.path);
-        if (!matchesRes.success) throw new Error(`Error finding matches: ${matchesRes.error}`);
-
-        this.addDetectedFaces(
-          matchesRes.data.map(
-            // @ts-no-check
-            ({ detection: { _box: box }, descriptor, tagId }) =>
-              new FaceModel({
-                box: { height: box._height, width: box._width, x: box._x, y: box._y },
-                descriptors: JSON.stringify([descriptor]),
-                fileId: item.id,
-                tagId,
-              }),
-          ),
-        );
-
-        const registerRes = await this.registerDetectedFaces(new File(item));
-        if (!registerRes.success) throw new Error(`Error registering faces: ${registerRes.error}`);
-      },
-      items: images,
-      logPrefix: "Facial Recognition:",
-      logSuffix: "images",
-      onComplete: () => null,
-      queue: this.autoDetectQueue,
-    });
   });
 
   @modelFlow
   detectFaces = asyncAction(async (imagePath: string) => {
     const res = await trpc.detectFaces.mutate({ imagePath });
+
     if (!res.success) throw new Error(res.error);
 
     return res.data;
@@ -156,9 +195,11 @@ export class FaceRecognitionStore extends Model({
   @modelFlow
   init = asyncAction(async () => {
     const netsRes = await trpc.loadFaceApiNets.mutate();
+
     if (!netsRes.success) throw new Error(netsRes.error);
 
     const faceModelsRes = await this.loadFaceModels();
+
     if (!faceModelsRes.success) throw new Error(faceModelsRes.error);
 
     this.setIsInitializing(false);
@@ -172,7 +213,9 @@ export class FaceRecognitionStore extends Model({
       },
     ) => {
       const res = await trpc.listFaceModels.mutate({ ids: fileIds });
+
       if (!res.success) throw new Error(res.error);
+
       if (withOverwrite) this.setFaceModels(res.data.map((f) => new FaceModel(f)));
 
       return res.data;
@@ -183,35 +226,47 @@ export class FaceRecognitionStore extends Model({
   registerDetectedFaces = asyncAction(async (file?: File) => {
     this.setIsSaving(true);
 
-    const stores = getRootStore<RootStore>(this);
-    if (!file) file = stores.file.getById(this.activeFileId);
+    try {
+      const stores = getRootStore<RootStore>(this);
 
-    const faceModels = this.detectedFaces
-      .filter((f) => f.selectedTag !== null || f.tagId !== null)
-      .map((f) => ({
-        box: { ...f.box },
-        descriptors: f.descriptors,
-        fileId: file.id,
-        tagId: f.selectedTag?.id ?? f.tagId,
-      }));
+      if (!file) file = stores.file.getById(this.activeFileId);
 
-    const res = await trpc.setFileFaceModels.mutate({ faceModels, id: file.id });
-    if (!res.success) throw new Error(res.error);
+      const faceModels = this.detectedFaces
+        .filter((f) => f.selectedTag !== null || f.tagId !== null)
+        .map((f) => ({
+          box: { ...f.box },
+          descriptors: f.descriptors,
+          fileId: file.id,
+          tagId: f.selectedTag?.id ?? f.tagId,
+        }));
 
-    await this.loadFaceModels();
+      const res = await trpc.setFileFaceModels.mutate({ faceModels, id: file.id });
 
-    const newTagIds = faceModels.reduce((acc, cur) => {
-      if (!file.tagIds.includes(cur.tagId)) acc.push(cur.tagId);
+      if (!res.success) throw new Error(res.error);
 
-      return acc;
-    }, []);
+      const loaded = await this.loadFaceModels();
 
-    if (newTagIds.length > 0)
-      await stores.file.editFileTags({ addedTagIds: newTagIds, fileIds: [file.id] });
+      if (!loaded.success) throw new Error(loaded.error);
 
-    this.setIsSaving(false);
+      const newTagIds = faceModels.reduce((acc, cur) => {
+        if (!file.tagIds.includes(cur.tagId)) acc.push(cur.tagId);
 
-    return this.faceModels;
+        return acc;
+      }, []);
+
+      if (newTagIds.length > 0) {
+        const edited = await stores.file.editFileTags({
+          addedTagIds: newTagIds,
+          fileIds: [file.id],
+        });
+
+        if (!edited.success) throw new Error(edited.error);
+      }
+
+      return this.faceModels;
+    } finally {
+      this.setIsSaving(false);
+    }
   });
 
   /* --------------------------------- GETTERS -------------------------------- */

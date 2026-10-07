@@ -1,10 +1,20 @@
 import { shell } from "@electron/remote";
 import path from "path";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { FixedSizeList } from "react-window";
 import Color from "color";
-import { Card, Chip, Comp, FlatFolder, IconButton, TagRow, Text, View } from "medior/components";
-import { useStores } from "medior/store";
+import {
+  Card,
+  Chip,
+  Comp,
+  FlatFolder,
+  IconButton,
+  Pagination,
+  TagRow,
+  Text,
+  View,
+} from "medior/components";
+import { FileImportBatch, useStores } from "medior/store";
 import { colors, CssColor, makeBorderRadiuses, makeClasses, toast } from "medior/utils/client";
 import { Fmt } from "medior/utils/common";
 import { IMPORT_LIST_ITEM_HEIGHT, ImportListItem } from "./import-list-item";
@@ -16,7 +26,6 @@ const TAGS_HEIGHT = 56;
 type Folder = Pick<FlatFolder, "collectionTitle" | "imports" | "savedConfigLabel" | "tags">;
 
 export interface ImportFolderListProps {
-  batchId?: string;
   collapsible?: boolean;
   folder: Folder;
   maxVisibleFiles?: number;
@@ -26,7 +35,6 @@ export interface ImportFolderListProps {
 
 export const ImportFolderList = Comp(
   ({
-    batchId,
     collapsible = false,
     folder,
     maxVisibleFiles,
@@ -37,28 +45,43 @@ export const ImportFolderList = Comp(
 
     const [collapsed, setCollapsed] = useState(!withListItems);
 
-    const folderPath = folder?.imports[0]?.path && path.dirname(folder.imports[0].path);
+    const batch = folder instanceof FileImportBatch ? folder : null;
+    const folderPath =
+      batch?.sourceFolderPath ??
+      batch?.rootFolderPath ??
+      (folder?.imports[0]?.path && path.dirname(folder.imports[0].path));
+
     const hasCollection = folder?.collectionTitle?.length > 0;
     const hasTags = folder?.tags?.length > 0;
-
     const height = folder
       ? getImportFolderHeight({ folder, maxVisibleFiles, withListItems: !collapsed })
       : null;
 
-    const totalBytes = folder ? folder.imports.reduce((acc, cur) => acc + cur.size, 0) : null;
+    const totalBytes = batch
+      ? batch.size
+      : folder
+        ? folder.imports.reduce((acc, cur) => acc + cur.size, 0)
+        : null;
 
     const { css, cx } = useClasses({ collapsed, collapsible, hasCollection, hasTags });
 
-    const deleteBatch = () => stores.import.manager.deleteBatch({ id: batchId });
+    const deleteBatch = () => stores.import.manager.deleteBatch({ id: batch.id });
+
+    const handlePageChange = (page: number) => batch.loadPage(page);
 
     const openFolder = async () => {
       if (!folderPath) return;
 
       const error = await shell.openPath(folderPath);
+
       if (error) toast.error(error);
     };
 
     const toggleCollapsed = () => setCollapsed(!collapsed);
+
+    useEffect(() => {
+      if (batch && !collapsed) batch.loadPage();
+    }, [batch, collapsed]);
 
     return !folder ? null : (
       <Card
@@ -66,7 +89,7 @@ export const ImportFolderList = Comp(
         flex="none"
         overflow="hidden"
         padding={{ all: 0 }}
-        height={height}
+        height={batch ? undefined : height}
         width="100%"
         bgColor={colors.background}
       >
@@ -104,9 +127,14 @@ export const ImportFolderList = Comp(
 
             <Chip label={Fmt.bytes(totalBytes)} className={css.chip} />
 
-            <Chip label={`${folder.imports.length} files`} className={css.chip} />
+            <Chip
+              label={`${Fmt.commas(batch?.fileCount ?? folder.imports.length)} files`}
+              className={css.chip}
+            />
 
-            {batchId ? (
+            {batch && !batch.isReady && <Chip label="Upload incomplete" className={css.chip} />}
+
+            {batch ? (
               <IconButton
                 name="Delete"
                 onClick={deleteBatch}
@@ -128,6 +156,8 @@ export const ImportFolderList = Comp(
 
         {!collapsed && (
           <View column className={css.list}>
+            {batch?.loadError && <Text color={colors.custom.red}>{batch.loadError}</Text>}
+
             <FixedSizeList
               layout="vertical"
               width="100%"
@@ -150,6 +180,17 @@ export const ImportFolderList = Comp(
                 />
               )}
             </FixedSizeList>
+
+            {batch && (
+              <Pagination
+                inline
+                count={batch.pageCount}
+                page={batch.page}
+                isLoading={batch.isLoadingEntries}
+                onChange={handlePageChange}
+                siblingCount={1}
+              />
+            )}
           </View>
         )}
       </Card>

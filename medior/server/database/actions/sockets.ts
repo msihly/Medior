@@ -18,6 +18,8 @@ export const cancelRepair = makeAction(async ({ repairId }: { repairId: string }
   await cancelRepairRun(repairId);
 });
 
-export const finishRepair = makeAction(async ({ repairId }: { repairId: string }) => {
-  await finishRepairRun(repairId);
-});
+export const finishRepair = makeAction(
+  async ({ error, repairId }: { error?: string; repairId: string }) => {
+    await finishRepairRun(repairId, error);
+  },
+);

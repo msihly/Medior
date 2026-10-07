@@ -25,6 +25,7 @@ class ImportTagIndex {
       ?.then(({ ancestorLabels, labels }) => {
         const key = tag.label.toLowerCase();
         const previous = ancestorLabels.get(labels.get(key));
+
         if (!previous || preferredTagLabel(previous.label, tag.label) === tag.label)
           labels.set(key, tag.id);
 
@@ -48,6 +49,7 @@ class ImportTagIndex {
   getDirectory() {
     if (!this.directory) {
       const pending = this.loadDirectory();
+
       this.directory = pending;
       pending.catch(() => {
         if (this.directory === pending) this.directory = null;
@@ -60,6 +62,7 @@ class ImportTagIndex {
   getMatcher(onProgress?: (status: string, completed: number, total: number) => void) {
     if (!this.matcher) {
       const pending = this.loadMatcher(onProgress);
+
       this.matcher = pending;
       pending.catch(() => {
         if (this.matcher === pending) this.matcher = null;
@@ -71,6 +74,7 @@ class ImportTagIndex {
 
   private async loadDirectory() {
     const res = await trpc.listImportTags.mutate({});
+
     if (!res.success) throw new Error(res.error);
 
     const ancestorLabels = new Map<string, { count: number; label: string }>();
@@ -79,6 +83,7 @@ class ImportTagIndex {
     for (const tag of res.data) {
       const key = tag.label.toLowerCase();
       const previous = ancestorLabels.get(labels.get(key));
+
       if (!previous || preferredTagLabel(previous.label, tag.label) === tag.label)
         labels.set(key, tag.id);
 
@@ -92,11 +97,14 @@ class ImportTagIndex {
     onProgress?: (status: string, completed: number, total: number) => void,
   ) {
     const res = await this.stores.tag.listRegExMaps();
+
     if (!res.success) throw new Error(res.error);
 
     const matcher = new TagRegExMatcher();
+
     for (let index = 0; index < res.data.length; index++) {
       matcher.add(res.data[index]);
+
       if (index % 128 === 0) {
         onProgress?.("Indexing tag regex rules", index, res.data.length);
         await new Promise<void>((resolve) => setTimeout(resolve, 0));
@@ -110,14 +118,17 @@ class ImportTagIndex {
 
   update(tags: { tagId: string; updates: Partial<TagSchema> }[]) {
     if (tags.some(({ updates }) => "label" in updates)) this.directory = null;
+
     if (tags.some(({ updates }) => "regEx" in updates)) this.matcher = null;
 
     const counts = tags.filter(({ updates }) => "count" in updates);
+
     if (counts.length && this.directory)
       this.directory
         .then(({ ancestorLabels }) => {
           for (const { tagId, updates } of counts) {
             const tag = ancestorLabels.get(tagId);
+
             if (tag) tag.count = updates.count;
           }
         })

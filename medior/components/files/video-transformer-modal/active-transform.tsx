@@ -24,6 +24,7 @@ export const ActiveTransform = Comp(({ onCompare }: { onCompare: () => void }) =
 
   const handleAutoReplace = async (isAuto: boolean) => {
     const res = await store.setAutoReplace(isAuto);
+
     if (!res.success) toast.error(res.error);
   };
 
@@ -31,6 +32,7 @@ export const ActiveTransform = Comp(({ onCompare }: { onCompare: () => void }) =
     const res = await (store.activeTransform.type === "splice"
       ? store.saveCopy()
       : store.replaceOutput());
+
     if (!res.success) toast.error(res.error);
   };
 
@@ -38,6 +40,7 @@ export const ActiveTransform = Comp(({ onCompare }: { onCompare: () => void }) =
     const res = await (store.isTransforming || store.isPaused
       ? store.togglePaused()
       : store.runActiveTransform());
+
     if (!res.success) toast.error(res.error);
   };
 
@@ -50,7 +53,10 @@ export const ActiveTransform = Comp(({ onCompare }: { onCompare: () => void }) =
       padding={{ all: "0.8rem" }}
       bgColor={colors.background}
     >
-      <LoadingOverlay isLoading={store.isLoading || store.isUpdating} />
+      <LoadingOverlay
+        isLoading={store.isLoading || store.isUpdating}
+        sub={!store.isUpdating && <Button text="Cancel" icon="Close" onClick={store.cancelLoad} />}
+      />
 
       {store.activeTransform ? (
         <View column height="100%" spacing="0.8rem" overflow="hidden">

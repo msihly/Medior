@@ -1,5 +1,6 @@
 export const migrateReencodeDimensions = (config: Record<string, any>) => {
   const reencode = config.file?.reencode;
+
   if (!reencode) return false;
 
   let migrated = false;

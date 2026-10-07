@@ -16,6 +16,7 @@ const renderWaveform = (
 ) => {
   const { height, width } = context.canvas;
   const peaks = channels[0];
+
   if (!peaks.length) return;
 
   const peakMaximum = Math.max(...Array.from(peaks, (peak) => Math.abs(peak)), Number.EPSILON);
@@ -32,6 +33,7 @@ const renderWaveform = (
   for (let index = 1; index < points.length; index++) {
     const previous = points[index - 1];
     const point = points[index];
+
     line.quadraticCurveTo(
       previous.x,
       previous.y,
@@ -43,11 +45,13 @@ const renderWaveform = (
   line.lineTo(points[points.length - 1].x, points[points.length - 1].y);
 
   const area = new Path2D(line);
+
   area.lineTo(width, height);
   area.lineTo(0, height);
   area.closePath();
 
   const gradient = context.createLinearGradient(0, 0, 0, height);
+
   gradient.addColorStop(0, "rgba(245, 245, 245, 0.5)");
   gradient.addColorStop(1, "rgba(245, 245, 245, 0)");
   context.fillStyle = gradient;
@@ -60,6 +64,7 @@ const renderWaveform = (
 export const VideoWaveform = Comp(
   ({ currentTime, duration, onSeek, peaks }: VideoWaveformProps) => {
     const { css } = useClasses(null);
+
     const containerRef = useRef<HTMLDivElement>(null);
     const waveformRef = useRef<WaveSurfer>(null);
 

@@ -38,8 +38,10 @@ export class TagStore extends Model({
       if (!("category" in updates) && !("parentIds" in updates)) continue;
 
       this.categoryRevision++;
+
       const current = this.categorySources.get(tagId);
       const category = "category" in updates ? updates.category : current?.category;
+
       this.categorySources.set(tagId, {
         category: category ? { ...category } : null,
         id: tagId,
@@ -70,6 +72,7 @@ export class TagStore extends Model({
         withRegen,
         withSub,
       });
+
       if (!res.success) throw new Error(res.error);
 
       return res.data;
@@ -78,30 +81,40 @@ export class TagStore extends Model({
 
   @modelFlow
   deleteTag = asyncAction(async ({ id }: { id: string }) => {
-    await trpc.deleteTag.mutate({ id });
+    const res = await trpc.deleteTag.mutate({ id });
+
+    if (!res.success) throw new Error(res.error);
   });
 
   @modelFlow
   editTag = asyncAction(async ({ withSub = true, ...tag }: db.EditTagInput) => {
     const editRes = await trpc.editTag.mutate({ ...tag, withSub });
+
     if (!editRes.success) throw new Error(editRes.error);
   });
 
   @modelFlow
-  getByLabel = asyncAction(async (label: string) => {
+  getByLabel = asyncAction(async ({ label, signal }: { label: string; signal?: AbortSignal }) => {
     if (!label) throw new Error("No label provided");
 
-    const res = await trpc.listTag.mutate({
-      filter: { label: { $options: "i", $regex: `^${Fmt.regexEscape(label)}$` } },
-    });
-    if (!res.success) throw new Error(res.error);
+    try {
+      const res = await trpc.listTag.mutate(
+        { filter: { label: { $options: "i", $regex: `^${Fmt.regexEscape(label)}$` } } },
+        { signal },
+      );
 
-    return res.data?.[0];
+      if (!res.success) throw new Error(res.error);
+
+      return res.data?.[0];
+    } catch (error) {
+      if (!signal?.aborted) throw error;
+    }
   });
 
   @modelFlow
   listByIds = asyncAction(async ({ ids }: { ids: string[] }) => {
     const res = await trpc.listTag.mutate({ filter: { id: ids } });
+
     if (!res.success) throw new Error(res.error);
 
     return res.data;
@@ -118,6 +131,7 @@ export class TagStore extends Model({
         })),
       },
     });
+
     if (!res.success) throw new Error(res.error);
 
     return res.data;
@@ -126,6 +140,7 @@ export class TagStore extends Model({
   @modelFlow
   listRegExMaps = asyncAction(async () => {
     const res = await trpc.listRegExMaps.mutate();
+
     if (!res.success) throw new Error(res.error);
 
     return res.data.map((t) => ({ regEx: new RegExp(t.regEx, "im"), tagId: t.id }));
@@ -134,6 +149,7 @@ export class TagStore extends Model({
   @modelFlow
   listTagAncestorLabels = asyncAction(async ({ id }: { id: string }) => {
     const res = await trpc.listTagAncestorLabels.mutate({ id });
+
     if (!res.success) throw new Error(res.error);
 
     return res.data;
@@ -142,6 +158,7 @@ export class TagStore extends Model({
   @modelFlow
   loadCategorySources = asyncAction(async () => {
     this.categoryRevision++;
+
     if (this.categoryLoad) return this.categoryLoad;
 
     this.categoryLoad = (async () => {
@@ -149,8 +166,11 @@ export class TagStore extends Model({
 
       do {
         revision = this.categoryRevision;
+
         const res = await trpc.listTagCategories.mutate();
+
         if (!res.success) throw new Error(res.error);
+
         if (revision !== this.categoryRevision) continue;
 
         this.setCategorySources(new Map(res.data.map((tag) => [tag.id, tag])));
@@ -167,12 +187,14 @@ export class TagStore extends Model({
   @modelFlow
   mergeTags = asyncAction(async (args: db.MergeTagsInput) => {
     const res = await trpc.mergeTags.mutate(args);
+
     if (!res.success) throw new Error(res.error);
   });
 
   @modelFlow
   refreshTag = asyncAction(async ({ id }: { id: string }) => {
     const res = await trpc.refreshTag.mutate({ tagId: id });
+
     if (!res.success) throw new Error(res.error);
 
     toast.success("Tag refreshed");
@@ -182,13 +204,17 @@ export class TagStore extends Model({
   updateTagRating = asyncAction(async ({ id, rating }: { id: string; rating: number }) => {
     this.manager.setIsLoading(true);
 
-    const res = await trpc.editTag.mutate({
-      id,
-      rating,
-      ratingIsManual: rating > 0,
-    });
-    this.manager.setIsLoading(false);
-    if (!res.success) throw new Error(res.error);
+    try {
+      const res = await trpc.editTag.mutate({
+        id,
+        rating,
+        ratingIsManual: rating > 0,
+      });
+
+      if (!res.success) throw new Error(res.error);
+    } finally {
+      this.manager.setIsLoading(false);
+    }
   });
 
   @modelFlow
@@ -217,6 +243,7 @@ export class TagStore extends Model({
             withRegEx: t.withRegEx,
           })),
         );
+
         if (!res.success) throw new Error(res.error);
 
         upsertedTags.push(...res.data);
@@ -231,6 +258,7 @@ export class TagStore extends Model({
   /* ----------------------------- DYNAMIC GETTERS ---------------------------- */
   getCategory(tag: { category?: TagSchema["category"]; id?: string }) {
     const source = this.categorySources.get(tag?.id);
+
     return source ? resolveTagCategory(source, this.categorySources) : tag?.category;
   }
 
@@ -243,9 +271,11 @@ export class TagStore extends Model({
 
           if (cur.searchType === "excludeDesc") {
             acc["excludedDescTagIds"].push(cur.id);
+
             if (withDescArrays) acc["excludedDescTagIdArrays"].push(tagIds);
           } else if (cur.searchType === "includeDesc") {
             acc["requiredDescTagIds"].push(cur.id);
+
             if (withDescArrays) acc["requiredDescTagIdArrays"].push(tagIds);
           }
         } else if (cur.searchType === "includeAnd") acc["requiredTagIds"].push(cur.id);

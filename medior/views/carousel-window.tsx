@@ -1,8 +1,7 @@
 import { ipcRenderer } from "electron";
-import { createContext, MutableRefObject, useEffect, useRef, WheelEvent } from "react";
+import { createContext, MutableRefObject, useEffect, useMemo, useRef, WheelEvent } from "react";
 import FilePlayer from "react-player/file";
 import { PanzoomObject } from "@panzoom/panzoom";
-import { makePerfLog } from "trabecula/utils/server";
 import {
   Carousel,
   CarouselThumbNavigator,
@@ -12,7 +11,7 @@ import {
   WindowTitleBar,
 } from "medior/components";
 import { useStores } from "medior/store";
-import { makeClasses } from "medior/utils/client";
+import { makeClasses, toast } from "medior/utils/client";
 import { debounce } from "medior/utils/common";
 import { zoomScaleStepIn, zoomScaleStepOut } from "medior/utils/server";
 import { useHotkeys, useSockets, Views } from "medior/views/common";
@@ -26,22 +25,24 @@ export interface CarouselWindowProps {
 }
 
 export const CarouselWindow = Comp(({ embedded = false }: CarouselWindowProps) => {
+  const stores = useStores();
+  const store = stores.carousel;
+
   const { css } = useClasses(null);
 
-  const stores = useStores();
-  const activeFile = stores.carousel.getActiveFile();
+  const mouseMoveTimeout = useRef<number | null>(null);
+  const panZoomRef = useRef<PanzoomObject>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const videoRef = useRef<FilePlayer>(null);
 
+  const activeFile = store.getActiveFile();
   const title = activeFile
     ? `Medior — ${activeFile.originalName}${
-        stores.carousel.selectedFileIds.length
-          ? ` — (${stores.carousel.activeFileIndex + 1} / ${stores.carousel.selectedFileIds.length})`
+        store.selectedFileIds.length
+          ? ` — (${store.activeFileIndex + 1} / ${store.selectedFileIds.length})`
           : ""
       }`
     : "Medior";
-
-  const panZoomRef = useRef<PanzoomObject>(null);
-  const videoRef = useRef<FilePlayer>(null);
-  const rootRef = useRef<HTMLDivElement>(null);
 
   const setRootRef = (ref: HTMLDivElement) => {
     rootRef.current = ref;
@@ -54,36 +55,43 @@ export const CarouselWindow = Comp(({ embedded = false }: CarouselWindowProps) =
     view: "carousel",
   });
 
+  const navigateOnScroll = useMemo(
+    () =>
+      debounce((isLeft: boolean) => {
+        if (
+          !store.splicer.isOpen &&
+          !stores.file.isInfoModalOpen &&
+          !stores._getIsBlockingModalOpen()
+        )
+          navCarouselByArrowKey(isLeft);
+      }, 100),
+    [store, stores],
+  );
+
+  useEffect(() => () => navigateOnScroll.cancel(), [navigateOnScroll]);
+
   const handleScroll = (event: WheelEvent) => {
-    if (
-      stores.carousel.splicer.isOpen ||
-      stores.file.isInfoModalOpen ||
-      stores._getIsBlockingModalOpen()
-    )
+    if (store.splicer.isOpen || stores.file.isInfoModalOpen || stores._getIsBlockingModalOpen())
       return;
 
-    if (!event.ctrlKey) debounce(navCarouselByArrowKey, 100)(event.deltaY < 0);
+    if (!event.ctrlKey) navigateOnScroll(event.deltaY < 0);
     else {
       if (!panZoomRef.current) return console.error("Panzoom ref not set");
 
       const curScale = panZoomRef.current.getScale();
       const newScale = event.deltaY > 0 ? zoomScaleStepOut(curScale) : zoomScaleStepIn(curScale);
+
       panZoomRef.current.zoomToPoint(newScale, { clientX: event.clientX, clientY: event.clientY });
     }
   };
 
   useSockets({ enabled: !embedded, view: "carousel" });
 
-  const mouseMoveTimeout = useRef<number | null>(null);
-
   const handleMouseMove = () => {
     if (mouseMoveTimeout.current) clearTimeout(mouseMoveTimeout.current);
 
-    stores.carousel.setIsMouseMoving(true);
-    mouseMoveTimeout.current = window.setTimeout(
-      () => stores.carousel.setIsMouseMoving(false),
-      1000,
-    );
+    store.setIsMouseMoving(true);
+    mouseMoveTimeout.current = window.setTimeout(() => store.setIsMouseMoving(false), 1000);
   };
 
   useEffect(() => {
@@ -95,29 +103,47 @@ export const CarouselWindow = Comp(({ embedded = false }: CarouselWindowProps) =
   useEffect(() => {
     if (embedded) return;
 
-    ipcRenderer.on(
-      "init",
-      async (_, { fileId, selectedFileIds }: { fileId: string; selectedFileIds: string[] }) => {
-        try {
-          const { perfLog, perfLogTotal } = makePerfLog("[Carousel]");
+    const initialize = (
+      _,
+      { fileId, selectedFileIds }: { fileId: string; selectedFileIds: string[] },
+    ) => {
+      store.setSelectedFileIds([
+        ...new Set(
+          selectedFileIds.includes(fileId) ? selectedFileIds : [fileId, ...selectedFileIds],
+        ),
+      ]);
+      store.setVisibleFileIds([]);
+      store.setActiveFileId(fileId);
+      stores.file.setActiveFileId(fileId);
+    };
 
-          perfLog("Loading active file...");
-          stores.file.search.setIds([fileId]);
-          await stores.file.search.loadFiltered({ noCache: true });
-          stores.carousel.setActiveFileId(fileId);
+    ipcRenderer.on("init", initialize);
 
-          perfLog("Active file loaded. Loading carousel files...");
-          stores.file.search.setIds([fileId, ...selectedFileIds]);
-          await stores.file.search.loadFiltered({ noCache: true });
-          stores.carousel.setSelectedFileIds(selectedFileIds);
-
-          perfLogTotal("Data loaded into MobX.");
-        } catch (err) {
-          console.error(err);
-        }
-      },
-    );
+    return () => {
+      ipcRenderer.removeListener("init", initialize);
+    };
   }, [embedded]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadFiles = async () => {
+      try {
+        const result = await store.loadFiles();
+
+        if (!cancelled && !result.success) toast.error(result.error);
+      } catch (error) {
+        if (!cancelled) toast.error(error.message);
+      }
+    };
+
+    if (store.activeFileId) loadFiles();
+
+    return () => {
+      cancelled = true;
+      stores.file.search.cancelLoad();
+    };
+  }, [store.activeFileId, store.selectedFileIds, store.visibleFileIds]);
 
   return (
     <ZoomContext.Provider value={panZoomRef}>

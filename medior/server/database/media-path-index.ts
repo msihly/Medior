@@ -21,6 +21,7 @@ import {
   readMediaPath,
 } from "medior/server/database/media-paths";
 import { getBackgroundSession, metadataWriteOptions } from "medior/server/database/metadata-work";
+import { ensurePersistenceIndexes, PersistenceModel } from "medior/server/database/persistence";
 import { dayjs } from "medior/utils/common";
 import { objectId } from "medior/utils/server";
 
@@ -63,6 +64,7 @@ export const ensureMediaPathIndexOperation = async () => {
   );
 
   const operation = await BackgroundOperationModel.findById(id).lean();
+
   if (operation) return operation;
 
   return BackgroundOperationModel.findOneAndUpdate(
@@ -87,7 +89,9 @@ export const ensureMediaPathIndexOperation = async () => {
 /** Save checkpoints after idempotent writes so interrupted batches can be repeated. */
 export const runMediaPathIndexQueue = async () => {
   const operation = await ensureMediaPathIndexOperation();
+
   if (!operation) return true;
+
   if (!["PENDING", "RUNNING"].includes(operation.status)) return false;
 
   const id = operation._id.toString();
@@ -104,7 +108,12 @@ export const runMediaPathIndexQueue = async () => {
       const indexVersion = JSON.stringify(models[name].schema.indexes());
       const progress = await MediaOwnershipModel.findById(progressId).lean();
 
-      if (progress?.indexVersion !== indexVersion) {
+      if (name === PersistenceModel.modelName) await ensurePersistenceIndexes();
+
+      if (
+        progress?.indexVersion !== indexVersion &&
+        models[name].collection.name !== PersistenceModel.collection.name
+      ) {
         await setBackgroundOperationStatus(id, "RUNNING", {
           message: `Ensuring indexes for ${name}. Pause interrupts this task.`,
         });
@@ -134,6 +143,7 @@ export const runMediaPathIndexQueue = async () => {
         checkBackgroundExecution();
 
         const checkpoint = await MediaOwnershipModel.findById(progressId).lean();
+
         if (checkpoint?.complete || !Object.keys(fields).length) break;
 
         const documents = await models[name]
@@ -144,7 +154,11 @@ export const runMediaPathIndexQueue = async () => {
             ),
           )
           .sort({ _id: 1 })
-          .hint({ _id: 1 })
+          .hint(
+            models[name].collection.name === PersistenceModel.collection.name
+              ? { recordType: 1, _id: 1 }
+              : { _id: 1 },
+          )
           .limit(INDEX_SCAN_SIZE)
           .lean();
 
@@ -164,6 +178,7 @@ export const runMediaPathIndexQueue = async () => {
 
             const document = batch[index];
             const keys = getMediaPathKeys(document, fields);
+
             if (Object.entries(keys).every(([key, value]) => document[key] === value)) continue;
 
             writes.push({

@@ -16,11 +16,11 @@ export interface SortMenuProps extends Omit<SortMenuBaseProps, "setValue" | "val
 
 export const SortMenu = Comp(({ configKey, header, width = "10rem", ...props }: SortMenuProps) => {
   const stores = useStores();
+  const store = stores.home.settings;
 
-  const value = stores.home.settings.getConfigByKey<SortMenuBaseProps["value"]>(configKey);
+  const value = store.getConfigByKey<SortMenuBaseProps["value"]>(configKey);
 
-  const setValue = (value: SortMenuBaseProps["value"]) =>
-    stores.home.settings.update({ [configKey]: value });
+  const setValue = (value: SortMenuBaseProps["value"]) => store.update({ [configKey]: value });
 
   return (
     <HeaderWrapper {...{ header, width }} height="100%">

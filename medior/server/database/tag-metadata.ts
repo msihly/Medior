@@ -31,6 +31,7 @@ export const readTagMetadata = async (
   checkCancelled?: () => void,
 ) => {
   checkCancelled?.();
+
   const tags = await TagModel.find({ _id: { $in: objectIds(tagIds) } }, null, {
     readConcern: { level: "majority" },
   })
@@ -38,6 +39,7 @@ export const readTagMetadata = async (
     .lean<Array<{ _id: Types.ObjectId }>>();
 
   const descendants = await loadTagGraph(tagIds, true);
+
   checkBackgroundExecution();
 
   const relatedIds = objectIds([...descendants.keys()]);
@@ -75,6 +77,7 @@ export const readTagMetadata = async (
 
       for (const directId of file.tagIds) {
         const id = String(directId);
+
         if (!targetsByDirectTag.has(id))
           targetsByDirectTag.set(
             id,
@@ -96,6 +99,7 @@ export const readTagMetadata = async (
             ratingTotal: 0,
             size: 0,
           };
+
           metadata.set(targetId, result);
         }
 
@@ -123,11 +127,13 @@ export const readTagMetadata = async (
 
       if (operation && scanned % 1000 === 0 && performance.now() - lastProgressAt >= 1000) {
         const message = `Scanned ${scanned.toLocaleString()} matching files for ${tagIds.length} tags.`;
+
         await BackgroundOperationModel.updateOne(
           { _id: operation.id, status: "RUNNING" },
           { $set: { dateModified: new Date().toISOString(), message } },
           metadataWriteOptions(),
         );
+
         socket.emit("onBackgroundOperationUpdated", { id: operation.id, updates: { message } });
         lastProgressAt = performance.now();
       }
@@ -150,6 +156,7 @@ export const writeTagMetadata = async (
   withSub: boolean,
 ) => {
   checkBackgroundExecution();
+
   if (!snapshot.tags.length) return [];
 
   await TagModel.bulkWrite(
@@ -189,6 +196,7 @@ export const writeTagMetadata = async (
   }));
 
   if (withSub) socket.emit("onTagsUpdated", { tags: updates, withFileReload: false });
+
   if (updates.length) runFileCleanupQueue();
 
   return updates;

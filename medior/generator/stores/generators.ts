@@ -22,6 +22,7 @@ export class ModelStore {
     this.transformResultsFn = options.transformResultsFn;
     this.withCarouselIds = options.withCarouselIds;
     this.withTags = options.withTags;
+
     if (this.withCarouselIds)
       this.addProp("carouselFileIds", "string[]", "() => []", { notFilterProp: true });
 
@@ -44,6 +45,7 @@ export class ModelStore {
 
   public addProp(...args: Parameters<typeof this.makeProp>) {
     this.props.push(this.makeProp(...args));
+
     if (
       args[3]?.filterGroup &&
       !this.props.some((prop) => prop.name === `${args[3].filterGroup}Mode`)
@@ -68,6 +70,7 @@ export class ModelStore {
 
   public addNumRangeProp(name: string, expression?: string) {
     const capName = capitalize(name);
+
     this.addProp(`max${capName}`, "number", "null", {
       filterGroup: name,
       objPath: [expression ? "$expr" : name, "$lte"],
@@ -206,7 +209,9 @@ const createSchemaStore = async (modelDef: ModelDef) => {
       this.setIsLoading(true);
 
       const res = await trpc.${args.fnName}.mutate({ args });
+
       this.setIsLoading(false);
+
       if (res.error) throw new Error(res.error);
 
       return res.data;
@@ -316,17 +321,20 @@ export const createSearchStore = (def: ModelSearchStore) => {
     toggleSelected(selected: { id: string; isSelected?: boolean }[], withToast = false) {
       if (!selected?.length) return;
 
-      const [added, removed] = selected.reduce(
-        (acc, cur) => (acc[cur.isSelected ? 0 : 1].push(cur.id), acc),
-        [[], []]
-      );
+      const previous = this.selectedIdSet;
+      const next = new Set(previous);
 
-      const removedSet = new Set(removed);
-      this.selectedIds = [...new Set(this.selectedIds.concat(added))].filter((id) => !removedSet.has(id));
+      for (const { id, isSelected } of selected) {
+        if (isSelected) next.add(id);
+        else next.delete(id);
+      }
+
+      this.selectedIds = [...next];
 
       if (withToast) {
-        const addedCount = added.length;
-        const removedCount = removed.length;
+        const addedCount = [...next].filter((id) => !previous.has(id)).length;
+        const removedCount = [...previous].filter((id) => !next.has(id)).length;
+
         if (addedCount && removedCount) toast.success(\`Selected \${addedCount} items and deselected \${removedCount} items\`);
         else if (addedCount) toast.success(\`Selected \${addedCount} items\`);
         else if (removedCount) toast.success(\`Deselected \${removedCount} items\`);
@@ -340,6 +348,7 @@ export const createSearchStore = (def: ModelSearchStore) => {
       if (!this.savedSearches.some((s) => s.id === id)) await this.loadSavedSearches();
 
       const savedSearch = this.savedSearches.find((s) => s.id === id);
+
       if (!savedSearch) return;
 
       this.applySearchProps(derefMobx(savedSearch.filterProps));
@@ -353,9 +362,11 @@ export const createSearchStore = (def: ModelSearchStore) => {
       if (!id) return;
 
       const res = await trpc.deleteSavedSearch.mutate({ args: { ids: [id] } });
+
       if (!res.success) throw new Error(res.error);
 
       await this.loadSavedSearches();
+
       if (this.selectedSavedSearchId === id) this.setSelectedSavedSearchId("");
 
       this.setIsDeleteModalOpen(false);
@@ -379,8 +390,11 @@ export const createSearchStore = (def: ModelSearchStore) => {
           this.results.length > 0;
 
         if (canResolveLocally) {
+          if (!selectedIds.length) return { idsToDeselect: [], idsToSelect: [id] };
+
           const firstSelected = selectedLocalIndexes.reduce((min, index) => Math.min(min, index), Infinity);
           const lastSelected = selectedLocalIndexes.reduce((max, index) => Math.max(max, index), -Infinity);
+
           if (firstSelected === clickedLocalIndex) return { idsToDeselect: [id], idsToSelect: [] };
 
           const isFirstAfterClicked = firstSelected > clickedLocalIndex;
@@ -396,21 +410,31 @@ export const createSearchStore = (def: ModelSearchStore) => {
           return { idsToDeselect, idsToSelect };
         }
 
-        const clickedIndex = (this.page - 1) * this.pageSize + clickedLocalIndex;
+        const loadId = this.loadId + 1;
 
+        this.setLoadId(loadId);
         this.setIsLoading(true);
+        this.setIsPageCountLoading(false);
 
-        const res = await trpc.getShiftSelected${def.name}.mutate({
-          ...this.cachedFilterProps,
-          clickedId: id,
-          clickedIndex,
-          selectedIds,
-        });
-        this.setIsLoading(false);
+        try {
+          const res = await trpc.getShiftSelected${def.name}.mutate({
+            ...this.cachedFilterProps,
+            clickedId: id,
+            selectedIds,
+          });
 
-        if (!res.success) throw new Error(res.error);
+          if (loadId !== this.loadId) return null;
 
-        return res.data;
+          if (!res.success) throw new Error(res.error);
+
+          return res.data;
+        } catch (error) {
+          if (loadId === this.loadId) throw error;
+
+          return null;
+        } finally {
+          if (loadId === this.loadId) this.setIsLoading(false);
+        }
       }
     );`;
 
@@ -419,52 +443,83 @@ export const createSearchStore = (def: ModelSearchStore) => {
     handleSelect = asyncAction(async ({ hasCtrl, hasShift, id }: { hasCtrl: boolean; hasShift: boolean; id: string }) => {
       if (hasShift) {
         const res = await this.getShiftSelected({ id, selectedIds: this.selectedIds });
+
         if (!res?.success) throw new Error(res.error);
 
-        this.toggleSelected([
-          ...res.data.idsToDeselect.map((i) => ({ id: i, isSelected: false })),
-          ...res.data.idsToSelect.map((i) => ({ id: i, isSelected: true })),
-        ]);
+        if (res.data) {
+          this.toggleSelected([
+            ...res.data.idsToDeselect.map((i) => ({ id: i, isSelected: false })),
+            ...res.data.idsToSelect.map((i) => ({ id: i, isSelected: true })),
+          ]);
+        }
       } else if (hasCtrl) {
         this.toggleSelected([{ id, isSelected: !this.getIsSelected(id) }]);
       } else {
-        this.toggleSelected([
-          ...this.selectedIds.map((id) => ({ id, isSelected: false })),
-          { id, isSelected: true },
-        ]);
+        this.selectedIds = [id];
       }
     });`;
 
   const makeSelectAllInQueryAction = () =>
     `@modelFlow
     selectAllInQuery = asyncAction(async () => {
-      const countRes = await trpc.getFiltered${def.name}Count.mutate({
-        ...this.getFilterProps(),
-        curMaxPage: this.pageCount,
-        page: this.page,
-        pageSize: this.pageSize,
-        withFull: true,
-      });
-      if (!countRes.success) throw new Error(countRes.error);
-      if (countRes.data.count === 0) return 0;
+      const filterProps = this.cachedFilterProps ?? this.getFilterProps();
+      const loadId = this.loadId + 1;
 
-      const res = await trpc.listFiltered${def.name}.mutate({
-        ...this.getFilterProps(),
-        page: 1,
-        pageSize: countRes.data.count,
-        select: { _id: 1 },
-      });
-      if (!res.success) throw new Error(res.error);
+      this.setLoadId(loadId);
+      this.setIsLoading(true);
+      this.setIsPageCountLoading(false);
 
-      ${
-        def.withCarouselIds
-          ? `const items = res.data.items;
-            this.toggleSelected(items.map(({ id }) => ({ id, isSelected: true })));
+      try {
+        ${
+          def.withCarouselIds
+            ? `const res = await trpc.listFileSearchIds.mutate({ ...filterProps, forcePages: this.forcePages });`
+            : `
+        const countRes = await trpc.getFiltered${def.name}Count.mutate({
+          ...filterProps,
+          curMaxPage: this.pageCount,
+          forcePages: this.forcePages,
+          page: this.page,
+          pageSize: this.pageSize,
+          withFull: true,
+        });
 
-            return items.length;`
-          : `this.toggleSelected(res.data.map(({ id }) => ({ id, isSelected: true })));
+        if (loadId !== this.loadId) return null;
 
-            return res.data.length;`
+        if (!countRes.success) throw new Error(countRes.error);
+
+        if (countRes.data.count === 0) return 0;
+
+        const res = await trpc.listFiltered${def.name}.mutate({
+          ...filterProps,
+          forcePages: this.forcePages,
+          page: 1,
+          pageSize: countRes.data.count,
+          select: { _id: 1 },
+        });
+        `
+        }
+
+        if (loadId !== this.loadId) return null;
+
+        if (!res.success) throw new Error(res.error);
+
+        ${
+          def.withCarouselIds
+            ? `this.selectedIds = [...new Set([...this.selectedIds, ...res.data])];
+
+        return res.data.length;`
+            : `const items = res.data;
+
+        this.toggleSelected(items.map(({ id }) => ({ id, isSelected: true })));
+
+        return items.length;`
+        }
+      } catch (error) {
+        if (loadId === this.loadId) throw error;
+
+        return null;
+      } finally {
+        if (loadId === this.loadId) this.setIsLoading(false);
       }
     });`;
 
@@ -479,6 +534,7 @@ export const createSearchStore = (def: ModelSearchStore) => {
       const debug = false;
       const { perfLog } = makePerfLog("[${def.name}Search]");
       const loadId = this.loadId + 1;
+
       this.setLoadId(loadId);
       this.setIsLoading(true);
       this.setIsPageCountLoading(true);
@@ -488,6 +544,7 @@ export const createSearchStore = (def: ModelSearchStore) => {
         const filterProps = shouldCacheFilterProps
           ? this.getFilterProps()
           : this.cachedFilterProps;
+
         const exactCount = withFullCount || toLastPage;
         let nextPageCount = this.pageCount;
 
@@ -495,11 +552,14 @@ export const createSearchStore = (def: ModelSearchStore) => {
           const countRes = await trpc.getFiltered${def.name}Count.mutate({
             ...filterProps,
             curMaxPage: this.pageCount,
+            forcePages: this.forcePages,
             page,
             pageSize: this.pageSize,
             withFull: true
           });
+
           if (loadId !== this.loadId) return;
+
           if (!countRes.success) throw new Error(countRes.error);
 
           nextPageCount = countRes.data.pageCount;
@@ -517,21 +577,27 @@ export const createSearchStore = (def: ModelSearchStore) => {
           page: newPage,
           pageSize: this.pageSize,
         });
+
         if (loadId !== this.loadId) return;
+
         if (!itemsRes.success) throw new Error(itemsRes.error);
 
         let items = ${def.withCarouselIds ? `itemsRes.data.items as ModelCreationData<Stores.${def.name}>[]` : "itemsRes.data"};
+
         if (debug) perfLog(\`Loaded \${items.length} items\`);
 
         ${
           !def.withTags
             ? ""
             : `const tagIds = [...new Set(items.flatMap((item) => item.tagIds))];
-              const tags = (await trpc.listTag.mutate({ filter: { id: tagIds } })).data;
+              const tagRes = await trpc.listTag.mutate({ filter: { id: tagIds } });
 
               if (loadId !== this.loadId) return;
 
-              const selectTags = makeTagSelector(tags);
+              if (!tagRes.success) throw new Error(tagRes.error);
+
+              const selectTags = makeTagSelector(tagRes.data);
+
               items = items.map((item) => ({ ...item, tags: selectTags(item.tagIds) }));`
         }
 
@@ -545,6 +611,7 @@ export const createSearchStore = (def: ModelSearchStore) => {
               this.setCarouselFileIds(itemsRes.data.carouselFileIds);`
             : `this.setResults(results.map((result) => new Stores.${def.name}(result)));`
         }
+
         if (shouldCacheFilterProps) this.setCachedFilterProps(derefMobx(filterProps));
 
         if (exactCount) {
@@ -553,34 +620,43 @@ export const createSearchStore = (def: ModelSearchStore) => {
         }
 
         this.setPage(newPage);
+
         if (debug) perfLog("Overwrite and re-render");
 
         this.setIsLoading(false);
+
         if (noCache) this.setHasChanges(false);
 
         if (!exactCount) {
-          trpc.getFiltered${def.name}Count.mutate({
-            ...filterProps,
-            curMaxPage: this.pageCount,
-            page: newPage,
-            pageSize: this.pageSize,
-            withFull: withFullCount
-          }).then((countRes) => {
-            if (loadId !== this.loadId) return;
+          (async () => {
+            try {
+              const countRes = await trpc.getFiltered${def.name}Count.mutate({
+                ...filterProps,
+                curMaxPage: this.pageCount,
+                forcePages: this.forcePages,
+                page: newPage,
+                pageSize: this.pageSize,
+                withFull: withFullCount
+              });
 
-            this.setIsPageCountLoading(false);
-            if (!countRes.success) return console.error(countRes.error);
+              if (loadId !== this.loadId) return;
 
-            const pageCount = countRes.data.pageCount;
+              this.setIsPageCountLoading(false);
 
-            this.setPageCount(pageCount);
-            if (debug) perfLog(\`Set pageCount to \${pageCount}\`);
-          }).catch((error) => {
-            if (loadId !== this.loadId) return;
+              if (!countRes.success) return console.error(countRes.error);
 
-            this.setIsPageCountLoading(false);
-            console.error(error);
-          });
+              const pageCount = countRes.data.pageCount;
+
+              this.setPageCount(pageCount);
+
+              if (debug) perfLog(\`Set pageCount to \${pageCount}\`);
+            } catch (error) {
+              if (loadId !== this.loadId) return;
+
+              this.setIsPageCountLoading(false);
+              console.error(error);
+            }
+          })();
         }
 
         return results;
@@ -589,6 +665,7 @@ export const createSearchStore = (def: ModelSearchStore) => {
 
         this.setIsLoading(false);
         this.setIsPageCountLoading(false);
+
         throw error;
       }
     });`;
@@ -604,6 +681,7 @@ export const createSearchStore = (def: ModelSearchStore) => {
           sort: { label: "asc" },
         },
       });
+
       if (!res.success) throw new Error(res.error);
 
       this.setSavedSearches(res.data.items.map((result) => new Stores.SavedSearch(result)));
@@ -615,6 +693,7 @@ export const createSearchStore = (def: ModelSearchStore) => {
     `@modelFlow
     saveSavedSearch = asyncAction(async (label: string) => {
       const trimmedLabel = label.trim();
+
       if (!trimmedLabel) throw new Error("Saved search label is required");
 
       const existing = this.savedSearches.find((s) => s.label === trimmedLabel);
@@ -625,6 +704,7 @@ export const createSearchStore = (def: ModelSearchStore) => {
         const res = await trpc.updateSavedSearch.mutate({
           args: { id: selected.id, updates: { filterProps, label: trimmedLabel } },
         });
+
         if (!res.success) throw new Error(res.error);
 
         await this.loadSavedSearches();
@@ -639,6 +719,7 @@ export const createSearchStore = (def: ModelSearchStore) => {
         const res = await trpc.updateSavedSearch.mutate({
           args: { id: existing.id, updates: { filterProps } },
         });
+
         if (!res.success) throw new Error(res.error);
 
         await this.loadSavedSearches();
@@ -657,6 +738,7 @@ export const createSearchStore = (def: ModelSearchStore) => {
           searchType: "${def.name}",
         },
       });
+
       if (!res.success) throw new Error(res.error);
 
       await this.loadSavedSearches();
@@ -696,7 +778,7 @@ export const createSearchStore = (def: ModelSearchStore) => {
     }`;
 
   const makeIsSelectedGetter = () =>
-    `getIsSelected(id: string) { return !!this.selectedIds.find((s) => s === id); }`;
+    `getIsSelected(id: string) { return this.selectedIdSet.has(id); }`;
 
   const makeNumOfFiltersGetter = () =>
     `@computed
@@ -712,8 +794,7 @@ export const createSearchStore = (def: ModelSearchStore) => {
       );
     }`;
 
-  const makeResultGetter = () =>
-    `getResult(id: string) { return this.results.find((r) => r.id === id); }`;
+  const makeResultGetter = () => `getResult(id: string) { return this.resultsById.get(id); }`;
 
   return `@model("medior/${storeName}")
     export class ${storeName} extends Model({ ${makeProps()} }) {
@@ -740,6 +821,12 @@ export const createSearchStore = (def: ModelSearchStore) => {
       ${makeSaveSavedSearchAction()}\n
       /* GETTERS */
       ${makeNumOfFiltersGetter()}\n
+      @computed({ keepAlive: true })
+      get resultsById() { return new Map(this.results.map((result) => [result.id, result])); }
+
+      @computed({ keepAlive: true })
+      get selectedIdSet() { return new Set(this.selectedIds); }
+
       /* DYNAMIC GETTERS */
       ${makeCachedFilterPropsGetter()}\n
       ${makeFilterPropsGetter()}\n
@@ -759,6 +846,7 @@ const getDefaultValue = (prop: ModelDefProperty) => {
 
 const makeFnAndTypeNames = (modelActions: string[], rawName: string) => {
   const prefix = `${modelActions.includes(rawName) ? "" : "_"}`;
+
   return { fnName: `${prefix}${rawName}`, typeName: `${prefix}${capitalize(rawName)}Input` };
 };
 
@@ -801,5 +889,5 @@ export const makeStoreDef = async (modelDef: ModelDef) => {
   return `${makeSectionComment(upperName)}\n
     ${createSchemaItem(upperName, includedProps)}\n
     ${makeSchemaStores()}\n
-    ${await createSchemaStore(modelDef)}`;
+    ${modelDef.withActions !== false ? await createSchemaStore(modelDef) : ""}`;
 };

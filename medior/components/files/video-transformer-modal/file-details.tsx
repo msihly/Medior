@@ -11,6 +11,7 @@ export interface FileDetailsProps {
 export const FileDetails = Comp(({ transform }: FileDetailsProps) => {
   const stores = useStores();
   const store = stores.file.videoTransformer;
+
   const file = store.search.files.get(transform.fileId);
   const fileIndex = store.search.results.findIndex((t) => t.id === transform.id);
   const queueIndex = (store.search.page - 1) * store.search.pageSize + fileIndex + 1;
@@ -22,6 +23,7 @@ export const FileDetails = Comp(({ transform }: FileDetailsProps) => {
       hasShift: event.shiftKey,
       id: transform.id,
     });
+
     if (!res?.success) toast.error(res.error);
   };
 
@@ -29,6 +31,7 @@ export const FileDetails = Comp(({ transform }: FileDetailsProps) => {
     if (!file) return;
 
     const res = await store.search.listIdsForCarousel();
+
     if (!res?.success) console.error(res.error);
     else openCarouselWindow({ file, selectedFileIds: res.data });
   };
@@ -85,10 +88,11 @@ export const FileDetails = Comp(({ transform }: FileDetailsProps) => {
 
 const getTransformStatusDisplay = (transform: FileTransform) => {
   if (transform.status === "MERGED") return { color: colors.custom.green, label: "Merged" };
-  if (transform.status === "DUPLICATE") return { color: colors.custom.orange, label: "Duplicate" };
-  if (transform.status === "COMPRESSED") return { color: colors.custom.green, label: "Compressed" };
-  if (transform.status === "SKIPPED") return { color: colors.custom.orange, label: "Skipped" };
-  if (transform.status === "ERROR") return { color: colors.custom.red, label: "Error" };
-
-  return null;
+  else if (transform.status === "DUPLICATE")
+    return { color: colors.custom.orange, label: "Duplicate" };
+  else if (transform.status === "COMPRESSED")
+    return { color: colors.custom.green, label: "Compressed" };
+  else if (transform.status === "SKIPPED") return { color: colors.custom.orange, label: "Skipped" };
+  else if (transform.status === "ERROR") return { color: colors.custom.red, label: "Error" };
+  else return null;
 };

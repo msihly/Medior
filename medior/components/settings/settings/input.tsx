@@ -8,10 +8,11 @@ export interface InputProps extends InputBaseProps {
 
 export const Input = Comp(({ configKey, ...props }: InputProps) => {
   const stores = useStores();
+  const store = stores.home.settings;
 
-  const value = stores.home.settings.getConfigByKey<string>(configKey) ?? "";
+  const value = store.getConfigByKey<string>(configKey) ?? "";
 
-  const setValue = (val: string) => stores.home.settings.update({ [configKey]: val });
+  const setValue = (val: string) => store.update({ [configKey]: val });
 
   return <InputBase {...{ setValue, value }} {...props} />;
 });

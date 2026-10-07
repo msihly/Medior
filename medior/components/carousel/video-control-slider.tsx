@@ -1,19 +1,17 @@
 import { useEffect, useRef, useState } from "react";
-import { Slider } from "@mui/material";
-import { View } from "medior/components";
-import { colors, makeClasses } from "medior/utils/client";
+import { Slider, SliderProps, View } from "medior/components";
+import { makeClasses } from "medior/utils/client";
 import { CONSTANTS } from "medior/utils/common";
 
-export const CustomSlider = (props: {
+interface CustomSliderProps
+  extends Pick<
+    SliderProps,
+    "disabled" | "max" | "min" | "onCommit" | "setValue" | "step" | "value"
+  > {
   children: JSX.Element;
-  disabled?: boolean;
-  max: number;
-  min: number;
-  onChange: (event: any, value: number) => void;
-  onChangeCommitted?: () => void;
-  step: number;
-  value: number;
-}) => {
+}
+
+export const CustomSlider = (props: CustomSliderProps) => {
   const { css } = useClasses(null);
 
   const [isDragging, setIsDragging] = useState(false);
@@ -34,6 +32,7 @@ export const CustomSlider = (props: {
 
     const handleWindowMouseUp = (event: MouseEvent) => {
       setIsDragging(false);
+
       if (!rootRef.current?.contains(event.target as Node)) setIsVisible(false);
     };
 
@@ -56,8 +55,8 @@ export const CustomSlider = (props: {
       <View display={isVisible ? "block" : "none"} className={css.sliderContainer}>
         <Slider
           value={props?.value}
-          onChange={props?.onChange}
-          onChangeCommitted={props?.onChangeCommitted}
+          setValue={props?.setValue}
+          onCommit={props?.onCommit}
           onMouseDown={handleMouseDown}
           onMouseUp={handleMouseUp}
           disabled={props?.disabled}
@@ -75,17 +74,6 @@ export const CustomSlider = (props: {
 
 const useClasses = makeClasses({
   slider: {
-    "& .MuiSlider-markLabel": {
-      fontSize: "0.65em",
-      fontWeight: 600,
-      top: -10,
-    },
-    "& .MuiSlider-thumb": {
-      borderRadius: "0.5rem",
-      height: 4,
-      width: 18,
-    },
-    color: colors.custom.lightBlue,
     marginBottom: "0 !important",
   },
   sliderContainer: {

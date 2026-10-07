@@ -15,7 +15,7 @@ model.addLogOpProp("beforeSize");
 model.addProp("beforePath", "string", "null", {
   filterGroup: "beforePath",
   objPath: ["beforePath", "$regex"],
-  objValue: 'new RegExp(args.beforePath, "i")',
+  objValue: "args.beforePath",
 });
 
 model.addProp("isCompleted", "boolean", "false", {

@@ -3,7 +3,7 @@ import Color from "color";
 import { TagSchema } from "medior/_generated/server";
 import { Comp, ContextMenu, FileBase, getRatingMeta, Icon, Text, View } from "medior/components";
 import { tagToOption, useStores } from "medior/store";
-import { colors, openSearchWindow, toast } from "medior/utils/client";
+import { colors, makeClasses, openSearchWindow, toast } from "medior/utils/client";
 import { Fmt, round } from "medior/utils/common";
 
 export interface TagCardProps {
@@ -17,6 +17,8 @@ export const TagCard = Comp(({ tag }: TagCardProps) => {
   const category = store.getCategory(tag);
   const color = category?.color || "black";
   const ratingMeta = getRatingMeta(tag.rating);
+
+  const { css } = useClasses({ textShadow: ratingMeta.textShadow });
 
   const [isHovering, setIsHovering] = useState(false);
 
@@ -98,7 +100,7 @@ export const TagCard = Comp(({ tag }: TagCardProps) => {
                 color={ratingMeta.iconColor}
                 name={ratingMeta.icon}
                 size="0.9em"
-                style={{ textShadow: ratingMeta.textShadow }}
+                className={css.rating}
               />
 
               <Text color={colors.custom.lightGrey} fontSize="0.8em">
@@ -111,3 +113,9 @@ export const TagCard = Comp(({ tag }: TagCardProps) => {
     </ContextMenu>
   );
 });
+
+const useClasses = makeClasses((props: { textShadow: string }) => ({
+  rating: {
+    textShadow: props.textShadow,
+  },
+}));

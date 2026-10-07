@@ -31,6 +31,7 @@ export class RepairStore extends Model({
   repairId: prop<string | null>(null).withSetter(),
   similarity: prop<boolean>(false).withSetter(),
   similarityJobId: prop<string | null>(null).withSetter(),
+  storage: prop<boolean>(false).withSetter(),
   tags: prop<RepairTagsStore>(() => new RepairTagsStore({})),
   thumbnails: prop<RepairThumbnailsStore>(() => new RepairThumbnailsStore({})),
 }) {
@@ -67,6 +68,7 @@ export class RepairStore extends Model({
         this.files.isSelected ||
         this.indexes.isSelected ||
         this.similarity ||
+        this.storage ||
         this.tags.isSelected ||
         this.thumbnails.isSelected)
     );

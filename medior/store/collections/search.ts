@@ -12,6 +12,7 @@ import {
 import { asyncAction } from "trabecula/utils/client";
 import { _FileCollectionSearch } from "medior/store/_generated";
 import { File, RootStore } from "medior/store";
+import { makeTagSelector } from "medior/utils/common";
 import { trpc } from "medior/utils/server";
 
 @model("medior/FileCollectionSearch")
@@ -77,7 +78,10 @@ export class FileCollectionSearch extends ExtendedModel(_FileCollectionSearch, {
   @modelFlow
   loadFiles = asyncAction(async () => {
     const stores = getRootStore<RootStore>(this);
+
     const loadId = this.loadId;
+    const results = this.results;
+
     this.setIsLoading(true);
 
     try {
@@ -99,24 +103,30 @@ export class FileCollectionSearch extends ExtendedModel(_FileCollectionSearch, {
       ];
 
       const res = await trpc.listFile.mutate({ args: { filter: { id: fileIds } } });
-      if (loadId !== this.loadId) return;
+
+      if (loadId !== this.loadId || results !== this.results) return;
+
       if (!res.success) throw new Error(res.error);
 
-      const files = res.data.items.map((file) => new File(file));
-      await Promise.all(
-        files.map(async (file) => {
-          const res = await file.reloadTags();
-          if (!res.success) throw new Error(res.error);
-        }),
+      const tagIds = [...new Set(res.data.items.flatMap((file) => file.tagIds))];
+      const tagRes = await trpc.listTag.mutate({ filter: { id: tagIds } });
+
+      if (loadId !== this.loadId || results !== this.results) return;
+
+      if (!tagRes.success) throw new Error(tagRes.error);
+
+      const selectTags = makeTagSelector(tagRes.data);
+      const files = res.data.items.map(
+        (file) => new File({ ...file, tags: selectTags(file.tagIds) }),
       );
-      if (loadId !== this.loadId) return;
 
       this.setFiles(new Map(files.map((file) => [file.id, file])));
       this.setIsLoading(false);
     } catch (error) {
-      if (loadId !== this.loadId) return;
+      if (loadId !== this.loadId || results !== this.results) return;
 
       this.setIsLoading(false);
+
       throw error;
     }
   });

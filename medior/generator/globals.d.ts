@@ -26,7 +26,9 @@ declare global {
     defaultSort: { isDesc: boolean; key: string };
     indexes?: Array<{ fields: IndexDefinition; options?: IndexOptions }>;
     name: string;
+    persistence?: boolean;
     properties: Array<ModelDefProperty>;
+    withActions?: boolean;
     withStore?: boolean;
   }
 

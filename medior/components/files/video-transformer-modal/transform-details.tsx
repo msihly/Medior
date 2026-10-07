@@ -1,5 +1,6 @@
 import { Comp, Detail, Divider, UniformList, View } from "medior/components";
 import { FileTransform, useStores } from "medior/store";
+import { makeClasses } from "medior/utils/client";
 import { Fmt, round } from "medior/utils/common";
 import { DuplicateReview } from "./duplicate-review";
 import { InputOutputRow } from "./input-output-row";
@@ -17,6 +18,8 @@ export const TransformDetails = Comp(
     const stores = useStores();
     const store = stores.file.videoTransformer;
 
+    const { css } = useClasses(null);
+
     const outputSize = transform.afterSize ?? transform.progressSize;
     const outputCodec = getOutputCodec(transform);
     const outputDimensions = getOutputDimensions(transform);
@@ -33,7 +36,7 @@ export const TransformDetails = Comp(
                 output={Fmt.bytes(store.queueAfterSize)}
               />
 
-              <Divider style={{ flex: 0 }} />
+              <Divider className={css.divider} />
             </>
           ) : null}
 
@@ -111,84 +114,87 @@ export const TransformDetails = Comp(
   },
 );
 
-const getOutputCodec = (transform: FileTransform) => {
-  if (transform.afterVideoCodec) return transform.afterVideoCodec;
-  if (!transform.beforeVideoCodec && transform.beforeExt !== "gif") return "--";
-  if (["remux", "splice"].includes(transform.type)) return transform.beforeVideoCodec || "--";
-
-  return (
-    {
-      libaom_av1: "av1",
-      "libaom-av1": "av1",
-      libaomAv1: "av1",
-      "libsvt-av1": "av1",
-      libvpx: "vp8",
-      libvpx_vp9: "vp9",
-      libvpxVp9: "vp9",
-      libx264: "h264",
-      libx265: "hevc",
-    }[transform.configCodec] ??
-    transform.configCodec ??
-    "--"
-  );
+const getOutputBitrate = (transform: FileTransform) => {
+  if (transform.afterBitrate) return Fmt.bytes(transform.afterBitrate);
+  else if (["remux", "splice"].includes(transform.type))
+    return transform.beforeBitrate ? Fmt.bytes(transform.beforeBitrate) : "--";
+  else return transform.configMaxBitrate ? Fmt.bytes(transform.configMaxBitrate * 1000) : "--";
 };
 
-const getOutputExt = (transform: FileTransform) => {
-  if (transform.type === "remux") return "mp4";
-  if (transform.type === "splice") return "mp4";
-  if (transform.type !== "reencode") return "--";
-  if (transform.beforeExt === "gif") return "mp4";
-  if (!transform.beforeVideoCodec) return transform.configImageExt || "--";
-
-  return "mp4";
+const getOutputCodec = (transform: FileTransform) => {
+  if (transform.afterVideoCodec) return transform.afterVideoCodec;
+  else if (!transform.beforeVideoCodec && transform.beforeExt !== "gif") return "--";
+  else if (["remux", "splice"].includes(transform.type)) return transform.beforeVideoCodec || "--";
+  else
+    return (
+      {
+        "libaom-av1": "av1",
+        libaomAv1: "av1",
+        libaom_av1: "av1",
+        "libsvt-av1": "av1",
+        libvpx: "vp8",
+        libvpxVp9: "vp9",
+        libvpx_vp9: "vp9",
+        libx264: "h264",
+        libx265: "hevc",
+      }[transform.configCodec] ??
+      transform.configCodec ??
+      "--"
+    );
 };
 
 const getOutputDimensions = (transform: FileTransform) => {
   if (transform.afterWidth && transform.afterHeight)
     return `${transform.afterWidth}x${transform.afterHeight}`;
-  if (["remux", "splice"].includes(transform.type))
+  else if (["remux", "splice"].includes(transform.type))
     return transform.beforeWidth && transform.beforeHeight
       ? `${transform.beforeWidth}x${transform.beforeHeight}`
       : "--";
-  if (transform.type !== "reencode" || !transform.beforeWidth || !transform.beforeHeight)
+  else if (transform.type !== "reencode" || !transform.beforeWidth || !transform.beforeHeight)
     return "--";
+  else {
+    const maxWidth = transform.isAnimated
+      ? transform.configMaxWidth
+      : transform.configImageMaxWidth;
+    const maxHeight = transform.isAnimated
+      ? transform.configMaxHeight
+      : transform.configImageMaxHeight;
 
-  const maxWidth = transform.isAnimated ? transform.configMaxWidth : transform.configImageMaxWidth;
+    if (!maxWidth || !maxHeight) return "--";
 
-  const maxHeight = transform.isAnimated
-    ? transform.configMaxHeight
-    : transform.configImageMaxHeight;
-  if (!maxWidth || !maxHeight) return "--";
+    const scale = Math.min(1, maxWidth / transform.beforeWidth, maxHeight / transform.beforeHeight);
+    const width = transform.isAnimated
+      ? Math.floor((transform.beforeWidth * scale) / 2) * 2
+      : Math.round(transform.beforeWidth * scale);
+    const height = transform.isAnimated
+      ? Math.floor((transform.beforeHeight * scale) / 2) * 2
+      : Math.round(transform.beforeHeight * scale);
 
-  const scale = Math.min(1, maxWidth / transform.beforeWidth, maxHeight / transform.beforeHeight);
+    return `${width}x${height}`;
+  }
+};
 
-  const width = transform.isAnimated
-    ? Math.floor((transform.beforeWidth * scale) / 2) * 2
-    : Math.round(transform.beforeWidth * scale);
-
-  const height = transform.isAnimated
-    ? Math.floor((transform.beforeHeight * scale) / 2) * 2
-    : Math.round(transform.beforeHeight * scale);
-
-  return `${width}x${height}`;
+const getOutputExt = (transform: FileTransform) => {
+  if (["remux", "splice"].includes(transform.type)) return "mp4";
+  else if (transform.type !== "reencode") return "--";
+  else if (transform.beforeExt === "gif") return "mp4";
+  else if (!transform.beforeVideoCodec) return transform.configImageExt || "--";
+  else return "mp4";
 };
 
 const getOutputFrameRate = (transform: FileTransform) => {
   if (transform.afterFrameRate) return round(transform.afterFrameRate);
-  if (["remux", "splice"].includes(transform.type))
+  else if (["remux", "splice"].includes(transform.type))
     return transform.beforeFrameRate ? round(transform.beforeFrameRate) : "--";
-  if (transform.type !== "reencode") return "--";
-  if (!transform.configMaxFps)
+  else if (transform.type !== "reencode") return "--";
+  else if (!transform.configMaxFps)
     return transform.beforeFrameRate ? round(transform.beforeFrameRate) : "--";
-  if (!transform.beforeFrameRate) return transform.configMaxFps;
-
-  return round(Math.min(transform.beforeFrameRate, transform.configMaxFps));
+  else if (!transform.beforeFrameRate) return transform.configMaxFps;
+  else return round(Math.min(transform.beforeFrameRate, transform.configMaxFps));
 };
 
-const getOutputBitrate = (transform: FileTransform) => {
-  if (transform.afterBitrate) return Fmt.bytes(transform.afterBitrate);
-  if (["remux", "splice"].includes(transform.type))
-    return transform.beforeBitrate ? Fmt.bytes(transform.beforeBitrate) : "--";
-
-  return transform.configMaxBitrate ? Fmt.bytes(transform.configMaxBitrate * 1000) : "--";
-};
+const useClasses = makeClasses({
+  divider: {
+    flex: 0,
+  },
+});

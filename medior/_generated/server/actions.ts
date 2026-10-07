@@ -12,17 +12,38 @@ import {
 import { deleteImportBatches } from "medior/server/database/actions/file-imports";
 import { deleteFileTransforms } from "medior/server/database/actions/file-transforms";
 import { deleteFiles } from "medior/server/database/actions/files";
+import { editTag } from "medior/server/database/actions/tags";
 import { assertMediaPathsAvailable } from "medior/server/database/file-operations";
+import {
+  countFileSearchResults,
+  createFileSearchPlan,
+  createFileSearchSortStages,
+} from "medior/server/database/file-search";
+import {
+  countImportBatchSearchResults,
+  createImportBatchSearchPipeline,
+} from "medior/server/database/import-search";
 import {
   getMetadataCreateId,
   metadataWriteOptions,
   registerMetadataWork,
 } from "medior/server/database/metadata-work";
 import { SortMenuProps } from "medior/components";
-import { dayjs, isDeepEqual, LogicalOp, logicOpsToMongo, setObj } from "medior/utils/common";
+import {
+  addRegexSearchFilter,
+  dayjs,
+  hasTranscription,
+  isDeepEqual,
+  LogicalOp,
+  logicOpsToMongo,
+  normalizeTimestampPairs,
+  parseTimestampPairs,
+  setObj,
+} from "medior/utils/common";
 import {
   getShiftSelectedItems,
   leanModelToJson,
+  listItemsByIds,
   makeAction,
   objectId,
   objectIds,
@@ -64,16 +85,20 @@ export const createFileCollectionFilterPipeline = async (
   const $match: FilterQuery<models.FileCollectionSchema> = {};
 
   if (args.ids != null && !isDeepEqual(args.ids, []))
-    setObj($match, ["_id", "$in"], objectIds(args.ids));
+    ($match.$and ??= []).push(setObj({}, ["_id", "$in"], objectIds(args.ids)));
 
   if (args.excludedDescTagIds?.length)
     setObj($match, ["tagIdsWithAncestors", "$nin"], objectIds(args.excludedDescTagIds));
+
   if (args.excludedTagIds?.length)
     setObj($match, ["tagIds", "$nin"], objectIds(args.excludedTagIds));
+
   if (args.optionalTagIds?.length)
     setObj($match, ["tagIds", "$in"], objectIds(args.optionalTagIds));
+
   if (args.requiredDescTagIds?.length)
     setObj($match, ["tagIdsWithAncestors", "$all"], objectIds(args.requiredDescTagIds));
+
   if (args.requiredTagIds?.length)
     setObj($match, ["tagIds", "$all"], objectIds(args.requiredTagIds));
 
@@ -86,6 +111,7 @@ export const createFileCollectionFilterPipeline = async (
       !isDeepEqual(args.dateCreatedEnd, "")
     )
       setObj(filter, ["dateCreated", "$lte"], args.dateCreatedEnd);
+
     if (
       args.dateCreatedStart != null &&
       args.dateCreatedStart !== "" &&
@@ -109,6 +135,7 @@ export const createFileCollectionFilterPipeline = async (
       !isDeepEqual(args.dateModifiedEnd, "")
     )
       setObj(filter, ["dateModified", "$lte"], args.dateModifiedEnd);
+
     if (
       args.dateModifiedStart != null &&
       args.dateModifiedStart !== "" &&
@@ -154,6 +181,7 @@ export const createFileCollectionFilterPipeline = async (
 
     if (args.maxSize != null && !isDeepEqual(args.maxSize, null))
       setObj(filter, ["size", "$lte"], args.maxSize);
+
     if (args.minSize != null && !isDeepEqual(args.minSize, null))
       setObj(filter, ["size", "$gte"], args.minSize);
 
@@ -168,7 +196,7 @@ export const createFileCollectionFilterPipeline = async (
     const filter: FilterQuery<models.FileCollectionSchema> = {};
 
     if (args.title != null && args.title !== "" && !isDeepEqual(args.title, ""))
-      setObj(filter, ["title", "$regex"], new RegExp(args.title, "i"));
+      addRegexSearchFilter(filter, ["title", "$regex"], args.title);
 
     if (Object.keys(filter).length) {
       const operator = args.titleMode === "optional" ? "$or" : "$and";
@@ -187,22 +215,15 @@ export const createFileCollectionFilterPipeline = async (
 
 export type GetShiftSelectedFileCollectionInput = CreateFileCollectionFilterPipelineInput & {
   clickedId: string;
-  clickedIndex: number;
   selectedIds: string[];
 };
 
 export const getShiftSelectedFileCollection = makeAction(
-  async ({
-    clickedId,
-    clickedIndex,
-    selectedIds,
-    ...filterParams
-  }: GetShiftSelectedFileCollectionInput) => {
+  async ({ clickedId, selectedIds, ...filterParams }: GetShiftSelectedFileCollectionInput) => {
     const filterPipeline = await createFileCollectionFilterPipeline(filterParams);
 
     return getShiftSelectedItems({
       clickedId,
-      clickedIndex,
       filterPipeline,
       ids: filterParams.ids,
       model: models.FileCollectionModel,
@@ -213,6 +234,7 @@ export const getShiftSelectedFileCollection = makeAction(
 
 export type GetFilteredFileCollectionCountInput = CreateFileCollectionFilterPipelineInput & {
   curMaxPage: number;
+  forcePages?: boolean;
   page: number;
   pageSize: number;
   withFull: boolean;
@@ -221,33 +243,43 @@ export type GetFilteredFileCollectionCountInput = CreateFileCollectionFilterPipe
 export const getFilteredFileCollectionCount = makeAction(
   async ({
     curMaxPage,
+    forcePages,
     pageSize,
     withFull,
     ...filterParams
   }: GetFilteredFileCollectionCountInput) => {
     const filterPipeline = await createFileCollectionFilterPipeline(filterParams);
+    let count: number;
+    let pageCount: number;
 
-    if (withFull) {
-      const totalDocs = await models.FileCollectionModel.countDocuments(
-        filterPipeline.$match,
-      ).allowDiskUse(true);
+    if (forcePages || filterParams.ids?.length) {
+      const items = await listItemsByIds({
+        ids: filterParams.ids ?? [],
+        model: models.FileCollectionModel,
+        select: { _id: 1 },
+      });
 
-      const pageCount = Math.ceil(totalDocs / pageSize);
+      count = items.length;
+      pageCount = Math.ceil(count / pageSize);
+    } else if (withFull) {
+      count = await models.FileCollectionModel.countDocuments(filterPipeline.$match).allowDiskUse(
+        true,
+      );
 
-      return { count: totalDocs, pageCount };
+      pageCount = Math.ceil(count / pageSize);
+    } else {
+      const targetPage = Math.max(1, filterParams.page ?? 1);
+      const targetMaxPage = targetPage >= (curMaxPage ?? 0) ? targetPage + 1000 : curMaxPage;
+      const probeLimit = targetMaxPage * pageSize;
+
+      count = await models.FileCollectionModel.countDocuments(filterPipeline.$match, {
+        limit: probeLimit,
+      }).allowDiskUse(true);
+
+      pageCount = count < probeLimit ? Math.ceil(count / pageSize) : targetMaxPage;
     }
 
-    const targetPage = filterParams.page;
-    const targetMaxPage = targetPage >= curMaxPage ? curMaxPage + 1000 : curMaxPage;
-    const probeLimit = targetMaxPage * pageSize;
-
-    const probeCount = await models.FileCollectionModel.countDocuments(filterPipeline.$match, {
-      limit: probeLimit,
-    }).allowDiskUse(true);
-
-    const pageCount = probeCount < probeLimit ? Math.ceil(probeCount / pageSize) : targetMaxPage;
-
-    return { count: probeCount, pageCount };
+    return { count, pageCount };
   },
 );
 
@@ -270,16 +302,12 @@ export const listFilteredFileCollection = makeAction(
     const hasIds = forcePages || filterParams.ids?.length > 0;
 
     const items = await (hasIds
-      ? models.FileCollectionModel.aggregate([
-          { $match: { _id: { $in: objectIds(filterParams.ids) } } },
-          { $addFields: { __order: { $indexOfArray: [objectIds(filterParams.ids), "$_id"] } } },
-          { $sort: { __order: 1 } },
-          ...(forcePages
-            ? [{ $skip: Math.max(0, page - 1) * pageSize }, { $limit: pageSize }]
-            : []),
-        ])
-          .allowDiskUse(true)
-          .exec()
+      ? listItemsByIds({
+          ids: filterParams.ids ?? [],
+          model: models.FileCollectionModel,
+          ...(forcePages ? { page, pageSize } : {}),
+          select,
+        })
       : models.FileCollectionModel.find(filterPipeline.$match)
           .sort(filterPipeline.$sort)
           .select(select)
@@ -326,17 +354,22 @@ export const createFileImportBatchFilterPipeline = async (
   const $match: FilterQuery<models.FileImportBatchSchema> = {};
 
   if (args.ids != null && !isDeepEqual(args.ids, []))
-    setObj($match, ["_id", "$in"], objectIds(args.ids));
+    ($match.$and ??= []).push(setObj({}, ["_id", "$in"], objectIds(args.ids)));
 
-  if (true) setObj($match, ["isCompleted"], args.isCompleted);
+  setObj($match, ["isCompleted"], args.isCompleted);
+
   if (args.excludedDescTagIds?.length)
     setObj($match, ["tagIdsWithAncestors", "$nin"], objectIds(args.excludedDescTagIds));
+
   if (args.excludedTagIds?.length)
     setObj($match, ["tagIds", "$nin"], objectIds(args.excludedTagIds));
+
   if (args.optionalTagIds?.length)
     setObj($match, ["tagIds", "$in"], objectIds(args.optionalTagIds));
+
   if (args.requiredDescTagIds?.length)
     setObj($match, ["tagIdsWithAncestors", "$all"], objectIds(args.requiredDescTagIds));
+
   if (args.requiredTagIds?.length)
     setObj($match, ["tagIds", "$all"], objectIds(args.requiredTagIds));
 
@@ -348,7 +381,7 @@ export const createFileImportBatchFilterPipeline = async (
       args.collectionTitle !== "" &&
       !isDeepEqual(args.collectionTitle, "")
     )
-      setObj(filter, ["collectionTitle", "$regex"], new RegExp(args.collectionTitle, "i"));
+      addRegexSearchFilter(filter, ["collectionTitle", "$regex"], args.collectionTitle);
 
     if (Object.keys(filter).length) {
       const operator = args.collectionTitleMode === "optional" ? "$or" : "$and";
@@ -366,6 +399,7 @@ export const createFileImportBatchFilterPipeline = async (
       !isDeepEqual(args.completedAtEnd, "")
     )
       setObj(filter, ["completedAt", "$lte"], args.completedAtEnd);
+
     if (
       args.completedAtStart != null &&
       args.completedAtStart !== "" &&
@@ -389,6 +423,7 @@ export const createFileImportBatchFilterPipeline = async (
       !isDeepEqual(args.dateCreatedEnd, "")
     )
       setObj(filter, ["dateCreated", "$lte"], args.dateCreatedEnd);
+
     if (
       args.dateCreatedStart != null &&
       args.dateCreatedStart !== "" &&
@@ -420,7 +455,7 @@ export const createFileImportBatchFilterPipeline = async (
     const filter: FilterQuery<models.FileImportBatchSchema> = {};
 
     if (args.filePath != null && args.filePath !== "" && !isDeepEqual(args.filePath, null))
-      setObj(filter, ["imports", "$elemMatch", "path", "$regex"], new RegExp(args.filePath, "i"));
+      addRegexSearchFilter(filter, ["imports", "$elemMatch", "path", "$regex"], args.filePath);
 
     if (Object.keys(filter).length) {
       const operator = args.filePathMode === "optional" ? "$or" : "$and";
@@ -438,6 +473,7 @@ export const createFileImportBatchFilterPipeline = async (
       !isDeepEqual(args.startedAtEnd, "")
     )
       setObj(filter, ["startedAt", "$lte"], args.startedAtEnd);
+
     if (
       args.startedAtStart != null &&
       args.startedAtStart !== "" &&
@@ -462,25 +498,25 @@ export const createFileImportBatchFilterPipeline = async (
 
 export type GetShiftSelectedFileImportBatchInput = CreateFileImportBatchFilterPipelineInput & {
   clickedId: string;
-  clickedIndex: number;
   selectedIds: string[];
 };
 
 export const getShiftSelectedFileImportBatch = makeAction(
-  async ({
-    clickedId,
-    clickedIndex,
-    selectedIds,
-    ...filterParams
-  }: GetShiftSelectedFileImportBatchInput) => {
+  async ({ clickedId, selectedIds, ...filterParams }: GetShiftSelectedFileImportBatchInput) => {
     const filterPipeline = await createFileImportBatchFilterPipeline(filterParams);
 
     return getShiftSelectedItems({
       clickedId,
-      clickedIndex,
       filterPipeline,
       ids: filterParams.ids,
       model: models.FileImportBatchModel,
+      searchPlan: {
+        options: {},
+        pipeline: [
+          ...createImportBatchSearchPipeline(filterPipeline.$match),
+          { $sort: filterPipeline.$sort },
+        ],
+      },
       selectedIds,
     });
   },
@@ -488,6 +524,7 @@ export const getShiftSelectedFileImportBatch = makeAction(
 
 export type GetFilteredFileImportBatchCountInput = CreateFileImportBatchFilterPipelineInput & {
   curMaxPage: number;
+  forcePages?: boolean;
   page: number;
   pageSize: number;
   withFull: boolean;
@@ -496,33 +533,39 @@ export type GetFilteredFileImportBatchCountInput = CreateFileImportBatchFilterPi
 export const getFilteredFileImportBatchCount = makeAction(
   async ({
     curMaxPage,
+    forcePages,
     pageSize,
     withFull,
     ...filterParams
   }: GetFilteredFileImportBatchCountInput) => {
     const filterPipeline = await createFileImportBatchFilterPipeline(filterParams);
+    let count: number;
+    let pageCount: number;
 
-    if (withFull) {
-      const totalDocs = await models.FileImportBatchModel.countDocuments(
-        filterPipeline.$match,
-      ).allowDiskUse(true);
+    if (forcePages || filterParams.ids?.length) {
+      const items = await listItemsByIds({
+        ids: filterParams.ids ?? [],
+        model: models.FileImportBatchModel,
+        select: { _id: 1 },
+      });
 
-      const pageCount = Math.ceil(totalDocs / pageSize);
+      count = items.length;
+      pageCount = Math.ceil(count / pageSize);
+    } else if (withFull) {
+      count = await countImportBatchSearchResults(filterPipeline.$match);
 
-      return { count: totalDocs, pageCount };
+      pageCount = Math.ceil(count / pageSize);
+    } else {
+      const targetPage = Math.max(1, filterParams.page ?? 1);
+      const targetMaxPage = targetPage >= (curMaxPage ?? 0) ? targetPage + 1000 : curMaxPage;
+      const probeLimit = targetMaxPage * pageSize;
+
+      count = await countImportBatchSearchResults(filterPipeline.$match, probeLimit);
+
+      pageCount = count < probeLimit ? Math.ceil(count / pageSize) : targetMaxPage;
     }
 
-    const targetPage = filterParams.page;
-    const targetMaxPage = targetPage >= curMaxPage ? curMaxPage + 1000 : curMaxPage;
-    const probeLimit = targetMaxPage * pageSize;
-
-    const probeCount = await models.FileImportBatchModel.countDocuments(filterPipeline.$match, {
-      limit: probeLimit,
-    }).allowDiskUse(true);
-
-    const pageCount = probeCount < probeLimit ? Math.ceil(probeCount / pageSize) : targetMaxPage;
-
-    return { count: probeCount, pageCount };
+    return { count, pageCount };
   },
 );
 
@@ -545,23 +588,19 @@ export const listFilteredFileImportBatch = makeAction(
     const hasIds = forcePages || filterParams.ids?.length > 0;
 
     const items = await (hasIds
-      ? models.FileImportBatchModel.aggregate([
-          { $match: { _id: { $in: objectIds(filterParams.ids) } } },
-          { $addFields: { __order: { $indexOfArray: [objectIds(filterParams.ids), "$_id"] } } },
-          { $sort: { __order: 1 } },
-          ...(forcePages
-            ? [{ $skip: Math.max(0, page - 1) * pageSize }, { $limit: pageSize }]
-            : []),
-        ])
-          .allowDiskUse(true)
-          .exec()
-      : models.FileImportBatchModel.find(filterPipeline.$match)
-          .sort(filterPipeline.$sort)
-          .select(select)
-          .skip(Math.max(0, page - 1) * pageSize)
-          .limit(pageSize)
-          .allowDiskUse(true)
-          .lean());
+      ? listItemsByIds({
+          ids: filterParams.ids ?? [],
+          model: models.FileImportBatchModel,
+          ...(forcePages ? { page, pageSize } : {}),
+          select,
+        })
+      : models.FileImportBatchModel.aggregate([
+          ...createImportBatchSearchPipeline(filterPipeline.$match),
+          { $sort: filterPipeline.$sort },
+          { $skip: Math.max(0, page - 1) * pageSize },
+          { $limit: pageSize },
+          ...(select ? [{ $project: select }] : []),
+        ]).allowDiskUse(true));
 
     if (!items) throw new Error("Failed to load filtered FileImportBatch");
 
@@ -600,9 +639,9 @@ export const createFileTransformFilterPipeline = async (
   const $match: FilterQuery<models.FileTransformSchema> = {};
 
   if (args.ids != null && !isDeepEqual(args.ids, []))
-    setObj($match, ["_id", "$in"], objectIds(args.ids));
+    ($match.$and ??= []).push(setObj({}, ["_id", "$in"], objectIds(args.ids)));
 
-  if (true) setObj($match, ["isCompleted"], args.isCompleted);
+  setObj($match, ["isCompleted"], args.isCompleted);
 
   {
     const filter: FilterQuery<models.FileTransformSchema> = {};
@@ -621,7 +660,7 @@ export const createFileTransformFilterPipeline = async (
     const filter: FilterQuery<models.FileTransformSchema> = {};
 
     if (args.beforePath != null && args.beforePath !== "" && !isDeepEqual(args.beforePath, null))
-      setObj(filter, ["beforePath", "$regex"], new RegExp(args.beforePath, "i"));
+      addRegexSearchFilter(filter, ["beforePath", "$regex"], args.beforePath);
 
     if (Object.keys(filter).length) {
       const operator = args.beforePathMode === "optional" ? "$or" : "$and";
@@ -652,6 +691,7 @@ export const createFileTransformFilterPipeline = async (
       !isDeepEqual(args.completedAtEnd, "")
     )
       setObj(filter, ["completedAt", "$lte"], args.completedAtEnd);
+
     if (
       args.completedAtStart != null &&
       args.completedAtStart !== "" &&
@@ -675,6 +715,7 @@ export const createFileTransformFilterPipeline = async (
       !isDeepEqual(args.dateCreatedEnd, "")
     )
       setObj(filter, ["dateCreated", "$lte"], args.dateCreatedEnd);
+
     if (
       args.dateCreatedStart != null &&
       args.dateCreatedStart !== "" &&
@@ -698,6 +739,7 @@ export const createFileTransformFilterPipeline = async (
       !isDeepEqual(args.startedAtEnd, "")
     )
       setObj(filter, ["startedAt", "$lte"], args.startedAtEnd);
+
     if (
       args.startedAtStart != null &&
       args.startedAtStart !== "" &&
@@ -748,22 +790,15 @@ export const createFileTransformFilterPipeline = async (
 
 export type GetShiftSelectedFileTransformInput = CreateFileTransformFilterPipelineInput & {
   clickedId: string;
-  clickedIndex: number;
   selectedIds: string[];
 };
 
 export const getShiftSelectedFileTransform = makeAction(
-  async ({
-    clickedId,
-    clickedIndex,
-    selectedIds,
-    ...filterParams
-  }: GetShiftSelectedFileTransformInput) => {
+  async ({ clickedId, selectedIds, ...filterParams }: GetShiftSelectedFileTransformInput) => {
     const filterPipeline = await createFileTransformFilterPipeline(filterParams);
 
     return getShiftSelectedItems({
       clickedId,
-      clickedIndex,
       filterPipeline,
       ids: filterParams.ids,
       model: models.FileTransformModel,
@@ -774,6 +809,7 @@ export const getShiftSelectedFileTransform = makeAction(
 
 export type GetFilteredFileTransformCountInput = CreateFileTransformFilterPipelineInput & {
   curMaxPage: number;
+  forcePages?: boolean;
   page: number;
   pageSize: number;
   withFull: boolean;
@@ -782,33 +818,43 @@ export type GetFilteredFileTransformCountInput = CreateFileTransformFilterPipeli
 export const getFilteredFileTransformCount = makeAction(
   async ({
     curMaxPage,
+    forcePages,
     pageSize,
     withFull,
     ...filterParams
   }: GetFilteredFileTransformCountInput) => {
     const filterPipeline = await createFileTransformFilterPipeline(filterParams);
+    let count: number;
+    let pageCount: number;
 
-    if (withFull) {
-      const totalDocs = await models.FileTransformModel.countDocuments(
-        filterPipeline.$match,
-      ).allowDiskUse(true);
+    if (forcePages || filterParams.ids?.length) {
+      const items = await listItemsByIds({
+        ids: filterParams.ids ?? [],
+        model: models.FileTransformModel,
+        select: { _id: 1 },
+      });
 
-      const pageCount = Math.ceil(totalDocs / pageSize);
+      count = items.length;
+      pageCount = Math.ceil(count / pageSize);
+    } else if (withFull) {
+      count = await models.FileTransformModel.countDocuments(filterPipeline.$match).allowDiskUse(
+        true,
+      );
 
-      return { count: totalDocs, pageCount };
+      pageCount = Math.ceil(count / pageSize);
+    } else {
+      const targetPage = Math.max(1, filterParams.page ?? 1);
+      const targetMaxPage = targetPage >= (curMaxPage ?? 0) ? targetPage + 1000 : curMaxPage;
+      const probeLimit = targetMaxPage * pageSize;
+
+      count = await models.FileTransformModel.countDocuments(filterPipeline.$match, {
+        limit: probeLimit,
+      }).allowDiskUse(true);
+
+      pageCount = count < probeLimit ? Math.ceil(count / pageSize) : targetMaxPage;
     }
 
-    const targetPage = filterParams.page;
-    const targetMaxPage = targetPage >= curMaxPage ? curMaxPage + 1000 : curMaxPage;
-    const probeLimit = targetMaxPage * pageSize;
-
-    const probeCount = await models.FileTransformModel.countDocuments(filterPipeline.$match, {
-      limit: probeLimit,
-    }).allowDiskUse(true);
-
-    const pageCount = probeCount < probeLimit ? Math.ceil(probeCount / pageSize) : targetMaxPage;
-
-    return { count: probeCount, pageCount };
+    return { count, pageCount };
   },
 );
 
@@ -831,16 +877,12 @@ export const listFilteredFileTransform = makeAction(
     const hasIds = forcePages || filterParams.ids?.length > 0;
 
     const items = await (hasIds
-      ? models.FileTransformModel.aggregate([
-          { $match: { _id: { $in: objectIds(filterParams.ids) } } },
-          { $addFields: { __order: { $indexOfArray: [objectIds(filterParams.ids), "$_id"] } } },
-          { $sort: { __order: 1 } },
-          ...(forcePages
-            ? [{ $skip: Math.max(0, page - 1) * pageSize }, { $limit: pageSize }]
-            : []),
-        ])
-          .allowDiskUse(true)
-          .exec()
+      ? listItemsByIds({
+          ids: filterParams.ids ?? [],
+          model: models.FileTransformModel,
+          ...(forcePages ? { page, pageSize } : {}),
+          select,
+        })
       : models.FileTransformModel.find(filterPipeline.$match)
           .sort(filterPipeline.$sort)
           .select(select)
@@ -922,37 +964,50 @@ export const createFileFilterPipeline = async (args: CreateFileFilterPipelineInp
 
   if (args.excludedFileIds != null && !isDeepEqual(args.excludedFileIds, []))
     setObj($match, ["_id", "$nin"], objectIds(args.excludedFileIds));
+
   if (args.hasDiffParams != null && !isDeepEqual(args.hasDiffParams, false))
-    setObj(
-      $match,
-      ["$expr", "$and"],
-      [{ $eq: [{ $type: "$diffusionParams" }, "string"] }, { $ne: ["$diffusionParams", ""] }],
-    );
-  if (args.ids != null && !isDeepEqual(args.ids, []))
-    setObj($match, ["_id", "$in"], objectIds(args.ids));
-  if (args.isCorrupted != null && !isDeepEqual(args.isCorrupted, null))
-    setObj(
-      $match,
-      ["$expr"],
-      args.isCorrupted
-        ? { $eq: ["$isCorrupted", true] }
-        : { $eq: [{ $ifNull: ["$isCorrupted", false] }, false] },
-    );
-  if (args.isModified != null && !isDeepEqual(args.isModified, null))
-    setObj(
-      $match,
-      ["$expr", "$and"],
-      [
-        { $eq: [{ $type: "$originalHash" }, "string"] },
-        { $ne: ["$originalHash", ""] },
-        { [args.isModified ? "$ne" : "$eq"]: ["$hash", "$originalHash"] },
-      ],
+    ($match.$and ??= []).push(
+      setObj(
+        {},
+        ["$expr", "$and"],
+        [{ $eq: [{ $type: "$diffusionParams" }, "string"] }, { $ne: ["$diffusionParams", ""] }],
+      ),
     );
 
-  if (true) setObj($match, ["isArchived"], args.isArchived);
+  if (args.ids != null && !isDeepEqual(args.ids, []))
+    ($match.$and ??= []).push(setObj({}, ["_id", "$in"], objectIds(args.ids)));
+
+  if (args.isCorrupted != null && !isDeepEqual(args.isCorrupted, null))
+    ($match.$and ??= []).push(
+      setObj(
+        {},
+        ["$expr"],
+        args.isCorrupted
+          ? { $eq: ["$isCorrupted", true] }
+          : { $eq: [{ $ifNull: ["$isCorrupted", false] }, false] },
+      ),
+    );
+
+  if (args.isModified != null && !isDeepEqual(args.isModified, null))
+    ($match.$and ??= []).push(
+      setObj(
+        {},
+        ["$expr", "$and"],
+        [
+          { $eq: [{ $type: "$originalHash" }, "string"] },
+          { $ne: ["$originalHash", ""] },
+          { [args.isModified ? "$ne" : "$eq"]: ["$hash", "$originalHash"] },
+        ],
+      ),
+    );
+
+  setObj($match, ["isArchived"], args.isArchived);
+
   if (args.isTranscribed === true) setObj($match, ["hasTranscript"], true);
+
   if (args.isTranscribed === false) setObj($match, ["hasTranscript", "$in"], [false, null]);
-  if (true)
+
+  if (Object.values(args.selectedAudioCodecs).some((selected) => !selected))
     setObj(
       $match,
       ["audioCodec", "$nin"],
@@ -960,7 +1015,12 @@ export const createFileFilterPipeline = async (args: CreateFileFilterPipelineInp
         .filter(([, val]) => !val)
         .map(([ext]) => ext),
     );
-  if (true)
+
+  if (
+    Object.values({ ...args.selectedImageExts, ...args.selectedVideoExts }).some(
+      (selected) => !selected,
+    )
+  )
     setObj(
       $match,
       ["ext", "$nin"],
@@ -968,7 +1028,8 @@ export const createFileFilterPipeline = async (args: CreateFileFilterPipelineInp
         .filter(([, val]) => !val)
         .map(([ext]) => ext),
     );
-  if (true)
+
+  if (Object.values(args.selectedVideoCodecs).some((selected) => !selected))
     setObj(
       $match,
       ["videoCodec", "$nin"],
@@ -976,14 +1037,19 @@ export const createFileFilterPipeline = async (args: CreateFileFilterPipelineInp
         .filter(([, val]) => !val)
         .map(([ext]) => ext),
     );
+
   if (args.excludedDescTagIds?.length)
     setObj($match, ["tagIdsWithAncestors", "$nin"], objectIds(args.excludedDescTagIds));
+
   if (args.excludedTagIds?.length)
     setObj($match, ["tagIds", "$nin"], objectIds(args.excludedTagIds));
+
   if (args.optionalTagIds?.length)
     setObj($match, ["tagIds", "$in"], objectIds(args.optionalTagIds));
+
   if (args.requiredDescTagIds?.length)
     setObj($match, ["tagIdsWithAncestors", "$all"], objectIds(args.requiredDescTagIds));
+
   if (args.requiredTagIds?.length)
     setObj($match, ["tagIds", "$all"], objectIds(args.requiredTagIds));
 
@@ -1009,6 +1075,7 @@ export const createFileFilterPipeline = async (args: CreateFileFilterPipelineInp
       !isDeepEqual(args.dateCreatedEnd, "")
     )
       setObj(filter, ["dateCreated", "$lte"], args.dateCreatedEnd);
+
     if (
       args.dateCreatedStart != null &&
       args.dateCreatedStart !== "" &&
@@ -1032,6 +1099,7 @@ export const createFileFilterPipeline = async (args: CreateFileFilterPipelineInp
       !isDeepEqual(args.dateImportedEnd, "")
     )
       setObj(filter, ["dateImported", "$lte"], args.dateImportedEnd);
+
     if (
       args.dateImportedStart != null &&
       args.dateImportedStart !== "" &&
@@ -1055,6 +1123,7 @@ export const createFileFilterPipeline = async (args: CreateFileFilterPipelineInp
       !isDeepEqual(args.dateModifiedEnd, "")
     )
       setObj(filter, ["dateModified", "$lte"], args.dateModifiedEnd);
+
     if (
       args.dateModifiedStart != null &&
       args.dateModifiedStart !== "" &&
@@ -1077,7 +1146,7 @@ export const createFileFilterPipeline = async (args: CreateFileFilterPipelineInp
       args.diffusionParams !== "" &&
       !isDeepEqual(args.diffusionParams, null)
     )
-      setObj(filter, ["diffusionParams", "$regex"], new RegExp(args.diffusionParams, "i"));
+      addRegexSearchFilter(filter, ["diffusionParams", "$regex"], args.diffusionParams);
 
     if (Object.keys(filter).length) {
       const operator = args.diffusionParamsMode === "optional" ? "$or" : "$and";
@@ -1117,6 +1186,7 @@ export const createFileFilterPipeline = async (args: CreateFileFilterPipelineInp
 
     if (args.maxHeight != null && !isDeepEqual(args.maxHeight, null))
       setObj(filter, ["height", "$lte"], args.maxHeight);
+
     if (args.minHeight != null && !isDeepEqual(args.minHeight, null))
       setObj(filter, ["height", "$gte"], args.minHeight);
 
@@ -1134,6 +1204,7 @@ export const createFileFilterPipeline = async (args: CreateFileFilterPipelineInp
       (filter.$and ??= []).push(
         setObj({}, ["$expr", "$lte"], [{ $max: ["$width", "$height"] }, args.maxLongEdge]),
       );
+
     if (args.minLongEdge != null && !isDeepEqual(args.minLongEdge, null))
       (filter.$and ??= []).push(
         setObj({}, ["$expr", "$gte"], [{ $max: ["$width", "$height"] }, args.minLongEdge]),
@@ -1150,10 +1221,8 @@ export const createFileFilterPipeline = async (args: CreateFileFilterPipelineInp
     const filter: FilterQuery<models.FileSchema> = {};
 
     if (args.numOfCollections?.logOp && args.numOfCollections?.value != null)
-      setObj(
-        filter,
-        ["$and"],
-        [
+      (filter.$and ??= []).push(
+        ...[
           {
             $expr: {
               [logicOpsToMongo(args.numOfCollections.logOp)]: [
@@ -1199,7 +1268,7 @@ export const createFileFilterPipeline = async (args: CreateFileFilterPipelineInp
       args.originalPath !== "" &&
       !isDeepEqual(args.originalPath, null)
     )
-      setObj(filter, ["originalPath", "$regex"], new RegExp(args.originalPath, "i"));
+      addRegexSearchFilter(filter, ["originalPath", "$regex"], args.originalPath);
 
     if (Object.keys(filter).length) {
       const operator = args.originalPathMode === "optional" ? "$or" : "$and";
@@ -1228,6 +1297,7 @@ export const createFileFilterPipeline = async (args: CreateFileFilterPipelineInp
       (filter.$and ??= []).push(
         setObj({}, ["$expr", "$lte"], [{ $min: ["$width", "$height"] }, args.maxShortEdge]),
       );
+
     if (args.minShortEdge != null && !isDeepEqual(args.minShortEdge, null))
       (filter.$and ??= []).push(
         setObj({}, ["$expr", "$gte"], [{ $min: ["$width", "$height"] }, args.minShortEdge]),
@@ -1245,6 +1315,7 @@ export const createFileFilterPipeline = async (args: CreateFileFilterPipelineInp
 
     if (args.maxSize != null && !isDeepEqual(args.maxSize, null))
       setObj(filter, ["size", "$lte"], args.maxSize);
+
     if (args.minSize != null && !isDeepEqual(args.minSize, null))
       setObj(filter, ["size", "$gte"], args.minSize);
 
@@ -1263,7 +1334,7 @@ export const createFileFilterPipeline = async (args: CreateFileFilterPipelineInp
       args.transcription !== "" &&
       !isDeepEqual(args.transcription, null)
     )
-      setObj(filter, ["transcription.text", "$regex"], new RegExp(args.transcription, "i"));
+      addRegexSearchFilter(filter, ["transcription.text", "$regex"], args.transcription);
 
     if (Object.keys(filter).length) {
       const operator = args.transcriptionMode === "optional" ? "$or" : "$and";
@@ -1277,6 +1348,7 @@ export const createFileFilterPipeline = async (args: CreateFileFilterPipelineInp
 
     if (args.maxWidth != null && !isDeepEqual(args.maxWidth, null))
       setObj(filter, ["width", "$lte"], args.maxWidth);
+
     if (args.minWidth != null && !isDeepEqual(args.minWidth, null))
       setObj(filter, ["width", "$gte"], args.minWidth);
 
@@ -1297,20 +1369,34 @@ export const createFileFilterPipeline = async (args: CreateFileFilterPipelineInp
 
 export type GetShiftSelectedFileInput = CreateFileFilterPipelineInput & {
   clickedId: string;
-  clickedIndex: number;
   selectedIds: string[];
 };
 
 export const getShiftSelectedFile = makeAction(
-  async ({ clickedId, clickedIndex, selectedIds, ...filterParams }: GetShiftSelectedFileInput) => {
+  async ({ clickedId, selectedIds, ...filterParams }: GetShiftSelectedFileInput) => {
     const filterPipeline = await createFileFilterPipeline(filterParams);
+
+    const plan = filterParams.ids?.length
+      ? null
+      : await createFileSearchPlan(
+          filterPipeline.$match,
+          Object.fromEntries(Object.keys(filterPipeline.$sort).map((field) => [field, 1])),
+        );
 
     return getShiftSelectedItems({
       clickedId,
-      clickedIndex,
       filterPipeline,
       ids: filterParams.ids,
       model: models.FileModel,
+      searchPlan: plan
+        ? {
+            options: plan.options,
+            pipeline: [
+              ...plan.pipeline,
+              ...createFileSearchSortStages(filterPipeline.$sort, plan.hasRegex),
+            ],
+          }
+        : undefined,
       selectedIds,
     });
   },
@@ -1318,36 +1404,48 @@ export const getShiftSelectedFile = makeAction(
 
 export type GetFilteredFileCountInput = CreateFileFilterPipelineInput & {
   curMaxPage: number;
+  forcePages?: boolean;
   page: number;
   pageSize: number;
   withFull: boolean;
 };
 
 export const getFilteredFileCount = makeAction(
-  async ({ curMaxPage, pageSize, withFull, ...filterParams }: GetFilteredFileCountInput) => {
+  async ({
+    curMaxPage,
+    forcePages,
+    pageSize,
+    withFull,
+    ...filterParams
+  }: GetFilteredFileCountInput) => {
     const filterPipeline = await createFileFilterPipeline(filterParams);
+    let count: number;
+    let pageCount: number;
 
-    if (withFull) {
-      const totalDocs = await models.FileModel.countDocuments(filterPipeline.$match).allowDiskUse(
-        true,
-      );
+    if (forcePages || filterParams.ids?.length) {
+      const items = await listItemsByIds({
+        ids: filterParams.ids ?? [],
+        model: models.FileModel,
+        select: { _id: 1 },
+      });
 
-      const pageCount = Math.ceil(totalDocs / pageSize);
+      count = items.length;
+      pageCount = Math.ceil(count / pageSize);
+    } else if (withFull) {
+      count = await countFileSearchResults(filterPipeline.$match);
 
-      return { count: totalDocs, pageCount };
+      pageCount = Math.ceil(count / pageSize);
+    } else {
+      const targetPage = Math.max(1, filterParams.page ?? 1);
+      const targetMaxPage = targetPage >= (curMaxPage ?? 0) ? targetPage + 1000 : curMaxPage;
+      const probeLimit = targetMaxPage * pageSize;
+
+      count = await countFileSearchResults(filterPipeline.$match, probeLimit);
+
+      pageCount = count < probeLimit ? Math.ceil(count / pageSize) : targetMaxPage;
     }
 
-    const targetPage = filterParams.page;
-    const targetMaxPage = targetPage >= curMaxPage ? curMaxPage + 1000 : curMaxPage;
-    const probeLimit = targetMaxPage * pageSize;
-
-    const probeCount = await models.FileModel.countDocuments(filterPipeline.$match, {
-      limit: probeLimit,
-    }).allowDiskUse(true);
-
-    const pageCount = probeCount < probeLimit ? Math.ceil(probeCount / pageSize) : targetMaxPage;
-
-    return { count: probeCount, pageCount };
+    return { count, pageCount };
   },
 );
 
@@ -1367,60 +1465,29 @@ export const listFilteredFile = makeAction(
     let items;
 
     if (hasIds) {
-      items = await models.FileModel.aggregate([
-        { $match: { _id: { $in: objectIds(filterParams.ids) } } },
-        { $addFields: { __order: { $indexOfArray: [objectIds(filterParams.ids), "$_id"] } } },
-        { $sort: { __order: 1 } },
-        ...(forcePages ? [{ $skip: Math.max(0, page - 1) * pageSize }, { $limit: pageSize }] : []),
-      ])
-        .allowDiskUse(true)
-        .exec();
+      items = await listItemsByIds({
+        ids: filterParams.ids ?? [],
+        model: models.FileModel,
+        ...(forcePages ? { page, pageSize } : {}),
+        select,
+      });
       carouselFileIds = items.map((item) => item._id.toString());
     } else {
-      const hasUnindexedRegex = [
+      const searchPlan = await createFileSearchPlan(
         filterPipeline.$match,
-        ...(filterPipeline.$match.$and ?? []),
-        ...(filterPipeline.$match.$or ?? []),
-      ].some((filter) =>
-        ["diffusionParams", "originalPath", "transcription.text"].some(
-          (field) => filter[field]?.$regex instanceof RegExp,
-        ),
+        Object.fromEntries(Object.keys(filterPipeline.$sort).map((key) => [key, 1])),
       );
 
       const [result] = await models.FileModel.aggregate([
-        { $match: filterPipeline.$match },
-        // A computed sort document keeps unindexed regex filtering ahead of sorting.
-        // Carry only sort keys, then fetch full documents for the displayed page.
-        ...(hasUnindexedRegex
-          ? [
-              {
-                $replaceRoot: {
-                  newRoot: {
-                    _id: "$_id",
-                    sort: Object.fromEntries(
-                      Object.keys(filterPipeline.$sort).map((key) => [key, "$" + key]),
-                    ),
-                  },
-                },
-              },
-            ]
-          : []),
-        {
-          $sort: hasUnindexedRegex
-            ? Object.fromEntries(
-                Object.entries(filterPipeline.$sort).map(([key, direction]) => [
-                  "sort." + key,
-                  direction,
-                ]),
-              )
-            : filterPipeline.$sort,
-        },
+        ...searchPlan.pipeline,
+        ...createFileSearchSortStages(filterPipeline.$sort, searchPlan.hasRegex),
         {
           $limit: Math.max(
             Math.max(0, page - 1) * pageSize + pageSize,
             Math.max(0, Math.max(0, page - 1) * pageSize - 250) + 501,
           ),
         },
+        { $project: { _id: 1 } },
         {
           $facet: {
             carouselFiles: [
@@ -1431,29 +1498,24 @@ export const listFilteredFile = makeAction(
             items: [
               { $skip: Math.max(0, page - 1) * pageSize },
               { $limit: pageSize },
-              ...(hasUnindexedRegex
-                ? [
-                    {
-                      $lookup: {
-                        as: "file",
-                        foreignField: "_id",
-                        from: models.FileModel.collection.name,
-                        localField: "_id",
-                      },
-                    },
-                    { $unwind: "$file" },
-                    { $replaceRoot: { newRoot: "$file" } },
-                  ]
-                : []),
-              ...(select ? [{ $project: select }] : []),
+              { $project: { _id: 1 } },
             ],
           },
         },
       ])
+        .option(searchPlan.options)
         .allowDiskUse(true)
         .exec();
+
       carouselFileIds = result.carouselFiles.map((item) => item._id.toString());
-      items = result.items;
+      items =
+        select?._id === 1 && Object.keys(select).length === 1
+          ? result.items
+          : await listItemsByIds({
+              ids: result.items.map((item) => item._id.toString()),
+              model: models.FileModel,
+              select,
+            });
     }
 
     if (!items) throw new Error("Failed to load filtered File");
@@ -1478,11 +1540,13 @@ export const createSavedImportConfigFilterPipeline = async (
   const $match: FilterQuery<models.SavedImportConfigSchema> = {};
 
   if (args.folderPath != null && args.folderPath !== "" && !isDeepEqual(args.folderPath, ""))
-    setObj($match, ["folderPath", "$regex"], new RegExp(args.folderPath, "i"));
+    addRegexSearchFilter($match, ["folderPath", "$regex"], args.folderPath);
+
   if (args.ids != null && !isDeepEqual(args.ids, []))
-    setObj($match, ["_id", "$in"], objectIds(args.ids));
+    ($match.$and ??= []).push(setObj({}, ["_id", "$in"], objectIds(args.ids)));
+
   if (args.label != null && args.label !== "" && !isDeepEqual(args.label, ""))
-    setObj($match, ["label", "$regex"], new RegExp(args.label, "i"));
+    addRegexSearchFilter($match, ["label", "$regex"], args.label);
 
   {
     const filter: FilterQuery<models.SavedImportConfigSchema> = {};
@@ -1493,6 +1557,7 @@ export const createSavedImportConfigFilterPipeline = async (
       !isDeepEqual(args.dateModifiedEnd, "")
     )
       setObj(filter, ["dateModified", "$lte"], args.dateModifiedEnd);
+
     if (
       args.dateModifiedStart != null &&
       args.dateModifiedStart !== "" &&
@@ -1517,22 +1582,15 @@ export const createSavedImportConfigFilterPipeline = async (
 
 export type GetShiftSelectedSavedImportConfigInput = CreateSavedImportConfigFilterPipelineInput & {
   clickedId: string;
-  clickedIndex: number;
   selectedIds: string[];
 };
 
 export const getShiftSelectedSavedImportConfig = makeAction(
-  async ({
-    clickedId,
-    clickedIndex,
-    selectedIds,
-    ...filterParams
-  }: GetShiftSelectedSavedImportConfigInput) => {
+  async ({ clickedId, selectedIds, ...filterParams }: GetShiftSelectedSavedImportConfigInput) => {
     const filterPipeline = await createSavedImportConfigFilterPipeline(filterParams);
 
     return getShiftSelectedItems({
       clickedId,
-      clickedIndex,
       filterPipeline,
       ids: filterParams.ids,
       model: models.SavedImportConfigModel,
@@ -1543,6 +1601,7 @@ export const getShiftSelectedSavedImportConfig = makeAction(
 
 export type GetFilteredSavedImportConfigCountInput = CreateSavedImportConfigFilterPipelineInput & {
   curMaxPage: number;
+  forcePages?: boolean;
   page: number;
   pageSize: number;
   withFull: boolean;
@@ -1551,33 +1610,43 @@ export type GetFilteredSavedImportConfigCountInput = CreateSavedImportConfigFilt
 export const getFilteredSavedImportConfigCount = makeAction(
   async ({
     curMaxPage,
+    forcePages,
     pageSize,
     withFull,
     ...filterParams
   }: GetFilteredSavedImportConfigCountInput) => {
     const filterPipeline = await createSavedImportConfigFilterPipeline(filterParams);
+    let count: number;
+    let pageCount: number;
 
-    if (withFull) {
-      const totalDocs = await models.SavedImportConfigModel.countDocuments(
+    if (forcePages || filterParams.ids?.length) {
+      const items = await listItemsByIds({
+        ids: filterParams.ids ?? [],
+        model: models.SavedImportConfigModel,
+        select: { _id: 1 },
+      });
+
+      count = items.length;
+      pageCount = Math.ceil(count / pageSize);
+    } else if (withFull) {
+      count = await models.SavedImportConfigModel.countDocuments(
         filterPipeline.$match,
       ).allowDiskUse(true);
 
-      const pageCount = Math.ceil(totalDocs / pageSize);
+      pageCount = Math.ceil(count / pageSize);
+    } else {
+      const targetPage = Math.max(1, filterParams.page ?? 1);
+      const targetMaxPage = targetPage >= (curMaxPage ?? 0) ? targetPage + 1000 : curMaxPage;
+      const probeLimit = targetMaxPage * pageSize;
 
-      return { count: totalDocs, pageCount };
+      count = await models.SavedImportConfigModel.countDocuments(filterPipeline.$match, {
+        limit: probeLimit,
+      }).allowDiskUse(true);
+
+      pageCount = count < probeLimit ? Math.ceil(count / pageSize) : targetMaxPage;
     }
 
-    const targetPage = filterParams.page;
-    const targetMaxPage = targetPage >= curMaxPage ? curMaxPage + 1000 : curMaxPage;
-    const probeLimit = targetMaxPage * pageSize;
-
-    const probeCount = await models.SavedImportConfigModel.countDocuments(filterPipeline.$match, {
-      limit: probeLimit,
-    }).allowDiskUse(true);
-
-    const pageCount = probeCount < probeLimit ? Math.ceil(probeCount / pageSize) : targetMaxPage;
-
-    return { count: probeCount, pageCount };
+    return { count, pageCount };
   },
 );
 
@@ -1600,16 +1669,12 @@ export const listFilteredSavedImportConfig = makeAction(
     const hasIds = forcePages || filterParams.ids?.length > 0;
 
     const items = await (hasIds
-      ? models.SavedImportConfigModel.aggregate([
-          { $match: { _id: { $in: objectIds(filterParams.ids) } } },
-          { $addFields: { __order: { $indexOfArray: [objectIds(filterParams.ids), "$_id"] } } },
-          { $sort: { __order: 1 } },
-          ...(forcePages
-            ? [{ $skip: Math.max(0, page - 1) * pageSize }, { $limit: pageSize }]
-            : []),
-        ])
-          .allowDiskUse(true)
-          .exec()
+      ? listItemsByIds({
+          ids: filterParams.ids ?? [],
+          model: models.SavedImportConfigModel,
+          ...(forcePages ? { page, pageSize } : {}),
+          select,
+        })
       : models.SavedImportConfigModel.find(filterPipeline.$match)
           .sort(filterPipeline.$sort)
           .select(select)
@@ -1665,17 +1730,16 @@ export const createTagFilterPipeline = async (args: CreateTagFilterPipelineInput
   const $match: FilterQuery<models.TagSchema> = {};
 
   if (args.hasRegEx != null && !isDeepEqual(args.hasRegEx, null))
-    setObj($match, ["$expr"], {
-      [args.hasRegEx ? "$ne" : "$eq"]: [{ $ifNull: ["$regEx", ""] }, ""],
-    });
+    ($match.$and ??= []).push(
+      setObj({}, ["$expr"], { [args.hasRegEx ? "$ne" : "$eq"]: [{ $ifNull: ["$regEx", ""] }, ""] }),
+    );
+
   if (args.ids != null && !isDeepEqual(args.ids, []))
-    setObj($match, ["_id", "$in"], objectIds(args.ids));
+    ($match.$and ??= []).push(setObj({}, ["_id", "$in"], objectIds(args.ids)));
 
   if (args.fileTagId)
-    setObj(
-      $match,
-      ["$and"],
-      [
+    ($match.$and ??= []).push(
+      ...[
         {
           _id: {
             $in: await models.FileModel.distinct("tagIds", { tagIds: objectId(args.fileTagId) }),
@@ -1684,19 +1748,25 @@ export const createTagFilterPipeline = async (args: CreateTagFilterPipelineInput
         },
       ],
     );
+
   if (args.excludedDescTagIds?.length)
     setObj($match, ["ancestorIds", "$nin"], objectIds(args.excludedDescTagIds));
+
   if (args.excludedTagIds?.length) setObj($match, ["_id", "$nin"], objectIds(args.excludedTagIds));
-  if (args.optionalTagIds?.length) setObj($match, ["_id", "$in"], objectIds(args.optionalTagIds));
+
+  if (args.optionalTagIds?.length)
+    ($match.$and ??= []).push(setObj({}, ["_id", "$in"], objectIds(args.optionalTagIds)));
+
   if (args.requiredDescTagIds?.length)
     setObj($match, ["ancestorIds", "$all"], objectIds(args.requiredDescTagIds));
+
   if (args.requiredTagIds?.length) setObj($match, ["_id", "$all"], objectIds(args.requiredTagIds));
 
   {
     const filter: FilterQuery<models.TagSchema> = {};
 
     if (args.alias != null && args.alias !== "" && !isDeepEqual(args.alias, ""))
-      setObj(filter, ["aliases", "$elemMatch", "$regex"], new RegExp(args.alias, "i"));
+      addRegexSearchFilter(filter, ["aliases", "$elemMatch", "$regex"], args.alias);
 
     if (Object.keys(filter).length) {
       const operator = args.aliasMode === "optional" ? "$or" : "$and";
@@ -1727,6 +1797,7 @@ export const createTagFilterPipeline = async (args: CreateTagFilterPipelineInput
       !isDeepEqual(args.dateCreatedEnd, "")
     )
       setObj(filter, ["dateCreated", "$lte"], args.dateCreatedEnd);
+
     if (
       args.dateCreatedStart != null &&
       args.dateCreatedStart !== "" &&
@@ -1750,6 +1821,7 @@ export const createTagFilterPipeline = async (args: CreateTagFilterPipelineInput
       !isDeepEqual(args.dateModifiedEnd, "")
     )
       setObj(filter, ["dateModified", "$lte"], args.dateModifiedEnd);
+
     if (
       args.dateModifiedStart != null &&
       args.dateModifiedStart !== "" &&
@@ -1773,6 +1845,7 @@ export const createTagFilterPipeline = async (args: CreateTagFilterPipelineInput
       !isDeepEqual(args.dateOfInceptionEnd, "")
     )
       setObj(filter, ["dateOfInception", "$lte"], args.dateOfInceptionEnd);
+
     if (
       args.dateOfInceptionStart != null &&
       args.dateOfInceptionStart !== "" &&
@@ -1791,7 +1864,7 @@ export const createTagFilterPipeline = async (args: CreateTagFilterPipelineInput
     const filter: FilterQuery<models.TagSchema> = {};
 
     if (args.label != null && args.label !== "" && !isDeepEqual(args.label, ""))
-      setObj(filter, ["label", "$regex"], new RegExp(args.label, "i"));
+      addRegexSearchFilter(filter, ["label", "$regex"], args.label);
 
     if (Object.keys(filter).length) {
       const operator = args.labelMode === "optional" ? "$or" : "$and";
@@ -1868,7 +1941,7 @@ export const createTagFilterPipeline = async (args: CreateTagFilterPipelineInput
     const filter: FilterQuery<models.TagSchema> = {};
 
     if (args.title != null && args.title !== "" && !isDeepEqual(args.title, ""))
-      setObj(filter, ["title", "$regex"], new RegExp(args.title, "i"));
+      addRegexSearchFilter(filter, ["title", "$regex"], args.title);
 
     if (Object.keys(filter).length) {
       const operator = args.titleMode === "optional" ? "$or" : "$and";
@@ -1887,17 +1960,15 @@ export const createTagFilterPipeline = async (args: CreateTagFilterPipelineInput
 
 export type GetShiftSelectedTagInput = CreateTagFilterPipelineInput & {
   clickedId: string;
-  clickedIndex: number;
   selectedIds: string[];
 };
 
 export const getShiftSelectedTag = makeAction(
-  async ({ clickedId, clickedIndex, selectedIds, ...filterParams }: GetShiftSelectedTagInput) => {
+  async ({ clickedId, selectedIds, ...filterParams }: GetShiftSelectedTagInput) => {
     const filterPipeline = await createTagFilterPipeline(filterParams);
 
     return getShiftSelectedItems({
       clickedId,
-      clickedIndex,
       filterPipeline,
       ids: filterParams.ids,
       model: models.TagModel,
@@ -1908,36 +1979,50 @@ export const getShiftSelectedTag = makeAction(
 
 export type GetFilteredTagCountInput = CreateTagFilterPipelineInput & {
   curMaxPage: number;
+  forcePages?: boolean;
   page: number;
   pageSize: number;
   withFull: boolean;
 };
 
 export const getFilteredTagCount = makeAction(
-  async ({ curMaxPage, pageSize, withFull, ...filterParams }: GetFilteredTagCountInput) => {
+  async ({
+    curMaxPage,
+    forcePages,
+    pageSize,
+    withFull,
+    ...filterParams
+  }: GetFilteredTagCountInput) => {
     const filterPipeline = await createTagFilterPipeline(filterParams);
+    let count: number;
+    let pageCount: number;
 
-    if (withFull) {
-      const totalDocs = await models.TagModel.countDocuments(filterPipeline.$match).allowDiskUse(
-        true,
-      );
+    if (forcePages || filterParams.ids?.length) {
+      const items = await listItemsByIds({
+        ids: filterParams.ids ?? [],
+        model: models.TagModel,
+        select: { _id: 1 },
+      });
 
-      const pageCount = Math.ceil(totalDocs / pageSize);
+      count = items.length;
+      pageCount = Math.ceil(count / pageSize);
+    } else if (withFull) {
+      count = await models.TagModel.countDocuments(filterPipeline.$match).allowDiskUse(true);
 
-      return { count: totalDocs, pageCount };
+      pageCount = Math.ceil(count / pageSize);
+    } else {
+      const targetPage = Math.max(1, filterParams.page ?? 1);
+      const targetMaxPage = targetPage >= (curMaxPage ?? 0) ? targetPage + 1000 : curMaxPage;
+      const probeLimit = targetMaxPage * pageSize;
+
+      count = await models.TagModel.countDocuments(filterPipeline.$match, {
+        limit: probeLimit,
+      }).allowDiskUse(true);
+
+      pageCount = count < probeLimit ? Math.ceil(count / pageSize) : targetMaxPage;
     }
 
-    const targetPage = filterParams.page;
-    const targetMaxPage = targetPage >= curMaxPage ? curMaxPage + 1000 : curMaxPage;
-    const probeLimit = targetMaxPage * pageSize;
-
-    const probeCount = await models.TagModel.countDocuments(filterPipeline.$match, {
-      limit: probeLimit,
-    }).allowDiskUse(true);
-
-    const pageCount = probeCount < probeLimit ? Math.ceil(probeCount / pageSize) : targetMaxPage;
-
-    return { count: probeCount, pageCount };
+    return { count, pageCount };
   },
 );
 
@@ -1954,16 +2039,12 @@ export const listFilteredTag = makeAction(
     const hasIds = forcePages || filterParams.ids?.length > 0;
 
     const items = await (hasIds
-      ? models.TagModel.aggregate([
-          { $match: { _id: { $in: objectIds(filterParams.ids) } } },
-          { $addFields: { __order: { $indexOfArray: [objectIds(filterParams.ids), "$_id"] } } },
-          { $sort: { __order: 1 } },
-          ...(forcePages
-            ? [{ $skip: Math.max(0, page - 1) * pageSize }, { $limit: pageSize }]
-            : []),
-        ])
-          .allowDiskUse(true)
-          .exec()
+      ? listItemsByIds({
+          ids: filterParams.ids ?? [],
+          model: models.TagModel,
+          ...(forcePages ? { page, pageSize } : {}),
+          select,
+        })
       : models.TagModel.find(filterPipeline.$match)
           .sort(filterPipeline.$sort)
           .select(select)
@@ -2295,10 +2376,11 @@ export const updateFileCollection = makeAction(
       const updates = { ...args.updates, dateModified: dayjs().toISOString() };
 
       const updated = leanModelToJson<models.FileCollectionSchema>(
-        await models.FileCollectionModel.findByIdAndUpdate(args.id, updates, {
-          new: true,
-          ...metadataWriteOptions(),
-        }).lean(),
+        await models.FileCollectionModel.findByIdAndUpdate(
+          args.id,
+          { $inc: { __v: 1 }, $set: updates },
+          { new: true, ...metadataWriteOptions() },
+        ).lean(),
       );
 
       if (updated && args.updates.fileIdIndexes)
@@ -2326,8 +2408,11 @@ export const createFileImportBatch = makeAction(
       ...args,
       dateCreated: dayjs().toISOString(),
       fileCount: 0,
-      imports: [],
       isCompleted: false,
+      isReady: false,
+      processedCount: 0,
+      processedSize: 0,
+      progressRevision: 0,
       tagIds: [],
       tagIdsWithAncestors: [],
     };
@@ -2350,6 +2435,7 @@ export const deleteFileImportBatch = makeAction(
     socketOpts?: SocketEventOptions;
   }) => {
     const deleted = await deleteImportBatches(args);
+
     if (!deleted.success) throw new Error(deleted.error);
 
     socket.emit("onFileImportBatchDeleted", args, socketOpts);
@@ -2455,6 +2541,7 @@ export const deleteFileTransform = makeAction(
     socketOpts?: SocketEventOptions;
   }) => {
     const deleted = await deleteFileTransforms(args);
+
     if (!deleted.success) throw new Error(deleted.error);
 
     socket.emit("onFileTransformDeleted", args, socketOpts);
@@ -2562,6 +2649,7 @@ export const deleteFile = makeAction(
     socketOpts?: SocketEventOptions;
   }) => {
     const deleted = await deleteFiles({ fileIds: args.ids });
+
     if (!deleted.success) throw new Error(deleted.error);
 
     socket.emit("onFileDeleted", args, socketOpts);
@@ -2619,6 +2707,21 @@ export const updateFile = makeAction(
       const updates = { ...args.updates, dateModified: dayjs().toISOString() };
 
       await assertMediaPathsAvailable([args.updates.path, args.updates.thumb?.path]);
+
+      if (args.updates.transcription !== undefined)
+        updates.hasTranscript = hasTranscription(args.updates.transcription);
+
+      if (args.updates.timestamps !== undefined) {
+        const file = await models.FileModel.findById(args.id).select({ duration: 1 }).lean();
+
+        if (!file) throw new Error("File not found");
+
+        updates.timestamps = args.updates.timestamps.map((timestamp) => {
+          parseTimestampPairs(timestamp.pairs, file.duration);
+
+          return { ...timestamp, pairs: normalizeTimestampPairs(timestamp.pairs) };
+        });
+      }
 
       const updated = leanModelToJson<models.FileSchema>(
         await models.FileModel.findByIdAndUpdate(args.id, updates, {
@@ -3009,11 +3112,12 @@ export const updateTag = makeAction(
     }) => {
       const updates = { ...args.updates, dateModified: dayjs().toISOString() };
 
+      const edited = await editTag({ ...args.updates, id: args.id });
+
+      if (!edited.success) throw new Error(edited.error);
+
       const updated = leanModelToJson<models.TagSchema>(
-        await models.TagModel.findByIdAndUpdate(args.id, updates, {
-          new: true,
-          ...metadataWriteOptions(),
-        }).lean(),
+        await models.TagModel.findById(args.id).lean(),
       );
 
       socket.emit("onTagUpdated", { ...args, updates }, socketOpts);

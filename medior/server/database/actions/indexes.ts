@@ -1,11 +1,13 @@
 import Mongoose from "mongoose";
 import { backgroundExecution } from "medior/server/database/background-execution";
+import { ensurePersistenceIndexes, PersistenceModel } from "medior/server/database/persistence";
 import { makeRepairReporter } from "medior/server/database/repair-progress";
 import { sleep } from "medior/utils/common";
 import { makeAction } from "medior/utils/server";
 
 const isIndexBuildInProgressError = (error: unknown) => {
   const mongoError = error as { code?: number; codeName?: string; message?: string };
+
   return (
     [12586, 12587].includes(mongoError.code) ||
     [
@@ -58,6 +60,7 @@ export const rebuildIndexes = makeAction(
               return await action();
             } catch (error) {
               if (!isIndexBuildInProgressError(error)) throw error;
+
               if (waitSeconds === 0)
                 report(
                   `An index build is already running for ${collectionName}; waiting for it to finish.`,
@@ -81,9 +84,13 @@ export const rebuildIndexes = makeAction(
         );
 
         if (syncDefinitions) {
-          const droppedIndexNames = await runWhenNoIndexBuildIsRunning(() =>
-            modelsByCollectionName.get(collectionName).syncIndexes(),
-          );
+          const droppedIndexNames = await runWhenNoIndexBuildIsRunning(async () => {
+            if (collectionName === PersistenceModel.collection.collectionName) {
+              await ensurePersistenceIndexes();
+
+              return [];
+            } else return modelsByCollectionName.get(collectionName).syncIndexes();
+          });
 
           if (droppedIndexNames.length)
             report(

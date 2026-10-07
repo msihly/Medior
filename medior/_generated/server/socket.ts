@@ -67,6 +67,9 @@ export interface SocketEmitEvents {
       errorMsg?: string;
       fileId?: string;
       filePath: string;
+      processedCount: number;
+      processedSize: number;
+      progressRevision: number;
       status?: Types.ImportStatus;
     },
     options?: SocketEventOptions,
@@ -119,6 +122,7 @@ export interface SocketEmitEvents {
     args: { id: string; updates: Partial<models.NotificationSchema> },
     options?: SocketEventOptions,
   ) => void;
+  onReloadBackgroundActivity: (options?: SocketEventOptions) => void;
   onReloadFileCollections: (options?: SocketEventOptions) => void;
   onReloadFiles: (options?: SocketEventOptions) => void;
   onReloadFileTransforms: (
@@ -220,6 +224,7 @@ export const socketEvents: SocketEmitEvent[] = [
   "onImportBatchLoaded",
   "onImporterStatusUpdated",
   "onNotificationsRead",
+  "onReloadBackgroundActivity",
   "onReloadFileCollections",
   "onReloadFiles",
   "onReloadFileTransforms",

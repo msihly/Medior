@@ -1,6 +1,6 @@
 import autoBind from "auto-bind";
 import { reaction } from "mobx";
-import { getRootStore, Model, model, modelAction, modelFlow, prop } from "mobx-keystone";
+import { Model, model, modelAction, modelFlow, prop } from "mobx-keystone";
 import { asyncAction, CssColor } from "trabecula/utils/client";
 import { IconName } from "medior/components";
 import { RootStore } from "medior/store";
@@ -9,6 +9,7 @@ import { isDeepEqual } from "medior/utils/common";
 import { trpc } from "medior/utils/server";
 
 const reconcileRelationships = (current: Tag[], previousIds: string[], next: Tag[]) => {
+  const previous = new Set(previousIds);
   const selectedIds = new Set(current.map(({ id }) => id));
   const tags = new Map(next.map((tag) => [tag.id, tag]));
 
@@ -17,7 +18,7 @@ const reconcileRelationships = (current: Tag[], previousIds: string[], next: Tag
   }
 
   for (const tag of current) {
-    if (!previousIds.includes(tag.id)) tags.set(tag.id, tag);
+    if (!previous.has(tag.id)) tags.set(tag.id, tag);
   }
 
   return [...tags.values()];
@@ -40,40 +41,59 @@ export class TagEditorStore extends Model({
   regExValue: prop<string>("").withSetter(),
   tag: prop<Tag>(null).withSetter(),
 }) {
-  private labelLookupId = 0;
   private loadingTagId: string;
   private tagLoadRevision = 0;
 
-  onInit() {
-    autoBind(this);
+  onAttachedToRootStore(stores: RootStore) {
+    let controller: AbortController;
+    let timer: ReturnType<typeof setTimeout>;
 
-    reaction(
-      () => [this.label, this.tag?.id],
-      async () => {
-        const lookupId = ++this.labelLookupId;
-        const stores = getRootStore<RootStore>(this);
+    const disposeLabel = reaction(
+      () => [this.isOpen, this.label, this.tag?.id],
+      () => {
+        clearTimeout(timer);
+        controller?.abort();
         this.setIsDuplicate(false);
 
-        if (!this.label?.length || this.label.toLowerCase() === this.tag?.label?.toLowerCase())
-          return;
+        if (
+          this.isOpen &&
+          this.label?.length &&
+          this.label.toLowerCase() !== this.tag?.label?.toLowerCase()
+        ) {
+          const label = this.label;
+          const request = new AbortController();
 
-        const res = await stores.tag.getByLabel(this.label);
-        if (lookupId !== this.labelLookupId) return;
+          controller = request;
+          timer = setTimeout(async () => {
+            const res = await stores.tag.getByLabel({ label, signal: request.signal });
 
-        this.setIsDuplicate(!!res.data?.id && res.data.id !== this.tag?.id);
+            if (!request.signal.aborted)
+              this.setIsDuplicate(!!res.data?.id && res.data.id !== this.tag?.id);
+          }, 200);
+        }
       },
     );
 
-    reaction(
+    const disposeOpen = reaction(
       () => this.isOpen,
       () => !this.isOpen && this.reset(),
     );
+
+    return () => {
+      clearTimeout(timer);
+      controller?.abort();
+      disposeLabel();
+      disposeOpen();
+    };
+  }
+
+  onInit() {
+    autoBind(this);
   }
 
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
   @modelAction
   reset() {
-    this.labelLookupId++;
     this.tagLoadRevision++;
     this.aliases = [];
     this.categoryColor = null;
@@ -97,12 +117,16 @@ export class TagEditorStore extends Model({
       if (preserveChanges && this.isLoading && this.loadingTagId !== id) return;
 
       const revision = ++this.tagLoadRevision;
+
       this.loadingTagId = id;
+
       if (!preserveChanges) this.setIsLoading(true);
 
       try {
         const res = await trpc.getTagWithRelations.mutate({ id });
+
         if (!res.success) throw new Error(res.error);
+
         if (revision !== this.tagLoadRevision) return;
 
         const tag = res.data.tag;
@@ -117,6 +141,7 @@ export class TagEditorStore extends Model({
               )
             : res.data.childTags.map((child) => new Tag(child)),
         );
+
         this.setParentTags(
           previous
             ? reconcileRelationships(
@@ -129,15 +154,22 @@ export class TagEditorStore extends Model({
 
         if (!previous || this.categoryColor === previous.category?.color)
           this.setCategoryColor(tag.category?.color);
+
         if (!previous || this.categoryIcon === previous.category?.icon)
           this.setCategoryIcon(tag.category?.icon);
+
         if (!previous || this.categoryInheritable === previous.category?.inheritable)
           this.setCategoryInheritable(tag.category?.inheritable);
+
         if (!previous || this.categorySortRank === previous.category?.sortRank)
           this.setCategorySortRank(tag.category?.sortRank);
+
         if (!previous || isDeepEqual(this.aliases, previous.aliases)) this.setAliases(tag.aliases);
+
         if (!previous || this.label === previous.label) this.setLabel(tag.label);
+
         if (!previous) this.setRegExTestString("");
+
         if (!previous || this.regExValue === previous.regEx) this.setRegExValue(tag.regEx);
 
         this.setTag(new Tag(tag));

@@ -2,7 +2,9 @@ import { toast as baseToast } from "trabecula/utils/client";
 import { trpc } from "medior/utils/server";
 
 type NotificationType = "error" | "info" | "success" | "warning";
+
 type ToastContent = Parameters<typeof baseToast.info>[0];
+
 type ToastOptions = Parameters<typeof baseToast.info>[1];
 
 const pendingNotifications: Array<{
@@ -18,6 +20,7 @@ const saveNotificationHistory = () => {
   notificationSavePromise = (async () => {
     while (pendingNotifications.length) {
       const res = await trpc.recordNotification.mutate(pendingNotifications[0]);
+
       if (!res.success) throw new Error(res.error);
 
       pendingNotifications.shift();
@@ -32,13 +35,7 @@ const saveNotificationHistory = () => {
 };
 
 export const persistNotification = (content: ToastContent, type: NotificationType) => {
-  const message =
-    content instanceof Error
-      ? content.message
-      : typeof content === "string"
-        ? content
-        : String(content);
-  pendingNotifications.push({ message, type });
+  pendingNotifications.push({ message: (content as Error)?.message ?? String(content), type });
   saveNotificationHistory();
 };
 

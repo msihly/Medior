@@ -7,13 +7,15 @@ export const ImportDnD = Comp(({ children }: { children: JSX.Element | JSX.Eleme
   const { css } = useClasses(null);
 
   const stores = useStores();
+  const store = stores.home;
 
   const handleDragEnter = (event: React.DragEvent) => {
     const items = [...event.dataTransfer.items].filter((item) => item.kind === "file");
-    if (items.length > 0 && !stores.home.isDraggingOut) stores.home.setIsDraggingIn(true);
+
+    if (items.length > 0 && !store.isDraggingOut) store.setIsDraggingIn(true);
   };
 
-  const handleDragLeave = () => stores.home.setIsDraggingIn(false);
+  const handleDragLeave = () => store.setIsDraggingIn(false);
 
   const handleDragOver = (event: React.DragEvent) => {
     event.preventDefault();
@@ -21,13 +23,13 @@ export const ImportDnD = Comp(({ children }: { children: JSX.Element | JSX.Eleme
   };
 
   const handleFileDrop = (event: React.DragEvent) => {
-    stores.home.setIsDraggingIn(false);
+    store.setIsDraggingIn(false);
     handleIngest({ fileList: event.dataTransfer.files, store: stores.import.ingester });
   };
 
   return (
     <View onDragOver={handleDragOver} onDragEnter={handleDragEnter}>
-      {stores.home.isDraggingIn && (
+      {store.isDraggingIn && (
         <View onDragLeave={handleDragLeave} onDrop={handleFileDrop} className={css.overlay} />
       )}
 

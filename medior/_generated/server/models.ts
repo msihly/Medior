@@ -2,10 +2,12 @@
 /*                               THIS IS A GENERATED FILE. DO NOT EDIT.
 /* --------------------------------------------------------------------------- */
 import { model, Schema } from "mongoose";
-import { mediaPathPlugin } from "medior/server/database/media-paths";
-import { backgroundExecutionPlugin } from "medior/server/database/database-context";
-import { mediaAncestryPlugin, tagAncestryPlugin } from "medior/server/database/tag-ancestry";
 import { IconName } from "medior/components";
+import { backgroundExecutionPlugin } from "medior/server/database/database-context";
+import { importEntriesPlugin } from "medior/server/database/import-entry-state";
+import { mediaPathPlugin } from "medior/server/database/media-paths";
+import { registerPersistenceModel } from "medior/server/database/persistence";
+import { mediaAncestryPlugin, tagAncestryPlugin } from "medior/server/database/tag-ancestry";
 import { CssColor } from "medior/utils/client";
 
 /* --------------------------------------------------------------------------- */
@@ -37,8 +39,10 @@ export interface BackgroundOperationSchema {
     | "collectionMetadata"
     | "duplicateMerge"
     | "fileTagAncestors"
+    | "importEntryMigration"
     | "mediaPathIndex"
     | "metadataAction"
+    | "persistenceMigration"
     | "repair"
     | "tagHierarchy"
     | "tagMetadata"
@@ -74,8 +78,10 @@ const BackgroundOperationSchema = new Schema<BackgroundOperationSchema>({
       "collectionMetadata",
       "duplicateMerge",
       "fileTagAncestors",
+      "importEntryMigration",
       "mediaPathIndex",
       "metadataAction",
+      "persistenceMigration",
       "repair",
       "tagHierarchy",
       "tagMetadata",
@@ -94,8 +100,10 @@ BackgroundOperationSchema.index(
   { unique: true, partialFilterExpression: { queueKey: { $type: "string" } } },
 );
 BackgroundOperationSchema.index({ type: 1, status: 1, _id: 1 }, { unique: false });
+BackgroundOperationSchema.index({ status: 1, completedAt: 1, _id: 1 }, { unique: false });
+BackgroundOperationSchema.index({ status: 1, dateModified: 1, _id: 1 }, { unique: false });
 
-export const BackgroundOperationModel = model<BackgroundOperationSchema>(
+export const BackgroundOperationModel = registerPersistenceModel<BackgroundOperationSchema>(
   "BackgroundOperation",
   BackgroundOperationSchema,
 );
@@ -179,22 +187,26 @@ export const FileCollectionModel = model<FileCollectionSchema>(
 );
 
 /* --------------------------------------------------------------------------- */
-/*                               FileImportBatch
+/*                               FileImport
 /* --------------------------------------------------------------------------- */
 
-export interface FileImport {
+export interface FileImportSchema {
+  batchId?: string;
   dateCreated: string;
-  diffusionParams: string;
-  errorMsg: string;
+  diffusionParams?: string;
+  errorMsg?: string;
   extension: string;
-  fileId: string;
-  hash: string;
+  fileId?: string;
+  hash?: string;
+  id: string;
+  index?: number;
   name: string;
   path: string;
+  progressRevision?: number;
   size: number;
-  status: string | "COMPLETE" | "DELETED" | "DUPLICATE" | "ERROR" | "PENDING";
-  tagIds: string[];
-  thumb: {
+  status?: string | "COMPLETE" | "DELETED" | "DUPLICATE" | "ERROR" | "PENDING";
+  tagIds?: string[];
+  thumb?: {
     frameHeight?: number;
     frameWidth?: number;
     ntfsFileId?: string;
@@ -202,6 +214,46 @@ export interface FileImport {
     path: string;
   };
 }
+
+const FileImportSchema = new Schema<FileImportSchema>({
+  id: String,
+  batchId: Schema.Types.ObjectId,
+  dateCreated: String,
+  diffusionParams: String,
+  errorMsg: String,
+  extension: String,
+  fileId: Schema.Types.ObjectId,
+  hash: String,
+  index: Number,
+  name: String,
+  path: String,
+  progressRevision: Number,
+  size: Number,
+  status: { type: String, enum: ["COMPLETE", "DELETED", "DUPLICATE", "ERROR", "PENDING"] },
+  tagIds: [{ type: Schema.Types.ObjectId, ref: "Tag" }],
+  thumb: {
+    frameHeight: Number,
+    frameWidth: Number,
+    ntfsFileId: String,
+    ntfsVolumeId: String,
+    path: String,
+  },
+});
+
+FileImportSchema.plugin(backgroundExecutionPlugin);
+FileImportSchema.plugin(importEntriesPlugin);
+
+FileImportSchema.index({ batchId: 1, index: 1 }, { unique: true });
+FileImportSchema.index({ batchId: 1, status: 1, index: 1 }, { unique: true });
+FileImportSchema.index({ batchId: 1, path: 1 }, { unique: false });
+FileImportSchema.index({ fileId: 1, _id: 1 }, { unique: true });
+FileImportSchema.index({ tagIds: 1, _id: 1 }, { unique: true });
+
+export const FileImportModel = model<FileImportSchema>("FileImport", FileImportSchema);
+
+/* --------------------------------------------------------------------------- */
+/*                               FileImportBatch
+/* --------------------------------------------------------------------------- */
 
 export interface FileImportBatchSchema {
   collectionId?: string;
@@ -213,10 +265,16 @@ export interface FileImportBatchSchema {
   fileCount: number;
   id: string;
   ignorePrevDeleted: boolean;
-  imports?: FileImport[];
   isCompleted: boolean;
+  isReady: boolean;
+  lastUploadHash?: string;
+  lastUploadOffset?: number;
+  processedCount: number;
+  processedSize: number;
+  progressRevision: number;
   rootFolderPath: string;
   size?: number;
+  sourceFolderPath?: string;
   startedAt?: string;
   tagIds: string[];
   tagIdsWithAncestors: string[];
@@ -232,37 +290,23 @@ const FileImportBatchSchema = new Schema<FileImportBatchSchema>({
   deleteOnImport: Boolean,
   fileCount: Number,
   ignorePrevDeleted: Boolean,
-  imports: [
-    {
-      dateCreated: String,
-      diffusionParams: String,
-      errorMsg: String,
-      extension: String,
-      fileId: Schema.Types.ObjectId,
-      hash: String,
-      name: String,
-      path: String,
-      size: Number,
-      status: { type: String, enum: ["COMPLETE", "DELETED", "DUPLICATE", "ERROR", "PENDING"] },
-      tagIds: [{ type: Schema.Types.ObjectId, ref: "Tag" }],
-      thumb: {
-        frameHeight: Number,
-        frameWidth: Number,
-        ntfsFileId: String,
-        ntfsVolumeId: String,
-        path: String,
-      },
-    },
-  ],
   isCompleted: Boolean,
+  isReady: Boolean,
+  lastUploadHash: String,
+  lastUploadOffset: Number,
+  processedCount: Number,
+  processedSize: Number,
+  progressRevision: Number,
   rootFolderPath: String,
   size: Number,
+  sourceFolderPath: String,
   startedAt: String,
   tagIds: [{ type: Schema.Types.ObjectId, ref: "Tag" }],
   tagIdsWithAncestors: [{ type: Schema.Types.ObjectId, ref: "Tag" }],
 });
 
 FileImportBatchSchema.plugin(backgroundExecutionPlugin);
+FileImportBatchSchema.plugin(importEntriesPlugin);
 
 FileImportBatchSchema.plugin(mediaAncestryPlugin);
 
@@ -273,6 +317,10 @@ FileImportBatchSchema.index({ fileCount: 1, _id: 1 }, { unique: true });
 FileImportBatchSchema.index({ isCompleted: 1, _id: 1 }, { unique: true });
 FileImportBatchSchema.index({ rootFolderPath: 1, _id: 1 }, { unique: true });
 FileImportBatchSchema.index({ size: 1, _id: 1 }, { unique: true });
+FileImportBatchSchema.index(
+  { isCompleted: 1, isReady: 1, startedAt: -1, dateCreated: 1 },
+  { unique: false },
+);
 FileImportBatchSchema.index({ startedAt: 1, _id: 1 }, { unique: true });
 FileImportBatchSchema.index({ tagIds: 1, _id: 1 }, { unique: true });
 FileImportBatchSchema.index({ tagIdsWithAncestors: 1, _id: 1 }, { unique: true });
@@ -426,6 +474,7 @@ const FileTransformSchema = new Schema<FileTransformSchema>({
 });
 
 FileTransformSchema.plugin(backgroundExecutionPlugin);
+
 FileTransformSchema.plugin(mediaPathPlugin, { modelName: "FileTransform" });
 
 FileTransformSchema.index({ dateCreated: 1, _id: 1 }, { unique: true });
@@ -578,6 +627,7 @@ const FileSchema = new Schema<FileSchema>({
 });
 
 FileSchema.plugin(backgroundExecutionPlugin);
+
 FileSchema.plugin(mediaPathPlugin, { modelName: "File" });
 FileSchema.plugin(mediaAncestryPlugin);
 
@@ -595,6 +645,10 @@ FileSchema.index({ height: 1, _id: 1 }, { unique: true });
 FileSchema.index({ isArchived: 1 }, { unique: false });
 FileSchema.index({ isCorrupted: 1 }, { unique: false });
 FileSchema.index({ originalName: 1, _id: 1 }, { unique: true });
+FileSchema.index(
+  { isArchived: 1, originalPath: 1, _id: 1, dateCreated: 1, dateImported: 1, dateModified: 1 },
+  { unique: false },
+);
 FileSchema.index({ peakDecibels: 1, _id: 1 }, { unique: true });
 FileSchema.index({ rating: 1, _id: 1 }, { unique: true });
 FileSchema.index({ size: 1, _id: 1 }, { unique: true });
@@ -748,6 +802,7 @@ const TagSchema = new Schema<TagSchema>({
 });
 
 TagSchema.plugin(backgroundExecutionPlugin);
+
 TagSchema.plugin(mediaPathPlugin, { modelName: "Tag" });
 TagSchema.plugin(tagAncestryPlugin);
 

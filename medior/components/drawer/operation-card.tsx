@@ -1,11 +1,12 @@
-import { LinearProgress } from "@mui/material";
 import { BackgroundOperationSchema } from "medior/_generated/server";
-import { Card, Comp, Icon, Text, View } from "medior/components";
-import { colors } from "medior/utils/client";
+import { Card, Comp, Icon, ProgressBar, Text, View } from "medior/components";
+import { colors, makeClasses } from "medior/utils/client";
 import { formatDate, OPERATION_STATUS_META } from "./activity-meta";
 import { OperationControls } from "./operation-controls";
 
 export const OperationCard = Comp(({ operation }: { operation: BackgroundOperationSchema }) => {
+  const { css } = useClasses(null);
+
   const meta = OPERATION_STATUS_META[operation.status];
 
   return (
@@ -31,7 +32,11 @@ export const OperationCard = Comp(({ operation }: { operation: BackgroundOperati
             {`${operation.status} · ${
               operation.type === "mediaPathIndex"
                 ? `${operation.processedCount.toLocaleString()} checked`
-                : `${operation.processedCount} / ${operation.totalCount}`
+                : operation.type === "persistenceMigration"
+                  ? `${operation.processedCount.toLocaleString()} verified`
+                  : operation.type === "importEntryMigration"
+                    ? `${operation.processedCount.toLocaleString()} copied this run`
+                    : `${operation.processedCount} / ${operation.totalCount}`
             }`}
           </Text>
 
@@ -40,15 +45,25 @@ export const OperationCard = Comp(({ operation }: { operation: BackgroundOperati
       </View>
 
       {operation.status === "PENDING" || operation.status === "RUNNING" ? (
-        <LinearProgress
-          value={operation.totalCount ? (operation.processedCount / operation.totalCount) * 100 : 0}
+        <ProgressBar
+          denominator={operation.totalCount}
+          numerator={operation.totalCount ? operation.processedCount : 0}
           variant={operation.totalCount ? "determinate" : "indeterminate"}
+          viewProps={{ flex: "none" }}
         />
       ) : null}
 
       {operation.type === "repair" && ["CANCELLED", "ERROR"].includes(operation.status) && (
         <Text whiteSpace="normal">
           {"Restart from Settings → Repair with the desired options."}
+        </Text>
+      )}
+
+      {operation.type === "mediaPathIndex" && operation.status !== "COMPLETE" && (
+        <Text fontSize="0.8em" whiteSpace="normal">
+          {
+            "Thumbnail repairs wait for indexing and resume automatically when it finishes. If indexing fails or is cancelled, retry this operation."
+          }
         </Text>
       )}
 
@@ -73,7 +88,7 @@ export const OperationCard = Comp(({ operation }: { operation: BackgroundOperati
             fontSize="0.8em"
             minWidth={0}
             overflowWrap="anywhere"
-            style={{ userSelect: "text" }}
+            className={css.failure}
             whiteSpace="pre-wrap"
           >
             {`Transform ${failure.targetId}\n${failure.message}`}
@@ -82,8 +97,14 @@ export const OperationCard = Comp(({ operation }: { operation: BackgroundOperati
       </View>
 
       <Text color={colors.custom.lightGrey} flex="none" fontSize="0.8em" whiteSpace="nowrap">
-        {formatDate(operation.dateCreated)}
+        {`Updated ${formatDate(operation.dateModified ?? operation.dateCreated)}`}
       </Text>
     </Card>
   );
+});
+
+const useClasses = makeClasses({
+  failure: {
+    userSelect: "text",
+  },
 });

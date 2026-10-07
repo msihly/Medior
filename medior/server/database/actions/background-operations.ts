@@ -11,11 +11,18 @@ import {
   pauseFileCleanups,
   recoverFileOperations,
 } from "medior/server/database/file-operations";
+import { areImportEntriesReady } from "medior/server/database/import-entry-state";
+import { metadataWork } from "medior/server/database/metadata-context";
+import { metadataMutation } from "medior/server/database/metadata-mutations";
+import { metadataWriteOptions, resumeMetadataWork } from "medior/server/database/metadata-work";
+import { isPersistenceReady } from "medior/server/database/persistence";
 import {
-  metadataWork,
-  metadataWriteOptions,
-  resumeMetadataWork,
-} from "medior/server/database/metadata-work";
+  cancelPersistenceMigration,
+  getPersistenceMigrationProgress,
+  PERSISTENCE_ACTIVITY_ID,
+  runPersistenceMigration,
+} from "medior/server/database/persistence-migration";
+import { pruneCompletedOperations } from "medior/server/database/persistence-retention";
 import { cancelRepair, pauseRepairs } from "medior/server/database/repair-progress";
 import { isServerStopping } from "medior/server/process-lifecycle";
 import { dayjs } from "medior/utils/common";
@@ -24,9 +31,10 @@ import { vectorTrpc } from "medior/utils/server/trpc";
 import { workSignal } from "medior/utils/server/work-signal";
 
 let backgroundQueuesRunning = false;
-const runners = new Set<() => Promise<void>>();
+const runners = new Map<() => Promise<void>, boolean>();
 let queueControl = Promise.resolve<unknown>(undefined);
 let stoppingQueues: Promise<void>;
+let retentionTimer: NodeJS.Timeout;
 
 const controlBackgroundQueues = <T>(run: () => Promise<T>) => {
   const result = queueControl.then(run, run);
@@ -43,6 +51,7 @@ export const canRunBackgroundQueues = () =>
 // @generator-ignore-export
 export const stopBackgroundQueues = () => {
   backgroundQueuesRunning = false;
+  clearInterval(retentionTimer);
 
   const stoppingCleanups = pauseFileCleanups();
 
@@ -76,6 +85,7 @@ export const emitBackgroundOperation = async (id: string) => {
       })
       .lean(),
   );
+
   socket.emit("onBackgroundOperationUpdated", { id, updates: operation });
 
   return operation;
@@ -197,67 +207,80 @@ export const makeBackgroundOperationRunner = (
   let runPromise: Promise<void> = null;
 
   const run = () => {
-    return metadataWork.exit(() =>
-      backgroundExecution.exit(() =>
-        workSignal.exit(() => {
-          if (!canRunBackgroundQueues()) return Promise.resolve();
+    return metadataMutation.exit(() =>
+      metadataWork.exit(() =>
+        backgroundExecution.exit(() =>
+          workSignal.exit(() => {
+            if (!canRunBackgroundQueues()) return Promise.resolve();
 
-          hasQueuedRun = true;
+            hasQueuedRun = true;
 
-          if (runPromise) return runPromise;
+            if (runPromise) return runPromise;
 
-          let execution: ReturnType<typeof backgroundExecution.getStore>;
+            let execution: ReturnType<typeof backgroundExecution.getStore>;
 
-          runPromise = runBackgroundExecution(async () => {
-            execution = backgroundExecution.getStore();
-            execution.label = label;
-            execution.resumeQueue = async () => {
-              await runPromise;
+            runPromise = runBackgroundExecution(async () => {
+              execution = backgroundExecution.getStore();
+              execution.label = label;
+              execution.resumeQueue = async () => {
+                await runPromise;
 
-              return run();
-            };
+                return run();
+              };
 
-            if (requiresMediaPaths && !(await areMediaPathIndexesReady())) {
-              hasQueuedRun = false;
+              if (!(await isPersistenceReady())) {
+                hasQueuedRun = false;
 
-              return;
-            }
+                return;
+              }
 
-            while (hasQueuedRun && canRunBackgroundQueues()) {
-              hasQueuedRun = false;
-              await processQueue();
-            }
-          })
-            .catch(async (error) => {
-              if (!canRunBackgroundQueues() || execution?.cancelled) return;
+              if (requiresMediaPaths && !(await areMediaPathIndexesReady())) {
+                hasQueuedRun = false;
 
-              const message = `Failed to process queued ${label}: ${error instanceof Error ? error.message : String(error)}`;
-              fileLog(message, { type: "error" });
+                return;
+              }
 
-              if (execution?.operationId)
-                await setBackgroundOperationStatus(execution.operationId, "ERROR", {
-                  error: message,
-                }).catch((statusError) => {
-                  console.error("Failed to save background operation error:", statusError);
-                });
-
-              const notification = await recordNotification({ message, type: "error" });
-              if (!notification.success)
-                console.error("Failed to report background operation error:", notification.error);
+              while (hasQueuedRun && canRunBackgroundQueues()) {
+                hasQueuedRun = false;
+                await processQueue();
+              }
             })
-            .finally(() => {
-              runPromise = null;
+              .catch(async (error) => {
+                if (!canRunBackgroundQueues() || execution?.cancelled) return;
 
-              if (hasQueuedRun && !execution?.cancelled) run();
-            });
+                const message = `Failed to process queued ${label}: ${error?.message ?? String(error)}`;
 
-          return runPromise;
-        }),
+                fileLog(message, { type: "error" });
+
+                if (execution?.operationId) {
+                  try {
+                    await setBackgroundOperationStatus(execution.operationId, "ERROR", {
+                      error: message,
+                    });
+                  } catch (statusError) {
+                    console.error("Failed to save background operation error:", statusError);
+                  }
+                }
+
+                const notification = await recordNotification({ message, type: "error" });
+
+                if (!notification.success)
+                  console.error("Failed to report background operation error:", notification.error);
+              })
+              .finally(() => {
+                runPromise = null;
+
+                if (hasQueuedRun && !execution?.cancelled) run();
+              });
+
+            return runPromise;
+          }),
+        ),
       ),
     );
   };
 
-  runners.add(run);
+  runners.set(run, requiresMediaPaths);
 
   return run;
 };
@@ -268,20 +291,24 @@ export const runFileCleanupQueue = makeBackgroundOperationRunner("file cleanup",
 );
 
 // @generator-ignore-export
-export const runMetadataRecoveryQueue = makeBackgroundOperationRunner("metadata recovery", () =>
-  resumeMetadataWork(canRunBackgroundQueues),
+export const runMetadataRecoveryQueue = makeBackgroundOperationRunner(
+  "metadata recovery",
+  async () => {
+    if (await areImportEntriesReady()) await resumeMetadataWork(canRunBackgroundQueues);
+  },
 );
 
-const resumeBackgroundQueues = makeBackgroundOperationRunner(
+makeBackgroundOperationRunner(
   "media path indexing",
   async () => {
     const { runMediaPathIndexQueue } = await import("medior/server/database/media-path-index");
+
     if (!(await runMediaPathIndexQueue()) || !canRunBackgroundQueues()) return;
 
     await import("medior/server/database/import-audio");
 
-    for (const run of runners) {
-      if (run !== resumeBackgroundQueues) void run();
+    for (const [run, requiresMediaPaths] of runners) {
+      if (requiresMediaPaths) run();
     }
 
     await vectorTrpc.resumeSimilarityBackfills.mutate();
@@ -289,14 +316,49 @@ const resumeBackgroundQueues = makeBackgroundOperationRunner(
   false,
 );
 
+makeBackgroundOperationRunner(
+  "import history upgrade",
+  async () => {
+    const { runImportEntryMigrationQueue } = await import(
+      "medior/server/database/import-entry-migration"
+    );
+
+    if (!(await runImportEntryMigrationQueue()) || !canRunBackgroundQueues()) return;
+
+    runMetadataRecoveryQueue();
+  },
+  false,
+);
+
 // @generator-ignore-export
-export const startBackgroundQueues = () => {
+export const startBackgroundQueues = async (retryPersistence = false) => {
   if (isServerStopping()) return;
 
   backgroundQueuesRunning = true;
 
-  for (const run of runners) void run();
+  try {
+    const ready = await runPersistenceMigration(retryPersistence);
+
+    if (!ready || !canRunBackgroundQueues()) return;
+
+    // Media path indexing starts its dependent queues once their indexes are ready.
+    for (const [run, requiresMediaPaths] of runners) {
+      if (!requiresMediaPaths) run();
+    }
+
+    clearInterval(retentionTimer);
+    retentionTimer = setInterval(() => runPersistenceRetention(), 60 * 1000);
+    retentionTimer.unref();
+  } catch (error) {
+    console.error("Recovery storage consolidation failed:", error);
+  }
 };
+
+const runPersistenceRetention = makeBackgroundOperationRunner(
+  "completed activity cleanup",
+  pruneCompletedOperations,
+  false,
+);
 
 // @generator-ignore-export
 export const queueBackgroundOperation = async ({
@@ -311,6 +373,7 @@ export const queueBackgroundOperation = async ({
   type: models.BackgroundOperationSchema["type"];
 }) => {
   const uniqueTargetIds = [...new Set(targetIds)];
+
   if (!uniqueTargetIds.length) return null;
 
   const now = dayjs().toISOString();
@@ -428,6 +491,7 @@ export const mergeTagMetadataQueues = async (operation: models.BackgroundOperati
         targetIds: queued.targetIds,
         type: "tagMetadata",
       });
+
       if (merged?.id !== operation.id) return true;
     }
 
@@ -453,6 +517,7 @@ export const mergeTagMetadataQueues = async (operation: models.BackgroundOperati
       },
       metadataWriteOptions(),
     );
+
     await emitBackgroundOperation(String(queued._id));
   }
 
@@ -500,14 +565,42 @@ export const completeEmptyBackgroundOperation = async (id: string, message: stri
 /*                                API ENDPOINTS                               */
 /* -------------------------------------------------------------------------- */
 export const listBackgroundActivity = makeAction(async () => {
+  const notifications = (
+    await models.NotificationModel.find().sort({ dateCreated: -1 }).limit(250).lean()
+  ).map((notification) => leanModelToJson<models.NotificationSchema>(notification));
+
+  if (!(await isPersistenceReady())) {
+    return {
+      notifications,
+      operations: [getPersistenceMigrationProgress()],
+    };
+  }
+
   const { ensureMediaPathIndexOperation } = await import("medior/server/database/media-path-index");
+
   await ensureMediaPathIndexOperation();
 
+  // These requests stopped before any repair writes; retrying each cannot unblock indexing.
+  await models.BackgroundOperationModel.updateMany(
+    {
+      dismissedAt: null,
+      error: /^Media path indexing is incomplete/,
+      status: "ERROR",
+      type: "metadataAction",
+      "work.name": "repairFileThumbnail",
+    },
+    { $set: { dateModified: dayjs().toISOString(), dismissedAt: dayjs().toISOString() } },
+    metadataWriteOptions(),
+  );
+
   const actionable = { status: { $in: ["PENDING", "RUNNING", "CANCELLED", "ERROR"] } };
+  const prerequisiteTypes = ["importEntryMigration", "mediaPathIndex"];
 
   const operations = await Promise.all(
     [
-      actionable,
+      { ...actionable, type: { $in: prerequisiteTypes } },
+      { status: { $in: ["PENDING", "RUNNING"] }, type: { $nin: prerequisiteTypes } },
+      { status: { $in: ["CANCELLED", "ERROR"] }, type: { $nin: prerequisiteTypes } },
       {
         $nor: [actionable],
         $or: [{ type: { $ne: "metadataAction" } }, { status: { $ne: "COMPLETE" } }],
@@ -529,9 +622,7 @@ export const listBackgroundActivity = makeAction(async () => {
   );
 
   return {
-    notifications: (
-      await models.NotificationModel.find().sort({ dateCreated: -1 }).limit(250).lean()
-    ).map((notification) => leanModelToJson<models.NotificationSchema>(notification)),
+    notifications,
     operations: operations
       .flat()
       .slice(0, 100)
@@ -543,8 +634,11 @@ export const retryBackgroundOperation = makeAction(({ id }: { id: string }) =>
   controlBackgroundQueues(async () => {
     if (isServerStopping()) throw new Error("Server is shutting down");
 
-    await (async () => {
+    if (id === PERSISTENCE_ACTIVITY_ID) {
+      startBackgroundQueues(true);
+    } else {
       const operation = await models.BackgroundOperationModel.findById(id).lean();
+
       if (!operation) throw new Error("Background operation not found");
 
       if (operation.type === "repair")
@@ -553,67 +647,81 @@ export const retryBackgroundOperation = makeAction(({ id }: { id: string }) =>
       if (!["CANCELLED", "ERROR"].includes(operation.status))
         throw new Error("Only failed or cancelled operations can be retried");
 
-      if (["mediaPathIndex", "metadataAction", "transformQueue"].includes(operation.type)) {
+      if (
+        ["importEntryMigration", "mediaPathIndex", "metadataAction", "transformQueue"].includes(
+          operation.type,
+        )
+      ) {
         await setBackgroundOperationStatus(id, "PENDING", {
           completedAt: null,
           error: null,
           message: "Continuing from the saved position.",
         });
+      } else {
+        if (!operation.targetIds.length)
+          throw new Error("This operation has no remaining work to retry");
 
-        return;
+        await queueBackgroundOperation({
+          label: operation.label,
+          queueKey: operation.type === "duplicateMerge" ? `duplicateMerge:${id}` : operation.type,
+          targetIds: operation.targetIds,
+          type: operation.type,
+        });
+
+        await setBackgroundOperationStatus(id, "CANCELLED", {
+          message: "Remaining work was requeued.",
+          targetIds: [],
+        });
       }
 
-      if (!operation.targetIds.length)
-        throw new Error("This operation has no remaining work to retry");
-
-      await queueBackgroundOperation({
-        label: operation.label,
-        queueKey: operation.type === "duplicateMerge" ? `duplicateMerge:${id}` : operation.type,
-        targetIds: operation.targetIds,
-        type: operation.type,
-      });
-
-      await setBackgroundOperationStatus(id, "CANCELLED", {
-        message: "Remaining work was requeued.",
-        targetIds: [],
-      });
-    })();
-
-    startBackgroundQueues();
+      startBackgroundQueues();
+    }
   }),
 );
 
 export const cancelBackgroundOperation = makeAction(async ({ id }: { id: string }) => {
   console.info(`[Background operation ${id}] Cancel received.`);
 
+  if (id === PERSISTENCE_ACTIVITY_ID) {
+    return cancelPersistenceMigration();
+  }
+
   const stopping = cancelBackgroundExecutions(id);
 
   const saved = (async () => {
-    const operation = await models.BackgroundOperationModel.findOneAndUpdate(
-      { _id: objectId(id), status: { $in: ["PENDING", "RUNNING"] } },
-      {
-        $set: {
-          completedAt: dayjs().toISOString(),
-          dateModified: dayjs().toISOString(),
-          status: "CANCELLED",
-        },
-        $unset: { queueKey: 1 },
-      },
-      { ...metadataWriteOptions(), new: true },
-    ).lean();
+    const operation = await models.BackgroundOperationModel.findById(id)
+      .select({ targetIds: 1, type: 1 })
+      .lean();
 
-    if (operation?.type === "repair") await cancelRepair(operation.targetIds[0]);
+    if (!operation) throw new Error("Background operation not found");
+
+    if (operation.type === "repair") await cancelRepair(operation.targetIds[0]);
+    else {
+      await models.BackgroundOperationModel.updateOne(
+        { _id: objectId(id), status: { $in: ["PENDING", "RUNNING"] } },
+        {
+          $set: {
+            completedAt: dayjs().toISOString(),
+            dateModified: dayjs().toISOString(),
+            status: "CANCELLED",
+          },
+          $unset: { queueKey: 1 },
+        },
+        metadataWriteOptions(),
+      );
+    }
 
     const result = await emitBackgroundOperation(id);
+
     if (!result) throw new Error("Background operation not found");
 
     return result;
   })();
 
   // Persist and acknowledge cancellation independently of the server's interrupt response.
-  void Promise.all([stopping, saved])
+  Promise.all([stopping, saved])
     .then(([resumes]) => {
-      for (const resume of resumes) void resume();
+      for (const resume of resumes) resume();
     })
     .catch((error) => console.error(`Background operation ${id} cancellation failed:`, error));
 
@@ -621,12 +729,23 @@ export const cancelBackgroundOperation = makeAction(async ({ id }: { id: string 
 });
 
 export const dismissBackgroundOperation = makeAction(async ({ id }: { id: string }) => {
+  if (id === PERSISTENCE_ACTIVITY_ID)
+    throw new Error("Recovery storage consolidation must finish before it can be dismissed.");
+
   const result = await models.BackgroundOperationModel.updateOne(
-    { _id: objectId(id), status: { $in: ["CANCELLED", "COMPLETE", "ERROR"] } },
+    {
+      $or: [{ type: { $ne: "importEntryMigration" } }, { status: "COMPLETE" }],
+      _id: objectId(id),
+      status: { $in: ["CANCELLED", "COMPLETE", "ERROR"] },
+    },
     { $set: { dateModified: dayjs().toISOString(), dismissedAt: dayjs().toISOString() } },
     metadataWriteOptions(),
   );
-  if (!result.matchedCount) throw new Error("Cancel the running operation before dismissing it");
+
+  if (!result.matchedCount)
+    throw new Error(
+      "Cancel running work before dismissing it. The import history upgrade must finish before it can be dismissed.",
+    );
 
   return emitBackgroundOperation(id);
 });
@@ -638,6 +757,7 @@ export const markNotificationsRead = makeAction(async ({ ids }: { ids: string[] 
     { _id: { $in: objectIds(ids) } },
     { $set: { isRead: true } },
   );
+
   socket.emit("onNotificationsRead", { ids });
 });
 
@@ -653,6 +773,7 @@ export const recordNotification = makeAction(
         })
       ).toObject(),
     );
+
     socket.emit("onNotificationCreated", notification);
 
     return notification;

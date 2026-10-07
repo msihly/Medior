@@ -43,15 +43,15 @@ export interface StorageInputProps extends Omit<InputProps, "setValue" | "value"
 
 export const StorageInput = Comp(({ index, selectLocation, ...props }: StorageInputProps) => {
   const stores = useStores();
+  const store = stores.home.settings;
 
   const [diskStats, setDiskStats] = useState<DiskSpace>(undefined);
   const [isOffline, setIsOffline] = useState(false);
 
-  const threshold = stores.home.settings.db.fileStorage.threshold;
+  const threshold = store.db.fileStorage.threshold;
   const percentFilled = (diskStats?.size - diskStats?.free) / diskStats?.size;
   const isAtThreshold = percentFilled >= threshold;
   const isNearThreshold = percentFilled >= threshold - 0.1;
-
   const status = isOffline
     ? STATUSES.OFFLINE
     : isAtThreshold
@@ -60,13 +60,14 @@ export const StorageInput = Comp(({ index, selectLocation, ...props }: StorageIn
         ? STATUSES.NEAR_THRESHOLD
         : STATUSES.ONLINE;
 
-  const value = stores.home.settings.db.fileStorage.locations[index];
+  const value = store.db.fileStorage.locations[index];
 
   useEffect(() => {
     (async () => {
       if (value) {
         try {
           const res = await trpc.getDiskStats.mutate({ diskPath: value });
+
           if (!res.success) throw new Error(res.error);
 
           setDiskStats(res.data);
@@ -78,20 +79,21 @@ export const StorageInput = Comp(({ index, selectLocation, ...props }: StorageIn
     })();
   }, [value]);
 
-  const decrementIndex = () => stores.home.settings.setFileStorageIndex(index, index - 1);
+  const decrementIndex = () => store.setFileStorageIndex(index, index - 1);
 
   const handleLocationClick = async (event: React.MouseEvent) => {
     event.preventDefault();
 
     const location = await selectLocation();
+
     if (location) setLocationValue(location);
   };
 
-  const handleDelete = () => stores.home.settings.removeFileStorageLocation(index);
+  const handleDelete = () => store.removeFileStorageLocation(index);
 
-  const incrementIndex = () => stores.home.settings.setFileStorageIndex(index, index + 1);
+  const incrementIndex = () => store.setFileStorageIndex(index, index + 1);
 
-  const setLocationValue = (val: string) => stores.home.settings.setFileStorageLocation(index, val);
+  const setLocationValue = (val: string) => store.setFileStorageLocation(index, val);
 
   return (
     <View row align="center" spacing="0.5rem">
@@ -100,7 +102,7 @@ export const StorageInput = Comp(({ index, selectLocation, ...props }: StorageIn
       <IconButton
         name="ArrowDownward"
         onClick={incrementIndex}
-        disabled={index === stores.home.settings.db.fileStorage.locations.length - 1}
+        disabled={index === store.db.fileStorage.locations.length - 1}
       />
 
       <Input value={value} onClick={handleLocationClick} flex={1} {...props} />

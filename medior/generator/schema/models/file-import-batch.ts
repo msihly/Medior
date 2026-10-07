@@ -26,47 +26,23 @@ model.addProp("fileCount", "number", {
 
 model.addProp("ignorePrevDeleted", "boolean", { required: true });
 
-model.addProp("imports", "FileImport[]", {
-  defaultValue: "[]",
-  schemaToStoreName: "FileImport",
-  schemaType: [
-    model.makeProp("dateCreated", "string", { required: true }),
-    model.makeProp("diffusionParams", "string"),
-    model.makeProp("errorMsg", "string"),
-    model.makeProp("extension", "string", { required: true }),
-    model.makeProp("fileId", "File.id"),
-    model.makeProp("hash", "string"),
-    model.makeProp("name", "string", { required: true }),
-    model.makeProp("path", "string", { required: true }),
-    model.makeProp("size", "number", { required: true }),
-    model.makeProp(
-      "status",
-      "string | 'COMPLETE' | 'DELETED' | 'DUPLICATE' | 'ERROR' | 'PENDING'",
-      {
-        schemaType:
-          "{ type: String, enum: ['COMPLETE', 'DELETED', 'DUPLICATE', 'ERROR', 'PENDING'] }",
-      },
-    ),
-    model.makeProp("tagIds", "Tag.id[]"),
-    model.makeProp(
-      "thumb",
-      "{ frameHeight?: number; frameWidth?: number; ntfsFileId?: string; ntfsVolumeId?: string; path: string }",
-      {
-        schemaType:
-          "{ frameHeight: Number, frameWidth: Number, ntfsFileId: String, ntfsVolumeId: String, path: String }",
-      },
-    ),
-  ],
-  storeType: "Stores.FileImport[]",
-  typeName: "FileImport",
-  withStore: true,
-});
-
 model.addIndex({ isCompleted: 1, _id: 1 });
 model.addProp("isCompleted", "boolean", {
   defaultValue: "false",
   required: true,
 });
+
+model.addProp("isReady", "boolean", { defaultValue: "false", required: true });
+
+model.addProp("lastUploadHash", "string");
+
+model.addProp("lastUploadOffset", "number");
+
+model.addProp("processedCount", "number", { defaultValue: "0", required: true });
+
+model.addProp("processedSize", "number", { defaultValue: "0", required: true });
+
+model.addProp("progressRevision", "number", { defaultValue: "0", required: true });
 
 model.addIndex({ rootFolderPath: 1, _id: 1 });
 model.addProp("rootFolderPath", "string", { required: true });
@@ -76,6 +52,9 @@ model.addProp("size", "number", {
   sort: { icon: "FormatSize", label: "Size" },
 });
 
+model.addProp("sourceFolderPath", "string");
+
+model.addIndex({ isCompleted: 1, isReady: 1, startedAt: -1, dateCreated: 1 }, { unique: false });
 model.addIndex({ startedAt: 1, _id: 1 });
 model.addProp("startedAt", "string", {
   sort: { icon: "HourglassTop", label: "Started At" },

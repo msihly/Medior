@@ -81,6 +81,7 @@ export class ImportEditorStore extends Model({
   addTagsToUpsert(folderName: string, tagsToUpsert: TagToUpsert[]) {
     const folder =
       this.allFlatFolderHierarchy.get(folderName) ?? this.flatFolderHierarchy.get(folderName);
+
     if (!folder) throw new Error(`No such folder: ${folderName}`);
 
     folder.tags = mergeTagDefinitions([...folder.tags, ...tagsToUpsert]);
@@ -96,7 +97,9 @@ export class ImportEditorStore extends Model({
   clearValues({ diffusionParams = false, tagIds = false, tagsToUpsert = false } = {}) {
     this.imports.forEach((imp) => {
       if (diffusionParams && imp.diffusionParams?.length) imp.diffusionParams = null;
+
       if (tagIds && imp.tagIds?.length) imp.tagIds = null;
+
       if (tagsToUpsert && imp.tagsToUpsert?.length) imp.tagsToUpsert = null;
     });
   }
@@ -177,6 +180,7 @@ export class ImportEditorStore extends Model({
   @modelAction
   setTagsToUpsert(folderName: string, tagsToUpsert: TagToUpsert[]) {
     const folder = this.flatFolderHierarchy.get(folderName);
+
     if (!folder) throw new Error(`No such folder: ${folderName}`);
 
     folder.tags = tagsToUpsert.map(derefMobx);
@@ -208,8 +212,11 @@ export class ImportEditorStore extends Model({
   @modelFlow
   loadDiffusionParams = asyncAction(async () => {
     const cancelToken = this.ingestCancelToken;
+
     const isCancelled = () => !this.isOpen || this.ingestCancelToken !== cancelToken;
+
     const queue = new PromiseQueue({ concurrency: 4 });
+
     this.setInitProgressStatus("Reading diffusion parameters");
     this.setInitProgressTotal(this.imports.length);
 
@@ -218,6 +225,7 @@ export class ImportEditorStore extends Model({
 
       if (idx % 128 === 0) {
         await queue.resolve();
+
         if (isCancelled()) return;
 
         this.setInitProgressCompleted(idx);
@@ -225,9 +233,11 @@ export class ImportEditorStore extends Model({
       }
 
       const imp = this.imports[idx];
+
       if (imp.extension !== "jpg") continue;
 
       const paramFileName = path.resolve(extendFileName(imp.path, "txt"));
+
       if (!this.filePaths.has(paramFileName)) continue;
 
       queue.add(async () => {
@@ -235,7 +245,9 @@ export class ImportEditorStore extends Model({
           if (isCancelled()) return;
 
           const params = await fs.readFile(paramFileName, { encoding: "utf8" });
+
           if (isCancelled()) return;
+
           if (params !== imp.diffusionParams) imp.diffusionParams = params;
         } catch (err) {
           console.error("Error reading diffusion params:", err);
@@ -256,7 +268,9 @@ export class ImportEditorStore extends Model({
       imports: ModelCreationData<FileImport>[];
     }) => {
       const cancelToken = this.ingestCancelToken;
+
       const isCancelled = () => !this.isOpen || this.ingestCancelToken !== cancelToken;
+
       const queue = new PromiseQueue({ concurrency: 4 });
       let failedCount = 0;
       let firstError: string;
@@ -275,6 +289,7 @@ export class ImportEditorStore extends Model({
           if (isCancelled()) return;
 
           const params: Sidecar = JSON.parse(await fs.readFile(paramFileName, "utf8"));
+
           if (isCancelled()) return;
 
           const tags = params.tags;
@@ -284,6 +299,7 @@ export class ImportEditorStore extends Model({
 
             for (let idx = 0; idx < tags.length; idx++) {
               const tag = tags[idx];
+
               if (!tag) continue;
 
               tagsToUpsert.push({
@@ -306,6 +322,7 @@ export class ImportEditorStore extends Model({
           }
         }
       };
+
       this.setInitProgressStatus("Reading file sidecars");
       this.setInitProgressTotal(imports.length);
 
@@ -321,6 +338,7 @@ export class ImportEditorStore extends Model({
 
         if (idx % 128 === 0) {
           await queue.resolve();
+
           if (isCancelled()) return;
 
           this.setInitProgressCompleted(idx);
@@ -329,6 +347,7 @@ export class ImportEditorStore extends Model({
       }
 
       await queue.resolve();
+
       if (isCancelled()) return;
 
       this.setInitProgressStatus("Reading collection sidecars");
@@ -341,17 +360,20 @@ export class ImportEditorStore extends Model({
         if (isCancelled()) return;
 
         const folderPath = path.dirname(folder.imports[0].path);
+
         if (!folderPaths.has(folderPath)) continue;
 
         queue.add(() =>
           readSidecar({ folder, paramFileName: path.resolve(folderPath, "[[Collection]].json") }),
         );
+
         if (++queued % 128 === 0) await queue.resolve();
 
         this.setInitProgressCompleted(++completed);
       }
 
       await queue.resolve();
+
       if (!isCancelled() && failedCount)
         throw new Error(`Failed to read ${failedCount} sidecars. ${firstError}`);
     },

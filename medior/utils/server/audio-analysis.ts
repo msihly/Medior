@@ -1,21 +1,16 @@
+import { createReadStream } from "fs";
+import fs from "fs/promises";
+import path from "path";
 import ffmpeg from "fluent-ffmpeg";
+import os from "os";
 import { getConfig } from "medior/utils/server/config";
 import { runNativeTask, stopNativeTask } from "medior/utils/server/native-task";
 import { workSignal } from "medior/utils/server/work-signal";
 
 const AUDIO_SAMPLE_RATE = 16_000;
-const WAVEFORM_PEAK_COUNT = 1_000;
-
-const formatDuration = (seconds: number) => {
-  const totalSeconds = Math.max(0, Math.floor(seconds));
-  return [
-    Math.floor(totalSeconds / 3600),
-    Math.floor((totalSeconds % 3600) / 60),
-    totalSeconds % 60,
-  ]
-    .map((part) => part.toString().padStart(2, "0"))
-    .join(":");
-};
+const TRANSCRIPTION_CONTEXT_SECONDS = 5;
+const TRANSCRIPTION_WINDOW_SECONDS = 300;
+const WAVEFORM_PEAK_COUNT = 1000;
 
 export interface AudioAnalysis {
   peakDecibels: number;
@@ -41,10 +36,13 @@ export const releaseTranscriptionModel = async (ownerId: string) => {
   transcriptionModelOwners.delete(ownerId);
 };
 
-const extractAudio = (filePath: string, signal?: AbortSignal, onProgress?: ProgressReporter) =>
-  new Promise<Float32Array>((resolve, reject) => {
-    const chunks: Uint8Array[] = [];
-
+const extractAudio = (
+  filePath: string,
+  outputPath: string,
+  signal?: AbortSignal,
+  onProgress?: ProgressReporter,
+) =>
+  new Promise<void>((resolve, reject) => {
     signal?.throwIfAborted();
 
     const command = ffmpeg(filePath)
@@ -58,98 +56,28 @@ const extractAudio = (filePath: string, signal?: AbortSignal, onProgress?: Progr
 
     const abort = () => {
       command.kill("SIGKILL");
-      cleanup();
-      reject(signal?.reason ?? new Error("Audio analysis cancelled."));
     };
 
-    command.on("progress", ({ timemark }) => {
-      onProgress?.(`Extracting audio: ${timemark}.`);
-    });
-
+    signal?.addEventListener("abort", abort, { once: true });
     command.on("start", () => {
       if (signal?.aborted) abort();
     });
 
+    command.on("progress", ({ timemark }) => onProgress?.(`Extracting audio: ${timemark}.`));
     command.on("error", (error) => {
       cleanup();
-      reject(error);
+      reject(signal?.aborted ? signal.reason : error);
     });
 
-    command.on("end", async () => {
-      try {
-        signal?.throwIfAborted();
-
-        const audioBuffer = Buffer.concat(chunks);
-        if (audioBuffer.length % Float32Array.BYTES_PER_ELEMENT !== 0)
-          throw new Error("FFmpeg returned incomplete float audio samples");
-
-        const samples = new Float32Array(audioBuffer.length / Float32Array.BYTES_PER_ELEMENT);
-
-        for (let index = 0; index < samples.length; index++) {
-          if (index % 65536 === 0) {
-            await new Promise<void>((resolve) => setImmediate(resolve));
-            signal?.throwIfAborted();
-          }
-
-          samples[index] = audioBuffer.readFloatLE(index * Float32Array.BYTES_PER_ELEMENT);
-        }
-
-        resolve(samples);
-      } catch (error) {
-        reject(error);
-      } finally {
-        cleanup();
-      }
-    });
-
-    signal?.addEventListener("abort", abort, { once: true });
-
-    const stream = command.pipe();
-    stream.on("data", (chunk: Uint8Array) => chunks.push(chunk));
-    stream.on("error", (error) => {
-      command.kill("SIGKILL");
+    command.on("end", () => {
       cleanup();
-      reject(error);
+
+      if (signal?.aborted) reject(signal.reason);
+      else resolve();
     });
+
+    command.output(outputPath).run();
   });
-
-const analyzeSamples = async (
-  samples: Float32Array,
-  withWaveform: boolean,
-  signal?: AbortSignal,
-) => {
-  const waveformPeaks = withWaveform
-    ? Array.from({ length: Math.min(WAVEFORM_PEAK_COUNT, samples.length) }, () => 0)
-    : null;
-
-  let peak = 0;
-
-  for (let index = 0; index < samples.length; index++) {
-    if (index % 65536 === 0) {
-      await new Promise<void>((resolve) => setImmediate(resolve));
-      signal?.throwIfAborted();
-    }
-
-    const sample = samples[index];
-
-    if (waveformPeaks) {
-      const waveformIndex = Math.min(
-        waveformPeaks.length - 1,
-        Math.floor((index / samples.length) * waveformPeaks.length),
-      );
-
-      if (Math.abs(sample) > Math.abs(waveformPeaks[waveformIndex]))
-        waveformPeaks[waveformIndex] = sample;
-    }
-
-    peak = Math.max(peak, Math.abs(sample));
-  }
-
-  return {
-    peakDecibels: peak ? Math.max(-120, 20 * Math.log10(peak)) : -120,
-    waveformPeaks: waveformPeaks ?? undefined,
-  };
-};
 
 export const analyzeAudio = async (
   filePath: string,
@@ -160,28 +88,152 @@ export const analyzeAudio = async (
   const config = getConfig().file;
   const withTranscription = options.withTranscription ?? config.transcription.enabled;
   const withWaveform = options.withWaveform ?? config.waveform.enabled;
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "medior-audio-"));
+  const pcmPath = path.join(directory, "audio.f32le");
 
-  onProgress?.("Extracting audio.");
+  try {
+    onProgress?.("Extracting audio.");
+    await extractAudio(filePath, pcmPath, signal, onProgress);
 
-  const samples = await extractAudio(filePath, signal, onProgress);
+    const sampleCount = (await fs.stat(pcmPath)).size / Float32Array.BYTES_PER_ELEMENT;
 
-  onProgress?.(`Audio duration: ${formatDuration(samples.length / AUDIO_SAMPLE_RATE)}.`);
+    if (!Number.isSafeInteger(sampleCount))
+      throw new Error("FFmpeg returned incomplete audio samples.");
 
-  onProgress?.(withWaveform ? "Generating waveform." : "Measuring peak volume.");
+    const waveformPeaks = withWaveform
+      ? Array.from({ length: Math.min(WAVEFORM_PEAK_COUNT, sampleCount) }, () => 0)
+      : undefined;
 
-  const analysis = await analyzeSamples(samples, withWaveform, signal);
+    let peak = 0;
+    let pendingSamples = Buffer.alloc(0);
+    let sampleIndex = 0;
 
-  if (!withTranscription || !samples.length) return analysis;
+    onProgress?.(withWaveform ? "Generating waveform." : "Measuring peak volume.");
 
-  onProgress?.("Transcribing audio.");
+    for await (const chunk of createReadStream(pcmPath, { highWaterMark: 65536 })) {
+      signal?.throwIfAborted();
 
-  return {
-    ...analysis,
-    transcription: await runNativeTask<AudioAnalysis["transcription"]>(
-      "transcription",
-      { config: config.transcription, samples },
-      signal ?? workSignal.getStore(),
-      onProgress,
-    ),
-  };
+      const data = pendingSamples.length ? Buffer.concat([pendingSamples, chunk]) : chunk;
+      const completeBytes = data.length - (data.length % Float32Array.BYTES_PER_ELEMENT);
+
+      pendingSamples = data.subarray(completeBytes);
+
+      for (let offset = 0; offset < completeBytes; offset += Float32Array.BYTES_PER_ELEMENT) {
+        const sample = data.readFloatLE(offset);
+
+        peak = Math.max(peak, Math.abs(sample));
+
+        if (waveformPeaks?.length) {
+          const index = Math.min(
+            waveformPeaks.length - 1,
+            Math.floor((sampleIndex * waveformPeaks.length) / sampleCount),
+          );
+
+          if (Math.abs(sample) > Math.abs(waveformPeaks[index])) waveformPeaks[index] = sample;
+        }
+
+        sampleIndex++;
+      }
+    }
+
+    if (pendingSamples.length || sampleIndex !== sampleCount)
+      throw new Error("Extracted audio ended unexpectedly.");
+
+    const analysis: AudioAnalysis = {
+      peakDecibels: peak ? Math.max(-120, 20 * Math.log10(peak)) : -120,
+      waveformPeaks,
+    };
+
+    if (withTranscription && sampleCount) {
+      const audio = await fs.open(pcmPath, "r");
+      const segments: AudioAnalysis["transcription"]["segments"] = [];
+      const windowSamples = TRANSCRIPTION_WINDOW_SECONDS * AUDIO_SAMPLE_RATE;
+      const contextSamples = TRANSCRIPTION_CONTEXT_SECONDS * AUDIO_SAMPLE_RATE;
+
+      try {
+        for (let start = 0; start < sampleCount; start += windowSamples) {
+          signal?.throwIfAborted();
+
+          const end = Math.min(sampleCount, start + windowSamples);
+          const readStart = Math.max(0, start - contextSamples);
+          const readEnd = Math.min(sampleCount, end + contextSamples);
+          const data = Buffer.allocUnsafe((readEnd - readStart) * Float32Array.BYTES_PER_ELEMENT);
+          let offset = 0;
+
+          while (offset < data.length) {
+            signal?.throwIfAborted();
+
+            const { bytesRead } = await audio.read(
+              data,
+              offset,
+              data.length - offset,
+              readStart * Float32Array.BYTES_PER_ELEMENT + offset,
+            );
+
+            if (!bytesRead) throw new Error("Extracted audio ended unexpectedly.");
+
+            offset += bytesRead;
+          }
+
+          const samples = new Float32Array(readEnd - readStart);
+
+          for (let index = 0; index < samples.length; index++)
+            samples[index] = data.readFloatLE(index * Float32Array.BYTES_PER_ELEMENT);
+
+          const transcription = await runNativeTask<AudioAnalysis["transcription"]>(
+            "transcription",
+            { config: config.transcription, samples },
+            signal,
+            (message, progress) =>
+              onProgress?.(
+                message,
+                Math.min(
+                  100,
+                  ((start + ((end - start) * (progress ?? 0)) / 100) / sampleCount) * 100,
+                ),
+              ),
+          );
+
+          const windowSegments =
+            transcription.segments.length || !transcription.text.trim()
+              ? transcription.segments
+              : [
+                  {
+                    end: (end - readStart) / AUDIO_SAMPLE_RATE,
+                    start: (start - readStart) / AUDIO_SAMPLE_RATE,
+                    text: transcription.text,
+                  },
+                ];
+
+          for (const segment of windowSegments) {
+            const segmentStart = segment.start + readStart / AUDIO_SAMPLE_RATE;
+            const segmentEnd = segment.end + readStart / AUDIO_SAMPLE_RATE;
+            const midpoint = (segmentStart + segmentEnd) / 2;
+
+            if (midpoint >= start / AUDIO_SAMPLE_RATE && midpoint < end / AUDIO_SAMPLE_RATE)
+              segments.push({
+                end: Math.min(sampleCount / AUDIO_SAMPLE_RATE, segmentEnd),
+                start: Math.max(0, segmentStart),
+                text: segment.text,
+              });
+          }
+        }
+      } finally {
+        await audio.close();
+      }
+
+      analysis.transcription = {
+        segments,
+        text: segments
+          .map(({ text }) => text)
+          .join(" ")
+          .trim(),
+      };
+    }
+
+    return analysis;
+  } finally {
+    await fs.rm(pcmPath, { force: true });
+    await fs.rmdir(directory);
+  }
 };

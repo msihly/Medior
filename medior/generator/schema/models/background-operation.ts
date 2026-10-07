@@ -1,6 +1,6 @@
 import { ModelDb } from "medior/generator/schema/generators";
 
-const model = new ModelDb("BackgroundOperation");
+const model = new ModelDb("BackgroundOperation", { persistence: true });
 
 model.addProp("completedAt", "string");
 model.addProp("dateModified", "string", { required: true });
@@ -38,13 +38,15 @@ model.addProp(
   { schemaType: "Schema.Types.Mixed" },
 );
 model.addIndex({ type: 1, status: 1, _id: 1 }, { unique: false });
+model.addIndex({ status: 1, completedAt: 1, _id: 1 }, { unique: false });
+model.addIndex({ status: 1, dateModified: 1, _id: 1 }, { unique: false });
 model.addProp(
   "type",
-  "'audioAnalysis' | 'collectionMetadata' | 'duplicateMerge' | 'fileTagAncestors' | 'mediaPathIndex' | 'metadataAction' | 'repair' | 'tagHierarchy' | 'tagMetadata' | 'tagRefresh' | 'transformQueue'",
+  "'audioAnalysis' | 'collectionMetadata' | 'duplicateMerge' | 'fileTagAncestors' | 'importEntryMigration' | 'mediaPathIndex' | 'metadataAction' | 'persistenceMigration' | 'repair' | 'tagHierarchy' | 'tagMetadata' | 'tagRefresh' | 'transformQueue'",
   {
     required: true,
     schemaType:
-      "{ type: String, enum: ['audioAnalysis', 'collectionMetadata', 'duplicateMerge', 'fileTagAncestors', 'mediaPathIndex', 'metadataAction', 'repair', 'tagHierarchy', 'tagMetadata', 'tagRefresh', 'transformQueue'] }",
+      "{ type: String, enum: ['audioAnalysis', 'collectionMetadata', 'duplicateMerge', 'fileTagAncestors', 'importEntryMigration', 'mediaPathIndex', 'metadataAction', 'persistenceMigration', 'repair', 'tagHierarchy', 'tagMetadata', 'tagRefresh', 'transformQueue'] }",
   },
 );
 

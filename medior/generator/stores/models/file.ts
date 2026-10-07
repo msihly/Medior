@@ -39,7 +39,7 @@ model.addTagOptsProp("tagIds", "tagIdsWithAncestors");
 model.addProp("diffusionParams", "string", "null", {
   filterGroup: "diffusionParams",
   objPath: ["diffusionParams", "$regex"],
-  objValue: 'new RegExp(args.diffusionParams, "i")',
+  objValue: "args.diffusionParams",
 });
 
 model.addProp("excludedFileIds", "string[]", "() => []", {
@@ -101,13 +101,13 @@ model.addProp("isTranscribed", "boolean", "null", {
 model.addProp("originalPath", "string", "null", {
   filterGroup: "originalPath",
   objPath: ["originalPath", "$regex"],
-  objValue: 'new RegExp(args.originalPath, "i")',
+  objValue: "args.originalPath",
 });
 
 model.addProp("transcription", "string", "null", {
   filterGroup: "transcription",
   objPath: ["transcription.text", "$regex"],
-  objValue: 'new RegExp(args.transcription, "i")',
+  objValue: "args.transcription",
 });
 
 model.addProp(
@@ -117,7 +117,7 @@ model.addProp(
   {
     customActionProps: [
       model.makeCustomActionProp({
-        condition: "true",
+        condition: "Object.values(args.selectedAudioCodecs).some((selected) => !selected)",
         objPath: ["audioCodec", "$nin"],
         objValue:
           "Object.entries(args.selectedAudioCodecs).filter(([, val]) => !val).map(([ext]) => ext)",
@@ -139,7 +139,8 @@ model.addProp(
     customActionProps: [
       // This handles both image and video exts because setObj does not support the `$or: [{}]` syntax
       model.makeCustomActionProp({
-        condition: "true",
+        condition:
+          "Object.values({ ...args.selectedImageExts, ...args.selectedVideoExts }).some((selected) => !selected)",
         objPath: ["ext", "$nin"],
         objValue:
           "Object.entries({ ...args.selectedImageExts, ...args.selectedVideoExts }).filter(([, val]) => !val).map(([ext]) => ext)",
@@ -160,7 +161,7 @@ model.addProp(
   {
     customActionProps: [
       model.makeCustomActionProp({
-        condition: "true",
+        condition: "Object.values(args.selectedVideoCodecs).some((selected) => !selected)",
         objPath: ["videoCodec", "$nin"],
         objValue:
           "Object.entries(args.selectedVideoCodecs).filter(([, val]) => !val).map(([ext]) => ext)",

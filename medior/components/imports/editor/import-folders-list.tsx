@@ -6,7 +6,6 @@ import { Ingester, Reingester } from "medior/store";
 import { getImportFolderHeight, ImportFolderList } from "./import-folder";
 
 const FOLDER_GAP = 10;
-const PAGINATION_HEIGHT = 56;
 
 export interface ImportFoldersListProps {
   store: Ingester | Reingester;
@@ -21,7 +20,6 @@ export const ImportFoldersList = Comp(({ store }: ImportFoldersListProps) => {
   );
 
   const isPaged = store.folderTotalCount > store.folderPageSize;
-  const spacerRowCount = isPaged ? 1 : 0;
 
   useEffect(() => {
     if (store.isLoading) return;
@@ -33,42 +31,37 @@ export const ImportFoldersList = Comp(({ store }: ImportFoldersListProps) => {
   const getByIndex = useCallback((index: number) => folders[index], [folders]);
 
   const getItemSize = useCallback(
-    (index: number) => {
-      const folder = getByIndex(index);
-      if (!folder) return isPaged ? PAGINATION_HEIGHT : 0;
-
-      return FOLDER_GAP + getImportFolderHeight({ folder, withListItems: true });
-    },
-    [getByIndex, isPaged],
+    (index: number) =>
+      FOLDER_GAP + getImportFolderHeight({ folder: getByIndex(index), withListItems: true }),
+    [getByIndex],
   );
 
   return (
-    <Card column flex={1}>
-      <AutoSizer disableWidth style={{ paddingTop: "0.5rem" }}>
-        {({ height }) => (
-          <VariableSizeList
-            ref={listRef}
-            height={height}
-            width="100%"
-            itemCount={folders.length + spacerRowCount}
-            itemSize={getItemSize}
-            itemKey={(index) => getByIndex(index)?.folderName ?? index}
-          >
-            {({ index, style }) => {
-              const folder = getByIndex(index);
-
-              return (
+    <Card column flex={1} minHeight={0} overflow="hidden" padding={{ all: 0 }}>
+      <View flex={1} minHeight={0} padding={{ all: "0.5rem", top: "1rem" }}>
+        <AutoSizer disableWidth>
+          {({ height }) => (
+            <VariableSizeList
+              ref={listRef}
+              height={height}
+              width="100%"
+              itemCount={folders.length}
+              itemSize={getItemSize}
+              itemKey={(index) => getByIndex(index).folderName}
+            >
+              {({ index, style }) => (
                 <View style={style} padding={{ all: "0 0.5rem" }}>
-                  {folder && <ImportFolderList folder={folder} noStatus />}
+                  <ImportFolderList folder={getByIndex(index)} noStatus />
                 </View>
-              );
-            }}
-          </VariableSizeList>
-        )}
-      </AutoSizer>
+              )}
+            </VariableSizeList>
+          )}
+        </AutoSizer>
+      </View>
 
       {isPaged && (
         <Pagination
+          inline
           count={store.folderPageCount}
           page={store.folderPage + 1}
           isLoading={store.isLoading}

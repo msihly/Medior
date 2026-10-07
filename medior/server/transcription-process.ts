@@ -88,6 +88,12 @@ const getTranscriber = async (onProgress?: ProgressReporter, signal?: AbortSigna
 
   if (transcriber && transcriberKey === key) return transcriber;
 
+  if (transcriber) {
+    await transcriber.dispose();
+    transcriber = null;
+    transcriberKey = "";
+  }
+
   transformers ??= (await import("@huggingface/transformers")) as unknown as TransformersModule;
 
   transformers.env.cacheDir = path.resolve(config.modelCachePath);
@@ -174,6 +180,7 @@ const transcribe = async (
       (progress === 100
         ? lastReportedProgress === 100
         : now - lastReportedAt < TRANSCRIPTION_PROGRESS_INTERVAL);
+
     if (isCompleted) return;
 
     lastReportedAt = now;

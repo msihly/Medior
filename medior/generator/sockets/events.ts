@@ -20,7 +20,7 @@ export const CUSTOM_EVENTS: {
   },
   { args: "{ filePath: string }", name: "onFileImportStarted" },
   {
-    args: "{ batchId: string; errorMsg?: string; fileId?: string; filePath: string; status?: Types.ImportStatus }",
+    args: "{ batchId: string; errorMsg?: string; fileId?: string; filePath: string; processedCount: number; processedSize: number; progressRevision: number; status?: Types.ImportStatus }",
     name: "onFileImportUpdated",
   },
   {
@@ -36,6 +36,7 @@ export const CUSTOM_EVENTS: {
   { args: "{ id: string }", name: "onImportBatchLoaded" },
   { name: "onImporterStatusUpdated" },
   { args: "{ ids: string[] }", name: "onNotificationsRead" },
+  { name: "onReloadBackgroundActivity" },
   { name: "onReloadFileCollections" },
   { name: "onReloadFiles" },
   { args: "{ reason: 'created' | 'reset' }", name: "onReloadFileTransforms" },

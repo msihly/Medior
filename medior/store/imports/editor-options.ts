@@ -39,6 +39,7 @@ export class ImportEditorOptions extends Model({
   @modelAction
   reset() {
     const config = getConfig();
+
     this.setDeleteOnImport(config.imports.deleteOnImport);
     this.setFlattenTo(null);
     this.setFolderToCollectionMode(config.imports.folderToCollMode);

@@ -8,13 +8,14 @@ import {
   Comp,
   ConfirmModal,
   Divider,
+  LoadingOverlay,
   Modal,
   Text,
   UniformList,
   View,
 } from "medior/components";
 import { useStores } from "medior/store";
-import { colors, toast } from "medior/utils/client";
+import { colors, toast, useCancellableLoad } from "medior/utils/client";
 import { CONSTANTS } from "medior/utils/common";
 import {
   loadConfig,
@@ -28,11 +29,19 @@ export const SettingsModal = Comp(() => {
   const stores = useStores();
   const store = stores.home.settings;
 
+  const load = useCancellableLoad();
+
   const [isConfirmDiscardOpen, setIsConfirmDiscardOpen] = useState(false);
 
   useEffect(() => {
     handleLoadConfig();
   }, []);
+
+  const handleAddStorage = async () => {
+    const location = await selectStorageLocation();
+
+    if (location) store.addFileStorageLocation(location);
+  };
 
   const handleCancel = () => {
     if (store.hasUnsavedChanges) setIsConfirmDiscardOpen(true);
@@ -40,19 +49,20 @@ export const SettingsModal = Comp(() => {
   };
 
   const handleClose = async () => {
+    load.cancel();
     store.setIsOpen(false);
     store.setHasUnsavedChanges(false);
 
     return true;
   };
 
-  const handleLoadConfig = async () => {
-    store.setIsLoading(true);
+  const handleLoadConfig = () =>
+    load.run(async (signal) => {
+      const config = await loadConfig(await ipcRenderer.invoke("getConfigPath"));
 
-    const config = await loadConfig(await ipcRenderer.invoke("getConfigPath"));
-    stores.applyConfig(config);
-    store.setIsLoading(false);
-  };
+      signal.throwIfAborted();
+      stores.applyConfig(config);
+    });
 
   const handleFileCardFitContain = () => store.setFileCardFit("contain");
 
@@ -68,6 +78,7 @@ export const SettingsModal = Comp(() => {
     event.preventDefault();
 
     const res = await dialog.showOpenDialog({ properties: ["openDirectory"] });
+
     if (res.canceled) return;
 
     store.setDbPath(res.filePaths[0]);
@@ -77,6 +88,7 @@ export const SettingsModal = Comp(() => {
     event.preventDefault();
 
     const res = await dialog.showOpenDialog({ properties: ["openDirectory"] });
+
     if (res.canceled) return;
 
     store.setSimilarityModelCachePath(res.filePaths[0]);
@@ -86,6 +98,7 @@ export const SettingsModal = Comp(() => {
     event.preventDefault();
 
     const res = await dialog.showOpenDialog({ properties: ["openDirectory"] });
+
     if (res.canceled) return;
 
     store.setVectorDbPath(res.filePaths[0]);
@@ -123,6 +136,7 @@ export const SettingsModal = Comp(() => {
       stores.file.cancelFileRefresh();
 
       const result = await store.save();
+
       if (!result.success) throw new Error(result.error);
 
       store.setIsLoading(false);
@@ -132,6 +146,12 @@ export const SettingsModal = Comp(() => {
       store.setIsLoading(false);
       toast.error("Failed to save settings.");
     }
+  };
+
+  const selectStorageLocation = async () => {
+    const res = await dialog.showOpenDialog({ properties: ["openDirectory"] });
+
+    return res.canceled ? undefined : res.filePaths[0];
   };
 
   const toggleFolderToCollWithTag = () => store.toggleFolderToCollMode();
@@ -148,6 +168,11 @@ export const SettingsModal = Comp(() => {
       width="100%"
       maxWidth="55rem"
     >
+      <LoadingOverlay
+        isLoading={load.isLoading}
+        sub={<Button text="Cancel" icon="Close" onClick={handleClose} />}
+      />
+
       <Modal.Header>
         <Text preset="title">{"Settings"}</Text>
       </Modal.Header>
@@ -168,18 +193,26 @@ export const SettingsModal = Comp(() => {
 
             <Settings.NumInput header="Socket Port" configKey="ports.socket" />
 
-            <Button
-              text="Repair Database"
-              icon="Build"
-              onClick={handleRepair}
-              color={colors.custom.black}
-              padding={{ all: "0.5rem 0.8rem" }}
-            />
+            <View column spacing="0.5rem">
+              <Button
+                text="Repair Database"
+                icon="Build"
+                onClick={handleRepair}
+                color={colors.custom.black}
+              />
+
+              <Button
+                text="Add Storage"
+                icon="Add"
+                onClick={handleAddStorage}
+                colorOnHover={colors.custom.blue}
+              />
+            </View>
 
             {store.repair.isOpen && <RepairModal />}
           </View>
 
-          <Settings.StorageInputs />
+          <Settings.StorageInputs selectLocation={selectStorageLocation} />
         </Settings.Section>
 
         <Settings.Section title="Vectors">

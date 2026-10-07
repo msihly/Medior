@@ -9,6 +9,7 @@ export const useFileDrag = (file: File, selectedIds: string[]) => {
 
   const loadSelectedFiles = async () => {
     const res = await trpc.listFile.mutate({ args: { filter: { id: selectedIds } } });
+
     if (!res?.success) throw new Error(res.error);
 
     return res.data.items;

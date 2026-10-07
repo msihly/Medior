@@ -13,10 +13,10 @@ export const resolveTagCategory = (
     sortRank: tag.category?.sortRank ?? null,
   };
   const visited = new Set([tag.id]);
-  let parentIds = (tag.parentIds ?? []).map(String);
+  const parentIds = new Set((tag.parentIds ?? []).map(String));
 
-  while (parentIds.length) {
-    const parents = parentIds
+  while (parentIds.size && (!category.color || !category.icon || category.sortRank == null)) {
+    const parents = [...parentIds]
       .filter((id) => !visited.has(id))
       .map((id) => tags.get(id))
       .filter(Boolean)
@@ -26,21 +26,21 @@ export const resolveTagCategory = (
           a.id.localeCompare(b.id),
       );
 
-    parentIds = [];
+    parentIds.clear();
 
     for (const parent of parents) {
       if (visited.has(parent.id)) continue;
 
       visited.add(parent.id);
-      parentIds.push(...(parent.parentIds ?? []).map(String));
+
+      for (const id of parent.parentIds ?? []) parentIds.add(String(id));
+
       if (!parent.category?.inheritable) continue;
 
       category.color ||= parent.category.color || null;
       category.icon ||= parent.category.icon || null;
       category.sortRank ??= parent.category.sortRank;
     }
-
-    if (category.color && category.icon && category.sortRank != null) break;
   }
 
   return category;

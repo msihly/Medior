@@ -1,6 +1,5 @@
 import { useRef } from "react";
 import { colors, toast } from "trabecula/utils/client";
-import { durationToSeconds, sleep } from "trabecula/utils/common";
 import {
   Button,
   Card,
@@ -13,6 +12,7 @@ import {
   View,
 } from "medior/components";
 import { useStores } from "medior/store";
+import { parseTimestampPairs, sleep } from "medior/utils/common";
 
 export const Splicer = Comp(() => {
   const stores = useStores();
@@ -25,28 +25,32 @@ export const Splicer = Comp(() => {
   const handleAddPair = async () => {
     store.addTimestampPair();
     await sleep(500);
-    timestampsRef.current.scrollTo({ behavior: "smooth", top: timestampsRef.current.scrollHeight });
+    timestampsRef.current?.scrollTo({
+      behavior: "smooth",
+      top: timestampsRef.current.scrollHeight,
+    });
   };
 
   const handleDeleteTimeline = async () => {
     const res = await store.deleteTimeline();
+
     if (!res.success) toast.error(res.error);
     else toast.warn("Deleted");
   };
 
   const handleRender = () => {
-    const pairs = [...file.timestamps.find((t) => t.id === store.timestampId).pairs].sort(
-      (a, b) => a.order - b.order,
-    );
+    try {
+      stores.file.videoTransformer.setTimestampPairs(
+        parseTimestampPairs(
+          file.timestamps.find((timeline) => timeline.id === store.timestampId).pairs,
+          file.duration,
+        ),
+      );
 
-    stores.file.videoTransformer.setTimestampPairs(
-      pairs.map((pair) => [
-        durationToSeconds(pair.startDuration),
-        durationToSeconds(pair.endDuration),
-      ]),
-    );
-
-    stores.file.openVideoTransformer([file.id], "splice");
+      stores.file.openVideoTransformer([file.id], "splice");
+    } catch (error) {
+      toast.error(error);
+    }
   };
 
   return (
@@ -55,7 +59,8 @@ export const Splicer = Comp(() => {
       height="100%"
       padding={{ all: stores.carousel.isPinned ? "0.5rem" : "3rem 0.5rem 3.5rem 0.5rem" }}
       bgColor="rgb(0 0 0 / 0.5)"
-      style={{ maxWidth: "21rem", minWidth: "21rem" }}
+      maxWidth="21rem"
+      minWidth="21rem"
     >
       <Card column spacing="1rem" height="100%" width="100%" bgColor={colors.background}>
         <View column>
@@ -64,7 +69,7 @@ export const Splicer = Comp(() => {
             options={file.timestamps?.map((t) => ({ label: t.label, value: t.id })) ?? []}
             value={store.timestampId}
             setValue={store.setTimestampId}
-            disabled={!file.timestamps?.length}
+            disabled={!file.timestamps?.length || store.isLoading}
             borders={{ right: "none" }}
             borderRadiuses={{ bottom: 0 }}
           />
@@ -73,6 +78,7 @@ export const Splicer = Comp(() => {
             header="Label"
             value={store.timestampLabel}
             setValue={store.setTimestampLabel}
+            disabled={store.isLoading}
             headerProps={{ borderRadiuses: { top: 0 } }}
           />
         </View>
@@ -98,14 +104,20 @@ export const Splicer = Comp(() => {
 
         <View column spacing="0.5rem">
           <UniformList row spacing="0.5rem">
-            <Button text="Add" icon="Add" onClick={handleAddPair} color={colors.custom.blue} />
+            <Button
+              text="Add"
+              icon="Add"
+              onClick={handleAddPair}
+              color={colors.custom.blue}
+              disabled={store.isLoading}
+            />
 
             <Button
               text="Delete"
               icon="Delete"
               onClick={handleDeleteTimeline}
               color={colors.custom.red}
-              disabled={!store.timestampId}
+              disabled={!store.timestampId || store.isLoading}
             />
           </UniformList>
 
@@ -114,7 +126,7 @@ export const Splicer = Comp(() => {
               text="Save"
               icon="Check"
               onClick={store.saveTimestamps}
-              disabled={!store.hasChanges}
+              disabled={!store.hasChanges || store.isLoading}
               color={colors.custom.green}
             />
 
@@ -123,7 +135,7 @@ export const Splicer = Comp(() => {
               icon="RocketLaunch"
               onClick={handleRender}
               color={colors.custom.purple}
-              disabled={!store.timestampId || store.hasChanges}
+              disabled={!store.timestampId || store.hasChanges || store.isLoading}
             />
           </UniformList>
         </View>

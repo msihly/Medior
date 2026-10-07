@@ -6,6 +6,13 @@ import { addAbortSignal } from "stream";
 import { pipeline } from "stream/promises";
 import { workSignal } from "medior/utils/server/work-signal";
 
+export class MediaChecksumMismatchError extends Error {
+  constructor(public filePath: string) {
+    super(`Media checksum mismatch: ${filePath}`);
+    this.name = "MediaChecksumMismatchError";
+  }
+}
+
 export type MediaOutput = { hash: string; path: string; tempPath: string };
 
 export const copyMediaFile = async (
@@ -18,6 +25,7 @@ export const copyMediaFile = async (
 
   let bytes = 0;
   const stream = createReadStream(source);
+
   if (onProgress) stream.on("data", (chunk) => onProgress((bytes += chunk.length)));
 
   await pipeline(stream, createWriteStream(destination, { flags: exclusive ? "wx" : "w" }), {
@@ -38,6 +46,7 @@ export const hashMediaFile = async (
   if (signal) addAbortSignal(signal, stream);
 
   let bytes = 0;
+
   for await (const chunk of stream) {
     hash.update(chunk);
     onProgress?.((bytes += chunk.length));
@@ -52,7 +61,7 @@ export const syncMediaFile = async (filePath: string, hash?: string) => {
   workSignal.getStore()?.throwIfAborted();
 
   if (hash && (await hashMediaFile(filePath)) !== hash)
-    throw new Error(`Media checksum mismatch: ${filePath}`);
+    throw new MediaChecksumMismatchError(filePath);
 
   const file = await fs.open(filePath, "r+");
 
@@ -83,7 +92,7 @@ export const publishMediaOutput = async (
     if (error.code !== "EEXIST") throw error;
 
     if ((await hashMediaFile(output.path)) !== output.hash)
-      throw new Error(`Media checksum mismatch: ${output.path}`);
+      throw new MediaChecksumMismatchError(output.path);
   }
 
   // A new hard link references the same bytes already verified and flushed above.

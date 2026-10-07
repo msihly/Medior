@@ -1,10 +1,11 @@
 import { useEffect } from "react";
-import { Badge, CircularProgress, Drawer as MuiDrawer } from "@mui/material";
 import {
   BackgroundActivityModal,
   Comp,
   Icon,
   IconButton,
+  ProgressCircle,
+  Text,
   TooltipProps,
   View,
 } from "medior/components";
@@ -18,15 +19,17 @@ export interface DrawerProps {
 }
 
 export const Drawer = Comp(({ hasImports = false, hasSettings = false }: DrawerProps) => {
-  const { css } = useClasses(null);
-
   const stores = useStores();
+
+  const { css, cx } = useClasses(null);
+
+  const activeOperationCount = stores.home.backgroundOperations.filter(
+    ({ status }) => status === "PENDING" || status === "RUNNING",
+  ).length;
 
   const handleActivity = () => {
     stores.home.setIsActivityOpen(true);
   };
-
-  const handleClose = () => stores.home.setIsDrawerOpen(false);
 
   const handleCollections = () => {
     stores.collection.manager.setSelectedFileIds([]);
@@ -55,13 +58,7 @@ export const Drawer = Comp(({ hasImports = false, hasSettings = false }: DrawerP
   }, []);
 
   return (
-    <MuiDrawer
-      PaperProps={{ className: css.drawer }}
-      ModalProps={{ keepMounted: true }}
-      open
-      onClose={handleClose}
-      variant="persistent"
-    >
+    <View className={css.drawer}>
       <View column spacing="0.5rem">
         {hasSettings && (
           <IconButton
@@ -73,35 +70,27 @@ export const Drawer = Comp(({ hasImports = false, hasSettings = false }: DrawerP
         )}
 
         {hasImports && (
-          <Badge
-            badgeContent={
-              stores.import.manager.isPaused ? (
-                <Icon name="Pause" color={colors.custom.orange} />
-              ) : stores.import.manager.isImporting ? (
-                <CircularProgress size={20} color="inherit" />
-              ) : null
-            }
-            overlap="circular"
-          >
+          <View display="inline-flex" position="relative" flex="none">
             <IconButton
               name="GetApp"
               tooltip="Open Import Manager"
               onClick={handleImport}
               {...{ tooltipProps }}
             />
-          </Badge>
+
+            {(stores.import.manager.isPaused || stores.import.manager.isImporting) && (
+              <View className={css.badge}>
+                {stores.import.manager.isPaused ? (
+                  <Icon name="Pause" color={colors.custom.orange} />
+                ) : (
+                  <ProgressCircle size={20} color="inherit" variant="indeterminate" />
+                )}
+              </View>
+            )}
+          </View>
         )}
 
-        <Badge
-          badgeContent={
-            stores.file.videoTransformer.isPaused ? (
-              <Icon name="Pause" color={colors.custom.orange} />
-            ) : stores.file.videoTransformer.isTransforming ? (
-              <CircularProgress size={20} color="inherit" />
-            ) : null
-          }
-          overlap="circular"
-        >
+        <View display="inline-flex" position="relative" flex="none">
           <IconButton
             name="MovieFilter"
             tooltip="Open Media Transformer"
@@ -112,7 +101,18 @@ export const Drawer = Comp(({ hasImports = false, hasSettings = false }: DrawerP
             }}
             {...{ tooltipProps }}
           />
-        </Badge>
+
+          {(stores.file.videoTransformer.isPaused ||
+            stores.file.videoTransformer.isTransforming) && (
+            <View className={css.badge}>
+              {stores.file.videoTransformer.isPaused ? (
+                <Icon name="Pause" color={colors.custom.orange} />
+              ) : (
+                <ProgressCircle size={20} color="inherit" variant="indeterminate" />
+              )}
+            </View>
+          )}
+        </View>
 
         <IconButton
           name="Label"
@@ -145,15 +145,7 @@ export const Drawer = Comp(({ hasImports = false, hasSettings = false }: DrawerP
       </View>
 
       <View column flex={1} justify="flex-end">
-        <Badge
-          badgeContent={
-            stores.home.backgroundOperations.filter(
-              ({ status }) => status === "PENDING" || status === "RUNNING",
-            ).length
-          }
-          color="primary"
-          overlap="circular"
-        >
+        <View display="inline-flex" position="relative" flex="none">
           <IconButton
             name={
               stores.home.hasUnreadErrors
@@ -168,16 +160,29 @@ export const Drawer = Comp(({ hasImports = false, hasSettings = false }: DrawerP
             onClick={handleActivity}
             {...{ tooltipProps }}
           />
-        </Badge>
+
+          {activeOperationCount > 0 && (
+            <View className={cx(css.badge, css.count)}>
+              <Text color="inherit" fontSize="0.75rem" fontWeight={500} lineHeight={1}>
+                {activeOperationCount > 99 ? "99+" : activeOperationCount}
+              </Text>
+            </View>
+          )}
+        </View>
       </View>
 
       {stores.home.isActivityOpen && <BackgroundActivityModal />}
-    </MuiDrawer>
+    </View>
   );
 });
 
-const useClasses = makeClasses({
+const useClasses = makeClasses((_, theme) => ({
   drawer: {
+    position: "fixed",
+    top: 0,
+    left: 0,
+    overflowY: "auto",
+    color: theme.palette.text.primary,
     "&::-webkit-scrollbar": {
       display: "none",
     },
@@ -192,4 +197,22 @@ const useClasses = makeClasses({
     width: CONSTANTS.HOME.DRAWER.WIDTH,
     zIndex: 20,
   },
-});
+  badge: {
+    position: "absolute",
+    top: "14%",
+    right: "14%",
+    transform: "translate(50%, -50%)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    height: 20,
+    minWidth: 20,
+    padding: "0 6px",
+    zIndex: 1,
+  },
+  count: {
+    borderRadius: 10,
+    backgroundColor: theme.palette.primary.main,
+    color: theme.palette.primary.contrastText,
+  },
+}));

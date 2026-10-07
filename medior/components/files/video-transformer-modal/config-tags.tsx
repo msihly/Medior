@@ -10,6 +10,7 @@ export const ConfigTags = Comp(({ configKey, label }: { configKey: string; label
   const ids = store.getConfigByKey<string[]>(configKey as any) ?? [];
 
   const [value, setValue] = useState<TagOption[]>([]);
+
   const lookupId = useRef(0);
 
   useEffect(() => {
@@ -20,7 +21,9 @@ export const ConfigTags = Comp(({ configKey, label }: { configKey: string; label
         if (!ids.length) return setValue([]);
 
         const tags = await stores.tag.listByIds({ ids });
+
         if (requestId !== lookupId.current) return;
+
         if (!tags.success) throw new Error(tags.error);
 
         setValue(tags.data.map(tagToOption));

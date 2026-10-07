@@ -204,6 +204,11 @@ export type ListCollectionsByFileIdsOutput = ReturnType<typeof db.listCollection
 export type ListCollectionIdsByTagIdsInput = Parameters<typeof db.listCollectionIdsByTagIds>[0];
 export type ListCollectionIdsByTagIdsOutput = ReturnType<typeof db.listCollectionIdsByTagIds>;
 
+export type ListFileSelectionCollectionsInput = Parameters<
+  typeof db.listFileSelectionCollections
+>[0];
+export type ListFileSelectionCollectionsOutput = ReturnType<typeof db.listFileSelectionCollections>;
+
 export type RegenCollAttrsInput = Parameters<typeof db.regenCollAttrs>[0];
 export type RegenCollAttrsOutput = ReturnType<typeof db.regenCollAttrs>;
 
@@ -222,8 +227,20 @@ export type CompleteImportBatchOutput = ReturnType<typeof db.completeImportBatch
 export type CopyFileInput = Parameters<typeof db.copyFile>[0];
 export type CopyFileOutput = ReturnType<typeof db.copyFile>;
 
-export type CreateImportBatchesInput = Parameters<typeof db.createImportBatches>[0];
-export type CreateImportBatchesOutput = ReturnType<typeof db.createImportBatches>;
+export type BeginImportBatchUploadInput = Parameters<typeof db.beginImportBatchUpload>[0];
+export type BeginImportBatchUploadOutput = ReturnType<typeof db.beginImportBatchUpload>;
+
+export type AppendImportBatchEntriesInput = Parameters<typeof db.appendImportBatchEntries>[0];
+export type AppendImportBatchEntriesOutput = ReturnType<typeof db.appendImportBatchEntries>;
+
+export type FinishImportBatchUploadInput = Parameters<typeof db.finishImportBatchUpload>[0];
+export type FinishImportBatchUploadOutput = ReturnType<typeof db.finishImportBatchUpload>;
+
+export type DiscardImportBatchUploadInput = Parameters<typeof db.discardImportBatchUpload>[0];
+export type DiscardImportBatchUploadOutput = ReturnType<typeof db.discardImportBatchUpload>;
+
+export type GetImportBatchEntriesInput = Parameters<typeof db.getImportBatchEntries>[0];
+export type GetImportBatchEntriesOutput = ReturnType<typeof db.getImportBatchEntries>;
 
 export type DeleteImportBatchesInput = Parameters<typeof db.deleteImportBatches>[0];
 export type DeleteImportBatchesOutput = ReturnType<typeof db.deleteImportBatches>;
@@ -257,6 +274,18 @@ export type StartImportBatchOutput = ReturnType<typeof db.startImportBatch>;
 
 export type UpdateFileImportByPathInput = Parameters<typeof db.updateFileImportByPath>[0];
 export type UpdateFileImportByPathOutput = ReturnType<typeof db.updateFileImportByPath>;
+
+export type ListFileSearchIdsInput = Parameters<typeof db.listFileSearchIds>[0];
+export type ListFileSearchIdsOutput = ReturnType<typeof db.listFileSearchIds>;
+
+export type DeleteUntrackedStorageFilesInput = Parameters<typeof db.deleteUntrackedStorageFiles>[0];
+export type DeleteUntrackedStorageFilesOutput = ReturnType<typeof db.deleteUntrackedStorageFiles>;
+
+export type RemoveMissingStorageRecordsInput = Parameters<typeof db.removeMissingStorageRecords>[0];
+export type RemoveMissingStorageRecordsOutput = ReturnType<typeof db.removeMissingStorageRecords>;
+
+export type ScanFileStorageInput = Parameters<typeof db.scanFileStorage>[0];
+export type ScanFileStorageOutput = ReturnType<typeof db.scanFileStorage>;
 
 export type GetNextFileTransformInput = Parameters<typeof db.getNextFileTransform>[0];
 export type GetNextFileTransformOutput = ReturnType<typeof db.getNextFileTransform>;
@@ -363,6 +392,15 @@ export type ListFilesByTagIdsOutput = ReturnType<typeof db.listFilesByTagIds>;
 export type ListFilePathsInput = Parameters<typeof db.listFilePaths>[0];
 export type ListFilePathsOutput = ReturnType<typeof db.listFilePaths>;
 
+export type ListFileReingestMetadataInput = Parameters<typeof db.listFileReingestMetadata>[0];
+export type ListFileReingestMetadataOutput = ReturnType<typeof db.listFileReingestMetadata>;
+
+export type ListFileSelectionStateInput = Parameters<typeof db.listFileSelectionState>[0];
+export type ListFileSelectionStateOutput = ReturnType<typeof db.listFileSelectionState>;
+
+export type ListFileTagIdsInput = Parameters<typeof db.listFileTagIds>[0];
+export type ListFileTagIdsOutput = ReturnType<typeof db.listFileTagIds>;
+
 export type ListSortedFileIdsInput = Parameters<typeof db.listSortedFileIds>[0];
 export type ListSortedFileIdsOutput = ReturnType<typeof db.listSortedFileIds>;
 
@@ -414,8 +452,29 @@ export type RefreshFileInfoOutput = ReturnType<typeof db.refreshFileInfo>;
 export type RepairThumbsInput = Parameters<typeof db.repairThumbs>[0];
 export type RepairThumbsOutput = ReturnType<typeof db.repairThumbs>;
 
+export type LoadImageEditPreviewInput = Parameters<typeof db.loadImageEditPreview>[0];
+export type LoadImageEditPreviewOutput = ReturnType<typeof db.loadImageEditPreview>;
+
+export type EditImageInput = Parameters<typeof db.editImage>[0];
+export type EditImageOutput = ReturnType<typeof db.editImage>;
+
 export type RebuildIndexesInput = Parameters<typeof db.rebuildIndexes>[0];
 export type RebuildIndexesOutput = ReturnType<typeof db.rebuildIndexes>;
+
+export type ArchiveLowerResolutionCopyInput = Parameters<typeof db.archiveLowerResolutionCopy>[0];
+export type ArchiveLowerResolutionCopyOutput = ReturnType<typeof db.archiveLowerResolutionCopy>;
+
+export type GetLowerResolutionScanInput = Parameters<typeof db.getLowerResolutionScan>[0];
+export type GetLowerResolutionScanOutput = ReturnType<typeof db.getLowerResolutionScan>;
+
+export type ListLowerResolutionCopiesInput = Parameters<typeof db.listLowerResolutionCopies>[0];
+export type ListLowerResolutionCopiesOutput = ReturnType<typeof db.listLowerResolutionCopies>;
+
+export type PauseLowerResolutionScanInput = Parameters<typeof db.pauseLowerResolutionScan>[0];
+export type PauseLowerResolutionScanOutput = ReturnType<typeof db.pauseLowerResolutionScan>;
+
+export type StartLowerResolutionScanInput = Parameters<typeof db.startLowerResolutionScan>[0];
+export type StartLowerResolutionScanOutput = ReturnType<typeof db.startLowerResolutionScan>;
 
 export type FindSimilarFilesInput = Parameters<typeof db.findSimilarFiles>[0];
 export type FindSimilarFilesOutput = ReturnType<typeof db.findSimilarFiles>;

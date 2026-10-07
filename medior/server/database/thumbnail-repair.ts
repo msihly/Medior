@@ -4,6 +4,7 @@ import { randomUUID } from "crypto";
 import * as models from "medior/_generated/server/models";
 import * as actions from "medior/server/database/actions";
 import {
+  assertMediaPathIndexesReady,
   assertMediaPathsAvailable,
   describeFileCleanup,
   FileOperationModel,
@@ -37,6 +38,8 @@ export const repairThumbnail = async (
   activeRepairs.add(file.id);
 
   try {
+    await assertMediaPathIndexesReady();
+
     let operation = await FileOperationModel.findOne({ fileId: file.id, kind: "thumbnail" }).lean();
 
     if (operation?.thumbnailInput) {
@@ -54,6 +57,7 @@ export const repairThumbnail = async (
       await finishFileOperation(operation._id);
 
       const current = await models.FileModel.findById(file.id).lean();
+
       if (!current) throw new Error("Repaired file no longer exists");
 
       return leanModelToJson<models.FileSchema>(current);
@@ -162,6 +166,7 @@ export const repairThumbnail = async (
           withWaveform: false,
           ...refresh,
         });
+
         if (isGeneratedMediaUnreadable(info))
           throw new Error(
             "Thumbnail generation could not read the source; original thumbnails retained",

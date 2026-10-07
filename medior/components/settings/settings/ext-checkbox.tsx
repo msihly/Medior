@@ -9,11 +9,12 @@ export interface ExtCheckboxProps extends Omit<CheckboxProps, "checked" | "label
 
 export const ExtCheckbox = Comp(({ configKey, ext, ...props }: ExtCheckboxProps) => {
   const stores = useStores();
+  const store = stores.home.settings;
 
-  const extTypes = stores.home.settings.getConfigByKey<string[]>(configKey) ?? [];
+  const extTypes = store.getConfigByKey<string[]>(configKey) ?? [];
 
   const handleChange = (checked: boolean) =>
-    stores.home.settings.update({
+    store.update({
       [configKey]: checked ? [...extTypes, ext] : extTypes.filter((type) => type !== ext),
     });
 

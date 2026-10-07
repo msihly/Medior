@@ -27,6 +27,7 @@ export interface ImportEditorModalProps {
 export const ImportEditorModal = Comp(
   ({ loadingLabel, onSubmit, scan, store, submitText, type }: ImportEditorModalProps) => {
     const [isConfigsModalOpen, setIsConfigsModalOpen] = useState(false);
+
     const progressTotal = store.initProgressTotal;
     const status = store.initProgressStatus || store.saveStatus || loadingLabel;
 

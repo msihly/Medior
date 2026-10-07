@@ -1,12 +1,14 @@
+import remote from "@electron/remote";
 import { MutableRefObject, useContext, useEffect, useRef } from "react";
 import { OnProgressProps } from "react-player/base";
 import ReactPlayer from "react-player/file";
-import { CircularProgress } from "@mui/material";
 import Panzoom, { PanzoomOptions } from "@panzoom/panzoom";
 import {
+  Button,
   Comp,
   FileBase,
   LoadingOverlay,
+  ProgressCircle,
   Splicer,
   Text,
   VideoControls,
@@ -20,22 +22,21 @@ import { VideoContext, ZoomContext } from "medior/views";
 
 export const Carousel = Comp((_, videoRef: MutableRefObject<ReactPlayer>) => {
   const stores = useStores();
-  const activeFile = stores.carousel.getActiveFile();
+  const store = stores.carousel;
 
-  const playbackUrl = stores.carousel.requiresTranscoding
-    ? stores.carousel.mediaSourceUrl
-    : activeFile?.path;
+  const activeFile = store.getActiveFile();
 
-  const activeTranscript = stores.carousel.isCaptionsVisible
+  const playbackUrl = store.requiresTranscoding ? store.mediaSourceUrl : activeFile?.path;
+
+  const activeTranscript = store.isCaptionsVisible
     ? activeFile?.transcription?.segments?.find(
-        ({ end, start }) => stores.carousel.curTime >= start && stores.carousel.curTime <= end,
+        ({ end, start }) => store.curTime >= start && store.curTime <= end,
       )?.text
     : null;
 
   const { css } = useClasses({
-    isPinned: stores.carousel.isPinned,
-    isWaveformVisible:
-      stores.carousel.isWaveformVisible && Boolean(activeFile?.waveformPeaks?.length),
+    isPinned: store.isPinned,
+    isWaveformVisible: store.isWaveformVisible && Boolean(activeFile?.waveformPeaks?.length),
   });
 
   const panZoomRef = useContext(ZoomContext);
@@ -58,74 +59,78 @@ export const Carousel = Comp((_, videoRef: MutableRefObject<ReactPlayer>) => {
             startY: 0,
             step: CONSTANTS.CAROUSEL.ZOOM.STEP,
           } as PanzoomOptions);
-  }, [stores.carousel.activeFileId, stores.carousel.isPinned]);
+
+    return () => {
+      panZoomRef.current?.destroy();
+      panZoomRef.current = null;
+    };
+  }, [activeFile?.path, store.activeFileId, store.isPinned]);
 
   useEffect(() => {
-    if (activeFile?.isVideo) stores.carousel.setIsPlaying(true);
+    if (activeFile?.isVideo) store.setIsPlaying(true);
   }, [activeFile?.isVideo]);
 
   useEffect(() => {
-    stores.carousel.setSeekOffset(0);
-    if (activeFile?.isVideo) stores.carousel.setCurFrame(0, activeFile.frameRate);
+    store.setSeekOffset(0);
 
-    stores.carousel.transcodeVideo();
+    if (activeFile?.isVideo) store.setCurFrame(0, activeFile.frameRate);
+
+    store.transcodeVideo();
 
     return () => videoTranscoder.dispose();
   }, [activeFile?.path]);
 
   useEffect(() => {
-    if (stores.carousel.mediaSourceUrl)
+    if (store.mediaSourceUrl)
       videoTranscoder.setMediaElementGetter(
-        stores.carousel.mediaSourceUrl,
+        store.mediaSourceUrl,
         () => (videoRef.current?.getInternalPlayer() as HTMLMediaElement | undefined) ?? null,
       );
   }, [playbackUrl]);
 
   const isCurrentPlayback = () =>
-    activeFile?.id === stores.carousel.activeFileId &&
+    activeFile?.id === store.activeFileId &&
     playbackUrl ===
-      (stores.carousel.requiresTranscoding
-        ? stores.carousel.mediaSourceUrl
-        : stores.carousel.getActiveFile()?.path);
+      (store.requiresTranscoding ? store.mediaSourceUrl : store.getActiveFile()?.path);
 
   const handleVideoError = (error: Error | Event) => {
     if (!isCurrentPlayback()) return;
-    if (error instanceof Error && error.name === "AbortError") return;
 
-    if (!stores.carousel.requiresTranscoding) {
-      stores.carousel.transcodeVideo({ force: true, seekTime: stores.carousel.curTime });
+    const playbackError =
+      "target" in error
+        ? new Error(
+            (error.target as HTMLMediaElement)?.error?.message ||
+              "The browser could not play the transcoded video.",
+          )
+        : error;
+
+    if (playbackError.name === "AbortError") return;
+
+    if (!store.requiresTranscoding) {
+      store.transcodeVideo({ force: true, seekTime: store.curTime });
     } else {
-      console.error(
-        "[Transcode] Browser playback failed:",
-        error instanceof Error ? error : ((error.target as HTMLMediaElement)?.error ?? error),
-      );
+      console.error("[Transcode] Browser playback failed:", playbackError);
       videoTranscoder.dispose();
-      stores.carousel.handleTranscodeError(
-        error instanceof Error
-          ? error
-          : new Error(
-              (error.target as HTMLMediaElement)?.error?.message ||
-                "The browser could not play the transcoded video.",
-            ),
-      );
+      store.handleTranscodeError(playbackError);
     }
   };
 
   const handleVideoReady = () => {
     if (!isCurrentPlayback()) return;
 
-    stores.carousel.setIsWaitingForFrames(false);
-    if (stores.carousel.mediaSourceUrl) videoTranscoder.markReady(stores.carousel.mediaSourceUrl);
+    store.setIsWaitingForFrames(false);
+
+    if (store.mediaSourceUrl) videoTranscoder.markReady(store.mediaSourceUrl);
   };
 
   const handleVideoEnd = () => {
     if (!isCurrentPlayback()) return;
 
-    stores.carousel.setCurFrame(1, activeFile.frameRate);
+    store.setCurFrame(1, activeFile.frameRate);
 
-    if (stores.carousel.requiresTranscoding) {
-      stores.carousel.transcodeVideo();
-      stores.carousel.setIsPlaying(true);
+    if (store.requiresTranscoding) {
+      store.transcodeVideo();
+      store.setIsPlaying(true);
     } else videoRef.current?.seekTo(0);
   };
 
@@ -134,41 +139,61 @@ export const Carousel = Comp((_, videoRef: MutableRefObject<ReactPlayer>) => {
 
     videoTranscoder.setCurrentTime(args.playedSeconds);
 
-    const frame = round(stores.carousel.seekOffset + args.playedSeconds * activeFile?.frameRate, 0);
+    const frame = round(store.seekOffset + args.playedSeconds * activeFile?.frameRate, 0);
 
-    if (stores.carousel.videoMarks.length === 2 && frame >= stores.carousel.markOut) {
-      if (stores.carousel.requiresTranscoding) {
-        if (stores.carousel.isWaitingForFrames) return;
+    if (store.videoMarks.length === 2 && frame >= store.markOut) {
+      if (store.requiresTranscoding) {
+        if (store.isWaitingForFrames) return;
 
-        stores.carousel.transcodeVideo({
-          seekTime: Fmt.frameToSec(stores.carousel.markIn, activeFile.frameRate),
+        store.transcodeVideo({
+          seekTime: Fmt.frameToSec(store.markIn, activeFile.frameRate),
         });
-      } else videoRef.current.seekTo(stores.carousel.markIn / activeFile.totalFrames, "fraction");
-    } else stores.carousel.setCurFrame(frame, activeFile.frameRate);
+      } else videoRef.current.seekTo(store.markIn / activeFile.totalFrames, "fraction");
+    } else store.setCurFrame(frame, activeFile.frameRate);
   };
 
-  const togglePlaying = () => stores.carousel.setIsPlaying(!stores.carousel.isPlaying);
+  const togglePlaying = () => store.setIsPlaying(!store.isPlaying);
+
+  const handleCancelLoad = () => {
+    stores.file.search.cancelLoad();
+
+    if (stores.collection.manager.isTriagerOpen) {
+      stores.collection.editor.cancelLoad();
+      stores.collection.manager.setIsTriagerOpen(false);
+    } else remote.getCurrentWindow().close();
+  };
 
   return (
     <VideoContext.Provider value={videoRef}>
-      <View column flex={1} overflow="hidden">
+      <View column flex={1} overflow="hidden" position="relative">
+        <LoadingOverlay
+          isLoading={store.isEditingImage || store.isExtractingFrame}
+          sub={
+            store.isExtractingFrame &&
+            !store.isSavingFrame && (
+              <Button text="Cancel" icon="Close" onClick={store.cancelFrameExtraction} />
+            )
+          }
+        />
+
         <View
           flex={1}
           height={
-            stores.carousel.isPinned
-              ? `calc(100% - ${CONSTANTS.CAROUSEL.VIDEO.CONTROLS_HEIGHT}px)`
-              : "100%"
+            store.isPinned ? `calc(100% - ${CONSTANTS.CAROUSEL.VIDEO.CONTROLS_HEIGHT}px)` : "100%"
           }
         >
           {!activeFile ? (
-            <LoadingOverlay isLoading />
+            <LoadingOverlay
+              isLoading
+              sub={<Button text="Cancel" icon="Close" onClick={handleCancelLoad} />}
+            />
           ) : (
             <View row width="100%" height="100%">
               <View ref={zoomRef} column height="100%" width="100%" justify="center">
                 <FileBase.ContextMenu
                   file={activeFile}
                   store={stores.file.search}
-                  carouselFileIds={stores.carousel.selectedFileIds}
+                  carouselFileIds={store.selectedFileIds}
                   className={css.contextMenu}
                 >
                   {activeFile.isVideo ? (
@@ -179,7 +204,7 @@ export const Carousel = Comp((_, videoRef: MutableRefObject<ReactPlayer>) => {
                       onClick={togglePlaying}
                       className={css.videoSurface}
                     >
-                      {stores.carousel.isWaitingForFrames && (
+                      {store.isWaitingForFrames && (
                         <View
                           column
                           align="center"
@@ -190,7 +215,7 @@ export const Carousel = Comp((_, videoRef: MutableRefObject<ReactPlayer>) => {
                           onClick={(event) => event.stopPropagation()}
                           className={css.transcodingOverlay}
                         >
-                          <CircularProgress color="inherit" />
+                          <ProgressCircle color="inherit" variant="indeterminate" />
 
                           <Text preset="title" fontSize="0.9em">
                             {"Transcoding..."}
@@ -202,7 +227,7 @@ export const Carousel = Comp((_, videoRef: MutableRefObject<ReactPlayer>) => {
                         key={playbackUrl ?? activeFile.path}
                         ref={videoRef}
                         url={playbackUrl ?? undefined}
-                        playing={stores.carousel.isPlaying}
+                        playing={store.isPlaying}
                         onEnded={handleVideoEnd}
                         onError={handleVideoError}
                         onProgress={handleVideoProgress}
@@ -210,9 +235,9 @@ export const Carousel = Comp((_, videoRef: MutableRefObject<ReactPlayer>) => {
                         progressInterval={100}
                         width="100%"
                         height="100%"
-                        muted={stores.carousel.volume === 0}
-                        volume={stores.carousel.volume}
-                        playbackRate={stores.carousel.playbackRate}
+                        muted={store.volume === 0}
+                        volume={store.volume}
+                        playbackRate={store.playbackRate}
                       />
 
                       {activeTranscript && (
@@ -224,7 +249,8 @@ export const Carousel = Comp((_, videoRef: MutableRefObject<ReactPlayer>) => {
                       )}
                     </View>
                   ) : (
-                    <img
+                    <View
+                      component="img"
                       src={activeFile.path}
                       alt={activeFile.originalName}
                       draggable={false}
@@ -235,7 +261,7 @@ export const Carousel = Comp((_, videoRef: MutableRefObject<ReactPlayer>) => {
                 </FileBase.ContextMenu>
               </View>
 
-              {stores.carousel.splicer.isOpen && <Splicer />}
+              {store.splicer.isOpen && <Splicer />}
             </View>
           )}
         </View>

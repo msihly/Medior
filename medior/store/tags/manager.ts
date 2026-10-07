@@ -35,19 +35,22 @@ export class TagManagerStore extends Model({
       childIdsToRemove,
       parentIdsToAdd,
       parentIdsToRemove,
+      tagIds,
     }: {
       childIdsToAdd: string[];
       childIdsToRemove: string[];
       parentIdsToAdd: string[];
       parentIdsToRemove: string[];
+      tagIds: string[];
     }) => {
       const res = await trpc.editMultiTagRelations.mutate({
         childIdsToAdd,
         childIdsToRemove,
         parentIdsToAdd,
         parentIdsToRemove,
-        tagIds: this.search.selectedIds,
+        tagIds,
       });
+
       if (!res.success) throw new Error(res.error);
 
       return res.data;
@@ -57,6 +60,7 @@ export class TagManagerStore extends Model({
   @modelFlow
   refreshSelectedTags = asyncAction(async () => {
     const result = await trpc.refreshTag.mutate({ tagIds: this.search.selectedIds });
+
     if (!result.success) throw new Error(result.error);
 
     toast.success("Tag refresh queued in Activity");

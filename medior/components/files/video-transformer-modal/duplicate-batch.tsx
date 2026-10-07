@@ -2,7 +2,7 @@ import { useRef, useState } from "react";
 import { SocketEvents } from "medior/_generated/server/socket";
 import { Button, Card, Comp, Modal, Text, TextProps } from "medior/components";
 import { useStores } from "medior/store";
-import { toast } from "medior/utils/client";
+import { makeClasses, toast } from "medior/utils/client";
 import { chunkArray, CONSTANTS } from "medior/utils/common";
 import { socket, trpc } from "medior/utils/server";
 
@@ -17,11 +17,15 @@ const descriptionProps: TextProps = {
 export const DuplicateBatch = Comp(() => {
   const stores = useStores();
   const store = stores.file.videoTransformer;
+
+  const { css } = useClasses(null);
+
   const cancelled = useRef(false);
+
+  const [failures, setFailures] = useState<string[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [isRunning, setIsRunning] = useState(false);
   const [progress, setProgress] = useState("");
-  const [failures, setFailures] = useState<string[]>([]);
 
   const open = () => {
     setIsOpen(true);
@@ -36,6 +40,7 @@ export const DuplicateBatch = Comp(() => {
     setProgress("Stopping duplicate merge; unfinished work is retained...");
 
     const res = await trpc.cancelFileTransformDuplicateMerge.mutate();
+
     if (!res.success) toast.error(res.error);
   };
 
@@ -47,6 +52,7 @@ export const DuplicateBatch = Comp(() => {
 
     try {
       const candidates = await trpc.listFileTransformDuplicates.mutate();
+
       if (!candidates.success) throw new Error(candidates.error);
 
       setProgress(`Found ${candidates.data.length} duplicates. Starting merge...`);
@@ -64,10 +70,12 @@ export const DuplicateBatch = Comp(() => {
             `${completed + failed + args.completed + args.failed} / ${candidates.data.length} checked; ${completed + args.completed} merged; ${failed + args.failed} need attention.${args.isRegenerating ? " Updating batch metadata..." : ""}`,
           );
         };
+
         socket.on("onDuplicateMergeProgress", onProgress);
 
         try {
           const res = await trpc.mergeFileTransformDuplicate.mutate({ ids });
+
           if (!res.success) throw new Error(res.error);
 
           completed += res.data.completed;
@@ -83,6 +91,7 @@ export const DuplicateBatch = Comp(() => {
 
       if (!candidates.data.length) setProgress("No completed duplicates found.");
       else if (!cancelled.current) setProgress((previous) => `Finished. ${previous}`);
+
       if (cancelled.current) setProgress((previous) => `Stopped. ${previous}`);
 
       await store.loadQueue({ noCache: true, withFullCount: true });
@@ -171,7 +180,7 @@ export const DuplicateBatch = Comp(() => {
                 {...descriptionProps}
                 key={failure}
                 overflowWrap="anywhere"
-                style={{ userSelect: "text" }}
+                className={css.failure}
               >
                 {failure}
               </Text>
@@ -189,4 +198,10 @@ export const DuplicateBatch = Comp(() => {
       )}
     </>
   );
+});
+
+const useClasses = makeClasses({
+  failure: {
+    userSelect: "text",
+  },
 });

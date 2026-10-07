@@ -1,5 +1,4 @@
-import { Divider } from "@mui/material";
-import { Button, Checkbox, CheckboxProps, Comp, NumInput, View } from "medior/components";
+import { Button, Checkbox, CheckboxProps, Comp, Divider, NumInput, View } from "medior/components";
 import { Ingester, Reingester } from "medior/store";
 import { colors } from "medior/utils/client";
 
@@ -39,7 +38,7 @@ export const ImportOptions = Comp(({ scan, store }: ImportOptionsProps) => {
         setChecked={store.options.setIgnorePrevDeleted}
       />
 
-      <Divider />
+      <Divider flexItem={false} />
 
       <Checkbox
         {...checkboxProps}
@@ -48,7 +47,7 @@ export const ImportOptions = Comp(({ scan, store }: ImportOptionsProps) => {
         setChecked={store.options.setUseSavedConfigs}
       />
 
-      <Divider />
+      <Divider flexItem={false} />
 
       <Checkbox
         {...checkboxProps}
@@ -57,7 +56,7 @@ export const ImportOptions = Comp(({ scan, store }: ImportOptionsProps) => {
         setChecked={store.options.setWithNewTagsToRegEx}
       />
 
-      <Divider />
+      <Divider flexItem={false} />
 
       <Checkbox
         {...checkboxProps}
@@ -66,7 +65,7 @@ export const ImportOptions = Comp(({ scan, store }: ImportOptionsProps) => {
         setChecked={store.options.setWithFileNameToTags}
       />
 
-      <Divider />
+      <Divider flexItem={false} />
 
       <Checkbox
         {...checkboxProps}
@@ -109,7 +108,7 @@ export const ImportOptions = Comp(({ scan, store }: ImportOptionsProps) => {
         />
       </View>
 
-      <Divider />
+      <Divider flexItem={false} />
 
       <Checkbox
         {...checkboxProps}
@@ -149,7 +148,7 @@ export const ImportOptions = Comp(({ scan, store }: ImportOptionsProps) => {
         </View>
       </View>
 
-      <Divider />
+      <Divider flexItem={false} />
 
       <Checkbox
         {...checkboxProps}
@@ -158,7 +157,7 @@ export const ImportOptions = Comp(({ scan, store }: ImportOptionsProps) => {
         setChecked={store.options.setWithSidecar}
       />
 
-      <Divider />
+      <Divider flexItem={false} />
 
       <Checkbox
         {...checkboxProps}

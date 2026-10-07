@@ -92,6 +92,7 @@ export const parseDiffParam = <IsNum extends boolean>(
 
     const startIndex = rawParamUnterminated.indexOf(startDelimeter) + startDelimeter.length;
     let endIndex = rawParamUnterminated.indexOf(endDelimiter, startIndex);
+
     if (!(endIndex > 0)) endIndex = undefined;
 
     const value = rawParamUnterminated
@@ -111,6 +112,7 @@ export const parseDiffParam = <IsNum extends boolean>(
 export const parseDiffParams = (diffParams: string): DiffParams => {
   const negPromptEndIndex = diffParams.indexOf("Steps: ");
   let negPromptStartIndex = diffParams.indexOf("Negative prompt: ");
+
   if (negPromptStartIndex < 0) negPromptStartIndex = negPromptEndIndex;
 
   const prompt = diffParams.substring(0, negPromptStartIndex).replace(/(\n|\r)$/gim, "");

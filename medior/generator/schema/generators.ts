@@ -5,19 +5,26 @@ export class ModelDb {
   private defaultSort: ModelDef["defaultSort"];
   private indexes: ModelDef["indexes"] = [];
   private name: ModelDef["name"];
+  private persistence: ModelDef["persistence"];
   private properties: ModelDef["properties"] = [];
+  private withActions: ModelDef["withActions"];
   private withStore: ModelDef["withStore"];
 
   constructor(
     name: string,
-    options?: Partial<Omit<ModelDef, "indexes" | "name" | "properties">> & { noCommon?: boolean },
+    options?: Partial<Omit<ModelDef, "indexes" | "name" | "properties">> & {
+      idDefault?: string;
+      noCommon?: boolean;
+    },
   ) {
     this.name = name;
+    this.persistence = options?.persistence;
     this.defaultPageSize = options?.defaultPageSize;
     this.defaultSort = options?.defaultSort ?? { isDesc: true, key: "dateCreated" };
+    this.withActions = options?.withActions ?? true;
     this.withStore = options?.withStore;
 
-    this.addProp("id", "string", { required: true });
+    this.addProp("id", "string", { defaultValue: options?.idDefault, required: true });
 
     if (!options?.noCommon) {
       this.addIndex({ dateCreated: 1, _id: 1 });
@@ -46,7 +53,9 @@ export class ModelDb {
       defaultSort: this.defaultSort,
       indexes: this.indexes,
       name: this.name,
+      persistence: this.persistence,
       properties: this.properties,
+      withActions: this.withActions,
       withStore: this.withStore,
     };
   }
@@ -68,13 +77,18 @@ export class ModelDb {
 
   public makeSchemaType = (type: string) => {
     let schemaType: string;
+
     if (type.includes("boolean")) schemaType = "Boolean";
+
     if (type.includes("number")) schemaType = "Number";
+
     if (type.includes("string")) schemaType = "String";
+
     if (type.includes(".id"))
       schemaType = type.includes("[]")
         ? `{ type: Schema.Types.ObjectId, ref: "${type.split(".")[0]}" }`
         : "Schema.Types.ObjectId";
+
     if (type.startsWith("Array<") || type.endsWith("[]")) schemaType = `[${schemaType}]`;
 
     return schemaType;
@@ -119,12 +133,13 @@ const makeInterfacesAndSchemaProps = (modelDef: ModelDef, schemaName: string) =>
 };
 
 const makeModel = (modelDef: ModelDef, schemaName: string) =>
-  `export const ${modelDef.name}Model = model<${schemaName}>("${modelDef.name}", ${schemaName});`;
+  `export const ${modelDef.name}Model = ${modelDef.persistence ? "registerPersistenceModel" : "model"}<${schemaName}>("${modelDef.name}", ${schemaName});`;
 
 const makeSchemaDef = (schemaName: string, schemaProps: string[]) =>
   `const ${schemaName} = new Schema<${schemaName}>({ ${schemaProps.join("\n")} });
 
   ${schemaName}.plugin(backgroundExecutionPlugin);
+  ${["FileImportSchema", "FileImportBatchSchema"].includes(schemaName) ? `${schemaName}.plugin(importEntriesPlugin);` : ""}
   ${["FileSchema", "FileTransformSchema", "TagSchema"].includes(schemaName) ? `${schemaName}.plugin(mediaPathPlugin, { modelName: "${schemaName.replace(/Schema$/, "")}" });` : ""}
   ${
     ["FileSchema", "FileCollectionSchema", "FileImportBatchSchema"].includes(schemaName)

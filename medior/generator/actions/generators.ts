@@ -14,7 +14,7 @@ export const getActions = async () => {
 
   const customActionsSet = new Set(customActions.map((a) => a.toUpperCase()));
 
-  const modelActions = MODEL_DEFS.flatMap((def) =>
+  const modelActions = MODEL_DEFS.filter((def) => def.withActions !== false).flatMap((def) =>
     MODEL_ACTIONS.map((action) => `${action}${def.name}`),
   );
 
@@ -115,6 +115,7 @@ export const makeActionsDef = async (
               ? "deleteImportBatches(args)"
               : "deleteFileTransforms(args)"
         };
+
         if (!deleted.success) throw new Error(deleted.error);
 
         socket.emit("on${modelDef.name}Deleted", args, socketOpts);
@@ -205,12 +206,43 @@ export const makeActionsDef = async (
             : ""
         }
 
+        ${
+          modelDef.name === "Tag"
+            ? `const edited = await editTag({ ...args.updates, id: args.id });
+
+        if (!edited.success) throw new Error(edited.error);`
+            : ""
+        }
+
+        ${
+          modelDef.name === "File"
+            ? `if (args.updates.transcription !== undefined)
+          updates.hasTranscript = hasTranscription(args.updates.transcription);
+
+        if (args.updates.timestamps !== undefined) {
+          const file = await models.FileModel.findById(args.id).select({ duration: 1 }).lean();
+
+          if (!file) throw new Error("File not found");
+
+          updates.timestamps = args.updates.timestamps.map((timestamp) => {
+            parseTimestampPairs(timestamp.pairs, file.duration);
+
+            return { ...timestamp, pairs: normalizeTimestampPairs(timestamp.pairs) };
+          });
+        }`
+            : ""
+        }
+
         const updated = leanModelToJson<models.${schemaName}>(
-          await models.${modelDef.name}Model.findByIdAndUpdate(
+          ${
+            modelDef.name === "Tag"
+              ? `await models.TagModel.findById(args.id).lean()`
+              : `await models.${modelDef.name}Model.findByIdAndUpdate(
             args.id,
-            ${withDateModified ? "updates" : "args.updates"},
+            ${modelDef.name === "FileCollection" ? "{ $inc: { __v: 1 }, $set: updates }" : withDateModified ? "updates" : "args.updates"},
             { new: true, ...metadataWriteOptions() }
-          ).lean()
+          ).lean()`
+          }
         );
 
         ${
@@ -266,13 +298,24 @@ export const makeSearchActionsDef = async (
     `args.${prop.name} != null && ${prop.type === "string" ? `args.${prop.name} !== "" && ` : ""}!isDeepEqual(args.${prop.name}, ${prop.defaultValue.replace("() => ", "")})`;
 
   const makeSetObj = (args: { objPath?: string[]; objValue?: string }, target = "$match") => {
-    const appendExpression = target !== "$match" && args.objPath[0] === "$expr";
+    const appendClause =
+      args.objPath[0] === "$expr" || (args.objPath[0] === "_id" && args.objPath[1] === "$in");
 
-    return `${appendExpression ? `(${target}.$and ??= []).push(` : ""}setObj(
-      ${appendExpression ? "{}" : target},
+    let statement: string;
+
+    if (args.objPath.length === 1 && ["$and", "$nor", "$or"].includes(args.objPath[0])) {
+      statement = `(${target}.${args.objPath[0]} ??= []).push(...(${args.objValue}));`;
+    } else if (args.objPath.at(-1) === "$regex") {
+      statement = `addRegexSearchFilter(${target}, ${JSON.stringify(args.objPath)}, ${args.objValue});`;
+    } else {
+      statement = `${appendClause ? `(${target}.$and ??= []).push(` : ""}setObj(
+      ${appendClause ? "{}" : target},
       [${args.objPath.map((p) => (p.charAt(0) === "~" ? p.substring(1) : `"${p}"`)).join(", ")}],
       ${args.objValue}
-    )${appendExpression ? ")" : ""};`;
+    )${appendClause ? ")" : ""};`;
+    }
+
+    return statement;
   };
 
   const makeFilterFn = () => {
@@ -284,9 +327,9 @@ export const makeSearchActionsDef = async (
       ${defaultProps
         .filter((prop) => !prop.filterGroup)
         .map((prop) => `if (${makeDefaultCondition(prop)}) ${makeSetObj(prop)}`)
-        .join("\n")}
+        .join("\n\n")}
 
-      ${customProps.map((prop) => `if (${prop.condition}) ${makeSetObj(prop)}`).join("\n")}
+      ${customProps.map((prop) => `${prop.condition === "true" ? "" : `if (${prop.condition}) `}${makeSetObj(prop)}`).join("\n\n")}
 
       ${[...new Set(defaultProps.map((prop) => prop.filterGroup).filter(Boolean))]
         .sort()
@@ -297,7 +340,7 @@ export const makeSearchActionsDef = async (
           ${defaultProps
             .filter((prop) => prop.filterGroup === group)
             .map((prop) => `if (${makeDefaultCondition(prop)}) ${makeSetObj(prop, "filter")}`)
-            .join("\n")}
+            .join("\n\n")}
 
           if (Object.keys(filter).length) {
             const operator = args.${group}Mode === "optional" ? "$or" : "$and";
@@ -322,26 +365,41 @@ export const makeSearchActionsDef = async (
 
     return `export type ${typeName} = ${filterFn.typeName} & {
       clickedId: string;
-      clickedIndex: number;
       selectedIds: string[];
     }
 
     export const ${fnName} = makeAction(
       async ({
         clickedId,
-        clickedIndex,
         selectedIds,
         ...filterParams
       }: ${typeName}) => {
         const filterPipeline = await ${filterFn.fnName}(filterParams);
 
+        ${
+          def.withCarouselIds
+            ? `const plan = filterParams.ids?.length ? null : await createFileSearchPlan(
+          filterPipeline.$match,
+          Object.fromEntries(Object.keys(filterPipeline.$sort).map((field) => [field, 1])),
+        );`
+            : ""
+        }
+
         return getShiftSelectedItems({
           clickedId,
-          clickedIndex,
           filterPipeline,
           ids: filterParams.ids,
           model: ${modelName},
-          selectedIds,
+          ${
+            def.withCarouselIds
+              ? `searchPlan: plan ? {
+            options: plan.options,
+            pipeline: [...plan.pipeline, ...createFileSearchSortStages(filterPipeline.$sort, plan.hasRegex)],
+          } : undefined,\n`
+              : def.name === "FileImportBatch"
+                ? `searchPlan: { options: {}, pipeline: [...createImportBatchSearchPipeline(filterPipeline.$match), { $sort: filterPipeline.$sort }] },\n`
+                : ""
+          }selectedIds,
         });
       }
     );`;
@@ -351,14 +409,25 @@ export const makeSearchActionsDef = async (
     const countFn = makeFnAndTypeNames(`getFiltered${def.name}Count`, actions);
     const listFn = makeFnAndTypeNames(`listFiltered${def.name}`, actions);
 
-    const makeIdsQuery = () => `${modelName}.aggregate([
-                { $match: { _id: { $in: objectIds(filterParams.ids) } } },
-                { $addFields: { __order: { $indexOfArray: [objectIds(filterParams.ids), "$_id"] } } },
-                { $sort: { __order: 1 } },
-                ...(forcePages ? [{ $skip: Math.max(0, page - 1) * pageSize }, { $limit: pageSize }] : [])
-              ]).allowDiskUse(true).exec()`;
+    const makeIdsQuery = () => `listItemsByIds({
+      ids: filterParams.ids ?? [],
+      model: ${modelName},
+      ...(forcePages ? { page, pageSize } : {}),
+      select,
+    })`;
 
-    const makeListQuery = () => `const items =
+    const makeListQuery = () =>
+      def.name === "FileImportBatch"
+        ? `const items = await (hasIds
+      ? ${makeIdsQuery()}
+      : ${modelName}.aggregate([
+          ...createImportBatchSearchPipeline(filterPipeline.$match),
+          { $sort: filterPipeline.$sort },
+          { $skip: Math.max(0, page - 1) * pageSize },
+          { $limit: pageSize },
+          ...(select ? [{ $project: select }] : []),
+        ]).allowDiskUse(true));`
+        : `const items =
           await (hasIds
             ? ${makeIdsQuery()}
             : ${modelName}.find(filterPipeline.$match)
@@ -376,48 +445,21 @@ export const makeSearchActionsDef = async (
           items = await ${makeIdsQuery()};
           carouselFileIds = items.map((item) => item._id.toString());
         } else {
-          const hasUnindexedRegex = [
+          const searchPlan = await createFileSearchPlan(
             filterPipeline.$match,
-            ...(filterPipeline.$match.$and ?? []),
-            ...(filterPipeline.$match.$or ?? [])
-          ].some(
-            (filter) => ["diffusionParams", "originalPath", "transcription.text"].some(
-              (field) => filter[field]?.$regex instanceof RegExp,
-            ),
+            Object.fromEntries(Object.keys(filterPipeline.$sort).map((key) => [key, 1])),
           );
 
           const [result] = await ${modelName}.aggregate([
-            { $match: filterPipeline.$match },
-            // A computed sort document keeps unindexed regex filtering ahead of sorting.
-            // Carry only sort keys, then fetch full documents for the displayed page.
-            ...(hasUnindexedRegex
-              ? [{
-                  $replaceRoot: {
-                    newRoot: {
-                      _id: "$_id",
-                      sort: Object.fromEntries(
-                        Object.keys(filterPipeline.$sort).map((key) => [key, "$" + key])
-                      ),
-                    },
-                  },
-                }]
-              : []),
-            {
-              $sort: hasUnindexedRegex
-                ? Object.fromEntries(
-                    Object.entries(filterPipeline.$sort).map(([key, direction]) => [
-                      "sort." + key,
-                      direction
-                    ])
-                  )
-                : filterPipeline.$sort
-            },
+            ...searchPlan.pipeline,
+            ...createFileSearchSortStages(filterPipeline.$sort, searchPlan.hasRegex),
             {
               $limit: Math.max(
                 Math.max(0, page - 1) * pageSize + pageSize,
                 Math.max(0, Math.max(0, page - 1) * pageSize - 250) + 501,
               ),
             },
+            { $project: { _id: 1 } },
             {
               $facet: {
                 carouselFiles: [
@@ -428,59 +470,72 @@ export const makeSearchActionsDef = async (
                 items: [
                   { $skip: Math.max(0, page - 1) * pageSize },
                   { $limit: pageSize },
-                  ...(hasUnindexedRegex ? [
-                    { $lookup: {
-                      as: "file",
-                      foreignField: "_id",
-                      from: ${modelName}.collection.name,
-                      localField: "_id",
-                    } },
-                    { $unwind: "$file" },
-                    { $replaceRoot: { newRoot: "$file" } },
-                  ] : []),
-                  ...(select ? [{ $project: select }] : []),
+                  { $project: { _id: 1 } },
                 ],
               },
             },
-          ]).allowDiskUse(true).exec();
+          ]).option(searchPlan.options).allowDiskUse(true).exec();
+
           carouselFileIds = result.carouselFiles.map((item) => item._id.toString());
-          items = result.items;
+          items = select?._id === 1 && Object.keys(select).length === 1
+            ? result.items
+            : await listItemsByIds({
+                ids: result.items.map((item) => item._id.toString()),
+                model: ${modelName},
+                select,
+              });
         }`;
 
-    return `export type ${countFn.typeName} = ${filterFn.typeName} & { curMaxPage: number; page: number; pageSize: number; withFull: boolean; };
+    return `export type ${countFn.typeName} = ${filterFn.typeName} & { curMaxPage: number; forcePages?: boolean; page: number; pageSize: number; withFull: boolean; };
 
     export const ${countFn.fnName} = makeAction(
       async ({
         curMaxPage,
+        forcePages,
         pageSize,
         withFull,
         ...filterParams
       }: ${countFn.typeName}) => {
         const filterPipeline = await ${filterFn.fnName}(filterParams);
+        let count: number;
+        let pageCount: number;
 
-        if (withFull) {
-          const totalDocs = await ${modelName}
-            .countDocuments(filterPipeline.$match)
-            .allowDiskUse(true);
+        if (forcePages || filterParams.ids?.length) {
+          const items = await listItemsByIds({
+            ids: filterParams.ids ?? [],
+            model: ${modelName},
+            select: { _id: 1 },
+          });
 
-          const pageCount = Math.ceil(totalDocs / pageSize);
+          count = items.length;
+          pageCount = Math.ceil(count / pageSize);
+        } else if (withFull) {
+          count = await ${
+            def.withCarouselIds
+              ? "countFileSearchResults(filterPipeline.$match)"
+              : def.name === "FileImportBatch"
+                ? "countImportBatchSearchResults(filterPipeline.$match)"
+                : `${modelName}.countDocuments(filterPipeline.$match).allowDiskUse(true)`
+          };
 
-          return { count: totalDocs, pageCount };
+          pageCount = Math.ceil(count / pageSize);
+        } else {
+          const targetPage = Math.max(1, filterParams.page ?? 1);
+          const targetMaxPage = targetPage >= (curMaxPage ?? 0) ? targetPage + 1000 : curMaxPage;
+          const probeLimit = targetMaxPage * pageSize;
+
+          count = await ${
+            def.withCarouselIds
+              ? "countFileSearchResults(filterPipeline.$match, probeLimit)"
+              : def.name === "FileImportBatch"
+                ? "countImportBatchSearchResults(filterPipeline.$match, probeLimit)"
+                : `${modelName}.countDocuments(filterPipeline.$match, { limit: probeLimit }).allowDiskUse(true)`
+          };
+
+          pageCount = count < probeLimit ? Math.ceil(count / pageSize) : targetMaxPage;
         }
 
-        const targetPage = filterParams.page;
-        const targetMaxPage = targetPage >= curMaxPage ? curMaxPage + 1000 : curMaxPage;
-        const probeLimit = targetMaxPage * pageSize;
-
-        const probeCount = await ${modelName}
-          .countDocuments(filterPipeline.$match, { limit: probeLimit })
-          .allowDiskUse(true);
-
-        const pageCount = probeCount < probeLimit
-          ? Math.ceil(probeCount / pageSize)
-          : targetMaxPage;
-
-        return { count: probeCount, pageCount };
+        return { count, pageCount };
       }
     );
 
@@ -520,6 +575,7 @@ export const makeModelEndpoint = (
 ) => {
   return MODEL_ACTIONS.map((action) => {
     const { fnName } = makeFnAndTypeNames(`${action}${capitalize(modelName)}`, actions);
+
     return `${fnName}: serverEndpoint(db.${fnName})`;
   });
 };
@@ -529,6 +585,7 @@ export const makeSearchEndpoint = (
   actions: { custom: string[]; model: string[] },
 ) => {
   const { fnName } = makeFnAndTypeNames(name, actions);
+
   return `${fnName}: serverEndpoint(db.${fnName})`;
 };
 
@@ -542,7 +599,8 @@ export const makeServerRouter = async () => {
       .join(",");
 
   const makeModelEndpoints = () =>
-    MODEL_DEFS.flatMap((d) => makeModelEndpoint(d.name, actions))
+    MODEL_DEFS.filter((def) => def.withActions !== false)
+      .flatMap((d) => makeModelEndpoint(d.name, actions))
       .sort()
       .join(",");
 

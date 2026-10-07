@@ -8,14 +8,15 @@ import { useStores } from "medior/store";
 
 export const CollectionModals = Comp(() => {
   const stores = useStores();
+  const store = stores.collection;
 
   return (
     <>
-      {stores.collection.manager.isOpen && <FileCollectionManager />}
+      {store.manager.isOpen && <FileCollectionManager />}
 
-      {stores.collection.editor.isOpen && <FileCollectionEditor />}
+      {store.editor.isOpen && <FileCollectionEditor />}
 
-      {stores.collection.isConfirmDeleteOpen && <DeleteCollectionModal />}
+      {store.isConfirmDeleteOpen && <DeleteCollectionModal />}
     </>
   );
 });

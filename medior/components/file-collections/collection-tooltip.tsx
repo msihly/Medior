@@ -17,6 +17,7 @@ export const CollectionTooltip = ({ children, collection }: CollectionTooltipPro
   const handleOpen = async () => {
     try {
       const res = await trpc.listTag.mutate({ filter: { id: collection.tagIds } });
+
       setTags(res.data);
     } catch (err) {
       console.error(err);

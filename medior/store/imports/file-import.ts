@@ -15,6 +15,7 @@ export class FileImport extends ExtendedModel(_FileImport, {
   addTagIds(tagIds: string[]) {
     for (const tagId of tagIds) {
       const existing = this.tagIds.find((id) => id === tagId);
+
       if (!existing) this.tagIds.push(tagId);
     }
   }
@@ -23,6 +24,7 @@ export class FileImport extends ExtendedModel(_FileImport, {
   addTagsToUpsert(tagsToUpsert: TagToUpsert[]) {
     for (const tag of tagsToUpsert) {
       const existing = this.tagsToUpsert.find((t) => t.label === tag.label);
+
       if (!existing) this.tagsToUpsert.push(tag);
     }
   }

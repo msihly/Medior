@@ -40,7 +40,7 @@ export const runBackgroundExecution = async <T>(
   };
 
   const cancel = () => {
-    void cancelExecutions([execution]).catch((error) =>
+    cancelExecutions([execution]).catch((error) =>
       console.error("Failed to interrupt background work:", error),
     );
   };

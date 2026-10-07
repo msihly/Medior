@@ -30,6 +30,8 @@ export class FileTransformSearch extends ExtendedModel(_FileTransformSearch, {
   @modelFlow
   loadFiles = asyncAction(async () => {
     const loadId = this.loadId;
+    const results = this.results;
+
     this.setIsLoading(true);
 
     try {
@@ -45,12 +47,16 @@ export class FileTransformSearch extends ExtendedModel(_FileTransformSearch, {
       }
 
       const res = await trpc.listFile.mutate({ args: { filter: { id: fileIds } } });
-      if (loadId !== this.loadId) return;
+
+      if (loadId !== this.loadId || results !== this.results) return;
+
       if (!res.success) throw new Error(res.error);
 
       const tagIds = [...new Set(res.data.items.flatMap((file) => file.tagIds))];
       const tagRes = await trpc.listTag.mutate({ filter: { id: tagIds } });
-      if (loadId !== this.loadId) return;
+
+      if (loadId !== this.loadId || results !== this.results) return;
+
       if (!tagRes.success) throw new Error(tagRes.error);
 
       const selectTags = makeTagSelector(tagRes.data);
@@ -63,25 +69,21 @@ export class FileTransformSearch extends ExtendedModel(_FileTransformSearch, {
           ]),
         ),
       );
-      this.setIsLoading(false);
-    } catch (error) {
-      if (loadId !== this.loadId) return;
 
       this.setIsLoading(false);
+    } catch (error) {
+      if (loadId !== this.loadId || results !== this.results) return;
+
+      this.setIsLoading(false);
+
       throw error;
     }
   });
 
   @modelFlow
   listIdsForCarousel = asyncAction(async () => {
-    const res = await trpc.listFilteredFileTransform.mutate({
-      ...this.getFilterProps(),
-      page: this.page,
-      pageSize: this.pageSize,
-    });
-    if (!res.success) throw new Error(res.error);
+    const fileIds = this.results.map((transform) => transform.fileId);
 
-    const fileIds = res.data.map((transform) => transform.fileId);
     if (!fileIds.length) throw new Error("No files found");
 
     return fileIds;
@@ -91,9 +93,11 @@ export class FileTransformSearch extends ExtendedModel(_FileTransformSearch, {
   handleFileSelect = asyncAction(
     async ({ hasCtrl, hasShift, id }: { hasCtrl: boolean; hasShift: boolean; id: string }) => {
       const transform = this.getFileTransformByFileId(id);
+
       if (!transform) throw new Error("File transform not found");
 
       const res = await this.handleSelect({ hasCtrl, hasShift, id: transform.id });
+
       if (!res?.success) throw new Error(res.error);
     },
   );
@@ -105,6 +109,7 @@ export class FileTransformSearch extends ExtendedModel(_FileTransformSearch, {
 
   getIsFileSelected(fileId: string) {
     const transform = this.getFileTransformByFileId(fileId);
+
     return transform ? this.getIsSelected(transform.id) : false;
   }
 

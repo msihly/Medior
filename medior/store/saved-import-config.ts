@@ -55,6 +55,7 @@ export const getImportConfigMatch = (
     .map((config) => ({ config, rootFolderPath: config.rootFolderPath }))
     .filter(({ rootFolderPath }) => {
       const normalizedRootPath = normalizeImportConfigPath(rootFolderPath);
+
       return (
         normalizedFolderPath === normalizedRootPath ||
         normalizedFolderPath.startsWith(`${normalizedRootPath}${path.sep}`)

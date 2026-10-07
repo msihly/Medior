@@ -12,10 +12,11 @@ export interface NumInputProps extends NumInputBaseProps {
 
 export const NumInput = Comp(({ configKey, ...props }: NumInputProps) => {
   const stores = useStores();
+  const store = stores.home.settings;
 
-  const value = stores.home.settings.getConfigByKey<number>(configKey) ?? 0;
+  const value = store.getConfigByKey<number>(configKey) ?? 0;
 
-  const setValue = (val: number) => stores.home.settings.update({ [configKey]: val });
+  const setValue = (val: number) => store.update({ [configKey]: val });
 
   return <NumInputBase {...{ setValue, value }} width="8rem" textAlign="center" {...props} />;
 });

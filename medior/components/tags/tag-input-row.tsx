@@ -1,11 +1,11 @@
-import { ReactNode, useState } from "react";
-import { Menu } from "@mui/material";
+import { ReactNode } from "react";
 import {
   Button,
   Comp,
   Icon,
   IconName,
   ListItem,
+  MenuButton,
   MultiInputRow,
   MultiInputRowProps,
   View,
@@ -63,17 +63,14 @@ export const TagInputRow = Comp(
   }: TagInputRowProps) => {
     const stores = useStores();
     const store = stores.tag;
+
     const category = store.getCategory(tag);
-
     const hasClick = hasEditor || !!onClick;
-
     const searchType = hasSearchMenu
       ? search.value.find((t) => t.id === tag?.id)?.searchType
       : null;
 
     const searchMeta = hasSearchMenu ? TAG_SEARCH_META[searchType] : null;
-
-    const [anchorEl, setAnchorEl] = useState(null);
 
     const handleClick = () => {
       onClick?.(tag);
@@ -84,64 +81,57 @@ export const TagInputRow = Comp(
       }
     };
 
-    const handleClose = () => setAnchorEl(null);
-
     const handleMenuClick = (searchType: SearchTagType) =>
       search.onChange(search.value.map((t) => (t.id === tag.id ? { ...t, searchType } : t)));
 
-    const handleOpen = (event) => {
-      event.stopPropagation();
-      setAnchorEl(event.currentTarget);
-    };
-
     return (
-      <>
-        <MultiInputRow
-          {...{ hasDelete, search, style }}
-          bgColor={category?.color}
-          value={tag}
-          valueExtractor={(tag) => tag.label}
-          onClick={hasClick ? handleClick : null}
-          leftNode={
-            !category?.icon ? null : (
-              <Icon
-                name={category.icon}
-                onClick={hasClick ? handleClick : null}
-                size="1em"
-                margins={{ left: "0.3em", right: "-0.2em" }}
-              />
-            )
-          }
-          rightNode={
-            rightNode?.(tag) ??
-            (hasSearchMenu && (
-              <Button
-                onClick={handleOpen}
-                icon={searchMeta?.icon}
-                iconProps={{ color: searchMeta?.color }}
-                color={colors.foreground}
-                padding={{ all: "0.3em" }}
-                boxShadow="none"
-              />
-            ))
-          }
-        />
-
-        <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={handleClose} keepMounted>
-          <View>
-            {hasSearchMenu
-              ? Object.entries(TAG_SEARCH_META).map(([type, { color, icon, text }]) => (
+      <MultiInputRow
+        {...{ hasDelete, search, style }}
+        bgColor={category?.color}
+        value={tag}
+        valueExtractor={(tag) => tag.label}
+        onClick={hasClick ? handleClick : null}
+        leftNode={
+          !category?.icon ? null : (
+            <Icon
+              name={category.icon}
+              onClick={hasClick ? handleClick : null}
+              size="1em"
+              margins={{ left: "0.3em", right: "-0.2em" }}
+            />
+          )
+        }
+        rightNode={
+          rightNode?.(tag) ??
+          (hasSearchMenu && (
+            <MenuButton
+              anchorOrigin={{ horizontal: "left", vertical: "top" }}
+              transformOrigin={{ horizontal: "left", vertical: "top" }}
+              button={(onOpen) => (
+                <Button
+                  onClick={onOpen}
+                  icon={searchMeta?.icon}
+                  iconProps={{ color: searchMeta?.color }}
+                  color={colors.foreground}
+                  padding={{ all: "0.3em" }}
+                  boxShadow="none"
+                />
+              )}
+            >
+              <View onClick={(event) => event.stopPropagation()}>
+                {Object.entries(TAG_SEARCH_META).map(([type, { color, icon, text }]) => (
                   <ListItem
                     key={text}
                     {...{ icon, text }}
                     iconProps={{ color }}
                     onClick={() => handleMenuClick(type as SearchTagType)}
                   />
-                ))
-              : null}
-          </View>
-        </Menu>
-      </>
+                ))}
+              </View>
+            </MenuButton>
+          ))
+        }
+      />
     );
   },
 );

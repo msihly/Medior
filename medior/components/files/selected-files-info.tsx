@@ -1,35 +1,39 @@
 import { useState } from "react";
-import { Comp, Icon, IconName, LoadingOverlay, Text, View } from "medior/components";
-import { useStores } from "medior/store";
-import { colors, CssColor, toast } from "medior/utils/client";
+import { Button, Comp, Icon, IconName, LoadingOverlay, Text, View } from "medior/components";
+import { FileSearch, useStores } from "medior/store";
+import { colors, CssColor, useCancellableLoad } from "medior/utils/client";
 import { Fmt } from "medior/utils/common";
 import { getIsVideo, trpc } from "medior/utils/server";
 
-export const useFileInfo = () => {
+export const useFileInfo = (suppliedStore?: FileSearch) => {
   const stores = useStores();
+  const store = suppliedStore ?? stores.file.search;
 
-  const [isLoading, setIsLoading] = useState(false);
+  const load = useCancellableLoad();
+
   const [totalFiles, setTotalFiles] = useState(0);
+  const [totalFilesSize, setTotalFilesSize] = useState(0);
   const [totalImages, setTotalImages] = useState(0);
   const [totalImagesSize, setTotalImagesSize] = useState(0);
-  const [totalFilesSize, setTotalFilesSize] = useState(0);
   const [totalVideos, setTotalVideos] = useState(0);
   const [totalVideosSize, setTotalVideosSize] = useState(0);
 
-  const loadFileInfo = async () => {
-    try {
-      setIsLoading(true);
+  const loadFileInfo = () =>
+    load.run(async (signal) => {
+      const res = await trpc.listFile.mutate(
+        { args: { filter: { id: store.selectedIds } } },
+        { signal },
+      );
 
-      const res = await trpc.listFile.mutate({
-        args: { filter: { id: stores.file.search.selectedIds } },
-      });
+      signal.throwIfAborted();
+
       if (!res?.success) throw new Error(res.error);
 
       const selectedFiles = res.data.items;
-
       const [images, videos, imagesSize, videosSize] = selectedFiles.reduce(
         (acc, cur) => {
           const isVideo = getIsVideo(cur.ext);
+
           acc[isVideo ? 1 : 0]++;
           acc[isVideo ? 3 : 2] += cur.size;
 
@@ -44,23 +48,14 @@ export const useFileInfo = () => {
       setTotalVideosSize(videosSize);
       setTotalFiles(images + videos);
       setTotalFilesSize(imagesSize + videosSize);
-    } catch (err) {
-      console.error(err);
-      toast.error("Error loading selected files");
-      setTotalImages(0);
-      setTotalImagesSize(0);
-      setTotalVideos(0);
-      setTotalVideosSize(0);
-      setTotalFiles(0);
-      setTotalFilesSize(0);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    });
 
   const renderFileInfo = () => (
     <View position="relative" column>
-      <LoadingOverlay isLoading={isLoading} />
+      <LoadingOverlay
+        isLoading={load.isLoading}
+        sub={<Button text="Cancel" icon="Close" onClick={load.cancel} />}
+      />
 
       <View column padding={{ all: "0.4rem 0.8rem" }}>
         {totalVideos > 0 ? (

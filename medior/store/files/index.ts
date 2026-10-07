@@ -2,6 +2,7 @@ export * from "./file";
 export * from "./file-store";
 export * from "./file-transform";
 export * from "./file-transform-search";
+export * from "./lower-resolution";
 export * from "./search";
 export * from "./similarity";
 export * from "./tags-editor";

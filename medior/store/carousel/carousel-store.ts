@@ -4,8 +4,9 @@ import { Mark } from "@mui/base";
 import autoBind from "auto-bind";
 import { computed } from "mobx";
 import { getRootStore, Model, model, modelAction, modelFlow, prop } from "mobx-keystone";
+import type { ImageEditInput } from "medior/server/database/actions/image-edits";
 import { RootStore, Splicer } from "medior/store";
-import { asyncAction, openCarouselWindow, toast } from "medior/utils/client";
+import { asyncAction, derefMobx, openCarouselWindow, toast } from "medior/utils/client";
 import { Fmt } from "medior/utils/common";
 import { trpc } from "medior/utils/server";
 import { extractVideoFrame, videoTranscoder } from "medior/utils/server/videos";
@@ -22,9 +23,12 @@ export class CarouselStore extends Model({
   curFrame: prop<number>(1),
   curTime: prop<number>(0),
   isCaptionsVisible: prop<boolean>(false),
+  isEditingImage: prop<boolean>(false).withSetter(),
+  isExtractingFrame: prop<boolean>(false).withSetter(),
   isMouseMoving: prop<boolean>(false).withSetter(),
   isPinned: prop<boolean>(false).withSetter(),
   isPlaying: prop<boolean>(true).withSetter(),
+  isSavingFrame: prop<boolean>(false).withSetter(),
   isWaitingForFrames: prop<boolean>(false).withSetter(),
   isWaveformVisible: prop<boolean>(true),
   lastVolume: prop<number>(0.3).withSetter(),
@@ -37,8 +41,11 @@ export class CarouselStore extends Model({
   splicer: prop<Splicer>(() => new Splicer({})).withSetter(),
   transcodeBitrate: prop<number>(6).withSetter(),
   transcodingFileId: prop<string>("").withSetter(),
+  visibleFileIds: prop<string[]>(() => []).withSetter(),
   volume: prop<number>(0.3).withSetter(),
 }) {
+  private frameAbortController: AbortController = null;
+
   onInit() {
     autoBind(this);
 
@@ -47,15 +54,25 @@ export class CarouselStore extends Model({
     const lastVolume = localStorage.getItem(LAST_VOLUME_KEY);
     const volume = localStorage.getItem(VOLUME_KEY);
     const waveformVisible = localStorage.getItem(WAVEFORM_VISIBLE_KEY);
+
     if (captionsVisible !== null) this.isCaptionsVisible = captionsVisible === "true";
+
     if (isPinned !== null) this.isPinned = isPinned === "true";
+
     if (lastVolume !== null && Number.isFinite(Number(lastVolume)))
       this.lastVolume = Number(lastVolume);
+
     if (volume !== null && Number.isFinite(Number(volume))) this.volume = Number(volume);
+
     if (waveformVisible !== null) this.isWaveformVisible = waveformVisible === "true";
   }
 
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
+  @modelAction
+  cancelFrameExtraction() {
+    if (!this.isSavingFrame) this.frameAbortController?.abort();
+  }
+
   @modelAction
   handleTranscodeError(error: unknown) {
     this.setIsWaitingForFrames(false);
@@ -72,6 +89,7 @@ export class CarouselStore extends Model({
   @modelAction
   removeFiles(fileIds: string[]) {
     const stores = getRootStore<RootStore>(this);
+
     const removedIds = new Set(fileIds);
     const newSelectedIds = this.selectedFileIds.filter((id) => !removedIds.has(id));
 
@@ -89,15 +107,15 @@ export class CarouselStore extends Model({
 
     if (fileIds.includes(this.activeFileId)) {
       const newFileId =
-        newSelectedIds[this.activeFileIndex] ?? newSelectedIds[this.activeFileIndex - 1];
+        newSelectedIds[Math.max(0, Math.min(this.activeFileIndex, newSelectedIds.length - 1))];
+
       this.setActiveFileId(newFileId);
       stores.file.setActiveFileId(newFileId);
     }
 
     this.setSelectedFileIds(newSelectedIds);
 
-    stores.file.search.setIds(newSelectedIds);
-    stores.file.search.loadFiltered();
+    this.loadFiles();
   }
 
   @modelAction
@@ -151,36 +169,126 @@ export class CarouselStore extends Model({
 
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */
   @modelFlow
+  editImage = asyncAction(async (args: ImageEditInput) => {
+    const stores = getRootStore<RootStore>(this);
+
+    if (this.isEditingImage) throw new Error("An image edit is already being saved.");
+
+    this.setIsEditingImage(true);
+
+    try {
+      const result = await trpc.editImage.mutate(args);
+
+      if (!result.success) throw new Error(result.error);
+
+      if (args.saveCopy) {
+        const index = this.getFileIndex(args.fileId);
+
+        if (!stores.file.getById(result.data.id))
+          stores.file.addFileAfterIndex(
+            {
+              ...result.data,
+              tags: derefMobx(stores.file.getById(args.fileId)?.tags ?? []),
+            },
+            index,
+          );
+
+        if (!this.selectedFileIds.includes(result.data.id))
+          this.addFileAfterIndex(result.data.id, index);
+
+        stores.file.setActiveFileId(result.data.id);
+        this.setActiveFileId(result.data.id);
+      } else {
+        stores.file.getById(args.fileId)?.update(result.data);
+      }
+
+      return result.data;
+    } finally {
+      this.setIsEditingImage(false);
+    }
+  });
+
+  @modelFlow
   extractFrame = asyncAction(async () => {
+    if (this.isExtractingFrame) return;
+
     const activeFile = this.getActiveFile();
+    const controller = new AbortController();
+    let filePath: string;
+
     if (!activeFile) throw new Error("Active file not found");
 
+    this.frameAbortController = controller;
+    this.setIsExtractingFrame(true);
     this.setIsPlaying(false);
 
-    const filePath = await extractVideoFrame(activeFile.path, this.curFrame);
-    if (!filePath) throw new Error("Error extracting frame");
+    try {
+      filePath = await extractVideoFrame(activeFile.path, this.curFrame, controller.signal);
 
-    const { size } = await fs.stat(filePath);
+      const { size } = await fs.stat(filePath);
 
-    const res = await trpc.importMediaFile.mutate({
-      deleteOnImport: true,
-      ext: "jpg",
-      ignorePrevDeleted: false,
-      originalName: activeFile.originalName,
-      originalPath: filePath,
-      size,
-      tagIds: activeFile.tagIds,
-    });
-    if (!res.success) throw new Error(res.error);
+      controller.signal.throwIfAborted();
+      this.setIsSavingFrame(true);
 
-    await openCarouselWindow({ file: res.data.file, selectedFileIds: [res.data.file.id] });
-    toast.success("Frame extracted");
+      const res = await trpc.importMediaFile.mutate({
+        deleteOnImport: true,
+        ext: "jpg",
+        ignorePrevDeleted: false,
+        originalName: activeFile.originalName,
+        originalPath: filePath,
+        size,
+        tagIds: activeFile.tagIds,
+      });
+
+      if (!res.success) throw new Error(res.error);
+
+      await openCarouselWindow({ file: res.data.file, selectedFileIds: [res.data.file.id] });
+      toast.success("Frame extracted");
+    } catch (error) {
+      if (!controller.signal.aborted) toast.error(error);
+    } finally {
+      try {
+        // The importer owns source cleanup and recovery once the frame has been submitted.
+        if (filePath && !this.isSavingFrame) await fs.rm(filePath, { force: true });
+      } finally {
+        this.frameAbortController = null;
+        this.setIsExtractingFrame(false);
+        this.setIsSavingFrame(false);
+      }
+    }
+  });
+
+  @modelFlow
+  loadFiles = asyncAction(async () => {
+    const stores = getRootStore<RootStore>(this);
+
+    const index = this.activeFileIndex;
+    const ids = [
+      ...new Set(
+        [
+          this.activeFileId,
+          ...this.selectedFileIds.slice(Math.max(0, index - 10), index + 11),
+          ...this.visibleFileIds,
+        ].filter(Boolean),
+      ),
+    ];
+    const search = stores.file.search;
+
+    if (!ids.length) return;
+
+    search.setForcePages(false);
+    search.setIds(ids);
+
+    const result = await search.loadFiltered({ noCache: true });
+
+    if (!result.success) throw new Error(result.error);
   });
 
   @modelFlow
   transcodeVideo = asyncAction(
     async (args?: { force?: boolean; onFirstFrames?: () => void; seekTime?: number }) => {
       const stores = getRootStore<RootStore>(this);
+
       const activeFile = stores.file.getById(this.activeFileId);
 
       if (activeFile?.isVideo && (args?.force || this.requiresTranscoding)) {
@@ -220,6 +328,7 @@ export class CarouselStore extends Model({
   @computed
   get requiresTranscoding() {
     const activeFile = this.getActiveFile();
+
     return Boolean(
       activeFile?.isVideo &&
         (this.transcodingFileId === activeFile.id || !activeFile.isWebPlayable),
@@ -229,8 +338,10 @@ export class CarouselStore extends Model({
   @computed
   get videoMarks() {
     const marks: Mark[] = [];
-    if (this.markIn) marks.push({ label: "A", value: this.markIn });
-    if (this.markOut) marks.push({ label: "B", value: this.markOut });
+
+    if (this.markIn !== null) marks.push({ label: "A", value: this.markIn });
+
+    if (this.markOut !== null) marks.push({ label: "B", value: this.markOut });
 
     return marks;
   }
@@ -238,6 +349,7 @@ export class CarouselStore extends Model({
   /* ----------------------------- DYNAMIC GETTERS ---------------------------- */
   getActiveFile() {
     const stores = getRootStore<RootStore>(this);
+
     return stores.file.getById(this.activeFileId);
   }
 

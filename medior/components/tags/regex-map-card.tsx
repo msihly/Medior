@@ -1,6 +1,5 @@
 import { useMemo } from "react";
-import { InputAdornment } from "@mui/material";
-import { Button, Card, Comp, Input, View } from "medior/components";
+import { Button, Card, Comp, Input, Text, View } from "medior/components";
 import { TagEditorStore } from "medior/store";
 import { colors } from "medior/utils/client";
 import { tagsToRegEx } from "medior/utils/common";
@@ -48,8 +47,16 @@ export const RegExMapCard = Comp(({ disabled = false, store }: RegExMapCardProps
           error={!isRegExValid}
           width="100%"
           InputProps={{
-            endAdornment: <InputAdornment position="end">{"/"}</InputAdornment>,
-            startAdornment: <InputAdornment position="start">{"/"}</InputAdornment>,
+            endAdornment: (
+              <View flex="none" margins={{ left: 8 }}>
+                <Text>{"/"}</Text>
+              </View>
+            ),
+            startAdornment: (
+              <View flex="none" margins={{ right: 8 }}>
+                <Text>{"/"}</Text>
+              </View>
+            ),
           }}
           borderRadiuses={{ left: 0 }}
         />

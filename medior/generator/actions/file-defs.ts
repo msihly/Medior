@@ -26,13 +26,17 @@ export const FILE_DEF_ACTIONS: FileDef = {
       import { deleteImportBatches } from "medior/server/database/actions/file-imports";
       import { deleteFileTransforms } from "medior/server/database/actions/file-transforms";
       import { deleteFiles } from "medior/server/database/actions/files";
+      import { editTag } from "medior/server/database/actions/tags";
       import { assertMediaPathsAvailable } from "medior/server/database/file-operations";
+      import { countFileSearchResults, createFileSearchPlan, createFileSearchSortStages } from "medior/server/database/file-search";
+      import { countImportBatchSearchResults, createImportBatchSearchPipeline } from "medior/server/database/import-search";
       import { getMetadataCreateId, metadataWriteOptions, registerMetadataWork } from "medior/server/database/metadata-work";
       import { SortMenuProps } from "medior/components";
-      import { dayjs, isDeepEqual, LogicalOp, logicOpsToMongo, setObj } from "medior/utils/common";
+      import { addRegexSearchFilter, dayjs, hasTranscription, isDeepEqual, LogicalOp, logicOpsToMongo, normalizeTimestampPairs, parseTimestampPairs, setObj } from "medior/utils/common";
       import {
         getShiftSelectedItems,
         leanModelToJson,
+        listItemsByIds,
         makeAction,
         objectId,
         objectIds,
@@ -42,7 +46,8 @@ export const FILE_DEF_ACTIONS: FileDef = {
     const makeModelActions = async () => {
       const defs: string[] = [];
 
-      for (const def of MODEL_DEFS) defs.push(await makeActionsDef(def, actions));
+      for (const def of MODEL_DEFS.filter((def) => def.withActions !== false))
+        defs.push(await makeActionsDef(def, actions));
 
       return defs.join("\n");
     };
@@ -87,12 +92,14 @@ export const FILE_DEF_TYPES: FileDef = {
     const makeCustomActions = () => makeCustomActionTypes(actions.custom);
 
     const makeModelActions = () =>
-      MODEL_DEFS.map((def) =>
-        makeModelActionTypes(
-          def.name,
-          actions.model.map((a) => `${capitalize(a)}Input`),
-        ),
-      ).join("\n\n");
+      MODEL_DEFS.filter((def) => def.withActions !== false)
+        .map((def) =>
+          makeModelActionTypes(
+            def.name,
+            actions.model.map((a) => `${capitalize(a)}Input`),
+          ),
+        )
+        .join("\n\n");
 
     return `${makeImports()}\n
       ${makeFilterQueryType()}\n

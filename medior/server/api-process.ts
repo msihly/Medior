@@ -11,6 +11,7 @@ import {
   checkServerShutdown,
   closeHttpServer,
   registerProcessLifecycle,
+  reportStartupProgress,
 } from "medior/server/process-lifecycle";
 import { serverRouter } from "medior/server/trpc";
 import { getConfig, loadConfig, setupTRPC, setupVectorTRPC, socket } from "medior/utils/server";
@@ -27,11 +28,13 @@ registerProcessLifecycle({
   },
 
   start: async (message) => {
-    await loadConfig(process.env.CONFIG_PATH);
     await setLogsPath(process.env.LOGS_PATH);
+    reportStartupProgress("Loading API configuration...");
+    await loadConfig(process.env.CONFIG_PATH);
     checkServerShutdown();
     Mongoose.set("strictQuery", true);
 
+    reportStartupProgress("Connecting the API to storage...");
     await Mongoose.connect(message.uri, {
       autoIndex: false,
       family: 4,
@@ -39,12 +42,16 @@ registerProcessLifecycle({
     });
 
     checkServerShutdown();
+    reportStartupProgress("Checking storage readiness...");
 
     const hello = await Mongoose.connection.db.admin().command({ hello: 1 });
+
     checkServerShutdown();
+
     if (hello.setName !== "rs0" || !hello.isWritablePrimary)
       throw new Error("The configured rs0 database is not PRIMARY yet.");
 
+    reportStartupProgress("Opening the API listener...");
     setupTRPC();
     setupVectorTRPC();
 
@@ -52,8 +59,7 @@ registerProcessLifecycle({
 
     await new Promise<void>((resolve, reject) => {
       server.server.once("error", reject);
-      // @ts-expect-error
-      server.listen(getConfig().ports.server, resolve);
+      server.server.listen(getConfig().ports.server, "127.0.0.1", resolve);
     });
 
     checkServerShutdown();

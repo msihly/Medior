@@ -23,6 +23,7 @@ interface TooltipProps {
 
 export const Tooltip = Comp(({ children, disabled, file }: TooltipProps) => {
   const [open, setOpen] = useState(false);
+
   const anchorRef = useRef<HTMLElement>(null);
 
   const handleClose = () => setOpen(false);
@@ -38,11 +39,13 @@ export const Tooltip = Comp(({ children, disabled, file }: TooltipProps) => {
 
   useEffect(() => {
     if (!open) return;
+
     if (disabled) return setOpen(false);
 
     const observer = new MutationObserver(() => {
       if (anchorRef.current?.closest('[aria-hidden="true"]')) setOpen(false);
     });
+
     observer.observe(document.body, {
       attributeFilter: ["aria-hidden"],
       attributes: true,
