@@ -114,18 +114,17 @@ const normalizeKey = (key: string) => (key === " " ? "space" : key.toLowerCase()
 
 export const getHotkey = ({ altKey, ctrlKey, key, metaKey, shiftKey }: HotkeyEvent) => {
   if (["Alt", "Control", "Meta", "Shift"].includes(key)) return null;
-
-  if (key === "Backspace") return "";
-
-  return [
-    ctrlKey ? "Ctrl" : null,
-    altKey ? "Alt" : null,
-    shiftKey ? "Shift" : null,
-    metaKey ? "Meta" : null,
-    key === " " ? "Space" : key.length === 1 ? key.toUpperCase() : key,
-  ]
-    .filter(Boolean)
-    .join("+");
+  else if (key === "Backspace") return "";
+  else
+    return [
+      ctrlKey ? "Ctrl" : null,
+      altKey ? "Alt" : null,
+      shiftKey ? "Shift" : null,
+      metaKey ? "Meta" : null,
+      key === " " ? "Space" : key.length === 1 ? key.toUpperCase() : key,
+    ]
+      .filter(Boolean)
+      .join("+");
 };
 
 export const getHotkeyRating = (event: HotkeyEvent, hotkeys: RatingHotkeys) => {

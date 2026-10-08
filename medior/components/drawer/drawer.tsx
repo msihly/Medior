@@ -26,6 +26,9 @@ export const Drawer = Comp(({ hasImports = false, hasSettings = false }: DrawerP
   const activeOperationCount = stores.home.backgroundOperations.filter(
     ({ status }) => status === "PENDING" || status === "RUNNING",
   ).length;
+  const tooltipProps: Partial<TooltipProps> = {
+    placement: "right",
+  };
 
   const handleActivity = () => {
     stores.home.setIsActivityOpen(true);
@@ -36,8 +39,6 @@ export const Drawer = Comp(({ hasImports = false, hasSettings = false }: DrawerP
     stores.collection.manager.setIsOpen(true);
   };
 
-  const handleDeleteArchivedFiles = () => stores.file.confirmDeleteArchivedFiles();
-
   const handleImport = () => stores.import.manager.setIsOpen(true);
 
   const handleManageTags = () => stores.tag.manager.setIsOpen(true);
@@ -46,8 +47,10 @@ export const Drawer = Comp(({ hasImports = false, hasSettings = false }: DrawerP
 
   const handleSettings = () => stores.home.settings.setIsOpen(true);
 
-  const tooltipProps: Partial<TooltipProps> = {
-    placement: "right",
+  const handleVideoTransformer = () => {
+    stores.file.videoTransformer.setFileIds([]);
+    stores.file.videoTransformer.setFnType(null);
+    stores.file.videoTransformer.setIsOpen(true);
   };
 
   useEffect(() => {
@@ -78,15 +81,10 @@ export const Drawer = Comp(({ hasImports = false, hasSettings = false }: DrawerP
               {...{ tooltipProps }}
             />
 
-            {(stores.import.manager.isPaused || stores.import.manager.isImporting) && (
-              <View className={css.badge}>
-                {stores.import.manager.isPaused ? (
-                  <Icon name="Pause" color={colors.custom.orange} />
-                ) : (
-                  <ProgressCircle size={20} color="inherit" variant="indeterminate" />
-                )}
-              </View>
-            )}
+            <ActivityBadge
+              isPaused={stores.import.manager.isPaused}
+              isRunning={stores.import.manager.isImporting}
+            />
           </View>
         )}
 
@@ -94,24 +92,14 @@ export const Drawer = Comp(({ hasImports = false, hasSettings = false }: DrawerP
           <IconButton
             name="MovieFilter"
             tooltip="Open Media Transformer"
-            onClick={() => {
-              stores.file.videoTransformer.setFileIds([]);
-              stores.file.videoTransformer.setFnType(null);
-              stores.file.videoTransformer.setIsOpen(true);
-            }}
+            onClick={handleVideoTransformer}
             {...{ tooltipProps }}
           />
 
-          {(stores.file.videoTransformer.isPaused ||
-            stores.file.videoTransformer.isTransforming) && (
-            <View className={css.badge}>
-              {stores.file.videoTransformer.isPaused ? (
-                <Icon name="Pause" color={colors.custom.orange} />
-              ) : (
-                <ProgressCircle size={20} color="inherit" variant="indeterminate" />
-              )}
-            </View>
-          )}
+          <ActivityBadge
+            isPaused={stores.file.videoTransformer.isPaused}
+            isRunning={stores.file.videoTransformer.isTransforming}
+          />
         </View>
 
         <IconButton
@@ -138,7 +126,7 @@ export const Drawer = Comp(({ hasImports = false, hasSettings = false }: DrawerP
         <IconButton
           name={stores.file.hasArchivedFiles ? "Delete" : "DeleteOutline"}
           tooltip="Delete Archived Files"
-          onClick={handleDeleteArchivedFiles}
+          onClick={stores.file.confirmDeleteArchivedFiles}
           disabled={!stores.file.hasArchivedFiles}
           {...{ tooltipProps }}
         />
@@ -172,6 +160,22 @@ export const Drawer = Comp(({ hasImports = false, hasSettings = false }: DrawerP
       </View>
 
       {stores.home.isActivityOpen && <BackgroundActivityModal />}
+    </View>
+  );
+});
+
+const ActivityBadge = Comp(({ isPaused, isRunning }: { isPaused: boolean; isRunning: boolean }) => {
+  const { css } = useClasses(null);
+
+  if (!isPaused && !isRunning) return null;
+
+  return (
+    <View className={css.badge}>
+      {isPaused ? (
+        <Icon name="Pause" color={colors.custom.orange} />
+      ) : (
+        <ProgressCircle size={20} color="inherit" variant="indeterminate" />
+      )}
     </View>
   );
 });

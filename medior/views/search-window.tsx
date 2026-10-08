@@ -9,7 +9,7 @@ import { useSockets, Views } from "./common";
 export const SearchWindow = Comp(() => {
   const stores = useStores();
 
-  const { css } = useClasses({ isDrawerOpen: stores.home.isDrawerOpen });
+  const { css } = useClasses(null);
 
   useSockets({ view: "search" });
 

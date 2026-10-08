@@ -14,6 +14,8 @@ import {
   checkBackgroundExecution,
   runBackgroundExecution,
 } from "medior/server/database/background-execution";
+import { getBackgroundSession } from "medior/server/database/database-context";
+import { mergeDuplicateFile } from "medior/server/database/duplicate-merge";
 import {
   assertMediaPathIndexesReady,
   assertMediaPathsAvailable,
@@ -26,7 +28,6 @@ import {
 import { recoverDirectImports } from "medior/server/database/media-import";
 import { withMetadataMutation } from "medior/server/database/metadata-mutations";
 import {
-  getBackgroundSession,
   getMetadataCreateId,
   metadataWriteOptions,
   registerMetadataWork,
@@ -46,10 +47,6 @@ import {
   getOrientedSizeLimits,
   validateTimestampPairs,
 } from "medior/utils/common";
-import {
-  mergeDuplicateMetadata,
-  replaceDuplicateCollectionReferences,
-} from "medior/utils/common/duplicate-metadata";
 import { leanModelToJson, makeAction, objectIds, socket } from "medior/utils/server";
 import { getAvailableFileStorage, getConfig, getIsImage } from "medior/utils/server/config";
 import { hashMediaFile, recoverMediaOutput, syncMediaFile } from "medior/utils/server/media-output";
@@ -157,10 +154,10 @@ const makeBeforeAttrs = (file: models.FileSchema) => ({
   beforeAudioCodec: file.audioCodec,
   beforeBitrate: file.bitrate,
   beforeDuration: file.duration,
+  beforeExt: file.ext,
   beforeFrameRate: file.frameRate,
   beforeHash: file.hash,
   beforeHeight: file.height,
-  beforeExt: file.ext,
   beforePath: file.path,
   beforeSize: file.size,
   beforeVideoCodec: file.videoCodec,
@@ -172,10 +169,10 @@ const makeAfterAttrs = (info: MediaInfo, path: string, hash: string) => ({
   afterAudioCodec: info.audioCodec,
   afterBitrate: info.bitrate,
   afterDuration: info.duration,
+  afterExt: info.ext,
   afterFrameRate: info.frameRate,
   afterHash: hash,
   afterHeight: info.height,
-  afterExt: info.ext,
   afterPath: path,
   afterSize: info.size,
   afterVideoCodec: info.videoCodec,
@@ -621,49 +618,49 @@ export const deleteFileTransforms = makeAction(
         socket.emitReliable("onFileTransformDeleted", { ids: args.ids });
 
         return result;
-      }
+      } else {
+        const transforms = await models.FileTransformModel.find({ _id: { $in: args.ids } })
+          .select({ afterPath: 1, outputTempPath: 1 })
+          .lean();
 
-      const transforms = await models.FileTransformModel.find({ _id: { $in: args.ids } })
-        .select({ afterPath: 1, outputTempPath: 1 })
-        .lean();
+        await retireTransformPreparations(args.ids);
 
-      await retireTransformPreparations(args.ids);
+        for (const batch of chunkArray(transforms, 500)) {
+          const paths = new Set(
+            batch
+              .flatMap((transform) => [transform.afterPath, transform.outputTempPath])
+              .filter(Boolean),
+          );
+          const cleanup = [];
 
-      for (const batch of chunkArray(transforms, 500)) {
-        const paths = new Set(
-          batch
-            .flatMap((transform) => [transform.afterPath, transform.outputTempPath])
-            .filter(Boolean),
-        );
-        const cleanup = [];
+          for (const path of paths) {
+            const file = await describeFileCleanup(path);
 
-        for (const path of paths) {
-          const file = await describeFileCleanup(path);
+            if (file) cleanup.push(file);
+          }
 
-          if (file) cleanup.push(file);
+          if (cleanup.length)
+            await FileOperationModel.updateOne(
+              {
+                _id: String(
+                  getMetadataCreateId(
+                    `deleteTransforms:${batch.map((transform) => String(transform._id)).join()}`,
+                  ),
+                ),
+              },
+              { $setOnInsert: { cleanup, state: "COMMITTED" } },
+              { ...metadataWriteOptions(), upsert: true },
+            );
         }
 
-        if (cleanup.length)
-          await FileOperationModel.updateOne(
-            {
-              _id: String(
-                getMetadataCreateId(
-                  `deleteTransforms:${batch.map((transform) => String(transform._id)).join()}`,
-                ),
-              ),
-            },
-            { $setOnInsert: { cleanup, state: "COMMITTED" } },
-            { ...metadataWriteOptions(), upsert: true },
-          );
+        const result = await models.FileTransformModel.deleteMany({ _id: { $in: args.ids } });
+
+        runFileCleanupQueue();
+
+        socket.emitReliable("onFileTransformDeleted", { ids: args.ids });
+
+        return result;
       }
-
-      const result = await models.FileTransformModel.deleteMany({ _id: { $in: args.ids } });
-
-      runFileCleanupQueue();
-
-      socket.emitReliable("onFileTransformDeleted", { ids: args.ids });
-
-      return result;
     },
     true,
   ),
@@ -840,159 +837,109 @@ const mergeDuplicateTransform = async (
     const transform = await models.FileTransformModel.findById(args.id).lean();
 
     if (transform?.status === "MERGED") {
-      if (!transform.regenerationPending) return;
+      if (transform.regenerationPending) {
+        const files = await models.FileModel.find({
+          _id: { $in: [transform.fileId, transform.duplicateFileId] },
+        }).lean();
 
-      const files = await models.FileModel.find({
-        _id: { $in: [transform.fileId, transform.duplicateFileId] },
-      }).lean();
+        await actions.queueTagMetadataRegen([
+          ...files.flatMap((file) => file.tagIds.map(String)),
+          ...(transform.regenerationTagIds ?? []).map(String),
+        ]);
 
-      await actions.queueTagMetadataRegen([
-        ...files.flatMap((file) => file.tagIds.map(String)),
-        ...(transform.regenerationTagIds ?? []).map(String),
-      ]);
+        const collections = await actions.regenCollAttrs({
+          fileIds: files.map((file) => file._id.toString()),
+        });
 
-      const collections = await actions.regenCollAttrs({
-        fileIds: files.map((file) => file._id.toString()),
+        if (!collections.success) throw new Error(collections.error);
+
+        await completeDuplicateMerge(args.id);
+      }
+    } else {
+      if (!transform || transform.type === "splice" || transform.status !== "DUPLICATE")
+        throw new Error("Only duplicate media transforms can be merged");
+
+      if (
+        transform.beforeHash !== verified.beforeHash ||
+        transform.beforePath !== verified.beforePath ||
+        transform.afterHash !== verified.afterHash ||
+        transform.afterPath !== verified.afterPath
+      )
+        throw new Error("Transform changed during verification");
+
+      const original = await models.FileModel.findById(transform.fileId).lean();
+      const match = await models.FileModel.findById(verified.duplicateFileId).lean();
+
+      if (!original)
+        throw new Error(
+          `Original file record ${transform.fileId} is missing for ${transform.beforePath}. If the file is permanently gone, use Remove Failed Records in Activity.`,
+        );
+
+      if (!match)
+        throw new Error(
+          `Matched file record ${verified.duplicateFileId} is missing for ${verified.duplicatePath}. Retry to search for a current match.`,
+        );
+
+      if (original._id.equals(match._id))
+        throw new Error(
+          `Transform ${args.id} points to the same original and matched file (${original._id}). No files were merged or archived.`,
+        );
+
+      if (match.isArchived)
+        throw new Error("The matched file is archived; unarchive it before merging");
+
+      if (original.hash !== transform.beforeHash || original.path !== transform.beforePath)
+        throw new Error("The original file has changed since this transform was created");
+
+      if (match.hash !== verified.afterHash || match.path !== verified.duplicatePath)
+        throw new Error("Matched file changed during verification");
+
+      if (
+        original.isArchived &&
+        (await models.FileTransformModel.exists({
+          duplicateFileId: { $ne: match._id },
+          fileId: original._id,
+          status: { $in: ["DUPLICATE", "MERGED"] },
+        }))
+      )
+        throw new Error("The archived original has a merge targeting a different file");
+
+      await mergeDuplicateFile(original, match);
+
+      fileTransformerStatus.setActiveFileId(null, args.id);
+
+      const archived = await actions.setFileIsArchived({
+        fileIds: [original._id.toString()],
+        isArchived: true,
       });
 
-      if (!collections.success) throw new Error(collections.error);
+      if (!archived.success) throw new Error(archived.error);
+
+      await updateFileTransform(args.id, {
+        duplicateFileId: String(match._id),
+        duplicatePath: match.path,
+        errorMsg: null,
+        regenerationPending: true,
+        status: "MERGED",
+      });
+
+      if (transform.regenerationTagIds?.length)
+        await actions.queueTagMetadataRegen(transform.regenerationTagIds.map(String));
 
       await completeDuplicateMerge(args.id);
 
-      return;
-    }
-
-    if (!transform || transform.type === "splice" || transform.status !== "DUPLICATE")
-      throw new Error("Only duplicate media transforms can be merged");
-
-    if (
-      transform.beforeHash !== verified.beforeHash ||
-      transform.beforePath !== verified.beforePath ||
-      transform.afterHash !== verified.afterHash ||
-      transform.afterPath !== verified.afterPath
-    )
-      throw new Error("Transform changed during verification");
-
-    const original = await models.FileModel.findById(transform.fileId).lean();
-    const match = await models.FileModel.findById(verified.duplicateFileId).lean();
-
-    if (!original)
-      throw new Error(
-        `Original file record ${transform.fileId} is missing for ${transform.beforePath}. If the file is permanently gone, use Remove Failed Records in Activity.`,
-      );
-
-    if (!match)
-      throw new Error(
-        `Matched file record ${verified.duplicateFileId} is missing for ${verified.duplicatePath}. Retry to search for a current match.`,
-      );
-
-    if (original._id.equals(match._id))
-      throw new Error(
-        `Transform ${args.id} points to the same original and matched file (${original._id}). No files were merged or archived.`,
-      );
-
-    if (match.isArchived)
-      throw new Error("The matched file is archived; unarchive it before merging");
-
-    if (original.hash !== transform.beforeHash || original.path !== transform.beforePath)
-      throw new Error("The original file has changed since this transform was created");
-
-    if (match.hash !== verified.afterHash || match.path !== verified.duplicatePath)
-      throw new Error("Matched file changed during verification");
-
-    if (
-      original.isArchived &&
-      (await models.FileTransformModel.exists({
-        duplicateFileId: { $ne: match._id },
-        fileId: original._id,
-        status: { $in: ["DUPLICATE", "MERGED"] },
-      }))
-    )
-      throw new Error("The archived original has a merge targeting a different file");
-
-    const metadata = mergeDuplicateMetadata(original, match);
-
-    const updated = await actions.updateFile({
-      args: {
-        id: match._id.toString(),
-        updates: {
-          diffusionParams: metadata.diffusionParams,
-          hasTranscript: metadata.hasTranscript,
-          originalName: metadata.originalName,
-          timestamps: metadata.timestamps,
-          transcription: metadata.transcription,
-        },
-      },
-    });
-
-    if (!updated.success) throw new Error(updated.error);
-
-    if (metadata.tagIds.length) {
-      const tagged = await actions.editFileTags({
-        addedTagIds: metadata.tagIds,
-        fileIds: [match._id.toString()],
+      socket.emit("onFileTransformUpdated", {
+        id: args.id,
+        updates: { errorMsg: null, regenerationPending: false, status: "MERGED" },
       });
 
-      if (!tagged.success) throw new Error(tagged.error);
-    }
+      socket.emit("onFilesArchived", { fileIds: [verified.fileId.toString()] });
 
-    const rated = await actions.setFileRating({
-      fileIds: [match._id.toString()],
-      rating: metadata.rating,
-    });
-
-    if (!rated.success) throw new Error(rated.error);
-
-    const collections = await models.FileCollectionModel.find({
-      "fileIdIndexes.fileId": original._id,
-    }).lean();
-
-    for (const collection of collections) {
-      const updatedCollection = await actions.updateCollection({
-        fileIdIndexes: replaceDuplicateCollectionReferences(
-          collection.fileIdIndexes,
-          original._id.toString(),
-          match._id.toString(),
-        ),
-        id: collection._id.toString(),
+      socket.emit("onFilesUpdated", {
+        fileIds: [verified.fileId.toString()],
+        updates: { isArchived: true },
       });
-
-      if (!updatedCollection.success) throw new Error(updatedCollection.error);
     }
-
-    fileTransformerStatus.setActiveFileId(null, args.id);
-
-    const archived = await actions.setFileIsArchived({
-      fileIds: [original._id.toString()],
-      isArchived: true,
-    });
-
-    if (!archived.success) throw new Error(archived.error);
-
-    await updateFileTransform(args.id, {
-      duplicateFileId: String(match._id),
-      duplicatePath: match.path,
-      errorMsg: null,
-      regenerationPending: true,
-      status: "MERGED",
-    });
-
-    if (transform.regenerationTagIds?.length)
-      await actions.queueTagMetadataRegen(transform.regenerationTagIds.map(String));
-
-    await completeDuplicateMerge(args.id);
-
-    socket.emit("onFileTransformUpdated", {
-      id: args.id,
-      updates: { errorMsg: null, regenerationPending: false, status: "MERGED" },
-    });
-
-    socket.emit("onFilesArchived", { fileIds: [verified.fileId.toString()] });
-
-    socket.emit("onFilesUpdated", {
-      fileIds: [verified.fileId.toString()],
-      updates: { isArchived: true },
-    });
   });
 
 const processDuplicateMergeQueue = async (operationId?: string, batchId?: string) => {
@@ -1178,12 +1125,10 @@ const retainTransformRecoveryFailure = async (id: string, error: Error) => {
 
     await models.FileTransformModel.updateOne({ _id: id }, updates);
     socket.emitReliable("onFileTransformUpdated", { id, updates });
-
-    return;
+  } else {
+    await updateFileTransform(id, { errorMsg: `Recovery pending: ${error.message}` });
+    console.error("Transform recovery retained for retry:", error);
   }
-
-  await updateFileTransform(id, { errorMsg: `Recovery pending: ${error.message}` });
-  console.error("Transform recovery retained for retry:", error);
 };
 
 export const resumeFileTransformer = makeAction(async () => {
@@ -1226,52 +1171,50 @@ const finishTransformCleanup = async (id: string) => {
           errorMsg: null,
         },
       );
+    } else {
+      if (transform.status !== "REPLACED")
+        throw new Error("Unexpected cleanup state; files retained");
 
-      return;
-    }
+      if (!mediaPathPattern(transform.beforePath).test(transform.afterPath)) {
+        let originalExists = false;
 
-    if (transform.status !== "REPLACED")
-      throw new Error("Unexpected cleanup state; files retained");
+        try {
+          await fs.stat(transform.beforePath);
+          originalExists = true;
+        } catch (error) {
+          if (error.code !== "ENOENT") throw error;
+        }
 
-    if (!mediaPathPattern(transform.beforePath).test(transform.afterPath)) {
-      const originalExists = await fs
-        .stat(transform.beforePath)
-        .then(() => true)
-        .catch((error) => {
-          if (error.code === "ENOENT") return false;
+        if (
+          originalExists &&
+          !(await isMediaPathReferenced(transform.beforePath, { transformId: id }))
+        ) {
+          const file = await models.FileModel.findById(transform.fileId)
+            .select({ hash: 1, path: 1 })
+            .lean();
 
-          throw error;
-        });
+          if (!file?.path || !file.hash)
+            throw new Error("Replacement metadata missing; original retained");
 
-      if (
-        originalExists &&
-        !(await isMediaPathReferenced(transform.beforePath, { transformId: id }))
-      ) {
-        const file = await models.FileModel.findById(transform.fileId)
-          .select({ hash: 1, path: 1 })
-          .lean();
+          // A later replacement may already have superseded this transform's output.
+          await syncMediaFile(file.path, file.hash);
 
-        if (!file?.path || !file.hash)
-          throw new Error("Replacement metadata missing; original retained");
+          if ((await hashMediaFile(transform.beforePath)) !== transform.beforeHash)
+            throw new Error("Original checksum changed; original retained");
 
-        // A later replacement may already have superseded this transform's output.
-        await syncMediaFile(file.path, file.hash);
+          checkBackgroundExecution();
 
-        if ((await hashMediaFile(transform.beforePath)) !== transform.beforeHash)
-          throw new Error("Original checksum changed; original retained");
+          const diskRes = await deleteFile(transform.beforePath, file.path);
 
-        checkBackgroundExecution();
-
-        const diskRes = await deleteFile(transform.beforePath, file.path);
-
-        if (!diskRes.success) throw new Error(diskRes.error);
+          if (!diskRes.success) throw new Error(diskRes.error);
+        }
       }
-    }
 
-    await models.FileTransformModel.updateOne(
-      { _id: id, status: "REPLACED" },
-      { cleanupPending: false, errorMsg: null },
-    );
+      await models.FileTransformModel.updateOne(
+        { _id: id, status: "REPLACED" },
+        { cleanupPending: false, errorMsg: null },
+      );
+    }
   } catch (error) {
     if (backgroundExecution.getStore()?.cancelled || isServerStopping()) throw error;
 
@@ -1310,144 +1253,144 @@ const replaceTransformOutput = async (args: { id: string }, outputInfo?: MediaIn
     runTransformCleanupQueue();
 
     return { status: "REPLACED" as const };
-  }
+  } else if (transform.status === "DUPLICATE") return { status: "DUPLICATE" as const };
+  else {
+    const source = await models.FileModel.findById(transform.fileId)
+      .select({ hash: 1, path: 1, thumb: 1 })
+      .lean();
 
-  if (transform.status === "DUPLICATE") return { status: "DUPLICATE" as const };
-
-  const source = await models.FileModel.findById(transform.fileId)
-    .select({ hash: 1, path: 1, thumb: 1 })
-    .lean();
-
-  if (!source) throw new Error("Original file not found");
-
-  if (
-    source.hash !== transform.afterHash &&
-    (await hashMediaFile(transform.beforePath)) !== transform.beforeHash
-  )
-    throw new Error("Original checksum changed; replacement cancelled");
-
-  const info = outputInfo ?? (await getMediaInfo(transform.afterPath));
-
-  await assertTransformPreservesAnimation(transform, info);
-
-  const fileInfo = await prepareTransformMetadata(args.id, {
-    filePath: transform.afterPath,
-    hash: transform.afterHash,
-    withTranscription: false,
-    withWaveform: true,
-  });
-
-  if (isGeneratedMediaUnreadable(fileInfo)) throw new Error("Replacement media could not be read");
-
-  // Preserve concurrent transcript edits for remuxes; reencoding explicitly clears them below.
-  delete fileInfo.hasTranscript;
-  delete fileInfo.transcription;
-
-  if (fileInfo.thumb?.path) await syncMediaFile(fileInfo.thumb.path);
-
-  const previousThumb = await describeFileCleanup(source.thumb?.path, fileInfo.thumb?.path);
-
-  const fileUpdates = {
-    ...fileInfo,
-    ...info,
-    ...(transform.type === "reencode" ? { hasTranscript: false, transcription: null } : {}),
-    hash: transform.afterHash,
-    path: transform.afterPath,
-  };
-
-  const preparedAt = Date.now();
-
-  const result = await (async () => {
-    const current = await models.FileTransformModel.findById(args.id).lean();
-    const original = await models.FileModel.findById(transform.fileId).lean();
+    if (!source) throw new Error("Original file not found");
 
     if (
-      !current ||
-      current.afterHash !== transform.afterHash ||
-      current.afterPath !== transform.afterPath
+      source.hash !== transform.afterHash &&
+      (await hashMediaFile(transform.beforePath)) !== transform.beforeHash
     )
-      throw new Error("Transform changed during finalization");
+      throw new Error("Original checksum changed; replacement cancelled");
 
-    if (
-      !original ||
-      !(
-        (original.hash === transform.beforeHash && original.path === transform.beforePath) ||
-        (original.hash === transform.afterHash && original.path === transform.afterPath)
-      ) ||
-      original.thumb?.path !== source.thumb?.path
-    )
-      throw new Error("Original changed during finalization");
+    const info = outputInfo ?? (await getMediaInfo(transform.afterPath));
 
-    const duplicate = await models.FileModel.findOne({
-      _id: { $ne: original._id },
+    await assertTransformPreservesAnimation(transform, info);
+
+    const fileInfo = await prepareTransformMetadata(args.id, {
+      filePath: transform.afterPath,
       hash: transform.afterHash,
-    }).lean();
+      withTranscription: false,
+      withWaveform: true,
+    });
 
-    if (duplicate) {
-      const duplicateResult = await recordDuplicateTransform(
-        args.id,
-        info,
-        { hash: transform.afterHash, path: transform.afterPath },
-        duplicate,
-      );
+    if (isGeneratedMediaUnreadable(fileInfo))
+      throw new Error("Replacement media could not be read");
 
-      await commitTransformMetadata(args.id);
+    // Preserve concurrent transcript edits for remuxes; reencoding explicitly clears them below.
+    delete fileInfo.hasTranscript;
+    delete fileInfo.transcription;
 
-      return duplicateResult;
-    }
+    if (fileInfo.thumb?.path) await syncMediaFile(fileInfo.thumb.path);
 
-    if (previousThumb)
-      await FileOperationModel.updateOne(
-        { _id: `transform:${args.id}`, state: "PREPARED" },
-        { $addToSet: { cleanup: previousThumb } },
-        metadataWriteOptions(),
-      );
+    const previousThumb = await describeFileCleanup(source.thumb?.path, fileInfo.thumb?.path);
 
-    const updates = {
-      ...makeAfterAttrs(info, transform.afterPath, transform.afterHash),
-      cleanupPending: true,
-      finalizationPending: false,
-      status: "REPLACED" as const,
+    const fileUpdates = {
+      ...fileInfo,
+      ...info,
+      ...(transform.type === "reencode" ? { hasTranscript: false, transcription: null } : {}),
+      hash: transform.afterHash,
+      path: transform.afterPath,
     };
 
-    await models.FileTransformModel.updateOne(
-      { _id: args.id },
-      { finalizationPending: true, regenerationPending: true },
-      metadataWriteOptions(),
-    );
+    const preparedAt = Date.now();
 
-    const updated = await actions.updateFile({
-      args: {
-        id: original._id.toString(),
+    const result = await (async () => {
+      const current = await models.FileTransformModel.findById(args.id).lean();
+      const original = await models.FileModel.findById(transform.fileId).lean();
+
+      if (
+        !current ||
+        current.afterHash !== transform.afterHash ||
+        current.afterPath !== transform.afterPath
+      )
+        throw new Error("Transform changed during finalization");
+
+      if (
+        !original ||
+        !(
+          (original.hash === transform.beforeHash && original.path === transform.beforePath) ||
+          (original.hash === transform.afterHash && original.path === transform.afterPath)
+        ) ||
+        original.thumb?.path !== source.thumb?.path
+      )
+        throw new Error("Original changed during finalization");
+
+      const duplicate = await models.FileModel.findOne({
+        _id: { $ne: original._id },
+        hash: transform.afterHash,
+      }).lean();
+
+      if (duplicate) {
+        const duplicateResult = await recordDuplicateTransform(
+          args.id,
+          info,
+          { hash: transform.afterHash, path: transform.afterPath },
+          duplicate,
+        );
+
+        await commitTransformMetadata(args.id);
+
+        return duplicateResult;
+      } else {
+        if (previousThumb)
+          await FileOperationModel.updateOne(
+            { _id: `transform:${args.id}`, state: "PREPARED" },
+            { $addToSet: { cleanup: previousThumb } },
+            metadataWriteOptions(),
+          );
+
+        const updates = {
+          ...makeAfterAttrs(info, transform.afterPath, transform.afterHash),
+          cleanupPending: true,
+          finalizationPending: false,
+          status: "REPLACED" as const,
+        };
+
+        await models.FileTransformModel.updateOne(
+          { _id: args.id },
+          { finalizationPending: true, regenerationPending: true },
+          metadataWriteOptions(),
+        );
+
+        const updated = await actions.updateFile({
+          args: {
+            id: original._id.toString(),
+            updates: fileUpdates,
+          },
+        });
+
+        if (!updated.success) throw new Error(updated.error);
+
+        await updateFileTransform(args.id, updates);
+        await commitTransformMetadata(args.id, { retainOutput: true });
+
+        runTransformCleanupQueue();
+
+        return updates;
+      }
+    })();
+
+    if (result.status === "REPLACED") {
+      socket.emitReliable("onFileUpdated", {
+        id: transform.fileId.toString(),
         updates: fileUpdates,
-      },
-    });
+      });
+    }
 
-    if (!updated.success) throw new Error(updated.error);
+    socket.emit("onFileTransformUpdated", { id: args.id, updates: result });
 
-    await updateFileTransform(args.id, updates);
-    await commitTransformMetadata(args.id, { retainOutput: true });
+    if (Date.now() - startedAt >= 1000)
+      fileLog(
+        `[TRANSFORM ${args.id}] Replace took ${Date.now() - startedAt} ms: preparation ${preparedAt - startedAt} ms, metadata commit ${Date.now() - preparedAt} ms.`,
+      );
 
-    runTransformCleanupQueue();
-
-    return updates;
-  })();
-
-  if (result.status === "REPLACED") {
-    socket.emitReliable("onFileUpdated", {
-      id: transform.fileId.toString(),
-      updates: fileUpdates,
-    });
+    return result;
   }
-
-  socket.emit("onFileTransformUpdated", { id: args.id, updates: result });
-
-  if (Date.now() - startedAt >= 1000)
-    fileLog(
-      `[TRANSFORM ${args.id}] Replace took ${Date.now() - startedAt} ms: preparation ${preparedAt - startedAt} ms, metadata commit ${Date.now() - preparedAt} ms.`,
-    );
-
-  return result;
 };
 
 const runTransformCleanupQueue = makeBackgroundOperationRunner("transform cleanup", async () => {
@@ -1580,19 +1523,32 @@ makeBackgroundOperationRunner("file recovery and duplicate merging", async () =>
   }
 });
 
-export const replaceFileTransformOutput = makeAction(async (args: { id: string }) => {
+const withMediaFinalization = async <T>(
+  message: string,
+  run: () => Promise<T>,
+  withRegen: boolean,
+) => {
   if (activeMediaFinalizations || fileTransformerStatus.getIsTransforming())
-    throw new Error("Wait for the current media operation to finish before replacing output");
+    throw new Error(message);
 
   activeMediaFinalizations++;
 
   try {
-    return await runBackgroundExecution(() => replaceTransformOutput(args));
+    return await runBackgroundExecution(run);
   } finally {
     activeMediaFinalizations--;
-    runTransformRegenerationQueue();
+
+    if (withRegen) runTransformRegenerationQueue();
   }
-});
+};
+
+export const replaceFileTransformOutput = makeAction(async (args: { id: string }) =>
+  withMediaFinalization(
+    "Wait for the current media operation to finish before replacing output",
+    () => replaceTransformOutput(args),
+    true,
+  ),
+);
 
 const executeFileTransform = async (args: { id: string }, signal: AbortSignal) => {
   let output: { hash: string; info?: MediaInfo; path: string } = null;
@@ -1667,12 +1623,6 @@ const executeFileTransform = async (args: { id: string }, signal: AbortSignal) =
         setStage("publishing the output file");
       },
 
-      onTempPath: async (outputTempPath: string) => {
-        setStage("reserving the temporary output path");
-        await updateFileTransform(args.id, { afterHash: null, afterPath: null, outputTempPath });
-        setStage("encoding and verifying the output");
-      },
-
       onProgress: (progress) => {
         updateFileTransform(args.id, {
           progressPercent: Number.isFinite(progress.percent)
@@ -1683,6 +1633,12 @@ const executeFileTransform = async (args: { id: string }, signal: AbortSignal) =
         }).catch((error) => {
           if (!signal.aborted) console.error("Transform progress update failed:", error);
         });
+      },
+
+      onTempPath: async (outputTempPath: string) => {
+        setStage("reserving the temporary output path");
+        await updateFileTransform(args.id, { afterHash: null, afterPath: null, outputTempPath });
+        setStage("encoding and verifying the output");
       },
 
       signal,
@@ -2056,89 +2012,84 @@ const saveTransformCopy = async (args: { id: string }) => {
       });
 
     return leanModelToJson<models.FileSchema>(saved);
-  }
+  } else {
+    const file = await models.FileModel.findById(transform.fileId).lean();
 
-  const file = await models.FileModel.findById(transform.fileId).lean();
+    if (!file) throw new Error("Original file not found");
 
-  if (!file) throw new Error("Original file not found");
-
-  const info = await prepareTransformMetadata(args.id, {
-    filePath: transform.afterPath,
-    hash: transform.afterHash,
-    withTranscription: false,
-    withWaveform: true,
-  });
-
-  if (isGeneratedMediaUnreadable(info)) throw new Error("Transform output could not be read");
-
-  if (info.thumb?.path) await syncMediaFile(info.thumb.path);
-
-  const current = await models.FileTransformModel.findById(args.id).lean();
-
-  if (
-    !current ||
-    current.afterHash !== transform.afterHash ||
-    current.afterPath !== transform.afterPath
-  )
-    throw new Error("Transform changed during finalization");
-
-  const original = await models.FileModel.findById(transform.fileId).lean();
-
-  if (!original) throw new Error("Original file not found");
-
-  const config = getConfig().file.splice.onComplete;
-
-  const tagIds = [
-    ...new Set([
-      ...original.tagIds.map(String).filter((id) => !config.removeTagIds.includes(id)),
-      ...config.addTagIds,
-    ]),
-  ];
-
-  let saved = leanModelToJson<models.FileSchema>(
-    await models.FileModel.findOne({ hash: transform.afterHash }).lean(),
-  );
-
-  if (!saved) {
-    const imported = await actions.importFile({
-      ...info,
-      dateCreated: dayjs().toISOString(),
-      dateImported: dayjs().toISOString(),
-      originalHash: transform.afterHash,
-      originalName: original.originalName,
-      originalPath: transform.afterPath,
-      path: transform.afterPath,
-      tagIds,
+    const info = await prepareTransformMetadata(args.id, {
+      filePath: transform.afterPath,
+      hash: transform.afterHash,
+      withTranscription: false,
+      withWaveform: true,
     });
 
-    if (!imported.success) throw new Error(imported.error);
+    if (isGeneratedMediaUnreadable(info)) throw new Error("Transform output could not be read");
 
-    saved = imported.data;
-  } else {
-    const tagged = await actions.editFileTags({ addedTagIds: tagIds, fileIds: [saved.id] });
+    if (info.thumb?.path) await syncMediaFile(info.thumb.path);
 
-    if (!tagged.success) throw new Error(tagged.error);
+    const current = await models.FileTransformModel.findById(args.id).lean();
+
+    if (
+      !current ||
+      current.afterHash !== transform.afterHash ||
+      current.afterPath !== transform.afterPath
+    )
+      throw new Error("Transform changed during finalization");
+
+    const original = await models.FileModel.findById(transform.fileId).lean();
+
+    if (!original) throw new Error("Original file not found");
+
+    const config = getConfig().file.splice.onComplete;
+
+    const tagIds = [
+      ...new Set([
+        ...original.tagIds.map(String).filter((id) => !config.removeTagIds.includes(id)),
+        ...config.addTagIds,
+      ]),
+    ];
+
+    let saved = leanModelToJson<models.FileSchema>(
+      await models.FileModel.findOne({ hash: transform.afterHash }).lean(),
+    );
+
+    if (!saved) {
+      const imported = await actions.importFile({
+        ...info,
+        dateCreated: dayjs().toISOString(),
+        dateImported: dayjs().toISOString(),
+        originalHash: transform.afterHash,
+        originalName: original.originalName,
+        originalPath: transform.afterPath,
+        path: transform.afterPath,
+        tagIds,
+      });
+
+      if (!imported.success) throw new Error(imported.error);
+
+      saved = imported.data;
+    } else {
+      const tagged = await actions.editFileTags({ addedTagIds: tagIds, fileIds: [saved.id] });
+
+      if (!tagged.success) throw new Error(tagged.error);
+    }
+
+    await updateFileTransform(args.id, { status: "SAVED" });
+    await commitTransformMetadata(args.id, {
+      retainOutput: saved.thumb?.path === info.thumb?.path,
+    });
+
+    socket.emit("onFileTransformUpdated", { id: args.id, updates: { status: "SAVED" } });
+
+    return saved;
   }
-
-  await updateFileTransform(args.id, { status: "SAVED" });
-  await commitTransformMetadata(args.id, {
-    retainOutput: saved.thumb?.path === info.thumb?.path,
-  });
-
-  socket.emit("onFileTransformUpdated", { id: args.id, updates: { status: "SAVED" } });
-
-  return saved;
 };
 
-export const saveFileTransformCopy = makeAction(async (args: { id: string }) => {
-  if (activeMediaFinalizations || fileTransformerStatus.getIsTransforming())
-    throw new Error("Wait for the current media operation to finish before saving a copy");
-
-  activeMediaFinalizations++;
-
-  try {
-    return await runBackgroundExecution(() => saveTransformCopy(args));
-  } finally {
-    activeMediaFinalizations--;
-  }
-});
+export const saveFileTransformCopy = makeAction(async (args: { id: string }) =>
+  withMediaFinalization(
+    "Wait for the current media operation to finish before saving a copy",
+    () => saveTransformCopy(args),
+    false,
+  ),
+);

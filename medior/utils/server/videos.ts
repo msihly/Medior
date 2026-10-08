@@ -186,8 +186,8 @@ export const getScaledThumbSize = (
   const scaleFactor = Math.min(maxDim / width, maxDim / height);
 
   return {
-    scaleFactor,
     height: Math.floor(height * scaleFactor),
+    scaleFactor,
     width: Math.floor(width * scaleFactor),
   };
 };
@@ -426,11 +426,7 @@ export const getMediaInfo = async (
 
 const normalizeImageExt = (ext: ImageExt) => (ext === "jpeg" ? "jpg" : ext);
 
-export const compressImage = async (
-  inputPath: string,
-  outputDir: string,
-  options?: FfmpegOptions,
-) => {
+const compressImage = async (inputPath: string, outputDir: string, options?: FfmpegOptions) => {
   const { imageExt, imageJpgQuality, imageMaxLongEdge, imageMaxShortEdge } =
     getConfig().file.reencode;
 
@@ -499,7 +495,7 @@ export const compressImage = async (
   }
 };
 
-export const gifToLoopableVideo = async (
+const gifToLoopableVideo = async (
   inputPath: string,
   outputDir: string,
   options?: FfmpegOptions,
@@ -650,8 +646,14 @@ export const spliceVideo = async (
                 time: secondsToTimemark(completedDuration + elapsed),
               });
             })
-            .on("end", () => (cleanup(), resolve()))
-            .on("error", (err) => (cleanup(), reject(err)))
+            .on("end", () => {
+              cleanup();
+              resolve();
+            })
+            .on("error", (err) => {
+              cleanup();
+              reject(err);
+            })
             .run();
 
           if (!signal) return;
@@ -676,35 +678,35 @@ export const spliceVideo = async (
     } finally {
       await fs.rm(tempDir, { force: true, recursive: true });
     }
+  } else {
+    const command = ffmpeg();
+
+    pairs.forEach(([start, end]) => {
+      command.input(inputPath).inputOptions([`-ss ${start}`, `-to ${end}`]);
+    });
+
+    const hasAudio = info.audioCodec && info.audioCodec !== "None";
+    const streams = pairs.map((_, i) => (hasAudio ? `[${i}:v][${i}:a]` : `[${i}:v]`)).join("");
+
+    const filterComplex = hasAudio
+      ? `${streams}concat=n=${pairs.length}:v=1:a=1[v][a]`
+      : `${streams}concat=n=${pairs.length}:v=1:a=0[v]`;
+
+    command
+      .outputOptions([
+        "-filter_complex",
+        filterComplex,
+        "-map",
+        "[v]",
+        ...(hasAudio ? ["-map", "[a]"] : []),
+      ])
+      .videoCodec(getConfig().file.reencode.codec)
+      .outputOptions(hasAudio ? [] : ["-an"]);
+
+    if (hasAudio) command.audioCodec("aac");
+
+    return execFfmpeg(command, outputDir, options, totalDuration);
   }
-
-  const command = ffmpeg();
-
-  pairs.forEach(([start, end]) => {
-    command.input(inputPath).inputOptions([`-ss ${start}`, `-to ${end}`]);
-  });
-
-  const hasAudio = info.audioCodec && info.audioCodec !== "None";
-  const streams = pairs.map((_, i) => (hasAudio ? `[${i}:v][${i}:a]` : `[${i}:v]`)).join("");
-
-  const filterComplex = hasAudio
-    ? `${streams}concat=n=${pairs.length}:v=1:a=1[v][a]`
-    : `${streams}concat=n=${pairs.length}:v=1:a=0[v]`;
-
-  command
-    .outputOptions([
-      "-filter_complex",
-      filterComplex,
-      "-map",
-      "[v]",
-      ...(hasAudio ? ["-map", "[a]"] : []),
-    ])
-    .videoCodec(getConfig().file.reencode.codec)
-    .outputOptions(hasAudio ? [] : ["-an"]);
-
-  if (hasAudio) command.audioCodec("aac");
-
-  return execFfmpeg(command, outputDir, options, totalDuration);
 };
 
 export const vidToThumbGrid = async (

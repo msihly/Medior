@@ -1,5 +1,6 @@
 import fs from "fs/promises";
 import path from "path";
+import { availableParallelism } from "os";
 import { checkFileExists, fileLog } from "trabecula/utils/server";
 import type { FolderToCollMode, FolderToTagsMode, SortMenuProps } from "medior/components";
 import {
@@ -173,6 +174,8 @@ export interface Config {
     showFileName: boolean;
     similarity: {
       batchSize?: number;
+      /** Threads LanceDB may use for vector search and search index builds. */
+      cpuThreads: number;
       defaultLimit: number;
       device?: "cpu" | "cuda" | "dml" | "gpu" | "webgpu";
       dtype?: "fp16" | "fp32" | "q4" | "q8";
@@ -343,6 +346,7 @@ export const DEFAULT_CONFIG: Config = {
     },
     showFileName: false,
     similarity: {
+      cpuThreads: Math.max(1, Math.floor(availableParallelism() / 4)),
       defaultLimit: 100,
       index: {
         ivfPq: {
@@ -416,8 +420,8 @@ export const DEFAULT_CONFIG: Config = {
     },
     withDelimiters: true,
     withDiffModel: true,
-    withDiffRegEx: true,
     withDiffParams: false,
+    withDiffRegEx: true,
     withDiffTags: true,
     withFileNameToTags: false,
     withFolderNameRegEx: true,
@@ -507,6 +511,7 @@ export const loadConfig = async (filePath: string) => {
 
     const loadedConfig = JSON.parse(await fs.readFile(filePath, "utf-8")) as Config;
     const migratedDimensions = migrateReencodeDimensions(loadedConfig);
+
     setConfig(loadedConfig);
 
     if (migratedDimensions) await writeConfig(filePath, config);

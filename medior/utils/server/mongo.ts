@@ -184,20 +184,21 @@ export const makeAction =
     fn: (input: Input, opts?: SocketEventOptions) => Promise<Output>,
     onSuccess?: (input: Input, result: Output, opts?: SocketEventOptions) => void,
   ) =>
-  (
+  async (
     args: Input,
     opts?: SocketEventOptions,
   ): Promise<{ data?: Output; error?: string; success: boolean }> => {
     const execute = async () => {
       const result = await fn(args, opts);
+
       onSuccess?.(args, result, opts);
 
       return result;
     };
 
     return metadataWork.getStore()
-      ? execute().then((data) => ({ data, success: true as const }))
-      : handleErrors(execute);
+      ? { data: await execute(), success: true as const }
+      : await handleErrors(execute);
   };
 
 export const objectId = (id: string) => new Types.ObjectId(id);

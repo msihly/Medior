@@ -1,6 +1,5 @@
 import { getCurrentWebContents } from "@electron/remote";
-import { useStores } from "medior/store";
-import { File } from "medior/store";
+import { File, useStores } from "medior/store";
 import { toast } from "medior/utils/client";
 import { trpc } from "medior/utils/server";
 
@@ -29,7 +28,8 @@ export const useFileDrag = (file: File, selectedIds: string[]) => {
     try {
       getCurrentWebContents().startDrag({ file: file.path, files: filePaths, icon });
     } catch (error) {
-      console.error(error), toast.error("File drag failed");
+      console.error(error);
+      toast.error("File drag failed");
     }
   };
 

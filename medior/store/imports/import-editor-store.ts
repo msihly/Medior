@@ -6,7 +6,7 @@ import { Model, model, modelAction, ModelCreationData, modelFlow, prop } from "m
 import { extendFileName } from "trabecula/utils/server";
 import { FlatFolder, TagToUpsert } from "medior/components";
 import { asyncAction, derefMobx } from "medior/utils/client";
-import { Fmt, mergeTagDefinitions, PromiseQueue } from "medior/utils/common";
+import { Fmt, mergeTagDefinitions, PromiseQueue, sleep } from "medior/utils/common";
 import { ImportEditorOptions } from "./editor-options";
 import { FileImport } from "./file-import";
 
@@ -78,6 +78,11 @@ export class ImportEditorStore extends Model({
 
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
   @modelAction
+  private addTagsToImport(imp: ModelCreationData<FileImport>, tagsToUpsert: TagToUpsert[]) {
+    imp.tagsToUpsert = mergeTagDefinitions([...(imp.tagsToUpsert ?? []), ...tagsToUpsert]);
+  }
+
+  @modelAction
   addTagsToUpsert(folderName: string, tagsToUpsert: TagToUpsert[]) {
     const folder =
       this.allFlatFolderHierarchy.get(folderName) ?? this.flatFolderHierarchy.get(folderName);
@@ -102,18 +107,6 @@ export class ImportEditorStore extends Model({
 
       if (tagsToUpsert && imp.tagsToUpsert?.length) imp.tagsToUpsert = null;
     });
-  }
-
-  @modelAction
-  nextFolderPage() {
-    this.setFolderPage(this.folderPage + 1);
-    this.setVisibleFolderPage();
-  }
-
-  @modelAction
-  prevFolderPage() {
-    this.setFolderPage(this.folderPage - 1);
-    this.setVisibleFolderPage();
   }
 
   @modelAction
@@ -151,18 +144,6 @@ export class ImportEditorStore extends Model({
   }
 
   @modelAction
-  setFilePaths(filePaths: Map<string, string>) {
-    this.filePaths = filePaths;
-  }
-
-  @modelAction
-  setImports(imports: ModelCreationData<FileImport>[]) {
-    this.imports = imports;
-    this.importCount = imports.length;
-    this.importSize = imports.reduce((total, imp) => total + imp.size, 0);
-  }
-
-  @modelAction
   setCreatedTagId(tag: Pick<TagToUpsert, "id" | "label">) {
     this.flatTagsToUpsert = this.flatTagsToUpsert.map((candidate) =>
       candidate.label.toLowerCase() === tag.label.toLowerCase()
@@ -172,9 +153,21 @@ export class ImportEditorStore extends Model({
   }
 
   @modelAction
+  setFilePaths(filePaths: Map<string, string>) {
+    this.filePaths = filePaths;
+  }
+
+  @modelAction
   setFolderPageFromPagination(page: number) {
     this.folderPage = page - 1;
     this.setVisibleFolderPage();
+  }
+
+  @modelAction
+  setImports(imports: ModelCreationData<FileImport>[]) {
+    this.imports = imports;
+    this.importCount = imports.length;
+    this.importSize = imports.reduce((total, imp) => total + imp.size, 0);
   }
 
   @modelAction
@@ -229,7 +222,7 @@ export class ImportEditorStore extends Model({
         if (isCancelled()) return;
 
         this.setInitProgressCompleted(idx);
-        await new Promise<void>((resolve) => setTimeout(resolve, 0));
+        await sleep(0);
       }
 
       const imp = this.imports[idx];
@@ -342,7 +335,7 @@ export class ImportEditorStore extends Model({
           if (isCancelled()) return;
 
           this.setInitProgressCompleted(idx);
-          await new Promise<void>((resolve) => setTimeout(resolve, 0));
+          await sleep(0);
         }
       }
 
@@ -403,11 +396,5 @@ export class ImportEditorStore extends Model({
   @computed
   get rootFolder() {
     return this.rootFolderPath.length && this.rootFolderPath.split(path.sep)[this.rootFolderIndex];
-  }
-
-  /* ----------------------------- DYNAMIC GETTERS ---------------------------- */
-  @modelAction
-  private addTagsToImport(imp: ModelCreationData<FileImport>, tagsToUpsert: TagToUpsert[]) {
-    imp.tagsToUpsert = mergeTagDefinitions([...(imp.tagsToUpsert ?? []), ...tagsToUpsert]);
   }
 }

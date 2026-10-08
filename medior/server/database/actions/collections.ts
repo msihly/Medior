@@ -6,10 +6,10 @@ import {
   canRunBackgroundQueues,
   makeBackgroundOperationRunner,
 } from "medior/server/database/actions/background-operations";
+import { getBackgroundSession } from "medior/server/database/database-context";
 import { getImportSourceFolder } from "medior/server/database/import-entries";
 import { assertImportEntriesReady } from "medior/server/database/import-entry-state";
 import {
-  getBackgroundSession,
   getMetadataCreateId,
   metadataWriteOptions,
   readMetadataSnapshot,
@@ -124,22 +124,24 @@ const normalizeSourceFolderPath = (sourceFolderPath: string) =>
 
 const deriveCollectionSourceFolderPath = async (collection: models.FileCollectionSchema) => {
   if (collection.sourceFolderPaths?.length) return collection.sourceFolderPaths[0];
+  else {
+    const fileIds = collection.fileIdIndexes.map(({ fileId }) => fileId).filter(Boolean);
 
-  const fileIds = collection.fileIdIndexes.map(({ fileId }) => fileId).filter(Boolean);
+    const files = await models.FileModel.find({ _id: { $in: objectIds(fileIds) } })
+      .select({ originalPath: 1 })
+      .lean();
 
-  const files = await models.FileModel.find({ _id: { $in: objectIds(fileIds) } })
-    .select({ originalPath: 1 })
-    .lean();
+    const fromFiles = getCommonSourceFolder(files.map((file) => file.originalPath));
 
-  const fromFiles = getCommonSourceFolder(files.map((file) => file.originalPath));
+    if (fromFiles) return fromFiles;
+    else {
+      const batches = await models.FileImportBatchModel.find({ collectionId: collection.id })
+        .select({ _id: 1 })
+        .lean();
 
-  if (fromFiles) return fromFiles;
-
-  const batches = await models.FileImportBatchModel.find({ collectionId: collection.id })
-    .select({ _id: 1 })
-    .lean();
-
-  return getImportSourceFolder(batches.map((batch) => String(batch._id)));
+      return getImportSourceFolder(batches.map((batch) => String(batch._id)));
+    }
+  }
 };
 
 const readCollectionAttributes = async (fileIds: string[]) => {
@@ -285,24 +287,19 @@ const processCollectionMetadataRegenQueue = async () => {
           return;
 
         if (!collectionIds.length) {
-          if (current.targetIds.length) return;
-
-          await actions.completeEmptyBackgroundOperation(
+          if (!current.targetIds.length)
+            await actions.completeEmptyBackgroundOperation(
+              operation.id,
+              "Collection metadata regeneration completed.",
+            );
+        } else if (await writeCollectionMetadata(snapshots)) {
+          await actions.completeBackgroundOperationTargets(
             operation.id,
-            "Collection metadata regeneration completed.",
+            collectionIds,
+            `Collection metadata: processed ${current.processedCount + collectionIds.length} of ${current.totalCount}.`,
+            operation.targetVersions ?? {},
           );
-
-          return;
         }
-
-        if (!(await writeCollectionMetadata(snapshots))) return;
-
-        await actions.completeBackgroundOperationTargets(
-          operation.id,
-          collectionIds,
-          `Collection metadata: processed ${current.processedCount + collectionIds.length} of ${current.totalCount}.`,
-          operation.targetVersions ?? {},
-        );
       })();
     } catch (error) {
       if (!canRunBackgroundQueues()) return;
@@ -466,17 +463,17 @@ export const upsertImportedCollection = makeAction(
         if (!updateRes.success) throw new Error(updateRes.error);
 
         return { fileIdIndexes, id: collection.id };
+      } else {
+        const createRes = await createCollection({
+          ...args,
+          sourceFolderPath: args.sourceFolderPath,
+          withSub: true,
+        });
+
+        if (!createRes.success) throw new Error(createRes.error);
+
+        return createRes.data;
       }
-
-      const createRes = await createCollection({
-        ...args,
-        sourceFolderPath: args.sourceFolderPath,
-        withSub: true,
-      });
-
-      if (!createRes.success) throw new Error(createRes.error);
-
-      return createRes.data;
     },
   ),
 );
@@ -687,6 +684,7 @@ export const findRelatedCollectionGroups = makeAction(
             if (sourcePathsByCollection[collectionIndex].length) continue;
 
             const currentPath = derivedSourceFolderPaths[collectionIndex];
+
             derivedSourceFolderPaths[collectionIndex] =
               currentPath === undefined
                 ? folderPath
@@ -860,6 +858,7 @@ export const findRelatedCollectionGroups = makeAction(
           collectionFileCounts[index]
             ? (getCommonFileCount(index, comparisonIndex) / collectionFileCounts[index]) * 100
             : 0;
+
         indexes.sort(
           (left, right) =>
             Number(right === baseIndex) - Number(left === baseIndex) ||
@@ -1013,6 +1012,7 @@ export const repairCollections = makeAction(
 
           if (!collection) return { deleted: 0, repaired: 0 };
 
+          let deleted = 0;
           let repaired = 0;
 
           if (repairFileIndexes) {
@@ -1056,16 +1056,14 @@ export const repairCollections = makeAction(
           );
 
           if (!fileIds.size) {
-            if (!deleteEmptyCollections) return { deleted: 0, repaired };
+            if (deleteEmptyCollections) {
+              const result = await deleteCollections({ ids: [String(collection._id)] });
 
-            const result = await deleteCollections({ ids: [String(collection._id)] });
+              if (!result.success) throw new Error(result.error);
 
-            if (!result.success) throw new Error(result.error);
-
-            return { deleted: result.data.deletedCount, repaired };
-          }
-
-          if (deleteExactDuplicates || deleteSubsetCollections) {
+              deleted = result.data.deletedCount;
+            }
+          } else if (deleteExactDuplicates || deleteSubsetCollections) {
             for await (const keeper of models.FileCollectionModel.find({
               _id: { $ne: collection._id },
               "fileIdIndexes.fileId": { $all: objectIds([...fileIds]) },
@@ -1092,11 +1090,12 @@ export const repairCollections = makeAction(
 
               if (!result.success) throw new Error(result.error);
 
-              return { deleted: result.data.deletedCount, repaired };
+              deleted = result.data.deletedCount;
+              break;
             }
           }
 
-          return { deleted: 0, repaired };
+          return { deleted, repaired };
         },
         async ({ result }) => {
           deletedCount += result.deleted;
@@ -1186,10 +1185,7 @@ export const updateCollection = makeAction(
       const res = await models.FileCollectionModel.updateOne(
         { _id: updates.id },
         { $inc: { __v: 1 }, $set: updates },
-        {
-          ...metadataWriteOptions(),
-          new: true,
-        },
+        metadataWriteOptions(),
       );
 
       if (updates.fileIdIndexes)

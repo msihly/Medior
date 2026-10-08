@@ -53,10 +53,32 @@ export class Splicer extends Model({
   }
 
   @modelAction
+  loadTimestamps() {
+    const stores = getRootStore<RootStore>(this);
+
+    const file = stores.carousel.getActiveFile();
+
+    this.setTimestampId(file?.timestamps?.[0]?.id ?? "");
+  }
+
+  @modelAction
   removeTimestampPair(id: string) {
     this.timestampPairs = this.timestampPairs
       .filter((p) => p.id !== id)
       .map((p, i) => ({ ...p, order: i + 1 }));
+  }
+
+  @modelAction
+  setTimestampId(id: string) {
+    const stores = getRootStore<RootStore>(this);
+
+    const timestamp = stores.carousel.getActiveFile()?.timestamps?.find((item) => item.id === id);
+
+    if (id && !timestamp) throw new Error("Timeline not found");
+
+    this.timestampId = timestamp?.id ?? "";
+    this.timestampLabel = timestamp?.label ?? "Timeline #1";
+    this.timestampPairs = normalizeTimestampPairs(derefMobx(timestamp?.pairs ?? []));
   }
 
   @modelAction
@@ -76,19 +98,6 @@ export class Splicer extends Model({
   @modelAction
   setTimestampPairVal(id: string, key: "endDuration" | "startDuration", val: string) {
     this.timestampPairs = this.timestampPairs.map((p) => (p.id === id ? { ...p, [key]: val } : p));
-  }
-
-  @modelAction
-  setTimestampId(id: string) {
-    const stores = getRootStore<RootStore>(this);
-
-    const timestamp = stores.carousel.getActiveFile()?.timestamps?.find((item) => item.id === id);
-
-    if (id && !timestamp) throw new Error("Timeline not found");
-
-    this.timestampId = timestamp?.id ?? "";
-    this.timestampLabel = timestamp?.label ?? "Timeline #1";
-    this.timestampPairs = normalizeTimestampPairs(derefMobx(timestamp?.pairs ?? []));
   }
 
   @modelAction
@@ -125,15 +134,6 @@ export class Splicer extends Model({
       this.setIsLoading(false);
     }
   });
-
-  @modelAction
-  loadTimestamps() {
-    const stores = getRootStore<RootStore>(this);
-
-    const file = stores.carousel.getActiveFile();
-
-    this.setTimestampId(file?.timestamps?.[0]?.id ?? "");
-  }
 
   @modelFlow
   saveTimestamps = asyncAction(async () => {

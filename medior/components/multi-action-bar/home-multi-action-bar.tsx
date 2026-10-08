@@ -48,6 +48,8 @@ export const HomeMultiActionBar = Comp(
 
     const handleFileInfoRefresh = () => stores.file.refreshFiles({ ids: selectedIds });
 
+    const handleFindDuplicates = () => stores.file.lowerResolution.open();
+
     const handleReencode = () =>
       stores.file.openVideoTransformer(selectedIds, "reencode", sourceSortValue);
 
@@ -87,8 +89,8 @@ export const HomeMultiActionBar = Comp(
               {isHome && !suppliedStore && (
                 <MultiActionButton
                   name="ImageSearch"
-                  tooltip="Find Variants"
-                  onClick={() => stores.file.lowerResolution.open()}
+                  tooltip="Find Duplicates"
+                  onClick={handleFindDuplicates}
                 />
               )}
 

@@ -21,7 +21,7 @@ export const HMR = Comp(() => {
   return isLoading ? null : (
     <Views.ImportDnD>
       <View column className={css.root}>
-        <Card height="100%" width="100%"></Card>
+        <Card height="100%" width="100%" />
 
         <Views.CollectionModals />
 

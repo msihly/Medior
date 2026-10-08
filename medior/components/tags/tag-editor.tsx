@@ -30,10 +30,10 @@ export interface TagEditorProps {
 }
 
 export const TagEditor = Comp(({ isSubEditor = false }: TagEditorProps) => {
-  const labelRef = useRef<HTMLDivElement>(null);
-
   const stores = useStores();
   const store = isSubEditor ? stores.tag.subEditor : stores.tag.editor;
+
+  const labelRef = useRef<HTMLDivElement>(null);
 
   const [hasContinue, setHasContinue] = useState(false);
   const [hasKeepChildTags, setHasKeepChildTags] = useState(false);
@@ -257,8 +257,6 @@ export const TagEditor = Comp(({ isSubEditor = false }: TagEditorProps) => {
             excludedIds={[store.tag?.id, ...store.childTags.map((t) => t.id)]}
             value={store.parentTags}
             setValue={store.setParentTags}
-            ancestryType="ancestors"
-            ancestryTagIds={store.tag?.ancestorIds}
             hasEditor={false}
             onTagClick={!isSubEditor ? handleSubEditorClick : null}
           />
@@ -268,8 +266,6 @@ export const TagEditor = Comp(({ isSubEditor = false }: TagEditorProps) => {
             excludedIds={[store.tag?.id, ...store.parentTags.map((t) => t.id)]}
             value={store.childTags}
             setValue={store.setChildTags}
-            ancestryType="descendants"
-            ancestryTagIds={store.tag?.descendantIds}
             hasEditor={false}
             onTagClick={!isSubEditor ? handleSubEditorClick : null}
           />

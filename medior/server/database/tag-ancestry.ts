@@ -114,53 +114,47 @@ export const resolveAncestorFilter = async (
               ),
             ],
           });
-
-          continue;
-        }
-
-        if (operator === "$exists") {
+        } else if (operator === "$exists") {
           if (!operand) clauses.push({ _id: { $in: [] } });
+        } else {
+          if (!["$all", "$eq", "$in", "$ne", "$nin"].includes(operator))
+            throw new Error(`Unsupported inherited tag operator: ${operator}`);
 
-          continue;
-        }
+          if ((operator === "$eq" || operator === "$ne") && Array.isArray(operand))
+            throw new Error(
+              "Use $all or $in for inherited tag arrays; equality requires a single tag",
+            );
 
-        if (!["$all", "$eq", "$in", "$ne", "$nin"].includes(operator))
-          throw new Error(`Unsupported inherited tag operator: ${operator}`);
+          const ids = Array.isArray(operand) ? operand : [operand];
 
-        if ((operator === "$eq" || operator === "$ne") && Array.isArray(operand))
-          throw new Error(
-            "Use $all or $in for inherited tag arrays; equality requires a single tag",
-          );
+          if (operator === "$all") {
+            const related = new Map(
+              (await getRelatedTags(ids, descendants, session)).map((tag) => [
+                String(tag._id),
+                tag.related,
+              ]),
+            );
 
-        const ids = Array.isArray(operand) ? operand : [operand];
+            for (const id of ids)
+              clauses.push({
+                [targetField]: {
+                  $in: related.get(String(id)) ?? [],
+                },
+              });
 
-        if (operator === "$all") {
-          const related = new Map(
-            (await getRelatedTags(ids, descendants, session)).map((tag) => [
-              String(tag._id),
-              tag.related,
-            ]),
-          );
+            if (!ids.length) clauses.push({ _id: { $in: [] } });
+          } else {
+            const graph = await loadTagGraph(ids.map(String), descendants, session);
 
-          for (const id of ids)
             clauses.push({
               [targetField]: {
-                $in: related.get(String(id)) ?? [],
+                [operator === "$ne" || operator === "$nin" ? "$nin" : "$in"]: collectRelatedTagIds(
+                  graph,
+                  ids.map(String),
+                ).map((id) => new Types.ObjectId(id)),
               },
             });
-
-          if (!ids.length) clauses.push({ _id: { $in: [] } });
-        } else {
-          const graph = await loadTagGraph(ids.map(String), descendants, session);
-
-          clauses.push({
-            [targetField]: {
-              [operator === "$ne" || operator === "$nin" ? "$nin" : "$in"]: collectRelatedTagIds(
-                graph,
-                ids.map(String),
-              ).map((id) => new Types.ObjectId(id)),
-            },
-          });
+          }
         }
       }
     }
@@ -169,7 +163,7 @@ export const resolveAncestorFilter = async (
   return clauses.length ? { $and: [direct, ...clauses] } : direct;
 };
 
-export const deriveMediaAncestors = async (documents: any, session?: ClientSession) => {
+const deriveMediaAncestors = async (documents: any, session?: ClientSession) => {
   const items = (Array.isArray(documents) ? documents : [documents]).filter((item) =>
     Array.isArray(item?.tagIds),
   );
@@ -192,14 +186,14 @@ export const deriveMediaAncestors = async (documents: any, session?: ClientSessi
 
 const selectsField = (projection: Record<string, unknown>, field: string) => {
   if (!projection || !Object.keys(projection).length) return true;
+  else if (projection[field] != null) return projection[field] !== 0 && projection[field] !== false;
+  else {
+    const fields = Object.entries(projection).filter(([key]) => key !== "_id");
 
-  if (projection[field] != null) return projection[field] !== 0 && projection[field] !== false;
-
-  const fields = Object.entries(projection).filter(([key]) => key !== "_id");
-
-  return fields.length
-    ? !fields.some(([, value]) => value !== 0 && value !== false)
-    : projection._id !== 1 && projection._id !== true;
+    return fields.length
+      ? !fields.some(([, value]) => value !== 0 && value !== false)
+      : projection._id !== 1 && projection._id !== true;
+  }
 };
 
 const prepareAncestorProjection = (projection: Record<string, unknown>) => {

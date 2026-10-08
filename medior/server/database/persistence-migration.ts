@@ -49,6 +49,7 @@ const LEGACY_COLLECTIONS = {
 const MAX_PAGE_BYTES = 8 * 1024 * 1024;
 const MAX_PAGE_RECORDS = 1000;
 const WRITE_OPTIONS = { writeConcern: { j: true, w: "majority" as const } };
+
 let migration: Promise<boolean>;
 let migrationController: AbortController;
 let lastProgressAt = 0;

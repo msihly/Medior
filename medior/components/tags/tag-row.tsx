@@ -43,14 +43,11 @@ export const TagRow = Comp(
 
     const sortedTags = sortTags(tags, stores.tag.getCategory).slice(0, limit);
 
-    if (virtualized)
-      return (
-        <View width="100%" height={56} {...props} overflow="hidden">
-          <VirtualTagRow disabled={disabled} tags={sortedTags} />
-        </View>
-      );
-
-    return (
+    return virtualized ? (
+      <View width="100%" height={56} {...props} overflow="hidden">
+        <VirtualTagRow disabled={disabled} tags={sortedTags} />
+      </View>
+    ) : (
       <View row spacing={TAG_GAP} overflow="auto hidden" {...props}>
         {sortedTags.map((tag) => (
           <TagChip key={tag.label} tag={tag} disabled={disabled} hasEditor />

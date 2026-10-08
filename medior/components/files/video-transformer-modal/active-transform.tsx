@@ -28,6 +28,18 @@ export const ActiveTransform = Comp(({ onCompare }: { onCompare: () => void }) =
     if (!res.success) toast.error(res.error);
   };
 
+  const handleFindOriginal = () =>
+    store.activeTransform?.beforePath && shell.showItemInFolder(store.activeTransform.beforePath);
+
+  const handleFindOutput = () =>
+    store.activeTransform?.afterPath && shell.showItemInFolder(store.activeTransform.afterPath);
+
+  const handlePlayOriginal = () =>
+    store.activeTransform?.beforePath && shell.openPath(store.activeTransform.beforePath);
+
+  const handlePlayOutput = () =>
+    store.activeTransform?.afterPath && shell.openPath(store.activeTransform.afterPath);
+
   const handleReplace = async () => {
     const res = await (store.activeTransform.type === "splice"
       ? store.saveCopy()
@@ -83,20 +95,14 @@ export const ActiveTransform = Comp(({ onCompare }: { onCompare: () => void }) =
               <Button
                 text="Play: Original"
                 icon="PlayArrow"
-                onClick={() =>
-                  store.activeTransform?.beforePath &&
-                  shell.openPath(store.activeTransform.beforePath)
-                }
+                onClick={handlePlayOriginal}
                 disabled={!store.activeTransform.beforePath}
               />
 
               <Button
                 text="Find: Original"
                 icon="Folder"
-                onClick={() =>
-                  store.activeTransform?.beforePath &&
-                  shell.showItemInFolder(store.activeTransform.beforePath)
-                }
+                onClick={handleFindOriginal}
                 disabled={!store.activeTransform.beforePath}
               />
             </View>
@@ -105,20 +111,14 @@ export const ActiveTransform = Comp(({ onCompare }: { onCompare: () => void }) =
               <Button
                 text="Play: Output"
                 icon="PlayArrow"
-                onClick={() =>
-                  store.activeTransform?.afterPath &&
-                  shell.openPath(store.activeTransform.afterPath)
-                }
+                onClick={handlePlayOutput}
                 disabled={!store.activeTransform.afterPath}
               />
 
               <Button
                 text="Find: Output"
                 icon="Folder"
-                onClick={() =>
-                  store.activeTransform?.afterPath &&
-                  shell.showItemInFolder(store.activeTransform.afterPath)
-                }
+                onClick={handleFindOutput}
                 disabled={!store.activeTransform.afterPath}
               />
             </View>

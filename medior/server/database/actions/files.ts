@@ -1,7 +1,6 @@
 import fs from "fs/promises";
 import path from "path";
 import checkDiskSpace from "check-disk-space";
-import md5File from "md5-file";
 import * as models from "medior/_generated/server/models";
 import { AnyBulkWriteOperation } from "mongodb";
 import mongoose from "mongoose";
@@ -10,6 +9,7 @@ import {
   dirToFilePaths,
   fileLog,
   makePerfLog,
+  md5File,
   removeEmptyFolders,
 } from "trabecula/utils/server";
 import { SortValue } from "medior/store/_generated";
@@ -19,6 +19,7 @@ import {
   makeBackgroundOperationRunner,
 } from "medior/server/database/actions/background-operations";
 import { runBackgroundExecution } from "medior/server/database/background-execution";
+import { getBackgroundSession } from "medior/server/database/database-context";
 import {
   areMediaPathIndexesReady,
   assertMediaPathIndexesReady,
@@ -27,11 +28,11 @@ import {
   FileCleanup,
   FileOperationModel,
   finishFileOperation,
+  makeFileCleanup,
 } from "medior/server/database/file-operations";
 import { assertImportEntriesReady } from "medior/server/database/import-entry-state";
 import { normalizeMediaPathWrites } from "medior/server/database/media-paths";
 import {
-  getBackgroundSession,
   getMetadataCreateId,
   metadataWriteOptions,
   readMetadataSnapshot,
@@ -308,11 +309,7 @@ export const deleteFilesExternal = makeAction(
         );
 
         const operation = await FileOperationModel.create({
-          cleanup: chunk.map((filePath, index) => ({
-            hash: fileHashes[index],
-            path: filePath,
-            pathKey: path.resolve(filePath).toLowerCase(),
-          })),
+          cleanup: chunk.map((filePath, index) => makeFileCleanup(fileHashes[index], filePath)),
           state: "COMMITTED",
         });
 
@@ -638,7 +635,6 @@ export const listSortedFileIds = makeAction(
 );
 
 const missingVideoInfoFilter = {
-  ext: { $in: CONSTANTS.VIDEO.EXTS },
   $or: [
     { audioBitrate: { $exists: false } },
     { audioBitrate: "" },
@@ -649,6 +645,7 @@ const missingVideoInfoFilter = {
     { videoCodec: { $exists: false } },
     { videoCodec: "" },
   ],
+  ext: { $in: CONSTANTS.VIDEO.EXTS },
 };
 
 export const listVideosWithMissingInfo = makeAction(async () => {
@@ -1221,7 +1218,7 @@ export const setFileRating = makeAction(
       ),
     ];
 
-    const updates = { rating: args.rating, dateModified: dayjs().toISOString() };
+    const updates = { dateModified: dayjs().toISOString(), rating: args.rating };
 
     await models.FileModel.updateMany({ _id: { $in: args.fileIds } }, updates);
     socket.emit("onFilesUpdated", { fileIds: args.fileIds, updates });
@@ -1461,6 +1458,7 @@ export const storeThumbnailNtfsMetadata = async (metadataItems: ThumbnailNtfsMet
 
 export const cancelFileRefresh = makeAction(async ({ refreshId }: { refreshId: string }) => {
   const abortController = fileRefreshAbortControllers.get(refreshId);
+
   abortController?.abort();
   await releaseTranscriptionModel(`file-refresh:${refreshId}`);
 

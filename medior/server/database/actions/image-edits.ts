@@ -143,6 +143,7 @@ export const editImage = makeAction(
         outputPath: tempPath,
         quality: 95,
       });
+
       const hash = await hashMediaFile(tempPath);
       const fileId = args.saveCopy ? editId : source.id;
       const duplicate = await FileModel.exists({ _id: { $ne: fileId }, hash });

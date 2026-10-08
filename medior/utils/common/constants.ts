@@ -31,10 +31,6 @@ export interface Constants extends _Constants {
     DRAWER: { WIDTH: number };
     TOP_BAR: { HEIGHT: number };
   };
-  TOOLTIP: {
-    ENTER_DELAY: number;
-    ENTER_NEXT_DELAY: number;
-  };
   VECTOR: {
     DEFAULT_THREAD_POOL_SIZE: number;
   };
@@ -74,10 +70,6 @@ export const CONSTANTS: Constants = {
   HOME: {
     DRAWER: { WIDTH: 55 },
     TOP_BAR: { HEIGHT: 45 },
-  },
-  TOOLTIP: {
-    ENTER_DELAY: 1000,
-    ENTER_NEXT_DELAY: 500,
   },
   VECTOR: {
     DEFAULT_THREAD_POOL_SIZE: 4,

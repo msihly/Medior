@@ -19,7 +19,14 @@ import * as Types from "medior/server/database/types";
 import { IconName, SortMenuProps } from "medior/components";
 import * as Stores from "medior/store";
 import { asyncAction, CssColor, derefMobx, toast } from "medior/utils/client";
-import { dayjs, isDeepEqual, LogicalOp, makeTagSelector } from "medior/utils/common";
+import {
+  applySelectionChanges,
+  dayjs,
+  getSelectionRange,
+  isDeepEqual,
+  LogicalOp,
+  makeTagSelector,
+} from "medior/utils/common";
 import { getConfig, trpc } from "medior/utils/server";
 
 /* --------------------------------------------------------------------------- */
@@ -77,9 +84,11 @@ export class _FileCollectionSearch extends Model({
   @modelAction
   applySearchProps(searchProps: Record<string, any>) {
     this.reset();
+
     Object.entries(searchProps).forEach(([key, value]) => {
       if (key in this) this[key] = value;
     });
+
     this.cachedFilterProps = null;
     this.hasChanges = true;
     this.page = 1;
@@ -120,6 +129,7 @@ export class _FileCollectionSearch extends Model({
   @modelAction
   _deleteResults(ids: string[]) {
     const removedIds = new Set(ids);
+
     this.results = this.results.filter((d) => !removedIds.has(d.id));
   }
 
@@ -161,18 +171,14 @@ export class _FileCollectionSearch extends Model({
     if (!selected?.length) return;
 
     const previous = this.selectedIdSet;
-    const next = new Set(previous);
+    const next = applySelectionChanges(this.selectedIds, selected);
 
-    for (const { id, isSelected } of selected) {
-      if (isSelected) next.add(id);
-      else next.delete(id);
-    }
-
-    this.selectedIds = [...next];
+    this.selectedIds = next;
 
     if (withToast) {
-      const addedCount = [...next].filter((id) => !previous.has(id)).length;
-      const removedCount = [...previous].filter((id) => !next.has(id)).length;
+      const nextSet = new Set(next);
+      const addedCount = next.filter((id) => !previous.has(id)).length;
+      const removedCount = [...previous].filter((id) => !nextSet.has(id)).length;
 
       if (addedCount && removedCount)
         toast.success(`Selected ${addedCount} items and deselected ${removedCount} items`);
@@ -214,44 +220,13 @@ export class _FileCollectionSearch extends Model({
   @modelFlow
   getShiftSelected = asyncAction(
     async ({ id, selectedIds }: { id: string; selectedIds: string[] }) => {
-      const indexesById = new Map(this.results.map((result, index) => [result.id, index]));
-      const clickedLocalIndex = indexesById.get(id) ?? -1;
+      const range = getSelectionRange({
+        clickedId: id,
+        orderedIds: this.results.map((r) => r.id),
+        selectedIds,
+      });
 
-      const selectedLocalIndexes = selectedIds
-        .map((sid) => indexesById.get(sid) ?? -1)
-        .filter((i) => i > -1);
-
-      const canResolveLocally =
-        clickedLocalIndex > -1 &&
-        selectedLocalIndexes.length === selectedIds.length &&
-        this.results.length > 0;
-
-      if (canResolveLocally) {
-        if (!selectedIds.length) return { idsToDeselect: [], idsToSelect: [id] };
-
-        const firstSelected = selectedLocalIndexes.reduce(
-          (min, index) => Math.min(min, index),
-          Infinity,
-        );
-        const lastSelected = selectedLocalIndexes.reduce(
-          (max, index) => Math.max(max, index),
-          -Infinity,
-        );
-
-        if (firstSelected === clickedLocalIndex) return { idsToDeselect: [id], idsToSelect: [] };
-
-        const isFirstAfterClicked = firstSelected > clickedLocalIndex;
-        const start = isFirstAfterClicked ? clickedLocalIndex : firstSelected;
-        const end = isFirstAfterClicked ? lastSelected : clickedLocalIndex;
-
-        const newIds = this.results.slice(start, end + 1).map((r) => r.id);
-        const selectedIdSet = new Set(selectedIds);
-        const newIdSet = new Set(newIds);
-        const idsToSelect = newIds.filter((i) => !selectedIdSet.has(i));
-        const idsToDeselect = selectedIds.filter((i) => !newIdSet.has(i));
-
-        return { idsToDeselect, idsToSelect };
-      }
+      if (range) return range;
 
       const loadId = this.loadId + 1;
 
@@ -297,6 +272,8 @@ export class _FileCollectionSearch extends Model({
         }
       } else if (hasCtrl) {
         this.toggleSelected([{ id, isSelected: !this.getIsSelected(id) }]);
+      } else if (this.selectedIds.length === 1 && this.getIsSelected(id)) {
+        this.selectedIds = [];
       } else {
         this.selectedIds = [id];
       }
@@ -468,13 +445,14 @@ export class _FileCollectionSearch extends Model({
 
               this.setIsPageCountLoading(false);
 
-              if (!countRes.success) return console.error(countRes.error);
+              if (!countRes.success) console.error(countRes.error);
+              else {
+                const pageCount = countRes.data.pageCount;
 
-              const pageCount = countRes.data.pageCount;
+                this.setPageCount(pageCount);
 
-              this.setPageCount(pageCount);
-
-              if (debug) perfLog(`Set pageCount to ${pageCount}`);
+                if (debug) perfLog(`Set pageCount to ${pageCount}`);
+              }
             } catch (error) {
               if (loadId !== this.loadId) return;
 
@@ -523,52 +501,34 @@ export class _FileCollectionSearch extends Model({
     const existing = this.savedSearches.find((s) => s.label === trimmedLabel);
     const selected = this.savedSearches.find((s) => s.id === this.selectedSavedSearchId);
     const filterProps = this.getSearchProps();
+    let res: Awaited<
+      ReturnType<typeof trpc.createSavedSearch.mutate | typeof trpc.updateSavedSearch.mutate>
+    >;
 
-    if (selected) {
-      const res = await trpc.updateSavedSearch.mutate({
+    if (selected)
+      res = await trpc.updateSavedSearch.mutate({
         args: { id: selected.id, updates: { filterProps, label: trimmedLabel } },
       });
-
-      if (!res.success) throw new Error(res.error);
-
-      await this.loadSavedSearches();
-      this.setSelectedSavedSearchId(selected.id);
-      this.setIsSaveModalOpen(false);
-      toast.success("Saved search updated");
-
-      return res.data;
-    }
-
-    if (existing) {
-      const res = await trpc.updateSavedSearch.mutate({
+    else if (existing)
+      res = await trpc.updateSavedSearch.mutate({
         args: { id: existing.id, updates: { filterProps } },
       });
-
-      if (!res.success) throw new Error(res.error);
-
-      await this.loadSavedSearches();
-      this.setSelectedSavedSearchId(existing.id);
-      this.setIsSaveModalOpen(false);
-      toast.success("Saved search updated");
-
-      return res.data;
-    }
-
-    const res = await trpc.createSavedSearch.mutate({
-      args: {
-        dateCreated: dayjs().toISOString(),
-        filterProps,
-        label: trimmedLabel,
-        searchType: "FileCollection",
-      },
-    });
+    else
+      res = await trpc.createSavedSearch.mutate({
+        args: {
+          dateCreated: dayjs().toISOString(),
+          filterProps,
+          label: trimmedLabel,
+          searchType: "FileCollection",
+        },
+      });
 
     if (!res.success) throw new Error(res.error);
 
     await this.loadSavedSearches();
-    this.setSelectedSavedSearchId(res.data.id);
+    this.setSelectedSavedSearchId(selected?.id ?? existing?.id ?? res.data.id);
     this.setIsSaveModalOpen(false);
-    toast.success("Saved search created");
+    toast.success(selected || existing ? "Saved search updated" : "Saved search created");
 
     return res.data;
   });
@@ -716,9 +676,11 @@ export class _FileImportBatchSearch extends Model({
   @modelAction
   applySearchProps(searchProps: Record<string, any>) {
     this.reset();
+
     Object.entries(searchProps).forEach(([key, value]) => {
       if (key in this) this[key] = value;
     });
+
     this.cachedFilterProps = null;
     this.hasChanges = true;
     this.page = 1;
@@ -747,6 +709,7 @@ export class _FileImportBatchSearch extends Model({
   @modelAction
   _deleteResults(ids: string[]) {
     const removedIds = new Set(ids);
+
     this.results = this.results.filter((d) => !removedIds.has(d.id));
   }
 
@@ -789,18 +752,14 @@ export class _FileImportBatchSearch extends Model({
     if (!selected?.length) return;
 
     const previous = this.selectedIdSet;
-    const next = new Set(previous);
+    const next = applySelectionChanges(this.selectedIds, selected);
 
-    for (const { id, isSelected } of selected) {
-      if (isSelected) next.add(id);
-      else next.delete(id);
-    }
-
-    this.selectedIds = [...next];
+    this.selectedIds = next;
 
     if (withToast) {
-      const addedCount = [...next].filter((id) => !previous.has(id)).length;
-      const removedCount = [...previous].filter((id) => !next.has(id)).length;
+      const nextSet = new Set(next);
+      const addedCount = next.filter((id) => !previous.has(id)).length;
+      const removedCount = [...previous].filter((id) => !nextSet.has(id)).length;
 
       if (addedCount && removedCount)
         toast.success(`Selected ${addedCount} items and deselected ${removedCount} items`);
@@ -842,44 +801,13 @@ export class _FileImportBatchSearch extends Model({
   @modelFlow
   getShiftSelected = asyncAction(
     async ({ id, selectedIds }: { id: string; selectedIds: string[] }) => {
-      const indexesById = new Map(this.results.map((result, index) => [result.id, index]));
-      const clickedLocalIndex = indexesById.get(id) ?? -1;
+      const range = getSelectionRange({
+        clickedId: id,
+        orderedIds: this.results.map((r) => r.id),
+        selectedIds,
+      });
 
-      const selectedLocalIndexes = selectedIds
-        .map((sid) => indexesById.get(sid) ?? -1)
-        .filter((i) => i > -1);
-
-      const canResolveLocally =
-        clickedLocalIndex > -1 &&
-        selectedLocalIndexes.length === selectedIds.length &&
-        this.results.length > 0;
-
-      if (canResolveLocally) {
-        if (!selectedIds.length) return { idsToDeselect: [], idsToSelect: [id] };
-
-        const firstSelected = selectedLocalIndexes.reduce(
-          (min, index) => Math.min(min, index),
-          Infinity,
-        );
-        const lastSelected = selectedLocalIndexes.reduce(
-          (max, index) => Math.max(max, index),
-          -Infinity,
-        );
-
-        if (firstSelected === clickedLocalIndex) return { idsToDeselect: [id], idsToSelect: [] };
-
-        const isFirstAfterClicked = firstSelected > clickedLocalIndex;
-        const start = isFirstAfterClicked ? clickedLocalIndex : firstSelected;
-        const end = isFirstAfterClicked ? lastSelected : clickedLocalIndex;
-
-        const newIds = this.results.slice(start, end + 1).map((r) => r.id);
-        const selectedIdSet = new Set(selectedIds);
-        const newIdSet = new Set(newIds);
-        const idsToSelect = newIds.filter((i) => !selectedIdSet.has(i));
-        const idsToDeselect = selectedIds.filter((i) => !newIdSet.has(i));
-
-        return { idsToDeselect, idsToSelect };
-      }
+      if (range) return range;
 
       const loadId = this.loadId + 1;
 
@@ -925,6 +853,8 @@ export class _FileImportBatchSearch extends Model({
         }
       } else if (hasCtrl) {
         this.toggleSelected([{ id, isSelected: !this.getIsSelected(id) }]);
+      } else if (this.selectedIds.length === 1 && this.getIsSelected(id)) {
+        this.selectedIds = [];
       } else {
         this.selectedIds = [id];
       }
@@ -1096,13 +1026,14 @@ export class _FileImportBatchSearch extends Model({
 
               this.setIsPageCountLoading(false);
 
-              if (!countRes.success) return console.error(countRes.error);
+              if (!countRes.success) console.error(countRes.error);
+              else {
+                const pageCount = countRes.data.pageCount;
 
-              const pageCount = countRes.data.pageCount;
+                this.setPageCount(pageCount);
 
-              this.setPageCount(pageCount);
-
-              if (debug) perfLog(`Set pageCount to ${pageCount}`);
+                if (debug) perfLog(`Set pageCount to ${pageCount}`);
+              }
             } catch (error) {
               if (loadId !== this.loadId) return;
 
@@ -1151,52 +1082,34 @@ export class _FileImportBatchSearch extends Model({
     const existing = this.savedSearches.find((s) => s.label === trimmedLabel);
     const selected = this.savedSearches.find((s) => s.id === this.selectedSavedSearchId);
     const filterProps = this.getSearchProps();
+    let res: Awaited<
+      ReturnType<typeof trpc.createSavedSearch.mutate | typeof trpc.updateSavedSearch.mutate>
+    >;
 
-    if (selected) {
-      const res = await trpc.updateSavedSearch.mutate({
+    if (selected)
+      res = await trpc.updateSavedSearch.mutate({
         args: { id: selected.id, updates: { filterProps, label: trimmedLabel } },
       });
-
-      if (!res.success) throw new Error(res.error);
-
-      await this.loadSavedSearches();
-      this.setSelectedSavedSearchId(selected.id);
-      this.setIsSaveModalOpen(false);
-      toast.success("Saved search updated");
-
-      return res.data;
-    }
-
-    if (existing) {
-      const res = await trpc.updateSavedSearch.mutate({
+    else if (existing)
+      res = await trpc.updateSavedSearch.mutate({
         args: { id: existing.id, updates: { filterProps } },
       });
-
-      if (!res.success) throw new Error(res.error);
-
-      await this.loadSavedSearches();
-      this.setSelectedSavedSearchId(existing.id);
-      this.setIsSaveModalOpen(false);
-      toast.success("Saved search updated");
-
-      return res.data;
-    }
-
-    const res = await trpc.createSavedSearch.mutate({
-      args: {
-        dateCreated: dayjs().toISOString(),
-        filterProps,
-        label: trimmedLabel,
-        searchType: "FileImportBatch",
-      },
-    });
+    else
+      res = await trpc.createSavedSearch.mutate({
+        args: {
+          dateCreated: dayjs().toISOString(),
+          filterProps,
+          label: trimmedLabel,
+          searchType: "FileImportBatch",
+        },
+      });
 
     if (!res.success) throw new Error(res.error);
 
     await this.loadSavedSearches();
-    this.setSelectedSavedSearchId(res.data.id);
+    this.setSelectedSavedSearchId(selected?.id ?? existing?.id ?? res.data.id);
     this.setIsSaveModalOpen(false);
-    toast.success("Saved search created");
+    toast.success(selected || existing ? "Saved search updated" : "Saved search created");
 
     return res.data;
   });
@@ -1350,9 +1263,11 @@ export class _FileTransformSearch extends Model({
   @modelAction
   applySearchProps(searchProps: Record<string, any>) {
     this.reset();
+
     Object.entries(searchProps).forEach(([key, value]) => {
       if (key in this) this[key] = value;
     });
+
     this.cachedFilterProps = null;
     this.hasChanges = true;
     this.page = 1;
@@ -1393,6 +1308,7 @@ export class _FileTransformSearch extends Model({
   @modelAction
   _deleteResults(ids: string[]) {
     const removedIds = new Set(ids);
+
     this.results = this.results.filter((d) => !removedIds.has(d.id));
   }
 
@@ -1438,18 +1354,14 @@ export class _FileTransformSearch extends Model({
     if (!selected?.length) return;
 
     const previous = this.selectedIdSet;
-    const next = new Set(previous);
+    const next = applySelectionChanges(this.selectedIds, selected);
 
-    for (const { id, isSelected } of selected) {
-      if (isSelected) next.add(id);
-      else next.delete(id);
-    }
-
-    this.selectedIds = [...next];
+    this.selectedIds = next;
 
     if (withToast) {
-      const addedCount = [...next].filter((id) => !previous.has(id)).length;
-      const removedCount = [...previous].filter((id) => !next.has(id)).length;
+      const nextSet = new Set(next);
+      const addedCount = next.filter((id) => !previous.has(id)).length;
+      const removedCount = [...previous].filter((id) => !nextSet.has(id)).length;
 
       if (addedCount && removedCount)
         toast.success(`Selected ${addedCount} items and deselected ${removedCount} items`);
@@ -1491,44 +1403,13 @@ export class _FileTransformSearch extends Model({
   @modelFlow
   getShiftSelected = asyncAction(
     async ({ id, selectedIds }: { id: string; selectedIds: string[] }) => {
-      const indexesById = new Map(this.results.map((result, index) => [result.id, index]));
-      const clickedLocalIndex = indexesById.get(id) ?? -1;
+      const range = getSelectionRange({
+        clickedId: id,
+        orderedIds: this.results.map((r) => r.id),
+        selectedIds,
+      });
 
-      const selectedLocalIndexes = selectedIds
-        .map((sid) => indexesById.get(sid) ?? -1)
-        .filter((i) => i > -1);
-
-      const canResolveLocally =
-        clickedLocalIndex > -1 &&
-        selectedLocalIndexes.length === selectedIds.length &&
-        this.results.length > 0;
-
-      if (canResolveLocally) {
-        if (!selectedIds.length) return { idsToDeselect: [], idsToSelect: [id] };
-
-        const firstSelected = selectedLocalIndexes.reduce(
-          (min, index) => Math.min(min, index),
-          Infinity,
-        );
-        const lastSelected = selectedLocalIndexes.reduce(
-          (max, index) => Math.max(max, index),
-          -Infinity,
-        );
-
-        if (firstSelected === clickedLocalIndex) return { idsToDeselect: [id], idsToSelect: [] };
-
-        const isFirstAfterClicked = firstSelected > clickedLocalIndex;
-        const start = isFirstAfterClicked ? clickedLocalIndex : firstSelected;
-        const end = isFirstAfterClicked ? lastSelected : clickedLocalIndex;
-
-        const newIds = this.results.slice(start, end + 1).map((r) => r.id);
-        const selectedIdSet = new Set(selectedIds);
-        const newIdSet = new Set(newIds);
-        const idsToSelect = newIds.filter((i) => !selectedIdSet.has(i));
-        const idsToDeselect = selectedIds.filter((i) => !newIdSet.has(i));
-
-        return { idsToDeselect, idsToSelect };
-      }
+      if (range) return range;
 
       const loadId = this.loadId + 1;
 
@@ -1574,6 +1455,8 @@ export class _FileTransformSearch extends Model({
         }
       } else if (hasCtrl) {
         this.toggleSelected([{ id, isSelected: !this.getIsSelected(id) }]);
+      } else if (this.selectedIds.length === 1 && this.getIsSelected(id)) {
+        this.selectedIds = [];
       } else {
         this.selectedIds = [id];
       }
@@ -1734,13 +1617,14 @@ export class _FileTransformSearch extends Model({
 
               this.setIsPageCountLoading(false);
 
-              if (!countRes.success) return console.error(countRes.error);
+              if (!countRes.success) console.error(countRes.error);
+              else {
+                const pageCount = countRes.data.pageCount;
 
-              const pageCount = countRes.data.pageCount;
+                this.setPageCount(pageCount);
 
-              this.setPageCount(pageCount);
-
-              if (debug) perfLog(`Set pageCount to ${pageCount}`);
+                if (debug) perfLog(`Set pageCount to ${pageCount}`);
+              }
             } catch (error) {
               if (loadId !== this.loadId) return;
 
@@ -1789,52 +1673,34 @@ export class _FileTransformSearch extends Model({
     const existing = this.savedSearches.find((s) => s.label === trimmedLabel);
     const selected = this.savedSearches.find((s) => s.id === this.selectedSavedSearchId);
     const filterProps = this.getSearchProps();
+    let res: Awaited<
+      ReturnType<typeof trpc.createSavedSearch.mutate | typeof trpc.updateSavedSearch.mutate>
+    >;
 
-    if (selected) {
-      const res = await trpc.updateSavedSearch.mutate({
+    if (selected)
+      res = await trpc.updateSavedSearch.mutate({
         args: { id: selected.id, updates: { filterProps, label: trimmedLabel } },
       });
-
-      if (!res.success) throw new Error(res.error);
-
-      await this.loadSavedSearches();
-      this.setSelectedSavedSearchId(selected.id);
-      this.setIsSaveModalOpen(false);
-      toast.success("Saved search updated");
-
-      return res.data;
-    }
-
-    if (existing) {
-      const res = await trpc.updateSavedSearch.mutate({
+    else if (existing)
+      res = await trpc.updateSavedSearch.mutate({
         args: { id: existing.id, updates: { filterProps } },
       });
-
-      if (!res.success) throw new Error(res.error);
-
-      await this.loadSavedSearches();
-      this.setSelectedSavedSearchId(existing.id);
-      this.setIsSaveModalOpen(false);
-      toast.success("Saved search updated");
-
-      return res.data;
-    }
-
-    const res = await trpc.createSavedSearch.mutate({
-      args: {
-        dateCreated: dayjs().toISOString(),
-        filterProps,
-        label: trimmedLabel,
-        searchType: "FileTransform",
-      },
-    });
+    else
+      res = await trpc.createSavedSearch.mutate({
+        args: {
+          dateCreated: dayjs().toISOString(),
+          filterProps,
+          label: trimmedLabel,
+          searchType: "FileTransform",
+        },
+      });
 
     if (!res.success) throw new Error(res.error);
 
     await this.loadSavedSearches();
-    this.setSelectedSavedSearchId(res.data.id);
+    this.setSelectedSavedSearchId(selected?.id ?? existing?.id ?? res.data.id);
     this.setIsSaveModalOpen(false);
-    toast.success("Saved search created");
+    toast.success(selected || existing ? "Saved search updated" : "Saved search created");
 
     return res.data;
   });
@@ -2047,9 +1913,11 @@ export class _FileSearch extends Model({
   @modelAction
   applySearchProps(searchProps: Record<string, any>) {
     this.reset();
+
     Object.entries(searchProps).forEach(([key, value]) => {
       if (key in this) this[key] = value;
     });
+
     this.cachedFilterProps = null;
     this.hasChanges = true;
     this.page = 1;
@@ -2158,6 +2026,7 @@ export class _FileSearch extends Model({
   @modelAction
   _deleteResults(ids: string[]) {
     const removedIds = new Set(ids);
+
     this.results = this.results.filter((d) => !removedIds.has(d.id));
   }
 
@@ -2245,18 +2114,14 @@ export class _FileSearch extends Model({
     if (!selected?.length) return;
 
     const previous = this.selectedIdSet;
-    const next = new Set(previous);
+    const next = applySelectionChanges(this.selectedIds, selected);
 
-    for (const { id, isSelected } of selected) {
-      if (isSelected) next.add(id);
-      else next.delete(id);
-    }
-
-    this.selectedIds = [...next];
+    this.selectedIds = next;
 
     if (withToast) {
-      const addedCount = [...next].filter((id) => !previous.has(id)).length;
-      const removedCount = [...previous].filter((id) => !next.has(id)).length;
+      const nextSet = new Set(next);
+      const addedCount = next.filter((id) => !previous.has(id)).length;
+      const removedCount = [...previous].filter((id) => !nextSet.has(id)).length;
 
       if (addedCount && removedCount)
         toast.success(`Selected ${addedCount} items and deselected ${removedCount} items`);
@@ -2298,44 +2163,13 @@ export class _FileSearch extends Model({
   @modelFlow
   getShiftSelected = asyncAction(
     async ({ id, selectedIds }: { id: string; selectedIds: string[] }) => {
-      const indexesById = new Map(this.results.map((result, index) => [result.id, index]));
-      const clickedLocalIndex = indexesById.get(id) ?? -1;
+      const range = getSelectionRange({
+        clickedId: id,
+        orderedIds: this.results.map((r) => r.id),
+        selectedIds,
+      });
 
-      const selectedLocalIndexes = selectedIds
-        .map((sid) => indexesById.get(sid) ?? -1)
-        .filter((i) => i > -1);
-
-      const canResolveLocally =
-        clickedLocalIndex > -1 &&
-        selectedLocalIndexes.length === selectedIds.length &&
-        this.results.length > 0;
-
-      if (canResolveLocally) {
-        if (!selectedIds.length) return { idsToDeselect: [], idsToSelect: [id] };
-
-        const firstSelected = selectedLocalIndexes.reduce(
-          (min, index) => Math.min(min, index),
-          Infinity,
-        );
-        const lastSelected = selectedLocalIndexes.reduce(
-          (max, index) => Math.max(max, index),
-          -Infinity,
-        );
-
-        if (firstSelected === clickedLocalIndex) return { idsToDeselect: [id], idsToSelect: [] };
-
-        const isFirstAfterClicked = firstSelected > clickedLocalIndex;
-        const start = isFirstAfterClicked ? clickedLocalIndex : firstSelected;
-        const end = isFirstAfterClicked ? lastSelected : clickedLocalIndex;
-
-        const newIds = this.results.slice(start, end + 1).map((r) => r.id);
-        const selectedIdSet = new Set(selectedIds);
-        const newIdSet = new Set(newIds);
-        const idsToSelect = newIds.filter((i) => !selectedIdSet.has(i));
-        const idsToDeselect = selectedIds.filter((i) => !newIdSet.has(i));
-
-        return { idsToDeselect, idsToSelect };
-      }
+      if (range) return range;
 
       const loadId = this.loadId + 1;
 
@@ -2381,6 +2215,8 @@ export class _FileSearch extends Model({
         }
       } else if (hasCtrl) {
         this.toggleSelected([{ id, isSelected: !this.getIsSelected(id) }]);
+      } else if (this.selectedIds.length === 1 && this.getIsSelected(id)) {
+        this.selectedIds = [];
       } else {
         this.selectedIds = [id];
       }
@@ -2533,13 +2369,14 @@ export class _FileSearch extends Model({
 
               this.setIsPageCountLoading(false);
 
-              if (!countRes.success) return console.error(countRes.error);
+              if (!countRes.success) console.error(countRes.error);
+              else {
+                const pageCount = countRes.data.pageCount;
 
-              const pageCount = countRes.data.pageCount;
+                this.setPageCount(pageCount);
 
-              this.setPageCount(pageCount);
-
-              if (debug) perfLog(`Set pageCount to ${pageCount}`);
+                if (debug) perfLog(`Set pageCount to ${pageCount}`);
+              }
             } catch (error) {
               if (loadId !== this.loadId) return;
 
@@ -2588,52 +2425,34 @@ export class _FileSearch extends Model({
     const existing = this.savedSearches.find((s) => s.label === trimmedLabel);
     const selected = this.savedSearches.find((s) => s.id === this.selectedSavedSearchId);
     const filterProps = this.getSearchProps();
+    let res: Awaited<
+      ReturnType<typeof trpc.createSavedSearch.mutate | typeof trpc.updateSavedSearch.mutate>
+    >;
 
-    if (selected) {
-      const res = await trpc.updateSavedSearch.mutate({
+    if (selected)
+      res = await trpc.updateSavedSearch.mutate({
         args: { id: selected.id, updates: { filterProps, label: trimmedLabel } },
       });
-
-      if (!res.success) throw new Error(res.error);
-
-      await this.loadSavedSearches();
-      this.setSelectedSavedSearchId(selected.id);
-      this.setIsSaveModalOpen(false);
-      toast.success("Saved search updated");
-
-      return res.data;
-    }
-
-    if (existing) {
-      const res = await trpc.updateSavedSearch.mutate({
+    else if (existing)
+      res = await trpc.updateSavedSearch.mutate({
         args: { id: existing.id, updates: { filterProps } },
       });
-
-      if (!res.success) throw new Error(res.error);
-
-      await this.loadSavedSearches();
-      this.setSelectedSavedSearchId(existing.id);
-      this.setIsSaveModalOpen(false);
-      toast.success("Saved search updated");
-
-      return res.data;
-    }
-
-    const res = await trpc.createSavedSearch.mutate({
-      args: {
-        dateCreated: dayjs().toISOString(),
-        filterProps,
-        label: trimmedLabel,
-        searchType: "File",
-      },
-    });
+    else
+      res = await trpc.createSavedSearch.mutate({
+        args: {
+          dateCreated: dayjs().toISOString(),
+          filterProps,
+          label: trimmedLabel,
+          searchType: "File",
+        },
+      });
 
     if (!res.success) throw new Error(res.error);
 
     await this.loadSavedSearches();
-    this.setSelectedSavedSearchId(res.data.id);
+    this.setSelectedSavedSearchId(selected?.id ?? existing?.id ?? res.data.id);
     this.setIsSaveModalOpen(false);
-    toast.success("Saved search created");
+    toast.success(selected || existing ? "Saved search updated" : "Saved search created");
 
     return res.data;
   });
@@ -2898,9 +2717,11 @@ export class _SavedImportConfigSearch extends Model({
   @modelAction
   applySearchProps(searchProps: Record<string, any>) {
     this.reset();
+
     Object.entries(searchProps).forEach(([key, value]) => {
       if (key in this) this[key] = value;
     });
+
     this.cachedFilterProps = null;
     this.hasChanges = true;
     this.page = 1;
@@ -2929,6 +2750,7 @@ export class _SavedImportConfigSearch extends Model({
   @modelAction
   _deleteResults(ids: string[]) {
     const removedIds = new Set(ids);
+
     this.results = this.results.filter((d) => !removedIds.has(d.id));
   }
 
@@ -2959,18 +2781,14 @@ export class _SavedImportConfigSearch extends Model({
     if (!selected?.length) return;
 
     const previous = this.selectedIdSet;
-    const next = new Set(previous);
+    const next = applySelectionChanges(this.selectedIds, selected);
 
-    for (const { id, isSelected } of selected) {
-      if (isSelected) next.add(id);
-      else next.delete(id);
-    }
-
-    this.selectedIds = [...next];
+    this.selectedIds = next;
 
     if (withToast) {
-      const addedCount = [...next].filter((id) => !previous.has(id)).length;
-      const removedCount = [...previous].filter((id) => !next.has(id)).length;
+      const nextSet = new Set(next);
+      const addedCount = next.filter((id) => !previous.has(id)).length;
+      const removedCount = [...previous].filter((id) => !nextSet.has(id)).length;
 
       if (addedCount && removedCount)
         toast.success(`Selected ${addedCount} items and deselected ${removedCount} items`);
@@ -3012,44 +2830,13 @@ export class _SavedImportConfigSearch extends Model({
   @modelFlow
   getShiftSelected = asyncAction(
     async ({ id, selectedIds }: { id: string; selectedIds: string[] }) => {
-      const indexesById = new Map(this.results.map((result, index) => [result.id, index]));
-      const clickedLocalIndex = indexesById.get(id) ?? -1;
+      const range = getSelectionRange({
+        clickedId: id,
+        orderedIds: this.results.map((r) => r.id),
+        selectedIds,
+      });
 
-      const selectedLocalIndexes = selectedIds
-        .map((sid) => indexesById.get(sid) ?? -1)
-        .filter((i) => i > -1);
-
-      const canResolveLocally =
-        clickedLocalIndex > -1 &&
-        selectedLocalIndexes.length === selectedIds.length &&
-        this.results.length > 0;
-
-      if (canResolveLocally) {
-        if (!selectedIds.length) return { idsToDeselect: [], idsToSelect: [id] };
-
-        const firstSelected = selectedLocalIndexes.reduce(
-          (min, index) => Math.min(min, index),
-          Infinity,
-        );
-        const lastSelected = selectedLocalIndexes.reduce(
-          (max, index) => Math.max(max, index),
-          -Infinity,
-        );
-
-        if (firstSelected === clickedLocalIndex) return { idsToDeselect: [id], idsToSelect: [] };
-
-        const isFirstAfterClicked = firstSelected > clickedLocalIndex;
-        const start = isFirstAfterClicked ? clickedLocalIndex : firstSelected;
-        const end = isFirstAfterClicked ? lastSelected : clickedLocalIndex;
-
-        const newIds = this.results.slice(start, end + 1).map((r) => r.id);
-        const selectedIdSet = new Set(selectedIds);
-        const newIdSet = new Set(newIds);
-        const idsToSelect = newIds.filter((i) => !selectedIdSet.has(i));
-        const idsToDeselect = selectedIds.filter((i) => !newIdSet.has(i));
-
-        return { idsToDeselect, idsToSelect };
-      }
+      if (range) return range;
 
       const loadId = this.loadId + 1;
 
@@ -3095,6 +2882,8 @@ export class _SavedImportConfigSearch extends Model({
         }
       } else if (hasCtrl) {
         this.toggleSelected([{ id, isSelected: !this.getIsSelected(id) }]);
+      } else if (this.selectedIds.length === 1 && this.getIsSelected(id)) {
+        this.selectedIds = [];
       } else {
         this.selectedIds = [id];
       }
@@ -3255,13 +3044,14 @@ export class _SavedImportConfigSearch extends Model({
 
               this.setIsPageCountLoading(false);
 
-              if (!countRes.success) return console.error(countRes.error);
+              if (!countRes.success) console.error(countRes.error);
+              else {
+                const pageCount = countRes.data.pageCount;
 
-              const pageCount = countRes.data.pageCount;
+                this.setPageCount(pageCount);
 
-              this.setPageCount(pageCount);
-
-              if (debug) perfLog(`Set pageCount to ${pageCount}`);
+                if (debug) perfLog(`Set pageCount to ${pageCount}`);
+              }
             } catch (error) {
               if (loadId !== this.loadId) return;
 
@@ -3310,52 +3100,34 @@ export class _SavedImportConfigSearch extends Model({
     const existing = this.savedSearches.find((s) => s.label === trimmedLabel);
     const selected = this.savedSearches.find((s) => s.id === this.selectedSavedSearchId);
     const filterProps = this.getSearchProps();
+    let res: Awaited<
+      ReturnType<typeof trpc.createSavedSearch.mutate | typeof trpc.updateSavedSearch.mutate>
+    >;
 
-    if (selected) {
-      const res = await trpc.updateSavedSearch.mutate({
+    if (selected)
+      res = await trpc.updateSavedSearch.mutate({
         args: { id: selected.id, updates: { filterProps, label: trimmedLabel } },
       });
-
-      if (!res.success) throw new Error(res.error);
-
-      await this.loadSavedSearches();
-      this.setSelectedSavedSearchId(selected.id);
-      this.setIsSaveModalOpen(false);
-      toast.success("Saved search updated");
-
-      return res.data;
-    }
-
-    if (existing) {
-      const res = await trpc.updateSavedSearch.mutate({
+    else if (existing)
+      res = await trpc.updateSavedSearch.mutate({
         args: { id: existing.id, updates: { filterProps } },
       });
-
-      if (!res.success) throw new Error(res.error);
-
-      await this.loadSavedSearches();
-      this.setSelectedSavedSearchId(existing.id);
-      this.setIsSaveModalOpen(false);
-      toast.success("Saved search updated");
-
-      return res.data;
-    }
-
-    const res = await trpc.createSavedSearch.mutate({
-      args: {
-        dateCreated: dayjs().toISOString(),
-        filterProps,
-        label: trimmedLabel,
-        searchType: "SavedImportConfig",
-      },
-    });
+    else
+      res = await trpc.createSavedSearch.mutate({
+        args: {
+          dateCreated: dayjs().toISOString(),
+          filterProps,
+          label: trimmedLabel,
+          searchType: "SavedImportConfig",
+        },
+      });
 
     if (!res.success) throw new Error(res.error);
 
     await this.loadSavedSearches();
-    this.setSelectedSavedSearchId(res.data.id);
+    this.setSelectedSavedSearchId(selected?.id ?? existing?.id ?? res.data.id);
     this.setIsSaveModalOpen(false);
-    toast.success("Saved search created");
+    toast.success(selected || existing ? "Saved search updated" : "Saved search created");
 
     return res.data;
   });
@@ -3484,9 +3256,11 @@ export class _TagSearch extends Model({
   @modelAction
   applySearchProps(searchProps: Record<string, any>) {
     this.reset();
+
     Object.entries(searchProps).forEach(([key, value]) => {
       if (key in this) this[key] = value;
     });
+
     this.cachedFilterProps = null;
     this.hasChanges = true;
     this.page = 1;
@@ -3563,6 +3337,7 @@ export class _TagSearch extends Model({
   @modelAction
   _deleteResults(ids: string[]) {
     const removedIds = new Set(ids);
+
     this.results = this.results.filter((d) => !removedIds.has(d.id));
   }
 
@@ -3616,18 +3391,14 @@ export class _TagSearch extends Model({
     if (!selected?.length) return;
 
     const previous = this.selectedIdSet;
-    const next = new Set(previous);
+    const next = applySelectionChanges(this.selectedIds, selected);
 
-    for (const { id, isSelected } of selected) {
-      if (isSelected) next.add(id);
-      else next.delete(id);
-    }
-
-    this.selectedIds = [...next];
+    this.selectedIds = next;
 
     if (withToast) {
-      const addedCount = [...next].filter((id) => !previous.has(id)).length;
-      const removedCount = [...previous].filter((id) => !next.has(id)).length;
+      const nextSet = new Set(next);
+      const addedCount = next.filter((id) => !previous.has(id)).length;
+      const removedCount = [...previous].filter((id) => !nextSet.has(id)).length;
 
       if (addedCount && removedCount)
         toast.success(`Selected ${addedCount} items and deselected ${removedCount} items`);
@@ -3669,44 +3440,13 @@ export class _TagSearch extends Model({
   @modelFlow
   getShiftSelected = asyncAction(
     async ({ id, selectedIds }: { id: string; selectedIds: string[] }) => {
-      const indexesById = new Map(this.results.map((result, index) => [result.id, index]));
-      const clickedLocalIndex = indexesById.get(id) ?? -1;
+      const range = getSelectionRange({
+        clickedId: id,
+        orderedIds: this.results.map((r) => r.id),
+        selectedIds,
+      });
 
-      const selectedLocalIndexes = selectedIds
-        .map((sid) => indexesById.get(sid) ?? -1)
-        .filter((i) => i > -1);
-
-      const canResolveLocally =
-        clickedLocalIndex > -1 &&
-        selectedLocalIndexes.length === selectedIds.length &&
-        this.results.length > 0;
-
-      if (canResolveLocally) {
-        if (!selectedIds.length) return { idsToDeselect: [], idsToSelect: [id] };
-
-        const firstSelected = selectedLocalIndexes.reduce(
-          (min, index) => Math.min(min, index),
-          Infinity,
-        );
-        const lastSelected = selectedLocalIndexes.reduce(
-          (max, index) => Math.max(max, index),
-          -Infinity,
-        );
-
-        if (firstSelected === clickedLocalIndex) return { idsToDeselect: [id], idsToSelect: [] };
-
-        const isFirstAfterClicked = firstSelected > clickedLocalIndex;
-        const start = isFirstAfterClicked ? clickedLocalIndex : firstSelected;
-        const end = isFirstAfterClicked ? lastSelected : clickedLocalIndex;
-
-        const newIds = this.results.slice(start, end + 1).map((r) => r.id);
-        const selectedIdSet = new Set(selectedIds);
-        const newIdSet = new Set(newIds);
-        const idsToSelect = newIds.filter((i) => !selectedIdSet.has(i));
-        const idsToDeselect = selectedIds.filter((i) => !newIdSet.has(i));
-
-        return { idsToDeselect, idsToSelect };
-      }
+      if (range) return range;
 
       const loadId = this.loadId + 1;
 
@@ -3752,6 +3492,8 @@ export class _TagSearch extends Model({
         }
       } else if (hasCtrl) {
         this.toggleSelected([{ id, isSelected: !this.getIsSelected(id) }]);
+      } else if (this.selectedIds.length === 1 && this.getIsSelected(id)) {
+        this.selectedIds = [];
       } else {
         this.selectedIds = [id];
       }
@@ -3912,13 +3654,14 @@ export class _TagSearch extends Model({
 
               this.setIsPageCountLoading(false);
 
-              if (!countRes.success) return console.error(countRes.error);
+              if (!countRes.success) console.error(countRes.error);
+              else {
+                const pageCount = countRes.data.pageCount;
 
-              const pageCount = countRes.data.pageCount;
+                this.setPageCount(pageCount);
 
-              this.setPageCount(pageCount);
-
-              if (debug) perfLog(`Set pageCount to ${pageCount}`);
+                if (debug) perfLog(`Set pageCount to ${pageCount}`);
+              }
             } catch (error) {
               if (loadId !== this.loadId) return;
 
@@ -3967,52 +3710,34 @@ export class _TagSearch extends Model({
     const existing = this.savedSearches.find((s) => s.label === trimmedLabel);
     const selected = this.savedSearches.find((s) => s.id === this.selectedSavedSearchId);
     const filterProps = this.getSearchProps();
+    let res: Awaited<
+      ReturnType<typeof trpc.createSavedSearch.mutate | typeof trpc.updateSavedSearch.mutate>
+    >;
 
-    if (selected) {
-      const res = await trpc.updateSavedSearch.mutate({
+    if (selected)
+      res = await trpc.updateSavedSearch.mutate({
         args: { id: selected.id, updates: { filterProps, label: trimmedLabel } },
       });
-
-      if (!res.success) throw new Error(res.error);
-
-      await this.loadSavedSearches();
-      this.setSelectedSavedSearchId(selected.id);
-      this.setIsSaveModalOpen(false);
-      toast.success("Saved search updated");
-
-      return res.data;
-    }
-
-    if (existing) {
-      const res = await trpc.updateSavedSearch.mutate({
+    else if (existing)
+      res = await trpc.updateSavedSearch.mutate({
         args: { id: existing.id, updates: { filterProps } },
       });
-
-      if (!res.success) throw new Error(res.error);
-
-      await this.loadSavedSearches();
-      this.setSelectedSavedSearchId(existing.id);
-      this.setIsSaveModalOpen(false);
-      toast.success("Saved search updated");
-
-      return res.data;
-    }
-
-    const res = await trpc.createSavedSearch.mutate({
-      args: {
-        dateCreated: dayjs().toISOString(),
-        filterProps,
-        label: trimmedLabel,
-        searchType: "Tag",
-      },
-    });
+    else
+      res = await trpc.createSavedSearch.mutate({
+        args: {
+          dateCreated: dayjs().toISOString(),
+          filterProps,
+          label: trimmedLabel,
+          searchType: "Tag",
+        },
+      });
 
     if (!res.success) throw new Error(res.error);
 
     await this.loadSavedSearches();
-    this.setSelectedSavedSearchId(res.data.id);
+    this.setSelectedSavedSearchId(selected?.id ?? existing?.id ?? res.data.id);
     this.setIsSaveModalOpen(false);
-    toast.success("Saved search created");
+    toast.success(selected || existing ? "Saved search updated" : "Saved search created");
 
     return res.data;
   });

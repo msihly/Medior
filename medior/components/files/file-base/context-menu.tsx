@@ -30,6 +30,7 @@ export const ContextMenu = Comp(
     const fileStore = stores.file;
 
     const load = useCancellableLoad();
+
     const isReencodable = file.videoCodec?.length > 0 || getIsImage(file.ext);
     const isRemuxable = getIsRemuxable(file.ext);
     const spliceTimelines = file.timestamps?.filter((timeline) => timeline.pairs.length) ?? [];
@@ -59,8 +60,6 @@ export const ContextMenu = Comp(
     //   stores.faceRecog.setIsModalOpen(true);
     // };
 
-    const handleImageVariants = () => fileStore.lowerResolution.open(file.id);
-
     const handleRefresh = () => fileStore.refreshFiles({ ids: [file.id] });
 
     const handleReencode = () => fileStore.openVideoTransformer([file.id], "reencode");
@@ -82,6 +81,8 @@ export const ContextMenu = Comp(
     };
 
     const handleUnarchive = () => fileStore.unarchiveFiles({ fileIds: [file.id] });
+
+    const handleVariants = () => fileStore.lowerResolution.open(file.id);
 
     const openInfo = () => {
       fileStore.setActiveFileId(file.id);
@@ -183,13 +184,11 @@ export const ContextMenu = Comp(
               label: "Find Similar",
               onClick: handleSimilarity,
             },
-            getIsImage(file.ext)
-              ? {
-                  icon: "ImageSearch",
-                  label: "Find Variants",
-                  onClick: handleImageVariants,
-                }
-              : null,
+            {
+              icon: "ImageSearch",
+              label: "Find Variants",
+              onClick: handleVariants,
+            },
             {
               icon: "Refresh",
               label: "Refresh",

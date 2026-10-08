@@ -6,6 +6,7 @@ import { availableParallelism } from "os";
 import { fileLog } from "trabecula/utils/server";
 import type { ServerProcessMessage } from "medior/server/process-lifecycle";
 import { CONSTANTS } from "medior/utils/common";
+import { getConfig } from "medior/utils/server/config";
 
 export type ServerProcessState = "failed" | "ready" | "restarting" | "starting";
 
@@ -45,7 +46,7 @@ class ManagedProc {
     private readonly configPath: string,
     private readonly logsPath: string,
     private readonly onStatusChange: () => void,
-    private readonly env?: Record<string, string>,
+    private readonly getEnv?: () => Record<string, string>,
   ) {}
 
   getStatus(): ServerProcessStatus {
@@ -202,7 +203,7 @@ class ManagedProc {
           ? path.join(process.resourcesPath, "app.asar", "node_modules")
           : path.resolve("node_modules"),
         RESOURCES_PATH: process.resourcesPath,
-        ...this.env,
+        ...this.getEnv?.(),
       },
       stdio: ["ignore", "pipe", "pipe", "ipc"],
       windowsHide: true,
@@ -294,61 +295,59 @@ class ManagedProc {
 
         if (!child.kill()) reject(new Error(`Could not terminate ${this.label}.`));
       });
+    } else {
+      await new Promise<void>((resolve, reject) => {
+        const requestId = randomUUID();
 
-      return;
-    }
+        const warning = setInterval(
+          () => fileLog(`Waiting for ${this.label} to shut down cleanly...`),
+          30000,
+        );
 
-    await new Promise<void>((resolve, reject) => {
-      const requestId = randomUUID();
+        const cleanup = () => {
+          clearInterval(warning);
+          child.off("exit", onExit);
+          child.off("message", onMessage);
+        };
 
-      const warning = setInterval(
-        () => fileLog(`Waiting for ${this.label} to shut down cleanly...`),
-        30000,
-      );
+        const onExit = (code: number | null, signal: NodeJS.Signals | null) => {
+          cleanup();
 
-      const cleanup = () => {
-        clearInterval(warning);
-        child.off("exit", onExit);
-        child.off("message", onMessage);
-      };
+          if (code === 0) resolve();
+          else
+            reject(
+              new Error(`${this.label} exited during shutdown (code: ${code}, signal: ${signal}).`),
+            );
+        };
 
-      const onExit = (code: number | null, signal: NodeJS.Signals | null) => {
-        cleanup();
+        const fail = (error: Error) => {
+          cleanup();
+          reject(error);
+        };
 
-        if (code === 0) resolve();
-        else
-          reject(
-            new Error(`${this.label} exited during shutdown (code: ${code}, signal: ${signal}).`),
-          );
-      };
+        const onMessage = (message: ServerProcessMessage) => {
+          if (
+            message?.type === "shutdown-error" ||
+            (message?.requestId === requestId && message.type === "error")
+          ) {
+            fail(new Error(message.error));
+          }
+        };
 
-      const fail = (error: Error) => {
-        cleanup();
-        reject(error);
-      };
+        child.once("exit", onExit);
+        child.on("message", onMessage);
 
-      const onMessage = (message: ServerProcessMessage) => {
-        if (
-          message?.type === "shutdown-error" ||
-          (message?.requestId === requestId && message.type === "error")
-        ) {
-          fail(new Error(message.error));
+        if (!child.connected) {
+          fail(new Error(`${this.label} IPC is disconnected during shutdown.`));
+
+          return;
         }
-      };
 
-      child.once("exit", onExit);
-      child.on("message", onMessage);
-
-      if (!child.connected) {
-        fail(new Error(`${this.label} IPC is disconnected during shutdown.`));
-
-        return;
-      }
-
-      child.send({ requestId, type: "stop" }, (error) => {
-        if (error) fail(error);
+        child.send({ requestId, type: "stop" }, (error) => {
+          if (error) fail(error);
+        });
       });
-    });
+    }
   }
 }
 
@@ -376,7 +375,7 @@ export class ServerManager {
       configPath,
       logsPath,
       this.notifyStatusChange,
-      { UV_THREADPOOL_SIZE: String(FILE_IO_THREAD_POOL_SIZE) },
+      () => ({ UV_THREADPOOL_SIZE: String(FILE_IO_THREAD_POOL_SIZE) }),
     );
 
     this.db = new ManagedProc(
@@ -387,7 +386,7 @@ export class ServerManager {
       configPath,
       logsPath,
       this.notifyStatusChange,
-      { DEBUG_COLORS: "0" },
+      () => ({ DEBUG_COLORS: "0" }),
     );
 
     this.socket = new ManagedProc(
@@ -408,7 +407,18 @@ export class ServerManager {
       configPath,
       logsPath,
       this.notifyStatusChange,
-      { UV_THREADPOOL_SIZE: String(FILE_IO_THREAD_POOL_SIZE) },
+      () => {
+        // LanceDB sizes its compute (Lance), data-parallel (Rayon), and async (Tokio) pools from
+        // these at load; unset, each claims every core during index builds and vector search.
+        const threads = String(getConfig().file.similarity.cpuThreads);
+
+        return {
+          LANCE_CPU_THREADS: threads,
+          RAYON_NUM_THREADS: threads,
+          TOKIO_WORKER_THREADS: threads,
+          UV_THREADPOOL_SIZE: String(FILE_IO_THREAD_POOL_SIZE),
+        };
+      },
     );
   }
 

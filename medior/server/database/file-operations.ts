@@ -31,6 +31,12 @@ export interface FileCleanup {
   retainedPath?: string;
 }
 
+export const makeFileCleanup = (hash: string, path: string): FileCleanup => ({
+  hash,
+  path,
+  pathKey: mediaPathKey(path),
+});
+
 class FileCleanupPausedError extends Error {
   constructor() {
     super("File cleanup paused; remaining work retained.");
@@ -96,7 +102,7 @@ export interface FileOperation {
 }
 
 const schema = new Schema<FileOperation>({
-  _id: { type: String, default: () => randomUUID() },
+  _id: { default: () => randomUUID(), type: String },
   batchId: { index: true, type: String },
   cleanup: [
     { hash: String, path: String, pathKey: String, retainedHash: String, retainedPath: String },
@@ -113,9 +119,9 @@ const schema = new Schema<FileOperation>({
   sourceHash: String,
   sourceModified: String,
   sourcePath: String,
-  thumbnailInput: Schema.Types.Mixed,
-  state: { type: String, enum: ["COMMITTED", "PREPARED"], required: true },
+  state: { enum: ["COMMITTED", "PREPARED"], required: true, type: String },
   tempPath: String,
+  thumbnailInput: Schema.Types.Mixed,
   thumbPath: String,
 });
 
@@ -210,12 +216,7 @@ export const assertMediaPathsAvailable = async (paths: string[], transformId?: s
 };
 
 export const describeFileCleanup = async (path: string, retainedPath?: string) => {
-  if (
-    !path ||
-    (retainedPath &&
-      nodePath.resolve(path).toLowerCase() === nodePath.resolve(retainedPath).toLowerCase())
-  )
-    return null;
+  if (!path || (retainedPath && mediaPathKey(path) === mediaPathKey(retainedPath))) return null;
 
   let hash: string;
 
@@ -230,7 +231,7 @@ export const describeFileCleanup = async (path: string, retainedPath?: string) =
   return {
     hash,
     path,
-    pathKey: nodePath.resolve(path).toLowerCase(),
+    pathKey: mediaPathKey(path),
     ...(retainedPath ? { retainedHash: await hashCleanupFile(retainedPath), retainedPath } : {}),
   } satisfies FileCleanup;
 };
@@ -329,11 +330,15 @@ const cleanFileOperation = async (id: string, canContinue: () => boolean) => {
       )
         continue;
 
-      const hash = await hashCleanupFile(file.path, canContinue).catch((error) => {
-        if (error.code === "ENOENT") return null;
+      let hash: string | null;
 
-        throw error;
-      });
+      try {
+        hash = await hashCleanupFile(file.path, canContinue);
+      } catch (error) {
+        if (error.code !== "ENOENT") throw error;
+
+        hash = null;
+      }
 
       if (hash !== null) {
         if (hash !== file.hash) throw new Error(`Cleanup checksum changed: ${file.path}`);
@@ -361,13 +366,19 @@ const cleanFileOperation = async (id: string, canContinue: () => boolean) => {
 
     if (await FileOperationModel.exists({ _id: id, "cleanup.0": { $exists: true } })) return;
 
-    if (
-      operation.tempPath &&
-      (await fs.stat(operation.tempPath).catch((error) => {
-        if (error.code === "ENOENT") return null;
+    let tempPathExists = false;
 
-        throw error;
-      })) &&
+    if (operation.tempPath) {
+      try {
+        await fs.stat(operation.tempPath);
+        tempPathExists = true;
+      } catch (error) {
+        if (error.code !== "ENOENT") throw error;
+      }
+    }
+
+    if (
+      tempPathExists &&
       !(await isMediaPathReferenced(operation.tempPath, { fileOperationId: id }))
     ) {
       checkCleanupCancelled(canContinue);

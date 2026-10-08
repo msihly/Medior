@@ -1,5 +1,5 @@
 import Mongoose from "mongoose";
-import { backgroundExecution } from "medior/server/database/background-execution";
+import { getBackgroundSession } from "medior/server/database/database-context";
 import { ensurePersistenceIndexes, PersistenceModel } from "medior/server/database/persistence";
 import { makeRepairReporter } from "medior/server/database/repair-progress";
 import { sleep } from "medior/utils/common";
@@ -103,7 +103,7 @@ export const rebuildIndexes = makeAction(
           await runWhenNoIndexBuildIsRunning(() =>
             Mongoose.connection.db.command(
               { reIndex: collectionName },
-              { session: backgroundExecution.getStore()?.session },
+              { session: getBackgroundSession() },
             ),
           );
 

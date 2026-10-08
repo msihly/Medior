@@ -1,6 +1,5 @@
 import { useState } from "react";
-import { Button, Card, Comp, LoadingOverlay, UniformList, View } from "medior/components";
-import { Settings } from "medior/components/settings";
+import { Button, Card, Comp, LoadingOverlay, Settings, UniformList, View } from "medior/components";
 import { useStores } from "medior/store";
 import { colors, toast } from "medior/utils/client";
 import { ConfigKey } from "medior/utils/server";

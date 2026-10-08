@@ -2,7 +2,6 @@ import { useRef } from "react";
 import {
   Button,
   CardGrid,
-  Checkbox,
   Comp,
   HomeMultiActionBar,
   Modal,
@@ -31,11 +30,6 @@ export const SimilarityModal = Comp(() => {
   const handleRefresh = () => store.loadSimilar();
 
   const handleLoadMore = () => store.loadSimilar(true);
-
-  const handleExactChange = (value: boolean) => {
-    store.setIsExact(value);
-    store.loadSimilar();
-  };
 
   const handleScanVariants = () => stores.file.lowerResolution.open(store.activeFileId);
 
@@ -83,13 +77,6 @@ export const SimilarityModal = Comp(() => {
       </Modal.Content>
 
       <Modal.Footer>
-        <Checkbox
-          label="Exhaustive search (slower)"
-          checked={store.isExact}
-          setChecked={handleExactChange}
-          disabled={store.isLoading}
-        />
-
         <Button text="Find Variants" icon="ImageSearch" onClick={handleScanVariants} />
 
         {store.hasMore && (

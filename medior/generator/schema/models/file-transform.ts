@@ -8,12 +8,12 @@ model.addProp("afterAudioBitrate", "number");
 model.addProp("afterAudioCodec", "string");
 model.addProp("afterBitrate", "number");
 model.addProp("afterDuration", "number");
+model.addProp("afterExt", "string");
 model.addProp("afterFrameRate", "number");
 model.addProp("afterHash", "string");
 model.addProp("afterHeight", "number");
 model.addProp("afterPath", "string");
 model.addProp("afterSize", "number");
-model.addProp("afterExt", "string");
 model.addProp("afterVideoCodec", "string");
 model.addProp("afterWidth", "number");
 
@@ -25,6 +25,7 @@ model.addProp("beforeBitrate", "number", {
 model.addProp("beforeDuration", "number", {
   sort: { icon: "HourglassBottom", label: "Duration" },
 });
+model.addProp("beforeExt", "string", { required: true });
 model.addProp("beforeFrameRate", "number");
 model.addProp("beforeHash", "string");
 model.addProp("beforeHeight", "number", { sort: { icon: "Height", label: "Height" } });
@@ -33,7 +34,6 @@ model.addProp("beforeSize", "number", {
   required: true,
   sort: { icon: "FormatSize", label: "Size" },
 });
-model.addProp("beforeExt", "string", { required: true });
 model.addProp("beforeVideoCodec", "string");
 model.addProp("beforeWidth", "number", {
   sort: { icon: "Height", iconProps: { rotation: 90 }, label: "Width" },
@@ -57,9 +57,9 @@ model.addProp("configMaxHeight", "number");
 model.addProp("configMaxWidth", "number");
 model.addProp("configOverride", "string[]", { defaultValue: "[]" });
 
-model.addProp("errorMsg", "string");
 model.addProp("duplicateFileId", "File.id");
 model.addProp("duplicatePath", "string");
+model.addProp("errorMsg", "string");
 
 model.addIndex({ fileId: 1, _id: 1 }, { unique: false });
 model.addProp("fileId", "File.id", { required: true });

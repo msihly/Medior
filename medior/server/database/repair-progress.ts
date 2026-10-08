@@ -5,7 +5,7 @@ import { isServerStopping } from "medior/server/process-lifecycle";
 import { dayjs } from "medior/utils/common";
 import { leanModelToJson, socket } from "medior/utils/server";
 
-export type RepairProgressStatus = "cancelled" | "error" | "info" | "progress" | "success";
+type RepairProgressStatus = "cancelled" | "error" | "info" | "progress" | "success";
 
 class RepairCancelledError extends Error {
   constructor() {

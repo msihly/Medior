@@ -131,6 +131,7 @@ export class FileStore extends ExtendedModel(_FileStore, {
   ) {
     if (sortValue && this.search.ids.length) {
       const selectedIds = new Set(fileIds);
+
       fileIds = this.search.ids.filter((id) => selectedIds.has(id));
       sortValue = null;
     }
@@ -167,6 +168,20 @@ export class FileStore extends ExtendedModel(_FileStore, {
   }
 
   @modelAction
+  updateFileTags({
+    addedTagIds,
+    fileIds,
+    removedTagIds,
+  }: {
+    addedTagIds: string[];
+    fileIds: string[];
+    removedTagIds: string[];
+  }) {
+    this.search.updateFileTags({ addedTagIds, fileIds, removedTagIds });
+    this.similarity.search.updateFileTags({ addedTagIds, fileIds, removedTagIds });
+  }
+
+  @modelAction
   updateFiles(
     fileIds: string[],
     updates: Partial<
@@ -188,39 +203,19 @@ export class FileStore extends ExtendedModel(_FileStore, {
     const stores = getRootStore<RootStore>(this);
 
     const updatedIds = new Set(fileIds);
+    const files = [
+      ...this.similarity.search.results,
+      ...stores.collection.manager.selectedFiles,
+      ...stores.collection.editor.fileSearch.results,
+      ...stores.collection.manager.search.files.values(),
+    ];
 
     this.updateFiles(fileIds, updates);
     stores.collection.editor.updateFiles(fileIds, updates);
 
-    for (const file of this.similarity.search.results) {
+    for (const file of files) {
       if (updatedIds.has(file.id)) file.update(updates);
     }
-
-    stores.collection.manager.selectedFiles.forEach((file) => {
-      if (updatedIds.has(file.id)) file.update(updates);
-    });
-
-    stores.collection.editor.fileSearch.results.forEach((file) => {
-      if (updatedIds.has(file.id)) file.update(updates);
-    });
-
-    stores.collection.manager.search.files.forEach((file) => {
-      if (updatedIds.has(file.id)) file.update(updates);
-    });
-  }
-
-  @modelAction
-  updateFileTags({
-    addedTagIds,
-    fileIds,
-    removedTagIds,
-  }: {
-    addedTagIds: string[];
-    fileIds: string[];
-    removedTagIds: string[];
-  }) {
-    this.search.updateFileTags({ addedTagIds, fileIds, removedTagIds });
-    this.similarity.search.updateFileTags({ addedTagIds, fileIds, removedTagIds });
   }
 
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */
@@ -293,6 +288,7 @@ export class FileStore extends ExtendedModel(_FileStore, {
 
     const reportProgress = (processedCount: number, message: string) =>
       onProgress?.({ message, processedCount, totalCount: fileIds.length });
+
     reportProgress(0, `Processing ${fileIds.length} files.`);
 
     const archivedIds: string[] = [];
@@ -577,15 +573,5 @@ export class FileStore extends ExtendedModel(_FileStore, {
   /* --------------------------------- DYNAMIC GETTERS -------------------------------- */
   getById(id: string) {
     return this.search.results.find((f) => f.id === id);
-  }
-
-  listByIds(ids: string[]) {
-    const requestedIds = new Set(ids);
-
-    return this.search.results.filter((f) => requestedIds.has(f.id));
-  }
-
-  listByTagId(tagId: string) {
-    return this.search.results.filter((f) => f.tagIds.includes(tagId));
   }
 }

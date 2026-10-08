@@ -27,8 +27,6 @@ export interface MetadataWork {
 const activeWork = new Map<string, Promise<unknown>>();
 const handlers = new Map<string, (input: any) => Promise<unknown>>();
 
-export { getBackgroundSession } from "medior/server/database/database-context";
-
 export const metadataWriteOptions = () => ({ j: true, w: "majority" as const });
 
 export const readSavedMetadataSnapshot = async <T>(
@@ -198,11 +196,17 @@ export const runMetadataWork = async (operation: BackgroundOperationSchema) => {
       }
 
       activeWork.delete(operation.id);
-      backgroundExecution.exit(() =>
-        import("medior/server/database/actions/background-operations")
-          .then(({ emitBackgroundOperation }) => emitBackgroundOperation(operation.id))
-          .catch((error) => console.error("Metadata activity update failed:", error)),
-      );
+      backgroundExecution.exit(async () => {
+        try {
+          const { emitBackgroundOperation } = await import(
+            "medior/server/database/actions/background-operations"
+          );
+
+          await emitBackgroundOperation(operation.id);
+        } catch (error) {
+          console.error("Metadata activity update failed:", error);
+        }
+      });
     }
   });
 
@@ -225,29 +229,30 @@ export const registerMetadataWork = <Input, Output>(
     // Linked calls belong to the same saved request and propagate failures to its owner.
     if (metadataWork.getStore() || (backgroundExecution.getStore() && !persistInBackground))
       return withMetadataMutation(() => run(input));
+    else {
+      const id = new Types.ObjectId();
+      const inputPayload = await writeMetadataPayload(String(id), "input", input);
 
-    const id = new Types.ObjectId();
-    const inputPayload = await writeMetadataPayload(String(id), "input", input);
+      const operation = await new BackgroundOperationModel({
+        _id: id,
+        dateCreated: dayjs().toISOString(),
+        dateModified: dayjs().toISOString(),
+        label: name
+          .replace(/^generated:_?/, "")
+          .replace(/([a-z])([A-Z])/g, "$1 $2")
+          .replace(/^./, (letter) => letter.toUpperCase()),
+        processedCount: 0,
+        status: "PENDING",
+        targetIds: [],
+        totalCount: 1,
+        type: "metadataAction",
+        work: { inputPayload, name, snapshotPayloads: {} },
+      }).save(metadataWriteOptions());
 
-    const operation = await new BackgroundOperationModel({
-      _id: id,
-      dateCreated: dayjs().toISOString(),
-      dateModified: dayjs().toISOString(),
-      label: name
-        .replace(/^generated:_?/, "")
-        .replace(/([a-z])([A-Z])/g, "$1 $2")
-        .replace(/^./, (letter) => letter.toUpperCase()),
-      processedCount: 0,
-      status: "PENDING",
-      targetIds: [],
-      totalCount: 1,
-      type: "metadataAction",
-      work: { inputPayload, name, snapshotPayloads: {} },
-    }).save(metadataWriteOptions());
-
-    return (await runBackgroundExecution(() =>
-      runMetadataWork({ ...operation.toObject(), id: String(operation._id) }),
-    )) as Output;
+      return (await runBackgroundExecution(() =>
+        runMetadataWork({ ...operation.toObject(), id: String(operation._id) }),
+      )) as Output;
+    }
   };
 };
 

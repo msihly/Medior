@@ -96,8 +96,8 @@ export class ModelDb {
 
   public makeType = (type: string) => {
     if (!type.includes(".id")) return type;
-
-    return type.startsWith("Array<") || type.endsWith("[]") ? "string[]" : "string";
+    else if (type.startsWith("Array<") || type.endsWith("[]")) return "string[]";
+    else return "string";
   };
 }
 

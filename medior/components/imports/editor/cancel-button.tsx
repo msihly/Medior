@@ -1,4 +1,3 @@
-import { Fragment } from "react";
 import { Button, Comp, ConfirmModal } from "medior/components";
 import { Ingester, Reingester } from "medior/store";
 import { colors } from "medior/utils/client";
@@ -17,7 +16,7 @@ export const CancelButton = Comp(({ store }: CancelButtonProps) => {
   const handleCancel = () => store.setIsConfirmDiscardOpen(true);
 
   return (
-    <Fragment>
+    <>
       <Button
         text="Cancel"
         icon="Delete"
@@ -34,6 +33,6 @@ export const CancelButton = Comp(({ store }: CancelButtonProps) => {
           onConfirm={confirmDiscard}
         />
       )}
-    </Fragment>
+    </>
   );
 });

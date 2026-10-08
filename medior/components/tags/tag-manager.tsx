@@ -120,8 +120,6 @@ export const TagManager = Comp(() => {
 
   const handlePageChange = (page: number) => store.loadFiltered({ page });
 
-  const handleRefreshTags = () => stores.tag.manager.refreshSelectedTags();
-
   const handleSearchWindow = () => openSearchWindow({ tagIds: store.selectedIds });
 
   const handleSelectAll = () => {
@@ -250,7 +248,7 @@ export const TagManager = Comp(() => {
                 <MultiActionButton
                   name="Refresh"
                   tooltip="Refresh Selected Tags"
-                  onClick={handleRefreshTags}
+                  onClick={stores.tag.manager.refreshSelectedTags}
                   disabled={hasNoSelection}
                 />
 

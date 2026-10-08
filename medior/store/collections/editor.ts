@@ -442,15 +442,15 @@ export class CollectionEditor extends Model({
     return this.search.results.find((f) => f.id === id);
   }
 
+  getFileIdsForCarousel() {
+    return this.fileIndexes.map((f) => f.fileId);
+  }
+
   getIndexById(id: string) {
     return this.fileIndexes.find((f) => f.fileId === id)?.index;
   }
 
   getOriginalIndex(id: string) {
     return this.collection?.fileIdIndexes.find((f) => f.fileId === id)?.index;
-  }
-
-  getFileIdsForCarousel() {
-    return this.fileIndexes.map((f) => f.fileId);
   }
 }

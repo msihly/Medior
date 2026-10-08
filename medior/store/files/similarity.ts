@@ -17,11 +17,9 @@ export class FileSimilarityStore extends Model({
   candidates: prop<SimilarityCandidateMeta[]>(() => []).withSetter(),
   error: prop<string>("").withSetter(),
   hasMore: prop<boolean>(false).withSetter(),
-  isExact: prop<boolean>(false).withSetter(),
   isLoading: prop<boolean>(false).withSetter(),
   isOpen: prop<boolean>(false).withSetter(),
   loadId: prop<number>(0).withSetter(),
-  loadedExact: prop<boolean>(false).withSetter(),
   nextOffset: prop<number>(0).withSetter(),
   search: prop<FileSearch>(() => new FileSearch({})),
 }) {
@@ -35,10 +33,7 @@ export class FileSimilarityStore extends Model({
     this.setLoadId(this.loadId + 1);
     this.search.cancelLoad();
 
-    if (this.isLoading) {
-      this.search.setIds(this.candidates.map((candidate) => candidate.fileId));
-      this.setIsExact(this.loadedExact);
-    }
+    if (this.isLoading) this.search.setIds(this.candidates.map((candidate) => candidate.fileId));
 
     this.setIsLoading(false);
   }
@@ -108,19 +103,16 @@ export class FileSimilarityStore extends Model({
     this.setError("");
     this.search.cancelLoad();
 
-    const exact = this.isExact;
     const loadId = this.loadId + 1;
-    const appendResults = append && exact === this.loadedExact;
     const selectedIds = [...this.search.selectedIds];
 
     this.setLoadId(loadId);
 
     try {
       const res = await trpc.findSimilarFiles.mutate({
-        exact,
         fileId: this.activeFileId,
         limit: Math.min(1000, Math.max(100, this.search.pageSize)),
-        offset: appendResults ? this.nextOffset : 0,
+        offset: append ? this.nextOffset : 0,
       });
 
       if (loadId !== this.loadId) return;
@@ -128,7 +120,7 @@ export class FileSimilarityStore extends Model({
       if (!res.success) throw new Error(res.error);
 
       const candidates = new Map(
-        (appendResults ? this.candidates : []).map((candidate) => [candidate.fileId, candidate]),
+        (append ? this.candidates : []).map((candidate) => [candidate.fileId, candidate]),
       );
 
       for (const candidate of res.data.candidates) candidates.set(candidate.fileId, candidate);
@@ -143,7 +135,7 @@ export class FileSimilarityStore extends Model({
       if (this.search.ids.length) {
         const loaded = await this.search.loadFiltered({
           noCache: true,
-          page: appendResults ? this.search.page : 1,
+          page: append ? this.search.page : 1,
           withFullCount: true,
         });
 
@@ -159,15 +151,11 @@ export class FileSimilarityStore extends Model({
 
       this.setCandidates(nextCandidates);
       this.setHasMore(res.data.hasMore);
-      this.setLoadedExact(exact);
       this.setNextOffset(res.data.nextOffset);
-      this.search.setSelectedIds(
-        appendResults ? selectedIds.filter((id) => candidates.has(id)) : [],
-      );
+      this.search.setSelectedIds(append ? selectedIds.filter((id) => candidates.has(id)) : []);
     } catch (err) {
       if (loadId === this.loadId) {
         this.search.setIds(this.candidates.map((candidate) => candidate.fileId));
-        this.setIsExact(this.loadedExact);
         this.setError(err.message);
         toast.error("Similarity lookup failed");
       }

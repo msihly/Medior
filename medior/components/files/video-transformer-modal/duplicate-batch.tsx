@@ -27,6 +27,8 @@ export const DuplicateBatch = Comp(() => {
   const [isRunning, setIsRunning] = useState(false);
   const [progress, setProgress] = useState("");
 
+  const actionsDisabled = isRunning || store.isTransforming;
+
   const open = () => {
     setIsOpen(true);
   };
@@ -104,8 +106,6 @@ export const DuplicateBatch = Comp(() => {
       setIsRunning(false);
     }
   };
-
-  const actionsDisabled = isRunning || store.isTransforming;
 
   return (
     <>

@@ -1,5 +1,5 @@
 import { createTRPCProxyClient, httpBatchLink, httpLink } from "@trpc/client";
-import { SocketEmitEvent, SocketEmitEvents, SocketEvents } from "medior/_generated/server/socket";
+import { SocketEmitEvent, SocketEvents } from "medior/_generated/server/socket";
 import { io, Socket } from "socket.io-client";
 import { fileLog } from "trabecula/utils/server";
 import { ServerRouter } from "medior/server/trpc";
@@ -33,8 +33,6 @@ class SocketClass {
   private listeners: Array<{ event: keyof SocketEvents; listener: (...args: any[]) => void }> = [];
   private port: number;
   private socket: Socket;
-
-  public constructor() {}
 
   public connect() {
     if (this.socket) return this.socket;
@@ -146,8 +144,3 @@ class SocketClass {
 }
 
 export const socket = new SocketClass();
-
-export const emitEvent = <E extends SocketEmitEvent>(
-  event: E,
-  data: Parameters<SocketEmitEvents[E]>[0],
-) => trpc._emitEvent.mutate({ event, data });

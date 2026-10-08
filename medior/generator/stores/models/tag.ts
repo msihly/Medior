@@ -50,15 +50,15 @@ model.addProp("fileTags", "Stores.TagOption[]", "() => []", {
   noInterface: true,
 });
 
+model.addProp("hasRegEx", "boolean", "null", {
+  objPath: ["$expr"],
+  objValue: `{ [args.hasRegEx ?  "$ne" : "$eq"]: [{ $ifNull: ["$regEx", ""] }, ""] }`,
+});
+
 model.addProp("label", "string", '""', {
   filterGroup: "label",
   objPath: ["label", "$regex"],
   objValue: "args.label",
-});
-
-model.addProp("hasRegEx", "boolean", "null", {
-  objPath: ["$expr"],
-  objValue: `{ [args.hasRegEx ?  "$ne" : "$eq"]: [{ $ifNull: ["$regEx", ""] }, ""] }`,
 });
 
 model.addProp("title", "string", '""', {

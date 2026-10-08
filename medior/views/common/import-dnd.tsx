@@ -1,11 +1,7 @@
-import Color from "color";
-import { Comp, View } from "medior/components";
+import { Comp, DropOverlay, View } from "medior/components";
 import { handleIngest, useStores } from "medior/store";
-import { colors, makeClasses } from "medior/utils/client";
 
 export const ImportDnD = Comp(({ children }: { children: JSX.Element | JSX.Element[] }) => {
-  const { css } = useClasses(null);
-
   const stores = useStores();
   const store = stores.home;
 
@@ -29,25 +25,9 @@ export const ImportDnD = Comp(({ children }: { children: JSX.Element | JSX.Eleme
 
   return (
     <View onDragOver={handleDragOver} onDragEnter={handleDragEnter}>
-      {store.isDraggingIn && (
-        <View onDragLeave={handleDragLeave} onDrop={handleFileDrop} className={css.overlay} />
-      )}
+      {store.isDraggingIn && <DropOverlay onDragLeave={handleDragLeave} onDrop={handleFileDrop} />}
 
       {children}
     </View>
   );
-});
-
-const useClasses = makeClasses({
-  overlay: {
-    backgroundColor: Color(colors.custom.blue).fade(0.5).string(),
-    border: `15px dashed ${colors.custom.blue}`,
-    bottom: 0,
-    left: 0,
-    opacity: 0.3,
-    position: "fixed",
-    right: 0,
-    top: 0,
-    zIndex: 5000, // necessary for MUI z-index values
-  },
 });

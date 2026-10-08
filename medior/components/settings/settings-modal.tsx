@@ -77,31 +77,25 @@ export const SettingsModal = Comp(() => {
   const handleMongoDbPathClick = async (event: React.MouseEvent) => {
     event.preventDefault();
 
-    const res = await dialog.showOpenDialog({ properties: ["openDirectory"] });
+    const location = await selectStorageLocation();
 
-    if (res.canceled) return;
-
-    store.setDbPath(res.filePaths[0]);
+    if (location) store.setDbPath(location);
   };
 
   const handleSimilarityModelCachePathClick = async (event: React.MouseEvent) => {
     event.preventDefault();
 
-    const res = await dialog.showOpenDialog({ properties: ["openDirectory"] });
+    const location = await selectStorageLocation();
 
-    if (res.canceled) return;
-
-    store.setSimilarityModelCachePath(res.filePaths[0]);
+    if (location) store.setSimilarityModelCachePath(location);
   };
 
   const handleVectorDbPathClick = async (event: React.MouseEvent) => {
     event.preventDefault();
 
-    const res = await dialog.showOpenDialog({ properties: ["openDirectory"] });
+    const location = await selectStorageLocation();
 
-    if (res.canceled) return;
-
-    store.setVectorDbPath(res.filePaths[0]);
+    if (location) store.setVectorDbPath(location);
   };
 
   const handleRepair = () => store.repair.setIsOpen(true);
@@ -153,8 +147,6 @@ export const SettingsModal = Comp(() => {
 
     return res.canceled ? undefined : res.filePaths[0];
   };
-
-  const toggleFolderToCollWithTag = () => store.toggleFolderToCollMode();
 
   const toggleFoldersToTagsCascading = () => store.setFolderToTagsMode("cascading");
 
@@ -239,6 +231,14 @@ export const SettingsModal = Comp(() => {
               header="Inference Batch"
               configKey="file.similarity.visual.inferenceBatchSize"
               minValue={1}
+              width="10rem"
+            />
+
+            <Settings.NumInput
+              header="Vector CPU Threads"
+              configKey="file.similarity.cpuThreads"
+              minValue={1}
+              maxValue={navigator.hardwareConcurrency}
               width="10rem"
             />
           </View>
@@ -463,7 +463,7 @@ export const SettingsModal = Comp(() => {
                   label="With Tags"
                   configKey="imports.folderToCollMode"
                   checked={store.imports.folderToCollMode === "withTag"}
-                  setChecked={toggleFolderToCollWithTag}
+                  setChecked={store.toggleFolderToCollMode}
                 />
               </View>
 

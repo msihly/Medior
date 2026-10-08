@@ -1,4 +1,4 @@
-import { Button, Comp, LoadingOverlay } from "trabecula/components";
+import { Button, Comp, LoadingOverlay } from "medior/components";
 
 export interface SearchLoadingOverlayProps {
   isLoading?: boolean;

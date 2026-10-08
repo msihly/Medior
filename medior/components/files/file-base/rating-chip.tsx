@@ -21,9 +21,10 @@ export const getRatingMeta = (rating: number) => {
   return { icon, iconColor, textShadow };
 };
 
-interface RatingChipProps extends Omit<ChipProps, "label"> {
+interface RatingChipProps extends Omit<ChipProps, "label" | "onClick"> {
   button?: boolean;
   noHide?: boolean;
+  onClick?: React.MouseEventHandler<HTMLButtonElement | HTMLDivElement>;
   rating: number;
 }
 
@@ -47,7 +48,7 @@ export const RatingChip = ({
       icon="Star"
       iconProps={{ color: colors.custom.white }}
       color={colors.custom.grey}
-      onClick={(event) => props.onClick?.(event as unknown as React.MouseEvent<HTMLDivElement>)}
+      onClick={props.onClick}
     />
   ) : (
     <Chip

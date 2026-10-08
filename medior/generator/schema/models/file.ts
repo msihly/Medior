@@ -146,7 +146,7 @@ model.addProp("waveformPeaks", "number[]");
 model.addIndex({ width: 1, _id: 1 });
 model.addProp("width", "number", {
   required: true,
-  sort: { icon: "Height", label: "Width", iconProps: { rotation: 90 } },
+  sort: { icon: "Height", iconProps: { rotation: 90 }, label: "Width" },
 });
 
 export const MODEL_FILE = model.getModel();

@@ -22,11 +22,12 @@ export const FileCard = Comp(
   ({ carouselFileIds, disabled, file, height, similarity, store, width }: FileCardProps) => {
     const stores = useStores();
 
+    const fileDragProps = useFileDrag(file, store.selectedIds);
+
     const hasTags = file?.tags?.length > 0;
     const showFileName = stores.home.showFileName && !!file?.originalName;
     const hasFooter = hasTags || showFileName;
     const footerOffset = showFileName ? (hasTags ? "3.5rem" : "1.5rem") : undefined;
-    const fileDragProps = useFileDrag(file, store.selectedIds);
 
     const handleClick = async (event: React.MouseEvent) => {
       if (disabled) return;

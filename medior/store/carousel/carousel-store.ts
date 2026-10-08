@@ -1,10 +1,10 @@
 import remote from "@electron/remote";
 import fs from "fs/promises";
-import { Mark } from "@mui/base";
 import autoBind from "auto-bind";
 import { computed } from "mobx";
 import { getRootStore, Model, model, modelAction, modelFlow, prop } from "mobx-keystone";
 import type { ImageEditInput } from "medior/server/database/actions/image-edits";
+import { SliderMark } from "medior/components";
 import { RootStore, Splicer } from "medior/store";
 import { asyncAction, derefMobx, openCarouselWindow, toast } from "medior/utils/client";
 import { Fmt } from "medior/utils/common";
@@ -69,6 +69,11 @@ export class CarouselStore extends Model({
 
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
   @modelAction
+  addFileAfterIndex(fileId: string, index: number) {
+    this.selectedFileIds.splice(index + 1, 0, fileId);
+  }
+
+  @modelAction
   cancelFrameExtraction() {
     if (!this.isSavingFrame) this.frameAbortController?.abort();
   }
@@ -82,11 +87,6 @@ export class CarouselStore extends Model({
   }
 
   @modelAction
-  addFileAfterIndex(fileId: string, index: number) {
-    this.selectedFileIds.splice(index + 1, 0, fileId);
-  }
-
-  @modelAction
   removeFiles(fileIds: string[]) {
     const stores = getRootStore<RootStore>(this);
 
@@ -94,28 +94,27 @@ export class CarouselStore extends Model({
     const newSelectedIds = this.selectedFileIds.filter((id) => !removedIds.has(id));
 
     if (!newSelectedIds.length) {
-      if (!stores.collection.manager.isTriagerOpen) return remote.getCurrentWindow().close();
+      if (!stores.collection.manager.isTriagerOpen) remote.getCurrentWindow().close();
+      else {
+        this.setActiveFileId("");
+        this.setSelectedFileIds([]);
+        stores.file.setActiveFileId("");
+        stores.file.search.setIds([]);
+        stores.file.search.setResults([]);
+      }
+    } else {
+      if (fileIds.includes(this.activeFileId)) {
+        const newFileId =
+          newSelectedIds[Math.max(0, Math.min(this.activeFileIndex, newSelectedIds.length - 1))];
 
-      this.setActiveFileId("");
-      this.setSelectedFileIds([]);
-      stores.file.setActiveFileId("");
-      stores.file.search.setIds([]);
-      stores.file.search.setResults([]);
+        this.setActiveFileId(newFileId);
+        stores.file.setActiveFileId(newFileId);
+      }
 
-      return;
+      this.setSelectedFileIds(newSelectedIds);
+
+      this.loadFiles();
     }
-
-    if (fileIds.includes(this.activeFileId)) {
-      const newFileId =
-        newSelectedIds[Math.max(0, Math.min(this.activeFileIndex, newSelectedIds.length - 1))];
-
-      this.setActiveFileId(newFileId);
-      stores.file.setActiveFileId(newFileId);
-    }
-
-    this.setSelectedFileIds(newSelectedIds);
-
-    this.loadFiles();
   }
 
   @modelAction
@@ -337,7 +336,7 @@ export class CarouselStore extends Model({
 
   @computed
   get videoMarks() {
-    const marks: Mark[] = [];
+    const marks: SliderMark[] = [];
 
     if (this.markIn !== null) marks.push({ label: "A", value: this.markIn });
 

@@ -1,6 +1,6 @@
 import { ReactNode } from "react";
 import { Chip, IconName, Text, TooltipProps, TooltipWrapper, View } from "medior/components";
-import { colors, makeClasses } from "medior/utils/client";
+import { colors, CSS, makeClasses } from "medior/utils/client";
 
 export interface TooltipChipProps extends Partial<Omit<TooltipProps, "children">> {
   children: ReactNode | ReactNode[];
@@ -32,14 +32,16 @@ export const TooltipChip = ({ children, icon, label, ...tooltipProps }: TooltipC
   );
 };
 
+export const IMPORT_CHIP_STYLE: CSS = {
+  flexShrink: 0,
+  height: "auto",
+  minWidth: "4em",
+  padding: "0.2em",
+  width: "auto",
+};
+
 const useClasses = makeClasses({
-  chip: {
-    flexShrink: 0,
-    height: "auto",
-    minWidth: "4em",
-    padding: "0.2em",
-    width: "auto",
-  },
+  chip: IMPORT_CHIP_STYLE,
   tooltipTitle: {
     color: colors.custom.blue,
     fontSize: "1.3em",

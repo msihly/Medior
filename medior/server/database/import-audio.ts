@@ -72,6 +72,7 @@ const processImportedAudio = async () => {
             updates: { message: `${path.basename(file.path)}: ${message}` },
           });
         };
+
         const analysis = await analyzeAudio(file.path, reportProgress, workSignal.getStore(), {
           withTranscription: false,
           withWaveform: true,

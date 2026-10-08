@@ -81,6 +81,27 @@ export const TagEditorAncestry = Comp(({ onTagClick, store }: TagEditorAncestryP
     ),
   ];
 
+  const hierarchy = createImportTagHierarchy(
+    makeEditorAncestry(
+      tags,
+      {
+        category: {
+          color: store.categoryColor,
+          icon: store.categoryIcon,
+          inheritable: store.categoryInheritable,
+          sortRank: store.categorySortRank,
+        },
+        count: store.tag?.count ?? 0,
+        id: store.tag?.id ?? "draft",
+        label: store.label.trim() || "New Tag",
+        parentIds: store.parentTags.map((tag) => tag.id),
+      },
+      store.childTags.map((tag) => tag.id),
+    ),
+  );
+
+  const rows = getImportTagRows(hierarchy, "all", collapsed);
+
   useEffect(() => {
     if (!store.isOpen || store.isLoading) return;
 
@@ -186,27 +207,6 @@ export const TagEditorAncestry = Comp(({ onTagClick, store }: TagEditorAncestryP
 
       return next;
     });
-
-  const hierarchy = createImportTagHierarchy(
-    makeEditorAncestry(
-      tags,
-      {
-        category: {
-          color: store.categoryColor,
-          icon: store.categoryIcon,
-          inheritable: store.categoryInheritable,
-          sortRank: store.categorySortRank,
-        },
-        count: store.tag?.count ?? 0,
-        id: store.tag?.id ?? "draft",
-        label: store.label.trim() || "New Tag",
-        parentIds: store.parentTags.map((tag) => tag.id),
-      },
-      store.childTags.map((tag) => tag.id),
-    ),
-  );
-
-  const rows = getImportTagRows(hierarchy, "all", collapsed);
 
   return (
     <HeaderWrapper

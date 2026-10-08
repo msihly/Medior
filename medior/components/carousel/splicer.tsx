@@ -1,5 +1,4 @@
 import { useRef } from "react";
-import { colors, toast } from "trabecula/utils/client";
 import {
   Button,
   Card,
@@ -12,6 +11,7 @@ import {
   View,
 } from "medior/components";
 import { useStores } from "medior/store";
+import { colors, toast } from "medior/utils/client";
 import { parseTimestampPairs, sleep } from "medior/utils/common";
 
 export const Splicer = Comp(() => {

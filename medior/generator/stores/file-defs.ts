@@ -58,7 +58,6 @@ export const FILE_DEF_SORT_OPTIONS: FileDef = {
 
 export const FILE_DEF_STORES: FileDef = {
   name: "stores",
-
   makeFile: async () => {
     const makeImports = () =>
       `import autoBind from "auto-bind";
@@ -79,7 +78,14 @@ export const FILE_DEF_STORES: FileDef = {
       import { IconName, SortMenuProps } from "medior/components";
       import * as Stores from "medior/store";
       import { asyncAction, CssColor, derefMobx, toast } from "medior/utils/client";
-      import { dayjs, isDeepEqual, LogicalOp, makeTagSelector } from "medior/utils/common";
+      import {
+        applySelectionChanges,
+        dayjs,
+        getSelectionRange,
+        isDeepEqual,
+        LogicalOp,
+        makeTagSelector,
+      } from "medior/utils/common";
       import { getConfig, trpc } from "medior/utils/server";`;
 
     const makeSchemaStores = async () => {

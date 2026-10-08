@@ -19,11 +19,6 @@ export class FileCollection extends ExtendedModel(_FileCollection, {
     await reloadItemTags([this]);
   });
 
-  /* ----------------------------- DYNAMIC GETTERS ---------------------------- */
-  getIndexById(id: string) {
-    return this.fileIdIndexes.find((f) => f.fileId === id)?.index;
-  }
-
   /* --------------------------------- GETTERS -------------------------------- */
   @computed
   get previewIds() {

@@ -45,9 +45,10 @@ export const Container = ({
 };
 
 interface ClassesProps
-  extends Pick<ContainerProps, "disabled" | "display" | "height" | "selected" | "width"> {
-  selectedColor: CssColor;
-}
+  extends Pick<
+    ContainerProps,
+    "disabled" | "display" | "height" | "selected" | "selectedColor" | "width"
+  > {}
 
 const useClasses = makeClasses((props: ClassesProps, theme) => ({
   container: {

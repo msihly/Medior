@@ -71,9 +71,7 @@ export class Reingester extends ExtendedModel(ImportEditorStore, {
       const lengthDiff =
         a.originalPath.split(path.sep).length - b.originalPath.split(path.sep).length;
 
-      if (lengthDiff !== 0) return lengthDiff;
-
-      return a.originalName.localeCompare(b.originalName);
+      return lengthDiff || a.originalName.localeCompare(b.originalName);
     });
 
     const filePaths = files.map((file) => file.originalPath);

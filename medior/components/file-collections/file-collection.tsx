@@ -1,5 +1,4 @@
 import { ReactNode } from "react";
-import { Fmt } from "trabecula/utils/common";
 import {
   Card,
   Chip,
@@ -14,6 +13,7 @@ import {
 } from "medior/components";
 import { FileCollection as FileCollType, useStores } from "medior/store";
 import { colors, toast } from "medior/utils/client";
+import { Fmt } from "medior/utils/common";
 
 export interface FileCollectionProps {
   collection: FileCollType;

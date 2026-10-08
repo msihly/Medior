@@ -128,19 +128,18 @@ export const repairThumbnail = async (
     });
 
     if (!recovered || (refresh && operation.outputMetadata?.size == null)) {
-      if (
-        !refresh &&
-        legacyPaths.length === 1 &&
-        operation.tempPath &&
-        (await fs
-          .stat(legacyPaths[0])
-          .then(() => true)
-          .catch((error) => {
-            if (error.code !== "ENOENT") throw error;
+      let legacyExists = false;
 
-            return false;
-          }))
-      ) {
+      if (!refresh && legacyPaths.length === 1 && operation.tempPath) {
+        try {
+          await fs.stat(legacyPaths[0]);
+          legacyExists = true;
+        } catch (error) {
+          if (error.code !== "ENOENT") throw error;
+        }
+      }
+
+      if (legacyExists) {
         await copyMediaFile(legacyPaths[0], operation.tempPath);
 
         operation.outputMetadata = {

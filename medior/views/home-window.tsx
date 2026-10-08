@@ -8,7 +8,7 @@ export const HomeWindow = Comp(() => {
   const stores = useStores();
   const store = stores.home;
 
-  const { css } = useClasses({ isDrawerOpen: store.isDrawerOpen });
+  const { css } = useClasses(null);
 
   useSockets({ view: "home" });
 

@@ -1,6 +1,6 @@
 import autoBind from "auto-bind";
 import { Model, model, modelAction, modelFlow, prop } from "mobx-keystone";
-import { asyncAction } from "trabecula/utils/client";
+import { asyncAction } from "medior/utils/client";
 import { dayjs } from "medior/utils/common";
 import { trpc } from "medior/utils/server";
 import type { SavedImportConfigOptions } from "../saved-import-config";
@@ -28,15 +28,19 @@ export class ImportStore extends Model({
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
   @modelAction
   addDeletedFileHashes(hashes: string[]) {
-    this.deletedFileHashes = [...new Set(...this.deletedFileHashes, ...hashes)];
+    this.deletedFileHashes = [...new Set([...this.deletedFileHashes, ...hashes])];
   }
 
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */
   @modelFlow
-  loadDeletedFiles = asyncAction(async () => {
-    const res = await trpc.listDeletedFiles.mutate();
+  deleteSavedConfig = asyncAction(async (id: string) => {
+    const res = await trpc.deleteSavedImportConfig.mutate({ args: { ids: [id] } });
 
-    if (res.success) this.deletedFileHashes = res.data.map((f) => f.hash);
+    if (!res.success) throw new Error(res.error);
+
+    await this.loadSavedConfigs();
+
+    return res.data;
   });
 
   @modelFlow
@@ -50,17 +54,6 @@ export class ImportStore extends Model({
     this.setSavedConfigs(res.data.items.map((item) => new SavedImportConfig(item)));
 
     return res.data.items;
-  });
-
-  @modelFlow
-  deleteSavedConfig = asyncAction(async (id: string) => {
-    const res = await trpc.deleteSavedImportConfig.mutate({ args: { ids: [id] } });
-
-    if (!res.success) throw new Error(res.error);
-
-    await this.loadSavedConfigs();
-
-    return res.data;
   });
 
   @modelFlow
@@ -97,21 +90,17 @@ export class ImportStore extends Model({
 
       const dateModified = dayjs().toISOString();
 
-      if (id || existing) {
-        const res = await trpc.updateSavedImportConfig.mutate({
-          args: { id: id || existing.id, updates: { dateModified, folderPath, label, options } },
-        });
-
-        if (!res.success) throw new Error(res.error);
-
-        await this.loadSavedConfigs();
-
-        return res.data;
-      }
-
-      const res = await trpc.createSavedImportConfig.mutate({
-        args: { dateCreated: dateModified, dateModified, folderPath, label, options },
-      });
+      const res =
+        id || existing
+          ? await trpc.updateSavedImportConfig.mutate({
+              args: {
+                id: id || existing.id,
+                updates: { dateModified, folderPath, label, options },
+              },
+            })
+          : await trpc.createSavedImportConfig.mutate({
+              args: { dateCreated: dateModified, dateModified, folderPath, label, options },
+            });
 
       if (!res.success) throw new Error(res.error);
 

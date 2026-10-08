@@ -6,6 +6,7 @@ import { RepairAudioStore } from "./audio";
 import { RepairCollectionsStore } from "./collections";
 import { RepairFilesStore } from "./files";
 import { RepairIndexesStore } from "./indexes";
+import { RepairSimilarityStore } from "./similarity";
 import { RepairTagsStore } from "./tags";
 import { RepairThumbnailsStore } from "./thumbnails";
 
@@ -29,8 +30,7 @@ export class RepairStore extends Model({
   isRunning: prop<boolean>(false).withSetter(),
   outputLog: prop<RepairLog[]>(() => []).withSetter(),
   repairId: prop<string | null>(null).withSetter(),
-  similarity: prop<boolean>(false).withSetter(),
-  similarityJobId: prop<string | null>(null).withSetter(),
+  similarity: prop<RepairSimilarityStore>(() => new RepairSimilarityStore({})),
   storage: prop<boolean>(false).withSetter(),
   tags: prop<RepairTagsStore>(() => new RepairTagsStore({})),
   thumbnails: prop<RepairThumbnailsStore>(() => new RepairThumbnailsStore({})),
@@ -67,7 +67,7 @@ export class RepairStore extends Model({
         this.collections.isSelected ||
         this.files.isSelected ||
         this.indexes.isSelected ||
-        this.similarity ||
+        this.similarity.enabled ||
         this.storage ||
         this.tags.isSelected ||
         this.thumbnails.isSelected)

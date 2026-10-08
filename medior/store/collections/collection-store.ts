@@ -7,7 +7,6 @@ import { CollectionEditor, CollectionManager } from ".";
 
 @model("medior/FileCollectionStore")
 export class FileCollectionStore extends Model({
-  collectionFitMode: prop<"contain" | "cover">("contain").withSetter(),
   editor: prop<CollectionEditor>(() => new CollectionEditor({})),
   idsForConfirmDelete: prop<string[]>(() => []).withSetter(),
   isConfirmDeleteOpen: prop<boolean>(false).withSetter(),

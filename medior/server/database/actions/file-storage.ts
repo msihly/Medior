@@ -29,6 +29,7 @@ type StorageRecovery = {
 };
 
 const DIRECTORY_BUFFER_SIZE = 4096;
+
 let isScanningStorage = false;
 
 const getOwnedStoragePaths = async (paths: string[]) => {

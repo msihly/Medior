@@ -85,6 +85,7 @@ export const Image = ({
 
   const containerDims = useElementResize(containerRef);
   const isVisible = useLazyLoad(containerRef);
+
   const shouldAnimate = isVisible && !hasError && (autoAnimate || isHovered);
 
   useEffect(() => {

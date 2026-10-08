@@ -136,17 +136,13 @@ export class TagRegExMatcher {
 
     const keys = getTagRegExKeys(map.regEx);
 
-    if (!keys) {
-      this.fallbackMaps.push(map);
+    if (!keys) this.fallbackMaps.push(map);
+    else
+      for (const key of keys) {
+        if (!this.indexedMaps.has(key)) this.indexedMaps.set(key, []);
 
-      return;
-    }
-
-    for (const key of keys) {
-      if (!this.indexedMaps.has(key)) this.indexedMaps.set(key, []);
-
-      this.indexedMaps.get(key).push(map);
-    }
+        this.indexedMaps.get(key).push(map);
+      }
   }
 
   async match(label: string, checkpoint: () => Promise<void>) {

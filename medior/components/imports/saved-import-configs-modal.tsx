@@ -13,10 +13,10 @@ import {
   Text,
   View,
 } from "medior/components";
+import { formatDate } from "medior/components/drawer/activity-meta";
 import { Ingester, Reingester, SavedImportConfig, useStores } from "medior/store";
 import { normalizeImportConfigPath } from "medior/store/saved-import-config";
 import { colors, toast } from "medior/utils/client";
-import { dayjs } from "medior/utils/common";
 import { SavedImportConfigsFilterMenu } from "./saved-import-configs-filter-menu";
 
 export interface SavedImportConfigsModalProps {
@@ -257,11 +257,11 @@ export const SavedImportConfigsModal = Comp(
 
                         <View row spacing="0.5rem" overflow="hidden">
                           <Text color={colors.custom.lightGrey} fontSize="0.7em">
-                            {`Created: ${formatDate(config.dateCreated)}`}
+                            {`Created: ${config.dateCreated ? formatDate(config.dateCreated) : "Unknown"}`}
                           </Text>
 
                           <Text color={colors.custom.lightGrey} fontSize="0.7em">
-                            {`Modified: ${formatDate(config.dateModified)}`}
+                            {`Modified: ${config.dateModified ? formatDate(config.dateModified) : "Unknown"}`}
                           </Text>
                         </View>
                       </View>
@@ -355,5 +355,3 @@ const getSaveFolderPath = (folderPath: string) => {
     ? trimmedFolderPath
     : path.join(trimmedFolderPath, "*");
 };
-
-const formatDate = (date: string) => (date ? dayjs(date).format("MMM D, YYYY h:mm A") : "Unknown");

@@ -21,16 +21,24 @@ const getVectorService = () => {
 };
 
 export const vectorRouter = trpc.router({
+  cancelSearchIndexBuild: trpc.procedure.mutation(() =>
+    getVectorService().cancelSearchIndexBuild(),
+  ),
   cancelSimilarityBackfill: trpc.procedure
     .input((input: { jobId: string }) => input)
     .mutation(({ input }) => getVectorService().cancelSimilarityBackfill(input)),
-  findImageCopyCandidates: trpc.procedure
-    .input((input: { files: { fileId: string; hash: string }[] }) => input)
-    .mutation(({ input }) => getVectorService().findImageCopyCandidates(input)),
+  findDuplicateCandidates: trpc.procedure
+    .input(
+      (input: {
+        files: { fileId: string; hash: string }[];
+        minSimilarity: number;
+        useSearchIndex: boolean;
+      }) => input,
+    )
+    .mutation(({ input }) => getVectorService().findDuplicateCandidates(input)),
   findSimilarVectorCandidates: trpc.procedure
     .input(
       (input: {
-        exact?: boolean;
         fileId: string;
         limit?: number;
         offset?: number;
@@ -38,6 +46,7 @@ export const vectorRouter = trpc.router({
       }) => input,
     )
     .mutation(({ input }) => getVectorService().findSimilarVectorCandidates(input)),
+  getSearchIndexStatus: trpc.procedure.mutation(() => getVectorService().getSearchIndexStatus()),
   getSimilarityBackfillProgress: trpc.procedure
     .input((input: { jobId: string }) => input)
     .mutation(({ input }) => getVectorService().getSimilarityBackfillProgress(input)),
@@ -59,12 +68,10 @@ export const vectorRouter = trpc.router({
   pauseSimilarityBackfills: trpc.procedure.mutation(() =>
     getVectorService().pauseSimilarityBackfills(),
   ),
-  prepareImageCopySearch: trpc.procedure.mutation(() =>
-    getVectorService().prepareImageCopySearch(),
-  ),
-  resumeSimilarityBackfills: trpc.procedure.mutation(() =>
-    getVectorService().resumeSimilarityBackfills(),
-  ),
+  scoreFileSimilarities: trpc.procedure
+    .input((input: { groups: { fileIds: string[]; referenceId: string }[] }) => input)
+    .mutation(({ input }) => getVectorService().scoreFileSimilarities(input)),
+  startSearchIndexBuild: trpc.procedure.mutation(() => getVectorService().startSearchIndexBuild()),
   startSimilarityBackfill: trpc.procedure
     .input(
       (input: { fileIds?: string[]; force?: boolean; vectorTypes?: SimilarityVectorType[] }) =>

@@ -2103,6 +2103,7 @@ export const deleteBackgroundOperation = makeAction(
       { _id: { $in: args.ids } },
       metadataWriteOptions(),
     );
+
     socket.emit("onBackgroundOperationDeleted", args, socketOpts);
   },
 );
@@ -2197,6 +2198,7 @@ export const deleteDeletedFile = makeAction(
     socketOpts?: SocketEventOptions;
   }) => {
     await models.DeletedFileModel.deleteMany({ _id: { $in: args.ids } }, metadataWriteOptions());
+
     socket.emit("onDeletedFileDeleted", args, socketOpts);
   },
 );
@@ -2765,6 +2767,7 @@ export const deleteNotification = makeAction(
     socketOpts?: SocketEventOptions;
   }) => {
     await models.NotificationModel.deleteMany({ _id: { $in: args.ids } }, metadataWriteOptions());
+
     socket.emit("onNotificationDeleted", args, socketOpts);
   },
 );
@@ -2861,6 +2864,7 @@ export const deleteSavedImportConfig = makeAction(
       { _id: { $in: args.ids } },
       metadataWriteOptions(),
     );
+
     socket.emit("onSavedImportConfigDeleted", args, socketOpts);
   },
 );
@@ -2954,6 +2958,7 @@ export const deleteSavedSearch = makeAction(
     socketOpts?: SocketEventOptions;
   }) => {
     await models.SavedSearchModel.deleteMany({ _id: { $in: args.ids } }, metadataWriteOptions());
+
     socket.emit("onSavedSearchDeleted", args, socketOpts);
   },
 );
@@ -3058,6 +3063,7 @@ export const _deleteTag = makeAction(
     socketOpts?: SocketEventOptions;
   }) => {
     await models.TagModel.deleteMany({ _id: { $in: args.ids } }, metadataWriteOptions());
+
     socket.emit("onTagDeleted", args, socketOpts);
   },
 );

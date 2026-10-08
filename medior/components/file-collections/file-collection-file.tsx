@@ -17,6 +17,7 @@ export const FileCollectionFile = Comp(
     const editor = stores.collection.editor;
 
     const fileDragProps = useFileDrag(file, editor.search.selectedIds);
+
     const fileIndex = editor.getIndexById(file.id);
     const hasChangedIndex = fileIndex !== editor.getOriginalIndex(file.id);
 

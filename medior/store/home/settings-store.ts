@@ -55,18 +55,6 @@ export class SettingsStore extends Model({
   }
 
   @modelAction
-  setSimilarityModelCachePath(value: Config["file"]["similarity"]["modelCachePath"]) {
-    this.file.similarity.modelCachePath = value;
-    this.setHasUnsavedChanges(true);
-  }
-
-  @modelAction
-  setVectorDbPath(value: Config["db"]["vector"]["path"]) {
-    this.db.vector.path = value;
-    this.setHasUnsavedChanges(true);
-  }
-
-  @modelAction
   setFileCardFit(value: Config["file"]["fileCardFit"]) {
     this.file.fileCardFit = value;
     this.setHasUnsavedChanges(true);
@@ -77,6 +65,7 @@ export class SettingsStore extends Model({
     const locations = [...this.db.fileStorage.locations];
     const prevAtIndex = locations[index];
     const prevAtNewIndex = locations[newIndex];
+
     locations[index] = prevAtNewIndex;
     locations[newIndex] = prevAtIndex;
     this.db.fileStorage.locations = locations;
@@ -98,6 +87,18 @@ export class SettingsStore extends Model({
   @modelAction
   setFolderToTagsMode(value: Config["imports"]["folderToTagsMode"]) {
     this.imports.folderToTagsMode = value;
+    this.setHasUnsavedChanges(true);
+  }
+
+  @modelAction
+  setSimilarityModelCachePath(value: Config["file"]["similarity"]["modelCachePath"]) {
+    this.file.similarity.modelCachePath = value;
+    this.setHasUnsavedChanges(true);
+  }
+
+  @modelAction
+  setVectorDbPath(value: Config["db"]["vector"]["path"]) {
+    this.db.vector.path = value;
     this.setHasUnsavedChanges(true);
   }
 

@@ -179,7 +179,7 @@ export class FileSearch extends ExtendedModel(_FileSearch, {
 
       if (!res.success) throw new Error(res.error);
 
-      this.selectedIds = [...new Set([...this.selectedIds, ...res.data])];
+      this.setSelectedIds([...new Set([...this.selectedIds, ...res.data])]);
 
       return res.data.length;
     } catch (error) {

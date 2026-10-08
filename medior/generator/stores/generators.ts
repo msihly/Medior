@@ -1,5 +1,6 @@
 import { getActions } from "medior/generator/actions/generators";
-import { capitalize, makeSectionComment } from "medior/generator/utils";
+import { makeSectionComment } from "medior/generator/utils";
+import { Fmt } from "medior/utils/common";
 
 export class ModelStore {
   private name: ModelSearchStore["name"];
@@ -69,7 +70,7 @@ export class ModelStore {
   }
 
   public addNumRangeProp(name: string, expression?: string) {
-    const capName = capitalize(name);
+    const capName = Fmt.capitalize(name);
 
     this.addProp(`max${capName}`, "number", "null", {
       filterGroup: name,
@@ -109,9 +110,6 @@ export class ModelStore {
 
   public addTagOptsProp(idName: string, ancestorsName: string) {
     return this.addProp("tags", "Stores.TagOption[]", "() => []", {
-      filterTransform:
-        "...getRootStore<Stores.RootStore>(this)?.tag?.tagSearchOptsToIds(this.tags)",
-      noInterface: true,
       customActionProps: [
         this.makeCustomActionProp({
           condition: "args.excludedDescTagIds?.length",
@@ -149,6 +147,9 @@ export class ModelStore {
           type: "string[]",
         }),
       ],
+      filterTransform:
+        "...getRootStore<Stores.RootStore>(this)?.tag?.tagSearchOptsToIds(this.tags)",
+      noInterface: true,
     });
   }
 
@@ -176,7 +177,7 @@ export class ModelStore {
   }
 
   public makeSetterProp(name: string, args: string[], body: string) {
-    return `@modelAction\nset${capitalize(name)}(${args.join(", ")}) {\n${body}\n}`;
+    return `@modelAction\nset${Fmt.capitalize(name)}(${args.join(", ")}) {\n${body}\n}`;
   }
 }
 
@@ -290,7 +291,7 @@ export const createSearchStore = (def: ModelSearchStore) => {
     `@modelAction\n_addResult(result: ModelCreationData<Stores.${def.name}>) { this.results.push(new Stores.${def.name}(result)); }`;
 
   const makeDeleteResultsAction = () =>
-    `@modelAction\n_deleteResults(ids: string[]) { const removedIds = new Set(ids); this.results = this.results.filter((d) => !removedIds.has(d.id)); }`;
+    `@modelAction\n_deleteResults(ids: string[]) { const removedIds = new Set(ids);\n\nthis.results = this.results.filter((d) => !removedIds.has(d.id)); }`;
 
   const makeResetAction = () =>
     `@modelAction\nreset() { ${props.map((prop) => (prop.name === "loadId" ? "this.loadId += 1;" : `this.${prop.name} = ${prop.defaultValue.replace("() => ", "")};`)).join("\n")} }`;
@@ -307,9 +308,11 @@ export const createSearchStore = (def: ModelSearchStore) => {
     `@modelAction
     applySearchProps(searchProps: Record<string, any>) {
       this.reset();
+
       Object.entries(searchProps).forEach(([key, value]) => {
         if (key in this) this[key] = value;
       });
+
       this.cachedFilterProps = null;
       this.hasChanges = true;
       this.page = 1;
@@ -322,18 +325,14 @@ export const createSearchStore = (def: ModelSearchStore) => {
       if (!selected?.length) return;
 
       const previous = this.selectedIdSet;
-      const next = new Set(previous);
+      const next = applySelectionChanges(this.selectedIds, selected);
 
-      for (const { id, isSelected } of selected) {
-        if (isSelected) next.add(id);
-        else next.delete(id);
-      }
-
-      this.selectedIds = [...next];
+      this.selectedIds = next;
 
       if (withToast) {
-        const addedCount = [...next].filter((id) => !previous.has(id)).length;
-        const removedCount = [...previous].filter((id) => !next.has(id)).length;
+        const nextSet = new Set(next);
+        const addedCount = next.filter((id) => !previous.has(id)).length;
+        const removedCount = [...previous].filter((id) => !nextSet.has(id)).length;
 
         if (addedCount && removedCount) toast.success(\`Selected \${addedCount} items and deselected \${removedCount} items\`);
         else if (addedCount) toast.success(\`Selected \${addedCount} items\`);
@@ -377,38 +376,13 @@ export const createSearchStore = (def: ModelSearchStore) => {
     `@modelFlow
     getShiftSelected = asyncAction(
       async ({ id, selectedIds }: { id: string; selectedIds: string[] }) => {
-        const indexesById = new Map(this.results.map((result, index) => [result.id, index]));
-        const clickedLocalIndex = indexesById.get(id) ?? -1;
+        const range = getSelectionRange({
+          clickedId: id,
+          orderedIds: this.results.map((r) => r.id),
+          selectedIds,
+        });
 
-        const selectedLocalIndexes = selectedIds
-          .map((sid) => indexesById.get(sid) ?? -1)
-          .filter((i) => i > -1);
-
-        const canResolveLocally =
-          clickedLocalIndex > -1 &&
-          selectedLocalIndexes.length === selectedIds.length &&
-          this.results.length > 0;
-
-        if (canResolveLocally) {
-          if (!selectedIds.length) return { idsToDeselect: [], idsToSelect: [id] };
-
-          const firstSelected = selectedLocalIndexes.reduce((min, index) => Math.min(min, index), Infinity);
-          const lastSelected = selectedLocalIndexes.reduce((max, index) => Math.max(max, index), -Infinity);
-
-          if (firstSelected === clickedLocalIndex) return { idsToDeselect: [id], idsToSelect: [] };
-
-          const isFirstAfterClicked = firstSelected > clickedLocalIndex;
-          const start = isFirstAfterClicked ? clickedLocalIndex : firstSelected;
-          const end = isFirstAfterClicked ? lastSelected : clickedLocalIndex;
-
-          const newIds = this.results.slice(start, end + 1).map((r) => r.id);
-          const selectedIdSet = new Set(selectedIds);
-          const newIdSet = new Set(newIds);
-          const idsToSelect = newIds.filter((i) => !selectedIdSet.has(i));
-          const idsToDeselect = selectedIds.filter((i) => !newIdSet.has(i));
-
-          return { idsToDeselect, idsToSelect };
-        }
+        if (range) return range;
 
         const loadId = this.loadId + 1;
 
@@ -454,6 +428,8 @@ export const createSearchStore = (def: ModelSearchStore) => {
         }
       } else if (hasCtrl) {
         this.toggleSelected([{ id, isSelected: !this.getIsSelected(id) }]);
+      } else if (this.selectedIds.length === 1 && this.getIsSelected(id)) {
+        this.selectedIds = [];
       } else {
         this.selectedIds = [id];
       }
@@ -643,13 +619,14 @@ export const createSearchStore = (def: ModelSearchStore) => {
 
               this.setIsPageCountLoading(false);
 
-              if (!countRes.success) return console.error(countRes.error);
+              if (!countRes.success) console.error(countRes.error);
+              else {
+                const pageCount = countRes.data.pageCount;
 
-              const pageCount = countRes.data.pageCount;
+                this.setPageCount(pageCount);
 
-              this.setPageCount(pageCount);
-
-              if (debug) perfLog(\`Set pageCount to \${pageCount}\`);
+                if (debug) perfLog(\`Set pageCount to \${pageCount}\`);
+              }
             } catch (error) {
               if (loadId !== this.loadId) return;
 
@@ -699,52 +676,34 @@ export const createSearchStore = (def: ModelSearchStore) => {
       const existing = this.savedSearches.find((s) => s.label === trimmedLabel);
       const selected = this.savedSearches.find((s) => s.id === this.selectedSavedSearchId);
       const filterProps = this.getSearchProps();
+      let res: Awaited<
+        ReturnType<typeof trpc.createSavedSearch.mutate | typeof trpc.updateSavedSearch.mutate>
+      >;
 
-      if (selected) {
-        const res = await trpc.updateSavedSearch.mutate({
+      if (selected)
+        res = await trpc.updateSavedSearch.mutate({
           args: { id: selected.id, updates: { filterProps, label: trimmedLabel } },
         });
-
-        if (!res.success) throw new Error(res.error);
-
-        await this.loadSavedSearches();
-        this.setSelectedSavedSearchId(selected.id);
-        this.setIsSaveModalOpen(false);
-        toast.success("Saved search updated");
-
-        return res.data;
-      }
-
-      if (existing) {
-        const res = await trpc.updateSavedSearch.mutate({
+      else if (existing)
+        res = await trpc.updateSavedSearch.mutate({
           args: { id: existing.id, updates: { filterProps } },
         });
-
-        if (!res.success) throw new Error(res.error);
-
-        await this.loadSavedSearches();
-        this.setSelectedSavedSearchId(existing.id);
-        this.setIsSaveModalOpen(false);
-        toast.success("Saved search updated");
-
-        return res.data;
-      }
-
-      const res = await trpc.createSavedSearch.mutate({
-        args: {
-          dateCreated: dayjs().toISOString(),
-          filterProps,
-          label: trimmedLabel,
-          searchType: "${def.name}",
-        },
-      });
+      else
+        res = await trpc.createSavedSearch.mutate({
+          args: {
+            dateCreated: dayjs().toISOString(),
+            filterProps,
+            label: trimmedLabel,
+            searchType: "${def.name}",
+          },
+        });
 
       if (!res.success) throw new Error(res.error);
 
       await this.loadSavedSearches();
-      this.setSelectedSavedSearchId(res.data.id);
+      this.setSelectedSavedSearchId(selected?.id ?? existing?.id ?? res.data.id);
       this.setIsSaveModalOpen(false);
-      toast.success("Saved search created");
+      toast.success(selected || existing ? "Saved search updated" : "Saved search created");
 
       return res.data;
     });`;
@@ -847,7 +806,7 @@ const getDefaultValue = (prop: ModelDefProperty) => {
 const makeFnAndTypeNames = (modelActions: string[], rawName: string) => {
   const prefix = `${modelActions.includes(rawName) ? "" : "_"}`;
 
-  return { fnName: `${prefix}${rawName}`, typeName: `${prefix}${capitalize(rawName)}Input` };
+  return { fnName: `${prefix}${rawName}`, typeName: `${prefix}${Fmt.capitalize(rawName)}Input` };
 };
 
 const makeSchemaStoreMap = async (upperName: string) => {

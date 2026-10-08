@@ -2,8 +2,9 @@ import path from "path";
 import { randomUUID } from "crypto";
 import { FileTransformModel } from "medior/_generated/server/models";
 import { runFileCleanupQueue } from "medior/server/database/actions/background-operations";
-import { FileOperationModel } from "medior/server/database/file-operations";
-import { getBackgroundSession, metadataWriteOptions } from "medior/server/database/metadata-work";
+import { getBackgroundSession } from "medior/server/database/database-context";
+import { FileOperationModel, makeFileCleanup } from "medior/server/database/file-operations";
+import { metadataWriteOptions } from "medior/server/database/metadata-work";
 import { genFileInfo, isGeneratedMediaUnreadable } from "medior/utils/client/files";
 import { chunkArray } from "medior/utils/common";
 import { getNtfsFileIdentity } from "medior/utils/server";
@@ -109,11 +110,7 @@ export const commitTransformMetadata = async (
   const cleanup = [...operation.cleanup];
 
   if (operation.outputHash && !retainOutput)
-    cleanup.push({
-      hash: operation.outputHash,
-      path: operation.outputPath,
-      pathKey: path.resolve(operation.outputPath).toLowerCase(),
-    });
+    cleanup.push(makeFileCleanup(operation.outputHash, operation.outputPath));
 
   await FileOperationModel.updateOne(
     { _id: operation._id, state: "PREPARED" },
@@ -141,13 +138,7 @@ export const retireTransformPreparations = async (ids: string[]) => {
               cleanup: [
                 ...operation.cleanup,
                 ...(operation.outputHash
-                  ? [
-                      {
-                        hash: operation.outputHash,
-                        path: operation.outputPath,
-                        pathKey: path.resolve(operation.outputPath).toLowerCase(),
-                      },
-                    ]
+                  ? [makeFileCleanup(operation.outputHash, operation.outputPath)]
                   : []),
               ],
               state: "COMMITTED" as const,

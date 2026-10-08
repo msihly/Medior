@@ -99,14 +99,8 @@ export const VideoControls = Comp(() => {
     );
   };
 
-  const handlePlaybackRateChange = (rate: number) => store.setPlaybackRate(rate);
-
-  const handleTranscodeBitrateChange = (bitrate: number) => store.setTranscodeBitrate(bitrate);
-
   const handleTranscodeBitrateCommit = () =>
     store.requiresTranscoding && seekVideoPlayer(store.curFrame);
-
-  const handleVolumeChange = (vol: number) => store.setVolumePreference(vol);
 
   const resetPlaybackRate = () => store.setPlaybackRate(1);
 
@@ -119,10 +113,6 @@ export const VideoControls = Comp(() => {
   };
 
   const setCurFrame = (frame: number) => store.setCurFrame(frame, activeFile.frameRate);
-
-  const toggleMute = () => store.toggleMute();
-
-  const togglePlaying = () => store.toggleIsPlaying();
 
   const transcode = useMemo(
     () =>
@@ -145,7 +135,7 @@ export const VideoControls = Comp(() => {
       opacity={store.isPinned ? 1 : store.isMouseMoving ? 0.3 : 0}
       className={css.videoControlBar}
     >
-      <IconButton name={store.isPlaying ? "Pause" : "PlayArrow"} onClick={togglePlaying} />
+      <IconButton name={store.isPlaying ? "Pause" : "PlayArrow"} onClick={store.toggleIsPlaying} />
 
       <View row>
         <IconButton name="SkipPrevious" onClick={goToPrevFrame} />
@@ -238,7 +228,7 @@ export const VideoControls = Comp(() => {
 
         <CustomSlider
           value={store.volume}
-          setValue={handleVolumeChange}
+          setValue={store.setVolumePreference}
           disabled={activeFile.audioCodec === "None"}
           min={0}
           max={1}
@@ -254,13 +244,13 @@ export const VideoControls = Comp(() => {
                     ? "VolumeMute"
                     : "VolumeOff"
             }
-            onClick={toggleMute}
+            onClick={store.toggleMute}
           />
         </CustomSlider>
 
         <CustomSlider
           value={store.playbackRate}
-          setValue={handlePlaybackRateChange}
+          setValue={store.setPlaybackRate}
           min={0.01}
           max={3}
           step={0.01}
@@ -276,7 +266,7 @@ export const VideoControls = Comp(() => {
         {store.requiresTranscoding && (
           <CustomSlider
             value={store.transcodeBitrate}
-            setValue={handleTranscodeBitrateChange}
+            setValue={store.setTranscodeBitrate}
             onCommit={handleTranscodeBitrateCommit}
             min={0.5}
             max={12}

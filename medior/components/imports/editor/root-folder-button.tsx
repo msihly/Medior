@@ -1,4 +1,3 @@
-import { Fragment } from "react";
 import Color from "color";
 import { Button, Comp, Text } from "medior/components";
 import { Ingester, Reingester } from "medior/store";
@@ -16,7 +15,7 @@ export const RootFolderButton = Comp(({ folderPart, index, store }: RootFolderBu
   const handleClick = () => store.setRootFolderIndex(index);
 
   return (
-    <Fragment key={index}>
+    <>
       {index !== 0 && <Text margin="0 0.3em">{"\\"}</Text>}
 
       <Button
@@ -30,6 +29,6 @@ export const RootFolderButton = Comp(({ folderPart, index, store }: RootFolderBu
             .string() as CssColor
         }
       />
-    </Fragment>
+    </>
   );
 });

@@ -10,10 +10,10 @@ import {
   mergeTagMetadataQueues,
 } from "medior/server/database/actions/background-operations";
 import { backgroundExecution } from "medior/server/database/background-execution";
+import { getBackgroundSession } from "medior/server/database/database-context";
 import { assertImportEntriesReady } from "medior/server/database/import-entry-state";
 import { normalizeMediaPathWrites } from "medior/server/database/media-paths";
 import {
-  getBackgroundSession,
   getMetadataCreateId,
   metadataWriteOptions,
   readMetadataSnapshot,
@@ -129,9 +129,6 @@ const getOrphanedIds = async (tagId: string, field: string, oppIds: string[]) =>
 };
 
 export const makeAncestorIdsMap = async (tagIds: string[]) => {
-  const debug = false;
-  const { perfLogTotal } = makePerfLog("makeAncestorIdsMap", true);
-
   const map = new Map<string, string[]>();
   const chunks = chunkArray(tagIds, 5000);
 
@@ -150,113 +147,8 @@ export const makeAncestorIdsMap = async (tagIds: string[]) => {
     }
   }
 
-  if (debug) perfLogTotal(`Created ancestorIds map for ${tagIds.length} tags.`);
-
   return map;
 };
-
-/*
-const makeDescFileIdsPipeline = (tagIds: string[]): PipelineStage[] => [
-  ...makeDescTagIdsPipeline(tagIds),
-  {
-    $lookup: {
-      from: "files",
-      localField: "tagIds",
-      foreignField: "tagIds",
-      as: "descendantFiles",
-      pipeline: [{ $project: { _id: 1 } }],
-    },
-  },
-];
-
-const makeDescFileCountPipeline = (tagIds: string[]): PipelineStage[] => [
-  ...makeDescFileIdsPipeline(tagIds),
-  {
-    $group: {
-      _id: "$_id",
-      count: { $sum: { $size: "$descendantFiles" } },
-    },
-  },
-];
-
-const makeDescTagIdsPipeline = (tagIds: string[]): PipelineStage[] => [
-  { $match: { _id: { $in: objectIds(tagIds) } } },
-  {
-    $graphLookup: {
-      from: "tags",
-      startWith: "$_id",
-      connectFromField: "_id",
-      connectToField: "childIds",
-      as: "ancestors",
-      depthField: "depth",
-    },
-  },
-  {
-    $project: {
-      _id: 1,
-      label: 1,
-      ancestors: { _id: 1, label: 1 },
-    },
-  },
-  {
-    $project: {
-      _id: 0,
-      tagIds: {
-        $concatArrays: [
-          [{ _id: "$_id", label: "$label" }],
-          {
-            $map: {
-              input: "$ancestors",
-              in: { _id: "$$this._id", label: "$$this.label" },
-            },
-          },
-        ],
-      },
-    },
-  },
-  { $unwind: { path: "$tagIds" } },
-  {
-    $graphLookup: {
-      from: "tags",
-      startWith: "$tagIds._id",
-      connectFromField: "_id",
-      connectToField: "parentIds",
-      as: "descendantTags",
-      depthField: "depth",
-    },
-  },
-  {
-    $project: {
-      _id: "$tagIds._id",
-      label: "$tagIds.label",
-      descendantTags: { _id: 1, label: 1 },
-    },
-  },
-  {
-    $project: {
-      _id: 1,
-      label: 1,
-      tagIds: {
-        $reduce: {
-          input: {
-            $concatArrays: [
-              [{ _id: "$_id" }],
-              {
-                $map: {
-                  input: "$descendantTags",
-                  in: { _id: "$$this._id" },
-                },
-              },
-            ],
-          },
-          initialValue: [],
-          in: { $concatArrays: ["$$value", ["$$this._id"]] },
-        },
-      },
-    },
-  },
-];
-*/
 
 /** Adds or removes `tagId` to the opposite type (`childIds` or `parentIds`) to create hierarchical relations.
  *  For example, adds `tagId` to the `parentIds` of every id in `changedChildIds.added.` */
@@ -371,20 +263,16 @@ const processTagRegenQueue = async () => {
           return;
 
         if (!tagIds.length) {
-          if (current.targetIds.length) return;
-
-          await actions.completeEmptyBackgroundOperation(
-            operation.id,
-            `${operation.label} completed.`,
-          );
-
-          return;
-        }
-
-        if (operation.type === "tagMetadata") {
+          if (!current.targetIds.length)
+            await actions.completeEmptyBackgroundOperation(
+              operation.id,
+              `${operation.label} completed.`,
+            );
+        } else if (operation.type === "tagMetadata") {
           await actions.setBackgroundOperationStatus(operation.id, "RUNNING", {
             message: `File scan complete. Saving metadata for ${tagIds.length} tags.`,
           });
+
           const tagsById = new Map(metadata.tags.map((tag) => [String(tag._id), tag]));
 
           for (const ids of chunkArray(tagIds, 100)) {
@@ -404,39 +292,39 @@ const processTagRegenQueue = async () => {
               metadata.versions,
             );
           }
+        } else {
+          if (operation.type === "tagRefresh") {
+            for (const tagId of tagIds) {
+              if (!(await models.TagModel.exists({ _id: tagId }))) continue;
 
-          return;
-        } else if (operation.type === "tagRefresh") {
-          for (const tagId of tagIds) {
-            if (!(await models.TagModel.exists({ _id: tagId }))) continue;
+              const refreshed = await refreshTag({ tagId, withSub: false });
 
-            const refreshed = await refreshTag({ tagId, withSub: false });
+              if (!refreshed.success) throw new Error(refreshed.error);
+            }
 
-            if (!refreshed.success) throw new Error(refreshed.error);
+            socket.emit("onTagsUpdated", {
+              tags: tagIds.map((tagId) => ({ tagId, updates: {} })),
+              withFileReload: true,
+            });
+          } else {
+            const tagRes = await regenTagAncestors({ tagIds, withSub: false });
+
+            if (!tagRes.success) throw new Error(tagRes.error);
+
+            // Only cached relationships changed. Source edits already notify searches at commit.
           }
 
-          socket.emit("onTagsUpdated", {
-            tags: tagIds.map((tagId) => ({ tagId, updates: {} })),
-            withFileReload: true,
+          await actions.setBackgroundOperationStatus(operation.id, "RUNNING", {
+            message: `Metadata saved. Updating the remaining tag queue (${current.targetIds.length.toLocaleString()} tags).`,
           });
-        } else {
-          const tagRes = await regenTagAncestors({ tagIds, withSub: false });
 
-          if (!tagRes.success) throw new Error(tagRes.error);
-
-          // Only cached relationships changed. Source edits already notify searches at commit.
+          await actions.completeBackgroundOperationTargets(
+            operation.id,
+            tagIds,
+            `${operation.label}: processed ${current.processedCount + tagIds.length} of ${current.totalCount} tags.`,
+            metadata?.versions ?? operation.targetVersions ?? {},
+          );
         }
-
-        await actions.setBackgroundOperationStatus(operation.id, "RUNNING", {
-          message: `Metadata saved. Updating the remaining tag queue (${current.targetIds.length.toLocaleString()} tags).`,
-        });
-
-        await actions.completeBackgroundOperationTargets(
-          operation.id,
-          tagIds,
-          `${operation.label}: processed ${current.processedCount + tagIds.length} of ${current.totalCount} tags.`,
-          metadata?.versions ?? operation.targetVersions ?? {},
-        );
       })();
     } catch (error) {
       if (!canRunBackgroundQueues()) return;
@@ -1286,88 +1174,72 @@ export const refreshTag = makeAction(
         });
 
         runTagRegenQueue();
+      } else {
+        if (!tagId) throw new Error("Select a tag to refresh");
 
-        return;
-      }
+        const tag = await models.TagModel.findById(tagId);
 
-      if (!tagId) throw new Error("Select a tag to refresh");
+        if (!tag) throw new Error(`Tag not found: ${tagId}`);
 
-      const debug = false;
+        const [ancestorIds, childIds, descendantIds, parentIds] = [
+          tag.ancestorIds,
+          tag.childIds,
+          tag.descendantIds,
+          tag.parentIds,
+        ].map((ids) => ids?.map((i) => i.toString()) ?? []);
 
-      const tag = await models.TagModel.findById(tagId);
-
-      if (!tag) throw new Error(`Tag not found: ${tagId}`);
-
-      const [ancestorIds, childIds, descendantIds, parentIds] = [
-        tag.ancestorIds,
-        tag.childIds,
-        tag.descendantIds,
-        tag.parentIds,
-      ].map((ids) => ids?.map((i) => i.toString()) ?? []);
-
-      const { perfLog, perfLogTotal } = makePerfLog("[refreshTag]", true);
-
-      if (!tag.childIds || !tag.parentIds) {
-        await models.TagModel.updateOne(
-          { _id: tagId },
-          {
-            $set: {
-              ...(!tag.childIds ? { childIds: [] } : {}),
-              ...(!tag.parentIds ? { parentIds: [] } : {}),
+        if (!tag.childIds || !tag.parentIds) {
+          await models.TagModel.updateOne(
+            { _id: tagId },
+            {
+              $set: {
+                ...(!tag.childIds ? { childIds: [] } : {}),
+                ...(!tag.parentIds ? { parentIds: [] } : {}),
+              },
             },
-          },
-        );
+          );
+        }
 
-        if (debug) perfLog("Updated tag with missing childIds / parentIds");
-      }
+        const dateModified = dayjs().toISOString();
 
-      const dateModified = dayjs().toISOString();
+        const idsWithOrphanedAncestor = await getOrphanedIds(tagId, "ancestorIds", descendantIds);
+        const idsWithOrphanedChild = await getOrphanedIds(tagId, "childIds", parentIds);
+        const idsWithOrphanedDescendant = await getOrphanedIds(tagId, "descendantIds", ancestorIds);
+        const idsWithOrphanedParent = await getOrphanedIds(tagId, "parentIds", childIds);
 
-      const idsWithOrphanedAncestor = await getOrphanedIds(tagId, "ancestorIds", descendantIds);
-      const idsWithOrphanedChild = await getOrphanedIds(tagId, "childIds", parentIds);
-      const idsWithOrphanedDescendant = await getOrphanedIds(tagId, "descendantIds", ancestorIds);
-      const idsWithOrphanedParent = await getOrphanedIds(tagId, "parentIds", childIds);
+        const changedAncestorIds = { added: idsWithOrphanedDescendant, removed: [] };
+        const changedChildIds = { added: idsWithOrphanedParent, removed: [] };
+        const changedDescendantIds = { added: idsWithOrphanedAncestor, removed: [] };
+        const changedParentIds = { added: idsWithOrphanedChild, removed: [] };
 
-      if (debug) perfLog("Derived orphaned ids");
-
-      const changedAncestorIds = { added: idsWithOrphanedDescendant, removed: [] };
-      const changedChildIds = { added: idsWithOrphanedParent, removed: [] };
-      const changedDescendantIds = { added: idsWithOrphanedAncestor, removed: [] };
-      const changedParentIds = { added: idsWithOrphanedChild, removed: [] };
-
-      const bulkWriteOps = makeRelationsUpdateOps({
-        changedAncestorIds,
-        changedChildIds,
-        changedDescendantIds,
-        changedParentIds,
-        dateModified,
-        tagId,
-      });
-
-      if (debug) perfLog("Derived bulkWriteOps");
-
-      await models.TagModel.bulkWrite(normalizeMediaPathWrites("Tag", bulkWriteOps), {
-        session: getBackgroundSession(),
-      });
-
-      if (debug) perfLog("Bulk write operations executed");
-
-      const queued = await regenTags({
-        tagIds: [
+        const bulkWriteOps = makeRelationsUpdateOps({
+          changedAncestorIds,
+          changedChildIds,
+          changedDescendantIds,
+          changedParentIds,
+          dateModified,
           tagId,
-          ...idsWithOrphanedAncestor,
-          ...idsWithOrphanedChild,
-          ...idsWithOrphanedDescendant,
-          ...idsWithOrphanedParent,
-        ],
-        withSub,
-      });
+        });
 
-      if (!queued.success) throw new Error(queued.error);
+        await models.TagModel.bulkWrite(normalizeMediaPathWrites("Tag", bulkWriteOps), {
+          session: getBackgroundSession(),
+        });
 
-      if (withSub) await emitTagUpdates(tagId, changedChildIds, changedParentIds);
+        const queued = await regenTags({
+          tagIds: [
+            tagId,
+            ...idsWithOrphanedAncestor,
+            ...idsWithOrphanedChild,
+            ...idsWithOrphanedDescendant,
+            ...idsWithOrphanedParent,
+          ],
+          withSub,
+        });
 
-      if (debug) perfLogTotal("Refreshed tag relations");
+        if (!queued.success) throw new Error(queued.error);
+
+        if (withSub) await emitTagUpdates(tagId, changedChildIds, changedParentIds);
+      }
     },
   ),
 );
@@ -1479,51 +1351,49 @@ const repairTagNames = (
   ),
 ];
 
-const mergeRepairTags = (
+const mergeRepairTags = async (
   retainedId: string,
   duplicateId: string,
   decodeLabels = false,
   cleanNames = false,
-) =>
-  (async () => {
-    const current = await models.TagModel.findById(retainedId).lean();
-    const duplicate = await models.TagModel.findById(duplicateId).lean();
+) => {
+  const current = await models.TagModel.findById(retainedId).lean();
+  const duplicate = await models.TagModel.findById(duplicateId).lean();
 
-    if (!current || !duplicate)
-      throw new Error("Duplicate tags changed during repair; retry repair");
+  if (!current || !duplicate) throw new Error("Duplicate tags changed during repair; retry repair");
 
-    const label = cleanNames
-      ? cleanTagName(current.label)
-      : decodeLabels
-        ? Fmt.decodeHtmlEntities(current.label)
-        : current.label;
+  const label = cleanNames
+    ? cleanTagName(current.label)
+    : decodeLabels
+      ? Fmt.decodeHtmlEntities(current.label)
+      : current.label;
 
-    const names = new Set(repairTagNames(current, decodeLabels, cleanNames));
+  const names = new Set(repairTagNames(current, decodeLabels, cleanNames));
 
-    if (!repairTagNames(duplicate, decodeLabels, cleanNames).some((name) => names.has(name)))
-      throw new Error("Duplicate tag labels or aliases changed during repair; retry repair");
+  if (!repairTagNames(duplicate, decodeLabels, cleanNames).some((name) => names.has(name)))
+    throw new Error("Duplicate tag labels or aliases changed during repair; retry repair");
 
-    const result = await mergeTags({
-      aliases: current.aliases ?? [],
-      cleanNames,
-      childIds: [...new Set([...current.childIds, ...duplicate.childIds].map(String))].filter(
-        (id) => id !== retainedId && id !== duplicateId,
-      ),
-      label,
-      parentIds: [...new Set([...current.parentIds, ...duplicate.parentIds].map(String))].filter(
-        (id) => id !== retainedId && id !== duplicateId,
-      ),
-      regEx: current.regEx,
-      tagIdToKeep: retainedId,
-      tagIdToMerge: duplicateId,
-      withRegen: true,
-      withSub: true,
-    });
+  const result = await mergeTags({
+    aliases: current.aliases ?? [],
+    cleanNames,
+    childIds: [...new Set([...current.childIds, ...duplicate.childIds].map(String))].filter(
+      (id) => id !== retainedId && id !== duplicateId,
+    ),
+    label,
+    parentIds: [...new Set([...current.parentIds, ...duplicate.parentIds].map(String))].filter(
+      (id) => id !== retainedId && id !== duplicateId,
+    ),
+    regEx: current.regEx,
+    tagIdToKeep: retainedId,
+    tagIdToMerge: duplicateId,
+    withRegen: true,
+    withSub: true,
+  });
 
-    if (!result.success) throw new Error(result.error);
+  if (!result.success) throw new Error(result.error);
 
-    return result;
-  })();
+  return result;
+};
 
 export const repairTags = makeAction(
   async ({
@@ -1545,12 +1415,13 @@ export const repairTags = makeAction(
     const { checkCancelled, progress, report, run } = makeRepairReporter(repairId, "repairTags");
 
     return run(async () => {
-      let processedCount = 0;
       const totalCount = await models.TagModel.countDocuments();
+      const tagsWithRepairedDirectRelations = new Set<string>();
+
       let mergedCount = 0;
+      let processedCount = 0;
       let regeneratedMetadataCount = 0;
       let repairedDerivedHierarchyCount = 0;
-      const tagsWithRepairedDirectRelations = new Set<string>();
 
       if (decodeLabels) {
         report("Decoding tag labels.");
@@ -1572,36 +1443,38 @@ export const repairTags = makeAction(
             if (!tag) return;
 
             const label = Fmt.decodeHtmlEntities(tag.label);
+            let merged = false;
 
-            if (label === tag.label) return;
+            if (label !== tag.label) {
+              const existing = await models.TagModel.findOne({ _id: { $ne: tag._id }, label })
+                .select({ _id: 1 })
+                .lean();
 
-            const existing = await models.TagModel.findOne({ _id: { $ne: tag._id }, label })
-              .select({ _id: 1 })
-              .lean();
+              if (existing) {
+                if (!mergeDuplicateLabels && !cleanNames)
+                  throw new Error(
+                    "Decoded label already exists; enable duplicate label merging to repair it",
+                  );
 
-            if (existing) {
-              if (!mergeDuplicateLabels && !cleanNames)
-                throw new Error(
-                  "Decoded label already exists; enable duplicate label merging to repair it",
-                );
+                const result = await mergeRepairTags(String(existing._id), String(tag._id), true);
 
-              const result = await mergeRepairTags(String(existing._id), String(tag._id), true);
+                if (!result.success) throw new Error(result.error);
 
-              if (!result.success) throw new Error(result.error);
+                checkCancelled();
+                merged = true;
+              } else {
+                await models.TagModel.updateOne({ _id: tag._id }, { $set: { label } });
 
-              checkCancelled();
+                socket.emit("onTagsUpdated", {
+                  tags: [{ tagId: String(tag._id), updates: { label } }],
+                  withFileReload: false,
+                });
 
-              return true;
+                checkCancelled();
+              }
             }
 
-            await models.TagModel.updateOne({ _id: tag._id }, { $set: { label } });
-
-            socket.emit("onTagsUpdated", {
-              tags: [{ tagId: String(tag._id), updates: { label } }],
-              withFileReload: false,
-            });
-
-            checkCancelled();
+            return merged;
           },
           async ({ result: merged }) => {
             checkCancelled();
@@ -1650,21 +1523,19 @@ export const repairTags = makeAction(
               );
 
               if (!result.success) throw new Error(result.error);
+            } else {
+              if (label !== tag.label || !isDeepEqual(aliases, tag.aliases)) {
+                await models.TagModel.updateOne({ _id: tag._id }, { $set: { aliases, label } });
+                socket.emit("onTagsUpdated", {
+                  tags: [{ tagId: String(tag._id), updates: { aliases, label } }],
+                  withFileReload: false,
+                });
+              }
 
-              return true;
+              checkCancelled();
             }
 
-            if (label !== tag.label || !isDeepEqual(aliases, tag.aliases)) {
-              await models.TagModel.updateOne({ _id: tag._id }, { $set: { aliases, label } });
-              socket.emit("onTagsUpdated", {
-                tags: [{ tagId: String(tag._id), updates: { aliases, label } }],
-                withFileReload: false,
-              });
-            }
-
-            checkCancelled();
-
-            return false;
+            return !!existing;
           },
           async ({ result: merged }) => {
             checkCancelled();

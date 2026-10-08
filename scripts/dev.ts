@@ -88,14 +88,12 @@ const launch = () => {
       electron = null;
       relaunch = false;
       launch();
+    } else {
+      if (!stopping) console.log(`Medior exited (code: ${code}, signal: ${signal ?? "none"}).`);
 
-      return;
+      process.exitCode = code ?? 1;
+      stop();
     }
-
-    if (!stopping) console.log(`Medior exited (code: ${code}, signal: ${signal ?? "none"}).`);
-
-    process.exitCode = code ?? 1;
-    stop();
   });
 };
 

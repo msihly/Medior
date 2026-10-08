@@ -55,6 +55,8 @@ export const CarouselWindow = Comp(({ embedded = false }: CarouselWindowProps) =
     view: "carousel",
   });
 
+  useSockets({ enabled: !embedded, view: "carousel" });
+
   const navigateOnScroll = useMemo(
     () =>
       debounce((isLeft: boolean) => {
@@ -84,8 +86,6 @@ export const CarouselWindow = Comp(({ embedded = false }: CarouselWindowProps) =
       panZoomRef.current.zoomToPoint(newScale, { clientX: event.clientX, clientY: event.clientY });
     }
   };
-
-  useSockets({ enabled: !embedded, view: "carousel" });
 
   const handleMouseMove = () => {
     if (mouseMoveTimeout.current) clearTimeout(mouseMoveTimeout.current);

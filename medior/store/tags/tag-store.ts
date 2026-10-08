@@ -8,6 +8,7 @@ import {
   Fmt,
   mergeTagDefinitions,
   resolveTagCategory,
+  sleep,
   TagCategorySource,
   tagsToRegEx,
 } from "medior/utils/common";
@@ -121,38 +122,12 @@ export class TagStore extends Model({
   });
 
   @modelFlow
-  listByLabels = asyncAction(async (labels: string[]) => {
-    if (!labels?.length) throw new Error("No labels provided");
-
-    const res = await trpc.listTag.mutate({
-      filter: {
-        $or: labels.map((label) => ({
-          label: { $options: "i", $regex: `^${Fmt.regexEscape(label)}$` },
-        })),
-      },
-    });
-
-    if (!res.success) throw new Error(res.error);
-
-    return res.data;
-  });
-
-  @modelFlow
   listRegExMaps = asyncAction(async () => {
     const res = await trpc.listRegExMaps.mutate();
 
     if (!res.success) throw new Error(res.error);
 
     return res.data.map((t) => ({ regEx: new RegExp(t.regEx, "im"), tagId: t.id }));
-  });
-
-  @modelFlow
-  listTagAncestorLabels = asyncAction(async ({ id }: { id: string }) => {
-    const res = await trpc.listTagAncestorLabels.mutate({ id });
-
-    if (!res.success) throw new Error(res.error);
-
-    return res.data;
   });
 
   @modelFlow
@@ -227,6 +202,7 @@ export class TagStore extends Model({
       tagsToUpsert: TagToUpsert[];
     }) => {
       const upsertedTags: { id: string; label: string; parentIds: string[] }[] = [];
+
       tagsToUpsert = mergeTagDefinitions(tagsToUpsert);
 
       for (let idx = 0; idx < tagsToUpsert.length; idx += 256) {
@@ -248,7 +224,7 @@ export class TagStore extends Model({
 
         upsertedTags.push(...res.data);
         onProgress?.(idx + batch.length, tagsToUpsert.length);
-        await new Promise<void>((resolve) => setTimeout(resolve, 0));
+        await sleep(0);
       }
 
       return upsertedTags;

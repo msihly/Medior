@@ -15,9 +15,9 @@ interface SearchProps {
 }
 
 export const Search = Comp(({ isHome = false }: SearchProps) => {
-  const { css } = useClasses(null);
-
   const stores = useStores();
+
+  const { css } = useClasses(null);
 
   return (
     <View column className={css.root}>

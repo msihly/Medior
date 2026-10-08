@@ -1,7 +1,6 @@
 import { useEffect, useRef } from "react";
 import { FixedSizeList } from "react-window";
 import { SocketEvents } from "medior/_generated/server";
-import { derefMobx } from "trabecula/utils/client";
 import {
   Comp,
   MultiInputList,
@@ -9,10 +8,9 @@ import {
   sortTags,
   TagInputRow,
   TagInputRowProps,
-  ViewProps,
 } from "medior/components";
 import { TagOption, tagToOption, useStores } from "medior/store";
-import { toast } from "medior/utils/client";
+import { derefMobx, toast } from "medior/utils/client";
 import { isDeepEqual } from "medior/utils/common";
 import { socket } from "medior/utils/server";
 
@@ -24,7 +22,6 @@ export interface TagListProps extends MultiInputListProps<TagOption> {
   hasSearchMenu?: boolean;
   onTagClick?: (tagOpt: TagOption) => void;
   rightNode?: TagInputRowProps["rightNode"];
-  viewProps?: Partial<ViewProps>;
 }
 
 export const TagList = Comp(

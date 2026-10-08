@@ -13,7 +13,16 @@ const cancellationWorkers = new WeakMap<
   { abort: () => void; workers: Set<ChildProcess> }
 >();
 const idleTimeouts = new WeakMap<ChildProcess, ReturnType<typeof setTimeout>>();
-const workerLimits = { image: 4, transcription: 1, visual: 1 };
+const outputHandlers = new WeakMap<ChildProcess, (line: string) => void>();
+// LanceDB's Node API has no index build progress; its logger, configured at load, is the source.
+const workerEnv: Partial<Record<keyof typeof workerLimits, NodeJS.ProcessEnv>> = {
+  "search-index": {
+    // Shuffle and partition assignment progress for the longest build step logs at debug.
+    LANCEDB_LOG: "warn,lance::dataset::optimize=info,lance::index=debug,lance_index=debug",
+    LANCEDB_LOG_STYLE: "never",
+  },
+};
+const workerLimits = { image: 4, "search-index": 1, transcription: 1, visual: 1 };
 const workerPools = new Map<string, Set<ChildProcess>>();
 const workers = new WeakMap<AbortSignal, Map<string, Set<ChildProcess>>>();
 const workerWaiters = new Map<string, Set<() => void>>();
@@ -86,10 +95,11 @@ export const stopNativeTask = (
 
 /** Reuse model processes within an execution, but never queue work inside a worker. */
 export const runNativeTask = async <T>(
-  name: "image" | "transcription" | "visual",
+  name: keyof typeof workerLimits,
   input: unknown,
   signal = workSignal.getStore() ?? serverShutdownSignal,
   onProgress?: (message: string, progress?: number) => void,
+  onOutput?: (line: string) => void,
 ): Promise<T> => {
   signal?.throwIfAborted();
   serverShutdownSignal.throwIfAborted();
@@ -118,7 +128,7 @@ export const runNativeTask = async <T>(
 
   if (!worker) {
     const options: ForkOptions & { windowsHide: boolean } = {
-      env: { ...process.env, ELECTRON_RUN_AS_NODE: "1" },
+      env: { ...process.env, ...workerEnv[name], ELECTRON_RUN_AS_NODE: "1" },
       serialization: "advanced",
       stdio: ["ignore", "ignore", "pipe", "ipc"],
       windowsHide: true,
@@ -137,13 +147,19 @@ export const runNativeTask = async <T>(
 
     createInterface({ crlfDelay: Infinity, input: worker.stderr }).on("line", (line) => {
       const message = stripVTControlCharacters(line).trim();
-      const severity = message.match(/\[([VIWEF]):onnxruntime:/)?.[1];
+      // onnxruntime prefixes "[W:onnxruntime:"; LanceDB's logger prefixes "[timestamp WARN target]".
+      const severity =
+        message.match(/\[([VIWEF]):onnxruntime:/)?.[1] ??
+        message.match(/^\[\S+\s+([TDIWE])[A-Z]*\s/)?.[1];
 
-      if (message)
+      if (message) {
         fileLog(`[${name}] ${message}`, {
           type:
-            severity === "W" ? "warn" : severity === "V" || severity === "I" ? "debug" : "error",
+            severity === "W" ? "warn" : ["D", "I", "T", "V"].includes(severity) ? "debug" : "error",
         });
+
+        outputHandlers.get(worker)?.(message);
+      }
     });
 
     worker.on("error", (error) => console.error(`[${name}] ${error.message}`));
@@ -185,6 +201,7 @@ export const runNativeTask = async <T>(
       worker.off("error", onError);
       worker.off("exit", onExit);
       worker.off("message", onMessage);
+      outputHandlers.delete(worker);
       busyWorkers.delete(worker);
       notifyWorkerAvailability(name);
 
@@ -221,16 +238,16 @@ export const runNativeTask = async <T>(
         } catch (error) {
           onError(error);
         }
+      } else {
+        cleanup();
 
-        return;
+        if (signal?.aborted) reject(signal.reason);
+        else if (message.error) reject(new Error(message.error));
+        else resolve(message.data);
       }
-
-      cleanup();
-
-      if (signal?.aborted) reject(signal.reason);
-      else if (message.error) reject(new Error(message.error));
-      else resolve(message.data);
     };
+
+    if (onOutput) outputHandlers.set(worker, onOutput);
 
     worker.once("error", onError);
     worker.once("exit", onExit);

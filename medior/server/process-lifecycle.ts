@@ -93,23 +93,20 @@ export const registerProcessLifecycle = ({
 
   process.on("message", async (message: ServerProcessMessage) => {
     try {
-      if (message?.type === "stop") {
-        await shutdownProcess();
+      if (message?.type === "stop") await shutdownProcess();
+      else {
+        if (stopping) throw new Error("Process is shutting down.");
 
-        return;
-      }
+        if (message?.type === "start") {
+          startup ??= start(message);
 
-      if (stopping) throw new Error("Process is shutting down.");
+          const response = await startup;
 
-      if (message?.type === "start") {
-        startup ??= start(message);
-
-        const response = await startup;
-
-        if (!shutdown) reply({ ...response, requestId: message.requestId, type: "ready" });
-      } else if (message?.type === "reload-config") {
-        await reload();
-        reply({ requestId: message.requestId, type: "config-reloaded" });
+          if (!shutdown) reply({ ...response, requestId: message.requestId, type: "ready" });
+        } else if (message?.type === "reload-config") {
+          await reload();
+          reply({ requestId: message.requestId, type: "config-reloaded" });
+        }
       }
     } catch (error) {
       console.error(`[${message?.type}] Failed:`, error);

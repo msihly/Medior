@@ -6,10 +6,8 @@ import {
   emitBackgroundOperation,
   setBackgroundOperationStatus,
 } from "medior/server/database/actions/background-operations";
-import {
-  backgroundExecution,
-  checkBackgroundExecution,
-} from "medior/server/database/background-execution";
+import { checkBackgroundExecution } from "medior/server/database/background-execution";
+import { getBackgroundSession } from "medior/server/database/database-context";
 import {
   areMediaPathIndexesReady,
   MediaOwnershipModel,
@@ -20,7 +18,7 @@ import {
   MEDIA_PATH_FIELDS,
   readMediaPath,
 } from "medior/server/database/media-paths";
-import { getBackgroundSession, metadataWriteOptions } from "medior/server/database/metadata-work";
+import { metadataWriteOptions } from "medior/server/database/metadata-work";
 import { ensurePersistenceIndexes, PersistenceModel } from "medior/server/database/persistence";
 import { dayjs } from "medior/utils/common";
 import { objectId } from "medior/utils/server";
@@ -125,7 +123,7 @@ export const runMediaPathIndexQueue = async () => {
 
           await models[name].collection.createIndex(keys, {
             ...options,
-            session: backgroundExecution.getStore()?.session,
+            session: getBackgroundSession(),
           });
         }
 
@@ -134,7 +132,7 @@ export const runMediaPathIndexQueue = async () => {
         await MediaOwnershipModel.updateOne(
           { _id: progressId },
           { $set: { indexVersion } },
-          { session: backgroundExecution.getStore()?.session, upsert: true },
+          { session: getBackgroundSession(), upsert: true },
         );
       }
 
@@ -165,7 +163,6 @@ export const runMediaPathIndexQueue = async () => {
         if (!documents.length) break;
 
         let processedCount = checkpoint?.processedCount ?? 0;
-        let retryScan = false;
 
         for (let offset = 0; offset < documents.length; offset += INDEX_WRITE_SIZE) {
           const batch = documents.slice(offset, offset + INDEX_WRITE_SIZE);
@@ -202,17 +199,13 @@ export const runMediaPathIndexQueue = async () => {
               const result = await models[name].bulkWrite(writes, {
                 ...metadataWriteOptions(),
                 ordered: false,
-                session: backgroundExecution.getStore()?.session,
+                session: getBackgroundSession(),
               });
 
-              if (result.matchedCount !== writes.length) {
-                retryScan = true;
-                break;
-              }
+              if (result.matchedCount !== writes.length) break;
             } catch (error) {
               if (error.code !== 112) throw error;
 
-              retryScan = true;
               break;
             }
           }
@@ -243,8 +236,6 @@ export const runMediaPathIndexQueue = async () => {
             lastProgressAt = performance.now();
           }
         }
-
-        if (retryScan) continue;
       }
 
       await MediaOwnershipModel.updateOne(

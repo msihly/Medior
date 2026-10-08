@@ -112,15 +112,15 @@ class TranscodeSession {
     clearTimeout(this.startupTimer);
   }
 
-  public setMediaElementGetter(getElement: () => HTMLMediaElement | null) {
-    this.getMediaElement = getElement;
-  }
-
   public setCurrentTime(time: number) {
     if (!Number.isFinite(time) || time < 0 || this.disposed) return;
 
     this.currentTime = time;
     this.pump();
+  }
+
+  public setMediaElementGetter(getElement: () => HTMLMediaElement | null) {
+    this.getMediaElement = getElement;
   }
 
   private fail(error: Error) {
@@ -259,12 +259,12 @@ class VideoTranscoder {
     if (this.session?.url === url) this.session.markReady();
   }
 
-  public setMediaElementGetter(url: string, getElement: () => HTMLMediaElement | null) {
-    if (this.session?.url === url) this.session.setMediaElementGetter(getElement);
-  }
-
   public setCurrentTime(time: number) {
     this.session?.setCurrentTime(time);
+  }
+
+  public setMediaElementGetter(url: string, getElement: () => HTMLMediaElement | null) {
+    if (this.session?.url === url) this.session.setMediaElementGetter(getElement);
   }
 
   public transcode(

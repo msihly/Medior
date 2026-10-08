@@ -1,7 +1,6 @@
-import { colors } from "trabecula/utils/client";
 import { Card, CardBase, Comp, FileBase, View } from "medior/components";
 import { FileTransform, useStores } from "medior/store";
-import { openCarouselWindow, toast } from "medior/utils/client";
+import { colors, openCarouselWindow, toast } from "medior/utils/client";
 import { TransformDetails } from "./transform-details";
 
 export interface FileDetailsProps {

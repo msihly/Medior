@@ -97,6 +97,7 @@ export const RelatedCollectionsQueue = Comp(({ onClose }: RelatedCollectionsQueu
   const selectedIds = baseEntry
     ? [baseEntry.id, ...foundEntries.map(({ id }) => id).filter((id) => searchSelectedIds.has(id))]
     : [];
+  const selectedIdSet = new Set(selectedIds);
 
   useEffect(() => {
     loadQueue();
@@ -263,8 +264,6 @@ export const RelatedCollectionsQueue = Comp(({ onClose }: RelatedCollectionsQueu
     setBaseId(id);
     store.search.setSelectedIds(getSelectableIds(group, id));
   };
-
-  const selectedIdSet = new Set(selectedIds);
 
   const getOrderedSelectedIds = () =>
     [

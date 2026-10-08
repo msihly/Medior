@@ -124,7 +124,7 @@ export const RepairModal = Comp(() => {
 
     if (!startRes.success) throw new Error(startRes.error);
 
-    store.setSimilarityJobId(startRes.data.jobId);
+    store.similarity.setJobId(startRes.data.jobId);
 
     let lastLoggedProgress:
       | {
@@ -138,7 +138,6 @@ export const RepairModal = Comp(() => {
           timings: {
             decodeMs: number;
             existingRowsMs: number;
-            indexMs: number;
             inferenceMs: number;
             writeMs: number;
           };
@@ -149,11 +148,11 @@ export const RepairModal = Comp(() => {
     let lastMessage = "";
     let lastProgressLogAt = 0;
 
-    while (store.similarityJobId) {
+    while (store.similarity.jobId) {
       if (store.isCancellationRequested) throw new Error("Repair cancelled by user.");
 
       const res = await trpc.getSimilarityBackfillProgress.mutate({
-        jobId: store.similarityJobId,
+        jobId: store.similarity.jobId,
       });
 
       if (!res.success) throw new Error(res.error);
@@ -188,7 +187,6 @@ export const RepairModal = Comp(() => {
               errorCount: progress.errorCount - lastLoggedProgress.errorCount,
               existingRowsMs:
                 progress.timings.existingRowsMs - lastLoggedProgress.timings.existingRowsMs,
-              indexMs: progress.timings.indexMs - lastLoggedProgress.timings.indexMs,
               indexedCount: progress.indexedCount - lastLoggedProgress.indexedCount,
               inferenceMs: progress.timings.inferenceMs - lastLoggedProgress.timings.inferenceMs,
               missingFileCount: progress.missingFileCount - lastLoggedProgress.missingFileCount,
@@ -204,7 +202,6 @@ export const RepairModal = Comp(() => {
               decodeMs: progress.timings.decodeMs,
               errorCount: progress.errorCount,
               existingRowsMs: progress.timings.existingRowsMs,
-              indexMs: progress.timings.indexMs,
               indexedCount: progress.indexedCount,
               inferenceMs: progress.timings.inferenceMs,
               missingFileCount: progress.missingFileCount,
@@ -239,7 +236,6 @@ export const RepairModal = Comp(() => {
               `inference ${(delta.inferenceMs / 1000).toFixed(1)}s`,
               `lookup ${(delta.existingRowsMs / 1000).toFixed(1)}s`,
               `write ${(delta.writeMs / 1000).toFixed(1)}s`,
-              `maintenance ${(delta.indexMs / 1000).toFixed(1)}s`,
             ].join(", "),
           ].join(" | "),
           colors.custom.lightBlue,
@@ -256,7 +252,6 @@ export const RepairModal = Comp(() => {
           timings: {
             decodeMs: progress.timings.decodeMs,
             existingRowsMs: progress.timings.existingRowsMs,
-            indexMs: progress.timings.indexMs,
             inferenceMs: progress.timings.inferenceMs,
             writeMs: progress.timings.writeMs,
           },
@@ -280,7 +275,7 @@ export const RepairModal = Comp(() => {
 
       if (progress.status === "complete") {
         store.log(
-          `Similarity repair complete: ${formatProgress(progress)}. Generated ${progress.indexedCount.toLocaleString()} vectors; ${progress.skippedFreshCount.toLocaleString()} already current; ${progress.errorCount.toLocaleString()} failed. Search index maintenance complete.`,
+          `Similarity repair complete: ${formatProgress(progress)}. Generated ${progress.indexedCount.toLocaleString()} vectors; ${progress.skippedFreshCount.toLocaleString()} already current; ${progress.errorCount.toLocaleString()} failed.`,
           progress.errorCount ? colors.custom.orange : colors.custom.green,
         );
         break;
@@ -289,7 +284,59 @@ export const RepairModal = Comp(() => {
       await sleep(1000);
     }
 
-    store.setSimilarityJobId(null);
+    store.similarity.setJobId(null);
+  };
+
+  const buildSimilaritySearchIndex = async () => {
+    const startRes = await trpc.startSimilaritySearchIndexBuild.mutate({
+      repairId: store.repairId,
+    });
+
+    if (!startRes.success) throw new Error(startRes.error);
+
+    store.log(
+      startRes.data.isUpdate
+        ? "Compacting stored vectors and adding newly vectorized files to the similarity search index..."
+        : "Compacting stored vectors, then building the similarity search index over them...",
+      colors.custom.lightBlue,
+    );
+
+    while (true) {
+      if (store.isCancellationRequested) throw new Error("Repair cancelled by user.");
+
+      const res = await trpc.getSimilaritySearchIndexStatus.mutate();
+
+      if (!res.success) throw new Error(res.error);
+
+      if (res.data.status === "error") throw new Error(res.data.error);
+
+      if (res.data.status === "cancelled") throw new Error("Repair cancelled");
+
+      if (res.data.status === "idle")
+        throw new Error("The similarity search index build was interrupted. Start it again.");
+
+      if (res.data.status === "complete") {
+        store.log(
+          `Similarity search index ready: ${Fmt.commas(res.data.indexedRowCount)} vectors indexed.`,
+          colors.custom.green,
+        );
+        break;
+      }
+
+      store.log(
+        [
+          `Similarity search index: ${res.data.message || (res.data.isUpdate ? "updating" : "preparing")}`,
+          res.data.percent === null ? null : `${res.data.percent.toFixed(1)}% of this step`,
+          `${Math.round((Date.now() - res.data.startedAt) / 1000)}s elapsed`,
+        ]
+          .filter(Boolean)
+          .join(" · "),
+        colors.custom.lightBlue,
+        true,
+      );
+
+      await sleep(2000);
+    }
   };
 
   const runRepair = async (action: (repairId: string) => Promise<void>, clearLog = false) => {
@@ -326,7 +373,7 @@ export const RepairModal = Comp(() => {
       } catch (error) {
         store.log(`[ERROR] Could not save repair status: ${error.message}`, colors.custom.red);
       } finally {
-        store.setSimilarityJobId(null);
+        store.similarity.setJobId(null);
         store.setIsRunning(false);
       }
     }
@@ -545,7 +592,11 @@ export const RepairModal = Comp(() => {
         if (!res.success) throw new Error(res.error);
       }
 
-      if (store.similarity) await rebuildSimilarityIndex();
+      if (store.similarity.enabled) {
+        if (store.similarity.vectors) await rebuildSimilarityIndex();
+
+        await buildSimilaritySearchIndex();
+      }
 
       store.log("[SUCCESS] All selected repairs completed successfully.", colors.custom.green);
     }, true);
@@ -556,18 +607,19 @@ export const RepairModal = Comp(() => {
       onClose={handleCancel}
       height="100%"
       width="100%"
-      maxWidth="60rem"
+      maxWidth="100rem"
     >
       <Modal.Header>
         <Text preset="title">{"Database Repair"}</Text>
       </Modal.Header>
 
       <Modal.Content>
-        <View column height="100%" minHeight={0} spacing="1rem">
+        <View row height="100%" minHeight={0} spacing="1rem">
           <Card
             header="Select Issues to Repair"
             flex={1}
             minHeight={0}
+            minWidth={0}
             spacing="0.5rem"
             overflow="hidden auto"
             bgColor={colors.foregroundCard}
@@ -731,12 +783,22 @@ export const RepairModal = Comp(() => {
             </View>
 
             <RepairCheckbox
-              label="Similarity Index"
-              description="Generates missing similarity vectors and migrates legacy vectors."
-              checked={store.similarity}
-              setChecked={store.setSimilarity}
+              label="Similarity Search Index"
+              description="Builds the index used to find duplicates across the whole library, or compacts stored vectors and adds newly vectorized files to it."
+              checked={store.similarity.enabled}
+              setChecked={store.similarity.setEnabled}
               disabled={store.isRunning}
             />
+
+            <View {...checkboxColumnProps}>
+              <RepairCheckbox
+                label="Generate Missing Vectors"
+                description="Generates similarity vectors for files without one and migrates legacy vectors before indexing."
+                checked={store.similarity.vectors}
+                setChecked={store.similarity.setVectors}
+                disabled={store.isRunning || !store.similarity.enabled}
+              />
+            </View>
 
             <RepairCheckbox
               label="Tags"
@@ -823,73 +885,75 @@ export const RepairModal = Comp(() => {
             </View>
           </Card>
 
-          {storageResult && (
+          <View column flex={1} minHeight={0} minWidth={0} spacing="1rem">
+            {storageResult && (
+              <Card
+                header="Storage Reconciliation Results"
+                flex="none"
+                spacing="0.75rem"
+                padding={{ all: "0.75rem" }}
+                bgColor={colors.foregroundCard}
+              >
+                <Text whiteSpace="normal">
+                  {`Recovered ${Fmt.commas(storageResult.recoveredFiles)} media paths and ${Fmt.commas(storageResult.recoveredThumbs)} thumbnail paths.`}
+                </Text>
+
+                <Text whiteSpace="normal">
+                  {`${Fmt.commas(storageResult.fileIdsLeftInDbOnly.length)} records with missing originals · ${Fmt.commas(storageResult.filesLeftInStorageOnly.length)} untracked storage files · ${Fmt.commas(storageResult.unresolvedThumbs)} unresolved thumbnails at scan completion`}
+                </Text>
+
+                <View row wrap="wrap" className={css.storageActions}>
+                  <Button
+                    text="Remove Missing File Records"
+                    icon="Delete"
+                    color={colors.custom.red}
+                    onClick={handleRemoveMissingRecords}
+                    disabled={store.isRunning || !storageResult.fileIdsLeftInDbOnly.length}
+                  />
+
+                  <Button
+                    text="Delete Untracked Files"
+                    icon="Delete"
+                    color={colors.custom.red}
+                    onClick={handleDeleteUntrackedFiles}
+                    disabled={store.isRunning || !storageResult.filesLeftInStorageOnly.length}
+                  />
+
+                  <Button
+                    text="Re-import Untracked Files"
+                    icon="Refresh"
+                    onClick={handleReimportUntrackedFiles}
+                    disabled={store.isRunning || !storageResult.filesLeftInStorageOnly.length}
+                  />
+                </View>
+              </Card>
+            )}
+
             <Card
-              header="Storage Reconciliation Results"
-              flex="none"
-              spacing="0.75rem"
-              padding={{ all: "0.75rem" }}
+              header="Log"
+              ref={outputRef}
+              flex={1}
+              minHeight={0}
+              overflow="hidden auto"
               bgColor={colors.foregroundCard}
             >
-              <Text whiteSpace="normal">
-                {`Recovered ${Fmt.commas(storageResult.recoveredFiles)} media paths and ${Fmt.commas(storageResult.recoveredThumbs)} thumbnail paths.`}
-              </Text>
+              {store.outputLog.map((log, i) => (
+                <Text
+                  key={i}
+                  color={log.color}
+                  component="div"
+                  overflow="visible"
+                  whiteSpace="pre-wrap"
+                  width="100%"
+                  className={css.log}
+                >
+                  {log.text}
+                </Text>
+              ))}
 
-              <Text whiteSpace="normal">
-                {`${Fmt.commas(storageResult.fileIdsLeftInDbOnly.length)} records with missing originals · ${Fmt.commas(storageResult.filesLeftInStorageOnly.length)} untracked storage files · ${Fmt.commas(storageResult.unresolvedThumbs)} unresolved thumbnails at scan completion`}
-              </Text>
-
-              <View row wrap="wrap" className={css.storageActions}>
-                <Button
-                  text="Remove Missing File Records"
-                  icon="Delete"
-                  color={colors.custom.red}
-                  onClick={handleRemoveMissingRecords}
-                  disabled={store.isRunning || !storageResult.fileIdsLeftInDbOnly.length}
-                />
-
-                <Button
-                  text="Delete Untracked Files"
-                  icon="Delete"
-                  color={colors.custom.red}
-                  onClick={handleDeleteUntrackedFiles}
-                  disabled={store.isRunning || !storageResult.filesLeftInStorageOnly.length}
-                />
-
-                <Button
-                  text="Re-import Untracked Files"
-                  icon="Refresh"
-                  onClick={handleReimportUntrackedFiles}
-                  disabled={store.isRunning || !storageResult.filesLeftInStorageOnly.length}
-                />
-              </View>
+              {store.isRunning && <ProgressCircle color="inherit" variant="indeterminate" />}
             </Card>
-          )}
-
-          <Card
-            header="Log"
-            ref={outputRef}
-            flex={1}
-            minHeight={0}
-            overflow="hidden auto"
-            bgColor={colors.foregroundCard}
-          >
-            {store.outputLog.map((log, i) => (
-              <Text
-                key={i}
-                color={log.color}
-                component="div"
-                overflow="visible"
-                whiteSpace="pre-wrap"
-                width="100%"
-                className={css.log}
-              >
-                {log.text}
-              </Text>
-            ))}
-
-            {store.isRunning && <ProgressCircle color="inherit" variant="indeterminate" />}
-          </Card>
+          </View>
         </View>
       </Modal.Content>
 

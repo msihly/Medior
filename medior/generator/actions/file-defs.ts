@@ -9,11 +9,11 @@ import {
 } from "medior/generator/actions/generators";
 import { MODEL_DEFS } from "medior/generator/schema/models";
 import { MODEL_SEARCH_STORE_DEFS } from "medior/generator/stores/models";
-import { capitalize, makeSectionComment } from "medior/generator/utils";
+import { makeSectionComment } from "medior/generator/utils";
+import { Fmt } from "medior/utils/common";
 
 export const FILE_DEF_ACTIONS: FileDef = {
   name: "actions",
-
   makeFile: async () => {
     const actions = await getActions();
 
@@ -96,7 +96,7 @@ export const FILE_DEF_TYPES: FileDef = {
         .map((def) =>
           makeModelActionTypes(
             def.name,
-            actions.model.map((a) => `${capitalize(a)}Input`),
+            actions.model.map((a) => `${Fmt.capitalize(a)}Input`),
           ),
         )
         .join("\n\n");

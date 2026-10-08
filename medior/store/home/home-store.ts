@@ -92,6 +92,17 @@ export class HomeStore extends Model({
 
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */
   @modelFlow
+  cancelBackgroundOperation = asyncAction(async (id: string) => {
+    this.activityLoadRevision++;
+
+    const res = await trpc.cancelBackgroundOperation.mutate({ id });
+
+    if (!res.success) throw new Error(res.error);
+
+    this.updateBackgroundOperation(res.data);
+  });
+
+  @modelFlow
   loadBackgroundActivity = asyncAction(async () => {
     if (this.activityLoad) return this.activityLoad;
 
@@ -143,26 +154,6 @@ export class HomeStore extends Model({
   });
 
   @modelFlow
-  retryBackgroundOperation = asyncAction(async (id: string) => {
-    const res = await trpc.retryBackgroundOperation.mutate({ id });
-
-    if (!res.success) throw new Error(res.error);
-
-    await this.loadBackgroundActivity();
-  });
-
-  @modelFlow
-  cancelBackgroundOperation = asyncAction(async (id: string) => {
-    this.activityLoadRevision++;
-
-    const res = await trpc.cancelBackgroundOperation.mutate({ id });
-
-    if (!res.success) throw new Error(res.error);
-
-    this.updateBackgroundOperation(res.data);
-  });
-
-  @modelFlow
   readNotifications = asyncAction(async () => {
     const ids = this.notifications
       .filter((notification) => !notification.isRead)
@@ -175,6 +166,15 @@ export class HomeStore extends Model({
     if (!res.success) throw new Error(res.error);
 
     this.markNotificationsRead(ids);
+  });
+
+  @modelFlow
+  retryBackgroundOperation = asyncAction(async (id: string) => {
+    const res = await trpc.retryBackgroundOperation.mutate({ id });
+
+    if (!res.success) throw new Error(res.error);
+
+    await this.loadBackgroundActivity();
   });
 
   /* ----------------------------- DYNAMIC GETTERS ---------------------------- */

@@ -18,7 +18,7 @@ export const RepairCheckbox = ({
 }: RepairCheckboxProps) => (
   <Checkbox
     label={
-      <View column height="35px">
+      <View column minHeight="35px">
         <Text fontSize="0.9em">{label}</Text>
 
         <Text color={colors.custom.lightGrey} fontSize="0.8em" whiteSpace="normal">

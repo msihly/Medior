@@ -4,8 +4,6 @@ import { TagOption, TagSearch } from "medior/store";
 import { asyncAction, toast } from "medior/utils/client";
 import { trpc } from "medior/utils/server";
 
-export type TagManagerMode = "create" | "edit" | "search";
-
 @model("medior/TagManagerStore")
 export class TagManagerStore extends Model({
   isLoading: prop<boolean>(false).withSetter(),
@@ -65,13 +63,4 @@ export class TagManagerStore extends Model({
 
     toast.success("Tag refresh queued in Activity");
   });
-
-  /* ----------------------------- DYNAMIC GETTERS ---------------------------- */
-  getById(id: string) {
-    return this.search.results.find((t) => t.id === id);
-  }
-
-  getIsSelected(id: string) {
-    return !!this.search.selectedIds.find((s) => s === id);
-  }
 }

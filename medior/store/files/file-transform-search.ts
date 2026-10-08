@@ -3,9 +3,7 @@ import { reaction } from "mobx";
 import { ExtendedModel, model, modelFlow, objectToMapTransform, prop } from "mobx-keystone";
 import { _FileTransformSearch } from "medior/store/_generated";
 import { File } from "medior/store";
-import { asyncAction } from "medior/utils/client";
-import { makeTagSelector } from "medior/utils/common";
-import { trpc } from "medior/utils/server";
+import { asyncAction, loadFilesWithTags } from "medior/utils/client";
 
 @model("medior/FileTransformSearch")
 export class FileTransformSearch extends ExtendedModel(_FileTransformSearch, {
@@ -28,6 +26,28 @@ export class FileTransformSearch extends ExtendedModel(_FileTransformSearch, {
 
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */
   @modelFlow
+  handleFileSelect = asyncAction(
+    async ({ hasCtrl, hasShift, id }: { hasCtrl: boolean; hasShift: boolean; id: string }) => {
+      const transform = this.getFileTransformByFileId(id);
+
+      if (!transform) throw new Error("File transform not found");
+
+      const res = await this.handleSelect({ hasCtrl, hasShift, id: transform.id });
+
+      if (!res?.success) throw new Error(res.error);
+    },
+  );
+
+  @modelFlow
+  listIdsForCarousel = asyncAction(async () => {
+    const fileIds = this.results.map((transform) => transform.fileId);
+
+    if (!fileIds.length) throw new Error("No files found");
+
+    return fileIds;
+  });
+
+  @modelFlow
   loadFiles = asyncAction(async () => {
     const loadId = this.loadId;
     const results = this.results;
@@ -42,35 +62,14 @@ export class FileTransformSearch extends ExtendedModel(_FileTransformSearch, {
           this.setFiles(new Map());
           this.setIsLoading(false);
         }
+      } else {
+        const files = await loadFilesWithTags(fileIds);
 
-        return;
+        if (loadId !== this.loadId || results !== this.results) return;
+
+        this.setFiles(new Map(files.map((file) => [file.id, new File(file)])));
+        this.setIsLoading(false);
       }
-
-      const res = await trpc.listFile.mutate({ args: { filter: { id: fileIds } } });
-
-      if (loadId !== this.loadId || results !== this.results) return;
-
-      if (!res.success) throw new Error(res.error);
-
-      const tagIds = [...new Set(res.data.items.flatMap((file) => file.tagIds))];
-      const tagRes = await trpc.listTag.mutate({ filter: { id: tagIds } });
-
-      if (loadId !== this.loadId || results !== this.results) return;
-
-      if (!tagRes.success) throw new Error(tagRes.error);
-
-      const selectTags = makeTagSelector(tagRes.data);
-
-      this.setFiles(
-        new Map(
-          res.data.items.map((file) => [
-            file.id,
-            new File({ ...file, tags: selectTags(file.tagIds) }),
-          ]),
-        ),
-      );
-
-      this.setIsLoading(false);
     } catch (error) {
       if (loadId !== this.loadId || results !== this.results) return;
 
@@ -79,28 +78,6 @@ export class FileTransformSearch extends ExtendedModel(_FileTransformSearch, {
       throw error;
     }
   });
-
-  @modelFlow
-  listIdsForCarousel = asyncAction(async () => {
-    const fileIds = this.results.map((transform) => transform.fileId);
-
-    if (!fileIds.length) throw new Error("No files found");
-
-    return fileIds;
-  });
-
-  @modelFlow
-  handleFileSelect = asyncAction(
-    async ({ hasCtrl, hasShift, id }: { hasCtrl: boolean; hasShift: boolean; id: string }) => {
-      const transform = this.getFileTransformByFileId(id);
-
-      if (!transform) throw new Error("File transform not found");
-
-      const res = await this.handleSelect({ hasCtrl, hasShift, id: transform.id });
-
-      if (!res?.success) throw new Error(res.error);
-    },
-  );
 
   /* ----------------------------- DYNAMIC GETTERS ---------------------------- */
   getFileTransformByFileId(fileId: string) {

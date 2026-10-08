@@ -6,7 +6,6 @@ import { vectorTrpc } from "medior/utils/server/trpc";
 
 export const findSimilarFiles = makeAction(
   async (args: {
-    exact?: boolean;
     fileId: string;
     limit?: number;
     offset?: number;
@@ -59,6 +58,10 @@ export const getSimilarityBackfillProgress = makeAction(
   async (args: { jobId: string }) => await vectorTrpc.getSimilarityBackfillProgress.mutate(args),
 );
 
+export const getSimilaritySearchIndexStatus = makeAction(
+  async () => await vectorTrpc.getSearchIndexStatus.mutate(),
+);
+
 export const rebuildFileSimilarityIndex = makeAction(
   async (
     args: {
@@ -88,4 +91,13 @@ export const startSimilarityBackfill = makeAction(
         )
       : start();
   },
+);
+
+export const startSimilaritySearchIndexBuild = makeAction(
+  async ({ repairId }: { repairId: string }) =>
+    await startRepairChild(
+      repairId,
+      () => vectorTrpc.startSearchIndexBuild.mutate(),
+      () => vectorTrpc.cancelSearchIndexBuild.mutate(),
+    ),
 );

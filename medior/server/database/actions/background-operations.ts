@@ -30,11 +30,12 @@ import { leanModelToJson, makeAction, objectId, objectIds, socket } from "medior
 import { vectorTrpc } from "medior/utils/server/trpc";
 import { workSignal } from "medior/utils/server/work-signal";
 
-let backgroundQueuesRunning = false;
 const runners = new Map<() => Promise<void>, boolean>();
+
+let backgroundQueuesRunning = false;
 let queueControl = Promise.resolve<unknown>(undefined);
-let stoppingQueues: Promise<void>;
 let retentionTimer: NodeJS.Timeout;
+let stoppingQueues: Promise<void>;
 
 const controlBackgroundQueues = <T>(run: () => Promise<T>) => {
   const result = queueControl.then(run, run);
@@ -136,6 +137,8 @@ export const completeBackgroundOperationTargets = async (
   message: string,
   expectedVersions?: Record<string, string>,
 ) => {
+  if (!targetIds.length) return emitBackgroundOperation(id);
+
   const completedTargets = {
     $setIntersection: [
       "$targetIds",
@@ -157,8 +160,6 @@ export const completeBackgroundOperationTargets = async (
         : { $literal: targetIds },
     ],
   };
-
-  if (!targetIds.length) return emitBackgroundOperation(id);
 
   await models.BackgroundOperationModel.updateOne(
     { _id: objectId(id), status: { $in: ["PENDING", "RUNNING"] } },
@@ -310,8 +311,6 @@ makeBackgroundOperationRunner(
     for (const [run, requiresMediaPaths] of runners) {
       if (requiresMediaPaths) run();
     }
-
-    await vectorTrpc.resumeSimilarityBackfills.mutate();
   },
   false,
 );
@@ -574,60 +573,62 @@ export const listBackgroundActivity = makeAction(async () => {
       notifications,
       operations: [getPersistenceMigrationProgress()],
     };
-  }
+  } else {
+    const { ensureMediaPathIndexOperation } = await import(
+      "medior/server/database/media-path-index"
+    );
 
-  const { ensureMediaPathIndexOperation } = await import("medior/server/database/media-path-index");
+    await ensureMediaPathIndexOperation();
 
-  await ensureMediaPathIndexOperation();
-
-  // These requests stopped before any repair writes; retrying each cannot unblock indexing.
-  await models.BackgroundOperationModel.updateMany(
-    {
-      dismissedAt: null,
-      error: /^Media path indexing is incomplete/,
-      status: "ERROR",
-      type: "metadataAction",
-      "work.name": "repairFileThumbnail",
-    },
-    { $set: { dateModified: dayjs().toISOString(), dismissedAt: dayjs().toISOString() } },
-    metadataWriteOptions(),
-  );
-
-  const actionable = { status: { $in: ["PENDING", "RUNNING", "CANCELLED", "ERROR"] } };
-  const prerequisiteTypes = ["importEntryMigration", "mediaPathIndex"];
-
-  const operations = await Promise.all(
-    [
-      { ...actionable, type: { $in: prerequisiteTypes } },
-      { status: { $in: ["PENDING", "RUNNING"] }, type: { $nin: prerequisiteTypes } },
-      { status: { $in: ["CANCELLED", "ERROR"] }, type: { $nin: prerequisiteTypes } },
+    // These requests stopped before any repair writes; retrying each cannot unblock indexing.
+    await models.BackgroundOperationModel.updateMany(
       {
-        $nor: [actionable],
-        $or: [{ type: { $ne: "metadataAction" } }, { status: { $ne: "COMPLETE" } }],
+        dismissedAt: null,
+        error: /^Media path indexing is incomplete/,
+        status: "ERROR",
+        type: "metadataAction",
+        "work.name": "repairFileThumbnail",
       },
-    ].map((filter) =>
-      models.BackgroundOperationModel.find({ $and: [filter, { dismissedAt: null }] })
-        .select({
-          metadataScan: 0,
-          targetIds: { $slice: 1 },
-          targetVersions: 0,
-          transformIds: 0,
-          transformOptions: 0,
-          work: 0,
-        })
-        .sort({ dateCreated: -1, _id: -1 })
-        .limit(100)
-        .lean(),
-    ),
-  );
+      { $set: { dateModified: dayjs().toISOString(), dismissedAt: dayjs().toISOString() } },
+      metadataWriteOptions(),
+    );
 
-  return {
-    notifications,
-    operations: operations
-      .flat()
-      .slice(0, 100)
-      .map((operation) => leanModelToJson<models.BackgroundOperationSchema>(operation)),
-  };
+    const actionable = { status: { $in: ["PENDING", "RUNNING", "CANCELLED", "ERROR"] } };
+    const prerequisiteTypes = ["importEntryMigration", "mediaPathIndex"];
+
+    const operations = await Promise.all(
+      [
+        { ...actionable, type: { $in: prerequisiteTypes } },
+        { status: { $in: ["PENDING", "RUNNING"] }, type: { $nin: prerequisiteTypes } },
+        { status: { $in: ["CANCELLED", "ERROR"] }, type: { $nin: prerequisiteTypes } },
+        {
+          $nor: [actionable],
+          $or: [{ type: { $ne: "metadataAction" } }, { status: { $ne: "COMPLETE" } }],
+        },
+      ].map((filter) =>
+        models.BackgroundOperationModel.find({ $and: [filter, { dismissedAt: null }] })
+          .select({
+            metadataScan: 0,
+            targetIds: { $slice: 1 },
+            targetVersions: 0,
+            transformIds: 0,
+            transformOptions: 0,
+            work: 0,
+          })
+          .sort({ dateCreated: -1, _id: -1 })
+          .limit(100)
+          .lean(),
+      ),
+    );
+
+    return {
+      notifications,
+      operations: operations
+        .flat()
+        .slice(0, 100)
+        .map((operation) => leanModelToJson<models.BackgroundOperationSchema>(operation)),
+    };
+  }
 });
 
 export const retryBackgroundOperation = makeAction(({ id }: { id: string }) =>
@@ -684,48 +685,52 @@ export const cancelBackgroundOperation = makeAction(async ({ id }: { id: string 
 
   if (id === PERSISTENCE_ACTIVITY_ID) {
     return cancelPersistenceMigration();
-  }
+  } else {
+    const stopping = cancelBackgroundExecutions(id);
 
-  const stopping = cancelBackgroundExecutions(id);
+    const saved = (async () => {
+      const operation = await models.BackgroundOperationModel.findById(id)
+        .select({ targetIds: 1, type: 1 })
+        .lean();
 
-  const saved = (async () => {
-    const operation = await models.BackgroundOperationModel.findById(id)
-      .select({ targetIds: 1, type: 1 })
-      .lean();
+      if (!operation) throw new Error("Background operation not found");
 
-    if (!operation) throw new Error("Background operation not found");
-
-    if (operation.type === "repair") await cancelRepair(operation.targetIds[0]);
-    else {
-      await models.BackgroundOperationModel.updateOne(
-        { _id: objectId(id), status: { $in: ["PENDING", "RUNNING"] } },
-        {
-          $set: {
-            completedAt: dayjs().toISOString(),
-            dateModified: dayjs().toISOString(),
-            status: "CANCELLED",
+      if (operation.type === "repair") await cancelRepair(operation.targetIds[0]);
+      else {
+        await models.BackgroundOperationModel.updateOne(
+          { _id: objectId(id), status: { $in: ["PENDING", "RUNNING"] } },
+          {
+            $set: {
+              completedAt: dayjs().toISOString(),
+              dateModified: dayjs().toISOString(),
+              status: "CANCELLED",
+            },
+            $unset: { queueKey: 1 },
           },
-          $unset: { queueKey: 1 },
-        },
-        metadataWriteOptions(),
-      );
-    }
+          metadataWriteOptions(),
+        );
+      }
 
-    const result = await emitBackgroundOperation(id);
+      const result = await emitBackgroundOperation(id);
 
-    if (!result) throw new Error("Background operation not found");
+      if (!result) throw new Error("Background operation not found");
 
-    return result;
-  })();
+      return result;
+    })();
 
-  // Persist and acknowledge cancellation independently of the server's interrupt response.
-  Promise.all([stopping, saved])
-    .then(([resumes]) => {
-      for (const resume of resumes) resume();
-    })
-    .catch((error) => console.error(`Background operation ${id} cancellation failed:`, error));
+    // Persist and acknowledge cancellation independently of the server's interrupt response.
+    (async () => {
+      try {
+        const [resumes] = await Promise.all([stopping, saved]);
 
-  return saved;
+        for (const resume of resumes) resume();
+      } catch (error) {
+        console.error(`Background operation ${id} cancellation failed:`, error);
+      }
+    })();
+
+    return saved;
+  }
 });
 
 export const dismissBackgroundOperation = makeAction(async ({ id }: { id: string }) => {

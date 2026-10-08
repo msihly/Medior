@@ -19,8 +19,8 @@ model.addProp("fileCount", "number", {
 model.addIndex({ "fileIdIndexes.fileId": 1 }, { unique: false });
 
 model.addProp("fileIdIndexes", "Array<{ fileId: string; index: number }>", {
-  schemaType: "[{ fileId: Schema.Types.ObjectId, index: Number }]",
   required: true,
+  schemaType: "[{ fileId: Schema.Types.ObjectId, index: Number }]",
 });
 
 model.addIndex({ rating: 1, _id: 1 });

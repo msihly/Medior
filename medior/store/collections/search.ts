@@ -9,11 +9,9 @@ import {
   objectToMapTransform,
   prop,
 } from "mobx-keystone";
-import { asyncAction } from "trabecula/utils/client";
 import { _FileCollectionSearch } from "medior/store/_generated";
 import { File, RootStore } from "medior/store";
-import { makeTagSelector } from "medior/utils/common";
-import { trpc } from "medior/utils/server";
+import { asyncAction, loadFilesWithTags } from "medior/utils/client";
 
 @model("medior/FileCollectionSearch")
 export class FileCollectionSearch extends ExtendedModel(_FileCollectionSearch, {
@@ -90,38 +88,22 @@ export class FileCollectionSearch extends ExtendedModel(_FileCollectionSearch, {
           this.setFiles(new Map());
           this.setIsLoading(false);
         }
+      } else {
+        const fileIds = [
+          ...new Set(
+            [...this.results, ...stores.collection.manager.currentCollections]
+              .map((c) => c.previewIds)
+              .flat(),
+          ),
+        ];
 
-        return;
+        const files = await loadFilesWithTags(fileIds);
+
+        if (loadId !== this.loadId || results !== this.results) return;
+
+        this.setFiles(new Map(files.map((file) => [file.id, new File(file)])));
+        this.setIsLoading(false);
       }
-
-      const fileIds = [
-        ...new Set(
-          [...this.results, ...stores.collection.manager.currentCollections]
-            .map((c) => c.previewIds)
-            .flat(),
-        ),
-      ];
-
-      const res = await trpc.listFile.mutate({ args: { filter: { id: fileIds } } });
-
-      if (loadId !== this.loadId || results !== this.results) return;
-
-      if (!res.success) throw new Error(res.error);
-
-      const tagIds = [...new Set(res.data.items.flatMap((file) => file.tagIds))];
-      const tagRes = await trpc.listTag.mutate({ filter: { id: tagIds } });
-
-      if (loadId !== this.loadId || results !== this.results) return;
-
-      if (!tagRes.success) throw new Error(tagRes.error);
-
-      const selectTags = makeTagSelector(tagRes.data);
-      const files = res.data.items.map(
-        (file) => new File({ ...file, tags: selectTags(file.tagIds) }),
-      );
-
-      this.setFiles(new Map(files.map((file) => [file.id, file])));
-      this.setIsLoading(false);
     } catch (error) {
       if (loadId !== this.loadId || results !== this.results) return;
 

@@ -68,7 +68,7 @@ export type DiffParams = {
 /* -------------------------------------------------------------------------- */
 /*                                  FUNCTIONS                                 */
 /* -------------------------------------------------------------------------- */
-export const parseDiffParam = <IsNum extends boolean>(
+const parseDiffParam = <IsNum extends boolean>(
   diffParams: string,
   paramName: string,
   isNumber: IsNum,

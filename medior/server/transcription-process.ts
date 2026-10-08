@@ -112,20 +112,16 @@ const getTranscriber = async (onProgress?: ProgressReporter, signal?: AbortSigna
 
         if (status === "ready") {
           onProgress?.(`Transcription model loaded on ${device === "dml" ? "GPU" : "CPU"}.`);
+        } else if (status === "progress" && progress !== undefined) {
+          const percent = Math.round(progress);
 
-          return;
+          if (reportedProgress !== percent) {
+            reportedProgress = percent;
+
+            if (percent === 100) onProgress?.("Loading transcription model.");
+            else onProgress?.(`Downloading transcription model: ${file}.`, percent);
+          }
         }
-
-        if (status !== "progress" || progress === undefined) return;
-
-        const percent = Math.round(progress);
-
-        if (reportedProgress === percent) return;
-
-        reportedProgress = percent;
-
-        if (percent === 100) onProgress?.("Loading transcription model.");
-        else onProgress?.(`Downloading transcription model: ${file}.`, percent);
       },
     });
 

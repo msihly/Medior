@@ -16,6 +16,7 @@ import {
   FileOperationModel,
   finishFileOperation,
   isMediaPathReferenced,
+  makeFileCleanup,
 } from "medior/server/database/file-operations";
 import { mediaPathKey } from "medior/server/database/media-paths";
 import { withMetadataMutation } from "medior/server/database/metadata-mutations";
@@ -54,11 +55,10 @@ export interface MediaImportInput {
 
 const activeImportHashes = new Map<string, Promise<void>>();
 const activeImports = new Set<string>();
+const pendingImportCleanups = new Set<string>();
 let importCleanupCount = 0;
 let importStorage: { bytesLeft: number; location: string };
 let importStorageCheck: Promise<{ bytesLeft: number; location: string }>;
-
-const pendingImportCleanups = new Set<string>();
 
 const acquireImportHash = async (hash: string) => {
   checkBackgroundExecution();
@@ -456,7 +456,7 @@ export const importMedia = async (args: MediaImportInput, operationId?: string) 
         // Persist the expected source checksum; cleanup verifies it and the retained copy before deletion.
         const file =
           sourcePath === args.originalPath
-            ? { hash, path: sourcePath, pathKey: path.resolve(sourcePath).toLowerCase() }
+            ? makeFileCleanup(hash, sourcePath)
             : await describeFileCleanup(sourcePath);
 
         if (file) cleanup.push(file);
@@ -466,15 +466,11 @@ export const importMedia = async (args: MediaImportInput, operationId?: string) 
     const unusedOutput = [];
 
     for (const outputPath of new Set([...outputPaths, info?.thumb?.path])) {
-      if (
-        !outputPath ||
-        path.resolve(outputPath).toLowerCase() === path.resolve(args.originalPath).toLowerCase()
-      )
-        continue;
+      if (!outputPath || mediaPathKey(outputPath) === mediaPathKey(args.originalPath)) continue;
 
       const entry =
         outputPath === operation.outputPath
-          ? { hash, path: outputPath, pathKey: path.resolve(outputPath).toLowerCase() }
+          ? makeFileCleanup(hash, outputPath)
           : await describeFileCleanup(outputPath);
 
       if (entry) unusedOutput.push(entry);
@@ -592,9 +588,7 @@ const commitMediaImport = async (
   await updateBatchImport(args, { file, hash, status });
   recordTiming("import progress");
 
-  const retainedPaths = [file?.path, file?.thumb?.path]
-    .filter(Boolean)
-    .map((filePath) => path.resolve(filePath).toLowerCase());
+  const retainedPaths = [file?.path, file?.thumb?.path].filter(Boolean).map(mediaPathKey);
 
   await FileOperationModel.updateOne(
     { _id: operation._id, state: "PREPARED" },
@@ -680,11 +674,7 @@ export const recoverDirectImports = async (canContinue: () => boolean) => {
         const cleanup = [...operation.cleanup];
 
         for (const outputPath of [operation.outputPath, operation.thumbPath]) {
-          if (
-            !outputPath ||
-            path.resolve(outputPath).toLowerCase() ===
-              path.resolve(operation.sourcePath).toLowerCase()
-          )
+          if (!outputPath || mediaPathKey(outputPath) === mediaPathKey(operation.sourcePath))
             continue;
 
           const file = await describeFileCleanup(outputPath);

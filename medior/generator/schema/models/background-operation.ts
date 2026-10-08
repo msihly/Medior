@@ -19,7 +19,7 @@ model.addProp("processedCount", "number", { defaultValue: "0", required: true })
 model.addProp("queueKey", "string");
 model.addIndex(
   { queueKey: 1 },
-  { unique: true, partialFilterExpression: { queueKey: { $type: "string" } } },
+  { partialFilterExpression: { queueKey: { $type: "string" } }, unique: true },
 );
 
 model.addProp("source", "string");

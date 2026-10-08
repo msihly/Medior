@@ -13,7 +13,6 @@ import { runNativeTask } from "medior/utils/server/native-task";
 import { workSignal } from "medior/utils/server/work-signal";
 
 export interface ImageTask {
-  comparisonSize?: { height: number; width: number };
   composite?: OverlayOptions[];
   concurrency?: number;
   edit?: { crop?: Region; rotation?: number };

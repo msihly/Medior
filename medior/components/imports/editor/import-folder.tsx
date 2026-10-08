@@ -18,6 +18,7 @@ import { FileImportBatch, useStores } from "medior/store";
 import { colors, CssColor, makeBorderRadiuses, makeClasses, toast } from "medior/utils/client";
 import { Fmt } from "medior/utils/common";
 import { IMPORT_LIST_ITEM_HEIGHT, ImportListItem } from "./import-list-item";
+import { IMPORT_CHIP_STYLE } from "./tooltip-chip";
 
 const COLL_HEIGHT = 42;
 const HEADER_HEIGHT = 43;
@@ -215,21 +216,14 @@ export const getImportFolderHeight = ({
   );
 };
 
-interface ClassesProps {
+interface ClassesProps extends Pick<ImportFolderListProps, "collapsible"> {
   collapsed: boolean;
-  collapsible: boolean;
   hasCollection: boolean;
   hasTags: boolean;
 }
 
 const useClasses = makeClasses((props: ClassesProps) => ({
-  chip: {
-    flexShrink: 0,
-    height: "auto",
-    minWidth: "4em",
-    padding: "0.2em",
-    width: "auto",
-  },
+  chip: IMPORT_CHIP_STYLE,
   collection: {
     borderBottom: props.collapsed && !props.hasTags ? undefined : `1px solid ${colors.custom.grey}`,
     flexShrink: 0,

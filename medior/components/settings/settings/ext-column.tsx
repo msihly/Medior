@@ -1,5 +1,5 @@
-import { colors } from "trabecula/utils/client";
 import { Card, Comp } from "medior/components";
+import { colors } from "medior/utils/client";
 import { ConfigKey } from "medior/utils/server";
 import { ExtCheckbox } from "./ext-checkbox";
 

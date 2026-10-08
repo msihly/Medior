@@ -87,15 +87,11 @@ const cancelExecutions = async (active: BackgroundExecution[]) => {
   );
 
   // An empty killSessions list means ALL sessions. Only interrupt sessions owned by these runners.
-  if (!sessions.length) {
-    await Promise.all(active.map((execution) => execution.cancellation));
+  if (sessions.length) {
+    const cancellation = mongoose.connection.db.admin().command({ killSessions: sessions });
 
-    return;
+    for (const execution of pending) execution.cancellation = cancellation;
   }
-
-  const cancellation = mongoose.connection.db.admin().command({ killSessions: sessions });
-
-  for (const execution of pending) execution.cancellation = cancellation;
 
   await Promise.all(active.map((execution) => execution.cancellation));
 };

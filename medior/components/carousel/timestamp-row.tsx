@@ -1,7 +1,7 @@
 import { useMemo } from "react";
-import { colors } from "trabecula/utils/client";
 import { Button, Comp, Dropdown, Input, View } from "medior/components";
 import { FileTimestampPair, useStores } from "medior/store";
+import { colors } from "medior/utils/client";
 import {
   durationRegex,
   durationToSeconds,

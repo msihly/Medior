@@ -14,7 +14,7 @@ import {
 } from "medior/server/database/similarity-backfill";
 import { ThumbnailNtfsMetadata } from "medior/server/database/types";
 import { checkServerShutdown, isServerStopping } from "medior/server/process-lifecycle";
-import { chunkArray, CONSTANTS } from "medior/utils/common";
+import { chunkArray, CONSTANTS, round } from "medior/utils/common";
 import { getConfig, getIsAnimated } from "medior/utils/server/config";
 import { runImageTask } from "medior/utils/server/image-task";
 import { runNativeTask } from "medior/utils/server/native-task";
@@ -68,14 +68,6 @@ export interface VectorManifest {
   activeTables: Partial<Record<SimilarityVectorType, string>>;
   tables: Record<string, VectorTableManifestEntry>;
   version: number;
-}
-
-export interface SimilarityCandidate {
-  distance: number;
-  fileId: string;
-  rank: number;
-  score: number;
-  vectorTypeScores: Partial<Record<SimilarityVectorType, number>>;
 }
 
 export interface SimilarityBackfillTimings {
@@ -192,12 +184,37 @@ interface SimilarityIndexBatchResult {
   unsupportedFileTypeCount: number;
 }
 
+interface DuplicateMatch {
+  fileId: string;
+  hash: string;
+  score: number;
+}
+
+interface DuplicateSource {
+  fileId: string;
+  vector: Float32Array;
+}
+
+interface SimilaritySearchIndexBuild {
+  controller: AbortController;
+  error: string;
+  isUpdate: boolean;
+  message: string;
+  percent: number | null;
+  startedAt: number;
+  status: "cancelled" | "complete" | "error" | "running";
+}
+
 const DEFAULT_SCAN_WINDOW_SIZE = 50_000;
+// Percentage points below the threshold at which quantized index distances are re-scored exactly.
+const DUPLICATE_QUANTIZATION_MARGIN = 5;
 const MANIFEST_FILE_NAME = "manifest.json";
 const MAX_CONCURRENT_VECTOR_ROW_QUERIES = 10;
+const MAX_DUPLICATE_CANDIDATES = 32;
 const MAX_FILE_ID_QUERY_SIZE = 500;
 const ORDERING_PROGRESS_INTERVAL = 512;
-const VECTOR_OPTIMIZE_ROW_INTERVAL = 100_000;
+// Batch and progress counts span a whole build step; k-means iteration counts restart per cluster.
+const SEARCH_INDEX_COUNT_REGEX = /(?:batch|progress)\D*?(\d+)\s*\/\s*(\d+)/i;
 
 const VISUAL_DECODE_CONCURRENCY = Math.max(
   1,
@@ -310,15 +327,32 @@ const normalizeVector = (values: number[]) => {
   return values.map((val) => val / norm);
 };
 
+const getCosineSimilarity = (a: Float32Array, b: Float32Array) => {
+  let dot = 0;
+  let normA = 0;
+  let normB = 0;
+
+  for (let i = 0; i < a.length; i++) {
+    dot += a[i] * b[i];
+    normA += a[i] * a[i];
+    normB += b[i] * b[i];
+  }
+
+  return normA && normB ? dot / Math.sqrt(normA * normB) : 0;
+};
+
+/** Similarity percentage at the displayed precision, so 100% means identical stored vectors. */
+const getSimilarityScore = (similarity: number) =>
+  round(Math.max(0, Math.min(100, similarity * 100)), 1);
+
 export class VectorSimilarityService {
   private db: LanceConnection;
   private initialization: Promise<void>;
-
   private jobs = new Map<string, SimilarityBackfillJob>();
   private lancedb: LanceModule;
   private manifest: VectorManifest;
   private queueRevision = 0;
-  private tableMaintenance = new Map<string, Promise<void>>();
+  private searchIndexBuild: SimilaritySearchIndexBuild;
   private tables = new Map<string, LanceTable>();
 
   cancelAllJobs() {
@@ -366,18 +400,28 @@ export class VectorSimilarityService {
     fileLog(`[VECTOR] LanceDB initialized at ${config.db.vector.path}`);
   }
 
-  async findImageCopyCandidates(args: { files: { fileId: string; hash: string }[] }) {
+  /**
+   * Library scans query the opt-in search index and skip rows added since it was last updated;
+   * single-file lookups search every stored vector exactly, like Find Similar.
+   */
+  async findDuplicateCandidates(args: {
+    files: { fileId: string; hash: string }[];
+    minSimilarity: number;
+    useSearchIndex: boolean;
+  }) {
     if (!args.files.length || args.files.length > 128)
-      throw new Error("Copy candidate lookup accepts between 1 and 128 images.");
+      throw new Error("Duplicate lookup accepts between 1 and 128 files.");
 
     await this.init();
 
     const tableDef = this.getActiveTableDef(VISUAL_VECTOR_TYPE);
     const table = tableDef ? await this.openValidTableIfExists(tableDef) : null;
 
-    if (!table || !(await table.listIndices()).some((index) => index.columns.includes("vector")))
+    if (!table) throw new Error("No visual similarity vectors are stored yet.");
+
+    if (args.useSearchIndex && !(await this.getVectorIndex(table)))
       throw new Error(
-        "The visual search index is unavailable. Restart the copy search to prepare it.",
+        "Searching the whole library requires the similarity search index. Build it in Settings → Repair, then search again.",
       );
 
     const rows = await this.queryRowsByFileIds(
@@ -386,51 +430,62 @@ export class VectorSimilarityService {
       ["fileId", "sourceHash", "vector"],
     );
     const byId = new Map(rows.map((row) => [String(row.fileId), row]));
-    const config = getConfig().file.similarity.index.ivfPq;
-    const results: {
-      candidates: { fileId: string; hash: string }[];
-      fileId: string;
-      indexed: boolean;
-    }[] = [];
-
-    await runConcurrent(args.files, 4, async (file) => {
+    const sources = args.files.map((file) => {
       const row = byId.get(file.fileId);
-      const indexed = !!row?.vector && row.sourceHash === file.hash;
-      const candidates = indexed
-        ? await table
-            .vectorSearch(Array.from(row.vector, Number))
-            .column("vector")
-            .distanceType(tableDef.distanceType)
-            .fastSearch()
-            .nprobes(config.nprobes)
-            .refineFactor(config.refineFactor)
-            .select(["fileId", "sourceHash"])
-            .limit(65)
-            .toArray()
-        : [];
 
-      results.push({
-        candidates: candidates
-          // Copy discovery only decodes close visual neighbours, not every semantic neighbour.
-          .filter(
-            (candidate) =>
-              String(candidate.fileId) !== file.fileId && Number(candidate._distance) <= 0.1,
-          )
-          .slice(0, 64)
-          .map((candidate) => ({
-            fileId: String(candidate.fileId),
-            hash: String(candidate.sourceHash),
-          })),
+      return {
         fileId: file.fileId,
-        indexed,
-      });
+        vector: row?.vector && row.sourceHash === file.hash ? Float32Array.from(row.vector) : null,
+      };
     });
+    const indexedSources = sources.filter((source) => source.vector);
+    const matches = !indexedSources.length
+      ? new Map<string, DuplicateMatch[]>()
+      : args.useSearchIndex
+        ? await this.findIndexedDuplicates(table, tableDef, indexedSources, args.minSimilarity)
+        : await this.findExactDuplicates(table, tableDef, indexedSources);
 
-    return results;
+    return sources.map((source) => ({
+      candidates: (matches.get(source.fileId) ?? [])
+        .filter((match) => match.fileId !== source.fileId && match.score >= args.minSimilarity)
+        .sort((a, b) => b.score - a.score)
+        .slice(0, MAX_DUPLICATE_CANDIDATES),
+      fileId: source.fileId,
+      indexed: !!source.vector,
+    }));
+  }
+
+  /** Exact similarity of each file to its group's reference file, from stored vectors. */
+  async scoreFileSimilarities(args: { groups: { fileIds: string[]; referenceId: string }[] }) {
+    await this.init();
+
+    const tableDef = this.getActiveTableDef(VISUAL_VECTOR_TYPE);
+    const table = tableDef ? await this.openValidTableIfExists(tableDef) : null;
+    if (!table) throw new Error("No visual similarity vectors are stored yet.");
+
+    const fileIds = [
+      ...new Set(args.groups.flatMap((group) => [group.referenceId, ...group.fileIds])),
+    ];
+    const rows = await this.queryRowsByFileIds(table, fileIds, ["fileId", "vector"]);
+    const vectors = new Map(rows.map((row) => [String(row.fileId), Float32Array.from(row.vector)]));
+
+    return args.groups.map((group) => {
+      const reference = vectors.get(group.referenceId);
+
+      return Object.fromEntries(
+        group.fileIds.map((fileId) => {
+          const vector = vectors.get(fileId);
+
+          return [
+            fileId,
+            reference && vector ? getSimilarityScore(getCosineSimilarity(reference, vector)) : 0,
+          ];
+        }),
+      );
+    });
   }
 
   async findSimilarVectorCandidates(args: {
-    exact?: boolean;
     fileId: string;
     limit?: number;
     offset?: number;
@@ -455,7 +510,6 @@ export class VectorSimilarityService {
     await this.indexFileSimilarity({ fileId: args.fileId, vectorTypes: [vectorType] });
 
     const candidates = await this.findCandidatesForTable({
-      exact: args.exact,
       fileId: args.fileId,
       limit: limit + 1,
       offset,
@@ -517,6 +571,9 @@ export class VectorSimilarityService {
         "A similarity indexing job is already running. Wait for it to finish or cancel it first.",
       );
 
+    if (this.searchIndexBuild?.status === "running")
+      throw new Error("Wait for the similarity search index build to finish before indexing.");
+
     const vectorTypes = args.vectorTypes?.length ? args.vectorTypes : [VISUAL_VECTOR_TYPE];
     const jobId = randomUUID();
     const now = Date.now();
@@ -552,24 +609,30 @@ export class VectorSimilarityService {
 
     if (isServerStopping()) throw new Error("Vector service is shutting down");
 
-    const persisted = await SimilarityBackfillModel.findOneAndUpdate(
-      { queueKey: "visual" },
-      {
-        $setOnInsert: {
-          _id: jobId,
-          args: { ...args, vectorTypes },
-          offset: 0,
-          progress: job.progress,
-        },
-      },
-      { new: true, upsert: true },
-    )
-      .lean()
-      .catch(async (error) => {
-        if (error.code !== 11000) throw error;
+    let persisted: {
+      _id: string;
+      args: SimilarityBackfillArgs;
+      progress: SimilarityBackfillProgress;
+    };
 
-        return SimilarityBackfillModel.findOne({ queueKey: "visual" }).lean();
-      });
+    try {
+      persisted = await SimilarityBackfillModel.findOneAndUpdate(
+        { queueKey: "visual" },
+        {
+          $setOnInsert: {
+            _id: jobId,
+            args: { ...args, vectorTypes },
+            offset: 0,
+            progress: job.progress,
+          },
+        },
+        { new: true, upsert: true },
+      ).lean();
+    } catch (error) {
+      if (error.code !== 11000) throw error;
+
+      persisted = await SimilarityBackfillModel.findOne({ queueKey: "visual" }).lean();
+    }
 
     if (!persisted) throw new Error("Similarity backfill claim is unavailable.");
 
@@ -605,29 +668,23 @@ export class VectorSimilarityService {
     for (const job of this.jobs.values()) {
       job.pauseRequested = true;
       job.abortController.abort();
-      this.updateJobProgress(job, { message: "Similarity backfill paused.", status: "queued" });
+      this.updateJobProgress(job, {
+        message: "Similarity indexing paused. Run it again in Settings → Repair to continue.",
+        status: "queued",
+      });
     }
 
     if (await isPersistenceReady())
       await SimilarityBackfillModel.updateMany(
         { queueKey: "visual" },
         {
-          $set: { "progress.message": "Similarity backfill paused.", "progress.status": "queued" },
+          $set: {
+            "progress.message":
+              "Similarity indexing paused. Run it again in Settings → Repair to continue.",
+            "progress.status": "queued",
+          },
         },
       );
-  }
-
-  async resumeSimilarityBackfills() {
-    const revision = this.queueRevision;
-
-    for (const job of this.jobs.values()) {
-      if (job.pauseRequested) await job.execution;
-    }
-
-    const persisted = await SimilarityBackfillModel.findOne({ queueKey: "visual" }).lean();
-
-    if (persisted && revision === this.queueRevision)
-      await this.startSimilarityBackfill(persisted.args);
   }
 
   async cancelSimilarityBackfill(args: { jobId: string }) {
@@ -668,34 +725,6 @@ export class VectorSimilarityService {
     return progress;
   }
 
-  async indexFileSimilarityBatch(args: {
-    fileIds: string[];
-    force?: boolean;
-    vectorTypes?: SimilarityVectorType[];
-  }): Promise<SimilarityIndexBatchResult> {
-    await this.init();
-
-    const result = this.makeEmptyBatchResult(args.fileIds.length);
-
-    if (!args.fileIds.length) return result;
-
-    const fileStart = Date.now();
-
-    const files = await models.FileModel.find({ _id: { $in: args.fileIds } })
-      .select({ _id: 1, ext: 1, hash: 1, height: 1, thumb: 1, width: 1 })
-      .lean();
-    result.timings.mongoMs += Date.now() - fileStart;
-
-    await this.indexVisualFileDocs({
-      files,
-      force: !!args.force,
-      result,
-      vectorTypes: args.vectorTypes ?? [VISUAL_VECTOR_TYPE],
-    });
-
-    return result;
-  }
-
   async listFilesNeedingSimilarityIndex(args: {
     afterFileId?: string;
     force?: boolean;
@@ -730,6 +759,7 @@ export class VectorSimilarityService {
 
     for (const file of files) {
       const fileId = file._id.toString();
+
       lastScannedFileId = fileId;
       scannedCount++;
 
@@ -765,27 +795,130 @@ export class VectorSimilarityService {
 
       if (!table || !tableDef) continue;
 
-      await this.maintainVectorTable({ optimize: true, table, tableDef });
+      await table.optimize({ cleanupOlderThan: new Date(), deleteUnverified: false });
       optimizedTables.push(tableDef.tableName);
     }
 
     return { optimizedTables };
   }
 
-  async prepareImageCopySearch() {
+  async getSearchIndexStatus() {
     await this.init();
 
     const tableDef = this.getActiveTableDef(VISUAL_VECTOR_TYPE);
     const table = tableDef ? await this.openValidTableIfExists(tableDef) : null;
+    const index = table ? await this.getVectorIndex(table) : null;
+    const stats = index ? await table.indexStats(index.name) : null;
 
-    if (!table)
-      throw new Error("No stored visual vectors are available. Build them in Settings → Repair.");
+    return {
+      error: this.searchIndexBuild?.error ?? "",
+      hasIndex: !!index,
+      indexedRowCount: stats?.numIndexedRows ?? 0,
+      isUpdate: this.searchIndexBuild?.isUpdate ?? false,
+      message: this.searchIndexBuild?.message ?? "",
+      percent: this.searchIndexBuild?.percent ?? null,
+      startedAt: this.searchIndexBuild?.startedAt ?? null,
+      status: this.searchIndexBuild?.status ?? (index ? "complete" : "idle"),
+      unindexedRowCount: stats?.numUnindexedRows ?? 0,
+    };
+  }
 
-    // Preparing copy search only uses stored vectors; it never backfills missing files.
-    await this.maintainVectorTable({ table, tableDef });
+  /**
+   * Builds the opt-in index used by library-wide duplicate scans, or appends rows vectorized since
+   * the last run without retraining. Only Repair starts it; vectors themselves are never changed.
+   */
+  async startSearchIndexBuild() {
+    await this.init();
 
-    if (!(await table.listIndices()).some((index) => index.columns.includes("vector")))
-      throw new Error("No stored visual vectors are available. Build them in Settings → Repair.");
+    if (this.searchIndexBuild?.status === "running") return this.getSearchIndexStatus();
+
+    // Claim the build before awaiting so overlapping starts cannot train two indexes.
+    const build: SimilaritySearchIndexBuild = {
+      controller: new AbortController(),
+      error: "",
+      isUpdate: false,
+      message: "",
+      percent: null,
+      startedAt: Date.now(),
+      status: "running",
+    };
+
+    this.searchIndexBuild = build;
+
+    let target: Awaited<ReturnType<VectorSimilarityService["getSearchIndexTarget"]>>;
+
+    try {
+      target = await this.getSearchIndexTarget();
+    } catch (error) {
+      build.error = error.message;
+      build.status = "error";
+
+      throw error;
+    }
+
+    build.isUpdate = target.isUpdate;
+    fileLog(
+      `[VECTOR] ${target.isUpdate ? "Updating" : "Building"} the similarity search index over ${target.rowCount.toLocaleString()} vectors.`,
+    );
+
+    // The worker only logs Lance's index builders below warn, as "[timestamp LEVEL target] message".
+    const handleOutput = (line: string) => {
+      const [, target, message] = line.match(/^\[\S+\s+(?:DEBUG|INFO)\s+(\S+)\]\s*(.*)$/) ?? [];
+
+      if (/^lance(::dataset::optimize|::index|_index)/.test(target ?? "")) {
+        const [, done, total] = message.match(SEARCH_INDEX_COUNT_REGEX) ?? [];
+
+        build.message = message;
+        build.percent = +total ? Math.min(100, (+done / +total) * 100) : null;
+      }
+    };
+
+    (async () => {
+      try {
+        // A separate process makes the build cancellable; Lance commits the index atomically, so a
+        // cancelled build leaves no partial index behind.
+        await runNativeTask(
+          "search-index",
+          {
+            config: target.config,
+            dbPath: getConfig().db.vector.path,
+            distanceType: target.tableDef.distanceType,
+            isUpdate: target.isUpdate,
+            tableName: target.tableDef.tableName,
+          },
+          build.controller.signal,
+          undefined,
+          handleOutput,
+        );
+
+        await target.table.checkoutLatest();
+
+        if (!(await this.getVectorIndex(target.table)))
+          throw new Error("LanceDB did not report the search index after building it.");
+
+        build.status = "complete";
+        fileLog(
+          `[VECTOR] Similarity search index ready in ${Math.round((Date.now() - build.startedAt) / 1000)}s.`,
+        );
+      } catch (error) {
+        if (build.controller.signal.aborted) {
+          build.status = "cancelled";
+          fileLog("[VECTOR] Similarity search index build cancelled.");
+        } else {
+          build.error = error.message;
+          build.status = "error";
+          fileLog(`[VECTOR] Similarity search index failed: ${error.message}`, { type: "error" });
+        }
+      }
+    })();
+
+    return this.getSearchIndexStatus();
+  }
+
+  cancelSearchIndexBuild() {
+    this.searchIndexBuild?.controller.abort();
+
+    return this.getSearchIndexStatus();
   }
 
   private async runSimilarityBackfill(job: SimilarityBackfillJob, args: SimilarityBackfillArgs) {
@@ -847,9 +980,6 @@ export class VectorSimilarityService {
     const checkpoint = await SimilarityBackfillModel.findById(job.progress.jobId).lean();
     let cursor = checkpoint.cursor;
     let offset = checkpoint.offset;
-    let lastOptimizedCount = job.progress.indexedCount;
-
-    await this.optimizeBackfillTable(job);
 
     while (true) {
       this.assertJobNotCancelled(job);
@@ -902,31 +1032,7 @@ export class VectorSimilarityService {
         { $set: { cursor, offset, progress: job.progress } },
       );
 
-      if (job.progress.indexedCount - lastOptimizedCount >= VECTOR_OPTIMIZE_ROW_INTERVAL) {
-        await this.optimizeBackfillTable(job);
-        lastOptimizedCount = job.progress.indexedCount;
-      }
-
       if (args.fileIds?.length && offset >= args.fileIds.length) break;
-    }
-
-    // Even a small final batch must reach the index used by fastSearch.
-    await this.optimizeBackfillTable(job);
-  }
-
-  private async optimizeBackfillTable(job: SimilarityBackfillJob) {
-    const tableDef = this.getActiveTableDef(VISUAL_VECTOR_TYPE);
-    const table = tableDef ? await this.openValidTableIfExists(tableDef) : null;
-
-    if (table) {
-      this.assertJobNotCancelled(job);
-      this.updateJobProgress(job, { stage: "optimizing" });
-
-      const startedAt = Date.now();
-
-      await this.maintainVectorTable({ job, optimize: true, table, tableDef });
-      this.addTiming(job, "indexMs", Date.now() - startedAt);
-      this.assertJobNotCancelled(job);
     }
   }
 
@@ -965,6 +1071,7 @@ export class VectorSimilarityService {
           vectorTypes: [VISUAL_VECTOR_TYPE],
         })
       )[VISUAL_VECTOR_TYPE] ?? new Map<string, any>();
+
     args.result.timings.existingRowsMs += Date.now() - existingStart;
 
     if (args.job) this.addTiming(args.job, "existingRowsMs", Date.now() - existingStart);
@@ -979,14 +1086,14 @@ export class VectorSimilarityService {
     let sourcePrepUnsupportedFileTypeCount = 0;
 
     for (const file of args.files) {
-      const fileId = file._id.toString();
-
       if (!file) {
         args.result.missingFileCount++;
         sourcePrepMissingFileCount++;
         sourcePrepProcessedCount++;
         continue;
       }
+
+      const fileId = file._id.toString();
 
       if (!file.thumb?.path) {
         args.result.missingThumbCount++;
@@ -1109,6 +1216,7 @@ export class VectorSimilarityService {
 
       const sourceBatch = sourceBatches[batchIndex];
       const { decodeMs, decoded, diagnostics } = await decodedBatchPromise;
+
       decodedBatchPromise = sourceBatches[batchIndex + 1]
         ? this.decodeVisualSourceBatch({
             job: args.job,
@@ -1446,14 +1554,17 @@ export class VectorSimilarityService {
   private extractVisualFeatureVectors(tensor: any, batchSize: number) {
     const values = Array.from(tensor.data, Number);
     const dims = tensor.dims as number[] | undefined;
+    const expectedLength = batchSize * VISUAL_VECTOR_DIMENSIONS;
 
     if (dims?.length === 2 && dims[0] === batchSize && dims[1] === VISUAL_VECTOR_DIMENSIONS) {
       return Array.from({ length: batchSize }, (_, idx) =>
         values.slice(idx * VISUAL_VECTOR_DIMENSIONS, (idx + 1) * VISUAL_VECTOR_DIMENSIONS),
       );
-    }
-
-    if (dims?.length === 3 && dims[0] === batchSize && dims[2] === VISUAL_VECTOR_DIMENSIONS) {
+    } else if (
+      dims?.length === 3 &&
+      dims[0] === batchSize &&
+      dims[2] === VISUAL_VECTOR_DIMENSIONS
+    ) {
       const tokenCount = dims[1];
 
       return Array.from({ length: batchSize }, (_, idx) => {
@@ -1461,19 +1572,15 @@ export class VectorSimilarityService {
 
         return values.slice(offset, offset + VISUAL_VECTOR_DIMENSIONS);
       });
-    }
-
-    const expectedLength = batchSize * VISUAL_VECTOR_DIMENSIONS;
-
-    if (values.length === expectedLength) {
+    } else if (values.length === expectedLength) {
       return Array.from({ length: batchSize }, (_, idx) =>
         values.slice(idx * VISUAL_VECTOR_DIMENSIONS, (idx + 1) * VISUAL_VECTOR_DIMENSIONS),
       );
+    } else {
+      throw new Error(
+        `Unexpected visual vector shape: ${dims?.join("x") ?? values.length}. Expected ${batchSize}x${VISUAL_VECTOR_DIMENSIONS} or ${batchSize}xNx${VISUAL_VECTOR_DIMENSIONS}.`,
+      );
     }
-
-    throw new Error(
-      `Unexpected visual vector shape: ${dims?.join("x") ?? values.length}. Expected ${batchSize}x${VISUAL_VECTOR_DIMENSIONS} or ${batchSize}xNx${VISUAL_VECTOR_DIMENSIONS}.`,
-    );
   }
 
   private getVisualInferenceBatchSize() {
@@ -1486,12 +1593,10 @@ export class VectorSimilarityService {
     const config = getConfig().file.similarity.visual;
 
     if (config.device === "dml" && config.inferenceDType === "fp16") return "fp32";
-
-    return config.inferenceDType;
+    else return config.inferenceDType;
   }
 
   private async findCandidatesForTable(args: {
-    exact?: boolean;
     fileId: string;
     limit: number;
     offset: number;
@@ -1512,21 +1617,19 @@ export class VectorSimilarityService {
 
     if (!sourceRow?.vector) throw new Error("No active visual vector was found for this file yet.");
 
-    const config = getConfig().file.similarity.index.ivfPq;
-    const query = table
-      .vectorSearch(Array.from(sourceRow.vector, Number))
-      .column("vector")
-      .distanceType(args.tableDef.distanceType)
-      .nprobes(config.nprobes)
-      .refineFactor(config.refineFactor)
-      .select(["fileId"])
-      .where(`NOT (${makeFileIdPredicate(args.fileId)})`)
-      .offset(args.offset)
-      .limit(args.limit);
-
-    if (args.exact) query.bypassVectorIndex();
-
-    return (await query.toArray()).map((row) => {
+    // Find Similar stays exact; the search index only serves library-wide duplicate scans.
+    return (
+      await table
+        .vectorSearch(Array.from(sourceRow.vector, Number))
+        .column("vector")
+        .distanceType(args.tableDef.distanceType)
+        .bypassVectorIndex()
+        .select(["fileId"])
+        .where(`NOT (${makeFileIdPredicate(args.fileId)})`)
+        .offset(args.offset)
+        .limit(args.limit)
+        .toArray()
+    ).map((row) => {
       const distance = Number(row._distance ?? 1);
 
       return {
@@ -1535,6 +1638,117 @@ export class VectorSimilarityService {
         score: Math.max(0, Math.min(1, 1 - distance)),
       };
     });
+  }
+
+  private async getSearchIndexTarget() {
+    // Compaction during an update would conflict with backfill writes to the same rows.
+    if ([...this.jobs.values()].some((job) => !getIsTerminalStatus(job.progress.status)))
+      throw new Error("Wait for similarity indexing to finish before building the search index.");
+
+    const tableDef = this.getActiveTableDef(VISUAL_VECTOR_TYPE);
+    const table = tableDef ? await this.openValidTableIfExists(tableDef) : null;
+    const rowCount = table ? await table.countRows() : 0;
+    const config = getConfig().file.similarity.index.ivfPq;
+
+    if (rowCount < 2 ** config.numBits)
+      throw new Error(
+        `At least ${2 ** config.numBits} similarity vectors are needed to build the search index.`,
+      );
+
+    return { config, isUpdate: !!(await this.getVectorIndex(table)), rowCount, table, tableDef };
+  }
+
+  /** Searches every stored vector exactly; single-file lookups need complete results. */
+  private async findExactDuplicates(
+    table: LanceTable,
+    tableDef: VectorTableManifestEntry,
+    sources: DuplicateSource[],
+  ) {
+    const matches = new Map<string, DuplicateMatch[]>();
+
+    for (const source of sources) {
+      const rows = await table
+        .vectorSearch(source.vector)
+        .column("vector")
+        .distanceType(tableDef.distanceType)
+        .bypassVectorIndex()
+        .select(["fileId", "sourceHash"])
+        .limit(MAX_DUPLICATE_CANDIDATES + 1)
+        .toArray();
+
+      matches.set(
+        source.fileId,
+        rows.map((row) => ({
+          fileId: String(row.fileId),
+          hash: String(row.sourceHash),
+          score: getSimilarityScore(1 - Number(row._distance)),
+        })),
+      );
+    }
+
+    return matches;
+  }
+
+  /**
+   * Searches a batch in one multi-vector query on the search index so LanceDB spreads it across
+   * its threads. Index distances are quantized, so instead of refining every neighbour from disk,
+   * only those near the threshold are re-scored exactly against their stored vectors.
+   */
+  private async findIndexedDuplicates(
+    table: LanceTable,
+    tableDef: VectorTableManifestEntry,
+    sources: DuplicateSource[],
+    minSimilarity: number,
+  ) {
+    const config = getConfig().file.similarity.index.ivfPq;
+    const rows = await table
+      .vectorSearch(sources.map((source) => source.vector))
+      .column("vector")
+      .distanceType(tableDef.distanceType)
+      .fastSearch()
+      .nprobes(config.nprobes)
+      .select(["fileId"])
+      .limit(MAX_DUPLICATE_CANDIDATES + 1)
+      .toArray();
+    const nearRows = rows.filter(
+      (row) => (1 - Number(row._distance)) * 100 >= minSimilarity - DUPLICATE_QUANTIZATION_MARGIN,
+    );
+    const candidateRows = nearRows.length
+      ? await this.queryRowsByFileIds(
+          table,
+          [...new Set(nearRows.map((row) => String(row.fileId)))],
+          ["fileId", "sourceHash", "vector"],
+        )
+      : [];
+    const candidates = new Map(
+      candidateRows.map((row) => [
+        String(row.fileId),
+        { hash: String(row.sourceHash), vector: Float32Array.from(row.vector) },
+      ]),
+    );
+    const matches = new Map<string, DuplicateMatch[]>();
+
+    for (const row of nearRows) {
+      // query_index identifies the source in multi-vector results; single-vector results may omit it.
+      const source = sources[Number(row.query_index ?? 0)];
+      const candidate = candidates.get(String(row.fileId));
+
+      if (candidate) {
+        if (!matches.has(source.fileId)) matches.set(source.fileId, []);
+
+        matches.get(source.fileId).push({
+          fileId: String(row.fileId),
+          hash: candidate.hash,
+          score: getSimilarityScore(getCosineSimilarity(source.vector, candidate.vector)),
+        });
+      }
+    }
+
+    return matches;
+  }
+
+  private async getVectorIndex(table: LanceTable) {
+    return (await table.listIndices()).find((index) => index.columns.includes("vector"));
   }
 
   private getActiveTableDef(vectorType: SimilarityVectorType) {
@@ -1705,6 +1919,7 @@ export class VectorSimilarityService {
       }
 
       const rows = await this.queryRowsByFileIds(table, args.fileIds, ["fileId", "sourceHash"]);
+
       rowsByVectorType[vectorType] = new Map(rows.map((row) => [String(row.fileId), row]));
     }
 
@@ -1809,7 +2024,10 @@ export class VectorSimilarityService {
       );
     }
 
-    await table.setUnenforcedPrimaryKey("entityId").catch(() => undefined);
+    try {
+      await table.setUnenforcedPrimaryKey("entityId");
+    } catch {}
+
     this.tables.set(tableDef.tableName, table);
 
     return table;
@@ -1863,90 +2081,15 @@ export class VectorSimilarityService {
 
   private async ensureScalarIndexes(table: LanceTable) {
     for (const column of ["entityId", "fileId", "sourceHash"]) {
-      await table.createIndex(column, { replace: false }).catch((err) => {
+      try {
+        await table.createIndex(column, { replace: false });
+      } catch (err) {
         if (!String(err.message).toLowerCase().includes("exist")) {
           fileLog(`[VECTOR] Failed to create ${column} scalar index: ${err.message}`, {
             type: "error",
           });
         }
-      });
-    }
-  }
-
-  private async maintainVectorTable(args: {
-    job?: SimilarityBackfillJob;
-    optimize?: boolean;
-    table: LanceTable;
-    tableDef: VectorTableManifestEntry;
-  }) {
-    const { job, table, tableDef } = args;
-    const previous = this.tableMaintenance.get(tableDef.tableName);
-    const maintenance = (async () => {
-      // Serialize Repair and copy search so they cannot train the same index concurrently.
-      try {
-        await previous;
-      } catch {
-        // A failed earlier pass must not block this one.
       }
-
-      if (job) this.assertJobNotCancelled(job);
-
-      const index = (await table.listIndices()).find((index) => index.columns.includes("vector"));
-
-      if (args.optimize || !index) {
-        if (job)
-          this.updateJobProgress(job, {
-            message: "Optimizing stored visual vectors.",
-            stage: "optimizing",
-          });
-
-        // Retain recoverable table versions while compacting and indexing appended rows.
-        await table.optimize({ cleanupOlderThan: new Date(0), deleteUnverified: false });
-      }
-
-      if (job) this.assertJobNotCancelled(job);
-
-      if (!index || index.indexType === "IvfFlat") {
-        const rowCount = await table.countRows();
-        const config = getConfig().file.similarity.index.ivfPq;
-        const canTrainPq = rowCount >= 2 ** config.numBits;
-
-        if (rowCount && (!index || canTrainPq)) {
-          if (job)
-            this.updateJobProgress(job, {
-              message: `Building the visual search index from ${rowCount.toLocaleString()} stored vectors.`,
-              stage: "indexing",
-            });
-
-          await table.createIndex("vector", {
-            config: canTrainPq
-              ? this.lancedb.Index.ivfPq({
-                  distanceType: tableDef.distanceType,
-                  maxIterations: config.maxIterations,
-                  numBits: config.numBits,
-                  numPartitions: config.numPartitions
-                    ? Math.min(config.numPartitions, rowCount)
-                    : undefined,
-                  numSubVectors: config.numSubVectors || undefined,
-                  sampleRate: config.sampleRate,
-                })
-              : this.lancedb.Index.ivfFlat({
-                  distanceType: tableDef.distanceType,
-                  numPartitions: 1,
-                }),
-            replace: !!index,
-          });
-        }
-      }
-    })();
-
-    this.tableMaintenance.set(tableDef.tableName, maintenance);
-
-    try {
-      await maintenance;
-    } finally {
-      if (this.tableMaintenance.get(tableDef.tableName) === maintenance)
-        this.tableMaintenance.delete(tableDef.tableName);
     }
   }
 
@@ -1954,13 +2097,20 @@ export class VectorSimilarityService {
     tableDef: VectorTableManifestEntry,
     table: LanceTable,
   ) {
-    const versions = await table.listVersions().catch(() => []);
+    let versions: Awaited<ReturnType<LanceTable["listVersions"]>> = [];
+
+    try {
+      versions = await table.listVersions();
+    } catch {}
+
     const sortedVersions = versions.map((version) => version.version).sort((a, b) => b - a);
 
     for (const version of sortedVersions) {
-      const candidate = await this.db
-        .openTable(tableDef.tableName, [], { version })
-        .catch(() => null);
+      let candidate: LanceTable | null = null;
+
+      try {
+        candidate = await this.db.openTable(tableDef.tableName, [], { version });
+      } catch {}
 
       if (!candidate) continue;
 
@@ -2037,8 +2187,10 @@ export class VectorSimilarityService {
 
   private makeManifestEntryV2(tableName: string, tableDef: Partial<VectorTableManifestEntry>) {
     if (tableName === VISUAL_TABLE_NAME) return { ...VISUAL_TABLE_DEF, ...tableDef };
-
-    if (tableDef.vectorType === VISUAL_VECTOR_TYPE || tableName.startsWith("file_visual_clip_")) {
+    else if (
+      tableDef.vectorType === VISUAL_VECTOR_TYPE ||
+      tableName.startsWith("file_visual_clip_")
+    ) {
       return {
         ...VISUAL_TABLE_DEF,
         ...tableDef,
@@ -2047,24 +2199,24 @@ export class VectorSimilarityService {
         tableName,
         vectorDType: "float32" as VectorDType,
       };
+    } else {
+      const policy =
+        FUTURE_TABLE_POLICIES[tableDef.vectorType as Exclude<SimilarityVectorType, "visual">];
+
+      return {
+        dimensions: tableDef.dimensions ?? 0,
+        distanceType: tableDef.distanceType ?? "cosine",
+        indexType: tableDef.indexType ?? "ivf_pq",
+        modelId: tableDef.modelId ?? "pending",
+        scope: tableDef.scope ?? policy?.scope ?? "file",
+        sourceKind: tableDef.sourceKind ?? policy?.sourceKind ?? "fileHash",
+        status: tableDef.status ?? "deprecated",
+        tableName,
+        vectorDType: tableDef.vectorDType ?? getConfig().file.similarity.storageDType,
+        vectorType: tableDef.vectorType,
+        vectorVersion: tableDef.vectorVersion ?? "pending",
+      } as VectorTableManifestEntry;
     }
-
-    const policy =
-      FUTURE_TABLE_POLICIES[tableDef.vectorType as Exclude<SimilarityVectorType, "visual">];
-
-    return {
-      dimensions: tableDef.dimensions ?? 0,
-      distanceType: tableDef.distanceType ?? "cosine",
-      indexType: tableDef.indexType ?? "ivf_pq",
-      modelId: tableDef.modelId ?? "pending",
-      scope: tableDef.scope ?? policy?.scope ?? "file",
-      sourceKind: tableDef.sourceKind ?? policy?.sourceKind ?? "fileHash",
-      status: tableDef.status ?? "deprecated",
-      tableName,
-      vectorDType: tableDef.vectorDType ?? getConfig().file.similarity.storageDType,
-      vectorType: tableDef.vectorType,
-      vectorVersion: tableDef.vectorVersion ?? "pending",
-    } as VectorTableManifestEntry;
   }
 
   private async ensureManifestActiveTables() {
@@ -2093,7 +2245,11 @@ export class VectorSimilarityService {
 
     if (!table) return;
 
-    const rowCount = await table.countRows().catch(() => 0);
+    let rowCount = 0;
+
+    try {
+      rowCount = await table.countRows();
+    } catch {}
 
     if (!rowCount) return;
 
@@ -2103,7 +2259,11 @@ export class VectorSimilarityService {
       if (!tableNames.includes(tableName)) continue;
 
       const legacyTable = await this.openTableIfExists(tableName);
-      const legacyRowCount = (await legacyTable?.countRows().catch(() => 0)) ?? 0;
+      let legacyRowCount = 0;
+
+      try {
+        legacyRowCount = (await legacyTable?.countRows()) ?? 0;
+      } catch {}
 
       if (legacyRowCount > rowCount) {
         fileLog(
@@ -2113,18 +2273,14 @@ export class VectorSimilarityService {
         continue;
       }
 
-      const didDrop = await this.db.dropTable(tableName).then(
-        () => true,
-        (err) => {
-          fileLog(`[VECTOR] Failed to drop migrated legacy table ${tableName}: ${err.message}`, {
-            type: "error",
-          });
-
-          return false;
-        },
-      );
-
-      if (!didDrop) continue;
+      try {
+        await this.db.dropTable(tableName);
+      } catch (err) {
+        fileLog(`[VECTOR] Failed to drop migrated legacy table ${tableName}: ${err.message}`, {
+          type: "error",
+        });
+        continue;
+      }
 
       this.tables.get(tableName)?.close();
       this.tables.delete(tableName);
@@ -2139,7 +2295,6 @@ export class VectorSimilarityService {
   private getIsVisualFile(ext: string) {
     const config = getConfig();
     const visualExts: string[] = [...config.file.imageExts, ...config.file.videoExts];
-
     return visualExts.includes(ext?.toLowerCase?.());
   }
 

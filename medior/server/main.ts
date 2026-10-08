@@ -160,6 +160,7 @@ ipcMain.handle("saveConfig", async (_, config: Config) => {
     let restartedServers =
       previousConfig.db.path !== config.db.path ||
       previousConfig.db.vector.path !== config.db.vector.path ||
+      previousConfig.file.similarity.cpuThreads !== config.file.similarity.cpuThreads ||
       previousConfig.ports.db !== config.ports.db ||
       previousConfig.ports.server !== config.ports.server ||
       previousConfig.ports.socket !== config.ports.socket ||
@@ -195,11 +196,11 @@ ipcMain.handle("saveConfig", async (_, config: Config) => {
 
           return { error: restartError.message, restartedServers, success: false };
         }
+      } else {
+        broadcastConfig(config);
+
+        return { error: error.message, restartedServers, success: false };
       }
-
-      broadcastConfig(config);
-
-      return { error: error.message, restartedServers, success: false };
     }
   } catch (error) {
     fileLog(`Failed to save config: ${error.message}`, { type: "error" });
@@ -288,9 +289,10 @@ const createMainWindow = async () => {
   }
 };
 
-app
-  .whenReady()
-  .then(async () => {
+(async () => {
+  try {
+    await app.whenReady();
+
     if (shutdown) return;
 
     await loadConfig(configPath);
@@ -298,13 +300,12 @@ app
     if (shutdown) return;
 
     setupTRPC();
-
-    return createMainWindow();
-  })
-  .catch((error) => {
+    await createMainWindow();
+  } catch (error) {
     fileLog(`Startup failed: ${error.message}`, { type: "error" });
     app.quit();
-  });
+  }
+})();
 
 app.on("window-all-closed", app.quit);
 

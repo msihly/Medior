@@ -65,21 +65,19 @@ const normalizeMediaPathUpdate = (update: Record<string, any>, fields: Record<st
       if (Object.keys(getMediaPathKeys(stage.$set ?? stage.$addFields ?? {}, fields, true)).length)
         throw new Error("Media path updates must use document operators.");
     }
+  } else {
+    for (const values of [update, update.$set, update.$setOnInsert].filter(Boolean))
+      Object.assign(values, getMediaPathKeys(values, fields, true));
 
-    return update;
-  }
-
-  for (const values of [update, update.$set, update.$setOnInsert].filter(Boolean))
-    Object.assign(values, getMediaPathKeys(values, fields, true));
-
-  if (update.$unset) {
-    for (const [field, key] of Object.entries(fields)) {
-      if (
-        field
-          .split(".")
-          .some((_, index, parts) => parts.slice(0, index + 1).join(".") in update.$unset)
-      )
-        update.$unset[key] = 1;
+    if (update.$unset) {
+      for (const [field, key] of Object.entries(fields)) {
+        if (
+          field
+            .split(".")
+            .some((_, index, parts) => parts.slice(0, index + 1).join(".") in update.$unset)
+        )
+          update.$unset[key] = 1;
+      }
     }
   }
 

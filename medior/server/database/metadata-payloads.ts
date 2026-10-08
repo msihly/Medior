@@ -3,6 +3,7 @@ import { createHash } from "crypto";
 import { Schema } from "mongoose";
 import { checkBackgroundExecution } from "./background-execution";
 import { backgroundExecutionPlugin } from "./database-context";
+import { metadataWriteOptions } from "./metadata-work";
 import { registerPersistenceModel } from "./persistence";
 
 export interface MetadataPayload {
@@ -68,7 +69,7 @@ export const writeMetadataPayload = async (
           ownerId: operationId,
         },
       },
-      { j: true, upsert: true, w: "majority" },
+      { ...metadataWriteOptions(), upsert: true },
     );
   }
 

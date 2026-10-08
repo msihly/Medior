@@ -20,7 +20,7 @@ import { FileImport } from "medior/store";
 import { colors, CssColor, makeClasses, openCarouselWindow, toast } from "medior/utils/client";
 import { CONSTANTS, Fmt, parseDiffParams } from "medior/utils/common";
 import { trpc } from "medior/utils/server";
-import { TooltipChip } from "./tooltip-chip";
+import { IMPORT_CHIP_STYLE, TooltipChip } from "./tooltip-chip";
 
 export const IMPORT_LIST_ITEM_HEIGHT = 30;
 
@@ -44,6 +44,8 @@ export const ImportListItem = Comp(
 
       return parseDiffParams(fileImport.diffusionParams);
     }, [fileImport.diffusionParams]);
+
+    const statusMeta = IMPORT_STATUSES[fileImport.status as ImportStatus];
 
     const handleOpen = async () => {
       try {
@@ -83,8 +85,6 @@ export const ImportListItem = Comp(
         setIsOpening(false);
       }
     };
-
-    const statusMeta = IMPORT_STATUSES[fileImport.status as ImportStatus];
 
     return (
       <View
@@ -233,13 +233,7 @@ export const ImportListItem = Comp(
 );
 
 const useClasses = makeClasses({
-  chip: {
-    flexShrink: 0,
-    height: "auto",
-    minWidth: "4em",
-    padding: "0.2em",
-    width: "auto",
-  },
+  chip: IMPORT_CHIP_STYLE,
   divider: {
     margin: "0.5rem 0",
   },

@@ -29,17 +29,7 @@ process.on("message", async ({ id, input: task }: { id: string; input: ImageTask
       );
     }
 
-    if (task.comparisonSize) {
-      const decoded = await image
-        .rotate()
-        .resize({ ...task.comparisonSize, fit: "fill" })
-        .toColorspace("srgb")
-        .ensureAlpha()
-        .raw()
-        .toBuffer({ resolveWithObject: true });
-
-      process.send({ data: { decoded, metadata }, id });
-    } else if (task.visualSize) {
+    if (task.visualSize) {
       const decoded = await image
         .rotate()
         .resize(task.visualSize, task.visualSize, {

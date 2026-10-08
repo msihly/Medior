@@ -1,6 +1,6 @@
 import type { TagSchema } from "medior/_generated/server/models";
 import type { RootStore } from "medior/store";
-import { preferredTagLabel, TagRegExMatcher } from "medior/utils/common";
+import { preferredTagLabel, sleep, TagRegExMatcher } from "medior/utils/common";
 import { trpc } from "medior/utils/server";
 
 const indexes = new WeakMap<RootStore, ImportTagIndex>();
@@ -107,7 +107,7 @@ class ImportTagIndex {
 
       if (index % 128 === 0) {
         onProgress?.("Indexing tag regex rules", index, res.data.length);
-        await new Promise<void>((resolve) => setTimeout(resolve, 0));
+        await sleep(0);
       }
     }
 

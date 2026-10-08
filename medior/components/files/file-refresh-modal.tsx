@@ -9,6 +9,15 @@ export const FileRefreshModal = Comp(() => {
   const { css } = useClasses(null);
 
   const currentFileNumber = Math.min(store.refreshProcessedCount + 1, store.refreshTotalCount);
+  const progressBar =
+    store.refreshStepProgress !== null ? (
+      <ProgressBar
+        numerator={store.refreshStepProgress}
+        denominator={100}
+        viewProps={{ width: "100%" }}
+        withText
+      />
+    ) : null;
 
   const handleClose = () =>
     store.isRefreshing ? store.cancelFileRefresh() : store.setIsRefreshOpen(false);
@@ -36,14 +45,7 @@ export const FileRefreshModal = Comp(() => {
 
           <Text color={colors.custom.lightGrey}>{store.refreshMessage}</Text>
 
-          {store.refreshStepProgress !== null && (
-            <ProgressBar
-              numerator={store.refreshStepProgress}
-              denominator={100}
-              viewProps={{ width: "100%" }}
-              withText
-            />
-          )}
+          {progressBar}
         </Modal.Content>
 
         <Modal.Footer>
@@ -66,14 +68,7 @@ export const FileRefreshModal = Comp(() => {
 
             <Text color={colors.custom.lightGrey}>{store.refreshMessage}</Text>
 
-            {store.refreshStepProgress !== null && (
-              <ProgressBar
-                numerator={store.refreshStepProgress}
-                denominator={100}
-                viewProps={{ width: "100%" }}
-                withText
-              />
-            )}
+            {progressBar}
 
             <View row spacing="0.5rem">
               <Button text="Cancel" icon="Close" onClick={handleClose} />

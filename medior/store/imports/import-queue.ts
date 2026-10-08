@@ -15,6 +15,8 @@ import {
   mergeTagDefinitions,
   parseDiffParams,
   preferredTagLabel,
+  sleep,
+  splitArray,
   TagRegExMap,
   TagRegExMatcher,
   VideoExt,
@@ -37,6 +39,19 @@ const throwIfIngestCancelled = (isCancelled?: () => boolean) => {
   if (isCancelled?.()) throw new IngestCancelledError();
 };
 
+const getIsCancelled = (store: Ingester | Reingester, cancelToken: number) => () =>
+  !store.isOpen || store.ingestCancelToken !== cancelToken;
+
+const makeSetInitProgress =
+  (store: Ingester | Reingester, isCancelled: () => boolean) =>
+  (status: string, completed = 0, total = 0) => {
+    if (isCancelled()) return;
+
+    store.setInitProgressStatus(status);
+    store.setInitProgressCompleted(completed);
+    store.setInitProgressTotal(total);
+  };
+
 export class EditorImportsCache {
   private ancestorLabels = new Map<string, { count: number; label: string }>();
   private lastYield = performance.now();
@@ -53,16 +68,14 @@ export class EditorImportsCache {
     private stores: RootStore,
     private isCancelled?: () => boolean,
     private onProgress?: (status: string, completed: number, total: number) => void,
-  ) {
-    this.stores = stores;
-  }
+  ) {}
 
   async checkpoint() {
     throwIfIngestCancelled(this.isCancelled);
 
     if (performance.now() - this.lastYield < 8) return;
 
-    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    await sleep(0);
     throwIfIngestCancelled(this.isCancelled);
     this.lastYield = performance.now();
   }
@@ -279,21 +292,6 @@ export interface FilePathsToImportsOptions {
   onProgress?: (completed: number, total: number) => void;
 }
 
-export const dirToFileImports = async (
-  dirPath: string,
-  options: FilePathsToImportsOptions = {},
-) => {
-  throwIfIngestCancelled(options.isCancelled);
-
-  const filePaths = await dirToFilePaths(dirPath, makeImportPathFilter());
-
-  throwIfIngestCancelled(options.isCancelled);
-
-  const imports = await filePathsToImports(filePaths, options);
-
-  return { filePaths, imports };
-};
-
 const getValidExts = () => {
   const config = getConfig();
 
@@ -358,17 +356,8 @@ export const handleIngest = async ({
   fileList: FileList;
   store: Ingester;
 }) => {
-  const cancelToken = store.ingestCancelToken;
-
-  const isCancelled = () => !store.isOpen || store.ingestCancelToken !== cancelToken;
-
-  const setInitProgress = (status: string, completed = 0, total = 0) => {
-    if (isCancelled()) return;
-
-    store.setInitProgressStatus(status);
-    store.setInitProgressCompleted(completed);
-    store.setInitProgressTotal(total);
-  };
+  const isCancelled = getIsCancelled(store, store.ingestCancelToken);
+  const setInitProgress = makeSetInitProgress(store, isCancelled);
 
   try {
     const { perfLog, perfLogTotal } = makePerfLog("[Ingest]");
@@ -378,19 +367,15 @@ export const handleIngest = async ({
     store.setIsLoading(true);
     setInitProgress("Preparing import");
 
-    const [filePaths, folderPaths] = [...fileList]
-      .sort((a, b) => {
-        const lengthDiff = a.path.split(path.sep).length - b.path.split(path.sep).length;
+    const sortedList = [...fileList].sort((a, b) => {
+      const lengthDiff = a.path.split(path.sep).length - b.path.split(path.sep).length;
 
-        if (lengthDiff !== 0) return lengthDiff;
+      return lengthDiff || a.name.localeCompare(b.name);
+    });
 
-        return a.name.localeCompare(b.name);
-      })
-      .reduce((acc, cur) => (acc[cur.type === "" ? 1 : 0].push(cur.path), acc), [
-        [],
-        [],
-      ] as string[][]);
-
+    const [fileItems, folderItems] = splitArray(sortedList, (file) => file.type !== "");
+    const filePaths = fileItems.map((file) => file.path);
+    const folderPaths = folderItems.map((folder) => folder.path);
     const rootFolderPath = filePaths[0] ? path.dirname(filePaths[0]) : folderPaths[0];
     const initialRootIndex = rootFolderPath.split(path.sep).length - 1;
 
@@ -424,7 +409,7 @@ export const handleIngest = async ({
         for (const filePath of paths) editorPaths.add(filePath);
       }
 
-      await new Promise<void>((resolve) => setTimeout(resolve, 0));
+      await sleep(0);
     }
 
     throwIfIngestCancelled(isCancelled);
@@ -470,17 +455,8 @@ export const handleReingest = async ({
   fileIds: string[];
   store: Reingester;
 }) => {
-  const cancelToken = store.ingestCancelToken;
-
-  const isCancelled = () => !store.isOpen || store.ingestCancelToken !== cancelToken;
-
-  const setInitProgress = (status: string, completed = 0, total = 0) => {
-    if (isCancelled()) return;
-
-    store.setInitProgressStatus(status);
-    store.setInitProgressCompleted(completed);
-    store.setInitProgressTotal(total);
-  };
+  const isCancelled = getIsCancelled(store, store.ingestCancelToken);
+  const setInitProgress = makeSetInitProgress(store, isCancelled);
 
   try {
     store.setIsInitDone(false);
@@ -758,6 +734,7 @@ export const useImportEditor = (store: Ingester | Reingester) => {
 
       const tagIds = await getIdsFromTags(imp.tagsToUpsert, imp.tagIds);
       const fileImport = { ...imp };
+
       delete fileImport.tagsToUpsert;
       imports.push({ ...fileImport, tagIds });
     }
@@ -1314,10 +1291,6 @@ export const useImportEditor = (store: Ingester | Reingester) => {
   /* -------------------------------------------------------------------------- */
   /*                                   EXPORTS                                  */
   /* -------------------------------------------------------------------------- */
-  const getIsCancelled = (cancelToken: number) => {
-    return () => !store.isOpen || store.ingestCancelToken !== cancelToken;
-  };
-
   const setSaveProgress = (status: string, completed = 0, total = 0) => {
     store.setSaveStatus(status);
     store.setInitProgressCompleted(completed);
@@ -1325,7 +1298,7 @@ export const useImportEditor = (store: Ingester | Reingester) => {
   };
 
   const ingest = async () => {
-    const isCancelled = getIsCancelled(store.ingestCancelToken);
+    const isCancelled = getIsCancelled(store, store.ingestCancelToken);
 
     try {
       const { perfLog, perfLogTotal } = makePerfLog("[ImportEditor.ingest]");
@@ -1379,7 +1352,7 @@ export const useImportEditor = (store: Ingester | Reingester) => {
   };
 
   const reingest = async () => {
-    const isCancelled = getIsCancelled(store.ingestCancelToken);
+    const isCancelled = getIsCancelled(store, store.ingestCancelToken);
 
     try {
       const { perfLog, perfLogTotal } = makePerfLog("[ImportEditor.reingest]");
@@ -1426,9 +1399,7 @@ export const useImportEditor = (store: Ingester | Reingester) => {
   const scan = async () => {
     if (store.isSaving) return;
 
-    const cancelToken = store.ingestCancelToken;
-
-    const isCancelled = () => !store.isOpen || store.ingestCancelToken !== cancelToken;
+    const isCancelled = getIsCancelled(store, store.ingestCancelToken);
 
     store.setIsLoading(true);
     store.setInitProgressStatus("Scanning imports");

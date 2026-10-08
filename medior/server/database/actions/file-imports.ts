@@ -612,11 +612,15 @@ let importAbortController: AbortController;
 export const stopImporter = async () => {
   importerStatus.setIsPaused(true);
   importAbortController?.abort();
-  cancelBackgroundExecutions(undefined, "import metadata finalization")
-    .then((resumes) => {
+  (async () => {
+    try {
+      const resumes = await cancelBackgroundExecutions(undefined, "import metadata finalization");
+
       for (const resume of resumes) resume();
-    })
-    .catch((error) => console.error("Failed to interrupt import finalization:", error));
+    } catch (error) {
+      console.error("Failed to interrupt import finalization:", error);
+    }
+  })();
 
   await activeImportExecution;
 };

@@ -65,58 +65,6 @@ export class VideoTransformerStore extends Model({
   }
 
   @modelAction
-  reset() {
-    this.activeTransformLoadId++;
-    this.activeTransformUpdates.clear();
-    this.queueCountLoadId++;
-    this.transformerStatusLoadId++;
-    this.setActiveTransform(null);
-    this.setActiveFile(null);
-    this.setFileIds([]);
-    this.setFocusedTransformId(null);
-    this.setFnType(null);
-    this.setIsLoading(false);
-    this.setIsMinimized(false);
-    this.setPendingCount(0);
-    this.setQueueAfterSize(0);
-    this.setQueueBeforeSize(0);
-    this.setSourceSortValue(null);
-    this.setTimestampPairs([]);
-    this.search.reset();
-  }
-
-  @modelAction
-  removeQueueFiles(fileIds: string[], transformIds: string[] = []) {
-    const fileIdSet = new Set(fileIds);
-    const ids = new Set(transformIds);
-
-    for (const transform of this.search.results) {
-      if (fileIdSet.has(transform.fileId)) ids.add(transform.id);
-    }
-
-    this.search.setResults(this.search.results.filter((transform) => !ids.has(transform.id)));
-    this.search.setSelectedIds(this.search.selectedIds.filter((id) => !ids.has(id)));
-    this.search.setIds(this.search.ids.filter((id) => !ids.has(id)));
-
-    const retainedFileIds = new Set(this.search.results.map((transform) => transform.fileId));
-
-    this.search.setFiles(
-      new Map([...this.search.files].filter(([fileId]) => retainedFileIds.has(fileId))),
-    );
-  }
-
-  @modelAction
-  resetEmptyConstrainedQueue() {
-    if (!this.search.forcePages || this.search.ids.length) return false;
-
-    this.search.setPage(1);
-    this.search.setPageCount(1);
-    this.search.setSelectedIds([]);
-
-    return true;
-  }
-
-  @modelAction
   receiveActiveTransform({
     file,
     transform,
@@ -159,6 +107,58 @@ export class VideoTransformerStore extends Model({
       (this.search.status && transform.status !== this.search.status)
     )
       this.removeQueueFiles([], [id]);
+  }
+
+  @modelAction
+  removeQueueFiles(fileIds: string[], transformIds: string[] = []) {
+    const fileIdSet = new Set(fileIds);
+    const ids = new Set(transformIds);
+
+    for (const transform of this.search.results) {
+      if (fileIdSet.has(transform.fileId)) ids.add(transform.id);
+    }
+
+    this.search.setResults(this.search.results.filter((transform) => !ids.has(transform.id)));
+    this.search.setSelectedIds(this.search.selectedIds.filter((id) => !ids.has(id)));
+    this.search.setIds(this.search.ids.filter((id) => !ids.has(id)));
+
+    const retainedFileIds = new Set(this.search.results.map((transform) => transform.fileId));
+
+    this.search.setFiles(
+      new Map([...this.search.files].filter(([fileId]) => retainedFileIds.has(fileId))),
+    );
+  }
+
+  @modelAction
+  reset() {
+    this.activeTransformLoadId++;
+    this.activeTransformUpdates.clear();
+    this.queueCountLoadId++;
+    this.transformerStatusLoadId++;
+    this.setActiveTransform(null);
+    this.setActiveFile(null);
+    this.setFileIds([]);
+    this.setFocusedTransformId(null);
+    this.setFnType(null);
+    this.setIsLoading(false);
+    this.setIsMinimized(false);
+    this.setPendingCount(0);
+    this.setQueueAfterSize(0);
+    this.setQueueBeforeSize(0);
+    this.setSourceSortValue(null);
+    this.setTimestampPairs([]);
+    this.search.reset();
+  }
+
+  @modelAction
+  resetEmptyConstrainedQueue() {
+    if (!this.search.forcePages || this.search.ids.length) return false;
+
+    this.search.setPage(1);
+    this.search.setPageCount(1);
+    this.search.setSelectedIds([]);
+
+    return true;
   }
 
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */
@@ -300,6 +300,18 @@ export class VideoTransformerStore extends Model({
   });
 
   @modelFlow
+  loadPreviousQueuePageIfEmpty = asyncAction(async () => {
+    if (
+      this.resetEmptyConstrainedQueue() ||
+      this.search.results.length ||
+      this.search.pageCount <= 1
+    )
+      return;
+
+    await this.loadQueue({ noCache: true, page: Math.max(1, this.search.page - 1) });
+  });
+
+  @modelFlow
   loadQueue = asyncAction(
     async (
       args: {
@@ -329,18 +341,6 @@ export class VideoTransformerStore extends Model({
     this.setPendingCount(res.data.pendingCount);
 
     return res.data;
-  });
-
-  @modelFlow
-  loadPreviousQueuePageIfEmpty = asyncAction(async () => {
-    if (
-      this.resetEmptyConstrainedQueue() ||
-      this.search.results.length ||
-      this.search.pageCount <= 1
-    )
-      return;
-
-    await this.loadQueue({ noCache: true, page: Math.max(1, this.search.page - 1) });
   });
 
   @modelFlow
@@ -398,32 +398,17 @@ export class VideoTransformerStore extends Model({
     }
   });
 
-  @modelFlow
-  runTransformer = asyncAction(async () => {
-    if (this.isUpdating) return;
-
-    const loadId = this.activeTransformLoadId;
-
-    this.setIsUpdating(true);
-
-    try {
-      const res = await trpc.runFileTransformer.mutate({ isAuto: this.isAuto });
-
-      if (!res.success) throw new Error(res.error);
-
-      await this.getTransformerStatus();
-
-      if (
-        loadId === this.activeTransformLoadId ||
-        (!this.isTransforming && !this.focusedTransformId)
-      )
-        await this.loadActiveTransform(this.focusedTransformId ?? undefined);
-
-      return res.data;
-    } finally {
-      this.setIsUpdating(false);
-    }
-  });
+  @modelAction
+  runActiveTransform() {
+    if (!this.activeTransform?.id) return this.runTransformer();
+    else if (
+      this.isAuto &&
+      this.activeTransform.type !== "splice" &&
+      ["COMPLETE", "COMPRESSED"].includes(this.activeTransform.status)
+    )
+      return this.replaceOutput();
+    else return this.runTransform(this.activeTransform.id);
+  }
 
   @modelFlow
   runTransform = asyncAction(async (id: string) => {
@@ -455,28 +440,31 @@ export class VideoTransformerStore extends Model({
     }
   });
 
-  @modelAction
-  runActiveTransform() {
-    if (!this.activeTransform?.id) return this.runTransformer();
-
-    if (
-      this.isAuto &&
-      this.activeTransform.type !== "splice" &&
-      ["COMPLETE", "COMPRESSED"].includes(this.activeTransform.status)
-    )
-      return this.replaceOutput();
-
-    return this.runTransform(this.activeTransform.id);
-  }
-
   @modelFlow
-  setAutoReplace = asyncAction(async (isAuto: boolean) => {
-    this.transformerStatusLoadId++;
-    this.setIsAuto(isAuto);
+  runTransformer = asyncAction(async () => {
+    if (this.isUpdating) return;
 
-    const res = await trpc.setFileTransformerAuto.mutate({ isAuto });
+    const loadId = this.activeTransformLoadId;
 
-    if (!res.success) throw new Error(res.error);
+    this.setIsUpdating(true);
+
+    try {
+      const res = await trpc.runFileTransformer.mutate({ isAuto: this.isAuto });
+
+      if (!res.success) throw new Error(res.error);
+
+      await this.getTransformerStatus();
+
+      if (
+        loadId === this.activeTransformLoadId ||
+        (!this.isTransforming && !this.focusedTransformId)
+      )
+        await this.loadActiveTransform(this.focusedTransformId ?? undefined);
+
+      return res.data;
+    } finally {
+      this.setIsUpdating(false);
+    }
   });
 
   @modelFlow
@@ -503,6 +491,16 @@ export class VideoTransformerStore extends Model({
   });
 
   @modelFlow
+  setAutoReplace = asyncAction(async (isAuto: boolean) => {
+    this.transformerStatusLoadId++;
+    this.setIsAuto(isAuto);
+
+    const res = await trpc.setFileTransformerAuto.mutate({ isAuto });
+
+    if (!res.success) throw new Error(res.error);
+  });
+
+  @modelFlow
   togglePaused = asyncAction(async () => {
     if (this.isUpdating) return;
 
@@ -510,20 +508,18 @@ export class VideoTransformerStore extends Model({
       const res = await this.runActiveTransform();
 
       if (!res.success) throw new Error(res.error);
+    } else {
+      this.setIsUpdating(true);
 
-      return;
-    }
+      try {
+        const res = await trpc.pauseFileTransformer.mutate();
 
-    this.setIsUpdating(true);
+        if (!res.success) throw new Error(res.error);
 
-    try {
-      const res = await trpc.pauseFileTransformer.mutate();
-
-      if (!res.success) throw new Error(res.error);
-
-      await this.getTransformerStatus();
-    } finally {
-      this.setIsUpdating(false);
+        await this.getTransformerStatus();
+      } finally {
+        this.setIsUpdating(false);
+      }
     }
   });
 }

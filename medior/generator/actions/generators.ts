@@ -1,6 +1,7 @@
 import { MODEL_DEFS } from "medior/generator/schema/models";
 import { MODEL_SEARCH_STORE_DEFS } from "medior/generator/stores/models";
-import { capitalize, parseExportsFromIndex, ROOT_PATH } from "medior/generator/utils";
+import { parseExportsFromIndex, ROOT_PATH } from "medior/generator/utils";
+import { Fmt } from "medior/utils/common";
 
 const MODEL_ACTIONS = ["create", "delete", "list", "update"];
 
@@ -27,7 +28,7 @@ export const getActions = async () => {
 const makeFnAndTypeNames = (rawName: string, actions: { custom: string[]; model: string[] }) => {
   const prefix = [...actions.custom].includes(rawName) ? "_" : "";
 
-  return { fnName: `${prefix}${rawName}`, typeName: `${prefix}${capitalize(rawName)}Input` };
+  return { fnName: `${prefix}${rawName}`, typeName: `${prefix}${Fmt.capitalize(rawName)}Input` };
 };
 
 export const makeActionsDef = async (
@@ -68,8 +69,8 @@ export const makeActionsDef = async (
 
         return created;
       }${usesMetadataWork(fnName) ? ")" : ""});`;
-
-    return `${makeFnPrefix(fnName, typeName)}
+    else
+      return `${makeFnPrefix(fnName, typeName)}
         const model = { ...args${defaultProps.length ? `, ${defaultProps.join(", ")}` : ""} };
 
         ${
@@ -120,14 +121,14 @@ export const makeActionsDef = async (
 
         socket.emit("on${modelDef.name}Deleted", args, socketOpts);
       }${usesMetadataWork(fnName) ? ")" : ""});`;
-
-    if (modelDef.name !== "FileCollection")
+    else if (modelDef.name !== "FileCollection")
       return `${makeFnPrefix(fnName, typeName)}
         await models.${modelDef.name}Model.deleteMany({ _id: { $in: args.ids } }, metadataWriteOptions());
+
         socket.emit("on${modelDef.name}Deleted", args, socketOpts);
       }${usesMetadataWork(fnName) ? ")" : ""});`;
-
-    return `${makeFnPrefix(fnName, typeName)}
+    else
+      return `${makeFnPrefix(fnName, typeName)}
         await models.${modelDef.name}Model.deleteMany({ _id: { $in: args.ids } });
 
         await removeFileCollectionIds(args.ids);
@@ -192,8 +193,8 @@ export const makeActionsDef = async (
 
         return updated;
       }${usesMetadataWork(fnName) ? ")" : ""});`;
-
-    return `${makeFnPrefix(fnName, typeName)}
+    else
+      return `${makeFnPrefix(fnName, typeName)}
         ${
           withDateModified
             ? "const updates = { ...args.updates, dateModified: dayjs().toISOString() };"
@@ -574,7 +575,7 @@ export const makeModelEndpoint = (
   actions: { custom: string[]; model: string[] },
 ) => {
   return MODEL_ACTIONS.map((action) => {
-    const { fnName } = makeFnAndTypeNames(`${action}${capitalize(modelName)}`, actions);
+    const { fnName } = makeFnAndTypeNames(`${action}${Fmt.capitalize(modelName)}`, actions);
 
     return `${fnName}: serverEndpoint(db.${fnName})`;
   });
@@ -637,8 +638,8 @@ export const makeCustomActionTypes = (customActions: string[]) =>
   customActions
     .map(
       (action) =>
-        `export type ${capitalize(action)}Input = Parameters<typeof db.${action}>[0];
-       export type ${capitalize(action)}Output = ReturnType<typeof db.${action}>;`,
+        `export type ${Fmt.capitalize(action)}Input = Parameters<typeof db.${action}>[0];
+       export type ${Fmt.capitalize(action)}Output = ReturnType<typeof db.${action}>;`,
     )
     .join("\n\n");
 

@@ -3,7 +3,12 @@ import path from "path";
 import { makePerfLog } from "trabecula/utils/server";
 import type { FileSchema, ImportFileInput } from "medior/server/database";
 import { CONSTANTS, dayjs, hasTranscription } from "medior/utils/common";
-import { analyzeAudio, getIsAnimated, getNtfsFileIdentity } from "medior/utils/server";
+import {
+  analyzeAudio,
+  getIsAnimated,
+  getNtfsFileIdentity,
+  NtfsFileIdentity,
+} from "medior/utils/server";
 import { runImageTask } from "medior/utils/server/image-task";
 import { getMediaInfo, vidToThumbGrid } from "medior/utils/server/videos";
 import { workSignal } from "medior/utils/server/work-signal";
@@ -93,11 +98,13 @@ export const genFileInfo = async (args: {
     if (DEBUG) perfLog(`Generated thumbnail.`);
   }
 
-  const thumbNtfsIdentity = await getNtfsFileIdentity(thumbPath).catch((error) => {
-    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+  let thumbNtfsIdentity: NtfsFileIdentity = null;
 
-    return null;
-  });
+  try {
+    thumbNtfsIdentity = await getNtfsFileIdentity(thumbPath);
+  } catch (error) {
+    if (error.code !== "ENOENT") throw error;
+  }
 
   const fileInfo: Partial<ImportFileInput> = {
     audioBitrate,

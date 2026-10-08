@@ -464,6 +464,13 @@ export type RebuildIndexesOutput = ReturnType<typeof db.rebuildIndexes>;
 export type ArchiveLowerResolutionCopyInput = Parameters<typeof db.archiveLowerResolutionCopy>[0];
 export type ArchiveLowerResolutionCopyOutput = ReturnType<typeof db.archiveLowerResolutionCopy>;
 
+export type ListLowerResolutionDuplicateIdsInput = Parameters<
+  typeof db.listLowerResolutionDuplicateIds
+>[0];
+export type ListLowerResolutionDuplicateIdsOutput = ReturnType<
+  typeof db.listLowerResolutionDuplicateIds
+>;
+
 export type GetLowerResolutionScanInput = Parameters<typeof db.getLowerResolutionScan>[0];
 export type GetLowerResolutionScanOutput = ReturnType<typeof db.getLowerResolutionScan>;
 
@@ -499,11 +506,25 @@ export type GetSimilarityBackfillProgressOutput = ReturnType<
   typeof db.getSimilarityBackfillProgress
 >;
 
+export type GetSimilaritySearchIndexStatusInput = Parameters<
+  typeof db.getSimilaritySearchIndexStatus
+>[0];
+export type GetSimilaritySearchIndexStatusOutput = ReturnType<
+  typeof db.getSimilaritySearchIndexStatus
+>;
+
 export type RebuildFileSimilarityIndexInput = Parameters<typeof db.rebuildFileSimilarityIndex>[0];
 export type RebuildFileSimilarityIndexOutput = ReturnType<typeof db.rebuildFileSimilarityIndex>;
 
 export type StartSimilarityBackfillInput = Parameters<typeof db.startSimilarityBackfill>[0];
 export type StartSimilarityBackfillOutput = ReturnType<typeof db.startSimilarityBackfill>;
+
+export type StartSimilaritySearchIndexBuildInput = Parameters<
+  typeof db.startSimilaritySearchIndexBuild
+>[0];
+export type StartSimilaritySearchIndexBuildOutput = ReturnType<
+  typeof db.startSimilaritySearchIndexBuild
+>;
 
 export type _emitEventInput = Parameters<typeof db._emitEvent>[0];
 export type _emitEventOutput = ReturnType<typeof db._emitEvent>;

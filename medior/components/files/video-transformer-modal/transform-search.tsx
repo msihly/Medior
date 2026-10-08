@@ -24,6 +24,8 @@ export const TransformSearch = Comp(() => {
   const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  const hasSelected = store.search.selectedIds.length > 0;
+
   const openDeleteConfirmation = () => {
     setIdsForDelete([...store.search.selectedIds]);
     setIsConfirmDeleteOpen(true);
@@ -57,8 +59,6 @@ export const TransformSearch = Comp(() => {
       setIsDeleting(false);
     }
   };
-
-  const hasSelected = store.search.selectedIds.length > 0;
 
   return (
     <>
