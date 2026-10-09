@@ -1,7 +1,8 @@
 import { PointerEvent, useEffect, useRef, useState } from "react";
+import Color from "color";
 import { Button, Comp, LoadingOverlay, Modal, Text, View } from "medior/components";
 import { useStores } from "medior/store";
-import { makeClasses, toast } from "medior/utils/client";
+import { colors, makeClasses, toast, useElementResize } from "medior/utils/client";
 import { trpc } from "medior/utils/server";
 
 interface Crop {
@@ -33,8 +34,22 @@ export const ImageCrop = Comp(({ expectedHash, fileId, onClose }: ImageCropProps
     null,
   );
   const imageRef = useRef<HTMLImageElement>(null);
+  const surfaceRef = useRef<HTMLDivElement>(null);
 
-  const { css } = useClasses({ crop, preview });
+  const imageDims = useElementResize(imageRef, preview);
+  const surfaceDims = useElementResize(surfaceRef, preview);
+
+  const { css } = useClasses({
+    crop,
+    image: {
+      height: imageDims.height,
+      left: imageDims.left - surfaceDims.left,
+      top: imageDims.top - surfaceDims.top,
+      width: imageDims.width,
+    },
+    maskSpread: Math.max(surfaceDims.height, surfaceDims.width),
+    preview,
+  });
 
   useEffect(() => {
     let cancelled = false;
@@ -144,8 +159,8 @@ export const ImageCrop = Comp(({ expectedHash, fileId, onClose }: ImageCropProps
 
   return (
     <Modal.Container
-      height="90vh"
-      width="90vw"
+      height="100%"
+      width="100%"
       isLoading={store.isEditingImage}
       onClose={handleClose}
       onKeyDown={(event) => event.stopPropagation()}
@@ -164,59 +179,77 @@ export const ImageCrop = Comp(({ expectedHash, fileId, onClose }: ImageCropProps
         {error && <Text>{error}</Text>}
 
         {preview && crop && (
-          <View className={css.surface}>
+          <>
             <View
-              component="img"
-              ref={imageRef}
-              src={preview.src}
-              draggable={false}
-              className={css.image}
-              alt="Crop preview"
-            />
-
-            <View
-              className={css.selection}
-              data-handle="move"
-              onPointerDown={handlePointerDown}
-              onPointerMove={handlePointerMove}
-              onPointerUp={handlePointerEnd}
-              onPointerCancel={handlePointerEnd}
-              onLostPointerCapture={handlePointerEnd}
+              ref={surfaceRef}
+              column
+              flex={1}
+              minHeight={0}
+              width="100%"
+              align="center"
+              justify="center"
+              overflow="hidden"
+              padding={{ all: "0.5rem" }}
+              position="relative"
             >
-              {HANDLES.map((handle) => (
-                <View
-                  key={handle}
-                  aria-label={`Resize crop ${handle}`}
-                  className={css.handle}
-                  cursor={`${handle}-resize`}
-                  data-handle={handle}
-                />
-              ))}
+              <View
+                component="img"
+                ref={imageRef}
+                src={preview.src}
+                draggable={false}
+                className={css.image}
+                alt="Crop preview"
+              />
+
+              <View
+                className={css.selection}
+                data-handle="move"
+                onPointerDown={handlePointerDown}
+                onPointerMove={handlePointerMove}
+                onPointerUp={handlePointerEnd}
+                onPointerCancel={handlePointerEnd}
+                onLostPointerCapture={handlePointerEnd}
+              >
+                {HANDLES.map((handle) => (
+                  <View
+                    key={handle}
+                    aria-label={`Resize crop ${handle}`}
+                    className={css.handle}
+                    cursor={`${handle}-resize`}
+                    data-handle={handle}
+                  />
+                ))}
+              </View>
             </View>
-          </View>
+
+            <Text>{`${crop.width} × ${crop.height} px`}</Text>
+          </>
         )}
       </Modal.Content>
 
       <Modal.Footer>
-        <View flex={1}>
-          <Text>
-            {crop
-              ? `${crop.width} × ${crop.height} px · Drag the edges, corners, or selection`
-              : ""}
-          </Text>
-        </View>
+        <Button
+          text="Reset"
+          icon="RestartAlt"
+          onClick={handleReset}
+          disabled={!preview || store.isEditingImage}
+        />
 
-        <Button text="Reset" onClick={handleReset} disabled={!preview || store.isEditingImage} />
-
-        <Button text="Cancel" onClick={handleClose} disabled={store.isEditingImage} />
+        <Button text="Cancel" icon="Close" onClick={handleClose} disabled={store.isEditingImage} />
 
         <Button
           text="Save a Copy"
+          icon="SaveAs"
           onClick={handleSaveCopy}
           disabled={!crop || store.isEditingImage}
         />
 
-        <Button text="Save" onClick={handleSave} disabled={!crop || store.isEditingImage} />
+        <Button
+          text="Save"
+          icon="Save"
+          onClick={handleSave}
+          disabled={!crop || store.isEditingImage}
+        />
       </Modal.Footer>
     </Modal.Container>
   );
@@ -224,49 +257,45 @@ export const ImageCrop = Comp(({ expectedHash, fileId, onClose }: ImageCropProps
 
 interface ClassesProps {
   crop: Crop;
+  image: { height: number; left: number; top: number; width: number };
+  maskSpread: number;
   preview: { height: number; width: number };
 }
 
-const useClasses = makeClasses(({ crop, preview }: ClassesProps) => ({
+const useClasses = makeClasses(({ crop, image, maskSpread, preview }: ClassesProps) => ({
   handle: {
     '&[data-handle*="e"]': { left: "100%" },
     '&[data-handle*="n"]': { top: 0 },
     '&[data-handle*="s"]': { top: "100%" },
     '&[data-handle*="w"]': { left: 0 },
-    background: "white",
-    border: "1px solid black",
-    height: 12,
+    background: colors.custom.white,
+    border: `1px solid ${colors.custom.black}`,
+    height: "0.75rem",
     left: "50%",
     position: "absolute",
     top: "50%",
     touchAction: "none",
     transform: "translate(-50%, -50%)",
-    width: 12,
+    width: "0.75rem",
   },
   image: {
-    display: "block",
-    maxHeight: "calc(90vh - 12rem)",
-    maxWidth: "calc(90vw - 5rem)",
+    maxHeight: "100%",
+    maxWidth: "100%",
     userSelect: "none",
   },
   selection: {
     ...(crop &&
       preview && {
-        height: `${(crop.height / preview.height) * 100}%`,
-        left: `${(crop.left / preview.width) * 100}%`,
-        top: `${(crop.top / preview.height) * 100}%`,
-        width: `${(crop.width / preview.width) * 100}%`,
+        height: (crop.height / preview.height) * image.height,
+        left: image.left + (crop.left / preview.width) * image.width,
+        top: image.top + (crop.top / preview.height) * image.height,
+        width: (crop.width / preview.width) * image.width,
       }),
-    border: "1px solid white",
-    boxShadow: "0 0 0 9999px rgba(0, 0, 0, 0.55)",
+    border: `1px solid ${colors.custom.white}`,
+    boxShadow: `0 0 0 ${maskSpread}px ${Color(colors.custom.black).fade(0.5).string()}`,
     boxSizing: "border-box",
     cursor: "move",
     position: "absolute",
     touchAction: "none",
-  },
-  surface: {
-    flexShrink: 0,
-    lineHeight: 0,
-    position: "relative",
   },
 }));

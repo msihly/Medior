@@ -37,7 +37,7 @@ export const ImportEditorModal = Comp(
           <LoadingOverlay
             isLoading={store.isLoading || store.isSaving}
             sub={
-              <View column align="center" spacing="1rem" width="min(28rem, 80vw)">
+              <View column align="center" spacing="1rem" width="28rem">
                 <Text preset="title">{status}</Text>
 
                 {progressTotal > 0 && (

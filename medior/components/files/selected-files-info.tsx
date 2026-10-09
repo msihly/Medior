@@ -1,14 +1,10 @@
 import { useState } from "react";
-import { Button, Comp, Icon, IconName, LoadingOverlay, Text, View } from "medior/components";
-import { FileSearch, useStores } from "medior/store";
+import { Button, Comp, Icon, IconName, ProgressCircle, Text, View } from "medior/components";
 import { colors, CssColor, useCancellableLoad } from "medior/utils/client";
 import { Fmt } from "medior/utils/common";
 import { getIsVideo, trpc } from "medior/utils/server";
 
-export const useFileInfo = (suppliedStore?: FileSearch) => {
-  const stores = useStores();
-  const store = suppliedStore ?? stores.file.search;
-
+export const useFileInfo = () => {
   const load = useCancellableLoad();
 
   const [totalFiles, setTotalFiles] = useState(0);
@@ -18,12 +14,9 @@ export const useFileInfo = (suppliedStore?: FileSearch) => {
   const [totalVideos, setTotalVideos] = useState(0);
   const [totalVideosSize, setTotalVideosSize] = useState(0);
 
-  const loadFileInfo = () =>
+  const loadFileInfo = (fileIds: string[]) =>
     load.run(async (signal) => {
-      const res = await trpc.listFile.mutate(
-        { args: { filter: { id: store.selectedIds } } },
-        { signal },
-      );
+      const res = await trpc.listFile.mutate({ args: { filter: { id: fileIds } } }, { signal });
 
       signal.throwIfAborted();
 
@@ -51,45 +44,48 @@ export const useFileInfo = (suppliedStore?: FileSearch) => {
     });
 
   const renderFileInfo = () => (
-    <View position="relative" column>
-      <LoadingOverlay
-        isLoading={load.isLoading}
-        sub={<Button text="Cancel" icon="Close" onClick={load.cancel} />}
-      />
+    <View column padding={{ all: "0.4rem 0.8rem" }}>
+      {load.isLoading ? (
+        <View row align="center" spacing="0.5rem">
+          <ProgressCircle color="inherit" size={20} variant="indeterminate" />
 
-      <View column padding={{ all: "0.4rem 0.8rem" }}>
-        {totalVideos > 0 ? (
-          <FileTypeRow
-            label="Videos"
-            icon="Videocam"
-            color={colors.custom.purple}
-            count={totalVideos}
-            size={totalVideosSize}
-          />
-        ) : null}
+          <Button text="Cancel" icon="Close" onClick={load.cancel} />
+        </View>
+      ) : (
+        <>
+          {totalVideos > 0 ? (
+            <FileTypeRow
+              label="Videos"
+              icon="Videocam"
+              color={colors.custom.purple}
+              count={totalVideos}
+              size={totalVideosSize}
+            />
+          ) : null}
 
-        {totalImages > 0 ? (
-          <FileTypeRow
-            label="Images"
-            icon="Image"
-            color={colors.custom.blue}
-            count={totalImages}
-            size={totalImagesSize}
-          />
-        ) : null}
+          {totalImages > 0 ? (
+            <FileTypeRow
+              label="Images"
+              icon="Image"
+              color={colors.custom.blue}
+              count={totalImages}
+              size={totalImagesSize}
+            />
+          ) : null}
 
-        {totalFiles > 0 ? (
-          <FileTypeRow
-            label="Files"
-            icon="Folder"
-            color={colors.custom.red}
-            count={totalFiles}
-            size={totalFilesSize}
-          />
-        ) : (
-          <Text>{"No files selected"}</Text>
-        )}
-      </View>
+          {totalFiles > 0 ? (
+            <FileTypeRow
+              label="Files"
+              icon="Folder"
+              color={colors.custom.red}
+              count={totalFiles}
+              size={totalFilesSize}
+            />
+          ) : (
+            <Text>{"No files selected"}</Text>
+          )}
+        </>
+      )}
     </View>
   );
 

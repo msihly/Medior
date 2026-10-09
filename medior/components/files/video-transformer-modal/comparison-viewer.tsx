@@ -218,13 +218,14 @@ const useClasses = makeClasses(({ position }: { position: number }) => ({
     "& .MuiSlider-rail, & .MuiSlider-track": { display: "none" },
     "& .MuiSlider-thumb": {
       "&::after": {
+        alignItems: "center",
         backgroundColor: colors.background,
         border: "2px solid white",
         borderRadius: "50%",
         content: '"↔"',
-        display: "grid",
+        display: "flex",
         height: 32,
-        placeItems: "center",
+        justifyContent: "center",
         width: 32,
       },
       borderRadius: 0,

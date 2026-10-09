@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { MouseEvent, useEffect, useRef, useState } from "react";
 import {
   Button,
   Checkbox,
@@ -8,6 +8,7 @@ import {
   LoadingOverlay,
   Modal,
   MultiTagEditor,
+  sortTags,
   TagInput,
   TagList,
   Text,
@@ -38,6 +39,8 @@ export const FileTagEditor = Comp(({ batchId, fileIds }: FileTagEditorProps) => 
   const [isMultiTagEditorOpen, setIsMultiTagEditorOpen] = useState(false);
   const [removedTags, setRemovedTags] = useState<TagOption[]>([]);
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
+
+  const lastSelectedTagId = useRef<string>(null);
 
   const selectedTagIdSet = new Set(selectedTagIds);
   const selectedTags = currentTags.filter((tag) => selectedTagIdSet.has(tag.id));
@@ -118,10 +121,29 @@ export const FileTagEditor = Comp(({ batchId, fileIds }: FileTagEditorProps) => 
     setSelectedTagIds(selected ? currentTags.map((tag) => tag.id) : []);
   };
 
-  const handleSelectTag = (tag: TagOption, selected: boolean) => {
-    setSelectedTagIds((previous) =>
-      selected ? [...new Set([...previous, tag.id])] : previous.filter((id) => id !== tag.id),
+  /** Shift-click applies the clicked state to every tag between the last clicked tag and this one. */
+  const handleSelectTag = (
+    tag: TagOption,
+    selected: boolean,
+    event?: MouseEvent<HTMLButtonElement>,
+  ) => {
+    const tags = sortTags(currentTags, stores.tag.getCategory);
+    const index = tags.findIndex((t) => t.id === tag.id);
+    const anchorIndex = tags.findIndex((t) => t.id === lastSelectedTagId.current);
+    const rangeIds = new Set(
+      event?.shiftKey && anchorIndex > -1
+        ? tags
+            .slice(Math.min(index, anchorIndex), Math.max(index, anchorIndex) + 1)
+            .map((t) => t.id)
+        : [tag.id],
     );
+
+    setSelectedTagIds((previous) =>
+      selected
+        ? [...new Set([...previous, ...rangeIds])]
+        : previous.filter((id) => !rangeIds.has(id)),
+    );
+    lastSelectedTagId.current = tag.id;
   };
 
   const handleTagAdded = (tags: TagOption[]) => {
@@ -231,7 +253,7 @@ export const FileTagEditor = Comp(({ batchId, fileIds }: FileTagEditorProps) => 
                 <View row>
                   <Checkbox
                     checked={selectedTagIdSet.has(tag.id)}
-                    setChecked={(selected) => handleSelectTag(tag, selected)}
+                    setChecked={(selected, _, event) => handleSelectTag(tag, selected, event)}
                     width="auto"
                   />
 

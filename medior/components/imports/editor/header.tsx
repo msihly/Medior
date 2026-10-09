@@ -35,6 +35,12 @@ export const Header = Comp(({ type }: HeaderProps) => {
         <View row spacing="0.3rem">
           {type === "Ingester" ? (
             <>
+              {store.ingester.savedConfigFolderPaths.length > 0 && (
+                <Chip
+                  label={`${Fmt.commas(store.ingester.savedConfigFolderPaths.length)} Configs Left`}
+                />
+              )}
+
               <Chip label={Fmt.bytes(totalBytes)} />
 
               <Chip label={`${Fmt.commas(totalFolders)} Folders`} />

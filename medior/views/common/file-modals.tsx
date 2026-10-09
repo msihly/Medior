@@ -63,7 +63,7 @@ export const FileModals = Comp(() => {
           <LoadingOverlay
             isLoading
             sub={
-              <View column align="center" spacing="1rem" padding={{ all: "1rem" }}>
+              <View column align="center" spacing="1rem">
                 <Text>{store.actionMessage}</Text>
 
                 <Button

@@ -33,6 +33,7 @@ export interface Constants extends _Constants {
   };
   VECTOR: {
     DEFAULT_THREAD_POOL_SIZE: number;
+    MAX_SIMILAR_RESULTS: number;
   };
   WINDOW: {
     TITLE_BAR: { HEIGHT: number; Z_INDEX: number };
@@ -73,6 +74,7 @@ export const CONSTANTS: Constants = {
   },
   VECTOR: {
     DEFAULT_THREAD_POOL_SIZE: 4,
+    MAX_SIMILAR_RESULTS: 1000,
   },
   WINDOW: {
     TITLE_BAR: { HEIGHT: 32, Z_INDEX: 1401 },

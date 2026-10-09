@@ -21,7 +21,7 @@ export const DeleteFilesModal = Comp(() => {
   });
 
   useEffect(() => {
-    loadFileInfo();
+    loadFileInfo(store.idsForConfirmDelete);
   }, []);
 
   const handleDeleteFilesConfirm = async () => {

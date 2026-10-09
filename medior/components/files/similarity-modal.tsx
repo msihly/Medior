@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import {
   Button,
   CardGrid,
@@ -8,17 +8,17 @@ import {
   Pagination,
   SearchLoadingOverlay,
   Text,
-  View,
 } from "medior/components";
 import { useStores } from "medior/store";
 import { colors } from "medior/utils/client";
 import { FileCard } from "./file-card";
+import { SimilarityLoadMoreModal } from "./similarity-load-more-modal";
 
 export const SimilarityModal = Comp(() => {
   const stores = useStores();
   const store = stores.file.similarity;
 
-  const sourceFile = store.activeFileId ? stores.file.getById(store.activeFileId) : null;
+  const [isLoadMoreOpen, setIsLoadMoreOpen] = useState(false);
 
   const filesRef = useRef<HTMLDivElement>(null);
 
@@ -27,9 +27,9 @@ export const SimilarityModal = Comp(() => {
     filesRef.current?.scrollTo({ top: 0 });
   };
 
-  const handleRefresh = () => store.loadSimilar();
+  const handleLoadMore = () => setIsLoadMoreOpen(true);
 
-  const handleLoadMore = () => store.loadSimilar(true);
+  const handleRefresh = () => store.loadSimilar();
 
   const handleScanVariants = () => stores.file.lowerResolution.open(store.activeFileId);
 
@@ -42,11 +42,7 @@ export const SimilarityModal = Comp(() => {
       />
 
       <Modal.Header>
-        <View column>
-          <Text preset="title">{"Similarity Lookup"}</Text>
-
-          {sourceFile && <Text preset="sub-text">{sourceFile.originalName}</Text>}
-        </View>
+        <Text preset="title">{"Similarity Lookup"}</Text>
       </Modal.Header>
 
       <Modal.Content dividers={false} overflow="hidden" padding={{ all: 0 }} spacing={0}>
@@ -87,6 +83,8 @@ export const SimilarityModal = Comp(() => {
 
         <Button text="Close" icon="Close" onClick={store.close} disabled={store.isLoading} />
       </Modal.Footer>
+
+      {isLoadMoreOpen && <SimilarityLoadMoreModal onClose={() => setIsLoadMoreOpen(false)} />}
     </Modal.Container>
   );
 });

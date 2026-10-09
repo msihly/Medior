@@ -48,12 +48,12 @@ export const RegExMapCard = Comp(({ disabled = false, store }: RegExMapCardProps
           width="100%"
           InputProps={{
             endAdornment: (
-              <View flex="none" margins={{ left: 8 }}>
+              <View flex="none" margins={{ left: "0.5rem" }}>
                 <Text>{"/"}</Text>
               </View>
             ),
             startAdornment: (
-              <View flex="none" margins={{ right: 8 }}>
+              <View flex="none" margins={{ right: "0.5rem" }}>
                 <Text>{"/"}</Text>
               </View>
             ),

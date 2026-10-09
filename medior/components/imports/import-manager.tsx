@@ -15,15 +15,14 @@ import {
   Text,
   View,
 } from "medior/components";
-import { useStores } from "medior/store";
-import { colors, makeClasses } from "medior/utils/client";
+import { handleSavedConfigsIngest, useStores } from "medior/store";
+import { getImportConfigRootPaths } from "medior/store/saved-import-config";
+import { colors, toast } from "medior/utils/client";
 import { Fmt, round } from "medior/utils/common";
 
 export const ImportManager = Comp(() => {
   const stores = useStores();
   const store = stores.import.manager;
-
-  const { css } = useClasses({ hasActiveProgress: store.activeFileProgress?.progress != null });
 
   const [isConfigsModalOpen, setIsConfigsModalOpen] = useState(false);
 
@@ -41,6 +40,16 @@ export const ImportManager = Comp(() => {
   const handleFullPageLoad = () => store.search.loadFiltered({ toLastPage: true });
 
   const handlePageChange = (page: number) => store.search.loadFiltered({ page });
+
+  const handleScanSavedConfigs = async () => {
+    const res = await stores.import.loadSavedConfigs();
+    if (!res.success) return toast.error(res.error);
+
+    handleSavedConfigsIngest({
+      folderPaths: getImportConfigRootPaths(stores.import.savedConfigs),
+      store: stores.import.ingester,
+    });
+  };
 
   useEffect(() => {
     if (store.isOpen) stores.import.loadSavedConfigs();
@@ -120,7 +129,9 @@ export const ImportManager = Comp(() => {
                         <ProgressBar
                           numerator={round(store.activeFileProgress?.progress ?? 0)}
                           denominator={100}
-                          viewProps={{ className: css.activeProgress }}
+                          viewProps={{
+                            opacity: store.activeFileProgress?.progress != null ? 1 : 0,
+                          }}
                           withText
                         />
                       </View>
@@ -196,6 +207,13 @@ export const ImportManager = Comp(() => {
             onClick={() => setIsConfigsModalOpen(true)}
           />
 
+          <Button
+            text="Scan Saved Configs"
+            icon="ManageSearch"
+            onClick={handleScanSavedConfigs}
+            disabled={stores.import.ingester.isOpen}
+          />
+
           <Button text="Close" icon="Close" onClick={handleClose} color={colors.custom.grey} />
         </Modal.Footer>
       </Modal.Container>
@@ -206,9 +224,3 @@ export const ImportManager = Comp(() => {
     </>
   );
 });
-
-const useClasses = makeClasses((props: { hasActiveProgress: boolean }) => ({
-  activeProgress: {
-    visibility: props.hasActiveProgress ? "visible" : "hidden",
-  },
-}));

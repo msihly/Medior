@@ -2,8 +2,14 @@ import autoBind from "auto-bind";
 import { computed } from "mobx";
 import { Model, model, modelAction, modelFlow, prop } from "mobx-keystone";
 import { asyncAction, toast } from "medior/utils/client";
+import { CONSTANTS } from "medior/utils/common";
 import { getConfig, trpc } from "medior/utils/server";
 import { FileSearch } from "./search";
+
+interface LoadSimilarArgs {
+  append?: boolean;
+  limit?: number;
+}
 
 interface SimilarityCandidateMeta {
   fileId: string;
@@ -96,7 +102,7 @@ export class FileSimilarityStore extends Model({
 
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */
   @modelFlow
-  loadSimilar = asyncAction(async (append = false) => {
+  loadSimilar = asyncAction(async ({ append = false, limit }: LoadSimilarArgs = {}) => {
     if (!this.activeFileId) throw new Error("No active file selected");
 
     this.setIsLoading(true);
@@ -111,7 +117,9 @@ export class FileSimilarityStore extends Model({
     try {
       const res = await trpc.findSimilarFiles.mutate({
         fileId: this.activeFileId,
-        limit: Math.min(1000, Math.max(100, this.search.pageSize)),
+        limit:
+          limit ??
+          Math.min(CONSTANTS.VECTOR.MAX_SIMILAR_RESULTS, Math.max(100, this.search.pageSize)),
         offset: append ? this.nextOffset : 0,
       });
 

@@ -54,7 +54,7 @@ export const TagCard = Comp(({ tag }: TagCardProps) => {
         { icon: "Search", label: "Search", onClick: handleSearch },
         {
           icon: "FindInPage",
-          label: "Find Tags on Same Files",
+          label: "Find Similar",
           onClick: handleFindTagsOnSameFiles,
         },
         { icon: "Edit", label: "Edit", onClick: handleEdit },

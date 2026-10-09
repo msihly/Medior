@@ -14,11 +14,12 @@ import {
   ProgressCircle,
   RepairCheckbox,
   Text,
+  UniformList,
   View,
   ViewProps,
 } from "medior/components";
 import { filePathsToImports, useStores } from "medior/store";
-import { colors, CssColor, makeClasses } from "medior/utils/client";
+import { colors, CssColor } from "medior/utils/client";
 import { chunkArray, Fmt, sleep } from "medior/utils/common";
 import { socket, trpc } from "medior/utils/server";
 
@@ -32,8 +33,6 @@ const checkboxColumnProps: ViewProps = {
 export const RepairModal = Comp(() => {
   const stores = useStores();
   const store = stores.home.settings.repair;
-
-  const { css } = useClasses(null);
 
   const outputRef = useRef<HTMLDivElement>(null);
 
@@ -607,19 +606,15 @@ export const RepairModal = Comp(() => {
       onClose={handleCancel}
       height="100%"
       width="100%"
-      maxWidth="100rem"
     >
       <Modal.Header>
         <Text preset="title">{"Database Repair"}</Text>
       </Modal.Header>
 
       <Modal.Content>
-        <View row height="100%" minHeight={0} spacing="1rem">
+        <UniformList row height="100%" spacing="1rem">
           <Card
             header="Select Issues to Repair"
-            flex={1}
-            minHeight={0}
-            minWidth={0}
             spacing="0.5rem"
             overflow="hidden auto"
             bgColor={colors.foregroundCard}
@@ -885,13 +880,12 @@ export const RepairModal = Comp(() => {
             </View>
           </Card>
 
-          <View column flex={1} minHeight={0} minWidth={0} spacing="1rem">
+          <View column spacing="1rem">
             {storageResult && (
               <Card
                 header="Storage Reconciliation Results"
                 flex="none"
-                spacing="0.75rem"
-                padding={{ all: "0.75rem" }}
+                spacing="0.5rem"
                 bgColor={colors.foregroundCard}
               >
                 <Text whiteSpace="normal">
@@ -902,7 +896,7 @@ export const RepairModal = Comp(() => {
                   {`${Fmt.commas(storageResult.fileIdsLeftInDbOnly.length)} records with missing originals · ${Fmt.commas(storageResult.filesLeftInStorageOnly.length)} untracked storage files · ${Fmt.commas(storageResult.unresolvedThumbs)} unresolved thumbnails at scan completion`}
                 </Text>
 
-                <View row wrap="wrap" className={css.storageActions}>
+                <View column align="flex-start" spacing="0.5rem">
                   <Button
                     text="Remove Missing File Records"
                     icon="Delete"
@@ -945,7 +939,9 @@ export const RepairModal = Comp(() => {
                   overflow="visible"
                   whiteSpace="pre-wrap"
                   width="100%"
-                  className={css.log}
+                  overflowWrap="anywhere"
+                  textOverflow="clip"
+                  wordBreak="break-word"
                 >
                   {log.text}
                 </Text>
@@ -954,7 +950,7 @@ export const RepairModal = Comp(() => {
               {store.isRunning && <ProgressCircle color="inherit" variant="indeterminate" />}
             </Card>
           </View>
-        </View>
+        </UniformList>
       </Modal.Content>
 
       <Modal.Footer>
@@ -980,15 +976,4 @@ export const RepairModal = Comp(() => {
       )}
     </Modal.Container>
   );
-});
-
-const useClasses = makeClasses({
-  log: {
-    overflowWrap: "anywhere",
-    textOverflow: "clip",
-    wordBreak: "break-word",
-  },
-  storageActions: {
-    gap: "0.5rem",
-  },
 });

@@ -2,7 +2,7 @@ import fs from "fs/promises";
 import path from "path";
 import { useEffect, useRef } from "react";
 import { ModelCreationData } from "mobx-keystone";
-import { dirToFilePaths, makePerfLog } from "trabecula/utils/server";
+import { checkFileExists, dirToFilePaths, makePerfLog } from "trabecula/utils/server";
 import { TagSchema } from "medior/server/database";
 import { FlatFolder, TagToUpsert } from "medior/components";
 import { FileImport, Ingester, Reingester, RootStore, useStores } from "medior/store";
@@ -349,11 +349,12 @@ export const filePathsToImports = async (
   return imports;
 };
 
+/** Opens the Ingester on the given paths and resolves to the number of files found. */
 export const handleIngest = async ({
   fileList,
   store,
 }: {
-  fileList: FileList;
+  fileList: FileList | Pick<File, "name" | "path" | "type">[];
   store: Ingester;
 }) => {
   const isCancelled = getIsCancelled(store, store.ingestCancelToken);
@@ -433,19 +434,58 @@ export const handleIngest = async ({
 
     perfLogTotal("Init done");
     setTimeout(() => {
+      if (isCancelled()) return;
+
       store.setIsInitDone(true);
       store.setIsLoading(false);
     }, 0);
+
+    return editorImports.length;
   } catch (err) {
-    if (err?.name === "IngestCancelledError") return;
+    if (err?.name === "IngestCancelledError") return 0;
 
     toast.error("Error queuing imports");
     console.error(err);
+
+    return 0;
   } finally {
     store.setInitProgressStatus("");
     store.setInitProgressCompleted(0);
     store.setInitProgressTotal(0);
   }
+};
+
+/**
+ * Opens the Ingester on the first saved config folder with files to import.
+ * The remaining folders open in turn after each ingest; cancelling the Ingester ends the sequence.
+ */
+export const handleSavedConfigsIngest = async ({
+  folderPaths,
+  store,
+}: {
+  folderPaths: string[];
+  store: Ingester;
+}) => {
+  for (let idx = 0; idx < folderPaths.length; idx++) {
+    const folderPath = folderPaths[idx];
+    if (!(await checkFileExists(folderPath))) continue;
+
+    const importCount = await handleIngest({
+      fileList: [{ name: path.basename(folderPath), path: folderPath, type: "" }],
+      store,
+    });
+
+    if (!store.isOpen) return;
+
+    if (importCount) {
+      store.setSavedConfigFolderPaths(folderPaths.slice(idx + 1));
+      return;
+    }
+
+    store.setIsOpen(false);
+  }
+
+  toast.info("No files found in saved config folders");
 };
 
 export const handleReingest = async ({
@@ -1299,6 +1339,7 @@ export const useImportEditor = (store: Ingester | Reingester) => {
 
   const ingest = async () => {
     const isCancelled = getIsCancelled(store, store.ingestCancelToken);
+    let savedConfigFolderPaths: string[] = [];
 
     try {
       const { perfLog, perfLogTotal } = makePerfLog("[ImportEditor.ingest]");
@@ -1335,6 +1376,7 @@ export const useImportEditor = (store: Ingester | Reingester) => {
       if (DEBUG) perfLogTotal("Import batches created");
 
       toast.success(`Queued ${res.data.count} import batches`);
+      savedConfigFolderPaths = [...stores.import.ingester.savedConfigFolderPaths];
       store.setIsOpen(false);
       stores.import.manager.setIsOpen(true);
       stores.import.manager.runImporter();
@@ -1349,6 +1391,12 @@ export const useImportEditor = (store: Ingester | Reingester) => {
       store.setInitProgressCompleted(0);
       store.setInitProgressTotal(0);
     }
+
+    if (savedConfigFolderPaths.length)
+      handleSavedConfigsIngest({
+        folderPaths: savedConfigFolderPaths,
+        store: stores.import.ingester,
+      });
   };
 
   const reingest = async () => {
@@ -1427,14 +1475,13 @@ export const useImportEditor = (store: Ingester | Reingester) => {
           throwIfIngestCancelled(isCancelled);
 
           const savedConfigMatch = stores.import.getSavedConfigMatchForFolder(store.rootFolderPath);
+          const isInitialScan = !store.allFlatFolderHierarchy.size;
 
-          if (
-            !store.allFlatFolderHierarchy.size &&
-            savedConfigMatch?.config.options.withSidecar != null
-          )
+          if (isInitialScan && savedConfigMatch?.config.options.withSidecar != null)
             store.options.setWithSidecar(savedConfigMatch.config.options.withSidecar);
 
-          if (savedConfigMatch?.rootFolderPath) {
+          /** Only seed the root from the saved config so a root changed in the editor survives rescans. */
+          if (isInitialScan && savedConfigMatch?.rootFolderPath) {
             store.setRootFolderPath(savedConfigMatch.rootFolderPath);
             store.setRootFolderIndex(savedConfigMatch.rootFolderPath.split(path.sep).length - 1);
           }

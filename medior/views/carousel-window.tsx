@@ -169,6 +169,8 @@ export const CarouselWindow = Comp(({ embedded = false }: CarouselWindowProps) =
 
             {!stores.carousel.splicer.isOpen && <CarouselThumbNavigator />}
 
+            {!embedded && <Views.CollectionModals />}
+
             {!embedded && <Views.FileModals />}
 
             <Views.TagModals view="carousel" />

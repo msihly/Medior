@@ -7,5 +7,6 @@ export * from "./filter-menu";
 export * from "./info-modal";
 export * from "./lower-resolution-modal";
 export * from "./selected-files-info";
+export * from "./similarity-load-more-modal";
 export * from "./similarity-modal";
 export * from "./video-transformer-modal";

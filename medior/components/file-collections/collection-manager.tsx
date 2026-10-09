@@ -19,7 +19,7 @@ import {
   View,
 } from "medior/components";
 import { useStores } from "medior/store";
-import { colors, makeClasses, toast, useCancellableLoad } from "medior/utils/client";
+import { colors, toast, useCancellableLoad } from "medior/utils/client";
 import {
   CollectionFilterMenu,
   CollectionTriager,
@@ -36,8 +36,6 @@ export const FileCollectionManager = Comp(() => {
   const store = stores.collection.manager;
 
   const load = useCancellableLoad();
-
-  const { css } = useClasses(null);
 
   const [activeTab, setActiveTab] = useState("0");
 
@@ -217,42 +215,38 @@ export const FileCollectionManager = Comp(() => {
 
       <Modal.Content dividers={false} overflow="hidden" padding={{ all: 0 }}>
         {hasAnyFilesSelected && (
-          <View column className={css.topRow}>
-            <Card
-              column
-              flex={1}
-              minHeight={0}
-              header={
-                <Text preset="title" padding="0.3rem 0">
-                  {`Selected File${hasOneFileSelected ? "" : "s"}`}
-                </Text>
-              }
-              headerProps={{ borderRadiuses: { top: 0 }, flex: "none" }}
-              padding={{ all: 0 }}
-              overflow="hidden"
-            >
-              <View row flex={1} overflow="auto" padding={{ all: "0.5rem" }}>
-                {store.selectedFiles.map((f) => (
-                  <View key={f.id} flex="none">
-                    <FileCard
-                      file={f}
-                      height={FILE_CARD_HEIGHT}
-                      width={230}
-                      store={stores.file.search}
-                      disabled
-                    />
-                  </View>
-                ))}
-              </View>
+          <Card
+            column
+            flex="none"
+            header={
+              <Text preset="title" padding="0.3rem 0">
+                {`Selected File${hasOneFileSelected ? "" : "s"}`}
+              </Text>
+            }
+            headerProps={{ borderRadiuses: { top: 0 }, flex: "none" }}
+            padding={{ all: 0 }}
+            overflow="hidden"
+          >
+            <CardGrid
+              cards={store.selectedFiles.map((f) => (
+                <FileCard
+                  key={f.id}
+                  file={f}
+                  height={FILE_CARD_HEIGHT}
+                  store={stores.file.search}
+                  disabled
+                />
+              ))}
+              padding={{ all: "0.3rem" }}
+            />
 
-              <Pagination
-                inline
-                count={Math.ceil(selectedFileIds.length / 3)}
-                page={store.selectedFilesPage}
-                onChange={handleSelectedFilesPage}
-              />
-            </Card>
-          </View>
+            <Pagination
+              inline
+              count={Math.ceil(selectedFileIds.length / 3)}
+              page={store.selectedFilesPage}
+              onChange={handleSelectedFilesPage}
+            />
+          </Card>
         )}
 
         <ConditionalWrap
@@ -260,8 +254,8 @@ export const FileCollectionManager = Comp(() => {
           wrap={(manager) => (
             <TabContainer
               activeTab={activeTab}
+              color={colors.background}
               onTabChange={handleTabChange}
-              tabHeight="2.5rem"
               viewProps={{ flex: 1, height: "auto", overflow: "hidden" }}
               tabs={[
                 {
@@ -440,13 +434,4 @@ export const FileCollectionManager = Comp(() => {
       )}
     </Modal.Container>
   );
-});
-
-const useClasses = makeClasses({
-  topRow: {
-    flexShrink: 0,
-    height: FILE_CARD_HEIGHT + 100,
-    maxHeight: FILE_CARD_HEIGHT + 100,
-    overflow: "hidden",
-  },
 });

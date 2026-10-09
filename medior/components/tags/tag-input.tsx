@@ -271,7 +271,7 @@ export const TagInput = Comp(
         InputProps={{
           ...params.InputProps,
           endAdornment: (
-            <View row align="center" flex="none" margins={{ left: 8 }}>
+            <View row align="center" flex="none" margins={{ left: "0.5rem" }}>
               {isLoading ? (
                 <ProgressCircle color="inherit" size={20} variant="indeterminate" />
               ) : null}

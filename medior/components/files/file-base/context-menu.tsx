@@ -267,7 +267,7 @@ export const ContextMenu = Comp(
         </ContextMenuBase>
 
         {load.isLoading && (
-          <Modal.Container onClose={load.cancel} width="25rem" height="14rem">
+          <Modal.Container onClose={load.cancel} width="30rem" height="16rem">
             <LoadingOverlay
               isLoading
               sub={<Button text="Cancel" icon="Close" onClick={load.cancel} />}

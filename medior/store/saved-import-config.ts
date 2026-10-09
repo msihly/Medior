@@ -45,6 +45,10 @@ export const getImportConfigRootPath = (folderPath: string) => {
     : normalizedPath;
 };
 
+const isNormalizedPathWithin = (normalizedFolderPath: string, normalizedRootPath: string) =>
+  normalizedFolderPath === normalizedRootPath ||
+  normalizedFolderPath.startsWith(`${normalizedRootPath}${path.sep}`);
+
 export const getImportConfigMatch = (
   configs: SavedImportConfig[],
   folderPath: string,
@@ -53,13 +57,31 @@ export const getImportConfigMatch = (
 
   return configs
     .map((config) => ({ config, rootFolderPath: config.rootFolderPath }))
-    .filter(({ rootFolderPath }) => {
-      const normalizedRootPath = normalizeImportConfigPath(rootFolderPath);
-
-      return (
-        normalizedFolderPath === normalizedRootPath ||
-        normalizedFolderPath.startsWith(`${normalizedRootPath}${path.sep}`)
-      );
-    })
+    .filter(({ rootFolderPath }) =>
+      isNormalizedPathWithin(normalizedFolderPath, normalizeImportConfigPath(rootFolderPath)),
+    )
     .sort((a, b) => b.rootFolderPath.length - a.rootFolderPath.length)[0];
+};
+
+/** Root folders of every config, excluding roots already covered by a parent config's root. */
+export const getImportConfigRootPaths = (configs: SavedImportConfig[]) => {
+  const rootPaths: { normalizedPath: string; rootFolderPath: string }[] = [];
+
+  const sortedRootPaths = configs
+    .map(({ rootFolderPath }) => ({
+      normalizedPath: normalizeImportConfigPath(rootFolderPath),
+      rootFolderPath,
+    }))
+    .sort((a, b) => a.normalizedPath.localeCompare(b.normalizedPath));
+
+  for (const rootPath of sortedRootPaths) {
+    if (
+      !rootPaths.some((parent) =>
+        isNormalizedPathWithin(rootPath.normalizedPath, parent.normalizedPath),
+      )
+    )
+      rootPaths.push(rootPath);
+  }
+
+  return rootPaths.map(({ rootFolderPath }) => rootFolderPath);
 };

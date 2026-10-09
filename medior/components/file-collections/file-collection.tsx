@@ -74,7 +74,7 @@ export const FileCollection = Comp(
             bgColor={colors.foregroundCard}
             padding={{ all: 0 }}
             overflow="hidden"
-            headerProps={{ flex: "none", padding: { all: "0.5rem 0.75rem" } }}
+            headerProps={{ flex: "none", padding: { all: "0.5rem" } }}
             header={
               <View column spacing="0.5rem" width="100%">
                 <View row align="center" justify="space-between" width="100%">

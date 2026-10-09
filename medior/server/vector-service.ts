@@ -492,7 +492,7 @@ export class VectorSimilarityService {
     vectorType?: SimilarityVectorType;
   }) {
     const limit = Math.min(
-      1000,
+      CONSTANTS.VECTOR.MAX_SIMILAR_RESULTS,
       Math.max(1, args.limit ?? getConfig().file.similarity.defaultLimit),
     );
     const offset = args.offset ?? 0;

@@ -168,7 +168,7 @@ export const TagEditor = Comp(({ isSubEditor = false }: TagEditorProps) => {
               {!isSubEditor && (
                 <IconButton
                   name="FindInPage"
-                  tooltip="Find Tags on Same Files"
+                  tooltip="Find Similar"
                   iconProps={{ color: colors.custom.grey }}
                   onClick={handleFindTagsOnSameFiles}
                 />

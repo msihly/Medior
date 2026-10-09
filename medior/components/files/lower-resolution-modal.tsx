@@ -1,6 +1,7 @@
 import {
   Button,
   Card,
+  CardGrid,
   Checkbox,
   Comp,
   FileBase,
@@ -14,15 +15,13 @@ import {
   View,
 } from "medior/components";
 import { useStores } from "medior/store";
-import { colors, makeClasses, openCarouselWindow } from "medior/utils/client";
+import { colors, openCarouselWindow } from "medior/utils/client";
 import { Fmt } from "medior/utils/common";
 import { MIN_DUPLICATE_SIMILARITY } from "medior/utils/common/duplicate-search";
 
 export const LowerResolutionModal = Comp(() => {
   const stores = useStores();
   const store = stores.file.lowerResolution;
-
-  const { css } = useClasses(null);
 
   const isBusy = store.isScanning || store.isStarting || store.isArchiving;
   const remainingSeconds =
@@ -70,6 +69,32 @@ export const LowerResolutionModal = Comp(() => {
     },
   };
   const emptyState = emptyStates[store.status];
+  const notices = [
+    !!store.scanId && store.needsRescan && !!store.reviewOptions
+      ? {
+          color: colors.custom.lightBlue,
+          text: `This search only recorded matches at ${store.reviewOptions.minSimilarity}% or higher. Search Again to find weaker matches; raising the threshold filters the current results instantly.`,
+        }
+      : null,
+    !store.hasSearchIndex
+      ? {
+          color: colors.custom.lightBlue,
+          text: "Searching the whole library uses the similarity search index. Build it once in Settings → Repair → Similarity Search Index. Find Variants on a single file works without it.",
+        }
+      : null,
+    store.unindexedCount
+      ? {
+          color: colors.custom.orange,
+          text: `${Fmt.commas(store.unindexedCount)} ${store.unindexedCount === 1 ? "file was" : "files were"} vectorized after the search index was last updated and won't appear as matches. Update the index in Settings → Repair to include them.`,
+        }
+      : null,
+    store.skipped
+      ? {
+          color: colors.custom.orange,
+          text: `${Fmt.commas(store.skipped)} ${store.skipped === 1 ? "file has" : "files have"} no similarity vector yet and ${store.skipped === 1 ? "was" : "were"} skipped. Run similarity indexing in Settings → Repair to include them.`,
+        }
+      : null,
+  ].filter(Boolean);
 
   const handlePageChange = (page: number) => {
     if (!store.isArchiving) store.loadPage(page);
@@ -80,11 +105,11 @@ export const LowerResolutionModal = Comp(() => {
   const handleStopArchiving = () => store.setArchiveStopRequested(true);
 
   return (
-    <Modal.Container height="90vh" width="min(80rem, calc(100vw - 3rem))" onClose={store.close}>
+    <Modal.Container height="100%" width="100%" onClose={store.close}>
       <LoadingOverlay
         isLoading={store.isArchiving}
         sub={
-          <View column align="center" spacing="0.75rem">
+          <View column align="center" spacing="0.5rem">
             <Text preset="title" fontSize="0.9em">
               {`${store.mergeMetadata ? "Merged and archived" : "Archived"} ${Fmt.commas(store.archiveProcessed)} of ${Fmt.commas(store.archiveTotal)} files…`}
             </Text>
@@ -109,10 +134,10 @@ export const LowerResolutionModal = Comp(() => {
         </View>
       </Modal.Header>
 
-      <Modal.Content dividers={false} overflow="hidden" spacing="0.75rem">
-        <Card flex="none" width="100%" padding={{ all: "1rem" }} spacing="0.75rem">
-          <View row wrap="wrap" align="center" className={css.toolbar}>
-            <View column flex="1 1 14rem" maxWidth="22rem">
+      <Modal.Content dividers={false} overflow="hidden" spacing="0.5rem">
+        <Card flex="none" width="100%" spacing="0.5rem">
+          <View row wrap="wrap" align="center" spacing="1rem">
+            <View column width="20rem">
               <View row align="center" justify="space-between">
                 <Text bold fontSize="0.9em">
                   {"Minimum Similarity"}
@@ -159,8 +184,8 @@ export const LowerResolutionModal = Comp(() => {
               />
             )}
 
-            <View column flex="2 1 20rem" spacing="0.4rem">
-              <View row wrap="wrap" align="center" justify="space-between" className={css.status}>
+            <View column flex={1} spacing="0.5rem">
+              <View row wrap="wrap" align="center" justify="space-between" spacing="1rem">
                 <Text bold>{statusLabels[store.status]}</Text>
 
                 {store.status !== "idle" && (
@@ -181,47 +206,15 @@ export const LowerResolutionModal = Comp(() => {
             </View>
           </View>
 
-          {!!store.scanId && store.needsRescan && !!store.reviewOptions && (
-            <View row align="center" spacing="0.5rem">
-              <Icon name="Info" size="1.1em" color={colors.custom.lightBlue} />
+          {notices.map(({ color, text }) => (
+            <View key={text} row align="center" spacing="0.5rem">
+              <Icon name="Info" size="1.1em" color={color} />
 
               <Text fontSize="0.85em" whiteSpace="normal">
-                {`This search only recorded matches at ${store.reviewOptions.minSimilarity}% or higher. Search Again to find weaker matches; raising the threshold filters the current results instantly.`}
+                {text}
               </Text>
             </View>
-          )}
-
-          {!store.hasSearchIndex && (
-            <View row align="center" spacing="0.5rem">
-              <Icon name="Info" size="1.1em" color={colors.custom.lightBlue} />
-
-              <Text fontSize="0.85em" whiteSpace="normal">
-                {
-                  "Searching the whole library uses the similarity search index. Build it once in Settings → Repair → Similarity Search Index. Find Variants on a single file works without it."
-                }
-              </Text>
-            </View>
-          )}
-
-          {!!store.unindexedCount && (
-            <View row align="center" spacing="0.5rem">
-              <Icon name="Info" size="1.1em" color={colors.custom.orange} />
-
-              <Text fontSize="0.85em" whiteSpace="normal">
-                {`${Fmt.commas(store.unindexedCount)} ${store.unindexedCount === 1 ? "file was" : "files were"} vectorized after the search index was last updated and won't appear as matches. Update the index in Settings → Repair to include them.`}
-              </Text>
-            </View>
-          )}
-
-          {!!store.skipped && (
-            <View row align="center" spacing="0.5rem">
-              <Icon name="Info" size="1.1em" color={colors.custom.orange} />
-
-              <Text fontSize="0.85em" whiteSpace="normal">
-                {`${Fmt.commas(store.skipped)} ${store.skipped === 1 ? "file has" : "files have"} no similarity vector yet and ${store.skipped === 1 ? "was" : "were"} skipped. Run similarity indexing in Settings → Repair to include them.`}
-              </Text>
-            </View>
-          )}
+          ))}
 
           {store.error && (
             <View row align="center" spacing="0.5rem">
@@ -241,7 +234,7 @@ export const LowerResolutionModal = Comp(() => {
 
         {store.groups.length ? (
           <View column flex={1} minHeight={0} spacing="0.5rem">
-            <View row wrap="wrap" align="center" justify="space-between" className={css.toolbar}>
+            <View row wrap="wrap" align="center" justify="space-between" spacing="1rem">
               <Text bold>
                 {`${Fmt.commas(store.reviewCount)} groups at ${store.reviewThreshold}%+ · ${Fmt.commas(store.selectedCount)} selected`}
               </Text>
@@ -284,97 +277,102 @@ export const LowerResolutionModal = Comp(() => {
               </View>
             </View>
 
-            <View
-              display="grid"
-              flex={1}
-              minHeight={0}
-              overflow="hidden auto"
-              className={css.groups}
-            >
-              {store.groups.map((group) => (
-                <Card key={group.id} minWidth={0} padding={{ all: "0.75rem" }} spacing="0.5rem">
-                  <View row align="center" justify="space-between">
-                    <Text bold>{`Up to ${group.score.toFixed(1)}% similar`}</Text>
+            <CardGrid
+              maxCards={2}
+              padding={{ all: 0 }}
+              cards={store.groups.map((group) => (
+                <View key={group.id} padding={{ all: "0.3rem" }}>
+                  <Card spacing="0.5rem">
+                    <View row align="center" justify="space-between">
+                      <Text bold>{`Up to ${group.score.toFixed(1)}% similar`}</Text>
 
-                    <Text color={colors.custom.lightGrey} fontSize="0.85em">
-                      {`${group.files.length - 1} ${group.files.length === 2 ? "duplicate" : "duplicates"}`}
-                    </Text>
-                  </View>
+                      <Text color={colors.custom.lightGrey} fontSize="0.85em">
+                        {`${group.files.length - 1} ${group.files.length === 2 ? "duplicate" : "duplicates"}`}
+                      </Text>
+                    </View>
 
-                  <View row wrap="wrap" className={css.tiles}>
-                    {group.files.map((file, index) => {
-                      const isSelected = !!store.selection[file.id];
+                    <View row wrap="wrap">
+                      {group.files.map((file, index) => {
+                        const isSelected = !!store.selection[file.id];
 
-                      return (
-                        <View key={file.id} column flex="none" width="15rem" spacing="0.25rem">
-                          <FileBase.Container
-                            height="13rem"
-                            selected={isSelected}
-                            selectedColor={colors.custom.red}
-                            onClick={(event) => store.toggleSelected(file.id, event.shiftKey)}
-                            onDoubleClick={() =>
-                              openCarouselWindow({
-                                file,
-                                selectedFileIds: group.files.map((groupFile) => groupFile.id),
-                              })
-                            }
+                        return (
+                          <View
+                            key={file.id}
+                            column
+                            flex="none"
+                            width="15rem"
+                            spacing="0.3rem"
+                            padding={{ all: "0.3rem" }}
                           >
-                            <FileBase.Image
-                              thumb={file.thumb}
-                              fileId={file.id}
-                              title={file.originalName}
-                              fit="contain"
+                            <FileBase.Container
                               height="13rem"
+                              selected={isSelected}
+                              selectedColor={colors.custom.red}
+                              onClick={(event) => store.toggleSelected(file.id, event.shiftKey)}
+                              onDoubleClick={() =>
+                                openCarouselWindow({
+                                  file,
+                                  selectedFileIds: group.files.map((f) => f.id),
+                                })
+                              }
                             >
-                              <FileBase.Chip
-                                position="top-left"
-                                label={
-                                  isSelected
-                                    ? "Archive"
-                                    : index === 0
-                                      ? "Best Quality"
-                                      : `${file.similarity.toFixed(1)}%`
-                                }
-                                bgColor={
-                                  isSelected
-                                    ? colors.custom.red
-                                    : index === 0
-                                      ? colors.custom.green
-                                      : undefined
-                                }
-                                color={colors.custom.white}
-                                opacity={1}
-                              />
-
-                              <FileBase.Chip position="top-right" label={file.ext} />
-
-                              {!!file.duration && (
+                              <FileBase.Image
+                                thumb={file.thumb}
+                                fileId={file.id}
+                                title={file.originalName}
+                                fit="contain"
+                                height="13rem"
+                              >
                                 <FileBase.Chip
-                                  position="bottom-right"
-                                  label={Fmt.duration(file.duration)}
+                                  position="top-left"
+                                  label={
+                                    isSelected
+                                      ? "Archive"
+                                      : index === 0
+                                        ? "Best Quality"
+                                        : `${file.similarity.toFixed(1)}%`
+                                  }
+                                  bgColor={
+                                    isSelected
+                                      ? colors.custom.red
+                                      : index === 0
+                                        ? colors.custom.green
+                                        : undefined
+                                  }
+                                  color={colors.custom.white}
+                                  opacity={1}
                                 />
-                              )}
-                            </FileBase.Image>
-                          </FileBase.Container>
 
-                          <Text fontSize="0.85em">
-                            {`${file.width} × ${file.height} · ${Fmt.bytes(file.size)}`}
-                          </Text>
+                                <FileBase.Chip position="top-right" label={file.ext} />
 
-                          <Text
-                            color={colors.custom.lightGrey}
-                            fontSize="0.8em"
-                            tooltip={file.originalName}
-                          >
-                            {file.originalName}
-                          </Text>
-                        </View>
-                      );
-                    })}
-                  </View>
-                </Card>
+                                {!!file.duration && (
+                                  <FileBase.Chip
+                                    position="bottom-right"
+                                    label={Fmt.duration(file.duration)}
+                                  />
+                                )}
+                              </FileBase.Image>
+                            </FileBase.Container>
+
+                            <Text fontSize="0.85em">
+                              {`${file.width} × ${file.height} · ${Fmt.bytes(file.size)}`}
+                            </Text>
+
+                            <Text
+                              color={colors.custom.lightGrey}
+                              fontSize="0.8em"
+                              tooltip={file.originalName}
+                            >
+                              {file.originalName}
+                            </Text>
+                          </View>
+                        );
+                      })}
+                    </View>
+                  </Card>
+                </View>
               ))}
-            </View>
+            />
 
             {store.pageCount > 1 && (
               <Pagination
@@ -400,7 +398,6 @@ export const LowerResolutionModal = Comp(() => {
               fontSize="0.85em"
               whiteSpace="normal"
               textAlign="center"
-              maxWidth="36rem"
             >
               {emptyState.description}
             </Text>
@@ -417,17 +414,4 @@ export const LowerResolutionModal = Comp(() => {
       </Modal.Footer>
     </Modal.Container>
   );
-});
-
-const useClasses = makeClasses({
-  groups: {
-    alignContent: "start",
-    gap: "0.75rem",
-    gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 34rem), 1fr))",
-    // Cards are scroll containers with no minimum height, so auto rows would shrink them vertically.
-    gridAutoRows: "max-content",
-  },
-  status: { gap: "0.5rem 1rem" },
-  tiles: { gap: "0.75rem" },
-  toolbar: { gap: "1rem 1.5rem" },
 });

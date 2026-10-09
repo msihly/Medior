@@ -1,8 +1,17 @@
 import { KeyboardEvent, useState } from "react";
-import { Button, Comp, Modal, Settings, TabContainer, Text, View } from "medior/components";
+import {
+  Button,
+  Comp,
+  Modal,
+  Settings,
+  TabContainer,
+  Text,
+  UniformList,
+  View,
+} from "medior/components";
 import { useStores } from "medior/store";
-import { colors, makeClasses, toast } from "medior/utils/client";
-import { getHotkey, Hotkeys, RATING_HOTKEY_KEYS } from "medior/utils/common";
+import { colors, toast } from "medior/utils/client";
+import { chunkArray, getHotkey, Hotkeys, RATING_HOTKEY_KEYS } from "medior/utils/common";
 import { ConfigKey } from "medior/utils/server";
 
 interface HotkeyField {
@@ -99,8 +108,6 @@ export const HotkeysModal = Comp(({ onClose }: HotkeysModalProps) => {
   const stores = useStores();
   const store = stores.home.settings;
 
-  const { css } = useClasses(null);
-
   const [hasChanges, setHasChanges] = useState(false);
   const [initialHasUnsavedChanges] = useState(store.hasUnsavedChanges);
   const [initialHotkeys] = useState(() => store.getConfig().hotkeys);
@@ -168,22 +175,24 @@ export const HotkeysModal = Comp(({ onClose }: HotkeysModalProps) => {
 
         <TabContainer
           color={colors.background}
-          contentClassName={css.content}
-          tabHeight={36}
           tabs={HOTKEY_TABS.map(({ fields, label }) => ({
             content: (
-              <View className={css.fields} height="100%" overflow="auto">
-                {fields.map(({ configKey, label }) => (
-                  <Settings.Input
-                    key={configKey}
-                    configKey={configKey}
-                    header={label}
-                    inputProps={{ name: configKey, readOnly: true }}
-                    onKeyDown={handleHotkeyChange}
-                    textAlign="center"
-                  />
+              <UniformList row spacing="0.5rem" height="100%" overflow="auto">
+                {chunkArray(fields, Math.ceil(fields.length / 3)).map((columnFields) => (
+                  <View key={columnFields[0].configKey} column spacing="0.5rem">
+                    {columnFields.map(({ configKey, label }) => (
+                      <Settings.Input
+                        key={configKey}
+                        configKey={configKey}
+                        header={label}
+                        inputProps={{ name: configKey, readOnly: true }}
+                        onKeyDown={handleHotkeyChange}
+                        textAlign="center"
+                      />
+                    ))}
+                  </View>
                 ))}
-              </View>
+              </UniformList>
             ),
             label,
           }))}
@@ -204,16 +213,4 @@ export const HotkeysModal = Comp(({ onClose }: HotkeysModalProps) => {
       </Modal.Footer>
     </Modal.Container>
   );
-});
-
-const useClasses = makeClasses({
-  fields: {
-    display: "grid",
-    gap: "0.5rem",
-    gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-    padding: "0.2rem",
-  },
-  content: {
-    padding: "1rem 0 0",
-  },
 });
