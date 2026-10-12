@@ -19,6 +19,8 @@ import {
 
 type DevToolsMode = null | Electron.OpenDevToolsOptions["mode"];
 
+export type ReencodeCandidateType = "gif" | "image" | "video";
+
 export type TranscriptionModel =
   | "onnx-community/whisper-base_timestamped"
   | "onnx-community/whisper-large-v3-turbo_timestamped"
@@ -119,6 +121,8 @@ export interface Config {
   db: {
     fileStorage: {
       locations: string[];
+      /** Folder for intermediate media files. Empty keeps them beside their storage location. */
+      scratchPath: string;
       threshold: number;
     };
     path: string;
@@ -140,6 +144,8 @@ export interface Config {
     imageExts: Array<ImageExt>;
     reencode: {
       codec: string;
+      /** Files with these tags or their descendants never qualify for Add Re-encodes. */
+      excludedDescTagIds: string[];
       imageConcurrency: number;
       imageExt: ImageExt;
       imageJpgQuality: number;
@@ -166,6 +172,11 @@ export interface Config {
         removeTagIds: string[];
       };
       override: string[];
+      /** Longest video, in seconds, that qualifies for Add Re-encodes. Null has no limit. */
+      queueMaxDuration: number | null;
+      /** Types whose next qualifying batch is queued whenever the re-encode queue runs out. */
+      queueTypes: ReencodeCandidateType[];
+      videoConcurrency: number;
     };
     remuxTypes: {
       toMp4: Array<Omit<VideoExt, "mp4">>;
@@ -289,6 +300,7 @@ export const DEFAULT_CONFIG: Config = {
   db: {
     fileStorage: {
       locations: [path.resolve("FileStorage")],
+      scratchPath: "",
       threshold: 0.99,
     },
     path: path.resolve("MongoDB"),
@@ -310,6 +322,7 @@ export const DEFAULT_CONFIG: Config = {
     imageExts: [...CONSTANTS.IMAGE.EXTS_COMMON],
     reencode: {
       codec: "libx265",
+      excludedDescTagIds: [],
       imageConcurrency: 2,
       imageExt: "jpg",
       imageJpgQuality: 90,
@@ -336,6 +349,9 @@ export const DEFAULT_CONFIG: Config = {
         removeTagIds: [],
       },
       override: ["-preset", "slow", "-crf", "26", "-x265-params", "log-level=error"],
+      queueMaxDuration: null,
+      queueTypes: [],
+      videoConcurrency: 1,
     },
     remuxTypes: {
       toMp4: ["ts"],
@@ -476,6 +492,10 @@ export const getAvailableFileStorage = (bytesNeeded: number) =>
 
     throw new Error("No available file storage location found.");
   });
+
+/** Returns the configured scratch folder, or the given storage-side folder when none is set. */
+export const getScratchFolder = (storageFolder: string) =>
+  getConfig().db.fileStorage.scratchPath || storageFolder;
 
 export const getConfig = (debugLoc?: string) => {
   if (!config) throw new Error(`Config not loaded. ${debugLoc}`);

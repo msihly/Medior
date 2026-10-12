@@ -78,6 +78,7 @@ model.addProp("outputTempPath", "string");
 
 model.addProp("progressPercent", "number");
 model.addProp("progressSize", "number");
+model.addProp("progressStage", "string");
 model.addProp("progressTime", "string");
 
 model.addProp("queueIndex", "number");
@@ -100,6 +101,10 @@ model.addProp(
     sort: { icon: "PendingActions", label: "Status" },
   },
 );
+
+model.addProp("spliceMode", "'copy' | 'replace'", {
+  schemaType: "{ type: String, enum: ['copy', 'replace'] }",
+});
 
 model.addProp("timestampPairs", "Array<{ end: number; start: number }>", {
   defaultValue: "[]",

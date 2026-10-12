@@ -27,6 +27,7 @@ const FILTER_DEPENDENCIES: Record<string, string[]> = {
     "requiredTagIds",
   ],
   tagIdsWithAncestors: ["excludedDescTagIds", "requiredDescTagIds"],
+  timestamps: ["hasTimeline"],
   transcription: ["isTranscribed", "transcription"],
   videoCodec: ["selectedVideoCodecs"],
   width: ["maxLongEdge", "maxShortEdge", "maxWidth", "minLongEdge", "minShortEdge", "minWidth"],

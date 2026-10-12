@@ -350,6 +350,42 @@ export const addFilesToCollection = makeAction(
   ),
 );
 
+/** Inserts files at their given positions; files already in the collection keep their position. */
+export const insertFilesIntoCollection = makeAction(
+  registerMetadataWork(
+    "insertFilesIntoCollection",
+    async (args: { collId: string; fileIdIndexes: { fileId: string; index: number }[] }) => {
+      const collRes = await models.FileCollectionModel.findById(args.collId).lean();
+      if (!collRes) throw new Error("Collection not found");
+
+      const fileIds = [...collRes.fileIdIndexes]
+        .sort((a, b) => a.index - b.index)
+        .map((f) => String(f.fileId));
+      const existingIds = new Set(fileIds);
+      const fileIdIndexesToAdd = args.fileIdIndexes
+        .filter(({ fileId }) => !existingIds.has(fileId))
+        .sort((a, b) => a.index - b.index);
+
+      if (!fileIdIndexesToAdd.length) return leanModelToJson<models.FileCollectionSchema>(collRes);
+
+      for (const { fileId, index } of fileIdIndexesToAdd) {
+        if (existingIds.has(fileId)) continue;
+
+        existingIds.add(fileId);
+        fileIds.splice(Math.min(index, fileIds.length), 0, fileId);
+      }
+
+      const updateRes = await updateCollection({
+        id: args.collId,
+        fileIdIndexes: fileIds.map((fileId, index) => ({ fileId, index })),
+      });
+      if (!updateRes.success) throw new Error(updateRes.error);
+
+      return updateRes.data;
+    },
+  ),
+);
+
 export const createCollection = makeAction(
   registerMetadataWork(
     "createCollection",

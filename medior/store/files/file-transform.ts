@@ -11,6 +11,12 @@ export class FileTransform extends ExtendedModel(_FileTransform, {}) {
     return getIsAnimated(this.beforeExt) || getIsAnimated(this.afterExt);
   }
 
+  /** Splices queued before render modes existed have none and finalize as copies. */
+  @computed
+  get isSpliceCopy() {
+    return this.type === "splice" && this.spliceMode !== "replace";
+  }
+
   @computed
   get progress() {
     return {

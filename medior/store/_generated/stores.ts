@@ -1831,6 +1831,7 @@ export class _FileSearch extends Model({
   frameRateMode: prop<"optional" | "required">("required").withSetter(),
   hasChanges: prop<boolean>(false).withSetter(),
   hasDiffParams: prop<boolean>(false).withSetter(),
+  hasTimeline: prop<boolean>(false).withSetter(),
   heightMode: prop<"optional" | "required">("required").withSetter(),
   ids: prop<string[]>(() => []).withSetter(),
   isArchived: prop<boolean>(false).withSetter(),
@@ -2055,6 +2056,7 @@ export class _FileSearch extends Model({
     this.frameRateMode = "required";
     this.hasChanges = false;
     this.hasDiffParams = false;
+    this.hasTimeline = false;
     this.heightMode = "required";
     this.ids = [];
     this.isArchived = false;
@@ -2242,7 +2244,7 @@ export class _FileSearch extends Model({
 
       if (!res.success) throw new Error(res.error);
 
-      this.selectedIds = [...new Set([...this.selectedIds, ...res.data])];
+      this.setSelectedIds([...new Set([...this.selectedIds, ...res.data])]);
 
       return res.data.length;
     } catch (error) {
@@ -2473,6 +2475,7 @@ export class _FileSearch extends Model({
       (!isDeepEqual(this.excludedFileIds, []) ? 1 : 0) +
       (!isDeepEqual(this.frameRate, { logOp: "", value: 0 }) ? 1 : 0) +
       (!isDeepEqual(this.hasDiffParams, false) ? 1 : 0) +
+      (!isDeepEqual(this.hasTimeline, false) ? 1 : 0) +
       (!isDeepEqual(this.ids, []) ? 1 : 0) +
       (!isDeepEqual(this.isArchived, false) ? 1 : 0) +
       (!isDeepEqual(this.isCorrupted, null) ? 1 : 0) +
@@ -2568,6 +2571,7 @@ export class _FileSearch extends Model({
       frameRate: this.frameRate,
       frameRateMode: this.frameRateMode,
       hasDiffParams: this.hasDiffParams,
+      hasTimeline: this.hasTimeline,
       heightMode: this.heightMode,
       ids: this.ids,
       isArchived: this.isArchived,
@@ -2636,6 +2640,7 @@ export class _FileSearch extends Model({
       frameRate: this.frameRate,
       frameRateMode: this.frameRateMode,
       hasDiffParams: this.hasDiffParams,
+      hasTimeline: this.hasTimeline,
       heightMode: this.heightMode,
       ids: this.ids,
       isArchived: this.isArchived,
@@ -3899,6 +3904,7 @@ export class _BackgroundOperation extends Model({
     | "collectionMetadata"
     | "duplicateMerge"
     | "fileTagAncestors"
+    | "importCleanup"
     | "importEntryMigration"
     | "mediaPathIndex"
     | "metadataAction"
@@ -4251,10 +4257,12 @@ export class _FileTransform extends Model({
   outputTempPath: prop<string>(null),
   progressPercent: prop<number>(null),
   progressSize: prop<number>(null),
+  progressStage: prop<string>(null),
   progressTime: prop<string>(null),
   queueIndex: prop<number>(null),
   regenerationPending: prop<boolean>(false),
   regenerationTagIds: prop<string[]>(() => []),
+  spliceMode: prop<"copy" | "replace">(null),
   startedAt: prop<string>(null),
   status: prop<
     | string

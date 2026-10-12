@@ -12,7 +12,6 @@ import {
 } from "medior/components";
 import { useStores } from "medior/store";
 import { colors, toast } from "medior/utils/client";
-import { DuplicateBatch } from "./duplicate-batch";
 import { FileDetails } from "./file-details";
 import { TransformFilterMenu } from "./transform-filter-menu";
 
@@ -70,8 +69,6 @@ export const TransformSearch = Comp(() => {
             <View row align="center" spacing="0.5rem">
               <TransformFilterMenu />
 
-              <DuplicateBatch />
-
               {hasSelected && <Chip label={`${store.search.selectedIds.length} Selected`} />}
             </View>
 
@@ -87,7 +84,10 @@ export const TransformSearch = Comp(() => {
         headerProps={{ justify: "flex-start", padding: { all: "0.3rem" } }}
         padding={{ all: "0" }}
       >
-        <SearchLoadingOverlay store={store.search} />
+        <SearchLoadingOverlay
+          store={store.search}
+          isLoading={store.search.isLoading && !store.isQueueRefreshing}
+        />
 
         <CardGrid
           cards={store.search.results.map((transform) => (

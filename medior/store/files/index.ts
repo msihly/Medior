@@ -1,4 +1,5 @@
 export * from "./file";
+export * from "./file-exporter";
 export * from "./file-store";
 export * from "./file-transform";
 export * from "./file-transform-search";

@@ -1,4 +1,4 @@
-import { Card, CardBase, Comp, FileBase, View } from "medior/components";
+import { Card, CardBase, Comp, FileBase, Text, View } from "medior/components";
 import { FileTransform, useStores } from "medior/store";
 import { colors, openCarouselWindow, toast } from "medior/utils/client";
 import { TransformDetails } from "./transform-details";
@@ -56,7 +56,15 @@ export const FileDetails = Comp(({ transform }: FileDetailsProps) => {
               >
                 <CardBase.Chip
                   position="top-left"
-                  label={status ? `${queueIndex} - ${status.label}` : queueIndex}
+                  label={
+                    status ? (
+                      <Text fontSize="inherit" tooltip={transform.errorMsg}>
+                        {`${queueIndex} - ${status.label}`}
+                      </Text>
+                    ) : (
+                      queueIndex
+                    )
+                  }
                   bgColor={status?.color ?? colors.custom.black}
                   opacity={1}
                   radiuses={{ bottomRight: "inherit", left: 0, top: 0 }}
@@ -85,7 +93,7 @@ export const FileDetails = Comp(({ transform }: FileDetailsProps) => {
   );
 });
 
-const getTransformStatusDisplay = (transform: FileTransform) => {
+export const getTransformStatusDisplay = (transform: FileTransform) => {
   if (transform.status === "MERGED") return { color: colors.custom.green, label: "Merged" };
   else if (transform.status === "DUPLICATE")
     return { color: colors.custom.orange, label: "Duplicate" };

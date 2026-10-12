@@ -1,4 +1,4 @@
-import { HTMLAttributes, MouseEvent, useEffect, useRef, useState } from "react";
+import { HTMLAttributes, KeyboardEvent, MouseEvent, useEffect, useRef, useState } from "react";
 import type { AutocompleteChangeReason, AutocompleteRenderInputParams } from "@mui/material";
 import {
   AutoComplete,
@@ -256,6 +256,11 @@ export const TagInput = Comp(
       else handleClose();
     };
 
+    /** Menus move focus to items matching typed characters, so typed characters stop here. */
+    const handleKeyDown = (event: KeyboardEvent<HTMLElement>) => {
+      if (event.key.length === 1) event.stopPropagation();
+    };
+
     const renderInput = (params: AutocompleteRenderInputParams) => (
       <Input
         {...params}
@@ -317,7 +322,7 @@ export const TagInput = Comp(
     };
 
     return (
-      <View column height="100%" className={css.root}>
+      <View column height="100%" onKeyDown={handleKeyDown} className={css.root}>
         {single && value.length > 0 ? (
           <HeaderWrapper {...{ header, headerProps }}>{renderList()}</HeaderWrapper>
         ) : (

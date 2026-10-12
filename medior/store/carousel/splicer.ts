@@ -1,7 +1,7 @@
 import autoBind from "auto-bind";
 import { computed, reaction } from "mobx";
 import { getRootStore, Model, model, modelAction, modelFlow, prop } from "mobx-keystone";
-import { FileSchema } from "medior/server/database";
+import { FileSchema, SpliceMode } from "medior/server/database";
 import { RootStore } from "medior/store";
 import { asyncAction, derefMobx, toast } from "medior/utils/client";
 import {
@@ -17,10 +17,19 @@ export type FileTimestamp = FileSchema["timestamps"][number];
 
 export type FileTimestampPair = FileTimestamp["pairs"][number];
 
+/** Reloaded files carry database fields like `_id`, so only the edited values are compared. */
+const toComparablePairs = (pairs: readonly FileTimestampPair[]) =>
+  normalizeTimestampPairs(pairs).map(({ endDuration, id, startDuration }) => ({
+    endDuration,
+    id,
+    startDuration,
+  }));
+
 @model("medior/Splicer")
 export class Splicer extends Model({
   isLoading: prop<boolean>(false).withSetter(),
   isOpen: prop<boolean>(false).withSetter(),
+  spliceMode: prop<SpliceMode>("replace").withSetter(),
   timestampId: prop<string>(""),
   timestampLabel: prop<string>("").withSetter(),
   timestampPairs: prop<FileTimestampPair[]>(() => []).withSetter(),
@@ -193,7 +202,7 @@ export class Splicer extends Model({
     return (
       !timestamp ||
       timestamp.label !== this.timestampLabel ||
-      !isDeepEqual(normalizeTimestampPairs(timestamp.pairs), this.timestampPairs)
+      !isDeepEqual(toComparablePairs(timestamp.pairs), toComparablePairs(this.timestampPairs))
     );
   }
 

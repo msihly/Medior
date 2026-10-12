@@ -2,6 +2,7 @@ export * from "./container";
 export * from "./delete-files-modal";
 export * from "./file-base";
 export * from "./file-card";
+export * from "./file-export-modal";
 export * from "./file-refresh-modal";
 export * from "./filter-menu";
 export * from "./info-modal";

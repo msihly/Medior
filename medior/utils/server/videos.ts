@@ -13,14 +13,17 @@ import {
   round,
   validateTimestampPairs,
 } from "medior/utils/common";
-import { getAvailableFileStorage, getConfig } from "medior/utils/server";
+import { getAvailableFileStorage, getConfig, getScratchFolder } from "medior/utils/server";
 import { runImageTask } from "medior/utils/server/image-task";
 import { hashMediaFile, MediaOutput, publishMediaOutput } from "medior/utils/server/media-output";
 import { runConcurrent, workSignal } from "medior/utils/server/work-signal";
 
 export type FfmpegOptions = {
+  maxOutputSize?: number;
   onOutputPrepared?: (output: MediaOutput) => Promise<void>;
   onProgress?: (progress: FfmpegProgress) => void;
+  /** Names phases that report no percentage, such as verifying the finished output. */
+  onStage?: (stage: string) => void;
   onTempPath?: (tempPath: string) => Promise<void>;
   signal?: AbortSignal;
 };
@@ -50,6 +53,13 @@ export interface VideoInfo {
 export interface MediaInfo extends VideoInfo {
   frameDelays?: number[];
   isAnimated: boolean;
+}
+
+export class OutputSizeExceededError extends Error {
+  constructor(public tempPath: string) {
+    super(`Output reached the maximum size: ${tempPath}`);
+    this.name = "OutputSizeExceededError";
+  }
 }
 
 const PROBE_EXTENSIONS: Record<string, string[]> = {
@@ -106,16 +116,6 @@ const timemarkToSeconds = (timemark: string) => {
   return Number(hh) * 3600 + Number(mm) * 60 + Number(ss);
 };
 
-const secondsToTimemark = (seconds: number) => {
-  const hours = Math.floor(seconds / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
-  const remainingSeconds = seconds % 60;
-
-  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${remainingSeconds
-    .toFixed(2)
-    .padStart(5, "0")}`;
-};
-
 export { videoTranscoder } from "./video-transcoder";
 
 export const extractVideoFrame = async (
@@ -132,8 +132,7 @@ export const extractVideoFrame = async (
   if (!fileStorageRes.success) throw new Error(fileStorageRes.error);
 
   const outputPath = path.join(
-    fileStorageRes.data.location,
-    "_tmp",
+    getScratchFolder(path.join(fileStorageRes.data.location, "_tmp")),
     `extracted-frame-${randomUUID()}.jpg`,
   );
 
@@ -202,14 +201,17 @@ const execFfmpeg = async (
   const DEBUG = false;
   const { perfLog } = makePerfLog("[ffmpeg]", true);
 
-  const tempPath = path.resolve(outputDir, `temp-${randomUUID()}.${outputExt}`);
+  const tempDir = getScratchFolder(outputDir);
+  const tempPath = path.resolve(tempDir, `temp-${randomUUID()}.${outputExt}`);
 
   options = { ...options, signal: options?.signal ?? workSignal.getStore() };
-  await fs.mkdir(outputDir, { recursive: true });
+  await fs.mkdir(tempDir, { recursive: true });
   await options?.onTempPath?.(tempPath);
   options?.signal?.throwIfAborted();
 
   command.outputOptions(["-y"]);
+
+  let isOversized = false;
 
   const ffmpegPromise = new Promise((resolve, reject) => {
     command
@@ -218,6 +220,16 @@ const execFfmpeg = async (
         if (options?.signal?.aborted) command.kill("SIGKILL");
       })
       .on("progress", (progress) => {
+        // Reported sizes are floored KiB, so this never exceeds the bytes already written.
+        if (
+          !isOversized &&
+          options?.maxOutputSize &&
+          (progress.targetSize ?? 0) * 1000 >= options.maxOutputSize
+        ) {
+          isOversized = true;
+          command.kill("SIGKILL");
+        }
+
         if (options?.onProgress) {
           options.onProgress({
             fps: progress.currentFps ?? 0,
@@ -233,7 +245,7 @@ const execFfmpeg = async (
         }
       })
       .on("end", resolve)
-      .on("error", reject)
+      .on("error", (error) => reject(isOversized ? new OutputSizeExceededError(tempPath) : error))
       .run();
   });
 
@@ -258,6 +270,8 @@ const execFfmpeg = async (
 
   if (DEBUG) perfLog(`Temp file created: ${tempPath}.`);
 
+  options?.onStage?.("Verifying output");
+
   const newHash = await hashMediaFile(tempPath);
 
   const newPath = path.resolve(
@@ -269,7 +283,11 @@ const execFfmpeg = async (
 
   if (DEBUG) perfLog(`Moving temp file from ${tempPath} to ${newPath}.`);
 
-  await publishMediaOutput({ hash: newHash, path: newPath, tempPath }, options?.onOutputPrepared);
+  await publishMediaOutput(
+    { hash: newHash, path: newPath, tempPath },
+    options?.onOutputPrepared,
+    true,
+  );
 
   const res = await checkFileExists(newPath);
 
@@ -431,10 +449,11 @@ const compressImage = async (inputPath: string, outputDir: string, options?: Ffm
     getConfig().file.reencode;
 
   const outputExt = normalizeImageExt(imageExt);
-  const tempPath = path.resolve(outputDir, `temp-${randomUUID()}.${outputExt}`);
+  const tempDir = getScratchFolder(outputDir);
+  const tempPath = path.resolve(tempDir, `temp-${randomUUID()}.${outputExt}`);
 
   options?.signal?.throwIfAborted();
-  await fs.mkdir(outputDir, { recursive: true });
+  await fs.mkdir(tempDir, { recursive: true });
   await options?.onTempPath?.(tempPath);
 
   try {
@@ -464,7 +483,7 @@ const compressImage = async (inputPath: string, outputDir: string, options?: Ffm
       `${hash}.${outputExt}`,
     );
 
-    await publishMediaOutput({ hash, path: outputPath, tempPath }, options?.onOutputPrepared);
+    await publishMediaOutput({ hash, path: outputPath, tempPath }, options?.onOutputPrepared, true);
 
     options?.onProgress?.({
       fps: 0,
@@ -584,95 +603,39 @@ export const spliceVideo = async (
   await fs.mkdir(outputDir, { recursive: true });
 
   if (!options?.forceReencode) {
-    const tempDir = path.join(outputDir, "_tmp", `splice-${Date.now()}`);
+    const tempDir = path.join(
+      getScratchFolder(path.join(outputDir, "_tmp")),
+      `splice-${randomUUID()}`,
+    );
 
     await fs.mkdir(tempDir, { recursive: true });
 
-    const segmentPaths: string[] = [];
-    let completedDuration = 0;
-    let completedSize = 0;
-
     try {
-      for (const [index, [start, end]] of pairs.entries()) {
-        const segmentPath = path.join(tempDir, `segment-${index}.ts`);
-        const segmentDuration = end - start;
+      // The concat demuxer reads each range straight from the source and joins them into one
+      // continuous timeline, so the output is written once. Ranges start at the keyframe before.
+      const listPath = path.join(tempDir, "ranges.txt");
+      const sourcePath = inputPath.replace(/\\/g, "/").replace(/'/g, "'\\''");
 
-        const command = ffmpeg()
-          .input(inputPath)
-          .inputOptions([`-ss ${start}`])
-          .outputOptions([
-            `-t ${end - start}`,
-            "-map 0",
-            "-c copy",
-            "-avoid_negative_ts make_zero",
-            "-muxpreload 0",
-            "-muxdelay 0",
-          ]);
-
-        options?.onProgress?.({
-          fps: 0,
-          frames: 0,
-          kbps: 0,
-          percent: (completedDuration / totalDuration) * 100,
-          size: completedSize,
-          time: secondsToTimemark(completedDuration),
-        });
-
-        await new Promise<void>((resolve, reject) => {
-          const signal = options?.signal ?? workSignal.getStore();
-
-          signal?.throwIfAborted();
-
-          const abort = () => command.kill("SIGKILL");
-
-          const cleanup = () => signal?.removeEventListener("abort", abort);
-
-          command
-            .output(segmentPath)
-            .on("start", () => {
-              if (signal?.aborted) abort();
-            })
-            .on("progress", (progress) => {
-              const elapsed = progress.timemark
-                ? Math.min(timemarkToSeconds(progress.timemark), segmentDuration)
-                : 0;
-
-              options?.onProgress?.({
-                fps: progress.currentFps ?? 0,
-                frames: progress.frames ?? 0,
-                kbps: progress.currentKbps ?? 0,
-                percent: ((completedDuration + elapsed) / totalDuration) * 100,
-                size: completedSize + (progress.targetSize ?? 0) * 1000,
-                time: secondsToTimemark(completedDuration + elapsed),
-              });
-            })
-            .on("end", () => {
-              cleanup();
-              resolve();
-            })
-            .on("error", (err) => {
-              cleanup();
-              reject(err);
-            })
-            .run();
-
-          if (!signal) return;
-
-          if (signal.aborted) {
-            cleanup();
-            abort();
-            reject(new Error("Command cancelled before start."));
-          } else signal.addEventListener("abort", abort, { once: true });
-        });
-
-        segmentPaths.push(segmentPath);
-        completedDuration += segmentDuration;
-        completedSize += (await fs.stat(segmentPath)).size;
-      }
+      await fs.writeFile(
+        listPath,
+        pairs
+          .map(([start, end]) => `file '${sourcePath}'\ninpoint ${start}\noutpoint ${end}`)
+          .join("\n"),
+      );
 
       const command = ffmpeg()
-        .input(`concat:${segmentPaths.join("|")}`)
-        .outputOptions(["-map 0", "-c copy", "-movflags +faststart"]);
+        .input(listPath)
+        .inputOptions(["-f concat", "-safe 0"])
+        .outputOptions([
+          "-map 0",
+          "-c copy",
+          "-avoid_negative_ts make_zero",
+          "-movflags +faststart",
+        ]);
+
+      options?.onStage?.(
+        pairs.length > 1 ? `Cutting and joining ${pairs.length} clips` : "Cutting",
+      );
 
       return await execFfmpeg(command, outputDir, options, totalDuration);
     } finally {

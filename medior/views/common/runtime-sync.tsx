@@ -1,7 +1,7 @@
 import { ipcRenderer } from "electron";
 import { ReactNode, useEffect, useRef, useState } from "react";
-import { LoadingOverlay, Text, View, WindowTitleBar } from "medior/components";
 import type { ServerProcessStatus } from "medior/server/server";
+import { LoadingOverlay, Text, View, WindowTitleBar } from "medior/components";
 import { useStores } from "medior/store";
 import { persistNotification, Toaster } from "medior/utils/client";
 import { Config, getConfig, setConfig, setupTRPC, socket } from "medior/utils/server";

@@ -4,7 +4,6 @@
 import * as models from "medior/_generated/server/models";
 import { SocketEventOptions } from "medior/_generated/server/socket";
 import { FilterQuery } from "mongoose";
-import * as Types from "medior/server/database/types";
 import {
   removeFileCollectionIds,
   syncCollectionFileIds,
@@ -28,6 +27,7 @@ import {
   metadataWriteOptions,
   registerMetadataWork,
 } from "medior/server/database/metadata-work";
+import * as Types from "medior/server/database/types";
 import { SortMenuProps } from "medior/components";
 import {
   addRegexSearchFilter,
@@ -919,6 +919,7 @@ export type CreateFileFilterPipelineInput = {
   frameRate?: { logOp: LogicalOp | ""; value: number };
   frameRateMode?: "optional" | "required";
   hasDiffParams?: boolean;
+  hasTimeline?: boolean;
   heightMode?: "optional" | "required";
   ids?: string[];
   isArchived?: boolean;
@@ -973,6 +974,9 @@ export const createFileFilterPipeline = async (args: CreateFileFilterPipelineInp
         [{ $eq: [{ $type: "$diffusionParams" }, "string"] }, { $ne: ["$diffusionParams", ""] }],
       ),
     );
+
+  if (args.hasTimeline != null && !isDeepEqual(args.hasTimeline, false))
+    setObj($match, ["timestamps.id", "$exists"], true);
 
   if (args.ids != null && !isDeepEqual(args.ids, []))
     ($match.$and ??= []).push(setObj({}, ["_id", "$in"], objectIds(args.ids)));

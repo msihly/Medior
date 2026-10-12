@@ -1,45 +1,25 @@
-import { Comp, Detail, Divider, UniformList, View } from "medior/components";
-import { FileTransform, useStores } from "medior/store";
-import { makeClasses } from "medior/utils/client";
+import { Comp, Detail, Text, UniformList, View } from "medior/components";
+import { FileTransform } from "medior/store";
 import { Fmt, round } from "medior/utils/common";
 import { DuplicateReview } from "./duplicate-review";
 import { InputOutputRow } from "./input-output-row";
 
 export const TransformDetails = Comp(
-  ({
-    transform,
-    compact = false,
-    withQueueTotals = false,
-  }: {
-    compact?: boolean;
-    transform: FileTransform;
-    withQueueTotals?: boolean;
-  }) => {
-    const stores = useStores();
-    const store = stores.file.videoTransformer;
-
-    const { css } = useClasses(null);
-
+  ({ transform, compact = false }: { compact?: boolean; transform: FileTransform }) => {
     const outputSize = transform.afterSize ?? transform.progressSize;
     const outputCodec = getOutputCodec(transform);
     const outputDimensions = getOutputDimensions(transform);
     const outputFrameRate = getOutputFrameRate(transform);
 
+    const detailLabelProps = {
+      alignSelf: "center",
+      fontSize: compact ? "0.9em" : "1em",
+      width: compact ? "5rem" : "6rem",
+    } as const;
+
     return (
       <View column spacing={compact ? "0.35rem" : "0.8rem"} overflow="visible">
         <UniformList column spacing={compact ? "0.25rem" : "0.5rem"}>
-          {withQueueTotals && transform.type !== "splice" ? (
-            <>
-              <InputOutputRow
-                label="Total"
-                input={Fmt.bytes(store.queueBeforeSize)}
-                output={Fmt.bytes(store.queueAfterSize)}
-              />
-
-              <Divider className={css.divider} />
-            </>
-          ) : null}
-
           <InputOutputRow
             compact={compact}
             label="Ext"
@@ -95,15 +75,24 @@ export const TransformDetails = Comp(
           <Detail
             row
             label="Ratio"
-            labelProps={{
-              alignSelf: "center",
-              fontSize: compact ? "0.9em" : "1em",
-              width: compact ? "5rem" : "6rem",
-            }}
+            labelProps={detailLabelProps}
             value={
-              transform.beforeSize && outputSize
-                ? `${round(transform.beforeSize / outputSize)}x`
-                : "--"
+              <View row align="center" spacing={compact ? "0.6rem" : "1rem"}>
+                <Text width={compact ? "5.5rem" : "6rem"} whiteSpace="nowrap">
+                  {transform.beforeSize && outputSize
+                    ? `${round(transform.beforeSize / outputSize)}x`
+                    : "--"}
+                </Text>
+
+                {transform.type === "splice" && (
+                  <Detail
+                    row
+                    label="Mode"
+                    labelProps={{ alignSelf: "center", fontSize: detailLabelProps.fontSize }}
+                    value={transform.isSpliceCopy ? "Copy" : "Replace"}
+                  />
+                )}
+              </View>
             }
           />
         </UniformList>
@@ -192,9 +181,3 @@ const getOutputFrameRate = (transform: FileTransform) => {
   else if (!transform.beforeFrameRate) return transform.configMaxFps;
   else return round(Math.min(transform.beforeFrameRate, transform.configMaxFps));
 };
-
-const useClasses = makeClasses({
-  divider: {
-    flex: 0,
-  },
-});

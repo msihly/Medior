@@ -80,44 +80,93 @@ export interface TagRegExMap {
   tagId: string;
 }
 
-const normalizeTagRegExKey = (label: string) => label.replace(/[\s_.-]+/g, " ").toUpperCase();
+/** Exact matches the whole text, word matches separate words, and partial matches anywhere. */
+export type TagRegExTermMode = "exact" | "partial" | "word";
 
-/** Recognize the anchored literal alternatives emitted by tagsToRegEx; other patterns stay regexes. */
-const getTagRegExKeys = (regEx: RegExp) => {
-  if (/[^im]/.test(regEx.flags) || !regEx.source.startsWith("(^") || !regEx.source.endsWith("$)"))
-    return null;
+export interface TagRegExTerm {
+  mode: TagRegExTermMode;
+  term: string;
+}
 
-  const keys = new Set<string>();
+const SEPARATOR_PATTERN = "[\\s\\-_\\.]+";
+const WORD_END_PATTERN = "(?![^\\W_])";
+const WORD_START_PATTERN = "(?<![^\\W_])";
 
-  for (const alternative of regEx.source.slice(1, -1).split(")|(")) {
-    if (!alternative.startsWith("^") || !alternative.endsWith("$")) return null;
+export const normalizeTagRegExKey = (label: string) =>
+  label.replace(/[\s_.-]+/g, " ").toUpperCase();
 
-    const pattern = alternative.slice(1, -1);
-    let literal = "";
+/** The first run of letters and digits indexes whole-word terms by a word the input must contain. */
+const getFirstWordKey = (text: string) => text.match(/[^\W_]+/)?.[0].toUpperCase() ?? null;
 
-    for (let idx = 0; idx < pattern.length; idx++) {
-      const separator = "[\\s\\-_\\.]+";
+const termToPattern = ({ mode, term }: TagRegExTerm) => {
+  const literal = Fmt.regexEscape(term.trim()).replaceAll(/[\s-_]+/g, SEPARATOR_PATTERN);
 
-      if (pattern.startsWith(separator, idx)) {
-        literal += " ";
-        idx += separator.length - 1;
-      } else if (pattern[idx] === "\\") {
-        const escaped = pattern[++idx];
+  if (mode === "exact") return `^${literal}$`;
+  else if (mode === "word") return `${WORD_START_PATTERN}${literal}${WORD_END_PATTERN}`;
+  else return literal;
+};
 
-        if (!escaped || !".*+?^${}()|[]\\/".includes(escaped)) return null;
+/** Stores one group per term, then the custom pattern, so the editor can read the terms back. */
+export const makeTagRegEx = (terms: TagRegExTerm[], custom = "") =>
+  [...terms.filter(({ term }) => term.trim()).map((term) => `(${termToPattern(term)})`), custom]
+    .filter(Boolean)
+    .join("|");
 
-        literal += escaped;
-      } else {
-        if (".*+?^${}()|[]".includes(pattern[idx])) return null;
+/** Reads a literal written by termToPattern, returning where it ends, or null at a regex token. */
+const readTermLiteral = (source: string, start: number) => {
+  let literal = "";
+  let idx = start;
 
-        literal += pattern[idx];
-      }
-    }
+  while (idx < source.length) {
+    if (source.startsWith(SEPARATOR_PATTERN, idx)) {
+      literal += " ";
+      idx += SEPARATOR_PATTERN.length;
+    } else if (source[idx] === "\\") {
+      const escaped = source[idx + 1];
+      if (!escaped || !".*+?^${}()|[]\\/".includes(escaped)) return null;
 
-    keys.add(normalizeTagRegExKey(literal));
+      literal += escaped;
+      idx += 2;
+    } else if (".*+?^${}()|[]".includes(source[idx])) break;
+    else literal += source[idx++];
   }
 
-  return keys;
+  return literal ? { end: idx, literal } : null;
+};
+
+/** Reads one term group at the start of the source, or returns null when it is not one. */
+const readTermGroup = (source: string): { length: number; term: TagRegExTerm } => {
+  if (!source.startsWith("(")) return null;
+
+  const [mode, prefix, suffix]: [TagRegExTermMode, string, string] = source.startsWith("(^")
+    ? ["exact", "^", "$"]
+    : source.startsWith(`(${WORD_START_PATTERN}`)
+      ? ["word", WORD_START_PATTERN, WORD_END_PATTERN]
+      : ["partial", "", ""];
+
+  const read = readTermLiteral(source, 1 + prefix.length);
+  if (!read || !source.startsWith(`${suffix})`, read.end)) return null;
+
+  const length = read.end + suffix.length + 1;
+  if (length < source.length && source[length] !== "|") return null;
+
+  return { length, term: { mode, term: read.literal } };
+};
+
+/** Splits a stored pattern into the term groups written by makeTagRegEx and a custom remainder. */
+export const parseTagRegEx = (source: string) => {
+  const groups: { source: string; term: TagRegExTerm }[] = [];
+  let rest = source ?? "";
+
+  while (rest) {
+    const group = readTermGroup(rest);
+    if (!group) break;
+
+    groups.push({ source: rest.slice(0, group.length), term: group.term });
+    rest = rest.slice(group.length + 1);
+  }
+
+  return { custom: rest, groups };
 };
 
 export class TagRegExMatcher {
@@ -126,6 +175,7 @@ export class TagRegExMatcher {
   private maps: TagRegExMap[] = [];
   private positions = new Map<TagRegExMap, number>();
   private tagIds = new Set<string>();
+  private wordMaps = new Map<string, TagRegExMap[]>();
 
   add(map: TagRegExMap) {
     if (this.tagIds.has(map.tagId)) return;
@@ -134,14 +184,28 @@ export class TagRegExMatcher {
     this.positions.set(map, this.maps.length);
     this.maps.push(map);
 
-    const keys = getTagRegExKeys(map.regEx);
+    const { custom, groups } = parseTagRegEx(map.regEx.source);
 
-    if (!keys) this.fallbackMaps.push(map);
+    // Partial and custom patterns can match anywhere, so they are always tested.
+    if (
+      /[^im]/.test(map.regEx.flags) ||
+      custom ||
+      groups.some(
+        ({ term }) =>
+          term.mode === "partial" || (term.mode === "word" && !getFirstWordKey(term.term)),
+      )
+    )
+      this.fallbackMaps.push(map);
     else
-      for (const key of keys) {
-        if (!this.indexedMaps.has(key)) this.indexedMaps.set(key, []);
+      for (const { term } of groups) {
+        const [maps, key] =
+          term.mode === "exact"
+            ? [this.indexedMaps, normalizeTagRegExKey(term.term)]
+            : [this.wordMaps, getFirstWordKey(term.term)];
 
-        this.indexedMaps.get(key).push(map);
+        if (!maps.has(key)) maps.set(key, []);
+
+        maps.get(key).push(map);
       }
   }
 
@@ -149,7 +213,15 @@ export class TagRegExMatcher {
     // Multiline patterns may match across several lines; retain full regex semantics for those inputs.
     const candidates = /[\r\n\u2028\u2029]/.test(label)
       ? this.maps
-      : [...(this.indexedMaps.get(normalizeTagRegExKey(label)) ?? []), ...this.fallbackMaps];
+      : [
+          ...new Set([
+            ...(this.indexedMaps.get(normalizeTagRegExKey(label)) ?? []),
+            ...[...new Set(label.toUpperCase().match(/[^\W_]+/g))].flatMap(
+              (word) => this.wordMaps.get(word) ?? [],
+            ),
+            ...this.fallbackMaps,
+          ]),
+        ];
 
     const matches: TagRegExMap[] = [];
 
@@ -166,7 +238,8 @@ export class TagRegExMatcher {
 }
 
 export const tagsToRegEx = (tags: { aliases?: string[]; label: string }[]) =>
-  `(${tags
-    .flatMap((tag) => [tag.label, ...(tag.aliases ?? [])])
-    .map((s) => `^${Fmt.regexEscape(s).replaceAll(/[\s-_]+/g, "[\\s\\-_\\.]+")}$`)
-    .join(")|(")})`;
+  makeTagRegEx(
+    tags.flatMap((tag) =>
+      [tag.label, ...(tag.aliases ?? [])].map((term) => ({ mode: "exact" as const, term })),
+    ),
+  );

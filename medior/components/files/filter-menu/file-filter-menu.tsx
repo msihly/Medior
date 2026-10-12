@@ -29,6 +29,8 @@ export const FileFilterMenu = Comp(({ color = colors.foreground, store }: FileFi
 
   const toggleHasDiffParams = () => store.setHasDiffParams(!store.hasDiffParams);
 
+  const toggleHasTimeline = () => store.setHasTimeline(!store.hasTimeline);
+
   const toggleIsCorrupted = () =>
     store.setIsCorrupted(
       store.isCorrupted === true ? false : store.isCorrupted === false ? null : true,
@@ -46,7 +48,7 @@ export const FileFilterMenu = Comp(({ color = colors.foreground, store }: FileFi
 
   return (
     <FilterMenu store={store} resetFn={store._reset} color={color} sortOptions={SORT_OPTIONS.File}>
-      <View row height="20.5rem" spacing="0.5rem">
+      <View row height="22rem" spacing="0.5rem">
         <Card flex={1}>
           <TagInput
             header="Tags"
@@ -118,6 +120,14 @@ export const FileFilterMenu = Comp(({ color = colors.foreground, store }: FileFi
               indeterminate={store.isModified === false}
               setChecked={toggleIsModified}
               color={colors.custom.purple}
+              flex="none"
+            />
+
+            <Checkbox
+              label="Timeline"
+              checked={store.hasTimeline}
+              setChecked={toggleHasTimeline}
+              color={colors.palette.teal[500]}
               flex="none"
             />
 

@@ -177,6 +177,9 @@ export type RecordNotificationOutput = ReturnType<typeof db.recordNotification>;
 export type AddFilesToCollectionInput = Parameters<typeof db.addFilesToCollection>[0];
 export type AddFilesToCollectionOutput = ReturnType<typeof db.addFilesToCollection>;
 
+export type InsertFilesIntoCollectionInput = Parameters<typeof db.insertFilesIntoCollection>[0];
+export type InsertFilesIntoCollectionOutput = ReturnType<typeof db.insertFilesIntoCollection>;
+
 export type CreateCollectionInput = Parameters<typeof db.createCollection>[0];
 export type CreateCollectionOutput = ReturnType<typeof db.createCollection>;
 
@@ -220,6 +223,9 @@ export type UpdateCollectionOutput = ReturnType<typeof db.updateCollection>;
 
 export type CheckFileImportHashesInput = Parameters<typeof db.checkFileImportHashes>[0];
 export type CheckFileImportHashesOutput = ReturnType<typeof db.checkFileImportHashes>;
+
+export type ListPendingCleanupPathsInput = Parameters<typeof db.listPendingCleanupPaths>[0];
+export type ListPendingCleanupPathsOutput = ReturnType<typeof db.listPendingCleanupPaths>;
 
 export type CompleteImportBatchInput = Parameters<typeof db.completeImportBatch>[0];
 export type CompleteImportBatchOutput = ReturnType<typeof db.completeImportBatch>;
@@ -287,11 +293,14 @@ export type RemoveMissingStorageRecordsOutput = ReturnType<typeof db.removeMissi
 export type ScanFileStorageInput = Parameters<typeof db.scanFileStorage>[0];
 export type ScanFileStorageOutput = ReturnType<typeof db.scanFileStorage>;
 
-export type GetNextFileTransformInput = Parameters<typeof db.getNextFileTransform>[0];
-export type GetNextFileTransformOutput = ReturnType<typeof db.getNextFileTransform>;
+export type GetActiveFileTransformInput = Parameters<typeof db.getActiveFileTransform>[0];
+export type GetActiveFileTransformOutput = ReturnType<typeof db.getActiveFileTransform>;
 
 export type CreateFileTransformsInput = Parameters<typeof db.createFileTransforms>[0];
 export type CreateFileTransformsOutput = ReturnType<typeof db.createFileTransforms>;
+
+export type ListReencodeCandidateIdsInput = Parameters<typeof db.listReencodeCandidateIds>[0];
+export type ListReencodeCandidateIdsOutput = ReturnType<typeof db.listReencodeCandidateIds>;
 
 export type DeleteFileTransformsInput = Parameters<typeof db.deleteFileTransforms>[0];
 export type DeleteFileTransformsOutput = ReturnType<typeof db.deleteFileTransforms>;
@@ -308,6 +317,11 @@ export type GetFileTransformerStatusOutput = ReturnType<typeof db.getFileTransfo
 
 export type GetFileTransformQueueCountInput = Parameters<typeof db.getFileTransformQueueCount>[0];
 export type GetFileTransformQueueCountOutput = ReturnType<typeof db.getFileTransformQueueCount>;
+
+export type ListFileTransformSizeHistoryInput = Parameters<
+  typeof db.listFileTransformSizeHistory
+>[0];
+export type ListFileTransformSizeHistoryOutput = ReturnType<typeof db.listFileTransformSizeHistory>;
 
 export type PauseFileTransformerInput = Parameters<typeof db.pauseFileTransformer>[0];
 export type PauseFileTransformerOutput = ReturnType<typeof db.pauseFileTransformer>;
@@ -355,6 +369,9 @@ export type ListAllArchivedFileIdsOutput = ReturnType<typeof db.listAllArchivedF
 
 export type ListFileIdsByTagIdsInput = Parameters<typeof db.listFileIdsByTagIds>[0];
 export type ListFileIdsByTagIdsOutput = ReturnType<typeof db.listFileIdsByTagIds>;
+
+export type CreateFileExportSidecarsInput = Parameters<typeof db.createFileExportSidecars>[0];
+export type CreateFileExportSidecarsOutput = ReturnType<typeof db.createFileExportSidecars>;
 
 export type DeleteFilesInput = Parameters<typeof db.deleteFiles>[0];
 export type DeleteFilesOutput = ReturnType<typeof db.deleteFiles>;
@@ -567,6 +584,12 @@ export type GetTagWithRelationsOutput = ReturnType<typeof db.getTagWithRelations
 
 export type ListRegExMapsInput = Parameters<typeof db.listRegExMaps>[0];
 export type ListRegExMapsOutput = ReturnType<typeof db.listRegExMaps>;
+
+export type ListAllTagRegExOverlapsInput = Parameters<typeof db.listAllTagRegExOverlaps>[0];
+export type ListAllTagRegExOverlapsOutput = ReturnType<typeof db.listAllTagRegExOverlaps>;
+
+export type ListTagRegExOverlapsInput = Parameters<typeof db.listTagRegExOverlaps>[0];
+export type ListTagRegExOverlapsOutput = ReturnType<typeof db.listTagRegExOverlaps>;
 
 export type ListImportTagsInput = Parameters<typeof db.listImportTags>[0];
 export type ListImportTagsOutput = ReturnType<typeof db.listImportTags>;

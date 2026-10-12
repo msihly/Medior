@@ -1,17 +1,19 @@
 import { shell } from "@electron/remote";
+import { useState } from "react";
 import {
   Button,
   CenteredText,
   Checkbox,
   Comp,
+  ConfirmModal,
   Divider,
   FileCard,
   LoadingOverlay,
-  Text,
   View,
 } from "medior/components";
 import { useStores } from "medior/store";
 import { colors, toast } from "medior/utils/client";
+import { SizeHistoryChart } from "./size-history-chart";
 import { TransformDetails } from "./transform-details";
 import { ProgressCircle } from "./transform-progress-circle";
 
@@ -19,8 +21,19 @@ export const ActiveTransform = Comp(({ onCompare }: { onCompare: () => void }) =
   const stores = useStores();
   const store = stores.file.videoTransformer;
 
+  const [isConfirmRunOpen, setIsConfirmRunOpen] = useState(false);
+
   const canReplace =
     store.activeTransform?.status === "COMPLETE" || store.activeTransform?.status === "COMPRESSED";
+  // Paused workers finish their in-flight files before the transformer stops.
+  const isPausing = store.isPaused && store.isQueueTransforming;
+
+  const confirmRun = async () => {
+    const res = await store.runActiveTransform();
+    if (!res.success) toast.error(res.error);
+
+    return res.success;
+  };
 
   const handleAutoReplace = async (isAuto: boolean) => {
     const res = await store.setAutoReplace(isAuto);
@@ -40,120 +53,146 @@ export const ActiveTransform = Comp(({ onCompare }: { onCompare: () => void }) =
   const handlePlayOutput = () =>
     store.activeTransform?.afterPath && shell.openPath(store.activeTransform.afterPath);
 
-  const handleReplace = async () => {
-    const res = await (store.activeTransform.type === "splice"
-      ? store.saveCopy()
-      : store.replaceOutput());
-
+  const handleFinalize = async () => {
+    const res = await store.finalizeActiveTransform();
     if (!res.success) toast.error(res.error);
   };
 
   const handleTogglePaused = async () => {
-    const res = await (store.isTransforming || store.isPaused
-      ? store.togglePaused()
-      : store.runActiveTransform());
+    if (store.isTransforming && !store.isQueueTransforming) setIsConfirmRunOpen(true);
+    else {
+      const res = await (store.isQueueTransforming || store.isPaused
+        ? store.togglePaused()
+        : store.runActiveTransform());
 
-    if (!res.success) toast.error(res.error);
+      if (!res.success) toast.error(res.error);
+    }
   };
 
   return (
-    <View
-      column
-      height="100%"
-      width="100%"
-      overflow="hidden"
-      padding={{ all: "0.8rem" }}
-      bgColor={colors.background}
-    >
-      <LoadingOverlay
-        isLoading={store.isLoading || store.isUpdating}
-        sub={!store.isUpdating && <Button text="Cancel" icon="Close" onClick={store.cancelLoad} />}
-      />
+    <>
+      <View
+        column
+        height="100%"
+        width="100%"
+        overflow="hidden"
+        padding={{ all: "0.8rem" }}
+        bgColor={colors.background}
+      >
+        <LoadingOverlay
+          isLoading={store.isLoading || store.isUpdating}
+          sub={
+            !store.isUpdating && <Button text="Cancel" icon="Close" onClick={store.cancelLoad} />
+          }
+        />
 
-      {store.activeTransform ? (
         <View column height="100%" spacing="0.8rem" overflow="hidden">
           <View row flex={1} spacing="2rem" justify="center" align="center" overflow="auto hidden">
-            <FileCard
-              file={store.activeFile}
-              store={store.search}
-              disabled
-              width="16rem"
-              height="16rem"
-            />
+            {store.activeTransform ? (
+              <>
+                <FileCard
+                  file={store.activeFile}
+                  store={store.search}
+                  disabled
+                  width="16rem"
+                  height="16rem"
+                />
 
-            <View row flex="none" spacing="2rem" justify="center" align="center">
-              <ProgressCircle transform={store.activeTransform} />
+                <View row flex="none" spacing="2rem" justify="center" align="center">
+                  <ProgressCircle transform={store.activeTransform} />
 
-              <Divider orientation="vertical" />
+                  <Divider orientation="vertical" />
 
-              <TransformDetails transform={store.activeTransform} withQueueTotals />
-            </View>
+                  <TransformDetails transform={store.activeTransform} />
+                </View>
+              </>
+            ) : (
+              <CenteredText
+                text={store.isLoading || store.isQueueTransforming ? "Loading…" : "Nothing queued"}
+                color={colors.custom.lightGrey}
+                viewProps={{ flex: "none" }}
+              />
+            )}
+
+            <Divider orientation="vertical" />
+
+            <SizeHistoryChart />
           </View>
 
-          <View row spacing="0.5rem" justify="center" width="100%">
-            <View column spacing="0.5rem" width="11rem">
-              <Button
-                text="Play: Original"
-                icon="PlayArrow"
-                onClick={handlePlayOriginal}
-                disabled={!store.activeTransform.beforePath}
-              />
+          {store.activeTransform && (
+            <View row spacing="0.5rem" justify="center" width="100%">
+              <View column spacing="0.5rem" width="11rem">
+                <Button
+                  text="Play: Original"
+                  icon="PlayArrow"
+                  onClick={handlePlayOriginal}
+                  disabled={!store.activeTransform.beforePath}
+                />
 
-              <Button
-                text="Find: Original"
-                icon="Folder"
-                onClick={handleFindOriginal}
-                disabled={!store.activeTransform.beforePath}
-              />
-            </View>
+                <Button
+                  text="Find: Original"
+                  icon="Folder"
+                  onClick={handleFindOriginal}
+                  disabled={!store.activeTransform.beforePath}
+                />
+              </View>
 
-            <View column spacing="0.5rem" width="11rem">
-              <Button
-                text="Play: Output"
-                icon="PlayArrow"
-                onClick={handlePlayOutput}
-                disabled={!store.activeTransform.afterPath}
-              />
+              <View column spacing="0.5rem" width="11rem">
+                <Button
+                  text="Play: Output"
+                  icon="PlayArrow"
+                  onClick={handlePlayOutput}
+                  disabled={!store.activeTransform.afterPath}
+                />
 
-              <Button
-                text="Find: Output"
-                icon="Folder"
-                onClick={handleFindOutput}
-                disabled={!store.activeTransform.afterPath}
-              />
-            </View>
+                <Button
+                  text="Find: Output"
+                  icon="Folder"
+                  onClick={handleFindOutput}
+                  disabled={!store.activeTransform.afterPath}
+                />
+              </View>
 
-            <View column spacing="0.5rem" width="11rem">
-              <Button
-                text="Compare"
-                icon="Compare"
-                onClick={onCompare}
-                disabled={
-                  !store.activeTransform.beforePath ||
-                  !store.activeTransform.afterPath ||
-                  store.activeTransform.type === "splice" ||
-                  !canReplace
-                }
-              />
+              <View column spacing="0.5rem" width="11rem">
+                <Button
+                  text="Compare"
+                  icon="Compare"
+                  onClick={onCompare}
+                  disabled={
+                    !store.activeTransform.beforePath ||
+                    !store.activeTransform.afterPath ||
+                    store.activeTransform.type === "splice" ||
+                    !canReplace
+                  }
+                />
 
-              <Button
-                text={store.isPaused ? "Restart" : store.isTransforming ? "Pause" : "Run"}
-                icon={store.isPaused || !store.isTransforming ? "PlayArrow" : "Pause"}
-                onClick={handleTogglePaused}
-                disabled={store.isUpdating || (store.isLoading && !store.isTransforming)}
-                color={
-                  store.isPaused
-                    ? colors.custom.orange
-                    : store.isTransforming
-                      ? colors.custom.blue
-                      : colors.custom.grey
-                }
-              />
-            </View>
+                <Button
+                  text={
+                    isPausing
+                      ? "Pausing…"
+                      : store.isPaused
+                        ? "Restart"
+                        : store.isQueueTransforming
+                          ? "Pause"
+                          : "Run"
+                  }
+                  icon={store.isPaused || !store.isQueueTransforming ? "PlayArrow" : "Pause"}
+                  onClick={handleTogglePaused}
+                  disabled={
+                    isPausing || store.isUpdating || (store.isLoading && !store.isQueueTransforming)
+                  }
+                  color={
+                    store.isPaused
+                      ? colors.custom.orange
+                      : store.isQueueTransforming
+                        ? colors.custom.blue
+                        : colors.custom.grey
+                  }
+                />
+              </View>
 
-            <View column spacing="0.5rem" width="11rem">
-              <View row flex={1} align="center">
-                {store.activeTransform.type !== "splice" && (
+              <View column spacing="0.5rem" width="11rem">
+                <View row flex={1} align="center">
                   <Checkbox
                     label="Auto-Replace"
                     labelProps={{ fontSize: "0.9em" }}
@@ -163,42 +202,40 @@ export const ActiveTransform = Comp(({ onCompare }: { onCompare: () => void }) =
                     flex="none"
                     padding={{ all: "0.1rem 0.3rem" }}
                   />
-                )}
+                </View>
+
+                <Button
+                  text={store.activeTransform.isSpliceCopy ? "Save Copy" : "Replace"}
+                  icon={store.activeTransform.isSpliceCopy ? "Save" : "Refresh"}
+                  onClick={handleFinalize}
+                  disabled={
+                    store.isLoading ||
+                    store.isTransforming ||
+                    store.isUpdating ||
+                    !store.activeTransform.afterPath ||
+                    (store.activeTransform.type === "splice"
+                      ? store.activeTransform.status !== "COMPLETE"
+                      : !canReplace)
+                  }
+                  color={colors.custom.green}
+                />
               </View>
-
-              <Button
-                text={store.activeTransform.type === "splice" ? "Save Copy" : "Replace"}
-                icon={store.activeTransform.type === "splice" ? "Save" : "Refresh"}
-                onClick={handleReplace}
-                disabled={
-                  store.isLoading ||
-                  store.isTransforming ||
-                  store.isUpdating ||
-                  !store.activeTransform.afterPath ||
-                  (store.activeTransform.type === "splice"
-                    ? store.activeTransform.status !== "COMPLETE"
-                    : !canReplace)
-                }
-                color={colors.custom.green}
-              />
             </View>
-          </View>
-
-          {store.activeTransform.errorMsg ? (
-            <Text
-              color={
-                ["DUPLICATE", "SKIPPED"].includes(store.activeTransform.status)
-                  ? colors.custom.orange
-                  : colors.custom.red
-              }
-            >
-              {store.activeTransform.errorMsg}
-            </Text>
-          ) : null}
+          )}
         </View>
-      ) : (
-        <CenteredText text="Nothing queued" color={colors.custom.lightGrey} />
+      </View>
+
+      {isConfirmRunOpen && (
+        <ConfirmModal
+          headerText="Pause Media Transformer"
+          subText="Another queue is running. Running this one pauses it and loses the active transform's progress."
+          confirmText="Run"
+          confirmIcon="PlayArrow"
+          confirmColor={colors.custom.blue}
+          onConfirm={confirmRun}
+          setVisible={setIsConfirmRunOpen}
+        />
       )}
-    </View>
+    </>
   );
 });

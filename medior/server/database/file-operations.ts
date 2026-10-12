@@ -90,6 +90,8 @@ export interface FileOperation {
   sourceHash?: string;
   sourceModified?: string;
   sourcePath?: string;
+  /** Import root whose folders emptied by this operation's deleted sources are removed. */
+  sourceRootPath?: string;
   state: "COMMITTED" | "PREPARED";
   tempPath?: string;
   thumbnailInput?: {
@@ -119,6 +121,7 @@ const schema = new Schema<FileOperation>({
   sourceHash: String,
   sourceModified: String,
   sourcePath: String,
+  sourceRootPath: String,
   state: { enum: ["COMMITTED", "PREPARED"], required: true, type: String },
   tempPath: String,
   thumbnailInput: Schema.Types.Mixed,
@@ -266,7 +269,57 @@ export const isMediaPathReferenced = async (
   );
 };
 
-const activeCleanups = new Map<string, Promise<void>>();
+const isWithinFolder = (parent: string, child: string) => {
+  const relative = nodePath.relative(parent, child);
+
+  return (
+    !nodePath.isAbsolute(relative) && relative !== ".." && !relative.startsWith(`..${nodePath.sep}`)
+  );
+};
+
+/** Removes folders emptied by deleted sources, walking up from each source to the import root. */
+const removeEmptySourceFolders = async (filePaths: string[], rootPath: string) => {
+  for (const filePath of filePaths) {
+    for (
+      let folderPath = nodePath.dirname(filePath);
+      isWithinFolder(rootPath, folderPath);
+      folderPath = nodePath.dirname(folderPath)
+    ) {
+      try {
+        await fs.rmdir(folderPath);
+      } catch (error) {
+        // Folders that still hold files, or are locked, stop the walk and are left in place.
+        if (error.code !== "ENOENT") break;
+      }
+    }
+  }
+};
+
+/** WAITING means files still referenced by the library or a tag thumbnail keep the operation open. */
+export type FileCleanupResult = "DONE" | "PAUSED" | "WAITING";
+
+/** Lists path keys that committed cleanups still intend to delete. Failed cleanups stop reserving them. */
+export const listPendingCleanupPathKeys = async (pathKeys: string[]) => {
+  const keys = new Set(pathKeys);
+  const pendingKeys = new Set<string>();
+
+  for await (const operation of FileOperationModel.find({
+    "cleanup.pathKey": { $in: pathKeys },
+    error: null,
+    state: "COMMITTED",
+  })
+    .select({ "cleanup.pathKey": 1 })
+    .lean()
+    .cursor()) {
+    for (const { pathKey } of operation.cleanup) {
+      if (keys.has(pathKey)) pendingKeys.add(pathKey);
+    }
+  }
+
+  return pendingKeys;
+};
+
+const activeCleanups = new Map<string, Promise<FileCleanupResult>>();
 const cleanupControllers = new Set<AbortController>();
 let cleanupRevision = 0;
 
@@ -309,13 +362,19 @@ export const finishFileOperation = (id: string, canContinue: () => boolean = () 
   return execution;
 };
 
-const cleanFileOperation = async (id: string, canContinue: () => boolean) => {
+const cleanFileOperation = async (
+  id: string,
+  canContinue: () => boolean,
+): Promise<FileCleanupResult> => {
   try {
     checkCleanupCancelled(canContinue);
 
     const operation = await FileOperationModel.findById(id).lean();
 
-    if (operation?.state !== "COMMITTED") return;
+    if (operation?.state !== "COMMITTED") return "DONE";
+
+    // A retried cleanup reserves its paths again until it succeeds or fails anew.
+    if (operation.error) await FileOperationModel.updateOne({ _id: id }, { $unset: { error: 1 } });
 
     for (const file of operation.cleanup) {
       checkCleanupCancelled(canContinue);
@@ -343,8 +402,9 @@ const cleanFileOperation = async (id: string, canContinue: () => boolean) => {
       if (hash !== null) {
         if (hash !== file.hash) throw new Error(`Cleanup checksum changed: ${file.path}`);
 
+        // Imports verified their retained copy when publishing it, so they only record its path.
         if (
-          file.retainedPath &&
+          file.retainedHash &&
           (await hashCleanupFile(file.retainedPath, canContinue)) !== file.retainedHash
         )
           throw new Error("Retained file checksum changed; cleanup deferred");
@@ -364,7 +424,8 @@ const cleanFileOperation = async (id: string, canContinue: () => boolean) => {
 
     checkCleanupCancelled(canContinue);
 
-    if (await FileOperationModel.exists({ _id: id, "cleanup.0": { $exists: true } })) return;
+    if (await FileOperationModel.exists({ _id: id, "cleanup.0": { $exists: true } }))
+      return "WAITING";
 
     let tempPathExists = false;
 
@@ -387,10 +448,18 @@ const cleanFileOperation = async (id: string, canContinue: () => boolean) => {
 
     checkCleanupCancelled(canContinue);
 
+    if (operation.sourceRootPath)
+      await removeEmptySourceFolders(
+        operation.cleanup.map((file) => file.path),
+        operation.sourceRootPath,
+      );
+
     if (operation.emptyFolderPath)
       await removeEmptyFolders(operation.emptyFolderPath, { hardDelete: true });
 
     await FileOperationModel.deleteOne({ _id: id, state: "COMMITTED" });
+
+    return "DONE";
   } catch (error) {
     if (
       error?.name === "FileCleanupPausedError" ||
@@ -398,7 +467,7 @@ const cleanFileOperation = async (id: string, canContinue: () => boolean) => {
       !canContinue() ||
       isServerStopping()
     )
-      return;
+      return "PAUSED";
 
     await FileOperationModel.updateOne({ _id: id }, { error: error.message });
 

@@ -2,6 +2,7 @@ export * from "./file-tag-editor";
 export { TagInputs } from "./inputs";
 export * from "./multi-tag-editor";
 export * from "./regex-map-card";
+export * from "./regex-overlaps-modal";
 export * from "./tag-card";
 export * from "./tag-chip";
 export * from "./tag-editor";

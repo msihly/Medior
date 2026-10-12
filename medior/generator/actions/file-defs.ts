@@ -21,7 +21,6 @@ export const FILE_DEF_ACTIONS: FileDef = {
       `import * as models from "medior/_generated/server/models";
       import { SocketEventOptions } from "medior/_generated/server/socket";
       import { FilterQuery } from "mongoose";
-      import * as Types from "medior/server/database/types";
       import { removeFileCollectionIds, syncCollectionFileIds } from "medior/server/database/actions/collections";
       import { deleteImportBatches } from "medior/server/database/actions/file-imports";
       import { deleteFileTransforms } from "medior/server/database/actions/file-transforms";
@@ -31,6 +30,7 @@ export const FILE_DEF_ACTIONS: FileDef = {
       import { countFileSearchResults, createFileSearchPlan, createFileSearchSortStages } from "medior/server/database/file-search";
       import { countImportBatchSearchResults, createImportBatchSearchPipeline } from "medior/server/database/import-search";
       import { getMetadataCreateId, metadataWriteOptions, registerMetadataWork } from "medior/server/database/metadata-work";
+      import * as Types from "medior/server/database/types";
       import { SortMenuProps } from "medior/components";
       import { addRegexSearchFilter, dayjs, hasTranscription, isDeepEqual, LogicalOp, logicOpsToMongo, normalizeTimestampPairs, parseTimestampPairs, setObj } from "medior/utils/common";
       import {

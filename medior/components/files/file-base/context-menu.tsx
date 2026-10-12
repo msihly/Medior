@@ -235,7 +235,7 @@ export const ContextMenu = Comp(
               : null,
             spliceTimelines.length
               ? {
-                  color: colors.custom.purple,
+                  color: colors.palette.teal[500],
                   divider: "bottom",
                   icon: "ContentCut",
                   label: "Splice",

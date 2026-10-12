@@ -8,6 +8,7 @@ import { FlatFolder, TagToUpsert } from "medior/components";
 import { FileImport, Ingester, Reingester, RootStore, useStores } from "medior/store";
 import { derefMobx, toast } from "medior/utils/client";
 import {
+  chunkArray,
   dayjs,
   Fmt,
   ImageExt,
@@ -414,8 +415,25 @@ export const handleIngest = async ({
     }
 
     throwIfIngestCancelled(isCancelled);
+    setInitProgress("Checking pending deletions");
 
-    const editorFilePaths = [...editorPaths];
+    const pendingPaths = new Set<string>();
+
+    for (const paths of chunkArray([...editorPaths], 1000)) {
+      const res = await trpc.listPendingCleanupPaths.mutate({ paths });
+      if (!res.success) throw new Error(res.error);
+
+      for (const filePath of res.data) pendingPaths.add(filePath);
+
+      throwIfIngestCancelled(isCancelled);
+    }
+
+    if (pendingPaths.size)
+      toast.warn(
+        `Skipped ${Fmt.commas(pendingPaths.size)} files that earlier imports are still deleting`,
+      );
+
+    const editorFilePaths = [...editorPaths].filter((filePath) => !pendingPaths.has(filePath));
 
     const editorImports = await filePathsToImports(editorFilePaths, {
       isCancelled,
@@ -956,7 +974,6 @@ export const useImportEditor = (store: Ingester | Reingester) => {
     }
 
     const editorImports: ModelCreationData<FileImport>[] = [];
-    const matchedIds = new Set<string>();
 
     store.setInitProgressStatus("Parsing file tags");
     store.setInitProgressTotal(store.imports.length);
@@ -993,8 +1010,6 @@ export const useImportEditor = (store: Ingester | Reingester) => {
 
       const tagIds = [...new Set(fileTagIds.filter(Boolean))];
 
-      for (const id of tagIds) matchedIds.add(id);
-
       if (DEBUG) perfLog(`Parsed tagIds for ${imp.name}`);
 
       tagsToUpsert.push(...fileTagsToUpsert);
@@ -1012,14 +1027,23 @@ export const useImportEditor = (store: Ingester | Reingester) => {
         store.setInitProgressCompleted(editorImports.length);
     }
 
-    await cache.current.preloadTagsByIds([...matchedIds]);
-    store.setInitProgressStatus("Filtering file tag ancestors");
-    store.setInitProgressTotal(editorImports.length);
+    await filterImportTagIds(editorImports);
 
-    for (let idx = 0; idx < editorImports.length; idx++) {
+    if (DEBUG) perfLog("Updated editor imports with tags");
+
+    return { diffMetaTagsToEdit, editorImports, fileTagsToUpsert: tagsToUpsert };
+  };
+
+  /** Drops tag ids that no longer exist and tags implied by another tag on the same file. */
+  const filterImportTagIds = async (imports: ModelCreationData<FileImport>[]) => {
+    await cache.current.preloadTagsByIds([...new Set(imports.flatMap((imp) => imp.tagIds))]);
+    store.setInitProgressStatus("Filtering file tag ancestors");
+    store.setInitProgressTotal(imports.length);
+
+    for (let idx = 0; idx < imports.length; idx++) {
       await cache.current.checkpoint();
 
-      const imp = editorImports[idx];
+      const imp = imports[idx];
       const ancestors = new Set<string>();
       const existingIds: string[] = [];
 
@@ -1039,10 +1063,6 @@ export const useImportEditor = (store: Ingester | Reingester) => {
 
       if (idx % STAT_BATCH_SIZE === 0) store.setInitProgressCompleted(idx);
     }
-
-    if (DEBUG) perfLog("Updated editor imports with tags");
-
-    return { diffMetaTagsToEdit, editorImports, fileTagsToUpsert: tagsToUpsert };
   };
 
   const getIdsFromTags = async (tags: TagToUpsert[] = [], tagIds: string[] = []) => {
@@ -1565,6 +1585,7 @@ export const useImportEditor = (store: Ingester | Reingester) => {
 
           throwIfIngestCancelled(isCancelled);
           await cache.current.checkpoint();
+          await filterImportTagIds(editorImports);
           store.setInitProgressStatus("Resolving sidecar tags");
 
           const sidecarTags = function* () {

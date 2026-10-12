@@ -1,8 +1,10 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
+import type { SpliceMode } from "medior/server/database";
 import {
   Button,
   Card,
   Comp,
+  ConfirmModal,
   Divider,
   Dropdown,
   Input,
@@ -14,11 +16,19 @@ import { useStores } from "medior/store";
 import { colors, toast } from "medior/utils/client";
 import { parseTimestampPairs, sleep } from "medior/utils/common";
 
+const SPLICE_MODE_OPTIONS: Array<{ label: string; value: SpliceMode }> = [
+  { label: "Replace Original", value: "replace" },
+  { label: "New Copy", value: "copy" },
+];
+
 export const Splicer = Comp(() => {
   const stores = useStores();
   const store = stores.carousel.splicer;
 
   const file = stores.carousel.getActiveFile();
+
+  const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
+  const [isConfirmRenderOpen, setIsConfirmRenderOpen] = useState(false);
 
   const timestampsRef = useRef<HTMLDivElement>(null);
 
@@ -31,14 +41,26 @@ export const Splicer = Comp(() => {
     });
   };
 
-  const handleDeleteTimeline = async () => {
+  const handleConfirmDelete = async () => {
     const res = await store.deleteTimeline();
 
     if (!res.success) toast.error(res.error);
     else toast.warn("Deleted");
+
+    return res.success;
   };
 
-  const handleRender = () => {
+  const handleDeleteTimeline = () => setIsConfirmDeleteOpen(true);
+
+  const handleRender = async () => {
+    const res = await stores.file.videoTransformer.getTransformerStatus();
+
+    if (!res.success) toast.error(res.error);
+    else if (res.data?.isTransforming) setIsConfirmRenderOpen(true);
+    else startRender();
+  };
+
+  const startRender = async () => {
     try {
       stores.file.videoTransformer.setTimestampPairs(
         parseTimestampPairs(
@@ -47,9 +69,14 @@ export const Splicer = Comp(() => {
         ),
       );
 
+      stores.file.videoTransformer.setSpliceMode(store.spliceMode);
       stores.file.openVideoTransformer([file.id], "splice");
+
+      return true;
     } catch (error) {
       toast.error(error);
+
+      return false;
     }
   };
 
@@ -103,6 +130,14 @@ export const Splicer = Comp(() => {
         <Divider />
 
         <View column spacing="0.5rem">
+          <Dropdown
+            header="Render As"
+            options={SPLICE_MODE_OPTIONS}
+            value={store.spliceMode}
+            setValue={store.setSpliceMode}
+            disabled={store.isLoading}
+          />
+
           <UniformList row spacing="0.5rem">
             <Button
               text="Add"
@@ -140,6 +175,27 @@ export const Splicer = Comp(() => {
           </UniformList>
         </View>
       </Card>
+
+      {isConfirmDeleteOpen && (
+        <ConfirmModal
+          headerText="Delete Timeline"
+          subText={store.timestampLabel}
+          onConfirm={handleConfirmDelete}
+          setVisible={setIsConfirmDeleteOpen}
+        />
+      )}
+
+      {isConfirmRenderOpen && (
+        <ConfirmModal
+          headerText="Pause Media Transformer"
+          subText="The media transformer is running. Rendering pauses it and loses the active transform's progress."
+          confirmText="Render"
+          confirmIcon="RocketLaunch"
+          confirmColor={colors.custom.purple}
+          onConfirm={startRender}
+          setVisible={setIsConfirmRenderOpen}
+        />
+      )}
     </View>
   );
 });

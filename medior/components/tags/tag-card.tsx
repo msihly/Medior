@@ -3,7 +3,7 @@ import Color from "color";
 import { TagSchema } from "medior/_generated/server";
 import { Comp, ContextMenu, FileBase, getRatingMeta, Icon, Text, View } from "medior/components";
 import { tagToOption, useStores } from "medior/store";
-import { colors, makeClasses, openSearchWindow, toast } from "medior/utils/client";
+import { colors, getContrastText, makeClasses, openSearchWindow, toast } from "medior/utils/client";
 import { Fmt, round } from "medior/utils/common";
 
 export interface TagCardProps {
@@ -17,6 +17,9 @@ export const TagCard = Comp(({ tag }: TagCardProps) => {
   const category = store.getCategory(tag);
   const color = category?.color || "black";
   const ratingMeta = getRatingMeta(tag.rating);
+  const textColor = getContrastText(color);
+  const subTextColor =
+    textColor === colors.custom.white ? colors.custom.lightGrey : colors.custom.darkGrey;
 
   const { css } = useClasses({ textShadow: ratingMeta.textShadow });
 
@@ -81,18 +84,18 @@ export const TagCard = Comp(({ tag }: TagCardProps) => {
           background={`linear-gradient(to bottom, ${Color(color).fade(0.7).string()}, ${color})`}
         >
           <View column flex={1} align="center" justify="center">
-            {!category?.icon ? null : <Icon name={category.icon} size="2em" />}
+            {!category?.icon ? null : <Icon name={category.icon} color={textColor} size="2em" />}
 
             <FileBase.FooterText
               text={tag.label}
               noTooltip
-              textProps={{ fontSize: "1.3em", whiteSpace: "balance" }}
+              textProps={{ color: textColor, fontSize: "1.3em", whiteSpace: "balance" }}
             />
 
             <FileBase.FooterText
               text={`${Fmt.commas(tag.count)} files / ${Fmt.bytes(tag.size ?? 0)}`}
               noTooltip
-              textProps={{ color: colors.custom.lightGrey, fontSize: "0.8em" }}
+              textProps={{ color: subTextColor, fontSize: "0.8em" }}
             />
 
             <View row align="center" spacing="0.2rem">
@@ -103,7 +106,7 @@ export const TagCard = Comp(({ tag }: TagCardProps) => {
                 className={css.rating}
               />
 
-              <Text color={colors.custom.lightGrey} fontSize="0.8em">
+              <Text color={subTextColor} fontSize="0.8em">
                 {round(tag.rating, 1)}
               </Text>
             </View>

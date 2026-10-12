@@ -3,6 +3,7 @@ import {
   Comp,
   DeleteFilesModal,
   FaceRecognitionModal,
+  FileExportModal,
   FileRefreshModal,
   InfoModal,
   LoadingOverlay,
@@ -57,6 +58,8 @@ export const FileModals = Comp(() => {
       {store.videoTransformer.isOpen && <VideoTransformerModal />}
 
       {store.isConfirmDeleteOpen && <DeleteFilesModal />}
+
+      {store.exporter.isOpen && <FileExportModal />}
 
       {store.isActionRunning && (
         <Modal.Container onClose={store.cancelFileAction} width="30rem" height="16rem">

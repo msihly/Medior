@@ -4,10 +4,7 @@ import { createHash, randomUUID } from "crypto";
 import * as models from "medior/_generated/server/models";
 import { extendFileName, fileLog } from "trabecula/utils/server";
 import * as actions from "medior/server/database/actions";
-import {
-  backgroundExecution,
-  checkBackgroundExecution,
-} from "medior/server/database/background-execution";
+import { checkBackgroundExecution } from "medior/server/database/background-execution";
 import {
   assertMediaPathIndexesReady,
   assertMediaPathsAvailable,
@@ -16,14 +13,21 @@ import {
   FileOperationModel,
   finishFileOperation,
   isMediaPathReferenced,
+  listPendingCleanupPathKeys,
   makeFileCleanup,
 } from "medior/server/database/file-operations";
+import { queueImportCleanup } from "medior/server/database/import-cleanup";
 import { mediaPathKey } from "medior/server/database/media-paths";
 import { withMetadataMutation } from "medior/server/database/metadata-mutations";
 import { metadataWriteOptions } from "medior/server/database/metadata-work";
 import { isServerStopping, serverShutdownSignal } from "medior/server/process-lifecycle";
 import { genFileInfo, isGeneratedMediaUnreadable } from "medior/utils/client/files";
-import { dayjs } from "medior/utils/common";
+import {
+  dayjs,
+  FileImportSidecar,
+  hasTranscription,
+  normalizeTimestampPairs,
+} from "medior/utils/common";
 import {
   getAvailableFileStorage,
   getConfig,
@@ -49,14 +53,15 @@ export interface MediaImportInput {
   ignorePrevDeleted: boolean;
   originalName: string;
   originalPath: string;
+  /** Batch root, within which folders emptied by deleting this source are removed. */
+  rootFolderPath?: string;
+  sidecar?: FileImportSidecar;
   size: number;
   tagIds: string[];
 }
 
 const activeImportHashes = new Map<string, Promise<void>>();
 const activeImports = new Set<string>();
-const pendingImportCleanups = new Set<string>();
-let importCleanupCount = 0;
 let importStorage: { bytesLeft: number; location: string };
 let importStorageCheck: Promise<{ bytesLeft: number; location: string }>;
 
@@ -87,34 +92,6 @@ const acquireImportHash = async (hash: string) => {
 
     throw error;
   }
-};
-
-const startImportCleanup = (id: string) => {
-  pendingImportCleanups.add(id);
-
-  if (importCleanupCount >= 2) return;
-
-  importCleanupCount++;
-
-  return backgroundExecution.exit(() =>
-    workSignal.exit(async () => {
-      try {
-        while (pendingImportCleanups.size && !isServerStopping()) {
-          const nextId = pendingImportCleanups.values().next().value;
-
-          pendingImportCleanups.delete(nextId);
-
-          try {
-            await finishFileOperation(nextId);
-          } catch (error) {
-            console.error("Import cleanup retained for retry:", error);
-          }
-        }
-      } finally {
-        importCleanupCount--;
-      }
-    }),
-  );
 };
 
 const getImportOperationId = (args: MediaImportInput) =>
@@ -234,11 +211,7 @@ export const importMedia = async (args: MediaImportInput, operationId?: string) 
           metadataWriteOptions(),
         );
 
-      const result = await commitMediaImport(args, operation, operation.importResult, recordTiming);
-
-      startImportCleanup(id);
-
-      return result;
+      return await commitMediaImport(args, operation, operation.importResult, recordTiming);
     }
 
     if (operation?.state === "COMMITTED") {
@@ -259,10 +232,16 @@ export const importMedia = async (args: MediaImportInput, operationId?: string) 
       };
 
       await updateBatchImport(args, result);
-      startImportCleanup(id);
+      await queueImportCleanup([id]);
 
       return result;
     }
+
+    // Re-importing a source before its earlier import deletes it would only produce a duplicate.
+    if ((await listPendingCleanupPathKeys([mediaPathKey(args.originalPath)])).size)
+      throw new Error(
+        "An earlier import is still deleting this source. Wait for Import source cleanup in Activity to finish.",
+      );
 
     reportProgress("Calculating checksum.", 0);
 
@@ -453,7 +432,7 @@ export const importMedia = async (args: MediaImportInput, operationId?: string) 
         extendFileName(args.originalPath, "json"),
         ...(args.diffusionParams ? [extendFileName(args.originalPath, "txt")] : []),
       ]) {
-        // Persist the expected source checksum; cleanup verifies it and the retained copy before deletion.
+        // Persist the expected source checksum; cleanup verifies it and that the retained copy exists.
         const file =
           sourcePath === args.originalPath
             ? makeFileCleanup(hash, sourcePath)
@@ -482,11 +461,7 @@ export const importMedia = async (args: MediaImportInput, operationId?: string) 
 
     reportProgress("Saving file and tag metadata.");
 
-    const result = await commitMediaImport(args, operation, importResult, recordTiming);
-
-    startImportCleanup(id);
-
-    return result;
+    return await commitMediaImport(args, operation, importResult, recordTiming);
   } finally {
     if (progressTimer) clearInterval(progressTimer);
 
@@ -497,6 +472,32 @@ export const importMedia = async (args: MediaImportInput, operationId?: string) 
       fileLog(
         `[Import ${id}] ${Math.round(performance.now() - startedAt)}ms; ${timings.join("; ")}`,
       );
+  }
+};
+
+/** Fills metadata an existing file lacks from an imported sidecar without replacing existing values. */
+const mergeImportSidecar = async (file: models.FileSchema, sidecar: FileImportSidecar) => {
+  const updates: Partial<models.FileSchema> = {
+    ...(!file.diffusionParams && sidecar.diffusionParams
+      ? { diffusionParams: sidecar.diffusionParams }
+      : {}),
+    ...(!file.originalName && sidecar.originalName ? { originalName: sidecar.originalName } : {}),
+    ...(!file.timestamps?.length && sidecar.timestamps?.length
+      ? { timestamps: sidecar.timestamps }
+      : {}),
+    ...(!hasTranscription(file.transcription) && hasTranscription(sidecar.transcription)
+      ? { transcription: sidecar.transcription }
+      : {}),
+  };
+
+  if (Object.keys(updates).length) {
+    const updated = await actions.updateFile({ args: { id: file.id, updates } });
+    if (!updated.success) throw new Error(updated.error);
+  }
+
+  if (!file.rating && sidecar.rating) {
+    const rated = await actions.setFileRating({ fileIds: [file.id], rating: sidecar.rating });
+    if (!rated.success) throw new Error(rated.error);
   }
 };
 
@@ -526,20 +527,31 @@ const commitMediaImport = async (
 
     const imported = await actions.importFile({
       ...info,
-      dateCreated: args.dateCreated ?? dayjs().toISOString(),
+      dateCreated: args.sidecar?.dateCreated ?? args.dateCreated ?? dayjs().toISOString(),
       dateImported: dayjs().toISOString(),
-      diffusionParams: args.diffusionParams,
+      diffusionParams: args.sidecar?.diffusionParams ?? args.diffusionParams,
+      hasTranscript: info.hasTranscript || hasTranscription(args.sidecar?.transcription),
+      isArchived: args.sidecar?.isArchived,
       originalHash: hash,
-      originalName: args.originalName,
+      originalName: args.sidecar?.originalName ?? args.originalName,
       originalPath: args.originalPath,
       path: operation.outputPath,
+      rating: args.sidecar?.rating,
       tagIds: args.tagIds,
+      timestamps: args.sidecar?.timestamps?.map((timestamp) => ({
+        ...timestamp,
+        pairs: normalizeTimestampPairs(timestamp.pairs),
+      })),
+      transcription: args.sidecar?.transcription ?? info.transcription,
       withTagRegen: !args.batchId,
     });
 
     if (!imported.success) throw new Error(imported.error);
 
     file = imported.data;
+
+    if (file.isArchived)
+      socket.emit("onFilesUpdated", { fileIds: [file.id], updates: { isArchived: true } });
   } else if (file) {
     const addedTagIds = args.tagIds.filter(
       (id) => !file.tagIds.some((tagId) => String(tagId) === id),
@@ -556,6 +568,8 @@ const commitMediaImport = async (
     } else if (status === "COMPLETE" && !args.batchId) {
       await actions.queueTagMetadataRegen(file.tagIds, file.tagIdsWithAncestors);
     }
+
+    if (args.sidecar) await mergeImportSidecar(file, args.sidecar);
   }
 
   if (file && audio) {
@@ -590,21 +604,30 @@ const commitMediaImport = async (
 
   const retainedPaths = [file?.path, file?.thumb?.path].filter(Boolean).map(mediaPathKey);
 
-  await FileOperationModel.updateOne(
-    { _id: operation._id, state: "PREPARED" },
-    {
-      cleanup: [...cleanup, ...operation.cleanup, ...unusedOutput]
-        .filter((entry) => !retainedPaths.includes(entry.pathKey))
-        .map((entry) =>
-          file && (entry.path === args.originalPath || entry.path === operation.outputPath)
-            ? { ...entry, retainedHash: hash, retainedPath: file.path }
-            : entry,
-        ),
-      fileId: file?.id,
-      state: "COMMITTED",
-      tempPath: null,
-    },
-  );
+  const committedCleanup = [...cleanup, ...operation.cleanup, ...unusedOutput]
+    .filter((entry) => !retainedPaths.includes(entry.pathKey))
+    .map((entry) =>
+      file && (entry.path === args.originalPath || entry.path === operation.outputPath)
+        ? { ...entry, retainedPath: file.path }
+        : entry,
+    );
+
+  if (committedCleanup.length) {
+    await FileOperationModel.updateOne(
+      { _id: operation._id, state: "PREPARED" },
+      {
+        cleanup: committedCleanup,
+        fileId: file?.id,
+        ...(args.deleteOnImport && args.rootFolderPath
+          ? { sourceRootPath: args.rootFolderPath }
+          : {}),
+        state: "COMMITTED",
+        tempPath: null,
+      },
+    );
+
+    await queueImportCleanup([operation._id]);
+  } else await FileOperationModel.deleteOne({ _id: operation._id, state: "PREPARED" });
 
   recordTiming("cleanup intent");
 

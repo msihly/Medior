@@ -11,6 +11,7 @@ import {
   Modal,
   MultiActionButton,
   Pagination,
+  RegExOverlapsModal,
   SearchLoadingOverlay,
   TagCard,
   TagFilterMenu,
@@ -29,6 +30,7 @@ export const TagManager = Comp(() => {
 
   const [isCancelling, setIsCancelling] = useState(false);
   const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
+  const [isRegExOverlapsOpen, setIsRegExOverlapsOpen] = useState(false);
 
   const cancelRequested = useRef(false);
   const resultsRef = useRef<FixedSizeGrid>(null);
@@ -99,6 +101,8 @@ export const TagManager = Comp(() => {
   const handleDelete = () => setIsConfirmDeleteOpen(true);
 
   const handleEditRelations = () => stores.tag.manager.setIsMultiTagEditorOpen(true);
+
+  const handleFindRegExOverlaps = () => setIsRegExOverlapsOpen(true);
 
   const handleFullPageLoad = () => store.loadFiltered({ toLastPage: true });
 
@@ -260,6 +264,12 @@ export const TagManager = Comp(() => {
                 />
 
                 <MultiActionButton
+                  name="JoinInner"
+                  tooltip="Find Overlapping RegEx"
+                  onClick={handleFindRegExOverlaps}
+                />
+
+                <MultiActionButton
                   name="Deselect"
                   tooltip="Deselect All Tags"
                   onClick={handleSelectNone}
@@ -316,6 +326,8 @@ export const TagManager = Comp(() => {
           setVisible={setIsConfirmDeleteOpen}
         />
       )}
+
+      {isRegExOverlapsOpen && <RegExOverlapsModal setVisible={setIsRegExOverlapsOpen} />}
     </Modal.Container>
   );
 });

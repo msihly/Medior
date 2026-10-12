@@ -77,7 +77,15 @@ export const OperationCard = Comp(({ operation }: { operation: BackgroundOperati
           whiteSpace="pre-wrap"
         >
           {operation.failures?.length
-            ? `${operation.failures.length} failed; ${operation.processedCount} completed. Retry recoverable items, or remove failed transform records when their files are permanently gone.`
+            ? `${operation.failures.length} failed; ${operation.processedCount} completed. ${
+                operation.type !== "importCleanup"
+                  ? "Retry recoverable items, or remove failed transform records when their files are permanently gone."
+                  : ["PENDING", "RUNNING"].includes(operation.status)
+                    ? "Failed items can be retried once the remaining cleanup finishes."
+                    : operation.targetIds.length
+                      ? "Resolve the errors below, such as closing programs using these files, then retry."
+                      : "These items were requeued."
+              }`
             : (operation.error ?? operation.message)}
         </Text>
 
@@ -91,7 +99,9 @@ export const OperationCard = Comp(({ operation }: { operation: BackgroundOperati
             className={css.failure}
             whiteSpace="pre-wrap"
           >
-            {`Transform ${failure.targetId}\n${failure.message}`}
+            {operation.type === "importCleanup"
+              ? failure.message
+              : `Transform ${failure.targetId}\n${failure.message}`}
           </Text>
         ))}
       </View>

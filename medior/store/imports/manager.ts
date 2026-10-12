@@ -280,6 +280,7 @@ export class ImportManager extends Model({
             extension: entry.extension,
             name: entry.name,
             path: entry.path,
+            sidecar: entry.sidecar,
             size: entry.size,
             tagIds: [...new Set(entry.tagIds ?? [])],
           };

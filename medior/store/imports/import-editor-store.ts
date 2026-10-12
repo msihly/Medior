@@ -6,15 +6,54 @@ import { Model, model, modelAction, ModelCreationData, modelFlow, prop } from "m
 import { extendFileName } from "trabecula/utils/server";
 import { FlatFolder, TagToUpsert } from "medior/components";
 import { asyncAction, derefMobx } from "medior/utils/client";
-import { Fmt, mergeTagDefinitions, PromiseQueue, sleep } from "medior/utils/common";
+import {
+  dayjs,
+  FILE_IMPORT_SIDECAR_FIELDS,
+  FileImportSidecar,
+  FileImportSidecarField,
+  FileSidecar,
+  FileSidecarCollection,
+  Fmt,
+  mergeTagDefinitions,
+  PromiseQueue,
+  sleep,
+} from "medior/utils/common";
 import { ImportEditorOptions } from "./editor-options";
 import { FileImport } from "./file-import";
 
-export interface Sidecar {
+export interface Sidecar extends FileSidecar {
   tags?: TagToUpsert[];
 }
 
 const IMPORT_FOLDER_PAGE_SIZE = 20;
+
+const isString = (value: unknown): value is string => typeof value === "string";
+
+const isObjectId = (value: unknown) => isString(value) && /^[0-9a-f]{24}$/i.test(value);
+
+/** Sidecars may come from other tools, so values of unexpected shapes are dropped. */
+const SIDECAR_VALIDATORS: Record<FileImportSidecarField, (value: any) => boolean> = {
+  collections: Array.isArray,
+  dateCreated: (value) => isString(value) && dayjs(value).isValid(),
+  diffusionParams: isString,
+  isArchived: (value) => typeof value === "boolean",
+  originalName: isString,
+  rating: (value) => Number.isInteger(value) && value >= 0 && value <= 9,
+  timestamps: (value) =>
+    Array.isArray(value) &&
+    value.every((timestamp) => isString(timestamp?.id) && Array.isArray(timestamp.pairs)),
+  transcription: (value) => isString(value?.text) && Array.isArray(value.segments),
+};
+
+const getValidCollections = (collections: any[]): FileSidecarCollection[] =>
+  collections
+    .filter(
+      (collection) =>
+        isObjectId(collection?.id) && Number.isInteger(collection.index) && collection.index >= 0,
+    )
+    .map(({ id, index }) => ({ id, index }));
+
+const getValidIds = (ids: unknown): string[] => (Array.isArray(ids) ? ids.filter(isObjectId) : []);
 
 @model("medior/ImportEditorStore")
 export class ImportEditorStore extends Model({
@@ -77,6 +116,24 @@ export class ImportEditorStore extends Model({
   }
 
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
+  @modelAction
+  private addSidecarToImport(imp: ModelCreationData<FileImport>, sidecar: Sidecar) {
+    const fields = FILE_IMPORT_SIDECAR_FIELDS.filter((field) =>
+      SIDECAR_VALIDATORS[field](sidecar[field]),
+    );
+    const tagIds = getValidIds(sidecar.tagIds);
+
+    if (tagIds.length) imp.tagIds = [...new Set([...(imp.tagIds ?? []), ...tagIds])];
+
+    if (fields.length)
+      imp.sidecar = Object.fromEntries(
+        fields.map((field) => [
+          field,
+          field === "collections" ? getValidCollections(sidecar.collections) : sidecar[field],
+        ]),
+      ) as FileImportSidecar;
+  }
+
   @modelAction
   private addTagsToImport(imp: ModelCreationData<FileImport>, tagsToUpsert: TagToUpsert[]) {
     imp.tagsToUpsert = mergeTagDefinitions([...(imp.tagsToUpsert ?? []), ...tagsToUpsert]);
@@ -308,6 +365,8 @@ export class ImportEditorStore extends Model({
               else throw new Error("Invalid sidecar params");
             }
           }
+
+          if (imp) this.addSidecarToImport(imp, params);
         } catch (err) {
           if (err.code !== "ENOENT") {
             failedCount++;

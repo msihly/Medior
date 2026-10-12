@@ -481,7 +481,7 @@ export const createSearchStore = (def: ModelSearchStore) => {
 
         ${
           def.withCarouselIds
-            ? `this.selectedIds = [...new Set([...this.selectedIds, ...res.data])];
+            ? `this.setSelectedIds([...new Set([...this.selectedIds, ...res.data])]);
 
         return res.data.length;`
             : `const items = res.data;

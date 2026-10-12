@@ -1,18 +1,31 @@
 import autoBind from "auto-bind";
 import { FileSchema, FileTransformSchema } from "medior/_generated/server";
-import { reaction } from "mobx";
+import { computed, reaction } from "mobx";
 import { Model, model, modelAction, modelFlow, prop } from "mobx-keystone";
 import { SortValue } from "medior/store/_generated";
-import { asyncAction, openCarouselWindow, toast } from "medior/utils/client";
-import { trpc } from "medior/utils/server";
+import type { SpliceMode } from "medior/server/database";
+import { asyncAction, derefMobx, openCarouselWindow, toast } from "medior/utils/client";
+import { dayjs } from "medior/utils/common";
+import { ReencodeCandidateType, trpc } from "medior/utils/server";
 import { File, FileTransform, FileTransformSearch } from ".";
 
 export type FileTransformType = "reencode" | "remux" | "splice";
+
+export interface FileTransformSizeBucket {
+  compressedSize: number;
+  date: string;
+  originalSize: number;
+}
+
+export type SizeHistoryRange = "30d" | "7d" | "all";
+
+const SIZE_HISTORY_RANGE_DAYS: Record<SizeHistoryRange, number> = { "30d": 30, "7d": 7, all: null };
 
 @model("medior/VideoTransformerStore")
 export class VideoTransformerStore extends Model({
   activeFile: prop<File>(null).withSetter(),
   activeTransform: prop<FileTransform>(null).withSetter(),
+  activeType: prop<FileTransformType>(null).withSetter(),
   fileIds: prop<string[]>(() => []).withSetter(),
   fnType: prop<FileTransformType>(null).withSetter(),
   focusedTransformId: prop<string>(null).withSetter(),
@@ -21,19 +34,26 @@ export class VideoTransformerStore extends Model({
   isLoading: prop<boolean>(false).withSetter(),
   isMinimized: prop<boolean>(false).withSetter(),
   isOpen: prop<boolean>(false).withSetter(),
-  isPaused: prop<boolean>(false).withSetter(),
+  isQueueRefreshing: prop<boolean>(false).withSetter(),
+  isSizeHistoryLoading: prop<boolean>(false).withSetter(),
   isTransforming: prop<boolean>(false).withSetter(),
   isUpdating: prop<boolean>(false).withSetter(),
+  pausedTypes: prop<FileTransformType[]>(() => []).withSetter(),
   pendingCount: prop<number>(0).withSetter(),
-  queueAfterSize: prop<number>(0).withSetter(),
-  queueBeforeSize: prop<number>(0).withSetter(),
+  queueType: prop<FileTransformType>("reencode").withSetter(),
   search: prop<FileTransformSearch>(() => new FileTransformSearch({})),
+  sizeHistory: prop<FileTransformSizeBucket[]>(() => []).withSetter(),
+  sizeHistoryRange: prop<SizeHistoryRange>("7d").withSetter(),
   sourceSortValue: prop<SortValue>(null).withSetter(),
+  spliceMode: prop<SpliceMode>("replace").withSetter(),
   timestampPairs: prop<Array<[number, number]>>(() => []).withSetter(),
 }) {
   private activeTransformLoadId = 0;
   private activeTransformUpdates = new Map<string, Partial<FileTransformSchema>>();
+  private isActiveTransformLoading = false;
   private queueCountLoadId = 0;
+  private sizeHistoryLoadId = 0;
+  private sizeHistoryTimer: ReturnType<typeof setTimeout> = null;
   private transformerStatusLoadId = 0;
 
   onInit() {
@@ -45,12 +65,15 @@ export class VideoTransformerStore extends Model({
         if (!this.isOpen) this.reset();
         else {
           this.getTransformerStatus();
-          this.loadQueueCount();
 
+          // Requested before the slower totals so they claim the first of the limited connections.
           if (!this.fileIds.length || !this.fnType) {
             this.loadActiveTransform();
             this.loadQueue({ page: 1 });
           }
+
+          this.loadQueueCount();
+          this.loadSizeHistory();
         }
       },
     );
@@ -61,7 +84,18 @@ export class VideoTransformerStore extends Model({
   cancelLoad() {
     this.activeTransformLoadId++;
     this.activeTransformUpdates.clear();
+    this.isActiveTransformLoading = false;
     this.setIsLoading(false);
+  }
+
+  /** Reloads the newest size buckets at most every 2 seconds while transforms complete. */
+  queueSizeHistoryRefresh() {
+    if (this.sizeHistoryTimer) return;
+
+    this.sizeHistoryTimer = setTimeout(() => {
+      this.sizeHistoryTimer = null;
+      this.loadSizeHistory(true);
+    }, 2000);
   }
 
   @modelAction
@@ -72,8 +106,11 @@ export class VideoTransformerStore extends Model({
     file: FileSchema;
     transform: FileTransformSchema;
   }) {
+    if (transform.type !== this.queueType) return;
+
     this.activeTransformLoadId++;
     this.activeTransformUpdates.clear();
+    this.isActiveTransformLoading = false;
 
     this.setFocusedTransformId(transform.id);
     this.setActiveFile(new File(file));
@@ -83,7 +120,7 @@ export class VideoTransformerStore extends Model({
 
   @modelAction
   receiveTransformUpdate(id: string, updates: Partial<FileTransformSchema>) {
-    if (this.isLoading)
+    if (this.isActiveTransformLoading)
       this.activeTransformUpdates.set(id, { ...this.activeTransformUpdates.get(id), ...updates });
 
     if (this.activeTransform?.id === id) {
@@ -134,7 +171,11 @@ export class VideoTransformerStore extends Model({
     this.activeTransformLoadId++;
     this.activeTransformUpdates.clear();
     this.queueCountLoadId++;
+    this.sizeHistoryLoadId++;
     this.transformerStatusLoadId++;
+    clearTimeout(this.sizeHistoryTimer);
+    this.sizeHistoryTimer = null;
+    this.isActiveTransformLoading = false;
     this.setActiveTransform(null);
     this.setActiveFile(null);
     this.setFileIds([]);
@@ -142,10 +183,12 @@ export class VideoTransformerStore extends Model({
     this.setFnType(null);
     this.setIsLoading(false);
     this.setIsMinimized(false);
+    this.setIsQueueRefreshing(false);
+    this.setIsSizeHistoryLoading(false);
     this.setPendingCount(0);
-    this.setQueueAfterSize(0);
-    this.setQueueBeforeSize(0);
+    this.setSizeHistory([]);
     this.setSourceSortValue(null);
+    this.setSpliceMode("replace");
     this.setTimestampPairs([]);
     this.search.reset();
   }
@@ -163,8 +206,31 @@ export class VideoTransformerStore extends Model({
 
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */
   @modelFlow
+  changeQueueType = asyncAction(async (type: FileTransformType) => {
+    this.setQueueType(type);
+    this.setFocusedTransformId(null);
+    this.search.setForcePages(false);
+    this.search.setIds([]);
+    this.search.setSelectedIds([]);
+
+    const results = await Promise.all([
+      this.loadActiveTransform(),
+      this.loadQueue({ noCache: true, page: 1 }),
+      this.loadQueueCount(),
+      this.loadSizeHistory(),
+    ]);
+
+    for (const result of results) {
+      if (!result.success) throw new Error(result.error);
+    }
+  });
+
+  @modelFlow
   createTransforms = asyncAction(async () => {
     if (!this.fileIds.length || !this.fnType || this.isUpdating) return;
+
+    const isSplice = this.fnType === "splice";
+    let transformIds: string[];
 
     this.setIsUpdating(true);
 
@@ -172,13 +238,19 @@ export class VideoTransformerStore extends Model({
       const res = await trpc.createFileTransforms.mutate({
         fileIds: this.fileIds,
         sortValue: this.sourceSortValue,
+        spliceMode: isSplice ? this.spliceMode : undefined,
         timestampPairs: this.timestampPairs.map(([start, end]) => ({ end, start })),
         type: this.fnType,
       });
 
       if (!res.success) throw new Error(res.error);
 
-      const transformIds = res.data.ids;
+      transformIds = res.data.ids;
+
+      if (res.data.skippedCount)
+        toast.warn(
+          `Skipped ${res.data.skippedCount} files without exactly one valid timeline to splice`,
+        );
 
       this.setFocusedTransformId(transformIds[0]);
       this.setFileIds([]);
@@ -187,9 +259,14 @@ export class VideoTransformerStore extends Model({
 
       await this.loadQueue({ noCache: true, page: 1 });
       await this.loadQueueCount();
-      await this.loadActiveTransform(transformIds[0]);
+      await this.loadActiveTransform({ id: transformIds[0] });
     } finally {
       this.setIsUpdating(false);
+    }
+
+    if (isSplice) {
+      const res = await this.runTransform({ id: transformIds[0], withAuto: false });
+      if (!res.success) throw new Error(res.error);
     }
   });
 
@@ -207,13 +284,10 @@ export class VideoTransformerStore extends Model({
 
     this.removeQueueFiles([], ids);
 
-    if (deletedActiveTransform) {
-      this.setFocusedTransformId(null);
-      await this.loadActiveTransform();
-    }
+    if (deletedActiveTransform) this.setFocusedTransformId(null);
 
-    await this.loadQueueCount();
-    await this.loadPreviousQueuePageIfEmpty();
+    // The deletion socket event reloads the active transform and queue count.
+    this.loadPreviousQueuePageIfEmpty();
 
     return res.data.deletedCount;
   });
@@ -227,77 +301,50 @@ export class VideoTransformerStore extends Model({
 
     if (!res.success) throw new Error(res.error);
 
+    this.setActiveType(res.data.activeType);
     this.setIsAuto(res.data.isAuto);
-    this.setIsPaused(res.data.isPaused);
     this.setIsTransforming(res.data.isTransforming);
+    this.setPausedTypes(res.data.pausedTypes);
 
     return res.data;
   });
 
+  /** Background loads refresh the active transform without covering its controls. */
   @modelFlow
-  loadActiveTransform = asyncAction(async (id?: string) => {
-    const loadId = ++this.activeTransformLoadId;
+  loadActiveTransform = asyncAction(
+    async ({ id, isBackground = false }: { id?: string; isBackground?: boolean } = {}) => {
+      const loadId = ++this.activeTransformLoadId;
 
-    this.activeTransformUpdates.clear();
-    this.setIsLoading(true);
+      this.activeTransformUpdates.clear();
+      this.isActiveTransformLoading = true;
 
-    try {
-      let transform: FileTransformSchema;
+      if (!isBackground) this.setIsLoading(true);
 
-      if (id) {
-        const res = await trpc.listFileTransform.mutate({
-          args: { filter: { id }, page: 1, pageSize: 1 },
-        });
-
+      try {
+        const res = await trpc.getActiveFileTransform.mutate({ id, type: this.queueType });
         if (!res.success) throw new Error(res.error);
+        if (loadId !== this.activeTransformLoadId) return;
 
-        transform = res.data.items[0];
-      } else {
-        const res = await trpc.getNextFileTransform.mutate();
+        if (!res.data) {
+          this.setActiveTransform(null);
+          this.setActiveFile(null);
+        } else {
+          const { file, transform } = res.data;
 
-        if (!res.success) throw new Error(res.error);
-
-        transform = res.data;
+          this.setActiveFile(new File(file));
+          this.setActiveTransform(
+            new FileTransform({ ...transform, ...this.activeTransformUpdates.get(transform.id) }),
+          );
+        }
+      } finally {
+        if (loadId === this.activeTransformLoadId) {
+          this.activeTransformUpdates.clear();
+          this.isActiveTransformLoading = false;
+          this.setIsLoading(false);
+        }
       }
-
-      if (loadId !== this.activeTransformLoadId) return;
-
-      const fileId = transform?.fileId;
-
-      if (!fileId) {
-        this.setActiveTransform(null);
-        this.setActiveFile(null);
-
-        return;
-      }
-
-      const filesRes = await trpc.listFile.mutate({ args: { filter: { id: [fileId] } } });
-
-      if (loadId !== this.activeTransformLoadId) return;
-
-      if (!filesRes.success) throw new Error(filesRes.error);
-
-      const file = filesRes.data.items[0];
-
-      if (!file) throw new Error("File not found");
-
-      const tagRes = await trpc.listTag.mutate({ filter: { id: file.tagIds } });
-
-      if (loadId !== this.activeTransformLoadId) return;
-
-      if (!tagRes.success) throw new Error(tagRes.error);
-
-      this.setActiveFile(new File({ ...file, tags: tagRes.data }));
-      this.setActiveTransform(
-        new FileTransform({ ...transform, ...this.activeTransformUpdates.get(transform.id) }),
-      );
-    } finally {
-      if (loadId === this.activeTransformLoadId) {
-        this.activeTransformUpdates.clear();
-        this.setIsLoading(false);
-      }
-    }
-  });
+    },
+  );
 
   @modelFlow
   loadPreviousQueuePageIfEmpty = asyncAction(async () => {
@@ -311,36 +358,103 @@ export class VideoTransformerStore extends Model({
     await this.loadQueue({ noCache: true, page: Math.max(1, this.search.page - 1) });
   });
 
+  /** Background loads refresh the queue without covering it with the search overlay. */
   @modelFlow
   loadQueue = asyncAction(
-    async (
-      args: {
-        noCache?: boolean;
-        page?: number;
-        toLastPage?: boolean;
-        withFullCount?: boolean;
-      } = {},
-    ) => {
-      const search = await this.search.loadFiltered(args);
+    async ({
+      isBackground = false,
+      ...args
+    }: {
+      isBackground?: boolean;
+      noCache?: boolean;
+      page?: number;
+      toLastPage?: boolean;
+      withFullCount?: boolean;
+    } = {}) => {
+      this.search.setType(this.queueType);
+      this.setIsQueueRefreshing(isBackground);
 
-      if (!search.success) throw new Error(search.error);
+      try {
+        const search = await this.search.loadFiltered(args);
+
+        if (!search.success) throw new Error(search.error);
+      } finally {
+        if (isBackground) this.setIsQueueRefreshing(false);
+      }
     },
   );
 
   @modelFlow
   loadQueueCount = asyncAction(async () => {
     const loadId = ++this.queueCountLoadId;
-    const res = await trpc.getFileTransformQueueCount.mutate();
+    const res = await trpc.getFileTransformQueueCount.mutate({ type: this.queueType });
 
     if (!res.success) throw new Error(res.error);
 
     if (loadId !== this.queueCountLoadId) return;
 
-    this.setQueueAfterSize(res.data.afterSize);
-    this.setQueueBeforeSize(res.data.beforeSize);
     this.setPendingCount(res.data.pendingCount);
 
     return res.data;
+  });
+
+  /** Loads the selected range's size buckets, or only those from the newest loaded bucket onward. */
+  @modelFlow
+  loadSizeHistory = asyncAction(async (isIncremental = false) => {
+    const loadId = ++this.sizeHistoryLoadId;
+    const lastDate = isIncremental ? this.sizeHistory.at(-1)?.date : undefined;
+    const rangeDays = SIZE_HISTORY_RANGE_DAYS[this.sizeHistoryRange];
+
+    // Clearing stale buckets makes refreshes during a full load reload in full too.
+    if (!lastDate) {
+      this.setIsSizeHistoryLoading(true);
+      this.setSizeHistory([]);
+    }
+
+    try {
+      const res = await trpc.listFileTransformSizeHistory.mutate({
+        since:
+          lastDate ?? (rangeDays ? dayjs().subtract(rangeDays, "day").toISOString() : undefined),
+        type: this.queueType,
+      });
+
+      if (!res.success) throw new Error(res.error);
+      if (loadId !== this.sizeHistoryLoadId) return;
+
+      this.setSizeHistory(
+        lastDate
+          ? [
+              ...derefMobx(this.sizeHistory).filter(
+                (bucket: FileTransformSizeBucket) => bucket.date < lastDate,
+              ),
+              ...res.data,
+            ]
+          : res.data,
+      );
+    } finally {
+      if (loadId === this.sizeHistoryLoadId) this.setIsSizeHistoryLoading(false);
+    }
+  });
+
+  @modelFlow
+  queueReencodeCandidates = asyncAction(async (types: ReencodeCandidateType[]) => {
+    const res = await trpc.listReencodeCandidateIds.mutate({ types });
+    if (!res.success) throw new Error(res.error);
+    if (!res.data.length) throw new Error("No qualifying files to add");
+
+    // Creating transforms is skipped while another transformer update runs.
+    if (this.isUpdating) throw new Error("Wait for the current transformer action to finish");
+
+    // The server returns queue order, so no source sort may reorder it.
+    this.setQueueType("reencode");
+    this.setFileIds(res.data);
+    this.setFnType("reencode");
+    this.setSourceSortValue(null);
+
+    const created = await this.createTransforms();
+    if (!created.success) throw new Error(created.error);
+
+    return res.data.length;
   });
 
   @modelFlow
@@ -401,17 +515,19 @@ export class VideoTransformerStore extends Model({
   @modelAction
   runActiveTransform() {
     if (!this.activeTransform?.id) return this.runTransformer();
-    else if (
-      this.isAuto &&
-      this.activeTransform.type !== "splice" &&
-      ["COMPLETE", "COMPRESSED"].includes(this.activeTransform.status)
-    )
-      return this.replaceOutput();
-    else return this.runTransform(this.activeTransform.id);
+    else if (this.isAuto && ["COMPLETE", "COMPRESSED"].includes(this.activeTransform.status))
+      return this.finalizeActiveTransform();
+    else return this.runTransform({ id: this.activeTransform.id, withAuto: true });
+  }
+
+  /** Applies the active output by its job: splice copies are saved, everything else replaces. */
+  finalizeActiveTransform() {
+    return this.activeTransform.isSpliceCopy ? this.saveCopy() : this.replaceOutput();
   }
 
   @modelFlow
-  runTransform = asyncAction(async (id: string) => {
+  /** Splices pass `withAuto` false: auto-replace never applies to them, so the global flag is left alone. */
+  runTransform = asyncAction(async ({ id, withAuto }: { id: string; withAuto: boolean }) => {
     if (this.isUpdating) return;
 
     const loadId = this.activeTransformLoadId;
@@ -420,7 +536,10 @@ export class VideoTransformerStore extends Model({
     this.setIsUpdating(true);
 
     try {
-      const res = await trpc.runFileTransform.mutate({ id, isAuto: this.isAuto });
+      const res = await trpc.runFileTransform.mutate({
+        id,
+        isAuto: withAuto ? this.isAuto : undefined,
+      });
 
       if (!res.success) throw new Error(res.error);
 
@@ -432,7 +551,7 @@ export class VideoTransformerStore extends Model({
         loadId === this.activeTransformLoadId ||
         (!this.isTransforming && !this.focusedTransformId)
       )
-        await this.loadActiveTransform(this.focusedTransformId ?? undefined);
+        await this.loadActiveTransform({ id: this.focusedTransformId ?? undefined });
 
       return res.data;
     } finally {
@@ -449,7 +568,10 @@ export class VideoTransformerStore extends Model({
     this.setIsUpdating(true);
 
     try {
-      const res = await trpc.runFileTransformer.mutate({ isAuto: this.isAuto });
+      const res = await trpc.runFileTransformer.mutate({
+        isAuto: this.isAuto,
+        type: this.queueType,
+      });
 
       if (!res.success) throw new Error(res.error);
 
@@ -459,7 +581,7 @@ export class VideoTransformerStore extends Model({
         loadId === this.activeTransformLoadId ||
         (!this.isTransforming && !this.focusedTransformId)
       )
-        await this.loadActiveTransform(this.focusedTransformId ?? undefined);
+        await this.loadActiveTransform({ id: this.focusedTransformId ?? undefined });
 
       return res.data;
     } finally {
@@ -484,7 +606,7 @@ export class VideoTransformerStore extends Model({
 
       await openCarouselWindow({ file: res.data, selectedFileIds: [res.data.id] });
       await this.loadQueueCount();
-      await this.loadActiveTransform(id);
+      await this.loadActiveTransform({ id });
     } finally {
       this.setIsUpdating(false);
     }
@@ -522,4 +644,43 @@ export class VideoTransformerStore extends Model({
       }
     }
   });
+
+  /* --------------------------------- GETTERS -------------------------------- */
+  /** Any queue left with pending work while the transformer is paused. */
+  @computed
+  get hasPausedQueue() {
+    return this.pausedTypes.length > 0;
+  }
+
+  /** The selected queue is left with pending work while the transformer is paused. */
+  @computed
+  get isPaused() {
+    return this.pausedTypes.includes(this.queueType);
+  }
+
+  @computed
+  get isQueueTransforming() {
+    return this.isTransforming && this.activeType === this.queueType;
+  }
+
+  /** Running totals of completed transforms' original and resulting sizes, starting from zero. */
+  @computed
+  get sizeTotals() {
+    if (!this.sizeHistory.length) return [];
+
+    let compressedSize = 0;
+    let originalSize = 0;
+
+    const start = dayjs(this.sizeHistory[0].date).subtract(10, "minute").toDate();
+
+    return [
+      { compressedSize, date: start, originalSize },
+      ...this.sizeHistory.map((bucket) => {
+        compressedSize += bucket.compressedSize;
+        originalSize += bucket.originalSize;
+
+        return { compressedSize, date: new Date(bucket.date), originalSize };
+      }),
+    ];
+  }
 }

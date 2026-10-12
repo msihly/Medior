@@ -14,7 +14,9 @@ import {
   describeFileCleanup,
   FileOperationModel,
   finishFileOperation,
+  listPendingCleanupPathKeys,
 } from "medior/server/database/file-operations";
+import { queueImportCleanup } from "medior/server/database/import-cleanup";
 import { getImportSourceFolder, runImportTransaction } from "medior/server/database/import-entries";
 import {
   areImportEntriesReady,
@@ -25,7 +27,9 @@ import {
   importMedia,
   MediaImportInput,
 } from "medior/server/database/media-import";
+import { mediaPathKey } from "medior/server/database/media-paths";
 import { metadataWriteOptions, registerMetadataWork } from "medior/server/database/metadata-work";
+import { isPersistenceReady } from "medior/server/database/persistence";
 import * as Types from "medior/server/database/types";
 import { isServerStopping } from "medior/server/process-lifecycle";
 import {
@@ -38,7 +42,14 @@ import {
   ImportEntryInput,
   sumArray,
 } from "medior/utils/common";
-import { getIsImage, leanModelToJson, makeAction, objectId, socket } from "medior/utils/server";
+import {
+  getIsImage,
+  leanModelToJson,
+  makeAction,
+  objectId,
+  objectIds,
+  socket,
+} from "medior/utils/server";
 import { copyMediaFile } from "medior/utils/server/media-output";
 import { getCommonSourceFolder } from "medior/utils/server/source-folders";
 import { runConcurrent } from "medior/utils/server/work-signal";
@@ -93,6 +104,16 @@ export const checkFileImportHashes = makeAction(async (args: { hash: string }) =
     isDuplicate: !!fileRes.data,
     isPrevDeleted: !!deletedFileRes.data,
   };
+});
+
+/** Lists source paths that earlier imports have committed to delete but not yet deleted. */
+export const listPendingCleanupPaths = makeAction(async (args: { paths: string[] }) => {
+  // Imports re-check once recovery storage is ready, so ingest can still queue them meanwhile.
+  if (!(await isPersistenceReady())) return [];
+
+  const pendingKeys = await listPendingCleanupPathKeys(args.paths.map(mediaPathKey));
+
+  return args.paths.filter((filePath) => pendingKeys.has(mediaPathKey(filePath)));
 });
 
 export const completeImportBatch = makeAction(
@@ -174,6 +195,7 @@ export const completeImportBatch = makeAction(
         collectionId = res.data.id;
       }
 
+      const sidecarCollectionFiles = new Map<string, { fileId: string; index: number }[]>();
       let lastIndex = -1;
 
       while (true) {
@@ -181,12 +203,28 @@ export const completeImportBatch = makeAction(
           batchId: args.id,
           index: { $gt: lastIndex },
         })
-          .select({ fileId: 1, index: 1, status: 1, tagIds: 1 })
+          .select({ fileId: 1, index: 1, "sidecar.collections": 1, status: 1, tagIds: 1 })
           .sort({ index: 1 })
           .limit(1000)
           .lean();
 
         if (!entries.length) break;
+
+        for (const entry of entries) {
+          if (
+            !entry.fileId ||
+            !COLLECTION_IMPORT_STATUSES.some((status) => status === entry.status)
+          )
+            continue;
+
+          for (const { id, index } of entry.sidecar?.collections ?? []) {
+            const file = { fileId: String(entry.fileId), index };
+            const files = sidecarCollectionFiles.get(id);
+
+            if (files) files.push(file);
+            else sidecarCollectionFiles.set(id, [file]);
+          }
+        }
 
         const duplicateFileIds = [
           ...new Set(
@@ -220,6 +258,23 @@ export const completeImportBatch = makeAction(
         lastIndex = entries.at(-1).index;
       }
 
+      if (sidecarCollectionFiles.size) {
+        const collections = await models.FileCollectionModel.find({
+          _id: { $in: objectIds([...sidecarCollectionFiles.keys()]) },
+        })
+          .select({ _id: 1 })
+          .lean();
+
+        for (const collection of collections) {
+          const collId = collection._id.toString();
+          const res = await actions.insertFilesIntoCollection({
+            collId,
+            fileIdIndexes: sidecarCollectionFiles.get(collId),
+          });
+          if (!res.success) throw new Error(`Failed to add files to collection: ${res.error}`);
+        }
+      }
+
       if (batch.tagIds.length) await actions.queueTagMetadataRegen(batch.tagIds);
 
       if (batch.deleteOnImport) {
@@ -243,8 +298,10 @@ export const completeImportBatch = makeAction(
               if (file) cleanup.push(file);
             }
 
+            const cleanupId = `import-batch:${args.id}`;
+
             await FileOperationModel.updateOne(
-              { _id: `import-batch:${args.id}` },
+              { _id: cleanupId },
               {
                 $setOnInsert: {
                   cleanup,
@@ -255,7 +312,7 @@ export const completeImportBatch = makeAction(
               { ...metadataWriteOptions(), upsert: true },
             );
 
-            actions.runFileCleanupQueue();
+            await queueImportCleanup([cleanupId]);
           }
         } catch (err) {
           if (err.code !== "ENOENT") throw err;
@@ -348,6 +405,7 @@ export const appendImportBatchEntries = makeAction(
       extension: entry.extension,
       name: entry.name,
       path: entry.path,
+      sidecar: entry.sidecar,
       size: entry.size,
       tagIds: [...new Set(entry.tagIds ?? [])],
     }));
@@ -689,6 +747,8 @@ export const runImportBatch = makeAction(async (args: { id: string }) => {
                     ignorePrevDeleted: batch.ignorePrevDeleted,
                     originalName: file.name,
                     originalPath: file.path,
+                    rootFolderPath: batch.rootFolderPath,
+                    sidecar: file.sidecar,
                     size: file.size,
                     tagIds: [...new Set([...batch.tagIds, ...(file.tagIds ?? [])].map(String))],
                   }),

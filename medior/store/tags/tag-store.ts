@@ -1,9 +1,10 @@
 import autoBind from "auto-bind";
 import type { TagSchema } from "medior/_generated/server/models";
+import { computed } from "mobx";
 import { Model, model, modelAction, modelFlow, objectToMapTransform, prop } from "mobx-keystone";
 import * as db from "medior/server/database";
 import { TagToUpsert } from "medior/components";
-import { asyncAction, toast } from "medior/utils/client";
+import { asyncAction, colors, CssColor, toast } from "medior/utils/client";
 import {
   Fmt,
   mergeTagDefinitions,
@@ -230,6 +231,21 @@ export class TagStore extends Model({
       return upsertedTags;
     },
   );
+
+  /* --------------------------------- GETTERS -------------------------------- */
+  /** Distinct colors set directly on tags, in palette order, followed by any outside it. */
+  @computed
+  get categoryColors() {
+    const paletteColors: string[] = colors.swatches.flat();
+    const tagColors = new Set<string>(
+      [...this.categorySources.values()].map((tag) => tag.category?.color).filter(Boolean),
+    );
+
+    return [
+      ...paletteColors.filter((color) => tagColors.has(color)),
+      ...[...tagColors].filter((color) => !paletteColors.includes(color)),
+    ] as CssColor[];
+  }
 
   /* ----------------------------- DYNAMIC GETTERS ---------------------------- */
   getCategory(tag: { category?: TagSchema["category"]; id?: string }) {

@@ -16,6 +16,7 @@ import { chunkArray } from "medior/utils/common";
 import { trpc } from "medior/utils/server";
 import {
   File,
+  FileExporterStore,
   FileSearch,
   FileSimilarityStore,
   FileTagsEditorStore,
@@ -36,6 +37,7 @@ export class FileStore extends ExtendedModel(_FileStore, {
   activeFileId: prop<string | null>(null).withSetter(),
   archivedFileIds: prop<string[]>(() => []).withSetter(),
   deleteCancelToken: prop<number>(0).withSetter(),
+  exporter: prop<FileExporterStore>(() => new FileExporterStore({})),
   hasArchivedFiles: prop<boolean>(false).withSetter(),
   idsForConfirmDelete: prop<string[]>(() => []).withSetter(),
   isActionCancelling: prop<boolean>(false).withSetter(),
@@ -138,6 +140,7 @@ export class FileStore extends ExtendedModel(_FileStore, {
 
     this.videoTransformer.setFileIds(fileIds);
     this.videoTransformer.setFnType(fnType);
+    this.videoTransformer.setQueueType(fnType);
     this.videoTransformer.setSourceSortValue(sortValue ? { ...sortValue } : null);
     this.videoTransformer.setIsOpen(true);
   }
@@ -310,7 +313,6 @@ export class FileStore extends ExtendedModel(_FileStore, {
     if (!deletedIds.length && !archivedIds.length) throw new Error("No files to delete or archive");
 
     const processedIds: string[] = [];
-    const tagIdsToRegen = new Set<string>();
     let processedCount = 0;
 
     for (const chunk of chunkArray(archivedIds, 200)) {
@@ -343,7 +345,6 @@ export class FileStore extends ExtendedModel(_FileStore, {
 
       if (!deleteRes.success) throw new Error(deleteRes.error);
 
-      deleteRes.data.tagIds.forEach((tagId) => tagIdsToRegen.add(tagId));
       this.updateArchivedFileIds(chunk, false);
       this.search.removeFiles(chunk);
       processedIds.push(...chunk);
@@ -357,12 +358,6 @@ export class FileStore extends ExtendedModel(_FileStore, {
     this.search.toggleSelected(processedIds.map((id) => ({ id, isSelected: false })));
     this.setIdsForConfirmDelete([]);
     this.setIsConfirmDeleteOpen(false);
-
-    if (tagIdsToRegen.size) {
-      const regenRes = await trpc.regenTags.mutate({ tagIds: [...tagIdsToRegen] });
-
-      if (!regenRes.success) throw new Error(regenRes.error);
-    }
 
     if (deletedCount) toast.warn(`${deletedCount} files deleted`);
 

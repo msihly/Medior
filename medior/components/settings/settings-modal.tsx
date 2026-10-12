@@ -205,6 +205,8 @@ export const SettingsModal = Comp(() => {
           </View>
 
           <Settings.StorageInputs selectLocation={selectStorageLocation} />
+
+          <Settings.ScratchInput selectLocation={selectStorageLocation} />
         </Settings.Section>
 
         <Settings.Section title="Vectors">

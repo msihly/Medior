@@ -55,6 +55,11 @@ model.addProp("hasDiffParams", "boolean", "false", {
     ]`,
 });
 
+model.addProp("hasTimeline", "boolean", "false", {
+  objPath: ["timestamps.id", "$exists"],
+  objValue: "true",
+});
+
 model.addProp("isArchived", "boolean", "false", {
   customActionProps: [
     model.makeCustomActionProp({

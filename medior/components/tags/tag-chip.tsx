@@ -1,7 +1,7 @@
 import Color from "color";
 import { Chip, ChipProps, Comp, Icon, IconName, TagToUpsert, Text, View } from "medior/components";
 import { useStores } from "medior/store";
-import { colors, CssColor, makeClasses } from "medior/utils/client";
+import { colors, CssColor, getContrastText, makeClasses } from "medior/utils/client";
 import { BadgeWrapper } from "./tag-chip-badge";
 
 const HEIGHT_MEDIUM = 32;
@@ -79,6 +79,9 @@ const useClasses = makeClasses((props: ClassesProps) => ({
     background: Color(props.color).lighten(0.2).fade(0.5).toString(),
     border: `2px solid ${props.color}`,
     borderRadius: 12,
+    color: getContrastText(
+      Color(props.color).lighten(0.2).mix(Color(colors.foreground), 0.5).hex() as CssColor,
+    ),
     height: props.size === "medium" ? HEIGHT_MEDIUM : HEIGHT_SMALL,
     padding: "0.3em 0",
   },

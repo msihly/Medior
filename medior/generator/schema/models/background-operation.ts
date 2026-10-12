@@ -42,11 +42,11 @@ model.addIndex({ status: 1, completedAt: 1, _id: 1 }, { unique: false });
 model.addIndex({ status: 1, dateModified: 1, _id: 1 }, { unique: false });
 model.addProp(
   "type",
-  "'audioAnalysis' | 'collectionMetadata' | 'duplicateMerge' | 'fileTagAncestors' | 'importEntryMigration' | 'mediaPathIndex' | 'metadataAction' | 'persistenceMigration' | 'repair' | 'tagHierarchy' | 'tagMetadata' | 'tagRefresh' | 'transformQueue'",
+  "'audioAnalysis' | 'collectionMetadata' | 'duplicateMerge' | 'fileTagAncestors' | 'importCleanup' | 'importEntryMigration' | 'mediaPathIndex' | 'metadataAction' | 'persistenceMigration' | 'repair' | 'tagHierarchy' | 'tagMetadata' | 'tagRefresh' | 'transformQueue'",
   {
     required: true,
     schemaType:
-      "{ type: String, enum: ['audioAnalysis', 'collectionMetadata', 'duplicateMerge', 'fileTagAncestors', 'importEntryMigration', 'mediaPathIndex', 'metadataAction', 'persistenceMigration', 'repair', 'tagHierarchy', 'tagMetadata', 'tagRefresh', 'transformQueue'] }",
+      "{ type: String, enum: ['audioAnalysis', 'collectionMetadata', 'duplicateMerge', 'fileTagAncestors', 'importCleanup', 'importEntryMigration', 'mediaPathIndex', 'metadataAction', 'persistenceMigration', 'repair', 'tagHierarchy', 'tagMetadata', 'tagRefresh', 'transformQueue'] }",
   },
 );
 

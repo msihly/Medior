@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef } from "react";
-import { SocketEmitEvent, SocketEmitEvents } from "medior/_generated/server/socket";
 import type { BackgroundOperationSchema, TagSchema } from "medior/_generated/server/models";
+import { SocketEmitEvent, SocketEmitEvents } from "medior/_generated/server/socket";
 import {
   FileCollectionSearch,
   FileSearch,
@@ -10,8 +10,8 @@ import {
   useStores,
 } from "medior/store";
 import { getImportTagIndex } from "medior/store/imports/import-tag-index";
-import { reloadItemTags } from "medior/utils/client/tags";
 import { updatesAffectSearch } from "medior/utils/client/search-updates";
+import { reloadItemTags } from "medior/utils/client/tags";
 import { isDeepEqual, throttle } from "medior/utils/common";
 import { socket } from "medior/utils/server";
 
@@ -326,7 +326,7 @@ export const useSockets = ({ enabled = true, view }: UseSocketsProps) => {
 
         if (stores.file.videoTransformer.isOpen) {
           stores.file.videoTransformer.loadQueueCount();
-          stores.file.videoTransformer.loadActiveTransform();
+          stores.file.videoTransformer.loadActiveTransform({ isBackground: true });
         }
       }
     });
@@ -351,14 +351,17 @@ export const useSockets = ({ enabled = true, view }: UseSocketsProps) => {
 
         if (stores.file.videoTransformer.isOpen) {
           stores.file.videoTransformer.loadQueueCount();
-          stores.file.videoTransformer.loadActiveTransform();
+          stores.file.videoTransformer.loadActiveTransform({ isBackground: true });
         }
 
         stores.file.search.setHasChanges(true);
       }
     });
 
-    makeSocket("onFilesUpdated", ({ fileIds, updates }) => {
+    const handleFilesUpdated = ({
+      fileIds,
+      updates,
+    }: Parameters<SocketEmitEvents["onFilesUpdated"]>[0]) => {
       if (view !== "carousel") {
         getActiveFileSearches().forEach((search) => {
           const visibleFiles = fileIds.map((id) => search.getResult(id)).filter(Boolean);
@@ -389,7 +392,14 @@ export const useSockets = ({ enabled = true, view }: UseSocketsProps) => {
       if (view !== "carousel") {
         if (updates.tagIds) reloadVisibleTagChips(fileIds);
       }
-    });
+    };
+
+    // Single-file updates, such as replaced transform outputs, refresh searches like batch updates.
+    makeSocket("onFileUpdated", ({ id, updates }) =>
+      handleFilesUpdated({ fileIds: [id], updates }),
+    );
+
+    makeSocket("onFilesUpdated", handleFilesUpdated);
 
     makeSocket("onFileTagsUpdated", ({ addedTagIds, fileIds = [], removedTagIds }) => {
       stores.file.updateFileTags({ addedTagIds, fileIds, removedTagIds });
@@ -617,16 +627,16 @@ export const useSockets = ({ enabled = true, view }: UseSocketsProps) => {
 
     makeSocket("onFileTransformerStatusUpdated", async () => {
       const store = stores.file.videoTransformer;
-
-      if (!store.isOpen) return;
-
       const wasTransforming = store.isTransforming;
       const status = await store.getTransformerStatus();
 
       if (!status?.success || !status.data || !store.isOpen) return;
 
       if (wasTransforming && !store.isTransforming && !store.isUpdating) {
-        await store.loadActiveTransform(store.focusedTransformId ?? undefined);
+        await store.loadActiveTransform({
+          id: store.focusedTransformId ?? undefined,
+          isBackground: true,
+        });
       }
 
       await store.loadQueueCount();
@@ -646,13 +656,19 @@ export const useSockets = ({ enabled = true, view }: UseSocketsProps) => {
 
       store.removeQueueFiles([], ids);
 
-      if (activeDeleted) store.loadActiveTransform();
+      if (activeDeleted) store.loadActiveTransform({ isBackground: true });
 
       store.loadQueueCount();
+      store.loadSizeHistory();
     });
 
     makeSocket("onFileTransformUpdated", ({ id, updates }) => {
-      stores.file.videoTransformer.receiveTransformUpdate(id, updates);
+      const store = stores.file.videoTransformer;
+
+      store.receiveTransformUpdate(id, updates);
+
+      if (store.isOpen && ("isCompleted" in updates || "status" in updates))
+        store.queueSizeHistoryRefresh();
     });
 
     makeSocket("onReloadFileTransforms", ({ reason }) => {
@@ -662,7 +678,7 @@ export const useSockets = ({ enabled = true, view }: UseSocketsProps) => {
 
       store.loadQueueCount();
 
-      if (reason !== "created" || !store.search.forcePages) store.loadQueue();
+      if (reason !== "created" || !store.search.forcePages) store.loadQueue({ isBackground: true });
     });
 
     if (view === "home") {

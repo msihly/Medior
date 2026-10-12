@@ -1,14 +1,21 @@
 import { ipcRenderer } from "electron";
 import { useEffect, useState } from "react";
 import { Button, Comp, LoadingOverlay, Modal, Text, View } from "medior/components";
-import { FileTransform, useStores } from "medior/store";
-import { useCancellableLoad } from "medior/utils/client";
+import { FileTransform, FileTransformType, useStores } from "medior/store";
+import { colors, toast, useCancellableLoad } from "medior/utils/client";
 import { loadConfig } from "medior/utils/server";
 import { ActiveTransform } from "./video-transformer-modal/active-transform";
 import { ComparisonViewer } from "./video-transformer-modal/comparison-viewer";
 import { MediaTransformerErrorBoundary } from "./video-transformer-modal/error-boundary";
+import { ReencodeCandidates } from "./video-transformer-modal/reencode-candidates";
 import { TransformConfig } from "./video-transformer-modal/transform-config";
 import { TransformSearch } from "./video-transformer-modal/transform-search";
+
+const QUEUE_TYPES: { label: string; type: FileTransformType }[] = [
+  { label: "Re-encodes", type: "reencode" },
+  { label: "Remuxes", type: "remux" },
+  { label: "Splices", type: "splice" },
+];
 
 export const VideoTransformerModal = Comp(() => {
   const stores = useStores();
@@ -37,7 +44,13 @@ export const VideoTransformerModal = Comp(() => {
     if (!store.isUpdating) {
       load.cancel();
       store.setIsOpen(false);
+      stores.file.search.reloadIfQueued();
     }
+  };
+
+  const handleQueueType = async (type: FileTransformType) => {
+    const res = await store.changeQueueType(type);
+    if (!res.success) toast.error(res.error);
   };
 
   const openComparison = () => setComparison(store.activeTransform);
@@ -52,7 +65,23 @@ export const VideoTransformerModal = Comp(() => {
           sub={!store.isUpdating && <Button text="Cancel" icon="Close" onClick={handleClose} />}
         />
 
-        <Modal.Header>
+        <Modal.Header
+          leftNode={
+            <View row spacing="0.5rem">
+              {QUEUE_TYPES.map(({ label, type }) => (
+                <Button
+                  key={type}
+                  text={label}
+                  icon={store.isTransforming && store.activeType === type ? "Autorenew" : undefined}
+                  onClick={() => handleQueueType(type)}
+                  disabled={load.isLoading || store.isUpdating}
+                  color={store.queueType === type ? colors.custom.purple : colors.foregroundCard}
+                  colorOnHover={colors.custom.purple}
+                />
+              ))}
+            </View>
+          }
+        >
           <Text preset="title">{"Media Transformer"}</Text>
         </Modal.Header>
 
@@ -67,6 +96,8 @@ export const VideoTransformerModal = Comp(() => {
         </Modal.Content>
 
         <Modal.Footer>
+          <ReencodeCandidates />
+
           <Button text="Config" icon="Settings" onClick={toggleConfig} />
 
           <Button text="Close" icon="Close" onClick={handleClose} />

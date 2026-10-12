@@ -30,11 +30,14 @@ import {
   chunkArray,
   dayjs,
   Fmt,
+  getClosestPaletteColor,
   isDeepEqual,
   mergeTagDefinitions,
+  PALETTE_SWATCHES,
   preferredTagLabel,
   resolveTagCategory,
   TagCategorySource,
+  TagRegExMatcher,
   tagsToRegEx,
 } from "medior/utils/common";
 import { collectRelatedTagIds } from "medior/utils/common/tag-hierarchy";
@@ -368,6 +371,23 @@ export const queueTagMetadataRegen = async (tagIds: string[], ancestorIds?: stri
 
   runTagRegenQueue();
 };
+
+const REGEX_OVERLAP_LIMIT = 1000;
+
+interface TagRegExOverlap {
+  id: string;
+  label: string;
+  term: string;
+}
+
+/** Labels and aliases are the terms other tags' patterns are checked against. */
+const listRegExOverlapTags = async () =>
+  (await models.TagModel.find().select({ aliases: 1, label: 1, regEx: 1 }).lean()).map((tag) => ({
+    id: String(tag._id),
+    label: tag.label,
+    regEx: tag.regEx,
+    terms: [tag.label, ...(tag.aliases ?? [])],
+  }));
 
 /* -------------------------------------------------------------------------- */
 /*                                API ENDPOINTS                               */
@@ -741,6 +761,75 @@ export const listRegExMaps = makeAction(async () => {
 
   return tags.map((t) => ({ id: t._id.toString(), regEx: t.regEx }));
 });
+
+/** Pairs where one tag's pattern matches another tag's label or alias, once per pair. */
+export const listAllTagRegExOverlaps = makeAction(async () => {
+  const tags = await listRegExOverlapTags();
+  const tagsById = new Map(tags.map((tag) => [tag.id, tag]));
+  const matcher = new TagRegExMatcher();
+
+  for (const tag of tags) {
+    if (tag.regEx) matcher.add({ regEx: new RegExp(tag.regEx, "im"), tagId: tag.id });
+  }
+
+  const overlaps: { matchedTag: TagRegExOverlap; regExTag: Omit<TagRegExOverlap, "term"> }[] = [];
+  const pairs = new Set<string>();
+
+  for (const tag of tags) {
+    for (const term of tag.terms) {
+      for (const { tagId } of await matcher.match(term, () => Promise.resolve())) {
+        const pair = `${tagId}:${tag.id}`;
+        if (tagId === tag.id || pairs.has(pair)) continue;
+
+        pairs.add(pair);
+        overlaps.push({
+          matchedTag: { id: tag.id, label: tag.label, term },
+          regExTag: { id: tagId, label: tagsById.get(tagId).label },
+        });
+      }
+    }
+  }
+
+  overlaps.sort(
+    (a, b) =>
+      a.regExTag.label.localeCompare(b.regExTag.label) ||
+      a.matchedTag.label.localeCompare(b.matchedTag.label),
+  );
+
+  return { overlaps: overlaps.slice(0, REGEX_OVERLAP_LIMIT), total: overlaps.length };
+});
+
+/**
+ * Lists other tags whose labels or aliases a draft pattern matches, and other tags whose patterns
+ * match the draft's terms.
+ */
+export const listTagRegExOverlaps = makeAction(
+  async ({ regEx, tagId, terms }: { regEx: string; tagId?: string; terms: string[] }) => {
+    const pattern = regEx ? new RegExp(regEx, "im") : null;
+    const matched: TagRegExOverlap[] = [];
+    const matchedBy: TagRegExOverlap[] = [];
+
+    for (const tag of await listRegExOverlapTags()) {
+      if (tag.id === tagId) continue;
+
+      const matchedTerm = pattern && tag.terms.find((term) => pattern.test(term));
+      if (matchedTerm) matched.push({ id: tag.id, label: tag.label, term: matchedTerm });
+
+      if (tag.regEx) {
+        const tagPattern = new RegExp(tag.regEx, "im");
+        const matchedByTerm = terms.find((term) => tagPattern.test(term));
+        if (matchedByTerm) matchedBy.push({ id: tag.id, label: tag.label, term: matchedByTerm });
+      }
+    }
+
+    return {
+      matched: matched.slice(0, REGEX_OVERLAP_LIMIT),
+      matchedBy: matchedBy.slice(0, REGEX_OVERLAP_LIMIT),
+      matchedByTotal: matchedBy.length,
+      matchedTotal: matched.length,
+    };
+  },
+);
 
 /** Import label matching needs one compact directory, not repeated case-insensitive scans. */
 export const listImportTags = makeAction(async ({ ids }: { ids?: string[] }) => {
@@ -1401,6 +1490,7 @@ export const repairTags = makeAction(
     decodeLabels = true,
     mergeDuplicateLabels = true,
     regenerateMetadata = true,
+    remapColors = false,
     repairHierarchy = true,
     repairId,
   }: {
@@ -1408,6 +1498,7 @@ export const repairTags = makeAction(
     decodeLabels?: boolean;
     mergeDuplicateLabels?: boolean;
     regenerateMetadata?: boolean;
+    remapColors?: boolean;
     repairHierarchy?: boolean;
     repairId: string;
   }) => {
@@ -1421,6 +1512,7 @@ export const repairTags = makeAction(
       let mergedCount = 0;
       let processedCount = 0;
       let regeneratedMetadataCount = 0;
+      let remappedColorCount = 0;
       let repairedDerivedHierarchyCount = 0;
 
       if (decodeLabels) {
@@ -1753,13 +1845,61 @@ export const repairTags = makeAction(
         perfLog("Regenerated tag metadata");
       }
 
+      if (remapColors) {
+        const paletteColors: string[] = PALETTE_SWATCHES.flat();
+
+        report("Remapping tag colors to the closest palette colors.");
+        progress("Tag repair: remapping colors.");
+
+        await repairMetadata(
+          models.TagModel.find({ "category.color": { $nin: [null, "", ...paletteColors] } })
+            .select({ _id: 1 })
+            .sort({ _id: 1 })
+            .lean()
+            .cursor(),
+          async (candidate) => {
+            checkCancelled();
+
+            const tag = await models.TagModel.findById(candidate._id)
+              .select({ category: 1 })
+              .lean();
+            const color = tag?.category?.color;
+            if (!color || paletteColors.includes(color)) return false;
+
+            const category = { ...tag.category, color: getClosestPaletteColor(color) };
+
+            await models.TagModel.updateOne(
+              { _id: tag._id, "category.color": color },
+              { $set: { "category.color": category.color } },
+            );
+
+            socket.emit("onTagsUpdated", {
+              tags: [{ tagId: String(tag._id), updates: { category } }],
+              withFileReload: false,
+            });
+
+            checkCancelled();
+
+            return true;
+          },
+          async ({ result: remapped }) => {
+            checkCancelled();
+
+            if (remapped) progress(`Tag repair: remapped ${++remappedColorCount} tag colors.`);
+          },
+        );
+
+        report(`Remapped ${remappedColorCount} tag colors to the palette.`, "progress");
+      }
+
       report(
-        `Tag repair completed successfully: merged ${mergedCount} duplicates, repaired ${tagsWithRepairedDirectRelations.size} direct relationships, repaired ${repairedDerivedHierarchyCount} derived hierarchies, and regenerated metadata for ${regeneratedMetadataCount} tags.`,
+        `Tag repair completed successfully: merged ${mergedCount} duplicates, repaired ${tagsWithRepairedDirectRelations.size} direct relationships, repaired ${repairedDerivedHierarchyCount} derived hierarchies, regenerated metadata for ${regeneratedMetadataCount} tags, and remapped ${remappedColorCount} tag colors.`,
         "success",
       );
 
       return {
         mergedCount,
+        remappedColorCount,
         repairedDerivedHierarchyCount,
         repairedDirectRelationshipCount: tagsWithRepairedDirectRelations.size,
         regeneratedMetadataCount,

@@ -1,4 +1,5 @@
 import { ModelDb } from "medior/generator/schema/generators";
+import { FILE_IMPORT_SIDECAR_FIELDS } from "medior/utils/common/imports";
 
 const model = new ModelDb("FileImport", {
   idDefault: "null",
@@ -32,6 +33,14 @@ model.addProp("name", "string", { required: true });
 model.addProp("path", "string", { required: true });
 
 model.addProp("progressRevision", "number", { defaultValue: "0" });
+
+model.addProp(
+  "sidecar",
+  `Partial<Pick<FileSchema, ${FILE_IMPORT_SIDECAR_FIELDS.filter((field) => field !== "collections")
+    .map((field) => `"${field}"`)
+    .join(" | ")}> & { collections: Array<{ id: string; index: number }> }>`,
+  { excludeFromStore: true, schemaType: "Schema.Types.Mixed" },
+);
 
 model.addProp("size", "number", { required: true });
 

@@ -46,6 +46,8 @@ export const HomeMultiActionBar = Comp(
       stores.file.tagsEditor.setIsOpen(true);
     };
 
+    const handleExport = () => stores.file.exporter.open(selectedIds);
+
     const handleFileInfoRefresh = () => stores.file.refreshFiles({ ids: selectedIds });
 
     const handleFindDuplicates = () => stores.file.lowerResolution.open();
@@ -66,6 +68,12 @@ export const HomeMultiActionBar = Comp(
 
       if (!res.success) toast.error("Failed to select all files");
       else if (res.data !== null) toast.info(`Selected ${res.data} files`);
+    };
+
+    // Without shared timestamps, each selected video is spliced by its own single timeline.
+    const handleSplice = () => {
+      stores.file.videoTransformer.setTimestampPairs([]);
+      stores.file.openVideoTransformer(selectedIds, "splice", sourceSortValue);
     };
 
     const handleUnarchive = () => stores.file.unarchiveFiles({ fileIds: selectedIds });
@@ -128,6 +136,13 @@ export const HomeMultiActionBar = Comp(
               />
 
               <MultiActionButton
+                name="ContentCut"
+                tooltip="Splice Videos with a Single Timeline"
+                onClick={handleSplice}
+                disabled={hasNoSelection || !isHome}
+              />
+
+              <MultiActionButton
                 name="Refresh"
                 iconProps={{ rotation: 190, size: "1.1em" }}
                 tooltip="Refresh File Info"
@@ -160,6 +175,13 @@ export const HomeMultiActionBar = Comp(
                 name="Label"
                 tooltip="Edit Tags"
                 onClick={handleEditTags}
+                disabled={hasNoSelection}
+              />
+
+              <MultiActionButton
+                name="FileExport"
+                tooltip="Export"
+                onClick={handleExport}
                 disabled={hasNoSelection}
               />
 

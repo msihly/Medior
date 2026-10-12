@@ -28,6 +28,10 @@ export const ExtAndIcons = ({ file, ...props }: ExtAndIconsProps) => {
             <Icon name="Notes" size="1em" color={colors.custom.blue} />
           )}
 
+          {file.timestamps?.length > 0 && (
+            <Icon name="Timeline" size="1em" color={colors.palette.teal[500]} />
+          )}
+
           <View row align="center">
             <Text>{file.ext}</Text>
 

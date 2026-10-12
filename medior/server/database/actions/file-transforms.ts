@@ -1,7 +1,7 @@
 import fs from "fs/promises";
 import { createHash, randomUUID } from "crypto";
 import * as models from "medior/_generated/server/models";
-import { LeanDocument, Types as MongoTypes } from "mongoose";
+import { FilterQuery, LeanDocument, Types as MongoTypes } from "mongoose";
 import { deleteFile, fileLog } from "trabecula/utils/server";
 import * as actions from "medior/server/database/actions";
 import {
@@ -44,17 +44,29 @@ import {
   chunkArray,
   CONSTANTS,
   dayjs,
+  durationToSeconds,
   getOrientedSizeLimits,
+  getTimestampPairError,
+  normalizeTimestampPairs,
   validateTimestampPairs,
 } from "medior/utils/common";
 import { leanModelToJson, makeAction, objectIds, socket } from "medior/utils/server";
-import { getAvailableFileStorage, getConfig, getIsImage } from "medior/utils/server/config";
+import {
+  getAvailableFileStorage,
+  getConfig,
+  getIsImage,
+  ReencodeCandidateType,
+} from "medior/utils/server/config";
 import { hashMediaFile, recoverMediaOutput, syncMediaFile } from "medior/utils/server/media-output";
 import { getMediaInfo, MediaInfo, reencode, remux, spliceVideo } from "medior/utils/server/videos";
+
+const getIsImageTransform = (transform: models.FileTransformSchema) =>
+  getIsImage(transform.beforeExt) && transform.beforeExt !== "gif";
 
 class FileTransformerStatus {
   private abortController: AbortController = null;
   private activeTransforms = new Map<string, string>();
+  private activeType: Types.FileTransformType = null;
   private isAuto = false;
   private isPaused = true;
   private isTransforming = false;
@@ -71,6 +83,10 @@ class FileTransformerStatus {
 
   getActiveTransformId() {
     return this.activeTransforms.keys().next().value ?? null;
+  }
+
+  getActiveType() {
+    return this.activeType;
   }
 
   getIsAuto() {
@@ -92,8 +108,7 @@ class FileTransformerStatus {
   publishPreview(file: models.FileSchema, transform: models.FileTransformSchema) {
     if (
       this.isAuto &&
-      getIsImage(transform.beforeExt) &&
-      transform.beforeExt !== "gif" &&
+      getIsImageTransform(transform) &&
       Date.now() - this.lastPreviewAt < CONSTANTS.FILE.TRANSFORM.PREVIEW_INTERVAL_MS
     )
       return;
@@ -128,15 +143,17 @@ class FileTransformerStatus {
     if (!isTransforming) {
       this.abortController = null;
       this.activeTransforms.clear();
+      this.activeType = null;
     }
 
     socket.emitReliable("onFileTransformerStatusUpdated");
   }
 
-  tryRun() {
+  tryRun(type: Types.FileTransformType) {
     if (this.isTransforming) return null;
 
     this.abortController = new AbortController();
+    this.activeType = type;
     this.isPaused = false;
     this.isTransforming = true;
     this.lastPreviewAt = 0;
@@ -188,15 +205,20 @@ const updateFileTransform = async (id: string, updates: Partial<models.FileTrans
     SKIPPED: "onSkip",
   }[updates.status];
 
-  const tags = tagEvent
-    ? (getConfig().file.reencode[tagEvent] as { addTagIds: string[]; removeTagIds: string[] })
-    : null;
+  // Status tags apply as non-splice transforms finish; splice tags apply once a splice replaces its original.
+  const isSpliceTagEvent = updates.status === "REPLACED";
+
+  const tags: { addTagIds: string[]; removeTagIds: string[] } = isSpliceTagEvent
+    ? getConfig().file.splice.onComplete
+    : tagEvent
+      ? getConfig().file.reencode[tagEvent]
+      : null;
 
   if (updates.afterPath || updates.outputTempPath)
     await assertMediaPathsAvailable([updates.afterPath, updates.outputTempPath], id);
 
   const isProgress = Object.keys(updates).every((key) =>
-    ["progressPercent", "progressSize", "progressTime"].includes(key),
+    ["progressPercent", "progressSize", "progressStage", "progressTime"].includes(key),
   );
 
   const result = await models.FileTransformModel.updateOne(
@@ -213,7 +235,7 @@ const updateFileTransform = async (id: string, updates: Partial<models.FileTrans
     if (tags.addTagIds.length || tags.removeTagIds.length) {
       const transform = await models.FileTransformModel.findById(id).lean();
 
-      if (transform && transform.type !== "splice") {
+      if (transform && (transform.type === "splice") === isSpliceTagEvent) {
         const file = await models.FileModel.findById(transform.fileId).select({ tagIds: 1 }).lean();
 
         if (file) {
@@ -298,22 +320,62 @@ const resetStaleRunningTransforms = async () => {
   if (res.modifiedCount) socket.emit("onReloadFileTransforms", { reason: "reset" });
 };
 
-const getQueueTransform = async (status: Types.FileTransformStatus) =>
+const getQueueTransform = async (
+  status: Types.FileTransformStatus,
+  type: Types.FileTransformType,
+) =>
   leanModelToJson<models.FileTransformSchema>(
-    await models.FileTransformModel.findOne({ isCompleted: false, status })
+    await models.FileTransformModel.findOne({ isCompleted: false, status, type })
       .sort({ dateCreated: 1, queueIndex: 1, _id: 1 })
       .lean(),
   );
 
-export const getNextFileTransform = makeAction(
-  async () => (await getQueueTransform("RUNNING")) ?? (await getQueueTransform("PENDING")),
+/** Loads a transform with its tagged file in one request; without an ID, the queue's current one. */
+export const getActiveFileTransform = makeAction(
+  async ({ id, type }: { id?: string; type: Types.FileTransformType }) => {
+    const transform = id
+      ? leanModelToJson<models.FileTransformSchema>(
+          await models.FileTransformModel.findById(id).lean(),
+        )
+      : ((await getQueueTransform("RUNNING", type)) ?? (await getQueueTransform("PENDING", type)));
+
+    if (!transform?.fileId) return null;
+
+    const file = leanModelToJson<models.FileSchema>(
+      await models.FileModel.findById(transform.fileId).lean(),
+    );
+
+    if (!file) throw new Error("File not found");
+
+    const tags = await actions.listTag({ filter: { id: file.tagIds.map(String) } });
+
+    if (!tags.success) throw new Error(tags.error);
+
+    return { file: { ...file, tags: tags.data }, transform };
+  },
 );
 
 export interface TransformQueueOptions {
   config: ReturnType<typeof getConfig>["file"]["reencode"];
+  spliceMode?: Types.SpliceMode;
   timestampPairs: Array<{ end: number; start: number }>;
   type: Types.FileTransformType;
 }
+
+/** A file's only timeline with pairs as second ranges, or null when it has none or several. */
+const getSingleTimelinePairs = (file: Pick<models.FileSchema, "duration" | "timestamps">) => {
+  const timelines = file.timestamps?.filter((timeline) => timeline.pairs?.length) ?? [];
+  if (timelines.length !== 1) return null;
+
+  const pairs = normalizeTimestampPairs(timelines[0].pairs).map((pair) => ({
+    end: durationToSeconds(pair.endDuration),
+    start: durationToSeconds(pair.startDuration),
+  }));
+
+  return pairs.every(({ end, start }) => !getTimestampPairError(start, end, file.duration))
+    ? pairs
+    : null;
+};
 
 const getQueueTransformId = (requestId: MongoTypes.ObjectId, fileId: string) =>
   new MongoTypes.ObjectId(
@@ -347,7 +409,7 @@ const runTransformQueueCreation = makeBackgroundOperationRunner(
 
           checkBackgroundExecution();
 
-          const { config, timestampPairs, type } = request.transformOptions;
+          const { config, spliceMode, timestampPairs, type } = request.transformOptions;
 
           const files = await models.FileModel.find({
             _id: { $in: objectIds(request.targetIds) },
@@ -364,6 +426,7 @@ const runTransformQueueCreation = makeBackgroundOperationRunner(
               height: 1,
               path: 1,
               size: 1,
+              timestamps: 1,
               videoCodec: 1,
               width: 1,
             })
@@ -377,9 +440,12 @@ const runTransformQueueCreation = makeBackgroundOperationRunner(
               `Files were removed or archived before queue insertion: ${missing.join(", ")}`,
             );
 
+          // Queued jobs for a file are reused, except splices: each render has its own timeline and mode.
           const existing = await models.FileTransformModel.find({
             $or: [
-              { fileId: { $in: objectIds(request.targetIds) }, isCompleted: false, type },
+              ...(type === "splice"
+                ? []
+                : [{ fileId: { $in: objectIds(request.targetIds) }, isCompleted: false, type }]),
               { _id: { $in: request.targetIds.map((id) => getQueueTransformId(request._id, id)) } },
             ],
           })
@@ -398,6 +464,15 @@ const runTransformQueueCreation = makeBackgroundOperationRunner(
             if (ids.has(id)) continue;
 
             const file = fileMap.get(id);
+
+            // Multi-file splices carry no shared pairs; each file renders its own single timeline.
+            const filePairs =
+              type === "splice" && !timestampPairs.length
+                ? getSingleTimelinePairs(file)
+                : timestampPairs;
+
+            if (!filePairs)
+              throw new Error(`File ${id} no longer has exactly one valid timeline to splice`);
 
             const imageLimits = getOrientedSizeLimits(
               file.width,
@@ -429,8 +504,9 @@ const runTransformQueueCreation = makeBackgroundOperationRunner(
               fileId: id,
               isCompleted: false,
               queueIndex: request.processedCount + index,
+              ...(type === "splice" ? { spliceMode: spliceMode ?? "replace" } : {}),
               status: "PENDING",
-              timestampPairs,
+              timestampPairs: filePairs,
               type,
             });
           }
@@ -484,13 +560,17 @@ export const createFileTransforms = makeAction(
   async (args: {
     fileIds: string[];
     sortValue?: actions.CreateFileFilterPipelineInput["sortValue"];
+    spliceMode?: Types.SpliceMode;
     timestampPairs?: Array<{ end: number; start: number }>;
     type: Types.FileTransformType;
   }) => {
     if (!args.fileIds.length) throw new Error("No files selected");
 
-    if (args.type === "splice" && args.fileIds.length !== 1)
-      throw new Error("Splice transforms must contain exactly one file");
+    // Without shared pairs, each selected video is spliced by its own single timeline.
+    const isTimelineSplice = args.type === "splice" && !args.timestampPairs?.length;
+
+    if (args.type === "splice" && !isTimelineSplice && args.fileIds.length !== 1)
+      throw new Error("Splice transforms with timestamps must contain exactly one file");
 
     const sortDir = args.sortValue?.isDesc ? -1 : 1;
 
@@ -498,7 +578,7 @@ export const createFileTransforms = makeAction(
       _id: { $in: objectIds(args.fileIds) },
       isArchived: false,
     })
-      .select({ _id: 1, duration: 1 })
+      .select({ _id: 1, duration: 1, ...(isTimelineSplice ? { timestamps: 1 } : {}) })
       .sort(args.sortValue ? { [args.sortValue.key]: sortDir, _id: sortDir } : {})
       .allowDiskUse(true)
       .lean();
@@ -508,15 +588,24 @@ export const createFileTransforms = makeAction(
         "Some selected files were removed or archived. Refresh the selection and try again.",
       );
 
-    if (args.type === "splice")
+    if (args.type === "splice" && !isTimelineSplice)
       validateTimestampPairs(
-        args.timestampPairs?.map(({ end, start }) => [start, end]),
+        args.timestampPairs.map(({ end, start }) => [start, end]),
         files[0].duration,
       );
 
-    const targetIds = args.sortValue
-      ? files.map((file) => file._id.toString())
-      : [...new Set(args.fileIds)];
+    const spliceableIds = isTimelineSplice
+      ? new Set(
+          files.filter((file) => getSingleTimelinePairs(file)).map((file) => file._id.toString()),
+        )
+      : null;
+
+    if (spliceableIds?.size === 0)
+      throw new Error("None of the selected videos have exactly one valid timeline");
+
+    const targetIds = (
+      args.sortValue ? files.map((file) => file._id.toString()) : [...new Set(args.fileIds)]
+    ).filter((id) => !spliceableIds || spliceableIds.has(id));
 
     const request = await models.BackgroundOperationModel.create({
       dateCreated: dayjs().toISOString(),
@@ -529,6 +618,7 @@ export const createFileTransforms = makeAction(
       transformIds: [],
       transformOptions: {
         config: getConfig().file.reencode,
+        spliceMode: args.spliceMode,
         timestampPairs: args.timestampPairs ?? [],
         type: args.type,
       },
@@ -548,9 +638,136 @@ export const createFileTransforms = makeAction(
           "Queue insertion is saved in Activity and will continue when background work resumes.",
       );
 
-    return { count: completed.transformIds.length, ids: completed.transformIds };
+    return {
+      count: completed.transformIds.length,
+      ids: completed.transformIds,
+      skippedCount: files.length - targetIds.length,
+    };
   },
 );
+
+const REENCODE_BATCH_SIZES: Record<ReencodeCandidateType, number> = {
+  gif: 100,
+  image: 1000,
+  video: 100,
+};
+
+/**
+ * Matches uncorrupted files over the configured re-encode limits, excluding files with the
+ * configured excluded tags or their descendants, and videos longer than the saved max length.
+ */
+const getReencodeCandidateMatches = () => {
+  const { file } = getConfig();
+  const config = file.reencode;
+  const longEdge = { $max: ["$width", "$height"] };
+  const shortEdge = { $min: ["$width", "$height"] };
+
+  // GIF, MKV, and WebM streams often lack a stored bitrate, so fall back to the overall average.
+  const bitrate = {
+    $ifNull: [
+      "$bitrate",
+      {
+        $cond: [
+          { $gt: ["$duration", 0] },
+          { $divide: [{ $multiply: ["$size", 8] }, "$duration"] },
+          null,
+        ],
+      },
+    ],
+  };
+
+  const videoLimits = [
+    { $gt: [bitrate, config.maxBitrate * 1000] },
+    ...(config.maxFps ? [{ $gt: ["$frameRate", config.maxFps] }] : []),
+    { $gt: [longEdge, config.maxLongEdge] },
+    { $gt: [shortEdge, config.maxShortEdge] },
+  ];
+
+  const makeMatch = (exts: string[], limits: object[]): FilterQuery<models.FileSchema> => ({
+    $expr: { $or: limits },
+    ext: { $in: exts },
+    isArchived: false,
+    isCorrupted: { $ne: true },
+    tagIdsWithAncestors: { $nin: objectIds(config.excludedDescTagIds) },
+  });
+
+  return {
+    gif: makeMatch(["gif"], videoLimits),
+    image: makeMatch(
+      file.imageExts.filter((ext) => ext !== "gif"),
+      [
+        { $gt: [longEdge, config.imageMaxLongEdge] },
+        { $gt: [shortEdge, config.imageMaxShortEdge] },
+      ],
+    ),
+    video: {
+      ...makeMatch(file.videoExts, videoLimits),
+      ...(config.queueMaxDuration ? { duration: { $lte: config.queueMaxDuration } } : {}),
+    },
+  } satisfies Record<ReencodeCandidateType, FilterQuery<models.FileSchema>>;
+};
+
+/**
+ * Lists the next batch of never re-encoded candidates per type in queue order: images by size, then
+ * GIFs and videos by stored bitrate, with missing bitrates last. Each scan walks its sort index
+ * rather than sorting every match, and sparse types may still walk most of the index.
+ */
+export const listReencodeCandidateIds = makeAction(
+  async (args: { types: ReencodeCandidateType[] }) => {
+    // The hinted sort indexes are created by media path indexing.
+    await assertMediaPathIndexesReady();
+
+    const matches = getReencodeCandidateMatches();
+    const ids: string[] = [];
+
+    for (const type of ["image", "gif", "video"] as const) {
+      if (!args.types.includes(type)) continue;
+
+      const sortKey = type === "image" ? "size" : "bitrate";
+
+      const files = await models.FileModel.aggregate<{ _id: MongoTypes.ObjectId }>([
+        { $match: matches[type] },
+        { $sort: { [sortKey]: -1, _id: -1 } },
+        {
+          $lookup: {
+            as: "reencodes",
+            foreignField: "fileId",
+            from: models.FileTransformModel.collection.name,
+            localField: "_id",
+            pipeline: [{ $match: { type: "reencode" } }, { $limit: 1 }, { $project: { _id: 1 } }],
+          },
+        },
+        { $match: { "reencodes.0": { $exists: false } } },
+        { $limit: REENCODE_BATCH_SIZES[type] },
+        { $project: { _id: 1 } },
+      ]).hint({ [sortKey]: 1, _id: 1 });
+
+      for (const file of files) ids.push(file._id.toString());
+    }
+
+    return ids;
+  },
+);
+
+/** Queues the next candidate batch for the saved types and returns the first pending transform. */
+const refillReencodeQueue = async () => {
+  const types = getConfig().file.reencode.queueTypes;
+  if (!types.length) return null;
+
+  const candidates = await listReencodeCandidateIds({ types });
+  if (!candidates.success) throw new Error(candidates.error);
+  if (!candidates.data.length) return null;
+
+  const created = await createFileTransforms({ fileIds: candidates.data, type: "reencode" });
+  if (!created.success) throw new Error(created.error);
+
+  return getQueueTransform("PENDING", "reencode");
+};
+
+/** Returns the next pending transform, topping up an exhausted re-encode queue first. */
+const getPendingTransform = async (type: Types.FileTransformType) =>
+  (await getQueueTransform("PENDING", type)) ??
+  (type === "reencode" ? await refillReencodeQueue() : null);
 
 export const deleteFileTransforms = makeAction(
   registerMetadataWork(
@@ -682,45 +899,77 @@ export const deleteFileTransformsByFileIds = makeAction(async (args: { fileIds: 
 });
 
 export const getFileTransformerStatus = makeAction(async () => {
-  const hasPendingTransforms = await models.FileTransformModel.exists({
-    isCompleted: false,
-    type: { $ne: "splice" },
-  });
+  // Queues left with pending work while the transformer is paused.
+  const pausedTypes: Types.FileTransformType[] = [];
+
+  if (fileTransformerStatus.getIsPaused()) {
+    for (const type of ["reencode", "remux", "splice"] as const) {
+      if (await models.FileTransformModel.exists({ isCompleted: false, type }))
+        pausedTypes.push(type);
+    }
+  }
 
   return {
+    activeType: fileTransformerStatus.getActiveType(),
     isAuto: fileTransformerStatus.getIsAuto(),
-    isPaused: !!hasPendingTransforms && fileTransformerStatus.getIsPaused(),
     isTransforming: fileTransformerStatus.getIsTransforming(),
+    pausedTypes,
   };
 });
 
-export const getFileTransformQueueCount = makeAction(async () => {
-  const totals = await models.FileTransformModel.aggregate<{
-    afterSize: number;
-    beforeSize: number;
-  }>([
-    { $match: { type: { $ne: "splice" } } },
-    {
-      $group: {
-        _id: null,
-        afterSize: {
-          $sum: {
-            $cond: [{ $eq: ["$status", "MERGED"] }, 0, { $ifNull: ["$afterSize", "$beforeSize"] }],
-          },
+export const getFileTransformQueueCount = makeAction(
+  async ({ type }: { type: Types.FileTransformType }) => ({
+    pendingCount: await models.FileTransformModel.countDocuments({ isCompleted: false, type }),
+  }),
+);
+
+/**
+ * Sums completed transforms' original and resulting sizes per 10-minute completion bucket, from
+ * `since` onward when given. Merged duplicates leave nothing; skipped and unmerged outputs keep
+ * the original size.
+ */
+export const listFileTransformSizeHistory = makeAction(
+  async ({ since, type }: { since?: string; type: Types.FileTransformType }) => {
+    const buckets = await models.FileTransformModel.aggregate<{
+      _id: string;
+      compressedSize: number;
+      originalSize: number;
+    }>([
+      {
+        $match: {
+          completedAt: since ? { $gte: since } : { $type: "string" },
+          isCompleted: true,
+          status: { $ne: "ERROR" },
+          type,
         },
-        beforeSize: { $sum: "$beforeSize" },
       },
-    },
-  ]);
+      {
+        $group: {
+          _id: { $concat: [{ $substrBytes: ["$completedAt", 0, 15] }, "0:00.000Z"] },
+          compressedSize: {
+            $sum: {
+              $switch: {
+                branches: [
+                  { case: { $eq: ["$status", "MERGED"] }, then: 0 },
+                  { case: { $in: ["$status", ["DUPLICATE", "SKIPPED"]] }, then: "$beforeSize" },
+                ],
+                default: { $ifNull: ["$afterSize", "$beforeSize"] },
+              },
+            },
+          },
+          originalSize: { $sum: "$beforeSize" },
+        },
+      },
+      { $sort: { _id: 1 } },
+    ]);
 
-  return {
-    afterSize: totals[0]?.afterSize ?? 0,
-    beforeSize: totals[0]?.beforeSize ?? 0,
-    pendingCount: await models.FileTransformModel.countDocuments({
-      isCompleted: false,
-    }),
-  };
-});
+    return buckets.map(({ _id, compressedSize, originalSize }) => ({
+      compressedSize,
+      date: _id,
+      originalSize,
+    }));
+  },
+);
 
 export const pauseFileTransformer = makeAction(async () => {
   fileTransformerStatus.setIsPaused(true);
@@ -1281,7 +1530,7 @@ const replaceTransformOutput = async (args: { id: string }, outputInfo?: MediaIn
     if (isGeneratedMediaUnreadable(fileInfo))
       throw new Error("Replacement media could not be read");
 
-    // Preserve concurrent transcript edits for remuxes; reencoding explicitly clears them below.
+    // Preserve concurrent transcript edits for remuxes; re-encodes and splices clear them below.
     delete fileInfo.hasTranscript;
     delete fileInfo.transcription;
 
@@ -1292,7 +1541,9 @@ const replaceTransformOutput = async (args: { id: string }, outputInfo?: MediaIn
     const fileUpdates = {
       ...fileInfo,
       ...info,
-      ...(transform.type === "reencode" ? { hasTranscript: false, transcription: null } : {}),
+      ...(transform.type !== "remux" ? { hasTranscript: false, transcription: null } : {}),
+      // A spliced replacement no longer matches the original's timelines.
+      ...(transform.type === "splice" ? { timestamps: [] } : {}),
       hash: transform.afterHash,
       path: transform.afterPath,
     };
@@ -1506,7 +1757,9 @@ makeBackgroundOperationRunner("file recovery and duplicate merging", async () =>
         if (transform.status === "DUPLICATE")
           await autoMergeDuplicateTransform(String(transform._id));
         else if (["COMPLETE", "COMPRESSED"].includes(transform.status)) {
-          const result = await replaceTransformOutput({ id: String(transform._id) });
+          const result = await finalizeTransformOutput(
+            leanModelToJson<models.FileTransformSchema>(transform),
+          );
 
           if (result.status === "DUPLICATE")
             await autoMergeDuplicateTransform(String(transform._id));
@@ -1602,7 +1855,12 @@ const executeFileTransform = async (args: { id: string }, signal: AbortSignal) =
     const startedAt = transform.startedAt ?? dayjs().toISOString();
 
     setStage("saving the running state");
-    await updateFileTransform(args.id, { errorMsg: null, startedAt, status: "RUNNING" });
+    await updateFileTransform(args.id, {
+      errorMsg: null,
+      progressStage: null,
+      startedAt,
+      status: "RUNNING",
+    });
 
     fileTransformerStatus.publishPreview(leanModelToJson<models.FileSchema>(file), {
       ...leanModelToJson<models.FileTransformSchema>(transform),
@@ -1612,6 +1870,8 @@ const executeFileTransform = async (args: { id: string }, signal: AbortSignal) =
     });
 
     const options = {
+      maxOutputSize: transform.type === "reencode" ? transform.beforeSize : null,
+
       onOutputPrepared: async (output: { hash: string; path: string; tempPath: string }) => {
         setStage("recording the prepared output");
         await updateFileTransform(args.id, {
@@ -1632,6 +1892,12 @@ const executeFileTransform = async (args: { id: string }, signal: AbortSignal) =
           progressTime: progress.time,
         }).catch((error) => {
           if (!signal.aborted) console.error("Transform progress update failed:", error);
+        });
+      },
+
+      onStage: (progressStage: string) => {
+        updateFileTransform(args.id, { progressStage }).catch((error) => {
+          if (!signal.aborted) console.error("Transform stage update failed:", error);
         });
       },
 
@@ -1716,13 +1982,15 @@ const executeFileTransform = async (args: { id: string }, signal: AbortSignal) =
           : ("SKIPPED" as const)
         : ("COMPLETE" as const);
 
+    // Auto mode finalizes each job by its own choice, so splices need no input either.
+    const isAutoFinalized = fileTransformerStatus.getIsAuto() && status !== "SKIPPED";
+
     setStage("committing completion and tag changes");
     await updateFileTransform(args.id, {
       ...makeAfterAttrs(info, output.path, output.hash),
       cleanupPending: status === "SKIPPED",
       completedAt: dayjs().toISOString(),
-      finalizationPending:
-        fileTransformerStatus.getIsAuto() && status !== "SKIPPED" && transform.type !== "splice",
+      finalizationPending: isAutoFinalized,
       isCompleted: true,
       progressPercent: 100,
       status,
@@ -1730,15 +1998,18 @@ const executeFileTransform = async (args: { id: string }, signal: AbortSignal) =
 
     if (status === "SKIPPED") runTransformCleanupQueue();
 
-    if (fileTransformerStatus.getIsAuto() && status !== "SKIPPED" && transform.type !== "splice") {
+    if (isAutoFinalized) {
       activeMediaFinalizations++;
 
       try {
-        setStage("replacing the source file");
+        setStage("finalizing the output");
 
-        const replacement = await replaceTransformOutput({ id: args.id }, info);
+        const result = await finalizeTransformOutput(
+          leanModelToJson<models.FileTransformSchema>(transform),
+          info,
+        );
 
-        if (replacement.status === "DUPLICATE") await autoMergeDuplicateTransform(args.id);
+        if (result.status === "DUPLICATE") await autoMergeDuplicateTransform(args.id);
       } finally {
         activeMediaFinalizations--;
       }
@@ -1757,6 +2028,19 @@ const executeFileTransform = async (args: { id: string }, signal: AbortSignal) =
 
     if (!committed || ["MERGED", "REPLACED", "SAVED", "SKIPPED"].includes(committed.status))
       return false;
+
+    if (err.name === "OutputSizeExceededError") {
+      setStage("discarding the oversized output");
+      await fs.rm(err.tempPath, { force: true });
+      await updateFileTransform(args.id, {
+        completedAt: dayjs().toISOString(),
+        isCompleted: true,
+        outputTempPath: null,
+        status: "SKIPPED",
+      });
+
+      return true;
+    }
 
     if (output && transform.type !== "splice") {
       try {
@@ -1779,6 +2063,17 @@ const executeFileTransform = async (args: { id: string }, signal: AbortSignal) =
       isCompleted: true,
       status: "ERROR",
     });
+
+    // Splices are single requested renders, so their failures are reported beyond the queue.
+    if (transform.type === "splice") {
+      const notification = await actions.recordNotification({
+        message: `Splice of ${transform.beforePath} failed: ${err.message}`,
+        type: "error",
+      });
+
+      if (!notification.success)
+        console.error("Failed to report the splice failure:", notification.error);
+    }
   } finally {
     clearStage();
     signal.removeEventListener("abort", clearStage);
@@ -1794,10 +2089,11 @@ export const stopFileTransformer = async () => {
   fileTransformerStatus.setIsPaused(true);
 };
 
-const startFileTransform = (args: { id: string }) => {
+/** Runs the given transform, continuing only through queued transforms of the same type. */
+const startFileTransform = (args: { id: string; type: Types.FileTransformType }) => {
   if (activeMediaFinalizations || isServerStopping()) return false;
 
-  const signal = fileTransformerStatus.tryRun();
+  const signal = fileTransformerStatus.tryRun(args.type);
 
   if (!signal) return false;
 
@@ -1822,30 +2118,24 @@ const startFileTransform = (args: { id: string }) => {
       );
 
       while (next && !signal.aborted && !fileTransformerStatus.getIsPaused()) {
-        const concurrentImages =
-          fileTransformerStatus.getIsAuto() &&
-          next.type === "reencode" &&
-          getIsImage(next.beforeExt) &&
-          next.beforeExt !== "gif";
-
+        const reencodeConfig = getConfig().file.reencode;
+        const isConcurrent = fileTransformerStatus.getIsAuto() && next.type === "reencode";
+        const isImageGroup = getIsImageTransform(next);
         const firstId = next.id;
 
+        const concurrency = isImageGroup
+          ? reencodeConfig.imageConcurrency
+          : reencodeConfig.videoConcurrency;
+
         const workers = Array.from(
-          {
-            length: concurrentImages
-              ? Math.max(
-                  1,
-                  Math.min(16, Math.floor(getConfig().file.reencode.imageConcurrency) || 1),
-                )
-              : 1,
-          },
+          { length: isConcurrent ? Math.max(1, Math.min(16, Math.floor(concurrency) || 1)) : 1 },
           (_, index) =>
             runBackgroundExecution(
               async () => {
                 let candidate = index === 0 ? next : null;
 
                 while (!signal.aborted && !fileTransformerStatus.getIsPaused()) {
-                  candidate ??= await getQueueTransform("PENDING");
+                  candidate ??= await getQueueTransform("PENDING", args.type);
 
                   if (!candidate) return;
 
@@ -1856,10 +2146,9 @@ const startFileTransform = (args: { id: string }) => {
                   }
 
                   if (
-                    concurrentImages &&
+                    isConcurrent &&
                     (candidate.type !== "reencode" ||
-                      !getIsImage(candidate.beforeExt) ||
-                      candidate.beforeExt === "gif")
+                      getIsImageTransform(candidate) !== isImageGroup)
                   )
                     return;
 
@@ -1886,7 +2175,7 @@ const startFileTransform = (args: { id: string }) => {
                     return;
                   }
 
-                  if (!concurrentImages || !fileTransformerStatus.getIsAuto()) return;
+                  if (!isConcurrent || !fileTransformerStatus.getIsAuto()) return;
                 }
               },
               signal,
@@ -1911,9 +2200,9 @@ const startFileTransform = (args: { id: string }) => {
           if (result.status === "rejected") throw result.reason;
         }
 
-        if (!fileTransformerStatus.getIsAuto() || next.type === "splice" || signal.aborted) break;
+        if (!fileTransformerStatus.getIsAuto() || signal.aborted) break;
 
-        next = await getQueueTransform("PENDING");
+        next = await getPendingTransform(args.type);
       }
     } finally {
       clearStartupTimeout();
@@ -1974,25 +2263,34 @@ export const runFileTransform = makeAction(async (args: { id: string; isAuto?: b
 
   fileTransformerStatus.setIsPaused(false);
 
-  return { started: startFileTransform({ id: args.id }) };
+  return {
+    started: startFileTransform({ id: args.id, type: transform.type as Types.FileTransformType }),
+  };
 });
 
-export const runFileTransformer = makeAction(async (args: { isAuto?: boolean }) => {
-  await assertMediaPathIndexesReady();
+export const runFileTransformer = makeAction(
+  async (args: { isAuto?: boolean; type: Types.FileTransformType }) => {
+    await assertMediaPathIndexesReady();
 
-  if (activeMediaFinalizations)
-    throw new Error("Wait for media finalization or recovery to finish");
+    if (activeMediaFinalizations)
+      throw new Error("Wait for media finalization or recovery to finish");
 
-  if (activeTransformExecution) throw new Error("The media transformer is already running");
+    if (typeof args.isAuto === "boolean") fileTransformerStatus.setIsAuto(args.isAuto);
 
-  if (typeof args.isAuto === "boolean") fileTransformerStatus.setIsAuto(args.isAuto);
+    if (activeTransformExecution) {
+      fileTransformerStatus.setIsPaused(true);
+      await activeTransformExecution;
+    }
 
-  await resetStaleRunningTransforms();
+    await resetStaleRunningTransforms();
 
-  const transform = await getQueueTransform("PENDING");
+    const transform = await getPendingTransform(args.type);
 
-  return { started: transform ? startFileTransform({ id: transform.id }) : false };
-});
+    return {
+      started: transform ? startFileTransform({ id: transform.id, type: args.type }) : false,
+    };
+  },
+);
 
 const saveTransformCopy = async (args: { id: string }) => {
   const transform = await models.FileTransformModel.findById(args.id).lean();
@@ -2075,7 +2373,7 @@ const saveTransformCopy = async (args: { id: string }) => {
       if (!tagged.success) throw new Error(tagged.error);
     }
 
-    await updateFileTransform(args.id, { status: "SAVED" });
+    await updateFileTransform(args.id, { finalizationPending: false, status: "SAVED" });
     await commitTransformMetadata(args.id, {
       retainOutput: saved.thumb?.path === info.thumb?.path,
     });
@@ -2084,6 +2382,18 @@ const saveTransformCopy = async (args: { id: string }) => {
 
     return saved;
   }
+};
+
+/** Applies a finished output by its job: splices saved as copies, everything else replaces the original. */
+const finalizeTransformOutput = async (
+  transform: Pick<models.FileTransformSchema, "id" | "spliceMode" | "type">,
+  outputInfo?: MediaInfo,
+) => {
+  if (transform.type === "splice" && transform.spliceMode !== "replace") {
+    await saveTransformCopy({ id: transform.id });
+
+    return { status: "SAVED" as const };
+  } else return replaceTransformOutput({ id: transform.id }, outputInfo);
 };
 
 export const saveFileTransformCopy = makeAction(async (args: { id: string }) =>

@@ -3,6 +3,15 @@ import { File, useStores } from "medior/store";
 import { toast } from "medior/utils/client";
 import { trpc } from "medior/utils/server";
 
+export const startFileDrag = (item: Parameters<Electron.WebContents["startDrag"]>[0]) => {
+  try {
+    getCurrentWebContents().startDrag(item);
+  } catch (error) {
+    console.error(error);
+    toast.error("File drag failed");
+  }
+};
+
 export const useFileDrag = (file: File, selectedIds: string[]) => {
   const stores = useStores();
 
@@ -25,12 +34,7 @@ export const useFileDrag = (file: File, selectedIds: string[]) => {
     const filePaths = hasSelected ? files.map((file) => file.path) : [file.path];
     const icon = hasSelected ? files[0].thumb.path : file.thumb.path;
 
-    try {
-      getCurrentWebContents().startDrag({ file: file.path, files: filePaths, icon });
-    } catch (error) {
-      console.error(error);
-      toast.error("File drag failed");
-    }
+    startFileDrag({ file: file.path, files: filePaths, icon });
   };
 
   return { onDragEnd, onDragStart };

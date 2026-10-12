@@ -104,6 +104,14 @@ export const TransformConfig = Comp(() => {
               minValue={1}
               width="100%"
             />
+
+            <Settings.NumInput
+              header="Concurrent Videos"
+              configKey="file.reencode.videoConcurrency"
+              minValue={1}
+              maxValue={16}
+              width="100%"
+            />
           </UniformList>
 
           <Settings.Input
@@ -164,6 +172,13 @@ export const TransformConfig = Comp(() => {
         </Card>
 
         <Card header="Tags" spacing="0.75rem" padding={{ all: "0.75rem" }}>
+          <UniformList row spacing="0.75rem" height="6.5rem">
+            <ConfigTags
+              label="Add Re-encodes - Exclude (Descendants)"
+              configKey="file.reencode.excludedDescTagIds"
+            />
+          </UniformList>
+
           <UniformList row spacing="0.75rem" height="6.5rem">
             <ConfigTags label="Complete - Add" configKey="file.reencode.onComplete.addTagIds" />
 

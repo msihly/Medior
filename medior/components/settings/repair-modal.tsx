@@ -526,6 +526,7 @@ export const RepairModal = Comp(() => {
           decodeLabels: store.tags.decodeLabels,
           mergeDuplicateLabels: store.tags.mergeDuplicates,
           regenerateMetadata: store.tags.metadata,
+          remapColors: store.tags.remapColors,
           repairHierarchy: store.tags.hierarchy,
           repairId,
         });
@@ -841,6 +842,14 @@ export const RepairModal = Comp(() => {
                 description="Recalculates tag counts, sizes, and thumbnails."
                 checked={store.tags.metadata}
                 setChecked={store.tags.setMetadata}
+                disabled={store.isRunning || !store.tags.enabled}
+              />
+
+              <RepairCheckbox
+                label="Remap Colors to Palette"
+                description="Replaces tag colors that are not in the palette with the closest palette color."
+                checked={store.tags.remapColors}
+                setChecked={store.tags.setRemapColors}
                 disabled={store.isRunning || !store.tags.enabled}
               />
             </View>

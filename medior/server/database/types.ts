@@ -17,6 +17,9 @@ export type FileTransformStatus =
 
 export type FileTransformType = "reencode" | "remux" | "splice";
 
+/** Whether a finished splice is saved as a new file or replaces its original. */
+export type SpliceMode = "copy" | "replace";
+
 export type SelectedAudioCodecs = { [codec in AudioCodec]: boolean };
 
 export type SelectedImageExts = { [ext in ImageExt]: boolean };

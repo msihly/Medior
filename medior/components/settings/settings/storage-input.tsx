@@ -1,40 +1,8 @@
-import { useEffect, useState } from "react";
-import { DiskSpace } from "check-disk-space";
-import { Comp, Icon, IconButton, IconName, Text, View } from "medior/components";
+import { Comp, IconButton, View } from "medior/components";
 import { useStores } from "medior/store";
-import { colors, CssColor } from "medior/utils/client";
-import { Fmt } from "medior/utils/common";
-import { trpc } from "medior/utils/server";
+import { colors } from "medior/utils/client";
+import { DiskStatus } from "./disk-status";
 import { Input, InputProps } from "./input";
-
-interface Status {
-  color: CssColor;
-  icon: IconName;
-  label: string;
-}
-
-const STATUSES: Record<string, Status> = {
-  AT_THRESHOLD: {
-    color: colors.custom.red,
-    icon: "Error",
-    label: "Threshold Reached",
-  },
-  NEAR_THRESHOLD: {
-    color: colors.custom.orange,
-    icon: "Warning",
-    label: "Near Threshold",
-  },
-  OFFLINE: {
-    color: colors.custom.red,
-    icon: "Error",
-    label: "Offline",
-  },
-  ONLINE: {
-    color: colors.custom.green,
-    icon: "CheckCircle",
-    label: "Online",
-  },
-};
 
 export interface StorageInputProps extends Omit<InputProps, "setValue" | "value"> {
   index: number;
@@ -45,39 +13,7 @@ export const StorageInput = Comp(({ index, selectLocation, ...props }: StorageIn
   const stores = useStores();
   const store = stores.home.settings;
 
-  const [diskStats, setDiskStats] = useState<DiskSpace>(undefined);
-  const [isOffline, setIsOffline] = useState(false);
-
-  const threshold = store.db.fileStorage.threshold;
-  const percentFilled = (diskStats?.size - diskStats?.free) / diskStats?.size;
-  const isAtThreshold = percentFilled >= threshold;
-  const isNearThreshold = percentFilled >= threshold - 0.1;
-  const status = isOffline
-    ? STATUSES.OFFLINE
-    : isAtThreshold
-      ? STATUSES.AT_THRESHOLD
-      : isNearThreshold
-        ? STATUSES.NEAR_THRESHOLD
-        : STATUSES.ONLINE;
-
   const value = store.db.fileStorage.locations[index];
-
-  useEffect(() => {
-    (async () => {
-      if (value) {
-        try {
-          const res = await trpc.getDiskStats.mutate({ diskPath: value });
-
-          if (!res.success) throw new Error(res.error);
-
-          setDiskStats(res.data);
-        } catch (err) {
-          setIsOffline(true);
-          console.error(err);
-        }
-      }
-    })();
-  }, [value]);
 
   const decrementIndex = () => store.setFileStorageIndex(index, index - 1);
 
@@ -107,25 +43,7 @@ export const StorageInput = Comp(({ index, selectLocation, ...props }: StorageIn
 
       <Input value={value} onClick={handleLocationClick} flex={1} {...props} />
 
-      <View row align="center" width="17rem" spacing="0.5rem">
-        <Icon name={status.icon} color={status.color} />
-
-        {isOffline ? (
-          <Text color={status.color} fontWeight={500}>
-            {status.label}
-          </Text>
-        ) : !diskStats ? (
-          <Text color={colors.custom.grey}>{"Loading..."}</Text>
-        ) : (
-          <View row spacing="1rem">
-            <Text color={status.color} fontWeight={500}>
-              {`${(percentFilled * 100).toFixed(2)}%`}
-            </Text>
-
-            <Text>{`${Fmt.bytes(diskStats.free)} / ${Fmt.bytes(diskStats.size)}`}</Text>
-          </View>
-        )}
-      </View>
+      <DiskStatus diskPath={value} threshold={store.db.fileStorage.threshold} />
 
       <IconButton name="Delete" onClick={handleDelete} iconProps={{ color: colors.custom.red }} />
     </View>

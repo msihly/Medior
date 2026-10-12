@@ -97,7 +97,7 @@ export const Drawer = Comp(({ hasImports = false, hasSettings = false }: DrawerP
           />
 
           <ActivityBadge
-            isPaused={stores.file.videoTransformer.isPaused}
+            isPaused={stores.file.videoTransformer.hasPausedQueue}
             isRunning={stores.file.videoTransformer.isTransforming}
           />
         </View>

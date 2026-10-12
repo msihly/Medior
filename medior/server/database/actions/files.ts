@@ -1,9 +1,11 @@
 import fs from "fs/promises";
 import path from "path";
 import checkDiskSpace from "check-disk-space";
+import { randomUUID } from "crypto";
 import * as models from "medior/_generated/server/models";
 import { AnyBulkWriteOperation } from "mongodb";
 import mongoose from "mongoose";
+import os from "os";
 import {
   checkFileExists,
   dirToFilePaths,
@@ -17,6 +19,7 @@ import * as actions from "medior/server/database/actions";
 import {
   canRunBackgroundQueues,
   makeBackgroundOperationRunner,
+  runFileCleanupQueue,
 } from "medior/server/database/actions/background-operations";
 import { runBackgroundExecution } from "medior/server/database/background-execution";
 import { getBackgroundSession } from "medior/server/database/database-context";
@@ -44,7 +47,16 @@ import { makeRepairReporter } from "medior/server/database/repair-progress";
 import { repairThumbnail } from "medior/server/database/thumbnail-repair";
 import { ThumbnailNtfsMetadata } from "medior/server/database/types";
 import { isServerStopping } from "medior/server/process-lifecycle";
-import { chunkArray, CONSTANTS, dayjs, Fmt, hasTranscription } from "medior/utils/common";
+import {
+  chunkArray,
+  CONSTANTS,
+  dayjs,
+  FILE_SIDECAR_FIELDS,
+  FileSidecarCollection,
+  FileSidecarField,
+  Fmt,
+  hasTranscription,
+} from "medior/utils/common";
 import {
   analyzeAudio,
   getConfig,
@@ -124,6 +136,87 @@ makeBackgroundOperationRunner(
 /* -------------------------------------------------------------------------- */
 /*                                API ENDPOINTS                               */
 /* -------------------------------------------------------------------------- */
+/** Writes import-compatible sidecars into a fresh temp folder, replacing earlier exports. */
+export const createFileExportSidecars = makeAction(
+  async ({ fields, fileIds }: { fields: FileSidecarField[]; fileIds: string[] }) => {
+    const exportsPath = path.join(os.tmpdir(), "medior-exports");
+    const exportPath = path.join(exportsPath, randomUUID());
+
+    try {
+      await fs.rm(exportsPath, { force: true, recursive: true });
+    } catch (error) {
+      console.error("Failed to remove previous file exports:", error);
+    }
+
+    await fs.mkdir(exportPath, { recursive: true });
+
+    const ids = objectIds(fileIds);
+    const selectedFields = FILE_SIDECAR_FIELDS.filter((field) => fields.includes(field));
+    const fileFields = selectedFields.filter((field) => field !== "collections");
+
+    const files = new Map(
+      (
+        await models.FileModel.find({ _id: { $in: ids } })
+          .select({
+            ...Object.fromEntries(fileFields.map((field) => [field, 1])),
+            path: 1,
+            thumb: 1,
+          })
+          .lean()
+      ).map((file) => [file._id.toString(), leanModelToJson<models.FileSchema>(file)]),
+    );
+
+    const collections = new Map<string, FileSidecarCollection[]>();
+
+    if (selectedFields.includes("collections")) {
+      for (const entry of await models.FileCollectionModel.aggregate<{
+        _id: mongoose.Types.ObjectId;
+        fileId: mongoose.Types.ObjectId;
+        index: number;
+      }>([
+        { $match: { "fileIdIndexes.fileId": { $in: ids } } },
+        { $unwind: "$fileIdIndexes" },
+        { $match: { "fileIdIndexes.fileId": { $in: ids } } },
+        { $project: { fileId: "$fileIdIndexes.fileId", index: "$fileIdIndexes.index" } },
+      ])) {
+        const collection = { id: String(entry._id), index: entry.index };
+        const fileCollections = collections.get(String(entry.fileId));
+
+        if (fileCollections) fileCollections.push(collection);
+        else collections.set(String(entry.fileId), [collection]);
+      }
+    }
+
+    const filePaths: string[] = [];
+    const sidecarPaths: string[] = [];
+    let thumbPath: string = null;
+
+    for (const fileId of fileIds) {
+      const file = files.get(fileId);
+      if (!file) continue;
+
+      const sidecar = Object.fromEntries(
+        selectedFields.map((field) => [
+          field,
+          field === "collections" ? (collections.get(fileId) ?? []) : file[field],
+        ]),
+      );
+      const sidecarPath = path.join(exportPath, `${path.parse(file.path).name}.json`);
+
+      await fs.writeFile(
+        sidecarPath,
+        JSON.stringify(sidecar, (key, value) => (key === "_id" ? undefined : value), 2),
+      );
+
+      filePaths.push(file.path);
+      sidecarPaths.push(sidecarPath);
+      thumbPath ??= file.thumb.path;
+    }
+
+    return { filePaths, sidecarPaths, thumbPath };
+  },
+);
+
 export const deleteFiles = makeAction(
   registerMetadataWork(
     "deleteFiles",
@@ -162,11 +255,13 @@ export const deleteFiles = makeAction(
             const paths = new Set(files.flatMap((file) => [file.path, file.thumb?.path]));
             const cleanup = previousCleanup?.filter((entry) => paths.has(entry.path)) ?? [];
 
+            // Media already stores its content MD5, which cleanup verifies before deleting.
             if (!previousCleanup) {
-              for (const path of paths) {
-                const entry = await describeFileCleanup(path);
+              for (const file of files) {
+                cleanup.push(makeFileCleanup(file.hash, file.path));
 
-                if (entry) cleanup.push(entry);
+                const thumb = await describeFileCleanup(file.thumb?.path);
+                if (thumb) cleanup.push(thumb);
               }
             }
 
@@ -200,20 +295,23 @@ export const deleteFiles = makeAction(
 
         if (!transforms.success) throw new Error(transforms.error);
 
-        const collRes = await actions.listCollectionsByFileIds({ fileIds });
-
-        if (!collRes.success) throw new Error(collRes.error);
+        const collections = await models.FileCollectionModel.find({
+          "fileIdIndexes.fileId": { $in: fileIds },
+        })
+          .select({ fileIdIndexes: 1 })
+          .lean();
 
         const fileIdSet = new Set(fileIds);
 
-        for (const collection of collRes.data) {
+        for (const collection of collections) {
+          const id = String(collection._id);
           const fileIdIndexes = collection.fileIdIndexes.filter(
             ({ fileId }) => !fileIdSet.has(String(fileId)),
           );
 
           const updated = fileIdIndexes.length
-            ? await actions.updateCollection({ fileIdIndexes, id: collection.id })
-            : await actions.deleteCollections({ ids: [collection.id] });
+            ? await actions.updateCollection({ fileIdIndexes, id })
+            : await actions.deleteCollections({ ids: [id] });
 
           if (!updated.success) throw new Error(updated.error);
         }
@@ -245,18 +343,16 @@ export const deleteFiles = makeAction(
 
         await actions.queueTagMetadataRegen([...tagIds]);
 
-        const operation = cleanup.length
-          ? await FileOperationModel.findOneAndUpdate(
-              { _id: String(getMetadataCreateId(`deleteFilesCleanup:${fileIds.join()}`)) },
-              { $setOnInsert: { cleanup, state: "COMMITTED" } },
-              { ...metadataWriteOptions(), new: true, upsert: true },
-            )
-          : null;
-
-        if (operation)
-          finishFileOperation(operation._id).catch((error) =>
-            console.error("File deletion committed; cleanup retained:", error),
+        // The cleanup queue outlives this request, whose signal aborts work started inside it.
+        if (cleanup.length) {
+          await FileOperationModel.updateOne(
+            { _id: String(getMetadataCreateId(`deleteFilesCleanup:${fileIds.join()}`)) },
+            { $setOnInsert: { cleanup, state: "COMMITTED" } },
+            { ...metadataWriteOptions(), upsert: true },
           );
+
+          runFileCleanupQueue();
+        }
 
         socket.emit("onFilesDeleted", { fileHashes, fileIds });
       }
@@ -500,11 +596,11 @@ export const importFile = makeAction(
       const file: Omit<models.FileSchema, "id"> = {
         ...args,
         dateModified: args.dateModified ?? dayjs().toISOString(),
-        isArchived: false,
+        isArchived: args.isArchived ?? false,
         originalBitrate: args.originalBitrate ?? args.bitrate,
         originalHash: args.originalHash ?? args.hash,
         originalSize: args.originalSize ?? args.size,
-        rating: 0,
+        rating: args.rating ?? 0,
         tagIdsWithAncestors,
       };
 

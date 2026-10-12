@@ -2,12 +2,12 @@
 /*                               THIS IS A GENERATED FILE. DO NOT EDIT.
 /* --------------------------------------------------------------------------- */
 import { model, Schema } from "mongoose";
-import { IconName } from "medior/components";
 import { backgroundExecutionPlugin } from "medior/server/database/database-context";
 import { importEntriesPlugin } from "medior/server/database/import-entry-state";
 import { mediaPathPlugin } from "medior/server/database/media-paths";
 import { registerPersistenceModel } from "medior/server/database/persistence";
 import { mediaAncestryPlugin, tagAncestryPlugin } from "medior/server/database/tag-ancestry";
+import { IconName } from "medior/components";
 import { CssColor } from "medior/utils/client";
 
 /* --------------------------------------------------------------------------- */
@@ -39,6 +39,7 @@ export interface BackgroundOperationSchema {
     | "collectionMetadata"
     | "duplicateMerge"
     | "fileTagAncestors"
+    | "importCleanup"
     | "importEntryMigration"
     | "mediaPathIndex"
     | "metadataAction"
@@ -78,6 +79,7 @@ const BackgroundOperationSchema = new Schema<BackgroundOperationSchema>({
       "collectionMetadata",
       "duplicateMerge",
       "fileTagAncestors",
+      "importCleanup",
       "importEntryMigration",
       "mediaPathIndex",
       "metadataAction",
@@ -203,6 +205,18 @@ export interface FileImportSchema {
   name: string;
   path: string;
   progressRevision?: number;
+  sidecar?: Partial<
+    Pick<
+      FileSchema,
+      | "dateCreated"
+      | "diffusionParams"
+      | "isArchived"
+      | "originalName"
+      | "rating"
+      | "timestamps"
+      | "transcription"
+    > & { collections: Array<{ id: string; index: number }> }
+  >;
   size: number;
   status?: string | "COMPLETE" | "DELETED" | "DUPLICATE" | "ERROR" | "PENDING";
   tagIds?: string[];
@@ -228,6 +242,7 @@ const FileImportSchema = new Schema<FileImportSchema>({
   name: String,
   path: String,
   progressRevision: Number,
+  sidecar: Schema.Types.Mixed,
   size: Number,
   status: { type: String, enum: ["COMPLETE", "DELETED", "DUPLICATE", "ERROR", "PENDING"] },
   tagIds: [{ type: Schema.Types.ObjectId, ref: "Tag" }],
@@ -381,10 +396,12 @@ export interface FileTransformSchema {
   outputTempPath?: string;
   progressPercent?: number;
   progressSize?: number;
+  progressStage?: string;
   progressTime?: string;
   queueIndex?: number;
   regenerationPending?: boolean;
   regenerationTagIds?: string[];
+  spliceMode?: "copy" | "replace";
   startedAt?: string;
   status:
     | string
@@ -449,6 +466,7 @@ const FileTransformSchema = new Schema<FileTransformSchema>({
   outputTempPath: String,
   progressPercent: Number,
   progressSize: Number,
+  progressStage: String,
   progressTime: String,
   queueIndex: Number,
   regenerationPending: Boolean,
@@ -469,6 +487,7 @@ const FileTransformSchema = new Schema<FileTransformSchema>({
       "SKIPPED",
     ],
   },
+  spliceMode: { type: String, enum: ["copy", "replace"] },
   timestampPairs: [{ end: Number, start: Number }],
   type: { type: String, enum: ["reencode", "remux", "splice"] },
 });
@@ -654,6 +673,10 @@ FileSchema.index({ rating: 1, _id: 1 }, { unique: true });
 FileSchema.index({ size: 1, _id: 1 }, { unique: true });
 FileSchema.index({ tagIds: 1 }, { unique: false });
 FileSchema.index({ tagIdsWithAncestors: 1 }, { unique: false });
+FileSchema.index(
+  { "timestamps.id": 1 },
+  { partialFilterExpression: { "timestamps.id": { $exists: true } }, unique: false },
+);
 FileSchema.index({ videoCodec: 1 }, { unique: false });
 FileSchema.index({ width: 1, _id: 1 }, { unique: true });
 

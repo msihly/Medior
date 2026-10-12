@@ -112,6 +112,10 @@ model.addProp(
   },
 );
 
+model.addIndex(
+  { "timestamps.id": 1 },
+  { partialFilterExpression: { "timestamps.id": { $exists: true } }, unique: false },
+);
 model.addProp(
   "timestamps",
   `Array<{

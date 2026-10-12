@@ -28,6 +28,7 @@ export const ExtColumn = Comp(({ configTypes, label, selected, setSelected }: Ex
         checked={isAllSelected}
         indeterminate={!isAllSelected && isAnySelected}
         setChecked={toggleSelected}
+        flex={0}
       />
 
       <View column margins={{ left: "0.5rem" }} overflow="hidden auto">

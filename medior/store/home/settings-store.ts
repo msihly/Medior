@@ -13,7 +13,7 @@ import {
 import type { RootStore } from "medior/store";
 import { RepairStore } from "medior/store/home/repair";
 import { asyncAction } from "medior/utils/client";
-import { convertNestedKeys, deepMerge } from "medior/utils/common";
+import { convertNestedKeys, mergePreset } from "medior/utils/common";
 import { Config, ConfigKey, getConfig, setConfig } from "medior/utils/server";
 
 @model("medior/SettingsStore")
@@ -91,6 +91,12 @@ export class SettingsStore extends Model({
   }
 
   @modelAction
+  setScratchPath(value: Config["db"]["fileStorage"]["scratchPath"]) {
+    this.db.fileStorage.scratchPath = value;
+    this.setHasUnsavedChanges(true);
+  }
+
+  @modelAction
   setSimilarityModelCachePath(value: Config["file"]["similarity"]["modelCachePath"]) {
     this.file.similarity.modelCachePath = value;
     this.setHasUnsavedChanges(true);
@@ -123,8 +129,9 @@ export class SettingsStore extends Model({
       tags: Partial<Config["tags"]>;
     }>,
   ) {
-    const nestedUpdates = convertNestedKeys(updates);
-    const snapshot = deepMerge(getSnapshot(this), nestedUpdates);
+    // Updated lists replace saved ones; an index merge would keep removed entries.
+    const current = getSnapshot(this);
+    const snapshot = mergePreset(current, convertNestedKeys(updates) as typeof current);
 
     applySnapshot(this, snapshot);
     this.setHasUnsavedChanges(true);

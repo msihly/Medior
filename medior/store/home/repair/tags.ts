@@ -9,6 +9,7 @@ export class RepairTagsStore extends Model({
   hierarchy: prop<boolean>(true).withSetter(),
   mergeDuplicates: prop<boolean>(true).withSetter(),
   metadata: prop<boolean>(true).withSetter(),
+  remapColors: prop<boolean>(false).withSetter(),
 }) {
   onInit() {
     autoBind(this);
@@ -22,7 +23,8 @@ export class RepairTagsStore extends Model({
         this.decodeLabels ||
         this.hierarchy ||
         this.mergeDuplicates ||
-        this.metadata)
+        this.metadata ||
+        this.remapColors)
     );
   }
 }

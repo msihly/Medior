@@ -34,18 +34,6 @@ export const TransformFilterMenu = Comp(() => {
           />
 
           <Dropdown
-            header={<FilterHeader label="Type" mode={store.typeMode} setMode={store.setTypeMode} />}
-            options={[
-              { label: "Any", value: "" },
-              { label: "Re-encode", value: "reencode" },
-              { label: "Remux", value: "remux" },
-              { label: "Splice", value: "splice" },
-            ]}
-            value={store.type ?? ""}
-            setValue={store.setType}
-          />
-
-          <Dropdown
             header={
               <FilterHeader label="Status" mode={store.statusMode} setMode={store.setStatusMode} />
             }

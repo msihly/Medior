@@ -75,24 +75,49 @@ export const syncMediaFile = async (filePath: string, hash?: string) => {
   workSignal.getStore()?.throwIfAborted();
 };
 
-/** Persist the intent before publishing. A hard link publishes without overwriting another file. */
+/** Links without overwriting; an existing file is accepted only when it holds the same media. */
+const linkMediaOutput = async (sourcePath: string, output: MediaOutput) => {
+  try {
+    await fs.link(sourcePath, output.path);
+  } catch (error) {
+    if (error.code !== "EEXIST") throw error;
+
+    if ((await hashMediaFile(output.path)) !== output.hash)
+      throw new MediaChecksumMismatchError(output.path);
+  }
+};
+
+/**
+ * Persist the intent before publishing. A hard link publishes without overwriting another file.
+ * `isHashed` skips re-reading a temp file the caller hashed itself just before publishing.
+ */
 export const publishMediaOutput = async (
   output: MediaOutput,
   onPrepared?: (output: MediaOutput) => Promise<void>,
+  isHashed = false,
 ) => {
-  await syncMediaFile(output.tempPath, output.hash);
+  await syncMediaFile(output.tempPath, isHashed ? undefined : output.hash);
   await onPrepared?.(output);
   workSignal.getStore()?.throwIfAborted();
   await fs.mkdir(path.dirname(output.path), { recursive: true });
   workSignal.getStore()?.throwIfAborted();
 
   try {
-    await fs.link(output.tempPath, output.path);
+    await linkMediaOutput(output.tempPath, output);
   } catch (error) {
-    if (error.code !== "EEXIST") throw error;
+    if (error.code !== "EXDEV") throw error;
 
-    if ((await hashMediaFile(output.path)) !== output.hash)
-      throw new MediaChecksumMismatchError(output.path);
+    // Scratch files on another drive are copied and verified beside the destination, then linked.
+    const stagingPath = `${output.path}.partial`;
+
+    try {
+      await copyMediaFile(output.tempPath, stagingPath);
+      await syncMediaFile(stagingPath, output.hash);
+      workSignal.getStore()?.throwIfAborted();
+      await linkMediaOutput(stagingPath, output);
+    } finally {
+      await fs.rm(stagingPath, { force: true });
+    }
   }
 
   // A new hard link references the same bytes already verified and flushed above.

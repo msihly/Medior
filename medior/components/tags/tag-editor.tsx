@@ -44,8 +44,7 @@ export const TagEditor = Comp(({ isSubEditor = false }: TagEditorProps) => {
   const clearInputs = () => {
     store.setLabel("");
     store.setAliases([]);
-    store.setRegExValue("");
-    store.setRegExTestString("");
+    store.clearRegEx();
     store.setCategoryColor(null);
     store.setCategoryIcon(null);
     store.setCategoryInheritable(null);
@@ -219,7 +218,8 @@ export const TagEditor = Comp(({ isSubEditor = false }: TagEditorProps) => {
             <View column spacing="0.5rem">
               <View row spacing="0.5rem">
                 <ColorPicker
-                  swatches={colors.tagCategories}
+                  swatches={colors.swatches}
+                  usedColors={stores.tag.categoryColors}
                   value={store.categoryColor}
                   setValue={store.setCategoryColor}
                   noIcon
@@ -276,7 +276,7 @@ export const TagEditor = Comp(({ isSubEditor = false }: TagEditorProps) => {
           />
         </Card>
 
-        <RegExMapCard store={store} />
+        <RegExMapCard store={store} onTagClick={!isSubEditor ? handleSubEditorClick : null} />
 
         {!store.tag && (
           <Card header="Create Options" row spacing="0.5rem">

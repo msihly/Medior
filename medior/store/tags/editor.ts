@@ -1,12 +1,21 @@
 import autoBind from "auto-bind";
-import { reaction } from "mobx";
+import { ListTagRegExOverlapsOutput } from "medior/_generated/server";
+import { computed, reaction } from "mobx";
 import { Model, model, modelAction, modelFlow, prop } from "mobx-keystone";
 import { IconName } from "medior/components";
 import { RootStore } from "medior/store";
 import { Tag } from "medior/store/tags/tag";
-import { asyncAction, CssColor } from "medior/utils/client";
-import { isDeepEqual } from "medior/utils/common";
+import { asyncAction, CssColor, toast } from "medior/utils/client";
+import {
+  isDeepEqual,
+  makeTagRegEx,
+  normalizeTagRegExKey,
+  parseTagRegEx,
+  TagRegExTermMode,
+} from "medior/utils/common";
 import { trpc } from "medior/utils/server";
+
+export type TagRegExTermSetting = TagRegExTermMode | "off";
 
 const reconcileRelationships = (current: Tag[], previousIds: string[], next: Tag[]) => {
   const previous = new Set(previousIds);
@@ -37,8 +46,10 @@ export class TagEditorStore extends Model({
   isOpen: prop<boolean>(false).withSetter(),
   label: prop<string>("").withSetter(),
   parentTags: prop<Tag[]>(() => []).withSetter(),
+  regExCustom: prop<string>("").withSetter(),
+  regExOverlaps: prop<Awaited<ListTagRegExOverlapsOutput>["data"]>(null).withSetter(),
+  regExTermModes: prop<Record<string, TagRegExTermSetting>>(() => ({})),
   regExTestString: prop<string>("").withSetter(),
-  regExValue: prop<string>("").withSetter(),
   tag: prop<Tag>(null).withSetter(),
 }) {
   private loadingTagId: string;
@@ -79,11 +90,36 @@ export class TagEditorStore extends Model({
       () => !this.isOpen && this.reset(),
     );
 
+    let overlapController: AbortController;
+    let overlapTimer: ReturnType<typeof setTimeout>;
+
+    const disposeOverlaps = reaction(
+      () => [this.isOpen, this.regExValue, this.regExTerms.map(({ term }) => term).join("\n")],
+      () => {
+        clearTimeout(overlapTimer);
+        overlapController?.abort();
+        this.setRegExOverlaps(null);
+
+        if (this.isOpen && this.label.trim() && this.isRegExValid) {
+          const request = new AbortController();
+
+          overlapController = request;
+          overlapTimer = setTimeout(async () => {
+            const res = await this.loadRegExOverlaps(request.signal);
+            if (!res.success) toast.error(res.error);
+          }, 300);
+        }
+      },
+    );
+
     return () => {
       clearTimeout(timer);
+      clearTimeout(overlapTimer);
       controller?.abort();
+      overlapController?.abort();
       disposeLabel();
       disposeOpen();
+      disposeOverlaps();
     };
   }
 
@@ -92,6 +128,32 @@ export class TagEditorStore extends Model({
   }
 
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
+  @modelAction
+  clearRegEx() {
+    this.regExCustom = "";
+    this.regExTermModes = {};
+    this.regExTestString = "";
+  }
+
+  /** Reads term groups for the current label and aliases; any other pattern stays custom. */
+  @modelAction
+  loadRegEx(regEx: string) {
+    const { custom, groups } = parseTagRegEx(regEx);
+    const customParts: string[] = [];
+    const keys = new Set(this.regExTerms.map(({ key }) => key));
+    const modes: Record<string, TagRegExTermSetting> = {};
+
+    for (const group of groups) {
+      const key = normalizeTagRegExKey(group.term.term);
+
+      if (keys.has(key) && !modes[key]) modes[key] = group.term.mode;
+      else customParts.push(group.source);
+    }
+
+    this.regExCustom = [...customParts, custom].filter(Boolean).join("|");
+    this.regExTermModes = modes;
+  }
+
   @modelAction
   reset() {
     this.tagLoadRevision++;
@@ -105,9 +167,21 @@ export class TagEditorStore extends Model({
     this.isLoading = false;
     this.label = "";
     this.parentTags = [];
-    this.regExValue = "";
+    this.regExCustom = "";
+    this.regExOverlaps = null;
+    this.regExTermModes = {};
     this.regExTestString = "";
     this.tag = null;
+  }
+
+  @modelAction
+  setAllRegExTermModes(mode: TagRegExTermSetting) {
+    this.regExTermModes = Object.fromEntries(this.regExTerms.map(({ key }) => [key, mode]));
+  }
+
+  @modelAction
+  setRegExTermMode(key: string, mode: TagRegExTermSetting) {
+    this.regExTermModes[key] = mode;
   }
 
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */
@@ -131,6 +205,7 @@ export class TagEditorStore extends Model({
 
         const tag = res.data.tag;
         const previous = preserveChanges ? this.tag : null;
+        const hasRegExChanges = previous && this.regExValue !== (previous.regEx ?? "");
 
         this.setChildTags(
           previous
@@ -170,7 +245,7 @@ export class TagEditorStore extends Model({
 
         if (!previous) this.setRegExTestString("");
 
-        if (!previous || this.regExValue === previous.regEx) this.setRegExValue(tag.regEx);
+        if (!hasRegExChanges) this.loadRegEx(tag.regEx);
 
         this.setTag(new Tag(tag));
       } finally {
@@ -178,4 +253,58 @@ export class TagEditorStore extends Model({
       }
     },
   );
+
+  @modelFlow
+  loadRegExOverlaps = asyncAction(async (signal: AbortSignal) => {
+    try {
+      const res = await trpc.listTagRegExOverlaps.mutate(
+        {
+          regEx: this.regExValue,
+          tagId: this.tag?.id,
+          terms: this.regExTerms.map(({ term }) => term),
+        },
+        { signal },
+      );
+
+      if (!res.success) throw new Error(res.error);
+
+      this.setRegExOverlaps(res.data);
+    } catch (error) {
+      if (!signal.aborted) throw error;
+    }
+  });
+
+  /* --------------------------------- GETTERS -------------------------------- */
+  @computed
+  get isRegExValid() {
+    try {
+      new RegExp(this.regExValue, "im");
+
+      return true;
+    } catch (error) {
+      return false;
+    }
+  }
+
+  /** The label and aliases, each with its match mode. */
+  @computed
+  get regExTerms() {
+    const terms = new Map<string, { mode: TagRegExTermSetting; term: string }>();
+
+    for (const term of [this.label, ...this.aliases].map((term) => term?.trim())) {
+      const key = term && normalizeTagRegExKey(term);
+
+      if (key && !terms.has(key)) terms.set(key, { mode: this.regExTermModes[key] ?? "off", term });
+    }
+
+    return [...terms].map(([key, term]) => ({ ...term, key }));
+  }
+
+  @computed
+  get regExValue() {
+    return makeTagRegEx(
+      this.regExTerms.flatMap(({ mode, term }) => (mode === "off" ? [] : [{ mode, term }])),
+      this.regExCustom,
+    );
+  }
 }
